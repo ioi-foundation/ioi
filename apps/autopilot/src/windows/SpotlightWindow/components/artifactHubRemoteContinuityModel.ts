@@ -35,19 +35,19 @@ export function buildRemoteSessionContinuityAction(
   const presenceState = session.presenceState || "remote_only_history_only";
   const detail =
     presenceState === "merged_attachable"
-      ? "This retained remote session is already merged into local shell history and still carries a workspace root, so Spotlight can reopen the REPL lens and Studio can resume the same continuity target."
+      ? "This retained remote session is already merged into local shell history and still carries a workspace root, so Spotlight can reopen the REPL lens and Chat can resume the same continuity target."
       : presenceState === "merged_history_only"
-        ? "This retained remote session is already merged into local shell history, but only summary continuity remains right now; Spotlight and Studio can reopen the retained session, though PTY attach needs a workspace-backed run."
+        ? "This retained remote session is already merged into local shell history, but only summary continuity remains right now; Spotlight and Chat can reopen the retained session, though PTY attach needs a workspace-backed run."
         : presenceState === "remote_only_attachable"
-          ? "This retained remote session exists only in remote history, but it still carries a workspace root, so Spotlight can reopen the REPL lens and Studio can resume the same session target."
-          : "This retained remote session can still reopen in Spotlight or Studio even though only history, not a workspace-backed REPL target, is currently available.";
+          ? "This retained remote session exists only in remote history, but it still carries a workspace root, so Spotlight can reopen the REPL lens and Chat can resume the same session target."
+          : "This retained remote session can still reopen in Spotlight or Chat even though only history, not a workspace-backed REPL target, is currently available.";
 
   return {
     attachable,
     spotlightLabel: attachable
       ? "Attach in Spotlight REPL"
       : "Review in Spotlight REPL",
-    studioLabel: "Open in Studio",
+    studioLabel: "Open in Chat",
     detail,
     launchRequest: {
       sessionId: session.sessionId,
@@ -72,10 +72,10 @@ export function buildMobileEvidenceContinuityAction(input: {
       spotlightLabel: input.hasAttachableSessionTarget
         ? "Attach in Spotlight REPL"
         : "Review in Spotlight REPL",
-      studioLabel: "Resume in Studio",
+      studioLabel: "Resume in Chat",
       detail: input.hasAttachableSessionTarget
-        ? "The active handoff already lives on the shared runtime and still carries an attachable retained session target, so Spotlight can reopen the REPL lens and Studio can resume the same continuity target."
-        : "The active handoff already lives on the shared runtime, so Spotlight and Studio can reopen the same retained evidence thread without rebuilding shell-local state.",
+        ? "The active handoff already lives on the shared runtime and still carries an attachable retained session target, so Spotlight can reopen the REPL lens and Chat can resume the same continuity target."
+        : "The active handoff already lives on the shared runtime, so Spotlight and Chat can reopen the same retained evidence thread without rebuilding shell-local state.",
       launchRequest: input.evidenceThreadId?.trim()
         ? {
             sessionId: input.evidenceThreadId,
@@ -96,10 +96,10 @@ export function buildMobileEvidenceContinuityAction(input: {
       spotlightLabel: input.hasAttachableSessionTarget
         ? "Attach in Spotlight REPL"
         : "Review in Spotlight REPL",
-      studioLabel: "Open in Studio",
+      studioLabel: "Open in Chat",
       detail: input.hasAttachableSessionTarget
-        ? "The retained handoff evidence thread still matches an attachable retained session target, so Spotlight and Studio can reopen the same continuity target even when the native handoff surface is no longer active."
-        : "The retained handoff evidence thread can reopen directly in Spotlight or Studio even when the native handoff surface is no longer active.",
+        ? "The retained handoff evidence thread still matches an attachable retained session target, so Spotlight and Chat can reopen the same continuity target even when the native handoff surface is no longer active."
+        : "The retained handoff evidence thread can reopen directly in Spotlight or Chat even when the native handoff surface is no longer active.",
       launchRequest: {
         sessionId: input.evidenceThreadId,
         source: "mobile",
@@ -115,7 +115,7 @@ export function buildMobileEvidenceContinuityAction(input: {
     available: false,
     attachable: false,
     spotlightLabel: "Review in Spotlight REPL",
-    studioLabel: "Open in Studio",
+    studioLabel: "Open in Chat",
     detail:
       "No retained evidence thread is available to reopen yet.",
     launchRequest: null,

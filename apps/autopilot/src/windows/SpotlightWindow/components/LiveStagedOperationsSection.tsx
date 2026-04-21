@@ -91,7 +91,7 @@ export function LiveStagedOperationsSection({
               </div>
               <div className="worker-card-block">
                 <span>Source</span>
-                <p>{operation.sourceUri?.trim() || "Queued directly from Studio/Spotlight."}</p>
+                <p>{operation.sourceUri?.trim() || "Queued directly from Chat/Spotlight."}</p>
               </div>
               <div className="worker-card-block">
                 <span>Created</span>

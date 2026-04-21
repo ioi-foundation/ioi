@@ -206,7 +206,7 @@ fn apply_dev_bootstrap_overrides(control_plane: &mut LocalEngineControlPlane) ->
         control_plane.runtime.default_model = local_runtime_model;
     }
     control_plane.runtime.baseline_role =
-        "Local bootstrap profile for Studio workflow testing on a developer-managed GPU/runtime."
+        "Local bootstrap profile for Chat workflow testing on a developer-managed GPU/runtime."
             .to_string();
     control_plane.runtime.kernel_authority =
         "Kernel remains planner-of-record, receipt authority, and policy boundary while local GPU assets are bootstrapped for testing."
@@ -418,7 +418,7 @@ fn resolve_local_gpu_dev_preset() -> Option<LocalGpuDevPreset> {
                 && explicit_backend_source.is_none()
             {
                 println!(
-                    "[Studio] Local GPU preset '{}' is available, but 'ollama' was not found on PATH. Falling back to mock inference until a local runtime is installed or configured.",
+                    "[Chat] Local GPU preset '{}' is available, but 'ollama' was not found on PATH. Falling back to mock inference until a local runtime is installed or configured.",
                     LOCAL_GPU_DEV_DEFAULT_PRESET
                 );
                 return Some(LocalGpuDevPreset {
@@ -471,7 +471,7 @@ fn resolve_local_gpu_dev_preset() -> Option<LocalGpuDevPreset> {
     let ollama_available = command_exists("ollama");
     if !ollama_available && explicit_runtime_url.is_none() && explicit_backend_source.is_none() {
         println!(
-            "[Studio] Local GPU preset '{}' is available, but 'ollama' was not found on PATH. Falling back to mock inference until a local runtime is installed or configured.",
+            "[Chat] Local GPU preset '{}' is available, but 'ollama' was not found on PATH. Falling back to mock inference until a local runtime is installed or configured.",
             LOCAL_GPU_DEV_DEFAULT_PRESET
         );
         return Some(LocalGpuDevPreset {
@@ -663,7 +663,7 @@ fn drive_local_gpu_dev_bootstrap(
             .or_else(|| Some(control_plane.runtime.endpoint.clone()))
             .unwrap_or_else(|| "the configured local runtime".to_string());
         eprintln!(
-            "[Studio] Local GPU dev bootstrap did not reach a healthy runtime at {} before setup completed. Studio and the kernel will keep retrying, but early requests may fail until the local runtime is reachable.",
+            "[Chat] Local GPU dev bootstrap did not reach a healthy runtime at {} before setup completed. Chat and the kernel will keep retrying, but early requests may fail until the local runtime is reachable.",
             endpoint
         );
     }
@@ -795,16 +795,16 @@ fn ensure_ollama_model_ready(model: &str, label: &str) {
     }
 
     println!(
-        "[Studio] {} '{}' is not cached yet. Pulling it into the persistent host cache for future clean-profile runs.",
+        "[Chat] {} '{}' is not cached yet. Pulling it into the persistent host cache for future clean-profile runs.",
         label, model
     );
     match run_command_capture_stdout("ollama", &["pull", model]) {
         Ok(_) => println!(
-            "[Studio] {} '{}' is now ready in the persistent cache.",
+            "[Chat] {} '{}' is now ready in the persistent cache.",
             label, model
         ),
         Err(error) => eprintln!(
-            "[Studio] Failed to pull {} '{}': {}",
+            "[Chat] Failed to pull {} '{}': {}",
             label.to_ascii_lowercase(),
             model,
             error

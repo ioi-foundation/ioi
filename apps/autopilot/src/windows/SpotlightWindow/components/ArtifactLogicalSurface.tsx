@@ -2,12 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { WorkspaceExplorerPane } from "@ioi/workspace-substrate";
 
-import type { ArtifactContentPayload, StudioArtifactSelectionTarget } from "../../../types";
+import type { ArtifactContentPayload, ChatArtifactSelectionTarget } from "../../../types";
 import { ArtifactRendererHost } from "./ArtifactRendererHost";
 import { ArtifactSourceWorkbench } from "./ArtifactSourceWorkbench";
 import { ArtifactEvidencePanel } from "./ArtifactEvidencePanel";
 import { ArtifactStageHeader } from "./ArtifactStageHeader";
-import { formatStudioExecutionPreviewPhase } from "./studioExecutionPreview";
+import { formatChatExecutionPreviewPhase } from "./chatExecutionPreview";
 import {
   artifactSurfaceTitle,
   displayArtifactClassLabel,
@@ -24,8 +24,8 @@ import {
   resolveRenderFile,
   resolveSourceFilePath,
   shouldSwitchToSourceForSelection,
-} from "./studioArtifactSurfaceModel";
-import { deriveStudioExecutionChrome } from "./studioExecutionChrome";
+} from "./chatArtifactSurfaceModel";
+import { deriveChatExecutionChrome } from "./chatExecutionChrome";
 
 function isTextMime(mime: string | null | undefined): boolean {
   const normalized = String(mime || "").trim().toLowerCase();
@@ -103,7 +103,7 @@ export function ArtifactLogicalSurface({
   const [artifactError, setArtifactError] = useState<string | null>(null);
   const [artifactLoading, setArtifactLoading] = useState(false);
   const executionEnvelope = chatSession.materialization.executionEnvelope ?? null;
-  const executionChrome = deriveStudioExecutionChrome({
+  const executionChrome = deriveChatExecutionChrome({
     executionEnvelope,
     swarmExecution: chatSession.materialization.swarmExecution,
     swarmPlan: chatSession.materialization.swarmPlan,
@@ -115,7 +115,7 @@ export function ArtifactLogicalSurface({
   const renderExecutionPreviewAriaLabel = (
     preview: NonNullable<typeof livePreview>,
   ) =>
-    `${preview.label}. ${formatStudioExecutionPreviewPhase(preview)}.`;
+    `${preview.label}. ${formatChatExecutionPreviewPhase(preview)}.`;
   const isNonArtifactRoute = chatSession.outcomeRequest.outcomeKind !== "artifact";
   const routeLabel = formatStatusLabel(chatSession.outcomeRequest.outcomeKind);
   const routeHints = (chatSession.outcomeRequest.routingHints ?? []).slice(0, 4);
@@ -209,8 +209,8 @@ export function ArtifactLogicalSurface({
   const tree = useMemo(() => buildArtifactTree(manifest.files), [manifest.files]);
   const hasRender = hasVerifiedRender(manifest, rendererSession);
 
-  const seedSelectionIntent = async (target: StudioArtifactSelectionTarget) => {
-    await invoke("studio_attach_artifact_selection", { selection: target });
+  const seedSelectionIntent = async (target: ChatArtifactSelectionTarget) => {
+    await invoke("chat_attach_artifact_selection", { selection: target });
     onSeedIntent(
       `Edit only this artifact selection from ${target.sourceSurface}${target.path ? ` (${target.path})` : ""}:\n\n${target.snippet}`,
     );
@@ -226,15 +226,15 @@ export function ArtifactLogicalSurface({
   };
 
   return (
-    <section className="studio-artifact-surface" aria-label="Studio artifact surface">
-      <aside className="studio-artifact-sidebar studio-artifact-sidebar--explorer">
+    <section className="chat-artifact-surface" aria-label="Chat artifact surface">
+      <aside className="chat-artifact-sidebar chat-artifact-sidebar--explorer">
         {showRouteSummary ? (
-          <div className="studio-artifact-renderer-empty">
+          <div className="chat-artifact-renderer-empty">
             <strong>{routeLabel} stays primary</strong>
             <p>{chatSession.verifiedReply.summary}</p>
           </div>
         ) : showZeroFileArtifactStage ? (
-          <div className="studio-artifact-renderer-empty">
+          <div className="chat-artifact-renderer-empty">
                 <strong>
               {manifest.verification.lifecycleState === "blocked"
                 ? "Artifact build blocked before the first file landed."
@@ -272,20 +272,20 @@ export function ArtifactLogicalSurface({
           />
         )}
 
-        <div className="studio-artifact-sidebar-footer">
-          <span className="studio-artifact-badge">
+        <div className="chat-artifact-sidebar-footer">
+          <span className="chat-artifact-badge">
             {showRouteSummary
               ? routeLabel
               : `${manifest.files.length} ${manifest.files.length === 1 ? "file" : "files"}`}
           </span>
-          <span className="studio-artifact-badge is-muted">
+          <span className="chat-artifact-badge is-muted">
             {showRouteSummary
               ? formatStatusLabel(chatSession.outcomeRequest.executionStrategy)
               : displayArtifactClassLabel(manifest.artifactClass)}
           </span>
           {showRouteSummary
             ? routeHints.map((hint) => (
-                <span key={hint} className="studio-artifact-badge is-muted">
+                <span key={hint} className="chat-artifact-badge is-muted">
                   {hint}
                 </span>
               ))
@@ -293,7 +293,7 @@ export function ArtifactLogicalSurface({
         </div>
       </aside>
 
-      <div className="studio-artifact-stage">
+      <div className="chat-artifact-stage">
         <ArtifactStageHeader
           manifest={manifest}
           title={stageTitle}
@@ -314,20 +314,20 @@ export function ArtifactLogicalSurface({
           onCollapse={onCollapse}
         />
 
-        {artifactError ? <div className="studio-artifact-banner is-error">{artifactError}</div> : null}
+        {artifactError ? <div className="chat-artifact-banner is-error">{artifactError}</div> : null}
 
         {!hasRender && stageMode === "render" ? (
-          <div className="studio-artifact-banner">
-            Render exists only as an unverified outcome right now. Studio keeps Source as the
+          <div className="chat-artifact-banner">
+            Render exists only as an unverified outcome right now. Chat keeps Source as the
             default until presentation quality clears verification.
           </div>
         ) : null}
 
-        <div className={`studio-artifact-stage-layout ${evidenceOpen ? "is-evidence-open" : ""}`}>
-          <div className="studio-artifact-stage-main">
+        <div className={`chat-artifact-stage-layout ${evidenceOpen ? "is-evidence-open" : ""}`}>
+          <div className="chat-artifact-stage-main">
             {showRouteSummary ? (
-              <section className="studio-artifact-renderer-shell">
-                <div className="studio-artifact-renderer-empty">
+              <section className="chat-artifact-renderer-shell">
+                <div className="chat-artifact-renderer-empty">
                   <strong>{routeLabel} route verified</strong>
                   <p>{chatSession.verifiedReply.summary}</p>
                   {routeHints.length ? (
@@ -343,8 +343,8 @@ export function ArtifactLogicalSurface({
                 </div>
               </section>
             ) : showZeroFileArtifactStage ? (
-              <section className="studio-artifact-renderer-shell">
-                <div className="studio-artifact-renderer-empty">
+              <section className="chat-artifact-renderer-shell">
+                <div className="chat-artifact-renderer-empty">
                   <strong>
                     {manifest.verification.lifecycleState === "blocked"
                       ? "Artifact build blocked before the first renderable file landed."
@@ -364,18 +364,18 @@ export function ArtifactLogicalSurface({
                 ) : null}
                 {executionChrome.processes.length ? (
                   <div
-                    className="spot-studio-status-process-list"
+                    className="spot-chat-status-process-list"
                     aria-label="Thinking processes"
                   >
                     {executionChrome.processes.map((process) => (
                       <div
                         key={process.id}
-                        className={`spot-studio-status-process ${
+                        className={`spot-chat-status-process ${
                           process.isActive ? "is-active" : ""
                         }`}
                         aria-label={`${process.label}. ${process.status}. ${process.summary}`}
                       >
-                        <div className="spot-studio-status-process-row">
+                        <div className="spot-chat-status-process-row">
                           <strong>{process.label}</strong>
                           <span>{process.status}</span>
                         </div>
@@ -386,7 +386,7 @@ export function ArtifactLogicalSurface({
                 ) : null}
                 {livePreview?.content ? (
                   <div
-                    className={`spot-studio-status-preview ${
+                    className={`spot-chat-status-preview ${
                       previewMode(livePreview) === "code"
                         ? "is-code-preview"
                         : "is-stream-preview"
@@ -394,20 +394,20 @@ export function ArtifactLogicalSurface({
                     aria-live="polite"
                     aria-label={renderExecutionPreviewAriaLabel(livePreview)}
                   >
-                    <div className="spot-studio-status-preview-head">
+                    <div className="spot-chat-status-preview-head">
                       <span>{livePreview.label}</span>
                       <span>
-                        {formatStudioExecutionPreviewPhase(livePreview)}
+                        {formatChatExecutionPreviewPhase(livePreview)}
                       </span>
                     </div>
-                    <div className="spot-studio-status-preview-meta">
+                    <div className="spot-chat-status-preview-meta">
                       <span>{formatPreviewStats(livePreview.content)}</span>
                       {previewMode(livePreview) === "code" ? (
                         <span>Scroll to inspect the full artifact.</span>
                       ) : null}
                     </div>
                     <pre
-                      className={`studio-artifact-pending-preview ${
+                      className={`chat-artifact-pending-preview ${
                         previewMode(livePreview) === "code"
                           ? "is-code-preview"
                           : "is-stream-preview"
@@ -420,7 +420,7 @@ export function ArtifactLogicalSurface({
                 ) : null}
                 {codePreview?.content && codePreview.content !== livePreview?.content ? (
                   <div
-                    className={`spot-studio-status-preview ${
+                    className={`spot-chat-status-preview ${
                       previewMode(codePreview) === "code"
                         ? "is-code-preview"
                         : "is-stream-preview"
@@ -428,20 +428,20 @@ export function ArtifactLogicalSurface({
                     aria-live="polite"
                     aria-label={renderExecutionPreviewAriaLabel(codePreview)}
                   >
-                    <div className="spot-studio-status-preview-head">
+                    <div className="spot-chat-status-preview-head">
                       <span>{codePreview.label}</span>
                       <span>
-                        {formatStudioExecutionPreviewPhase(codePreview)}
+                        {formatChatExecutionPreviewPhase(codePreview)}
                       </span>
                     </div>
-                    <div className="spot-studio-status-preview-meta">
+                    <div className="spot-chat-status-preview-meta">
                       <span>{formatPreviewStats(codePreview.content)}</span>
                       {previewMode(codePreview) === "code" ? (
                         <span>Scroll to inspect the full artifact.</span>
                       ) : null}
                     </div>
                     <pre
-                      className={`studio-artifact-pending-preview ${
+                      className={`chat-artifact-pending-preview ${
                         previewMode(codePreview) === "code"
                           ? "is-code-preview"
                           : "is-stream-preview"
@@ -474,7 +474,7 @@ export function ArtifactLogicalSurface({
                 showExplorer={false}
               />
             ) : artifactLoading && !artifactPayload ? (
-              <div className="studio-artifact-renderer-empty">
+              <div className="chat-artifact-renderer-empty">
                 <strong>Loading artifact render…</strong>
               </div>
             ) : (

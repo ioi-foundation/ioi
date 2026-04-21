@@ -9,7 +9,7 @@ const hookSource = fs.readFileSync(
 assert.match(
   hookSource,
   /function shouldDisplayArtifactStatusPreview\(/,
-  "studio surface state should centralize when artifact status previews stay expanded",
+  "chat surface state should centralize when artifact status previews stay expanded",
 );
 
 assert.match(
@@ -21,7 +21,7 @@ assert.match(
 assert.match(
   hookSource,
   /function selectArtifactStatusPreviews\(/,
-  "studio surface state should centralize artifact preview precedence in one helper",
+  "chat surface state should centralize artifact preview precedence in one helper",
 );
 
 assert.match(
@@ -45,13 +45,13 @@ assert.match(
 assert.match(
   hookSource,
   /const hasSessionContent =\s*activeHistory\.length > 0 \|\|\s*chatEvents\.length > 0 \|\|\s*conversationTurns\.length > 0 \|\|\s*activeEvents\.length > 0 \|\|\s*activeArtifacts\.length > 0 \|\|\s*Boolean\(task\?\.chat_session\);/,
-  "studio surface state should keep the session lane populated for receipt-driven artifact turns even when no assistant reply has landed yet",
+  "chat surface state should keep the session lane populated for receipt-driven artifact turns even when no assistant reply has landed yet",
 );
 
 assert.match(
   hookSource,
   /if \(task\?\.chat_session\?\.activeOperatorRun\) \{\s*return null;\s*\}/,
-  "studio surface state should suppress the separate status card when the unified operator-run transcript is active",
+  "chat surface state should suppress the separate status card when the unified operator-run transcript is active",
 );
 
 console.log("useSpotlightSurfaceState.test.ts: ok");

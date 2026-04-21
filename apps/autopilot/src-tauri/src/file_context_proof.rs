@@ -131,13 +131,13 @@ pub fn run_cli() -> Result<(), String> {
         "pin-latest" => {
             let path = args
                 .next()
-                .ok_or_else(|| "Usage: studio_file_context_proof pin-latest <path>".to_string())?;
+                .ok_or_else(|| "Usage: chat_file_context_proof pin-latest <path>".to_string())?;
             let snapshot = mutate_latest_path(&memory_runtime, &path, apply_pin_file_context_path)?;
             print_json(&snapshot)
         }
         "include-latest" => {
             let path = args.next().ok_or_else(|| {
-                "Usage: studio_file_context_proof include-latest <path>".to_string()
+                "Usage: chat_file_context_proof include-latest <path>".to_string()
             })?;
             let snapshot =
                 mutate_latest_path(&memory_runtime, &path, apply_include_file_context_path)?;
@@ -145,7 +145,7 @@ pub fn run_cli() -> Result<(), String> {
         }
         "exclude-latest" => {
             let path = args.next().ok_or_else(|| {
-                "Usage: studio_file_context_proof exclude-latest <path>".to_string()
+                "Usage: chat_file_context_proof exclude-latest <path>".to_string()
             })?;
             let snapshot =
                 mutate_latest_path(&memory_runtime, &path, apply_exclude_file_context_path)?;
@@ -153,7 +153,7 @@ pub fn run_cli() -> Result<(), String> {
         }
         "remove-latest" => {
             let path = args.next().ok_or_else(|| {
-                "Usage: studio_file_context_proof remove-latest <path>".to_string()
+                "Usage: chat_file_context_proof remove-latest <path>".to_string()
             })?;
             let snapshot =
                 mutate_latest_path(&memory_runtime, &path, apply_remove_file_context_path)?;
@@ -164,5 +164,5 @@ pub fn run_cli() -> Result<(), String> {
 }
 
 fn usage() -> &'static str {
-    "Usage: studio_file_context_proof <show-latest|pin-latest PATH|include-latest PATH|exclude-latest PATH|remove-latest PATH>"
+    "Usage: chat_file_context_proof <show-latest|pin-latest PATH|include-latest PATH|exclude-latest PATH|remove-latest PATH>"
 }

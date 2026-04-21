@@ -8,7 +8,7 @@ import {
   SparklesIcon,
 } from "./ChatActivityBarIcons";
 import type { PrimaryView } from "../chatWindowModel";
-import { studioNavigationShortcutLabel } from "../../shared/shellShortcuts";
+import { chatNavigationShortcutLabel } from "../../shared/shellShortcuts";
 
 interface ProjectScope {
   id: string;
@@ -43,46 +43,46 @@ interface ActivityButtonProps {
 
 const NAV_ITEMS: Array<NavItem & { id: PrimaryView }> = [
   {
-    id: "studio",
-    label: "Studio",
+    id: "chat",
+    label: "Chat",
     icon: <SparklesIcon />,
     description: "Control query outcomes, open artifact tabs, and only drop into renderer-specific lenses when the work requires it.",
-    shortcut: studioNavigationShortcutLabel(1),
+    shortcut: chatNavigationShortcutLabel(1),
   },
   {
     id: "runs",
     label: "Runs",
     icon: <FleetIcon />,
     description: "Inspect runtime health, verification evidence, and supervised receipts.",
-    shortcut: studioNavigationShortcutLabel(2),
+    shortcut: chatNavigationShortcutLabel(2),
   },
   {
     id: "inbox",
     label: "Inbox",
     icon: <NotificationsIcon />,
     description: "Review ranked prompts, approvals, and interventions.",
-    shortcut: studioNavigationShortcutLabel(3),
+    shortcut: chatNavigationShortcutLabel(3),
   },
   {
     id: "capabilities",
     label: "Capabilities",
     icon: <IntegrationsIcon />,
     description: "Equip workers with connections, skills, and extension manifests.",
-    shortcut: studioNavigationShortcutLabel(4),
+    shortcut: chatNavigationShortcutLabel(4),
   },
   {
     id: "policy",
     label: "Policy",
     icon: <ShieldIcon />,
     description: "Set governance, approvals, and execution posture.",
-    shortcut: studioNavigationShortcutLabel(5),
+    shortcut: chatNavigationShortcutLabel(5),
   },
   {
     id: "settings",
     label: "Settings",
     icon: <SettingsIcon />,
     description: "Manage shell identity, diagnostics, and local system state.",
-    shortcut: studioNavigationShortcutLabel(6),
+    shortcut: chatNavigationShortcutLabel(6),
   },
 ];
 
@@ -98,7 +98,7 @@ function ActivityButton({
   return (
     <button
       type="button"
-      className={`studio-activity-button ${isActive ? "is-active" : ""}`}
+      className={`chat-activity-button ${isActive ? "is-active" : ""}`}
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -108,7 +108,7 @@ function ActivityButton({
     >
       <span
         aria-hidden="true"
-        className="studio-activity-button-indicator"
+        className="chat-activity-button-indicator"
         style={{
           height: isActive ? 20 : hovered ? 8 : 0,
           transform: `translateY(-50%) translateX(${isActive || hovered ? "0px" : "-4px"})`,
@@ -116,14 +116,14 @@ function ActivityButton({
         }}
       />
       <span
-        className={`studio-activity-button-icon ${
+        className={`chat-activity-button-icon ${
           item.id === "capabilities" ? "is-capabilities" : ""
         }`}
       >
         {icon}
       </span>
       {badgeCount && badgeCount > 0 ? (
-        <span className="studio-activity-button-badge">
+        <span className="chat-activity-button-badge">
           {badgeCount > 9 ? "9+" : badgeCount}
         </span>
       ) : null}
@@ -175,11 +175,11 @@ export function ChatLocalActivityBar({
 
   return (
     <aside
-      className="studio-activity-bar"
+      className="chat-activity-bar"
       role="navigation"
-      aria-label="Studio navigation"
+      aria-label="Chat navigation"
     >
-      <div className="studio-activity-group" aria-label="Surface navigation">
+      <div className="chat-activity-group" aria-label="Surface navigation">
         {topNavItems.map((item) => {
           const isCapabilitiesItem = item.id === "capabilities";
           const icon = isCapabilitiesItem ? (
@@ -205,11 +205,11 @@ export function ChatLocalActivityBar({
         })}
       </div>
 
-      <div className="studio-activity-spacer" />
+      <div className="chat-activity-spacer" />
 
-      <div className="studio-activity-group studio-activity-group--bottom">
+      <div className="chat-activity-group chat-activity-group--bottom">
         <div
-          className="studio-activity-project-indicator"
+          className="chat-activity-project-indicator"
           title={`${currentProject.name} · ${currentProject.environment}`}
           aria-label={`${currentProject.name} project scope`}
         >

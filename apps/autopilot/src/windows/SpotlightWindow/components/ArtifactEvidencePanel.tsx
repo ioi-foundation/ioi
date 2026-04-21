@@ -3,9 +3,9 @@ import { invoke } from "@tauri-apps/api/core";
 
 import type {
   SkillDetailView,
-  StudioArtifactRenderEvaluation,
-  StudioArtifactRevision,
-  StudioArtifactSelectedSkill,
+  ChatArtifactRenderEvaluation,
+  ChatArtifactRevision,
+  ChatArtifactSelectedSkill,
 } from "../../../types";
 import {
   resolveCapabilityRegistryEntryForSelectedArtifactSkill,
@@ -47,7 +47,7 @@ function formatBasisPoints(basisPoints: number): string {
 }
 
 function sourceLabelForSkill(
-  skill: StudioArtifactSelectedSkill,
+  skill: ChatArtifactSelectedSkill,
   detail: SkillDetailView | null,
 ): string {
   if (detail?.source_registry_label) {
@@ -57,7 +57,7 @@ function sourceLabelForSkill(
 }
 
 function sourcePathForSkill(
-  skill: StudioArtifactSelectedSkill,
+  skill: ChatArtifactSelectedSkill,
   detail: SkillDetailView | null,
 ): string | null {
   return (
@@ -69,7 +69,7 @@ function sourcePathForSkill(
 }
 
 function sourceLocationForSkill(
-  skill: StudioArtifactSelectedSkill,
+  skill: ChatArtifactSelectedSkill,
   detail: SkillDetailView | null,
 ): string {
   const fragments = [
@@ -81,7 +81,7 @@ function sourceLocationForSkill(
 }
 
 function obligationCounts(
-  evaluation?: StudioArtifactRenderEvaluation | null,
+  evaluation?: ChatArtifactRenderEvaluation | null,
 ): { required: number; cleared: number; failed: number } {
   const required = evaluation?.acceptanceObligations?.filter(
     (obligation) => obligation.required,
@@ -295,13 +295,13 @@ export function ArtifactEvidencePanel({
     ],
   );
 
-  const compareRevision = async (revision: StudioArtifactRevision) => {
+  const compareRevision = async (revision: ChatArtifactRevision) => {
     if (!activeRevisionId || activeRevisionId === revision.revisionId) {
       setComparison(null);
       return;
     }
     const result = await invoke<ArtifactRevisionComparison>(
-      "studio_compare_artifact_revisions",
+      "chat_compare_artifact_revisions",
       {
         baseRevisionId: activeRevisionId,
         targetRevisionId: revision.revisionId,
@@ -310,10 +310,10 @@ export function ArtifactEvidencePanel({
     setComparison(result);
   };
 
-  const restoreRevision = async (revision: StudioArtifactRevision) => {
+  const restoreRevision = async (revision: ChatArtifactRevision) => {
     setRevisionBusy(revision.revisionId);
     try {
-      await invoke("studio_restore_artifact_revision", {
+      await invoke("chat_restore_artifact_revision", {
         revisionId: revision.revisionId,
       });
     } finally {
@@ -321,10 +321,10 @@ export function ArtifactEvidencePanel({
     }
   };
 
-  const branchRevision = async (revision: StudioArtifactRevision) => {
+  const branchRevision = async (revision: ChatArtifactRevision) => {
     setRevisionBusy(revision.revisionId);
     try {
-      await invoke("studio_branch_artifact_revision", {
+      await invoke("chat_branch_artifact_revision", {
         revisionId: revision.revisionId,
       });
     } finally {
@@ -334,19 +334,19 @@ export function ArtifactEvidencePanel({
 
   return (
     <aside
-      className="studio-artifact-inspector"
+      className="chat-artifact-inspector"
       aria-label="Artifact evidence inspector"
     >
-      <section className="studio-artifact-inspector-section studio-artifact-summary-tier">
-        <div className="studio-artifact-summary-copy">
-          <span className="studio-artifact-panel-label">At a glance</span>
+      <section className="chat-artifact-inspector-section chat-artifact-summary-tier">
+        <div className="chat-artifact-summary-copy">
+          <span className="chat-artifact-panel-label">At a glance</span>
           <p>
             Summary-first trust, validation, and delivery view for the current
             artifact run.
           </p>
         </div>
-        <div className="studio-artifact-summary-grid">
-          <article className="studio-artifact-summary-card">
+        <div className="chat-artifact-summary-grid">
+          <article className="chat-artifact-summary-card">
             <span>Verification</span>
             <strong>{verificationHeadline}</strong>
             <p>{manifest.verification.summary}</p>
@@ -363,7 +363,7 @@ export function ArtifactEvidencePanel({
               )}
             </p>
           </article>
-          <article className="studio-artifact-summary-card">
+          <article className="chat-artifact-summary-card">
             <span>Validation</span>
             <strong>{validationHeadline}</strong>
             <p>
@@ -382,7 +382,7 @@ export function ArtifactEvidencePanel({
               <p>Next pass: {validation.recommendedNextPass}</p>
             ) : null}
           </article>
-          <article className="studio-artifact-summary-card">
+          <article className="chat-artifact-summary-card">
             <span>Delivery</span>
             <strong>{deliveryHeadline}</strong>
             <p>
@@ -420,7 +420,7 @@ export function ArtifactEvidencePanel({
               <p>{workspaceActivity[0].detail}</p>
             ) : null}
           </article>
-          <article className="studio-artifact-summary-card">
+          <article className="chat-artifact-summary-card">
             <span>Context</span>
             <strong>{contextHeadline}</strong>
             <p>
@@ -436,10 +436,10 @@ export function ArtifactEvidencePanel({
         </div>
       </section>
 
-      <section className="studio-artifact-inspector-section">
-        <span className="studio-artifact-panel-label">Verification</span>
+      <section className="chat-artifact-inspector-section">
+        <span className="chat-artifact-panel-label">Verification</span>
         <p>{manifest.verification.summary}</p>
-        <div className="studio-artifact-note-list">
+        <div className="chat-artifact-note-list">
           <p>
             <strong>Production:</strong>{" "}
             {formatRuntimeProvenance(
@@ -462,9 +462,9 @@ export function ArtifactEvidencePanel({
       </section>
 
       {brief ? (
-        <section className="studio-artifact-inspector-section">
-          <span className="studio-artifact-panel-label">Artifact brief</span>
-          <div className="studio-artifact-note-list">
+        <section className="chat-artifact-inspector-section">
+          <span className="chat-artifact-panel-label">Artifact brief</span>
+          <div className="chat-artifact-note-list">
             <p>
               <strong>Audience:</strong> {brief.audience}
             </p>
@@ -485,9 +485,9 @@ export function ArtifactEvidencePanel({
       ) : null}
 
       {blueprint ? (
-        <section className="studio-artifact-inspector-section">
-          <span className="studio-artifact-panel-label">Blueprint</span>
-          <div className="studio-artifact-note-list">
+        <section className="chat-artifact-inspector-section">
+          <span className="chat-artifact-panel-label">Blueprint</span>
+          <div className="chat-artifact-note-list">
             <p>
               <strong>Scaffold:</strong> {blueprint.scaffoldFamily}
             </p>
@@ -528,9 +528,9 @@ export function ArtifactEvidencePanel({
       ) : null}
 
       {artifactIr ? (
-        <section className="studio-artifact-inspector-section">
-          <span className="studio-artifact-panel-label">Artifact IR</span>
-          <div className="studio-artifact-note-list">
+        <section className="chat-artifact-inspector-section">
+          <span className="chat-artifact-panel-label">Artifact IR</span>
+          <div className="chat-artifact-note-list">
             <p>
               <strong>Structure:</strong> {artifactIr.semanticStructure.length}{" "}
               nodes · {artifactIr.interactionGraph.length} interactions ·{" "}
@@ -556,8 +556,8 @@ export function ArtifactEvidencePanel({
       ) : null}
 
       {selectedSkills.length ? (
-        <section className="studio-artifact-inspector-section">
-          <span className="studio-artifact-panel-label">
+        <section className="chat-artifact-inspector-section">
+          <span className="chat-artifact-panel-label">
             Selection explainability
           </span>
           <p>
@@ -573,7 +573,7 @@ export function ArtifactEvidencePanel({
               {capabilityRegistryError ?? "Registry snapshot failed to load."}
             </p>
           ) : null}
-          <div className="studio-artifact-selection-list">
+          <div className="chat-artifact-selection-list">
             {selectedSkillExplainability.map(
               ({
                 skill,
@@ -585,14 +585,14 @@ export function ArtifactEvidencePanel({
               }) => (
                 <article
                   key={skill.skillHash}
-                  className="studio-artifact-selection-card"
+                  className="chat-artifact-selection-card"
                 >
-                  <div className="studio-artifact-selection-head">
+                  <div className="chat-artifact-selection-head">
                     <div>
                       <strong>{skill.name}</strong>
                       <p>{skill.description}</p>
                     </div>
-                    <span className="studio-artifact-selection-pill">
+                    <span className="chat-artifact-selection-pill">
                       {registryEntry?.authority.tierLabel ??
                         (extension
                           ? "Extension-backed"
@@ -601,7 +601,7 @@ export function ArtifactEvidencePanel({
                             : formatStatusLabel(skill.sourceType))}
                     </span>
                   </div>
-                  <div className="studio-artifact-selection-meta">
+                  <div className="chat-artifact-selection-meta">
                     {skill.matchedNeedKinds.length ? (
                       <span>
                         Matched{" "}
@@ -640,13 +640,13 @@ export function ArtifactEvidencePanel({
                         <strong>Capability fabric:</strong>{" "}
                         {registryEntry.whySelectable}
                       </p>
-                      <div className="studio-artifact-selection-fabric">
-                        <article className="studio-artifact-selection-fabric-card">
+                      <div className="chat-artifact-selection-fabric">
+                        <article className="chat-artifact-selection-fabric-card">
                           <span>Authority tier</span>
                           <strong>{registryEntry.authority.tierLabel}</strong>
                           <p>{registryEntry.authority.summary}</p>
                         </article>
-                        <article className="studio-artifact-selection-fabric-card">
+                        <article className="chat-artifact-selection-fabric-card">
                           <span>Lease semantics</span>
                           <strong>
                             {registryEntry.lease.modeLabel ??
@@ -655,7 +655,7 @@ export function ArtifactEvidencePanel({
                           <p>{registryEntry.lease.summary}</p>
                         </article>
                       </div>
-                      <div className="studio-artifact-selection-signals">
+                      <div className="chat-artifact-selection-signals">
                         {[
                           ...registryEntry.authority.signals,
                           ...registryEntry.lease.signals,
@@ -664,7 +664,7 @@ export function ArtifactEvidencePanel({
                           .map((signal) => (
                             <span
                               key={`${skill.skillHash}-${signal}`}
-                              className="studio-artifact-selection-signal"
+                              className="chat-artifact-selection-signal"
                             >
                               {signal}
                             </span>
@@ -701,9 +701,9 @@ export function ArtifactEvidencePanel({
       ) : null}
 
       {validation ? (
-        <section className="studio-artifact-inspector-section">
-          <span className="studio-artifact-panel-label">Validation</span>
-          <div className="studio-artifact-note-list">
+        <section className="chat-artifact-inspector-section">
+          <span className="chat-artifact-panel-label">Validation</span>
+          <div className="chat-artifact-note-list">
             <p>
               <strong>{formatStatusLabel(validation.classification)}</strong> ·{" "}
               {validation.rationale}
@@ -760,9 +760,9 @@ export function ArtifactEvidencePanel({
       {hasSwarmExecution ? (
         <>
           {swarmPlan ? (
-            <section className="studio-artifact-inspector-section">
-              <span className="studio-artifact-panel-label">Execution plan</span>
-              <div className="studio-artifact-note-list">
+            <section className="chat-artifact-inspector-section">
+              <span className="chat-artifact-panel-label">Execution plan</span>
+              <div className="chat-artifact-note-list">
                 <p>
                   <strong>Strategy:</strong>{" "}
                   {executionEnvelope?.strategy
@@ -786,7 +786,7 @@ export function ArtifactEvidencePanel({
                   {swarmPlan.workItems.length === 1 ? "" : "s"}
                 </p>
                 {swarmPlan.workItems.map((item) => (
-                  <div key={item.id} className="studio-artifact-activity">
+                  <div key={item.id} className="chat-artifact-activity">
                     <div>
                       <strong>
                         {formatStatusLabel(item.role)} · {item.title}
@@ -849,13 +849,13 @@ export function ArtifactEvidencePanel({
           ) : null}
 
           {swarmWorkerReceipts.length ? (
-            <section className="studio-artifact-inspector-section">
-              <span className="studio-artifact-panel-label">Worker receipts</span>
-              <div className="studio-artifact-note-list">
+            <section className="chat-artifact-inspector-section">
+              <span className="chat-artifact-panel-label">Worker receipts</span>
+              <div className="chat-artifact-note-list">
                 {swarmWorkerReceipts.map((receipt) => (
                   <div
                     key={`${receipt.workItemId}-${receipt.startedAt}`}
-                    className="studio-artifact-activity"
+                    className="chat-artifact-activity"
                   >
                     <div>
                       <strong>
@@ -892,11 +892,11 @@ export function ArtifactEvidencePanel({
           graphMutationReceipts.length ||
           repairReceipts.length ||
           replanReceipts.length ? (
-            <section className="studio-artifact-inspector-section">
-              <span className="studio-artifact-panel-label">Execution receipts</span>
-              <div className="studio-artifact-note-list">
+            <section className="chat-artifact-inspector-section">
+              <span className="chat-artifact-panel-label">Execution receipts</span>
+              <div className="chat-artifact-note-list">
                 {dispatchBatches.map((batch) => (
-                  <div key={`dispatch-${batch.id}`} className="studio-artifact-activity">
+                  <div key={`dispatch-${batch.id}`} className="chat-artifact-activity">
                     <div>
                       <strong>Dispatch · {batch.id}</strong>
                       <p>
@@ -919,7 +919,7 @@ export function ArtifactEvidencePanel({
                   </div>
                 ))}
                 {swarmChangeReceipts.map((receipt) => (
-                  <div key={`patch-${receipt.workItemId}`} className="studio-artifact-activity">
+                  <div key={`patch-${receipt.workItemId}`} className="chat-artifact-activity">
                     <div>
                       <strong>Patch · {receipt.workItemId}</strong>
                       <p>{receipt.summary}</p>
@@ -932,7 +932,7 @@ export function ArtifactEvidencePanel({
                   </div>
                 ))}
                 {swarmMergeReceipts.map((receipt) => (
-                  <div key={`merge-${receipt.workItemId}`} className="studio-artifact-activity">
+                  <div key={`merge-${receipt.workItemId}`} className="chat-artifact-activity">
                     <div>
                       <strong>Merge · {receipt.workItemId}</strong>
                       <p>{receipt.summary}</p>
@@ -944,7 +944,7 @@ export function ArtifactEvidencePanel({
                   </div>
                 ))}
                 {swarmVerificationReceipts.map((receipt) => (
-                  <div key={`verify-${receipt.id}`} className="studio-artifact-activity">
+                  <div key={`verify-${receipt.id}`} className="chat-artifact-activity">
                     <div>
                       <strong>{formatStatusLabel(receipt.kind)}</strong>
                       <p>{receipt.summary}</p>
@@ -956,7 +956,7 @@ export function ArtifactEvidencePanel({
                   </div>
                 ))}
                 {graphMutationReceipts.map((receipt) => (
-                  <div key={`graph-${receipt.id}`} className="studio-artifact-activity">
+                  <div key={`graph-${receipt.id}`} className="chat-artifact-activity">
                     <div>
                       <strong>{formatStatusLabel(receipt.mutationKind)}</strong>
                       <p>{receipt.summary}</p>
@@ -971,7 +971,7 @@ export function ArtifactEvidencePanel({
                   </div>
                 ))}
                 {repairReceipts.map((receipt) => (
-                  <div key={`repair-${receipt.id}`} className="studio-artifact-activity">
+                  <div key={`repair-${receipt.id}`} className="chat-artifact-activity">
                     <div>
                       <strong>Repair · {receipt.id}</strong>
                       <p>{receipt.summary}</p>
@@ -983,7 +983,7 @@ export function ArtifactEvidencePanel({
                   </div>
                 ))}
                 {replanReceipts.map((receipt) => (
-                  <div key={`replan-${receipt.id}`} className="studio-artifact-activity">
+                  <div key={`replan-${receipt.id}`} className="chat-artifact-activity">
                     <div>
                       <strong>Replan · {receipt.id}</strong>
                       <p>{receipt.summary}</p>
@@ -1005,9 +1005,9 @@ export function ArtifactEvidencePanel({
           ) : null}
         </>
       ) : candidates.length ? (
-        <section className="studio-artifact-inspector-section">
-          <span className="studio-artifact-panel-label">Candidates</span>
-          <div className="studio-artifact-note-list">
+        <section className="chat-artifact-inspector-section">
+          <span className="chat-artifact-panel-label">Candidates</span>
+          <div className="chat-artifact-note-list">
             {winningCandidate ? (
               <p>
                 <strong>Winner:</strong> {winningCandidate.candidateId}
@@ -1038,7 +1038,7 @@ export function ArtifactEvidencePanel({
             {candidates.map((candidate) => (
               <div
                 key={candidate.candidateId}
-                className="studio-artifact-activity"
+                className="chat-artifact-activity"
               >
                 <div>
                   <strong>
@@ -1072,9 +1072,9 @@ export function ArtifactEvidencePanel({
       ) : null}
 
       {tasteMemory ? (
-        <section className="studio-artifact-inspector-section">
-          <span className="studio-artifact-panel-label">Taste memory</span>
-          <div className="studio-artifact-note-list">
+        <section className="chat-artifact-inspector-section">
+          <span className="chat-artifact-panel-label">Taste memory</span>
+          <div className="chat-artifact-note-list">
             <p>{tasteMemory.summary}</p>
             {tasteMemory.directives.length ? (
               <p>{tasteMemory.directives.join(" · ")}</p>
@@ -1083,17 +1083,17 @@ export function ArtifactEvidencePanel({
         </section>
       ) : null}
 
-      <section className="studio-artifact-inspector-section">
-        <span className="studio-artifact-panel-label">Pipeline</span>
-        <div className="studio-artifact-step-list">
+      <section className="chat-artifact-inspector-section">
+        <span className="chat-artifact-panel-label">Pipeline</span>
+        <div className="chat-artifact-step-list">
           {pipelineSteps.length ? (
             pipelineSteps.map((step) => (
-              <div key={step.id} className="studio-artifact-step">
+              <div key={step.id} className="chat-artifact-step">
                 <div>
                   <strong>{step.label}</strong>
                   <p>{step.summary}</p>
                   {step.outputs.length ? (
-                    <p className="studio-artifact-inline-meta">
+                    <p className="chat-artifact-inline-meta">
                       {step.outputs.join(" · ")}
                     </p>
                   ) : null}
@@ -1113,13 +1113,13 @@ export function ArtifactEvidencePanel({
       </section>
 
       {receipts.length ? (
-        <section className="studio-artifact-inspector-section">
-          <span className="studio-artifact-panel-label">Receipts</span>
-          <div className="studio-artifact-receipt-list">
+        <section className="chat-artifact-inspector-section">
+          <span className="chat-artifact-panel-label">Receipts</span>
+          <div className="chat-artifact-receipt-list">
             {receipts.map((receipt) => (
               <article
                 key={receipt.receiptId}
-                className="studio-artifact-receipt"
+                className="chat-artifact-receipt"
               >
                 <strong>{receipt.title}</strong>
                 <span>{formatStatusLabel(receipt.status)}</span>
@@ -1131,9 +1131,9 @@ export function ArtifactEvidencePanel({
       ) : null}
 
       {notes.length ? (
-        <section className="studio-artifact-inspector-section">
-          <span className="studio-artifact-panel-label">Notes</span>
-          <div className="studio-artifact-note-list">
+        <section className="chat-artifact-inspector-section">
+          <span className="chat-artifact-panel-label">Notes</span>
+          <div className="chat-artifact-note-list">
             {notes.map((note) => (
               <p key={note}>{note}</p>
             ))}
@@ -1141,9 +1141,9 @@ export function ArtifactEvidencePanel({
         </section>
       ) : null}
 
-      <section className="studio-artifact-inspector-section">
-        <span className="studio-artifact-panel-label">Materialized files</span>
-        <div className="studio-artifact-note-list">
+      <section className="chat-artifact-inspector-section">
+        <span className="chat-artifact-panel-label">Materialized files</span>
+        <div className="chat-artifact-note-list">
           {evidence.length ? (
             evidence.map((entry) => <p key={entry}>{entry}</p>)
           ) : (
@@ -1153,13 +1153,13 @@ export function ArtifactEvidencePanel({
       </section>
 
       {revisions.length ? (
-        <section className="studio-artifact-inspector-section">
-          <span className="studio-artifact-panel-label">Revisions</span>
-          <div className="studio-artifact-receipt-list">
+        <section className="chat-artifact-inspector-section">
+          <span className="chat-artifact-panel-label">Revisions</span>
+          <div className="chat-artifact-receipt-list">
             {revisions.map((revision) => (
               <article
                 key={revision.revisionId}
-                className="studio-artifact-receipt"
+                className="chat-artifact-receipt"
               >
                 <strong>
                   {revision.branchLabel}
@@ -1167,11 +1167,11 @@ export function ArtifactEvidencePanel({
                 </strong>
                 <span>{new Date(revision.createdAt).toLocaleString()}</span>
                 <p>{revision.prompt}</p>
-                <div className="studio-artifact-chip-row">
+                <div className="chat-artifact-chip-row">
                   {revision.revisionId !== activeRevisionId ? (
                     <button
                       type="button"
-                      className="studio-artifact-stage-button"
+                      className="chat-artifact-stage-button"
                       onClick={() => void compareRevision(revision)}
                     >
                       Compare
@@ -1180,7 +1180,7 @@ export function ArtifactEvidencePanel({
                   {revision.revisionId !== activeRevisionId ? (
                     <button
                       type="button"
-                      className="studio-artifact-stage-button"
+                      className="chat-artifact-stage-button"
                       onClick={() => void restoreRevision(revision)}
                       disabled={revisionBusy === revision.revisionId}
                     >
@@ -1189,7 +1189,7 @@ export function ArtifactEvidencePanel({
                   ) : null}
                   <button
                     type="button"
-                    className="studio-artifact-stage-button"
+                    className="chat-artifact-stage-button"
                     onClick={() => void branchRevision(revision)}
                     disabled={revisionBusy === revision.revisionId}
                   >
@@ -1200,7 +1200,7 @@ export function ArtifactEvidencePanel({
             ))}
           </div>
           {comparison ? (
-            <div className="studio-artifact-note-list">
+            <div className="chat-artifact-note-list">
               <p>
                 <strong>Compare:</strong> {comparison.summary}
               </p>
@@ -1215,11 +1215,11 @@ export function ArtifactEvidencePanel({
       ) : null}
 
       {workspaceActivity.length ? (
-        <section className="studio-artifact-inspector-section">
-          <span className="studio-artifact-panel-label">Recent activity</span>
-          <div className="studio-artifact-note-list">
+        <section className="chat-artifact-inspector-section">
+          <span className="chat-artifact-panel-label">Recent activity</span>
+          <div className="chat-artifact-note-list">
             {workspaceActivity.slice(0, 8).map((entry) => (
-              <div key={entry.id} className="studio-artifact-activity">
+              <div key={entry.id} className="chat-artifact-activity">
                 <div>
                   <strong>{entry.title}</strong>
                   {entry.detail ? <p>{entry.detail}</p> : null}

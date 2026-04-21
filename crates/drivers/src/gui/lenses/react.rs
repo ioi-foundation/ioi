@@ -418,7 +418,7 @@ impl AppLens for ReactLens {
         t.contains("react")
             || t.contains("electron")
             || t.contains("vscode")
-            || t.contains("visual studio code")
+            || t.contains("visual code")
             || t.contains("slack")
             || t.contains("discord")
             || t.contains("notion")

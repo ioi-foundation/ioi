@@ -27,7 +27,7 @@ interface ChatMissionControlWorkflowsViewProps {
   editingAgent: AgentSummary | null;
   onSurfaceChange: (surface: "home" | "canvas" | "agents" | "catalog") => void;
   onSelectProject: (projectId: string) => void;
-  onOpenStudio: () => void;
+  onOpenChat: () => void;
   onOpenInbox: () => void;
   onOpenCapabilities: () => void;
   onOpenPolicy: () => void;
@@ -60,7 +60,7 @@ export function ChatMissionControlWorkflowsView({
   projects,
   notificationCount,
   editingAgent,
-  onOpenStudio,
+  onOpenChat,
   onSurfaceChange,
   onSelectProject,
   onOpenInbox,
@@ -138,7 +138,7 @@ export function ChatMissionControlWorkflowsView({
               projects={projects}
               notificationCount={notificationCount}
               onOpenCanvas={() => onSurfaceChange("canvas")}
-              onOpenStudio={onOpenStudio}
+              onOpenChat={onOpenChat}
               onOpenAgents={() => onSurfaceChange("agents")}
               onOpenCatalog={() => onSurfaceChange("catalog")}
               onOpenInbox={onOpenInbox}

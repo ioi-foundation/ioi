@@ -7,7 +7,7 @@ import type {
   SkillCatalogEntry,
   SkillDetailView,
   SkillSourceRecord,
-  StudioArtifactSelectedSkill,
+  ChatArtifactSelectedSkill,
 } from "../../../types";
 
 export type SpotlightCapabilityRegistryStatus =
@@ -92,7 +92,7 @@ export function resolveCapabilityRegistryEntryForCatalogSkill(
 }
 
 export function resolveExtensionManifestForSelectedSkill(
-  skill: StudioArtifactSelectedSkill,
+  skill: ChatArtifactSelectedSkill,
   detail: SkillDetailView | null,
   manifests: ExtensionManifestRecord[],
 ): ExtensionManifestRecord | null {
@@ -127,7 +127,7 @@ export function resolveExtensionManifestForSelectedSkill(
 export function resolveCapabilityRegistryEntryForSelectedArtifactSkill(
   snapshot: CapabilityRegistrySnapshot | null,
   entryLookup: Map<string, CapabilityRegistryEntry>,
-  skill: StudioArtifactSelectedSkill,
+  skill: ChatArtifactSelectedSkill,
   detail: SkillDetailView | null,
   extension: ExtensionManifestRecord | null,
 ): CapabilityRegistryEntry | null {

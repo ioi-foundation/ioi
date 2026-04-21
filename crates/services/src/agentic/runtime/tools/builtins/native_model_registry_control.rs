@@ -167,7 +167,7 @@
                 },
                 "alias": {
                     "type": "string",
-                    "description": "Optional alias to use when presenting the backend in Studio."
+                    "description": "Optional alias to use when presenting the backend in Chat."
                 },
                 "job_id": {
                     "type": "string",

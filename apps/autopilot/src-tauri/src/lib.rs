@@ -20,7 +20,7 @@ pub mod plugin_proof;
 mod project;
 pub mod repl_cli;
 pub mod repl_proof;
-pub mod studio_proof;
+pub mod chat_proof;
 mod template;
 mod windows;
 pub mod workflow_proof;
@@ -29,7 +29,10 @@ mod workspace;
 use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime, UnavailableInferenceRuntime};
 use ioi_memory::MemoryRuntime;
 use ioi_services::agentic::media_runtime::KernelMediaRuntime;
-use ioi_types::app::{StudioRuntimeProvenance, StudioRuntimeProvenanceKind};
+use ioi_types::app::{
+    ChatRuntimeProvenance as ChatRuntimeProvenance,
+    ChatRuntimeProvenanceKind as ChatRuntimeProvenanceKind,
+};
 use models::AppState;
 use std::time::Duration;
 
@@ -138,7 +141,7 @@ pub(crate) fn autopilot_data_dir_for<R: Runtime>(app: &AppHandle<R>) -> PathBuf 
 }
 
 pub(crate) fn open_or_create_memory_runtime(data_dir: &Path) -> Result<MemoryRuntime, String> {
-    let memory_path = data_dir.join("studio-memory.db");
+    let memory_path = data_dir.join("chat-memory.db");
     if !data_dir.exists() {
         std::fs::create_dir_all(data_dir)
             .map_err(|error| format!("Failed to create app data directory: {}", error))?;
@@ -152,8 +155,8 @@ fn wrap_kernel_runtime(runtime: Arc<dyn InferenceRuntime>) -> Arc<dyn InferenceR
 }
 
 fn runtime_provenance_matches(
-    left: &StudioRuntimeProvenance,
-    right: &StudioRuntimeProvenance,
+    left: &ChatRuntimeProvenance,
+    right: &ChatRuntimeProvenance,
 ) -> bool {
     fn normalized_runtime_endpoint(endpoint: Option<&str>) -> Option<String> {
         let endpoint = endpoint?.trim();
@@ -220,7 +223,7 @@ pub(crate) fn create_inference_runtime() -> Arc<dyn InferenceRuntime> {
             Arc::new(HttpInferenceRuntime::new(url, "".to_string(), local_model))
         } else if local_gpu_dev {
             println!(
-                "[Studio] Local GPU dev mode is enabled, but the local runtime at {} is not healthy yet. Studio will surface inference_unavailable until the runtime becomes healthy.",
+                "[Chat] Local GPU dev mode is enabled, but the local runtime at {} is not healthy yet. Chat will surface inference_unavailable until the runtime becomes healthy.",
                 local_health_url
                     .as_deref()
                     .unwrap_or(url.as_str())
@@ -243,18 +246,18 @@ pub(crate) fn create_inference_runtime() -> Arc<dyn InferenceRuntime> {
     } else {
         if local_gpu_dev {
             println!(
-                "[Studio] Local GPU dev mode is enabled, but no LOCAL_LLM_URL/AUTOPILOT_LOCAL_RUNTIME_URL was provided. Studio will surface inference_unavailable until a runtime is configured."
+                "[Chat] Local GPU dev mode is enabled, but no LOCAL_LLM_URL/AUTOPILOT_LOCAL_RUNTIME_URL was provided. Chat will surface inference_unavailable until a runtime is configured."
             );
         }
         Arc::new(UnavailableInferenceRuntime::new(
-            "Inference is unavailable because no Studio inference runtime is configured.",
+            "Inference is unavailable because no Chat inference runtime is configured.",
         ))
     };
 
     wrap_kernel_runtime(runtime)
 }
 
-pub(crate) fn create_studio_routing_inference_runtime(
+pub(crate) fn create_chat_routing_inference_runtime(
     production_runtime: &Arc<dyn InferenceRuntime>,
 ) -> Arc<dyn InferenceRuntime> {
     let routing_url = env_text("AUTOPILOT_STUDIO_ROUTING_RUNTIME_URL");
@@ -280,18 +283,18 @@ pub(crate) fn create_studio_routing_inference_runtime(
                 routing_api_key.unwrap_or_default(),
                 routing_model
                     .clone()
-                    .or_else(|| production_runtime.studio_runtime_provenance().model.clone())
-                    .unwrap_or_else(|| "studio-router".to_string()),
+                    .or_else(|| production_runtime.chat_runtime_provenance().model.clone())
+                    .unwrap_or_else(|| "chat-router".to_string()),
             ))
         } else if local_gpu_dev {
             println!(
-                "[Studio] Local GPU dev mode is enabled, but the Studio routing runtime at {} is not healthy yet. Studio routing will surface inference_unavailable until it becomes healthy.",
+                "[Chat] Local GPU dev mode is enabled, but the Chat routing runtime at {} is not healthy yet. Chat routing will surface inference_unavailable until it becomes healthy.",
                 routing_health_url
                     .as_deref()
                     .unwrap_or(url.as_str())
             );
             Arc::new(UnavailableInferenceRuntime::new(format!(
-                "Studio routing is unavailable because the configured runtime at {} is not healthy.",
+                "Chat routing is unavailable because the configured runtime at {} is not healthy.",
                 routing_health_url.as_deref().unwrap_or(url.as_str())
             )))
         } else if let Some(key) = routing_openai_key {
@@ -304,7 +307,7 @@ pub(crate) fn create_studio_routing_inference_runtime(
             Arc::new(HttpInferenceRuntime::new(
                 url,
                 routing_api_key.unwrap_or_default(),
-                routing_model.unwrap_or_else(|| "studio-router".to_string()),
+                routing_model.unwrap_or_else(|| "chat-router".to_string()),
             ))
         }
     } else if let Some(key) = routing_openai_key {
@@ -323,7 +326,7 @@ pub(crate) fn create_studio_routing_inference_runtime(
 pub(crate) fn create_acceptance_inference_runtime(
     production_runtime: &Arc<dyn InferenceRuntime>,
 ) -> Arc<dyn InferenceRuntime> {
-    let production_provenance = production_runtime.studio_runtime_provenance();
+    let production_provenance = production_runtime.chat_runtime_provenance();
     let acceptance_url = env_text("AUTOPILOT_ACCEPTANCE_RUNTIME_URL");
     let acceptance_health_url = env_text("AUTOPILOT_ACCEPTANCE_RUNTIME_HEALTH_URL").or_else(|| {
         acceptance_url
@@ -356,7 +359,7 @@ pub(crate) fn create_acceptance_inference_runtime(
                 acceptance_health_url.as_deref().unwrap_or(url.as_str())
             )))
         }
-    } else if production_provenance.kind == StudioRuntimeProvenanceKind::RealLocalRuntime
+    } else if production_provenance.kind == ChatRuntimeProvenanceKind::RealLocalRuntime
         || acceptance_model.is_some()
     {
         if let Some(key) = acceptance_openai_key {
@@ -378,8 +381,8 @@ pub(crate) fn create_acceptance_inference_runtime(
         ))
     };
 
-    let acceptance_provenance = runtime.studio_runtime_provenance();
-    if acceptance_provenance.kind != StudioRuntimeProvenanceKind::InferenceUnavailable
+    let acceptance_provenance = runtime.chat_runtime_provenance();
+    if acceptance_provenance.kind != ChatRuntimeProvenanceKind::InferenceUnavailable
         && runtime_provenance_matches(&acceptance_provenance, &production_provenance)
     {
         return wrap_kernel_runtime(Arc::new(UnavailableInferenceRuntime::new(
@@ -438,7 +441,7 @@ fn reset_data_dir_on_boot_if_requested(data_dir: &Path) -> Result<(), String> {
     }
 
     println!(
-        "[Studio] Reset Autopilot data directory on boot: {}",
+        "[Chat] Reset Autopilot data directory on boot: {}",
         data_dir.display()
     );
     Ok(())
@@ -499,11 +502,11 @@ pub fn run() {
             let app_handle = app.handle();
             let data_dir = autopilot_data_dir_for(&app_handle);
             if let Err(error) = reset_data_dir_on_boot_if_requested(&data_dir) {
-                eprintln!("[Studio] Failed to reset data directory on boot: {}", error);
+                eprintln!("[Chat] Failed to reset data directory on boot: {}", error);
             }
             if let Some(profile) = env_text("AUTOPILOT_DATA_PROFILE") {
                 println!(
-                    "[Studio] Using Autopilot data profile '{}' at {}",
+                    "[Chat] Using Autopilot data profile '{}' at {}",
                     profile,
                     data_dir.display()
                 );
@@ -511,7 +514,7 @@ pub fn run() {
             configure_media_tool_home(&data_dir);
             if let Err(error) = identity::ensure_identity_keypair_for_app(&app_handle) {
                 eprintln!(
-                    "[Studio] Failed to provision app identity for authenticated kernel sessions: {}",
+                    "[Chat] Failed to provision app identity for authenticated kernel sessions: {}",
                     error
                 );
             }
@@ -519,7 +522,7 @@ pub fn run() {
             let memory_runtime = match open_or_create_memory_runtime(&data_dir) {
                 Ok(runtime) => Some(Arc::new(runtime)),
                 Err(error) => {
-                    eprintln!("[Studio] Failed to initialize memory runtime: {}", error);
+                    eprintln!("[Chat] Failed to initialize memory runtime: {}", error);
                     None
                 }
             };
@@ -531,9 +534,9 @@ pub fn run() {
             }
 
             if memory_runtime.is_some() {
-                println!("[Studio] Initialized memory runtime.");
+                println!("[Chat] Initialized memory runtime.");
             } else {
-                eprintln!("[Studio] Local persistence unavailable.");
+                eprintln!("[Chat] Local persistence unavailable.");
             }
 
             if let Some(memory_runtime) = memory_runtime.as_ref() {
@@ -541,7 +544,7 @@ pub fn run() {
                     kernel::local_engine::bootstrap_local_engine_dev_support(memory_runtime)
                 {
                     eprintln!(
-                        "[Studio] Failed to bootstrap local engine dev support: {}",
+                        "[Chat] Failed to bootstrap local engine dev support: {}",
                         error
                     );
                 }
@@ -621,7 +624,7 @@ pub fn run() {
                 });
             } else {
                 println!(
-                    "[Studio] Skipping wallet-backed connector bootstrap for this local dev profile."
+                    "[Chat] Skipping wallet-backed connector bootstrap for this local dev profile."
                 );
             }
             kernel::notifications::bootstrap_notification_defaults(&app.handle());
@@ -635,14 +638,14 @@ pub fn run() {
             });
 
             let inference_runtime = create_inference_runtime();
-            let studio_routing_inference_runtime =
-                create_studio_routing_inference_runtime(&inference_runtime);
+            let chat_routing_inference_runtime =
+                create_chat_routing_inference_runtime(&inference_runtime);
             let acceptance_inference_runtime = create_acceptance_inference_runtime(&inference_runtime);
             {
                 let state: State<Mutex<AppState>> = app_handle.state();
                 let mut s = state.lock().expect("Failed to lock app state");
                 s.inference_runtime = Some(inference_runtime);
-                s.studio_routing_inference_runtime = Some(studio_routing_inference_runtime);
+                s.chat_routing_inference_runtime = Some(chat_routing_inference_runtime);
                 s.acceptance_inference_runtime = Some(acceptance_inference_runtime);
             }
 
@@ -659,13 +662,13 @@ pub fn run() {
                 None::<&str>,
             )?;
             let show_pill_item = MenuItem::with_id(app, "pill", "Show Pill", true, None::<&str>)?;
-            let show_studio_item =
-                MenuItem::with_id(app, "studio", "Open Studio", true, None::<&str>)?;
+            let show_chat_item =
+                MenuItem::with_id(app, "chat", "Open Chat", true, None::<&str>)?;
             let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let menu =
                 Menu::with_items(
                     app,
-                    &[&show_spotlight_item, &show_pill_item, &show_studio_item, &quit_item],
+                    &[&show_spotlight_item, &show_pill_item, &show_chat_item, &quit_item],
                 )?;
 
             if let Some(icon) = app.default_window_icon().cloned() {
@@ -676,7 +679,7 @@ pub fn run() {
                     .on_menu_event(|app, event| match event.id.as_ref() {
                         "spotlight" => windows::show_spotlight(app.clone()),
                         "pill" => windows::show_pill(app.clone()),
-                        "studio" => windows::show_chat(app.clone()),
+                        "chat" => windows::show_chat(app.clone()),
                         "quit" => std::process::exit(0),
                         _ => {}
                     })
@@ -718,7 +721,7 @@ pub fn run() {
                 tauri::async_runtime::spawn(async move {
                     tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
                     match start_surface.as_deref() {
-                        Some("studio") => {
+                        Some("chat") => {
                             if let Some(intent) = start_intent.as_deref() {
                                 let _ = windows::show_chat_with_target(
                                     handle.clone(),
@@ -788,19 +791,19 @@ pub fn run() {
             windows::hide_gate,
             windows::show_chat,
             windows::show_chat_with_target,
-            windows::hide_studio,
+            windows::hide_chat,
             windows::set_pending_chat_launch,
             windows::clear_pending_chat_launch,
             windows::peek_pending_chat_launch,
             windows::ack_pending_chat_launch,
             windows::record_chat_launch_receipt,
             windows::get_chat_launch_receipts,
-            kernel::studio::studio_retry_renderer_session,
-            kernel::studio::studio_attach_artifact_selection,
-            kernel::studio::studio_attach_widget_state,
-            kernel::studio::studio_compare_artifact_revisions,
-            kernel::studio::studio_restore_artifact_revision,
-            kernel::studio::studio_branch_artifact_revision,
+            kernel::chat::chat_retry_renderer_session,
+            kernel::chat::chat_attach_artifact_selection,
+            kernel::chat::chat_attach_widget_state,
+            kernel::chat::chat_compare_artifact_revisions,
+            kernel::chat::chat_restore_artifact_revision,
+            kernel::chat::chat_branch_artifact_revision,
             kernel::task::start_task,
             kernel::task::continue_task,
             kernel::task::update_task,
@@ -947,7 +950,7 @@ pub fn run() {
             kernel::session::delete_session,
             kernel::dev::reset_autopilot_data,
             kernel::graph::test_node_execution,
-            kernel::graph::run_studio_graph,
+            kernel::graph::run_chat_graph,
             kernel::graph::check_node_cache,
             kernel::workflows::automation_create_monitor,
             kernel::workflows::workflow_install,
@@ -968,55 +971,55 @@ pub fn run() {
             project::project_read_file,
             project::project_write_file,
             workspace::workspace_inspect,
-            workspace::studio_workspace_inspect,
+            workspace::chat_workspace_inspect,
             workspace::workspace_list_directory,
-            workspace::studio_workspace_list_directory,
+            workspace::chat_workspace_list_directory,
             workspace::workspace_read_file,
-            workspace::studio_workspace_read_file,
+            workspace::chat_workspace_read_file,
             workspace::workspace_lsp_snapshot,
-            workspace::studio_workspace_lsp_snapshot,
+            workspace::chat_workspace_lsp_snapshot,
             workspace::workspace_lsp_definition,
-            workspace::studio_workspace_lsp_definition,
+            workspace::chat_workspace_lsp_definition,
             workspace::workspace_lsp_references,
-            workspace::studio_workspace_lsp_references,
+            workspace::chat_workspace_lsp_references,
             workspace::workspace_lsp_code_actions,
-            workspace::studio_workspace_lsp_code_actions,
+            workspace::chat_workspace_lsp_code_actions,
             workspace::workspace_write_file,
-            workspace::studio_workspace_write_file,
+            workspace::chat_workspace_write_file,
             workspace::workspace_create_file,
-            workspace::studio_workspace_create_file,
+            workspace::chat_workspace_create_file,
             workspace::workspace_create_directory,
-            workspace::studio_workspace_create_directory,
+            workspace::chat_workspace_create_directory,
             workspace::workspace_stat_path,
-            workspace::studio_workspace_stat_path,
+            workspace::chat_workspace_stat_path,
             workspace::workspace_rename_path,
-            workspace::studio_workspace_rename_path,
+            workspace::chat_workspace_rename_path,
             workspace::workspace_delete_path,
-            workspace::studio_workspace_delete_path,
+            workspace::chat_workspace_delete_path,
             workspace::workspace_search_text,
-            workspace::studio_workspace_search_text,
+            workspace::chat_workspace_search_text,
             workspace::workspace_git_status,
-            workspace::studio_workspace_git_status,
+            workspace::chat_workspace_git_status,
             workspace::workspace_git_diff,
-            workspace::studio_workspace_git_diff,
+            workspace::chat_workspace_git_diff,
             workspace::workspace_git_commit,
-            workspace::studio_workspace_git_commit,
+            workspace::chat_workspace_git_commit,
             workspace::workspace_git_stage,
-            workspace::studio_workspace_git_stage,
+            workspace::chat_workspace_git_stage,
             workspace::workspace_git_unstage,
-            workspace::studio_workspace_git_unstage,
+            workspace::chat_workspace_git_unstage,
             workspace::workspace_git_discard,
-            workspace::studio_workspace_git_discard,
+            workspace::chat_workspace_git_discard,
             workspace::workspace_terminal_create,
-            workspace::studio_workspace_terminal_create,
+            workspace::chat_workspace_terminal_create,
             workspace::workspace_terminal_read,
-            workspace::studio_workspace_terminal_read,
+            workspace::chat_workspace_terminal_read,
             workspace::workspace_terminal_write,
-            workspace::studio_workspace_terminal_write,
+            workspace::chat_workspace_terminal_write,
             workspace::workspace_terminal_resize,
-            workspace::studio_workspace_terminal_resize,
+            workspace::chat_workspace_terminal_resize,
             workspace::workspace_terminal_close,
-            workspace::studio_workspace_terminal_close
+            workspace::chat_workspace_terminal_close
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

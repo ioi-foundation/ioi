@@ -31,28 +31,28 @@ export function SettingsRuntimeSection({
       ];
 
   return (
-    <div className="studio-settings-stack">
-      <article className="studio-settings-card">
-        <div className="studio-settings-card-head">
+    <div className="chat-settings-stack">
+      <article className="chat-settings-card">
+        <div className="chat-settings-card-head">
           <div>
-            <span className="studio-settings-card-eyebrow">Runtime</span>
+            <span className="chat-settings-card-eyebrow">Runtime</span>
             <h2>Runtime posture</h2>
           </div>
-          <span className="studio-settings-pill">Kernel-backed</span>
+          <span className="chat-settings-pill">Kernel-backed</span>
         </div>
-        <p className="studio-settings-body">
+        <p className="chat-settings-body">
           This keeps runtime posture in a first-party settings plane while the
           kernel remains planner, policy, and receipt authority.
         </p>
         {controlPlane.runtime.mode === "local_asset_bootstrap" ? (
-          <p className="studio-settings-note">
+          <p className="chat-settings-note">
             This profile is in local bootstrap mode. Start a local backend or
             configure a runtime URL when you want the shell to execute against
             a live engine.
           </p>
         ) : null}
-        <div className="studio-settings-profile-grid">
-          <label className="studio-settings-field">
+        <div className="chat-settings-profile-grid">
+          <label className="chat-settings-field">
             <span>Runtime mode</span>
             <select
               value={controlPlane.runtime.mode}
@@ -73,7 +73,7 @@ export function SettingsRuntimeSection({
               ))}
             </select>
           </label>
-          <label className="studio-settings-field">
+          <label className="chat-settings-field">
             <span>Endpoint</span>
             <input
               value={controlPlane.runtime.endpoint}
@@ -88,7 +88,7 @@ export function SettingsRuntimeSection({
               }
             />
           </label>
-          <label className="studio-settings-field">
+          <label className="chat-settings-field">
             <span>Default model</span>
             <input
               value={controlPlane.runtime.defaultModel}
@@ -103,7 +103,7 @@ export function SettingsRuntimeSection({
               }
             />
           </label>
-          <label className="studio-settings-field studio-settings-field--wide">
+          <label className="chat-settings-field chat-settings-field--wide">
             <span>Baseline role</span>
             <textarea
               value={controlPlane.runtime.baselineRole}
@@ -121,16 +121,16 @@ export function SettingsRuntimeSection({
         </div>
       </article>
 
-      <article className="studio-settings-card">
-        <div className="studio-settings-card-head">
+      <article className="chat-settings-card">
+        <div className="chat-settings-card-head">
           <div>
-            <span className="studio-settings-card-eyebrow">Launcher</span>
+            <span className="chat-settings-card-eyebrow">Launcher</span>
             <h2>Shell and launch behavior</h2>
           </div>
-          <span className="studio-settings-pill">Settings plane</span>
+          <span className="chat-settings-pill">Settings plane</span>
         </div>
-        <div className="studio-settings-form-grid">
-          <label className="studio-settings-toggle">
+        <div className="chat-settings-form-grid">
+          <label className="chat-settings-toggle">
             <input
               type="checkbox"
               checked={controlPlane.launcher.autoStartOnBoot}
@@ -149,26 +149,26 @@ export function SettingsRuntimeSection({
               <span>Use Settings as the launcher-parity control surface.</span>
             </div>
           </label>
-          <label className="studio-settings-toggle">
+          <label className="chat-settings-toggle">
             <input
               type="checkbox"
-              checked={controlPlane.launcher.reopenStudioOnLaunch}
+              checked={controlPlane.launcher.reopenChatOnLaunch}
               onChange={(event) =>
                 updateEngineDraft((current) => ({
                   ...current,
                   launcher: {
                     ...current.launcher,
-                    reopenStudioOnLaunch: event.target.checked,
+                    reopenChatOnLaunch: event.target.checked,
                   },
                 }))
               }
             />
             <div>
-              <strong>Reopen Studio on launch</strong>
+              <strong>Reopen Chat on launch</strong>
               <span>Return operators to the same shell after relaunch.</span>
             </div>
           </label>
-          <label className="studio-settings-toggle">
+          <label className="chat-settings-toggle">
             <input
               type="checkbox"
               checked={controlPlane.launcher.autoCheckUpdates}
@@ -187,7 +187,7 @@ export function SettingsRuntimeSection({
               <span>Keep runtime and launcher parity visible to the operator.</span>
             </div>
           </label>
-          <label className="studio-settings-toggle">
+          <label className="chat-settings-toggle">
             <input
               type="checkbox"
               checked={controlPlane.launcher.showKernelConsole}
@@ -206,7 +206,7 @@ export function SettingsRuntimeSection({
               <span>Expose low-level runtime stdout and stderr when debugging.</span>
             </div>
           </label>
-          <label className="studio-settings-field">
+          <label className="chat-settings-field">
             <span>Release channel</span>
             <select
               value={controlPlane.launcher.releaseChannel}
@@ -228,16 +228,16 @@ export function SettingsRuntimeSection({
         </div>
       </article>
 
-      <article className="studio-settings-card">
-        <div className="studio-settings-card-head">
+      <article className="chat-settings-card">
+        <div className="chat-settings-card-head">
           <div>
-            <span className="studio-settings-card-eyebrow">Execution</span>
+            <span className="chat-settings-card-eyebrow">Execution</span>
             <h2>Watchdog, memory, and throughput</h2>
           </div>
-          <span className="studio-settings-pill">Runtime policy</span>
+          <span className="chat-settings-pill">Runtime policy</span>
         </div>
-        <div className="studio-settings-form-grid">
-          <label className="studio-settings-toggle">
+        <div className="chat-settings-form-grid">
+          <label className="chat-settings-toggle">
             <input
               type="checkbox"
               checked={controlPlane.watchdog.enabled}
@@ -256,7 +256,7 @@ export function SettingsRuntimeSection({
               <span>Keep idle and busy eviction semantics under kernel control.</span>
             </div>
           </label>
-          <label className="studio-settings-toggle">
+          <label className="chat-settings-toggle">
             <input
               type="checkbox"
               checked={controlPlane.memory.reclaimerEnabled}
@@ -275,7 +275,7 @@ export function SettingsRuntimeSection({
               <span>Evict aggressively before local workloads overrun capacity.</span>
             </div>
           </label>
-          <label className="studio-settings-toggle">
+          <label className="chat-settings-toggle">
             <input
               type="checkbox"
               checked={controlPlane.watchdog.idleCheckEnabled}
@@ -294,7 +294,7 @@ export function SettingsRuntimeSection({
               <span>Stop backends that stay loaded after the operator has gone quiet.</span>
             </div>
           </label>
-          <label className="studio-settings-toggle">
+          <label className="chat-settings-toggle">
             <input
               type="checkbox"
               checked={controlPlane.watchdog.busyCheckEnabled}
@@ -313,7 +313,7 @@ export function SettingsRuntimeSection({
               <span>Let the kernel recover from stuck backend work that exceeds the budget.</span>
             </div>
           </label>
-          <label className="studio-settings-field">
+          <label className="chat-settings-field">
             <span>Idle timeout</span>
             <input
               value={controlPlane.watchdog.idleTimeout}
@@ -328,7 +328,7 @@ export function SettingsRuntimeSection({
               }
             />
           </label>
-          <label className="studio-settings-field">
+          <label className="chat-settings-field">
             <span>Busy timeout</span>
             <input
               value={controlPlane.watchdog.busyTimeout}
@@ -343,7 +343,7 @@ export function SettingsRuntimeSection({
               }
             />
           </label>
-          <label className="studio-settings-field">
+          <label className="chat-settings-field">
             <span>Check interval</span>
             <input
               value={controlPlane.watchdog.checkInterval}
@@ -358,7 +358,7 @@ export function SettingsRuntimeSection({
               }
             />
           </label>
-          <label className="studio-settings-field">
+          <label className="chat-settings-field">
             <span>Eviction retries</span>
             <input
               type="number"
@@ -375,7 +375,7 @@ export function SettingsRuntimeSection({
               }
             />
           </label>
-          <label className="studio-settings-field">
+          <label className="chat-settings-field">
             <span>Retry interval</span>
             <input
               value={controlPlane.watchdog.lruEvictionRetryInterval}
@@ -390,7 +390,7 @@ export function SettingsRuntimeSection({
               }
             />
           </label>
-          <label className="studio-settings-field">
+          <label className="chat-settings-field">
             <span>Memory threshold (%)</span>
             <input
               type="number"
@@ -408,7 +408,7 @@ export function SettingsRuntimeSection({
               }
             />
           </label>
-          <label className="studio-settings-field">
+          <label className="chat-settings-field">
             <span>Target resource</span>
             <input
               value={controlPlane.memory.targetResource}
@@ -423,7 +423,7 @@ export function SettingsRuntimeSection({
               }
             />
           </label>
-          <label className="studio-settings-field">
+          <label className="chat-settings-field">
             <span>Max concurrency</span>
             <input
               type="number"
@@ -440,7 +440,7 @@ export function SettingsRuntimeSection({
               }
             />
           </label>
-          <label className="studio-settings-field">
+          <label className="chat-settings-field">
             <span>Queued requests</span>
             <input
               type="number"
@@ -457,7 +457,7 @@ export function SettingsRuntimeSection({
               }
             />
           </label>
-          <label className="studio-settings-field">
+          <label className="chat-settings-field">
             <span>Parallel backend loads</span>
             <input
               type="number"
@@ -474,7 +474,7 @@ export function SettingsRuntimeSection({
               }
             />
           </label>
-          <label className="studio-settings-field">
+          <label className="chat-settings-field">
             <span>Health probe interval</span>
             <input
               value={controlPlane.backendPolicy.healthProbeInterval}
@@ -489,7 +489,7 @@ export function SettingsRuntimeSection({
               }
             />
           </label>
-          <label className="studio-settings-field">
+          <label className="chat-settings-field">
             <span>Log level</span>
             <input
               value={controlPlane.backendPolicy.logLevel}
@@ -504,7 +504,7 @@ export function SettingsRuntimeSection({
               }
             />
           </label>
-          <label className="studio-settings-field">
+          <label className="chat-settings-field">
             <span>Retention days</span>
             <input
               type="number"
@@ -521,7 +521,7 @@ export function SettingsRuntimeSection({
               }
             />
           </label>
-          <label className="studio-settings-toggle">
+          <label className="chat-settings-toggle">
             <input
               type="checkbox"
               checked={controlPlane.backendPolicy.allowParallelRequests}
@@ -540,7 +540,7 @@ export function SettingsRuntimeSection({
               <span>Keep concurrent local workloads inside the runtime budget.</span>
             </div>
           </label>
-          <label className="studio-settings-toggle">
+          <label className="chat-settings-toggle">
             <input
               type="checkbox"
               checked={controlPlane.watchdog.forceEvictionWhenBusy}
@@ -559,7 +559,7 @@ export function SettingsRuntimeSection({
               <span>Allow the kernel to reclaim residency even during active API pressure.</span>
             </div>
           </label>
-          <label className="studio-settings-toggle">
+          <label className="chat-settings-toggle">
             <input
               type="checkbox"
               checked={controlPlane.memory.preferGpu}
@@ -578,7 +578,7 @@ export function SettingsRuntimeSection({
               <span>Bias reclaimed workloads toward GPU residency when hardware is available.</span>
             </div>
           </label>
-          <label className="studio-settings-toggle">
+          <label className="chat-settings-toggle">
             <input
               type="checkbox"
               checked={controlPlane.backendPolicy.autoShutdownOnIdle}
@@ -597,7 +597,7 @@ export function SettingsRuntimeSection({
               <span>Collapse residency back to zero when local demand disappears.</span>
             </div>
           </label>
-          <label className="studio-settings-toggle">
+          <label className="chat-settings-toggle">
             <input
               type="checkbox"
               checked={controlPlane.responses.persistArtifacts}
@@ -616,7 +616,7 @@ export function SettingsRuntimeSection({
               <span>Keep output artifacts and receipts available for later review.</span>
             </div>
           </label>
-          <label className="studio-settings-toggle">
+          <label className="chat-settings-toggle">
             <input
               type="checkbox"
               checked={controlPlane.responses.allowStreaming}
@@ -635,7 +635,7 @@ export function SettingsRuntimeSection({
               <span>Keep partial local responses visible while workloads are still running.</span>
             </div>
           </label>
-          <label className="studio-settings-toggle">
+          <label className="chat-settings-toggle">
             <input
               type="checkbox"
               checked={controlPlane.responses.storeRequestPreviews}

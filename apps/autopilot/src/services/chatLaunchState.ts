@@ -1,18 +1,18 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
   AssistantWorkbenchSession,
-  StudioCapabilityDetailSection,
-  StudioViewTarget,
+  ChatViewTarget,
 } from "@ioi/agent-ide";
+import type { ChatCapabilityDetailSection } from "../types";
 
-const STORAGE_KEY = "autopilot.pending_studio_launch.v1";
+const STORAGE_KEY = "autopilot.pending_chat_launch.v1";
 const RECEIPTS_STORAGE_KEY = "autopilot.chat_launch_receipts.v1";
 const MAX_RECEIPTS = 64;
 
 export type PendingChatLaunchRequest =
   | {
       kind: "view";
-      view: StudioViewTarget;
+      view: ChatViewTarget;
     }
   | {
       kind: "session-target";
@@ -21,7 +21,7 @@ export type PendingChatLaunchRequest =
   | {
       kind: "capability";
       connectorId?: string | null;
-      detailSection?: StudioCapabilityDetailSection | null;
+      detailSection?: ChatCapabilityDetailSection | null;
     }
   | {
       kind: "policy";
@@ -130,7 +130,7 @@ function createChatLaunchId() {
     return crypto.randomUUID();
   }
 
-  return `studio-launch-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
+  return `chat-launch-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
 }
 
 function createPendingChatLaunchEnvelope(
@@ -188,7 +188,7 @@ function readPendingChatLaunchEnvelope(): PendingChatLaunchEnvelope | null {
   try {
     return normalizePendingChatLaunchEnvelope(JSON.parse(raw));
   } catch (error) {
-    console.warn("Failed to parse pending Studio launch request:", error);
+    console.warn("Failed to parse pending Chat launch request:", error);
     window.localStorage.removeItem(STORAGE_KEY);
     return null;
   }
@@ -208,7 +208,7 @@ function readChatLaunchReceipts(): ChatLaunchReceipt[] {
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? (parsed as ChatLaunchReceipt[]) : [];
   } catch (error) {
-    console.warn("Failed to parse Studio launch receipts:", error);
+    console.warn("Failed to parse Chat launch receipts:", error);
     window.localStorage.removeItem(RECEIPTS_STORAGE_KEY);
     return [];
   }

@@ -335,15 +335,15 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
                     cost: Some("$0.00".to_string()),
                 });
 
-                let studio_verified_reply =
-                    if crate::kernel::studio::task_requires_studio_primary_execution(t) {
-                        crate::kernel::studio::verified_reply_summary_for_task(t)
+                let chat_verified_reply =
+                    if crate::kernel::chat::task_requires_chat_primary_execution(t) {
+                        crate::kernel::chat::verified_reply_summary_for_task(t)
                     } else {
                         None
                     };
 
                 if !is_chat_reply_tool(&res.tool_name) {
-                    if let Some(msg) = studio_verified_reply
+                    if let Some(msg) = chat_verified_reply
                         .or_else(|| completion_message_for_history(&res.tool_name, &res.output))
                     {
                         let duplicate = t
@@ -368,9 +368,9 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
                 t.pending_request_hash = None;
                 t.credential_request = None;
                 t.clarification_request = None;
-                let studio_failure_summary =
-                    if crate::kernel::studio::task_requires_studio_primary_execution(t) {
-                        crate::kernel::studio::verified_reply_summary_for_task(t)
+                let chat_failure_summary =
+                    if crate::kernel::chat::task_requires_chat_primary_execution(t) {
+                        crate::kernel::chat::verified_reply_summary_for_task(t)
                     } else {
                         None
                     };
@@ -386,7 +386,7 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
                 });
 
                 // Keep terminal failures visible in the primary conversation stream.
-                let agent_failure = studio_failure_summary
+                let agent_failure = chat_failure_summary
                     .clone()
                     .unwrap_or_else(|| format!("Task failed: {}", res.output));
                 t.current_step = agent_failure.clone();
@@ -422,8 +422,8 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
                 t.current_step = "Ready for input".to_string();
             }
 
-            let reply_text = if crate::kernel::studio::task_requires_studio_primary_execution(t) {
-                crate::kernel::studio::verified_reply_summary_for_task(t)
+            let reply_text = if crate::kernel::chat::task_requires_chat_primary_execution(t) {
+                crate::kernel::chat::verified_reply_summary_for_task(t)
                     .unwrap_or_else(|| res.output.clone())
             } else {
                 res.output.clone()
@@ -485,17 +485,17 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
     let status = event_status_from_agent_status(&res.agent_status);
     let artifact_refs =
         create_macro_artifacts_for_action(&app, &thread_id, &kind, &res.tool_name, &res.output);
-    let studio_completion = {
+    let chat_completion = {
         let state_handle = app.state::<Mutex<AppState>>();
         let completion = match state_handle.lock() {
             Ok(guard) => guard.current_task.as_ref().and_then(|task| {
-                if !crate::kernel::studio::task_requires_studio_primary_execution(task) {
+                if !crate::kernel::chat::task_requires_chat_primary_execution(task) {
                     return None;
                 }
-                crate::kernel::studio::verified_reply_summary_for_task(task).map(|summary| {
+                crate::kernel::chat::verified_reply_summary_for_task(task).map(|summary| {
                     (
-                        crate::kernel::studio::verified_reply_title_for_task(task)
-                            .unwrap_or_else(|| "Studio outcome verified".to_string()),
+                        crate::kernel::chat::verified_reply_title_for_task(task)
+                            .unwrap_or_else(|| "Chat outcome verified".to_string()),
                         summary,
                     )
                 })
@@ -506,7 +506,7 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
     };
 
     if res.agent_status.eq_ignore_ascii_case("completed") {
-        let (title, summary) = studio_completion.unwrap_or_else(|| {
+        let (title, summary) = chat_completion.unwrap_or_else(|| {
             (
                 "Workflow completed".to_string(),
                 completion_message_for_history(&res.tool_name, &res.output)

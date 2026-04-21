@@ -191,7 +191,7 @@ async fn discover_adapter_tools_includes_google_and_service_tools() {
         )
         .expect("insert service meta");
 
-    let (tools, names) = discover_adapter_tools(&state, None, "Autopilot Studio", None).await;
+    let (tools, names) = discover_adapter_tools(&state, None, "Autopilot Chat", None).await;
     assert!(names.contains("connector__google__gmail_read_emails"));
     assert!(names.contains("mock_service__ping"));
     assert!(

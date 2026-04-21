@@ -45,7 +45,7 @@ type ConversationTimelineProps = {
   ) => void;
   onOpenSourceSummary: (summary: SourceSummary) => void;
   activeChatArtifactSessionId?: string | null;
-  onOpenStudioArtifact?: (chatSessionId: string) => void;
+  onOpenChatArtifact?: (chatSessionId: string) => void;
   inlineStatusCard?: React.ReactNode;
 };
 
@@ -65,7 +65,7 @@ export function ConversationTimeline({
   onOpenArtifactHub,
   onOpenSourceSummary,
   activeChatArtifactSessionId = null,
-  onOpenStudioArtifact,
+  onOpenChatArtifact,
   inlineStatusCard,
 }: ConversationTimelineProps) {
   const normalizePendingReplyDetail = (
@@ -225,7 +225,7 @@ export function ConversationTimeline({
             )}
 
             {showInlineStatusCard && (
-              <div className="spot-message agent spot-message--studio-status">
+              <div className="spot-message agent spot-message--chat-status">
                 {inlineStatusCard}
               </div>
             )}
@@ -441,7 +441,7 @@ export function ConversationTimeline({
 
             {turnContext &&
             turnContext.artifacts.length > 0 &&
-            onOpenStudioArtifact ? (
+            onOpenChatArtifact ? (
               showInlineTranscript ? (
                 <div
                   className="spot-inline-artifact-actions"
@@ -457,7 +457,7 @@ export function ConversationTimeline({
                         className={`spot-inline-artifact-chip ${
                           active ? "is-active" : ""
                         }`}
-                        onClick={() => onOpenStudioArtifact(artifact.sessionId)}
+                        onClick={() => onOpenChatArtifact(artifact.sessionId)}
                         aria-pressed={active}
                       >
                         <span aria-hidden="true">{icons.artifacts}</span>
@@ -492,7 +492,7 @@ export function ConversationTimeline({
                             active ? "is-active" : ""
                           }`}
                           onClick={() =>
-                            onOpenStudioArtifact(artifact.sessionId)
+                            onOpenChatArtifact(artifact.sessionId)
                           }
                           aria-pressed={active}
                         >

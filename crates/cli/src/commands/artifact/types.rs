@@ -1,13 +1,13 @@
-use ioi_api::studio::{
-    StudioAdaptiveSearchBudget, StudioArtifactBlueprint, StudioArtifactBrief,
-    StudioArtifactCandidateSummary, StudioArtifactEditIntent, StudioArtifactIR,
-    StudioArtifactOutputOrigin, StudioArtifactRenderEvaluation, StudioArtifactRuntimePolicy,
-    StudioArtifactSelectedSkill, StudioArtifactTasteMemory, StudioArtifactUxLifecycle,
-    StudioGeneratedArtifactFile,
+use ioi_api::chat::{
+    ChatAdaptiveSearchBudget, ChatArtifactBlueprint, ChatArtifactBrief,
+    ChatArtifactCandidateSummary, ChatArtifactEditIntent, ChatArtifactIR,
+    ChatArtifactOutputOrigin, ChatArtifactRenderEvaluation, ChatArtifactRuntimePolicy,
+    ChatArtifactSelectedSkill, ChatArtifactTasteMemory, ChatArtifactUxLifecycle,
+    ChatGeneratedArtifactFile,
 };
 use ioi_types::app::{
-    StudioArtifactFailure, StudioArtifactManifest, StudioOutcomePlanningPayload,
-    StudioRendererKind, StudioRuntimeProvenance,
+    ChatArtifactFailure, ChatArtifactManifest, ChatOutcomePlanningPayload,
+    ChatRendererKind, ChatRuntimeProvenance,
 };
 use serde::{Deserialize, Serialize};
 
@@ -28,9 +28,9 @@ pub(crate) struct ArtifactInspection {
     pub(crate) repo_centric_package: bool,
     pub(crate) render_surface_available: bool,
     pub(crate) preferred_stage_mode: String,
-    pub(crate) production_provenance: Option<StudioRuntimeProvenance>,
-    pub(crate) acceptance_provenance: Option<StudioRuntimeProvenance>,
-    pub(crate) failure: Option<StudioArtifactFailure>,
+    pub(crate) production_provenance: Option<ChatRuntimeProvenance>,
+    pub(crate) acceptance_provenance: Option<ChatRuntimeProvenance>,
+    pub(crate) failure: Option<ChatArtifactFailure>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -41,9 +41,9 @@ pub(crate) struct ComposedVerifiedReply {
     pub(crate) title: String,
     pub(crate) summary: String,
     pub(crate) evidence: Vec<String>,
-    pub(crate) production_provenance: Option<StudioRuntimeProvenance>,
-    pub(crate) acceptance_provenance: Option<StudioRuntimeProvenance>,
-    pub(crate) failure: Option<StudioArtifactFailure>,
+    pub(crate) production_provenance: Option<ChatRuntimeProvenance>,
+    pub(crate) acceptance_provenance: Option<ChatRuntimeProvenance>,
+    pub(crate) failure: Option<ChatArtifactFailure>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -63,45 +63,45 @@ pub(crate) struct ArtifactLaneReceipt {
 pub(crate) struct GeneratedArtifactEvidence {
     pub(crate) prompt: String,
     pub(crate) title: String,
-    pub(crate) route: StudioOutcomePlanningPayload,
+    pub(crate) route: ChatOutcomePlanningPayload,
     #[serde(default)]
-    pub(crate) artifact_brief: Option<StudioArtifactBrief>,
+    pub(crate) artifact_brief: Option<ChatArtifactBrief>,
     #[serde(default)]
-    pub(crate) blueprint: Option<StudioArtifactBlueprint>,
+    pub(crate) blueprint: Option<ChatArtifactBlueprint>,
     #[serde(default)]
-    pub(crate) artifact_ir: Option<StudioArtifactIR>,
+    pub(crate) artifact_ir: Option<ChatArtifactIR>,
     #[serde(default)]
-    pub(crate) selected_skills: Vec<StudioArtifactSelectedSkill>,
+    pub(crate) selected_skills: Vec<ChatArtifactSelectedSkill>,
     #[serde(default)]
-    pub(crate) edit_intent: Option<StudioArtifactEditIntent>,
+    pub(crate) edit_intent: Option<ChatArtifactEditIntent>,
     #[serde(default)]
-    pub(crate) candidate_summaries: Vec<StudioArtifactCandidateSummary>,
+    pub(crate) candidate_summaries: Vec<ChatArtifactCandidateSummary>,
     #[serde(default)]
     pub(crate) winning_candidate_id: Option<String>,
     #[serde(default)]
     pub(crate) winning_candidate_rationale: Option<String>,
     #[serde(default)]
-    pub(crate) render_evaluation: Option<StudioArtifactRenderEvaluation>,
+    pub(crate) render_evaluation: Option<ChatArtifactRenderEvaluation>,
     #[serde(default)]
-    pub(crate) validation: Option<ioi_api::studio::StudioArtifactValidationResult>,
+    pub(crate) validation: Option<ioi_api::chat::ChatArtifactValidationResult>,
     #[serde(default)]
-    pub(crate) output_origin: Option<StudioArtifactOutputOrigin>,
+    pub(crate) output_origin: Option<ChatArtifactOutputOrigin>,
     #[serde(default)]
-    pub(crate) runtime_policy: Option<StudioArtifactRuntimePolicy>,
+    pub(crate) runtime_policy: Option<ChatArtifactRuntimePolicy>,
     #[serde(default)]
-    pub(crate) adaptive_search_budget: Option<StudioAdaptiveSearchBudget>,
+    pub(crate) adaptive_search_budget: Option<ChatAdaptiveSearchBudget>,
     #[serde(default)]
     pub(crate) artifact_lane_receipts: Vec<ArtifactLaneReceipt>,
     #[serde(default)]
-    pub(crate) production_provenance: Option<StudioRuntimeProvenance>,
+    pub(crate) production_provenance: Option<ChatRuntimeProvenance>,
     #[serde(default)]
-    pub(crate) acceptance_provenance: Option<StudioRuntimeProvenance>,
+    pub(crate) acceptance_provenance: Option<ChatRuntimeProvenance>,
     pub(crate) fallback_used: bool,
     #[serde(default)]
-    pub(crate) ux_lifecycle: Option<StudioArtifactUxLifecycle>,
+    pub(crate) ux_lifecycle: Option<ChatArtifactUxLifecycle>,
     #[serde(default)]
-    pub(crate) failure: Option<StudioArtifactFailure>,
-    pub(crate) manifest: StudioArtifactManifest,
+    pub(crate) failure: Option<ChatArtifactFailure>,
+    pub(crate) manifest: ChatArtifactManifest,
     pub(crate) verified_reply: ComposedVerifiedReply,
     pub(crate) materialized_files: Vec<String>,
     pub(crate) renderable_files: Vec<String>,
@@ -116,16 +116,16 @@ pub(crate) struct LoadedRefinementEvidence {
     pub(crate) revision_id: Option<String>,
     pub(crate) title: String,
     pub(crate) summary: String,
-    pub(crate) renderer: StudioRendererKind,
-    pub(crate) files: Vec<StudioGeneratedArtifactFile>,
-    pub(crate) selected_targets: Vec<ioi_api::studio::StudioArtifactSelectionTarget>,
-    pub(crate) taste_memory: Option<StudioArtifactTasteMemory>,
+    pub(crate) renderer: ChatRendererKind,
+    pub(crate) files: Vec<ChatGeneratedArtifactFile>,
+    pub(crate) selected_targets: Vec<ioi_api::chat::ChatArtifactSelectionTarget>,
+    pub(crate) taste_memory: Option<ChatArtifactTasteMemory>,
 }
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ArtifactCommandErrorEnvelope {
-    pub(crate) error: StudioArtifactFailure,
-    pub(crate) production_provenance: Option<StudioRuntimeProvenance>,
-    pub(crate) acceptance_provenance: Option<StudioRuntimeProvenance>,
+    pub(crate) error: ChatArtifactFailure,
+    pub(crate) production_provenance: Option<ChatRuntimeProvenance>,
+    pub(crate) acceptance_provenance: Option<ChatRuntimeProvenance>,
 }

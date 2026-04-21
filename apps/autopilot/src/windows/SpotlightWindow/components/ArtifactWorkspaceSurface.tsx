@@ -7,7 +7,7 @@ import {
   type WorkspaceOpenRequest,
 } from "@ioi/workspace-substrate";
 
-import type { StudioArtifactSelectionTarget } from "../../../types";
+import type { ChatArtifactSelectionTarget } from "../../../types";
 import { tauriWorkspaceAdapter } from "../../../services/workspaceAdapter";
 import { ArtifactRendererHost } from "./ArtifactRendererHost";
 import { ArtifactSourceWorkbench } from "./ArtifactSourceWorkbench";
@@ -24,7 +24,7 @@ import {
   findArtifactFile,
   hasVerifiedRender,
   resolveInitialStageMode,
-} from "./studioArtifactSurfaceModel";
+} from "./chatArtifactSurfaceModel";
 
 export function ArtifactWorkspaceSurface({
   manifest,
@@ -80,8 +80,8 @@ export function ArtifactWorkspaceSurface({
       ? activeWorkspaceFile.content
       : null;
   const hasRender = hasVerifiedRender(manifest, rendererSession);
-  const seedSelectionIntent = async (target: StudioArtifactSelectionTarget) => {
-    await invoke("studio_attach_artifact_selection", { selection: target });
+  const seedSelectionIntent = async (target: ChatArtifactSelectionTarget) => {
+    await invoke("chat_attach_artifact_selection", { selection: target });
     onSeedIntent(
       `Edit only this artifact selection from ${target.sourceSurface}${target.path ? ` (${target.path})` : ""}:\n\n${target.snippet}`,
     );
@@ -101,8 +101,8 @@ export function ArtifactWorkspaceSurface({
   };
 
   return (
-    <section className="studio-artifact-surface" aria-label="Studio artifact surface">
-      <aside className="studio-artifact-sidebar studio-artifact-sidebar--explorer">
+    <section className="chat-artifact-surface" aria-label="Chat artifact surface">
+      <aside className="chat-artifact-sidebar chat-artifact-sidebar--explorer">
         <WorkspaceExplorerPane
           tree={session.treeNodes}
           activePath={session.activeFilePath}
@@ -124,17 +124,17 @@ export function ArtifactWorkspaceSurface({
           onDeletePath={(_path: string) => undefined}
         />
 
-        <div className="studio-artifact-sidebar-footer">
-          <span className="studio-artifact-badge">
+        <div className="chat-artifact-sidebar-footer">
+          <span className="chat-artifact-badge">
             {displayArtifactClassLabel(manifest.artifactClass)}
           </span>
-          <span className="studio-artifact-badge is-muted">
+          <span className="chat-artifact-badge is-muted">
             {formatStatusLabel(manifest.verification.status)}
           </span>
         </div>
       </aside>
 
-      <div className="studio-artifact-stage">
+      <div className="chat-artifact-stage">
         <ArtifactStageHeader
           manifest={manifest}
           title={stageTitle}
@@ -154,20 +154,20 @@ export function ArtifactWorkspaceSurface({
         />
 
         {session.workspaceError ? (
-          <div className="studio-artifact-banner is-error">{session.workspaceError}</div>
+          <div className="chat-artifact-banner is-error">{session.workspaceError}</div>
         ) : null}
 
         {!hasRender && stageMode === "render" ? (
-          <div className="studio-artifact-banner">
+          <div className="chat-artifact-banner">
             Render becomes primary after preview verification. Source remains the default until a
             verified preview exists.
           </div>
         ) : null}
 
-        <div className={`studio-artifact-stage-layout ${evidenceOpen ? "is-evidence-open" : ""}`}>
-          <div className="studio-artifact-stage-main">
+        <div className={`chat-artifact-stage-layout ${evidenceOpen ? "is-evidence-open" : ""}`}>
+          <div className="chat-artifact-stage-main">
             {stageMode === "source" ? (
-              <section className="studio-artifact-source-workbench workspace-host workspace-host--embedded">
+              <section className="chat-artifact-source-workbench workspace-host workspace-host--embedded">
                 <ArtifactSourceWorkbench
                   artifactId={manifest.artifactId}
                   files={manifest.files}

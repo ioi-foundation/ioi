@@ -176,7 +176,7 @@ export function useSessionComposer<
   newSessionFocusDelayMs = 50,
   createLocalHistoryMessage,
   resolveTaskFailureMessage,
-  startTaskUnavailableMessage = "Studio could not start this run. Check receipts for backend errors, then try again.",
+  startTaskUnavailableMessage = "Chat could not start this run. Check receipts for backend errors, then try again.",
 }: UseSessionComposerOptions<TTask, TLocalHistoryMessage, TChatEvent>) {
   useEffect(() => {
     if (!task) {

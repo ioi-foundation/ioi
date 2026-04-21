@@ -50,9 +50,9 @@
         "focus": false
       },
       {
-        "label": "studio",
-        "title": "Autopilot Studio",
-        "url": "/studio",
+        "label": "chat",
+        "title": "Autopilot Chat",
+        "url": "/chat",
         "visible": false,
         "decorations": false,
         "resizable": true,

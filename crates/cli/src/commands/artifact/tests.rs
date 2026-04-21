@@ -3,17 +3,17 @@ use super::manifest::*;
 use super::runtime::*;
 use super::*;
 use axum::{extract::State, routing::post, Json, Router};
-use ioi_api::studio::{
-    pdf_artifact_bytes, StudioArtifactSelectionTarget, StudioArtifactValidationStatus,
-    StudioGeneratedArtifactFile, StudioGeneratedArtifactPayload,
+use ioi_api::chat::{
+    pdf_artifact_bytes, ChatArtifactSelectionTarget, ChatArtifactValidationStatus,
+    ChatGeneratedArtifactFile, ChatGeneratedArtifactPayload,
 };
 use ioi_api::vm::inference::{mock::MockInferenceRuntime, HttpInferenceRuntime};
 use ioi_types::app::{
-    StudioArtifactClass, StudioArtifactFailure, StudioArtifactFailureKind, StudioArtifactFileRole,
-    StudioArtifactLifecycleState, StudioArtifactManifest, StudioArtifactManifestFile,
-    StudioArtifactManifestTab, StudioArtifactManifestVerification, StudioArtifactTabKind,
-    StudioArtifactVerificationStatus, StudioOutcomeArtifactRequest, StudioRuntimeProvenance,
-    StudioRuntimeProvenanceKind,
+    ChatArtifactClass, ChatArtifactFailure, ChatArtifactFailureKind, ChatArtifactFileRole,
+    ChatArtifactLifecycleState, ChatArtifactManifest, ChatArtifactManifestFile,
+    ChatArtifactManifestTab, ChatArtifactManifestVerification, ChatArtifactTabKind,
+    ChatArtifactVerificationStatus, ChatOutcomeArtifactRequest, ChatRuntimeProvenance,
+    ChatRuntimeProvenanceKind,
 };
 use serde_json::{json, Value};
 use tempfile::tempdir;
@@ -27,12 +27,12 @@ fn strong_markdown_fixture() -> &'static str {
 This artifact captures the release checklist for the quarterly launch. It outlines the
 readiness gates, launch owners, rollback expectations, customer communication work, and
 post-launch verification steps that must be complete before the release can be presented
-as successful in Studio.
+as successful in Chat.
 
 ## Readiness Gates
 - Confirm the release branch is frozen and tagged.
 - Verify migration notes, dependency updates, and environment changes.
-- Validate the primary render output in Studio and confirm evidence is attached.
+- Validate the primary render output in Chat and confirm evidence is attached.
 - Confirm rollback instructions, validation checks, and monitoring thresholds are current.
 
 ## Launch Sequence
@@ -48,33 +48,33 @@ rather than worker prose or placeholder copy.
 "
 }
 
-fn sample_manifest() -> StudioArtifactManifest {
-    StudioArtifactManifest {
+fn sample_manifest() -> ChatArtifactManifest {
+    ChatArtifactManifest {
         artifact_id: "artifact_123".to_string(),
         title: "Quarterly Report".to_string(),
-        artifact_class: StudioArtifactClass::Document,
-        renderer: StudioRendererKind::Markdown,
+        artifact_class: ChatArtifactClass::Document,
+        renderer: ChatRendererKind::Markdown,
         primary_tab: "render".to_string(),
-        tabs: vec![StudioArtifactManifestTab {
+        tabs: vec![ChatArtifactManifestTab {
             id: "render".to_string(),
             label: "Render".to_string(),
-            kind: StudioArtifactTabKind::Render,
-            renderer: Some(StudioRendererKind::Markdown),
+            kind: ChatArtifactTabKind::Render,
+            renderer: Some(ChatRendererKind::Markdown),
             file_path: Some("report.md".to_string()),
             lens: None,
         }],
-        files: vec![StudioArtifactManifestFile {
+        files: vec![ChatArtifactManifestFile {
             path: "report.md".to_string(),
             mime: "text/markdown".to_string(),
-            role: StudioArtifactFileRole::Primary,
+            role: ChatArtifactFileRole::Primary,
             renderable: true,
             downloadable: true,
             artifact_id: None,
             external_url: None,
         }],
-        verification: StudioArtifactManifestVerification {
-            status: StudioArtifactVerificationStatus::Ready,
-            lifecycle_state: StudioArtifactLifecycleState::Ready,
+        verification: ChatArtifactManifestVerification {
+            status: ChatArtifactVerificationStatus::Ready,
+            lifecycle_state: ChatArtifactLifecycleState::Ready,
             summary: "Render contract verified.".to_string(),
             production_provenance: None,
             acceptance_provenance: None,
@@ -84,37 +84,37 @@ fn sample_manifest() -> StudioArtifactManifest {
     }
 }
 
-fn blocked_failure_manifest() -> StudioArtifactManifest {
-    let failure = StudioArtifactFailure {
-        kind: StudioArtifactFailureKind::InferenceUnavailable,
+fn blocked_failure_manifest() -> ChatArtifactManifest {
+    let failure = ChatArtifactFailure {
+        kind: ChatArtifactFailureKind::InferenceUnavailable,
         code: "inference_unavailable".to_string(),
-        message: "Studio cannot route or materialize artifacts because inference is unavailable."
+        message: "Chat cannot route or materialize artifacts because inference is unavailable."
             .to_string(),
     };
-    let provenance = StudioRuntimeProvenance {
-        kind: StudioRuntimeProvenanceKind::InferenceUnavailable,
+    let provenance = ChatRuntimeProvenance {
+        kind: ChatRuntimeProvenanceKind::InferenceUnavailable,
         label: "inference unavailable".to_string(),
         model: None,
         endpoint: None,
     };
-    StudioArtifactManifest {
+    ChatArtifactManifest {
         artifact_id: "artifact_blocked".to_string(),
         title: "Blocked artifact".to_string(),
-        artifact_class: StudioArtifactClass::ReportBundle,
-        renderer: StudioRendererKind::BundleManifest,
+        artifact_class: ChatArtifactClass::ReportBundle,
+        renderer: ChatRendererKind::BundleManifest,
         primary_tab: "evidence".to_string(),
-        tabs: vec![StudioArtifactManifestTab {
+        tabs: vec![ChatArtifactManifestTab {
             id: "evidence".to_string(),
             label: "Evidence".to_string(),
-            kind: StudioArtifactTabKind::Evidence,
+            kind: ChatArtifactTabKind::Evidence,
             renderer: None,
             file_path: None,
             lens: Some("evidence".to_string()),
         }],
         files: Vec::new(),
-        verification: StudioArtifactManifestVerification {
-            status: StudioArtifactVerificationStatus::Blocked,
-            lifecycle_state: StudioArtifactLifecycleState::Blocked,
+        verification: ChatArtifactManifestVerification {
+            status: ChatArtifactVerificationStatus::Blocked,
+            lifecycle_state: ChatArtifactLifecycleState::Blocked,
             summary: failure.message.clone(),
             production_provenance: Some(provenance.clone()),
             acceptance_provenance: Some(provenance),
@@ -126,14 +126,14 @@ fn blocked_failure_manifest() -> StudioArtifactManifest {
 
 #[test]
 fn runtime_provenance_matches_ignores_lane_only_endpoint_tags() {
-    let production = StudioRuntimeProvenance {
-        kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
+    let production = ChatRuntimeProvenance {
+        kind: ChatRuntimeProvenanceKind::RealLocalRuntime,
         label: "openai-compatible".to_string(),
         model: Some("qwen3:8b".to_string()),
         endpoint: Some("http://127.0.0.1:11434/v1/chat/completions".to_string()),
     };
-    let acceptance = StudioRuntimeProvenance {
-        kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
+    let acceptance = ChatRuntimeProvenance {
+        kind: ChatRuntimeProvenanceKind::RealLocalRuntime,
         label: "openai-compatible".to_string(),
         model: Some("qwen3:8b".to_string()),
         endpoint: Some("http://127.0.0.1:11434/v1/chat/completions?lane=acceptance".to_string()),
@@ -166,11 +166,11 @@ fn generate_prefers_distinct_local_acceptance_runtime_for_route() {
     ));
 
     let selected = select_generate_route_runtime(&production_runtime, &acceptance_runtime);
-    let selected_provenance = selected.studio_runtime_provenance();
+    let selected_provenance = selected.chat_runtime_provenance();
 
     assert_eq!(
         selected_provenance.kind,
-        StudioRuntimeProvenanceKind::RealLocalRuntime
+        ChatRuntimeProvenanceKind::RealLocalRuntime
     );
     assert_eq!(selected_provenance.model.as_deref(), Some("qwen2.5:7b"));
 }
@@ -196,32 +196,32 @@ fn validate_materialized_pdf_contract_rejects_placeholder_brief_copy() -> Result
     );
     fs::write(root.path().join("brief.pdf"), pdf)?;
 
-    let manifest = StudioArtifactManifest {
+    let manifest = ChatArtifactManifest {
         artifact_id: "artifact_pdf".to_string(),
         title: "Launch brief".to_string(),
-        artifact_class: StudioArtifactClass::Document,
-        renderer: StudioRendererKind::PdfEmbed,
+        artifact_class: ChatArtifactClass::Document,
+        renderer: ChatRendererKind::PdfEmbed,
         primary_tab: "render".to_string(),
-        tabs: vec![StudioArtifactManifestTab {
+        tabs: vec![ChatArtifactManifestTab {
             id: "render".to_string(),
             label: "Render".to_string(),
-            kind: StudioArtifactTabKind::Render,
-            renderer: Some(StudioRendererKind::PdfEmbed),
+            kind: ChatArtifactTabKind::Render,
+            renderer: Some(ChatRendererKind::PdfEmbed),
             file_path: Some("brief.pdf".to_string()),
             lens: None,
         }],
-        files: vec![StudioArtifactManifestFile {
+        files: vec![ChatArtifactManifestFile {
             path: "brief.pdf".to_string(),
             mime: "application/pdf".to_string(),
-            role: StudioArtifactFileRole::Primary,
+            role: ChatArtifactFileRole::Primary,
             renderable: true,
             downloadable: true,
             artifact_id: None,
             external_url: None,
         }],
-        verification: StudioArtifactManifestVerification {
-            status: StudioArtifactVerificationStatus::Ready,
-            lifecycle_state: StudioArtifactLifecycleState::Ready,
+        verification: ChatArtifactManifestVerification {
+            status: ChatArtifactVerificationStatus::Ready,
+            lifecycle_state: ChatArtifactLifecycleState::Ready,
             summary: "Render contract verified.".to_string(),
             production_provenance: None,
             acceptance_provenance: None,
@@ -246,32 +246,32 @@ fn validate_materialized_pdf_contract_accepts_heading_structured_brief_copy() ->
     );
     fs::write(root.path().join("brief.pdf"), pdf)?;
 
-    let manifest = StudioArtifactManifest {
+    let manifest = ChatArtifactManifest {
         artifact_id: "artifact_pdf".to_string(),
         title: "Launch brief".to_string(),
-        artifact_class: StudioArtifactClass::Document,
-        renderer: StudioRendererKind::PdfEmbed,
+        artifact_class: ChatArtifactClass::Document,
+        renderer: ChatRendererKind::PdfEmbed,
         primary_tab: "render".to_string(),
-        tabs: vec![StudioArtifactManifestTab {
+        tabs: vec![ChatArtifactManifestTab {
             id: "render".to_string(),
             label: "Render".to_string(),
-            kind: StudioArtifactTabKind::Render,
-            renderer: Some(StudioRendererKind::PdfEmbed),
+            kind: ChatArtifactTabKind::Render,
+            renderer: Some(ChatRendererKind::PdfEmbed),
             file_path: Some("brief.pdf".to_string()),
             lens: None,
         }],
-        files: vec![StudioArtifactManifestFile {
+        files: vec![ChatArtifactManifestFile {
             path: "brief.pdf".to_string(),
             mime: "application/pdf".to_string(),
-            role: StudioArtifactFileRole::Primary,
+            role: ChatArtifactFileRole::Primary,
             renderable: true,
             downloadable: true,
             artifact_id: None,
             external_url: None,
         }],
-        verification: StudioArtifactManifestVerification {
-            status: StudioArtifactVerificationStatus::Ready,
-            lifecycle_state: StudioArtifactLifecycleState::Ready,
+        verification: ChatArtifactManifestVerification {
+            status: ChatArtifactVerificationStatus::Ready,
+            lifecycle_state: ChatArtifactLifecycleState::Ready,
             summary: "Render contract verified.".to_string(),
             production_provenance: None,
             acceptance_provenance: None,
@@ -313,7 +313,7 @@ fn parse_selected_targets_accepts_typed_json() -> Result<()> {
     let parsed = super::generation::parse_selected_targets(&[r#"{"sourceSurface":"render","path":"index.html","label":"chart section","snippet":"Hero chart"}"#.to_string()])?;
     assert_eq!(
         parsed,
-        vec![StudioArtifactSelectionTarget {
+        vec![ChatArtifactSelectionTarget {
             source_surface: "render".to_string(),
             path: Some("index.html".to_string()),
             label: "chart section".to_string(),
@@ -330,12 +330,12 @@ fn apply_selected_targets_to_loaded_refinement_overlays_existing_selection() -> 
         revision_id: Some("revision-1".to_string()),
         title: "Dog shampoo rollout".to_string(),
         summary: "Current artifact".to_string(),
-        renderer: StudioRendererKind::HtmlIframe,
+        renderer: ChatRendererKind::HtmlIframe,
         files: Vec::new(),
         selected_targets: Vec::new(),
         taste_memory: None,
     });
-    let selected_targets = vec![StudioArtifactSelectionTarget {
+    let selected_targets = vec![ChatArtifactSelectionTarget {
         source_surface: "render".to_string(),
         path: Some("index.html".to_string()),
         label: "chart section".to_string(),
@@ -453,7 +453,7 @@ async fn route_uses_local_http_runtime_path() -> Result<()> {
 
 #[tokio::test]
 async fn workspace_generate_uses_scaffold_path_and_validates_pass() -> Result<()> {
-    let request: StudioOutcomeArtifactRequest = serde_json::from_value(json!({
+    let request: ChatOutcomeArtifactRequest = serde_json::from_value(json!({
         "artifactClass": "workspace_project",
         "deliverableShape": "workspace_project",
         "renderer": "workspace_surface",
@@ -489,7 +489,7 @@ async fn workspace_generate_uses_scaffold_path_and_validates_pass() -> Result<()
 
     assert_eq!(
         bundle.validation.classification,
-        StudioArtifactValidationStatus::Pass
+        ChatArtifactValidationStatus::Pass
     );
     assert_eq!(bundle.winning_candidate_id.as_deref(), Some("candidate-1"));
     assert!(bundle
@@ -547,8 +547,8 @@ fn materialize_blocked_failure_manifest_keeps_evidence_package_valid() -> Result
 #[test]
 fn inspection_reports_source_first_when_render_is_not_ready() {
     let mut manifest = sample_manifest();
-    manifest.verification.status = StudioArtifactVerificationStatus::Partial;
-    manifest.verification.lifecycle_state = StudioArtifactLifecycleState::Partial;
+    manifest.verification.status = ChatArtifactVerificationStatus::Partial;
+    manifest.verification.lifecycle_state = ChatArtifactLifecycleState::Partial;
 
     let inspection = inspection_for_manifest(&manifest);
     assert_eq!(inspection.preferred_stage_mode, "source");
@@ -558,32 +558,32 @@ fn inspection_reports_source_first_when_render_is_not_ready() {
 #[test]
 fn validate_materialized_html_quality_rejects_placeholder_shell() -> Result<()> {
     let root = tempdir()?;
-    let manifest = StudioArtifactManifest {
+    let manifest = ChatArtifactManifest {
         artifact_id: "artifact_html".to_string(),
         title: "Launch page".to_string(),
-        artifact_class: StudioArtifactClass::InteractiveSingleFile,
-        renderer: StudioRendererKind::HtmlIframe,
+        artifact_class: ChatArtifactClass::InteractiveSingleFile,
+        renderer: ChatRendererKind::HtmlIframe,
         primary_tab: "render".to_string(),
-        tabs: vec![StudioArtifactManifestTab {
+        tabs: vec![ChatArtifactManifestTab {
             id: "render".to_string(),
             label: "Render".to_string(),
-            kind: StudioArtifactTabKind::Render,
-            renderer: Some(StudioRendererKind::HtmlIframe),
+            kind: ChatArtifactTabKind::Render,
+            renderer: Some(ChatRendererKind::HtmlIframe),
             file_path: Some("index.html".to_string()),
             lens: None,
         }],
-        files: vec![StudioArtifactManifestFile {
+        files: vec![ChatArtifactManifestFile {
             path: "index.html".to_string(),
             mime: "text/html".to_string(),
-            role: StudioArtifactFileRole::Primary,
+            role: ChatArtifactFileRole::Primary,
             renderable: true,
             downloadable: true,
             artifact_id: None,
             external_url: None,
         }],
-        verification: StudioArtifactManifestVerification {
-            status: StudioArtifactVerificationStatus::Ready,
-            lifecycle_state: StudioArtifactLifecycleState::Ready,
+        verification: ChatArtifactManifestVerification {
+            status: ChatArtifactVerificationStatus::Ready,
+            lifecycle_state: ChatArtifactLifecycleState::Ready,
             summary: "Render contract verified.".to_string(),
             production_provenance: None,
             acceptance_provenance: None,
@@ -609,42 +609,42 @@ fn validate_materialized_html_quality_rejects_placeholder_shell() -> Result<()> 
 #[test]
 fn validate_materialized_html_ready_manifest_still_requires_quality_contract() -> Result<()> {
     let root = tempdir()?;
-    let manifest = StudioArtifactManifest {
+    let manifest = ChatArtifactManifest {
         artifact_id: "artifact_html".to_string(),
         title: "Launch page".to_string(),
-        artifact_class: StudioArtifactClass::InteractiveSingleFile,
-        renderer: StudioRendererKind::HtmlIframe,
+        artifact_class: ChatArtifactClass::InteractiveSingleFile,
+        renderer: ChatRendererKind::HtmlIframe,
         primary_tab: "render".to_string(),
-        tabs: vec![StudioArtifactManifestTab {
+        tabs: vec![ChatArtifactManifestTab {
             id: "render".to_string(),
             label: "Render".to_string(),
-            kind: StudioArtifactTabKind::Render,
-            renderer: Some(StudioRendererKind::HtmlIframe),
+            kind: ChatArtifactTabKind::Render,
+            renderer: Some(ChatRendererKind::HtmlIframe),
             file_path: Some("index.html".to_string()),
             lens: None,
         }],
-        files: vec![StudioArtifactManifestFile {
+        files: vec![ChatArtifactManifestFile {
             path: "index.html".to_string(),
             mime: "text/html".to_string(),
-            role: StudioArtifactFileRole::Primary,
+            role: ChatArtifactFileRole::Primary,
             renderable: true,
             downloadable: true,
             artifact_id: None,
             external_url: None,
         }],
-        verification: StudioArtifactManifestVerification {
-            status: StudioArtifactVerificationStatus::Ready,
-            lifecycle_state: StudioArtifactLifecycleState::Ready,
+        verification: ChatArtifactManifestVerification {
+            status: ChatArtifactVerificationStatus::Ready,
+            lifecycle_state: ChatArtifactLifecycleState::Ready,
             summary: "Acceptance validated the artifact ready for primary presentation."
                 .to_string(),
-            production_provenance: Some(StudioRuntimeProvenance {
-                kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
+            production_provenance: Some(ChatRuntimeProvenance {
+                kind: ChatRuntimeProvenanceKind::RealLocalRuntime,
                 label: "openai-compatible".to_string(),
                 model: Some("qwen2.5:7b".to_string()),
                 endpoint: Some("http://127.0.0.1:11434/v1/chat/completions".to_string()),
             }),
-            acceptance_provenance: Some(StudioRuntimeProvenance {
-                kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
+            acceptance_provenance: Some(ChatRuntimeProvenance {
+                kind: ChatRuntimeProvenanceKind::RealLocalRuntime,
                 label: "openai-compatible".to_string(),
                 model: Some("llama3.2:3b".to_string()),
                 endpoint: Some("http://127.0.0.1:11434/v1/chat/completions".to_string()),
@@ -671,42 +671,42 @@ fn validate_materialized_html_ready_manifest_still_requires_quality_contract() -
 #[test]
 fn validate_materialized_html_rejects_empty_svg_chart_shells_even_when_ready() -> Result<()> {
     let root = tempdir()?;
-    let manifest = StudioArtifactManifest {
+    let manifest = ChatArtifactManifest {
         artifact_id: "artifact_html".to_string(),
         title: "Dog shampoo rollout".to_string(),
-        artifact_class: StudioArtifactClass::InteractiveSingleFile,
-        renderer: StudioRendererKind::HtmlIframe,
+        artifact_class: ChatArtifactClass::InteractiveSingleFile,
+        renderer: ChatRendererKind::HtmlIframe,
         primary_tab: "render".to_string(),
-        tabs: vec![StudioArtifactManifestTab {
+        tabs: vec![ChatArtifactManifestTab {
             id: "render".to_string(),
             label: "Render".to_string(),
-            kind: StudioArtifactTabKind::Render,
-            renderer: Some(StudioRendererKind::HtmlIframe),
+            kind: ChatArtifactTabKind::Render,
+            renderer: Some(ChatRendererKind::HtmlIframe),
             file_path: Some("index.html".to_string()),
             lens: None,
         }],
-        files: vec![StudioArtifactManifestFile {
+        files: vec![ChatArtifactManifestFile {
             path: "index.html".to_string(),
             mime: "text/html".to_string(),
-            role: StudioArtifactFileRole::Primary,
+            role: ChatArtifactFileRole::Primary,
             renderable: true,
             downloadable: true,
             artifact_id: None,
             external_url: None,
         }],
-        verification: StudioArtifactManifestVerification {
-            status: StudioArtifactVerificationStatus::Ready,
-            lifecycle_state: StudioArtifactLifecycleState::Ready,
+        verification: ChatArtifactManifestVerification {
+            status: ChatArtifactVerificationStatus::Ready,
+            lifecycle_state: ChatArtifactLifecycleState::Ready,
             summary: "Acceptance validated the artifact ready for primary presentation."
                 .to_string(),
-            production_provenance: Some(StudioRuntimeProvenance {
-                kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
+            production_provenance: Some(ChatRuntimeProvenance {
+                kind: ChatRuntimeProvenanceKind::RealLocalRuntime,
                 label: "openai-compatible".to_string(),
                 model: Some("qwen2.5:7b".to_string()),
                 endpoint: Some("http://127.0.0.1:11434/v1/chat/completions".to_string()),
             }),
-            acceptance_provenance: Some(StudioRuntimeProvenance {
-                kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
+            acceptance_provenance: Some(ChatRuntimeProvenance {
+                kind: ChatRuntimeProvenanceKind::RealLocalRuntime,
                 label: "openai-compatible".to_string(),
                 model: Some("qwen2.5:14b".to_string()),
                 endpoint: Some(
@@ -735,42 +735,42 @@ fn validate_materialized_html_rejects_empty_svg_chart_shells_even_when_ready() -
 #[test]
 fn validate_materialized_html_rejects_empty_chart_container_shells_even_when_ready() -> Result<()> {
     let root = tempdir()?;
-    let manifest = StudioArtifactManifest {
+    let manifest = ChatArtifactManifest {
         artifact_id: "artifact_html".to_string(),
         title: "Dog shampoo rollout".to_string(),
-        artifact_class: StudioArtifactClass::InteractiveSingleFile,
-        renderer: StudioRendererKind::HtmlIframe,
+        artifact_class: ChatArtifactClass::InteractiveSingleFile,
+        renderer: ChatRendererKind::HtmlIframe,
         primary_tab: "render".to_string(),
-        tabs: vec![StudioArtifactManifestTab {
+        tabs: vec![ChatArtifactManifestTab {
             id: "render".to_string(),
             label: "Render".to_string(),
-            kind: StudioArtifactTabKind::Render,
-            renderer: Some(StudioRendererKind::HtmlIframe),
+            kind: ChatArtifactTabKind::Render,
+            renderer: Some(ChatRendererKind::HtmlIframe),
             file_path: Some("index.html".to_string()),
             lens: None,
         }],
-        files: vec![StudioArtifactManifestFile {
+        files: vec![ChatArtifactManifestFile {
             path: "index.html".to_string(),
             mime: "text/html".to_string(),
-            role: StudioArtifactFileRole::Primary,
+            role: ChatArtifactFileRole::Primary,
             renderable: true,
             downloadable: true,
             artifact_id: None,
             external_url: None,
         }],
-        verification: StudioArtifactManifestVerification {
-            status: StudioArtifactVerificationStatus::Ready,
-            lifecycle_state: StudioArtifactLifecycleState::Ready,
+        verification: ChatArtifactManifestVerification {
+            status: ChatArtifactVerificationStatus::Ready,
+            lifecycle_state: ChatArtifactLifecycleState::Ready,
             summary: "Acceptance validated the artifact ready for primary presentation."
                 .to_string(),
-            production_provenance: Some(StudioRuntimeProvenance {
-                kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
+            production_provenance: Some(ChatRuntimeProvenance {
+                kind: ChatRuntimeProvenanceKind::RealLocalRuntime,
                 label: "openai-compatible".to_string(),
                 model: Some("qwen2.5:7b".to_string()),
                 endpoint: Some("http://127.0.0.1:11434/v1/chat/completions".to_string()),
             }),
-            acceptance_provenance: Some(StudioRuntimeProvenance {
-                kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
+            acceptance_provenance: Some(ChatRuntimeProvenance {
+                kind: ChatRuntimeProvenanceKind::RealLocalRuntime,
                 label: "openai-compatible".to_string(),
                 model: Some("qwen2.5:14b".to_string()),
                 endpoint: Some(
@@ -800,42 +800,42 @@ fn validate_materialized_html_rejects_empty_chart_container_shells_even_when_rea
 fn validate_materialized_html_rejects_placeholder_comments_and_missing_ids_even_when_ready(
 ) -> Result<()> {
     let root = tempdir()?;
-    let manifest = StudioArtifactManifest {
+    let manifest = ChatArtifactManifest {
         artifact_id: "artifact_html".to_string(),
         title: "Dog shampoo rollout".to_string(),
-        artifact_class: StudioArtifactClass::InteractiveSingleFile,
-        renderer: StudioRendererKind::HtmlIframe,
+        artifact_class: ChatArtifactClass::InteractiveSingleFile,
+        renderer: ChatRendererKind::HtmlIframe,
         primary_tab: "render".to_string(),
-        tabs: vec![StudioArtifactManifestTab {
+        tabs: vec![ChatArtifactManifestTab {
             id: "render".to_string(),
             label: "Render".to_string(),
-            kind: StudioArtifactTabKind::Render,
-            renderer: Some(StudioRendererKind::HtmlIframe),
+            kind: ChatArtifactTabKind::Render,
+            renderer: Some(ChatRendererKind::HtmlIframe),
             file_path: Some("index.html".to_string()),
             lens: None,
         }],
-        files: vec![StudioArtifactManifestFile {
+        files: vec![ChatArtifactManifestFile {
             path: "index.html".to_string(),
             mime: "text/html".to_string(),
-            role: StudioArtifactFileRole::Primary,
+            role: ChatArtifactFileRole::Primary,
             renderable: true,
             downloadable: true,
             artifact_id: None,
             external_url: None,
         }],
-        verification: StudioArtifactManifestVerification {
-            status: StudioArtifactVerificationStatus::Ready,
-            lifecycle_state: StudioArtifactLifecycleState::Ready,
+        verification: ChatArtifactManifestVerification {
+            status: ChatArtifactVerificationStatus::Ready,
+            lifecycle_state: ChatArtifactLifecycleState::Ready,
             summary: "Acceptance validated the artifact ready for primary presentation."
                 .to_string(),
-            production_provenance: Some(StudioRuntimeProvenance {
-                kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
+            production_provenance: Some(ChatRuntimeProvenance {
+                kind: ChatRuntimeProvenanceKind::RealLocalRuntime,
                 label: "openai-compatible".to_string(),
                 model: Some("qwen2.5:7b".to_string()),
                 endpoint: Some("http://127.0.0.1:11434/v1/chat/completions".to_string()),
             }),
-            acceptance_provenance: Some(StudioRuntimeProvenance {
-                kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
+            acceptance_provenance: Some(ChatRuntimeProvenance {
+                kind: ChatRuntimeProvenanceKind::RealLocalRuntime,
                 label: "openai-compatible".to_string(),
                 model: Some("qwen2.5:14b".to_string()),
                 endpoint: Some(
@@ -868,42 +868,42 @@ fn validate_materialized_html_rejects_placeholder_comments_and_missing_ids_even_
 #[test]
 fn validate_materialized_html_rejects_empty_shared_detail_regions_even_when_ready() -> Result<()> {
     let root = tempdir()?;
-    let manifest = StudioArtifactManifest {
+    let manifest = ChatArtifactManifest {
         artifact_id: "artifact_html".to_string(),
         title: "Dog shampoo rollout".to_string(),
-        artifact_class: StudioArtifactClass::InteractiveSingleFile,
-        renderer: StudioRendererKind::HtmlIframe,
+        artifact_class: ChatArtifactClass::InteractiveSingleFile,
+        renderer: ChatRendererKind::HtmlIframe,
         primary_tab: "render".to_string(),
-        tabs: vec![StudioArtifactManifestTab {
+        tabs: vec![ChatArtifactManifestTab {
             id: "render".to_string(),
             label: "Render".to_string(),
-            kind: StudioArtifactTabKind::Render,
-            renderer: Some(StudioRendererKind::HtmlIframe),
+            kind: ChatArtifactTabKind::Render,
+            renderer: Some(ChatRendererKind::HtmlIframe),
             file_path: Some("index.html".to_string()),
             lens: None,
         }],
-        files: vec![StudioArtifactManifestFile {
+        files: vec![ChatArtifactManifestFile {
             path: "index.html".to_string(),
             mime: "text/html".to_string(),
-            role: StudioArtifactFileRole::Primary,
+            role: ChatArtifactFileRole::Primary,
             renderable: true,
             downloadable: true,
             artifact_id: None,
             external_url: None,
         }],
-        verification: StudioArtifactManifestVerification {
-            status: StudioArtifactVerificationStatus::Ready,
-            lifecycle_state: StudioArtifactLifecycleState::Ready,
+        verification: ChatArtifactManifestVerification {
+            status: ChatArtifactVerificationStatus::Ready,
+            lifecycle_state: ChatArtifactLifecycleState::Ready,
             summary: "Acceptance validated the artifact ready for primary presentation."
                 .to_string(),
-            production_provenance: Some(StudioRuntimeProvenance {
-                kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
+            production_provenance: Some(ChatRuntimeProvenance {
+                kind: ChatRuntimeProvenanceKind::RealLocalRuntime,
                 label: "openai-compatible".to_string(),
                 model: Some("qwen2.5:7b".to_string()),
                 endpoint: Some("http://127.0.0.1:11434/v1/chat/completions".to_string()),
             }),
-            acceptance_provenance: Some(StudioRuntimeProvenance {
-                kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
+            acceptance_provenance: Some(ChatRuntimeProvenance {
+                kind: ChatRuntimeProvenanceKind::RealLocalRuntime,
                 label: "openai-compatible".to_string(),
                 model: Some("qwen2.5:14b".to_string()),
                 endpoint: Some(
@@ -932,42 +932,42 @@ fn validate_materialized_html_rejects_empty_shared_detail_regions_even_when_read
 #[test]
 fn validate_materialized_html_rejects_unlabeled_chart_svg_shells_even_when_ready() -> Result<()> {
     let root = tempdir()?;
-    let manifest = StudioArtifactManifest {
+    let manifest = ChatArtifactManifest {
         artifact_id: "artifact_html".to_string(),
         title: "Dog shampoo rollout".to_string(),
-        artifact_class: StudioArtifactClass::InteractiveSingleFile,
-        renderer: StudioRendererKind::HtmlIframe,
+        artifact_class: ChatArtifactClass::InteractiveSingleFile,
+        renderer: ChatRendererKind::HtmlIframe,
         primary_tab: "render".to_string(),
-        tabs: vec![StudioArtifactManifestTab {
+        tabs: vec![ChatArtifactManifestTab {
             id: "render".to_string(),
             label: "Render".to_string(),
-            kind: StudioArtifactTabKind::Render,
-            renderer: Some(StudioRendererKind::HtmlIframe),
+            kind: ChatArtifactTabKind::Render,
+            renderer: Some(ChatRendererKind::HtmlIframe),
             file_path: Some("index.html".to_string()),
             lens: None,
         }],
-        files: vec![StudioArtifactManifestFile {
+        files: vec![ChatArtifactManifestFile {
             path: "index.html".to_string(),
             mime: "text/html".to_string(),
-            role: StudioArtifactFileRole::Primary,
+            role: ChatArtifactFileRole::Primary,
             renderable: true,
             downloadable: true,
             artifact_id: None,
             external_url: None,
         }],
-        verification: StudioArtifactManifestVerification {
-            status: StudioArtifactVerificationStatus::Ready,
-            lifecycle_state: StudioArtifactLifecycleState::Ready,
+        verification: ChatArtifactManifestVerification {
+            status: ChatArtifactVerificationStatus::Ready,
+            lifecycle_state: ChatArtifactLifecycleState::Ready,
             summary: "Acceptance validated the artifact ready for primary presentation."
                 .to_string(),
-            production_provenance: Some(StudioRuntimeProvenance {
-                kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
+            production_provenance: Some(ChatRuntimeProvenance {
+                kind: ChatRuntimeProvenanceKind::RealLocalRuntime,
                 label: "openai-compatible".to_string(),
                 model: Some("qwen2.5:7b".to_string()),
                 endpoint: Some("http://127.0.0.1:11434/v1/chat/completions".to_string()),
             }),
-            acceptance_provenance: Some(StudioRuntimeProvenance {
-                kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
+            acceptance_provenance: Some(ChatRuntimeProvenance {
+                kind: ChatRuntimeProvenanceKind::RealLocalRuntime,
                 label: "openai-compatible".to_string(),
                 model: Some("qwen2.5:14b".to_string()),
                 endpoint: Some(
@@ -996,42 +996,42 @@ fn validate_materialized_html_rejects_unlabeled_chart_svg_shells_even_when_ready
 #[test]
 fn validate_materialized_html_rejects_empty_sectioning_shells_even_when_ready() -> Result<()> {
     let root = tempdir()?;
-    let manifest = StudioArtifactManifest {
+    let manifest = ChatArtifactManifest {
         artifact_id: "artifact_html".to_string(),
         title: "Dog shampoo rollout".to_string(),
-        artifact_class: StudioArtifactClass::InteractiveSingleFile,
-        renderer: StudioRendererKind::HtmlIframe,
+        artifact_class: ChatArtifactClass::InteractiveSingleFile,
+        renderer: ChatRendererKind::HtmlIframe,
         primary_tab: "render".to_string(),
-        tabs: vec![StudioArtifactManifestTab {
+        tabs: vec![ChatArtifactManifestTab {
             id: "render".to_string(),
             label: "Render".to_string(),
-            kind: StudioArtifactTabKind::Render,
-            renderer: Some(StudioRendererKind::HtmlIframe),
+            kind: ChatArtifactTabKind::Render,
+            renderer: Some(ChatRendererKind::HtmlIframe),
             file_path: Some("index.html".to_string()),
             lens: None,
         }],
-        files: vec![StudioArtifactManifestFile {
+        files: vec![ChatArtifactManifestFile {
             path: "index.html".to_string(),
             mime: "text/html".to_string(),
-            role: StudioArtifactFileRole::Primary,
+            role: ChatArtifactFileRole::Primary,
             renderable: true,
             downloadable: true,
             artifact_id: None,
             external_url: None,
         }],
-        verification: StudioArtifactManifestVerification {
-            status: StudioArtifactVerificationStatus::Ready,
-            lifecycle_state: StudioArtifactLifecycleState::Ready,
+        verification: ChatArtifactManifestVerification {
+            status: ChatArtifactVerificationStatus::Ready,
+            lifecycle_state: ChatArtifactLifecycleState::Ready,
             summary: "Acceptance validated the artifact ready for primary presentation."
                 .to_string(),
-            production_provenance: Some(StudioRuntimeProvenance {
-                kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
+            production_provenance: Some(ChatRuntimeProvenance {
+                kind: ChatRuntimeProvenanceKind::RealLocalRuntime,
                 label: "openai-compatible".to_string(),
                 model: Some("qwen2.5:7b".to_string()),
                 endpoint: Some("http://127.0.0.1:11434/v1/chat/completions".to_string()),
             }),
-            acceptance_provenance: Some(StudioRuntimeProvenance {
-                kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
+            acceptance_provenance: Some(ChatRuntimeProvenance {
+                kind: ChatRuntimeProvenanceKind::RealLocalRuntime,
                 label: "openai-compatible".to_string(),
                 model: Some("qwen2.5:14b".to_string()),
                 endpoint: Some(
@@ -1060,53 +1060,53 @@ fn validate_materialized_html_rejects_empty_sectioning_shells_even_when_ready() 
 #[test]
 fn validate_workspace_source_first_without_preview_is_truthful() -> Result<()> {
     let root = tempdir()?;
-    let manifest = StudioArtifactManifest {
+    let manifest = ChatArtifactManifest {
         artifact_id: "workspace_artifact".to_string(),
         title: "Workspace artifact".to_string(),
-        artifact_class: StudioArtifactClass::WorkspaceProject,
-        renderer: StudioRendererKind::WorkspaceSurface,
+        artifact_class: ChatArtifactClass::WorkspaceProject,
+        renderer: ChatRendererKind::WorkspaceSurface,
         primary_tab: "workspace".to_string(),
         tabs: vec![
-            StudioArtifactManifestTab {
+            ChatArtifactManifestTab {
                 id: "preview".to_string(),
                 label: "Preview".to_string(),
-                kind: StudioArtifactTabKind::Render,
-                renderer: Some(StudioRendererKind::HtmlIframe),
+                kind: ChatArtifactTabKind::Render,
+                renderer: Some(ChatRendererKind::HtmlIframe),
                 file_path: None,
                 lens: Some("preview".to_string()),
             },
-            StudioArtifactManifestTab {
+            ChatArtifactManifestTab {
                 id: "workspace".to_string(),
                 label: "Workspace".to_string(),
-                kind: StudioArtifactTabKind::Workspace,
-                renderer: Some(StudioRendererKind::WorkspaceSurface),
+                kind: ChatArtifactTabKind::Workspace,
+                renderer: Some(ChatRendererKind::WorkspaceSurface),
                 file_path: Some("index.html".to_string()),
                 lens: Some("code".to_string()),
             },
         ],
         files: vec![
-            StudioArtifactManifestFile {
+            ChatArtifactManifestFile {
                 path: "index.html".to_string(),
                 mime: "text/html".to_string(),
-                role: StudioArtifactFileRole::Primary,
+                role: ChatArtifactFileRole::Primary,
                 renderable: true,
                 downloadable: true,
                 artifact_id: None,
                 external_url: None,
             },
-            StudioArtifactManifestFile {
+            ChatArtifactManifestFile {
                 path: "artifact-manifest.json".to_string(),
                 mime: "application/json".to_string(),
-                role: StudioArtifactFileRole::Supporting,
+                role: ChatArtifactFileRole::Supporting,
                 renderable: false,
                 downloadable: true,
                 artifact_id: None,
                 external_url: None,
             },
         ],
-        verification: StudioArtifactManifestVerification {
-            status: StudioArtifactVerificationStatus::Ready,
-            lifecycle_state: StudioArtifactLifecycleState::Ready,
+        verification: ChatArtifactManifestVerification {
+            status: ChatArtifactVerificationStatus::Ready,
+            lifecycle_state: ChatArtifactLifecycleState::Ready,
             summary: "Workspace scaffold is ready for source-first review.".to_string(),
             production_provenance: None,
             acceptance_provenance: None,
@@ -1132,53 +1132,53 @@ fn validate_workspace_preview_primary_uses_verified_manifest_state() -> Result<(
         "export default function App() { return <main><h1>Billing settings</h1></main>; }",
     )?;
     fs::write(root.path().join("artifact-manifest.json"), "{}")?;
-    let manifest = StudioArtifactManifest {
+    let manifest = ChatArtifactManifest {
         artifact_id: "workspace_artifact_ready".to_string(),
         title: "Workspace artifact".to_string(),
-        artifact_class: StudioArtifactClass::WorkspaceProject,
-        renderer: StudioRendererKind::WorkspaceSurface,
+        artifact_class: ChatArtifactClass::WorkspaceProject,
+        renderer: ChatRendererKind::WorkspaceSurface,
         primary_tab: "preview".to_string(),
         tabs: vec![
-            StudioArtifactManifestTab {
+            ChatArtifactManifestTab {
                 id: "preview".to_string(),
                 label: "Preview".to_string(),
-                kind: StudioArtifactTabKind::Render,
-                renderer: Some(StudioRendererKind::HtmlIframe),
+                kind: ChatArtifactTabKind::Render,
+                renderer: Some(ChatRendererKind::HtmlIframe),
                 file_path: None,
                 lens: Some("preview".to_string()),
             },
-            StudioArtifactManifestTab {
+            ChatArtifactManifestTab {
                 id: "workspace".to_string(),
                 label: "Workspace".to_string(),
-                kind: StudioArtifactTabKind::Workspace,
-                renderer: Some(StudioRendererKind::WorkspaceSurface),
+                kind: ChatArtifactTabKind::Workspace,
+                renderer: Some(ChatRendererKind::WorkspaceSurface),
                 file_path: Some("src/App.tsx".to_string()),
                 lens: Some("code".to_string()),
             },
         ],
         files: vec![
-            StudioArtifactManifestFile {
+            ChatArtifactManifestFile {
                 path: "src/App.tsx".to_string(),
                 mime: "text/jsx".to_string(),
-                role: StudioArtifactFileRole::Primary,
+                role: ChatArtifactFileRole::Primary,
                 renderable: true,
                 downloadable: true,
                 artifact_id: None,
                 external_url: None,
             },
-            StudioArtifactManifestFile {
+            ChatArtifactManifestFile {
                 path: "artifact-manifest.json".to_string(),
                 mime: "application/json".to_string(),
-                role: StudioArtifactFileRole::Supporting,
+                role: ChatArtifactFileRole::Supporting,
                 renderable: false,
                 downloadable: true,
                 artifact_id: None,
                 external_url: None,
             },
         ],
-        verification: StudioArtifactManifestVerification {
-            status: StudioArtifactVerificationStatus::Ready,
-            lifecycle_state: StudioArtifactLifecycleState::Ready,
+        verification: ChatArtifactManifestVerification {
+            status: ChatArtifactVerificationStatus::Ready,
+            lifecycle_state: ChatArtifactLifecycleState::Ready,
             summary: "Preview verified and workspace lenses are ready.".to_string(),
             production_provenance: None,
             acceptance_provenance: None,
@@ -1210,13 +1210,13 @@ fn compose_reply_uses_verification_state() {
 #[test]
 fn write_generated_payload_compiles_pdf_bytes_without_mock_shell() -> Result<()> {
     let root = tempdir()?;
-    let payload = StudioGeneratedArtifactPayload {
+    let payload = ChatGeneratedArtifactPayload {
         summary: "Launch brief".to_string(),
         notes: Vec::new(),
-        files: vec![StudioGeneratedArtifactFile {
+        files: vec![ChatGeneratedArtifactFile {
             path: "launch_summary.pdf".to_string(),
             mime: "application/pdf".to_string(),
-            role: StudioArtifactFileRole::Primary,
+            role: ChatArtifactFileRole::Primary,
             renderable: true,
             downloadable: true,
             encoding: None,
@@ -1230,7 +1230,7 @@ fn write_generated_payload_compiles_pdf_bytes_without_mock_shell() -> Result<()>
     let text = String::from_utf8_lossy(&bytes);
     assert!(bytes.starts_with(b"%PDF-1.4\n"));
     assert!(bytes.len() > 800);
-    assert!(!text.contains("Studio mock PDF"));
+    assert!(!text.contains("Chat mock PDF"));
     Ok(())
 }
 
@@ -1238,16 +1238,16 @@ fn write_generated_payload_compiles_pdf_bytes_without_mock_shell() -> Result<()>
 fn write_generated_payload_unwraps_nested_html_payload_envelopes() -> Result<()> {
     let root = tempdir()?;
     let nested_html = "<!doctype html><html><body><main><section><h1>AI tools editorial launch</h1><p>Interactive launch evidence stays visible.</p></section><aside><h2>Detail</h2><p id=\"detail-copy\">Overview is selected by default.</p></aside><footer><p>Footer note.</p></footer></main></body></html>";
-    let payload = StudioGeneratedArtifactPayload {
+    let payload = ChatGeneratedArtifactPayload {
         summary: "Launch page".to_string(),
         notes: Vec::new(),
-        files: vec![StudioGeneratedArtifactFile {
+        files: vec![ChatGeneratedArtifactFile {
             path: "index.html".to_string(),
             mime: "text/html".to_string(),
-            role: StudioArtifactFileRole::Primary,
+            role: ChatArtifactFileRole::Primary,
             renderable: true,
             downloadable: true,
-            encoding: Some(ioi_api::studio::StudioGeneratedArtifactEncoding::Utf8),
+            encoding: Some(ioi_api::chat::ChatGeneratedArtifactEncoding::Utf8),
             body: json!({
                 "summary": "Nested launch page",
                 "notes": ["wrapped once"],
@@ -1347,12 +1347,12 @@ fn load_generated_evidence_accepts_blocked_verified_reply_envelope() -> Result<(
             "verifiedReply": {
                 "status": "blocked",
                 "lifecycleState": "blocked",
-                "title": "Studio outcome: Blocked artifact",
-                "summary": "Blocked artifact Studio cannot route or materialize artifacts because inference is unavailable.",
+                "title": "Chat outcome: Blocked artifact",
+                "summary": "Blocked artifact Chat cannot route or materialize artifacts because inference is unavailable.",
                 "evidence": [
                     "production provenance: inference unavailable",
                     "acceptance provenance: inference unavailable",
-                    "failure: Studio cannot route or materialize artifacts because inference is unavailable. (inference_unavailable)"
+                    "failure: Chat cannot route or materialize artifacts because inference is unavailable. (inference_unavailable)"
                 ],
                 "productionProvenance": {
                     "kind": "inference_unavailable",
@@ -1369,7 +1369,7 @@ fn load_generated_evidence_accepts_blocked_verified_reply_envelope() -> Result<(
                 "failure": {
                     "kind": "inference_unavailable",
                     "code": "inference_unavailable",
-                    "message": "Studio cannot route or materialize artifacts because inference is unavailable."
+                    "message": "Chat cannot route or materialize artifacts because inference is unavailable."
                 }
             },
             "materializedFiles": [],
@@ -1394,12 +1394,12 @@ fn load_generated_evidence_accepts_blocked_verified_reply_envelope() -> Result<(
             .as_ref()
             .expect("production provenance")
             .kind,
-        StudioRuntimeProvenanceKind::InferenceUnavailable
+        ChatRuntimeProvenanceKind::InferenceUnavailable
     );
     Ok(())
 }
 
-fn write_manifest_fixture(manifest: &StudioArtifactManifest, root: &Path) -> Result<PathBuf> {
+fn write_manifest_fixture(manifest: &ChatArtifactManifest, root: &Path) -> Result<PathBuf> {
     let manifest_path = root.join("artifact-manifest.json");
     fs::write(&manifest_path, serde_json::to_vec_pretty(manifest)?)?;
     Ok(manifest_path)

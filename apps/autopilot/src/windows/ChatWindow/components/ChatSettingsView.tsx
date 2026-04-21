@@ -637,7 +637,7 @@ export function ChatSettingsView({
       onPolicyChange(nextPolicy);
       await loadAuthorityInputs(false);
       setAuthorityMessage(
-        `Applied the ${profileId.replace(/_/g, " ")} authority profile from Studio settings.`,
+        `Applied the ${profileId.replace(/_/g, " ")} authority profile from Chat settings.`,
       );
     } catch (nextError) {
       setAuthorityError(
@@ -651,15 +651,15 @@ export function ChatSettingsView({
   const renderEngineControls = () => {
     if (!controlPlane) {
       return (
-        <article className="studio-settings-card">
-          <div className="studio-settings-card-head">
+        <article className="chat-settings-card">
+          <div className="chat-settings-card-head">
             <div>
-              <span className="studio-settings-card-eyebrow">Runtime</span>
+              <span className="chat-settings-card-eyebrow">Runtime</span>
               <h2>Local Engine settings unavailable</h2>
             </div>
-            <span className="studio-settings-pill">Kernel-backed</span>
+            <span className="chat-settings-pill">Kernel-backed</span>
           </div>
-          <p className="studio-settings-body">
+          <p className="chat-settings-body">
             {engineLoading
               ? "Loading kernel-backed runtime settings…"
               : engineError ?? "The kernel did not publish a Local Engine snapshot."}
@@ -670,10 +670,10 @@ export function ChatSettingsView({
 
     return (
       <>
-        <div className="studio-settings-actions studio-settings-actions--top">
+        <div className="chat-settings-actions chat-settings-actions--top">
           <button
             type="button"
-            className="studio-settings-secondary"
+            className="chat-settings-secondary"
             onClick={() => void loadEngineSnapshot()}
             disabled={engineLoading || engineSaving}
           >
@@ -681,7 +681,7 @@ export function ChatSettingsView({
           </button>
           <button
             type="button"
-            className="studio-settings-secondary"
+            className="chat-settings-secondary"
             onClick={() =>
               engineSnapshot
                 ? setEngineDraft(
@@ -695,7 +695,7 @@ export function ChatSettingsView({
           </button>
           <button
             type="button"
-            className="studio-settings-primary"
+            className="chat-settings-primary"
             onClick={() => {
               void handleSaveEngine();
             }}
@@ -706,9 +706,9 @@ export function ChatSettingsView({
         </div>
 
         {engineMessage ? (
-          <p className="studio-settings-success">{engineMessage}</p>
+          <p className="chat-settings-success">{engineMessage}</p>
         ) : null}
-        {engineError ? <p className="studio-settings-error">{engineError}</p> : null}
+        {engineError ? <p className="chat-settings-error">{engineError}</p> : null}
       </>
     );
   };
@@ -716,8 +716,8 @@ export function ChatSettingsView({
   const view = { runtime, profile, profileDraft, profileSaving, profileError, policyState, governanceRequest, onProfileDraftChange, onResetProfileDraft, onSaveProfile, selectedSection, setSelectedSection, isResetting, setIsResetting, resetConfirmOpen, setResetConfirmOpen, error, setError, lastResult, setLastResult, engineSnapshot, setEngineSnapshot, engineDraft, setEngineDraft, engineLoading, setEngineLoading, engineSaving, setEngineSaving, engineMessage, setEngineMessage, engineError, setEngineError, knowledgeCollections, setKnowledgeCollections, knowledgeLoading, setKnowledgeLoading, knowledgeBusy, setKnowledgeBusy, knowledgeError, setKnowledgeError, knowledgeMessage, setKnowledgeMessage, knowledgeCollectionName, setKnowledgeCollectionName, knowledgeCollectionDescription, setKnowledgeCollectionDescription, selectedKnowledgeCollectionId, setSelectedKnowledgeCollectionId, knowledgeEntryTitle, setKnowledgeEntryTitle, knowledgeEntryContent, setKnowledgeEntryContent, knowledgeImportPath, setKnowledgeImportPath, knowledgeSourceUri, setKnowledgeSourceUri, knowledgeSourceInterval, setKnowledgeSourceInterval, knowledgeSearchQuery, setKnowledgeSearchQuery, knowledgeSearchResults, setKnowledgeSearchResults, knowledgeSearchLoading, setKnowledgeSearchLoading, knowledgeEntryLoading, setKnowledgeEntryLoading, selectedKnowledgeEntryContent, setSelectedKnowledgeEntryContent, skillSources, setSkillSources, skillSourcesLoading, setSkillSourcesLoading, skillSourcesBusy, setSkillSourcesBusy, skillSourcesError, setSkillSourcesError, skillSourcesMessage, setSkillSourcesMessage, skillSourceLabel, setSkillSourceLabel, skillSourceUri, setSkillSourceUri, selectedSkillSourceId, setSelectedSkillSourceId, authorityHookSnapshot, authorityRememberedApprovals, authorityStatus, authorityError, authorityApplyingProfileId, authorityMessage, authorityCurrentProfileId, authorityActiveOverrideCount, handleApplyAuthorityProfile, onOpenPolicySurface, onOpenConnections, profileDirty, controlPlane, engineDirty, loadEngineSnapshot, loadKnowledgeCollections, loadSkillSources, selectedKnowledgeCollection, selectedSkillSource, summary, diagnostics, runKnowledgeAction, runSkillSourceAction, updateEngineDraft, handleReset, handleSaveEngine, handleRefreshManagedSettings, handleClearManagedSettingsOverrides, renderEngineControls };
 
   return (
-    <div className="studio-settings-view">
-      <div className="studio-settings-layout">
+    <div className="chat-settings-view">
+      <div className="chat-settings-layout">
         <ChatSettingsViewBody view={view} />
       </div>
     </div>

@@ -4,7 +4,7 @@
   height: 100%;
   min-height: 0;
   display: grid;
-  grid-template-columns: var(--studio-left-sidebar-width) minmax(320px, 356px) minmax(0, 1fr);
+  grid-template-columns: var(--chat-left-sidebar-width) minmax(320px, 356px) minmax(0, 1fr);
   background:
     radial-gradient(
       circle at top left,
@@ -16,7 +16,7 @@
 }
 
 .capabilities-workbench.is-home {
-  grid-template-columns: var(--studio-left-sidebar-width) minmax(0, 1fr);
+  grid-template-columns: var(--chat-left-sidebar-width) minmax(0, 1fr);
 }
 
 .capabilities-sidebar,
@@ -29,11 +29,11 @@
 
 .capabilities-sidebar,
 .capabilities-list-pane {
-  border-right: 1px solid var(--studio-border);
+  border-right: 1px solid var(--chat-border);
 }
 
 .capabilities-sidebar {
-  background: var(--studio-bg-elevated);
+  background: var(--chat-bg-elevated);
 }
 
 .capabilities-list-pane {
@@ -95,7 +95,7 @@
   background:
     radial-gradient(circle at top, rgba(var(--cb-accent-rgb), 0.24), transparent 68%),
     rgba(255, 255, 255, 0.03);
-  color: var(--studio-accent-soft);
+  color: var(--chat-accent-soft);
 }
 
 .capabilities-home-hero h2 {
@@ -211,7 +211,7 @@
   width: 100%;
   min-height: 176px;
   border-radius: 18px;
-  border: 1px solid var(--studio-border);
+  border: 1px solid var(--chat-border);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015)),
     var(--surface-3);
@@ -231,7 +231,7 @@
 
 .capabilities-home-surface:hover {
   transform: translateY(-1px);
-  border-color: var(--studio-selection-border);
+  border-color: var(--chat-selection-border);
 }
 
 .capabilities-home-surface strong {
@@ -250,7 +250,7 @@
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--studio-accent-soft);
+  color: var(--chat-accent-soft);
 }
 
 .capabilities-home-surface-engine {
@@ -268,7 +268,7 @@
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--studio-accent-soft);
+  color: var(--chat-accent-soft);
 }
 
 .capabilities-sidebar-backdrop {
@@ -325,7 +325,7 @@
 }
 
 .capabilities-nav-button.is-active {
-  border-left-color: var(--studio-accent-soft);
+  border-left-color: var(--chat-accent-soft);
   background: rgba(255, 255, 255, 0.04);
   box-shadow: none;
 }
@@ -382,7 +382,7 @@
 
 .capabilities-pane-header {
   padding: 14px 16px 12px;
-  border-bottom: 1px solid var(--studio-border);
+  border-bottom: 1px solid var(--chat-border);
   background: var(--surface-2);
   display: flex;
   justify-content: space-between;
@@ -420,7 +420,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  border: 1px solid var(--studio-border);
+  border: 1px solid var(--chat-border);
   border-radius: 0;
   padding: 8px 10px;
   background: transparent;
@@ -631,7 +631,7 @@
 }
 
 .capabilities-list-row.is-selected {
-  border-left-color: var(--studio-accent-soft);
+  border-left-color: var(--chat-accent-soft);
   background: rgba(255, 255, 255, 0.05);
   box-shadow: none;
 }
@@ -664,7 +664,7 @@
 
 .capabilities-row-icon-engine {
   background: rgba(var(--cb-accent-rgb), 0.12);
-  color: var(--studio-accent-soft);
+  color: var(--chat-accent-soft);
 }
 
 .capabilities-provider-badge {
@@ -752,7 +752,7 @@
 }
 
 .capabilities-tree-child.is-active {
-  border-left-color: var(--studio-accent-soft);
+  border-left-color: var(--chat-accent-soft);
   background: rgba(255, 255, 255, 0.045);
   box-shadow: none;
 }
@@ -888,7 +888,7 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  border: 1px solid var(--studio-border);
+  border: 1px solid var(--chat-border);
   background: rgba(255, 255, 255, 0.03);
   border-radius: 999px;
   padding: 8px 12px;
@@ -897,7 +897,7 @@
 }
 
 .capabilities-switch input {
-  accent-color: var(--studio-accent-soft);
+  accent-color: var(--chat-accent-soft);
 }
 
 .capabilities-detail-meta-grid {
@@ -957,7 +957,7 @@
 }
 
 .capabilities-detail-document {
-  border: 1px solid var(--studio-border);
+  border: 1px solid var(--chat-border);
   border-radius: 14px;
   background:
     linear-gradient(
@@ -971,7 +971,7 @@
 
 .capabilities-detail-document-toolbar {
   padding: 12px 14px;
-  border-bottom: 1px solid var(--studio-border);
+  border-bottom: 1px solid var(--chat-border);
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -1032,7 +1032,7 @@
   flex-direction: column;
   gap: 12px;
   padding: 14px;
-  border: 1px solid var(--studio-border);
+  border: 1px solid var(--chat-border);
   border-radius: 16px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.015)),
@@ -1183,7 +1183,7 @@
 .capabilities-compare-picker select {
   width: 100%;
   min-width: 0;
-  border: 1px solid var(--studio-border);
+  border: 1px solid var(--chat-border);
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.04);
   color: var(--text-primary);
@@ -1193,7 +1193,7 @@
 
 .capabilities-compare-picker select:focus {
   outline: none;
-  border-color: var(--studio-selection-border);
+  border-color: var(--chat-selection-border);
   box-shadow: 0 0 0 1px rgba(var(--cb-accent-rgb), 0.22);
 }
 
@@ -1472,7 +1472,7 @@
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--studio-accent-soft);
+  color: var(--chat-accent-soft);
 }
 
 .capabilities-engine-hero h3 {
@@ -1501,7 +1501,7 @@
 }
 
 .capabilities-engine-metrics article {
-  border: 1px solid var(--studio-border);
+  border: 1px solid var(--chat-border);
   border-radius: 14px;
   padding: 14px;
   background: rgba(255, 255, 255, 0.025);
@@ -1529,7 +1529,7 @@
 
 .capabilities-engine-family-card {
   width: 100%;
-  border: 1px solid var(--studio-border);
+  border: 1px solid var(--chat-border);
   border-radius: 16px;
   padding: 14px;
   background: rgba(255, 255, 255, 0.02);
@@ -1543,7 +1543,7 @@
 }
 
 .capabilities-engine-family-card:hover {
-  border-color: var(--studio-selection-border);
+  border-color: var(--chat-selection-border);
   background: rgba(255, 255, 255, 0.035);
 }
 
@@ -1702,7 +1702,7 @@
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--studio-accent-soft);
+  color: var(--chat-accent-soft);
 }
 
 .capabilities-engine-preset-card strong {
@@ -1763,7 +1763,7 @@
 
 .capabilities-engine-toggle input {
   margin: 0;
-  accent-color: var(--studio-accent-soft);
+  accent-color: var(--chat-accent-soft);
 }
 
 .capabilities-engine-binding-row {
@@ -2047,7 +2047,7 @@
   border-radius: 6px;
   padding: 2px 5px;
   background: var(--surface-3);
-  color: var(--studio-accent-soft);
+  color: var(--chat-accent-soft);
   font-family: var(--font-mono);
   font-size: 12px;
 }

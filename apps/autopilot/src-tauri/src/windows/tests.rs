@@ -1,9 +1,9 @@
-use super::summarize_studio_launch_request;
+use super::summarize_chat_launch_request;
 use serde_json::json;
 
 #[test]
 fn summarizes_session_target_launch_requests() {
-    let summary = summarize_studio_launch_request(&json!({
+    let summary = summarize_chat_launch_request(&json!({
         "kind": "session-target",
         "sessionId": "session-123",
     }));

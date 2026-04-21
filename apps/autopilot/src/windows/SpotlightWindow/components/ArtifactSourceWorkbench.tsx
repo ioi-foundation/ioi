@@ -3,7 +3,7 @@ import { Editor, loader } from "@monaco-editor/react";
 import type { editor as MonacoEditorApi } from "monaco-editor";
 import type {
   ArtifactContentPayload,
-  StudioArtifactManifestFile,
+  ChatArtifactManifestFile,
 } from "../../../types";
 
 const MonacoEditor = Editor as unknown as ComponentType<any>;
@@ -197,8 +197,8 @@ function languageForSourcePath(path: string, hint?: string | null): string {
 
 interface ArtifactSourceWorkbenchProps {
   artifactId: string;
-  files: StudioArtifactManifestFile[];
-  selectedFile: StudioArtifactManifestFile | null;
+  files: ChatArtifactManifestFile[];
+  selectedFile: ChatArtifactManifestFile | null;
   payload: ArtifactContentPayload | null;
   loading: boolean;
   error: string | null;
@@ -395,20 +395,20 @@ export function ArtifactSourceWorkbench({
   };
 
   return (
-    <section className="studio-artifact-source-workbench">
-      <div className="studio-artifact-source-surface">
-        <div className="studio-artifact-source-editor-shell">
-          <header className="studio-artifact-source-editor-tabs" aria-label="Source tabs">
-            <div className="studio-artifact-source-editor-tab is-active">
-              <span className="studio-artifact-source-editor-tab-icon">&lt;&gt;</span>
-              <span className="studio-artifact-source-editor-tab-label">
+    <section className="chat-artifact-source-workbench">
+      <div className="chat-artifact-source-surface">
+        <div className="chat-artifact-source-editor-shell">
+          <header className="chat-artifact-source-editor-tabs" aria-label="Source tabs">
+            <div className="chat-artifact-source-editor-tab is-active">
+              <span className="chat-artifact-source-editor-tab-icon">&lt;&gt;</span>
+              <span className="chat-artifact-source-editor-tab-label">
                 {selectedFile?.path ?? "Source unavailable"}
               </span>
             </div>
             {onAttachSelection ? (
               <button
                 type="button"
-                className="studio-artifact-source-action"
+                className="chat-artifact-source-action"
                 onClick={() => {
                   if (!selectedFile || !selectionText.trim()) {
                     return;
@@ -425,49 +425,49 @@ export function ArtifactSourceWorkbench({
             ) : null}
           </header>
 
-          <div className="studio-artifact-source-breadcrumbs" aria-label="Source breadcrumbs">
+          <div className="chat-artifact-source-breadcrumbs" aria-label="Source breadcrumbs">
             {pathSegments.length ? (
               pathSegments.map((segment, index) => (
-                <span key={`${segment}-${index}`} className="studio-artifact-source-breadcrumb">
+                <span key={`${segment}-${index}`} className="chat-artifact-source-breadcrumb">
                   {segment}
                 </span>
               ))
             ) : (
-              <span className="studio-artifact-source-breadcrumb">Source</span>
+              <span className="chat-artifact-source-breadcrumb">Source</span>
             )}
           </div>
 
-          <div className="studio-artifact-source-surface-main">
+          <div className="chat-artifact-source-surface-main">
             {error ? (
-              <div className="studio-artifact-banner is-error">{error}</div>
+              <div className="chat-artifact-banner is-error">{error}</div>
             ) : loading ? (
-              <div className="studio-artifact-renderer-empty">
+              <div className="chat-artifact-renderer-empty">
                 <strong>Loading source…</strong>
               </div>
             ) : !selectedFile ? (
-              <div className="studio-artifact-renderer-empty">
+              <div className="chat-artifact-renderer-empty">
                 <strong>No source file selected.</strong>
               </div>
             ) : isBinary ? (
-              <div className="studio-artifact-renderer-empty">
+              <div className="chat-artifact-renderer-empty">
                 <strong>Binary source</strong>
-                <p>{selectedFile.path} is binary, so Studio keeps it as metadata only.</p>
+                <p>{selectedFile.path} is binary, so Chat keeps it as metadata only.</p>
               </div>
             ) : tooLargeOverride ? (
-              <div className="studio-artifact-renderer-empty">
+              <div className="chat-artifact-renderer-empty">
                 <strong>Source preview too large</strong>
-                <p>{selectedFile.path} is too large for inline viewing in Studio.</p>
+                <p>{selectedFile.path} is too large for inline viewing in Chat.</p>
               </div>
             ) : monacoLoadError ? (
-              <div className="studio-artifact-banner is-error">
+              <div className="chat-artifact-banner is-error">
                 {monacoLoadError}
               </div>
             ) : !monacoReady ? (
-              <div className="studio-artifact-renderer-empty">
+              <div className="chat-artifact-renderer-empty">
                 <strong>Preparing source editor…</strong>
               </div>
             ) : (
-              <div className="studio-artifact-source-editor-stage">
+              <div className="chat-artifact-source-editor-stage">
                 <MonacoEditor
                   path={selectedFile.path}
                   value={sourceText}
@@ -515,7 +515,7 @@ export function ArtifactSourceWorkbench({
             )}
           </div>
 
-          <footer className="studio-artifact-source-statusbar">
+          <footer className="chat-artifact-source-statusbar">
             <span>{artifactId.slice(0, 12)}</span>
             <span>{mime}</span>
             <span>

@@ -10,39 +10,39 @@ export function SettingsSourcesSection({
   if (!controlPlane) return null;
 
   return (
-    <div className="studio-settings-stack">
-      <article className="studio-settings-card">
-        <div className="studio-settings-card-head">
+    <div className="chat-settings-stack">
+      <article className="chat-settings-card">
+        <div className="chat-settings-card-head">
           <div>
-            <span className="studio-settings-card-eyebrow">Sources</span>
+            <span className="chat-settings-card-eyebrow">Sources</span>
             <h2>Model and backend galleries</h2>
           </div>
-          <span className="studio-settings-pill">
+          <span className="chat-settings-pill">
             {controlPlane.galleries.filter((source) => source.enabled).length}{" "}
             enabled
           </span>
         </div>
-        <p className="studio-settings-body">
+        <p className="chat-settings-body">
           The gallery catalog and migration sources now live in the Settings
           plane instead of hiding inside a capabilities-only workflow.
         </p>
-        <div className="studio-settings-stack studio-settings-stack--compact">
+        <div className="chat-settings-stack chat-settings-stack--compact">
           {controlPlane.galleries.map((source, index) => (
-            <article key={source.id} className="studio-settings-subcard">
-              <div className="studio-settings-subcard-head">
+            <article key={source.id} className="chat-settings-subcard">
+              <div className="chat-settings-subcard-head">
                 <strong>{source.label}</strong>
                 <span>{humanize(source.compatibilityTier)}</span>
               </div>
-              <div className="studio-settings-chip-row">
-                <span className="studio-settings-chip">
+              <div className="chat-settings-chip-row">
+                <span className="chat-settings-chip">
                   {humanize(source.kind)}
                 </span>
-                <span className="studio-settings-chip">
+                <span className="chat-settings-chip">
                   {humanize(source.syncStatus)}
                 </span>
               </div>
-              <div className="studio-settings-profile-grid">
-                <label className="studio-settings-field">
+              <div className="chat-settings-profile-grid">
+                <label className="chat-settings-field">
                   <span>Source URI</span>
                   <input
                     value={source.uri}
@@ -58,7 +58,7 @@ export function SettingsSourcesSection({
                     }
                   />
                 </label>
-                <label className="studio-settings-toggle">
+                <label className="chat-settings-toggle">
                   <input
                     type="checkbox"
                     checked={source.enabled}
@@ -78,10 +78,10 @@ export function SettingsSourcesSection({
                     <span>Include this source in the first-party control plane.</span>
                   </div>
                 </label>
-                <div className="studio-settings-inline-actions">
+                <div className="chat-settings-inline-actions">
                   <button
                     type="button"
-                    className="studio-settings-secondary"
+                    className="chat-settings-secondary"
                     onClick={() =>
                       updateEngineDraft((current) => ({
                         ...current,
@@ -98,10 +98,10 @@ export function SettingsSourcesSection({
             </article>
           ))}
         </div>
-        <div className="studio-settings-actions">
+        <div className="chat-settings-actions">
           <button
             type="button"
-            className="studio-settings-secondary"
+            className="chat-settings-secondary"
             onClick={() =>
               updateEngineDraft((current) => ({
                 ...current,

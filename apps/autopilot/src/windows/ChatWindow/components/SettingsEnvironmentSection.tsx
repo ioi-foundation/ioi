@@ -9,26 +9,26 @@ export function SettingsEnvironmentSection({
   if (!controlPlane) return null;
 
   return (
-    <div className="studio-settings-stack">
-      <article className="studio-settings-card">
-        <div className="studio-settings-card-head">
+    <div className="chat-settings-stack">
+      <article className="chat-settings-card">
+        <div className="chat-settings-card-head">
           <div>
-            <span className="studio-settings-card-eyebrow">Environment</span>
+            <span className="chat-settings-card-eyebrow">Environment</span>
             <h2>Runtime bindings</h2>
           </div>
-          <span className="studio-settings-pill">
+          <span className="chat-settings-pill">
             {controlPlane.environment.length} bindings
           </span>
         </div>
-        <p className="studio-settings-body">
+        <p className="chat-settings-body">
           Bindings are now kernel-backed settings documents so the same runtime
           posture can later be applied from the CLI or another shell.
         </p>
-        <div className="studio-settings-stack studio-settings-stack--compact">
+        <div className="chat-settings-stack chat-settings-stack--compact">
           {controlPlane.environment.map((binding, index) => (
             <div
               key={`${binding.key}-${index}`}
-              className="studio-settings-binding-row"
+              className="chat-settings-binding-row"
             >
               <input
                 value={binding.key}
@@ -58,7 +58,7 @@ export function SettingsEnvironmentSection({
                 }
                 placeholder="value"
               />
-              <label className="studio-settings-binding-secret">
+              <label className="chat-settings-binding-secret">
                 <input
                   type="checkbox"
                   checked={binding.secret}
@@ -77,7 +77,7 @@ export function SettingsEnvironmentSection({
               </label>
               <button
                 type="button"
-                className="studio-settings-secondary"
+                className="chat-settings-secondary"
                 onClick={() =>
                   updateEngineDraft((current) => ({
                     ...current,
@@ -92,10 +92,10 @@ export function SettingsEnvironmentSection({
             </div>
           ))}
         </div>
-        <div className="studio-settings-actions">
+        <div className="chat-settings-actions">
           <button
             type="button"
-            className="studio-settings-secondary"
+            className="chat-settings-secondary"
             onClick={() =>
               updateEngineDraft((current) => ({
                 ...current,

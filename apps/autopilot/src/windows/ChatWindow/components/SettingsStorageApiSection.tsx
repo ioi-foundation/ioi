@@ -9,17 +9,17 @@ export function SettingsStorageApiSection({
   if (!controlPlane) return null;
 
   return (
-    <div className="studio-settings-stack">
-      <article className="studio-settings-card">
-        <div className="studio-settings-card-head">
+    <div className="chat-settings-stack">
+      <article className="chat-settings-card">
+        <div className="chat-settings-card-head">
           <div>
-            <span className="studio-settings-card-eyebrow">Storage</span>
+            <span className="chat-settings-card-eyebrow">Storage</span>
             <h2>Filesystem and runtime paths</h2>
           </div>
-          <span className="studio-settings-pill">Local only</span>
+          <span className="chat-settings-pill">Local only</span>
         </div>
-        <div className="studio-settings-profile-grid">
-          <label className="studio-settings-field">
+        <div className="chat-settings-profile-grid">
+          <label className="chat-settings-field">
             <span>Models path</span>
             <input
               value={controlPlane.storage.modelsPath}
@@ -34,7 +34,7 @@ export function SettingsStorageApiSection({
               }
             />
           </label>
-          <label className="studio-settings-field">
+          <label className="chat-settings-field">
             <span>Backends path</span>
             <input
               value={controlPlane.storage.backendsPath}
@@ -49,7 +49,7 @@ export function SettingsStorageApiSection({
               }
             />
           </label>
-          <label className="studio-settings-field">
+          <label className="chat-settings-field">
             <span>Artifacts path</span>
             <input
               value={controlPlane.storage.artifactsPath}
@@ -64,7 +64,7 @@ export function SettingsStorageApiSection({
               }
             />
           </label>
-          <label className="studio-settings-field">
+          <label className="chat-settings-field">
             <span>Cache path</span>
             <input
               value={controlPlane.storage.cachePath}
@@ -82,16 +82,16 @@ export function SettingsStorageApiSection({
         </div>
       </article>
 
-      <article className="studio-settings-card">
-        <div className="studio-settings-card-head">
+      <article className="chat-settings-card">
+        <div className="chat-settings-card-head">
           <div>
-            <span className="studio-settings-card-eyebrow">API</span>
+            <span className="chat-settings-card-eyebrow">API</span>
             <h2>API exposure and compatibility</h2>
           </div>
-          <span className="studio-settings-pill">Kernel-backed</span>
+          <span className="chat-settings-pill">Kernel-backed</span>
         </div>
-        <div className="studio-settings-form-grid">
-          <label className="studio-settings-field">
+        <div className="chat-settings-form-grid">
+          <label className="chat-settings-field">
             <span>Bind address</span>
             <input
               value={controlPlane.api.bindAddress}
@@ -106,7 +106,7 @@ export function SettingsStorageApiSection({
               }
             />
           </label>
-          <label className="studio-settings-field">
+          <label className="chat-settings-field">
             <span>CORS mode</span>
             <input
               value={controlPlane.api.corsMode}
@@ -121,7 +121,7 @@ export function SettingsStorageApiSection({
               }
             />
           </label>
-          <label className="studio-settings-field">
+          <label className="chat-settings-field">
             <span>Auth mode</span>
             <input
               value={controlPlane.api.authMode}
@@ -136,7 +136,7 @@ export function SettingsStorageApiSection({
               }
             />
           </label>
-          <label className="studio-settings-toggle">
+          <label className="chat-settings-toggle">
             <input
               type="checkbox"
               checked={controlPlane.api.remoteAccessEnabled}
@@ -155,7 +155,7 @@ export function SettingsStorageApiSection({
               <span>Expose runtime services beyond localhost when appropriate.</span>
             </div>
           </label>
-          <label className="studio-settings-toggle">
+          <label className="chat-settings-toggle">
             <input
               type="checkbox"
               checked={controlPlane.api.exposeCompatRoutes}
@@ -177,27 +177,27 @@ export function SettingsStorageApiSection({
         </div>
       </article>
 
-      <article className="studio-settings-card">
-        <div className="studio-settings-card-head">
+      <article className="chat-settings-card">
+        <div className="chat-settings-card-head">
           <div>
-            <span className="studio-settings-card-eyebrow">Facades</span>
+            <span className="chat-settings-card-eyebrow">Facades</span>
             <h2>Compatibility routes</h2>
           </div>
-          <span className="studio-settings-pill">
+          <span className="chat-settings-pill">
             {engineSnapshot?.compatibilityRoutes.filter((route) => route.enabled)
               .length ?? 0}{" "}
             live
           </span>
         </div>
-        <div className="studio-settings-stack studio-settings-stack--compact">
+        <div className="chat-settings-stack chat-settings-stack--compact">
           {(engineSnapshot?.compatibilityRoutes ?? []).map((route) => (
             <article
               key={route.id}
-              className={`studio-settings-subcard ${
+              className={`chat-settings-subcard ${
                 route.enabled ? "is-live" : "is-muted"
               }`}
             >
-              <div className="studio-settings-subcard-head">
+              <div className="chat-settings-subcard-head">
                 <strong>{route.label}</strong>
                 <span>{route.enabled ? "Live" : "Hidden"}</span>
               </div>

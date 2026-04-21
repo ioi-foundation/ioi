@@ -8,7 +8,7 @@ A native desktop agent runtime built with Tauri. Provides a non-blocking UX for 
 IOI Runtime (Tauri)
 │
 ├── System Tray
-│   └── Menu: Open Spotlight, Open Studio, Quit
+│   └── Menu: Open Spotlight, Open Chat, Quit
 │
 ├── Windows (Multi-window architecture)
 │   │
@@ -29,7 +29,7 @@ IOI Runtime (Tauri)
 │   │   ├── Approve/Deny actions
 │   │   └── Blocks until resolved
 │   │
-│   └── Studio Window (full IDE)
+│   └── Chat Window (full IDE)
 │       ├── Agent Builder (intent → workflow)
 │       ├── Compose (manual canvas)
 │       ├── My Agents / Templates
@@ -119,7 +119,7 @@ ioi-runtime/
 │       ├── SpotlightWindow.tsx
 │       ├── PillWindow.tsx
 │       ├── GateWindow.tsx
-│       └── StudioWindow.tsx
+│       └── ChatWindow.tsx
 │
 ├── src-tauri/             # Rust backend
 │   ├── Cargo.toml         # Rust dependencies

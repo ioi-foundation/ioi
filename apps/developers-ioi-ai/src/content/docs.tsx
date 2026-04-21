@@ -65,7 +65,7 @@ export const DOC_SECTIONS: DocSectionMeta[] = [
   {
     id: 'build',
     label: 'Build',
-    description: 'Builder surfaces for CLI, Studio, SDKs, and governed execution.',
+    description: 'Builder surfaces for CLI, Chat, SDKs, and governed execution.',
   },
   {
     id: 'ship',
@@ -129,7 +129,7 @@ export const DOC_PAGES: DocPage[] = [
               rows={[
                 ['developers.ioi.ai', 'Curated DX', 'You need onboarding, quickstarts, workflow guidance, and product-oriented docs.'],
                 ['docs.ioi.network', 'Canonical reference', 'You need low-level specs, internals, operator docs, or formal protocol material.'],
-                ['Autopilot', 'Private/local runtime', 'You want to run workers locally, supervise execution, work with Spotlight or Studio, and stay inside your trust boundary.'],
+                ['Autopilot', 'Private/local runtime', 'You want to run workers locally, supervise execution, work with Spotlight or Chat, and stay inside your trust boundary.'],
                 ['IOI CLI', 'Kernel-adjacent toolchain', 'You want to scaffold projects, run local nodes, inspect artifacts, query state, and work close to the repo and runtime.'],
                 ['ioi-swarm', 'Python SDK', 'You want to build agent logic in Python and connect it to runtime, policy, and receipted action flows.'],
                 ['sas.xyz', 'Provider path', 'You want to package and productize repeatable worker delivery as a service.'],
@@ -178,7 +178,7 @@ export const DOC_PAGES: DocPage[] = [
               <li>
                 Want to generate or inspect artifacts? Start with{' '}
                 <a className={linkClass(isDark)} href="#build-your-first-studio-artifact">
-                  Build Your First Studio Artifact
+                  Build Your First Chat Artifact
                 </a>
                 .
               </li>
@@ -277,10 +277,10 @@ export const DOC_PAGES: DocPage[] = [
               </li>
               <li>
                 <strong>Autopilot:</strong> a Tauri-based private/local runtime with Spotlight,
-                Studio, gates, receipts, and a growing operator shell.
+                Chat, gates, receipts, and a growing operator shell.
               </li>
               <li>
-                <strong>Studio artifact pipeline:</strong> shared planning, generation,
+                <strong>Chat artifact pipeline:</strong> shared planning, generation,
                 validation, and materialization helpers in the API and CLI layers.
               </li>
               <li>
@@ -332,7 +332,7 @@ docs.ioi.network = how IOI works`}
     sources: ['package.json', 'apps/developers-ioi-ai/README.md', 'apps/autopilot/README.md'],
     canonicalLinks: [],
     nextSteps: [
-      { label: 'Build Your First Studio Artifact', href: '#build-your-first-studio-artifact' },
+      { label: 'Build Your First Chat Artifact', href: '#build-your-first-studio-artifact' },
       { label: 'Run Autopilot Locally', href: '#run-autopilot-locally' },
       { label: 'IOI CLI Overview', href: '#ioi-cli-overview' },
     ],
@@ -396,7 +396,7 @@ docs.ioi.network = how IOI works`}
           <div className={bodyClass(isDark)}>
             <CodeBlock
               isDark={isDark}
-              code={`# Agent Studio web shell
+              code={`# Agent Chat web shell
 npm run dev:web
 
 # Benchmarks app
@@ -416,10 +416,10 @@ npm run lint --workspace=apps/developers-ioi-ai`}
   },
   {
     id: 'build-your-first-studio-artifact',
-    title: 'Build Your First Studio Artifact',
+    title: 'Build Your First Chat Artifact',
     eyebrow: 'Get started',
     summary:
-      'Generate a Studio artifact bundle through the shared CLI and API path using the mock runtime first, then graduate to a local inference runtime later.',
+      'Generate a Chat artifact bundle through the shared CLI and API path using the mock runtime first, then graduate to a local inference runtime later.',
     section: 'get-started',
     status: 'Current',
     lastVerified: '2026-03-31',
@@ -509,7 +509,7 @@ npm run lint --workspace=apps/developers-ioi-ai`}
     title: 'Run Autopilot Locally',
     eyebrow: 'Get started',
     summary:
-      'Autopilot is the private/local runtime surface. Use it when you want a desktop-first operator shell with Spotlight, Studio, gates, and receipts.',
+      'Autopilot is the private/local runtime surface. Use it when you want a desktop-first operator shell with Spotlight, Chat, gates, and receipts.',
     section: 'get-started',
     status: 'Current',
     lastVerified: '2026-03-31',
@@ -523,7 +523,7 @@ npm run lint --workspace=apps/developers-ioi-ai`}
     nextSteps: [
       { label: 'Policies, Approvals, and Receipts', href: '#policies-approvals-and-receipts' },
       { label: 'Choose the Right Surface', href: '#choose-the-right-surface' },
-      { label: 'Build Your First Studio Artifact', href: '#build-your-first-studio-artifact' },
+      { label: 'Build Your First Chat Artifact', href: '#build-your-first-studio-artifact' },
     ],
     sections: [
       {
@@ -534,13 +534,13 @@ npm run lint --workspace=apps/developers-ioi-ai`}
             <p>
               Autopilot is not just a chat surface. In the repo today it is a native Tauri runtime
               with multiple windows, cross-window state sync, a gate model for risky actions, and a
-              growing Studio path for artifacts and orchestration.
+              growing Chat path for artifacts and orchestration.
             </p>
             <ul className={listClass(isDark)}>
               <li>Spotlight window for intent intake.</li>
               <li>Pill window for non-blocking task progress.</li>
               <li>Gate window for approvals.</li>
-              <li>Studio window for builder and artifact-oriented workflows.</li>
+              <li>Chat window for builder and artifact-oriented workflows.</li>
             </ul>
           </div>
         ),
@@ -700,7 +700,7 @@ agent.run("Check my vault balance and alert me if it's below 50")`}
     canonicalLinks: [],
     nextSteps: [
       { label: 'CLI Command Reference', href: '#cli-command-reference' },
-      { label: 'Build Your First Studio Artifact', href: '#build-your-first-studio-artifact' },
+      { label: 'Build Your First Chat Artifact', href: '#build-your-first-studio-artifact' },
       { label: 'Policies, Approvals, and Receipts', href: '#policies-approvals-and-receipts' },
     ],
     sections: [
@@ -734,7 +734,7 @@ agent.run("Check my vault balance and alert me if it's below 50")`}
               headers={['Workflow', 'Command family', 'Best first use']}
               rows={[
                 ['Scaffold a project', 'init / scaffold', 'Create a new IOI project shape or add services/contracts to a workspace.'],
-                ['Generate artifacts', 'artifact', 'Run route/generate/validate/materialize flows through the shared Studio path.'],
+                ['Generate artifacts', 'artifact', 'Run route/generate/validate/materialize flows through the shared Chat path.'],
                 ['Run a local node', 'node / query', 'Bring up a local validator and inspect state or chain status.'],
                 ['Inspect execution', 'trace / verify', 'Understand traces and determinism evidence after a run.'],
                 ['Synthesize policy', 'policy / ghost', 'Turn recorded traces into a first-pass least-privilege policy.'],
@@ -1132,7 +1132,7 @@ cargo run -p ioi-cli --bin cli -- node`}
     canonicalLinks: [],
     nextSteps: [
       { label: 'IOI CLI Overview', href: '#ioi-cli-overview' },
-      { label: 'Build Your First Studio Artifact', href: '#build-your-first-studio-artifact' },
+      { label: 'Build Your First Chat Artifact', href: '#build-your-first-studio-artifact' },
     ],
     sections: [
       {

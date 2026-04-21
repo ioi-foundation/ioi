@@ -423,7 +423,7 @@ pub(super) async fn handle_action(app: &tauri::AppHandle, action: ActionIntercep
             );
             register_event(&app, event);
 
-            if let Some(w) = app.get_webview_window("studio") {
+            if let Some(w) = app.get_webview_window("chat") {
                 if w.is_visible().unwrap_or(false) {
                     let _ = w.set_focus();
                 }

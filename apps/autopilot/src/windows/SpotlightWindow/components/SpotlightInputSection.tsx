@@ -1,7 +1,7 @@
 import {
-  openStudioCapabilityTarget,
-  openStudioPolicyTarget,
-  openStudioShellView,
+  openChatCapabilityTarget,
+  openChatPolicyTarget,
+  openChatShellView,
   type ConnectorActionDefinition,
   type ConnectorSummary,
   type RuntimeCatalogEntry,
@@ -985,19 +985,19 @@ export function SpotlightInputSection({
       matchesSlashQuery(
         commandQuery,
         "Open Catalog",
-        "Inspect runtime catalog entries in Studio",
-        "catalog studio runtime gallery",
+        "Inspect runtime catalog entries in Chat",
+        "catalog chat runtime gallery",
       )
     ) {
       commandItems.push({
         id: "open-catalog",
         title: "Open Catalog",
-        description: "Inspect the live runtime catalog in Studio.",
+        description: "Inspect the live runtime catalog in Chat.",
         icon: icons.globe,
-        meta: "Studio",
+        meta: "Chat",
         onSelect: () => {
           dismissCommandSurface(false);
-          void openStudioShellView("catalog");
+          void openChatShellView("catalog");
         },
       });
     }
@@ -1007,19 +1007,19 @@ export function SpotlightInputSection({
         commandQuery,
         "Open Capabilities",
         "Inspect live connectors, skills, extensions, and runtime trust posture",
-        "capabilities connectors skills extensions trust studio",
+        "capabilities connectors skills extensions trust chat",
       )
     ) {
       commandItems.push({
         id: "open-capabilities",
         title: "Open Capabilities",
         description:
-          "Inspect live connectors, skills, extensions, and trust posture in Studio.",
+          "Inspect live connectors, skills, extensions, and trust posture in Chat.",
         icon: icons.code,
-        meta: "Studio",
+        meta: "Chat",
         onSelect: () => {
           dismissCommandSurface(false);
-          void openStudioShellView("capabilities");
+          void openChatShellView("capabilities");
         },
       });
     }
@@ -1029,7 +1029,7 @@ export function SpotlightInputSection({
         commandQuery,
         "Open Policy",
         "Inspect Shield policy and connector authority tiers",
-        "policy shield trust connectors studio",
+        "policy shield trust connectors chat",
       )
     ) {
       commandItems.push({
@@ -1038,10 +1038,10 @@ export function SpotlightInputSection({
         description:
           "Inspect Shield policy, connector authority tiers, and governed posture.",
         icon: icons.lock,
-        meta: "Studio",
+        meta: "Chat",
         onSelect: () => {
           dismissCommandSurface(false);
-          void openStudioPolicyTarget(null);
+          void openChatPolicyTarget(null);
         },
       });
     }
@@ -1070,12 +1070,12 @@ export function SpotlightInputSection({
               {
                 id: "catalog-error",
                 title: "Catalog Unavailable",
-                description: "Open Studio to inspect runtime catalog status.",
+                description: "Open Chat to inspect runtime catalog status.",
                 icon: icons.globe,
-                meta: "Studio",
+                meta: "Chat",
                 onSelect: () => {
                   dismissCommandSurface(false);
-                  void openStudioShellView("catalog");
+                  void openChatShellView("catalog");
                 },
               },
             ]
@@ -1104,7 +1104,7 @@ export function SpotlightInputSection({
                 icon: icons.cube,
                 onSelect: () => {
                   dismissCommandSurface(false);
-                  void openStudioShellView("catalog");
+                  void openChatShellView("catalog");
                 },
               }));
 
@@ -1124,11 +1124,11 @@ export function SpotlightInputSection({
               {
                 id: "live-tools-error",
                 title: "Live Tools Unavailable",
-                description: "Open Studio capabilities to inspect connector posture.",
+                description: "Open Chat capabilities to inspect connector posture.",
                 icon: icons.code,
                 onSelect: () => {
                   dismissCommandSurface(false);
-                  void openStudioShellView("capabilities");
+                  void openChatShellView("capabilities");
                 },
               },
             ]
@@ -1159,7 +1159,7 @@ export function SpotlightInputSection({
                 icon: icons.code,
                 onSelect: () => {
                   dismissCommandSurface(false);
-                  void openStudioCapabilityTarget(connector.id, "actions");
+                  void openChatCapabilityTarget(connector.id, "actions");
                 },
               }));
 
@@ -1248,7 +1248,7 @@ export function SpotlightInputSection({
                 icon: icons.code,
                 onSelect: () => {
                   dismissCommandSurface(false);
-                  void openStudioShellView("capabilities");
+                  void openChatShellView("capabilities");
                 },
               },
             ]

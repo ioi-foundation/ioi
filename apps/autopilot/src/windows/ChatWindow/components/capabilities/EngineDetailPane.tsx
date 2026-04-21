@@ -284,12 +284,12 @@ export function EngineDetailPane({
           <section className="capabilities-engine-layout">
             <article className="capabilities-engine-hero">
               <span className="capabilities-engine-hero-kicker">
-                Agentic studio
+                Agentic chat
               </span>
               <h3>Operator visibility for the local runtime.</h3>
               <p>
                 The kernel is now the source of truth for local model, media,
-                knowledge, and worker actions. Studio stays on top as the
+                knowledge, and worker actions. Chat stays on top as the
                 operator shell without reviving a second runtime control plane.
               </p>
               <div className="capabilities-engine-hero-actions">
@@ -392,7 +392,7 @@ export function EngineDetailPane({
                   </span>
                 </div>
                 <p>
-                  Startup, updates, and shell posture now live in Studio rather
+                  Startup, updates, and shell posture now live in Chat rather
                   than a detached launcher window.
                 </p>
                 <div className="capabilities-chip-row">
@@ -521,9 +521,9 @@ export function EngineDetailPane({
                   </strong>
                 </article>
                 <article>
-                  <span>Reopen Studio</span>
+                  <span>Reopen Chat</span>
                   <strong>
-                    {controlPlane.launcher.reopenStudioOnLaunch ? "Yes" : "No"}
+                    {controlPlane.launcher.reopenChatOnLaunch ? "Yes" : "No"}
                   </strong>
                 </article>
                 <article>

@@ -609,19 +609,19 @@ export function connectorFromDraft(
 export function providerAccent(provider: string): string {
   switch (provider.toLowerCase()) {
     case "google":
-      return "var(--studio-accent-soft)";
+      return "var(--chat-accent-soft)";
     case "github":
       return "var(--text-secondary)";
     case "slack":
-      return "var(--studio-accent-soft)";
+      return "var(--chat-accent-soft)";
     case "notion":
       return "var(--text-primary)";
     case "linear":
-      return "var(--studio-accent-soft)";
+      return "var(--chat-accent-soft)";
     case "figma":
       return "var(--text-secondary)";
     case "wallet.network":
-      return "var(--studio-accent-soft)";
+      return "var(--chat-accent-soft)";
     case "mcp":
       return "var(--text-secondary)";
     default:

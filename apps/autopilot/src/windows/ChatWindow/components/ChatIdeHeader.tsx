@@ -26,7 +26,7 @@ interface ChatIdeHeaderProps {
   onOpenNewTerminal: () => void;
 }
 
-const MENU_ITEMS = ["Studio", "Artifact", "Run", "Window"];
+const MENU_ITEMS = ["Chat", "Artifact", "Run", "Window"];
 
 function isTauriRuntime(): boolean {
   return (
@@ -66,7 +66,7 @@ function surfaceDetail(
   view: PrimaryView,
   workflowSurface: ChatIdeHeaderProps["workflowSurface"],
 ): string {
-  if (view === "studio") return "Outcome control plane";
+  if (view === "chat") return "Outcome control plane";
   if (view === "workflows") {
     if (workflowSurface === "home") return "Internal";
     if (workflowSurface === "agents") return "Agent roster";
@@ -166,7 +166,7 @@ export function ChatIdeHeader({
       }
 
       if (event.target instanceof Element) {
-        const insideMenu = event.target.closest(".studio-ide-menu-group");
+        const insideMenu = event.target.closest(".chat-ide-menu-group");
         if (!insideMenu) {
           setTerminalMenuOpen(false);
         }
@@ -236,26 +236,26 @@ export function ChatIdeHeader({
   };
 
   return (
-    <header className="studio-ide-header" onDoubleClick={handleHeaderDoubleClick}>
+    <header className="chat-ide-header" onDoubleClick={handleHeaderDoubleClick}>
       <div
-        className="studio-ide-leading"
+        className="chat-ide-leading"
         data-tauri-drag-region
       >
-        <span className="studio-ide-brand" aria-hidden="true">
+        <span className="chat-ide-brand" aria-hidden="true">
           <ChatLogoIcon />
         </span>
 
-        <div className="studio-ide-menu-bar" aria-label="Studio menu">
+        <div className="chat-ide-menu-bar" aria-label="Chat menu">
           {MENU_ITEMS.map((item) => (
-            <span key={item} className="studio-ide-menu-item">
+            <span key={item} className="chat-ide-menu-item">
               {item}
             </span>
           ))}
           {shellTerminalAllowed ? (
-            <div className="studio-ide-menu-group">
+            <div className="chat-ide-menu-group">
               <button
                 type="button"
-                className={`studio-ide-menu-item studio-ide-menu-button ${
+                className={`chat-ide-menu-item chat-ide-menu-button ${
                   terminalMenuOpen ? "is-active" : ""
                 }`}
                 aria-haspopup="menu"
@@ -265,10 +265,10 @@ export function ChatIdeHeader({
                 Terminal
               </button>
               {terminalMenuOpen ? (
-                <div className="studio-ide-menu-popover" role="menu" aria-label="Terminal menu">
+                <div className="chat-ide-menu-popover" role="menu" aria-label="Terminal menu">
                   <button
                     type="button"
-                    className="studio-ide-menu-popover-item"
+                    className="chat-ide-menu-popover-item"
                     role="menuitem"
                     onClick={() => {
                       setTerminalMenuOpen(false);
@@ -284,15 +284,15 @@ export function ChatIdeHeader({
         </div>
       </div>
 
-      <div className="studio-ide-command-cluster">
+      <div className="chat-ide-command-cluster">
         <button
           type="button"
-          className="studio-ide-command-button"
+          className="chat-ide-command-button"
           onClick={onOpenCommandPalette}
           aria-haspopup="dialog"
         >
           <svg
-            className="studio-ide-command-icon"
+            className="chat-ide-command-icon"
             width="14"
             height="14"
             viewBox="0 0 24 24"
@@ -310,10 +310,10 @@ export function ChatIdeHeader({
           <kbd>⌘K</kbd>
         </button>
 
-        {activeView !== "studio" ? (
+        {activeView !== "chat" ? (
           <button
             type="button"
-            className={`studio-ide-chat-toggle ${
+            className={`chat-ide-chat-toggle ${
               chatVisible ? "is-active" : ""
             }`}
             onClick={onToggleChat}
@@ -326,14 +326,14 @@ export function ChatIdeHeader({
         ) : null}
       </div>
 
-      <div className="studio-ide-toolbar" data-tauri-drag-region>
+      <div className="chat-ide-toolbar" data-tauri-drag-region>
         <div
-          className="studio-ide-toolbar-segment studio-ide-toolbar-segment--scope"
+          className="chat-ide-toolbar-segment chat-ide-toolbar-segment--scope"
           title={`${workspaceName} / ${currentProject.name}`}
         >
-          <span className="studio-ide-toolbar-label">{workspaceName}</span>
-          <label className="studio-ide-project-select">
-            <span className="studio-ide-project-select-label">Project</span>
+          <span className="chat-ide-toolbar-label">{workspaceName}</span>
+          <label className="chat-ide-project-select">
+            <span className="chat-ide-project-select-label">Project</span>
             <select
               value={currentProject.id}
               onChange={(event) => onSelectProject(event.target.value)}
@@ -346,33 +346,33 @@ export function ChatIdeHeader({
               ))}
             </select>
           </label>
-          <span className="studio-ide-toolbar-meta">
+          <span className="chat-ide-toolbar-meta">
             {currentProject.environment}
           </span>
         </div>
 
-        <div className="studio-ide-toolbar-segment">
-          <span className="studio-ide-toolbar-label">Surface</span>
+        <div className="chat-ide-toolbar-segment">
+          <span className="chat-ide-toolbar-label">Surface</span>
           <strong>{prettyPrimaryView(activeView)}</strong>
-          <span className="studio-ide-toolbar-meta">
+          <span className="chat-ide-toolbar-meta">
             {surfaceDetail(activeView, workflowSurface)}
           </span>
         </div>
 
-        <div className="studio-ide-toolbar-segment">
-          <span className="studio-ide-toolbar-label">Inbox</span>
+        <div className="chat-ide-toolbar-segment">
+          <span className="chat-ide-toolbar-label">Inbox</span>
           <strong>{inboxCount}</strong>
-          <span className="studio-ide-toolbar-meta">
+          <span className="chat-ide-toolbar-meta">
             {notificationCount === 1 ? "Pending review" : "Pending reviews"}
           </span>
         </div>
       </div>
 
       {windowControlsVisible ? (
-        <div className="studio-ide-window-controls" aria-label="Window controls">
+        <div className="chat-ide-window-controls" aria-label="Window controls">
           <button
             type="button"
-            className="studio-ide-window-button"
+            className="chat-ide-window-button"
             onClick={() => {
               void minimizeWindow();
             }}
@@ -395,7 +395,7 @@ export function ChatIdeHeader({
 
           <button
             type="button"
-            className="studio-ide-window-button"
+            className="chat-ide-window-button"
             onClick={() => {
               void toggleWindowMaximize();
             }}
@@ -436,7 +436,7 @@ export function ChatIdeHeader({
 
           <button
             type="button"
-            className="studio-ide-window-button studio-ide-window-button--close"
+            className="chat-ide-window-button chat-ide-window-button--close"
             onClick={() => {
               void closeWindow();
             }}

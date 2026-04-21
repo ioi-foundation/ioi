@@ -3,8 +3,8 @@
 use async_trait::async_trait;
 use ioi_types::app::agentic::{EvidenceGraph, InferenceOptions};
 use ioi_types::app::{
-    ModelLifecycleOperationKind, RegistrySubjectKind, StudioRuntimeProvenance,
-    StudioRuntimeProvenanceKind,
+    ModelLifecycleOperationKind, RegistrySubjectKind, ChatRuntimeProvenance,
+    ChatRuntimeProvenanceKind,
 };
 use ioi_types::error::VmError;
 use std::path::Path;
@@ -176,11 +176,11 @@ pub trait InferenceRuntime: Send + Sync {
     /// Offloads a model from memory.
     async fn unload_model(&self, model_hash: [u8; 32]) -> Result<(), VmError>;
 
-    /// Returns truthful Studio-facing runtime provenance so product surfaces do
+    /// Returns truthful Chat-facing runtime provenance so product surfaces do
     /// not infer it from implementation type names.
-    fn studio_runtime_provenance(&self) -> StudioRuntimeProvenance {
-        StudioRuntimeProvenance {
-            kind: StudioRuntimeProvenanceKind::OpaqueRuntime,
+    fn chat_runtime_provenance(&self) -> ChatRuntimeProvenance {
+        ChatRuntimeProvenance {
+            kind: ChatRuntimeProvenanceKind::OpaqueRuntime,
             label: "opaque inference runtime".to_string(),
             model: None,
             endpoint: None,

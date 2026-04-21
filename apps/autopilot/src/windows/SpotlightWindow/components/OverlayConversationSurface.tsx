@@ -18,7 +18,7 @@ export function OverlayConversationSurface({
 }) {
   return (
     <>
-      <div className={`spot-main ${isStudioVariant ? "spot-main--studio" : ""}`}>
+      <div className={`spot-main ${isStudioVariant ? "spot-main--chat" : ""}`}>
         {conversationContent}
       </div>
       <ScrollToBottom visible={showScrollButton} onClick={onScrollToBottom} />

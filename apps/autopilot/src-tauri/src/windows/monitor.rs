@@ -5,7 +5,7 @@ pub(super) fn get_target_monitor(app: &AppHandle) -> Option<tauri::Monitor> {
     // Priority:
     // 1) spotlight current monitor
     // 2) monitor containing spotlight center (from outer geometry)
-    // 3) studio current monitor
+    // 3) chat current monitor
     // 4) primary monitor
     // 5) largest available monitor
     if let Some(window) = app.get_webview_window("spotlight") {
@@ -34,8 +34,8 @@ pub(super) fn get_target_monitor(app: &AppHandle) -> Option<tauri::Monitor> {
         }
     }
 
-    if let Some(studio) = app.get_webview_window("studio") {
-        if let Ok(Some(monitor)) = studio.current_monitor() {
+    if let Some(chat) = app.get_webview_window("chat") {
+        if let Ok(Some(monitor)) = chat.current_monitor() {
             return Some(monitor);
         }
     }

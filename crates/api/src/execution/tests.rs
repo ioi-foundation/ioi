@@ -1,16 +1,16 @@
 use super::*;
 use ioi_types::app::{
-    StudioArtifactClass, StudioArtifactDeliverableShape, StudioArtifactPersistenceMode,
-    StudioExecutionSubstrate, StudioOutcomeArtifactScope, StudioOutcomeArtifactVerificationRequest,
-    StudioPresentationSurface, StudioRendererKind, StudioRuntimeProvenance,
-    StudioRuntimeProvenanceKind,
+    ChatArtifactClass, ChatArtifactDeliverableShape, ChatArtifactPersistenceMode,
+    ChatExecutionSubstrate, ChatOutcomeArtifactScope, ChatOutcomeArtifactVerificationRequest,
+    ChatPresentationSurface, ChatRendererKind, ChatRuntimeProvenance,
+    ChatRuntimeProvenanceKind,
 };
 
 fn test_swarm_plan(strategy: &str, work_items: Vec<SwarmWorkItem>) -> SwarmPlan {
     SwarmPlan {
         version: 1,
         strategy: strategy.to_string(),
-        execution_domain: "studio_artifact".to_string(),
+        execution_domain: "chat_artifact".to_string(),
         adapter_label: "artifact_graph_v1".to_string(),
         parallelism_mode: "sequential_by_default".to_string(),
         top_level_objective: Some("Test objective".to_string()),
@@ -64,7 +64,7 @@ fn build_execution_envelope_derives_strategy_and_domain_kind_from_swarm() {
         failed_work_items: 0,
         verification_status: "pending".to_string(),
         strategy: "swarm".to_string(),
-        execution_domain: "studio_artifact".to_string(),
+        execution_domain: "chat_artifact".to_string(),
         adapter_label: "artifact_swarm_v1".to_string(),
         parallelism_mode: "serial".to_string(),
     };
@@ -84,9 +84,9 @@ fn build_execution_envelope_derives_strategy_and_domain_kind_from_swarm() {
 
     assert_eq!(
         envelope.strategy,
-        Some(StudioExecutionStrategy::AdaptiveWorkGraph)
+        Some(ChatExecutionStrategy::AdaptiveWorkGraph)
     );
-    assert_eq!(envelope.execution_domain, "studio_artifact");
+    assert_eq!(envelope.execution_domain, "chat_artifact");
     assert_eq!(envelope.domain_kind, Some(ExecutionDomainKind::Artifact));
     assert_eq!(
         envelope
@@ -108,8 +108,8 @@ fn execution_envelope_rejects_tampered_workflow_root_hash() {
         summary: "Drafted artifact".to_string(),
         started_at: "1".to_string(),
         finished_at: Some("2".to_string()),
-        runtime: StudioRuntimeProvenance {
-            kind: StudioRuntimeProvenanceKind::MockRuntime,
+        runtime: ChatRuntimeProvenance {
+            kind: ChatRuntimeProvenanceKind::MockRuntime,
             label: "mock".to_string(),
             model: None,
             endpoint: None,
@@ -148,8 +148,8 @@ fn execution_envelope_rejects_tampered_workflow_root_hash() {
         rejected_reason: None,
     }];
     let envelope = build_execution_envelope_from_swarm_with_receipts(
-        Some(StudioExecutionStrategy::AdaptiveWorkGraph),
-        Some("studio_artifact".to_string()),
+        Some(ChatExecutionStrategy::AdaptiveWorkGraph),
+        Some("chat_artifact".to_string()),
         Some(ExecutionDomainKind::Artifact),
         None,
         None,
@@ -175,21 +175,21 @@ fn execution_envelope_rejects_tampered_workflow_root_hash() {
 
 #[test]
 fn artifact_outcomes_default_single_document_renderers_to_direct_author() {
-    let html_request = StudioOutcomeArtifactRequest {
-        artifact_class: StudioArtifactClass::InteractiveSingleFile,
-        deliverable_shape: StudioArtifactDeliverableShape::SingleFile,
-        renderer: StudioRendererKind::HtmlIframe,
-        presentation_surface: StudioPresentationSurface::SidePanel,
-        persistence: StudioArtifactPersistenceMode::SharedArtifactScoped,
-        execution_substrate: StudioExecutionSubstrate::ClientSandbox,
+    let html_request = ChatOutcomeArtifactRequest {
+        artifact_class: ChatArtifactClass::InteractiveSingleFile,
+        deliverable_shape: ChatArtifactDeliverableShape::SingleFile,
+        renderer: ChatRendererKind::HtmlIframe,
+        presentation_surface: ChatPresentationSurface::SidePanel,
+        persistence: ChatArtifactPersistenceMode::SharedArtifactScoped,
+        execution_substrate: ChatExecutionSubstrate::ClientSandbox,
         workspace_recipe_id: None,
         presentation_variant_id: None,
-        scope: StudioOutcomeArtifactScope {
+        scope: ChatOutcomeArtifactScope {
             target_project: None,
             create_new_workspace: false,
             mutation_boundary: vec!["artifact".to_string()],
         },
-        verification: StudioOutcomeArtifactVerificationRequest {
+        verification: ChatOutcomeArtifactVerificationRequest {
             require_render: true,
             require_build: false,
             require_preview: false,
@@ -197,52 +197,52 @@ fn artifact_outcomes_default_single_document_renderers_to_direct_author() {
             require_diff_review: false,
         },
     };
-    let markdown_request = StudioOutcomeArtifactRequest {
-        renderer: StudioRendererKind::Markdown,
-        execution_substrate: StudioExecutionSubstrate::None,
+    let markdown_request = ChatOutcomeArtifactRequest {
+        renderer: ChatRendererKind::Markdown,
+        execution_substrate: ChatExecutionSubstrate::None,
         ..html_request.clone()
     };
-    let svg_request = StudioOutcomeArtifactRequest {
-        artifact_class: StudioArtifactClass::Visual,
-        renderer: StudioRendererKind::Svg,
-        execution_substrate: StudioExecutionSubstrate::None,
+    let svg_request = ChatOutcomeArtifactRequest {
+        artifact_class: ChatArtifactClass::Visual,
+        renderer: ChatRendererKind::Svg,
+        execution_substrate: ChatExecutionSubstrate::None,
         ..html_request.clone()
     };
-    let pdf_request = StudioOutcomeArtifactRequest {
-        artifact_class: StudioArtifactClass::Document,
-        renderer: StudioRendererKind::PdfEmbed,
-        execution_substrate: StudioExecutionSubstrate::BinaryGenerator,
+    let pdf_request = ChatOutcomeArtifactRequest {
+        artifact_class: ChatArtifactClass::Document,
+        renderer: ChatRendererKind::PdfEmbed,
+        execution_substrate: ChatExecutionSubstrate::BinaryGenerator,
         ..html_request.clone()
     };
 
     assert_eq!(
-        execution_strategy_for_outcome(StudioOutcomeKind::Artifact, None),
-        StudioExecutionStrategy::PlanExecute
+        execution_strategy_for_outcome(ChatOutcomeKind::Artifact, None),
+        ChatExecutionStrategy::PlanExecute
     );
     assert_eq!(
-        execution_strategy_for_outcome(StudioOutcomeKind::Artifact, Some(&html_request)),
-        StudioExecutionStrategy::DirectAuthor
+        execution_strategy_for_outcome(ChatOutcomeKind::Artifact, Some(&html_request)),
+        ChatExecutionStrategy::DirectAuthor
     );
     assert_eq!(
-        execution_strategy_for_outcome(StudioOutcomeKind::Artifact, Some(&markdown_request)),
-        StudioExecutionStrategy::DirectAuthor
+        execution_strategy_for_outcome(ChatOutcomeKind::Artifact, Some(&markdown_request)),
+        ChatExecutionStrategy::DirectAuthor
     );
     assert_eq!(
-        execution_strategy_for_outcome(StudioOutcomeKind::Artifact, Some(&svg_request)),
-        StudioExecutionStrategy::DirectAuthor
+        execution_strategy_for_outcome(ChatOutcomeKind::Artifact, Some(&svg_request)),
+        ChatExecutionStrategy::DirectAuthor
     );
     assert_eq!(
-        execution_strategy_for_outcome(StudioOutcomeKind::Artifact, Some(&pdf_request)),
-        StudioExecutionStrategy::DirectAuthor
+        execution_strategy_for_outcome(ChatOutcomeKind::Artifact, Some(&pdf_request)),
+        ChatExecutionStrategy::DirectAuthor
     );
 }
 
 #[test]
 fn derive_execution_mode_decision_routes_simple_conversation_to_single_pass() {
     let decision = derive_execution_mode_decision(
-        StudioOutcomeKind::Conversation,
+        ChatOutcomeKind::Conversation,
         None,
-        StudioExecutionStrategy::PlanExecute,
+        ChatExecutionStrategy::PlanExecute,
         0.94,
         false,
         false,
@@ -250,11 +250,11 @@ fn derive_execution_mode_decision_routes_simple_conversation_to_single_pass() {
 
     assert_eq!(
         decision.requested_strategy,
-        StudioExecutionStrategy::PlanExecute
+        ChatExecutionStrategy::PlanExecute
     );
     assert_eq!(
         decision.resolved_strategy,
-        StudioExecutionStrategy::SinglePass
+        ChatExecutionStrategy::SinglePass
     );
     assert!(!decision.work_graph_required);
     assert!(decision.one_shot_sufficiency >= 0.7);
@@ -264,9 +264,9 @@ fn derive_execution_mode_decision_routes_simple_conversation_to_single_pass() {
 #[test]
 fn derive_execution_mode_decision_preserves_requested_conversation_work_graph() {
     let decision = derive_execution_mode_decision(
-        StudioOutcomeKind::Conversation,
+        ChatOutcomeKind::Conversation,
         None,
-        StudioExecutionStrategy::AdaptiveWorkGraph,
+        ChatExecutionStrategy::AdaptiveWorkGraph,
         0.91,
         false,
         false,
@@ -274,11 +274,11 @@ fn derive_execution_mode_decision_preserves_requested_conversation_work_graph() 
 
     assert_eq!(
         decision.requested_strategy,
-        StudioExecutionStrategy::AdaptiveWorkGraph
+        ChatExecutionStrategy::AdaptiveWorkGraph
     );
     assert_eq!(
         decision.resolved_strategy,
-        StudioExecutionStrategy::AdaptiveWorkGraph
+        ChatExecutionStrategy::AdaptiveWorkGraph
     );
     assert!(decision.work_graph_required);
     assert!(decision.budget_envelope.max_workers >= 4);
@@ -286,21 +286,21 @@ fn derive_execution_mode_decision_preserves_requested_conversation_work_graph() 
 
 #[test]
 fn derive_execution_mode_decision_routes_fresh_bounded_document_to_direct_author() {
-    let request = StudioOutcomeArtifactRequest {
-        artifact_class: StudioArtifactClass::Document,
-        deliverable_shape: StudioArtifactDeliverableShape::SingleFile,
-        renderer: StudioRendererKind::Markdown,
-        presentation_surface: StudioPresentationSurface::SidePanel,
-        persistence: StudioArtifactPersistenceMode::ArtifactScoped,
-        execution_substrate: StudioExecutionSubstrate::None,
+    let request = ChatOutcomeArtifactRequest {
+        artifact_class: ChatArtifactClass::Document,
+        deliverable_shape: ChatArtifactDeliverableShape::SingleFile,
+        renderer: ChatRendererKind::Markdown,
+        presentation_surface: ChatPresentationSurface::SidePanel,
+        persistence: ChatArtifactPersistenceMode::ArtifactScoped,
+        execution_substrate: ChatExecutionSubstrate::None,
         workspace_recipe_id: None,
         presentation_variant_id: None,
-        scope: StudioOutcomeArtifactScope {
+        scope: ChatOutcomeArtifactScope {
             target_project: None,
             create_new_workspace: false,
             mutation_boundary: vec!["artifact".to_string()],
         },
-        verification: StudioOutcomeArtifactVerificationRequest {
+        verification: ChatOutcomeArtifactVerificationRequest {
             require_render: true,
             require_build: false,
             require_preview: false,
@@ -310,9 +310,9 @@ fn derive_execution_mode_decision_routes_fresh_bounded_document_to_direct_author
     };
 
     let decision = derive_execution_mode_decision(
-        StudioOutcomeKind::Artifact,
+        ChatOutcomeKind::Artifact,
         Some(&request),
-        StudioExecutionStrategy::PlanExecute,
+        ChatExecutionStrategy::PlanExecute,
         0.92,
         false,
         false,
@@ -320,7 +320,7 @@ fn derive_execution_mode_decision_routes_fresh_bounded_document_to_direct_author
 
     assert_eq!(
         decision.resolved_strategy,
-        StudioExecutionStrategy::DirectAuthor
+        ChatExecutionStrategy::DirectAuthor
     );
     assert!(!decision.work_graph_required);
     assert_eq!(decision.work_graph_size_estimate, 1);
@@ -328,27 +328,27 @@ fn derive_execution_mode_decision_routes_fresh_bounded_document_to_direct_author
     assert_eq!(decision.budget_envelope.max_replans, 0);
     assert_eq!(
         decision.budget_envelope.expansion_policy,
-        StudioExecutionBudgetExpansionPolicy::Fixed
+        ChatExecutionBudgetExpansionPolicy::Fixed
     );
 }
 
 #[test]
 fn derive_execution_mode_decision_routes_workspace_artifacts_to_adaptive_work_graph() {
-    let request = StudioOutcomeArtifactRequest {
-        artifact_class: StudioArtifactClass::WorkspaceProject,
-        deliverable_shape: StudioArtifactDeliverableShape::WorkspaceProject,
-        renderer: StudioRendererKind::WorkspaceSurface,
-        presentation_surface: StudioPresentationSurface::TabbedPanel,
-        persistence: StudioArtifactPersistenceMode::WorkspaceFilesystem,
-        execution_substrate: StudioExecutionSubstrate::WorkspaceRuntime,
+    let request = ChatOutcomeArtifactRequest {
+        artifact_class: ChatArtifactClass::WorkspaceProject,
+        deliverable_shape: ChatArtifactDeliverableShape::WorkspaceProject,
+        renderer: ChatRendererKind::WorkspaceSurface,
+        presentation_surface: ChatPresentationSurface::TabbedPanel,
+        persistence: ChatArtifactPersistenceMode::WorkspaceFilesystem,
+        execution_substrate: ChatExecutionSubstrate::WorkspaceRuntime,
         workspace_recipe_id: Some("react".to_string()),
         presentation_variant_id: None,
-        scope: StudioOutcomeArtifactScope {
+        scope: ChatOutcomeArtifactScope {
             target_project: Some("workspace".to_string()),
             create_new_workspace: true,
             mutation_boundary: vec!["workspace".to_string()],
         },
-        verification: StudioOutcomeArtifactVerificationRequest {
+        verification: ChatOutcomeArtifactVerificationRequest {
             require_render: true,
             require_build: true,
             require_preview: true,
@@ -358,9 +358,9 @@ fn derive_execution_mode_decision_routes_workspace_artifacts_to_adaptive_work_gr
     };
 
     let decision = derive_execution_mode_decision(
-        StudioOutcomeKind::Artifact,
+        ChatOutcomeKind::Artifact,
         Some(&request),
-        StudioExecutionStrategy::PlanExecute,
+        ChatExecutionStrategy::PlanExecute,
         0.86,
         false,
         false,
@@ -368,13 +368,13 @@ fn derive_execution_mode_decision_routes_workspace_artifacts_to_adaptive_work_gr
 
     assert_eq!(
         decision.resolved_strategy,
-        StudioExecutionStrategy::AdaptiveWorkGraph
+        ChatExecutionStrategy::AdaptiveWorkGraph
     );
     assert!(decision.work_graph_required);
     assert_eq!(decision.budget_envelope.max_workers, 8);
     assert_eq!(
         decision.budget_envelope.expansion_policy,
-        StudioExecutionBudgetExpansionPolicy::FrontierAdaptive
+        ChatExecutionBudgetExpansionPolicy::FrontierAdaptive
     );
     assert!(decision.hidden_dependency_likelihood >= 0.7);
 }
@@ -382,8 +382,8 @@ fn derive_execution_mode_decision_routes_workspace_artifacts_to_adaptive_work_gr
 #[test]
 fn annotate_execution_envelope_carries_mode_decision_budget_and_invariant() {
     let mut envelope = build_execution_envelope_from_swarm(
-        Some(StudioExecutionStrategy::PlanExecute),
-        Some("studio_artifact".to_string()),
+        Some(ChatExecutionStrategy::PlanExecute),
+        Some("chat_artifact".to_string()),
         Some(ExecutionDomainKind::Artifact),
         None,
         None,
@@ -392,9 +392,9 @@ fn annotate_execution_envelope_carries_mode_decision_budget_and_invariant() {
         &[],
         &[],
     );
-    let decision = StudioExecutionModeDecision {
-        requested_strategy: StudioExecutionStrategy::PlanExecute,
-        resolved_strategy: StudioExecutionStrategy::MicroSwarm,
+    let decision = ChatExecutionModeDecision {
+        requested_strategy: ChatExecutionStrategy::PlanExecute,
+        resolved_strategy: ChatExecutionStrategy::MicroSwarm,
         mode_confidence: 0.81,
         one_shot_sufficiency: 0.44,
         ambiguity: 0.12,
@@ -408,11 +408,11 @@ fn annotate_execution_envelope_carries_mode_decision_budget_and_invariant() {
         work_graph_required: true,
         decomposition_reason: "A bounded work graph is justified.".to_string(),
         budget_envelope: execution_budget_envelope_for_strategy(
-            StudioExecutionStrategy::MicroSwarm,
+            ChatExecutionStrategy::MicroSwarm,
         ),
     };
     let invariant = completion_invariant_for_direct_execution(
-        StudioExecutionStrategy::MicroSwarm,
+        ChatExecutionStrategy::MicroSwarm,
         vec!["index.html".to_string()],
         vec!["verify".to_string()],
         ExecutionCompletionInvariantStatus::Pending,
@@ -425,7 +425,7 @@ fn annotate_execution_envelope_carries_mode_decision_budget_and_invariant() {
     );
 
     let envelope = envelope.expect("execution envelope");
-    assert_eq!(envelope.strategy, Some(StudioExecutionStrategy::MicroSwarm));
+    assert_eq!(envelope.strategy, Some(ChatExecutionStrategy::MicroSwarm));
     assert_eq!(envelope.mode_decision, Some(decision));
     assert_eq!(
         envelope.budget_envelope,
@@ -434,27 +434,27 @@ fn annotate_execution_envelope_carries_mode_decision_budget_and_invariant() {
     assert_eq!(envelope.completion_invariant, Some(invariant));
 }
 
-fn invariant_allows_micro_budget() -> StudioExecutionBudgetEnvelope {
-    execution_budget_envelope_for_strategy(StudioExecutionStrategy::MicroSwarm)
+fn invariant_allows_micro_budget() -> ChatExecutionBudgetEnvelope {
+    execution_budget_envelope_for_strategy(ChatExecutionStrategy::MicroSwarm)
 }
 
 #[test]
 fn parse_execution_strategy_id_accepts_legacy_swarm_alias() {
     assert_eq!(
         parse_execution_strategy_id("direct_author"),
-        Some(StudioExecutionStrategy::DirectAuthor)
+        Some(ChatExecutionStrategy::DirectAuthor)
     );
     assert_eq!(
         parse_execution_strategy_id("swarm"),
-        Some(StudioExecutionStrategy::AdaptiveWorkGraph)
+        Some(ChatExecutionStrategy::AdaptiveWorkGraph)
     );
     assert_eq!(
         parse_execution_strategy_id("adaptive_work_graph"),
-        Some(StudioExecutionStrategy::AdaptiveWorkGraph)
+        Some(ChatExecutionStrategy::AdaptiveWorkGraph)
     );
     assert_eq!(
         parse_execution_strategy_id("micro_swarm"),
-        Some(StudioExecutionStrategy::MicroSwarm)
+        Some(ChatExecutionStrategy::MicroSwarm)
     );
 }
 
@@ -597,7 +597,7 @@ fn block_swarm_work_item_on_adds_runtime_blockers() {
             },
         ],
     );
-    plan.execution_domain = "studio_conversation".to_string();
+    plan.execution_domain = "chat_conversation".to_string();
     plan.adapter_label = "conversation_route_v1".to_string();
 
     spawn_follow_up_swarm_work_item(
@@ -790,8 +790,8 @@ fn build_execution_envelope_preserves_graph_and_repair_receipts() {
     }];
 
     let envelope = build_execution_envelope_from_swarm_with_receipts(
-        Some(StudioExecutionStrategy::AdaptiveWorkGraph),
-        Some("studio_artifact".to_string()),
+        Some(ChatExecutionStrategy::AdaptiveWorkGraph),
+        Some("chat_artifact".to_string()),
         Some(ExecutionDomainKind::Artifact),
         None,
         None,

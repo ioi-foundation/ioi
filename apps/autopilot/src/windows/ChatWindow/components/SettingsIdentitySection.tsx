@@ -16,23 +16,23 @@ export function SettingsIdentitySection({
   } = view;
 
   return (
-    <article className="studio-settings-card">
-      <div className="studio-settings-card-head">
+    <article className="chat-settings-card">
+      <div className="chat-settings-card-head">
         <div>
-          <span className="studio-settings-card-eyebrow">Identity</span>
+          <span className="chat-settings-card-eyebrow">Identity</span>
           <h2>Shell identity</h2>
         </div>
-        <span className="studio-settings-pill">Local only</span>
+        <span className="chat-settings-pill">Local only</span>
       </div>
 
-      <p className="studio-settings-body">
+      <p className="chat-settings-body">
         This local operator profile shapes how the shell names you across
         Autopilot surfaces. It does not replace runtime, policy, or tool
         configuration.
       </p>
 
-      <div className="studio-settings-profile-grid">
-        <label className="studio-settings-field">
+      <div className="chat-settings-profile-grid">
+        <label className="chat-settings-field">
           <span>Display name</span>
           <input
             value={profileDraft.displayName}
@@ -42,7 +42,7 @@ export function SettingsIdentitySection({
             placeholder="Operator"
           />
         </label>
-        <label className="studio-settings-field">
+        <label className="chat-settings-field">
           <span>Preferred name</span>
           <input
             value={profileDraft.preferredName ?? ""}
@@ -52,7 +52,7 @@ export function SettingsIdentitySection({
             placeholder="Optional"
           />
         </label>
-        <label className="studio-settings-field">
+        <label className="chat-settings-field">
           <span>Role label</span>
           <input
             value={profileDraft.roleLabel ?? ""}
@@ -62,7 +62,7 @@ export function SettingsIdentitySection({
             placeholder="Private Operator"
           />
         </label>
-        <label className="studio-settings-field">
+        <label className="chat-settings-field">
           <span>Primary email</span>
           <input
             value={profileDraft.primaryEmail ?? ""}
@@ -72,7 +72,7 @@ export function SettingsIdentitySection({
             placeholder="Optional"
           />
         </label>
-        <label className="studio-settings-field">
+        <label className="chat-settings-field">
           <span>Timezone</span>
           <input
             value={profileDraft.timezone}
@@ -82,7 +82,7 @@ export function SettingsIdentitySection({
             placeholder="America/New_York"
           />
         </label>
-        <label className="studio-settings-field">
+        <label className="chat-settings-field">
           <span>Locale</span>
           <input
             value={profileDraft.locale}
@@ -95,13 +95,13 @@ export function SettingsIdentitySection({
       </div>
 
       {profileError ? (
-        <p className="studio-settings-error">{profileError}</p>
+        <p className="chat-settings-error">{profileError}</p>
       ) : null}
 
-      <div className="studio-settings-actions">
+      <div className="chat-settings-actions">
         <button
           type="button"
-          className="studio-settings-secondary"
+          className="chat-settings-secondary"
           onClick={onResetProfileDraft}
           disabled={profileSaving || !profileDirty}
         >
@@ -109,7 +109,7 @@ export function SettingsIdentitySection({
         </button>
         <button
           type="button"
-          className="studio-settings-primary"
+          className="chat-settings-primary"
           onClick={() => {
             void onSaveProfile();
           }}

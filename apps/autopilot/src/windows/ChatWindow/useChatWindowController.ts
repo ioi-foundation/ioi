@@ -11,7 +11,6 @@ import type {
   AgentSummary,
   ProjectFile,
   RuntimeCatalogEntry,
-  StudioCapabilityDetailSection,
 } from "@ioi/agent-ide";
 import { useAssistantWorkbenchState } from "@ioi/agent-ide";
 import { bootstrapAgentSession, useAgentStore } from "../../session/autopilotSession";
@@ -29,6 +28,7 @@ import type {
   AssistantNotificationRecord,
   AssistantUserProfile,
   AssistantWorkbenchSession,
+  ChatCapabilityDetailSection,
   InterventionRecord,
 } from "../../types";
 import {
@@ -64,7 +64,7 @@ type RuntimeCatalogStageEntry = {
   image: string;
 };
 
-const appliedStudioLaunchIds = new Set<string>();
+const appliedChatLaunchIds = new Set<string>();
 
 function waitForChatAutopilotSurfaceFrame(): Promise<void> {
   return new Promise((resolve) => {
@@ -191,7 +191,7 @@ async function sendNativeAutopilotNotification(
 }
 
 export function useChatWindowController() {
-  const [activeView, setActiveView] = useState<PrimaryView>("studio");
+  const [activeView, setActiveView] = useState<PrimaryView>("chat");
   const [chatSurface, setChatSurface] = useState<ChatSurface>("chat");
   const [chatPaneVisible, setChatPaneVisible] = useState(true);
   const [chatPaneMaximized, setChatPaneMaximized] = useState(false);
@@ -230,7 +230,7 @@ export function useChatWindowController() {
   const [capabilitiesTargetConnectorId, setCapabilitiesTargetConnectorId] =
     useState<string | null>(null);
   const [capabilitiesTargetDetailSection, setCapabilitiesTargetDetailSection] =
-    useState<StudioCapabilityDetailSection | null>(null);
+    useState<ChatCapabilityDetailSection | null>(null);
   const [settingsSectionSeed, setSettingsSectionSeed] =
     useState<SettingsSection | null>(null);
   const [composeSeedProject, setComposeSeedProject] = useState<ProjectFile | null>(
@@ -240,8 +240,8 @@ export function useChatWindowController() {
   const lastPersistedShieldPolicyRef = useRef<string>(
     JSON.stringify(loadShieldPolicyState()),
   );
-  const studioLaunchHydrationInFlightRef = useRef(false);
-  const lastAppliedStudioLaunchIdRef = useRef<string | null>(null);
+  const chatLaunchHydrationInFlightRef = useRef(false);
+  const lastAppliedChatLaunchIdRef = useRef<string | null>(null);
 
   const currentProject =
     PROJECT_SCOPES.find((project) => project.id === currentProjectId) ??
@@ -281,7 +281,7 @@ export function useChatWindowController() {
     switch (view) {
       case "copilot":
       case "autopilot":
-        setActiveView("studio");
+        setActiveView("chat");
         return;
       case "reply-composer":
         setChatSurface("reply-composer");
@@ -292,14 +292,14 @@ export function useChatWindowController() {
         setChatPaneVisible(true);
         return;
       case "compose":
-        setActiveView("studio");
+        setActiveView("chat");
         return;
       case "build":
-        setActiveView("studio");
+        setActiveView("chat");
         return;
       case "code":
       case "explorer":
-        setActiveView("studio");
+        setActiveView("chat");
         return;
       case "agents":
         setWorkflowSurface("agents");
@@ -335,7 +335,7 @@ export function useChatWindowController() {
 
   const openCapabilityTarget = (
     connectorId?: string | null,
-    detailSection?: StudioCapabilityDetailSection | null,
+    detailSection?: ChatCapabilityDetailSection | null,
   ) => {
     const resolvedConnectorId = connectorId ?? null;
     setCapabilitiesTargetConnectorId(resolvedConnectorId);
@@ -378,7 +378,7 @@ export function useChatWindowController() {
     }
 
     const { launchId, request: pendingRequest } = pendingLaunch;
-    if (appliedStudioLaunchIds.has(launchId)) {
+    if (appliedChatLaunchIds.has(launchId)) {
       await recordChatLaunchReceipt("chat_pending_launch_duplicate", {
         source,
         launchId,
@@ -388,7 +388,7 @@ export function useChatWindowController() {
       await ackPendingChatLaunchRequest(launchId);
       return;
     }
-    if (lastAppliedStudioLaunchIdRef.current === launchId) {
+    if (lastAppliedChatLaunchIdRef.current === launchId) {
       await recordChatLaunchReceipt("chat_pending_launch_duplicate", {
         source,
         launchId,
@@ -411,8 +411,8 @@ export function useChatWindowController() {
       return;
     }
 
-    appliedStudioLaunchIds.add(launchId);
-    lastAppliedStudioLaunchIdRef.current = launchId;
+    appliedChatLaunchIds.add(launchId);
+    lastAppliedChatLaunchIdRef.current = launchId;
     await recordChatLaunchReceipt("chat_pending_launch_applying", {
       source,
       launchId,
@@ -469,7 +469,7 @@ export function useChatWindowController() {
             });
             setChatSurface("chat");
             setChatPaneVisible(true);
-            setActiveView("studio");
+            setActiveView("chat");
             await waitForChatAutopilotSurfaceFrame();
             await recordChatLaunchReceipt(
               "chat_session_followup_submit_dispatching",
@@ -486,7 +486,7 @@ export function useChatWindowController() {
             });
             void openSessionTarget(pendingRequest.sessionId).catch((error) => {
               console.error(
-                "[Studio][Launch] retained session reopen after direct follow-up submit failed",
+                "[Chat][Launch] retained session reopen after direct follow-up submit failed",
                 error,
               );
             });
@@ -532,8 +532,8 @@ export function useChatWindowController() {
           return;
       }
     } catch (error) {
-      appliedStudioLaunchIds.delete(launchId);
-      lastAppliedStudioLaunchIdRef.current = null;
+      appliedChatLaunchIds.delete(launchId);
+      lastAppliedChatLaunchIdRef.current = null;
       await recordChatLaunchReceipt("chat_pending_launch_failed", {
         source,
         launchId,
@@ -545,10 +545,10 @@ export function useChatWindowController() {
   };
 
   const hydratePendingChatLaunchRequestIfPresent = async (source: string) => {
-    if (studioLaunchHydrationInFlightRef.current) {
+    if (chatLaunchHydrationInFlightRef.current) {
       return;
     }
-    studioLaunchHydrationInFlightRef.current = true;
+    chatLaunchHydrationInFlightRef.current = true;
 
     try {
       const pendingLaunch = await peekPendingChatLaunchRequest();
@@ -560,13 +560,13 @@ export function useChatWindowController() {
       }
       await applyPendingChatLaunchRequest(pendingLaunch, source);
     } finally {
-      studioLaunchHydrationInFlightRef.current = false;
+      chatLaunchHydrationInFlightRef.current = false;
     }
   };
 
   useEffect(() => {
     const unlistenPromise = listen<PendingChatLaunchEnvelope>(
-      "request-studio-launch",
+      "request-chat-launch",
       (event) => {
         void recordChatLaunchReceipt("chat_launch_event_received", {
           launchId: event.payload.launchId,
@@ -787,7 +787,7 @@ export function useChatWindowController() {
     await store.loadSession(sessionId);
     await store.refreshSessionHistory();
     setChatSurface("chat");
-    setActiveView("studio");
+    setActiveView("chat");
   };
 
   useEffect(() => {
@@ -863,10 +863,10 @@ export function useChatWindowController() {
   };
 
   const chatFullscreen =
-    activeView !== "studio" && chatPaneVisible && chatPaneMaximized;
+    activeView !== "chat" && chatPaneVisible && chatPaneMaximized;
   const showStatusBar =
     !chatFullscreen &&
-    (activeView === "studio" ||
+    (activeView === "chat" ||
       activeView === "workflows" ||
       activeView === "runs" ||
       activeView === "policy" ||

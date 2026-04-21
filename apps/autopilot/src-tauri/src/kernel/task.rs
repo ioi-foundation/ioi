@@ -70,11 +70,11 @@ fn session_hex_matches_task(task: &AgentTask, session_id_hex: &str) -> bool {
 }
 
 fn task_should_continue_through_kernel(task: &AgentTask) -> bool {
-    !crate::kernel::studio::task_requires_studio_primary_execution(task)
+    !crate::kernel::chat::task_requires_chat_primary_execution(task)
 }
 
-fn apply_studio_route_handoff_to_runtime_input(task: &AgentTask, input: &str) -> String {
-    crate::kernel::studio::runtime_handoff_prompt_prefix_for_task(task)
+fn apply_chat_route_handoff_to_runtime_input(task: &AgentTask, input: &str) -> String {
+    crate::kernel::chat::runtime_handoff_prompt_prefix_for_task(task)
         .map(|prefix| format!("{prefix}\nUSER REQUEST:\n{input}"))
         .unwrap_or_else(|| input.to_string())
 }
@@ -1248,7 +1248,7 @@ async fn continue_session_bootstrap_after_visibility_timeout(
     }
 }
 
-async fn bootstrap_kernel_session_after_studio_prepare(
+async fn bootstrap_kernel_session_after_chat_prepare(
     app: AppHandle,
     task_id: String,
     intent: String,
@@ -1829,7 +1829,7 @@ pub(crate) async fn send_message_to_session(
     session_id: &str,
     user_input: String,
 ) -> Result<(), String> {
-    crate::kernel::studio::maybe_prepare_current_task_for_studio_turn(app, &user_input)?;
+    crate::kernel::chat::maybe_prepare_current_task_for_chat_turn(app, &user_input)?;
     let routed_user_input = if let Some(task) = app
         .state::<Mutex<AppState>>()
         .lock()
@@ -1839,7 +1839,7 @@ pub(crate) async fn send_message_to_session(
         if !task_should_continue_through_kernel(&task) {
             return Ok(());
         }
-        apply_studio_route_handoff_to_runtime_input(&task, &user_input)
+        apply_chat_route_handoff_to_runtime_input(&task, &user_input)
     } else {
         user_input.clone()
     };
@@ -1901,12 +1901,12 @@ pub(crate) async fn send_message_to_session(
     Ok(())
 }
 
-fn should_reuse_running_studio_task_for_duplicate_submit(
+fn should_reuse_running_chat_task_for_duplicate_submit(
     current_task: &AgentTask,
     intent: &str,
     origin_surface: Option<&str>,
 ) -> bool {
-    origin_surface == Some("studio")
+    origin_surface == Some("chat")
         && current_task.phase == AgentPhase::Running
         && current_task.intent.trim() == intent.trim()
 }
@@ -1926,14 +1926,14 @@ pub fn start_task(
     {
         let app_state = state.lock().map_err(|_| "Failed to lock state")?;
         if let Some(existing_task) = app_state.current_task.as_ref().filter(|task| {
-            should_reuse_running_studio_task_for_duplicate_submit(
+            should_reuse_running_chat_task_for_duplicate_submit(
                 task,
                 &intent,
                 origin_surface.as_deref(),
             )
         }) {
             eprintln!(
-                "[Autopilot] start_task reusing running studio task {} for duplicate seed submit",
+                "[Autopilot] start_task reusing running chat task {} for duplicate seed submit",
                 existing_task.id
             );
             return Ok(existing_task.clone());
@@ -2069,7 +2069,7 @@ pub fn start_task(
         .map(str::to_ascii_lowercase)
         .as_deref()
     {
-        Some("studio") => {
+        Some("chat") => {
             if let Some(window) = app.get_webview_window("spotlight") {
                 let _ = window.hide();
             }
@@ -2086,39 +2086,39 @@ pub fn start_task(
         let app_for_prepare = app_clone.clone();
         let prepare_outcome = tokio::task::spawn_blocking(move || {
             let mut prepared_task = task_for_prepare;
-            crate::kernel::studio::maybe_prepare_task_for_studio(
+            crate::kernel::chat::maybe_prepare_task_for_chat(
                 &app_for_prepare,
                 &mut prepared_task,
                 &intent_for_prepare,
             )?;
 
-            let studio_primary =
-                crate::kernel::studio::task_requires_studio_primary_execution(&prepared_task);
-            if studio_primary {
-                crate::kernel::studio::apply_studio_authoritative_status(&mut prepared_task, None);
+            let chat_primary =
+                crate::kernel::chat::task_requires_chat_primary_execution(&prepared_task);
+            if chat_primary {
+                crate::kernel::chat::apply_chat_authoritative_status(&mut prepared_task, None);
             }
 
-            Ok::<(AgentTask, bool), String>((prepared_task, studio_primary))
+            Ok::<(AgentTask, bool), String>((prepared_task, chat_primary))
         })
         .await;
 
         match prepare_outcome {
-            Ok(Ok((prepared_task, studio_primary))) => {
+            Ok(Ok((prepared_task, chat_primary))) => {
                 replace_current_task_snapshot(&app_clone, &task_id_for_prepare, prepared_task);
-                if !studio_primary {
+                if !chat_primary {
                     let bootstrap_intent = app_clone
                         .state::<Mutex<AppState>>()
                         .lock()
                         .ok()
                         .and_then(|state| state.current_task.clone())
                         .map(|task| {
-                            apply_studio_route_handoff_to_runtime_input(
+                            apply_chat_route_handoff_to_runtime_input(
                                 &task,
                                 &session_bootstrap_intent,
                             )
                         })
                         .unwrap_or_else(|| session_bootstrap_intent.clone());
-                    bootstrap_kernel_session_after_studio_prepare(
+                    bootstrap_kernel_session_after_chat_prepare(
                         app_clone.clone(),
                         task_id_for_prepare,
                         bootstrap_intent,
@@ -2129,13 +2129,13 @@ pub fn start_task(
             Ok(Err(error)) => {
                 update_task_if_current_matches(&app_clone, &task_id_for_prepare, |task| {
                     task.phase = AgentPhase::Failed;
-                    task.current_step = format!("Studio preparation failed: {}", error);
+                    task.current_step = format!("Chat preparation failed: {}", error);
                 });
             }
             Err(error) => {
                 update_task_if_current_matches(&app_clone, &task_id_for_prepare, |task| {
                     task.phase = AgentPhase::Failed;
-                    task.current_step = format!("Studio preparation task failed to run: {}", error);
+                    task.current_step = format!("Chat preparation task failed to run: {}", error);
                 });
             }
         }
@@ -2154,7 +2154,7 @@ pub async fn continue_task(
     let hydrated_session_task = hydrate_requested_session_for_continue(&state, &session_id)?;
     if let Some(task) = hydrated_session_task.as_ref() {
         println!(
-            "[Autopilot][StudioContinue] hydrated session={} task_session={} studio_backed={}",
+            "[Autopilot][ChatContinue] hydrated session={} task_session={} chat_backed={}",
             session_id,
             task.session_id.as_deref().unwrap_or(task.id.as_str()),
             task.chat_session.is_some() && task.chat_outcome.is_some()
@@ -2233,47 +2233,47 @@ pub async fn continue_task(
         t.phase = AgentPhase::Running;
     });
 
-    let should_continue_via_studio_primary = app
+    let should_continue_via_chat_primary = app
         .state::<Mutex<AppState>>()
         .lock()
         .ok()
         .and_then(|state| state.current_task.clone())
         .map(|task| {
             let session_matches = session_hex_matches_task(&task, &session_id);
-            let studio_backed =
+            let chat_backed =
                 session_matches && task.chat_session.is_some() && task.chat_outcome.is_some();
             println!(
-                "[Autopilot][StudioContinue] session={} task_session={} session_matches={} studio_backed={} phase={:?} current_step={}",
+                "[Autopilot][ChatContinue] session={} task_session={} session_matches={} chat_backed={} phase={:?} current_step={}",
                 session_id,
                 task.session_id.as_deref().unwrap_or(task.id.as_str()),
                 session_matches,
-                studio_backed,
+                chat_backed,
                 task.phase,
                 task.current_step
             );
-            studio_backed
+            chat_backed
         })
         .unwrap_or(false);
 
-    if should_continue_via_studio_primary {
+    if should_continue_via_chat_primary {
         println!(
-            "[Autopilot][StudioContinue] preparing studio follow-up for session={} input={}",
+            "[Autopilot][ChatContinue] preparing chat follow-up for session={} input={}",
             session_id, user_input
         );
         let app_for_prepare = app.clone();
         let user_input_for_prepare = user_input.clone();
         let preparation_result = tauri::async_runtime::spawn_blocking(move || {
-            crate::kernel::studio::maybe_prepare_current_task_for_studio_turn(
+            crate::kernel::chat::maybe_prepare_current_task_for_chat_turn(
                 &app_for_prepare,
                 &user_input_for_prepare,
             )
         })
         .await
-        .map_err(|error| format!("Studio follow-up worker failed: {error}"))
+        .map_err(|error| format!("Chat follow-up worker failed: {error}"))
         .and_then(|result| result);
 
         if let Err(error) = preparation_result {
-            let failure_message = format!("Studio follow-up failed: {error}");
+            let failure_message = format!("Chat follow-up failed: {error}");
             update_task_state(&app, |task| {
                 task.phase = AgentPhase::Failed;
                 task.current_step = failure_message.clone();
@@ -2285,7 +2285,7 @@ pub async fn continue_task(
             });
         } else {
             println!(
-                "[Autopilot][StudioContinue] studio follow-up prepared for session={}",
+                "[Autopilot][ChatContinue] chat follow-up prepared for session={}",
                 session_id
             );
         }

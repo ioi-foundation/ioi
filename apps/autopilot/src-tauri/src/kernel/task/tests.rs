@@ -258,7 +258,7 @@ fn bootstrap_recovery_stays_enabled_for_delayed_start_placeholders() {
 }
 
 #[test]
-fn duplicate_studio_seed_submit_reuses_running_task() {
+fn duplicate_chat_seed_submit_reuses_running_task() {
     let running_task = AgentTask {
         id: "task-1".to_string(),
         intent: "Make me a report.".to_string(),
@@ -291,20 +291,20 @@ fn duplicate_studio_seed_submit_reuses_running_task() {
         fitness_score: 0.0,
     };
 
-    assert!(should_reuse_running_studio_task_for_duplicate_submit(
+    assert!(should_reuse_running_chat_task_for_duplicate_submit(
         &running_task,
         "Make me a report.",
-        Some("studio"),
+        Some("chat"),
     ));
-    assert!(!should_reuse_running_studio_task_for_duplicate_submit(
+    assert!(!should_reuse_running_chat_task_for_duplicate_submit(
         &running_task,
         "Make me a report.",
         Some("overlay"),
     ));
-    assert!(!should_reuse_running_studio_task_for_duplicate_submit(
+    assert!(!should_reuse_running_chat_task_for_duplicate_submit(
         &running_task,
         "Make me a deck.",
-        Some("studio"),
+        Some("chat"),
     ));
 }
 

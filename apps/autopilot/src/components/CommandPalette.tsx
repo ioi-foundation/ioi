@@ -1,8 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import {
   formatSessionTimeAgo,
-  openStudioAutopilotIntent,
-  openStudioCapabilityTarget,
+  openChatAutopilotIntent,
+  openChatCapabilityTarget,
   showGateShell,
   type ConnectorActionDefinition,
   type ConnectorSummary,
@@ -180,7 +180,7 @@ export function CommandPalette({
     (action: () => void | Promise<void>) => {
       onClose();
       void Promise.resolve(action()).catch((error) => {
-        console.error("Failed to execute Studio command palette action:", error);
+        console.error("Failed to execute Chat command palette action:", error);
       });
     },
     [onClose],
@@ -221,7 +221,7 @@ export function CommandPalette({
         setSkillsStatus("ready");
       })
       .catch((error) => {
-        console.error("Failed to load Studio command palette skills:", error);
+        console.error("Failed to load Chat command palette skills:", error);
         if (!cancelled) {
           setSkillsStatus("error");
         }
@@ -248,7 +248,7 @@ export function CommandPalette({
       })
       .catch((error) => {
         console.error(
-          "Failed to load runtime catalog entries for Studio command palette:",
+          "Failed to load runtime catalog entries for Chat command palette:",
           error,
         );
         if (!cancelled) {
@@ -293,7 +293,7 @@ export function CommandPalette({
               }));
             } catch (error) {
               console.error(
-                `Failed to load connector actions for Studio command palette: ${connector.id}`,
+                `Failed to load connector actions for Chat command palette: ${connector.id}`,
                 error,
               );
               return [];
@@ -319,7 +319,7 @@ export function CommandPalette({
         setLiveToolsStatus("ready");
       })
       .catch((error) => {
-        console.error("Failed to load Studio live tools:", error);
+        console.error("Failed to load Chat live tools:", error);
         if (!cancelled) {
           setLiveToolsStatus("error");
         }
@@ -333,15 +333,15 @@ export function CommandPalette({
   const sections = useMemo<SlashMenuSection[]>(() => {
     const commandItems: SlashMenuItem[] = [
       {
-        id: "open-studio-copilot",
+        id: "open-chat-copilot",
         title: "Open Copilot",
-        description: "Jump back to the Studio chat and operator workbench.",
-        meta: "Studio",
+        description: "Jump back to the Chat workbench and operator surface.",
+        meta: "Chat",
         icon: icons.sparkles,
-        active: activeView === "studio",
+        active: activeView === "chat",
         onSelect: () =>
           runAction(() => {
-            onOpenPrimaryView("studio");
+            onOpenPrimaryView("chat");
           }),
       },
       {
@@ -383,7 +383,7 @@ export function CommandPalette({
       {
         id: "open-catalog",
         title: "Open Catalog",
-        description: "Inspect the live runtime catalog from Studio.",
+        description: "Inspect the live runtime catalog from Chat.",
         meta: "Catalog",
         icon: icons.globe,
         active: activeView === "workflows" && workflowSurface === "catalog",
@@ -493,7 +493,7 @@ export function CommandPalette({
         item.title,
         item.description,
         item.meta,
-        "studio spotlight queue workers approvals catalog inbox capabilities settings",
+        "chat spotlight queue workers approvals catalog inbox capabilities settings",
       ),
     );
 
@@ -690,7 +690,7 @@ export function CommandPalette({
                 icon: icons.code,
                 onSelect: () =>
                   runAction(async () => {
-                    await openStudioCapabilityTarget(connector.id, "actions");
+                    await openChatCapabilityTarget(connector.id, "actions");
                   }),
               }));
 
@@ -746,13 +746,13 @@ export function CommandPalette({
                 description:
                   skill.description ||
                   skill.definition?.description ||
-                  "Seed this skill into the Studio chat workbench.",
+                  "Seed this skill into the Chat workbench.",
                 meta: sourceLabelForSkill(skill),
                 icon: icons.sparkles,
                 onSelect: () =>
                   runAction(async () => {
-                    onOpenPrimaryView("studio");
-                    await openStudioAutopilotIntent(
+                    onOpenPrimaryView("chat");
+                    await openChatAutopilotIntent(
                       `Use the ${skill.name} skill for this request. `,
                     );
                   }),
@@ -864,8 +864,8 @@ export function CommandPalette({
           onSearchQueryChange={setQuery}
           emptyState={
             query.trim().length > 0
-              ? `No Studio commands match "${query}".`
-              : "No Studio commands available right now."
+              ? `No Chat commands match "${query}".`
+              : "No Chat commands available right now."
           }
         />
       </div>

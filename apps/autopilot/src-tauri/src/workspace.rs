@@ -1173,7 +1173,7 @@ pub fn workspace_inspect(root: String) -> Result<WorkspaceSnapshot, String> {
 }
 
 #[tauri::command]
-pub fn studio_workspace_inspect(root: String) -> Result<WorkspaceSnapshot, String> {
+pub fn chat_workspace_inspect(root: String) -> Result<WorkspaceSnapshot, String> {
     workspace_inspect(root)
 }
 
@@ -1197,7 +1197,7 @@ pub fn workspace_list_directory(root: String, path: String) -> Result<Vec<Worksp
 }
 
 #[tauri::command]
-pub fn studio_workspace_list_directory(
+pub fn chat_workspace_list_directory(
     root: String,
     path: String,
 ) -> Result<Vec<WorkspaceNode>, String> {
@@ -1211,7 +1211,7 @@ pub fn workspace_read_file(root: String, path: String) -> Result<WorkspaceFileDo
 }
 
 #[tauri::command]
-pub fn studio_workspace_read_file(
+pub fn chat_workspace_read_file(
     root: String,
     path: String,
 ) -> Result<WorkspaceFileDocument, String> {
@@ -1240,7 +1240,7 @@ pub async fn workspace_lsp_snapshot(
 }
 
 #[tauri::command]
-pub async fn studio_workspace_lsp_snapshot(
+pub async fn chat_workspace_lsp_snapshot(
     root: String,
     path: String,
     content: Option<String>,
@@ -1278,7 +1278,7 @@ pub async fn workspace_lsp_definition(
 }
 
 #[tauri::command]
-pub async fn studio_workspace_lsp_definition(
+pub async fn chat_workspace_lsp_definition(
     root: String,
     path: String,
     line: u32,
@@ -1318,7 +1318,7 @@ pub async fn workspace_lsp_references(
 }
 
 #[tauri::command]
-pub async fn studio_workspace_lsp_references(
+pub async fn chat_workspace_lsp_references(
     root: String,
     path: String,
     line: u32,
@@ -1362,7 +1362,7 @@ pub async fn workspace_lsp_code_actions(
 }
 
 #[tauri::command]
-pub async fn studio_workspace_lsp_code_actions(
+pub async fn chat_workspace_lsp_code_actions(
     root: String,
     path: String,
     line: u32,
@@ -1402,7 +1402,7 @@ pub fn workspace_write_file(
 }
 
 #[tauri::command]
-pub fn studio_workspace_write_file(
+pub fn chat_workspace_write_file(
     root: String,
     path: String,
     content: String,
@@ -1431,7 +1431,7 @@ pub fn workspace_create_file(root: String, path: String) -> Result<WorkspaceFile
 }
 
 #[tauri::command]
-pub fn studio_workspace_create_file(
+pub fn chat_workspace_create_file(
     root: String,
     path: String,
 ) -> Result<WorkspaceFileDocument, String> {
@@ -1452,7 +1452,7 @@ pub fn workspace_create_directory(
 }
 
 #[tauri::command]
-pub fn studio_workspace_create_directory(
+pub fn chat_workspace_create_directory(
     root: String,
     path: String,
 ) -> Result<WorkspacePathMutationResult, String> {
@@ -1488,7 +1488,7 @@ pub fn workspace_stat_path(root: String, path: String) -> Result<WorkspacePathSt
 }
 
 #[tauri::command]
-pub fn studio_workspace_stat_path(root: String, path: String) -> Result<WorkspacePathStat, String> {
+pub fn chat_workspace_stat_path(root: String, path: String) -> Result<WorkspacePathStat, String> {
     workspace_stat_path(root, path)
 }
 
@@ -1524,7 +1524,7 @@ pub fn workspace_rename_path(
 }
 
 #[tauri::command]
-pub fn studio_workspace_rename_path(
+pub fn chat_workspace_rename_path(
     root: String,
     from: String,
     to: String,
@@ -1553,7 +1553,7 @@ pub fn workspace_delete_path(root: String, path: String) -> Result<WorkspaceDele
 }
 
 #[tauri::command]
-pub fn studio_workspace_delete_path(
+pub fn chat_workspace_delete_path(
     root: String,
     path: String,
 ) -> Result<WorkspaceDeleteResult, String> {
@@ -1567,7 +1567,7 @@ pub fn workspace_search_text(root: String, query: String) -> Result<WorkspaceSea
 }
 
 #[tauri::command]
-pub fn studio_workspace_search_text(
+pub fn chat_workspace_search_text(
     root: String,
     query: String,
 ) -> Result<WorkspaceSearchResult, String> {
@@ -1581,7 +1581,7 @@ pub fn workspace_git_status(root: String) -> Result<WorkspaceSourceControlState,
 }
 
 #[tauri::command]
-pub fn studio_workspace_git_status(root: String) -> Result<WorkspaceSourceControlState, String> {
+pub fn chat_workspace_git_status(root: String) -> Result<WorkspaceSourceControlState, String> {
     workspace_git_status(root)
 }
 
@@ -1596,7 +1596,7 @@ pub fn workspace_git_diff(
 }
 
 #[tauri::command]
-pub fn studio_workspace_git_diff(
+pub fn chat_workspace_git_diff(
     root: String,
     path: String,
     staged: bool,
@@ -1615,7 +1615,7 @@ pub fn workspace_git_commit(
 }
 
 #[tauri::command]
-pub fn studio_workspace_git_commit(
+pub fn chat_workspace_git_commit(
     root: String,
     headline: String,
     body: Option<String>,
@@ -1637,7 +1637,7 @@ pub fn workspace_git_stage(
 }
 
 #[tauri::command]
-pub fn studio_workspace_git_stage(
+pub fn chat_workspace_git_stage(
     root: String,
     paths: Vec<String>,
 ) -> Result<WorkspaceSourceControlState, String> {
@@ -1658,7 +1658,7 @@ pub fn workspace_git_unstage(
 }
 
 #[tauri::command]
-pub fn studio_workspace_git_unstage(
+pub fn chat_workspace_git_unstage(
     root: String,
     paths: Vec<String>,
 ) -> Result<WorkspaceSourceControlState, String> {
@@ -1678,7 +1678,7 @@ pub fn workspace_git_discard(
 }
 
 #[tauri::command]
-pub fn studio_workspace_git_discard(
+pub fn chat_workspace_git_discard(
     root: String,
     paths: Vec<String>,
 ) -> Result<WorkspaceSourceControlState, String> {
@@ -1703,7 +1703,7 @@ pub fn workspace_terminal_create(
 }
 
 #[tauri::command]
-pub fn studio_workspace_terminal_create(
+pub fn chat_workspace_terminal_create(
     root: String,
     cols: u16,
     rows: u16,
@@ -1731,7 +1731,7 @@ pub fn workspace_terminal_read(
 }
 
 #[tauri::command]
-pub fn studio_workspace_terminal_read(
+pub fn chat_workspace_terminal_read(
     session_id: String,
     cursor: u64,
     manager: State<'_, WorkspaceTerminalManager>,
@@ -1758,7 +1758,7 @@ pub fn workspace_terminal_write(
 }
 
 #[tauri::command]
-pub fn studio_workspace_terminal_write(
+pub fn chat_workspace_terminal_write(
     session_id: String,
     data: String,
     manager: State<'_, WorkspaceTerminalManager>,
@@ -1786,7 +1786,7 @@ pub fn workspace_terminal_resize(
 }
 
 #[tauri::command]
-pub fn studio_workspace_terminal_resize(
+pub fn chat_workspace_terminal_resize(
     session_id: String,
     cols: u16,
     rows: u16,
@@ -1816,7 +1816,7 @@ pub fn workspace_terminal_close(
 }
 
 #[tauri::command]
-pub fn studio_workspace_terminal_close(
+pub fn chat_workspace_terminal_close(
     session_id: String,
     manager: State<'_, WorkspaceTerminalManager>,
 ) -> Result<(), String> {

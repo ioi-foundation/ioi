@@ -1,14 +1,14 @@
-# Agent Studio
+# Agent Chat
 
 The workspace shell for shaping, staging, and handing off IOI agents.
 
-**Agent Studio** gives operators and builders a zero-setup workspace shell for
+**Agent Chat** gives operators and builders a zero-setup workspace shell for
 graph composition, runtime catalog staging, connector posture review, and
 persisted handoff before work moves into the desktop runtime.
 
 ## Overview
 
-Agent Studio is built on the portable `@ioi/agent-ide` core. It lets you:
+Agent Chat is built on the portable `@ioi/agent-ide` core. It lets you:
 
 - Visually compose complex agent workflows using a node-based canvas.
 - Stage runtime packs into the workspace from the runtime catalog.
@@ -17,7 +17,7 @@ Agent Studio is built on the portable `@ioi/agent-ide` core. It lets you:
 - Persist workspace state so the shell keeps handoff context intact.
 
 Unlike the desktop **Autopilot** runtime, which owns live execution, Agent
-Studio is the browser shell for shaping work and carrying it forward into
+Chat is the browser shell for shaping work and carrying it forward into
 desktop handoff.
 
 ## Getting Started
@@ -34,7 +34,7 @@ Start the development server:
 npm run dev:web
 ```
 
-Open [http://localhost:5173](http://localhost:5173) to view Agent Studio.
+Open [http://localhost:5173](http://localhost:5173) to view Agent Chat.
 
 ## Architecture
 
@@ -50,7 +50,7 @@ workspace runtime adapter.
 
 ## Deployment
 
-Agent Studio is a static single-page application and can be deployed to any
+Agent Chat is a static single-page application and can be deployed to any
 static host.
 
 ```bash

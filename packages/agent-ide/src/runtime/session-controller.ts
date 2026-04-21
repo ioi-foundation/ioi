@@ -16,7 +16,7 @@ import {
   loadAssistantSessionArtifacts,
   loadAssistantSessionEvents,
   showSpotlightShell,
-  showStudioShell,
+  showChatShell,
   startAssistantSession,
   submitAssistantSessionInput,
 } from "./session-runtime";
@@ -95,7 +95,7 @@ export interface SessionControllerRuntime<
   ): Promise<() => void>;
   showSpotlight(): Promise<void>;
   hideSpotlight(): Promise<void>;
-  showStudio(): Promise<void>;
+  showChat(): Promise<void>;
 }
 
 export interface SessionControllerConfig<TTask, TEvent, TArtifact> {
@@ -145,9 +145,9 @@ export interface SessionControllerLineageTaskLike {
   lineage_id?: string;
 }
 
-export interface SessionControllerStudioTaskLike {
-  studio_session?: unknown | null;
-  studio_outcome?: unknown | null;
+export interface SessionControllerChatSurfaceTaskLike {
+  chat_session?: unknown | null;
+  chat_outcome?: unknown | null;
   renderer_session?: unknown | null;
   build_session?: unknown | null;
 }
@@ -172,7 +172,7 @@ export interface SessionControllerStoreState<
   dismissTask: () => Promise<void>;
   showSpotlight: () => Promise<void>;
   hideSpotlight: () => Promise<void>;
-  showStudio: () => Promise<void>;
+  showChat: () => Promise<void>;
   submitSessionInput: (sessionId: string, input: string) => Promise<void>;
   continueTask: (sessionId: string, input: string) => Promise<void>;
   clearSession: () => void;
@@ -277,7 +277,7 @@ export function buildChatContinueFailureTask<
 
 export function normalizeRuntimeChatTaskDefaults<
   TTask extends SessionControllerChatTaskLike<TEvent, TArtifact, TMessage> &
-    Partial<SessionControllerLineageTaskLike & SessionControllerStudioTaskLike>,
+    Partial<SessionControllerLineageTaskLike & SessionControllerChatSurfaceTaskLike>,
   TEvent extends SessionControllerEventLike,
   TArtifact extends SessionControllerArtifactLike,
   TMessage extends SessionControllerChatMessageLike = SessionControllerChatMessageLike,
@@ -289,8 +289,8 @@ export function normalizeRuntimeChatTaskDefaults<
     lineage_id: task.lineage_id || "genesis",
     events: Array.isArray(task.events) ? task.events : [],
     artifacts: Array.isArray(task.artifacts) ? task.artifacts : [],
-    studio_session: task.studio_session ?? null,
-    studio_outcome: task.studio_outcome ?? null,
+    chat_session: task.chat_session ?? null,
+    chat_outcome: task.chat_outcome ?? null,
     renderer_session: task.renderer_session ?? null,
     build_session: task.build_session ?? null,
   };
@@ -315,7 +315,7 @@ function composeSessionControllerErrorHandlers(
 
 export function composeRuntimeChatTaskNormalizer<
   TTask extends SessionControllerChatTaskLike<TEvent, TArtifact, TMessage> &
-    Partial<SessionControllerLineageTaskLike & SessionControllerStudioTaskLike>,
+    Partial<SessionControllerLineageTaskLike & SessionControllerChatSurfaceTaskLike>,
   TEvent extends SessionControllerEventLike,
   TArtifact extends SessionControllerArtifactLike,
   TMessage extends SessionControllerChatMessageLike = SessionControllerChatMessageLike,
@@ -577,7 +577,7 @@ export function createSessionControllerStore<
 
     showSpotlight: async () => runtime.showSpotlight(),
     hideSpotlight: async () => runtime.hideSpotlight(),
-    showStudio: async () => runtime.showStudio(),
+    showChat: async () => runtime.showChat(),
 
     submitSessionInput: async (sessionId: string, input: string) => {
       const currentTask = get().task;
@@ -958,7 +958,7 @@ export function createRuntimeSessionControllerStore<
       ) => listenAssistantSessionProjection<TTask, TSessionSummary>(handler),
       showSpotlight: () => showSpotlightShell(),
       hideSpotlight: () => hideSpotlightShell(),
-      showStudio: () => showStudioShell(),
+      showChat: () => showChatShell(),
     },
     config,
   );
@@ -1007,7 +1007,7 @@ export function createRuntimeChatSessionControllerStore<
 
 export function createNormalizedRuntimeChatSessionControllerStore<
   TTask extends SessionControllerChatTaskLike<TEvent, TArtifact, TMessage> &
-    Partial<SessionControllerLineageTaskLike & SessionControllerStudioTaskLike>,
+    Partial<SessionControllerLineageTaskLike & SessionControllerChatSurfaceTaskLike>,
   TEvent extends SessionControllerEventLike,
   TArtifact extends SessionControllerArtifactLike,
   TSessionSummary,
@@ -1098,7 +1098,7 @@ export function createChatSessionStore<
 
 export function createNormalizedChatSessionStore<
   TTask extends SessionControllerChatTaskLike<TEvent, TArtifact, TMessage> &
-    Partial<SessionControllerLineageTaskLike & SessionControllerStudioTaskLike>,
+    Partial<SessionControllerLineageTaskLike & SessionControllerChatSurfaceTaskLike>,
   TEvent extends SessionControllerEventLike,
   TArtifact extends SessionControllerArtifactLike,
   TSessionSummary,
@@ -1134,7 +1134,6 @@ export type ChatSessionLike<
   TMessage extends SessionControllerChatMessageLike = SessionControllerChatMessageLike,
 > = SessionControllerChatTaskLike<TEvent, TArtifact, TMessage>;
 export type LineageSessionLike = SessionControllerLineageTaskLike;
-export type StudioSessionLike = SessionControllerStudioTaskLike;
 export type SessionStoreState<
   TTask,
   TEvent,

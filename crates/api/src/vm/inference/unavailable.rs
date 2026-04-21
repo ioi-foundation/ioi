@@ -1,22 +1,22 @@
 use crate::vm::inference::InferenceRuntime;
 use async_trait::async_trait;
 use ioi_types::app::agentic::InferenceOptions;
-use ioi_types::app::{StudioRuntimeProvenance, StudioRuntimeProvenanceKind};
+use ioi_types::app::{ChatRuntimeProvenance, ChatRuntimeProvenanceKind};
 use ioi_types::error::VmError;
 use std::path::Path;
 
 #[derive(Debug, Clone)]
 pub struct UnavailableInferenceRuntime {
     message: String,
-    provenance: StudioRuntimeProvenance,
+    provenance: ChatRuntimeProvenance,
 }
 
 impl UnavailableInferenceRuntime {
     pub fn new(message: impl Into<String>) -> Self {
         let message = message.into();
         Self {
-            provenance: StudioRuntimeProvenance {
-                kind: StudioRuntimeProvenanceKind::InferenceUnavailable,
+            provenance: ChatRuntimeProvenance {
+                kind: ChatRuntimeProvenanceKind::InferenceUnavailable,
                 label: "inference unavailable".to_string(),
                 model: None,
                 endpoint: None,
@@ -53,7 +53,7 @@ impl InferenceRuntime for UnavailableInferenceRuntime {
         Err(self.error())
     }
 
-    fn studio_runtime_provenance(&self) -> StudioRuntimeProvenance {
+    fn chat_runtime_provenance(&self) -> ChatRuntimeProvenance {
         self.provenance.clone()
     }
 }

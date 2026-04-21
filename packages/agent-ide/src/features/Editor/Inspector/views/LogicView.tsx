@@ -280,7 +280,7 @@ export function LogicView({
               rows={6}
               value={config.prompt || config.text || ""}
               onChange={e => onChange({ prompt: e.target.value })}
-              placeholder="A precise studio render of the control plane as a brass instrument panel."
+              placeholder="A precise chat render of the control plane as a brass instrument panel."
             />
           </div>
           <div className="form-group">

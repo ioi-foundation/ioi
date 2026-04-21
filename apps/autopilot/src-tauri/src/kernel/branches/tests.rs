@@ -49,7 +49,7 @@ fn minimal_task() -> AgentTask {
         "session_id": "session-1",
         "build_session": {
             "sessionId": "build",
-            "studioSessionId": "studio",
+            "chatSessionId": "chat",
             "workspaceRoot": "/tmp/original",
             "entryDocument": "README.md",
             "scaffoldRecipeId": "recipe",
@@ -66,7 +66,7 @@ fn minimal_task() -> AgentTask {
         },
         "renderer_session": {
             "sessionId": "renderer",
-            "studioSessionId": "studio",
+            "chatSessionId": "chat",
             "renderer": "workspace_surface",
             "workspaceRoot": "/tmp/original",
             "entryDocument": "README.md",

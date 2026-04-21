@@ -280,7 +280,7 @@ export function buildSharedSessionCommandItems({
       id: "open-keybindings",
       title: "Inspect Keybindings",
       description:
-        "Review the active keyboard shortcuts for Spotlight, Studio, and the global launcher.",
+        "Review the active keyboard shortcuts for Spotlight, Chat, and the global launcher.",
       meta: "Shortcuts",
       icon: icons.search,
       onSelect: () => {

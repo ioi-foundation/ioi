@@ -4,13 +4,13 @@ import type {
   AgentEvent,
   AgentTask,
   BuildArtifactSession,
-  StudioArtifactManifest,
-  StudioArtifactManifestFile,
-  StudioArtifactPipelineStep,
-  StudioArtifactSwarmExecutionSummary,
-  StudioRendererSession,
+  ChatArtifactManifest,
+  ChatArtifactManifestFile,
+  ChatArtifactPipelineStep,
+  ChatArtifactSwarmExecutionSummary,
+  ChatRendererSession,
 } from "../../../types";
-import type { StudioArtifactStageMode } from "./studioArtifactSurfaceModel";
+import type { ChatArtifactStageMode } from "./chatArtifactSurfaceModel";
 
 export interface ChatArtifactSurfaceProps {
   task: AgentTask | null;
@@ -22,19 +22,19 @@ export interface ChatArtifactSurfaceProps {
 }
 
 export interface SurfaceStageHeaderProps {
-  manifest: StudioArtifactManifest;
+  manifest: ChatArtifactManifest;
   title: string;
   stageKicker?: string;
   activePath: string | null;
   copyText?: string | null;
   copyPath?: string | null;
   rendererLabel: string;
-  swarmExecution?: StudioArtifactSwarmExecutionSummary | null;
+  swarmExecution?: ChatArtifactSwarmExecutionSummary | null;
   retrying: boolean;
-  stageMode: StudioArtifactStageMode;
+  stageMode: ChatArtifactStageMode;
   evidenceOpen: boolean;
   showStageModes?: boolean;
-  onSelectStageMode: (mode: StudioArtifactStageMode) => void;
+  onSelectStageMode: (mode: ChatArtifactStageMode) => void;
   onToggleEvidence: () => void;
   onRetry: (() => void) | null;
   onBrowseArtifacts?: (() => void) | null;
@@ -42,9 +42,9 @@ export interface SurfaceStageHeaderProps {
 }
 
 export interface ArtifactEvidencePanelProps {
-  manifest: StudioArtifactManifest;
+  manifest: ChatArtifactManifest;
   chatSession: NonNullable<AgentTask["chat_session"]>;
-  pipelineSteps: StudioArtifactPipelineStep[];
+  pipelineSteps: ChatArtifactPipelineStep[];
   notes: string[];
   evidence: string[];
   receipts?: BuildArtifactSession["receipts"];
@@ -63,9 +63,9 @@ export interface ArtifactRevisionComparison {
 }
 
 export interface LogicalArtifactSurfaceProps {
-  manifest: StudioArtifactManifest;
+  manifest: ChatArtifactManifest;
   chatSession: NonNullable<AgentTask["chat_session"]>;
-  rendererSession: StudioRendererSession | null;
+  rendererSession: ChatRendererSession | null;
   retrying: boolean;
   onRetry: (() => void) | null;
   onBrowseArtifacts?: (() => void) | null;
@@ -74,9 +74,9 @@ export interface LogicalArtifactSurfaceProps {
 }
 
 export interface WorkspaceArtifactSurfaceProps {
-  manifest: StudioArtifactManifest;
+  manifest: ChatArtifactManifest;
   chatSession: NonNullable<AgentTask["chat_session"]>;
-  rendererSession: StudioRendererSession;
+  rendererSession: ChatRendererSession;
   retrying: boolean;
   onRetry: (() => void) | null;
   onBrowseArtifacts?: (() => void) | null;
@@ -136,7 +136,7 @@ export function displayArtifactClassLabel(kind: string): string {
 
 export function formatRuntimeProvenance(
   provenance:
-    | NonNullable<StudioArtifactManifest["verification"]["productionProvenance"]>
+    | NonNullable<ChatArtifactManifest["verification"]["productionProvenance"]>
     | null
     | undefined,
 ): string {
@@ -153,7 +153,7 @@ export function formatRuntimeProvenance(
 export function artifactSurfaceTitle(
   artifactClass: string,
   renderer: string,
-  file: StudioArtifactManifestFile | null,
+  file: ChatArtifactManifestFile | null,
   fallbackTitle: string,
 ): string {
   if (file?.path) {
@@ -168,7 +168,7 @@ export function artifactSurfaceTitle(
 
 export function mirrorBuildSession(
   buildSession: BuildArtifactSession | null,
-): StudioRendererSession | null {
+): ChatRendererSession | null {
   if (!buildSession) {
     return null;
   }

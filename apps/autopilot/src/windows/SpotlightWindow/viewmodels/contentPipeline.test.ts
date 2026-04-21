@@ -443,7 +443,7 @@ function toolActivityGroupPresentationTest(): void {
 
 function artifactRuntimeActivityGroupPresentationTest(): void {
   const chatSession: ChatArtifactSession = {
-    sessionId: "studio-session-1",
+    sessionId: "chat-session-1",
     threadId: "thread-a",
     artifactId: "artifact-1",
     originPromptEventId: "prompt-1",
@@ -544,7 +544,7 @@ function artifactRuntimeActivityGroupPresentationTest(): void {
     activeOperatorRun: {
       runId: "run-1",
       originPromptEventId: "prompt-1",
-      artifactSessionId: "studio-session-1",
+      artifactSessionId: "chat-session-1",
       mode: "create",
       status: "active",
       startedAtMs: 1000,
@@ -558,10 +558,10 @@ function artifactRuntimeActivityGroupPresentationTest(): void {
           stepId: "run-1:understand_request:0",
           originPromptEventId: "prompt-1",
           phase: "understand_request",
-          engine: "studio_operator",
+          engine: "chat_operator",
           status: "complete",
           label: "Understand request",
-          detail: "Studio captured the request and established the active artifact context.",
+          detail: "Chat captured the request and established the active artifact context.",
           startedAtMs: 1000,
           finishedAtMs: 1000,
           fileRefs: [],
@@ -576,7 +576,7 @@ function artifactRuntimeActivityGroupPresentationTest(): void {
           engine: "direct_author",
           status: "active",
           label: "Write index.html",
-          detail: "Studio is writing the initial HTML draft.",
+          detail: "Chat is writing the initial HTML draft.",
           startedAtMs: 1100,
           preview: {
             originPromptEventId: "prompt-1",
@@ -661,7 +661,7 @@ function artifactRuntimeActivityGroupPresentationTest(): void {
           stepId: "run-1:present_artifact:1",
           originPromptEventId: "prompt-1",
           phase: "present_artifact",
-          engine: "studio_surface",
+          engine: "chat_surface",
           status: "complete",
           label: "Open preview",
           detail: "Preview ready.",
@@ -698,7 +698,7 @@ function artifactRuntimeActivityGroupPresentationTest(): void {
 
 function artifactRuntimeActivityOrderingAndSourcePlacementTest(): void {
   const chatSession: ChatArtifactSession = {
-    sessionId: "studio-session-ordered",
+    sessionId: "chat-session-ordered",
     threadId: "thread-a",
     artifactId: "artifact-ordered",
     originPromptEventId: "prompt-ordered",
@@ -791,7 +791,7 @@ function artifactRuntimeActivityOrderingAndSourcePlacementTest(): void {
     activeOperatorRun: {
       runId: "run-ordered",
       originPromptEventId: "prompt-ordered",
-      artifactSessionId: "studio-session-ordered",
+      artifactSessionId: "chat-session-ordered",
       mode: "create",
       status: "active",
       startedAtMs: 1000,
@@ -935,16 +935,16 @@ function artifactReplyTextIsConversationalForCompletedArtifactsTest(): void {
     artifacts: [
       {
         key: "artifact-key",
-        sessionId: "studio-session-ordered",
+        sessionId: "chat-session-ordered",
         title: "Create an HTML file that explains quantum computers",
-        summary: "Create an HTML file that explains quantum computers Studio materialized the artifact and final acceptance validation cleared it for the primary artifact view.",
+        summary: "Create an HTML file that explains quantum computers Chat materialized the artifact and final acceptance validation cleared it for the primary artifact view.",
         renderer: "html_iframe",
         artifactClass: "document",
         fileCount: 1,
         lifecycleState: "ready",
         status: "ready",
         chatSession: {
-          sessionId: "studio-session-ordered",
+          sessionId: "chat-session-ordered",
           threadId: "thread-a",
           artifactId: "artifact-ordered",
           originPromptEventId: "prompt-ordered",
@@ -980,7 +980,7 @@ function artifactReplyTextIsConversationalForCompletedArtifactsTest(): void {
             status: "ready",
             lifecycleState: "ready",
             title: "Create an HTML file that explains quantum computers",
-            summary: "Create an HTML file that explains quantum computers Studio materialized the artifact and final acceptance validation cleared it for the primary artifact view.",
+            summary: "Create an HTML file that explains quantum computers Chat materialized the artifact and final acceptance validation cleared it for the primary artifact view.",
             evidence: [],
             updatedAt: BASE_TIMESTAMP,
           },
@@ -1033,7 +1033,7 @@ function artifactReplyTextIsConversationalForCompletedArtifactsTest(): void {
     sourceCount: 3,
     sourceSummaryUpdatedAt: null,
     defaultView: "active_context" as const,
-    hasPendingStudioArtifact: false,
+    hasPendingChatArtifact: false,
     chatSession: null,
   };
 

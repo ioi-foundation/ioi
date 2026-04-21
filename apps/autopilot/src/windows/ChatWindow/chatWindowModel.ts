@@ -1,7 +1,7 @@
 import type { AssistantUserProfile } from "../../types";
 
 export type PrimaryView =
-  | "studio"
+  | "chat"
   | "workflows"
   | "runs"
   | "inbox"

@@ -193,11 +193,11 @@ type BenchmarkDataShape = {
   suiteSummaries: SuiteSummary[];
   latestCases: CaseRecord[];
   agentModelMatrix?: ScorecardMatrixInput | null;
-  studioArtifactBenchmarkSuite?: StudioArtifactBenchmarkSuite | null;
-  studioArtifactArena?: StudioArtifactArenaView | null;
-  studioArtifactReleaseGates?: StudioArtifactReleaseGatesView | null;
-  studioArtifactDistillation?: StudioArtifactDistillationView | null;
-  studioArtifactParityLoop?: StudioArtifactParityLoopView | null;
+  studioArtifactBenchmarkSuite?: ChatArtifactBenchmarkSuite | null;
+  studioArtifactArena?: ChatArtifactArenaView | null;
+  studioArtifactReleaseGates?: ChatArtifactReleaseGatesView | null;
+  studioArtifactDistillation?: ChatArtifactDistillationView | null;
+  studioArtifactParityLoop?: ChatArtifactParityLoopView | null;
 };
 
 type BenchmarkMetricReading = {
@@ -211,7 +211,7 @@ type BenchmarkMetricReading = {
   supportingBenchmarkIds?: string[];
 };
 
-type StudioArtifactArenaRating = {
+type ChatArtifactArenaRating = {
   participant: string;
   label?: string | null;
   rating: number;
@@ -221,7 +221,7 @@ type StudioArtifactArenaRating = {
   draws: number;
 };
 
-type StudioArtifactBenchmarkCase = {
+type ChatArtifactBenchmarkCase = {
   benchmarkId: string;
   title: string;
   prompt: string;
@@ -246,7 +246,7 @@ type StudioArtifactBenchmarkCase = {
   goldenEvaluationCriteria: string[];
 };
 
-type StudioArtifactBenchmarkSuite = {
+type ChatArtifactBenchmarkSuite = {
   catalogVersion: number;
   totalBenchmarks: number;
   executedBenchmarks: number;
@@ -259,7 +259,7 @@ type StudioArtifactBenchmarkSuite = {
     blindMatchCount: number;
     participantCount: number;
     winRateVsExternalReference: number | null;
-    ratings: StudioArtifactArenaRating[];
+    ratings: ChatArtifactArenaRating[];
   };
   externalReferences: {
     available: boolean;
@@ -267,10 +267,10 @@ type StudioArtifactBenchmarkSuite = {
     count: number;
     benchmarkCount: number;
   };
-  cases: StudioArtifactBenchmarkCase[];
+  cases: ChatArtifactBenchmarkCase[];
 };
 
-type StudioArtifactArenaView = {
+type ChatArtifactArenaView = {
   status: string;
   ledgerPath: string;
   ledgerHref: string;
@@ -284,7 +284,7 @@ type StudioArtifactArenaView = {
   pairwiseMatchCount: number;
   blindMatchCount: number;
   pendingBlindMatchCount: number;
-  topCompositeRatings: StudioArtifactArenaRating[];
+  topCompositeRatings: ChatArtifactArenaRating[];
   benchmarkLeaders: Array<{
     benchmarkId: string | null;
     title: string | null;
@@ -316,7 +316,7 @@ type StudioArtifactArenaView = {
   }>;
 };
 
-type StudioArtifactReleaseGatesView = {
+type ChatArtifactReleaseGatesView = {
   status: string;
   passing: boolean;
   reportPath: string;
@@ -354,7 +354,7 @@ type StudioArtifactReleaseGatesView = {
   }>;
 };
 
-type StudioArtifactParityLoopTarget = {
+type ChatArtifactParityLoopTarget = {
   id: string | null;
   label: string | null;
   summary: string | null;
@@ -362,13 +362,13 @@ type StudioArtifactParityLoopTarget = {
   caseIds: string[];
 };
 
-type StudioArtifactParityLoopComparison = {
+type ChatArtifactParityLoopComparison = {
   improvedMetrics: string[];
   regressedMetrics: string[];
   unchangedMetrics: string[];
 };
 
-type StudioArtifactParityLoopReceipt = {
+type ChatArtifactParityLoopReceipt = {
   createdAt: string | null;
   keepChange: boolean | null;
   noImprovementStreak: number;
@@ -378,24 +378,24 @@ type StudioArtifactParityLoopReceipt = {
     kind: string;
     reason: string;
   };
-  weakestTarget: StudioArtifactParityLoopTarget | null;
+  weakestTarget: ChatArtifactParityLoopTarget | null;
   relevantCaseIds: string[];
   requiredReceipts: string[];
-  comparison: StudioArtifactParityLoopComparison | null;
+  comparison: ChatArtifactParityLoopComparison | null;
 };
 
-type StudioArtifactParityLoopView = {
+type ChatArtifactParityLoopView = {
   status: string;
   receiptCount: number;
   summaryPath: string;
   summaryHref: string;
   ledgerPath: string;
   ledgerHref: string;
-  latestReceipt: StudioArtifactParityLoopReceipt | null;
-  currentPlan: StudioArtifactParityLoopReceipt | null;
+  latestReceipt: ChatArtifactParityLoopReceipt | null;
+  currentPlan: ChatArtifactParityLoopReceipt | null;
 };
 
-type StudioArtifactDistillationProposal = {
+type ChatArtifactDistillationProposal = {
   proposalId: string | null;
   sourceKind: string | null;
   benchmarkId: string | null;
@@ -424,14 +424,14 @@ type StudioArtifactDistillationProposal = {
   status: string;
 };
 
-type StudioArtifactDistillationView = {
+type ChatArtifactDistillationView = {
   status: string;
   ledgerPath: string;
   ledgerHref: string;
   proposalCount: number;
   appliedCount: number;
   measuredGain: number | null;
-  topProposals: StudioArtifactDistillationProposal[];
+  topProposals: ChatArtifactDistillationProposal[];
 };
 
 type BenchmarkStoreRunRecord = {
@@ -1355,7 +1355,7 @@ function App() {
               <section className="panel artifact-benchmark-panel">
                 <div className="panel-head">
                   <div>
-                    <p className="eyebrow">Studio artifact benchmark</p>
+                    <p className="eyebrow">Chat artifact benchmark</p>
                     <h2>Parity ladder</h2>
                   </div>
                   <div className="artifact-benchmark-headline">
@@ -1490,7 +1490,7 @@ function App() {
                             entry.trackedParityTarget ? "parity" : ""
                           }`}
                           onClick={() =>
-                            goTriage("Studio Artifacts", entry.matchedCaseId)
+                            goTriage("Chat Artifacts", entry.matchedCaseId)
                           }
                         >
                           {row}

@@ -2,11 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AssistantWorkbenchView,
   type AssistantWorkbenchActivity,
-  openStudioAssistantWorkbench,
-  openStudioAutopilotIntent,
-  openStudioCapabilityTarget,
-  openStudioPolicyTarget,
-  openStudioShellView,
+  openChatAssistantWorkbench,
+  openChatAutopilotIntent,
+  openChatCapabilityTarget,
+  openChatPolicyTarget,
+  openChatShellView,
   showSpotlightShell,
   useAssistantWorkbenchState,
   useSessionApprovalState,
@@ -47,7 +47,7 @@ import "../SpotlightWindow/styles/Visuals.css";
 import "../SpotlightWindow/styles/ArtifactPanel.css";
 import "../SpotlightWindow/styles/Overrides.css";
 import "../SpotlightWindow/styles/MicroEventCard.css";
-import "../SpotlightWindow/styles/StudioSurface.css";
+import "../SpotlightWindow/styles/ChatSurface.css";
 import "../shared/AssistantWorkbench.css";
 import "./GateWindow.css";
 
@@ -243,13 +243,13 @@ export function GateWindow() {
     }
   }, [filteredQueueItems, selectedQueueItemKey]);
 
-  const openStudioView = useCallback(async (view: string) => {
-    await openStudioShellView(view);
+  const openChatView = useCallback(async (view: string) => {
+    await openChatShellView(view);
   }, []);
 
-  const openStudioWorkbench = useCallback(
+  const openChatWorkbench = useCallback(
     async (session: AssistantWorkbenchSession) => {
-      await openStudioAssistantWorkbench(session);
+      await openChatAssistantWorkbench(session);
     },
     [],
   );
@@ -270,7 +270,7 @@ export function GateWindow() {
       connectorId?: string | null,
       detailSection?: "setup" | "policy" | null,
     ) => {
-      await openStudioCapabilityTarget(
+      await openChatCapabilityTarget(
         connectorId,
         detailSection ?? undefined,
       );
@@ -279,7 +279,7 @@ export function GateWindow() {
   );
 
   const openPolicyTarget = useCallback(async (connectorId?: string | null) => {
-    await openStudioPolicyTarget(connectorId);
+    await openChatPolicyTarget(connectorId);
   }, []);
 
   const handleDeferIntervention = useCallback(
@@ -335,7 +335,7 @@ export function GateWindow() {
             void openPolicyTarget(connectorId);
           },
           onOpenSettings: () => {
-            void openStudioView("settings");
+            void openChatView("settings");
           },
           onOpenTarget: () => {
             setSelectedQueueItemKey(`assistant:${item.itemId}`);
@@ -345,7 +345,7 @@ export function GateWindow() {
         setQueueActionError(String(error));
       }
     },
-    [openCapabilityTarget, openPolicyTarget, openStudioView, updateAssistantStatus],
+    [openCapabilityTarget, openPolicyTarget, openChatView, updateAssistantStatus],
   );
 
   const formatWorkbenchActivityTime = useCallback((timestampMs: number) => {
@@ -383,7 +383,7 @@ export function GateWindow() {
               type="button"
               className="gate-window-header-action"
               onClick={() => {
-                void openStudioView("notifications");
+                void openChatView("notifications");
               }}
             >
               Open inbox
@@ -432,7 +432,7 @@ export function GateWindow() {
                 type="button"
                 className="gate-window-secondary-button"
                 onClick={() => {
-                  void openStudioWorkbench(assistantWorkbench);
+                  void openChatWorkbench(assistantWorkbench);
                 }}
               >
                 {activeWorkbenchSummary.resumeLabel}
@@ -587,7 +587,7 @@ export function GateWindow() {
               onBack={collapseWorkbench}
               onOpenNotifications={focusWorkbenchSource}
               onOpenAutopilot={(intent) => {
-                void openStudioAutopilotIntent(intent);
+                void openChatAutopilotIntent(intent);
               }}
             />
             <div className="gate-window-workbench-stage-actions">
@@ -595,10 +595,10 @@ export function GateWindow() {
                 type="button"
                 className="gate-window-secondary-button"
                 onClick={() => {
-                  void openStudioWorkbench(assistantWorkbench);
+                  void openChatWorkbench(assistantWorkbench);
                 }}
               >
-                Open in Studio
+                Open in Chat
               </button>
             </div>
           </section>
@@ -656,7 +656,7 @@ export function GateWindow() {
               void showSpotlightShell();
             }}
             onOpenLocalEngine={() => {
-              void openStudioView("capabilities");
+              void openChatView("capabilities");
             }}
             onAssistantAction={handleAssistantAction}
             onDeferAssistant={handleDeferAssistantNotification}
@@ -673,7 +673,7 @@ export function GateWindow() {
             void showSpotlightShell();
           }}
           onOpenInbox={() => {
-            void openStudioView("notifications");
+            void openChatView("notifications");
           }}
           onOpenReplyComposer={(session) => {
             openReplyComposer(session);
@@ -690,7 +690,7 @@ export function GateWindow() {
             void openPolicyTarget(connectorId);
           }}
           onOpenLocalEngine={() => {
-            void openStudioView("capabilities");
+            void openChatView("capabilities");
           }}
         />
       </section>

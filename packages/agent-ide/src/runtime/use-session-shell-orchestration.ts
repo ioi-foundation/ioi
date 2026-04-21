@@ -1,34 +1,34 @@
 import { useCallback } from "react";
-import { openStudioShellView } from "./session-runtime";
+import { openChatShellView } from "./session-runtime";
 
 export interface UseSessionShellActionsOptions<TTask> {
-  isStudioShell?: boolean;
+  isChatShell?: boolean;
   hideCurrentShell?: () => Promise<void>;
-  resolveStudioView?: (targetView: string) => string;
+  resolveChatView?: (targetView: string) => string;
   loadSession: (sessionId: string) => Promise<TTask | null>;
   beforeAttachSession?: () => Promise<void> | void;
   onAttachSessionError?: (error: unknown) => void;
 }
 
 export function useSessionShellActions<TTask>({
-  isStudioShell = false,
+  isChatShell = false,
   hideCurrentShell,
-  resolveStudioView,
+  resolveChatView,
   loadSession,
   beforeAttachSession,
   onAttachSessionError,
 }: UseSessionShellActionsOptions<TTask>) {
-  const openStudio = useCallback(
+  const openChat = useCallback(
     async (targetView: string = "compose") => {
-      const resolvedView = resolveStudioView
-        ? resolveStudioView(targetView)
+      const resolvedView = resolveChatView
+        ? resolveChatView(targetView)
         : targetView;
-      if (!isStudioShell) {
+      if (!isChatShell) {
         await hideCurrentShell?.();
       }
-      await openStudioShellView(resolvedView);
+      await openChatShellView(resolvedView);
     },
-    [hideCurrentShell, isStudioShell, resolveStudioView],
+    [hideCurrentShell, isChatShell, resolveChatView],
   );
 
   const attachSession = useCallback(
@@ -48,7 +48,7 @@ export function useSessionShellActions<TTask>({
   );
 
   return {
-    openStudio,
+    openChat,
     attachSession,
   };
 }

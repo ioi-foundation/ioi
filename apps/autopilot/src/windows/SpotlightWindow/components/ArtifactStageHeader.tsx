@@ -159,17 +159,17 @@ export function ArtifactStageHeader({
   );
 
   return (
-    <header className="studio-artifact-stage-header studio-artifact-stage-header--compact">
-      <div className="studio-artifact-stage-header-main">
+    <header className="chat-artifact-stage-header chat-artifact-stage-header--compact">
+      <div className="chat-artifact-stage-header-main">
         {showStageModes ? (
           <div
-            className="studio-artifact-mode-toggle"
+            className="chat-artifact-mode-toggle"
             role="tablist"
             aria-label="Artifact stage mode"
           >
             <button
               type="button"
-              className={`studio-artifact-mode-toggle-button ${
+              className={`chat-artifact-mode-toggle-button ${
                 stageMode === "render" ? "is-active" : ""
               }`}
               onClick={() => onSelectStageMode("render")}
@@ -178,13 +178,13 @@ export function ArtifactStageHeader({
               aria-label="Preview"
               title="Preview"
             >
-              <span className="studio-artifact-mode-toggle-icon">
+              <span className="chat-artifact-mode-toggle-icon">
                 <PreviewIcon />
               </span>
             </button>
             <button
               type="button"
-              className={`studio-artifact-mode-toggle-button ${
+              className={`chat-artifact-mode-toggle-button ${
                 stageMode === "source" ? "is-active" : ""
               }`}
               onClick={() => onSelectStageMode("source")}
@@ -193,25 +193,25 @@ export function ArtifactStageHeader({
               aria-label="Code"
               title="Code"
             >
-              <span className="studio-artifact-mode-toggle-icon">
+              <span className="chat-artifact-mode-toggle-icon">
                 <CodeIcon />
               </span>
             </button>
           </div>
         ) : null}
 
-        <div className="studio-artifact-stage-copy" title={titleLabel}>
+        <div className="chat-artifact-stage-copy" title={titleLabel}>
           <h2>
             {title}
-            <span className="studio-artifact-stage-copy-divider" aria-hidden="true">
+            <span className="chat-artifact-stage-copy-divider" aria-hidden="true">
               {" "}
               ·{" "}
             </span>
-            <span className="studio-artifact-stage-copy-meta">{rendererLabel}</span>
+            <span className="chat-artifact-stage-copy-meta">{rendererLabel}</span>
           </h2>
           {stageMeta.length ? (
             <p
-              className="studio-artifact-inline-meta"
+              className="chat-artifact-inline-meta"
               aria-label="Artifact stage details"
             >
               {stageMeta.join(" · ")}
@@ -220,13 +220,13 @@ export function ArtifactStageHeader({
         </div>
       </div>
 
-      <div className="studio-artifact-stage-toolbar">
-        <div className="studio-artifact-stage-actions">
+      <div className="chat-artifact-stage-toolbar">
+        <div className="chat-artifact-stage-actions">
           {primaryCopyOption ? (
-            <div className="studio-artifact-copy-control" ref={copyMenuRef}>
+            <div className="chat-artifact-copy-control" ref={copyMenuRef}>
               <button
                 type="button"
-                className="studio-artifact-copy-primary"
+                className="chat-artifact-copy-primary"
                 onClick={() => void handleCopyOption(primaryCopyOption)}
                 title={primaryCopyOption.label}
               >
@@ -234,7 +234,7 @@ export function ArtifactStageHeader({
               </button>
               <button
                 type="button"
-                className="studio-artifact-copy-toggle"
+                className="chat-artifact-copy-toggle"
                 onClick={() => {
                   if (copyOptions.length <= 1) {
                     void handleCopyOption(primaryCopyOption);
@@ -250,12 +250,12 @@ export function ArtifactStageHeader({
               </button>
 
               {copyMenuOpen && copyOptions.length > 1 ? (
-                <div className="studio-artifact-copy-menu" role="menu">
+                <div className="chat-artifact-copy-menu" role="menu">
                   {copyOptions.map((option) => (
                     <button
                       key={option.id}
                       type="button"
-                      className="studio-artifact-copy-menu-item"
+                      className="chat-artifact-copy-menu-item"
                       onClick={() => void handleCopyOption(option)}
                       role="menuitem"
                     >
@@ -269,7 +269,7 @@ export function ArtifactStageHeader({
           {onRetry ? (
             <button
               type="button"
-              className="studio-artifact-stage-button studio-artifact-stage-button--refresh"
+              className="chat-artifact-stage-button chat-artifact-stage-button--refresh"
               onClick={onRetry}
               disabled={retrying}
               aria-label={retrying ? "Refreshing rendered artifact" : "Refresh rendered artifact"}
@@ -282,7 +282,7 @@ export function ArtifactStageHeader({
           {onCollapse ? (
             <button
               type="button"
-              className="studio-artifact-stage-button studio-artifact-stage-button--icon"
+              className="chat-artifact-stage-button chat-artifact-stage-button--icon"
               onClick={onCollapse}
               aria-label="Collapse artifact"
               title="Collapse artifact"

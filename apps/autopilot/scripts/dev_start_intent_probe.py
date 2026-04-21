@@ -39,7 +39,7 @@ DEFAULT_DB_PATH = (
 DEFAULT_OUTPUT_ROOT = (
     PROJECT_ROOT / "docs/evidence/route-hierarchy/live-dev-start-intent"
 )
-WINDOW_SEARCH_PATTERN = "Autopilot Studio"
+WINDOW_SEARCH_PATTERN = "Autopilot Chat"
 POLL_INTERVAL_SECS = 1.0
 WINDOW_WAIT_TIMEOUT_SECS = 90.0
 POST_SETTLE_CAPTURE_DELAY_SECS = 2.0

@@ -1,11 +1,11 @@
 use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
-use ioi_api::studio::StudioArtifactOutputOrigin;
+use ioi_api::chat::ChatArtifactOutputOrigin;
 use ioi_api::vm::inference::{
     mock::MockInferenceRuntime, HttpInferenceRuntime, InferenceRuntime, UnavailableInferenceRuntime,
 };
 use ioi_types::app::agentic::InferenceOptions;
-use ioi_types::app::{StudioRuntimeProvenance, StudioRuntimeProvenanceKind};
+use ioi_types::app::{ChatRuntimeProvenance, ChatRuntimeProvenanceKind};
 use ioi_types::error::VmError;
 use std::env;
 use std::fs;
@@ -41,9 +41,9 @@ impl InferenceRuntime for FixtureInferenceRuntime {
         Ok(())
     }
 
-    fn studio_runtime_provenance(&self) -> StudioRuntimeProvenance {
-        StudioRuntimeProvenance {
-            kind: StudioRuntimeProvenanceKind::FixtureRuntime,
+    fn chat_runtime_provenance(&self) -> ChatRuntimeProvenance {
+        ChatRuntimeProvenance {
+            kind: ChatRuntimeProvenanceKind::FixtureRuntime,
             label: "fixture runtime".to_string(),
             model: None,
             endpoint: Some(self.source_label.clone()),
@@ -93,8 +93,8 @@ pub(super) fn build_inference_runtime(
 }
 
 pub(super) fn runtime_provenance_matches(
-    left: &StudioRuntimeProvenance,
-    right: &StudioRuntimeProvenance,
+    left: &ChatRuntimeProvenance,
+    right: &ChatRuntimeProvenance,
 ) -> bool {
     fn normalized_runtime_endpoint(endpoint: Option<&str>) -> Option<String> {
         let endpoint = endpoint?.trim();
@@ -151,7 +151,7 @@ pub(super) fn build_acceptance_inference_runtime(
         return Ok(production_runtime);
     }
 
-    let production_provenance = production_runtime.studio_runtime_provenance();
+    let production_provenance = production_runtime.chat_runtime_provenance();
     let explicit_url = acceptance_api_url
         .map(str::to_string)
         .or_else(|| env::var("AUTOPILOT_ACCEPTANCE_RUNTIME_URL").ok());
@@ -175,7 +175,7 @@ pub(super) fn build_acceptance_inference_runtime(
                 .or_else(|| production_provenance.model.clone())
                 .unwrap_or_else(|| "acceptance-validation".to_string()),
         ))
-    } else if production_provenance.kind == StudioRuntimeProvenanceKind::RealLocalRuntime
+    } else if production_provenance.kind == ChatRuntimeProvenanceKind::RealLocalRuntime
         || explicit_model.is_some()
     {
         if let Some(key) = openai_key {
@@ -197,8 +197,8 @@ pub(super) fn build_acceptance_inference_runtime(
         ))
     };
 
-    let acceptance_provenance = runtime.studio_runtime_provenance();
-    if acceptance_provenance.kind != StudioRuntimeProvenanceKind::InferenceUnavailable
+    let acceptance_provenance = runtime.chat_runtime_provenance();
+    if acceptance_provenance.kind != ChatRuntimeProvenanceKind::InferenceUnavailable
         && runtime_provenance_matches(&acceptance_provenance, &production_provenance)
     {
         return Ok(Arc::new(UnavailableInferenceRuntime::new(
@@ -210,27 +210,27 @@ pub(super) fn build_acceptance_inference_runtime(
 }
 
 pub(super) fn runtime_origin_label(
-    provenance: &StudioRuntimeProvenance,
-) -> StudioArtifactOutputOrigin {
+    provenance: &ChatRuntimeProvenance,
+) -> ChatArtifactOutputOrigin {
     match provenance.kind {
-        StudioRuntimeProvenanceKind::RealRemoteModelRuntime
-        | StudioRuntimeProvenanceKind::RealLocalRuntime => {
-            StudioArtifactOutputOrigin::LiveInference
+        ChatRuntimeProvenanceKind::RealRemoteModelRuntime
+        | ChatRuntimeProvenanceKind::RealLocalRuntime => {
+            ChatArtifactOutputOrigin::LiveInference
         }
-        StudioRuntimeProvenanceKind::FixtureRuntime => StudioArtifactOutputOrigin::FixtureRuntime,
-        StudioRuntimeProvenanceKind::MockRuntime => StudioArtifactOutputOrigin::MockInference,
-        StudioRuntimeProvenanceKind::DeterministicContinuityFallback => {
-            StudioArtifactOutputOrigin::DeterministicFallback
+        ChatRuntimeProvenanceKind::FixtureRuntime => ChatArtifactOutputOrigin::FixtureRuntime,
+        ChatRuntimeProvenanceKind::MockRuntime => ChatArtifactOutputOrigin::MockInference,
+        ChatRuntimeProvenanceKind::DeterministicContinuityFallback => {
+            ChatArtifactOutputOrigin::DeterministicFallback
         }
-        StudioRuntimeProvenanceKind::InferenceUnavailable => {
-            StudioArtifactOutputOrigin::InferenceUnavailable
+        ChatRuntimeProvenanceKind::InferenceUnavailable => {
+            ChatArtifactOutputOrigin::InferenceUnavailable
         }
-        StudioRuntimeProvenanceKind::OpaqueRuntime => StudioArtifactOutputOrigin::OpaqueRuntime,
+        ChatRuntimeProvenanceKind::OpaqueRuntime => ChatArtifactOutputOrigin::OpaqueRuntime,
     }
 }
 
 pub(super) fn runtime_model_label(runtime: &Arc<dyn InferenceRuntime>) -> String {
-    let provenance = runtime.studio_runtime_provenance();
+    let provenance = runtime.chat_runtime_provenance();
     provenance.model.unwrap_or(provenance.label)
 }
 

@@ -438,7 +438,7 @@ fn compaction_latest_artifact_outcome(task: &crate::models::AgentTask) -> Option
             task.chat_session
                 .as_ref()
                 .and_then(|session| compaction_excerpt(&session.summary, 96))
-                .map(|summary| format!("Studio artifact: {summary}"))
+                .map(|summary| format!("Chat artifact: {summary}"))
         })
 }
 
@@ -709,7 +709,7 @@ fn compaction_prune_decisions(
         "Workspace root",
         SessionCompactionDisposition::CarryForward,
         usize::from(workspace_root.is_some()),
-        "The workspace root stays explicit so Spotlight, Studio, and the standalone REPL can reopen the same repo.",
+        "The workspace root stays explicit so Spotlight, Chat, and the standalone REPL can reopen the same repo.",
         if workspace_root.is_some() {
             "Keep the active workspace root in carried-forward state.".to_string()
         } else {

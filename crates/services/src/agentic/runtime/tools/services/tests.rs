@@ -69,7 +69,7 @@ fn namespaced_discovery_without_upgrade_prefix_still_exposes_service_tools() {
     let namespaced = ReadOnlyNamespacedStateAccess::new(&root_state, prefix, &desktop_meta);
 
     let mut tools = Vec::new();
-    push_service_tools(&namespaced, "Autopilot Studio", &mut tools);
+    push_service_tools(&namespaced, "Autopilot Chat", &mut tools);
 
     assert!(
         tools.iter().any(|tool| tool.name == "wallet_network__mail_reply"),
@@ -92,7 +92,7 @@ fn namespaced_discovery_with_upgrade_prefix_exposes_service_tools() {
     let namespaced = ReadOnlyNamespacedStateAccess::new(&root_state, prefix, &desktop_meta);
 
     let mut tools = Vec::new();
-    push_service_tools(&namespaced, "Autopilot Studio", &mut tools);
+    push_service_tools(&namespaced, "Autopilot Chat", &mut tools);
 
     assert!(
         tools

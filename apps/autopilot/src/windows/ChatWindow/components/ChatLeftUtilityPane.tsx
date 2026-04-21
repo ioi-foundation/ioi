@@ -33,13 +33,13 @@ export function ChatLeftUtilityPane({
 }: ChatLeftUtilityPaneProps) {
   return (
     <aside
-      className={`studio-chat-pane ${maximized ? "is-maximized" : ""}`}
+      className={`chat-chat-pane ${maximized ? "is-maximized" : ""}`}
       aria-label="Operator chat"
     >
-      <div className="studio-chat-pane-controls">
+      <div className="chat-chat-pane-controls">
         <button
           type="button"
-          className="studio-chat-pane-control"
+          className="chat-chat-pane-control"
           onClick={onToggleMaximize}
           aria-label={maximized ? "Restore chat layout" : "Full screen chat"}
           title={maximized ? "Restore chat layout" : "Full screen chat"}
@@ -75,7 +75,7 @@ export function ChatLeftUtilityPane({
 
         <button
           type="button"
-          className="studio-chat-pane-control"
+          className="chat-chat-pane-control"
           onClick={onClose}
           aria-label="Close chat pane"
           title="Close chat pane"
@@ -97,7 +97,7 @@ export function ChatLeftUtilityPane({
         </button>
       </div>
 
-      <div className="studio-chat-pane-body">
+      <div className="chat-chat-pane-body">
         <ChatMissionControlChatView
           embedded
           surface={surface}

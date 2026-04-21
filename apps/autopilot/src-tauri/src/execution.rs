@@ -87,14 +87,14 @@ pub async fn init_mcp_servers(app_handle: tauri::AppHandle) {
         data_dir.clone()
     });
 
-    let profile = std::env::var("IOI_STUDIO_MCP_PROFILE")
+    let profile = std::env::var("IOI_CHAT_MCP_PROFILE")
         .unwrap_or_else(|_| "disabled".to_string())
         .to_ascii_lowercase();
     if profile != "dev_filesystem" {
         println!(
-            "[Studio] MCP disabled by default. Native filesystem drivers remain available; optional MCP filesystem server is off for safety."
+            "[Chat] MCP disabled by default. Native filesystem drivers remain available; optional MCP filesystem server is off for safety."
         );
-        println!("[Studio] Set IOI_STUDIO_MCP_PROFILE=dev_filesystem to opt in.");
+        println!("[Chat] Set IOI_CHAT_MCP_PROFILE=dev_filesystem to opt in.");
         return;
     }
     let mcp_mode = McpMode::Development;
@@ -120,7 +120,7 @@ pub async fn init_mcp_servers(app_handle: tauri::AppHandle) {
     };
 
     println!(
-        "[Studio] Spawning optional dev Filesystem MCP at {:?}",
+        "[Chat] Spawning optional dev Filesystem MCP at {:?}",
         abs_data_dir
     );
 
@@ -128,9 +128,9 @@ pub async fn init_mcp_servers(app_handle: tauri::AppHandle) {
         .start_server("filesystem_dev", mcp_mode, fs_config)
         .await
     {
-        eprintln!("[Studio] Failed to start filesystem_dev MCP: {}", e);
+        eprintln!("[Chat] Failed to start filesystem_dev MCP: {}", e);
     } else {
-        println!("[Studio] filesystem_dev MCP active.");
+        println!("[Chat] filesystem_dev MCP active.");
     }
 }
 

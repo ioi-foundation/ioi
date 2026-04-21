@@ -1,9 +1,9 @@
 import {
   formatSessionTimeAgo,
-  openStudioAssistantWorkbench,
-  openStudioPolicyTarget,
-  openStudioSessionTarget,
-  openStudioShellView,
+  openChatAssistantWorkbench,
+  openChatPolicyTarget,
+  openChatSessionTarget,
+  openChatShellView,
   type AssistantWorkbenchActivity,
   type AssistantWorkbenchSession,
 } from "@ioi/agent-ide";
@@ -796,7 +796,7 @@ function CompactView({
         <p>
           Capture a resumable session summary with carried-forward file context,
           blockers, and resume anchors so long-running work stays reloadable
-          across Spotlight, Studio, and the standalone REPL.
+          across Spotlight, Chat, and the standalone REPL.
         </p>
         <div className="artifact-hub-files-meta artifact-hub-permissions__meta">
           <span>Status: {humanizeStatus(status)}</span>
@@ -1944,10 +1944,10 @@ function MobileView({
                 type="button"
                 className="artifact-hub-open-btn"
                 onClick={() => {
-                  void openStudioAssistantWorkbench(assistantWorkbench);
+                  void openChatAssistantWorkbench(assistantWorkbench);
                 }}
               >
-                {activeWorkbenchSummary?.resumeLabel || "Resume in Studio"}
+                {activeWorkbenchSummary?.resumeLabel || "Resume in Chat"}
               </button>
             ) : null}
             {onOpenView ? (
@@ -2026,7 +2026,7 @@ function MobileView({
                 type="button"
                 className="artifact-hub-open-btn secondary"
                 onClick={() => {
-                  void openStudioSessionTarget(retainedWorkbenchEvidenceThreadId);
+                  void openChatSessionTarget(retainedWorkbenchEvidenceThreadId);
                 }}
               >
                 {evidenceAction.studioLabel}
@@ -2091,7 +2091,7 @@ function MobileView({
           <span className="artifact-hub-policy-pill">Shared runtime truth</span>
         </div>
         <p>
-          Spotlight, Studio, replay/export, and retained session history all stay
+          Spotlight, Chat, replay/export, and retained session history all stay
           aligned because the handoff state comes from the same runtime-owned
           session and evidence records.
         </p>
@@ -3376,7 +3376,7 @@ function ServerView({
                           type="button"
                           className="artifact-hub-open-btn secondary"
                           onClick={() => {
-                            void openStudioSessionTarget(session.sessionId);
+                            void openChatSessionTarget(session.sessionId);
                           }}
                         >
                           {continuityAction.studioLabel}
@@ -3404,7 +3404,7 @@ function ServerView({
         </div>
         <p>
           Server continuity stays grounded in the same runtime-owned session
-          projection as Spotlight, Studio, and the standalone REPL.
+          projection as Spotlight, Chat, and the standalone REPL.
         </p>
         <div className="artifact-hub-permissions-card__actions">
           {onRefreshServer ? (
@@ -3868,14 +3868,14 @@ function PluginsView({
             <button
               type="button"
               className="artifact-hub-open-btn"
-              onClick={() => void openStudioShellView("capabilities")}
+              onClick={() => void openChatShellView("capabilities")}
             >
-              Open Studio Capabilities
+              Open Chat Capabilities
             </button>
             <button
               type="button"
               className="artifact-hub-open-btn secondary"
-              onClick={() => void openStudioShellView("policy")}
+              onClick={() => void openChatShellView("policy")}
             >
               Open Governing Policy
             </button>
@@ -4527,14 +4527,14 @@ function PluginsView({
                   <button
                     type="button"
                     className="artifact-hub-open-btn"
-                    onClick={() => void openStudioShellView("capabilities")}
+                    onClick={() => void openChatShellView("capabilities")}
                   >
-                    Open Studio Capabilities
+                    Open Chat Capabilities
                   </button>
                   <button
                     type="button"
                     className="artifact-hub-open-btn secondary"
-                    onClick={() => void openStudioShellView("policy")}
+                    onClick={() => void openChatShellView("policy")}
                   >
                     Open Governing Policy
                   </button>
@@ -4689,9 +4689,9 @@ function HooksView({
           <button
             type="button"
             className="artifact-hub-open-btn secondary"
-            onClick={() => void openStudioPolicyTarget(null)}
+            onClick={() => void openChatPolicyTarget(null)}
           >
-            Open Studio Policy
+            Open Chat Policy
           </button>
         </div>
       </section>
@@ -4762,14 +4762,14 @@ function HooksView({
                   <button
                     type="button"
                     className="artifact-hub-open-btn"
-                    onClick={() => void openStudioShellView("capabilities")}
+                    onClick={() => void openChatShellView("capabilities")}
                   >
-                    Open Studio Capabilities
+                    Open Chat Capabilities
                   </button>
                   <button
                     type="button"
                     className="artifact-hub-open-btn"
-                    onClick={() => void openStudioPolicyTarget(null)}
+                    onClick={() => void openChatPolicyTarget(null)}
                   >
                     Open Governing Policy
                   </button>
@@ -4832,14 +4832,14 @@ function HooksView({
           <button
             type="button"
             className="artifact-hub-open-btn"
-            onClick={() => void openStudioShellView("capabilities")}
+            onClick={() => void openChatShellView("capabilities")}
           >
-            Open Studio Capabilities
+            Open Chat Capabilities
           </button>
           <button
             type="button"
             className="artifact-hub-open-btn"
-            onClick={() => void openStudioPolicyTarget(null)}
+            onClick={() => void openChatPolicyTarget(null)}
           >
             Open Governing Policy
           </button>
@@ -5259,7 +5259,7 @@ function RemoteContinuityPolicyCard({
         onOpenView?.(action.view);
         break;
       case "open_studio_settings":
-        void openStudioShellView("settings");
+        void openChatShellView("settings");
         break;
       case "refresh_server":
         void onRefreshServer?.();
@@ -6086,7 +6086,7 @@ function KeybindingsView({
         <span className="artifact-hub-files-kicker">Keybindings</span>
         <strong>Current shell shortcuts</strong>
         <p>
-          Review the active keyboard shortcuts across Spotlight, Studio, and the
+          Review the active keyboard shortcuts across Spotlight, Chat, and the
           global launcher surface.
         </p>
         <div className="artifact-hub-files-meta artifact-hub-permissions__meta">
@@ -6125,23 +6125,23 @@ function KeybindingsView({
         </div>
         <p>
           This slice now reflects one shared shortcut registry across Spotlight,
-          Studio, and the launcher surface. User-editable keymap overrides have
+          Chat, and the launcher surface. User-editable keymap overrides have
           not been productized yet.
         </p>
         <div className="artifact-hub-permissions-card__actions">
           <button
             type="button"
             className="artifact-hub-open-btn"
-            onClick={() => void openStudioShellView("settings")}
+            onClick={() => void openChatShellView("settings")}
           >
-            Open Studio Settings
+            Open Chat Settings
           </button>
           <button
             type="button"
             className="artifact-hub-open-btn secondary"
-            onClick={() => void openStudioShellView("capabilities")}
+            onClick={() => void openChatShellView("capabilities")}
           >
-            Open Studio
+            Open Chat
           </button>
         </div>
       </section>
@@ -6206,9 +6206,9 @@ function VimModeView({
           <button
             type="button"
             className="artifact-hub-open-btn secondary"
-            onClick={() => void openStudioShellView("settings")}
+            onClick={() => void openChatShellView("settings")}
           >
-            Open Studio Settings
+            Open Chat Settings
           </button>
         </div>
       </section>
@@ -6251,9 +6251,9 @@ function VimModeView({
           <button
             type="button"
             className="artifact-hub-open-btn secondary"
-            onClick={() => void openStudioShellView("settings")}
+            onClick={() => void openChatShellView("settings")}
           >
-            Open Studio Settings
+            Open Chat Settings
           </button>
         </div>
       </section>
@@ -6390,9 +6390,9 @@ function PrivacyView({
           <button
             type="button"
             className="artifact-hub-open-btn secondary"
-            onClick={() => void openStudioShellView("policy")}
+            onClick={() => void openChatShellView("policy")}
           >
-            Open Studio Policy
+            Open Chat Policy
           </button>
         </div>
       </section>
@@ -6715,12 +6715,12 @@ function PermissionsView({
               type="button"
               className="artifact-hub-open-btn"
               onClick={() =>
-                void openStudioPolicyTarget(
+                void openChatPolicyTarget(
                   permissionGovernanceRequest?.connectorId ?? focusedConnectorId,
                 )
               }
             >
-              Open Studio Policy
+              Open Chat Policy
             </button>
           </div>
         </section>
@@ -6771,12 +6771,12 @@ function PermissionsView({
               type="button"
               className="artifact-hub-open-btn secondary"
               onClick={() =>
-                void openStudioPolicyTarget(
+                void openChatPolicyTarget(
                   permissionGovernanceRequest.connectorId || null,
                 )
               }
             >
-              Review in Studio
+              Review in Chat
             </button>
           </div>
         </section>
@@ -6961,9 +6961,9 @@ function PermissionsView({
           <button
             type="button"
             className="artifact-hub-open-btn secondary"
-            onClick={() => void openStudioPolicyTarget(focusedConnectorId)}
+            onClick={() => void openChatPolicyTarget(focusedConnectorId)}
           >
-            Open Studio Policy
+            Open Chat Policy
           </button>
         </div>
       </section>
@@ -7072,10 +7072,10 @@ function PermissionsView({
                       type="button"
                       className="artifact-hub-open-btn"
                       onClick={() =>
-                        void openStudioPolicyTarget(decision.connectorId)
+                        void openChatPolicyTarget(decision.connectorId)
                       }
                     >
-                      Open Studio Policy
+                      Open Chat Policy
                     </button>
                   </div>
                 </article>
@@ -7162,9 +7162,9 @@ function PermissionsView({
             <button
               type="button"
               className="artifact-hub-open-btn"
-              onClick={() => void openStudioPolicyTarget(focusedConnectorId)}
+              onClick={() => void openChatPolicyTarget(focusedConnectorId)}
             >
-              Open Studio Policy
+              Open Chat Policy
             </button>
           </div>
         </section>
@@ -7426,9 +7426,9 @@ function PermissionsView({
                     <button
                       type="button"
                       className="artifact-hub-open-btn secondary"
-                      onClick={() => void openStudioPolicyTarget(card.connectorId)}
+                      onClick={() => void openChatPolicyTarget(card.connectorId)}
                     >
-                      Open Studio Policy
+                      Open Chat Policy
                     </button>
                   </div>
                 </article>
@@ -7813,7 +7813,7 @@ export function ArtifactHubDetailView({
           onLoadSession={onLoadSession}
           onLaunchRequestHandled={onHandleReplLaunchRequest}
           onOpenStudioSession={(sessionId) => {
-            void openStudioSessionTarget(sessionId);
+            void openChatSessionTarget(sessionId);
           }}
           onStopSession={onStopSession}
           onOpenView={onOpenView}

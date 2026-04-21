@@ -1,7 +1,7 @@
 use ioi_types::app::{
-    StudioExecutionBudgetEnvelope, StudioExecutionBudgetExpansionPolicy,
-    StudioExecutionModeDecision, StudioExecutionStrategy, StudioOutcomeArtifactRequest,
-    StudioOutcomeKind, StudioRuntimeProvenance,
+    ChatExecutionBudgetEnvelope, ChatExecutionBudgetExpansionPolicy,
+    ChatExecutionModeDecision, ChatExecutionStrategy, ChatOutcomeArtifactRequest,
+    ChatOutcomeKind, ChatRuntimeProvenance,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -214,7 +214,7 @@ pub struct SwarmWorkerReceipt {
     pub started_at: String,
     #[serde(default)]
     pub finished_at: Option<String>,
-    pub runtime: StudioRuntimeProvenance,
+    pub runtime: ChatRuntimeProvenance,
     #[serde(default)]
     pub read_paths: Vec<String>,
     #[serde(default)]
@@ -484,11 +484,11 @@ pub struct ExecutionLivePreview {
 pub struct ExecutionEnvelope {
     pub version: u32,
     #[serde(default)]
-    pub strategy: Option<StudioExecutionStrategy>,
+    pub strategy: Option<ChatExecutionStrategy>,
     #[serde(default)]
-    pub mode_decision: Option<StudioExecutionModeDecision>,
+    pub mode_decision: Option<ChatExecutionModeDecision>,
     #[serde(default)]
-    pub budget_envelope: Option<StudioExecutionBudgetEnvelope>,
+    pub budget_envelope: Option<ChatExecutionBudgetEnvelope>,
     pub execution_domain: String,
     #[serde(default)]
     pub domain_kind: Option<ExecutionDomainKind>,
@@ -530,17 +530,17 @@ pub struct ExecutionEnvelope {
     pub live_previews: Vec<ExecutionLivePreview>,
 }
 
-fn execution_strategy_id(strategy: StudioExecutionStrategy) -> &'static str {
+fn execution_strategy_id(strategy: ChatExecutionStrategy) -> &'static str {
     match strategy {
-        StudioExecutionStrategy::SinglePass => "single_pass",
-        StudioExecutionStrategy::DirectAuthor => "direct_author",
-        StudioExecutionStrategy::PlanExecute => "plan_execute",
-        StudioExecutionStrategy::MicroSwarm => "micro_swarm",
-        StudioExecutionStrategy::AdaptiveWorkGraph => "adaptive_work_graph",
+        ChatExecutionStrategy::SinglePass => "single_pass",
+        ChatExecutionStrategy::DirectAuthor => "direct_author",
+        ChatExecutionStrategy::PlanExecute => "plan_execute",
+        ChatExecutionStrategy::MicroSwarm => "micro_swarm",
+        ChatExecutionStrategy::AdaptiveWorkGraph => "adaptive_work_graph",
     }
 }
 
-fn artifact_verification_requirement_count(request: &StudioOutcomeArtifactRequest) -> u32 {
+fn artifact_verification_requirement_count(request: &ChatOutcomeArtifactRequest) -> u32 {
     [
         request.verification.require_render,
         request.verification.require_build,
@@ -553,17 +553,17 @@ fn artifact_verification_requirement_count(request: &StudioOutcomeArtifactReques
     .count() as u32
 }
 
-fn artifact_work_graph_size_estimate(request: &StudioOutcomeArtifactRequest) -> u32 {
+fn artifact_work_graph_size_estimate(request: &ChatOutcomeArtifactRequest) -> u32 {
     let base = match request.renderer {
-        ioi_types::app::StudioRendererKind::WorkspaceSurface => 5,
-        ioi_types::app::StudioRendererKind::HtmlIframe
-        | ioi_types::app::StudioRendererKind::JsxSandbox => 3,
-        ioi_types::app::StudioRendererKind::DownloadCard
-        | ioi_types::app::StudioRendererKind::BundleManifest
-        | ioi_types::app::StudioRendererKind::PdfEmbed => 2,
-        ioi_types::app::StudioRendererKind::Markdown
-        | ioi_types::app::StudioRendererKind::Svg
-        | ioi_types::app::StudioRendererKind::Mermaid => 1,
+        ioi_types::app::ChatRendererKind::WorkspaceSurface => 5,
+        ioi_types::app::ChatRendererKind::HtmlIframe
+        | ioi_types::app::ChatRendererKind::JsxSandbox => 3,
+        ioi_types::app::ChatRendererKind::DownloadCard
+        | ioi_types::app::ChatRendererKind::BundleManifest
+        | ioi_types::app::ChatRendererKind::PdfEmbed => 2,
+        ioi_types::app::ChatRendererKind::Markdown
+        | ioi_types::app::ChatRendererKind::Svg
+        | ioi_types::app::ChatRendererKind::Mermaid => 1,
     };
     base + u32::from(request.scope.create_new_workspace)
         + u32::from(request.verification.require_build || request.verification.require_preview)
@@ -884,18 +884,18 @@ pub fn validate_execution_envelope(envelope: &ExecutionEnvelope) -> Result<(), S
 }
 
 fn artifact_supports_direct_authoring(
-    request: &StudioOutcomeArtifactRequest,
+    request: &ChatOutcomeArtifactRequest,
     has_active_artifact: bool,
 ) -> bool {
     matches!(
         request.renderer,
-        ioi_types::app::StudioRendererKind::Markdown
-            | ioi_types::app::StudioRendererKind::HtmlIframe
-            | ioi_types::app::StudioRendererKind::Svg
-            | ioi_types::app::StudioRendererKind::Mermaid
-            | ioi_types::app::StudioRendererKind::PdfEmbed
-    ) && request.deliverable_shape == ioi_types::app::StudioArtifactDeliverableShape::SingleFile
-        && request.execution_substrate != ioi_types::app::StudioExecutionSubstrate::WorkspaceRuntime
+        ioi_types::app::ChatRendererKind::Markdown
+            | ioi_types::app::ChatRendererKind::HtmlIframe
+            | ioi_types::app::ChatRendererKind::Svg
+            | ioi_types::app::ChatRendererKind::Mermaid
+            | ioi_types::app::ChatRendererKind::PdfEmbed
+    ) && request.deliverable_shape == ioi_types::app::ChatArtifactDeliverableShape::SingleFile
+        && request.execution_substrate != ioi_types::app::ChatExecutionSubstrate::WorkspaceRuntime
         && !request.scope.create_new_workspace
         && !has_active_artifact
         && !request.verification.require_build
@@ -904,10 +904,10 @@ fn artifact_supports_direct_authoring(
 }
 
 pub fn execution_budget_envelope_for_strategy(
-    strategy: StudioExecutionStrategy,
-) -> StudioExecutionBudgetEnvelope {
+    strategy: ChatExecutionStrategy,
+) -> ChatExecutionBudgetEnvelope {
     match strategy {
-        StudioExecutionStrategy::SinglePass => StudioExecutionBudgetEnvelope {
+        ChatExecutionStrategy::SinglePass => ChatExecutionBudgetEnvelope {
             max_workers: 1,
             max_parallel_depth: 1,
             max_replans: 0,
@@ -915,9 +915,9 @@ pub fn execution_budget_envelope_for_strategy(
             max_tokens: 2_048,
             max_tool_calls: 1,
             max_repairs: 0,
-            expansion_policy: StudioExecutionBudgetExpansionPolicy::Fixed,
+            expansion_policy: ChatExecutionBudgetExpansionPolicy::Fixed,
         },
-        StudioExecutionStrategy::DirectAuthor => StudioExecutionBudgetEnvelope {
+        ChatExecutionStrategy::DirectAuthor => ChatExecutionBudgetEnvelope {
             max_workers: 1,
             max_parallel_depth: 1,
             max_replans: 0,
@@ -925,9 +925,9 @@ pub fn execution_budget_envelope_for_strategy(
             max_tokens: 4_096,
             max_tool_calls: 1,
             max_repairs: 1,
-            expansion_policy: StudioExecutionBudgetExpansionPolicy::Fixed,
+            expansion_policy: ChatExecutionBudgetExpansionPolicy::Fixed,
         },
-        StudioExecutionStrategy::PlanExecute => StudioExecutionBudgetEnvelope {
+        ChatExecutionStrategy::PlanExecute => ChatExecutionBudgetEnvelope {
             max_workers: 1,
             max_parallel_depth: 1,
             max_replans: 0,
@@ -935,9 +935,9 @@ pub fn execution_budget_envelope_for_strategy(
             max_tokens: 8_192,
             max_tool_calls: 4,
             max_repairs: 1,
-            expansion_policy: StudioExecutionBudgetExpansionPolicy::Fixed,
+            expansion_policy: ChatExecutionBudgetExpansionPolicy::Fixed,
         },
-        StudioExecutionStrategy::MicroSwarm => StudioExecutionBudgetEnvelope {
+        ChatExecutionStrategy::MicroSwarm => ChatExecutionBudgetEnvelope {
             max_workers: 3,
             max_parallel_depth: 2,
             max_replans: 1,
@@ -945,9 +945,9 @@ pub fn execution_budget_envelope_for_strategy(
             max_tokens: 12_000,
             max_tool_calls: 6,
             max_repairs: 1,
-            expansion_policy: StudioExecutionBudgetExpansionPolicy::ConfidenceGated,
+            expansion_policy: ChatExecutionBudgetExpansionPolicy::ConfidenceGated,
         },
-        StudioExecutionStrategy::AdaptiveWorkGraph => StudioExecutionBudgetEnvelope {
+        ChatExecutionStrategy::AdaptiveWorkGraph => ChatExecutionBudgetEnvelope {
             max_workers: 8,
             max_parallel_depth: 4,
             max_replans: 4,
@@ -955,19 +955,19 @@ pub fn execution_budget_envelope_for_strategy(
             max_tokens: 24_000,
             max_tool_calls: 12,
             max_repairs: 2,
-            expansion_policy: StudioExecutionBudgetExpansionPolicy::FrontierAdaptive,
+            expansion_policy: ChatExecutionBudgetExpansionPolicy::FrontierAdaptive,
         },
     }
 }
 
 pub fn derive_execution_mode_decision(
-    outcome_kind: StudioOutcomeKind,
-    artifact: Option<&StudioOutcomeArtifactRequest>,
-    requested_strategy: StudioExecutionStrategy,
+    outcome_kind: ChatOutcomeKind,
+    artifact: Option<&ChatOutcomeArtifactRequest>,
+    requested_strategy: ChatExecutionStrategy,
     confidence: f32,
     needs_clarification: bool,
     has_active_artifact: bool,
-) -> StudioExecutionModeDecision {
+) -> ChatExecutionModeDecision {
     let ambiguity = if needs_clarification {
         1.0
     } else {
@@ -982,7 +982,7 @@ pub fn derive_execution_mode_decision(
         evidence_breadth,
         merge_burden,
     ) = match (outcome_kind, artifact) {
-        (StudioOutcomeKind::Artifact, Some(request)) => {
+        (ChatOutcomeKind::Artifact, Some(request)) => {
             let verification_count = artifact_verification_requirement_count(request) as f32;
             let verification_pressure = clamp_score(verification_count / 5.0);
             let work_graph_size = artifact_work_graph_size_estimate(request);
@@ -1000,9 +1000,9 @@ pub fn derive_execution_mode_decision(
                     })
                     + (if matches!(
                         request.renderer,
-                        ioi_types::app::StudioRendererKind::HtmlIframe
-                            | ioi_types::app::StudioRendererKind::JsxSandbox
-                            | ioi_types::app::StudioRendererKind::WorkspaceSurface
+                        ioi_types::app::ChatRendererKind::HtmlIframe
+                            | ioi_types::app::ChatRendererKind::JsxSandbox
+                            | ioi_types::app::ChatRendererKind::WorkspaceSurface
                     ) {
                         0.2
                     } else {
@@ -1016,8 +1016,8 @@ pub fn derive_execution_mode_decision(
                     0.0
                 }) + (if matches!(
                     request.persistence,
-                    ioi_types::app::StudioArtifactPersistenceMode::SharedArtifactScoped
-                        | ioi_types::app::StudioArtifactPersistenceMode::WorkspaceFilesystem
+                    ioi_types::app::ChatArtifactPersistenceMode::SharedArtifactScoped
+                        | ioi_types::app::ChatArtifactPersistenceMode::WorkspaceFilesystem
                 ) {
                     0.3
                 } else {
@@ -1038,15 +1038,15 @@ pub fn derive_execution_mode_decision(
                     },
             );
             let merge_burden = clamp_score(match request.renderer {
-                ioi_types::app::StudioRendererKind::WorkspaceSurface => 1.0,
-                ioi_types::app::StudioRendererKind::HtmlIframe
-                | ioi_types::app::StudioRendererKind::JsxSandbox => 0.65,
-                ioi_types::app::StudioRendererKind::DownloadCard
-                | ioi_types::app::StudioRendererKind::BundleManifest
-                | ioi_types::app::StudioRendererKind::PdfEmbed => 0.4,
-                ioi_types::app::StudioRendererKind::Markdown
-                | ioi_types::app::StudioRendererKind::Svg
-                | ioi_types::app::StudioRendererKind::Mermaid => 0.2,
+                ioi_types::app::ChatRendererKind::WorkspaceSurface => 1.0,
+                ioi_types::app::ChatRendererKind::HtmlIframe
+                | ioi_types::app::ChatRendererKind::JsxSandbox => 0.65,
+                ioi_types::app::ChatRendererKind::DownloadCard
+                | ioi_types::app::ChatRendererKind::BundleManifest
+                | ioi_types::app::ChatRendererKind::PdfEmbed => 0.4,
+                ioi_types::app::ChatRendererKind::Markdown
+                | ioi_types::app::ChatRendererKind::Svg
+                | ioi_types::app::ChatRendererKind::Mermaid => 0.2,
             });
             (
                 work_graph_size,
@@ -1057,9 +1057,9 @@ pub fn derive_execution_mode_decision(
                 merge_burden,
             )
         }
-        (StudioOutcomeKind::Conversation, _) => (1, 0.1, 0.1, 0.1, 0.1, 0.0),
-        (StudioOutcomeKind::ToolWidget, _) => (1, 0.25, 0.2, 0.2, 0.15, 0.15),
-        (StudioOutcomeKind::Visualizer, _) => (1, 0.2, 0.15, 0.15, 0.15, 0.1),
+        (ChatOutcomeKind::Conversation, _) => (1, 0.1, 0.1, 0.1, 0.1, 0.0),
+        (ChatOutcomeKind::ToolWidget, _) => (1, 0.25, 0.2, 0.2, 0.15, 0.15),
+        (ChatOutcomeKind::Visualizer, _) => (1, 0.2, 0.15, 0.15, 0.15, 0.1),
         _ => (1, 0.2, 0.15, 0.15, 0.15, 0.1),
     };
 
@@ -1079,88 +1079,88 @@ pub fn derive_execution_mode_decision(
     );
 
     let resolved_strategy = match outcome_kind {
-        StudioOutcomeKind::Conversation | StudioOutcomeKind::Visualizer => {
+        ChatOutcomeKind::Conversation | ChatOutcomeKind::Visualizer => {
             if needs_clarification {
-                StudioExecutionStrategy::PlanExecute
+                ChatExecutionStrategy::PlanExecute
             } else if matches!(
                 requested_strategy,
-                StudioExecutionStrategy::AdaptiveWorkGraph | StudioExecutionStrategy::MicroSwarm
+                ChatExecutionStrategy::AdaptiveWorkGraph | ChatExecutionStrategy::MicroSwarm
             ) {
                 requested_strategy
             } else {
-                StudioExecutionStrategy::SinglePass
+                ChatExecutionStrategy::SinglePass
             }
         }
-        StudioOutcomeKind::ToolWidget => StudioExecutionStrategy::PlanExecute,
-        StudioOutcomeKind::Artifact => match artifact {
+        ChatOutcomeKind::ToolWidget => ChatExecutionStrategy::PlanExecute,
+        ChatOutcomeKind::Artifact => match artifact {
             Some(request)
                 if request.scope.create_new_workspace
                     || request.verification.require_build
                     || request.verification.require_preview
-                    || requested_strategy == StudioExecutionStrategy::AdaptiveWorkGraph =>
+                    || requested_strategy == ChatExecutionStrategy::AdaptiveWorkGraph =>
             {
-                StudioExecutionStrategy::AdaptiveWorkGraph
+                ChatExecutionStrategy::AdaptiveWorkGraph
             }
             Some(request)
                 if artifact_supports_direct_authoring(request, has_active_artifact)
                     && !needs_clarification
-                    && requested_strategy != StudioExecutionStrategy::MicroSwarm
-                    && requested_strategy != StudioExecutionStrategy::AdaptiveWorkGraph
+                    && requested_strategy != ChatExecutionStrategy::MicroSwarm
+                    && requested_strategy != ChatExecutionStrategy::AdaptiveWorkGraph
                     && one_shot_sufficiency >= 0.48
                     && decomposition_payoff < 0.62 =>
             {
-                StudioExecutionStrategy::DirectAuthor
+                ChatExecutionStrategy::DirectAuthor
             }
             Some(request)
-                if requested_strategy == StudioExecutionStrategy::SinglePass
+                if requested_strategy == ChatExecutionStrategy::SinglePass
                     && !has_active_artifact
                     && one_shot_sufficiency >= 0.72
                     && artifact_verification_requirement_count(request) <= 1 =>
             {
-                StudioExecutionStrategy::SinglePass
+                ChatExecutionStrategy::SinglePass
             }
             Some(request)
-                if requested_strategy == StudioExecutionStrategy::MicroSwarm
+                if requested_strategy == ChatExecutionStrategy::MicroSwarm
                     || (matches!(
                         request.renderer,
-                        ioi_types::app::StudioRendererKind::HtmlIframe
-                            | ioi_types::app::StudioRendererKind::JsxSandbox
+                        ioi_types::app::ChatRendererKind::HtmlIframe
+                            | ioi_types::app::ChatRendererKind::JsxSandbox
                     ) && decomposition_payoff >= 0.45) =>
             {
                 if decomposition_payoff >= 0.72 {
-                    StudioExecutionStrategy::AdaptiveWorkGraph
+                    ChatExecutionStrategy::AdaptiveWorkGraph
                 } else {
-                    StudioExecutionStrategy::MicroSwarm
+                    ChatExecutionStrategy::MicroSwarm
                 }
             }
-            Some(_request) if requested_strategy == StudioExecutionStrategy::AdaptiveWorkGraph => {
-                StudioExecutionStrategy::AdaptiveWorkGraph
+            Some(_request) if requested_strategy == ChatExecutionStrategy::AdaptiveWorkGraph => {
+                ChatExecutionStrategy::AdaptiveWorkGraph
             }
-            Some(_) if requested_strategy == StudioExecutionStrategy::MicroSwarm => {
-                StudioExecutionStrategy::MicroSwarm
+            Some(_) if requested_strategy == ChatExecutionStrategy::MicroSwarm => {
+                ChatExecutionStrategy::MicroSwarm
             }
-            Some(_) => StudioExecutionStrategy::PlanExecute,
-            None => StudioExecutionStrategy::PlanExecute,
+            Some(_) => ChatExecutionStrategy::PlanExecute,
+            None => ChatExecutionStrategy::PlanExecute,
         },
     };
 
     let decomposition_reason = match resolved_strategy {
-        StudioExecutionStrategy::SinglePass => {
+        ChatExecutionStrategy::SinglePass => {
             "One bounded execution unit is sufficient; decomposition is not justified.".to_string()
         }
-        StudioExecutionStrategy::DirectAuthor => {
-            "The request is coherent as one direct document authoring pass, so Studio should preserve the raw ask and author the first artifact before planning."
+        ChatExecutionStrategy::DirectAuthor => {
+            "The request is coherent as one direct document authoring pass, so Chat should preserve the raw ask and author the first artifact before planning."
                 .to_string()
         }
-        StudioExecutionStrategy::PlanExecute => {
+        ChatExecutionStrategy::PlanExecute => {
             "The request benefits from planning and verification, but not from a mutable work graph."
                 .to_string()
         }
-        StudioExecutionStrategy::MicroSwarm => {
+        ChatExecutionStrategy::MicroSwarm => {
             "A small known work graph is justified, but full adaptive graph expansion would be coordination overkill."
                 .to_string()
         }
-        StudioExecutionStrategy::AdaptiveWorkGraph => {
+        ChatExecutionStrategy::AdaptiveWorkGraph => {
             "The request implies multiple obligations or hidden dependencies, so a mutable work graph is justified."
                 .to_string()
         }
@@ -1169,7 +1169,7 @@ pub fn derive_execution_mode_decision(
     let budget_envelope = execution_budget_envelope_for_strategy(resolved_strategy);
     let work_graph_required = matches!(
         resolved_strategy,
-        StudioExecutionStrategy::MicroSwarm | StudioExecutionStrategy::AdaptiveWorkGraph
+        ChatExecutionStrategy::MicroSwarm | ChatExecutionStrategy::AdaptiveWorkGraph
     );
     let mode_confidence = clamp_score(
         confidence * 0.5
@@ -1181,7 +1181,7 @@ pub fn derive_execution_mode_decision(
             + ((1.0 - ambiguity) * 0.15),
     );
 
-    StudioExecutionModeDecision {
+    ChatExecutionModeDecision {
         requested_strategy,
         resolved_strategy,
         mode_confidence,
@@ -1201,10 +1201,10 @@ pub fn derive_execution_mode_decision(
 }
 
 pub fn committed_execution_mode_decision(
-    outcome_kind: StudioOutcomeKind,
-    artifact: Option<&StudioOutcomeArtifactRequest>,
-    execution_strategy: StudioExecutionStrategy,
-) -> StudioExecutionModeDecision {
+    outcome_kind: ChatOutcomeKind,
+    artifact: Option<&ChatOutcomeArtifactRequest>,
+    execution_strategy: ChatExecutionStrategy,
+) -> ChatExecutionModeDecision {
     let mut decision = derive_execution_mode_decision(
         outcome_kind,
         artifact,
@@ -1218,23 +1218,23 @@ pub fn committed_execution_mode_decision(
     decision.mode_confidence = 1.0;
     decision.work_graph_required = matches!(
         execution_strategy,
-        StudioExecutionStrategy::MicroSwarm | StudioExecutionStrategy::AdaptiveWorkGraph
+        ChatExecutionStrategy::MicroSwarm | ChatExecutionStrategy::AdaptiveWorkGraph
     );
     decision.decomposition_reason = match execution_strategy {
-        StudioExecutionStrategy::SinglePass => {
-            "Studio committed to a single bounded execution pass for this outcome.".to_string()
+        ChatExecutionStrategy::SinglePass => {
+            "Chat committed to a single bounded execution pass for this outcome.".to_string()
         }
-        StudioExecutionStrategy::DirectAuthor => {
-            "Studio committed to direct authoring for this outcome.".to_string()
+        ChatExecutionStrategy::DirectAuthor => {
+            "Chat committed to direct authoring for this outcome.".to_string()
         }
-        StudioExecutionStrategy::PlanExecute => {
-            "Studio committed to a staged plan-and-execute pass for this outcome.".to_string()
+        ChatExecutionStrategy::PlanExecute => {
+            "Chat committed to a staged plan-and-execute pass for this outcome.".to_string()
         }
-        StudioExecutionStrategy::MicroSwarm => {
-            "Studio committed to a bounded micro-swarm for this outcome.".to_string()
+        ChatExecutionStrategy::MicroSwarm => {
+            "Chat committed to a bounded micro-swarm for this outcome.".to_string()
         }
-        StudioExecutionStrategy::AdaptiveWorkGraph => {
-            "Studio committed to an adaptive work graph for this outcome.".to_string()
+        ChatExecutionStrategy::AdaptiveWorkGraph => {
+            "Chat committed to an adaptive work graph for this outcome.".to_string()
         }
     };
     decision.budget_envelope = execution_budget_envelope_for_strategy(execution_strategy);
@@ -1243,7 +1243,7 @@ pub fn committed_execution_mode_decision(
 
 pub fn annotate_execution_envelope(
     envelope: &mut Option<ExecutionEnvelope>,
-    mode_decision: Option<StudioExecutionModeDecision>,
+    mode_decision: Option<ChatExecutionModeDecision>,
     completion_invariant: Option<ExecutionCompletionInvariant>,
 ) {
     let Some(entry) = envelope.as_mut() else {
@@ -1260,7 +1260,7 @@ pub fn annotate_execution_envelope(
 }
 
 pub fn completion_invariant_for_direct_execution(
-    strategy: StudioExecutionStrategy,
+    strategy: ChatExecutionStrategy,
     required_artifact_paths: Vec<String>,
     required_verification_ids: Vec<String>,
     status: ExecutionCompletionInvariantStatus,
@@ -1295,9 +1295,9 @@ pub fn completion_invariant_for_direct_execution(
         remaining_obligations,
         allows_early_exit: matches!(
             strategy,
-            StudioExecutionStrategy::SinglePass
-                | StudioExecutionStrategy::DirectAuthor
-                | StudioExecutionStrategy::PlanExecute
+            ChatExecutionStrategy::SinglePass
+                | ChatExecutionStrategy::DirectAuthor
+                | ChatExecutionStrategy::PlanExecute
         ),
     }
 }
@@ -1853,37 +1853,37 @@ pub fn plan_swarm_dispatch_batches(swarm_plan: &SwarmPlan) -> Vec<ExecutionDispa
 }
 
 pub fn execution_strategy_for_outcome(
-    outcome_kind: StudioOutcomeKind,
-    artifact: Option<&StudioOutcomeArtifactRequest>,
-) -> StudioExecutionStrategy {
+    outcome_kind: ChatOutcomeKind,
+    artifact: Option<&ChatOutcomeArtifactRequest>,
+) -> ChatExecutionStrategy {
     match outcome_kind {
-        StudioOutcomeKind::Conversation | StudioOutcomeKind::Visualizer => {
-            StudioExecutionStrategy::SinglePass
+        ChatOutcomeKind::Conversation | ChatOutcomeKind::Visualizer => {
+            ChatExecutionStrategy::SinglePass
         }
-        StudioOutcomeKind::ToolWidget => StudioExecutionStrategy::PlanExecute,
-        StudioOutcomeKind::Artifact => artifact
+        ChatOutcomeKind::ToolWidget => ChatExecutionStrategy::PlanExecute,
+        ChatOutcomeKind::Artifact => artifact
             .filter(|request| artifact_supports_direct_authoring(request, false))
-            .map(|_| StudioExecutionStrategy::DirectAuthor)
-            .unwrap_or(StudioExecutionStrategy::PlanExecute),
+            .map(|_| ChatExecutionStrategy::DirectAuthor)
+            .unwrap_or(ChatExecutionStrategy::PlanExecute),
     }
 }
 
-pub fn execution_domain_kind_for_outcome(outcome_kind: StudioOutcomeKind) -> ExecutionDomainKind {
+pub fn execution_domain_kind_for_outcome(outcome_kind: ChatOutcomeKind) -> ExecutionDomainKind {
     match outcome_kind {
-        StudioOutcomeKind::Artifact => ExecutionDomainKind::Artifact,
-        StudioOutcomeKind::Conversation => ExecutionDomainKind::Conversation,
-        StudioOutcomeKind::ToolWidget => ExecutionDomainKind::ToolWidget,
-        StudioOutcomeKind::Visualizer => ExecutionDomainKind::Visualizer,
+        ChatOutcomeKind::Artifact => ExecutionDomainKind::Artifact,
+        ChatOutcomeKind::Conversation => ExecutionDomainKind::Conversation,
+        ChatOutcomeKind::ToolWidget => ExecutionDomainKind::ToolWidget,
+        ChatOutcomeKind::Visualizer => ExecutionDomainKind::Visualizer,
     }
 }
 
 pub fn infer_execution_domain_kind(execution_domain: &str) -> Option<ExecutionDomainKind> {
     let normalized = execution_domain.trim().to_ascii_lowercase();
     match normalized.as_str() {
-        "artifact" | "studio_artifact" => Some(ExecutionDomainKind::Artifact),
-        "conversation" | "studio_conversation" => Some(ExecutionDomainKind::Conversation),
-        "tool_widget" | "studio_tool_widget" => Some(ExecutionDomainKind::ToolWidget),
-        "visualizer" | "studio_visualizer" => Some(ExecutionDomainKind::Visualizer),
+        "artifact" | "chat_artifact" => Some(ExecutionDomainKind::Artifact),
+        "conversation" | "chat_conversation" => Some(ExecutionDomainKind::Conversation),
+        "tool_widget" | "chat_tool_widget" => Some(ExecutionDomainKind::ToolWidget),
+        "visualizer" | "chat_visualizer" => Some(ExecutionDomainKind::Visualizer),
         "workflow" => Some(ExecutionDomainKind::Workflow),
         "research" => Some(ExecutionDomainKind::Research),
         "reply" => Some(ExecutionDomainKind::Reply),
@@ -1893,20 +1893,20 @@ pub fn infer_execution_domain_kind(execution_domain: &str) -> Option<ExecutionDo
     }
 }
 
-pub fn parse_execution_strategy_id(raw: &str) -> Option<StudioExecutionStrategy> {
+pub fn parse_execution_strategy_id(raw: &str) -> Option<ChatExecutionStrategy> {
     match raw.trim().to_ascii_lowercase().as_str() {
-        "single_pass" => Some(StudioExecutionStrategy::SinglePass),
-        "direct_author" => Some(StudioExecutionStrategy::DirectAuthor),
-        "plan_execute" => Some(StudioExecutionStrategy::PlanExecute),
-        "micro_swarm" => Some(StudioExecutionStrategy::MicroSwarm),
-        "adaptive_work_graph" | "swarm" => Some(StudioExecutionStrategy::AdaptiveWorkGraph),
+        "single_pass" => Some(ChatExecutionStrategy::SinglePass),
+        "direct_author" => Some(ChatExecutionStrategy::DirectAuthor),
+        "plan_execute" => Some(ChatExecutionStrategy::PlanExecute),
+        "micro_swarm" => Some(ChatExecutionStrategy::MicroSwarm),
+        "adaptive_work_graph" | "swarm" => Some(ChatExecutionStrategy::AdaptiveWorkGraph),
         _ => None,
     }
 }
 
 #[allow(clippy::too_many_arguments)]
 pub fn build_execution_envelope_from_swarm(
-    strategy: Option<StudioExecutionStrategy>,
+    strategy: Option<ChatExecutionStrategy>,
     execution_domain: Option<String>,
     domain_kind: Option<ExecutionDomainKind>,
     plan: Option<&SwarmPlan>,
@@ -1937,7 +1937,7 @@ pub fn build_execution_envelope_from_swarm(
 
 #[allow(clippy::too_many_arguments)]
 pub fn build_execution_envelope_from_swarm_with_receipts(
-    strategy: Option<StudioExecutionStrategy>,
+    strategy: Option<ChatExecutionStrategy>,
     execution_domain: Option<String>,
     domain_kind: Option<ExecutionDomainKind>,
     plan: Option<&SwarmPlan>,

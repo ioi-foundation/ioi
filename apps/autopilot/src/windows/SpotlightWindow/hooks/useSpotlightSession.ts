@@ -52,7 +52,7 @@ export function shouldContinueSpotlightComposerSession(
   }
 
   if (isStudioVariant && task.phase === "Complete") {
-    // Studio follow-ups should continue the completed session by default so
+    // Chat follow-ups should continue the completed session by default so
     // retained widget or artifact context stays available unless the user
     // explicitly starts a new outcome.
     return true;
@@ -115,7 +115,7 @@ export function useSpotlightSession({
     [],
   );
 
-  const resolveStudioView = useCallback((targetView: string) => targetView, []);
+  const resolveChatView = useCallback((targetView: string) => targetView, []);
 
   const {
     openArtifactById,
@@ -163,11 +163,11 @@ export function useSpotlightSession({
     focusRef: inputRef,
   });
 
-  const { openStudio, attachSession: handleLoadSession } =
+  const { openChat, attachSession: handleLoadSession } =
     useSessionShellActions<AgentTask>({
-      isStudioShell: isStudioVariant,
+      isChatShell: isStudioVariant,
       hideCurrentShell: hideSpotlightShell,
-      resolveStudioView,
+      resolveChatView,
       loadSession,
       beforeAttachSession: prepareForSessionAttach,
       onAttachSessionError: (error) => {
@@ -201,7 +201,7 @@ export function useSpotlightSession({
         !isStudioVariant &&
         (text.toLowerCase().includes("swarm") || text.toLowerCase().includes("team"))
       ) {
-        await openStudio("autopilot");
+        await openChat("autopilot");
       }
     },
     shouldContinueExistingSession: (currentTask) =>
@@ -213,12 +213,12 @@ export function useSpotlightSession({
       ? () => hideSpotlightShell().catch(console.error)
       : undefined,
     resolveTaskFailureMessage: (currentTask) => {
-      const verifiedStudioArtifact =
+      const verifiedChatArtifact =
         currentTask.chat_session?.artifactManifest?.verification.status ===
         "ready";
-      return verifiedStudioArtifact
+      return verifiedChatArtifact
         ? null
-        : currentTask.current_step || "Studio could not complete this run.";
+        : currentTask.current_step || "Chat could not complete this run.";
     },
   });
 
@@ -278,7 +278,7 @@ export function useSpotlightSession({
     searchQuery,
     setSearchQuery,
     isDraggingFile,
-    openStudio,
+    openChat,
     handleLoadSession,
     handleSubmit,
     handleSubmitText,

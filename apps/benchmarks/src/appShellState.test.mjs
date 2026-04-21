@@ -21,15 +21,15 @@ test("resolveInitialTriageSelection prefers focus suite and latest case", () => 
     resolveInitialTriageSelection(
       [
         { suite: "WorkArena", focusCaseId: null },
-        { suite: "Studio Artifacts", focusCaseId: "artifact-case-1" },
+        { suite: "Chat Artifacts", focusCaseId: "artifact-case-1" },
       ],
       [
         { suite: "OSWorld", caseId: "osworld-case-9" },
-        { suite: "Studio Artifacts", caseId: "artifact-case-1" },
+        { suite: "Chat Artifacts", caseId: "artifact-case-1" },
       ],
     ),
     {
-      suite: "Studio Artifacts",
+      suite: "Chat Artifacts",
       caseId: "osworld-case-9",
     },
   );

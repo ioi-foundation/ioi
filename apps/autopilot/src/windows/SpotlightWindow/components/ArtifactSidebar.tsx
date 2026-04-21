@@ -3,8 +3,8 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   Artifact,
   ArtifactContentPayload,
-  StudioArtifactManifestFile,
-  StudioRendererKind,
+  ChatArtifactManifestFile,
+  ChatRendererKind,
 } from "../../../types";
 import { icons } from "./Icons";
 import { ArtifactRendererHost } from "./ArtifactRendererHost";
@@ -14,7 +14,7 @@ interface ArtifactSidebarProps {
   onClose: () => void;
 }
 
-function inferRenderer(artifact: Artifact): StudioRendererKind {
+function inferRenderer(artifact: Artifact): ChatRendererKind {
   const path = String(artifact.metadata?.path ?? "").toLowerCase();
   const mime = String(artifact.metadata?.mime ?? "").toLowerCase();
 
@@ -67,7 +67,7 @@ export function ArtifactSidebar({ artifact, onClose }: ArtifactSidebarProps) {
     };
   }, [artifact]);
 
-  const file = useMemo<StudioArtifactManifestFile | null>(() => {
+  const file = useMemo<ChatArtifactManifestFile | null>(() => {
     if (!artifact) {
       return null;
     }
@@ -99,7 +99,7 @@ export function ArtifactSidebar({ artifact, onClose }: ArtifactSidebarProps) {
         </div>
       </div>
       <div className="artifact-content">
-        {error ? <div className="studio-artifact-banner is-error">{error}</div> : null}
+        {error ? <div className="chat-artifact-banner is-error">{error}</div> : null}
         <ArtifactRendererHost
           renderer={inferRenderer(artifact)}
           title={artifact.title}

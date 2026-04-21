@@ -71,7 +71,7 @@
       "family": "ollama_openai",
       "shippedDefault": true,
       "experimental": false,
-      "routingIntent": "Single-model planner/verifier challenger for artifact reliability when Studio is more latency-bound by split-lane model churn than by raw per-token speed.",
+      "routingIntent": "Single-model planner/verifier challenger for artifact reliability when Chat is more latency-bound by split-lane model churn than by raw per-token speed.",
       "runtimeUrl": "http://127.0.0.1:11434/v1/chat/completions",
       "runtimeHealthUrl": "http://127.0.0.1:11434/api/tags",
       "runtimeModel": "qwen3.5:9b",
@@ -96,8 +96,8 @@
         "artifact_validation"
       ],
       "notes": [
-        "This is now the default local preset for the desktop local-GPU path so Studio stays on one warmed model for routing, generation, and acceptance.",
-        "The lane intentionally keeps generation and acceptance on the same 9B model first, so interactive Studio artifact requests avoid split-lane residency churn before we optimize anything else.",
+        "This is now the default local preset for the desktop local-GPU path so Chat stays on one warmed model for routing, generation, and acceptance.",
+        "The lane intentionally keeps generation and acceptance on the same 9B model first, so interactive Chat artifact requests avoid split-lane residency churn before we optimize anything else.",
         "Auto-setup chooses this preset for the local GPU desktop path so the runtime defaults to one model by default.",
         "The old ollama-openai baseline remains available as an explicit fallback lane."
       ]

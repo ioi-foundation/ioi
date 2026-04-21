@@ -82,21 +82,21 @@ body.spotlight-shell-host,
   letter-spacing: -0.01em;
 }
 
-.spot-window.spot-window--studio {
+.spot-window.spot-window--chat {
   width: 100%;
   height: 100%;
   justify-content: stretch;
   align-items: stretch;
 }
 
-.spot-window--studio .spot-container {
+.spot-window--chat .spot-container {
   border-radius: 0;
   border: none;
   box-shadow: none;
 }
 
-.spot-window--studio .spot-header,
-.spot-window--studio .spot-header-drag {
+.spot-window--chat .spot-header,
+.spot-window--chat .spot-header-drag {
   -webkit-app-region: no-drag;
 }
 

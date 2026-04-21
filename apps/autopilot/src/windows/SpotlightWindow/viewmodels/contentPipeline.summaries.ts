@@ -452,7 +452,7 @@ function inferredRouteFamily(
 
     if (
       toolName.includes("artifact") ||
-      toolName.includes("studio") ||
+      toolName.includes("chat") ||
       signal.includes("artifact") ||
       signal.includes("render") ||
       signal.includes("presentation")

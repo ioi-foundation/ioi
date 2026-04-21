@@ -1,9 +1,9 @@
 use anyhow::{bail, Context, Result};
-use ioi_api::studio::{count_pdf_structural_sections, extract_searchable_pdf_text};
+use ioi_api::chat::{count_pdf_structural_sections, extract_searchable_pdf_text};
 use ioi_types::app::{
-    StudioArtifactClass, StudioArtifactLifecycleState, StudioArtifactManifest,
-    StudioArtifactManifestFile, StudioArtifactTabKind, StudioArtifactVerificationStatus,
-    StudioOutcomePlanningPayload, StudioRendererKind, StudioRuntimeProvenance,
+    ChatArtifactClass, ChatArtifactLifecycleState, ChatArtifactManifest,
+    ChatArtifactManifestFile, ChatArtifactTabKind, ChatArtifactVerificationStatus,
+    ChatOutcomePlanningPayload, ChatRendererKind, ChatRuntimeProvenance,
 };
 use serde::Serialize;
 use std::collections::HashSet;
@@ -243,14 +243,14 @@ pub(super) fn run_compose_reply(manifest_path: &Path, json_output: bool) -> Resu
     Ok(())
 }
 
-pub(super) fn load_manifest(path: &Path) -> Result<StudioArtifactManifest> {
+pub(super) fn load_manifest(path: &Path) -> Result<ChatArtifactManifest> {
     let bytes = fs::read(path)
         .with_context(|| format!("Failed to read artifact manifest '{}'.", path.display()))?;
     serde_json::from_slice(&bytes)
         .with_context(|| format!("Failed to parse artifact manifest '{}'.", path.display()))
 }
 
-pub(super) fn inspection_for_manifest(manifest: &StudioArtifactManifest) -> ArtifactInspection {
+pub(super) fn inspection_for_manifest(manifest: &ChatArtifactManifest) -> ArtifactInspection {
     ArtifactInspection {
         artifact_id: manifest.artifact_id.clone(),
         title: manifest.title.clone(),
@@ -268,13 +268,13 @@ pub(super) fn inspection_for_manifest(manifest: &StudioArtifactManifest) -> Arti
             .iter()
             .filter(|file| file.downloadable)
             .count(),
-        repo_centric_package: manifest.renderer == StudioRendererKind::WorkspaceSurface
+        repo_centric_package: manifest.renderer == ChatRendererKind::WorkspaceSurface
             || manifest.files.len() > 1
             || matches!(
                 manifest.artifact_class,
-                StudioArtifactClass::WorkspaceProject
-                    | StudioArtifactClass::CompoundBundle
-                    | StudioArtifactClass::ReportBundle
+                ChatArtifactClass::WorkspaceProject
+                    | ChatArtifactClass::CompoundBundle
+                    | ChatArtifactClass::ReportBundle
             ),
         render_surface_available: render_surface_available_for_manifest(manifest),
         preferred_stage_mode: preferred_stage_mode_for_manifest(manifest).to_string(),
@@ -284,7 +284,7 @@ pub(super) fn inspection_for_manifest(manifest: &StudioArtifactManifest) -> Arti
     }
 }
 
-pub(super) fn validate_manifest(manifest: &StudioArtifactManifest) -> Vec<String> {
+pub(super) fn validate_manifest(manifest: &ChatArtifactManifest) -> Vec<String> {
     let mut errors = Vec::new();
 
     if manifest.artifact_id.trim().is_empty() {
@@ -299,7 +299,7 @@ pub(super) fn validate_manifest(manifest: &StudioArtifactManifest) -> Vec<String
     if manifest.files.is_empty()
         && matches!(
             manifest.verification.status,
-            StudioArtifactVerificationStatus::Ready | StudioArtifactVerificationStatus::Partial
+            ChatArtifactVerificationStatus::Ready | ChatArtifactVerificationStatus::Partial
         )
     {
         errors.push(
@@ -349,17 +349,17 @@ pub(super) fn validate_manifest(manifest: &StudioArtifactManifest) -> Vec<String
     }
 
     match manifest.renderer {
-        StudioRendererKind::WorkspaceSurface
-            if manifest.artifact_class != StudioArtifactClass::WorkspaceProject =>
+        ChatRendererKind::WorkspaceSurface
+            if manifest.artifact_class != ChatArtifactClass::WorkspaceProject =>
         {
             errors.push(
                 "workspace_surface renderer requires artifactClass=workspace_project.".to_string(),
             );
         }
-        StudioRendererKind::BundleManifest
+        ChatRendererKind::BundleManifest
             if !matches!(
                 manifest.artifact_class,
-                StudioArtifactClass::CompoundBundle | StudioArtifactClass::ReportBundle
+                ChatArtifactClass::CompoundBundle | ChatArtifactClass::ReportBundle
             ) =>
         {
             errors.push(
@@ -367,7 +367,7 @@ pub(super) fn validate_manifest(manifest: &StudioArtifactManifest) -> Vec<String
                     .to_string(),
             );
         }
-        StudioRendererKind::DownloadCard if manifest.files.iter().any(|file| file.renderable) => {
+        ChatRendererKind::DownloadCard if manifest.files.iter().any(|file| file.renderable) => {
             errors.push(
                 "download_card renderer should not mark files as renderable in the manifest."
                     .to_string(),
@@ -376,7 +376,7 @@ pub(super) fn validate_manifest(manifest: &StudioArtifactManifest) -> Vec<String
         _ => {}
     }
 
-    if manifest.renderer != StudioRendererKind::DownloadCard
+    if manifest.renderer != ChatRendererKind::DownloadCard
         && !manifest.files.iter().any(|file| file.renderable)
         && !manifest_is_truthful_failure_envelope(manifest)
     {
@@ -388,20 +388,20 @@ pub(super) fn validate_manifest(manifest: &StudioArtifactManifest) -> Vec<String
     errors
 }
 
-pub(super) fn manifest_is_truthful_failure_envelope(manifest: &StudioArtifactManifest) -> bool {
+pub(super) fn manifest_is_truthful_failure_envelope(manifest: &ChatArtifactManifest) -> bool {
     matches!(
         manifest.verification.status,
-        StudioArtifactVerificationStatus::Blocked | StudioArtifactVerificationStatus::Failed
+        ChatArtifactVerificationStatus::Blocked | ChatArtifactVerificationStatus::Failed
     ) && manifest.verification.failure.is_some()
         && manifest.primary_tab == "evidence"
         && manifest
             .tabs
             .iter()
-            .any(|tab| tab.id == "evidence" && tab.kind == StudioArtifactTabKind::Evidence)
+            .any(|tab| tab.id == "evidence" && tab.kind == ChatArtifactTabKind::Evidence)
 }
 
 pub(super) fn validate_materialized_files(
-    manifest: &StudioArtifactManifest,
+    manifest: &ChatArtifactManifest,
     source_root: &Path,
 ) -> Vec<String> {
     let mut errors = Vec::new();
@@ -433,10 +433,10 @@ pub(super) fn validate_materialized_files(
     }
 
     match manifest.renderer {
-        StudioRendererKind::Markdown => {
+        ChatRendererKind::Markdown => {
             validate_utf8_contains(&primary_path, &["#"], "markdown", &mut errors);
         }
-        StudioRendererKind::HtmlIframe => {
+        ChatRendererKind::HtmlIframe => {
             validate_utf8_contains(
                 &primary_path,
                 &["<html", "<!doctype html"],
@@ -444,7 +444,7 @@ pub(super) fn validate_materialized_files(
                 &mut errors,
             );
         }
-        StudioRendererKind::JsxSandbox => {
+        ChatRendererKind::JsxSandbox => {
             validate_utf8_contains(
                 &primary_path,
                 &["export default", "return ("],
@@ -452,10 +452,10 @@ pub(super) fn validate_materialized_files(
                 &mut errors,
             );
         }
-        StudioRendererKind::Svg => {
+        ChatRendererKind::Svg => {
             validate_utf8_contains(&primary_path, &["<svg"], "SVG", &mut errors);
         }
-        StudioRendererKind::Mermaid => {
+        ChatRendererKind::Mermaid => {
             validate_utf8_contains(
                 &primary_path,
                 &[
@@ -470,7 +470,7 @@ pub(super) fn validate_materialized_files(
                 &mut errors,
             );
         }
-        StudioRendererKind::PdfEmbed => match fs::read(&primary_path) {
+        ChatRendererKind::PdfEmbed => match fs::read(&primary_path) {
             Ok(bytes) => {
                 if !bytes.starts_with(b"%PDF-") {
                     errors.push(format!(
@@ -484,7 +484,7 @@ pub(super) fn validate_materialized_files(
                 primary_file.path, error
             )),
         },
-        StudioRendererKind::DownloadCard => {
+        ChatRendererKind::DownloadCard => {
             if primary_file.renderable {
                 errors.push(
                     "download_card renderer contract failed: primary file must not be renderable."
@@ -492,7 +492,7 @@ pub(super) fn validate_materialized_files(
                 );
             }
         }
-        StudioRendererKind::WorkspaceSurface => {
+        ChatRendererKind::WorkspaceSurface => {
             let workspace_manifest = source_root.join("artifact-manifest.json");
             if !workspace_manifest.exists() {
                 errors.push(format!(
@@ -501,7 +501,7 @@ pub(super) fn validate_materialized_files(
                 ));
             }
         }
-        StudioRendererKind::BundleManifest => match fs::read_to_string(&primary_path) {
+        ChatRendererKind::BundleManifest => match fs::read_to_string(&primary_path) {
             Ok(raw) => {
                 if serde_json::from_str::<serde_json::Value>(&raw).is_err() {
                     errors.push(format!(
@@ -531,7 +531,7 @@ pub(super) struct MaterializedPresentationFile {
 }
 
 pub(super) fn validate_presentation_quality(
-    manifest: &StudioArtifactManifest,
+    manifest: &ChatArtifactManifest,
     source_root: &Path,
 ) -> Vec<String> {
     let mut errors = Vec::new();
@@ -583,7 +583,7 @@ pub(super) fn validate_presentation_quality(
     }
 
     match manifest.renderer {
-        StudioRendererKind::Markdown => {
+        ChatRendererKind::Markdown => {
             let headings = primary_text
                 .lines()
                 .filter(|line| line.trim_start().starts_with('#'))
@@ -595,7 +595,7 @@ pub(super) fn validate_presentation_quality(
                 );
             }
         }
-        StudioRendererKind::HtmlIframe => {
+        ChatRendererKind::HtmlIframe => {
             let lower = primary_text.to_ascii_lowercase();
             if word_count(primary_text) < 90 || count_html_nonempty_sectioning_elements(&lower) < 3
             {
@@ -647,7 +647,7 @@ pub(super) fn validate_presentation_quality(
                 );
             }
         }
-        StudioRendererKind::JsxSandbox => {
+        ChatRendererKind::JsxSandbox => {
             let control_tokens = [
                 "<button", "<input", "<select", "<form", "onClick", "onChange", "useState",
             ]
@@ -664,7 +664,7 @@ pub(super) fn validate_presentation_quality(
                 );
             }
         }
-        StudioRendererKind::Svg => {
+        ChatRendererKind::Svg => {
             let lower = primary_text.to_ascii_lowercase();
             let shape_count = [
                 "<path",
@@ -686,7 +686,7 @@ pub(super) fn validate_presentation_quality(
                 );
             }
         }
-        StudioRendererKind::Mermaid => {
+        ChatRendererKind::Mermaid => {
             let edges = primary_text.matches("-->").count()
                 + primary_text.matches("==>").count()
                 + primary_text.matches("-.->").count();
@@ -700,7 +700,7 @@ pub(super) fn validate_presentation_quality(
                 );
             }
         }
-        StudioRendererKind::PdfEmbed => {
+        ChatRendererKind::PdfEmbed => {
             if let Some(primary_file) = primary_file {
                 let primary_path = source_root.join(&primary_file.path);
                 if let Ok(bytes) = fs::read(primary_path) {
@@ -731,7 +731,7 @@ pub(super) fn validate_presentation_quality(
                 );
             }
         }
-        StudioRendererKind::DownloadCard => {
+        ChatRendererKind::DownloadCard => {
             let downloadable_count = files.iter().filter(|file| file.downloadable).count();
             let has_readme = files.iter().any(|file| {
                 file.path.to_ascii_lowercase().contains("readme")
@@ -749,7 +749,7 @@ pub(super) fn validate_presentation_quality(
                 );
             }
         }
-        StudioRendererKind::BundleManifest => {
+        ChatRendererKind::BundleManifest => {
             let has_json_manifest = files.iter().any(|file| {
                 file.path.to_ascii_lowercase().ends_with(".json")
                     && file.mime.eq_ignore_ascii_case("application/json")
@@ -761,7 +761,7 @@ pub(super) fn validate_presentation_quality(
                 );
             }
         }
-        StudioRendererKind::WorkspaceSurface => {
+        ChatRendererKind::WorkspaceSurface => {
             if manifest.primary_tab == "preview" && !render_surface_available_for_manifest(manifest)
             {
                 errors.push(
@@ -1306,8 +1306,8 @@ pub(super) fn validate_utf8_contains(
 }
 
 pub(super) fn primary_file_for_manifest(
-    manifest: &StudioArtifactManifest,
-) -> Option<&StudioArtifactManifestFile> {
+    manifest: &ChatArtifactManifest,
+) -> Option<&ChatArtifactManifestFile> {
     manifest
         .tabs
         .iter()
@@ -1349,7 +1349,7 @@ pub(super) fn prepare_output_directory(output: &Path, force: bool) -> Result<()>
     Ok(())
 }
 
-pub(super) fn build_package_readme(manifest: &StudioArtifactManifest) -> String {
+pub(super) fn build_package_readme(manifest: &ChatArtifactManifest) -> String {
     format!(
         "# {}\n\n\
 Artifact ID: `{}`\n\
@@ -1357,7 +1357,7 @@ Class: `{}`\n\
 Renderer: `{}`\n\
 Verification: `{}`\n\
 Lifecycle: `{}`\n\n\
-This package was materialized from a Studio artifact manifest so it can be inspected,\n\
+This package was materialized from a Chat artifact manifest so it can be inspected,\n\
 reproduced, and moved through CLI-native workflows.\n",
         manifest.title,
         manifest.artifact_id,
@@ -1368,11 +1368,11 @@ reproduced, and moved through CLI-native workflows.\n",
     )
 }
 
-pub(super) fn compose_verified_reply(manifest: &StudioArtifactManifest) -> ComposedVerifiedReply {
+pub(super) fn compose_verified_reply(manifest: &ChatArtifactManifest) -> ComposedVerifiedReply {
     ComposedVerifiedReply {
         status: verification_status_label(manifest),
         lifecycle_state: lifecycle_state_label(manifest.verification.lifecycle_state),
-        title: format!("Studio outcome: {}", manifest.title),
+        title: format!("Chat outcome: {}", manifest.title),
         summary: format!("{} {}", manifest.title, manifest.verification.summary),
         evidence: manifest
             .files
@@ -1385,7 +1385,7 @@ pub(super) fn compose_verified_reply(manifest: &StudioArtifactManifest) -> Compo
     }
 }
 
-pub(super) fn format_runtime_provenance(provenance: &StudioRuntimeProvenance) -> String {
+pub(super) fn format_runtime_provenance(provenance: &ChatRuntimeProvenance) -> String {
     let mut parts = vec![
         format!("{:?}", provenance.kind).to_lowercase(),
         provenance.label.clone(),
@@ -1396,87 +1396,87 @@ pub(super) fn format_runtime_provenance(provenance: &StudioRuntimeProvenance) ->
     parts.join(" | ")
 }
 
-pub(super) fn artifact_class_label(artifact_class: StudioArtifactClass) -> String {
+pub(super) fn artifact_class_label(artifact_class: ChatArtifactClass) -> String {
     match artifact_class {
-        StudioArtifactClass::Document => "document",
-        StudioArtifactClass::Visual => "visual",
-        StudioArtifactClass::InteractiveSingleFile => "interactive_single_file",
-        StudioArtifactClass::DownloadableFile => "downloadable_file",
-        StudioArtifactClass::WorkspaceProject => "workspace_project",
-        StudioArtifactClass::CompoundBundle => "compound_bundle",
-        StudioArtifactClass::CodePatch => "code_patch",
-        StudioArtifactClass::ReportBundle => "report_bundle",
+        ChatArtifactClass::Document => "document",
+        ChatArtifactClass::Visual => "visual",
+        ChatArtifactClass::InteractiveSingleFile => "interactive_single_file",
+        ChatArtifactClass::DownloadableFile => "downloadable_file",
+        ChatArtifactClass::WorkspaceProject => "workspace_project",
+        ChatArtifactClass::CompoundBundle => "compound_bundle",
+        ChatArtifactClass::CodePatch => "code_patch",
+        ChatArtifactClass::ReportBundle => "report_bundle",
     }
     .to_string()
 }
 
-pub(super) fn renderer_label(renderer: StudioRendererKind) -> String {
+pub(super) fn renderer_label(renderer: ChatRendererKind) -> String {
     match renderer {
-        StudioRendererKind::Markdown => "markdown",
-        StudioRendererKind::HtmlIframe => "html_iframe",
-        StudioRendererKind::JsxSandbox => "jsx_sandbox",
-        StudioRendererKind::Svg => "svg",
-        StudioRendererKind::Mermaid => "mermaid",
-        StudioRendererKind::PdfEmbed => "pdf_embed",
-        StudioRendererKind::DownloadCard => "download_card",
-        StudioRendererKind::WorkspaceSurface => "workspace_surface",
-        StudioRendererKind::BundleManifest => "bundle_manifest",
+        ChatRendererKind::Markdown => "markdown",
+        ChatRendererKind::HtmlIframe => "html_iframe",
+        ChatRendererKind::JsxSandbox => "jsx_sandbox",
+        ChatRendererKind::Svg => "svg",
+        ChatRendererKind::Mermaid => "mermaid",
+        ChatRendererKind::PdfEmbed => "pdf_embed",
+        ChatRendererKind::DownloadCard => "download_card",
+        ChatRendererKind::WorkspaceSurface => "workspace_surface",
+        ChatRendererKind::BundleManifest => "bundle_manifest",
     }
     .to_string()
 }
 
-pub(super) fn outcome_kind_label(route: &StudioOutcomePlanningPayload) -> &'static str {
+pub(super) fn outcome_kind_label(route: &ChatOutcomePlanningPayload) -> &'static str {
     match route.outcome_kind {
-        ioi_types::app::StudioOutcomeKind::Conversation => "conversation",
-        ioi_types::app::StudioOutcomeKind::ToolWidget => "tool_widget",
-        ioi_types::app::StudioOutcomeKind::Visualizer => "visualizer",
-        ioi_types::app::StudioOutcomeKind::Artifact => "artifact",
+        ioi_types::app::ChatOutcomeKind::Conversation => "conversation",
+        ioi_types::app::ChatOutcomeKind::ToolWidget => "tool_widget",
+        ioi_types::app::ChatOutcomeKind::Visualizer => "visualizer",
+        ioi_types::app::ChatOutcomeKind::Artifact => "artifact",
     }
 }
 
-pub(super) fn lifecycle_state_label(state: StudioArtifactLifecycleState) -> String {
+pub(super) fn lifecycle_state_label(state: ChatArtifactLifecycleState) -> String {
     match state {
-        StudioArtifactLifecycleState::Draft => "draft",
-        StudioArtifactLifecycleState::Planned => "planned",
-        StudioArtifactLifecycleState::Materializing => "materializing",
-        StudioArtifactLifecycleState::Rendering => "rendering",
-        StudioArtifactLifecycleState::Implementing => "implementing",
-        StudioArtifactLifecycleState::Verifying => "verifying",
-        StudioArtifactLifecycleState::Ready => "ready",
-        StudioArtifactLifecycleState::Partial => "partial",
-        StudioArtifactLifecycleState::Blocked => "blocked",
-        StudioArtifactLifecycleState::Failed => "failed",
+        ChatArtifactLifecycleState::Draft => "draft",
+        ChatArtifactLifecycleState::Planned => "planned",
+        ChatArtifactLifecycleState::Materializing => "materializing",
+        ChatArtifactLifecycleState::Rendering => "rendering",
+        ChatArtifactLifecycleState::Implementing => "implementing",
+        ChatArtifactLifecycleState::Verifying => "verifying",
+        ChatArtifactLifecycleState::Ready => "ready",
+        ChatArtifactLifecycleState::Partial => "partial",
+        ChatArtifactLifecycleState::Blocked => "blocked",
+        ChatArtifactLifecycleState::Failed => "failed",
     }
     .to_string()
 }
 
-pub(super) fn verification_status_label(manifest: &StudioArtifactManifest) -> String {
+pub(super) fn verification_status_label(manifest: &ChatArtifactManifest) -> String {
     match manifest.verification.status {
-        StudioArtifactVerificationStatus::Pending => "pending",
-        StudioArtifactVerificationStatus::Ready => "ready",
-        StudioArtifactVerificationStatus::Blocked => "blocked",
-        StudioArtifactVerificationStatus::Failed => "failed",
-        StudioArtifactVerificationStatus::Partial => "partial",
+        ChatArtifactVerificationStatus::Pending => "pending",
+        ChatArtifactVerificationStatus::Ready => "ready",
+        ChatArtifactVerificationStatus::Blocked => "blocked",
+        ChatArtifactVerificationStatus::Failed => "failed",
+        ChatArtifactVerificationStatus::Partial => "partial",
     }
     .to_string()
 }
 
-pub(super) fn render_surface_available_for_manifest(manifest: &StudioArtifactManifest) -> bool {
-    if manifest.verification.status != StudioArtifactVerificationStatus::Ready {
+pub(super) fn render_surface_available_for_manifest(manifest: &ChatArtifactManifest) -> bool {
+    if manifest.verification.status != ChatArtifactVerificationStatus::Ready {
         return false;
     }
 
     match manifest.renderer {
-        StudioRendererKind::WorkspaceSurface => manifest
+        ChatRendererKind::WorkspaceSurface => manifest
             .tabs
             .iter()
-            .any(|tab| tab.id == manifest.primary_tab && tab.kind == StudioArtifactTabKind::Render),
-        StudioRendererKind::DownloadCard => manifest.files.iter().any(|file| file.downloadable),
+            .any(|tab| tab.id == manifest.primary_tab && tab.kind == ChatArtifactTabKind::Render),
+        ChatRendererKind::DownloadCard => manifest.files.iter().any(|file| file.downloadable),
         _ => manifest.files.iter().any(|file| file.renderable),
     }
 }
 
-pub(super) fn preferred_stage_mode_for_manifest(manifest: &StudioArtifactManifest) -> &'static str {
+pub(super) fn preferred_stage_mode_for_manifest(manifest: &ChatArtifactManifest) -> &'static str {
     if render_surface_available_for_manifest(manifest) {
         "render"
     } else {

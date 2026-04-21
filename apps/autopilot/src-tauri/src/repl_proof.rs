@@ -7,7 +7,7 @@ use crate::models::{
     AgentPhase, AgentTask, Artifact, ArtifactRef, ArtifactType, BuildArtifactSession, ChatMessage,
     ClarificationRequest, CredentialRequest, EventStatus, EventType, GateInfo,
     SessionBackgroundTaskRecord, SessionChecklistItem, SessionCompactionPolicy, SessionSummary,
-    StudioBuildReceipt, StudioCodeWorkerLease,
+    ChatBuildReceipt, ChatCodeWorkerLease,
 };
 use crate::open_or_create_memory_runtime;
 use crate::orchestrator::store::save_local_session_summary;
@@ -149,7 +149,7 @@ fn build_seed_task(
     options: &SeedOptions,
 ) -> AgentTask {
     let trimmed_root = workspace_root.trim();
-    let receipt = StudioBuildReceipt {
+    let receipt = ChatBuildReceipt {
         receipt_id: Uuid::new_v4().to_string(),
         kind: "proof_seed".to_string(),
         title: "Seeded REPL proof workspace".to_string(),
@@ -181,7 +181,7 @@ fn build_seed_task(
         build_status: "ready".to_string(),
         verification_status: "ready".to_string(),
         receipts: vec![receipt],
-        current_worker_execution: StudioCodeWorkerLease {
+        current_worker_execution: ChatCodeWorkerLease {
             backend: "proof".to_string(),
             planner_authority: "kernel".to_string(),
             allowed_mutation_scope: vec![trimmed_root.to_string()],
@@ -657,7 +657,7 @@ fn seed_durability_portfolio(mut args: Vec<String>) -> Result<(), String> {
         vec![degraded_summary.clone()],
         Some(degraded_session_id),
         Some(degraded_session_id),
-        Some("Studio".to_string()),
+        Some("Chat".to_string()),
         Some("operator".to_string()),
         true,
     )?;

@@ -112,7 +112,7 @@ const attachableServerSnapshot = {
       available: true,
       attachable: true,
       spotlightLabel: "Attach in Spotlight REPL",
-      studioLabel: "Open in Studio",
+      studioLabel: "Open in Chat",
       detail: "Mobile continuity is attachable.",
       launchRequest: {
         sessionId: "mobile-1",
@@ -232,7 +232,7 @@ const attachableServerSnapshot = {
       available: true,
       attachable: true,
       spotlightLabel: "Attach in Spotlight REPL",
-      studioLabel: "Resume in Studio",
+      studioLabel: "Resume in Chat",
       detail: "The retained handoff target is attachable.",
       launchRequest: {
         sessionId: "mobile-1",

@@ -957,7 +957,7 @@ export function CapabilitiesNavigationPane({
           controller.surface !== null ? (
             <button
               type="button"
-              className="studio-chat-pane-control capabilities-sidebar-backdrop"
+              className="chat-chat-pane-control capabilities-sidebar-backdrop"
               onClick={controller.returnToHome}
               aria-label="Back to capabilities home"
               title="Back to capabilities home"

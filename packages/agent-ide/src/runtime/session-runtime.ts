@@ -5,8 +5,8 @@ import type {
   AssistantSessionRuntime,
   AssistantWorkbenchActivity,
   AssistantWorkbenchSession,
-  StudioCapabilityDetailSection,
-  StudioViewTarget,
+  ChatCapabilityDetailSection,
+  ChatViewTarget,
 } from "./assistant-session-runtime-types";
 
 let defaultAssistantSessionRuntime: AssistantSessionRuntime | null = null;
@@ -154,38 +154,38 @@ export function hideGateShell(): Promise<void> {
   return getAssistantSessionRuntime().hideGateShell();
 }
 
-export function showStudioShell(): Promise<void> {
-  return getAssistantSessionRuntime().showStudioShell();
+export function showChatShell(): Promise<void> {
+  return getAssistantSessionRuntime().showChatShell();
 }
 
-export function openStudioShellView(view: StudioViewTarget): Promise<void> {
-  return getAssistantSessionRuntime().openStudioView(view);
+export function openChatShellView(view: ChatViewTarget): Promise<void> {
+  return getAssistantSessionRuntime().openChatView(view);
 }
 
-export function openStudioSessionTarget(sessionId: string): Promise<void> {
-  return getAssistantSessionRuntime().openStudioSessionTarget(sessionId);
+export function openChatSessionTarget(sessionId: string): Promise<void> {
+  return getAssistantSessionRuntime().openChatSessionTarget(sessionId);
 }
 
-export function openStudioCapabilityTarget(
+export function openChatCapabilityTarget(
   connectorId?: string | null,
-  detailSection?: StudioCapabilityDetailSection | null,
+  detailSection?: ChatCapabilityDetailSection | null,
 ): Promise<void> {
-  return getAssistantSessionRuntime().openStudioCapabilityTarget(
+  return getAssistantSessionRuntime().openChatCapabilityTarget(
     connectorId,
     detailSection,
   );
 }
 
-export function openStudioPolicyTarget(
+export function openChatPolicyTarget(
   connectorId?: string | null,
 ): Promise<void> {
-  return getAssistantSessionRuntime().openStudioPolicyTarget(connectorId);
+  return getAssistantSessionRuntime().openChatPolicyTarget(connectorId);
 }
 
-export function openStudioAssistantWorkbench(
+export function openChatAssistantWorkbench(
   session: AssistantWorkbenchSession,
 ): Promise<void> {
-  return getAssistantSessionRuntime().openStudioAssistantWorkbench(session);
+  return getAssistantSessionRuntime().openChatAssistantWorkbench(session);
 }
 
 export function activateAssistantWorkbenchSession(
@@ -200,8 +200,8 @@ export function getActiveAssistantWorkbenchSession(): Promise<AssistantWorkbench
   return getAssistantSessionRuntime().getActiveAssistantWorkbenchSession();
 }
 
-export function openStudioAutopilotIntent(intent: string): Promise<void> {
-  return getAssistantSessionRuntime().openStudioAutopilotIntent(intent);
+export function openChatAutopilotIntent(intent: string): Promise<void> {
+  return getAssistantSessionRuntime().openChatAutopilotIntent(intent);
 }
 
 export function listenAssistantWorkbenchSession(

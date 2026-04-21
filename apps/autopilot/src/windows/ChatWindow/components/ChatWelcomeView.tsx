@@ -21,7 +21,7 @@ interface ChatWelcomeViewProps {
   projects: ProjectScope[];
   notificationCount: number;
   onOpenCanvas: () => void;
-  onOpenStudio: () => void;
+  onOpenChat: () => void;
   onOpenAgents: () => void;
   onOpenCatalog: () => void;
   onOpenInbox: () => void;
@@ -59,7 +59,7 @@ export function ChatWelcomeView({
   projects,
   notificationCount,
   onOpenCanvas,
-  onOpenStudio,
+  onOpenChat,
   onOpenAgents,
   onOpenCatalog,
   onOpenInbox,
@@ -80,7 +80,7 @@ export function ChatWelcomeView({
       label: "Return to Chat",
       detail: "Open the artifact host and let conversation route into documents, visuals, widgets, or workspace renderers only when the outcome needs them.",
       icon: <ComposeIcon />,
-      onClick: onOpenStudio,
+      onClick: onOpenChat,
     },
     {
       id: "agents",
@@ -126,7 +126,7 @@ export function ChatWelcomeView({
       onClick: onOpenInbox,
     },
     {
-      id: "studio",
+      id: "chat",
       title: "Chat",
       meta: "Builder-first",
       detail:
@@ -177,15 +177,15 @@ export function ChatWelcomeView({
   ];
 
   return (
-    <section className="studio-welcome" aria-label="Autopilot home">
-      <div className="studio-welcome-grid">
-        <div className="studio-welcome-primary">
-          <div className="studio-welcome-hero">
-            <span className="studio-welcome-mark" aria-hidden="true">
+    <section className="chat-welcome" aria-label="Autopilot home">
+      <div className="chat-welcome-grid">
+        <div className="chat-welcome-primary">
+          <div className="chat-welcome-hero">
+            <span className="chat-welcome-mark" aria-hidden="true">
               <AutopilotIcon />
             </span>
-            <div className="studio-welcome-hero-copy">
-              <span className="studio-welcome-eyebrow">
+            <div className="chat-welcome-hero-copy">
+              <span className="chat-welcome-eyebrow">
                 Operator shell + agent IDE layer
               </span>
               <h1>Build durable digital workers without losing the operator shell.</h1>
@@ -197,30 +197,30 @@ export function ChatWelcomeView({
             </div>
           </div>
 
-          <div className="studio-welcome-hero-strip" aria-label="Chat posture">
+          <div className="chat-welcome-hero-strip" aria-label="Chat posture">
             <span>Same ontology, runtime, and policy objects</span>
             <span>Chat to workflow to service</span>
             <span>{currentProject.name} in {currentProject.environment}</span>
           </div>
 
-          <section className="studio-welcome-section">
-            <div className="studio-welcome-section-head">
+          <section className="chat-welcome-section">
+            <div className="chat-welcome-section-head">
               <h2>Builder surfaces</h2>
               <span>{currentProject.name}</span>
             </div>
 
-            <div className="studio-welcome-action-list">
+            <div className="chat-welcome-action-list">
               {startActions.map((action) => (
                 <button
                   key={action.id}
                   type="button"
-                  className="studio-welcome-action"
+                  className="chat-welcome-action"
                   onClick={action.onClick}
                 >
-                  <span className="studio-welcome-action-icon" aria-hidden="true">
+                  <span className="chat-welcome-action-icon" aria-hidden="true">
                     {action.icon}
                   </span>
-                  <span className="studio-welcome-action-copy">
+                  <span className="chat-welcome-action-copy">
                     <strong>{action.label}</strong>
                     <span>{action.detail}</span>
                   </span>
@@ -229,17 +229,17 @@ export function ChatWelcomeView({
             </div>
           </section>
 
-          <section className="studio-welcome-section">
-            <div className="studio-welcome-section-head">
+          <section className="chat-welcome-section">
+            <div className="chat-welcome-section-head">
               <h2>Graduation loop</h2>
               <span>{"Chat -> Workflow -> Service"}</span>
             </div>
 
-            <div className="studio-welcome-loop">
+            <div className="chat-welcome-loop">
               {graduationSteps.map((step) => (
-                <div key={step.id} className="studio-welcome-loop-step">
-                  <span className="studio-welcome-loop-index">{step.index}</span>
-                  <div className="studio-welcome-loop-copy">
+                <div key={step.id} className="chat-welcome-loop-step">
+                  <span className="chat-welcome-loop-index">{step.index}</span>
+                  <div className="chat-welcome-loop-copy">
                     <strong>{step.title}</strong>
                     <p>{step.detail}</p>
                   </div>
@@ -249,24 +249,24 @@ export function ChatWelcomeView({
           </section>
         </div>
 
-        <div className="studio-welcome-secondary">
-          <section className="studio-welcome-section">
-            <div className="studio-welcome-section-head">
+        <div className="chat-welcome-secondary">
+          <section className="chat-welcome-section">
+            <div className="chat-welcome-section-head">
               <h2>Operating split</h2>
               <span>One system, two altitudes</span>
             </div>
 
-            <div className="studio-welcome-layer-list">
+            <div className="chat-welcome-layer-list">
               {operatingLayers.map((layer) => (
-                <div key={layer.id} className="studio-welcome-layer">
-                  <div className="studio-welcome-layer-head">
+                <div key={layer.id} className="chat-welcome-layer">
+                  <div className="chat-welcome-layer-head">
                     <strong>{layer.title}</strong>
                     <span>{layer.meta}</span>
                   </div>
                   <p>{layer.detail}</p>
                   <button
                     type="button"
-                    className="studio-welcome-layer-action"
+                    className="chat-welcome-layer-action"
                     onClick={layer.onClick}
                   >
                     {layer.cta}
@@ -276,52 +276,52 @@ export function ChatWelcomeView({
             </div>
           </section>
 
-          <section className="studio-welcome-section">
-            <div className="studio-welcome-section-head">
+          <section className="chat-welcome-section">
+            <div className="chat-welcome-section-head">
               <h2>Current scope</h2>
               <span>{currentProject.environment}</span>
             </div>
 
-            <div className="studio-welcome-facts">
-              <div className="studio-welcome-fact">
+            <div className="chat-welcome-facts">
+              <div className="chat-welcome-fact">
                 <span>Project</span>
                 <strong>{currentProject.name}</strong>
               </div>
-              <div className="studio-welcome-fact">
+              <div className="chat-welcome-fact">
                 <span>Boundary</span>
                 <strong>{currentProject.description}</strong>
               </div>
-              <div className="studio-welcome-fact">
+              <div className="chat-welcome-fact">
                 <span>Root</span>
                 <strong>{currentProject.rootPath}</strong>
               </div>
-              <div className="studio-welcome-fact">
+              <div className="chat-welcome-fact">
                 <span>Posture</span>
                 <strong>Operator-controlled</strong>
               </div>
             </div>
           </section>
 
-          <section className="studio-welcome-section">
-            <div className="studio-welcome-section-head">
+          <section className="chat-welcome-section">
+            <div className="chat-welcome-section-head">
               <h2>Recent scopes</h2>
               <span>{projects.length}</span>
             </div>
 
-            <div className="studio-welcome-recent-list">
+            <div className="chat-welcome-recent-list">
               {projects.map((project) => (
                 <button
                   key={project.id}
                   type="button"
-                  className={`studio-welcome-recent ${
+                  className={`chat-welcome-recent ${
                     project.id === currentProject.id ? "is-active" : ""
                   }`}
                   onClick={() => onSelectProject(project.id)}
                 >
-                  <span className="studio-welcome-recent-name">
+                  <span className="chat-welcome-recent-name">
                     {project.name}
                   </span>
-                  <span className="studio-welcome-recent-meta">
+                  <span className="chat-welcome-recent-meta">
                     {project.environment} · {project.rootPath}
                   </span>
                 </button>

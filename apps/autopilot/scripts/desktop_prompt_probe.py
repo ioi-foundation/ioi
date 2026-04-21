@@ -37,7 +37,7 @@ DEFAULT_DB_PATH = (
 )
 DEFAULT_OUTPUT_ROOT = PROJECT_ROOT / "docs/evidence/route-hierarchy/live-desktop-parity"
 
-WINDOW_SEARCH_PATTERN = "Autopilot Studio"
+WINDOW_SEARCH_PATTERN = "Autopilot Chat"
 NEW_OUTCOME_X = 120
 NEW_OUTCOME_Y = 150
 COMPOSER_X_RATIO = 0.38
