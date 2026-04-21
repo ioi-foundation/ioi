@@ -12,6 +12,7 @@ const TEMP_BROWSER_TARGET_PAGE_RETRIES: usize = 20;
 
 #[derive(Debug, Clone)]
 pub(crate) struct BrowserFrameTarget {
+    #[allow(dead_code)]
     pub(crate) frame_id: String,
     pub(crate) target_id: String,
     pub(crate) parent_frame_id: Option<String>,

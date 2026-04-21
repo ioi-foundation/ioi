@@ -8,7 +8,7 @@ use ioi_api::services::UpgradableService;
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
 // [FIX] Added SerializableKey and VerifyingKey import
-use ioi_api::crypto::{SerializableKey, VerifyingKey};
+use ioi_api::crypto::SerializableKey;
 
 use ioi_macros::service_interface;
 use ioi_types::app::{

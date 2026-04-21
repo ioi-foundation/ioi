@@ -780,6 +780,7 @@ fn render_markdown_from_tree_with_options(
     (!filtered.trim().is_empty()).then_some(filtered)
 }
 
+#[allow(dead_code)]
 pub(super) fn extract_clean_markdown_from_html(html: &str) -> Option<String> {
     let markdown = safe_from_html_to_md(html.to_string()).ok()?;
     let markdown = url_encoded_regex().replace_all(&markdown, "").into_owned();

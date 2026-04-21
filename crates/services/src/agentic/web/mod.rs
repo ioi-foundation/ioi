@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 mod anchor_policy;
 mod constants;
 mod contract;

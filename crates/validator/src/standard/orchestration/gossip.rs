@@ -190,6 +190,7 @@ fn get_tx_nonce(tx: &ChainTransaction) -> Option<(AccountId, u64)> {
     }
 }
 
+#[allow(dead_code)]
 fn relay_fanout() -> usize {
     std::env::var("IOI_AFT_TX_RELAY_FANOUT")
         .ok()

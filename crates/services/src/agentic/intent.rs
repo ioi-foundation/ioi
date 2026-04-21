@@ -347,6 +347,7 @@ struct IntentPlan {
     params: serde_json::Map<String, Value>,
 
     #[serde(default, alias = "gasCeiling", alias = "gas_limit")]
+    #[allow(dead_code)]
     gas_ceiling: u64,
 }
 

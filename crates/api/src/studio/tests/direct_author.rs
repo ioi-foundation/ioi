@@ -7015,7 +7015,10 @@ async fn direct_author_local_document_surfaces_provisional_snapshot_without_cont
         }
     }
 
-    let request = request_for(StudioArtifactClass::Document, StudioRendererKind::HtmlIframe);
+    let request = request_for(
+        StudioArtifactClass::Document,
+        StudioRendererKind::HtmlIframe,
+    );
     let brief = sample_quantum_explainer_brief();
     let prompts = Arc::new(Mutex::new(Vec::<String>::new()));
 
@@ -7041,7 +7044,9 @@ async fn direct_author_local_document_surfaces_provisional_snapshot_without_cont
     .expect("renderable streamed document should surface as a provisional candidate");
 
     assert!(payload.files[0].body.contains("<main>"));
-    assert!(payload.files[0].body.contains("Quantum computing explained"));
+    assert!(payload.files[0]
+        .body
+        .contains("Quantum computing explained"));
 
     let prompt_log = prompts.lock().expect("prompt log");
     assert!(prompt_log.is_empty(), "continuation/repair should not run");
@@ -7114,7 +7119,10 @@ async fn direct_author_local_document_timeout_surfaces_provisional_candidate_wit
         }
     }
 
-    let request = request_for(StudioArtifactClass::Document, StudioRendererKind::HtmlIframe);
+    let request = request_for(
+        StudioArtifactClass::Document,
+        StudioRendererKind::HtmlIframe,
+    );
     let brief = sample_quantum_explainer_brief();
     let prompts = Arc::new(Mutex::new(Vec::<String>::new()));
 
@@ -7140,7 +7148,9 @@ async fn direct_author_local_document_timeout_surfaces_provisional_candidate_wit
     .expect("rich timed-out document should surface as a provisional candidate");
 
     assert!(payload.files[0].body.contains("<html"));
-    assert!(payload.files[0].body.contains("Quantum computing explained"));
+    assert!(payload.files[0]
+        .body
+        .contains("Quantum computing explained"));
     assert!(payload
         .notes
         .iter()

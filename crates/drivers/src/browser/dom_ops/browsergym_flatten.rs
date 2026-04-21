@@ -418,6 +418,7 @@ fn html_tag_name(fragment: &str) -> Option<String> {
     (!tag.is_empty()).then_some(tag)
 }
 
+#[allow(dead_code)]
 fn unwrap_html_node(node: &NodeRef) {
     let children = node.children().collect::<Vec<_>>();
     for child in children {
@@ -426,6 +427,7 @@ fn unwrap_html_node(node: &NodeRef) {
     node.detach();
 }
 
+#[allow(dead_code)]
 fn serialize_html_fragment(node: &NodeRef) -> String {
     let mut rendered = String::new();
     for child in node.children() {
@@ -731,6 +733,7 @@ pub(crate) fn flatten_ax_tree_to_string(
     )
 }
 
+#[allow(dead_code)]
 pub(crate) fn prune_html(html: &str) -> String {
     let mut cleaned = html.replace('\n', " ");
     while let Some(start) = cleaned.find("<!--") {

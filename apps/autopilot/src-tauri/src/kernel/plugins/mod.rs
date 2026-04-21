@@ -431,7 +431,9 @@ struct PluginVerifiedCatalogRefreshBundle {
     refreshed_at_ms: Option<u64>,
     refresh_source: Option<String>,
     channel: Option<String>,
+    #[allow(dead_code)]
     issuer_id: String,
+    #[allow(dead_code)]
     issuer_label: Option<String>,
     bundle_status: String,
     plugins: Vec<PluginMarketplaceCatalogEntry>,

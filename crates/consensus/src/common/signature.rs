@@ -4,6 +4,7 @@ use libp2p::identity::PublicKey;
 use tracing::warn;
 
 /// Verifies the block producer's signature against the oracle-anchored payload.
+#[allow(dead_code)]
 pub(crate) fn verify_signature(
     preimage: &[u8],
     public_key: &[u8],

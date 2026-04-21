@@ -102,6 +102,7 @@ struct BrowserUseDomTreeNode {
     attributes: HashMap<String, String>,
     snapshot: Option<BrowserUseSnapshotNode>,
     rect: Option<AccessibilityRect>,
+    #[allow(dead_code)]
     visibility_ratio: Option<f64>,
     is_visible: bool,
     has_js_click_listener: bool,

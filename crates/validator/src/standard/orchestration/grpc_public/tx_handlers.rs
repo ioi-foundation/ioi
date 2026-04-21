@@ -15,7 +15,6 @@ fn tx_account_nonce(tx: &ChainTransaction) -> Option<(AccountId, u64)> {
             | ioi_types::app::ApplicationTransaction::CallContract { header, .. } => {
                 Some((header.account_id, header.nonce))
             }
-            _ => None,
         },
         _ => None,
     }

@@ -1887,6 +1887,7 @@ pub(super) async fn load_recovered_consensus_tip_anchor(
     ))
 }
 
+#[allow(dead_code)]
 pub(super) fn seed_recovered_consensus_headers_into_engine<CE>(
     engine: &mut CE,
     recovered_headers: &[RecoveredCanonicalHeaderEntry],
@@ -1900,6 +1901,7 @@ where
         .count()
 }
 
+#[allow(dead_code)]
 pub(super) fn seed_recovered_certified_headers_into_engine<CE>(
     engine: &mut CE,
     recovered_headers: &[RecoveredCertifiedHeaderEntry],
@@ -1913,6 +1915,7 @@ where
         .count()
 }
 
+#[allow(dead_code)]
 pub(super) fn seed_recovered_restart_block_headers_into_engine<CE>(
     engine: &mut CE,
     recovered_headers: &[RecoveredRestartBlockHeaderEntry],

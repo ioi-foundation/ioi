@@ -193,3 +193,7 @@ strip = true
 [profile.dev]
 opt-level = 0
 debug = true
+
+[patch.crates-io]
+imap-proto = { path = "third_party/cargo-patches/imap-proto-0.10.2" }
+xcap = { path = "third_party/cargo-patches/xcap-0.0.14" }

@@ -214,8 +214,6 @@ impl ProcessBackend {
 
             tokio::time::sleep(Duration::from_millis(250)).await;
         }
-
-        Ok(())
     }
 }
 

@@ -761,13 +761,11 @@ fn update_current_task_workspace_root(
     next_workspace_root: &str,
 ) -> Result<bool, String> {
     let mut task_clone: Option<AgentTask> = None;
-    let mut memory_runtime = None;
-
-    {
+    let memory_runtime = {
         let mut guard = state
             .lock()
             .map_err(|_| "Failed to lock app state.".to_string())?;
-        memory_runtime = guard.memory_runtime.clone();
+        let memory_runtime = guard.memory_runtime.clone();
 
         if let Some(task) = guard.current_task.as_mut() {
             let matches_requested_session = session_id
@@ -779,7 +777,8 @@ fn update_current_task_workspace_root(
                 task_clone = Some(task.clone());
             }
         }
-    }
+        memory_runtime
+    };
 
     let Some(task) = task_clone else {
         return Ok(false);

@@ -8,7 +8,9 @@ use async_trait::async_trait;
 // For this snapshot, we mock the API calls but implement the logic structure.
 
 pub struct AwsProvider {
+    #[allow(dead_code)]
     access_key: String,
+    #[allow(dead_code)]
     secret_key: String,
     region: String,
 }

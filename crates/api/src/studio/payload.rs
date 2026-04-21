@@ -1263,6 +1263,7 @@ fn synthesize_download_bundle_readme_body(
     lines.join("\n")
 }
 
+#[allow(dead_code)]
 pub(crate) fn synthesize_download_bundle_payload(
     intent: &str,
     brief: &StudioArtifactBrief,
@@ -1337,6 +1338,7 @@ pub(crate) fn synthesize_download_bundle_payload(
     }
 }
 
+#[allow(dead_code)]
 pub(crate) fn synthesize_bundle_manifest_payload(
     intent: &str,
     brief: &StudioArtifactBrief,

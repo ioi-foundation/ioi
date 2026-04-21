@@ -26,6 +26,7 @@ pub(crate) fn validation_total_score(validation: &StudioArtifactValidationResult
     validation.score_total
 }
 
+#[allow(dead_code)]
 pub(crate) fn validation_clears_primary_view(validation: &StudioArtifactValidationResult) -> bool {
     validation.primary_view_cleared
         && validation.classification == StudioArtifactValidationStatus::Pass
@@ -780,6 +781,7 @@ pub(crate) fn local_download_bundle_candidate_validation(
     )
 }
 
+#[allow(dead_code)]
 pub(crate) fn local_download_bundle_candidate_prevalidation(
     request: &StudioOutcomeArtifactRequest,
     brief: &StudioArtifactBrief,

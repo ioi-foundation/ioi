@@ -652,6 +652,7 @@ fn resolve_browser_observation_context(
         .unwrap_or_default()
 }
 
+#[allow(dead_code)]
 fn top_edge_jump_tool_call() -> &'static str {
     if cfg!(target_os = "macos") {
         r#"browser__press_key {"key":"ArrowUp","modifiers":["Meta"]}"#
@@ -668,6 +669,7 @@ fn top_edge_jump_tool_call_with_grounded_selector() -> &'static str {
     }
 }
 
+#[allow(dead_code)]
 fn bottom_edge_jump_name() -> &'static str {
     if cfg!(target_os = "macos") {
         "Meta+ArrowDown"
@@ -676,6 +678,7 @@ fn bottom_edge_jump_name() -> &'static str {
     }
 }
 
+#[allow(dead_code)]
 fn bottom_edge_jump_tool_call() -> &'static str {
     if cfg!(target_os = "macos") {
         r#"browser__press_key {"key":"ArrowDown","modifiers":["Meta"]}"#
@@ -1761,6 +1764,7 @@ fn build_compact_browser_action_prompt_assembly(
 }
 
 #[allow(clippy::too_many_arguments)]
+#[allow(dead_code)]
 fn build_compact_browser_action_system_instructions(
     kernel_guidance: &str,
     active_window_title: &str,

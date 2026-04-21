@@ -6,6 +6,7 @@ use async_trait::async_trait;
 
 pub struct AkashProvider {
     // Reference to the wallet key stored in the Guardian's vault
+    #[allow(dead_code)]
     wallet_ref: String,
 }
 

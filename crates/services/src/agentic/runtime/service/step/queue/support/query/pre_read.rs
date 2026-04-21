@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use super::*;
 use ioi_types::app::agentic::WebRetrievalContract;
 

@@ -101,7 +101,9 @@ struct GoogleOauthClientRecord {
 #[derive(Debug, Clone)]
 struct PendingGoogleAuthSession {
     state: String,
+    #[allow(dead_code)]
     code_verifier: String,
+    #[allow(dead_code)]
     redirect_uri: String,
     auth_url: String,
     started_at_utc: String,

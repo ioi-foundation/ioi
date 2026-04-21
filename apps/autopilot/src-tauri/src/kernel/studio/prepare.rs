@@ -20,6 +20,11 @@ use std::collections::HashMap;
 use std::time::Duration;
 use url::Url;
 
+#[path = "prepare/sports.rs"]
+mod sports;
+#[path = "prepare/weather.rs"]
+mod weather;
+
 fn publish_current_task_progress(
     app: &AppHandle,
     task: &mut AgentTask,
@@ -85,83 +90,6 @@ fn tool_widget_family_hint(outcome_request: &StudioOutcomeRequest) -> Option<&st
 }
 
 #[derive(Clone, Copy)]
-struct SportsTeamTarget {
-    aliases: &'static [&'static str],
-    display_name: &'static str,
-    sport_path: &'static str,
-    team_id: &'static str,
-}
-
-const SPORTS_TEAM_TARGETS: &[SportsTeamTarget] = &[
-    SportsTeamTarget {
-        aliases: &["lakers", "los angeles lakers"],
-        display_name: "Los Angeles Lakers",
-        sport_path: "basketball/nba",
-        team_id: "13",
-    },
-    SportsTeamTarget {
-        aliases: &["celtics", "boston celtics"],
-        display_name: "Boston Celtics",
-        sport_path: "basketball/nba",
-        team_id: "2",
-    },
-    SportsTeamTarget {
-        aliases: &["warriors", "golden state warriors"],
-        display_name: "Golden State Warriors",
-        sport_path: "basketball/nba",
-        team_id: "9",
-    },
-    SportsTeamTarget {
-        aliases: &["knicks", "new york knicks"],
-        display_name: "New York Knicks",
-        sport_path: "basketball/nba",
-        team_id: "18",
-    },
-    SportsTeamTarget {
-        aliases: &["yankees", "new york yankees"],
-        display_name: "New York Yankees",
-        sport_path: "baseball/mlb",
-        team_id: "10",
-    },
-    SportsTeamTarget {
-        aliases: &["dodgers", "los angeles dodgers"],
-        display_name: "Los Angeles Dodgers",
-        sport_path: "baseball/mlb",
-        team_id: "19",
-    },
-    SportsTeamTarget {
-        aliases: &["chiefs", "kansas city chiefs"],
-        display_name: "Kansas City Chiefs",
-        sport_path: "football/nfl",
-        team_id: "12",
-    },
-    SportsTeamTarget {
-        aliases: &["cowboys", "dallas cowboys"],
-        display_name: "Dallas Cowboys",
-        sport_path: "football/nfl",
-        team_id: "6",
-    },
-    SportsTeamTarget {
-        aliases: &["packers", "green bay packers"],
-        display_name: "Green Bay Packers",
-        sport_path: "football/nfl",
-        team_id: "9",
-    },
-    SportsTeamTarget {
-        aliases: &["steelers", "pittsburgh steelers"],
-        display_name: "Pittsburgh Steelers",
-        sport_path: "football/nfl",
-        team_id: "23",
-    },
-    SportsTeamTarget {
-        aliases: &["eagles", "philadelphia eagles"],
-        display_name: "Philadelphia Eagles",
-        sport_path: "football/nfl",
-        team_id: "21",
-    },
-];
-
-#[derive(Clone, Copy)]
 struct PlacesCategoryTarget {
     amenity: &'static str,
     label: &'static str,
@@ -195,18 +123,6 @@ struct NominatimSearchResult {
 struct NominatimAddress {
     #[serde(default)]
     amenity: Option<String>,
-    #[serde(default)]
-    city: Option<String>,
-    #[serde(default)]
-    town: Option<String>,
-    #[serde(default)]
-    village: Option<String>,
-    #[serde(default)]
-    municipality: Option<String>,
-    #[serde(default)]
-    county: Option<String>,
-    #[serde(default)]
-    state: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -231,55 +147,6 @@ struct OverpassElement {
 struct OverpassCenter {
     lat: f64,
     lon: f64,
-}
-
-#[derive(Deserialize)]
-struct EspnTeamEnvelope {
-    team: EspnTeamSummary,
-}
-
-#[derive(Deserialize)]
-struct EspnTeamSummary {
-    #[serde(rename = "displayName", default)]
-    display_name: Option<String>,
-    #[serde(rename = "standingSummary", default)]
-    standing_summary: Option<String>,
-    #[serde(default)]
-    record: Option<EspnRecord>,
-    #[serde(rename = "nextEvent", default)]
-    next_event: Vec<EspnEvent>,
-}
-
-#[derive(Deserialize)]
-struct EspnRecord {
-    #[serde(default)]
-    items: Vec<EspnRecordItem>,
-}
-
-#[derive(Deserialize)]
-struct EspnRecordItem {
-    #[serde(default)]
-    description: Option<String>,
-    #[serde(default)]
-    summary: Option<String>,
-}
-
-#[derive(Deserialize)]
-struct EspnEvent {
-    #[serde(default)]
-    name: Option<String>,
-}
-
-#[derive(Deserialize)]
-struct EspnNewsEnvelope {
-    #[serde(default)]
-    articles: Vec<EspnNewsArticle>,
-}
-
-#[derive(Deserialize)]
-struct EspnNewsArticle {
-    #[serde(default)]
-    headline: Option<String>,
 }
 
 fn studio_surface_http_client() -> Result<Client, String> {
@@ -365,16 +232,6 @@ fn haversine_distance_miles(start: (f64, f64), end: (f64, f64)) -> f64 {
     let a = (dlat / 2.0).sin().powi(2) + lat1.cos() * lat2.cos() * (dlon / 2.0).sin().powi(2);
     let c = 2.0 * a.sqrt().asin();
     earth_radius_miles * c
-}
-
-fn nominatim_city(address: &NominatimAddress) -> Option<&str> {
-    address
-        .city
-        .as_deref()
-        .or(address.town.as_deref())
-        .or(address.village.as_deref())
-        .or(address.municipality.as_deref())
-        .or(address.county.as_deref())
 }
 
 fn short_place_name(result: &NominatimSearchResult) -> String {
@@ -681,356 +538,22 @@ fn format_places_tool_widget_reply(
     Ok(lines.join("\n"))
 }
 
-fn sports_team_target_for_intent(intent: &str) -> Option<SportsTeamTarget> {
-    let lowered = StudioIntentContext::new(intent)
-        .sports_team_target()
-        .map(|target| target.to_ascii_lowercase())
-        .unwrap_or_else(|| intent.to_ascii_lowercase());
-    SPORTS_TEAM_TARGETS
-        .iter()
-        .copied()
-        .find(|target| target.aliases.iter().any(|alias| lowered.contains(alias)))
-}
-
-fn record_summary_for_description(record: &EspnRecord, description: &str) -> Option<String> {
-    record.items.iter().find_map(|item| {
-        let item_description = item.description.as_deref()?.trim();
-        if item_description.eq_ignore_ascii_case(description) {
-            item.summary
-                .as_deref()
-                .map(str::trim)
-                .filter(|summary| !summary.is_empty())
-                .map(ToOwned::to_owned)
-        } else {
-            None
-        }
-    })
-}
-
-fn fetch_sports_tool_widget_reply(intent: &str) -> Result<String, String> {
-    let team = sports_team_target_for_intent(intent).ok_or_else(|| {
-        "Studio could not determine which team to use for the sports request.".to_string()
-    })?;
-    let client = studio_surface_http_client()?;
-
-    let team_url = format!(
-        "https://site.api.espn.com/apis/site/v2/sports/{}/teams/{}",
-        team.sport_path, team.team_id
-    );
-    let team_data = client
-        .get(&team_url)
-        .send()
-        .and_then(reqwest::blocking::Response::error_for_status)
-        .map_err(|error| format!("Studio sports surface could not fetch team data: {error}"))?
-        .json::<EspnTeamEnvelope>()
-        .map_err(|error| format!("Studio sports surface could not read team data: {error}"))?;
-
-    let news_url = format!(
-        "https://site.api.espn.com/apis/site/v2/sports/{}/news?team={}",
-        team.sport_path, team.team_id
-    );
-    let news_data = client
-        .get(&news_url)
-        .send()
-        .and_then(reqwest::blocking::Response::error_for_status)
-        .map_err(|error| format!("Studio sports surface could not fetch team headlines: {error}"))?
-        .json::<EspnNewsEnvelope>()
-        .map_err(|error| format!("Studio sports surface could not read team headlines: {error}"))?;
-
-    let team_summary = team_data.team;
-    let team_name = team_summary
-        .display_name
-        .as_deref()
-        .unwrap_or(team.display_name);
-    let overall = team_summary
-        .record
-        .as_ref()
-        .and_then(|record| record_summary_for_description(record, "Overall Record"))
-        .unwrap_or_else(|| "their current record was unavailable".to_string());
-    let standing = team_summary
-        .standing_summary
-        .as_deref()
-        .unwrap_or("their current standing was unavailable");
-    let mut lines = vec![format!(
-        "{team_name} are {overall} and ESPN currently lists them as {standing}."
-    )];
-
-    if let Some(record) = team_summary.record.as_ref() {
-        let home = record_summary_for_description(record, "Home Record");
-        let away = record_summary_for_description(record, "Away Record");
-        if home.is_some() || away.is_some() {
-            lines.push(format!(
-                "Split: {} at home and {} away.",
-                home.unwrap_or_else(|| "record unavailable".to_string()),
-                away.unwrap_or_else(|| "record unavailable".to_string())
-            ));
-        }
-    }
-
-    if let Some(next_event) = team_summary
-        .next_event
-        .iter()
-        .find_map(|event| event.name.as_deref())
-    {
-        lines.push(format!("Next listed game: {next_event}."));
-    }
-
-    let headlines = news_data
-        .articles
-        .iter()
-        .filter_map(|article| article.headline.as_deref())
-        .take(3)
-        .collect::<Vec<_>>();
-    if !headlines.is_empty() {
-        lines.push("Recent headlines:".to_string());
-        for headline in headlines {
-            lines.push(format!("- {headline}"));
-        }
-    }
-
-    Ok(lines.join("\n"))
-}
-
+#[cfg(test)]
 pub(super) fn extract_weather_scopes(intent: &str) -> Vec<String> {
-    StudioIntentContext::new(intent).extract_weather_scopes()
+    weather::extract_weather_scopes(intent)
 }
 
-fn trailing_measurement(tokens: &[&str], units: &[&str]) -> Option<String> {
-    let unit_index = tokens
-        .iter()
-        .position(|token| units.iter().any(|unit| token.eq(unit)))?;
-    if unit_index == 0 {
-        return None;
-    }
-    Some(format!("{} {}", tokens[unit_index - 1], tokens[unit_index]))
-}
-
-fn trailing_wind_measurement(tokens: &[&str]) -> Option<String> {
-    let wind = trailing_measurement(tokens, &["mph", "km/h"])?;
-    let speed_index = tokens
-        .iter()
-        .position(|token| *token == "mph" || *token == "km/h")?;
-    if speed_index < 2 {
-        return Some(wind);
-    }
-
-    let direction = tokens[speed_index - 2];
-    let has_arrow = direction
-        .chars()
-        .any(|character| matches!(character, '↑' | '↓' | '←' | '→' | '↖' | '↗' | '↘' | '↙'));
-    if has_arrow {
-        Some(format!("{direction} {wind}"))
-    } else {
-        Some(wind)
-    }
-}
-
+#[cfg(test)]
 pub(super) fn parse_weather_report_fallback(scope: &str, body: &str) -> Option<String> {
-    let mut condition = None;
-    let mut temperature = None;
-    let mut wind = None;
-    let mut visibility = None;
-    let mut precipitation = None;
-
-    for line in body.lines() {
-        let trimmed = line.trim();
-        if trimmed.is_empty() {
-            continue;
-        }
-
-        if condition.is_none()
-            && !trimmed.contains('_')
-            && !trimmed.contains("°")
-            && !trimmed.contains("mph")
-            && !trimmed.contains("km/h")
-            && !trimmed.contains(" mi")
-            && !trimmed.contains(" km")
-            && !trimmed.contains(" in")
-            && !trimmed.contains(" mm")
-            && !trimmed.starts_with("Weather report:")
-        {
-            condition = Some(trimmed.to_string());
-            continue;
-        }
-
-        let tokens = trimmed.split_whitespace().collect::<Vec<_>>();
-        if temperature.is_none() {
-            temperature = trailing_measurement(&tokens, &["°F", "°C"]);
-        }
-        if wind.is_none() {
-            wind = trailing_wind_measurement(&tokens);
-        }
-        if visibility.is_none() {
-            visibility = trailing_measurement(&tokens, &["mi", "km"]);
-        }
-        if precipitation.is_none() {
-            precipitation = trailing_measurement(&tokens, &["in", "mm"]);
-        }
-    }
-
-    let mut parts = Vec::new();
-    if let Some(summary) = condition {
-        parts.push(summary);
-    }
-    if let Some(summary) = temperature {
-        parts.push(summary);
-    }
-    if let Some(summary) = wind {
-        parts.push(format!("wind {summary}"));
-    }
-    if let Some(summary) = visibility {
-        parts.push(format!("visibility {summary}"));
-    }
-    if let Some(summary) = precipitation {
-        parts.push(format!("precipitation {summary}"));
-    }
-
-    if parts.is_empty() {
-        None
-    } else {
-        Some(format!("{}: {}.", scope.trim(), parts.join(" ")))
-    }
+    weather::parse_weather_report_fallback(scope, body)
 }
 
-fn fetch_weather_scope_summary(scope: &str) -> Result<String, String> {
-    let client = studio_surface_http_client()?;
-    let formats = [
-        "%l: temp %t humidity %h wind %w pressure %P as of %T",
-        "%l: %t %C",
-    ];
-    let mut last_error = None;
-
-    for format in formats {
-        for attempt in 0..3 {
-            let mut url = Url::parse("https://wttr.in/").expect("static wttr base URL parses");
-            url.set_path(&format!("/{}", scope));
-            url.query_pairs_mut().append_pair("format", format);
-
-            match client
-                .get(url)
-                .send()
-                .and_then(reqwest::blocking::Response::error_for_status)
-            {
-                Ok(response) => {
-                    let body = response.text().map_err(|error| {
-                        format!("Studio weather surface could not read current conditions: {error}")
-                    })?;
-                    let cleaned = body.split_whitespace().collect::<Vec<_>>().join(" ");
-                    if cleaned.is_empty() {
-                        last_error = Some(
-                            "Studio weather surface returned an empty conditions summary."
-                                .to_string(),
-                        );
-                    } else if cleaned.to_ascii_lowercase().contains("unknown location") {
-                        return Err(format!(
-                            "Studio weather surface could not locate '{scope}'.",
-                        ));
-                    } else {
-                        return Ok(cleaned.trim_end_matches('.').to_string() + ".");
-                    }
-                }
-                Err(error) => {
-                    last_error = Some(format!(
-                        "Studio weather surface could not fetch current conditions: {error}"
-                    ));
-                }
-            }
-
-            if attempt < 2 {
-                std::thread::sleep(Duration::from_millis(350));
-            }
-        }
-    }
-
-    for attempt in 0..3 {
-        let mut url = Url::parse("https://wttr.in/").expect("static wttr base URL parses");
-        url.set_path(&format!("/{}", scope));
-        url.set_query(Some("0T"));
-
-        match client
-            .get(url)
-            .send()
-            .and_then(reqwest::blocking::Response::error_for_status)
-        {
-            Ok(response) => {
-                let body = response.text().map_err(|error| {
-                    format!("Studio weather surface could not read current conditions: {error}")
-                })?;
-                if body.to_ascii_lowercase().contains("unknown location") {
-                    return Err(format!(
-                        "Studio weather surface could not locate '{scope}'.",
-                    ));
-                }
-                if let Some(summary) = parse_weather_report_fallback(scope, &body) {
-                    return Ok(summary);
-                }
-                last_error = Some(
-                    "Studio weather surface returned an unreadable fallback weather report."
-                        .to_string(),
-                );
-            }
-            Err(error) => {
-                last_error = Some(format!(
-                    "Studio weather surface could not fetch current conditions: {error}"
-                ));
-            }
-        }
-
-        if attempt < 2 {
-            std::thread::sleep(Duration::from_millis(350));
-        }
-    }
-
-    Err(last_error.unwrap_or_else(|| {
-        "Studio weather surface could not fetch current conditions.".to_string()
-    }))
-}
-
+#[cfg(test)]
 pub(super) fn weather_scopes_for_tool_widget(
     intent: &str,
     outcome_request: &StudioOutcomeRequest,
 ) -> Vec<String> {
-    let scopes = extract_weather_scopes(intent);
-    if !scopes.is_empty() {
-        return scopes;
-    }
-
-    match outcome_request.request_frame.as_ref() {
-        Some(ioi_types::app::studio::StudioNormalizedRequestFrame::Weather(frame)) => {
-            let mut retained = frame.inferred_locations.clone();
-            if let Some(location) = frame.assumed_location.as_ref() {
-                if !retained
-                    .iter()
-                    .any(|entry| entry.eq_ignore_ascii_case(location))
-                {
-                    retained.push(location.clone());
-                }
-            }
-            retained
-        }
-        _ => Vec::new(),
-    }
-}
-
-fn fetch_weather_tool_widget_reply(
-    intent: &str,
-    outcome_request: &StudioOutcomeRequest,
-) -> Result<String, String> {
-    let scopes = weather_scopes_for_tool_widget(intent, outcome_request);
-    if scopes.is_empty() {
-        return Err(
-            "Studio could not determine which location to use for the weather request.".to_string(),
-        );
-    }
-    if scopes.len() == 1 {
-        return fetch_weather_scope_summary(&scopes[0]);
-    }
-
-    let mut lines = vec!["Current weather comparison:".to_string()];
-    for scope in scopes {
-        lines.push(format!("- {}", fetch_weather_scope_summary(&scope)?));
-    }
-    Ok(lines.join("\n"))
+    weather::weather_scopes_for_tool_widget(intent, outcome_request)
 }
 
 fn build_recipe_tool_widget_prompt(intent: &str) -> String {
@@ -1244,7 +767,7 @@ pub(super) fn maybe_execute_studio_primary_non_artifact_reply(
                 Some("weather") => {
                     publish_current_task_progress(app, task, "Fetching the current weather...");
                     (
-                        fetch_weather_tool_widget_reply(intent, outcome_request)?,
+                        weather::fetch_weather_tool_widget_reply(intent, outcome_request)?,
                         "route_execution:studio_tool_widget_weather",
                         "Studio completed the weather tool-widget route directly and preserved the final route contract.",
                     )
@@ -1257,7 +780,7 @@ pub(super) fn maybe_execute_studio_primary_non_artifact_reply(
                 Some("sports") => {
                     publish_current_task_progress(app, task, "Checking the latest team data...");
                     (
-                        fetch_sports_tool_widget_reply(intent)?,
+                        sports::fetch_sports_tool_widget_reply(intent)?,
                         "route_execution:studio_tool_widget_sports",
                         "Studio completed the sports tool-widget route directly and preserved the final route contract.",
                     )

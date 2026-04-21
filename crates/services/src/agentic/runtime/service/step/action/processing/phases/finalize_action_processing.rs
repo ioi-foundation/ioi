@@ -282,6 +282,7 @@ fn emit_terminal_chat_reply_postcondition_receipts(
     ));
 }
 
+#[allow(unused_assignments)]
 pub(crate) async fn finalize_action_processing(
     ctx: FinalizeActionProcessingContext<'_, '_>,
     state_in: ActionProcessingState,

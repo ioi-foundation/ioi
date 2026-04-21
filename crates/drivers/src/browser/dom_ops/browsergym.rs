@@ -160,6 +160,7 @@ fn attr_string_id(strings: &[String], name: &str) -> Option<i64> {
         .and_then(|idx| i64::try_from(idx).ok())
 }
 
+#[allow(dead_code)]
 fn string_index_at(strings: &[String], name: &str) -> Option<usize> {
     strings.iter().position(|entry| entry == name)
 }
@@ -247,6 +248,7 @@ pub(crate) fn cleanup_ax_tree_browsergym_ids(
     browsergym_ids
 }
 
+#[allow(dead_code)]
 fn rare_integer_lookup(data: &Option<RareIntegerData>, node_idx: usize) -> Option<i64> {
     let data = data.as_ref()?;
     data.index
@@ -472,6 +474,7 @@ pub(crate) fn extract_browsergym_snapshot_metadata(
     metadata
 }
 
+#[allow(dead_code)]
 pub(crate) fn cleanup_dom_snapshot_browsergym_ids(snapshot: &mut CaptureSnapshotReturns) {
     let attr_ids = ["aria-roledescription", "aria-description"]
         .into_iter()

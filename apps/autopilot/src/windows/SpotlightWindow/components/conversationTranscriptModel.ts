@@ -1,12 +1,8 @@
 import type {
   ActivityEventRef,
   PlanSummary,
-  SourceSummary,
   StudioArtifactSession,
   ToolActivityGroupPresentation,
-  ToolActivityRow,
-  ToolActivityKind,
-  ToolActivityStatus,
 } from "../../../types";
 import type { StudioConversationArtifactEntry } from "./studioArtifactConversationModel";
 import {
@@ -18,6 +14,11 @@ import {
   WEB_READ_TOOL,
   WEB_SEARCH_TOOL,
 } from "../viewmodels/contentPipeline.helpers";
+import {
+  buildOperatorActivityRows,
+  type TurnActivityEntry,
+  toolGroupLabel,
+} from "./transcript/activityRows";
 import { parseTimestampMs, toEventString } from "../utils/eventFields";
 
 function basename(path: string): string {
@@ -92,35 +93,12 @@ function webReadPreview(entry: ActivityEventRef): string | null {
   return compact.length <= 640 ? compact : `${compact.slice(0, 637).trim()}...`;
 }
 
-function rowStatusFromEvent(entry: ActivityEventRef): ToolActivityStatus {
+function rowStatusFromEvent(entry: ActivityEventRef): "active" | "blocked" | "complete" {
   const status = toEventString(entry.event.status).trim().toUpperCase();
   if (status === "ERROR" || status === "FAILED" || status === "BLOCKED") {
     return "blocked";
   }
   return "complete";
-}
-
-type TurnActivityEntry = ToolActivityRow & {
-  sortOrder: number;
-  phaseOrder: number;
-  source: "receipt" | "runtime" | "artifact" | "operator";
-};
-
-const OPERATOR_PHASE_ORDER: Record<string, number> = {
-  understand_request: 100,
-  route_artifact: 200,
-  search_sources: 300,
-  read_sources: 400,
-  author_artifact: 500,
-  repair_artifact: 550,
-  inspect_artifact: 600,
-  verify_artifact: 700,
-  present_artifact: 800,
-};
-
-function operatorPhaseOrder(phase: string | null | undefined): number {
-  const normalized = String(phase || "").trim().toLowerCase();
-  return OPERATOR_PHASE_ORDER[normalized] ?? 9_000;
 }
 
 type BuildTurnToolActivityOptions = {
@@ -184,237 +162,6 @@ function appendRow(
   rows.push(row);
 }
 
-function operatorStepStatus(value: string | null | undefined): ToolActivityStatus {
-  const normalized = String(value || "").trim().toLowerCase();
-  if (
-    normalized === "active"
-    || normalized === "pending"
-    || normalized === "other"
-  ) {
-    return "active";
-  }
-  if (normalized === "blocked" || normalized === "failed") {
-    return "blocked";
-  }
-  return "complete";
-}
-
-function operatorStepKind(phase: string | null | undefined): ToolActivityKind {
-  switch (String(phase || "").trim().toLowerCase()) {
-    case "understand_request":
-      return "understand";
-    case "route_artifact":
-      return "route";
-    case "search_sources":
-      return "search";
-    case "read_sources":
-      return "read";
-    case "author_artifact":
-    case "repair_artifact":
-      return "write";
-    case "inspect_artifact":
-      return "inspect";
-    case "verify_artifact":
-      return "verify";
-    case "present_artifact":
-      return "present";
-    default:
-      return "other";
-  }
-}
-
-function operatorStepPreview(
-  step: NonNullable<StudioArtifactSession["activeOperatorRun"]>["steps"][number],
-): string | null {
-  if (step.preview?.content?.trim()) {
-    return step.preview.content.trim();
-  }
-
-  if (step.sourceRefs.length > 0) {
-    const lines = step.sourceRefs
-      .slice(0, 6)
-      .map((source) => source.excerpt?.trim() || source.title.trim())
-      .filter((line) => line.length > 0);
-    if (lines.length > 0) {
-      return lines.join("\n");
-    }
-  }
-
-  if (step.verificationRefs.length > 0) {
-    const lines = step.verificationRefs
-      .slice(0, 6)
-      .map((verification) =>
-        verification.detail?.trim()
-          ? `${verification.summary}\n${verification.detail}`
-          : verification.summary,
-      )
-      .filter((line) => line.trim().length > 0);
-    if (lines.length > 0) {
-      return lines.join("\n\n");
-    }
-  }
-
-  return null;
-}
-
-function operatorStepSourceSummary(
-  step: NonNullable<StudioArtifactSession["activeOperatorRun"]>["steps"][number],
-  stepIndex: number,
-): SourceSummary | null {
-  const sourceUrls = new Set<string>();
-  const domainCounts = new Map<string, number>();
-  const browses: SourceSummary["browses"] = [];
-
-  for (const source of step.sourceRefs) {
-    const url = firstStringValue(source.url);
-    if (!url) {
-      continue;
-    }
-    if (!sourceUrls.has(url)) {
-      sourceUrls.add(url);
-      const domain =
-        firstStringValue(source.domain) || normalizedDomain(url) || "unknown";
-      domainCounts.set(domain, (domainCounts.get(domain) || 0) + 1);
-      browses.push({
-        url,
-        domain,
-        title: firstStringValue(source.title) || undefined,
-        stepIndex,
-      });
-    }
-  }
-
-  if (sourceUrls.size === 0) {
-    return null;
-  }
-
-  const domains = Array.from(domainCounts.entries())
-    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-    .map(([domain, count]) => ({
-      domain,
-      count,
-      faviconUrl: `https://www.google.com/s2/favicons?sz=64&domain=${encodeURIComponent(domain)}`,
-    }));
-
-  return {
-    totalSources: sourceUrls.size,
-    sourceUrls: Array.from(sourceUrls),
-    domains,
-    searches: [],
-    browses,
-  };
-}
-
-function sourceQueryFromReason(reason: string | null | undefined): string | null {
-  const raw = String(reason || "").trim();
-  if (!raw) {
-    return null;
-  }
-  const quoted = raw.match(/for "([^"]+)"/i);
-  if (quoted?.[1]?.trim()) {
-    return quoted[1].trim();
-  }
-  return null;
-}
-
-function buildOperatorActivityRows(
-  studioSession: StudioArtifactSession | null | undefined,
-): TurnActivityEntry[] {
-  const operatorRun = studioSession?.activeOperatorRun;
-  if (!studioSession || !operatorRun) {
-    return [];
-  }
-
-  const rows: TurnActivityEntry[] = [];
-  operatorRun.steps.forEach((step, index) => {
-    const sourceSummary =
-      operatorStepStatus(step.status) === "active"
-        ? operatorStepSourceSummary(step, index)
-        : null;
-    const phase = String(step.phase || "").trim().toLowerCase();
-    const phaseOrder = operatorPhaseOrder(phase);
-    if (phase === "search_sources") {
-      const query =
-        step.sourceRefs
-          .map((source) => sourceQueryFromReason(source.reason))
-          .find((value): value is string => !!value)
-        || sourceQueryFromReason(step.detail)
-        || sourceQueryFromReason(step.label);
-      rows.push({
-        key: step.stepId,
-        kind: operatorStepKind(step.phase),
-        status: operatorStepStatus(step.status),
-        stepIndex: index,
-        label: query ? `Searched "${query}"` : (step.label.trim() || "Search sources"),
-        detail: step.detail?.trim() || null,
-        preview: operatorStepPreview(step),
-        sourceUrl: step.sourceRefs.find((source) => !!source.url)?.url || null,
-        sourceSummary,
-        sortOrder: step.startedAtMs || index,
-        phaseOrder,
-        source: "operator",
-      });
-      return;
-    }
-
-    if (phase === "read_sources" && step.sourceRefs.length > 0) {
-      step.sourceRefs.forEach((source, sourceIndex) => {
-        const url = firstStringValue(source.url);
-        const domain =
-          (url ? normalizedDomain(url) : null)
-          || firstStringValue(source.domain)
-          || source.title.trim()
-          || "source";
-        rows.push({
-          key: `${step.stepId}:source:${source.sourceId || sourceIndex}`,
-          kind: "read",
-          status: operatorStepStatus(step.status),
-          stepIndex: index,
-          label: `Read ${domain}`,
-          detail: url || null,
-          preview: source.excerpt?.trim() || source.title.trim() || null,
-          sourceUrl: url || null,
-          sourceSummary: null,
-          sortOrder: (step.startedAtMs || index) + (sourceIndex / 100),
-          phaseOrder: phaseOrder + (sourceIndex / 100),
-          source: "operator",
-        });
-      });
-      return;
-    }
-
-    rows.push({
-      key: step.stepId,
-      kind: operatorStepKind(step.phase),
-      status: operatorStepStatus(step.status),
-      stepIndex: index,
-      label: step.label.trim() || "Artifact step",
-      detail: step.detail?.trim() || null,
-      preview: operatorStepPreview(step),
-      sourceUrl: step.sourceRefs.find((source) => !!source.url)?.url || null,
-      sourceSummary,
-      sortOrder: step.startedAtMs || index,
-      phaseOrder,
-      source: "operator",
-    });
-  });
-  return rows;
-}
-
-function toolGroupLabel(
-  rows: TurnActivityEntry[],
-  studioSession: StudioArtifactSession | null,
-): string {
-  if (studioSession) {
-    const hasActiveRow = rows.some((row) => row.status === "active");
-    if (hasActiveRow) {
-      return `Thinking through ${studioSession.title}`;
-    }
-    return `${studioSession.title} activity`;
-  }
-
-  return `${rows.length} ${rows.length === 1 ? "tool call" : "tool calls"}`;
-}
 
 export function buildTurnToolActivityGroup(
   events: ActivityEventRef[],

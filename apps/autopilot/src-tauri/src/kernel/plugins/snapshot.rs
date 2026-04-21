@@ -441,6 +441,7 @@ pub(crate) fn build_session_plugin_snapshot_for_manifests_with_fixture_path(
     )
 }
 
+#[cfg(test)]
 pub(crate) fn build_session_plugin_snapshot_for_manifests(
     extension_manifests: &[ExtensionManifestRecord],
     runtime_state: PluginRuntimeState,

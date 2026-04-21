@@ -6,7 +6,7 @@ pub(super) fn apply_web_research_followups(
     success: bool,
     current_tool_name: &str,
     session_id: [u8; 32],
-    step_index: u32,
+    _step_index: u32,
     tool_args: &serde_json::Value,
     history_entry: &mut Option<String>,
     action_output: &mut Option<String>,

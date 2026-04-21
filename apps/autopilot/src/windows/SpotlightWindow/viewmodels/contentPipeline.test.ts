@@ -16,7 +16,7 @@ import {
   buildReasoningDurationLabel,
   buildTurnToolActivityGroup,
 } from "../components/conversationTranscriptModel";
-import { artifactReplyText } from "../components/ConversationTimeline";
+import { artifactReplyText } from "../components/ConversationTimeline.helpers";
 import { studioArtifactSessionIsPresentable } from "../components/studioArtifactConversationModel";
 import { buildExecutionMoments } from "./contentPipeline.summaries";
 import { parseChatContractEnvelope } from "./chatContract";

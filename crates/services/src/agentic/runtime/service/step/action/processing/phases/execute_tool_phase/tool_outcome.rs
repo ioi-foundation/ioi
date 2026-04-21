@@ -815,7 +815,9 @@ pub(super) async fn apply_tool_outcome_and_followups(
                 }
             }
         }
-        AgentTool::MediaExtractMultimodalEvidence { url, language, .. } => {
+        AgentTool::MediaExtractMultimodalEvidence {
+            url: _, language, ..
+        } => {
             if *success {
                 if let Some(bundle) = history_entry
                     .as_deref()

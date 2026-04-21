@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 // Path: crates/consensus/src/aft/experimental/mod.rs
 
 //! Experimental witness-sampling and observability helpers.

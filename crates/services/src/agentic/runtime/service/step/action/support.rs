@@ -42,6 +42,7 @@ pub(super) fn enforce_system_fail_terminal_status(
 }
 
 // Helper to determine if an action relies on precise screen coordinates.
+#[allow(dead_code)]
 pub(super) fn requires_visual_integrity(tool: &AgentTool) -> bool {
     match tool {
         AgentTool::Screen(action) => matches!(

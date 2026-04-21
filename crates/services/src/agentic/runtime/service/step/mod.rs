@@ -142,6 +142,7 @@ async fn apply_planner_fallback_guards(
     .await
 }
 
+#[allow(dead_code)]
 fn queue_root_playbook_delegate_request(
     state: &dyn StateAccess,
     agent_state: &mut AgentState,
@@ -150,6 +151,7 @@ fn queue_root_playbook_delegate_request(
     playbook::queue_root_playbook_delegate_request(state, agent_state, session_id)
 }
 
+#[allow(dead_code)]
 fn queue_parent_playbook_await_request(
     state: &dyn StateAccess,
     agent_state: &mut AgentState,
@@ -188,6 +190,7 @@ async fn maybe_resume_pending_action_or_clear_stale(
     .await
 }
 
+#[allow(dead_code)]
 fn should_clear_stale_canonical_pending(
     agent_state: &AgentState,
     allow_runtime_secret_retry: bool,

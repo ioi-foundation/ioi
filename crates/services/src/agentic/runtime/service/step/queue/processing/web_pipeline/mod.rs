@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 #[allow(unused_imports)]
 use super::super::support::{
     append_final_web_completion_receipts,

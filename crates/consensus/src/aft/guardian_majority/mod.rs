@@ -26,7 +26,6 @@ use ioi_types::app::{
     canonical_bulletin_availability_certificate_hash, canonical_bulletin_close_hash,
     canonical_bulletin_commitment_hash, canonical_collapse_commitment,
     canonical_collapse_commitment_hash_from_object, canonical_collapse_continuity_public_inputs,
-    canonical_collapse_eq_ignoring_archived_recovered_history_anchor,
     canonical_collapse_eq_on_header_surface, canonical_collapse_extension_certificate,
     canonical_order_certificate_hash, canonical_publication_frontier_hash,
     canonical_sealed_finality_proof_signing_bytes, compute_next_timestamp_ms,

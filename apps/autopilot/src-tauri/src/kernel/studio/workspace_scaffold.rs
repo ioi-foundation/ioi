@@ -75,25 +75,7 @@ impl StudioScaffoldRecipe {
     }
 }
 
-impl StudioStaticHtmlArchetype {
-    fn id(self) -> &'static str {
-        match self {
-            Self::SportEditorial => "sport-editorial",
-            Self::MinimalAgency => "minimal-agency",
-            Self::HospitalityRetreat => "hospitality-retreat",
-            Self::ProductLaunch => "product-launch",
-        }
-    }
-
-    fn label(self) -> &'static str {
-        match self {
-            Self::SportEditorial => "Sport editorial",
-            Self::MinimalAgency => "Minimal agency",
-            Self::HospitalityRetreat => "Hospitality retreat",
-            Self::ProductLaunch => "Product launch",
-        }
-    }
-}
+impl StudioStaticHtmlArchetype {}
 
 pub(super) fn mutation_scope_for_recipe(root: &Path, recipe: StudioScaffoldRecipe) -> Vec<String> {
     let mut scope = vec![

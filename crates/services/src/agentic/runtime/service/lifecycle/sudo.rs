@@ -20,6 +20,7 @@ fn pending_install_available(agent_state: &AgentState) -> bool {
         .unwrap_or(false)
 }
 
+#[allow(dead_code)]
 pub(super) fn is_waiting_for_sudo_password(status: &AgentStatus) -> bool {
     matches!(
         status,

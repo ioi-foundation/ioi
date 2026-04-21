@@ -1,6 +1,7 @@
 use super::*;
 
 impl GuardianMajorityEngine {
+    #[allow(dead_code)]
     pub(super) fn assign_mirror(&self, account: &AccountId) -> u8 {
         let mut mix = self.mirror_seed[0];
         mix ^= account.0[0];
