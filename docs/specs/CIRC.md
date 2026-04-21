@@ -11,7 +11,7 @@ Primary goals:
 - Keep routing semantics stable under query paraphrase.
 - Keep behavior explainable and auditable.
 - Prevent layer mixing between domain semantics and system primitives.
-- Eliminate "heuristic routing" (guessing via regex/aliases).
+- Eliminate ad hoc "heuristic routing" (guessing via regexes, aliases, or topic-specific patches).
 - Enforce structural retrieval modeling so ontology symbols do not collapse into provider or content vertical shortcuts.
 - Enable safe **probabilistic payload synthesis** at infinite scale by grounding generative actions in strict primitive capability boundaries.
 
@@ -80,6 +80,31 @@ Policy provides versioned deterministic controls:
 - ambiguity margins and actions (`proceed`, `pause`, `abstain`)
 - tie-region epsilon and score quantization
 - safety and risk constraints
+
+### 3.6.1 Scalable Heuristics Rule (Normative)
+CIRC MAY permit deterministic heuristics only when they are:
+- feature-based rather than topic-based
+- reusable across domains rather than tuned to a specific subject vertical
+- task-class-aware rather than query-string-special-cased
+- explainable in terms of typed policy inputs or observable candidate features
+
+Allowed examples:
+- authority/source-class scoring (`official`, `educational`, `standards`, `reference`)
+- title/body overlap scoring
+- diversity and deduplication constraints
+- freshness gating when the intent explicitly requires temporal grounding
+- structural fallback query shaping keyed to task class, not subject matter
+
+Forbidden examples:
+- query-specific domain allowlists
+- publisher boosts keyed to topic or named entity
+- brittle site blacklists used as primary routing policy
+- one-off lexical patches that change winner selection for a narrow query family
+
+Normative note:
+- scalable heuristics are policy instruments, not semantic winner selection substitutes
+- they MAY rank candidates inside an already typed search/retrieval or provider-admission phase
+- they MUST NOT replace typed discovery evidence or typed intent resolution
 
 ### 3.7 Normative Layering Examples
 1. Arithmetic evaluation query:
