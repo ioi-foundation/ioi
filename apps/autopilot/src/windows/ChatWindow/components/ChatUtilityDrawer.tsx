@@ -6,6 +6,10 @@ import {
 } from "../chatPolicyCenter";
 import type { PrimaryView } from "../chatWindowModel";
 import { type TauriRuntime } from "../../../services/TauriRuntime";
+import {
+  openArtifactReviewTarget,
+  openEvidenceReviewSession,
+} from "../../../services/reviewNavigation";
 import { bootstrapAgentSession, useAgentStore } from "../../../session/autopilotSession";
 import {
   buildSessionContinuityOverview,
@@ -17,8 +21,8 @@ import type {
   BenchmarkTraceCaseView,
   BenchmarkTraceFeed,
 } from "../../../types";
-import { ArtifactEvidencePanel } from "../../SpotlightWindow/components/ArtifactEvidencePanel";
-import { SpotlightReplView } from "../../SpotlightWindow/components/SpotlightReplView";
+import { ArtifactEvidencePanel } from "../../ChatShellWindow/components/ArtifactEvidencePanel";
+import { ChatReplView } from "../../ChatShellWindow/components/ChatReplView";
 import { ChatBenchmarkTraceDeck } from "./ChatBenchmarkTraceDeck";
 
 type UtilityTab = "logs" | "trace" | "receipts" | "sessions";
@@ -428,7 +432,7 @@ export function ChatUtilityDrawer({
                   <p>{sessionSurfaceError}</p>
                 </article>
               ) : null}
-              <SpotlightReplView
+              <ChatReplView
                 activeSessionId={activeSessionId}
                 currentTask={sessionTask}
                 sessions={sessionHistory}
@@ -465,6 +469,12 @@ export function ChatUtilityDrawer({
                   notes={activeChatSession.materialization.notes}
                   evidence={activeChatSession.verifiedReply.evidence}
                   receipts={activeArtifactReceipts}
+                  onOpenArtifact={(artifactId) => {
+                    void openArtifactReviewTarget(artifactId);
+                  }}
+                  onOpenEvidenceSession={(sessionId) => {
+                    void openEvidenceReviewSession(sessionId);
+                  }}
                 />
               </div>
             ) : (

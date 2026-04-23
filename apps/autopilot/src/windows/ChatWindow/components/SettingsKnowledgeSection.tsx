@@ -458,7 +458,7 @@ export function SettingsKnowledgeSection({
         <p className="chat-settings-body">
           Review the shared runtime compaction recommendation, inspect the
           resume-safety posture, and run the same retained-session compaction
-          flow Chat now shares with Spotlight and the standalone REPL.
+          flow Chat now shares with the standalone REPL.
         </p>
         <div className="chat-settings-summary-grid">
           <article className="chat-settings-subcard">

@@ -26,7 +26,6 @@ export default defineConfig({
         "react",
         "react-dom",
         "react/jsx-runtime",
-        "@monaco-editor/react",
         "clsx",
       ],
       output: {

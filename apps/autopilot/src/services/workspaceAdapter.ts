@@ -18,9 +18,51 @@ import type {
   WorkspaceTerminalSession,
 } from "@ioi/workspace-substrate";
 
+type SnapshotCacheEntry = {
+  snapshot: WorkspaceSnapshot;
+  cachedAtMs: number;
+};
+
+const workspaceSnapshotCache = new Map<string, SnapshotCacheEntry>();
+const workspaceSnapshotInflight = new Map<string, Promise<WorkspaceSnapshot>>();
+
+async function loadWorkspaceSnapshot(root: string): Promise<WorkspaceSnapshot> {
+  const cached = workspaceSnapshotCache.get(root);
+  if (cached) {
+    workspaceSnapshotCache.delete(root);
+    return cached.snapshot;
+  }
+
+  const inFlight = workspaceSnapshotInflight.get(root);
+  if (inFlight) {
+    return inFlight;
+  }
+
+  const request = invoke<WorkspaceSnapshot>("chat_workspace_inspect", { root })
+    .then((snapshot) => {
+      workspaceSnapshotInflight.delete(root);
+      return snapshot;
+    })
+    .catch((error) => {
+      workspaceSnapshotInflight.delete(root);
+      throw error;
+    });
+
+  workspaceSnapshotInflight.set(root, request);
+  return request;
+}
+
+function cacheWorkspaceSnapshot(root: string, snapshot: WorkspaceSnapshot): WorkspaceSnapshot {
+  workspaceSnapshotCache.set(root, {
+    snapshot,
+    cachedAtMs: Date.now(),
+  });
+  return snapshot;
+}
+
 export const tauriWorkspaceAdapter: WorkspaceAdapter = {
   inspectWorkspace(root) {
-    return invoke<WorkspaceSnapshot>("chat_workspace_inspect", { root });
+    return loadWorkspaceSnapshot(root);
   },
   listDirectory(root, path) {
     return invoke<WorkspaceNode[]>("chat_workspace_list_directory", { root, path });
@@ -148,3 +190,32 @@ export const tauriWorkspaceAdapter: WorkspaceAdapter = {
     return invoke<void>("chat_workspace_terminal_close", { sessionId });
   },
 };
+
+export function peekCachedWorkspaceSnapshot(root: string): WorkspaceSnapshot | null {
+  const cached = workspaceSnapshotCache.get(root);
+  if (cached && Date.now() - cached.cachedAtMs < 30_000) {
+    return cached.snapshot;
+  }
+  return null;
+}
+
+export async function warmWorkspaceRoot(root: string): Promise<WorkspaceSnapshot> {
+  const cached = peekCachedWorkspaceSnapshot(root);
+  if (cached) {
+    return cached;
+  }
+
+  const inFlight = workspaceSnapshotInflight.get(root);
+  if (inFlight) {
+    return inFlight;
+  }
+
+  const snapshot = await invoke<WorkspaceSnapshot>("chat_workspace_inspect", {
+    root,
+  });
+  return cacheWorkspaceSnapshot(root, snapshot);
+}
+
+export async function prewarmWorkspaceRoot(root: string): Promise<void> {
+  await warmWorkspaceRoot(root);
+}

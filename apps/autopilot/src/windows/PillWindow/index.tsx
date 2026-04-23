@@ -2,12 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AssistantWorkbenchView,
   hidePillShell,
-  openChatAutopilotIntent,
-  openChatCapabilityTarget,
-  openChatPolicyTarget,
-  openChatShellView,
-  showGateShell,
-  showSpotlightShell,
   useAssistantWorkbenchState,
 } from "@ioi/agent-ide";
 import { useRetainedWorkbenchTrace } from "../../hooks/useRetainedWorkbenchTrace";
@@ -24,6 +18,17 @@ import {
   runAssistantNotificationAction,
 } from "../../lib/operatorNotifications";
 import { bootstrapAgentSession, useAgentStore } from "../../session/autopilotSession";
+import {
+  openCompanionAutopilot,
+  openCompanionAutopilotIntent,
+  openCompanionCapabilities,
+  openCompanionCapabilitySetup,
+  openCompanionGate,
+  openCompanionNotifications,
+  openCompanionPolicyTarget,
+  openCompanionSettings,
+  openCompanionChat,
+} from "../../services/companionShellNavigation";
 import { getSessionWorkbenchRuntime } from "../../services/sessionRuntime";
 import "./PillWindow.css";
 import "../shared/AssistantWorkbench.css";
@@ -161,31 +166,8 @@ export function PillWindow() {
     if (badgeCount > 0) {
       return `${badgeCount} pending inbox item${badgeCount === 1 ? "" : "s"}.`;
     }
-    return "Open Spotlight for a live run, or Chat for deeper inspection.";
+    return "Open Chat for a live run, or Workspace for deeper inspection.";
   }, [badgeCount, focusItem, task]);
-
-  const handleOpenSpotlight = useCallback(async () => {
-    await showSpotlightShell();
-  }, []);
-
-  const handleOpenChat = useCallback(async (view: string) => {
-    await openChatShellView(view);
-  }, []);
-
-  const openCapabilityTarget = useCallback(async (connectorId?: string | null) => {
-    await openChatCapabilityTarget(
-      connectorId,
-      connectorId ? "setup" : undefined,
-    );
-  }, []);
-
-  const openPolicyTarget = useCallback(async (connectorId?: string | null) => {
-    await openChatPolicyTarget(connectorId);
-  }, []);
-
-  const handleOpenGate = useCallback(async () => {
-    await showGateShell();
-  }, []);
 
   const workbenchRuntime = useMemo(
     () => getSessionWorkbenchRuntime(),
@@ -231,16 +213,16 @@ export function PillWindow() {
         actionId: primaryAssistantAction?.id ?? "open_target",
         updateAssistantStatus,
         onOpenAutopilot: () => {
-          void showSpotlightShell();
+          void openCompanionChat();
         },
         onOpenIntegrations: (connectorId) => {
-          void openCapabilityTarget(connectorId);
+          void openCompanionCapabilitySetup(connectorId);
         },
         onOpenShield: (connectorId) => {
-          void openPolicyTarget(connectorId);
+          void openCompanionPolicyTarget(connectorId);
         },
         onOpenSettings: () => {
-          void handleOpenChat("settings");
+          void openCompanionSettings();
         },
         onOpenTarget: (item) => {
           if (!item.target) {
@@ -270,7 +252,7 @@ export function PillWindow() {
             setShowWorkbench(true);
             return true;
           }
-          void handleOpenGate();
+          void openCompanionGate();
           return true;
         },
       });
@@ -278,15 +260,11 @@ export function PillWindow() {
       setFocusActionError(String(error));
     }
   }, [
-    handleOpenGate,
-    handleOpenChat,
     calendarEvent,
     focusAssistantNotification,
     gmailThread,
-    openCapabilityTarget,
     openMeetingPrep,
     openReplyComposer,
-    openPolicyTarget,
     primaryAssistantAction?.id,
     updateAssistantStatus,
   ]);
@@ -355,7 +333,7 @@ export function PillWindow() {
         type="button"
         className={`pill-shell pill-shell--${phaseTone(task)}`}
         onClick={() => {
-          void handleOpenSpotlight();
+          void openCompanionChat();
         }}
       >
         <div className="pill-shell__row">
@@ -389,7 +367,7 @@ export function PillWindow() {
             type="button"
             className="pill-action pill-action--gate"
             onClick={() => {
-              void handleOpenGate();
+              void openCompanionGate();
             }}
           >
             Review gate
@@ -400,7 +378,7 @@ export function PillWindow() {
             type="button"
             className="pill-action"
             onClick={() => {
-              void handleOpenChat("notifications");
+              void openCompanionNotifications();
             }}
           >
             Open inbox
@@ -410,7 +388,7 @@ export function PillWindow() {
           type="button"
           className="pill-action"
           onClick={() => {
-            void handleOpenChat("autopilot");
+            void openCompanionAutopilot();
           }}
         >
           Chat
@@ -485,7 +463,7 @@ export function PillWindow() {
                 type="button"
                 className="pill-action pill-action--gate"
                 onClick={() => {
-                  void handleOpenGate();
+                  void openCompanionGate();
                 }}
               >
                 Review in Gate
@@ -495,7 +473,7 @@ export function PillWindow() {
                   type="button"
                   className="pill-action"
                   onClick={() => {
-                    void handleOpenChat("capabilities");
+                    void openCompanionCapabilities();
                   }}
                 >
                   Open capabilities
@@ -550,7 +528,7 @@ export function PillWindow() {
                 type="button"
                 className="pill-action"
                 onClick={() => {
-                  void handleOpenGate();
+                  void openCompanionGate();
                 }}
               >
                 Review in Gate
@@ -617,11 +595,11 @@ export function PillWindow() {
             }}
             onOpenNotifications={() => {
               setShowWorkbench(false);
-              void handleOpenChat("notifications");
+              void openCompanionNotifications();
             }}
             onOpenAutopilot={(intent) => {
               setShowWorkbench(false);
-              void openChatAutopilotIntent(intent);
+              void openCompanionAutopilotIntent(intent);
             }}
           />
         </section>

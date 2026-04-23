@@ -144,13 +144,6 @@ dev_server_ready() {
   curl -fsS "$url" >/dev/null 2>&1
 }
 
-monaco_assets_ready() {
-  local url="$1"
-  local headers=""
-  headers="$(curl -fsSI "${url}/monaco/vs/loader.js" 2>/dev/null || true)"
-  [[ "$headers" =~ Content-Type:\ (application|text)/(javascript|x-javascript) ]]
-}
-
 local_runtime_ready() {
   local url="${AUTOPILOT_LOCAL_RUNTIME_HEALTH_URL:-}"
   [[ -n "$url" ]] || return 1
@@ -555,13 +548,13 @@ select_dev_url() {
   local requested_url="$1"
   local requested_port="${requested_url##*:}"
 
-  if [[ "$REUSE_DEV_SERVER" == "1" ]] && dev_server_ready "$requested_url" && monaco_assets_ready "$requested_url"; then
+  if [[ "$REUSE_DEV_SERVER" == "1" ]] && dev_server_ready "$requested_url"; then
     DEV_URL="$requested_url"
     return
   fi
 
   if [[ "$REUSE_DEV_SERVER" == "1" ]] && dev_server_ready "$requested_url"; then
-    echo "Existing dev server at $requested_url is missing Monaco workspace assets; starting a fresh isolated server instead."
+    echo "Existing dev server at $requested_url is missing required workspace editor assets; starting a fresh isolated server instead."
   fi
 
   for candidate_port in $(seq "$requested_port" $((requested_port + 10))); do
@@ -622,8 +615,12 @@ tauri_args+=("${EXTRA_TAURI_ARGS[@]}")
   # COSMIC/X11 dev defaults:
   # - unmanaged right-dock avoids compositor recenter/tiling overrides
   # - shell-dock fullscreen stays off unless explicitly requested
+  # - direct Workspace substrate on Linux/X11 is more reliable with
+  #   software-friendly WebKit/GL defaults during desktop dev
   "${mode_prefix[@]}" \
     AUTOPILOT_COSMIC_UNMANAGED_RIGHT_DOCK="${AUTOPILOT_COSMIC_UNMANAGED_RIGHT_DOCK:-1}" \
     AUTOPILOT_COSMIC_SHELL_DOCK="${AUTOPILOT_COSMIC_SHELL_DOCK:-0}" \
+    WEBKIT_DISABLE_COMPOSITING_MODE="${WEBKIT_DISABLE_COMPOSITING_MODE:-1}" \
+    LIBGL_ALWAYS_SOFTWARE="${LIBGL_ALWAYS_SOFTWARE:-1}" \
     npm run tauri --workspace=apps/autopilot -- "${tauri_args[@]}"
 )

@@ -26,6 +26,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from desktop_capture import capture_window_with_fallback
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_PROFILE = "desktop-localgpu"
@@ -38,6 +40,7 @@ DEFAULT_DB_PATH = (
 DEFAULT_OUTPUT_ROOT = PROJECT_ROOT / "docs/evidence/route-hierarchy/live-desktop-parity"
 
 WINDOW_SEARCH_PATTERN = "Autopilot Chat"
+BROWSER_CAPTURE_URL = "http://127.0.0.1:1433/"
 NEW_OUTCOME_X = 120
 NEW_OUTCOME_Y = 150
 COMPOSER_X_RATIO = 0.38
@@ -174,11 +177,6 @@ def type_text(window: WindowGeometry, text_value: str) -> None:
             text_value,
         ]
     )
-
-
-def capture_window(window: WindowGeometry, output_path: Path) -> None:
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    run(["import", "-window", str(window.window_id), str(output_path)])
 
 
 def load_checkpoint(db_path: Path, checkpoint_name: str) -> dict[str, Any] | None:
@@ -530,6 +528,14 @@ def parse_args() -> argparse.Namespace:
         help=f"Window title pattern to target. Default: {WINDOW_SEARCH_PATTERN!r}",
     )
     parser.add_argument(
+        "--browser-capture-url",
+        default=os.environ.get("AUTOPILOT_DESKTOP_CAPTURE_URL", BROWSER_CAPTURE_URL),
+        help=(
+            "Browser URL to use when Linux/X11 window capture comes back blank. "
+            f"Default: {BROWSER_CAPTURE_URL}"
+        ),
+    )
+    parser.add_argument(
         "--reuse-session",
         action="store_true",
         help="Reuse the currently active Studio outcome instead of resetting to a fresh outcome with Ctrl+N before each prompt.",
@@ -597,12 +603,19 @@ def main() -> int:
 
         time.sleep(POST_SETTLE_CAPTURE_DELAY_SECS)
         screenshot_path = prompt_dir / "final.png"
-        capture_window(window, screenshot_path)
+        capture_result = capture_window_with_fallback(
+            window.window_id,
+            screenshot_path,
+            browser_url=args.browser_capture_url,
+        )
 
         bundle = {
             "captured_at": datetime.now(timezone.utc).isoformat(),
             "prompt": prompt,
             "screenshot": str(screenshot_path),
+            "capture_mode": capture_result.mode,
+            "capture_diagnostics": capture_result.diagnostics,
+            "window_capture_error": capture_result.error,
             **result_bundle(task),
             "probe_error": probe_error,
         }

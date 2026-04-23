@@ -2,12 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AssistantWorkbenchView,
   type AssistantWorkbenchActivity,
-  openChatAssistantWorkbench,
-  openChatAutopilotIntent,
-  openChatCapabilityTarget,
-  openChatPolicyTarget,
-  openChatShellView,
-  showSpotlightShell,
   useAssistantWorkbenchState,
   useSessionApprovalState,
   useSessionInterruptionActions,
@@ -30,24 +24,33 @@ import {
 } from "../../lib/operatorNotifications";
 import { buildAssistantWorkbenchSummary } from "../../lib/assistantWorkbenchSummary";
 import { bootstrapAgentSession, useAgentStore } from "../../session/autopilotSession";
+import {
+  openCompanionAutopilotIntent,
+  openCompanionCapabilities,
+  openCompanionCapabilityTarget,
+  openCompanionNotifications,
+  openCompanionPolicyTarget,
+  openCompanionSettings,
+  openCompanionChat,
+} from "../../services/companionShellNavigation";
+import { openAssistantWorkbenchReview } from "../../services/reviewNavigation";
 import { getSessionWorkbenchRuntime } from "../../services/sessionRuntime";
 import type {
   AssistantNotificationRecord,
-  AssistantWorkbenchSession,
   InterventionRecord,
 } from "../../types";
-import { SpotlightGateDock } from "../SpotlightWindow/components/SpotlightGateDock";
+import { ChatGateDock } from "../ChatShellWindow/components/ChatGateDock";
 import { GateNotificationDetail } from "./GateNotificationDetail";
 
-import "../SpotlightWindow/styles/Layout.css";
-import "../SpotlightWindow/styles/Chat.css";
-import "../SpotlightWindow/styles/Sidebar.css";
-import "../SpotlightWindow/styles/Components.css";
-import "../SpotlightWindow/styles/Visuals.css";
-import "../SpotlightWindow/styles/ArtifactPanel.css";
-import "../SpotlightWindow/styles/Overrides.css";
-import "../SpotlightWindow/styles/MicroEventCard.css";
-import "../SpotlightWindow/styles/ChatSurface.css";
+import "../ChatShellWindow/styles/Layout.css";
+import "../ChatShellWindow/styles/Chat.css";
+import "../ChatShellWindow/styles/Sidebar.css";
+import "../ChatShellWindow/styles/Components.css";
+import "../ChatShellWindow/styles/Visuals.css";
+import "../ChatShellWindow/styles/ArtifactPanel.css";
+import "../ChatShellWindow/styles/Overrides.css";
+import "../ChatShellWindow/styles/MicroEventCard.css";
+import "../ChatShellWindow/styles/ChatSurface.css";
 import "../shared/AssistantWorkbench.css";
 import "./GateWindow.css";
 
@@ -243,17 +246,6 @@ export function GateWindow() {
     }
   }, [filteredQueueItems, selectedQueueItemKey]);
 
-  const openChatView = useCallback(async (view: string) => {
-    await openChatShellView(view);
-  }, []);
-
-  const openChatWorkbench = useCallback(
-    async (session: AssistantWorkbenchSession) => {
-      await openChatAssistantWorkbench(session);
-    },
-    [],
-  );
-
   const collapseWorkbench = useCallback(() => {
     setShowWorkbench(false);
   }, []);
@@ -264,23 +256,6 @@ export function GateWindow() {
     }
     setShowWorkbench(false);
   }, [assistantWorkbench]);
-
-  const openCapabilityTarget = useCallback(
-    async (
-      connectorId?: string | null,
-      detailSection?: "setup" | "policy" | null,
-    ) => {
-      await openChatCapabilityTarget(
-        connectorId,
-        detailSection ?? undefined,
-      );
-    },
-    [],
-  );
-
-  const openPolicyTarget = useCallback(async (connectorId?: string | null) => {
-    await openChatPolicyTarget(connectorId);
-  }, []);
 
   const handleDeferIntervention = useCallback(
     async (item: InterventionRecord) => {
@@ -323,19 +298,19 @@ export function GateWindow() {
           actionId,
           updateAssistantStatus,
           onOpenAutopilot: () => {
-            void showSpotlightShell();
+            void openCompanionChat();
           },
           onOpenIntegrations: (connectorId) => {
-            void openCapabilityTarget(
+            void openCompanionCapabilityTarget(
               connectorId,
               connectorId ? "setup" : null,
             );
           },
           onOpenShield: (connectorId) => {
-            void openPolicyTarget(connectorId);
+            void openCompanionPolicyTarget(connectorId);
           },
           onOpenSettings: () => {
-            void openChatView("settings");
+            void openCompanionSettings();
           },
           onOpenTarget: () => {
             setSelectedQueueItemKey(`assistant:${item.itemId}`);
@@ -345,7 +320,7 @@ export function GateWindow() {
         setQueueActionError(String(error));
       }
     },
-    [openCapabilityTarget, openPolicyTarget, openChatView, updateAssistantStatus],
+    [updateAssistantStatus],
   );
 
   const formatWorkbenchActivityTime = useCallback((timestampMs: number) => {
@@ -383,7 +358,7 @@ export function GateWindow() {
               type="button"
               className="gate-window-header-action"
               onClick={() => {
-                void openChatView("notifications");
+                void openCompanionNotifications();
               }}
             >
               Open inbox
@@ -432,7 +407,7 @@ export function GateWindow() {
                 type="button"
                 className="gate-window-secondary-button"
                 onClick={() => {
-                  void openChatWorkbench(assistantWorkbench);
+                  void openAssistantWorkbenchReview(assistantWorkbench);
                 }}
               >
                 {activeWorkbenchSummary.resumeLabel}
@@ -587,25 +562,25 @@ export function GateWindow() {
               onBack={collapseWorkbench}
               onOpenNotifications={focusWorkbenchSource}
               onOpenAutopilot={(intent) => {
-                void openChatAutopilotIntent(intent);
+                void openCompanionAutopilotIntent(intent);
               }}
             />
             <div className="gate-window-workbench-stage-actions">
               <button
                 type="button"
-                className="gate-window-secondary-button"
-                onClick={() => {
-                  void openChatWorkbench(assistantWorkbench);
-                }}
-              >
-                Open in Chat
+              className="gate-window-secondary-button"
+              onClick={() => {
+                  void openAssistantWorkbenchReview(assistantWorkbench);
+              }}
+            >
+              Open in Chat
               </button>
             </div>
           </section>
         ) : null}
 
         {hasGateSurface ? (
-          <SpotlightGateDock
+          <ChatGateDock
             isGated={isGated}
             gateInfo={gateInfo}
             isPiiGate={isPiiGate}
@@ -650,13 +625,13 @@ export function GateWindow() {
             onSearchDraftChange={setSearchDraft}
             onSelectItemKey={setSelectedQueueItemKey}
             onToolbarAction={() => {
-              void showSpotlightShell();
+              void openCompanionChat();
             }}
             onOpenAutopilot={() => {
-              void showSpotlightShell();
+              void openCompanionChat();
             }}
             onOpenLocalEngine={() => {
-              void openChatView("capabilities");
+              void openCompanionCapabilities();
             }}
             onAssistantAction={handleAssistantAction}
             onDeferAssistant={handleDeferAssistantNotification}
@@ -670,10 +645,10 @@ export function GateWindow() {
             setSelectedQueueItemKey(null);
           }}
           onOpenChat={() => {
-            void showSpotlightShell();
+            void openCompanionChat();
           }}
           onOpenInbox={() => {
-            void openChatView("notifications");
+            void openCompanionNotifications();
           }}
           onOpenReplyComposer={(session) => {
             openReplyComposer(session);
@@ -684,13 +659,16 @@ export function GateWindow() {
             setShowWorkbench(true);
           }}
           onOpenCapabilities={(connectorId) => {
-            void openCapabilityTarget(connectorId, connectorId ? "setup" : null);
+            void openCompanionCapabilityTarget(
+              connectorId,
+              connectorId ? "setup" : null,
+            );
           }}
           onOpenPolicy={(connectorId) => {
-            void openPolicyTarget(connectorId);
+            void openCompanionPolicyTarget(connectorId);
           }}
           onOpenLocalEngine={() => {
-            void openChatView("capabilities");
+            void openCompanionCapabilities();
           }}
         />
       </section>

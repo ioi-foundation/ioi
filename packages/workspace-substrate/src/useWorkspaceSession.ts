@@ -8,6 +8,8 @@ import type {
   WorkspaceNode,
   WorkspaceOpenRequest,
   WorkspacePane,
+  WorkspacePersistedDocument,
+  WorkspacePersistedState,
   WorkspacePortEntry,
   WorkspaceProblemEntry,
   WorkspaceSearchResult,
@@ -41,9 +43,12 @@ interface UseWorkspaceSessionOptions {
   terminalController: WorkspaceTerminalController;
   initialPane?: WorkspacePane;
   initialBottomPanel?: WorkspaceBottomPanel;
+  initialState?: WorkspacePersistedState | null;
+  initialSnapshot?: WorkspaceSnapshot | null;
   externalOpenRequest?: WorkspaceOpenRequest | null;
   onActivePathChange?: (path: string | null) => void;
   onActivityChange?: (activity: WorkspaceActivityEntry[]) => void;
+  onStateChange?: (state: WorkspacePersistedState) => void;
 }
 
 function fileTabId(path: string): string {
@@ -138,13 +143,18 @@ export function useWorkspaceSession({
   terminalController,
   initialPane = "files",
   initialBottomPanel = "output",
+  initialState = null,
+  initialSnapshot = null,
   externalOpenRequest = null,
   onActivePathChange,
   onActivityChange,
+  onStateChange,
 }: UseWorkspaceSessionOptions) {
-  const [activePane, setActivePane] = useState<WorkspacePane>(initialPane);
-  const [snapshot, setSnapshot] = useState<WorkspaceSnapshot | null>(null);
-  const [treeNodes, setTreeNodes] = useState<WorkspaceNode[]>([]);
+  const [activePane, setActivePane] = useState<WorkspacePane>(
+    initialState?.activePane ?? initialPane,
+  );
+  const [snapshot, setSnapshot] = useState<WorkspaceSnapshot | null>(initialSnapshot);
+  const [treeNodes, setTreeNodes] = useState<WorkspaceNode[]>(initialSnapshot?.tree ?? []);
   const [expandedPaths, setExpandedPaths] = useState<Record<string, boolean>>({});
   const [loadingDirectories, setLoadingDirectories] = useState<Record<string, boolean>>(
     {},
@@ -164,8 +174,12 @@ export function useWorkspaceSession({
   const [sourceControlLoading, setSourceControlLoading] = useState(false);
   const [sourceControlError, setSourceControlError] = useState<string | null>(null);
   const [activeBottomPanel, setActiveBottomPanel] =
-    useState<WorkspaceBottomPanel>(initialBottomPanel);
-  const [bottomPanelOpen, setBottomPanelOpen] = useState(true);
+    useState<WorkspaceBottomPanel>(
+      initialState?.activeBottomPanel ?? initialBottomPanel,
+    );
+  const [bottomPanelOpen, setBottomPanelOpen] = useState(
+    initialState?.bottomPanelOpen ?? true,
+  );
   const [workspaceActivity, setWorkspaceActivity] = useState<WorkspaceActivityEntry[]>([]);
 
   const activeDocument = useMemo(
@@ -175,6 +189,8 @@ export function useWorkspaceSession({
   const documentsRef = useRef<WorkspaceDocumentTab[]>([]);
   const activeFilePathRef = useRef<string | null>(null);
   const activitySequenceRef = useRef(0);
+  const initialStateRef = useRef(initialState);
+  const restoredRootRef = useRef<string | null>(null);
 
   const appendActivity = useCallback(
     (
@@ -197,6 +213,10 @@ export function useWorkspaceSession({
     },
     [],
   );
+
+  useEffect(() => {
+    initialStateRef.current = initialState;
+  }, [initialState]);
 
   useEffect(() => {
     documentsRef.current = documents;
@@ -223,8 +243,10 @@ export function useWorkspaceSession({
       .slice(0, 160);
   }, [terminalController.outputEntries, workspaceActivity]);
 
-  const loadWorkspace = useCallback(async () => {
-    setWorkspaceLoading(true);
+  const loadWorkspace = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      setWorkspaceLoading(true);
+    }
     setWorkspaceError(null);
     try {
       const nextSnapshot = await adapter.inspectWorkspace(root);
@@ -250,7 +272,9 @@ export function useWorkspaceSession({
       setActiveBottomPanel("problems");
       appendActivity("error", "workspace", "Workspace refresh failed", message);
     } finally {
-      setWorkspaceLoading(false);
+      if (!options?.silent) {
+        setWorkspaceLoading(false);
+      }
     }
   }, [adapter, appendActivity, root]);
 
@@ -273,22 +297,38 @@ export function useWorkspaceSession({
   }, [adapter, appendActivity, root]);
 
   useEffect(() => {
+    if (restoredRootRef.current === root) {
+      return;
+    }
+    restoredRootRef.current = root;
     setDocuments([]);
     setActiveDocumentId(null);
     setRevealRequest(null);
     setSearchDraft("");
     setSearchResult(null);
     setSearchError(null);
-    setExpandedPaths({});
+    setSnapshot(initialSnapshot);
+    setTreeNodes(initialSnapshot?.tree ?? []);
+    setExpandedPaths(initialState?.expandedPaths ?? {});
     setLoadingDirectories({});
-    setActiveBottomPanel(initialBottomPanel);
-    setBottomPanelOpen(true);
+    setActivePane(initialState?.activePane ?? initialPane);
+    setActiveBottomPanel(initialState?.activeBottomPanel ?? initialBottomPanel);
+    setBottomPanelOpen(initialState?.bottomPanelOpen ?? true);
     activitySequenceRef.current = 0;
     setWorkspaceActivity([]);
     appendActivity("info", "workspace", "Workspace session ready", root);
-    void loadWorkspace();
+    void loadWorkspace({ silent: !!initialSnapshot });
     void refreshSourceControl();
-  }, [appendActivity, initialBottomPanel, loadWorkspace, refreshSourceControl, root]);
+  }, [
+    appendActivity,
+    initialBottomPanel,
+    initialPane,
+    initialState,
+    initialSnapshot,
+    loadWorkspace,
+    refreshSourceControl,
+    root,
+  ]);
 
   useEffect(() => {
     if (!onActivePathChange) {
@@ -303,6 +343,50 @@ export function useWorkspaceSession({
     }
     onActivityChange(activity);
   }, [activity, onActivityChange]);
+
+  useEffect(() => {
+    if (!onStateChange) {
+      return;
+    }
+
+    const persistedDocuments: WorkspacePersistedDocument[] = documents.map((tab) => {
+      if (tab.kind === "file") {
+        return {
+          kind: "file",
+          path: tab.path,
+        };
+      }
+
+      return {
+        kind: "diff",
+        path: tab.path,
+        staged: tab.id.startsWith("diff:staged:"),
+      };
+    });
+
+    const activeDocumentPath = activeDocument
+      ? activeDocument.kind === "file"
+        ? activeDocument.path
+        : `${activeDocument.id.startsWith("diff:staged:") ? "diff:staged:" : "diff:working:"}${activeDocument.path}`
+      : null;
+
+    onStateChange({
+      activePane,
+      activeBottomPanel,
+      bottomPanelOpen,
+      expandedPaths,
+      documents: persistedDocuments,
+      activeDocumentPath,
+    });
+  }, [
+    activeBottomPanel,
+    activeDocument,
+    activePane,
+    bottomPanelOpen,
+    documents,
+    expandedPaths,
+    onStateChange,
+  ]);
 
   useEffect(() => {
     if (activePane !== "source-control") {
@@ -643,6 +727,62 @@ export function useWorkspaceSession({
     [adapter, appendActivity, documents, root],
   );
 
+  useEffect(() => {
+    const persisted = initialStateRef.current;
+    if (
+      !persisted ||
+      persisted.documents.length === 0 ||
+      workspaceLoading ||
+      restoredRootRef.current === root
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const restoreDocuments = async () => {
+      for (const entry of persisted.documents) {
+        if (cancelled) {
+          return;
+        }
+        if (entry.kind === "file") {
+          await openFile({ path: entry.path });
+          continue;
+        }
+        await openDiff(entry.path, entry.staged);
+      }
+
+      if (cancelled) {
+        return;
+      }
+
+      if (persisted.activeDocumentPath) {
+        const nextActive = documentsRef.current.find((tab) => {
+          if (tab.kind === "file") {
+            return tab.path === persisted.activeDocumentPath;
+          }
+
+          const key = `${
+            tab.id.startsWith("diff:staged:") ? "diff:staged:" : "diff:working:"
+          }${tab.path}`;
+          return key === persisted.activeDocumentPath;
+        });
+
+        if (nextActive) {
+          setActiveDocumentId(nextActive.id);
+        }
+      }
+
+      restoredRootRef.current = root;
+    };
+
+    void restoreDocuments();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [openDiff, openFile, root, workspaceLoading]);
+
   const mutateSourceControl = useCallback(
     async (
       action: (workspaceRoot: string, paths: string[]) => Promise<WorkspaceSourceControlState>,
@@ -903,7 +1043,7 @@ export function useWorkspaceSession({
           id: `problem:large:${tab.path}`,
           severity: "warning",
           source: "editor",
-          title: `${tab.name} is too large for Monaco`,
+          title: `${tab.name} is too large for the embedded editor`,
           detail: "Use an external editor for this file or narrow the working set.",
           path: tab.path,
         });

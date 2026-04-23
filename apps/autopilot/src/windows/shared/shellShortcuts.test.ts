@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import {
   buildDefaultShellShortcutRecords,
   shellShortcutPlatformLabel,
-  spotlightCommandPaletteShortcutLabel,
+  chatCommandPaletteShortcutLabel,
   chatNavigationShortcutLabel,
 } from "./shellShortcuts.ts";
 
@@ -14,13 +14,13 @@ const windows = {
 
 {
   assert.equal(shellShortcutPlatformLabel(mac), "macOS");
-  assert.equal(spotlightCommandPaletteShortcutLabel(mac), "Cmd+K");
+  assert.equal(chatCommandPaletteShortcutLabel(mac), "Cmd+K");
   assert.equal(chatNavigationShortcutLabel(3, mac), "⌘3");
 }
 
 {
   assert.equal(shellShortcutPlatformLabel(windows), "Windows/Linux");
-  assert.equal(spotlightCommandPaletteShortcutLabel(windows), "Ctrl+K");
+  assert.equal(chatCommandPaletteShortcutLabel(windows), "Ctrl+K");
   assert.equal(chatNavigationShortcutLabel(3, windows), "Ctrl+3");
 }
 
@@ -31,7 +31,7 @@ const windows = {
     "⌘4",
   );
   assert.equal(
-    records.find((record) => record.id === "spotlight-command-palette")?.binding,
+    records.find((record) => record.id === "chat-command-palette")?.binding,
     "Cmd+K",
   );
 }

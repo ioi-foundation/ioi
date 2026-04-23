@@ -12,6 +12,8 @@ export interface CapabilitiesDetailPaneProps {
     options?: { template?: boolean },
   ) => CapabilityTrustProfile | null;
   onOpenPolicyCenter?: (connector?: ConnectorSummary | null) => void;
+  onOpenSessionTarget?: (sessionId: string) => void;
+  onOpenArtifact?: (artifactId: string) => void;
   onOpenInbox?: () => void;
   onOpenSettings?: () => void;
 }

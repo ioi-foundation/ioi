@@ -66,6 +66,25 @@ type RuntimeCatalogStageEntry = {
 
 const appliedChatLaunchIds = new Set<string>();
 
+function resolveInitialPrimaryView(): PrimaryView {
+  if (typeof window !== "undefined") {
+    const requested = new URLSearchParams(window.location.search).get("view");
+    if (requested === "workspace") {
+      return "workspace";
+    }
+  }
+
+  const envRequestedView = (import.meta.env.VITE_AUTOPILOT_INITIAL_VIEW ?? "")
+    .toString()
+    .trim()
+    .toLowerCase();
+  if (envRequestedView === "workspace") {
+    return "workspace";
+  }
+
+  return "chat";
+}
+
 function waitForChatAutopilotSurfaceFrame(): Promise<void> {
   return new Promise((resolve) => {
     if (typeof window === "undefined") {
@@ -191,7 +210,7 @@ async function sendNativeAutopilotNotification(
 }
 
 export function useChatWindowController() {
-  const [activeView, setActiveView] = useState<PrimaryView>("chat");
+  const [activeView, setActiveView] = useState<PrimaryView>(resolveInitialPrimaryView);
   const [chatSurface, setChatSurface] = useState<ChatSurface>("chat");
   const [chatPaneVisible, setChatPaneVisible] = useState(true);
   const [chatPaneMaximized, setChatPaneMaximized] = useState(false);
@@ -864,13 +883,6 @@ export function useChatWindowController() {
 
   const chatFullscreen =
     activeView !== "chat" && chatPaneVisible && chatPaneMaximized;
-  const showStatusBar =
-    !chatFullscreen &&
-    (activeView === "chat" ||
-      activeView === "workflows" ||
-      activeView === "runs" ||
-      activeView === "policy" ||
-      activeView === "settings");
 
   return {
     activeView,
@@ -878,7 +890,6 @@ export function useChatWindowController() {
     currentProject,
     projects: PROJECT_SCOPES,
     chatFullscreen,
-    showStatusBar,
     changePrimaryView,
     chat: {
       surface: chatSurface,

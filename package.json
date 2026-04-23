@@ -10,6 +10,11 @@
     "inspect:traineddata": "node ./scripts/inspect-traineddata.mjs",
     "dev:desktop": "bash apps/autopilot/scripts/dev-desktop.sh x11",
     "dev:desktop:wayland": "bash apps/autopilot/scripts/dev-desktop.sh wayland",
+    "probe:desktop:workspace": "python3 apps/autopilot/scripts/desktop_workspace_probe.py",
+    "probe:desktop:workspace:activity": "python3 apps/autopilot/scripts/desktop_workspace_activity_probe.py",
+    "probe:desktop:workspace:toolbar": "python3 apps/autopilot/scripts/desktop_workspace_toolbar_probe.py",
+    "probe:desktop:workspace:split": "python3 apps/autopilot/scripts/desktop_workspace_split_probe.py",
+    "probe:desktop:workspace:sidebar-footer": "python3 apps/autopilot/scripts/desktop_workspace_sidebar_footer_probe.py",
     "dryrun:desktop": "bash apps/autopilot/scripts/dry-run-desktop.sh x11",
     "dryrun:desktop:wayland": "bash apps/autopilot/scripts/dry-run-desktop.sh wayland",
     "dev:web": "npm run dev --workspace=apps/agent-studio",
@@ -26,7 +31,7 @@
     "lint": "npm run lint --workspaces --if-present"
   },
   "devDependencies": {
-    "typescript": "^5.3.3",
-    "prettier": "^3.2.5"
+    "prettier": "^3.2.5",
+    "typescript": "^5.3.3"
   }
 }

@@ -1,9 +1,6 @@
-import { useCallback } from "react";
 import { buildConnectorPolicySummary } from "../chatPolicyCenter";
-import { WORKSPACE_NAME } from "../chatWindowModel";
 import { useChatWindowController } from "../useChatWindowController";
 import { type TauriRuntime } from "../../../services/TauriRuntime";
-import { StatusBar } from "../../../components/StatusBar";
 import { buildConnectorTrustProfile } from "./capabilities/model";
 import { ChatLocalActivityBar } from "./ChatLocalActivityBar";
 import { ChatCapabilitiesView } from "./ChatCapabilitiesView";
@@ -15,6 +12,8 @@ import { ChatIdeHeader } from "./ChatIdeHeader";
 import { ChatCopilotView } from "./ChatCopilot";
 import { ChatLeftUtilityPane } from "./ChatLeftUtilityPane";
 import { ChatUtilityDrawer } from "./ChatUtilityDrawer";
+import { WorkspaceShell } from "../../../services/WorkspaceShell";
+import { getDefaultWorkspaceWorkbenchHost } from "../../../services/workspaceWorkbenchHostRegistry";
 
 interface ChatWindowMainContentProps {
   controller: ReturnType<typeof useChatWindowController>;
@@ -27,31 +26,47 @@ export function ChatWindowMainContent({
 }: ChatWindowMainContentProps) {
   const { activeView, currentProject, projects, notificationBadgeCount } =
     controller;
+  const workspaceHost = getDefaultWorkspaceWorkbenchHost();
+
+  if (activeView === "workspace") {
+    return (
+      <div className="chat-shell chat-shell--workspace-mode">
+        <ChatIdeHeader
+          activeView={activeView}
+          workflowSurface={controller.workflow.surface}
+        />
+
+        <div className="chat-workspace chat-workspace--workspace-mode">
+          <ChatLocalActivityBar
+            activeView={activeView}
+            onViewChange={controller.changePrimaryView}
+            notificationCount={notificationBadgeCount}
+            currentProject={currentProject}
+          />
+
+          <div className="chat-main chat-main--workspace-mode">
+            <WorkspaceShell
+              active
+              currentProject={currentProject}
+              runtime={runtime}
+              host={workspaceHost}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const auxiliaryChatVisible =
     activeView !== "chat" && controller.chat.paneVisible;
   const auxiliaryChatFullscreen =
     auxiliaryChatVisible && controller.chat.paneMaximized;
-  const openNewTerminal = useCallback(() => {
-    controller.chat.openAutopilotWithIntent(
-      "Open the active artifact's workspace terminal lens if a workspace renderer is available.",
-    );
-    controller.changePrimaryView("chat");
-  }, [controller]);
 
   return (
     <div className="chat-shell">
       <ChatIdeHeader
-        workspaceName={WORKSPACE_NAME}
-        currentProject={currentProject}
-        projects={projects}
         activeView={activeView}
         workflowSurface={controller.workflow.surface}
-        chatVisible={auxiliaryChatVisible}
-        notificationCount={notificationBadgeCount}
-        onSelectProject={controller.workflow.selectProject}
-        onToggleChat={controller.chat.togglePaneVisibility}
-        onOpenCommandPalette={controller.modals.openCommandPalette}
-        onOpenNewTerminal={openNewTerminal}
       />
 
       <div className="chat-workspace">
@@ -233,8 +248,8 @@ export function ChatWindowMainContent({
                 session={controller.chat.assistantWorkbench}
                 runtime={runtime}
                 maximized={controller.chat.paneMaximized}
-                seedIntent={null}
-                onConsumeSeedIntent={undefined}
+                seedIntent={controller.chat.seedIntent}
+                onConsumeSeedIntent={controller.chat.consumeSeedIntent}
                 onClose={controller.chat.hidePane}
                 onToggleMaximize={controller.chat.toggleMaximize}
                 onBackToInbox={() => {
@@ -246,18 +261,6 @@ export function ChatWindowMainContent({
               />
             ) : null}
           </div>
-
-          {controller.showStatusBar ? (
-            <StatusBar
-              metrics={{ cost: 0.0, privacy: 0.0, risk: 0.0 }}
-              status="Ready"
-              onOpenShield={() =>
-                controller.policy.openPolicyCenter(
-                  controller.policy.focusedConnectorId,
-                )
-              }
-            />
-          ) : null}
         </div>
       </div>
     </div>

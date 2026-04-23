@@ -5,7 +5,7 @@ use tauri::{
 
 use super::layout::{apply_layout, focus_window_best_effort};
 use super::monitor::get_target_monitor;
-use super::state::SPOTLIGHT_LAYOUT;
+use super::state::CHAT_SESSION_LAYOUT;
 use super::{
     queue_pending_chat_launch_for_app, record_chat_launch_receipt_for_app,
     should_surface_overlay_windows_in_task_switcher, summarize_chat_launch_envelope,
@@ -17,7 +17,7 @@ const PILL_WIDTH: f64 = 440.0;
 const PILL_HEIGHT: f64 = 138.0;
 const PILL_BOTTOM_MARGIN: f64 = 32.0;
 
-pub fn show_spotlight(app: AppHandle) {
+pub fn show_chat_session(app: AppHandle) {
     show_autopilot_surface(app);
 }
 
@@ -34,14 +34,14 @@ pub fn hide_pill(app: AppHandle) {
     }
 }
 
-pub fn hide_spotlight(app: AppHandle) {
+pub fn hide_chat_session(app: AppHandle) {
     hide_autopilot_surface(app);
 }
 
 fn show_autopilot_surface(app: AppHandle) {
     hide_pill(app.clone());
-    if let Some(window) = app.get_webview_window("spotlight") {
-        let layout_snapshot = SPOTLIGHT_LAYOUT
+    if let Some(window) = app.get_webview_window("chat-session") {
+        let layout_snapshot = CHAT_SESSION_LAYOUT
             .lock()
             .map(|layout| *layout)
             .unwrap_or_default();
@@ -65,7 +65,7 @@ fn show_autopilot_surface(app: AppHandle) {
 }
 
 fn hide_autopilot_surface(app: AppHandle) {
-    if let Some(window) = app.get_webview_window("spotlight") {
+    if let Some(window) = app.get_webview_window("chat-session") {
         let _ = window.hide();
         show_pill(app);
         return;
@@ -103,8 +103,8 @@ fn position_pill_window(app: &AppHandle, window: &WebviewWindow) {
     }));
 }
 
-pub fn toggle_spotlight_sidebar(app: AppHandle, visible: bool) {
-    if let Ok(mut layout) = SPOTLIGHT_LAYOUT.lock() {
+pub fn toggle_chat_session_sidebar(app: AppHandle, visible: bool) {
+    if let Ok(mut layout) = CHAT_SESSION_LAYOUT.lock() {
         if layout.sidebar_visible == visible {
             return;
         }
@@ -115,8 +115,8 @@ pub fn toggle_spotlight_sidebar(app: AppHandle, visible: bool) {
     }
 }
 
-pub fn toggle_spotlight_artifact_panel(app: AppHandle, visible: bool) {
-    if let Ok(mut layout) = SPOTLIGHT_LAYOUT.lock() {
+pub fn toggle_chat_session_artifact_panel(app: AppHandle, visible: bool) {
+    if let Ok(mut layout) = CHAT_SESSION_LAYOUT.lock() {
         if layout.artifact_panel_visible == visible {
             return;
         }
@@ -127,8 +127,8 @@ pub fn toggle_spotlight_artifact_panel(app: AppHandle, visible: bool) {
     }
 }
 
-pub fn get_spotlight_layout() -> Result<(bool, bool), String> {
-    if let Ok(layout) = SPOTLIGHT_LAYOUT.lock() {
+pub fn get_chat_session_layout() -> Result<(bool, bool), String> {
+    if let Ok(layout) = CHAT_SESSION_LAYOUT.lock() {
         Ok((layout.sidebar_visible, layout.artifact_panel_visible))
     } else {
         Err("Lock failed".into())
@@ -155,7 +155,7 @@ pub fn hide_gate(app: AppHandle) {
 
 pub fn show_chat(app: AppHandle) {
     hide_pill(app.clone());
-    if let Some(window) = app.get_webview_window("spotlight") {
+    if let Some(window) = app.get_webview_window("chat-session") {
         let _ = window.hide();
     }
     let existing_window = app.get_webview_window("chat");
@@ -268,8 +268,8 @@ pub fn hide_chat(app: AppHandle) {
 }
 
 fn no_primary_operator_surface_visible(app: &AppHandle) -> bool {
-    let spotlight_visible = app
-        .get_webview_window("spotlight")
+    let chat_session_visible = app
+        .get_webview_window("chat-session")
         .and_then(|window| window.is_visible().ok())
         .unwrap_or(false);
     let chat_visible = app
@@ -281,7 +281,7 @@ fn no_primary_operator_surface_visible(app: &AppHandle) -> bool {
         .and_then(|window| window.is_visible().ok())
         .unwrap_or(false);
 
-    !spotlight_visible && !chat_visible && !gate_visible
+    !chat_session_visible && !chat_visible && !gate_visible
 }
 
 fn ensure_webview_window(app: &AppHandle, label: &str) -> Option<WebviewWindow> {

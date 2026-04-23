@@ -1,0 +1,151 @@
+{
+  "steps": [
+    {
+      "id": "baseline",
+      "click": null,
+      "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/route-hierarchy/live-workspace-layout/2026-04-23T19-57-18Z/baseline.png",
+      "capture_mode": "window",
+      "capture_diagnostics": {
+        "window_id": 14680067,
+        "browser_fallback_url": null,
+        "window_analysis": {
+          "unique_colors": 2560,
+          "mean": 0.863807,
+          "stddev": 0.290655
+        }
+      }
+    },
+    {
+      "id": "sidebar-collapsed",
+      "click": {
+        "origin_x": 320,
+        "origin_y": 154,
+        "width": 1280,
+        "height": 650,
+        "x": 85,
+        "y": 94
+      },
+      "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/route-hierarchy/live-workspace-layout/2026-04-23T19-57-18Z/sidebar-collapsed.png",
+      "capture_mode": "window",
+      "capture_diagnostics": {
+        "window_id": 14680067,
+        "browser_fallback_url": null,
+        "window_analysis": {
+          "unique_colors": 1912,
+          "mean": 0.867022,
+          "stddev": 0.290096
+        }
+      }
+    },
+    {
+      "id": "sidebar-restored",
+      "click": {
+        "origin_x": 320,
+        "origin_y": 154,
+        "width": 1280,
+        "height": 650,
+        "x": 85,
+        "y": 94
+      },
+      "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/route-hierarchy/live-workspace-layout/2026-04-23T19-57-18Z/sidebar-restored.png",
+      "capture_mode": "window",
+      "capture_diagnostics": {
+        "window_id": 14680067,
+        "browser_fallback_url": null,
+        "window_analysis": {
+          "unique_colors": 2563,
+          "mean": 0.863791,
+          "stddev": 0.290681
+        }
+      }
+    },
+    {
+      "id": "dock-closed",
+      "click": {
+        "origin_x": 320,
+        "origin_y": 154,
+        "width": 1280,
+        "height": 650,
+        "x": 1242,
+        "y": 95
+      },
+      "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/route-hierarchy/live-workspace-layout/2026-04-23T19-57-18Z/dock-closed.png",
+      "capture_mode": "window",
+      "capture_diagnostics": {
+        "window_id": 14680067,
+        "browser_fallback_url": null,
+        "window_analysis": {
+          "unique_colors": 2560,
+          "mean": 0.863807,
+          "stddev": 0.290655
+        }
+      }
+    },
+    {
+      "id": "dock-restored",
+      "click": {
+        "origin_x": 320,
+        "origin_y": 154,
+        "width": 1280,
+        "height": 650,
+        "x": 1210,
+        "y": 59
+      },
+      "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/route-hierarchy/live-workspace-layout/2026-04-23T19-57-18Z/dock-restored.png",
+      "capture_mode": "window",
+      "capture_diagnostics": {
+        "window_id": 14680067,
+        "browser_fallback_url": null,
+        "window_analysis": {
+          "unique_colors": 2307,
+          "mean": 0.871238,
+          "stddev": 0.291336
+        }
+      }
+    },
+    {
+      "id": "panel-collapsed",
+      "click": {
+        "origin_x": 320,
+        "origin_y": 154,
+        "width": 1280,
+        "height": 650,
+        "x": 1254,
+        "y": 59
+      },
+      "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/route-hierarchy/live-workspace-layout/2026-04-23T19-57-18Z/panel-collapsed.png",
+      "capture_mode": "window",
+      "capture_diagnostics": {
+        "window_id": 14680067,
+        "browser_fallback_url": null,
+        "window_analysis": {
+          "unique_colors": 2178,
+          "mean": 0.870069,
+          "stddev": 0.291784
+        }
+      }
+    },
+    {
+      "id": "panel-restored",
+      "click": {
+        "origin_x": 320,
+        "origin_y": 154,
+        "width": 1280,
+        "height": 650,
+        "x": 1254,
+        "y": 59
+      },
+      "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/route-hierarchy/live-workspace-layout/2026-04-23T19-57-18Z/panel-restored.png",
+      "capture_mode": "window",
+      "capture_diagnostics": {
+        "window_id": 14680067,
+        "browser_fallback_url": null,
+        "window_analysis": {
+          "unique_colors": 2307,
+          "mean": 0.871227,
+          "stddev": 0.291333
+        }
+      }
+    }
+  ]
+}

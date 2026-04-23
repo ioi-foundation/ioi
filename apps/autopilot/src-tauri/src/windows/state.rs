@@ -1,7 +1,7 @@
 use once_cell::sync::Lazy;
 use std::sync::Mutex;
 
-use super::SpotlightLayout;
+use super::ChatSessionLayout;
 
-pub(super) static SPOTLIGHT_LAYOUT: Lazy<Mutex<SpotlightLayout>> =
-    Lazy::new(|| Mutex::new(SpotlightLayout::default()));
+pub(super) static CHAT_SESSION_LAYOUT: Lazy<Mutex<ChatSessionLayout>> =
+    Lazy::new(|| Mutex::new(ChatSessionLayout::default()));

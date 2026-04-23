@@ -572,7 +572,7 @@ fn session_resume_hint_from_task(task: &AgentTask) -> Option<String> {
     None
 }
 
-pub const DRAFT_SESSION_FILE_CONTEXT_ID: &str = "__spotlight_draft_session__";
+pub const DRAFT_SESSION_FILE_CONTEXT_ID: &str = "__chat_session_draft_session__";
 
 fn normalized_file_context_session_id(session_id: Option<&str>) -> &str {
     match session_id.map(str::trim) {

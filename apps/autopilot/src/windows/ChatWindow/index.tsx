@@ -8,6 +8,7 @@ import { RuntimeCatalogStageModal } from "../../components/RuntimeCatalogStageMo
 import { CommandPalette } from "../../components/CommandPalette";
 import { TauriRuntime } from "../../services/TauriRuntime";
 import { isBenignTauriListenerCleanupError } from "../../services/tauriListeners";
+import { markAutopilotMetric } from "../../services/workspacePerf";
 import { ChatWindowMainContent } from "./components/ChatWindowMainContent";
 import { useChatWindowController } from "./useChatWindowController";
 
@@ -105,7 +106,7 @@ function ChatWindowCrashScreen({
         <p>
           Chat hit a native render failure instead of opening a usable main
           app surface. Reload this window and, if needed, continue from
-          Spotlight while we fix the underlying seam.
+          Chat while we fix the underlying seam.
         </p>
         <div className="chat-window-crash-meta">
           <span>{error.source === "render" ? "React render error" : "Runtime error"}</span>
@@ -125,9 +126,9 @@ function ChatWindowCrashScreen({
           <button
             type="button"
             className="chat-window-crash-button secondary"
-            onClick={() => window.location.replace("/spotlight")}
+            onClick={() => window.location.replace("/chat-session")}
           >
-            Open Spotlight Route
+            Open Chat Route
           </button>
         </div>
       </section>
@@ -231,6 +232,11 @@ function ChatWindowCrashGuard({
 
 function ChatWindowLoaded() {
   const controller = useChatWindowController();
+
+  useEffect(() => {
+    markAutopilotMetric("chat_window_loaded");
+  }, []);
+
   const handleStageCatalogEntry = async (entry: {
     id: string;
     name: string;

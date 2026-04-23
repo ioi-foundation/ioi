@@ -13,7 +13,10 @@ use std::thread;
 use std::time::UNIX_EPOCH;
 use tauri::State;
 
-const TREE_BOOTSTRAP_DEPTH: usize = 2;
+// Keep initial workspace snapshots shallow so shell boot and first reveal stay
+// responsive. Deeper directory contents are loaded on demand via
+// `workspace_list_directory`.
+const TREE_BOOTSTRAP_DEPTH: usize = 0;
 const TREE_MAX_CHILDREN: usize = 200;
 const EDITOR_MAX_BYTES: usize = 1024 * 1024;
 const SEARCH_MAX_MATCHES: usize = 600;
@@ -794,6 +797,32 @@ fn inspect_git(root: &PathBuf) -> WorkspaceGitSummary {
     }
 }
 
+fn inspect_git_bootstrap(root: &PathBuf) -> WorkspaceGitSummary {
+    let is_repo = run_git(root, &["rev-parse", "--is-inside-work-tree"])
+        .map(|value| value == "true")
+        .unwrap_or(false);
+
+    if !is_repo {
+        return WorkspaceGitSummary {
+            is_repo: false,
+            branch: None,
+            dirty: false,
+            last_commit: None,
+        };
+    }
+
+    let branch = run_git(root, &["branch", "--show-current"])
+        .ok()
+        .filter(|value| !value.is_empty());
+
+    WorkspaceGitSummary {
+        is_repo,
+        branch,
+        dirty: false,
+        last_commit: None,
+    }
+}
+
 fn read_workspace_file_document(
     root: &PathBuf,
     relative_file_path: &str,
@@ -1164,12 +1193,21 @@ fn restore_path(root: &PathBuf, path: &str) -> Result<(), String> {
 #[tauri::command]
 pub fn workspace_inspect(root: String) -> Result<WorkspaceSnapshot, String> {
     let root_path = resolve_root_path(&root)?;
-    Ok(WorkspaceSnapshot {
+    let tree = build_tree(&root_path, &root_path, 0);
+    let snapshot = WorkspaceSnapshot {
         root_path: root_path.display().to_string(),
         display_name: display_name_for_root(&root_path),
-        git: inspect_git(&root_path),
-        tree: build_tree(&root_path, &root_path, 0),
-    })
+        git: inspect_git_bootstrap(&root_path),
+        tree,
+    };
+    eprintln!(
+        "[WorkspaceInspect] root='{}' resolved='{}' display='{}' tree_len={}",
+        root,
+        snapshot.root_path,
+        snapshot.display_name,
+        snapshot.tree.len()
+    );
+    Ok(snapshot)
 }
 
 #[tauri::command]
@@ -1193,7 +1231,16 @@ pub fn workspace_list_directory(root: String, path: String) -> Result<Vec<Worksp
         ));
     }
 
-    Ok(build_directory_listing(&root_path, &directory))
+    let listing = build_directory_listing(&root_path, &directory);
+    eprintln!(
+        "[WorkspaceList] root='{}' resolved='{}' path='{}' dir='{}' entries={}",
+        root,
+        root_path.display(),
+        path,
+        directory.display(),
+        listing.len()
+    );
+    Ok(listing)
 }
 
 #[tauri::command]

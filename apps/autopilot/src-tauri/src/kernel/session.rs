@@ -709,7 +709,7 @@ fn compaction_prune_decisions(
         "Workspace root",
         SessionCompactionDisposition::CarryForward,
         usize::from(workspace_root.is_some()),
-        "The workspace root stays explicit so Spotlight, Chat, and the standalone REPL can reopen the same repo.",
+        "The workspace root stays explicit so Chat, retained sessions, and the standalone REPL can reopen the same repo.",
         if workspace_root.is_some() {
             "Keep the active workspace root in carried-forward state.".to_string()
         } else {
@@ -2902,11 +2902,11 @@ fn build_session_rewind_snapshot(
             } else if is_last_stable {
                 "Rewind shell focus to the last stable retained session.".to_string()
             } else {
-                "Reattach this retained session in Spotlight.".to_string()
+                "Reattach this retained session in Chat.".to_string()
             };
             let discard_summary = match active_session_title.as_ref() {
                 Some(active_title) if !is_current => format!(
-                    "Replaces the active Spotlight session focus from \"{active_title}\" with this retained session. Retained evidence and other sessions stay stored."
+                    "Replaces the active Chat session focus from \"{active_title}\" with this retained session. Retained evidence and other sessions stay stored."
                 ),
                 _ => "Refreshes this retained session without deleting evidence or other session history.".to_string(),
             };

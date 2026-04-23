@@ -12,6 +12,8 @@ export function CapabilitiesDetailPane(props: CapabilitiesDetailPaneProps) {
       {controller.surface === "engine" ? (
         <EngineDetailPane
           controller={controller}
+          onOpenSessionTarget={props.onOpenSessionTarget}
+          onOpenArtifact={props.onOpenArtifact}
           onOpenInbox={props.onOpenInbox}
           onOpenSettings={props.onOpenSettings}
         />

@@ -1,4 +1,4 @@
-import { buildAuthorityAutomationPlan } from "../../SpotlightWindow/utils/authorityAutomationModel";
+import { buildAuthorityAutomationPlan } from "../../ChatShellWindow/utils/authorityAutomationModel";
 import { formatSettingsTime } from "./ChatSettingsView.shared";
 import type { SettingsViewBodyView } from "./ChatSettingsView.types";
 

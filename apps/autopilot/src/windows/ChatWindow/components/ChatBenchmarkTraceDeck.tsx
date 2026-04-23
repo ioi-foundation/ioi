@@ -1,5 +1,6 @@
 import { startTransition, useMemo } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { toneForRuntimeStatus } from "../../../services/runtimeInspection";
 import type {
   BenchmarkTraceCaseView,
   BenchmarkTraceFeed,
@@ -50,20 +51,6 @@ function formatOffset(baseMs: number, pointMs: number): string {
   const delta = Math.max(0, pointMs - baseMs);
   if (delta >= 1000) return `t+${(delta / 1000).toFixed(delta >= 10_000 ? 0 : 1)}s`;
   return `t+${delta}ms`;
-}
-
-function toneForStatus(status: string): "pass" | "warn" | "fail" | "idle" {
-  const normalized = status.trim().toLowerCase();
-  if (normalized === "pass" || normalized === "completed" || normalized === "success") {
-    return "pass";
-  }
-  if (normalized === "red" || normalized === "failure" || normalized === "failed") {
-    return "fail";
-  }
-  if (normalized === "active" || normalized === "warning" || normalized === "partial") {
-    return "warn";
-  }
-  return "idle";
 }
 
 function groupTraceLanes(caseView: BenchmarkTraceCaseView | null): BenchmarkTraceLane[] {
@@ -197,7 +184,7 @@ export function ChatBenchmarkTraceDeck({
             }}
           >
             <span>{formatCaseLabel(entry.caseId)}</span>
-            <strong className={`is-${toneForStatus(entry.result)}`}>{entry.result}</strong>
+            <strong className={`is-${toneForRuntimeStatus(entry.result)}`}>{entry.result}</strong>
           </button>
         ))}
       </div>
@@ -227,7 +214,7 @@ export function ChatBenchmarkTraceDeck({
             <button
               key={metric.metricId}
               type="button"
-              className={`chat-trace-metric chat-trace-metric--${toneForStatus(metric.status)} ${
+              className={`chat-trace-metric chat-trace-metric--${toneForRuntimeStatus(metric.status)} ${
                 metricSelected ? "is-selected" : ""
               }`}
               onClick={() => {
@@ -278,7 +265,7 @@ export function ChatBenchmarkTraceDeck({
                       <button
                         key={span.id}
                         type="button"
-                        className={`chat-trace-lane-span chat-trace-lane-span--${toneForStatus(
+                        className={`chat-trace-lane-span chat-trace-lane-span--${toneForRuntimeStatus(
                           span.status,
                         )} ${selectedSpan?.id === span.id ? "is-selected" : ""}`}
                         style={{ left: `${left}%`, width: `${width}%` }}
@@ -304,7 +291,7 @@ export function ChatBenchmarkTraceDeck({
                 <button
                   key={receipt.id}
                   type="button"
-                  className={`chat-trace-receipt chat-trace-receipt--${toneForStatus(
+                  className={`chat-trace-receipt chat-trace-receipt--${toneForRuntimeStatus(
                     receipt.status,
                   )} ${selectedSpan?.id === receipt.id ? "is-selected" : ""}`}
                   onClick={() => {
@@ -331,7 +318,7 @@ export function ChatBenchmarkTraceDeck({
         <article className="chat-trace-inspector">
           <div className="chat-trace-inspector-head">
             <div>
-              <span className={`chat-trace-inspector-status is-${toneForStatus(selectedSpan.status)}`}>
+              <span className={`chat-trace-inspector-status is-${toneForRuntimeStatus(selectedSpan.status)}`}>
                 {selectedSpan.status}
               </span>
               <strong>{selectedSpan.summary}</strong>

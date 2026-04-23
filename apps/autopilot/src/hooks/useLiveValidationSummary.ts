@@ -3,14 +3,13 @@ import {
   formatSessionTimeAgo,
   type AssistantWorkbenchActivity,
 } from "@ioi/agent-ide";
+import type { RuntimeValidationStatus } from "../services/runtimeInspection";
 import type { AgentEvent, AgentTask, Artifact, SessionSummary } from "../types";
-
-type ValidationStatus = "verified" | "running" | "waiting" | "missing" | "error";
 
 export interface LiveValidationItem {
   id: string;
   label: string;
-  status: ValidationStatus;
+  status: RuntimeValidationStatus;
   detail: string;
 }
 
@@ -315,7 +314,7 @@ export function useLiveValidationSummary({
           id: "session",
           label: "Session continuity",
           status: "missing",
-          detail: "Run a real Spotlight query to retain live session proof.",
+          detail: "Run a real Chat query to retain live session proof.",
         }
       : latestSessionEvidence.loading
         ? {

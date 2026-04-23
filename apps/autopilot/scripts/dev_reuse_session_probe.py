@@ -28,6 +28,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from desktop_capture import capture_window_with_fallback
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_PROFILE = "desktop-localgpu"
@@ -41,6 +43,7 @@ DEFAULT_OUTPUT_ROOT = (
     PROJECT_ROOT / "docs/evidence/route-hierarchy/live-final-gap-reuse-native-final"
 )
 WINDOW_SEARCH_PATTERN = "Autopilot Chat"
+BROWSER_CAPTURE_URL = "http://127.0.0.1:1433/"
 POLL_INTERVAL_SECS = 1.0
 WINDOW_WAIT_TIMEOUT_SECS = 90.0
 POST_SETTLE_CAPTURE_DELAY_SECS = 2.0
@@ -191,24 +194,6 @@ def submit_clarification_follow_up(
     type_text(prompt, window_id=window_id)
     time.sleep(0.2)
     key("ctrl+Return", window_id=window_id)
-
-
-def capture_window(window_id: int, output_path: Path) -> str | None:
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        completed = subprocess.run(
-            ["import", "-window", str(window_id), str(output_path)],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=8,
-        )
-    except subprocess.TimeoutExpired:
-        return f"Timed out capturing window {window_id}"
-    if completed.returncode != 0:
-        stderr = (completed.stderr or "").strip()
-        return stderr or f"Window capture exited with {completed.returncode}"
-    return None
 
 
 def load_task_checkpoint(db_path: Path) -> dict[str, Any] | None:
@@ -679,6 +664,8 @@ def build_result_bundle(
     log_tail: list[str],
     *,
     window_id: int | None,
+    capture_mode: str | None,
+    capture_diagnostics: dict[str, Any] | None,
     window_capture_error: str | None,
     follow_up_submission_mode: str | None = None,
     probe_error: str | None = None,
@@ -689,6 +676,8 @@ def build_result_bundle(
         "prompt": prompt,
         "screenshot": str(screenshot_path) if screenshot_path else None,
         "window_id": window_id,
+        "capture_mode": capture_mode,
+        "capture_diagnostics": capture_diagnostics,
         "window_capture_error": window_capture_error,
         "task": task,
         "route_receipt_summary": latest_route_receipt_summary(task),
@@ -728,6 +717,14 @@ def parse_args() -> argparse.Namespace:
         "--window-name",
         default=WINDOW_SEARCH_PATTERN,
         help=f"Window title pattern to target. Default: {WINDOW_SEARCH_PATTERN!r}",
+    )
+    parser.add_argument(
+        "--browser-capture-url",
+        default=os.environ.get("AUTOPILOT_DESKTOP_CAPTURE_URL", BROWSER_CAPTURE_URL),
+        help=(
+            "Browser URL to use when Linux/X11 window capture comes back blank. "
+            f"Default: {BROWSER_CAPTURE_URL}"
+        ),
     )
     parser.add_argument(
         "--profile",
@@ -775,11 +772,15 @@ def main() -> int:
     first_task: dict[str, Any] | None = None
     first_probe_error: str | None = None
     first_capture_error: str | None = None
+    first_capture_mode: str | None = None
+    first_capture_diagnostics: dict[str, Any] | None = None
     first_screenshot: Path | None = None
 
     second_task: dict[str, Any] | None = None
     second_probe_error: str | None = None
     second_capture_error: str | None = None
+    second_capture_mode: str | None = None
+    second_capture_diagnostics: dict[str, Any] | None = None
     second_screenshot: Path | None = None
     follow_up_metadata: dict[str, Any] | None = None
     follow_up_submission_mode: str | None = None
@@ -808,7 +809,14 @@ def main() -> int:
             if first_window_id is not None:
                 time.sleep(POST_SETTLE_CAPTURE_DELAY_SECS)
                 first_screenshot = first_dir / "final.png"
-                first_capture_error = capture_window(first_window_id, first_screenshot)
+                capture_result = capture_window_with_fallback(
+                    first_window_id,
+                    first_screenshot,
+                    browser_url=args.browser_capture_url,
+                )
+                first_capture_error = capture_result.error
+                first_capture_mode = capture_result.mode
+                first_capture_diagnostics = capture_result.diagnostics
             elif first_capture_error is None:
                 first_capture_error = (
                     f"Timed out waiting for a window matching {args.window_name!r}"
@@ -821,7 +829,14 @@ def main() -> int:
                 time.sleep(POST_SETTLE_CAPTURE_DELAY_SECS)
                 first_screenshot = first_dir / "final.png"
                 if first_capture_error is None:
-                    first_capture_error = capture_window(first_window_id, first_screenshot)
+                    capture_result = capture_window_with_fallback(
+                        first_window_id,
+                        first_screenshot,
+                        browser_url=args.browser_capture_url,
+                    )
+                    first_capture_error = capture_result.error
+                    first_capture_mode = capture_result.mode
+                    first_capture_diagnostics = capture_result.diagnostics
             elif first_capture_error is None:
                 first_capture_error = (
                     f"Timed out waiting for a window matching {args.window_name!r}"
@@ -833,6 +848,8 @@ def main() -> int:
             first_task,
             read_log_tail(first_log_path),
             window_id=first_window_id,
+            capture_mode=first_capture_mode,
+            capture_diagnostics=first_capture_diagnostics,
             window_capture_error=first_capture_error,
             probe_error=first_probe_error,
         )
@@ -890,7 +907,14 @@ def main() -> int:
             if second_window_id is not None:
                 time.sleep(POST_SETTLE_CAPTURE_DELAY_SECS)
                 second_screenshot = second_dir / "final.png"
-                second_capture_error = capture_window(second_window_id, second_screenshot)
+                capture_result = capture_window_with_fallback(
+                    second_window_id,
+                    second_screenshot,
+                    browser_url=args.browser_capture_url,
+                )
+                second_capture_error = capture_result.error
+                second_capture_mode = capture_result.mode
+                second_capture_diagnostics = capture_result.diagnostics
             elif second_capture_error is None:
                 second_capture_error = (
                     f"Timed out waiting for a window matching {args.window_name!r}"
@@ -934,7 +958,14 @@ def main() -> int:
                 time.sleep(POST_SETTLE_CAPTURE_DELAY_SECS)
                 second_screenshot = second_dir / "final.png"
                 if second_capture_error is None:
-                    second_capture_error = capture_window(second_window_id, second_screenshot)
+                    capture_result = capture_window_with_fallback(
+                        second_window_id,
+                        second_screenshot,
+                        browser_url=args.browser_capture_url,
+                    )
+                    second_capture_error = capture_result.error
+                    second_capture_mode = capture_result.mode
+                    second_capture_diagnostics = capture_result.diagnostics
             elif second_capture_error is None:
                 second_capture_error = (
                     f"Timed out waiting for a window matching {args.window_name!r}"
@@ -947,6 +978,8 @@ def main() -> int:
             second_task,
             second_log_tail,
             window_id=second_window_id,
+            capture_mode=second_capture_mode,
+            capture_diagnostics=second_capture_diagnostics,
             window_capture_error=second_capture_error,
             follow_up_submission_mode=follow_up_submission_mode,
             probe_error=second_probe_error,

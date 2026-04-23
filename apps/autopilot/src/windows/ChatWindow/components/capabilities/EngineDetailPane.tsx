@@ -32,10 +32,14 @@ function formatEngineIdentifier(value?: string | null): string {
 
 export function EngineDetailPane({
   controller,
+  onOpenSessionTarget,
+  onOpenArtifact,
   onOpenInbox,
   onOpenSettings,
 }: {
   controller: CapabilitiesController;
+  onOpenSessionTarget?: (sessionId: string) => void;
+  onOpenArtifact?: (artifactId: string) => void;
   onOpenInbox?: () => void;
   onOpenSettings?: () => void;
 }) {
@@ -1433,7 +1437,18 @@ export function EngineDetailPane({
                   </div>
                   <div className="capabilities-detail-inline-meta">
                     <span>
-                      Session <strong>{activity.sessionId.slice(0, 12)}</strong>
+                      Session{" "}
+                      {onOpenSessionTarget ? (
+                        <button
+                          type="button"
+                          className="capabilities-inline-button"
+                          onClick={() => onOpenSessionTarget(activity.sessionId)}
+                        >
+                          {activity.sessionId.slice(0, 12)}
+                        </button>
+                      ) : (
+                        <strong>{activity.sessionId.slice(0, 12)}</strong>
+                      )}
                     </span>
                     <span>
                       Tool <strong>{activity.toolName}</strong>
@@ -1552,9 +1567,21 @@ export function EngineDetailPane({
                                 </span>
                                 <span>
                                   Session{" "}
-                                  <strong>
-                                    {formatEngineIdentifier(run.parentSessionId)}
-                                  </strong>
+                                  {onOpenSessionTarget ? (
+                                    <button
+                                      type="button"
+                                      className="capabilities-inline-button"
+                                      onClick={() =>
+                                        onOpenSessionTarget(run.parentSessionId)
+                                      }
+                                    >
+                                      {formatEngineIdentifier(run.parentSessionId)}
+                                    </button>
+                                  ) : (
+                                    <strong>
+                                      {formatEngineIdentifier(run.parentSessionId)}
+                                    </strong>
+                                  )}
                                 </span>
                                 <span>
                                   Current step{" "}
@@ -1579,11 +1606,25 @@ export function EngineDetailPane({
                                 {run.activeChildSessionId ? (
                                   <span>
                                     Child{" "}
-                                    <strong>
-                                      {formatEngineIdentifier(
-                                        run.activeChildSessionId,
-                                      )}
-                                    </strong>
+                                    {onOpenSessionTarget ? (
+                                      <button
+                                        type="button"
+                                        className="capabilities-inline-button"
+                                        onClick={() =>
+                                          onOpenSessionTarget(run.activeChildSessionId!)
+                                        }
+                                      >
+                                        {formatEngineIdentifier(
+                                          run.activeChildSessionId,
+                                        )}
+                                      </button>
+                                    ) : (
+                                      <strong>
+                                        {formatEngineIdentifier(
+                                          run.activeChildSessionId,
+                                        )}
+                                      </strong>
+                                    )}
                                   </span>
                                 ) : null}
                               </div>
@@ -1665,11 +1706,25 @@ export function EngineDetailPane({
                                       {step.childSessionId ? (
                                         <span>
                                           Child{" "}
-                                          <strong>
-                                            {formatEngineIdentifier(
-                                              step.childSessionId,
-                                            )}
-                                          </strong>
+                                          {onOpenSessionTarget ? (
+                                            <button
+                                              type="button"
+                                              className="capabilities-inline-button"
+                                              onClick={() =>
+                                                onOpenSessionTarget(step.childSessionId!)
+                                              }
+                                            >
+                                              {formatEngineIdentifier(
+                                                step.childSessionId,
+                                              )}
+                                            </button>
+                                          ) : (
+                                            <strong>
+                                              {formatEngineIdentifier(
+                                                step.childSessionId,
+                                              )}
+                                            </strong>
+                                          )}
                                         </span>
                                       ) : null}
                                       {step.updatedAtMs ? (
@@ -1749,15 +1804,19 @@ export function EngineDetailPane({
                                               <div className="capabilities-chip-row">
                                                 {receipt.artifactIds.map(
                                                   (artifactId) => (
-                                                    <span
+                                                    <button
+                                                      type="button"
                                                       key={`${receipt.eventId}:${artifactId}`}
-                                                      className="capabilities-chip"
+                                                      className="capabilities-chip capabilities-inline-button"
+                                                      onClick={() =>
+                                                        onOpenArtifact?.(artifactId)
+                                                      }
                                                     >
                                                       Artifact{" "}
                                                       {formatEngineIdentifier(
                                                         artifactId,
                                                       )}
-                                                    </span>
+                                                    </button>
                                                   ),
                                                 )}
                                               </div>

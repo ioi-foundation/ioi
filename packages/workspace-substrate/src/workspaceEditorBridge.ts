@@ -1,12 +1,12 @@
-import type { editor as MonacoEditorApi } from "monaco-editor";
+import type { CodeOssStandaloneEditor } from "./codeOss";
 
 type WorkspaceEditorListener = (
   path: string,
-  editor: MonacoEditorApi.IStandaloneCodeEditor,
+  editor: CodeOssStandaloneEditor,
 ) => void;
 
 let activePath: string | null = null;
-let activeEditor: MonacoEditorApi.IStandaloneCodeEditor | null = null;
+let activeEditor: CodeOssStandaloneEditor | null = null;
 const listeners = new Set<WorkspaceEditorListener>();
 
 function notifyActiveEditor() {
@@ -21,7 +21,7 @@ function notifyActiveEditor() {
 
 export function bindWorkspaceEditor(
   path: string,
-  editor: MonacoEditorApi.IStandaloneCodeEditor,
+  editor: CodeOssStandaloneEditor,
 ) {
   activePath = path;
   activeEditor = editor;
@@ -38,7 +38,7 @@ export function bindWorkspaceEditor(
 export function waitForWorkspaceEditor(
   path: string,
   timeoutMs = 2500,
-): Promise<MonacoEditorApi.IStandaloneCodeEditor | null> {
+): Promise<CodeOssStandaloneEditor | null> {
   if (activePath === path && activeEditor) {
     return Promise.resolve(activeEditor);
   }

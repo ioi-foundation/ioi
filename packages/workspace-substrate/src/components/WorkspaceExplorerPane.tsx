@@ -1,4 +1,6 @@
 import clsx from "clsx";
+import { Codicon } from "./Codicon";
+import workbenchExplorerHeaderFullStrip from "../assets/workbench-explorer-header-full-strip.png";
 import type { WorkspaceExplorerPaneProps, WorkspaceNode } from "../types";
 
 type WorkspaceFileIconKind =
@@ -85,6 +87,29 @@ function FolderIcon({ open }: { open: boolean }) {
         className="workspace-folder-front workspace-folder-front--open"
         d="M6.5 7.5h19a1.5 1.5 0 011.5 1.5L24 18a2 2 0 01-2 2H4a2 2 0 01-2-2L5 9a1.5 1.5 0 011.5-1.5z"
       />
+    </svg>
+  );
+}
+
+function ExplorerMenuIcon() {
+  return <Codicon name="menu" />;
+}
+
+function ExplorerMoreIcon() {
+  return <Codicon name="ellipsis" />;
+}
+
+function TreeChevron({ expanded }: { expanded: boolean }) {
+  return (
+    <svg
+      className={clsx("workspace-tree-chevron", expanded && "is-expanded")}
+      width="10"
+      height="10"
+      viewBox="0 0 10 10"
+      fill="none"
+      aria-hidden="true"
+    >
+      <path d="m3.2 2 3.2 3-3.2 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -197,6 +222,11 @@ function branchLabel(branch: string | null) {
   return branch?.trim() || "detached";
 }
 
+function basenameLabel(path: string): string {
+  const segments = path.split("/").filter(Boolean);
+  return segments.length > 0 ? segments[segments.length - 1] : path;
+}
+
 function hasExpandedChildDirectory(
   nodes: WorkspaceNode[],
   expandedPaths: Record<string, boolean>,
@@ -248,6 +278,11 @@ function renderTree(
                     : props.onOpenFile(node.path)
                 }
               >
+                {node.kind === "directory" ? (
+                  <TreeChevron expanded={expanded} />
+                ) : (
+                  <span className="workspace-tree-chevron workspace-tree-chevron--spacer" aria-hidden="true" />
+                )}
                 {node.kind === "directory" ? (
                   <FolderIcon open={expanded} />
                 ) : (
@@ -305,35 +340,44 @@ export function WorkspaceExplorerPane(props: WorkspaceExplorerPaneProps) {
   const eyebrow = props.eyebrow || "Workspace";
   const title = props.title || "Explorer";
   const showGitSummary = props.showGitSummary ?? true;
-  const showRefreshButton = props.showRefreshButton ?? true;
+  const workspaceFolderName =
+    props.workspaceFolderName?.trim() || basenameLabel(props.rootPath) || "workspace";
+  const workspaceHeadingLabel =
+    props.workspaceLabel?.trim().toUpperCase() ||
+    workspaceFolderName.toUpperCase();
+  const alreadyWrappedByWorkspaceNode =
+    props.tree.length === 1 &&
+    props.tree[0]?.kind === "directory" &&
+    props.tree[0]?.name.trim().toUpperCase() === workspaceHeadingLabel;
+  const syntheticRootNode: WorkspaceNode = {
+    name: workspaceFolderName,
+    path: ".",
+    kind: "directory",
+    hasChildren: true,
+    children: props.tree,
+  };
+  const syntheticRootExpanded = !!props.expandedPaths[syntheticRootNode.path];
+  const syntheticRootLoading = !!props.loadingDirectories[syntheticRootNode.path];
 
   return (
     <section className="workspace-pane">
       <header className="workspace-pane-header">
-        <div>
-          <span className="workspace-pane-eyebrow">{eyebrow}</span>
-          <h3>{title}</h3>
-        </div>
-        <div className="workspace-pane-header-actions">
-          {showRefreshButton ? (
-            <button type="button" className="workspace-pane-button" onClick={props.onRefresh}>
-              Refresh
+        <img src={workbenchExplorerHeaderFullStrip} alt="" className="workspace-pane-header-strip" aria-hidden="true" />
+        <div className="workspace-pane-header-live">
+          <div className="workspace-pane-header-leading">
+            <button type="button" className="workspace-pane-header-icon" tabIndex={-1} aria-hidden="true">
+              <ExplorerMenuIcon />
             </button>
-          ) : null}
-          {!props.readOnly ? (
-            <>
-              <button type="button" className="workspace-pane-button" onClick={props.onCreateFile}>
-                New File
-              </button>
-              <button
-                type="button"
-                className="workspace-pane-button"
-                onClick={props.onCreateDirectory}
-              >
-                New Folder
-              </button>
-            </>
-          ) : null}
+            <div>
+            <span className="workspace-pane-eyebrow">{eyebrow}</span>
+            <h3>{title}</h3>
+            </div>
+          </div>
+          <div className="workspace-pane-header-actions">
+            <button type="button" className="workspace-pane-header-icon" tabIndex={-1} aria-hidden="true">
+              <ExplorerMoreIcon />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -350,7 +394,60 @@ export function WorkspaceExplorerPane(props: WorkspaceExplorerPaneProps) {
       </p>
 
       <div className={clsx("workspace-tree", treeGuideTone)}>
-        {renderTree(props.tree, props)}
+        {alreadyWrappedByWorkspaceNode ? (
+          renderTree(props.tree, props)
+        ) : (
+          <div className="workspace-tree-group workspace-tree-group--workspace-root">
+            <div className="workspace-tree-workspace-heading">
+              <span className="workspace-tree-workspace-chevron" aria-hidden="true">
+                <TreeChevron expanded />
+              </span>
+              <span className="workspace-tree-workspace-label">{workspaceHeadingLabel}</span>
+            </div>
+
+            <div
+              className={clsx(
+                "workspace-tree-row",
+                "is-directory",
+                "workspace-tree-row--workspace-folder",
+                syntheticRootExpanded && "is-expanded",
+              )}
+            >
+              <button
+                type="button"
+                className="workspace-tree-trigger workspace-tree-trigger--plain-folder"
+                onClick={() => props.onToggleDirectory(syntheticRootNode)}
+              >
+                <FolderIcon open={syntheticRootExpanded} />
+                <span className="workspace-tree-name">{workspaceFolderName}</span>
+              </button>
+              {props.git.isRepo ? (
+                <span
+                  className="workspace-tree-status-marker"
+                  aria-label={
+                    props.git.dirty
+                      ? "Workspace has uncommitted changes"
+                      : "Workspace repository status"
+                  }
+                >
+                  !
+                </span>
+              ) : null}
+            </div>
+
+            {syntheticRootExpanded ? (
+              <div className={clsx("workspace-tree-children", treeGuideTone)}>
+                {syntheticRootLoading && props.tree.length === 0 ? (
+                  <div className="workspace-pane-message workspace-pane-message--nested">
+                    Loading directory...
+                  </div>
+                ) : (
+                  renderTree(props.tree, props)
+                )}
+              </div>
+            ) : null}
+          </div>
+        )}
       </div>
     </section>
   );

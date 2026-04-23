@@ -658,7 +658,7 @@ fn compaction_snapshot_reports_cross_session_durability_portfolio() {
         vec![ready_session.clone()],
         Some("session-durability-ready"),
         Some("session-durability-ready"),
-        Some("Spotlight".to_string()),
+        Some("Chat".to_string()),
         Some("operator".to_string()),
         false,
     )
@@ -874,7 +874,7 @@ fn team_memory_sync_redacts_sensitive_values_and_keeps_governance_local_by_defau
         approve_label: Some("Approve".to_string()),
         deny_label: Some("Deny".to_string()),
         deadline_ms: None,
-        surface_label: Some("Spotlight".to_string()),
+        surface_label: Some("Chat".to_string()),
         scope_label: Some("repo".to_string()),
         operation_label: Some("message".to_string()),
         target_label: Some("ops@example.com".to_string()),
