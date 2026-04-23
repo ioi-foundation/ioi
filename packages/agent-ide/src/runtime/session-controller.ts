@@ -8,14 +8,14 @@ import {
   dismissAssistantSession,
   getActiveAssistantSession,
   getAssistantSessionProjection,
-  hideSpotlightShell,
+  hideChatSessionShell,
   listAssistantSessions,
   listenAssistantSessionEvent,
   listenAssistantSessionProjection,
   loadAssistantSession,
   loadAssistantSessionArtifacts,
   loadAssistantSessionEvents,
-  showSpotlightShell,
+  showChatSessionShell,
   showChatShell,
   startAssistantSession,
   submitAssistantSessionInput,
@@ -93,8 +93,8 @@ export interface SessionControllerRuntime<
       projection: AssistantSessionProjection<TTask, TSessionSummary>,
     ) => void,
   ): Promise<() => void>;
-  showSpotlight(): Promise<void>;
-  hideSpotlight(): Promise<void>;
+  showChatSession(): Promise<void>;
+  hideChatSession(): Promise<void>;
   showChat(): Promise<void>;
 }
 
@@ -170,8 +170,8 @@ export interface SessionControllerStoreState<
   updateTask: (task: TTask) => void;
   dismissSession: () => Promise<void>;
   dismissTask: () => Promise<void>;
-  showSpotlight: () => Promise<void>;
-  hideSpotlight: () => Promise<void>;
+  showChatSession: () => Promise<void>;
+  hideChatSession: () => Promise<void>;
   showChat: () => Promise<void>;
   submitSessionInput: (sessionId: string, input: string) => Promise<void>;
   continueTask: (sessionId: string, input: string) => Promise<void>;
@@ -575,8 +575,8 @@ export function createSessionControllerStore<
       });
     },
 
-    showSpotlight: async () => runtime.showSpotlight(),
-    hideSpotlight: async () => runtime.hideSpotlight(),
+    showChatSession: async () => runtime.showChatSession(),
+    hideChatSession: async () => runtime.hideChatSession(),
     showChat: async () => runtime.showChat(),
 
     submitSessionInput: async (sessionId: string, input: string) => {
@@ -956,8 +956,8 @@ export function createRuntimeSessionControllerStore<
           projection: AssistantSessionProjection<TTask, TSessionSummary>,
         ) => void,
       ) => listenAssistantSessionProjection<TTask, TSessionSummary>(handler),
-      showSpotlight: () => showSpotlightShell(),
-      hideSpotlight: () => hideSpotlightShell(),
+      showChatSession: () => showChatSessionShell(),
+      hideChatSession: () => hideChatSessionShell(),
       showChat: () => showChatShell(),
     },
     config,

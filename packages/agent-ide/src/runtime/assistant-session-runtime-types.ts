@@ -152,8 +152,8 @@ export interface AssistantSessionRuntime {
   loadSessionThreadArtifacts<T>(threadId: string): Promise<T[]>;
   showPillShell(): Promise<void>;
   hidePillShell(): Promise<void>;
-  showSpotlightShell(): Promise<void>;
-  hideSpotlightShell(): Promise<void>;
+  showChatSessionShell(): Promise<void>;
+  hideChatSessionShell(): Promise<void>;
   showGateShell(): Promise<void>;
   hideGateShell(): Promise<void>;
   showChatShell(): Promise<void>;

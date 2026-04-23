@@ -1,32 +1,13 @@
 import { useEffect, useState, type MouseEvent } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { safelyDisposeTauriListener } from "../../../services/tauriListeners";
-import { AutopilotIcon, ChatLogoIcon } from "./ChatActivityBarIcons";
+import { ChatLogoIcon } from "./ChatActivityBarIcons";
 import type { PrimaryView } from "../chatWindowModel";
 
-interface ProjectScope {
-  id: string;
-  name: string;
-  description: string;
-  environment: string;
-  rootPath: string;
-}
-
 interface ChatIdeHeaderProps {
-  workspaceName: string;
-  currentProject: ProjectScope;
-  projects: ProjectScope[];
   activeView: PrimaryView;
   workflowSurface: "home" | "canvas" | "agents" | "catalog";
-  chatVisible: boolean;
-  notificationCount: number;
-  onSelectProject: (projectId: string) => void;
-  onToggleChat: () => void;
-  onOpenCommandPalette: () => void;
-  onOpenNewTerminal: () => void;
 }
-
-const MENU_ITEMS = ["Chat", "Artifact", "Run", "Window"];
 
 function isTauriRuntime(): boolean {
   return (
@@ -40,10 +21,6 @@ function isInteractiveElement(target: EventTarget | null): boolean {
   return target.closest("button, input, select, textarea, a, [role='button']") !== null;
 }
 
-function prettyPrimaryView(view: PrimaryView): string {
-  return view[0].toUpperCase() + view.slice(1);
-}
-
 function windowSurfaceTitle(
   view: PrimaryView,
   workflowSurface: ChatIdeHeaderProps["workflowSurface"],
@@ -54,6 +31,7 @@ function windowSurfaceTitle(
     if (workflowSurface === "catalog") return "Catalog";
     return "Canvas";
   }
+  if (view === "workspace") return "Workspace";
   if (view === "policy") return "Governance";
   if (view === "runs") return "Runs";
   if (view === "inbox") return "Inbox";
@@ -62,42 +40,12 @@ function windowSurfaceTitle(
   return "Chat";
 }
 
-function surfaceDetail(
-  view: PrimaryView,
-  workflowSurface: ChatIdeHeaderProps["workflowSurface"],
-): string {
-  if (view === "chat") return "Outcome control plane";
-  if (view === "workflows") {
-    if (workflowSurface === "home") return "Internal";
-    if (workflowSurface === "agents") return "Agent roster";
-    if (workflowSurface === "catalog") return "Catalog";
-    return "Canvas";
-  }
-  if (view === "runs") return "Supervision";
-  if (view === "inbox") return "Decision queue";
-  if (view === "capabilities") return "Capability surface";
-  if (view === "policy") return "Governance";
-  return "System profile";
-}
-
 export function ChatIdeHeader({
-  workspaceName,
-  currentProject,
-  projects,
   activeView,
   workflowSurface,
-  chatVisible,
-  notificationCount,
-  onSelectProject,
-  onToggleChat,
-  onOpenCommandPalette,
-  onOpenNewTerminal,
 }: ChatIdeHeaderProps) {
-  const inboxCount = notificationCount > 9 ? "9+" : String(notificationCount);
   const [windowMaximized, setWindowMaximized] = useState(false);
-  const [terminalMenuOpen, setTerminalMenuOpen] = useState(false);
   const windowControlsVisible = isTauriRuntime();
-  const shellTerminalAllowed = activeView === "workflows";
   const resolvedWindowTitle = `Autopilot Chat · ${windowSurfaceTitle(
     activeView,
     workflowSurface,
@@ -147,59 +95,6 @@ export function ChatIdeHeader({
     };
   }, [windowControlsVisible]);
 
-  useEffect(() => {
-    if (!shellTerminalAllowed) {
-      setTerminalMenuOpen(false);
-      return;
-    }
-
-    if (!terminalMenuOpen) {
-      return;
-    }
-
-    const closeMenu = (event: globalThis.MouseEvent | KeyboardEvent) => {
-      if (event instanceof KeyboardEvent) {
-        if (event.key === "Escape") {
-          setTerminalMenuOpen(false);
-        }
-        return;
-      }
-
-      if (event.target instanceof Element) {
-        const insideMenu = event.target.closest(".chat-ide-menu-group");
-        if (!insideMenu) {
-          setTerminalMenuOpen(false);
-        }
-      }
-    };
-
-    window.addEventListener("mousedown", closeMenu);
-    window.addEventListener("keydown", closeMenu);
-    return () => {
-      window.removeEventListener("mousedown", closeMenu);
-      window.removeEventListener("keydown", closeMenu);
-    };
-  }, [shellTerminalAllowed, terminalMenuOpen]);
-
-  useEffect(() => {
-    if (!shellTerminalAllowed) {
-      return;
-    }
-
-    const handler = (event: KeyboardEvent) => {
-      if (isInteractiveElement(event.target)) return;
-      if (!event.shiftKey) return;
-      if (!event.metaKey && !event.ctrlKey) return;
-      if (event.key.toLowerCase() !== "t") return;
-      event.preventDefault();
-      setTerminalMenuOpen(false);
-      onOpenNewTerminal();
-    };
-
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [onOpenNewTerminal, shellTerminalAllowed]);
-
   const toggleWindowMaximize = async () => {
     if (!windowControlsVisible) return;
     try {
@@ -244,128 +139,6 @@ export function ChatIdeHeader({
         <span className="chat-ide-brand" aria-hidden="true">
           <ChatLogoIcon />
         </span>
-
-        <div className="chat-ide-menu-bar" aria-label="Chat menu">
-          {MENU_ITEMS.map((item) => (
-            <span key={item} className="chat-ide-menu-item">
-              {item}
-            </span>
-          ))}
-          {shellTerminalAllowed ? (
-            <div className="chat-ide-menu-group">
-              <button
-                type="button"
-                className={`chat-ide-menu-item chat-ide-menu-button ${
-                  terminalMenuOpen ? "is-active" : ""
-                }`}
-                aria-haspopup="menu"
-                aria-expanded={terminalMenuOpen}
-                onClick={() => setTerminalMenuOpen((open) => !open)}
-              >
-                Terminal
-              </button>
-              {terminalMenuOpen ? (
-                <div className="chat-ide-menu-popover" role="menu" aria-label="Terminal menu">
-                  <button
-                    type="button"
-                    className="chat-ide-menu-popover-item"
-                    role="menuitem"
-                    onClick={() => {
-                      setTerminalMenuOpen(false);
-                      onOpenNewTerminal();
-                    }}
-                  >
-                    New Terminal
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="chat-ide-command-cluster">
-        <button
-          type="button"
-          className="chat-ide-command-button"
-          onClick={onOpenCommandPalette}
-          aria-haspopup="dialog"
-        >
-          <svg
-            className="chat-ide-command-icon"
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <circle cx="11" cy="11" r="7" />
-            <path d="m20 20-3.5-3.5" />
-          </svg>
-          <span>Search commands, sessions, tools, and projects</span>
-          <kbd>⌘K</kbd>
-        </button>
-
-        {activeView !== "chat" ? (
-          <button
-            type="button"
-            className={`chat-ide-chat-toggle ${
-              chatVisible ? "is-active" : ""
-            }`}
-            onClick={onToggleChat}
-            aria-label={chatVisible ? "Hide Autopilot chat" : "Show Autopilot chat"}
-            aria-pressed={chatVisible}
-            title={chatVisible ? "Hide Autopilot chat" : "Show Autopilot chat"}
-          >
-            <AutopilotIcon />
-          </button>
-        ) : null}
-      </div>
-
-      <div className="chat-ide-toolbar" data-tauri-drag-region>
-        <div
-          className="chat-ide-toolbar-segment chat-ide-toolbar-segment--scope"
-          title={`${workspaceName} / ${currentProject.name}`}
-        >
-          <span className="chat-ide-toolbar-label">{workspaceName}</span>
-          <label className="chat-ide-project-select">
-            <span className="chat-ide-project-select-label">Project</span>
-            <select
-              value={currentProject.id}
-              onChange={(event) => onSelectProject(event.target.value)}
-              aria-label="Current project"
-            >
-              {projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <span className="chat-ide-toolbar-meta">
-            {currentProject.environment}
-          </span>
-        </div>
-
-        <div className="chat-ide-toolbar-segment">
-          <span className="chat-ide-toolbar-label">Surface</span>
-          <strong>{prettyPrimaryView(activeView)}</strong>
-          <span className="chat-ide-toolbar-meta">
-            {surfaceDetail(activeView, workflowSurface)}
-          </span>
-        </div>
-
-        <div className="chat-ide-toolbar-segment">
-          <span className="chat-ide-toolbar-label">Inbox</span>
-          <strong>{inboxCount}</strong>
-          <span className="chat-ide-toolbar-meta">
-            {notificationCount === 1 ? "Pending review" : "Pending reviews"}
-          </span>
-        </div>
       </div>
 
       {windowControlsVisible ? (

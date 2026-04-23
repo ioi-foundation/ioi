@@ -2070,12 +2070,12 @@ pub fn start_task(
         .as_deref()
     {
         Some("chat") => {
-            if let Some(window) = app.get_webview_window("spotlight") {
+            if let Some(window) = app.get_webview_window("chat-session") {
                 let _ = window.hide();
             }
             crate::windows::hide_pill(app.clone());
         }
-        _ => crate::windows::show_spotlight(app.clone()),
+        _ => crate::windows::show_chat_session(app.clone()),
     }
     let app_clone = app.clone();
     let task_id_for_prepare = task_id.clone();
@@ -2321,7 +2321,7 @@ pub async fn continue_task(
             }
             Err(_) => {
                 let timeout_message = format!(
-                    "Message submit timed out after {}s. Retry from Spotlight, Gate, or Pill.",
+                    "Message submit timed out after {}s. Retry from Chat, Gate, or Pill.",
                     CONTINUE_TASK_SEND_TIMEOUT_MS / 1000
                 );
                 update_task_if_session_matches(&app_clone, &session_for_status, |task| {
@@ -2391,7 +2391,7 @@ pub fn dismiss_task(state: State<Mutex<AppState>>, app: AppHandle) -> Result<(),
     {
         orchestrator::clear_local_task_state(memory_runtime, session_id);
     }
-    windows::hide_spotlight(app.clone());
+    windows::hide_chat_session(app.clone());
     windows::hide_gate(app.clone());
     let _ = app.emit("task-dismissed", ());
     let app_clone = app.clone();

@@ -8,11 +8,11 @@ A native desktop agent runtime built with Tauri. Provides a non-blocking UX for 
 IOI Runtime (Tauri)
 │
 ├── System Tray
-│   └── Menu: Open Spotlight, Open Chat, Quit
+│   └── Menu: Open Chat Session, Open Chat, Quit
 │
 ├── Windows (Multi-window architecture)
 │   │
-│   ├── Spotlight Window (⌘+Space)
+│   ├── Chat Session Window (⌘+Space)
 │   │   ├── Transparent overlay
 │   │   ├── Intent input
 │   │   └── Quick suggestions
@@ -47,12 +47,12 @@ IOI Runtime (Tauri)
    - IOI icon in system tray
    - Press `⌘+Space` (or click tray) to invoke
 
-2. **Spotlight**
+2. **Chat Session**
    - Type intent: "Book a flight to NYC under $400"
    - Press Enter to start agent
 
 3. **Execution**
-   - Spotlight closes
+   - Chat Session closes
    - Floating pill appears in corner
    - User continues normal work
    - Pill shows: agent name, current step, progress
@@ -98,12 +98,19 @@ sudo apt install -y \
 # Install dependencies
 npm install
 
-# Run in development
-npm run tauri dev
+# Run the desktop shell in development
+npm run dev:desktop
 
 # Build for production
 npm run tauri build
+
+# Validate the direct Workspace shell and retain a GUI receipt bundle
+npm run probe:desktop:workspace
 ```
+
+`npm run dev:desktop` now applies Linux/X11 software-friendly WebKit defaults
+for local desktop dev so the direct Workspace substrate stays visible on stacks
+that otherwise return black captures from per-window screenshot tools.
 
 ### Project Structure
 
@@ -116,7 +123,7 @@ ioi-runtime/
 │   ├── styles/            # Global styles
 │   │   └── global.css
 │   └── windows/           # Window components
-│       ├── SpotlightWindow.tsx
+│       ├── ChatShellWindow/index.tsx
 │       ├── PillWindow.tsx
 │       ├── GateWindow.tsx
 │       └── ChatWindow.tsx
@@ -137,13 +144,13 @@ ioi-runtime/
 
 ### Multi-Window Architecture
 Each UI surface is a separate Tauri window:
-- **Transparent**: Spotlight, Pill, Gate windows have transparent backgrounds
+- **Transparent**: Chat Session, Pill, Gate windows have transparent backgrounds
 - **Always on Top**: Overlay windows stay above other apps
 - **Frameless**: No window decorations for overlay windows
 - **Skip Taskbar**: Overlay windows don't appear in taskbar
 
 ### Global Shortcut
-- `⌘+Space` (macOS) / `Ctrl+Space` (Windows/Linux) toggles Spotlight
+- `⌘+Space` (macOS) / `Ctrl+Space` (Windows/Linux) toggles Chat Session
 - Registered at OS level, works from any app
 
 ### Cross-Window Communication

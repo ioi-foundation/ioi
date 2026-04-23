@@ -4,6 +4,10 @@ import type {
 import type { ChatCapabilityDetailSection } from "../../../types";
 import { useEffect } from "react";
 import { type TauriRuntime } from "../../../services/TauriRuntime";
+import {
+  openArtifactReviewTarget,
+  openEvidenceReviewSession,
+} from "../../../services/reviewNavigation";
 import type {
   CapabilitySurface,
   CapabilityTrustProfile,
@@ -112,6 +116,12 @@ export function ChatCapabilitiesView({
           getConnectorPolicySummary={getConnectorPolicySummary}
           getConnectorTrustProfile={getConnectorTrustProfile}
           onOpenPolicyCenter={onOpenPolicyCenter}
+          onOpenSessionTarget={(sessionId) => {
+            void openEvidenceReviewSession(sessionId);
+          }}
+          onOpenArtifact={(artifactId) => {
+            void openArtifactReviewTarget(artifactId);
+          }}
           onOpenInbox={onOpenInbox}
           onOpenSettings={onOpenSettings}
         />

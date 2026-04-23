@@ -5,9 +5,9 @@ use tauri::{AppHandle, Manager, WebviewWindow};
 
 use super::monitor::get_target_monitor;
 use super::{
-    should_surface_overlay_windows_in_task_switcher, SpotlightLayout, ARTIFACT_PANEL_WIDTH,
+    should_surface_overlay_windows_in_task_switcher, ChatSessionLayout, ARTIFACT_PANEL_WIDTH,
     BASE_WIDTH, COMPACT_ARTIFACT_PANEL_WIDTH, COMPACT_SIDEBAR_WIDTH, SIDEBAR_WIDTH,
-    SPOTLIGHT_HEIGHT, TASKBAR_MARGIN,
+    CHAT_SESSION_HEIGHT, TASKBAR_MARGIN,
 };
 
 pub(super) fn focus_window_best_effort(window: &WebviewWindow) {
@@ -47,17 +47,17 @@ fn set_window_geometry(
     #[cfg(target_os = "linux")]
     if let Ok(gtk_window) = window.gtk_window() {
         // Tauri's position update can be ignored on X11 after a live resize.
-        // Mirror the geometry through GTK so expanded Spotlight panels stay on-screen.
+        // Mirror the geometry through GTK so expanded Chat panels stay on-screen.
         gtk_window.resize(width as i32, height as i32);
         gtk_window.move_(x, y);
         gtk_window.queue_resize();
     }
 }
 
-pub(super) fn apply_layout(app: &AppHandle, layout: &SpotlightLayout) -> Result<(), String> {
+pub(super) fn apply_layout(app: &AppHandle, layout: &ChatSessionLayout) -> Result<(), String> {
     let window = app
-        .get_webview_window("spotlight")
-        .ok_or("Spotlight window not found")?;
+        .get_webview_window("chat-session")
+        .ok_or("Chat session window not found")?;
 
     let monitor = get_target_monitor(app).ok_or("No monitor found")?;
 
@@ -96,7 +96,7 @@ pub(super) fn apply_layout(app: &AppHandle, layout: &SpotlightLayout) -> Result<
     window_width_px = window_width_px.min(max_window_width);
 
     let available_height = (screen_h - (TASKBAR_MARGIN * scale)).max(1.0);
-    let window_height_px = (SPOTLIGHT_HEIGHT * scale).min(available_height);
+    let window_height_px = (CHAT_SESSION_HEIGHT * scale).min(available_height);
 
     let x = monitor_x + ((screen_w - window_width_px) / 2.0).max(0.0);
     let y = monitor_y + ((screen_h - window_height_px) / 2.0).max(0.0);

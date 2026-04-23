@@ -6,6 +6,7 @@ import {
   SettingsIcon,
   ShieldIcon,
   SparklesIcon,
+  WorkspaceIcon,
 } from "./ChatActivityBarIcons";
 import type { PrimaryView } from "../chatWindowModel";
 import { chatNavigationShortcutLabel } from "../../shared/shellShortcuts";
@@ -50,39 +51,47 @@ const NAV_ITEMS: Array<NavItem & { id: PrimaryView }> = [
     shortcut: chatNavigationShortcutLabel(1),
   },
   {
+    id: "workspace",
+    label: "Workspace",
+    icon: <WorkspaceIcon />,
+    description:
+      "Open the workspace surface for terminal-style actions, artifact follow-through, and project-aware operations.",
+    shortcut: chatNavigationShortcutLabel(2),
+  },
+  {
     id: "runs",
     label: "Runs",
     icon: <FleetIcon />,
     description: "Inspect runtime health, verification evidence, and supervised receipts.",
-    shortcut: chatNavigationShortcutLabel(2),
+    shortcut: chatNavigationShortcutLabel(3),
   },
   {
     id: "inbox",
     label: "Inbox",
     icon: <NotificationsIcon />,
     description: "Review ranked prompts, approvals, and interventions.",
-    shortcut: chatNavigationShortcutLabel(3),
+    shortcut: chatNavigationShortcutLabel(4),
   },
   {
     id: "capabilities",
     label: "Capabilities",
     icon: <IntegrationsIcon />,
     description: "Equip workers with connections, skills, and extension manifests.",
-    shortcut: chatNavigationShortcutLabel(4),
+    shortcut: chatNavigationShortcutLabel(5),
   },
   {
     id: "policy",
     label: "Policy",
     icon: <ShieldIcon />,
     description: "Set governance, approvals, and execution posture.",
-    shortcut: chatNavigationShortcutLabel(5),
+    shortcut: chatNavigationShortcutLabel(6),
   },
   {
     id: "settings",
     label: "Settings",
     icon: <SettingsIcon />,
     description: "Manage shell identity, diagnostics, and local system state.",
-    shortcut: chatNavigationShortcutLabel(6),
+    shortcut: chatNavigationShortcutLabel(7),
   },
 ];
 

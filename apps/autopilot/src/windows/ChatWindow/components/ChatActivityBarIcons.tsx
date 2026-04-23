@@ -177,6 +177,27 @@ export const FleetIcon = () => (
   </svg>
 );
 
+export const WorkspaceIcon = () => (
+  <svg
+    width="22"
+    height="22"
+    viewBox="0 0 20 20"
+    fill="none"
+    aria-hidden="true"
+  >
+    <path
+      d="M13.333 11.418a.665.665 0 0 1 0 1.33h-2.5a.665.665 0 1 1 0-1.33zM6.741 7.347a.665.665 0 0 1 .912.228l1.25 2.083a.67.67 0 0 1 0 .685l-1.25 2.083a.666.666 0 0 1-1.14-.685L7.557 10 6.513 8.259a.665.665 0 0 1 .228-.912"
+      fill="currentColor"
+    />
+    <path
+      fillRule="evenodd"
+      clipRule="evenodd"
+      d="M4.5 2.75h11a2.75 2.75 0 0 1 2.75 2.75v9a2.75 2.75 0 0 1-2.75 2.75h-11A2.75 2.75 0 0 1 1.75 14.5v-9A2.75 2.75 0 0 1 4.5 2.75m0 1.33a1.42 1.42 0 0 0-1.42 1.42v9a1.42 1.42 0 0 0 1.42 1.42h11a1.42 1.42 0 0 0 1.42-1.42v-9a1.42 1.42 0 0 0-1.42-1.42z"
+      fill="currentColor"
+    />
+  </svg>
+);
+
 export const CatalogIcon = () => (
   <svg
     width="22"
@@ -291,6 +312,24 @@ function IntegrationsAnimatedIcon({ disableHoverAnimation }: { disableHoverAnima
     pauseTimerRef.current = null;
   };
 
+  const supportsSmilAnimationControl = (
+    svg: SVGSVGElement,
+  ): svg is SVGSVGElement & {
+    pauseAnimations: () => void;
+    unpauseAnimations: () => void;
+    animationsPaused: () => boolean;
+    getCurrentTime: () => number;
+    setCurrentTime: (seconds: number) => void;
+  } => {
+    return (
+      typeof (svg as { pauseAnimations?: unknown }).pauseAnimations === "function" &&
+      typeof (svg as { unpauseAnimations?: unknown }).unpauseAnimations === "function" &&
+      typeof (svg as { animationsPaused?: unknown }).animationsPaused === "function" &&
+      typeof (svg as { getCurrentTime?: unknown }).getCurrentTime === "function" &&
+      typeof (svg as { setCurrentTime?: unknown }).setCurrentTime === "function"
+    );
+  };
+
   useLayoutEffect(() => {
     const svg = ref.current?.querySelector("svg");
     if (!svg) return;
@@ -305,8 +344,10 @@ function IntegrationsAnimatedIcon({ disableHoverAnimation }: { disableHoverAnima
     const firstAnimatedNode = svg.querySelector<SVGAnimationElement>("[dur]");
     const parsedDuration = parseSmilDurationSeconds(firstAnimatedNode?.getAttribute("dur") ?? null);
     cycleDurationSecondsRef.current = parsedDuration ?? 7;
-    svg.pauseAnimations();
-    svg.setCurrentTime(0);
+    if (supportsSmilAnimationControl(svg)) {
+      svg.pauseAnimations();
+      svg.setCurrentTime(0);
+    }
     return () => {
       clearPendingPause();
       svgRef.current = null;
@@ -316,7 +357,7 @@ function IntegrationsAnimatedIcon({ disableHoverAnimation }: { disableHoverAnima
   useLayoutEffect(() => {
     if (!disableHoverAnimation) return;
     const svg = svgRef.current;
-    if (!svg) return;
+    if (!svg || !supportsSmilAnimationControl(svg)) return;
     if (svg.animationsPaused()) {
       clearPendingPause();
       return;
@@ -326,7 +367,7 @@ function IntegrationsAnimatedIcon({ disableHoverAnimation }: { disableHoverAnima
 
   const schedulePauseAtCycleBoundary = () => {
     const svg = svgRef.current;
-    if (!svg) return;
+    if (!svg || !supportsSmilAnimationControl(svg)) return;
     clearPendingPause();
 
     const cycle = cycleDurationSecondsRef.current;
@@ -347,7 +388,7 @@ function IntegrationsAnimatedIcon({ disableHoverAnimation }: { disableHoverAnima
     if (disableHoverAnimation) return;
     if (!hoverAnimationArmedRef.current) return;
     const svg = svgRef.current;
-    if (!svg) return;
+    if (!svg || !supportsSmilAnimationControl(svg)) return;
     svg.unpauseAnimations();
     schedulePauseAtCycleBoundary();
   };

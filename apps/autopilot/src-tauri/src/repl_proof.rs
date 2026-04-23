@@ -244,7 +244,7 @@ fn build_seed_task(
                     approve_label: Some("Approve".to_string()),
                     deny_label: Some("Deny".to_string()),
                     deadline_ms: None,
-                    surface_label: Some("Spotlight".to_string()),
+                    surface_label: Some("Chat".to_string()),
                     scope_label: Some("repo".to_string()),
                     operation_label: Some("apply changes".to_string()),
                     target_label: Some("README.md".to_string()),
@@ -548,7 +548,7 @@ fn seed_durability_portfolio(mut args: Vec<String>) -> Result<(), String> {
         vec![ready_summary.clone()],
         Some(ready_session_id),
         Some(ready_session_id),
-        Some("Spotlight".to_string()),
+        Some("Chat".to_string()),
         Some("operator".to_string()),
         false,
     )?;

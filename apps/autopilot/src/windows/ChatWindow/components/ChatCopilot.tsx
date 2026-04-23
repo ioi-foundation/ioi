@@ -1,6 +1,6 @@
 // Compatibility aliases remain so the shared chat shell can re-export this view.
 import type { AssistantSessionRuntime } from "@ioi/agent-ide";
-import { SpotlightWindow } from "../../SpotlightWindow";
+import { ChatShellWindow } from "../../ChatShellWindow";
 
 interface ChatCopilotViewProps {
   seedIntent?: string | null;
@@ -14,7 +14,7 @@ export function ChatCopilotView({
   sessionRuntime,
 }: ChatCopilotViewProps) {
   return (
-    <SpotlightWindow
+    <ChatShellWindow
       variant="chat"
       seedIntent={seedIntent}
       onConsumeSeedIntent={onConsumeSeedIntent}

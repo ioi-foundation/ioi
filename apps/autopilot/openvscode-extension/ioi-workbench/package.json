@@ -1,0 +1,222 @@
+{
+  "name": "ioi-workbench",
+  "displayName": "IOI Workbench",
+  "description": "IOI-native workbench surfaces for Autopilot Workspace.",
+  "version": "0.0.1",
+  "publisher": "ioi",
+  "engines": {
+    "vscode": "^1.109.0"
+  },
+  "capabilities": {
+    "virtualWorkspaces": true,
+    "untrustedWorkspaces": {
+      "supported": true
+    }
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "*",
+    "onStartupFinished",
+    "onView:ioi.chat",
+    "onView:ioi.workflows",
+    "onView:ioi.runs",
+    "onView:ioi.artifacts",
+    "onView:ioi.policy",
+    "onView:ioi.connections"
+  ],
+  "main": "./extension.js",
+  "browser": "./extension.js",
+  "extensionKind": [
+    "ui",
+    "workspace"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "ioi",
+          "title": "IOI",
+          "icon": "media/ioi-activity.svg"
+        }
+      ]
+    },
+    "views": {
+      "ioi": [
+        {
+          "type": "webview",
+          "id": "ioi.chat",
+          "name": "Chat"
+        },
+        {
+          "type": "webview",
+          "id": "ioi.workflows",
+          "name": "Workflows"
+        },
+        {
+          "type": "webview",
+          "id": "ioi.runs",
+          "name": "Runs"
+        },
+        {
+          "type": "webview",
+          "id": "ioi.artifacts",
+          "name": "Artifacts"
+        },
+        {
+          "type": "webview",
+          "id": "ioi.policy",
+          "name": "Policy"
+        },
+        {
+          "type": "webview",
+          "id": "ioi.connections",
+          "name": "Connections"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "ioi.chat.explainSelection",
+        "title": "IOI: Explain Selection",
+        "category": "IOI"
+      },
+      {
+        "command": "ioi.chat.reviewFile",
+        "title": "IOI: Review Current File",
+        "category": "IOI"
+      },
+      {
+        "command": "ioi.artifacts.review",
+        "title": "IOI: Review Artifact in Chat",
+        "category": "IOI"
+      },
+      {
+        "command": "ioi.workflow.new",
+        "title": "IOI: Start Workflow",
+        "category": "IOI"
+      },
+      {
+        "command": "ioi.runs.refresh",
+        "title": "IOI: Open Runs",
+        "category": "IOI"
+      },
+      {
+        "command": "ioi.runs.review",
+        "title": "IOI: Review Run in Chat",
+        "category": "IOI"
+      },
+      {
+        "command": "ioi.policy.open",
+        "title": "IOI: Open Policy Context",
+        "category": "IOI"
+      },
+      {
+        "command": "ioi.artifacts.openEvidence",
+        "title": "IOI: Open Evidence Session",
+        "category": "IOI"
+      },
+      {
+        "command": "ioi.chatSession.openArtifact",
+        "title": "IOI: Open Artifact in Chat",
+        "category": "IOI"
+      },
+      {
+        "command": "ioi.artifacts.openPolicy",
+        "title": "IOI: Open Artifact Policy Context",
+        "category": "IOI"
+      },
+      {
+        "command": "ioi.connections.inspect",
+        "title": "IOI: Inspect Connections",
+        "category": "IOI"
+      },
+      {
+        "command": "ioi.connections.openConnector",
+        "title": "IOI: Open Connector Overview",
+        "category": "IOI"
+      },
+      {
+        "command": "ioi.automation.browser",
+        "title": "IOI: Start Browser / Computer-Use Validation",
+        "category": "IOI"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "ioi.chat.explainSelection"
+        },
+        {
+          "command": "ioi.chat.reviewFile"
+        },
+        {
+          "command": "ioi.artifacts.review"
+        },
+        {
+          "command": "ioi.workflow.new"
+        },
+        {
+          "command": "ioi.runs.refresh"
+        },
+        {
+          "command": "ioi.runs.review"
+        },
+        {
+          "command": "ioi.policy.open"
+        },
+        {
+          "command": "ioi.artifacts.openEvidence"
+        },
+        {
+          "command": "ioi.chatSession.openArtifact"
+        },
+        {
+          "command": "ioi.artifacts.openPolicy"
+        },
+        {
+          "command": "ioi.connections.inspect"
+        },
+        {
+          "command": "ioi.connections.openConnector"
+        },
+        {
+          "command": "ioi.automation.browser"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "ioi.chat.explainSelection",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "ioi.chat.reviewFile",
+          "group": "navigation@90"
+        },
+        {
+          "command": "ioi.policy.open",
+          "group": "navigation@91"
+        },
+        {
+          "command": "ioi.automation.browser",
+          "group": "navigation@92"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "ioi.chat.reviewFile",
+          "group": "navigation@90"
+        },
+        {
+          "command": "ioi.workflow.new",
+          "group": "navigation@91"
+        },
+        {
+          "command": "ioi.automation.browser",
+          "group": "navigation@92"
+        }
+      ]
+    }
+  }
+}

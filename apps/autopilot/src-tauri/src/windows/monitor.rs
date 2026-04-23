@@ -1,14 +1,14 @@
 use tauri::{AppHandle, Manager};
 
-/// Get the monitor that the spotlight window is on (or should be on)
+/// Get the monitor that the chat-session window is on (or should be on)
 pub(super) fn get_target_monitor(app: &AppHandle) -> Option<tauri::Monitor> {
     // Priority:
-    // 1) spotlight current monitor
-    // 2) monitor containing spotlight center (from outer geometry)
+    // 1) chat-session current monitor
+    // 2) monitor containing chat-session center (from outer geometry)
     // 3) chat current monitor
     // 4) primary monitor
     // 5) largest available monitor
-    if let Some(window) = app.get_webview_window("spotlight") {
+    if let Some(window) = app.get_webview_window("chat-session") {
         if let Ok(Some(monitor)) = window.current_monitor() {
             return Some(monitor);
         }
@@ -40,7 +40,7 @@ pub(super) fn get_target_monitor(app: &AppHandle) -> Option<tauri::Monitor> {
         }
     }
 
-    if let Some(window) = app.get_webview_window("spotlight") {
+    if let Some(window) = app.get_webview_window("chat-session") {
         if let Ok(Some(monitor)) = window.primary_monitor() {
             return Some(monitor);
         }

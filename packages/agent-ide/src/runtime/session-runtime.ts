@@ -138,12 +138,12 @@ export function hidePillShell(): Promise<void> {
   return getAssistantSessionRuntime().hidePillShell();
 }
 
-export function showSpotlightShell(): Promise<void> {
-  return getAssistantSessionRuntime().showSpotlightShell();
+export function showChatSessionShell(): Promise<void> {
+  return getAssistantSessionRuntime().showChatSessionShell();
 }
 
-export function hideSpotlightShell(): Promise<void> {
-  return getAssistantSessionRuntime().hideSpotlightShell();
+export function hideChatSessionShell(): Promise<void> {
+  return getAssistantSessionRuntime().hideChatSessionShell();
 }
 
 export function showGateShell(): Promise<void> {

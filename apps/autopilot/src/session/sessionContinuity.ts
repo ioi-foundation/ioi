@@ -130,7 +130,7 @@ export function buildSessionContinuityOverview(
       currentSessionId: activeTarget.sessionId,
       statusLabel: "Current session ready",
       detail:
-        "The active canonical session already has a retained workspace root, so Chat and Spotlight can resume and attach without rebuilding local shell state.",
+        "The active canonical session already has a retained workspace root, so Chat can resume and attach without rebuilding local shell state.",
     };
   }
 

@@ -1,13 +1,20 @@
 import { invoke } from "@tauri-apps/api/core";
 import {
   formatSessionTimeAgo,
-  openChatAutopilotIntent,
-  openChatCapabilityTarget,
-  showGateShell,
   type ConnectorActionDefinition,
   type ConnectorSummary,
   type RuntimeCatalogEntry,
 } from "@ioi/agent-ide";
+import {
+  openCompanionAutopilotIntent,
+  openCompanionCapabilityActions,
+  openCompanionGate,
+} from "../services/companionShellNavigation";
+import {
+  openChatShellSession,
+  openCurrentChatShellSession,
+  openNewChatShellSession,
+} from "../services/chatSessionNavigation";
 import {
   useCallback,
   useEffect,
@@ -18,12 +25,12 @@ import {
 import { useAgentStore } from "../session/autopilotSession";
 import { getSessionWorkbenchRuntime } from "../services/sessionRuntime";
 import type { SessionSummary, SkillCatalogEntry } from "../types";
-import { icons } from "../windows/SpotlightWindow/components/Icons";
+import { icons } from "../windows/ChatShellWindow/components/Icons";
 import {
-  SpotlightSlashMenu,
+  ChatSlashMenu,
   type SlashMenuItem,
   type SlashMenuSection,
-} from "../windows/SpotlightWindow/components/SpotlightSlashMenu";
+} from "../windows/ChatShellWindow/components/ChatSlashMenu";
 import type {
   PrimaryView,
   ProjectScope,
@@ -453,27 +460,25 @@ export function CommandPalette({
           }),
       },
       {
-        id: "open-spotlight",
-        title: "Open Spotlight",
+        id: "open-chat-shell",
+        title: "Open Chat",
         description: "Bring the primary session shell to the front.",
         meta: "Primary shell",
         icon: icons.search,
         onSelect: () =>
           runAction(async () => {
-            await useAgentStore.getState().showSpotlight();
+            await openCurrentChatShellSession();
           }),
       },
       {
-        id: "new-spotlight-session",
-        title: "New Spotlight Session",
+        id: "new-chat-session",
+        title: "New Chat Session",
         description: "Reset the shared session controller and open a fresh thread.",
-        meta: "Spotlight",
+        meta: "Chat",
         icon: icons.plus,
         onSelect: () =>
           runAction(async () => {
-            const store = useAgentStore.getState();
-            store.startNewSession();
-            await store.showSpotlight();
+            await openNewChatShellSession();
           }),
       },
       {
@@ -484,7 +489,7 @@ export function CommandPalette({
         icon: icons.alert,
         onSelect: () =>
           runAction(async () => {
-            await showGateShell();
+            await openCompanionGate();
           }),
       },
     ].filter((item) =>
@@ -493,7 +498,7 @@ export function CommandPalette({
         item.title,
         item.description,
         item.meta,
-        "chat spotlight queue workers approvals catalog inbox capabilities settings",
+        "chat queue workers approvals catalog inbox capabilities settings primary shell session",
       ),
     );
 
@@ -530,7 +535,7 @@ export function CommandPalette({
                   session.resume_hint,
                   session.workspace_root,
                   formatSessionTimeAgo(session.timestamp),
-                  "recent session resume spotlight thread history",
+                  "recent session resume chat thread history",
                 ),
               )
               .slice(0, 8)
@@ -540,15 +545,13 @@ export function CommandPalette({
                   id: `session-${session.session_id}`,
                   title: sessionLabel(session),
                   description: sessionContext
-                    ? `Resume ${sessionContext} in Spotlight.`
-                    : `Resume session ${session.session_id.slice(0, 8)} in Spotlight.`,
+                    ? `Resume ${sessionContext} in Chat.`
+                    : `Resume session ${session.session_id.slice(0, 8)} in Chat.`,
                   meta: formatSessionTimeAgo(session.timestamp),
                   icon: icons.history,
                   onSelect: () =>
                     runAction(async () => {
-                      const store = useAgentStore.getState();
-                      await store.loadSession(session.session_id);
-                      await store.showSpotlight();
+                      await openChatShellSession(session.session_id);
                     }),
                 };
               });
@@ -690,7 +693,7 @@ export function CommandPalette({
                 icon: icons.code,
                 onSelect: () =>
                   runAction(async () => {
-                    await openChatCapabilityTarget(connector.id, "actions");
+                    await openCompanionCapabilityActions(connector.id);
                   }),
               }));
 
@@ -752,7 +755,7 @@ export function CommandPalette({
                 onSelect: () =>
                   runAction(async () => {
                     onOpenPrimaryView("chat");
-                    await openChatAutopilotIntent(
+                    await openCompanionAutopilotIntent(
                       `Use the ${skill.name} skill for this request. `,
                     );
                   }),
@@ -853,7 +856,7 @@ export function CommandPalette({
         className="command-palette-shell"
         onClick={(event) => event.stopPropagation()}
       >
-        <SpotlightSlashMenu
+        <ChatSlashMenu
           sections={sections}
           mode="palette"
           selectedItemId={highlightedItemId}

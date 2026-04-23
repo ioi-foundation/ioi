@@ -1,6 +1,39 @@
-export type WorkspacePane = "files" | "search" | "source-control";
+export type WorkspacePane =
+  | "files"
+  | "search"
+  | "source-control"
+  | "run-and-debug"
+  | "extensions"
+  | "ioi";
 export type WorkspaceLayoutMode = "full" | "embedded" | "compact";
 export type WorkspaceBottomPanel = "terminal" | "problems" | "output" | "ports";
+export type WorkspaceOperatorSurface =
+  | "chat"
+  | "workflows"
+  | "runs"
+  | "artifacts"
+  | "policy"
+  | "connections";
+
+export type WorkspacePersistedDocument =
+  | {
+      kind: "file";
+      path: string;
+    }
+  | {
+      kind: "diff";
+      path: string;
+      staged: boolean;
+    };
+
+export interface WorkspacePersistedState {
+  activePane: WorkspacePane;
+  activeBottomPanel: WorkspaceBottomPanel;
+  bottomPanelOpen: boolean;
+  expandedPaths: Record<string, boolean>;
+  documents: WorkspacePersistedDocument[];
+  activeDocumentPath: string | null;
+}
 
 export interface WorkspaceActivityEntry {
   id: string;
@@ -357,6 +390,73 @@ export interface WorkspaceAdapter {
 export interface WorkspaceRailProps {
   activePane: WorkspacePane;
   onSelectPane: (pane: WorkspacePane) => void;
+  onSelectOperatorSurface?: (surface: WorkspaceOperatorSurface) => void;
+  onTogglePrimarySidebar?: () => void;
+}
+
+export interface WorkspacePaneAction {
+  id: string;
+  label: string;
+  description?: string | null;
+  onSelect: () => void;
+}
+
+export interface WorkspaceInspectionEntry {
+  id: string;
+  title: string;
+  summary: string;
+  status:
+    | "idle"
+    | "ready"
+    | "attention"
+    | "running"
+    | "unknown"
+    | "completed";
+  detail?: string | null;
+  onSelect?: () => void;
+}
+
+export interface WorkspaceRunDebugModel {
+  entries: WorkspaceInspectionEntry[];
+  onOpenRunsSurface?: () => void;
+  onOpenTerminal?: () => void;
+  onOpenOutput?: () => void;
+}
+
+export interface WorkspaceExtensionEntry {
+  id: string;
+  name: string;
+  description: string;
+  detail?: string | null;
+  status: "enabled" | "available" | "attention";
+  onSelect?: () => void;
+}
+
+export interface WorkspaceExtensionsModel {
+  entries: WorkspaceExtensionEntry[];
+  onOpenConnections?: () => void;
+  onOpenPolicies?: () => void;
+}
+
+export interface WorkspaceOperatorSummaryItem {
+  label: string;
+  value: string;
+  tone?: "default" | "attention" | "success";
+}
+
+export interface WorkspaceOperatorViewModel {
+  id: WorkspaceOperatorSurface;
+  title: string;
+  eyebrow?: string | null;
+  description: string;
+  summaryItems: WorkspaceOperatorSummaryItem[];
+  actions: WorkspacePaneAction[];
+}
+
+export interface WorkspaceOperatorModel {
+  activeSurface: WorkspaceOperatorSurface;
+  views: WorkspaceOperatorViewModel[];
+  onSelectSurface: (surface: WorkspaceOperatorSurface) => void;
 }
 
 export interface WorkspaceExplorerPaneProps {
@@ -366,6 +466,8 @@ export interface WorkspaceExplorerPaneProps {
   loadingDirectories: Record<string, boolean>;
   git: WorkspaceGitSummary;
   rootPath: string;
+  workspaceLabel?: string | null;
+  workspaceFolderName?: string | null;
   eyebrow?: string;
   title?: string;
   readOnly?: boolean;
@@ -400,6 +502,18 @@ export interface WorkspaceSourceControlPaneProps {
   onStage: (path: string) => void;
   onUnstage: (path: string) => void;
   onDiscard: (path: string) => void;
+}
+
+export interface WorkspaceRunDebugPaneProps {
+  model?: WorkspaceRunDebugModel | null;
+}
+
+export interface WorkspaceExtensionsPaneProps {
+  model?: WorkspaceExtensionsModel | null;
+}
+
+export interface WorkspaceOperatorPaneProps {
+  model?: WorkspaceOperatorModel | null;
 }
 
 export interface WorkspaceBottomPanelProps {

@@ -62,7 +62,7 @@ pub async fn reset_autopilot_data(
     let data_dir = autopilot_data_dir_for(&app);
     let mut removed_paths = Vec::new();
     remove_file_if_exists(&data_dir.join("chat-memory.db"), &mut removed_paths)?;
-    remove_dir_if_exists(&data_dir.join("spotlight-validation"), &mut removed_paths)?;
+    remove_dir_if_exists(&data_dir.join("chat-session-validation"), &mut removed_paths)?;
 
     let fresh_memory_runtime = open_or_create_memory_runtime(&data_dir)?;
     {

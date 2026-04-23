@@ -4,9 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "predev": "node scripts/sync-monaco-assets.mjs && npm run build --workspace=@ioi/workspace-substrate --if-present && npm run build --workspace=@ioi/agent-ide --if-present",
+    "predev": "npm run build --workspace=@ioi/workspace-substrate --if-present && npm run build --workspace=@ioi/agent-ide --if-present",
     "dev": "vite",
-    "prebuild": "node scripts/sync-monaco-assets.mjs && npm run build --workspace=@ioi/workspace-substrate --if-present && npm run build --workspace=@ioi/agent-ide --if-present",
+    "prebuild": "npm run build --workspace=@ioi/workspace-substrate --if-present && npm run build --workspace=@ioi/agent-ide --if-present",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri"
@@ -22,6 +22,7 @@
     "@codemirror/lang-yaml": "^6.1.2",
     "@codemirror/state": "^6.6.0",
     "@codemirror/view": "^6.40.0",
+    "@codingame/monaco-editor-wrapper": "^27.0.0",
     "@grpc/grpc-js": "^1.14.3",
     "@ioi/agent-ide": "*",
     "@ioi/workspace-substrate": "*",
@@ -37,7 +38,7 @@
     "clsx": "^2.1.1",
     "katex": "^0.16.45",
     "lucide-react": "^0.469.0",
-    "monaco-editor": "^0.52.2",
+    "monaco-editor": "npm:@codingame/monaco-vscode-editor-api@^27.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-markdown": "^10.1.0",

@@ -13,7 +13,7 @@ use tauri::{Manager, State};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy, Default)]
-pub struct SpotlightLayout {
+pub struct ChatSessionLayout {
     pub sidebar_visible: bool,
     pub artifact_panel_visible: bool,
 }
@@ -24,7 +24,7 @@ pub(super) const SIDEBAR_WIDTH: f64 = 280.0;
 pub(super) const ARTIFACT_PANEL_WIDTH: f64 = 468.0;
 pub(super) const COMPACT_SIDEBAR_WIDTH: f64 = 112.0;
 pub(super) const COMPACT_ARTIFACT_PANEL_WIDTH: f64 = 336.0;
-pub(super) const SPOTLIGHT_HEIGHT: f64 = 600.0;
+pub(super) const CHAT_SESSION_HEIGHT: f64 = 600.0;
 
 // Linux taskbar margin - typical panel height
 #[cfg(target_os = "linux")]
@@ -227,8 +227,8 @@ pub(super) fn queue_pending_chat_launch_for_app(
 }
 
 #[tauri::command]
-pub fn show_spotlight(app: tauri::AppHandle) {
-    commands::show_spotlight(app);
+pub fn show_chat_session(app: tauri::AppHandle) {
+    commands::show_chat_session(app);
 }
 
 #[tauri::command]
@@ -242,23 +242,23 @@ pub fn hide_pill(app: tauri::AppHandle) {
 }
 
 #[tauri::command]
-pub fn hide_spotlight(app: tauri::AppHandle) {
-    commands::hide_spotlight(app);
+pub fn hide_chat_session(app: tauri::AppHandle) {
+    commands::hide_chat_session(app);
 }
 
 #[tauri::command]
-pub fn toggle_spotlight_sidebar(app: tauri::AppHandle, visible: bool) {
-    commands::toggle_spotlight_sidebar(app, visible);
+pub fn toggle_chat_session_sidebar(app: tauri::AppHandle, visible: bool) {
+    commands::toggle_chat_session_sidebar(app, visible);
 }
 
 #[tauri::command]
-pub fn toggle_spotlight_artifact_panel(app: tauri::AppHandle, visible: bool) {
-    commands::toggle_spotlight_artifact_panel(app, visible);
+pub fn toggle_chat_session_artifact_panel(app: tauri::AppHandle, visible: bool) {
+    commands::toggle_chat_session_artifact_panel(app, visible);
 }
 
 #[tauri::command]
-pub fn get_spotlight_layout() -> Result<(bool, bool), String> {
-    commands::get_spotlight_layout()
+pub fn get_chat_session_layout() -> Result<(bool, bool), String> {
+    commands::get_chat_session_layout()
 }
 
 #[tauri::command]

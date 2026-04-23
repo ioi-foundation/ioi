@@ -1,0 +1,172 @@
+import React, { useEffect, useState } from "react";
+import { icons } from "../../ChatShellWindow/components/Icons";
+import "../../ChatShellWindow/styles/Chat.css";
+
+interface ApprovalProps {
+  title: string;
+  description: string;
+  risk: "low" | "medium" | "high";
+  onApproveTransform: () => void;
+  onDeny: () => void;
+  onGrantScopedException?: () => void;
+  approveLabel?: string;
+  denyLabel?: string;
+  showDeny?: boolean;
+  deadlineMs?: number;
+  surfaceLabel?: string;
+  scopeLabel?: string;
+  operationLabel?: string;
+  targetLabel?: string;
+  operatorNote?: string;
+  spanSummary?: string;
+  classCounts?: Record<string, number>;
+  severityCounts?: Record<string, number>;
+  stage2Prompt?: string;
+  targetId?: Record<string, unknown> | null;
+  errorMessage?: string | null;
+}
+
+export function ChatApprovalCard({
+  title,
+  description,
+  risk,
+  onApproveTransform,
+  onDeny,
+  onGrantScopedException,
+  approveLabel = "Approve",
+  denyLabel = "Deny",
+  showDeny = true,
+  deadlineMs,
+  surfaceLabel,
+  scopeLabel,
+  operationLabel,
+  targetLabel,
+  operatorNote,
+  spanSummary,
+  classCounts,
+  severityCounts,
+  stage2Prompt,
+  targetId,
+  errorMessage,
+}: ApprovalProps) {
+  const riskConfig = {
+    high: {
+      color: "var(--status-error)",
+      bg: "var(--status-error-dim)",
+      label: "HIGH RISK",
+    },
+    medium: {
+      color: "var(--status-warning)",
+      bg: "var(--status-warning-dim)",
+      label: "MEDIUM",
+    },
+    low: {
+      color: "var(--status-success)",
+      bg: "var(--status-success-dim)",
+      label: "LOW RISK",
+    },
+  }[risk] || {
+    color: "var(--text-tertiary)",
+    bg: "rgba(124, 138, 155, 0.08)",
+    label: "UNKNOWN",
+  };
+  const [remainingMs, setRemainingMs] = useState<number | null>(
+    typeof deadlineMs === "number" ? Math.max(deadlineMs - Date.now(), 0) : null,
+  );
+  const [showDetails, setShowDetails] = useState(false);
+
+  useEffect(() => {
+    if (typeof deadlineMs !== "number") {
+      setRemainingMs(null);
+      return;
+    }
+    const tick = () => setRemainingMs(Math.max(deadlineMs - Date.now(), 0));
+    tick();
+    const handle = window.setInterval(tick, 1000);
+    return () => window.clearInterval(handle);
+  }, [deadlineMs]);
+
+  return (
+    <div className="spot-gate-card" style={{ "--gate-color": riskConfig.color, "--gate-bg": riskConfig.bg } as React.CSSProperties}>
+      <div className="gate-indicator" />
+      <div className="gate-content">
+        <div className="gate-header">
+          <div className="gate-title-row">
+            <span className="gate-icon">{icons.alert}</span>
+            <span className="gate-title">{title}</span>
+          </div>
+          <span className="gate-badge">{riskConfig.label}</span>
+        </div>
+        <p className="gate-desc">{description}</p>
+        {remainingMs !== null && (
+          <p className="gate-desc"><strong>Deadline:</strong> {Math.ceil(remainingMs / 1000)}s</p>
+        )}
+        {(surfaceLabel ||
+          scopeLabel ||
+          operationLabel ||
+          targetLabel ||
+          operatorNote ||
+          spanSummary ||
+          stage2Prompt ||
+          targetId ||
+          classCounts ||
+          severityCounts) && (
+          <>
+            <button
+              className="gate-details-toggle"
+              onClick={() => setShowDetails((prev) => !prev)}
+            >
+              {showDetails ? "Hide details" : "Show details"}
+            </button>
+            {showDetails && (
+              <div className="gate-details">
+                {(surfaceLabel || scopeLabel || operationLabel) && (
+                  <div className="gate-detail-badges">
+                    {surfaceLabel ? <span>{surfaceLabel}</span> : null}
+                    {scopeLabel ? <span>{scopeLabel}</span> : null}
+                    {operationLabel ? <span>{operationLabel}</span> : null}
+                  </div>
+                )}
+                {targetLabel && <p className="gate-desc"><strong>Target:</strong> {targetLabel}</p>}
+                {operatorNote && <p className="gate-desc"><strong>Operator note:</strong> {operatorNote}</p>}
+                {spanSummary && <p className="gate-desc"><strong>Evidence:</strong> {spanSummary}</p>}
+                {stage2Prompt && <p className="gate-desc"><strong>Prompt:</strong> {stage2Prompt}</p>}
+                {classCounts && Object.keys(classCounts).length > 0 && (
+                  <p className="gate-desc">
+                    <strong>Classes:</strong>{" "}
+                    {Object.entries(classCounts)
+                      .map(([k, v]) => `${k}:${v}`)
+                      .join(", ")}
+                  </p>
+                )}
+                {severityCounts && Object.keys(severityCounts).length > 0 && (
+                  <p className="gate-desc">
+                    <strong>Severities:</strong>{" "}
+                    {Object.entries(severityCounts)
+                      .map(([k, v]) => `${k}:${v}`)
+                      .join(", ")}
+                  </p>
+                )}
+                {targetId && (
+                  <pre className="gate-details-json">
+                    {JSON.stringify(targetId, null, 2)}
+                  </pre>
+                )}
+              </div>
+            )}
+          </>
+        )}
+        {errorMessage && <p className="gate-error">{errorMessage}</p>}
+        <div className="gate-actions">
+          <button onClick={onApproveTransform} className="gate-btn primary">{icons.check}<span>{approveLabel}</span></button>
+          {onGrantScopedException && (
+            <button onClick={onGrantScopedException} className="gate-btn secondary"><span>Grant Scoped Exception</span></button>
+          )}
+          {showDeny && (
+            <button onClick={onDeny} className="gate-btn secondary">{icons.x}<span>{denyLabel}</span></button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

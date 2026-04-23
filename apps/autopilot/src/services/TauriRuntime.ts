@@ -554,12 +554,12 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
         await invoke("hide_pill");
     }
 
-    async showSpotlightShell(): Promise<void> {
-        await invoke("show_spotlight");
+    async showChatSessionShell(): Promise<void> {
+        await invoke("show_chat_session");
     }
 
-    async hideSpotlightShell(): Promise<void> {
-        await invoke("hide_spotlight");
+    async hideChatSessionShell(): Promise<void> {
+        await invoke("hide_chat_session");
     }
 
     async showGateShell(): Promise<void> {

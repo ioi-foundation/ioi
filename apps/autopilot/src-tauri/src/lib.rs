@@ -25,6 +25,7 @@ mod template;
 mod windows;
 pub mod workflow_proof;
 mod workspace;
+mod workspace_ide;
 
 use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime, UnavailableInferenceRuntime};
 use ioi_memory::MemoryRuntime;
@@ -448,17 +449,17 @@ fn reset_data_dir_on_boot_if_requested(data_dir: &Path) -> Result<(), String> {
 }
 
 #[cfg(target_os = "macos")]
-const SPOTLIGHT_SHORTCUT_LABEL: &str = "Open Autopilot (Cmd+Space)";
+const CHAT_SESSION_SHORTCUT_LABEL: &str = "Open Autopilot (Cmd+Space)";
 #[cfg(not(target_os = "macos"))]
-const SPOTLIGHT_SHORTCUT_LABEL: &str = "Open Autopilot (Ctrl+Space)";
+const CHAT_SESSION_SHORTCUT_LABEL: &str = "Open Autopilot (Ctrl+Space)";
 
 #[cfg(target_os = "macos")]
-fn spotlight_shortcut() -> Shortcut {
+fn chat_session_shortcut() -> Shortcut {
     Shortcut::new(Some(Modifiers::SUPER), Code::Space)
 }
 
 #[cfg(not(target_os = "macos"))]
-fn spotlight_shortcut() -> Shortcut {
+fn chat_session_shortcut() -> Shortcut {
     Shortcut::new(Some(Modifiers::CONTROL), Code::Space)
 }
 
@@ -489,6 +490,7 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(Mutex::new(models::AppState::default()))
+        .manage(workspace_ide::WorkspaceIdeManager::default())
         .manage(workspace::WorkspaceTerminalManager::default())
         .setup(|app| {
             println!("[Autopilot] Initializing...");
@@ -654,10 +656,10 @@ pub fn run() {
                 execution::init_mcp_servers(handle).await;
             });
 
-            let show_spotlight_item = MenuItem::with_id(
+            let show_chat_session_item = MenuItem::with_id(
                 app,
-                "spotlight",
-                SPOTLIGHT_SHORTCUT_LABEL,
+                "chat-session",
+                CHAT_SESSION_SHORTCUT_LABEL,
                 true,
                 None::<&str>,
             )?;
@@ -668,7 +670,7 @@ pub fn run() {
             let menu =
                 Menu::with_items(
                     app,
-                    &[&show_spotlight_item, &show_pill_item, &show_chat_item, &quit_item],
+                    &[&show_chat_session_item, &show_pill_item, &show_chat_item, &quit_item],
                 )?;
 
             if let Some(icon) = app.default_window_icon().cloned() {
@@ -677,7 +679,7 @@ pub fn run() {
                     .icon(icon)
                     .icon_as_template(true)
                     .on_menu_event(|app, event| match event.id.as_ref() {
-                        "spotlight" => windows::show_spotlight(app.clone()),
+                        "chat-session" => windows::show_chat_session(app.clone()),
                         "pill" => windows::show_pill(app.clone()),
                         "chat" => windows::show_chat(app.clone()),
                         "quit" => std::process::exit(0),
@@ -690,27 +692,46 @@ pub fn run() {
                             ..
                         } = event
                         {
-                            windows::show_spotlight(tray.app_handle().clone());
+                            windows::show_chat_session(tray.app_handle().clone());
                         }
                     })
                     .build(app);
             }
 
-            let shortcut = spotlight_shortcut();
+            let shortcut = chat_session_shortcut();
             let app_handle = app.handle().clone();
             let _ = app
                 .global_shortcut()
                 .on_shortcut(shortcut, move |_app, _shortcut, event| {
                     if event.state == ShortcutState::Pressed {
-                        if let Some(window) = app_handle.get_webview_window("spotlight") {
+                        if let Some(window) = app_handle.get_webview_window("chat-session") {
                             if window.is_visible().unwrap_or(false) {
-                                windows::hide_spotlight(app_handle.clone());
+                                windows::hide_chat_session(app_handle.clone());
                             } else {
-                                windows::show_spotlight(app_handle.clone());
+                                windows::show_chat_session(app_handle.clone());
                             }
                         }
                     }
                 });
+
+            #[cfg(not(target_os = "macos"))]
+            {
+                let handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    tokio::time::sleep(std::time::Duration::from_millis(350)).await;
+                    let chat_visible = handle
+                        .get_webview_window("chat")
+                        .and_then(|window| window.is_visible().ok())
+                        .unwrap_or(false);
+                    let chat_session_visible = handle
+                        .get_webview_window("chat-session")
+                        .and_then(|window| window.is_visible().ok())
+                        .unwrap_or(false);
+                    if !chat_visible && !chat_session_visible {
+                        windows::show_chat(handle);
+                    }
+                });
+            }
 
             #[cfg(not(target_os = "macos"))]
             {
@@ -735,11 +756,11 @@ pub fn run() {
                                 windows::show_chat(handle);
                             }
                         }
-                        Some("spotlight") => {
-                            if let Some(window) = handle.get_webview_window("spotlight") {
+                        Some("chat-session") => {
+                            if let Some(window) = handle.get_webview_window("chat-session") {
                                 if let Ok(visible) = window.is_visible() {
                                     if !visible {
-                                        windows::show_spotlight(handle);
+                                        windows::show_chat_session(handle);
                                     }
                                 }
                             }
@@ -782,11 +803,11 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             windows::show_pill,
             windows::hide_pill,
-            windows::show_spotlight,
-            windows::hide_spotlight,
-            windows::toggle_spotlight_sidebar,
-            windows::toggle_spotlight_artifact_panel,
-            windows::get_spotlight_layout,
+            windows::show_chat_session,
+            windows::hide_chat_session,
+            windows::toggle_chat_session_sidebar,
+            windows::toggle_chat_session_artifact_panel,
+            windows::get_chat_session_layout,
             windows::show_gate,
             windows::hide_gate,
             windows::show_chat,
@@ -798,6 +819,10 @@ pub fn run() {
             windows::ack_pending_chat_launch,
             windows::record_chat_launch_receipt,
             windows::get_chat_launch_receipts,
+            workspace_ide::ensure_workspace_ide_session,
+            workspace_ide::stop_workspace_ide_session,
+            workspace_ide::write_workspace_ide_bridge_state,
+            workspace_ide::take_workspace_ide_bridge_requests,
             kernel::chat::chat_retry_renderer_session,
             kernel::chat::chat_attach_artifact_selection,
             kernel::chat::chat_attach_widget_state,

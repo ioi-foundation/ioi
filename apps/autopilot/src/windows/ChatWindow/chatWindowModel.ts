@@ -2,6 +2,7 @@ import type { AssistantUserProfile } from "../../types";
 
 export type PrimaryView =
   | "chat"
+  | "workspace"
   | "workflows"
   | "runs"
   | "inbox"
