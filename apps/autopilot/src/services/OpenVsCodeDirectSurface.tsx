@@ -238,6 +238,7 @@ export function OpenVsCodeDirectSurface({
         window.cancelAnimationFrame(frameRef.current);
         frameRef.current = null;
       }
+      void hideWorkspaceDirectWebview(surface.surfaceId).catch(() => {});
       void destroyWorkspaceDirectWebview(surface.surfaceId).catch(() => {});
       shownRef.current = false;
       lastBoundsRef.current = null;

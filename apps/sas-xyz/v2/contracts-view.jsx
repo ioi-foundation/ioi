@@ -5,6 +5,7 @@ const ContractsView = ({
   contracts, draftsList, completes,
   onOpenContract, onSwap, onDraft, onResumeDraft, onDiscardDraft,
   embedded = false,
+  railRef = null,
 }) => {
   const [sub, setSub] = React.useState('contracts');
   const [filter, setFilter] = React.useState('all'); // all | draft | active | complete
@@ -19,6 +20,47 @@ const ContractsView = ({
   const showActive   = filter === 'all' || filter === 'active';
   const showDrafts   = filter === 'all' || filter === 'draft';
   const showComplete = filter === 'all' || filter === 'complete';
+
+  // Sidebar icon SVGs
+  const SidebarIcon = ({ name }) => {
+    const icons = {
+      explore: (
+        <svg className="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+      ),
+      active: (
+        <svg className="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <polyline points="12 6 12 12 16 14" />
+        </svg>
+      ),
+      drafts: (
+        <svg className="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+        </svg>
+      ),
+      completed: (
+        <svg className="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      ),
+      saved: (
+        <svg className="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+        </svg>
+      ),
+      search: (
+        <svg className="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+      ),
+    };
+    return icons[name] || null;
+  };
 
   return (
     <div className={embedded ? '' : 'page'}>
@@ -54,7 +96,8 @@ const ContractsView = ({
       {(embedded || sub === 'contracts') && (
         <div data-screen-label="01 Contracts">
           {/* Command Center strip — birds-eye view */}
-          <div className="cmd-strip">
+          {!embedded && (
+            <div className="cmd-strip">
             <div className="cmd-cell">
               <div className="cmd-cell-k">active contracts</div>
               <div className="cmd-cell-v">{contracts.length}</div>
@@ -80,9 +123,11 @@ const ContractsView = ({
               <div className="cmd-cell-v">$12,400</div>
               <div className="cmd-cell-sub good">this month · no idle hours</div>
             </div>
-          </div>
+            </div>
+          )}
 
           {/* Live ticker — receipt events streaming across all contracts */}
+          {!embedded && (
           <div style={{
             display:'flex', alignItems:'center', gap:14,
             padding:'10px 20px', marginTop:-24, marginBottom:32,
@@ -94,35 +139,66 @@ const ContractsView = ({
               live feed
             </span>
             <AsciiTicker style={{flex:1, minWidth:0}} />
-          </div>
+            </div>
+          )}
 
-          {/* Filter pills — one list, filter by lifecycle state */}
-          <div className="section-head">
-            <div>
-              <h2 className="section-title serif">Your contracts</h2>
-              <p className="section-sub mono" style={{marginTop:6}}>
-                One list · filter by state · sorted by recency
-              </p>
-            </div>
-            <div style={{display:'flex', gap:6}}>
-              {[
-                { id:'all',      label:'All',      n: contracts.length + draftsList.length + completes.length },
-                { id:'active',   label:'Active',   n: contracts.length },
-                { id:'draft',    label:'Draft',    n: draftsList.length },
-                { id:'complete', label:'Complete', n: completes.length },
-              ].map(f => (
-                <div key={f.id} onClick={() => setFilter(f.id)} className="mono" style={{
-                  fontSize:11, letterSpacing:'0.04em',
-                  padding:'5px 11px', borderRadius:999, cursor:'pointer',
-                  background: filter === f.id ? 'var(--ink)' : 'var(--paper)',
-                  color: filter === f.id ? 'var(--paper)' : 'var(--ink-2)',
-                  border:'1px solid ' + (filter === f.id ? 'var(--ink)' : 'var(--rule-soft)'),
-                }}>
-                  {f.label} <span style={{opacity:0.6}}>({f.n})</span>
+          <div className={embedded ? "ui-split-layout" : ""}>
+            {/* Filter pills or sidebar */}
+            {embedded ? (
+              <div className="ui-sidebar-nav">
+                <button className={'ui-sidebar-link' + (filter === 'all' ? ' active' : '')} onClick={() => setFilter('all')}>
+                  <SidebarIcon name="explore" />
+                  Keep exploring
+                </button>
+                <button className={'ui-sidebar-link' + (filter === 'active' ? ' active' : '')} onClick={() => setFilter('active')}>
+                  <SidebarIcon name="active" />
+                  Active contracts
+                </button>
+                <button className={'ui-sidebar-link' + (filter === 'draft' ? ' active' : '')} onClick={() => setFilter('draft')}>
+                  <SidebarIcon name="drafts" />
+                  Drafts in flight
+                </button>
+                <button className={'ui-sidebar-link' + (filter === 'complete' ? ' active' : '')} onClick={() => setFilter('complete')}>
+                  <SidebarIcon name="completed" />
+                  Completed
+                </button>
+                <div style={{height: 1, background: 'var(--rule-soft)', margin: '8px 0'}} />
+                <button className="ui-sidebar-link" style={{color: 'var(--muted-2)', fontSize: 14}}>
+                  <SidebarIcon name="saved" />
+                  Saved services
+                </button>
+              </div>
+            ) : (
+              <div className="section-head">
+                <div>
+                  <h2 className="section-title serif">Your contracts</h2>
+                  <p className="section-sub mono" style={{marginTop:6}}>
+                    One list · filter by state · sorted by recency
+                  </p>
                 </div>
-              ))}
-            </div>
-          </div>
+                <div style={{display:'flex', gap:6}}>
+                  {[
+                    { id:'all',      label:'All',      n: contracts.length + draftsList.length + completes.length },
+                    { id:'active',   label:'Active',   n: contracts.length },
+                    { id:'draft',    label:'Draft',    n: draftsList.length },
+                    { id:'complete', label:'Complete', n: completes.length },
+                  ].map(f => (
+                    <div key={f.id} onClick={() => setFilter(f.id)} className="mono" style={{
+                      fontSize:11, letterSpacing:'0.04em',
+                      padding:'5px 11px', borderRadius:999, cursor:'pointer',
+                      background: filter === f.id ? 'var(--ink)' : 'var(--paper)',
+                      color: filter === f.id ? 'var(--paper)' : 'var(--ink-2)',
+                      border:'1px solid ' + (filter === f.id ? 'var(--ink)' : 'var(--rule-soft)'),
+                    }}>
+                      {f.label} <span style={{opacity:0.6}}>({f.n})</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="ui-split-content">
+
 
           {/* Active contracts — the signal */}
           {showActive && contracts.length > 0 && (
@@ -132,11 +208,20 @@ const ContractsView = ({
                   Active · <span style={{color:'var(--sage-ink)'}}>{contracts.length}</span>
                 </div>
               )}
-              <div className="contracts">
-                {contracts.map(c => (
-                  <ContractCard key={c.id} contract={c} onOpen={onOpenContract} onSwap={onSwap} />
-                ))}
-              </div>
+              {embedded ? (
+                /* Horizontal rail mode for embedded (Home view) */
+                <div className="ui-contract-rail" ref={railRef}>
+                  {contracts.map(c => (
+                    <ContractCard key={c.id} contract={c} onOpen={onOpenContract} onSwap={onSwap} compact />
+                  ))}
+                </div>
+              ) : (
+                <div className="contracts">
+                  {contracts.map(c => (
+                    <ContractCard key={c.id} contract={c} onOpen={onOpenContract} onSwap={onSwap} />
+                  ))}
+                </div>
+              )}
             </>
           )}
 
@@ -218,6 +303,8 @@ const ContractsView = ({
               )}
             </div>
           )}
+          </div>
+        </div>
         </div>
       )}
 

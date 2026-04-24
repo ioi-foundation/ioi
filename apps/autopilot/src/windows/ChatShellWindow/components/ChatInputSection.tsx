@@ -617,6 +617,16 @@ export function ChatInputSection({
     setActiveDropdown,
   ]);
 
+  const handleContextTrigger = useCallback(() => {
+    if (inputLockedByCredential) {
+      return;
+    }
+
+    setSlashContext(null);
+    setCommandPaletteQuery("context");
+    setActiveDropdown("command_palette");
+  }, [inputLockedByCredential, setActiveDropdown]);
+
   const commandQuery = commandPaletteMode
     ? commandPaletteQuery.trim().toLowerCase()
     : slashContext?.query.trim().toLowerCase() ?? "";
@@ -1554,6 +1564,13 @@ export function ChatInputSection({
     [syncSlashMenu],
   );
 
+  const workspaceModeLabel =
+    workspaceOptions.find((option) => option.value === workspaceMode)?.label ??
+    (workspaceMode || "Local");
+  const modelLabel =
+    modelOptions.find((option) => option.value === selectedModel)?.label ??
+    (selectedModel || "Agent");
+
   return (
     <div
       className={`spot-input-section ${inputFocused ? "focused" : ""} ${
@@ -1614,13 +1631,19 @@ export function ChatInputSection({
             showPasswordPrompt={showPasswordPrompt}
             isRunning={isRunning}
             planMode={planMode}
+            autoContext={autoContext}
+            workspaceModeLabel={workspaceModeLabel}
+            modelLabel={modelLabel}
             intent={intent}
             isGated={isGated}
             inputLockedByCredential={inputLockedByCredential}
             onStop={onStop}
             onTogglePlanMode={() => onTogglePlanMode()}
+            onToggleAutoContext={onToggleAutoContext}
+            onTriggerContext={handleContextTrigger}
             onTriggerCommands={handleCommandTrigger}
             onTriggerCommandPalette={handleCommandPaletteTrigger}
+            onOpenSettings={onOpenSettings}
             onSubmit={onSubmit}
           />
         ) : (
@@ -1649,13 +1672,19 @@ export function ChatInputSection({
               showPasswordPrompt={showPasswordPrompt}
               isRunning={isRunning}
               planMode={planMode}
+              autoContext={autoContext}
+              workspaceModeLabel={workspaceModeLabel}
+              modelLabel={modelLabel}
               intent={intent}
               isGated={isGated}
               inputLockedByCredential={inputLockedByCredential}
               onStop={onStop}
               onTogglePlanMode={() => onTogglePlanMode()}
+              onToggleAutoContext={onToggleAutoContext}
+              onTriggerContext={handleContextTrigger}
               onTriggerCommands={handleCommandTrigger}
               onTriggerCommandPalette={handleCommandPaletteTrigger}
+              onOpenSettings={onOpenSettings}
               onSubmit={onSubmit}
             />
           </>

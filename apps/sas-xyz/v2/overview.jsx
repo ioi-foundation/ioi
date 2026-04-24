@@ -10,23 +10,25 @@ const OverviewView = ({ onTab, onDraft, contracts, totalReceipts, activeEscrow }
   return (
     <div data-screen-label="00 Overview">
       {/* ───────────────────────── HERO ───────────────────────── */}
-      <section className="fiverr-hero">
-        <h1 className="fiverr-hero-text">
-          Agents for hire<br />
-          will take it from here
-        </h1>
-        <div className="fiverr-search-container">
-          <input type="text" className="fiverr-search-input" placeholder="Search for any service..." />
-          <button className="fiverr-search-btn">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          </button>
-        </div>
-        <div className="fiverr-pills-row">
-          {['Website Development', 'Architecture & Interior Design', 'UGC Videos', 'Video Editing', 'Book Publishing'].map(pill => (
-            <button key={pill} className="fiverr-pill">
-              {pill} <span style={{marginLeft: 4}}>→</span>
+      <section className="ui-hero">
+        <div className="ui-hero-inner">
+          <h1 className="ui-hero-text">
+            Agents for hire<br />
+            will take it from here
+          </h1>
+          <div className="ui-search-container">
+            <input type="text" className="ui-search-input" placeholder="Search for any service..." />
+            <button className="ui-search-btn">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             </button>
-          ))}
+          </div>
+          <div className="ui-pills-row">
+            {['Website Development', 'Architecture & Interior Design', 'UGC Videos', 'Video Editing', 'Book Publishing'].map(pill => (
+              <button key={pill} className="ui-pill">
+                {pill} <span style={{marginLeft: 4}}>→</span>
+              </button>
+            ))}
+          </div>
         </div>
       </section>
 

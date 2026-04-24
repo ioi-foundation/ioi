@@ -17,34 +17,36 @@ const CATEGORY_NAV = [
 const Topbar = ({ tab, activeCategory, onTab, onCategory, inboxActionCount, onBell, onDraft, onAvatar, onSearchFocus, variant = 'app' }) => {
   if (variant === 'marketing') {
     return (
-      <header className="topbar topbar-marketing">
-        <div className="brand" onClick={() => onTab('Overview')} style={{cursor:'pointer'}} title="sas.xyz">
-          <img src="v2/logo.svg" alt="" />
-          sas<em>.xyz</em>
+      <header className="topbar-marketing">
+        <div className="topbar-marketing-inner">
+          <div className="brand" onClick={() => onTab('Overview')} style={{cursor:'pointer'}} title="sas.xyz">
+            <img src="v2/logo.svg" alt="" />
+            sas<em>.xyz</em>
+          </div>
+          <nav className="top-nav marketing-nav" style={{display: 'flex', alignItems: 'center', gap: '20px', marginLeft: 'auto'}}>
+            <a onClick={(e) => { e.preventDefault(); }} href="#">Explore</a>
+            <a onClick={(e) => { e.preventDefault(); }} href="#" style={{display: 'flex', alignItems: 'center', gap: '6px'}}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+              English
+            </a>
+            <a onClick={(e) => { e.preventDefault(); }} href="#">Become a Seller</a>
+            <a onClick={(e) => { e.preventDefault(); onTab('Home'); }} href="#">Sign in</a>
+            <button
+              onClick={() => onTab('Home')}
+              className="ui-btn-outline"
+              style={{background: 'transparent', cursor: 'pointer', fontFamily: 'var(--sans, sans-serif)', fontSize: '15px', marginLeft: '8px'}}
+            >
+              Join
+            </button>
+          </nav>
         </div>
-        <nav className="top-nav marketing-nav" style={{display: 'flex', alignItems: 'center', gap: '20px', marginLeft: 'auto'}}>
-          <a onClick={(e) => { e.preventDefault(); }} href="#">Explore</a>
-          <a onClick={(e) => { e.preventDefault(); }} href="#" style={{display: 'flex', alignItems: 'center', gap: '6px'}}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-            English
-          </a>
-          <a onClick={(e) => { e.preventDefault(); }} href="#">Become a Seller</a>
-          <a onClick={(e) => { e.preventDefault(); onTab('Home'); }} href="#">Sign in</a>
-          <button
-            onClick={() => onTab('Home')}
-            className="fiverr-btn-outline"
-            style={{background: 'transparent', cursor: 'pointer', fontFamily: 'var(--sans, sans-serif)', fontSize: '15px', marginLeft: '8px'}}
-          >
-            Join
-          </button>
-        </nav>
       </header>
     );
   }
   return (
-    <header className="topbar topbar-app">
-      <div className="topbar-row">
-        <div className="brand" onClick={() => onTab('Overview')} style={{cursor:'pointer'}} title="About sas.xyz">
+    <header className="topbar topbar-app" style={{borderBottom: '1px solid var(--rule-soft)'}}>
+      <div className="topbar-app-inner" style={{padding: '14px 32px'}}>
+        <div className="brand" onClick={() => onTab('Overview')} style={{cursor:'pointer'}} title="sas.xyz">
           <img src="v2/logo.svg" alt="" />
           sas<em>.xyz</em>
         </div>
@@ -55,71 +57,44 @@ const Topbar = ({ tab, activeCategory, onTab, onCategory, inboxActionCount, onBe
             <path d="M21 21l-4.3-4.3" />
           </svg>
           <span className="topbar-search-placeholder">
-            Search outcomes, providers, contracts…
+            What service are you looking for today?
           </span>
           <span className="mono topbar-search-kbd">⌘K</span>
         </div>
 
-        <div className="top-right">
-          <button onClick={onDraft} className="btn" style={{padding:'7px 14px', fontSize:12}}>
-            <span style={{fontSize:14, lineHeight:1, marginRight:2}}>+</span> New contract
-          </button>
-          <button
-            onClick={onBell}
-            title="Notifications"
-            style={{
-              position:'relative', width:34, height:34, borderRadius:'50%',
-              border:'1px solid var(--rule-soft)', background:'var(--paper)',
-              cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
-              color:'var(--ink-2)',
-            }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-              <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-            </svg>
+        <div className="top-right" style={{marginLeft: 'auto'}}>
+          <button onClick={onBell} className="ui-icon-btn" title="Notifications" style={{position: 'relative'}}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
             {inboxActionCount > 0 && (
-              <span className="mono" style={{
-                position:'absolute', top:-3, right:-3,
-                minWidth:16, height:16, padding:'0 4px', borderRadius:999,
-                background:'var(--coral)', color:'white',
-                fontSize:9, fontWeight:600, letterSpacing:'0.02em',
-                display:'flex', alignItems:'center', justifyContent:'center',
-                border:'2px solid var(--paper)',
-              }}>{inboxActionCount}</span>
+              <span style={{position:'absolute', top: 4, right: 4, width: 8, height: 8, background: '#f74040', borderRadius: '50%', border: '2px solid #fff'}}></span>
             )}
           </button>
-          <button onClick={onAvatar} title="Account" className="avatar" style={{cursor:'pointer', border:'none', padding:0}}>H</button>
+          <button className="ui-icon-btn" title="Messages">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+          </button>
+          <button className="ui-icon-btn" title="Saved">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+          </button>
+          <button className="ui-icon-btn" title="Contracts" style={{fontFamily: 'var(--sans, sans-serif)', fontSize: 16, fontWeight: 600, color: '#62646a', padding: '8px 16px'}} onClick={() => onTab('Home')}>
+            Contracts
+          </button>
+          <button className="ui-icon-btn" title="Switch to Provider" style={{fontFamily: 'var(--sans, sans-serif)', fontSize: 16, fontWeight: 600, color: 'var(--accent-ink)', padding: '8px 16px'}}>
+            Switch to Provider
+          </button>
+          <button onClick={onAvatar} title="Account" className="avatar" style={{cursor:'pointer', border:'none', padding:0, marginLeft: 8, width: 32, height: 32, background: '#e4e5e7', color: '#62646a', fontFamily: 'var(--sans, sans-serif)'}}>H</button>
         </div>
       </div>
 
       {/* Category nav — persistent, service-category-first */}
-      <nav className="topbar-cats">
-        <button
-          className={'cat-item' + (tab === 'Home' && !activeCategory ? ' active' : '')}
-          onClick={() => { onCategory(null); onTab('Home'); }}
-        >
-          Home
-        </button>
-        <div className="cat-divider" />
+      <nav className="ui-subnav">
         {CATEGORY_NAV.map(c => (
-          <button
-            key={c.id}
-            className={'cat-item' + (activeCategory === c.id ? ' active' : '')}
-            onClick={() => { onCategory(c.id); onTab('Market'); }}
-          >
+          <div key={c.id} className={'ui-subnav-link' + (activeCategory === c.id ? ' active' : '')} onClick={() => { onCategory(c.id); onTab('Market'); }}>
             {c.label}
-          </button>
+          </div>
         ))}
-        <div className="cat-divider" />
-        <button
-          className={'cat-item' + (tab === 'Market' && !activeCategory ? ' active' : '')}
-          onClick={() => { onCategory(null); onTab('Market'); }}
-        >
+        <div className={'ui-subnav-link' + (tab === 'Market' && !activeCategory ? ' active' : '')} onClick={() => { onCategory(null); onTab('Market'); }}>
           All market
-        </button>
-        <div style={{flex:1}} />
-        <div className="policy-pill mono" title="Policy version · envelope budget"><span className="dot" />Policy 2026.4 · intact</div>
+        </div>
       </nav>
     </header>
   );

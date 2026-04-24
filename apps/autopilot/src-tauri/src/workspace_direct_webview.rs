@@ -375,6 +375,80 @@ fn reparent_child_window<R: Runtime>(
 }
 
 #[cfg(target_os = "linux")]
+fn unmap_child_window(window: &gtk::ApplicationWindow, label: &str) -> Result<(), String> {
+    let child_xid = gtk_window_xid(window, label)?;
+    unsafe {
+        let display = x11::xlib::XOpenDisplay(std::ptr::null());
+        if display.is_null() {
+            return Err("Failed to open X11 display for direct webview unmap.".to_string());
+        }
+        x11::xlib::XUnmapWindow(display, child_xid);
+        x11::xlib::XFlush(display);
+        x11::xlib::XCloseDisplay(display);
+    }
+    eprintln!(
+        "[WorkspaceDirectWebview] unmapped child window label={} child_xid={}",
+        label, child_xid
+    );
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn invalidate_parent_window_region(
+    window: &gtk::ApplicationWindow,
+    label: &str,
+    bounds: &WorkspaceDirectWebviewBounds,
+) -> Result<(), String> {
+    use gtk::prelude::WidgetExt;
+
+    let parent_xid = gtk_window_xid(window, label)?;
+    let x = bounds.x.round().max(0.0) as i32;
+    let y = bounds.y.round().max(0.0) as i32;
+    let width = bounds.width.round().max(1.0) as u32;
+    let height = bounds.height.round().max(1.0) as u32;
+
+    window.queue_draw_area(x, y, width as i32, height as i32);
+    window.queue_draw();
+
+    unsafe {
+        let display = x11::xlib::XOpenDisplay(std::ptr::null());
+        if display.is_null() {
+            return Err("Failed to open X11 display for parent redraw.".to_string());
+        }
+        x11::xlib::XClearArea(display, parent_xid, x, y, width, height, 1);
+        x11::xlib::XFlush(display);
+        x11::xlib::XCloseDisplay(display);
+    }
+
+    eprintln!(
+        "[WorkspaceDirectWebview] invalidated parent window label={} xid={} bounds=({}, {}, {}, {})",
+        label, parent_xid, x, y, width, height
+    );
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn invalidate_parent_for_record<R: Runtime>(
+    app: &AppHandle<R>,
+    record: &WorkspaceDirectWebviewRecord,
+) {
+    if let Some(parent_window) = app.get_webview_window(&record.parent_window_label) {
+        if let Ok(parent_gtk_window) = parent_window.gtk_window() {
+            if let Err(error) = invalidate_parent_window_region(
+                &parent_gtk_window,
+                &record.parent_window_label,
+                &record.bounds,
+            ) {
+                eprintln!(
+                    "[WorkspaceDirectWebview] failed to invalidate parent window label={} surface_label={}: {}",
+                    record.parent_window_label, record.label, error
+                );
+            }
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
 fn build_child_webview<R: Runtime>(
     app: &AppHandle<R>,
     surface_id: &str,
@@ -811,6 +885,14 @@ fn close_record<R: Runtime>(
             #[cfg(target_os = "linux")]
             {
                 if let Some(window) = app.get_webview_window(&record.label) {
+                    if let Ok(gtk_window) = window.gtk_window() {
+                        let _ = unmap_child_window(&gtk_window, &record.label);
+                    }
+                    invalidate_parent_for_record(app, record);
+                    eprintln!(
+                        "[WorkspaceDirectWebview] destroying Child surface label={}",
+                        record.label
+                    );
                     window.destroy().map_err(|error| {
                         format!(
                             "Failed to destroy direct OpenVSCode contained child window '{}': {}",
@@ -821,6 +903,10 @@ fn close_record<R: Runtime>(
                 }
             }
             if let Some(webview) = app.get_webview(&record.label) {
+                eprintln!(
+                    "[WorkspaceDirectWebview] closing Child webview label={}",
+                    record.label
+                );
                 webview.close().map_err(|error| {
                     format!(
                         "Failed to close direct OpenVSCode child webview '{}': {}",
@@ -831,6 +917,10 @@ fn close_record<R: Runtime>(
         }
         WorkspaceDirectWebviewMode::OwnedWindow => {
             if let Some(window) = app.get_webview_window(&record.label) {
+                eprintln!(
+                    "[WorkspaceDirectWebview] destroying OwnedWindow surface label={}",
+                    record.label
+                );
                 window.destroy().map_err(|error| {
                     format!(
                         "Failed to destroy direct OpenVSCode fallback window '{}': {}",
@@ -1017,11 +1107,19 @@ pub fn workspace_direct_webview_hide<R: Runtime>(
     manager: State<WorkspaceDirectWebviewManager>,
 ) -> Result<(), String> {
     if let Some(record) = read_record(&manager, &surface_id)? {
+        eprintln!(
+            "[WorkspaceDirectWebview] hide requested {:?} surface={} label={}",
+            record.mode, surface_id, record.label
+        );
         match record.mode {
             WorkspaceDirectWebviewMode::Child => {
                 #[cfg(target_os = "linux")]
                 {
                     if let Some(window) = app.get_webview_window(&record.label) {
+                        if let Ok(gtk_window) = window.gtk_window() {
+                            let _ = unmap_child_window(&gtk_window, &record.label);
+                        }
+                        invalidate_parent_for_record(&app, &record);
                         let _ = window.hide();
                         return Ok(());
                     }
@@ -1047,6 +1145,10 @@ pub fn workspace_direct_webview_destroy<R: Runtime>(
     manager: State<WorkspaceDirectWebviewManager>,
 ) -> Result<(), String> {
     if let Some(record) = remove_record(&manager, &surface_id)? {
+        eprintln!(
+            "[WorkspaceDirectWebview] destroy requested {:?} surface={} label={}",
+            record.mode, surface_id, record.label
+        );
         close_record(&app, &record)?;
     }
     Ok(())

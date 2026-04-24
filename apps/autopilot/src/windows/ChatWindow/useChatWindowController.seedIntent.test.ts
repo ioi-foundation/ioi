@@ -1,9 +1,11 @@
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
 const source = readFileSync(
-  resolve("src/windows/ChatWindow/useChatWindowController.ts"),
+  resolve(__dirname, "useChatWindowController.ts"),
   "utf8",
 );
 
@@ -29,6 +31,12 @@ assert.match(
   source,
   /case "autopilot-intent":[\s\S]*if \(pendingRequest\.sessionId\) \{[\s\S]*await bootstrapAgentSession\(\{\s*refreshCurrentTask: false,\s*\}\);[\s\S]*setActiveView\("chat"\);[\s\S]*await waitForChatAutopilotSurfaceFrame\(\);[\s\S]*await invoke\(\"continue_task\", \{\s*sessionId: pendingRequest\.sessionId,\s*userInput: pendingRequest\.intent,\s*\}\);[\s\S]*void openSessionTarget\(pendingRequest\.sessionId\)\.catch\(\(error\) => \{[\s\S]*submissionMode: "direct_continue_task"[\s\S]*return;[\s\S]*\}[\s\S]*openAutopilotWithIntent\(pendingRequest\.intent\);[\s\S]*submissionMode: "seed_intent"/,
   "autopilot-intent launch requests should submit retained follow-ups directly before reopening the UI session, while fresh launches still flow through the seed-intent path",
+);
+
+assert.match(
+  source,
+  /case "workflows":[\s\S]*setActiveView\("workflows"\);[\s\S]*case "runs":[\s\S]*setActiveView\("runs"\);[\s\S]*case "inbox":[\s\S]*setActiveView\("inbox"\);[\s\S]*case "policy":[\s\S]*setActiveView\("policy"\);/,
+  "workspace bridge view launch targets should include canonical Chat view names, not only legacy aliases",
 );
 
 console.log("useChatWindowController.seedIntent.test.ts: ok");

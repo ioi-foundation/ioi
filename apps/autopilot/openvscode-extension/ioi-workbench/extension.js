@@ -338,9 +338,54 @@ function renderCommandButton(action) {
   return `<button class="action" data-command="${escapeHtml(action.command)}"${payload}>${escapeHtml(action.label)}</button>`;
 }
 
+function renderRuntimeSummary(state) {
+  const summary = state.summary || {};
+  const metrics = [
+    ["Workflows", summary.workflowCount ?? 0],
+    ["Runs", summary.runCount ?? 0],
+    ["Artifacts", summary.artifactCount ?? 0],
+    ["Connectors", summary.connectorCount ?? 0],
+    ["Policy issues", summary.policyIssueCount ?? 0],
+  ];
+  return `
+    <div class="runtime-strip" aria-label="IOI runtime snapshot">
+      ${metrics
+        .map(
+          ([label, value]) => `
+            <div class="runtime-strip__item">
+              <span>${escapeHtml(label)}</span>
+              <strong>${escapeHtml(value)}</strong>
+            </div>
+          `,
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+function renderDiagnostics(state) {
+  const diagnostics = state.diagnostics || [];
+  if (!diagnostics.length) {
+    return "";
+  }
+  return `
+    <div class="diagnostics">
+      <strong>Bridge diagnostics</strong>
+      ${diagnostics
+        .map(
+          (item) => `
+            <p><code>${escapeHtml(item.label)}</code> ${escapeHtml(item.message)}</p>
+          `,
+        )
+        .join("")}
+    </div>
+  `;
+}
+
 function renderChatView(state) {
   const helper = state.chat?.helperText || "Open Chat from the current file or selection.";
   return `
+    ${renderRuntimeSummary(state)}
     <div class="card">
       <strong>Runtime</strong>
       <code>${escapeHtml(state.chat?.runtime || "ioi-runtime")}</code>
@@ -364,6 +409,24 @@ function renderWorkflowView(state) {
         </div>
         <p>${escapeHtml(workflow.description)}</p>
         <code>${escapeHtml(workflow.relativePath || workflow.workflowId)}</code>
+        <div class="actions item-actions">
+          ${renderCommandButton({
+            label: "Open workflow surface",
+            command: "ioi.workflow.new",
+            payload: {
+              workflowId: workflow.workflowId,
+              slashCommand: workflow.slashCommand,
+              relativePath: workflow.relativePath,
+            },
+          })}
+          ${renderCommandButton({
+            label: "Review workflow file",
+            command: "ioi.chat.reviewFile",
+            payload: {
+              filePath: workflow.relativePath,
+            },
+          })}
+        </div>
       </article>
     `,
   );
@@ -607,12 +670,12 @@ function renderHtml(view, state) {
         color: var(--vscode-descriptionForeground);
         line-height: 1.45;
       }
-      .card, .item-card, .metric-card, .callout {
+      .card, .item-card, .metric-card, .callout, .diagnostics {
         border: 1px solid var(--vscode-panel-border);
-        background: color-mix(in srgb, var(--vscode-sideBar-background) 84%, white 16%);
-        border-radius: 12px;
+        background: color-mix(in srgb, var(--vscode-sideBar-background) 90%, white 10%);
+        border-radius: 6px;
       }
-      .card, .callout {
+      .card, .callout, .diagnostics {
         padding: 12px;
         margin: 0 0 14px;
       }
@@ -658,6 +721,38 @@ function renderHtml(view, state) {
       .metric-card strong {
         font-size: 18px;
       }
+      .runtime-strip {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        margin: 0 0 14px;
+      }
+      .runtime-strip__item {
+        min-width: 0;
+        padding: 8px 9px;
+        border: 1px solid var(--vscode-panel-border);
+        border-radius: 6px;
+        background: color-mix(in srgb, var(--vscode-sideBar-background) 92%, white 8%);
+      }
+      .runtime-strip__item span {
+        display: block;
+        color: var(--vscode-descriptionForeground);
+        font-size: 10px;
+        margin-bottom: 3px;
+      }
+      .runtime-strip__item strong {
+        font-size: 15px;
+      }
+      .diagnostics {
+        border-color: var(--vscode-inputValidation-warningBorder, var(--vscode-panel-border));
+      }
+      .diagnostics strong {
+        display: block;
+        margin-bottom: 8px;
+      }
+      .diagnostics p {
+        margin: 0 0 6px;
+      }
       code {
         display: block;
         white-space: normal;
@@ -681,7 +776,7 @@ function renderHtml(view, state) {
       .action {
         appearance: none;
         border: 1px solid var(--vscode-button-border, transparent);
-        border-radius: 10px;
+        border-radius: 4px;
         background: var(--vscode-button-secondaryBackground);
         color: var(--vscode-button-secondaryForeground);
         text-align: left;
@@ -717,6 +812,8 @@ function renderHtml(view, state) {
       <code>${escapeHtml(workspace.name || "No folder")}</code>
       <code>${escapeHtml(workspace.rootPath || workspace.path || "No folder selected")}</code>
     </div>
+    ${view.id === "ioi.chat" ? "" : renderRuntimeSummary(state)}
+    ${renderDiagnostics(state)}
     <div class="actions">${actions}</div>
     ${renderBody(view.id, state)}
     <div class="footer">Snapshot refreshed ${escapeHtml(formatRelativeTime(state.generatedAtMs))} · IOI runtime remains authoritative.</div>
@@ -819,14 +916,26 @@ function registerNativeCommands(context, output) {
   context.subscriptions.push(
     vscode.commands.registerCommand("ioi.chat.explainSelection", async (uri) => {
       const context = buildWorkspaceActionContext("editor", uri);
+      const payloadFilePath = pickString(uri, "filePath");
+      const payloadSelectedText = pickString(uri, "selectedText");
+      if (payloadFilePath) {
+        context.filePath = payloadFilePath;
+      }
       await writeBridgeRequest("chat.explainSelection", {
         filePath: context.filePath,
-        selectedText: context.selection?.selectedText ?? null,
+        selectedText: payloadSelectedText ?? context.selection?.selectedText ?? null,
       }, context);
       status("Queued IOI Chat selection review.");
     }),
     vscode.commands.registerCommand("ioi.chat.reviewFile", async (uri) => {
-      const context = buildWorkspaceActionContext(uri ? "explorer" : "editor", uri);
+      const payloadFilePath = pickString(uri, "filePath");
+      const context = buildWorkspaceActionContext(
+        uri && !payloadFilePath ? "explorer" : "editor",
+        uri,
+      );
+      if (payloadFilePath) {
+        context.filePath = payloadFilePath;
+      }
       await writeBridgeRequest("chat.reviewFile", {
         filePath: context.filePath,
       }, context);

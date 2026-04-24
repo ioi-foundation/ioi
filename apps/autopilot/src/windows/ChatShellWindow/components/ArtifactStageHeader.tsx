@@ -175,8 +175,8 @@ export function ArtifactStageHeader({
               onClick={() => onSelectStageMode("render")}
               role="tab"
               aria-selected={stageMode === "render"}
-              aria-label="Preview"
-              title="Preview"
+              aria-label="Render"
+              title="Render"
             >
               <span className="chat-artifact-mode-toggle-icon">
                 <PreviewIcon />
@@ -190,8 +190,8 @@ export function ArtifactStageHeader({
               onClick={() => onSelectStageMode("source")}
               role="tab"
               aria-selected={stageMode === "source"}
-              aria-label="Code"
-              title="Code"
+              aria-label="Source"
+              title="Source"
             >
               <span className="chat-artifact-mode-toggle-icon">
                 <CodeIcon />

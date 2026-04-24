@@ -1,6 +1,7 @@
 use super::*;
 use std::fs;
-use std::time::{Duration, Instant};
+use std::thread;
+use std::time::{Duration, Instant, UNIX_EPOCH};
 
 fn unique_temp_repo_path(name: &str) -> PathBuf {
     let timestamp = std::time::SystemTime::now()
@@ -33,38 +34,35 @@ fn init_test_repo(name: &str) -> PathBuf {
 #[test]
 fn workspace_terminal_validation() {
     let root = std::env::current_dir().expect("current directory");
-    let session = spawn_terminal_session(&root, 80, 24).expect("spawn terminal session");
-
-    {
-        let mut writer = session.writer.lock().expect("terminal writer");
-        writer
-            .write_all(b"printf 'autopilot-terminal-validation\\n'\nexit\n")
-            .expect("write terminal commands");
-        writer.flush().expect("flush terminal commands");
-    }
+    let bridge = WorkspaceTerminalBridge::open(&root.display().to_string(), 80, 24)
+        .expect("spawn terminal session");
+    bridge
+        .write("printf 'autopilot-terminal-validation\\n'\nexit\n")
+        .expect("write terminal commands");
 
     let deadline = Instant::now() + Duration::from_secs(8);
     let mut transcript = String::new();
+    let mut cursor = 0;
 
     while Instant::now() < deadline {
-        transcript = session
-            .output
-            .lock()
-            .expect("terminal output")
-            .iter()
-            .map(|chunk| chunk.text.as_str())
-            .collect::<String>();
+        let read = bridge.read(cursor).expect("read terminal output");
+        cursor = read.cursor;
+        transcript.push_str(
+            &read
+                .chunks
+                .iter()
+                .map(|chunk| chunk.text.as_str())
+                .collect::<String>(),
+        );
 
-        if transcript.contains("autopilot-terminal-validation")
-            && !session.running.load(Ordering::Relaxed)
-        {
+        if transcript.contains("autopilot-terminal-validation") && !read.running {
             break;
         }
 
         thread::sleep(Duration::from_millis(50));
     }
 
-    let _ = session.killer.lock().expect("terminal killer").kill();
+    let _ = bridge.close();
 
     assert!(
         transcript.contains("autopilot-terminal-validation"),

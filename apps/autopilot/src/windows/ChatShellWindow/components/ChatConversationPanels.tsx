@@ -100,54 +100,30 @@ function formatPreviewStats(content: string) {
 }
 
 const suggestionPrompts = [
-  "Investigate first",
-  "Open an HTML artifact",
-  "Capture a markdown brief",
-  "Build a workspace surface",
-];
-
-const operatingLenses = [
-  {
-    label: "Route",
-    detail: "Conversation, widget, visualizer, or artifact.",
-  },
-  {
-    label: "Materialize",
-    detail: "Turn good requests into working surfaces.",
-  },
-  {
-    label: "Verify",
-    detail: "Ground the response in receipts and evidence.",
-  },
+  "Review the current repo",
+  "Explain the active file",
+  "Find risky changes",
+  "Draft a patch plan",
 ];
 
 export function ChatConversationWelcome({
   onSuggestionClick,
 }: ChatConversationWelcomeProps) {
   return (
-      <section className="spot-chat-welcome" aria-label="Chat welcome">
+    <section className="spot-chat-welcome" aria-label="Chat welcome">
       <div className="spot-chat-welcome-mark" aria-hidden="true">
         {icons.sparkles}
       </div>
 
       <div className="spot-chat-welcome-copy">
-        <span className="spot-chat-welcome-kicker">Outcome control plane</span>
-        <h2>What do you want to materialize?</h2>
+        <h2>Build with Agent</h2>
         <p>
-          Start with the outcome. Chat chooses the right delivery surface,
-          materializes it when needed, and keeps the response tied to evidence.
+          AI responses may be inaccurate. Repo, file, runtime, and evidence
+          context stay attached.
         </p>
       </div>
 
-      <div className="spot-chat-lens-grid">
-        {operatingLenses.map((lens) => (
-          <div key={lens.label} className="spot-chat-lens-card">
-            <strong>{lens.label}</strong>
-            <span>{lens.detail}</span>
-          </div>
-        ))}
-      </div>
-
+      <span className="spot-chat-welcome-kicker">Suggested Actions</span>
       <div className="spot-chat-suggestion-row">
         {suggestionPrompts.map((prompt) => (
           <button

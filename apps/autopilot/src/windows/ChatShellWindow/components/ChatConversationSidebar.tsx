@@ -112,9 +112,9 @@ export function ChatConversationSidebar({
     <aside className="spot-chat-sidebar" aria-label="Chat sidebar">
       <div className="spot-chat-sidebar-head">
         <div className="spot-chat-sidebar-title-block">
-          <strong className="spot-chat-sidebar-title">Chat</strong>
+          <strong className="spot-chat-sidebar-title">Sessions</strong>
           <span className="spot-chat-sidebar-subtitle">
-            Outcome-first workspace
+            Codebase chat history
           </span>
         </div>
 
@@ -123,7 +123,7 @@ export function ChatConversationSidebar({
           className="spot-chat-sidebar-head-action"
           onClick={onNewSession}
           aria-label="Start a new Chat request"
-          title="New outcome"
+          title="New session"
         >
           {icons.plus}
         </button>
@@ -150,7 +150,7 @@ export function ChatConversationSidebar({
           <span className="spot-chat-sidebar-utility-icon" aria-hidden="true">
             {icons.plus}
           </span>
-          <span>New outcome</span>
+          <span>New Session</span>
         </button>
 
         {showArtifactNav ? (

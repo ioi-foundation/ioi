@@ -1,6 +1,62 @@
 // Contract card — primary object on the home view
-const ContractCard = ({ contract, onOpen, onSwap }) => {
+const ContractCard = ({ contract, onOpen, onSwap, compact = false }) => {
   const c = contract;
+
+  if (compact) {
+    return (
+      <div className="contract" onClick={() => onOpen(c)}>
+        {/* Pulse header — thumbnail-like visual anchor */}
+        <div className="contract-pulse-header">
+          {c.pulse.map((v, i) => (
+            <div key={i} className={`pulse-cell ${v === 0 ? 'empty' : v < 0 ? 'flag' : 'ok'}`}
+              style={{ height: `${Math.max(16, Math.abs(v) * 100)}%` }} />
+          ))}
+        </div>
+        <div className="contract-body-compact">
+          <div className="contract-head">
+            <div className="contract-meta mono">
+              <span className="ct-id">{c.code}</span>
+              <span className="sep">·</span>
+              <span>Active · since {c.established.split(',')[0]}</span>
+            </div>
+            <div className={`contract-health ${c.health === 'warn' ? 'warn' : ''}`}>
+              <span className="d" />
+              {c.health === 'warn' ? 'Attention' : 'Nominal'}
+            </div>
+          </div>
+          <h3 className="contract-outcome serif">
+            <em>{c.outcome}</em>
+          </h3>
+          <div className="contract-substrate mono">
+            <span className="k">Fulfilled by</span>
+            <span className="v">{c.substrate.name}</span>
+            <span className="swap" onClick={(e) => { e.stopPropagation(); onSwap(c); }}>
+              swap →
+            </span>
+          </div>
+          <div className="contract-stats">
+            <div>
+              <div className="contract-stat-k mono">Receipts · 30d</div>
+              <div className="contract-stat-v serif">{c.receipts30d.toLocaleString()}</div>
+            </div>
+            <div>
+              <div className="contract-stat-k mono">Spend · 30d</div>
+              <div className="contract-stat-v serif">
+                <em>${c.spend30d.toFixed(c.spend30d % 1 ? 2 : 0)}</em>
+              </div>
+            </div>
+            <div>
+              <div className="contract-stat-k mono">SLA</div>
+              <div className="contract-stat-v serif" style={{fontSize: 13}}>
+                {c.slaActual}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="contract" onClick={() => onOpen(c)}>
       <div className="contract-head">

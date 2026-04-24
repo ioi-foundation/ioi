@@ -5,6 +5,18 @@ const surfaceSource = fs.readFileSync(
   new URL("./ChatArtifactSurface.tsx", import.meta.url),
   "utf8",
 );
+const logicalSurfaceSource = fs.readFileSync(
+  new URL("./ArtifactLogicalSurface.tsx", import.meta.url),
+  "utf8",
+);
+const workspaceSurfaceSource = fs.readFileSync(
+  new URL("./ArtifactWorkspaceSurface.tsx", import.meta.url),
+  "utf8",
+);
+const evidencePanelSource = fs.readFileSync(
+  new URL("./ArtifactEvidencePanel.tsx", import.meta.url),
+  "utf8",
+);
 const workbenchSource = fs.readFileSync(
   new URL("./ArtifactSourceWorkbench.tsx", import.meta.url),
   "utf8",
@@ -13,63 +25,78 @@ const rendererHostSource = fs.readFileSync(
   new URL("./ArtifactRendererHost.tsx", import.meta.url),
   "utf8",
 );
+const stageHeaderSource = fs.readFileSync(
+  new URL("./ArtifactStageHeader.tsx", import.meta.url),
+  "utf8",
+);
 const chatShellWindowSource = fs.readFileSync(
   new URL("../index.tsx", import.meta.url),
   "utf8",
 );
+const surfaceFamilySource = [
+  surfaceSource,
+  logicalSurfaceSource,
+  workspaceSurfaceSource,
+  evidencePanelSource,
+  stageHeaderSource,
+].join("\n");
+const logicalExplorerSidebarSource =
+  logicalSurfaceSource.match(
+    /<aside className="chat-artifact-sidebar chat-artifact-sidebar--explorer">[\s\S]*?<\/aside>/,
+  )?.[0] ?? "";
 
 assert.match(
-  surfaceSource,
+  surfaceFamilySource,
   /chat-artifact-mode-toggle[\s\S]*Render[\s\S]*Source/,
   "stage header should expose the compact Render | Source toggle",
 );
 
 assert.match(
-  surfaceSource,
+  surfaceFamilySource,
   /<aside className="chat-artifact-sidebar chat-artifact-sidebar--explorer">[\s\S]*title="Explorer"/,
   "artifact sidebar should remain explorer-only",
 );
 
 assert.match(
-  surfaceSource,
+  surfaceFamilySource,
   /stageMode === "source" \? \([\s\S]*showExplorer=\{false\}/,
   "logical source mode should reuse the main stage without duplicating the explorer",
 );
 
 assert.match(
-  surfaceSource,
+  surfaceFamilySource,
   /chat-artifact-source-shell chat-artifact-source-shell--editor-only/,
   "workspace source mode should stay editor-only in the main stage",
 );
 
 assert.match(
-  surfaceSource,
+  surfaceFamilySource,
   /evidenceOpen \? \([\s\S]*<ArtifactEvidencePanel/,
   "evidence should be rendered as a secondary inspector, not the default artifact view",
 );
 
 assert.match(
-  surfaceSource,
+  surfaceFamilySource,
   /chat-artifact-panel-label">Revisions<\/span>/,
   "evidence inspector should expose revision history controls",
 );
 
 assert.match(
-  surfaceSource,
+  surfaceFamilySource,
   /chat_attach_artifact_selection/,
   "artifact-local selections should persist into the Chat session before seeding follow-up intent",
 );
 
 assert.doesNotMatch(
-  surfaceSource,
-  /chat-artifact-sidebar[\s\S]*Pipeline/,
+  logicalExplorerSidebarSource,
+  /Pipeline/,
   "pipeline details should not render inside the left explorer rail",
 );
 
-assert.match(
+assert.doesNotMatch(
   workbenchSource,
-  /showExplorer \? \([\s\S]*<WorkspaceExplorerPane[\s\S]*\) : null/,
-  "source workbench should gate the explorer behind showExplorer",
+  /WorkspaceExplorerPane/,
+  "source workbench should stay editor-only; explorer belongs to the artifact rail",
 );
 
 assert.match(
@@ -86,13 +113,13 @@ assert.match(
 
 assert.match(
   chatShellWindowSource,
-  /const studioArtifactAvailable = useMemo\(\(\) => \{[\s\S]*hasOpenableArtifactSurface\(/,
-  "chat should only treat the drawer as available once a real openable artifact surface exists",
+  /studioArtifactAvailable,[\s\S]*studioArtifactExpected,[\s\S]*\} = useChatSurfaceState\(/,
+  "chat should delegate artifact availability to the shared surface state model",
 );
 
 assert.match(
   chatShellWindowSource,
-  /\{studioArtifactAvailable \? \([\s\S]*spot-chat-artifact-drawer/,
+  /studioArtifactDrawerAvailable && chatArtifactVisible[\s\S]*spot-chat-artifact-drawer/,
   "chat should only render the artifact drawer after an artifact surface becomes available",
 );
 

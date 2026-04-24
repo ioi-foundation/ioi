@@ -298,9 +298,13 @@ export function useChatWindowController() {
 
   const openLegacyView = (view: string) => {
     switch (view) {
+      case "chat":
       case "copilot":
       case "autopilot":
         setActiveView("chat");
+        return;
+      case "workspace":
+        setActiveView("workspace");
         return;
       case "reply-composer":
         setChatSurface("reply-composer");
@@ -324,14 +328,17 @@ export function useChatWindowController() {
         setWorkflowSurface("agents");
         setActiveView("workflows");
         return;
+      case "workflows":
       case "catalog":
         setWorkflowSurface("catalog");
         setActiveView("workflows");
         return;
+      case "runs":
       case "fleet":
       case "atlas":
         setActiveView("runs");
         return;
+      case "inbox":
       case "notifications":
         setActiveView("inbox");
         return;
@@ -340,6 +347,7 @@ export function useChatWindowController() {
       case "capabilities":
         setActiveView("capabilities");
         return;
+      case "policy":
       case "shield":
       case "control":
         setActiveView("policy");
@@ -584,9 +592,13 @@ export function useChatWindowController() {
   };
 
   useEffect(() => {
+    let active = true;
     const unlistenPromise = listen<PendingChatLaunchEnvelope>(
       "request-chat-launch",
       (event) => {
+        if (!active) {
+          return;
+        }
         void recordChatLaunchReceipt("chat_launch_event_received", {
           launchId: event.payload.launchId,
           kind: event.payload.request.kind,
@@ -597,6 +609,7 @@ export function useChatWindowController() {
     );
 
     return () => {
+      active = false;
       safelyDisposeTauriListener(unlistenPromise);
     };
   }, []);

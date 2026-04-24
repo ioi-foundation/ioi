@@ -38,8 +38,8 @@ assert.match(
 
 assert.match(
   hookSource,
-  /case "skill_discovery":\s*return event\.title \|\| "Check for guidance";/,
-  "artifact guidance labels should prefer explicit narration titles when runtime guidance is unavailable or not needed",
+  /label: step\.label \|\| "Chat artifact step"[\s\S]*skillDiscoveryResolution\?\.rationale/,
+  "artifact guidance labels should prefer explicit operator-step narration and keep runtime guidance as summary context",
 );
 
 assert.match(

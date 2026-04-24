@@ -10,6 +10,17 @@ import type {
   WorkspaceWorkbenchHostSession,
 } from "./workspaceWorkbenchHost";
 
+function rejectionMessage(result: PromiseSettledResult<unknown>, label: string) {
+  if (result.status !== "rejected") {
+    return null;
+  }
+  const reason = result.reason;
+  return {
+    label,
+    message: reason instanceof Error ? reason.message : String(reason ?? "Unknown error"),
+  };
+}
+
 export async function buildWorkspaceBridgeState(
   runtime: TauriRuntime,
   host: WorkspaceWorkbenchHost,
@@ -49,6 +60,13 @@ export async function buildWorkspaceBridgeState(
   const policyInspection = buildWorkspacePolicyInspection(
     capabilitySnapshot?.summary ?? null,
   );
+  const diagnostics = [
+    rejectionMessage(workflowsResult, "workflows"),
+    rejectionMessage(connectorsResult, "connections"),
+    rejectionMessage(localEngineResult, "runs"),
+    rejectionMessage(capabilitySnapshotResult, "policy"),
+    rejectionMessage(activitiesResult, "artifacts"),
+  ].filter((item): item is { label: string; message: string } => item !== null);
 
   return {
     schemaVersion: 1,
@@ -63,6 +81,15 @@ export async function buildWorkspaceBridgeState(
       helperText:
         "Workspace actions route back into the IOI runtime. Views here are projections only.",
     },
+    summary: {
+      workflowCount: workflows.length,
+      runCount: runInspections.length,
+      artifactCount: artifactInspections.length,
+      connectorCount: connectors.length,
+      policyIssueCount: policyInspection?.activeIssueCount ?? 0,
+      diagnosticCount: diagnostics.length,
+    },
+    diagnostics,
     workflows: workflows.map((workflow) => ({
       workflowId: workflow.workflowId,
       slashCommand: workflow.slashCommand,

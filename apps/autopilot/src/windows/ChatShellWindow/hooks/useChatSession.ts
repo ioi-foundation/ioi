@@ -41,6 +41,7 @@ type UseChatSessionOptions = {
   toggleArtifactPanel: (visible?: boolean) => Promise<void>;
   loadThreadEvents: (threadId: string, limit?: number, cursor?: number) => Promise<unknown>;
   loadThreadArtifacts: (threadId: string) => Promise<unknown>;
+  contextualizeIntent?: (text: string) => string;
 };
 
 export function shouldContinueChatComposerSession(
@@ -79,6 +80,7 @@ export function useChatSession({
   toggleArtifactPanel,
   loadThreadEvents,
   loadThreadArtifacts,
+  contextualizeIntent,
 }: UseChatSessionOptions) {
   const {
     intent,
@@ -185,9 +187,13 @@ export function useChatSession({
     task,
     intent,
     inputRef,
-    startTask: (text) => startTask(buildPlanModeIntent(text, planMode)),
+    startTask: (text) =>
+      startTask(buildPlanModeIntent(contextualizeIntent?.(text) ?? text, planMode)),
     continueTask: (sessionId, text) =>
-      continueTask(sessionId, buildPlanModeIntent(text, planMode)),
+      continueTask(
+        sessionId,
+        buildPlanModeIntent(contextualizeIntent?.(text) ?? text, planMode),
+      ),
     dismissTask,
     resetSession,
     setIntent,
