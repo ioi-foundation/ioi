@@ -90,6 +90,7 @@ import {
   SecurityView,
   SubstrateView,
 } from "./ArtifactHubEvidenceViews";
+import { KeybindingsView, VimModeView } from "./ArtifactHubInputModeViews";
 import { ArtifactHubReplayView } from "./ArtifactHubReplayView";
 import type {
   KernelLogRow,
@@ -109,9 +110,7 @@ import type { DurabilityEvidenceOverview } from "../utils/durabilityEvidenceMode
 import type { PrivacyEvidenceOverview } from "../utils/privacyEvidenceModel";
 import { buildRetainedPortfolioDossier } from "../utils/retainedPortfolioDossierModel";
 import { buildSavedBundleProofOverview } from "../utils/savedBundleProofModel";
-import {
-  buildPluginRolloutAutomationPlan,
-} from "../utils/pluginRolloutAutomationModel";
+import { buildPluginRolloutAutomationPlan } from "../utils/pluginRolloutAutomationModel";
 import { buildAuthorityAutomationPlan } from "../utils/authorityAutomationModel";
 import {
   buildArtifactPipelineAutomationPlan,
@@ -128,11 +127,7 @@ import {
 } from "../utils/pluginRolloutModel";
 import { ChatReplView } from "./ChatReplView";
 import { ArtifactListView, FilesView } from "./ArtifactHubFileViews";
-import {
-  DoctorView,
-  McpView,
-  RemoteEnvView,
-} from "./ArtifactHubRuntimeViews";
+import { DoctorView, McpView, RemoteEnvView } from "./ArtifactHubRuntimeViews";
 import { PlanView, TasksView } from "./ArtifactHubTaskViews";
 import {
   buildVerificationNotes,
@@ -196,12 +191,13 @@ function compactionPoliciesMatch(
   );
 }
 
-const PERMISSION_PROFILE_SHORTCUTS: Record<SessionPermissionProfileId, string> = {
-  safer_review: "Alt+1",
-  guided_default: "Alt+2",
-  autonomous: "Alt+3",
-  expert: "Alt+4",
-};
+const PERMISSION_PROFILE_SHORTCUTS: Record<SessionPermissionProfileId, string> =
+  {
+    safer_review: "Alt+1",
+    guided_default: "Alt+2",
+    autonomous: "Alt+3",
+    expert: "Alt+4",
+  };
 
 const PERMISSION_DECISION_OPTIONS: Array<{
   value: PolicyDecisionMode;
@@ -237,7 +233,8 @@ function clipText(value: string, maxChars: number): string {
 
 function formatDuration(durationMs: number): string {
   if (!Number.isFinite(durationMs) || durationMs <= 0) return "0s";
-  if (durationMs < 60_000) return `${Math.max(1, Math.round(durationMs / 1000))}s`;
+  if (durationMs < 60_000)
+    return `${Math.max(1, Math.round(durationMs / 1000))}s`;
   if (durationMs < 3_600_000) return `${Math.round(durationMs / 60_000)}m`;
   return `${Math.round(durationMs / 3_600_000)}h`;
 }
@@ -285,7 +282,9 @@ function compactionTranscriptLabel(policy: SessionCompactionPolicy): string {
     : "Summary-retained";
 }
 
-function compactionPolicySummaryBits(policy: SessionCompactionPolicy): string[] {
+function compactionPolicySummaryBits(
+  policy: SessionCompactionPolicy,
+): string[] {
   return [
     `Checklist: ${policy.preserveChecklistState ? "keep" : "prune"}`,
     `Background: ${policy.preserveBackgroundTasks ? "keep" : "prune"}`,
@@ -295,7 +294,9 @@ function compactionPolicySummaryBits(policy: SessionCompactionPolicy): string[] 
 }
 
 function compactionResumeSafetyLabel(status: "protected" | "degraded"): string {
-  return status === "protected" ? "Resume safety: Protected" : "Resume safety: Degraded";
+  return status === "protected"
+    ? "Resume safety: Protected"
+    : "Resume safety: Degraded";
 }
 
 function teamMemorySyncStatusLabel(status: string): string {
@@ -453,7 +454,10 @@ interface ArtifactHubDetailViewProps {
   onDeny?: () => void;
   onSubmitRuntimePassword?: (password: string) => Promise<void>;
   onCancelRuntimePassword?: () => void;
-  onSubmitClarification?: (optionId: string, otherText: string) => Promise<void>;
+  onSubmitClarification?: (
+    optionId: string,
+    otherText: string,
+  ) => Promise<void>;
   onCancelClarification?: () => void;
   onRefreshRewind?: () => Promise<unknown>;
   onSelectRewindSession?: (sessionId: string | null) => void;
@@ -482,10 +486,7 @@ interface ArtifactHubDetailViewProps {
     pluginId: string,
     enableAfterTrust?: boolean,
   ) => Promise<unknown>;
-  onSetPluginEnabled?: (
-    pluginId: string,
-    enabled: boolean,
-  ) => Promise<unknown>;
+  onSetPluginEnabled?: (pluginId: string, enabled: boolean) => Promise<unknown>;
   onReloadPlugin?: (pluginId: string) => Promise<unknown>;
   onRefreshPluginCatalog?: (pluginId: string) => Promise<unknown>;
   onRevokePluginTrust?: (pluginId: string) => Promise<unknown>;
@@ -516,9 +517,7 @@ interface ArtifactHubDetailViewProps {
     expiresAtMs: number | null,
   ) => Promise<unknown>;
   onToggleVimMode?: () => void;
-  onRequestReplLaunch?: (
-    request: ChatRemoteContinuityLaunchRequest,
-  ) => void;
+  onRequestReplLaunch?: (request: ChatRemoteContinuityLaunchRequest) => void;
   onHandleReplLaunchRequest?: () => void;
   onOpenView?: (view: ArtifactHubViewKey) => void;
   onRefreshFileContext?: () => Promise<unknown>;
@@ -577,7 +576,9 @@ function sessionWorkspaceLabel(workspaceRoot?: string | null): string | null {
   return segments[segments.length - 1] ?? normalized;
 }
 
-function sessionRewindSubtitle(candidate: SessionRewindCandidate): string | null {
+function sessionRewindSubtitle(
+  candidate: SessionRewindCandidate,
+): string | null {
   const parts = [
     candidate.phase,
     candidate.currentStep,
@@ -595,7 +596,9 @@ function policyTone(value: string | null | undefined): string {
   return "neutral";
 }
 
-function permissionSimulationOutcomeLabel(value: "auto" | "gate" | "deny"): string {
+function permissionSimulationOutcomeLabel(
+  value: "auto" | "gate" | "deny",
+): string {
   switch (value) {
     case "auto":
       return "Auto";
@@ -680,7 +683,8 @@ function CompactView({
   onResetCompactionPolicy?: () => Promise<unknown>;
   onOpenView?: (view: ArtifactHubViewKey) => void;
 }) {
-  const activeTitle = snapshot?.activeSessionTitle?.trim() || "No active retained session";
+  const activeTitle =
+    snapshot?.activeSessionTitle?.trim() || "No active retained session";
   const latest = snapshot?.latestForActive || null;
   const preview = snapshot?.previewForActive || null;
   const activePolicy = preview?.policy ?? snapshot?.policyForActive ?? policy;
@@ -710,12 +714,14 @@ function CompactView({
     {
       key: "carryPinnedOnly",
       label: "Pinned files only",
-      description: "Prune explicit include and exclude paths from carried-forward state.",
+      description:
+        "Prune explicit include and exclude paths from carried-forward state.",
     },
     {
       key: "preserveChecklistState",
       label: "Keep checklist",
-      description: "Carry the operator checklist into the compacted resume context.",
+      description:
+        "Carry the operator checklist into the compacted resume context.",
     },
     {
       key: "preserveBackgroundTasks",
@@ -730,12 +736,14 @@ function CompactView({
     {
       key: "preserveGovernanceBlockers",
       label: "Keep blockers",
-      description: "Carry pending approvals or governance blockers forward explicitly.",
+      description:
+        "Carry pending approvals or governance blockers forward explicitly.",
     },
     {
       key: "aggressiveTranscriptPruning",
       label: "Aggressive transcript pruning",
-      description: "Drop conversational texture from the summary and keep only the compacted anchor.",
+      description:
+        "Drop conversational texture from the summary and keep only the compacted anchor.",
     },
   ];
   const records = snapshot?.records ?? [];
@@ -758,14 +766,21 @@ function CompactView({
     acc[item.memoryClass] = (acc[item.memoryClass] || 0) + 1;
     return acc;
   }, {});
-  const previewDecisionCounts = compactionDecisionCounts(preview?.pruneDecisions);
+  const previewDecisionCounts = compactionDecisionCounts(
+    preview?.pruneDecisions,
+  );
   const latestDecisionCounts = compactionDecisionCounts(latest?.pruneDecisions);
 
-  async function runRetentionReviewAction(action: RetentionReviewAutomationQueuedAction) {
+  async function runRetentionReviewAction(
+    action: RetentionReviewAutomationQueuedAction,
+  ) {
     switch (action.kind) {
       case "compact_active_session":
         if (onCompactSession) {
-          await onCompactSession(snapshot?.activeSessionId || null, activePolicy);
+          await onCompactSession(
+            snapshot?.activeSessionId || null,
+            activePolicy,
+          );
         }
         break;
       case "sync_team_memory":
@@ -781,7 +796,9 @@ function CompactView({
     }
   }
 
-  function canRunRetentionReviewAction(action: RetentionReviewAutomationQueuedAction) {
+  function canRunRetentionReviewAction(
+    action: RetentionReviewAutomationQueuedAction,
+  ) {
     switch (action.kind) {
       case "compact_active_session":
         return Boolean(onCompactSession);
@@ -869,7 +886,8 @@ function CompactView({
           <div className="artifact-hub-permissions-card__head">
             <strong>Cross-session durability</strong>
             <span className="artifact-hub-policy-pill">
-              {portfolio.replayReadySessionCount}/{portfolio.retainedSessionCount} replay-ready
+              {portfolio.replayReadySessionCount}/
+              {portfolio.retainedSessionCount} replay-ready
             </span>
           </div>
           <p>{portfolio.coverageSummary}</p>
@@ -957,18 +975,19 @@ function CompactView({
           Tune what the preview and the next manual compaction pass will carry
           forward. Conservative auto compaction keeps using the default policy.
         </p>
-          <div className="artifact-hub-files-meta artifact-hub-permissions__meta">
-            <span>
-              Carry mode: {compactionCarryModeLabel(activePolicy)}
-            </span>
-            <span>Transcript: {compactionTranscriptLabel(activePolicy)}</span>
-            {compactionPolicySummaryBits(activePolicy).map((label) => (
-              <span key={label}>{label}</span>
-            ))}
-          </div>
+        <div className="artifact-hub-files-meta artifact-hub-permissions__meta">
+          <span>Carry mode: {compactionCarryModeLabel(activePolicy)}</span>
+          <span>Transcript: {compactionTranscriptLabel(activePolicy)}</span>
+          {compactionPolicySummaryBits(activePolicy).map((label) => (
+            <span key={label}>{label}</span>
+          ))}
+        </div>
         <div className="artifact-hub-compact-policy-list">
           {memoryControls.map((control) => (
-            <label className="artifact-hub-compact-policy-toggle" key={control.key}>
+            <label
+              className="artifact-hub-compact-policy-toggle"
+              key={control.key}
+            >
               <input
                 type="checkbox"
                 checked={activePolicy[control.key]}
@@ -1036,8 +1055,12 @@ function CompactView({
           </p>
           {recommendedPolicy ? (
             <div className="artifact-hub-files-meta artifact-hub-permissions__meta">
-              <span>Carry mode: {compactionCarryModeLabel(recommendedPolicy)}</span>
-              <span>Transcript: {compactionTranscriptLabel(recommendedPolicy)}</span>
+              <span>
+                Carry mode: {compactionCarryModeLabel(recommendedPolicy)}
+              </span>
+              <span>
+                Transcript: {compactionTranscriptLabel(recommendedPolicy)}
+              </span>
               {compactionPolicySummaryBits(recommendedPolicy).map((label) => (
                 <span key={`recommended-${label}`}>{label}</span>
               ))}
@@ -1074,17 +1097,18 @@ function CompactView({
           <p>
             Preview what the active session would keep, summarize, and prune
             from the carried-forward resume context. Pruned here means omitted
-            from the compacted resume context, not deleted from retained evidence.
+            from the compacted resume context, not deleted from retained
+            evidence.
           </p>
           <div className="artifact-hub-files-meta artifact-hub-permissions__meta">
-            <span>
-              Carry forward: {previewDecisionCounts.carry_forward}
-            </span>
+            <span>Carry forward: {previewDecisionCounts.carry_forward}</span>
             <span>
               Summary-retained: {previewDecisionCounts.retained_summary}
             </span>
             <span>Pruned: {previewDecisionCounts.pruned}</span>
-            <span>{compactionResumeSafetyLabel(preview.resumeSafety.status)}</span>
+            <span>
+              {compactionResumeSafetyLabel(preview.resumeSafety.status)}
+            </span>
             <span>{preview.preCompactionSpan}</span>
           </div>
           {preview.resumeSafety.reasons.length > 0 ? (
@@ -1099,11 +1123,17 @@ function CompactView({
               <article className="artifact-hub-generic-row" key={decision.key}>
                 <div className="artifact-hub-generic-meta">
                   <span>{decision.label}</span>
-                  <span>{compactionDispositionLabel(decision.disposition)}</span>
+                  <span>
+                    {compactionDispositionLabel(decision.disposition)}
+                  </span>
                   <span>{decision.detailCount} item(s)</span>
                 </div>
-                <div className="artifact-hub-generic-title">{decision.summary}</div>
-                <p className="artifact-hub-generic-summary">{decision.rationale}</p>
+                <div className="artifact-hub-generic-title">
+                  {decision.summary}
+                </div>
+                <p className="artifact-hub-generic-summary">
+                  {decision.rationale}
+                </p>
                 {decision.examples.length > 0 ? (
                   <div className="artifact-hub-files-meta artifact-hub-permissions__meta">
                     {decision.examples.map((example) => (
@@ -1131,9 +1161,9 @@ function CompactView({
           </span>
         </div>
         <p>
-          Promote carried-forward session memory into a scoped multi-actor ledger
-          that preserves runtime truth, keeps governance-critical items local by
-          default, and redacts sensitive values before shared sync.
+          Promote carried-forward session memory into a scoped multi-actor
+          ledger that preserves runtime truth, keeps governance-critical items
+          local by default, and redacts sensitive values before shared sync.
         </p>
         <div className="artifact-hub-files-meta artifact-hub-permissions__meta">
           <span>Scope: {teamMemoryScopeLabel}</span>
@@ -1151,7 +1181,9 @@ function CompactView({
           <input
             type="checkbox"
             checked={teamMemoryIncludeGovernanceCritical}
-            disabled={!onSetTeamMemoryIncludeGovernanceCritical || teamMemoryBusy}
+            disabled={
+              !onSetTeamMemoryIncludeGovernanceCritical || teamMemoryBusy
+            }
             onChange={() =>
               onSetTeamMemoryIncludeGovernanceCritical?.(
                 !teamMemoryIncludeGovernanceCritical,
@@ -1162,7 +1194,8 @@ function CompactView({
             <strong>Include governance-critical blockers</strong>
             <span>
               Keep this off for the safer default. When enabled, blocker and
-              approval context sync into team memory but stay flagged for review.
+              approval context sync into team memory but stay flagged for
+              review.
             </span>
           </span>
         </label>
@@ -1205,19 +1238,19 @@ function CompactView({
                   <span>{formatSessionTimeAgo(entry.syncedAtMs)}</span>
                   <span>{teamMemorySyncStatusLabel(entry.syncStatus)}</span>
                 </div>
-                <div className="artifact-hub-generic-title">{entry.resumeAnchor}</div>
+                <div className="artifact-hub-generic-title">
+                  {entry.resumeAnchor}
+                </div>
                 <p className="artifact-hub-generic-summary">{entry.summary}</p>
-                <p className="artifact-hub-generic-summary">{entry.reviewSummary}</p>
+                <p className="artifact-hub-generic-summary">
+                  {entry.reviewSummary}
+                </p>
                 <div className="artifact-hub-files-meta artifact-hub-permissions__meta">
-                  <span>
-                    Redactions: {entry.redaction.redactionCount}
-                  </span>
+                  <span>Redactions: {entry.redaction.redactionCount}</span>
                   <span>
                     Governance held local: {entry.omittedGovernanceItemCount}
                   </span>
-                  <span>
-                    Shared items: {entry.sharedMemoryItems.length}
-                  </span>
+                  <span>Shared items: {entry.sharedMemoryItems.length}</span>
                   {entry.redaction.redactedFields.map((field) => (
                     <span key={`${entry.entryId}:${field}`}>{field}</span>
                   ))}
@@ -1261,12 +1294,15 @@ function CompactView({
         <div className="artifact-hub-permissions-card__head">
           <strong>Manual compaction</strong>
           <span className="artifact-hub-policy-pill">
-            {latest ? formatSessionTimeAgo(latest.compactedAtMs) : "Not compacted yet"}
+            {latest
+              ? formatSessionTimeAgo(latest.compactedAtMs)
+              : "Not compacted yet"}
           </span>
         </div>
         <p>
           Run one manual compaction pass against the active retained session,
-          then use the stored resume anchor and carried-forward state from any shell.
+          then use the stored resume anchor and carried-forward state from any
+          shell.
         </p>
         {latest ? (
           <div className="artifact-hub-generic-list">
@@ -1276,11 +1312,14 @@ function CompactView({
                 <span>{latestModeLabel}</span>
                 <span>{latest.preCompactionSpan}</span>
               </div>
-              <div className="artifact-hub-generic-title">{latest.resumeAnchor}</div>
+              <div className="artifact-hub-generic-title">
+                {latest.resumeAnchor}
+              </div>
               <p className="artifact-hub-generic-summary">{latest.summary}</p>
               <div className="artifact-hub-files-meta artifact-hub-permissions__meta">
                 <span>
-                  Memory classes: {Object.keys(memoryClassCounts ?? {}).length || 0}
+                  Memory classes:{" "}
+                  {Object.keys(memoryClassCounts ?? {}).length || 0}
                 </span>
                 <span>
                   Governance: {memoryClassCounts?.governance_critical || 0}
@@ -1289,9 +1328,13 @@ function CompactView({
                 <span>
                   Carry-forward: {memoryClassCounts?.carry_forward || 0}
                 </span>
-                <span>Summary-retained: {latestDecisionCounts.retained_summary}</span>
+                <span>
+                  Summary-retained: {latestDecisionCounts.retained_summary}
+                </span>
                 <span>Pruned: {latestDecisionCounts.pruned}</span>
-                <span>{compactionResumeSafetyLabel(latest.resumeSafety.status)}</span>
+                <span>
+                  {compactionResumeSafetyLabel(latest.resumeSafety.status)}
+                </span>
               </div>
               {latest.resumeSafety.reasons.length > 0 ? (
                 <div className="artifact-hub-files-meta artifact-hub-permissions__meta">
@@ -1309,7 +1352,10 @@ function CompactView({
               type="button"
               className="artifact-hub-open-btn"
               onClick={() => {
-                void onCompactSession(snapshot?.activeSessionId || null, activePolicy);
+                void onCompactSession(
+                  snapshot?.activeSessionId || null,
+                  activePolicy,
+                );
               }}
             >
               Compact active session
@@ -1346,36 +1392,52 @@ function CompactView({
           </div>
           <div className="artifact-hub-generic-list">
             {records.map((record) => (
-              <article className="artifact-hub-generic-row" key={record.compactionId}>
+              <article
+                className="artifact-hub-generic-row"
+                key={record.compactionId}
+              >
                 <div className="artifact-hub-generic-meta">
                   <span>{record.title}</span>
                   <span>{formatSessionTimeAgo(record.compactedAtMs)}</span>
                   <span>{record.mode === "auto" ? "Auto" : "Manual"}</span>
                   {record.phase ? <span>{record.phase}</span> : null}
                 </div>
-                <div className="artifact-hub-generic-title">{record.resumeAnchor}</div>
-                <p className="artifact-hub-generic-summary">{record.preCompactionSpan}</p>
+                <div className="artifact-hub-generic-title">
+                  {record.resumeAnchor}
+                </div>
+                <p className="artifact-hub-generic-summary">
+                  {record.preCompactionSpan}
+                </p>
                 <p className="artifact-hub-generic-summary">{record.summary}</p>
                 <div className="artifact-hub-files-meta artifact-hub-permissions__meta">
                   <span>
-                    Root: {record.carriedForwardState.workspaceRoot || "No workspace"}
+                    Root:{" "}
+                    {record.carriedForwardState.workspaceRoot || "No workspace"}
                   </span>
                   <span>
                     Pins: {record.carriedForwardState.pinnedFiles.length}
                   </span>
                   <span>
-                    Includes: {record.carriedForwardState.explicitIncludes.length}
+                    Includes:{" "}
+                    {record.carriedForwardState.explicitIncludes.length}
                   </span>
                   <span>
-                    Memory items: {record.carriedForwardState.memoryItems.length}
+                    Memory items:{" "}
+                    {record.carriedForwardState.memoryItems.length}
                   </span>
-                  <span>{compactionResumeSafetyLabel(record.resumeSafety.status)}</span>
                   <span>
-                    Pruned: {compactionDecisionCounts(record.pruneDecisions).pruned}
+                    {compactionResumeSafetyLabel(record.resumeSafety.status)}
+                  </span>
+                  <span>
+                    Pruned:{" "}
+                    {compactionDecisionCounts(record.pruneDecisions).pruned}
                   </span>
                   <span>
                     Summary-retained:{" "}
-                    {compactionDecisionCounts(record.pruneDecisions).retained_summary}
+                    {
+                      compactionDecisionCounts(record.pruneDecisions)
+                        .retained_summary
+                    }
                   </span>
                   <span>
                     Blocker: {record.carriedForwardState.blockedOn || "None"}
@@ -1384,7 +1446,9 @@ function CompactView({
                 {record.resumeSafety.reasons.length > 0 ? (
                   <div className="artifact-hub-files-meta artifact-hub-permissions__meta">
                     {record.resumeSafety.reasons.map((reason) => (
-                      <span key={`${record.compactionId}:${reason}`}>{reason}</span>
+                      <span key={`${record.compactionId}:${reason}`}>
+                        {reason}
+                      </span>
                     ))}
                   </div>
                 ) : null}
@@ -1394,8 +1458,8 @@ function CompactView({
         </section>
       ) : (
         <p className="artifact-hub-empty">
-          No compaction records are stored yet. Run a session, then compact it to
-          retain a resumable long-session summary and carry-forward state.
+          No compaction records are stored yet. Run a session, then compact it
+          to retain a resumable long-session summary and carry-forward state.
         </p>
       )}
     </div>
@@ -1422,8 +1486,12 @@ function RewindView({
   onOpenCompareForSession?: (sessionId: string | null) => void;
 }) {
   const candidates = snapshot?.candidates ?? [];
-  const activeTitle = snapshot?.activeSessionTitle?.trim() || "No active retained session";
-  const focusedCandidate = selectFocusedRewindCandidate(snapshot, selectedSessionId);
+  const activeTitle =
+    snapshot?.activeSessionTitle?.trim() || "No active retained session";
+  const focusedCandidate = selectFocusedRewindCandidate(
+    snapshot,
+    selectedSessionId,
+  );
   const compareReady = canCompareFocusedRewindCandidate(
     snapshot?.activeSessionId,
     focusedCandidate,
@@ -1469,7 +1537,10 @@ function RewindView({
               <div className="artifact-hub-generic-meta">
                 <span>{focusedCandidate.title}</span>
                 <span>{focusBadge}</span>
-                <span>{sessionRewindSubtitle(focusedCandidate) || "Retained checkpoint"}</span>
+                <span>
+                  {sessionRewindSubtitle(focusedCandidate) ||
+                    "Retained checkpoint"}
+                </span>
               </div>
               <p className="artifact-hub-generic-summary">
                 {focusedCandidate.previewDetail}
@@ -1493,7 +1564,9 @@ function RewindView({
               <button
                 type="button"
                 className="artifact-hub-open-btn secondary"
-                onClick={() => onOpenCompareForSession(focusedCandidate.sessionId)}
+                onClick={() =>
+                  onOpenCompareForSession(focusedCandidate.sessionId)
+                }
               >
                 Review discard preview
               </button>
@@ -1521,7 +1594,10 @@ function RewindView({
           </div>
           <div className="artifact-hub-generic-list">
             {candidates.map((candidate) => (
-              <article className="artifact-hub-generic-row" key={candidate.sessionId}>
+              <article
+                className="artifact-hub-generic-row"
+                key={candidate.sessionId}
+              >
                 <div className="artifact-hub-generic-meta">
                   <span>{candidate.title}</span>
                   <span>{formatSessionTimeAgo(candidate.timestamp)}</span>
@@ -1556,7 +1632,9 @@ function RewindView({
                     candidate.sessionId !== snapshot?.activeSessionId ? (
                       <button
                         className="artifact-hub-open-btn secondary"
-                        onClick={() => onOpenCompareForSession(candidate.sessionId)}
+                        onClick={() =>
+                          onOpenCompareForSession(candidate.sessionId)
+                        }
                         type="button"
                       >
                         Compare
@@ -1577,8 +1655,8 @@ function RewindView({
         </section>
       ) : (
         <p className="artifact-hub-empty">
-          No retained session checkpoints are available yet. Finish or stop a run,
-          then reopen Rewind to preview the stored checkpoints.
+          No retained session checkpoints are available yet. Finish or stop a
+          run, then reopen Rewind to preview the stored checkpoints.
         </p>
       )}
     </div>
@@ -1642,11 +1720,15 @@ function commitEntryActionLabel(entry: CommitOverviewEntry): string {
   }
 }
 
-function workbenchSurfaceLabel(surface: AssistantWorkbenchActivity["surface"]): string {
+function workbenchSurfaceLabel(
+  surface: AssistantWorkbenchActivity["surface"],
+): string {
   return surface === "reply-composer" ? "Reply composer" : "Meeting prep";
 }
 
-function workbenchActivityActionLabel(action: AssistantWorkbenchActivity["action"]): string {
+function workbenchActivityActionLabel(
+  action: AssistantWorkbenchActivity["action"],
+): string {
   return humanizeStatus(action);
 }
 
@@ -1686,12 +1768,14 @@ function PrCommentsView({
         currentTask?.intent ||
         currentTask?.current_step ||
         null,
-      branchLabel: branchSnapshot?.currentBranch || branchSnapshot?.repoLabel || null,
+      branchLabel:
+        branchSnapshot?.currentBranch || branchSnapshot?.repoLabel || null,
       lastCommitLabel:
         sourceControlLastCommitReceipt?.commitSummary ||
         branchSnapshot?.lastCommit ||
         null,
-      progressSummary: planSummary?.progressSummary || currentTask?.current_step || null,
+      progressSummary:
+        planSummary?.progressSummary || currentTask?.current_step || null,
       currentStage: planSummary?.currentStage || currentTask?.phase || null,
       selectedRoute: planSummary?.selectedRoute || null,
       changedPathCount: commitOverview.changedCount,
@@ -1815,9 +1899,11 @@ function PrCommentsView({
                   type="button"
                   className="artifact-hub-open-btn"
                   onClick={() => {
-                    void navigator.clipboard.writeText(draft.markdown).then(() => {
-                      setCopiedDraftId(draft.id);
-                    });
+                    void navigator.clipboard
+                      .writeText(draft.markdown)
+                      .then(() => {
+                        setCopiedDraftId(draft.id);
+                      });
                   }}
                 >
                   {copiedDraftId === draft.id ? "Copied" : "Copy markdown"}
@@ -1865,9 +1951,7 @@ function MobileView({
   serverSnapshot: SessionServerSnapshot | null;
   remoteEnvSnapshot: SessionRemoteEnvSnapshot | null;
   managedSettings: LocalEngineSnapshot["managedSettings"] | null;
-  onRequestReplLaunch?: (
-    request: ChatRemoteContinuityLaunchRequest,
-  ) => void;
+  onRequestReplLaunch?: (request: ChatRemoteContinuityLaunchRequest) => void;
   onOpenView?: (view: ArtifactHubViewKey) => void;
 }) {
   const activityRows = retainedWorkbenchActivities.slice(0, 6);
@@ -1885,7 +1969,13 @@ function MobileView({
         remoteEnvSnapshot,
         managedSettings,
       }),
-    [evidenceAction, managedSettings, mobileOverview, remoteEnvSnapshot, serverSnapshot],
+    [
+      evidenceAction,
+      managedSettings,
+      mobileOverview,
+      remoteEnvSnapshot,
+      serverSnapshot,
+    ],
   );
 
   return (
@@ -1904,7 +1994,9 @@ function MobileView({
           <span>{mobileOverview.activityCount} retained activities</span>
           <span>{mobileOverview.evidenceLabel}</span>
           <span>{mobileOverview.sessionHistoryCount} retained sessions</span>
-          <span>{evidenceAction.attachable ? "REPL ready" : "Evidence only"}</span>
+          <span>
+            {evidenceAction.attachable ? "REPL ready" : "Evidence only"}
+          </span>
         </div>
       </section>
 
@@ -1987,15 +2079,22 @@ function MobileView({
                   ? "Evidence retained"
                   : "Evidence not ready yet"}
             </span>
-            <span>{evidenceAction.attachable ? "Attachable session" : "Evidence-only continuity"}</span>
+            <span>
+              {evidenceAction.attachable
+                ? "Attachable session"
+                : "Evidence-only continuity"}
+            </span>
           </div>
           {!retainedWorkbenchTraceLoading ? (
             <div className="artifact-hub-generic-list">
               <article className="artifact-hub-generic-row">
                 <div className="artifact-hub-generic-meta">
-                  <span>{latestRetainedWorkbenchEvent?.title || "Awaiting event"}</span>
                   <span>
-                    {latestRetainedWorkbenchArtifact?.title || "No artifact yet"}
+                    {latestRetainedWorkbenchEvent?.title || "Awaiting event"}
+                  </span>
+                  <span>
+                    {latestRetainedWorkbenchArtifact?.title ||
+                      "No artifact yet"}
                   </span>
                 </div>
                 <p className="artifact-hub-generic-summary">
@@ -2006,7 +2105,9 @@ function MobileView({
               </article>
             </div>
           ) : null}
-          <p className="artifact-hub-generic-summary">{evidenceAction.detail}</p>
+          <p className="artifact-hub-generic-summary">
+            {evidenceAction.detail}
+          </p>
           <div className="artifact-hub-permissions-card__actions">
             {(() => {
               const launchRequest = evidenceAction.launchRequest;
@@ -2030,7 +2131,9 @@ function MobileView({
                 type="button"
                 className="artifact-hub-open-btn secondary"
                 onClick={() => {
-                  void openEvidenceReviewSession(retainedWorkbenchEvidenceThreadId);
+                  void openEvidenceReviewSession(
+                    retainedWorkbenchEvidenceThreadId,
+                  );
                 }}
               >
                 {evidenceAction.studioLabel}
@@ -2066,16 +2169,23 @@ function MobileView({
           </div>
           <div className="artifact-hub-generic-list">
             {activityRows.map((activity) => (
-              <article className="artifact-hub-generic-row" key={activity.activityId}>
+              <article
+                className="artifact-hub-generic-row"
+                key={activity.activityId}
+              >
                 <div className="artifact-hub-generic-meta">
                   <span>{workbenchSurfaceLabel(activity.surface)}</span>
                   <span>{workbenchActivityActionLabel(activity.action)}</span>
                   <span>{humanizeStatus(activity.status)}</span>
                   <span>{formatSessionTimeAgo(activity.timestampMs)}</span>
                 </div>
-                <div className="artifact-hub-generic-title">{activity.message}</div>
+                <div className="artifact-hub-generic-title">
+                  {activity.message}
+                </div>
                 {activity.detail ? (
-                  <p className="artifact-hub-generic-summary">{activity.detail}</p>
+                  <p className="artifact-hub-generic-summary">
+                    {activity.detail}
+                  </p>
                 ) : null}
               </article>
             ))}
@@ -2095,13 +2205,15 @@ function MobileView({
           <span className="artifact-hub-policy-pill">Shared runtime truth</span>
         </div>
         <p>
-          Chat, replay/export, and retained session history all stay
-          aligned because the handoff state comes from the same runtime-owned
-          session and evidence records.
+          Chat, replay/export, and retained session history all stay aligned
+          because the handoff state comes from the same runtime-owned session
+          and evidence records.
         </p>
         <div className="artifact-hub-files-meta artifact-hub-permissions__meta">
           <span>{mobileOverview.sessionHistoryCount} retained sessions</span>
-          <span>{mobileOverview.activityCount} retained handoff activities</span>
+          <span>
+            {mobileOverview.activityCount} retained handoff activities
+          </span>
           <span>
             {evidenceAction.attachable
               ? "REPL ready"
@@ -2232,9 +2344,11 @@ function VoiceView({
                 if (!nextFile) {
                   return;
                 }
-                void transcribeFile(nextFile, languageHint || null).catch(() => {
-                  // The error state is already captured by the hook.
-                });
+                void transcribeFile(nextFile, languageHint || null).catch(
+                  () => {
+                    // The error state is already captured by the hook.
+                  },
+                );
               }}
             />
             <button
@@ -2294,7 +2408,7 @@ function VoiceView({
           )}
           <div className="artifact-hub-files-meta artifact-hub-permissions__meta">
             <span>{result?.mimeType || "Pending mime type"}</span>
-            <span>{result?.language || (languageHint || "Auto language")}</span>
+            <span>{result?.language || languageHint || "Auto language"}</span>
             <span>{result?.modelId || "Awaiting runtime result"}</span>
           </div>
           <div className="artifact-hub-permissions-card__actions">
@@ -2327,11 +2441,13 @@ function VoiceView({
         </div>
         <p>
           Voice transcription stays inside the same runtime plane as Server,
-          Mobile, REPL, and Chat plan execution, so the result can move
-          across shells without inventing a separate speech subsystem.
+          Mobile, REPL, and Chat plan execution, so the result can move across
+          shells without inventing a separate speech subsystem.
         </p>
         <div className="artifact-hub-files-meta artifact-hub-permissions__meta">
-          <span>{transcript ? "Transcript retained locally" : "Awaiting transcript"}</span>
+          <span>
+            {transcript ? "Transcript retained locally" : "Awaiting transcript"}
+          </span>
           <span>{result?.fileName || fileName || "No audio clip yet"}</span>
           <span>{result?.modelId || "Shared runtime"}</span>
         </div>
@@ -2435,7 +2551,9 @@ function CommitView({
       </section>
 
       {branchError ? (
-        <p className="artifact-hub-note artifact-hub-note--error">{branchError}</p>
+        <p className="artifact-hub-note artifact-hub-note--error">
+          {branchError}
+        </p>
       ) : null}
       {sourceControlError ? (
         <p className="artifact-hub-note artifact-hub-note--error">
@@ -2480,7 +2598,9 @@ function CommitView({
             <span>
               {branchSnapshot?.workspaceRoot?.trim() || "No workspace root"}
             </span>
-            <span>{branchSnapshot?.dirty ? "Dirty checkout" : "Clean checkout"}</span>
+            <span>
+              {branchSnapshot?.dirty ? "Dirty checkout" : "Clean checkout"}
+            </span>
           </div>
         </section>
       </div>
@@ -2493,8 +2613,8 @@ function CommitView({
           </span>
         </div>
         <p>
-          Commits only include staged paths. Leave non-staged edits alone if they
-          belong to later work.
+          Commits only include staged paths. Leave non-staged edits alone if
+          they belong to later work.
         </p>
         <div className="artifact-hub-commit-form">
           <label className="artifact-hub-commit-field">
@@ -2524,7 +2644,9 @@ function CommitView({
             <button
               type="button"
               className="artifact-hub-open-btn"
-              disabled={isBusy || !overview.canCommit || trimmedHeadline.length === 0}
+              disabled={
+                isBusy || !overview.canCommit || trimmedHeadline.length === 0
+              }
               onClick={() => {
                 void onCommitSourceControl(trimmedHeadline, body.trim() || null)
                   .then(() => {
@@ -2570,8 +2692,8 @@ function CommitView({
           <span className="artifact-hub-policy-pill">Current checkout</span>
         </div>
         <p>
-          Stage only the paths that belong in the next checkpoint. Unstaged edits
-          stay in the working tree and can be committed later.
+          Stage only the paths that belong in the next checkpoint. Unstaged
+          edits stay in the working tree and can be committed later.
         </p>
         <div className="artifact-hub-permissions-card__actions">
           {onStageAllSourceControl && overview.changedCount > 0 ? (
@@ -2625,7 +2747,9 @@ function CommitView({
                 <div className="artifact-hub-generic-meta">
                   <span>{commitEntryActionLabel(entry)}</span>
                   <span>{entry.statusLabel}</span>
-                  {entry.originalPath ? <span>{entry.originalPath}</span> : null}
+                  {entry.originalPath ? (
+                    <span>{entry.originalPath}</span>
+                  ) : null}
                 </div>
                 <div className="artifact-hub-generic-title">{entry.path}</div>
                 <p className="artifact-hub-generic-summary">{entry.detail}</p>
@@ -2714,7 +2838,8 @@ function BranchesView({
   onRemoveBranchWorktree?: (targetWorkspaceRoot: string) => Promise<unknown>;
   onOpenView?: (view: ArtifactHubViewKey) => void;
 }) {
-  const workspaceLabel = snapshot?.workspaceRoot?.trim() || "No active workspace";
+  const workspaceLabel =
+    snapshot?.workspaceRoot?.trim() || "No active workspace";
   const repoLabel = snapshot?.repoLabel?.trim() || "No repository";
   const currentBranch = snapshot?.currentBranch?.trim() || "Detached HEAD";
   const recentBranches = snapshot?.recentBranches ?? [];
@@ -2753,7 +2878,9 @@ function BranchesView({
     }
   }, [startPointOptions, trimmedStartPoint]);
 
-  async function runLifecycleAction(action: BranchLifecycleAutomationQueuedAction) {
+  async function runLifecycleAction(
+    action: BranchLifecycleAutomationQueuedAction,
+  ) {
     switch (action.kind) {
       case "open_commit_view":
         if (action.recommendedView && onOpenView) {
@@ -2773,7 +2900,9 @@ function BranchesView({
     }
   }
 
-  function canRunLifecycleAction(action: BranchLifecycleAutomationQueuedAction) {
+  function canRunLifecycleAction(
+    action: BranchLifecycleAutomationQueuedAction,
+  ) {
     switch (action.kind) {
       case "open_commit_view":
         return Boolean(action.recommendedView && onOpenView);
@@ -2899,7 +3028,11 @@ function BranchesView({
               <p>{snapshot.worktreeRiskDetail}</p>
               <div className="artifact-hub-files-meta artifact-hub-permissions__meta">
                 <span>{snapshot.changedFileCount} changed files</span>
-                <span>{snapshot.dirty ? "Tracked changes present" : "No tracked changes"}</span>
+                <span>
+                  {snapshot.dirty
+                    ? "Tracked changes present"
+                    : "No tracked changes"}
+                </span>
               </div>
             </section>
           </div>
@@ -2912,9 +3045,14 @@ function BranchesView({
               </div>
               <div className="artifact-hub-generic-list">
                 {recentBranches.map((branch) => (
-                  <article className="artifact-hub-generic-row" key={branch.branchName}>
+                  <article
+                    className="artifact-hub-generic-row"
+                    key={branch.branchName}
+                  >
                     <div className="artifact-hub-generic-meta">
-                      <span>{branch.isCurrent ? "Current branch" : "Local branch"}</span>
+                      <span>
+                        {branch.isCurrent ? "Current branch" : "Local branch"}
+                      </span>
                       <span>
                         {branchRowSyncSummary(
                           branch.aheadCount,
@@ -2959,13 +3097,24 @@ function BranchesView({
               </div>
               <div className="artifact-hub-generic-list">
                 {worktrees.map((worktree) => (
-                  <article className="artifact-hub-generic-row" key={worktree.path}>
+                  <article
+                    className="artifact-hub-generic-row"
+                    key={worktree.path}
+                  >
                     <div className="artifact-hub-generic-meta">
-                      <span>{worktree.isCurrent ? "Current workcell" : "Linked workcell"}</span>
+                      <span>
+                        {worktree.isCurrent
+                          ? "Current workcell"
+                          : "Linked workcell"}
+                      </span>
                       <span>{worktree.statusLabel}</span>
-                      <span>{worktree.branchName?.trim() || "Detached HEAD"}</span>
+                      <span>
+                        {worktree.branchName?.trim() || "Detached HEAD"}
+                      </span>
                     </div>
-                    <div className="artifact-hub-generic-title">{worktree.path}</div>
+                    <div className="artifact-hub-generic-title">
+                      {worktree.path}
+                    </div>
                     <p className="artifact-hub-generic-summary">
                       {worktree.lastCommit
                         ? `${worktree.statusDetail} Latest commit: ${worktree.lastCommit}`
@@ -2996,7 +3145,9 @@ function BranchesView({
                             void onRemoveBranchWorktree(worktree.path);
                           }}
                         >
-                          {worktree.prunable ? "Remove stale workcell" : "Remove workcell"}
+                          {worktree.prunable
+                            ? "Remove stale workcell"
+                            : "Remove workcell"}
                         </button>
                       ) : null}
                       {onOpenView && worktree.isCurrent ? (
@@ -3032,8 +3183,8 @@ function BranchesView({
         <p>
           Create a new isolated branch+worktree under the repo-local
           `.ioi-worktrees` directory and move the active session into it.
-          Uncommitted edits stay in the current checkout; the new workcell starts
-          from the selected branch or commit.
+          Uncommitted edits stay in the current checkout; the new workcell
+          starts from the selected branch or commit.
         </p>
         {snapshot?.isRepo && onCreateBranchWorktree ? (
           <div className="artifact-hub-commit-form">
@@ -3150,9 +3301,7 @@ function ServerView({
   remoteEnvSnapshot: SessionRemoteEnvSnapshot | null;
   managedSettings: LocalEngineSnapshot["managedSettings"] | null;
   onRefreshServer?: () => Promise<unknown>;
-  onRequestReplLaunch?: (
-    request: ChatRemoteContinuityLaunchRequest,
-  ) => void;
+  onRequestReplLaunch?: (request: ChatRemoteContinuityLaunchRequest) => void;
   onOpenView?: (view: ArtifactHubViewKey) => void;
 }) {
   const overview = buildServerOverview(snapshot);
@@ -3242,9 +3391,7 @@ function ServerView({
               ))}
             </div>
           ) : (
-            <p>
-              No continuity notes are retained for this shell yet.
-            </p>
+            <p>No continuity notes are retained for this shell yet.</p>
           )}
         </section>
 
@@ -3257,8 +3404,12 @@ function ServerView({
           </div>
           <p>{overview.currentSessionDetail}</p>
           <div className="artifact-hub-files-meta artifact-hub-permissions__meta">
-            <span>{snapshot?.remoteAttachableSessionCount ?? 0} remote attachable</span>
-            <span>{snapshot?.remoteHistoryOnlySessionCount ?? 0} remote history-only</span>
+            <span>
+              {snapshot?.remoteAttachableSessionCount ?? 0} remote attachable
+            </span>
+            <span>
+              {snapshot?.remoteHistoryOnlySessionCount ?? 0} remote history-only
+            </span>
             <span>
               {snapshot?.currentSessionVisibleRemotely
                 ? "Current session mirrored"
@@ -3308,7 +3459,9 @@ function ServerView({
                 type="button"
                 className="artifact-hub-open-btn secondary"
                 onClick={() => {
-                  onRequestReplLaunch(governance.secondaryAction!.launchRequest);
+                  onRequestReplLaunch(
+                    governance.secondaryAction!.launchRequest,
+                  );
                 }}
               >
                 {governance.secondaryAction.label}
@@ -3345,9 +3498,13 @@ function ServerView({
           </div>
           <div className="artifact-hub-generic-list">
             {recentSessions.map((session) => (
-              <article className="artifact-hub-generic-row" key={session.sessionId}>
+              <article
+                className="artifact-hub-generic-row"
+                key={session.sessionId}
+              >
                 {(() => {
-                  const continuityAction = buildRemoteSessionContinuityAction(session);
+                  const continuityAction =
+                    buildRemoteSessionContinuityAction(session);
                   return (
                     <>
                       <div className="artifact-hub-generic-meta">
@@ -3355,7 +3512,9 @@ function ServerView({
                         <span>{formatSessionTimeAgo(session.timestamp)}</span>
                         <span>{session.presenceLabel}</span>
                       </div>
-                      <div className="artifact-hub-generic-title">{session.title}</div>
+                      <div className="artifact-hub-generic-title">
+                        {session.title}
+                      </div>
                       <p className="artifact-hub-generic-summary">
                         {session.resumeHint ||
                           session.workspaceRoot ||
@@ -3370,7 +3529,9 @@ function ServerView({
                             type="button"
                             className="artifact-hub-open-btn"
                             onClick={() => {
-                              onRequestReplLaunch(continuityAction.launchRequest);
+                              onRequestReplLaunch(
+                                continuityAction.launchRequest,
+                              );
                             }}
                           >
                             {continuityAction.chatShellLabel}
@@ -3478,10 +3639,7 @@ function PluginsView({
     pluginId: string,
     enableAfterTrust?: boolean,
   ) => Promise<unknown>;
-  onSetPluginEnabled?: (
-    pluginId: string,
-    enabled: boolean,
-  ) => Promise<unknown>;
+  onSetPluginEnabled?: (pluginId: string, enabled: boolean) => Promise<unknown>;
   onReloadPlugin?: (pluginId: string) => Promise<unknown>;
   onRefreshPluginCatalog?: (pluginId: string) => Promise<unknown>;
   onRevokePluginTrust?: (pluginId: string) => Promise<unknown>;
@@ -3492,7 +3650,8 @@ function PluginsView({
 }) {
   const plugins = snapshot?.plugins ?? [];
   const receipts = snapshot?.recentReceipts ?? [];
-  const workspaceLabel = snapshot?.workspaceRoot?.trim() || "No active workspace";
+  const workspaceLabel =
+    snapshot?.workspaceRoot?.trim() || "No active workspace";
   const busy = status === "loading";
   const rolloutDossier = useMemo(
     () => buildPluginRolloutDossier(snapshot),
@@ -3506,12 +3665,16 @@ function PluginsView({
   const [rolloutStageMessage, setRolloutStageMessage] = useState<string | null>(
     null,
   );
-  const [rolloutStageError, setRolloutStageError] = useState<string | null>(null);
+  const [rolloutStageError, setRolloutStageError] = useState<string | null>(
+    null,
+  );
   const [rolloutAutomationBusy, setRolloutAutomationBusy] = useState(false);
-  const [rolloutAutomationMessage, setRolloutAutomationMessage] =
-    useState<string | null>(null);
-  const [rolloutAutomationError, setRolloutAutomationError] =
-    useState<string | null>(null);
+  const [rolloutAutomationMessage, setRolloutAutomationMessage] = useState<
+    string | null
+  >(null);
+  const [rolloutAutomationError, setRolloutAutomationError] = useState<
+    string | null
+  >(null);
 
   const stageRolloutReview = async () => {
     setRolloutStageBusy(true);
@@ -3568,7 +3731,9 @@ function PluginsView({
           break;
         case "install_package":
           if (!action.pluginId || !onInstallPluginPackage) {
-            throw new Error("Managed package install automation is unavailable.");
+            throw new Error(
+              "Managed package install automation is unavailable.",
+            );
           }
           await onInstallPluginPackage(action.pluginId);
           setRolloutAutomationMessage(
@@ -3577,7 +3742,9 @@ function PluginsView({
           break;
         case "apply_update":
           if (!action.pluginId || !onUpdatePluginPackage) {
-            throw new Error("Managed package update automation is unavailable.");
+            throw new Error(
+              "Managed package update automation is unavailable.",
+            );
           }
           await onUpdatePluginPackage(action.pluginId);
           setRolloutAutomationMessage(
@@ -3633,7 +3800,9 @@ function PluginsView({
           <span>Workspace: {workspaceLabel}</span>
           <span>{snapshot?.pluginCount ?? 0} plugins</span>
           <span>{snapshot?.recommendedPluginCount ?? 0} recommended</span>
-          <span>{snapshot?.reviewRequiredPluginCount ?? 0} review required</span>
+          <span>
+            {snapshot?.reviewRequiredPluginCount ?? 0} review required
+          </span>
           <span>{snapshot?.criticalUpdateCount ?? 0} critical updates</span>
           <span>{snapshot?.refreshAvailableCount ?? 0} refresh available</span>
           <span>{snapshot?.refreshFailedCount ?? 0} refresh failed</span>
@@ -3643,11 +3812,15 @@ function PluginsView({
           <span>{snapshot?.failedCatalogSourceCount ?? 0} failed sources</span>
           <span>{snapshot?.catalogChannelCount ?? 0} catalog channels</span>
           <span>{snapshot?.nonconformantChannelCount ?? 0} nonconformant</span>
-          <span>{snapshot?.nonconformantSourceCount ?? 0} nonconformant sources</span>
+          <span>
+            {snapshot?.nonconformantSourceCount ?? 0} nonconformant sources
+          </span>
           <span>{snapshot?.staleCatalogCount ?? 0} stale catalogs</span>
           <span>{snapshot?.expiredCatalogCount ?? 0} expired catalogs</span>
           <span>{snapshot?.verifiedPluginCount ?? 0} verified</span>
-          <span>{snapshot?.unverifiedPluginCount ?? 0} unsigned/unverified</span>
+          <span>
+            {snapshot?.unverifiedPluginCount ?? 0} unsigned/unverified
+          </span>
           <span>{snapshot?.signatureMismatchPluginCount ?? 0} mismatch</span>
           <span>{snapshot?.trustedPluginCount ?? 0} trusted</span>
           <span>{snapshot?.enabledPluginCount ?? 0} runtime enabled</span>
@@ -3729,12 +3902,16 @@ function PluginsView({
             <span key={item}>{item}</span>
           ))}
           {rolloutAutomationPlan.queuedActions.length > 1 ? (
-            <span>{rolloutAutomationPlan.queuedActions.length} queued rollout steps</span>
+            <span>
+              {rolloutAutomationPlan.queuedActions.length} queued rollout steps
+            </span>
           ) : null}
           {rolloutAutomationPlan.governanceNotes.length > 0 ? (
             <span>
               {rolloutAutomationPlan.governanceNotes.length} governed review{" "}
-              {rolloutAutomationPlan.governanceNotes.length === 1 ? "gate" : "gates"}
+              {rolloutAutomationPlan.governanceNotes.length === 1
+                ? "gate"
+                : "gates"}
             </span>
           ) : null}
         </div>
@@ -3819,7 +3996,9 @@ function PluginsView({
       <div className="artifact-hub-permissions-grid">
         <section className="artifact-hub-permissions-card">
           <div className="artifact-hub-permissions-card__head">
-            <strong>{snapshot?.verifiedPluginCount ?? 0} verified packages</strong>
+            <strong>
+              {snapshot?.verifiedPluginCount ?? 0} verified packages
+            </strong>
             <span className="artifact-hub-policy-pill">
               {snapshot?.signatureMismatchPluginCount ?? 0} mismatch
             </span>
@@ -3832,17 +4011,27 @@ function PluginsView({
           </p>
           <div className="artifact-hub-files-meta artifact-hub-permissions__meta">
             <span>{snapshot?.managedPackageCount ?? 0} managed packages</span>
-            <span>{snapshot?.installablePackageCount ?? 0} ready to install</span>
+            <span>
+              {snapshot?.installablePackageCount ?? 0} ready to install
+            </span>
             <span>{snapshot?.recommendedPluginCount ?? 0} recommended</span>
-            <span>{snapshot?.reviewRequiredPluginCount ?? 0} review required</span>
+            <span>
+              {snapshot?.reviewRequiredPluginCount ?? 0} review required
+            </span>
             <span>{snapshot?.criticalUpdateCount ?? 0} critical updates</span>
-            <span>{snapshot?.refreshAvailableCount ?? 0} refresh available</span>
+            <span>
+              {snapshot?.refreshAvailableCount ?? 0} refresh available
+            </span>
             <span>{snapshot?.refreshFailedCount ?? 0} refresh failed</span>
             <span>{snapshot?.catalogSourceCount ?? 0} catalog sources</span>
-            <span>{snapshot?.remoteCatalogSourceCount ?? 0} remote sources</span>
+            <span>
+              {snapshot?.remoteCatalogSourceCount ?? 0} remote sources
+            </span>
             <span>{snapshot?.staleCatalogCount ?? 0} stale catalogs</span>
             <span>{snapshot?.filesystemSkillCount ?? 0} filesystem skills</span>
-            <span>{snapshot?.hookContributionCount ?? 0} hook contributions</span>
+            <span>
+              {snapshot?.hookContributionCount ?? 0} hook contributions
+            </span>
           </div>
         </section>
 
@@ -3903,7 +4092,10 @@ function PluginsView({
           </p>
           <div className="artifact-hub-generic-list">
             {snapshot?.catalogSources.map((source) => (
-              <article className="artifact-hub-generic-row" key={source.sourceId}>
+              <article
+                className="artifact-hub-generic-row"
+                key={source.sourceId}
+              >
                 <div className="artifact-hub-generic-meta">
                   <span>{source.label}</span>
                   {source.channel ? <span>{source.channel}</span> : null}
@@ -3919,7 +4111,9 @@ function PluginsView({
                     <span>{source.invalidCatalogCount} invalid catalogs</span>
                   ) : null}
                 </div>
-                <div className="artifact-hub-generic-title">{source.sourceId}</div>
+                <div className="artifact-hub-generic-title">
+                  {source.sourceId}
+                </div>
                 <p className="artifact-hub-generic-summary">
                   {source.statusDetail}
                 </p>
@@ -4025,9 +4219,7 @@ function PluginsView({
                     </span>
                   ) : null}
                   {channel.refreshSource ? (
-                    <span>
-                      Source: {humanizeStatus(channel.refreshSource)}
-                    </span>
+                    <span>Source: {humanizeStatus(channel.refreshSource)}</span>
                   ) : null}
                 </div>
               </article>
@@ -4040,7 +4232,9 @@ function PluginsView({
         <section className="artifact-hub-permissions-card">
           <div className="artifact-hub-permissions-card__head">
             <strong>Recent plugin lifecycle receipts</strong>
-            <span className="artifact-hub-policy-pill">{receipts.length} retained</span>
+            <span className="artifact-hub-policy-pill">
+              {receipts.length} retained
+            </span>
           </div>
           <p>
             Latest remembered-trust, enable, reload, and revoke outcomes for the
@@ -4048,14 +4242,19 @@ function PluginsView({
           </p>
           <div className="artifact-hub-generic-list">
             {receipts.slice(0, 4).map((receipt) => (
-              <article className="artifact-hub-generic-row" key={receipt.receiptId}>
+              <article
+                className="artifact-hub-generic-row"
+                key={receipt.receiptId}
+              >
                 <div className="artifact-hub-generic-meta">
                   <span>{receipt.pluginLabel}</span>
                   <span>{humanizeStatus(receipt.action)}</span>
                   <span>{humanizeStatus(receipt.status)}</span>
                   <span>{formatTaskTimestamp(receipt.timestampMs)}</span>
                 </div>
-                <p className="artifact-hub-generic-summary">{receipt.summary}</p>
+                <p className="artifact-hub-generic-summary">
+                  {receipt.summary}
+                </p>
               </article>
             ))}
           </div>
@@ -4070,7 +4269,10 @@ function PluginsView({
           </div>
           <div className="artifact-hub-generic-list">
             {plugins.map((plugin) => (
-              <article className="artifact-hub-generic-row" key={plugin.pluginId}>
+              <article
+                className="artifact-hub-generic-row"
+                key={plugin.pluginId}
+              >
                 <div className="artifact-hub-generic-meta">
                   <span>{plugin.sourceLabel}</span>
                   <span>{plugin.statusLabel}</span>
@@ -4142,7 +4344,8 @@ function PluginsView({
                   ) : null}
                   {plugin.verificationTimestampMs ? (
                     <span>
-                      Verified {formatTaskTimestamp(plugin.verificationTimestampMs)}
+                      Verified{" "}
+                      {formatTaskTimestamp(plugin.verificationTimestampMs)}
                     </span>
                   ) : null}
                   {plugin.verificationSource ? (
@@ -4152,7 +4355,8 @@ function PluginsView({
                   ) : null}
                   {plugin.verifiedDigestSha256 ? (
                     <span>
-                      Digest sha256:{plugin.verifiedDigestSha256.slice(0, 16)}...
+                      Digest sha256:{plugin.verifiedDigestSha256.slice(0, 16)}
+                      ...
                     </span>
                   ) : null}
                   {plugin.trustScoreLabel ? (
@@ -4166,7 +4370,8 @@ function PluginsView({
                   ) : null}
                   {plugin.publisherTrustSource ? (
                     <span>
-                      Publisher source: {humanizeStatus(plugin.publisherTrustSource)}
+                      Publisher source:{" "}
+                      {humanizeStatus(plugin.publisherTrustSource)}
                     </span>
                   ) : null}
                   {plugin.publisherRootLabel ? (
@@ -4201,13 +4406,17 @@ function PluginsView({
                   {plugin.authorityTrustBundleIssuedAtMs ? (
                     <span>
                       Trust bundle issued{" "}
-                      {formatTaskTimestamp(plugin.authorityTrustBundleIssuedAtMs)}
+                      {formatTaskTimestamp(
+                        plugin.authorityTrustBundleIssuedAtMs,
+                      )}
                     </span>
                   ) : null}
                   {plugin.authorityTrustBundleExpiresAtMs ? (
                     <span>
                       Trust bundle expires{" "}
-                      {formatTaskTimestamp(plugin.authorityTrustBundleExpiresAtMs)}
+                      {formatTaskTimestamp(
+                        plugin.authorityTrustBundleExpiresAtMs,
+                      )}
                     </span>
                   ) : null}
                   {plugin.authorityTrustIssuerLabel ? (
@@ -4216,7 +4425,9 @@ function PluginsView({
                     </span>
                   ) : null}
                   {plugin.authorityTrustIssuerId ? (
-                    <span>Trust issuer ID: {plugin.authorityTrustIssuerId}</span>
+                    <span>
+                      Trust issuer ID: {plugin.authorityTrustIssuerId}
+                    </span>
                   ) : null}
                   {plugin.authorityLabel ? (
                     <span>Authority: {plugin.authorityLabel}</span>
@@ -4237,7 +4448,8 @@ function PluginsView({
                   ) : null}
                   {plugin.catalogIssuedAtMs ? (
                     <span>
-                      Catalog issued {formatTaskTimestamp(plugin.catalogIssuedAtMs)}
+                      Catalog issued{" "}
+                      {formatTaskTimestamp(plugin.catalogIssuedAtMs)}
                     </span>
                   ) : null}
                   {plugin.catalogRefreshedAtMs ? (
@@ -4267,18 +4479,24 @@ function PluginsView({
                     </span>
                   ) : null}
                   {plugin.catalogRefreshBundleId ? (
-                    <span>Refresh bundle ID: {plugin.catalogRefreshBundleId}</span>
+                    <span>
+                      Refresh bundle ID: {plugin.catalogRefreshBundleId}
+                    </span>
                   ) : null}
                   {plugin.catalogRefreshBundleIssuedAtMs ? (
                     <span>
                       Refresh bundle issued{" "}
-                      {formatTaskTimestamp(plugin.catalogRefreshBundleIssuedAtMs)}
+                      {formatTaskTimestamp(
+                        plugin.catalogRefreshBundleIssuedAtMs,
+                      )}
                     </span>
                   ) : null}
                   {plugin.catalogRefreshBundleExpiresAtMs ? (
                     <span>
                       Refresh bundle expires{" "}
-                      {formatTaskTimestamp(plugin.catalogRefreshBundleExpiresAtMs)}
+                      {formatTaskTimestamp(
+                        plugin.catalogRefreshBundleExpiresAtMs,
+                      )}
                     </span>
                   ) : null}
                   {plugin.catalogRefreshAvailableVersion ? (
@@ -4317,7 +4535,9 @@ function PluginsView({
                     Install state: {humanizeStatus(plugin.packageInstallState)}
                   </span>
                   {plugin.packageInstallSourceLabel ? (
-                    <span>Install source: {plugin.packageInstallSourceLabel}</span>
+                    <span>
+                      Install source: {plugin.packageInstallSourceLabel}
+                    </span>
                   ) : null}
                   {plugin.marketplacePackageUrl ? (
                     <span>Package URI: {plugin.marketplacePackageUrl}</span>
@@ -4349,7 +4569,9 @@ function PluginsView({
                       </span>
                     ) : null}
                     {plugin.marketplaceProducts.map((product) => (
-                      <span key={`${plugin.pluginId}-${product}`}>{product}</span>
+                      <span key={`${plugin.pluginId}-${product}`}>
+                        {product}
+                      </span>
                     ))}
                   </div>
                 ) : null}
@@ -4361,7 +4583,9 @@ function PluginsView({
                     </summary>
                     <div className="artifact-hub-files-meta artifact-hub-permissions__meta">
                       {plugin.requestedCapabilities.map((capability) => (
-                        <span key={`${plugin.pluginId}-${capability}`}>{capability}</span>
+                        <span key={`${plugin.pluginId}-${capability}`}>
+                          {capability}
+                        </span>
                       ))}
                     </div>
                   </details>
@@ -4374,19 +4598,29 @@ function PluginsView({
                     Trust remembered: {plugin.trustRemembered ? "yes" : "no"}
                   </span>
                   {plugin.lastTrustedAtMs ? (
-                    <span>Trusted {formatTaskTimestamp(plugin.lastTrustedAtMs)}</span>
+                    <span>
+                      Trusted {formatTaskTimestamp(plugin.lastTrustedAtMs)}
+                    </span>
                   ) : null}
                   {plugin.lastReloadedAtMs ? (
-                    <span>Reloaded {formatTaskTimestamp(plugin.lastReloadedAtMs)}</span>
+                    <span>
+                      Reloaded {formatTaskTimestamp(plugin.lastReloadedAtMs)}
+                    </span>
                   ) : null}
                   {plugin.lastInstalledAtMs ? (
-                    <span>Installed {formatTaskTimestamp(plugin.lastInstalledAtMs)}</span>
+                    <span>
+                      Installed {formatTaskTimestamp(plugin.lastInstalledAtMs)}
+                    </span>
                   ) : null}
                   {plugin.lastUpdatedAtMs ? (
-                    <span>Updated {formatTaskTimestamp(plugin.lastUpdatedAtMs)}</span>
+                    <span>
+                      Updated {formatTaskTimestamp(plugin.lastUpdatedAtMs)}
+                    </span>
                   ) : null}
                   {plugin.lastRemovedAtMs ? (
-                    <span>Removed {formatTaskTimestamp(plugin.lastRemovedAtMs)}</span>
+                    <span>
+                      Removed {formatTaskTimestamp(plugin.lastRemovedAtMs)}
+                    </span>
                   ) : null}
                 </div>
                 {plugin.loadError ? (
@@ -4516,7 +4750,8 @@ function PluginsView({
                       Disable runtime load
                     </button>
                   ) : null}
-                  {plugin.runtimeTrustState === "trusted" && onRevokePluginTrust ? (
+                  {plugin.runtimeTrustState === "trusted" &&
+                  onRevokePluginTrust ? (
                     <button
                       type="button"
                       className="artifact-hub-open-btn secondary"
@@ -4595,7 +4830,8 @@ function HooksView({
 }) {
   const hooks = snapshot?.hooks ?? [];
   const receipts = snapshot?.recentReceipts ?? [];
-  const workspaceLabel = snapshot?.workspaceRoot?.trim() || "No active workspace";
+  const workspaceLabel =
+    snapshot?.workspaceRoot?.trim() || "No active workspace";
   const controlOverview = buildHookControlOverview(snapshot);
   const authorityAutomationPlan = buildAuthorityAutomationPlan({
     currentProfileId: permissionCurrentProfileId,
@@ -4683,7 +4919,9 @@ function HooksView({
             <button
               type="button"
               className="artifact-hub-open-btn secondary"
-              onClick={() => onOpenView(authorityAutomationPlan.recommendedView!)}
+              onClick={() =>
+                onOpenView(authorityAutomationPlan.recommendedView!)
+              }
             >
               {authorityAutomationPlan.recommendedView === "permissions"
                 ? "Review Permissions"
@@ -4714,14 +4952,21 @@ function HooksView({
           </p>
           <div className="artifact-hub-generic-list">
             {receipts.slice(0, 4).map((receipt) => (
-              <article className="artifact-hub-generic-row" key={`${receipt.timestampMs}-${receipt.toolName}`}>
+              <article
+                className="artifact-hub-generic-row"
+                key={`${receipt.timestampMs}-${receipt.toolName}`}
+              >
                 <div className="artifact-hub-generic-meta">
                   <span>{receipt.title}</span>
                   <span>{formatTaskTimestamp(receipt.timestampMs)}</span>
                   <span>{humanizeStatus(receipt.status)}</span>
                 </div>
-                <div className="artifact-hub-generic-title">{receipt.toolName}</div>
-                <p className="artifact-hub-generic-summary">{receipt.summary}</p>
+                <div className="artifact-hub-generic-title">
+                  {receipt.toolName}
+                </div>
+                <p className="artifact-hub-generic-summary">
+                  {receipt.summary}
+                </p>
               </article>
             ))}
           </div>
@@ -4793,9 +5038,9 @@ function HooksView({
         </section>
       ) : (
         <p className="artifact-hub-empty">
-          No runtime-visible hook contributions are retained for this session yet.
-          Track or enable an extension with a `hooks` contribution, then reopen
-          this drawer.
+          No runtime-visible hook contributions are retained for this session
+          yet. Track or enable an extension with a `hooks` contribution, then
+          reopen this drawer.
         </p>
       )}
 
@@ -4889,10 +5134,14 @@ function PromotionStageCard({
       <div className="artifact-hub-files-meta artifact-hub-permissions__meta">
         <span>Source: canonical trace bundle</span>
         {dossier ? <span>Dossier: {dossier.title}</span> : null}
-        {dossier ? <span>Recommended pack: {dossier.recommendedVariantLabel}</span> : null}
+        {dossier ? (
+          <span>Recommended pack: {dossier.recommendedVariantLabel}</span>
+        ) : null}
         {latestPackLabel ? <span>Latest pack: {latestPackLabel}</span> : null}
         {exportPath ? (
-          <span title={exportPath}>Export path: {clipText(exportPath, 40)}</span>
+          <span title={exportPath}>
+            Export path: {clipText(exportPath, 40)}
+          </span>
         ) : null}
       </div>
       {dossier ? (
@@ -4954,7 +5203,9 @@ function RetainedPortfolioDossierCard({
     <section className="artifact-hub-permissions-card">
       <div className="artifact-hub-permissions-card__head">
         <strong>{dossier.title}</strong>
-        <span className="artifact-hub-policy-pill">{dossier.readinessLabel}</span>
+        <span className="artifact-hub-policy-pill">
+          {dossier.readinessLabel}
+        </span>
       </div>
       <p>{dossier.summary}</p>
       <div className="artifact-hub-files-meta artifact-hub-permissions__meta">
@@ -5011,9 +5262,7 @@ function SavedBundleProofCard({
   return (
     <section
       className={`artifact-hub-permissions-card ${
-        overview.tone === "review"
-          ? "artifact-hub-permissions-card--alert"
-          : ""
+        overview.tone === "review" ? "artifact-hub-permissions-card--alert" : ""
       }`}
     >
       <div className="artifact-hub-permissions-card__head">
@@ -5075,9 +5324,7 @@ function ArtifactPipelineAutomationCard({
   return (
     <section
       className={`artifact-hub-permissions-card ${
-        plan.tone === "review"
-          ? "artifact-hub-permissions-card--alert"
-          : ""
+        plan.tone === "review" ? "artifact-hub-permissions-card--alert" : ""
       }`}
     >
       <div className="artifact-hub-permissions-card__head">
@@ -5096,7 +5343,9 @@ function ArtifactPipelineAutomationCard({
         ) : null}
       </div>
       {message ? <p className="artifact-hub-note">{message}</p> : null}
-      {error ? <p className="artifact-hub-note artifact-hub-note--error">{error}</p> : null}
+      {error ? (
+        <p className="artifact-hub-note artifact-hub-note--error">{error}</p>
+      ) : null}
       {plan.queuedActions.length > 1 ? (
         <div className="artifact-hub-generic-list">
           {plan.queuedActions.map((action, index) => (
@@ -5106,7 +5355,9 @@ function ArtifactPipelineAutomationCard({
             >
               <div className="artifact-hub-generic-meta">
                 <span>Step {index + 1}</span>
-                <span>{action.promotionTarget ?? humanizeStatus(action.kind)}</span>
+                <span>
+                  {action.promotionTarget ?? humanizeStatus(action.kind)}
+                </span>
               </div>
               <div className="artifact-hub-generic-title">{action.label}</div>
               <p className="artifact-hub-generic-summary">{action.detail}</p>
@@ -5248,9 +5499,7 @@ function RemoteContinuityPolicyCard({
 }: {
   title: string;
   overview: RemoteContinuityPolicyOverview;
-  onRequestReplLaunch?: (
-    request: ChatRemoteContinuityLaunchRequest,
-  ) => void;
+  onRequestReplLaunch?: (request: ChatRemoteContinuityLaunchRequest) => void;
   onOpenView?: (view: ArtifactHubViewKey) => void;
   onRefreshServer?: () => Promise<unknown>;
 }) {
@@ -5273,7 +5522,9 @@ function RemoteContinuityPolicyCard({
     }
   };
 
-  const canRunAction = (action: RemoteContinuityPolicyAction | null): boolean => {
+  const canRunAction = (
+    action: RemoteContinuityPolicyAction | null,
+  ): boolean => {
     if (!action) {
       return false;
     }
@@ -5467,17 +5718,26 @@ function ExportView({
         durabilityOverview,
         stagedOperations,
       }),
-    [dossier, durabilityOverview, privacyOverview, savedBundleProof, stagedOperations],
+    [
+      dossier,
+      durabilityOverview,
+      privacyOverview,
+      savedBundleProof,
+      stagedOperations,
+    ],
   );
   const [artifactAutomationBusy, setArtifactAutomationBusy] = useState(false);
-  const [artifactAutomationMessage, setArtifactAutomationMessage] =
-    useState<string | null>(null);
-  const [artifactAutomationError, setArtifactAutomationError] =
-    useState<string | null>(null);
+  const [artifactAutomationMessage, setArtifactAutomationMessage] = useState<
+    string | null
+  >(null);
+  const [artifactAutomationError, setArtifactAutomationError] = useState<
+    string | null
+  >(null);
 
   const runArtifactAutomationPlan = async (
-    action: ArtifactPipelineAutomationQueuedAction | undefined =
-      artifactAutomationPlan.queuedActions[0],
+    action:
+      | ArtifactPipelineAutomationQueuedAction
+      | undefined = artifactAutomationPlan.queuedActions[0],
   ) => {
     if (!action && artifactAutomationPlan.actionKind === "none") {
       setArtifactAutomationMessage(
@@ -5489,11 +5749,12 @@ function ExportView({
     setArtifactAutomationMessage(null);
     setArtifactAutomationError(null);
     try {
-      const nextAction =
-        action ??
+      const nextAction = action ??
         artifactAutomationPlan.queuedActions[0] ?? {
           kind: artifactAutomationPlan.actionKind,
-          label: artifactAutomationPlan.primaryActionLabel || "Run artifact automation",
+          label:
+            artifactAutomationPlan.primaryActionLabel ||
+            "Run artifact automation",
           recommendedView: artifactAutomationPlan.recommendedView,
           promotionTarget: artifactAutomationPlan.promotionTarget,
           detail: artifactAutomationPlan.detail,
@@ -5603,9 +5864,15 @@ function ExportView({
         <div className="artifact-hub-files-meta artifact-hub-permissions__meta">
           <span>Share posture: local operator export</span>
           <span>Artifact payloads: included</span>
-          {bundleGeneratedAt ? <span>Snapshot: {bundleGeneratedAt}</span> : null}
-          {latestExportLabel ? <span>Last export: {latestExportLabel}</span> : null}
-          {lastExportVariantLabel ? <span>Variant: {lastExportVariantLabel}</span> : null}
+          {bundleGeneratedAt ? (
+            <span>Snapshot: {bundleGeneratedAt}</span>
+          ) : null}
+          {latestExportLabel ? (
+            <span>Last export: {latestExportLabel}</span>
+          ) : null}
+          {lastExportVariantLabel ? (
+            <span>Variant: {lastExportVariantLabel}</span>
+          ) : null}
         </div>
         {exportPath ? (
           <p className="artifact-hub-generic-summary" title={exportPath}>
@@ -5685,7 +5952,10 @@ function ExportView({
         onOpenView={onOpenView}
       />
 
-      <DurabilityEvidenceCard overview={durabilityOverview} onOpenView={onOpenView} />
+      <DurabilityEvidenceCard
+        overview={durabilityOverview}
+        onOpenView={onOpenView}
+      />
       <PrivacyEvidenceCard overview={privacyOverview} onOpenView={onOpenView} />
 
       {replayLoading && !replayBundle ? (
@@ -5788,17 +6058,26 @@ function ShareView({
         durabilityOverview,
         stagedOperations,
       }),
-    [dossier, durabilityOverview, privacyOverview, savedBundleProof, stagedOperations],
+    [
+      dossier,
+      durabilityOverview,
+      privacyOverview,
+      savedBundleProof,
+      stagedOperations,
+    ],
   );
   const [artifactAutomationBusy, setArtifactAutomationBusy] = useState(false);
-  const [artifactAutomationMessage, setArtifactAutomationMessage] =
-    useState<string | null>(null);
-  const [artifactAutomationError, setArtifactAutomationError] =
-    useState<string | null>(null);
+  const [artifactAutomationMessage, setArtifactAutomationMessage] = useState<
+    string | null
+  >(null);
+  const [artifactAutomationError, setArtifactAutomationError] = useState<
+    string | null
+  >(null);
 
   const runArtifactAutomationPlan = async (
-    action: ArtifactPipelineAutomationQueuedAction | undefined =
-      artifactAutomationPlan.queuedActions[0],
+    action:
+      | ArtifactPipelineAutomationQueuedAction
+      | undefined = artifactAutomationPlan.queuedActions[0],
   ) => {
     if (!action && artifactAutomationPlan.actionKind === "none") {
       setArtifactAutomationMessage(
@@ -5810,11 +6089,12 @@ function ShareView({
     setArtifactAutomationMessage(null);
     setArtifactAutomationError(null);
     try {
-      const nextAction =
-        action ??
+      const nextAction = action ??
         artifactAutomationPlan.queuedActions[0] ?? {
           kind: artifactAutomationPlan.actionKind,
-          label: artifactAutomationPlan.primaryActionLabel || "Run artifact automation",
+          label:
+            artifactAutomationPlan.primaryActionLabel ||
+            "Run artifact automation",
           recommendedView: artifactAutomationPlan.recommendedView,
           promotionTarget: artifactAutomationPlan.promotionTarget,
           detail: artifactAutomationPlan.detail,
@@ -5893,18 +6173,26 @@ function ShareView({
         <div className="artifact-hub-files-meta artifact-hub-permissions__meta">
           <span>Projection: {humanizeStatus(exportStatus)}</span>
           <span>
-            {replayStats?.eventCount ?? 0} events · {replayStats?.receiptCount ?? 0} receipts
+            {replayStats?.eventCount ?? 0} events ·{" "}
+            {replayStats?.receiptCount ?? 0} receipts
           </span>
           <span>
-            {replayStats?.artifactCount ?? 0} artifacts · {replayStats?.includedArtifactPayloadCount ?? 0} payloads
+            {replayStats?.artifactCount ?? 0} artifacts ·{" "}
+            {replayStats?.includedArtifactPayloadCount ?? 0} payloads
           </span>
-          {latestExportLabel ? <span>Last export: {latestExportLabel}</span> : null}
-          {lastExportVariantLabel ? <span>Variant: {lastExportVariantLabel}</span> : null}
+          {latestExportLabel ? (
+            <span>Last export: {latestExportLabel}</span>
+          ) : null}
+          {lastExportVariantLabel ? (
+            <span>Variant: {lastExportVariantLabel}</span>
+          ) : null}
         </div>
       </section>
 
       {exportError ? (
-        <p className="artifact-hub-note artifact-hub-note--error">{exportError}</p>
+        <p className="artifact-hub-note artifact-hub-note--error">
+          {exportError}
+        </p>
       ) : null}
       {replayError && !replayBundle ? (
         <p className="artifact-hub-note artifact-hub-note--error">
@@ -5945,8 +6233,9 @@ function ShareView({
             <span className="artifact-hub-policy-pill">No payloads</span>
           </div>
           <p>
-            Export a lighter review-oriented pack that keeps the trace, receipts,
-            and bundle manifest while omitting artifact payload bodies.
+            Export a lighter review-oriented pack that keeps the trace,
+            receipts, and bundle manifest while omitting artifact payload
+            bodies.
           </p>
           <div className="artifact-hub-permissions-card__actions">
             {onExportBundle ? (
@@ -6025,7 +6314,10 @@ function ShareView({
         onOpenView={onOpenView}
       />
 
-      <DurabilityEvidenceCard overview={durabilityOverview} onOpenView={onOpenView} />
+      <DurabilityEvidenceCard
+        overview={durabilityOverview}
+        onOpenView={onOpenView}
+      />
       <PrivacyEvidenceCard overview={privacyOverview} onOpenView={onOpenView} />
 
       <section className="artifact-hub-permissions-card">
@@ -6035,7 +6327,8 @@ function ShareView({
         </div>
         <p>
           Share stays a projection over the canonical export and replay flow so
-          evidence packaging does not fork away from the underlying session truth.
+          evidence packaging does not fork away from the underlying session
+          truth.
         </p>
         <div className="artifact-hub-permissions-card__actions">
           {onOpenView ? (
@@ -6064,203 +6357,6 @@ function ShareView({
           Loading the retained replay snapshot for share preview.
         </p>
       ) : null}
-    </div>
-  );
-}
-
-function KeybindingsView({
-  snapshot,
-}: {
-  snapshot: ChatKeybindingSnapshot;
-}) {
-  const groupedRecords = snapshot.records.reduce<Record<string, typeof snapshot.records>>(
-    (acc, record) => {
-      if (!acc[record.scope]) {
-        acc[record.scope] = [];
-      }
-      acc[record.scope].push(record);
-      return acc;
-    },
-    {},
-  );
-
-  return (
-    <div className="artifact-hub-permissions">
-      <section className="artifact-hub-files-identity artifact-hub-permissions__identity">
-        <span className="artifact-hub-files-kicker">Keybindings</span>
-        <strong>Current shell shortcuts</strong>
-        <p>
-          Review the active keyboard shortcuts across Chat and the
-          global launcher surface.
-        </p>
-        <div className="artifact-hub-files-meta artifact-hub-permissions__meta">
-          <span>Platform: {snapshot.platformLabel}</span>
-          <span>{snapshot.records.length} shortcuts</span>
-          <span>Source: live shell defaults</span>
-        </div>
-      </section>
-
-      {Object.entries(groupedRecords).map(([scope, records]) => (
-        <section className="artifact-hub-task-section" key={scope}>
-          <div className="artifact-hub-task-section-head">
-            <span>{scope}</span>
-            <span>{records.length}</span>
-          </div>
-          <div className="artifact-hub-generic-list">
-            {records.map((record) => (
-              <article className="artifact-hub-generic-row" key={record.id}>
-                <div className="artifact-hub-generic-meta">
-                  <span>{record.source}</span>
-                  <span>Current: {record.binding}</span>
-                  <span>Default: {record.defaultBinding}</span>
-                </div>
-                <div className="artifact-hub-generic-title">{record.command}</div>
-                <p className="artifact-hub-generic-summary">{record.summary}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-      ))}
-
-      <section className="artifact-hub-permissions-card">
-        <div className="artifact-hub-permissions-card__head">
-          <strong>Shortcut management</strong>
-          <span className="artifact-hub-policy-pill">Current defaults</span>
-        </div>
-        <p>
-          This slice now reflects one shared shortcut registry across Chat,
-          Chat, and the launcher surface. User-editable keymap overrides have
-          not been productized yet.
-        </p>
-        <div className="artifact-hub-permissions-card__actions">
-          <button
-            type="button"
-            className="artifact-hub-open-btn"
-            onClick={() => void openReviewSettings()}
-          >
-            Open Chat Settings
-          </button>
-          <button
-            type="button"
-            className="artifact-hub-open-btn secondary"
-            onClick={() => void openReviewCapabilities()}
-          >
-            Open Chat
-          </button>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function VimModeView({
-  snapshot,
-  onOpenView,
-  onToggleVimMode,
-}: {
-  snapshot: ChatVimModeSnapshot;
-  onOpenView?: (view: ArtifactHubViewKey) => void;
-  onToggleVimMode?: () => void;
-}) {
-  return (
-    <div className="artifact-hub-permissions">
-      <section className="artifact-hub-files-identity artifact-hub-permissions__identity">
-        <span className="artifact-hub-files-kicker">Vim Mode</span>
-        <strong>Editor input posture</strong>
-        <p>
-          Review whether Chat is following its standard shell input stack or
-          a vim-style shell posture with the current supported normal-mode command set:
-          `h`, `j`, `k`, `l`, `0`, `^`, `$`, `gg`, `G`, absolute-line jumps like `2gg`
-          and `2G`, `w`, `b`, `e`, count prefixes like `2w`, `3x`, `2dw`, and `2dd`, `x`, `dw`, `de`, `db`, `d0`, `d^`, `dgg`, `dG`, `cw`, `ce`, `cb`,
-          `c0`, `c^`, `cgg`, `cG`, `diw`, `daw`, `ciw`, `caw`, `di"`, `da"`, `ci"`, `ca"`, `di'`,
-          `da'`, `ci'`, `ca'`, `di(`, `da(`, `ci(`, `ca(`, `di[`, `da[`, `ci[`, `ca[`,
-          `di&#123;`, `da&#123;`, `ci&#123;`, `ca&#123;`, `D`, `C`, `dd`, `cc`, `o`, `O`, `.`, `i`, `a`,
-          `I`, `A`, and `Esc`.
-        </p>
-        <div className="artifact-hub-files-meta artifact-hub-permissions__meta">
-          <span>Status: {snapshot.statusLabel}</span>
-          <span>Scope: {snapshot.scopeLabel}</span>
-          <span>Source: {snapshot.sourceLabel}</span>
-        </div>
-      </section>
-
-      <section className="artifact-hub-permissions-card">
-        <div className="artifact-hub-permissions-card__head">
-          <strong>{snapshot.modeLabel}</strong>
-          <span className="artifact-hub-policy-pill">{snapshot.syncLabel}</span>
-        </div>
-        <p>{snapshot.statusDetail}</p>
-        <div className="artifact-hub-permissions-card__actions">
-          {onToggleVimMode && (
-            <button
-              type="button"
-              className="artifact-hub-open-btn"
-              onClick={() => onToggleVimMode()}
-              aria-label={
-                snapshot.enabled
-                  ? "Disable Vim Mode"
-                  : "Enable Vim Mode"
-              }
-            >
-              {snapshot.enabled
-                ? "Disable Vim Mode"
-                : "Enable Vim Mode"}
-            </button>
-          )}
-          <button
-            type="button"
-            className="artifact-hub-open-btn secondary"
-            onClick={() => void openReviewSettings()}
-          >
-            Open Chat Settings
-          </button>
-        </div>
-      </section>
-
-      <section className="artifact-hub-task-section">
-        <div className="artifact-hub-task-section-head">
-          <span>Mode hints</span>
-          <span>{snapshot.keyHints.length}</span>
-        </div>
-        <div className="artifact-hub-generic-list">
-          {snapshot.keyHints.map((hint) => (
-            <article className="artifact-hub-generic-row" key={hint.id}>
-              <div className="artifact-hub-generic-meta">
-                <span>{hint.availability}</span>
-                <span>{hint.keys}</span>
-              </div>
-              <div className="artifact-hub-generic-title">{hint.label}</div>
-              <p className="artifact-hub-generic-summary">{hint.detail}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="artifact-hub-permissions-card">
-        <div className="artifact-hub-permissions-card__head">
-          <strong>{snapshot.parityLabel}</strong>
-          <span className="artifact-hub-policy-pill">
-            Honest parity status
-          </span>
-        </div>
-        <p>{snapshot.parityDetail}</p>
-        <div className="artifact-hub-permissions-card__actions">
-          <button
-            type="button"
-            className="artifact-hub-open-btn secondary"
-            onClick={() => onOpenView?.("keybindings")}
-          >
-            Open Keybindings
-          </button>
-          <button
-            type="button"
-            className="artifact-hub-open-btn secondary"
-            onClick={() => void openReviewSettings()}
-          >
-            Open Chat Settings
-          </button>
-        </div>
-      </section>
     </div>
   );
 }
@@ -6539,7 +6635,8 @@ function PermissionsView({
     permissionConnectorOverrides[0]?.label ||
     "Global runtime policy";
   const effectivePolicy = focusedConnectorId
-    ? resolveConnectorPolicy(permissionPolicyState, focusedConnectorId).effective
+    ? resolveConnectorPolicy(permissionPolicyState, focusedConnectorId)
+        .effective
     : permissionPolicyState.global;
   const simulationDeck = buildPolicySimulationDeck(
     permissionPolicyState,
@@ -6591,12 +6688,7 @@ function PermissionsView({
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (
-        !event.altKey ||
-        event.ctrlKey ||
-        event.metaKey ||
-        event.shiftKey
-      ) {
+      if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
         return;
       }
 
@@ -6720,7 +6812,8 @@ function PermissionsView({
               className="artifact-hub-open-btn"
               onClick={() =>
                 void openReviewConnectorPolicy(
-                  permissionGovernanceRequest?.connectorId ?? focusedConnectorId,
+                  permissionGovernanceRequest?.connectorId ??
+                    focusedConnectorId,
                 )
               }
             >
@@ -6871,9 +6964,7 @@ function PermissionsView({
                     type="button"
                     className="artifact-hub-open-btn"
                     disabled={
-                      isCurrent ||
-                      isApplying ||
-                      !onApplyPermissionProfile
+                      isCurrent || isApplying || !onApplyPermissionProfile
                     }
                     aria-label={
                       isCurrent
@@ -6955,7 +7046,9 @@ function PermissionsView({
             <button
               type="button"
               className="artifact-hub-open-btn secondary"
-              onClick={() => onOpenView(authorityAutomationPlan.recommendedView!)}
+              onClick={() =>
+                onOpenView(authorityAutomationPlan.recommendedView!)
+              }
             >
               {authorityAutomationPlan.recommendedView === "permissions"
                 ? "Focus permissions"
@@ -7088,9 +7181,9 @@ function PermissionsView({
           </div>
         ) : (
           <p className="artifact-hub-empty">
-            No approvals have been remembered yet. The first remembered
-            approval will appear here after an operator approves a rememberable
-            Shield request.
+            No approvals have been remembered yet. The first remembered approval
+            will appear here after an operator approves a rememberable Shield
+            request.
           </p>
         )}
       </section>
@@ -7177,7 +7270,8 @@ function PermissionsView({
           <div className="artifact-hub-permissions-card__head">
             <strong>Permission simulation</strong>
             <span className="artifact-hub-policy-pill">
-              {simulationDeck.summary.auto} auto · {simulationDeck.summary.gate} gate
+              {simulationDeck.summary.auto} auto · {simulationDeck.summary.gate}{" "}
+              gate
             </span>
           </div>
           <p>{simulationDeck.artifactHandling.detail}</p>
@@ -7190,7 +7284,10 @@ function PermissionsView({
           {deltaDeck.items.length > 0 ? (
             <div className="artifact-hub-permissions-list">
               {deltaDeck.items.slice(0, 4).map((item) => (
-                <div key={item.id} className="artifact-hub-permissions-list__row">
+                <div
+                  key={item.id}
+                  className="artifact-hub-permissions-list__row"
+                >
                   <strong>{item.label}</strong>
                   <span>
                     {item.baseline}
@@ -7246,7 +7343,8 @@ function PermissionsView({
           </p>
           <div className="artifact-hub-permissions-profile-list">
             {overrideReviewCards.map((card) => {
-              const isEditing = permissionEditingConnectorId === card.connectorId;
+              const isEditing =
+                permissionEditingConnectorId === card.connectorId;
               return (
                 <article
                   key={`${card.source}:${card.connectorId}`}
@@ -7430,7 +7528,9 @@ function PermissionsView({
                     <button
                       type="button"
                       className="artifact-hub-open-btn secondary"
-                      onClick={() => void openReviewConnectorPolicy(card.connectorId)}
+                      onClick={() =>
+                        void openReviewConnectorPolicy(card.connectorId)
+                      }
                     >
                       Open Chat Policy
                     </button>
@@ -7682,7 +7782,9 @@ export function ArtifactHubDetailView({
           teamMemorySnapshot={teamMemorySnapshot}
           teamMemoryStatus={teamMemoryStatus}
           teamMemoryError={teamMemoryError}
-          teamMemoryIncludeGovernanceCritical={teamMemoryIncludeGovernanceCritical}
+          teamMemoryIncludeGovernanceCritical={
+            teamMemoryIncludeGovernanceCritical
+          }
           onRefreshCompaction={onRefreshCompaction}
           onCompactSession={onCompactSession}
           onSetTeamMemoryIncludeGovernanceCritical={
@@ -7783,7 +7885,9 @@ export function ArtifactHubDetailView({
           retainedWorkbenchArtifactCount={retainedWorkbenchArtifactCount}
           latestRetainedWorkbenchEvent={latestRetainedWorkbenchEvent}
           latestRetainedWorkbenchArtifact={latestRetainedWorkbenchArtifact}
-          retainedWorkbenchEvidenceAttachable={retainedWorkbenchEvidenceAttachable}
+          retainedWorkbenchEvidenceAttachable={
+            retainedWorkbenchEvidenceAttachable
+          }
           mobileOverview={mobileOverview}
           serverSnapshot={serverSnapshot}
           remoteEnvSnapshot={remoteEnvSnapshot}
@@ -7993,9 +8097,7 @@ export function ArtifactHubDetailView({
           onForgetRememberedApproval={onForgetRememberedApproval}
           onUpdatePermissionOverride={onUpdatePermissionOverride}
           onResetPermissionOverride={onResetPermissionOverride}
-          onSetRememberedApprovalScopeMode={
-            onSetRememberedApprovalScopeMode
-          }
+          onSetRememberedApprovalScopeMode={onSetRememberedApprovalScopeMode}
           onSetRememberedApprovalExpiry={onSetRememberedApprovalExpiry}
         />
       );
