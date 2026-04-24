@@ -99,127 +99,129 @@ export function WorkspaceBottomPanel({
 }: WorkspaceBottomPanelProps) {
   return (
     <section className={clsx("workspace-bottom-panel", !isOpen && "is-collapsed")}>
-      <header className="workspace-bottom-panel-header">
-        <div
-          className="workspace-bottom-panel-tabs"
-          role="tablist"
-          aria-label="Workspace bottom panels"
-        >
-          {visiblePanels.map((panel) => (
-            <button
-              key={panel}
-              type="button"
-              role="tab"
-              aria-selected={activePanel === panel}
-              className={clsx(
-                "workspace-bottom-panel-tab",
-                activePanel === panel && "is-active",
-              )}
-              onClick={() => onSelectPanel(panel)}
-            >
-              {panelCopy[panel].label}
-            </button>
-          ))}
-        </div>
-
-        <button
-          type="button"
-          className="workspace-bottom-panel-toggle"
-          onClick={onToggleOpen}
-          aria-expanded={isOpen}
-        >
-          {isOpen ? "Hide panel" : "Show panel"}
-        </button>
-      </header>
-
       {isOpen ? (
-        <div className="workspace-bottom-panel-body" role="tabpanel">
-          <div className="workspace-bottom-panel-copy">
-            <span className="workspace-pane-eyebrow">{panelCopy[activePanel].eyebrow}</span>
-            <p>{rootPath}</p>
-          </div>
-
-          {activePanel === "terminal" ? (
-            <div className="workspace-terminal-panel">
-              <WorkspaceTerminalView controller={terminal} />
+        <>
+          <header className="workspace-bottom-panel-header">
+            <div
+              className="workspace-bottom-panel-tabs"
+              role="tablist"
+              aria-label="Workspace bottom panels"
+            >
+              {visiblePanels.map((panel) => (
+                <button
+                  key={panel}
+                  type="button"
+                  role="tab"
+                  aria-selected={activePanel === panel}
+                  className={clsx(
+                    "workspace-bottom-panel-tab",
+                    activePanel === panel && "is-active",
+                  )}
+                  onClick={() => onSelectPanel(panel)}
+                >
+                  {panelCopy[panel].label}
+                </button>
+              ))}
             </div>
-          ) : null}
 
-          {activePanel === "problems" ? (
-            problems.length > 0 ? (
-              <div className="workspace-bottom-list">
-                {problems.map((problem) => (
-                  <div
-                    key={problem.id}
-                    className={clsx(
-                      "workspace-bottom-entry",
-                      `workspace-bottom-entry--${problem.severity}`,
-                    )}
-                  >
-                    <div className="workspace-bottom-entry-header">
-                      <span className={clsx("workspace-bottom-badge", `is-${problem.severity}`)}>
-                        {problem.source}
-                      </span>
-                      <strong>{problem.title}</strong>
+            <button
+              type="button"
+              className="workspace-bottom-panel-toggle"
+              onClick={onToggleOpen}
+              aria-expanded={isOpen}
+            >
+              Hide panel
+            </button>
+          </header>
+
+          <div className="workspace-bottom-panel-body" role="tabpanel">
+            <div className="workspace-bottom-panel-copy">
+              <span className="workspace-pane-eyebrow">{panelCopy[activePanel].eyebrow}</span>
+              <p>{rootPath}</p>
+            </div>
+
+            {activePanel === "terminal" ? (
+              <div className="workspace-terminal-panel">
+                <WorkspaceTerminalView controller={terminal} />
+              </div>
+            ) : null}
+
+            {activePanel === "problems" ? (
+              problems.length > 0 ? (
+                <div className="workspace-bottom-list">
+                  {problems.map((problem) => (
+                    <div
+                      key={problem.id}
+                      className={clsx(
+                        "workspace-bottom-entry",
+                        `workspace-bottom-entry--${problem.severity}`,
+                      )}
+                    >
+                      <div className="workspace-bottom-entry-header">
+                        <span className={clsx("workspace-bottom-badge", `is-${problem.severity}`)}>
+                          {problem.source}
+                        </span>
+                        <strong>{problem.title}</strong>
+                      </div>
+                      <p>{problem.detail}</p>
+                      {problem.path ? (
+                        <button
+                          type="button"
+                          className="workspace-bottom-link"
+                          onClick={() =>
+                            onOpenRequest({
+                              path: problem.path!,
+                              line: problem.line,
+                              column: problem.column,
+                            })
+                          }
+                        >
+                          Open{" "}
+                          {problem.line
+                            ? `${problem.path}:${problem.line}${problem.column ? `:${problem.column}` : ""}`
+                            : problem.path}
+                        </button>
+                      ) : null}
                     </div>
-                    <p>{problem.detail}</p>
-                    {problem.path ? (
-                      <button
-                        type="button"
-                        className="workspace-bottom-link"
-                        onClick={() =>
-                          onOpenRequest({
-                            path: problem.path!,
-                            line: problem.line,
-                            column: problem.column,
-                          })
-                        }
-                      >
-                        Open{" "}
-                        {problem.line
-                          ? `${problem.path}:${problem.line}${problem.column ? `:${problem.column}` : ""}`
-                          : problem.path}
-                      </button>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="workspace-bottom-panel-empty">{panelCopy.problems.empty}</div>
-            )
-          ) : null}
+                  ))}
+                </div>
+              ) : (
+                <div className="workspace-bottom-panel-empty">{panelCopy.problems.empty}</div>
+              )
+            ) : null}
 
-          {activePanel === "output" ? (
-            outputEntries.length > 0 ? (
-              <div className="workspace-bottom-list">
-                {renderActivityRows(outputEntries, onOpenRequest)}
-              </div>
-            ) : (
-              <div className="workspace-bottom-panel-empty">{panelCopy.output.empty}</div>
-            )
-          ) : null}
+            {activePanel === "output" ? (
+              outputEntries.length > 0 ? (
+                <div className="workspace-bottom-list">
+                  {renderActivityRows(outputEntries, onOpenRequest)}
+                </div>
+              ) : (
+                <div className="workspace-bottom-panel-empty">{panelCopy.output.empty}</div>
+              )
+            ) : null}
 
-          {activePanel === "ports" ? (
-            ports.length > 0 ? (
-              <div className="workspace-bottom-list">
-                {ports.map((port) => (
-                  <div key={port.id} className="workspace-bottom-entry">
-                    <div className="workspace-bottom-entry-header">
-                      <span className={clsx("workspace-bottom-badge", `is-${port.status}`)}>
-                        {port.status}
-                      </span>
-                      <strong>{port.label}</strong>
+            {activePanel === "ports" ? (
+              ports.length > 0 ? (
+                <div className="workspace-bottom-list">
+                  {ports.map((port) => (
+                    <div key={port.id} className="workspace-bottom-entry">
+                      <div className="workspace-bottom-entry-header">
+                        <span className={clsx("workspace-bottom-badge", `is-${port.status}`)}>
+                          {port.status}
+                        </span>
+                        <strong>{port.label}</strong>
+                      </div>
+                      <p>{port.description}</p>
+                      {port.value ? <code>{port.value}</code> : null}
                     </div>
-                    <p>{port.description}</p>
-                    {port.value ? <code>{port.value}</code> : null}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="workspace-bottom-panel-empty">{panelCopy.ports.empty}</div>
-            )
-          ) : null}
-        </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="workspace-bottom-panel-empty">{panelCopy.ports.empty}</div>
+              )
+            ) : null}
+          </div>
+        </>
       ) : null}
     </section>
   );

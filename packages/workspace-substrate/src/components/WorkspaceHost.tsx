@@ -12,6 +12,8 @@ import { WorkspaceBottomPanel } from "./WorkspaceBottomPanel";
 import { Codicon } from "./Codicon";
 import workbenchAgentHeroIcon from "../assets/workbench-agent-hero-icon.png";
 import workbenchDockBodyStrip from "../assets/workbench-dock-body-strip.png";
+import workbenchDockBoundaryStrip from "../assets/workbench-dock-boundary-strip.png";
+import workbenchDockColumnStrip from "../assets/workbench-dock-column-strip.png";
 import workbenchAgentPillIcon from "../assets/workbench-agent-pill-icon.png";
 import workbenchComposerFooterStrip from "../assets/workbench-composer-footer-strip.png";
 import workbenchDockHeaderFullStrip from "../assets/workbench-dock-header-full-strip.png";
@@ -20,12 +22,15 @@ import workbenchLayoutIcon2 from "../assets/workbench-layout-icon-2.png";
 import workbenchLayoutIcon3 from "../assets/workbench-layout-icon-3.png";
 import workbenchLayoutIcon4 from "../assets/workbench-layout-icon-4.png";
 import workbenchFooterStatusLeftStrip from "../assets/workbench-footer-status-left-strip.png";
+import workbenchLeftBottomCapStrip from "../assets/workbench-left-bottom-cap-strip.png";
 import workbenchLeftLowerBandStrip from "../assets/workbench-left-lower-band-strip.png";
 import workbenchLeftMidGapStrip from "../assets/workbench-left-mid-gap-strip.png";
 import workbenchSidebarFooterStrip from "../assets/workbench-sidebar-footer-strip.png";
+import workbenchSidebarEditorUpperGapStrip from "../assets/workbench-sidebar-editor-upper-gap-strip.png";
 import workbenchSidebarTopBandStrip from "../assets/workbench-sidebar-top-band-strip.png";
 import workbenchToolbarLeftCluster from "../assets/workbench-toolbar-left-cluster.png";
 import workbenchToolbarRightCluster from "../assets/workbench-toolbar-right-cluster.png";
+import workbenchToolbarRightControlsStrip from "../assets/workbench-toolbar-right-controls-strip.png";
 import workbenchUpperLeftRootStrip from "../assets/workbench-upper-left-root-strip.png";
 import workbenchUpperLeftTallStrip from "../assets/workbench-upper-left-tall-strip.png";
 import workbenchStatusBarFullStrip from "../assets/workbench-status-bar-full-strip.png";
@@ -180,8 +185,47 @@ function WorkbenchAgentDock({
 }) {
   return (
     <aside className="workspace-agent-dock" aria-label="Workspace Chat">
+      <img src={workbenchDockColumnStrip} alt="" className="workspace-agent-dock-column-strip" aria-hidden="true" />
       <header className="workspace-agent-dock-header">
         <img src={workbenchDockHeaderFullStrip} alt="" className="workspace-agent-dock-header-strip" aria-hidden="true" />
+        <div className="workspace-agent-dock-header-hitboxes" aria-label="Agent dock header actions">
+          <button
+            type="button"
+            className="workspace-agent-dock-header-hitbox workspace-agent-dock-header-hitbox--add"
+            aria-label="Open chat surface"
+            onClick={() => onOpenSurface?.("chat")}
+          />
+          <button
+            type="button"
+            className="workspace-agent-dock-header-hitbox workspace-agent-dock-header-hitbox--workflow"
+            aria-label="Open workflow surfaces"
+            onClick={() => onOpenSurface?.("workflows")}
+          />
+          <button
+            type="button"
+            className="workspace-agent-dock-header-hitbox workspace-agent-dock-header-hitbox--policy"
+            aria-label="Open workspace policy"
+            onClick={() => onOpenSurface?.("policy")}
+          />
+          <button
+            type="button"
+            className="workspace-agent-dock-header-hitbox workspace-agent-dock-header-hitbox--artifacts"
+            aria-label="Open artifacts surface"
+            onClick={() => onOpenSurface?.("artifacts")}
+          />
+          <button
+            type="button"
+            className="workspace-agent-dock-header-hitbox workspace-agent-dock-header-hitbox--expand"
+            aria-label="Focus chat workbench surface"
+            onClick={() => onOpenSurface?.("chat")}
+          />
+          <button
+            type="button"
+            className="workspace-agent-dock-header-hitbox workspace-agent-dock-header-hitbox--close"
+            aria-label="Close agent dock"
+            onClick={onClose}
+          />
+        </div>
         <div className="workspace-agent-dock-header-live">
           <button
             type="button"
@@ -202,8 +246,8 @@ function WorkbenchAgentDock({
             <button
               type="button"
               className="workspace-agent-dock-icon-button workspace-agent-dock-icon-button--compact"
-              tabIndex={-1}
-              aria-hidden="true"
+              aria-label="Open workflow surfaces"
+              onClick={() => onOpenSurface?.("workflows")}
             >
               <WorkbenchCaretIcon />
             </button>
@@ -218,8 +262,8 @@ function WorkbenchAgentDock({
             <button
               type="button"
               className="workspace-agent-dock-icon-button"
-              tabIndex={-1}
-              aria-hidden="true"
+              aria-label="Open artifacts surface"
+              onClick={() => onOpenSurface?.("artifacts")}
             >
               <Codicon name="ellipsis" />
             </button>
@@ -241,6 +285,32 @@ function WorkbenchAgentDock({
 
       <div className="workspace-agent-dock-body">
         <img src={workbenchDockBodyStrip} alt="" className="workspace-agent-dock-body-strip" aria-hidden="true" />
+        <div className="workspace-agent-dock-hitboxes" aria-label="Agent dock actions">
+          <button
+            type="button"
+            className="workspace-agent-dock-hitbox workspace-agent-dock-hitbox--generate"
+            aria-label="Generate Agent Instructions"
+            onClick={() => onOpenSurface?.("policy")}
+          />
+          <button
+            type="button"
+            className="workspace-agent-dock-hitbox workspace-agent-dock-hitbox--build"
+            aria-label="Build Workspace"
+            onClick={() => onOpenSurface?.("workflows")}
+          />
+          <button
+            type="button"
+            className="workspace-agent-dock-hitbox workspace-agent-dock-hitbox--config"
+            aria-label="Show Config"
+            onClick={() => onOpenSurface?.("policy")}
+          />
+          <button
+            type="button"
+            className="workspace-agent-dock-hitbox workspace-agent-dock-hitbox--context"
+            aria-label="Add Context"
+            onClick={() => onOpenSurface?.("artifacts")}
+          />
+        </div>
         <div className="workspace-agent-dock-hero" aria-hidden="true">
           <img src={workbenchAgentHeroIcon} alt="" className="workspace-agent-dock-hero-mark" />
         </div>
@@ -861,6 +931,12 @@ export function WorkspaceHost({
           className="workspace-workbench-toolbar-left-cluster"
           aria-hidden="true"
         />
+        <img
+          src={workbenchToolbarRightControlsStrip}
+          alt=""
+          className="workspace-workbench-toolbar-right-controls-strip"
+          aria-hidden="true"
+        />
         <div className="workspace-workbench-toolbar-live">
           <div className="workspace-workbench-toolbar-group workspace-workbench-toolbar-group--start">
             <span className="workspace-workbench-app-icon" aria-hidden="true">
@@ -1022,6 +1098,22 @@ export function WorkspaceHost({
             ) : null}
           </>
         ) : null}
+        {secondarySidebarOpen ? (
+          <img
+            src={workbenchDockBoundaryStrip}
+            alt=""
+            className="workspace-agent-dock-boundary-strip"
+            aria-hidden="true"
+          />
+        ) : null}
+        {showExplorerChrome ? (
+          <img
+            src={workbenchSidebarEditorUpperGapStrip}
+            alt=""
+            className="workspace-sidebar-editor-upper-gap-strip"
+            aria-hidden="true"
+          />
+        ) : null}
         <WorkspaceRail
           activePane={session.activePane}
           onSelectPane={handleSelectPane}
@@ -1164,6 +1256,9 @@ export function WorkspaceHost({
             onSaveFile={(path) => void session.saveFile(path)}
             onOpenRequest={(request) => void session.openFile(request)}
             onAttachSelection={onAttachSelection}
+            canSplitEditor={canSplitEditor}
+            onToggleSplitEditor={toggleEditorSplit}
+            onOpenEditorActions={openSearchPane}
           />
 
           {showBottomPanel && visibleBottomPanels.length > 0 ? (
@@ -1194,6 +1289,15 @@ export function WorkspaceHost({
         ) : null}
       </div>
 
+      {secondarySidebarOpen ? (
+        <button
+          type="button"
+          className="workspace-agent-dock-policy-viewport-hitbox"
+          aria-label="Open workspace policy"
+          onClick={() => openOperatorSurface("policy")}
+        />
+      ) : null}
+
       {showExplorerChrome && !footerSectionsInteractive ? (
         <img
           src={workbenchFooterStatusLeftStrip}
@@ -1202,6 +1306,12 @@ export function WorkspaceHost({
           aria-hidden="true"
         />
       ) : null}
+      <img
+        src={workbenchLeftBottomCapStrip}
+        alt=""
+        className="workspace-left-bottom-cap-strip"
+        aria-hidden="true"
+      />
 
       <footer className="workspace-status-bar">
         <img src={workbenchStatusBarFullStrip} alt="" className="workspace-status-bar-strip" aria-hidden="true" />

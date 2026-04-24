@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CodeOssStandaloneEditor, CodeOssTextModel } from "../codeOss";
 import { isWorkspaceNotebookPath } from "../notebook";
 import { languageForPath } from "../language";
@@ -37,6 +37,9 @@ interface WorkspaceEditorPaneProps {
   onSaveFile: (path: string) => void;
   onOpenRequest?: (request: WorkspaceOpenRequest) => void;
   onAttachSelection?: (payload: { path: string; selection: string }) => void;
+  canSplitEditor?: boolean;
+  onToggleSplitEditor?: () => void;
+  onOpenEditorActions?: () => void;
 }
 
 function isFileTab(tab: WorkspaceDocumentTab): tab is WorkspaceFileTab {
@@ -174,9 +177,14 @@ export function WorkspaceEditorPane({
   onSaveFile,
   onOpenRequest,
   onAttachSelection,
+  canSplitEditor = false,
+  onToggleSplitEditor,
+  onOpenEditorActions,
 }: WorkspaceEditorPaneProps) {
   const editorRef = useRef<CodeOssStandaloneEditor | null>(null);
   const monacoRef = useRef<any>(null);
+  const [walkthroughHidden, setWalkthroughHidden] = useState(false);
+  const [editorActionsOpen, setEditorActionsOpen] = useState(false);
 
   const activeLanguage = useMemo(() => {
     if (!activeDocument || !isFileTab(activeDocument)) {
@@ -192,6 +200,16 @@ export function WorkspaceEditorPane({
     isFileTab(activeDocument) &&
     isWorkspaceNotebookPath(activeDocument.path);
   const shouldRenderSplitView = splitView && !!activeDocument && !activeIsNotebook;
+  const showWalkthrough = !activeDocument && !walkthroughHidden;
+
+  useEffect(() => {
+    setWalkthroughHidden(false);
+    setEditorActionsOpen(false);
+  }, [root]);
+
+  useEffect(() => {
+    setEditorActionsOpen(false);
+  }, [activeDocumentId]);
 
   useEffect(() => {
     if (
@@ -619,8 +637,8 @@ export function WorkspaceEditorPane({
   };
 
   return (
-    <section className={`workspace-editor${!activeDocument ? " workspace-editor--walkthrough-default" : ""}`}>
-      {!activeDocument ? (
+    <section className={`workspace-editor${showWalkthrough ? " workspace-editor--walkthrough-default" : ""}`}>
+      {showWalkthrough ? (
         <img
           src={workbenchCenterColumnStrip}
           alt=""
@@ -633,19 +651,26 @@ export function WorkspaceEditorPane({
         <div className="workspace-editor-tabs-live">
           <div className="workspace-editor-tabs-list">
             {documents.length === 0 ? (
-              <div className="workspace-editor-tab workspace-editor-tab--virtual is-active">
-                <button type="button" aria-current="page">
-                  <span className="workspace-editor-tab-icon" aria-hidden="true">
-                    <img src={workbenchVsCodeMark} alt="" className="workspace-editor-tab-mark" />
-                  </span>
-                  <span className="workspace-editor-tab-label workspace-editor-tab-label--virtual">
-                    Walkthrough: Setup VS Code Web
-                  </span>
-                </button>
-                <button type="button" className="workspace-editor-tab-close" aria-label="Close walkthrough">
-                  <Codicon name="close" />
-                </button>
-              </div>
+              showWalkthrough ? (
+                <div className="workspace-editor-tab workspace-editor-tab--virtual is-active">
+                  <button type="button" aria-current="page">
+                    <span className="workspace-editor-tab-icon" aria-hidden="true">
+                      <img src={workbenchVsCodeMark} alt="" className="workspace-editor-tab-mark" />
+                    </span>
+                    <span className="workspace-editor-tab-label workspace-editor-tab-label--virtual">
+                      Walkthrough: Setup VS Code Web
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="workspace-editor-tab-close"
+                    aria-label="Close walkthrough"
+                    onClick={() => setWalkthroughHidden(true)}
+                  >
+                    <Codicon name="close" />
+                  </button>
+                </div>
+              ) : null
             ) : (
               documents.map((tab) => {
                 const isActive = tab.id === activeDocumentId;
@@ -675,14 +700,73 @@ export function WorkspaceEditorPane({
             )}
           </div>
 
-          <div className="workspace-editor-tabs-actions" aria-hidden="true">
-            <img src={workbenchEditorActionsRegion} alt="" className="workspace-editor-tabs-actions-region" />
+          <div className="workspace-editor-tabs-actions">
+            <img src={workbenchEditorActionsRegion} alt="" className="workspace-editor-tabs-actions-region" aria-hidden="true" />
+            <button
+              type="button"
+              className="workspace-editor-tabs-action workspace-editor-tabs-action--split"
+              aria-label="Split editor right"
+              aria-pressed={shouldRenderSplitView}
+              disabled={!canSplitEditor || !onToggleSplitEditor}
+              onClick={onToggleSplitEditor}
+            >
+              <Codicon name="split-horizontal" />
+            </button>
+            <button
+              type="button"
+              className="workspace-editor-tabs-action workspace-editor-tabs-action--more"
+              aria-label="More editor actions"
+              aria-expanded={editorActionsOpen}
+              onClick={() => setEditorActionsOpen((isOpen) => !isOpen)}
+            >
+              <Codicon name="ellipsis" />
+            </button>
           </div>
         </div>
       </header>
 
+      {editorActionsOpen ? (
+        <div className="workspace-editor-actions-menu" role="menu">
+          <button
+            type="button"
+            role="menuitem"
+            disabled={!canSplitEditor || !onToggleSplitEditor}
+            onClick={() => {
+              setEditorActionsOpen(false);
+              onToggleSplitEditor?.();
+            }}
+          >
+            {shouldRenderSplitView ? "Close Split Editor" : "Split Editor Right"}
+          </button>
+          {activeDocument ? (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setEditorActionsOpen(false);
+                onCloseDocument(activeDocument.id);
+              }}
+            >
+              Close Editor
+            </button>
+          ) : null}
+          {onOpenEditorActions ? (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setEditorActionsOpen(false);
+                onOpenEditorActions();
+              }}
+            >
+              Open Workspace Search
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className={`workspace-editor-stage${shouldRenderSplitView ? " workspace-editor-stage--split" : ""}`}>
-        {!activeDocument ? (
+        {showWalkthrough ? (
           <div className="workspace-editor-empty workspace-editor-empty--walkthrough">
             <img
               src={workbenchCenterWalkthroughStrip}
