@@ -8,62 +8,29 @@ const OverviewView = ({ onTab, onDraft, contracts, totalReceipts, activeEscrow }
   };
 
   return (
-    <div className="overview" data-screen-label="00 Overview">
+    <div data-screen-label="00 Overview">
       {/* ───────────────────────── HERO ───────────────────────── */}
-      <section className="ov-hero">
-        <div className="ov-eyebrow mono">
-          <span className="bullet" /> sas.xyz · the end of SaaS
-        </div>
-        <h1 className="ov-headline serif">
-          Stop paying for tools.<br/>
-          Pay for <em>outcomes</em>.
+      <section className="fiverr-hero">
+        <h1 className="fiverr-hero-text">
+          Agents for hire<br />
+          will take it from here
         </h1>
-        <p className="ov-lede">
-          You're paying for the tool <em>and</em> the person to hold the tool. Software charges for seats.
-          You hire humans to operate those seats. The work itself is what you actually wanted — and it's the
-          one thing no one's selling you directly.
-        </p>
-        <p className="ov-lede" style={{marginTop: 0}}>
-          sas.xyz does. State the outcome, seal the envelope, fund the escrow. Providers compete on proof.
-          Money releases on receipts, not on features shipped.
-        </p>
-        <div className="ov-cta-row">
-          <button className="btn accent" onClick={() => scrollTo('how')}>
-            See how it works <span className="mono" style={{marginLeft:8, opacity:0.7}}>↓</span>
+        <div className="fiverr-search-container">
+          <input type="text" className="fiverr-search-input" placeholder="Search for any service..." />
+          <button className="fiverr-search-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           </button>
-          <button className="btn" onClick={() => onTab('Market')}>Browse the market</button>
-          <button className="btn ghost" onClick={() => onDraft('')}>Draft a contract</button>
         </div>
-
-        {/* Ambient stats — pulled live from your actual state */}
-        <div className="ov-stats">
-          <div>
-            <div className="ov-stat-n serif">{contracts}</div>
-            <div className="ov-stat-k mono">live contracts</div>
-          </div>
-          <div>
-            <div className="ov-stat-n serif">{totalReceipts.toLocaleString()}</div>
-            <div className="ov-stat-k mono">receipts / 30d</div>
-          </div>
-          <div>
-            <div className="ov-stat-n serif">${activeEscrow.toLocaleString()}</div>
-            <div className="ov-stat-k mono">in escrow right now</div>
-          </div>
-          <div>
-            <div className="ov-stat-n serif">99.94<span className="ov-stat-unit">%</span></div>
-            <div className="ov-stat-k mono">sla met, rolling 7d</div>
-            <AsciiBars cols={18} style={{marginTop: 8}} />
-          </div>
-        </div>
-
-        {/* Ambient ASCII seam beneath the hero */}
-        <div style={{marginTop: 40, display:'flex', alignItems:'center', gap: 14}}>
-          <span className="mono" style={{fontSize: 9, letterSpacing:'0.18em', textTransform:'uppercase', color:'var(--muted-2)', whiteSpace:'nowrap'}}>live · receipts streaming</span>
-          <div style={{flex: 1, overflow:'hidden'}}>
-            <AsciiWave cols={140} />
-          </div>
+        <div className="fiverr-pills-row">
+          {['Website Development', 'Architecture & Interior Design', 'UGC Videos', 'Video Editing', 'Book Publishing'].map(pill => (
+            <button key={pill} className="fiverr-pill">
+              {pill} <span style={{marginLeft: 4}}>→</span>
+            </button>
+          ))}
         </div>
       </section>
+
+      <div className="overview">
 
       {/* ───────────────────────── OPERATOR TAX ───────────────────────── */}
       <section className="ov-section ov-operator-tax">
@@ -464,6 +431,7 @@ const OverviewView = ({ onTab, onDraft, contracts, totalReceipts, activeEscrow }
           <span>built in the open · signed with receipts</span>
         </div>
       </footer>
+      </div>
     </div>
   );
 };
