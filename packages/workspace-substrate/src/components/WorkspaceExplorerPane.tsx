@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import { useState } from "react";
 import { Codicon } from "./Codicon";
 import workbenchExplorerHeaderFullStrip from "../assets/workbench-explorer-header-full-strip.png";
 import type { WorkspaceExplorerPaneProps, WorkspaceNode } from "../types";
@@ -89,10 +90,6 @@ function FolderIcon({ open }: { open: boolean }) {
       />
     </svg>
   );
-}
-
-function ExplorerMenuIcon() {
-  return <Codicon name="menu" />;
 }
 
 function ExplorerMoreIcon() {
@@ -334,6 +331,7 @@ function renderTree(
 }
 
 export function WorkspaceExplorerPane(props: WorkspaceExplorerPaneProps) {
+  const [actionsOpen, setActionsOpen] = useState(false);
   const treeGuideTone = hasExpandedChildDirectory(props.tree, props.expandedPaths)
     ? "is-ancestor"
     : "is-youngest";
@@ -365,21 +363,59 @@ export function WorkspaceExplorerPane(props: WorkspaceExplorerPaneProps) {
         <img src={workbenchExplorerHeaderFullStrip} alt="" className="workspace-pane-header-strip" aria-hidden="true" />
         <div className="workspace-pane-header-live">
           <div className="workspace-pane-header-leading">
-            <button type="button" className="workspace-pane-header-icon" tabIndex={-1} aria-hidden="true">
-              <ExplorerMenuIcon />
-            </button>
             <div>
             <span className="workspace-pane-eyebrow">{eyebrow}</span>
             <h3>{title}</h3>
             </div>
           </div>
           <div className="workspace-pane-header-actions">
-            <button type="button" className="workspace-pane-header-icon" tabIndex={-1} aria-hidden="true">
+            <button
+              type="button"
+              className="workspace-pane-header-icon"
+              aria-label="More Explorer actions"
+              aria-expanded={actionsOpen}
+              onClick={() => setActionsOpen((isOpen) => !isOpen)}
+            >
               <ExplorerMoreIcon />
             </button>
           </div>
         </div>
       </header>
+
+      {actionsOpen ? (
+        <div className="workspace-pane-actions-menu" role="menu">
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setActionsOpen(false);
+              props.onCreateFile();
+            }}
+          >
+            New File
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setActionsOpen(false);
+              props.onCreateDirectory();
+            }}
+          >
+            New Folder
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setActionsOpen(false);
+              props.onRefresh();
+            }}
+          >
+            Refresh Explorer
+          </button>
+        </div>
+      ) : null}
 
       {showGitSummary ? (
         <div className="workspace-pane-meta">

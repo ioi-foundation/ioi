@@ -91,7 +91,7 @@ STEP_DEFS = [
     {
         "id": "agent",
         "label": "Agent",
-        "click": (0.694, 0.092),
+        "click": (0.733, 0.092),
         "expect": None,
     },
 ]

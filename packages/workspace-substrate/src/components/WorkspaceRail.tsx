@@ -1,6 +1,11 @@
 import clsx from "clsx";
 import { Codicon } from "./Codicon";
-import workbenchRailStrip from "../assets/workbench-rail-strip.png";
+import workbenchRailStripExtensions from "../assets/workbench-rail-strip-extensions.png";
+import workbenchRailStripFiles from "../assets/workbench-rail-strip-files.png";
+import workbenchRailStripIoi from "../assets/workbench-rail-strip-ioi.png";
+import workbenchRailStripRunAndDebug from "../assets/workbench-rail-strip-run-and-debug.png";
+import workbenchRailStripSearch from "../assets/workbench-rail-strip-search.png";
+import workbenchRailStripSourceControl from "../assets/workbench-rail-strip-source-control.png";
 import type { WorkspaceRailProps } from "../types";
 
 const PRIMARY_ITEMS: Array<{ id: WorkspaceRailProps["activePane"]; label: string }> = [
@@ -42,6 +47,24 @@ function glyphForPane(id: WorkspaceRailProps["activePane"]) {
   }
 }
 
+function stripForPane(id: WorkspaceRailProps["activePane"]) {
+  switch (id) {
+    case "search":
+      return workbenchRailStripSearch;
+    case "source-control":
+      return workbenchRailStripSourceControl;
+    case "run-and-debug":
+      return workbenchRailStripRunAndDebug;
+    case "extensions":
+      return workbenchRailStripExtensions;
+    case "ioi":
+      return workbenchRailStripIoi;
+    case "files":
+    default:
+      return workbenchRailStripFiles;
+  }
+}
+
 export function WorkspaceRail({
   activePane,
   onSelectPane,
@@ -50,7 +73,7 @@ export function WorkspaceRail({
 }: WorkspaceRailProps) {
   return (
     <nav className="workspace-rail" aria-label="Workspace navigation">
-      <img src={workbenchRailStrip} alt="" className="workspace-rail-strip" aria-hidden="true" />
+      <img src={stripForPane(activePane)} alt="" className="workspace-rail-strip" aria-hidden="true" />
       <div className="workspace-rail-live">
         <div className="workspace-rail-group workspace-rail-group--menu">
           <button

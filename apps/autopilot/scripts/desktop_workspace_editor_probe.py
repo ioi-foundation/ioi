@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise direct-workspace split-editor behavior in the desktop shell.
-
-This probe opens a real document from Source Control, toggles the direct host's
-Split Editor button on, captures the result, then toggles it back off. The goal
-is to prove the direct integration is performing real editor layout work rather
-than only painting toolbar chrome.
-"""
+"""Exercise direct-workspace editor title controls in the desktop shell."""
 
 from __future__ import annotations
 
@@ -41,55 +35,68 @@ from desktop_workspace_probe import (
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 PROBE_WORKSPACE_ROOT = PROJECT_ROOT / "apps/autopilot/src-tauri"
-DEFAULT_OUTPUT_ROOT = (
-    PROJECT_ROOT / "docs/evidence/route-hierarchy/live-workspace-split"
-)
+DEFAULT_OUTPUT_ROOT = PROJECT_ROOT / "docs/evidence/route-hierarchy/live-workspace-editor"
 WINDOW_WAIT_TIMEOUT_SECS = 90.0
 POST_WINDOW_SETTLE_SECS = 12.0
-CLICK_SETTLE_SECS = 1.3
+CLICK_SETTLE_SECS = 1.5
 
 STEP_DEFS = [
-    {"id": "baseline", "label": "Baseline", "click": None},
+    {"id": "baseline-walkthrough", "label": "Walkthrough baseline", "click": None, "expect": None},
+    {
+        "id": "walkthrough-closed",
+        "label": "Close walkthrough tab",
+        "click": (0.505, 0.152),
+        "expect": None,
+    },
     {
         "id": "source-control",
-        "label": "Source Control",
+        "label": "Open Source Control",
         "click": (0.070, 0.324),
+        "expect": None,
     },
     {
         "id": "open-file",
         "label": "Open probe file",
         "click": (0.180, 0.220),
+        "expect": None,
     },
     {
-        "id": "split-on",
-        "label": "Split editor on",
-        "click": (0.962, 0.092),
+        "id": "file-tab-closed",
+        "label": "Close file tab",
+        "click": (0.467, 0.145),
+        "expect": None,
     },
     {
-        "id": "split-off",
-        "label": "Split editor off",
-        "click": (0.962, 0.092),
+        "id": "source-control-for-reopen",
+        "label": "Return to Source Control",
+        "click": (0.070, 0.324),
+        "expect": None,
+    },
+    {
+        "id": "file-reopened",
+        "label": "Reopen probe file",
+        "click": (0.180, 0.220),
+        "expect": "open-file",
+    },
+    {
+        "id": "split-from-editor-action",
+        "label": "Split editor from editor title action",
+        "click": (0.729, 0.154),
+        "expect": None,
+    },
+    {
+        "id": "editor-actions-menu",
+        "label": "Open editor more-actions menu",
+        "click": (0.756, 0.154),
+        "expect": None,
+    },
+    {
+        "id": "file-closed-via-editor-menu",
+        "label": "Close editor through editor menu",
+        "click": (0.687, 0.235),
+        "expect": None,
     },
 ]
-
-
-def create_probe_file(output_root: Path) -> Path:
-    probe_path = PROBE_WORKSPACE_ROOT / f".workspace-split-probe-{output_root.name}.txt"
-    probe_path.write_text(
-        "Workspace split probe file.\n"
-        "This file is created and removed by desktop_workspace_split_probe.py.\n",
-        encoding="utf-8",
-    )
-    return probe_path
-
-
-def cleanup_probe_file(probe_path: Path | None) -> None:
-    if probe_path is None:
-        return
-    try:
-        probe_path.unlink(missing_ok=True)
-    except OSError:
-        pass
 
 
 def clear_hover(window_id: int) -> None:
@@ -107,34 +114,39 @@ def clear_hover(window_id: int) -> None:
     time.sleep(0.15)
 
 
+def create_probe_file(output_root: Path) -> Path:
+    PROBE_WORKSPACE_ROOT.mkdir(parents=True, exist_ok=True)
+    probe_path = PROBE_WORKSPACE_ROOT / f".workspace-editor-probe-{output_root.name}.ts"
+    probe_path.write_text(
+        "\n".join(
+            [
+                "export function workspaceEditorProbe(value: number): number {",
+                "  return value + 1;",
+                "}",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    return probe_path
+
+
+def remove_probe_file(probe_path: Path | None) -> None:
+    if probe_path is None:
+        return
+    try:
+        probe_path.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--output-root",
-        default=str(DEFAULT_OUTPUT_ROOT),
-        help=f"Directory to retain screenshots and receipts. Default: {DEFAULT_OUTPUT_ROOT}",
-    )
-    parser.add_argument(
-        "--window-name",
-        default=WINDOW_SEARCH_PATTERN,
-        help=f"Window title pattern to target. Default: {WINDOW_SEARCH_PATTERN!r}",
-    )
-    parser.add_argument(
-        "--timeout-secs",
-        type=float,
-        default=WINDOW_WAIT_TIMEOUT_SECS,
-        help="How long to wait for the Workspace desktop window to appear.",
-    )
-    parser.add_argument(
-        "--profile",
-        default=DEFAULT_PROFILE,
-        help=f"Desktop profile to launch. Default: {DEFAULT_PROFILE}",
-    )
-    parser.add_argument(
-        "--dev-url",
-        default=DEFAULT_WEB_ROOT,
-        help=f"Dev server URL to start. Default: {DEFAULT_WEB_ROOT}",
-    )
+    parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
+    parser.add_argument("--window-name", default=WINDOW_SEARCH_PATTERN)
+    parser.add_argument("--timeout-secs", type=float, default=WINDOW_WAIT_TIMEOUT_SECS)
+    parser.add_argument("--profile", default=DEFAULT_PROFILE)
+    parser.add_argument("--dev-url", default=DEFAULT_WEB_ROOT)
     return parser.parse_args()
 
 
@@ -143,13 +155,13 @@ def main() -> int:
     output_root = Path(args.output_root).expanduser() / now_stamp()
     output_root.mkdir(parents=True, exist_ok=True)
     log_path = output_root / "desktop.log"
-    probe_file = create_probe_file(output_root)
+    probe_path = create_probe_file(output_root)
 
     close_matching_windows(args.window_name)
     terminate_existing_desktop_instances()
 
     process = launch_dev_desktop(args.profile, log_path, args.dev_url)
-    print("[workspace-split] launched Workspace desktop shell", flush=True)
+    print("[workspace-editor] launched Workspace desktop shell", flush=True)
 
     probe_error: str | None = None
     window_id: int | None = None
@@ -184,7 +196,6 @@ def main() -> int:
                 browser_url=None,
             )
             screenshots[step["id"]] = screenshot_path
-
             result: dict[str, Any] = {
                 "id": step["id"],
                 "label": step["label"],
@@ -194,51 +205,47 @@ def main() -> int:
                 "capture_diagnostics": capture_result.diagnostics,
                 "capture_error": capture_result.error,
             }
-
-            if step["id"] == "open-file":
+            expected = step["expect"]
+            if expected:
+                result["rmse_vs_expected"] = image_difference_metric(
+                    screenshots[expected],
+                    screenshot_path,
+                )
+            elif step["id"] != "baseline-walkthrough":
+                result["rmse_vs_previous"] = image_difference_metric(
+                    step_results[-1]["screenshot"]
+                    if isinstance(step_results[-1].get("screenshot"), Path)
+                    else Path(str(step_results[-1].get("screenshot"))),
+                    screenshot_path,
+                )
                 result["rmse_vs_baseline"] = image_difference_metric(
-                    screenshots["baseline"],
+                    screenshots["baseline-walkthrough"],
                     screenshot_path,
                 )
-            if step["id"] == "split-on":
-                result["rmse_vs_open_file"] = image_difference_metric(
-                    screenshots["open-file"],
-                    screenshot_path,
-                )
-            if step["id"] == "split-off":
-                result["rmse_vs_open_file"] = image_difference_metric(
-                    screenshots["open-file"],
-                    screenshot_path,
-                )
-                result["rmse_vs_split_on"] = image_difference_metric(
-                    screenshots["split-on"],
-                    screenshot_path,
-                )
-
             step_results.append(result)
             print(
-                f"[workspace-split] captured {step['id']} -> {screenshot_path.name}",
+                f"[workspace-editor] captured {step['id']} -> {screenshot_path.name}",
                 flush=True,
             )
     except Exception as error:  # pragma: no cover - probe diagnostics
         probe_error = str(error)
-        print(f"[workspace-split] error: {probe_error}", file=sys.stderr, flush=True)
+        print(f"[workspace-editor] error: {probe_error}", file=sys.stderr, flush=True)
     finally:
         terminate_process_group(process)
-        cleanup_probe_file(probe_file)
+        remove_probe_file(probe_path)
 
     receipt = {
         "captured_at": datetime.now(timezone.utc).isoformat(),
         "window_id": window_id,
         "profile": args.profile,
-        "probe_file": str(probe_file.relative_to(PROJECT_ROOT)),
+        "probe_file": str(probe_path.relative_to(PROJECT_ROOT)),
         "steps": step_results,
         "probe_error": probe_error,
         "log_tail": read_log_tail(log_path),
     }
     result_path = output_root / "result.json"
     result_path.write_text(json.dumps(receipt, indent=2))
-    print(f"[workspace-split] results: {result_path}", flush=True)
+    print(f"[workspace-editor] results: {result_path}", flush=True)
 
     return 0 if probe_error is None else 1
 
