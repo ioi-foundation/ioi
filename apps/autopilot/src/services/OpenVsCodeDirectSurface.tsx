@@ -7,6 +7,7 @@ import {
   destroyWorkspaceDirectWebview,
   focusWorkspaceDirectWebview,
   hideWorkspaceDirectWebview,
+  openWorkspaceDirectWebviewDevtools,
   showWorkspaceDirectWebview,
   updateWorkspaceDirectWebviewBounds,
   type WorkspaceDirectWebviewBounds,
@@ -19,6 +20,13 @@ interface OpenVsCodeDirectSurfaceProps {
   surface: WorkspaceWorkbenchOpenVsCodeDirectModel;
   onReady: () => void;
   onError: (message: string) => void;
+}
+
+declare global {
+  interface Window {
+    __AUTOPILOT_OPEN_WORKBENCH_DEVTOOLS__?: () => Promise<WorkspaceDirectWebviewState>;
+    __AUTOPILOT_WORKBENCH_SURFACE__?: WorkspaceDirectWebviewState | null;
+  }
 }
 
 function boundsEqual(
@@ -189,6 +197,25 @@ export function OpenVsCodeDirectSurface({
       });
     };
   }, [onReady, surface.surfaceId]);
+
+  useEffect(() => {
+    if (!active) {
+      return;
+    }
+
+    window.__AUTOPILOT_WORKBENCH_SURFACE__ = nativeState;
+    window.__AUTOPILOT_OPEN_WORKBENCH_DEVTOOLS__ = () =>
+      openWorkspaceDirectWebviewDevtools(surface.surfaceId);
+
+    return () => {
+      if (window.__AUTOPILOT_OPEN_WORKBENCH_DEVTOOLS__) {
+        delete window.__AUTOPILOT_OPEN_WORKBENCH_DEVTOOLS__;
+      }
+      if (window.__AUTOPILOT_WORKBENCH_SURFACE__) {
+        delete window.__AUTOPILOT_WORKBENCH_SURFACE__;
+      }
+    };
+  }, [active, nativeState, surface.surfaceId]);
 
   useEffect(() => {
     const container = containerRef.current;

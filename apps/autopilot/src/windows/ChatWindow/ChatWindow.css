@@ -272,6 +272,17 @@
   color: var(--chat-text);
 }
 
+.chat-activity-button:disabled {
+  cursor: default;
+  color: var(--chat-text-secondary);
+  opacity: 0.78;
+}
+
+.chat-activity-button:disabled:hover {
+  background: transparent;
+  color: var(--chat-text-secondary);
+}
+
 .chat-activity-button:focus-visible,
 .chat-ide-window-button:focus-visible,
 .chat-ide-project-select select:focus-visible {

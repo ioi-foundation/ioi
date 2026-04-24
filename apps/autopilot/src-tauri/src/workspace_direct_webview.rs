@@ -478,6 +478,7 @@ fn build_child_webview<R: Runtime>(
         .decorations(false)
         .resizable(false)
         .skip_taskbar(true)
+        .devtools(workspace_direct_devtools_enabled())
         .focused(true)
         .visible(true)
         .inner_size(bounds.width, bounds.height)
@@ -498,6 +499,13 @@ fn build_child_webview<R: Runtime>(
                     );
                 }
                 let _ = window.show();
+                if workspace_direct_devtools_enabled() {
+                    open_child_window_devtools(
+                        &window,
+                        &surface_id_for_load,
+                        &label_for_load,
+                    );
+                }
                 emit_ready(
                     &app_for_load,
                     &surface_id_for_load,
@@ -541,6 +549,7 @@ fn build_child_webview<R: Runtime>(
     let screen_bounds_for_load = screen_bounds.clone();
     let parent_window_for_load = parent_window.clone();
     let builder = WebviewBuilder::new(label, WebviewUrl::External(url))
+        .devtools(workspace_direct_devtools_enabled())
         .focused(true)
         .on_page_load(move |webview, payload| {
             if payload.event() == PageLoadEvent::Finished {
@@ -551,6 +560,13 @@ fn build_child_webview<R: Runtime>(
                     &label_for_load,
                     &bounds_for_load,
                 );
+                if workspace_direct_devtools_enabled() {
+                    open_child_webview_devtools(
+                        &webview,
+                        &surface_id_for_load,
+                        &label_for_load,
+                    );
+                }
                 emit_ready(
                     &app_for_load,
                     &surface_id_for_load,
@@ -676,6 +692,7 @@ fn build_owned_window<R: Runtime>(
         .decorations(false)
         .resizable(false)
         .skip_taskbar(true)
+        .devtools(workspace_direct_devtools_enabled())
         .focused(true)
         .visible(false)
         .position(x, y)
@@ -689,6 +706,13 @@ fn build_owned_window<R: Runtime>(
                     desired_x_for_load,
                     desired_y_for_load,
                 );
+                if workspace_direct_devtools_enabled() {
+                    open_child_window_devtools(
+                        &window,
+                        &surface_id_for_load,
+                        &label_for_load,
+                    );
+                }
                 emit_ready(
                     &app_for_load,
                     &surface_id_for_load,
@@ -738,6 +762,68 @@ fn prefer_owned_window() -> bool {
         }
         _ => false,
     }
+}
+
+fn workspace_direct_devtools_enabled() -> bool {
+    crate::is_env_var_truthy("AUTOPILOT_WORKSPACE_DEVTOOLS")
+        || crate::is_env_var_truthy("AUTOPILOT_OPENVSCODE_DEVTOOLS")
+}
+
+#[cfg(debug_assertions)]
+fn open_child_window_devtools<R: Runtime>(
+    window: &WebviewWindow<R>,
+    surface_id: &str,
+    label: &str,
+) {
+    window.open_devtools();
+    eprintln!(
+        "[WorkspaceDirectWebview] opened devtools for surface={} label={}",
+        surface_id, label
+    );
+}
+
+#[cfg(not(debug_assertions))]
+fn open_child_window_devtools<R: Runtime>(
+    _window: &WebviewWindow<R>,
+    surface_id: &str,
+    label: &str,
+) {
+    eprintln!(
+        "[WorkspaceDirectWebview] devtools requested for surface={} label={} but this build was not compiled with devtools support",
+        surface_id, label
+    );
+}
+
+#[cfg(not(target_os = "linux"))]
+#[cfg(debug_assertions)]
+fn open_child_webview_devtools<R: Runtime>(
+    webview: &tauri::Webview<R>,
+    surface_id: &str,
+    label: &str,
+) {
+    webview.open_devtools();
+    eprintln!(
+        "[WorkspaceDirectWebview] opened devtools for surface={} label={}",
+        surface_id, label
+    );
+}
+
+#[cfg(not(target_os = "linux"))]
+#[cfg(not(debug_assertions))]
+fn open_child_webview_devtools<R: Runtime>(
+    _webview: &tauri::Webview<R>,
+    surface_id: &str,
+    label: &str,
+) {
+    eprintln!(
+        "[WorkspaceDirectWebview] devtools requested for surface={} label={} but this build was not compiled with devtools support",
+        surface_id, label
+    );
+}
+
+#[cfg(not(debug_assertions))]
+fn devtools_unavailable_error() -> String {
+    "Direct OpenVSCode workbench DevTools are only available in debug desktop builds.".to_string()
 }
 
 fn read_record(
@@ -939,6 +1025,60 @@ pub fn workspace_direct_webview_get_state(
     manager: State<WorkspaceDirectWebviewManager>,
 ) -> Result<Option<WorkspaceDirectWebviewState>, String> {
     Ok(read_record(&manager, &surface_id)?.map(|record| state_for_record(&surface_id, &record)))
+}
+
+#[tauri::command]
+pub fn workspace_direct_webview_open_devtools<R: Runtime>(
+    surface_id: String,
+    app: AppHandle<R>,
+    manager: State<WorkspaceDirectWebviewManager>,
+) -> Result<WorkspaceDirectWebviewState, String> {
+    let record = read_record(&manager, &surface_id)?
+        .ok_or_else(|| format!("Direct OpenVSCode surface '{}' was not found.", surface_id))?;
+
+    #[cfg(debug_assertions)]
+    {
+        match record.mode {
+            WorkspaceDirectWebviewMode::Child => {
+                #[cfg(target_os = "linux")]
+                {
+                    let window = app.get_webview_window(&record.label).ok_or_else(|| {
+                        format!(
+                            "Direct OpenVSCode contained child window '{}' was not found.",
+                            record.label
+                        )
+                    })?;
+                    open_child_window_devtools(&window, &surface_id, &record.label);
+                }
+                #[cfg(not(target_os = "linux"))]
+                {
+                    let webview = app.get_webview(&record.label).ok_or_else(|| {
+                        format!(
+                            "Direct OpenVSCode child webview '{}' was not found.",
+                            record.label
+                        )
+                    })?;
+                    open_child_webview_devtools(&webview, &surface_id, &record.label);
+                }
+            }
+            WorkspaceDirectWebviewMode::OwnedWindow => {
+                let window = app.get_webview_window(&record.label).ok_or_else(|| {
+                    format!(
+                        "Direct OpenVSCode diagnostic window '{}' was not found.",
+                        record.label
+                    )
+                })?;
+                open_child_window_devtools(&window, &surface_id, &record.label);
+            }
+        }
+        Ok(state_for_record(&surface_id, &record))
+    }
+
+    #[cfg(not(debug_assertions))]
+    {
+        let _ = app;
+        Err(devtools_unavailable_error())
+    }
 }
 
 #[tauri::command]

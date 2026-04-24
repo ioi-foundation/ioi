@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
   FleetIcon,
+  HomeIcon,
   IntegrationsIcon,
   NotificationsIcon,
   SettingsIcon,
@@ -32,6 +33,7 @@ interface NavItem {
   description: string;
   shortcut?: string;
   badgeCount?: number;
+  disabled?: boolean;
 }
 
 interface ActivityButtonProps {
@@ -40,6 +42,7 @@ interface ActivityButtonProps {
   badgeCount?: number;
   isActive: boolean;
   onClick: () => void;
+  disabled?: boolean;
 }
 
 const NAV_ITEMS: Array<NavItem & { id: PrimaryView }> = [
@@ -95,12 +98,21 @@ const NAV_ITEMS: Array<NavItem & { id: PrimaryView }> = [
   },
 ];
 
+const HOME_NAV_ITEM: NavItem = {
+  id: "home",
+  label: "Home",
+  icon: <HomeIcon />,
+  description: "Reserved home entry point.",
+  disabled: true,
+};
+
 function ActivityButton({
   item,
   icon,
   badgeCount,
   isActive,
   onClick,
+  disabled = false,
 }: ActivityButtonProps) {
   const [hovered, setHovered] = useState(false);
 
@@ -108,12 +120,16 @@ function ActivityButton({
     <button
       type="button"
       className={`chat-activity-button ${isActive ? "is-active" : ""}`}
+      disabled={disabled}
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       aria-current={isActive ? "page" : undefined}
+      aria-disabled={disabled || undefined}
       aria-label={item.label}
-      title={`${item.label} ${item.shortcut ? `(${item.shortcut})` : ""}`}
+      title={`${item.label}${item.shortcut ? ` (${item.shortcut})` : ""}${
+        disabled ? " (not wired yet)" : ""
+      }`}
     >
       <span
         aria-hidden="true"
@@ -189,6 +205,14 @@ export function ChatLocalActivityBar({
       aria-label="Chat navigation"
     >
       <div className="chat-activity-group" aria-label="Surface navigation">
+        <ActivityButton
+          item={HOME_NAV_ITEM}
+          icon={HOME_NAV_ITEM.icon}
+          isActive={false}
+          disabled
+          onClick={() => undefined}
+        />
+
         {topNavItems.map((item) => {
           const isCapabilitiesItem = item.id === "capabilities";
           const icon = isCapabilitiesItem ? (

@@ -59,6 +59,12 @@ export async function getWorkspaceDirectWebviewState(
   return invoke("workspace_direct_webview_get_state", { surfaceId });
 }
 
+export async function openWorkspaceDirectWebviewDevtools(
+  surfaceId: string,
+): Promise<WorkspaceDirectWebviewState> {
+  return invoke("workspace_direct_webview_open_devtools", { surfaceId });
+}
+
 export async function hideWorkspaceDirectWebview(surfaceId: string): Promise<void> {
   await invoke("workspace_direct_webview_hide", { surfaceId });
 }
