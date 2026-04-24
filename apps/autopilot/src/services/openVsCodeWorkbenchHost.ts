@@ -35,8 +35,8 @@ export const openVsCodeWorkbenchHost: WorkspaceWorkbenchHost = {
     const info = readOpenVsCodeSessionInfo(session);
     return {
       kind: "frame" as const,
-      key: `${buildOpenVsCodeSurfaceId("iframe", info)}:${refreshNonce}`,
-      title: `Workspace for ${projectName}`,
+      key: `${buildOpenVsCodeSurfaceId("iframe-oracle", info)}:${refreshNonce}`,
+      title: `Workspace iframe oracle for ${projectName}`,
       src: info.workbenchUrl,
     };
   },
@@ -50,14 +50,14 @@ export const openVsCodeWorkbenchHost: WorkspaceWorkbenchHost = {
   describeSession(session) {
     const info = readOpenVsCodeSessionInfo(session);
     return {
-      startupEyebrow: "OpenVSCode workbench",
+      startupEyebrow: "OpenVSCode iframe oracle",
       startupDescription:
-        "Starting the full Workspace workbench for this project.",
+        "Starting the iframe oracle for direct-workbench parity checks.",
       startupFailureDescription:
-        "The Workspace workbench did not start cleanly.",
-      runtimeLabel: `OpenVSCode ${info.version}`,
+        "The OpenVSCode iframe oracle did not start cleanly.",
+      runtimeLabel: `OpenVSCode ${info.version} iframe oracle`,
       metricDetails: {
-        mode: "iframe",
+        mode: "iframe-oracle",
         runtime: "openvscode",
         version: info.version,
         port: info.port,

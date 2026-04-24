@@ -141,6 +141,7 @@ def launch_dev_desktop(
     profile: str,
     log_path: Path,
     dev_url: str,
+    workspace_host: str | None,
 ) -> subprocess.Popen[str]:
     env = os.environ.copy()
     env.update(
@@ -154,6 +155,8 @@ def launch_dev_desktop(
             "AUTO_START_DEV_SERVER": "1",
         }
     )
+    if workspace_host:
+        env["VITE_AUTOPILOT_WORKSPACE_HOST"] = workspace_host
     log_path.parent.mkdir(parents=True, exist_ok=True)
     log_handle = log_path.open("w", encoding="utf-8")
     process = subprocess.Popen(
@@ -272,6 +275,14 @@ def parse_args() -> argparse.Namespace:
         default=os.environ.get("AUTOPILOT_DESKTOP_DEV_URL", DEFAULT_DEV_URL),
         help=f"Dev server URL to start/reuse. Default: {DEFAULT_DEV_URL}",
     )
+    parser.add_argument(
+        "--workspace-host",
+        default=os.environ.get("VITE_AUTOPILOT_WORKSPACE_HOST"),
+        help=(
+            "Workspace host override. Use 'iframe-oracle' only for retained "
+            "OpenVSCode iframe comparison evidence."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -285,7 +296,12 @@ def main() -> int:
     close_matching_windows(args.window_name)
     terminate_existing_desktop_instances()
 
-    process = launch_dev_desktop(args.profile, log_path, args.dev_url)
+    process = launch_dev_desktop(
+        args.profile,
+        log_path,
+        args.dev_url,
+        args.workspace_host,
+    )
     print("[workspace] launched Workspace desktop shell", flush=True)
 
     window_id: int | None = None
