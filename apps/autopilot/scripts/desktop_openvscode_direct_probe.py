@@ -551,9 +551,13 @@ def main() -> int:
     close_matching_windows(args.window_name)
     terminate_existing_desktop_instances()
 
-    os.environ["VITE_AUTOPILOT_WORKSPACE_HOST"] = "direct-openvscode"
     os.environ.pop("AUTOPILOT_WORKSPACE_DIRECT_WEBVIEW_MODE", None)
-    process = launch_dev_desktop(args.profile, log_path, args.dev_url)
+    process = launch_dev_desktop(
+        args.profile,
+        log_path,
+        args.dev_url,
+        "direct-openvscode",
+    )
     print("[openvscode-direct] launched Workspace desktop shell", flush=True)
 
     probe_error: str | None = None
@@ -804,6 +808,7 @@ def main() -> int:
             {"id": "search-query", "point": (0.155, 0.132), "text": "src-tauri"},
             {"id": "activity-scm", "point": (0.021, 0.315)},
             {"id": "activity-extensions", "point": (0.021, 0.475)},
+            {"id": "activity-ioi", "point": (0.021, 0.545)},
             {"id": "activity-explorer", "point": (0.021, 0.135)},
             {"id": "explorer-context-menu", "point": (0.095, 0.165), "button": 3},
             {"id": "toolbar-back", "point": (0.265, 0.026), "pre_escape": True},

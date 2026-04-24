@@ -28,6 +28,7 @@ import {
   AgentTask,
   AgentEvent,
   Artifact,
+  SessionFileContext,
   SessionSummary,
 } from "../../types";
 import { useChatLayout } from "./hooks/useChatLayout";
@@ -68,6 +69,8 @@ import {
   modelOptions,
   workspaceOptions,
 } from "../ChatShellWindow/constants";
+import { useChatFileContext } from "./hooks/useChatFileContext";
+import { workspaceRootFromTask } from "./components/chatInputHelpers";
 
 // Styles
 import "../ChatShellWindow/styles/Layout.css";
@@ -85,6 +88,8 @@ type ChatShellWindowProps = {
   seedIntent?: string | null;
   onConsumeSeedIntent?: () => void;
   sessionRuntime?: AssistantSessionRuntime;
+  workspaceRootHint?: string | null;
+  workspaceNameHint?: string | null;
 };
 
 function taskSessionId(task: AgentTask | null): string | null {
@@ -184,6 +189,46 @@ function selectSeedIntentContinuationSession(
   );
 }
 
+function uniqueContextPaths(fileContext: SessionFileContext | null): string[] {
+  if (!fileContext) {
+    return [];
+  }
+  return [
+    ...fileContext.pinned_files,
+    ...fileContext.explicit_includes,
+    ...fileContext.recent_files,
+  ].filter((path, index, all) => path && all.indexOf(path) === index);
+}
+
+function buildCodebaseContextualizedIntent({
+  text,
+  workspaceRoot,
+  fileContext,
+}: {
+  text: string;
+  workspaceRoot: string | null;
+  fileContext: SessionFileContext | null;
+}): string {
+  const trimmed = text.trim();
+  if (!workspaceRoot || !trimmed || trimmed.startsWith("[Codebase context]")) {
+    return text;
+  }
+
+  const contextLines = [`Workspace: ${workspaceRoot}`];
+  const selectedPaths = uniqueContextPaths(fileContext).slice(0, 8);
+  if (selectedPaths.length > 0) {
+    contextLines.push("Active files:");
+    selectedPaths.forEach((path) => contextLines.push(`- ${path}`));
+  }
+  if (fileContext?.explicit_excludes.length) {
+    contextLines.push(
+      `Excluded from context: ${fileContext.explicit_excludes.slice(0, 6).join(", ")}`,
+    );
+  }
+
+  return `[Codebase context]\n${contextLines.join("\n")}\n\n[User request]\n${trimmed}`;
+}
+
 // ============================================
 // MAIN COMPONENT
 // ============================================
@@ -193,6 +238,7 @@ export function ChatShellWindow({
   seedIntent = null,
   onConsumeSeedIntent,
   sessionRuntime,
+  workspaceRootHint = null,
 }: ChatShellWindowProps) {
   const isStudioVariant = variant === "chat";
   const [chatArtifactVisible, setChatArtifactVisible] = useState(false);
@@ -289,6 +335,46 @@ export function ChatShellWindow({
     task,
   });
 
+  const activeSessionSummary = useMemo(
+    () =>
+      sessions.find((session) => session.session_id === activeSessionId) ??
+      sessions[0] ??
+      null,
+    [activeSessionId, sessions],
+  );
+  const codebaseWorkspaceRoot = useMemo(
+    () =>
+      workspaceRootFromTask(task) ||
+      activeSessionSummary?.workspace_root?.trim() ||
+      workspaceRootHint?.trim() ||
+      null,
+    [activeSessionSummary?.workspace_root, task, workspaceRootHint],
+  );
+  const codebaseSessionId =
+    activeSessionId ||
+    task?.session_id ||
+    task?.id ||
+    activeSessionSummary?.session_id ||
+    null;
+  const {
+    context: codebaseFileContext,
+  } = useChatFileContext({
+    enabled: isStudioVariant && Boolean(codebaseWorkspaceRoot),
+    sessionId: codebaseSessionId,
+    workspaceRoot: codebaseWorkspaceRoot,
+  });
+  const contextualizeIntent = useCallback(
+    (text: string) =>
+      isStudioVariant
+        ? buildCodebaseContextualizedIntent({
+            text,
+            workspaceRoot: codebaseWorkspaceRoot,
+            fileContext: codebaseFileContext,
+          })
+        : text,
+    [codebaseFileContext, codebaseWorkspaceRoot, isStudioVariant],
+  );
+
   const {
     intent,
     setIntent,
@@ -345,6 +431,7 @@ export function ChatShellWindow({
     toggleArtifactPanel,
     loadThreadEvents,
     loadThreadArtifacts,
+    contextualizeIntent,
   });
 
   const {
@@ -783,7 +870,6 @@ export function ChatShellWindow({
       events,
     ],
   });
-
   useSessionShellShortcuts({
     activeDropdown,
     clearActiveDropdown: () => setActiveDropdown(null),
@@ -1351,7 +1437,16 @@ export function ChatShellWindow({
               artifactDrawerVisible={
                 studioArtifactDrawerAvailable && chatArtifactVisible
               }
+              artifactDrawerAvailable={studioArtifactDrawerAvailable}
               conversationSurface={overlaySurface}
+              onNewSession={handleStudioNewSession}
+              onOpenCommandPalette={() => {
+                setActiveDropdown("command_palette");
+              }}
+              onOpenSettings={() => openChat("settings")}
+              onToggleArtifactDrawer={() => {
+                setChatArtifactVisible((current) => !current);
+              }}
               artifactDrawer={
                 <div
                   className={`spot-chat-artifact-drawer ${

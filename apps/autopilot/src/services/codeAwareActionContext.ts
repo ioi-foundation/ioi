@@ -29,6 +29,7 @@ export type CodeAwareBridgeRequestPayload = Record<string, unknown>;
 
 function formatCodeAwareLocation(context: CodeAwareActionContext | null | undefined) {
   const parts = [
+    context?.workspaceRoot ? `workspace ${context.workspaceRoot}` : null,
     context?.filePath ?? null,
     context?.artifactId ? `artifact ${context.artifactId}` : null,
     context?.runId ? `run ${context.runId}` : null,
@@ -80,7 +81,10 @@ export function buildReviewFileIntent(
   context: CodeAwareActionContext | null | undefined,
 ) {
   if (context?.filePath) {
-    return `Review the current file: ${context.filePath}`;
+    const workspace = context.workspaceRoot
+      ? ` in workspace ${context.workspaceRoot}`
+      : "";
+    return `Review the current file${workspace}: ${context.filePath}`;
   }
 
   return `Review ${formatCodeAwareLocation(context)}.`;

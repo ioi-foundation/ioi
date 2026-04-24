@@ -85,9 +85,7 @@
   display: flex;
   flex-direction: column;
   position: relative;
-  background:
-    radial-gradient(circle at top, rgba(255, 255, 255, 0.035), transparent 42%),
-    var(--spot-bg-primary);
+  background: var(--spot-bg-primary);
   overflow: hidden;
 }
 
@@ -371,7 +369,7 @@
   flex: 1 1 0;
   min-height: 0;
   height: auto;
-  padding-top: 56px;
+  padding-top: 12px;
   padding-bottom: 24px;
 }
 
@@ -441,16 +439,16 @@
 
 .spot-chat-status-card {
   border: 1px solid var(--spot-border-subtle);
-  border-radius: 24px;
+  border-radius: 8px;
   background: var(--spot-bg-secondary);
-  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.16);
+  box-shadow: none;
 }
 
 .spot-chat-welcome {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 18px;
+  gap: 14px;
   padding: 0;
   text-align: center;
   background: transparent;
@@ -459,12 +457,12 @@
 }
 
 .spot-chat-welcome-mark {
-  width: 56px;
-  height: 56px;
+  width: 38px;
+  height: 38px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 18px;
+  border-radius: 6px;
   background: rgba(255, 255, 255, 0.05);
   color: rgba(255, 255, 255, 0.94);
 }
@@ -483,10 +481,10 @@
 
 .spot-chat-welcome-copy h2 {
   margin: 0;
-  max-width: 13ch;
-  font-size: clamp(34px, 4vw, 56px);
-  line-height: 0.98;
-  letter-spacing: -0.05em;
+  max-width: 24ch;
+  font-size: 24px;
+  line-height: 1.15;
+  letter-spacing: 0;
 }
 
 .spot-chat-welcome-copy p {
@@ -499,7 +497,7 @@
 .spot-chat-welcome-kicker {
   font-size: 11px;
   font-weight: 650;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--spot-text-dim);
 }
@@ -518,7 +516,7 @@
   min-width: 170px;
   max-width: 220px;
   padding: 12px 14px;
-  border-radius: 18px;
+  border-radius: 6px;
   border: 1px solid rgba(255, 255, 255, 0.07);
   background: rgba(255, 255, 255, 0.02);
   text-align: left;
@@ -545,9 +543,9 @@
 
 .spot-chat-suggestion {
   width: auto;
-  min-height: 42px;
+  min-height: 32px;
   padding: 10px 14px;
-  border-radius: 999px;
+  border-radius: 6px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.025);
   color: var(--spot-text-primary);
@@ -564,7 +562,7 @@
 .spot-chat-suggestion:hover {
   background: rgba(255, 255, 255, 0.06);
   border-color: var(--spot-border-focus);
-  transform: translateY(-1px);
+  transform: none;
 }
 
 .spot-chat-status-card {
@@ -2777,4 +2775,258 @@
   .spot-chat-suggestion-row {
     grid-template-columns: 1fr;
   }
+}
+
+/* Workbench-grade Chat composition, aligned to the OpenVSCode agent reference. */
+.spot-window--chat .spot-chat-shell {
+  grid-template-columns: clamp(248px, 18vw, 292px) minmax(0, 1fr);
+  background: #ffffff;
+}
+
+.spot-window--chat .spot-chat-sidebar-shell-item {
+  background: #f3f3f3;
+  border-right-color: #e5e5e5;
+}
+
+.spot-window--chat .spot-chat-sidebar {
+  padding: 10px 8px 12px;
+}
+
+.spot-window--chat .spot-chat-sidebar-title {
+  color: #3c3c3c;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.spot-window--chat .spot-chat-sidebar-subtitle {
+  color: #6f6f6f;
+}
+
+.spot-window--chat .spot-chat-sidebar-head-action,
+.spot-window--chat .spot-chat-sidebar-utility,
+.spot-window--chat .spot-chat-sidebar-session {
+  color: #616161;
+}
+
+.spot-window--chat .spot-chat-sidebar-head-action {
+  background: transparent;
+  border: 1px solid transparent;
+}
+
+.spot-window--chat .spot-chat-sidebar-head-action:hover,
+.spot-window--chat .spot-chat-sidebar-utility:hover,
+.spot-window--chat .spot-chat-sidebar-session:hover {
+  background: #e8e8e8;
+  color: #3c3c3c;
+}
+
+.spot-window--chat .spot-chat-sidebar-search {
+  min-height: 28px;
+  border-color: #d4d4d4;
+  background: #ffffff;
+  color: #616161;
+}
+
+.spot-window--chat .spot-chat-sidebar-search:focus-within {
+  border-color: #0078d4;
+  background: #ffffff;
+  color: #3c3c3c;
+}
+
+.spot-window--chat .spot-chat-sidebar-search input {
+  color: #3c3c3c;
+}
+
+.spot-window--chat .spot-chat-sidebar-search input::placeholder {
+  color: #7a7a7a;
+}
+
+.spot-window--chat .spot-chat-sidebar-section-head,
+.spot-window--chat .spot-chat-sidebar-group-label {
+  color: #6f6f6f;
+  letter-spacing: 0.08em;
+}
+
+.spot-window--chat .spot-chat-sidebar-utility {
+  min-height: 26px;
+  border-radius: 3px;
+}
+
+.spot-window--chat .spot-chat-sidebar-utility.is-active,
+.spot-window--chat .spot-chat-sidebar-session.is-active {
+  background: #e8e8e8;
+  color: #3c3c3c;
+}
+
+.spot-window--chat .spot-chat-sidebar-utility-badge {
+  background: #e0e0e0;
+  color: #3c3c3c;
+}
+
+.spot-window--chat .spot-chat-sidebar-session {
+  min-height: 28px;
+  border-radius: 3px;
+}
+
+.spot-window--chat .spot-chat-sidebar-session.is-active::before {
+  background: #0078d4;
+  box-shadow: none;
+}
+
+.spot-window--chat .spot-chat-sidebar-session-copy strong {
+  color: #3c3c3c;
+}
+
+.spot-window--chat .spot-chat-sidebar-session-copy span,
+.spot-window--chat .spot-chat-sidebar-session.is-active .spot-chat-sidebar-session-copy span {
+  color: #6f6f6f;
+}
+
+.spot-window--chat .spot-chat-sidebar-empty {
+  color: #7a7a7a;
+}
+
+.spot-window--chat .spot-chat-conversation-shell-item {
+  flex-direction: column;
+  background: #ffffff;
+}
+
+.spot-workbench-chat-topbar {
+  min-height: 36px;
+  height: 36px;
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  border-bottom: 1px solid #e5e5e5;
+  background: #ffffff;
+  color: #3c3c3c;
+  flex: 0 0 auto;
+}
+
+.spot-workbench-chat-tab {
+  min-width: 74px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid transparent;
+  color: #616161;
+  font-size: 11px;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.spot-workbench-chat-tab.is-active {
+  border-bottom-color: #0078d4;
+  color: #3c3c3c;
+}
+
+.spot-workbench-chat-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  padding: 0 9px;
+  color: #616161;
+}
+
+.spot-workbench-chat-actions button {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+
+.spot-workbench-chat-actions button:hover,
+.spot-workbench-chat-actions button.is-active {
+  background: #eeeeee;
+  color: #3c3c3c;
+}
+
+.spot-workbench-chat-actions svg {
+  width: 13px;
+  height: 13px;
+}
+
+.spot-window--chat .spot-chat-conversation {
+  background: #ffffff;
+}
+
+.spot-window--chat .spot-chat-conversation .spot-chat {
+  padding-top: 10px;
+  padding-bottom: 22px;
+}
+
+.spot-window--chat .spot-chat-welcome {
+  gap: 12px;
+}
+
+.spot-window--chat .spot-chat-welcome-mark {
+  width: 38px;
+  height: 38px;
+  background: transparent;
+  color: #3c3c3c;
+}
+
+.spot-window--chat .spot-chat-welcome-mark svg {
+  width: 32px;
+  height: 32px;
+}
+
+.spot-window--chat .spot-chat-welcome-copy {
+  gap: 6px;
+}
+
+.spot-window--chat .spot-chat-welcome-copy h2 {
+  font-size: 24px;
+  font-weight: 400;
+  color: #3c3c3c;
+}
+
+.spot-window--chat .spot-chat-welcome-copy p {
+  color: #6f6f6f;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.spot-window--chat .spot-chat-welcome-kicker {
+  color: #6f6f6f;
+  font-weight: 500;
+}
+
+.spot-window--chat .spot-chat-lens-card {
+  border-color: #e5e5e5;
+  background: #f8f8f8;
+}
+
+.spot-window--chat .spot-chat-lens-card strong {
+  color: #3c3c3c;
+}
+
+.spot-window--chat .spot-chat-lens-card span {
+  color: #6f6f6f;
+}
+
+.spot-window--chat .spot-chat-suggestion {
+  min-height: 24px;
+  padding: 5px 9px;
+  border-radius: 3px;
+  border-color: #d4d4d4;
+  background: #f8f8f8;
+  color: #616161;
+}
+
+.spot-window--chat .spot-chat-suggestion:hover {
+  border-color: #0078d4;
+  background: #ffffff;
+  color: #3c3c3c;
 }

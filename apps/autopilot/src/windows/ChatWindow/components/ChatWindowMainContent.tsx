@@ -88,6 +88,8 @@ export function ChatWindowMainContent({
                     seedIntent={controller.chat.seedIntent}
                     onConsumeSeedIntent={controller.chat.consumeSeedIntent}
                     sessionRuntime={runtime}
+                    workspaceRootHint={currentProject.rootPath}
+                    workspaceNameHint={currentProject.name}
                   />
                 ) : null}
 

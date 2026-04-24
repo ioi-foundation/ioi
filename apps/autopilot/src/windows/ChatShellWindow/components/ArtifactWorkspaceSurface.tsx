@@ -176,7 +176,7 @@ export function ArtifactWorkspaceSurface({
         <div className={`chat-artifact-stage-layout ${evidenceOpen ? "is-evidence-open" : ""}`}>
           <div className="chat-artifact-stage-main">
             {stageMode === "source" ? (
-              <section className="chat-artifact-source-workbench workspace-host workspace-host--embedded">
+              <section className="chat-artifact-source-workbench chat-artifact-source-shell chat-artifact-source-shell--editor-only workspace-host workspace-host--embedded">
                 <ArtifactSourceWorkbench
                   artifactId={manifest.artifactId}
                   files={manifest.files}

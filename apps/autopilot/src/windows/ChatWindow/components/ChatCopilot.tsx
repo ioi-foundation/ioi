@@ -6,12 +6,16 @@ interface ChatCopilotViewProps {
   seedIntent?: string | null;
   onConsumeSeedIntent?: () => void;
   sessionRuntime: AssistantSessionRuntime;
+  workspaceRootHint?: string | null;
+  workspaceNameHint?: string | null;
 }
 
 export function ChatCopilotView({
   seedIntent,
   onConsumeSeedIntent,
   sessionRuntime,
+  workspaceRootHint,
+  workspaceNameHint,
 }: ChatCopilotViewProps) {
   return (
     <ChatShellWindow
@@ -19,6 +23,8 @@ export function ChatCopilotView({
       seedIntent={seedIntent}
       onConsumeSeedIntent={onConsumeSeedIntent}
       sessionRuntime={sessionRuntime}
+      workspaceRootHint={workspaceRootHint}
+      workspaceNameHint={workspaceNameHint}
     />
   );
 }

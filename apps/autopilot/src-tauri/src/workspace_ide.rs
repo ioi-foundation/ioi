@@ -103,6 +103,10 @@ async fn bridge_post_request(
     AxumState(state): AxumState<BridgeRuntimeState>,
     Json(request): Json<WorkspaceIdeBridgeRequest>,
 ) -> impl IntoResponse {
+    eprintln!(
+        "[Workspace IDE] bridge request queued id={} type={}",
+        request.request_id, request.request_type
+    );
     match state.requests.lock() {
         Ok(mut queue) => {
             queue.push_back(request);
@@ -742,7 +746,20 @@ pub fn take_workspace_ide_bridge_requests<R: Runtime>(
                 session.bridge_state.requests.lock().map_err(|_| {
                     "Failed to lock workspace IDE bridge request queue.".to_string()
                 })?;
-            return Ok(queue.drain(..).collect());
+            let drained: Vec<WorkspaceIdeBridgeRequest> = queue.drain(..).collect();
+            if !drained.is_empty() {
+                eprintln!(
+                    "[Workspace IDE] bridge requests drained root={} count={} types={}",
+                    session.root_path,
+                    drained.len(),
+                    drained
+                        .iter()
+                        .map(|request| request.request_type.as_str())
+                        .collect::<Vec<_>>()
+                        .join(",")
+                );
+            }
+            return Ok(drained);
         }
     }
     Ok(Vec::new())

@@ -63,12 +63,19 @@ em, i, cite, address, dfn, var { font-style: normal; }
 }
 .brand {
   display: flex; align-items: center; gap: 10px;
-  font-family: var(--serif);
-  font-size: 24px; font-weight: 400;
+  font-family: var(--sans, sans-serif);
+  font-size: 32px; font-weight: 700;
   letter-spacing: -0.02em; line-height: 1;
+  color: var(--ink);
 }
-.brand img { width: 22px; height: 22px; }
-.brand em { color: var(--accent-ink); }
+.brand img { width: 40px; height: 40px; }
+.brand em {
+  background: linear-gradient(90deg, #787cff 0%, #5252be 50%, #3b3b96 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent !important;
+}
 .brand .v { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--muted); margin-left: 4px; text-transform: uppercase; align-self: flex-end; padding-bottom: 2px; }
 
 .top-nav { display: flex; gap: 4px; }
@@ -1928,9 +1935,6 @@ em, i, cite, address, dfn, var { font-style: normal; }
   background: color-mix(in oklab, var(--paper) 85%, transparent);
   backdrop-filter: blur(10px);
 }
-.topbar-marketing .brand {
-  font-size: 22px;
-}
 .topbar-marketing .marketing-nav {
   gap: 4px;
   margin-left: auto;
@@ -2006,9 +2010,9 @@ em, i, cite, address, dfn, var { font-style: normal; }
   flex-shrink: 0;
 }
 
-/* Topbar search — Fiverr-style persistent search */
+/* Topbar search — Dashboard-style persistent search */
 .topbar-search {
-  flex: 1; max-width: 560px;
+  flex: 1; max-width: 560px; min-width: 0;
   display: flex; align-items: center; gap: 10px;
   padding: 8px 14px;
   border: 1px solid var(--rule);
@@ -2026,6 +2030,9 @@ em, i, cite, address, dfn, var { font-style: normal; }
   font-size: 13px;
   color: var(--muted);
   letter-spacing: 0.005em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .topbar-search-kbd {
   font-size: 9.5px; letter-spacing: 0.08em;
@@ -2078,15 +2085,23 @@ em, i, cite, address, dfn, var { font-style: normal; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   Fiverr-style Marketing Topbar & Hero
+   Dashboard Marketing Topbar & Hero
    ═══════════════════════════════════════════════════════════════════ */
 .topbar-marketing {
   background: #ffffff !important;
   border-bottom: 1px solid var(--rule-soft);
   color: #000000;
+  display: block;
+  padding: 0;
 }
-.topbar-marketing .brand, .topbar-marketing .brand em {
-  color: #000000 !important;
+.topbar-marketing-inner {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 22px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
 }
 .topbar-marketing .marketing-nav a {
   color: #404145;
@@ -2097,29 +2112,35 @@ em, i, cite, address, dfn, var { font-style: normal; }
   font-size: 15px;
 }
 .topbar-marketing .marketing-nav a:hover {
-  color: #1dbf73;
+  color: var(--accent-ink);
 }
-.fiverr-btn-outline {
+.ui-btn-outline {
   border: 1px solid #404145;
   border-radius: 4px;
   padding: 6px 16px !important;
   color: #404145 !important;
   font-weight: 600 !important;
 }
-.fiverr-btn-outline:hover {
+.ui-btn-outline:hover {
   background: #f5f5f5;
   color: #404145;
 }
-.fiverr-hero {
+.ui-hero {
   background: #000000;
-  padding: 120px 48px;
+  display: block;
+  width: 100%;
+}
+.ui-hero-inner {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 120px 28px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: flex-start;
   min-height: 600px;
 }
-.fiverr-hero-text {
+.ui-hero-text {
   color: #ffffff;
   font-size: 56px;
   line-height: 1.1;
@@ -2127,7 +2148,7 @@ em, i, cite, address, dfn, var { font-style: normal; }
   font-weight: 400;
   margin-bottom: 32px;
 }
-.fiverr-search-container {
+.ui-search-container {
   display: flex;
   width: 100%;
   max-width: 700px;
@@ -2136,7 +2157,7 @@ em, i, cite, address, dfn, var { font-style: normal; }
   overflow: hidden;
   margin-bottom: 32px;
 }
-.fiverr-search-input {
+.ui-search-input {
   flex: 1;
   border: none;
   padding: 16px 20px;
@@ -2144,7 +2165,7 @@ em, i, cite, address, dfn, var { font-style: normal; }
   outline: none;
   color: #000000;
 }
-.fiverr-search-btn {
+.ui-search-btn {
   background: #222325;
   border: none;
   width: 64px;
@@ -2154,15 +2175,15 @@ em, i, cite, address, dfn, var { font-style: normal; }
   cursor: pointer;
   color: #ffffff;
 }
-.fiverr-search-btn:hover {
+.ui-search-btn:hover {
   background: #404145;
 }
-.fiverr-pills-row {
+.ui-pills-row {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
 }
-.fiverr-pill {
+.ui-pill {
   border: 1px solid #ffffff;
   border-radius: 40px;
   padding: 8px 16px;
@@ -2176,7 +2197,352 @@ em, i, cite, address, dfn, var { font-style: normal; }
   gap: 8px;
   transition: background 0.2s, color 0.2s;
 }
-.fiverr-pill:hover {
+.ui-pill:hover {
   background: #ffffff;
   color: #000000;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Dashboard Authenticated Layout & Topbar
+   ═══════════════════════════════════════════════════════════════════ */
+.topbar-app-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 20px;
+  width: 100%;
+}
+.ui-dash-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 48px 32px 120px;
+  width: 100%;
+}
+.ui-dash-heading {
+  font-family: var(--sans, sans-serif);
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: #404145;
+  margin-bottom: 32px;
+}
+div.ui-dash-cards {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-bottom: 64px;
+}
+div.ui-dash-card {
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  background: #ffffff;
+  padding: 20px 24px;
+  display: flex !important;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 16px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.ui-dash-card .card-k {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.ui-dash-card .card-v {
+  font-family: var(--sans, sans-serif);
+  font-size: 18px;
+  font-weight: 600;
+  color: #404145;
+}
+.ui-dash-card .card-sub {
+  font-size: 14px;
+  color: var(--muted-2);
+}
+.ui-split-layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 48px;
+  align-items: start;
+}
+.ui-sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ui-sidebar-link {
+  font-family: var(--sans, sans-serif);
+  font-size: 15px;
+  color: #62646a;
+  padding: 10px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid transparent;
+  text-align: left;
+  transition: all 0.2s;
+}
+.ui-sidebar-link:hover {
+  background: var(--paper-2);
+}
+.ui-sidebar-link.active {
+  border-color: #222325;
+  color: #222325;
+  font-weight: 600;
+}
+nav.ui-subnav {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 24px;
+  padding: 0 32px;
+  border-bottom: 1px solid var(--rule-soft);
+  overflow-x: auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+.ui-subnav-link {
+  font-family: var(--sans, sans-serif);
+  font-size: 14px;
+  color: #62646a;
+  padding: 12px 0;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.ui-subnav-link:hover {
+  color: #404145;
+}
+.ui-subnav-link.active {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+  font-weight: 600;
+}
+.ui-icon-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #74767e;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+}
+.ui-icon-btn:hover {
+  color: #404145;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Dashboard Cards — Icons & Color-Coded Labels (Fiverr-inspired)
+   ═══════════════════════════════════════════════════════════════════ */
+div.ui-dash-card:hover {
+  border-color: var(--rule);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+}
+.ui-dash-card-icon {
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  min-height: 42px;
+  max-width: 42px;
+  max-height: 42px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.ui-dash-card-icon svg {
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  min-height: 20px;
+  max-width: 20px;
+  max-height: 20px;
+  flex-shrink: 0;
+}
+.ui-dash-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+/* Card label color variants */
+.card-k-action {
+  color: #e8590c !important;
+  font-weight: 600;
+}
+.card-k-attention {
+  color: var(--accent-ink) !important;
+  font-weight: 600;
+}
+.card-k-health {
+  color: var(--sage-ink) !important;
+  font-weight: 600;
+}
+.ui-dash-card-icon.icon-action {
+  background: oklch(0.96 0.04 50);
+  color: #e8590c;
+}
+.ui-dash-card-icon.icon-attention {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+.ui-dash-card-icon.icon-health {
+  background: oklch(0.95 0.04 185);
+  color: var(--sage-ink);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Sidebar Navigation — Icons
+   ═══════════════════════════════════════════════════════════════════ */
+.ui-sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ui-sidebar-link .sidebar-icon {
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  min-height: 18px;
+  max-width: 18px;
+  max-height: 18px;
+  flex-shrink: 0;
+  color: var(--muted-2);
+  transition: color 0.15s;
+}
+.ui-sidebar-link:hover .sidebar-icon,
+.ui-sidebar-link.active .sidebar-icon {
+  color: var(--ink);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Horizontal Contract Rail (Pick up where you left off)
+   ═══════════════════════════════════════════════════════════════════ */
+.ui-rail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.ui-rail-header h2 {
+  font-family: var(--sans, sans-serif);
+  font-size: 24px;
+  font-weight: 600;
+  color: #404145;
+  margin: 0;
+}
+.ui-rail-arrows {
+  display: flex;
+  gap: 8px;
+}
+.ui-rail-arrow {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--rule);
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--muted);
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.ui-rail-arrow:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+.ui-rail-arrow:disabled,
+.ui-rail-arrow[disabled] {
+  opacity: 0.35;
+  cursor: default;
+  pointer-events: none;
+}
+.ui-rail-arrow svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Rail scroll container */
+.ui-contract-rail {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  padding-bottom: 8px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.ui-contract-rail::-webkit-scrollbar {
+  display: none;
+}
+
+/* Compact card overrides for rail mode */
+.ui-contract-rail .contract {
+  min-width: 320px;
+  max-width: 360px;
+  flex-shrink: 0;
+  min-height: 220px;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 10px;
+}
+.ui-contract-rail .contract-pulse-header {
+  height: 48px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: flex-end;
+  gap: 1.5px;
+  background: var(--paper-2);
+  border-bottom: 1px solid var(--rule-soft);
+}
+.ui-contract-rail .contract-pulse-header .pulse-cell {
+  flex: 1;
+  border-radius: 1px;
+  min-width: 2px;
+}
+.ui-contract-rail .contract-body-compact {
+  padding: 16px 18px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+.ui-contract-rail .contract-head {
+  gap: 8px;
+}
+.ui-contract-rail .contract-meta {
+  font-size: 9px;
+}
+.ui-contract-rail .contract-outcome {
+  font-size: 20px;
+  line-height: 1.15;
+}
+.ui-contract-rail .contract-stats {
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  padding-top: 10px;
+  margin-top: auto;
+}
+.ui-contract-rail .contract-stat-k {
+  font-size: 8.5px;
+}
+.ui-contract-rail .contract-stat-v {
+  font-size: 17px;
+}
+.ui-contract-rail .contract-substrate {
+  font-size: 9px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--rule-soft);
 }

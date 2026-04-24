@@ -22,20 +22,86 @@ const HomeView = ({
     })).filter(c => c.items.length > 0);
   }, []);
 
+  // Rail scroll ref + handlers
+  const railRef = React.useRef(null);
+  const scrollRail = (dir) => {
+    if (!railRef.current) return;
+    const amount = 340;
+    railRef.current.scrollBy({ left: dir * amount, behavior: 'smooth' });
+  };
+
   return (
-    <div className="page" data-screen-label="00 Home">
-      {/* ───────────── Welcome + portfolio (existing ContractsView) ───────────── */}
-      <div style={{marginBottom: 8}}>
-        <div className="mono" style={{fontSize:10, letterSpacing:'0.16em', textTransform:'uppercase', color:'var(--muted-2)'}}>
-          <span style={{display:'inline-block', width:5, height:5, borderRadius:'50%', background:'var(--sage)', marginRight:7, verticalAlign:'middle'}} />
-          Welcome back, Hana
+    <div className="page ui-dash-container" data-screen-label="00 Home">
+      <h1 className="ui-dash-heading">
+        Welcome back, Hana
+      </h1>
+
+      <div className="ui-dash-cards">
+        {/* Card 1 — Action Required */}
+        <div className="ui-dash-card">
+          <div className="ui-dash-card-icon icon-action">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="12" y1="18" x2="12" y2="12" />
+              <line x1="9" y1="15" x2="15" y2="15" />
+            </svg>
+          </div>
+          <div className="ui-dash-card-body">
+            <div className="card-k card-k-action">Recommended For You</div>
+            <div className="card-v">Draft a new contract</div>
+            <div className="card-sub">Get tailored agents for your needs.</div>
+            <button className="btn accent" onClick={() => onDraft('')} style={{marginTop: 8, alignSelf:'flex-start', padding: '8px 16px', fontSize: 13}}>Draft contract</button>
+          </div>
         </div>
-        <h1 className="serif" style={{fontSize: 40, letterSpacing:'-0.02em', lineHeight:1.1, marginTop: 8, marginBottom: 4}}>
-          Your book is <em>running</em>.
-        </h1>
-        <p className="mono" style={{fontSize:11, color:'var(--muted)', letterSpacing:'0.04em', marginTop: 4}}>
-          {contracts.length} active · {draftsList.length} drafting · {completes.length} archived
-        </p>
+
+        {/* Card 2 — Attention */}
+        <div className="ui-dash-card">
+          <div className="ui-dash-card-icon icon-attention">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+              <polyline points="22,6 12,13 2,6" />
+            </svg>
+          </div>
+          <div className="ui-dash-card-body">
+            <div className="card-k card-k-attention">Attention</div>
+            <div className="card-v">Review new receipts</div>
+            <div className="card-sub">You have {contracts.length} active contracts streaming receipts.</div>
+          </div>
+        </div>
+
+        {/* Card 3 — System Health */}
+        <div className="ui-dash-card">
+          <div className="ui-dash-card-icon icon-health">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="20" x2="18" y2="10" />
+              <line x1="12" y1="20" x2="12" y2="4" />
+              <line x1="6" y1="20" x2="6" y2="14" />
+            </svg>
+          </div>
+          <div className="ui-dash-card-body">
+            <div className="card-k card-k-health">System Health</div>
+            <div className="card-v">99.94% SLA met</div>
+            <div className="card-sub">Rolling 7d · +0.02 vs last week</div>
+          </div>
+        </div>
+      </div>
+
+      {/* ───────────── Pick up where you left off — with rail arrows ───────────── */}
+      <div className="ui-rail-header">
+        <h2>Pick up where you left off</h2>
+        <div className="ui-rail-arrows">
+          <button className="ui-rail-arrow" onClick={() => scrollRail(-1)} title="Scroll left">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+          </button>
+          <button className="ui-rail-arrow" onClick={() => scrollRail(1)} title="Scroll right">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="9 6 15 12 9 18" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       <ContractsView
@@ -48,6 +114,7 @@ const HomeView = ({
         onResumeDraft={onResumeDraft}
         onDiscardDraft={onDiscardDraft}
         embedded
+        railRef={railRef}
       />
 
       {/* ───────────── Trending outcomes rail ───────────── */}
