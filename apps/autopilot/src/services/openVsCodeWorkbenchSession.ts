@@ -91,7 +91,7 @@ export function startOpenVsCodeBridgeRequestPolling(
 }
 
 export function buildOpenVsCodeSurfaceId(
-  mode: "iframe" | "direct-openvscode",
+  mode: "iframe-oracle" | "direct-openvscode",
   info: WorkspaceIdeSessionInfo,
 ): string {
   return [

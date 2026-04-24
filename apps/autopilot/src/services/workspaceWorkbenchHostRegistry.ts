@@ -11,7 +11,10 @@ export function getDefaultWorkspaceWorkbenchHost(): WorkspaceWorkbenchHost {
   const requestedHost = (
     import.meta.env.VITE_AUTOPILOT_WORKSPACE_HOST ?? ""
   ).trim().toLowerCase();
-  if (requestedHost === "openvscode" || requestedHost === "iframe") {
+  if (
+    requestedHost === "iframe-oracle" ||
+    requestedHost === "openvscode-iframe-oracle"
+  ) {
     return openVsCodeWorkbenchHost;
   }
   if (
