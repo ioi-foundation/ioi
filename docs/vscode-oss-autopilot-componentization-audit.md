@@ -2,7 +2,7 @@
 
 ## 1. Executive summary
 
-Autopilot should converge toward a split architecture where **our runtime remains authoritative** and **Code OSS/OpenVSCode supplies the strongest local code-workbench UX**. The repo already reflects that split more than it might seem at first glance: the durable execution, approval, policy, receipt, skill, and workflow semantics live in our runtime and validator layers, while the current Workspace mode embeds OpenVSCode as a sidecar workbench and the Chat/artifact surfaces already share a lighter Code-OSS-derived editor layer. That is the right directional architecture. The highest-value reuse opportunities are not “pull more of VS Code inside Chat,” but rather “reuse editor-core behaviors, inline code-aware interaction patterns, command routing patterns, SCM/diff affordances, and workbench-native view contribution models without surrendering execution semantics.” VS Code OSS is clearly better at local code interaction design: editor navigation, diagnostics, diff review ergonomics, panel layout, command palette expectations, and general workbench legibility. Our stack is clearly stronger in bounded execution, browser/computer use, approval and policy semantics, typed evidence/receipts, workflow orchestration, and skills as governed runtime assets rather than loose extensions. The most dangerous mistake would be letting VS Code’s extension host or chat affordances become the execution authority for tools, skills, or approvals. The second-most dangerous mistake would be cloning large workbench subsystems into Chat where a lightweight shared editor or a UX pattern would suffice. The best convergence target is a **shared editor substrate plus a shared chat runtime**, with Chat and Workspace remaining distinct shells over the same runtime authority. The strongest near-term bets are native IOI workbench panes backed by real runtime data, richer Code-OSS-style review/inspection flows over our evidence model, and command/context handoffs from editor/selection/terminal into our runtime. The weakest bets are full workbench reuse in Chat, extension-host-led execution semantics, or importing generic marketplace patterns into our skills/tools system. The long-term product should feel like **IOI owns the runtime and product shell, while Code OSS owns the local code-workbench muscle**.
+Autopilot should converge toward a split architecture where **our runtime remains authoritative** and **Code OSS/OpenVSCode supplies the strongest local code-workbench UX**. The repo already reflects that split more than it might seem at first glance: the durable execution, approval, policy, receipt, skill, and workflow semantics live in our runtime and validator layers, while Workspace now hosts the real OpenVSCode workbench directly inside the Autopilot shell and the Chat/artifact surfaces already share a lighter Code-OSS-derived editor layer. That is the right directional architecture. The highest-value reuse opportunities are not “pull more of VS Code inside Chat,” but rather “reuse editor-core behaviors, codebase-first onboarding flows, inline code-aware interaction patterns, command routing patterns, SCM/diff affordances, and workbench-native view contribution models without surrendering execution semantics.” Code OSS is clearly better at local code interaction design, and at this point that advantage is not subtle: editor navigation, diagnostics, review ergonomics, layout density, command palette expectations, contextual invocation, and general workbench legibility are all stronger than the current Autopilot Chat shell. Our stack is clearly stronger in bounded execution, browser/computer use, approval and policy semantics, typed evidence/receipts, workflow orchestration, and skills as governed runtime assets rather than loose extensions. The most dangerous mistake would be letting VS Code’s extension host or chat affordances become the execution authority for tools, skills, or approvals. The second-most dangerous mistake would be cloning large workbench subsystems into Chat where a lightweight shared editor, a design-system adoption, or a UX pattern would suffice. The best convergence target is a **shared editor substrate plus a shared chat runtime**, with Chat and Workspace remaining distinct shells over the same runtime authority. The strongest near-term bets are native IOI workbench panes backed by real runtime data, codebase-first onboarding/context acquisition parity inside Chat, richer Code-OSS-style review/inspection flows over our evidence model, and deliberate adoption of workbench typography, spacing, iconography, and command grammar across the broader Autopilot shell. The weakest bets are full workbench reuse in Chat, extension-host-led execution semantics, or importing generic marketplace patterns into our skills/tools system. The long-term product should feel like **IOI owns the runtime and product shell, while Code OSS owns the local code-workbench muscle and teaches the rest of the shell how serious developer software should feel**.
 
 ## 2. Architectural thesis
 
@@ -39,8 +39,8 @@ In practice, that means the long-term stack should look like:
    - Type: component reuse
    - Why it is attractive: [package.json](/home/heathledger/Documents/ioi/repos/ioi/apps/autopilot/openvscode-extension/ioi-workbench/package.json) already proves the right seam via activity-bar containers, views, and commands for `ioi.chat`, `ioi.workflows`, `ioi.runs`, `ioi.artifacts`, `ioi.policy`, and `ioi.connections`.
    - Dependency/coupling risk: low to medium
-   - Architectural caveat: current [extension.js](/home/heathledger/Documents/ioi/repos/ioi/apps/autopilot/openvscode-extension/ioi-workbench/extension.js) is mostly shell proof and must be backed by runtime data rather than webview placeholders.
-   - Recommendation: treat OpenVSCode contribution points as a first-class host for IOI panes in Workspace, but populate them from our runtime APIs.
+   - Architectural caveat: current [extension.js](/home/heathledger/Documents/ioi/repos/ioi/apps/autopilot/openvscode-extension/ioi-workbench/extension.js) is no longer merely shell proof; it already builds real editor/workspace context and emits bridge-backed requests, but the resulting panes still feel shallow and webview-oriented compared with native workbench surfaces.
+   - Recommendation: treat OpenVSCode contribution points as a first-class host for IOI panes in Workspace, and deepen them until they feel native to the workbench rather than decorative bridge receivers.
 
 3. **Editor context patterns: explain selection, review file, jump to policy, jump to run**
    - Source side: both
@@ -120,7 +120,7 @@ In practice, that means the long-term stack should look like:
 
 - shared editor-core abstraction already exists via [CodeOssEditor.tsx](/home/heathledger/Documents/ioi/repos/ioi/packages/workspace-substrate/src/components/CodeOssEditor.tsx)
 - workspace-aware editor pane already binds language snapshots, definitions, references, code actions, and notebooks in [WorkspaceEditorPane.tsx](/home/heathledger/Documents/ioi/repos/ioi/packages/workspace-substrate/src/components/WorkspaceEditorPane.tsx)
-- Chat artifact source rendering already uses the lighter editor substrate in [ArtifactSourceWorkbench.tsx](/home/heathledger/Documents/ioi/repos/ioi/apps/autopilot/src/windows/SpotlightWindow/components/ArtifactSourceWorkbench.tsx)
+- Chat artifact source rendering already uses the lighter editor substrate in [ArtifactSourceWorkbench.tsx](/home/heathledger/Documents/ioi/repos/ioi/apps/autopilot/src/windows/ChatShellWindow/components/ArtifactSourceWorkbench.tsx)
 
 **What should be reused**
 
@@ -150,18 +150,21 @@ In practice, that means the long-term stack should look like:
 - code-adjacent invocation points
 - inline chat and selection-aware prompting
 - naturally contextual command invocation from file, selection, diff, and output
+- codebase-first orientation where the repository, open editors, explorer, search, and terminal all reinforce the same working context
 
 **What our stack does well**
 
 - our runtime-backed session model is richer and more governed than generic editor chat
 - [use-session-composer.ts](/home/heathledger/Documents/ioi/repos/ioi/packages/agent-ide/src/runtime/use-session-composer.ts) explicitly handles gate blocks, sudo pauses, clarification pauses, local history, and session continuation
 - [session-runtime.ts](/home/heathledger/Documents/ioi/repos/ioi/packages/agent-ide/src/runtime/session-runtime.ts) and [assistant-session-runtime-types.ts](/home/heathledger/Documents/ioi/repos/ioi/packages/agent-ide/src/runtime/assistant-session-runtime-types.ts) already expose explicit shell targeting and runtime APIs
+- Chat has broader runtime reach than Code OSS agent chat, but its current shell is still less legible, less contextual, and less codebase-first than the workbench UX users compare it against
 
 **What should be reused**
 
 - inline chat UX
 - code-aware composer invocation patterns
 - editor/context action entry points
+- codebase-first onboarding and context acquisition patterns, especially around “what repo am I in, what file am I looking at, what should I inspect next”
 
 **What should only inspire UX**
 
@@ -178,6 +181,39 @@ In practice, that means the long-term stack should look like:
 
 - letting VS Code’s chat assumptions own task/session state
 - treating extension-host chat as canonical
+
+### Visual system and typography
+
+**What Code OSS does well**
+
+- typography, density, spacing rhythm, and iconography tuned for long developer sessions
+- an interaction language where panels, trees, tabs, actions, breadcrumbs, and command surfaces all feel like one family
+- restrained chrome that still conveys strong hierarchy and focus
+
+**What our stack does well**
+
+- product-level shell affordances outside the IDE, including chat, workflows, policy, and capabilities
+- flexibility to express runtime-specific concepts that do not naturally fit inside workbench chrome
+
+**What should be reused**
+
+- font stack and typographic proportions where licensing/distribution permits
+- spacing, control sizing, icon density, hover/focus treatment, and panel rhythms from the workbench
+- the general visual seriousness of Code OSS across the rest of Autopilot
+
+**What should only inspire UX**
+
+- shell-wide visual language; Chat should not pretend to be the entire workbench
+
+**What should remain ours**
+
+- outer shell IA and product-specific concepts
+- places where our runtime semantics need stronger affordances than generic IDE chrome provides
+
+**What should be avoided**
+
+- preserving a bespoke Autopilot visual language just because it is already there
+- carrying forward low-density chat chrome when the workbench has already proven the better answer
 
 ### Agent runtime and tool execution
 
@@ -360,7 +396,7 @@ In practice, that means the long-term stack should look like:
 
 **What should be reused**
 
-- Workspace as the code-first shell, powered by OpenVSCode via [workspace_ide.rs](/home/heathledger/Documents/ioi/repos/ioi/apps/autopilot/src-tauri/src/workspace_ide.rs) and [Workspace.tsx](/home/heathledger/Documents/ioi/repos/ioi/apps/autopilot/src/windows/ChatWindow/components/Workspace.tsx)
+- Workspace as the code-first shell, powered by OpenVSCode via [workspace_ide.rs](/home/heathledger/Documents/ioi/repos/ioi/apps/autopilot/src-tauri/src/workspace_ide.rs), [directWorkspaceWorkbenchHost.ts](/home/heathledger/Documents/ioi/repos/ioi/apps/autopilot/src/services/directWorkspaceWorkbenchHost.ts), [WorkspaceShell.tsx](/home/heathledger/Documents/ioi/repos/ioi/apps/autopilot/src/services/WorkspaceShell.tsx), and [OpenVsCodeDirectSurface.tsx](/home/heathledger/Documents/ioi/repos/ioi/apps/autopilot/src/services/OpenVsCodeDirectSurface.tsx)
 
 **What should only inspire UX**
 
@@ -412,13 +448,13 @@ In practice, that means the long-term stack should look like:
 ## 5. Specific findings
 
 1. **OpenVSCode is already correctly positioned as a workspace engine, not a product shell.**
-   - [workspace_ide.rs](/home/heathledger/Documents/ioi/repos/ioi/apps/autopilot/src-tauri/src/workspace_ide.rs) downloads and launches `openvscode-server` as a local sidecar, and [Workspace.tsx](/home/heathledger/Documents/ioi/repos/ioi/apps/autopilot/src/windows/ChatWindow/components/Workspace.tsx) embeds it in an iframe with prewarm/reveal metrics. This is a strong shell boundary: Workspace is code-first and heavy; Chat remains separate.
+   - [workspace_ide.rs](/home/heathledger/Documents/ioi/repos/ioi/apps/autopilot/src-tauri/src/workspace_ide.rs) launches `openvscode-server` as the local workbench runtime, and the production direct path now hosts it inside the Autopilot Workspace rect through [directWorkspaceWorkbenchHost.ts](/home/heathledger/Documents/ioi/repos/ioi/apps/autopilot/src/services/directWorkspaceWorkbenchHost.ts), [WorkspaceShell.tsx](/home/heathledger/Documents/ioi/repos/ioi/apps/autopilot/src/services/WorkspaceShell.tsx), and [OpenVsCodeDirectSurface.tsx](/home/heathledger/Documents/ioi/repos/ioi/apps/autopilot/src/services/OpenVsCodeDirectSurface.tsx). This is the right shell boundary: Workspace is code-first and heavy; Chat remains separate.
 
-2. **Our current IOI OpenVSCode extension is a good seam but not yet a strong product surface.**
-   - [package.json](/home/heathledger/Documents/ioi/repos/ioi/apps/autopilot/openvscode-extension/ioi-workbench/package.json) defines the right containers and commands, but [extension.js](/home/heathledger/Documents/ioi/repos/ioi/apps/autopilot/openvscode-extension/ioi-workbench/extension.js) is mostly static webview content plus command shims. The opportunity is not “replace this seam,” but “feed it real runtime data.”
+2. **Our current IOI OpenVSCode extension is a good seam and more real than this audit previously gave it credit for, but it is not yet a strong product surface.**
+   - [package.json](/home/heathledger/Documents/ioi/repos/ioi/apps/autopilot/openvscode-extension/ioi-workbench/package.json) defines the right containers and commands, and [extension.js](/home/heathledger/Documents/ioi/repos/ioi/apps/autopilot/openvscode-extension/ioi-workbench/extension.js) already gathers editor/workspace context and emits bridge-backed requests such as `chat.explainSelection`, `chat.reviewFile`, `chat.reviewRun`, and `evidence.open`. The opportunity is not “replace this seam,” but “deepen it until the panes feel workbench-native rather than bridge-fed.”
 
 3. **We already have the right shared editor abstraction; we should lean into it.**
-   - [CodeOssEditor.tsx](/home/heathledger/Documents/ioi/repos/ioi/packages/workspace-substrate/src/components/CodeOssEditor.tsx), [WorkspaceEditorPane.tsx](/home/heathledger/Documents/ioi/repos/ioi/packages/workspace-substrate/src/components/WorkspaceEditorPane.tsx), and [ArtifactSourceWorkbench.tsx](/home/heathledger/Documents/ioi/repos/ioi/apps/autopilot/src/windows/SpotlightWindow/components/ArtifactSourceWorkbench.tsx) show a healthy split: lightweight editor rendering in Chat, richer pane behavior in Workspace, same editor substrate.
+   - [CodeOssEditor.tsx](/home/heathledger/Documents/ioi/repos/ioi/packages/workspace-substrate/src/components/CodeOssEditor.tsx), [WorkspaceEditorPane.tsx](/home/heathledger/Documents/ioi/repos/ioi/packages/workspace-substrate/src/components/WorkspaceEditorPane.tsx), and [ArtifactSourceWorkbench.tsx](/home/heathledger/Documents/ioi/repos/ioi/apps/autopilot/src/windows/ChatShellWindow/components/ArtifactSourceWorkbench.tsx) show a healthy split: lightweight editor rendering in Chat, richer pane behavior in Workspace, same editor substrate.
 
 4. **Our workspace backend is stronger than any generic “just let VS Code do it” story.**
    - [workspaceAdapter.ts](/home/heathledger/Documents/ioi/repos/ioi/apps/autopilot/src/services/workspaceAdapter.ts) already exposes file, LSP, git, diff, terminal, and workspace snapshot operations to the UI. That means we should not import large extra workbench subsystems where our adapter already gives a bounded seam.
@@ -438,13 +474,19 @@ In practice, that means the long-term stack should look like:
 9. **Our command palette content model is richer than VS Code’s, but the interaction model is weaker.**
    - [CommandPalette.tsx](/home/heathledger/Documents/ioi/repos/ioi/apps/autopilot/src/components/CommandPalette.tsx) already includes sessions, projects, skills, runtime catalog, and live tools. This is strong content, but the UX can still converge toward Code-OSS-grade discoverability and flow.
 
-10. **Workflow discovery already has a workspace-native seam.**
+10. **Code OSS agent UX is materially ahead of the current Autopilot Chat shell, even if our runtime may already be ahead underneath it.**
+   - [ChatWindowMainContent.tsx](/home/heathledger/Documents/ioi/repos/ioi/apps/autopilot/src/windows/ChatWindow/components/ChatWindowMainContent.tsx), [ChatIdeHeader.tsx](/home/heathledger/Documents/ioi/repos/ioi/apps/autopilot/src/windows/ChatWindow/components/ChatIdeHeader.tsx), and [ChatLocalActivityBar.tsx](/home/heathledger/Documents/ioi/repos/ioi/apps/autopilot/src/windows/ChatWindow/components/ChatLocalActivityBar.tsx) make the Chat shell visibly custom and product-specific. That flexibility is useful, but the workbench still wins on density, navigation coherence, contextual entry points, and overall “developer software” legibility.
+
+11. **Codebase-first onboarding/context parity is now a likely near-term target, not a speculative idea.**
+   - [workspaceAdapter.ts](/home/heathledger/Documents/ioi/repos/ioi/apps/autopilot/src/services/workspaceAdapter.ts), [directWorkspaceWorkbenchHost.ts](/home/heathledger/Documents/ioi/repos/ioi/apps/autopilot/src/services/directWorkspaceWorkbenchHost.ts), and [workspaceRuntimeNavigation.ts](/home/heathledger/Documents/ioi/repos/ioi/apps/autopilot/src/services/workspaceRuntimeNavigation.ts) show that we already have the ingredients for file-aware, repo-aware, context-rich handoff between workbench state and our runtime. The remaining gap is productizing those signals in the Chat shell with the same inevitability that the workbench provides.
+
+12. **Workflow discovery already has a workspace-native seam.**
     - [workspace_workflows.rs](/home/heathledger/Documents/ioi/repos/ioi/apps/autopilot/src-tauri/src/kernel/workspace_workflows.rs) discovers workspace workflows from repo files. That is a strong basis for native workbench workflow panes and command palette contributions without changing runtime semantics.
 
-11. **Our chat/artifact layer already produces code-review-adjacent primitives that should be surfaced better.**
+13. **Our chat/artifact layer already produces code-review-adjacent primitives that should be surfaced better.**
     - [validation_preview.rs](/home/heathledger/Documents/ioi/repos/ioi/crates/api/src/chat/generation/validation_preview.rs) and related generation/finalize modules indicate we already have rich validation-preview semantics that should likely adopt stronger Code-OSS-style review UX.
 
-12. **The runtime harness naming itself is converging toward a neutral substrate.**
+14. **The runtime harness naming itself is converging toward a neutral substrate.**
     - [runtime_harness.rs](/home/heathledger/Documents/ioi/repos/ioi/crates/api/src/runtime_harness.rs) re-exports chat/runtime functionality under a more neutral harness frame, which supports the long-term thesis that Chat and Workspace should share the runtime substrate even if they differ in UX shell.
 
 ## 6. Convergence map
@@ -509,42 +551,56 @@ In practice, that means the long-term stack should look like:
 
 ## 7. Near-term next sprint targets
 
-1. **Back the OpenVSCode IOI panes with real runtime data**
+1. **Adopt the workbench visual system across the rest of Autopilot**
+   - Why now: the real workbench is already the strongest-looking part of the product, and the contrast with the current Chat shell is becoming a product liability.
+   - Expected payoff: high
+   - Implementation complexity: medium
+   - Risk: low to medium
+   - Whether it is UX-facing, architecture-facing, or both: primarily UX-facing
+
+2. **Back the OpenVSCode IOI panes with real runtime data**
    - Why now: the extension seam already exists and is visibly shallow today.
    - Expected payoff: high
    - Implementation complexity: medium
    - Risk: medium
    - Whether it is UX-facing, architecture-facing, or both: both
 
-2. **Add editor-context actions that route into our runtime**
+3. **Build codebase-first onboarding/context acquisition parity into Chat**
+   - Why now: Workspace already proves the right repo/file/context posture; Chat should stop feeling comparatively ungrounded when the user is working inside a codebase.
+   - Expected payoff: high
+   - Implementation complexity: medium
+   - Risk: medium
+   - Whether it is UX-facing, architecture-facing, or both: both
+
+4. **Add editor-context actions that route into our runtime**
    - Why now: we already have `ioi.chat.explainSelection`, `ioi.chat.reviewFile`, and shell targeting APIs; the missing piece is real end-to-end routing and richer results.
    - Expected payoff: high
    - Implementation complexity: medium
    - Risk: low to medium
    - Whether it is UX-facing, architecture-facing, or both: both
 
-3. **Unify command palette interaction with Code-OSS-like grammar while preserving our richer content**
+5. **Unify command palette interaction with Code-OSS-like grammar while preserving our richer content**
    - Why now: low-risk UX win over already-valuable content in [CommandPalette.tsx](/home/heathledger/Documents/ioi/repos/ioi/apps/autopilot/src/components/CommandPalette.tsx)
    - Expected payoff: high
    - Implementation complexity: medium
    - Risk: low
    - Whether it is UX-facing, architecture-facing, or both: both
 
-4. **Build an evidence/validation inspection pane using Code-OSS review patterns**
+6. **Build an evidence/validation inspection pane using Code-OSS review patterns**
    - Why now: our evidence and validation model is strong, but the UX is weaker than the semantics deserve.
    - Expected payoff: high
    - Implementation complexity: medium to high
    - Risk: medium
    - Whether it is UX-facing, architecture-facing, or both: both
 
-5. **Make Workspace-native workflow/runs panes real instead of presentational**
+7. **Make Workspace-native workflow/runs panes real instead of presentational**
    - Why now: workflow discovery and runtime activity models already exist; users should not have to leave Workspace to inspect them.
    - Expected payoff: medium to high
    - Implementation complexity: medium
    - Risk: medium
    - Whether it is UX-facing, architecture-facing, or both: both
 
-6. **Adopt stronger Code-OSS-style diff/review interaction for artifact previews**
+8. **Adopt stronger Code-OSS-style diff/review interaction for artifact previews**
    - Why now: we already render artifact source and validation previews; the missing piece is interaction quality.
    - Expected payoff: medium
    - Implementation complexity: medium
@@ -595,7 +651,7 @@ In practice, that means the long-term stack should look like:
 
 ## 10. Final recommendation
 
-Use Code OSS/OpenVSCode as the **code-workbench substrate**, not the execution authority. Keep Chat and Workspace as distinct shells over one runtime/harness, with Workspace optimized for code-first work and Chat optimized for conversation-first, artifact-aware work. Converge aggressively on a shared editor substrate, Code-OSS-grade interaction patterns, native workbench panes for IOI concepts, and editor/selection/terminal commands that route into our runtime. Do not converge on extension-host-led execution, generic marketplace semantics for skills, or full workbench reuse inside Chat. The next move should be to make the existing OpenVSCode IOI panes real, wire editor-context actions to our runtime/session APIs, and build a better evidence/validation inspection surface using Code-OSS review idioms. At the same time, we should keep bounded execution, approvals, browser/computer use, evidence, validation, and workflow semantics authoritative in our runtime and validator plane. The product should feel like **IOI owns the state, authority, and orchestration**, while **Code OSS contributes the best local code interaction model where that model is genuinely stronger**.
+Use Code OSS/OpenVSCode as the **code-workbench substrate**, not the execution authority. Keep Chat and Workspace as distinct shells over one runtime/harness, with Workspace optimized for code-first work and Chat optimized for conversation-first, artifact-aware work. Converge aggressively on a shared editor substrate, Code-OSS-grade interaction patterns, native workbench panes for IOI concepts, editor/selection/terminal commands that route into our runtime, and a broader Autopilot visual system that learns unapologetically from the workbench’s typography, density, and command grammar. Do not converge on extension-host-led execution, generic marketplace semantics for skills, or full workbench reuse inside Chat. The next move should be to make the existing OpenVSCode IOI panes real, build codebase-first onboarding/context parity in Chat, wire editor-context actions to our runtime/session APIs, and build a better evidence/validation inspection surface using Code-OSS review idioms. At the same time, we should keep bounded execution, approvals, browser/computer use, evidence, validation, and workflow semantics authoritative in our runtime and validator plane. The product should feel like **IOI owns the state, authority, and orchestration**, while **Code OSS contributes the best local code interaction model and the strongest visual grammar wherever that model is genuinely stronger**.
 
 | Area | Opportunity | Type | Value | Complexity | Risk | Recommendation |
 |---|---|---|---|---|---|---|

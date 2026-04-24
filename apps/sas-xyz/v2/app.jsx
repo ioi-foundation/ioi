@@ -22,29 +22,22 @@ const Topbar = ({ tab, activeCategory, onTab, onCategory, inboxActionCount, onBe
           <img src="v2/logo.svg" alt="" />
           sas<em>.xyz</em>
         </div>
-        <nav className="top-nav marketing-nav">
-          <a onClick={(e) => { e.preventDefault(); document.getElementById('how')?.scrollIntoView({behavior:'smooth'}); }} href="#how">How it works</a>
-          <a onClick={(e) => { e.preventDefault(); document.getElementById('compare')?.scrollIntoView({behavior:'smooth'}); }} href="#compare">vs. SaaS</a>
-          <a onClick={(e) => { e.preventDefault(); onTab('Market'); }} href="#">Market</a>
-        </nav>
-        <div className="top-right">
+        <nav className="top-nav marketing-nav" style={{display: 'flex', alignItems: 'center', gap: '20px', marginLeft: 'auto'}}>
+          <a onClick={(e) => { e.preventDefault(); }} href="#">Explore</a>
+          <a onClick={(e) => { e.preventDefault(); }} href="#" style={{display: 'flex', alignItems: 'center', gap: '6px'}}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            English
+          </a>
+          <a onClick={(e) => { e.preventDefault(); }} href="#">Become a Seller</a>
+          <a onClick={(e) => { e.preventDefault(); onTab('Home'); }} href="#">Sign in</a>
           <button
             onClick={() => onTab('Home')}
-            className="mono"
-            style={{
-              background:'transparent', border:'none', color:'var(--muted)',
-              fontSize:11, letterSpacing:'0.08em', textTransform:'uppercase',
-              cursor:'pointer', padding:'8px 10px',
-            }}
-          >Sign in</button>
-          <button
-            onClick={() => onTab('Home')}
-            className="btn accent"
-            style={{padding:'8px 16px', fontSize:12}}
+            className="fiverr-btn-outline"
+            style={{background: 'transparent', cursor: 'pointer', fontFamily: 'var(--sans, sans-serif)', fontSize: '15px', marginLeft: '8px'}}
           >
-            Open app <span className="mono" style={{marginLeft:6, opacity:0.7}}>→</span>
+            Join
           </button>
-        </div>
+        </nav>
       </header>
     );
   }
