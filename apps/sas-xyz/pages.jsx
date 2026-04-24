@@ -20,15 +20,21 @@ const InstancesPage = () => (
       <div className="tbl-card-head" style={{gridTemplateColumns:'2fr 1fr 1fr 1fr 1fr 1fr 80px'}}>
         <div>Service</div><div>Posture</div><div>Health</div><div>Outcomes MTD</div><div>Spend MTD</div><div>Last sync</div><div></div>
       </div>
-      {INSTANCES.map(i => (
+      {INSTANCES.map((i, idx) => (
         <div key={i.id} className="audit-row" style={{gridTemplateColumns:'2fr 1fr 1fr 1fr 1fr 1fr 80px'}}>
           <div>
             <div className="serif" style={{fontSize:20, lineHeight:1.1}}>{i.name}</div>
             <div className="mono" style={{fontSize:10, color:'var(--muted)', marginTop:4, letterSpacing:'0.05em'}}>{i.provider} · ID {i.id}</div>
           </div>
           <div><PostureBadge posture={i.postureKey === 'gated' ? 'Approval-gated' : i.postureKey === 'local' ? 'Local-first' : 'Autonomous'} postureKey={i.postureKey}/></div>
-          <div><span className="live-dot"><span className="pulse"/>{i.health}</span></div>
-          <div className="serif" style={{fontSize:22}}>{i.outcomes.toLocaleString()}</div>
+          <div>
+            <div className="live-dot"><span className="pulse"/>{i.health}</div>
+            <div style={{marginTop:6}}><AsciiActivity seed={idx} health={i.health} width={14}/></div>
+          </div>
+          <div>
+            <div className="serif" style={{fontSize:22}}>{i.outcomes.toLocaleString()}</div>
+            <AsciiThroughput base={i.outcomes > 100 ? 14 : 3} seed={idx}/>
+          </div>
           <div className="serif" style={{fontSize:22}}>${i.spend.toFixed(2)}</div>
           <div className="mono" style={{fontSize:11, color:'var(--muted)'}}>{i.lastSync}</div>
           <div style={{textAlign:'right'}}><Icon name="chevR" size={14}/></div>
@@ -38,7 +44,9 @@ const InstancesPage = () => (
   </div>
 );
 
-const AuditPage = () => (
+const AuditPage = () => {
+  const activeIdx = useAuditVerifier(AUDIT_ROWS.length);
+  return (
   <div className="content">
     <div className="page-head">
       <div>
@@ -49,7 +57,13 @@ const AuditPage = () => (
       <div className="stat-strip">
         <div className="stat"><span className="stat-label">Entries (30d)</span><span className="stat-val">1,287</span></div>
         <div className="stat-sep"/>
-        <div className="stat"><span className="stat-label">Chain status</span><span className="stat-val" style={{fontSize:20, color:'var(--sage-ink)'}}>Intact</span></div>
+        <div className="stat" style={{minWidth:180}}>
+          <span className="stat-label">Chain status</span>
+          <div style={{display:'flex', alignItems:'center', gap:10, marginTop:2}}>
+            <span className="stat-val" style={{fontSize:20, color:'var(--sage-ink)'}}>Intact</span>
+          </div>
+          <div style={{marginTop:6}}><AsciiChain nodes={10} /></div>
+        </div>
         <div className="stat-sep"/>
         <div className="stat"><span className="stat-label">Disputes</span><span className="stat-val">0</span></div>
       </div>
@@ -72,13 +86,14 @@ const AuditPage = () => (
           <div className="audit-proof" style={{display:'flex', alignItems:'center', gap:8}}>
             <Icon name="file" size={12}/> {a.proof}
           </div>
-          <div className="audit-hash">{a.hash}</div>
-          <div><span className="audit-state">{a.state}</span></div>
+          <div><AsciiHash value={a.hash} active={activeIdx === i}/></div>
+          <div><span className="audit-state">{activeIdx === i ? 'Re-verifying' : a.state}</span></div>
         </div>
       ))}
     </div>
   </div>
-);
+  );
+};
 
 const SettlementPage = () => (
   <div className="content">
@@ -102,6 +117,7 @@ const SettlementPage = () => (
         <div className="ledger-label">Accrued spend · month to date</div>
         <div className="ledger-amount"><em>$1,420</em><span className="cents">.50</span></div>
         <div className="ledger-sub">Across 3 active services · 1,051 settled outcomes · 0 disputes</div>
+        <AsciiMeter value={1420.50} max={2000} width={36}/>
         <div className="ledger-rows">
           <div className="ledger-row">
             <span className="k">Fixed subscriptions</span>
@@ -112,8 +128,8 @@ const SettlementPage = () => (
             <span className="v">$520.<em>50</em></span>
           </div>
           <div className="ledger-row total">
-            <span className="k">Settled on</span>
-            <span className="v"><em>May 01, 2026</em></span>
+            <span className="k">Settles in</span>
+            <span className="v"><AsciiCountdown target="2026-05-01T00:00:00Z"/></span>
           </div>
         </div>
       </div>

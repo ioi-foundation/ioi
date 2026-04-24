@@ -161,3 +161,134 @@ window.INSTANCES = INSTANCES;
 window.AUDIT_ROWS = AUDIT_ROWS;
 window.RuntimePosture = RuntimePosture;
 window.PricingModel = PricingModel;
+
+// Evidence sample per service — what a completed outcome artifact looks like.
+// Body lines are rendered monospace; the drawer frames this as a signed PDF preview.
+const EVIDENCE_SAMPLES = {
+  'inv-ops-001': {
+    title: 'Reconciliation Trace',
+    filename: 'recon_trace_v142.pdf',
+    ts: 'Apr 18, 2026 · 14:44:05 UTC',
+    hash: '0x7a2c9f04b91d3e2a7c4f8ddf82',
+    signer: 'FinFlow Autonomous · key 0x8f…22a1',
+    lines: [
+      { k: 'INV-22841',  v: 'matched → PO-8812',      s: '$4,218.00', ok: true },
+      { k: 'INV-22842',  v: 'matched → receipt-9031', s: '$612.50',   ok: true },
+      { k: 'INV-22843',  v: 'flagged · no PO',         s: '$87.14',    ok: false },
+      { k: 'INV-22844',  v: 'matched → PO-8814',      s: '$1,930.00', ok: true },
+    ],
+    summary: '4 line items · 3 auto-matched · 1 flagged for human review',
+  },
+  'ent-proc-002': {
+    title: 'RFP Evaluation Brief',
+    filename: 'rfp_eval_q2_brief.pdf',
+    ts: 'Apr 18, 2026 · 11:15:30 UTC',
+    hash: '0x9c3d7714f288a02bd1e4a7a834',
+    signer: 'Sager Systems · key 0x4e…118c',
+    lines: [
+      { k: 'ISO 27001',  v: 'compliant · all 14 controls',   s: 'PASS',   ok: true },
+      { k: 'Data residency', v: 'EU-only · verified',       s: 'PASS',   ok: true },
+      { k: 'SLA parity', v: 'vendor offers 99.5 vs req 99.9', s: 'GAP',   ok: false },
+      { k: 'Insurance',  v: '$5M cyber liability filed',     s: 'PASS',   ok: true },
+    ],
+    summary: '3 of 4 criteria met · 1 negotiable gap · recommend shortlist',
+  },
+  'it-patch-003': {
+    title: 'Red / Green Test Summary',
+    filename: 'remediation_log_cve_44219.pdf',
+    ts: 'Apr 17, 2026 · 22:18:09 UTC',
+    hash: '0x8d1b2c07af29b4e03c6a157789',
+    signer: 'Sentinel Core · key 0x2f…9908',
+    lines: [
+      { k: 'CVE-2025-44219', v: 'patched · openssl→3.2.1', s: 'GREEN', ok: true },
+      { k: 'Smoke suite',    v: '412 / 412 passed',       s: 'GREEN', ok: true },
+      { k: 'Regression',     v: '0 new failures',         s: 'GREEN', ok: true },
+      { k: 'Rollback ready', v: 'snapshot snap-9f22',     s: 'ARMED', ok: true },
+    ],
+    summary: 'Staging verified · awaiting two-eyes approval for production promote',
+  },
+  'mkt-extract-004': {
+    title: 'Market Intel Card',
+    filename: 'competitor_pricing_wk16.pdf',
+    ts: 'Apr 17, 2026 · 08:04:22 UTC',
+    hash: '0x3a4e66cc8b19fe7e2d27edb2a1',
+    signer: 'Insight Labs · key 0x1a…7743',
+    lines: [
+      { k: 'Vendor A',   v: 'Pro plan · $99 → $119',   s: '+20%', ok: false },
+      { k: 'Vendor B',   v: 'new tier · Team $49',      s: 'NEW',  ok: true },
+      { k: 'Vendor C',   v: 'unchanged since wk 9',     s: 'FLAT', ok: true },
+      { k: 'Source',     v: 'SEC 10-Q + public pricing', s: '4 refs', ok: true },
+    ],
+    summary: '3 vendors tracked · 1 price move · sources linked in appendix',
+  },
+  'hr-onboard-005': {
+    title: 'Provisioning Chain-of-Custody',
+    filename: 'provision_chain_21.pdf',
+    ts: 'Apr 18, 2026 · 09:02:41 UTC',
+    hash: '0x2e5f88bb0319dc4a80d4e41c44',
+    signer: 'Cohort Labor · key 0x9c…0044',
+    lines: [
+      { k: 'Okta identity',  v: 'issued · SSO group EU-Sales', s: 'DONE', ok: true },
+      { k: 'Gusto payroll',  v: 'enrolled · DE locale',        s: 'DONE', ok: true },
+      { k: 'Jamf device',    v: 'M3 shipped to Munich',        s: 'DONE', ok: true },
+      { k: 'Policy ack',     v: 'awaiting e-sign',             s: 'PEND', ok: false },
+    ],
+    summary: '3 of 4 steps sealed · policy acknowledgement pending new hire',
+  },
+  'lgl-review-006': {
+    title: 'Counsel Redline Memo',
+    filename: 'msa_redline_v3_1.pdf',
+    ts: 'Apr 17, 2026 · 16:30:12 UTC',
+    hash: '0x5c9a11ff3e80cd9711b8e42266',
+    signer: 'Paragraph Legal · key 0x6d…ba12',
+    lines: [
+      { k: '§4 Liability cap', v: 'raised to 2× fees · accepted',   s: 'OK',     ok: true },
+      { k: '§7 Auto-renew',    v: 'struck · opt-in required',       s: 'OK',     ok: true },
+      { k: '§12 Indemnity',    v: 'vendor pushback · escalate GC',  s: 'FLAG',   ok: false },
+      { k: '§19 Governing law', v: 'DE → NY · accepted',           s: 'OK',     ok: true },
+    ],
+    summary: '3 clauses accepted · 1 flagged for GC review · no signing authority exercised',
+  },
+};
+
+window.EVIDENCE_SAMPLES = EVIDENCE_SAMPLES;
+
+// Catalog deltas — recent governed changes since user last viewed.
+// Tones: 'add' (sage), 'price' (accent), 'policy' (plum), 'pending' (coral).
+const CATALOG_DELTAS = [
+  {
+    id: 'd1',
+    when: '2d ago',
+    actor: 'Cohort Labor',
+    seq: '005',
+    kind: 'price',
+    glyph: '$',
+    headline: 'Per-hire price reduced',
+    detail: '$140 → $120 / hire · effective May 01',
+    by: 'Vendor · auto-applied (no policy impact)',
+  },
+  {
+    id: 'd2',
+    when: '4d ago',
+    actor: 'Sentinel Core',
+    seq: '003',
+    kind: 'policy',
+    glyph: '◆',
+    headline: 'Envelope tightened',
+    detail: 'Production patches now require two-eyes sign-off',
+    by: 'Infosec · Bravo + Charlie envelope merge',
+  },
+  {
+    id: 'd3',
+    when: '6d ago',
+    actor: 'Paragraph Legal',
+    seq: '006',
+    kind: 'add',
+    glyph: '+',
+    headline: 'Added to catalog',
+    detail: 'Contract First-Pass Review · indemnity to $1M',
+    by: 'Legal · 24h Infosec sign-off pending',
+  },
+];
+
+window.CATALOG_DELTAS = CATALOG_DELTAS;

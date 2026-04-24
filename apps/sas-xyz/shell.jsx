@@ -15,7 +15,10 @@ const Sidebar = ({ active, setActive }) => {
   return (
     <aside className="sidebar">
       <div className="brand"><img className="brand-mark" src="logo.svg" alt=""/>sas<em>.xyz</em></div>
-      <div className="brand-sub">Service-as-Software</div>
+      <div className="brand-sub">
+        <div>Service-as-Software</div>
+        <AsciiPulse width={14} />
+      </div>
 
       {groups.map(g => (
         <div key={g.label} className="nav-group">
@@ -56,6 +59,8 @@ const Topbar = () => (
       <span className="kbd">⌘K</span>
     </div>
     <div className="topbar-right">
+      <AsciiTicker width={32} />
+      <div className="topbar-divider"/>
       <div className="release-tag"><span className="dot"/>v2.4.0 Stable</div>
       <div className="topbar-divider"/>
       <div className="icon-btn"><Icon name="bell" size={17}/><span className="bell-dot"/></div>

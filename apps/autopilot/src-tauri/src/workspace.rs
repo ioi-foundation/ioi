@@ -1,17 +1,24 @@
 use crate::kernel::lsp;
-use portable_pty::{native_pty_system, ChildKiller, CommandBuilder, MasterPty, PtySize};
 use serde::Serialize;
 use serde_json::Value;
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::collections::BTreeMap;
 use std::fs;
-use std::io::{Read, Write};
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
-use std::thread;
-use std::time::UNIX_EPOCH;
 use tauri::State;
+
+mod paths;
+mod terminal;
+
+use self::paths::{
+    display_name_for_root, file_name_for_path, language_hint_for_path, modified_time_ms,
+    relative_path, resolve_root_path, resolve_scoped_candidate_path, resolve_scoped_existing_path,
+    safe_relative_input,
+};
+pub(crate) use self::terminal::WorkspaceTerminalBridge;
+pub use self::terminal::{
+    WorkspaceTerminalManager, WorkspaceTerminalReadResult, WorkspaceTerminalSession,
+};
 
 // Keep initial workspace snapshots shallow so shell boot and first reveal stay
 // responsive. Deeper directory contents are loaded on demand via
@@ -20,7 +27,6 @@ const TREE_BOOTSTRAP_DEPTH: usize = 0;
 const TREE_MAX_CHILDREN: usize = 200;
 const EDITOR_MAX_BYTES: usize = 1024 * 1024;
 const SEARCH_MAX_MATCHES: usize = 600;
-const TERMINAL_MAX_CHUNKS: usize = 2400;
 const SKIPPED_DIRS: &[&str] = &[".git", "node_modules", "target", "dist", "build"];
 
 #[derive(Debug, Serialize, Clone)]
@@ -151,458 +157,8 @@ pub struct WorkspaceDeleteResult {
     pub deleted_path: String,
 }
 
-#[derive(Debug, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct WorkspaceTerminalSession {
-    pub session_id: String,
-    pub shell: String,
-    pub root_path: String,
-    pub started_at_ms: u64,
-    pub cols: u16,
-    pub rows: u16,
-}
-
-#[derive(Debug, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct WorkspaceTerminalOutputChunk {
-    pub sequence: u64,
-    pub text: String,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct WorkspaceTerminalReadResult {
-    pub session_id: String,
-    pub cursor: u64,
-    pub chunks: Vec<WorkspaceTerminalOutputChunk>,
-    pub running: bool,
-    pub exit_code: Option<i32>,
-}
-
-#[derive(Default)]
-pub struct WorkspaceTerminalManager {
-    sessions: Mutex<HashMap<String, Arc<WorkspaceTerminalHandle>>>,
-}
-
-#[derive(Clone)]
-pub(crate) struct WorkspaceTerminalBridge {
-    session: Arc<WorkspaceTerminalHandle>,
-}
-
-struct WorkspaceTerminalHandle {
-    session: WorkspaceTerminalSession,
-    writer: Mutex<Box<dyn Write + Send>>,
-    master: Mutex<Box<dyn MasterPty + Send>>,
-    killer: Mutex<Box<dyn ChildKiller + Send + Sync>>,
-    output: Mutex<VecDeque<WorkspaceTerminalOutputChunk>>,
-    next_sequence: AtomicU64,
-    running: AtomicBool,
-    exit_code: Mutex<Option<i32>>,
-}
-
-fn resolve_root_path(root: &str) -> Result<PathBuf, String> {
-    let requested = PathBuf::from(root);
-    let resolved = if requested.is_absolute() {
-        requested
-    } else {
-        std::env::current_dir()
-            .map_err(|error| format!("Failed to resolve current directory: {}", error))?
-            .join(requested)
-    };
-
-    if !resolved.exists() {
-        return Err(format!(
-            "Workspace root '{}' does not exist.",
-            resolved.display()
-        ));
-    }
-
-    resolved
-        .canonicalize()
-        .map_err(|error| format!("Failed to canonicalize '{}': {}", resolved.display(), error))
-}
-
-fn safe_relative_input(relative_path: &str) -> Result<PathBuf, String> {
-    let path = PathBuf::from(relative_path);
-    if path.as_os_str().is_empty() || relative_path == "." {
-        return Ok(PathBuf::new());
-    }
-
-    if path.is_absolute() {
-        return Err("Absolute paths are not allowed in the workspace.".to_string());
-    }
-
-    if path.components().any(|component| {
-        matches!(
-            component,
-            Component::ParentDir | Component::RootDir | Component::Prefix(_)
-        )
-    }) {
-        return Err("Path traversal is not allowed in the workspace.".to_string());
-    }
-
-    Ok(path)
-}
-
-fn relative_path(root: &PathBuf, path: &Path) -> String {
-    path.strip_prefix(root)
-        .ok()
-        .map(|value| {
-            let rendered = value
-                .components()
-                .map(|component| component.as_os_str().to_string_lossy().to_string())
-                .collect::<Vec<_>>()
-                .join("/");
-            if rendered.is_empty() {
-                ".".to_string()
-            } else {
-                rendered
-            }
-        })
-        .unwrap_or_else(|| path.display().to_string())
-}
-
-fn resolve_scoped_existing_path(root: &PathBuf, relative_path: &str) -> Result<PathBuf, String> {
-    let safe_relative = safe_relative_input(relative_path)?;
-    let candidate = root.join(&safe_relative);
-    let canonical = candidate.canonicalize().map_err(|error| {
-        format!(
-            "Failed to resolve workspace path '{}': {}",
-            candidate.display(),
-            error
-        )
-    })?;
-
-    if !canonical.starts_with(root) {
-        return Err("Resolved path falls outside the workspace boundary.".to_string());
-    }
-
-    Ok(canonical)
-}
-
-fn resolve_scoped_candidate_path(root: &PathBuf, relative_path: &str) -> Result<PathBuf, String> {
-    let safe_relative = safe_relative_input(relative_path)?;
-    let candidate = root.join(&safe_relative);
-    if !candidate.starts_with(root) {
-        return Err("Resolved path falls outside the workspace boundary.".to_string());
-    }
-    Ok(candidate)
-}
-
 fn should_skip_dir(name: &str) -> bool {
     SKIPPED_DIRS.iter().any(|value| value == &name)
-}
-
-fn file_name_for_path(path: &Path) -> String {
-    path.file_name()
-        .and_then(|value| value.to_str())
-        .unwrap_or("unknown")
-        .to_string()
-}
-
-fn modified_time_ms(path: &Path) -> Option<u64> {
-    fs::metadata(path)
-        .ok()
-        .and_then(|metadata| metadata.modified().ok())
-        .and_then(|timestamp| timestamp.duration_since(UNIX_EPOCH).ok())
-        .map(|duration| duration.as_millis() as u64)
-}
-
-fn now_ms() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .ok()
-        .map(|duration| duration.as_millis() as u64)
-        .unwrap_or(0)
-}
-
-fn language_hint_for_path(path: &Path) -> Option<String> {
-    match path.extension().and_then(|value| value.to_str()) {
-        Some("ts") => Some("typescript".to_string()),
-        Some("tsx") => Some("tsx".to_string()),
-        Some("js") => Some("javascript".to_string()),
-        Some("jsx") => Some("jsx".to_string()),
-        Some("json") => Some("json".to_string()),
-        Some("md") => Some("markdown".to_string()),
-        Some("rs") => Some("rust".to_string()),
-        Some("css") => Some("css".to_string()),
-        Some("html") | Some("htm") => Some("html".to_string()),
-        Some("yaml") | Some("yml") => Some("yaml".to_string()),
-        Some("sh") | Some("bash") => Some("shell".to_string()),
-        Some("toml") => Some("toml".to_string()),
-        Some("xml") | Some("svg") => Some("xml".to_string()),
-        _ => None,
-    }
-}
-
-fn display_name_for_root(root: &PathBuf) -> String {
-    root.file_name()
-        .and_then(|value| value.to_str())
-        .filter(|value| !value.is_empty())
-        .unwrap_or("workspace")
-        .to_string()
-}
-
-fn default_terminal_shell() -> String {
-    #[cfg(windows)]
-    {
-        std::env::var("COMSPEC")
-            .ok()
-            .filter(|value| !value.trim().is_empty())
-            .unwrap_or_else(|| "powershell.exe".to_string())
-    }
-
-    #[cfg(not(windows))]
-    {
-        std::env::var("SHELL")
-            .ok()
-            .filter(|value| !value.trim().is_empty())
-            .unwrap_or_else(|| "/bin/bash".to_string())
-    }
-}
-
-fn push_terminal_output(session: &Arc<WorkspaceTerminalHandle>, text: String) {
-    if text.is_empty() {
-        return;
-    }
-
-    let sequence = session.next_sequence.fetch_add(1, Ordering::Relaxed) + 1;
-    let mut output = session
-        .output
-        .lock()
-        .expect("terminal output lock poisoned");
-    output.push_back(WorkspaceTerminalOutputChunk { sequence, text });
-    while output.len() > TERMINAL_MAX_CHUNKS {
-        output.pop_front();
-    }
-}
-
-fn spawn_terminal_session(
-    root: &PathBuf,
-    cols: u16,
-    rows: u16,
-) -> Result<Arc<WorkspaceTerminalHandle>, String> {
-    let pty_system = native_pty_system();
-    let pty_size = PtySize {
-        rows,
-        cols,
-        pixel_width: 0,
-        pixel_height: 0,
-    };
-    let pair = pty_system
-        .openpty(pty_size)
-        .map_err(|error| format!("Failed to open PTY: {}", error))?;
-    let shell = default_terminal_shell();
-    let mut command = CommandBuilder::new(&shell);
-    command.cwd(root);
-    command.env("TERM", "xterm-256color");
-    command.env("COLORTERM", "truecolor");
-    command.env("TERM_PROGRAM", "Autopilot");
-
-    let mut child = pair
-        .slave
-        .spawn_command(command)
-        .map_err(|error| format!("Failed to spawn workspace shell: {}", error))?;
-    drop(pair.slave);
-    let killer = child.clone_killer();
-    let mut reader = pair
-        .master
-        .try_clone_reader()
-        .map_err(|error| format!("Failed to clone PTY reader: {}", error))?;
-    let writer = pair
-        .master
-        .take_writer()
-        .map_err(|error| format!("Failed to access PTY writer: {}", error))?;
-
-    let session = Arc::new(WorkspaceTerminalHandle {
-        session: WorkspaceTerminalSession {
-            session_id: uuid::Uuid::new_v4().to_string(),
-            shell,
-            root_path: root.display().to_string(),
-            started_at_ms: now_ms(),
-            cols,
-            rows,
-        },
-        writer: Mutex::new(writer),
-        master: Mutex::new(pair.master),
-        killer: Mutex::new(killer),
-        output: Mutex::new(VecDeque::new()),
-        next_sequence: AtomicU64::new(0),
-        running: AtomicBool::new(true),
-        exit_code: Mutex::new(None),
-    });
-
-    let read_session = Arc::clone(&session);
-    thread::spawn(move || {
-        let mut buffer = [0_u8; 4096];
-        loop {
-            match reader.read(&mut buffer) {
-                Ok(0) => break,
-                Ok(count) => {
-                    push_terminal_output(
-                        &read_session,
-                        String::from_utf8_lossy(&buffer[..count]).to_string(),
-                    );
-                }
-                Err(error) => {
-                    push_terminal_output(
-                        &read_session,
-                        format!("\r\n[autopilot] terminal read error: {}\r\n", error),
-                    );
-                    break;
-                }
-            }
-        }
-    });
-
-    let wait_session = Arc::clone(&session);
-    thread::spawn(move || match child.wait() {
-        Ok(status) => {
-            wait_session.running.store(false, Ordering::Relaxed);
-            let code = i32::try_from(status.exit_code()).unwrap_or(1);
-            let mut exit_code = wait_session
-                .exit_code
-                .lock()
-                .expect("terminal exit lock poisoned");
-            *exit_code = Some(code);
-            drop(exit_code);
-            push_terminal_output(
-                &wait_session,
-                format!("\r\n[autopilot] shell exited with code {}\r\n", code),
-            );
-        }
-        Err(error) => {
-            wait_session.running.store(false, Ordering::Relaxed);
-            let mut exit_code = wait_session
-                .exit_code
-                .lock()
-                .expect("terminal exit lock poisoned");
-            *exit_code = Some(1);
-            drop(exit_code);
-            push_terminal_output(
-                &wait_session,
-                format!("\r\n[autopilot] shell wait failed: {}\r\n", error),
-            );
-        }
-    });
-
-    Ok(session)
-}
-
-fn terminal_read_result(
-    session_id: String,
-    session: &Arc<WorkspaceTerminalHandle>,
-    cursor: u64,
-) -> Result<WorkspaceTerminalReadResult, String> {
-    let chunks = session
-        .output
-        .lock()
-        .map_err(|_| "Failed to lock terminal output.".to_string())?
-        .iter()
-        .filter(|chunk| chunk.sequence > cursor)
-        .cloned()
-        .collect::<Vec<_>>();
-    let next_cursor = chunks.last().map(|chunk| chunk.sequence).unwrap_or(cursor);
-    let exit_code = *session
-        .exit_code
-        .lock()
-        .map_err(|_| "Failed to lock terminal exit state.".to_string())?;
-
-    Ok(WorkspaceTerminalReadResult {
-        session_id,
-        cursor: next_cursor,
-        chunks,
-        running: session.running.load(Ordering::Relaxed),
-        exit_code,
-    })
-}
-
-fn terminal_write_bytes(session: &Arc<WorkspaceTerminalHandle>, data: &[u8]) -> Result<(), String> {
-    let mut writer = session
-        .writer
-        .lock()
-        .map_err(|_| "Failed to lock terminal writer.".to_string())?;
-    writer
-        .write_all(data)
-        .map_err(|error| format!("Failed to write to terminal: {}", error))?;
-    writer
-        .flush()
-        .map_err(|error| format!("Failed to flush terminal input: {}", error))?;
-    Ok(())
-}
-
-fn terminal_write_input(session: &Arc<WorkspaceTerminalHandle>, data: &str) -> Result<(), String> {
-    terminal_write_bytes(session, data.as_bytes())
-}
-
-fn terminal_resize(
-    session: &Arc<WorkspaceTerminalHandle>,
-    cols: u16,
-    rows: u16,
-) -> Result<(), String> {
-    session
-        .master
-        .lock()
-        .map_err(|_| "Failed to lock terminal PTY.".to_string())?
-        .resize(PtySize {
-            rows: rows.max(12),
-            cols: cols.max(40),
-            pixel_width: 0,
-            pixel_height: 0,
-        })
-        .map_err(|error| format!("Failed to resize terminal: {}", error))?;
-    Ok(())
-}
-
-fn terminal_close(session: Arc<WorkspaceTerminalHandle>) -> Result<(), String> {
-    session.running.store(false, Ordering::Relaxed);
-    let kill_result = session
-        .killer
-        .lock()
-        .map_err(|_| "Failed to lock terminal killer.".to_string())?
-        .kill();
-    if let Err(error) = kill_result {
-        push_terminal_output(
-            &session,
-            format!(
-                "\r\n[autopilot] failed to close shell cleanly: {}\r\n",
-                error
-            ),
-        );
-    }
-    Ok(())
-}
-
-impl WorkspaceTerminalBridge {
-    pub(crate) fn open(root: &str, cols: u16, rows: u16) -> Result<Self, String> {
-        let root_path = resolve_root_path(root)?;
-        let session = spawn_terminal_session(&root_path, cols.max(40), rows.max(12))?;
-        Ok(Self { session })
-    }
-
-    pub(crate) fn session(&self) -> WorkspaceTerminalSession {
-        self.session.session.clone()
-    }
-
-    pub(crate) fn read(&self, cursor: u64) -> Result<WorkspaceTerminalReadResult, String> {
-        terminal_read_result(
-            self.session.session.session_id.clone(),
-            &self.session,
-            cursor,
-        )
-    }
-
-    pub(crate) fn write(&self, data: &str) -> Result<(), String> {
-        terminal_write_input(&self.session, data)
-    }
-
-    pub(crate) fn write_bytes(&self, data: &[u8]) -> Result<(), String> {
-        terminal_write_bytes(&self.session, data)
-    }
-
-    pub(crate) fn close(&self) -> Result<(), String> {
-        terminal_close(Arc::clone(&self.session))
-    }
 }
 
 fn sort_paths(a: &PathBuf, b: &PathBuf) -> std::cmp::Ordering {
@@ -1739,14 +1295,7 @@ pub fn workspace_terminal_create(
     rows: u16,
     manager: State<'_, WorkspaceTerminalManager>,
 ) -> Result<WorkspaceTerminalSession, String> {
-    let bridge = WorkspaceTerminalBridge::open(&root, cols, rows)?;
-    let descriptor = bridge.session();
-    let mut sessions = manager
-        .sessions
-        .lock()
-        .map_err(|_| "Failed to lock terminal session registry.".to_string())?;
-    sessions.insert(descriptor.session_id.clone(), bridge.session);
-    Ok(descriptor)
+    terminal::workspace_terminal_create(root, cols, rows, manager)
 }
 
 #[tauri::command]
@@ -1765,16 +1314,7 @@ pub fn workspace_terminal_read(
     cursor: u64,
     manager: State<'_, WorkspaceTerminalManager>,
 ) -> Result<WorkspaceTerminalReadResult, String> {
-    let sessions = manager
-        .sessions
-        .lock()
-        .map_err(|_| "Failed to lock terminal session registry.".to_string())?;
-    let Some(session) = sessions.get(&session_id).cloned() else {
-        return Err("Terminal session not found.".to_string());
-    };
-    drop(sessions);
-
-    terminal_read_result(session_id, &session, cursor)
+    terminal::workspace_terminal_read(session_id, cursor, manager)
 }
 
 #[tauri::command]
@@ -1792,16 +1332,7 @@ pub fn workspace_terminal_write(
     data: String,
     manager: State<'_, WorkspaceTerminalManager>,
 ) -> Result<(), String> {
-    let sessions = manager
-        .sessions
-        .lock()
-        .map_err(|_| "Failed to lock terminal session registry.".to_string())?;
-    let Some(session) = sessions.get(&session_id).cloned() else {
-        return Err("Terminal session not found.".to_string());
-    };
-    drop(sessions);
-
-    terminal_write_input(&session, &data)
+    terminal::workspace_terminal_write(session_id, data, manager)
 }
 
 #[tauri::command]
@@ -1820,16 +1351,7 @@ pub fn workspace_terminal_resize(
     rows: u16,
     manager: State<'_, WorkspaceTerminalManager>,
 ) -> Result<(), String> {
-    let sessions = manager
-        .sessions
-        .lock()
-        .map_err(|_| "Failed to lock terminal session registry.".to_string())?;
-    let Some(session) = sessions.get(&session_id).cloned() else {
-        return Err("Terminal session not found.".to_string());
-    };
-    drop(sessions);
-
-    terminal_resize(&session, cols, rows)
+    terminal::workspace_terminal_resize(session_id, cols, rows, manager)
 }
 
 #[tauri::command]
@@ -1847,19 +1369,7 @@ pub fn workspace_terminal_close(
     session_id: String,
     manager: State<'_, WorkspaceTerminalManager>,
 ) -> Result<(), String> {
-    let session = {
-        let mut sessions = manager
-            .sessions
-            .lock()
-            .map_err(|_| "Failed to lock terminal session registry.".to_string())?;
-        sessions.remove(&session_id)
-    };
-
-    let Some(session) = session else {
-        return Ok(());
-    };
-
-    terminal_close(session)
+    terminal::workspace_terminal_close(session_id, manager)
 }
 
 #[tauri::command]

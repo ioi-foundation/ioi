@@ -1,6 +1,81 @@
 // Service detail drawer
+const EvidenceSample = ({ sample }) => {
+  if (!sample) return null;
+  return (
+    <div className="evidence-doc">
+      <div className="evidence-doc-head">
+        <div>
+          <div className="evidence-doc-title serif-italic">{sample.title}</div>
+          <div className="evidence-doc-meta mono">{sample.filename} · {sample.ts}</div>
+        </div>
+        <div className="evidence-doc-seal">
+          <div className="evidence-seal-ring">
+            <div className="evidence-seal-inner serif-italic">S</div>
+          </div>
+          <div className="evidence-seal-label mono">SEALED</div>
+        </div>
+      </div>
+
+      <div className="evidence-doc-body mono">
+        {sample.lines.map((l, i) => (
+          <div key={i} className={`evidence-line ${l.ok ? 'ok' : 'flag'}`}>
+            <span className="ev-k">{l.k}</span>
+            <span className="ev-v">{l.v}</span>
+            <span className="ev-s">{l.s}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="evidence-doc-summary serif-italic">{sample.summary}</div>
+
+      <div className="evidence-doc-foot">
+        <div className="evidence-foot-col">
+          <div className="evidence-foot-k mono">Evidence hash</div>
+          <div className="evidence-foot-v mono">{sample.hash}</div>
+        </div>
+        <div className="evidence-foot-col">
+          <div className="evidence-foot-k mono">Signed by</div>
+          <div className="evidence-foot-v mono">{sample.signer}</div>
+        </div>
+      </div>
+
+      <div className="evidence-doc-actions">
+        <a className="evidence-action">Verify on-chain <Icon name="arrow" size={12}/></a>
+        <a className="evidence-action">Open full artifact <Icon name="arrow" size={12}/></a>
+      </div>
+    </div>
+  );
+};
+
 const Drawer = ({ service, onClose, onActivate }) => {
+  const [handshake, setHandshake] = React.useState(null); // null | {step, running}
+  React.useEffect(() => { setHandshake(null); }, [service && service.id]);
   if (!service) return null;
+
+  const HANDSHAKE_STEPS = [
+    'Policy envelope 2026.4 matched',
+    'Bond escrowed · $' + service.price.toFixed(service.price % 1 ? 2 : 0),
+    'Runtime sandbox provisioned',
+    'Evidence chain initialized',
+    'Awaiting first outcome',
+  ];
+
+  const beginHandshake = () => {
+    if (handshake) return;
+    setHandshake({ step: 0 });
+    let i = 0;
+    const advance = () => {
+      i += 1;
+      if (i < HANDSHAKE_STEPS.length) {
+        setHandshake({ step: i });
+        setTimeout(advance, 420);
+      } else {
+        setHandshake({ step: i, done: true });
+        setTimeout(() => onActivate(service.id), 600);
+      }
+    };
+    setTimeout(advance, 420);
+  };
   return (
     <>
       <div className="scrim" onClick={onClose} />
@@ -73,6 +148,11 @@ const Drawer = ({ service, onClose, onActivate }) => {
           </section>
 
           <section className="section">
+            <div className="section-label"><span>Evidence sample</span><span className="right">Signed artifact · SHA-256</span></div>
+            <EvidenceSample sample={EVIDENCE_SAMPLES[service.id]} />
+          </section>
+
+          <section className="section">
             <div className="section-label"><span>Connects to</span><span className="right">{service.connects.length} systems</span></div>
             <div className="connects">
               {service.connects.map(c => (
@@ -92,11 +172,42 @@ const Drawer = ({ service, onClose, onActivate }) => {
               </div>
               <div className="procure-status">
                 <div className="procure-label">Availability</div>
-                <span className="status-pill">Dormant · Ready</span>
+                {handshake ? (
+                  <span className="status-pill handshake">
+                    {handshake.done ? 'Live · Connected' : 'Handshake in progress'}
+                  </span>
+                ) : (
+                  <span className="status-pill">Dormant · Ready</span>
+                )}
               </div>
             </div>
-            <button className="procure-btn" onClick={() => onActivate(service.id)}>
-              <Icon name="zap" size={14}/> Procure & Connect
+
+            {handshake && (
+              <div className="handshake-log mono">
+                {HANDSHAKE_STEPS.map((s, i) => {
+                  const state = i < handshake.step ? 'done' : i === handshake.step ? 'active' : 'pending';
+                  const glyph = state === 'done' ? '[✓]' : state === 'active' ? '[▸]' : '[ ]';
+                  return (
+                    <div key={i} className={`hs-row ${state}`}>
+                      <span className="hs-glyph">{glyph}</span>
+                      <span className="hs-label">{s}</span>
+                      {state === 'active' && <span className="hs-tail"><AsciiBar slots={8} hz={10}/></span>}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <button
+              className="procure-btn"
+              onClick={beginHandshake}
+              disabled={!!handshake}
+              style={handshake ? { opacity: 0.7, cursor: 'default' } : undefined}
+            >
+              {handshake
+                ? (handshake.done ? <>Connected <Icon name="zap" size={14}/></> : <>Handshaking… <AsciiBar slots={10} hz={12}/></>)
+                : <><Icon name="zap" size={14}/> Procure & Connect</>
+              }
             </button>
             <div className="procure-foot">
               Activation initiates a bonded deployment handshake. Approval via Corporate Policy 2026.4 is pre-verified. Reversible within 24h.
