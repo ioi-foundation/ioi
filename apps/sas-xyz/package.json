@@ -1,0 +1,11 @@
+{
+  "name": "sas-xyz",
+  "version": "2.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0"
+  }
+}
