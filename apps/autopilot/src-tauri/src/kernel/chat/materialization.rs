@@ -2,27 +2,20 @@ use super::*;
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use ioi_api::execution::{execution_budget_envelope_for_strategy, ExecutionEnvelope};
 use ioi_api::runtime_harness::{
-    derive_request_grounded_chat_artifact_brief, derive_chat_artifact_prepared_context,
+    derive_chat_artifact_prepared_context, derive_request_grounded_chat_artifact_brief,
     generate_chat_artifact_bundle_with_runtime_plan_and_planning_context_and_execution_strategy_and_render_evaluator,
     pdf_artifact_bytes, render_eval_timeout_for_runtime, resolve_chat_artifact_runtime_plan,
     synthesize_chat_artifact_brief_for_execution_strategy_with_runtime, ArtifactOperatorPhase,
     ArtifactOperatorRunStatus, ArtifactOperatorStep,
     ArtifactPlanningContext as ChatArtifactPlanningContext,
-    ArtifactRenderEvaluation as ChatArtifactRenderEvaluation,
-    ChatArtifactActivityObserver as ChatArtifactActivityObserver,
-    ChatArtifactBlueprint as ChatArtifactBlueprint,
-    ChatArtifactExemplar as ChatArtifactExemplar,
-    ChatArtifactGenerationProgress as ChatArtifactGenerationProgress,
-    ChatArtifactGenerationProgressObserver as ChatArtifactGenerationProgressObserver,
-    ChatArtifactIR as ChatArtifactIR,
-    ChatArtifactOperatorPreview as ChatArtifactOperatorPreview,
-    ChatArtifactRenderEvaluator as ChatArtifactRenderEvaluator,
-    ChatArtifactRuntimePolicyProfile as ChatArtifactRuntimePolicyProfile,
-    ChatArtifactSelectedSkill as ChatArtifactSelectedSkill,
+    ArtifactRenderEvaluation as ChatArtifactRenderEvaluation, ChatArtifactActivityObserver,
+    ChatArtifactBlueprint, ChatArtifactExemplar, ChatArtifactGenerationProgress,
+    ChatArtifactGenerationProgressObserver, ChatArtifactIR, ChatArtifactOperatorPreview,
+    ChatArtifactRenderEvaluator, ChatArtifactRuntimePolicyProfile, ChatArtifactSelectedSkill,
     ChatGeneratedArtifactEncoding, ChatGeneratedArtifactFile,
 };
-use ioi_drivers::chat_render::BrowserChatArtifactRenderEvaluator as BrowserChatArtifactRenderEvaluator;
-use ioi_types::app::ChatExecutionStrategy as ChatExecutionStrategy;
+use ioi_drivers::chat_render::BrowserChatArtifactRenderEvaluator;
+use ioi_types::app::ChatExecutionStrategy;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tokio::time::MissedTickBehavior;
@@ -34,11 +27,11 @@ use ioi_api::runtime_harness::ChatGeneratedArtifactPayload;
 mod progress_steps;
 
 use progress_steps::{
-    direct_author_blocked_step, direct_author_error_requires_replan,
+    chat_proof_trace, direct_author_blocked_step, direct_author_error_requires_replan,
     emit_prepared_context_generation_progress, finalize_blocked_execution_envelope,
     finalize_latest_execution_preview, latest_author_attempt_id, latest_execution_live_preview,
     merge_operator_steps, present_artifact_blocked_step, present_artifact_complete_step,
-    replan_execution_step, chat_proof_trace,
+    replan_execution_step,
 };
 
 const LOCAL_HTML_GENERATION_TIMEOUT_SECS: u64 = 420;
@@ -72,10 +65,7 @@ fn generated_file_bytes(
         return Ok(pdf_artifact_bytes(title, &file.body));
     }
 
-    match file
-        .encoding
-        .unwrap_or(ChatGeneratedArtifactEncoding::Utf8)
-    {
+    match file.encoding.unwrap_or(ChatGeneratedArtifactEncoding::Utf8) {
         ChatGeneratedArtifactEncoding::Utf8 => Ok(file.body.as_bytes().to_vec()),
         ChatGeneratedArtifactEncoding::Base64 => {
             STANDARD.decode(file.body.trim()).map_err(|error| {
@@ -187,9 +177,7 @@ pub(super) fn mime_for_workspace_entry(path: &str) -> String {
     }
 }
 
-pub(super) fn select_workspace_recipe(
-    request: &ChatOutcomeArtifactRequest,
-) -> ChatScaffoldRecipe {
+pub(super) fn select_workspace_recipe(request: &ChatOutcomeArtifactRequest) -> ChatScaffoldRecipe {
     match request.workspace_recipe_id.as_deref() {
         Some("vite-static-html") => ChatScaffoldRecipe::StaticHtmlVite,
         Some("react-vite") => ChatScaffoldRecipe::ReactVite,
@@ -415,9 +403,7 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_execution
     )
 }
 
-pub(super) fn chat_generation_timeout_for_runtime(
-    runtime: &Arc<dyn InferenceRuntime>,
-) -> Duration {
+pub(super) fn chat_generation_timeout_for_runtime(runtime: &Arc<dyn InferenceRuntime>) -> Duration {
     let seconds = [
         "AUTOPILOT_STUDIO_GENERATION_TIMEOUT_SECS",
         "IOI_CHAT_GENERATION_TIMEOUT_SECS",
@@ -711,11 +697,9 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
             let generation_runtime = runtime_plan.generation_runtime.clone();
             let acceptance_runtime = runtime_plan.acceptance_runtime.clone();
             let default_render_evaluator = BrowserChatArtifactRenderEvaluator::default();
-            let render_evaluator =
-                render_evaluator_override.unwrap_or(&default_render_evaluator);
+            let render_evaluator = render_evaluator_override.unwrap_or(&default_render_evaluator);
             let production_provenance = runtime_plan.generation_runtime.chat_runtime_provenance();
-            let acceptance_provenance =
-                runtime_plan.acceptance_runtime.chat_runtime_provenance();
+            let acceptance_provenance = runtime_plan.acceptance_runtime.chat_runtime_provenance();
             let last_activity = Arc::new(Mutex::new(Instant::now()));
             let last_progress_snapshot =
                 Arc::new(Mutex::new(None::<ChatArtifactGenerationProgress>));
@@ -830,9 +814,9 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
                                 .as_ref()
                                 .and_then(|progress| progress.execution_envelope.clone()),
                         );
-                        let stalled_attempt_id = last_progress
-                            .as_ref()
-                            .and_then(|progress| latest_author_attempt_id(&progress.operator_steps));
+                        let stalled_attempt_id = last_progress.as_ref().and_then(|progress| {
+                            latest_author_attempt_id(&progress.operator_steps)
+                        });
                         let mut prior_operator_steps = last_progress
                             .as_ref()
                             .map(|progress| progress.operator_steps.clone())
@@ -876,9 +860,7 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
                                 blueprint: prepared_context.blueprint.clone(),
                                 artifact_ir: prepared_context.artifact_ir.clone(),
                                 selected_skills: prepared_context.selected_skills.clone(),
-                                retrieved_exemplars: prepared_context
-                                    .retrieved_exemplars
-                                    .clone(),
+                                retrieved_exemplars: prepared_context.retrieved_exemplars.clone(),
                                 retrieved_sources: prepared_context.retrieved_sources.clone(),
                                 execution_envelope: terminalized_execution_envelope,
                                 swarm_plan: last_progress
@@ -954,7 +936,9 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
                         last_progress
                             .as_ref()
                             .and_then(|progress| progress.render_evaluation.clone()),
-                        last_progress.as_ref().and_then(|progress| progress.validation.clone()),
+                        last_progress
+                            .as_ref()
+                            .and_then(|progress| progress.validation.clone()),
                         last_progress
                             .as_ref()
                             .map(|progress| progress.operator_steps.clone())
@@ -987,9 +971,9 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
                                 .as_ref()
                                 .and_then(|progress| progress.execution_envelope.clone()),
                         );
-                        let stalled_attempt_id = last_progress
-                            .as_ref()
-                            .and_then(|progress| latest_author_attempt_id(&progress.operator_steps));
+                        let stalled_attempt_id = last_progress.as_ref().and_then(|progress| {
+                            latest_author_attempt_id(&progress.operator_steps)
+                        });
                         let mut prior_operator_steps = last_progress
                             .as_ref()
                             .map(|progress| progress.operator_steps.clone())
@@ -1039,9 +1023,7 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
                                 blueprint: prepared_context.blueprint.clone(),
                                 artifact_ir: prepared_context.artifact_ir.clone(),
                                 selected_skills: prepared_context.selected_skills.clone(),
-                                retrieved_exemplars: prepared_context
-                                    .retrieved_exemplars
-                                    .clone(),
+                                retrieved_exemplars: prepared_context.retrieved_exemplars.clone(),
                                 retrieved_sources: prepared_context.retrieved_sources.clone(),
                                 execution_envelope: terminalized_execution_envelope,
                                 swarm_plan: last_progress
@@ -1117,7 +1099,9 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
                         last_progress
                             .as_ref()
                             .and_then(|progress| progress.render_evaluation.clone()),
-                        last_progress.as_ref().and_then(|progress| progress.validation.clone()),
+                        last_progress
+                            .as_ref()
+                            .and_then(|progress| progress.validation.clone()),
                         last_progress
                             .as_ref()
                             .map(|progress| progress.operator_steps.clone())
@@ -1157,32 +1141,30 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
                 acceptance_provenance,
             ));
         }
-        None => {
-            return Ok(blocked_materialized_artifact_from_error(
-                title,
-                intent,
-                request,
-                refinement,
-                "Inference and acceptance runtimes are unavailable for Chat artifact materialization.",
-                None,
-                prepared_context.preparation_needs.clone(),
-                prepared_context.prepared_context_resolution.clone(),
-                prepared_context.skill_discovery_resolution.clone(),
-                prepared_context.blueprint.clone(),
-                prepared_context.artifact_ir.clone(),
-                prepared_context.selected_skills.clone(),
-                prepared_context.retrieved_exemplars.clone(),
-                prepared_context.retrieved_sources.clone(),
-                None,
-                Vec::new(),
-                None,
-                None,
-                None,
-                Vec::new(),
-                None,
-                None,
-            ))
-        }
+        None => return Ok(blocked_materialized_artifact_from_error(
+            title,
+            intent,
+            request,
+            refinement,
+            "Inference and acceptance runtimes are unavailable for Chat artifact materialization.",
+            None,
+            prepared_context.preparation_needs.clone(),
+            prepared_context.prepared_context_resolution.clone(),
+            prepared_context.skill_discovery_resolution.clone(),
+            prepared_context.blueprint.clone(),
+            prepared_context.artifact_ir.clone(),
+            prepared_context.selected_skills.clone(),
+            prepared_context.retrieved_exemplars.clone(),
+            prepared_context.retrieved_sources.clone(),
+            None,
+            Vec::new(),
+            None,
+            None,
+            None,
+            Vec::new(),
+            None,
+            None,
+        )),
     };
     let bundle_edit_intent = bundle.edit_intent.clone();
     let derived_taste_memory = derive_chat_taste_memory(
@@ -1409,9 +1391,7 @@ pub(super) fn blocked_materialized_artifact_from_error(
     let failure = crate::models::ChatArtifactFailure {
         kind: failure_kind,
         code: match failure_kind {
-            crate::models::ChatArtifactFailureKind::InferenceUnavailable => {
-                "inference_unavailable"
-            }
+            crate::models::ChatArtifactFailureKind::InferenceUnavailable => "inference_unavailable",
             crate::models::ChatArtifactFailureKind::RoutingFailure => "routing_failure",
             crate::models::ChatArtifactFailureKind::GenerationFailure => "generation_failure",
             crate::models::ChatArtifactFailureKind::VerificationFailure => "verification_failure",

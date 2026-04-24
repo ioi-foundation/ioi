@@ -1,7 +1,10 @@
 import {
   type WorkspaceWorkbenchHost,
 } from "./workspaceWorkbenchHost";
-import { directWorkspaceWorkbenchHost } from "./directWorkspaceWorkbenchHost";
+import {
+  directWorkspaceWorkbenchHost,
+  substratePreviewWorkspaceWorkbenchHost,
+} from "./directWorkspaceWorkbenchHost";
 import { openVsCodeWorkbenchHost } from "./openVsCodeWorkbenchHost";
 
 export function getDefaultWorkspaceWorkbenchHost(): WorkspaceWorkbenchHost {
@@ -11,8 +14,16 @@ export function getDefaultWorkspaceWorkbenchHost(): WorkspaceWorkbenchHost {
   if (requestedHost === "openvscode" || requestedHost === "iframe") {
     return openVsCodeWorkbenchHost;
   }
+  if (
+    requestedHost === "substrate" ||
+    requestedHost === "substrate-preview" ||
+    requestedHost === "direct-react"
+  ) {
+    return substratePreviewWorkspaceWorkbenchHost;
+  }
   return directWorkspaceWorkbenchHost;
 }
 
 export { directWorkspaceWorkbenchHost };
+export { substratePreviewWorkspaceWorkbenchHost };
 export { openVsCodeWorkbenchHost };

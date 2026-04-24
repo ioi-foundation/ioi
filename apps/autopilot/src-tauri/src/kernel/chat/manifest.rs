@@ -1,9 +1,9 @@
 use crate::models::{
-    BuildArtifactSession, ChatVerifiedReply, ChatArtifactFileRole, ChatArtifactLifecycleState,
-    ChatArtifactManifest, ChatArtifactManifestFile, ChatArtifactManifestStorage,
-    ChatArtifactManifestTab, ChatArtifactManifestVerification, ChatArtifactNavigatorNode,
-    ChatArtifactPersistenceMode, ChatArtifactTabKind, ChatOutcomeArtifactRequest,
-    ChatRendererKind, ChatRendererSession,
+    BuildArtifactSession, ChatArtifactFileRole, ChatArtifactLifecycleState, ChatArtifactManifest,
+    ChatArtifactManifestFile, ChatArtifactManifestStorage, ChatArtifactManifestTab,
+    ChatArtifactManifestVerification, ChatArtifactNavigatorNode, ChatArtifactPersistenceMode,
+    ChatArtifactTabKind, ChatOutcomeArtifactRequest, ChatRendererKind, ChatRendererSession,
+    ChatVerifiedReply,
 };
 pub(super) use ioi_api::runtime_harness::verification_status_for_lifecycle;
 use ioi_api::runtime_harness::verified_reply_evidence_for_manifest;

@@ -1,61 +1,31 @@
 // apps/autopilot/src-tauri/src/models.rs
 use crate::kernel::connectors::{ConnectorCatalogEntry, ShieldPolicyState};
-use ioi_api::runtime_harness::{
-    ArtifactOperatorRun, ArtifactOperatorStep, ArtifactSourceReference,
-};
-pub use ioi_api::chat::{
-    ChatArtifactValidationResult as ChatArtifactValidationResult,
-    ChatArtifactValidationStatus as ChatArtifactValidationStatus,
-};
 use ioi_api::chat::{
-    ExecutionEnvelope, ExecutionStage, ChatArtifactBlueprint as ChatArtifactBlueprint,
-    ChatArtifactBrief as ChatArtifactBrief,
-    ChatArtifactCandidateSummary as ChatArtifactCandidateSummary,
-    ChatArtifactEditIntent as ChatArtifactEditIntent,
-    ChatArtifactExemplar as ChatArtifactExemplar, ChatArtifactIR as ChatArtifactIR,
-    ChatArtifactOutputOrigin as ChatArtifactOutputOrigin,
-    ChatArtifactPreparationNeeds as ChatArtifactPreparationNeeds,
-    ChatArtifactPreparedContextResolution as ChatArtifactPreparedContextResolution,
-    ChatArtifactRenderEvaluation as ChatArtifactRenderEvaluation,
-    ChatArtifactSelectedSkill as ChatArtifactSelectedSkill,
-    ChatArtifactSelectionTarget as ChatArtifactSelectionTarget,
-    ChatArtifactSkillDiscoveryResolution as ChatArtifactSkillDiscoveryResolution,
-    ChatArtifactTasteMemory as ChatArtifactTasteMemory,
-    ChatArtifactUxLifecycle as ChatArtifactUxLifecycle, SwarmChangeReceipt,
+    ChatArtifactBlueprint, ChatArtifactBrief, ChatArtifactCandidateSummary, ChatArtifactEditIntent,
+    ChatArtifactExemplar, ChatArtifactIR, ChatArtifactOutputOrigin, ChatArtifactPreparationNeeds,
+    ChatArtifactPreparedContextResolution, ChatArtifactRenderEvaluation, ChatArtifactSelectedSkill,
+    ChatArtifactSelectionTarget, ChatArtifactSkillDiscoveryResolution, ChatArtifactTasteMemory,
+    ChatArtifactUxLifecycle, ExecutionEnvelope, ExecutionStage, SwarmChangeReceipt,
     SwarmExecutionSummary, SwarmMergeReceipt, SwarmPlan, SwarmVerificationReceipt,
     SwarmWorkerReceipt,
+};
+pub use ioi_api::chat::{ChatArtifactValidationResult, ChatArtifactValidationStatus};
+use ioi_api::runtime_harness::{
+    ArtifactOperatorRun, ArtifactOperatorStep, ArtifactSourceReference,
 };
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_ipc::public::public_api_client::PublicApiClient;
 use ioi_memory::MemoryRuntime;
 use ioi_types::app::agentic::{LlmToolDefinition, PiiTarget};
 pub use ioi_types::app::{
-    ChatArtifactClass as ChatArtifactClass,
-    ChatArtifactDeliverableShape as ChatArtifactDeliverableShape,
-    ChatArtifactFailure as ChatArtifactFailure,
-    ChatArtifactFailureKind as ChatArtifactFailureKind,
-    ChatArtifactFileRole as ChatArtifactFileRole,
-    ChatArtifactLifecycleState as ChatArtifactLifecycleState,
-    ChatArtifactManifest as ChatArtifactManifest,
-    ChatArtifactManifestFile as ChatArtifactManifestFile,
-    ChatArtifactManifestStorage as ChatArtifactManifestStorage,
-    ChatArtifactManifestTab as ChatArtifactManifestTab,
-    ChatArtifactManifestVerification as ChatArtifactManifestVerification,
-    ChatArtifactPersistenceMode as ChatArtifactPersistenceMode,
-    ChatArtifactTabKind as ChatArtifactTabKind,
-    ChatArtifactVerificationStatus as ChatArtifactVerificationStatus,
-    ChatExecutionSubstrate as ChatExecutionSubstrate,
-    ChatOutcomeArtifactRequest as ChatOutcomeArtifactRequest,
-    ChatOutcomeArtifactScope as ChatOutcomeArtifactScope,
-    ChatOutcomeArtifactVerificationRequest as ChatOutcomeArtifactVerificationRequest,
-    ChatOutcomeKind as ChatOutcomeKind,
-    ChatOutcomeRequest as ChatOutcomeRequest,
-    ChatPresentationSurface as ChatPresentationSurface,
-    ChatRendererKind as ChatRendererKind,
-    ChatRetainedWidgetState as ChatRetainedWidgetState,
-    ChatRuntimeProvenance as ChatRuntimeProvenance,
-    ChatRuntimeProvenanceKind as ChatRuntimeProvenanceKind,
-    ChatVerifiedReply as ChatVerifiedReply,
+    ChatArtifactClass, ChatArtifactDeliverableShape, ChatArtifactFailure, ChatArtifactFailureKind,
+    ChatArtifactFileRole, ChatArtifactLifecycleState, ChatArtifactManifest,
+    ChatArtifactManifestFile, ChatArtifactManifestStorage, ChatArtifactManifestTab,
+    ChatArtifactManifestVerification, ChatArtifactPersistenceMode, ChatArtifactTabKind,
+    ChatArtifactVerificationStatus, ChatExecutionSubstrate, ChatOutcomeArtifactRequest,
+    ChatOutcomeArtifactScope, ChatOutcomeArtifactVerificationRequest, ChatOutcomeKind,
+    ChatOutcomeRequest, ChatPresentationSurface, ChatRendererKind, ChatRetainedWidgetState,
+    ChatRuntimeProvenance, ChatRuntimeProvenanceKind, ChatVerifiedReply,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

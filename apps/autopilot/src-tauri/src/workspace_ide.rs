@@ -123,11 +123,18 @@ fn spawn_bridge_server(
         .route("/requests", post(bridge_post_request))
         .with_state(state);
 
-    let listener = std::net::TcpListener::bind(address)
-        .map_err(|error| format!("Failed to bind workspace IDE bridge at {}: {}", address, error))?;
-    listener
-        .set_nonblocking(true)
-        .map_err(|error| format!("Failed to set workspace IDE bridge listener nonblocking: {}", error))?;
+    let listener = std::net::TcpListener::bind(address).map_err(|error| {
+        format!(
+            "Failed to bind workspace IDE bridge at {}: {}",
+            address, error
+        )
+    })?;
+    listener.set_nonblocking(true).map_err(|error| {
+        format!(
+            "Failed to set workspace IDE bridge listener nonblocking: {}",
+            error
+        )
+    })?;
 
     let task = tauri::async_runtime::spawn(async move {
         let listener = match tokio::net::TcpListener::from_std(listener) {
@@ -228,8 +235,12 @@ fn ensure_openvscode_installation<R: Runtime>(app: &AppHandle<R>) -> Result<Path
     let root = workspace_ide_root(app);
     let downloads_dir = root.join("downloads");
     let vendor_dir = root.join("vendor");
-    fs::create_dir_all(&downloads_dir)
-        .map_err(|error| format!("Failed to create workspace IDE download directory: {}", error))?;
+    fs::create_dir_all(&downloads_dir).map_err(|error| {
+        format!(
+            "Failed to create workspace IDE download directory: {}",
+            error
+        )
+    })?;
     fs::create_dir_all(&vendor_dir)
         .map_err(|error| format!("Failed to create workspace IDE vendor directory: {}", error))?;
 
@@ -243,7 +254,12 @@ fn ensure_openvscode_installation<R: Runtime>(app: &AppHandle<R>) -> Result<Path
             .get(url.clone())
             .send()
             .and_then(|response| response.error_for_status())
-            .map_err(|error| format!("Failed to download OpenVSCode Server from {}: {}", url, error))?;
+            .map_err(|error| {
+                format!(
+                    "Failed to download OpenVSCode Server from {}: {}",
+                    url, error
+                )
+            })?;
 
         let archive_file = File::create(&archive_path)
             .map_err(|error| format!("Failed to create OpenVSCode archive file: {}", error))?;
@@ -352,7 +368,9 @@ fn ensure_bundled_extension<R: Runtime>(
         .ok();
     let bundled_root = match resolved_resource {
         Some(path) if path.exists() => path,
-        _ => PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../openvscode-extension/ioi-workbench"),
+        _ => {
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../openvscode-extension/ioi-workbench")
+        }
     };
     if !bundled_root.exists() {
         return Err(format!(
@@ -393,6 +411,61 @@ fn workbench_url(port: u16, root_path: &Path) -> Result<String, String> {
         .append_pair("folder", &folder_uri)
         .finish();
     Ok(format!("http://127.0.0.1:{port}/?{query}"))
+}
+
+fn ensure_openvscode_user_settings(user_data_dir: &Path) -> Result<(), String> {
+    let settings_dir = user_data_dir.join("User");
+    fs::create_dir_all(&settings_dir).map_err(|error| {
+        format!(
+            "Failed to create OpenVSCode user settings directory '{}': {}",
+            settings_dir.display(),
+            error
+        )
+    })?;
+    let settings_path = settings_dir.join("settings.json");
+    let mut settings = if settings_path.exists() {
+        let contents = fs::read_to_string(&settings_path).map_err(|error| {
+            format!(
+                "Failed to read OpenVSCode user settings '{}': {}",
+                settings_path.display(),
+                error
+            )
+        })?;
+        match serde_json::from_str::<Value>(&contents) {
+            Ok(Value::Object(object)) => object,
+            Ok(_) | Err(_) => serde_json::Map::new(),
+        }
+    } else {
+        serde_json::Map::new()
+    };
+
+    settings.insert(
+        "security.workspace.trust.enabled".to_string(),
+        Value::Bool(false),
+    );
+    settings.insert(
+        "security.workspace.trust.startupPrompt".to_string(),
+        Value::String("never".to_string()),
+    );
+    settings.insert(
+        "security.workspace.trust.banner".to_string(),
+        Value::String("never".to_string()),
+    );
+
+    let contents = serde_json::to_string_pretty(&Value::Object(settings)).map_err(|error| {
+        format!(
+            "Failed to serialize OpenVSCode user settings '{}': {}",
+            settings_path.display(),
+            error
+        )
+    })?;
+    fs::write(&settings_path, format!("{contents}\n")).map_err(|error| {
+        format!(
+            "Failed to write OpenVSCode user settings '{}': {}",
+            settings_path.display(),
+            error
+        )
+    })
 }
 
 fn wait_for_server_ready(workbench_url: &str) -> Result<(), String> {
@@ -506,14 +579,22 @@ pub fn ensure_workspace_ide_session<R: Runtime>(
     let logs_dir = ide_root.join("logs");
     fs::create_dir_all(&user_data_dir)
         .map_err(|error| format!("Failed to create OpenVSCode user-data directory: {}", error))?;
-    fs::create_dir_all(&server_data_dir)
-        .map_err(|error| format!("Failed to create OpenVSCode server-data directory: {}", error))?;
-    fs::create_dir_all(&extensions_dir)
-        .map_err(|error| format!("Failed to create OpenVSCode extensions directory: {}", error))?;
+    ensure_openvscode_user_settings(&user_data_dir)?;
+    fs::create_dir_all(&server_data_dir).map_err(|error| {
+        format!(
+            "Failed to create OpenVSCode server-data directory: {}",
+            error
+        )
+    })?;
+    fs::create_dir_all(&extensions_dir).map_err(|error| {
+        format!(
+            "Failed to create OpenVSCode extensions directory: {}",
+            error
+        )
+    })?;
     ensure_bridge_dirs(&bridge_root)?;
     let bridge_state = Arc::new(BridgeRuntimeState::new());
-    let (bridge_shutdown, bridge_task) =
-        spawn_bridge_server(bridge_port, (*bridge_state).clone())?;
+    let (bridge_shutdown, bridge_task) = spawn_bridge_server(bridge_port, (*bridge_state).clone())?;
     fs::create_dir_all(&logs_dir)
         .map_err(|error| format!("Failed to create OpenVSCode log directory: {}", error))?;
     ensure_bundled_extension(&app, &extensions_dir)?;
@@ -538,6 +619,7 @@ pub fn ensure_workspace_ide_session<R: Runtime>(
         .arg("--telemetry-level")
         .arg("off")
         .arg("--accept-server-license-terms")
+        .arg("--disable-workspace-trust")
         .arg("--user-data-dir")
         .arg(&user_data_dir)
         .arg("--server-data-dir")
@@ -549,7 +631,10 @@ pub fn ensure_workspace_ide_session<R: Runtime>(
             "IOI_WORKSPACE_IDE_BRIDGE_URL",
             format!("http://127.0.0.1:{bridge_port}"),
         )
-        .env("IOI_WORKSPACE_IDE_ROOT_PATH", root_path.to_string_lossy().to_string())
+        .env(
+            "IOI_WORKSPACE_IDE_ROOT_PATH",
+            root_path.to_string_lossy().to_string(),
+        )
         .current_dir(&root_path)
         .stdout(Stdio::from(stdout_log))
         .stderr(Stdio::from(stderr_log));
@@ -591,9 +676,7 @@ pub fn ensure_workspace_ide_session<R: Runtime>(
 }
 
 #[tauri::command]
-pub fn stop_workspace_ide_session(
-    manager: State<WorkspaceIdeManager>,
-) -> Result<(), String> {
+pub fn stop_workspace_ide_session(manager: State<WorkspaceIdeManager>) -> Result<(), String> {
     let mut session_guard = manager
         .session
         .lock()
@@ -612,9 +695,12 @@ pub fn write_workspace_ide_bridge_state<R: Runtime>(
     _app: AppHandle<R>,
     manager: State<WorkspaceIdeManager>,
 ) -> Result<(), String> {
-    let root_path = PathBuf::from(&root)
-        .canonicalize()
-        .map_err(|error| format!("Failed to resolve workspace bridge root '{}': {}", root, error))?;
+    let root_path = PathBuf::from(&root).canonicalize().map_err(|error| {
+        format!(
+            "Failed to resolve workspace bridge root '{}': {}",
+            root, error
+        )
+    })?;
     let mut session_guard = manager
         .session
         .lock()
@@ -639,9 +725,12 @@ pub fn take_workspace_ide_bridge_requests<R: Runtime>(
     _app: AppHandle<R>,
     manager: State<WorkspaceIdeManager>,
 ) -> Result<Vec<WorkspaceIdeBridgeRequest>, String> {
-    let root_path = PathBuf::from(&root)
-        .canonicalize()
-        .map_err(|error| format!("Failed to resolve workspace bridge root '{}': {}", root, error))?;
+    let root_path = PathBuf::from(&root).canonicalize().map_err(|error| {
+        format!(
+            "Failed to resolve workspace bridge root '{}': {}",
+            root, error
+        )
+    })?;
 
     let mut session_guard = manager
         .session
@@ -649,11 +738,10 @@ pub fn take_workspace_ide_bridge_requests<R: Runtime>(
         .map_err(|_| "Failed to lock workspace IDE session state.".to_string())?;
     if let Some(session) = session_guard.as_mut() {
         if session.root_path == root_path.to_string_lossy() {
-            let mut queue = session
-                .bridge_state
-                .requests
-                .lock()
-                .map_err(|_| "Failed to lock workspace IDE bridge request queue.".to_string())?;
+            let mut queue =
+                session.bridge_state.requests.lock().map_err(|_| {
+                    "Failed to lock workspace IDE bridge request queue.".to_string()
+                })?;
             return Ok(queue.drain(..).collect());
         }
     }

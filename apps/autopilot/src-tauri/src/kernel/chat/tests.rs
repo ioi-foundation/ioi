@@ -10,27 +10,26 @@ use super::revisions::{
 };
 use super::*;
 use crate::kernel::connectors::ConnectorCatalogEntry;
-use crate::models::{ChatMessage, ClarificationRequest, GateInfo};
 use crate::models::{
-    ChatVerifiedReply, ChatArtifactDeliverableShape, ChatArtifactFileRole,
-    ChatExecutionSubstrate,
+    ChatArtifactDeliverableShape, ChatArtifactFileRole, ChatExecutionSubstrate, ChatVerifiedReply,
 };
+use crate::models::{ChatMessage, ClarificationRequest, GateInfo};
 use async_trait::async_trait;
-use ioi_api::execution::{
-    ExecutionCompletionInvariantStatus, ExecutionLivePreview, ExecutionLivePreviewKind,
-};
 use ioi_api::chat::{
     compile_chat_artifact_ir, derive_chat_artifact_blueprint,
-    derive_chat_artifact_prepared_context, with_runtime_locality_scope_hint_override,
-    with_chat_modal_first_html_override, ExecutionStage, ChatArtifactBlueprint,
-    ChatArtifactBrief, ChatArtifactExemplar, ChatArtifactGenerationProgress,
-    ChatArtifactGenerationProgressObserver, ChatArtifactIR, ChatArtifactMergeReceipt,
-    ChatArtifactPatchReceipt, ChatArtifactRenderCapture, ChatArtifactRenderCaptureViewport,
-    ChatArtifactRenderEvaluation, ChatArtifactRenderEvaluator, ChatArtifactRenderFinding,
-    ChatArtifactRenderFindingSeverity, ChatArtifactSwarmExecutionSummary,
-    ChatArtifactSwarmPlan, ChatArtifactVerificationReceipt, ChatArtifactWorkItem,
-    ChatArtifactWorkItemStatus, ChatArtifactWorkerReceipt, ChatArtifactWorkerRole,
-    ChatGeneratedArtifactFile, ChatGeneratedArtifactPayload,
+    derive_chat_artifact_prepared_context, with_chat_modal_first_html_override,
+    with_runtime_locality_scope_hint_override, ChatArtifactBlueprint, ChatArtifactBrief,
+    ChatArtifactExemplar, ChatArtifactGenerationProgress, ChatArtifactGenerationProgressObserver,
+    ChatArtifactIR, ChatArtifactMergeReceipt, ChatArtifactPatchReceipt, ChatArtifactRenderCapture,
+    ChatArtifactRenderCaptureViewport, ChatArtifactRenderEvaluation, ChatArtifactRenderEvaluator,
+    ChatArtifactRenderFinding, ChatArtifactRenderFindingSeverity,
+    ChatArtifactSwarmExecutionSummary, ChatArtifactSwarmPlan, ChatArtifactVerificationReceipt,
+    ChatArtifactWorkItem, ChatArtifactWorkItemStatus, ChatArtifactWorkerReceipt,
+    ChatArtifactWorkerRole, ChatGeneratedArtifactFile, ChatGeneratedArtifactPayload,
+    ExecutionStage,
+};
+use ioi_api::execution::{
+    ExecutionCompletionInvariantStatus, ExecutionLivePreview, ExecutionLivePreviewKind,
 };
 use ioi_api::vm::inference::UnavailableInferenceRuntime;
 use ioi_drivers::browser::BrowserDriver;

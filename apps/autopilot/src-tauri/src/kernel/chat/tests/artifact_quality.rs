@@ -180,10 +180,7 @@ fn artifact_validation_promotes_soft_html_prefilter_findings_to_ready() {
         false,
     );
 
-    assert_eq!(
-        promoted.lifecycle_state,
-        ChatArtifactLifecycleState::Ready
-    );
+    assert_eq!(promoted.lifecycle_state, ChatArtifactLifecycleState::Ready);
     assert!(promoted.summary.contains("acceptance validation cleared"));
 }
 

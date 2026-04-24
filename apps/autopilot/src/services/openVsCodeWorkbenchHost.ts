@@ -1,81 +1,41 @@
 import {
-  ensureWorkspaceIdeSession,
-  stopWorkspaceIdeSession,
-  takeWorkspaceIdeBridgeRequests,
-  type WorkspaceIdeSessionInfo,
-  writeWorkspaceIdeBridgeState,
-} from "./workspaceIde";
-import {
-  startWorkspaceBridgeRequestPolling,
-  startWorkspaceBridgeStateSync,
-} from "./workspaceBridgeLifecycle";
+  buildOpenVsCodeSurfaceId,
+  describeOpenVsCodeLifecyclePolicy,
+  ensureOpenVsCodeWorkbenchSession,
+  publishOpenVsCodeBridgeState,
+  readOpenVsCodeSessionInfo,
+  startOpenVsCodeBridgeRequestPolling,
+  startOpenVsCodeBridgeStateSync,
+  takeOpenVsCodeBridgeRequests,
+} from "./openVsCodeWorkbenchSession";
 import type {
   WorkspaceWorkbenchHost,
-  WorkspaceWorkbenchHostSession,
 } from "./workspaceWorkbenchHost";
-
-type OpenVsCodeWorkbenchSession = WorkspaceWorkbenchHostSession & {
-  internal: {
-    kind: "openvscode";
-    info: WorkspaceIdeSessionInfo;
-  };
-};
-
-function readOpenVsCodeSessionInfo(
-  session: WorkspaceWorkbenchHostSession,
-): WorkspaceIdeSessionInfo {
-  const internal = session.internal as OpenVsCodeWorkbenchSession["internal"] | undefined;
-  if (!internal || internal.kind !== "openvscode") {
-    throw new Error("Workspace session is missing OpenVSCode runtime metadata.");
-  }
-  return internal.info;
-}
 
 export const openVsCodeWorkbenchHost: WorkspaceWorkbenchHost = {
   async ensureSession({ rootPath, forceRestart = false }) {
-    if (forceRestart) {
-      await stopWorkspaceIdeSession();
-    }
-
-    const info = await ensureWorkspaceIdeSession(rootPath);
-    return {
-      rootPath: info.rootPath,
-      internal: {
-        kind: "openvscode",
-        info,
-      },
-    };
+    return ensureOpenVsCodeWorkbenchSession({ rootPath, forceRestart });
   },
   async publishState(session, state) {
-    await writeWorkspaceIdeBridgeState(readOpenVsCodeSessionInfo(session).rootPath, state);
+    await publishOpenVsCodeBridgeState(session, state);
   },
   async takeRequests(session) {
-    return takeWorkspaceIdeBridgeRequests(readOpenVsCodeSessionInfo(session).rootPath);
+    return takeOpenVsCodeBridgeRequests(session);
   },
   describeLifecyclePolicy() {
-    return {
-      idlePrewarmDelayMs: 900,
-      bridgeStateRefreshMs: 2_500,
-      bridgeRequestPollMs: 750,
-    };
+    return describeOpenVsCodeLifecyclePolicy();
   },
   startStateSync(params) {
-    return startWorkspaceBridgeStateSync({
-      ...params,
-      host: openVsCodeWorkbenchHost,
-    });
+    return startOpenVsCodeBridgeStateSync(openVsCodeWorkbenchHost, params);
   },
   startRequestPolling(params) {
-    return startWorkspaceBridgeRequestPolling({
-      ...params,
-      host: openVsCodeWorkbenchHost,
-    });
+    return startOpenVsCodeBridgeRequestPolling(openVsCodeWorkbenchHost, params);
   },
   buildSurface(session, { projectName, refreshNonce }) {
     const info = readOpenVsCodeSessionInfo(session);
     return {
       kind: "frame" as const,
-      key: `${info.rootPath}:${info.processId}:${refreshNonce}`,
+      key: `${buildOpenVsCodeSurfaceId("iframe", info)}:${refreshNonce}`,
       title: `Workspace for ${projectName}`,
       src: info.workbenchUrl,
     };

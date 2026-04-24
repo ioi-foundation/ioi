@@ -152,9 +152,9 @@ pub fn run_cli() -> Result<(), String> {
             print_json(&snapshot)
         }
         "remove-latest" => {
-            let path = args.next().ok_or_else(|| {
-                "Usage: chat_file_context_proof remove-latest <path>".to_string()
-            })?;
+            let path = args
+                .next()
+                .ok_or_else(|| "Usage: chat_file_context_proof remove-latest <path>".to_string())?;
             let snapshot =
                 mutate_latest_path(&memory_runtime, &path, apply_remove_file_context_path)?;
             print_json(&snapshot)

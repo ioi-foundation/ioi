@@ -1,30 +1,20 @@
-use super::revisions::{
-    chat_artifact_exemplar_from_archival_record, CHAT_ARTIFACT_EXEMPLAR_SCOPE,
-};
+use super::revisions::{chat_artifact_exemplar_from_archival_record, CHAT_ARTIFACT_EXEMPLAR_SCOPE};
 use super::source_research::retrieve_research_sources_for_brief;
 use super::*;
 use crate::kernel::state::connect_public_api;
 use crate::models::AppState;
 use ioi_api::runtime_harness::{
     apply_artifact_connector_grounding_to_brief, build_chat_artifact_exemplar_query,
-    compile_chat_artifact_ir, derive_request_grounded_chat_artifact_brief,
-    derive_chat_artifact_blueprint, derive_chat_artifact_prepared_context,
+    compile_chat_artifact_ir, derive_chat_artifact_blueprint,
+    derive_chat_artifact_prepared_context, derive_request_grounded_chat_artifact_brief,
     synthesize_chat_artifact_brief_for_execution_strategy_with_runtime, ArtifactOperatorPhase,
-    ArtifactOperatorRunStatus, ArtifactOperatorStep, ArtifactSourceReference, ConnectorGrounding,
-    ArtifactPlanningContext as ChatArtifactPlanningContext,
-    ChatArtifactBlueprint as ChatArtifactBlueprint,
-    ChatArtifactExemplar as ChatArtifactExemplar,
-    ChatArtifactGenerationProgress as ChatArtifactGenerationProgress,
-    ChatArtifactGenerationProgressObserver as ChatArtifactGenerationProgressObserver,
-    ChatArtifactIR as ChatArtifactIR,
-    ChatArtifactPreparationNeeds as ChatArtifactPreparationNeeds,
-    ChatArtifactRuntimeEventStatus as ChatArtifactRuntimeEventStatus,
-    ChatArtifactSelectedSkill as ChatArtifactSelectedSkill,
-    ChatArtifactSkillDiscoveryResolution as ChatArtifactSkillDiscoveryResolution,
-    ChatArtifactSkillNeed as ChatArtifactSkillNeed,
-    ChatArtifactSkillNeedKind as ChatArtifactSkillNeedKind,
-    ChatArtifactSkillNeedPriority as ChatArtifactSkillNeedPriority,
-    ChatArtifactTasteMemory as ChatArtifactTasteMemory,
+    ArtifactOperatorRunStatus, ArtifactOperatorStep,
+    ArtifactPlanningContext as ChatArtifactPlanningContext, ArtifactSourceReference,
+    ChatArtifactBlueprint, ChatArtifactExemplar, ChatArtifactGenerationProgress,
+    ChatArtifactGenerationProgressObserver, ChatArtifactIR, ChatArtifactPreparationNeeds,
+    ChatArtifactRuntimeEventStatus, ChatArtifactSelectedSkill,
+    ChatArtifactSkillDiscoveryResolution, ChatArtifactSkillNeed, ChatArtifactSkillNeedKind,
+    ChatArtifactSkillNeedPriority, ChatArtifactTasteMemory, ConnectorGrounding,
 };
 use ioi_ipc::blockchain::QueryRawStateRequest;
 use ioi_ipc::public::public_api_client::PublicApiClient;
@@ -37,7 +27,7 @@ use ioi_services::agentic::skill_registry::{
     skill_is_runtime_eligible, skill_reliability_score, SKILL_ARCHIVAL_SCOPE,
 };
 use ioi_types::app::agentic::{PublishedSkillDoc, SkillRecord, SkillStats};
-use ioi_types::app::ChatExecutionStrategy as ChatExecutionStrategy;
+use ioi_types::app::ChatExecutionStrategy;
 use ioi_types::codec;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -305,8 +295,9 @@ fn operator_status_from_runtime_status(
         ChatArtifactRuntimeEventStatus::Pending => ArtifactOperatorRunStatus::Pending,
         ChatArtifactRuntimeEventStatus::Active => ArtifactOperatorRunStatus::Active,
         ChatArtifactRuntimeEventStatus::Complete => ArtifactOperatorRunStatus::Complete,
-        ChatArtifactRuntimeEventStatus::Failed
-        | ChatArtifactRuntimeEventStatus::Interrupted => ArtifactOperatorRunStatus::Failed,
+        ChatArtifactRuntimeEventStatus::Failed | ChatArtifactRuntimeEventStatus::Interrupted => {
+            ArtifactOperatorRunStatus::Failed
+        }
         ChatArtifactRuntimeEventStatus::Blocked => ArtifactOperatorRunStatus::Blocked,
         ChatArtifactRuntimeEventStatus::Other => ArtifactOperatorRunStatus::Other,
     }
@@ -482,9 +473,9 @@ pub(super) fn prepare_chat_artifact_planning_context(
         );
     }
 
-    let planning_timeout = Duration::from_secs(90).min(
-        super::chat_generation_timeout_for_runtime(&inference_runtime),
-    );
+    let planning_timeout = Duration::from_secs(90).min(super::chat_generation_timeout_for_runtime(
+        &inference_runtime,
+    ));
     let mut discovery_brief =
         derive_request_grounded_chat_artifact_brief(title, intent, request, refinement);
     apply_artifact_connector_grounding_to_brief(&mut discovery_brief, connector_grounding);

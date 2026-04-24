@@ -4,17 +4,11 @@ use super::workspace_build::run_build_supervisor_for_proof;
 use super::*;
 use ioi_api::execution::{execution_strategy_for_outcome, ExecutionEnvelope};
 use ioi_api::runtime_harness::{
-    ArtifactRenderEvaluation as ChatArtifactRenderEvaluation,
-    ChatArtifactExemplar as ChatArtifactExemplar,
-    ChatArtifactMergeReceipt as ChatArtifactMergeReceipt,
-    ChatArtifactPatchReceipt as ChatArtifactPatchReceipt,
-    ChatArtifactPreparedContextResolution as ChatArtifactPreparedContextResolution,
-    ChatArtifactPreparationNeeds as ChatArtifactPreparationNeeds,
-    ChatArtifactSkillDiscoveryResolution as ChatArtifactSkillDiscoveryResolution,
-    ChatArtifactSwarmExecutionSummary as ChatArtifactSwarmExecutionSummary,
-    ChatArtifactSwarmPlan as ChatArtifactSwarmPlan,
-    ChatArtifactVerificationReceipt as ChatArtifactVerificationReceipt,
-    ChatArtifactWorkerReceipt as ChatArtifactWorkerReceipt,
+    ArtifactRenderEvaluation as ChatArtifactRenderEvaluation, ChatArtifactExemplar,
+    ChatArtifactMergeReceipt, ChatArtifactPatchReceipt, ChatArtifactPreparationNeeds,
+    ChatArtifactPreparedContextResolution, ChatArtifactSkillDiscoveryResolution,
+    ChatArtifactSwarmExecutionSummary, ChatArtifactSwarmPlan, ChatArtifactVerificationReceipt,
+    ChatArtifactWorkerReceipt,
 };
 use std::time::Duration;
 
@@ -240,8 +234,7 @@ fn prepare_task_for_chat_with_request_for_proof(
     let mut swarm_change_receipts = Vec::<ChatArtifactPatchReceipt>::new();
     let mut swarm_merge_receipts = Vec::<ChatArtifactMergeReceipt>::new();
     let mut swarm_verification_receipts = Vec::<ChatArtifactVerificationReceipt>::new();
-    let mut render_evaluation: Option<ioi_api::runtime_harness::ArtifactRenderEvaluation> =
-        None;
+    let mut render_evaluation: Option<ioi_api::runtime_harness::ArtifactRenderEvaluation> = None;
     let mut validation: Option<ChatArtifactValidationResult> = None;
     let mut output_origin: Option<ChatArtifactOutputOrigin> = None;
     let mut production_provenance: Option<crate::models::ChatRuntimeProvenance> = None;

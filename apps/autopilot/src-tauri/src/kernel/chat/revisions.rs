@@ -1,17 +1,10 @@
 use super::*;
-use crate::models::{ChatArtifactSession, ChatArtifactRevision};
+use crate::models::{ChatArtifactRevision, ChatArtifactSession};
 use crate::orchestrator;
 use ioi_api::runtime_harness::{
-    ChatArtifactBlueprint as ChatArtifactBlueprint,
-    ChatArtifactBrief as ChatArtifactBrief,
-    ChatArtifactEditIntent as ChatArtifactEditIntent,
-    ChatArtifactExemplar as ChatArtifactExemplar,
-    ChatArtifactIR as ChatArtifactIR,
-    ChatArtifactRefinementContext as ChatArtifactRefinementContext,
-    ChatArtifactTasteMemory as ChatArtifactTasteMemory,
-    ChatArtifactUxLifecycle as ChatArtifactUxLifecycle,
-    ChatArtifactValidationResult as ChatArtifactValidationResult,
-    ChatArtifactValidationStatus as ChatArtifactValidationStatus,
+    ChatArtifactBlueprint, ChatArtifactBrief, ChatArtifactEditIntent, ChatArtifactExemplar,
+    ChatArtifactIR, ChatArtifactRefinementContext, ChatArtifactTasteMemory,
+    ChatArtifactUxLifecycle, ChatArtifactValidationResult, ChatArtifactValidationStatus,
     ChatGeneratedArtifactFile,
 };
 use ioi_api::vm::inference::InferenceRuntime;
@@ -259,14 +252,11 @@ fn chat_artifact_exemplar_from_metadata(
 pub(super) fn chat_artifact_exemplar_from_archival_record(
     record: &ArchivalMemoryRecord,
 ) -> Option<ChatArtifactExemplar> {
-    if record.scope != CHAT_ARTIFACT_EXEMPLAR_SCOPE
-        || record.kind != CHAT_ARTIFACT_EXEMPLAR_KIND
-    {
+    if record.scope != CHAT_ARTIFACT_EXEMPLAR_SCOPE || record.kind != CHAT_ARTIFACT_EXEMPLAR_KIND {
         return None;
     }
     let metadata =
-        serde_json::from_str::<ChatArtifactExemplarArchivalMetadata>(&record.metadata_json)
-            .ok()?;
+        serde_json::from_str::<ChatArtifactExemplarArchivalMetadata>(&record.metadata_json).ok()?;
     Some(chat_artifact_exemplar_from_metadata(record.id, metadata))
 }
 

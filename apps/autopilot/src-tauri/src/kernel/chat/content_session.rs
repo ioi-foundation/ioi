@@ -16,22 +16,14 @@ use ioi_api::execution::{
 use ioi_api::runtime_harness::{
     derive_chat_topology_projection, ArtifactOperatorPhase, ArtifactOperatorRunMode,
     ArtifactOperatorRunStatus, ArtifactOperatorStep, ArtifactSourceReference,
-    ChatArtifactBlueprint as ChatArtifactBlueprint,
-    ChatArtifactExemplar as ChatArtifactExemplar,
-    ChatArtifactGenerationProgress as ChatArtifactGenerationProgress,
-    ChatArtifactGenerationProgressObserver as ChatArtifactGenerationProgressObserver,
-    ChatArtifactIR as ChatArtifactIR,
-    ChatArtifactPreparationNeeds as ChatArtifactPreparationNeeds,
-    ChatArtifactPreparedContextResolution as ChatArtifactPreparedContextResolution,
-    ChatArtifactRenderEvaluation as ChatArtifactRenderEvaluation,
-    ChatArtifactSelectedSkill as ChatArtifactSelectedSkill,
-    ChatArtifactSkillDiscoveryResolution as ChatArtifactSkillDiscoveryResolution,
-    ChatIntentContext,
+    ChatArtifactBlueprint, ChatArtifactExemplar, ChatArtifactGenerationProgress,
+    ChatArtifactGenerationProgressObserver, ChatArtifactIR, ChatArtifactPreparationNeeds,
+    ChatArtifactPreparedContextResolution, ChatArtifactRenderEvaluation, ChatArtifactSelectedSkill,
+    ChatArtifactSkillDiscoveryResolution, ChatIntentContext,
 };
 use ioi_types::app::{
-    RoutingRouteDecision, ChatExecutionModeDecision as ChatExecutionModeDecision,
-    ChatExecutionStrategy as ChatExecutionStrategy, ChatNormalizedRequestFrame,
-    ChatRetainedWidgetState as ChatRetainedWidgetState,
+    ChatExecutionModeDecision, ChatExecutionStrategy, ChatNormalizedRequestFrame,
+    ChatRetainedWidgetState, RoutingRouteDecision,
 };
 use std::time::Duration;
 
@@ -216,10 +208,9 @@ pub(super) fn chat_outcome_request(
     active_artifact: Option<&ChatArtifactRefinementContext>,
     active_widget_state: Option<&ChatRetainedWidgetState>,
 ) -> Result<ChatOutcomeRequest, String> {
-    let runtime =
-        super::task_state::app_chat_routing_inference_runtime(app).ok_or_else(|| {
-            "Chat outcome routing runtime is unavailable while routing the request.".to_string()
-        })?;
+    let runtime = super::task_state::app_chat_routing_inference_runtime(app).ok_or_else(|| {
+        "Chat outcome routing runtime is unavailable while routing the request.".to_string()
+    })?;
     let timeout = chat_routing_timeout_for_runtime(&runtime);
     let mut outcome_request = chat_outcome_request_with_runtime_timeout(
         runtime,
@@ -331,10 +322,7 @@ pub(super) fn apply_connector_routing_from_catalog_entries(
     merge_connector_route_context(outcome_request, context);
 }
 
-fn apply_connector_routing_from_catalog(
-    app: &AppHandle,
-    outcome_request: &mut ChatOutcomeRequest,
-) {
+fn apply_connector_routing_from_catalog(app: &AppHandle, outcome_request: &mut ChatOutcomeRequest) {
     let state = app.state::<Mutex<AppState>>();
     let connectors =
         tauri::async_runtime::block_on(crate::kernel::connectors::connector_list_catalog(state));
@@ -524,15 +512,9 @@ fn request_frame_has_clarification_slots(frame: &ChatNormalizedRequestFrame) -> 
         ChatNormalizedRequestFrame::Weather(frame) => {
             !frame.clarification_required_slots.is_empty()
         }
-        ChatNormalizedRequestFrame::Sports(frame) => {
-            !frame.clarification_required_slots.is_empty()
-        }
-        ChatNormalizedRequestFrame::Places(frame) => {
-            !frame.clarification_required_slots.is_empty()
-        }
-        ChatNormalizedRequestFrame::Recipe(frame) => {
-            !frame.clarification_required_slots.is_empty()
-        }
+        ChatNormalizedRequestFrame::Sports(frame) => !frame.clarification_required_slots.is_empty(),
+        ChatNormalizedRequestFrame::Places(frame) => !frame.clarification_required_slots.is_empty(),
+        ChatNormalizedRequestFrame::Recipe(frame) => !frame.clarification_required_slots.is_empty(),
         ChatNormalizedRequestFrame::MessageCompose(frame) => {
             !frame.clarification_required_slots.is_empty()
         }
@@ -848,8 +830,7 @@ pub(super) fn materialization_contract_for_request(
             "Conversation remains the control plane; this artifact is the work product."
                 .to_string(),
             "Renderer choice is explicit in the typed outcome request.".to_string(),
-            "Verification state, not worker prose, authorizes the final Chat summary."
-                .to_string(),
+            "Verification state, not worker prose, authorizes the final Chat summary.".to_string(),
         ],
     }
 }
@@ -1000,14 +981,13 @@ pub(super) fn maybe_refine_current_non_workspace_artifact_turn(
         );
     let progress_app = app.clone();
     let progress_task_id = task.id.clone();
-    let progress_observer =
-        std::sync::Arc::new(move |progress: ChatArtifactGenerationProgress| {
-            super::prepare::publish_current_task_generation_progress(
-                &progress_app,
-                &progress_task_id,
-                &progress,
-            );
-        }) as ChatArtifactGenerationProgressObserver;
+    let progress_observer = std::sync::Arc::new(move |progress: ChatArtifactGenerationProgress| {
+        super::prepare::publish_current_task_generation_progress(
+            &progress_app,
+            &progress_task_id,
+            &progress,
+        );
+    }) as ChatArtifactGenerationProgressObserver;
     let mut materialized_artifact =
         materialize_non_workspace_artifact_with_execution_strategy_and_progress_observer(
             app,
