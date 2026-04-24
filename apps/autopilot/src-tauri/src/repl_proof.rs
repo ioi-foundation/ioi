@@ -4,10 +4,10 @@ use crate::kernel::connectors::{
 use crate::kernel::data::{default_agent_playbooks, default_local_engine_control_plane_document};
 use crate::kernel::events::build_event;
 use crate::models::{
-    AgentPhase, AgentTask, Artifact, ArtifactRef, ArtifactType, BuildArtifactSession, ChatMessage,
-    ClarificationRequest, CredentialRequest, EventStatus, EventType, GateInfo,
-    SessionBackgroundTaskRecord, SessionChecklistItem, SessionCompactionPolicy, SessionSummary,
-    ChatBuildReceipt, ChatCodeWorkerLease,
+    AgentPhase, AgentTask, Artifact, ArtifactRef, ArtifactType, BuildArtifactSession,
+    ChatBuildReceipt, ChatCodeWorkerLease, ChatMessage, ClarificationRequest, CredentialRequest,
+    EventStatus, EventType, GateInfo, SessionBackgroundTaskRecord, SessionChecklistItem,
+    SessionCompactionPolicy, SessionSummary,
 };
 use crate::open_or_create_memory_runtime;
 use crate::orchestrator::store::save_local_session_summary;

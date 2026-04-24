@@ -5,8 +5,7 @@ pub(super) fn non_artifact_single_pass_reply_stays_chat_primary(
     outcome_request: &ChatOutcomeRequest,
 ) -> bool {
     outcome_request.outcome_kind == ChatOutcomeKind::Conversation
-        && outcome_request.execution_strategy
-            == ioi_types::app::ChatExecutionStrategy::SinglePass
+        && outcome_request.execution_strategy == ioi_types::app::ChatExecutionStrategy::SinglePass
         && !outcome_request.needs_clarification
         && !outcome_request
             .routing_hints
@@ -18,9 +17,7 @@ pub(super) fn non_artifact_single_pass_reply_stays_chat_primary(
             .any(|hint| hint == "currentness_override")
 }
 
-pub(super) fn tool_widget_route_stays_chat_primary(
-    outcome_request: &ChatOutcomeRequest,
-) -> bool {
+pub(super) fn tool_widget_route_stays_chat_primary(outcome_request: &ChatOutcomeRequest) -> bool {
     outcome_request.outcome_kind == ChatOutcomeKind::ToolWidget
         && !outcome_request.needs_clarification
         && outcome_request.routing_hints.iter().any(|hint| {
@@ -34,9 +31,7 @@ pub(super) fn tool_widget_route_stays_chat_primary(
         })
 }
 
-pub(super) fn visualizer_route_stays_chat_primary(
-    outcome_request: &ChatOutcomeRequest,
-) -> bool {
+pub(super) fn visualizer_route_stays_chat_primary(outcome_request: &ChatOutcomeRequest) -> bool {
     outcome_request.outcome_kind == ChatOutcomeKind::Visualizer
         && !outcome_request.needs_clarification
 }
@@ -213,18 +208,16 @@ fn chat_authoritative_step_hint(
                     .to_string(),
             );
         }
-        return Some(
-            if lifecycle_state == ChatArtifactLifecycleState::Blocked {
-                chat_session
-                    .verified_reply
-                    .failure
-                    .as_ref()
-                    .map(|failure| failure.message.clone())
-                    .unwrap_or_else(|| chat_session.verified_reply.summary.clone())
-            } else {
-                chat_session.verified_reply.summary.clone()
-            },
-        );
+        return Some(if lifecycle_state == ChatArtifactLifecycleState::Blocked {
+            chat_session
+                .verified_reply
+                .failure
+                .as_ref()
+                .map(|failure| failure.message.clone())
+                .unwrap_or_else(|| chat_session.verified_reply.summary.clone())
+        } else {
+            chat_session.verified_reply.summary.clone()
+        });
     }
 
     let candidate_count = chat_session.materialization.candidate_summaries.len();

@@ -1,6 +1,4 @@
-use ioi_api::runtime_harness::{
-    ArtifactRetrievalPlan, ArtifactSourceReference, ChatArtifactBrief as ChatArtifactBrief,
-};
+use ioi_api::runtime_harness::{ArtifactRetrievalPlan, ArtifactSourceReference, ChatArtifactBrief};
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_types::app::agentic::InferenceOptions;
 use regex::Regex;

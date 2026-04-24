@@ -3,10 +3,7 @@ use crate::models::VoiceInputTranscriptionRequest;
 use async_trait::async_trait;
 use ioi_api::vm::inference::{InferenceRuntime, TranscriptionRequest, TranscriptionResult};
 use ioi_types::app::agentic::InferenceOptions;
-use ioi_types::app::{
-    ChatRuntimeProvenance as ChatRuntimeProvenance,
-    ChatRuntimeProvenanceKind as ChatRuntimeProvenanceKind,
-};
+use ioi_types::app::{ChatRuntimeProvenance, ChatRuntimeProvenanceKind};
 use ioi_types::error::VmError;
 use std::path::Path;
 use std::sync::Arc;

@@ -8,6 +8,7 @@ use tauri::{
 };
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
+pub mod chat_proof;
 mod execution;
 pub mod file_context_proof;
 mod identity;
@@ -20,20 +21,17 @@ pub mod plugin_proof;
 mod project;
 pub mod repl_cli;
 pub mod repl_proof;
-pub mod chat_proof;
 mod template;
 mod windows;
 pub mod workflow_proof;
 mod workspace;
+mod workspace_direct_webview;
 mod workspace_ide;
 
 use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime, UnavailableInferenceRuntime};
 use ioi_memory::MemoryRuntime;
 use ioi_services::agentic::media_runtime::KernelMediaRuntime;
-use ioi_types::app::{
-    ChatRuntimeProvenance as ChatRuntimeProvenance,
-    ChatRuntimeProvenanceKind as ChatRuntimeProvenanceKind,
-};
+use ioi_types::app::{ChatRuntimeProvenance, ChatRuntimeProvenanceKind};
 use models::AppState;
 use std::time::Duration;
 
@@ -155,10 +153,7 @@ fn wrap_kernel_runtime(runtime: Arc<dyn InferenceRuntime>) -> Arc<dyn InferenceR
     Arc::new(KernelMediaRuntime::new(runtime))
 }
 
-fn runtime_provenance_matches(
-    left: &ChatRuntimeProvenance,
-    right: &ChatRuntimeProvenance,
-) -> bool {
+fn runtime_provenance_matches(left: &ChatRuntimeProvenance, right: &ChatRuntimeProvenance) -> bool {
     fn normalized_runtime_endpoint(endpoint: Option<&str>) -> Option<String> {
         let endpoint = endpoint?.trim();
         if endpoint.is_empty() {
@@ -491,6 +486,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(Mutex::new(models::AppState::default()))
         .manage(workspace_ide::WorkspaceIdeManager::default())
+        .manage(workspace_direct_webview::WorkspaceDirectWebviewManager::default())
         .manage(workspace::WorkspaceTerminalManager::default())
         .setup(|app| {
             println!("[Autopilot] Initializing...");
@@ -612,11 +608,9 @@ pub fn run() {
                     let state: State<Mutex<AppState>> = wallet_policy_handle.state();
                     let policy_manager: State<kernel::connectors::ShieldPolicyManager> =
                         wallet_policy_handle.state();
-                    if let Err(error) = kernel::connectors::bootstrap_wallet_policy_state(
-                        &state,
-                        &policy_manager,
-                    )
-                    .await
+                    if let Err(error) =
+                        kernel::connectors::bootstrap_wallet_policy_state(&state, &policy_manager)
+                            .await
                     {
                         eprintln!(
                             "[Autopilot] Failed to bootstrap wallet-backed Shield policy state: {}",
@@ -642,7 +636,8 @@ pub fn run() {
             let inference_runtime = create_inference_runtime();
             let chat_routing_inference_runtime =
                 create_chat_routing_inference_runtime(&inference_runtime);
-            let acceptance_inference_runtime = create_acceptance_inference_runtime(&inference_runtime);
+            let acceptance_inference_runtime =
+                create_acceptance_inference_runtime(&inference_runtime);
             {
                 let state: State<Mutex<AppState>> = app_handle.state();
                 let mut s = state.lock().expect("Failed to lock app state");
@@ -664,14 +659,17 @@ pub fn run() {
                 None::<&str>,
             )?;
             let show_pill_item = MenuItem::with_id(app, "pill", "Show Pill", true, None::<&str>)?;
-            let show_chat_item =
-                MenuItem::with_id(app, "chat", "Open Chat", true, None::<&str>)?;
+            let show_chat_item = MenuItem::with_id(app, "chat", "Open Chat", true, None::<&str>)?;
             let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-            let menu =
-                Menu::with_items(
-                    app,
-                    &[&show_chat_session_item, &show_pill_item, &show_chat_item, &quit_item],
-                )?;
+            let menu = Menu::with_items(
+                app,
+                &[
+                    &show_chat_session_item,
+                    &show_pill_item,
+                    &show_chat_item,
+                    &quit_item,
+                ],
+            )?;
 
             if let Some(icon) = app.default_window_icon().cloned() {
                 let _ = TrayIconBuilder::new()
@@ -823,6 +821,12 @@ pub fn run() {
             workspace_ide::stop_workspace_ide_session,
             workspace_ide::write_workspace_ide_bridge_state,
             workspace_ide::take_workspace_ide_bridge_requests,
+            workspace_direct_webview::workspace_direct_webview_get_state,
+            workspace_direct_webview::workspace_direct_webview_show,
+            workspace_direct_webview::workspace_direct_webview_update_bounds,
+            workspace_direct_webview::workspace_direct_webview_focus,
+            workspace_direct_webview::workspace_direct_webview_hide,
+            workspace_direct_webview::workspace_direct_webview_destroy,
             kernel::chat::chat_retry_renderer_session,
             kernel::chat::chat_attach_artifact_selection,
             kernel::chat::chat_attach_widget_state,

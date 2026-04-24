@@ -15,6 +15,7 @@ import {
   loadWorkspaceShellState,
   persistWorkspaceShellState,
 } from "./workspaceShellState";
+import { OpenVsCodeDirectSurface } from "./OpenVsCodeDirectSurface";
 import {
   createExtensionsModel,
   createOperatorModel,
@@ -73,6 +74,7 @@ export function WorkspaceShell({
   const [persistedState, setPersistedState] = useState(() =>
     loadWorkspaceShellState(currentProject.rootPath),
   );
+  const [surfaceError, setSurfaceError] = useState<string | null>(null);
   const [bridgeState, setBridgeState] = useState<DirectWorkspaceBridgeState | null>(null);
   const [extensionManifests, setExtensionManifests] = useState<
     Awaited<ReturnType<typeof loadDirectWorkspaceWorkbenchData>>["extensionManifests"]
@@ -82,6 +84,10 @@ export function WorkspaceShell({
     setPersistedState(loadWorkspaceShellState(currentProject.rootPath));
   }, [currentProject.rootPath]);
 
+  useEffect(() => {
+    setSurfaceError(null);
+  }, [surface?.key]);
+
   const initialWorkspaceState = useMemo<WorkspacePersistedState | null>(
     () => persistedState?.shellState ?? defaultWorkspaceShellState(),
     [persistedState],
@@ -90,9 +96,12 @@ export function WorkspaceShell({
   const activeOperatorSurface: WorkspaceOperatorSurface =
     persistedState?.dockSurface ?? "chat";
 
-  const directSurfaceVisible = Boolean(surface && surface.kind === "direct");
+  const substratePreviewSurfaceVisible = Boolean(surface && surface.kind === "direct");
+  const effectiveError = error ?? surfaceError;
   const overlayVisible =
-    Boolean(error) || status !== "ready" || (!directSurfaceVisible && !surfaceReady);
+    Boolean(effectiveError) ||
+    status !== "ready" ||
+    (!substratePreviewSurfaceVisible && !surfaceReady);
 
   useEffect(() => {
     if (!import.meta.env.DEV || !active) {
@@ -268,6 +277,14 @@ export function WorkspaceShell({
               markSurfaceReady();
             }}
           />
+        ) : surface.kind === "openvscode-direct" ? (
+          <OpenVsCodeDirectSurface
+            key={surface.key}
+            active={active}
+            surface={surface}
+            onReady={markSurfaceReady}
+            onError={setSurfaceError}
+          />
         ) : (
           <WorkspaceHost
             key={surface.key}
@@ -306,7 +323,7 @@ export function WorkspaceShell({
             </span>
             <h2>{currentProject.name}</h2>
             <p>
-              {error
+              {effectiveError
                 ? (sessionDescriptor?.startupFailureDescription ??
                   "The workspace runtime did not start cleanly.")
                 : (sessionDescriptor?.startupDescription ??
@@ -342,8 +359,10 @@ export function WorkspaceShell({
                 </div>
               </>
             ) : null}
-            {error ? (
-              <pre className="chat-workspace-oss-shell__error">{error}</pre>
+            {effectiveError ? (
+              <pre className="chat-workspace-oss-shell__error">
+                {effectiveError}
+              </pre>
             ) : (
               <div className="chat-workspace-oss-shell__spinner" aria-hidden="true" />
             )}
@@ -352,10 +371,11 @@ export function WorkspaceShell({
                 type="button"
                 className="chat-workspace-oss-shell__button"
                 onClick={() => {
+                  setSurfaceError(null);
                   restartWorkspace();
                 }}
               >
-                {error ? "Retry workspace runtime" : "Force reveal now"}
+                {effectiveError ? "Retry workspace runtime" : "Force reveal now"}
               </button>
             </div>
           </div>

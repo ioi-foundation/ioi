@@ -6,8 +6,8 @@ use tauri::{AppHandle, Manager, WebviewWindow};
 use super::monitor::get_target_monitor;
 use super::{
     should_surface_overlay_windows_in_task_switcher, ChatSessionLayout, ARTIFACT_PANEL_WIDTH,
-    BASE_WIDTH, COMPACT_ARTIFACT_PANEL_WIDTH, COMPACT_SIDEBAR_WIDTH, SIDEBAR_WIDTH,
-    CHAT_SESSION_HEIGHT, TASKBAR_MARGIN,
+    BASE_WIDTH, CHAT_SESSION_HEIGHT, COMPACT_ARTIFACT_PANEL_WIDTH, COMPACT_SIDEBAR_WIDTH,
+    SIDEBAR_WIDTH, TASKBAR_MARGIN,
 };
 
 pub(super) fn focus_window_best_effort(window: &WebviewWindow) {

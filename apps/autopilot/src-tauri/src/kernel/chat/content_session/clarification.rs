@@ -1,8 +1,8 @@
 use super::route_contract::{routing_hint_flag, routing_hint_prefixed_value};
 use super::*;
 use ioi_api::runtime_harness::{
-    runtime_locality_scope_hint, chat_request_frame_clarification_slots,
-    chat_specialized_domain_kind, ChatSpecializedDomainKind,
+    chat_request_frame_clarification_slots, chat_specialized_domain_kind,
+    runtime_locality_scope_hint, ChatSpecializedDomainKind,
 };
 
 fn current_area_option_available() -> bool {
@@ -37,8 +37,7 @@ pub(super) fn specialized_domain_clarification_question(
         }
         ChatSpecializedDomainKind::Sports => {
             if blocking_slots.iter().any(|slot| slot == "team_or_target") {
-                "Which team, player, or matchup should Chat use for the sports lookup?"
-                    .to_string()
+                "Which team, player, or matchup should Chat use for the sports lookup?".to_string()
             } else {
                 "Which league should Chat use for the sports lookup?".to_string()
             }
@@ -53,13 +52,10 @@ pub(super) fn specialized_domain_clarification_question(
                 "What kind of place should Chat look for?".to_string()
             }
         }
-        ChatSpecializedDomainKind::Recipe => {
-            "Which dish or recipe should Chat make?".to_string()
-        }
+        ChatSpecializedDomainKind::Recipe => "Which dish or recipe should Chat make?".to_string(),
         ChatSpecializedDomainKind::MessageCompose => {
             if blocking_slots.iter().any(|slot| slot == "channel") {
-                "Which channel should Chat draft this for: email, Slack, text, or chat?"
-                    .to_string()
+                "Which channel should Chat draft this for: email, Slack, text, or chat?".to_string()
             } else if blocking_slots
                 .iter()
                 .any(|slot| slot == "recipient_context")
@@ -176,9 +172,8 @@ fn specialized_domain_clarification_options(
                 let mut options = vec![crate::models::ClarificationOption {
                     id: "share_location_anchor".to_string(),
                     label: "Share a location".to_string(),
-                    description:
-                        "Tell Chat the neighborhood, city, or landmark to search around."
-                            .to_string(),
+                    description: "Tell Chat the neighborhood, city, or landmark to search around."
+                        .to_string(),
                     recommended: !locality_available,
                 }];
                 if locality_available {
@@ -326,8 +321,7 @@ fn specialized_domain_clarification_options(
             crate::models::ClarificationOption {
                 id: "set_decision_rule".to_string(),
                 label: "Set decision rule".to_string(),
-                description: "Tell Chat how the options should be ranked or compared."
-                    .to_string(),
+                description: "Tell Chat how the options should be ranked or compared.".to_string(),
                 recommended: false,
             },
             crate::models::ClarificationOption {

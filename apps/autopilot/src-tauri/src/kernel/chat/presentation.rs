@@ -1,10 +1,7 @@
-use crate::models::{
-    ChatArtifactLifecycleState, ChatOutcomeArtifactRequest, ChatRendererKind,
-};
+use crate::models::{ChatArtifactLifecycleState, ChatOutcomeArtifactRequest, ChatRendererKind};
 use ioi_api::runtime_harness::{
-    ArtifactRenderEvaluation as ChatArtifactRenderEvaluation,
-    ChatArtifactRenderFindingSeverity as ChatArtifactRenderFindingSeverity,
-    ChatArtifactValidationResult as ChatArtifactValidationResult,
+    ArtifactRenderEvaluation as ChatArtifactRenderEvaluation, ChatArtifactRenderFindingSeverity,
+    ChatArtifactValidationResult,
 };
 
 pub(super) fn truncate_preview(content: &str) -> String {

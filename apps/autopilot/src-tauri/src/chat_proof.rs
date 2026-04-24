@@ -1,23 +1,13 @@
-use crate::kernel::chat::{
-    changed_paths_between_revisions, run_chat_current_task_turn_for_proof,
-};
+use crate::kernel::chat::{changed_paths_between_revisions, run_chat_current_task_turn_for_proof};
 use crate::models::{
-    AgentPhase, AgentTask, ChatArtifactFailure, ChatArtifactRevision,
-    ChatArtifactValidationResult, ChatArtifactValidationStatus,
+    AgentPhase, AgentTask, ChatArtifactFailure, ChatArtifactRevision, ChatArtifactValidationResult,
+    ChatArtifactValidationStatus,
 };
 use crate::orchestrator;
 use ioi_api::chat::{
-    ChatArtifactBlueprint as ChatArtifactBlueprint,
-    ChatArtifactBrief as ChatArtifactBrief,
-    ChatArtifactCandidateSummary as ChatArtifactCandidateSummary,
-    ChatArtifactEditIntent as ChatArtifactEditIntent,
-    ChatArtifactExemplar as ChatArtifactExemplar,
-    ChatArtifactIR as ChatArtifactIR,
-    ChatArtifactOutputOrigin as ChatArtifactOutputOrigin,
-    ChatArtifactSelectedSkill as ChatArtifactSelectedSkill,
-    ChatArtifactSelectionTarget as ChatArtifactSelectionTarget,
-    ChatArtifactTasteMemory as ChatArtifactTasteMemory,
-    ChatArtifactUxLifecycle as ChatArtifactUxLifecycle,
+    ChatArtifactBlueprint, ChatArtifactBrief, ChatArtifactCandidateSummary, ChatArtifactEditIntent,
+    ChatArtifactExemplar, ChatArtifactIR, ChatArtifactOutputOrigin, ChatArtifactSelectedSkill,
+    ChatArtifactSelectionTarget, ChatArtifactTasteMemory, ChatArtifactUxLifecycle,
 };
 use ioi_memory::MemoryRuntime;
 use serde::Serialize;
@@ -335,8 +325,7 @@ fn materialize_current_task_output(
         .ok_or_else(|| "no Chat session is attached to the current proof task".to_string())?;
     ensure_clean_directory(output)?;
 
-    if chat_session.artifact_manifest.renderer
-        == crate::models::ChatRendererKind::WorkspaceSurface
+    if chat_session.artifact_manifest.renderer == crate::models::ChatRendererKind::WorkspaceSurface
     {
         let workspace_root = chat_session
             .workspace_root
@@ -762,10 +751,7 @@ fn copy_directory_filtered(
                 .file_type()
                 .map_err(|error| error.to_string())?
                 .is_dir()
-            && matches!(
-                entry_name.to_str(),
-                Some("node_modules" | "dist" | ".chat")
-            )
+            && matches!(entry_name.to_str(), Some("node_modules" | "dist" | ".chat"))
         {
             continue;
         }

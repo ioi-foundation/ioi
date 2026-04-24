@@ -7,17 +7,12 @@ use super::*;
 use crate::models::ChatMessage;
 use ioi_api::execution::{ExecutionEnvelope, ExecutionStage};
 use ioi_api::runtime_harness::{
-    ArtifactOperatorRunMode, ChatArtifactExemplar as ChatArtifactExemplar,
-    ChatArtifactGenerationProgress as ChatArtifactGenerationProgress,
-    ChatArtifactMergeReceipt as ChatArtifactMergeReceipt,
-    ChatArtifactPatchReceipt as ChatArtifactPatchReceipt,
-    ChatArtifactSwarmExecutionSummary as ChatArtifactSwarmExecutionSummary,
-    ChatArtifactSwarmPlan as ChatArtifactSwarmPlan,
-    ChatArtifactVerificationReceipt as ChatArtifactVerificationReceipt,
-    ChatArtifactWorkerReceipt as ChatArtifactWorkerReceipt,
+    ArtifactOperatorRunMode, ChatArtifactExemplar, ChatArtifactGenerationProgress,
+    ChatArtifactMergeReceipt, ChatArtifactPatchReceipt, ChatArtifactSwarmExecutionSummary,
+    ChatArtifactSwarmPlan, ChatArtifactVerificationReceipt, ChatArtifactWorkerReceipt,
 };
 use ioi_types::app::agentic::InferenceOptions;
-use ioi_types::app::ChatExecutionStrategy as ChatExecutionStrategy;
+use ioi_types::app::ChatExecutionStrategy;
 
 #[path = "prepare/places.rs"]
 mod places;
@@ -107,7 +102,6 @@ pub(super) fn weather_scopes_for_tool_widget(
 ) -> Vec<String> {
     weather::weather_scopes_for_tool_widget(intent, outcome_request)
 }
-
 
 fn build_recipe_tool_widget_prompt(intent: &str) -> String {
     format!(
@@ -778,8 +772,7 @@ fn maybe_prepare_task_for_chat_with_request(
     let mut swarm_change_receipts = Vec::<ChatArtifactPatchReceipt>::new();
     let mut swarm_merge_receipts = Vec::<ChatArtifactMergeReceipt>::new();
     let mut swarm_verification_receipts = Vec::<ChatArtifactVerificationReceipt>::new();
-    let mut render_evaluation: Option<ioi_api::runtime_harness::ArtifactRenderEvaluation> =
-        None;
+    let mut render_evaluation: Option<ioi_api::runtime_harness::ArtifactRenderEvaluation> = None;
     let mut validation: Option<ChatArtifactValidationResult> = None;
     let mut output_origin: Option<ChatArtifactOutputOrigin> = None;
     let mut production_provenance: Option<crate::models::ChatRuntimeProvenance> = None;

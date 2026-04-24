@@ -1,8 +1,6 @@
 use super::places::places_request_for_tool_widget;
 use crate::models::ChatOutcomeRequest;
-use ioi_types::app::chat::{
-    ChatNormalizedRequestFrame, ChatOutcomeKind, ChatPlacesRequestFrame,
-};
+use ioi_types::app::chat::{ChatNormalizedRequestFrame, ChatOutcomeKind, ChatPlacesRequestFrame};
 use ioi_types::app::ChatExecutionStrategy;
 
 fn places_outcome_request(frame: Option<ChatPlacesRequestFrame>) -> ChatOutcomeRequest {

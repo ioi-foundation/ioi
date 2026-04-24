@@ -1,9 +1,10 @@
 use crate::kernel::events::{build_event, register_artifact, register_event};
 use crate::kernel::state::update_task_state;
 use crate::models::{
-    AppState, Artifact, ArtifactRef, ArtifactType, BuildArtifactSession, ChatArtifactSession,
-    EventStatus, EventType, ChatArtifactLifecycleState, ChatArtifactManifestVerification,
-    ChatArtifactMaterializationContract, ChatArtifactVerificationStatus, ChatBuildReceipt,
+    AppState, Artifact, ArtifactRef, ArtifactType, BuildArtifactSession,
+    ChatArtifactLifecycleState, ChatArtifactManifestVerification,
+    ChatArtifactMaterializationContract, ChatArtifactSession, ChatArtifactVerificationStatus,
+    ChatBuildReceipt, EventStatus, EventType,
 };
 use ioi_api::runtime_harness::{ArtifactOperatorPhase, ArtifactOperatorRunStatus};
 use once_cell::sync::Lazy;
@@ -192,8 +193,7 @@ pub(super) fn run_build_supervisor_for_proof(
     update_workspace_verification_step(&mut chat_session.materialization, "validation", "success");
     update_workspace_verification_step(&mut chat_session.materialization, "preview", "running");
     chat_session.lifecycle_state = ChatArtifactLifecycleState::Verifying;
-    chat_session.status =
-        lifecycle_state_label(ChatArtifactLifecycleState::Verifying).to_string();
+    chat_session.status = lifecycle_state_label(ChatArtifactLifecycleState::Verifying).to_string();
     build_session.current_worker_execution.execution_state = "validating".to_string();
     build_session.build_status = "preview-starting".to_string();
 
@@ -360,8 +360,7 @@ fn run_build_supervisor_blocking(
     update_workspace_verification_step(&mut chat_session.materialization, "validation", "success");
     update_workspace_verification_step(&mut chat_session.materialization, "preview", "running");
     chat_session.lifecycle_state = ChatArtifactLifecycleState::Verifying;
-    chat_session.status =
-        lifecycle_state_label(ChatArtifactLifecycleState::Verifying).to_string();
+    chat_session.status = lifecycle_state_label(ChatArtifactLifecycleState::Verifying).to_string();
     build_session.current_worker_execution.execution_state = "validating".to_string();
     build_session.build_status = "preview-starting".to_string();
     sync_task_sessions(

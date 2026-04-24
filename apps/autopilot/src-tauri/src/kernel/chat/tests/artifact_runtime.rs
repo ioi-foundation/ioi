@@ -1800,10 +1800,7 @@ fn html_generation_failure_blocks_primary_artifact_without_synthetic_fallback() 
         );
 
     assert!(!blocked.fallback_used);
-    assert_eq!(
-        blocked.lifecycle_state,
-        ChatArtifactLifecycleState::Blocked
-    );
+    assert_eq!(blocked.lifecycle_state, ChatArtifactLifecycleState::Blocked);
     assert_eq!(
         blocked
             .validation
@@ -2118,8 +2115,7 @@ fn pipeline_steps_surface_candidates_validation_and_taste_memory() {
     let request = test_outcome_request().artifact.expect("artifact request");
     let manifest = test_manifest(ChatArtifactVerificationStatus::Ready);
     let mut materialization = test_materialization_contract();
-    materialization.output_origin =
-        Some(ioi_api::chat::ChatArtifactOutputOrigin::LiveInference);
+    materialization.output_origin = Some(ioi_api::chat::ChatArtifactOutputOrigin::LiveInference);
     materialization.winning_candidate_id = Some("candidate-2".to_string());
     materialization.winning_candidate_rationale =
         Some("Repair pass cleared the mapped-panel contract.".to_string());

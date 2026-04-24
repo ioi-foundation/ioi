@@ -7,10 +7,9 @@ use ioi_api::execution::ExecutionLivePreview;
 use ioi_api::runtime_harness::{
     ArtifactFileRef, ArtifactOperatorPhase, ArtifactOperatorRun, ArtifactOperatorRunMode,
     ArtifactOperatorRunStatus, ArtifactOperatorStep, ArtifactSourcePack, ArtifactSourceReference,
-    ArtifactVerificationOutcome, ArtifactVerificationRef,
-    ChatArtifactOperatorPreview as ChatArtifactOperatorPreview,
+    ArtifactVerificationOutcome, ArtifactVerificationRef, ChatArtifactOperatorPreview,
 };
-use ioi_types::app::ChatExecutionStrategy as ChatExecutionStrategy;
+use ioi_types::app::ChatExecutionStrategy;
 use source_pack::{
     build_source_activity_preview, prompt_requires_source_pack, source_pack_for_session,
 };
@@ -730,9 +729,7 @@ pub(super) fn refresh_active_operator_run_from_session(
                     ArtifactOperatorRunStatus::Complete
                 },
                 label: format!("Inspect {}", basename(&path)),
-                detail: format!(
-                    "Chat read back the produced artifact output before presentation."
-                ),
+                detail: format!("Chat read back the produced artifact output before presentation."),
                 started_at_ms: run.started_at_ms.saturating_add(6),
                 finished_at_ms: (!session.artifact_manifest.files.is_empty()).then_some(now_ms()),
                 preview: Some(preview),
@@ -788,9 +785,7 @@ pub(super) fn refresh_active_operator_run_from_session(
                     ArtifactOperatorRunStatus::Complete
                 },
                 label: format!("Inspect {}", basename(&build_session.entry_document)),
-                detail: format!(
-                    "Chat inspected the workspace entry document and preview handoff."
-                ),
+                detail: format!("Chat inspected the workspace entry document and preview handoff."),
                 started_at_ms: run.started_at_ms.saturating_add(5),
                 finished_at_ms: Some(now_ms()),
                 preview: None,

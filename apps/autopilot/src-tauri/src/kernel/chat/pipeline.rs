@@ -1,16 +1,14 @@
 use crate::models::{
-    BuildArtifactSession, ChatArtifactSession, ChatArtifactLifecycleState,
-    ChatArtifactManifest, ChatArtifactMaterializationCommandIntent,
-    ChatArtifactMaterializationContract, ChatArtifactPipelineStep,
-    ChatOutcomeArtifactRequest, ChatOutcomeKind, ChatRendererKind,
+    BuildArtifactSession, ChatArtifactLifecycleState, ChatArtifactManifest,
+    ChatArtifactMaterializationCommandIntent, ChatArtifactMaterializationContract,
+    ChatArtifactPipelineStep, ChatArtifactSession, ChatOutcomeArtifactRequest, ChatOutcomeKind,
+    ChatRendererKind,
 };
 use ioi_api::runtime_harness::{
-    ExecutionStage, ChatArtifactTasteMemory as ChatArtifactTasteMemory,
-    ChatArtifactValidationStatus as ChatArtifactValidationStatus,
-    ChatArtifactWorkItemStatus as ChatArtifactWorkItemStatus,
-    ChatArtifactWorkerRole as ChatArtifactWorkerRole,
+    ChatArtifactTasteMemory, ChatArtifactValidationStatus, ChatArtifactWorkItemStatus,
+    ChatArtifactWorkerRole, ExecutionStage,
 };
-use ioi_types::app::ChatExecutionStrategy as ChatExecutionStrategy;
+use ioi_types::app::ChatExecutionStrategy;
 
 use super::{
     artifact_class_id_for_request, persistence_mode_id, presentation_surface_id, renderer_kind_id,
@@ -115,9 +113,7 @@ fn pipeline_status_for_phase(
     match phase_id {
         "intake" | "routing" | "requirements" | "specification" | "planner" => "complete",
         "swarm_execution" | "merge" => match lifecycle_state {
-            ChatArtifactLifecycleState::Draft | ChatArtifactLifecycleState::Planned => {
-                "pending"
-            }
+            ChatArtifactLifecycleState::Draft | ChatArtifactLifecycleState::Planned => "pending",
             ChatArtifactLifecycleState::Materializing
             | ChatArtifactLifecycleState::Rendering
             | ChatArtifactLifecycleState::Implementing => "active",
@@ -140,9 +136,7 @@ fn pipeline_status_for_phase(
             }
         },
         "materialization" => match lifecycle_state {
-            ChatArtifactLifecycleState::Draft | ChatArtifactLifecycleState::Planned => {
-                "pending"
-            }
+            ChatArtifactLifecycleState::Draft | ChatArtifactLifecycleState::Planned => "pending",
             ChatArtifactLifecycleState::Materializing => "active",
             ChatArtifactLifecycleState::Rendering
             | ChatArtifactLifecycleState::Implementing
@@ -211,12 +205,11 @@ fn pipeline_status_for_phase(
             | ChatArtifactLifecycleState::Planned
             | ChatArtifactLifecycleState::Materializing
             | ChatArtifactLifecycleState::Rendering => "pending",
-            ChatArtifactLifecycleState::Implementing
-            | ChatArtifactLifecycleState::Verifying => "active",
-            ChatArtifactLifecycleState::Ready => "complete",
-            ChatArtifactLifecycleState::Partial | ChatArtifactLifecycleState::Blocked => {
-                "blocked"
+            ChatArtifactLifecycleState::Implementing | ChatArtifactLifecycleState::Verifying => {
+                "active"
             }
+            ChatArtifactLifecycleState::Ready => "complete",
+            ChatArtifactLifecycleState::Partial | ChatArtifactLifecycleState::Blocked => "blocked",
             ChatArtifactLifecycleState::Failed => "failed",
         },
         "repair" => match lifecycle_state {
@@ -226,9 +219,7 @@ fn pipeline_status_for_phase(
             ChatArtifactLifecycleState::Rendering
             | ChatArtifactLifecycleState::Implementing
             | ChatArtifactLifecycleState::Verifying => "active",
-            ChatArtifactLifecycleState::Ready | ChatArtifactLifecycleState::Partial => {
-                "complete"
-            }
+            ChatArtifactLifecycleState::Ready | ChatArtifactLifecycleState::Partial => "complete",
             ChatArtifactLifecycleState::Blocked => "blocked",
             ChatArtifactLifecycleState::Failed => "failed",
         },
@@ -249,8 +240,7 @@ fn pipeline_status_for_phase(
             } else {
                 match lifecycle_state {
                     ChatArtifactLifecycleState::Ready => "complete",
-                    ChatArtifactLifecycleState::Partial
-                    | ChatArtifactLifecycleState::Blocked => {
+                    ChatArtifactLifecycleState::Partial | ChatArtifactLifecycleState::Blocked => {
                         if has_files {
                             "blocked"
                         } else {
@@ -264,9 +254,7 @@ fn pipeline_status_for_phase(
         }
         "reply" => match lifecycle_state {
             ChatArtifactLifecycleState::Ready => "complete",
-            ChatArtifactLifecycleState::Partial | ChatArtifactLifecycleState::Blocked => {
-                "blocked"
-            }
+            ChatArtifactLifecycleState::Partial | ChatArtifactLifecycleState::Blocked => "blocked",
             ChatArtifactLifecycleState::Failed => "failed",
             _ => "pending",
         },

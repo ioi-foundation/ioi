@@ -1293,6 +1293,7 @@ dependencies = [
  "chrono",
  "dcrypt",
  "flate2",
+ "gdkx11",
  "gtk",
  "hex",
  "ioi-api",

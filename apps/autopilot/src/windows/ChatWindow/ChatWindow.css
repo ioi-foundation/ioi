@@ -1031,6 +1031,13 @@
   opacity: 1;
 }
 
+.chat-workspace-oss-shell__direct-surface {
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: #1e1e1e;
+}
+
 .chat-workspace-oss-shell__overlay {
   position: absolute;
   inset: 0;

@@ -1,5 +1,5 @@
-use ioi_api::runtime_harness::ChatIntentContext;
 use crate::models::ChatOutcomeRequest;
+use ioi_api::runtime_harness::ChatIntentContext;
 use std::time::Duration;
 use url::Url;
 
@@ -134,9 +134,7 @@ fn fetch_weather_scope_summary(scope: &str) -> Result<String, String> {
                                 .to_string(),
                         );
                     } else if cleaned.to_ascii_lowercase().contains("unknown location") {
-                        return Err(format!(
-                            "Chat weather surface could not locate '{scope}'.",
-                        ));
+                        return Err(format!("Chat weather surface could not locate '{scope}'.",));
                     } else {
                         return Ok(cleaned.trim_end_matches('.').to_string() + ".");
                     }
@@ -169,9 +167,7 @@ fn fetch_weather_scope_summary(scope: &str) -> Result<String, String> {
                     format!("Chat weather surface could not read current conditions: {error}")
                 })?;
                 if body.to_ascii_lowercase().contains("unknown location") {
-                    return Err(format!(
-                        "Chat weather surface could not locate '{scope}'.",
-                    ));
+                    return Err(format!("Chat weather surface could not locate '{scope}'.",));
                 }
                 if let Some(summary) = parse_weather_report_fallback(scope, &body) {
                     return Ok(summary);
@@ -193,9 +189,8 @@ fn fetch_weather_scope_summary(scope: &str) -> Result<String, String> {
         }
     }
 
-    Err(last_error.unwrap_or_else(|| {
-        "Chat weather surface could not fetch current conditions.".to_string()
-    }))
+    Err(last_error
+        .unwrap_or_else(|| "Chat weather surface could not fetch current conditions.".to_string()))
 }
 
 pub(super) fn weather_scopes_for_tool_widget(

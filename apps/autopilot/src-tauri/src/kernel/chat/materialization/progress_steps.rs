@@ -5,9 +5,8 @@ use ioi_api::execution::{
 };
 use ioi_api::runtime_harness::{
     ArtifactOperatorPhase, ArtifactOperatorRunStatus, ArtifactOperatorStep,
-    ArtifactPlanningContext as ChatArtifactPlanningContext,
-    ChatArtifactGenerationProgress as ChatArtifactGenerationProgress,
-    ChatArtifactGenerationProgressObserver as ChatArtifactGenerationProgressObserver,
+    ArtifactPlanningContext as ChatArtifactPlanningContext, ChatArtifactGenerationProgress,
+    ChatArtifactGenerationProgressObserver,
 };
 
 fn prepared_context_progress_message(execution_strategy: ChatExecutionStrategy) -> String {

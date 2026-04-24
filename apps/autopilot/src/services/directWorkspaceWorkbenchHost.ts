@@ -3,13 +3,84 @@ import {
   prewarmWorkspaceRoot,
   tauriWorkspaceAdapter,
 } from "./workspaceAdapter";
+import {
+  buildOpenVsCodeSurfaceId,
+  describeOpenVsCodeLifecyclePolicy,
+  ensureOpenVsCodeWorkbenchSession,
+  publishOpenVsCodeBridgeState,
+  readOpenVsCodeSessionInfo,
+  startOpenVsCodeBridgeRequestPolling,
+  startOpenVsCodeBridgeStateSync,
+  takeOpenVsCodeBridgeRequests,
+} from "./openVsCodeWorkbenchSession";
 import type { WorkspaceWorkbenchHost } from "./workspaceWorkbenchHost";
 
 export const directWorkspaceWorkbenchHost: WorkspaceWorkbenchHost = {
+  async ensureSession({ rootPath, forceRestart = false }) {
+    return ensureOpenVsCodeWorkbenchSession({ rootPath, forceRestart });
+  },
+  async publishState(session, state) {
+    await publishOpenVsCodeBridgeState(session, state);
+  },
+  async takeRequests(session) {
+    return takeOpenVsCodeBridgeRequests(session);
+  },
+  describeLifecyclePolicy() {
+    return describeOpenVsCodeLifecyclePolicy();
+  },
+  startStateSync(params) {
+    return startOpenVsCodeBridgeStateSync(directWorkspaceWorkbenchHost, params);
+  },
+  startRequestPolling(params) {
+    return startOpenVsCodeBridgeRequestPolling(directWorkspaceWorkbenchHost, params);
+  },
+  buildSurface(session, { projectName, refreshNonce }) {
+    const info = readOpenVsCodeSessionInfo(session);
+    const surfaceId = buildOpenVsCodeSurfaceId("direct-openvscode", info);
+    return {
+      kind: "openvscode-direct" as const,
+      key: `${surfaceId}:${refreshNonce}`,
+      surfaceId: `${surfaceId}-${refreshNonce}`,
+      title: `Workspace for ${projectName}`,
+      rootPath: info.rootPath,
+      workbenchUrl: info.workbenchUrl,
+      version: info.version,
+      port: info.port,
+      bridgePort: info.bridgePort,
+    };
+  },
+  describeBridgeWorkspace(_session, project) {
+    return {
+      id: project.id,
+      name: project.name,
+      rootPath: project.rootPath,
+    };
+  },
+  describeSession(session) {
+    const info = readOpenVsCodeSessionInfo(session);
+    return {
+      startupEyebrow: "Direct OpenVSCode workbench",
+      startupDescription:
+        "Starting the full OpenVSCode workbench for this project.",
+      startupFailureDescription:
+        "The direct OpenVSCode workbench did not start cleanly.",
+      runtimeLabel: `OpenVSCode ${info.version}`,
+      metricDetails: {
+        mode: "direct-openvscode",
+        runtime: "openvscode",
+        version: info.version,
+        port: info.port,
+        bridgePort: info.bridgePort,
+      },
+    };
+  },
+};
+
+export const substratePreviewWorkspaceWorkbenchHost: WorkspaceWorkbenchHost = {
   async ensureSession({ rootPath }) {
     const initialSnapshot = peekCachedWorkspaceSnapshot(rootPath);
     void prewarmWorkspaceRoot(rootPath).catch(() => {
-      // The direct host should reveal immediately even if the background
+      // The preview host should reveal immediately even if the background
       // snapshot warm-up fails; WorkspaceHost surfaces errors later.
     });
     return {
@@ -71,14 +142,14 @@ export const directWorkspaceWorkbenchHost: WorkspaceWorkbenchHost = {
   },
   describeSession(session) {
     return {
-      startupEyebrow: "Direct workspace workbench",
+      startupEyebrow: "Substrate workspace preview",
       startupDescription:
-        "Starting the native Workspace workbench for this project.",
+        "Starting the legacy Workspace substrate preview for this project.",
       startupFailureDescription:
-        "The native Workspace workbench did not initialize cleanly.",
-      runtimeLabel: `Direct Workspace workbench for ${session.rootPath}`,
+        "The legacy Workspace substrate preview did not initialize cleanly.",
+      runtimeLabel: `Substrate preview for ${session.rootPath}`,
       metricDetails: {
-        mode: "direct",
+        mode: "substrate-preview",
       },
     };
   },

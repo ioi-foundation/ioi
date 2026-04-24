@@ -214,6 +214,11 @@ def focus_workspace_view(window_id: int) -> None:
     time.sleep(0.35)
 
 
+def move_pointer_off_window() -> None:
+    run(["xdotool", "mousemove", "0", "0"], check=False)
+    time.sleep(0.2)
+
+
 def capture_looks_ready(diagnostics: dict[str, Any] | None) -> bool:
     if not diagnostics:
         return False
@@ -300,6 +305,7 @@ def main() -> int:
             )
 
         focus_workspace_view(window_id)
+        move_pointer_off_window()
         time.sleep(POST_WINDOW_SETTLE_SECS)
         ready_deadline = time.time() + CAPTURE_READY_TIMEOUT_SECS
         while True:

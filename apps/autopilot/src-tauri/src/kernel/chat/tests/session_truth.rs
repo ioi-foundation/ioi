@@ -317,8 +317,7 @@ fn blocked_nonworkspace_artifact_marks_task_failed_without_clarification() {
         .failure = Some(ChatArtifactFailure {
         kind: ChatArtifactFailureKind::RoutingFailure,
         code: "routing_failure".to_string(),
-        message: "Chat outcome planning timed out after 45s while routing the request."
-            .to_string(),
+        message: "Chat outcome planning timed out after 45s while routing the request.".to_string(),
     });
 
     apply_chat_authoritative_status(&mut task, None);
@@ -702,17 +701,15 @@ fn weather_tool_widget_follow_up_reuses_retained_location_scope() {
             "no_persistent_artifact_requested".to_string(),
         ],
         lane_frame: None,
-        request_frame: Some(
-            ioi_types::app::chat::ChatNormalizedRequestFrame::Weather(
-                ioi_types::app::chat::ChatWeatherRequestFrame {
-                    inferred_locations: vec!["Boston".to_string()],
-                    assumed_location: None,
-                    temporal_scope: Some("tomorrow".to_string()),
-                    missing_slots: Vec::new(),
-                    clarification_required_slots: Vec::new(),
-                },
-            ),
-        ),
+        request_frame: Some(ioi_types::app::chat::ChatNormalizedRequestFrame::Weather(
+            ioi_types::app::chat::ChatWeatherRequestFrame {
+                inferred_locations: vec!["Boston".to_string()],
+                assumed_location: None,
+                temporal_scope: Some("tomorrow".to_string()),
+                missing_slots: Vec::new(),
+                clarification_required_slots: Vec::new(),
+            },
+        )),
         source_selection: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
@@ -2130,17 +2127,15 @@ fn attach_non_artifact_session_preserves_retained_widget_state_during_topology_r
             "narrow_surface_preferred".to_string(),
         ],
         lane_frame: None,
-        request_frame: Some(
-            ioi_types::app::chat::ChatNormalizedRequestFrame::Weather(
-                ioi_types::app::chat::ChatWeatherRequestFrame {
-                    inferred_locations: vec!["Boston".to_string()],
-                    assumed_location: Some("Boston".to_string()),
-                    temporal_scope: Some("today".to_string()),
-                    missing_slots: Vec::new(),
-                    clarification_required_slots: Vec::new(),
-                },
-            ),
-        ),
+        request_frame: Some(ioi_types::app::chat::ChatNormalizedRequestFrame::Weather(
+            ioi_types::app::chat::ChatWeatherRequestFrame {
+                inferred_locations: vec!["Boston".to_string()],
+                assumed_location: Some("Boston".to_string()),
+                temporal_scope: Some("today".to_string()),
+                missing_slots: Vec::new(),
+                clarification_required_slots: Vec::new(),
+            },
+        )),
         source_selection: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
@@ -2407,17 +2402,15 @@ fn places_clarification_uses_domain_specific_anchor_options() {
                 "narrow_surface_preferred".to_string(),
             ],
             lane_frame: None,
-            request_frame: Some(
-                ioi_types::app::chat::ChatNormalizedRequestFrame::Places(
-                    ioi_types::app::chat::ChatPlacesRequestFrame {
-                        search_anchor: None,
-                        category: Some("coffee shops".to_string()),
-                        location_scope: None,
-                        missing_slots: vec!["search_anchor".to_string()],
-                        clarification_required_slots: vec!["search_anchor".to_string()],
-                    },
-                ),
-            ),
+            request_frame: Some(ioi_types::app::chat::ChatNormalizedRequestFrame::Places(
+                ioi_types::app::chat::ChatPlacesRequestFrame {
+                    search_anchor: None,
+                    category: Some("coffee shops".to_string()),
+                    location_scope: None,
+                    missing_slots: vec!["search_anchor".to_string()],
+                    clarification_required_slots: vec!["search_anchor".to_string()],
+                },
+            )),
             source_selection: None,
             retained_lane_state: None,
             lane_transitions: Vec::new(),
@@ -2457,17 +2450,15 @@ fn places_clarification_surfaces_current_area_when_runtime_locality_exists() {
                 "narrow_surface_preferred".to_string(),
             ],
             lane_frame: None,
-            request_frame: Some(
-                ioi_types::app::chat::ChatNormalizedRequestFrame::Places(
-                    ioi_types::app::chat::ChatPlacesRequestFrame {
-                        search_anchor: None,
-                        category: Some("coffee shops".to_string()),
-                        location_scope: None,
-                        missing_slots: vec!["search_anchor".to_string()],
-                        clarification_required_slots: vec!["search_anchor".to_string()],
-                    },
-                ),
-            ),
+            request_frame: Some(ioi_types::app::chat::ChatNormalizedRequestFrame::Places(
+                ioi_types::app::chat::ChatPlacesRequestFrame {
+                    search_anchor: None,
+                    category: Some("coffee shops".to_string()),
+                    location_scope: None,
+                    missing_slots: vec!["search_anchor".to_string()],
+                    clarification_required_slots: vec!["search_anchor".to_string()],
+                },
+            )),
             source_selection: None,
             retained_lane_state: None,
             lane_transitions: Vec::new(),
@@ -2514,9 +2505,7 @@ fn places_request_frame_promotes_missing_anchor_into_clarification_gate() {
     assert!(outcome_request.needs_clarification);
     assert_eq!(
         outcome_request.clarification_questions,
-        vec![
-            "Which neighborhood, city, or anchor location should Chat search around?".to_string()
-        ]
+        vec!["Which neighborhood, city, or anchor location should Chat search around?".to_string()]
     );
     assert!(outcome_request
         .routing_hints

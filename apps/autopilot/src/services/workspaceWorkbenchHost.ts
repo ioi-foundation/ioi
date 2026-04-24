@@ -25,6 +25,18 @@ export interface WorkspaceWorkbenchFrameModel {
   src: string;
 }
 
+export interface WorkspaceWorkbenchOpenVsCodeDirectModel {
+  kind: "openvscode-direct";
+  key: string;
+  surfaceId: string;
+  title: string;
+  rootPath: string;
+  workbenchUrl: string;
+  version: string;
+  port: number;
+  bridgePort: number;
+}
+
 export interface WorkspaceWorkbenchDirectModel {
   kind: "direct";
   key: string;
@@ -40,6 +52,7 @@ export interface WorkspaceWorkbenchDirectModel {
 
 export type WorkspaceWorkbenchSurfaceModel =
   | WorkspaceWorkbenchFrameModel
+  | WorkspaceWorkbenchOpenVsCodeDirectModel
   | WorkspaceWorkbenchDirectModel;
 
 export interface WorkspaceWorkbenchBridgeWorkspaceModel {
