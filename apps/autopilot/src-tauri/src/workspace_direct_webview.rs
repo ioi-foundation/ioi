@@ -4,12 +4,12 @@ use std::hash::{Hash, Hasher};
 use std::sync::Mutex;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::webview::PageLoadEvent;
-use tauri::{
-    AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition, PhysicalSize, Rect, Runtime,
-    State, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
-};
 #[cfg(not(target_os = "linux"))]
 use tauri::WebviewBuilder;
+use tauri::{
+    AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition, PhysicalSize, Rect, Runtime, State,
+    WebviewUrl, WebviewWindow, WebviewWindowBuilder,
+};
 use url::Url;
 
 #[derive(Default)]
@@ -222,9 +222,7 @@ fn sync_child_container_windows<R: Runtime>(
     let _ = (parent_window, label, bounds);
 }
 
-fn physical_position_for_bounds(
-    bounds: &WorkspaceDirectWebviewBounds,
-) -> PhysicalPosition<i32> {
+fn physical_position_for_bounds(bounds: &WorkspaceDirectWebviewBounds) -> PhysicalPosition<i32> {
     PhysicalPosition::new(
         bounds.x.round().max(0.0) as i32,
         bounds.y.round().max(0.0) as i32,
@@ -236,6 +234,88 @@ fn physical_size_for_bounds(bounds: &WorkspaceDirectWebviewBounds) -> PhysicalSi
         bounds.width.round().max(1.0) as u32,
         bounds.height.round().max(1.0) as u32,
     )
+}
+
+#[cfg(target_os = "linux")]
+fn parent_window_content_size<R: Runtime>(window: &WebviewWindow<R>) -> Option<(f64, f64)> {
+    if let Ok(gtk_window) = window.gtk_window() {
+        use gtk::prelude::WidgetExt;
+
+        let allocation = gtk_window.allocation();
+        let width = allocation.width();
+        let height = allocation.height();
+        if width > 0 && height > 0 {
+            return Some((width as f64, height as f64));
+        }
+    }
+
+    window
+        .inner_size()
+        .ok()
+        .map(|size| (size.width as f64, size.height as f64))
+}
+
+#[cfg(target_os = "linux")]
+fn correct_child_bounds_for_parent_window<R: Runtime>(
+    parent_window: &WebviewWindow<R>,
+    label: &str,
+    bounds: &WorkspaceDirectWebviewBounds,
+    context: &str,
+) -> WorkspaceDirectWebviewBounds {
+    let Some((parent_width, parent_height)) = parent_window_content_size(parent_window) else {
+        return bounds.clone();
+    };
+    let target_width = (parent_width - bounds.x).max(1.0);
+    let target_height = (parent_height - bounds.y).max(1.0);
+    let width_delta = (target_width - bounds.width).abs();
+    let height_delta = (target_height - bounds.height).abs();
+
+    if width_delta <= 8.0 && height_delta <= 8.0 {
+        return bounds.clone();
+    }
+
+    eprintln!(
+        "[WorkspaceDirectWebview] corrected child bounds label={} context={} input=({}, {}, {}, {}) parent_size=({}, {}) corrected=({}, {}, {}, {})",
+        label,
+        context,
+        bounds.x,
+        bounds.y,
+        bounds.width,
+        bounds.height,
+        parent_width,
+        parent_height,
+        bounds.x,
+        bounds.y,
+        target_width,
+        target_height
+    );
+    WorkspaceDirectWebviewBounds {
+        x: bounds.x,
+        y: bounds.y,
+        width: target_width,
+        height: target_height,
+    }
+}
+
+fn resize_screen_bounds_for_corrected_bounds(
+    screen_bounds: Option<WorkspaceDirectWebviewBounds>,
+    corrected_bounds: &WorkspaceDirectWebviewBounds,
+) -> Option<WorkspaceDirectWebviewBounds> {
+    screen_bounds.map(|bounds| WorkspaceDirectWebviewBounds {
+        width: corrected_bounds.width,
+        height: corrected_bounds.height,
+        ..bounds
+    })
+}
+
+fn bounds_equal_rust(
+    left: &WorkspaceDirectWebviewBounds,
+    right: &WorkspaceDirectWebviewBounds,
+) -> bool {
+    (left.x - right.x).abs() <= f64::EPSILON
+        && (left.y - right.y).abs() <= f64::EPSILON
+        && (left.width - right.width).abs() <= f64::EPSILON
+        && (left.height - right.height).abs() <= f64::EPSILON
 }
 
 fn hidden_child_webview_rect() -> Rect {
@@ -269,11 +349,7 @@ fn physical_position_from_xy(x: f64, y: f64) -> PhysicalPosition<i32> {
     PhysicalPosition::new(x.round() as i32, y.round() as i32)
 }
 
-fn move_owned_window_platform<R: Runtime>(
-    window: &WebviewWindow<R>,
-    x: f64,
-    y: f64,
-) {
+fn move_owned_window_platform<R: Runtime>(window: &WebviewWindow<R>, x: f64, y: f64) {
     #[cfg(target_os = "linux")]
     {
         use gtk::prelude::GtkWindowExt;
@@ -344,7 +420,10 @@ fn emit_ready<R: Runtime>(
 }
 
 #[cfg(target_os = "linux")]
-fn gtk_window_xid(window: &gtk::ApplicationWindow, label: &str) -> Result<x11::xlib::Window, String> {
+fn gtk_window_xid(
+    window: &gtk::ApplicationWindow,
+    label: &str,
+) -> Result<x11::xlib::Window, String> {
     use gtk::prelude::{Cast, WidgetExt};
 
     if window.window().is_none() {
@@ -740,13 +819,9 @@ fn build_child_webview<R: Runtime>(
         )
     })?;
     if visible {
-        if let Err(error) = show_reparented_child_window(
-            &parent_window,
-            &window,
-            label,
-            bounds,
-            "initial creation",
-        ) {
+        if let Err(error) =
+            show_reparented_child_window(&parent_window, &window, label, bounds, "initial creation")
+        {
             let _ = window.hide();
             return Err(error);
         }
@@ -810,11 +885,7 @@ fn build_child_webview<R: Runtime>(
                     &bounds_for_load,
                 );
                 if workspace_direct_devtools_enabled() {
-                    open_child_webview_devtools(
-                        &webview,
-                        &surface_id_for_load,
-                        &label_for_load,
-                    );
+                    open_child_webview_devtools(&webview, &surface_id_for_load, &label_for_load);
                 }
                 emit_ready(
                     &app_for_load,
@@ -956,11 +1027,7 @@ fn build_owned_window<R: Runtime>(
                     desired_y_for_load,
                 );
                 if workspace_direct_devtools_enabled() {
-                    open_child_window_devtools(
-                        &window,
-                        &surface_id_for_load,
-                        &label_for_load,
-                    );
+                    open_child_window_devtools(&window, &surface_id_for_load, &label_for_load);
                 }
                 emit_ready(
                     &app_for_load,
@@ -976,11 +1043,11 @@ fn build_owned_window<R: Runtime>(
         });
     #[cfg(not(target_os = "linux"))]
     let builder = builder.parent(&parent_window).map_err(|error| {
-            format!(
-                "Failed to parent direct OpenVSCode fallback window to '{}': {}",
-                parent_window_label, error
-            )
-        })?;
+        format!(
+            "Failed to parent direct OpenVSCode fallback window to '{}': {}",
+            parent_window_label, error
+        )
+    })?;
     #[cfg(target_os = "linux")]
     let builder = builder;
     let window = builder.build().map_err(|error| {
@@ -1180,8 +1247,7 @@ fn update_record_bounds<R: Runtime>(
         WorkspaceDirectWebviewMode::OwnedWindow => {
             if let Some(window) = app.get_webview_window(&record.label) {
                 if let Some(parent_window) = app.get_webview_window(&record.parent_window_label) {
-                    let (x, y) =
-                        fallback_window_position(&parent_window, bounds, screen_bounds)?;
+                    let (x, y) = fallback_window_position(&parent_window, bounds, screen_bounds)?;
                     set_owned_window_position(&window, &record.label, x, y)?;
                 }
                 window
@@ -1415,9 +1481,27 @@ pub fn workspace_direct_webview_show<R: Runtime>(
     app: AppHandle<R>,
     manager: State<WorkspaceDirectWebviewManager>,
 ) -> Result<WorkspaceDirectWebviewShowResult, String> {
-    let bounds = normalize_bounds(bounds)?;
-    let screen_bounds = normalize_optional_bounds(screen_bounds)?;
+    let label = label_for_surface(&surface_id);
+    let mut bounds = normalize_bounds(bounds)?;
+    let mut screen_bounds = normalize_optional_bounds(screen_bounds)?;
     let visible = visible.unwrap_or(true);
+    let use_owned_window = prefer_owned_window();
+    #[cfg(target_os = "linux")]
+    if visible && !use_owned_window {
+        if let Some(parent_window) = app.get_webview_window(&parent_window_label) {
+            let corrected_bounds = correct_child_bounds_for_parent_window(
+                &parent_window,
+                &label,
+                &bounds,
+                "show request",
+            );
+            if !bounds_equal_rust(&bounds, &corrected_bounds) {
+                screen_bounds =
+                    resize_screen_bounds_for_corrected_bounds(screen_bounds, &corrected_bounds);
+                bounds = corrected_bounds;
+            }
+        }
+    }
     eprintln!(
         "[WorkspaceDirectWebview] show requested surface={} parent={} visible={} bounds=({}, {}, {}, {}) screen_bounds={:?}",
         surface_id,
@@ -1435,14 +1519,14 @@ pub fn workspace_direct_webview_show<R: Runtime>(
             && handle_exists(&app, &existing)
         {
             let mut next = existing.clone();
-            update_record_bounds(&app, &existing, &bounds, screen_bounds.as_ref(), visible)?;
-            if visible {
-                show_record(&app, &existing)?;
-            } else {
-                hide_record(&app, &existing)?;
-            }
             next.bounds = bounds.clone();
             next.screen_bounds = screen_bounds.clone();
+            update_record_bounds(&app, &next, &bounds, screen_bounds.as_ref(), visible)?;
+            if visible {
+                show_record(&app, &next)?;
+            } else {
+                hide_record(&app, &next)?;
+            }
             next.show_count = next.show_count.saturating_add(1);
             next.reuse_count = next.reuse_count.saturating_add(1);
             write_record(&manager, &surface_id, next.clone())?;
@@ -1459,8 +1543,7 @@ pub fn workspace_direct_webview_show<R: Runtime>(
     }
 
     let parsed_url = parse_workbench_url(&url)?;
-    let label = label_for_surface(&surface_id);
-    let mode = if prefer_owned_window() {
+    let mode = if use_owned_window {
         eprintln!(
             "[WorkspaceDirectWebview] using diagnostic owned-window mode for direct OpenVSCode containment."
         );
@@ -1509,11 +1592,7 @@ pub fn workspace_direct_webview_show<R: Runtime>(
         hide_record(&app, &record)?;
     }
     let state = state_for_record(&surface_id, &record);
-    write_record(
-        &manager,
-        &surface_id,
-        record,
-    )?;
+    write_record(&manager, &surface_id, record)?;
     Ok(WorkspaceDirectWebviewShowResult { state })
 }
 
@@ -1525,9 +1604,25 @@ pub fn workspace_direct_webview_update_bounds<R: Runtime>(
     app: AppHandle<R>,
     manager: State<WorkspaceDirectWebviewManager>,
 ) -> Result<(), String> {
-    let bounds = normalize_bounds(bounds)?;
-    let screen_bounds = normalize_optional_bounds(screen_bounds)?;
+    let mut bounds = normalize_bounds(bounds)?;
+    let mut screen_bounds = normalize_optional_bounds(screen_bounds)?;
     if let Some(mut record) = read_record(&manager, &surface_id)? {
+        #[cfg(target_os = "linux")]
+        if record.mode == WorkspaceDirectWebviewMode::Child {
+            if let Some(parent_window) = app.get_webview_window(&record.parent_window_label) {
+                let corrected_bounds = correct_child_bounds_for_parent_window(
+                    &parent_window,
+                    &record.label,
+                    &bounds,
+                    "bounds update",
+                );
+                if !bounds_equal_rust(&bounds, &corrected_bounds) {
+                    screen_bounds =
+                        resize_screen_bounds_for_corrected_bounds(screen_bounds, &corrected_bounds);
+                    bounds = corrected_bounds;
+                }
+            }
+        }
         update_record_bounds(&app, &record, &bounds, screen_bounds.as_ref(), true)?;
         eprintln!(
             "[WorkspaceDirectWebview] update bounds surface={} label={} mode={:?} bounds=({}, {}, {}, {}) screen_bounds={:?}",

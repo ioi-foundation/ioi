@@ -107,6 +107,7 @@ export function OpenVsCodeDirectSurface({
   const lastBoundsRef = useRef<WorkspaceDirectWebviewBounds | null>(null);
   const lastScreenBoundsRef = useRef<WorkspaceDirectWebviewBounds | null>(null);
   const frameRef = useRef<number | null>(null);
+  const timeoutRefs = useRef<number[]>([]);
   const [nativeState, setNativeState] = useState<WorkspaceDirectWebviewState | null>(null);
   const [parentViewport, setParentViewport] = useState(readParentViewport);
 
@@ -213,6 +214,22 @@ export function OpenVsCodeDirectSurface({
     });
   }, [syncBounds]);
 
+  const clearDeferredSyncBounds = useCallback(() => {
+    for (const timeout of timeoutRefs.current) {
+      window.clearTimeout(timeout);
+    }
+    timeoutRefs.current = [];
+  }, []);
+
+  const scheduleSettledSyncBounds = useCallback(() => {
+    clearDeferredSyncBounds();
+    scheduleSyncBounds();
+    for (const delayMs of [75, 180, 360, 720, 1200]) {
+      const timeout = window.setTimeout(scheduleSyncBounds, delayMs);
+      timeoutRefs.current.push(timeout);
+    }
+  }, [clearDeferredSyncBounds, scheduleSyncBounds]);
+
   useEffect(() => {
     const readyPromise = listen<WorkspaceDirectWebviewReadyEvent>(
       "workspace-direct-webview-ready",
@@ -233,6 +250,7 @@ export function OpenVsCodeDirectSurface({
             boundsUpdateCount: 0,
           });
           onReady();
+          scheduleSettledSyncBounds();
         }
       },
     );
@@ -242,7 +260,7 @@ export function OpenVsCodeDirectSurface({
         unlisten();
       });
     };
-  }, [onReady, surface.surfaceId]);
+  }, [onReady, scheduleSettledSyncBounds, surface.surfaceId]);
 
   useEffect(() => {
     window.__AUTOPILOT_WORKBENCH_SURFACE__ = nativeState;
@@ -296,35 +314,39 @@ export function OpenVsCodeDirectSurface({
     let cancelled = false;
     let unlistenMoved: (() => void) | null = null;
     let unlistenResized: (() => void) | null = null;
-    void currentWindow.onMoved(scheduleSyncBounds).then((unlisten) => {
+    const handleBoundsInvalidated = () => {
+      scheduleSettledSyncBounds();
+    };
+    void currentWindow.onMoved(handleBoundsInvalidated).then((unlisten) => {
       if (cancelled) {
         unlisten();
         return;
       }
       unlistenMoved = unlisten;
     });
-    void currentWindow.onResized(scheduleSyncBounds).then((unlisten) => {
+    void currentWindow.onResized(handleBoundsInvalidated).then((unlisten) => {
       if (cancelled) {
         unlisten();
         return;
       }
       unlistenResized = unlisten;
     });
-    window.addEventListener("resize", scheduleSyncBounds);
+    window.addEventListener("resize", handleBoundsInvalidated);
     window.addEventListener("scroll", scheduleSyncBounds, true);
-    window.visualViewport?.addEventListener("resize", scheduleSyncBounds);
+    window.visualViewport?.addEventListener("resize", handleBoundsInvalidated);
     window.visualViewport?.addEventListener("scroll", scheduleSyncBounds);
 
-    scheduleSyncBounds();
+    scheduleSettledSyncBounds();
 
     return () => {
       cancelled = true;
+      clearDeferredSyncBounds();
       unlistenMoved?.();
       unlistenResized?.();
       observer.disconnect();
-      window.removeEventListener("resize", scheduleSyncBounds);
+      window.removeEventListener("resize", handleBoundsInvalidated);
       window.removeEventListener("scroll", scheduleSyncBounds, true);
-      window.visualViewport?.removeEventListener("resize", scheduleSyncBounds);
+      window.visualViewport?.removeEventListener("resize", handleBoundsInvalidated);
       window.visualViewport?.removeEventListener("scroll", scheduleSyncBounds);
       if (frameRef.current !== null) {
         window.cancelAnimationFrame(frameRef.current);
@@ -335,7 +357,13 @@ export function OpenVsCodeDirectSurface({
       lastBoundsRef.current = null;
       lastScreenBoundsRef.current = null;
     };
-  }, [active, scheduleSyncBounds, surface.surfaceId]);
+  }, [
+    active,
+    clearDeferredSyncBounds,
+    scheduleSettledSyncBounds,
+    scheduleSyncBounds,
+    surface.surfaceId,
+  ]);
 
   return (
     <div
