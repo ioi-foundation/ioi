@@ -34,7 +34,7 @@ import {
   type AutopilotAppearanceState,
   type AutopilotThemeId,
 } from "../../services/autopilotAppearance";
-import type { SettingsSection } from "../../windows/ChatWindow/components/ChatSettingsView.shared";
+import type { SettingsSection } from "../Settings/settingsViewShared";
 import { HomeWalkthroughDocument } from "./HomeWalkthroughDocument";
 import {
   FIRST_RUN_ONBOARDING_STEPS,

@@ -45,7 +45,7 @@ import {
 import { useLegacyPresentation } from "./hooks/useLegacyPresentation";
 
 // Sub-components
-import { icons } from "../ChatShellWindow/components/Icons";
+import { icons } from "../../components/ui/icons";
 import { IOIWatermark } from "../ChatShellWindow/components/IOIWatermark";
 import { ThoughtChain } from "../ChatShellWindow/components/ThoughtChain";
 import { OverlayConversationSurface } from "../ChatShellWindow/components/OverlayConversationSurface";

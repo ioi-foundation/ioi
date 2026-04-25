@@ -4,14 +4,14 @@ import type {
   PolicyDeltaDeck,
   PolicySimulationDeck,
   ShieldPolicyState,
-} from "../../ChatWindow/chatPolicyCenter";
+} from "../../../surfaces/Policy/policyCenter";
 import {
   buildConnectorPolicySummary,
   buildPolicyDeltaDeck,
   buildPolicyIntentDeltaDeck,
   buildPolicySimulationDeck,
   resolveConnectorPolicy,
-} from "../../ChatWindow/chatPolicyCenter";
+} from "../../../surfaces/Policy/policyCenter";
 import type { ChatPermissionConnectorOverrideSummary } from "../hooks/useChatPermissions";
 
 export interface AuthorityOverrideReviewCard {

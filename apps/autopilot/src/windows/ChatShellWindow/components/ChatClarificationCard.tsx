@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { SessionClarificationRequest as ClarificationRequest } from "@ioi/agent-ide";
-import { icons } from "../../ChatShellWindow/components/Icons";
+import { icons } from "../../../components/ui/icons";
 import "../../ChatShellWindow/styles/Chat.css";
 
 interface ClarificationCardProps {

@@ -86,7 +86,7 @@ export const substratePreviewWorkspaceWorkbenchHost: WorkspaceWorkbenchHost = {
     return {
       rootPath,
       internal: {
-        kind: "direct",
+        kind: "substrate-preview",
         createdAtMs: Date.now(),
         initialSnapshot,
       },
@@ -121,7 +121,7 @@ export const substratePreviewWorkspaceWorkbenchHost: WorkspaceWorkbenchHost = {
         }
       | undefined;
     return {
-      kind: "direct" as const,
+      kind: "substrate-preview" as const,
       key: `${session.rootPath}:${refreshNonce}`,
       title: `Workspace for ${projectName}`,
       rootPath: session.rootPath,

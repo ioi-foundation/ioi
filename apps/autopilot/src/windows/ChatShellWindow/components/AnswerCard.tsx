@@ -8,7 +8,7 @@ import type {
   ChatContractValue,
   SourceSummary,
 } from "../../../types";
-import { icons } from "./Icons";
+import { icons } from "../../../components/ui/icons";
 import { MarkdownMessage } from "./MarkdownMessage";
 
 interface AnswerCardProps {

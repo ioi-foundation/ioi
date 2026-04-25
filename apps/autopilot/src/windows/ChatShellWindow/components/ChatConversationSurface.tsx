@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { icons } from "./Icons";
+import { icons } from "../../../components/ui/icons";
 
 export function ChatConversationSurface({
   sidebar,

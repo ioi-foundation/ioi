@@ -32,14 +32,14 @@ import {
   type PendingVimOperator,
   type ChatVimRepeatableCommand,
 } from "../../ChatShellWindow/utils/chatVimComposer";
-import type { DropdownOption } from "../../ChatShellWindow/components/ChatDropdown";
-import { icons } from "../../ChatShellWindow/components/Icons";
-import { ChatInputControls } from "./ChatInputControls";
+import type { DropdownOption } from "../../../components/ui/Dropdown";
+import { icons } from "../../../components/ui/icons";
 import {
-  ChatSlashMenu,
-  type SlashMenuItem,
-  type SlashMenuSection,
-} from "./ChatSlashMenu";
+  CommandMenu,
+  type CommandMenuItem,
+  type CommandMenuSection,
+} from "../../../components/ui/CommandMenu";
+import { ChatInputControls } from "./ChatInputControls";
 import {
   buildModelSlashItems,
   buildRecentSessionItems,
@@ -651,8 +651,8 @@ export function ChatInputSection({
     permissionProfiles.find((profile) => profile.id === currentPermissionProfileId) ??
     null;
 
-  const actionSections = useMemo<SlashMenuSection[]>(() => {
-    const commandItems: SlashMenuItem[] = [];
+  const actionSections = useMemo<CommandMenuSection[]>(() => {
+    const commandItems: CommandMenuItem[] = [];
 
     if (
       matchesSlashQuery(
@@ -1069,7 +1069,7 @@ export function ChatInputSection({
       onLoadSession,
     });
 
-    const runtimeCatalogItems: SlashMenuItem[] =
+    const runtimeCatalogItems: CommandMenuItem[] =
       runtimeCatalogStatus === "loading"
         ? [
             {
@@ -1108,7 +1108,7 @@ export function ChatInputSection({
                 ),
               )
               .slice(0, 6)
-              .map<SlashMenuItem>((entry) => ({
+              .map<CommandMenuItem>((entry) => ({
                 id: `catalog-${entry.id}`,
                 title: entry.name,
                 description: entry.description || entry.runtimeNotes,
@@ -1123,7 +1123,7 @@ export function ChatInputSection({
                 },
               }));
 
-    const liveToolItems: SlashMenuItem[] =
+    const liveToolItems: CommandMenuItem[] =
       liveToolsStatus === "loading"
         ? [
             {
@@ -1164,7 +1164,7 @@ export function ChatInputSection({
                 ),
               )
               .slice(0, 8)
-              .map<SlashMenuItem>(({ connector, action }) => ({
+              .map<CommandMenuItem>(({ connector, action }) => ({
                 id: `tool-${connector.id}-${action.id}`,
                 title: action.label,
                 description:
@@ -1193,7 +1193,7 @@ export function ChatInputSection({
       onSelectWorkspaceMode,
       dismissCommandSurface,
     });
-    const workflowItems: SlashMenuItem[] =
+    const workflowItems: CommandMenuItem[] =
       workspaceWorkflowsStatus === "loading"
         ? [
             {
@@ -1241,7 +1241,7 @@ export function ChatInputSection({
       ),
     }));
 
-    const skillItems: SlashMenuItem[] =
+    const skillItems: CommandMenuItem[] =
       capabilityRegistryStatus === "loading" && skillCatalog.length === 0
         ? [
             {
@@ -1285,7 +1285,7 @@ export function ChatInputSection({
                 ),
               )
               .slice(0, 8)
-              .map<SlashMenuItem>(({ skill, registryEntry }) => ({
+              .map<CommandMenuItem>(({ skill, registryEntry }) => ({
                 id: `skill-${skill.skill_hash}`,
                 title: skill.name,
                 description: capabilityDescriptionForSkill(skill, registryEntry),
@@ -1596,7 +1596,7 @@ export function ChatInputSection({
         ) : null}
 
         {commandsMenuOpen && !inputLockedByCredential ? (
-          <ChatSlashMenu
+          <CommandMenu
             sections={actionSections}
             mode={commandPaletteMode ? "palette" : "slash"}
             selectedItemId={highlightedItemId}

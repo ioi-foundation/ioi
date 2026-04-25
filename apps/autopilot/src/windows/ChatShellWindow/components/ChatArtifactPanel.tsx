@@ -12,7 +12,7 @@ import type {
   ThoughtSummary,
 } from "../../../types";
 import type { ChatPlaybookRunRecord } from "../hooks/useChatPlaybookRuns";
-import { icons } from "../../ChatShellWindow/components/Icons";
+import { icons } from "../../../components/ui/icons";
 import { ArtifactHubSidebar } from "../../ChatShellWindow/components/ArtifactHubSidebar";
 import { ArtifactSidebar } from "../../ChatShellWindow/components/ArtifactSidebar";
 

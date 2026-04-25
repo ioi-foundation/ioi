@@ -26,7 +26,7 @@ import {
   type ShieldApprovalScopeMode,
   type ShieldRememberedApprovalSnapshot,
   type ShieldPolicyState,
-} from "../../ChatWindow/chatPolicyCenter";
+} from "../../../surfaces/Policy/policyCenter";
 import { useChatCapabilityRegistry } from "./useChatCapabilityRegistry";
 
 export type ChatPermissionsStatus =

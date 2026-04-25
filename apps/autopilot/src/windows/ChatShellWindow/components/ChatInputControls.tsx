@@ -1,4 +1,4 @@
-import { icons } from "../../ChatShellWindow/components/Icons";
+import { icons } from "../../../components/ui/icons";
 import { chatCommandPaletteShortcutLabel } from "../../shared/shellShortcuts";
 
 export function ChatInputControls({

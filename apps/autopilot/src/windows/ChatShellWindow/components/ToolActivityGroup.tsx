@@ -3,7 +3,7 @@ import type {
   ToolActivityGroupPresentation,
   ToolActivityRow,
 } from "../../../types";
-import { icons } from "./Icons";
+import { icons } from "../../../components/ui/icons";
 
 function rowIcon(row: ToolActivityRow) {
   switch (row.kind) {

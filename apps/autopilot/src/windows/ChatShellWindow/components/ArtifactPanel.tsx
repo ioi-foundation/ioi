@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { icons } from "./Icons";
+import { icons } from "../../../components/ui/icons";
 import "../styles/ArtifactPanel.css";
 
 interface ArtifactPanelProps {

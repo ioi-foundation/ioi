@@ -37,8 +37,8 @@ export interface WorkspaceWorkbenchOpenVsCodeDirectModel {
   bridgePort: number;
 }
 
-export interface WorkspaceWorkbenchDirectModel {
-  kind: "direct";
+export interface WorkspaceWorkbenchSubstratePreviewModel {
+  kind: "substrate-preview";
   key: string;
   title: string;
   rootPath: string;
@@ -53,7 +53,7 @@ export interface WorkspaceWorkbenchDirectModel {
 export type WorkspaceWorkbenchSurfaceModel =
   | WorkspaceWorkbenchFrameModel
   | WorkspaceWorkbenchOpenVsCodeDirectModel
-  | WorkspaceWorkbenchDirectModel;
+  | WorkspaceWorkbenchSubstratePreviewModel;
 
 export interface WorkspaceWorkbenchBridgeWorkspaceModel {
   id: string;
