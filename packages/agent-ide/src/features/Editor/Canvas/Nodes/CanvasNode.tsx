@@ -10,7 +10,6 @@ const typeIcons: Record<string, string> = {
   trigger: "⚡",
   action: "⚙️",
   gate: "🔒",
-  model: "🧠",
   responses: "💬",
   embeddings: "🧬",
   rerank: "📊",

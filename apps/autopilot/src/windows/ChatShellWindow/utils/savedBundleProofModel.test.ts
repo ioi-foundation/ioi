@@ -34,7 +34,6 @@ const bundle: CanonicalTraceBundle = {
   events: [],
   artifacts: [],
   artifactPayloads: [],
-  receipts: [],
   interventions: [],
   assistantNotifications: [],
   assistantWorkbenchActivities: [],

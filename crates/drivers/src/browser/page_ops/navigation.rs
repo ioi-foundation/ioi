@@ -1,5 +1,7 @@
 impl BrowserDriver {
     pub async fn navigate(&self, url: &str) -> std::result::Result<String, BrowserError> {
+        crate::authority::assert_raw_driver_allowed("browser", "navigate")
+            .map_err(|error| BrowserError::Internal(error.to_string()))?;
         self.require_runtime()?;
         self.ensure_page().await?;
 

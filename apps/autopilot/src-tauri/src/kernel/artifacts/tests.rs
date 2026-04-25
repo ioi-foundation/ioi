@@ -197,7 +197,16 @@ fn compare_trace_bundles_surfaces_first_divergence() {
             },
             left_receipt.clone(),
         ],
-        receipts: vec![left_receipt],
+        projection_receipts: vec![left_receipt],
+        settlement_receipts: Vec::new(),
+        missing_settlement_refs: vec!["settlement_trace_loader_not_configured".to_string()],
+        evidence_tiers: vec![
+            "Projection".to_string(),
+            "Runtime event receipt".to_string(),
+            "Missing settlement".to_string(),
+        ],
+        trace_authority: "projection_only".to_string(),
+        settlement_backed: false,
         artifacts: vec![Artifact {
             artifact_id: "artifact-left".to_string(),
             created_at: timestamp.clone(),
@@ -300,7 +309,16 @@ fn compare_trace_bundles_surfaces_first_divergence() {
             },
             right_receipt.clone(),
         ],
-        receipts: vec![right_receipt],
+        projection_receipts: vec![right_receipt],
+        settlement_receipts: Vec::new(),
+        missing_settlement_refs: vec!["settlement_trace_loader_not_configured".to_string()],
+        evidence_tiers: vec![
+            "Projection".to_string(),
+            "Runtime event receipt".to_string(),
+            "Missing settlement".to_string(),
+        ],
+        trace_authority: "projection_only".to_string(),
+        settlement_backed: false,
         artifacts: vec![
             Artifact {
                 artifact_id: "artifact-right-1".to_string(),

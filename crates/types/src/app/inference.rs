@@ -75,6 +75,12 @@ pub struct WorkloadInferenceReceipt {
     /// End-to-end workload latency when available.
     #[serde(default)]
     pub latency_ms: Option<u64>,
+    /// Structured output schema hash when the invocation enforced one.
+    #[serde(default)]
+    pub structured_output_schema_hash: Option<[u8; 32]>,
+    /// Hash of the canonical model output or result payload when available.
+    #[serde(default)]
+    pub output_hash: Option<[u8; 32]>,
     /// Success flag as surfaced by the runtime.
     pub success: bool,
     /// Optional machine-readable failure class.

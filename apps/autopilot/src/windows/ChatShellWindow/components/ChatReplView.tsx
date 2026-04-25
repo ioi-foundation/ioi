@@ -27,7 +27,7 @@ interface ChatReplViewProps {
   launchRequest?: ChatRemoteContinuityLaunchRequest | null;
   onLoadSession?: (sessionId: string) => void;
   onLaunchRequestHandled?: () => void;
-  onOpenStudioSession?: (sessionId: string) => void;
+  onOpenChatSession?: (sessionId: string) => void;
   onStopSession?: () => void;
   onOpenView?: (view: ArtifactHubViewKey) => void;
 }
@@ -57,7 +57,7 @@ export function ChatReplView({
   launchRequest,
   onLoadSession,
   onLaunchRequestHandled,
-  onOpenStudioSession,
+  onOpenChatSession,
   onStopSession,
   onOpenView,
 }: ChatReplViewProps) {
@@ -392,11 +392,11 @@ export function ChatReplView({
               Resume session
             </button>
           ) : null}
-          {onOpenStudioSession && selectedTarget ? (
+          {onOpenChatSession && selectedTarget ? (
             <button
               type="button"
               className="artifact-hub-action artifact-hub-action--secondary"
-              onClick={() => onOpenStudioSession(selectedTarget.sessionId)}
+              onClick={() => onOpenChatSession(selectedTarget.sessionId)}
             >
               Continue in Chat
             </button>
@@ -535,11 +535,11 @@ export function ChatReplView({
                       Resume
                     </button>
                   ) : null}
-                  {onOpenStudioSession ? (
+                  {onOpenChatSession ? (
                     <button
                       type="button"
                       className="artifact-hub-action artifact-hub-action--secondary"
-                      onClick={() => onOpenStudioSession(target.sessionId)}
+                      onClick={() => onOpenChatSession(target.sessionId)}
                     >
                       Chat
                     </button>

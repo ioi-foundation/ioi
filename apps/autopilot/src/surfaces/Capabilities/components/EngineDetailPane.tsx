@@ -98,9 +98,6 @@ export function EngineDetailPane({
     ).length +
     snapshot.galleryCatalogs.filter((record) => record.syncStatus === "failed")
       .length;
-  const enabledCompatibilityRouteCount = snapshot.compatibilityRoutes.filter(
-    (route) => route.enabled,
-  ).length;
   const latestConfigMigration =
     snapshot.controlPlaneMigrations
       .slice()
@@ -357,20 +354,17 @@ export function EngineDetailPane({
               </article>
               <article className="capabilities-detail-card capabilities-engine-plane-card">
                 <div className="capabilities-detail-card-head">
-                  <h3>Compatibility</h3>
-                  <span>{enabledCompatibilityRouteCount} live</span>
+                  <h3>Kernel API</h3>
+                  <span>Native only</span>
                 </div>
                 <p>
-                  OpenAI, Anthropic, ElevenLabs, and kernel response facades
-                  stay optional and operator-visible without regressing to a
-                  separate provider shell.
+                  Local Engine exposes the current kernel-owned API surface;
+                  compatibility facades are no longer advertised as runtime
+                  control-plane contracts.
                 </p>
                 <div className="capabilities-chip-row">
-                  {snapshot.compatibilityRoutes.slice(0, 3).map((route) => (
-                    <span key={route.id} className="capabilities-chip">
-                      {route.label}
-                    </span>
-                  ))}
+                  <span className="capabilities-chip">{controlPlane.api.authMode}</span>
+                  <span className="capabilities-chip">{controlPlane.api.corsMode}</span>
                 </div>
               </article>
               <article className="capabilities-detail-card capabilities-engine-plane-card">
@@ -450,40 +444,8 @@ export function EngineDetailPane({
                 </article>
                 <article>
                   <span>API surface</span>
-                  <strong>
-                    {controlPlane.api.exposeCompatRoutes ? "Compat on" : "Kernel only"}
-                  </strong>
+                  <strong>Kernel only</strong>
                 </article>
-              </div>
-            </article>
-
-            <article className="capabilities-detail-card">
-              <div className="capabilities-detail-card-head">
-                <h3>Compatibility facades</h3>
-                <span>{enabledCompatibilityRouteCount} active</span>
-              </div>
-              <div className="capabilities-engine-route-list">
-                {snapshot.compatibilityRoutes.map((route) => (
-                  <div
-                    key={route.id}
-                    className={`capabilities-engine-route-card ${route.enabled ? "is-enabled" : "is-disabled"}`}
-                  >
-                    <div className="capabilities-detail-card-head">
-                      <h3>{route.label}</h3>
-                      <span>{route.enabled ? "Live" : "Hidden"}</span>
-                    </div>
-                    <div className="capabilities-chip-row">
-                      <span className="capabilities-chip">{route.path}</span>
-                      <span className="capabilities-chip">
-                        {humanize(route.compatibilityTier)}
-                      </span>
-                    </div>
-                    <p className="capabilities-inline-note">{route.url}</p>
-                    {route.notes ? (
-                      <p className="capabilities-inline-note">{route.notes}</p>
-                    ) : null}
-                  </div>
-                ))}
               </div>
             </article>
 
@@ -634,9 +596,7 @@ export function EngineDetailPane({
               </article>
               <article>
                 <span>API surface</span>
-                <strong>
-                  {controlPlane.api.exposeCompatRoutes ? "Compat live" : "Kernel only"}
-                </strong>
+                <strong>Kernel only</strong>
               </article>
               <article>
                 <span>Launcher</span>

@@ -248,9 +248,7 @@ pub(super) fn generation_runtime_tier(
         ChatRuntimeProvenanceKind::DeterministicContinuityFallback
         | ChatRuntimeProvenanceKind::FixtureRuntime
         | ChatRuntimeProvenanceKind::MockRuntime
-        | ChatRuntimeProvenanceKind::InferenceUnavailable => {
-            ChatArtifactRuntimeTier::Deterministic
-        }
+        | ChatRuntimeProvenanceKind::InferenceUnavailable => ChatArtifactRuntimeTier::Deterministic,
     }
 }
 
@@ -285,9 +283,7 @@ pub(super) fn runtime_step_policies(
                 | ChatArtifactRuntimePolicyProfile::PremiumPlanningLocalGeneration => {
                     ChatArtifactRuntimeTier::Local
                 }
-                ChatArtifactRuntimePolicyProfile::Auto => {
-                    ChatArtifactRuntimeTier::CostEffective
-                }
+                ChatArtifactRuntimePolicyProfile::Auto => ChatArtifactRuntimeTier::CostEffective,
             },
             fallback_to_generation_runtime: true,
             require_distinct_runtime: false,
@@ -303,9 +299,7 @@ pub(super) fn runtime_step_policies(
                 | ChatArtifactRuntimePolicyProfile::PremiumPlanningLocalGeneration => {
                     ChatArtifactRuntimeTier::Local
                 }
-                ChatArtifactRuntimePolicyProfile::Auto => {
-                    ChatArtifactRuntimeTier::CostEffective
-                }
+                ChatArtifactRuntimePolicyProfile::Auto => ChatArtifactRuntimeTier::CostEffective,
             },
             fallback_to_generation_runtime: false,
             require_distinct_runtime: false,
@@ -341,9 +335,7 @@ pub(super) fn runtime_step_policies(
                 ChatArtifactRuntimePolicyProfile::PremiumEndToEnd => {
                     ChatArtifactRuntimeTier::Premium
                 }
-                ChatArtifactRuntimePolicyProfile::Auto => {
-                    ChatArtifactRuntimeTier::CostEffective
-                }
+                ChatArtifactRuntimePolicyProfile::Auto => ChatArtifactRuntimeTier::CostEffective,
             },
             fallback_to_generation_runtime: true,
             require_distinct_runtime: matches!(

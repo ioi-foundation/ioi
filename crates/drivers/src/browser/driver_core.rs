@@ -1,4 +1,5 @@
 use super::*;
+use crate::authority::assert_raw_driver_allowed;
 use ioi_crypto::algorithms::hash::sha256;
 use std::fmt::Display;
 use std::future::Future;
@@ -609,6 +610,8 @@ impl BrowserDriver {
     }
 
     pub async fn launch(&self, headless: bool) -> std::result::Result<(), BrowserError> {
+        assert_raw_driver_allowed("browser", "launch")
+            .map_err(|error| BrowserError::Internal(error.to_string()))?;
         self.require_runtime()?;
 
         if self.is_healthy().await {

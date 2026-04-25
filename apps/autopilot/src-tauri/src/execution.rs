@@ -77,6 +77,32 @@ impl LocalSafetyModel for SimulationSafetyModel {
 static SAFETY_MODEL: Lazy<Arc<dyn LocalSafetyModel>> =
     Lazy::new(|| Arc::new(SimulationSafetyModel));
 
+pub fn is_consequential_node_type(node_type: &str) -> bool {
+    matches!(
+        node_type,
+        "browser"
+            | "code"
+            | "tool"
+            | "web_search"
+            | "web_read"
+            | "transcribe_audio"
+            | "synthesize_speech"
+            | "vision_read"
+            | "generate_image"
+            | "edit_image"
+            | "generate_video"
+    )
+}
+
+fn has_settlement_authority(config: &Value) -> bool {
+    config.get("settlementRef").is_some()
+        || config.get("runtimeSettlementRef").is_some()
+        || config
+            .get("authority")
+            .and_then(|authority| authority.get("settlementRef"))
+            .is_some()
+}
+
 pub async fn init_mcp_servers(app_handle: tauri::AppHandle) {
     let data_dir = app_handle
         .path()
@@ -157,6 +183,27 @@ pub async fn execute_ephemeral_node(
             output: violation,
             data: None,
             metrics: Some(serde_json::json!({ "risk": "high" })),
+            input_snapshot,
+            context_slice: None,
+        });
+    }
+
+    if tier != GovernanceTier::None
+        && is_consequential_node_type(node_type)
+        && !has_settlement_authority(full_config)
+    {
+        return Ok(ExecutionResult {
+            status: "blocked".to_string(),
+            output: format!(
+                "🛡️ BLOCKED: consequential graph node '{}' requires runtime settlement authority.",
+                node_type
+            ),
+            data: None,
+            metrics: Some(serde_json::json!({
+                "authority": "missing_settlement",
+                "simulation_only": false,
+                "node_type": node_type,
+            })),
             input_snapshot,
             context_slice: None,
         });

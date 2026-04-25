@@ -42,7 +42,7 @@ import {
   shouldContinueChatComposerSession,
   useChatSession,
 } from "./hooks/useChatSession";
-import { useLegacyPresentation } from "./hooks/useLegacyPresentation";
+import { useRuntimeTimelinePresentation } from "./hooks/useRuntimeTimelinePresentation";
 
 // Sub-components
 import { icons } from "../../components/ui/icons";
@@ -240,14 +240,14 @@ export function ChatShellWindow({
   sessionRuntime,
   workspaceRootHint = null,
 }: ChatShellWindowProps) {
-  const isStudioVariant = variant === "chat";
+  const isChatVariant = variant === "chat";
   const [chatArtifactVisible, setChatArtifactVisible] = useState(false);
   const [selectedChatArtifactSessionId, setSelectedChatArtifactSessionId] =
     useState<string | null>(null);
 
   // Layout management (synced with Tauri backend)
   const { layout, toggleSidebar, toggleArtifactPanel } = useChatLayout({
-    persistToBackend: !isStudioVariant,
+    persistToBackend: !isChatVariant,
   });
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -359,20 +359,20 @@ export function ChatShellWindow({
   const {
     context: codebaseFileContext,
   } = useChatFileContext({
-    enabled: isStudioVariant && Boolean(codebaseWorkspaceRoot),
+    enabled: isChatVariant && Boolean(codebaseWorkspaceRoot),
     sessionId: codebaseSessionId,
     workspaceRoot: codebaseWorkspaceRoot,
   });
   const contextualizeIntent = useCallback(
     (text: string) =>
-      isStudioVariant
+      isChatVariant
         ? buildCodebaseContextualizedIntent({
             text,
             workspaceRoot: codebaseWorkspaceRoot,
             fileContext: codebaseFileContext,
           })
         : text,
-    [codebaseFileContext, codebaseWorkspaceRoot, isStudioVariant],
+    [codebaseFileContext, codebaseWorkspaceRoot, isChatVariant],
   );
 
   const {
@@ -415,7 +415,7 @@ export function ChatShellWindow({
     handleInputKeyDown,
   } = useChatSession({
     bootstrapSessionController: bootstrapAgentSession,
-    isStudioVariant,
+    isChatVariant,
     task,
     inputRef,
     setChatEvents,
@@ -474,7 +474,7 @@ export function ChatShellWindow({
   }, [sessionRuntime]);
 
   useEffect(() => {
-    if (isStudioVariant) {
+    if (isChatVariant) {
       return;
     }
 
@@ -488,7 +488,7 @@ export function ChatShellWindow({
       document.body.classList.remove(className);
       root?.classList.remove(className);
     };
-  }, [isStudioVariant]);
+  }, [isChatVariant]);
 
   useEffect(() => {
     if (!seedIntent?.trim()) {
@@ -507,7 +507,7 @@ export function ChatShellWindow({
       return;
     }
 
-    if (isStudioVariant) {
+    if (isChatVariant) {
       const looksEllipticalReply = looksLikeEllipticalFollowUpReply(nextIntent);
       const clarificationOptionId = preferredClarificationOptionId(task);
       const hasPendingFollowUpSession = sessions.some((session) =>
@@ -523,7 +523,7 @@ export function ChatShellWindow({
           looksEllipticalReply) ||
         shouldWaitForRetainedProjection;
       const hasAttachableCurrentTask = shouldContinueChatComposerSession(
-        isStudioVariant,
+        isChatVariant,
         task,
       );
       const currentSessionId = taskSessionId(task);
@@ -689,7 +689,7 @@ export function ChatShellWindow({
     handleSubmitText,
     handleLoadSession,
     inputRef,
-    isStudioVariant,
+    isChatVariant,
     onConsumeSeedIntent,
     refreshCurrentTask,
     refreshSessionHistory,
@@ -800,12 +800,12 @@ export function ChatShellWindow({
     containerStyle,
     conversationTurns,
     hasSessionContent,
-    inlineStudioDecisionPrompt,
+    inlineRuntimeDecisionPrompt,
     isDualPanelChat,
     latestAnsweredTurnIndex,
     runPresentation,
     selectedInspectionArtifact,
-    shouldAutoFocusStudioComposer,
+    shouldAutoFocusChatComposer,
     showInitialLoader,
     showOverlaySessionChrome,
     studioArtifactAvailable,
@@ -814,7 +814,7 @@ export function ChatShellWindow({
     suppressConversationPendingIndicators,
     turnContexts,
   } = useChatSurfaceState({
-    isStudioVariant,
+    isChatVariant,
     layout,
     activeHistory,
     activeEvents,
@@ -838,15 +838,15 @@ export function ChatShellWindow({
     () => collectAvailableArtifacts(activeEvents, task?.chat_session ?? null),
     [activeEvents, task?.chat_session],
   );
-  const activeArtifactStudioSessionId =
+  const activeArtifactChatSessionId =
     task?.chat_session?.outcomeRequest?.outcomeKind === "artifact"
       ? task.chat_session.sessionId
       : null;
-  const studioArtifactDrawerAvailable =
+  const chatArtifactDrawerAvailable =
     studioArtifactAvailable || studioArtifactExpected || studioAvailableArtifacts.length > 0;
 
   useEffect(() => {
-    if (!shouldAutoFocusStudioComposer) {
+    if (!shouldAutoFocusChatComposer) {
       return;
     }
 
@@ -855,7 +855,7 @@ export function ChatShellWindow({
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
-  }, [inputRef, shouldAutoFocusStudioComposer]);
+  }, [inputRef, shouldAutoFocusChatComposer]);
 
   const {
     showScrollButton,
@@ -875,7 +875,7 @@ export function ChatShellWindow({
     clearActiveDropdown: () => setActiveDropdown(null),
     inspectionVisible: layout.artifactPanelVisible,
     closeInspectionSurface,
-    canHideShell: !isStudioVariant,
+    canHideShell: !isChatVariant,
     hideCurrentShell: hideChatSessionShell,
     toggleCommandPalette: inputLockedByCredential
       ? undefined
@@ -935,10 +935,10 @@ export function ChatShellWindow({
   }, [activeSessionId]);
 
   // ============================================
-  // LEGACY PRESENTATION
+  // RUNTIME TIMELINE PRESENTATION
   // ============================================
 
-  const { legacyChatElements } = useLegacyPresentation({
+  const { runtimeTimelineElements } = useRuntimeTimelinePresentation({
     activeHistory,
     chatEvents,
     activeEvents,
@@ -954,22 +954,22 @@ export function ChatShellWindow({
   });
 
   useSessionChatArtifactDrawer({
-    enabled: isStudioVariant,
-    artifactAvailable: studioArtifactDrawerAvailable,
+    enabled: isChatVariant,
+    artifactAvailable: chatArtifactDrawerAvailable,
     artifactExpected: studioArtifactExpected,
-    activeSessionId: activeArtifactStudioSessionId,
+    activeSessionId: activeArtifactChatSessionId,
     fallbackSessionId: task?.id || null,
     setVisible: setChatArtifactVisible,
   });
 
   useEffect(() => {
-    if (!isStudioVariant) {
+    if (!isChatVariant) {
       return;
     }
     setSelectedChatArtifactSessionId((current) => {
       if (
         current &&
-        (current === activeArtifactStudioSessionId ||
+        (current === activeArtifactChatSessionId ||
           studioAvailableArtifacts.some((artifact) => artifact.sessionId === current))
       ) {
         return current;
@@ -978,8 +978,8 @@ export function ChatShellWindow({
       return null;
     });
   }, [
-    activeArtifactStudioSessionId,
-    isStudioVariant,
+    activeArtifactChatSessionId,
+    isChatVariant,
     studioAvailableArtifacts,
   ]);
 
@@ -1004,13 +1004,13 @@ export function ChatShellWindow({
   const studioArtifactMenuVisible =
     chatArtifactVisible && selectedChatArtifactSessionId === null;
   const showChatArtifactNav =
-    isStudioVariant && studioArtifactDrawerAvailable;
-  const handleStudioNewSession = useCallback(() => {
+    isChatVariant && chatArtifactDrawerAvailable;
+  const handleChatNewSession = useCallback(() => {
     setSelectedChatArtifactSessionId(null);
     setChatArtifactVisible(false);
     handleNewChat();
   }, [handleNewChat]);
-  const handleStudioSelectSession = useCallback(
+  const handleChatSelectSession = useCallback(
     (sessionId: string) => {
       setSelectedChatArtifactSessionId(null);
       setChatArtifactVisible(false);
@@ -1030,14 +1030,14 @@ export function ChatShellWindow({
       codePreview={chatStatusCard.codePreview}
     />
   ) : null;
-  const studioSidebarNode = isStudioVariant ? (
+  const chatSidebarNode = isChatVariant ? (
     <ChatConversationSidebar
       sessions={sessions}
       activeSessionId={task?.session_id || task?.id || null}
       searchQuery={searchQuery}
       onSearchChange={setSearchQuery}
-      onNewSession={handleStudioNewSession}
-      onSelectSession={handleStudioSelectSession}
+      onNewSession={handleChatNewSession}
+      onSelectSession={handleChatSelectSession}
       showArtifactNav={showChatArtifactNav}
       artifactVisible={chatArtifactVisible}
       artifactCount={studioAvailableArtifacts.length}
@@ -1051,11 +1051,11 @@ export function ChatShellWindow({
 
   const conversationSurface = (
     <div
-      className={`${isStudioVariant ? "spot-chat-conversation" : "spot-main"} ${
+      className={`${isChatVariant ? "spot-chat-conversation" : "spot-main"} ${
         chatArtifactVisible ? "is-artifact-open" : ""
-      } ${isStudioVariant && !hasSessionContent ? "is-empty" : ""}`}
+      } ${isChatVariant && !hasSessionContent ? "is-empty" : ""}`}
     >
-      {!isStudioVariant && !layout.sidebarVisible && (
+      {!isChatVariant && !layout.sidebarVisible && (
         <button
           className="spot-sidebar-toggle"
           onClick={() => toggleSidebar(true)}
@@ -1140,7 +1140,7 @@ export function ChatShellWindow({
 
       <div className="spot-chat" ref={chatAreaRef}>
         {!hasSessionContent &&
-          (isStudioVariant ? (
+          (isChatVariant ? (
             <ChatConversationWelcome
               onSuggestionClick={(text) => {
                 void handleSubmitText(text);
@@ -1170,12 +1170,12 @@ export function ChatShellWindow({
             onOpenSourceSummary={hubNavigation.openSourceSummary}
             activeChatArtifactSessionId={selectedChatArtifactSessionId}
             onOpenChatArtifact={
-              isStudioVariant ? handleOpenChatArtifact : undefined
+              isChatVariant ? handleOpenChatArtifact : undefined
             }
-            inlineStatusCard={isStudioVariant ? chatStatusCardNode : null}
+            inlineStatusCard={isChatVariant ? chatStatusCardNode : null}
           />
         ) : (
-          <>{legacyChatElements}</>
+          <>{runtimeTimelineElements}</>
         )}
 
         {showInitialLoader && !CONTENT_PIPELINE_V2_ENABLED && (
@@ -1189,7 +1189,7 @@ export function ChatShellWindow({
           />
         )}
 
-        {inlineStudioDecisionPrompt ? (
+        {inlineRuntimeDecisionPrompt ? (
           <ChatGateDock
             inline={true}
             isGated={isGated}
@@ -1212,7 +1212,7 @@ export function ChatShellWindow({
         ) : null}
       </div>
 
-      {!inlineStudioDecisionPrompt ? (
+      {!inlineRuntimeDecisionPrompt ? (
         <ChatGateDock
           isGated={isGated}
           gateInfo={gateInfo}
@@ -1252,10 +1252,10 @@ export function ChatShellWindow({
         isGated={isGated}
         onStop={() => stopAssistantSession().catch(console.error)}
         onSubmit={handleSubmit}
-        onNewSession={isStudioVariant ? handleStudioNewSession : handleNewChat}
+        onNewSession={isChatVariant ? handleChatNewSession : handleNewChat}
         onLoadSession={(sessionId) => {
-          if (isStudioVariant) {
-            handleStudioSelectSession(sessionId);
+          if (isChatVariant) {
+            handleChatSelectSession(sessionId);
             return;
           }
           void handleLoadSession(sessionId);
@@ -1289,7 +1289,7 @@ export function ChatShellWindow({
         setActiveDropdown={setActiveDropdown}
         onOpenSettings={() => openChat("settings")}
         placeholder={
-          isStudioVariant
+          isChatVariant
             ? "What do you want to materialize?"
             : undefined
         }
@@ -1385,7 +1385,7 @@ export function ChatShellWindow({
 
   const overlaySurface = (
     <OverlayConversationSurface
-      isStudioVariant={isStudioVariant}
+      isChatVariant={isChatVariant}
       conversationContent={conversationSurface}
       showScrollButton={showScrollButton}
       onScrollToBottom={scrollToBottom}
@@ -1396,7 +1396,7 @@ export function ChatShellWindow({
 
   return (
     <div
-      className={`spot-window ${isStudioVariant ? "spot-window--chat" : ""}`}
+      className={`spot-window ${isChatVariant ? "spot-window--chat" : ""}`}
       onClick={handleGlobalClick}
       ref={containerRef}
     >
@@ -1409,7 +1409,7 @@ export function ChatShellWindow({
             isDualPanelChat ? "spot-content--dual-panel" : ""
           }`}
         >
-          {!isStudioVariant && layout.sidebarVisible && (
+          {!isChatVariant && layout.sidebarVisible && (
             <SessionHistorySidebar
               sessions={sessions}
               onSelectSession={handleLoadSession}
@@ -1429,17 +1429,17 @@ export function ChatShellWindow({
             />
           )}
 
-          {isStudioVariant ? (
+          {isChatVariant ? (
             <ChatConversationSurface
-              sidebar={studioSidebarNode}
+              sidebar={chatSidebarNode}
               artifactVisible={chatArtifactVisible}
               artifactMenuVisible={studioArtifactMenuVisible}
               artifactDrawerVisible={
-                studioArtifactDrawerAvailable && chatArtifactVisible
+                chatArtifactDrawerAvailable && chatArtifactVisible
               }
-              artifactDrawerAvailable={studioArtifactDrawerAvailable}
+              artifactDrawerAvailable={chatArtifactDrawerAvailable}
               conversationSurface={overlaySurface}
-              onNewSession={handleStudioNewSession}
+              onNewSession={handleChatNewSession}
               onOpenCommandPalette={() => {
                 setActiveDropdown("command_palette");
               }}

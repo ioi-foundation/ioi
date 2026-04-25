@@ -15,6 +15,7 @@ use super::types::{
     CommandExecutionOptions, CommandLaunchResult, ProcessStreamChannel, ProcessStreamChunk,
     ProcessStreamObserver, RetainedCommandSnapshot,
 };
+use crate::authority::assert_raw_driver_allowed;
 
 #[cfg(unix)]
 use std::os::unix::ffi::OsStrExt;
@@ -210,6 +211,7 @@ impl TerminalDriver {
         cwd: Option<&Path>,
         options: CommandExecutionOptions,
     ) -> Result<String> {
+        assert_raw_driver_allowed("terminal", "execute")?;
         let mut cmd = Command::new(command);
         cmd.args(args);
         if let Some(dir) = cwd {
@@ -376,6 +378,7 @@ impl TerminalDriver {
         cwd: Option<&Path>,
         options: CommandExecutionOptions,
     ) -> Result<CommandLaunchResult> {
+        assert_raw_driver_allowed("terminal", "execute_async")?;
         if detach {
             return self
                 .execute_in_dir_with_options(command, args, detach, cwd, options)
@@ -483,6 +486,7 @@ impl TerminalDriver {
         cwd: Option<&Path>,
         options: CommandExecutionOptions,
     ) -> Result<String> {
+        assert_raw_driver_allowed("terminal", "execute_session")?;
         let key = session_key.trim();
         if key.is_empty() {
             return Err(anyhow!("Session key cannot be empty."));
@@ -507,6 +511,7 @@ impl TerminalDriver {
         cwd: Option<&Path>,
         options: CommandExecutionOptions,
     ) -> Result<CommandLaunchResult> {
+        assert_raw_driver_allowed("terminal", "execute_session_async")?;
         let key = session_key.trim();
         if key.is_empty() {
             return Err(anyhow!("Session key cannot be empty."));

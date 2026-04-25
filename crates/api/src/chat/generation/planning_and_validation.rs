@@ -38,11 +38,7 @@ pub(super) fn chat_surface_contract_prompt_bundle(
                 selected_skills,
             ),
             scaffold_label: "Chat HTML scaffold contract",
-            scaffold_contract: chat_html_scaffold_contract(
-                blueprint,
-                artifact_ir,
-                candidate_seed,
-            ),
+            scaffold_contract: chat_html_scaffold_contract(blueprint, artifact_ir, candidate_seed),
             component_label: "Chat HTML component pack contracts",
             component_packs: chat_html_component_pack_contracts(blueprint),
             execution_digest: chat_html_scaffold_execution_digest(
@@ -233,8 +229,8 @@ pub fn derive_chat_artifact_prepared_context(
                     || resolved_artifact_ir.is_some()
                     || !brief.reference_hints.is_empty()),
         };
-    let derive_resolution = |preparation_needs: &ChatArtifactPreparationNeeds| {
-        ChatArtifactPreparedContextResolution {
+    let derive_resolution =
+        |preparation_needs: &ChatArtifactPreparationNeeds| ChatArtifactPreparedContextResolution {
             status: "resolved".to_string(),
             renderer: request.renderer,
             require_blueprint: preparation_needs.require_blueprint,
@@ -247,8 +243,7 @@ pub fn derive_chat_artifact_prepared_context(
                 .iter()
                 .map(|skill| skill.name.clone())
                 .collect(),
-        }
-    };
+        };
     if request.renderer == ChatRendererKind::WorkspaceSurface {
         let preparation_needs = derive_preparation_needs(None, None);
         let prepared_context_resolution = derive_resolution(&preparation_needs);

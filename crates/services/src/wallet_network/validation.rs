@@ -1,7 +1,8 @@
 // Path: crates/services/src/wallet_network/validation.rs
 
-use crate::wallet_network::keys::approval_authority_key;
+use crate::agentic::runtime::kernel::approval::{ApprovalScopeContext, AuthorityScopeMatcher};
 use crate::guardian_registry::GuardianRegistry;
+use crate::wallet_network::keys::approval_authority_key;
 use ioi_api::crypto::{SerializableKey, VerifyingKey};
 use ioi_api::state::StateAccess;
 use ioi_crypto::sign::dilithium::{MldsaPublicKey, MldsaSignature};
@@ -166,9 +167,7 @@ pub(super) fn validate_guardian_attestation(
     Ok(())
 }
 
-pub(super) fn validate_approval(
-    approval: &WalletApprovalDecision,
-) -> Result<(), TransactionError> {
+pub(super) fn validate_approval(approval: &WalletApprovalDecision) -> Result<(), TransactionError> {
     let grant_present = approval.approval_grant.is_some();
     match approval.decision {
         WalletApprovalDecisionKind::AutoApproved | WalletApprovalDecisionKind::ApprovedByHuman => {
@@ -270,14 +269,16 @@ pub(super) fn validate_registered_approval_grant(
     grant: &ApprovalGrant,
     now_ms: u64,
     expected_policy_hash: [u8; 32],
+    scope_context: Option<&ApprovalScopeContext>,
 ) -> Result<(), TransactionError> {
     grant
         .verify()
         .map_err(|e| TransactionError::Invalid(format!("Invalid approval grant: {}", e)))?;
     verify_approval_grant_signature(grant)?;
-    let authority = load_registered_approval_authority(state, &grant.authority_id)?.ok_or_else(
-        || TransactionError::Invalid("Approval authority is not registered".to_string()),
-    )?;
+    let authority =
+        load_registered_approval_authority(state, &grant.authority_id)?.ok_or_else(|| {
+            TransactionError::Invalid("Approval authority is not registered".to_string())
+        })?;
     authority
         .verify()
         .map_err(|e| TransactionError::Invalid(format!("Invalid approval authority: {}", e)))?;
@@ -307,6 +308,14 @@ pub(super) fn validate_registered_approval_grant(
         return Err(TransactionError::Invalid(
             "Approval grant policy hash mismatch".to_string(),
         ));
+    }
+    if let Some(scope_context) = scope_context {
+        AuthorityScopeMatcher::validate(&authority, scope_context).map_err(|reason| {
+            TransactionError::Invalid(format!(
+                "Approval grant scope validation failed: {}",
+                reason
+            ))
+        })?;
     }
     Ok(())
 }

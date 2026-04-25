@@ -69,7 +69,6 @@ const staticLibrary: LibraryItem[] = [
   { id: "generate_image", name: "Generate Image", icon: <span>🖼️</span>, type: "generate_image", description: "Create an image artifact with the absorbed media runtime" },
   { id: "edit_image", name: "Edit Image", icon: <span>✂️</span>, type: "edit_image", description: "Edit or inpaint an existing image artifact through the absorbed media runtime" },
   { id: "generate_video", name: "Generate Video", icon: <span>🎞️</span>, type: "generate_video", description: "Create a video artifact with the absorbed media runtime" },
-  { id: "model", name: "Model (Legacy)", icon: <Icons.Brain />, type: "model", description: "Compatibility alias for responses nodes" },
   { id: "trigger", name: "Trigger", icon: <Icons.Trigger />, type: "trigger", description: "Event source" },
   { id: "gate", name: "Logic Gate", icon: <Icons.Gate />, type: "gate", description: "Governance control" },
   { id: "web_search", name: "Web Search", icon: <span>🌐</span>, type: "web_search", description: "Edge web search (typed evidence bundle with sources + provenance)" },

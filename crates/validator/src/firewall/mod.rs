@@ -13,12 +13,15 @@ pub mod synthesizer;
 use ioi_pii::{
     build_decision_material, build_review_summary, check_exception_usage_increment_ok,
     decode_exception_usage_state, inspect_and_route_with_for_target, mint_default_scoped_exception,
-    resolve_expected_request_hash, validate_review_request_compat,
+    resolve_expected_request_hash, validate_review_request_v3_cim,
     verify_scoped_exception_for_decision, RiskSurface, ScopedExceptionVerifyError,
 };
 use ioi_services::agentic::policy::PolicyEngine;
 use ioi_services::agentic::rules::{ActionRules, Verdict};
 // [NEW] Imports for state lookup
+use ioi_services::agentic::runtime::kernel::approval::{
+    ApprovalScopeContext, AuthorityScopeMatcher,
+};
 use ioi_services::agentic::runtime::keys::{
     get_approval_authority_key, get_approval_grant_key, get_incident_key, get_state_key, pii,
 };
@@ -136,7 +139,10 @@ fn verify_approval_grant_signature(grant: &ApprovalGrant) -> Result<(), Transact
                 TransactionError::Invalid(format!("Invalid approval grant signature: {}", e))
             })?;
             pk.verify(&message, &sig).map_err(|e| {
-                TransactionError::Invalid(format!("Approval grant signature verification failed: {}", e))
+                TransactionError::Invalid(format!(
+                    "Approval grant signature verification failed: {}",
+                    e
+                ))
             })?;
         }
         ioi_types::app::SignatureSuite::ML_DSA_44 => {
@@ -147,7 +153,10 @@ fn verify_approval_grant_signature(grant: &ApprovalGrant) -> Result<(), Transact
                 TransactionError::Invalid(format!("Invalid approval grant signature: {}", e))
             })?;
             pk.verify(&message, &sig).map_err(|e| {
-                TransactionError::Invalid(format!("Approval grant signature verification failed: {}", e))
+                TransactionError::Invalid(format!(
+                    "Approval grant signature verification failed: {}",
+                    e
+                ))
             })?;
         }
         _ => {
@@ -165,6 +174,7 @@ fn validate_registered_approval_grant(
     grant: &ApprovalGrant,
     now_ms: u64,
     expected_policy_hash: [u8; 32],
+    scope_context: Option<&ApprovalScopeContext>,
 ) -> Result<(), TransactionError> {
     grant
         .verify()
@@ -188,7 +198,9 @@ fn validate_registered_approval_grant(
     let authority: ioi_types::app::ApprovalAuthority = overlay
         .get(&authority_key)?
         .and_then(|bytes| codec::from_bytes_canonical(&bytes).ok())
-        .ok_or_else(|| TransactionError::Invalid("Approval authority is not registered".to_string()))?;
+        .ok_or_else(|| {
+            TransactionError::Invalid("Approval authority is not registered".to_string())
+        })?;
     authority
         .verify()
         .map_err(|e| TransactionError::Invalid(format!("Invalid approval authority: {}", e)))?;
@@ -208,6 +220,14 @@ fn validate_registered_approval_grant(
         return Err(TransactionError::Invalid(
             "Approval authority does not match approval grant signer".to_string(),
         ));
+    }
+    if let Some(scope_context) = scope_context {
+        AuthorityScopeMatcher::validate(&authority, scope_context).map_err(|reason| {
+            TransactionError::Invalid(format!(
+                "Approval grant scope validation failed: {}",
+                reason
+            ))
+        })?;
     }
     Ok(())
 }
@@ -455,7 +475,7 @@ pub async fn enforce_firewall(
                     .get(&request_key)?
                     .and_then(|bytes| codec::from_bytes_canonical(&bytes).ok());
                 if let Some(request) = pii_request_opt.as_ref() {
-                    validate_review_request_compat(request)
+                    validate_review_request_v3_cim(request)
                         .map_err(|e| TransactionError::Invalid(e.to_string()))?;
                 }
 
@@ -467,11 +487,13 @@ pub async fn enforce_firewall(
 
                 if let Some(grant) = approval_grant.as_ref() {
                     let expected_policy_hash = compute_policy_hash(&rules)?;
+                    let approval_scope = ApprovalScopeContext::new("desktop_agent.resume");
                     validate_registered_approval_grant(
                         &overlay,
                         grant,
                         expected_timestamp_secs.saturating_mul(1000),
                         expected_policy_hash,
+                        Some(&approval_scope),
                     )?;
                     validate_resume_review_contract_for_grant_local(
                         expected_request_hash,
@@ -485,12 +507,12 @@ pub async fn enforce_firewall(
 
             // Scoped exception grants must verify deterministically before execution.
             if service_id == "desktop_agent" && method == "resume@v1" {
-                if let Some(grant) = approval_grant
-                    .as_ref()
-                    .filter(|grant| {
-                        matches!(grant.pii_action, Some(PiiApprovalAction::GrantScopedException))
-                    })
-                {
+                if let Some(grant) = approval_grant.as_ref().filter(|grant| {
+                    matches!(
+                        grant.pii_action,
+                        Some(PiiApprovalAction::GrantScopedException)
+                    )
+                }) {
                     let agent_state = agent_state_opt.as_ref().ok_or_else(|| {
                         TransactionError::Invalid(
                             "Missing desktop agent state for scoped exception verification"
@@ -498,18 +520,21 @@ pub async fn enforce_firewall(
                         )
                     })?;
 
-                    let pending_tool_jcs = agent_state.pending_tool_jcs.as_ref().ok_or_else(|| {
-                        TransactionError::Invalid(
-                            "Missing pending tool for scoped exception verification".to_string(),
-                        )
-                    })?;
+                    let pending_tool_jcs =
+                        agent_state.pending_tool_jcs.as_ref().ok_or_else(|| {
+                            TransactionError::Invalid(
+                                "Missing pending tool for scoped exception verification"
+                                    .to_string(),
+                            )
+                        })?;
 
-                    let mut tool: AgentTool = serde_json::from_slice(pending_tool_jcs).map_err(|e| {
-                        TransactionError::Invalid(format!(
+                    let mut tool: AgentTool =
+                        serde_json::from_slice(pending_tool_jcs).map_err(|e| {
+                            TransactionError::Invalid(format!(
                             "Failed to decode pending tool for scoped exception verification: {}",
                             e
                         ))
-                    })?;
+                        })?;
 
                     let expected_request_hash = expected_request_hash_opt.ok_or_else(|| {
                         TransactionError::Invalid(
@@ -537,9 +562,8 @@ pub async fn enforce_firewall(
                                         }
                                         RiskSurface::Egress => PiiRiskSurface::Egress,
                                     };
-                                    let inspection = safety_model
-                                        .inspect_pii(input, api_risk_surface)
-                                        .await?;
+                                    let inspection =
+                                        safety_model.inspect_pii(input, api_risk_surface).await?;
                                     Ok(inspection.evidence)
                                 })
                             },
@@ -561,24 +585,25 @@ pub async fn enforce_firewall(
                             continue;
                         }
 
-                        let scoped_exception = if let Some(existing) = grant.scoped_exception.as_ref() {
-                            existing.clone()
-                        } else {
-                            mint_default_scoped_exception(
-                                &evidence,
-                                &spec.target,
-                                risk_surface,
-                                expected_request_hash,
-                                block_timestamp_secs,
-                                "deterministic-default",
-                            )
-                            .map_err(|e| {
-                                TransactionError::Invalid(format!(
-                                    "Failed to mint deterministic scoped exception: {}",
-                                    e
-                                ))
-                            })?
-                        };
+                        let scoped_exception =
+                            if let Some(existing) = grant.scoped_exception.as_ref() {
+                                existing.clone()
+                            } else {
+                                mint_default_scoped_exception(
+                                    &evidence,
+                                    &spec.target,
+                                    risk_surface,
+                                    expected_request_hash,
+                                    block_timestamp_secs,
+                                    "deterministic-default",
+                                )
+                                .map_err(|e| {
+                                    TransactionError::Invalid(format!(
+                                        "Failed to mint deterministic scoped exception: {}",
+                                        e
+                                    ))
+                                })?
+                            };
 
                         let usage_key_local =
                             pii::review::exception_usage(&scoped_exception.exception_id);
@@ -656,13 +681,8 @@ pub async fn enforce_firewall(
                 nonce: 0,
             };
 
-            let verdict = PolicyEngine::evaluate(
-                &rules,
-                &dummy_request,
-                &safety_model,
-                &os_driver,
-            )
-            .await;
+            let verdict =
+                PolicyEngine::evaluate(&rules, &dummy_request, &safety_model, &os_driver).await;
 
             match verdict {
                 Verdict::Allow => {

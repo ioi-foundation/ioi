@@ -3,9 +3,8 @@ use super::{
     render_sanity_repair_reason, ChatArtifactAcceptanceObligation,
     ChatArtifactAcceptanceObligationStatus, ChatArtifactExecutionWitness,
     ChatArtifactExecutionWitnessStatus, ChatArtifactRenderAcceptancePolicy,
-    ChatArtifactRenderEvaluation, ChatArtifactRenderFinding,
-    ChatArtifactRenderFindingSeverity, ChatArtifactRenderObservation,
-    ChatArtifactRenderPolicyMode, ChatRuntimeProvenanceKind,
+    ChatArtifactRenderEvaluation, ChatArtifactRenderFinding, ChatArtifactRenderFindingSeverity,
+    ChatArtifactRenderObservation, ChatArtifactRenderPolicyMode, ChatRuntimeProvenanceKind,
 };
 use ioi_types::app::{
     ChatArtifactClass, ChatArtifactDeliverableShape, ChatArtifactPersistenceMode,

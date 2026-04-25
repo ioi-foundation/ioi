@@ -245,6 +245,7 @@ async fn run_proof(fixture_path: PathBuf, data_dir: PathBuf, wait_ms: u64) -> Re
     let _ = manager
         .trigger_workflow_remote(
             &remote_summary.workflow_id,
+            Some("workflow-proof-remote-trigger-1".to_string()),
             Some(json!({
                 "source": "workflow-proof",
                 "event": "remote-trigger",

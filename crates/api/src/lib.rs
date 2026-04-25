@@ -25,6 +25,9 @@
 pub mod app;
 /// Core traits for the blockchain state machine.
 pub mod chain;
+/// Shared Chat routing and artifact materialization helpers.
+pub mod chat;
+pub(crate) mod chat_mock;
 /// Core traits and types for cryptographic commitment schemes.
 pub mod commitment;
 /// Defines the component classification system (Fixed, Adaptable, Extensible).
@@ -51,9 +54,6 @@ pub mod services;
 pub mod state;
 /// An API for a durable, epoch-sharded, content-addressed node store.
 pub mod storage;
-/// Shared Chat routing and artifact materialization helpers.
-pub mod chat;
-pub(crate) mod chat_mock;
 /// Defines the core `TransactionModel` trait.
 pub mod transaction;
 /// Defines the core traits and structures for the validator architecture.

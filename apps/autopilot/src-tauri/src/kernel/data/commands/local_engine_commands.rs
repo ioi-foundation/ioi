@@ -103,7 +103,6 @@ pub async fn get_local_engine_snapshot(
         &memory_runtime,
         Some(&control_plane),
     );
-    let compatibility_routes = build_local_engine_compatibility_routes(&control_plane);
     let mut staged_operations = orchestrator::load_local_engine_staged_operations(&memory_runtime);
     staged_operations.sort_by(|left, right| {
         right
@@ -228,7 +227,6 @@ pub async fn get_local_engine_snapshot(
         pending_approval_count,
         active_issue_count,
         capabilities,
-        compatibility_routes,
         pending_controls,
         jobs,
         recent_activity,

@@ -247,10 +247,7 @@ fn html_font_pairing(family: &str) -> &'static str {
     }
 }
 
-fn scaffold_visual_thesis(
-    family: &str,
-    design_system: &ChatArtifactDesignSystem,
-) -> &'static str {
+fn scaffold_visual_thesis(family: &str, design_system: &ChatArtifactDesignSystem) -> &'static str {
     match family {
         "comparison_story" => {
             "Editorial comparison spread with a calm evidence rail, serif authority, and measured contrast."

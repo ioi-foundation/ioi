@@ -1,9 +1,9 @@
 use anyhow::{bail, Context, Result};
 use ioi_api::chat::{count_pdf_structural_sections, extract_searchable_pdf_text};
 use ioi_types::app::{
-    ChatArtifactClass, ChatArtifactLifecycleState, ChatArtifactManifest,
-    ChatArtifactManifestFile, ChatArtifactTabKind, ChatArtifactVerificationStatus,
-    ChatOutcomePlanningPayload, ChatRendererKind, ChatRuntimeProvenance,
+    ChatArtifactClass, ChatArtifactLifecycleState, ChatArtifactManifest, ChatArtifactManifestFile,
+    ChatArtifactTabKind, ChatArtifactVerificationStatus, ChatOutcomePlanningPayload,
+    ChatRendererKind, ChatRuntimeProvenance,
 };
 use serde::Serialize;
 use std::collections::HashSet;
@@ -1197,7 +1197,7 @@ pub(super) fn count_empty_html_chart_container_regions(html_lower: &str) -> usiz
 }
 
 pub(super) fn html_contains_empty_chart_container_regions(html_lower: &str) -> bool {
-    if html_lower.contains("studio-inline-chart-fallback") {
+    if html_lower.contains("chat-inline-chart-fallback") {
         return false;
     }
     count_empty_html_chart_container_regions(html_lower) > 0

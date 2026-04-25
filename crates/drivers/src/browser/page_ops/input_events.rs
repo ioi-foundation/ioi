@@ -1230,6 +1230,8 @@ impl BrowserDriver {
     }
 
     pub async fn move_mouse(&self, x: f64, y: f64) -> std::result::Result<(), BrowserError> {
+        crate::authority::assert_raw_driver_allowed("browser", "move_mouse")
+            .map_err(|error| BrowserError::Internal(error.to_string()))?;
         self.require_runtime()?;
         self.ensure_page().await?;
 
@@ -1715,6 +1717,8 @@ impl BrowserDriver {
     }
 
     pub async fn synthetic_click(&self, x: f64, y: f64) -> std::result::Result<(), BrowserError> {
+        crate::authority::assert_raw_driver_allowed("browser", "synthetic_click")
+            .map_err(|error| BrowserError::Internal(error.to_string()))?;
         self.synthetic_click_with_button(x, y, MouseButton::Left)
             .await
     }
@@ -1812,6 +1816,8 @@ impl BrowserDriver {
         text: &str,
         selector: Option<&str>,
     ) -> std::result::Result<BrowserTypeOutcome, BrowserError> {
+        crate::authority::assert_raw_driver_allowed("browser", "type_text")
+            .map_err(|error| BrowserError::Internal(error.to_string()))?;
         if let Some(sel) = selector {
             match self.focus_selector(sel).await {
                 Ok(true) => {}
@@ -1890,6 +1896,8 @@ impl BrowserDriver {
         modifiers: &[String],
         selector: Option<&str>,
     ) -> std::result::Result<BrowserTypeOutcome, BrowserError> {
+        crate::authority::assert_raw_driver_allowed("browser", "press_key")
+            .map_err(|error| BrowserError::Internal(error.to_string()))?;
         let key = key.trim();
         if key.is_empty() {
             return Err(BrowserError::Internal("Key cannot be empty".to_string()));
@@ -1930,6 +1938,8 @@ impl BrowserDriver {
     }
 
     pub async fn click_selector(&self, selector: &str) -> std::result::Result<(), BrowserError> {
+        crate::authority::assert_raw_driver_allowed("browser", "click_selector")
+            .map_err(|error| BrowserError::Internal(error.to_string()))?;
         self.require_runtime()?;
         self.ensure_page().await?;
 

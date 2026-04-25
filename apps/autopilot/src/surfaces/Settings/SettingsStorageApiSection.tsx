@@ -5,7 +5,7 @@ export function SettingsStorageApiSection({
 }: {
   view: SettingsViewBodyView;
 }) {
-  const { controlPlane, engineSnapshot, updateEngineDraft } = view;
+  const { controlPlane, updateEngineDraft } = view;
   if (!controlPlane) return null;
 
   return (
@@ -155,56 +155,6 @@ export function SettingsStorageApiSection({
               <span>Expose runtime services beyond localhost when appropriate.</span>
             </div>
           </label>
-          <label className="chat-settings-toggle">
-            <input
-              type="checkbox"
-              checked={controlPlane.api.exposeCompatRoutes}
-              onChange={(event) =>
-                updateEngineDraft((current) => ({
-                  ...current,
-                  api: {
-                    ...current.api,
-                    exposeCompatRoutes: event.target.checked,
-                  },
-                }))
-              }
-            />
-            <div>
-              <strong>Expose compatibility routes</strong>
-              <span>Keep OpenAI, Anthropic, and speech facades operator-controlled.</span>
-            </div>
-          </label>
-        </div>
-      </article>
-
-      <article className="chat-settings-card">
-        <div className="chat-settings-card-head">
-          <div>
-            <span className="chat-settings-card-eyebrow">Facades</span>
-            <h2>Compatibility routes</h2>
-          </div>
-          <span className="chat-settings-pill">
-            {engineSnapshot?.compatibilityRoutes.filter((route) => route.enabled)
-              .length ?? 0}{" "}
-            live
-          </span>
-        </div>
-        <div className="chat-settings-stack chat-settings-stack--compact">
-          {(engineSnapshot?.compatibilityRoutes ?? []).map((route) => (
-            <article
-              key={route.id}
-              className={`chat-settings-subcard ${
-                route.enabled ? "is-live" : "is-muted"
-              }`}
-            >
-              <div className="chat-settings-subcard-head">
-                <strong>{route.label}</strong>
-                <span>{route.enabled ? "Live" : "Hidden"}</span>
-              </div>
-              <p>{route.path}</p>
-              <small>{route.url}</small>
-            </article>
-          ))}
         </div>
       </article>
     </div>

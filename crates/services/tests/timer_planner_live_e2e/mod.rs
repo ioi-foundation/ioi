@@ -9,8 +9,8 @@ use ioi_api::transaction::context::TxContext;
 use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
 use ioi_api::vm::drivers::os::{OsDriver, WindowInfo};
 use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime};
-use ioi_crypto::sign::eddsa::Ed25519KeyPair;
 use ioi_crypto::algorithms::hash::sha256;
+use ioi_crypto::sign::eddsa::Ed25519KeyPair;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_memory::MemoryRuntime;
@@ -533,7 +533,9 @@ fn active_policy_hash_for_session(
 ) -> Result<[u8; 32]> {
     let policy_key = [AGENT_POLICY_PREFIX, session_id.as_slice()].concat();
     let rules = match state.get(&policy_key)? {
-        Some(bytes) => codec::from_bytes_canonical::<ActionRules>(&bytes).map_err(anyhow::Error::msg)?,
+        Some(bytes) => {
+            codec::from_bytes_canonical::<ActionRules>(&bytes).map_err(anyhow::Error::msg)?
+        }
         None => default_safe_policy(),
     };
     let canonical = serde_jcs::to_vec(&rules).map_err(anyhow::Error::msg)?;

@@ -151,11 +151,7 @@ pub(crate) fn build_chat_artifact_candidate_refinement_prompt_for_runtime(
             true,
         )?
     } else {
-        serialize_materialization_prompt_json(
-            validation,
-            "Chat artifact validation result",
-            false,
-        )?
+        serialize_materialization_prompt_json(validation, "Chat artifact validation result", false)?
     };
     let render_eval_json = serialize_materialization_prompt_json(
         &super::super::validation::chat_artifact_validation_render_eval_focus(render_evaluation),
@@ -431,11 +427,7 @@ pub(super) fn build_chat_artifact_candidate_refinement_repair_prompt_for_runtime
             true,
         )?
     } else {
-        serialize_materialization_prompt_json(
-            validation,
-            "Chat artifact validation result",
-            false,
-        )?
+        serialize_materialization_prompt_json(validation, "Chat artifact validation result", false)?
     };
     let renderer_guidance = chat_artifact_renderer_authoring_guidance_for_runtime(
         request,

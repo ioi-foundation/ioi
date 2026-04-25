@@ -119,7 +119,7 @@ assert.match(
 
 assert.match(
   chatShellWindowSource,
-  /studioArtifactDrawerAvailable && chatArtifactVisible[\s\S]*spot-chat-artifact-drawer/,
+  /chatArtifactDrawerAvailable && chatArtifactVisible[\s\S]*spot-chat-artifact-drawer/,
   "chat should only render the artifact drawer after an artifact surface becomes available",
 );
 

@@ -13,13 +13,13 @@ const PROCESS_ENV_ROWS: &[(&str, bool)] = &[
     ("AUTOPILOT_KERNEL_RPC_URL", false),
     ("XDG_SESSION_TYPE", false),
     ("TZ", false),
-    ("AUTOPILOT_STUDIO_ROUTING_RUNTIME_URL", false),
-    ("AUTOPILOT_STUDIO_ROUTING_RUNTIME_MODEL", false),
+    ("AUTOPILOT_CHAT_ARTIFACT_ROUTING_RUNTIME_URL", false),
+    ("AUTOPILOT_CHAT_ARTIFACT_ROUTING_RUNTIME_MODEL", false),
     ("AUTOPILOT_ACCEPTANCE_RUNTIME_URL", false),
     ("AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL", false),
     ("OPENAI_API_KEY", true),
-    ("AUTOPILOT_STUDIO_ROUTING_RUNTIME_API_KEY", true),
-    ("AUTOPILOT_STUDIO_ROUTING_OPENAI_API_KEY", true),
+    ("AUTOPILOT_CHAT_ARTIFACT_ROUTING_RUNTIME_API_KEY", true),
+    ("AUTOPILOT_CHAT_ARTIFACT_ROUTING_OPENAI_API_KEY", true),
     ("AUTOPILOT_ACCEPTANCE_RUNTIME_API_KEY", true),
     ("AUTOPILOT_ACCEPTANCE_OPENAI_API_KEY", true),
 ];
@@ -85,7 +85,7 @@ fn clip_text(value: &str, max_chars: usize) -> String {
 
 fn binding_scope_label(key: &str) -> String {
     let upper = key.trim().to_ascii_uppercase();
-    if upper.starts_with("AUTOPILOT_STUDIO_ROUTING_") {
+    if upper.starts_with("AUTOPILOT_CHAT_ARTIFACT_ROUTING_") {
         "Routing runtime".to_string()
     } else if upper.starts_with("AUTOPILOT_ACCEPTANCE_") {
         "Acceptance runtime".to_string()

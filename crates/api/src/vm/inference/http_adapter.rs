@@ -1650,8 +1650,7 @@ impl InferenceRuntime for HttpInferenceRuntime {
     }
 
     async fn load_model(&self, _hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
-        if runtime_kind_for_api_url(&self.api_url) != ChatRuntimeProvenanceKind::RealLocalRuntime
-        {
+        if runtime_kind_for_api_url(&self.api_url) != ChatRuntimeProvenanceKind::RealLocalRuntime {
             return Ok(());
         }
 

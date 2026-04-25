@@ -15,7 +15,6 @@ use crate::decision::{
     build_transform_plan, has_high_severity, has_only_low_severity, is_secret_heavy, with_hash,
 };
 use crate::targets::is_high_risk_target;
-use crate::targets::legacy_target_from_str;
 
 pub struct PiiRoutingOutcome {
     pub decision: FirewallDecision,
@@ -257,40 +256,6 @@ pub fn route_pii_decision_for_target(
     )
 }
 
-/// Compatibility routing API without an explicit assist provider.
-#[deprecated(note = "Use route_pii_decision_for_target with PiiTarget")]
-pub fn route_pii_decision(
-    graph: &EvidenceGraph,
-    policy: &PiiControls,
-    risk_surface: RiskSurface,
-    target: &str,
-    supports_transform: bool,
-) -> PiiRoutingOutcome {
-    let mapped = legacy_target_from_str(target);
-    route_pii_decision_for_target(graph, policy, risk_surface, &mapped, supports_transform)
-}
-
-/// Compatibility routing API with explicit assist provider.
-#[deprecated(note = "Use route_pii_decision_with_assist_for_target with PiiTarget")]
-pub fn route_pii_decision_with_assist(
-    graph: &EvidenceGraph,
-    policy: &PiiControls,
-    risk_surface: RiskSurface,
-    target: &str,
-    supports_transform: bool,
-    assist: &CimAssistReceipt,
-) -> PiiRoutingOutcome {
-    let mapped = legacy_target_from_str(target);
-    route_pii_decision_with_assist_for_target(
-        graph,
-        policy,
-        risk_surface,
-        &mapped,
-        supports_transform,
-        assist,
-    )
-}
-
 /// Shared pipeline entrypoint for deterministic inspect + assist + route.
 ///
 /// The inspector closure provides deterministic evidence extraction from the caller's
@@ -351,59 +316,6 @@ where
         &provider,
         input,
         target,
-        risk_surface,
-        policy,
-        supports_transform,
-    )
-    .await
-}
-
-/// Compatibility pipeline entrypoint that accepts legacy string targets.
-#[deprecated(note = "Use inspect_and_route_with_for_target with PiiTarget")]
-pub async fn inspect_and_route_with<F>(
-    inspect: F,
-    input: &str,
-    target: &str,
-    risk_surface: RiskSurface,
-    policy: &PiiControls,
-    supports_transform: bool,
-) -> Result<(EvidenceGraph, PiiRoutingOutcome)>
-where
-    F: for<'a> Fn(&'a str, RiskSurface) -> InspectFuture<'a> + Send + Sync,
-{
-    let mapped = legacy_target_from_str(target);
-    inspect_and_route_with_for_target(
-        inspect,
-        input,
-        &mapped,
-        risk_surface,
-        policy,
-        supports_transform,
-    )
-    .await
-}
-
-/// Compatibility inspect+route entrypoint with explicit assist provider and string target.
-#[deprecated(note = "Use inspect_and_route_with_provider_for_target with PiiTarget")]
-pub async fn inspect_and_route_with_provider<F, P>(
-    inspect: F,
-    assist_provider: &P,
-    input: &str,
-    target: &str,
-    risk_surface: RiskSurface,
-    policy: &PiiControls,
-    supports_transform: bool,
-) -> Result<(EvidenceGraph, PiiRoutingOutcome)>
-where
-    F: for<'a> Fn(&'a str, RiskSurface) -> InspectFuture<'a> + Send + Sync,
-    P: CimAssistProvider + ?Sized,
-{
-    let mapped = legacy_target_from_str(target);
-    inspect_and_route_with_provider_for_target(
-        inspect,
-        assist_provider,
-        input,
-        &mapped,
         risk_surface,
         policy,
         supports_transform,

@@ -5,7 +5,7 @@ use super::{
     decode_exception_usage_state, expected_assist_identity, graph_hash,
     mint_default_scoped_exception, route_pii_decision_for_target,
     route_pii_decision_with_assist_for_target, scrub_text,
-    validate_resume_review_contract_for_grant, validate_review_request_compat,
+    validate_resume_review_contract_for_grant, validate_review_request_v3_cim,
     verify_scoped_exception_for_decision, CimAssistContext, CimAssistProvider, CimAssistReceipt,
     CimAssistResult, CimAssistV0Provider, NoopCimAssistProvider, PiiReviewContractError,
     PiiRoutingOutcome, ResumeReviewMode, RiskSurface, ScopedExceptionVerifyError,
@@ -573,7 +573,7 @@ fn resume_contract_accepts_deny_without_review_request() {
     let grant = sample_approval_grant(expected_hash, Some(PiiApprovalAction::Deny));
     let result = validate_resume_review_contract_for_grant(expected_hash, &grant, None, 500)
         .expect("deny should be allowed without a review request");
-    assert_eq!(result, ResumeReviewMode::LegacyApproval);
+    assert_eq!(result, ResumeReviewMode::UnboundDeny);
 }
 
 #[test]
@@ -613,7 +613,7 @@ fn resume_contract_accepts_review_bound_token_at_deadline_boundary() {
 
     let result =
         validate_resume_review_contract_for_grant(expected_hash, &grant, Some(&request), 1_000)
-        .expect("boundary deadline should be valid");
+            .expect("boundary deadline should be valid");
     assert_eq!(result, ResumeReviewMode::ReviewBound);
 }
 
@@ -621,7 +621,7 @@ fn resume_contract_accepts_review_bound_token_at_deadline_boundary() {
 fn review_request_compat_rejects_v2() {
     let mut request = sample_review_request([13u8; 32], 5_000);
     request.request_version = 2;
-    let result = validate_review_request_compat(&request);
+    let result = validate_review_request_v3_cim(&request);
     assert_eq!(
         result,
         Err(PiiReviewContractError::UnsupportedReviewRequestVersion {
@@ -635,7 +635,7 @@ fn review_request_compat_rejects_v2() {
 fn review_request_compat_rejects_wrong_assist_identity() {
     let mut request = sample_review_request([14u8; 32], 5_000);
     request.material.assist_identity_hash = [0xAB; 32];
-    let result = validate_review_request_compat(&request);
+    let result = validate_review_request_v3_cim(&request);
     assert!(matches!(
         result,
         Err(PiiReviewContractError::AssistIdentityHashMismatch { .. })
@@ -645,7 +645,7 @@ fn review_request_compat_rejects_wrong_assist_identity() {
 #[test]
 fn review_request_compat_accepts_expected_cim_identity() {
     let request = sample_review_request([15u8; 32], 5_000);
-    validate_review_request_compat(&request).expect("expected v3+cim request to be valid");
+    validate_review_request_v3_cim(&request).expect("expected v3+cim request to be valid");
 }
 fn cim_severity_rank(severity: PiiSeverity) -> u8 {
     match severity {

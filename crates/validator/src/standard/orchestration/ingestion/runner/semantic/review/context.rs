@@ -174,7 +174,7 @@ pub(crate) async fn resolve_resume_context(
     let pii_request_opt = match workload_client.query_raw_state(&request_key).await {
         Ok(Some(bytes)) => match codec::from_bytes_canonical::<PiiReviewRequest>(&bytes) {
             Ok(req) => {
-                if let Err(e) = ioi_pii::validate_review_request_compat(&req) {
+                if let Err(e) = ioi_pii::validate_review_request_v3_cim(&req) {
                     let reason = format!("Incompatible PII review request: {}", e);
                     tracing::warn!(target: "ingestion", "{}", reason);
                     status_guard.put(

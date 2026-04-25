@@ -1,3 +1,4 @@
+use crate::agentic::runtime::kernel::approval::ApprovalScopeContext;
 use crate::wallet_network::keys::{
     approval_authority_key, approval_consumption_key, approval_key, interception_key,
     PANIC_FLAG_KEY, REVOCATION_EPOCH_KEY,
@@ -97,11 +98,13 @@ pub(crate) fn record_approval(
         let grant = approval.approval_grant.as_ref().ok_or_else(|| {
             TransactionError::Invalid("approved decision missing approval_grant".to_string())
         })?;
+        let scope_context = wallet_approval_scope_context(&approval.interception);
         validate_registered_approval_grant(
             state,
             grant,
             approval.decided_at_ms,
             approval.interception.policy_hash,
+            Some(&scope_context),
         )?;
         Some(grant.authority_id)
     } else {
@@ -200,7 +203,14 @@ pub(crate) fn consume_approval_grant(
         params.consumed_at_ms
     };
 
-    validate_registered_approval_grant(state, grant, now_ms, approval.interception.policy_hash)?;
+    let scope_context = wallet_approval_scope_context(&approval.interception);
+    validate_registered_approval_grant(
+        state,
+        grant,
+        now_ms,
+        approval.interception.policy_hash,
+        Some(&scope_context),
+    )?;
 
     let consumption_key = approval_consumption_key(&params.request_hash);
     let mut consumption_state: ApprovalConsumptionState = load_typed(state, &consumption_key)?
@@ -309,4 +319,14 @@ fn effective_max_usages(max_usages: Option<u32>) -> Result<u32, TransactionError
         Some(value) => Ok(value),
         None => Ok(1),
     }
+}
+
+fn wallet_approval_scope_context(interception: &WalletInterceptionContext) -> ApprovalScopeContext {
+    let mut context = ApprovalScopeContext::new(interception.target.canonical_label())
+        .with_operation_label("wallet_network.approval");
+    context.push_label(format!("target:{}", interception.target.canonical_label()));
+    if let Some(session_id) = interception.session_id {
+        context.push_label(format!("session:{}", hex::encode(session_id)));
+    }
+    context
 }

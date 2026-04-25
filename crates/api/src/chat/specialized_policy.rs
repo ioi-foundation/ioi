@@ -50,9 +50,7 @@ pub fn chat_specialized_domain_kind_for_frame(
         ChatNormalizedRequestFrame::Sports(_) => ChatSpecializedDomainKind::Sports,
         ChatNormalizedRequestFrame::Places(_) => ChatSpecializedDomainKind::Places,
         ChatNormalizedRequestFrame::Recipe(_) => ChatSpecializedDomainKind::Recipe,
-        ChatNormalizedRequestFrame::MessageCompose(_) => {
-            ChatSpecializedDomainKind::MessageCompose
-        }
+        ChatNormalizedRequestFrame::MessageCompose(_) => ChatSpecializedDomainKind::MessageCompose,
         ChatNormalizedRequestFrame::UserInput(_) => ChatSpecializedDomainKind::UserInput,
     }
 }

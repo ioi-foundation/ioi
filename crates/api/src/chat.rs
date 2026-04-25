@@ -18,9 +18,8 @@ use crate::vm::inference::InferenceRuntime;
 use ioi_types::app::agentic::InferenceOptions;
 use ioi_types::app::{
     ChatArtifactClass, ChatArtifactFailure, ChatArtifactFileRole, ChatExecutionStrategy,
-    ChatExecutionSubstrate, ChatOutcomeArtifactRequest, ChatOutcomeKind,
-    ChatPresentationSurface, ChatRendererKind, ChatRuntimeProvenance,
-    ChatRuntimeProvenanceKind,
+    ChatExecutionSubstrate, ChatOutcomeArtifactRequest, ChatOutcomeKind, ChatPresentationSurface,
+    ChatRendererKind, ChatRuntimeProvenance, ChatRuntimeProvenanceKind,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -71,7 +70,7 @@ fn chat_modal_first_html_override() -> Option<bool> {
 
 fn chat_modal_first_html_enabled() -> bool {
     chat_modal_first_html_override().unwrap_or_else(|| {
-        truthy_env_var("AUTOPILOT_STUDIO_MODAL_FIRST_HTML")
+        truthy_env_var("AUTOPILOT_CHAT_ARTIFACT_MODAL_FIRST_HTML")
             || truthy_env_var("AUTOPILOT_LOCAL_GPU_DEV")
     })
 }
@@ -107,15 +106,14 @@ pub fn chat_modal_first_html_enabled_for_tests_and_runtime() -> bool {
 pub use domain_topology::{
     apply_non_artifact_clarification_gate, artifact_connector_grounding_for_outcome_request,
     build_chat_route_contract_payload, build_chat_runtime_handoff_prompt_prefix,
-    derive_chat_domain_policy_bundle, derive_chat_topology_projection,
-    non_artifact_operator_steps, non_artifact_route_notes, non_artifact_route_status_message,
-    non_artifact_route_summary, non_artifact_route_title, non_artifact_swarm_plan,
-    non_artifact_verification_receipts, non_artifact_verified_reply_evidence,
-    non_artifact_worker_receipts, route_decision_for_outcome_request,
-    route_family_for_outcome_request, route_topology_for_outcome_request,
-    selected_route_label_for_outcome_request, verification_status_for_lifecycle,
-    verified_reply_evidence_for_manifest, verifier_state_for_outcome_event,
-    ChatTopologyProjection, TopologyProjection,
+    derive_chat_domain_policy_bundle, derive_chat_topology_projection, non_artifact_operator_steps,
+    non_artifact_route_notes, non_artifact_route_status_message, non_artifact_route_summary,
+    non_artifact_route_title, non_artifact_swarm_plan, non_artifact_verification_receipts,
+    non_artifact_verified_reply_evidence, non_artifact_worker_receipts,
+    route_decision_for_outcome_request, route_family_for_outcome_request,
+    route_topology_for_outcome_request, selected_route_label_for_outcome_request,
+    verification_status_for_lifecycle, verified_reply_evidence_for_manifest,
+    verifier_state_for_outcome_event, ChatTopologyProjection, TopologyProjection,
 };
 use html::*;
 use html_registry::*;
@@ -123,16 +121,14 @@ pub use intent_signals::ChatIntentContext;
 pub use specialized_policy::{
     chat_request_frame_clarification_slots, chat_request_frame_missing_slots,
     chat_specialized_domain_kind, chat_specialized_domain_kind_for_frame,
-    chat_specialized_domain_policy, ChatSpecializedDomainKind,
-    ChatSpecializedDomainPolicySpec,
+    chat_specialized_domain_policy, ChatSpecializedDomainKind, ChatSpecializedDomainPolicySpec,
 };
 
 pub use generation::{
     build_chat_artifact_candidate_refinement_prompt,
     build_chat_artifact_candidate_refinement_repair_prompt,
-    build_chat_artifact_materialization_prompt,
-    build_chat_artifact_materialization_repair_prompt, derive_chat_artifact_prepared_context,
-    generate_chat_artifact_bundle_with_runtime,
+    build_chat_artifact_materialization_prompt, build_chat_artifact_materialization_repair_prompt,
+    derive_chat_artifact_prepared_context, generate_chat_artifact_bundle_with_runtime,
     generate_chat_artifact_bundle_with_runtime_plan_and_planning_context,
     generate_chat_artifact_bundle_with_runtime_plan_and_planning_context_and_execution_strategy,
     generate_chat_artifact_bundle_with_runtime_plan_and_planning_context_and_execution_strategy_and_render_evaluator,
@@ -159,12 +155,12 @@ pub use planning::{
     apply_artifact_connector_grounding_to_brief, build_chat_artifact_brief_prompt,
     build_chat_artifact_brief_repair_prompt, build_chat_artifact_edit_intent_prompt,
     build_chat_artifact_edit_intent_repair_prompt, build_chat_artifact_exemplar_query,
-    build_chat_outcome_router_prompt, compile_chat_artifact_ir,
-    derive_request_grounded_chat_artifact_brief, derive_chat_artifact_blueprint,
-    parse_chat_artifact_brief, parse_chat_artifact_edit_intent,
-    parse_chat_outcome_planning_payload, plan_chat_artifact_brief_with_runtime,
-    plan_chat_artifact_edit_intent_with_runtime, plan_chat_outcome_with_runtime,
-    chat_execution_strategy_for_outcome,
+    build_chat_outcome_router_prompt, chat_execution_strategy_for_outcome,
+    compile_chat_artifact_ir, derive_chat_artifact_blueprint,
+    derive_request_grounded_chat_artifact_brief, parse_chat_artifact_brief,
+    parse_chat_artifact_edit_intent, parse_chat_outcome_planning_payload,
+    plan_chat_artifact_brief_with_runtime, plan_chat_artifact_edit_intent_with_runtime,
+    plan_chat_outcome_with_runtime,
     synthesize_chat_artifact_brief_for_execution_strategy_with_runtime,
 };
 pub use render_eval::{

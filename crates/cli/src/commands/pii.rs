@@ -7,7 +7,7 @@ use ioi_crypto::algorithms::hash::sha256;
 use ioi_ipc::blockchain::QueryRawStateRequest;
 use ioi_ipc::public::public_api_client::PublicApiClient;
 use ioi_ipc::public::GetTransactionStatusRequest;
-use ioi_pii::{validate_review_request_compat, REVIEW_REQUEST_VERSION};
+use ioi_pii::{validate_review_request_v3_cim, REVIEW_REQUEST_VERSION};
 use ioi_services::agentic::rules::ActionRules;
 use ioi_services::agentic::runtime::keys::pii::review::request as review_request_key;
 use ioi_services::agentic::runtime::ResumeAgentParams;
@@ -153,8 +153,8 @@ async fn fetch_active_policy_hash(
     } else {
         ActionRules::default()
     };
-    let canonical =
-        serde_jcs::to_vec(&rules).map_err(|e| anyhow!("Failed to canonicalize ActionRules: {}", e))?;
+    let canonical = serde_jcs::to_vec(&rules)
+        .map_err(|e| anyhow!("Failed to canonicalize ActionRules: {}", e))?;
     let digest = sha256(&canonical).map_err(|e| anyhow!("Failed to hash ActionRules: {}", e))?;
     let mut out = [0u8; 32];
     out.copy_from_slice(digest.as_ref());
@@ -191,7 +191,7 @@ async fn run_approve(args: PiiApproveArgs) -> Result<()> {
     }
     let request: PiiReviewRequest = codec::from_bytes_canonical(&response.value)
         .map_err(|e| anyhow!("Failed to decode PiiReviewRequest: {}", e))?;
-    validate_review_request_compat(&request).map_err(|e| {
+    validate_review_request_v3_cim(&request).map_err(|e| {
         anyhow!(
             "Review request {} is incompatible with v{} contract: {}",
             hex::encode(decision_hash),
@@ -236,7 +236,8 @@ async fn run_approve(args: PiiApproveArgs) -> Result<()> {
         .map_err(|e| anyhow!("Failed to encode authority registration params: {}", e))?,
     };
     let register_tx: ChainTransaction = create_cli_tx(&keypair, register_payload, 0);
-    let _ = submit_tx_and_wait(&mut client, &register_tx, "approval authority registration").await?;
+    let _ =
+        submit_tx_and_wait(&mut client, &register_tx, "approval authority registration").await?;
     let active_policy_hash = fetch_active_policy_hash(&mut client).await?;
     let mut approval_grant = ApprovalGrant {
         schema_version: 1,

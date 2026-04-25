@@ -380,10 +380,8 @@ pub async fn generate_chat_artifact_bundle_with_runtime_plan_and_planning_contex
         strategy
     ));
     let live_preview_state = Arc::new(Mutex::new(Vec::<ExecutionLivePreview>::new()));
-    let mut candidate_rows = Vec::<(
-        ChatArtifactCandidateSummary,
-        ChatGeneratedArtifactPayload,
-    )>::new();
+    let mut candidate_rows =
+        Vec::<(ChatArtifactCandidateSummary, ChatGeneratedArtifactPayload)>::new();
     let mut failed_candidate_summaries = Vec::<ChatArtifactCandidateSummary>::new();
     let mut candidate_generation_errors = Vec::<String>::new();
     let mut next_candidate_index = 0usize;

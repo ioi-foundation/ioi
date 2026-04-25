@@ -21,7 +21,7 @@
     "probe:desktop:workspace:sidebar-footer": "python3 apps/autopilot/scripts/desktop_workspace_sidebar_footer_probe.py",
     "dryrun:desktop": "bash apps/autopilot/scripts/dry-run-desktop.sh x11",
     "dryrun:desktop:wayland": "bash apps/autopilot/scripts/dry-run-desktop.sh wayland",
-    "dev:web": "npm run dev --workspace=apps/agent-studio",
+    "dev:web": "npm run dev --workspace=apps/autopilot",
     "dev:benchmarks": "npm run dev --workspace=apps/benchmarks",
     "build:benchmarks": "npm run build --workspace=apps/benchmarks",
     "test:benchmarks": "node --test scripts/run-agent-model-matrix.test.mjs && node --test scripts/lib/agent-model-matrix.test.mjs && npm run test:generate-data --workspace=apps/benchmarks && npm run test:viewmodel --workspace=apps/benchmarks",

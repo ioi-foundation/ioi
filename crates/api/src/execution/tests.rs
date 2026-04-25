@@ -2,8 +2,7 @@ use super::*;
 use ioi_types::app::{
     ChatArtifactClass, ChatArtifactDeliverableShape, ChatArtifactPersistenceMode,
     ChatExecutionSubstrate, ChatOutcomeArtifactScope, ChatOutcomeArtifactVerificationRequest,
-    ChatPresentationSurface, ChatRendererKind, ChatRuntimeProvenance,
-    ChatRuntimeProvenanceKind,
+    ChatPresentationSurface, ChatRendererKind, ChatRuntimeProvenance, ChatRuntimeProvenanceKind,
 };
 
 fn test_swarm_plan(strategy: &str, work_items: Vec<SwarmWorkItem>) -> SwarmPlan {
@@ -407,9 +406,7 @@ fn annotate_execution_envelope_carries_mode_decision_budget_and_invariant() {
         decomposition_payoff: 0.58,
         work_graph_required: true,
         decomposition_reason: "A bounded work graph is justified.".to_string(),
-        budget_envelope: execution_budget_envelope_for_strategy(
-            ChatExecutionStrategy::MicroSwarm,
-        ),
+        budget_envelope: execution_budget_envelope_for_strategy(ChatExecutionStrategy::MicroSwarm),
     };
     let invariant = completion_invariant_for_direct_execution(
         ChatExecutionStrategy::MicroSwarm,

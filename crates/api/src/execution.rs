@@ -1,7 +1,6 @@
 use ioi_types::app::{
-    ChatExecutionBudgetEnvelope, ChatExecutionBudgetExpansionPolicy,
-    ChatExecutionModeDecision, ChatExecutionStrategy, ChatOutcomeArtifactRequest,
-    ChatOutcomeKind, ChatRuntimeProvenance,
+    ChatExecutionBudgetEnvelope, ChatExecutionBudgetExpansionPolicy, ChatExecutionModeDecision,
+    ChatExecutionStrategy, ChatOutcomeArtifactRequest, ChatOutcomeKind, ChatRuntimeProvenance,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -614,12 +613,8 @@ fn build_swarm_work_item_commits(
                 .map(|receipt| receipt.status)
                 .or_else(|| change.map(|receipt| receipt.status))
                 .unwrap_or(SwarmWorkItemStatus::Pending);
-            let write_scope_hash = canonical_execution_hash(&(
-                work_item_id,
-                &write_paths,
-                &write_regions,
-                status,
-            ));
+            let write_scope_hash =
+                canonical_execution_hash(&(work_item_id, &write_paths, &write_regions, status));
             let worker_receipt_hash = worker.map(canonical_execution_hash);
             let change_receipt_hash = change.map(canonical_execution_hash);
             let commit_hash = canonical_execution_hash(&(
@@ -660,8 +655,8 @@ fn build_swarm_merge_decision_artifacts(
                 .map(|commit| vec![commit.commit_hash.clone()])
                 .unwrap_or_default();
             let merge_receipt_hash = Some(canonical_execution_hash(receipt));
-            let scope_conflict_free =
-                receipt.status != SwarmWorkItemStatus::Rejected && receipt.rejected_reason.is_none();
+            let scope_conflict_free = receipt.status != SwarmWorkItemStatus::Rejected
+                && receipt.rejected_reason.is_none();
             let merge_hash = canonical_execution_hash(&(
                 &receipt.work_item_id,
                 receipt.status,
@@ -808,11 +803,11 @@ pub fn validate_execution_envelope(envelope: &ExecutionEnvelope) -> Result<(), S
         }
     }
     for artifact in &envelope.merge_decision_artifacts {
-        if !artifact
-            .required_commit_hashes
-            .iter()
-            .all(|hash| commit_by_id.values().any(|commit| &commit.commit_hash == hash))
-        {
+        if !artifact.required_commit_hashes.iter().all(|hash| {
+            commit_by_id
+                .values()
+                .any(|commit| &commit.commit_hash == hash)
+        }) {
             return Err(format!(
                 "merge decision '{}' references unknown work item commit",
                 artifact.work_item_id
@@ -877,8 +872,10 @@ pub fn validate_execution_envelope(envelope: &ExecutionEnvelope) -> Result<(), S
         &envelope.repair_action_artifacts,
     );
     if envelope.workflow_artifact_root_hash.as_deref() != Some(expected_root.as_str()) {
-        return Err("workflow_artifact_root_hash does not match canonical swarm settlement artifacts"
-            .to_string());
+        return Err(
+            "workflow_artifact_root_hash does not match canonical swarm settlement artifacts"
+                .to_string(),
+        );
     }
     Ok(())
 }

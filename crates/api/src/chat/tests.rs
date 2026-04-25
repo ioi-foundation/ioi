@@ -9,9 +9,9 @@ use super::generation::{
     ChatArtifactPatchOperation, ChatArtifactPatchOperationKind,
 };
 use super::planning::{
-    build_chat_artifact_brief_field_repair_prompt,
-    build_chat_artifact_brief_prompt_for_runtime, build_chat_outcome_router_prompt_for_runtime,
-    canonicalize_chat_artifact_brief_for_request, validate_chat_artifact_brief_against_request,
+    build_chat_artifact_brief_field_repair_prompt, build_chat_artifact_brief_prompt_for_runtime,
+    build_chat_outcome_router_prompt_for_runtime, canonicalize_chat_artifact_brief_for_request,
+    validate_chat_artifact_brief_against_request,
 };
 use super::validation::candidate_generation_config;
 use super::*;
@@ -614,8 +614,5 @@ fn validate_swarm_generated_artifact_payload_repairs_default_primary_renderable_
     assert_eq!(primary.role, ChatArtifactFileRole::Primary);
     assert!(primary.renderable);
     assert!(!primary.downloadable);
-    assert_eq!(
-        primary.encoding,
-        Some(ChatGeneratedArtifactEncoding::Utf8)
-    );
+    assert_eq!(primary.encoding, Some(ChatGeneratedArtifactEncoding::Utf8));
 }

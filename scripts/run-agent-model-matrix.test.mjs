@@ -610,9 +610,9 @@ test("ollamaWarmupPayloadForModel uses a tiny keep-alive generate request", () =
 test("studioProofTraceMessages extracts stage breadcrumbs from mixed stderr", () => {
   const output = [
     "INFO bootstrap starting",
-    "[studio-proof-trace] artifact_generation:start renderer=HtmlIframe",
+    "[chat-artifact-proof-trace] artifact_generation:start renderer=HtmlIframe",
     "[2026-04-03T12:59:47Z ERROR ioi_api::vm::inference::http_adapter] Provider Error 500 Internal Server Error: overloaded",
-    "[studio-proof-trace] artifact_generation:materialization_inference:start id=candidate-1 prompt_bytes=5065 temperature=0.2 max_tokens=1600",
+    "[chat-artifact-proof-trace] artifact_generation:materialization_inference:start id=candidate-1 prompt_bytes=5065 temperature=0.2 max_tokens=1600",
     "",
   ].join("\n");
 
@@ -626,9 +626,9 @@ test("artifactCommandDiagnostics keeps last proof trace and provider error", () 
   const diagnostics = artifactCommandDiagnostics({
     stdout: "",
     stderr: [
-      "[studio-proof-trace] artifact_generation:start renderer=HtmlIframe",
+      "[chat-artifact-proof-trace] artifact_generation:start renderer=HtmlIframe",
       "[2026-04-03T12:59:47Z ERROR ioi_api::vm::inference::http_adapter] Provider Error 500 Internal Server Error: overloaded",
-      "[studio-proof-trace] artifact_generation:materialization_inference:start id=candidate-1 prompt_bytes=5065 temperature=0.2 max_tokens=1600",
+      "[chat-artifact-proof-trace] artifact_generation:materialization_inference:start id=candidate-1 prompt_bytes=5065 temperature=0.2 max_tokens=1600",
       "",
     ].join("\n"),
     error: "spawnSync /home/heathledger/Documents/ioi/repos/ioi/target/debug/cli ETIMEDOUT",
@@ -639,7 +639,7 @@ test("artifactCommandDiagnostics keeps last proof trace and provider error", () 
   assert.equal(diagnostics.timedOut, true);
   assert.equal(diagnostics.studioProofTraceCount, 2);
   assert.match(
-    diagnostics.lastStudioProofTrace,
+    diagnostics.lastChatRuntimeProofTrace,
     /artifact_generation:materialization_inference:start/,
   );
   assert.match(diagnostics.lastProviderError, /Provider Error 500 Internal Server Error/);
@@ -650,7 +650,7 @@ test("timeoutDiagnosticLabel prefers the benchmark id and includes last trace co
     benchmarkId: "artifact-download-bundle",
     title: "Artifact download bundle",
     timedOut: true,
-    lastStudioProofTrace:
+    lastChatRuntimeProofTrace:
       "artifact_generation:materialization_inference:start id=candidate-1 prompt_bytes=5065 temperature=0.2 max_tokens=1600",
     lastProviderError: null,
   });
@@ -680,7 +680,7 @@ test("runAbortReasonForShippedDefaultTimeouts aborts a full retained comparison 
         benchmarkId: "artifact-download-bundle",
         status: "timed_out",
         timedOut: true,
-        lastStudioProofTrace:
+        lastChatRuntimeProofTrace:
           "artifact_generation:materialization_inference:start id=candidate-1 prompt_bytes=5065 temperature=0.2 max_tokens=1600",
       },
       {

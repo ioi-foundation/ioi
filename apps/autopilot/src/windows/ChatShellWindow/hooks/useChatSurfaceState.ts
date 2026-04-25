@@ -12,7 +12,7 @@ import { buildRunPresentation } from "../../ChatShellWindow/viewmodels/contentPi
 import { useTurnContexts } from "../../ChatShellWindow/hooks/useTurnContexts";
 import {
   deriveChatExecutionChrome as deriveChatExecutionChromeState,
-  formatStudioStatusLabel,
+  formatRuntimeStatusLabel,
   type ChatExecutionMetrics,
   type ChatExecutionProcess,
 } from "../../ChatShellWindow/components/chatExecutionChrome";
@@ -132,7 +132,7 @@ function deriveTaskChatExecutionChrome(task: any) {
   });
 }
 
-function isArtifactStudioRoute(task: any): boolean {
+function isArtifactRuntimeRoute(task: any): boolean {
   return (
     task?.chat_session?.outcomeRequest?.outcomeKind === "artifact" ||
     task?.chat_outcome?.outcomeKind === "artifact"
@@ -152,7 +152,7 @@ function formatArtifactThinkingStatus(status: string | null | undefined): string
     case "pending":
       return "Queued";
     default:
-      return formatStudioStatusLabel(status) || "Queued";
+      return formatRuntimeStatusLabel(status) || "Queued";
   }
 }
 
@@ -254,7 +254,7 @@ function artifactThinkingIconKeyForStep(
   }
 }
 
-function summarizeStudioFailure(
+function summarizeRuntimeFailure(
   message: string | null | undefined,
 ): {
   title: string;
@@ -316,7 +316,7 @@ export function selectRetainableDrawerSession(
 }
 
 export function useChatSurfaceState({
-  isStudioVariant,
+  isChatVariant,
   layout,
   activeHistory,
   activeEvents,
@@ -336,7 +336,7 @@ export function useChatSurfaceState({
   isGated,
   showPasswordPrompt,
 }: {
-  isStudioVariant: boolean;
+  isChatVariant: boolean;
   layout: {
     sidebarVisible: boolean;
     artifactPanelVisible: boolean;
@@ -375,7 +375,7 @@ export function useChatSurfaceState({
   }, [retainedArtifacts, selectedArtifact, selectedArtifactId]);
 
   const activeChatSessionId = task?.chat_session?.sessionId ?? null;
-  const studioArtifactExpected = isArtifactStudioRoute(task);
+  const studioArtifactExpected = isArtifactRuntimeRoute(task);
 
   const studioArtifactAvailable = useMemo(() => {
     const manifest = task?.chat_session?.artifactManifest;
@@ -395,7 +395,7 @@ export function useChatSurfaceState({
   ]);
 
   const isDualPanelChat =
-    !isStudioVariant && layout.sidebarVisible && layout.artifactPanelVisible;
+    !isChatVariant && layout.sidebarVisible && layout.artifactPanelVisible;
   const sidebarPanelWidth = layout.sidebarVisible
     ? isDualPanelChat
       ? COMPACT_SIDEBAR_PANEL_WIDTH
@@ -408,7 +408,7 @@ export function useChatSurfaceState({
     : 0;
   const panelWidth =
     BASE_PANEL_WIDTH + sidebarPanelWidth + artifactPanelWidth;
-  const containerStyle = isStudioVariant
+  const containerStyle = isChatVariant
     ? undefined
     : { width: `${panelWidth}px` };
 
@@ -432,8 +432,8 @@ export function useChatSurfaceState({
     activeEvents.length > 0 ||
     activeArtifacts.length > 0 ||
     Boolean(task?.chat_session);
-  const shouldAutoFocusStudioComposer =
-    isStudioVariant &&
+  const shouldAutoFocusChatComposer =
+    isChatVariant &&
     !inputLockedByCredential &&
     !seedIntent?.trim() &&
     !hasSessionContent &&
@@ -441,7 +441,7 @@ export function useChatSurfaceState({
 
   const hasOperatorDecisionPrompt =
     isGated || showPasswordPrompt || Boolean(clarificationRequest);
-  const inlineStudioDecisionPrompt = isStudioVariant && hasOperatorDecisionPrompt;
+  const inlineRuntimeDecisionPrompt = isChatVariant && hasOperatorDecisionPrompt;
   const showOverlaySessionChrome =
     !hasOperatorDecisionPrompt &&
     hasSessionContent &&
@@ -452,16 +452,16 @@ export function useChatSurfaceState({
     : false;
 
   const chatStatusCard: ChatStatusCardState = useMemo(() => {
-    if (!isStudioVariant) {
+    if (!isChatVariant) {
       return null;
     }
     if (task?.chat_session?.activeOperatorRun) {
       return null;
     }
 
-    const submissionFailureSummary = summarizeStudioFailure(submissionError);
+    const submissionFailureSummary = summarizeRuntimeFailure(submissionError);
     const executionChrome = deriveTaskChatExecutionChrome(task);
-    const artifactRouteActive = isArtifactStudioRoute(task);
+    const artifactRouteActive = isArtifactRuntimeRoute(task);
     const artifactThinkingProcesses = artifactRouteActive
       ? buildArtifactThinkingProcesses(task)
       : executionChrome.processes;
@@ -571,7 +571,7 @@ export function useChatSurfaceState({
       !runPresentation.finalAnswer &&
       task.chat_session.lifecycleState !== "blocked"
     ) {
-      const outcomeLabel = formatStudioStatusLabel(
+      const outcomeLabel = formatRuntimeStatusLabel(
         task.chat_session.outcomeRequest?.outcomeKind,
       );
       return {
@@ -611,7 +611,7 @@ export function useChatSurfaceState({
       !studioArtifactAvailable &&
       task.chat_session.lifecycleState === "blocked"
     ) {
-      const blockedSummary = summarizeStudioFailure(
+      const blockedSummary = summarizeRuntimeFailure(
         task.current_step ||
           task.chat_session.artifactManifest.verification.summary ||
           task.chat_session.verifiedReply.summary,
@@ -643,7 +643,7 @@ export function useChatSurfaceState({
     activeChatSessionId,
     hasOperatorDecisionPrompt,
     isRunning,
-    isStudioVariant,
+    isChatVariant,
     runPresentation.finalAnswer,
     studioArtifactAvailable,
     studioArtifactExpected,
@@ -658,12 +658,12 @@ export function useChatSurfaceState({
     conversationTurns,
     hasOperatorDecisionPrompt,
     hasSessionContent,
-    inlineStudioDecisionPrompt,
+    inlineRuntimeDecisionPrompt,
     isDualPanelChat,
     latestAnsweredTurnIndex,
     runPresentation,
     selectedInspectionArtifact,
-    shouldAutoFocusStudioComposer,
+    shouldAutoFocusChatComposer,
     showInitialLoader,
     showOverlaySessionChrome,
     studioArtifactAvailable,

@@ -7,6 +7,8 @@ pub mod action;
 pub mod adapter;
 /// Data structures for agentic semantic consensus.
 pub mod agentic;
+/// Shared Chat outcome routing and artifact contracts.
+pub mod chat;
 /// Data structures related to consensus, such as the canonical validator set
 pub mod consensus;
 /// Data structures for unified kernel events.
@@ -25,8 +27,6 @@ pub mod model_registry;
 pub mod penalties;
 /// Data structures for economic settlement.
 pub mod settlement;
-/// Shared Chat outcome routing and artifact contracts.
-pub mod chat;
 /// Data structures for deterministic block timing.
 pub mod timing; // [NEW]
 /// Data structures for wallet.network control-plane and session artifacts.
@@ -44,6 +44,7 @@ pub use agentic::{
     SkillBenchmarkReport, SkillCatalogIndex, SkillLifecycleState, SkillPublicationInfo,
     SkillRecord, SkillSourceType, SkillStats, StepTrace,
 };
+pub use chat::*;
 pub use events::*;
 pub use guardianized::*;
 pub use identity::{
@@ -55,7 +56,6 @@ pub use media::*;
 pub use model_registry::*;
 pub use penalties::*;
 pub use settlement::*;
-pub use chat::*;
 pub use timing::*; // [NEW]
 pub use wallet_network::*;
 pub use workload::*;

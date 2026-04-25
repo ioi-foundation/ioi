@@ -82,7 +82,9 @@ pub async fn handle_resume(
 
             let msg = ioi_types::app::agentic::ChatMessage {
                 role: "system".to_string(),
-                content: "Authorization GRANTED via ApprovalGrant. You may retry the action immediately.".to_string(),
+                content:
+                    "Authorization GRANTED via ApprovalGrant. You may retry the action immediately."
+                        .to_string(),
                 timestamp: timestamp_ms_now(),
                 trace_hash: None,
             };

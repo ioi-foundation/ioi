@@ -1,10 +1,10 @@
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
-use ioi_api::chat::{plan_studio_outcome_with_runtime, ChatArtifactRefinementContext};
+use ioi_api::chat::{plan_chat_outcome_with_runtime, ChatArtifactRefinementContext};
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_types::app::{
-    ChatArtifactFailure, ChatArtifactFailureKind, ChatOutcomePlanningPayload,
-    ChatRendererKind, ChatRuntimeProvenance, ChatRuntimeProvenanceKind,
+    ChatArtifactFailure, ChatArtifactFailureKind, ChatOutcomePlanningPayload, ChatRendererKind,
+    ChatRuntimeProvenance, ChatRuntimeProvenanceKind,
 };
 use std::fs;
 use std::path::{Path, PathBuf};

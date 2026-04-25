@@ -75,7 +75,7 @@ export default function Dashboard() {
           <div className="flex border-b border-gray-200 overflow-x-auto">
             <TabButton id="fleet" label="My Fleet" active={activeTab} onClick={setActiveTab} />
             <TabButton id="jobs" label="My Bounties" active={activeTab} onClick={setActiveTab} count={2} />
-            <TabButton id="listings" label="Creator Studio" active={activeTab} onClick={setActiveTab} />
+            <TabButton id="listings" label="Creator Hub" active={activeTab} onClick={setActiveTab} />
             <TabButton id="saved" label="Saved" active={activeTab} onClick={setActiveTab} />
             <TabButton id="history" label="History" active={activeTab} onClick={setActiveTab} />
           </div>

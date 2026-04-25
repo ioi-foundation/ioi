@@ -24,9 +24,9 @@ pub use assist::{
 
 pub use review_contract::{
     check_exception_usage_increment_ok, decode_exception_usage_state, expected_assist_identity,
-    resolve_expected_request_hash,
-    validate_resume_review_contract_for_grant, validate_review_request_compat,
-    PiiReviewContractError, ResumeReviewMode, REVIEW_REQUEST_VERSION,
+    resolve_expected_request_hash, validate_resume_review_contract_for_grant,
+    validate_review_request_v3_cim, PiiReviewContractError, ResumeReviewMode,
+    REVIEW_REQUEST_VERSION,
 };
 
 pub use decision::{build_decision_material, compute_decision_hash};
@@ -39,15 +39,12 @@ pub use scoped_exception::{
     DEFAULT_SCOPED_EXCEPTION_MAX_USES, DEFAULT_SCOPED_EXCEPTION_TTL_SECS,
 };
 
-#[allow(deprecated)]
 pub use routing::{
-    inspect_and_route_with, inspect_and_route_with_for_target, inspect_and_route_with_provider,
-    inspect_and_route_with_provider_for_target, route_pii_decision, route_pii_decision_for_target,
-    route_pii_decision_with_assist, route_pii_decision_with_assist_for_target, PiiRoutingOutcome,
+    inspect_and_route_with_for_target, inspect_and_route_with_provider_for_target,
+    route_pii_decision_for_target, route_pii_decision_with_assist_for_target, PiiRoutingOutcome,
 };
 
-#[allow(deprecated)]
-pub use targets::{is_high_risk_target, is_high_risk_target_legacy};
+pub use targets::is_high_risk_target;
 
 pub use transform::{
     apply_transform, canonical_placeholder_label, scrub_text, PostTransformReport,

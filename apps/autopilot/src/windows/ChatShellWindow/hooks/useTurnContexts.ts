@@ -166,25 +166,25 @@ export function useTurnContexts({
         !!activeChatSession &&
         !activeChatSession.originPromptEventId
       );
-    const primaryStudioSession = activeChatSessionBelongsToTurn
+    const primaryChatSession = activeChatSessionBelongsToTurn
       ? activeChatSession
       : artifacts[0]?.chatSession ?? null;
     const operatorSourceRefs =
-      primaryStudioSession?.activeOperatorRun?.steps.flatMap(
+      primaryChatSession?.activeOperatorRun?.steps.flatMap(
         (step) => step.sourceRefs || [],
       ) || [];
     const sourceSummary = buildSourceSummary(activityRefs, operatorSourceRefs);
     const hasActiveArtifactSession =
-      !!primaryStudioSession &&
-      activeChatSession?.sessionId === primaryStudioSession.sessionId;
+      !!primaryChatSession &&
+      activeChatSession?.sessionId === primaryChatSession.sessionId;
     const hasPendingArtifact =
-      !!primaryStudioSession &&
-      primaryStudioSession.outcomeRequest.outcomeKind === "artifact" &&
-      !artifactSessionIsPresentable(primaryStudioSession);
+      !!primaryChatSession &&
+      primaryChatSession.outcomeRequest.outcomeKind === "artifact" &&
+      !artifactSessionIsPresentable(primaryChatSession);
 
     return {
       ...context,
-      chatSession: primaryStudioSession,
+      chatSession: primaryChatSession,
       artifacts,
       hasPendingArtifact,
       sourceSummary,
@@ -195,7 +195,7 @@ export function useTurnContexts({
         artifacts,
         {
           defaultOpen: hasActiveArtifactSession,
-          chatSession: primaryStudioSession,
+          chatSession: primaryChatSession,
         },
       ),
       reasoningDurationLabel: turn?.prompt

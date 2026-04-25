@@ -987,29 +987,6 @@ fn format_context_for_llm(input_obj: &Value) -> String {
     context_str
 }
 
-#[allow(dead_code)]
-pub(super) async fn run_llm_inference(
-    config: &Value,
-    input_json: &str,
-) -> Result<ExecutionResult, Box<dyn Error>> {
-    let input_obj = parse_input_object(input_json);
-    let model = preferred_model_id(config).unwrap_or_else(|| "default".to_string());
-    Ok(build_result(
-        "error",
-        format!(
-            "Legacy run_llm_inference is deprecated for model '{}'; execute this node through the kernel-backed responses path instead",
-            model
-        ),
-        Some(json!({
-            "deprecated": true,
-            "replacement_node_type": "responses"
-        })),
-        None,
-        Some(input_obj),
-        None,
-    ))
-}
-
 pub(super) async fn run_responses_execution(
     config: &Value,
     input_json: &str,

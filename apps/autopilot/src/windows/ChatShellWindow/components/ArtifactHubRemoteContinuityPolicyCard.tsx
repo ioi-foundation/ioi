@@ -28,7 +28,7 @@ export function RemoteContinuityPolicyCard({
       case "open_view":
         onOpenView?.(action.view);
         break;
-      case "open_studio_settings":
+      case "open_chat_runtime_settings":
         void openReviewSettings();
         break;
       case "refresh_server":
@@ -50,7 +50,7 @@ export function RemoteContinuityPolicyCard({
         return Boolean(onRequestReplLaunch);
       case "open_view":
         return Boolean(onOpenView);
-      case "open_studio_settings":
+      case "open_chat_runtime_settings":
         return true;
       case "refresh_server":
         return Boolean(onRefreshServer);

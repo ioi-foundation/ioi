@@ -287,6 +287,8 @@ fn workload_activity_and_receipt_map_to_chain_event_payloads() {
             candidate_count_scored: None,
             streaming: true,
             latency_ms: Some(850),
+            structured_output_schema_hash: None,
+            output_hash: Some([9u8; 32]),
             success: true,
             error_class: None,
         }),

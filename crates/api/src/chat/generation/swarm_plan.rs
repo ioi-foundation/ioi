@@ -283,9 +283,7 @@ pub(crate) fn build_chat_artifact_swarm_plan(
                         leases.extend(
                             work_items
                                 .iter()
-                                .filter(|item| {
-                                    item.role == ChatArtifactWorkerRole::SectionContent
-                                })
+                                .filter(|item| item.role == ChatArtifactWorkerRole::SectionContent)
                                 .flat_map(|item| item.write_regions.clone())
                                 .chain(vec!["style-system".to_string(), "interaction".to_string()])
                                 .map(exclusive_write_lease_for_region),

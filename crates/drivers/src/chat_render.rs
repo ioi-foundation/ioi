@@ -5,9 +5,8 @@ use ioi_api::chat::{
     ChatArtifactAcceptanceObligationStatus, ChatArtifactBlueprint, ChatArtifactBrief,
     ChatArtifactEditIntent, ChatArtifactExecutionWitness, ChatArtifactExecutionWitnessStatus,
     ChatArtifactIR, ChatArtifactRenderAcceptancePolicy, ChatArtifactRenderCapture,
-    ChatArtifactRenderCaptureViewport, ChatArtifactRenderEvaluation,
-    ChatArtifactRenderEvaluator, ChatArtifactRenderFinding,
-    ChatArtifactRenderFindingSeverity, ChatArtifactRenderObservation,
+    ChatArtifactRenderCaptureViewport, ChatArtifactRenderEvaluation, ChatArtifactRenderEvaluator,
+    ChatArtifactRenderFinding, ChatArtifactRenderFindingSeverity, ChatArtifactRenderObservation,
     ChatGeneratedArtifactFile, ChatGeneratedArtifactPayload,
 };
 use ioi_crypto::algorithms::hash::sha256;
@@ -542,8 +541,7 @@ impl ChatArtifactRenderEvaluator for BrowserChatArtifactRenderEvaluator {
                 .map(|value| !value.interaction_graph.is_empty())
                 .unwrap_or(false);
         let should_probe_interactions = request.renderer == ChatRendererKind::HtmlIframe
-            && (request.artifact_class
-                == ioi_types::app::ChatArtifactClass::InteractiveSingleFile
+            && (request.artifact_class == ioi_types::app::ChatArtifactClass::InteractiveSingleFile
                 || interaction_expected);
         let boot_errors = self.runtime_witness_state().await?.errors;
         chat_render_trace(format!(

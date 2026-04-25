@@ -15,10 +15,7 @@ pub(super) fn build_non_swarm_winner_bundle(
     artifact_ir: Option<ChatArtifactIR>,
     selected_skills: Vec<ChatArtifactSelectedSkill>,
     edit_intent: Option<ChatArtifactEditIntent>,
-    candidate_rows: Vec<(
-        ChatArtifactCandidateSummary,
-        ChatGeneratedArtifactPayload,
-    )>,
+    candidate_rows: Vec<(ChatArtifactCandidateSummary, ChatGeneratedArtifactPayload)>,
     mut candidate_summaries: Vec<ChatArtifactCandidateSummary>,
     failed_candidate_summaries: Vec<ChatArtifactCandidateSummary>,
     selected_winner_index: Option<usize>,
@@ -102,8 +99,8 @@ pub(super) fn build_non_swarm_winner_bundle(
         non_swarm_required_artifact_paths(&winner),
     );
     if let Some(envelope) = execution_envelope.as_ref() {
-        crate::execution::validate_execution_envelope(envelope)
-            .map_err(|message| ChatArtifactGenerationError {
+        crate::execution::validate_execution_envelope(envelope).map_err(|message| {
+            ChatArtifactGenerationError {
                 message,
                 brief: Some(brief.clone()),
                 blueprint: blueprint.clone(),
@@ -111,7 +108,8 @@ pub(super) fn build_non_swarm_winner_bundle(
                 selected_skills: selected_skills.clone(),
                 edit_intent: edit_intent.clone(),
                 candidate_summaries: final_candidate_summaries.clone(),
-            })?;
+            }
+        })?;
     }
 
     Ok(ChatArtifactGenerationBundle {

@@ -30,7 +30,7 @@ function modelStatusIsRunnable(status?: string): boolean {
 }
 
 const NODE_TYPES_BY_CAPABILITY: Record<string, string[]> = {
-    reasoning: ["responses", "model"],
+    reasoning: ["responses"],
     vision: ["vision_read"],
     embedding: ["embeddings"],
     image: ["generate_image", "edit_image"],
@@ -273,6 +273,35 @@ export function useGraphExecution(
         // Reset Visuals
         setNodes((nds: any[]) => nds.map((n) => ({ ...n, data: { ...n.data, status: 'idle' } })));
         setEdges((eds: any[]) => eds.map((e: any) => ({ ...e, animated: false })));
+
+        const legacyModelNode = nodes.find((node) => node.type === "model");
+        if (legacyModelNode) {
+            setState(prev => ({
+                ...prev,
+                isRunning: false,
+                nodeStatus: {
+                    ...prev.nodeStatus,
+                    [legacyModelNode.id]: "blocked",
+                },
+                logs: [
+                    ...prev.logs,
+                    {
+                        id: Date.now(),
+                        source: legacyModelNode.id,
+                        message: "Legacy graph node type 'model' is rejected. Use 'responses' for kernel-backed model proposals.",
+                        level: "error",
+                    },
+                ],
+            }));
+            setNodes((nds: any[]) =>
+                nds.map((node) =>
+                    node.id === legacyModelNode.id
+                        ? { ...node, data: { ...node.data, status: "blocked" } }
+                        : node
+                )
+            );
+            return;
+        }
 
         const preflightPassed = await runBindingPreflight(globalConfig);
         if (!preflightPassed) {

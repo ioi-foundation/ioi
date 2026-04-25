@@ -3430,7 +3430,7 @@ export function ArtifactHubDetailView({
           launchRequest={replLaunchRequest}
           onLoadSession={onLoadSession}
           onLaunchRequestHandled={onHandleReplLaunchRequest}
-          onOpenStudioSession={(sessionId) => {
+          onOpenChatSession={(sessionId) => {
             void openEvidenceReviewSession(sessionId);
           }}
           onStopSession={onStopSession}

@@ -1591,7 +1591,7 @@ pub struct ChatArtifactGenerationProgress {
     pub swarm_execution: Option<SwarmExecutionSummary>,
     #[serde(default)]
     pub swarm_worker_receipts: Vec<SwarmWorkerReceipt>,
-    #[serde(default, alias = "swarmPatchReceipts")]
+    #[serde(default)]
     pub swarm_change_receipts: Vec<SwarmChangeReceipt>,
     #[serde(default)]
     pub swarm_merge_receipts: Vec<SwarmMergeReceipt>,
@@ -1631,7 +1631,7 @@ pub struct ChatArtifactGenerationBundle {
     pub swarm_execution: Option<SwarmExecutionSummary>,
     #[serde(default)]
     pub swarm_worker_receipts: Vec<SwarmWorkerReceipt>,
-    #[serde(default, alias = "swarmPatchReceipts")]
+    #[serde(default)]
     pub swarm_change_receipts: Vec<SwarmChangeReceipt>,
     #[serde(default)]
     pub swarm_merge_receipts: Vec<SwarmMergeReceipt>,

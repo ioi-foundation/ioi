@@ -37,7 +37,7 @@ if [[ "$LOCAL_GPU_DEV" == "1" ]]; then
   # passphrase on first boot. Re-export it on subsequent boots so retained
   # profiles can restart non-interactively.
   export IOI_GUARDIAN_KEY_PASS="${IOI_GUARDIAN_KEY_PASS:-local-mode}"
-  export IOI_STUDIO_PROOF_TRACE="${IOI_STUDIO_PROOF_TRACE:-1}"
+  export IOI_CHAT_ARTIFACT_PROOF_TRACE="${IOI_CHAT_ARTIFACT_PROOF_TRACE:-1}"
   export AUTOPILOT_DATA_PROFILE="${AUTOPILOT_DATA_PROFILE:-desktop-localgpu}"
   export AUTOPILOT_RESET_DATA_ON_BOOT="${AUTOPILOT_RESET_DATA_ON_BOOT:-1}"
   export AUTOPILOT_CONNECTOR_WALLET_BOOTSTRAP="${AUTOPILOT_CONNECTOR_WALLET_BOOTSTRAP:-0}"
@@ -45,35 +45,35 @@ if [[ "$LOCAL_GPU_DEV" == "1" ]]; then
   export AUTOPILOT_INFERENCE_HTTP_TIMEOUT_SECS="${AUTOPILOT_INFERENCE_HTTP_TIMEOUT_SECS:-600}"
   # Keep local-dev desktop_agent traffic on the direct mempool admission path by default.
   # The ingestion firewall path is stronger, but it is not yet stable enough to be the
-  # default bootstrap route for interactive Studio sessions.
+  # default bootstrap route for interactive ChatRuntime sessions.
   export IOI_RPC_FAST_ADMIT_MAX_MEMPOOL="${IOI_RPC_FAST_ADMIT_MAX_MEMPOOL:-512}"
   export AUTOPILOT_LOCAL_DEV_PRESET="${AUTOPILOT_LOCAL_DEV_PRESET:-ollama-openai}"
   export AUTOPILOT_LOCAL_RUNTIME_URL="${AUTOPILOT_LOCAL_RUNTIME_URL:-http://127.0.0.1:11434/v1/chat/completions}"
-  # Keep the default local desktop lane on one warmed model so Studio routing,
+  # Keep the default local desktop lane on one warmed model so ChatRuntime routing,
   # drafting, and acceptance avoid cross-model residency churn.
   export AUTOPILOT_LOCAL_RUNTIME_MODEL="${AUTOPILOT_LOCAL_RUNTIME_MODEL:-qwen3.5:9b}"
   export AUTOPILOT_LOCAL_RUNTIME_HEALTH_URL="${AUTOPILOT_LOCAL_RUNTIME_HEALTH_URL:-http://127.0.0.1:11434/api/tags}"
-  # Local Studio HTML materialization can legitimately need longer than the
+  # Local ChatRuntime HTML materialization can legitimately need longer than the
   # default capped local timeout, especially on retained follow-up edits where
   # the prompt carries forward artifact context and repair evidence.
-  export AUTOPILOT_STUDIO_MATERIALIZATION_TIMEOUT_MS="${AUTOPILOT_STUDIO_MATERIALIZATION_TIMEOUT_MS:-300000}"
-  export AUTOPILOT_STUDIO_MATERIALIZATION_FOLLOWUP_TIMEOUT_MS="${AUTOPILOT_STUDIO_MATERIALIZATION_FOLLOWUP_TIMEOUT_MS:-360000}"
+  export AUTOPILOT_CHAT_ARTIFACT_MATERIALIZATION_TIMEOUT_MS="${AUTOPILOT_CHAT_ARTIFACT_MATERIALIZATION_TIMEOUT_MS:-300000}"
+  export AUTOPILOT_CHAT_ARTIFACT_MATERIALIZATION_FOLLOWUP_TIMEOUT_MS="${AUTOPILOT_CHAT_ARTIFACT_MATERIALIZATION_FOLLOWUP_TIMEOUT_MS:-360000}"
   # Direct-author HTML continuations can stream a large partial document and
   # then need extra local inference time to finish the suffix cleanly.
-  export AUTOPILOT_STUDIO_DIRECT_AUTHOR_FOLLOWUP_TIMEOUT_MS="${AUTOPILOT_STUDIO_DIRECT_AUTHOR_FOLLOWUP_TIMEOUT_MS:-180000}"
-  export AUTOPILOT_STUDIO_ROUTING_RUNTIME_URL="${AUTOPILOT_STUDIO_ROUTING_RUNTIME_URL:-$AUTOPILOT_LOCAL_RUNTIME_URL}"
-  export AUTOPILOT_STUDIO_ROUTING_RUNTIME_MODEL="${AUTOPILOT_STUDIO_ROUTING_RUNTIME_MODEL:-$AUTOPILOT_LOCAL_RUNTIME_MODEL}"
-  export AUTOPILOT_STUDIO_ROUTING_RUNTIME_HEALTH_URL="${AUTOPILOT_STUDIO_ROUTING_RUNTIME_HEALTH_URL:-$AUTOPILOT_LOCAL_RUNTIME_HEALTH_URL}"
+  export AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_FOLLOWUP_TIMEOUT_MS="${AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_FOLLOWUP_TIMEOUT_MS:-180000}"
+  export AUTOPILOT_CHAT_ARTIFACT_ROUTING_RUNTIME_URL="${AUTOPILOT_CHAT_ARTIFACT_ROUTING_RUNTIME_URL:-$AUTOPILOT_LOCAL_RUNTIME_URL}"
+  export AUTOPILOT_CHAT_ARTIFACT_ROUTING_RUNTIME_MODEL="${AUTOPILOT_CHAT_ARTIFACT_ROUTING_RUNTIME_MODEL:-$AUTOPILOT_LOCAL_RUNTIME_MODEL}"
+  export AUTOPILOT_CHAT_ARTIFACT_ROUTING_RUNTIME_HEALTH_URL="${AUTOPILOT_CHAT_ARTIFACT_ROUTING_RUNTIME_HEALTH_URL:-$AUTOPILOT_LOCAL_RUNTIME_HEALTH_URL}"
   export AUTOPILOT_ACCEPTANCE_RUNTIME_URL="${AUTOPILOT_ACCEPTANCE_RUNTIME_URL:-$AUTOPILOT_LOCAL_RUNTIME_URL}"
   export AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL="${AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL:-$(default_local_gpu_dev_artifact_specialist_model "${AUTOPILOT_LOCAL_RUNTIME_MODEL:-}")}"
-  # Prefer a single local model by default for Studio HTML work. If callers
+  # Prefer a single local model by default for ChatRuntime HTML work. If callers
   # explicitly configure a different acceptance runtime, preserve it.
-  if [[ -z "${AUTOPILOT_STUDIO_MODEL_ROUTING_PROFILE:-}" ]]; then
+  if [[ -z "${AUTOPILOT_CHAT_ARTIFACT_MODEL_ROUTING_PROFILE:-}" ]]; then
     if [[ "${AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL:-}" != "${AUTOPILOT_LOCAL_RUNTIME_MODEL:-}" ]] \
       || [[ "${AUTOPILOT_ACCEPTANCE_RUNTIME_URL:-}" != "${AUTOPILOT_LOCAL_RUNTIME_URL:-}" ]]; then
-      export AUTOPILOT_STUDIO_MODEL_ROUTING_PROFILE="local_generation_remote_acceptance"
+      export AUTOPILOT_CHAT_ARTIFACT_MODEL_ROUTING_PROFILE="local_generation_remote_acceptance"
     else
-      export AUTOPILOT_STUDIO_MODEL_ROUTING_PROFILE="fully_local"
+      export AUTOPILOT_CHAT_ARTIFACT_MODEL_ROUTING_PROFILE="fully_local"
     fi
   fi
   export AUTOPILOT_LOCAL_EMBEDDING_MODEL="${AUTOPILOT_LOCAL_EMBEDDING_MODEL:-nomic-embed-text}"
@@ -96,9 +96,9 @@ if [[ "$LOCAL_GPU_DEV" == "1" ]]; then
   if command -v ollama >/dev/null 2>&1 || [[ -x "${HOME}/.local/bin/ollama" ]]; then
     ollama_status="ollama available"
   else
-    ollama_status="ollama missing; Studio will surface inference_unavailable until a local runtime is installed or configured"
+    ollama_status="ollama missing; ChatRuntime will surface inference_unavailable until a local runtime is installed or configured"
   fi
-  echo "Autopilot local GPU dev profile: ${AUTOPILOT_DATA_PROFILE} (reset_on_boot=${AUTOPILOT_RESET_DATA_ON_BOOT}, preset=${AUTOPILOT_LOCAL_DEV_PRESET}, model=${AUTOPILOT_LOCAL_RUNTIME_MODEL}, routing_model=${AUTOPILOT_STUDIO_ROUTING_RUNTIME_MODEL}, routing_profile=${AUTOPILOT_STUDIO_MODEL_ROUTING_PROFILE}, acceptance_model=${AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL}, embeddings=${AUTOPILOT_LOCAL_EMBEDDING_MODEL}, http_timeout_secs=${AUTOPILOT_INFERENCE_HTTP_TIMEOUT_SECS}, max_loaded_models=${OLLAMA_MAX_LOADED_MODELS}, num_parallel=${OLLAMA_NUM_PARALLEL}, keep_alive=${OLLAMA_KEEP_ALIVE}, flash_attention=${OLLAMA_FLASH_ATTENTION}, context_length=${OLLAMA_CONTEXT_LENGTH}, proof_trace=${IOI_STUDIO_PROOF_TRACE})"
+  echo "Autopilot local GPU dev profile: ${AUTOPILOT_DATA_PROFILE} (reset_on_boot=${AUTOPILOT_RESET_DATA_ON_BOOT}, preset=${AUTOPILOT_LOCAL_DEV_PRESET}, model=${AUTOPILOT_LOCAL_RUNTIME_MODEL}, routing_model=${AUTOPILOT_CHAT_ARTIFACT_ROUTING_RUNTIME_MODEL}, routing_profile=${AUTOPILOT_CHAT_ARTIFACT_MODEL_ROUTING_PROFILE}, acceptance_model=${AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL}, embeddings=${AUTOPILOT_LOCAL_EMBEDDING_MODEL}, http_timeout_secs=${AUTOPILOT_INFERENCE_HTTP_TIMEOUT_SECS}, max_loaded_models=${OLLAMA_MAX_LOADED_MODELS}, num_parallel=${OLLAMA_NUM_PARALLEL}, keep_alive=${OLLAMA_KEEP_ALIVE}, flash_attention=${OLLAMA_FLASH_ATTENTION}, context_length=${OLLAMA_CONTEXT_LENGTH}, proof_trace=${IOI_CHAT_ARTIFACT_PROOF_TRACE})"
   echo "Local GPU dev cache: ${AUTOPILOT_LOCAL_MODEL_CACHE_DIR} (${ollama_status})"
 fi
 
@@ -171,7 +171,7 @@ local_runtime_model_available() {
 
 local_runtime_model_ready() {
   local runtime_model="${AUTOPILOT_LOCAL_RUNTIME_MODEL:-}"
-  local routing_model="${AUTOPILOT_STUDIO_ROUTING_RUNTIME_MODEL:-}"
+  local routing_model="${AUTOPILOT_CHAT_ARTIFACT_ROUTING_RUNTIME_MODEL:-}"
   local acceptance_model="${AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL:-}"
   local embedding_model="${AUTOPILOT_LOCAL_EMBEDDING_MODEL:-}"
 
@@ -224,7 +224,7 @@ warm_local_runtime_model() {
 
 warm_local_runtime_models() {
   local runtime_model="${AUTOPILOT_LOCAL_RUNTIME_MODEL:-}"
-  local routing_model="${AUTOPILOT_STUDIO_ROUTING_RUNTIME_MODEL:-}"
+  local routing_model="${AUTOPILOT_CHAT_ARTIFACT_ROUTING_RUNTIME_MODEL:-}"
   local acceptance_model="${AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL:-}"
 
   [[ "$LOCAL_GPU_DEV" == "1" ]] || return 0
@@ -233,7 +233,7 @@ warm_local_runtime_models() {
   local_runtime_ready || return 0
 
   # Model warming is a startup optimization; it should never block the desktop shell.
-  echo "Warming local runtime models for Studio routing, drafting, and acceptance in background..."
+  echo "Warming local runtime models for ChatRuntime routing, drafting, and acceptance in background..."
   (
     warm_local_runtime_model "$runtime_model"
     if [[ -n "$routing_model" && "$routing_model" != "$runtime_model" ]]; then
@@ -272,13 +272,13 @@ ensure_local_runtime_models_ready() {
   ollama_bin="$(resolve_ollama_bin)" || return 1
 
   pull_local_runtime_model_if_needed "${AUTOPILOT_LOCAL_RUNTIME_MODEL:-}" "$ollama_bin" || return 1
-  if [[ "${AUTOPILOT_STUDIO_ROUTING_RUNTIME_MODEL:-}" != "${AUTOPILOT_LOCAL_RUNTIME_MODEL:-}" ]]; then
-    pull_local_runtime_model_if_needed "${AUTOPILOT_STUDIO_ROUTING_RUNTIME_MODEL:-}" "$ollama_bin" || return 1
+  if [[ "${AUTOPILOT_CHAT_ARTIFACT_ROUTING_RUNTIME_MODEL:-}" != "${AUTOPILOT_LOCAL_RUNTIME_MODEL:-}" ]]; then
+    pull_local_runtime_model_if_needed "${AUTOPILOT_CHAT_ARTIFACT_ROUTING_RUNTIME_MODEL:-}" "$ollama_bin" || return 1
   fi
-  if [[ "${AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL:-}" != "${AUTOPILOT_LOCAL_RUNTIME_MODEL:-}" && "${AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL:-}" != "${AUTOPILOT_STUDIO_ROUTING_RUNTIME_MODEL:-}" ]]; then
+  if [[ "${AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL:-}" != "${AUTOPILOT_LOCAL_RUNTIME_MODEL:-}" && "${AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL:-}" != "${AUTOPILOT_CHAT_ARTIFACT_ROUTING_RUNTIME_MODEL:-}" ]]; then
     pull_local_runtime_model_if_needed "${AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL:-}" "$ollama_bin" || return 1
   fi
-  if [[ "${AUTOPILOT_LOCAL_EMBEDDING_MODEL:-}" != "${AUTOPILOT_LOCAL_RUNTIME_MODEL:-}" && "${AUTOPILOT_LOCAL_EMBEDDING_MODEL:-}" != "${AUTOPILOT_STUDIO_ROUTING_RUNTIME_MODEL:-}" ]]; then
+  if [[ "${AUTOPILOT_LOCAL_EMBEDDING_MODEL:-}" != "${AUTOPILOT_LOCAL_RUNTIME_MODEL:-}" && "${AUTOPILOT_LOCAL_EMBEDDING_MODEL:-}" != "${AUTOPILOT_CHAT_ARTIFACT_ROUTING_RUNTIME_MODEL:-}" ]]; then
     pull_local_runtime_model_if_needed "${AUTOPILOT_LOCAL_EMBEDDING_MODEL:-}" "$ollama_bin" || return 1
   fi
 }
@@ -445,7 +445,7 @@ start_local_backend() {
       AUTOPILOT_LOCAL_MODEL_CACHE_DIR="${AUTOPILOT_LOCAL_MODEL_CACHE_DIR:-}" \
       AUTOPILOT_LOCAL_GPU_PULL_MODEL_ON_START="${AUTOPILOT_LOCAL_GPU_PULL_MODEL_ON_START:-1}" \
       OLLAMA_DEFAULT_MODEL="${AUTOPILOT_LOCAL_RUNTIME_MODEL:-}" \
-      OLLAMA_ROUTING_MODEL="${AUTOPILOT_STUDIO_ROUTING_RUNTIME_MODEL:-}" \
+      OLLAMA_ROUTING_MODEL="${AUTOPILOT_CHAT_ARTIFACT_ROUTING_RUNTIME_MODEL:-}" \
       OLLAMA_EMBEDDING_MODEL="${AUTOPILOT_LOCAL_EMBEDDING_MODEL:-}" \
       AUTOPILOT_LOCAL_EMBEDDING_MODEL="${AUTOPILOT_LOCAL_EMBEDDING_MODEL:-}" \
       sh "$backend_entrypoint"

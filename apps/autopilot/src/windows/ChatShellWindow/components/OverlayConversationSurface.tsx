@@ -2,14 +2,14 @@ import type { ReactNode } from "react";
 import { ScrollToBottom } from "./ScrollToBottom";
 
 export function OverlayConversationSurface({
-  isStudioVariant,
+  isChatVariant,
   conversationContent,
   showScrollButton,
   onScrollToBottom,
   artifactPanelVisible,
   artifactPanel,
 }: {
-  isStudioVariant: boolean;
+  isChatVariant: boolean;
   conversationContent: ReactNode;
   showScrollButton: boolean;
   onScrollToBottom: () => void;
@@ -18,7 +18,7 @@ export function OverlayConversationSurface({
 }) {
   return (
     <>
-      <div className={`spot-main ${isStudioVariant ? "spot-main--chat" : ""}`}>
+      <div className={`spot-main ${isChatVariant ? "spot-main--chat" : ""}`}>
         {conversationContent}
       </div>
       <ScrollToBottom visible={showScrollButton} onClick={onScrollToBottom} />

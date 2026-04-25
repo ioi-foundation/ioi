@@ -179,9 +179,7 @@ fn chat_artifact_compact_document_candidate_text(
     lines.join("\n")
 }
 
-fn chat_artifact_compact_html_candidate_text(
-    candidate: &ChatGeneratedArtifactPayload,
-) -> String {
+fn chat_artifact_compact_html_candidate_text(candidate: &ChatGeneratedArtifactPayload) -> String {
     let mut lines = Vec::new();
     if !candidate.summary.trim().is_empty() {
         lines.push(format!(
@@ -554,8 +552,7 @@ pub(crate) fn build_chat_artifact_validation_prompt_with_render_eval_for_runtime
     } else {
         chat_artifact_validation_brief_focus(brief)
     };
-    let brief_focus_json =
-        compact_chat_validation_json(&brief_focus, "Chat artifact brief focus")?;
+    let brief_focus_json = compact_chat_validation_json(&brief_focus, "Chat artifact brief focus")?;
     if renderer_uses_document_validation_context(request.renderer) {
         return Ok(json!([
             {
@@ -1028,8 +1025,7 @@ fn hydrate_chat_artifact_validation_result(result: &mut ChatArtifactValidationRe
         }
     }
 
-    if result.repair_hints.is_empty()
-        && result.classification != ChatArtifactValidationStatus::Pass
+    if result.repair_hints.is_empty() && result.classification != ChatArtifactValidationStatus::Pass
     {
         if result.request_faithfulness <= 3 || result.concept_coverage <= 3 {
             push_unique_string(
@@ -1733,8 +1729,7 @@ pub fn parse_chat_artifact_validation_result(
             {
                 chat_validation_trace("artifact_validation:truncated_json_recovery");
                 recovered
-            } else if let Some(recovered) = recover_plaintext_chat_artifact_validation_value(raw)
-            {
+            } else if let Some(recovered) = recover_plaintext_chat_artifact_validation_value(raw) {
                 chat_validation_trace("artifact_validation:plaintext_recovery");
                 recovered
             } else {
@@ -2053,9 +2048,7 @@ pub(crate) fn output_origin_from_provenance(
 ) -> ChatArtifactOutputOrigin {
     match provenance.kind {
         ChatRuntimeProvenanceKind::RealRemoteModelRuntime
-        | ChatRuntimeProvenanceKind::RealLocalRuntime => {
-            ChatArtifactOutputOrigin::LiveInference
-        }
+        | ChatRuntimeProvenanceKind::RealLocalRuntime => ChatArtifactOutputOrigin::LiveInference,
         ChatRuntimeProvenanceKind::FixtureRuntime => ChatArtifactOutputOrigin::FixtureRuntime,
         ChatRuntimeProvenanceKind::MockRuntime => ChatArtifactOutputOrigin::MockInference,
         ChatRuntimeProvenanceKind::DeterministicContinuityFallback => {
@@ -2092,9 +2085,7 @@ pub(crate) fn materialization_max_tokens(renderer: ChatRendererKind) -> u32 {
 
 fn validation_max_tokens(renderer: ChatRendererKind) -> u32 {
     match renderer {
-        ChatRendererKind::HtmlIframe
-        | ChatRendererKind::JsxSandbox
-        | ChatRendererKind::Svg => 192,
+        ChatRendererKind::HtmlIframe | ChatRendererKind::JsxSandbox | ChatRendererKind::Svg => 192,
         ChatRendererKind::Markdown
         | ChatRendererKind::Mermaid
         | ChatRendererKind::PdfEmbed
@@ -2123,9 +2114,7 @@ fn validation_max_tokens_for_runtime(
 
 fn validation_repair_max_tokens(renderer: ChatRendererKind) -> u32 {
     match renderer {
-        ChatRendererKind::HtmlIframe
-        | ChatRendererKind::JsxSandbox
-        | ChatRendererKind::Svg => 256,
+        ChatRendererKind::HtmlIframe | ChatRendererKind::JsxSandbox | ChatRendererKind::Svg => 256,
         ChatRendererKind::Markdown
         | ChatRendererKind::Mermaid
         | ChatRendererKind::PdfEmbed

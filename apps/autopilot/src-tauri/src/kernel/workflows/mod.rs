@@ -493,14 +493,18 @@ impl<R: Runtime + 'static> WorkflowManager<R> {
     }
 
     pub async fn run_workflow_now(&self, workflow_id: &str) -> Result<WorkflowRunReceipt, String> {
-        self.execute_workflow(workflow_id, "manual", None).await
+        self.execute_workflow(workflow_id, "manual", None, None)
+            .await
     }
 
     pub async fn trigger_workflow_remote(
         &self,
         workflow_id: &str,
+        idempotency_key: Option<String>,
         payload: Option<Value>,
     ) -> Result<WorkflowRunReceipt, String> {
+        let idempotency_key = normalize_optional_text(idempotency_key)
+            .ok_or_else(|| "Remote workflow triggers require an idempotency key.".to_string())?;
         let artifact = self.load_artifact(workflow_id)?;
         if artifact.trigger.trigger_type != WORKFLOW_TRIGGER_REMOTE {
             return Err(format!(
@@ -509,8 +513,13 @@ impl<R: Runtime + 'static> WorkflowManager<R> {
             ));
         }
 
-        self.execute_workflow(workflow_id, WORKFLOW_TRIGGER_REMOTE, payload)
-            .await
+        self.execute_workflow(
+            workflow_id,
+            WORKFLOW_TRIGGER_REMOTE,
+            Some(idempotency_key),
+            payload,
+        )
+        .await
     }
 
     pub async fn export_project(&self, workflow_id: &str) -> Result<WorkflowProjectFile, String> {
@@ -584,7 +593,7 @@ impl<R: Runtime + 'static> WorkflowManager<R> {
 
             let trigger_kind = trigger_kind_for_record(&record);
             if let Err(error) = self
-                .execute_workflow(&workflow_id, trigger_kind.as_str(), None)
+                .execute_workflow(&workflow_id, trigger_kind.as_str(), None, None)
                 .await
             {
                 eprintln!(
@@ -602,6 +611,7 @@ impl<R: Runtime + 'static> WorkflowManager<R> {
         &self,
         workflow_id: &str,
         trigger_kind: &str,
+        idempotency_key: Option<String>,
         remote_payload: Option<Value>,
     ) -> Result<WorkflowRunReceipt, String> {
         let run_lock = self.run_lock_for(workflow_id).await;
@@ -662,6 +672,10 @@ impl<R: Runtime + 'static> WorkflowManager<R> {
                     started_at_ms,
                     completed_at_ms,
                     artifact_hash: record.artifact_hash.clone(),
+                    idempotency_key: idempotency_key.clone(),
+                    settlement_refs: Vec::new(),
+                    projection_only: true,
+                    simulation_only: false,
                     workflow_status: post_success_status,
                     next_run_at_ms,
                     observation: json!({
@@ -705,6 +719,10 @@ impl<R: Runtime + 'static> WorkflowManager<R> {
                     started_at_ms,
                     completed_at_ms,
                     artifact_hash: record.artifact_hash.clone(),
+                    idempotency_key: idempotency_key.clone(),
+                    settlement_refs: Vec::new(),
+                    projection_only: true,
+                    simulation_only: false,
                     workflow_status: WorkflowStatus::Degraded,
                     next_run_at_ms,
                     observation: json!({

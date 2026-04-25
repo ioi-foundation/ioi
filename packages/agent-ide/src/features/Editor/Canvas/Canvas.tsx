@@ -28,7 +28,6 @@ export function Canvas({
   const nodeTypes = useMemo(() => ({
     action: CanvasNode,
     trigger: CanvasNode,
-    model: CanvasNode,
     responses: CanvasNode,
     embeddings: CanvasNode,
     rerank: CanvasNode,

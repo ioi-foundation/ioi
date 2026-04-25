@@ -96,10 +96,7 @@ fn normalize_blocked_web_read_for_continuation_preserves_failure_state() {
     );
     assert_eq!(history_entry, action_output);
     assert!(stop_condition_hit);
-    assert_eq!(
-        escalation_path.as_deref(),
-        Some("pause")
-    );
+    assert_eq!(escalation_path.as_deref(), Some("pause"));
     assert!(verification_checks
         .iter()
         .any(|check| check == "web_blocked_read_requires_remediation=true"));

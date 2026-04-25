@@ -38,7 +38,7 @@ const DEFAULT_CAPABILITIES_MIN_STACK_BYTES = "33554432";
 const REQUIRED_RETAINED_PROMOTION_WINS = 2;
 const DEFAULT_OLLAMA_CONTEXT_LENGTH = "8192";
 const LIVE_HTML_ARTIFACT_OLLAMA_CONTEXT_LENGTH = "4096";
-const STUDIO_PROOF_TRACE_PREFIX = "[studio-proof-trace] ";
+const STUDIO_PROOF_TRACE_PREFIX = "[chat-artifact-proof-trace] ";
 const MINIWOB_SOURCE_REPO = "https://github.com/Farama-Foundation/miniwob-plusplus.git";
 const RESEARCH_SOURCE_FLOOR = 2;
 const RESEARCH_DOMAIN_FLOOR = 2;
@@ -985,7 +985,7 @@ function artifactCommandDiagnostics(result) {
     timedOut: result?.timedOut === true,
     commandError: compactText(result?.error || "", 240) || null,
     studioProofTraceCount: traceMessages.length,
-    lastStudioProofTrace:
+    lastChatRuntimeProofTrace:
       traceMessages.length > 0 ? traceMessages[traceMessages.length - 1] : null,
     lastProviderError: compactText(lastProviderError, 240) || null,
     compactFailure: compactText(compactFailure, 240) || null,
@@ -994,9 +994,9 @@ function artifactCommandDiagnostics(result) {
 
 function artifactTimeoutSummary(timeoutMs, diagnostics) {
   const summary = [`Artifact benchmark timed out after ${timeoutMs}ms.`];
-  if (diagnostics?.lastStudioProofTrace) {
+  if (diagnostics?.lastChatRuntimeProofTrace) {
     summary.push(
-      `Last trace: ${compactText(diagnostics.lastStudioProofTrace, 180)}.`,
+      `Last trace: ${compactText(diagnostics.lastChatRuntimeProofTrace, 180)}.`,
     );
   }
   if (diagnostics?.lastProviderError) {
@@ -1014,9 +1014,9 @@ function artifactTimeoutSummary(timeoutMs, diagnostics) {
 
 function interruptedBenchmarkSummary(label, result, diagnostics = null) {
   const summary = [`${label} interrupted by ${result?.signal || "signal"}.`];
-  if (diagnostics?.lastStudioProofTrace) {
+  if (diagnostics?.lastChatRuntimeProofTrace) {
     summary.push(
-      `Last trace: ${compactText(diagnostics.lastStudioProofTrace, 180)}.`,
+      `Last trace: ${compactText(diagnostics.lastChatRuntimeProofTrace, 180)}.`,
     );
   }
   if (diagnostics?.lastProviderError) {
@@ -1058,8 +1058,8 @@ function timeoutDiagnosticLabel(caseResult) {
   }
   const label = caseResult.benchmarkId || caseResult.title || "unknown-benchmark";
   const details = [];
-  if (caseResult.lastStudioProofTrace) {
-    details.push(`last_trace=${compactText(caseResult.lastStudioProofTrace, 120)}`);
+  if (caseResult.lastChatRuntimeProofTrace) {
+    details.push(`last_trace=${compactText(caseResult.lastChatRuntimeProofTrace, 120)}`);
   }
   if (caseResult.lastProviderError) {
     details.push(`provider_error=${compactText(caseResult.lastProviderError, 120)}`);
@@ -1674,7 +1674,7 @@ async function runArtifactBenchmark(preset, benchmark, benchmarkRoot) {
       OLLAMA_CONTEXT_LENGTH:
         process.env.OLLAMA_CONTEXT_LENGTH ||
         ollamaContextLengthForArtifactBenchmark(benchmark),
-      IOI_STUDIO_PROOF_TRACE: "1",
+      IOI_CHAT_ARTIFACT_PROOF_TRACE: "1",
     },
     timeout: timeoutMs,
   });
@@ -1748,7 +1748,7 @@ async function runArtifactBenchmark(preset, benchmark, benchmarkRoot) {
     stdoutPath: path.join(benchmarkRoot, "command.stdout.log"),
     stderrPath: path.join(benchmarkRoot, "command.stderr.log"),
     diagnosticsPath,
-    lastStudioProofTrace: diagnostics.lastStudioProofTrace,
+    lastChatRuntimeProofTrace: diagnostics.lastChatRuntimeProofTrace,
     lastProviderError: diagnostics.lastProviderError,
   };
 }

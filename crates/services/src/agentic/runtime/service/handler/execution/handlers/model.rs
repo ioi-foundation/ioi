@@ -1,5 +1,6 @@
 use super::super::{no_visual, ActionExecutionOutcome};
 use crate::agentic::runtime::execution::workload;
+use crate::agentic::runtime::kernel::inference::ModelRuntimeErrorClass;
 use crate::agentic::runtime::service::RuntimeAgentService;
 use crate::agentic::runtime::types::AgentState;
 use base64::prelude::{Engine as _, BASE64_STANDARD};
@@ -204,6 +205,8 @@ async fn handle_model_responses_tool(
                 candidate_count_scored: None,
                 streaming: optional_bool(arguments, "stream").unwrap_or(false),
                 latency_ms: None,
+                structured_output_schema_hash: None,
+                output_hash: None,
                 success: false,
                 error_class: workload::extract_error_class(Some(&error)),
             };
@@ -239,6 +242,8 @@ async fn handle_model_responses_tool(
                 candidate_count_scored: None,
                 streaming: optional_bool(arguments, "stream").unwrap_or(false),
                 latency_ms: None,
+                structured_output_schema_hash: None,
+                output_hash: None,
                 success: false,
                 error_class: workload::extract_error_class(Some(&error)),
             };
@@ -281,6 +286,8 @@ async fn handle_model_responses_tool(
                 candidate_count_scored: None,
                 streaming: result.streamed,
                 latency_ms: Some(started.elapsed().as_millis().min(u128::from(u64::MAX)) as u64),
+                structured_output_schema_hash: None,
+                output_hash: sha256(&result.output).ok(),
                 success: true,
                 error_class: None,
             };
@@ -310,6 +317,8 @@ async fn handle_model_responses_tool(
                 candidate_count_scored: None,
                 streaming: optional_bool(arguments, "stream").unwrap_or(false),
                 latency_ms: Some(started.elapsed().as_millis().min(u128::from(u64::MAX)) as u64),
+                structured_output_schema_hash: None,
+                output_hash: None,
                 success: false,
                 error_class: Some(error_class),
             };
@@ -358,6 +367,8 @@ async fn handle_model_embeddings_tool(
                 candidate_count_scored: None,
                 streaming: false,
                 latency_ms: None,
+                structured_output_schema_hash: None,
+                output_hash: None,
                 success: false,
                 error_class: workload::extract_error_class(Some(&error)),
             };
@@ -405,6 +416,8 @@ async fn handle_model_embeddings_tool(
                 candidate_count_scored: None,
                 streaming: false,
                 latency_ms: None,
+                structured_output_schema_hash: None,
+                output_hash: None,
                 success: false,
                 error_class: workload::extract_error_class(Some(&error)),
             };
@@ -438,6 +451,8 @@ async fn handle_model_embeddings_tool(
                     candidate_count_scored: None,
                     streaming: false,
                     latency_ms: None,
+                    structured_output_schema_hash: None,
+                    output_hash: None,
                     success: false,
                     error_class: workload::extract_error_class(Some(&error)),
                 };
@@ -472,6 +487,7 @@ async fn handle_model_embeddings_tool(
                 "model_id": result.model_id,
             })
             .to_string();
+            let output_hash = sha256(history_entry.as_bytes()).ok();
             let receipt = WorkloadInferenceReceipt {
                 tool_name: tool_name.to_string(),
                 operation,
@@ -490,6 +506,8 @@ async fn handle_model_embeddings_tool(
                 candidate_count_scored: None,
                 streaming: false,
                 latency_ms: Some(started.elapsed().as_millis().min(u128::from(u64::MAX)) as u64),
+                structured_output_schema_hash: None,
+                output_hash,
                 success: true,
                 error_class: None,
             };
@@ -519,6 +537,8 @@ async fn handle_model_embeddings_tool(
                 candidate_count_scored: None,
                 streaming: false,
                 latency_ms: Some(started.elapsed().as_millis().min(u128::from(u64::MAX)) as u64),
+                structured_output_schema_hash: None,
+                output_hash: None,
                 success: false,
                 error_class: Some(error_class),
             };
@@ -567,6 +587,8 @@ async fn handle_model_rerank_tool(
                 candidate_count_scored: None,
                 streaming: false,
                 latency_ms: None,
+                structured_output_schema_hash: None,
+                output_hash: None,
                 success: false,
                 error_class: workload::extract_error_class(Some(&error)),
             };
@@ -603,6 +625,8 @@ async fn handle_model_rerank_tool(
                 candidate_count_scored: None,
                 streaming: false,
                 latency_ms: None,
+                structured_output_schema_hash: None,
+                output_hash: None,
                 success: false,
                 error_class: workload::extract_error_class(Some(&error)),
             };
@@ -636,6 +660,8 @@ async fn handle_model_rerank_tool(
                 candidate_count_scored: None,
                 streaming: false,
                 latency_ms: None,
+                structured_output_schema_hash: None,
+                output_hash: None,
                 success: false,
                 error_class: Some("InvalidArguments".to_string()),
             };
@@ -664,6 +690,8 @@ async fn handle_model_rerank_tool(
                 candidate_count_scored: None,
                 streaming: false,
                 latency_ms: None,
+                structured_output_schema_hash: None,
+                output_hash: None,
                 success: false,
                 error_class: workload::extract_error_class(Some(&error)),
             };
@@ -697,6 +725,7 @@ async fn handle_model_rerank_tool(
                 "model_id": result.model_id,
             })
             .to_string();
+            let output_hash = sha256(history_entry.as_bytes()).ok();
             let receipt = WorkloadInferenceReceipt {
                 tool_name: tool_name.to_string(),
                 operation: InferenceOperationKind::Rerank,
@@ -715,6 +744,8 @@ async fn handle_model_rerank_tool(
                 candidate_count_scored: Some(candidate_count_total),
                 streaming: false,
                 latency_ms: Some(started.elapsed().as_millis().min(u128::from(u64::MAX)) as u64),
+                structured_output_schema_hash: None,
+                output_hash,
                 success: true,
                 error_class: None,
             };
@@ -744,6 +775,8 @@ async fn handle_model_rerank_tool(
                 candidate_count_scored: None,
                 streaming: false,
                 latency_ms: Some(started.elapsed().as_millis().min(u128::from(u64::MAX)) as u64),
+                structured_output_schema_hash: None,
+                output_hash: None,
                 success: false,
                 error_class: Some(error_class),
             };
@@ -2289,14 +2322,7 @@ fn unsupported_tool_error(tool_name: &str, detail: impl Into<String>) -> String 
 }
 
 fn runtime_tool_failure(tool_name: &str, detail: &str) -> (String, String) {
-    let error_class = if detail
-        .to_ascii_lowercase()
-        .contains("not supported by this runtime")
-    {
-        "ToolUnavailable"
-    } else {
-        "RuntimeExecutionFailed"
-    };
+    let error_class = classify_model_runtime_error(detail).to_string();
     (
         format!(
             "ERROR_CLASS={} {}",
@@ -2305,6 +2331,36 @@ fn runtime_tool_failure(tool_name: &str, detail: &str) -> (String, String) {
         ),
         error_class.to_string(),
     )
+}
+
+fn classify_model_runtime_error(detail: &str) -> ModelRuntimeErrorClass {
+    let lower = detail.to_ascii_lowercase();
+    if lower.contains("not supported by this runtime")
+        || lower.contains("provider unavailable")
+        || lower.contains("unavailable")
+    {
+        ModelRuntimeErrorClass::ProviderUnavailable
+    } else if lower.contains("rate limit") || lower.contains("429") {
+        ModelRuntimeErrorClass::RateLimited
+    } else if lower.contains("timeout") || lower.contains("deadline") {
+        ModelRuntimeErrorClass::Timeout
+    } else if lower.contains("context") && lower.contains("overflow") {
+        ModelRuntimeErrorClass::ContextOverflow
+    } else if lower.contains("malformed") || lower.contains("structured output") {
+        ModelRuntimeErrorClass::MalformedStructuredOutput
+    } else if lower.contains("tool call") && lower.contains("invalid") {
+        ModelRuntimeErrorClass::ToolCallInvalid
+    } else if lower.contains("safety") && lower.contains("refusal") {
+        ModelRuntimeErrorClass::SafetyRefusal
+    } else if lower.contains("policy") && lower.contains("refusal") {
+        ModelRuntimeErrorClass::PolicyRefusal
+    } else if lower.contains("stream") && lower.contains("stall") {
+        ModelRuntimeErrorClass::StreamingStall
+    } else if lower.contains("budget") {
+        ModelRuntimeErrorClass::BudgetExceeded
+    } else {
+        ModelRuntimeErrorClass::UnknownProviderError
+    }
 }
 
 fn format_tool_error(tool_name: &str, detail: impl Into<String>) -> String {

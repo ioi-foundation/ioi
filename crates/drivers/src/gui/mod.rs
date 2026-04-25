@@ -212,12 +212,12 @@ impl GuiDriver for IoiGuiDriver {
     }
 
     async fn capture_tree(&self) -> Result<String, VmError> {
-        // Legacy method: use a dummy intent to fetch the full tree via Substrate
+        // Inspection-only request used to fetch the full tree via Substrate.
         let dummy_intent = ActionRequest {
             target: ioi_types::app::ActionTarget::GuiScreenshot,
             params: vec![],
             context: ioi_types::app::ActionContext {
-                agent_id: "legacy".into(),
+                agent_id: "runtime_inspection".into(),
                 session_id: None,
                 window_id: None,
             },

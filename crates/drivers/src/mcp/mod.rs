@@ -22,6 +22,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use self::transport::{McpSpawnPolicy, McpTransport};
+use crate::authority::assert_raw_driver_allowed;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct McpServerConfig {
@@ -98,6 +99,7 @@ impl McpManager {
         mode: McpMode,
         config: McpServerConfig,
     ) -> Result<()> {
+        assert_raw_driver_allowed("mcp", "start_server")?;
         validate_start_policy(name, mode, &config)?;
         let prepared = prepare_server_config(name, &config)?;
 

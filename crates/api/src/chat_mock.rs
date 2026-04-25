@@ -6,8 +6,8 @@ use crate::chat::{
     ChatGeneratedArtifactFile, ChatGeneratedArtifactPayload,
 };
 use ioi_types::app::{
-    ChatArtifactClass, ChatArtifactFileRole, ChatOutcomeArtifactRequest,
-    ChatOutcomeArtifactScope, ChatOutcomeArtifactVerificationRequest, ChatRendererKind,
+    ChatArtifactClass, ChatArtifactFileRole, ChatOutcomeArtifactRequest, ChatOutcomeArtifactScope,
+    ChatOutcomeArtifactVerificationRequest, ChatRendererKind,
 };
 use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
@@ -349,10 +349,9 @@ fn mock_route_payload(input: &str) -> Value {
 fn mock_brief_payload(input: &str) -> Value {
     let intent =
         extract_text_block(input, "Request:\n", "\n\nArtifact request JSON:\n").unwrap_or_default();
-    let request: ChatOutcomeArtifactRequest =
-        extract_json_after(input, "Artifact request JSON:\n")
-            .and_then(|json| serde_json::from_str(&json).ok())
-            .unwrap_or_else(default_html_request);
+    let request: ChatOutcomeArtifactRequest = extract_json_after(input, "Artifact request JSON:\n")
+        .and_then(|json| serde_json::from_str(&json).ok())
+        .unwrap_or_else(default_html_request);
     let refinement: Option<ChatArtifactRefinementContext> =
         extract_json_after(input, "Current artifact context:\n")
             .and_then(|json| serde_json::from_str(&json).ok())
@@ -383,10 +382,9 @@ fn mock_edit_intent_payload(input: &str) -> Value {
         "\n\nArtifact request JSON:\n",
     )
     .unwrap_or_default();
-    let request: ChatOutcomeArtifactRequest =
-        extract_json_after(input, "Artifact request JSON:\n")
-            .and_then(|json| serde_json::from_str(&json).ok())
-            .unwrap_or_else(default_html_request);
+    let request: ChatOutcomeArtifactRequest = extract_json_after(input, "Artifact request JSON:\n")
+        .and_then(|json| serde_json::from_str(&json).ok())
+        .unwrap_or_else(default_html_request);
     let brief: ChatArtifactBrief = extract_json_after(input, "Current brief JSON:\n")
         .and_then(|json| parse_chat_artifact_brief(&json).ok())
         .unwrap_or_else(default_brief);
@@ -489,10 +487,9 @@ fn mock_materialization_payload(input: &str) -> Value {
     let title = extract_text_block(input, "Title:\n", "\n\nRequest:\n").unwrap_or_default();
     let intent =
         extract_text_block(input, "Request:\n", "\n\nArtifact request JSON:\n").unwrap_or_default();
-    let request: ChatOutcomeArtifactRequest =
-        extract_json_after(input, "Artifact request JSON:\n")
-            .and_then(|json| serde_json::from_str(&json).ok())
-            .unwrap_or_else(default_html_request);
+    let request: ChatOutcomeArtifactRequest = extract_json_after(input, "Artifact request JSON:\n")
+        .and_then(|json| serde_json::from_str(&json).ok())
+        .unwrap_or_else(default_html_request);
     let brief: ChatArtifactBrief = extract_json_after(input, "Artifact brief JSON:\n")
         .and_then(|json| parse_chat_artifact_brief(&json).ok())
         .unwrap_or_else(default_brief);
@@ -513,9 +510,7 @@ fn mock_materialization_payload(input: &str) -> Value {
         .unwrap_or(1);
 
     let payload = match request.renderer {
-        ChatRendererKind::Markdown => {
-            build_markdown_payload(&title, &brief, edit_intent.as_ref())
-        }
+        ChatRendererKind::Markdown => build_markdown_payload(&title, &brief, edit_intent.as_ref()),
         ChatRendererKind::HtmlIframe => build_html_payload(
             &title,
             &brief,
@@ -542,14 +537,13 @@ fn mock_materialization_payload(input: &str) -> Value {
 }
 
 fn mock_validation_payload(input: &str) -> Value {
-    let request: ChatOutcomeArtifactRequest =
-        extract_json_after(input, "Artifact request JSON:\n")
-            .and_then(|json| serde_json::from_str(&json).ok())
-            .or_else(|| {
-                extract_json_after(input, "Request focus JSON:\n")
-                    .and_then(|json| mock_request_from_focus_json(&json))
-            })
-            .unwrap_or_else(default_html_request);
+    let request: ChatOutcomeArtifactRequest = extract_json_after(input, "Artifact request JSON:\n")
+        .and_then(|json| serde_json::from_str(&json).ok())
+        .or_else(|| {
+            extract_json_after(input, "Request focus JSON:\n")
+                .and_then(|json| mock_request_from_focus_json(&json))
+        })
+        .unwrap_or_else(default_html_request);
     let brief: ChatArtifactBrief = extract_json_after(input, "Brief JSON:\n")
         .and_then(|json| parse_chat_artifact_brief(&json).ok())
         .or_else(|| {
@@ -578,9 +572,7 @@ fn mock_validation_payload(input: &str) -> Value {
     serde_json::to_value(validation).unwrap_or_else(|_| json!({}))
 }
 
-fn parse_mock_validation_candidate_view(
-    raw: &str,
-) -> Result<ChatGeneratedArtifactPayload, String> {
+fn parse_mock_validation_candidate_view(raw: &str) -> Result<ChatGeneratedArtifactPayload, String> {
     let value: Value = serde_json::from_str(raw)
         .map_err(|error| format!("invalid validation candidate JSON: {error}"))?;
     let summary = value
@@ -718,9 +710,7 @@ fn mock_request_from_focus_json(raw: &str) -> Option<ChatOutcomeArtifactRequest>
         .cloned()
         .and_then(|value| serde_json::from_value::<ChatArtifactClass>(value).ok())
         .unwrap_or_else(|| match renderer {
-            ChatRendererKind::Markdown | ChatRendererKind::PdfEmbed => {
-                ChatArtifactClass::Document
-            }
+            ChatRendererKind::Markdown | ChatRendererKind::PdfEmbed => ChatArtifactClass::Document,
             ChatRendererKind::Svg | ChatRendererKind::Mermaid => ChatArtifactClass::Visual,
             ChatRendererKind::HtmlIframe | ChatRendererKind::JsxSandbox => {
                 ChatArtifactClass::InteractiveSingleFile
@@ -1901,9 +1891,7 @@ fn build_svg_payload(
             "Materialized a request-shaped SVG hero concept for {}.",
             brief.subject_domain
         ),
-        notes: vec![
-            "Mock Chat runtime used the brief to change copy and composition.".to_string(),
-        ],
+        notes: vec!["Mock Chat runtime used the brief to change copy and composition.".to_string()],
         files: vec![ChatGeneratedArtifactFile {
             path: "hero-concept.svg".to_string(),
             mime: "image/svg+xml".to_string(),
@@ -1981,10 +1969,7 @@ fn build_pdf_payload(title: &str, brief: &ChatArtifactBrief) -> ChatGeneratedArt
     }
 }
 
-fn build_download_payload(
-    title: &str,
-    brief: &ChatArtifactBrief,
-) -> ChatGeneratedArtifactPayload {
+fn build_download_payload(title: &str, brief: &ChatArtifactBrief) -> ChatGeneratedArtifactPayload {
     let slug = brief
         .subject_domain
         .split_whitespace()
@@ -2003,9 +1988,7 @@ fn build_download_payload(
             "Materialized a download bundle for {}.",
             brief.subject_domain
         ),
-        notes: vec![
-            "Mock Chat runtime produced the actual bundle payload and README.".to_string(),
-        ],
+        notes: vec!["Mock Chat runtime produced the actual bundle payload and README.".to_string()],
         files: vec![
             ChatGeneratedArtifactFile {
                 path: "README.md".to_string(),
@@ -2029,10 +2012,7 @@ fn build_download_payload(
     }
 }
 
-fn build_bundle_payload(
-    title: &str,
-    brief: &ChatArtifactBrief,
-) -> ChatGeneratedArtifactPayload {
+fn build_bundle_payload(title: &str, brief: &ChatArtifactBrief) -> ChatGeneratedArtifactPayload {
     ChatGeneratedArtifactPayload {
         summary: format!(
             "Materialized a bundle manifest for {}.",

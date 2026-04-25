@@ -203,12 +203,17 @@ async fn workflow_manager_supports_remote_and_wait_until_fixture_triggers() {
     let remote_receipt = manager
         .trigger_workflow_remote(
             &remote_summary.workflow_id,
+            Some("workflow-test-remote-trigger-1".to_string()),
             Some(json!({"source":"test","event":"remote"})),
         )
         .await
         .expect("trigger remote");
     assert_eq!(remote_receipt.trigger_kind, WORKFLOW_TRIGGER_REMOTE);
     assert_eq!(remote_receipt.status, "success");
+    assert_eq!(
+        remote_receipt.idempotency_key.as_deref(),
+        Some("workflow-test-remote-trigger-1")
+    );
 
     let remote_detail = wait_for_workflow_run(
         &manager,

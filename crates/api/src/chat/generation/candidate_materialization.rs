@@ -298,10 +298,7 @@ pub(crate) async fn materialize_and_locally_validation_candidate(
     production_provenance: &ChatRuntimeProvenance,
     activity_observer: Option<ChatArtifactActivityObserver>,
 ) -> Result<
-    (
-        ChatArtifactCandidateSummary,
-        ChatGeneratedArtifactPayload,
-    ),
+    (ChatArtifactCandidateSummary, ChatGeneratedArtifactPayload),
     ChatArtifactCandidateSummary,
 > {
     chat_generation_trace(format!(

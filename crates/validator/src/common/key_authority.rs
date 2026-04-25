@@ -47,49 +47,11 @@ impl KeyAuthority for DevMemoryKeyAuthority {
     }
 }
 
-macro_rules! stub_authority {
-    ($name:ident, $kind:expr) => {
-        #[doc = "Production-capable key authority backend descriptor wrapper."]
-        #[derive(Debug, Clone)]
-        pub struct $name {
-            descriptor: KeyAuthorityDescriptor,
-        }
-
-        impl $name {
-            #[doc = "Builds a backend handle for this authority family."]
-            pub fn new(mut descriptor: KeyAuthorityDescriptor) -> Self {
-                descriptor.kind = $kind;
-                Self { descriptor }
-            }
-        }
-
-        #[async_trait]
-        impl KeyAuthority for $name {
-            fn descriptor(&self) -> &KeyAuthorityDescriptor {
-                &self.descriptor
-            }
-
-            fn is_production_capable(&self) -> bool {
-                true
-            }
-
-            async fn resolve_secret_string(
-                &self,
-                _path: &Path,
-                _passphrase: Option<&str>,
-            ) -> Result<String> {
-                Err(anyhow!(
-                    "{} secret resolution is not implemented in this build",
-                    stringify!($name)
-                ))
-            }
-        }
-    };
+fn unsupported_key_authority(kind: KeyAuthorityKind) -> anyhow::Error {
+    anyhow!(
+        "{kind:?} key authority is not available in this build; configure a supported backend or enable a real authority feature"
+    )
 }
-
-stub_authority!(Tpm2KeyAuthority, KeyAuthorityKind::Tpm2);
-stub_authority!(Pkcs11KeyAuthority, KeyAuthorityKind::Pkcs11);
-stub_authority!(CloudKmsKeyAuthority, KeyAuthorityKind::CloudKms);
 
 /// Builds the configured key authority for a guardian profile.
 pub fn build_key_authority(
@@ -99,9 +61,9 @@ pub fn build_key_authority(
     let descriptor = descriptor.unwrap_or_default();
     let authority: Box<dyn KeyAuthority> = match descriptor.kind {
         KeyAuthorityKind::DevMemory => Box::new(DevMemoryKeyAuthority::new(descriptor)),
-        KeyAuthorityKind::Tpm2 => Box::new(Tpm2KeyAuthority::new(descriptor)),
-        KeyAuthorityKind::Pkcs11 => Box::new(Pkcs11KeyAuthority::new(descriptor)),
-        KeyAuthorityKind::CloudKms => Box::new(CloudKmsKeyAuthority::new(descriptor)),
+        KeyAuthorityKind::Tpm2 | KeyAuthorityKind::Pkcs11 | KeyAuthorityKind::CloudKms => {
+            return Err(unsupported_key_authority(descriptor.kind));
+        }
     };
 
     if matches!(production_mode, GuardianProductionMode::Production)
@@ -114,4 +76,54 @@ pub fn build_key_authority(
     }
 
     Ok(authority)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn descriptor(kind: KeyAuthorityKind) -> KeyAuthorityDescriptor {
+        KeyAuthorityDescriptor {
+            kind,
+            key_id: "test-key".to_string(),
+            ..KeyAuthorityDescriptor::default()
+        }
+    }
+
+    #[test]
+    fn production_refuses_dev_memory_authority() {
+        let err = match build_key_authority(
+            Some(descriptor(KeyAuthorityKind::DevMemory)),
+            GuardianProductionMode::Production,
+        ) {
+            Ok(_) => panic!("dev-memory must not satisfy production authority"),
+            Err(err) => err,
+        };
+        assert!(
+            err.to_string()
+                .contains("production guardian profile refuses"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn unsupported_authority_kinds_fail_before_runtime_resolution() {
+        for kind in [
+            KeyAuthorityKind::Tpm2,
+            KeyAuthorityKind::Pkcs11,
+            KeyAuthorityKind::CloudKms,
+        ] {
+            let err = match build_key_authority(
+                Some(descriptor(kind)),
+                GuardianProductionMode::Production,
+            ) {
+                Ok(_) => panic!("unsupported authority should fail at configuration time"),
+                Err(err) => err,
+            };
+            assert!(
+                err.to_string().contains("not available in this build"),
+                "unexpected error for {kind:?}: {err}"
+            );
+        }
+    }
 }

@@ -15,9 +15,8 @@ export function LogicView({
 }: LogicViewProps) {
   const currentModel = config.model || config.modelId || "gpt-4o";
   const currentModelRef = config.modelRef || "";
-  const isResponsesNode = type === "model" || type === "responses";
+  const isResponsesNode = type === "responses";
   const preferredModelRefByType: Record<string, string[]> = {
-    model: ["reasoning"],
     responses: ["reasoning"],
     embeddings: ["embedding"],
     rerank: ["reasoning", "embedding"],
