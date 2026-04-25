@@ -203,8 +203,6 @@ fn sync_child_webview_platform<R: Runtime>(
 
             let inner = platform_webview.inner();
             inner.set_size_request(width, height);
-            inner.size_allocate(&gtk::Allocation::new(0, 0, width, height));
-            inner.show_all();
             let _ = label;
         });
     }
@@ -238,6 +236,33 @@ fn physical_size_for_bounds(bounds: &WorkspaceDirectWebviewBounds) -> PhysicalSi
         bounds.width.round().max(1.0) as u32,
         bounds.height.round().max(1.0) as u32,
     )
+}
+
+fn hidden_child_webview_rect() -> Rect {
+    Rect {
+        position: PhysicalPosition::new(-32000, -32000).into(),
+        size: PhysicalSize::new(1, 1).into(),
+    }
+}
+
+fn apply_hidden_child_webview_layout<R: Runtime>(
+    webview: &tauri::Webview<R>,
+    label: &str,
+) -> Result<(), String> {
+    let rect = hidden_child_webview_rect();
+    webview.set_bounds(rect).map_err(|error| {
+        format!(
+            "Failed to move hidden direct OpenVSCode child webview '{}' offscreen: {}",
+            label, error
+        )
+    })?;
+    webview.hide().map_err(|error| {
+        format!(
+            "Failed to hide direct OpenVSCode child webview '{}': {}",
+            label, error
+        )
+    })?;
+    Ok(())
 }
 
 fn physical_position_from_xy(x: f64, y: f64) -> PhysicalPosition<i32> {
@@ -462,6 +487,67 @@ fn reparent_child_window_with_retry<R: Runtime>(
 }
 
 #[cfg(target_os = "linux")]
+fn show_reparented_child_window<R: Runtime>(
+    parent_window: &WebviewWindow<R>,
+    child_window: &WebviewWindow<R>,
+    label: &str,
+    bounds: &WorkspaceDirectWebviewBounds,
+    context: &str,
+) -> Result<(), String> {
+    reparent_child_window_with_retry(
+        parent_window,
+        child_window,
+        label,
+        bounds,
+        false,
+        &format!("{} pre-show", context),
+    )?;
+    let _ = child_window.show();
+    reparent_child_window_with_retry(
+        parent_window,
+        child_window,
+        label,
+        bounds,
+        true,
+        &format!("{} visible", context),
+    )?;
+    let _ = parent_window.set_focus();
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn schedule_child_reparent_repairs<R: Runtime>(
+    parent_window: WebviewWindow<R>,
+    child_window: WebviewWindow<R>,
+    label: String,
+    bounds: WorkspaceDirectWebviewBounds,
+    context: &'static str,
+) {
+    for delay_ms in [120_u64, 360, 900] {
+        let parent_window = parent_window.clone();
+        let child_window = child_window.clone();
+        let label = label.clone();
+        let bounds = bounds.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(delay_ms));
+            if let Err(error) = reparent_child_window_with_retry(
+                &parent_window,
+                &child_window,
+                &label,
+                &bounds,
+                true,
+                context,
+            ) {
+                eprintln!(
+                    "[WorkspaceDirectWebview] delayed reparent repair failed label={} context={} delay_ms={}: {}",
+                    label, context, delay_ms, error
+                );
+            }
+        });
+    }
+}
+
+#[cfg(target_os = "linux")]
 fn unmap_child_window(window: &gtk::ApplicationWindow, label: &str) -> Result<(), String> {
     let child_xid = gtk_window_xid(window, label)?;
     unsafe {
@@ -575,29 +661,47 @@ fn build_child_webview<R: Runtime>(
         .on_page_load(move |window, payload| {
             if payload.event() == PageLoadEvent::Finished {
                 if visible_for_load {
-                    let _ = window.show();
-                }
-                if let Err(error) = reparent_child_window_with_retry(
-                    &parent_window_for_load,
-                    &window,
-                    &label_for_load,
-                    &bounds_for_load,
-                    visible_for_load,
-                    "page load",
-                ) {
-                    let _ = window.hide();
-                    eprintln!(
-                        "[WorkspaceDirectWebview] failed to reparent child window surface={} label={}: {}",
-                        surface_id_for_load,
-                        label_for_load,
-                        error
+                    if let Err(error) = show_reparented_child_window(
+                        &parent_window_for_load,
+                        &window,
+                        &label_for_load,
+                        &bounds_for_load,
+                        "page load",
+                    ) {
+                        let _ = window.hide();
+                        eprintln!(
+                            "[WorkspaceDirectWebview] failed to show reparented child window surface={} label={}: {}",
+                            surface_id_for_load,
+                            label_for_load,
+                            error
+                        );
+                        return;
+                    }
+                    schedule_child_reparent_repairs(
+                        parent_window_for_load.clone(),
+                        window.clone(),
+                        label_for_load.clone(),
+                        bounds_for_load.clone(),
+                        "page load repair",
                     );
-                    return;
-                }
-                if visible_for_load {
-                    let _ = parent_window_for_load.set_focus();
-                }
-                if !visible_for_load {
+                } else {
+                    if let Err(error) = reparent_child_window_with_retry(
+                        &parent_window_for_load,
+                        &window,
+                        &label_for_load,
+                        &bounds_for_load,
+                        false,
+                        "page load hidden",
+                    ) {
+                        let _ = window.hide();
+                        eprintln!(
+                            "[WorkspaceDirectWebview] failed to reparent hidden child window surface={} label={}: {}",
+                            surface_id_for_load,
+                            label_for_load,
+                            error
+                        );
+                        return;
+                    }
                     if let Ok(gtk_window) = window.gtk_window() {
                         let _ = unmap_child_window(&gtk_window, &label_for_load);
                     }
@@ -636,21 +740,33 @@ fn build_child_webview<R: Runtime>(
         )
     })?;
     if visible {
-        let _ = window.show();
-    }
-    if let Err(error) = reparent_child_window_with_retry(
+        if let Err(error) = show_reparented_child_window(
+            &parent_window,
+            &window,
+            label,
+            bounds,
+            "initial creation",
+        ) {
+            let _ = window.hide();
+            return Err(error);
+        }
+        schedule_child_reparent_repairs(
+            parent_window,
+            window,
+            label.to_string(),
+            bounds.clone(),
+            "initial creation repair",
+        );
+    } else if let Err(error) = reparent_child_window_with_retry(
         &parent_window,
         &window,
         label,
         bounds,
-        visible,
-        "initial creation",
+        false,
+        "initial creation hidden",
     ) {
         let _ = window.hide();
         return Err(error);
-    }
-    if visible {
-        let _ = parent_window.set_focus();
     }
     Ok(())
 }
@@ -1026,24 +1142,39 @@ fn update_record_bounds<R: Runtime>(
                     app.get_webview_window(&record.parent_window_label),
                 ) {
                     if visible {
-                        let _ = window.show();
-                    }
-                    reparent_child_window_with_retry(
-                        &parent_window,
-                        &window,
-                        &record.label,
-                        bounds,
-                        visible,
-                        "bounds update",
-                    )?;
-                    if visible {
-                        let _ = parent_window.set_focus();
+                        show_reparented_child_window(
+                            &parent_window,
+                            &window,
+                            &record.label,
+                            bounds,
+                            "bounds update",
+                        )?;
+                        schedule_child_reparent_repairs(
+                            parent_window,
+                            window,
+                            record.label.clone(),
+                            bounds.clone(),
+                            "bounds update repair",
+                        );
+                    } else {
+                        reparent_child_window_with_retry(
+                            &parent_window,
+                            &window,
+                            &record.label,
+                            bounds,
+                            false,
+                            "bounds update hidden",
+                        )?;
                     }
                     return Ok(());
                 }
             }
             if let Some(webview) = app.get_webview(&record.label) {
-                apply_child_webview_layout(&webview, &record.label, bounds)?;
+                if visible {
+                    apply_child_webview_layout(&webview, &record.label, bounds)?;
+                } else {
+                    apply_hidden_child_webview_layout(&webview, &record.label)?;
+                }
             }
         }
         WorkspaceDirectWebviewMode::OwnedWindow => {
@@ -1079,31 +1210,35 @@ fn show_record<R: Runtime>(
                     app.get_webview_window(&record.label),
                     app.get_webview_window(&record.parent_window_label),
                 ) {
-                    let _ = window.show();
-                    reparent_child_window_with_retry(
+                    show_reparented_child_window(
                         &parent_window,
                         &window,
                         &record.label,
                         &record.bounds,
-                        true,
                         "show",
                     )
                     .map_err(|error| {
                         let _ = window.hide();
                         error
                     })?;
-                    let _ = parent_window.set_focus();
+                    schedule_child_reparent_repairs(
+                        parent_window,
+                        window,
+                        record.label.clone(),
+                        record.bounds.clone(),
+                        "show repair",
+                    );
                     return Ok(());
                 }
             }
             if let Some(webview) = app.get_webview(&record.label) {
+                apply_child_webview_layout(&webview, &record.label, &record.bounds)?;
                 webview.show().map_err(|error| {
                     format!(
                         "Failed to show direct OpenVSCode child webview '{}': {}",
                         record.label, error
                     )
                 })?;
-                apply_child_webview_layout(&webview, &record.label, &record.bounds)?;
             }
         }
         WorkspaceDirectWebviewMode::OwnedWindow => {
@@ -1138,7 +1273,7 @@ fn hide_record<R: Runtime>(
                 }
             }
             if let Some(webview) = app.get_webview(&record.label) {
-                let _ = webview.hide();
+                let _ = apply_hidden_child_webview_layout(&webview, &record.label);
             }
         }
         WorkspaceDirectWebviewMode::OwnedWindow => {
