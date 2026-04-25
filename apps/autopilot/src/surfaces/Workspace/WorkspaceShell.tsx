@@ -1,5 +1,13 @@
 import clsx from "clsx";
-import { useEffect, useMemo, useState } from "react";
+import { ArrowLeft } from "lucide-react";
+import {
+  createElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ComponentType,
+} from "react";
 import {
   WorkspaceHost,
   type WorkspaceExtensionsModel,
@@ -28,13 +36,39 @@ import type {
   WorkspaceWorkbenchProjectDescriptor,
 } from "../../services/workspaceWorkbenchHost";
 import { useWorkspaceWorkbenchSession } from "../../services/useWorkspaceWorkbenchSession";
+import { tauriWorkspaceAdapter } from "../../services/workspaceAdapter";
+import {
+  createUniqueRepositorySlug,
+  getGeneratedRepositoryPath,
+  loadWorkspaceRepositories,
+  markWorkspaceRepositoryOpened,
+  persistCreatedWorkspaceRepository,
+  toggleWorkspaceRepositoryFavorite,
+  type WorkspaceRepositoryRecord,
+} from "../../services/workspaceRepositoryRegistry";
+import {
+  WorkspaceRepositoryGate,
+  type WorkspaceRepositoryCreateRequest,
+} from "./WorkspaceRepositoryGate";
 
 interface WorkspaceShellProps {
   active: boolean;
   currentProject: WorkspaceWorkbenchProjectDescriptor;
+  projects?: WorkspaceWorkbenchProjectDescriptor[];
   runtime: TauriRuntime;
   host: WorkspaceWorkbenchHost;
   fullBleed?: boolean;
+}
+
+type WorkspaceShellMode = "repository-gate" | "workbench";
+
+type ShellIconProps = {
+  size?: number;
+  "aria-hidden"?: boolean | "true" | "false";
+};
+
+function renderShellIcon(Icon: unknown, props: ShellIconProps = {}) {
+  return createElement(Icon as ComponentType<ShellIconProps>, props);
 }
 
 function defaultWorkspaceShellState(): WorkspacePersistedState {
@@ -51,10 +85,110 @@ function defaultWorkspaceShellState(): WorkspacePersistedState {
 export function WorkspaceShell({
   active,
   currentProject,
+  projects,
   runtime,
   host,
   fullBleed = false,
 }: WorkspaceShellProps) {
+  const seedProjects = useMemo(
+    () => (projects && projects.length > 0 ? projects : [currentProject]),
+    [currentProject, projects],
+  );
+  const [shellMode, setShellMode] =
+    useState<WorkspaceShellMode>("repository-gate");
+  const [repositories, setRepositories] = useState(() =>
+    loadWorkspaceRepositories(seedProjects),
+  );
+  const [selectedRepository, setSelectedRepository] =
+    useState<WorkspaceRepositoryRecord | null>(null);
+  const [creatingRepository, setCreatingRepository] = useState(false);
+  const [createRepositoryError, setCreateRepositoryError] = useState<string | null>(
+    null,
+  );
+  const workbenchProject = selectedRepository ?? currentProject;
+  const workbenchActive =
+    active && shellMode === "workbench" && selectedRepository !== null;
+
+  const refreshRepositories = useCallback(() => {
+    setRepositories(loadWorkspaceRepositories(seedProjects));
+  }, [seedProjects]);
+
+  useEffect(() => {
+    refreshRepositories();
+  }, [refreshRepositories]);
+
+  const openRepository = useCallback(
+    async (repository: WorkspaceRepositoryRecord) => {
+      if (repository.source === "created") {
+        await tauriWorkspaceAdapter.createDirectory(".", repository.rootPath);
+      }
+
+      markWorkspaceRepositoryOpened(repository.id);
+      const nextRepositories = loadWorkspaceRepositories(seedProjects);
+      setRepositories(nextRepositories);
+      setSelectedRepository(
+        nextRepositories.find(
+          (nextRepository) => nextRepository.id === repository.id,
+        ) ?? repository,
+      );
+      setCreateRepositoryError(null);
+      setShellMode("workbench");
+    },
+    [seedProjects],
+  );
+
+  const toggleRepositoryFavorite = useCallback(
+    (repository: WorkspaceRepositoryRecord) => {
+      toggleWorkspaceRepositoryFavorite(repository.id);
+      refreshRepositories();
+    },
+    [refreshRepositories],
+  );
+
+  const createRepository = useCallback(
+    async (request: WorkspaceRepositoryCreateRequest) => {
+      setCreatingRepository(true);
+      setCreateRepositoryError(null);
+
+      try {
+        const slug = createUniqueRepositorySlug(
+          request.name,
+          repositories.map((repository) => repository.rootPath),
+        );
+        const rootPath = getGeneratedRepositoryPath(slug);
+
+        await tauriWorkspaceAdapter.createDirectory(".", rootPath);
+
+        const now = Date.now();
+        const repository: WorkspaceRepositoryRecord = {
+          id: `created:${rootPath}`,
+          name: request.name,
+          description: `${request.categoryLabel} / ${request.templateLabel}`,
+          environment: "Local",
+          rootPath,
+          source: "created",
+          category: request.category,
+          template: request.template,
+          createdAtMs: now,
+          lastOpenedAtMs: now,
+          favorite: false,
+        };
+
+        persistCreatedWorkspaceRepository(repository);
+        setCreatingRepository(false);
+        await openRepository(repository);
+      } catch (error) {
+        setCreatingRepository(false);
+        setCreateRepositoryError(
+          error instanceof Error
+            ? error.message
+            : "The repository folder could not be created.",
+        );
+      }
+    },
+    [openRepository, repositories],
+  );
+
   const {
     status,
     session,
@@ -65,15 +199,15 @@ export function WorkspaceShell({
     markSurfaceReady,
     restartWorkspace,
   } = useWorkspaceWorkbenchSession({
-    active,
-    enabled: true,
-    currentProject,
+    active: workbenchActive,
+    enabled: workbenchActive,
+    currentProject: workbenchProject,
     runtime,
     host,
   });
   const sessionDescriptor = session ? host.describeSession(session) : null;
   const [persistedState, setPersistedState] = useState(() =>
-    loadWorkspaceShellState(currentProject.rootPath),
+    loadWorkspaceShellState(workbenchProject.rootPath),
   );
   const [surfaceError, setSurfaceError] = useState<string | null>(null);
   const [bridgeState, setBridgeState] = useState<DirectWorkspaceBridgeState | null>(null);
@@ -82,8 +216,8 @@ export function WorkspaceShell({
   >([]);
 
   useEffect(() => {
-    setPersistedState(loadWorkspaceShellState(currentProject.rootPath));
-  }, [currentProject.rootPath]);
+    setPersistedState(loadWorkspaceShellState(workbenchProject.rootPath));
+  }, [workbenchProject.rootPath]);
 
   useEffect(() => {
     setSurfaceError(null);
@@ -107,11 +241,11 @@ export function WorkspaceShell({
     (!substratePreviewSurfaceVisible && !surfaceReady);
 
   useEffect(() => {
-    if (!import.meta.env.DEV || !active) {
+    if (!import.meta.env.DEV || !workbenchActive) {
       return;
     }
     console.info("[WorkspaceBoot] shell state", {
-      rootPath: currentProject.rootPath,
+      rootPath: workbenchProject.rootPath,
       status,
       surfaceKind: surface?.kind ?? null,
       surfaceReady,
@@ -119,13 +253,13 @@ export function WorkspaceShell({
       error,
     });
   }, [
-    active,
-    currentProject.rootPath,
     error,
     overlayVisible,
     status,
     surface,
     surfaceReady,
+    workbenchActive,
+    workbenchProject.rootPath,
   ]);
 
   const persistShellState = (
@@ -142,7 +276,7 @@ export function WorkspaceShell({
             : nextActivePath,
         snapshot: current?.snapshot ?? null,
       };
-      persistWorkspaceShellState(currentProject.rootPath, nextState);
+      persistWorkspaceShellState(workbenchProject.rootPath, nextState);
       return nextState;
     });
   };
@@ -155,7 +289,7 @@ export function WorkspaceShell({
         lastActivePath: current?.lastActivePath ?? null,
         snapshot: current?.snapshot ?? initialWorkspaceSnapshot,
       };
-      persistWorkspaceShellState(currentProject.rootPath, nextState);
+      persistWorkspaceShellState(workbenchProject.rootPath, nextState);
       return nextState;
     });
   };
@@ -168,13 +302,18 @@ export function WorkspaceShell({
         lastActivePath: current?.lastActivePath ?? null,
         snapshot: nextSnapshot,
       };
-      persistWorkspaceShellState(currentProject.rootPath, nextState);
+      persistWorkspaceShellState(workbenchProject.rootPath, nextState);
       return nextState;
     });
   };
 
   useEffect(() => {
-    if (!active || !session || !surface || surface.kind !== "substrate-preview") {
+    if (
+      !workbenchActive ||
+      !session ||
+      !surface ||
+      surface.kind !== "substrate-preview"
+    ) {
       setBridgeState(null);
       setExtensionManifests([]);
       return;
@@ -188,7 +327,7 @@ export function WorkspaceShell({
         const next = await loadDirectWorkspaceWorkbenchData({
           runtime,
           host,
-          currentProject,
+          currentProject: workbenchProject,
           session,
         });
         if (cancelled) {
@@ -212,7 +351,7 @@ export function WorkspaceShell({
         window.clearInterval(intervalHandle);
       }
     };
-  }, [active, currentProject, host, runtime, session, surface]);
+  }, [host, runtime, session, surface, workbenchActive, workbenchProject]);
 
   const activeFilePath = persistedState?.lastActivePath ?? null;
 
@@ -221,10 +360,10 @@ export function WorkspaceShell({
       createRunDebugModel({
         bridgeState,
         runtime,
-        rootPath: currentProject.rootPath,
+        rootPath: workbenchProject.rootPath,
         activeFilePath,
       }),
-    [activeFilePath, bridgeState, currentProject.rootPath, runtime],
+    [activeFilePath, bridgeState, runtime, workbenchProject.rootPath],
   );
 
   const extensionsModel = useMemo<WorkspaceExtensionsModel>(
@@ -244,17 +383,23 @@ export function WorkspaceShell({
         activeSurface: activeOperatorSurface,
         onSelectSurface: persistOperatorSurface,
         runtime,
-        rootPath: currentProject.rootPath,
+        rootPath: workbenchProject.rootPath,
         activeFilePath,
       }),
     [
       activeFilePath,
       activeOperatorSurface,
       bridgeState,
-      currentProject.rootPath,
       runtime,
+      workbenchProject.rootPath,
     ],
   );
+
+  const returnToRepositoryGate = () => {
+    setShellMode("repository-gate");
+    setSelectedRepository(null);
+    setSurfaceError(null);
+  };
 
   return (
     <section
@@ -266,124 +411,161 @@ export function WorkspaceShell({
       aria-label="Workspace"
       aria-hidden={!active}
     >
-      {session && surface ? (
-        surface.kind === "frame" ? (
-          <iframe
-            key={surface.key}
-            className={clsx(
-              "chat-workspace-oss-shell__frame",
-              surfaceReady && "is-ready",
-            )}
-            title={surface.title}
-            src={surface.src}
-            onLoad={() => {
-              markSurfaceReady();
-            }}
-          />
-        ) : surface.kind === "openvscode-direct" ? (
-          <OpenVsCodeDirectSurface
-            key={surface.key}
-            active={active}
-            surface={surface}
-            onReady={markSurfaceReady}
-            onError={setSurfaceError}
-          />
-        ) : (
-          <WorkspaceHost
-            key={surface.key}
-            className="chat-workspace-host"
-            adapter={surface.adapter}
-            root={surface.rootPath}
-            layoutMode={surface.layoutMode}
-            defaultPane={surface.defaultPane}
-            title={surface.title}
-            showHeader={surface.showHeader}
-            showBottomPanel={surface.showBottomPanel}
-            initialSnapshot={surface.initialSnapshot ?? initialWorkspaceSnapshot}
-            initialState={initialWorkspaceState}
-            runDebugModel={runDebugModel}
-            extensionsModel={extensionsModel}
-            operatorModel={operatorModel}
-            onStateChange={(nextState) => {
-              persistShellState(nextState);
-            }}
-            onSnapshotChange={persistSnapshot}
-            onActivePathChange={(path) => {
-              persistShellState(
-                persistedState?.shellState ?? initialWorkspaceState,
-                path,
-              );
-            }}
-          />
-        )
-      ) : null}
-
-      {overlayVisible ? (
-        <div className="chat-workspace-oss-shell__overlay">
-          <div className="chat-workspace-oss-shell__overlay-card">
-            <span className="chat-workspace-oss-shell__eyebrow">
-              {sessionDescriptor?.startupEyebrow ?? "Workspace runtime"}
-            </span>
-            <h2>{currentProject.name}</h2>
-            <p>
-              {effectiveError
-                ? (sessionDescriptor?.startupFailureDescription ??
-                  "The workspace runtime did not start cleanly.")
-                : (sessionDescriptor?.startupDescription ??
-                  "Starting the workspace runtime for this workspace.")}
-            </p>
-            <div className="chat-workspace-oss-shell__meta">
-              <span>Root</span>
-              <code>{currentProject.rootPath}</code>
+      {shellMode === "repository-gate" ? (
+        <WorkspaceRepositoryGate
+          repositories={repositories}
+          createError={createRepositoryError}
+          creating={creatingRepository}
+          onCreateRepository={createRepository}
+          onOpenRepository={openRepository}
+          onToggleFavorite={toggleRepositoryFavorite}
+        />
+      ) : (
+        <div className="chat-workspace-oss-shell__workbench">
+          <header className="chat-workspace-oss-shell__workbench-header">
+            <button
+              type="button"
+              className="chat-workspace-oss-shell__back"
+              onClick={returnToRepositoryGate}
+            >
+              {renderShellIcon(ArrowLeft, { size: 15, "aria-hidden": true })}
+              <span>Code repositories</span>
+            </button>
+            <div className="chat-workspace-oss-shell__workbench-title">
+              <strong>{workbenchProject.name}</strong>
+              <code>{workbenchProject.rootPath}</code>
             </div>
-            {session ? (
-              <div className="chat-workspace-oss-shell__meta">
-                <span>Runtime</span>
-                <code>{sessionDescriptor?.runtimeLabel}</code>
+          </header>
+
+          <div className="chat-workspace-oss-shell__workbench-surface">
+            {session && surface ? (
+              surface.kind === "frame" ? (
+                <iframe
+                  key={surface.key}
+                  className={clsx(
+                    "chat-workspace-oss-shell__frame",
+                    surfaceReady && "is-ready",
+                  )}
+                  title={surface.title}
+                  src={surface.src}
+                  onLoad={() => {
+                    markSurfaceReady();
+                  }}
+                />
+              ) : surface.kind === "openvscode-direct" ? (
+                <OpenVsCodeDirectSurface
+                  key={surface.key}
+                  active={workbenchActive}
+                  surface={surface}
+                  onReady={markSurfaceReady}
+                  onError={setSurfaceError}
+                />
+              ) : (
+                <WorkspaceHost
+                  key={surface.key}
+                  className="chat-workspace-host"
+                  adapter={surface.adapter}
+                  root={surface.rootPath}
+                  layoutMode={surface.layoutMode}
+                  defaultPane={surface.defaultPane}
+                  title={surface.title}
+                  showHeader={surface.showHeader}
+                  showBottomPanel={surface.showBottomPanel}
+                  initialSnapshot={
+                    surface.initialSnapshot ?? initialWorkspaceSnapshot
+                  }
+                  initialState={initialWorkspaceState}
+                  runDebugModel={runDebugModel}
+                  extensionsModel={extensionsModel}
+                  operatorModel={operatorModel}
+                  onStateChange={(nextState) => {
+                    persistShellState(nextState);
+                  }}
+                  onSnapshotChange={persistSnapshot}
+                  onActivePathChange={(path) => {
+                    persistShellState(
+                      persistedState?.shellState ?? initialWorkspaceState,
+                      path,
+                    );
+                  }}
+                />
+              )
+            ) : null}
+
+            {overlayVisible ? (
+              <div className="chat-workspace-oss-shell__overlay">
+                <div className="chat-workspace-oss-shell__overlay-card">
+                  <span className="chat-workspace-oss-shell__eyebrow">
+                    {sessionDescriptor?.startupEyebrow ?? "Workspace runtime"}
+                  </span>
+                  <h2>{workbenchProject.name}</h2>
+                  <p>
+                    {effectiveError
+                      ? (sessionDescriptor?.startupFailureDescription ??
+                        "The workspace runtime did not start cleanly.")
+                      : (sessionDescriptor?.startupDescription ??
+                        "Starting the workspace runtime for this workspace.")}
+                  </p>
+                  <div className="chat-workspace-oss-shell__meta">
+                    <span>Root</span>
+                    <code>{workbenchProject.rootPath}</code>
+                  </div>
+                  {session ? (
+                    <div className="chat-workspace-oss-shell__meta">
+                      <span>Runtime</span>
+                      <code>{sessionDescriptor?.runtimeLabel}</code>
+                    </div>
+                  ) : null}
+                  {import.meta.env.DEV ? (
+                    <>
+                      <div className="chat-workspace-oss-shell__meta">
+                        <span>Debug</span>
+                        <code>
+                          {`status=${status} session=${session ? "yes" : "no"} surface=${surface?.kind ?? "none"}`}
+                        </code>
+                      </div>
+                      <div className="chat-workspace-oss-shell__meta">
+                        <span>Flags</span>
+                        <code>
+                          {`surfaceReady=${surfaceReady} overlay=${overlayVisible ? "yes" : "no"}`}
+                        </code>
+                      </div>
+                      <div className="chat-workspace-oss-shell__meta">
+                        <span>Phase</span>
+                        <code>{bootPhase}</code>
+                      </div>
+                    </>
+                  ) : null}
+                  {effectiveError ? (
+                    <pre className="chat-workspace-oss-shell__error">
+                      {effectiveError}
+                    </pre>
+                  ) : (
+                    <div
+                      className="chat-workspace-oss-shell__spinner"
+                      aria-hidden="true"
+                    />
+                  )}
+                  <div className="chat-workspace-oss-shell__actions">
+                    <button
+                      type="button"
+                      className="chat-workspace-oss-shell__button"
+                      onClick={() => {
+                        setSurfaceError(null);
+                        restartWorkspace();
+                      }}
+                    >
+                      {effectiveError
+                        ? "Retry workspace runtime"
+                        : "Force reveal now"}
+                    </button>
+                  </div>
+                </div>
               </div>
             ) : null}
-            {import.meta.env.DEV ? (
-              <>
-                <div className="chat-workspace-oss-shell__meta">
-                  <span>Debug</span>
-                  <code>
-                    {`status=${status} session=${session ? "yes" : "no"} surface=${surface?.kind ?? "none"}`}
-                  </code>
-                </div>
-                <div className="chat-workspace-oss-shell__meta">
-                  <span>Flags</span>
-                  <code>
-                    {`surfaceReady=${surfaceReady} overlay=${overlayVisible ? "yes" : "no"}`}
-                  </code>
-                </div>
-                <div className="chat-workspace-oss-shell__meta">
-                  <span>Phase</span>
-                  <code>{bootPhase}</code>
-                </div>
-              </>
-            ) : null}
-            {effectiveError ? (
-              <pre className="chat-workspace-oss-shell__error">
-                {effectiveError}
-              </pre>
-            ) : (
-              <div className="chat-workspace-oss-shell__spinner" aria-hidden="true" />
-            )}
-            <div className="chat-workspace-oss-shell__actions">
-              <button
-                type="button"
-                className="chat-workspace-oss-shell__button"
-                onClick={() => {
-                  setSurfaceError(null);
-                  restartWorkspace();
-                }}
-              >
-                {effectiveError ? "Retry workspace runtime" : "Force reveal now"}
-              </button>
-            </div>
           </div>
         </div>
-      ) : null}
+      )}
     </section>
   );
 }

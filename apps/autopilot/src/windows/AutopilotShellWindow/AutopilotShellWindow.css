@@ -1044,6 +1044,764 @@
   background: #1e1e1e;
 }
 
+.chat-workspace-oss-shell__workbench {
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: #1e1e1e;
+}
+
+.chat-workspace-oss-shell__workbench-header {
+  flex: 0 0 40px;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px;
+  border-bottom: 1px solid #2b2b2b;
+  background: #181818;
+  color: rgba(245, 247, 255, 0.94);
+}
+
+.chat-workspace-oss-shell__back {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(245, 247, 255, 0.88);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chat-workspace-oss-shell__back:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.chat-workspace-oss-shell__workbench-title {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: rgba(245, 247, 255, 0.88);
+}
+
+.chat-workspace-oss-shell__workbench-title strong {
+  overflow: hidden;
+  color: rgba(245, 247, 255, 0.96);
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-workspace-oss-shell__workbench-title code {
+  overflow: hidden;
+  color: rgba(245, 247, 255, 0.55);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-workspace-oss-shell__workbench-surface {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  background: #1e1e1e;
+}
+
+.workspace-repository-gate {
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #f5f7fa;
+  color: #1f2933;
+}
+
+.workspace-repository-gate button,
+.workspace-repository-gate input {
+  font: inherit;
+}
+
+.workspace-repository-gate__header {
+  flex: 0 0 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 18px 0 10px;
+  border-bottom: 1px solid #d5dce4;
+  background: #ffffff;
+}
+
+.workspace-repository-gate__title {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.workspace-repository-gate__title h1 {
+  margin: 0;
+  overflow: hidden;
+  color: #344150;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-repository-gate__icon-shell {
+  width: 34px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #a9bac8;
+  border-radius: 3px;
+  background: #edf4f8;
+}
+
+.workspace-repository-gate__icon {
+  width: 26px;
+  height: 26px;
+  display: block;
+}
+
+.workspace-repository-gate__primary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid #19703f;
+  border-radius: 4px;
+  background: #1f7f49;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease;
+}
+
+.workspace-repository-gate__primary-button:hover {
+  border-color: #155f36;
+  background: #176b3d;
+}
+
+.workspace-repository-gate__primary-button:disabled {
+  border-color: #9cb9a9;
+  background: #8eb99f;
+  cursor: not-allowed;
+}
+
+.workspace-repository-gate__content {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(420px, 840px) minmax(280px, 322px);
+  justify-content: center;
+  gap: 18px;
+  overflow: auto;
+  padding: 24px;
+}
+
+.workspace-repository-gate__main,
+.workspace-repository-gate__rail {
+  min-width: 0;
+}
+
+.workspace-repository-gate__main {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.workspace-repository-gate__pr-toolbar {
+  display: grid;
+  grid-template-columns: auto minmax(220px, 1fr);
+  align-items: center;
+  gap: 20px;
+}
+
+.workspace-repository-gate__tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.workspace-repository-gate__tabs button {
+  min-height: 30px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 999px;
+  background: #e7ebf0;
+  color: #425466;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.workspace-repository-gate__tabs button.is-active {
+  background: transparent;
+  color: #1f2933;
+  font-weight: 700;
+}
+
+.workspace-repository-gate__search-field,
+.workspace-repository-gate__repository-search {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #b8c2cc;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #66788a;
+}
+
+.workspace-repository-gate__search-field {
+  height: 30px;
+  padding: 0 9px;
+}
+
+.workspace-repository-gate__search-field input,
+.workspace-repository-gate__repository-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #1f2933;
+  font-size: 12px;
+}
+
+.workspace-repository-gate__pr-empty {
+  min-height: 236px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 28px;
+  border: 1px solid #d0d7df;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #637083;
+  text-align: center;
+}
+
+.workspace-repository-gate__pr-empty svg {
+  color: #c5cfda;
+}
+
+.workspace-repository-gate__pr-empty h2 {
+  margin: 0;
+  color: #637083;
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+.workspace-repository-gate__pr-empty p {
+  width: min(440px, 100%);
+  margin: 0;
+  color: #526274;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.workspace-repository-gate__rail {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.workspace-repository-gate__rail-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 28px;
+}
+
+.workspace-repository-gate__rail-heading h2 {
+  margin: 0;
+  color: #1f2933;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.workspace-repository-gate__rail-heading button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: #0f5cc0;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.workspace-repository-gate__news,
+.workspace-repository-gate__repositories {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.workspace-repository-gate__news-card,
+.workspace-repository-gate__repo-card {
+  border: 1px solid #d0d7df;
+  border-radius: 4px;
+  background: #ffffff;
+}
+
+.workspace-repository-gate__news-card {
+  padding: 16px;
+}
+
+.workspace-repository-gate__news-card div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.workspace-repository-gate__news-card span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 0 8px;
+  border-radius: 4px;
+  background: #e8f0ff;
+  color: #1558c7;
+  font-size: 11px;
+}
+
+.workspace-repository-gate__news-card time {
+  color: #66788a;
+  font-size: 12px;
+}
+
+.workspace-repository-gate__news-card p {
+  margin: 0;
+  color: #1f2933;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.workspace-repository-gate__news-card button {
+  margin-top: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #0f5cc0;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.workspace-repository-gate__repository-search {
+  height: 30px;
+  padding: 0 9px;
+}
+
+.workspace-repository-gate__repo-card h3 {
+  margin: 0;
+  padding: 13px 20px;
+  border-bottom: 1px solid #dce2e8;
+  color: #1f2933;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.workspace-repository-gate__repo-list {
+  min-height: 74px;
+  display: flex;
+  flex-direction: column;
+}
+
+.workspace-repository-gate__repo-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34px;
+  border-bottom: 1px solid #edf0f3;
+}
+
+.workspace-repository-gate__repo-row:last-child {
+  border-bottom: 0;
+}
+
+.workspace-repository-gate__repo-open {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) 15px;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 8px 10px 16px;
+  border: 0;
+  background: transparent;
+  color: #425466;
+  text-align: left;
+  cursor: pointer;
+}
+
+.workspace-repository-gate__repo-open:hover {
+  background: #f7f9fb;
+}
+
+.workspace-repository-gate__repo-open span {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.workspace-repository-gate__repo-open strong,
+.workspace-repository-gate__repo-open small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-repository-gate__repo-open strong {
+  color: #1f2933;
+  font-size: 12px;
+}
+
+.workspace-repository-gate__repo-open small {
+  color: #66788a;
+  font-size: 11px;
+}
+
+.workspace-repository-gate__favorite-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-left: 1px solid #edf0f3;
+  background: transparent;
+  color: #8091a3;
+  cursor: pointer;
+}
+
+.workspace-repository-gate__favorite-button:hover {
+  background: #f7f9fb;
+  color: #b78105;
+}
+
+.workspace-repository-gate__empty-small {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 74px;
+  padding: 18px;
+  color: #66788a;
+  font-size: 12px;
+  text-align: center;
+}
+
+.workspace-repository-gate__create {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 24px;
+}
+
+.workspace-repository-gate__create-panel {
+  width: min(900px, 100%);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.workspace-repository-gate__create-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.workspace-repository-gate__back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid #c9d2dc;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #344150;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.workspace-repository-gate__steps {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #66788a;
+  font-size: 12px;
+}
+
+.workspace-repository-gate__steps span {
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: #e7ebf0;
+}
+
+.workspace-repository-gate__steps span.is-active {
+  background: #dceaff;
+  color: #1558c7;
+  font-weight: 700;
+}
+
+.workspace-repository-gate__create-title p {
+  margin: 0 0 4px;
+  color: #66788a;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.workspace-repository-gate__create-title h2 {
+  margin: 0;
+  color: #1f2933;
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+.workspace-repository-gate__category-grid,
+.workspace-repository-gate__template-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.workspace-repository-gate__choice-card,
+.workspace-repository-gate__template-card,
+.workspace-repository-gate__review-card {
+  border: 1px solid #d0d7df;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.workspace-repository-gate__choice-card,
+.workspace-repository-gate__template-card {
+  min-height: 132px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 16px;
+  color: #1f2933;
+  text-align: left;
+  cursor: pointer;
+}
+
+.workspace-repository-gate__choice-card:hover,
+.workspace-repository-gate__template-card:hover {
+  border-color: #9eb3c7;
+  box-shadow: 0 8px 18px rgba(31, 41, 51, 0.08);
+}
+
+.workspace-repository-gate__choice-card > span {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: #edf4f8;
+  color: #4d6478;
+}
+
+.workspace-repository-gate__choice-card strong,
+.workspace-repository-gate__template-card strong {
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.workspace-repository-gate__choice-card small,
+.workspace-repository-gate__template-card small {
+  color: #526274;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.workspace-repository-gate__choice-card > svg {
+  margin-top: auto;
+  color: #8091a3;
+}
+
+.workspace-repository-gate__template-meta {
+  min-height: 22px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #edf4f8;
+  color: #4d6478;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.workspace-repository-gate__recommended {
+  margin-top: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #1f7f49;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.workspace-repository-gate__review-card {
+  width: min(620px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px;
+}
+
+.workspace-repository-gate__review-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.workspace-repository-gate__review-card label span,
+.workspace-repository-gate__review-row span {
+  color: #526274;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.workspace-repository-gate__review-card input {
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid #b8c2cc;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #1f2933;
+  outline: 0;
+}
+
+.workspace-repository-gate__review-card input:focus {
+  border-color: #3977c6;
+  box-shadow: 0 0 0 2px rgba(57, 119, 198, 0.16);
+}
+
+.workspace-repository-gate__review-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+
+.workspace-repository-gate__review-row code,
+.workspace-repository-gate__review-row strong {
+  overflow: hidden;
+  color: #1f2933;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-repository-gate__review-row code {
+  font-family: var(--font-mono);
+}
+
+.workspace-repository-gate__create-error {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #f2b0b0;
+  border-radius: 4px;
+  background: #fff1f1;
+  color: #9f2f2f;
+  font-size: 12px;
+}
+
+@media (max-width: 980px) {
+  .workspace-repository-gate__content {
+    grid-template-columns: minmax(0, 1fr);
+    justify-content: stretch;
+    padding: 16px;
+  }
+
+  .workspace-repository-gate__pr-toolbar {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .workspace-repository-gate__tabs {
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+}
+
+@media (max-width: 640px) {
+  .workspace-repository-gate__header {
+    padding-right: 10px;
+  }
+
+  .workspace-repository-gate__primary-button {
+    padding: 0 9px;
+  }
+
+  .workspace-repository-gate__create {
+    padding: 16px;
+  }
+
+  .workspace-repository-gate__create-head,
+  .chat-workspace-oss-shell__workbench-header {
+    align-items: flex-start;
+    flex-direction: column;
+    justify-content: center;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  .chat-workspace-oss-shell__workbench-header {
+    flex-basis: auto;
+  }
+
+  .workspace-repository-gate__steps {
+    flex-wrap: wrap;
+  }
+
+  .workspace-repository-gate__category-grid,
+  .workspace-repository-gate__template-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .workspace-repository-gate__review-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 5px;
+  }
+}
+
 .chat-workspace-oss-shell__overlay {
   position: absolute;
   inset: 0;

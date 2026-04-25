@@ -199,18 +199,42 @@ export const WorkspaceIcon = () => (
     width="22"
     height="22"
     viewBox="0 0 20 20"
-    fill="none"
     aria-hidden="true"
   >
-    <path
-      d="M13.333 11.418a.665.665 0 0 1 0 1.33h-2.5a.665.665 0 1 1 0-1.33zM6.741 7.347a.665.665 0 0 1 .912.228l1.25 2.083a.67.67 0 0 1 0 .685l-1.25 2.083a.666.666 0 0 1-1.14-.685L7.557 10 6.513 8.259a.665.665 0 0 1 .228-.912"
-      fill="currentColor"
+    <defs>
+      <linearGradient id="workspace-panel" x1="78%" y1="115%" x2="19%" y2="-3%">
+        <stop offset="0%" stopColor="#E1E8ED" />
+        <stop offset="56.8%" stopColor="#EAF0F3" />
+        <stop offset="100%" stopColor="#F5F8FA" />
+      </linearGradient>
+      <linearGradient id="workspace-border" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stopColor="#BFCCD6" />
+        <stop offset="100%" stopColor="#A7B6C2" />
+      </linearGradient>
+      <linearGradient id="workspace-glyph" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stopColor="#5C7080" />
+        <stop offset="100%" stopColor="#394B59" />
+      </linearGradient>
+    </defs>
+    <rect x="2" y="3.25" width="16" height="13.5" rx="1.6" fill="url(#workspace-panel)" />
+    <rect x="2.5" y="3.75" width="15" height="0.5" fill="#FFFFFF" opacity="0.6" />
+    <rect
+      x="2"
+      y="3.25"
+      width="16"
+      height="13.5"
+      rx="1.6"
+      fill="none"
+      stroke="url(#workspace-border)"
+      strokeWidth="0.6"
     />
     <path
-      fillRule="evenodd"
-      clipRule="evenodd"
-      d="M4.5 2.75h11a2.75 2.75 0 0 1 2.75 2.75v9a2.75 2.75 0 0 1-2.75 2.75h-11A2.75 2.75 0 0 1 1.75 14.5v-9A2.75 2.75 0 0 1 4.5 2.75m0 1.33a1.42 1.42 0 0 0-1.42 1.42v9a1.42 1.42 0 0 0 1.42 1.42h11a1.42 1.42 0 0 0 1.42-1.42v-9a1.42 1.42 0 0 0-1.42-1.42z"
-      fill="currentColor"
+      fill="url(#workspace-glyph)"
+      d="M7.653 7.575a.665.665 0 0 0-1.14.684L7.557 10l-1.044 1.741a.666.666 0 0 0 1.14.685l1.25-2.083a.67.67 0 0 0 0-.685z"
+    />
+    <path
+      fill="url(#workspace-glyph)"
+      d="M10.833 11.418a.665.665 0 0 0 0 1.33h2.5a.665.665 0 0 0 0-1.33z"
     />
   </svg>
 );

@@ -3,25 +3,7 @@ use std::path::{Component, Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
 pub(super) fn resolve_root_path(root: &str) -> Result<PathBuf, String> {
-    let requested = PathBuf::from(root);
-    let resolved = if requested.is_absolute() {
-        requested
-    } else {
-        std::env::current_dir()
-            .map_err(|error| format!("Failed to resolve current directory: {}", error))?
-            .join(requested)
-    };
-
-    if !resolved.exists() {
-        return Err(format!(
-            "Workspace root '{}' does not exist.",
-            resolved.display()
-        ));
-    }
-
-    resolved
-        .canonicalize()
-        .map_err(|error| format!("Failed to canonicalize '{}': {}", resolved.display(), error))
+    crate::resolve_autopilot_workspace_root(root)
 }
 
 pub(super) fn safe_relative_input(relative_path: &str) -> Result<PathBuf, String> {
