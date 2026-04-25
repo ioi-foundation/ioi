@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { icons } from "./Icons";
+import { icons } from "../../../components/ui/icons";
 import "../styles/Visuals.css";
 
 interface VisualArtifactProps {

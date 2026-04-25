@@ -1,5 +1,5 @@
-import { icons } from "./components/Icons";
-import type { DropdownOption } from "./components/ChatDropdown";
+import type { DropdownOption } from "../../components/ui/Dropdown";
+import { icons } from "../../components/ui/icons";
 
 export const workspaceOptions: DropdownOption[] = [
   { value: "local", label: "Local", desc: "On-device", icon: icons.laptop },

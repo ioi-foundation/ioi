@@ -1,4 +1,4 @@
-import { icons } from "./Icons";
+import { icons } from "../../../components/ui/icons";
 import "../styles/Components.css";
 
 export function ScrollToBottom({ visible, onClick }: { visible: boolean; onClick: () => void }) {

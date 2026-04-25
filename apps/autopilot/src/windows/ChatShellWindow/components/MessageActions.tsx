@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { icons } from "./Icons";
+import { icons } from "../../../components/ui/icons";
 import "../styles/Chat.css";
 
 export function MessageActions({ text, onRetry, showRetry = false }: { text: string; onRetry?: () => void; showRetry?: boolean }) {

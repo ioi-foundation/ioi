@@ -6,7 +6,7 @@ import type {
   ChatArtifactManifestFile,
   ChatRendererKind,
 } from "../../../types";
-import { icons } from "./Icons";
+import { icons } from "../../../components/ui/icons";
 import { ArtifactRendererHost } from "./ArtifactRendererHost";
 
 interface ArtifactSidebarProps {

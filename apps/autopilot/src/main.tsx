@@ -11,7 +11,7 @@ import { markAutopilotMetric } from "./services/workspacePerf";
 
 import { GateWindow } from "./windows/GateWindow/index";
 import { PillWindow } from "./windows/PillWindow";
-import { ChatWindow } from "./windows/ChatWindow";
+import { AutopilotShellWindow } from "./windows/AutopilotShellWindow";
 import { ChatShellWindow } from "./windows/ChatShellWindow";
 import { WorkspaceWorkbenchPreview } from "./dev/WorkspaceWorkbenchPreview";
 
@@ -36,9 +36,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <Route path="/workspace-preview" element={<WorkspaceWorkbenchPreview />} />
         <Route path="/chat-session" element={<ChatShellWindow />} />
         <Route path="/gate" element={<GateWindow />} />
-        <Route path="/chat" element={<ChatWindow />} />
-        <Route path="/" element={<ChatWindow />} />
-        <Route path="*" element={<ChatWindow />} />
+        <Route path="/chat" element={<AutopilotShellWindow />} />
+        <Route path="/" element={<AutopilotShellWindow />} />
+        <Route path="*" element={<AutopilotShellWindow />} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>

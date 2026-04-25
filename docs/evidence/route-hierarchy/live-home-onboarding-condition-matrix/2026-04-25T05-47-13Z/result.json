@@ -1,0 +1,2137 @@
+{
+  "capturedAt": "2026-04-25T05:47:13.602Z",
+  "conditionDefinitions": {
+    "always": {
+      "label": "Always",
+      "sourceExpression": "always"
+    },
+    "isWeb": {
+      "label": "Web workbench",
+      "sourceExpression": "isWeb"
+    },
+    "notWeb": {
+      "label": "Desktop workbench",
+      "sourceExpression": "!isWeb"
+    },
+    "webWorker": {
+      "label": "Web worker workspace",
+      "sourceExpression": "workspacePlatform == 'webworker'"
+    },
+    "notWebWorker": {
+      "label": "Non-web-worker workspace",
+      "sourceExpression": "workspacePlatform != 'webworker'"
+    },
+    "syncAvailable": {
+      "label": "Settings Sync available",
+      "sourceExpression": "syncStatus != uninitialized"
+    },
+    "workspaceEmpty": {
+      "label": "No workspace folder",
+      "sourceExpression": "workspaceFolderCount == 0"
+    },
+    "workspacePresent": {
+      "label": "Workspace folder open",
+      "sourceExpression": "workspaceFolderCount != 0"
+    },
+    "gitEnabled": {
+      "label": "Git enabled",
+      "sourceExpression": "config.git.enabled"
+    },
+    "gitMissing": {
+      "label": "Git missing",
+      "sourceExpression": "git.missing"
+    },
+    "gitAvailable": {
+      "label": "Git available",
+      "sourceExpression": "!git.missing"
+    },
+    "gitRepositoryOpen": {
+      "label": "Git repository open",
+      "sourceExpression": "gitOpenRepositoryCount != 0"
+    },
+    "gitRepositoryAbsent": {
+      "label": "No Git repository open",
+      "sourceExpression": "gitOpenRepositoryCount == 0"
+    },
+    "scmViewInactive": {
+      "label": "Source Control view inactive",
+      "sourceExpression": "activeViewlet != 'workbench.view.scm'"
+    },
+    "terminalClosed": {
+      "label": "Terminal closed",
+      "sourceExpression": "!terminalIsOpen"
+    },
+    "notCodespaces": {
+      "label": "Not Codespaces",
+      "sourceExpression": "remoteName != codespaces"
+    },
+    "workspaceUntrusted": {
+      "label": "Workspace untrusted",
+      "sourceExpression": "!isWorkspaceTrusted"
+    },
+    "accessibilityContext": {
+      "label": "Accessibility walkthrough context",
+      "sourceExpression": "accessibility context"
+    },
+    "speechProvider": {
+      "label": "Speech provider available",
+      "sourceExpression": "hasSpeechProvider"
+    },
+    "openGettingStarted": {
+      "label": "Getting Started enabled",
+      "sourceExpression": "config.openGettingStarted"
+    },
+    "notebookOpened": {
+      "label": "Notebook opened",
+      "sourceExpression": "userHasOpenedNotebook"
+    }
+  },
+  "cases": [
+    {
+      "id": "default-workspace",
+      "description": "Default contained OpenVSCode workspace with a Git repository.",
+      "state": {
+        "isWeb": true,
+        "workspacePlatform": "node",
+        "syncAvailable": false,
+        "workspaceFolderCount": 1,
+        "gitEnabled": true,
+        "gitMissing": false,
+        "gitOpenRepositoryCount": 1,
+        "activeViewlet": null,
+        "terminalIsOpen": false,
+        "remoteName": null,
+        "isWorkspaceTrusted": true,
+        "accessibilityContext": true,
+        "hasSpeechProvider": false,
+        "openGettingStarted": true,
+        "userHasOpenedNotebook": false
+      },
+      "visibleFamilies": [
+        "setup-vscode-web",
+        "learn-fundamentals",
+        "accessibility"
+      ],
+      "visibleStepIds": [
+        "setup-theme",
+        "setup-ui-density",
+        "setup-language-extensions",
+        "setup-command-palette",
+        "setup-quick-open",
+        "fundamentals-extensions",
+        "fundamentals-terminal",
+        "fundamentals-debug",
+        "fundamentals-git",
+        "fundamentals-tasks",
+        "fundamentals-shortcuts",
+        "accessibility-help",
+        "accessibility-view",
+        "accessibility-verbosity",
+        "accessibility-command-palette",
+        "accessibility-keybindings",
+        "accessibility-signals",
+        "accessibility-hover",
+        "accessibility-symbols",
+        "accessibility-folding",
+        "accessibility-intellisense",
+        "accessibility-settings"
+      ],
+      "conditionalVisibleStepIds": [],
+      "sourceIndexedHiddenStepIds": [
+        "setup-web-extensions",
+        "setup-sync-settings",
+        "setup-open-code",
+        "setup-desktop-theme",
+        "setup-video-tutorial",
+        "fundamentals-settings",
+        "fundamentals-git-clone",
+        "fundamentals-git-init",
+        "fundamentals-install-git",
+        "fundamentals-workspace-trust",
+        "accessibility-dictation",
+        "notebook-profile"
+      ],
+      "hiddenSteps": [
+        {
+          "stepId": "setup-web-extensions",
+          "familyId": "setup-vscode-web",
+          "conditionMatched": false,
+          "conditionIds": [
+            "webWorker"
+          ],
+          "reasons": [
+            "Web worker workspace",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "setup-sync-settings",
+          "familyId": "setup-vscode-web",
+          "conditionMatched": false,
+          "conditionIds": [
+            "syncAvailable"
+          ],
+          "reasons": [
+            "Settings Sync available",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "setup-open-code",
+          "familyId": "setup-vscode-web",
+          "conditionMatched": false,
+          "conditionIds": [
+            "workspaceEmpty"
+          ],
+          "reasons": [
+            "No workspace folder",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "setup-desktop-theme",
+          "familyId": "setup-vscode",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWeb"
+          ],
+          "reasons": [
+            "Desktop workbench",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "setup-video-tutorial",
+          "familyId": "setup-vscode",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWeb"
+          ],
+          "reasons": [
+            "Desktop workbench",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "fundamentals-settings",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWebWorker",
+            "syncAvailable"
+          ],
+          "reasons": [
+            "Settings Sync available",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "fundamentals-git-clone",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "workspaceEmpty",
+            "gitEnabled",
+            "gitAvailable"
+          ],
+          "reasons": [
+            "No workspace folder",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "fundamentals-git-init",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "workspacePresent",
+            "gitEnabled",
+            "gitAvailable",
+            "gitRepositoryAbsent"
+          ],
+          "reasons": [
+            "No Git repository open",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "fundamentals-install-git",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "gitMissing"
+          ],
+          "reasons": [
+            "Git missing",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "fundamentals-workspace-trust",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWebWorker",
+            "workspaceEmpty",
+            "workspaceUntrusted"
+          ],
+          "reasons": [
+            "No workspace folder",
+            "Workspace untrusted",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "accessibility-dictation",
+          "familyId": "accessibility",
+          "conditionMatched": false,
+          "conditionIds": [
+            "speechProvider"
+          ],
+          "reasons": [
+            "Speech provider available"
+          ]
+        },
+        {
+          "stepId": "notebook-profile",
+          "familyId": "notebooks",
+          "conditionMatched": false,
+          "conditionIds": [
+            "openGettingStarted",
+            "notebookOpened"
+          ],
+          "reasons": [
+            "Notebook opened",
+            "Source-known conditional route"
+          ]
+        }
+      ],
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "no-folder",
+      "description": "No folder open should route toward opening code.",
+      "state": {
+        "isWeb": true,
+        "workspacePlatform": "node",
+        "syncAvailable": false,
+        "workspaceFolderCount": 0,
+        "gitEnabled": true,
+        "gitMissing": false,
+        "gitOpenRepositoryCount": 0,
+        "activeViewlet": null,
+        "terminalIsOpen": false,
+        "remoteName": null,
+        "isWorkspaceTrusted": true,
+        "accessibilityContext": true,
+        "hasSpeechProvider": false,
+        "openGettingStarted": true,
+        "userHasOpenedNotebook": false
+      },
+      "visibleFamilies": [
+        "setup-vscode-web",
+        "learn-fundamentals",
+        "accessibility"
+      ],
+      "visibleStepIds": [
+        "setup-theme",
+        "setup-ui-density",
+        "setup-language-extensions",
+        "setup-command-palette",
+        "setup-open-code",
+        "fundamentals-extensions",
+        "fundamentals-terminal",
+        "fundamentals-git-clone",
+        "fundamentals-shortcuts",
+        "accessibility-help",
+        "accessibility-view",
+        "accessibility-verbosity",
+        "accessibility-command-palette",
+        "accessibility-keybindings",
+        "accessibility-signals",
+        "accessibility-hover",
+        "accessibility-symbols",
+        "accessibility-folding",
+        "accessibility-intellisense",
+        "accessibility-settings"
+      ],
+      "conditionalVisibleStepIds": [
+        "setup-open-code",
+        "fundamentals-git-clone"
+      ],
+      "sourceIndexedHiddenStepIds": [
+        "setup-web-extensions",
+        "setup-sync-settings",
+        "setup-desktop-theme",
+        "setup-video-tutorial",
+        "fundamentals-settings",
+        "fundamentals-git-init",
+        "fundamentals-install-git",
+        "fundamentals-workspace-trust",
+        "accessibility-dictation",
+        "notebook-profile"
+      ],
+      "hiddenSteps": [
+        {
+          "stepId": "setup-web-extensions",
+          "familyId": "setup-vscode-web",
+          "conditionMatched": false,
+          "conditionIds": [
+            "webWorker"
+          ],
+          "reasons": [
+            "Web worker workspace",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "setup-sync-settings",
+          "familyId": "setup-vscode-web",
+          "conditionMatched": false,
+          "conditionIds": [
+            "syncAvailable"
+          ],
+          "reasons": [
+            "Settings Sync available",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "setup-quick-open",
+          "familyId": "setup-vscode-web",
+          "conditionMatched": false,
+          "conditionIds": [
+            "workspacePresent"
+          ],
+          "reasons": [
+            "Workspace folder open"
+          ]
+        },
+        {
+          "stepId": "setup-desktop-theme",
+          "familyId": "setup-vscode",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWeb"
+          ],
+          "reasons": [
+            "Desktop workbench",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "setup-video-tutorial",
+          "familyId": "setup-vscode",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWeb"
+          ],
+          "reasons": [
+            "Desktop workbench",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "fundamentals-settings",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWebWorker",
+            "syncAvailable"
+          ],
+          "reasons": [
+            "Settings Sync available",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "fundamentals-debug",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWebWorker",
+            "workspacePresent"
+          ],
+          "reasons": [
+            "Workspace folder open"
+          ]
+        },
+        {
+          "stepId": "fundamentals-git-init",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "workspacePresent",
+            "gitEnabled",
+            "gitAvailable",
+            "gitRepositoryAbsent"
+          ],
+          "reasons": [
+            "Workspace folder open",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "fundamentals-git",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "workspacePresent",
+            "gitEnabled",
+            "gitAvailable",
+            "gitRepositoryOpen",
+            "scmViewInactive"
+          ],
+          "reasons": [
+            "Workspace folder open",
+            "Git repository open"
+          ]
+        },
+        {
+          "stepId": "fundamentals-install-git",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "gitMissing"
+          ],
+          "reasons": [
+            "Git missing",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "fundamentals-tasks",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWebWorker",
+            "workspacePresent"
+          ],
+          "reasons": [
+            "Workspace folder open"
+          ]
+        },
+        {
+          "stepId": "fundamentals-workspace-trust",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWebWorker",
+            "workspaceEmpty",
+            "workspaceUntrusted"
+          ],
+          "reasons": [
+            "Workspace untrusted",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "accessibility-dictation",
+          "familyId": "accessibility",
+          "conditionMatched": false,
+          "conditionIds": [
+            "speechProvider"
+          ],
+          "reasons": [
+            "Speech provider available"
+          ]
+        },
+        {
+          "stepId": "notebook-profile",
+          "familyId": "notebooks",
+          "conditionMatched": false,
+          "conditionIds": [
+            "openGettingStarted",
+            "notebookOpened"
+          ],
+          "reasons": [
+            "Notebook opened",
+            "Source-known conditional route"
+          ]
+        }
+      ],
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "webworker",
+      "description": "Webworker runtime surfaces web extension inventory.",
+      "state": {
+        "isWeb": true,
+        "workspacePlatform": "webworker",
+        "syncAvailable": false,
+        "workspaceFolderCount": 1,
+        "gitEnabled": true,
+        "gitMissing": false,
+        "gitOpenRepositoryCount": 1,
+        "activeViewlet": null,
+        "terminalIsOpen": false,
+        "remoteName": null,
+        "isWorkspaceTrusted": true,
+        "accessibilityContext": true,
+        "hasSpeechProvider": false,
+        "openGettingStarted": true,
+        "userHasOpenedNotebook": false
+      },
+      "visibleFamilies": [
+        "setup-vscode-web",
+        "learn-fundamentals",
+        "accessibility"
+      ],
+      "visibleStepIds": [
+        "setup-theme",
+        "setup-ui-density",
+        "setup-web-extensions",
+        "setup-command-palette",
+        "setup-quick-open",
+        "fundamentals-git",
+        "fundamentals-shortcuts",
+        "accessibility-help",
+        "accessibility-view",
+        "accessibility-verbosity",
+        "accessibility-command-palette",
+        "accessibility-keybindings",
+        "accessibility-signals",
+        "accessibility-hover",
+        "accessibility-symbols",
+        "accessibility-folding",
+        "accessibility-intellisense",
+        "accessibility-settings"
+      ],
+      "conditionalVisibleStepIds": [
+        "setup-web-extensions"
+      ],
+      "sourceIndexedHiddenStepIds": [
+        "setup-sync-settings",
+        "setup-open-code",
+        "setup-desktop-theme",
+        "setup-video-tutorial",
+        "fundamentals-settings",
+        "fundamentals-git-clone",
+        "fundamentals-git-init",
+        "fundamentals-install-git",
+        "fundamentals-workspace-trust",
+        "accessibility-dictation",
+        "notebook-profile"
+      ],
+      "hiddenSteps": [
+        {
+          "stepId": "setup-language-extensions",
+          "familyId": "setup-vscode-web",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWebWorker"
+          ],
+          "reasons": [
+            "Non-web-worker workspace"
+          ]
+        },
+        {
+          "stepId": "setup-sync-settings",
+          "familyId": "setup-vscode-web",
+          "conditionMatched": false,
+          "conditionIds": [
+            "syncAvailable"
+          ],
+          "reasons": [
+            "Settings Sync available",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "setup-open-code",
+          "familyId": "setup-vscode-web",
+          "conditionMatched": false,
+          "conditionIds": [
+            "workspaceEmpty"
+          ],
+          "reasons": [
+            "No workspace folder",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "setup-desktop-theme",
+          "familyId": "setup-vscode",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWeb"
+          ],
+          "reasons": [
+            "Desktop workbench",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "setup-video-tutorial",
+          "familyId": "setup-vscode",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWeb"
+          ],
+          "reasons": [
+            "Desktop workbench",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "fundamentals-settings",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWebWorker",
+            "syncAvailable"
+          ],
+          "reasons": [
+            "Non-web-worker workspace",
+            "Settings Sync available",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "fundamentals-extensions",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWebWorker"
+          ],
+          "reasons": [
+            "Non-web-worker workspace"
+          ]
+        },
+        {
+          "stepId": "fundamentals-terminal",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWebWorker",
+            "terminalClosed",
+            "notCodespaces"
+          ],
+          "reasons": [
+            "Non-web-worker workspace"
+          ]
+        },
+        {
+          "stepId": "fundamentals-debug",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWebWorker",
+            "workspacePresent"
+          ],
+          "reasons": [
+            "Non-web-worker workspace"
+          ]
+        },
+        {
+          "stepId": "fundamentals-git-clone",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "workspaceEmpty",
+            "gitEnabled",
+            "gitAvailable"
+          ],
+          "reasons": [
+            "No workspace folder",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "fundamentals-git-init",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "workspacePresent",
+            "gitEnabled",
+            "gitAvailable",
+            "gitRepositoryAbsent"
+          ],
+          "reasons": [
+            "No Git repository open",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "fundamentals-install-git",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "gitMissing"
+          ],
+          "reasons": [
+            "Git missing",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "fundamentals-tasks",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWebWorker",
+            "workspacePresent"
+          ],
+          "reasons": [
+            "Non-web-worker workspace"
+          ]
+        },
+        {
+          "stepId": "fundamentals-workspace-trust",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWebWorker",
+            "workspaceEmpty",
+            "workspaceUntrusted"
+          ],
+          "reasons": [
+            "Non-web-worker workspace",
+            "No workspace folder",
+            "Workspace untrusted",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "accessibility-dictation",
+          "familyId": "accessibility",
+          "conditionMatched": false,
+          "conditionIds": [
+            "speechProvider"
+          ],
+          "reasons": [
+            "Speech provider available"
+          ]
+        },
+        {
+          "stepId": "notebook-profile",
+          "familyId": "notebooks",
+          "conditionMatched": false,
+          "conditionIds": [
+            "openGettingStarted",
+            "notebookOpened"
+          ],
+          "reasons": [
+            "Notebook opened",
+            "Source-known conditional route"
+          ]
+        }
+      ],
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "sync-enabled",
+      "description": "Settings Sync availability surfaces profile sync routes.",
+      "state": {
+        "isWeb": true,
+        "workspacePlatform": "node",
+        "syncAvailable": true,
+        "workspaceFolderCount": 1,
+        "gitEnabled": true,
+        "gitMissing": false,
+        "gitOpenRepositoryCount": 1,
+        "activeViewlet": null,
+        "terminalIsOpen": false,
+        "remoteName": null,
+        "isWorkspaceTrusted": true,
+        "accessibilityContext": true,
+        "hasSpeechProvider": false,
+        "openGettingStarted": true,
+        "userHasOpenedNotebook": false
+      },
+      "visibleFamilies": [
+        "setup-vscode-web",
+        "learn-fundamentals",
+        "accessibility"
+      ],
+      "visibleStepIds": [
+        "setup-theme",
+        "setup-ui-density",
+        "setup-language-extensions",
+        "setup-sync-settings",
+        "setup-command-palette",
+        "setup-quick-open",
+        "fundamentals-settings",
+        "fundamentals-extensions",
+        "fundamentals-terminal",
+        "fundamentals-debug",
+        "fundamentals-git",
+        "fundamentals-tasks",
+        "fundamentals-shortcuts",
+        "accessibility-help",
+        "accessibility-view",
+        "accessibility-verbosity",
+        "accessibility-command-palette",
+        "accessibility-keybindings",
+        "accessibility-signals",
+        "accessibility-hover",
+        "accessibility-symbols",
+        "accessibility-folding",
+        "accessibility-intellisense",
+        "accessibility-settings"
+      ],
+      "conditionalVisibleStepIds": [
+        "setup-sync-settings",
+        "fundamentals-settings"
+      ],
+      "sourceIndexedHiddenStepIds": [
+        "setup-web-extensions",
+        "setup-open-code",
+        "setup-desktop-theme",
+        "setup-video-tutorial",
+        "fundamentals-git-clone",
+        "fundamentals-git-init",
+        "fundamentals-install-git",
+        "fundamentals-workspace-trust",
+        "accessibility-dictation",
+        "notebook-profile"
+      ],
+      "hiddenSteps": [
+        {
+          "stepId": "setup-web-extensions",
+          "familyId": "setup-vscode-web",
+          "conditionMatched": false,
+          "conditionIds": [
+            "webWorker"
+          ],
+          "reasons": [
+            "Web worker workspace",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "setup-open-code",
+          "familyId": "setup-vscode-web",
+          "conditionMatched": false,
+          "conditionIds": [
+            "workspaceEmpty"
+          ],
+          "reasons": [
+            "No workspace folder",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "setup-desktop-theme",
+          "familyId": "setup-vscode",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWeb"
+          ],
+          "reasons": [
+            "Desktop workbench",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "setup-video-tutorial",
+          "familyId": "setup-vscode",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWeb"
+          ],
+          "reasons": [
+            "Desktop workbench",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "fundamentals-git-clone",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "workspaceEmpty",
+            "gitEnabled",
+            "gitAvailable"
+          ],
+          "reasons": [
+            "No workspace folder",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "fundamentals-git-init",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "workspacePresent",
+            "gitEnabled",
+            "gitAvailable",
+            "gitRepositoryAbsent"
+          ],
+          "reasons": [
+            "No Git repository open",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "fundamentals-install-git",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "gitMissing"
+          ],
+          "reasons": [
+            "Git missing",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "fundamentals-workspace-trust",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWebWorker",
+            "workspaceEmpty",
+            "workspaceUntrusted"
+          ],
+          "reasons": [
+            "No workspace folder",
+            "Workspace untrusted",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "accessibility-dictation",
+          "familyId": "accessibility",
+          "conditionMatched": false,
+          "conditionIds": [
+            "speechProvider"
+          ],
+          "reasons": [
+            "Speech provider available"
+          ]
+        },
+        {
+          "stepId": "notebook-profile",
+          "familyId": "notebooks",
+          "conditionMatched": false,
+          "conditionIds": [
+            "openGettingStarted",
+            "notebookOpened"
+          ],
+          "reasons": [
+            "Notebook opened",
+            "Source-known conditional route"
+          ]
+        }
+      ],
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "git-missing",
+      "description": "Missing Git surfaces the install route and hides Git-backed SCM routes.",
+      "state": {
+        "isWeb": true,
+        "workspacePlatform": "node",
+        "syncAvailable": false,
+        "workspaceFolderCount": 1,
+        "gitEnabled": true,
+        "gitMissing": true,
+        "gitOpenRepositoryCount": 0,
+        "activeViewlet": null,
+        "terminalIsOpen": false,
+        "remoteName": null,
+        "isWorkspaceTrusted": true,
+        "accessibilityContext": true,
+        "hasSpeechProvider": false,
+        "openGettingStarted": true,
+        "userHasOpenedNotebook": false
+      },
+      "visibleFamilies": [
+        "setup-vscode-web",
+        "learn-fundamentals",
+        "accessibility"
+      ],
+      "visibleStepIds": [
+        "setup-theme",
+        "setup-ui-density",
+        "setup-language-extensions",
+        "setup-command-palette",
+        "setup-quick-open",
+        "fundamentals-extensions",
+        "fundamentals-terminal",
+        "fundamentals-debug",
+        "fundamentals-install-git",
+        "fundamentals-tasks",
+        "fundamentals-shortcuts",
+        "accessibility-help",
+        "accessibility-view",
+        "accessibility-verbosity",
+        "accessibility-command-palette",
+        "accessibility-keybindings",
+        "accessibility-signals",
+        "accessibility-hover",
+        "accessibility-symbols",
+        "accessibility-folding",
+        "accessibility-intellisense",
+        "accessibility-settings"
+      ],
+      "conditionalVisibleStepIds": [
+        "fundamentals-install-git"
+      ],
+      "sourceIndexedHiddenStepIds": [
+        "setup-web-extensions",
+        "setup-sync-settings",
+        "setup-open-code",
+        "setup-desktop-theme",
+        "setup-video-tutorial",
+        "fundamentals-settings",
+        "fundamentals-git-clone",
+        "fundamentals-git-init",
+        "fundamentals-workspace-trust",
+        "accessibility-dictation",
+        "notebook-profile"
+      ],
+      "hiddenSteps": [
+        {
+          "stepId": "setup-web-extensions",
+          "familyId": "setup-vscode-web",
+          "conditionMatched": false,
+          "conditionIds": [
+            "webWorker"
+          ],
+          "reasons": [
+            "Web worker workspace",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "setup-sync-settings",
+          "familyId": "setup-vscode-web",
+          "conditionMatched": false,
+          "conditionIds": [
+            "syncAvailable"
+          ],
+          "reasons": [
+            "Settings Sync available",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "setup-open-code",
+          "familyId": "setup-vscode-web",
+          "conditionMatched": false,
+          "conditionIds": [
+            "workspaceEmpty"
+          ],
+          "reasons": [
+            "No workspace folder",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "setup-desktop-theme",
+          "familyId": "setup-vscode",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWeb"
+          ],
+          "reasons": [
+            "Desktop workbench",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "setup-video-tutorial",
+          "familyId": "setup-vscode",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWeb"
+          ],
+          "reasons": [
+            "Desktop workbench",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "fundamentals-settings",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWebWorker",
+            "syncAvailable"
+          ],
+          "reasons": [
+            "Settings Sync available",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "fundamentals-git-clone",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "workspaceEmpty",
+            "gitEnabled",
+            "gitAvailable"
+          ],
+          "reasons": [
+            "No workspace folder",
+            "Git available",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "fundamentals-git-init",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "workspacePresent",
+            "gitEnabled",
+            "gitAvailable",
+            "gitRepositoryAbsent"
+          ],
+          "reasons": [
+            "Git available",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "fundamentals-git",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "workspacePresent",
+            "gitEnabled",
+            "gitAvailable",
+            "gitRepositoryOpen",
+            "scmViewInactive"
+          ],
+          "reasons": [
+            "Git available",
+            "Git repository open"
+          ]
+        },
+        {
+          "stepId": "fundamentals-workspace-trust",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWebWorker",
+            "workspaceEmpty",
+            "workspaceUntrusted"
+          ],
+          "reasons": [
+            "No workspace folder",
+            "Workspace untrusted",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "accessibility-dictation",
+          "familyId": "accessibility",
+          "conditionMatched": false,
+          "conditionIds": [
+            "speechProvider"
+          ],
+          "reasons": [
+            "Speech provider available"
+          ]
+        },
+        {
+          "stepId": "notebook-profile",
+          "familyId": "notebooks",
+          "conditionMatched": false,
+          "conditionIds": [
+            "openGettingStarted",
+            "notebookOpened"
+          ],
+          "reasons": [
+            "Notebook opened",
+            "Source-known conditional route"
+          ]
+        }
+      ],
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "no-git-repository",
+      "description": "Folder open without a Git repository surfaces initialization.",
+      "state": {
+        "isWeb": true,
+        "workspacePlatform": "node",
+        "syncAvailable": false,
+        "workspaceFolderCount": 1,
+        "gitEnabled": true,
+        "gitMissing": false,
+        "gitOpenRepositoryCount": 0,
+        "activeViewlet": null,
+        "terminalIsOpen": false,
+        "remoteName": null,
+        "isWorkspaceTrusted": true,
+        "accessibilityContext": true,
+        "hasSpeechProvider": false,
+        "openGettingStarted": true,
+        "userHasOpenedNotebook": false
+      },
+      "visibleFamilies": [
+        "setup-vscode-web",
+        "learn-fundamentals",
+        "accessibility"
+      ],
+      "visibleStepIds": [
+        "setup-theme",
+        "setup-ui-density",
+        "setup-language-extensions",
+        "setup-command-palette",
+        "setup-quick-open",
+        "fundamentals-extensions",
+        "fundamentals-terminal",
+        "fundamentals-debug",
+        "fundamentals-git-init",
+        "fundamentals-tasks",
+        "fundamentals-shortcuts",
+        "accessibility-help",
+        "accessibility-view",
+        "accessibility-verbosity",
+        "accessibility-command-palette",
+        "accessibility-keybindings",
+        "accessibility-signals",
+        "accessibility-hover",
+        "accessibility-symbols",
+        "accessibility-folding",
+        "accessibility-intellisense",
+        "accessibility-settings"
+      ],
+      "conditionalVisibleStepIds": [
+        "fundamentals-git-init"
+      ],
+      "sourceIndexedHiddenStepIds": [
+        "setup-web-extensions",
+        "setup-sync-settings",
+        "setup-open-code",
+        "setup-desktop-theme",
+        "setup-video-tutorial",
+        "fundamentals-settings",
+        "fundamentals-git-clone",
+        "fundamentals-install-git",
+        "fundamentals-workspace-trust",
+        "accessibility-dictation",
+        "notebook-profile"
+      ],
+      "hiddenSteps": [
+        {
+          "stepId": "setup-web-extensions",
+          "familyId": "setup-vscode-web",
+          "conditionMatched": false,
+          "conditionIds": [
+            "webWorker"
+          ],
+          "reasons": [
+            "Web worker workspace",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "setup-sync-settings",
+          "familyId": "setup-vscode-web",
+          "conditionMatched": false,
+          "conditionIds": [
+            "syncAvailable"
+          ],
+          "reasons": [
+            "Settings Sync available",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "setup-open-code",
+          "familyId": "setup-vscode-web",
+          "conditionMatched": false,
+          "conditionIds": [
+            "workspaceEmpty"
+          ],
+          "reasons": [
+            "No workspace folder",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "setup-desktop-theme",
+          "familyId": "setup-vscode",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWeb"
+          ],
+          "reasons": [
+            "Desktop workbench",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "setup-video-tutorial",
+          "familyId": "setup-vscode",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWeb"
+          ],
+          "reasons": [
+            "Desktop workbench",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "fundamentals-settings",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWebWorker",
+            "syncAvailable"
+          ],
+          "reasons": [
+            "Settings Sync available",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "fundamentals-git-clone",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "workspaceEmpty",
+            "gitEnabled",
+            "gitAvailable"
+          ],
+          "reasons": [
+            "No workspace folder",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "fundamentals-git",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "workspacePresent",
+            "gitEnabled",
+            "gitAvailable",
+            "gitRepositoryOpen",
+            "scmViewInactive"
+          ],
+          "reasons": [
+            "Git repository open"
+          ]
+        },
+        {
+          "stepId": "fundamentals-install-git",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "gitMissing"
+          ],
+          "reasons": [
+            "Git missing",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "fundamentals-workspace-trust",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWebWorker",
+            "workspaceEmpty",
+            "workspaceUntrusted"
+          ],
+          "reasons": [
+            "No workspace folder",
+            "Workspace untrusted",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "accessibility-dictation",
+          "familyId": "accessibility",
+          "conditionMatched": false,
+          "conditionIds": [
+            "speechProvider"
+          ],
+          "reasons": [
+            "Speech provider available"
+          ]
+        },
+        {
+          "stepId": "notebook-profile",
+          "familyId": "notebooks",
+          "conditionMatched": false,
+          "conditionIds": [
+            "openGettingStarted",
+            "notebookOpened"
+          ],
+          "reasons": [
+            "Notebook opened",
+            "Source-known conditional route"
+          ]
+        }
+      ],
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "untrusted-empty-workspace",
+      "description": "Untrusted empty workspaces surface Workspace Trust.",
+      "state": {
+        "isWeb": true,
+        "workspacePlatform": "node",
+        "syncAvailable": false,
+        "workspaceFolderCount": 0,
+        "gitEnabled": true,
+        "gitMissing": false,
+        "gitOpenRepositoryCount": 0,
+        "activeViewlet": null,
+        "terminalIsOpen": false,
+        "remoteName": null,
+        "isWorkspaceTrusted": false,
+        "accessibilityContext": true,
+        "hasSpeechProvider": false,
+        "openGettingStarted": true,
+        "userHasOpenedNotebook": false
+      },
+      "visibleFamilies": [
+        "setup-vscode-web",
+        "learn-fundamentals",
+        "accessibility"
+      ],
+      "visibleStepIds": [
+        "setup-theme",
+        "setup-ui-density",
+        "setup-language-extensions",
+        "setup-command-palette",
+        "setup-open-code",
+        "fundamentals-extensions",
+        "fundamentals-terminal",
+        "fundamentals-git-clone",
+        "fundamentals-shortcuts",
+        "fundamentals-workspace-trust",
+        "accessibility-help",
+        "accessibility-view",
+        "accessibility-verbosity",
+        "accessibility-command-palette",
+        "accessibility-keybindings",
+        "accessibility-signals",
+        "accessibility-hover",
+        "accessibility-symbols",
+        "accessibility-folding",
+        "accessibility-intellisense",
+        "accessibility-settings"
+      ],
+      "conditionalVisibleStepIds": [
+        "setup-open-code",
+        "fundamentals-git-clone",
+        "fundamentals-workspace-trust"
+      ],
+      "sourceIndexedHiddenStepIds": [
+        "setup-web-extensions",
+        "setup-sync-settings",
+        "setup-desktop-theme",
+        "setup-video-tutorial",
+        "fundamentals-settings",
+        "fundamentals-git-init",
+        "fundamentals-install-git",
+        "accessibility-dictation",
+        "notebook-profile"
+      ],
+      "hiddenSteps": [
+        {
+          "stepId": "setup-web-extensions",
+          "familyId": "setup-vscode-web",
+          "conditionMatched": false,
+          "conditionIds": [
+            "webWorker"
+          ],
+          "reasons": [
+            "Web worker workspace",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "setup-sync-settings",
+          "familyId": "setup-vscode-web",
+          "conditionMatched": false,
+          "conditionIds": [
+            "syncAvailable"
+          ],
+          "reasons": [
+            "Settings Sync available",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "setup-quick-open",
+          "familyId": "setup-vscode-web",
+          "conditionMatched": false,
+          "conditionIds": [
+            "workspacePresent"
+          ],
+          "reasons": [
+            "Workspace folder open"
+          ]
+        },
+        {
+          "stepId": "setup-desktop-theme",
+          "familyId": "setup-vscode",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWeb"
+          ],
+          "reasons": [
+            "Desktop workbench",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "setup-video-tutorial",
+          "familyId": "setup-vscode",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWeb"
+          ],
+          "reasons": [
+            "Desktop workbench",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "fundamentals-settings",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWebWorker",
+            "syncAvailable"
+          ],
+          "reasons": [
+            "Settings Sync available",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "fundamentals-debug",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWebWorker",
+            "workspacePresent"
+          ],
+          "reasons": [
+            "Workspace folder open"
+          ]
+        },
+        {
+          "stepId": "fundamentals-git-init",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "workspacePresent",
+            "gitEnabled",
+            "gitAvailable",
+            "gitRepositoryAbsent"
+          ],
+          "reasons": [
+            "Workspace folder open",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "fundamentals-git",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "workspacePresent",
+            "gitEnabled",
+            "gitAvailable",
+            "gitRepositoryOpen",
+            "scmViewInactive"
+          ],
+          "reasons": [
+            "Workspace folder open",
+            "Git repository open"
+          ]
+        },
+        {
+          "stepId": "fundamentals-install-git",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "gitMissing"
+          ],
+          "reasons": [
+            "Git missing",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "fundamentals-tasks",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWebWorker",
+            "workspacePresent"
+          ],
+          "reasons": [
+            "Workspace folder open"
+          ]
+        },
+        {
+          "stepId": "accessibility-dictation",
+          "familyId": "accessibility",
+          "conditionMatched": false,
+          "conditionIds": [
+            "speechProvider"
+          ],
+          "reasons": [
+            "Speech provider available"
+          ]
+        },
+        {
+          "stepId": "notebook-profile",
+          "familyId": "notebooks",
+          "conditionMatched": false,
+          "conditionIds": [
+            "openGettingStarted",
+            "notebookOpened"
+          ],
+          "reasons": [
+            "Notebook opened",
+            "Source-known conditional route"
+          ]
+        }
+      ],
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "speech-provider",
+      "description": "Speech provider availability surfaces dictation.",
+      "state": {
+        "isWeb": true,
+        "workspacePlatform": "node",
+        "syncAvailable": false,
+        "workspaceFolderCount": 1,
+        "gitEnabled": true,
+        "gitMissing": false,
+        "gitOpenRepositoryCount": 1,
+        "activeViewlet": null,
+        "terminalIsOpen": false,
+        "remoteName": null,
+        "isWorkspaceTrusted": true,
+        "accessibilityContext": true,
+        "hasSpeechProvider": true,
+        "openGettingStarted": true,
+        "userHasOpenedNotebook": false
+      },
+      "visibleFamilies": [
+        "setup-vscode-web",
+        "learn-fundamentals",
+        "accessibility"
+      ],
+      "visibleStepIds": [
+        "setup-theme",
+        "setup-ui-density",
+        "setup-language-extensions",
+        "setup-command-palette",
+        "setup-quick-open",
+        "fundamentals-extensions",
+        "fundamentals-terminal",
+        "fundamentals-debug",
+        "fundamentals-git",
+        "fundamentals-tasks",
+        "fundamentals-shortcuts",
+        "accessibility-help",
+        "accessibility-view",
+        "accessibility-verbosity",
+        "accessibility-command-palette",
+        "accessibility-keybindings",
+        "accessibility-signals",
+        "accessibility-hover",
+        "accessibility-symbols",
+        "accessibility-folding",
+        "accessibility-intellisense",
+        "accessibility-settings",
+        "accessibility-dictation"
+      ],
+      "conditionalVisibleStepIds": [],
+      "sourceIndexedHiddenStepIds": [
+        "setup-web-extensions",
+        "setup-sync-settings",
+        "setup-open-code",
+        "setup-desktop-theme",
+        "setup-video-tutorial",
+        "fundamentals-settings",
+        "fundamentals-git-clone",
+        "fundamentals-git-init",
+        "fundamentals-install-git",
+        "fundamentals-workspace-trust",
+        "notebook-profile"
+      ],
+      "hiddenSteps": [
+        {
+          "stepId": "setup-web-extensions",
+          "familyId": "setup-vscode-web",
+          "conditionMatched": false,
+          "conditionIds": [
+            "webWorker"
+          ],
+          "reasons": [
+            "Web worker workspace",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "setup-sync-settings",
+          "familyId": "setup-vscode-web",
+          "conditionMatched": false,
+          "conditionIds": [
+            "syncAvailable"
+          ],
+          "reasons": [
+            "Settings Sync available",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "setup-open-code",
+          "familyId": "setup-vscode-web",
+          "conditionMatched": false,
+          "conditionIds": [
+            "workspaceEmpty"
+          ],
+          "reasons": [
+            "No workspace folder",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "setup-desktop-theme",
+          "familyId": "setup-vscode",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWeb"
+          ],
+          "reasons": [
+            "Desktop workbench",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "setup-video-tutorial",
+          "familyId": "setup-vscode",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWeb"
+          ],
+          "reasons": [
+            "Desktop workbench",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "fundamentals-settings",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWebWorker",
+            "syncAvailable"
+          ],
+          "reasons": [
+            "Settings Sync available",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "fundamentals-git-clone",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "workspaceEmpty",
+            "gitEnabled",
+            "gitAvailable"
+          ],
+          "reasons": [
+            "No workspace folder",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "fundamentals-git-init",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "workspacePresent",
+            "gitEnabled",
+            "gitAvailable",
+            "gitRepositoryAbsent"
+          ],
+          "reasons": [
+            "No Git repository open",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "fundamentals-install-git",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "gitMissing"
+          ],
+          "reasons": [
+            "Git missing",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "fundamentals-workspace-trust",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWebWorker",
+            "workspaceEmpty",
+            "workspaceUntrusted"
+          ],
+          "reasons": [
+            "No workspace folder",
+            "Workspace untrusted",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "notebook-profile",
+          "familyId": "notebooks",
+          "conditionMatched": false,
+          "conditionIds": [
+            "openGettingStarted",
+            "notebookOpened"
+          ],
+          "reasons": [
+            "Notebook opened",
+            "Source-known conditional route"
+          ]
+        }
+      ],
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "notebook-opened",
+      "description": "Notebook state surfaces the conditional notebook profile route.",
+      "state": {
+        "isWeb": true,
+        "workspacePlatform": "node",
+        "syncAvailable": false,
+        "workspaceFolderCount": 1,
+        "gitEnabled": true,
+        "gitMissing": false,
+        "gitOpenRepositoryCount": 1,
+        "activeViewlet": null,
+        "terminalIsOpen": false,
+        "remoteName": null,
+        "isWorkspaceTrusted": true,
+        "accessibilityContext": true,
+        "hasSpeechProvider": false,
+        "openGettingStarted": true,
+        "userHasOpenedNotebook": true
+      },
+      "visibleFamilies": [
+        "setup-vscode-web",
+        "learn-fundamentals",
+        "accessibility",
+        "notebooks"
+      ],
+      "visibleStepIds": [
+        "setup-theme",
+        "setup-ui-density",
+        "setup-language-extensions",
+        "setup-command-palette",
+        "setup-quick-open",
+        "fundamentals-extensions",
+        "fundamentals-terminal",
+        "fundamentals-debug",
+        "fundamentals-git",
+        "fundamentals-tasks",
+        "fundamentals-shortcuts",
+        "accessibility-help",
+        "accessibility-view",
+        "accessibility-verbosity",
+        "accessibility-command-palette",
+        "accessibility-keybindings",
+        "accessibility-signals",
+        "accessibility-hover",
+        "accessibility-symbols",
+        "accessibility-folding",
+        "accessibility-intellisense",
+        "accessibility-settings",
+        "notebook-profile"
+      ],
+      "conditionalVisibleStepIds": [
+        "notebook-profile"
+      ],
+      "sourceIndexedHiddenStepIds": [
+        "setup-web-extensions",
+        "setup-sync-settings",
+        "setup-open-code",
+        "setup-desktop-theme",
+        "setup-video-tutorial",
+        "fundamentals-settings",
+        "fundamentals-git-clone",
+        "fundamentals-git-init",
+        "fundamentals-install-git",
+        "fundamentals-workspace-trust",
+        "accessibility-dictation"
+      ],
+      "hiddenSteps": [
+        {
+          "stepId": "setup-web-extensions",
+          "familyId": "setup-vscode-web",
+          "conditionMatched": false,
+          "conditionIds": [
+            "webWorker"
+          ],
+          "reasons": [
+            "Web worker workspace",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "setup-sync-settings",
+          "familyId": "setup-vscode-web",
+          "conditionMatched": false,
+          "conditionIds": [
+            "syncAvailable"
+          ],
+          "reasons": [
+            "Settings Sync available",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "setup-open-code",
+          "familyId": "setup-vscode-web",
+          "conditionMatched": false,
+          "conditionIds": [
+            "workspaceEmpty"
+          ],
+          "reasons": [
+            "No workspace folder",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "setup-desktop-theme",
+          "familyId": "setup-vscode",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWeb"
+          ],
+          "reasons": [
+            "Desktop workbench",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "setup-video-tutorial",
+          "familyId": "setup-vscode",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWeb"
+          ],
+          "reasons": [
+            "Desktop workbench",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "fundamentals-settings",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWebWorker",
+            "syncAvailable"
+          ],
+          "reasons": [
+            "Settings Sync available",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "fundamentals-git-clone",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "workspaceEmpty",
+            "gitEnabled",
+            "gitAvailable"
+          ],
+          "reasons": [
+            "No workspace folder",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "fundamentals-git-init",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "workspacePresent",
+            "gitEnabled",
+            "gitAvailable",
+            "gitRepositoryAbsent"
+          ],
+          "reasons": [
+            "No Git repository open",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "fundamentals-install-git",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "gitMissing"
+          ],
+          "reasons": [
+            "Git missing",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "fundamentals-workspace-trust",
+          "familyId": "learn-fundamentals",
+          "conditionMatched": false,
+          "conditionIds": [
+            "notWebWorker",
+            "workspaceEmpty",
+            "workspaceUntrusted"
+          ],
+          "reasons": [
+            "No workspace folder",
+            "Workspace untrusted",
+            "Source-known conditional route"
+          ]
+        },
+        {
+          "stepId": "accessibility-dictation",
+          "familyId": "accessibility",
+          "conditionMatched": false,
+          "conditionIds": [
+            "speechProvider"
+          ],
+          "reasons": [
+            "Speech provider available"
+          ]
+        }
+      ],
+      "failures": [],
+      "passed": true
+    }
+  ],
+  "assertions": {
+    "allCasesPassed": true,
+    "conditionalRoutesCanSurface": true,
+    "defaultKeepsConditionalRoutesHidden": true
+  }
+}

@@ -1,7 +1,7 @@
 import { formatSessionTimeAgo } from "@ioi/agent-ide";
-import type { DropdownOption } from "../../ChatShellWindow/components/ChatDropdown";
-import type { SlashMenuItem } from "./ChatSlashMenu";
-import { icons } from "../../ChatShellWindow/components/Icons";
+import type { DropdownOption } from "../../../components/ui/Dropdown";
+import type { CommandMenuItem } from "../../../components/ui/CommandMenu";
+import { icons } from "../../../components/ui/icons";
 import {
   matchesSlashQuery,
   sessionLabel,
@@ -61,8 +61,8 @@ export function buildSharedSessionCommandItems({
   onOpenValidationEvidence: () => void;
   onOpenSettings: () => void;
   onTogglePlanMode: (nextValue?: boolean) => void;
-}): SlashMenuItem[] {
-  const items: SlashMenuItem[] = [
+}): CommandMenuItem[] {
+  const items: CommandMenuItem[] = [
     {
       id: "open-branches",
       title: "Manage Branches",
@@ -464,7 +464,7 @@ export function buildModelSlashItems({
   commandQuery: string;
   onSelectModel: (value: string) => void;
   dismissCommandSurface: () => void;
-}): SlashMenuItem[] {
+}): CommandMenuItem[] {
   return modelOptions
     .filter((option) =>
       matchesSlashQuery(
@@ -474,7 +474,7 @@ export function buildModelSlashItems({
         "model llm openai anthropic meta",
       ),
     )
-    .map<SlashMenuItem>((option) => ({
+    .map<CommandMenuItem>((option) => ({
       id: `model-${option.value}`,
       title: option.label,
       description: option.desc || "Switch active model",
@@ -500,12 +500,12 @@ export function buildWorkspaceSlashItems({
   commandQuery: string;
   onSelectWorkspaceMode: (value: string) => void;
   dismissCommandSurface: () => void;
-}): SlashMenuItem[] {
+}): CommandMenuItem[] {
   return workspaceOptions
     .filter((option) =>
       matchesSlashQuery(commandQuery, option.label, option.desc, "workspace local cloud"),
     )
-    .map<SlashMenuItem>((option) => ({
+    .map<CommandMenuItem>((option) => ({
       id: `workspace-${option.value}`,
       title: option.label,
       description: option.desc || "Switch workspace",
@@ -527,7 +527,7 @@ export function buildWorkspaceWorkflowItems({
   workflows: WorkspaceWorkflowSummary[];
   commandQuery: string;
   onSelectWorkflow: (slashCommand: string) => void;
-}): SlashMenuItem[] {
+}): CommandMenuItem[] {
   return [...workflows]
     .sort((left, right) => {
       if (left.sourceRank !== right.sourceRank) {
@@ -546,7 +546,7 @@ export function buildWorkspaceWorkflowItems({
         "workflow markdown turbo",
       ),
     )
-    .map<SlashMenuItem>((workflow) => ({
+    .map<CommandMenuItem>((workflow) => ({
       id: `workflow-${workflow.workflowId}`,
       title: `Run ${workflow.slashCommand}`,
       description: workflow.description,
@@ -573,7 +573,7 @@ export function buildRecentSessionItems({
   commandQuery: string;
   dismissCommandSurface: (refocusComposer?: boolean) => void;
   onLoadSession: (sessionId: string) => void;
-}): SlashMenuItem[] {
+}): CommandMenuItem[] {
   return [...sessions]
     .sort((left, right) => right.timestamp - left.timestamp)
     .filter((session) => session.session_id !== currentSessionId)
@@ -591,7 +591,7 @@ export function buildRecentSessionItems({
       ),
     )
     .slice(0, 6)
-    .map<SlashMenuItem>((session) => {
+    .map<CommandMenuItem>((session) => {
       const sessionContext = sessionResumeContext(session);
       return {
         id: `session-${session.session_id}`,

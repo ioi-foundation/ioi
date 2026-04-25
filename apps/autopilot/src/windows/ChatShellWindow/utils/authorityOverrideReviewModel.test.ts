@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import type {
   CapabilityGovernanceRequest,
   ShieldPolicyState,
-} from "../../ChatWindow/chatPolicyCenter";
+} from "../../../surfaces/Policy/policyCenter";
 import type { ChatPermissionConnectorOverrideSummary } from "../hooks/useChatPermissions";
 import { buildAuthorityOverrideReviewCards } from "./authorityOverrideReviewModel.ts";
 

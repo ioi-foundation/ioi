@@ -2,7 +2,7 @@ import type {
   CapabilityGovernanceRequest,
   ShieldApprovalHookReceipt,
   ShieldRememberedApprovalSnapshot,
-} from "../../ChatWindow/chatPolicyCenter";
+} from "../../../surfaces/Policy/policyCenter";
 
 export interface PrivacyGovernanceHistoryOverview {
   label: string;

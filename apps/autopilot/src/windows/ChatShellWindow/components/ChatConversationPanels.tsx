@@ -4,7 +4,7 @@ import type {
   SkillDetailView,
   ChatArtifactSelectedSkill,
 } from "../../../types";
-import { icons } from "./Icons";
+import { icons } from "../../../components/ui/icons";
 import { formatChatExecutionPreviewPhase } from "./chatExecutionPreview";
 
 type ChatConversationWelcomeProps = {

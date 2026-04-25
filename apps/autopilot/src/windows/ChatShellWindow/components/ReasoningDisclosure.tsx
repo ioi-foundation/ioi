@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { ThoughtSummary } from "../../../types";
-import { icons } from "./Icons";
+import { icons } from "../../../components/ui/icons";
 
 export function ReasoningDisclosure({
   label,

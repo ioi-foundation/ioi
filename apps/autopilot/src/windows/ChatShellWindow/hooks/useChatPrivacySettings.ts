@@ -8,7 +8,7 @@ import {
   type CapabilityGovernanceRequest,
   type DataHandlingMode,
   type ShieldPolicyState,
-} from "../../ChatWindow/chatPolicyCenter";
+} from "../../../surfaces/Policy/policyCenter";
 import type { ChatPermissionConnectorOverrideSummary } from "./useChatPermissions";
 import { buildPrivacyGovernanceHistoryOverview } from "../utils/privacyGovernanceHistoryModel";
 

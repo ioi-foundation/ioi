@@ -1,0 +1,216 @@
+
+> dev:desktop
+> bash apps/autopilot/scripts/dev-desktop.sh x11
+
+Autopilot local GPU dev profile: desktop-localgpu (reset_on_boot=1, preset=ollama-openai, model=qwen3.5:9b, routing_model=qwen3.5:9b, routing_profile=fully_local, acceptance_model=qwen3.5:9b, embeddings=nomic-embed-text, http_timeout_secs=600, max_loaded_models=1, num_parallel=1, keep_alive=10m, flash_attention=1, context_length=4096, proof_trace=1)
+Local GPU dev cache: /home/heathledger/.ollama/models (ollama available)
+Reset Autopilot dev profile before launch: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu
+Local runtime already ready at http://127.0.0.1:11434/api/tags
+Warming local runtime models for Studio routing, drafting, and acceptance in background...
+Building local kernel companion (first run may take a few minutes)...
+Starting local kernel companion at http://127.0.0.1:9000...
+Local kernel companion ready: http://127.0.0.1:9000
+Starting isolated Vite dev server on port 1433...
+
+> autopilot@0.1.0 tauri
+> tauri dev --config {"build":{"beforeDevCommand":"","devUrl":"http://127.0.0.1:1433"}} --no-watch
+
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[33mwarning[0m[1m: unused variable: `request_hash`[0m
+  [1m[94m--> [0mcrates/services/src/agentic/policy/engine.rs:23:13
+   [1m[94m|[0m
+[1m[94m23[0m [1m[94m|[0m         let request_hash = match request.try_hash() {
+   [1m[94m|[0m             [1m[33m^^^^^^^^^^^^[0m [1m[33mhelp: if this is intentional, prefix it with an underscore: `_request_hash`[0m
+   [1m[94m|[0m
+   [1m[94m= [0m[1mnote[0m: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+[1m[33mwarning[0m[1m: value assigned to `firewall_verdict` is never read[0m
+   [1m[94m--> [0mcrates/services/src/agentic/runtime/service/handler/execution/execution/firewall_policy.rs:381:32
+    [1m[94m|[0m
+[1m[94m381[0m [1m[94m|[0m     let mut firewall_verdict = PolicyVerdict::Allow;
+    [1m[94m|[0m                                [1m[33m^^^^^^^^^^^^^^^^^^^^[0m
+    [1m[94m|[0m
+    [1m[94m= [0m[1mhelp[0m: maybe it is overwritten before being read?
+    [1m[94m= [0m[1mnote[0m: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+[1m[33mwarning[0m: `ioi-services` (lib) generated 2 warnings (run `cargo fix --lib -p ioi-services` to apply 1 suggestion)
+[1m[33mwarning[0m[1m: unused imports: `ArtifactRenderEvaluation as ChatArtifactRenderEvaluation`, `ChatArtifactPreparationNeeds`, `ChatArtifactPreparedContextResolution`, and `ChatArtifactSkillDiscoveryResolution`[0m
+ [1m[94m--> [0mapps/autopilot/src-tauri/src/kernel/chat/proof.rs:7:5
+  [1m[94m|[0m
+[1m[94m7[0m [1m[94m|[0m     ArtifactRenderEvaluation as ChatArtifactRenderEvaluation, ChatArtifactExemplar,
+  [1m[94m|[0m     [1m[33m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[1m[94m8[0m [1m[94m|[0m     ChatArtifactMergeReceipt, ChatArtifactPatchReceipt, ChatArtifactPreparationNeeds,
+  [1m[94m|[0m                                                         [1m[33m^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[1m[94m9[0m [1m[94m|[0m     ChatArtifactPreparedContextResolution, ChatArtifactSkillDiscoveryResolution,
+  [1m[94m|[0m     [1m[33m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m  [1m[33m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [1m[94m|[0m
+  [1m[94m= [0m[1mnote[0m: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+[1m[33mwarning[0m[1m: function `resolve_intervention_by_request_hash` is never used[0m
+   [1m[94m--> [0mapps/autopilot/src-tauri/src/kernel/notifications/commands.rs:268:15
+    [1m[94m|[0m
+[1m[94m268[0m [1m[94m|[0m pub(crate) fn resolve_intervention_by_request_hash(app: &AppHandle, request_hash: &str) {
+    [1m[94m|[0m               [1m[33m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+    [1m[94m|[0m
+    [1m[94m= [0m[1mnote[0m: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+[1m[33mwarning[0m: `autopilot` (lib) generated 2 warnings (run `cargo fix --lib -p autopilot` to apply 1 suggestion)
+[1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 0.39s
+[1m[92m     Running[0m `/home/heathledger/Documents/ioi/repos/ioi/target/debug/autopilot`
+[Autopilot] X11 threading initialized
+[Autopilot] Display env: XDG_SESSION_TYPE='x11' WAYLAND_DISPLAY='' GDK_BACKEND='x11' WINIT_UNIX_BACKEND='x11'
+[Autopilot] Initializing...
+[Chat] Using Autopilot data profile 'desktop-localgpu' at /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu
+--- Encrypting New Secure Key ---
+[Chat] Initialized memory runtime.
+[Chat] Skipping wallet-backed connector bootstrap for this local dev profile.
+[Chat] MCP disabled by default. Native filesystem drivers remain available; optional MCP filesystem server is off for safety.
+[Chat] Set IOI_CHAT_MCP_PROFILE=dev_filesystem to opt in.
+[Autopilot] Setup complete.
+[Autopilot] Connected to Kernel Event Stream at http://127.0.0.1:9000
+[Autopilot] Event Stream Active ✅
+[Autopilot] Block #631 committed (Tx: 0)
+[Autopilot] Block #632 committed (Tx: 0)
+[Autopilot] Block #633 committed (Tx: 0)
+[Autopilot] Block #634 committed (Tx: 0)
+[Autopilot] Block #635 committed (Tx: 0)
+[Autopilot] Block #636 committed (Tx: 0)
+[Autopilot][ChatLaunch] stage=show_requested detail={"maximizedBefore":false,"minimizedBefore":false,"visibleBefore":false,"windowExistedBefore":true,"windowLabel":"chat"}
+[Autopilot] Surfacing 'chat' (task_switcher=true, visible=Ok(true), minimized=Ok(false))
+[Autopilot][ChatLaunch] stage=show_surfaced detail={"maximizedAfter":false,"minimizedAfter":false,"recreatedWindow":false,"visibleAfter":true,"windowLabel":"chat"}
+[Autopilot] Block #637 committed (Tx: 0)
+[Autopilot] Block #638 committed (Tx: 0)
+[Autopilot] Block #639 committed (Tx: 0)
+[Autopilot] Block #640 committed (Tx: 0)
+[Autopilot] Block #641 committed (Tx: 0)
+[Autopilot] Block #642 committed (Tx: 0)
+[Autopilot] Block #643 committed (Tx: 0)
+[Autopilot] Block #644 committed (Tx: 0)
+[Autopilot] Block #645 committed (Tx: 0)
+[Autopilot] Block #646 committed (Tx: 0)
+[Autopilot] Block #647 committed (Tx: 0)
+[Autopilot] Block #648 committed (Tx: 0)
+[Autopilot] Block #649 committed (Tx: 0)
+[Autopilot] Block #650 committed (Tx: 0)
+[Autopilot] Block #651 committed (Tx: 0)
+[Autopilot] Block #652 committed (Tx: 0)
+[Autopilot] Block #653 committed (Tx: 0)
+[Autopilot] Block #654 committed (Tx: 0)
+[Autopilot] Block #655 committed (Tx: 0)
+[Autopilot] Block #656 committed (Tx: 0)
+[Autopilot] Block #657 committed (Tx: 0)
+[Autopilot] Block #658 committed (Tx: 0)
+[Autopilot] Block #659 committed (Tx: 0)
+[Autopilot] Block #660 committed (Tx: 0)
+[Autopilot] Block #661 committed (Tx: 0)
+[Autopilot] Block #662 committed (Tx: 0)
+[Autopilot] Block #663 committed (Tx: 0)
+[Autopilot] Block #664 committed (Tx: 0)
+[Autopilot] Block #665 committed (Tx: 0)
+[Autopilot] Block #666 committed (Tx: 0)
+[Autopilot] Block #667 committed (Tx: 0)
+[Autopilot] Block #668 committed (Tx: 0)
+[Autopilot] Block #669 committed (Tx: 0)
+[Autopilot] Block #670 committed (Tx: 0)
+[Autopilot] Block #671 committed (Tx: 0)
+[Autopilot] Block #672 committed (Tx: 0)
+[Autopilot] Block #673 committed (Tx: 0)
+[Autopilot] Block #674 committed (Tx: 0)
+[Autopilot] Block #675 committed (Tx: 0)
+[Autopilot] Block #676 committed (Tx: 0)
+[Autopilot] Block #677 committed (Tx: 0)
+[Autopilot] Block #678 committed (Tx: 0)
+[Autopilot] Block #679 committed (Tx: 0)
+[Autopilot] Block #680 committed (Tx: 0)
+[Autopilot] Block #681 committed (Tx: 0)
+[Autopilot] Block #682 committed (Tx: 0)
+[Autopilot] Block #683 committed (Tx: 0)
+[Autopilot] Block #684 committed (Tx: 0)
+[Autopilot] Block #685 committed (Tx: 0)
+[Autopilot] Block #686 committed (Tx: 0)
+[Autopilot] Block #687 committed (Tx: 0)
+[Autopilot] Block #688 committed (Tx: 0)
+[Autopilot] Block #689 committed (Tx: 0)
+[Autopilot] Block #690 committed (Tx: 0)
+[Autopilot] Block #691 committed (Tx: 0)
+[Autopilot] Block #692 committed (Tx: 0)
+[Autopilot] Block #693 committed (Tx: 0)
+[Autopilot] Block #694 committed (Tx: 0)
+[Autopilot] Block #695 committed (Tx: 0)
+[Autopilot] Block #696 committed (Tx: 0)
+[Autopilot] Block #697 committed (Tx: 0)
+[Autopilot] Block #698 committed (Tx: 0)
+[Autopilot] Block #699 committed (Tx: 0)
+[Autopilot] Block #700 committed (Tx: 0)
+[Autopilot] Block #701 committed (Tx: 0)
+[Autopilot] Block #702 committed (Tx: 0)
+[Autopilot] Block #703 committed (Tx: 0)
+[Autopilot] Block #704 committed (Tx: 0)
+[Autopilot] Block #705 committed (Tx: 0)
+[Autopilot] Block #706 committed (Tx: 0)
+[Autopilot] Block #707 committed (Tx: 0)
+[Autopilot] Block #708 committed (Tx: 0)
+[Autopilot] Block #709 committed (Tx: 0)
+[Autopilot] Block #710 committed (Tx: 0)
+[Autopilot] Block #711 committed (Tx: 0)
+[Autopilot] Block #712 committed (Tx: 0)
+[Autopilot] Block #713 committed (Tx: 0)
+[Autopilot] Block #714 committed (Tx: 0)
+[Autopilot] Block #715 committed (Tx: 0)
+[Autopilot] Block #716 committed (Tx: 0)
+[Autopilot] Block #717 committed (Tx: 0)
+[Autopilot] Block #718 committed (Tx: 0)
+[Autopilot] Block #719 committed (Tx: 0)
+[Autopilot] Block #720 committed (Tx: 0)
+[Autopilot] Block #721 committed (Tx: 0)
+[Autopilot] Block #722 committed (Tx: 0)
+[Autopilot] Block #723 committed (Tx: 0)
+[Autopilot] Block #724 committed (Tx: 0)
+[Autopilot] Block #725 committed (Tx: 0)
+[Autopilot] Block #726 committed (Tx: 0)
+[Autopilot] Block #727 committed (Tx: 0)
+[Autopilot] Block #728 committed (Tx: 0)
+[Autopilot] Block #729 committed (Tx: 0)
+[Autopilot] Block #730 committed (Tx: 0)
+[Autopilot][ChatLaunch] stage=peeked detail={"foundPendingRequest":false,"launch":null}
+[Autopilot][ChatLaunch] stage=peeked detail={"foundPendingRequest":false,"launch":null}
+[Autopilot] Block #731 committed (Tx: 0)
+[Autopilot][ChatLaunch] stage=chat_pending_launch_empty detail={"source":"mount"}
+[Autopilot][ChatLaunch] stage=chat_pending_launch_empty detail={"source":"mount"}
+[Autopilot][ChatLaunch] stage=show_requested detail={"maximizedBefore":false,"minimizedBefore":false,"visibleBefore":true,"windowExistedBefore":true,"windowLabel":"chat"}
+[Autopilot] Surfacing 'chat' (task_switcher=true, visible=Ok(true), minimized=Ok(false))
+[Autopilot][ChatLaunch] stage=show_surfaced detail={"maximizedAfter":false,"minimizedAfter":false,"recreatedWindow":false,"visibleAfter":true,"windowLabel":"chat"}
+[WorkspaceDirectWebview] show requested surface=openvscode-direct-openvscode-3825847-21853-21358-0 parent=chat bounds=(48, 35, 1232, 615) screen_bounds=Some(WorkspaceDirectWebviewBounds { x: 288.0, y: 237.0, width: 1232.0, height: 615.0 })
+[WorkspaceDirectWebview] reparented child window surface label=workspace-direct-a9953f3814560f3b parent=chat xid=10485763 child_xid=10485802 bounds=(48, 35, 1232, 615)
+[WorkspaceDirectWebview] created Child surface=openvscode-direct-openvscode-3825847-21853-21358-0 label=workspace-direct-a9953f3814560f3b
+[WorkspaceDirectWebview] show requested surface=openvscode-direct-openvscode-3825847-21853-21358-0 parent=chat bounds=(48, 35, 1232, 615) screen_bounds=Some(WorkspaceDirectWebviewBounds { x: 288.0, y: 237.0, width: 1232.0, height: 615.0 })
+[WorkspaceDirectWebview] reparented child window surface label=workspace-direct-a9953f3814560f3b parent=chat xid=10485763 child_xid=10485802 bounds=(48, 35, 1232, 615)
+[WorkspaceDirectWebview] reparented child window surface label=workspace-direct-a9953f3814560f3b parent=chat xid=10485763 child_xid=10485802 bounds=(48, 35, 1232, 615)
+[WorkspaceDirectWebview] reused Child surface=openvscode-direct-openvscode-3825847-21853-21358-0 label=workspace-direct-a9953f3814560f3b
+[Autopilot] Block #732 committed (Tx: 0)
+[WorkspaceDirectWebview] reparented child window surface label=workspace-direct-a9953f3814560f3b parent=chat xid=10485763 child_xid=10485802 bounds=(48, 35, 1232, 615)
+[WorkspaceDirectWebview] ready Child surface=openvscode-direct-openvscode-3825847-21853-21358-0 label=workspace-direct-a9953f3814560f3b bounds=(48, 35, 1232, 615) screen_bounds=Some(WorkspaceDirectWebviewBounds { x: 288.0, y: 237.0, width: 1232.0, height: 615.0 })
+[Workspace IDE] bridge request queued id=d1cbafc4-562e-4482-ad17-820f11cd5f80 type=runs.open
+[Workspace IDE] bridge requests drained root=/home/heathledger/Documents/ioi/repos/ioi/apps/autopilot/src-tauri count=1 types=runs.open
+[Autopilot][ChatLaunch] stage=runtime_open_view_requested detail={"view":"runs"}
+[Autopilot][ChatLaunch] stage=queued detail={"launch":{"launchId":"322c8397-c37b-416e-811b-ed2af1b03cd2","request":{"kind":"view","view":"runs"}}}
+[Autopilot][ChatLaunch] stage=show_target_requested detail={"launch":{"launchId":"322c8397-c37b-416e-811b-ed2af1b03cd2","request":{"kind":"view","view":"runs"}},"windowLabel":"chat"}
+[Autopilot][ChatLaunch] stage=show_requested detail={"maximizedBefore":false,"minimizedBefore":false,"visibleBefore":true,"windowExistedBefore":true,"windowLabel":"chat"}
+[Autopilot] Surfacing 'chat' (task_switcher=true, visible=Ok(true), minimized=Ok(false))
+[Autopilot][ChatLaunch] stage=show_surfaced detail={"maximizedAfter":false,"minimizedAfter":false,"recreatedWindow":false,"visibleAfter":true,"windowLabel":"chat"}
+[Autopilot][ChatLaunch] stage=show_target_emitted detail={"launch":{"launchId":"322c8397-c37b-416e-811b-ed2af1b03cd2","request":{"kind":"view","view":"runs"}},"windowLabel":"chat"}
+[Autopilot][ChatLaunch] stage=chat_launch_event_received detail={"kind":"view","launchId":"322c8397-c37b-416e-811b-ed2af1b03cd2","request":{"kind":"view","view":"runs"}}
+[Autopilot][ChatLaunch] stage=acked detail={"hadPendingRequest":true,"launch":{"launchId":"322c8397-c37b-416e-811b-ed2af1b03cd2","request":{"kind":"view","view":"runs"}},"launchId":"322c8397-c37b-416e-811b-ed2af1b03cd2"}
+[Autopilot][ChatLaunch] stage=runtime_open_view_requested_completed detail={"view":"runs"}
+[Autopilot][ChatLaunch] stage=chat_launch_event_received detail={"kind":"view","launchId":"322c8397-c37b-416e-811b-ed2af1b03cd2","request":{"kind":"view","view":"runs"}}
+[Autopilot][ChatLaunch] stage=ack_ignored detail={"hadPendingRequest":false,"launch":null,"launchId":"322c8397-c37b-416e-811b-ed2af1b03cd2"}
+[Autopilot][ChatLaunch] stage=chat_pending_launch_duplicate detail={"kind":"view","launchId":"322c8397-c37b-416e-811b-ed2af1b03cd2","reason":"launch_already_claimed","request":{"kind":"view","view":"runs"},"source":"event"}
+[Autopilot][ChatLaunch] stage=chat_pending_launch_applying detail={"kind":"view","launchId":"322c8397-c37b-416e-811b-ed2af1b03cd2","request":{"kind":"view","view":"runs"},"source":"event"}
+[Autopilot][ChatLaunch] stage=chat_pending_launch_applied detail={"kind":"view","launchId":"322c8397-c37b-416e-811b-ed2af1b03cd2","source":"event","view":"runs"}
+[WorkspaceDirectWebview] hide requested Child surface=openvscode-direct-openvscode-3825847-21853-21358-0 label=workspace-direct-a9953f3814560f3b
+[WorkspaceDirectWebview] unmapped child window label=workspace-direct-a9953f3814560f3b child_xid=10485802
+[WorkspaceDirectWebview] invalidated parent window label=chat xid=10485763 bounds=(48, 35, 1232, 615)
+[WorkspaceDirectWebview] destroy requested Child surface=openvscode-direct-openvscode-3825847-21853-21358-0 label=workspace-direct-a9953f3814560f3b
+[WorkspaceDirectWebview] unmapped child window label=workspace-direct-a9953f3814560f3b child_xid=10485802
+[WorkspaceDirectWebview] invalidated parent window label=chat xid=10485763 bounds=(48, 35, 1232, 615)
+[WorkspaceDirectWebview] destroying Child surface label=workspace-direct-a9953f3814560f3b

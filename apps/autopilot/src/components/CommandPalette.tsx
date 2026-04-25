@@ -25,16 +25,16 @@ import {
 import { useAgentStore } from "../session/autopilotSession";
 import { getSessionWorkbenchRuntime } from "../services/sessionRuntime";
 import type { SessionSummary, SkillCatalogEntry } from "../types";
-import { icons } from "../windows/ChatShellWindow/components/Icons";
 import {
-  ChatSlashMenu,
-  type SlashMenuItem,
-  type SlashMenuSection,
-} from "../windows/ChatShellWindow/components/ChatSlashMenu";
+  CommandMenu,
+  icons,
+  type CommandMenuItem,
+  type CommandMenuSection,
+} from "./ui";
 import type {
   PrimaryView,
   ProjectScope,
-} from "../windows/ChatWindow/chatWindowModel";
+} from "../windows/AutopilotShellWindow/autopilotShellModel";
 import {
   AUTOPILOT_ONBOARDING_STEPS,
   HOME_ONBOARDING_FOCUS_EVENT,
@@ -341,7 +341,7 @@ export function CommandPalette({
     };
   }, []);
 
-  const sections = useMemo<SlashMenuSection[]>(() => {
+  const sections = useMemo<CommandMenuSection[]>(() => {
     const focusHomeStep = (stepId: string) => {
       window.dispatchEvent(
         new CustomEvent(HOME_ONBOARDING_FOCUS_EVENT, {
@@ -366,7 +366,7 @@ export function CommandPalette({
       return icons.sparkles;
     };
 
-    const homeOnboardingItems: SlashMenuItem[] = AUTOPILOT_ONBOARDING_STEPS.map(
+    const homeOnboardingItems: CommandMenuItem[] = AUTOPILOT_ONBOARDING_STEPS.map(
       (step) => ({
         id: `home-onboarding-${step.id}`,
         title: step.primaryAction.commandPaletteLabel,
@@ -381,7 +381,7 @@ export function CommandPalette({
       }),
     );
 
-    const commandItems: SlashMenuItem[] = [
+    const commandItems: CommandMenuItem[] = [
       {
         id: "open-home",
         title: "Open Home",
@@ -559,7 +559,7 @@ export function CommandPalette({
       ),
     );
 
-    const sessionItems: SlashMenuItem[] =
+    const sessionItems: CommandMenuItem[] =
       sessionsStatus === "loading"
         ? [
             {
@@ -596,7 +596,7 @@ export function CommandPalette({
                 ),
               )
               .slice(0, 8)
-              .map<SlashMenuItem>((session) => {
+              .map<CommandMenuItem>((session) => {
                 const sessionContext = sessionResumeContext(session);
                 return {
                   id: `session-${session.session_id}`,
@@ -633,7 +633,7 @@ export function CommandPalette({
           "project workspace scope",
         ),
       )
-      .map<SlashMenuItem>((project) => ({
+      .map<CommandMenuItem>((project) => ({
         id: `project-${project.id}`,
         title: project.name,
         description: `${project.description} Root: ${project.rootPath}.`,
@@ -646,7 +646,7 @@ export function CommandPalette({
           }),
       }));
 
-    const runtimeCatalogItems: SlashMenuItem[] =
+    const runtimeCatalogItems: CommandMenuItem[] =
       runtimeCatalogStatus === "loading"
         ? [
             {
@@ -684,7 +684,7 @@ export function CommandPalette({
                 ),
               )
               .slice(0, 8)
-              .map<SlashMenuItem>((entry) => ({
+              .map<CommandMenuItem>((entry) => ({
                 id: `catalog-${entry.id}`,
                 title: entry.name,
                 description: entry.description || entry.runtimeNotes,
@@ -699,7 +699,7 @@ export function CommandPalette({
                   }),
               }));
 
-    const liveToolItems: SlashMenuItem[] =
+    const liveToolItems: CommandMenuItem[] =
       liveToolsStatus === "loading"
         ? [
             {
@@ -740,7 +740,7 @@ export function CommandPalette({
                 ),
               )
               .slice(0, 10)
-              .map<SlashMenuItem>(({ connector, action }) => ({
+              .map<CommandMenuItem>(({ connector, action }) => ({
                 id: `tool-${connector.id}-${action.id}`,
                 title: action.label,
                 description:
@@ -767,7 +767,7 @@ export function CommandPalette({
       return left.name.localeCompare(right.name);
     });
 
-    const skillItems: SlashMenuItem[] =
+    const skillItems: CommandMenuItem[] =
       skillsStatus === "loading"
         ? [
             {
@@ -800,7 +800,7 @@ export function CommandPalette({
                 ),
               )
               .slice(0, 10)
-              .map<SlashMenuItem>((skill) => ({
+              .map<CommandMenuItem>((skill) => ({
                 id: `skill-${skill.skill_hash}`,
                 title: skill.name,
                 description:
@@ -913,7 +913,7 @@ export function CommandPalette({
         className="command-palette-shell"
         onClick={(event) => event.stopPropagation()}
       >
-        <ChatSlashMenu
+        <CommandMenu
           sections={sections}
           mode="palette"
           selectedItemId={highlightedItemId}

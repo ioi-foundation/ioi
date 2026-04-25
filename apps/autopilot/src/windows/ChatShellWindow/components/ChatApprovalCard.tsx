@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { icons } from "../../ChatShellWindow/components/Icons";
+import { icons } from "../../../components/ui/icons";
 import "../../ChatShellWindow/styles/Chat.css";
 
 interface ApprovalProps {

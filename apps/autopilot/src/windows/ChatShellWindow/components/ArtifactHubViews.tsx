@@ -50,7 +50,7 @@ import type {
   ShieldApprovalScopeMode,
   ShieldRememberedApprovalSnapshot,
   ShieldPolicyState,
-} from "../../ChatWindow/chatPolicyCenter";
+} from "../../../surfaces/Policy/policyCenter";
 import type {
   ChatPermissionConnectorOverrideSummary,
   ChatPermissionProfileSummary,

@@ -20,7 +20,7 @@ import type {
   ThoughtSummary,
 } from "../../../types";
 import type { ChatPlaybookRunRecord } from "../../ChatShellWindow/hooks/useChatPlaybookRuns";
-import { icons } from "./Icons";
+import { icons } from "../../../components/ui/icons";
 import { ArtifactHubDetailView } from "./ArtifactHubViews";
 import type {
   KernelLogRow,

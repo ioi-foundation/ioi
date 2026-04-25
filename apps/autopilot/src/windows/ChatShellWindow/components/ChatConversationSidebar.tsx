@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { SessionSummary } from "../../../types";
-import { icons } from "./Icons";
+import { icons } from "../../../components/ui/icons";
 
 type ChatConversationSidebarProps = {
   sessions: SessionSummary[];
