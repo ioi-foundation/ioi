@@ -139,6 +139,45 @@ pub(crate) fn autopilot_data_dir_for<R: Runtime>(app: &AppHandle<R>) -> PathBuf 
     base
 }
 
+pub(crate) fn autopilot_workspace_base_dir() -> PathBuf {
+    if let Some(override_path) = env_text("AUTOPILOT_WORKSPACE_BASE_DIR") {
+        return PathBuf::from(override_path);
+    }
+
+    let manifest_workspace_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../..");
+    if manifest_workspace_root.join("package.json").exists()
+        && manifest_workspace_root
+            .join("apps/autopilot/src-tauri")
+            .exists()
+    {
+        return manifest_workspace_root
+            .canonicalize()
+            .unwrap_or(manifest_workspace_root);
+    }
+
+    std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+}
+
+pub(crate) fn resolve_autopilot_workspace_root(root: &str) -> Result<PathBuf, String> {
+    let requested = PathBuf::from(root);
+    let resolved = if requested.is_absolute() {
+        requested
+    } else {
+        autopilot_workspace_base_dir().join(requested)
+    };
+
+    if !resolved.exists() {
+        return Err(format!(
+            "Workspace root '{}' does not exist.",
+            resolved.display()
+        ));
+    }
+
+    resolved
+        .canonicalize()
+        .map_err(|error| format!("Failed to canonicalize '{}': {}", resolved.display(), error))
+}
+
 pub(crate) fn open_or_create_memory_runtime(data_dir: &Path) -> Result<MemoryRuntime, String> {
     let memory_path = data_dir.join("chat-memory.db");
     if !data_dir.exists() {

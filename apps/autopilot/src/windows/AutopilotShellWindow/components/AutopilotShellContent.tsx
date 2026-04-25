@@ -70,6 +70,7 @@ export function AutopilotShellContent({
           <WorkspaceShell
             active={workspaceActive}
             currentProject={currentProject}
+            projects={projects}
             runtime={runtime}
             host={workspaceHost}
           />

@@ -490,6 +490,18 @@ fn ensure_openvscode_user_settings(user_data_dir: &Path) -> Result<(), String> {
         "security.workspace.trust.banner".to_string(),
         Value::String("never".to_string()),
     );
+    settings.insert(
+        "workbench.startupEditor".to_string(),
+        Value::String("none".to_string()),
+    );
+    settings.insert(
+        "workbench.welcomePage.walkthroughs.openOnInstall".to_string(),
+        Value::Bool(false),
+    );
+    settings.insert(
+        "git.openRepositoryInParentFolders".to_string(),
+        Value::String("never".to_string()),
+    );
 
     let contents = serde_json::to_string_pretty(&Value::Object(settings)).map_err(|error| {
         format!(
@@ -577,8 +589,7 @@ pub fn ensure_workspace_ide_session<R: Runtime>(
     app: AppHandle<R>,
     manager: State<WorkspaceIdeManager>,
 ) -> Result<WorkspaceIdeSessionInfo, String> {
-    let root_path = PathBuf::from(&root)
-        .canonicalize()
+    let root_path = crate::resolve_autopilot_workspace_root(&root)
         .map_err(|error| format!("Failed to resolve workspace IDE root '{}': {}", root, error))?;
     if !root_path.is_dir() {
         return Err(format!(
