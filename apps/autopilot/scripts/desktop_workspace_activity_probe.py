@@ -142,7 +142,7 @@ def click_window_ratio(window_id: int, x_ratio: float, y_ratio: float) -> dict[s
         raise RuntimeError(f"Could not determine geometry for window {window_id}")
     rel_x = max(1, min(width - 1, int(width * x_ratio)))
     rel_y = max(1, min(height - 1, int(height * y_ratio)))
-    run(["xdotool", "windowactivate", "--sync", str(window_id)], check=False)
+    run(["xdotool", "windowactivate", str(window_id)], check=False)
     run(["xdotool", "mousemove", "--window", str(window_id), str(rel_x), str(rel_y)])
     # `click --window` can miss WebKit/Tauri DOM targets on Linux/X11 even when the
     # pointer is in the right place. Clicking the current pointer location after a

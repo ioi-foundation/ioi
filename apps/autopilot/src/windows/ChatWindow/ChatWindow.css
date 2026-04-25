@@ -2557,6 +2557,25 @@
   color: var(--chat-text);
 }
 
+:root[data-autopilot-theme^="light"] .chat-shell:not(.chat-shell--workspace-mode),
+:root[data-autopilot-theme^="light"] .chat-workspace:not(.chat-workspace--workspace-mode),
+:root[data-autopilot-theme^="light"] .chat-main,
+:root[data-autopilot-theme^="light"] .chat-content {
+  background: var(--chat-bg);
+}
+
+:root[data-autopilot-theme^="light"] .chat-activity-bar,
+:root[data-autopilot-theme^="light"] .chat-ide-header {
+  background: #f3f3f3;
+  border-color: #e5e5e5;
+  color: #424242;
+}
+
+:root[data-autopilot-theme^="light"] .chat-activity-button,
+:root[data-autopilot-theme^="light"] .chat-ide-window-button {
+  color: #424242;
+}
+
 .mission-control-view {
   flex: 1;
   min-width: 0;

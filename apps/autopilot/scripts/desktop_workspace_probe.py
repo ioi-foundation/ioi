@@ -141,7 +141,8 @@ def launch_dev_desktop(
     profile: str,
     log_path: Path,
     dev_url: str,
-    workspace_host: str | None,
+    workspace_host: str | None = None,
+    initial_view: str = "workspace",
 ) -> subprocess.Popen[str]:
     env = os.environ.copy()
     env.update(
@@ -149,7 +150,7 @@ def launch_dev_desktop(
             "AUTOPILOT_LOCAL_GPU_DEV": "1",
             "AUTOPILOT_RESET_DATA_ON_BOOT": "1",
             "AUTOPILOT_DATA_PROFILE": profile,
-            "VITE_AUTOPILOT_INITIAL_VIEW": "workspace",
+            "VITE_AUTOPILOT_INITIAL_VIEW": initial_view,
             "DEV_URL": dev_url,
             "AUTOPILOT_REUSE_DEV_SERVER": "0",
             "AUTO_START_DEV_SERVER": "1",
@@ -213,7 +214,7 @@ def terminate_process_group(process: subprocess.Popen[str]) -> None:
 
 
 def focus_workspace_view(window_id: int) -> None:
-    run(["xdotool", "windowactivate", "--sync", str(window_id)], check=False)
+    run(["xdotool", "windowactivate", str(window_id)], check=False)
     time.sleep(0.35)
 
 

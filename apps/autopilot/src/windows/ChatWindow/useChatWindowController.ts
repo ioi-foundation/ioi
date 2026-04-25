@@ -69,6 +69,12 @@ const appliedChatLaunchIds = new Set<string>();
 function resolveInitialPrimaryView(): PrimaryView {
   if (typeof window !== "undefined") {
     const requested = new URLSearchParams(window.location.search).get("view");
+    if (requested === "home") {
+      return "home";
+    }
+    if (requested === "chat") {
+      return "chat";
+    }
     if (requested === "workspace") {
       return "workspace";
     }
@@ -78,11 +84,15 @@ function resolveInitialPrimaryView(): PrimaryView {
     .toString()
     .trim()
     .toLowerCase();
-  if (envRequestedView === "workspace") {
-    return "workspace";
+  if (
+    envRequestedView === "home" ||
+    envRequestedView === "chat" ||
+    envRequestedView === "workspace"
+  ) {
+    return envRequestedView;
   }
 
-  return "chat";
+  return "home";
 }
 
 function waitForChatAutopilotSurfaceFrame(): Promise<void> {
@@ -302,6 +312,10 @@ export function useChatWindowController() {
       case "copilot":
       case "autopilot":
         setActiveView("chat");
+        return;
+      case "home":
+      case "welcome":
+        setActiveView("home");
         return;
       case "workspace":
         setActiveView("workspace");

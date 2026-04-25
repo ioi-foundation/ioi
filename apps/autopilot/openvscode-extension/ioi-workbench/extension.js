@@ -216,6 +216,14 @@ function defaultBridgeState() {
       helperText:
         "IOI runtime remains authoritative for policy, approvals, evidence, and settlement.",
     },
+    appearance: {
+      themeId: "light-modern",
+      themeLabel: "Light Modern",
+      density: "default",
+      openVsCodeColorTheme: "Default Light Modern",
+      source: "default",
+      updatedAtMs: 0,
+    },
     workflows: [],
     runs: [],
     artifacts: [],
@@ -866,10 +874,30 @@ class IOIViewProvider {
     if (!this.webviewView) {
       return;
     }
-    this.webviewView.webview.html = renderHtml(
-      this.definition,
-      await this.getState(),
-    );
+    const state = await this.getState();
+    await syncWorkbenchAppearance(state);
+    this.webviewView.webview.html = renderHtml(this.definition, state);
+  }
+}
+
+let lastAppliedColorTheme = null;
+
+async function syncWorkbenchAppearance(state) {
+  const colorTheme = state?.appearance?.openVsCodeColorTheme;
+  if (typeof colorTheme !== "string" || !colorTheme.trim()) {
+    return;
+  }
+  const normalized = colorTheme.trim();
+  if (normalized === lastAppliedColorTheme) {
+    return;
+  }
+  lastAppliedColorTheme = normalized;
+  try {
+    await vscode.workspace
+      .getConfiguration("workbench")
+      .update("colorTheme", normalized, vscode.ConfigurationTarget.Global);
+  } catch (error) {
+    console.error("[IOI Workbench] Failed to apply bridge appearance:", error);
   }
 }
 

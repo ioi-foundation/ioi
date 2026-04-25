@@ -6,6 +6,11 @@ import React, {
 } from "react";
 import { RuntimeCatalogStageModal } from "../../components/RuntimeCatalogStageModal";
 import { CommandPalette } from "../../components/CommandPalette";
+import {
+  applyAutopilotAppearance,
+  loadAutopilotAppearance,
+  subscribeAutopilotAppearance,
+} from "../../services/autopilotAppearance";
 import { TauriRuntime } from "../../services/TauriRuntime";
 import { isBenignTauriListenerCleanupError } from "../../services/tauriListeners";
 import { markAutopilotMetric } from "../../services/workspacePerf";
@@ -235,6 +240,11 @@ function ChatWindowLoaded() {
 
   useEffect(() => {
     markAutopilotMetric("chat_window_loaded");
+  }, []);
+
+  useEffect(() => {
+    applyAutopilotAppearance(loadAutopilotAppearance());
+    return subscribeAutopilotAppearance(applyAutopilotAppearance);
   }, []);
 
   const handleStageCatalogEntry = async (entry: {

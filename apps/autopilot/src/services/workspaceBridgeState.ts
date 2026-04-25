@@ -1,4 +1,5 @@
 import type { TauriRuntime } from "./TauriRuntime";
+import { buildAutopilotAppearanceBridgeState } from "./autopilotAppearance";
 import {
   buildWorkspaceArtifactInspections,
   buildWorkspacePolicyInspection,
@@ -72,6 +73,7 @@ export async function buildWorkspaceBridgeState(
     schemaVersion: 1,
     generatedAtMs: Date.now(),
     authoritativeRuntime: true,
+    appearance: buildAutopilotAppearanceBridgeState(),
     workspace: {
       ...host.describeBridgeWorkspace(session, currentProject),
     },
