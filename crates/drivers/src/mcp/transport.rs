@@ -6,6 +6,7 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::process::Stdio;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::{mpsc, oneshot};
@@ -145,8 +146,19 @@ impl McpTransport {
             .await
             .map_err(|_| anyhow!("MCP Server crashed (channel closed)"))?;
 
-        rx.await
-            .map_err(|_| anyhow!("MCP Server dropped response"))?
+        match tokio::time::timeout(mcp_request_timeout(), rx).await {
+            Ok(Ok(result)) => result,
+            Ok(Err(_)) => Err(anyhow!("MCP Server dropped response")),
+            Err(_) => {
+                let mut map = self.pending_requests.lock().unwrap();
+                map.remove(&id);
+                Err(anyhow!(
+                    "MCP request '{}' timed out after {}s",
+                    method,
+                    mcp_request_timeout().as_secs()
+                ))
+            }
+        }
     }
 
     pub async fn initialize(&self) -> Result<()> {
@@ -183,6 +195,15 @@ impl McpTransport {
         });
         self.send_request("tools/call", params).await
     }
+}
+
+fn mcp_request_timeout() -> Duration {
+    std::env::var("IOI_MCP_REQUEST_TIMEOUT_SECS")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .filter(|seconds| *seconds > 0)
+        .map(Duration::from_secs)
+        .unwrap_or_else(|| Duration::from_secs(60))
 }
 
 fn apply_strict_containment(command: &mut Command, policy: &McpSpawnPolicy) -> Result<()> {

@@ -1,8 +1,8 @@
 use super::validation::{
-    candidate_generation_config, candidate_seed_for, html_first_paint_section_blueprint,
+    candidate_generation_config, candidate_seed_for, chat_artifact_refinement_candidate_view,
+    chat_artifact_refinement_context_view, html_first_paint_section_blueprint,
     materialization_max_tokens, output_origin_from_provenance, refined_candidate_root,
     renderer_supports_semantic_refinement, runtime_model_label, semantic_refinement_pass_limit,
-    chat_artifact_refinement_candidate_view, chat_artifact_refinement_context_view,
     summarized_guidance_terms, validation_clears_primary_view, validation_total_score,
 };
 use super::*;
@@ -102,8 +102,8 @@ pub(crate) use runtime_materialization::{
     try_local_html_interaction_truth_rescue_document,
 };
 use runtime_plan::{
-    compact_local_html_materialization_prompt, effective_direct_author_temperature,
-    chat_runtime_provenance_matches, warm_local_html_generation_runtime_if_needed,
+    chat_runtime_provenance_matches, compact_local_html_materialization_prompt,
+    effective_direct_author_temperature, warm_local_html_generation_runtime_if_needed,
 };
 pub(crate) use runtime_plan::{
     effective_candidate_generation_temperature, materialization_max_tokens_for_execution_strategy,
@@ -115,10 +115,11 @@ pub use runtime_plan::{
     ChatArtifactResolvedRuntimePlan,
 };
 use swarm::{
-    default_generated_artifact_file_for_renderer, default_chat_artifact_execution_strategy,
-    push_unique_focus_strings, section_region_id, chat_artifact_uses_swarm_execution,
-    chat_swarm_execution_summary, chat_swarm_now_iso, chat_swarm_soft_validation_error,
-    chat_swarm_strategy_for_request, update_swarm_work_item_status, validation_status_id,
+    chat_artifact_uses_swarm_execution, chat_swarm_execution_summary, chat_swarm_now_iso,
+    chat_swarm_soft_validation_error, chat_swarm_strategy_for_request,
+    default_chat_artifact_execution_strategy, default_generated_artifact_file_for_renderer,
+    push_unique_focus_strings, section_region_id, update_swarm_work_item_status,
+    validation_status_id,
 };
 use swarm_bundle::*;
 use swarm_bundle_finalize::*;

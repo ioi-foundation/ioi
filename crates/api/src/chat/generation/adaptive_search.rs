@@ -103,9 +103,7 @@ pub(crate) fn derive_chat_adaptive_search_budget(
     let mut expansion_score_margin = match request.renderer {
         ChatRendererKind::HtmlIframe | ChatRendererKind::JsxSandbox => 18,
         ChatRendererKind::Svg => 16,
-        ChatRendererKind::Markdown
-        | ChatRendererKind::Mermaid
-        | ChatRendererKind::PdfEmbed => 14,
+        ChatRendererKind::Markdown | ChatRendererKind::Mermaid | ChatRendererKind::PdfEmbed => 14,
         ChatRendererKind::DownloadCard | ChatRendererKind::BundleManifest => 12,
         ChatRendererKind::WorkspaceSurface => 8,
     };
@@ -135,10 +133,7 @@ pub(crate) fn derive_chat_adaptive_search_budget(
                 .unwrap_or_default(),
         );
     if interaction_load >= 3 {
-        record_adaptive_search_signal(
-            &mut signals,
-            ChatAdaptiveSearchSignal::BriefInteractionLoad,
-        );
+        record_adaptive_search_signal(&mut signals, ChatAdaptiveSearchSignal::BriefInteractionLoad);
         max_candidate_count += 1;
         shortlist_limit = shortlist_limit.max(2);
         max_semantic_refinement_passes = max_semantic_refinement_passes.saturating_add(1);

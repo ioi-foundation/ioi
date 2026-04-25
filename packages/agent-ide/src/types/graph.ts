@@ -77,9 +77,6 @@ export interface FirewallPolicy {
   };
 }
 
-// Alias for backward compatibility if needed
-export type NodeLaw = FirewallPolicy;
-
 // ============================================
 // Graph Topology
 // ============================================

@@ -2,7 +2,7 @@ use crate::kernel::state::get_rpc_client;
 use crate::models::AppState;
 use crate::models::PiiReviewInfo;
 use ioi_ipc::blockchain::QueryRawStateRequest;
-use ioi_pii::validate_review_request_compat;
+use ioi_pii::validate_review_request_v3_cim;
 use ioi_types::app::agentic::PiiReviewRequest;
 use ioi_types::codec;
 use std::sync::Mutex;
@@ -39,7 +39,7 @@ pub(super) async fn fetch_pii_review_info(
     }
 
     let request: PiiReviewRequest = codec::from_bytes_canonical(&resp.value).ok()?;
-    if validate_review_request_compat(&request).is_err() {
+    if validate_review_request_v3_cim(&request).is_err() {
         return None;
     }
 

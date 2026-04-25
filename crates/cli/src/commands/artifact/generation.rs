@@ -1,13 +1,12 @@
 use super::evidence::build_artifact_lane_receipts;
 use super::*;
 use ioi_api::chat::{
-    compile_studio_artifact_ir, derive_request_grounded_studio_artifact_brief,
-    derive_studio_artifact_blueprint,
-    generate_studio_artifact_bundle_with_runtimes_and_planning_context_and_render_evaluator,
-    ChatArtifactPlanningContext, ChatArtifactRuntimePolicyProfile,
-    ChatArtifactSelectionTarget,
+    compile_chat_artifact_ir, derive_chat_artifact_blueprint,
+    derive_request_grounded_chat_artifact_brief,
+    generate_chat_artifact_bundle_with_runtimes_and_planning_context_and_render_evaluator,
+    ChatArtifactPlanningContext, ChatArtifactRuntimePolicyProfile, ChatArtifactSelectionTarget,
 };
-use ioi_drivers::chat_render::BrowserStudioArtifactRenderEvaluator;
+use ioi_drivers::chat_render::BrowserChatArtifactRenderEvaluator;
 use std::env;
 
 pub(super) async fn run_route(
@@ -104,7 +103,7 @@ pub(super) async fn route_with_runtime(
     active_artifact_id: Option<&str>,
     active_artifact: Option<&ChatArtifactRefinementContext>,
 ) -> Result<ChatOutcomePlanningPayload> {
-    plan_studio_outcome_with_runtime(runtime, prompt, active_artifact_id, active_artifact)
+    plan_chat_outcome_with_runtime(runtime, prompt, active_artifact_id, active_artifact)
         .await
         .map_err(|error| {
             anyhow::anyhow!("Failed to route Chat prompt through local inference: {error}")
@@ -118,7 +117,7 @@ async fn route_with_runtime(
     active_artifact_id: Option<&str>,
     active_artifact: Option<&ChatArtifactRefinementContext>,
 ) -> Result<ChatOutcomePlanningPayload> {
-    plan_studio_outcome_with_runtime(runtime, prompt, active_artifact_id, active_artifact)
+    plan_chat_outcome_with_runtime(runtime, prompt, active_artifact_id, active_artifact)
         .await
         .map_err(|error| {
             anyhow::anyhow!("Failed to route Chat prompt through local inference: {error}")
@@ -210,8 +209,8 @@ fn refinement_context_from_loaded_evidence(
 
 fn configured_runtime_profile() -> ChatArtifactRuntimePolicyProfile {
     [
-        "AUTOPILOT_STUDIO_MODEL_ROUTING_PROFILE",
-        "IOI_STUDIO_MODEL_ROUTING_PROFILE",
+        "AUTOPILOT_CHAT_ARTIFACT_MODEL_ROUTING_PROFILE",
+        "IOI_CHAT_ARTIFACT_MODEL_ROUTING_PROFILE",
     ]
     .iter()
     .find_map(|key| {
@@ -312,15 +311,15 @@ pub(super) async fn run_generate(
             .await
             .map_err(anyhow::Error::msg)
         } else {
-            let render_evaluator = BrowserStudioArtifactRenderEvaluator::default();
-            let brief = derive_request_grounded_studio_artifact_brief(
+            let render_evaluator = BrowserChatArtifactRenderEvaluator::default();
+            let brief = derive_request_grounded_chat_artifact_brief(
                 &title,
                 prompt,
                 &request,
                 refinement_context.as_ref(),
             );
-            let blueprint = derive_studio_artifact_blueprint(&request, &brief);
-            let artifact_ir = compile_studio_artifact_ir(&request, &brief, &blueprint);
+            let blueprint = derive_chat_artifact_blueprint(&request, &brief);
+            let artifact_ir = compile_chat_artifact_ir(&request, &brief, &blueprint);
             let planning_context = ChatArtifactPlanningContext {
                 brief,
                 blueprint: Some(blueprint),
@@ -332,7 +331,7 @@ pub(super) async fn run_generate(
                 retrieved_exemplars: Vec::new(),
                 retrieved_sources: Vec::new(),
             };
-            generate_studio_artifact_bundle_with_runtimes_and_planning_context_and_render_evaluator(
+            generate_chat_artifact_bundle_with_runtimes_and_planning_context_and_render_evaluator(
                 runtime,
                 Some(acceptance_runtime),
                 configured_runtime_profile(),

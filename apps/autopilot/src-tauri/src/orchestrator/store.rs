@@ -2,17 +2,14 @@ use crate::models::{
     AgentEvent, AgentPhase, AgentTask, Artifact, AssistantAttentionPolicy,
     AssistantAttentionProfile, AssistantNotificationRecord, AssistantUserProfile,
     AssistantWorkbenchActivityRecord, InterventionRecord, KnowledgeCollectionRecord,
-    LocalEngineApiConfig, LocalEngineBackendPolicyConfig, LocalEngineConfigMigrationRecord,
-    LocalEngineControlPlane, LocalEngineControlPlaneDocument, LocalEngineEnvironmentBinding,
-    LocalEngineGallerySource, LocalEngineJobRecord, LocalEngineLauncherConfig,
-    LocalEngineMemoryConfig, LocalEngineRegistryState, LocalEngineResponseConfig,
-    LocalEngineRuntimeProfile, LocalEngineStagedOperation, LocalEngineStorageConfig,
-    LocalEngineWatchdogConfig, LocalEngineWorkerTemplateRecord, SessionCompactionRecord,
-    SessionFileContext, SessionSummary, SkillSourceRecord, TeamMemorySyncEntry,
+    LocalEngineControlPlane, LocalEngineControlPlaneDocument, LocalEngineJobRecord,
+    LocalEngineRegistryState, LocalEngineStagedOperation, LocalEngineWorkerTemplateRecord,
+    SessionCompactionRecord, SessionFileContext, SessionSummary, SkillSourceRecord,
+    TeamMemorySyncEntry,
 };
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_memory::MemoryRuntime;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Serialize};
 use std::sync::Arc;
 
 const LOCAL_TASK_CHECKPOINT_NAME: &str = "autopilot.local_task.v1";
@@ -30,8 +27,6 @@ const ASSISTANT_WORKBENCH_ACTIVITY_INDEX_CHECKPOINT_NAME: &str =
 const LOCAL_ENGINE_CONTROL_PLANE_CHECKPOINT_NAME: &str = "autopilot.local_engine_control_plane.v1";
 const LOCAL_ENGINE_CONTROL_PLANE_SCHEMA_VERSION: u32 = 1;
 const LOCAL_ENGINE_CONTROL_PLANE_PROFILE_ID: &str = "local-engine.primary";
-const LOCAL_ENGINE_CONTROL_PLANE_V0_TO_V1_MIGRATION_ID: &str =
-    "local_engine_control_plane.v0_to_v1";
 const LOCAL_ENGINE_STAGED_OPERATIONS_CHECKPOINT_NAME: &str =
     "autopilot.local_engine_staged_operations.v1";
 const LOCAL_ENGINE_JOBS_CHECKPOINT_NAME: &str = "autopilot.local_engine_jobs.v1";
@@ -114,110 +109,8 @@ pub(crate) fn persist_global_checkpoint_json<T: Serialize + ?Sized>(
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct LegacyLocalEngineControlPlaneV0 {
-    runtime: LocalEngineRuntimeProfile,
-    storage: LocalEngineStorageConfig,
-    watchdog: LocalEngineWatchdogConfig,
-    memory: LocalEngineMemoryConfig,
-    backend_policy: LocalEngineBackendPolicyConfig,
-    responses: LocalEngineResponseConfig,
-    api: LocalEngineApiConfig,
-    #[serde(default)]
-    launcher: Option<LocalEngineLauncherConfig>,
-    #[serde(default)]
-    galleries: Vec<LocalEngineGallerySource>,
-    #[serde(default)]
-    environment: Vec<LocalEngineEnvironmentBinding>,
-    #[serde(default)]
-    notes: Vec<String>,
-}
-
 fn default_local_engine_control_plane_profile_id() -> String {
     LOCAL_ENGINE_CONTROL_PLANE_PROFILE_ID.to_string()
-}
-
-fn local_engine_v0_to_v1_migration(
-    summary: &str,
-    details: Vec<String>,
-) -> LocalEngineConfigMigrationRecord {
-    LocalEngineConfigMigrationRecord {
-        migration_id: LOCAL_ENGINE_CONTROL_PLANE_V0_TO_V1_MIGRATION_ID.to_string(),
-        from_version: 0,
-        to_version: LOCAL_ENGINE_CONTROL_PLANE_SCHEMA_VERSION,
-        applied_at_ms: crate::kernel::state::now(),
-        summary: summary.to_string(),
-        details,
-    }
-}
-
-fn local_engine_control_plane_document_from_legacy(
-    legacy: LegacyLocalEngineControlPlaneV0,
-) -> LocalEngineControlPlaneDocument {
-    let defaults = crate::kernel::data::default_local_engine_control_plane();
-    let mut details = vec![
-        "Wrapped legacy unversioned control-plane state in the canonical versioned config profile."
-            .to_string(),
-    ];
-
-    if legacy.launcher.is_none() {
-        details.push(
-            "Backfilled launcher defaults so boot and update controls stay product-native."
-                .to_string(),
-        );
-    }
-    if legacy.galleries.is_empty() {
-        details.push(
-            "Restored default gallery sources because the legacy payload did not record them."
-                .to_string(),
-        );
-    }
-    if legacy.environment.is_empty() {
-        details.push(
-            "Restored authoritative environment bindings for runtime-side diffing.".to_string(),
-        );
-    }
-    if legacy.notes.is_empty() {
-        details.push(
-            "Restored kernel guidance notes because the legacy payload did not retain them."
-                .to_string(),
-        );
-    }
-
-    LocalEngineControlPlaneDocument {
-        schema_version: LOCAL_ENGINE_CONTROL_PLANE_SCHEMA_VERSION,
-        profile_id: default_local_engine_control_plane_profile_id(),
-        migrations: vec![local_engine_v0_to_v1_migration(
-            "Upgraded Local Engine settings into the versioned config document.",
-            details,
-        )],
-        control_plane: LocalEngineControlPlane {
-            runtime: legacy.runtime,
-            storage: legacy.storage,
-            watchdog: legacy.watchdog,
-            memory: legacy.memory,
-            backend_policy: legacy.backend_policy,
-            responses: legacy.responses,
-            api: legacy.api,
-            launcher: legacy.launcher.unwrap_or(defaults.launcher),
-            galleries: if legacy.galleries.is_empty() {
-                defaults.galleries
-            } else {
-                legacy.galleries
-            },
-            environment: if legacy.environment.is_empty() {
-                defaults.environment
-            } else {
-                legacy.environment
-            },
-            notes: if legacy.notes.is_empty() {
-                defaults.notes
-            } else {
-                legacy.notes
-            },
-        },
-    }
 }
 
 fn current_local_engine_control_plane_document(
@@ -1008,19 +901,11 @@ pub fn load_local_engine_control_plane_document(
         load_global_checkpoint_blob(memory_runtime, LOCAL_ENGINE_CONTROL_PLANE_CHECKPOINT_NAME)?;
     if let Ok(mut document) = serde_json::from_slice::<LocalEngineControlPlaneDocument>(&bytes) {
         if document.schema_version == 0 {
-            let already_recorded = document.migrations.iter().any(|record| {
-                record.migration_id == LOCAL_ENGINE_CONTROL_PLANE_V0_TO_V1_MIGRATION_ID
-            });
-            document.schema_version = LOCAL_ENGINE_CONTROL_PLANE_SCHEMA_VERSION;
-            if !already_recorded {
-                document.migrations.push(local_engine_v0_to_v1_migration(
-                    "Stamped the Local Engine config document with the first canonical schema version.",
-                    vec![
-                        "The document already used the wrapped control-plane shape but did not record a schema version."
-                            .to_string(),
-                    ],
-                ));
-            }
+            eprintln!(
+                "[Autopilot] Rejected Local Engine control-plane checkpoint with legacy schema_version=0. Delete '{}' to regenerate a v1 config.",
+                LOCAL_ENGINE_CONTROL_PLANE_CHECKPOINT_NAME
+            );
+            return None;
         }
         if document.profile_id.trim().is_empty() {
             document.profile_id = default_local_engine_control_plane_profile_id();
@@ -1028,9 +913,11 @@ pub fn load_local_engine_control_plane_document(
         return Some(document);
     }
 
-    serde_json::from_slice::<LegacyLocalEngineControlPlaneV0>(&bytes)
-        .ok()
-        .map(local_engine_control_plane_document_from_legacy)
+    eprintln!(
+        "[Autopilot] Rejected unversioned Local Engine control-plane checkpoint. Delete '{}' to regenerate a v1 config.",
+        LOCAL_ENGINE_CONTROL_PLANE_CHECKPOINT_NAME
+    );
+    None
 }
 
 pub fn save_local_engine_staged_operations(

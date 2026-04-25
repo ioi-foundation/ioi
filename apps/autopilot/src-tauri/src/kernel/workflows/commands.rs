@@ -74,9 +74,12 @@ pub async fn workflow_run_now(
 pub async fn workflow_trigger_remote(
     manager: State<'_, WorkflowManager>,
     workflow_id: String,
+    idempotency_key: Option<String>,
     payload: Option<Value>,
 ) -> Result<WorkflowRunReceipt, String> {
-    manager.trigger_workflow_remote(&workflow_id, payload).await
+    manager
+        .trigger_workflow_remote(&workflow_id, idempotency_key, payload)
+        .await
 }
 
 #[tauri::command]

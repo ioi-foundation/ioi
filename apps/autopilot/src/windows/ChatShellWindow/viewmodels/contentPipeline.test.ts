@@ -618,7 +618,7 @@ function artifactRuntimeActivityGroupPresentationTest(): void {
   assert.equal(group?.rows[1]?.label, "Write index.html");
   assert.equal(group?.rows[1]?.preview, "<!doctype html><main>Quantum</main>");
 
-  const readyStudioSession: ChatArtifactSession = {
+  const readyChatSession: ChatArtifactSession = {
     ...chatSession,
     artifactManifest: {
       ...chatSession.artifactManifest,
@@ -693,7 +693,7 @@ function artifactRuntimeActivityGroupPresentationTest(): void {
       repairCount: 0,
     },
   };
-  assert.equal(artifactSessionIsPresentable(readyStudioSession), true);
+  assert.equal(artifactSessionIsPresentable(readyChatSession), true);
 }
 
 function artifactRuntimeActivityOrderingAndSourcePlacementTest(): void {

@@ -279,6 +279,14 @@ pub struct WorkflowRunReceipt {
     pub started_at_ms: u64,
     pub completed_at_ms: u64,
     pub artifact_hash: String,
+    #[serde(default)]
+    pub idempotency_key: Option<String>,
+    #[serde(default)]
+    pub settlement_refs: Vec<String>,
+    #[serde(default)]
+    pub projection_only: bool,
+    #[serde(default)]
+    pub simulation_only: bool,
     pub workflow_status: WorkflowStatus,
     pub next_run_at_ms: Option<u64>,
     #[serde(default)]

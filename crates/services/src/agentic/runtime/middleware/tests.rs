@@ -2,9 +2,20 @@ use super::*;
 use ioi_types::app::agentic::{AgentTool, ScreenAction};
 use serde_json::json;
 
+fn assert_rejects(input: &str, expected: &str) {
+    let err = ToolNormalizer::normalize(input).expect_err("expected strict normalizer rejection");
+    let message = err.to_string();
+    assert!(
+        message.contains(expected),
+        "expected error to contain {:?}, got {:?}",
+        expected,
+        message
+    );
+}
+
 #[test]
 fn test_normalize_clean_json() {
-    let input = r#"{"name": "computer", "arguments": {"action": "screenshot"}}"#;
+    let input = r#"{"name": "screen", "arguments": {"action": "screenshot"}}"#;
     let tool = ToolNormalizer::normalize(input).unwrap();
     match tool {
         AgentTool::Screen(ScreenAction::Screenshot) => {}
@@ -24,7 +35,7 @@ fn test_normalize_markdown() {
 
 #[test]
 fn test_normalize_explanatory_prefix_with_fenced_json() {
-    let input = "I should inspect the root package file first.\n\n```json\n{\"tool\":\"file__read\",\"arguments\":{\"path\":\"./package.json\"}}\n```";
+    let input = "I should inspect the root package file first.\n\n```json\n{\"name\":\"file__read\",\"arguments\":{\"path\":\"./package.json\"}}\n```";
     let result = normalize_tool_call_with_observation(input).unwrap();
     match result.tool {
         AgentTool::FsRead { path } => assert_eq!(path, "./package.json"),
@@ -35,111 +46,40 @@ fn test_normalize_explanatory_prefix_with_fenced_json() {
         result.observation.normalized_name.as_deref(),
         Some("file__read")
     );
-    assert!(result
-        .observation
-        .labels
-        .contains(&"tool_to_name".to_string()));
 }
 
 #[test]
-fn test_normalize_flat_top_level_arguments_for_file_read() {
+fn test_flat_top_level_arguments_for_file_read_are_rejected() {
     let input = r#"{
         "tool":"file__read",
         "path":"./package.json"
     }"#;
-    let result = normalize_tool_call_with_observation(input).unwrap();
-    match result.tool {
-        AgentTool::FsRead { path } => assert_eq!(path, "./package.json"),
-        other => panic!("Expected FsRead, got {:?}", other),
-    }
-    assert_eq!(result.observation.raw_name.as_deref(), Some("file__read"));
-    assert_eq!(
-        result.observation.normalized_name.as_deref(),
-        Some("file__read")
-    );
-    assert!(result
-        .observation
-        .labels
-        .contains(&"tool_to_name".to_string()));
-    assert!(result
-        .observation
-        .labels
-        .contains(&"top_level_fields_to_arguments".to_string()));
+    assert_rejects(input, "non-empty string 'name'");
 }
 
 #[test]
-fn test_normalize_tool_name_line_with_fenced_arguments() {
+fn test_tool_name_line_with_fenced_arguments_is_rejected() {
     let input = "file__list\n```json\n{\"path\":\"./ioi-data\"}\n```";
-    let result = normalize_tool_call_with_observation(input).unwrap();
-    match result.tool {
-        AgentTool::FsList { path } => assert_eq!(path, "./ioi-data"),
-        other => panic!("Expected FsList, got {:?}", other),
-    }
-    assert_eq!(result.observation.raw_name.as_deref(), Some("file__list"));
-    assert_eq!(
-        result.observation.normalized_name.as_deref(),
-        Some("file__list")
-    );
-    assert!(result
-        .observation
-        .labels
-        .contains(&"tool_name_line_wrapped".to_string()));
-    assert!(result
-        .observation
-        .labels
-        .contains(&"tool_name_line_markdown_arguments_unwrapped".to_string()));
+    assert_rejects(input, "non-empty string 'name'");
 }
 
 #[test]
-fn test_normalize_tool_name_line_with_argument_aliases() {
+fn test_tool_name_line_with_argument_aliases_is_rejected() {
     let input =
         "file__search\n{\"root\":\".\",\"query\":\"package\\\\.json\",\"glob\":\"package.json\"}";
-    let result = normalize_tool_call_with_observation(input).unwrap();
-    match result.tool {
-        AgentTool::FsSearch {
-            path,
-            regex,
-            file_pattern,
-        } => {
-            assert_eq!(path, ".");
-            assert_eq!(regex, "package\\.json");
-            assert_eq!(file_pattern.as_deref(), Some("package.json"));
-        }
-        other => panic!("Expected FsSearch, got {:?}", other),
-    }
-    assert_eq!(result.observation.raw_name.as_deref(), Some("file__search"));
-    assert_eq!(
-        result.observation.normalized_name.as_deref(),
-        Some("file__search")
-    );
-    assert!(result
-        .observation
-        .labels
-        .contains(&"tool_name_line_wrapped".to_string()));
-    assert!(result
-        .observation
-        .labels
-        .contains(&"file_search_arguments_normalized".to_string()));
+    assert_rejects(input, "JSON Syntax Error");
 }
 
 #[test]
-fn test_normalize_sys_exec_single_underscore_alias() {
+fn test_sys_exec_single_underscore_alias_is_rejected() {
     let input = r#"{"name":"sys_exec","arguments":{"command":"ls"}}"#;
-    let tool = ToolNormalizer::normalize(input).unwrap();
-    match tool {
-        AgentTool::SysExec { command, .. } => assert_eq!(command, "ls"),
-        other => panic!("Expected SysExec, got {:?}", other),
-    }
+    assert_rejects(input, "legacy tool alias");
 }
 
 #[test]
-fn test_normalize_sys_exec_colon_alias() {
+fn test_sys_exec_colon_alias_is_rejected() {
     let input = r#"{"name":"sys::exec","arguments":{"command":"pwd"}}"#;
-    let tool = ToolNormalizer::normalize(input).unwrap();
-    match tool {
-        AgentTool::SysExec { command, .. } => assert_eq!(command, "pwd"),
-        other => panic!("Expected SysExec, got {:?}", other),
-    }
+    assert_rejects(input, "legacy tool alias");
 }
 
 #[test]
@@ -183,16 +123,9 @@ fn test_normalize_openai_function_wrapper_with_object_arguments() {
 }
 
 #[test]
-fn test_normalize_anthropic_input_alias() {
+fn test_anthropic_input_alias_is_rejected() {
     let input = r#"{"name":"shell__run","input":{"command":"echo","args":["hi"]}}"#;
-    let tool = ToolNormalizer::normalize(input).unwrap();
-    match tool {
-        AgentTool::SysExec { command, args, .. } => {
-            assert_eq!(command, "echo");
-            assert_eq!(args, vec!["hi".to_string()]);
-        }
-        _ => panic!("Wrong tool type"),
-    }
+    assert_rejects(input, "built-in tool");
 }
 
 #[test]
@@ -206,14 +139,9 @@ fn test_normalize_arguments_json_string() {
 }
 
 #[test]
-fn test_normalize_parameters_alias() {
-    // LLM often outputs "parameters" instead of "arguments"
+fn test_parameters_alias_is_rejected() {
     let input = r#"{"name": "screen__type", "parameters": {"text": "hello"}}"#;
-    let tool = ToolNormalizer::normalize(input).unwrap();
-    match tool {
-        AgentTool::GuiType { text } => assert_eq!(text, "hello"),
-        _ => panic!("Wrong tool type"),
-    }
+    assert_rejects(input, "built-in tool");
 }
 
 #[test]
@@ -269,7 +197,7 @@ fn test_normalize_file_search_glob_aliases() {
 }
 
 #[test]
-fn test_normalize_tool_and_args_aliases_for_file_search() {
+fn test_tool_and_args_aliases_for_file_search_are_rejected() {
     let input = r#"{
         "tool":"file__search",
         "args":{
@@ -277,39 +205,11 @@ fn test_normalize_tool_and_args_aliases_for_file_search() {
             "recursive":true
         }
     }"#;
-    let result = normalize_tool_call_with_observation(input).unwrap();
-    match result.tool {
-        AgentTool::FsSearch {
-            path,
-            regex,
-            file_pattern,
-        } => {
-            assert_eq!(path, ".");
-            assert_eq!(regex, "package\\.json");
-            assert_eq!(file_pattern, None);
-        }
-        other => panic!("Expected FsSearch, got {:?}", other),
-    }
-    assert!(result
-        .observation
-        .labels
-        .contains(&"tool_to_name".to_string()));
-    assert!(result
-        .observation
-        .labels
-        .contains(&"args_to_arguments".to_string()));
-    assert!(result
-        .observation
-        .labels
-        .contains(&"file_search_default_root_path".to_string()));
-    assert!(result
-        .observation
-        .labels
-        .contains(&"file_search_arguments_normalized".to_string()));
+    assert_rejects(input, "non-empty string 'name'");
 }
 
 #[test]
-fn test_normalize_single_key_file_search_wrapper_with_recursive_flag() {
+fn test_single_key_file_search_wrapper_is_rejected() {
     let input = r#"{
         "file__search":{
             "path":"./",
@@ -317,32 +217,7 @@ fn test_normalize_single_key_file_search_wrapper_with_recursive_flag() {
             "recursive":true
         }
     }"#;
-    let result = normalize_tool_call_with_observation(input).unwrap();
-    match result.tool {
-        AgentTool::FsSearch {
-            path,
-            regex,
-            file_pattern,
-        } => {
-            assert_eq!(path, "./");
-            assert_eq!(regex, "package\\.json");
-            assert_eq!(file_pattern, None);
-        }
-        other => panic!("Expected FsSearch, got {:?}", other),
-    }
-    assert_eq!(result.observation.raw_name.as_deref(), Some("file__search"));
-    assert_eq!(
-        result.observation.normalized_name.as_deref(),
-        Some("file__search")
-    );
-    assert!(result
-        .observation
-        .labels
-        .contains(&"single_key_tool_wrapper_unwrapped".to_string()));
-    assert!(result
-        .observation
-        .labels
-        .contains(&"file_search_arguments_normalized".to_string()));
+    assert_rejects(input, "non-empty string 'name'");
 }
 
 #[test]
@@ -354,16 +229,17 @@ fn test_normalize_prefers_tool_field_over_noncanonical_name() {
     }"#;
     let result = normalize_tool_call_with_observation(input).unwrap();
     match result.tool {
-        AgentTool::FsSearch {
-            path,
-            regex,
-            file_pattern,
-        } => {
-            assert_eq!(path, ".");
-            assert_eq!(regex, "package.json");
-            assert_eq!(file_pattern, None);
+        AgentTool::Dynamic(value) => {
+            assert_eq!(
+                value.get("name").and_then(|v| v.as_str()),
+                Some("find_npm_scripts")
+            );
+            assert_eq!(
+                value.pointer("/arguments/query").and_then(|v| v.as_str()),
+                Some("package.json")
+            );
         }
-        other => panic!("Expected FsSearch, got {:?}", other),
+        other => panic!("Expected Dynamic, got {:?}", other),
     }
     assert_eq!(
         result.observation.raw_name.as_deref(),
@@ -371,81 +247,23 @@ fn test_normalize_prefers_tool_field_over_noncanonical_name() {
     );
     assert_eq!(
         result.observation.normalized_name.as_deref(),
-        Some("file__search")
+        Some("find_npm_scripts")
     );
-    assert!(result
-        .observation
-        .labels
-        .contains(&"tool_field_preferred_over_name".to_string()));
-    assert!(result
-        .observation
-        .labels
-        .contains(&"file_search_arguments_normalized".to_string()));
 }
 
 #[test]
-fn test_normalize_file_list_with_pattern_promotes_to_search() {
+fn test_file_list_with_pattern_does_not_promote_to_search() {
     let input = r#"{
         "tool":"file__list",
         "args":{"path":".","pattern":"package.json"}
     }"#;
-    let result = normalize_tool_call_with_observation(input).unwrap();
-    match result.tool {
-        AgentTool::FsSearch {
-            path,
-            regex,
-            file_pattern,
-        } => {
-            assert_eq!(path, ".");
-            assert_eq!(regex, "package.json");
-            assert_eq!(file_pattern, None);
-        }
-        other => panic!("Expected FsSearch, got {:?}", other),
-    }
-    assert_eq!(result.observation.raw_name.as_deref(), Some("file__list"));
-    assert_eq!(
-        result.observation.normalized_name.as_deref(),
-        Some("file__search")
-    );
-    assert!(result
-        .observation
-        .labels
-        .contains(&"file_list_promoted_to_search".to_string()));
-    assert!(result
-        .observation
-        .labels
-        .contains(&"tool_to_name".to_string()));
+    assert_rejects(input, "non-empty string 'name'");
 }
 
 #[test]
-fn test_normalize_with_observation_records_common_aliases() {
+fn test_observation_rejects_common_aliases_without_migration() {
     let input = r#"{"recipient_name":"functions.chat__reply","parameters":{"message":"hello"}}"#;
-    let result = normalize_tool_call_with_observation(input).unwrap();
-    match result.tool {
-        AgentTool::ChatReply { message } => assert_eq!(message, "hello"),
-        other => panic!("Expected ChatReply, got {:?}", other),
-    }
-    assert_eq!(
-        result.observation.raw_name.as_deref(),
-        Some("functions.chat__reply")
-    );
-    assert_eq!(
-        result.observation.normalized_name.as_deref(),
-        Some("chat__reply")
-    );
-    assert!(result.observation.changed());
-    assert!(result
-        .observation
-        .labels
-        .contains(&"recipient_name_alias".to_string()));
-    assert!(result
-        .observation
-        .labels
-        .contains(&"functions_prefix_stripped".to_string()));
-    assert!(result
-        .observation
-        .labels
-        .contains(&"parameters_to_arguments".to_string()));
+    assert_rejects(input, "non-empty string 'name'");
 }
 
 #[test]
@@ -471,52 +289,28 @@ fn test_normalize_with_observation_records_ui_click_lowering() {
 }
 
 #[test]
-fn test_normalize_functions_prefix() {
-    // LLM outputs "functions.chat__reply"
+fn test_functions_prefix_is_rejected() {
     let input = r#"{"name": "functions.chat__reply", "arguments": {"message": "hello"}}"#;
-    let tool = ToolNormalizer::normalize(input).unwrap();
-    match tool {
-        AgentTool::ChatReply { message } => assert_eq!(message, "hello"),
-        _ => panic!("Wrong tool type or failed to strip prefix"),
-    }
+    assert_rejects(input, "legacy tool alias");
 }
 
 #[test]
-fn test_normalize_recipient_name() {
-    // LLM outputs "recipient_name" instead of "name"
+fn test_recipient_name_is_rejected() {
     let input =
         r#"{"recipient_name": "functions.computer", "parameters": {"action": "screenshot"}}"#;
-    let tool = ToolNormalizer::normalize(input).unwrap();
-    match tool {
-        AgentTool::Screen(ScreenAction::Screenshot) => {}
-        _ => panic!("Wrong tool type or failed to handle recipient_name"),
-    }
+    assert_rejects(input, "non-empty string 'name'");
 }
 
 #[test]
-fn test_infer_sys_exec_flat() {
-    // Flat output without wrapper
+fn test_flat_sys_exec_payload_is_rejected() {
     let input = r#"{"command": "gnome-calculator", "args": [], "detach": true}"#;
-    let tool = ToolNormalizer::normalize(input).unwrap();
-    match tool {
-        AgentTool::SysExec {
-            command, detach, ..
-        } => {
-            assert_eq!(command, "gnome-calculator");
-            assert_eq!(detach, true);
-        }
-        _ => panic!("Wrong tool type inferred"),
-    }
+    assert_rejects(input, "non-empty string 'name'");
 }
 
 #[test]
-fn test_infer_agent_complete_from_result_only_payload() {
+fn test_result_only_payload_is_rejected() {
     let input = r#"{"result":"Timer has been scheduled."}"#;
-    let tool = ToolNormalizer::normalize(input).unwrap();
-    match tool {
-        AgentTool::AgentComplete { result } => assert_eq!(result, "Timer has been scheduled."),
-        other => panic!("Expected AgentComplete, got {:?}", other),
-    }
+    assert_rejects(input, "non-empty string 'name'");
 }
 
 #[test]
@@ -736,84 +530,25 @@ fn test_dynamic_tool_unknown_name_is_rejected() {
 }
 
 #[test]
-fn test_normalize_single_key_tool_wrapper_for_builtin_tool() {
+fn test_single_key_tool_wrapper_for_builtin_tool_is_rejected() {
     let input = r#"{"file__list":{"path":"./ioi-data"}}"#;
-    let result = normalize_tool_call_with_observation(input).unwrap();
-    match result.tool {
-        AgentTool::FsList { path } => assert_eq!(path, "./ioi-data"),
-        other => panic!("Expected FsList, got {:?}", other),
-    }
-    assert_eq!(result.observation.raw_name, None);
-    assert_eq!(
-        result.observation.normalized_name.as_deref(),
-        Some("file__list")
-    );
-    assert!(result
-        .observation
-        .labels
-        .contains(&"single_key_tool_wrapper_unwrapped".to_string()));
+    assert_rejects(input, "non-empty string 'name'");
 }
 
 #[test]
-fn test_normalize_single_key_tool_wrapper_for_dynamic_tool() {
+fn test_single_key_tool_wrapper_for_dynamic_tool_is_rejected() {
     let input = r#"{"slack.send_message":{"channel":"ops","text":"hello"}}"#;
-    let result = normalize_tool_call_with_observation(input).unwrap();
-    match result.tool {
-        AgentTool::Dynamic(value) => {
-            assert_eq!(
-                value.get("name").and_then(|name| name.as_str()),
-                Some("slack.send_message")
-            );
-            assert_eq!(
-                value.pointer("/arguments/channel").and_then(|v| v.as_str()),
-                Some("ops")
-            );
-        }
-        other => panic!("Expected Dynamic tool, got {:?}", other),
-    }
-    assert_eq!(
-        result.observation.normalized_name.as_deref(),
-        Some("slack.send_message")
-    );
-    assert!(result
-        .observation
-        .labels
-        .contains(&"single_key_tool_wrapper_unwrapped".to_string()));
+    assert_rejects(input, "non-empty string 'name'");
 }
 
 #[test]
-fn test_normalize_bare_file_list_tool_token() {
-    let result = normalize_tool_call_with_observation("file__list").unwrap();
-    match result.tool {
-        AgentTool::FsList { path } => assert_eq!(path, "."),
-        other => panic!("Expected FsList, got {:?}", other),
-    }
-    assert_eq!(result.observation.raw_name.as_deref(), Some("file__list"));
-    assert_eq!(
-        result.observation.normalized_name.as_deref(),
-        Some("file__list")
-    );
-    assert!(result
-        .observation
-        .labels
-        .contains(&"bare_tool_token_wrapped".to_string()));
-    assert!(result
-        .observation
-        .labels
-        .contains(&"bare_tool_token_default_root_path".to_string()));
+fn test_bare_file_list_tool_token_is_rejected() {
+    assert_rejects("file__list", "JSON Syntax Error");
 }
 
 #[test]
-fn test_normalize_bare_filesystem_list_alias_token() {
-    let result = normalize_tool_call_with_observation("filesystem__list_dir").unwrap();
-    match result.tool {
-        AgentTool::FsList { path } => assert_eq!(path, "."),
-        other => panic!("Expected FsList, got {:?}", other),
-    }
-    assert_eq!(
-        result.observation.normalized_name.as_deref(),
-        Some("file__list")
-    );
+fn test_bare_filesystem_list_alias_token_is_rejected() {
+    assert_rejects("filesystem__list_dir", "JSON Syntax Error");
 }
 
 #[test]
@@ -948,15 +683,9 @@ fn test_normalize_net_fetch_decodes_arguments_string() {
 }
 
 #[test]
-fn test_infer_nav_flat() {
+fn test_flat_browser_navigation_payload_is_rejected() {
     let input = r#"{"url":"https://news.ycombinator.com"}"#;
-    let tool = ToolNormalizer::normalize(input).unwrap();
-    match tool {
-        AgentTool::BrowserNavigate { url } => {
-            assert_eq!(url, "https://news.ycombinator.com");
-        }
-        _ => panic!("Wrong tool type inferred"),
-    }
+    assert_rejects(input, "non-empty string 'name'");
 }
 
 #[test]

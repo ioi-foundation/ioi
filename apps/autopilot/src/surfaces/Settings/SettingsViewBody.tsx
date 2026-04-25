@@ -83,7 +83,7 @@ export function SettingsViewBody({
           onClick={() => setSelectedSection("storage_api")}
         >
           <strong>Storage / API</strong>
-          <span>Paths, bind address, compatibility routes, and API exposure.</span>
+          <span>Paths, bind address, and kernel API exposure.</span>
         </button>
         <button
           type="button"

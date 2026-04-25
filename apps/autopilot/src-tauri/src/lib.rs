@@ -31,6 +31,9 @@ mod workspace_ide;
 use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime, UnavailableInferenceRuntime};
 use ioi_memory::MemoryRuntime;
 use ioi_services::agentic::media_runtime::KernelMediaRuntime;
+use ioi_services::agentic::runtime::kernel::profile::{
+    RuntimeProfile, RuntimeProfileConfig, RuntimeProfileValidator,
+};
 use ioi_types::app::{ChatRuntimeProvenance, ChatRuntimeProvenanceKind};
 use models::AppState;
 use std::time::Duration;
@@ -116,6 +119,53 @@ fn apply_dev_profile_defaults() {
             std::env::set_var("AUTOPILOT_RESET_DATA_ON_BOOT", "1");
         }
     }
+}
+
+fn runtime_profile_from_env() -> RuntimeProfile {
+    let value = env_text("IOI_RUNTIME_PROFILE")
+        .or_else(|| env_text("AUTOPILOT_RUNTIME_PROFILE"))
+        .unwrap_or_else(|| "local_product".to_string())
+        .to_ascii_lowercase();
+    match value.as_str() {
+        "production" => RuntimeProfile::Production,
+        "marketplace" => RuntimeProfile::Marketplace,
+        "validator" => RuntimeProfile::Validator,
+        "test" => RuntimeProfile::Test,
+        "dev" => RuntimeProfile::Dev,
+        _ => RuntimeProfile::LocalProduct,
+    }
+}
+
+fn startup_runtime_profile_config() -> RuntimeProfileConfig {
+    let profile = runtime_profile_from_env();
+    RuntimeProfileConfig {
+        profile,
+        browser_no_sandbox_enabled: is_env_var_truthy("NO_SANDBOX")
+            || is_env_var_truthy("IOI_BROWSER_NO_SANDBOX"),
+        dev_filesystem_mcp_enabled: env_text("IOI_CHAT_MCP_PROFILE")
+            .is_some_and(|value| value.eq_ignore_ascii_case("dev_filesystem")),
+        unverified_mcp_allowed: is_env_var_truthy("IOI_ALLOW_UNVERIFIED_MCP"),
+        unconfined_mcp_allowed: is_env_var_truthy("IOI_ALLOW_UNCONFINED_MCP"),
+        unconfined_plugin_allowed: is_env_var_truthy("IOI_ALLOW_UNCONFINED_PLUGIN"),
+        unconfined_connector_allowed: is_env_var_truthy("IOI_ALLOW_UNCONFINED_CONNECTOR"),
+        receipt_strictness_enabled: !is_env_var_truthy("IOI_DISABLE_RECEIPT_STRICTNESS"),
+        external_approval_enforced: !is_env_var_truthy("IOI_DISABLE_EXTERNAL_APPROVAL"),
+    }
+}
+
+fn validate_startup_runtime_profile() -> Result<(), String> {
+    let config = startup_runtime_profile_config();
+    RuntimeProfileValidator::validate(&config).map_err(|violations| {
+        let details = violations
+            .iter()
+            .map(|violation| format!("{}:{}", violation.key, violation.reason))
+            .collect::<Vec<_>>()
+            .join(", ");
+        format!(
+            "runtime profile {:?} rejected unsafe configuration: {}",
+            config.profile, details
+        )
+    })
 }
 
 #[cfg(test)]
@@ -295,16 +345,16 @@ pub(crate) fn create_inference_runtime() -> Arc<dyn InferenceRuntime> {
 pub(crate) fn create_chat_routing_inference_runtime(
     production_runtime: &Arc<dyn InferenceRuntime>,
 ) -> Arc<dyn InferenceRuntime> {
-    let routing_url = env_text("AUTOPILOT_STUDIO_ROUTING_RUNTIME_URL");
-    let routing_health_url =
-        env_text("AUTOPILOT_STUDIO_ROUTING_RUNTIME_HEALTH_URL").or_else(|| {
+    let routing_url = env_text("AUTOPILOT_CHAT_ARTIFACT_ROUTING_RUNTIME_URL");
+    let routing_health_url = env_text("AUTOPILOT_CHAT_ARTIFACT_ROUTING_RUNTIME_HEALTH_URL")
+        .or_else(|| {
             routing_url
                 .as_deref()
                 .and_then(derive_health_url_from_runtime_url)
         });
-    let routing_api_key = env_text("AUTOPILOT_STUDIO_ROUTING_RUNTIME_API_KEY");
-    let routing_model = env_text("AUTOPILOT_STUDIO_ROUTING_RUNTIME_MODEL");
-    let routing_openai_key = env_text("AUTOPILOT_STUDIO_ROUTING_OPENAI_API_KEY");
+    let routing_api_key = env_text("AUTOPILOT_CHAT_ARTIFACT_ROUTING_RUNTIME_API_KEY");
+    let routing_model = env_text("AUTOPILOT_CHAT_ARTIFACT_ROUTING_RUNTIME_MODEL");
+    let routing_openai_key = env_text("AUTOPILOT_CHAT_ARTIFACT_ROUTING_OPENAI_API_KEY");
     let local_gpu_dev = is_env_var_truthy("AUTOPILOT_LOCAL_GPU_DEV");
 
     let runtime: Arc<dyn InferenceRuntime> = if let Some(url) = routing_url.clone() {
@@ -536,6 +586,11 @@ pub fn run() {
             }
 
             apply_dev_profile_defaults();
+            if let Err(error) = validate_startup_runtime_profile() {
+                return Err(
+                    std::io::Error::new(std::io::ErrorKind::PermissionDenied, error).into(),
+                );
+            }
             let app_handle = app.handle();
             let data_dir = autopilot_data_dir_for(&app_handle);
             if let Err(error) = reset_data_dir_on_boot_if_requested(&data_dir) {

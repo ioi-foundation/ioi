@@ -177,7 +177,7 @@ export const DOC_PAGES: DocPage[] = [
             <ul className={listClass(isDark)}>
               <li>
                 Want to generate or inspect artifacts? Start with{' '}
-                <a className={linkClass(isDark)} href="#build-your-first-studio-artifact">
+                <a className={linkClass(isDark)} href="#build-your-first-chat-artifact">
                   Build Your First Chat Artifact
                 </a>
                 .
@@ -332,7 +332,7 @@ docs.ioi.network = how IOI works`}
     sources: ['package.json', 'apps/developers-ioi-ai/README.md', 'apps/autopilot/README.md'],
     canonicalLinks: [],
     nextSteps: [
-      { label: 'Build Your First Chat Artifact', href: '#build-your-first-studio-artifact' },
+      { label: 'Build Your First Chat Artifact', href: '#build-your-first-chat-artifact' },
       { label: 'Run Autopilot Locally', href: '#run-autopilot-locally' },
       { label: 'IOI CLI Overview', href: '#ioi-cli-overview' },
     ],
@@ -415,7 +415,7 @@ npm run lint --workspace=apps/developers-ioi-ai`}
     ],
   },
   {
-    id: 'build-your-first-studio-artifact',
+    id: 'build-your-first-chat-artifact',
     title: 'Build Your First Chat Artifact',
     eyebrow: 'Get started',
     summary:
@@ -423,8 +423,8 @@ npm run lint --workspace=apps/developers-ioi-ai`}
     section: 'get-started',
     status: 'Current',
     lastVerified: '2026-03-31',
-    keywords: ['studio', 'artifact', 'generate', 'validation', 'mock', 'cli'],
-    sources: ['crates/cli/src/commands/artifact.rs', 'crates/api/src/studio.rs'],
+    keywords: ['chat', 'artifact', 'generate', 'validation', 'mock', 'cli'],
+    sources: ['crates/cli/src/commands/artifact.rs', 'crates/api/src/chat.rs'],
     canonicalLinks: [],
     nextSteps: [
       { label: 'IOI CLI Overview', href: '#ioi-cli-overview' },
@@ -513,7 +513,7 @@ npm run lint --workspace=apps/developers-ioi-ai`}
     section: 'get-started',
     status: 'Current',
     lastVerified: '2026-03-31',
-    keywords: ['autopilot', 'tauri', 'desktop', 'spotlight', 'studio', 'runtime'],
+    keywords: ['autopilot', 'tauri', 'desktop', 'spotlight', 'chat', 'runtime'],
     sources: [
       'apps/autopilot/README.md',
       'apps/autopilot/package.json',
@@ -523,7 +523,7 @@ npm run lint --workspace=apps/developers-ioi-ai`}
     nextSteps: [
       { label: 'Policies, Approvals, and Receipts', href: '#policies-approvals-and-receipts' },
       { label: 'Choose the Right Surface', href: '#choose-the-right-surface' },
-      { label: 'Build Your First Chat Artifact', href: '#build-your-first-studio-artifact' },
+      { label: 'Build Your First Chat Artifact', href: '#build-your-first-chat-artifact' },
     ],
     sections: [
       {
@@ -700,7 +700,7 @@ agent.run("Check my vault balance and alert me if it's below 50")`}
     canonicalLinks: [],
     nextSteps: [
       { label: 'CLI Command Reference', href: '#cli-command-reference' },
-      { label: 'Build Your First Chat Artifact', href: '#build-your-first-studio-artifact' },
+      { label: 'Build Your First Chat Artifact', href: '#build-your-first-chat-artifact' },
       { label: 'Policies, Approvals, and Receipts', href: '#policies-approvals-and-receipts' },
     ],
     sections: [
@@ -1132,7 +1132,7 @@ cargo run -p ioi-cli --bin cli -- node`}
     canonicalLinks: [],
     nextSteps: [
       { label: 'IOI CLI Overview', href: '#ioi-cli-overview' },
-      { label: 'Build Your First Chat Artifact', href: '#build-your-first-studio-artifact' },
+      { label: 'Build Your First Chat Artifact', href: '#build-your-first-chat-artifact' },
     ],
     sections: [
       {

@@ -23,94 +23,14 @@ fn normalized_tool_name(tool_call: &AgentTool) -> Option<String> {
     })
 }
 
-fn looks_like_single_key_tool_wrapper(candidate: &str, value: &Value) -> bool {
-    if !value.is_object() {
-        return false;
-    }
-
-    let normalized = candidate.trim();
-    if normalized.is_empty() {
-        return false;
-    }
-
-    canonical_deterministic_tool_name(normalized).is_some()
-        || normalized.contains("__")
+fn rejected_legacy_tool_name(name: &str) -> bool {
+    let normalized = name.trim().to_ascii_lowercase();
+    normalized.starts_with("functions.")
         || normalized.contains("::")
-        || normalized.contains(':')
-        || normalized.contains('.')
-}
-
-fn single_key_tool_wrapper_records_raw_name(wrapped_name: &str) -> bool {
-    matches!(wrapped_name, "file__search")
-}
-
-fn bare_tool_token_rewrite(raw: &str) -> Option<(String, Value, Vec<&'static str>)> {
-    let normalized = canonical_deterministic_tool_name(raw.trim())?;
-    match normalized.as_str() {
-        "file__list" => Some((
-            normalized,
-            json!({ "path": "." }),
-            vec![
-                "bare_tool_token_wrapped",
-                "bare_tool_token_default_root_path",
-            ],
-        )),
-        _ => None,
-    }
-}
-
-fn tool_name_with_argument_block_rewrite(raw: &str) -> Option<(String, Value, Vec<&'static str>)> {
-    let trimmed = raw.trim();
-    let first_line = trimmed.lines().next()?.trim();
-    if first_line.is_empty() {
-        return None;
-    }
-
-    let normalized = canonical_deterministic_tool_name(first_line)?;
-    let remainder = trimmed[first_line.len()..].trim();
-    if remainder.is_empty() {
-        return None;
-    }
-
-    let sanitized_arguments = sanitize_json(remainder);
-    let parsed_arguments: Value = serde_json::from_str(&sanitized_arguments).ok()?;
-    if !parsed_arguments.is_object() {
-        return None;
-    }
-
-    let mut labels = vec!["tool_name_line_wrapped"];
-    if sanitized_arguments.trim() != remainder.trim() {
-        labels.push("tool_name_line_markdown_arguments_unwrapped");
-    }
-
-    Some((
-        normalized.clone(),
-        json!({
-            "name": normalized,
-            "arguments": parsed_arguments,
-        }),
-        labels,
-    ))
-}
-
-fn is_tool_metadata_key(key: &str) -> bool {
-    matches!(
-        key,
-        "name"
-            | "tool"
-            | "recipient_name"
-            | "arguments"
-            | "args"
-            | "parameters"
-            | "input"
-            | "description"
-            | "comment"
-            | "comments"
-            | "rationale"
-            | "reasoning"
-            | "thought"
-            | "explanation"
-    )
+        || matches!(
+            normalized.as_str(),
+            "computer" | "sys_exec" | "filesystem__list_dir"
+        )
 }
 
 impl ToolNormalizer {
@@ -130,63 +50,18 @@ impl ToolNormalizer {
         }
 
         let mut observation = ToolNormalizationObservation::default();
-        if let Some((name, raw_val, labels)) = tool_name_with_argument_block_rewrite(raw_llm_output)
-        {
-            observation.raw_name = Some(name.clone());
-            for label in labels {
-                observation.push_label(label);
-            }
-            let mut raw_val = raw_val;
-            raw_val = unwrap_tool_envelope(raw_val)?;
-            observation.raw_name = raw_val
-                .get("name")
-                .and_then(|value| value.as_str())
-                .map(|value| value.to_string());
-            return Self::normalize_value_with_observation(raw_val, observation);
-        }
-
-        // 1. Sanitize (Remove markdown blocks, fix trailing commas)
+        // 1. Sanitize provider output without inferring an executable tool.
         let json_str = sanitize_json(raw_llm_output);
-        if let Some((name, arguments, labels)) = bare_tool_token_rewrite(&json_str) {
-            observation.raw_name = Some(name.clone());
-            for label in labels {
-                observation.push_label(label);
-            }
-            let raw_val = json!({
-                "name": name,
-                "arguments": arguments,
-            });
-            let tool_call: AgentTool = serde_json::from_value(raw_val)
-                .map_err(|e| anyhow!("Schema Validation Error: {}", e))?;
-            observation.normalized_name = normalized_tool_name(&tool_call);
-            return Ok(ToolNormalizationResult {
-                tool: tool_call,
-                observation,
-            });
-        }
-
-        // 2. Parse Generic JSON
         let raw_val: Value =
             serde_json::from_str(&json_str).map_err(|e| anyhow!("JSON Syntax Error: {}", e))?;
 
-        // 2b. Unwrap provider envelopes (OpenAI tool_calls/function wrappers, Anthropic input).
+        // 2. Unwrap bounded provider envelopes. This may decode OpenAI function
+        // arguments, but it must still yield the canonical { name, arguments } shape.
         let raw_val = unwrap_tool_envelope(raw_val)?;
         observation.raw_name = raw_val
             .get("name")
             .and_then(|value| value.as_str())
-            .map(|value| value.to_string())
-            .or_else(|| {
-                raw_val
-                    .get("recipient_name")
-                    .and_then(|value| value.as_str())
-                    .map(|value| value.to_string())
-            })
-            .or_else(|| {
-                raw_val
-                    .get("tool")
-                    .and_then(|value| value.as_str())
-                    .map(|value| value.to_string())
-            });
+            .map(|value| value.to_string());
 
         Self::normalize_value_with_observation(raw_val, observation)
     }
@@ -195,176 +70,32 @@ impl ToolNormalizer {
         mut raw_val: Value,
         mut observation: ToolNormalizationObservation,
     ) -> Result<ToolNormalizationResult> {
-        // 3. Heuristic Normalization (Fix "parameters" vs "arguments", Infer missing names)
-        // Use flags to avoid borrowing raw_val immutably and mutably at the same time
-        let mut needs_wrap_sys = false;
-        let mut needs_wrap_chat = false;
-        let mut needs_wrap_nav = false;
-        let mut needs_wrap_complete = false;
-        let mut completion_result: Option<String> = None;
-        let mut single_key_tool_wrapper: Option<(String, Value, bool)> = None;
         let mut browser_synthetic_click_present = false;
         let mut browser_synthetic_click_args: Option<Value> = None;
 
         if let Some(map) = raw_val.as_object_mut() {
-            if let Some(tool_name) = map.get("tool").and_then(|value| value.as_str()) {
-                let tool_canonical = canonical_deterministic_tool_name(tool_name)
-                    .unwrap_or_else(|| tool_name.trim().to_string());
-                let current_name = map
-                    .get("name")
-                    .and_then(|value| value.as_str())
-                    .map(str::trim)
-                    .unwrap_or_default();
-                let current_is_known = canonical_deterministic_tool_name(current_name).is_some();
-                if !tool_canonical.is_empty() {
-                    if !map.contains_key("name") {
-                        observation.push_label("tool_to_name");
-                        map.insert("name".to_string(), json!(tool_canonical));
-                    } else if !current_is_known && current_name != tool_canonical {
-                        observation.push_label("tool_field_preferred_over_name");
-                        map.insert("name".to_string(), json!(tool_canonical));
-                    }
-                }
-            }
-
-            // [FIX] Handle "recipient_name" hallucination (common in some fine-tunes)
-            // Some models output {"recipient_name": "functions.computer", ...} instead of {"name": ...}
-            if !map.contains_key("name") {
-                if let Some(rn) = map.remove("recipient_name") {
-                    observation.push_label("recipient_name_alias");
-                    map.insert("name".to_string(), rn);
-                }
-            }
-
-            if !map.contains_key("name") {
-                if let Some(tool_name) = map.remove("tool") {
-                    observation.push_label("tool_to_name");
-                    map.insert("name".to_string(), tool_name);
-                }
-            }
-
-            if !map.contains_key("name") && map.len() == 1 {
-                if let Some((tool_key, tool_args)) = map.iter().next() {
-                    if looks_like_single_key_tool_wrapper(tool_key, tool_args) {
-                        let wrapped_name = canonical_deterministic_tool_name(tool_key)
-                            .unwrap_or_else(|| tool_key.trim().to_string());
-                        let wrapped_args = tool_args.clone();
-                        let canonicalized = wrapped_name != tool_key.trim();
-                        single_key_tool_wrapper = Some((wrapped_name, wrapped_args, canonicalized));
-                    }
-                }
-            }
-
-            // [FIX] Handle "functions." prefix hallucination (e.g. "functions.chat__reply")
+            // Canonicalize exact built-in names only. Legacy aliases and inferred
+            // wrappers are intentionally rejected at the executable boundary.
             if let Some(name_val) = map.get("name") {
                 if let Some(name_str) = name_val.as_str() {
-                    if name_str.starts_with("functions.") {
-                        let fixed_name = name_str.strip_prefix("functions.").unwrap();
-                        observation.push_label("functions_prefix_stripped");
-                        map.insert("name".to_string(), json!(fixed_name));
-                    }
-                }
-            }
-
-            // Canonicalize deterministic tool aliases (for example sys_exec -> shell__run)
-            // before schema deserialization so built-ins stay on typed execution paths.
-            if let Some(name_val) = map.get("name") {
-                if let Some(name_str) = name_val.as_str() {
-                    if let Some(canonical_name) = canonical_deterministic_tool_name(name_str) {
-                        if canonical_name != name_str {
+                    let original_name = name_str.to_string();
+                    if let Some(canonical_name) = canonical_deterministic_tool_name(&original_name)
+                    {
+                        if canonical_name != original_name {
                             observation.push_label("deterministic_alias_canonicalized");
                         }
                         map.insert("name".to_string(), json!(canonical_name));
                     }
-                }
-            }
-
-            if map
-                .get("name")
-                .and_then(|value| value.as_str())
-                .is_some_and(|name| name.eq_ignore_ascii_case("file__list"))
-            {
-                let promote_to_search = map
-                    .get("arguments")
-                    .or_else(|| map.get("args"))
-                    .and_then(|value| value.as_object())
-                    .is_some_and(|arguments| {
-                        arguments.contains_key("pattern")
-                            || arguments.contains_key("query")
-                            || arguments.contains_key("regex")
-                            || arguments.contains_key("glob")
-                            || arguments.contains_key("filter")
-                            || arguments.contains_key("filename_pattern")
-                            || arguments.contains_key("file_pattern")
-                    });
-                if promote_to_search {
-                    observation.push_label("file_list_promoted_to_search");
-                    map.insert("name".to_string(), json!("file__search"));
-                }
-            }
-
-            if !map.contains_key("name") {
-                if map.contains_key("command") {
-                    needs_wrap_sys = true;
-                } else if map.contains_key("message") && map.len() == 1 {
-                    needs_wrap_chat = true;
-                } else if map.contains_key("url") && map.len() == 1 {
-                    needs_wrap_nav = true;
-                } else if let Some(result) = map.get("result").and_then(|v| v.as_str()) {
-                    let trimmed = result.trim();
-                    if !trimmed.is_empty() {
-                        needs_wrap_complete = true;
-                        completion_result = Some(trimmed.to_string());
+                    if rejected_legacy_tool_name(&original_name) {
+                        return Err(anyhow!(
+                            "Schema Validation Error: legacy tool alias '{}' is not executable; use canonical invocation envelopes with exact tool names.",
+                            original_name
+                        ));
                     }
                 }
             }
         }
 
-        if needs_wrap_sys {
-            observation.push_label("flat_payload_wrapped_shell_run");
-            // It's likely a shell__run call provided flat
-            // Wrap it: { "name": "shell__run", "arguments": { "command": ..., ... } }
-            let args = raw_val;
-            let mut new_map = serde_json::Map::new();
-            new_map.insert("name".to_string(), json!("shell__run"));
-            new_map.insert("arguments".to_string(), args);
-            raw_val = Value::Object(new_map);
-        } else if needs_wrap_chat {
-            observation.push_label("flat_payload_wrapped_chat_reply");
-            let args = raw_val;
-            let mut new_map = serde_json::Map::new();
-            new_map.insert("name".to_string(), json!("chat__reply"));
-            new_map.insert("arguments".to_string(), args);
-            raw_val = Value::Object(new_map);
-        } else if needs_wrap_nav {
-            observation.push_label("flat_payload_wrapped_browser_navigate");
-            let args = raw_val;
-            let mut new_map = serde_json::Map::new();
-            new_map.insert("name".to_string(), json!("browser__navigate"));
-            new_map.insert("arguments".to_string(), args);
-            raw_val = Value::Object(new_map);
-        } else if needs_wrap_complete {
-            observation.push_label("flat_payload_wrapped_agent_complete");
-            let result = completion_result.unwrap_or_else(|| "Completed.".to_string());
-            let mut new_map = serde_json::Map::new();
-            new_map.insert("name".to_string(), json!("agent__complete"));
-            new_map.insert("arguments".to_string(), json!({ "result": result }));
-            raw_val = Value::Object(new_map);
-        } else if let Some((wrapped_name, wrapped_args, canonicalized)) = single_key_tool_wrapper {
-            observation.push_label("single_key_tool_wrapper_unwrapped");
-            if canonicalized {
-                observation.push_label("deterministic_alias_canonicalized");
-            }
-            if single_key_tool_wrapper_records_raw_name(&wrapped_name) {
-                observation.raw_name = Some(wrapped_name.clone());
-            }
-            let mut new_map = serde_json::Map::new();
-            new_map.insert("name".to_string(), json!(wrapped_name));
-            new_map.insert("arguments".to_string(), wrapped_args);
-            raw_val = Value::Object(new_map);
-        }
-
-        // Alias check (safe to do in-place if we get mut ref now)
         let mut install_package_args: Option<Value> = None;
         let mut edit_line_args: Option<Value> = None;
 
@@ -394,52 +125,6 @@ impl ToolNormalizer {
         let mut browser_wait_args: Option<Value> = None;
         let mut browser_wait_present = false;
         if let Some(map_mut) = raw_val.as_object_mut() {
-            if let Some(params) = map_mut.get("parameters").cloned() {
-                observation.push_label("parameters_to_arguments");
-                map_mut.insert("arguments".to_string(), params);
-            }
-
-            if !map_mut.contains_key("arguments") {
-                if let Some(args) = map_mut.remove("args") {
-                    observation.push_label("args_to_arguments");
-                    map_mut.insert("arguments".to_string(), args);
-                }
-            }
-
-            // Anthropic-style alias: {"name":"...", "input": {...}}
-            if !map_mut.contains_key("arguments") {
-                if let Some(input) = map_mut.remove("input") {
-                    observation.push_label("input_to_arguments");
-                    map_mut.insert("arguments".to_string(), input);
-                }
-            }
-
-            if !map_mut.contains_key("arguments") {
-                let deterministic_name = map_mut
-                    .get("name")
-                    .and_then(|value| value.as_str())
-                    .filter(|name| is_deterministic_tool_name(name))
-                    .map(str::to_string);
-                if deterministic_name.is_some() {
-                    let argument_keys: Vec<String> = map_mut
-                        .keys()
-                        .filter(|key| !is_tool_metadata_key(key))
-                        .cloned()
-                        .collect();
-                    if !argument_keys.is_empty() {
-                        let mut arguments = serde_json::Map::new();
-                        for key in argument_keys {
-                            if let Some(value) = map_mut.remove(&key) {
-                                arguments.insert(key, value);
-                            }
-                        }
-                        observation.push_label("top_level_fields_to_arguments");
-                        map_mut.insert("arguments".to_string(), Value::Object(arguments));
-                    }
-                }
-            }
-
-            // OpenAI-style: arguments may arrive as a JSON string.
             let args_string = map_mut
                 .get("arguments")
                 .and_then(|v| v.as_str())
@@ -793,6 +478,13 @@ impl ToolNormalizer {
             {
                 return Err(anyhow!(
                     "Schema Validation Error: dynamic tool name '{}' is invalid.",
+                    name
+                ));
+            }
+
+            if rejected_legacy_tool_name(name) {
+                return Err(anyhow!(
+                    "Schema Validation Error: legacy tool alias '{}' is not executable; use canonical invocation envelopes with exact tool names.",
                     name
                 ));
             }

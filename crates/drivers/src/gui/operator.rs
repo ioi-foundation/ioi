@@ -2,6 +2,7 @@
 
 use super::geometry::{CoordinateSpace, DisplayTransform, Point};
 use super::vision::NativeVision;
+use crate::authority::assert_raw_driver_allowed;
 use anyhow::{anyhow, Result};
 use enigo::{Axis, Button, Coordinate, Direction, Enigo, Key, Keyboard, Mouse, Settings};
 use image::load_from_memory;
@@ -209,6 +210,7 @@ impl NativeOperator {
         transform: &DisplayTransform,
         expected_visual_hash: Option<[u8; 32]>,
     ) -> Result<Point> {
+        assert_raw_driver_allowed("gui", "inject_click")?;
         let mut enigo = self
             .enigo
             .lock()
@@ -251,6 +253,7 @@ impl NativeOperator {
     }
 
     pub fn inject(&self, event: &InputEvent) -> Result<()> {
+        assert_raw_driver_allowed("gui", "inject")?;
         let mut enigo = self
             .enigo
             .lock()

@@ -175,7 +175,6 @@ pub fn default_local_engine_control_plane() -> crate::models::LocalEngineControl
         api: crate::models::LocalEngineApiConfig {
             bind_address: "127.0.0.1:8787".to_string(),
             remote_access_enabled: false,
-            expose_compat_routes: true,
             cors_mode: "local_only".to_string(),
             auth_mode: "kernel_leases".to_string(),
         },
@@ -309,7 +308,7 @@ pub fn default_local_engine_control_plane() -> crate::models::LocalEngineControl
                 .to_string(),
             "Staged operations promote into durable kernel-native jobs that update the registry, galleries, and runtime deck."
                 .to_string(),
-            "Compatibility routes remain optional facades; planner, approval, and receipts stay in the kernel."
+            "Compatibility facades are no longer product control-plane contracts; kernel invocation envelopes own execution."
                 .to_string(),
         ],
     }
@@ -456,84 +455,6 @@ pub fn normalize_local_engine_control_plane_document(
         .collect();
     document.control_plane = normalize_local_engine_control_plane(document.control_plane);
     document
-}
-
-fn local_engine_base_url(bind_address: &str) -> String {
-    let normalized = trim_or_empty(bind_address);
-    if normalized.starts_with("http://") || normalized.starts_with("https://") {
-        normalized
-    } else {
-        format!("http://{}", normalized)
-    }
-}
-
-fn build_local_engine_compatibility_routes(
-    control_plane: &crate::models::LocalEngineControlPlane,
-) -> Vec<crate::models::LocalEngineCompatRoute> {
-    let base_url = local_engine_base_url(&control_plane.api.bind_address);
-    let compat_enabled = control_plane.api.expose_compat_routes;
-    vec![
-        crate::models::LocalEngineCompatRoute {
-            id: "kernel.responses".to_string(),
-            label: "Kernel responses".to_string(),
-            path: "/v1/responses".to_string(),
-            url: format!("{}/v1/responses", base_url),
-            enabled: true,
-            compatibility_tier: "native".to_string(),
-            notes: Some(
-                "Canonical kernel-owned facade for absorbed response semantics and receipt-aware local execution."
-                    .to_string(),
-            ),
-        },
-        crate::models::LocalEngineCompatRoute {
-            id: "compat.openai".to_string(),
-            label: "OpenAI compatible".to_string(),
-            path: "/v1/chat/completions".to_string(),
-            url: format!("{}/v1/chat/completions", base_url),
-            enabled: compat_enabled,
-            compatibility_tier: "compatibility".to_string(),
-            notes: Some(
-                "Optional outer facade for OpenAI-compatible clients. The kernel remains planner and receipt authority."
-                    .to_string(),
-            ),
-        },
-        crate::models::LocalEngineCompatRoute {
-            id: "compat.anthropic".to_string(),
-            label: "Anthropic compatible".to_string(),
-            path: "/v1/messages".to_string(),
-            url: format!("{}/v1/messages", base_url),
-            enabled: compat_enabled,
-            compatibility_tier: "compatibility".to_string(),
-            notes: Some(
-                "Migration surface for Anthropic-style request payloads without restoring a LocalAI product boundary."
-                    .to_string(),
-            ),
-        },
-        crate::models::LocalEngineCompatRoute {
-            id: "compat.elevenlabs".to_string(),
-            label: "ElevenLabs compatible".to_string(),
-            path: "/v1/audio/speech".to_string(),
-            url: format!("{}/v1/audio/speech", base_url),
-            enabled: compat_enabled,
-            compatibility_tier: "compatibility".to_string(),
-            notes: Some(
-                "Speech facade for ecosystem compatibility over the kernel-owned media substrate."
-                    .to_string(),
-            ),
-        },
-        crate::models::LocalEngineCompatRoute {
-            id: "compat.models".to_string(),
-            label: "Model catalog facade".to_string(),
-            path: "/v1/models".to_string(),
-            url: format!("{}/v1/models", base_url),
-            enabled: compat_enabled,
-            compatibility_tier: "compatibility".to_string(),
-            notes: Some(
-                "Compatibility model listing for external clients while registry truth stays in the control plane."
-                    .to_string(),
-            ),
-        },
-    ]
 }
 
 pub fn load_or_initialize_local_engine_control_plane(

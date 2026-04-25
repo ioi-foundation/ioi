@@ -1511,7 +1511,7 @@ fn runtime_handoff_prefix_carries_workspace_grounded_route_contract() {
     );
 
     let prefix = runtime_handoff_prompt_prefix_for_task(&task).expect("route handoff prefix");
-    assert!(prefix.contains("STUDIO ROUTE CONTRACT:"));
+    assert!(prefix.contains("CHAT ARTIFACT ROUTE CONTRACT:"));
     assert!(prefix.contains("selected_route: conversation_workspace_grounded_single_pass"));
     assert!(prefix.contains("route_family: coding"));
     assert!(prefix.contains("primary_tools: view, bash_tool"));

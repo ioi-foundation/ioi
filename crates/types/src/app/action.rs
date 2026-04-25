@@ -275,8 +275,7 @@ pub const EXECUTION_OBSERVATION_RECEIPT_STATE_PREFIX: &[u8] =
 /// State key prefix for persisted postcondition proofs.
 pub const POSTCONDITION_PROOF_STATE_PREFIX: &[u8] = b"agentic:settlement:postcondition:v1:";
 /// State key prefix for persisted required receipt manifests.
-pub const REQUIRED_RECEIPT_MANIFEST_STATE_PREFIX: &[u8] =
-    b"agentic:settlement:manifest:v1:";
+pub const REQUIRED_RECEIPT_MANIFEST_STATE_PREFIX: &[u8] = b"agentic:settlement:manifest:v1:";
 
 /// Errors returned while creating or verifying a [`CommittedAction`].
 #[derive(Debug, Error)]
@@ -649,7 +648,8 @@ impl PolicyDecisionRecord {
         };
         let canonical = serde_jcs::to_vec(&material)
             .map_err(|e| ActionHashError::Canonicalization(e.to_string()))?;
-        let digest = Sha256::digest(&canonical).map_err(|e| ActionHashError::Hash(e.to_string()))?;
+        let digest =
+            Sha256::digest(&canonical).map_err(|e| ActionHashError::Hash(e.to_string()))?;
         let mut out = [0u8; 32];
         out.copy_from_slice(digest.as_ref());
         Ok(out)
@@ -832,9 +832,10 @@ impl ApprovalGrant {
 
     /// Returns a canonical content hash for this exact grant artifact.
     pub fn artifact_hash(&self) -> Result<[u8; 32], ActionHashError> {
-        let canonical =
-            serde_jcs::to_vec(self).map_err(|e| ActionHashError::Canonicalization(e.to_string()))?;
-        let digest = Sha256::digest(&canonical).map_err(|e| ActionHashError::Hash(e.to_string()))?;
+        let canonical = serde_jcs::to_vec(self)
+            .map_err(|e| ActionHashError::Canonicalization(e.to_string()))?;
+        let digest =
+            Sha256::digest(&canonical).map_err(|e| ActionHashError::Hash(e.to_string()))?;
         let mut out = [0u8; 32];
         out.copy_from_slice(digest.as_ref());
         Ok(out)
@@ -1063,7 +1064,8 @@ impl ExecutionObservationReceipt {
         };
         let canonical = serde_jcs::to_vec(&material)
             .map_err(|e| ActionHashError::Canonicalization(e.to_string()))?;
-        let digest = Sha256::digest(&canonical).map_err(|e| ActionHashError::Hash(e.to_string()))?;
+        let digest =
+            Sha256::digest(&canonical).map_err(|e| ActionHashError::Hash(e.to_string()))?;
         let mut out = [0u8; 32];
         out.copy_from_slice(digest.as_ref());
         Ok(out)
@@ -1182,7 +1184,8 @@ impl PostconditionProof {
         };
         let canonical = serde_jcs::to_vec(&material)
             .map_err(|e| ActionHashError::Canonicalization(e.to_string()))?;
-        let digest = Sha256::digest(&canonical).map_err(|e| ActionHashError::Hash(e.to_string()))?;
+        let digest =
+            Sha256::digest(&canonical).map_err(|e| ActionHashError::Hash(e.to_string()))?;
         let mut out = [0u8; 32];
         out.copy_from_slice(digest.as_ref());
         Ok(out)
@@ -1264,7 +1267,8 @@ impl RequiredReceiptManifest {
         };
         let canonical = serde_jcs::to_vec(&material)
             .map_err(|e| ActionHashError::Canonicalization(e.to_string()))?;
-        let digest = Sha256::digest(&canonical).map_err(|e| ActionHashError::Hash(e.to_string()))?;
+        let digest =
+            Sha256::digest(&canonical).map_err(|e| ActionHashError::Hash(e.to_string()))?;
         let mut out = [0u8; 32];
         out.copy_from_slice(digest.as_ref());
         Ok(out)
@@ -1405,7 +1409,8 @@ impl SettlementReceiptBundle {
         };
         let canonical = serde_jcs::to_vec(&material)
             .map_err(|e| ActionHashError::Canonicalization(e.to_string()))?;
-        let digest = Sha256::digest(&canonical).map_err(|e| ActionHashError::Hash(e.to_string()))?;
+        let digest =
+            Sha256::digest(&canonical).map_err(|e| ActionHashError::Hash(e.to_string()))?;
         let mut out = [0u8; 32];
         out.copy_from_slice(digest.as_ref());
         Ok(out)

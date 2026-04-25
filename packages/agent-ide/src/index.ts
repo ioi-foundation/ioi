@@ -72,7 +72,7 @@ export {
 export { useFilteredSessionHistory } from "./runtime/use-session-history-browser";
 export { useSessionInspectionSurface } from "./runtime/use-session-inspection-surface";
 export { useSessionInterruptionActions } from "./runtime/use-session-interruption-actions";
-export { useSessionLegacyPresentation } from "./runtime/use-session-legacy-presentation";
+export { useSessionRuntimePresentation } from "./runtime/use-session-runtime-presentation";
 export {
   buildSessionRunPresentation,
   dedupeSessionActivityEvents,
@@ -294,13 +294,13 @@ export type {
 } from "./runtime/use-session-gate-state";
 export type { UseSessionInterruptionActionsOptions } from "./runtime/use-session-interruption-actions";
 export type {
-  SessionLegacyPresentationEntry,
-  SessionLegacyPresentationEventLike,
-  SessionLegacyPresentationGroup,
-  SessionLegacyPresentationMessageLike,
-  SessionLegacyTimelineStep,
-  UseSessionLegacyPresentationOptions,
-} from "./runtime/use-session-legacy-presentation";
+  SessionRuntimePresentationEntry,
+  SessionRuntimePresentationEventLike,
+  SessionRuntimePresentationGroup,
+  SessionRuntimePresentationMessageLike,
+  SessionRuntimeTimelineStep,
+  UseSessionRuntimePresentationOptions,
+} from "./runtime/use-session-runtime-presentation";
 export type { UseSessionControllerHydrationOptions } from "./runtime/use-session-controller-hydration";
 export type {
   BuildSessionRunPresentationOptions,

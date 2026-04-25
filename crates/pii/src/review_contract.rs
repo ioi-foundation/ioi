@@ -13,8 +13,8 @@ pub const REVIEW_REQUEST_VERSION: u32 = 3;
 /// Review-mode indicator returned by contract validation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ResumeReviewMode {
-    /// Traditional approval flow without a persisted review request.
-    LegacyApproval,
+    /// Deny-only approval flow without a persisted review request.
+    UnboundDeny,
     /// Review-bound approval flow with persisted request + explicit action.
     ReviewBound,
 }
@@ -103,7 +103,7 @@ pub fn expected_assist_identity() -> (String, String, [u8; 32]) {
 }
 
 /// Validates that a review request is compatible with the locked v3+CIM contract.
-pub fn validate_review_request_compat(
+pub fn validate_review_request_v3_cim(
     req: &PiiReviewRequest,
 ) -> std::result::Result<(), PiiReviewContractError> {
     if req.request_version != REVIEW_REQUEST_VERSION {
@@ -161,13 +161,13 @@ pub fn validate_resume_review_contract_for_grant(
                 return Err(PiiReviewContractError::PiiActionWithoutReviewRequest);
             }
         }
-        return Ok(ResumeReviewMode::LegacyApproval);
+        return Ok(ResumeReviewMode::UnboundDeny);
     };
 
     if request.decision_hash != expected_request_hash {
         return Err(PiiReviewContractError::ReviewRequestHashMismatch);
     }
-    validate_review_request_compat(request)?;
+    validate_review_request_v3_cim(request)?;
     if now_ms > request.deadline_ms {
         return Err(PiiReviewContractError::ReviewApprovalDeadlineExceeded);
     }

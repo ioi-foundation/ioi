@@ -292,7 +292,7 @@ fn sequential_session_file_context_saves_preserve_existing_scope_entries() {
 }
 
 #[test]
-fn load_local_engine_control_plane_migrates_legacy_unversioned_payload() {
+fn load_local_engine_control_plane_rejects_legacy_unversioned_payload() {
     let dir = temp_runtime_dir();
     let memory_runtime = Arc::new(open_or_create_memory_runtime(&dir).expect("memory runtime"));
     let control_plane = crate::kernel::data::default_local_engine_control_plane();
@@ -309,44 +309,8 @@ fn load_local_engine_control_plane_migrates_legacy_unversioned_payload() {
     });
     save_local_engine_control_plane_value(&memory_runtime, &legacy_value);
 
-    let document = load_local_engine_control_plane_document(&memory_runtime)
-        .expect("migrated control plane document");
-
-    assert_eq!(
-        document.schema_version,
-        LOCAL_ENGINE_CONTROL_PLANE_SCHEMA_VERSION
-    );
-    assert_eq!(document.profile_id, LOCAL_ENGINE_CONTROL_PLANE_PROFILE_ID);
-    assert_eq!(
-        document.control_plane.runtime.default_model,
-        control_plane.runtime.default_model
-    );
-    assert_eq!(
-        document.control_plane.launcher.release_channel,
-        control_plane.launcher.release_channel
-    );
-    assert_eq!(document.control_plane.notes, control_plane.notes);
-    assert_eq!(document.migrations.len(), 1);
-    assert_eq!(
-        document.migrations[0].migration_id,
-        "local_engine_control_plane.v0_to_v1"
-    );
-    assert!(document.migrations[0]
-        .details
-        .iter()
-        .any(|detail| detail.contains("launcher defaults")));
-
-    save_local_engine_control_plane_document(&memory_runtime, &document);
-    let persisted =
-        load_global_checkpoint_blob(&memory_runtime, LOCAL_ENGINE_CONTROL_PLANE_CHECKPOINT_NAME)
-            .expect("persisted control plane bytes");
-    let stored: LocalEngineControlPlaneDocument =
-        serde_json::from_slice(&persisted).expect("stored versioned control plane");
-    assert_eq!(
-        stored.schema_version,
-        LOCAL_ENGINE_CONTROL_PLANE_SCHEMA_VERSION
-    );
-    assert_eq!(stored.migrations.len(), 1);
+    assert!(load_local_engine_control_plane_document(&memory_runtime).is_none());
+    assert!(load_local_engine_control_plane(&memory_runtime).is_none());
 
     let _ = fs::remove_dir_all(dir);
 }

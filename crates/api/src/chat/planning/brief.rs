@@ -1,15 +1,13 @@
 use super::shared::{
     brief_field_repair_max_tokens_for_runtime, brief_planner_max_tokens_for_runtime,
-    brief_repair_max_tokens_for_runtime, compact_local_html_brief_prompt,
-    outcome_artifact_renderer_defaults, chat_planning_trace, truncate_planning_preview,
+    brief_repair_max_tokens_for_runtime, chat_planning_trace, compact_local_html_brief_prompt,
+    outcome_artifact_renderer_defaults, truncate_planning_preview,
 };
 use crate::chat::validation::chat_artifact_refinement_context_view;
 use crate::chat::*;
 use crate::vm::inference::InferenceRuntime;
 use ioi_types::app::agentic::InferenceOptions;
-use ioi_types::app::{
-    ChatOutcomeArtifactRequest, ChatRendererKind, ChatRuntimeProvenanceKind,
-};
+use ioi_types::app::{ChatOutcomeArtifactRequest, ChatRendererKind, ChatRuntimeProvenanceKind};
 use serde_json::json;
 use std::sync::Arc;
 
@@ -22,10 +20,8 @@ pub async fn plan_chat_artifact_brief_with_runtime(
 ) -> Result<ChatArtifactBrief, String> {
     let runtime_provenance = runtime.chat_runtime_provenance();
     let parse_and_validate = |raw: &str| -> Result<ChatArtifactBrief, String> {
-        let brief = canonicalize_chat_artifact_brief_for_request(
-            parse_chat_artifact_brief(raw)?,
-            request,
-        );
+        let brief =
+            canonicalize_chat_artifact_brief_for_request(parse_chat_artifact_brief(raw)?, request);
         validate_chat_artifact_brief_against_request(&brief, request, refinement)?;
         Ok(brief)
     };
@@ -939,9 +935,7 @@ pub fn build_chat_artifact_brief_prompt(
     )
 }
 
-fn chat_artifact_brief_request_focus(
-    request: &ChatOutcomeArtifactRequest,
-) -> serde_json::Value {
+fn chat_artifact_brief_request_focus(request: &ChatOutcomeArtifactRequest) -> serde_json::Value {
     json!({
         "artifactClass": request.artifact_class,
         "deliverableShape": request.deliverable_shape,
@@ -966,14 +960,11 @@ pub(crate) fn build_chat_artifact_brief_prompt_for_runtime(
     let compact_prompt = compact_local_html_brief_prompt(request.renderer, runtime_kind);
     let request_json = serde_json::to_string(request)
         .map_err(|error| format!("Failed to serialize Chat artifact request: {error}"))?;
-    let refinement_json =
-        serde_json::to_string(&chat_artifact_refinement_context_view(refinement))
-            .map_err(|error| format!("Failed to serialize Chat refinement context: {error}"))?;
+    let refinement_json = serde_json::to_string(&chat_artifact_refinement_context_view(refinement))
+        .map_err(|error| format!("Failed to serialize Chat refinement context: {error}"))?;
     if compact_prompt {
-        let request_focus_json = serde_json::to_string(&chat_artifact_brief_request_focus(
-            request,
-        ))
-        .map_err(|error| format!("Failed to serialize Chat artifact request focus: {error}"))?;
+        let request_focus_json = serde_json::to_string(&chat_artifact_brief_request_focus(request))
+            .map_err(|error| format!("Failed to serialize Chat artifact request focus: {error}"))?;
         let continuity_rule = if refinement.is_some() {
             "Preserve stable concepts, interactions, and structure from the current artifact context when they still fit the request."
         } else {
@@ -1430,9 +1421,7 @@ fn salvage_chat_artifact_brief_core_fields(
         brief.required_concepts = vec![brief.subject_domain.clone()];
     }
 
-    Ok(canonicalize_chat_artifact_brief_for_request(
-        brief, request,
-    ))
+    Ok(canonicalize_chat_artifact_brief_for_request(brief, request))
 }
 
 fn split_interaction_identifier_terms(value: &str) -> Vec<String> {
@@ -1587,9 +1576,7 @@ fn canonicalize_query_profile_summary(summary: &str) -> Option<String> {
     }
 }
 
-fn canonicalize_query_profile(
-    mut profile: ChatArtifactQueryProfile,
-) -> ChatArtifactQueryProfile {
+fn canonicalize_query_profile(mut profile: ChatArtifactQueryProfile) -> ChatArtifactQueryProfile {
     profile.content_goals.retain_mut(|goal| {
         canonicalize_query_profile_summary(&goal.summary)
             .map(|summary| {
@@ -2071,9 +2058,7 @@ pub(crate) fn validate_chat_artifact_brief_against_request(
     refinement: Option<&ChatArtifactRefinementContext>,
 ) -> Result<(), String> {
     if brief.required_concepts.is_empty() {
-        return Err(
-            "Chat artifact briefs must include at least one required concept.".to_string(),
-        );
+        return Err("Chat artifact briefs must include at least one required concept.".to_string());
     }
 
     match request.renderer {
@@ -2179,14 +2164,11 @@ fn build_chat_artifact_brief_repair_prompt_for_runtime(
     let compact_prompt = compact_local_html_brief_prompt(request.renderer, runtime_kind);
     let request_json = serde_json::to_string(request)
         .map_err(|error| format!("Failed to serialize Chat artifact request: {error}"))?;
-    let refinement_json =
-        serde_json::to_string(&chat_artifact_refinement_context_view(refinement))
-            .map_err(|error| format!("Failed to serialize Chat refinement context: {error}"))?;
+    let refinement_json = serde_json::to_string(&chat_artifact_refinement_context_view(refinement))
+        .map_err(|error| format!("Failed to serialize Chat refinement context: {error}"))?;
     if compact_prompt {
-        let request_focus_json = serde_json::to_string(&chat_artifact_brief_request_focus(
-            request,
-        ))
-        .map_err(|error| format!("Failed to serialize Chat artifact request focus: {error}"))?;
+        let request_focus_json = serde_json::to_string(&chat_artifact_brief_request_focus(request))
+            .map_err(|error| format!("Failed to serialize Chat artifact request focus: {error}"))?;
         return Ok(json!([
             {
                 "role": "system",
@@ -2264,14 +2246,11 @@ fn build_chat_artifact_brief_field_repair_prompt_for_runtime(
     let compact_prompt = compact_local_html_brief_prompt(request.renderer, runtime_kind);
     let request_json = serde_json::to_string(request)
         .map_err(|error| format!("Failed to serialize Chat artifact request: {error}"))?;
-    let refinement_json =
-        serde_json::to_string(&chat_artifact_refinement_context_view(refinement))
-            .map_err(|error| format!("Failed to serialize Chat refinement context: {error}"))?;
+    let refinement_json = serde_json::to_string(&chat_artifact_refinement_context_view(refinement))
+        .map_err(|error| format!("Failed to serialize Chat refinement context: {error}"))?;
     if compact_prompt {
-        let request_focus_json = serde_json::to_string(&chat_artifact_brief_request_focus(
-            request,
-        ))
-        .map_err(|error| format!("Failed to serialize Chat artifact request focus: {error}"))?;
+        let request_focus_json = serde_json::to_string(&chat_artifact_brief_request_focus(request))
+            .map_err(|error| format!("Failed to serialize Chat artifact request focus: {error}"))?;
         return Ok(json!([
             {
                 "role": "system",

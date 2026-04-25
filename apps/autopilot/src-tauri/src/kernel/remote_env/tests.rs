@@ -4,7 +4,7 @@ use crate::models::SessionRemoteEnvBinding;
 #[test]
 fn binding_scope_classifies_routing_and_shell_keys() {
     assert_eq!(
-        binding_scope_label("AUTOPILOT_STUDIO_ROUTING_RUNTIME_URL"),
+        binding_scope_label("AUTOPILOT_CHAT_ARTIFACT_ROUTING_RUNTIME_URL"),
         "Routing runtime"
     );
     assert_eq!(binding_scope_label("XDG_SESSION_TYPE"), "Shell process");

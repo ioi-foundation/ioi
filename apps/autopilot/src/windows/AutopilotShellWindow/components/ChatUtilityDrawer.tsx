@@ -318,7 +318,7 @@ export function ChatUtilityDrawer({
     }
   };
 
-  const handleStopStudioSession = async () => {
+  const handleStopChatSession = async () => {
     setSessionSurfaceStatus("loading");
     setSessionSurfaceError(null);
     try {
@@ -440,7 +440,7 @@ export function ChatUtilityDrawer({
                   void handleOpenChatSession(sessionId);
                 }}
                 onStopSession={() => {
-                  void handleStopStudioSession();
+                  void handleStopChatSession();
                 }}
               />
             </div>

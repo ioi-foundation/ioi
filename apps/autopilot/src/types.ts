@@ -941,7 +941,6 @@ export interface ChatArtifactMaterializationContract {
   swarmExecution?: SwarmExecutionSummary | null;
   swarmWorkerReceipts: SwarmWorkerReceipt[];
   swarmChangeReceipts: SwarmChangeReceipt[];
-  swarmPatchReceipts?: SwarmChangeReceipt[];
   swarmMergeReceipts: SwarmMergeReceipt[];
   swarmVerificationReceipts: SwarmVerificationReceipt[];
   renderEvaluation?: ChatArtifactRenderEvaluation | null;
@@ -1233,7 +1232,6 @@ export interface ChatArtifactRevision {
   swarmExecution?: SwarmExecutionSummary | null;
   swarmWorkerReceipts: SwarmWorkerReceipt[];
   swarmChangeReceipts: SwarmChangeReceipt[];
-  swarmPatchReceipts?: SwarmChangeReceipt[];
   swarmMergeReceipts: SwarmMergeReceipt[];
   swarmVerificationReceipts: SwarmVerificationReceipt[];
   renderEvaluation?: ChatArtifactRenderEvaluation | null;
@@ -2075,16 +2073,6 @@ export interface LocalEngineActivityRecord {
   errorClass?: string | null;
 }
 
-export interface LocalEngineCompatRoute {
-  id: string;
-  label: string;
-  path: string;
-  url: string;
-  enabled: boolean;
-  compatibilityTier: string;
-  notes?: string | null;
-}
-
 export interface LocalEngineJobRecord {
   jobId: string;
   title: string;
@@ -2312,7 +2300,6 @@ export interface LocalEngineResponseConfig {
 export interface LocalEngineApiConfig {
   bindAddress: string;
   remoteAccessEnabled: boolean;
-  exposeCompatRoutes: boolean;
   corsMode: string;
   authMode: string;
 }
@@ -2417,7 +2404,6 @@ export interface LocalEngineSnapshot {
   pendingApprovalCount: number;
   activeIssueCount: number;
   capabilities: LocalEngineCapabilityFamily[];
-  compatibilityRoutes: LocalEngineCompatRoute[];
   pendingControls: LocalEngineControlAction[];
   jobs: LocalEngineJobRecord[];
   recentActivity: LocalEngineActivityRecord[];
@@ -3067,6 +3053,20 @@ export interface TraceBundleArtifactPayloadEntry {
   path: string;
 }
 
+export type EvidenceTier =
+  | "Projection"
+  | "Runtime event receipt"
+  | "Settlement receipt"
+  | "External approval"
+  | "Artifact promotion"
+  | "Missing settlement"
+  | "Simulation-only";
+
+export type TraceAuthority =
+  | "projection_only"
+  | "partial_settlement"
+  | "settlement";
+
 export interface CanonicalTraceBundle {
   schemaVersion: number;
   exportedAtUtc: string;
@@ -3078,12 +3078,39 @@ export interface CanonicalTraceBundle {
   task?: AgentTask | null;
   history: ChatMessage[];
   events: AgentEvent[];
-  receipts: AgentEvent[];
+  projectionReceipts?: AgentEvent[];
+  settlementReceipts?: unknown[];
+  missingSettlementRefs?: string[];
+  evidenceTiers?: EvidenceTier[];
+  traceAuthority?: TraceAuthority;
+  settlementBacked?: boolean;
   artifacts: Artifact[];
   artifactPayloads: TraceBundleArtifactPayloadEntry[];
   interventions: InterventionRecord[];
   assistantNotifications: AssistantNotificationRecord[];
   assistantWorkbenchActivities: AssistantWorkbenchActivityRecord[];
+}
+
+export type OperatorInterventionType =
+  | "approval_required"
+  | "graph_blocked"
+  | "workflow_failure"
+  | "connector_step_up"
+  | "plugin_trust_change"
+  | "artifact_validation_failure"
+  | "missing_settlement";
+
+export interface OperatorIntervention {
+  interventionId: string;
+  sessionId: string;
+  type: OperatorInterventionType;
+  authorityRequired: string;
+  requestHash?: string | null;
+  policyHash?: string | null;
+  status: "open" | "resolved" | "expired" | "denied";
+  deadlineAtMs: number;
+  resolutionOptions: string[];
+  evidenceTier: EvidenceTier;
 }
 
 export interface TraceBundleDiffStat {

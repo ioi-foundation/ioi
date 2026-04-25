@@ -34,7 +34,7 @@ export type ChatExecutionChrome = {
   codePreview: ChatExecutionPreview;
 };
 
-export function formatStudioStatusLabel(value: string | null | undefined): string {
+export function formatRuntimeStatusLabel(value: string | null | undefined): string {
   const normalized = (value || "").trim().replace(/[_-]+/g, " ");
   if (!normalized) {
     return "";
@@ -122,7 +122,7 @@ function invariantProcesses(
           : "Ready";
     return {
       id: `work-item:${id}`,
-      label: formatStudioStatusLabel(id) || id,
+      label: formatRuntimeStatusLabel(id) || id,
       status,
       summary:
         status === "Complete"
@@ -141,7 +141,7 @@ function invariantProcesses(
     const status = satisfied ? "Complete" : invariantBlocked ? "Blocked" : "Pending";
     return {
       id: `verification:${id}`,
-      label: formatStudioStatusLabel(id) || id,
+      label: formatRuntimeStatusLabel(id) || id,
       status,
       summary: satisfied
         ? "This verification requirement is satisfied."
@@ -192,8 +192,8 @@ export function deriveChatExecutionChrome({
         .slice(0, 5)
         .map((item) => ({
           id: item.id,
-          label: item.title || formatStudioStatusLabel(item.role) || item.id,
-          status: formatStudioStatusLabel(item.status) || "Pending",
+          label: item.title || formatRuntimeStatusLabel(item.role) || item.id,
+          status: formatRuntimeStatusLabel(item.status) || "Pending",
           summary: item.summary || "Working the assigned scope.",
           isActive:
             item.id === activePreviewWorkItemId ||
@@ -216,22 +216,22 @@ export function deriveChatExecutionChrome({
     metrics: swarmExecution
       ? {
           stage:
-            formatStudioStatusLabel(
+            formatRuntimeStatusLabel(
               swarmExecution.executionStage || swarmExecution.currentStage,
             ) || null,
           activeRole: swarmExecution.activeWorkerRole
-            ? formatStudioStatusLabel(swarmExecution.activeWorkerRole)
+            ? formatRuntimeStatusLabel(swarmExecution.activeWorkerRole)
             : null,
           progress:
             swarmExecution.totalWorkItems > 0
               ? `${swarmExecution.completedWorkItems}/${swarmExecution.totalWorkItems} work items`
               : null,
-          verification: formatStudioStatusLabel(swarmExecution.verificationStatus) || null,
+          verification: formatRuntimeStatusLabel(swarmExecution.verificationStatus) || null,
         }
       : executionEnvelope?.modeDecision
         ? {
             stage:
-              formatStudioStatusLabel(
+              formatRuntimeStatusLabel(
                 executionEnvelope.modeDecision.resolvedStrategy,
               ) || null,
             activeRole: executionEnvelope.modeDecision.workGraphRequired
@@ -239,7 +239,7 @@ export function deriveChatExecutionChrome({
               : "Bounded execution",
             progress: completionInvariantProgress(executionEnvelope),
             verification:
-              formatStudioStatusLabel(
+              formatRuntimeStatusLabel(
                 executionEnvelope.completionInvariant?.status,
               ) || null,
           }

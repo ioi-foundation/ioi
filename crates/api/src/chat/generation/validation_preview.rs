@@ -193,9 +193,7 @@ pub(super) fn chat_swarm_progress_step(
     )
 }
 
-pub(super) fn chat_swarm_preview_language(
-    request: &ChatOutcomeArtifactRequest,
-) -> Option<String> {
+pub(super) fn chat_swarm_preview_language(request: &ChatOutcomeArtifactRequest) -> Option<String> {
     let language = match request.renderer {
         ChatRendererKind::HtmlIframe => "html",
         ChatRendererKind::Markdown => "markdown",
@@ -363,9 +361,7 @@ pub(super) fn snapshot_execution_live_previews(
         .unwrap_or_default()
 }
 
-pub(super) fn summarize_patch_preview(
-    operations: &[ChatArtifactPatchOperation],
-) -> Option<String> {
+pub(super) fn summarize_patch_preview(operations: &[ChatArtifactPatchOperation]) -> Option<String> {
     let preview_body = operations.iter().find_map(|operation| {
         operation
             .body

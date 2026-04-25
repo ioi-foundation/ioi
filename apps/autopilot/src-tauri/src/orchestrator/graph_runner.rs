@@ -169,6 +169,20 @@ fn error_result(output: String, input_snapshot: Option<Value>) -> ExecutionResul
     }
 }
 
+fn timeout_result(timeout_ms: u64, input_snapshot: Option<Value>) -> ExecutionResult {
+    ExecutionResult {
+        status: "error".into(),
+        output: format!("⏱️ Timeout ({}ms) Exceeded.", timeout_ms),
+        data: None,
+        metrics: Some(json!({
+            "authority": "projection_only_timeout",
+            "timeout_ms": timeout_ms,
+        })),
+        input_snapshot,
+        context_slice: None,
+    }
+}
+
 fn first_non_empty_string(value: &Value, keys: &[&str]) -> Option<String> {
     keys.iter()
         .find_map(|key| value.get(*key).and_then(Value::as_str))
@@ -494,7 +508,10 @@ where
             generation: None,
         });
 
-        match execution::execute_ephemeral_node(
+        let remaining = Duration::from_millis(timeout_ms)
+            .checked_sub(start_time.elapsed())
+            .unwrap_or_else(|| Duration::from_millis(0));
+        let node_execution = execution::execute_ephemeral_node(
             &node.node_type,
             &resolved_config,
             &input_str,
@@ -502,10 +519,10 @@ where
             memory_runtime.clone(),
             inference.clone(),
             tier,
-        )
-        .await
-        {
-            Ok(mut result) => {
+        );
+
+        match tokio::time::timeout(remaining, node_execution).await {
+            Ok(Ok(mut result)) => {
                 result.input_snapshot = Some(effective_input.clone());
                 context.insert(node_id.clone(), output_value_for_result(&result));
 
@@ -531,7 +548,7 @@ where
 
                 enqueue_active_children(&adj, &mut in_degree, &mut queue, &node_id, &active_handle);
             }
-            Err(e) => {
+            Ok(Err(e)) => {
                 emit_event(GraphEvent {
                     node_id,
                     status: "error".into(),
@@ -542,6 +559,16 @@ where
                     fitness_score: None,
                     generation: None,
                 });
+            }
+            Err(_) => {
+                emit_event(GraphEvent {
+                    node_id,
+                    status: "error".into(),
+                    result: Some(timeout_result(timeout_ms, Some(effective_input.clone()))),
+                    fitness_score: None,
+                    generation: None,
+                });
+                break;
             }
         }
     }

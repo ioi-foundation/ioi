@@ -1,16 +1,16 @@
 use anyhow::{Context, Result};
 use ioi_api::chat::{
-    parse_studio_generated_artifact_payload, pdf_artifact_bytes, ChatArtifactBlueprint,
+    parse_chat_generated_artifact_payload, pdf_artifact_bytes, ChatArtifactBlueprint,
     ChatArtifactCandidateSummary, ChatArtifactSelectedSkill, ChatArtifactTasteMemory,
     ChatArtifactUxLifecycle, ChatArtifactValidationResult, ChatArtifactValidationStatus,
     ChatGeneratedArtifactFile, ChatGeneratedArtifactPayload,
 };
 use ioi_types::app::{
-    ChatArtifactFailure, ChatArtifactFileRole, ChatArtifactLifecycleState,
-    ChatArtifactManifest, ChatArtifactManifestFile, ChatArtifactManifestStorage,
-    ChatArtifactManifestTab, ChatArtifactManifestVerification, ChatArtifactPersistenceMode,
-    ChatArtifactTabKind, ChatArtifactVerificationStatus, ChatOutcomeArtifactRequest,
-    ChatRendererKind, ChatRuntimeProvenance,
+    ChatArtifactFailure, ChatArtifactFileRole, ChatArtifactLifecycleState, ChatArtifactManifest,
+    ChatArtifactManifestFile, ChatArtifactManifestStorage, ChatArtifactManifestTab,
+    ChatArtifactManifestVerification, ChatArtifactPersistenceMode, ChatArtifactTabKind,
+    ChatArtifactVerificationStatus, ChatOutcomeArtifactRequest, ChatRendererKind,
+    ChatRuntimeProvenance,
 };
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -337,7 +337,7 @@ fn unwrap_nested_html_artifact_body(file: &ChatGeneratedArtifactFile) -> Option<
         return None;
     }
 
-    let nested_payload = parse_studio_generated_artifact_payload(trimmed).ok()?;
+    let nested_payload = parse_chat_generated_artifact_payload(trimmed).ok()?;
     let nested_primary = nested_payload.files.iter().find(|nested_file| {
         matches!(
             nested_file.role,

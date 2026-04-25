@@ -36,10 +36,7 @@ fn normalize_blocked_web_read_for_continuation(
     let note = blocked_web_read_note(read_url, challenged);
     *success = false;
     if error_msg.is_none() {
-        *error_msg = Some(format!(
-            "ERROR_CLASS=BlockedWebRead {}",
-            note
-        ));
+        *error_msg = Some(format!("ERROR_CLASS=BlockedWebRead {}", note));
     }
     *history_entry = Some(note.clone());
     *action_output = Some(note);

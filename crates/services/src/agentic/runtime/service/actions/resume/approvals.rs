@@ -1,7 +1,6 @@
 use crate::agentic::rules::ActionRules;
-use crate::agentic::runtime::keys::{
-    get_approval_authority_key, get_approval_grant_key, pii,
-};
+use crate::agentic::runtime::kernel::approval::{ApprovalScopeContext, AuthorityScopeMatcher};
+use crate::agentic::runtime::keys::{get_approval_authority_key, get_approval_grant_key, pii};
 use crate::agentic::runtime::service::step::incident::mark_gate_approved;
 use crate::agentic::runtime::service::RuntimeAgentService;
 use crate::agentic::runtime::types::AgentState;
@@ -76,7 +75,10 @@ fn verify_approval_grant_signature(
                 TransactionError::Invalid(format!("Invalid approval grant signature: {}", e))
             })?;
             pk.verify(&message, &sig).map_err(|e| {
-                TransactionError::Invalid(format!("Approval grant signature verification failed: {}", e))
+                TransactionError::Invalid(format!(
+                    "Approval grant signature verification failed: {}",
+                    e
+                ))
             })?;
         }
         ioi_types::app::SignatureSuite::ML_DSA_44 => {
@@ -87,7 +89,10 @@ fn verify_approval_grant_signature(
                 TransactionError::Invalid(format!("Invalid approval grant signature: {}", e))
             })?;
             pk.verify(&message, &sig).map_err(|e| {
-                TransactionError::Invalid(format!("Approval grant signature verification failed: {}", e))
+                TransactionError::Invalid(format!(
+                    "Approval grant signature verification failed: {}",
+                    e
+                ))
             })?;
         }
         _ => {
@@ -105,14 +110,16 @@ pub(crate) fn validate_registered_approval_grant(
     grant: &ioi_types::app::ApprovalGrant,
     now_ms: Option<u64>,
     expected_policy_hash: Option<[u8; 32]>,
+    scope_context: Option<&ApprovalScopeContext>,
 ) -> Result<(), TransactionError> {
     grant
         .verify()
         .map_err(|e| TransactionError::Invalid(format!("Invalid approval grant: {}", e)))?;
     verify_approval_grant_signature(grant)?;
-    let authority = load_registered_approval_authority(state, &grant.authority_id)?.ok_or_else(
-        || TransactionError::Invalid("Approval authority is not registered".to_string()),
-    )?;
+    let authority =
+        load_registered_approval_authority(state, &grant.authority_id)?.ok_or_else(|| {
+            TransactionError::Invalid("Approval authority is not registered".to_string())
+        })?;
     authority
         .verify()
         .map_err(|e| TransactionError::Invalid(format!("Invalid approval authority: {}", e)))?;
@@ -127,6 +134,14 @@ pub(crate) fn validate_registered_approval_grant(
         return Err(TransactionError::Invalid(
             "Approval authority does not match approval grant signer".to_string(),
         ));
+    }
+    if let Some(scope_context) = scope_context {
+        AuthorityScopeMatcher::validate(&authority, scope_context).map_err(|reason| {
+            TransactionError::Invalid(format!(
+                "Approval grant scope validation failed: {}",
+                reason
+            ))
+        })?;
     }
     if let Some(now_ms) = now_ms {
         if now_ms > grant.expires_at {
@@ -211,7 +226,14 @@ pub(super) async fn validate_and_apply(
     // Validate approval grant before executing anything.
     // Runtime secret retries for package__install are allowed without approval grant.
     if let Some(grant) = approval_grant.as_ref() {
-        validate_registered_approval_grant(state, grant, Some(block_timestamp_ms), None)?;
+        let scope_context = ApprovalScopeContext::new("desktop_agent.resume");
+        validate_registered_approval_grant(
+            state,
+            grant,
+            Some(block_timestamp_ms),
+            None,
+            Some(&scope_context),
+        )?;
         validate_resume_review_contract_for_grant_local(
             expected_request_hash,
             grant,
@@ -346,7 +368,9 @@ pub(super) async fn validate_and_apply(
             "Missing approval authority for review request".into(),
         ));
     } else if !matches!(tool, AgentTool::SysInstallPackage { .. }) {
-        return Err(TransactionError::Invalid("Missing approval authority".into()));
+        return Err(TransactionError::Invalid(
+            "Missing approval authority".into(),
+        ));
     } else {
         verification_checks.push("resume_without_approval_runtime_secret=true".to_string());
     }

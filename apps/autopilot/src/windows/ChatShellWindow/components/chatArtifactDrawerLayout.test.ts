@@ -12,7 +12,7 @@ const studioSurfaceSource = fs.readFileSync(
 
 assert.match(
   chatShellWindowSource,
-  /artifactDrawerVisible=\{\s*studioArtifactDrawerAvailable && chatArtifactVisible\s*\}/,
+  /artifactDrawerVisible=\{\s*chatArtifactDrawerAvailable && chatArtifactVisible\s*\}/,
   "chat should only mount the artifact drawer while it is explicitly open",
 );
 

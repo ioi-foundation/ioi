@@ -1,7 +1,11 @@
 use crate::agentic::rules::{ActionRules, DefaultPolicy, Verdict};
+use crate::agentic::runtime::kernel::policy::PolicyEvaluationRecord;
 use ioi_api::vm::drivers::os::OsDriver;
 use ioi_api::vm::inference::{LocalSafetyModel, PiiRiskSurface};
-use ioi_pii::{build_decision_material, inspect_and_route_with_for_target, RiskSurface};
+use ioi_crypto::algorithms::hash::sha256;
+use ioi_pii::{
+    build_decision_material, compute_decision_hash, inspect_and_route_with_for_target, RiskSurface,
+};
 use ioi_types::app::agentic::{PiiDecisionMaterial, PiiTarget};
 use ioi_types::app::ActionRequest;
 use std::sync::Arc;
@@ -20,23 +24,48 @@ impl PolicyEngine {
         safety_model: &Arc<dyn LocalSafetyModel>,
         os_driver: &Arc<dyn OsDriver>,
     ) -> Verdict {
-        let request_hash = match request.try_hash() {
-            Ok(hash) => hash,
-            Err(err) => {
-                tracing::warn!(
-                    "Policy Gate: request canonicalization/hash failed; blocking (fail-closed): {}",
-                    err
-                );
-                return Verdict::Block;
-            }
-        };
+        Self::evaluate_record_with_working_directory(
+            rules,
+            request,
+            working_directory,
+            safety_model,
+            os_driver,
+        )
+        .await
+        .verdict
+    }
+
+    pub async fn evaluate_record_with_working_directory(
+        rules: &ActionRules,
+        request: &ActionRequest,
+        working_directory: Option<&str>,
+        safety_model: &Arc<dyn LocalSafetyModel>,
+        os_driver: &Arc<dyn OsDriver>,
+    ) -> PolicyEvaluationRecord {
+        let policy_hash = compute_policy_hash(rules);
+        if let Err(err) = request.try_hash() {
+            tracing::warn!(
+                "Policy Gate: request canonicalization/hash failed; blocking (fail-closed): {}",
+                err
+            );
+            return PolicyEvaluationRecord {
+                verdict: Verdict::Block,
+                matched_rule_ids: vec!["determinism:invalid_request_hash".to_string()],
+                default_policy_used: None,
+                pii_decision_hash: None,
+                policy_hash,
+                rule_eval_trace_hash: None,
+                lease_eval_hash: None,
+            };
+        }
 
         let target_aliases = policy_target_aliases(&request.target);
 
         // 2. Specific Rules: Linear scan (specific overrides general)
         // First matching rule wins.
         let mut base_verdict = None;
-        for rule in &rules.rules {
+        let mut matched_rule_ids = Vec::new();
+        for (index, rule) in rules.rules.iter().enumerate() {
             if rule.target == "*" || target_aliases.iter().any(|target| rule.target == *target) {
                 if Self::check_conditions(
                     rule,
@@ -49,11 +78,17 @@ impl PolicyEngine {
                 .await
                 {
                     base_verdict = Some(rule.action);
+                    matched_rule_ids.push(rule_id_for_record(index, rule));
                     break;
                 }
             }
         }
 
+        let default_policy_used = if base_verdict.is_none() {
+            Some(default_policy_label(rules.defaults).to_string())
+        } else {
+            None
+        };
         let base_verdict = match base_verdict {
             Some(v) => v,
             None => match rules.defaults {
@@ -64,17 +99,32 @@ impl PolicyEngine {
         };
 
         // 3. Stage B/C PII router overlay.
-        let pii_verdict = Self::evaluate_pii_overlay(rules, request, safety_model).await;
+        let pii_overlay = Self::evaluate_pii_overlay_details(rules, request, safety_model).await;
+        let pii_decision_hash = pii_overlay
+            .as_ref()
+            .and_then(|(_verdict, material)| material.as_ref())
+            .map(compute_decision_hash);
+        let pii_verdict = pii_overlay.map(|(verdict, _material)| verdict);
 
         // Preserve explicit policy blocks regardless of PII route.
-        if matches!(base_verdict, Verdict::Block) {
-            return Verdict::Block;
-        }
+        let verdict = if matches!(base_verdict, Verdict::Block) {
+            Verdict::Block
+        } else {
+            match pii_verdict {
+                Some(Verdict::Block) => Verdict::Block,
+                Some(Verdict::RequireApproval) => Verdict::RequireApproval,
+                _ => base_verdict,
+            }
+        };
 
-        match pii_verdict {
-            Some(Verdict::Block) => Verdict::Block,
-            Some(Verdict::RequireApproval) => Verdict::RequireApproval,
-            _ => base_verdict,
+        PolicyEvaluationRecord {
+            verdict,
+            matched_rule_ids,
+            default_policy_used,
+            pii_decision_hash,
+            policy_hash,
+            rule_eval_trace_hash: None,
+            lease_eval_hash: None,
         }
     }
 
@@ -86,24 +136,7 @@ impl PolicyEngine {
         safety_model: &Arc<dyn LocalSafetyModel>,
         os_driver: &Arc<dyn OsDriver>,
     ) -> Verdict {
-        Self::evaluate_with_working_directory(
-            rules,
-            request,
-            None,
-            safety_model,
-            os_driver,
-        )
-        .await
-    }
-
-    async fn evaluate_pii_overlay(
-        rules: &ActionRules,
-        request: &ActionRequest,
-        safety_model: &Arc<dyn LocalSafetyModel>,
-    ) -> Option<Verdict> {
-        Self::evaluate_pii_overlay_details(rules, request, safety_model)
-            .await
-            .map(|(verdict, _material)| verdict)
+        Self::evaluate_with_working_directory(rules, request, None, safety_model, os_driver).await
     }
 
     pub(super) async fn evaluate_pii_overlay_details(
@@ -198,4 +231,26 @@ impl PolicyEngine {
 
         Some((pii_decision_to_verdict(&routed.decision), Some(material)))
     }
+}
+
+fn default_policy_label(defaults: DefaultPolicy) -> &'static str {
+    match defaults {
+        DefaultPolicy::AllowAll => "allow_all",
+        DefaultPolicy::DenyAll => "deny_all",
+        DefaultPolicy::RequireApproval => "require_approval",
+    }
+}
+
+fn rule_id_for_record(index: usize, rule: &crate::agentic::rules::Rule) -> String {
+    rule.rule_id
+        .clone()
+        .unwrap_or_else(|| format!("rule:{}:{}", index, rule.target))
+}
+
+fn compute_policy_hash(rules: &ActionRules) -> Option<[u8; 32]> {
+    let canonical = serde_jcs::to_vec(rules).ok()?;
+    let digest = sha256(&canonical).ok()?;
+    let mut out = [0u8; 32];
+    out.copy_from_slice(digest.as_ref());
+    Some(out)
 }

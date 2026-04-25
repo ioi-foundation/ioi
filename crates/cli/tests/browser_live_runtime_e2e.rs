@@ -12,9 +12,9 @@ use ioi_api::transaction::context::TxContext;
 use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
 use ioi_api::vm::drivers::os::{OsDriver, WindowInfo};
 use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime};
+use ioi_cli::testing::build_test_artifacts;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_crypto::sign::eddsa::Ed25519KeyPair;
-use ioi_cli::testing::build_test_artifacts;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_memory::MemoryRuntime;
@@ -23,16 +23,16 @@ use ioi_services::agentic::runtime::keys::{AGENT_POLICY_PREFIX, INCIDENT_PREFIX}
 use ioi_services::agentic::runtime::service::step::helpers::default_safe_policy;
 use ioi_services::agentic::runtime::service::step::incident::IncidentState;
 use ioi_services::agentic::runtime::{
-    AgentMode, AgentState, AgentStatus, ResumeAgentParams, RuntimeAgentService,
-    StartAgentParams, StepAgentParams,
+    AgentMode, AgentState, AgentStatus, ResumeAgentParams, RuntimeAgentService, StartAgentParams,
+    StepAgentParams,
 };
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
 use ioi_types::app::action::{ApprovalAuthority, ApprovalGrant};
+use ioi_types::app::agentic::RegisterApprovalAuthorityParams;
 use ioi_types::app::{
     account_id_from_key_material, ActionRequest, ContextSlice, KernelEvent, SignatureSuite,
 };
-use ioi_types::app::agentic::RegisterApprovalAuthorityParams;
 use ioi_types::codec;
 use ioi_types::error::VmError;
 use serde_json::json;
@@ -229,8 +229,10 @@ fn active_policy_hash_for_session(
 ) -> Result<[u8; 32]> {
     let policy_key = [AGENT_POLICY_PREFIX, session_id.as_slice()].concat();
     let rules = match state.get(&policy_key)? {
-        Some(bytes) => codec::from_bytes_canonical::<ioi_services::agentic::rules::ActionRules>(&bytes)
-            .map_err(anyhow::Error::msg)?,
+        Some(bytes) => {
+            codec::from_bytes_canonical::<ioi_services::agentic::rules::ActionRules>(&bytes)
+                .map_err(anyhow::Error::msg)?
+        }
         None => default_safe_policy(),
     };
     let canonical = serde_jcs::to_vec(&rules).map_err(anyhow::Error::msg)?;

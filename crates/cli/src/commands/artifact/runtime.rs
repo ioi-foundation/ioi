@@ -209,14 +209,10 @@ pub(super) fn build_acceptance_inference_runtime(
     Ok(runtime)
 }
 
-pub(super) fn runtime_origin_label(
-    provenance: &ChatRuntimeProvenance,
-) -> ChatArtifactOutputOrigin {
+pub(super) fn runtime_origin_label(provenance: &ChatRuntimeProvenance) -> ChatArtifactOutputOrigin {
     match provenance.kind {
         ChatRuntimeProvenanceKind::RealRemoteModelRuntime
-        | ChatRuntimeProvenanceKind::RealLocalRuntime => {
-            ChatArtifactOutputOrigin::LiveInference
-        }
+        | ChatRuntimeProvenanceKind::RealLocalRuntime => ChatArtifactOutputOrigin::LiveInference,
         ChatRuntimeProvenanceKind::FixtureRuntime => ChatArtifactOutputOrigin::FixtureRuntime,
         ChatRuntimeProvenanceKind::MockRuntime => ChatArtifactOutputOrigin::MockInference,
         ChatRuntimeProvenanceKind::DeterministicContinuityFallback => {

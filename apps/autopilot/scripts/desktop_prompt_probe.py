@@ -3,7 +3,7 @@
 
 This probe is intentionally lightweight:
 - it reuses a running `npm run dev:desktop` session
-- it submits prompts through the real Studio window with xdotool/wmctrl
+- it submits prompts through the real ChatRuntime window with xdotool/wmctrl
 - it polls the local desktop profile sqlite store for the latest task state
 - it saves a screenshot plus a JSON receipt bundle per prompt
 
@@ -35,7 +35,7 @@ DEFAULT_DB_PATH = (
     Path.home()
     / ".local/share/ai.ioi.autopilot/profiles"
     / DEFAULT_PROFILE
-    / "studio-memory.db"
+    / "chat-runtime-memory.db"
 )
 DEFAULT_OUTPUT_ROOT = PROJECT_ROOT / "docs/evidence/route-hierarchy/live-desktop-parity"
 
@@ -270,7 +270,7 @@ def merged_artifact_manifest_for_summary(
 ) -> dict[str, Any]:
     merged = dict(artifact_manifest or {})
     session_manifest = (
-        ((task.get("studio_session") or {}).get("artifactManifest")) or {}
+        ((task.get("chat_session") or {}).get("artifactManifest")) or {}
     )
     if not isinstance(session_manifest, dict) or not session_manifest:
         return merged
@@ -367,8 +367,8 @@ def wait_for_prompt_start(
 def active_operator_run(task: dict[str, Any] | None) -> dict[str, Any]:
     if not task:
         return {}
-    studio_session = task.get("studio_session") or {}
-    active_run = studio_session.get("activeOperatorRun") or {}
+    chat_session = task.get("chat_session") or {}
+    active_run = chat_session.get("activeOperatorRun") or {}
     return active_run if isinstance(active_run, dict) else {}
 
 
@@ -380,15 +380,15 @@ def operator_run_is_terminal(task: dict[str, Any] | None) -> bool:
 def artifact_session_ready(task: dict[str, Any] | None) -> bool:
     if not task:
         return False
-    studio_session = task.get("studio_session") or {}
-    studio_status = (studio_session.get("status") or "").strip().lower()
-    artifact_manifest = studio_session.get("artifactManifest") or {}
+    chat_session = task.get("chat_session") or {}
+    chat_status = (chat_session.get("status") or "").strip().lower()
+    artifact_manifest = chat_session.get("artifactManifest") or {}
     verification_status = (
         ((artifact_manifest.get("verification") or {}).get("lifecycleState") or "")
         .strip()
         .lower()
     )
-    return "ready" in {studio_status, verification_status}
+    return "ready" in {chat_status, verification_status}
 
 
 def wait_for_prompt_result(
@@ -445,8 +445,8 @@ def submit_prompt(
 
 
 def result_bundle(task: dict[str, Any] | None) -> dict[str, Any]:
-    outcome = task.get("studio_outcome") if task else None
-    session = task.get("studio_session") if task else None
+    outcome = task.get("chat_outcome") if task else None
+    session = task.get("chat_session") if task else None
     return {
         "task_id": task.get("id") if task else None,
         "intent": task.get("intent") if task else None,
@@ -455,8 +455,8 @@ def result_bundle(task: dict[str, Any] | None) -> dict[str, Any]:
         "progress": task.get("progress") if task else None,
         "total_steps": task.get("total_steps") if task else None,
         "latest_agent_message": latest_agent_message(task),
-        "studio_outcome": outcome,
-        "studio_session_summary": {
+        "chat_outcome": outcome,
+        "chat_session_summary": {
             "session_id": session.get("sessionId") if session else None,
             "lifecycle_state": session.get("lifecycleState") if session else None,
             "verified_reply": session.get("verifiedReply") if session else None,
@@ -488,7 +488,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--prompt",
         action="append",
-        help="Prompt to submit through the live Studio app. Repeat for multiple prompts.",
+        help="Prompt to submit through the live ChatRuntime app. Repeat for multiple prompts.",
     )
     parser.add_argument(
         "--prompt-file",
@@ -538,7 +538,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--reuse-session",
         action="store_true",
-        help="Reuse the currently active Studio outcome instead of resetting to a fresh outcome with Ctrl+N before each prompt.",
+        help="Reuse the currently active ChatRuntime outcome instead of resetting to a fresh outcome with Ctrl+N before each prompt.",
     )
     return parser.parse_args()
 

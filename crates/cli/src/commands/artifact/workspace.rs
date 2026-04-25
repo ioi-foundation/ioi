@@ -1,6 +1,6 @@
 use ioi_api::chat::{
-    plan_studio_artifact_brief_with_runtime, plan_studio_artifact_edit_intent_with_runtime,
-    validate_studio_artifact_candidate_with_runtime, ChatArtifactBrief, ChatArtifactEditIntent,
+    plan_chat_artifact_brief_with_runtime, plan_chat_artifact_edit_intent_with_runtime,
+    validate_chat_artifact_candidate_with_runtime, ChatArtifactBrief, ChatArtifactEditIntent,
     ChatArtifactGenerationBundle, ChatArtifactRefinementContext, ChatArtifactUxLifecycle,
     ChatGeneratedArtifactFile, ChatGeneratedArtifactPayload,
 };
@@ -33,17 +33,12 @@ pub(super) async fn generate_workspace_artifact_bundle_with_runtimes(
     request: &ChatOutcomeArtifactRequest,
     refinement: Option<&ChatArtifactRefinementContext>,
 ) -> Result<ChatArtifactGenerationBundle, String> {
-    let brief = plan_studio_artifact_brief_with_runtime(
-        runtime.clone(),
-        title,
-        intent,
-        request,
-        refinement,
-    )
-    .await?;
+    let brief =
+        plan_chat_artifact_brief_with_runtime(runtime.clone(), title, intent, request, refinement)
+            .await?;
     let edit_intent = match refinement {
         Some(context) => Some(
-            plan_studio_artifact_edit_intent_with_runtime(
+            plan_chat_artifact_edit_intent_with_runtime(
                 runtime.clone(),
                 intent,
                 request,
@@ -56,7 +51,7 @@ pub(super) async fn generate_workspace_artifact_bundle_with_runtimes(
     };
     let winner =
         materialize_workspace_artifact_payload(title, request, &brief, edit_intent.as_ref());
-    let validation = validate_studio_artifact_candidate_with_runtime(
+    let validation = validate_chat_artifact_candidate_with_runtime(
         acceptance_runtime.clone(),
         title,
         request,
@@ -155,9 +150,9 @@ pub(super) fn package_name_for_title(title: &str) -> String {
     }
     slug = slug.trim_matches('-').to_string();
     if slug.is_empty() {
-        "studio-artifact".to_string()
+        "chat-artifact".to_string()
     } else if slug.chars().next().is_some_and(|ch| ch.is_ascii_digit()) {
-        format!("studio-{slug}")
+        format!("chat-{slug}")
     } else {
         slug
     }

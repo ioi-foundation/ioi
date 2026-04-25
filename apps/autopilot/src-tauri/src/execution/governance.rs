@@ -179,15 +179,15 @@ pub(super) async fn check_governance(
             Err("🛡️ BLOCKED: Policy violation (e.g., Domain not in allowlist)".into())
         }
         Verdict::RequireApproval => {
-            if tier == GovernanceTier::Silent {
-                println!(
-                    "[Governance] Auto-approving gate for {} (Silent Mode)",
-                    node_type
-                );
-                Ok(())
+            let mode = if tier == GovernanceTier::Silent {
+                "silent"
             } else {
-                Err("🛡️ PAUSED: Execution requires Human Approval (Gate)".into())
-            }
+                "strict"
+            };
+            Err(format!(
+                "🛡️ PAUSED: Execution requires verifier-backed approval; governance_tier={}",
+                mode
+            ))
         }
     }
 }

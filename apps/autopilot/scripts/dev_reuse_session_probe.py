@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Validate retained-session follow-ups in the real desktop app.
 
-This probe launches the local desktop app with an initial Studio seed intent,
+This probe launches the local desktop app with an initial ChatRuntime seed intent,
 waits for the initial task to settle, then relaunches the desktop app with a
 second seeded intent on the same profile without resetting data. The follow-up
 is considered successful only when the existing session history records:
@@ -37,7 +37,7 @@ DEFAULT_DB_PATH = (
     Path.home()
     / ".local/share/ai.ioi.autopilot/profiles"
     / DEFAULT_PROFILE
-    / "studio-memory.db"
+    / "chat-runtime-memory.db"
 )
 DEFAULT_OUTPUT_ROOT = (
     PROJECT_ROOT / "docs/evidence/route-hierarchy/live-final-gap-reuse-native-final"
@@ -239,10 +239,10 @@ def load_task_checkpoint(db_path: Path) -> dict[str, Any] | None:
 
 def candidate_db_paths(db_path: Path) -> list[Path]:
     candidates: list[Path] = [db_path]
-    if db_path.name == "studio-memory.db":
+    if db_path.name == "chat-runtime-memory.db":
         candidates.append(db_path.parent / "kernel" / "desktop-memory.db")
     elif db_path.name == "desktop-memory.db":
-        candidates.append(db_path.parent.parent / "studio-memory.db")
+        candidates.append(db_path.parent.parent / "chat-runtime-memory.db")
     deduped: list[Path] = []
     for path in candidates:
         if path not in deduped:
@@ -283,7 +283,7 @@ def merged_artifact_manifest_for_summary(
     artifact_manifest: dict[str, Any] | None,
 ) -> dict[str, Any]:
     merged = dict(artifact_manifest or {})
-    session_manifest = (((task.get("studio_session") or {}).get("artifactManifest")) or {})
+    session_manifest = (((task.get("chat_session") or {}).get("artifactManifest")) or {})
     if not isinstance(session_manifest, dict) or not session_manifest:
         return merged
     for key, value in session_manifest.items():
@@ -370,8 +370,8 @@ def task_has_interactive_wait_state(task: dict[str, Any]) -> bool:
 def active_operator_run(task: dict[str, Any] | None) -> dict[str, Any]:
     if not task:
         return {}
-    studio_session = task.get("studio_session") or {}
-    active_run = studio_session.get("activeOperatorRun") or {}
+    chat_session = task.get("chat_session") or {}
+    active_run = chat_session.get("activeOperatorRun") or {}
     return active_run if isinstance(active_run, dict) else {}
 
 
@@ -454,9 +454,9 @@ def parse_event_timestamp_ms(value: Any) -> int | None:
 def latest_artifact_session_details(task: dict[str, Any] | None) -> dict[str, Any]:
     if not task:
         return {}
-    studio_session = task.get("studio_session")
-    if isinstance(studio_session, dict):
-        return studio_session
+    chat_session = task.get("chat_session")
+    if isinstance(chat_session, dict):
+        return chat_session
     for event in reversed(task.get("events") or []):
         details = event.get("details") or {}
         if isinstance(details, dict) and isinstance(details.get("artifactManifest"), dict):
@@ -474,12 +474,12 @@ def artifact_session_ready(task: dict[str, Any] | None) -> bool:
     if not task:
         return False
     details = latest_artifact_session_details(task)
-    studio_status = (details.get("status") or "").strip().lower()
+    chat_status = (details.get("status") or "").strip().lower()
     verification = details.get("artifactManifest") or {}
     verification_status = (
         ((verification.get("verification") or {}).get("lifecycleState") or "").strip().lower()
     )
-    return "ready" in {studio_status, verification_status}
+    return "ready" in {chat_status, verification_status}
 
 
 def follow_up_artifact_completion_present(
@@ -514,7 +514,7 @@ def follow_up_artifact_completion_present(
         ):
             continue
         title = (event.get("title") or "").strip().lower()
-        if title.startswith("studio refined ") or title.startswith("studio created "):
+        if title.startswith("chat refined ") or title.startswith("chat created "):
             return True
     return False
 
@@ -582,7 +582,7 @@ def launch_dev_desktop(
     env.update(
         {
             "AUTOPILOT_LOCAL_GPU_DEV": "1",
-            "AUTOPILOT_DEV_START_SURFACE": "studio",
+            "AUTOPILOT_DEV_START_SURFACE": "chat",
             "AUTOPILOT_DEV_START_INTENT": prompt,
             "AUTOPILOT_DATA_PROFILE": profile,
         }
@@ -592,7 +592,7 @@ def launch_dev_desktop(
     else:
         env["AUTOPILOT_RESET_DATA_ON_BOOT"] = "0"
     if mcp_profile:
-        env["IOI_STUDIO_MCP_PROFILE"] = mcp_profile
+        env["IOI_CHAT_ARTIFACT_MCP_PROFILE"] = mcp_profile
     if start_session_id:
         env["AUTOPILOT_DEV_START_SESSION_ID"] = start_session_id
     else:
@@ -699,7 +699,7 @@ def parse_args() -> argparse.Namespace:
         "--db-path",
         help=(
             "Path to the desktop sqlite store. Defaults to the selected profile's "
-            "studio-memory.db."
+            "chat-runtime-memory.db."
         ),
     )
     parser.add_argument(
@@ -733,7 +733,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--mcp-profile",
-        help="Optional IOI_STUDIO_MCP_PROFILE override for the launched desktop app.",
+        help="Optional IOI_CHAT_ARTIFACT_MCP_PROFILE override for the launched desktop app.",
     )
     return parser.parse_args()
 
@@ -745,7 +745,7 @@ def resolve_db_path(args: argparse.Namespace) -> Path:
         Path.home()
         / ".local/share/ai.ioi.autopilot/profiles"
         / args.profile
-        / "studio-memory.db"
+        / "chat-runtime-memory.db"
     )
 
 

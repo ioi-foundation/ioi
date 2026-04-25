@@ -397,9 +397,7 @@ pub(super) fn chat_swarm_worker_temperature(
     );
     match role {
         ChatArtifactWorkerRole::Skeleton | ChatArtifactWorkerRole::SectionContent => base,
-        ChatArtifactWorkerRole::StyleSystem | ChatArtifactWorkerRole::Interaction => {
-            base.min(0.32)
-        }
+        ChatArtifactWorkerRole::StyleSystem | ChatArtifactWorkerRole::Interaction => base.min(0.32),
         ChatArtifactWorkerRole::Integrator => base.min(0.26),
         ChatArtifactWorkerRole::Repair => 0.18,
         _ => 0.0,
@@ -451,7 +449,7 @@ pub(super) fn chat_swarm_worker_timeout(
 
 pub(super) fn configured_local_html_swarm_parallelism_cap() -> Option<usize> {
     [
-        "AUTOPILOT_STUDIO_SWARM_LOCAL_PARALLELISM_CAP",
+        "AUTOPILOT_CHAT_ARTIFACT_SWARM_LOCAL_PARALLELISM_CAP",
         "IOI_CHAT_SWARM_LOCAL_PARALLELISM_CAP",
         "OLLAMA_NUM_PARALLEL",
     ]
@@ -535,8 +533,7 @@ pub(super) async fn repair_chat_swarm_patch_envelope(
     let prompt = build_chat_swarm_patch_repair_prompt(work_item, raw_output, parse_error);
     let prompt_bytes = serde_json::to_vec(&prompt)
         .map_err(|error| format!("Failed to encode Chat swarm repair prompt: {error}"))?;
-    let max_tokens =
-        chat_swarm_worker_max_tokens(request, work_item.role, runtime_kind).min(1800);
+    let max_tokens = chat_swarm_worker_max_tokens(request, work_item.role, runtime_kind).min(1800);
     chat_generation_trace(format!(
         "artifact_generation:swarm_worker:repair_parse:start id={} role={:?} prompt_bytes={} max_tokens={}",
         work_item.id,

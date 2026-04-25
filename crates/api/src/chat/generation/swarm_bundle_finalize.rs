@@ -930,8 +930,7 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
         &snapshot_execution_live_previews(&live_preview_state),
     );
     if let Some(envelope) = execution_envelope.as_ref() {
-        crate::execution::validate_execution_envelope(envelope)
-            .map_err(build_error)?;
+        crate::execution::validate_execution_envelope(envelope).map_err(build_error)?;
     }
 
     Ok(ChatArtifactGenerationBundle {

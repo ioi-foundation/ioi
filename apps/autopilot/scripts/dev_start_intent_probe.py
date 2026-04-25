@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Launch the real desktop app with a seeded Studio intent and retain evidence.
+"""Launch the real desktop app with a seeded ChatRuntime intent and retain evidence.
 
 This probe avoids flaky synthetic typing by using the app's native
-`AUTOPILOT_DEV_START_INTENT` launch path for Studio. Each prompt runs in an
+`AUTOPILOT_DEV_START_INTENT` launch path for ChatRuntime. Each prompt runs in an
 isolated desktop session:
 - reset the desktop-localgpu profile
 - launch `npm run dev:desktop` with a seeded intent
 - wait for the local task to settle
-- capture a Studio screenshot and task JSON
+- capture a ChatRuntime screenshot and task JSON
 - terminate the desktop process group
 """
 
@@ -36,7 +36,7 @@ DEFAULT_DB_PATH = (
     Path.home()
     / ".local/share/ai.ioi.autopilot/profiles"
     / DEFAULT_PROFILE
-    / "studio-memory.db"
+    / "chat-runtime-memory.db"
 )
 DEFAULT_OUTPUT_ROOT = (
     PROJECT_ROOT / "docs/evidence/route-hierarchy/live-dev-start-intent"
@@ -167,10 +167,10 @@ def load_task_checkpoint(db_path: Path) -> dict[str, Any] | None:
 
 def candidate_db_paths(db_path: Path) -> list[Path]:
     candidates: list[Path] = [db_path]
-    if db_path.name == "studio-memory.db":
+    if db_path.name == "chat-runtime-memory.db":
         candidates.append(db_path.parent / "kernel" / "desktop-memory.db")
     elif db_path.name == "desktop-memory.db":
-        candidates.append(db_path.parent.parent / "studio-memory.db")
+        candidates.append(db_path.parent.parent / "chat-runtime-memory.db")
 
     deduped: list[Path] = []
     for path in candidates:
@@ -213,7 +213,7 @@ def merged_artifact_manifest_for_summary(
 ) -> dict[str, Any]:
     merged = dict(artifact_manifest or {})
     session_manifest = (
-        ((task.get("studio_session") or {}).get("artifactManifest")) or {}
+        ((task.get("chat_session") or {}).get("artifactManifest")) or {}
     )
     if not isinstance(session_manifest, dict) or not session_manifest:
         return merged
@@ -303,8 +303,8 @@ def task_has_interactive_wait_state(task: dict[str, Any]) -> bool:
 def active_operator_run(task: dict[str, Any] | None) -> dict[str, Any]:
     if not task:
         return {}
-    studio_session = task.get("studio_session") or {}
-    active_run = studio_session.get("activeOperatorRun") or {}
+    chat_session = task.get("chat_session") or {}
+    active_run = chat_session.get("activeOperatorRun") or {}
     return active_run if isinstance(active_run, dict) else {}
 
 
@@ -316,13 +316,13 @@ def operator_run_is_terminal(task: dict[str, Any] | None) -> bool:
 def artifact_session_ready(task: dict[str, Any] | None) -> bool:
     if not task:
         return False
-    details = (task.get("studio_session") or {}) if isinstance(task, dict) else {}
-    studio_status = (details.get("status") or "").strip().lower()
+    details = (task.get("chat_session") or {}) if isinstance(task, dict) else {}
+    chat_status = (details.get("status") or "").strip().lower()
     verification = details.get("artifactManifest") or {}
     verification_status = (
         ((verification.get("verification") or {}).get("lifecycleState") or "").strip().lower()
     )
-    return "ready" in {studio_status, verification_status}
+    return "ready" in {chat_status, verification_status}
 
 
 def artifact_prompt_ready(task: dict[str, Any] | None) -> bool:
@@ -379,7 +379,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--prompt",
         action="append",
-        help="Prompt to submit through the live Studio app. Repeat for multiple prompts.",
+        help="Prompt to submit through the live ChatRuntime app. Repeat for multiple prompts.",
     )
     parser.add_argument(
         "--prompt-file",
@@ -421,7 +421,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--mcp-profile",
-        help="Optional IOI_STUDIO_MCP_PROFILE override for the launched desktop app.",
+        help="Optional IOI_CHAT_ARTIFACT_MCP_PROFILE override for the launched desktop app.",
     )
     return parser.parse_args()
 
@@ -438,13 +438,13 @@ def launch_dev_desktop(
         {
             "AUTOPILOT_LOCAL_GPU_DEV": "1",
             "AUTOPILOT_RESET_DATA_ON_BOOT": "1",
-            "AUTOPILOT_DEV_START_SURFACE": "studio",
+            "AUTOPILOT_DEV_START_SURFACE": "chat",
             "AUTOPILOT_DEV_START_INTENT": prompt,
             "AUTOPILOT_DATA_PROFILE": profile,
         }
     )
     if mcp_profile:
-        env["IOI_STUDIO_MCP_PROFILE"] = mcp_profile
+        env["IOI_CHAT_ARTIFACT_MCP_PROFILE"] = mcp_profile
     log_path.parent.mkdir(parents=True, exist_ok=True)
     log_handle = log_path.open("w", encoding="utf-8")
     process = subprocess.Popen(

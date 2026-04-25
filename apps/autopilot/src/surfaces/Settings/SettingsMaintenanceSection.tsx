@@ -171,10 +171,6 @@ export function SettingsMaintenanceSection({
               <span>{engineSnapshot.capabilities.length}</span>
             </article>
             <article className="chat-settings-subcard">
-              <strong>Compatibility routes</strong>
-              <span>{engineSnapshot.compatibilityRoutes.length}</span>
-            </article>
-            <article className="chat-settings-subcard">
               <strong>Live jobs</strong>
               <span>{engineSnapshot.jobs.length}</span>
             </article>

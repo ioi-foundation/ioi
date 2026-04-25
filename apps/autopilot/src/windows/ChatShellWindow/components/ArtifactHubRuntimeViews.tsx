@@ -139,9 +139,6 @@ export function DoctorView({
         </p>
         <div className="artifact-hub-files-meta artifact-hub-permissions__meta">
           <span>{localEngineSnapshot?.capabilities.length ?? 0} capability families</span>
-          <span>
-            {localEngineSnapshot?.compatibilityRoutes.length ?? 0} compatibility routes
-          </span>
           <span>{localEngineSnapshot?.stagedOperations.length ?? 0} staged operations</span>
           <span>{localEngineSnapshot?.parentPlaybookRuns.length ?? 0} playbook runs</span>
         </div>

@@ -8,13 +8,13 @@ const hookSource = fs.readFileSync(
 
 assert.match(
   hookSource,
-  /export function shouldContinueChatComposerSession\([\s\S]*if \(!task\?\.id \|\| task\.phase === "Failed"\) \{\s*return false;\s*\}[\s\S]*if \(isStudioVariant && task\.phase === "Complete"\) \{\s*[\s\S]*return true;\s*\}[\s\S]*return true;/,
+  /export function shouldContinueChatComposerSession\([\s\S]*if \(!task\?\.id \|\| task\.phase === "Failed"\) \{\s*return false;\s*\}[\s\S]*if \(isChatVariant && task\.phase === "Complete"\) \{\s*[\s\S]*return true;\s*\}[\s\S]*return true;/,
   "Chat should keep completed outcomes attachable so follow-up submits can reuse retained context until the user explicitly starts a new outcome",
 );
 
 assert.match(
   hookSource,
-  /shouldContinueExistingSession: \(currentTask\) =>\s*shouldContinueChatComposerSession\(isStudioVariant, currentTask\)/,
+  /shouldContinueExistingSession: \(currentTask\) =>\s*shouldContinueChatComposerSession\(isChatVariant, currentTask\)/,
   "Chat should pass the Chat-aware continuation guard into the shared composer",
 );
 

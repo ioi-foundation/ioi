@@ -1,13 +1,12 @@
 use ioi_api::chat::{
     ChatAdaptiveSearchBudget, ChatArtifactBlueprint, ChatArtifactBrief,
-    ChatArtifactCandidateSummary, ChatArtifactEditIntent, ChatArtifactIR,
-    ChatArtifactOutputOrigin, ChatArtifactRenderEvaluation, ChatArtifactRuntimePolicy,
-    ChatArtifactSelectedSkill, ChatArtifactTasteMemory, ChatArtifactUxLifecycle,
-    ChatGeneratedArtifactFile,
+    ChatArtifactCandidateSummary, ChatArtifactEditIntent, ChatArtifactIR, ChatArtifactOutputOrigin,
+    ChatArtifactRenderEvaluation, ChatArtifactRuntimePolicy, ChatArtifactSelectedSkill,
+    ChatArtifactTasteMemory, ChatArtifactUxLifecycle, ChatGeneratedArtifactFile,
 };
 use ioi_types::app::{
-    ChatArtifactFailure, ChatArtifactManifest, ChatOutcomePlanningPayload,
-    ChatRendererKind, ChatRuntimeProvenance,
+    ChatArtifactFailure, ChatArtifactManifest, ChatOutcomePlanningPayload, ChatRendererKind,
+    ChatRuntimeProvenance,
 };
 use serde::{Deserialize, Serialize};
 

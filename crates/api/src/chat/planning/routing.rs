@@ -200,12 +200,8 @@ pub async fn plan_chat_outcome_with_runtime(
         active_artifact,
         runtime_provenance.kind,
     );
-    let input = serde_json::to_vec(&payload).map_err(|error| {
-        format!(
-            "Failed to encode Chat outcome planning payload: {}",
-            error
-        )
-    })?;
+    let input = serde_json::to_vec(&payload)
+        .map_err(|error| format!("Failed to encode Chat outcome planning payload: {}", error))?;
     chat_planning_trace(format!(
         "outcome_route:start runtime_kind={:?} prompt_bytes={} max_tokens={} json_mode={}",
         runtime_provenance.kind,
@@ -342,9 +338,7 @@ fn canonicalize_artifact_request(
 ) -> ChatOutcomeArtifactRequest {
     let renderer = request.renderer;
     let artifact_class = match renderer {
-        ChatRendererKind::Markdown | ChatRendererKind::PdfEmbed => {
-            ChatArtifactClass::Document
-        }
+        ChatRendererKind::Markdown | ChatRendererKind::PdfEmbed => ChatArtifactClass::Document,
         ChatRendererKind::Svg | ChatRendererKind::Mermaid => ChatArtifactClass::Visual,
         ChatRendererKind::HtmlIframe => match request.artifact_class {
             ChatArtifactClass::Document | ChatArtifactClass::InteractiveSingleFile => {

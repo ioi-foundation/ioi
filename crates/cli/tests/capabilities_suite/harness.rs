@@ -18,8 +18,8 @@ use ioi_services::agentic::runtime::keys::{AGENT_POLICY_PREFIX, INCIDENT_PREFIX}
 use ioi_services::agentic::runtime::service::step::helpers::default_safe_policy;
 use ioi_services::agentic::runtime::service::step::incident::IncidentState;
 use ioi_services::agentic::runtime::{
-    AgentMode, AgentState, AgentStatus, ResumeAgentParams, RuntimeAgentService,
-    StartAgentParams, StepAgentParams,
+    AgentMode, AgentState, AgentStatus, ResumeAgentParams, RuntimeAgentService, StartAgentParams,
+    StepAgentParams,
 };
 use ioi_services::wallet_network::WalletNetworkService;
 use ioi_state::primitives::hash::HashCommitmentScheme;
@@ -31,11 +31,10 @@ use ioi_types::app::agentic::{
     CapabilityId, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
 };
 use ioi_types::app::{
-    account_id_from_key_material, ActionRequest, ContextSlice, KernelEvent,
-    MailConnectorAuthMode, MailConnectorConfig, MailConnectorEndpoint, MailConnectorProvider,
-    MailConnectorSecretAliases, MailConnectorTlsMode, MailConnectorUpsertParams,
-    RoutingReceiptEvent, SecretKind, SignatureSuite, VaultSecretRecord, WorkloadActivityKind,
-    WorkloadExecReceipt, WorkloadReceipt,
+    account_id_from_key_material, ActionRequest, ContextSlice, KernelEvent, MailConnectorAuthMode,
+    MailConnectorConfig, MailConnectorEndpoint, MailConnectorProvider, MailConnectorSecretAliases,
+    MailConnectorTlsMode, MailConnectorUpsertParams, RoutingReceiptEvent, SecretKind,
+    SignatureSuite, VaultSecretRecord, WorkloadActivityKind, WorkloadExecReceipt, WorkloadReceipt,
 };
 use ioi_types::keys::active_service_key;
 use ioi_types::service_configs::{ActiveServiceMeta, Capabilities, MethodPermission};
@@ -353,8 +352,10 @@ fn active_policy_hash_for_session(
 ) -> Result<[u8; 32]> {
     let policy_key = [AGENT_POLICY_PREFIX, session_id.as_slice()].concat();
     let rules = match state.get(&policy_key)? {
-        Some(bytes) => codec::from_bytes_canonical::<ioi_services::agentic::rules::ActionRules>(&bytes)
-            .map_err(anyhow::Error::msg)?,
+        Some(bytes) => {
+            codec::from_bytes_canonical::<ioi_services::agentic::rules::ActionRules>(&bytes)
+                .map_err(anyhow::Error::msg)?
+        }
         None => default_safe_policy(),
     };
     let canonical = serde_jcs::to_vec(&rules).map_err(anyhow::Error::msg)?;

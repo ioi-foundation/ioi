@@ -31,7 +31,7 @@ export type RemoteContinuityPolicyAction =
       view: ArtifactHubViewKey;
     }
   | {
-      kind: "open_studio_settings";
+      kind: "open_chat_runtime_settings";
       label: string;
       detail: string;
     }
@@ -153,7 +153,7 @@ function openViewAction(
 
 function settingsAction(detail: string): RemoteContinuityPolicyAction {
   return {
-    kind: "open_studio_settings",
+    kind: "open_chat_runtime_settings",
     label: "Review managed settings",
     detail,
   };
@@ -173,7 +173,7 @@ function policyActionKey(action: RemoteContinuityPolicyAction): string {
       return `${action.kind}:${action.launchRequest.source}:${action.launchRequest.mode}:${action.launchRequest.sessionId}`;
     case "open_view":
       return `${action.kind}:${action.view}`;
-    case "open_studio_settings":
+    case "open_chat_runtime_settings":
     case "refresh_server":
     default:
       return `${action.kind}:${action.label}`;

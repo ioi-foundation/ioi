@@ -44,13 +44,13 @@ assert.match(
 
 assert.match(
   menuSurfaceSource,
-  /onOpenStudioSession\(artifact\.sessionId\)/,
+  /onOpenChatSession\(artifact\.sessionId\)/,
   "artifact menu entries should open the selected artifact session",
 );
 
 assert.match(
   chatShellWindowSource,
-  /onOpenChatArtifact=\{\s*isStudioVariant \? handleOpenChatArtifact : undefined\s*\}/,
+  /onOpenChatArtifact=\{\s*isChatVariant \? handleOpenChatArtifact : undefined\s*\}/,
   "conversation timeline should receive the Chat artifact selection callback",
 );
 

@@ -33,9 +33,7 @@ pub(super) fn chat_swarm_strategy_for_request(
         (ChatRendererKind::Markdown, ChatExecutionStrategy::MicroSwarm) => {
             ("markdown_micro_swarm", "markdown_micro_v1")
         }
-        (ChatRendererKind::Markdown, _) => {
-            ("markdown_adaptive_work_graph", "markdown_adaptive_v1")
-        }
+        (ChatRendererKind::Markdown, _) => ("markdown_adaptive_work_graph", "markdown_adaptive_v1"),
         (ChatRendererKind::Svg, ChatExecutionStrategy::MicroSwarm) => {
             ("svg_micro_swarm", "svg_micro_v1")
         }

@@ -405,7 +405,7 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_execution
 
 pub(super) fn chat_generation_timeout_for_runtime(runtime: &Arc<dyn InferenceRuntime>) -> Duration {
     let seconds = [
-        "AUTOPILOT_STUDIO_GENERATION_TIMEOUT_SECS",
+        "AUTOPILOT_CHAT_ARTIFACT_GENERATION_TIMEOUT_SECS",
         "IOI_CHAT_GENERATION_TIMEOUT_SECS",
     ]
     .iter()
@@ -487,7 +487,7 @@ fn chat_extended_local_html_timeout_enabled(
 
 fn configured_chat_runtime_profile() -> ChatArtifactRuntimePolicyProfile {
     [
-        "AUTOPILOT_STUDIO_MODEL_ROUTING_PROFILE",
+        "AUTOPILOT_CHAT_ARTIFACT_MODEL_ROUTING_PROFILE",
         "IOI_CHAT_MODEL_ROUTING_PROFILE",
     ]
     .iter()

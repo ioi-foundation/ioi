@@ -79,7 +79,6 @@
             api: LocalEngineApiConfig {
                 bind_address: "127.0.0.1:8787".to_string(),
                 remote_access_enabled: false,
-                expose_compat_routes: true,
                 cors_mode: "local_only".to_string(),
                 auth_mode: "kernel_leases".to_string(),
             },

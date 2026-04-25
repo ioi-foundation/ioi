@@ -280,8 +280,7 @@ pub(super) async fn generate_chat_artifact_bundle_with_swarm(
             }
 
             let mut batch_results =
-                HashMap::<String, (ChatArtifactPatchEnvelope, ChatArtifactWorkerReceipt)>::new(
-                );
+                HashMap::<String, (ChatArtifactPatchEnvelope, ChatArtifactWorkerReceipt)>::new();
             while let Some(join_result) = join_set.join_next().await {
                 let execution_result = join_result.map_err(|error| {
                     build_error(format!("Chat swarm worker join failed: {error}"))
@@ -298,19 +297,16 @@ pub(super) async fn generate_chat_artifact_bundle_with_swarm(
                         dispatch_batch.id, work_item.id
                     )));
                 };
-                let (patch_receipt, merge_receipt) = apply_chat_swarm_patch_envelope(
-                    request,
-                    &mut canonical,
-                    &work_item,
-                    &envelope,
-                )
-                .map_err(build_error)?;
+                let (patch_receipt, merge_receipt) =
+                    apply_chat_swarm_patch_envelope(request, &mut canonical, &work_item, &envelope)
+                        .map_err(build_error)?;
                 update_swarm_work_item_status(&mut swarm_plan, &work_item.id, patch_receipt.status);
                 receipt.result_kind = Some(match patch_receipt.status {
                     ChatArtifactWorkItemStatus::Skipped => SwarmWorkerResultKind::Noop,
                     ChatArtifactWorkItemStatus::Rejected => SwarmWorkerResultKind::Conflict,
-                    ChatArtifactWorkItemStatus::Blocked
-                    | ChatArtifactWorkItemStatus::Failed => SwarmWorkerResultKind::Blocked,
+                    ChatArtifactWorkItemStatus::Blocked | ChatArtifactWorkItemStatus::Failed => {
+                        SwarmWorkerResultKind::Blocked
+                    }
                     _ => SwarmWorkerResultKind::Completed,
                 });
                 if let Some(summary) = envelope.summary.as_ref() {

@@ -17,7 +17,7 @@ use ioi_drivers::terminal::TerminalDriver;
 use ioi_memory::MemoryRuntime;
 use ioi_pii::{
     build_decision_material, build_review_summary, compute_decision_hash,
-    route_pii_decision_for_target, validate_review_request_compat, RiskSurface,
+    route_pii_decision_for_target, validate_review_request_v3_cim, RiskSurface,
     REVIEW_REQUEST_VERSION,
 };
 use ioi_services::agentic::rules::{ActionRules, DefaultPolicy};
@@ -300,7 +300,7 @@ async fn run_golden_pii_review_determinism_desktop_validator_desktop() -> Result
         request.decision_hash,
         compute_decision_hash(&request.material)
     );
-    validate_review_request_compat(&request).expect("review request compat");
+    validate_review_request_v3_cim(&request).expect("review request v3+cim");
 
     let mut state = IAVLTree::new(HashCommitmentScheme::new());
 
@@ -402,9 +402,7 @@ async fn run_golden_pii_review_determinism_desktop_validator_desktop() -> Result
         approver_sig: Vec::new(),
         approver_suite: SignatureSuite::ED25519,
     };
-    let approval_signing_bytes = approval_grant
-        .signing_bytes()
-        .map_err(anyhow::Error::msg)?;
+    let approval_signing_bytes = approval_grant.signing_bytes().map_err(anyhow::Error::msg)?;
     approval_grant.approver_sig = signer.sign(&approval_signing_bytes)?.to_bytes();
     let resume_params = ioi_services::agentic::runtime::ResumeAgentParams {
         session_id,

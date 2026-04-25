@@ -18,13 +18,12 @@ pub use brief::{
 };
 #[cfg(test)]
 pub(crate) use brief::{
-    build_chat_artifact_brief_field_repair_prompt,
-    build_chat_artifact_brief_prompt_for_runtime, canonicalize_chat_artifact_brief_for_request,
-    validate_chat_artifact_brief_against_request,
+    build_chat_artifact_brief_field_repair_prompt, build_chat_artifact_brief_prompt_for_runtime,
+    canonicalize_chat_artifact_brief_for_request, validate_chat_artifact_brief_against_request,
 };
 #[cfg(test)]
 pub(crate) use routing::build_chat_outcome_router_prompt_for_runtime;
 pub use routing::{
-    build_chat_outcome_router_prompt, parse_chat_outcome_planning_payload,
-    plan_chat_outcome_with_runtime, chat_execution_strategy_for_outcome,
+    build_chat_outcome_router_prompt, chat_execution_strategy_for_outcome,
+    parse_chat_outcome_planning_payload, plan_chat_outcome_with_runtime,
 };

@@ -463,7 +463,7 @@ async fn workspace_generate_uses_scaffold_path_and_validates_pass() -> Result<()
         "workspaceRecipeId": "vite-static-html",
         "presentationVariantId": null,
         "scope": {
-            "targetProject": "studio-workspace",
+            "targetProject": "chat-artifact-workspace",
             "createNewWorkspace": true,
             "mutationBoundary": ["workspace"]
         },

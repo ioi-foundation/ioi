@@ -135,7 +135,6 @@ export function ArtifactEvidencePanel({
   const swarmChangeReceipts =
     chatSession.materialization.swarmChangeReceipts ??
     executionEnvelope?.changeReceipts ??
-    chatSession.materialization.swarmPatchReceipts ??
     [];
   const swarmMergeReceipts =
     chatSession.materialization.swarmMergeReceipts ??

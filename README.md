@@ -22,7 +22,7 @@ This repository already contains substantial pieces of that stack:
 - `IOI CLI`: the kernel-adjacent, CLI-first surface for scaffolding and instantiating intelligent blockchains and sovereign domains (currently rooted in `crates/cli`, with `forge` as a command namespace)
 - `ioi-memory`: the local-first checkpoint, archival memory, and artifact runtime for live product flows
 - `wallet.network`: the authority and capability-control plane for sessions, approvals, and delegated execution
-- `Autopilot`: the native desktop runtime with Spotlight, Studio, gates, receipts, and Context Atlas
+- `Autopilot`: the native desktop runtime with Spotlight, chat/artifact runtime, gates, receipts, and Context Atlas
 - `sas.xyz`: the provider OS for packaging, deploying, serving, and commercializing worker services
 - `aiagent.xyz`: the discovery and procurement layer for worker services
 - `agent-ide`: the shared builder/canvas substrate for provider and orchestration surfaces
@@ -282,7 +282,6 @@ The repo currently includes:
 - [`apps/sas-xyz`](apps/sas-xyz)
 - [`apps/aiagent-xyz`](apps/aiagent-xyz)
 - [`packages/agent-ide`](packages/agent-ide)
-- [`apps/agent-studio`](apps/agent-studio) as the current standalone web shell around `agent-ide`
 
 ## Repository Map
 
@@ -293,11 +292,10 @@ The codebase is a Rust workspace with a TS/React application layer on top.
 | Path | Role |
 | :--- | :--- |
 | [`crates/cli`](crates/cli) | Current kernel-adjacent CLI surface expected to evolve into IOI CLI for scaffolding, instantiating, publishing, and inspecting intelligent blockchains and sovereign domains. |
-| [`apps/autopilot`](apps/autopilot) | Private/local operator shell and desktop runtime with Spotlight, Studio, policy gates, receipts, and Context Atlas. |
+| [`apps/autopilot`](apps/autopilot) | Private/local operator shell and desktop runtime with Spotlight, chat/artifact runtime, policy gates, receipts, and Context Atlas. |
 | [`apps/sas-xyz`](apps/sas-xyz) | Provider OS surface for packaging, deploying, serving, and commercializing worker services. |
 | [`apps/aiagent-xyz`](apps/aiagent-xyz) | Discovery and procurement surface for worker services and bespoke demand. |
 | [`packages/agent-ide`](packages/agent-ide) | Shared builder/canvas package intended to be embedded into Autopilot and future apps such as `sas.xyz`. |
-| [`apps/agent-studio`](apps/agent-studio) | Current standalone browser shell for `agent-ide`. |
 
 ### Kernel and Runtime
 
@@ -416,7 +414,7 @@ npm run tauri dev
 
 Tip: use `Ctrl+Space` on Linux/Windows or `Cmd+Space` on macOS to open Spotlight.
 
-### 4. Run the Current Agent Studio Shell
+### 4. Run the Current Runtime Workbench Shell
 
 ```bash
 npm run dev:web

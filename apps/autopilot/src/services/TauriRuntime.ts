@@ -423,7 +423,7 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     ) {}
 
     async runGraph(payload: GraphPayload): Promise<void> {
-        await invoke("run_studio_graph", { payload });
+        await invoke("run_chat_graph", { payload });
     }
 
     async stopExecution(): Promise<void> {
@@ -1385,10 +1385,13 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
 
     async triggerRemoteWorkflow(
       workflowId: string,
-      payload?: Record<string, unknown>
+      payload?: Record<string, unknown>,
+      idempotencyKey?: string
     ): Promise<WorkflowRunReceipt> {
       return invoke("workflow_trigger_remote", {
         workflowId,
+        idempotencyKey:
+          idempotencyKey ?? `${workflowId}:${Date.now()}:remote-trigger`,
         payload: payload ?? null,
       });
     }

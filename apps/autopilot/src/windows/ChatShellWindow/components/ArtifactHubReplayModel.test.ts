@@ -63,7 +63,6 @@ function baseBundle(): CanonicalTraceBundle {
         duration_ms: 1200,
       },
     ],
-    receipts: [],
     artifacts: [
       {
         artifact_id: "artifact-1",

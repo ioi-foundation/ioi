@@ -8,10 +8,10 @@ use ioi_types::app::agentic::{IntentMatrixEntry, IntentRoutingPolicy};
 use ioi_types::app::{
     determinism_commit_state_key, determinism_evidence_state_key,
     determinism_step_contract_state_key, execution_observation_receipt_state_key,
-    policy_decision_state_key, postcondition_proof_state_key,
-    required_receipt_manifest_state_key, settlement_receipt_bundle_state_key, CommittedAction,
-    DeterminismEvidence, DeterminismStepContractEvidence, ExecutionObservationReceipt,
-    PolicyDecisionRecord, PostconditionProof, RequiredReceiptManifest, SettlementReceiptBundle,
+    policy_decision_state_key, postcondition_proof_state_key, required_receipt_manifest_state_key,
+    settlement_receipt_bundle_state_key, CommittedAction, DeterminismEvidence,
+    DeterminismStepContractEvidence, ExecutionObservationReceipt, PolicyDecisionRecord,
+    PostconditionProof, RequiredReceiptManifest, SettlementReceiptBundle,
 };
 use ioi_types::codec;
 use serde::Serialize;
@@ -313,8 +313,9 @@ async fn run_verify_determinism(
                 let manifest_key = required_receipt_manifest_state_key(session_id, step_index);
                 match query_raw_state(&mut client, manifest_key).await {
                     Ok(Some(manifest_bytes)) => {
-                        match codec::from_bytes_canonical::<RequiredReceiptManifest>(&manifest_bytes)
-                        {
+                        match codec::from_bytes_canonical::<RequiredReceiptManifest>(
+                            &manifest_bytes,
+                        ) {
                             Ok(manifest) => {
                                 if let Err(err) = manifest.verify() {
                                     output.push_reason(
@@ -391,10 +392,8 @@ async fn run_verify_determinism(
                                 );
                             }
                         }
-                        Err(err) => output.push_reason(
-                            "EXECUTION_OBSERVATION_DECODE_FAILED",
-                            err.to_string(),
-                        ),
+                        Err(err) => output
+                            .push_reason("EXECUTION_OBSERVATION_DECODE_FAILED", err.to_string()),
                     },
                     Ok(None) => output.push_reason(
                         "EXECUTION_OBSERVATION_MISSING",
@@ -431,10 +430,8 @@ async fn run_verify_determinism(
                                     );
                                 }
                             }
-                            Err(err) => output.push_reason(
-                                "POSTCONDITION_PROOF_DECODE_FAILED",
-                                err.to_string(),
-                            ),
+                            Err(err) => output
+                                .push_reason("POSTCONDITION_PROOF_DECODE_FAILED", err.to_string()),
                         }
                     }
                     Ok(None) => output.push_reason(

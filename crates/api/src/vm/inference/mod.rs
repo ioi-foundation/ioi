@@ -3,8 +3,8 @@
 use async_trait::async_trait;
 use ioi_types::app::agentic::{EvidenceGraph, InferenceOptions};
 use ioi_types::app::{
-    ModelLifecycleOperationKind, RegistrySubjectKind, ChatRuntimeProvenance,
-    ChatRuntimeProvenanceKind,
+    ChatRuntimeProvenance, ChatRuntimeProvenanceKind, ModelLifecycleOperationKind,
+    RegistrySubjectKind,
 };
 use ioi_types::error::VmError;
 use std::path::Path;

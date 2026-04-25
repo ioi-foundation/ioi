@@ -209,11 +209,11 @@ const attachableServerSnapshot = {
   });
 
   assert.equal(overview.tone, "attention");
-  assert.equal(overview.primaryAction?.kind, "open_studio_settings");
+  assert.equal(overview.primaryAction?.kind, "open_chat_runtime_settings");
   assert.equal(overview.secondaryAction?.kind, "launch_repl");
   assert.deepEqual(
     overview.queuedActions.map((action) => action.kind),
-    ["open_studio_settings", "launch_repl", "launch_repl"],
+    ["open_chat_runtime_settings", "launch_repl", "launch_repl"],
   );
 }
 

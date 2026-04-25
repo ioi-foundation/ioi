@@ -876,14 +876,14 @@ fn replanned_plan_execute_quiet_materialization_stays_alive_past_outer_inactivit
 
 #[test]
 fn chat_generation_timeout_extends_local_modal_first_html_for_split_acceptance() {
-    let previous_profile = std::env::var("AUTOPILOT_STUDIO_MODEL_ROUTING_PROFILE").ok();
-    let previous_timeout = std::env::var("AUTOPILOT_STUDIO_GENERATION_TIMEOUT_SECS").ok();
+    let previous_profile = std::env::var("AUTOPILOT_CHAT_ARTIFACT_MODEL_ROUTING_PROFILE").ok();
+    let previous_timeout = std::env::var("AUTOPILOT_CHAT_ARTIFACT_GENERATION_TIMEOUT_SECS").ok();
 
     std::env::set_var(
-        "AUTOPILOT_STUDIO_MODEL_ROUTING_PROFILE",
+        "AUTOPILOT_CHAT_ARTIFACT_MODEL_ROUTING_PROFILE",
         "local_generation_remote_acceptance",
     );
-    std::env::remove_var("AUTOPILOT_STUDIO_GENERATION_TIMEOUT_SECS");
+    std::env::remove_var("AUTOPILOT_CHAT_ARTIFACT_GENERATION_TIMEOUT_SECS");
 
     let runtime: Arc<dyn InferenceRuntime> = Arc::new(ChatArtifactGenerationTestRuntime::new(
         crate::models::ChatRuntimeProvenanceKind::RealLocalRuntime,
@@ -919,12 +919,12 @@ fn chat_generation_timeout_extends_local_modal_first_html_for_split_acceptance()
     });
 
     match previous_profile {
-        Some(value) => std::env::set_var("AUTOPILOT_STUDIO_MODEL_ROUTING_PROFILE", value),
-        None => std::env::remove_var("AUTOPILOT_STUDIO_MODEL_ROUTING_PROFILE"),
+        Some(value) => std::env::set_var("AUTOPILOT_CHAT_ARTIFACT_MODEL_ROUTING_PROFILE", value),
+        None => std::env::remove_var("AUTOPILOT_CHAT_ARTIFACT_MODEL_ROUTING_PROFILE"),
     }
     match previous_timeout {
-        Some(value) => std::env::set_var("AUTOPILOT_STUDIO_GENERATION_TIMEOUT_SECS", value),
-        None => std::env::remove_var("AUTOPILOT_STUDIO_GENERATION_TIMEOUT_SECS"),
+        Some(value) => std::env::set_var("AUTOPILOT_CHAT_ARTIFACT_GENERATION_TIMEOUT_SECS", value),
+        None => std::env::remove_var("AUTOPILOT_CHAT_ARTIFACT_GENERATION_TIMEOUT_SECS"),
     }
 
     assert_eq!(timeout, Duration::from_secs(1200));
@@ -932,14 +932,14 @@ fn chat_generation_timeout_extends_local_modal_first_html_for_split_acceptance()
 
 #[test]
 fn direct_author_timeout_uses_strategy_budget_for_local_html() {
-    let previous_profile = std::env::var("AUTOPILOT_STUDIO_MODEL_ROUTING_PROFILE").ok();
-    let previous_timeout = std::env::var("AUTOPILOT_STUDIO_GENERATION_TIMEOUT_SECS").ok();
+    let previous_profile = std::env::var("AUTOPILOT_CHAT_ARTIFACT_MODEL_ROUTING_PROFILE").ok();
+    let previous_timeout = std::env::var("AUTOPILOT_CHAT_ARTIFACT_GENERATION_TIMEOUT_SECS").ok();
 
     std::env::set_var(
-        "AUTOPILOT_STUDIO_MODEL_ROUTING_PROFILE",
+        "AUTOPILOT_CHAT_ARTIFACT_MODEL_ROUTING_PROFILE",
         "local_generation_remote_acceptance",
     );
-    std::env::remove_var("AUTOPILOT_STUDIO_GENERATION_TIMEOUT_SECS");
+    std::env::remove_var("AUTOPILOT_CHAT_ARTIFACT_GENERATION_TIMEOUT_SECS");
 
     let runtime: Arc<dyn InferenceRuntime> = Arc::new(ChatArtifactGenerationTestRuntime::new(
         crate::models::ChatRuntimeProvenanceKind::RealLocalRuntime,
@@ -980,12 +980,12 @@ fn direct_author_timeout_uses_strategy_budget_for_local_html() {
     });
 
     match previous_profile {
-        Some(value) => std::env::set_var("AUTOPILOT_STUDIO_MODEL_ROUTING_PROFILE", value),
-        None => std::env::remove_var("AUTOPILOT_STUDIO_MODEL_ROUTING_PROFILE"),
+        Some(value) => std::env::set_var("AUTOPILOT_CHAT_ARTIFACT_MODEL_ROUTING_PROFILE", value),
+        None => std::env::remove_var("AUTOPILOT_CHAT_ARTIFACT_MODEL_ROUTING_PROFILE"),
     }
     match previous_timeout {
-        Some(value) => std::env::set_var("AUTOPILOT_STUDIO_GENERATION_TIMEOUT_SECS", value),
-        None => std::env::remove_var("AUTOPILOT_STUDIO_GENERATION_TIMEOUT_SECS"),
+        Some(value) => std::env::set_var("AUTOPILOT_CHAT_ARTIFACT_GENERATION_TIMEOUT_SECS", value),
+        None => std::env::remove_var("AUTOPILOT_CHAT_ARTIFACT_GENERATION_TIMEOUT_SECS"),
     }
 
     assert_eq!(timeout, Duration::from_secs(155));

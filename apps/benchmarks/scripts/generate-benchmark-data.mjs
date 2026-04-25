@@ -3,17 +3,17 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 import {
-  collectStudioArtifactArenaView,
-  writeStudioArtifactArenaLedger,
-} from "../../../scripts/lib/studio-artifact-arena.mjs";
+  collectChatArtifactArenaView,
+  writeChatArtifactArenaLedger,
+} from "../../../scripts/lib/chat-artifact-arena.mjs";
 import { buildAgentModelMatrixView } from "../../../scripts/lib/agent-model-matrix.mjs";
-import { collectStudioArtifactCorpusIndex } from "../../../scripts/lib/studio-artifact-corpus.mjs";
-import { collectStudioArtifactDistillationView } from "../../../scripts/lib/studio-artifact-distillation.mjs";
-import { collectStudioArtifactParityLoopView } from "../../../scripts/lib/studio-artifact-parity-loop.mjs";
+import { collectChatArtifactCorpusIndex } from "../../../scripts/lib/chat-artifact-corpus.mjs";
+import { collectChatArtifactDistillationView } from "../../../scripts/lib/chat-artifact-distillation.mjs";
+import { collectChatArtifactParityLoopView } from "../../../scripts/lib/chat-artifact-parity-loop.mjs";
 import {
-  collectStudioArtifactReleaseGatesView,
-  writeStudioArtifactReleaseGates,
-} from "../../../scripts/lib/studio-artifact-release-gates.mjs";
+  collectChatArtifactReleaseGatesView,
+  writeChatArtifactReleaseGates,
+} from "../../../scripts/lib/chat-artifact-release-gates.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,11 +31,11 @@ const outputPaths = [
   path.join(repoRoot, "apps/benchmarks/src/generated/benchmark-data.json"),
   path.join(repoRoot, "apps/benchmarks/public/generated/benchmark-data.json"),
 ];
-const studioArtifactEvidenceRoot = path.join(
+const chatArtifactEvidenceRoot = path.join(
   repoRoot,
   "docs",
   "evidence",
-  "studio-artifact-surface",
+  "chat-artifact-surface",
 );
 const liveDataPath = "/generated/benchmark-data.json";
 const liveStorePath = "/generated/benchmark-store.json";
@@ -52,7 +52,7 @@ const TRACE_LANE_ORDER = [
   "bridge",
 ];
 const REWARD_FLOOR_EPSILON = 1e-4;
-const STUDIO_ARTIFACT_SUITE = "Chat Artifacts";
+const CHAT_ARTIFACT_SUITE = "Chat Artifacts";
 
 function writeOutputFiles(payload) {
   const encoded = JSON.stringify(payload, null, 2);
@@ -89,13 +89,13 @@ function resolveRepoPath(targetPath) {
   return path.isAbsolute(targetPath) ? targetPath : path.join(repoRoot, targetPath);
 }
 
-function resolveStudioArtifactEvidencePath(targetPath) {
+function resolveChatArtifactEvidencePath(targetPath) {
   if (!targetPath || typeof targetPath !== "string") {
     return null;
   }
   return path.isAbsolute(targetPath)
     ? targetPath
-    : path.join(studioArtifactEvidenceRoot, targetPath);
+    : path.join(chatArtifactEvidenceRoot, targetPath);
 }
 
 function toDisplayPath(targetPath) {
@@ -663,7 +663,7 @@ function summarizeTraceArtifactLinks(refs, options = {}) {
     .filter((entry) => entry.href);
 }
 
-function studioArtifactTraceLinks(entry) {
+function chatArtifactTraceLinks(entry) {
   return [
     entry.summaryPath,
     entry.manifestPath,
@@ -676,12 +676,12 @@ function studioArtifactTraceLinks(entry) {
     .map((value) => ({
       label: path.basename(value),
       path: value,
-      href: toFileHref(resolveStudioArtifactEvidencePath(value)),
+      href: toFileHref(resolveChatArtifactEvidencePath(value)),
     }))
     .filter((value) => value.href);
 }
 
-function buildStudioArtifactTrace(entry) {
+function buildChatArtifactTrace(entry) {
   const startMs = entry.sortTimestampMs || null;
   const endMs = startMs == null ? null : startMs + 4;
   const result = artifactClassificationResult(entry.effectiveClassification);
@@ -693,8 +693,8 @@ function buildStudioArtifactTrace(entry) {
       : "unknown";
   const provenanceStatus =
     entry.productionProvenanceKind || entry.acceptanceProvenanceKind ? "pass" : "unknown";
-  const studioArtifactLinkOptions = {
-    resolvePath: resolveStudioArtifactEvidencePath,
+  const chatArtifactLinkOptions = {
+    resolvePath: resolveChatArtifactEvidencePath,
     formatPath: (value) => String(value ?? ""),
   };
   const spans = [
@@ -716,11 +716,11 @@ function buildStudioArtifactTrace(entry) {
         JSON.stringify({
           lane: entry.laneLabel ?? entry.lane,
           dateRoot: entry.dateRoot,
-          fullStudioPath: entry.fullStudioPath,
+          fullChatRuntimePath: entry.fullChatRuntimePath,
         }),
         220,
       ),
-      artifactLinks: studioArtifactTraceLinks(entry),
+      artifactLinks: chatArtifactTraceLinks(entry),
     },
     {
       id: "runtime:production",
@@ -745,7 +745,7 @@ function buildStudioArtifactTrace(entry) {
       ),
       artifactLinks: summarizeTraceArtifactLinks(
         [entry.generationPath, entry.inspectPath],
-        studioArtifactLinkOptions,
+        chatArtifactLinkOptions,
       ),
     },
     {
@@ -763,7 +763,7 @@ function buildStudioArtifactTrace(entry) {
       durationMs: startMs == null ? null : 1,
       capabilityTags: ["artifact_route"],
       attributesSummary: "",
-      artifactLinks: summarizeTraceArtifactLinks([entry.routePath], studioArtifactLinkOptions),
+      artifactLinks: summarizeTraceArtifactLinks([entry.routePath], chatArtifactLinkOptions),
     },
     {
       id: "step:validation",
@@ -789,7 +789,7 @@ function buildStudioArtifactTrace(entry) {
       ),
       artifactLinks: summarizeTraceArtifactLinks(
         [entry.validationPath, entry.generationPath],
-        studioArtifactLinkOptions,
+        chatArtifactLinkOptions,
       ),
     },
     {
@@ -809,7 +809,7 @@ function buildStudioArtifactTrace(entry) {
       attributesSummary: "",
       artifactLinks: summarizeTraceArtifactLinks(
         [entry.manifestPath, entry.inspectPath],
-        studioArtifactLinkOptions,
+        chatArtifactLinkOptions,
       ),
     },
     {
@@ -830,13 +830,13 @@ function buildStudioArtifactTrace(entry) {
       attributesSummary: compactText(
         JSON.stringify({
           primaryFile: entry.primaryFile,
-          fullStudioPath: entry.fullStudioPath,
+          fullChatRuntimePath: entry.fullChatRuntimePath,
         }),
         220,
       ),
       artifactLinks: summarizeTraceArtifactLinks(
         [entry.primaryArtifactPath, entry.materializedPrimaryPath].filter(Boolean),
-        studioArtifactLinkOptions,
+        chatArtifactLinkOptions,
       ),
     },
   ];
@@ -872,7 +872,7 @@ function buildStudioArtifactTrace(entry) {
   };
 }
 
-function collectStudioArtifactCases(corpus = collectStudioArtifactCorpusIndex({ repoRoot })) {
+function collectChatArtifactCases(corpus = collectChatArtifactCorpusIndex({ repoRoot })) {
   return corpus.cases.map((entry) => {
     const result = artifactClassificationResult(entry.effectiveClassification);
     const reward = artifactReward(entry.effectiveClassification);
@@ -888,7 +888,7 @@ function collectStudioArtifactCases(corpus = collectStudioArtifactCorpusIndex({ 
     }
 
     return {
-      suite: STUDIO_ARTIFACT_SUITE,
+      suite: CHAT_ARTIFACT_SUITE,
       caseId: entry.id,
       runId: `${entry.dateRoot}:${entry.lane}`,
       runSort: entry.sortTimestampMs,
@@ -975,18 +975,18 @@ function collectStudioArtifactCases(corpus = collectStudioArtifactCorpusIndex({ 
           supportingSpanIds: ["runtime:production"],
         },
       ],
-      trace: buildStudioArtifactTrace(entry),
+      trace: buildChatArtifactTrace(entry),
       links: {
-        caseDir: toFileHref(resolveStudioArtifactEvidencePath(entry.caseDir)),
-        diagnosticJson: toFileHref(resolveStudioArtifactEvidencePath(entry.summaryPath)),
+        caseDir: toFileHref(resolveChatArtifactEvidencePath(entry.caseDir)),
+        diagnosticJson: toFileHref(resolveChatArtifactEvidencePath(entry.summaryPath)),
         diagnosticMarkdown: toFileHref(
-          resolveStudioArtifactEvidencePath(entry.materializedReadmePath),
+          resolveChatArtifactEvidencePath(entry.materializedReadmePath),
         ),
-        inferenceCalls: toFileHref(resolveStudioArtifactEvidencePath(entry.generationPath)),
-        inferenceTrace: toFileHref(resolveStudioArtifactEvidencePath(entry.validationPath)),
-        bridgeState: toFileHref(resolveStudioArtifactEvidencePath(entry.routePath)),
-        traceBundle: toFileHref(resolveStudioArtifactEvidencePath(entry.manifestPath)),
-        traceAnalysis: toFileHref(resolveStudioArtifactEvidencePath(entry.inspectPath)),
+        inferenceCalls: toFileHref(resolveChatArtifactEvidencePath(entry.generationPath)),
+        inferenceTrace: toFileHref(resolveChatArtifactEvidencePath(entry.validationPath)),
+        bridgeState: toFileHref(resolveChatArtifactEvidencePath(entry.routePath)),
+        traceBundle: toFileHref(resolveChatArtifactEvidencePath(entry.manifestPath)),
+        traceAnalysis: toFileHref(resolveChatArtifactEvidencePath(entry.inspectPath)),
       },
     };
   });
@@ -1801,8 +1801,8 @@ function buildSuiteSummaries(latestCases, liveRuns) {
     });
 }
 
-function collectStudioArtifactParityLoop() {
-  const view = collectStudioArtifactParityLoopView({ repoRoot });
+function collectChatArtifactParityLoop() {
+  const view = collectChatArtifactParityLoopView({ repoRoot });
   if (!view) {
     return null;
   }
@@ -1884,8 +1884,8 @@ function collectStudioArtifactParityLoop() {
   };
 }
 
-function collectStudioArtifactDistillation() {
-  const view = collectStudioArtifactDistillationView({ repoRoot });
+function collectChatArtifactDistillation() {
+  const view = collectChatArtifactDistillationView({ repoRoot });
   if (!view) {
     return null;
   }
@@ -1920,12 +1920,12 @@ function collectStudioArtifactDistillation() {
   };
 }
 
-function collectStudioArtifactArena(corpusSummary = null) {
-  const { ledgerPath } = writeStudioArtifactArenaLedger({
+function collectChatArtifactArena(corpusSummary = null) {
+  const { ledgerPath } = writeChatArtifactArenaLedger({
     repoRoot,
     corpusSummary: corpusSummary ?? undefined,
   });
-  const view = collectStudioArtifactArenaView({ repoRoot, ledgerPath });
+  const view = collectChatArtifactArenaView({ repoRoot, ledgerPath });
   if (!view) {
     return null;
   }
@@ -1979,12 +1979,12 @@ function collectStudioArtifactArena(corpusSummary = null) {
   };
 }
 
-function collectStudioArtifactReleaseGates(corpusSummary = null) {
-  const { reportPath } = writeStudioArtifactReleaseGates({
+function collectChatArtifactReleaseGates(corpusSummary = null) {
+  const { reportPath } = writeChatArtifactReleaseGates({
     repoRoot,
     corpusSummary: corpusSummary ?? undefined,
   });
-  const view = collectStudioArtifactReleaseGatesView({ repoRoot, reportPath });
+  const view = collectChatArtifactReleaseGatesView({ repoRoot, reportPath });
   if (!view) {
     return null;
   }
@@ -2037,23 +2037,23 @@ function sortLatestCases(cases) {
 }
 
 export function buildBenchmarkDataPayload(options = {}) {
-  const studioArtifactCorpus =
-    options.studioArtifactCorpus ?? collectStudioArtifactCorpusIndex({ repoRoot });
-  const studioArtifactArena =
-    options.studioArtifactArena ?? collectStudioArtifactArena(studioArtifactCorpus);
-  const studioArtifactReleaseGates =
-    options.studioArtifactReleaseGates ??
-    collectStudioArtifactReleaseGates(studioArtifactCorpus);
-  const studioArtifactDistillation =
-    options.studioArtifactDistillation ?? collectStudioArtifactDistillation();
-  const studioArtifactParityLoop =
-    options.studioArtifactParityLoop ?? collectStudioArtifactParityLoop();
+  const chatArtifactCorpus =
+    options.chatArtifactCorpus ?? collectChatArtifactCorpusIndex({ repoRoot });
+  const chatArtifactArena =
+    options.chatArtifactArena ?? collectChatArtifactArena(chatArtifactCorpus);
+  const chatArtifactReleaseGates =
+    options.chatArtifactReleaseGates ??
+    collectChatArtifactReleaseGates(chatArtifactCorpus);
+  const chatArtifactDistillation =
+    options.chatArtifactDistillation ?? collectChatArtifactDistillation();
+  const chatArtifactParityLoop =
+    options.chatArtifactParityLoop ?? collectChatArtifactParityLoop();
   const agentModelMatrix =
     options.agentModelMatrix ?? buildAgentModelMatrixView({ repoRoot });
   const latestCases = sortLatestCases(
     options.latestCases ?? [
       ...collectLatestCaseDiagnostics(),
-      ...collectStudioArtifactCases(studioArtifactCorpus),
+      ...collectChatArtifactCases(chatArtifactCorpus),
     ],
   );
   const liveRuns = options.liveRuns ?? collectLiveRunsFromStore();
@@ -2066,11 +2066,11 @@ export function buildBenchmarkDataPayload(options = {}) {
     suiteSummaries: buildSuiteSummaries(latestCases, liveRuns),
     liveRuns,
     latestCases,
-    studioArtifactBenchmarkSuite: studioArtifactCorpus?.benchmarkSuite ?? null,
-    studioArtifactArena,
-    studioArtifactReleaseGates,
-    studioArtifactDistillation,
-    studioArtifactParityLoop,
+    chatArtifactBenchmarkSuite: chatArtifactCorpus?.benchmarkSuite ?? null,
+    chatArtifactArena,
+    chatArtifactReleaseGates,
+    chatArtifactDistillation,
+    chatArtifactParityLoop,
     agentModelMatrix,
   };
 }

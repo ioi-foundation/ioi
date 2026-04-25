@@ -38,9 +38,7 @@ fn blueprint_scaffold_family(
         ChatRendererKind::JsxSandbox => "guided_tutorial".to_string(),
         ChatRendererKind::Svg => "single_visual_story".to_string(),
         ChatRendererKind::Mermaid => "diagram_flow".to_string(),
-        ChatRendererKind::PdfEmbed | ChatRendererKind::Markdown => {
-            "document_outline".to_string()
-        }
+        ChatRendererKind::PdfEmbed | ChatRendererKind::Markdown => "document_outline".to_string(),
         ChatRendererKind::DownloadCard | ChatRendererKind::BundleManifest => {
             "export_bundle".to_string()
         }

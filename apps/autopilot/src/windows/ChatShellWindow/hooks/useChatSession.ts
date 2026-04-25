@@ -25,7 +25,7 @@ import { buildPlanModeIntent } from "../../ChatShellWindow/utils/planModePrompt"
 
 type UseChatSessionOptions = {
   bootstrapSessionController: () => Promise<void>;
-  isStudioVariant: boolean;
+  isChatVariant: boolean;
   task: AgentTask | null;
   inputRef: RefObject<HTMLTextAreaElement>;
   setChatEvents: Dispatch<SetStateAction<ChatEvent[]>>;
@@ -45,14 +45,14 @@ type UseChatSessionOptions = {
 };
 
 export function shouldContinueChatComposerSession(
-  isStudioVariant: boolean,
+  isChatVariant: boolean,
   task: AgentTask | null,
 ): boolean {
   if (!task?.id || task.phase === "Failed") {
     return false;
   }
 
-  if (isStudioVariant && task.phase === "Complete") {
+  if (isChatVariant && task.phase === "Complete") {
     // Chat follow-ups should continue the completed session by default so
     // retained widget or artifact context stays available unless the user
     // explicitly starts a new outcome.
@@ -64,7 +64,7 @@ export function shouldContinueChatComposerSession(
 
 export function useChatSession({
   bootstrapSessionController,
-  isStudioVariant,
+  isChatVariant,
   task,
   inputRef,
   setChatEvents,
@@ -167,7 +167,7 @@ export function useChatSession({
 
   const { openChat, attachSession: handleLoadSession } =
     useSessionShellActions<AgentTask>({
-      isChatShell: isStudioVariant,
+      isChatShell: isChatVariant,
       hideCurrentShell: hideChatSessionShell,
       resolveChatView,
       loadSession,
@@ -204,18 +204,18 @@ export function useChatSession({
     resetInspectionSurface,
     beforeStartTask: async (text) => {
       if (
-        !isStudioVariant &&
+        !isChatVariant &&
         (text.toLowerCase().includes("swarm") || text.toLowerCase().includes("team"))
       ) {
         await openChat("autopilot");
       }
     },
     shouldContinueExistingSession: (currentTask) =>
-      shouldContinueChatComposerSession(isStudioVariant, currentTask),
+      shouldContinueChatComposerSession(isChatVariant, currentTask),
     onSubmitError: (error) => {
       console.error(error);
     },
-    onEscapeKeyDown: !isStudioVariant
+    onEscapeKeyDown: !isChatVariant
       ? () => hideChatSessionShell().catch(console.error)
       : undefined,
     resolveTaskFailureMessage: (currentTask) => {

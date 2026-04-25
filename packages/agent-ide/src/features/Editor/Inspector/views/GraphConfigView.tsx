@@ -37,7 +37,7 @@ const commonBindings = [
   {
     key: "reasoning",
     label: "Reasoning",
-    description: "Default text generation and reasoning slot for responses/model nodes.",
+    description: "Default text generation and reasoning slot for responses nodes.",
   },
   {
     key: "vision",

@@ -169,8 +169,8 @@ async fn fetch_active_policy_hash(
     } else {
         ActionRules::default()
     };
-    let canonical =
-        serde_jcs::to_vec(&rules).map_err(|e| anyhow!("Failed to canonicalize ActionRules: {}", e))?;
+    let canonical = serde_jcs::to_vec(&rules)
+        .map_err(|e| anyhow!("Failed to canonicalize ActionRules: {}", e))?;
     let digest = sha256(&canonical).map_err(|e| anyhow!("Failed to hash ActionRules: {}", e))?;
     let mut out = [0u8; 32];
     out.copy_from_slice(digest.as_ref());
@@ -219,7 +219,8 @@ async fn run_approve(args: PolicyApproveArgs) -> Result<()> {
         .map_err(|e| anyhow!("Failed to encode authority registration params: {}", e))?,
     };
     let register_tx = create_cli_tx(&keypair, register_payload, 0);
-    let _ = submit_tx_and_wait(&mut client, &register_tx, "approval authority registration").await?;
+    let _ =
+        submit_tx_and_wait(&mut client, &register_tx, "approval authority registration").await?;
     let active_policy_hash = fetch_active_policy_hash(&mut client).await?;
 
     let mut grant_nonce = request_hash;

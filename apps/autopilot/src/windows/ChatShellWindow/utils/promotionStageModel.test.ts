@@ -20,7 +20,6 @@ function baseBundle(): CanonicalTraceBundle {
     history: [],
     events: [],
     interventions: [],
-    receipts: [],
     artifacts: [],
     artifactPayloads: [],
     assistantNotifications: [],

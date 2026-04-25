@@ -52,7 +52,7 @@ pub(super) use ioi_api::runtime_harness::route_decision_for_outcome_request;
 
 pub(super) fn chat_routing_timeout_for_runtime(runtime: &Arc<dyn InferenceRuntime>) -> Duration {
     let seconds = [
-        "AUTOPILOT_STUDIO_ROUTING_TIMEOUT_SECS",
+        "AUTOPILOT_CHAT_ARTIFACT_ROUTING_TIMEOUT_SECS",
         "IOI_CHAT_ROUTING_TIMEOUT_SECS",
     ]
     .iter()

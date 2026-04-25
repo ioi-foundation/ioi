@@ -73,7 +73,6 @@ fn empty_local_engine_snapshot() -> LocalEngineSnapshot {
         pending_approval_count: 0,
         active_issue_count: 0,
         capabilities: Vec::new(),
-        compatibility_routes: Vec::new(),
         pending_controls: Vec::new(),
         jobs: Vec::new(),
         recent_activity: Vec::new(),
@@ -135,7 +134,6 @@ fn empty_local_engine_snapshot() -> LocalEngineSnapshot {
             api: LocalEngineApiConfig {
                 bind_address: "127.0.0.1:0".to_string(),
                 remote_access_enabled: false,
-                expose_compat_routes: false,
                 cors_mode: "deny".to_string(),
                 auth_mode: "disabled".to_string(),
             },

@@ -29,7 +29,7 @@ export function BuilderView({ runtime, onAddToGraph, onBack }: BuilderViewProps)
     setIsTyping(true);
 
     try {
-        const result = await runtime.runNode("model", { 
+        const result = await runtime.runNode("responses", { 
             model: "gpt-4o", 
             systemPrompt: instructions 
         }, JSON.stringify({ input: userMsg }));

@@ -1,13 +1,12 @@
 use super::maybe_handle_chat_prompt;
 use crate::chat::{
     build_chat_artifact_brief_prompt, build_chat_artifact_candidate_refinement_prompt,
-    build_chat_artifact_materialization_prompt,
-    build_chat_artifact_materialization_repair_prompt, build_chat_artifact_validation_prompt,
-    build_chat_outcome_router_prompt, parse_chat_artifact_validation_result,
-    parse_chat_generated_artifact_payload, ChatArtifactBrief, ChatArtifactEditIntent,
-    ChatArtifactEditMode, ChatArtifactRefinementContext, ChatArtifactSelectionTarget,
-    ChatArtifactTasteMemory, ChatArtifactValidationStatus, ChatGeneratedArtifactFile,
-    ChatGeneratedArtifactPayload,
+    build_chat_artifact_materialization_prompt, build_chat_artifact_materialization_repair_prompt,
+    build_chat_artifact_validation_prompt, build_chat_outcome_router_prompt,
+    parse_chat_artifact_validation_result, parse_chat_generated_artifact_payload,
+    ChatArtifactBrief, ChatArtifactEditIntent, ChatArtifactEditMode, ChatArtifactRefinementContext,
+    ChatArtifactSelectionTarget, ChatArtifactTasteMemory, ChatArtifactValidationStatus,
+    ChatGeneratedArtifactFile, ChatGeneratedArtifactPayload,
 };
 use ioi_types::app::{ChatArtifactFileRole, ChatRendererKind};
 use serde_json::json;
