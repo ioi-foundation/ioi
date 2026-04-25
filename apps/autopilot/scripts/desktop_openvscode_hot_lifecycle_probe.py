@@ -98,20 +98,7 @@ def send_keys(window_id: int, *keys: str) -> None:
 
 
 def click_activity_route(window_id: int, point: tuple[float, float]) -> None:
-    geometry = window_geometry(window_id)
-    width = geometry.get("WIDTH", 1)
-    height = geometry.get("HEIGHT", 1)
-    rel_x = max(1, min(width - 1, int(width * point[0])))
-    rel_y = max(1, min(height - 1, int(height * point[1])))
-    abs_x = geometry.get("X", 0) + rel_x
-    abs_y = geometry.get("Y", 0) + rel_y
-    run(["xdotool", "windowactivate", str(window_id)], check=False)
-    time.sleep(0.25)
-    run(["xdotool", "mousemove", str(abs_x), str(abs_y)], check=False)
-    run(["xdotool", "click", "1"], check=False)
-    time.sleep(0.4)
-    run(["xdotool", "mousemove", str(abs_x), str(abs_y)], check=False)
-    run(["xdotool", "click", "1"], check=False)
+    click_window_ratio(window_id, point[0], point[1])
     time.sleep(ROUTE_SETTLE_SECS)
 
 
