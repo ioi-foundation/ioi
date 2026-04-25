@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::sync::Mutex;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::webview::PageLoadEvent;
 use tauri::{
     AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition, PhysicalSize, Rect, Runtime,
@@ -24,6 +25,11 @@ struct WorkspaceDirectWebviewRecord {
     bounds: WorkspaceDirectWebviewBounds,
     screen_bounds: Option<WorkspaceDirectWebviewBounds>,
     mode: WorkspaceDirectWebviewMode,
+    created_at_ms: u64,
+    show_count: u32,
+    reuse_count: u32,
+    hide_count: u32,
+    bounds_update_count: u32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -72,6 +78,11 @@ pub struct WorkspaceDirectWebviewState {
     mode: String,
     bounds: WorkspaceDirectWebviewBounds,
     screen_bounds: Option<WorkspaceDirectWebviewBounds>,
+    created_at_ms: u64,
+    show_count: u32,
+    reuse_count: u32,
+    hide_count: u32,
+    bounds_update_count: u32,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -109,6 +120,13 @@ fn label_for_surface(surface_id: &str) -> String {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     surface_id.hash(&mut hasher);
     format!("workspace-direct-{:016x}", hasher.finish())
+}
+
+fn unix_time_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis().min(u128::from(u64::MAX)) as u64)
+        .unwrap_or(0)
 }
 
 fn parse_workbench_url(url: &str) -> Result<Url, String> {
@@ -187,7 +205,6 @@ fn sync_child_webview_platform<R: Runtime>(
             inner.set_size_request(width, height);
             inner.size_allocate(&gtk::Allocation::new(0, 0, width, height));
             inner.show_all();
-            inner.grab_focus();
             let _ = label;
         });
     }
@@ -258,6 +275,11 @@ fn state_for_record(
         mode: record.mode.api_name().to_string(),
         bounds: record.bounds.clone(),
         screen_bounds: record.screen_bounds.clone(),
+        created_at_ms: record.created_at_ms,
+        show_count: record.show_count,
+        reuse_count: record.reuse_count,
+        hide_count: record.hide_count,
+        bounds_update_count: record.bounds_update_count,
     }
 }
 
@@ -457,6 +479,7 @@ fn build_child_webview<R: Runtime>(
     url: Url,
     bounds: &WorkspaceDirectWebviewBounds,
     screen_bounds: &Option<WorkspaceDirectWebviewBounds>,
+    visible: bool,
 ) -> Result<(), String> {
     let parent_window = app.get_webview_window(parent_window_label).ok_or_else(|| {
         format!(
@@ -471,6 +494,7 @@ fn build_child_webview<R: Runtime>(
     let bounds_for_load = bounds.clone();
     let screen_bounds_for_load = screen_bounds.clone();
     let parent_window_for_load = parent_window.clone();
+    let visible_for_load = visible;
     let (initial_x, initial_y) =
         fallback_window_position(&parent_window, bounds, screen_bounds.as_ref())?;
     let builder = WebviewWindowBuilder::new(app, label, WebviewUrl::External(url))
@@ -479,8 +503,8 @@ fn build_child_webview<R: Runtime>(
         .resizable(false)
         .skip_taskbar(true)
         .devtools(workspace_direct_devtools_enabled())
-        .focused(true)
-        .visible(true)
+        .focused(visible)
+        .visible(visible)
         .inner_size(bounds.width, bounds.height)
         .position(initial_x, initial_y)
         .on_page_load(move |window, payload| {
@@ -498,7 +522,21 @@ fn build_child_webview<R: Runtime>(
                         error
                     );
                 }
-                let _ = window.show();
+                if visible_for_load {
+                    let _ = window.show();
+                } else {
+                    if let Ok(gtk_window) = window.gtk_window() {
+                        let _ = unmap_child_window(&gtk_window, &label_for_load);
+                    }
+                    if let Ok(parent_gtk_window) = parent_window_for_load.gtk_window() {
+                        let _ = invalidate_parent_window_region(
+                            &parent_gtk_window,
+                            &parent_window_label_for_load,
+                            &bounds_for_load,
+                        );
+                    }
+                    let _ = window.hide();
+                }
                 if workspace_direct_devtools_enabled() {
                     open_child_window_devtools(
                         &window,
@@ -524,7 +562,12 @@ fn build_child_webview<R: Runtime>(
             label, error
         )
     })?;
-    reparent_child_window(&parent_window, &window, label, bounds)?;
+    if let Err(error) = reparent_child_window(&parent_window, &window, label, bounds) {
+        eprintln!(
+            "[WorkspaceDirectWebview] deferred child reparent surface={} label={}: {}",
+            surface_id, label, error
+        );
+    }
     Ok(())
 }
 
@@ -537,6 +580,7 @@ fn build_child_webview<R: Runtime>(
     url: Url,
     bounds: &WorkspaceDirectWebviewBounds,
     screen_bounds: &Option<WorkspaceDirectWebviewBounds>,
+    visible: bool,
 ) -> Result<(), String> {
     let parent_window = app
         .get_window(parent_window_label)
@@ -548,12 +592,17 @@ fn build_child_webview<R: Runtime>(
     let bounds_for_load = bounds.clone();
     let screen_bounds_for_load = screen_bounds.clone();
     let parent_window_for_load = parent_window.clone();
+    let visible_for_load = visible;
     let builder = WebviewBuilder::new(label, WebviewUrl::External(url))
         .devtools(workspace_direct_devtools_enabled())
-        .focused(true)
+        .focused(visible)
         .on_page_load(move |webview, payload| {
             if payload.event() == PageLoadEvent::Finished {
-                let _ = webview.show();
+                if visible_for_load {
+                    let _ = webview.show();
+                } else {
+                    let _ = webview.hide();
+                }
                 let _ = apply_child_webview_layout(&webview, &label_for_load, &bounds_for_load);
                 sync_child_container_windows(
                     &parent_window_for_load,
@@ -863,7 +912,16 @@ fn remove_record(
 
 fn handle_exists<R: Runtime>(app: &AppHandle<R>, record: &WorkspaceDirectWebviewRecord) -> bool {
     match record.mode {
-        WorkspaceDirectWebviewMode::Child => app.get_webview(&record.label).is_some(),
+        WorkspaceDirectWebviewMode::Child => {
+            #[cfg(target_os = "linux")]
+            {
+                return app.get_webview_window(&record.label).is_some();
+            }
+            #[cfg(not(target_os = "linux"))]
+            {
+                app.get_webview(&record.label).is_some()
+            }
+        }
         WorkspaceDirectWebviewMode::OwnedWindow => app.get_webview_window(&record.label).is_some(),
     }
 }
@@ -882,7 +940,14 @@ fn update_record_bounds<R: Runtime>(
                     app.get_webview_window(&record.label),
                     app.get_webview_window(&record.parent_window_label),
                 ) {
-                    reparent_child_window(&parent_window, &window, &record.label, bounds)?;
+                    if let Err(error) =
+                        reparent_child_window(&parent_window, &window, &record.label, bounds)
+                    {
+                        eprintln!(
+                            "[WorkspaceDirectWebview] deferred bounds reparent surface_label={}: {}",
+                            record.label, error
+                        );
+                    }
                     return Ok(());
                 }
             }
@@ -923,12 +988,17 @@ fn show_record<R: Runtime>(
                     app.get_webview_window(&record.label),
                     app.get_webview_window(&record.parent_window_label),
                 ) {
-                    reparent_child_window(
+                    if let Err(error) = reparent_child_window(
                         &parent_window,
                         &window,
                         &record.label,
                         &record.bounds,
-                    )?;
+                    ) {
+                        eprintln!(
+                            "[WorkspaceDirectWebview] deferred show reparent surface_label={}: {}",
+                            record.label, error
+                        );
+                    }
                     window.show().map_err(|error| {
                         format!(
                             "Failed to show direct OpenVSCode contained child window '{}': {}",
@@ -956,6 +1026,36 @@ fn show_record<R: Runtime>(
                         record.label, error
                     )
                 })?;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn hide_record<R: Runtime>(
+    app: &AppHandle<R>,
+    record: &WorkspaceDirectWebviewRecord,
+) -> Result<(), String> {
+    match record.mode {
+        WorkspaceDirectWebviewMode::Child => {
+            #[cfg(target_os = "linux")]
+            {
+                if let Some(window) = app.get_webview_window(&record.label) {
+                    if let Ok(gtk_window) = window.gtk_window() {
+                        let _ = unmap_child_window(&gtk_window, &record.label);
+                    }
+                    invalidate_parent_for_record(app, record);
+                    let _ = window.hide();
+                    return Ok(());
+                }
+            }
+            if let Some(webview) = app.get_webview(&record.label) {
+                let _ = webview.hide();
+            }
+        }
+        WorkspaceDirectWebviewMode::OwnedWindow => {
+            if let Some(window) = app.get_webview_window(&record.label) {
+                let _ = window.hide();
             }
         }
     }
@@ -1088,15 +1188,18 @@ pub fn workspace_direct_webview_show<R: Runtime>(
     url: String,
     bounds: WorkspaceDirectWebviewBounds,
     screen_bounds: Option<WorkspaceDirectWebviewBounds>,
+    visible: Option<bool>,
     app: AppHandle<R>,
     manager: State<WorkspaceDirectWebviewManager>,
 ) -> Result<WorkspaceDirectWebviewShowResult, String> {
     let bounds = normalize_bounds(bounds)?;
     let screen_bounds = normalize_optional_bounds(screen_bounds)?;
+    let visible = visible.unwrap_or(true);
     eprintln!(
-        "[WorkspaceDirectWebview] show requested surface={} parent={} bounds=({}, {}, {}, {}) screen_bounds={:?}",
+        "[WorkspaceDirectWebview] show requested surface={} parent={} visible={} bounds=({}, {}, {}, {}) screen_bounds={:?}",
         surface_id,
         parent_window_label,
+        visible,
         bounds.x,
         bounds.y,
         bounds.width,
@@ -1110,9 +1213,15 @@ pub fn workspace_direct_webview_show<R: Runtime>(
         {
             let mut next = existing.clone();
             update_record_bounds(&app, &existing, &bounds, screen_bounds.as_ref())?;
-            show_record(&app, &existing)?;
+            if visible {
+                show_record(&app, &existing)?;
+            } else {
+                hide_record(&app, &existing)?;
+            }
             next.bounds = bounds.clone();
             next.screen_bounds = screen_bounds.clone();
+            next.show_count = next.show_count.saturating_add(1);
+            next.reuse_count = next.reuse_count.saturating_add(1);
             write_record(&manager, &surface_id, next.clone())?;
             eprintln!(
                 "[WorkspaceDirectWebview] reused {:?} surface={} label={}",
@@ -1151,6 +1260,7 @@ pub fn workspace_direct_webview_show<R: Runtime>(
             parsed_url.clone(),
             &bounds,
             &screen_bounds,
+            visible,
         )?;
         WorkspaceDirectWebviewMode::Child
     };
@@ -1166,7 +1276,15 @@ pub fn workspace_direct_webview_show<R: Runtime>(
         bounds,
         screen_bounds,
         mode,
+        created_at_ms: unix_time_ms(),
+        show_count: 1,
+        reuse_count: 0,
+        hide_count: 0,
+        bounds_update_count: 0,
     };
+    if !visible {
+        hide_record(&app, &record)?;
+    }
     let state = state_for_record(&surface_id, &record);
     write_record(
         &manager,
@@ -1201,6 +1319,7 @@ pub fn workspace_direct_webview_update_bounds<R: Runtime>(
         );
         record.bounds = bounds;
         record.screen_bounds = screen_bounds;
+        record.bounds_update_count = record.bounds_update_count.saturating_add(1);
         write_record(&manager, &surface_id, record)?;
     } else {
         eprintln!(
@@ -1266,11 +1385,12 @@ pub fn workspace_direct_webview_hide<R: Runtime>(
     app: AppHandle<R>,
     manager: State<WorkspaceDirectWebviewManager>,
 ) -> Result<(), String> {
-    if let Some(record) = read_record(&manager, &surface_id)? {
+    if let Some(mut record) = read_record(&manager, &surface_id)? {
         eprintln!(
             "[WorkspaceDirectWebview] hide requested {:?} surface={} label={}",
             record.mode, surface_id, record.label
         );
+        record.hide_count = record.hide_count.saturating_add(1);
         match record.mode {
             WorkspaceDirectWebviewMode::Child => {
                 #[cfg(target_os = "linux")]
@@ -1281,6 +1401,7 @@ pub fn workspace_direct_webview_hide<R: Runtime>(
                         }
                         invalidate_parent_for_record(&app, &record);
                         let _ = window.hide();
+                        write_record(&manager, &surface_id, record)?;
                         return Ok(());
                     }
                 }
@@ -1294,6 +1415,7 @@ pub fn workspace_direct_webview_hide<R: Runtime>(
                 }
             }
         }
+        write_record(&manager, &surface_id, record)?;
     }
     Ok(())
 }

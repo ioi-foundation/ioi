@@ -1,3 +1,5 @@
+import clsx from "clsx";
+
 import { buildConnectorPolicySummary } from "../../../surfaces/Policy";
 import { useAutopilotShellController } from "../useAutopilotShellController";
 import { type TauriRuntime } from "../../../services/TauriRuntime";
@@ -30,49 +32,31 @@ export function AutopilotShellContent({
   const { activeView, currentProject, projects, notificationBadgeCount } =
     controller;
   const workspaceHost = getDefaultWorkspaceWorkbenchHost();
-
-  if (activeView === "workspace") {
-    return (
-      <div className="chat-shell chat-shell--workspace-mode">
-        <ChatIdeHeader
-          activeView={activeView}
-          workflowSurface={controller.workflow.surface}
-        />
-
-        <div className="chat-workspace chat-workspace--workspace-mode">
-          <ChatLocalActivityBar
-            activeView={activeView}
-            onViewChange={controller.changePrimaryView}
-            notificationCount={notificationBadgeCount}
-            currentProject={currentProject}
-          />
-
-          <div className="chat-main chat-main--workspace-mode">
-            <WorkspaceShell
-              active
-              currentProject={currentProject}
-              runtime={runtime}
-              host={workspaceHost}
-            />
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const workspaceActive = activeView === "workspace";
 
   const auxiliaryChatVisible =
-    activeView !== "chat" && activeView !== "home" && controller.chat.paneVisible;
+    !workspaceActive &&
+    activeView !== "chat" &&
+    activeView !== "home" &&
+    controller.chat.paneVisible;
   const auxiliaryChatFullscreen =
     auxiliaryChatVisible && controller.chat.paneMaximized;
 
   return (
-    <div className="chat-shell">
+    <div
+      className={clsx("chat-shell", workspaceActive && "chat-shell--workspace-mode")}
+    >
       <ChatIdeHeader
         activeView={activeView}
         workflowSurface={controller.workflow.surface}
       />
 
-      <div className="chat-workspace">
+      <div
+        className={clsx(
+          "chat-workspace",
+          workspaceActive && "chat-workspace--workspace-mode",
+        )}
+      >
         <ChatLocalActivityBar
           activeView={activeView}
           onViewChange={controller.changePrimaryView}
@@ -80,10 +64,20 @@ export function AutopilotShellContent({
           currentProject={currentProject}
         />
 
-        <div className="chat-main">
-          <div
-            className={`chat-content ${auxiliaryChatFullscreen ? "is-chat-fullscreen" : ""}`}
-          >
+        <div
+          className={clsx("chat-main", workspaceActive && "chat-main--workspace-mode")}
+        >
+          <WorkspaceShell
+            active={workspaceActive}
+            currentProject={currentProject}
+            runtime={runtime}
+            host={workspaceHost}
+          />
+
+          {!workspaceActive ? (
+            <div
+              className={`chat-content ${auxiliaryChatFullscreen ? "is-chat-fullscreen" : ""}`}
+            >
             <div className="chat-center-area">
               <div className="chat-content-main">
                 {activeView === "home" ? (
@@ -288,7 +282,8 @@ export function AutopilotShellContent({
                 onOpenAutopilot={controller.chat.openAutopilotWithIntent}
               />
             ) : null}
-          </div>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

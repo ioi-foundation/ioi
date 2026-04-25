@@ -18,7 +18,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Manager, Runtime, State};
 use tokio::sync::oneshot;
 use url::Url;
@@ -73,10 +73,21 @@ pub struct WorkspaceIdeBridgeRequest {
     pub timestamp_ms: u64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceIdeBridgeCommand {
+    pub command_id: String,
+    pub command: String,
+    #[serde(default)]
+    pub args: Vec<Value>,
+    pub timestamp_ms: u64,
+}
+
 #[derive(Clone)]
 struct BridgeRuntimeState {
     snapshot: Arc<Mutex<Value>>,
     requests: Arc<Mutex<VecDeque<WorkspaceIdeBridgeRequest>>>,
+    commands: Arc<Mutex<VecDeque<WorkspaceIdeBridgeCommand>>>,
 }
 
 impl BridgeRuntimeState {
@@ -84,6 +95,7 @@ impl BridgeRuntimeState {
         Self {
             snapshot: Arc::new(Mutex::new(Value::Object(Default::default()))),
             requests: Arc::new(Mutex::new(VecDeque::new())),
+            commands: Arc::new(Mutex::new(VecDeque::new())),
         }
     }
 }
@@ -116,6 +128,28 @@ async fn bridge_post_request(
     }
 }
 
+async fn bridge_get_commands(
+    AxumState(state): AxumState<BridgeRuntimeState>,
+) -> Result<Json<Vec<WorkspaceIdeBridgeCommand>>, StatusCode> {
+    let mut queue = state
+        .commands
+        .lock()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let drained: Vec<WorkspaceIdeBridgeCommand> = queue.drain(..).collect();
+    if !drained.is_empty() {
+        eprintln!(
+            "[Workspace IDE] bridge commands drained count={} commands={}",
+            drained.len(),
+            drained
+                .iter()
+                .map(|command| command.command.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        );
+    }
+    Ok(Json(drained))
+}
+
 fn spawn_bridge_server(
     port: u16,
     state: BridgeRuntimeState,
@@ -125,6 +159,7 @@ fn spawn_bridge_server(
     let app = Router::new()
         .route("/state", get(bridge_get_state))
         .route("/requests", post(bridge_post_request))
+        .route("/commands", get(bridge_get_commands))
         .with_state(state);
 
     let listener = std::net::TcpListener::bind(address).map_err(|error| {
@@ -529,6 +564,13 @@ fn ensure_bridge_dirs(bridge_root: &Path) -> Result<(), String> {
     })
 }
 
+fn unix_time_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis().min(u128::from(u64::MAX)) as u64)
+        .unwrap_or(0)
+}
+
 #[tauri::command]
 pub fn ensure_workspace_ide_session<R: Runtime>(
     root: String,
@@ -721,6 +763,55 @@ pub fn write_workspace_ide_bridge_state<R: Runtime>(
     }
 
     Ok(())
+}
+
+#[tauri::command]
+pub fn enqueue_workspace_ide_bridge_command<R: Runtime>(
+    root: String,
+    command_id: String,
+    command: String,
+    args: Vec<Value>,
+    _app: AppHandle<R>,
+    manager: State<WorkspaceIdeManager>,
+) -> Result<WorkspaceIdeBridgeCommand, String> {
+    let root_path = PathBuf::from(&root).canonicalize().map_err(|error| {
+        format!(
+            "Failed to resolve workspace bridge command root '{}': {}",
+            root, error
+        )
+    })?;
+    let session_guard = manager
+        .session
+        .lock()
+        .map_err(|_| "Failed to lock workspace IDE session state.".to_string())?;
+    let Some(session) = session_guard.as_ref() else {
+        return Err("Workspace IDE session is not running.".to_string());
+    };
+    if session.root_path != root_path.to_string_lossy() {
+        return Err(format!(
+            "Workspace IDE session root '{}' does not match requested root '{}'.",
+            session.root_path,
+            root_path.display()
+        ));
+    }
+
+    let next = WorkspaceIdeBridgeCommand {
+        command_id,
+        command,
+        args,
+        timestamp_ms: unix_time_ms(),
+    };
+    let mut queue = session
+        .bridge_state
+        .commands
+        .lock()
+        .map_err(|_| "Failed to lock workspace IDE bridge command queue.".to_string())?;
+    eprintln!(
+        "[Workspace IDE] bridge command queued root={} id={} command={}",
+        session.root_path, next.command_id, next.command
+    );
+    queue.push_back(next.clone());
+    Ok(next)
 }
 
 #[tauri::command]
