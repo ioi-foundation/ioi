@@ -53,7 +53,7 @@ CLICK_SETTLE_SECS = 1.4
 SURFACE_LOG_TIMEOUT_SECS = 90.0
 SURFACE_LOG_PATTERN = re.compile(
     r"\[WorkspaceDirectWebview\] show requested surface=(?P<surface>\S+) "
-    r"parent=(?P<parent>\S+) bounds=\("
+    r"parent=(?P<parent>\S+) (?:visible=(?P<visible>\S+) )?bounds=\("
     r"(?P<x>-?\d+(?:\.\d+)?), (?P<y>-?\d+(?:\.\d+)?), "
     r"(?P<width>-?\d+(?:\.\d+)?), (?P<height>-?\d+(?:\.\d+)?)\)"
 )
@@ -279,6 +279,7 @@ def wait_for_surface_log(log_path: Path) -> dict[str, Any] | None:
                             "height": float(bounds_match.group("height")),
                         },
                         "source": "show",
+                        "visible": bounds_match.group("visible"),
                         "line": line,
                     }
                 update_match = UPDATE_BOUNDS_PATTERN.search(line)

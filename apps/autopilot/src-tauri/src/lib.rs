@@ -820,6 +820,7 @@ pub fn run() {
             workspace_ide::ensure_workspace_ide_session,
             workspace_ide::stop_workspace_ide_session,
             workspace_ide::write_workspace_ide_bridge_state,
+            workspace_ide::enqueue_workspace_ide_bridge_command,
             workspace_ide::take_workspace_ide_bridge_requests,
             workspace_direct_webview::workspace_direct_webview_get_state,
             workspace_direct_webview::workspace_direct_webview_open_devtools,

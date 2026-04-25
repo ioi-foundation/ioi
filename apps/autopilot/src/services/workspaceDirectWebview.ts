@@ -25,6 +25,11 @@ export interface WorkspaceDirectWebviewState {
   mode: string;
   bounds: WorkspaceDirectWebviewBounds;
   screenBounds?: WorkspaceDirectWebviewBounds | null;
+  createdAtMs: number;
+  showCount: number;
+  reuseCount: number;
+  hideCount: number;
+  boundsUpdateCount: number;
 }
 
 export interface WorkspaceDirectWebviewShowResult {
@@ -37,6 +42,7 @@ export async function showWorkspaceDirectWebview(params: {
   url: string;
   bounds: WorkspaceDirectWebviewBounds;
   screenBounds?: WorkspaceDirectWebviewBounds | null;
+  visible?: boolean;
 }): Promise<WorkspaceDirectWebviewShowResult> {
   return invoke("workspace_direct_webview_show", params);
 }

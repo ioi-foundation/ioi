@@ -293,6 +293,48 @@ async function readBridgeState() {
   }
 }
 
+async function readBridgeCommands() {
+  try {
+    const raw = await requestBridge("GET", "commands");
+    const commands = JSON.parse(raw || "[]");
+    return Array.isArray(commands) ? commands : [];
+  } catch (error) {
+    console.error("[IOI Workbench] Failed to read bridge commands:", error);
+    return [];
+  }
+}
+
+function startBridgeCommandPolling(context, output) {
+  let running = false;
+  const poll = async () => {
+    if (running) {
+      return;
+    }
+    running = true;
+    try {
+      const commands = await readBridgeCommands();
+      for (const bridgeCommand of commands) {
+        if (!bridgeCommand || typeof bridgeCommand.command !== "string") {
+          continue;
+        }
+        const args = Array.isArray(bridgeCommand.args) ? bridgeCommand.args : [];
+        output.appendLine(
+          `Executing bridge command ${bridgeCommand.command} (${bridgeCommand.commandId || "no-id"}).`,
+        );
+        await vscode.commands.executeCommand(bridgeCommand.command, ...args);
+      }
+    } catch (error) {
+      console.error("[IOI Workbench] Failed to execute bridge command:", error);
+      output.appendLine(`Bridge command failed: ${error?.message || String(error)}`);
+    } finally {
+      running = false;
+    }
+  };
+  const timer = setInterval(poll, 750);
+  context.subscriptions.push({ dispose: () => clearInterval(timer) });
+  void poll();
+}
+
 async function writeBridgeRequest(requestType, payload = {}, context = null) {
   const request = {
     requestId: crypto.randomUUID(),
@@ -1109,6 +1151,7 @@ function activate(context) {
   const output = vscode.window.createOutputChannel("IOI Workbench");
   output.appendLine("IOI Workbench extension activated.");
   context.subscriptions.push(output);
+  startBridgeCommandPolling(context, output);
 
   const statusItem = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Left,

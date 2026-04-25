@@ -12,11 +12,13 @@ export type WorkspaceStatus = "idle" | "starting" | "ready" | "error";
 
 export function useWorkspaceWorkbenchSession(params: {
   active: boolean;
+  enabled?: boolean;
   currentProject: WorkspaceWorkbenchProjectDescriptor;
   runtime: TauriRuntime;
   host: WorkspaceWorkbenchHost;
 }) {
   const { active, currentProject, runtime, host } = params;
+  const enabled = params.enabled ?? true;
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [session, setSession] = useState<WorkspaceWorkbenchHostSession | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -26,23 +28,24 @@ export function useWorkspaceWorkbenchSession(params: {
 
   useEffect(() => {
     setBootPhase(
-      active
-        ? `effect:begin active root=${currentProject.rootPath} refresh=${refreshNonce}`
-        : "effect:inactive",
+      enabled
+        ? `effect:begin enabled root=${currentProject.rootPath} refresh=${refreshNonce}`
+        : "effect:disabled",
     );
     if (import.meta.env.DEV) {
       console.info("[WorkspaceBoot] session bootstrap", {
-        active,
+        visible: active,
+        enabled,
         rootPath: currentProject.rootPath,
         refreshNonce,
       });
     }
 
-    if (!active) {
+    if (!enabled) {
       setSession(null);
       setError(null);
       setSurfaceReady(false);
-      setBootPhase("effect:inactive-reset");
+      setBootPhase("effect:disabled-reset");
       return;
     }
 
@@ -114,7 +117,7 @@ export function useWorkspaceWorkbenchSession(params: {
       cancelled = true;
       setBootPhase("effect:cleanup");
     };
-  }, [active, currentProject.rootPath, host, refreshNonce, runtime]);
+  }, [currentProject.rootPath, enabled, host, refreshNonce, runtime]);
 
   const surface = useMemo(
     () =>
@@ -162,15 +165,15 @@ export function useWorkspaceWorkbenchSession(params: {
       return;
     }
     return host.startRequestPolling({
-      active,
+      active: enabled,
       runtime,
       session,
       pollMs: host.describeLifecyclePolicy().bridgeRequestPollMs,
       recordMetric: markWorkspaceMetric,
     });
-  }, [active, host, runtime, session]);
+  }, [enabled, host, runtime, session]);
 
-  const status: WorkspaceStatus = !active
+  const status: WorkspaceStatus = !enabled
     ? "idle"
     : error
       ? "error"

@@ -34,6 +34,10 @@ import {
   type AutopilotAppearanceState,
   type AutopilotThemeId,
 } from "../../services/autopilotAppearance";
+import {
+  enqueueWorkspaceIdeBridgeCommand,
+  ensureWorkspaceIdeSession,
+} from "../../services/workspaceIde";
 import type { SettingsSection } from "../Settings/settingsViewShared";
 import { HomeWalkthroughDocument } from "./HomeWalkthroughDocument";
 import {
@@ -735,6 +739,25 @@ export function HomeView({
     recordAction("appearance.selectTheme", "setup-theme");
   };
 
+  const queueWorkbenchCommand = (
+    command: string,
+    options: { revealWorkspace?: boolean } = {},
+  ) => {
+    void (async () => {
+      await ensureWorkspaceIdeSession(currentProject.rootPath);
+      await enqueueWorkspaceIdeBridgeCommand({
+        root: currentProject.rootPath,
+        command,
+      });
+    })().catch((error) => {
+      console.error("[HomeOnboarding] Failed to queue workbench command:", error);
+    });
+
+    if (options.revealWorkspace ?? true) {
+      onOpenWorkspace();
+    }
+  };
+
   const executeAction = (actionId: OnboardingActionId) => {
     recordAction(actionId);
     switch (actionId) {
@@ -743,17 +766,43 @@ export function HomeView({
         return;
       case "project.openWorkspace":
       case "workspace.open":
-      case "extensions.openPopularWeb":
-      case "extensions.openLanguage":
-      case "quickOpen.open":
-      case "workbench.toggleMenuBar":
-      case "workbench.openTerminal":
-      case "workbench.openDebug":
-      case "workbench.openGit":
-      case "workbench.openShortcuts":
-      case "workbench.workspaceTrust":
         markStepDone(selectedStep.id);
         onOpenWorkspace();
+        return;
+      case "extensions.openPopularWeb":
+      case "extensions.openLanguage":
+        markStepDone(selectedStep.id);
+        queueWorkbenchCommand("workbench.view.extensions");
+        return;
+      case "quickOpen.open":
+        markStepDone(selectedStep.id);
+        queueWorkbenchCommand("workbench.action.quickOpen");
+        return;
+      case "workbench.toggleMenuBar":
+        markStepDone(selectedStep.id);
+        queueWorkbenchCommand("workbench.action.toggleMenuBar", {
+          revealWorkspace: false,
+        });
+        return;
+      case "workbench.openTerminal":
+        markStepDone(selectedStep.id);
+        queueWorkbenchCommand("workbench.action.terminal.toggleTerminal");
+        return;
+      case "workbench.openDebug":
+        markStepDone(selectedStep.id);
+        queueWorkbenchCommand("workbench.view.debug");
+        return;
+      case "workbench.openGit":
+        markStepDone(selectedStep.id);
+        queueWorkbenchCommand("workbench.view.scm");
+        return;
+      case "workbench.openShortcuts":
+        markStepDone(selectedStep.id);
+        queueWorkbenchCommand("workbench.action.openGlobalKeybindings");
+        return;
+      case "workbench.workspaceTrust":
+        markStepDone(selectedStep.id);
+        queueWorkbenchCommand("workbench.trust.manage");
         return;
       case "workbench.runTasks":
         markStepDone(selectedStep.id);

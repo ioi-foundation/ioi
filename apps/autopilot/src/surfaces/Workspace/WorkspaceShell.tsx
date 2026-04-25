@@ -66,6 +66,7 @@ export function WorkspaceShell({
     restartWorkspace,
   } = useWorkspaceWorkbenchSession({
     active,
+    enabled: true,
     currentProject,
     runtime,
     host,

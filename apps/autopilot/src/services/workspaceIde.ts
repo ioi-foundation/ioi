@@ -14,6 +14,13 @@ export interface WorkspaceIdeSessionInfo {
   logPath: string;
 }
 
+export interface WorkspaceIdeBridgeCommand {
+  commandId: string;
+  command: string;
+  args: unknown[];
+  timestampMs: number;
+}
+
 export async function ensureWorkspaceIdeSession(
   root: string,
 ): Promise<WorkspaceIdeSessionInfo> {
@@ -29,6 +36,23 @@ export async function writeWorkspaceIdeBridgeState(
   state: Record<string, unknown>,
 ): Promise<void> {
   await invoke("write_workspace_ide_bridge_state", { root, state });
+}
+
+export async function enqueueWorkspaceIdeBridgeCommand(params: {
+  root: string;
+  command: string;
+  args?: unknown[];
+}): Promise<WorkspaceIdeBridgeCommand> {
+  const commandId =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `workspace-command-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return invoke<WorkspaceIdeBridgeCommand>("enqueue_workspace_ide_bridge_command", {
+    root: params.root,
+    commandId,
+    command: params.command,
+    args: params.args ?? [],
+  });
 }
 
 export async function takeWorkspaceIdeBridgeRequests(

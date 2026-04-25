@@ -103,6 +103,7 @@ export function OpenVsCodeDirectSurface({
 }: OpenVsCodeDirectSurfaceProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const shownRef = useRef(false);
+  const prewarmedRef = useRef(false);
   const lastBoundsRef = useRef<WorkspaceDirectWebviewBounds | null>(null);
   const lastScreenBoundsRef = useRef<WorkspaceDirectWebviewBounds | null>(null);
   const frameRef = useRef<number | null>(null);
@@ -130,7 +131,9 @@ export function OpenVsCodeDirectSurface({
           url: surface.workbenchUrl,
           bounds,
           screenBounds,
+          visible: true,
         });
+        prewarmedRef.current = true;
         shownRef.current = true;
         lastBoundsRef.current = bounds;
         lastScreenBoundsRef.current = screenBounds;
@@ -164,6 +167,42 @@ export function OpenVsCodeDirectSurface({
     }
   }, [active, onError, surface.surfaceId, surface.workbenchUrl]);
 
+  const prewarmHiddenSurface = useCallback(async () => {
+    const container = containerRef.current;
+    if (active || !container || prewarmedRef.current) {
+      return;
+    }
+
+    const bounds = readElementBounds(container);
+    if (!bounds) {
+      return;
+    }
+    const screenBounds = await readElementScreenBounds(container);
+    setParentViewport(readParentViewport());
+
+    try {
+      const result = await showWorkspaceDirectWebview({
+        surfaceId: surface.surfaceId,
+        parentWindowLabel: getCurrentWindow().label,
+        url: surface.workbenchUrl,
+        bounds,
+        screenBounds,
+        visible: false,
+      });
+      prewarmedRef.current = true;
+      shownRef.current = false;
+      lastBoundsRef.current = bounds;
+      lastScreenBoundsRef.current = screenBounds;
+      setNativeState(result.state);
+    } catch (error) {
+      onError(
+        error instanceof Error
+          ? error.message
+          : "The direct OpenVSCode workbench surface failed to prewarm.",
+      );
+    }
+  }, [active, onError, surface.surfaceId, surface.workbenchUrl]);
+
   const scheduleSyncBounds = useCallback(() => {
     if (frameRef.current !== null) {
       window.cancelAnimationFrame(frameRef.current);
@@ -187,6 +226,11 @@ export function OpenVsCodeDirectSurface({
             mode: event.payload.mode,
             bounds: event.payload.bounds,
             screenBounds: event.payload.screenBounds,
+            createdAtMs: Date.now(),
+            showCount: 1,
+            reuseCount: 0,
+            hideCount: 0,
+            boundsUpdateCount: 0,
           });
           onReady();
         }
@@ -201,10 +245,6 @@ export function OpenVsCodeDirectSurface({
   }, [onReady, surface.surfaceId]);
 
   useEffect(() => {
-    if (!active) {
-      return;
-    }
-
     window.__AUTOPILOT_WORKBENCH_SURFACE__ = nativeState;
     window.__AUTOPILOT_GET_WORKBENCH_SURFACE_STATE__ = () =>
       getWorkspaceDirectWebviewState(surface.surfaceId);
@@ -222,13 +262,31 @@ export function OpenVsCodeDirectSurface({
         delete window.__AUTOPILOT_WORKBENCH_SURFACE__;
       }
     };
-  }, [active, nativeState, surface.surfaceId]);
+  }, [nativeState, surface.surfaceId]);
+
+  useEffect(() => {
+    return () => {
+      void hideWorkspaceDirectWebview(surface.surfaceId).catch(() => {});
+      void destroyWorkspaceDirectWebview(surface.surfaceId).catch(() => {});
+    };
+  }, [surface.surfaceId]);
+
+  useEffect(() => {
+    if (active) {
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      void prewarmHiddenSurface();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [active, prewarmHiddenSurface]);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!active || !container) {
       void hideWorkspaceDirectWebview(surface.surfaceId).catch(() => {});
-      setNativeState(null);
+      shownRef.current = false;
       return;
     }
 
@@ -273,11 +331,9 @@ export function OpenVsCodeDirectSurface({
         frameRef.current = null;
       }
       void hideWorkspaceDirectWebview(surface.surfaceId).catch(() => {});
-      void destroyWorkspaceDirectWebview(surface.surfaceId).catch(() => {});
       shownRef.current = false;
       lastBoundsRef.current = null;
       lastScreenBoundsRef.current = null;
-      setNativeState(null);
     };
   }, [active, scheduleSyncBounds, surface.surfaceId]);
 
