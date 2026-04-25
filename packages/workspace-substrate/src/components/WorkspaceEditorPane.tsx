@@ -16,10 +16,7 @@ import { Codicon } from "./Codicon";
 import { WorkspaceDiffPane } from "./WorkspaceDiffPane";
 import { WorkspaceNotebookPane } from "./WorkspaceNotebookPane";
 import workbenchEditorActionsRegion from "../assets/workbench-editor-actions-region.png";
-import workbenchCenterWalkthroughStrip from "../assets/workbench-center-walkthrough-strip.png";
-import workbenchCenterColumnStrip from "../assets/workbench-center-column-strip.png";
 import workbenchEditorTabsStrip from "../assets/workbench-editor-tabs-strip.png";
-import workbenchVsCodeMark from "../assets/workbench-vscode-mark.png";
 
 interface WorkspaceEditorPaneProps {
   adapter?: WorkspaceAdapter;
@@ -183,7 +180,6 @@ export function WorkspaceEditorPane({
 }: WorkspaceEditorPaneProps) {
   const editorRef = useRef<CodeOssStandaloneEditor | null>(null);
   const monacoRef = useRef<any>(null);
-  const [walkthroughHidden, setWalkthroughHidden] = useState(false);
   const [editorActionsOpen, setEditorActionsOpen] = useState(false);
 
   const activeLanguage = useMemo(() => {
@@ -200,10 +196,8 @@ export function WorkspaceEditorPane({
     isFileTab(activeDocument) &&
     isWorkspaceNotebookPath(activeDocument.path);
   const shouldRenderSplitView = splitView && !!activeDocument && !activeIsNotebook;
-  const showWalkthrough = !activeDocument && !walkthroughHidden;
 
   useEffect(() => {
-    setWalkthroughHidden(false);
     setEditorActionsOpen(false);
   }, [root]);
 
@@ -637,41 +631,12 @@ export function WorkspaceEditorPane({
   };
 
   return (
-    <section className={`workspace-editor${showWalkthrough ? " workspace-editor--walkthrough-default" : ""}`}>
-      {showWalkthrough ? (
-        <img
-          src={workbenchCenterColumnStrip}
-          alt=""
-          className="workspace-editor-default-strip"
-          aria-hidden="true"
-        />
-      ) : null}
+    <section className="workspace-editor">
       <header className="workspace-editor-tabs">
         <img src={workbenchEditorTabsStrip} alt="" className="workspace-editor-tabs-strip" aria-hidden="true" />
         <div className="workspace-editor-tabs-live">
           <div className="workspace-editor-tabs-list">
-            {documents.length === 0 ? (
-              showWalkthrough ? (
-                <div className="workspace-editor-tab workspace-editor-tab--virtual is-active">
-                  <button type="button" aria-current="page">
-                    <span className="workspace-editor-tab-icon" aria-hidden="true">
-                      <img src={workbenchVsCodeMark} alt="" className="workspace-editor-tab-mark" />
-                    </span>
-                    <span className="workspace-editor-tab-label workspace-editor-tab-label--virtual">
-                      Walkthrough: Setup VS Code Web
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    className="workspace-editor-tab-close"
-                    aria-label="Close walkthrough"
-                    onClick={() => setWalkthroughHidden(true)}
-                  >
-                    <Codicon name="close" />
-                  </button>
-                </div>
-              ) : null
-            ) : (
+            {documents.length === 0 ? null : (
               documents.map((tab) => {
                 const isActive = tab.id === activeDocumentId;
                 const title = tab.kind === "file" ? tab.name : tab.title;
@@ -766,60 +731,11 @@ export function WorkspaceEditorPane({
       ) : null}
 
       <div className={`workspace-editor-stage${shouldRenderSplitView ? " workspace-editor-stage--split" : ""}`}>
-        {showWalkthrough ? (
-          <div className="workspace-editor-empty workspace-editor-empty--walkthrough">
-            <img
-              src={workbenchCenterWalkthroughStrip}
-              alt=""
-              className="workspace-editor-walkthrough-strip"
-              aria-hidden="true"
-            />
-            <div className="workspace-editor-walkthrough-shell">
-              <div className="workspace-editor-walkthrough-intro">
-                <button
-                  type="button"
-                  className="workspace-editor-walkthrough-back"
-                  aria-label="Back"
-                >
-                  ←
-                </button>
-                <div>
-                  <h3>Get Started with VS Code for the Web</h3>
-                  <p>Customize your editor, learn the basics, and start coding</p>
-                </div>
-              </div>
-
-              <section className="workspace-editor-walkthrough-card">
-                <div className="workspace-editor-walkthrough-bullet" aria-hidden="true" />
-                <div>
-                  <strong>Choose your theme</strong>
-                  <p>
-                    The right theme helps you focus on your code, is easy on your eyes,
-                    and is simply more fun to use.
-                  </p>
-                  <button type="button" className="workspace-editor-walkthrough-primary">
-                    Browse Color Themes
-                  </button>
-                  <p className="workspace-editor-walkthrough-shortcuts">
-                    Tip: Use keyboard shortcut <kbd>Ctrl</kbd> + <kbd>K</kbd> <kbd>Ctrl</kbd> + <kbd>T</kbd>
-                  </p>
-                </div>
-              </section>
-
-              <div className="workspace-editor-walkthrough-list" role="list">
-                <div className="workspace-editor-walkthrough-list-item" role="listitem">
-                  <span className="workspace-editor-walkthrough-radio" aria-hidden="true" />
-                  <strong>Just the right amount of UI</strong>
-                </div>
-                <div className="workspace-editor-walkthrough-list-item" role="listitem">
-                  <span className="workspace-editor-walkthrough-radio" aria-hidden="true" />
-                  <strong>Rich support for all your languages</strong>
-                </div>
-                <div className="workspace-editor-walkthrough-list-item" role="listitem">
-                  <span className="workspace-editor-walkthrough-radio" aria-hidden="true" />
-                  <strong>Unlock productivity with the Command Palette</strong>
-                </div>
-              </div>
+        {!activeDocument ? (
+          <div className="workspace-editor-empty workspace-editor-empty--idle">
+            <div>
+              <h3>No editor open</h3>
+              <p>Select a file from the Explorer to preview or edit it in the substrate preview.</p>
             </div>
           </div>
         ) : null}

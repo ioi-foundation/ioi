@@ -35,6 +35,10 @@ import type {
   PrimaryView,
   ProjectScope,
 } from "../windows/ChatWindow/chatWindowModel";
+import {
+  AUTOPILOT_ONBOARDING_STEPS,
+  HOME_ONBOARDING_FOCUS_EVENT,
+} from "../surfaces/Home/homeOnboardingModel";
 import "./CommandPalette.css";
 
 type WorkflowSurface = "home" | "canvas" | "agents" | "catalog";
@@ -338,7 +342,60 @@ export function CommandPalette({
   }, []);
 
   const sections = useMemo<SlashMenuSection[]>(() => {
+    const focusHomeStep = (stepId: string) => {
+      window.dispatchEvent(
+        new CustomEvent(HOME_ONBOARDING_FOCUS_EVENT, {
+          detail: { stepId },
+        }),
+      );
+    };
+
+    const homeOnboardingIcon = (stepId: string) => {
+      if (stepId.includes("workspace") || stepId.includes("project")) {
+        return icons.code;
+      }
+      if (stepId.includes("policy")) {
+        return icons.lock;
+      }
+      if (stepId.includes("runtime") || stepId.includes("appearance")) {
+        return icons.settings;
+      }
+      if (stepId.includes("evidence")) {
+        return icons.check;
+      }
+      return icons.sparkles;
+    };
+
+    const homeOnboardingItems: SlashMenuItem[] = AUTOPILOT_ONBOARDING_STEPS.map(
+      (step) => ({
+        id: `home-onboarding-${step.id}`,
+        title: step.primaryAction.commandPaletteLabel,
+        description: step.body,
+        meta: step.familyId === "accessibility" ? "Onboarding · Indexed" : "Onboarding",
+        icon: homeOnboardingIcon(step.id),
+        onSelect: () =>
+          runAction(() => {
+            onOpenPrimaryView("home");
+            window.setTimeout(() => focusHomeStep(step.id), 50);
+          }),
+      }),
+    );
+
     const commandItems: SlashMenuItem[] = [
+      {
+        id: "open-home",
+        title: "Open Home",
+        description:
+          "Open first-run onboarding, project scope, runtime health, and next actions.",
+        meta: "Home",
+        icon: icons.laptop,
+        active: activeView === "home",
+        onSelect: () =>
+          runAction(() => {
+            onOpenPrimaryView("home");
+          }),
+      },
+      ...homeOnboardingItems,
       {
         id: "open-chat-copilot",
         title: "Open Copilot",

@@ -10,6 +10,7 @@ import { ChatMissionControlWorkflowsView } from "./ChatMissionControlWorkflowsVi
 import { ChatNotificationsView } from "./ChatNotificationsView";
 import { ChatIdeHeader } from "./ChatIdeHeader";
 import { ChatCopilotView } from "./ChatCopilot";
+import { HomeView } from "../../../surfaces/Home";
 import { ChatLeftUtilityPane } from "./ChatLeftUtilityPane";
 import { ChatUtilityDrawer } from "./ChatUtilityDrawer";
 import { WorkspaceShell } from "../../../services/WorkspaceShell";
@@ -58,7 +59,7 @@ export function ChatWindowMainContent({
   }
 
   const auxiliaryChatVisible =
-    activeView !== "chat" && controller.chat.paneVisible;
+    activeView !== "chat" && activeView !== "home" && controller.chat.paneVisible;
   const auxiliaryChatFullscreen =
     auxiliaryChatVisible && controller.chat.paneMaximized;
 
@@ -83,6 +84,29 @@ export function ChatWindowMainContent({
           >
             <div className="chat-center-area">
               <div className="chat-content-main">
+                {activeView === "home" ? (
+                  <HomeView
+                    currentProject={currentProject}
+                    projects={projects}
+                    notificationCount={notificationBadgeCount}
+                    onOpenChat={() => controller.changePrimaryView("chat")}
+                    onOpenWorkspace={() =>
+                      controller.changePrimaryView("workspace")
+                    }
+                    onOpenRuns={() => controller.changePrimaryView("runs")}
+                    onOpenInbox={() => controller.changePrimaryView("inbox")}
+                    onOpenCapabilities={() =>
+                      controller.changePrimaryView("capabilities")
+                    }
+                    onOpenPolicy={() =>
+                      controller.policy.openPolicyCenter(null)
+                    }
+                    onOpenSettings={controller.settings.openSection}
+                    onOpenCommandPalette={controller.modals.openCommandPalette}
+                    onSelectProject={controller.workflow.selectProject}
+                  />
+                ) : null}
+
                 {activeView === "chat" ? (
                   <ChatCopilotView
                     seedIntent={controller.chat.seedIntent}
@@ -228,7 +252,7 @@ export function ChatWindowMainContent({
                 ) : null}
               </div>
 
-              {activeView !== "chat" ? (
+              {activeView !== "chat" && activeView !== "home" ? (
                 <ChatUtilityDrawer
                   runtime={runtime}
                   activeView={activeView}

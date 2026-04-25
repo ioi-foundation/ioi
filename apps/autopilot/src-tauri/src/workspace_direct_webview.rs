@@ -1188,9 +1188,29 @@ pub fn workspace_direct_webview_update_bounds<R: Runtime>(
     let screen_bounds = normalize_optional_bounds(screen_bounds)?;
     if let Some(mut record) = read_record(&manager, &surface_id)? {
         update_record_bounds(&app, &record, &bounds, screen_bounds.as_ref())?;
+        eprintln!(
+            "[WorkspaceDirectWebview] update bounds surface={} label={} mode={:?} bounds=({}, {}, {}, {}) screen_bounds={:?}",
+            surface_id,
+            record.label,
+            record.mode,
+            bounds.x,
+            bounds.y,
+            bounds.width,
+            bounds.height,
+            screen_bounds
+        );
         record.bounds = bounds;
         record.screen_bounds = screen_bounds;
         write_record(&manager, &surface_id, record)?;
+    } else {
+        eprintln!(
+            "[WorkspaceDirectWebview] update bounds ignored unknown surface={} bounds=({}, {}, {}, {})",
+            surface_id,
+            bounds.x,
+            bounds.y,
+            bounds.width,
+            bounds.height
+        );
     }
     Ok(())
 }

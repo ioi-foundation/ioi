@@ -6,6 +6,7 @@ import type { WorkspaceWorkbenchOpenVsCodeDirectModel } from "./workspaceWorkben
 import {
   destroyWorkspaceDirectWebview,
   focusWorkspaceDirectWebview,
+  getWorkspaceDirectWebviewState,
   hideWorkspaceDirectWebview,
   openWorkspaceDirectWebviewDevtools,
   showWorkspaceDirectWebview,
@@ -25,6 +26,7 @@ interface OpenVsCodeDirectSurfaceProps {
 declare global {
   interface Window {
     __AUTOPILOT_OPEN_WORKBENCH_DEVTOOLS__?: () => Promise<WorkspaceDirectWebviewState>;
+    __AUTOPILOT_GET_WORKBENCH_SURFACE_STATE__?: () => Promise<WorkspaceDirectWebviewState | null>;
     __AUTOPILOT_WORKBENCH_SURFACE__?: WorkspaceDirectWebviewState | null;
   }
 }
@@ -204,10 +206,15 @@ export function OpenVsCodeDirectSurface({
     }
 
     window.__AUTOPILOT_WORKBENCH_SURFACE__ = nativeState;
+    window.__AUTOPILOT_GET_WORKBENCH_SURFACE_STATE__ = () =>
+      getWorkspaceDirectWebviewState(surface.surfaceId);
     window.__AUTOPILOT_OPEN_WORKBENCH_DEVTOOLS__ = () =>
       openWorkspaceDirectWebviewDevtools(surface.surfaceId);
 
     return () => {
+      if (window.__AUTOPILOT_GET_WORKBENCH_SURFACE_STATE__) {
+        delete window.__AUTOPILOT_GET_WORKBENCH_SURFACE_STATE__;
+      }
       if (window.__AUTOPILOT_OPEN_WORKBENCH_DEVTOOLS__) {
         delete window.__AUTOPILOT_OPEN_WORKBENCH_DEVTOOLS__;
       }

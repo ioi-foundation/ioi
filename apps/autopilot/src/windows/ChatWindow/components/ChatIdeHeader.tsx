@@ -32,6 +32,7 @@ function windowSurfaceTitle(
     return "Canvas";
   }
   if (view === "workspace") return "Workspace";
+  if (view === "home") return "Home";
   if (view === "policy") return "Governance";
   if (view === "runs") return "Runs";
   if (view === "inbox") return "Inbox";

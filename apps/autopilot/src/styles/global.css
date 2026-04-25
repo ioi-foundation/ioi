@@ -169,6 +169,95 @@
     0 0 20px rgba(var(--cb-shadow-rgb), 0.03);
 }
 
+:root[data-autopilot-theme="light-modern"],
+:root[data-autopilot-theme="light-high-contrast"] {
+  color-scheme: light;
+  --sand-0: #ffffff;
+  --sand-50: #f8f8f8;
+  --sand-100: #f3f3f3;
+  --sand-150: #eeeeee;
+  --sand-200: #e8e8e8;
+  --sand-250: #dedede;
+  --sand-300: #d4d4d4;
+  --sand-400: #c2c2c2;
+  --sand-500: #7a7a7a;
+  --sand-600: #5f5f5f;
+  --sand-700: #424242;
+  --sand-800: #2f2f2f;
+  --sand-900: #1f1f1f;
+  --sand-950: #151515;
+  --sand-1000: #0f0f0f;
+
+  --warm-a3: rgba(0, 0, 0, 0.025);
+  --warm-a5: rgba(0, 0, 0, 0.045);
+  --warm-a7: rgba(0, 0, 0, 0.07);
+  --warm-a14: rgba(0, 0, 0, 0.14);
+  --warm-a22: rgba(0, 0, 0, 0.22);
+
+  --cb-50: #f5f9ff;
+  --cb-100: #d9ebff;
+  --cb-200: #75beff;
+  --cb-300: #0078d4;
+  --cb-400: #006ab8;
+  --cb-500: #005a9e;
+  --cb-600: #004b85;
+  --cb-700: #003d6b;
+  --cb-800: #003153;
+  --cb-accent-rgb: 0, 120, 212;
+  --cb-accent-strong-rgb: 0, 90, 158;
+  --cb-shadow-rgb: 0, 90, 158;
+
+  --surface-glass: rgba(252, 252, 252, 0.92);
+  --surface-glass-strong: rgba(255, 255, 255, 0.96);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 10px 28px rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.18);
+  --shadow-panel: 0 18px 48px rgba(0, 0, 0, 0.14);
+}
+
+:root[data-autopilot-theme="dark-high-contrast"] {
+  --sand-0: #000000;
+  --sand-50: #050505;
+  --sand-100: #0a0a0a;
+  --sand-150: #101010;
+  --sand-200: #181818;
+  --sand-250: #202020;
+  --sand-300: #2a2a2a;
+  --sand-500: #a0a0a0;
+  --sand-700: #d0d0d0;
+  --sand-900: #f3f3f3;
+  --sand-1000: #ffffff;
+  --cb-300: #1fa2ff;
+  --cb-200: #78d7ff;
+  --cb-accent-rgb: 31, 162, 255;
+  --border-subtle: rgba(255, 255, 255, 0.26);
+  --border-default: rgba(255, 255, 255, 0.42);
+  --border-strong: rgba(255, 255, 255, 0.66);
+}
+
+:root[data-autopilot-theme="light-high-contrast"] {
+  --sand-0: #ffffff;
+  --sand-100: #ffffff;
+  --sand-150: #f7f7f7;
+  --sand-200: #eeeeee;
+  --sand-300: #d7d7d7;
+  --sand-500: #555555;
+  --sand-700: #242424;
+  --sand-1000: #000000;
+  --cb-300: #005fb8;
+  --cb-200: #004a91;
+  --border-subtle: rgba(0, 0, 0, 0.24);
+  --border-default: rgba(0, 0, 0, 0.38);
+  --border-strong: rgba(0, 0, 0, 0.62);
+}
+
+:root[data-autopilot-density="compact"] {
+  --spacing-sm: 6px;
+  --spacing-md: 10px;
+  --spacing-lg: 14px;
+  --spacing-xl: 20px;
+}
+
 *,
 *::before,
 *::after {

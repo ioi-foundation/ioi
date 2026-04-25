@@ -57,6 +57,12 @@ SURFACE_LOG_PATTERN = re.compile(
     r"(?P<x>-?\d+(?:\.\d+)?), (?P<y>-?\d+(?:\.\d+)?), "
     r"(?P<width>-?\d+(?:\.\d+)?), (?P<height>-?\d+(?:\.\d+)?)\)"
 )
+UPDATE_BOUNDS_PATTERN = re.compile(
+    r"\[WorkspaceDirectWebview\] update bounds surface=(?P<surface>\S+) "
+    r"label=(?P<label>\S+) mode=(?P<mode>\S+) bounds=\("
+    r"(?P<x>-?\d+(?:\.\d+)?), (?P<y>-?\d+(?:\.\d+)?), "
+    r"(?P<width>-?\d+(?:\.\d+)?), (?P<height>-?\d+(?:\.\d+)?)\)"
+)
 CREATED_PATTERN = re.compile(
     r"\[WorkspaceDirectWebview\] created (?P<mode>\S+) "
     r"surface=(?P<surface>\S+) label=(?P<label>\S+)"
@@ -251,6 +257,7 @@ def capture_root_crop(window_id: int, output_path: Path) -> dict[str, Any]:
 def wait_for_surface_log(log_path: Path) -> dict[str, Any] | None:
     deadline = time.time() + SURFACE_LOG_TIMEOUT_SECS
     last_bounds: dict[str, Any] | None = None
+    updates: list[dict[str, Any]] = []
     created: dict[str, Any] | None = None
     ready: dict[str, Any] | None = None
     reparented: dict[str, Any] | None = None
@@ -271,6 +278,32 @@ def wait_for_surface_log(log_path: Path) -> dict[str, Any] | None:
                             "width": float(bounds_match.group("width")),
                             "height": float(bounds_match.group("height")),
                         },
+                        "source": "show",
+                        "line": line,
+                    }
+                update_match = UPDATE_BOUNDS_PATTERN.search(line)
+                if update_match:
+                    update = {
+                        "surfaceId": update_match.group("surface"),
+                        "label": update_match.group("label"),
+                        "mode": update_match.group("mode"),
+                        "bounds": {
+                            "x": float(update_match.group("x")),
+                            "y": float(update_match.group("y")),
+                            "width": float(update_match.group("width")),
+                            "height": float(update_match.group("height")),
+                        },
+                        "source": "update",
+                        "line": line,
+                    }
+                    updates.append(update)
+                    last_bounds = {
+                        "surfaceId": update["surfaceId"],
+                        "parentWindowLabel": last_bounds.get("parentWindowLabel")
+                        if last_bounds
+                        else None,
+                        "bounds": update["bounds"],
+                        "source": "update",
                         "line": line,
                     }
                 created_match = CREATED_PATTERN.search(line)
@@ -310,6 +343,8 @@ def wait_for_surface_log(log_path: Path) -> dict[str, Any] | None:
                 "created": created,
                 "ready": ready,
                 "reparented": reparented,
+                "updates": updates,
+                "lastUpdate": updates[-1] if updates else None,
             }
         time.sleep(1.0)
     return None
@@ -451,6 +486,63 @@ def analyze_image_region(
     return result
 
 
+def compose_native_parent_capture(
+    parent_path: Path,
+    child_path: Path,
+    output_path: Path,
+    bounds: dict[str, float],
+) -> dict[str, Any]:
+    convert = shutil.which("magick") or shutil.which("convert")
+    x = int(round(float(bounds["x"])))
+    y = int(round(float(bounds["y"])))
+    result: dict[str, Any] = {
+        "path": str(output_path),
+        "parentSource": str(parent_path),
+        "childSource": str(child_path),
+        "childBounds": {
+            "x": x,
+            "y": y,
+            "width": int(round(float(bounds["width"]))),
+            "height": int(round(float(bounds["height"]))),
+        },
+        "available": False,
+    }
+    if convert is None:
+        result["error"] = "ImageMagick convert/magick is required."
+        return result
+    if not parent_path.exists() or not child_path.exists():
+        result["error"] = "Parent or child native capture is missing."
+        return result
+
+    if Path(convert).name == "magick":
+        cmd = [
+            convert,
+            str(parent_path),
+            str(child_path),
+            "-geometry",
+            f"+{x}+{y}",
+            "-composite",
+            str(output_path),
+        ]
+    else:
+        cmd = [
+            convert,
+            str(parent_path),
+            str(child_path),
+            "-geometry",
+            f"+{x}+{y}",
+            "-composite",
+            str(output_path),
+        ]
+    completed = run(cmd, check=False, timeout=12.0)
+    result["returncode"] = completed.returncode
+    result["stderr"] = (completed.stderr or "").strip()
+    result["available"] = completed.returncode == 0 and output_path.exists()
+    if not result["available"] and not result.get("error"):
+        result["error"] = result["stderr"] or "Native parent composition failed."
+    return result
+
+
 def region_has_visible_detail(analysis: dict[str, Any]) -> bool:
     try:
         return bool(
@@ -462,12 +554,11 @@ def region_has_visible_detail(analysis: dict[str, Any]) -> bool:
         return False
 
 
-def region_is_dark_chrome(analysis: dict[str, Any]) -> bool:
+def region_has_visible_chrome(analysis: dict[str, Any]) -> bool:
     try:
         return bool(
             analysis.get("available")
             and int(analysis.get("uniqueColors", 0)) > 24
-            and float(analysis.get("mean", 1.0)) < 0.25
             and float(analysis.get("stddev", 0.0)) > 0.0001
         )
     except (TypeError, ValueError):
@@ -566,6 +657,7 @@ def main() -> int:
     target_window_source = "parent-contained"
     target_bounds: dict[str, float] | None = None
     surface: dict[str, Any] | None = None
+    child_window_id: int | None = None
     steps: list[dict[str, Any]] = []
     parent_capture: dict[str, Any] | None = None
     containment: dict[str, Any] = {}
@@ -618,6 +710,7 @@ def main() -> int:
                     "Direct child mode did not report a reparented native child surface."
                 )
             child_xid = int(reparented["childXid"])
+            child_window_id = child_xid
             child_details = xwininfo_details(child_xid)
             parent_geometry = window_geometry(window_id)
             expected_x = int(round(parent_geometry.get("X", 0) + surface["bounds"]["x"]))
@@ -722,11 +815,44 @@ def main() -> int:
         steps.append({"id": "baseline", **baseline})
         print("[openvscode-direct] captured baseline", flush=True)
         baseline_root = baseline.get("rootScreenshot")
+        native_child_capture: dict[str, Any] | None = None
+        native_composited_parent: dict[str, Any] | None = None
+        if (
+            created_mode == "Child"
+            and child_window_id is not None
+            and baseline.get("windowScreenshot")
+        ):
+            child_path = output_root / "native-child-workbench.window.png"
+            child_capture = capture_window_with_fallback(child_window_id, child_path)
+            native_child_capture = {
+                "windowId": child_window_id,
+                "path": str(child_path) if child_path.exists() else None,
+                "captureMode": child_capture.mode,
+                "captureError": child_capture.error,
+                "captureDiagnostics": child_capture.diagnostics,
+            }
+            containment["nativeChildCapture"] = native_child_capture
+            if child_path.exists() and child_capture.error is None:
+                native_composited_parent = compose_native_parent_capture(
+                    Path(baseline["windowScreenshot"]),
+                    child_path,
+                    output_root / "native-composited-parent.png",
+                    surface["bounds"],
+                )
+                containment["nativeCompositedParent"] = native_composited_parent
         parent_geometry = window_geometry(window_id)
         if baseline_root:
             composition_image = Path(baseline_root)
             workbench_bounds = surface["bounds"] if created_mode == "OwnedWindow" else target_bounds
             chrome_source_image = composition_image
+            containment["canonicalCompositionSource"] = "whole-root"
+        elif native_composited_parent and native_composited_parent.get("available"):
+            composition_image = Path(str(native_composited_parent["path"]))
+            workbench_bounds = target_bounds
+            chrome_source_image = composition_image
+            containment["wholeScreenCaptureBlocked"] = True
+            containment["wholeScreenCaptureBlocker"] = baseline.get("rootCapture", {})
+            containment["canonicalCompositionSource"] = "native-composited-parent"
         else:
             composition_image = Path(baseline["windowScreenshot"])
             workbench_bounds = target_bounds
@@ -738,6 +864,7 @@ def main() -> int:
                 raise RuntimeError("Parent chrome capture was unavailable.")
             containment["wholeScreenCaptureBlocked"] = True
             containment["wholeScreenCaptureBlocker"] = baseline.get("rootCapture", {})
+            containment["canonicalCompositionSource"] = "window-capture"
 
         workbench_region = analyze_image_region(
             composition_image,
@@ -788,8 +915,8 @@ def main() -> int:
                 "workbenchTopVisible": region_has_visible_detail(
                     workbench_top_region
                 ),
-                "activityBarVisible": region_is_dark_chrome(activity_region),
-                "headerVisible": region_is_dark_chrome(header_region),
+                "activityBarVisible": region_has_visible_chrome(activity_region),
+                "headerVisible": region_has_visible_chrome(header_region),
             }
         )
         if not containment["workbenchVisible"]:
@@ -913,6 +1040,10 @@ def main() -> int:
                 containment.get("childWindowGeometryMatchesSurfaceRect", False)
             ),
             "workbenchContainedInParent": bool(containment.get("workbenchVisible")),
+            "nativeCompositedParentCapture": bool(
+                containment.get("nativeCompositedParent", {}).get("available")
+                or containment.get("canonicalCompositionSource") == "whole-root"
+            ),
             "autopilotChromeRetained": bool(
                 containment.get("activityBarVisible")
                 and containment.get("headerVisible")

@@ -102,8 +102,7 @@ const HOME_NAV_ITEM: NavItem = {
   id: "home",
   label: "Home",
   icon: <HomeIcon />,
-  description: "Reserved home entry point.",
-  disabled: true,
+  description: "Open onboarding, recent project scope, runtime health, and next actions.",
 };
 
 function ActivityButton({
@@ -208,9 +207,8 @@ export function ChatLocalActivityBar({
         <ActivityButton
           item={HOME_NAV_ITEM}
           icon={HOME_NAV_ITEM.icon}
-          isActive={false}
-          disabled
-          onClick={() => undefined}
+          isActive={activeView === "home"}
+          onClick={() => onViewChange("home")}
         />
 
         {topNavItems.map((item) => {
