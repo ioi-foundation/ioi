@@ -1,6 +1,8 @@
 import React from "react";
 import type {
+  AgentTask,
   ArtifactHubViewKey,
+  LocalEngineSnapshot,
   RunPresentation,
   SourceSummary,
 } from "../../../types";
@@ -19,6 +21,7 @@ import { ExecutionMomentList } from "./ExecutionMomentList";
 import { ExecutionRouteCard } from "./ExecutionRouteCard";
 import { MarkdownMessage } from "./MarkdownMessage";
 import { ReasoningDisclosure } from "./ReasoningDisclosure";
+import { RuntimeFactsStrip } from "./RuntimeFactsStrip";
 import { SourceChipRow } from "./SourceChipRow";
 import { ToolActivityGroup } from "./ToolActivityGroup";
 import { VisualEvidenceCard } from "./VisualEvidenceCard";
@@ -28,6 +31,9 @@ type ConversationTimelineProps = {
   latestAnsweredTurnIndex: number;
   turnContexts: TurnContext[];
   runPresentation: RunPresentation;
+  task?: AgentTask | null;
+  runtimeModelLabel?: string | null;
+  localEngineSnapshot?: LocalEngineSnapshot | null;
   isRunning: boolean;
   currentStep?: string;
   visualHash?: string | null;
@@ -54,6 +60,9 @@ export function ConversationTimeline({
   latestAnsweredTurnIndex,
   turnContexts,
   runPresentation,
+  task = null,
+  runtimeModelLabel = null,
+  localEngineSnapshot = null,
   isRunning,
   currentStep,
   visualHash,
@@ -74,7 +83,7 @@ export function ConversationTimeline({
   ) => {
     const fallback = running
       ? "Thinking through the request."
-      : "Preparing a conversational reply.";
+      : "Runtime timeline is initializing.";
 
     if (!detail) {
       return fallback;
@@ -201,6 +210,21 @@ export function ConversationTimeline({
           showLiveThinking,
         );
         const inlineArtifactReply = artifactReplyText(turnContext);
+        const runtimeFacts = (
+          <RuntimeFactsStrip
+            task={task}
+            planSummary={turnPlanSummary}
+            runtimeModelLabel={runtimeModelLabel}
+            localEngineSnapshot={localEngineSnapshot}
+            onOpenEvidence={() =>
+              onOpenArtifactHub(
+                turnContext?.defaultView || "active_context",
+                turnContext?.turnId || null,
+              )
+            }
+            compact
+          />
+        );
         const effectiveInlineAnswer =
           showInlineTranscript && inlineArtifactReply
             ? inlineArtifactReply
@@ -275,7 +299,7 @@ export function ConversationTimeline({
                 <div className="spot-message--pending-shell">
                   <span className="spot-message--pending-kicker">
                     <span className="spot-message--pending-dot" />
-                    {showLiveThinking ? "Thinking" : "Preparing reply"}
+                    {showLiveThinking ? "Thinking" : "Runtime timeline"}
                   </span>
                   <p>{pendingReplyDetail}</p>
                 </div>
@@ -373,6 +397,7 @@ export function ConversationTimeline({
                       )
                     }
                     onOpenSources={onOpenSourceSummary}
+                    runtimeFacts={runtimeFacts}
                   />
                 )
               ) : (
@@ -436,6 +461,7 @@ export function ConversationTimeline({
                     )
                   }
                   onOpenSources={onOpenSourceSummary}
+                  runtimeFacts={runtimeFacts}
                 />
               ))}
 
@@ -541,6 +567,16 @@ export function ConversationTimeline({
             )
           }
           onOpenSources={onOpenSourceSummary}
+          runtimeFacts={
+            <RuntimeFactsStrip
+              task={task}
+              planSummary={runPresentation.planSummary}
+              runtimeModelLabel={runtimeModelLabel}
+              localEngineSnapshot={localEngineSnapshot}
+              onOpenEvidence={() => onOpenArtifactHub("active_context")}
+              compact
+            />
+          }
         />
       )}
 

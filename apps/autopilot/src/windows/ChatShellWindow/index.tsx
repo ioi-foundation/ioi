@@ -43,6 +43,7 @@ import {
   useChatSession,
 } from "./hooks/useChatSession";
 import { useRuntimeTimelinePresentation } from "./hooks/useRuntimeTimelinePresentation";
+import { useChatLocalEngine } from "./hooks/useChatLocalEngine";
 
 // Sub-components
 import { icons } from "../../components/ui/icons";
@@ -59,6 +60,7 @@ import { ChatConversationSurface } from "../ChatShellWindow/components/ChatConve
 import { ChatConversationSidebar } from "../ChatShellWindow/components/ChatConversationSidebar";
 import { ChatArtifactSurface } from "../ChatShellWindow/components/ChatArtifactSurface";
 import { collectAvailableArtifacts } from "../ChatShellWindow/components/artifactConversationModel";
+import { RuntimeFactsStrip } from "../ChatShellWindow/components/RuntimeFactsStrip";
 import {
   ChatConversationWelcome,
   ChatRunStateCard,
@@ -363,6 +365,7 @@ export function ChatShellWindow({
     sessionId: codebaseSessionId,
     workspaceRoot: codebaseWorkspaceRoot,
   });
+  const { snapshot: localEngineSnapshot } = useChatLocalEngine(isChatVariant);
   const contextualizeIntent = useCallback(
     (text: string) =>
       isChatVariant
@@ -834,6 +837,40 @@ export function ChatShellWindow({
     isGated,
     showPasswordPrompt,
   });
+  const localRuntimeModel = useMemo(
+    () => localEngineSnapshot?.controlPlane?.runtime?.defaultModel?.trim() || null,
+    [localEngineSnapshot?.controlPlane?.runtime?.defaultModel],
+  );
+  const runtimeModelLabel = useMemo(() => {
+    if (localRuntimeModel) {
+      return `Local: ${localRuntimeModel}`;
+    }
+    const routeModel =
+      runPresentation.planSummary?.routeDecision?.selectedProviderRouteLabel ||
+      runPresentation.planSummary?.selectedRoute ||
+      null;
+    return routeModel?.trim() || selectedModel;
+  }, [
+    localRuntimeModel,
+    runPresentation.planSummary?.routeDecision?.selectedProviderRouteLabel,
+    runPresentation.planSummary?.selectedRoute,
+    selectedModel,
+  ]);
+  const effectiveModelOptions = useMemo(() => {
+    if (!localRuntimeModel) {
+      return modelOptions;
+    }
+    const localOption = {
+      value: localRuntimeModel,
+      label: `Local: ${localRuntimeModel}`,
+      desc: "desktop-localgpu",
+    };
+    return [
+      localOption,
+      ...modelOptions.filter((option) => option.value !== localRuntimeModel),
+    ];
+  }, [localRuntimeModel]);
+  const effectiveSelectedModel = localRuntimeModel || selectedModel;
   const studioAvailableArtifacts = useMemo(
     () => collectAvailableArtifacts(activeEvents, task?.chat_session ?? null),
     [activeEvents, task?.chat_session],
@@ -1028,6 +1065,17 @@ export function ChatShellWindow({
       selectedSkills={chatStatusCard.selectedSkills}
       livePreview={chatStatusCard.livePreview}
       codePreview={chatStatusCard.codePreview}
+      runtimeFacts={
+        <RuntimeFactsStrip
+          task={task}
+          planSummary={runPresentation.planSummary}
+          runtimeModelLabel={runtimeModelLabel}
+          localEngineSnapshot={localEngineSnapshot}
+          onOpenEvidence={() => {
+            void hubNavigation.openView("active_context");
+          }}
+        />
+      }
     />
   ) : null;
   const chatSidebarNode = isChatVariant ? (
@@ -1156,6 +1204,9 @@ export function ChatShellWindow({
             latestAnsweredTurnIndex={latestAnsweredTurnIndex}
             turnContexts={turnContexts}
             runPresentation={runPresentation}
+            task={task}
+            runtimeModelLabel={runtimeModelLabel}
+            localEngineSnapshot={localEngineSnapshot}
             isRunning={isRunning}
             currentStep={task?.current_step}
             visualHash={task?.visual_hash || null}
@@ -1275,8 +1326,8 @@ export function ChatShellWindow({
         workspaceOptions={workspaceOptions}
         workspaceMode={workspaceMode}
         onSelectWorkspaceMode={setWorkspaceMode}
-        modelOptions={modelOptions}
-        selectedModel={selectedModel}
+        modelOptions={effectiveModelOptions}
+        selectedModel={effectiveSelectedModel}
         onSelectModel={setSelectedModel}
         planMode={planMode}
         onTogglePlanMode={togglePlanMode}

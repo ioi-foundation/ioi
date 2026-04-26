@@ -68,6 +68,10 @@ const appliedChatLaunchIds = new Set<string>();
 
 function resolveInitialPrimaryView(): PrimaryView {
   if (typeof window !== "undefined") {
+    const pathname = window.location.pathname.toLowerCase();
+    if (pathname === "/chat" || pathname.startsWith("/chat/")) {
+      return "chat";
+    }
     const requested = new URLSearchParams(window.location.search).get("view");
     if (requested === "home") {
       return "home";
@@ -406,6 +410,7 @@ export function useAutopilotShellController() {
 
   const openAutopilotWithIntent = (intent: string) => {
     setAutopilotSeedIntent(intent);
+    setActiveView("chat");
     setChatSurface("chat");
     setChatPaneVisible(true);
   };

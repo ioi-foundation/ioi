@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import type {
   SkillDetailView,
   ChatArtifactSelectedSkill,
@@ -46,6 +46,7 @@ type ChatRunStateCardProps = {
     language?: string | null;
     isFinal: boolean;
   } | null;
+  runtimeFacts?: ReactNode;
 };
 
 function clipSkillMarkdown(markdown: string | null | undefined): string | null {
@@ -150,6 +151,7 @@ export function ChatRunStateCard({
   selectedSkills = [],
   livePreview = null,
   codePreview = null,
+  runtimeFacts = null,
 }: ChatRunStateCardProps) {
   const isError = tone === "error";
   const isThinkingRail = processes.length > 0 && !metrics;
@@ -281,6 +283,66 @@ export function ChatRunStateCard({
             ) : null}
           </div>
         ) : null}
+        {runtimeFacts}
+        <ol className="spot-chat-status-timeline" aria-label="Runtime stage timeline">
+          {[
+            {
+              label: "Intent",
+              detail: "Request accepted into the chat/artifact runtime.",
+              active: !metrics?.stage,
+            },
+            {
+              label: "Plan",
+              detail: metrics?.stage || "Implementation plan and task list resolving.",
+              active: Boolean(metrics?.stage),
+            },
+            {
+              label: "Policy",
+              detail: metrics?.verification || "Policy and approval posture projected.",
+              active: Boolean(metrics?.verification),
+            },
+            {
+              label: "Tools",
+              detail:
+                processes.find((process) => process.isActive)?.label ||
+                livePreview?.label ||
+                codePreview?.label ||
+                "Tool transcript and observations attach when used.",
+              active:
+                processes.some((process) => process.isActive) ||
+                Boolean(livePreview?.content || codePreview?.content),
+            },
+            {
+              label: "Verify",
+              detail:
+                metrics?.activeRole ||
+                "Validation, receipts, and settlement evidence reconcile.",
+              active: false,
+            },
+          ].map((step) => (
+            <li
+              key={step.label}
+              className={step.active ? "is-active" : ""}
+            >
+              <span>{step.label}</span>
+              <p>{step.detail}</p>
+            </li>
+          ))}
+        </ol>
+        <div
+          className="spot-chat-status-workbench-row"
+          aria-label="Execution drawer sections"
+        >
+          {[
+            "Implementation plan",
+            "Task list",
+            "Scratchboard",
+            "Tool transcript",
+            "Verification walkthrough",
+          ].map((label) => (
+            <span key={label}>{label}</span>
+          ))}
+        </div>
         {processes.length ? (
           <div className="spot-chat-status-process-list" aria-label="Thinking processes">
             {processes.map((process) => (

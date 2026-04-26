@@ -36,7 +36,7 @@ DEFAULT_DB_PATH = (
     Path.home()
     / ".local/share/ai.ioi.autopilot/profiles"
     / DEFAULT_PROFILE
-    / "chat-runtime-memory.db"
+    / "chat-memory.db"
 )
 DEFAULT_OUTPUT_ROOT = (
     PROJECT_ROOT / "docs/evidence/route-hierarchy/live-dev-start-intent"
@@ -44,8 +44,10 @@ DEFAULT_OUTPUT_ROOT = (
 WINDOW_SEARCH_PATTERN = "Autopilot Chat"
 BROWSER_CAPTURE_URL = "http://127.0.0.1:1433/"
 POLL_INTERVAL_SECS = 1.0
-WINDOW_WAIT_TIMEOUT_SECS = 90.0
+WINDOW_WAIT_TIMEOUT_SECS = 240.0
 POST_SETTLE_CAPTURE_DELAY_SECS = 2.0
+HEARTBEAT_LOG_RE = re.compile(r"^\[Autopilot\] Block #\d+ committed \(Tx: 0\)$")
+EVIDENCE_DRAWER_FALLBACK_POINT = (670, 82)
 
 
 def shell_join(cmd: list[str]) -> str:
@@ -124,6 +126,77 @@ def wait_for_window(window_pattern: str, *, timeout_secs: float) -> int | None:
     return None
 
 
+def window_geometry(window_id: int) -> dict[str, int]:
+    result = run(
+        ["xdotool", "getwindowgeometry", "--shell", str(window_id)],
+        check=False,
+    )
+    geometry: dict[str, int] = {}
+    for line in result.stdout.splitlines():
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        if value.isdigit():
+            geometry[key] = int(value)
+    return geometry
+
+
+def evidence_drawer_point(window_id: int) -> tuple[int, int, dict[str, Any]]:
+    geometry = window_geometry(window_id)
+    width = geometry.get("WIDTH")
+    if width:
+        return max(360, min(width - 260, int(width * 0.52))), 82, {"geometry": geometry}
+    rel_x, rel_y = EVIDENCE_DRAWER_FALLBACK_POINT
+    return rel_x, rel_y, {"geometry": geometry, "fallback": True}
+
+
+def click_window_point(window_id: int, rel_x: int, rel_y: int) -> dict[str, Any]:
+    diagnostics: dict[str, Any] = {
+        "method": "coordinate_fallback",
+        "window_id": window_id,
+        "relative_point": {"x": rel_x, "y": rel_y},
+    }
+    activate = run(
+        ["xdotool", "windowactivate", "--sync", str(window_id)],
+        check=False,
+    )
+    diagnostics["activate_returncode"] = activate.returncode
+    move = run(
+        [
+            "xdotool",
+            "mousemove",
+            "--window",
+            str(window_id),
+            str(rel_x),
+            str(rel_y),
+        ],
+        check=False,
+    )
+    diagnostics["move_returncode"] = move.returncode
+    click = run(["xdotool", "click", "1"], check=False)
+    diagnostics["click_returncode"] = click.returncode
+    return diagnostics
+
+
+def capture_evidence_drawer_with_fallback(
+    window_id: int,
+    screenshot_path: Path,
+    *,
+    browser_url: str,
+) -> tuple[dict[str, Any], str | None, dict[str, Any] | None]:
+    rel_x, rel_y, point_diagnostics = evidence_drawer_point(window_id)
+    click_diagnostics = click_window_point(window_id, rel_x, rel_y)
+    click_diagnostics.update(point_diagnostics)
+    click_diagnostics["target"] = "runtime_facts_evidence_tier"
+    time.sleep(1.0)
+    capture_result = capture_window_with_fallback(
+        window_id,
+        screenshot_path,
+        browser_url=browser_url,
+    )
+    return click_diagnostics, capture_result.error, capture_result.diagnostics
+
+
 def load_task_checkpoint(db_path: Path) -> dict[str, Any] | None:
     if not db_path.exists() or db_path.stat().st_size == 0:
         return None
@@ -165,18 +238,80 @@ def load_task_checkpoint(db_path: Path) -> dict[str, Any] | None:
     return json.loads(payload)
 
 
+def profile_root_for_db_path(db_path: Path) -> Path:
+    if db_path.name == "desktop-memory.db" and db_path.parent.name == "kernel":
+        return db_path.parent.parent
+    return db_path.parent
+
+
 def candidate_db_paths(db_path: Path) -> list[Path]:
-    candidates: list[Path] = [db_path]
-    if db_path.name == "chat-runtime-memory.db":
-        candidates.append(db_path.parent / "kernel" / "desktop-memory.db")
-    elif db_path.name == "desktop-memory.db":
-        candidates.append(db_path.parent.parent / "chat-runtime-memory.db")
+    profile_root = profile_root_for_db_path(db_path)
+    candidates: list[Path] = [
+        db_path,
+        profile_root / "chat-memory.db",
+        profile_root / "chat-runtime-memory.db",
+        profile_root / "kernel" / "desktop-memory.db",
+    ]
 
     deduped: list[Path] = []
     for path in candidates:
         if path not in deduped:
             deduped.append(path)
     return deduped
+
+
+def checkpoint_names(db_path: Path) -> list[str]:
+    if not db_path.exists() or db_path.stat().st_size == 0:
+        return []
+
+    conn = sqlite3.connect(db_path)
+    try:
+        table_row = conn.execute(
+            """
+            SELECT 1
+            FROM sqlite_master
+            WHERE type = 'table' AND name = 'checkpoint_blobs'
+            LIMIT 1
+            """
+        ).fetchone()
+        if table_row is None:
+            return []
+        rows = conn.execute(
+            """
+            SELECT checkpoint_name
+            FROM checkpoint_blobs
+            ORDER BY updated_at_ms DESC
+            LIMIT 32
+            """
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return []
+    finally:
+        conn.close()
+
+    return [str(row[0]) for row in rows]
+
+
+def db_diagnostics(db_paths: list[Path]) -> dict[str, Any]:
+    candidates: list[dict[str, Any]] = []
+    selected: str | None = None
+    for path in db_paths:
+        names = checkpoint_names(path)
+        exists = path.exists()
+        has_task = "autopilot.local_task.v1" in names
+        if selected is None and has_task:
+            selected = str(path)
+        candidates.append({
+            "path": str(path),
+            "exists": exists,
+            "size": path.stat().st_size if exists else 0,
+            "checkpoint_names": names,
+            "has_local_task": has_task,
+        })
+    return {
+        "selected_db_path": selected or (str(db_paths[0]) if db_paths else None),
+        "candidates": candidates,
+    }
 
 
 def load_task_checkpoint_from_candidates(db_paths: list[Path]) -> dict[str, Any] | None:
@@ -187,13 +322,38 @@ def load_task_checkpoint_from_candidates(db_paths: list[Path]) -> dict[str, Any]
     return None
 
 
+def task_matches_prompt(task: dict[str, Any], prompt: str) -> bool:
+    intent = (task.get("intent") or "").strip()
+    normalized_prompt = prompt.strip()
+    if intent == normalized_prompt:
+        return True
+    if not intent or not normalized_prompt:
+        return False
+    return normalized_prompt in intent
+
+
 def latest_task_for_prompt(db_paths: list[Path], prompt: str) -> dict[str, Any] | None:
     task = load_task_checkpoint_from_candidates(db_paths)
     if not task:
         return None
-    if (task.get("intent") or "").strip() != prompt.strip():
+    if not task_matches_prompt(task, prompt):
         return None
     return task
+
+
+def wait_for_prompt_start(
+    db_paths: list[Path],
+    prompt: str,
+    *,
+    timeout_secs: float,
+) -> dict[str, Any] | None:
+    deadline = time.time() + timeout_secs
+    while time.time() < deadline:
+        task = latest_task_for_prompt(db_paths, prompt)
+        if task:
+            return task
+        time.sleep(POLL_INTERVAL_SECS)
+    return None
 
 
 def latest_agent_message(task: dict[str, Any] | None) -> str | None:
@@ -288,6 +448,106 @@ def latest_route_receipt_summary(task: dict[str, Any] | None) -> dict[str, Any] 
     return candidates[0]
 
 
+def artifact_records_summary(db_paths: list[Path], limit: int = 8) -> list[dict[str, Any]]:
+    for path in db_paths:
+        if not path.exists() or path.stat().st_size == 0:
+            continue
+        conn = sqlite3.connect(path)
+        try:
+            table_row = conn.execute(
+                """
+                SELECT 1
+                FROM sqlite_master
+                WHERE type = 'table' AND name = 'artifact_records'
+                LIMIT 1
+                """
+            ).fetchone()
+            if table_row is None:
+                continue
+            rows = conn.execute(
+                """
+                SELECT artifact_id, payload_json, created_at_ms, updated_at_ms
+                FROM artifact_records
+                ORDER BY updated_at_ms DESC, created_at_ms DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        except sqlite3.OperationalError:
+            continue
+        finally:
+            conn.close()
+
+        summaries: list[dict[str, Any]] = []
+        for artifact_id, payload_json, created_at_ms, updated_at_ms in rows:
+            try:
+                payload = json.loads(payload_json)
+            except (TypeError, json.JSONDecodeError):
+                payload = {}
+            metadata = payload.get("metadata") if isinstance(payload, dict) else {}
+            summaries.append({
+                "artifact_id": artifact_id,
+                "title": payload.get("title") if isinstance(payload, dict) else None,
+                "artifact_type": payload.get("artifact_type") if isinstance(payload, dict) else None,
+                "path": metadata.get("path") if isinstance(metadata, dict) else None,
+                "version": payload.get("version") if isinstance(payload, dict) else None,
+                "created_at_ms": created_at_ms,
+                "updated_at_ms": updated_at_ms,
+            })
+        return summaries
+    return []
+
+
+def runtime_facts_summary(task: dict[str, Any] | None) -> dict[str, Any]:
+    if not task:
+        return {
+            "phase": None,
+            "current_step": None,
+            "route": None,
+            "policy": "unknown",
+            "approval": "unknown",
+            "evidence_tier": "Projection",
+            "settlement_state": "projection_only",
+        }
+
+    route = latest_route_receipt_summary(task) or {}
+    active_run = active_operator_run(task)
+    chat_session = task.get("chat_session") or {}
+    materialization = chat_session.get("materialization") or {}
+    execution_envelope = materialization.get("executionEnvelope") or {}
+    settlement_refs: list[Any] = []
+    for key in ("settlementRefs", "settlement_refs", "settlementReceipts", "settlement_receipts"):
+        value = execution_envelope.get(key)
+        if isinstance(value, list):
+            settlement_refs.extend(value)
+
+    approval = "clear"
+    if task.get("pending_request_hash") or task.get("gate_info"):
+        approval = "pending"
+    elif active_run.get("status"):
+        approval = str(active_run.get("status"))
+
+    evidence_tier = "Settlement receipt" if settlement_refs else "Runtime event receipt"
+    if not task.get("events") and not task.get("artifacts"):
+        evidence_tier = "Projection"
+
+    return {
+        "phase": task.get("phase"),
+        "current_step": task.get("current_step"),
+        "progress": task.get("progress"),
+        "total_steps": task.get("total_steps"),
+        "route": route.get("selected_route") or route.get("title"),
+        "route_family": route.get("route_family"),
+        "policy": "attached" if task.get("policy") else "not_attached",
+        "approval": approval,
+        "evidence_tier": evidence_tier,
+        "settlement_state": "settled" if settlement_refs else "projection_only",
+        "event_count": len(task.get("events") or []),
+        "artifact_count": len(task.get("artifacts") or []),
+        "active_operator_run_status": active_run.get("status"),
+    }
+
+
 def task_has_interactive_wait_state(task: dict[str, Any]) -> bool:
     if task.get("clarification_request"):
         return True
@@ -325,9 +585,33 @@ def artifact_session_ready(task: dict[str, Any] | None) -> bool:
     return "ready" in {chat_status, verification_status}
 
 
+def conversation_reply_ready(task: dict[str, Any] | None) -> bool:
+    if not task:
+        return False
+    if latest_agent_message(task):
+        return True
+    phase = (task.get("phase") or "").strip().lower()
+    current_step = (task.get("current_step") or "").strip().lower()
+    return phase == "complete" or "ready for input" in current_step
+
+
+def is_conversation_route(task: dict[str, Any] | None) -> bool:
+    if not task:
+        return False
+    chat_outcome = task.get("chat_outcome") or {}
+    chat_session = task.get("chat_session") or {}
+    materialization = chat_session.get("materialization") or {}
+    return (
+        chat_outcome.get("outcomeKind") == "conversation"
+        or materialization.get("requestKind") == "conversation"
+    )
+
+
 def artifact_prompt_ready(task: dict[str, Any] | None) -> bool:
     if not task:
         return False
+    if is_conversation_route(task):
+        return conversation_reply_ready(task)
     if operator_run_is_terminal(task):
         return True
     return artifact_session_ready(task)
@@ -342,7 +626,7 @@ def wait_for_prompt_result(
     deadline = time.time() + timeout_secs
     while time.time() < deadline:
         task = load_task_checkpoint_from_candidates(db_paths)
-        if task and (task.get("intent") or "").strip() == prompt.strip():
+        if task and task_matches_prompt(task, prompt):
             phase = (task.get("phase") or "").strip().lower()
             if (
                 phase in {"complete", "failed"}
@@ -400,6 +684,12 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=180.0,
         help="How long to wait for each prompt to settle.",
+    )
+    parser.add_argument(
+        "--window-timeout-secs",
+        type=float,
+        default=WINDOW_WAIT_TIMEOUT_SECS,
+        help="How long to wait for the desktop window. Increase this for cold Tauri builds.",
     )
     parser.add_argument(
         "--window-name",
@@ -464,7 +754,8 @@ def read_log_tail(log_path: Path, max_lines: int = 120) -> list[str]:
     if not log_path.exists():
         return []
     lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
-    return lines[-max_lines:]
+    filtered = [line for line in lines if not HEARTBEAT_LOG_RE.match(line.strip())]
+    return filtered[-max_lines:]
 
 
 def terminate_process_group(process: subprocess.Popen[str]) -> None:
@@ -520,16 +811,25 @@ def build_result_bundle(
     capture_diagnostics: dict[str, Any] | None,
     window_capture_error: str | None,
     probe_error: str | None = None,
+    screenshots: dict[str, str] | None = None,
+    db_info: dict[str, Any] | None = None,
+    artifact_records: list[dict[str, Any]] | None = None,
+    screenshot_diagnostics: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     return {
         "captured_at": datetime.now(timezone.utc).isoformat(),
         "prompt": prompt,
         "screenshot": str(screenshot_path) if screenshot_path else None,
+        "screenshots": screenshots or {},
         "window_id": window_id,
         "capture_mode": capture_mode,
         "capture_diagnostics": capture_diagnostics,
+        "screenshot_diagnostics": screenshot_diagnostics or {},
         "window_capture_error": window_capture_error,
+        "db_diagnostics": db_info,
         "task": task,
+        "runtime_facts_summary": runtime_facts_summary(task),
+        "artifact_records_summary": artifact_records or [],
         "route_receipt_summary": latest_route_receipt_summary(task),
         "latest_agent_message": latest_agent_message(task),
         "log_tail": log_tail,
@@ -541,6 +841,15 @@ def main() -> int:
     args = parse_args()
     prompts = load_prompts(args)
     db_paths = candidate_db_paths(Path(args.db_path).expanduser())
+    initial_db_info = db_diagnostics(db_paths)
+    print(
+        "DB candidates: "
+        + ", ".join(
+            f"{candidate['path']} ({'task' if candidate['has_local_task'] else 'no-task'})"
+            for candidate in initial_db_info["candidates"]
+        ),
+        flush=True,
+    )
     output_root = Path(args.output_root).expanduser() / now_stamp()
     output_root.mkdir(parents=True, exist_ok=True)
 
@@ -566,12 +875,43 @@ def main() -> int:
         capture_mode: str | None = None
         capture_diagnostics: dict[str, Any] | None = None
         probe_error: str | None = None
+        screenshots: dict[str, str] = {}
+        screenshot_diagnostics: dict[str, Any] = {}
 
         try:
             window_id = wait_for_window(
                 args.window_name,
-                timeout_secs=min(args.timeout_secs, WINDOW_WAIT_TIMEOUT_SECS),
+                timeout_secs=args.window_timeout_secs,
             )
+            if window_id is not None:
+                startup_path = prompt_dir / "startup.png"
+                startup_capture = capture_window_with_fallback(
+                    window_id,
+                    startup_path,
+                    browser_url=args.browser_capture_url,
+                )
+                screenshots["startup"] = str(startup_path)
+                window_capture_error = startup_capture.error
+                capture_mode = startup_capture.mode
+                capture_diagnostics = startup_capture.diagnostics
+
+            started_task = wait_for_prompt_start(
+                db_paths,
+                prompt,
+                timeout_secs=min(45.0, max(5.0, args.timeout_secs / 3.0)),
+            )
+            if started_task and window_id is not None:
+                pending_path = prompt_dir / "pending.png"
+                pending_capture = capture_window_with_fallback(
+                    window_id,
+                    pending_path,
+                    browser_url=args.browser_capture_url,
+                )
+                screenshots["pending"] = str(pending_path)
+                window_capture_error = pending_capture.error or window_capture_error
+                capture_mode = pending_capture.mode
+                capture_diagnostics = pending_capture.diagnostics
+
             task = wait_for_prompt_result(
                 db_paths,
                 prompt,
@@ -585,17 +925,65 @@ def main() -> int:
                     screenshot_path,
                     browser_url=args.browser_capture_url,
                 )
+                screenshots["final"] = str(screenshot_path)
                 window_capture_error = capture_result.error
                 capture_mode = capture_result.mode
                 capture_diagnostics = capture_result.diagnostics
-            else:
-                window_capture_error = (
-                    f"Timed out waiting for a window matching {args.window_name!r}"
+                evidence_path = prompt_dir / "evidence_drawer.png"
+                (
+                    evidence_click_diagnostics,
+                    evidence_capture_error,
+                    evidence_capture_diagnostics,
+                ) = capture_evidence_drawer_with_fallback(
+                    window_id,
+                    evidence_path,
+                    browser_url=args.browser_capture_url,
                 )
+                screenshots["evidence_drawer"] = str(evidence_path)
+                screenshot_diagnostics["evidence_drawer"] = {
+                    "click": evidence_click_diagnostics,
+                    "capture_error": evidence_capture_error,
+                    "capture_diagnostics": evidence_capture_diagnostics,
+                }
+            else:
+                window_id = wait_for_window(args.window_name, timeout_secs=15.0)
+                if window_id is not None:
+                    screenshot_path = prompt_dir / "final.png"
+                    capture_result = capture_window_with_fallback(
+                        window_id,
+                        screenshot_path,
+                        browser_url=args.browser_capture_url,
+                    )
+                    screenshots["final"] = str(screenshot_path)
+                    window_capture_error = capture_result.error
+                    capture_mode = capture_result.mode
+                    capture_diagnostics = capture_result.diagnostics
+                    evidence_path = prompt_dir / "evidence_drawer.png"
+                    (
+                        evidence_click_diagnostics,
+                        evidence_capture_error,
+                        evidence_capture_diagnostics,
+                    ) = capture_evidence_drawer_with_fallback(
+                        window_id,
+                        evidence_path,
+                        browser_url=args.browser_capture_url,
+                    )
+                    screenshots["evidence_drawer"] = str(evidence_path)
+                    screenshot_diagnostics["evidence_drawer"] = {
+                        "click": evidence_click_diagnostics,
+                        "capture_error": evidence_capture_error,
+                        "capture_diagnostics": evidence_capture_diagnostics,
+                    }
+                else:
+                    window_capture_error = (
+                        f"Timed out waiting for a window matching {args.window_name!r}"
+                    )
         except Exception as error:
             probe_error = str(error)
             if task is None:
                 task = latest_task_for_prompt(db_paths, prompt)
+            if window_id is None:
+                window_id = wait_for_window(args.window_name, timeout_secs=15.0)
             if window_id is not None:
                 time.sleep(POST_SETTLE_CAPTURE_DELAY_SECS)
                 screenshot_path = prompt_dir / "final.png"
@@ -604,10 +992,27 @@ def main() -> int:
                     screenshot_path,
                     browser_url=args.browser_capture_url,
                 )
+                screenshots["final"] = str(screenshot_path)
                 if window_capture_error is None:
                     window_capture_error = capture_result.error
                 capture_mode = capture_result.mode
                 capture_diagnostics = capture_result.diagnostics
+                evidence_path = prompt_dir / "evidence_drawer.png"
+                (
+                    evidence_click_diagnostics,
+                    evidence_capture_error,
+                    evidence_capture_diagnostics,
+                ) = capture_evidence_drawer_with_fallback(
+                    window_id,
+                    evidence_path,
+                    browser_url=args.browser_capture_url,
+                )
+                screenshots["evidence_drawer"] = str(evidence_path)
+                screenshot_diagnostics["evidence_drawer"] = {
+                    "click": evidence_click_diagnostics,
+                    "capture_error": evidence_capture_error,
+                    "capture_diagnostics": evidence_capture_diagnostics,
+                }
             elif window_capture_error is None:
                 window_capture_error = (
                     f"Timed out waiting for a window matching {args.window_name!r}"
@@ -616,6 +1021,7 @@ def main() -> int:
             terminate_process_group(process)
 
         log_tail = read_log_tail(desktop_log_path)
+        artifact_records = artifact_records_summary(db_paths)
         bundle = build_result_bundle(
             prompt,
             screenshot_path,
@@ -626,6 +1032,10 @@ def main() -> int:
             capture_diagnostics=capture_diagnostics,
             window_capture_error=window_capture_error,
             probe_error=probe_error,
+            screenshots=screenshots,
+            db_info=db_diagnostics(db_paths),
+            artifact_records=artifact_records,
+            screenshot_diagnostics=screenshot_diagnostics,
         )
         (prompt_dir / "result.json").write_text(
             json.dumps(bundle, indent=2),

@@ -118,9 +118,9 @@ export function defaultRunActivityTitle(
     case "artifacts":
       return "Preparing your artifact";
     case "general":
-      return "Preparing the reply";
+      return "Runtime timeline active";
     default:
-      return "Preparing the reply";
+      return "Runtime timeline active";
   }
 }
 

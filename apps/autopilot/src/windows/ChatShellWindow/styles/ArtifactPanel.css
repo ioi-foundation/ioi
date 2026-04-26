@@ -1136,6 +1136,23 @@
   min-width: 0;
   padding: 0 0 4px;
   min-height: 380px;
+  color: var(--spot-text-primary);
+}
+
+.artifact-hub-panel .spot-execution-card,
+.artifact-hub-panel .runtime-facts-strip,
+.artifact-hub-panel .artifact-hub-generic-row,
+.artifact-hub-panel .artifact-hub-task-card {
+  color: var(--spot-text-primary);
+}
+
+.artifact-hub-panel .spot-execution-card-copy p,
+.artifact-hub-panel .spot-execution-card-metric span,
+.artifact-hub-panel .spot-execution-card-metric small,
+.artifact-hub-panel .artifact-hub-generic-summary,
+.artifact-hub-panel .artifact-hub-task-card span,
+.artifact-hub-panel .artifact-hub-task-card p {
+  color: var(--spot-text-secondary);
 }
 
 .artifact-hub-empty {

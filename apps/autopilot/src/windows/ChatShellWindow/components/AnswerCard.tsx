@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type {
   AnswerPresentation,
@@ -18,6 +19,7 @@ interface AnswerCardProps {
   onExportTraceBundle: () => Promise<void> | void;
   onOpenArtifacts?: () => void;
   onOpenSources?: (summary: SourceSummary) => void;
+  runtimeFacts?: ReactNode;
 }
 
 const MAX_CITATION_PILLS = 8;
@@ -65,6 +67,7 @@ export function AnswerCard({
   onExportTraceBundle,
   onOpenArtifacts,
   onOpenSources,
+  runtimeFacts = null,
 }: AnswerCardProps) {
   const [copied, setCopied] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -162,6 +165,8 @@ export function AnswerCard({
           </button>
         </div>
       </div>
+
+      {runtimeFacts}
 
       <div className="answer-card-body">
         {contract ? (
