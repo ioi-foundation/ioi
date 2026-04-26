@@ -182,16 +182,56 @@ fn effective_chat_lifecycle_state(
     if let Some(state) = operator_run_terminal_lifecycle(chat_session) {
         return state;
     }
-    if let Some(state) = operator_run_active_lifecycle(chat_session) {
-        return state;
-    }
-    match chat_session.artifact_manifest.verification.lifecycle_state {
+    let manifest_lifecycle_state = chat_session.artifact_manifest.verification.lifecycle_state;
+    let manifest_terminal_state = match manifest_lifecycle_state {
         ChatArtifactLifecycleState::Ready => ChatArtifactLifecycleState::Ready,
         ChatArtifactLifecycleState::Partial => ChatArtifactLifecycleState::Partial,
         ChatArtifactLifecycleState::Blocked => ChatArtifactLifecycleState::Blocked,
         ChatArtifactLifecycleState::Failed => ChatArtifactLifecycleState::Failed,
-        _ => chat_session.lifecycle_state.clone(),
+        _ => ChatArtifactLifecycleState::Draft,
+    };
+    let manifest_is_terminal = matches!(
+        manifest_terminal_state,
+        ChatArtifactLifecycleState::Ready
+            | ChatArtifactLifecycleState::Partial
+            | ChatArtifactLifecycleState::Blocked
+            | ChatArtifactLifecycleState::Failed
+    );
+    let manifest_blocked_is_final = manifest_lifecycle_state == ChatArtifactLifecycleState::Blocked
+        && (chat_session
+            .artifact_manifest
+            .verification
+            .failure
+            .is_some()
+            || chat_session
+                .artifact_manifest
+                .verification
+                .summary
+                .to_ascii_lowercase()
+                .contains("acceptance validation blocked"));
+    let manifest_should_override_active_verify = matches!(
+        manifest_lifecycle_state,
+        ChatArtifactLifecycleState::Ready
+            | ChatArtifactLifecycleState::Partial
+            | ChatArtifactLifecycleState::Failed
+    ) || manifest_blocked_is_final;
+
+    if let Some(active_step) = operator_run_active_step(chat_session) {
+        if manifest_should_override_active_verify
+            && active_step.phase == ioi_api::runtime_harness::ArtifactOperatorPhase::VerifyArtifact
+        {
+            return manifest_terminal_state;
+        }
+        if let Some(state) = operator_run_active_lifecycle(chat_session) {
+            return state;
+        }
     }
+
+    if manifest_is_terminal {
+        return manifest_terminal_state;
+    }
+
+    chat_session.lifecycle_state.clone()
 }
 
 fn chat_authoritative_step_hint(
@@ -229,8 +269,16 @@ fn chat_authoritative_step_hint(
         .as_ref()
         .map(|blueprint| blueprint.scaffold_family.as_str());
 
-    if let Some(step_hint) = operator_run_step_hint(chat_session) {
-        return Some(step_hint);
+    if !matches!(
+        lifecycle_state,
+        ChatArtifactLifecycleState::Ready
+            | ChatArtifactLifecycleState::Partial
+            | ChatArtifactLifecycleState::Blocked
+            | ChatArtifactLifecycleState::Failed
+    ) {
+        if let Some(step_hint) = operator_run_step_hint(chat_session) {
+            return Some(step_hint);
+        }
     }
 
     match lifecycle_state {

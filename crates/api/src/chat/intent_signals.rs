@@ -148,6 +148,25 @@ impl ChatIntentContext {
             ])
     }
 
+    pub fn explicitly_declines_persistent_artifact(&self) -> bool {
+        self.contains_any_phrase(&[
+            "do not create an artifact",
+            "don't create an artifact",
+            "do not create a persistent artifact",
+            "don't create a persistent artifact",
+            "do not make an artifact",
+            "don't make an artifact",
+            "without creating an artifact",
+            "without making an artifact",
+            "do not materialize",
+            "don't materialize",
+            "non-artifact query",
+            "not an artifact query",
+            "no artifact",
+            "no artifacts",
+        ])
+    }
+
     pub fn requests_downloadable_fileset(&self) -> bool {
         const FILE_TARGET_TERMS: &[&str] = &[
             "csv",
@@ -384,7 +403,7 @@ impl ChatIntentContext {
             return Some("sports");
         }
 
-        if self.contains_any_phrase(&[
+        let explicit_places_phrase = self.contains_any_phrase(&[
             "near me",
             "nearby",
             "near downtown",
@@ -394,7 +413,8 @@ impl ChatIntentContext {
             "places to",
             "coffee shop",
             "coffee shops",
-        ]) || self.contains_any_term(&[
+        ]);
+        let place_category_term = self.contains_any_term(&[
             "restaurant",
             "restaurants",
             "hotel",
@@ -414,7 +434,22 @@ impl ChatIntentContext {
             "gyms",
             "attraction",
             "attractions",
-        ]) {
+        ]);
+        let place_lookup_action = self.contains_any_term(&[
+            "find",
+            "search",
+            "show",
+            "map",
+            "directions",
+            "recommend",
+            "recommendation",
+            "recommendations",
+            "where",
+            "best",
+            "near",
+            "nearby",
+        ]) || self.places_anchor_phrase().is_some();
+        if explicit_places_phrase || (place_category_term && place_lookup_action) {
             return Some("places");
         }
 
@@ -504,12 +539,12 @@ impl ChatIntentContext {
             return Some((ChatRendererKind::PdfEmbed, "explicit_pdf_artifact"));
         }
 
-        if self.contains_any_phrase(&["mermaid", "sequence diagram", "flow diagram"]) {
-            return Some((ChatRendererKind::Mermaid, "explicit_mermaid_artifact"));
-        }
-
         if self.contains_any_phrase(&["svg", "vector graphic"]) {
             return Some((ChatRendererKind::Svg, "explicit_svg_artifact"));
+        }
+
+        if self.contains_any_phrase(&["mermaid", "sequence diagram", "flow diagram"]) {
+            return Some((ChatRendererKind::Mermaid, "explicit_mermaid_artifact"));
         }
 
         if self.contains_any_phrase(&[

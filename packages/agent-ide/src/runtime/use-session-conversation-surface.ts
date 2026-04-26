@@ -129,6 +129,7 @@ export interface UseSessionChatArtifactDrawerOptions {
   enabled: boolean;
   artifactAvailable: boolean;
   artifactExpected?: boolean;
+  autoOpen?: boolean;
   activeSessionId?: string | null;
   fallbackSessionId?: string | null;
   setVisible: Dispatch<SetStateAction<boolean>>;
@@ -138,6 +139,7 @@ export function useSessionChatArtifactDrawer({
   enabled,
   artifactAvailable,
   artifactExpected = false,
+  autoOpen = true,
   activeSessionId = null,
   fallbackSessionId = null,
   setVisible,
@@ -157,6 +159,10 @@ export function useSessionChatArtifactDrawer({
       return;
     }
 
+    if (!autoOpen) {
+      return;
+    }
+
     const nextSessionId = activeSessionId || fallbackSessionId || null;
     if (!nextSessionId) {
       return;
@@ -172,6 +178,7 @@ export function useSessionChatArtifactDrawer({
     activeSessionId,
     artifactAvailable,
     artifactExpected,
+    autoOpen,
     enabled,
     fallbackSessionId,
     setVisible,

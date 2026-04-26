@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { SessionSummary } from "../../../types";
 import { icons } from "../../../components/ui/icons";
+import { extractUserRequestFromContextualIntent } from "../utils/contextualIntent";
 
 type ChatConversationSidebarProps = {
   sessions: SessionSummary[];
@@ -92,8 +93,9 @@ export function ChatConversationSidebar({
         if (!normalizedQuery) {
           return true;
         }
+        const displayTitle = extractUserRequestFromContextualIntent(session.title);
         const haystack = [
-          session.title,
+          displayTitle,
           session.resume_hint,
           session.current_step,
           session.phase,
@@ -184,10 +186,13 @@ export function ChatConversationSidebar({
               <div className="spot-chat-sidebar-group-items">
                 {group.sessions.map((session) => {
                   const isActive = activeSessionId === session.session_id;
+                  const displayTitle =
+                    extractUserRequestFromContextualIntent(session.title) ||
+                    session.title;
                   const secondary =
                     session.resume_hint || session.current_step || session.phase;
                   const sessionTooltip = [
-                    session.title,
+                    displayTitle,
                     secondary,
                     formatSessionMeta(session.timestamp),
                   ]
@@ -204,7 +209,7 @@ export function ChatConversationSidebar({
                       title={sessionTooltip}
                     >
                       <span className="spot-chat-sidebar-session-copy">
-                        <strong>{session.title}</strong>
+                        <strong>{displayTitle}</strong>
                         {isActive && secondary ? <span>{secondary}</span> : null}
                       </span>
                     </button>

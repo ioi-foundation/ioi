@@ -4,6 +4,7 @@ import {
   defaultRunActivityTitle,
   isInfrastructureCurrentStep,
   operatorFacingCurrentStep,
+  runtimeExecutionFailureDetail,
 } from "./runtimeStatusCopy.ts";
 
 const researchSummary = {
@@ -69,12 +70,12 @@ assert.equal(
 
 assert.equal(
   defaultRunActivityTitle(directInlineSummary as any),
-  "Drafting the direct answer",
+  "Thinking",
 );
 
 assert.equal(
   defaultRunActivityDetail(directInlineSummary as any),
-  "Answering inline and only widening the route if outside data becomes necessary.",
+  "Drafting the answer inline.",
 );
 
 assert.equal(
@@ -96,6 +97,14 @@ assert.equal(
     researchSummary as any,
   ),
   "Reading Reuters coverage for confirmation.",
+);
+
+assert.equal(
+  runtimeExecutionFailureDetail({
+    current_step:
+      "Executed system::invalid_tool_call: ERROR_CLASS=UnexpectedState Failed to parse tool call",
+  } as any),
+  "Executed system::invalid_tool_call: ERROR_CLASS=UnexpectedState Failed to parse tool call",
 );
 
 console.log("runtimeStatusCopy.test.ts: ok");

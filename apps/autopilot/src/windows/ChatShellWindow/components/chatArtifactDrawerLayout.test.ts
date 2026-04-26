@@ -18,14 +18,14 @@ assert.match(
 
 assert.match(
   studioSurfaceSource,
-  /\.spot-chat-conversation-shell-item\s*\{\s*grid-column:\s*1;\s*grid-row:\s*1;/,
-  "conversation shell item should stay pinned to the first grid cell",
+  /\.spot-chat-conversation-shell-item\s*\{\s*grid-column:\s*2;\s*grid-row:\s*1;/,
+  "conversation shell item should stay pinned to the second grid cell after the chat session rail",
 );
 
 assert.match(
   studioSurfaceSource,
-  /\.spot-chat-artifact-drawer\s*\{\s*grid-row:\s*1;\s*grid-column:\s*2;/,
-  "artifact drawer should stay pinned to the second grid column instead of creating implicit rows",
+  /\.spot-chat-artifact-drawer\s*\{\s*grid-row:\s*1;\s*grid-column:\s*3;/,
+  "artifact drawer should stay pinned to the third grid column instead of creating implicit rows",
 );
 
 console.log("studioArtifactDrawerLayout.test.ts: ok");

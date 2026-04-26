@@ -8,7 +8,6 @@ import type {
 } from "../../../types";
 import type { ChatPlaybookRunRecord } from "../../ChatShellWindow/hooks/useChatPlaybookRuns";
 import { buildTaskDelegationOverview } from "./artifactHubTaskGraphModel";
-import { ExecutionRouteCard } from "./ExecutionRouteCard";
 import { LivePlaybookRunsSection } from "./LivePlaybookRunsSection";
 import { ChatGateDock } from "../../ChatShellWindow/components/ChatGateDock";
 import {
@@ -31,13 +30,61 @@ export function PlanView({
     );
   }
 
+  const routeLabel =
+    planSummary.routeDecision?.selectedProviderRouteLabel ||
+    planSummary.selectedRoute ||
+    planSummary.routeFamily;
+  const outputLabel =
+    planSummary.routeDecision?.outputIntent?.replace(/[_-]+/g, " ") ||
+    "direct response";
+  const workerLabel = planSummary.activeWorkerLabel || "Autopilot";
+  const verifierLabel =
+    planSummary.verifierOutcome ||
+    (planSummary.verifierState === "not_engaged" ? null : planSummary.verifierState);
+  const rows = [
+    {
+      label: "Route",
+      value: `${routeLabel} · ${outputLabel}`,
+    },
+    {
+      label: "Worker",
+      value: `${workerLabel}${
+        planSummary.topology && planSummary.topology !== "single_agent"
+          ? ` · ${planSummary.topology.replace(/[_-]+/g, " ")}`
+          : ""
+      }`,
+    },
+    (planSummary.progressSummary || planSummary.prepSummary)
+      ? {
+          label: "Plan note",
+          value: planSummary.progressSummary || planSummary.prepSummary || "",
+        }
+      : null,
+    verifierLabel
+      ? {
+          label: "Verify",
+          value: verifierLabel.replace(/[_-]+/g, " "),
+        }
+      : null,
+  ].filter(Boolean) as Array<{ label: string; value: string }>;
+
   return (
-    <div className="artifact-hub-plan">
-      <ExecutionRouteCard summary={planSummary} />
-      <p className="artifact-hub-empty">
-        Use Workers, Evidence, Verification, and Raw trace to drill into the
-        selected route.
-      </p>
+    <div className="artifact-hub-plan artifact-hub-plan--thoughts">
+      <section className="thoughts-section">
+        <div className="thoughts-agent-header">
+          <span className="thoughts-agent-dot" />
+          <span className="thoughts-agent-name">Autopilot</span>
+          <span className="thoughts-agent-role">Plan</span>
+        </div>
+        <div className="thoughts-notes">
+          {rows.map((row) => (
+            <div className="thoughts-note" key={row.label}>
+              <strong>{row.label}</strong>
+              <span>{row.value}</span>
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }

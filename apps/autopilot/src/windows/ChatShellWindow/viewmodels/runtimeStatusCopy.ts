@@ -28,6 +28,26 @@ function normalizedLookup(value: string | null | undefined): string {
   return (value || "").trim().toLowerCase();
 }
 
+export function runtimeExecutionFailureDetail(
+  task: AgentTask | null | undefined,
+): string | null {
+  const currentStep = normalizedText(task?.current_step);
+  if (!currentStep) {
+    return null;
+  }
+
+  const normalized = normalizedLookup(currentStep);
+  if (
+    normalized.includes("error_class=") ||
+    normalized.includes("failed to parse tool call") ||
+    normalized.includes("invalid_tool_call")
+  ) {
+    return currentStep;
+  }
+
+  return null;
+}
+
 function projectedToolSet(summary: PlanSummary | null | undefined): Set<string> {
   const surface = summary?.routeDecision?.effectiveToolSurface;
   const entries = [
@@ -77,11 +97,11 @@ export function defaultRunActivityTitle(
   const decision = routeDecision(summary);
 
   if (decision?.directAnswerAllowed && decision.outputIntent === "direct_inline") {
-    return "Drafting the direct answer";
+    return "Thinking";
   }
 
   if (decision?.artifactOutputIntent || decision?.outputIntent === "artifact") {
-    return "Preparing your artifact";
+    return "Working on the artifact";
   }
 
   if (decision?.fileOutputIntent || decision?.outputIntent === "file") {
@@ -116,11 +136,11 @@ export function defaultRunActivityTitle(
     case "computer_use":
       return "Working in the current app";
     case "artifacts":
-      return "Preparing your artifact";
+      return "Working on the artifact";
     case "general":
-      return "Runtime timeline active";
+      return "Thinking";
     default:
-      return "Runtime timeline active";
+      return "Thinking";
   }
 }
 
@@ -138,7 +158,7 @@ export function defaultRunActivityDetail(
   }
 
   if (decision?.artifactOutputIntent || decision?.outputIntent === "artifact") {
-    return "Shaping the requested artifact surface before presenting it.";
+    return "Shaping the requested artifact before presenting it.";
   }
 
   if (decision?.fileOutputIntent || decision?.outputIntent === "file") {
@@ -150,7 +170,7 @@ export function defaultRunActivityDetail(
   }
 
   if (decision?.directAnswerAllowed && decision.outputIntent === "direct_inline") {
-    return "Answering inline and only widening the route if outside data becomes necessary.";
+    return "Drafting the answer inline.";
   }
 
   if (
@@ -194,10 +214,10 @@ export function defaultRunActivityDetail(
   }
 
   if (summary?.routeFamily === "artifacts") {
-    return "Preparing the next usable surface before presenting it.";
+    return "Shaping the requested artifact before presenting it.";
   }
 
-  return "Preparing the next usable answer.";
+  return "Drafting the answer inline.";
 }
 
 export function operatorFacingCurrentStep(

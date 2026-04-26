@@ -252,7 +252,7 @@ impl ChatArtifactRenderEvaluation {
             && self
                 .findings
                 .iter()
-                .all(|finding| finding.severity == ChatArtifactRenderFindingSeverity::Info)
+                .all(|finding| finding.severity != ChatArtifactRenderFindingSeverity::Blocked)
             && self.overall_score >= self.primary_view_score_threshold()
     }
 }

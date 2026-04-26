@@ -1,6 +1,7 @@
 use super::*;
 use crate::chat::payload::{
-    extract_authored_document_body, renderer_primary_view_contract_failure,
+    extract_authored_document_body, renderer_document_completeness_failure,
+    renderer_primary_view_contract_failure,
     synthesize_generated_artifact_payload_from_raw_document,
 };
 use ioi_types::error::VmError;
@@ -275,6 +276,22 @@ mod tests {
         }
     }
 
+    fn sample_brief() -> ChatArtifactBrief {
+        ChatArtifactBrief {
+            audience: "General users".to_string(),
+            job_to_be_done: "Explain the requested concept.".to_string(),
+            subject_domain: "Education".to_string(),
+            artifact_thesis: "A compact explanatory artifact.".to_string(),
+            required_concepts: vec!["Quantum computers".to_string()],
+            required_interactions: Vec::new(),
+            query_profile: None,
+            visual_tone: Vec::new(),
+            factual_anchors: Vec::new(),
+            style_directives: Vec::new(),
+            reference_hints: Vec::new(),
+        }
+    }
+
     #[test]
     fn local_document_html_with_boundary_skips_continuation() {
         let request = sample_html_document_request();
@@ -303,6 +320,155 @@ mod tests {
             error,
         ));
     }
+
+    #[test]
+    fn local_interactive_html_closed_main_settles_without_full_html_stop() {
+        let mut request = sample_html_document_request();
+        request.artifact_class = ChatArtifactClass::InteractiveSingleFile;
+        let raw = r#"<!doctype html><html><body><main>
+          <section><h1>Quantum computers</h1><p>Compare qubits, gates, and measurement.</p></section>
+          <section><h2>Explore</h2><p id="detail-content">Use this authored response region to explain the selected quantum idea, including how superposition keeps a qubit in a blend of possible outcomes until measurement, how gates rotate that state, and why a small interaction can still be added by repair if the first local stream stopped after the visible main region. The important runtime behavior is that a clearly closed, request-shaped main document should not keep the user staring at Stop while the model waits for a final html token that may never arrive. This paragraph intentionally keeps the stream substantial enough to represent the local model artifact observed in the GUI probe.</p><p>The runtime can normalize the terminal body and html tags after the stream settles, then pass the document through the usual validation and repair path.</p></section>
+        </main>"#;
+
+        assert!(
+            direct_author_stream_settle_snapshot(&request, raw).is_some(),
+            "a closed, complete-enough <main> stream should settle instead of holding the Stop state open until </html>"
+        );
+    }
+
+    #[test]
+    fn local_interactive_html_closed_main_ignores_trailing_script_start_for_stream_settle() {
+        let mut request = sample_html_document_request();
+        request.artifact_class = ChatArtifactClass::InteractiveSingleFile;
+        let raw = r#"<!doctype html><html><body><main>
+          <section><h1>Understanding quantum computers</h1><p>Qubits, gates, superposition, and measurement are introduced with enough authored copy to preview the artifact.</p></section>
+          <section><h2>Explore</h2><p id="detail-content">This visible response region is populated before script repair. It explains how qubits keep probability amplitudes, how gates transform state, and how measurement collapses a distribution into a classical result. The authored copy is already substantial enough for a first preview, and a local repair pass can still add controls or rescue script wiring after the stream settles. That is the important behavior for desktop local GPU runs: the chat UI should not keep showing Stop only because the model began a trailing script tag after completing the visible main artifact.</p></section>
+        </main>
+
+        <script>"#;
+
+        let settled = direct_author_stream_settle_snapshot(&request, raw)
+            .expect("closed main should settle even when the stream already started a script tag");
+
+        assert!(
+            settled.ends_with("</body></html>"),
+            "settled snapshot should normalize terminal body/html closure: {settled}"
+        );
+        assert!(
+            !settled.to_ascii_lowercase().contains("<script"),
+            "settled snapshot should drop the unfinished script fragment: {settled}"
+        );
+    }
+
+    #[test]
+    fn local_interactive_html_salvage_prefers_renderable_main_over_partial_script() {
+        let mut request = sample_html_document_request();
+        request.artifact_class = ChatArtifactClass::InteractiveSingleFile;
+        let raw = r#"<!doctype html><html><body><main>
+          <section><h1>Quantum computer playground</h1><p>Explore qubits, gates, amplitudes, and measurement with a visible first paint.</p></section>
+          <section><h2>Live evidence</h2><p id="feedback-text">The response region already explains that measuring a qubit collapses probability amplitudes into one classical state, while gates transform the probability distribution before measurement. This is enough authored content for a safe local preview.</p></section>
+        </main>
+        <div class="overlay" id="overlay"><div class="modal"><p id="overlay-text">Select a tab to learn more.</p></div></div>
+        <script>
+          const content = {
+            intro: {
+              heading: "What is a Qubit?",
+              text: `Classical computers use bits that are either 0 or 1.<br/>A qubit is a quantum"#;
+
+        let salvaged = salvage_interrupted_direct_author_document(&request, raw);
+
+        assert!(
+            salvaged.ends_with("</body></html>"),
+            "salvage should normalize a closed renderable prefix: {salvaged}"
+        );
+        assert!(
+            !salvaged.to_ascii_lowercase().contains("<script"),
+            "salvage should discard the unfinished script tail: {salvaged}"
+        );
+        assert!(
+            !direct_author_document_is_incomplete(&request, &salvaged, ""),
+            "salvaged prefix should be structurally complete enough for validation/repair"
+        );
+    }
+
+    #[test]
+    fn local_interactive_html_raw_document_accepts_without_semantic_repair_heuristics() {
+        let mut request = sample_html_document_request();
+        request.artifact_class = ChatArtifactClass::InteractiveSingleFile;
+        let raw = r#"<!doctype html><html><body><main>
+          <section><h1>Quantum computer playground</h1><p>Explore qubits, gates, amplitudes, and measurement with a compact authored surface.</p></section>
+        </main></body></html>"#;
+
+        let generated =
+            parse_direct_author_generated_candidate(raw, &request, &sample_brief(), None, "clean")
+                .expect(
+                    "raw direct-author HTML should package without interaction-count heuristics",
+                );
+        let body = &generated.files[0].body;
+
+        assert!(body.contains("Quantum computer playground"));
+        assert!(
+            !body.contains("data-ioi-local-rescue"),
+            "clean direct-author mode must not inject local heuristic rescue wiring"
+        );
+        assert!(generated
+            .notes
+            .iter()
+            .any(|note| note.contains("without semantic repair heuristics")));
+    }
+
+    #[test]
+    fn local_interactive_html_direct_author_budget_allows_structural_completion() {
+        let mut request = sample_html_document_request();
+        request.artifact_class = ChatArtifactClass::InteractiveSingleFile;
+
+        assert_eq!(
+            materialization_max_tokens_for_execution_strategy(
+                request.renderer,
+                ChatExecutionStrategy::DirectAuthor,
+                ChatRuntimeProvenanceKind::RealLocalRuntime,
+            ),
+            3600
+        );
+        assert_eq!(
+            direct_author_stream_timeout_for_request(
+                &request,
+                ChatRuntimeProvenanceKind::RealLocalRuntime,
+            ),
+            Some(Duration::from_secs(220))
+        );
+    }
+
+    #[test]
+    fn local_interactive_html_prefers_complete_stream_buffer_over_return_buffer() {
+        let mut request = sample_html_document_request();
+        request.artifact_class = ChatArtifactClass::InteractiveSingleFile;
+        let returned_raw =
+            "<!doctype html><html><body><main><section><h1>Quantum</h1><p>unfinished";
+        let streamed_raw = r#"<!doctype html><html><body><main>
+          <section><h1>Quantum computers</h1><p>Explore qubits, gates, amplitudes, and measurement.</p></section>
+        </main></body></html>"#;
+
+        let candidates =
+            direct_author_raw_document_parse_candidates(&request, returned_raw, streamed_raw);
+
+        assert!(
+            candidates
+                .iter()
+                .any(|candidate| candidate.contains("</main></body></html>")),
+            "stream collector should remain available as a raw structural candidate"
+        );
+        assert!(candidates.iter().any(|candidate| {
+            parse_direct_author_generated_candidate(
+                candidate,
+                &request,
+                &sample_brief(),
+                None,
+                "stream",
+            )
+            .is_ok()
+        }));
+    }
 }
 
 fn direct_author_has_stream_settle_boundary(
@@ -311,16 +477,8 @@ fn direct_author_has_stream_settle_boundary(
 ) -> bool {
     match request.renderer {
         ChatRendererKind::HtmlIframe => {
-            let lower = raw.to_ascii_lowercase();
-            lower.contains("</body>")
-                || lower.contains("</html>")
-                || (lower.contains("</main>")
-                    && count_html_nonempty_sectioning_elements(&lower) >= 2
-                    && count_html_actionable_affordances(&lower) >= 1
-                    && (request.artifact_class != ChatArtifactClass::InteractiveSingleFile
-                        || contains_html_interaction_hooks(&lower)
-                        || count_populated_html_detail_regions(&lower) >= 1
-                        || count_populated_html_response_regions(&lower) >= 1))
+            let normalized = normalize_html_terminal_closure(raw);
+            !direct_author_document_is_incomplete(request, &normalized, "")
         }
         _ => direct_author_has_completion_boundary(request, raw),
     }
@@ -340,10 +498,9 @@ fn direct_author_renderable_html_prefix(
             continue;
         };
         let candidate = raw[..index + boundary.len()].trim_end();
-        if direct_author_has_stream_settle_boundary(request, candidate)
-            && !direct_author_document_is_incomplete(request, candidate, "")
-        {
-            return Some(candidate.to_string());
+        let normalized_candidate = normalize_html_terminal_closure(candidate);
+        if !direct_author_document_is_incomplete(request, &normalized_candidate, "") {
+            return Some(normalized_candidate);
         }
     }
 
@@ -1080,11 +1237,11 @@ fn direct_author_stream_timeout_for_request(
     }
 
     match request.renderer {
-        ChatRendererKind::HtmlIframe => Some(Duration::from_secs(150)),
-        ChatRendererKind::Markdown
-        | ChatRendererKind::Mermaid
-        | ChatRendererKind::Svg
-        | ChatRendererKind::PdfEmbed => Some(Duration::from_secs(30)),
+        ChatRendererKind::HtmlIframe => Some(Duration::from_secs(220)),
+        ChatRendererKind::Svg => Some(Duration::from_secs(90)),
+        ChatRendererKind::Markdown | ChatRendererKind::Mermaid | ChatRendererKind::PdfEmbed => {
+            Some(Duration::from_secs(30))
+        }
         _ => None,
     }
 }
@@ -1134,14 +1291,18 @@ fn direct_author_follow_up_timeout_for_request(
         } else {
             Duration::from_secs(90)
         }),
-        ChatRendererKind::Markdown
-        | ChatRendererKind::Mermaid
-        | ChatRendererKind::Svg
-        | ChatRendererKind::PdfEmbed => Some(if local_runtime {
-            Duration::from_secs(15)
+        ChatRendererKind::Svg => Some(if local_runtime {
+            Duration::from_secs(45)
         } else {
-            Duration::from_secs(30)
+            Duration::from_secs(60)
         }),
+        ChatRendererKind::Markdown | ChatRendererKind::Mermaid | ChatRendererKind::PdfEmbed => {
+            Some(if local_runtime {
+                Duration::from_secs(15)
+            } else {
+                Duration::from_secs(30)
+            })
+        }
         _ => Some(if local_runtime {
             Duration::from_secs(20)
         } else {
@@ -1251,18 +1412,14 @@ fn materialization_timeout_for_request(
     match (request.renderer, follow_up) {
         (ChatRendererKind::HtmlIframe, true) => Some(Duration::from_secs(45)),
         (ChatRendererKind::HtmlIframe, false) => Some(Duration::from_secs(90)),
+        (ChatRendererKind::Svg, true) => Some(Duration::from_secs(45)),
+        (ChatRendererKind::Svg, false) => Some(Duration::from_secs(75)),
         (
-            ChatRendererKind::Markdown
-            | ChatRendererKind::Mermaid
-            | ChatRendererKind::Svg
-            | ChatRendererKind::PdfEmbed,
+            ChatRendererKind::Markdown | ChatRendererKind::Mermaid | ChatRendererKind::PdfEmbed,
             true,
         ) => Some(Duration::from_secs(15)),
         (
-            ChatRendererKind::Markdown
-            | ChatRendererKind::Mermaid
-            | ChatRendererKind::Svg
-            | ChatRendererKind::PdfEmbed,
+            ChatRendererKind::Markdown | ChatRendererKind::Mermaid | ChatRendererKind::PdfEmbed,
             false,
         ) => Some(Duration::from_secs(25)),
         (_, true) => Some(Duration::from_secs(20)),
@@ -1552,12 +1709,16 @@ fn direct_author_follow_up_prefers_raw_output(
 }
 
 fn salvage_interrupted_direct_author_document(
-    _request: &ChatOutcomeArtifactRequest,
+    request: &ChatOutcomeArtifactRequest,
     raw: &str,
 ) -> String {
     let trimmed = raw.trim_end();
     if trimmed.is_empty() {
         return String::new();
+    }
+
+    if let Some(settled) = direct_author_stream_settle_snapshot(request, trimmed) {
+        return settled.trim_end().to_string();
     }
 
     let candidate = match trimmed.rfind('>') {
@@ -1665,6 +1826,10 @@ fn parse_direct_author_generated_candidate(
     edit_intent: Option<&ChatArtifactEditIntent>,
     candidate_id: &str,
 ) -> Result<ChatGeneratedArtifactPayload, ChatCandidateMaterializationError> {
+    if direct_author_uses_raw_document(request) {
+        return parse_direct_author_raw_document_candidate(raw, request, candidate_id);
+    }
+
     let mut generated = match super::parse_and_validate_generated_artifact_payload(raw, request) {
         Ok(generated) => generated,
         Err(error)
@@ -1723,6 +1888,129 @@ fn parse_direct_author_generated_candidate(
         });
     }
     Ok(generated)
+}
+
+fn parse_direct_author_raw_document_candidate(
+    raw: &str,
+    request: &ChatOutcomeArtifactRequest,
+    candidate_id: &str,
+) -> Result<ChatGeneratedArtifactPayload, ChatCandidateMaterializationError> {
+    let document = direct_author_stream_settle_snapshot(request, raw).unwrap_or_else(|| {
+        if request.renderer == ChatRendererKind::HtmlIframe {
+            normalize_html_terminal_closure(raw)
+        } else {
+            raw.trim().to_string()
+        }
+    });
+
+    let mut generated = synthesize_generated_artifact_payload_from_raw_document(&document, request)
+        .ok_or_else(|| ChatCandidateMaterializationError {
+            message: "Chat direct-author raw document output could not be packaged as an artifact"
+                .to_string(),
+            raw_output_preview: truncate_candidate_failure_preview(&document, 2000),
+        })?;
+
+    validate_direct_author_raw_document_payload(&generated, request).map_err(|message| {
+        ChatCandidateMaterializationError {
+            message,
+            raw_output_preview: truncate_candidate_failure_preview(&document, 2000),
+        }
+    })?;
+    generated.notes.push(
+        "accepted clean direct-author raw document without semantic repair heuristics".to_string(),
+    );
+    trace_html_contract_state(
+        "artifact_generation:direct_author_raw_document_accept",
+        request,
+        candidate_id,
+        &generated,
+    );
+    Ok(generated)
+}
+
+fn direct_author_raw_document_parse_candidates(
+    request: &ChatOutcomeArtifactRequest,
+    returned_raw: &str,
+    streamed_raw: &str,
+) -> Vec<String> {
+    let mut candidates = Vec::<String>::new();
+    for raw in [returned_raw, streamed_raw] {
+        let trimmed = raw.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let salvaged = salvage_interrupted_direct_author_document(request, trimmed);
+        for candidate in [salvaged, trimmed.to_string()] {
+            if candidate.trim().is_empty() {
+                continue;
+            }
+            if !candidates.iter().any(|existing| existing == &candidate) {
+                candidates.push(candidate);
+            }
+        }
+    }
+    candidates
+}
+
+fn validate_direct_author_raw_document_payload(
+    payload: &ChatGeneratedArtifactPayload,
+    request: &ChatOutcomeArtifactRequest,
+) -> Result<(), String> {
+    let primary_file = payload
+        .files
+        .iter()
+        .find(|file| {
+            matches!(
+                file.role,
+                ChatArtifactFileRole::Primary | ChatArtifactFileRole::Export
+            )
+        })
+        .ok_or_else(|| "Direct-author artifact must include a primary file.".to_string())?;
+
+    if primary_file.body.trim().is_empty() {
+        return Err("Direct-author artifact primary file is empty.".to_string());
+    }
+
+    match request.renderer {
+        ChatRendererKind::HtmlIframe => {
+            if primary_file.mime != "text/html" || !primary_file.path.ends_with(".html") {
+                return Err("Direct-author HTML artifact must package an .html file.".to_string());
+            }
+            let html = primary_file.body.as_str();
+            let lower = html.to_ascii_lowercase();
+            if !(lower.contains("<html") || lower.contains("<!doctype html")) {
+                return Err(
+                    "Direct-author HTML artifact must contain an HTML document.".to_string()
+                );
+            }
+            if let Some(failure) =
+                renderer_document_completeness_failure(request.renderer, html, &lower)
+            {
+                return Err(failure.to_string());
+            }
+        }
+        ChatRendererKind::Svg => {
+            if primary_file.mime != "image/svg+xml" || !primary_file.path.ends_with(".svg") {
+                return Err("Direct-author SVG artifact must package an .svg file.".to_string());
+            }
+            let svg = primary_file.body.as_str();
+            let lower = svg.to_ascii_lowercase();
+            if !lower.contains("<svg") {
+                return Err(
+                    "Direct-author SVG artifact must contain an <svg> document.".to_string()
+                );
+            }
+            if let Some(failure) =
+                renderer_document_completeness_failure(request.renderer, svg, &lower)
+            {
+                return Err(failure.to_string());
+            }
+        }
+        ChatRendererKind::Markdown | ChatRendererKind::Mermaid | ChatRendererKind::PdfEmbed => {}
+        _ => {}
+    }
+
+    Ok(())
 }
 
 fn parse_direct_author_provisional_candidate_from_snapshot(
@@ -2520,6 +2808,54 @@ pub(crate) async fn materialize_chat_artifact_candidate_with_runtime_direct_auth
             Ok(generated)
         }
         Err(first_error) => {
+            if returns_raw_document {
+                let mut latest_error = first_error;
+                let mut latest_raw = raw.clone();
+                for candidate_raw in
+                    direct_author_raw_document_parse_candidates(request, &raw, &streamed_preview)
+                {
+                    match parse_candidate(&candidate_raw) {
+                        Ok(generated) => {
+                            emit_direct_author_live_preview(
+                                live_preview_observer.as_ref(),
+                                &preview_id,
+                                &preview_label,
+                                &preview_language,
+                                if recovered_from_partial_stream {
+                                    "recovered"
+                                } else {
+                                    "completed"
+                                },
+                                &candidate_raw,
+                                true,
+                            );
+                            return Ok(generated);
+                        }
+                        Err(error) => {
+                            latest_error = error;
+                            latest_raw = candidate_raw;
+                        }
+                    }
+                }
+
+                emit_direct_author_live_preview(
+                    live_preview_observer.as_ref(),
+                    &preview_id,
+                    &preview_label,
+                    &preview_language,
+                    "failed",
+                    &latest_raw,
+                    true,
+                );
+                return Err(ChatCandidateMaterializationError {
+                    message: format!(
+                        "Chat direct-author raw document output was not structurally complete: {}",
+                        latest_error.message
+                    ),
+                    raw_output_preview: truncate_candidate_failure_preview(&latest_raw, 2000),
+                });
+            }
+
             let mut latest_error = if let Some(inference_error) = inference_error_message {
                 format!("{inference_error}; {}", first_error.message)
             } else {

@@ -779,8 +779,14 @@ pub fn derive_request_grounded_chat_artifact_brief(
     request: &ChatOutcomeArtifactRequest,
     refinement: Option<&ChatArtifactRefinementContext>,
 ) -> ChatArtifactBrief {
-    let subject_domain = request_grounded_subject_domain(title, intent);
-    let primary_anchor = request_grounded_primary_anchor(title, &subject_domain);
+    let user_intent = extract_user_request_from_contextualized_intent(intent);
+    let title_seed = if title.trim().starts_with("[Codebase context]") {
+        user_intent.as_str()
+    } else {
+        title
+    };
+    let subject_domain = request_grounded_subject_domain(title_seed, &user_intent);
+    let primary_anchor = request_grounded_primary_anchor(title_seed, &subject_domain);
     let mut factual_anchors =
         canonicalize_brief_list(vec![primary_anchor, format!("{subject_domain} examples")]);
     if let Some(refinement) = refinement {
@@ -810,7 +816,7 @@ pub fn derive_request_grounded_chat_artifact_brief(
     let brief = ChatArtifactBrief {
         audience: derive_brief_audience(request, &subject_domain)
             .unwrap_or_else(|| "people exploring the request".to_string()),
-        job_to_be_done: request_grounded_job_to_be_done(request, &subject_domain, intent),
+        job_to_be_done: request_grounded_job_to_be_done(request, &subject_domain, &user_intent),
         subject_domain: subject_domain.clone(),
         artifact_thesis: match request.renderer {
             ChatRendererKind::HtmlIframe => {

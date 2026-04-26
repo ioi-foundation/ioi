@@ -53,6 +53,7 @@ pub fn build_chat_artifact_render_acceptance_policy(
             .map(|blueprint| blueprint.acceptance_targets.minimum_section_count as usize)
             .unwrap_or(1)
             .max(1),
+        ChatRendererKind::Svg | ChatRendererKind::Mermaid => 1,
         _ => blueprint
             .map(|blueprint| blueprint.acceptance_targets.minimum_section_count as usize)
             .unwrap_or(3)
@@ -100,6 +101,7 @@ pub fn build_chat_artifact_render_acceptance_policy(
         blocked_score_threshold: 9,
         primary_view_score_threshold: match request.renderer {
             ChatRendererKind::Markdown | ChatRendererKind::PdfEmbed => 15,
+            ChatRendererKind::Svg | ChatRendererKind::Mermaid => 11,
             _ => 18,
         },
         require_primary_region: matches!(
@@ -298,6 +300,11 @@ pub fn merge_chat_artifact_render_evaluation_into_validation(
             validation.classification = ChatArtifactValidationStatus::Repairable;
         }
         if warning_only_primary_ready {
+            promote_static_visual_validation_if_contract_cleared(
+                request,
+                &mut validation,
+                render_evaluation,
+            );
             validation.deserves_primary_artifact_view = true;
         } else {
             validation.deserves_primary_artifact_view &=
@@ -364,10 +371,62 @@ fn render_blocking_finding_is_advisory_for_request(
     request: &ChatOutcomeArtifactRequest,
     finding: &ChatArtifactRenderFinding,
 ) -> bool {
-    matches!(
+    match request.renderer {
+        ChatRendererKind::Markdown | ChatRendererKind::PdfEmbed => {
+            finding.code == "typography_contrast_low"
+        }
+        ChatRendererKind::Svg | ChatRendererKind::Mermaid => {
+            finding.code == "blueprint_consistency_low"
+        }
+        _ => false,
+    }
+}
+
+fn promote_static_visual_validation_if_contract_cleared(
+    request: &ChatOutcomeArtifactRequest,
+    validation: &mut ChatArtifactValidationResult,
+    render_evaluation: &ChatArtifactRenderEvaluation,
+) {
+    if !matches!(
         request.renderer,
-        ChatRendererKind::Markdown | ChatRendererKind::PdfEmbed
-    ) && finding.code == "typography_contrast_low"
+        ChatRendererKind::Svg | ChatRendererKind::Mermaid
+    ) {
+        return;
+    }
+    if validation.generic_shell_detected
+        || validation.trivial_shell_detected
+        || validation.request_faithfulness < 3
+        || validation.concept_coverage < 3
+        || !render_evaluation.first_paint_captured
+        || render_evaluation.has_failed_required_obligations()
+        || render_evaluation.overall_score < render_evaluation.primary_view_score_threshold()
+    {
+        return;
+    }
+
+    let advisory_summaries = render_evaluation
+        .findings
+        .iter()
+        .filter(|finding| {
+            finding.severity != ChatArtifactRenderFindingSeverity::Blocked
+                || render_blocking_finding_is_advisory_for_request(request, finding)
+        })
+        .map(|finding| finding.summary.clone())
+        .collect::<Vec<_>>();
+
+    validation
+        .blocked_reasons
+        .retain(|reason| !advisory_summaries.iter().any(|summary| summary == reason));
+    if validation.blocked_reasons.is_empty() {
+        validation.classification = ChatArtifactValidationStatus::Pass;
+        validation.strongest_contradiction = None;
+        if matches!(
+            validation.recommended_next_pass.as_deref(),
+            None | Some("accept") | Some("structural_repair")
+        ) {
+            validation.recommended_next_pass = Some("polish_pass".to_string());
+        }
+    }
 }
 
 fn average_u8(left: u8, right: u8) -> u8 {

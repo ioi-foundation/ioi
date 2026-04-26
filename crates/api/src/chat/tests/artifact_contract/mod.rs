@@ -1275,6 +1275,99 @@ fn markdown_render_acceptance_policy_uses_document_thresholds() {
 }
 
 #[test]
+fn svg_render_acceptance_policy_allows_single_static_visual_surface() {
+    let request = request_for(ChatArtifactClass::Visual, ChatRendererKind::Svg);
+    let brief = derive_request_grounded_chat_artifact_brief(
+        "Create an SVG runtime flow diagram",
+        "Create an SVG artifact of a simple runtime flow diagram with labels: Intent, Policy, Tool, Evidence, Final.",
+        &request,
+        None,
+    );
+    let blueprint = derive_chat_artifact_blueprint(&request, &brief);
+    let artifact_ir = compile_chat_artifact_ir(&request, &brief, &blueprint);
+    let policy = build_chat_artifact_render_acceptance_policy(
+        &request,
+        &brief,
+        Some(&blueprint),
+        Some(&artifact_ir),
+    );
+
+    assert_eq!(policy.minimum_semantic_regions, 1);
+    assert_eq!(policy.minimum_actionable_affordances, 0);
+    assert_eq!(policy.primary_view_score_threshold, 11);
+}
+
+#[test]
+fn svg_render_eval_promotes_advisory_static_visual_findings_after_contract_clears() {
+    let request = request_for(ChatArtifactClass::Visual, ChatRendererKind::Svg);
+    let mut validation = chat_test_validation(
+        ChatArtifactValidationStatus::Repairable,
+        false,
+        3,
+        3,
+        3,
+        1,
+        1,
+        1,
+    );
+    validation.recommended_next_pass = Some("structural_repair".to_string());
+    validation.strongest_contradiction = Some(
+        "The captured render does not satisfy enough of the typed blueprint and interaction contract."
+            .to_string(),
+    );
+    validation.blocked_reasons = vec![
+        "The captured render does not satisfy enough of the typed blueprint and interaction contract."
+            .to_string(),
+    ];
+
+    let mut render_evaluation = chat_test_render_evaluation(
+        11,
+        true,
+        vec![
+            ChatArtifactRenderFinding {
+                code: "layout_density_low".to_string(),
+                severity: ChatArtifactRenderFindingSeverity::Warning,
+                summary: "The first paint stays too sparse across captured viewports to qualify as a strong surfaced artifact."
+                    .to_string(),
+            },
+            ChatArtifactRenderFinding {
+                code: "blueprint_consistency_low".to_string(),
+                severity: ChatArtifactRenderFindingSeverity::Blocked,
+                summary: "The captured render does not satisfy enough of the typed blueprint and interaction contract."
+                    .to_string(),
+            },
+        ],
+        vec![
+            chat_test_render_capture(ChatArtifactRenderCaptureViewport::Desktop, 2, 54, 0),
+            chat_test_render_capture(ChatArtifactRenderCaptureViewport::Mobile, 2, 54, 0),
+        ],
+    );
+    render_evaluation.acceptance_policy = Some(ChatArtifactRenderAcceptancePolicy {
+        mode: ChatArtifactRenderPolicyMode::Balanced,
+        minimum_first_paint_text_chars: 24,
+        minimum_semantic_regions: 1,
+        minimum_evidence_surfaces: 1,
+        minimum_actionable_affordances: 0,
+        blocked_score_threshold: 9,
+        primary_view_score_threshold: 11,
+        require_primary_region: false,
+        require_response_region_when_interactive: false,
+        require_state_change_when_interactive: false,
+    });
+
+    let merged = merge_chat_artifact_render_evaluation_into_validation(
+        &request,
+        validation,
+        Some(&render_evaluation),
+    );
+
+    assert_eq!(merged.classification, ChatArtifactValidationStatus::Pass);
+    assert!(merged.deserves_primary_artifact_view);
+    assert_eq!(merged.recommended_next_pass.as_deref(), Some("polish_pass"));
+    assert!(merged.blocked_reasons.is_empty());
+}
+
+#[test]
 fn interactive_html_render_acceptance_policy_scales_actionable_threshold_with_goal_count() {
     let request = request_for(
         ChatArtifactClass::InteractiveSingleFile,

@@ -20,6 +20,7 @@ import {
   defaultRunActivityDetail,
   defaultRunActivityTitle,
   operatorFacingCurrentStep,
+  runtimeExecutionFailureDetail,
 } from "../../ChatShellWindow/viewmodels/runtimeStatusCopy";
 import type {
   AgentEvent,
@@ -59,6 +60,15 @@ export type ChatStatusCardState = {
 
 type ChatStatusPreview = NonNullable<ChatStatusCardState>["livePreview"];
 
+function looksLikeSettledHtmlTokenStream(content: string): boolean {
+  const normalized = content.trim().toLowerCase();
+  if (!normalized.includes("<main") && !normalized.includes("<html")) {
+    return false;
+  }
+
+  return /<\/(?:main|body|html)>\s*$/.test(normalized);
+}
+
 function shouldDisplayArtifactStatusPreview(
   preview: ChatStatusPreview,
 ): boolean {
@@ -71,6 +81,12 @@ function shouldDisplayArtifactStatusPreview(
     normalizedKind === "token_stream" &&
     preview.isFinal &&
     (normalizedStatus === "completed" || normalizedStatus === "recovered")
+  ) {
+    return false;
+  }
+  if (
+    normalizedKind === "token_stream" &&
+    looksLikeSettledHtmlTokenStream(preview.content)
   ) {
     return false;
   }
@@ -493,6 +509,7 @@ export function useChatSurfaceState({
     const routeActivityDetail =
       operatorFacingCurrentStep(task, runPresentation.planSummary) ||
       defaultRunActivityDetail(runPresentation.planSummary);
+    const runtimeFailureDetail = runtimeExecutionFailureDetail(task);
 
     if (hasOperatorDecisionPrompt) {
       return null;
@@ -538,6 +555,15 @@ export function useChatSurfaceState({
       };
     }
 
+    if (task && isRunning && runtimeFailureDetail && !runPresentation.finalAnswer) {
+      return {
+        tone: "error",
+        title: "Tool call rejected",
+        detail: runtimeFailureDetail,
+        ...executionChrome,
+      };
+    }
+
     if (
       task &&
       isRunning &&
@@ -578,7 +604,7 @@ export function useChatSurfaceState({
         title:
           studioArtifactExpected || task.chat_session.outcomeRequest?.outcomeKind === "artifact"
             ? artifactThinkingTitle
-            : routeActivityTitle || outcomeLabel || "Runtime timeline active",
+            : routeActivityTitle || outcomeLabel || "Thinking",
         detail:
           studioArtifactExpected || task.chat_session.outcomeRequest?.outcomeKind === "artifact"
             ? artifactThinkingDetail

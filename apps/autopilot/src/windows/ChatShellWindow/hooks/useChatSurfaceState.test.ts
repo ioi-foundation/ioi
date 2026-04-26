@@ -20,6 +20,18 @@ assert.match(
 
 assert.match(
   hookSource,
+  /function looksLikeSettledHtmlTokenStream\(/,
+  "chat surface state should also collapse complete-looking direct-author HTML streams that finished at an HTML boundary before final task settlement",
+);
+
+assert.ok(
+  hookSource.includes("(?:main|body|html)") &&
+    hookSource.includes("looksLikeSettledHtmlTokenStream(preview.content)"),
+  "complete HTML boundary streams should not keep the inline status preview open after </main>, </body>, or </html>",
+);
+
+assert.match(
+  hookSource,
   /function selectArtifactStatusPreviews\(/,
   "chat surface state should centralize artifact preview precedence in one helper",
 );

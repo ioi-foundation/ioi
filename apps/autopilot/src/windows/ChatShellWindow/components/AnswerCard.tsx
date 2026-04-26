@@ -1,5 +1,4 @@
 import { useCallback, useMemo, useState } from "react";
-import type { ReactNode } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type {
   AnswerPresentation,
@@ -19,7 +18,6 @@ interface AnswerCardProps {
   onExportTraceBundle: () => Promise<void> | void;
   onOpenArtifacts?: () => void;
   onOpenSources?: (summary: SourceSummary) => void;
-  runtimeFacts?: ReactNode;
 }
 
 const MAX_CITATION_PILLS = 8;
@@ -67,7 +65,6 @@ export function AnswerCard({
   onExportTraceBundle,
   onOpenArtifacts,
   onOpenSources,
-  runtimeFacts = null,
 }: AnswerCardProps) {
   const [copied, setCopied] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -127,47 +124,7 @@ export function AnswerCard({
   const canOpenSources = !!sourceSummary && sourceSummary.totalSources > 0 && !!onOpenSources;
 
   return (
-    <section className="answer-card" aria-label="Final answer">
-      <div className="answer-card-header">
-        <div className="answer-card-title-wrap">
-          <div className="answer-card-eyebrow">Results</div>
-          <h3 className="answer-card-title">Autopilot</h3>
-        </div>
-        <div className="answer-card-actions">
-          <button
-            className={`answer-action-btn ${copied ? "success" : ""}`}
-            onClick={handleCopy}
-            title="Copy answer"
-            type="button"
-          >
-            {copied ? icons.check : icons.copy}
-            <span>{copied ? "Copied" : "Copy"}</span>
-          </button>
-          <button
-            className="answer-action-btn"
-            onClick={() => void handleDownload()}
-            type="button"
-            disabled={downloading}
-            title="Export canonical trace bundle"
-          >
-            {icons.code}
-            <span>{downloading ? "Exporting..." : "Export Trace"}</span>
-          </button>
-          <button
-            className="answer-action-btn"
-            onClick={handleOpenArtifacts}
-            type="button"
-            disabled={!onOpenArtifacts}
-            title="Open evidence drawer"
-          >
-            {icons.externalLink}
-            <span>Evidence</span>
-          </button>
-        </div>
-      </div>
-
-      {runtimeFacts}
-
+    <section className="answer-card answer-card--plain" aria-label="Final answer">
       <div className="answer-card-body">
         {contract ? (
           <div className="answer-contract">
@@ -317,6 +274,38 @@ export function AnswerCard({
           </button>
         </div>
       )}
+
+      <div className="answer-card-actions answer-card-actions--footer" aria-label="Answer actions">
+        <button
+          className={`answer-action-btn ${copied ? "success" : ""}`}
+          onClick={handleCopy}
+          title="Copy answer"
+          type="button"
+        >
+          {copied ? icons.check : icons.copy}
+          <span>{copied ? "Copied" : "Copy"}</span>
+        </button>
+        <button
+          className="answer-action-btn"
+          onClick={() => void handleDownload()}
+          type="button"
+          disabled={downloading}
+          title="Export canonical trace bundle"
+        >
+          {icons.code}
+          <span>{downloading ? "Exporting..." : "Export Trace"}</span>
+        </button>
+        <button
+          className="answer-action-btn"
+          onClick={handleOpenArtifacts}
+          type="button"
+          disabled={!onOpenArtifacts}
+          title="Open thoughts and evidence"
+        >
+          {icons.externalLink}
+          <span>Thoughts</span>
+        </button>
+      </div>
     </section>
   );
 }

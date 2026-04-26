@@ -240,6 +240,45 @@ fn request_grounded_html_document_brief_keeps_interactions_optional() {
 }
 
 #[test]
+fn request_grounded_artifact_brief_uses_user_request_inside_context_envelope() {
+    let request = ChatOutcomeArtifactRequest {
+        artifact_class: ChatArtifactClass::InteractiveSingleFile,
+        deliverable_shape: ChatArtifactDeliverableShape::SingleFile,
+        renderer: ChatRendererKind::HtmlIframe,
+        presentation_surface: ChatPresentationSurface::SidePanel,
+        persistence: ChatArtifactPersistenceMode::SharedArtifactScoped,
+        execution_substrate: ChatExecutionSubstrate::ClientSandbox,
+        workspace_recipe_id: None,
+        presentation_variant_id: None,
+        scope: ChatOutcomeArtifactScope {
+            target_project: None,
+            create_new_workspace: false,
+            mutation_boundary: vec!["artifact".to_string()],
+        },
+        verification: ChatOutcomeArtifactVerificationRequest {
+            require_render: true,
+            require_build: false,
+            require_preview: false,
+            require_export: false,
+            require_diff_review: false,
+        },
+    };
+    let contextual_intent = "[Codebase context]\nWorkspace: .\n\n[User request]\nCreate an interactive HTML artifact that explains quantum computers";
+
+    let brief = derive_request_grounded_chat_artifact_brief(
+        "[Codebase context]",
+        contextual_intent,
+        &request,
+        None,
+    );
+
+    assert_eq!(brief.subject_domain, "quantum computers");
+    assert!(brief.job_to_be_done.contains("quantum computers"));
+    assert!(!brief.subject_domain.contains("Codebase context"));
+    assert!(!brief.job_to_be_done.contains("Workspace:"));
+}
+
+#[test]
 fn outcome_router_prompt_spells_out_html_vs_jsx_contracts() {
     let prompt = build_chat_outcome_router_prompt(
         "Create an interactive HTML artifact that explains a product rollout with charts",
@@ -488,6 +527,196 @@ async fn weather_route_derives_lane_frame_request_frame_and_source_selection() {
         .candidate_sources
         .contains(&ChatSourceFamily::WebSearch));
     assert!(planning.orchestration_state.is_some());
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn explicit_table_artifact_overrides_conversation_router_output() {
+    let runtime = scripted_outcome_router_runtime(serde_json::json!({
+        "outcomeKind": "conversation",
+        "executionStrategy": "single_pass",
+        "confidence": 0.52,
+        "needsClarification": false,
+        "clarificationQuestions": [],
+        "routingHints": ["shared_answer_surface"],
+        "artifact": null
+    }));
+
+    let planning = plan_chat_outcome_with_runtime(
+        runtime,
+        "Create a concise comparison table artifact for Local GPU vs Remote Model routing.",
+        None,
+        None,
+    )
+    .await
+    .expect("planning");
+
+    assert_eq!(planning.outcome_kind, ChatOutcomeKind::Artifact);
+    assert_eq!(
+        planning.execution_strategy,
+        ChatExecutionStrategy::DirectAuthor
+    );
+    let artifact = planning.artifact.expect("artifact request");
+    assert_eq!(artifact.renderer, ChatRendererKind::Markdown);
+    assert!(planning
+        .routing_hints
+        .contains(&"persistent_artifact_requested".to_string()));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn explicit_non_artifact_request_removes_workspace_clarification() {
+    let runtime = scripted_outcome_router_runtime(serde_json::json!({
+        "outcomeKind": "conversation",
+        "executionStrategy": "plan_execute",
+        "confidence": 0.49,
+        "needsClarification": true,
+        "clarificationQuestions": ["What specific type of artifact do you expect to generate?"],
+        "routingHints": [
+            "workspace_grounding_required",
+            "coding_workspace_context",
+            "shared_answer_surface"
+        ],
+        "artifact": null
+    }));
+
+    let planning = plan_chat_outcome_with_runtime(
+        runtime,
+        "Do not create an artifact: describe what an artifact generation pipeline should validate before showing a preview.",
+        None,
+        None,
+    )
+    .await
+    .expect("planning");
+
+    assert_eq!(planning.outcome_kind, ChatOutcomeKind::Conversation);
+    assert!(!planning.needs_clarification);
+    assert!(planning.clarification_questions.is_empty());
+    assert!(!planning
+        .routing_hints
+        .contains(&"workspace_grounding_required".to_string()));
+    assert!(!planning
+        .routing_hints
+        .contains(&"coding_workspace_context".to_string()));
+    assert!(planning
+        .routing_hints
+        .contains(&"no_persistent_artifact_requested".to_string()));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn example_request_does_not_materialize_artifact_without_artifact_signal() {
+    let runtime = scripted_outcome_router_runtime(serde_json::json!({
+        "outcomeKind": "artifact",
+        "executionStrategy": "direct_author",
+        "confidence": 0.73,
+        "needsClarification": false,
+        "clarificationQuestions": [],
+        "routingHints": ["persistent_artifact_requested"],
+        "artifact": {
+            "renderer": "markdown"
+        }
+    }));
+
+    let planning = plan_chat_outcome_with_runtime(
+        runtime,
+        "Show a compact example of a useful thoughts drawer entry for a web-search answer, without actually browsing.",
+        None,
+        None,
+    )
+    .await
+    .expect("planning");
+
+    assert_eq!(planning.outcome_kind, ChatOutcomeKind::Conversation);
+    assert!(planning.artifact.is_none());
+    assert!(planning
+        .routing_hints
+        .contains(&"no_persistent_artifact_requested".to_string()));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn messy_task_list_with_coffee_does_not_escalate_to_places_widget() {
+    let runtime = scripted_outcome_router_runtime(serde_json::json!({
+        "outcomeKind": "tool_widget",
+        "executionStrategy": "plan_execute",
+        "confidence": 0.86,
+        "needsClarification": true,
+        "clarificationQuestions": ["Which neighborhood, city, or anchor location should Chat search around?"],
+        "routingHints": ["tool_widget:places", "narrow_surface_preferred"],
+        "artifact": null
+    }));
+
+    let planning = plan_chat_outcome_with_runtime(
+        runtime,
+        "Turn this messy note into a concise task list: call Sam, renew domain, fix onboarding copy, ship the model selector bug, buy coffee.",
+        None,
+        None,
+    )
+    .await
+    .expect("planning");
+
+    assert_eq!(planning.outcome_kind, ChatOutcomeKind::Conversation);
+    assert!(!planning.needs_clarification);
+    assert!(planning
+        .routing_hints
+        .contains(&"shared_answer_surface".to_string()));
+    assert!(!planning
+        .routing_hints
+        .iter()
+        .any(|hint| hint.starts_with("tool_widget:")));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn explicit_places_lookup_still_routes_to_places_widget() {
+    let runtime = scripted_outcome_router_runtime(serde_json::json!({
+        "outcomeKind": "conversation",
+        "executionStrategy": "single_pass",
+        "confidence": 0.58,
+        "needsClarification": false,
+        "clarificationQuestions": [],
+        "routingHints": ["shared_answer_surface"],
+        "artifact": null
+    }));
+
+    let planning = plan_chat_outcome_with_runtime(
+        runtime,
+        "Find coffee shops near downtown Boston.",
+        None,
+        None,
+    )
+    .await
+    .expect("planning");
+
+    assert_eq!(planning.outcome_kind, ChatOutcomeKind::ToolWidget);
+    assert!(planning
+        .routing_hints
+        .contains(&"tool_widget:places".to_string()));
+}
+
+#[test]
+fn communication_draft_without_recipient_context_does_not_gate() {
+    let projection = derive_chat_topology_projection(
+        "Write a short email declining a meeting while keeping the relationship warm.",
+        None,
+        None,
+        ChatOutcomeKind::Conversation,
+        ChatExecutionStrategy::SinglePass,
+        None,
+        0.82,
+        false,
+        &[],
+        &["shared_answer_surface".to_string()],
+        None,
+    );
+
+    let request_frame = projection.request_frame.expect("request frame");
+    match request_frame {
+        ChatNormalizedRequestFrame::MessageCompose(frame) => {
+            assert_eq!(frame.channel.as_deref(), Some("email"));
+            assert_eq!(frame.purpose.as_deref(), Some("draft"));
+            assert!(frame.recipient_context.is_none());
+            assert!(frame.missing_slots.is_empty());
+            assert!(frame.clarification_required_slots.is_empty());
+        }
+        other => panic!("expected message compose frame, got {other:?}"),
+    }
 }
 
 #[test]

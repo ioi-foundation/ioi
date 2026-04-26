@@ -1,5 +1,6 @@
 use super::brief::{normalize_chat_outcome_planning_value, parse_chat_json_object_value};
 use super::shared::{chat_planning_trace, truncate_planning_preview};
+use crate::chat::intent_signals::ChatIntentContext;
 use crate::chat::validation::chat_artifact_refinement_context_view;
 use crate::chat::*;
 use crate::vm::inference::InferenceRuntime;
@@ -231,6 +232,7 @@ pub async fn plan_chat_outcome_with_runtime(
     ));
     let mut planning = parse_chat_outcome_planning_payload(&raw)?;
     planning.artifact = planning.artifact.map(canonicalize_artifact_request);
+    enforce_contextual_routing_contract(&mut planning, intent, active_artifact_id);
     let contract_hints = default_routing_hints_for_planning(&planning);
     merge_routing_hints(&mut planning.routing_hints, contract_hints);
     let planning_confidence = planning.confidence;
@@ -249,6 +251,202 @@ pub async fn plan_chat_outcome_with_runtime(
         planning.artifact.is_some()
     ));
     Ok(planning)
+}
+
+fn enforce_contextual_routing_contract(
+    planning: &mut ChatOutcomePlanningPayload,
+    intent: &str,
+    active_artifact_id: Option<&str>,
+) {
+    let context = ChatIntentContext::new(intent);
+    let explicit_renderer = context
+        .explicit_single_document_renderer()
+        .map(|(renderer, _)| renderer);
+    let explicit_artifact_request = (context.explicit_generic_artifact_signal()
+        || explicit_renderer.is_some())
+        && !context.explicitly_declines_persistent_artifact();
+    let active_artifact_follow_up = active_artifact_id.is_some();
+    let artifact_allowed = explicit_artifact_request
+        || active_artifact_follow_up
+        || context.requests_downloadable_fileset()
+        || context.supports_bundle_manifest_renderer();
+
+    if context.explicitly_declines_persistent_artifact() {
+        force_conversation_route(planning);
+        remove_routing_hints(
+            &mut planning.routing_hints,
+            &[
+                "persistent_artifact_requested",
+                "workspace_grounding_required",
+                "coding_workspace_context",
+            ],
+        );
+        merge_routing_hints(
+            &mut planning.routing_hints,
+            vec![
+                "no_persistent_artifact_requested".to_string(),
+                "shared_answer_surface".to_string(),
+            ],
+        );
+    } else if explicit_artifact_request && planning.outcome_kind != ChatOutcomeKind::Artifact {
+        let renderer = explicit_renderer.unwrap_or(ChatRendererKind::Markdown);
+        force_artifact_route(planning, renderer);
+    } else if planning.outcome_kind == ChatOutcomeKind::Artifact && !artifact_allowed {
+        force_conversation_route(planning);
+        merge_routing_hints(
+            &mut planning.routing_hints,
+            vec![
+                "no_persistent_artifact_requested".to_string(),
+                "shared_answer_surface".to_string(),
+            ],
+        );
+    }
+
+    if planning.outcome_kind == ChatOutcomeKind::Conversation {
+        if let Some(widget_family) = context.tool_widget_family() {
+            force_tool_widget_route(planning, widget_family);
+        }
+    } else if planning.outcome_kind == ChatOutcomeKind::ToolWidget {
+        if let Some(widget_family) =
+            tool_widget_family_hint(&planning.routing_hints).map(str::to_string)
+        {
+            if matches!(
+                widget_family.as_str(),
+                "weather" | "sports" | "places" | "recipe"
+            ) && context.tool_widget_family() != Some(widget_family.as_str())
+            {
+                force_conversation_route(planning);
+                remove_routing_hints(
+                    &mut planning.routing_hints,
+                    &["tool_widget:", "narrow_surface_preferred"],
+                );
+                merge_routing_hints(
+                    &mut planning.routing_hints,
+                    vec![
+                        "no_persistent_artifact_requested".to_string(),
+                        "shared_answer_surface".to_string(),
+                    ],
+                );
+            }
+        }
+    }
+
+    if !context.workspace_grounding_required()
+        && !matches!(
+            planning.artifact.as_ref().map(|artifact| artifact.renderer),
+            Some(ChatRendererKind::WorkspaceSurface)
+        )
+    {
+        remove_routing_hints(
+            &mut planning.routing_hints,
+            &["workspace_grounding_required", "coding_workspace_context"],
+        );
+    }
+}
+
+fn force_tool_widget_route(planning: &mut ChatOutcomePlanningPayload, widget_family: &str) {
+    planning.outcome_kind = ChatOutcomeKind::ToolWidget;
+    if planning.execution_strategy == ChatExecutionStrategy::SinglePass {
+        planning.execution_strategy = ChatExecutionStrategy::PlanExecute;
+    }
+    planning.artifact = None;
+    remove_routing_hints(
+        &mut planning.routing_hints,
+        &["no_persistent_artifact_requested", "shared_answer_surface"],
+    );
+    merge_routing_hints(
+        &mut planning.routing_hints,
+        vec![
+            format!("tool_widget:{widget_family}"),
+            "narrow_surface_preferred".to_string(),
+        ],
+    );
+}
+
+fn tool_widget_family_hint(routing_hints: &[String]) -> Option<&str> {
+    routing_hints
+        .iter()
+        .find_map(|hint| hint.strip_prefix("tool_widget:"))
+}
+
+fn force_conversation_route(planning: &mut ChatOutcomePlanningPayload) {
+    planning.outcome_kind = ChatOutcomeKind::Conversation;
+    if matches!(
+        planning.execution_strategy,
+        ChatExecutionStrategy::DirectAuthor | ChatExecutionStrategy::AdaptiveWorkGraph
+    ) {
+        planning.execution_strategy = ChatExecutionStrategy::SinglePass;
+    }
+    planning.artifact = None;
+    planning.needs_clarification = false;
+    planning.clarification_questions.clear();
+    remove_routing_hints(
+        &mut planning.routing_hints,
+        &[
+            "persistent_artifact_requested",
+            "downloadable_export_requested",
+            "download_format:",
+        ],
+    );
+}
+
+fn force_artifact_route(planning: &mut ChatOutcomePlanningPayload, renderer: ChatRendererKind) {
+    planning.outcome_kind = ChatOutcomeKind::Artifact;
+    planning.execution_strategy = ChatExecutionStrategy::DirectAuthor;
+    planning.needs_clarification = false;
+    planning.clarification_questions.clear();
+    planning.artifact = Some(default_artifact_request_for_renderer(renderer));
+    remove_routing_hints(
+        &mut planning.routing_hints,
+        &["no_persistent_artifact_requested", "shared_answer_surface"],
+    );
+    merge_routing_hints(
+        &mut planning.routing_hints,
+        vec!["persistent_artifact_requested".to_string()],
+    );
+}
+
+fn default_artifact_request_for_renderer(renderer: ChatRendererKind) -> ChatOutcomeArtifactRequest {
+    canonicalize_artifact_request(ChatOutcomeArtifactRequest {
+        artifact_class: match renderer {
+            ChatRendererKind::Markdown | ChatRendererKind::PdfEmbed => ChatArtifactClass::Document,
+            ChatRendererKind::Svg | ChatRendererKind::Mermaid => ChatArtifactClass::Visual,
+            ChatRendererKind::HtmlIframe => ChatArtifactClass::Document,
+            ChatRendererKind::JsxSandbox => ChatArtifactClass::InteractiveSingleFile,
+            ChatRendererKind::DownloadCard => ChatArtifactClass::DownloadableFile,
+            ChatRendererKind::WorkspaceSurface => ChatArtifactClass::WorkspaceProject,
+            ChatRendererKind::BundleManifest => ChatArtifactClass::CompoundBundle,
+        },
+        deliverable_shape: ChatArtifactDeliverableShape::SingleFile,
+        renderer,
+        presentation_surface: ChatPresentationSurface::SidePanel,
+        persistence: ChatArtifactPersistenceMode::SharedArtifactScoped,
+        execution_substrate: ChatExecutionSubstrate::None,
+        workspace_recipe_id: None,
+        presentation_variant_id: None,
+        scope: ChatOutcomeArtifactScope {
+            target_project: None,
+            create_new_workspace: false,
+            mutation_boundary: vec!["artifact".to_string()],
+        },
+        verification: ChatOutcomeArtifactVerificationRequest {
+            require_render: false,
+            require_build: false,
+            require_preview: false,
+            require_export: false,
+            require_diff_review: false,
+        },
+    })
+}
+
+fn remove_routing_hints(target: &mut Vec<String>, removals: &[&str]) {
+    target.retain(|hint| {
+        !removals.iter().any(|removal| {
+            hint == removal
+                || (removal.ends_with(':') && hint.starts_with(*removal))
+                || (removal.ends_with('*') && hint.starts_with(removal.trim_end_matches('*')))
+        })
+    });
 }
 
 fn apply_topology_projection_to_planning(

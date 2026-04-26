@@ -1140,7 +1140,6 @@
 }
 
 .artifact-hub-panel .spot-execution-card,
-.artifact-hub-panel .runtime-facts-strip,
 .artifact-hub-panel .artifact-hub-generic-row,
 .artifact-hub-panel .artifact-hub-task-card {
   color: var(--spot-text-primary);
@@ -1155,10 +1154,91 @@
   color: var(--spot-text-secondary);
 }
 
+.artifact-hub-panel .spot-execution-card .spot-execution-card-copy strong,
+.artifact-hub-panel .spot-execution-card .spot-execution-card-metric strong,
+.artifact-hub-panel .spot-execution-card .spot-execution-card-story-block p,
+.artifact-hub-panel .spot-execution-card .spot-execution-card-capability-copy strong,
+.artifact-hub-panel .spot-execution-card .spot-execution-card-prep-copy p {
+  color: #f8fafc;
+}
+
+.artifact-hub-panel .spot-execution-card .spot-execution-card-copy p,
+.artifact-hub-panel .spot-execution-card .spot-execution-card-metric span,
+.artifact-hub-panel .spot-execution-card .spot-execution-card-metric small,
+.artifact-hub-panel .spot-execution-card .spot-execution-card-story-block span,
+.artifact-hub-panel .spot-execution-card .spot-execution-card-capability-copy span,
+.artifact-hub-panel .spot-execution-card .spot-execution-card-prep-copy span {
+  color: rgba(226, 232, 240, 0.82);
+}
+
+.artifact-hub-panel .spot-execution-card .spot-execution-card-kicker {
+  color: rgba(219, 234, 254, 0.92);
+}
+
 .artifact-hub-empty {
   margin: 0;
   font-size: 12px;
   color: var(--spot-text-dim);
+}
+
+.artifact-hub-capability-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.artifact-hub-capability-card {
+  gap: 12px;
+}
+
+.artifact-hub-capability-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.artifact-hub-capability-facts div {
+  display: grid;
+  gap: 4px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.artifact-hub-capability-facts dt {
+  color: var(--spot-text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.artifact-hub-capability-facts dd {
+  margin: 0;
+  color: var(--spot-text-primary);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.artifact-hub-capability-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.artifact-hub-capability-tools span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--spot-text-secondary);
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .artifact-hub-turn-scope {

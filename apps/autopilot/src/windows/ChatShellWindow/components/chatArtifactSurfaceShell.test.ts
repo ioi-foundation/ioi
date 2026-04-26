@@ -25,6 +25,10 @@ const rendererHostSource = fs.readFileSync(
   new URL("./ArtifactRendererHost.tsx", import.meta.url),
   "utf8",
 );
+const thoughtsDrawerSource = fs.readFileSync(
+  new URL("./ThoughtsDrawerSurface.tsx", import.meta.url),
+  "utf8",
+);
 const stageHeaderSource = fs.readFileSync(
   new URL("./ArtifactStageHeader.tsx", import.meta.url),
   "utf8",
@@ -121,6 +125,30 @@ assert.match(
   chatShellWindowSource,
   /chatArtifactDrawerAvailable && chatArtifactVisible[\s\S]*spot-chat-artifact-drawer/,
   "chat should only render the artifact drawer after an artifact surface becomes available",
+);
+
+assert.match(
+  surfaceSource,
+  /if \(\s*!chatSession && activeConversationRun\s*\)[\s\S]*<ThoughtsDrawerSurface/,
+  "direct conversation runs should render the Thoughts drawer before considering historical artifact menus",
+);
+
+assert.match(
+  surfaceSource,
+  /availableArtifacts\.length > 0[\s\S]*<ArtifactMenuSurface/,
+  "historical artifact browsing should remain available for artifact contexts",
+);
+
+assert.doesNotMatch(
+  surfaceSource,
+  /Runtime workbench|Chat runtime/,
+  "non-artifact drawer copy should not use the old runtime workbench dashboard framing",
+);
+
+assert.match(
+  thoughtsDrawerSource,
+  /<h2>Thoughts<\/h2>/,
+  "the non-artifact drawer should present as a Thoughts drawer",
 );
 
 console.log("studioArtifactSurfaceShell.test.ts: ok");
