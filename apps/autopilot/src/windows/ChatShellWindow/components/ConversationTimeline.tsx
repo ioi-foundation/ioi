@@ -2,13 +2,14 @@ import React from "react";
 import type {
   AgentTask,
   ArtifactHubViewKey,
-  LocalEngineSnapshot,
   RunPresentation,
   SourceSummary,
 } from "../../../types";
 import type { ConversationTurn, TurnContext } from "../hooks/useTurnContexts";
 import { normalizeVisualHash } from "../utils/visualHash";
+import { buildAssistantTurnProcess } from "../utils/assistantTurnProcessModel";
 import { AnswerCard } from "./AnswerCard";
+import { AssistantTurn } from "./AssistantTurn";
 import {
   artifactReplyText,
   artifactTurnMetaLabel,
@@ -17,11 +18,8 @@ import {
   inlineAnswerText,
   operatorRunIsPending,
 } from "./ConversationTimeline.helpers";
-import { ExecutionMomentList } from "./ExecutionMomentList";
-import { ExecutionRouteCard } from "./ExecutionRouteCard";
 import { MarkdownMessage } from "./MarkdownMessage";
 import { ReasoningDisclosure } from "./ReasoningDisclosure";
-import { RuntimeFactsStrip } from "./RuntimeFactsStrip";
 import { SourceChipRow } from "./SourceChipRow";
 import { ToolActivityGroup } from "./ToolActivityGroup";
 import { VisualEvidenceCard } from "./VisualEvidenceCard";
@@ -33,7 +31,6 @@ type ConversationTimelineProps = {
   runPresentation: RunPresentation;
   task?: AgentTask | null;
   runtimeModelLabel?: string | null;
-  localEngineSnapshot?: LocalEngineSnapshot | null;
   isRunning: boolean;
   currentStep?: string;
   visualHash?: string | null;
@@ -62,7 +59,6 @@ export function ConversationTimeline({
   runPresentation,
   task = null,
   runtimeModelLabel = null,
-  localEngineSnapshot = null,
   isRunning,
   currentStep,
   visualHash,
@@ -129,7 +125,6 @@ export function ConversationTimeline({
           runPresentation.finalAnswer.message.timestamp >=
             turn.prompt.timestamp;
         const hasThoughtSummary = !!runPresentation.thoughtSummary;
-        const hasPlanSummary = !!turnPlanSummary;
         const toolActivityGroup = turnContext?.toolActivityGroup || null;
         const turnSourceSummary =
           turnContext?.sourceSummary ||
@@ -149,19 +144,6 @@ export function ConversationTimeline({
           !turn.answer &&
           !!inlineStatusCard &&
           !showInlineTranscript;
-        const compactDirectInlineRoute =
-          !!turnPlanSummary &&
-          turnPlanSummary.routeFamily === "general" &&
-          turnPlanSummary.routeDecision?.outputIntent === "direct_inline" &&
-          turnPlanSummary.selectedSkills.length === 0 &&
-          !turnPlanSummary.artifactGeneration &&
-          !turnPlanSummary.computerUsePerception;
-        const showExecutionRouteCard =
-          !!turn.prompt &&
-          hasPlanSummary &&
-          !showLiveThinking &&
-          !showInlineStatusCard &&
-          !showInlineTranscript;
         const showAssistantPendingBubble =
           isLatestTurn &&
           !!turn.prompt &&
@@ -169,11 +151,9 @@ export function ConversationTimeline({
           !showPendingRunAnswer &&
           !runPresentation.finalAnswer &&
           !showInlineTranscript &&
-          !showExecutionRouteCard &&
           !showInlineStatusCard &&
           !suppressPendingIndicators;
         const showThoughtTrigger =
-          !showExecutionRouteCard &&
           !showInlineStatusCard &&
           !showInlineTranscript &&
           !!turn.prompt &&
@@ -210,20 +190,35 @@ export function ConversationTimeline({
           showLiveThinking,
         );
         const inlineArtifactReply = artifactReplyText(turnContext);
-        const runtimeFacts = (
-          <RuntimeFactsStrip
-            task={task}
-            planSummary={turnPlanSummary}
-            runtimeModelLabel={runtimeModelLabel}
-            localEngineSnapshot={localEngineSnapshot}
-            onOpenEvidence={() =>
-              onOpenArtifactHub(
-                turnContext?.defaultView || "active_context",
-                turnContext?.turnId || null,
-              )
-            }
-            compact
-          />
+        const openTurnDetails = () =>
+          onOpenArtifactHub(
+            turnContext?.thoughtSummary
+              ? "thoughts"
+              : turnContext?.sourceSummary
+                ? "sources"
+                : "kernel_logs",
+            turnContext?.turnId || null,
+          );
+        const assistantProcess = buildAssistantTurnProcess({
+          task,
+          planSummary: turnPlanSummary,
+          runtimeModelLabel,
+          sourceSummary: turnSourceSummary,
+          thoughtSummary: turnContext?.thoughtSummary || null,
+          toolActivityGroup,
+          finalAnswer:
+            latestAnswerMatches && runPresentation.finalAnswer
+              ? runPresentation.finalAnswer
+              : showPendingRunAnswer
+                ? runPresentation.finalAnswer
+                : null,
+          isRunning: showLiveThinking,
+          currentStep,
+        });
+        const assistantTurnShell = (children: React.ReactNode) => (
+          <AssistantTurn process={assistantProcess}>
+            {children}
+          </AssistantTurn>
         );
         const effectiveInlineAnswer =
           showInlineTranscript && inlineArtifactReply
@@ -269,28 +264,6 @@ export function ConversationTimeline({
               />
             ) : null}
 
-            {showExecutionRouteCard && turnPlanSummary && (
-              <>
-                <ExecutionRouteCard
-                  summary={turnPlanSummary}
-                  currentStep={showLiveThinking ? currentStep : undefined}
-                  traceDetail={traceDetail}
-                  preferCompactDirectInline
-                  onOpenArtifacts={() =>
-                    onOpenArtifactHub(
-                      "active_context",
-                      turnContext?.turnId || null,
-                    )
-                  }
-                />
-                {!compactDirectInlineRoute && (
-                  <ExecutionMomentList
-                    moments={turnContext?.executionMoments || []}
-                  />
-                )}
-              </>
-            )}
-
             {showAssistantPendingBubble && (
               <div
                 className="spot-message agent spot-message--pending"
@@ -330,7 +303,6 @@ export function ConversationTimeline({
             )}
 
             {showLiveThinking &&
-              !showExecutionRouteCard &&
               !!turnContext?.streamPreview && (
                 <div className="thought-stream-panel spot-inline-stream-panel">
                   <div className="thought-stream-header">
@@ -380,25 +352,16 @@ export function ConversationTimeline({
                     />
                   </>
                 ) : (
-                  <AnswerCard
-                    answer={runPresentation.finalAnswer}
-                    sourceSummary={runPresentation.sourceSummary}
-                    sourceDurationLabel={sourceDurationLabel}
-                    onExportTraceBundle={onExportTraceBundle}
-                    onOpenArtifacts={() =>
-                      onOpenArtifactHub(
-                        turnContext?.defaultView ||
-                          (runPresentation.thoughtSummary
-                            ? "thoughts"
-                            : runPresentation.sourceSummary
-                              ? "sources"
-                              : "kernel_logs"),
-                        turnContext?.turnId || null,
-                      )
-                    }
-                    onOpenSources={onOpenSourceSummary}
-                    runtimeFacts={runtimeFacts}
-                  />
+                  assistantTurnShell(
+                    <AnswerCard
+                      answer={runPresentation.finalAnswer}
+                      sourceSummary={null}
+                      sourceDurationLabel={sourceDurationLabel}
+                      onExportTraceBundle={onExportTraceBundle}
+                      onOpenArtifacts={openTurnDetails}
+                      onOpenSources={onOpenSourceSummary}
+                    />,
+                  )
                 )
               ) : (
                 <>
@@ -444,25 +407,16 @@ export function ConversationTimeline({
                   />
                 </>
               ) : (
-                <AnswerCard
-                  answer={runPresentation.finalAnswer}
-                  sourceSummary={runPresentation.sourceSummary}
-                  sourceDurationLabel={sourceDurationLabel}
-                  onExportTraceBundle={onExportTraceBundle}
-                  onOpenArtifacts={() =>
-                    onOpenArtifactHub(
-                      turnContext?.defaultView ||
-                        (runPresentation.thoughtSummary
-                          ? "thoughts"
-                          : runPresentation.sourceSummary
-                            ? "sources"
-                            : "kernel_logs"),
-                      turnContext?.turnId || null,
-                    )
-                  }
-                  onOpenSources={onOpenSourceSummary}
-                  runtimeFacts={runtimeFacts}
-                />
+                assistantTurnShell(
+                  <AnswerCard
+                    answer={runPresentation.finalAnswer}
+                    sourceSummary={null}
+                    sourceDurationLabel={sourceDurationLabel}
+                    onExportTraceBundle={onExportTraceBundle}
+                    onOpenArtifacts={openTurnDetails}
+                    onOpenSources={onOpenSourceSummary}
+                  />,
+                )
               ))}
 
             {turnContext &&
@@ -552,32 +506,35 @@ export function ConversationTimeline({
       })}
 
       {conversationTurns.length === 0 && runPresentation.finalAnswer && (
-        <AnswerCard
-          answer={runPresentation.finalAnswer}
-          sourceSummary={runPresentation.sourceSummary}
-          sourceDurationLabel={sourceDurationLabel}
-          onExportTraceBundle={onExportTraceBundle}
-          onOpenArtifacts={() =>
-            onOpenArtifactHub(
-              runPresentation.thoughtSummary
-                ? "thoughts"
-                : runPresentation.sourceSummary
-                  ? "sources"
-                  : "kernel_logs",
-            )
-          }
-          onOpenSources={onOpenSourceSummary}
-          runtimeFacts={
-            <RuntimeFactsStrip
-              task={task}
-              planSummary={runPresentation.planSummary}
-              runtimeModelLabel={runtimeModelLabel}
-              localEngineSnapshot={localEngineSnapshot}
-              onOpenEvidence={() => onOpenArtifactHub("active_context")}
-              compact
-            />
-          }
-        />
+        <AssistantTurn
+          process={buildAssistantTurnProcess({
+            task,
+            planSummary: runPresentation.planSummary,
+            runtimeModelLabel,
+            sourceSummary: runPresentation.sourceSummary,
+            thoughtSummary: runPresentation.thoughtSummary,
+            finalAnswer: runPresentation.finalAnswer,
+            isRunning,
+            currentStep,
+          })}
+        >
+          <AnswerCard
+            answer={runPresentation.finalAnswer}
+            sourceSummary={null}
+            sourceDurationLabel={sourceDurationLabel}
+            onExportTraceBundle={onExportTraceBundle}
+            onOpenArtifacts={() =>
+              onOpenArtifactHub(
+                runPresentation.thoughtSummary
+                  ? "thoughts"
+                  : runPresentation.sourceSummary
+                    ? "sources"
+                    : "kernel_logs",
+              )
+            }
+            onOpenSources={onOpenSourceSummary}
+          />
+        </AssistantTurn>
       )}
 
       {showInitialLoader && !suppressPendingIndicators && (

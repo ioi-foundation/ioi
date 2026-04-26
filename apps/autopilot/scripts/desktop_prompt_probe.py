@@ -434,6 +434,32 @@ def latest_route_receipt_summary(task: dict[str, Any] | None) -> dict[str, Any] 
     return candidates[0]
 
 
+def is_user_visible_artifact_record(record: dict[str, Any]) -> bool:
+    artifact_type = str(
+        record.get("artifact_type") or record.get("artifactType") or ""
+    ).upper()
+    if artifact_type == "RUN_BUNDLE":
+        return False
+
+    metadata = record.get("metadata") if isinstance(record.get("metadata"), dict) else {}
+    path = str(record.get("path") or metadata.get("path") or "")
+    title = str(record.get("title") or "")
+    haystack = f"{path}\n{title}".lower()
+    if "conversation-artifacts/" in haystack and "/planning/" in haystack:
+        return False
+    return True
+
+
+def user_visible_task_artifacts(task: dict[str, Any] | None) -> list[dict[str, Any]]:
+    if not task:
+        return []
+    return [
+        artifact
+        for artifact in task.get("artifacts") or []
+        if isinstance(artifact, dict) and is_user_visible_artifact_record(artifact)
+    ]
+
+
 def wait_for_prompt_start(
     db_paths: list[Path],
     prompt: str,
@@ -592,7 +618,7 @@ def artifact_records_summary(db_paths: list[Path], limit: int = 8) -> list[dict[
             except (TypeError, json.JSONDecodeError):
                 payload = {}
             metadata = payload.get("metadata") if isinstance(payload, dict) else {}
-            summaries.append({
+            summary = {
                 "artifact_id": artifact_id,
                 "title": payload.get("title") if isinstance(payload, dict) else None,
                 "artifact_type": payload.get("artifact_type") if isinstance(payload, dict) else None,
@@ -600,7 +626,9 @@ def artifact_records_summary(db_paths: list[Path], limit: int = 8) -> list[dict[
                 "version": payload.get("version") if isinstance(payload, dict) else None,
                 "created_at_ms": created_at_ms,
                 "updated_at_ms": updated_at_ms,
-            })
+            }
+            if is_user_visible_artifact_record(summary):
+                summaries.append(summary)
         return summaries
     return []
 
@@ -639,8 +667,9 @@ def runtime_facts_summary(task: dict[str, Any] | None) -> dict[str, Any]:
     elif active_run.get("status"):
         approval = str(active_run.get("status"))
 
+    visible_artifacts = user_visible_task_artifacts(task)
     evidence_tier = "Settlement receipt" if settlement_refs else "Runtime event receipt"
-    if not task.get("events") and not task.get("artifacts"):
+    if not task.get("events") and not visible_artifacts:
         evidence_tier = "Projection"
 
     return {
@@ -655,7 +684,7 @@ def runtime_facts_summary(task: dict[str, Any] | None) -> dict[str, Any]:
         "evidence_tier": evidence_tier,
         "settlement_state": "settled" if settlement_refs else "projection_only",
         "event_count": len(task.get("events") or []),
-        "artifact_count": len(task.get("artifacts") or []),
+        "artifact_count": len(visible_artifacts),
         "active_operator_run_status": active_run.get("status"),
     }
 

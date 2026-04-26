@@ -44,6 +44,18 @@ assert.match(
 
 assert.match(
   source,
+  /SEED_INTENT_PROJECTION_WAIT_LIMIT[\s\S]*chat_seed_intent_projection_bind_failed[\s\S]*fallback: "fresh_chat_submission"/,
+  "seed intent bootstrap should fail bounded retained-projection waits into a fresh chat submission instead of hanging indefinitely",
+);
+
+assert.match(
+  source,
+  /\^in\\s\+chat\\s\+only\\b[\s\S]*return false;/,
+  "explicit chat-only seeded prompts should not be classified as terse retained-session follow-ups",
+);
+
+assert.match(
+  source,
   /Promise\.allSettled\(\[\s*refreshSessionHistory\(\),\s*refreshCurrentTask\(\),\s*\]\)/,
   "seed intent bootstrap should actively refresh retained session projection instead of waiting forever on empty session state",
 );

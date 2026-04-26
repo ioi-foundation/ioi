@@ -1,11 +1,10 @@
 use super::{
-    get_local_sessions, get_local_sessions_with_live_tasks, load_global_checkpoint_blob,
+    get_local_sessions, get_local_sessions_with_live_tasks, load_local_engine_control_plane,
     load_local_engine_control_plane_document, load_session_file_context,
     persisted_workspace_root_for_session, save_local_engine_control_plane,
     save_local_engine_control_plane_document, save_local_session_summary, save_local_task_state,
     save_session_file_context, session_summary_from_task,
-    LOCAL_ENGINE_CONTROL_PLANE_CHECKPOINT_NAME, LOCAL_ENGINE_CONTROL_PLANE_PROFILE_ID,
-    LOCAL_ENGINE_CONTROL_PLANE_SCHEMA_VERSION,
+    LOCAL_ENGINE_CONTROL_PLANE_CHECKPOINT_NAME, LOCAL_ENGINE_CONTROL_PLANE_SCHEMA_VERSION,
 };
 use crate::kernel::file_context::{
     apply_exclude_file_context_path, apply_include_file_context_path,
@@ -152,10 +151,36 @@ fn session_summary_from_task_derives_title_when_no_summary_exists() {
     let summary = session_summary_from_task(&task, None);
 
     assert_eq!(summary.session_id, "session-123");
-    assert_eq!(summary.title, "Create a React app for a pr...");
+    assert_eq!(
+        summary.title,
+        "Create a React app for a property management dashboard"
+    );
     assert_eq!(summary.phase, Some(AgentPhase::Complete));
     assert_eq!(summary.resume_hint.as_deref(), Some("Open workspace"));
     assert_eq!(summary.workspace_root.as_deref(), Some("/tmp/workspace"));
+}
+
+#[test]
+fn session_summary_from_task_strips_context_envelope_from_title() {
+    let mut task = task_with_workspace_root("/tmp/workspace");
+    task.intent = "[Codebase context]\nWorkspace: /home/user/project\n\n[User request]\nCreate an interactive HTML artifact that explains quantum computers".to_string();
+    let existing = SessionSummary {
+        session_id: "session-123".to_string(),
+        title: "[Codebase context] Workspace".to_string(),
+        timestamp: 42,
+        phase: Some(AgentPhase::Running),
+        current_step: Some("Initializing".to_string()),
+        resume_hint: None,
+        workspace_root: None,
+    };
+
+    let summary = session_summary_from_task(&task, Some(&existing));
+
+    assert!(!summary.title.contains("[Codebase context]"));
+    assert!(summary
+        .title
+        .starts_with("Create an interactive HTML artifact that explains"));
+    assert_eq!(summary.timestamp, 42);
 }
 
 #[test]

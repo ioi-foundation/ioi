@@ -28,6 +28,7 @@ import {
   AgentTask,
   AgentEvent,
   Artifact,
+  ArtifactHubViewKey,
   SessionFileContext,
   SessionSummary,
 } from "../../types";
@@ -60,7 +61,6 @@ import { ChatConversationSurface } from "../ChatShellWindow/components/ChatConve
 import { ChatConversationSidebar } from "../ChatShellWindow/components/ChatConversationSidebar";
 import { ChatArtifactSurface } from "../ChatShellWindow/components/ChatArtifactSurface";
 import { collectAvailableArtifacts } from "../ChatShellWindow/components/artifactConversationModel";
-import { RuntimeFactsStrip } from "../ChatShellWindow/components/RuntimeFactsStrip";
 import {
   ChatConversationWelcome,
   ChatRunStateCard,
@@ -93,6 +93,8 @@ type ChatShellWindowProps = {
   workspaceRootHint?: string | null;
   workspaceNameHint?: string | null;
 };
+
+const SEED_INTENT_PROJECTION_WAIT_LIMIT = 3;
 
 function taskSessionId(task: AgentTask | null): string | null {
   return task?.session_id || task?.id || null;
@@ -142,6 +144,10 @@ function sessionLikelyAwaitingFollowUp(session: SessionSummary): boolean {
 function looksLikeEllipticalFollowUpReply(intent: string): boolean {
   const normalized = intent.trim().toLowerCase();
   if (!normalized || normalized.endsWith("?")) {
+    return false;
+  }
+
+  if (/^in\s+chat\s+only\b/.test(normalized)) {
     return false;
   }
 
@@ -258,6 +264,9 @@ export function ChatShellWindow({
   const submittedSeedIntentRef = useRef<string | null>(null);
   const seedIntentAttachAttemptRef = useRef<string | null>(null);
   const seedIntentProjectionRefreshRef = useRef<string | null>(null);
+  const seedIntentProjectionWaitCountRef = useRef<Map<string, number>>(
+    new Map(),
+  );
 
   const {
     task,
@@ -498,6 +507,7 @@ export function ChatShellWindow({
       submittedSeedIntentRef.current = null;
       seedIntentAttachAttemptRef.current = null;
       seedIntentProjectionRefreshRef.current = null;
+      seedIntentProjectionWaitCountRef.current.clear();
       return;
     }
 
@@ -536,6 +546,9 @@ export function ChatShellWindow({
 
         if (!continuationSession) {
           if (sessions.length === 0) {
+            const waitAttempt =
+              (seedIntentProjectionWaitCountRef.current.get(nextIntent) ?? 0) + 1;
+            seedIntentProjectionWaitCountRef.current.set(nextIntent, waitAttempt);
             if (seedIntentProjectionRefreshRef.current !== nextIntent) {
               seedIntentProjectionRefreshRef.current = nextIntent;
               void Promise.allSettled([
@@ -552,10 +565,27 @@ export function ChatShellWindow({
               "chat_seed_intent_waiting_for_session_projection",
               {
                 intentLength: nextIntent.length,
+                waitAttempt,
+                waitLimit: SEED_INTENT_PROJECTION_WAIT_LIMIT,
               },
             );
-            if (shouldWaitForRetainedProjection) {
+            if (
+              shouldWaitForRetainedProjection &&
+              waitAttempt < SEED_INTENT_PROJECTION_WAIT_LIMIT
+            ) {
               return;
+            }
+            if (shouldWaitForRetainedProjection) {
+              void recordChatLaunchReceipt(
+                "chat_seed_intent_projection_bind_failed",
+                {
+                  intentLength: nextIntent.length,
+                  waitAttempt,
+                  waitLimit: SEED_INTENT_PROJECTION_WAIT_LIMIT,
+                  reason: "no_retained_session_projection",
+                  fallback: "fresh_chat_submission",
+                },
+              );
             }
           }
         } else if (continuationSession.session_id !== currentSessionId) {
@@ -595,6 +625,7 @@ export function ChatShellWindow({
       submittedSeedIntentRef.current = nextIntent;
       seedIntentAttachAttemptRef.current = null;
       seedIntentProjectionRefreshRef.current = null;
+      seedIntentProjectionWaitCountRef.current.delete(nextIntent);
       console.info("[Chat][SeedIntent] auto-submit requested", {
         length: nextIntent.length,
       });
@@ -880,7 +911,10 @@ export function ChatShellWindow({
       ? task.chat_session.sessionId
       : null;
   const chatArtifactDrawerAvailable =
-    studioArtifactAvailable || studioArtifactExpected || studioAvailableArtifacts.length > 0;
+    studioArtifactAvailable ||
+    studioArtifactExpected ||
+    Boolean(activeArtifactChatSessionId) ||
+    chatArtifactVisible;
 
   useEffect(() => {
     if (!shouldAutoFocusChatComposer) {
@@ -994,6 +1028,7 @@ export function ChatShellWindow({
     enabled: isChatVariant,
     artifactAvailable: chatArtifactDrawerAvailable,
     artifactExpected: studioArtifactExpected,
+    autoOpen: Boolean(activeArtifactChatSessionId) || studioArtifactExpected,
     activeSessionId: activeArtifactChatSessionId,
     fallbackSessionId: task?.id || null,
     setVisible: setChatArtifactVisible,
@@ -1038,8 +1073,27 @@ export function ChatShellWindow({
 
     setChatArtifactVisible(false);
   }, [selectedChatArtifactSessionId, chatArtifactVisible]);
+  const openRuntimeWorkbenchView = useCallback(
+    (view?: ArtifactHubViewKey, turnId?: string | null) => {
+      if (isChatVariant) {
+        setSelectedChatArtifactSessionId(null);
+        setChatArtifactVisible(true);
+      }
+      void hubNavigation.openView(view, turnId);
+    },
+    [hubNavigation, isChatVariant],
+  );
+  const openRuntimeValidationEvidence = useCallback(() => {
+    if (isChatVariant) {
+      setSelectedChatArtifactSessionId(null);
+      setChatArtifactVisible(true);
+    }
+    void hubNavigation.openValidationEvidence();
+  }, [hubNavigation, isChatVariant]);
   const studioArtifactMenuVisible =
-    chatArtifactVisible && selectedChatArtifactSessionId === null;
+    chatArtifactVisible &&
+    selectedChatArtifactSessionId === null &&
+    Boolean(activeArtifactChatSessionId);
   const showChatArtifactNav =
     isChatVariant && chatArtifactDrawerAvailable;
   const handleChatNewSession = useCallback(() => {
@@ -1065,17 +1119,6 @@ export function ChatShellWindow({
       selectedSkills={chatStatusCard.selectedSkills}
       livePreview={chatStatusCard.livePreview}
       codePreview={chatStatusCard.codePreview}
-      runtimeFacts={
-        <RuntimeFactsStrip
-          task={task}
-          planSummary={runPresentation.planSummary}
-          runtimeModelLabel={runtimeModelLabel}
-          localEngineSnapshot={localEngineSnapshot}
-          onOpenEvidence={() => {
-            void hubNavigation.openView("active_context");
-          }}
-        />
-      }
     />
   ) : null;
   const chatSidebarNode = isChatVariant ? (
@@ -1141,10 +1184,10 @@ export function ChatShellWindow({
             void openCompanionGate();
           }}
           onOpenRetainedEvidence={() => {
-            void hubNavigation.openValidationEvidence();
+            openRuntimeValidationEvidence();
           }}
           onOpenView={(view) => {
-            void hubNavigation.openView(view);
+            openRuntimeWorkbenchView(view);
           }}
         />
       ) : null}
@@ -1159,7 +1202,7 @@ export function ChatShellWindow({
           message={playbookRunsMessage}
           error={playbookRunsError}
           onOpenView={(view) => {
-            void hubNavigation.openView(view);
+            openRuntimeWorkbenchView(view);
           }}
           onOpenArtifact={(artifactId) => {
             void hubNavigation.openArtifact(artifactId);
@@ -1206,7 +1249,6 @@ export function ChatShellWindow({
             runPresentation={runPresentation}
             task={task}
             runtimeModelLabel={runtimeModelLabel}
-            localEngineSnapshot={localEngineSnapshot}
             isRunning={isRunning}
             currentStep={task?.current_step}
             visualHash={task?.visual_hash || null}
@@ -1216,7 +1258,7 @@ export function ChatShellWindow({
             icons={icons}
             onExportTraceBundle={handleExportTraceBundle}
             onOpenArtifactHub={(view, turnId) => {
-              void hubNavigation.openView(view, turnId);
+              openRuntimeWorkbenchView(view, turnId);
             }}
             onOpenSourceSummary={hubNavigation.openSourceSummary}
             activeChatArtifactSessionId={selectedChatArtifactSessionId}
@@ -1315,13 +1357,13 @@ export function ChatShellWindow({
           void openCompanionGate();
         }}
         onOpenView={(view) => {
-          void hubNavigation.openView(view);
+          openRuntimeWorkbenchView(view);
         }}
         onSubmitClarification={(optionId, otherText) =>
           handleSubmitClarification(optionId, otherText)
         }
         onOpenValidationEvidence={() => {
-          void hubNavigation.openValidationEvidence();
+          openRuntimeValidationEvidence();
         }}
         workspaceOptions={workspaceOptions}
         workspaceMode={workspaceMode}

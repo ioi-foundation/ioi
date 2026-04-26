@@ -359,6 +359,13 @@ pub(crate) fn build_chat_artifact_direct_author_prompt_for_runtime(
         ))
     }
 
+    let user_intent = extract_user_request_from_contextualized_intent(intent);
+    let title_seed = if title.trim().starts_with("[Codebase context]") {
+        user_intent.as_str()
+    } else {
+        title
+    };
+
     let renderer_guidance =
         chat_direct_author_renderer_guidance(request, candidate_seed, runtime_kind);
     let compact_local_renderer_guidance = if runtime_kind
@@ -523,7 +530,7 @@ pub(crate) fn build_chat_artifact_direct_author_prompt_for_runtime(
                     "role": "user",
                     "content": format!(
                         "{}\n\nPrepared artifact brief:\n{}\n\nSelected skill guidance:\n{}\n\nRequirements:\n{}",
-                        intent.trim(),
+                        user_intent.trim(),
                         brief_focus_text,
                         selected_skills_focus_text,
                         html_document_requirements,
@@ -533,8 +540,8 @@ pub(crate) fn build_chat_artifact_direct_author_prompt_for_runtime(
         }
 
         let mut sections = vec![
-            Some(format!("Title: {}", title.trim())),
-            Some(format!("Raw user request:\n{}", intent.trim())),
+            Some(format!("Title: {}", title_seed.trim())),
+            Some(format!("Raw user request:\n{}", user_intent.trim())),
             Some(format!("Prepared artifact brief:\n{}", brief_focus_text)),
             Some(format!(
                 "Selected skill guidance:\n{}",
@@ -613,10 +620,10 @@ pub(crate) fn build_chat_artifact_direct_author_prompt_for_runtime(
         },
         {
             "role": "user",
-            "content": format!(
-                "Title:\n{}\n\nRaw user request:\n{}\n\nArtifact request focus JSON:\n{}\n\nArtifact brief JSON:\n{}\n\nSelected skill guidance JSON:\n{}\n\nEdit intent JSON:\n{}\n\nCurrent artifact context JSON:\n{}\n\nCandidate metadata:\n{{\"candidateId\":\"{}\",\"candidateSeed\":{}}}\n\n{}\n\nRenderer-native authoring guidance:\n{}\n\n{}",
-                title,
-                intent,
+                "content": format!(
+                    "Title:\n{}\n\nRaw user request:\n{}\n\nArtifact request focus JSON:\n{}\n\nArtifact brief JSON:\n{}\n\nSelected skill guidance JSON:\n{}\n\nEdit intent JSON:\n{}\n\nCurrent artifact context JSON:\n{}\n\nCandidate metadata:\n{{\"candidateId\":\"{}\",\"candidateSeed\":{}}}\n\n{}\n\nRenderer-native authoring guidance:\n{}\n\n{}",
+                title_seed,
+                user_intent,
                 request_focus_json,
                 brief_json,
                 selected_skills_json,

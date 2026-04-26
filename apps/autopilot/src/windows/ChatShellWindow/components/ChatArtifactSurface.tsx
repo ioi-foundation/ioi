@@ -14,6 +14,7 @@ import {
 } from "./artifactSurfaceShared";
 import { resolveChatExecutionPreview } from "./chatExecutionPreview";
 import { ArtifactWorkspaceSurface } from "./ArtifactWorkspaceSurface";
+import { ThoughtsDrawerSurface } from "./ThoughtsDrawerSurface";
 
 export function ChatArtifactSurface({
   task,
@@ -72,6 +73,20 @@ export function ChatArtifactSurface({
     availableArtifacts.length > 0
       ? () => onSelectChatSession(null)
       : null;
+  const activeConversationRun =
+    activeChatSession?.outcomeRequest?.outcomeKind === "conversation" ||
+    Boolean(task && activeChatSession?.outcomeRequest?.outcomeKind !== "artifact");
+
+  if (!chatSession && activeConversationRun) {
+    return (
+      <ThoughtsDrawerSurface
+        task={task ?? null}
+        events={events}
+        onCollapse={() => onCollapse?.()}
+        onSeedIntent={onSeedIntent}
+      />
+    );
+  }
 
   if (
     availableArtifacts.length > 0 &&

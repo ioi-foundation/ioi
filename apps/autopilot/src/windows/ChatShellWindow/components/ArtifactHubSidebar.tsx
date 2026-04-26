@@ -149,6 +149,7 @@ const MAX_KERNEL_LOG_ROWS = 240;
 const MAX_SUMMARY_CHARS = 220;
 const TURN_FILTER_VIEWS = new Set<ArtifactHubViewKey>([
   "active_context",
+  "capability_inventory",
   "thoughts",
   "substrate",
   "sources",
@@ -159,12 +160,14 @@ const TURN_FILTER_VIEWS = new Set<ArtifactHubViewKey>([
   "screenshots",
 ]);
 const FOCUSED_TRACE_ENTRY_VIEWS = new Set<ArtifactHubViewKey>([
+  "active_context",
   "thoughts",
   "sources",
   "screenshots",
   "kernel_logs",
 ]);
 const FOCUSED_TRACE_SECTION_VIEWS = new Set<ArtifactHubViewKey>([
+  "active_context",
   "thoughts",
   "sources",
   "screenshots",
@@ -243,8 +246,18 @@ function extractArtifactUrl(artifact: Artifact): string | null {
 
 function sectionLabel(key: ArtifactHubViewKey): string {
   switch (key) {
+    case "process":
+      return "Process";
+    case "tools":
+      return "Tools";
+    case "runtime_details":
+      return "Runtime details";
+    case "trace_export":
+      return "Trace export";
     case "active_context":
-      return "Implementation plan";
+      return "Plan notes";
+    case "capability_inventory":
+      return "Capability inventory";
     case "doctor":
       return "Doctor";
     case "compact":
@@ -1434,9 +1447,39 @@ export function ArtifactHubSidebar({
   const sections = useMemo<HubSection[]>(
     () => [
       {
+        key: "process",
+        label: sectionLabel("process"),
+        count: scopedPlanSummary ? 1 : 0,
+      },
+      {
+        key: "tools",
+        label: sectionLabel("tools"),
+        count: kernelLogs.length,
+      },
+      {
+        key: "sources",
+        label: sectionLabel("sources"),
+        count: visibleSourceCount,
+      },
+      {
+        key: "runtime_details",
+        label: sectionLabel("runtime_details"),
+        count: task ? 1 : 0,
+      },
+      {
+        key: "trace_export",
+        label: sectionLabel("trace_export"),
+        count: exportSectionCount,
+      },
+      {
         key: "active_context",
         label: sectionLabel("active_context"),
         count: scopedPlanSummary ? 1 : 0,
+      },
+      {
+        key: "capability_inventory",
+        label: sectionLabel("capability_inventory"),
+        count: localEngineSnapshot?.capabilities.length ?? 0,
       },
       {
         key: "doctor",
@@ -1568,11 +1611,6 @@ export function ArtifactHubSidebar({
         count: thoughtAgents.length + playbookRuns.length + stagedOperations.length,
       },
       {
-        key: "sources",
-        label: sectionLabel("sources"),
-        count: visibleSourceCount,
-      },
-      {
         key: "security_policy",
         label: sectionLabel("security_policy"),
         count: securityRows.length,
@@ -1605,6 +1643,7 @@ export function ArtifactHubSidebar({
     ],
     [
       activeOverrideCount,
+      localEngineSnapshot?.capabilities.length,
       compactionSectionCount,
       branchSectionCount,
       commitSectionCount,
@@ -1964,11 +2003,11 @@ export function ArtifactHubSidebar({
 
   return (
     <div className="artifact-panel artifact-hub-panel">
-      <div className="artifact-header">
+      <div className="artifact-header" data-testid="runtime-workbench-header">
         <div className="artifact-meta">
           <div className="artifact-icon">{icons.sidebar}</div>
           <span className="artifact-filename artifact-filename--drawer">
-            {focusedTraceMode ? "Scratchboard inspector" : "Runtime workbench"}
+            {focusedTraceMode ? "Thoughts" : "Runtime details"}
           </span>
           <span className="artifact-tag">{sectionLabel(activeView)}</span>
         </div>

@@ -293,6 +293,51 @@ fn authoritative_status_completes_when_ready_manifest_conflicts_with_stale_verif
 }
 
 #[test]
+fn authoritative_status_fails_when_blocked_manifest_conflicts_with_stale_verify_step() {
+    let mut task = test_task(ChatArtifactVerificationStatus::Blocked);
+    let chat_session = task.chat_session.as_mut().expect("chat session");
+    chat_session.lifecycle_state = ChatArtifactLifecycleState::Rendering;
+    chat_session.status = "rendering".to_string();
+    chat_session.artifact_manifest.verification.summary =
+        "Chat materialized files, but acceptance validation blocked the primary presentation."
+            .to_string();
+    super::operator_run::start_operator_run_for_session(
+        chat_session,
+        Some("prompt-evt-1"),
+        ioi_api::runtime_harness::ArtifactOperatorRunMode::Create,
+    );
+    chat_session
+        .materialization
+        .operator_steps
+        .push(ArtifactOperatorStep {
+            step_id: "verify-step-1".to_string(),
+            origin_prompt_event_id: "prompt-evt-1".to_string(),
+            phase: ArtifactOperatorPhase::VerifyArtifact,
+            engine: "browser_verifier".to_string(),
+            status: ArtifactOperatorRunStatus::Active,
+            label: "Run browser verification".to_string(),
+            detail: "Render evaluation is complete and Chat is surfacing the rendered artifact."
+                .to_string(),
+            started_at_ms: 1,
+            finished_at_ms: None,
+            preview: None,
+            file_refs: Vec::new(),
+            source_refs: Vec::new(),
+            verification_refs: Vec::new(),
+            attempt: 1,
+        });
+    super::operator_run::refresh_active_operator_run_from_session(chat_session, None);
+
+    apply_chat_authoritative_status(&mut task, None);
+
+    assert_eq!(task.phase, AgentPhase::Failed);
+    assert_eq!(
+        task.current_step,
+        "Chat materialized files, but acceptance validation blocked the primary presentation."
+    );
+}
+
+#[test]
 fn authoritative_workspace_artifact_stays_running_until_verification_passes() {
     let mut task = test_task(ChatArtifactVerificationStatus::Blocked);
     task.build_session = Some(test_build_session("preview-starting", "pending"));

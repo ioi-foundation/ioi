@@ -6967,6 +6967,36 @@ fn local_direct_author_prompt_omits_materialization_json_scaffolding() {
     assert!(!prompt_text.contains("Candidate metadata:"));
 }
 
+#[test]
+fn local_direct_author_prompt_strips_codebase_context_envelope() {
+    let request = request_for(
+        ChatArtifactClass::InteractiveSingleFile,
+        ChatRendererKind::HtmlIframe,
+    );
+    let brief = sample_quantum_explainer_brief();
+    let payload = build_chat_artifact_direct_author_prompt_for_runtime(
+        "[Codebase context]",
+        "[Codebase context]\nWorkspace: .\n\n[User request]\nCreate an interactive HTML artifact that explains quantum computers.",
+        &request,
+        &brief,
+        &[],
+        None,
+        None,
+        "candidate-1",
+        7,
+        ChatRuntimeProvenanceKind::RealLocalRuntime,
+        true,
+    )
+    .expect("direct author prompt");
+
+    let prompt_text = serde_json::to_string(&payload).expect("prompt json");
+
+    assert!(prompt_text
+        .contains("Create an interactive HTML artifact that explains quantum computers."));
+    assert!(!prompt_text.contains("Workspace: ."));
+    assert!(!prompt_text.contains("[Codebase context]"));
+}
+
 #[tokio::test]
 async fn direct_author_local_document_surfaces_provisional_snapshot_without_continuation() {
     #[derive(Debug, Clone)]

@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { SourceSummary } from "../../../types";
+import { icons } from "../../../components/ui/icons";
 
 type SourceChip = {
   key: string;
@@ -10,14 +11,6 @@ type SourceChip = {
 };
 
 const MAX_SOURCE_CHIPS = 6;
-
-function faviconUrlForDomain(domain: string | null | undefined): string | null {
-  const normalized = String(domain || "").trim();
-  if (!normalized) {
-    return null;
-  }
-  return `https://www.google.com/s2/favicons?sz=64&domain=${encodeURIComponent(normalized)}`;
-}
 
 async function openSourceLink(url: string) {
   try {
@@ -45,7 +38,7 @@ export function SourceChipRow({
       url: browse.url,
       faviconUrl:
         sourceSummary.domains.find((domain) => domain.domain === browse.domain)
-          ?.faviconUrl || faviconUrlForDomain(browse.domain),
+          ?.faviconUrl || null,
     }));
     if (browseChips.length > 0) {
       return browseChips.slice(0, MAX_SOURCE_CHIPS);
@@ -55,7 +48,7 @@ export function SourceChipRow({
       key: `domain:${domain.domain}`,
       label: domain.domain,
       url: null,
-      faviconUrl: domain.faviconUrl || faviconUrlForDomain(domain.domain),
+      faviconUrl: domain.faviconUrl || null,
     }));
   }, [sourceSummary]);
 
@@ -84,7 +77,14 @@ export function SourceChipRow({
                 src={chip.faviconUrl}
                 alt=""
               />
-            ) : null}
+            ) : (
+              <span
+                className="spot-source-chip__icon spot-source-chip__icon--fallback"
+                aria-hidden="true"
+              >
+                {icons.globe}
+              </span>
+            )}
             <span className="spot-source-chip__label">{chip.label}</span>
           </>
         );

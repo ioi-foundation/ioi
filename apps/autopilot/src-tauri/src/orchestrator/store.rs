@@ -7,6 +7,7 @@ use crate::models::{
     SessionCompactionRecord, SessionFileContext, SessionSummary, SkillSourceRecord,
     TeamMemorySyncEntry,
 };
+use ioi_api::runtime_harness::extract_user_request_from_contextualized_intent;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_memory::MemoryRuntime;
 use serde::{de::DeserializeOwned, Serialize};
@@ -392,7 +393,8 @@ fn normalize_workspace_root(value: Option<String>) -> Option<String> {
 }
 
 fn session_summary_title_from_task_intent(intent: &str) -> String {
-    truncate_session_summary_label(intent.trim(), 27)
+    let user_request = extract_user_request_from_contextualized_intent(intent);
+    truncate_session_summary_label(user_request.trim(), 54)
 }
 
 fn truncate_session_summary_label(value: &str, max_chars: usize) -> String {
@@ -631,13 +633,19 @@ pub fn session_summary_from_task(
     let existing_workspace_root =
         existing.and_then(|summary| normalize_workspace_root(summary.workspace_root.clone()));
 
+    let existing_title = existing
+        .map(|summary| summary.title.trim())
+        .filter(|title| !title.is_empty())
+        .map(ToOwned::to_owned);
+    let task_title = session_summary_title_from_task_intent(&task.intent);
+    let title = match existing_title {
+        Some(title) if !title.starts_with("[Codebase context]") => title,
+        _ => task_title,
+    };
+
     SessionSummary {
         session_id,
-        title: existing
-            .map(|summary| summary.title.trim())
-            .filter(|title| !title.is_empty())
-            .map(ToOwned::to_owned)
-            .unwrap_or_else(|| session_summary_title_from_task_intent(&task.intent)),
+        title,
         timestamp: existing
             .map(|summary| summary.timestamp)
             .unwrap_or_else(crate::kernel::state::now),

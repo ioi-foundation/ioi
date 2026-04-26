@@ -71,7 +71,17 @@ pub(crate) fn materialization_max_tokens_for_execution_strategy(
                     materialization_max_tokens(renderer).min(1800)
                 }
             }
-            ChatRendererKind::Svg | ChatRendererKind::PdfEmbed => {
+            ChatRendererKind::Svg => {
+                if runtime_kind == ChatRuntimeProvenanceKind::RealLocalRuntime {
+                    // SVG artifacts are structurally settled, so local
+                    // direct-authoring needs enough room to close the root
+                    // document rather than failing on an avoidable truncation.
+                    4096
+                } else {
+                    materialization_max_tokens(renderer).min(2200)
+                }
+            }
+            ChatRendererKind::PdfEmbed => {
                 if runtime_kind == ChatRuntimeProvenanceKind::RealLocalRuntime {
                     1600
                 } else {
@@ -80,12 +90,12 @@ pub(crate) fn materialization_max_tokens_for_execution_strategy(
             }
             ChatRendererKind::HtmlIframe => {
                 if runtime_kind == ChatRuntimeProvenanceKind::RealLocalRuntime {
-                    // Keep local raw-document authoring bounded even when
-                    // modal-first HTML is enabled. The direct-author lane is
-                    // used for fast create/edit loops, and the larger
-                    // structured-materialization budget is better reserved for the heavier
-                    // structured materialization path.
-                    2400
+                    // Local raw-document authoring must have enough room to
+                    // finish the actual HTML document. Completion is now
+                    // governed by structural settle boundaries instead of
+                    // semantic repair heuristics, so an undersized budget
+                    // causes false failures before </main></body></html>.
+                    3600
                 } else {
                     materialization_max_tokens(renderer).min(2600)
                 }

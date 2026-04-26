@@ -32,6 +32,7 @@ mod domain_topology;
 mod generation;
 mod html;
 mod html_registry;
+mod intent_context;
 mod intent_signals;
 mod payload;
 mod pdf;
@@ -117,6 +118,7 @@ pub use domain_topology::{
 };
 use html::*;
 use html_registry::*;
+pub use intent_context::extract_user_request_from_contextualized_intent;
 pub use intent_signals::ChatIntentContext;
 pub use specialized_policy::{
     chat_request_frame_clarification_slots, chat_request_frame_missing_slots,

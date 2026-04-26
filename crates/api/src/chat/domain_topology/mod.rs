@@ -1799,11 +1799,7 @@ fn derive_request_frame(
         if message_purpose.is_none() {
             missing_slots.push("purpose".to_string());
         }
-        if message_recipient_context.is_none()
-            && matches!(
-                message_purpose.as_deref(),
-                Some("draft" | "reply" | "compose")
-            )
+        if message_recipient_context.is_none() && matches!(message_purpose.as_deref(), Some("send"))
         {
             missing_slots.push("recipient_context".to_string());
         }

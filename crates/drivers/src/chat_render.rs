@@ -1717,7 +1717,14 @@ fn score_render_evaluation(
     if blueprint_consistency_score <= 2 {
         findings.push(ChatArtifactRenderFinding {
             code: "blueprint_consistency_low".to_string(),
-            severity: ChatArtifactRenderFindingSeverity::Blocked,
+            severity: if matches!(
+                request.renderer,
+                ChatRendererKind::Svg | ChatRendererKind::Mermaid
+            ) {
+                ChatArtifactRenderFindingSeverity::Warning
+            } else {
+                ChatArtifactRenderFindingSeverity::Blocked
+            },
             summary: "The captured render does not satisfy enough of the typed blueprint and interaction contract."
                 .to_string(),
         });

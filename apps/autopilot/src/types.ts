@@ -3782,7 +3782,12 @@ export interface PlanSummary {
 }
 
 export type ArtifactHubViewKey =
+  | "process"
+  | "tools"
+  | "runtime_details"
+  | "trace_export"
   | "active_context"
+  | "capability_inventory"
   | "doctor"
   | "compact"
   | "branch"

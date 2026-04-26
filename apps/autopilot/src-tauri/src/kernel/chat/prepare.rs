@@ -7,6 +7,7 @@ use super::*;
 use crate::models::ChatMessage;
 use ioi_api::execution::{ExecutionEnvelope, ExecutionStage};
 use ioi_api::runtime_harness::{
+    route_family_for_outcome_request, selected_route_label_for_outcome_request,
     ArtifactOperatorRunMode, ChatArtifactExemplar, ChatArtifactGenerationProgress,
     ChatArtifactMergeReceipt, ChatArtifactPatchReceipt, ChatArtifactSwarmExecutionSummary,
     ChatArtifactSwarmPlan, ChatArtifactVerificationReceipt, ChatArtifactWorkerReceipt,
@@ -63,17 +64,63 @@ pub(super) fn publish_current_task_snapshot(app: &AppHandle, task: &AgentTask) {
     });
 }
 
-fn build_direct_inline_conversation_prompt(intent: &str) -> String {
+fn intent_requests_runtime_visibility(intent: &str) -> bool {
+    let lower = intent.to_ascii_lowercase();
+    [
+        "runtime process",
+        "runtime fact",
+        "tool call",
+        "tools",
+        "sources",
+        "evidence",
+        "approval",
+        "receipt",
+        "settlement",
+        "projection",
+        "authoritative",
+    ]
+    .iter()
+    .filter(|needle| lower.contains(**needle))
+    .count()
+        >= 2
+}
+
+fn build_direct_inline_conversation_prompt(
+    intent: &str,
+    outcome_request: Option<&ChatOutcomeRequest>,
+) -> String {
+    let runtime_context = if intent_requests_runtime_visibility(intent) {
+        let route = outcome_request
+            .map(selected_route_label_for_outcome_request)
+            .unwrap_or_else(|| "conversation_single_pass".to_string());
+        let route_family = outcome_request
+            .map(route_family_for_outcome_request)
+            .unwrap_or("general");
+        format!(
+            "\nCurrent run facts available to this answer:\n\
+- route: {route}\n\
+- route family: {route_family}\n\
+- default tool calls used by this direct reply: none unless explicit tool rows appear in runtime events\n\
+- user-visible artifact output: none for this direct conversation route\n\
+- approval gate: none active for this direct reply\n\
+- settlement status: projection-only unless a persisted settlement receipt is explicitly attached\n\
+When the user asks what this run can expose, answer from these facts. Do not claim you have no runtime visibility.\n"
+        )
+    } else {
+        String::new()
+    };
+
     format!(
         "You are Autopilot Chat's direct inline reply path.\n\
 Answer the user's request directly.\n\
 Constraints:\n\
 - Answer in plain prose with no preamble about tools, routing, or process.\n\
-- Do not mention unavailable tools or system internals.\n\
+- Do not mention unavailable tools or system internals unless the user explicitly asks about runtime/tool/evidence visibility.\n\
 - Avoid markdown headings unless the user explicitly asked for structure.\n\
 - Keep the answer compact but complete for a normal chat turn.\n\
 - If the request truly cannot be answered safely without fresh external information, say that briefly instead of inventing details.\n\
 \n\
+{runtime_context}\n\
 User request:\n{intent}\n"
     )
 }
@@ -263,6 +310,7 @@ fn complete_direct_inline_conversation_reply(
     app: &AppHandle,
     task: &mut AgentTask,
     intent: &str,
+    outcome_request: &ChatOutcomeRequest,
 ) -> Result<String, String> {
     let runtime = app_inference_runtime(app)
         .or_else(|| app_chat_routing_inference_runtime(app))
@@ -271,7 +319,7 @@ fn complete_direct_inline_conversation_reply(
         })?;
 
     publish_current_task_progress(app, task, "Drafting the direct answer...");
-    let prompt = build_direct_inline_conversation_prompt(intent);
+    let prompt = build_direct_inline_conversation_prompt(intent, Some(outcome_request));
     let options = InferenceOptions {
         temperature: 0.2,
         json_mode: false,
@@ -305,7 +353,7 @@ pub(super) fn maybe_execute_chat_primary_non_artifact_reply(
     let (reply, route_execution_evidence, completion_summary) =
         if super::task_state::non_artifact_single_pass_reply_stays_chat_primary(outcome_request) {
             (
-                complete_direct_inline_conversation_reply(app, task, intent)?,
+                complete_direct_inline_conversation_reply(app, task, intent, outcome_request)?,
                 "route_execution:chat_direct_inline",
                 "Chat completed the direct inline route and preserved the final route contract.",
             )

@@ -3,6 +3,7 @@ use base64::{engine::general_purpose::STANDARD, Engine as _};
 use ioi_api::execution::{execution_budget_envelope_for_strategy, ExecutionEnvelope};
 use ioi_api::runtime_harness::{
     derive_chat_artifact_prepared_context, derive_request_grounded_chat_artifact_brief,
+    extract_user_request_from_contextualized_intent,
     generate_chat_artifact_bundle_with_runtime_plan_and_planning_context_and_execution_strategy_and_render_evaluator,
     pdf_artifact_bytes, render_eval_timeout_for_runtime, resolve_chat_artifact_runtime_plan,
     synthesize_chat_artifact_brief_for_execution_strategy_with_runtime, ArtifactOperatorPhase,
@@ -1618,7 +1619,8 @@ pub(super) fn generated_quality_files(
 }
 
 pub(super) fn derive_artifact_title(intent: &str) -> String {
-    let trimmed = intent.trim();
+    let user_request = extract_user_request_from_contextualized_intent(intent);
+    let trimmed = user_request.trim();
     let primary = trimmed
         .split(['.', '\n', ':'])
         .next()

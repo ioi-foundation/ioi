@@ -17,6 +17,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import shlex
 import signal
 import sqlite3
@@ -47,7 +48,8 @@ POLL_INTERVAL_SECS = 1.0
 WINDOW_WAIT_TIMEOUT_SECS = 240.0
 POST_SETTLE_CAPTURE_DELAY_SECS = 2.0
 HEARTBEAT_LOG_RE = re.compile(r"^\[Autopilot\] Block #\d+ committed \(Tx: 0\)$")
-EVIDENCE_DRAWER_FALLBACK_POINT = (670, 82)
+CHAT_LAUNCH_STAGE_RE = re.compile(r"\[Autopilot\]\[ChatLaunch\] stage=([^\s]+)")
+THOUGHTS_DRAWER_FALLBACK_POINT = (670, 82)
 
 
 def shell_join(cmd: list[str]) -> str:
@@ -141,13 +143,64 @@ def window_geometry(window_id: int) -> dict[str, int]:
     return geometry
 
 
-def evidence_drawer_point(window_id: int) -> tuple[int, int, dict[str, Any]]:
+def thoughts_drawer_points(window_id: int) -> list[tuple[int, int, str, dict[str, Any]]]:
     geometry = window_geometry(window_id)
     width = geometry.get("WIDTH")
+    height = geometry.get("HEIGHT")
     if width:
-        return max(360, min(width - 260, int(width * 0.52))), 82, {"geometry": geometry}
-    rel_x, rel_y = EVIDENCE_DRAWER_FALLBACK_POINT
-    return rel_x, rel_y, {"geometry": geometry, "fallback": True}
+        candidates = [
+            (
+                max(360, min(width - 420, int(width * 0.45))),
+                max(120, min((height or 650) - 120, (height or 650) - 144)),
+                "answer_card_thoughts_action_bottom",
+            ),
+            (
+                max(360, min(width - 420, int(width * 0.49))),
+                max(120, min((height or 650) - 120, (height or 650) - 144)),
+                "answer_card_thoughts_action_bottom_neighbor",
+            ),
+            (
+                max(320, min(width - 420, int(width * 0.34))),
+                260,
+                "assistant_process_trigger",
+            ),
+            (
+                max(560, min(width - 72, width - 92)),
+                320,
+                "answer_card_thoughts_action",
+            ),
+            (
+                max(560, min(width - 120, width - 140)),
+                320,
+                "answer_card_thoughts_neighbor",
+            ),
+            (
+                max(560, min(width - 360, int(width * 0.645))),
+                174,
+                "assistant_process_row_scrolled",
+            ),
+            (
+                max(560, min(width - 360, int(width * 0.645))),
+                220,
+                "assistant_process_row_high",
+            ),
+            (
+                max(560, min(width - 360, int(width * 0.645))),
+                350,
+                "assistant_process_row_low",
+            ),
+        ]
+        bounded: list[tuple[int, int, str, dict[str, Any]]] = []
+        for rel_x, rel_y, target in candidates:
+            bounded.append((
+                rel_x,
+                max(48, min((height or 650) - 48, rel_y)),
+                target,
+                {"geometry": geometry},
+            ))
+        return bounded
+    rel_x, rel_y = THOUGHTS_DRAWER_FALLBACK_POINT
+    return [(rel_x, rel_y, "thoughts_drawer_fallback", {"geometry": geometry, "fallback": True})]
 
 
 def click_window_point(window_id: int, rel_x: int, rel_y: int) -> dict[str, Any]:
@@ -178,23 +231,86 @@ def click_window_point(window_id: int, rel_x: int, rel_y: int) -> dict[str, Any]
     return diagnostics
 
 
-def capture_evidence_drawer_with_fallback(
+def capture_thoughts_drawer_with_fallback(
     window_id: int,
     screenshot_path: Path,
     *,
     browser_url: str,
+    baseline_path: Path | None = None,
 ) -> tuple[dict[str, Any], str | None, dict[str, Any] | None]:
-    rel_x, rel_y, point_diagnostics = evidence_drawer_point(window_id)
-    click_diagnostics = click_window_point(window_id, rel_x, rel_y)
-    click_diagnostics.update(point_diagnostics)
-    click_diagnostics["target"] = "runtime_facts_evidence_tier"
-    time.sleep(1.0)
-    capture_result = capture_window_with_fallback(
-        window_id,
-        screenshot_path,
-        browser_url=browser_url,
+    attempts: list[dict[str, Any]] = []
+    final_error: str | None = None
+    final_diagnostics: dict[str, Any] | None = None
+    for index, (rel_x, rel_y, target, point_diagnostics) in enumerate(
+        thoughts_drawer_points(window_id),
+        start=1,
+    ):
+        attempt_path = (
+            screenshot_path
+            if index == 1
+            else screenshot_path.with_name(f"{screenshot_path.stem}_{index}{screenshot_path.suffix}")
+        )
+        click_diagnostics = click_window_point(window_id, rel_x, rel_y)
+        click_diagnostics.update(point_diagnostics)
+        click_diagnostics["target"] = target
+        click_diagnostics["attempt"] = index
+        time.sleep(1.0)
+        capture_result = capture_window_with_fallback(
+            window_id,
+            attempt_path,
+            browser_url=browser_url,
+        )
+        diff_pixels = image_difference_pixels(baseline_path, attempt_path)
+        opened = diff_pixels is not None and diff_pixels > 90_000
+        attempt = {
+            "click": click_diagnostics,
+            "capture_error": capture_result.error,
+            "capture_diagnostics": capture_result.diagnostics,
+            "screenshot": str(attempt_path),
+            "baseline_diff_pixels": diff_pixels,
+            "thoughts_drawer_opened": opened,
+        }
+        attempts.append(attempt)
+        final_error = capture_result.error
+        final_diagnostics = capture_result.diagnostics
+        if opened:
+            if attempt_path != screenshot_path:
+                screenshot_path.write_bytes(attempt_path.read_bytes())
+            return {
+                "method": "coordinate_fallback",
+                "selected_attempt": index,
+                "target": target,
+                "relative_point": {"x": rel_x, "y": rel_y},
+                "attempts": attempts,
+                "thoughts_drawer_opened": True,
+            }, final_error, final_diagnostics
+
+    return {
+        "method": "coordinate_fallback",
+        "attempts": attempts,
+        "thoughts_drawer_opened": False,
+    }, final_error, final_diagnostics
+
+
+def image_difference_pixels(left_path: Path | None, right_path: Path | None) -> int | None:
+    if left_path is None or right_path is None:
+        return None
+    if not left_path.exists() or not right_path.exists():
+        return None
+    compare = shutil.which("compare")
+    if compare is None:
+        return None
+    completed = run(
+        [compare, "-metric", "AE", str(left_path), str(right_path), "null:"],
+        check=False,
     )
-    return click_diagnostics, capture_result.error, capture_result.diagnostics
+    metric = (completed.stderr or completed.stdout or "").strip().splitlines()[-1:]
+    if not metric:
+        return None
+    try:
+        return int(float(metric[0].strip()))
+    except ValueError:
+        return None
 
 
 def load_task_checkpoint(db_path: Path) -> dict[str, Any] | None:
@@ -448,6 +564,32 @@ def latest_route_receipt_summary(task: dict[str, Any] | None) -> dict[str, Any] 
     return candidates[0]
 
 
+def is_user_visible_artifact_record(record: dict[str, Any]) -> bool:
+    artifact_type = str(
+        record.get("artifact_type") or record.get("artifactType") or ""
+    ).upper()
+    if artifact_type == "RUN_BUNDLE":
+        return False
+
+    metadata = record.get("metadata") if isinstance(record.get("metadata"), dict) else {}
+    path = str(record.get("path") or metadata.get("path") or "")
+    title = str(record.get("title") or "")
+    haystack = f"{path}\n{title}".lower()
+    if "conversation-artifacts/" in haystack and "/planning/" in haystack:
+        return False
+    return True
+
+
+def user_visible_task_artifacts(task: dict[str, Any] | None) -> list[dict[str, Any]]:
+    if not task:
+        return []
+    return [
+        artifact
+        for artifact in task.get("artifacts") or []
+        if isinstance(artifact, dict) and is_user_visible_artifact_record(artifact)
+    ]
+
+
 def artifact_records_summary(db_paths: list[Path], limit: int = 8) -> list[dict[str, Any]]:
     for path in db_paths:
         if not path.exists() or path.stat().st_size == 0:
@@ -485,7 +627,7 @@ def artifact_records_summary(db_paths: list[Path], limit: int = 8) -> list[dict[
             except (TypeError, json.JSONDecodeError):
                 payload = {}
             metadata = payload.get("metadata") if isinstance(payload, dict) else {}
-            summaries.append({
+            summary = {
                 "artifact_id": artifact_id,
                 "title": payload.get("title") if isinstance(payload, dict) else None,
                 "artifact_type": payload.get("artifact_type") if isinstance(payload, dict) else None,
@@ -493,7 +635,9 @@ def artifact_records_summary(db_paths: list[Path], limit: int = 8) -> list[dict[
                 "version": payload.get("version") if isinstance(payload, dict) else None,
                 "created_at_ms": created_at_ms,
                 "updated_at_ms": updated_at_ms,
-            })
+            }
+            if is_user_visible_artifact_record(summary):
+                summaries.append(summary)
         return summaries
     return []
 
@@ -527,8 +671,9 @@ def runtime_facts_summary(task: dict[str, Any] | None) -> dict[str, Any]:
     elif active_run.get("status"):
         approval = str(active_run.get("status"))
 
+    visible_artifacts = user_visible_task_artifacts(task)
     evidence_tier = "Settlement receipt" if settlement_refs else "Runtime event receipt"
-    if not task.get("events") and not task.get("artifacts"):
+    if not task.get("events") and not visible_artifacts:
         evidence_tier = "Projection"
 
     return {
@@ -543,7 +688,7 @@ def runtime_facts_summary(task: dict[str, Any] | None) -> dict[str, Any]:
         "evidence_tier": evidence_tier,
         "settlement_state": "settled" if settlement_refs else "projection_only",
         "event_count": len(task.get("events") or []),
-        "artifact_count": len(task.get("artifacts") or []),
+        "artifact_count": len(visible_artifacts),
         "active_operator_run_status": active_run.get("status"),
     }
 
@@ -758,6 +903,34 @@ def read_log_tail(log_path: Path, max_lines: int = 120) -> list[str]:
     return filtered[-max_lines:]
 
 
+def chat_launch_stage_summary(log_path: Path) -> dict[str, Any]:
+    if not log_path.exists():
+        return {"stage_counts": {}, "latest_stage": None, "latest_detail": None}
+    counts: dict[str, int] = {}
+    latest_stage: str | None = None
+    latest_detail: str | None = None
+    for line in log_path.read_text(encoding="utf-8", errors="replace").splitlines():
+        match = CHAT_LAUNCH_STAGE_RE.search(line)
+        if not match:
+            continue
+        latest_stage = match.group(1)
+        counts[latest_stage] = counts.get(latest_stage, 0) + 1
+        latest_detail = line.split(" detail=", 1)[1] if " detail=" in line else None
+    return {
+        "stage_counts": counts,
+        "latest_stage": latest_stage,
+        "latest_detail": latest_detail,
+        "waiting_for_session_projection_count": counts.get(
+            "chat_seed_intent_waiting_for_session_projection",
+            0,
+        ),
+        "projection_bind_failed_count": counts.get(
+            "chat_seed_intent_projection_bind_failed",
+            0,
+        ),
+    }
+
+
 def terminate_process_group(process: subprocess.Popen[str]) -> None:
     if process.poll() is not None:
         log_handle = getattr(process, "_probe_log_handle", None)
@@ -800,6 +973,11 @@ def terminate_process_group(process: subprocess.Popen[str]) -> None:
             log_handle.close()
 
 
+def record_screenshot_path(screenshots: dict[str, str], key: str, path: Path) -> None:
+    if path.exists() and path.stat().st_size > 0:
+        screenshots[key] = str(path)
+
+
 def build_result_bundle(
     prompt: str,
     screenshot_path: Path | None,
@@ -815,16 +993,20 @@ def build_result_bundle(
     db_info: dict[str, Any] | None = None,
     artifact_records: list[dict[str, Any]] | None = None,
     screenshot_diagnostics: dict[str, Any] | None = None,
+    launch_summary: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     return {
         "captured_at": datetime.now(timezone.utc).isoformat(),
         "prompt": prompt,
-        "screenshot": str(screenshot_path) if screenshot_path else None,
+        "screenshot": str(screenshot_path)
+        if screenshot_path and screenshot_path.exists() and screenshot_path.stat().st_size > 0
+        else None,
         "screenshots": screenshots or {},
         "window_id": window_id,
         "capture_mode": capture_mode,
         "capture_diagnostics": capture_diagnostics,
         "screenshot_diagnostics": screenshot_diagnostics or {},
+        "chat_launch_summary": launch_summary or {},
         "window_capture_error": window_capture_error,
         "db_diagnostics": db_info,
         "task": task,
@@ -890,7 +1072,7 @@ def main() -> int:
                     startup_path,
                     browser_url=args.browser_capture_url,
                 )
-                screenshots["startup"] = str(startup_path)
+                record_screenshot_path(screenshots, "startup", startup_path)
                 window_capture_error = startup_capture.error
                 capture_mode = startup_capture.mode
                 capture_diagnostics = startup_capture.diagnostics
@@ -907,7 +1089,7 @@ def main() -> int:
                     pending_path,
                     browser_url=args.browser_capture_url,
                 )
-                screenshots["pending"] = str(pending_path)
+                record_screenshot_path(screenshots, "pending", pending_path)
                 window_capture_error = pending_capture.error or window_capture_error
                 capture_mode = pending_capture.mode
                 capture_diagnostics = pending_capture.diagnostics
@@ -925,25 +1107,26 @@ def main() -> int:
                     screenshot_path,
                     browser_url=args.browser_capture_url,
                 )
-                screenshots["final"] = str(screenshot_path)
+                record_screenshot_path(screenshots, "final", screenshot_path)
                 window_capture_error = capture_result.error
                 capture_mode = capture_result.mode
                 capture_diagnostics = capture_result.diagnostics
-                evidence_path = prompt_dir / "evidence_drawer.png"
+                thoughts_path = prompt_dir / "thoughts_drawer.png"
                 (
-                    evidence_click_diagnostics,
-                    evidence_capture_error,
-                    evidence_capture_diagnostics,
-                ) = capture_evidence_drawer_with_fallback(
+                    thoughts_click_diagnostics,
+                    thoughts_capture_error,
+                    thoughts_capture_diagnostics,
+                ) = capture_thoughts_drawer_with_fallback(
                     window_id,
-                    evidence_path,
+                    thoughts_path,
                     browser_url=args.browser_capture_url,
+                    baseline_path=screenshot_path,
                 )
-                screenshots["evidence_drawer"] = str(evidence_path)
-                screenshot_diagnostics["evidence_drawer"] = {
-                    "click": evidence_click_diagnostics,
-                    "capture_error": evidence_capture_error,
-                    "capture_diagnostics": evidence_capture_diagnostics,
+                record_screenshot_path(screenshots, "thoughts_drawer", thoughts_path)
+                screenshot_diagnostics["thoughts_drawer"] = {
+                    "click": thoughts_click_diagnostics,
+                    "capture_error": thoughts_capture_error,
+                    "capture_diagnostics": thoughts_capture_diagnostics,
                 }
             else:
                 window_id = wait_for_window(args.window_name, timeout_secs=15.0)
@@ -954,25 +1137,26 @@ def main() -> int:
                         screenshot_path,
                         browser_url=args.browser_capture_url,
                     )
-                    screenshots["final"] = str(screenshot_path)
+                    record_screenshot_path(screenshots, "final", screenshot_path)
                     window_capture_error = capture_result.error
                     capture_mode = capture_result.mode
                     capture_diagnostics = capture_result.diagnostics
-                    evidence_path = prompt_dir / "evidence_drawer.png"
+                    thoughts_path = prompt_dir / "thoughts_drawer.png"
                     (
-                        evidence_click_diagnostics,
-                        evidence_capture_error,
-                        evidence_capture_diagnostics,
-                    ) = capture_evidence_drawer_with_fallback(
+                        thoughts_click_diagnostics,
+                        thoughts_capture_error,
+                        thoughts_capture_diagnostics,
+                    ) = capture_thoughts_drawer_with_fallback(
                         window_id,
-                        evidence_path,
+                        thoughts_path,
                         browser_url=args.browser_capture_url,
+                        baseline_path=screenshot_path,
                     )
-                    screenshots["evidence_drawer"] = str(evidence_path)
-                    screenshot_diagnostics["evidence_drawer"] = {
-                        "click": evidence_click_diagnostics,
-                        "capture_error": evidence_capture_error,
-                        "capture_diagnostics": evidence_capture_diagnostics,
+                    record_screenshot_path(screenshots, "thoughts_drawer", thoughts_path)
+                    screenshot_diagnostics["thoughts_drawer"] = {
+                        "click": thoughts_click_diagnostics,
+                        "capture_error": thoughts_capture_error,
+                        "capture_diagnostics": thoughts_capture_diagnostics,
                     }
                 else:
                     window_capture_error = (
@@ -992,26 +1176,27 @@ def main() -> int:
                     screenshot_path,
                     browser_url=args.browser_capture_url,
                 )
-                screenshots["final"] = str(screenshot_path)
+                record_screenshot_path(screenshots, "final", screenshot_path)
                 if window_capture_error is None:
                     window_capture_error = capture_result.error
                 capture_mode = capture_result.mode
                 capture_diagnostics = capture_result.diagnostics
-                evidence_path = prompt_dir / "evidence_drawer.png"
+                thoughts_path = prompt_dir / "thoughts_drawer.png"
                 (
-                    evidence_click_diagnostics,
-                    evidence_capture_error,
-                    evidence_capture_diagnostics,
-                ) = capture_evidence_drawer_with_fallback(
+                    thoughts_click_diagnostics,
+                    thoughts_capture_error,
+                    thoughts_capture_diagnostics,
+                ) = capture_thoughts_drawer_with_fallback(
                     window_id,
-                    evidence_path,
+                    thoughts_path,
                     browser_url=args.browser_capture_url,
+                    baseline_path=screenshot_path,
                 )
-                screenshots["evidence_drawer"] = str(evidence_path)
-                screenshot_diagnostics["evidence_drawer"] = {
-                    "click": evidence_click_diagnostics,
-                    "capture_error": evidence_capture_error,
-                    "capture_diagnostics": evidence_capture_diagnostics,
+                record_screenshot_path(screenshots, "thoughts_drawer", thoughts_path)
+                screenshot_diagnostics["thoughts_drawer"] = {
+                    "click": thoughts_click_diagnostics,
+                    "capture_error": thoughts_capture_error,
+                    "capture_diagnostics": thoughts_capture_diagnostics,
                 }
             elif window_capture_error is None:
                 window_capture_error = (
@@ -1021,6 +1206,7 @@ def main() -> int:
             terminate_process_group(process)
 
         log_tail = read_log_tail(desktop_log_path)
+        launch_summary = chat_launch_stage_summary(desktop_log_path)
         artifact_records = artifact_records_summary(db_paths)
         bundle = build_result_bundle(
             prompt,
@@ -1036,6 +1222,7 @@ def main() -> int:
             db_info=db_diagnostics(db_paths),
             artifact_records=artifact_records,
             screenshot_diagnostics=screenshot_diagnostics,
+            launch_summary=launch_summary,
         )
         (prompt_dir / "result.json").write_text(
             json.dumps(bundle, indent=2),

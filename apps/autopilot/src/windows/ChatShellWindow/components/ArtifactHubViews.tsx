@@ -3061,6 +3061,98 @@ function HooksView({
   );
 }
 
+function CapabilityInventoryView({
+  localEngineSnapshot,
+  localEngineStatus,
+  localEngineError,
+}: {
+  localEngineSnapshot: LocalEngineSnapshot | null;
+  localEngineStatus: ChatLocalEngineStatus;
+  localEngineError: string | null;
+}) {
+  const capabilities = localEngineSnapshot?.capabilities ?? [];
+  const availableCount = capabilities.filter(
+    (capability) => capability.status.toLowerCase() === "available",
+  ).length;
+
+  return (
+    <div className="artifact-hub-stack" data-testid="capability-inventory-view">
+      <section className="artifact-hub-permissions-card">
+        <div className="artifact-hub-permissions-card__head">
+          <div>
+            <strong>Authoritative Runtime Capability Inventory</strong>
+            <p>
+              Kernel-owned categories, status, and evidence expectations. This
+              is runtime state, not a model-generated capability claim.
+            </p>
+          </div>
+          <span>{localEngineStatus}</span>
+        </div>
+        {localEngineError ? <p>{localEngineError}</p> : null}
+        <p>
+          {availableCount}/{capabilities.length} categories available from{" "}
+          {localEngineSnapshot?.controlPlaneProfileId || "the active runtime profile"}.
+        </p>
+      </section>
+
+      {capabilities.length === 0 ? (
+        <section className="artifact-hub-permissions-card artifact-hub-permissions-card--alert">
+          <div className="artifact-hub-permissions-card__head">
+            <strong>No capability registry projected</strong>
+            <span>Projection missing</span>
+          </div>
+          <p>
+            The chat surface could not load an authoritative capability
+            inventory for this profile.
+          </p>
+        </section>
+      ) : (
+        <div className="artifact-hub-capability-grid">
+          {capabilities.map((capability) => (
+            <section
+              className="artifact-hub-permissions-card artifact-hub-capability-card"
+              key={capability.id}
+            >
+              <div className="artifact-hub-permissions-card__head">
+                <div>
+                  <strong>{capability.label}</strong>
+                  <p>{capability.operatorSummary || capability.description}</p>
+                </div>
+                <span>{capability.status}</span>
+              </div>
+              <p>{capability.description}</p>
+              <dl className="artifact-hub-capability-facts">
+                <div>
+                  <dt>Tools</dt>
+                  <dd>{capability.availableCount}</dd>
+                </div>
+                <div>
+                  <dt>Authority</dt>
+                  <dd>Runtime registry</dd>
+                </div>
+                <div>
+                  <dt>Evidence if used</dt>
+                  <dd>Tool transcript, observation, validation refs</dd>
+                </div>
+              </dl>
+              {capability.toolNames.length > 0 ? (
+                <div className="artifact-hub-capability-tools">
+                  {capability.toolNames.slice(0, 8).map((toolName) => (
+                    <span key={toolName}>{toolName}</span>
+                  ))}
+                  {capability.toolNames.length > 8 ? (
+                    <span>+{capability.toolNames.length - 8} more</span>
+                  ) : null}
+                </div>
+              ) : null}
+            </section>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ArtifactHubDetailView({
   activeView,
   activeSessionId,
@@ -3269,8 +3361,52 @@ export function ArtifactHubDetailView({
   formatTimestamp,
 }: ArtifactHubDetailViewProps) {
   switch (activeView) {
+    case "process":
     case "active_context":
       return <PlanView planSummary={planSummary} />;
+    case "tools":
+      return <KernelView kernelLogs={kernelLogs} />;
+    case "runtime_details":
+      return (
+        <SecurityView
+          verificationNotes={buildVerificationNotes(planSummary)}
+          selectedRoute={planSummary?.selectedRoute ?? null}
+          securityRows={securityRows}
+          onOpenArtifact={onOpenArtifact}
+        />
+      );
+    case "trace_export":
+      return (
+        <ExportView
+          exportSessionId={exportSessionId}
+          exportStatus={exportStatus}
+          exportError={exportError}
+          exportPath={exportPath}
+          exportTimestampMs={exportTimestampMs}
+          exportVariant={exportVariant}
+          durabilityOverview={durabilityOverview}
+          privacyOverview={privacyOverview}
+          compactionSnapshot={compactionSnapshot}
+          stagedOperations={stagedOperations}
+          replayBundle={replayBundle}
+          replayLoading={replayLoading}
+          replayError={replayError}
+          promotionStageBusyTarget={promotionStageBusyTarget}
+          promotionStageMessage={promotionStageMessage}
+          promotionStageError={promotionStageError}
+          onExportBundle={onExportBundle}
+          onStagePromotionCandidate={onStagePromotionCandidate}
+          onOpenView={onOpenView}
+        />
+      );
+    case "capability_inventory":
+      return (
+        <CapabilityInventoryView
+          localEngineSnapshot={localEngineSnapshot}
+          localEngineStatus={localEngineStatus}
+          localEngineError={localEngineError}
+        />
+      );
     case "doctor":
       return (
         <DoctorView
