@@ -578,7 +578,7 @@ export function useChatSurfaceState({
         title:
           studioArtifactExpected || task.chat_session.outcomeRequest?.outcomeKind === "artifact"
             ? artifactThinkingTitle
-            : routeActivityTitle || outcomeLabel || "Preparing the reply",
+            : routeActivityTitle || outcomeLabel || "Runtime timeline active",
         detail:
           studioArtifactExpected || task.chat_session.outcomeRequest?.outcomeKind === "artifact"
             ? artifactThinkingDetail

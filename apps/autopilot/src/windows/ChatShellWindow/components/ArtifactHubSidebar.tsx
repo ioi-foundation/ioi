@@ -244,7 +244,7 @@ function extractArtifactUrl(artifact: Artifact): string | null {
 function sectionLabel(key: ArtifactHubViewKey): string {
   switch (key) {
     case "active_context":
-      return "Plan";
+      return "Implementation plan";
     case "doctor":
       return "Doctor";
     case "compact":
@@ -288,19 +288,19 @@ function sectionLabel(key: ArtifactHubViewKey): string {
     case "rewind":
       return "Rewind";
     case "replay":
-      return "Replay";
+      return "Verification walkthrough";
     case "compare":
       return "Compare";
     case "tasks":
-      return "Tasks";
+      return "Task list";
     case "thoughts":
-      return "Thinking";
+      return "Scratchboard";
     case "substrate":
       return "Runtime proof";
     case "sources":
-      return "Evidence";
+      return "Source evidence";
     case "kernel_logs":
-      return "Raw trace";
+      return "Tool transcript";
     case "security_policy":
       return "Verification";
     case "files":
@@ -1968,7 +1968,7 @@ export function ArtifactHubSidebar({
         <div className="artifact-meta">
           <div className="artifact-icon">{icons.sidebar}</div>
           <span className="artifact-filename artifact-filename--drawer">
-            {focusedTraceMode ? "Thinking inspector" : "Execution drawer"}
+            {focusedTraceMode ? "Scratchboard inspector" : "Runtime workbench"}
           </span>
           <span className="artifact-tag">{sectionLabel(activeView)}</span>
         </div>

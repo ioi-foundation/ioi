@@ -248,9 +248,6 @@ export function EngineDetailPane({
           Registry drift <strong>{failedRegistryCount}</strong>
         </span>
         <span>
-          Facades <strong>{enabledCompatibilityRouteCount}</strong>
-        </span>
-        <span>
           Updated <strong>{formatEngineTimestamp(snapshot.generatedAtMs)}</strong>
         </span>
       </div>
@@ -551,9 +548,6 @@ export function EngineDetailPane({
                 </span>
                 <span>
                   Bindings <strong>{controlPlane.environment.length}</strong>
-                </span>
-                <span>
-                  Facades <strong>{enabledCompatibilityRouteCount}</strong>
                 </span>
               </div>
               {latestConfigMigration ? (

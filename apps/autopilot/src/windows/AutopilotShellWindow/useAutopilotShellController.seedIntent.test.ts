@@ -29,6 +29,12 @@ assert.match(
 
 assert.match(
   source,
+  /const pathname = window\.location\.pathname\.toLowerCase\(\);[\s\S]*pathname === "\/chat" \|\| pathname\.startsWith\("\/chat\/"\)[\s\S]*return "chat";/,
+  "the dedicated Tauri /chat window should boot into the Chat view before pending-launch hydration runs",
+);
+
+assert.match(
+  source,
   /case "autopilot-intent":[\s\S]*if \(pendingRequest\.sessionId\) \{[\s\S]*await bootstrapAgentSession\(\{\s*refreshCurrentTask: false,\s*\}\);[\s\S]*setActiveView\("chat"\);[\s\S]*await waitForChatAutopilotSurfaceFrame\(\);[\s\S]*await invoke\(\"continue_task\", \{\s*sessionId: pendingRequest\.sessionId,\s*userInput: pendingRequest\.intent,\s*\}\);[\s\S]*void openSessionTarget\(pendingRequest\.sessionId\)\.catch\(\(error\) => \{[\s\S]*submissionMode: "direct_continue_task"[\s\S]*return;[\s\S]*\}[\s\S]*openAutopilotWithIntent\(pendingRequest\.intent\);[\s\S]*submissionMode: "seed_intent"/,
   "autopilot-intent launch requests should submit retained follow-ups directly before reopening the UI session, while fresh launches still flow through the seed-intent path",
 );

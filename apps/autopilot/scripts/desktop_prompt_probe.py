@@ -35,7 +35,7 @@ DEFAULT_DB_PATH = (
     Path.home()
     / ".local/share/ai.ioi.autopilot/profiles"
     / DEFAULT_PROFILE
-    / "chat-runtime-memory.db"
+    / "chat-memory.db"
 )
 DEFAULT_OUTPUT_ROOT = PROJECT_ROOT / "docs/evidence/route-hierarchy/live-desktop-parity"
 
@@ -180,12 +180,22 @@ def type_text(window: WindowGeometry, text_value: str) -> None:
 
 
 def load_checkpoint(db_path: Path, checkpoint_name: str) -> dict[str, Any] | None:
-    if not db_path.exists():
+    if not db_path.exists() or db_path.stat().st_size == 0:
         return None
 
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     try:
+        table_row = conn.execute(
+            """
+            SELECT 1
+            FROM sqlite_master
+            WHERE type = 'table' AND name = 'checkpoint_blobs'
+            LIMIT 1
+            """
+        ).fetchone()
+        if table_row is None:
+            return None
         row = conn.execute(
             """
             SELECT payload
@@ -207,34 +217,113 @@ def load_checkpoint(db_path: Path, checkpoint_name: str) -> dict[str, Any] | Non
     return json.loads(payload)
 
 
-def latest_task_for_prompt(db_path: Path, prompt: str) -> dict[str, Any] | None:
-    task = load_checkpoint(db_path, "autopilot.local_task.v1")
+def profile_root_for_db_path(db_path: Path) -> Path:
+    if db_path.name == "desktop-memory.db" and db_path.parent.name == "kernel":
+        return db_path.parent.parent
+    return db_path.parent
+
+
+def candidate_db_paths(db_path: Path) -> list[Path]:
+    profile_root = profile_root_for_db_path(db_path)
+    candidates = [
+        db_path,
+        profile_root / "chat-memory.db",
+        profile_root / "chat-runtime-memory.db",
+        profile_root / "kernel" / "desktop-memory.db",
+    ]
+    deduped: list[Path] = []
+    for path in candidates:
+        if path not in deduped:
+            deduped.append(path)
+    return deduped
+
+
+def checkpoint_names(db_path: Path) -> list[str]:
+    if not db_path.exists() or db_path.stat().st_size == 0:
+        return []
+
+    conn = sqlite3.connect(db_path)
+    try:
+        table_row = conn.execute(
+            """
+            SELECT 1
+            FROM sqlite_master
+            WHERE type = 'table' AND name = 'checkpoint_blobs'
+            LIMIT 1
+            """
+        ).fetchone()
+        if table_row is None:
+            return []
+        rows = conn.execute(
+            """
+            SELECT checkpoint_name
+            FROM checkpoint_blobs
+            ORDER BY updated_at_ms DESC
+            LIMIT 32
+            """
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return []
+    finally:
+        conn.close()
+
+    return [str(row[0]) for row in rows]
+
+
+def db_diagnostics(db_paths: list[Path]) -> dict[str, Any]:
+    selected: str | None = None
+    candidates: list[dict[str, Any]] = []
+    for path in db_paths:
+        exists = path.exists()
+        names = checkpoint_names(path)
+        has_task = "autopilot.local_task.v1" in names
+        if selected is None and has_task:
+            selected = str(path)
+        candidates.append({
+            "path": str(path),
+            "exists": exists,
+            "size": path.stat().st_size if exists else 0,
+            "checkpoint_names": names,
+            "has_local_task": has_task,
+        })
+    return {
+        "selected_db_path": selected or (str(db_paths[0]) if db_paths else None),
+        "candidates": candidates,
+    }
+
+
+def load_checkpoint_from_candidates(
+    db_paths: list[Path],
+    checkpoint_name: str,
+) -> dict[str, Any] | None:
+    for path in db_paths:
+        checkpoint = load_checkpoint(path, checkpoint_name)
+        if checkpoint:
+            return checkpoint
+    return None
+
+
+def task_matches_prompt(task: dict[str, Any], prompt: str) -> bool:
+    intent = (task.get("intent") or "").strip()
+    normalized_prompt = prompt.strip()
+    if intent == normalized_prompt:
+        return True
+    if not intent or not normalized_prompt:
+        return False
+    return normalized_prompt in intent
+
+
+def latest_task_for_prompt(db_paths: list[Path], prompt: str) -> dict[str, Any] | None:
+    task = load_checkpoint_from_candidates(db_paths, "autopilot.local_task.v1")
     if not task:
         return None
-    if (task.get("intent") or "").strip() != prompt.strip():
+    if not task_matches_prompt(task, prompt):
         return None
     return task
 
 
-def has_local_task_checkpoint(db_path: Path) -> bool:
-    if not db_path.exists():
-        return False
-
-    conn = sqlite3.connect(db_path)
-    try:
-        row = conn.execute(
-            """
-            SELECT 1
-            FROM checkpoint_blobs
-            WHERE checkpoint_name = ?
-            LIMIT 1
-            """,
-            ("autopilot.local_task.v1",),
-        ).fetchone()
-    finally:
-        conn.close()
-
-    return row is not None
+def has_local_task_checkpoint(db_paths: list[Path]) -> bool:
+    return load_checkpoint_from_candidates(db_paths, "autopilot.local_task.v1") is not None
 
 
 def latest_agent_message(task: dict[str, Any] | None) -> str | None:
@@ -346,7 +435,7 @@ def latest_route_receipt_summary(task: dict[str, Any] | None) -> dict[str, Any] 
 
 
 def wait_for_prompt_start(
-    db_path: Path,
+    db_paths: list[Path],
     prompt: str,
     *,
     timeout_secs: float,
@@ -354,11 +443,9 @@ def wait_for_prompt_start(
     deadline = time.time() + timeout_secs
 
     while time.time() < deadline:
-        task = load_checkpoint(db_path, "autopilot.local_task.v1")
+        task = latest_task_for_prompt(db_paths, prompt)
         if task:
-            intent = (task.get("intent") or "").strip()
-            if intent == prompt.strip():
-                return task
+            return task
         time.sleep(POLL_INTERVAL_SECS)
 
     return None
@@ -391,8 +478,30 @@ def artifact_session_ready(task: dict[str, Any] | None) -> bool:
     return "ready" in {chat_status, verification_status}
 
 
+def conversation_reply_ready(task: dict[str, Any] | None) -> bool:
+    if not task:
+        return False
+    if latest_agent_message(task):
+        return True
+    phase = (task.get("phase") or "").strip().lower()
+    current_step = (task.get("current_step") or "").strip().lower()
+    return phase == "complete" or "ready for input" in current_step
+
+
+def is_conversation_route(task: dict[str, Any] | None) -> bool:
+    if not task:
+        return False
+    chat_outcome = task.get("chat_outcome") or {}
+    chat_session = task.get("chat_session") or {}
+    materialization = chat_session.get("materialization") or {}
+    return (
+        chat_outcome.get("outcomeKind") == "conversation"
+        or materialization.get("requestKind") == "conversation"
+    )
+
+
 def wait_for_prompt_result(
-    db_path: Path,
+    db_paths: list[Path],
     prompt: str,
     *,
     timeout_secs: float,
@@ -401,19 +510,21 @@ def wait_for_prompt_result(
     last_task: dict[str, Any] | None = None
 
     while time.time() < deadline:
-        task = load_checkpoint(db_path, "autopilot.local_task.v1")
+        task = latest_task_for_prompt(db_paths, prompt)
         if task:
-            intent = (task.get("intent") or "").strip()
-            if intent == prompt.strip():
-                last_task = task
-                phase = (task.get("phase") or "").strip().lower()
-                current_step = (task.get("current_step") or "").strip().lower()
-                if phase in {"complete", "failed"}:
-                    if phase == "complete" or "ready for input" in current_step:
-                        return task
+            last_task = task
+            phase = (task.get("phase") or "").strip().lower()
+            current_step = (task.get("current_step") or "").strip().lower()
+            if phase in {"complete", "failed"}:
+                if phase == "complete" or "ready for input" in current_step:
                     return task
-                if operator_run_is_terminal(task) or artifact_session_ready(task):
-                    return task
+                return task
+            if operator_run_is_terminal(task):
+                return task
+            if artifact_session_ready(task) and (
+                not is_conversation_route(task) or conversation_reply_ready(task)
+            ):
+                return task
         time.sleep(POLL_INTERVAL_SECS)
 
     if last_task is not None:
@@ -425,13 +536,13 @@ def wait_for_prompt_result(
 
 def submit_prompt(
     window: WindowGeometry,
-    db_path: Path,
+    db_paths: list[Path],
     prompt: str,
     *,
     fresh_outcome: bool,
 ) -> None:
     focus_window(window)
-    if fresh_outcome and has_local_task_checkpoint(db_path):
+    if fresh_outcome and has_local_task_checkpoint(db_paths):
         key(window, "ctrl+n")
         time.sleep(1.6)
         focus_window(window)
@@ -444,7 +555,117 @@ def submit_prompt(
     key(window, "Return")
 
 
-def result_bundle(task: dict[str, Any] | None) -> dict[str, Any]:
+def artifact_records_summary(db_paths: list[Path], limit: int = 8) -> list[dict[str, Any]]:
+    for path in db_paths:
+        if not path.exists() or path.stat().st_size == 0:
+            continue
+        conn = sqlite3.connect(path)
+        try:
+            table_row = conn.execute(
+                """
+                SELECT 1
+                FROM sqlite_master
+                WHERE type = 'table' AND name = 'artifact_records'
+                LIMIT 1
+                """
+            ).fetchone()
+            if table_row is None:
+                continue
+            rows = conn.execute(
+                """
+                SELECT artifact_id, payload_json, created_at_ms, updated_at_ms
+                FROM artifact_records
+                ORDER BY updated_at_ms DESC, created_at_ms DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        except sqlite3.OperationalError:
+            continue
+        finally:
+            conn.close()
+
+        summaries: list[dict[str, Any]] = []
+        for artifact_id, payload_json, created_at_ms, updated_at_ms in rows:
+            try:
+                payload = json.loads(payload_json)
+            except (TypeError, json.JSONDecodeError):
+                payload = {}
+            metadata = payload.get("metadata") if isinstance(payload, dict) else {}
+            summaries.append({
+                "artifact_id": artifact_id,
+                "title": payload.get("title") if isinstance(payload, dict) else None,
+                "artifact_type": payload.get("artifact_type") if isinstance(payload, dict) else None,
+                "path": metadata.get("path") if isinstance(metadata, dict) else None,
+                "version": payload.get("version") if isinstance(payload, dict) else None,
+                "created_at_ms": created_at_ms,
+                "updated_at_ms": updated_at_ms,
+            })
+        return summaries
+    return []
+
+
+def runtime_facts_summary(task: dict[str, Any] | None) -> dict[str, Any]:
+    if not task:
+        return {
+            "phase": None,
+            "current_step": None,
+            "route": None,
+            "policy": "unknown",
+            "approval": "unknown",
+            "evidence_tier": "Projection",
+            "settlement_state": "projection_only",
+        }
+
+    route = latest_route_receipt_summary(task) or {}
+    active_run = active_operator_run(task)
+    chat_session = task.get("chat_session") or {}
+    materialization = chat_session.get("materialization") or {}
+    execution_envelope = materialization.get("executionEnvelope") or {}
+    settlement_refs: list[Any] = []
+    for key_name in (
+        "settlementRefs",
+        "settlement_refs",
+        "settlementReceipts",
+        "settlement_receipts",
+    ):
+        value = execution_envelope.get(key_name)
+        if isinstance(value, list):
+            settlement_refs.extend(value)
+
+    approval = "clear"
+    if task.get("pending_request_hash") or task.get("gate_info"):
+        approval = "pending"
+    elif active_run.get("status"):
+        approval = str(active_run.get("status"))
+
+    evidence_tier = "Settlement receipt" if settlement_refs else "Runtime event receipt"
+    if not task.get("events") and not task.get("artifacts"):
+        evidence_tier = "Projection"
+
+    return {
+        "phase": task.get("phase"),
+        "current_step": task.get("current_step"),
+        "progress": task.get("progress"),
+        "total_steps": task.get("total_steps"),
+        "route": route.get("selected_route") or route.get("title"),
+        "route_family": route.get("route_family"),
+        "policy": "attached" if task.get("policy") else "not_attached",
+        "approval": approval,
+        "evidence_tier": evidence_tier,
+        "settlement_state": "settled" if settlement_refs else "projection_only",
+        "event_count": len(task.get("events") or []),
+        "artifact_count": len(task.get("artifacts") or []),
+        "active_operator_run_status": active_run.get("status"),
+    }
+
+
+def result_bundle(
+    task: dict[str, Any] | None,
+    *,
+    db_info: dict[str, Any] | None = None,
+    artifact_records: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     outcome = task.get("chat_outcome") if task else None
     session = task.get("chat_session") if task else None
     return {
@@ -462,6 +683,9 @@ def result_bundle(task: dict[str, Any] | None) -> dict[str, Any]:
             "verified_reply": session.get("verifiedReply") if session else None,
         },
         "route_receipt_summary": latest_route_receipt_summary(task),
+        "runtime_facts_summary": runtime_facts_summary(task),
+        "artifact_records_summary": artifact_records or [],
+        "db_diagnostics": db_info,
         "execution_contracts": latest_execution_contracts(task),
     }
 
@@ -546,7 +770,16 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     prompts = load_prompts(args)
-    db_path = Path(args.db_path).expanduser()
+    db_paths = candidate_db_paths(Path(args.db_path).expanduser())
+    initial_db_info = db_diagnostics(db_paths)
+    print(
+        "DB candidates: "
+        + ", ".join(
+            f"{candidate['path']} ({'task' if candidate['has_local_task'] else 'no-task'})"
+            for candidate in initial_db_info["candidates"]
+        ),
+        flush=True,
+    )
     output_root = Path(args.output_root).expanduser() / now_stamp()
     output_root.mkdir(parents=True, exist_ok=True)
 
@@ -562,7 +795,7 @@ def main() -> int:
         for attempt in range(1, max(1, args.submit_attempts) + 1):
             submit_prompt(
                 window,
-                db_path,
+                db_paths,
                 prompt,
                 fresh_outcome=not args.reuse_session,
             )
@@ -574,7 +807,7 @@ def main() -> int:
                     flush=True,
                 )
             started_task = wait_for_prompt_start(
-                db_path,
+                db_paths,
                 prompt,
                 timeout_secs=args.start_timeout_secs,
             )
@@ -582,7 +815,7 @@ def main() -> int:
                 break
 
         if started_task is None:
-            task = latest_task_for_prompt(db_path, prompt)
+            task = latest_task_for_prompt(db_paths, prompt)
             probe_error = (
                 f"Timed out after {args.start_timeout_secs:.0f}s waiting for prompt start: {prompt}"
             )
@@ -593,13 +826,13 @@ def main() -> int:
         if probe_error is None:
             try:
                 task = wait_for_prompt_result(
-                    db_path,
+                    db_paths,
                     prompt,
                     timeout_secs=args.timeout_secs,
                 )
             except Exception as error:
                 probe_error = str(error)
-                task = latest_task_for_prompt(db_path, prompt) or task
+                task = latest_task_for_prompt(db_paths, prompt) or task
 
         time.sleep(POST_SETTLE_CAPTURE_DELAY_SECS)
         screenshot_path = prompt_dir / "final.png"
@@ -616,7 +849,12 @@ def main() -> int:
             "capture_mode": capture_result.mode,
             "capture_diagnostics": capture_result.diagnostics,
             "window_capture_error": capture_result.error,
-            **result_bundle(task),
+            "screenshots": {"final": str(screenshot_path)},
+            **result_bundle(
+                task,
+                db_info=db_diagnostics(db_paths),
+                artifact_records=artifact_records_summary(db_paths),
+            ),
             "probe_error": probe_error,
         }
         (prompt_dir / "result.json").write_text(
