@@ -260,6 +260,6 @@ fn build_environment_receipts(
     ]
 }
 
-fn serialize_environment_receipts(receipts: &[EnvironmentEvidenceReceipt]) -> String {
-    serde_json::to_string(receipts).unwrap_or_else(|_| "[]".to_string())
+fn serialize_environment_receipts(evidence: &[EnvironmentEvidenceReceipt]) -> String {
+    serde_json::to_string(evidence).unwrap_or_else(|_| "[]".to_string())
 }

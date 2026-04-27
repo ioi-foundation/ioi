@@ -62,7 +62,7 @@ pub fn case() -> QueryCase {
     QueryCase {
         id: CASE_ID,
         query: "Find the three best-reviewed Italian restaurants near me and compare their menus.",
-        success_definition: "Return three restaurants grounded to the observed runtime locality with structured citations, explicit menu comparison, final-source receipts, runtime locality evidence, and cleanup-backed observation receipts.",
+        success_definition: "Return three restaurants grounded to the observed runtime locality with structured citations, explicit menu comparison, final-source evidence, runtime locality evidence, and cleanup-backed observation evidence.",
         seeded_intent_id: "web.research",
         intent_scope: IntentScopeProfile::WebResearch,
         seed_resolved_intent: true,
@@ -92,71 +92,79 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             ),
         ]);
     };
-    let fixture_mode =
-        environment_value(obs, "env_receipt::restaurants_near_me_fixture_mode").unwrap_or_default();
-    let fixture_probe_source =
-        environment_value(obs, "env_receipt::restaurants_near_me_fixture_probe_source")
-            .unwrap_or_else(|| EXPECTED_FIXTURE_PROBE_SOURCE.to_string());
-    let fixture_timestamp_ms =
-        environment_u64(obs, "env_receipt::restaurants_near_me_fixture_timestamp_ms")
-            .unwrap_or(obs.run_timestamp_ms);
+    let fixture_mode = environment_value(obs, "env_evidence::restaurants_near_me_fixture_mode")
+        .unwrap_or_default();
+    let fixture_probe_source = environment_value(
+        obs,
+        "env_evidence::restaurants_near_me_fixture_probe_source",
+    )
+    .unwrap_or_else(|| EXPECTED_FIXTURE_PROBE_SOURCE.to_string());
+    let fixture_timestamp_ms = environment_u64(
+        obs,
+        "env_evidence::restaurants_near_me_fixture_timestamp_ms",
+    )
+    .unwrap_or(obs.run_timestamp_ms);
     let fixture_satisfied =
-        environment_bool(obs, "env_receipt::restaurants_near_me_fixture_satisfied")
+        environment_bool(obs, "env_evidence::restaurants_near_me_fixture_satisfied")
             .unwrap_or(false);
     let manifest_seeded_satisfied = environment_bool(
         obs,
-        "env_receipt::restaurants_near_me_manifest_seeded_satisfied",
+        "env_evidence::restaurants_near_me_manifest_seeded_satisfied",
     )
     .unwrap_or(false);
 
     let locality_env_key =
-        environment_value(obs, "env_receipt::restaurants_near_me_locality_env_key")
+        environment_value(obs, "env_evidence::restaurants_near_me_locality_env_key")
             .unwrap_or_default();
     let locality_observed_value = environment_value(
         obs,
-        "env_receipt::restaurants_near_me_locality_observed_value",
+        "env_evidence::restaurants_near_me_locality_observed_value",
     )
     .unwrap_or_default();
     let locality_probe_source = environment_value(
         obs,
-        "env_receipt::restaurants_near_me_locality_probe_source",
+        "env_evidence::restaurants_near_me_locality_probe_source",
     )
     .unwrap_or_else(|| format!("{}.preflight", EXPECTED_FIXTURE_PROBE_SOURCE));
     let locality_timestamp_ms = environment_u64(
         obs,
-        "env_receipt::restaurants_near_me_locality_timestamp_ms",
+        "env_evidence::restaurants_near_me_locality_timestamp_ms",
     )
     .unwrap_or(obs.run_timestamp_ms);
     let locality_observation_satisfied = environment_bool(
         obs,
-        "env_receipt::restaurants_near_me_locality_observation_satisfied",
+        "env_evidence::restaurants_near_me_locality_observation_satisfied",
     )
     .unwrap_or(false);
     let scope_satisfied =
-        environment_bool(obs, "env_receipt::restaurants_near_me_scope_satisfied").unwrap_or(false);
+        environment_bool(obs, "env_evidence::restaurants_near_me_scope_satisfied").unwrap_or(false);
     let post_run_locality_unchanged_satisfied = environment_bool(
         obs,
-        "env_receipt::restaurants_near_me_locality_unchanged_post_run_satisfied",
+        "env_evidence::restaurants_near_me_locality_unchanged_post_run_satisfied",
     )
     .unwrap_or(false);
 
-    let cleanup_probe_source =
-        environment_value(obs, "env_receipt::restaurants_near_me_cleanup_probe_source")
-            .unwrap_or_else(|| format!("{}.cleanup_probe", EXPECTED_FIXTURE_PROBE_SOURCE));
-    let cleanup_timestamp_ms =
-        environment_u64(obs, "env_receipt::restaurants_near_me_cleanup_timestamp_ms")
-            .unwrap_or(obs.run_timestamp_ms);
+    let cleanup_probe_source = environment_value(
+        obs,
+        "env_evidence::restaurants_near_me_cleanup_probe_source",
+    )
+    .unwrap_or_else(|| format!("{}.cleanup_probe", EXPECTED_FIXTURE_PROBE_SOURCE));
+    let cleanup_timestamp_ms = environment_u64(
+        obs,
+        "env_evidence::restaurants_near_me_cleanup_timestamp_ms",
+    )
+    .unwrap_or(obs.run_timestamp_ms);
     let cleanup_satisfied =
-        environment_bool(obs, "env_receipt::restaurants_near_me_cleanup_satisfied")
+        environment_bool(obs, "env_evidence::restaurants_near_me_cleanup_satisfied")
             .unwrap_or(false);
     let cleanup_locality_unchanged_satisfied = environment_bool(
         obs,
-        "env_receipt::restaurants_near_me_cleanup_locality_unchanged_satisfied",
+        "env_evidence::restaurants_near_me_cleanup_locality_unchanged_satisfied",
     )
     .unwrap_or(false);
     let cleanup_locality_observed_value = environment_value(
         obs,
-        "env_receipt::restaurants_near_me_cleanup_locality_observed_value",
+        "env_evidence::restaurants_near_me_cleanup_locality_observed_value",
     )
     .unwrap_or_default();
 
@@ -702,6 +710,6 @@ fn build_environment_receipts(
     ]
 }
 
-fn serialize_environment_receipts(receipts: &[EnvironmentEvidenceReceipt]) -> String {
-    serde_json::to_string(receipts).unwrap_or_else(|_| "[]".to_string())
+fn serialize_environment_receipts(evidence: &[EnvironmentEvidenceReceipt]) -> String {
+    serde_json::to_string(evidence).unwrap_or_else(|_| "[]".to_string())
 }

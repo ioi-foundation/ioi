@@ -1,5 +1,5 @@
 use crate::agentic::runtime::service::step::anti_loop::tier_as_str;
-use crate::agentic::runtime::types::{AgentStatus, ExecutionTier, ToolCallStatus};
+use crate::agentic::runtime::types::{AgentState, AgentStatus, ExecutionTier, ToolCallStatus};
 use ioi_api::state::StateAccess;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_types::app::agentic::AgentTool;
@@ -9,8 +9,8 @@ use serde_json::json;
 use std::collections::{BTreeMap, BTreeSet};
 
 const ACTION_FINGERPRINT_LOG_PREFIX: &str = "action_fingerprint::";
-const EXECUTION_RECEIPT_PREFIX: &str = "receipt::";
-const EXECUTION_POSTCONDITION_PREFIX: &str = "postcondition::";
+const EXECUTION_EVIDENCE_PREFIX: &str = "evidence::";
+const SUCCESS_CONDITION_PREFIX: &str = "success_condition::";
 
 pub(super) fn get_status_str(status: &AgentStatus) -> String {
     format!("{:?}", status)
@@ -34,8 +34,8 @@ pub(super) fn enforce_system_fail_terminal_status(
     }
 
     if !matches!(status, AgentStatus::Failed(_)) {
-        let fallback_reason = error_msg.unwrap_or("Agent requested explicit failure");
-        mark_system_fail_status(status, fallback_reason.to_string());
+        let degradation_reason = error_msg.unwrap_or("Agent requested explicit failure");
+        mark_system_fail_status(status, degradation_reason.to_string());
     }
 
     true
@@ -200,12 +200,12 @@ pub fn drop_legacy_action_fingerprint_receipt(
     should_drop
 }
 
-pub fn receipt_marker(name: &str) -> String {
-    format!("{}{}=true", EXECUTION_RECEIPT_PREFIX, name)
+pub fn execution_evidence_key(name: &str) -> String {
+    format!("{}{}=true", EXECUTION_EVIDENCE_PREFIX, name)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RuntimeReceipt {
+pub enum RuntimeEvidence {
     Execution,
     Verification,
     HostDiscovery,
@@ -213,7 +213,7 @@ pub enum RuntimeReceipt {
     WorkspaceEditApplied,
 }
 
-impl RuntimeReceipt {
+impl RuntimeEvidence {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Execution => "execution",
@@ -225,105 +225,174 @@ impl RuntimeReceipt {
     }
 }
 
-pub fn receipt_marker_for(receipt: RuntimeReceipt) -> String {
-    receipt_marker(receipt.as_str())
+pub fn execution_evidence_key_for(receipt: RuntimeEvidence) -> String {
+    execution_evidence_key(receipt.as_str())
 }
 
-pub fn postcondition_marker(name: &str) -> String {
-    format!("{}{}=true", EXECUTION_POSTCONDITION_PREFIX, name)
+pub fn success_condition_key(name: &str) -> String {
+    format!("{}{}=true", SUCCESS_CONDITION_PREFIX, name)
 }
 
-pub fn mark_execution_receipt(
+pub fn record_execution_evidence(
     tool_execution_log: &mut BTreeMap<String, ToolCallStatus>,
     name: &str,
 ) {
-    mark_execution_receipt_with_value(tool_execution_log, name, "true".to_string());
+    record_execution_evidence_with_value(tool_execution_log, name, "true".to_string());
 }
 
-pub fn mark_execution_receipt_for(
+pub fn record_execution_evidence_for(
     tool_execution_log: &mut BTreeMap<String, ToolCallStatus>,
-    receipt: RuntimeReceipt,
+    receipt: RuntimeEvidence,
 ) {
-    mark_execution_receipt(tool_execution_log, receipt.as_str());
+    record_execution_evidence(tool_execution_log, receipt.as_str());
 }
 
-pub fn mark_execution_receipt_with_value(
+pub fn record_execution_evidence_with_value(
     tool_execution_log: &mut BTreeMap<String, ToolCallStatus>,
     name: &str,
     value: String,
 ) {
-    tool_execution_log.insert(receipt_marker(name), ToolCallStatus::Executed(value));
+    tool_execution_log.insert(
+        execution_evidence_key(name),
+        ToolCallStatus::Executed(value),
+    );
 }
 
-pub fn mark_execution_receipt_for_value(
+pub fn record_execution_evidence_for_value(
     tool_execution_log: &mut BTreeMap<String, ToolCallStatus>,
-    receipt: RuntimeReceipt,
+    receipt: RuntimeEvidence,
     value: String,
 ) {
-    mark_execution_receipt_with_value(tool_execution_log, receipt.as_str(), value);
+    record_execution_evidence_with_value(tool_execution_log, receipt.as_str(), value);
 }
 
-pub fn mark_execution_postcondition(
+pub fn record_success_condition(
     tool_execution_log: &mut BTreeMap<String, ToolCallStatus>,
     name: &str,
 ) {
     tool_execution_log.insert(
-        postcondition_marker(name),
+        success_condition_key(name),
         ToolCallStatus::Executed("true".to_string()),
     );
 }
 
-pub fn has_execution_receipt(
+pub fn has_execution_evidence(
     tool_execution_log: &BTreeMap<String, ToolCallStatus>,
     name: &str,
 ) -> bool {
     matches!(
-        tool_execution_log.get(&receipt_marker(name)),
+        tool_execution_log.get(&execution_evidence_key(name)),
         Some(ToolCallStatus::Executed(_))
     )
 }
 
-pub fn execution_receipt_value<'a>(
+pub fn execution_evidence_value<'a>(
     tool_execution_log: &'a BTreeMap<String, ToolCallStatus>,
     name: &str,
 ) -> Option<&'a str> {
-    match tool_execution_log.get(&receipt_marker(name)) {
+    match tool_execution_log.get(&execution_evidence_key(name)) {
         Some(ToolCallStatus::Executed(value)) => Some(value.as_str()),
         _ => None,
     }
 }
 
-pub fn has_execution_postcondition(
+pub fn has_success_condition(
     tool_execution_log: &BTreeMap<String, ToolCallStatus>,
     name: &str,
 ) -> bool {
     matches!(
-        tool_execution_log.get(&postcondition_marker(name)),
+        tool_execution_log.get(&success_condition_key(name)),
         Some(ToolCallStatus::Executed(_))
     )
 }
 
-pub fn extract_contract_markers(verification_checks: &[String]) -> (Vec<String>, Vec<String>) {
-    let mut receipts = BTreeSet::<String>::new();
-    let mut postconditions = BTreeSet::<String>::new();
+pub fn extract_completion_evidence_keys(
+    verification_checks: &[String],
+) -> (Vec<String>, Vec<String>) {
+    let mut evidence = BTreeSet::<String>::new();
+    let mut success_conditions = BTreeSet::<String>::new();
     for check in verification_checks {
         let token = check.trim();
-        if let Some(rest) = token.strip_prefix("receipt::") {
+        if let Some(rest) = token.strip_prefix("evidence::") {
             let marker = rest.trim_end_matches("=true").trim();
             if !marker.is_empty() {
-                receipts.insert(marker.to_string());
+                evidence.insert(marker.to_string());
             }
-        } else if let Some(rest) = token.strip_prefix("postcondition::") {
+        } else if let Some(rest) = token.strip_prefix("success_condition::") {
             let marker = rest.trim_end_matches("=true").trim();
             if !marker.is_empty() {
-                postconditions.insert(marker.to_string());
+                success_conditions.insert(marker.to_string());
             }
         }
     }
     (
-        receipts.into_iter().collect::<Vec<_>>(),
-        postconditions.into_iter().collect::<Vec<_>>(),
+        evidence.into_iter().collect::<Vec<_>>(),
+        success_conditions.into_iter().collect::<Vec<_>>(),
     )
+}
+
+pub fn persist_step_evidence_to_ledger(
+    agent_state: &mut AgentState,
+    intent_id: &str,
+    verification_checks: &[String],
+) {
+    let intent_id = (!intent_id.trim().is_empty()).then(|| intent_id.to_string());
+    let mut evidence = BTreeMap::<String, String>::new();
+    let mut success_conditions = BTreeMap::<String, String>::new();
+    for check in verification_checks {
+        let token = check.trim();
+        if let Some(rest) = token.strip_prefix(EXECUTION_EVIDENCE_PREFIX) {
+            let (name, marker_value) = rest
+                .split_once('=')
+                .map(|(name, value)| (name.trim(), value.trim()))
+                .unwrap_or((rest.trim(), "true"));
+            if !name.is_empty() {
+                let value = execution_evidence_value(&agent_state.tool_execution_log, name)
+                    .filter(|value| !value.trim().is_empty())
+                    .unwrap_or(marker_value);
+                evidence.insert(name.to_string(), value.to_string());
+            }
+        } else if let Some(rest) = token.strip_prefix(SUCCESS_CONDITION_PREFIX) {
+            let (name, marker_value) = rest
+                .split_once('=')
+                .map(|(name, value)| (name.trim(), value.trim()))
+                .unwrap_or((rest.trim(), "true"));
+            if !name.is_empty() {
+                success_conditions.insert(name.to_string(), marker_value.to_string());
+            }
+        }
+    }
+    for (receipt, value) in evidence {
+        agent_state
+            .execution_ledger
+            .record_evidence(intent_id.clone(), receipt, value);
+    }
+    for (postcondition, value) in success_conditions {
+        agent_state.execution_ledger.record_success_condition(
+            intent_id.clone(),
+            postcondition,
+            value,
+        );
+    }
+    for check in verification_checks {
+        let token = check.trim();
+        if token.is_empty()
+            || token.starts_with("evidence::")
+            || token.starts_with("success_condition::")
+        {
+            continue;
+        }
+        let (key, value) = token
+            .split_once('=')
+            .map(|(key, value)| (key.trim(), value.trim()))
+            .unwrap_or((token, "true"));
+        if key.is_empty() {
+            continue;
+        }
+        agent_state
+            .execution_ledger
+            .record_verification_evidence(intent_id.clone(), key, value);
+    }
 }
 
 pub fn recovery_retry_from_checks(
@@ -372,7 +441,7 @@ pub fn recovery_retry_from_checks(
     (recovery_retry, recovery_reason)
 }
 
-pub fn persist_step_contract_evidence(
+pub fn persist_step_evidence(
     state: &mut dyn StateAccess,
     session_id: [u8; 32],
     step_index: u32,
@@ -380,14 +449,14 @@ pub fn persist_step_contract_evidence(
     verification_checks: &[String],
     prior_consecutive_failures: u8,
 ) -> Result<(), TransactionError> {
-    let (receipts, postconditions) = extract_contract_markers(verification_checks);
+    let (evidence, success_conditions) = extract_completion_evidence_keys(verification_checks);
     let (recovery_retry, recovery_reason) =
         recovery_retry_from_checks(verification_checks, prior_consecutive_failures);
     let evidence = DeterminismStepContractEvidence {
         schema_version: DeterminismStepContractEvidence::schema_version(),
         intent_id: intent_id.to_string(),
-        receipts,
-        postconditions,
+        receipts: evidence,
+        postconditions: success_conditions,
         recovery_retry,
         recovery_reason,
     };

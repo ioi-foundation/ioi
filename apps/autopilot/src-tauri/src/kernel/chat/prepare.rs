@@ -1,4 +1,4 @@
-use super::content_session::attach_non_artifact_chat_session;
+use super::content_session::attach_inline_answer_chat_session;
 use super::operator_run::{
     refresh_active_operator_run_from_session, start_operator_run_for_session,
 };
@@ -127,7 +127,7 @@ User request:\n{intent}\n"
 
 fn tool_widget_family_hint(outcome_request: &ChatOutcomeRequest) -> Option<&str> {
     outcome_request
-        .routing_hints
+        .decision_evidence
         .iter()
         .find_map(|hint| hint.strip_prefix("tool_widget:"))
 }
@@ -254,7 +254,7 @@ fn complete_visualizer_reply(
     Ok(format!("```mermaid\n{}\n```", cleaned))
 }
 
-fn finalize_chat_primary_non_artifact_reply(
+fn finalize_chat_primary_inline_answer_reply(
     app: &AppHandle,
     task: &mut AgentTask,
     outcome_request: &ChatOutcomeRequest,
@@ -284,7 +284,7 @@ fn finalize_chat_primary_non_artifact_reply(
                 .push(route_execution_evidence.to_string());
         }
         chat_session.verified_reply.updated_at = chat_session.updated_at.clone();
-        super::content_session::refresh_non_artifact_chat_surface(chat_session);
+        super::content_session::refresh_inline_answer_chat_surface(chat_session);
     }
 
     task.phase = AgentPhase::Complete;
@@ -296,7 +296,7 @@ fn finalize_chat_primary_non_artifact_reply(
         text: reply,
         timestamp,
     });
-    super::content_session::append_route_contract_event(
+    super::content_session::append_decision_record_event(
         task,
         outcome_request,
         "Chat reply completed",
@@ -344,14 +344,14 @@ fn complete_direct_inline_conversation_reply(
     Ok(cleaned)
 }
 
-pub(super) fn maybe_execute_chat_primary_non_artifact_reply(
+pub(super) fn maybe_execute_chat_primary_inline_answer_reply(
     app: &AppHandle,
     task: &mut AgentTask,
     intent: &str,
     outcome_request: &ChatOutcomeRequest,
 ) -> Result<bool, String> {
     let (reply, route_execution_evidence, completion_summary) =
-        if super::task_state::non_artifact_single_pass_reply_stays_chat_primary(outcome_request) {
+        if super::task_state::inline_answer_single_pass_reply_stays_chat_primary(outcome_request) {
             (
                 complete_direct_inline_conversation_reply(app, task, intent, outcome_request)?,
                 "route_execution:chat_direct_inline",
@@ -400,7 +400,7 @@ pub(super) fn maybe_execute_chat_primary_non_artifact_reply(
             return Ok(false);
         };
 
-    finalize_chat_primary_non_artifact_reply(
+    finalize_chat_primary_inline_answer_reply(
         app,
         task,
         outcome_request,
@@ -625,7 +625,7 @@ pub(super) fn seed_provisional_artifact_route_state(
     task.chat_session = Some(chat_session);
     task.build_session = build_session;
     task.renderer_session = renderer_session;
-    super::content_session::append_route_contract_event(
+    super::content_session::append_decision_record_event(
         task,
         outcome_request,
         "Chat route decision",
@@ -741,8 +741,8 @@ pub fn maybe_prepare_task_for_chat(
                 model: None,
                 endpoint: None,
             });
-        attach_non_artifact_chat_session(task, intent, provenance, &outcome_request);
-        apply_non_artifact_route_state(task, &outcome_request);
+        attach_inline_answer_chat_session(task, intent, provenance, &outcome_request);
+        apply_inline_answer_route_state(task, &outcome_request);
         publish_current_task_snapshot(app, task);
         return Ok(());
     }
@@ -756,9 +756,9 @@ pub fn maybe_prepare_task_for_chat(
                 model: None,
                 endpoint: None,
             });
-        attach_non_artifact_chat_session(task, intent, provenance, &outcome_request);
-        apply_non_artifact_route_state(task, &outcome_request);
-        if maybe_execute_chat_primary_non_artifact_reply(app, task, intent, &outcome_request)? {
+        attach_inline_answer_chat_session(task, intent, provenance, &outcome_request);
+        apply_inline_answer_route_state(task, &outcome_request);
+        if maybe_execute_chat_primary_inline_answer_reply(app, task, intent, &outcome_request)? {
             return Ok(());
         }
         if task_requires_chat_primary_execution(task) {
@@ -825,7 +825,7 @@ fn maybe_prepare_task_for_chat_with_request(
     let mut output_origin: Option<ChatArtifactOutputOrigin> = None;
     let mut production_provenance: Option<crate::models::ChatRuntimeProvenance> = None;
     let mut acceptance_provenance: Option<crate::models::ChatRuntimeProvenance> = None;
-    let mut fallback_used = false;
+    let mut degraded_path_used = false;
     let mut ux_lifecycle: Option<ChatArtifactUxLifecycle> = None;
     let mut failure: Option<crate::models::ChatArtifactFailure> = None;
     let mut taste_memory: Option<ChatArtifactTasteMemory> = None;
@@ -1010,7 +1010,7 @@ fn maybe_prepare_task_for_chat_with_request(
             origin_prompt_event_id.as_deref(),
             materialization.clone(),
         )?);
-        super::content_session::append_route_contract_event(
+        super::content_session::append_decision_record_event(
             task,
             &outcome_request,
             "Chat route decision",
@@ -1029,7 +1029,7 @@ fn maybe_prepare_task_for_chat_with_request(
                 );
             });
         let materialized_artifact =
-            materialize_non_workspace_artifact_with_execution_strategy_and_progress_observer(
+            materialize_chat_artifact_with_execution_strategy_and_progress_observer(
                 app,
                 &thread_id,
                 &title,
@@ -1074,7 +1074,7 @@ fn maybe_prepare_task_for_chat_with_request(
         output_origin = Some(materialized_artifact.output_origin);
         production_provenance = materialized_artifact.production_provenance.clone();
         acceptance_provenance = materialized_artifact.acceptance_provenance.clone();
-        fallback_used = materialized_artifact.fallback_used;
+        degraded_path_used = materialized_artifact.degraded_path_used;
         ux_lifecycle = Some(materialized_artifact.ux_lifecycle);
         failure = materialized_artifact.failure.clone();
         taste_memory = materialized_artifact.taste_memory.clone();
@@ -1152,7 +1152,7 @@ fn maybe_prepare_task_for_chat_with_request(
         materialization.output_origin = output_origin;
         materialization.production_provenance = production_provenance.clone();
         materialization.acceptance_provenance = acceptance_provenance.clone();
-        materialization.fallback_used = fallback_used;
+        materialization.degraded_path_used = degraded_path_used;
         materialization.ux_lifecycle = ux_lifecycle;
         materialization.failure = failure.clone();
         materialization.retrieved_exemplars = retrieved_exemplars.clone();
@@ -1308,21 +1308,21 @@ fn maybe_prepare_task_for_chat_with_request(
             "artifact_class": artifact_class_id_for_request(&artifact_request),
             "navigator_backing_mode": chat_session.navigator_backing_mode,
             "build_session_id": chat_session.build_session_id,
-            "selected_route": super::content_session::build_route_contract_payload(
+            "selected_route": super::content_session::build_decision_record_payload(
                 &outcome_request,
                 false,
             )
             .get("selected_route")
             .cloned()
             .unwrap_or_else(|| json!("artifact")),
-            "route_family": super::content_session::build_route_contract_payload(
+            "route_family": super::content_session::build_decision_record_payload(
                 &outcome_request,
                 false,
             )
             .get("route_family")
             .cloned()
             .unwrap_or_else(|| json!("artifacts")),
-            "topology": super::content_session::build_route_contract_payload(
+            "topology": super::content_session::build_decision_record_payload(
                 &outcome_request,
                 false,
             )
@@ -1330,14 +1330,14 @@ fn maybe_prepare_task_for_chat_with_request(
             .cloned()
             .unwrap_or_else(|| json!("planner_specialist")),
             "planner_authority": "kernel",
-            "verifier_state": super::content_session::build_route_contract_payload(
+            "verifier_state": super::content_session::build_decision_record_payload(
                 &outcome_request,
                 false,
             )
             .get("verifier_state")
             .cloned()
             .unwrap_or_else(|| json!("active")),
-            "route_decision": super::content_session::build_route_contract_payload(
+            "route_decision": super::content_session::build_decision_record_payload(
                 &outcome_request,
                 false,
             )
@@ -1349,7 +1349,7 @@ fn maybe_prepare_task_for_chat_with_request(
             let mut details = serde_json::to_value(&chat_session).unwrap_or_else(|_| json!({}));
             if let Some(details_object) = details.as_object_mut() {
                 let payload =
-                    super::content_session::build_route_contract_payload(&outcome_request, false);
+                    super::content_session::build_decision_record_payload(&outcome_request, false);
                 details_object.insert(
                     "selected_route".to_string(),
                     payload["selected_route"].clone(),
@@ -1434,7 +1434,7 @@ pub fn maybe_prepare_current_task_for_chat_turn(
     )?;
     println!(
         "[Autopilot][ChatContinue] routed follow-up outcome_kind={:?} hints={:?}",
-        outcome_request.outcome_kind, outcome_request.routing_hints
+        outcome_request.outcome_kind, outcome_request.decision_evidence
     );
 
     task.chat_outcome = Some(outcome_request.clone());
@@ -1488,10 +1488,10 @@ pub fn maybe_prepare_current_task_for_chat_turn(
                     model: None,
                     endpoint: None,
                 });
-            attach_non_artifact_chat_session(&mut task, intent, provenance, &outcome_request);
+            attach_inline_answer_chat_session(&mut task, intent, provenance, &outcome_request);
         }
-        apply_non_artifact_route_state(&mut task, &outcome_request);
-        maybe_execute_chat_primary_non_artifact_reply(app, &mut task, intent, &outcome_request)?;
+        apply_inline_answer_route_state(&mut task, &outcome_request);
+        maybe_execute_chat_primary_inline_answer_reply(app, &mut task, intent, &outcome_request)?;
     }
 
     if let Some(session) = task.chat_session.as_mut() {
@@ -1585,14 +1585,14 @@ pub fn maybe_prepare_current_task_for_chat_turn(
     Ok(())
 }
 
-pub(super) fn apply_non_artifact_route_state(
+pub(super) fn apply_inline_answer_route_state(
     task: &mut AgentTask,
     outcome_request: &ChatOutcomeRequest,
 ) {
     task.current_step = if outcome_request.outcome_kind == ChatOutcomeKind::Artifact {
         task.current_step.clone()
     } else {
-        super::content_session::non_artifact_route_status_message(outcome_request)
+        super::content_session::inline_answer_status_message(outcome_request)
     };
 }
 

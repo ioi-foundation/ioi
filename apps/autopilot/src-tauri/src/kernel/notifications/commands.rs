@@ -265,27 +265,6 @@ pub fn notification_update_assistant_status(
     Ok(())
 }
 
-pub(crate) fn resolve_intervention_by_request_hash(app: &AppHandle, request_hash: &str) {
-    let Some(memory_runtime) = app_memory_runtime(app) else {
-        return;
-    };
-    let request_hash = normalize_request_hash(request_hash);
-    let mut items = load_interventions(&memory_runtime);
-    for item in items.iter_mut().filter(|item| {
-        item.request_hash
-            .as_deref()
-            .map(normalize_request_hash)
-            .as_deref()
-            == Some(request_hash.as_str())
-    }) {
-        item.status = InterventionStatus::Resolved;
-        item.updated_at_ms = now_ms();
-        upsert_intervention(&memory_runtime, item.clone());
-        let _ = app.emit("intervention-updated", item.clone());
-    }
-    emit_badge_count(app);
-}
-
 pub(crate) fn resolve_intervention_by_dedupe_prefix(app: &AppHandle, dedupe_prefix: &str) {
     let Some(memory_runtime) = app_memory_runtime(app) else {
         return;

@@ -44,7 +44,7 @@ fn document_briefing_layout_renders_single_document_without_story_headers() {
         run_timestamp_iso_utc: "2026-03-10T12:19:24Z".to_string(),
         completion_reason: "min_sources_reached".to_string(),
         overall_confidence: "high".to_string(),
-        overall_caveat: "retrieval receipts available".to_string(),
+        overall_caveat: "retrieval evidence available".to_string(),
         stories: vec![
             StoryDraft {
                 title: "NIST".to_string(),
@@ -158,7 +158,7 @@ fn document_briefing_render_facts_require_authority_identifier_coverage() {
         run_timestamp_iso_utc: "2026-03-10T20:58:06Z".to_string(),
         completion_reason: "min_sources_reached".to_string(),
         overall_confidence: "high".to_string(),
-        overall_caveat: "retrieval receipts available".to_string(),
+        overall_caveat: "retrieval evidence available".to_string(),
         stories: vec![StoryDraft {
             title: "NIST PQC briefing".to_string(),
             what_happened:
@@ -235,7 +235,7 @@ fn document_briefing_render_facts_pass_when_authority_sources_cover_required_ide
         run_timestamp_iso_utc: "2026-03-10T20:58:06Z".to_string(),
         completion_reason: "min_sources_reached".to_string(),
         overall_confidence: "high".to_string(),
-        overall_caveat: "retrieval receipts available".to_string(),
+        overall_caveat: "retrieval evidence available".to_string(),
         stories: vec![StoryDraft {
             title: "NIST PQC briefing".to_string(),
             what_happened: "NIST finalized its first post-quantum cryptography standards."
@@ -311,7 +311,7 @@ fn document_briefing_render_facts_backfill_authority_identifier_coverage_from_of
         run_timestamp_iso_utc: "2026-03-10T20:58:06Z".to_string(),
         completion_reason: "min_sources_reached".to_string(),
         overall_confidence: "high".to_string(),
-        overall_caveat: "retrieval receipts available".to_string(),
+        overall_caveat: "retrieval evidence available".to_string(),
         stories: vec![
             StoryDraft {
                 title: "NIST HQC update".to_string(),
@@ -411,7 +411,7 @@ fn render_document_briefing_layout_uses_evidence_bullets_and_required_inventory(
         run_timestamp_iso_utc: "2026-03-10T20:58:06Z".to_string(),
         completion_reason: "min_sources_reached".to_string(),
         overall_confidence: "high".to_string(),
-        overall_caveat: "retrieval receipts available".to_string(),
+        overall_caveat: "retrieval evidence available".to_string(),
         stories: vec![StoryDraft {
             title: "NIST PQC briefing".to_string(),
             what_happened:
@@ -496,7 +496,7 @@ fn render_document_briefing_layout_surfaces_ir_inventory_for_authoritative_publi
         run_timestamp_iso_utc: "2026-04-02T01:15:13Z".to_string(),
         completion_reason: "min_sources_reached".to_string(),
         overall_confidence: "medium".to_string(),
-        overall_caveat: "retrieval receipts available".to_string(),
+        overall_caveat: "retrieval evidence available".to_string(),
         stories: vec![StoryDraft {
             title: "NIST PQC status report".to_string(),
             what_happened:
@@ -570,7 +570,7 @@ fn render_document_briefing_layout_preserves_distinct_read_backed_evidence_lines
         run_timestamp_iso_utc: "2026-03-11T06:21:17Z".to_string(),
         completion_reason: "min_sources_reached".to_string(),
         overall_confidence: "medium".to_string(),
-        overall_caveat: "retrieval receipts available".to_string(),
+        overall_caveat: "retrieval evidence available".to_string(),
         stories: vec![
             StoryDraft {
                 title: "NIST Releases First 3 Finalized Post-Quantum Encryption Standards"
@@ -666,7 +666,7 @@ fn render_document_briefing_layout_omits_unread_citations() {
         run_timestamp_iso_utc: "2026-03-10T20:58:06Z".to_string(),
         completion_reason: "min_sources_reached".to_string(),
         overall_confidence: "high".to_string(),
-        overall_caveat: "retrieval receipts available".to_string(),
+        overall_caveat: "retrieval evidence available".to_string(),
         stories: vec![StoryDraft {
             title: "NIST PQC briefing".to_string(),
             what_happened: "NIST finalized its first post-quantum cryptography standards."

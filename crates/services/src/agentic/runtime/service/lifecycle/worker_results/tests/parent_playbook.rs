@@ -6,7 +6,7 @@ async fn evidence_audited_parent_playbook_advances_across_all_steps() {
     let (service, _temp_dir) = build_test_service(tx);
     let mut state = IAVLTree::new(HashCommitmentScheme::new());
     let topic =
-        "Port LocalAI lifecycle parity into the kernel-managed control plane with receipts.";
+        "Port LocalAI lifecycle parity into the kernel-managed control plane with evidence.";
     let mut parent_state = build_parent_state_with_goal(topic, 320);
 
     let context = spawn_delegated_child_session(
@@ -42,7 +42,7 @@ async fn evidence_audited_parent_playbook_advances_across_all_steps() {
     let mut context_state: AgentState =
         codec::from_bytes_canonical(&context_bytes).expect("context state should decode");
     context_state.status = AgentStatus::Completed(Some(
-            "Likely files: crates/services/src/model.rs; crates/services/src/router.rs\nTargeted checks: cargo test -p ioi-services routing_contracts -- --nocapture\nOpen questions: confirm verifier should stay on targeted checks unless routing receipts disagree."
+            "Likely files: crates/services/src/model.rs; crates/services/src/router.rs\nTargeted checks: cargo test -p ioi-services routing_contracts -- --nocapture\nOpen questions: confirm verifier should stay on targeted checks unless routing evidence disagree."
                 .to_string(),
         ));
     persist_agent_state(
@@ -410,7 +410,7 @@ async fn evidence_audited_patch_summary_only_implement_handoff_bootstraps_verifi
             step_index: 8,
         });
     implement_state.tool_execution_log.insert(
-        "receipt::workspace_edit_applied=true".to_string(),
+        "evidence::workspace_edit_applied=true".to_string(),
         crate::agentic::runtime::types::ToolCallStatus::Executed(
             "step=7;tool=file__write;path=path_utils.py".to_string(),
         ),

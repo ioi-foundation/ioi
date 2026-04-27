@@ -649,12 +649,12 @@ fn map_kernel_event(
             Some(ChainEventEnum::System(ioi_ipc::public::SystemUpdate {
                 component: "IntentResolver".to_string(),
                 status: format!(
-                    "intent_id={} band={:?} score={:.3} constrained={} hash={}",
+                    "intent_id={} band={:?} score={:.3} constrained={} evidence_requirements_hash={}",
                     receipt.intent_id,
                     receipt.band,
                     receipt.score,
                     receipt.constrained,
-                    hex::encode(receipt.receipt_hash)
+                    hex::encode(receipt.evidence_requirements_hash)
                 ),
             }))
         }

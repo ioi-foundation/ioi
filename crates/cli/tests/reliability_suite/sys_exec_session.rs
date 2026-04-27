@@ -244,14 +244,14 @@ async fn sys_exec_session_continuity_reset_failure_receipts_and_anti_loop() -> R
     );
 
     for success_step in [1u32, 2, 3, 4, 5] {
-        let receipts = exec_receipts_for_step(&all_events, success_step);
+        let evidence = exec_receipts_for_step(&all_events, success_step);
         assert_eq!(
-            receipts.len(),
+            evidence.len(),
             1,
             "expected exactly one workload receipt for success step {}",
             success_step
         );
-        match &receipts[0].receipt {
+        match &evidence[0].receipt {
             WorkloadReceipt::Exec(exec_receipt) => {
                 assert!(
                     exec_receipt.success,

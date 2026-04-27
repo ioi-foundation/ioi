@@ -1,9 +1,9 @@
 use super::*;
 use crate::agentic::runtime::service::step::action::command_contract::{
-    PROVIDER_SELECTION_COMMIT_RECEIPT, VERIFICATION_COMMIT_RECEIPT,
+    PROVIDER_SELECTION_COMMIT_EVIDENCE, VERIFICATION_COMMIT_EVIDENCE,
 };
 use crate::agentic::runtime::service::step::action::{
-    mark_execution_postcondition, receipt_marker,
+    execution_evidence_key, record_success_condition,
 };
 use crate::agentic::runtime::types::{AgentMode, ExecutionTier, ToolCallStatus};
 use async_trait::async_trait;
@@ -131,11 +131,11 @@ fn mail_reply_resolved_intent() -> ResolvedIntentState {
         score: 1.0,
         top_k: vec![],
         required_capabilities: vec![CapabilityId::from("mail.reply")],
-        required_receipts: vec![],
-        required_postconditions: vec![],
+        required_evidence: vec![],
+        success_conditions: vec![],
         risk_class: "medium".to_string(),
         preferred_tier: "tool_first".to_string(),
-        matrix_version: "test".to_string(),
+        intent_catalog_version: "test".to_string(),
         embedding_model_id: String::new(),
         embedding_model_version: String::new(),
         similarity_function_id: String::new(),
@@ -143,8 +143,8 @@ fn mail_reply_resolved_intent() -> ResolvedIntentState {
         tool_registry_hash: [0u8; 32],
         capability_ontology_hash: [0u8; 32],
         query_normalization_version: String::new(),
-        matrix_source_hash: [0u8; 32],
-        receipt_hash: [0u8; 32],
+        intent_catalog_source_hash: [0u8; 32],
+        evidence_requirements_hash: [0u8; 32],
         provider_selection: None,
         instruction_contract: None,
         constrained: false,
@@ -180,6 +180,7 @@ fn agent_state_with_mail_reply() -> AgentState {
         planner_state: None,
         active_skill_hash: None,
         tool_execution_log: BTreeMap::new(),
+        execution_ledger: Default::default(),
         visual_som_map: None,
         visual_semantic_map: None,
         swarm_context: None,
@@ -200,11 +201,11 @@ fn automation_monitor_resolved_intent() -> ResolvedIntentState {
         score: 1.0,
         top_k: vec![],
         required_capabilities: vec![CapabilityId::from("automation.monitor.install")],
-        required_receipts: vec![],
-        required_postconditions: vec![],
+        required_evidence: vec![],
+        success_conditions: vec![],
         risk_class: "medium".to_string(),
         preferred_tier: "tool_first".to_string(),
-        matrix_version: "test".to_string(),
+        intent_catalog_version: "test".to_string(),
         embedding_model_id: String::new(),
         embedding_model_version: String::new(),
         similarity_function_id: String::new(),
@@ -212,8 +213,8 @@ fn automation_monitor_resolved_intent() -> ResolvedIntentState {
         tool_registry_hash: [0u8; 32],
         capability_ontology_hash: [0u8; 32],
         query_normalization_version: String::new(),
-        matrix_source_hash: [0u8; 32],
-        receipt_hash: [0u8; 32],
+        intent_catalog_source_hash: [0u8; 32],
+        evidence_requirements_hash: [0u8; 32],
         provider_selection: None,
         instruction_contract: None,
         constrained: false,
@@ -228,11 +229,11 @@ fn install_dependency_resolved_intent() -> ResolvedIntentState {
         score: 1.0,
         top_k: vec![],
         required_capabilities: vec![CapabilityId::from("command.exec.install_dependency")],
-        required_receipts: vec![],
-        required_postconditions: vec![],
+        required_evidence: vec![],
+        success_conditions: vec![],
         risk_class: "medium".to_string(),
         preferred_tier: "tool_first".to_string(),
-        matrix_version: "test".to_string(),
+        intent_catalog_version: "test".to_string(),
         embedding_model_id: String::new(),
         embedding_model_version: String::new(),
         similarity_function_id: String::new(),
@@ -240,8 +241,8 @@ fn install_dependency_resolved_intent() -> ResolvedIntentState {
         tool_registry_hash: [0u8; 32],
         capability_ontology_hash: [0u8; 32],
         query_normalization_version: String::new(),
-        matrix_source_hash: [0u8; 32],
-        receipt_hash: [0u8; 32],
+        intent_catalog_source_hash: [0u8; 32],
+        evidence_requirements_hash: [0u8; 32],
         provider_selection: None,
         instruction_contract: None,
         constrained: false,
@@ -277,6 +278,7 @@ fn agent_state_with_automation_monitor() -> AgentState {
         planner_state: None,
         active_skill_hash: None,
         tool_execution_log: BTreeMap::new(),
+        execution_ledger: Default::default(),
         visual_som_map: None,
         visual_semantic_map: None,
         swarm_context: None,
@@ -318,6 +320,7 @@ fn agent_state_with_install_dependency() -> AgentState {
         planner_state: None,
         active_skill_hash: None,
         tool_execution_log: BTreeMap::new(),
+        execution_ledger: Default::default(),
         visual_som_map: None,
         visual_semantic_map: None,
         swarm_context: None,
@@ -412,30 +415,30 @@ async fn approved_automation_monitor_resume_terminalizes_instead_of_looping() {
     let session_id = agent_state.session_id;
     let current_tier = agent_state.current_tier;
     agent_state.tool_execution_log.insert(
-        receipt_marker("host_discovery"),
+        execution_evidence_key("host_discovery"),
         ToolCallStatus::Executed("/home/test".to_string()),
     );
     agent_state.tool_execution_log.insert(
-        receipt_marker("provider_selection"),
+        execution_evidence_key("provider_selection"),
         ToolCallStatus::Executed("automation.monitor.install".to_string()),
     );
     agent_state.tool_execution_log.insert(
-        receipt_marker(PROVIDER_SELECTION_COMMIT_RECEIPT),
+        execution_evidence_key(PROVIDER_SELECTION_COMMIT_EVIDENCE),
         ToolCallStatus::Executed("sha256:provider-selection".to_string()),
     );
     agent_state.tool_execution_log.insert(
-        receipt_marker("execution"),
+        execution_evidence_key("execution"),
         ToolCallStatus::Executed("monitor__create".to_string()),
     );
     agent_state.tool_execution_log.insert(
-        receipt_marker("verification"),
+        execution_evidence_key("verification"),
         ToolCallStatus::Executed("automation_monitor_install=true".to_string()),
     );
     agent_state.tool_execution_log.insert(
-        receipt_marker(VERIFICATION_COMMIT_RECEIPT),
+        execution_evidence_key(VERIFICATION_COMMIT_EVIDENCE),
         ToolCallStatus::Executed("sha256:verification".to_string()),
     );
-    mark_execution_postcondition(&mut agent_state.tool_execution_log, "execution_artifact");
+    record_success_condition(&mut agent_state.tool_execution_log, "execution_artifact");
 
     run_lifecycle_status_phase(LifecycleStatusPhaseContext {
         service: &service,
@@ -530,30 +533,30 @@ async fn approved_install_resume_terminalizes_instead_of_looping() {
     let session_id = agent_state.session_id;
     let current_tier = agent_state.current_tier;
     agent_state.tool_execution_log.insert(
-        receipt_marker("host_discovery"),
+        execution_evidence_key("host_discovery"),
         ToolCallStatus::Executed("/home/test".to_string()),
     );
     agent_state.tool_execution_log.insert(
-        receipt_marker("provider_selection"),
+        execution_evidence_key("provider_selection"),
         ToolCallStatus::Executed("command.exec.install_dependency".to_string()),
     );
     agent_state.tool_execution_log.insert(
-        receipt_marker(PROVIDER_SELECTION_COMMIT_RECEIPT),
+        execution_evidence_key(PROVIDER_SELECTION_COMMIT_EVIDENCE),
         ToolCallStatus::Executed("sha256:provider-selection".to_string()),
     );
     agent_state.tool_execution_log.insert(
-        receipt_marker("execution"),
+        execution_evidence_key("execution"),
         ToolCallStatus::Executed("package__install".to_string()),
     );
     agent_state.tool_execution_log.insert(
-        receipt_marker("verification"),
+        execution_evidence_key("verification"),
         ToolCallStatus::Executed("install_package_success=true".to_string()),
     );
     agent_state.tool_execution_log.insert(
-        receipt_marker(VERIFICATION_COMMIT_RECEIPT),
+        execution_evidence_key(VERIFICATION_COMMIT_EVIDENCE),
         ToolCallStatus::Executed("sha256:verification".to_string()),
     );
-    mark_execution_postcondition(&mut agent_state.tool_execution_log, "execution_artifact");
+    record_success_condition(&mut agent_state.tool_execution_log, "execution_artifact");
 
     run_lifecycle_status_phase(LifecycleStatusPhaseContext {
         service: &service,

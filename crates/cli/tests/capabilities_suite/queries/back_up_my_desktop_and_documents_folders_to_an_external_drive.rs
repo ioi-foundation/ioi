@@ -46,7 +46,7 @@ pub fn case() -> QueryCase {
             "Do not move/delete/modify source files. ",
             "After copying, verify destination trees and return a concise completion summary with absolute backup paths."
         ),
-        success_definition: "Copy Desktop and Documents into the isolated external-drive backup root using deterministic filesystem primitives, with CEC receipt evidence, source-preservation/content-match verification, and cleanup receipts, without contract failures.",
+        success_definition: "Copy Desktop and Documents into the isolated external-drive backup root using deterministic filesystem primitives, with CEC receipt evidence, source-preservation/content-match verification, and cleanup evidence, without contract failures.",
         seeded_intent_id: "workspace.ops",
         intent_scope: IntentScopeProfile::WorkspaceOps,
         seed_resolved_intent: true,
@@ -63,150 +63,152 @@ pub fn case() -> QueryCase {
 
 fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let fixture_mode =
-        verification_value(obs, "env_receipt::desktop_documents_backup_fixture_mode")
+        verification_value(obs, "env_evidence::desktop_documents_backup_fixture_mode")
             .unwrap_or_default();
     let fixture_probe_source = verification_value(
         obs,
-        "env_receipt::desktop_documents_backup_fixture_probe_source",
+        "env_evidence::desktop_documents_backup_fixture_probe_source",
     )
     .unwrap_or_default();
     let fixture_timestamp_ms = verification_u64(
         obs,
-        "env_receipt::desktop_documents_backup_fixture_timestamp_ms",
+        "env_evidence::desktop_documents_backup_fixture_timestamp_ms",
     )
     .unwrap_or(obs.run_timestamp_ms);
     let fixture_satisfied = verification_bool(
         obs,
-        "env_receipt::desktop_documents_backup_fixture_satisfied",
+        "env_evidence::desktop_documents_backup_fixture_satisfied",
     )
     .unwrap_or(false);
 
     let seeded_desktop_files_csv = verification_value(
         obs,
-        "env_receipt::desktop_documents_backup_seeded_desktop_files",
+        "env_evidence::desktop_documents_backup_seeded_desktop_files",
     )
     .unwrap_or_default();
     let seeded_documents_files_csv = verification_value(
         obs,
-        "env_receipt::desktop_documents_backup_seeded_documents_files",
+        "env_evidence::desktop_documents_backup_seeded_documents_files",
     )
     .unwrap_or_default();
     let seeded_desktop_files_satisfied = verification_bool(
         obs,
-        "env_receipt::desktop_documents_backup_seeded_desktop_files_satisfied",
+        "env_evidence::desktop_documents_backup_seeded_desktop_files_satisfied",
     )
     .unwrap_or(false);
     let seeded_documents_files_satisfied = verification_bool(
         obs,
-        "env_receipt::desktop_documents_backup_seeded_documents_files_satisfied",
+        "env_evidence::desktop_documents_backup_seeded_documents_files_satisfied",
     )
     .unwrap_or(false);
     let destination_absent_satisfied = verification_bool(
         obs,
-        "env_receipt::desktop_documents_backup_destination_absent_satisfied",
+        "env_evidence::desktop_documents_backup_destination_absent_satisfied",
     )
     .unwrap_or(false);
 
     let backup_root_path = verification_value(
         obs,
-        "env_receipt::desktop_documents_backup_backup_root_path",
+        "env_evidence::desktop_documents_backup_backup_root_path",
     )
     .unwrap_or_default();
     let backup_probe_source = verification_value(
         obs,
-        "env_receipt::desktop_documents_backup_backup_probe_source",
+        "env_evidence::desktop_documents_backup_backup_probe_source",
     )
     .unwrap_or_default();
     let backup_timestamp_ms = verification_u64(
         obs,
-        "env_receipt::desktop_documents_backup_backup_timestamp_ms",
+        "env_evidence::desktop_documents_backup_backup_timestamp_ms",
     )
     .unwrap_or(obs.run_timestamp_ms);
     let backup_root_satisfied = verification_bool(
         obs,
-        "env_receipt::desktop_documents_backup_backup_root_satisfied",
+        "env_evidence::desktop_documents_backup_backup_root_satisfied",
     )
     .unwrap_or(false);
 
     let backup_desktop_path = verification_value(
         obs,
-        "env_receipt::desktop_documents_backup_backup_desktop_path",
+        "env_evidence::desktop_documents_backup_backup_desktop_path",
     )
     .unwrap_or_default();
     let backup_desktop_satisfied = verification_bool(
         obs,
-        "env_receipt::desktop_documents_backup_backup_desktop_satisfied",
+        "env_evidence::desktop_documents_backup_backup_desktop_satisfied",
     )
     .unwrap_or(false);
     let backup_desktop_files_csv = verification_value(
         obs,
-        "env_receipt::desktop_documents_backup_backup_desktop_files",
+        "env_evidence::desktop_documents_backup_backup_desktop_files",
     )
     .unwrap_or_default();
     let backup_desktop_files_satisfied = verification_bool(
         obs,
-        "env_receipt::desktop_documents_backup_backup_desktop_files_satisfied",
+        "env_evidence::desktop_documents_backup_backup_desktop_files_satisfied",
     )
     .unwrap_or(false);
 
     let backup_documents_path = verification_value(
         obs,
-        "env_receipt::desktop_documents_backup_backup_documents_path",
+        "env_evidence::desktop_documents_backup_backup_documents_path",
     )
     .unwrap_or_default();
     let backup_documents_satisfied = verification_bool(
         obs,
-        "env_receipt::desktop_documents_backup_backup_documents_satisfied",
+        "env_evidence::desktop_documents_backup_backup_documents_satisfied",
     )
     .unwrap_or(false);
     let backup_documents_files_csv = verification_value(
         obs,
-        "env_receipt::desktop_documents_backup_backup_documents_files",
+        "env_evidence::desktop_documents_backup_backup_documents_files",
     )
     .unwrap_or_default();
     let backup_documents_files_satisfied = verification_bool(
         obs,
-        "env_receipt::desktop_documents_backup_backup_documents_files_satisfied",
+        "env_evidence::desktop_documents_backup_backup_documents_files_satisfied",
     )
     .unwrap_or(false);
 
     let source_desktop_files_csv = verification_value(
         obs,
-        "env_receipt::desktop_documents_backup_source_desktop_files",
+        "env_evidence::desktop_documents_backup_source_desktop_files",
     )
     .unwrap_or_default();
     let source_documents_files_csv = verification_value(
         obs,
-        "env_receipt::desktop_documents_backup_source_documents_files",
+        "env_evidence::desktop_documents_backup_source_documents_files",
     )
     .unwrap_or_default();
     let source_preserved_satisfied = verification_bool(
         obs,
-        "env_receipt::desktop_documents_backup_source_preserved_satisfied",
+        "env_evidence::desktop_documents_backup_source_preserved_satisfied",
     )
     .unwrap_or(false);
     let content_match_satisfied = verification_bool(
         obs,
-        "env_receipt::desktop_documents_backup_content_match_satisfied",
+        "env_evidence::desktop_documents_backup_content_match_satisfied",
     )
     .unwrap_or(false);
-    let scope_satisfied =
-        verification_bool(obs, "env_receipt::desktop_documents_backup_scope_satisfied")
-            .unwrap_or(false);
+    let scope_satisfied = verification_bool(
+        obs,
+        "env_evidence::desktop_documents_backup_scope_satisfied",
+    )
+    .unwrap_or(false);
 
     let cleanup_probe_source = verification_value(
         obs,
-        "env_receipt::desktop_documents_backup_cleanup_probe_source",
+        "env_evidence::desktop_documents_backup_cleanup_probe_source",
     )
     .unwrap_or_default();
     let cleanup_timestamp_ms = verification_u64(
         obs,
-        "env_receipt::desktop_documents_backup_cleanup_timestamp_ms",
+        "env_evidence::desktop_documents_backup_cleanup_timestamp_ms",
     )
     .unwrap_or(obs.run_timestamp_ms);
     let cleanup_satisfied = verification_bool(
         obs,
-        "env_receipt::desktop_documents_backup_cleanup_satisfied",
+        "env_evidence::desktop_documents_backup_cleanup_satisfied",
     )
     .unwrap_or(false);
 
@@ -628,6 +630,6 @@ fn has_disallowed_mutating_action(obs: &RunObservation) -> bool {
     })
 }
 
-fn serialize_environment_receipts(receipts: &[EnvironmentEvidenceReceipt]) -> String {
-    serde_json::to_string(receipts).unwrap_or_else(|_| "[]".to_string())
+fn serialize_environment_receipts(evidence: &[EnvironmentEvidenceReceipt]) -> String {
+    serde_json::to_string(evidence).unwrap_or_else(|_| "[]".to_string())
 }

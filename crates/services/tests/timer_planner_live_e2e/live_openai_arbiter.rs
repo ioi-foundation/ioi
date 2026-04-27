@@ -224,7 +224,7 @@ Fail if:\n\
 3) output quality depends on lexical phrase artifacts instead of facet/evidence grounding,\n\
 	4) capability lifecycle evidence is incomplete (missing route/discovery/execution/verification),\n\
 	5) final reply lacks structured evidence fields (`Run timestamp (UTC)`, `Target UTC`, `Mechanism`),\n\
-	6) CEC markers are incomplete (missing any required `receipt::...=true` or `postcondition::...=true`, including notification-path evidence for timer goals),\n\
+	6) CEC markers are incomplete (missing any required `evidence::...=true` or `success_condition::...=true`, including notification-path evidence for timer goals),\n\
 	7) `Target UTC` is earlier than `Run timestamp (UTC)` or does not reflect the requested 15-minute delay,\n\
 	8) identical approval-gated command fingerprints are repeated instead of progressing state,\n\
 	9) no user-visible or audible notification path is armed for timer completion,\n\

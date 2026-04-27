@@ -1518,7 +1518,7 @@ fn publishing_conflicting_archived_recovered_history_profile_activation_fails_cl
             ctx,
         ))
         .unwrap();
-        let error = run_async(registry.handle_service_call(
+        let _ = run_async(registry.handle_service_call(
             &mut state,
             "publish_aft_archived_recovered_history_profile_activation@v1",
             &codec::to_bytes_canonical(&activation).unwrap(),

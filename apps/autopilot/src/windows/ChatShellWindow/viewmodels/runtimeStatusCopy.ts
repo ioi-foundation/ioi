@@ -17,6 +17,15 @@ const INFRASTRUCTURE_STEP_MARKERS = [
   "routingreceipt(",
   "routing:",
   "workload receipt:",
+  "chat verified candidate-",
+  "required obligations",
+  "cleared obligations",
+  "completion gate",
+  "execution ledger",
+  "route receipt",
+  "receipt::",
+  "postcondition::",
+  "verification contract",
 ];
 
 function normalizedText(value: string | null | undefined): string | null {
@@ -89,6 +98,17 @@ export function isInfrastructureCurrentStep(
   return INFRASTRUCTURE_STEP_MARKERS.some((marker) =>
     normalized.includes(marker),
   );
+}
+
+export function userFacingRuntimeStep(
+  value: string | null | undefined,
+  fallback: string | null = null,
+): string | null {
+  const normalized = normalizedText(value);
+  if (!normalized || isInfrastructureCurrentStep(normalized)) {
+    return fallback;
+  }
+  return normalized;
 }
 
 export function defaultRunActivityTitle(

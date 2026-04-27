@@ -12,7 +12,7 @@ pub(crate) fn handle_agent_delegate_tool(
     expected_output: Option<String>,
 ) -> ActionExecutionOutcome {
     // Orchestration is stateful; spawning the child session is handled in the step layer
-    // so receipts + session state mutations remain atomic and auditable.
+    // so evidence + session state mutations remain atomic and auditable.
     let _ = (
         goal,
         budget,

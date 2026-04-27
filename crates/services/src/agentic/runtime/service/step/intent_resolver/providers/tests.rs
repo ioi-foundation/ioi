@@ -9,7 +9,7 @@ use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
 use ioi_types::app::agentic::CapabilityId;
 use ioi_types::app::agentic::{
-    ExecutionApplicabilityClass, IntentMatrixEntry, IntentQueryBindingClass, IntentScopeProfile,
+    ExecutionApplicabilityClass, IntentCatalogEntry, IntentQueryBindingClass, IntentScopeProfile,
     ProviderSelectionMode, VerificationMode,
 };
 use ioi_types::app::wallet_network::{
@@ -125,7 +125,7 @@ async fn dynamic_provider_selection_auto_selects_single_discovered_connector_rou
     let inference: Arc<dyn InferenceRuntime> = Arc::new(MockInferenceRuntime);
     let service = RuntimeAgentService::new(gui, terminal, browser, inference.clone());
 
-    let entry = IntentMatrixEntry {
+    let entry = IntentCatalogEntry {
         intent_id: "mail.reply".to_string(),
         semantic_descriptor: "compose outbound email".to_string(),
         query_binding: IntentQueryBindingClass::None,
@@ -136,13 +136,13 @@ async fn dynamic_provider_selection_auto_selects_single_discovered_connector_rou
         applicability_class: ExecutionApplicabilityClass::Mixed,
         requires_host_discovery: Some(false),
         provider_selection_mode: Some(ProviderSelectionMode::DynamicSynthesis),
-        required_receipts: vec![
+        required_evidence: vec![
             "provider_selection".to_string(),
             "provider_selection_commit".to_string(),
             "execution".to_string(),
             "verification".to_string(),
         ],
-        required_postconditions: vec![],
+        success_conditions: vec![],
         verification_mode: Some(VerificationMode::DeterministicCheck),
         aliases: vec![],
         exemplars: vec![],

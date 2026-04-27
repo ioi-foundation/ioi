@@ -9,7 +9,7 @@ use std::path::Path;
 
 pub(super) fn duplicate_command_execution_summary(tool: &AgentTool) -> String {
     let _ = tool;
-    "Duplicate command action was blocked because it was already executed in this run. Select a new action, verify postconditions, or finalize with evidence."
+    "Duplicate command action was blocked because it was already executed in this run. Select a new action, verify success_conditions, or finalize with evidence."
         .to_string()
 }
 

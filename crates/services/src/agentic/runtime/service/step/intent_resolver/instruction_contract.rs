@@ -831,13 +831,6 @@ fn finalize_instruction_contract(query: &str, intent_id: &str, contract: &mut In
     ensure_preferred_delegation_workflow_slot(query, intent_id, contract);
 }
 
-fn fallback_instruction_contract(query: &str, intent_id: &str) -> Option<InstructionContract> {
-    preferred_delegation_template_for_intent(query, intent_id)?;
-    let mut contract = InstructionContract::default();
-    finalize_instruction_contract(query, intent_id, &mut contract);
-    Some(contract)
-}
-
 fn instruction_contract_inference_needed(
     query: &str,
     intent_id: &str,
@@ -868,10 +861,10 @@ fn instruction_contract_inference_needed(
 }
 
 pub fn seeded_instruction_contract_for_intent(
-    query: &str,
-    intent_id: &str,
+    _query: &str,
+    _intent_id: &str,
 ) -> Option<InstructionContract> {
-    fallback_instruction_contract(query, intent_id)
+    None
 }
 
 pub(super) async fn synthesize_instruction_contract(
@@ -889,7 +882,7 @@ pub(super) async fn synthesize_instruction_contract(
         required_capabilities,
         provider_selection,
     ) {
-        return fallback_instruction_contract(query, intent_id);
+        return None;
     }
 
     let payload = json!([
@@ -915,7 +908,7 @@ pub(super) async fn synthesize_instruction_contract(
                 "IntentResolver instruction contract payload encode failed error={}",
                 error
             );
-            return fallback_instruction_contract(query, intent_id);
+            return None;
         }
     };
     let airlocked_input = match service
@@ -934,7 +927,7 @@ pub(super) async fn synthesize_instruction_contract(
                 hex::encode(&session_id[..4]),
                 error
             );
-            return fallback_instruction_contract(query, intent_id);
+            return None;
         }
     };
     let output = match runtime
@@ -956,7 +949,7 @@ pub(super) async fn synthesize_instruction_contract(
                 "IntentResolver instruction contract inference failed error={}",
                 vm_error_to_tx(error)
             );
-            return fallback_instruction_contract(query, intent_id);
+            return None;
         }
     };
     let raw = String::from_utf8_lossy(&output).to_string();
@@ -970,7 +963,7 @@ pub(super) async fn synthesize_instruction_contract(
                 "IntentResolver instruction contract parse failed error={}",
                 error
             );
-            fallback_instruction_contract(query, intent_id)
+            None
         }
     }
 }

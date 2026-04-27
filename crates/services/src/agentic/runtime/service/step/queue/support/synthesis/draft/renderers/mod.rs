@@ -168,7 +168,7 @@ fn query_requests_retrieval_diagnostics(query: &str) -> bool {
         "debug",
         "insight selector",
         "evidence gap",
-        "receipts",
+        "evidence",
         "completion reason",
         "overall caveat",
     ]
@@ -208,7 +208,7 @@ pub(crate) fn render_user_synthesis_draft(draft: &SynthesisDraft) -> String {
             }
         }
 
-        if trimmed == "Retrieval receipts:" {
+        if trimmed == "Retrieval evidence:" {
             skip_bullets = Some(SkipBullets::RetrievalReceipts);
             continue;
         }

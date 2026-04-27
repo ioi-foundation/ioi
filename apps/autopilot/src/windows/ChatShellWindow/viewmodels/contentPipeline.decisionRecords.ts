@@ -30,7 +30,7 @@ type StringFromRecord = (
 
 type RecordAccessor = (entry: ActivityEventRef) => Record<string, unknown>;
 
-export type ExplicitRouteContract = {
+export type ExplicitDecisionRecord = {
   routeFamily: PlanSummary["routeFamily"] | null;
   topology: PlanSummary["topology"] | null;
   plannerAuthority: PlanSummary["plannerAuthority"] | null;
@@ -234,7 +234,7 @@ function sourceFamiliesFromRecord(
   return [];
 }
 
-function laneFrameFromRecord(
+function laneRequestFromRecord(
   record: Record<string, unknown> | null,
   stringFromRecord: StringFromRecord,
 ): PlanLaneFrameSummary | null {
@@ -285,7 +285,7 @@ function laneFrameFromRecord(
   };
 }
 
-function sourceSelectionFromRecord(
+function sourceDecisionFromRecord(
   record: Record<string, unknown> | null,
   stringFromRecord: StringFromRecord,
 ): PlanSourceSelectionSummary | null {
@@ -307,8 +307,8 @@ function sourceSelectionFromRecord(
         "explicitUserSource",
         "explicit_user_source",
       ) === true,
-    fallbackReason:
-      stringFromRecord(record, "fallbackReason", "fallback_reason") || null,
+    degradationReason:
+      stringFromRecord(record, "degradationReason", "degradation_reason") || null,
   };
 }
 
@@ -592,7 +592,7 @@ function domainPolicyBundleFromRecord(
   return hasBundle ? bundle : null;
 }
 
-function requestFrameFromRecord(
+function normalizedRequestFromRecord(
   record: Record<string, unknown> | null,
   stringFromRecord: StringFromRecord,
 ): PlanNormalizedRequestFrameSummary | null {
@@ -909,7 +909,7 @@ function orchestrationStateFromRecord(
   };
 }
 
-export type KnownPlaybookRouteContract = {
+export type KnownPlaybookDecisionRecord = {
   routeFamily: PlanSummary["routeFamily"];
   topology: PlanSummary["topology"];
   plannerAuthority: PlanSummary["plannerAuthority"];
@@ -919,7 +919,7 @@ export type KnownPlaybookRouteContract = {
 
 const BUILTIN_PLAYBOOK_ROUTE_CONTRACTS: Record<
   string,
-  KnownPlaybookRouteContract
+  KnownPlaybookDecisionRecord
 > = {
   evidence_audited_patch: {
     routeFamily: "coding",
@@ -984,9 +984,9 @@ function normalizePlaybookLookupKey(value?: string): string | null {
   return normalized || null;
 }
 
-function builtinPlaybookRouteContractForValue(
+function builtinPlaybookDecisionRecordForValue(
   value?: string,
-): KnownPlaybookRouteContract | null {
+): KnownPlaybookDecisionRecord | null {
   const key = normalizePlaybookLookupKey(value);
   if (!key) {
     return null;
@@ -1135,21 +1135,21 @@ export function explicitRouteDecision(
         recordFromRecord(routeDecision, "effective_tool_surface")) ||
       recordFromRecord(details, "effective_tool_surface") ||
       recordFromRecord(digest, "effective_tool_surface");
-    const laneFrame =
-      recordFromRecord(details, "lane_frame", "laneFrame") ||
-      recordFromRecord(digest, "lane_frame", "laneFrame") ||
-      recordFromRecord(routeDecisionRecord, "lane_frame", "laneFrame");
-    const requestFrame =
-      recordFromRecord(details, "request_frame", "requestFrame") ||
-      recordFromRecord(digest, "request_frame", "requestFrame") ||
-      recordFromRecord(routeDecisionRecord, "request_frame", "requestFrame");
-    const sourceSelection =
-      recordFromRecord(details, "source_selection", "sourceSelection") ||
-      recordFromRecord(digest, "source_selection", "sourceSelection") ||
+    const laneRequest =
+      recordFromRecord(details, "lane_request", "laneRequest") ||
+      recordFromRecord(digest, "lane_request", "laneRequest") ||
+      recordFromRecord(routeDecisionRecord, "lane_request", "laneRequest");
+    const normalizedRequest =
+      recordFromRecord(details, "normalized_request", "normalizedRequest") ||
+      recordFromRecord(digest, "normalized_request", "normalizedRequest") ||
+      recordFromRecord(routeDecisionRecord, "normalized_request", "normalizedRequest");
+    const sourceDecision =
+      recordFromRecord(details, "source_decision", "sourceDecision") ||
+      recordFromRecord(digest, "source_decision", "sourceDecision") ||
       recordFromRecord(
         routeDecisionRecord,
-        "source_selection",
-        "sourceSelection",
+        "source_decision",
+        "sourceDecision",
       );
     const retainedLaneState =
       recordFromRecord(details, "retained_lane_state", "retainedLaneState") ||
@@ -1206,9 +1206,9 @@ export function explicitRouteDecision(
       !routeFamily &&
       !outputIntent &&
       directAnswerAllowed === null &&
-      !laneFrame &&
-      !requestFrame &&
-      !sourceSelection &&
+      !laneRequest &&
+      !normalizedRequest &&
+      !sourceDecision &&
       !retainedLaneState &&
       laneTransitions.length === 0 &&
       !orchestrationState &&
@@ -1293,10 +1293,10 @@ export function explicitRouteDecision(
           "diagnostic_tools",
         ),
       },
-      laneFrame: laneFrameFromRecord(laneFrame, stringFromRecord),
-      requestFrame: requestFrameFromRecord(requestFrame, stringFromRecord),
-      sourceSelection: sourceSelectionFromRecord(
-        sourceSelection,
+      laneRequest: laneRequestFromRecord(laneRequest, stringFromRecord),
+      normalizedRequest: normalizedRequestFromRecord(normalizedRequest, stringFromRecord),
+      sourceDecision: sourceDecisionFromRecord(
+        sourceDecision,
         stringFromRecord,
       ),
       retainedLaneState: retainedLaneStateFromRecord(
@@ -1318,12 +1318,12 @@ export function explicitRouteDecision(
   return null;
 }
 
-export function explicitRouteContract(
+export function explicitDecisionRecord(
   events: ActivityEventRef[],
   digestRecord: RecordAccessor,
   detailsRecord: RecordAccessor,
   stringFromRecord: StringFromRecord,
-): ExplicitRouteContract {
+): ExplicitDecisionRecord {
   for (const entry of [...events].reverse()) {
     const digest = digestRecord(entry);
     const details = detailsRecord(entry);
@@ -1384,12 +1384,12 @@ export function explicitRouteContract(
   };
 }
 
-export function impliedRouteContractFromPlaybook(
+export function impliedDecisionRecordFromPlaybook(
   events: ActivityEventRef[],
   digestRecord: RecordAccessor,
   detailsRecord: RecordAccessor,
   stringFromRecord: StringFromRecord,
-): KnownPlaybookRouteContract | null {
+): KnownPlaybookDecisionRecord | null {
   for (const entry of [...events].reverse()) {
     const digest = digestRecord(entry);
     const details = detailsRecord(entry);
@@ -1406,7 +1406,7 @@ export function impliedRouteContractFromPlaybook(
       stringFromRecord(details, "route"),
     ];
     for (const candidate of contractCandidates) {
-      const contract = builtinPlaybookRouteContractForValue(candidate);
+      const contract = builtinPlaybookDecisionRecordForValue(candidate);
       if (contract) {
         return contract;
       }

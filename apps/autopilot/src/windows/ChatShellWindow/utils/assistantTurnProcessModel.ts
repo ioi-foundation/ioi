@@ -541,7 +541,12 @@ export function buildAssistantTurnProcess(
 }
 
 export function hasMeaningfulProcess(process: AssistantTurnProcess): boolean {
-  return process.items.length > 0 || process.status === "running" || process.status === "blocked" || process.status === "failed";
+  return (
+    process.status === "running" ||
+    process.status === "thinking" ||
+    process.status === "blocked" ||
+    process.status === "failed"
+  );
 }
 
 export function testOnlySourceRefsFromSummary(

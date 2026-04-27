@@ -89,7 +89,7 @@ fn strip_userinfo_from_urlish(raw: &str) -> String {
     format!("{}{}", &raw[..after_scheme], &raw[at_abs + 1..])
 }
 
-fn redact_url_for_receipt(parsed: &Url) -> Url {
+fn redact_url_for_evidence(parsed: &Url) -> Url {
     let mut out = parsed.clone();
     out.set_query(None);
     out.set_fragment(None);
@@ -114,15 +114,15 @@ pub async fn handle(
         } => {
             let limit = limit.unwrap_or(5).clamp(1, 10);
             let query_trimmed = query.trim();
-            let query_for_receipt_raw =
-                workload::scrub_workload_text_field_for_receipt(exec, query_trimmed).await;
-            let (query_for_receipt, _) =
-                truncate_chars(&query_for_receipt_raw, WEB_RETRIEVE_RECEIPT_MAX_CHARS);
+            let query_for_evidence_raw =
+                workload::scrub_workload_text_field_for_evidence(exec, query_trimmed).await;
+            let (query_for_evidence, _) =
+                truncate_chars(&query_for_evidence_raw, WEB_RETRIEVE_RECEIPT_MAX_CHARS);
 
-            let receipt_preview_raw = if query_for_receipt.trim().is_empty() {
+            let receipt_preview_raw = if query_for_evidence.trim().is_empty() {
                 "web__search".to_string()
             } else {
-                format!("web__search {}", query_for_receipt)
+                format!("web__search {}", query_for_evidence)
             };
             let (receipt_preview, _) =
                 truncate_chars(&receipt_preview_raw, WEB_RETRIEVE_PREVIEW_MAX_CHARS);
@@ -148,7 +148,7 @@ pub async fn handle(
 
             let mut sources_count: u32 = 0;
             let mut documents_count: u32 = 0;
-            let mut backend_for_receipt = "edge:search".to_string();
+            let mut backend_for_evidence = "edge:search".to_string();
             let retrieval_contract_result = if let Some(contract) = retrieval_contract {
                 Ok(contract)
             } else {
@@ -168,7 +168,7 @@ pub async fn handle(
                 .await
                 {
                     Ok(bundle) => {
-                        backend_for_receipt = bundle.backend.clone();
+                        backend_for_evidence = bundle.backend.clone();
                         match serde_json::to_string_pretty(&bundle) {
                             Ok(out) => {
                                 sources_count = bundle.sources.len() as u32;
@@ -214,8 +214,9 @@ pub async fn handle(
                     workload_id.clone(),
                     WorkloadReceipt::WebRetrieve(WorkloadWebRetrieveReceipt {
                         tool_name: "web__search".to_string(),
-                        backend: backend_for_receipt,
-                        query: (!query_for_receipt.trim().is_empty()).then_some(query_for_receipt),
+                        backend: backend_for_evidence,
+                        query: (!query_for_evidence.trim().is_empty())
+                            .then_some(query_for_evidence),
                         url: None,
                         limit: Some(limit),
                         max_chars: None,
@@ -238,17 +239,17 @@ pub async fn handle(
             let url_trimmed = url.trim();
             let url_redacted = Url::parse(url_trimmed)
                 .ok()
-                .map(|parsed| redact_url_for_receipt(&parsed).to_string())
+                .map(|parsed| redact_url_for_evidence(&parsed).to_string())
                 .unwrap_or_else(|| strip_userinfo_from_urlish(strip_query_fragment(url_trimmed)));
-            let url_for_receipt_raw =
-                workload::scrub_workload_text_field_for_receipt(exec, url_redacted.as_str()).await;
-            let (url_for_receipt, _) =
-                truncate_chars(&url_for_receipt_raw, WEB_RETRIEVE_RECEIPT_MAX_CHARS);
+            let url_for_evidence_raw =
+                workload::scrub_workload_text_field_for_evidence(exec, url_redacted.as_str()).await;
+            let (url_for_evidence, _) =
+                truncate_chars(&url_for_evidence_raw, WEB_RETRIEVE_RECEIPT_MAX_CHARS);
 
-            let receipt_preview_raw = if url_for_receipt.trim().is_empty() {
+            let receipt_preview_raw = if url_for_evidence.trim().is_empty() {
                 "web__read".to_string()
             } else {
-                format!("web__read {}", url_for_receipt)
+                format!("web__read {}", url_for_evidence)
             };
             let (receipt_preview, _) =
                 truncate_chars(&receipt_preview_raw, WEB_RETRIEVE_PREVIEW_MAX_CHARS);
@@ -320,7 +321,7 @@ pub async fn handle(
                         tool_name: "web__read".to_string(),
                         backend: "edge:read".to_string(),
                         query: None,
-                        url: (!url_for_receipt.trim().is_empty()).then_some(url_for_receipt),
+                        url: (!url_for_evidence.trim().is_empty()).then_some(url_for_evidence),
                         limit: None,
                         max_chars: Some(max_chars),
                         sources_count: if result.success { sources_count } else { 0 },
@@ -342,17 +343,17 @@ pub async fn handle(
             let url_trimmed = url.trim();
             let url_redacted = Url::parse(url_trimmed)
                 .ok()
-                .map(|parsed| redact_url_for_receipt(&parsed).to_string())
+                .map(|parsed| redact_url_for_evidence(&parsed).to_string())
                 .unwrap_or_else(|| strip_userinfo_from_urlish(strip_query_fragment(url_trimmed)));
-            let url_for_receipt_raw =
-                workload::scrub_workload_text_field_for_receipt(exec, url_redacted.as_str()).await;
-            let (url_for_receipt, _) =
-                truncate_chars(&url_for_receipt_raw, WEB_RETRIEVE_RECEIPT_MAX_CHARS);
+            let url_for_evidence_raw =
+                workload::scrub_workload_text_field_for_evidence(exec, url_redacted.as_str()).await;
+            let (url_for_evidence, _) =
+                truncate_chars(&url_for_evidence_raw, WEB_RETRIEVE_RECEIPT_MAX_CHARS);
 
-            let receipt_preview_raw = if url_for_receipt.trim().is_empty() {
+            let receipt_preview_raw = if url_for_evidence.trim().is_empty() {
                 "media__extract_transcript".to_string()
             } else {
-                format!("media__extract_transcript {}", url_for_receipt)
+                format!("media__extract_transcript {}", url_for_evidence)
             };
             let (receipt_preview, _) =
                 truncate_chars(&receipt_preview_raw, WEB_RETRIEVE_PREVIEW_MAX_CHARS);
@@ -376,7 +377,7 @@ pub async fn handle(
                 );
             }
 
-            let mut backend_for_receipt = "edge:media".to_string();
+            let mut backend_for_evidence = "edge:media".to_string();
             let result = match crate::agentic::web::edge_media_extract_transcript(
                 &url,
                 language.as_deref(),
@@ -386,7 +387,7 @@ pub async fn handle(
             .await
             {
                 Ok(bundle) => {
-                    backend_for_receipt = bundle.backend.clone();
+                    backend_for_evidence = bundle.backend.clone();
                     serde_json::to_string_pretty(&bundle).map_or_else(
                         |err| {
                             ToolExecutionResult::failure(format!(
@@ -422,13 +423,13 @@ pub async fn handle(
                     workload_id.clone(),
                     WorkloadReceipt::WebRetrieve(WorkloadWebRetrieveReceipt {
                         tool_name: "media__extract_transcript".to_string(),
-                        backend: backend_for_receipt,
+                        backend: backend_for_evidence,
                         query: language
                             .as_deref()
                             .map(str::trim)
                             .filter(|value| !value.is_empty())
                             .map(|value| format!("language={}", value)),
-                        url: (!url_for_receipt.trim().is_empty()).then_some(url_for_receipt),
+                        url: (!url_for_evidence.trim().is_empty()).then_some(url_for_evidence),
                         limit: None,
                         max_chars: Some(max_chars),
                         sources_count: if result.success { 1 } else { 0 },
@@ -451,17 +452,17 @@ pub async fn handle(
             let url_trimmed = url.trim();
             let url_redacted = Url::parse(url_trimmed)
                 .ok()
-                .map(|parsed| redact_url_for_receipt(&parsed).to_string())
+                .map(|parsed| redact_url_for_evidence(&parsed).to_string())
                 .unwrap_or_else(|| strip_userinfo_from_urlish(strip_query_fragment(url_trimmed)));
-            let url_for_receipt_raw =
-                workload::scrub_workload_text_field_for_receipt(exec, url_redacted.as_str()).await;
-            let (url_for_receipt, _) =
-                truncate_chars(&url_for_receipt_raw, WEB_RETRIEVE_RECEIPT_MAX_CHARS);
+            let url_for_evidence_raw =
+                workload::scrub_workload_text_field_for_evidence(exec, url_redacted.as_str()).await;
+            let (url_for_evidence, _) =
+                truncate_chars(&url_for_evidence_raw, WEB_RETRIEVE_RECEIPT_MAX_CHARS);
 
-            let receipt_preview_raw = if url_for_receipt.trim().is_empty() {
+            let receipt_preview_raw = if url_for_evidence.trim().is_empty() {
                 "media__extract_evidence".to_string()
             } else {
-                format!("media__extract_evidence {}", url_for_receipt)
+                format!("media__extract_evidence {}", url_for_evidence)
             };
             let (receipt_preview, _) =
                 truncate_chars(&receipt_preview_raw, WEB_RETRIEVE_PREVIEW_MAX_CHARS);
@@ -485,7 +486,7 @@ pub async fn handle(
                 );
             }
 
-            let mut backend_for_receipt = "edge:media:multimodal".to_string();
+            let mut backend_for_evidence = "edge:media:multimodal".to_string();
             let result = match crate::agentic::web::edge_media_extract_multimodal_evidence(
                 &url,
                 language.as_deref(),
@@ -497,7 +498,7 @@ pub async fn handle(
             .await
             {
                 Ok(bundle) => {
-                    backend_for_receipt = bundle
+                    backend_for_evidence = bundle
                         .visual
                         .as_ref()
                         .map(|visual| visual.backend.clone())
@@ -549,13 +550,13 @@ pub async fn handle(
                     workload_id.clone(),
                     WorkloadReceipt::WebRetrieve(WorkloadWebRetrieveReceipt {
                         tool_name: "media__extract_evidence".to_string(),
-                        backend: backend_for_receipt,
+                        backend: backend_for_evidence,
                         query: language
                             .as_deref()
                             .map(str::trim)
                             .filter(|value| !value.is_empty())
                             .map(|value| format!("language={}", value)),
-                        url: (!url_for_receipt.trim().is_empty()).then_some(url_for_receipt),
+                        url: (!url_for_evidence.trim().is_empty()).then_some(url_for_evidence),
                         limit: frame_limit,
                         max_chars: Some(max_chars),
                         sources_count: if result.success { 1 } else { 0 },
@@ -604,9 +605,9 @@ async fn handle_net_fetch(
         Ok(u) => u,
         Err(e) => {
             let sanitized = strip_userinfo_from_urlish(strip_query_fragment(url));
-            let requested_url_for_receipt =
-                workload::scrub_workload_text_field_for_receipt(exec, sanitized.as_str()).await;
-            let receipt_preview = format!("http__fetch {}", requested_url_for_receipt);
+            let requested_url_for_evidence =
+                workload::scrub_workload_text_field_for_evidence(exec, sanitized.as_str()).await;
+            let receipt_preview = format!("http__fetch {}", requested_url_for_evidence);
             let workload_id = workload::compute_workload_id(
                 session_id,
                 step_index,
@@ -647,7 +648,7 @@ async fn handle_net_fetch(
                     WorkloadReceipt::NetFetch(WorkloadNetFetchReceipt {
                         tool_name: "http__fetch".to_string(),
                         method: "GET".to_string(),
-                        requested_url: requested_url_for_receipt,
+                        requested_url: requested_url_for_evidence,
                         final_url: None,
                         status_code: None,
                         content_type: None,
@@ -667,9 +668,9 @@ async fn handle_net_fetch(
 
     if parsed.scheme() != "http" && parsed.scheme() != "https" {
         let sanitized = strip_userinfo_from_urlish(strip_query_fragment(url));
-        let requested_url_for_receipt =
-            workload::scrub_workload_text_field_for_receipt(exec, sanitized.as_str()).await;
-        let receipt_preview = format!("http__fetch {}", requested_url_for_receipt);
+        let requested_url_for_evidence =
+            workload::scrub_workload_text_field_for_evidence(exec, sanitized.as_str()).await;
+        let receipt_preview = format!("http__fetch {}", requested_url_for_evidence);
         let workload_id = workload::compute_workload_id(
             session_id,
             step_index,
@@ -709,7 +710,7 @@ async fn handle_net_fetch(
                 WorkloadReceipt::NetFetch(WorkloadNetFetchReceipt {
                     tool_name: "http__fetch".to_string(),
                     method: "GET".to_string(),
-                    requested_url: requested_url_for_receipt,
+                    requested_url: requested_url_for_evidence,
                     final_url: None,
                     status_code: None,
                     content_type: None,
@@ -726,12 +727,12 @@ async fn handle_net_fetch(
         return result;
     }
 
-    let requested_url_for_receipt = workload::scrub_workload_text_field_for_receipt(
+    let requested_url_for_evidence = workload::scrub_workload_text_field_for_evidence(
         exec,
-        redact_url_for_receipt(&parsed).as_str(),
+        redact_url_for_evidence(&parsed).as_str(),
     )
     .await;
-    let receipt_preview = format!("http__fetch {}", requested_url_for_receipt);
+    let receipt_preview = format!("http__fetch {}", requested_url_for_evidence);
     let workload_id = workload::compute_workload_id(
         session_id,
         step_index,
@@ -782,7 +783,7 @@ async fn handle_net_fetch(
                     WorkloadReceipt::NetFetch(WorkloadNetFetchReceipt {
                         tool_name: "http__fetch".to_string(),
                         method: "GET".to_string(),
-                        requested_url: requested_url_for_receipt,
+                        requested_url: requested_url_for_evidence,
                         final_url: None,
                         status_code: None,
                         content_type: None,
@@ -826,7 +827,7 @@ async fn handle_net_fetch(
                     WorkloadReceipt::NetFetch(WorkloadNetFetchReceipt {
                         tool_name: "http__fetch".to_string(),
                         method: "GET".to_string(),
-                        requested_url: requested_url_for_receipt,
+                        requested_url: requested_url_for_evidence,
                         final_url: None,
                         status_code: None,
                         content_type: None,
@@ -845,9 +846,9 @@ async fn handle_net_fetch(
     };
 
     let status = resp.status().as_u16() as u32;
-    let final_url_for_receipt = workload::scrub_workload_text_field_for_receipt(
+    let final_url_for_evidence = workload::scrub_workload_text_field_for_evidence(
         exec,
-        redact_url_for_receipt(resp.url()).as_str(),
+        redact_url_for_evidence(resp.url()).as_str(),
     )
     .await;
     let content_type = resp
@@ -899,8 +900,8 @@ async fn handle_net_fetch(
                     WorkloadReceipt::NetFetch(WorkloadNetFetchReceipt {
                         tool_name: "http__fetch".to_string(),
                         method: "GET".to_string(),
-                        requested_url: requested_url_for_receipt,
-                        final_url: Some(final_url_for_receipt),
+                        requested_url: requested_url_for_evidence,
+                        final_url: Some(final_url_for_evidence),
                         status_code: Some(status),
                         content_type: content_type.clone(),
                         max_chars,
@@ -946,8 +947,8 @@ async fn handle_net_fetch(
                         WorkloadReceipt::NetFetch(WorkloadNetFetchReceipt {
                             tool_name: "http__fetch".to_string(),
                             method: "GET".to_string(),
-                            requested_url: requested_url_for_receipt,
-                            final_url: Some(final_url_for_receipt),
+                            requested_url: requested_url_for_evidence,
+                            final_url: Some(final_url_for_evidence),
                             status_code: Some(status),
                             content_type: content_type.clone(),
                             max_chars,
@@ -1026,8 +1027,8 @@ async fn handle_net_fetch(
             WorkloadReceipt::NetFetch(WorkloadNetFetchReceipt {
                 tool_name: "http__fetch".to_string(),
                 method: "GET".to_string(),
-                requested_url: requested_url_for_receipt,
-                final_url: Some(final_url_for_receipt),
+                requested_url: requested_url_for_evidence,
+                final_url: Some(final_url_for_evidence),
                 status_code: Some(status),
                 content_type: content_type.clone(),
                 max_chars,

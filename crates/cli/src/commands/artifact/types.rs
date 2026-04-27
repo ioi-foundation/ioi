@@ -95,7 +95,7 @@ pub(crate) struct GeneratedArtifactEvidence {
     pub(crate) production_provenance: Option<ChatRuntimeProvenance>,
     #[serde(default)]
     pub(crate) acceptance_provenance: Option<ChatRuntimeProvenance>,
-    pub(crate) fallback_used: bool,
+    pub(crate) degraded_path_used: bool,
     #[serde(default)]
     pub(crate) ux_lifecycle: Option<ChatArtifactUxLifecycle>,
     #[serde(default)]

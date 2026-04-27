@@ -19,24 +19,24 @@ use crate::agentic::runtime::keys::{get_state_key, pii, AGENT_POLICY_PREFIX};
 use crate::agentic::runtime::service::step::action::command_contract::{
     append_command_history_entry, capability_route_label, command_arms_deferred_notification_path,
     command_history_entry, command_history_exit_code, compose_terminal_chat_reply,
-    enrich_command_scope_summary, execution_contract_violation_error, extract_error_class_token,
-    format_utc_rfc3339, is_cec_terminal_error, is_command_execution_provider_tool,
-    missing_execution_contract_markers_with_rules, parse_sleep_seconds,
-    record_provider_selection_receipts, record_timer_notification_contract_requirement,
-    record_verification_receipts, render_command_preview, requires_timer_notification_contract,
+    enrich_command_scope_summary, evaluate_completion_requirements,
+    execution_contract_violation_error, extract_error_class_token, format_utc_rfc3339,
+    is_command_execution_provider_tool, is_completion_contract_error, parse_sleep_seconds,
+    record_provider_selection_evidence, record_timer_notification_contract_requirement,
+    record_verification_evidence, render_command_preview, requires_timer_notification_contract,
     synthesize_allowlisted_timer_notification_tool, sys_exec_arms_timer_delay_backend,
     sys_exec_command_preview, sys_exec_timer_delay_seconds, target_utc_from_run_and_sleep,
-    TIMER_NOTIFICATION_PATH_POSTCONDITION, TIMER_SLEEP_BACKEND_POSTCONDITION,
+    TIMER_NOTIFICATION_PATH_SUCCESS_CONDITION, TIMER_SLEEP_BACKEND_SUCCESS_CONDITION,
 };
 use crate::agentic::runtime::service::step::action::{
     canonical_intent_hash, canonical_retry_intent_hash, canonical_tool_identity,
     emit_completion_gate_status_event, emit_execution_contract_receipt_event_with_observation,
-    is_command_probe_intent, is_system_clock_read_intent, is_ui_capture_screenshot_intent,
-    mark_action_fingerprint_executed_at_step, mark_execution_postcondition, mark_execution_receipt,
-    persist_step_contract_evidence, postcondition_marker, receipt_marker,
-    record_non_command_success_receipts, resolved_intent_id, summarize_command_probe_output,
-    summarize_structured_command_receipt_output, summarize_system_clock_or_plain_output,
-    summarize_system_clock_output,
+    execution_evidence_key, is_command_probe_intent, is_system_clock_read_intent,
+    is_ui_capture_screenshot_intent, mark_action_fingerprint_executed_at_step,
+    persist_step_evidence, record_execution_evidence, record_non_command_success_receipts,
+    record_success_condition, resolved_intent_id, success_condition_key,
+    summarize_command_probe_output, summarize_structured_command_receipt_output,
+    summarize_system_clock_or_plain_output, summarize_system_clock_output,
 };
 use crate::agentic::runtime::service::step::anti_loop::{
     build_attempt_key, build_post_state_summary, build_state_summary, classify_failure,
@@ -55,7 +55,7 @@ use crate::agentic::runtime::service::step::incident::{
     start_or_continue_incident_recovery, IncidentDirective,
 };
 use crate::agentic::runtime::service::{RuntimeAgentService, ServiceCallContext};
-use crate::agentic::runtime::types::{AgentState, AgentStatus, CommandExecution};
+use crate::agentic::runtime::types::{AgentState, AgentStatus, CommandExecution, ExecutionStage};
 use crate::agentic::runtime::utils::goto_trace_log;
 
 use crate::agentic::runtime::middleware;

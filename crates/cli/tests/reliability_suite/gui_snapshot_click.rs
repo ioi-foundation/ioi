@@ -135,7 +135,7 @@ fn count_lifecycle_phase(events: &[KernelEvent], step_index: u32, phase: &str) -
 fn assert_step_has_no_duplicate_events(events: &[KernelEvent], step_index: u32, tool: &str) {
     assert!(
         receipt_count_for_step(events, step_index) <= 1,
-        "anti-loop guard: {} step {} emitted duplicate receipts",
+        "anti-loop guard: {} step {} emitted duplicate evidence",
         tool,
         step_index
     );

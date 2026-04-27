@@ -2,7 +2,7 @@
 #![cfg(all(feature = "validator-bins"))]
 
 // --- Common Imports ---
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 #[cfg(feature = "validator-bins")]
 use ioi_cli::testing::build::{test_node_binary_dir, test_node_target_dir};
 

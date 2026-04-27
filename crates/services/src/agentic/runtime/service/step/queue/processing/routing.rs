@@ -7,7 +7,7 @@ use ioi_types::app::agentic::IntentScopeProfile;
 use ioi_types::app::RoutingStateSummary;
 
 /// Applies parity routing for queued actions and snapshots the pre-state after
-/// tier selection so receipts and executor context stay coherent.
+/// tier selection so evidence and executor context stay coherent.
 pub(super) fn resolve_queue_routing_context(
     agent_state: &mut AgentState,
 ) -> (TierRoutingDecision, RoutingStateSummary) {

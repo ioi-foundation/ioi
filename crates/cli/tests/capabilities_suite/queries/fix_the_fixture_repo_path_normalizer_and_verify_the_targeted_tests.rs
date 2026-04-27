@@ -24,7 +24,7 @@ pub fn case() -> QueryCase {
             "Run the focused verification command `python3 -m unittest tests.test_path_utils -v` first, widen only if needed, ",
             "verify the final postcondition, and report the touched files plus command results."
         ),
-        success_definition: "Use the explicit coding route to patch the isolated fixture repo, retain a passed targeted-test verifier scorecard, satisfy hidden path-normalization checks without mutating tests, and finish with cleanup receipts.",
+        success_definition: "Use the explicit coding route to patch the isolated fixture repo, retain a passed targeted-test verifier scorecard, satisfy hidden path-normalization checks without mutating tests, and finish with cleanup evidence.",
         seeded_intent_id: "workspace.ops",
         intent_scope: IntentScopeProfile::WorkspaceOps,
         seed_resolved_intent: true,
@@ -40,47 +40,51 @@ pub fn case() -> QueryCase {
 }
 
 fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
-    let fixture_mode = environment_value(obs, "env_receipt::coding_path_normalizer_fixture_mode")
+    let fixture_mode = environment_value(obs, "env_evidence::coding_path_normalizer_fixture_mode")
         .unwrap_or_default();
-    let fixture_satisfied =
-        environment_bool(obs, "env_receipt::coding_path_normalizer_fixture_satisfied")
-            .unwrap_or(false);
+    let fixture_satisfied = environment_bool(
+        obs,
+        "env_evidence::coding_path_normalizer_fixture_satisfied",
+    )
+    .unwrap_or(false);
     let targeted_tests_exit_code = environment_value(
         obs,
-        "env_receipt::coding_path_normalizer_targeted_tests_exit_code",
+        "env_evidence::coding_path_normalizer_targeted_tests_exit_code",
     )
     .unwrap_or_default();
     let targeted_tests_satisfied = environment_bool(
         obs,
-        "env_receipt::coding_path_normalizer_targeted_tests_exit_code_satisfied",
+        "env_evidence::coding_path_normalizer_targeted_tests_exit_code_satisfied",
     )
     .unwrap_or(false);
     let hidden_probe_output = environment_value(
         obs,
-        "env_receipt::coding_path_normalizer_hidden_probe_output",
+        "env_evidence::coding_path_normalizer_hidden_probe_output",
     )
     .unwrap_or_default();
     let hidden_probe_satisfied = environment_bool(
         obs,
-        "env_receipt::coding_path_normalizer_hidden_probe_output_satisfied",
+        "env_evidence::coding_path_normalizer_hidden_probe_output_satisfied",
     )
     .unwrap_or(false);
     let tests_unchanged = environment_bool(
         obs,
-        "env_receipt::coding_path_normalizer_tests_unchanged_satisfied",
+        "env_evidence::coding_path_normalizer_tests_unchanged_satisfied",
     )
     .unwrap_or(false);
     let source_mentions_function = environment_bool(
         obs,
-        "env_receipt::coding_path_normalizer_source_mentions_function_satisfied",
+        "env_evidence::coding_path_normalizer_source_mentions_function_satisfied",
     )
     .unwrap_or(false);
     let scope_satisfied =
-        environment_bool(obs, "env_receipt::coding_path_normalizer_scope_satisfied")
+        environment_bool(obs, "env_evidence::coding_path_normalizer_scope_satisfied")
             .unwrap_or(false);
-    let cleanup_satisfied =
-        environment_bool(obs, "env_receipt::coding_path_normalizer_cleanup_satisfied")
-            .unwrap_or(false);
+    let cleanup_satisfied = environment_bool(
+        obs,
+        "env_evidence::coding_path_normalizer_cleanup_satisfied",
+    )
+    .unwrap_or(false);
 
     let coding_route = latest_parent_playbook_by_id(obs, "evidence_audited_patch")
         .or_else(|| latest_parent_playbook_for_route(obs, "coding"));

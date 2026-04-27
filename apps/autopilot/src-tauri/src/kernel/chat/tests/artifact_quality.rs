@@ -13,16 +13,16 @@ fn chat_authoritative_status_preserves_completed_inline_reply() {
         confidence: 0.99,
         needs_clarification: false,
         clarification_questions: Vec::new(),
-        routing_hints: vec!["no_persistent_artifact_requested".to_string()],
-        lane_frame: None,
-        request_frame: None,
-        source_selection: None,
+        decision_evidence: vec!["no_persistent_artifact_requested".to_string()],
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
         artifact: None,
     };
-    super::content_session::attach_non_artifact_chat_session(
+    super::content_session::attach_inline_answer_chat_session(
         &mut task,
         "What is the capital of Spain?",
         crate::models::ChatRuntimeProvenance {

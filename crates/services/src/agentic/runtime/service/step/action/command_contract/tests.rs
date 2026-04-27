@@ -1,15 +1,14 @@
 use super::{
-    capability_route_label, compose_terminal_chat_reply,
-    contract_requires_postcondition_with_rules, contract_requires_receipt_with_rules,
-    enrich_command_scope_summary, execution_contract_violation_error,
-    is_command_execution_provider_tool, missing_execution_contract_markers_with_rules,
-    record_verification_receipts, synthesize_allowlisted_timer_notification_tool,
-    timer_payload_requires_allowlisted_scheduler, VERIFICATION_COMMIT_RECEIPT,
-    WEB_PIPELINE_TERMINAL_RECEIPT,
+    capability_route_label, compose_terminal_chat_reply, contract_requires_evidence_with_rules,
+    contract_requires_success_condition_with_rules, enrich_command_scope_summary,
+    execution_contract_violation_error, is_command_execution_provider_tool,
+    missing_completion_evidence_with_rules, record_verification_evidence,
+    synthesize_allowlisted_timer_notification_tool, timer_payload_requires_allowlisted_scheduler,
+    VERIFICATION_COMMIT_EVIDENCE, WEB_PIPELINE_TERMINAL_EVIDENCE,
 };
 use crate::agentic::rules::ActionRules;
 use crate::agentic::runtime::service::step::action::support::{
-    mark_execution_postcondition, mark_execution_receipt, mark_execution_receipt_with_value,
+    record_execution_evidence, record_success_condition,
 };
 use crate::agentic::runtime::types::{
     AgentMode, AgentState, AgentStatus, CommandExecution, ExecutionTier, ToolCallStatus,
@@ -47,6 +46,7 @@ fn test_agent_state() -> AgentState {
         planner_state: None,
         active_skill_hash: None,
         tool_execution_log: BTreeMap::new(),
+        execution_ledger: Default::default(),
         visual_som_map: None,
         visual_semantic_map: None,
         swarm_context: None,
@@ -67,11 +67,11 @@ fn resolved_intent(intent_id: &str, scope: IntentScopeProfile) -> ResolvedIntent
         score: 0.92,
         top_k: vec![],
         required_capabilities: vec![],
-        required_receipts: vec![],
-        required_postconditions: vec![],
+        required_evidence: vec![],
+        success_conditions: vec![],
         risk_class: "low".to_string(),
         preferred_tier: "tool_first".to_string(),
-        matrix_version: "v1".to_string(),
+        intent_catalog_version: "v1".to_string(),
         embedding_model_id: "test".to_string(),
         embedding_model_version: "test".to_string(),
         similarity_function_id: "cosine".to_string(),
@@ -79,8 +79,8 @@ fn resolved_intent(intent_id: &str, scope: IntentScopeProfile) -> ResolvedIntent
         tool_registry_hash: [0u8; 32],
         capability_ontology_hash: [0u8; 32],
         query_normalization_version: "v1".to_string(),
-        matrix_source_hash: [0u8; 32],
-        receipt_hash: [0u8; 32],
+        intent_catalog_source_hash: [0u8; 32],
+        evidence_requirements_hash: [0u8; 32],
         provider_selection: None,
         instruction_contract: None,
         constrained: false,
@@ -91,11 +91,22 @@ fn command_scope_intent(intent_id: &str) -> ResolvedIntentState {
     resolved_intent(intent_id, IntentScopeProfile::CommandExecution)
 }
 
+fn record_ledger_receipt(state: &mut AgentState, receipt: &str, value: &str) {
+    state.execution_ledger.record_evidence(None, receipt, value);
+    if receipt == "verification" {
+        state.execution_ledger.record_verification_evidence(
+            None,
+            "test_verification_evidence",
+            "present",
+        );
+    }
+}
+
 #[test]
-fn execution_contract_violation_error_maps_missing_verification_to_spec_class() {
-    let error = execution_contract_violation_error("receipt::verification=true");
-    assert!(error.starts_with("ERROR_CLASS=VerificationMissing "));
-    assert!(error.contains("base_error_class=ExecutionContractViolation"));
+fn execution_contract_violation_error_uses_contract_violation_as_primary_class() {
+    let error = execution_contract_violation_error("evidence::verification=true");
+    assert!(error.starts_with("ERROR_CLASS=ExecutionContractViolation "));
+    assert!(error.contains("detail_class=VerificationMissing"));
 }
 
 #[test]
@@ -116,15 +127,15 @@ fn install_package_verification_receipts_emit_commit() {
         manager: Some("apt-get".to_string()),
     };
 
-    record_verification_receipts(&mut log, &mut checks, &tool, None);
+    record_verification_evidence(&mut log, &mut checks, &tool, None);
 
-    assert!(super::has_execution_receipt(&log, "verification"));
-    let commit = super::execution_receipt_value(&log, VERIFICATION_COMMIT_RECEIPT)
+    assert!(super::has_execution_evidence(&log, "verification"));
+    let commit = super::execution_evidence_value(&log, VERIFICATION_COMMIT_EVIDENCE)
         .expect("verification commit receipt should be present for install package");
     assert!(commit.starts_with("sha256:"));
     assert!(checks
         .iter()
-        .any(|check| check == "receipt::verification=true"));
+        .any(|check| check == "evidence::verification=true"));
 }
 
 #[test]
@@ -152,8 +163,8 @@ fn terminal_reply_composer_formats_dense_pdf_path_output() {
 fn enrich_summary_preserves_terse_message_and_appends_timestamp() {
     let mut state = test_agent_state();
     state.resolved_intent = Some(command_scope_intent("command.exec"));
-    mark_execution_receipt(&mut state.tool_execution_log, "execution");
-    mark_execution_postcondition(&mut state.tool_execution_log, "execution_artifact");
+    record_execution_evidence(&mut state.tool_execution_log, "execution");
+    record_success_condition(&mut state.tool_execution_log, "execution_artifact");
     state.command_history.push_back(CommandExecution {
         command: "bash -s".to_string(),
         exit_code: 0,
@@ -172,8 +183,8 @@ fn enrich_summary_preserves_terse_message_and_appends_timestamp() {
 fn enrich_summary_preserves_non_terse_message() {
     let mut state = test_agent_state();
     state.resolved_intent = Some(command_scope_intent("command.exec"));
-    mark_execution_receipt(&mut state.tool_execution_log, "execution");
-    mark_execution_postcondition(&mut state.tool_execution_log, "execution_artifact");
+    record_execution_evidence(&mut state.tool_execution_log, "execution");
+    record_success_condition(&mut state.tool_execution_log, "execution_artifact");
     state.command_history.push_back(CommandExecution {
         command: "bash -s".to_string(),
         exit_code: 0,
@@ -238,11 +249,11 @@ fn enrich_summary_does_not_duplicate_existing_runtime_home_paths() {
 fn command_probe_rrs_does_not_require_topology_receipts() {
     let mut state = test_agent_state();
     state.resolved_intent = Some(command_scope_intent("command.probe"));
-    mark_execution_receipt(&mut state.tool_execution_log, "execution");
-    mark_execution_receipt(&mut state.tool_execution_log, "verification");
+    record_ledger_receipt(&mut state, "execution", "true");
+    record_ledger_receipt(&mut state, "verification", "true");
 
     let rules = ActionRules::default();
-    let missing = missing_execution_contract_markers_with_rules(&state, &rules);
+    let missing = missing_completion_evidence_with_rules(&state, &rules);
 
     assert!(
         missing.is_empty(),
@@ -254,14 +265,14 @@ fn command_probe_rrs_does_not_require_topology_receipts() {
 fn app_launch_rrs_requires_topology_receipts() {
     let mut state = test_agent_state();
     state.resolved_intent = Some(resolved_intent("app.launch", IntentScopeProfile::AppLaunch));
-    mark_execution_receipt(&mut state.tool_execution_log, "execution");
-    mark_execution_receipt(&mut state.tool_execution_log, "verification");
+    record_ledger_receipt(&mut state, "execution", "true");
+    record_ledger_receipt(&mut state, "verification", "true");
 
     let rules = ActionRules::default();
-    let missing = missing_execution_contract_markers_with_rules(&state, &rules);
+    let missing = missing_completion_evidence_with_rules(&state, &rules);
 
-    assert!(missing.contains(&"receipt::host_discovery=true".to_string()));
-    assert!(missing.contains(&"receipt::provider_selection=true".to_string()));
+    assert!(missing.contains(&"evidence::host_discovery=true".to_string()));
+    assert!(missing.contains(&"evidence::provider_selection=true".to_string()));
 }
 
 #[test]
@@ -294,36 +305,20 @@ fn filesystem_copy_uses_native_integration_route_label() {
 fn rrsa_network_domain_enforces_domain_binding_at_completion_gate() {
     let mut state = test_agent_state();
     state.resolved_intent = Some(command_scope_intent("command.probe"));
-    mark_execution_receipt(&mut state.tool_execution_log, "execution");
-    mark_execution_receipt(&mut state.tool_execution_log, "verification");
-    mark_execution_receipt_with_value(
-        &mut state.tool_execution_log,
-        "rrsa_request_binding",
-        "sha256:abc".to_string(),
-    );
-    mark_execution_receipt_with_value(
-        &mut state.tool_execution_log,
-        "rrsa_firewall_decision",
-        "sha256:def".to_string(),
-    );
-    mark_execution_receipt_with_value(
-        &mut state.tool_execution_log,
-        "rrsa_domain",
-        "network_web".to_string(),
-    );
-    mark_execution_receipt_with_value(
-        &mut state.tool_execution_log,
-        "rrsa_output_commitment",
-        "sha256:123".to_string(),
-    );
+    record_ledger_receipt(&mut state, "execution", "true");
+    record_ledger_receipt(&mut state, "verification", "true");
+    record_ledger_receipt(&mut state, "rrsa_request_binding", "sha256:abc");
+    record_ledger_receipt(&mut state, "rrsa_firewall_decision", "sha256:def");
+    record_ledger_receipt(&mut state, "rrsa_domain", "network_web");
+    record_ledger_receipt(&mut state, "rrsa_output_commitment", "sha256:123");
 
     let rules = ActionRules::default();
-    let missing = missing_execution_contract_markers_with_rules(&state, &rules);
-    assert!(missing.contains(&"receipt::rrsa_domain_binding=true".to_string()));
+    let missing = missing_completion_evidence_with_rules(&state, &rules);
+    assert!(missing.contains(&"evidence::rrsa_domain_binding=true".to_string()));
 }
 
 #[test]
-fn matrix_fallback_requires_mail_reply_grounding_receipt() {
+fn resolved_mail_reply_contract_requires_grounding_receipt() {
     let mut state = test_agent_state();
     state.resolved_intent = Some(resolved_intent(
         "mail.reply",
@@ -331,7 +326,7 @@ fn matrix_fallback_requires_mail_reply_grounding_receipt() {
     ));
 
     let rules = ActionRules::default();
-    assert!(contract_requires_receipt_with_rules(
+    assert!(contract_requires_evidence_with_rules(
         &state,
         &rules,
         "grounding"
@@ -339,7 +334,7 @@ fn matrix_fallback_requires_mail_reply_grounding_receipt() {
 }
 
 #[test]
-fn matrix_fallback_requires_mail_reply_postcondition() {
+fn resolved_mail_reply_contract_requires_reply_postcondition() {
     let mut state = test_agent_state();
     state.resolved_intent = Some(resolved_intent(
         "mail.reply",
@@ -347,7 +342,7 @@ fn matrix_fallback_requires_mail_reply_postcondition() {
     ));
 
     let rules = ActionRules::default();
-    assert!(contract_requires_postcondition_with_rules(
+    assert!(contract_requires_success_condition_with_rules(
         &state,
         &rules,
         "mail.reply.completed"
@@ -355,29 +350,19 @@ fn matrix_fallback_requires_mail_reply_postcondition() {
 }
 
 #[test]
-fn mail_reply_capability_fallback_requires_gmail_draft_grounding_receipt() {
+fn capability_metadata_does_not_supply_contract_authority() {
     let mut state = test_agent_state();
     let mut resolved = resolved_intent("gmail.draft_email", IntentScopeProfile::Conversation);
     resolved.required_capabilities = vec![CapabilityId::from("mail.reply")];
     state.resolved_intent = Some(resolved);
 
     let rules = ActionRules::default();
-    assert!(contract_requires_receipt_with_rules(
+    assert!(!contract_requires_evidence_with_rules(
         &state,
         &rules,
         "grounding"
     ));
-}
-
-#[test]
-fn mail_reply_capability_fallback_requires_gmail_draft_postcondition() {
-    let mut state = test_agent_state();
-    let mut resolved = resolved_intent("gmail.draft_email", IntentScopeProfile::Conversation);
-    resolved.required_capabilities = vec![CapabilityId::from("mail.reply")];
-    state.resolved_intent = Some(resolved);
-
-    let rules = ActionRules::default();
-    assert!(contract_requires_postcondition_with_rules(
+    assert!(!contract_requires_success_condition_with_rules(
         &state,
         &rules,
         "mail.reply.completed"
@@ -388,33 +373,17 @@ fn mail_reply_capability_fallback_requires_gmail_draft_postcondition() {
 fn rrsa_wallet_domain_enforces_tx_approval_and_eei_bindings() {
     let mut state = test_agent_state();
     state.resolved_intent = Some(command_scope_intent("command.probe"));
-    mark_execution_receipt(&mut state.tool_execution_log, "execution");
-    mark_execution_receipt(&mut state.tool_execution_log, "verification");
-    mark_execution_receipt_with_value(
-        &mut state.tool_execution_log,
-        "rrsa_request_binding",
-        "sha256:abc".to_string(),
-    );
-    mark_execution_receipt_with_value(
-        &mut state.tool_execution_log,
-        "rrsa_firewall_decision",
-        "sha256:def".to_string(),
-    );
-    mark_execution_receipt_with_value(
-        &mut state.tool_execution_log,
-        "rrsa_domain",
-        "wallet".to_string(),
-    );
-    mark_execution_receipt_with_value(
-        &mut state.tool_execution_log,
-        "rrsa_tx_hash_binding",
-        "sha256:tx".to_string(),
-    );
+    record_ledger_receipt(&mut state, "execution", "true");
+    record_ledger_receipt(&mut state, "verification", "true");
+    record_ledger_receipt(&mut state, "rrsa_request_binding", "sha256:abc");
+    record_ledger_receipt(&mut state, "rrsa_firewall_decision", "sha256:def");
+    record_ledger_receipt(&mut state, "rrsa_domain", "wallet");
+    record_ledger_receipt(&mut state, "rrsa_tx_hash_binding", "sha256:tx");
 
     let rules = ActionRules::default();
-    let missing = missing_execution_contract_markers_with_rules(&state, &rules);
-    assert!(missing.contains(&"receipt::rrsa_approval_grant_ref=true".to_string()));
-    assert!(missing.contains(&"receipt::rrsa_eei_bundle_commitment=true".to_string()));
+    let missing = missing_completion_evidence_with_rules(&state, &rules);
+    assert!(missing.contains(&"evidence::rrsa_approval_grant_ref=true".to_string()));
+    assert!(missing.contains(&"evidence::rrsa_eei_bundle_commitment=true".to_string()));
 }
 
 #[test]
@@ -423,22 +392,28 @@ fn pending_web_pipeline_requires_terminal_receipt_at_completion_gate() {
     state.pending_search_completion = Some(Default::default());
 
     let rules = ActionRules::default();
-    let missing = missing_execution_contract_markers_with_rules(&state, &rules);
+    let missing = missing_completion_evidence_with_rules(&state, &rules);
 
-    assert!(missing.contains(&format!("receipt::{}=true", WEB_PIPELINE_TERMINAL_RECEIPT)));
+    assert!(missing.contains(&format!(
+        "evidence::{}=true",
+        WEB_PIPELINE_TERMINAL_EVIDENCE
+    )));
 }
 
 #[test]
 fn pending_web_pipeline_terminal_receipt_clears_completion_gate_requirement() {
     let mut state = test_agent_state();
     state.pending_search_completion = Some(Default::default());
-    mark_execution_receipt(&mut state.tool_execution_log, WEB_PIPELINE_TERMINAL_RECEIPT);
+    record_ledger_receipt(&mut state, WEB_PIPELINE_TERMINAL_EVIDENCE, "true");
 
     let rules = ActionRules::default();
-    let missing = missing_execution_contract_markers_with_rules(&state, &rules);
+    let missing = missing_completion_evidence_with_rules(&state, &rules);
 
     assert!(
-        !missing.contains(&format!("receipt::{}=true", WEB_PIPELINE_TERMINAL_RECEIPT)),
+        !missing.contains(&format!(
+            "evidence::{}=true",
+            WEB_PIPELINE_TERMINAL_EVIDENCE
+        )),
         "unexpected missing markers: {missing:?}"
     );
 }

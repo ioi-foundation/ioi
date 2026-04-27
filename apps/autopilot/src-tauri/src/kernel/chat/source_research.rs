@@ -28,7 +28,6 @@ static QUOTE_QUERY_RE: LazyLock<Regex> =
 static TOKEN_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"[a-z0-9]{3,}").expect("valid token regex"));
 
-const QUERY_LIMIT: usize = 3;
 const RESULT_LIMIT: usize = 6;
 
 #[derive(Debug, Deserialize)]
@@ -71,88 +70,11 @@ fn domain_for_url(raw: &str) -> Option<String> {
         .and_then(|url| url.domain().map(|domain| domain.to_string()))
 }
 
-fn normalized_subject(brief: &ChatArtifactBrief) -> Option<String> {
-    if !brief.subject_domain.trim().is_empty() {
-        return Some(brief.subject_domain.trim().to_string());
-    }
-
-    let candidates = [
-        brief.job_to_be_done.trim(),
-        brief.artifact_thesis.trim(),
-        brief.audience.trim(),
-    ];
-    candidates
-        .into_iter()
-        .find(|candidate| !candidate.is_empty())
-        .map(ToOwned::to_owned)
-}
-
-fn explainer_search_subject(subject: &str) -> String {
-    let trimmed = subject.trim();
-    if let Some(prefix) = trimmed.strip_suffix(" computers") {
-        let prefix = prefix.trim();
-        if !prefix.is_empty() {
-            return format!("{prefix} computing");
-        }
-    }
-    trimmed.to_string()
-}
-
-fn build_queries(brief: &ChatArtifactBrief) -> Vec<String> {
-    let mut queries = Vec::new();
-
-    if let Some(subject) = normalized_subject(brief) {
-        let search_subject = explainer_search_subject(&subject);
-        queries.push(search_subject.clone());
-        let concept_focus = brief
-            .required_concepts
-            .iter()
-            .map(|concept| concept.trim())
-            .filter(|concept| !concept.is_empty())
-            .filter(|concept| !concept.eq_ignore_ascii_case(&search_subject))
-            .take(2)
-            .collect::<Vec<_>>();
-        if !concept_focus.is_empty() {
-            queries.push(format!("{search_subject} {}", concept_focus.join(" ")));
-        }
-    }
-
-    queries.extend(
-        brief
-            .factual_anchors
-            .iter()
-            .chain(brief.reference_hints.iter())
-            .map(|entry| entry.trim())
-            .filter(|entry| !entry.is_empty())
-            .map(ToOwned::to_owned),
-    );
-
-    let mut seen = HashSet::new();
-    queries
-        .into_iter()
-        .filter(|query| seen.insert(query.to_ascii_lowercase()))
-        .take(QUERY_LIMIT)
-        .collect()
-}
-
-fn fallback_retrieval_plan(brief: &ChatArtifactBrief) -> Option<ArtifactRetrievalPlan> {
-    let queries = build_queries(brief);
-    if queries.is_empty() {
-        return None;
-    }
-    let normalized_topic = normalized_subject(brief).unwrap_or_else(|| queries[0].clone());
-    Some(ArtifactRetrievalPlan {
-        normalized_topic,
-        queries,
-        desired_source_kinds: vec![
-            "official".to_string(),
-            "educational".to_string(),
-            "reference".to_string(),
-        ],
-        avoid_source_kinds: vec!["finance".to_string(), "breaking_news".to_string()],
-        freshness_mode: Some("evergreen".to_string()),
-        reason: "Fallback retrieval plan derived from the artifact brief.".to_string(),
-    })
+fn brief_allows_external_retrieval(brief: &ChatArtifactBrief) -> bool {
+    brief
+        .reference_hints
+        .iter()
+        .any(|hint| !hint.trim().is_empty())
 }
 
 async fn plan_retrieval_for_brief(
@@ -526,9 +448,11 @@ pub(super) async fn retrieve_research_sources_for_brief(
     runtime: Arc<dyn InferenceRuntime>,
     brief: &ChatArtifactBrief,
 ) -> Vec<ArtifactSourceReference> {
-    let retrieval_plan = plan_retrieval_for_brief(runtime, brief)
-        .await
-        .or_else(|| fallback_retrieval_plan(brief));
+    if !brief_allows_external_retrieval(brief) {
+        return Vec::new();
+    }
+
+    let retrieval_plan = plan_retrieval_for_brief(runtime, brief).await;
     let Some(retrieval_plan) = retrieval_plan else {
         return Vec::new();
     };

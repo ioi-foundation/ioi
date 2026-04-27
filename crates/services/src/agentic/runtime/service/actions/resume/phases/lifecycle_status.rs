@@ -318,10 +318,15 @@ pub(crate) async fn run_lifecycle_status_phase(
                             log::info!(
                                 "Reflexive Agent (Resume): Detected completion signal in tool output."
                             );
-                            let missing_contract_markers =
-                                missing_execution_contract_markers_with_rules(agent_state, &rules);
-                            if !missing_contract_markers.is_empty() {
-                                let missing = missing_contract_markers.join(",");
+                            let intent_id = resolved_intent_id(agent_state);
+                            let missing_completion_evidence = evaluate_completion_requirements(
+                                agent_state,
+                                intent_id.as_str(),
+                                verification_checks,
+                                &rules,
+                            );
+                            if !missing_completion_evidence.is_empty() {
+                                let missing = missing_completion_evidence.join(",");
                                 let contract_error = execution_contract_violation_error(&missing);
                                 success = false;
                                 err = Some(contract_error.clone());
@@ -346,6 +351,9 @@ pub(crate) async fn run_lifecycle_status_phase(
                                 let completed_result = composed.output;
                                 agent_state.status =
                                     AgentStatus::Completed(Some(completed_result.clone()));
+                                agent_state
+                                    .execution_ledger
+                                    .record_terminal_success(Some(intent_id));
                                 reflexive_completion = true;
 
                                 if let Some(tx) = &service.event_sender {
@@ -395,10 +403,15 @@ pub(crate) async fn run_lifecycle_status_phase(
             .await
             {
                 Ok(()) => {
-                    let missing_contract_markers =
-                        missing_execution_contract_markers_with_rules(agent_state, &rules);
-                    if !missing_contract_markers.is_empty() {
-                        let missing = missing_contract_markers.join(",");
+                    let intent_id = resolved_intent_id(agent_state);
+                    let missing_completion_evidence = evaluate_completion_requirements(
+                        agent_state,
+                        intent_id.as_str(),
+                        verification_checks,
+                        &rules,
+                    );
+                    if !missing_completion_evidence.is_empty() {
+                        let missing = missing_completion_evidence.join(",");
                         let contract_error = execution_contract_violation_error(&missing);
                         success = false;
                         err = Some(contract_error.clone());
@@ -411,6 +424,9 @@ pub(crate) async fn run_lifecycle_status_phase(
                     } else {
                         let summary = mail_reply_completion_summary(out.as_deref());
                         agent_state.status = AgentStatus::Completed(Some(summary.clone()));
+                        agent_state
+                            .execution_ledger
+                            .record_terminal_success(Some(intent_id.clone()));
                         agent_state.execution_queue.clear();
                         emit_completion_gate_status_event(
                             service,
@@ -453,10 +469,15 @@ pub(crate) async fn run_lifecycle_status_phase(
         } else {
             match &tool {
                 AgentTool::AgentComplete { result } => {
-                    let missing_contract_markers =
-                        missing_execution_contract_markers_with_rules(agent_state, &rules);
-                    if !missing_contract_markers.is_empty() {
-                        let missing = missing_contract_markers.join(",");
+                    let intent_id = resolved_intent_id(agent_state);
+                    let missing_completion_evidence = evaluate_completion_requirements(
+                        agent_state,
+                        intent_id.as_str(),
+                        verification_checks,
+                        &rules,
+                    );
+                    if !missing_completion_evidence.is_empty() {
+                        let missing = missing_completion_evidence.join(",");
                         let contract_error = execution_contract_violation_error(&missing);
                         success = false;
                         err = Some(contract_error.clone());
@@ -479,6 +500,9 @@ pub(crate) async fn run_lifecycle_status_phase(
                         let composed = compose_terminal_chat_reply(&completed_result);
                         let completed_result = composed.output;
                         agent_state.status = AgentStatus::Completed(Some(completed_result.clone()));
+                        agent_state
+                            .execution_ledger
+                            .record_terminal_success(Some(intent_id));
                         crystallize_successful_session(
                             service,
                             state,
@@ -501,10 +525,15 @@ pub(crate) async fn run_lifecycle_status_phase(
                     }
                 }
                 AgentTool::ChatReply { message } => {
-                    let missing_contract_markers =
-                        missing_execution_contract_markers_with_rules(agent_state, &rules);
-                    if !missing_contract_markers.is_empty() {
-                        let missing = missing_contract_markers.join(",");
+                    let intent_id = resolved_intent_id(agent_state);
+                    let missing_completion_evidence = evaluate_completion_requirements(
+                        agent_state,
+                        intent_id.as_str(),
+                        verification_checks,
+                        &rules,
+                    );
+                    if !missing_completion_evidence.is_empty() {
+                        let missing = missing_completion_evidence.join(",");
                         let contract_error = execution_contract_violation_error(&missing);
                         success = false;
                         err = Some(contract_error.clone());
@@ -519,6 +548,9 @@ pub(crate) async fn run_lifecycle_status_phase(
                         let composed = compose_terminal_chat_reply(&message);
                         let message = composed.output;
                         agent_state.status = AgentStatus::Completed(Some(message.clone()));
+                        agent_state
+                            .execution_ledger
+                            .record_terminal_success(Some(intent_id));
                         crystallize_successful_session(
                             service,
                             state,
@@ -553,6 +585,10 @@ pub(crate) async fn run_lifecycle_status_phase(
                     {
                         let summary = "Screenshot captured.".to_string();
                         agent_state.status = AgentStatus::Completed(Some(summary.clone()));
+                        let intent_id = resolved_intent_id(agent_state);
+                        agent_state
+                            .execution_ledger
+                            .record_terminal_success(Some(intent_id));
                         agent_state.execution_queue.clear();
                         verification_checks
                             .push("screenshot_capture_terminalized=true".to_string());
@@ -591,6 +627,10 @@ pub(crate) async fn run_lifecycle_status_phase(
                     {
                         let summary = format!("Opened {}.", app_name);
                         agent_state.status = AgentStatus::Completed(Some(summary.clone()));
+                        let intent_id = resolved_intent_id(agent_state);
+                        agent_state
+                            .execution_ledger
+                            .record_terminal_success(Some(intent_id));
                         crystallize_successful_session(
                             service,
                             state,
@@ -627,10 +667,15 @@ pub(crate) async fn run_lifecycle_status_phase(
                                 )
                             });
                         let summary = enrich_command_scope_summary(&summary, agent_state);
-                        let missing_contract_markers =
-                            missing_execution_contract_markers_with_rules(agent_state, &rules);
-                        if !missing_contract_markers.is_empty() {
-                            let missing = missing_contract_markers.join(",");
+                        let intent_id = resolved_intent_id(agent_state);
+                        let missing_completion_evidence = evaluate_completion_requirements(
+                            agent_state,
+                            intent_id.as_str(),
+                            verification_checks,
+                            &rules,
+                        );
+                        if !missing_completion_evidence.is_empty() {
+                            let missing = missing_completion_evidence.join(",");
                             let contract_error = execution_contract_violation_error(&missing);
                             success = false;
                             err = Some(contract_error.clone());
@@ -642,6 +687,9 @@ pub(crate) async fn run_lifecycle_status_phase(
                             agent_state.status = AgentStatus::Running;
                         } else {
                             agent_state.status = AgentStatus::Completed(Some(summary.clone()));
+                            agent_state
+                                .execution_ledger
+                                .record_terminal_success(Some(intent_id));
                             agent_state.execution_queue.clear();
                             verification_checks
                                 .push("automation_monitor_terminalized=true".to_string());
@@ -678,10 +726,15 @@ pub(crate) async fn run_lifecycle_status_phase(
                             .map(str::to_string)
                             .unwrap_or_else(|| format!("Installed package '{}'.", package));
                         let summary = enrich_command_scope_summary(&summary, agent_state);
-                        let missing_contract_markers =
-                            missing_execution_contract_markers_with_rules(agent_state, &rules);
-                        if !missing_contract_markers.is_empty() {
-                            let missing = missing_contract_markers.join(",");
+                        let intent_id = resolved_intent_id(agent_state);
+                        let missing_completion_evidence = evaluate_completion_requirements(
+                            agent_state,
+                            intent_id.as_str(),
+                            verification_checks,
+                            &rules,
+                        );
+                        if !missing_completion_evidence.is_empty() {
+                            let missing = missing_completion_evidence.join(",");
                             let contract_error = execution_contract_violation_error(&missing);
                             success = false;
                             err = Some(contract_error.clone());
@@ -693,6 +746,9 @@ pub(crate) async fn run_lifecycle_status_phase(
                             agent_state.status = AgentStatus::Running;
                         } else {
                             agent_state.status = AgentStatus::Completed(Some(summary.clone()));
+                            agent_state
+                                .execution_ledger
+                                .record_terminal_success(Some(intent_id.clone()));
                             agent_state.execution_queue.clear();
                             verification_checks
                                 .push("install_dependency_terminalized=true".to_string());
@@ -735,6 +791,10 @@ pub(crate) async fn run_lifecycle_status_phase(
                             .and_then(|raw| summarize_command_probe_output(&tool, raw))
                         {
                             agent_state.status = AgentStatus::Completed(Some(summary.clone()));
+                            let intent_id = resolved_intent_id(agent_state);
+                            agent_state
+                                .execution_ledger
+                                .record_terminal_success(Some(intent_id));
                             agent_state.execution_queue.clear();
                             crystallize_successful_session(
                                 service,
@@ -765,6 +825,10 @@ pub(crate) async fn run_lifecycle_status_phase(
                             .and_then(summarize_system_clock_or_plain_output)
                             .unwrap_or_else(|| "<unavailable>".to_string());
                         agent_state.status = AgentStatus::Completed(Some(summary.clone()));
+                        let intent_id = resolved_intent_id(agent_state);
+                        agent_state
+                            .execution_ledger
+                            .record_terminal_success(Some(intent_id));
                         agent_state.execution_queue.clear();
                         crystallize_successful_session(
                             service,
@@ -795,10 +859,15 @@ pub(crate) async fn run_lifecycle_status_phase(
                             )
                         }) {
                             let summary = enrich_command_scope_summary(&summary, agent_state);
-                            let missing_contract_markers =
-                                missing_execution_contract_markers_with_rules(agent_state, &rules);
-                            if !missing_contract_markers.is_empty() {
-                                let missing = missing_contract_markers.join(",");
+                            let intent_id = resolved_intent_id(agent_state);
+                            let missing_completion_evidence = evaluate_completion_requirements(
+                                agent_state,
+                                intent_id.as_str(),
+                                verification_checks,
+                                &rules,
+                            );
+                            if !missing_completion_evidence.is_empty() {
+                                let missing = missing_completion_evidence.join(",");
                                 let contract_error = execution_contract_violation_error(&missing);
                                 success = false;
                                 err = Some(contract_error.clone());
@@ -810,6 +879,9 @@ pub(crate) async fn run_lifecycle_status_phase(
                                 agent_state.status = AgentStatus::Running;
                             } else {
                                 agent_state.status = AgentStatus::Completed(Some(summary.clone()));
+                                agent_state
+                                    .execution_ledger
+                                    .record_terminal_success(Some(intent_id));
                                 agent_state.execution_queue.clear();
                                 verification_checks.push(
                                     "structured_command_receipt_terminalized=true".to_string(),
@@ -838,10 +910,15 @@ pub(crate) async fn run_lifecycle_status_phase(
                         } else if let Some(summary) =
                             timer_completion_summary(&tool, agent_state.command_history.back())
                         {
-                            let missing_contract_markers =
-                                missing_execution_contract_markers_with_rules(agent_state, &rules);
-                            if !missing_contract_markers.is_empty() {
-                                let missing = missing_contract_markers.join(",");
+                            let intent_id = resolved_intent_id(agent_state);
+                            let missing_completion_evidence = evaluate_completion_requirements(
+                                agent_state,
+                                intent_id.as_str(),
+                                verification_checks,
+                                &rules,
+                            );
+                            if !missing_completion_evidence.is_empty() {
+                                let missing = missing_completion_evidence.join(",");
                                 let contract_error = execution_contract_violation_error(&missing);
                                 success = false;
                                 err = Some(contract_error.clone());
@@ -853,6 +930,9 @@ pub(crate) async fn run_lifecycle_status_phase(
                                 agent_state.status = AgentStatus::Running;
                             } else {
                                 agent_state.status = AgentStatus::Completed(Some(summary.clone()));
+                                agent_state
+                                    .execution_ledger
+                                    .record_terminal_success(Some(intent_id));
                                 agent_state.execution_queue.clear();
                                 verification_checks
                                     .push("timer_schedule_terminalized=true".to_string());
@@ -882,10 +962,15 @@ pub(crate) async fn run_lifecycle_status_phase(
                             &agent_state.command_history,
                         ) {
                             let summary = enrich_command_scope_summary(&summary, agent_state);
-                            let missing_contract_markers =
-                                missing_execution_contract_markers_with_rules(agent_state, &rules);
-                            if !missing_contract_markers.is_empty() {
-                                let missing = missing_contract_markers.join(",");
+                            let intent_id = resolved_intent_id(agent_state);
+                            let missing_completion_evidence = evaluate_completion_requirements(
+                                agent_state,
+                                intent_id.as_str(),
+                                verification_checks,
+                                &rules,
+                            );
+                            if !missing_completion_evidence.is_empty() {
+                                let missing = missing_completion_evidence.join(",");
                                 let contract_error = execution_contract_violation_error(&missing);
                                 success = false;
                                 err = Some(contract_error.clone());
@@ -897,6 +982,9 @@ pub(crate) async fn run_lifecycle_status_phase(
                                 agent_state.status = AgentStatus::Running;
                             } else {
                                 agent_state.status = AgentStatus::Completed(Some(summary.clone()));
+                                agent_state
+                                    .execution_ledger
+                                    .record_terminal_success(Some(intent_id));
                                 agent_state.execution_queue.clear();
                                 verification_checks
                                     .push("verified_command_probe_terminalized=true".to_string());
@@ -987,7 +1075,8 @@ pub(crate) async fn run_lifecycle_status_phase(
     if success {
         agent_state.recent_actions.clear();
     } else if !awaiting_sudo_password && !awaiting_clarification {
-        if is_cec_terminal_error(err.as_deref()) {
+        let failure_intent_id = resolved_intent_id(agent_state);
+        if is_completion_contract_error(err.as_deref()) {
             stop_condition_hit = true;
             escalation_path = Some("execution_contract_terminal".to_string());
             remediation_queued = false;
@@ -998,6 +1087,11 @@ pub(crate) async fn run_lifecycle_status_phase(
             agent_state.status = AgentStatus::Failed(terminal_reason);
             verification_checks.push("cec_terminal_error=true".to_string());
         } else {
+            agent_state.execution_ledger.record_execution_failure(
+                Some(failure_intent_id),
+                ExecutionStage::Execution,
+                "ExecutionFailed",
+            );
             failure_class = classify_failure(err.as_deref(), &policy_decision);
             if let Some(class) = failure_class {
                 let target_id = crate::agentic::runtime::service::step::anti_loop::specialized_attempt_target_id(
@@ -1244,7 +1338,7 @@ pub(crate) async fn run_lifecycle_status_phase(
         .as_ref()
         .map(|resolved| resolved.intent_id.clone())
         .unwrap_or_else(|| "resolver.unclassified".to_string());
-    persist_step_contract_evidence(
+    persist_step_evidence(
         state,
         session_id,
         pre_state_summary.step_index,

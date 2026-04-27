@@ -65,6 +65,7 @@ fn test_agent_state() -> AgentState {
         execution_queue: vec![],
         active_skill_hash: None,
         tool_execution_log: BTreeMap::new(),
+        execution_ledger: Default::default(),
         visual_som_map: None,
         visual_semantic_map: None,
         swarm_context: None,
@@ -430,11 +431,11 @@ fn resolved(scope: IntentScopeProfile) -> ResolvedIntentState {
         score: 0.95,
         top_k: vec![],
         required_capabilities: vec![],
-        required_receipts: vec![],
-        required_postconditions: vec![],
+        required_evidence: vec![],
+        success_conditions: vec![],
         risk_class: "low".to_string(),
         preferred_tier: "tool_first".to_string(),
-        matrix_version: "v1".to_string(),
+        intent_catalog_version: "v1".to_string(),
         embedding_model_id: "test".to_string(),
         embedding_model_version: "test".to_string(),
         similarity_function_id: "cosine".to_string(),
@@ -442,8 +443,8 @@ fn resolved(scope: IntentScopeProfile) -> ResolvedIntentState {
         tool_registry_hash: [0u8; 32],
         capability_ontology_hash: [0u8; 32],
         query_normalization_version: "v1".to_string(),
-        matrix_source_hash: [0u8; 32],
-        receipt_hash: [0u8; 32],
+        intent_catalog_source_hash: [0u8; 32],
+        evidence_requirements_hash: [0u8; 32],
         provider_selection: None,
         instruction_contract: None,
         constrained: false,
@@ -1035,7 +1036,7 @@ fn does_not_rewrite_memory_search_for_workspace_local_goal() {
 
 #[test]
 fn patch_build_verify_rewrites_initial_mismatched_exec_to_targeted_check() {
-    let mut state = test_agent_state();
+    let state = test_agent_state();
     let assignment = WorkerAssignment {
         step_key: "implement".to_string(),
         budget: 32,

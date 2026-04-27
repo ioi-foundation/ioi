@@ -2,7 +2,7 @@ use crate::agentic::rules::ActionRules;
 use crate::agentic::runtime::keys::get_state_key;
 use crate::agentic::runtime::middleware::canonical_deterministic_tool_name;
 use crate::agentic::runtime::service::lifecycle::load_worker_assignment;
-use crate::agentic::runtime::service::step::action::execution_receipt_value;
+use crate::agentic::runtime::service::step::action::execution_evidence_value;
 use crate::agentic::runtime::service::step::anti_loop::{latest_failure_class, FailureClass};
 use crate::agentic::runtime::service::{RuntimeAgentService, ServiceCallContext};
 use crate::agentic::runtime::types::{AgentState, AgentStatus, WorkerAssignment};
@@ -300,7 +300,7 @@ fn worker_assignment_should_suppress_reads_after_no_effect(
 }
 
 fn latest_workspace_patch_miss_step(agent_state: &AgentState) -> Option<u32> {
-    execution_receipt_value(
+    execution_evidence_value(
         &agent_state.tool_execution_log,
         "workspace_patch_miss_observed",
     )
@@ -308,7 +308,7 @@ fn latest_workspace_patch_miss_step(agent_state: &AgentState) -> Option<u32> {
 }
 
 fn latest_workspace_read_step_any(agent_state: &AgentState) -> Option<u32> {
-    execution_receipt_value(&agent_state.tool_execution_log, "workspace_read_observed")
+    execution_evidence_value(&agent_state.tool_execution_log, "workspace_read_observed")
         .and_then(parse_receipt_step)
 }
 
@@ -347,7 +347,7 @@ fn parse_receipt_step(value: &str) -> Option<u32> {
 }
 
 fn latest_workspace_edit_step(agent_state: &AgentState) -> Option<u32> {
-    execution_receipt_value(&agent_state.tool_execution_log, "workspace_edit_applied")
+    execution_evidence_value(&agent_state.tool_execution_log, "workspace_edit_applied")
         .and_then(parse_receipt_step)
 }
 

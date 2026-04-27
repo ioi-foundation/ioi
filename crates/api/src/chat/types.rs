@@ -246,7 +246,21 @@ impl ChatArtifactRenderEvaluation {
             || self.overall_score <= self.blocked_score_threshold()
     }
 
+    pub fn clears_required_runtime_contract(&self) -> bool {
+        self.first_paint_captured
+            && !self.has_failed_required_obligations()
+            && self
+                .findings
+                .iter()
+                .all(|finding| finding.severity != ChatArtifactRenderFindingSeverity::Blocked)
+            && self.overall_score > self.blocked_score_threshold()
+    }
+
     pub fn clears_primary_view_by_policy(&self) -> bool {
+        self.clears_required_runtime_contract()
+    }
+
+    pub fn clears_visual_primary_threshold(&self) -> bool {
         self.first_paint_captured
             && !self.has_failed_required_obligations()
             && self
@@ -1390,7 +1404,7 @@ pub struct ChatArtifactRuntimeBinding {
     pub selected_tier: ChatArtifactRuntimeTier,
     pub fallback_applied: bool,
     #[serde(default)]
-    pub fallback_reason: Option<String>,
+    pub degradation_reason: Option<String>,
     pub provenance: ChatRuntimeProvenance,
 }
 
@@ -1648,7 +1662,7 @@ pub struct ChatArtifactGenerationBundle {
     pub runtime_policy: Option<ChatArtifactRuntimePolicy>,
     #[serde(default)]
     pub adaptive_search_budget: Option<ChatAdaptiveSearchBudget>,
-    pub fallback_used: bool,
+    pub degraded_path_used: bool,
     pub ux_lifecycle: ChatArtifactUxLifecycle,
     #[serde(default)]
     pub taste_memory: Option<ChatArtifactTasteMemory>,

@@ -74,9 +74,10 @@ pub struct ChatIntentContext {
 
 impl ChatIntentContext {
     pub fn new(intent: &str) -> Self {
+        let semantic_intent = user_request_segment(intent);
         Self {
-            normalized: normalize_inline_whitespace(&intent.to_ascii_lowercase()),
-            terms: intent
+            normalized: normalize_inline_whitespace(&semantic_intent.to_ascii_lowercase()),
+            terms: semantic_intent
                 .split(|ch: char| !ch.is_alphanumeric())
                 .filter(|term| !term.is_empty())
                 .map(|term| term.to_ascii_lowercase())
@@ -534,6 +535,22 @@ impl ChatIntentContext {
         None
     }
 
+    pub(crate) fn explicit_interactive_single_document_signal(&self) -> bool {
+        let interactive_tool_request = self.contains_any_term(&["interactive", "adjustable"])
+            || self.contains_any_phrase(&["i can adjust", "can adjust", "with sliders"]);
+        interactive_tool_request
+            && self.contains_any_term(&[
+                "calculator",
+                "calculators",
+                "simulator",
+                "simulators",
+                "dashboard",
+                "dashboards",
+                "tool",
+                "tools",
+            ])
+    }
+
     pub fn explicit_single_document_renderer(&self) -> Option<(ChatRendererKind, &'static str)> {
         if self.contains_any_phrase(&["pdf", "portable document format"]) {
             return Some((ChatRendererKind::PdfEmbed, "explicit_pdf_artifact"));
@@ -557,6 +574,13 @@ impl ChatIntentContext {
             return Some((ChatRendererKind::HtmlIframe, "explicit_html_artifact"));
         }
 
+        if self.explicit_interactive_single_document_signal() {
+            return Some((
+                ChatRendererKind::HtmlIframe,
+                "explicit_interactive_single_document_artifact",
+            ));
+        }
+
         if self.contains_any_phrase(&["markdown", "readme", ".md"]) {
             return Some((ChatRendererKind::Markdown, "explicit_markdown_artifact"));
         }
@@ -567,10 +591,13 @@ impl ChatIntentContext {
     pub fn extract_weather_scopes(&self) -> Vec<String> {
         let trimmed = self.normalized.trim().trim_end_matches('?').trim();
         if let Some(index) = trimmed.rfind(':') {
-            let suffix = trimmed[index + 1..].trim();
-            let scopes = split_scope_list(suffix);
-            if !scopes.is_empty() {
-                return scopes;
+            let prefix = &trimmed[..index];
+            if prefix.contains("weather") || prefix.contains("forecast") {
+                let suffix = trimmed[index + 1..].trim();
+                let scopes = split_scope_list(suffix);
+                if !scopes.is_empty() {
+                    return scopes;
+                }
             }
         }
 
@@ -598,6 +625,31 @@ impl ChatIntentContext {
                 let scopes = split_scope_list(scope);
                 if !scopes.is_empty() {
                     return scopes;
+                }
+            }
+        }
+
+        if self.weather_advice_request() {
+            for marker in [" in ", " for "] {
+                if let Some(index) = trimmed.rfind(marker) {
+                    let scope = trim_intent_suffix_case_insensitive(
+                        &trimmed[index + marker.len()..],
+                        &[
+                            " today",
+                            " tonight",
+                            " tomorrow",
+                            " this morning",
+                            " this evening",
+                            " right now",
+                            " currently",
+                            " now",
+                        ],
+                    )
+                    .trim_matches(|ch: char| ch == '.' || ch.is_whitespace());
+                    let scopes = split_scope_list(scope);
+                    if !scopes.is_empty() {
+                        return scopes;
+                    }
                 }
             }
         }
@@ -940,6 +992,14 @@ impl ChatIntentContext {
 
 fn normalize_inline_whitespace(value: &str) -> String {
     value.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn user_request_segment(value: &str) -> &str {
+    let lowered = value.to_ascii_lowercase();
+    let Some(index) = lowered.rfind("[user request]") else {
+        return value;
+    };
+    value[index + "[user request]".len()..].trim_matches(|ch: char| ch == ':' || ch.is_whitespace())
 }
 
 fn trim_intent_suffix_case_insensitive<'a>(value: &'a str, suffixes: &[&str]) -> &'a str {

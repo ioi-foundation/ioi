@@ -372,7 +372,7 @@ fn rendered_summary_starts_structured_postamble(line: &str) -> bool {
         "Citations:",
         "Blocked sources requiring human challenge:",
         "Partial evidence:",
-        "Retrieval receipts:",
+        "Retrieval evidence:",
         "Completion reason:",
         "Run date (UTC):",
         "Run timestamp (UTC):",
@@ -1222,8 +1222,26 @@ pub(crate) fn final_web_completion_facts(
             )
         })
         .count();
+    let attempted_url_set = pending
+        .attempted_urls
+        .iter()
+        .chain(pending.blocked_urls.iter())
+        .map(|url| url.trim().to_ascii_lowercase())
+        .filter(|url| !url.is_empty())
+        .collect::<BTreeSet<_>>();
+    let successful_url_set = pending
+        .successful_reads
+        .iter()
+        .map(|source| source.url.trim().to_ascii_lowercase())
+        .filter(|url| !url.is_empty())
+        .collect::<BTreeSet<_>>();
     let available_primary_authority_source_count = merged_story_sources(pending)
         .iter()
+        .filter(|source| {
+            let normalized_url = source.url.trim().to_ascii_lowercase();
+            successful_url_set.contains(&normalized_url)
+                || !attempted_url_set.contains(&normalized_url)
+        })
         .filter(|source| {
             source_counts_as_primary_authority(
                 &query_contract,

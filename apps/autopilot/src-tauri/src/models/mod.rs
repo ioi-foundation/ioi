@@ -1552,7 +1552,7 @@ pub struct ChatArtifactMaterializationContract {
     #[serde(default)]
     pub acceptance_provenance: Option<ChatRuntimeProvenance>,
     #[serde(default)]
-    pub fallback_used: bool,
+    pub degraded_path_used: bool,
     #[serde(default)]
     pub ux_lifecycle: Option<ChatArtifactUxLifecycle>,
     #[serde(default)]

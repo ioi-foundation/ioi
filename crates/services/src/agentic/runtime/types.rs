@@ -36,6 +36,214 @@ pub enum ToolCallStatus {
     Failed(String),
 }
 
+pub const EXECUTION_LEDGER_SCHEMA_VERSION: &str = "cec.ledger.v1";
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ExecutionStage {
+    #[default]
+    ContractLoaded,
+    Discovery,
+    ProviderSelection,
+    PayloadSynthesis,
+    Execution,
+    Verification,
+    CompletionGate,
+    Terminal,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ExecutionAttemptStatus {
+    #[default]
+    Active,
+    Blocked,
+    Succeeded,
+    Failed,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct ExecutionAttempt {
+    pub attempt_id: u64,
+    pub intent_id: Option<String>,
+    pub stage: ExecutionStage,
+    pub status: ExecutionAttemptStatus,
+    pub evidence: BTreeMap<String, String>,
+    pub success_conditions: BTreeMap<String, String>,
+    pub verification_evidence: BTreeMap<String, String>,
+    pub completion_gate_missing: Vec<String>,
+    pub error_class: Option<String>,
+}
+
+impl ExecutionAttempt {
+    pub fn new(attempt_id: u64, intent_id: Option<String>) -> Self {
+        Self {
+            attempt_id,
+            intent_id,
+            stage: ExecutionStage::ContractLoaded,
+            status: ExecutionAttemptStatus::Active,
+            evidence: BTreeMap::new(),
+            success_conditions: BTreeMap::new(),
+            verification_evidence: BTreeMap::new(),
+            completion_gate_missing: vec![],
+            error_class: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct ExecutionLedger {
+    pub schema_version: String,
+    pub next_attempt_id: u64,
+    pub attempts: Vec<ExecutionAttempt>,
+}
+
+impl Default for ExecutionLedger {
+    fn default() -> Self {
+        Self {
+            schema_version: EXECUTION_LEDGER_SCHEMA_VERSION.to_string(),
+            next_attempt_id: 1,
+            attempts: vec![],
+        }
+    }
+}
+
+impl ExecutionLedger {
+    fn ensure_active_attempt(&mut self, intent_id: Option<String>) -> &mut ExecutionAttempt {
+        let reuse_last = self.attempts.last().is_some_and(|attempt| {
+            attempt.status == ExecutionAttemptStatus::Active && attempt.intent_id == intent_id
+        });
+        if !reuse_last {
+            let attempt_id = self.next_attempt_id;
+            self.next_attempt_id = self.next_attempt_id.saturating_add(1);
+            self.attempts
+                .push(ExecutionAttempt::new(attempt_id, intent_id));
+        }
+        self.attempts
+            .last_mut()
+            .expect("execution ledger must contain an active attempt")
+    }
+
+    fn stage_for_evidence(evidence_key: &str) -> ExecutionStage {
+        match evidence_key {
+            "host_discovery" => ExecutionStage::Discovery,
+            "provider_selection" | "provider_selection_commit" | "grounding" => {
+                ExecutionStage::ProviderSelection
+            }
+            "execution" => ExecutionStage::Execution,
+            "verification" | "verification_commit" => ExecutionStage::Verification,
+            _ if evidence_key.ends_with("_commit") => ExecutionStage::Verification,
+            _ => ExecutionStage::Execution,
+        }
+    }
+
+    pub fn evidence_value(&self, evidence_key: &str) -> Option<&str> {
+        self.attempts
+            .iter()
+            .rev()
+            .find_map(|attempt| attempt.evidence.get(evidence_key).map(String::as_str))
+    }
+
+    pub fn has_evidence(&self, evidence_key: &str) -> bool {
+        self.evidence_value(evidence_key)
+            .map(|value| !value.trim().is_empty())
+            .unwrap_or(false)
+    }
+
+    pub fn success_condition_value(&self, success_condition: &str) -> Option<&str> {
+        self.attempts.iter().rev().find_map(|attempt| {
+            attempt
+                .success_conditions
+                .get(success_condition)
+                .map(String::as_str)
+        })
+    }
+
+    pub fn has_success_condition(&self, success_condition: &str) -> bool {
+        self.success_condition_value(success_condition)
+            .map(|value| !value.trim().is_empty())
+            .unwrap_or(false)
+    }
+
+    pub fn has_verification_evidence(&self) -> bool {
+        self.attempts.iter().rev().any(|attempt| {
+            attempt
+                .verification_evidence
+                .iter()
+                .any(|(key, value)| !key.trim().is_empty() && !value.trim().is_empty())
+        })
+    }
+
+    pub fn record_evidence(
+        &mut self,
+        intent_id: Option<String>,
+        evidence_key: impl Into<String>,
+        value: impl Into<String>,
+    ) {
+        let evidence_key = evidence_key.into();
+        let attempt = self.ensure_active_attempt(intent_id);
+        attempt.stage = Self::stage_for_evidence(&evidence_key);
+        attempt.evidence.insert(evidence_key, value.into());
+    }
+
+    pub fn record_success_condition(
+        &mut self,
+        intent_id: Option<String>,
+        success_condition: impl Into<String>,
+        value: impl Into<String>,
+    ) {
+        let attempt = self.ensure_active_attempt(intent_id);
+        attempt.stage = ExecutionStage::Verification;
+        attempt
+            .success_conditions
+            .insert(success_condition.into(), value.into());
+    }
+
+    pub fn record_verification_evidence(
+        &mut self,
+        intent_id: Option<String>,
+        key: impl Into<String>,
+        value: impl Into<String>,
+    ) {
+        let attempt = self.ensure_active_attempt(intent_id);
+        attempt.stage = ExecutionStage::Verification;
+        attempt
+            .verification_evidence
+            .insert(key.into(), value.into());
+    }
+
+    pub fn record_completion_gate(&mut self, intent_id: Option<String>, missing: &[String]) {
+        let attempt = self.ensure_active_attempt(intent_id);
+        attempt.stage = ExecutionStage::CompletionGate;
+        attempt.completion_gate_missing = missing.to_vec();
+        if missing.is_empty() {
+            attempt.error_class = None;
+        } else {
+            attempt.status = ExecutionAttemptStatus::Blocked;
+            attempt.error_class = Some("ExecutionContractViolation".to_string());
+        }
+    }
+
+    pub fn record_execution_failure(
+        &mut self,
+        intent_id: Option<String>,
+        stage: ExecutionStage,
+        error_class: impl Into<String>,
+    ) {
+        let attempt = self.ensure_active_attempt(intent_id);
+        attempt.stage = stage;
+        attempt.status = ExecutionAttemptStatus::Failed;
+        attempt.error_class = Some(error_class.into());
+    }
+
+    pub fn record_terminal_success(&mut self, intent_id: Option<String>) {
+        let attempt = self.ensure_active_attempt(intent_id);
+        attempt.stage = ExecutionStage::Terminal;
+        attempt.status = ExecutionAttemptStatus::Succeeded;
+        attempt.error_class = None;
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
 pub enum AgentStatus {
     Idle,
@@ -436,7 +644,7 @@ pub struct PlanStep {
     pub constraints: PlanStepConstraint,
     pub depends_on: Vec<String>,
     pub status: PlannerStepStatus,
-    pub receipts: Vec<String>,
+    pub evidence: Vec<String>,
 }
 
 impl Default for PlanStep {
@@ -449,7 +657,7 @@ impl Default for PlanStep {
             constraints: PlanStepConstraint::default(),
             depends_on: Vec::new(),
             status: PlannerStepStatus::Pending,
-            receipts: Vec::new(),
+            evidence: Vec::new(),
         }
     }
 }
@@ -765,6 +973,9 @@ pub struct AgentState {
 
     #[serde(default)]
     pub tool_execution_log: BTreeMap<String, ToolCallStatus>,
+
+    #[serde(default)]
+    pub execution_ledger: ExecutionLedger,
 
     #[serde(default)]
     pub visual_som_map: Option<BTreeMap<u32, (i32, i32, i32, i32)>>,

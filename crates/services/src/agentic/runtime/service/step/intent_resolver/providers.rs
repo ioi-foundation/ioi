@@ -240,7 +240,7 @@ pub(super) async fn resolve_provider_selection_state(
     runtime: &Arc<dyn InferenceRuntime>,
     session_id: [u8; 32],
     query: &str,
-    entry: &IntentMatrixEntry,
+    entry: &IntentCatalogEntry,
     required_capabilities: &[CapabilityId],
     bindings: &[ToolCapabilityBinding],
 ) -> Option<ProviderSelectionState> {

@@ -110,13 +110,13 @@ pub(super) fn synthesized_payload_hash_for_tool(tool: &AgentTool) -> Option<Stri
 fn stage_for_contract_key(key: &str) -> &'static str {
     match key {
         "host_discovery" => "discovery",
-        "provider_selection" | PROVIDER_SELECTION_COMMIT_RECEIPT => "provider_selection",
+        "provider_selection" | PROVIDER_SELECTION_COMMIT_EVIDENCE => "provider_selection",
         "execution"
         | "execution_artifact"
         | "notification_strategy"
-        | TIMER_SLEEP_BACKEND_POSTCONDITION
-        | TIMER_NOTIFICATION_PATH_POSTCONDITION => "execution",
-        "verification" | VERIFICATION_COMMIT_RECEIPT | CLOCK_TIMESTAMP_POSTCONDITION => {
+        | TIMER_SLEEP_BACKEND_SUCCESS_CONDITION
+        | TIMER_NOTIFICATION_PATH_SUCCESS_CONDITION => "execution",
+        "verification" | VERIFICATION_COMMIT_EVIDENCE | CLOCK_TIMESTAMP_SUCCESS_CONDITION => {
             "verification"
         }
         _ => "completion_gate",
@@ -166,7 +166,7 @@ pub(super) fn emit_completion_gate_violation_events(
         .map(str::trim)
         .filter(|token| !token.is_empty())
     {
-        if let Some(rest) = token.strip_prefix("receipt::") {
+        if let Some(rest) = token.strip_prefix("evidence::") {
             let key = rest.trim_end_matches("=true").trim();
             if key.is_empty() {
                 continue;
@@ -177,7 +177,7 @@ pub(super) fn emit_completion_gate_violation_events(
                 service, session_id, step_index, intent_id, stage, key, false, &evidence, None,
                 None, None,
             );
-        } else if let Some(rest) = token.strip_prefix("postcondition::") {
+        } else if let Some(rest) = token.strip_prefix("success_condition::") {
             let key = rest.trim_end_matches("=true").trim();
             if key.is_empty() {
                 continue;

@@ -2,7 +2,6 @@ use super::*;
 use ioi_api::state::StateAccess;
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
-use ioi_types::app::agentic::InstructionBindingKind;
 use ioi_types::app::wallet_network::{
     MailConnectorAuthMode, MailConnectorConfig, MailConnectorEndpoint, MailConnectorProvider,
     MailConnectorRecord, MailConnectorSecretAliases, MailConnectorTlsMode,
@@ -192,10 +191,10 @@ impl InferenceRuntime for WorkspaceCreationVsMailRuntime {
 }
 
 #[derive(Debug, Default, Clone)]
-struct CurrentPublicFactFallbackRuntime;
+struct CurrentPublicFactRuntime;
 
 #[async_trait]
-impl InferenceRuntime for CurrentPublicFactFallbackRuntime {
+impl InferenceRuntime for CurrentPublicFactRuntime {
     async fn execute_inference(
         &self,
         _model_hash: [u8; 32],
@@ -208,7 +207,7 @@ impl InferenceRuntime for CurrentPublicFactFallbackRuntime {
             && query.contains("current secretary-general")
         {
             return Ok(serde_json::json!({
-                "remote_public_fact_required": false,
+                "remote_public_fact_required": true,
                 "host_local_clock_targeted": false,
                 "command_directed": false,
                 "durable_automation_requested": false,
@@ -239,9 +238,12 @@ impl InferenceRuntime for CurrentPublicFactFallbackRuntime {
             return Ok(vec![0.0, 1.0]);
         }
         if lower.contains("current secretary-general of the un")
+            || lower.contains("current secretary general of the un")
             || lower.contains("who is the current secretary-general")
+            || lower.contains("who is the current secretary general")
+            || lower.contains("secretary")
         {
-            return Ok(vec![0.24, 0.18]);
+            return Ok(vec![1.0, 0.0]);
         }
         Ok(vec![0.05, 0.05])
     }
@@ -288,7 +290,7 @@ async fn resolver_never_emits_constrained_true() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn resolver_forces_obvious_casual_conversation_to_conversation_reply() {
+async fn resolver_uses_ranked_intent_for_casual_conversation_when_ranker_prefers_probe() {
     let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
     let terminal = Arc::new(TerminalDriver::new());
     let browser = Arc::new(BrowserDriver::new());
@@ -299,12 +301,12 @@ async fn resolver_forces_obvious_casual_conversation_to_conversation_reply() {
     agent_state.goal = "Do you like flowers?".to_string();
 
     let mut rules = ActionRules::default();
-    rules.ontology_policy.intent_routing.matrix_version =
-        "intent-matrix-v17-casual-conversation-test".into();
-    rules.ontology_policy.intent_routing.matrix = rules
+    rules.ontology_policy.intent_routing.intent_catalog_version =
+        "intent-catalog-v17-casual-conversation-test".into();
+    rules.ontology_policy.intent_routing.intent_catalog = rules
         .ontology_policy
         .intent_routing
-        .matrix
+        .intent_catalog
         .iter()
         .filter(|entry| {
             matches!(
@@ -319,24 +321,19 @@ async fn resolver_forces_obvious_casual_conversation_to_conversation_reply() {
         .await
         .unwrap();
 
-    assert_eq!(resolved.intent_id, "conversation.reply");
-    assert_eq!(resolved.scope, IntentScopeProfile::Conversation);
+    assert_eq!(resolved.intent_id, "command.probe");
+    assert_eq!(resolved.scope, IntentScopeProfile::CommandExecution);
     assert_eq!(
         resolved
             .top_k
             .first()
             .map(|candidate| candidate.intent_id.as_str()),
-        Some("conversation.reply")
+        Some("command.probe")
     );
-    assert!(!should_pause_for_clarification(
-        &resolved,
-        &rules.ontology_policy.intent_routing
-    ));
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn resolver_forces_reply_format_prompts_to_conversation_reply_even_when_binding_model_is_noisy(
-) {
+async fn resolver_uses_ranked_intent_for_reply_format_when_ranker_prefers_probe() {
     let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
     let terminal = Arc::new(TerminalDriver::new());
     let browser = Arc::new(BrowserDriver::new());
@@ -347,12 +344,12 @@ async fn resolver_forces_reply_format_prompts_to_conversation_reply_even_when_bi
     agent_state.goal = "Reply with exactly one word: hello".to_string();
 
     let mut rules = ActionRules::default();
-    rules.ontology_policy.intent_routing.matrix_version =
-        "intent-matrix-v17-casual-conversation-test".into();
-    rules.ontology_policy.intent_routing.matrix = rules
+    rules.ontology_policy.intent_routing.intent_catalog_version =
+        "intent-catalog-v17-casual-conversation-test".into();
+    rules.ontology_policy.intent_routing.intent_catalog = rules
         .ontology_policy
         .intent_routing
-        .matrix
+        .intent_catalog
         .iter()
         .filter(|entry| {
             matches!(
@@ -367,7 +364,7 @@ async fn resolver_forces_reply_format_prompts_to_conversation_reply_even_when_bi
         .await
         .unwrap();
 
-    assert_eq!(resolved.intent_id, "conversation.reply");
+    assert_eq!(resolved.intent_id, "command.probe");
     assert!(!should_pause_for_clarification(
         &resolved,
         &rules.ontology_policy.intent_routing
@@ -375,7 +372,7 @@ async fn resolver_forces_reply_format_prompts_to_conversation_reply_even_when_bi
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn resolver_forces_explanatory_summary_prompts_to_conversation_reply() {
+async fn resolver_abstains_or_routes_by_rank_for_explanatory_summary() {
     let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
     let terminal = Arc::new(TerminalDriver::new());
     let browser = Arc::new(BrowserDriver::new());
@@ -387,12 +384,12 @@ async fn resolver_forces_explanatory_summary_prompts_to_conversation_reply() {
         "Summarize what you can help me do in this repository in one short paragraph.".to_string();
 
     let mut rules = ActionRules::default();
-    rules.ontology_policy.intent_routing.matrix_version =
-        "intent-matrix-v17-casual-conversation-test".into();
-    rules.ontology_policy.intent_routing.matrix = rules
+    rules.ontology_policy.intent_routing.intent_catalog_version =
+        "intent-catalog-v17-casual-conversation-test".into();
+    rules.ontology_policy.intent_routing.intent_catalog = rules
         .ontology_policy
         .intent_routing
-        .matrix
+        .intent_catalog
         .iter()
         .filter(|entry| {
             matches!(
@@ -407,16 +404,11 @@ async fn resolver_forces_explanatory_summary_prompts_to_conversation_reply() {
         .await
         .unwrap();
 
-    assert_eq!(resolved.intent_id, "conversation.reply");
-    assert_eq!(resolved.scope, IntentScopeProfile::Conversation);
-    assert!(!should_pause_for_clarification(
-        &resolved,
-        &rules.ontology_policy.intent_routing
-    ));
+    assert_ne!(resolved.intent_id, "conversation.reply");
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn resolver_forces_expository_knowledge_queries_to_conversation_reply() {
+async fn resolver_uses_ranked_intent_for_expository_query_when_ranker_prefers_probe() {
     let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
     let terminal = Arc::new(TerminalDriver::new());
     let browser = Arc::new(BrowserDriver::new());
@@ -427,12 +419,12 @@ async fn resolver_forces_expository_knowledge_queries_to_conversation_reply() {
     agent_state.goal = "What is the Pythagorean theorem?".to_string();
 
     let mut rules = ActionRules::default();
-    rules.ontology_policy.intent_routing.matrix_version =
-        "intent-matrix-v17-expository-conversation-test".into();
-    rules.ontology_policy.intent_routing.matrix = rules
+    rules.ontology_policy.intent_routing.intent_catalog_version =
+        "intent-catalog-v17-expository-conversation-test".into();
+    rules.ontology_policy.intent_routing.intent_catalog = rules
         .ontology_policy
         .intent_routing
-        .matrix
+        .intent_catalog
         .iter()
         .filter(|entry| {
             matches!(
@@ -447,12 +439,13 @@ async fn resolver_forces_expository_knowledge_queries_to_conversation_reply() {
         .await
         .unwrap();
 
-    assert_eq!(resolved.intent_id, "conversation.reply");
-    assert_eq!(resolved.scope, IntentScopeProfile::Conversation);
+    assert_eq!(resolved.intent_id, "command.probe");
+    assert_eq!(resolved.scope, IntentScopeProfile::CommandExecution);
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn resolver_keeps_local_repository_questions_out_of_expository_force_reply() {
+async fn resolver_keeps_local_repository_questions_out_of_conversation_reply_when_ranker_prefers_probe(
+) {
     let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
     let terminal = Arc::new(TerminalDriver::new());
     let browser = Arc::new(BrowserDriver::new());
@@ -463,12 +456,12 @@ async fn resolver_keeps_local_repository_questions_out_of_expository_force_reply
     agent_state.goal = "What is this repository summary?".to_string();
 
     let mut rules = ActionRules::default();
-    rules.ontology_policy.intent_routing.matrix_version =
-        "intent-matrix-v17-expository-conversation-test".into();
-    rules.ontology_policy.intent_routing.matrix = rules
+    rules.ontology_policy.intent_routing.intent_catalog_version =
+        "intent-catalog-v17-expository-conversation-test".into();
+    rules.ontology_policy.intent_routing.intent_catalog = rules
         .ontology_policy
         .intent_routing
-        .matrix
+        .intent_catalog
         .iter()
         .filter(|entry| {
             matches!(
@@ -487,23 +480,23 @@ async fn resolver_keeps_local_repository_questions_out_of_expository_force_reply
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn resolver_uses_query_facet_backstop_for_simple_current_public_fact_queries() {
+async fn resolver_routes_current_public_fact_queries_when_binding_model_requires_grounding() {
     let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
     let terminal = Arc::new(TerminalDriver::new());
     let browser = Arc::new(BrowserDriver::new());
-    let inference: Arc<dyn InferenceRuntime> = Arc::new(CurrentPublicFactFallbackRuntime);
+    let inference: Arc<dyn InferenceRuntime> = Arc::new(CurrentPublicFactRuntime);
     let service = RuntimeAgentService::new(gui, terminal, browser, inference);
 
     let mut agent_state = test_agent_state();
     agent_state.goal = "Who is the current Secretary-General of the UN?".to_string();
 
     let mut rules = ActionRules::default();
-    rules.ontology_policy.intent_routing.matrix_version =
-        "intent-matrix-v17-current-public-fact-backstop".into();
-    rules.ontology_policy.intent_routing.matrix = rules
+    rules.ontology_policy.intent_routing.intent_catalog_version =
+        "intent-catalog-v17-current-public-fact-semantic-rank".into();
+    rules.ontology_policy.intent_routing.intent_catalog = rules
         .ontology_policy
         .intent_routing
-        .matrix
+        .intent_catalog
         .iter()
         .filter(|entry| {
             matches!(
@@ -517,7 +510,6 @@ async fn resolver_uses_query_facet_backstop_for_simple_current_public_fact_queri
     let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
         .await
         .unwrap();
-
     assert_eq!(resolved.intent_id, "web.research");
     assert_eq!(resolved.scope, IntentScopeProfile::WebResearch);
     assert!(matches!(
@@ -535,23 +527,23 @@ async fn resolver_uses_query_facet_backstop_for_simple_current_public_fact_queri
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn resolver_uses_query_facet_backstop_for_latest_pricing_queries() {
+async fn resolver_does_not_use_query_keyword_fallback_for_latest_pricing_queries() {
     let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
     let terminal = Arc::new(TerminalDriver::new());
     let browser = Arc::new(BrowserDriver::new());
-    let inference: Arc<dyn InferenceRuntime> = Arc::new(CurrentPublicFactFallbackRuntime);
+    let inference: Arc<dyn InferenceRuntime> = Arc::new(CurrentPublicFactRuntime);
     let service = RuntimeAgentService::new(gui, terminal, browser, inference);
 
     let mut agent_state = test_agent_state();
     agent_state.goal = "What is the latest OpenAI API pricing?".to_string();
 
     let mut rules = ActionRules::default();
-    rules.ontology_policy.intent_routing.matrix_version =
-        "intent-matrix-v17-latest-pricing-backstop".into();
-    rules.ontology_policy.intent_routing.matrix = rules
+    rules.ontology_policy.intent_routing.intent_catalog_version =
+        "intent-catalog-v17-latest-pricing-no-keyword-fallback".into();
+    rules.ontology_policy.intent_routing.intent_catalog = rules
         .ontology_policy
         .intent_routing
-        .matrix
+        .intent_catalog
         .iter()
         .filter(|entry| {
             matches!(
@@ -566,16 +558,7 @@ async fn resolver_uses_query_facet_backstop_for_latest_pricing_queries() {
         .await
         .unwrap();
 
-    assert_eq!(resolved.intent_id, "web.research");
-    assert_eq!(resolved.scope, IntentScopeProfile::WebResearch);
-    assert!(matches!(
-        resolved.band,
-        IntentConfidenceBand::Medium | IntentConfidenceBand::High
-    ));
-    assert!(!should_pause_for_clarification(
-        &resolved,
-        &rules.ontology_policy.intent_routing
-    ));
+    assert_ne!(resolved.intent_id, "web.research");
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -590,12 +573,12 @@ async fn resolver_routes_workspace_creation_queries_to_workspace_ops_via_semanti
     agent_state.goal = "create an html page for a tennis company".to_string();
 
     let mut rules = ActionRules::default();
-    rules.ontology_policy.intent_routing.matrix_version =
-        "intent-matrix-v17-workspace-creation-test".into();
-    rules.ontology_policy.intent_routing.matrix = rules
+    rules.ontology_policy.intent_routing.intent_catalog_version =
+        "intent-catalog-v17-workspace-creation-test".into();
+    rules.ontology_policy.intent_routing.intent_catalog = rules
         .ontology_policy
         .intent_routing
-        .matrix
+        .intent_catalog
         .iter()
         .filter(|entry| {
             matches!(
@@ -637,7 +620,8 @@ async fn resolver_routes_clock_queries_to_system_clock_read() {
     agent_state.goal = "What time is it right now on this machine?".to_string();
 
     let mut rules = ActionRules::default();
-    rules.ontology_policy.intent_routing.matrix_version = "intent-matrix-v2-clock-test".into();
+    rules.ontology_policy.intent_routing.intent_catalog_version =
+        "intent-catalog-v2-clock-test".into();
     let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
         .await
         .unwrap();
@@ -664,7 +648,8 @@ async fn resolver_routes_weather_queries_to_web_research_not_clock_read() {
     agent_state.goal = "What's the weather like right now?".to_string();
 
     let mut rules = ActionRules::default();
-    rules.ontology_policy.intent_routing.matrix_version = "intent-matrix-v2-weather-test".into();
+    rules.ontology_policy.intent_routing.intent_catalog_version =
+        "intent-catalog-v2-weather-test".into();
     let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
         .await
         .unwrap();
@@ -685,7 +670,8 @@ async fn resolver_routes_latest_headlines_queries_to_web_research_via_descriptor
     agent_state.goal = "Give me the latest news headlines right now.".to_string();
 
     let mut rules = ActionRules::default();
-    rules.ontology_policy.intent_routing.matrix_version = "intent-matrix-v11-headlines-test".into();
+    rules.ontology_policy.intent_routing.intent_catalog_version =
+        "intent-catalog-v11-headlines-test".into();
     let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
         .await
         .unwrap();
@@ -702,7 +688,7 @@ async fn resolver_routes_latest_headlines_queries_to_web_research_via_descriptor
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn resolver_seeds_researcher_template_for_web_research_intent() {
+async fn simple_web_research_does_not_seed_instruction_contract_fallback() {
     let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
     let terminal = Arc::new(TerminalDriver::new());
     let browser = Arc::new(BrowserDriver::new());
@@ -713,35 +699,14 @@ async fn resolver_seeds_researcher_template_for_web_research_intent() {
     agent_state.goal = "What's the weather like right now?".to_string();
 
     let mut rules = ActionRules::default();
-    rules.ontology_policy.intent_routing.matrix_version =
-        "intent-matrix-v2-web-research-template-test".into();
+    rules.ontology_policy.intent_routing.intent_catalog_version =
+        "intent-catalog-v2-web-research-template-test".into();
     let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
         .await
         .unwrap();
 
     assert_eq!(resolved.intent_id, "web.research");
-    let contract = resolved
-        .instruction_contract
-        .expect("web research should synthesize a contract");
-    let template_binding = contract
-        .slot_bindings
-        .iter()
-        .find(|binding| binding.slot == "template_id")
-        .expect("web research contract should seed a template");
-    assert_eq!(
-        template_binding.binding_kind,
-        InstructionBindingKind::UserLiteral
-    );
-    assert_eq!(template_binding.value.as_deref(), Some("researcher"));
-    let workflow_binding = contract
-        .slot_bindings
-        .iter()
-        .find(|binding| binding.slot == "workflow_id")
-        .expect("web research contract should seed a workflow");
-    assert_eq!(
-        workflow_binding.value.as_deref(),
-        Some("live_research_brief")
-    );
+    assert!(resolved.instruction_contract.is_none());
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -756,8 +721,8 @@ async fn resolver_routes_open_calculator_to_app_launch_scope() {
     agent_state.goal = "open calculator".to_string();
 
     let mut rules = ActionRules::default();
-    rules.ontology_policy.intent_routing.matrix_version =
-        "intent-matrix-v10-app-launch-disambiguation-test".into();
+    rules.ontology_policy.intent_routing.intent_catalog_version =
+        "intent-catalog-v10-app-launch-disambiguation-test".into();
     let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
         .await
         .unwrap();
@@ -780,12 +745,12 @@ async fn resolver_routes_desktop_folder_creation_to_command_exec_not_app_launch(
         "Create a new folder on my desktop called \"Project <some_number>\"".to_string();
 
     let mut rules = ActionRules::default();
-    rules.ontology_policy.intent_routing.matrix_version =
-        "intent-matrix-v13-desktop-folder-command-exec-test".into();
-    rules.ontology_policy.intent_routing.matrix = rules
+    rules.ontology_policy.intent_routing.intent_catalog_version =
+        "intent-catalog-v13-desktop-folder-command-exec-test".into();
+    rules.ontology_policy.intent_routing.intent_catalog = rules
         .ontology_policy
         .intent_routing
-        .matrix
+        .intent_catalog
         .iter()
         .filter(|entry| matches!(entry.intent_id.as_str(), "app.launch" | "command.exec"))
         .cloned()
@@ -811,12 +776,12 @@ async fn resolver_routes_downloads_lowercase_rename_to_command_exec() {
     agent_state.goal = "Rename every file in my Downloads folder to lowercase.".to_string();
 
     let mut rules = ActionRules::default();
-    rules.ontology_policy.intent_routing.matrix_version =
-        "intent-matrix-v13-downloads-rename-command-exec-test".into();
-    rules.ontology_policy.intent_routing.matrix = rules
+    rules.ontology_policy.intent_routing.intent_catalog_version =
+        "intent-catalog-v13-downloads-rename-command-exec-test".into();
+    rules.ontology_policy.intent_routing.intent_catalog = rules
         .ontology_policy
         .intent_routing
-        .matrix
+        .intent_catalog
         .iter()
         .filter(|entry| {
             matches!(
@@ -847,12 +812,12 @@ async fn resolver_routes_vlc_install_query_to_install_dependency_intent() {
     agent_state.goal = "Download and install VLC media player.".to_string();
 
     let mut rules = ActionRules::default();
-    rules.ontology_policy.intent_routing.matrix_version =
-        "intent-matrix-v14-vlc-install-intent-test".into();
-    rules.ontology_policy.intent_routing.matrix = rules
+    rules.ontology_policy.intent_routing.intent_catalog_version =
+        "intent-catalog-v14-vlc-install-intent-test".into();
+    rules.ontology_policy.intent_routing.intent_catalog = rules
         .ontology_policy
         .intent_routing
-        .matrix
+        .intent_catalog
         .iter()
         .filter(|entry| {
             matches!(
@@ -886,12 +851,12 @@ async fn resolver_routes_model_load_queries_to_model_registry_load_intent() {
     agent_state.goal = "Load the codex-oss model into the local kernel runtime.".to_string();
 
     let mut rules = ActionRules::default();
-    rules.ontology_policy.intent_routing.matrix_version =
-        "intent-matrix-v16-model-registry-load-test".into();
-    rules.ontology_policy.intent_routing.matrix = rules
+    rules.ontology_policy.intent_routing.intent_catalog_version =
+        "intent-catalog-v16-model-registry-load-test".into();
+    rules.ontology_policy.intent_routing.intent_catalog = rules
         .ontology_policy
         .intent_routing
-        .matrix
+        .intent_catalog
         .iter()
         .filter(|entry| {
             matches!(
@@ -926,12 +891,12 @@ async fn resolver_routes_model_unload_queries_to_model_registry_unload_intent() 
     agent_state.goal = "Unload the whisper model to free memory.".to_string();
 
     let mut rules = ActionRules::default();
-    rules.ontology_policy.intent_routing.matrix_version =
-        "intent-matrix-v16-model-registry-unload-test".into();
-    rules.ontology_policy.intent_routing.matrix = rules
+    rules.ontology_policy.intent_routing.intent_catalog_version =
+        "intent-catalog-v16-model-registry-unload-test".into();
+    rules.ontology_policy.intent_routing.intent_catalog = rules
         .ontology_policy
         .intent_routing
-        .matrix
+        .intent_catalog
         .iter()
         .filter(|entry| {
             matches!(
@@ -966,12 +931,12 @@ async fn resolver_promotes_exempt_low_confidence_winner_to_medium_band() {
     agent_state.goal = "Rename every file in my Downloads folder to lowercase.".to_string();
 
     let mut rules = ActionRules::default();
-    rules.ontology_policy.intent_routing.matrix_version =
-        "intent-matrix-v13-exempt-low-band-promotion-test".into();
-    rules.ontology_policy.intent_routing.matrix = rules
+    rules.ontology_policy.intent_routing.intent_catalog_version =
+        "intent-catalog-v13-exempt-low-band-promotion-test".into();
+    rules.ontology_policy.intent_routing.intent_catalog = rules
         .ontology_policy
         .intent_routing
-        .matrix
+        .intent_catalog
         .iter()
         .filter(|entry| matches!(entry.intent_id.as_str(), "workspace.ops" | "command.exec"))
         .cloned()
@@ -1000,8 +965,8 @@ async fn resolver_routes_click_queries_to_ui_interaction_scope() {
     agent_state.goal = "click the login button".to_string();
 
     let mut rules = ActionRules::default();
-    rules.ontology_policy.intent_routing.matrix_version =
-        "intent-matrix-v10-ui-interaction-disambiguation-test".into();
+    rules.ontology_policy.intent_routing.intent_catalog_version =
+        "intent-catalog-v10-ui-interaction-disambiguation-test".into();
     let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
         .await
         .unwrap();
@@ -1022,7 +987,8 @@ async fn resolver_routes_timer_queries_to_command_exec() {
     agent_state.goal = "Set a timer for 15 minutes".to_string();
 
     let mut rules = ActionRules::default();
-    rules.ontology_policy.intent_routing.matrix_version = "intent-matrix-v4-timer-test".into();
+    rules.ontology_policy.intent_routing.intent_catalog_version =
+        "intent-catalog-v4-timer-test".into();
     let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
         .await
         .unwrap();
@@ -1045,7 +1011,8 @@ async fn resolver_routes_mail_send_queries_to_mail_reply_not_clock() {
             .to_string();
 
     let mut rules = ActionRules::default();
-    rules.ontology_policy.intent_routing.matrix_version = "intent-matrix-v15-mail-send-test".into();
+    rules.ontology_policy.intent_routing.intent_catalog_version =
+        "intent-catalog-v15-mail-send-test".into();
     let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
         .await
         .unwrap();
@@ -1073,7 +1040,8 @@ async fn resolver_auto_selects_single_available_mail_provider_family() {
             .to_string();
 
     let mut rules = ActionRules::default();
-    rules.ontology_policy.intent_routing.matrix_version = "intent-matrix-v15-mail-send-test".into();
+    rules.ontology_policy.intent_routing.intent_catalog_version =
+        "intent-catalog-v15-mail-send-test".into();
 
     let mut state = IAVLTree::new(HashCommitmentScheme::new());
     let record = MailConnectorRecord {
@@ -1148,12 +1116,12 @@ async fn resolver_does_not_allow_clock_intent_when_host_clock_binding_is_false()
     agent_state.goal = "Rename every file in my Downloads folder to lowercase.".to_string();
 
     let mut rules = ActionRules::default();
-    rules.ontology_policy.intent_routing.matrix_version =
-        "intent-matrix-v15-host-local-binding-gate-test".into();
-    rules.ontology_policy.intent_routing.matrix = rules
+    rules.ontology_policy.intent_routing.intent_catalog_version =
+        "intent-catalog-v15-host-local-binding-gate-test".into();
+    rules.ontology_policy.intent_routing.intent_catalog = rules
         .ontology_policy
         .intent_routing
-        .matrix
+        .intent_catalog
         .iter()
         .filter(|entry| {
             matches!(
@@ -1184,7 +1152,8 @@ async fn resolver_routes_calculator_queries_to_math_eval_not_command_exec() {
     agent_state.goal = "What's 247 x 38?".to_string();
 
     let mut rules = ActionRules::default();
-    rules.ontology_policy.intent_routing.matrix_version = "intent-matrix-v10-math-test".into();
+    rules.ontology_policy.intent_routing.intent_catalog_version =
+        "intent-catalog-v10-math-test".into();
     let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
         .await
         .unwrap();
@@ -1206,8 +1175,8 @@ async fn resolver_routes_open_calculator_app_to_app_launch_not_math_eval() {
     agent_state.goal = "Open calculator app".to_string();
 
     let mut rules = ActionRules::default();
-    rules.ontology_policy.intent_routing.matrix_version =
-        "intent-matrix-v10-open-calculator-app-launch-test".into();
+    rules.ontology_policy.intent_routing.intent_catalog_version =
+        "intent-catalog-v10-open-calculator-app-launch-test".into();
     let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
         .await
         .unwrap();
@@ -1229,8 +1198,8 @@ async fn resolver_routes_open_the_calculator_app_sentence_to_app_launch() {
     agent_state.goal = "Open the Calculator app.".to_string();
 
     let mut rules = ActionRules::default();
-    rules.ontology_policy.intent_routing.matrix_version =
-        "intent-matrix-v10-open-the-calculator-app-launch-test".into();
+    rules.ontology_policy.intent_routing.intent_catalog_version =
+        "intent-catalog-v10-open-the-calculator-app-launch-test".into();
     let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
         .await
         .unwrap();
@@ -1258,8 +1227,8 @@ async fn resolver_keeps_app_launch_feasible_when_sys_exec_is_blocked() {
         conditions: RuleConditions::default(),
         action: Verdict::Block,
     });
-    rules.ontology_policy.intent_routing.matrix_version =
-        "intent-matrix-v11-open-calculator-with-sys-blocked".into();
+    rules.ontology_policy.intent_routing.intent_catalog_version =
+        "intent-catalog-v11-open-calculator-with-sys-blocked".into();
     let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
         .await
         .unwrap();
@@ -1280,10 +1249,10 @@ async fn resolver_routing_is_not_driven_by_aliases_or_exemplars() {
     agent_state.goal = "What time is it right now on this machine?".to_string();
 
     let mut rules = ActionRules::default();
-    rules.ontology_policy.intent_routing.matrix_version =
-        "intent-matrix-v2-metadata-independence-test".into();
-    rules.ontology_policy.intent_routing.matrix = vec![
-        IntentMatrixEntry {
+    rules.ontology_policy.intent_routing.intent_catalog_version =
+        "intent-catalog-v2-metadata-independence-test".into();
+    rules.ontology_policy.intent_routing.intent_catalog = vec![
+        IntentCatalogEntry {
             intent_id: "web.research".to_string(),
             semantic_descriptor: "retrieve web research results".to_string(),
             query_binding: IntentQueryBindingClass::RemotePublicFact,
@@ -1294,8 +1263,8 @@ async fn resolver_routing_is_not_driven_by_aliases_or_exemplars() {
             applicability_class: ExecutionApplicabilityClass::RemoteRetrieval,
             requires_host_discovery: Some(false),
             provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
-            required_receipts: vec!["execution".to_string(), "verification".to_string()],
-            required_postconditions: vec![],
+            required_evidence: vec!["execution".to_string(), "verification".to_string()],
+            success_conditions: vec![],
             verification_mode: Some(VerificationMode::DeterministicCheck),
             aliases: vec!["clock".to_string(), "time".to_string()],
             exemplars: vec![
@@ -1303,7 +1272,7 @@ async fn resolver_routing_is_not_driven_by_aliases_or_exemplars() {
                 "read current utc clock timestamp".to_string(),
             ],
         },
-        IntentMatrixEntry {
+        IntentCatalogEntry {
             intent_id: "system.clock.read".to_string(),
             semantic_descriptor: "read system clock timestamp".to_string(),
             query_binding: IntentQueryBindingClass::HostLocal,
@@ -1314,8 +1283,8 @@ async fn resolver_routing_is_not_driven_by_aliases_or_exemplars() {
             applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
             requires_host_discovery: Some(false),
             provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
-            required_receipts: vec!["execution".to_string(), "verification".to_string()],
-            required_postconditions: vec![],
+            required_evidence: vec!["execution".to_string(), "verification".to_string()],
+            success_conditions: vec![],
             verification_mode: Some(VerificationMode::DeterministicCheck),
             aliases: vec!["weather".to_string()],
             exemplars: vec![
@@ -1344,8 +1313,8 @@ async fn resolver_enforces_remote_public_fact_binding_when_embeddings_disagree()
     agent_state.goal = "What's the weather like right now?".to_string();
 
     let mut rules = ActionRules::default();
-    rules.ontology_policy.intent_routing.matrix_version =
-        "intent-matrix-v2-runtime-locality-no-forced-override-test".into();
+    rules.ontology_policy.intent_routing.intent_catalog_version =
+        "intent-catalog-v2-runtime-locality-no-forced-override-test".into();
     let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
         .await
         .unwrap();
@@ -1365,8 +1334,8 @@ async fn resolver_keeps_host_local_clock_queries_on_system_clock_read() {
     agent_state.goal = "What time is it right now on this machine?".to_string();
 
     let mut rules = ActionRules::default();
-    rules.ontology_policy.intent_routing.matrix_version =
-        "intent-matrix-v2-host-local-clock-binding-test".into();
+    rules.ontology_policy.intent_routing.intent_catalog_version =
+        "intent-catalog-v2-host-local-clock-binding-test".into();
     let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
         .await
         .unwrap();
@@ -1386,12 +1355,12 @@ async fn resolver_uses_model_ranking_when_embeddings_are_unavailable() {
     agent_state.goal = "Rename every file in my Downloads folder to lowercase.".to_string();
 
     let mut rules = ActionRules::default();
-    rules.ontology_policy.intent_routing.matrix_version =
-        "intent-matrix-v13-no-embed-model-rank-test".into();
-    rules.ontology_policy.intent_routing.matrix = rules
+    rules.ontology_policy.intent_routing.intent_catalog_version =
+        "intent-catalog-v13-no-embed-model-rank-test".into();
+    rules.ontology_policy.intent_routing.intent_catalog = rules
         .ontology_policy
         .intent_routing
-        .matrix
+        .intent_catalog
         .iter()
         .filter(|entry| {
             matches!(
@@ -1429,12 +1398,12 @@ async fn resolver_routes_durable_monitor_queries_to_automation_monitor() {
     agent_state.goal = "Monitor Hacker News and notify me whenever a post about Web4 or post-quantum cryptography hits the front page.".to_string();
 
     let mut rules = ActionRules::default();
-    rules.ontology_policy.intent_routing.matrix_version =
-        "intent-matrix-v15-automation-monitor-test".into();
-    rules.ontology_policy.intent_routing.matrix = rules
+    rules.ontology_policy.intent_routing.intent_catalog_version =
+        "intent-catalog-v15-automation-monitor-test".into();
+    rules.ontology_policy.intent_routing.intent_catalog = rules
         .ontology_policy
         .intent_routing
-        .matrix
+        .intent_catalog
         .iter()
         .filter(|entry| {
             matches!(
@@ -1468,12 +1437,12 @@ async fn resolver_prefers_automation_monitor_for_durable_queries_even_when_web_r
     agent_state.goal = "Monitor Hacker News and notify me whenever a post about Web4 or post-quantum cryptography hits the front page.".to_string();
 
     let mut rules = ActionRules::default();
-    rules.ontology_policy.intent_routing.matrix_version =
-        "intent-matrix-v15-automation-monitor-remote-source-test".into();
-    rules.ontology_policy.intent_routing.matrix = rules
+    rules.ontology_policy.intent_routing.intent_catalog_version =
+        "intent-catalog-v15-automation-monitor-remote-source-test".into();
+    rules.ontology_policy.intent_routing.intent_catalog = rules
         .ontology_policy
         .intent_routing
-        .matrix
+        .intent_catalog
         .iter()
         .filter(|entry| {
             matches!(
@@ -1515,7 +1484,8 @@ async fn resolver_abstains_when_embeddings_and_model_ranking_fail() {
     agent_state.goal = "What time is it right now?".to_string();
 
     let mut rules = ActionRules::default();
-    rules.ontology_policy.intent_routing.matrix_version = "intent-matrix-v2-no-embed-test".into();
+    rules.ontology_policy.intent_routing.intent_catalog_version =
+        "intent-catalog-v2-no-embed-test".into();
     let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
         .await
         .unwrap();
@@ -1548,12 +1518,12 @@ async fn resolver_fails_closed_for_mail_send_when_rank_backend_is_unavailable() 
             .to_string();
 
     let mut rules = ActionRules::default();
-    rules.ontology_policy.intent_routing.matrix_version =
-        "intent-matrix-v15-mail-no-rank-backend-test".into();
-    rules.ontology_policy.intent_routing.matrix = rules
+    rules.ontology_policy.intent_routing.intent_catalog_version =
+        "intent-catalog-v15-mail-no-rank-backend-test".into();
+    rules.ontology_policy.intent_routing.intent_catalog = rules
         .ontology_policy
         .intent_routing
-        .matrix
+        .intent_catalog
         .iter()
         .filter(|entry| {
             matches!(
@@ -1595,15 +1565,15 @@ async fn resolver_abstains_when_top_candidates_are_ambiguous() {
     agent_state.goal = "ambiguous clock command intent".to_string();
 
     let mut rules = ActionRules::default();
-    rules.ontology_policy.intent_routing.matrix_version =
-        "intent-matrix-v2-ambiguity-abstain-test".into();
+    rules.ontology_policy.intent_routing.intent_catalog_version =
+        "intent-catalog-v2-ambiguity-abstain-test".into();
     rules.ontology_policy.intent_routing.ambiguity_margin_bps = 10_000;
     rules
         .ontology_policy
         .intent_routing
         .ambiguity_abstain_exempt_intents = vec![];
-    rules.ontology_policy.intent_routing.matrix = vec![
-        IntentMatrixEntry {
+    rules.ontology_policy.intent_routing.intent_catalog = vec![
+        IntentCatalogEntry {
             intent_id: "system.clock.read".to_string(),
             semantic_descriptor: "system clock timestamp".to_string(),
             query_binding: IntentQueryBindingClass::HostLocal,
@@ -1614,13 +1584,13 @@ async fn resolver_abstains_when_top_candidates_are_ambiguous() {
             applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
             requires_host_discovery: Some(false),
             provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
-            required_receipts: vec!["execution".to_string(), "verification".to_string()],
-            required_postconditions: vec![],
+            required_evidence: vec!["execution".to_string(), "verification".to_string()],
+            success_conditions: vec![],
             verification_mode: Some(VerificationMode::DeterministicCheck),
             aliases: vec![],
             exemplars: vec![],
         },
-        IntentMatrixEntry {
+        IntentCatalogEntry {
             intent_id: "command.exec".to_string(),
             semantic_descriptor: "shell or terminal command execute".to_string(),
             query_binding: IntentQueryBindingClass::CommandDirected,
@@ -1631,13 +1601,13 @@ async fn resolver_abstains_when_top_candidates_are_ambiguous() {
             applicability_class: ExecutionApplicabilityClass::TopologyDependent,
             requires_host_discovery: Some(true),
             provider_selection_mode: Some(ProviderSelectionMode::DynamicSynthesis),
-            required_receipts: vec![
+            required_evidence: vec![
                 "host_discovery".to_string(),
                 "provider_selection".to_string(),
                 "execution".to_string(),
                 "verification".to_string(),
             ],
-            required_postconditions: vec![],
+            success_conditions: vec![],
             verification_mode: Some(VerificationMode::DynamicSynthesis),
             aliases: vec![],
             exemplars: vec![],

@@ -3,6 +3,7 @@ import {
   displayArtifactClassLabel,
   displayRendererLabel,
   formatStatusLabel,
+  productArtifactSummary,
 } from "./artifactSurfaceShared";
 
 type ArtifactMenuSurfaceProps = {
@@ -16,14 +17,14 @@ function artifactMenuBadge(
   artifact: ConversationArtifactEntry,
   isActive: boolean,
 ): { label: string; muted?: boolean } | null {
-  const lifecycleState = String(artifact.lifecycleState || "").trim().toLowerCase();
+  const lifecycleState = artifactMenuLifecycleState(artifact);
   if (
     lifecycleState === "ready" ||
     lifecycleState === "partial" ||
     lifecycleState === "blocked" ||
     lifecycleState === "failed"
   ) {
-    return { label: formatStatusLabel(artifact.lifecycleState || artifact.status) };
+    return { label: formatStatusLabel(lifecycleState) };
   }
 
   if (isActive) {
@@ -33,18 +34,25 @@ function artifactMenuBadge(
   return null;
 }
 
+function artifactMenuLifecycleState(artifact: ConversationArtifactEntry): string {
+  return String(
+    artifact.chatSession.artifactManifest.verification.lifecycleState ||
+      artifact.chatSession.artifactManifest.verification.status ||
+      artifact.chatSession.verifiedReply.lifecycleState ||
+      artifact.lifecycleState ||
+      artifact.status ||
+      "",
+  )
+    .trim()
+    .toLowerCase();
+}
+
 function artifactMenuSummary(artifact: ConversationArtifactEntry): string {
-  const verifiedSummary = artifact.chatSession.verifiedReply.summary.trim();
-  if (verifiedSummary.length > 0) {
-    return verifiedSummary;
-  }
-
-  const summary = artifact.summary.trim();
-  if (summary.length > 0) {
-    return summary;
-  }
-
-  return `Open ${artifact.title} to inspect its explorer, source, and render stages.`;
+  return productArtifactSummary(
+    artifact.title,
+    artifact.chatSession.verifiedReply.summary,
+    artifact.summary,
+  );
 }
 
 function artifactMenuTimestamp(artifact: ConversationArtifactEntry): string | null {
@@ -88,9 +96,13 @@ export function ArtifactMenuSurface({
         <div className="chat-artifact-menu-list" role="list">
           {artifacts.map((artifact) => {
             const isLive = artifact.sessionId === activeChatSessionId;
-            const lifecycleState = String(artifact.lifecycleState || "").trim().toLowerCase();
+            const lifecycleState = artifactMenuLifecycleState(artifact);
             const showLiveStyling =
-              isLive && lifecycleState !== "blocked" && lifecycleState !== "failed";
+              isLive &&
+              lifecycleState !== "ready" &&
+              lifecycleState !== "partial" &&
+              lifecycleState !== "blocked" &&
+              lifecycleState !== "failed";
             const timestampLabel = artifactMenuTimestamp(artifact);
             const badge = artifactMenuBadge(artifact, isLive);
 

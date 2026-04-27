@@ -39,7 +39,7 @@ pub fn case() -> QueryCase {
             "The probe prints strict receipt lines in this format: `provider=<id>` and `row|rank|app|pid|rss_kb`. ",
             "List the top apps in descending memory order and include app name, pid, and rss_kb for each listed row."
         ),
-        success_definition: "Discover top memory-consuming apps through the fixture-backed command execution probe, list them in descending RSS order, and satisfy CEC/contract/environment/cleanup evidence receipts without fallback behavior.",
+        success_definition: "Discover top memory-consuming apps through the fixture-backed command execution probe, list them in descending RSS order, and satisfy CEC/contract/environment/cleanup evidence evidence without fallback behavior.",
         seeded_intent_id: "command.exec",
         intent_scope: IntentScopeProfile::CommandExecution,
         seed_resolved_intent: true,
@@ -56,66 +56,67 @@ pub fn case() -> QueryCase {
 
 fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let fixture_mode =
-        verification_value(obs, "env_receipt::top_memory_apps_fixture_mode").unwrap_or_default();
+        verification_value(obs, "env_evidence::top_memory_apps_fixture_mode").unwrap_or_default();
     let fixture_probe_source =
-        verification_value(obs, "env_receipt::top_memory_apps_fixture_probe_source")
+        verification_value(obs, "env_evidence::top_memory_apps_fixture_probe_source")
             .unwrap_or_default();
     let fixture_timestamp_ms =
-        verification_u64(obs, "env_receipt::top_memory_apps_fixture_timestamp_ms")
+        verification_u64(obs, "env_evidence::top_memory_apps_fixture_timestamp_ms")
             .unwrap_or(obs.run_timestamp_ms);
     let fixture_satisfied =
-        verification_bool(obs, "env_receipt::top_memory_apps_fixture_satisfied").unwrap_or(false);
+        verification_bool(obs, "env_evidence::top_memory_apps_fixture_satisfied").unwrap_or(false);
     let run_unique_satisfied =
-        verification_bool(obs, "env_receipt::top_memory_apps_run_unique_satisfied")
+        verification_bool(obs, "env_evidence::top_memory_apps_run_unique_satisfied")
             .unwrap_or(false);
     let probe_script_seeded_satisfied = verification_bool(
         obs,
-        "env_receipt::top_memory_apps_probe_script_seeded_satisfied",
+        "env_evidence::top_memory_apps_probe_script_seeded_satisfied",
     )
     .unwrap_or(false);
 
     let provider =
-        verification_value(obs, "env_receipt::top_memory_apps_provider").unwrap_or_default();
+        verification_value(obs, "env_evidence::top_memory_apps_provider").unwrap_or_default();
     let provider_probe_source =
-        verification_value(obs, "env_receipt::top_memory_apps_provider_probe_source")
+        verification_value(obs, "env_evidence::top_memory_apps_provider_probe_source")
             .unwrap_or_default();
     let provider_timestamp_ms =
-        verification_u64(obs, "env_receipt::top_memory_apps_provider_timestamp_ms")
+        verification_u64(obs, "env_evidence::top_memory_apps_provider_timestamp_ms")
             .unwrap_or(obs.run_timestamp_ms);
     let provider_satisfied =
-        verification_bool(obs, "env_receipt::top_memory_apps_provider_satisfied").unwrap_or(false)
+        verification_bool(obs, "env_evidence::top_memory_apps_provider_satisfied").unwrap_or(false)
             && provider.eq_ignore_ascii_case("ps");
 
-    let row_markers = verification_values(obs, "env_receipt::top_memory_apps_row");
+    let row_markers = verification_values(obs, "env_evidence::top_memory_apps_row");
     let rows = parse_top_memory_rows(&row_markers);
     let row_count = rows.len();
     let row_count_receipt =
-        verification_u64(obs, "env_receipt::top_memory_apps_row_count").unwrap_or(0) as usize;
+        verification_u64(obs, "env_evidence::top_memory_apps_row_count").unwrap_or(0) as usize;
     let row_count_probe_source =
-        verification_value(obs, "env_receipt::top_memory_apps_row_count_probe_source")
+        verification_value(obs, "env_evidence::top_memory_apps_row_count_probe_source")
             .unwrap_or_default();
     let row_count_timestamp_ms =
-        verification_u64(obs, "env_receipt::top_memory_apps_row_count_timestamp_ms")
+        verification_u64(obs, "env_evidence::top_memory_apps_row_count_timestamp_ms")
             .unwrap_or(obs.run_timestamp_ms);
     let row_count_satisfied =
-        verification_bool(obs, "env_receipt::top_memory_apps_row_count_satisfied").unwrap_or(false);
+        verification_bool(obs, "env_evidence::top_memory_apps_row_count_satisfied")
+            .unwrap_or(false);
     let rows_sorted_receipt_satisfied = verification_bool(
         obs,
-        "env_receipt::top_memory_apps_rows_sorted_desc_satisfied",
+        "env_evidence::top_memory_apps_rows_sorted_desc_satisfied",
     )
     .unwrap_or(false);
     let scope_satisfied =
-        verification_bool(obs, "env_receipt::top_memory_apps_scope_satisfied").unwrap_or(false);
+        verification_bool(obs, "env_evidence::top_memory_apps_scope_satisfied").unwrap_or(false);
     let rows_sorted_runtime_satisfied = rows_are_ranked_and_sorted_desc(&rows);
 
     let cleanup_probe_source =
-        verification_value(obs, "env_receipt::top_memory_apps_cleanup_probe_source")
+        verification_value(obs, "env_evidence::top_memory_apps_cleanup_probe_source")
             .unwrap_or_default();
     let cleanup_timestamp_ms =
-        verification_u64(obs, "env_receipt::top_memory_apps_cleanup_timestamp_ms")
+        verification_u64(obs, "env_evidence::top_memory_apps_cleanup_timestamp_ms")
             .unwrap_or(obs.run_timestamp_ms);
     let cleanup_satisfied =
-        verification_bool(obs, "env_receipt::top_memory_apps_cleanup_satisfied").unwrap_or(false);
+        verification_bool(obs, "env_evidence::top_memory_apps_cleanup_satisfied").unwrap_or(false);
 
     let exec_action_success_count = obs
         .action_evidence
@@ -483,6 +484,6 @@ fn is_exec_action_success(entry: &super::super::types::ActionEvidence) -> bool {
         && !action_has_hard_error_class(entry)
 }
 
-fn serialize_environment_receipts(receipts: &[EnvironmentEvidenceReceipt]) -> String {
-    serde_json::to_string(receipts).unwrap_or_else(|_| "[]".to_string())
+fn serialize_environment_receipts(evidence: &[EnvironmentEvidenceReceipt]) -> String {
+    serde_json::to_string(evidence).unwrap_or_else(|_| "[]".to_string())
 }

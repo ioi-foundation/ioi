@@ -8,7 +8,7 @@ use ioi_api::vm::inference::InferenceRuntime;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_types::app::agentic::{
     CapabilityId, ExecutionApplicabilityClass, InstructionContract, IntentAmbiguityAction,
-    IntentCandidateScore, IntentConfidenceBand, IntentMatrixEntry, IntentQueryBindingClass,
+    IntentCandidateScore, IntentCatalogEntry, IntentConfidenceBand, IntentQueryBindingClass,
     IntentRoutingPolicy, IntentScopeProfile, ProviderRouteCandidate, ProviderSelectionState,
     ResolvedIntentState, ToolCapabilityBinding,
 };
@@ -37,7 +37,7 @@ const INTENT_PROVIDER_SELECTION_SCHEMA_ID: &str = "provider_selection_state_v1";
 const INTENT_INSTRUCTION_CONTRACT_MODEL_ID: &str = "inference.execute_inference";
 const INTENT_INSTRUCTION_CONTRACT_MODEL_VERSION: &str = "v1";
 const INTENT_INSTRUCTION_CONTRACT_SCHEMA_ID: &str = "instruction_contract_v1";
-const CIRC_CONTRACT_VERSION: &str = "circ.v0.5";
+const CIRC_CONTRACT_VERSION: &str = "circ.v0.6";
 
 #[derive(Debug, Clone, Copy, Default)]
 struct QueryBindingProfile {

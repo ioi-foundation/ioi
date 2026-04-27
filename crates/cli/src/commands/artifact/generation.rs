@@ -420,7 +420,7 @@ pub(super) async fn run_generate(
         artifact_lane_receipts,
         production_provenance: Some(bundle.production_provenance),
         acceptance_provenance: Some(bundle.acceptance_provenance),
-        fallback_used: bundle.fallback_used,
+        degraded_path_used: bundle.degraded_path_used,
         ux_lifecycle: Some(bundle.ux_lifecycle),
         failure: bundle.failure,
         manifest,

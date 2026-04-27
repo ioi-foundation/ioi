@@ -4,14 +4,14 @@ mod inference;
 mod router;
 
 use crate::agentic::runtime::agent_playbooks::{
-    playbook_route_contract, render_agent_playbook_catalog,
+    playbook_decision_record, render_agent_playbook_catalog,
 };
 use crate::agentic::runtime::service::memory::{
     persist_prompt_memory_diagnostics, prepare_prompt_memory_context, MemoryPromptDiagnostics,
     MemoryPromptSectionDiagnostic,
 };
 use crate::agentic::runtime::service::step::action::command_contract::{
-    runtime_desktop_directory, runtime_home_directory, runtime_host_environment_receipt,
+    runtime_desktop_directory, runtime_home_directory, runtime_host_environment_evidence,
 };
 use crate::agentic::runtime::service::step::perception::PerceptionContext;
 use crate::agentic::runtime::service::step::signals::is_browser_surface;
@@ -940,7 +940,7 @@ fn render_selected_parent_playbook_instruction(
     }
 
     let playbook_id = instruction_contract_slot_value(resolved_intent, "playbook_id")?;
-    let route_contract = playbook_route_contract(playbook_id);
+    let decision_record = playbook_decision_record(playbook_id);
     let template_id = instruction_contract_slot_value(resolved_intent, "template_id")
         .unwrap_or("runtime-selected");
     let workflow_id = instruction_contract_slot_value(resolved_intent, "workflow_id")
@@ -971,11 +971,11 @@ fn render_selected_parent_playbook_instruction(
          - Grounded kickoff slots: playbook_id=`{}` template_id=`{}` workflow_id=`{}`.\n\
          - {}",
         playbook_id,
-        route_contract.route_family,
-        route_contract.topology,
-        route_contract.planner_authority,
-        route_contract.verifier_role.unwrap_or("not_engaged"),
-        route_contract.requires_verifier,
+        decision_record.route_family,
+        decision_record.topology,
+        decision_record.planner_authority,
+        decision_record.verifier_role.unwrap_or("not_engaged"),
+        decision_record.requires_verifier,
         playbook_id,
         template_id,
         workflow_id,
@@ -2142,7 +2142,7 @@ Do not claim success for actions you did not verify.";
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_millis() as u64;
-        let host_receipt = runtime_host_environment_receipt(discovery_timestamp_ms);
+        let host_receipt = runtime_host_environment_evidence(discovery_timestamp_ms);
         let runtime_home_dir =
             runtime_home_directory().unwrap_or_else(|| host_receipt.observed_value.clone());
         let runtime_desktop_dir = runtime_desktop_directory().or(host_receipt.desktop_directory);

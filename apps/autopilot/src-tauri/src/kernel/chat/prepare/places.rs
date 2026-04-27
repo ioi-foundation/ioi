@@ -111,8 +111,8 @@ pub(super) fn places_request_for_tool_widget(
     intent: &str,
     outcome_request: &ChatOutcomeRequest,
 ) -> Option<ParsedPlacesRequest> {
-    if let Some(ioi_types::app::chat::ChatNormalizedRequestFrame::Places(frame)) =
-        outcome_request.request_frame.as_ref()
+    if let Some(ioi_types::app::chat::ChatNormalizedRequest::Places(frame)) =
+        outcome_request.normalized_request.as_ref()
     {
         let category = frame
             .category

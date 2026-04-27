@@ -26,7 +26,6 @@ use ioi_types::{
     config::{InitialServiceConfig, OracleParams},
     service_configs::MigrationConfig,
 };
-use parity_scale_codec::Encode;
 use std::fs;
 use std::net::SocketAddr;
 use std::time::{Duration, Instant};
@@ -45,12 +44,6 @@ fn get_metric_value(metrics_body: &str, metric_name: &str) -> Option<f64> {
         .find(|line| line.starts_with(metric_name) && (line.contains(' ') || line.contains('{')))
         .and_then(|line| line.split_whitespace().last())
         .and_then(|value| value.parse::<f64>().ok())
-}
-
-#[derive(Encode)]
-struct RequestOracleDataParams {
-    url: String,
-    request_id: u64,
 }
 
 // Helper function to create a correctly signed system transaction.
@@ -502,7 +495,7 @@ async fn test_gc_respects_pinned_epochs() -> Result<()> {
         .build()
         .await?;
 
-    let mut node_guard = cluster.validators.remove(0);
+    let node_guard = cluster.validators.remove(0);
     let rpc_addr = node_guard.validator().rpc_addr.clone();
     let ipc_addr = node_guard.validator().workload_ipc_addr.clone();
 

@@ -6,7 +6,7 @@ engine for desktop-agent sessions. It owns:
 - session lifecycle: `start@v1`, `step@v1`, `resume@v1`, `post_message@v1`
 - canonical pending-action resume state
 - approval, PII, and policy enforcement
-- execution queue dispatch and verification receipts
+- execution queue dispatch and verification evidence
 - delegation and worker-result lifecycle
 - transcript continuity and state persistence
 

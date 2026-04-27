@@ -99,7 +99,7 @@ pub(crate) use runtime_materialization::{
     refine_chat_artifact_candidate_with_runtime,
     repair_direct_author_generated_candidate_with_runtime_error,
     repair_materialized_candidate_with_runtime_error,
-    try_local_html_interaction_truth_rescue_document,
+    try_local_html_interaction_truth_repair_document,
 };
 use runtime_plan::{
     chat_runtime_provenance_matches, compact_local_html_materialization_prompt,

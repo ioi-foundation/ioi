@@ -29,13 +29,13 @@ pub(super) fn bootstrap_contract(
     let route_label = capability_route_label(tool, current_tool_name);
 
     if route_label.is_some()
-        && !has_execution_receipt(&agent_state.tool_execution_log, "host_discovery")
+        && !has_execution_evidence(&agent_state.tool_execution_log, "host_discovery")
     {
         let timestamp_ms = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_millis() as u64;
-        let host_receipt = runtime_host_environment_receipt(timestamp_ms);
+        let host_receipt = runtime_host_environment_evidence(timestamp_ms);
         let desktop_dir = host_receipt
             .desktop_directory
             .clone()
@@ -67,12 +67,12 @@ pub(super) fn bootstrap_contract(
             host_receipt.satisfied
         ));
         if host_receipt.satisfied {
-            mark_execution_receipt_with_value(
+            record_execution_evidence_with_value(
                 &mut agent_state.tool_execution_log,
                 "host_discovery",
                 host_receipt.observed_value.clone(),
             );
-            verification_checks.push(receipt_marker("host_discovery"));
+            verification_checks.push(execution_evidence_key("host_discovery"));
         }
         emit_execution_contract_receipt_event(
             service,
@@ -91,7 +91,7 @@ pub(super) fn bootstrap_contract(
 
     if let Some(route_label) = route_label.as_deref() {
         verification_checks.push(format!("capability_route_selected={}", route_label));
-        record_provider_selection_receipts(
+        record_provider_selection_evidence(
             &mut agent_state.tool_execution_log,
             verification_checks,
             current_tool_name,
@@ -110,9 +110,9 @@ pub(super) fn bootstrap_contract(
             Some(route_label.to_string()),
             synthesized_payload_hash.clone(),
         );
-        let provider_selection_commit = execution_receipt_value(
+        let provider_selection_commit = execution_evidence_value(
             &agent_state.tool_execution_log,
-            PROVIDER_SELECTION_COMMIT_RECEIPT,
+            PROVIDER_SELECTION_COMMIT_EVIDENCE,
         )
         .map(str::to_string);
         emit_execution_contract_receipt_event(
@@ -121,7 +121,7 @@ pub(super) fn bootstrap_contract(
             step_index,
             &resolved_intent_id,
             "provider_selection",
-            PROVIDER_SELECTION_COMMIT_RECEIPT,
+            PROVIDER_SELECTION_COMMIT_EVIDENCE,
             provider_selection_commit
                 .as_deref()
                 .map(|value| value.starts_with("sha256:"))

@@ -688,34 +688,34 @@ fn build_deterministic_checks(
         .any(|check| check == "capability_execution_phase=verification");
     let cec_receipt_host_discovery_present = routing_checks
         .iter()
-        .any(|check| check == "receipt::host_discovery=true");
+        .any(|check| check == "evidence::host_discovery=true");
     let cec_receipt_provider_selection_present = routing_checks
         .iter()
-        .any(|check| check == "receipt::provider_selection=true");
+        .any(|check| check == "evidence::provider_selection=true");
     let cec_receipt_provider_selection_commit_present = routing_checks
         .iter()
-        .any(|check| check == "receipt::provider_selection_commit=true");
+        .any(|check| check == "evidence::provider_selection_commit=true");
     let cec_receipt_execution_present = routing_checks
         .iter()
-        .any(|check| check == "receipt::execution=true");
+        .any(|check| check == "evidence::execution=true");
     let cec_receipt_verification_present = routing_checks
         .iter()
-        .any(|check| check == "receipt::verification=true");
+        .any(|check| check == "evidence::verification=true");
     let cec_receipt_verification_commit_present = routing_checks
         .iter()
-        .any(|check| check == "receipt::verification_commit=true");
+        .any(|check| check == "evidence::verification_commit=true");
     let cec_receipt_notification_strategy_present = routing_checks
         .iter()
-        .any(|check| check == "receipt::notification_strategy=true");
+        .any(|check| check == "evidence::notification_strategy=true");
     let cec_postcondition_execution_artifact_present = routing_checks
         .iter()
-        .any(|check| check == "postcondition::execution_artifact=true");
+        .any(|check| check == "success_condition::execution_artifact=true");
     let cec_postcondition_timer_sleep_backend_present = routing_checks
         .iter()
-        .any(|check| check == "postcondition::timer_sleep_backend=true");
+        .any(|check| check == "success_condition::timer_sleep_backend=true");
     let cec_postcondition_notification_path_armed_present = routing_checks
         .iter()
-        .any(|check| check == "postcondition::notification_path_armed=true");
+        .any(|check| check == "success_condition::notification_path_armed=true");
     let timer_delay_command_evidence_present = command_previews
         .iter()
         .any(|preview| command_arms_timer_delay_backend(preview));
@@ -786,34 +786,34 @@ fn build_deterministic_checks(
         failures.push("missing capability verification phase evidence".to_string());
     }
     if !cec_receipt_host_discovery_present {
-        failures.push("missing CEC receipt::host_discovery=true".to_string());
+        failures.push("missing CEC evidence::host_discovery=true".to_string());
     }
     if !cec_receipt_provider_selection_present {
-        failures.push("missing CEC receipt::provider_selection=true".to_string());
+        failures.push("missing CEC evidence::provider_selection=true".to_string());
     }
     if !cec_receipt_provider_selection_commit_present {
-        failures.push("missing CEC receipt::provider_selection_commit=true".to_string());
+        failures.push("missing CEC evidence::provider_selection_commit=true".to_string());
     }
     if !cec_receipt_execution_present {
-        failures.push("missing CEC receipt::execution=true".to_string());
+        failures.push("missing CEC evidence::execution=true".to_string());
     }
     if !cec_receipt_verification_present {
-        failures.push("missing CEC receipt::verification=true".to_string());
+        failures.push("missing CEC evidence::verification=true".to_string());
     }
     if !cec_receipt_verification_commit_present {
-        failures.push("missing CEC receipt::verification_commit=true".to_string());
+        failures.push("missing CEC evidence::verification_commit=true".to_string());
     }
     if !cec_receipt_notification_strategy_present {
-        failures.push("missing CEC receipt::notification_strategy=true".to_string());
+        failures.push("missing CEC evidence::notification_strategy=true".to_string());
     }
     if !cec_postcondition_execution_artifact_present {
-        failures.push("missing CEC postcondition::execution_artifact=true".to_string());
+        failures.push("missing CEC success_condition::execution_artifact=true".to_string());
     }
     if !cec_postcondition_timer_sleep_backend_present {
-        failures.push("missing CEC postcondition::timer_sleep_backend=true".to_string());
+        failures.push("missing CEC success_condition::timer_sleep_backend=true".to_string());
     }
     if !cec_postcondition_notification_path_armed_present {
-        failures.push("missing CEC postcondition::notification_path_armed=true".to_string());
+        failures.push("missing CEC success_condition::notification_path_armed=true".to_string());
     }
     if !timer_delay_command_evidence_present {
         failures.push("missing timer delay command evidence in shell__run previews".to_string());

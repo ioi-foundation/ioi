@@ -1,5 +1,5 @@
 use ioi_types::app::{
-    ChatFallbackMode, ChatNormalizedRequestFrame, ChatRendererKind, ChatRiskSensitivity,
+    ChatFallbackMode, ChatNormalizedRequest, ChatRendererKind, ChatRiskSensitivity,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -33,47 +33,47 @@ pub struct ChatSpecializedDomainPolicySpec {
     pub verification_required_checks: &'static [&'static str],
     pub selected_source_rationale: &'static str,
     pub fallback_source_rationale: &'static str,
-    pub missing_slot_fallback_reason: &'static str,
+    pub missing_slot_degradation_reason: &'static str,
 }
 
 pub fn chat_specialized_domain_kind(
-    request_frame: Option<&ChatNormalizedRequestFrame>,
+    normalized_request: Option<&ChatNormalizedRequest>,
 ) -> Option<ChatSpecializedDomainKind> {
-    request_frame.map(chat_specialized_domain_kind_for_frame)
+    normalized_request.map(chat_specialized_domain_kind_for_frame)
 }
 
 pub fn chat_specialized_domain_kind_for_frame(
-    frame: &ChatNormalizedRequestFrame,
+    frame: &ChatNormalizedRequest,
 ) -> ChatSpecializedDomainKind {
     match frame {
-        ChatNormalizedRequestFrame::Weather(_) => ChatSpecializedDomainKind::Weather,
-        ChatNormalizedRequestFrame::Sports(_) => ChatSpecializedDomainKind::Sports,
-        ChatNormalizedRequestFrame::Places(_) => ChatSpecializedDomainKind::Places,
-        ChatNormalizedRequestFrame::Recipe(_) => ChatSpecializedDomainKind::Recipe,
-        ChatNormalizedRequestFrame::MessageCompose(_) => ChatSpecializedDomainKind::MessageCompose,
-        ChatNormalizedRequestFrame::UserInput(_) => ChatSpecializedDomainKind::UserInput,
+        ChatNormalizedRequest::Weather(_) => ChatSpecializedDomainKind::Weather,
+        ChatNormalizedRequest::Sports(_) => ChatSpecializedDomainKind::Sports,
+        ChatNormalizedRequest::Places(_) => ChatSpecializedDomainKind::Places,
+        ChatNormalizedRequest::Recipe(_) => ChatSpecializedDomainKind::Recipe,
+        ChatNormalizedRequest::MessageCompose(_) => ChatSpecializedDomainKind::MessageCompose,
+        ChatNormalizedRequest::UserInput(_) => ChatSpecializedDomainKind::UserInput,
     }
 }
 
-pub fn chat_request_frame_missing_slots(frame: &ChatNormalizedRequestFrame) -> &[String] {
+pub fn chat_normalized_request_missing_slots(frame: &ChatNormalizedRequest) -> &[String] {
     match frame {
-        ChatNormalizedRequestFrame::Weather(frame) => &frame.missing_slots,
-        ChatNormalizedRequestFrame::Sports(frame) => &frame.missing_slots,
-        ChatNormalizedRequestFrame::Places(frame) => &frame.missing_slots,
-        ChatNormalizedRequestFrame::Recipe(frame) => &frame.missing_slots,
-        ChatNormalizedRequestFrame::MessageCompose(frame) => &frame.missing_slots,
-        ChatNormalizedRequestFrame::UserInput(frame) => &frame.missing_slots,
+        ChatNormalizedRequest::Weather(frame) => &frame.missing_slots,
+        ChatNormalizedRequest::Sports(frame) => &frame.missing_slots,
+        ChatNormalizedRequest::Places(frame) => &frame.missing_slots,
+        ChatNormalizedRequest::Recipe(frame) => &frame.missing_slots,
+        ChatNormalizedRequest::MessageCompose(frame) => &frame.missing_slots,
+        ChatNormalizedRequest::UserInput(frame) => &frame.missing_slots,
     }
 }
 
-pub fn chat_request_frame_clarification_slots(frame: &ChatNormalizedRequestFrame) -> &[String] {
+pub fn chat_normalized_request_clarification_slots(frame: &ChatNormalizedRequest) -> &[String] {
     match frame {
-        ChatNormalizedRequestFrame::Weather(frame) => &frame.clarification_required_slots,
-        ChatNormalizedRequestFrame::Sports(frame) => &frame.clarification_required_slots,
-        ChatNormalizedRequestFrame::Places(frame) => &frame.clarification_required_slots,
-        ChatNormalizedRequestFrame::Recipe(frame) => &frame.clarification_required_slots,
-        ChatNormalizedRequestFrame::MessageCompose(frame) => &frame.clarification_required_slots,
-        ChatNormalizedRequestFrame::UserInput(frame) => &frame.clarification_required_slots,
+        ChatNormalizedRequest::Weather(frame) => &frame.clarification_required_slots,
+        ChatNormalizedRequest::Sports(frame) => &frame.clarification_required_slots,
+        ChatNormalizedRequest::Places(frame) => &frame.clarification_required_slots,
+        ChatNormalizedRequest::Recipe(frame) => &frame.clarification_required_slots,
+        ChatNormalizedRequest::MessageCompose(frame) => &frame.clarification_required_slots,
+        ChatNormalizedRequest::UserInput(frame) => &frame.clarification_required_slots,
     }
 }
 
@@ -121,7 +121,7 @@ pub fn chat_specialized_domain_policy(
                 "The specialized weather surface outranks broad search because it keeps currentness and location scope explicit.",
             fallback_source_rationale:
                 "Conversation context and web search remain ordered fallbacks if the weather surface cannot fully answer.",
-            missing_slot_fallback_reason:
+            missing_slot_degradation_reason:
                 "weather execution is blocked until location scope is clarified or safely inherited",
         },
         ChatSpecializedDomainKind::Sports => ChatSpecializedDomainPolicySpec {
@@ -164,7 +164,7 @@ pub fn chat_specialized_domain_policy(
                 "The specialized sports surface outranks broad search because it preserves the resolved target and current sports scope.",
             fallback_source_rationale:
                 "Conversation context and web search remain ordered fallbacks when the native sports surface lacks coverage.",
-            missing_slot_fallback_reason:
+            missing_slot_degradation_reason:
                 "sports execution is blocked until league or team scope is clarified",
         },
         ChatSpecializedDomainKind::Places => ChatSpecializedDomainPolicySpec {
@@ -207,7 +207,7 @@ pub fn chat_specialized_domain_policy(
                 "The specialized places surface outranks broad search because it preserves anchor scope, category, and ranked map results.",
             fallback_source_rationale:
                 "Conversation context and web search remain ordered fallbacks when the places surface cannot satisfy the scope.",
-            missing_slot_fallback_reason:
+            missing_slot_degradation_reason:
                 "places execution is blocked until anchor or category scope is clarified",
         },
         ChatSpecializedDomainKind::Recipe => ChatSpecializedDomainPolicySpec {
@@ -244,7 +244,7 @@ pub fn chat_specialized_domain_policy(
                 "The specialized recipe surface outranks generic prose because it preserves the structured recipe shape.",
             fallback_source_rationale:
                 "Conversation context remains an ordered fallback when the recipe lane needs missing dish details.",
-            missing_slot_fallback_reason:
+            missing_slot_degradation_reason:
                 "recipe execution is blocked until the requested dish is clarified",
         },
         ChatSpecializedDomainKind::MessageCompose => ChatSpecializedDomainPolicySpec {
@@ -285,7 +285,7 @@ pub fn chat_specialized_domain_policy(
                 "The structured compose lane outranks a plain direct answer because the message needs explicit channel and audience framing.",
             fallback_source_rationale:
                 "Connector and conversation sources remain ordered fallbacks when the compose lane needs delivery context.",
-            missing_slot_fallback_reason:
+            missing_slot_degradation_reason:
                 "communication execution is blocked until channel or recipient context is clarified",
         },
         ChatSpecializedDomainKind::UserInput => ChatSpecializedDomainPolicySpec {
@@ -325,7 +325,7 @@ pub fn chat_specialized_domain_policy(
                 "The structured choice surface outranks generic prose because the turn is about collecting a bounded decision.",
             fallback_source_rationale:
                 "Conversation context remains supporting evidence, but the decision surface stays primary until options are clarified.",
-            missing_slot_fallback_reason:
+            missing_slot_degradation_reason:
                 "structured input execution is blocked until the option set is explicit",
         },
     }

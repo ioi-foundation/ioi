@@ -118,14 +118,14 @@ fn synthesize_prepared_context_with_runtime_plan(
         Ok(Ok(brief)) => brief,
         Ok(Err(error)) => {
             chat_proof_trace(format!(
-                "materialize_non_workspace:brief_fallback reason={} renderer={:?}",
+                "materialize_chat_artifact:brief_fallback reason={} renderer={:?}",
                 error, request.renderer
             ));
             derive_request_grounded_chat_artifact_brief(title, intent, request, refinement)
         }
         Err(_) => {
             chat_proof_trace(format!(
-                "materialize_non_workspace:brief_fallback reason=timeout renderer={:?}",
+                "materialize_chat_artifact:brief_fallback reason=timeout renderer={:?}",
                 request.renderer
             ));
             derive_request_grounded_chat_artifact_brief(title, intent, request, refinement)
@@ -186,7 +186,7 @@ pub(super) fn select_workspace_recipe(request: &ChatOutcomeArtifactRequest) -> C
     }
 }
 
-pub(super) fn materialize_non_workspace_artifact_with_execution_strategy_and_progress_observer(
+pub(super) fn materialize_chat_artifact_with_execution_strategy_and_progress_observer(
     app: &AppHandle,
     thread_id: &str,
     title: &str,
@@ -288,7 +288,7 @@ pub(super) fn materialize_non_workspace_artifact_with_execution_strategy_and_pro
         }
     };
 
-    materialize_non_workspace_artifact_with_dependencies_and_execution_strategy_and_optional_progress(
+    materialize_chat_artifact_with_dependencies_and_execution_strategy_and_optional_progress(
         &memory_runtime,
         inference_runtime,
         acceptance_inference_runtime,
@@ -304,7 +304,7 @@ pub(super) fn materialize_non_workspace_artifact_with_execution_strategy_and_pro
     )
 }
 
-pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_execution_strategy(
+pub(super) fn materialize_chat_artifact_with_dependencies_and_execution_strategy(
     memory_runtime: &Arc<MemoryRuntime>,
     inference_runtime: Option<Arc<dyn InferenceRuntime>>,
     acceptance_inference_runtime: Option<Arc<dyn InferenceRuntime>>,
@@ -316,7 +316,7 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_execution
     planning_context: Option<ChatArtifactPlanningContext>,
     execution_strategy: ChatExecutionStrategy,
 ) -> Result<MaterializedContentArtifact, String> {
-    materialize_non_workspace_artifact_with_dependencies_and_execution_strategy_and_progress_observer(
+    materialize_chat_artifact_with_dependencies_and_execution_strategy_and_progress_observer(
         memory_runtime,
         inference_runtime,
         acceptance_inference_runtime,
@@ -332,7 +332,7 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_execution
     )
 }
 
-fn materialize_non_workspace_artifact_with_dependencies_and_execution_strategy_and_optional_progress(
+fn materialize_chat_artifact_with_dependencies_and_execution_strategy_and_optional_progress(
     memory_runtime: &Arc<MemoryRuntime>,
     inference_runtime: Option<Arc<dyn InferenceRuntime>>,
     acceptance_inference_runtime: Option<Arc<dyn InferenceRuntime>>,
@@ -346,7 +346,7 @@ fn materialize_non_workspace_artifact_with_dependencies_and_execution_strategy_a
     execution_strategy: ChatExecutionStrategy,
     progress_observer: Option<ChatArtifactGenerationProgressObserver>,
 ) -> Result<MaterializedContentArtifact, String> {
-    materialize_non_workspace_artifact_with_dependencies_and_execution_strategy_and_progress_observer(
+    materialize_chat_artifact_with_dependencies_and_execution_strategy_and_progress_observer(
         memory_runtime,
         inference_runtime,
         acceptance_inference_runtime,
@@ -362,7 +362,7 @@ fn materialize_non_workspace_artifact_with_dependencies_and_execution_strategy_a
     )
 }
 
-pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_execution_strategy_and_progress_observer(
+pub(super) fn materialize_chat_artifact_with_dependencies_and_execution_strategy_and_progress_observer(
     memory_runtime: &Arc<MemoryRuntime>,
     inference_runtime: Option<Arc<dyn InferenceRuntime>>,
     acceptance_inference_runtime: Option<Arc<dyn InferenceRuntime>>,
@@ -387,7 +387,7 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_execution
             )
         })
         .unwrap_or_else(|| Duration::from_secs(120));
-    materialize_non_workspace_artifact_with_dependencies_and_timeout_and_execution_strategy(
+    materialize_chat_artifact_with_dependencies_and_timeout_and_execution_strategy(
         memory_runtime,
         inference_runtime,
         acceptance_inference_runtime,
@@ -543,7 +543,7 @@ where
     }
 }
 
-pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_and_execution_strategy(
+pub(super) fn materialize_chat_artifact_with_dependencies_and_timeout_and_execution_strategy(
     memory_runtime: &Arc<MemoryRuntime>,
     inference_runtime: Option<Arc<dyn InferenceRuntime>>,
     acceptance_inference_runtime: Option<Arc<dyn InferenceRuntime>>,
@@ -558,7 +558,7 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
     execution_strategy: ChatExecutionStrategy,
     progress_observer: Option<ChatArtifactGenerationProgressObserver>,
 ) -> Result<MaterializedContentArtifact, String> {
-    materialize_non_workspace_artifact_with_dependencies_and_timeout_and_execution_strategy_and_render_evaluator(
+    materialize_chat_artifact_with_dependencies_and_timeout_and_execution_strategy_and_render_evaluator(
         memory_runtime,
         inference_runtime,
         acceptance_inference_runtime,
@@ -576,7 +576,7 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
     )
 }
 
-pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_and_execution_strategy_and_render_evaluator(
+pub(super) fn materialize_chat_artifact_with_dependencies_and_timeout_and_execution_strategy_and_render_evaluator(
     memory_runtime: &Arc<MemoryRuntime>,
     inference_runtime: Option<Arc<dyn InferenceRuntime>>,
     acceptance_inference_runtime: Option<Arc<dyn InferenceRuntime>>,
@@ -593,7 +593,7 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
     render_evaluator_override: Option<&dyn ChatArtifactRenderEvaluator>,
 ) -> Result<MaterializedContentArtifact, String> {
     chat_proof_trace(format!(
-        "materialize_non_workspace:start renderer={} strategy={:?} title={}",
+        "materialize_chat_artifact:start renderer={} strategy={:?} title={}",
         renderer_kind_id(request.renderer),
         execution_strategy,
         title
@@ -788,13 +788,13 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
                         });
                     }
                     chat_proof_trace(format!(
-                        "materialize_non_workspace:bundle_ready winner={} lifecycle={:?} fallback_used={}",
+                        "materialize_chat_artifact:bundle_ready winner={} lifecycle={:?} degraded_path_used={}",
                         bundle
                             .winning_candidate_id
                             .clone()
                             .unwrap_or_else(|| "swarm-merged".to_string()),
                         bundle.ux_lifecycle,
-                        bundle.fallback_used
+                        bundle.degraded_path_used
                     ));
                     bundle
                 }
@@ -804,7 +804,7 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
                         .ok()
                         .and_then(|snapshot| snapshot.clone());
                     chat_proof_trace(format!(
-                        "materialize_non_workspace:bundle_blocked {}",
+                        "materialize_chat_artifact:bundle_blocked {}",
                         error.message
                     ));
                     if execution_strategy == ChatExecutionStrategy::DirectAuthor
@@ -896,7 +896,7 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
                             });
                         }
                         let mut replanned =
-                            materialize_non_workspace_artifact_with_dependencies_and_execution_strategy_and_progress_observer(
+                            materialize_chat_artifact_with_dependencies_and_execution_strategy_and_progress_observer(
                             memory_runtime,
                             Some(generation_runtime),
                             Some(acceptance_runtime),
@@ -959,7 +959,7 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
                         }
                     );
                     chat_proof_trace(format!(
-                        "materialize_non_workspace:bundle_timeout {}",
+                        "materialize_chat_artifact:bundle_timeout {}",
                         message
                     ));
                     let last_progress = last_progress_snapshot
@@ -1059,7 +1059,7 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
                             });
                         }
                         let mut replanned =
-                            materialize_non_workspace_artifact_with_dependencies_and_execution_strategy_and_progress_observer(
+                            materialize_chat_artifact_with_dependencies_and_execution_strategy_and_progress_observer(
                             memory_runtime,
                             Some(generation_runtime),
                             Some(acceptance_runtime),
@@ -1188,7 +1188,7 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
         .unwrap_or_default();
     let generated = bundle.winner.clone();
     let output_origin = bundle.origin;
-    let fallback_used = bundle.fallback_used;
+    let degraded_path_used = bundle.degraded_path_used;
 
     let mut artifacts = Vec::new();
     let mut files = Vec::new();
@@ -1197,7 +1197,7 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
 
     for generated_file in generated.files.clone() {
         chat_proof_trace(format!(
-            "materialize_non_workspace:file {} mime={} renderable={} bytes={}",
+            "materialize_chat_artifact:file {} mime={} renderable={} bytes={}",
             generated_file.path,
             generated_file.mime,
             generated_file.renderable,
@@ -1237,7 +1237,7 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
     }
 
     chat_proof_trace(format!(
-        "materialize_non_workspace:files_persisted count={}",
+        "materialize_chat_artifact:files_persisted count={}",
         files.len()
     ));
     let quality_assessment = finalize_presentation_assessment(
@@ -1245,11 +1245,11 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
         assess_materialized_artifact_presentation(request, &quality_files),
         &bundle.validation,
         bundle.render_evaluation.as_ref(),
-        fallback_used,
+        degraded_path_used,
         bundle.ux_lifecycle == ChatArtifactUxLifecycle::Draft,
     );
     chat_proof_trace(format!(
-        "materialize_non_workspace:quality lifecycle={:?} summary={}",
+        "materialize_chat_artifact:quality lifecycle={:?} summary={}",
         quality_assessment.lifecycle_state, quality_assessment.summary
     ));
 
@@ -1287,7 +1287,7 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
         ));
     }
 
-    chat_proof_trace("materialize_non_workspace:return");
+    chat_proof_trace("materialize_chat_artifact:return");
     Ok(MaterializedContentArtifact {
         artifacts,
         files,
@@ -1318,8 +1318,8 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
         output_origin,
         production_provenance: Some(bundle.production_provenance),
         acceptance_provenance: Some(bundle.acceptance_provenance),
-        fallback_used,
-        ux_lifecycle: if fallback_used {
+        degraded_path_used,
+        ux_lifecycle: if degraded_path_used {
             ChatArtifactUxLifecycle::Draft
         } else if bundle_edit_intent
             .as_ref()
@@ -1525,7 +1525,7 @@ pub(super) fn blocked_materialized_artifact_from_error(
         output_origin: output_origin_from_runtime_provenance(&production_provenance),
         production_provenance: Some(production_provenance),
         acceptance_provenance: Some(acceptance_provenance),
-        fallback_used: false,
+        degraded_path_used: false,
         ux_lifecycle: ChatArtifactUxLifecycle::Draft,
         failure: Some(failure),
         taste_memory: refinement.and_then(|context| context.taste_memory.clone()),

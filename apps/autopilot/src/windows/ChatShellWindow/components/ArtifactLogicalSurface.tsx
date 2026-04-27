@@ -18,6 +18,7 @@ import {
   displayArtifactClassLabel,
   displayRendererLabel,
   formatStatusLabel,
+  productArtifactSummary,
   type LogicalArtifactSurfaceProps,
 } from "./artifactSurfaceShared";
 import {
@@ -121,11 +122,14 @@ export function ArtifactLogicalSurface({
     preview: NonNullable<typeof livePreview>,
   ) =>
     `${preview.label}. ${formatChatExecutionPreviewPhase(preview)}.`;
-  const isNonArtifactRoute = chatSession.outcomeRequest.outcomeKind !== "artifact";
-  const routeLabel = formatStatusLabel(chatSession.outcomeRequest.outcomeKind);
-  const routeHints = (chatSession.outcomeRequest.routingHints ?? []).slice(0, 4);
-  const showRouteSummary = isNonArtifactRoute && manifest.files.length === 0;
+  const isInlineAnswerRoute = chatSession.outcomeRequest.outcomeKind !== "artifact";
+  const showRouteSummary = isInlineAnswerRoute && manifest.files.length === 0;
   const showZeroFileArtifactStage = !showRouteSummary && manifest.files.length === 0;
+  const artifactSummary = productArtifactSummary(
+    manifest.title,
+    chatSession.verifiedReply.summary,
+    manifest.verification.summary,
+  );
 
   useEffect(() => {
     setStageMode(resolveInitialStageMode(manifest, rendererSession));
@@ -239,8 +243,8 @@ export function ArtifactLogicalSurface({
       <aside className="chat-artifact-sidebar chat-artifact-sidebar--explorer">
         {showRouteSummary ? (
           <div className="chat-artifact-renderer-empty">
-            <strong>{routeLabel} stays primary</strong>
-            <p>{chatSession.verifiedReply.summary}</p>
+            <strong>Response stays in chat</strong>
+            <p>{artifactSummary}</p>
           </div>
         ) : showZeroFileArtifactStage ? (
           <div className="chat-artifact-renderer-empty">
@@ -251,7 +255,7 @@ export function ArtifactLogicalSurface({
                   ? "Artifact build failed before the first file landed."
                   : "Artifact files are still materializing."}
             </strong>
-            <p>{manifest.verification.summary || chatSession.verifiedReply.summary}</p>
+            <p>{artifactSummary}</p>
           </div>
         ) : (
           <WorkspaceExplorerPane
@@ -284,21 +288,14 @@ export function ArtifactLogicalSurface({
         <div className="chat-artifact-sidebar-footer">
           <span className="chat-artifact-badge">
             {showRouteSummary
-              ? routeLabel
+              ? "Response"
               : `${manifest.files.length} ${manifest.files.length === 1 ? "file" : "files"}`}
           </span>
           <span className="chat-artifact-badge is-muted">
             {showRouteSummary
-              ? formatStatusLabel(chatSession.outcomeRequest.executionStrategy)
+              ? formatStatusLabel(chatSession.verifiedReply.status)
               : displayArtifactClassLabel(manifest.artifactClass)}
           </span>
-          {showRouteSummary
-            ? routeHints.map((hint) => (
-                <span key={hint} className="chat-artifact-badge is-muted">
-                  {hint}
-                </span>
-              ))
-            : null}
         </div>
       </aside>
 
@@ -306,7 +303,7 @@ export function ArtifactLogicalSurface({
         <ArtifactStageHeader
           manifest={manifest}
           title={stageTitle}
-          stageKicker={showRouteSummary ? `${routeLabel} route` : undefined}
+          stageKicker={showRouteSummary ? "Response" : undefined}
           activePath={stageMode === "source" ? selectedSourceFile?.path ?? null : renderFile?.path ?? null}
           copyText={headerCopyText}
           copyPath={activeStageFile?.path ?? null}
@@ -337,11 +334,8 @@ export function ArtifactLogicalSurface({
             {showRouteSummary ? (
               <section className="chat-artifact-renderer-shell">
                 <div className="chat-artifact-renderer-empty">
-                  <strong>{routeLabel} route verified</strong>
-                  <p>{chatSession.verifiedReply.summary}</p>
-                  {routeHints.length ? (
-                    <p>{routeHints.join(" · ")}</p>
-                  ) : null}
+                  <strong>Response ready</strong>
+                  <p>{artifactSummary}</p>
                   {chatSession.materialization.swarmExecution ? (
                     <p>
                       {chatSession.materialization.swarmExecution.completedWorkItems}/
@@ -361,7 +355,7 @@ export function ArtifactLogicalSurface({
                         ? "Artifact build failed before the first renderable file landed."
                         : "Building the first renderable artifact files…"}
                   </strong>
-                <p>{manifest.verification.summary || chatSession.verifiedReply.summary}</p>
+                <p>{artifactSummary}</p>
                 {chatSession.materialization.swarmExecution ? (
                   <p>
                     {chatSession.materialization.swarmExecution.completedWorkItems}/

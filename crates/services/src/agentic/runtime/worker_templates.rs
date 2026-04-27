@@ -239,7 +239,7 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
             label: "Verification Worker".to_string(),
             role: "Verification Worker".to_string(),
             summary:
-                "Bounded child worker for checking postconditions, validating outputs, and reporting deterministic gaps."
+                "Bounded child worker for checking success_conditions, validating outputs, and reporting deterministic gaps."
                     .to_string(),
             default_budget: 80,
             max_retries: 1,

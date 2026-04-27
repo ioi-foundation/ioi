@@ -1,4 +1,4 @@
-use super::content_session::attach_non_artifact_chat_session;
+use super::content_session::attach_inline_answer_chat_session;
 use super::revisions::persist_chat_artifact_exemplar;
 use super::workspace_build::run_build_supervisor_for_proof;
 use super::*;
@@ -111,7 +111,7 @@ pub(crate) fn run_chat_current_task_turn_for_proof_with_route_timeout(
     }
 
     if outcome_request.outcome_kind != ChatOutcomeKind::Artifact {
-        attach_non_artifact_chat_session(task, intent, runtime_provenance, &outcome_request);
+        attach_inline_answer_chat_session(task, intent, runtime_provenance, &outcome_request);
         apply_chat_authoritative_status(task, None);
         return Ok(());
     }
@@ -234,23 +234,18 @@ fn prepare_task_for_chat_with_request_for_proof(
     let mut swarm_change_receipts = Vec::<ChatArtifactPatchReceipt>::new();
     let mut swarm_merge_receipts = Vec::<ChatArtifactMergeReceipt>::new();
     let mut swarm_verification_receipts = Vec::<ChatArtifactVerificationReceipt>::new();
-    let mut render_evaluation: Option<ioi_api::runtime_harness::ArtifactRenderEvaluation> = None;
+    let mut render_evaluation: Option<ChatArtifactRenderEvaluation> = None;
     let mut validation: Option<ChatArtifactValidationResult> = None;
     let mut output_origin: Option<ChatArtifactOutputOrigin> = None;
     let mut production_provenance: Option<crate::models::ChatRuntimeProvenance> = None;
     let mut acceptance_provenance: Option<crate::models::ChatRuntimeProvenance> = None;
-    let mut fallback_used = false;
+    let mut degraded_path_used = false;
     let mut ux_lifecycle: Option<ChatArtifactUxLifecycle> = None;
     let mut failure: Option<crate::models::ChatArtifactFailure> = None;
     let mut taste_memory: Option<ChatArtifactTasteMemory> = None;
-    let mut preparation_needs: Option<ioi_api::runtime_harness::ChatArtifactPreparationNeeds> =
-        None;
-    let mut prepared_context_resolution: Option<
-        ioi_api::runtime_harness::ChatArtifactPreparedContextResolution,
-    > = None;
-    let mut skill_discovery_resolution: Option<
-        ioi_api::runtime_harness::ChatArtifactSkillDiscoveryResolution,
-    > = None;
+    let mut preparation_needs: Option<ChatArtifactPreparationNeeds> = None;
+    let mut prepared_context_resolution: Option<ChatArtifactPreparedContextResolution> = None;
+    let mut skill_discovery_resolution: Option<ChatArtifactSkillDiscoveryResolution> = None;
     let mut retrieved_exemplars = Vec::<ChatArtifactExemplar>::new();
     let mut selected_targets = Vec::<ChatArtifactSelectionTarget>::new();
 
@@ -369,7 +364,7 @@ fn prepare_task_for_chat_with_request_for_proof(
 
     if build_session.is_none() {
         let materialized_artifact =
-            materialize_non_workspace_artifact_with_dependencies_and_execution_strategy(
+            materialize_chat_artifact_with_dependencies_and_execution_strategy(
                 memory_runtime,
                 Some(inference_runtime),
                 Some(acceptance_inference_runtime),
@@ -404,7 +399,7 @@ fn prepare_task_for_chat_with_request_for_proof(
         output_origin = Some(materialized_artifact.output_origin);
         production_provenance = materialized_artifact.production_provenance.clone();
         acceptance_provenance = materialized_artifact.acceptance_provenance.clone();
-        fallback_used = materialized_artifact.fallback_used;
+        degraded_path_used = materialized_artifact.degraded_path_used;
         ux_lifecycle = Some(materialized_artifact.ux_lifecycle);
         failure = materialized_artifact.failure.clone();
         taste_memory = materialized_artifact.taste_memory.clone();
@@ -490,7 +485,7 @@ fn prepare_task_for_chat_with_request_for_proof(
     materialization.output_origin = output_origin;
     materialization.production_provenance = production_provenance.clone();
     materialization.acceptance_provenance = acceptance_provenance.clone();
-    materialization.fallback_used = fallback_used;
+    materialization.degraded_path_used = degraded_path_used;
     materialization.ux_lifecycle = ux_lifecycle;
     materialization.failure = failure.clone();
     materialization.retrieved_exemplars = retrieved_exemplars.clone();
@@ -613,7 +608,7 @@ fn refine_current_non_workspace_artifact_turn_for_proof(
     let refinement = chat_refinement_context_for_session(memory_runtime, &chat_session);
     let thread_id = task.session_id.clone().unwrap_or_else(|| task.id.clone());
     let mut materialized_artifact =
-        materialize_non_workspace_artifact_with_dependencies_and_execution_strategy(
+        materialize_chat_artifact_with_dependencies_and_execution_strategy(
             memory_runtime,
             Some(inference_runtime.clone()),
             Some(acceptance_inference_runtime.clone()),

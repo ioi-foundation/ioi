@@ -166,12 +166,14 @@ pub fn merge_chat_artifact_render_evaluation_into_validation(
                             | ChatArtifactAcceptanceObligationStatus::Blocked
                     )
             });
-    let render_clears_primary_view = render_evaluation.first_paint_captured
+    let required_runtime_contract_cleared = render_evaluation.first_paint_captured
         && blocked_render_finding.is_none()
         && !render_evaluation.has_failed_required_obligations()
+        && render_evaluation.overall_score > render_evaluation.blocked_score_threshold();
+    let visual_primary_threshold_cleared = required_runtime_contract_cleared
         && render_evaluation.overall_score >= render_evaluation.primary_view_score_threshold();
 
-    if !render_clears_primary_view {
+    if !required_runtime_contract_cleared {
         validation.deserves_primary_artifact_view = false;
     }
 
@@ -290,10 +292,7 @@ pub fn merge_chat_artifact_render_evaluation_into_validation(
     } else if warning_count > 0
         || render_evaluation.overall_score < render_evaluation.primary_view_score_threshold()
     {
-        let warning_only_primary_ready = warning_count > 0
-            && render_evaluation.overall_score >= render_evaluation.primary_view_score_threshold()
-            && !render_evaluation.has_failed_required_obligations()
-            && blocked_render_finding.is_none();
+        let warning_only_primary_ready = warning_count > 0 && required_runtime_contract_cleared;
         if !warning_only_primary_ready
             && validation.classification == ChatArtifactValidationStatus::Pass
         {
@@ -305,10 +304,14 @@ pub fn merge_chat_artifact_render_evaluation_into_validation(
                 &mut validation,
                 render_evaluation,
             );
+            if validation.classification == ChatArtifactValidationStatus::Repairable
+                && validation.deserves_primary_artifact_view
+            {
+                validation.classification = ChatArtifactValidationStatus::Pass;
+            }
             validation.deserves_primary_artifact_view = true;
         } else {
-            validation.deserves_primary_artifact_view &=
-                render_evaluation.overall_score >= render_evaluation.primary_view_score_threshold();
+            validation.deserves_primary_artifact_view &= visual_primary_threshold_cleared;
         }
         if !validation
             .issue_classes
@@ -330,10 +333,11 @@ pub fn merge_chat_artifact_render_evaluation_into_validation(
                 .map(|finding| finding.summary.clone())
                 .or_else(|| Some(render_evaluation.summary.clone()));
         }
-        if !validation
-            .truthfulness_warnings
-            .iter()
-            .any(|value| value == &render_evaluation.summary)
+        if !warning_only_primary_ready
+            && !validation
+                .truthfulness_warnings
+                .iter()
+                .any(|value| value == &render_evaluation.summary)
         {
             validation
                 .truthfulness_warnings

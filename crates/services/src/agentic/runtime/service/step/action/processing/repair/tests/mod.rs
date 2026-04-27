@@ -13,8 +13,8 @@ use super::{
 };
 use crate::agentic::runtime::keys::get_state_key;
 use crate::agentic::runtime::service::lifecycle::persist_worker_assignment;
-use crate::agentic::runtime::service::step::action::mark_execution_receipt_with_value;
 use crate::agentic::runtime::service::step::action::processing::maybe_rewrite_patch_build_verify_post_command_edit;
+use crate::agentic::runtime::service::step::action::record_execution_evidence_with_value;
 use crate::agentic::runtime::service::RuntimeAgentService;
 use crate::agentic::runtime::types::{
     AgentMode, AgentState, AgentStatus, CommandExecution, ExecutionTier, ToolCallStatus,
@@ -250,6 +250,7 @@ fn build_worker_state(session_id: [u8; 32]) -> AgentState {
         execution_queue: Vec::new(),
         active_skill_hash: None,
         tool_execution_log: BTreeMap::new(),
+        execution_ledger: Default::default(),
         visual_som_map: None,
         visual_semantic_map: None,
         swarm_context: None,
@@ -327,11 +328,11 @@ fn resolved(scope: IntentScopeProfile) -> ResolvedIntentState {
         score: 0.92,
         top_k: vec![],
         required_capabilities: vec![],
-        required_receipts: vec![],
-        required_postconditions: vec![],
+        required_evidence: vec![],
+        success_conditions: vec![],
         risk_class: "low".to_string(),
         preferred_tier: "tool_first".to_string(),
-        matrix_version: "v1".to_string(),
+        intent_catalog_version: "v1".to_string(),
         embedding_model_id: "test".to_string(),
         embedding_model_version: "test".to_string(),
         similarity_function_id: "cosine".to_string(),
@@ -339,8 +340,8 @@ fn resolved(scope: IntentScopeProfile) -> ResolvedIntentState {
         tool_registry_hash: [0u8; 32],
         capability_ontology_hash: [0u8; 32],
         query_normalization_version: "v1".to_string(),
-        matrix_source_hash: [0u8; 32],
-        receipt_hash: [0u8; 32],
+        intent_catalog_source_hash: [0u8; 32],
+        evidence_requirements_hash: [0u8; 32],
         provider_selection: None,
         instruction_contract: None,
         constrained: false,

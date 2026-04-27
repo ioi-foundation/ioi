@@ -884,7 +884,7 @@ async fn patch_build_verify_invalid_tool_repair_synthesizes_refresh_read_after_p
     let mut worker_state = build_worker_state(session_id);
     worker_state.working_directory = repo.path().to_string_lossy().to_string();
     record_targeted_check_failure(&mut worker_state);
-    mark_execution_receipt_with_value(
+    record_execution_evidence_with_value(
         &mut worker_state.tool_execution_log,
         "workspace_patch_miss_observed",
         "step=7;tool=filesystem__patch;path=path_utils.py;reason=search_block_not_found"

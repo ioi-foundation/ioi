@@ -4,7 +4,7 @@ use super::{
     BROWSER_SNAPSHOT_CONTENT_STEP_RECEIPT,
 };
 use crate::agentic::runtime::service::step::action::support::{
-    execution_receipt_value, receipt_marker,
+    execution_evidence_key, execution_evidence_value,
 };
 use crate::agentic::runtime::service::step::anti_loop::FailureClass;
 use crate::agentic::runtime::types::{AgentMode, AgentState, AgentStatus, ExecutionTier};
@@ -40,6 +40,7 @@ fn test_agent_state() -> AgentState {
         planner_state: None,
         active_skill_hash: None,
         tool_execution_log: BTreeMap::new(),
+        execution_ledger: Default::default(),
         visual_som_map: None,
         visual_semantic_map: None,
         swarm_context: None,
@@ -129,9 +130,11 @@ fn unchanged_immediate_browser_snapshot_becomes_no_effect_failure() {
     assert!(error_msg.is_none());
     assert!(state
         .tool_execution_log
-        .contains_key(&receipt_marker(BROWSER_SNAPSHOT_CONTENT_HASH_RECEIPT)));
+        .contains_key(&execution_evidence_key(
+            BROWSER_SNAPSHOT_CONTENT_HASH_RECEIPT
+        )));
     assert_eq!(
-        execution_receipt_value(
+        execution_evidence_value(
             &state.tool_execution_log,
             BROWSER_SNAPSHOT_CONTENT_STEP_RECEIPT
         ),

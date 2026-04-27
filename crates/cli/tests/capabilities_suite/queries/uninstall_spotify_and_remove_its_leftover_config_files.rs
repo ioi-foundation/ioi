@@ -33,7 +33,7 @@ pub fn case() -> QueryCase {
             "Do not mutate paths outside the fixture HOME. ",
             "No additional command-exec invocations are allowed after that single command."
         ),
-        success_definition: "Complete Spotify uninstall and leftover config removal in the isolated fixture environment using command-exec tooling, with CEC discovery/provider/execution/verification/completion receipts, runtime environment receipts, and deterministic cleanup evidence.",
+        success_definition: "Complete Spotify uninstall and leftover config removal in the isolated fixture environment using command-exec tooling, with CEC discovery/provider/execution/verification/completion evidence, runtime environment evidence, and deterministic cleanup evidence.",
         seeded_intent_id: "command.exec",
         intent_scope: IntentScopeProfile::CommandExecution,
         seed_resolved_intent: true,
@@ -50,26 +50,27 @@ pub fn case() -> QueryCase {
 
 fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let fixture_mode =
-        verification_value(obs, "env_receipt::spotify_uninstall_fixture_mode").unwrap_or_default();
+        verification_value(obs, "env_evidence::spotify_uninstall_fixture_mode").unwrap_or_default();
     let fixture_probe_source =
-        verification_value(obs, "env_receipt::spotify_uninstall_fixture_probe_source")
+        verification_value(obs, "env_evidence::spotify_uninstall_fixture_probe_source")
             .unwrap_or_default();
     let fixture_timestamp_ms =
-        verification_u64(obs, "env_receipt::spotify_uninstall_fixture_timestamp_ms")
+        verification_u64(obs, "env_evidence::spotify_uninstall_fixture_timestamp_ms")
             .unwrap_or(obs.run_timestamp_ms);
     let fixture_satisfied =
-        verification_bool(obs, "env_receipt::spotify_uninstall_fixture_satisfied").unwrap_or(false);
+        verification_bool(obs, "env_evidence::spotify_uninstall_fixture_satisfied")
+            .unwrap_or(false);
 
     let provider =
-        verification_value(obs, "env_receipt::spotify_uninstall_provider").unwrap_or_default();
+        verification_value(obs, "env_evidence::spotify_uninstall_provider").unwrap_or_default();
     let provider_probe_source =
-        verification_value(obs, "env_receipt::spotify_uninstall_provider_probe_source")
+        verification_value(obs, "env_evidence::spotify_uninstall_provider_probe_source")
             .unwrap_or_default();
     let provider_timestamp_ms =
-        verification_u64(obs, "env_receipt::spotify_uninstall_provider_timestamp_ms")
+        verification_u64(obs, "env_evidence::spotify_uninstall_provider_timestamp_ms")
             .unwrap_or(obs.run_timestamp_ms);
     let provider_receipt_satisfied =
-        verification_bool(obs, "env_receipt::spotify_uninstall_provider_satisfied")
+        verification_bool(obs, "env_evidence::spotify_uninstall_provider_satisfied")
             .unwrap_or(false);
     let provider_allowed = EXPECTED_PROVIDER_IDS
         .iter()
@@ -77,31 +78,31 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let provider_satisfied = provider_allowed && provider_receipt_satisfied;
 
     let install_marker_path =
-        verification_value(obs, "env_receipt::spotify_uninstall_install_marker_path")
+        verification_value(obs, "env_evidence::spotify_uninstall_install_marker_path")
             .unwrap_or_default();
     let install_marker_removed_satisfied = verification_bool(
         obs,
-        "env_receipt::spotify_uninstall_install_marker_removed_satisfied",
+        "env_evidence::spotify_uninstall_install_marker_removed_satisfied",
     )
     .unwrap_or(false);
 
     let binary_path =
-        verification_value(obs, "env_receipt::spotify_uninstall_binary_path").unwrap_or_default();
+        verification_value(obs, "env_evidence::spotify_uninstall_binary_path").unwrap_or_default();
     let binary_absent_satisfied = verification_bool(
         obs,
-        "env_receipt::spotify_uninstall_binary_absent_satisfied",
+        "env_evidence::spotify_uninstall_binary_absent_satisfied",
     )
     .unwrap_or(false);
 
     let config_paths_csv =
-        verification_value(obs, "env_receipt::spotify_uninstall_config_paths").unwrap_or_default();
+        verification_value(obs, "env_evidence::spotify_uninstall_config_paths").unwrap_or_default();
     let config_paths_removed_satisfied = verification_bool(
         obs,
-        "env_receipt::spotify_uninstall_config_paths_removed_satisfied",
+        "env_evidence::spotify_uninstall_config_paths_removed_satisfied",
     )
     .unwrap_or(false);
     let fixture_home_dir =
-        verification_value(obs, "env_receipt::spotify_uninstall_fixture_home_dir")
+        verification_value(obs, "env_evidence::spotify_uninstall_fixture_home_dir")
             .unwrap_or_default();
     let config_paths = config_paths_csv
         .split(',')
@@ -115,16 +116,17 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             .all(|path| path.starts_with(fixture_home_dir.as_str()));
 
     let scope_satisfied =
-        verification_bool(obs, "env_receipt::spotify_uninstall_scope_satisfied").unwrap_or(false);
+        verification_bool(obs, "env_evidence::spotify_uninstall_scope_satisfied").unwrap_or(false);
 
     let cleanup_probe_source =
-        verification_value(obs, "env_receipt::spotify_uninstall_cleanup_probe_source")
+        verification_value(obs, "env_evidence::spotify_uninstall_cleanup_probe_source")
             .unwrap_or_default();
     let cleanup_timestamp_ms =
-        verification_u64(obs, "env_receipt::spotify_uninstall_cleanup_timestamp_ms")
+        verification_u64(obs, "env_evidence::spotify_uninstall_cleanup_timestamp_ms")
             .unwrap_or(obs.run_timestamp_ms);
     let cleanup_satisfied =
-        verification_bool(obs, "env_receipt::spotify_uninstall_cleanup_satisfied").unwrap_or(false);
+        verification_bool(obs, "env_evidence::spotify_uninstall_cleanup_satisfied")
+            .unwrap_or(false);
 
     let exec_action_success_count = obs
         .action_evidence
@@ -342,6 +344,6 @@ fn is_exec_action_success(entry: &super::super::types::ActionEvidence) -> bool {
         && !action_has_hard_error_class(entry)
 }
 
-fn serialize_environment_receipts(receipts: &[EnvironmentEvidenceReceipt]) -> String {
-    serde_json::to_string(receipts).unwrap_or_else(|_| "[]".to_string())
+fn serialize_environment_receipts(evidence: &[EnvironmentEvidenceReceipt]) -> String {
+    serde_json::to_string(evidence).unwrap_or_else(|_| "[]".to_string())
 }

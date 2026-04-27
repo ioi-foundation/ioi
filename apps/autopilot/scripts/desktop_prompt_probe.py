@@ -46,7 +46,8 @@ NEW_OUTCOME_Y = 150
 COMPOSER_X_RATIO = 0.38
 COMPOSER_MIN_X = 240
 COMPOSER_MIN_Y = 180
-COMPOSER_BOTTOM_OFFSET = 145
+COMPOSER_BOTTOM_OFFSET = 75
+ZERO_STATE_COMPOSER_BOTTOM_OFFSET = 225
 COMPOSER_SIDE_MARGIN = 220
 POLL_INTERVAL_SECS = 1.0
 POST_SETTLE_CAPTURE_DELAY_SECS = 2.0
@@ -155,11 +156,12 @@ def click(window: WindowGeometry, rel_x: int, rel_y: int) -> None:
     time.sleep(0.2)
 
 
-def composer_point(window: WindowGeometry) -> tuple[int, int]:
+def composer_point(window: WindowGeometry, *, zero_state: bool = False) -> tuple[int, int]:
     rel_x = int(window.width * COMPOSER_X_RATIO)
-    rel_y = window.height - COMPOSER_BOTTOM_OFFSET
+    bottom_offset = ZERO_STATE_COMPOSER_BOTTOM_OFFSET if zero_state else COMPOSER_BOTTOM_OFFSET
+    rel_y = window.height - bottom_offset
     rel_x = max(COMPOSER_MIN_X, min(window.width - COMPOSER_SIDE_MARGIN, rel_x))
-    rel_y = max(COMPOSER_MIN_Y, min(window.height - COMPOSER_BOTTOM_OFFSET, rel_y))
+    rel_y = max(COMPOSER_MIN_Y, min(window.height - bottom_offset, rel_y))
     return rel_x, rel_y
 
 
@@ -303,6 +305,10 @@ def load_checkpoint_from_candidates(
     return None
 
 
+def latest_task(db_paths: list[Path]) -> dict[str, Any] | None:
+    return load_checkpoint_from_candidates(db_paths, "autopilot.local_task.v1")
+
+
 def task_matches_prompt(task: dict[str, Any], prompt: str) -> bool:
     intent = (task.get("intent") or "").strip()
     normalized_prompt = prompt.strip()
@@ -313,8 +319,41 @@ def task_matches_prompt(task: dict[str, Any], prompt: str) -> bool:
     return normalized_prompt in intent
 
 
+def task_history_contains_prompt(task: dict[str, Any] | None, prompt: str) -> bool:
+    if not task:
+        return False
+    normalized_prompt = prompt.strip()
+    if not normalized_prompt:
+        return False
+    for item in reversed(task.get("history", [])):
+        if item.get("role") != "user":
+            continue
+        text = (item.get("text") or "").strip()
+        if text == normalized_prompt or normalized_prompt in text:
+            return True
+    return False
+
+
+def prompt_has_agent_reply(task: dict[str, Any] | None, prompt: str) -> bool:
+    if not task:
+        return False
+    normalized_prompt = prompt.strip()
+    if not normalized_prompt:
+        return False
+    seen_prompt = False
+    for item in task.get("history", []):
+        role = item.get("role")
+        text = (item.get("text") or "").strip()
+        if role == "user" and (text == normalized_prompt or normalized_prompt in text):
+            seen_prompt = True
+            continue
+        if seen_prompt and role == "agent" and text:
+            return True
+    return False
+
+
 def latest_task_for_prompt(db_paths: list[Path], prompt: str) -> dict[str, Any] | None:
-    task = load_checkpoint_from_candidates(db_paths, "autopilot.local_task.v1")
+    task = latest_task(db_paths)
     if not task:
         return None
     if not task_matches_prompt(task, prompt):
@@ -465,6 +504,8 @@ def wait_for_prompt_start(
     prompt: str,
     *,
     timeout_secs: float,
+    baseline_task: dict[str, Any] | None = None,
+    reuse_session: bool = False,
 ) -> dict[str, Any] | None:
     deadline = time.time() + timeout_secs
 
@@ -472,8 +513,33 @@ def wait_for_prompt_start(
         task = latest_task_for_prompt(db_paths, prompt)
         if task:
             return task
+        if reuse_session:
+            task = latest_task(db_paths)
+            if task_history_contains_prompt(task, prompt) or operator_run_changed(
+                task, baseline_task
+            ):
+                return task
         time.sleep(POLL_INTERVAL_SECS)
 
+    return None
+
+
+def latest_task_for_wait(
+    db_paths: list[Path],
+    prompt: str,
+    *,
+    baseline_task: dict[str, Any] | None = None,
+    reuse_session: bool = False,
+) -> dict[str, Any] | None:
+    task = latest_task_for_prompt(db_paths, prompt)
+    if task:
+        return task
+    if reuse_session:
+        task = latest_task(db_paths)
+        if task_history_contains_prompt(task, prompt) or operator_run_changed(
+            task, baseline_task
+        ):
+            return task
     return None
 
 
@@ -485,13 +551,44 @@ def active_operator_run(task: dict[str, Any] | None) -> dict[str, Any]:
     return active_run if isinstance(active_run, dict) else {}
 
 
+def active_operator_run_signature(
+    task: dict[str, Any] | None,
+) -> tuple[str, int, int, str]:
+    run = active_operator_run(task)
+    return (
+        str(run.get("runId") or ""),
+        int(run.get("startedAtMs") or 0),
+        int(run.get("finishedAtMs") or 0),
+        str(run.get("originPromptEventId") or ""),
+    )
+
+
+def operator_run_changed(
+    task: dict[str, Any] | None,
+    baseline_task: dict[str, Any] | None,
+) -> bool:
+    current = active_operator_run_signature(task)
+    baseline = active_operator_run_signature(baseline_task)
+    return bool(current[0]) and current != baseline
+
+
 def operator_run_is_terminal(task: dict[str, Any] | None) -> bool:
     status = (active_operator_run(task).get("status") or "").strip().lower()
     return status in {"complete", "blocked", "failed"}
 
 
+def operator_run_is_active(task: dict[str, Any] | None) -> bool:
+    run = active_operator_run(task)
+    if not run.get("runId"):
+        return False
+    status = (run.get("status") or "").strip().lower()
+    return status not in {"complete", "blocked", "failed"}
+
+
 def artifact_session_ready(task: dict[str, Any] | None) -> bool:
     if not task:
+        return False
+    if operator_run_is_active(task):
         return False
     chat_session = task.get("chat_session") or {}
     chat_status = (chat_session.get("status") or "").strip().lower()
@@ -514,6 +611,15 @@ def conversation_reply_ready(task: dict[str, Any] | None) -> bool:
     return phase == "complete" or "ready for input" in current_step
 
 
+def clarification_gate_ready(task: dict[str, Any] | None) -> bool:
+    if not task:
+        return False
+    phase = (task.get("phase") or "").strip().lower()
+    return phase == "gate" and bool(
+        task.get("clarification_request") or task.get("clarificationRequest")
+    )
+
+
 def is_conversation_route(task: dict[str, Any] | None) -> bool:
     if not task:
         return False
@@ -531,19 +637,36 @@ def wait_for_prompt_result(
     prompt: str,
     *,
     timeout_secs: float,
+    baseline_task: dict[str, Any] | None = None,
+    reuse_session: bool = False,
 ) -> dict[str, Any]:
     deadline = time.time() + timeout_secs
     last_task: dict[str, Any] | None = None
 
     while time.time() < deadline:
-        task = latest_task_for_prompt(db_paths, prompt)
+        task = latest_task_for_wait(
+            db_paths,
+            prompt,
+            baseline_task=baseline_task,
+            reuse_session=reuse_session,
+        )
         if task:
             last_task = task
+            if operator_run_is_active(task):
+                time.sleep(POLL_INTERVAL_SECS)
+                continue
             phase = (task.get("phase") or "").strip().lower()
             current_step = (task.get("current_step") or "").strip().lower()
+            if reuse_session and task_history_contains_prompt(
+                task, prompt
+            ) and not prompt_has_agent_reply(task, prompt):
+                time.sleep(POLL_INTERVAL_SECS)
+                continue
             if phase in {"complete", "failed"}:
                 if phase == "complete" or "ready for input" in current_step:
                     return task
+                return task
+            if clarification_gate_ready(task):
                 return task
             if operator_run_is_terminal(task):
                 return task
@@ -568,12 +691,13 @@ def submit_prompt(
     fresh_outcome: bool,
 ) -> None:
     focus_window(window)
-    if fresh_outcome and has_local_task_checkpoint(db_paths):
+    has_existing_task = has_local_task_checkpoint(db_paths)
+    if fresh_outcome and has_existing_task:
         key(window, "ctrl+n")
         time.sleep(1.6)
         focus_window(window)
         time.sleep(0.3)
-    click(window, *composer_point(window))
+    click(window, *composer_point(window, zero_state=fresh_outcome and not has_existing_task))
     key(window, "ctrl+a")
     key(window, "BackSpace")
     type_text(window, prompt)
@@ -820,6 +944,7 @@ def main() -> int:
         prompt_dir = output_root / f"{index:02d}-{slug}"
         prompt_dir.mkdir(parents=True, exist_ok=True)
 
+        baseline_task = latest_task(db_paths) if args.reuse_session else None
         started_task: dict[str, Any] | None = None
         for attempt in range(1, max(1, args.submit_attempts) + 1):
             submit_prompt(
@@ -839,12 +964,19 @@ def main() -> int:
                 db_paths,
                 prompt,
                 timeout_secs=args.start_timeout_secs,
+                baseline_task=baseline_task,
+                reuse_session=args.reuse_session,
             )
             if started_task is not None:
                 break
 
         if started_task is None:
-            task = latest_task_for_prompt(db_paths, prompt)
+            task = latest_task_for_wait(
+                db_paths,
+                prompt,
+                baseline_task=baseline_task,
+                reuse_session=args.reuse_session,
+            )
             probe_error = (
                 f"Timed out after {args.start_timeout_secs:.0f}s waiting for prompt start: {prompt}"
             )
@@ -858,12 +990,30 @@ def main() -> int:
                     db_paths,
                     prompt,
                     timeout_secs=args.timeout_secs,
+                    baseline_task=baseline_task,
+                    reuse_session=args.reuse_session,
                 )
             except Exception as error:
                 probe_error = str(error)
-                task = latest_task_for_prompt(db_paths, prompt) or task
+                task = (
+                    latest_task_for_wait(
+                        db_paths,
+                        prompt,
+                        baseline_task=baseline_task,
+                        reuse_session=args.reuse_session,
+                    )
+                    or task
+                )
 
         time.sleep(POST_SETTLE_CAPTURE_DELAY_SECS)
+        settled_task = latest_task_for_wait(
+            db_paths,
+            prompt,
+            baseline_task=baseline_task,
+            reuse_session=args.reuse_session,
+        )
+        if settled_task is not None:
+            task = settled_task
         screenshot_path = prompt_dir / "final.png"
         capture_result = capture_window_with_fallback(
             window.window_id,

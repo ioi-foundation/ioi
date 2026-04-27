@@ -79,27 +79,8 @@ pub(super) fn source_pack_for_session(
     ArtifactSourcePack { summary, items }
 }
 
-pub(super) fn prompt_requires_source_pack(
-    session: &ChatArtifactSession,
-    source_pack: &ArtifactSourcePack,
-) -> bool {
-    if !source_pack.items.is_empty() {
-        return true;
-    }
-
-    let prompt = session.outcome_request.raw_prompt.to_ascii_lowercase();
-    [
-        "explainer",
-        "guide",
-        "overview",
-        "primer",
-        "current",
-        "latest",
-        "source-backed",
-        "sources",
-    ]
-    .iter()
-    .any(|keyword| prompt.contains(keyword))
+pub(super) fn prompt_requires_source_pack(source_pack: &ArtifactSourcePack) -> bool {
+    !source_pack.items.is_empty()
 }
 
 pub(super) fn build_source_activity_preview(source_pack: &ArtifactSourcePack) -> Option<String> {

@@ -110,7 +110,7 @@ fn materialize_patch_build_verify_result_enriches_summary_only_completion() {
             step_index: 7,
         });
     child_state.tool_execution_log.insert(
-        "receipt::workspace_edit_applied=true".to_string(),
+        "evidence::workspace_edit_applied=true".to_string(),
         crate::agentic::runtime::types::ToolCallStatus::Executed(
             "step=6;tool=file__write;path=path_utils.py".to_string(),
         ),
@@ -173,7 +173,7 @@ fn synthesize_observed_patch_build_verify_completion_recovers_running_child_afte
         step_index: 5,
     });
     child_state.tool_execution_log.insert(
-        "receipt::workspace_edit_applied=true".to_string(),
+        "evidence::workspace_edit_applied=true".to_string(),
         crate::agentic::runtime::types::ToolCallStatus::Executed(format!(
             "step=4;tool=file__write;path={}",
             source_path.display()
@@ -328,7 +328,7 @@ fn patch_build_verify_post_edit_followup_uses_failed_command_history_without_goa
             step_index: 2,
         });
     child_state.tool_execution_log.insert(
-        "receipt::workspace_edit_applied=true".to_string(),
+        "evidence::workspace_edit_applied=true".to_string(),
         crate::agentic::runtime::types::ToolCallStatus::Executed(
             "step=5;tool=file__write;path=path_utils.py".to_string(),
         ),

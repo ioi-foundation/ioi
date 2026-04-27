@@ -3,12 +3,13 @@ mod shield;
 mod types;
 
 use super::{
-    google_api, google_auth, ConnectorPostconditionEvidence, ConnectorPostconditionProof,
-    ConnectorPostconditionVerifierBinding, ConnectorProtectedSlotBinding,
-    ConnectorProviderProbeBinding, ConnectorSymbolicReferenceBinding,
+    google_api, google_auth, ConnectorProtectedSlotBinding, ConnectorProviderProbeBinding,
+    ConnectorSuccessConditionEvidence, ConnectorSuccessConditionProof,
+    ConnectorSuccessConditionVerifierBinding, ConnectorSymbolicReferenceBinding,
     ConnectorSymbolicReferenceInferenceBinding, ConnectorToolRouteBinding,
-    PostconditionVerificationFuture, ProviderCandidateDiscoveryFuture, ResolvedSymbolicReference,
-    SymbolicReferenceInferenceFuture, SymbolicReferenceResolutionFuture,
+    ProviderCandidateDiscoveryFuture, ResolvedSymbolicReference,
+    SuccessConditionVerificationFuture, SymbolicReferenceInferenceFuture,
+    SymbolicReferenceResolutionFuture,
 };
 use crate::agentic::runtime::service::RuntimeAgentService;
 use crate::agentic::runtime::types::AgentState;
@@ -37,7 +38,7 @@ use types::{
 };
 
 include!("bindings.rs");
-include!("postconditions.rs");
+include!("success_conditions.rs");
 include!("execution.rs");
 include!("action_specs.rs");
 include!("args.rs");

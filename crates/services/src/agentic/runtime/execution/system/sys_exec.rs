@@ -1,5 +1,5 @@
+use super::evidence::{scrub_workload_args_for_evidence, scrub_workload_text_field_for_evidence};
 use super::paths::resolve_working_directory;
-use super::receipt::{scrub_workload_args_for_receipt, scrub_workload_text_field_for_receipt};
 use super::{
     compute_workload_id, emit_workload_activity, emit_workload_receipt, extract_error_class,
     SysExecInvocation, ToolExecutionResult, ToolExecutor,
@@ -43,12 +43,12 @@ pub(super) async fn handle_sys_exec(
     let raw_command_preview = command_preview(command, args);
     let timeout = resolve_sys_exec_timeout(&invocation.command, &invocation.args, detach);
     let resolved_cwd_string = resolved_cwd.to_string_lossy().to_string();
-    let receipt_command =
-        scrub_workload_text_field_for_receipt(exec, invocation.command.as_str()).await;
-    let receipt_args = scrub_workload_args_for_receipt(exec, invocation.args.as_slice()).await;
-    let receipt_cwd =
-        scrub_workload_text_field_for_receipt(exec, resolved_cwd_string.as_str()).await;
-    let receipt_preview = command_preview(&receipt_command, &receipt_args);
+    let evidence_command =
+        scrub_workload_text_field_for_evidence(exec, invocation.command.as_str()).await;
+    let evidence_args = scrub_workload_args_for_evidence(exec, invocation.args.as_slice()).await;
+    let evidence_cwd =
+        scrub_workload_text_field_for_evidence(exec, resolved_cwd_string.as_str()).await;
+    let receipt_preview = command_preview(&evidence_command, &evidence_args);
     let workload_id = compute_workload_id(session_id, step_index, "shell__run", &receipt_preview);
     let observer = if detach {
         None
@@ -260,9 +260,9 @@ pub(super) async fn handle_sys_exec(
             workload_id.clone(),
             WorkloadReceipt::Exec(WorkloadExecReceipt {
                 tool_name: "shell__run".to_string(),
-                command: receipt_command,
-                args: receipt_args,
-                cwd: receipt_cwd,
+                command: evidence_command,
+                args: evidence_args,
+                cwd: evidence_cwd,
                 detach,
                 timeout_ms: timeout.as_millis() as u64,
                 success: result.success,
@@ -301,11 +301,11 @@ pub(super) async fn handle_sys_exec_session(
     let raw_command_preview = command_preview(command, args);
     let timeout = resolve_sys_exec_timeout(trimmed, args, false);
     let resolved_cwd_string = resolved_cwd.to_string_lossy().to_string();
-    let receipt_command = scrub_workload_text_field_for_receipt(exec, trimmed).await;
-    let receipt_args = scrub_workload_args_for_receipt(exec, args).await;
-    let receipt_cwd =
-        scrub_workload_text_field_for_receipt(exec, resolved_cwd_string.as_str()).await;
-    let receipt_preview = command_preview(&receipt_command, &receipt_args);
+    let evidence_command = scrub_workload_text_field_for_evidence(exec, trimmed).await;
+    let evidence_args = scrub_workload_args_for_evidence(exec, args).await;
+    let evidence_cwd =
+        scrub_workload_text_field_for_evidence(exec, resolved_cwd_string.as_str()).await;
+    let receipt_preview = command_preview(&evidence_command, &evidence_args);
     let workload_id = compute_workload_id(session_id, step_index, "shell__start", &receipt_preview);
     let observer = process_stream_observer(exec, session_id, step_index, workload_id.clone());
     let options = CommandExecutionOptions::default()
@@ -440,9 +440,9 @@ pub(super) async fn handle_sys_exec_session(
             workload_id.clone(),
             WorkloadReceipt::Exec(WorkloadExecReceipt {
                 tool_name: "shell__start".to_string(),
-                command: receipt_command,
-                args: receipt_args,
-                cwd: receipt_cwd,
+                command: evidence_command,
+                args: evidence_args,
+                cwd: evidence_cwd,
                 detach: false,
                 timeout_ms: timeout.as_millis() as u64,
                 success: result.success,
@@ -554,12 +554,12 @@ pub(super) async fn handle_sys_exec_session_reset(
             },
         );
 
-        let cwd_for_receipt = if cwd.trim().is_empty() {
+        let cwd_for_evidence = if cwd.trim().is_empty() {
             "."
         } else {
             cwd.trim()
         };
-        let receipt_cwd = scrub_workload_text_field_for_receipt(exec, cwd_for_receipt).await;
+        let evidence_cwd = scrub_workload_text_field_for_evidence(exec, cwd_for_evidence).await;
 
         emit_workload_receipt(
             tx,
@@ -570,7 +570,7 @@ pub(super) async fn handle_sys_exec_session_reset(
                 tool_name: "shell__reset".to_string(),
                 command: "shell__reset".to_string(),
                 args: Vec::new(),
-                cwd: receipt_cwd,
+                cwd: evidence_cwd,
                 detach: false,
                 timeout_ms: 0,
                 success: result.success,

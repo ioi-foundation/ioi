@@ -379,7 +379,8 @@ pub(crate) async fn finalize_action_processing(
     if success && !is_gated {
         agent_state.recent_actions.clear();
     } else if !success && !awaiting_sudo_password && !awaiting_clarification {
-        if is_cec_terminal_error(error_msg.as_deref()) {
+        let failure_intent_id = resolved_intent_id(agent_state);
+        if is_completion_contract_error(error_msg.as_deref()) {
             stop_condition_hit = true;
             escalation_path = Some("execution_contract_terminal".to_string());
             is_lifecycle_action = true;
@@ -391,6 +392,11 @@ pub(crate) async fn finalize_action_processing(
             agent_state.status = AgentStatus::Failed(terminal_reason);
             verification_checks.push("cec_terminal_error=true".to_string());
         } else {
+            agent_state.execution_ledger.record_execution_failure(
+                Some(failure_intent_id),
+                ExecutionStage::Execution,
+                "ExecutionFailed",
+            );
             failure_class = classify_failure(error_msg.as_deref(), &policy_decision);
             if let Some(class) = failure_class {
                 let target_id = crate::agentic::runtime::service::step::anti_loop::specialized_attempt_target_id(
@@ -491,7 +497,7 @@ pub(crate) async fn finalize_action_processing(
                         &tool_call_result,
                         pre_state_summary.step_index,
                     ) {
-                        crate::agentic::runtime::service::step::action::support::mark_execution_receipt_with_value(
+                        crate::agentic::runtime::service::step::action::support::record_execution_evidence_with_value(
                             &mut agent_state.tool_execution_log,
                             "workspace_patch_miss_observed",
                             evidence,
@@ -523,7 +529,7 @@ pub(crate) async fn finalize_action_processing(
                         &tool_call_result,
                         pre_state_summary.step_index,
                     ) {
-                        crate::agentic::runtime::service::step::action::support::mark_execution_receipt_with_value(
+                        crate::agentic::runtime::service::step::action::support::record_execution_evidence_with_value(
                             &mut agent_state.tool_execution_log,
                             "workspace_patch_miss_observed",
                             evidence,
@@ -929,7 +935,7 @@ pub(crate) async fn finalize_action_processing(
                     verification_checks.push("web_pipeline_active=false".to_string());
                     verification_checks.push("terminal_chat_reply_ready=true".to_string());
                 } else {
-                    let missing = "receipt::final_output_contract_ready=true".to_string();
+                    let missing = "evidence::final_output_contract_ready=true".to_string();
                     let contract_error = execution_contract_violation_error(&missing);
                     history_entry = Some(contract_error.clone());
                     action_output = Some(contract_error.clone());
@@ -1011,9 +1017,9 @@ pub(crate) async fn finalize_action_processing(
                     "response_composer_validator_passed={}",
                     composed.validator_passed
                 ));
-                if let Some(reason) = composed.fallback_reason {
+                if let Some(reason) = composed.degradation_reason {
                     verification_checks
-                        .push(format!("response_composer_fallback_reason={}", reason));
+                        .push(format!("response_composer_degradation_reason={}", reason));
                 }
                 verification_checks.push("terminal_chat_reply_emitted=true".to_string());
                 let intent_id = resolved_intent_id(agent_state);
@@ -1092,7 +1098,12 @@ pub(crate) async fn finalize_action_processing(
     artifacts.push(format!("trace://session/{}", hex::encode(&session_id[..4])));
 
     let intent_id_for_contract = resolved_intent_id(agent_state);
-    persist_step_contract_evidence(
+    persist_step_evidence_to_ledger(
+        agent_state,
+        intent_id_for_contract.as_str(),
+        &verification_checks,
+    );
+    persist_step_evidence(
         state,
         session_id,
         pre_state_summary.step_index,

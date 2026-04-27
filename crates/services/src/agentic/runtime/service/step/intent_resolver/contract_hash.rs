@@ -1,14 +1,14 @@
 use super::*;
 
-pub(super) fn effective_matrix(
+pub(super) fn effective_intent_catalog(
     policy: &IntentRoutingPolicy,
-) -> Result<Vec<IntentMatrixEntry>, TransactionError> {
-    let mut merged = BTreeMap::<String, IntentMatrixEntry>::new();
-    for entry in &policy.matrix {
+) -> Result<Vec<IntentCatalogEntry>, TransactionError> {
+    let mut merged = BTreeMap::<String, IntentCatalogEntry>::new();
+    for entry in &policy.intent_catalog {
         let intent_id = entry.intent_id.trim();
         if intent_id.is_empty() {
             return Err(TransactionError::Invalid(
-                "ERROR_CLASS=OntologyViolation Intent matrix contains empty intent_id".to_string(),
+                "ERROR_CLASS=OntologyViolation Intent catalog contains empty intent_id".to_string(),
             ));
         }
         let preferred_tier = entry.preferred_tier.trim();
@@ -52,7 +52,7 @@ pub(super) fn effective_matrix(
             .is_some()
         {
             return Err(TransactionError::Invalid(format!(
-                "ERROR_CLASS=OntologyViolation Intent matrix contains duplicate intent_id '{}'",
+                "ERROR_CLASS=OntologyViolation Intent catalog contains duplicate intent_id '{}'",
                 intent_id
             )));
         }
@@ -60,13 +60,13 @@ pub(super) fn effective_matrix(
     Ok(merged.into_values().collect())
 }
 
-pub(super) fn matrix_source_hash(
+pub(super) fn intent_catalog_source_hash(
     policy: &IntentRoutingPolicy,
-    matrix: &[IntentMatrixEntry],
+    intent_catalog: &[IntentCatalogEntry],
 ) -> Result<[u8; 32], TransactionError> {
     let payload = json!({
-        "matrix_version": policy.matrix_version,
-        "matrix": matrix,
+        "intent_catalog_version": policy.intent_catalog_version,
+        "intent_catalog": intent_catalog,
         "score_quantization_bps": quantization_step_bps(policy),
         "tie_region_eps_bps": tie_region_eps_bps(policy),
         "ambiguity_margin_bps": ambiguity_margin_bps(policy),
@@ -89,9 +89,11 @@ pub(super) fn hash_payload(payload: &serde_json::Value) -> Result<[u8; 32], Tran
     Ok(out)
 }
 
-pub(super) fn intent_set_hash(matrix: &[IntentMatrixEntry]) -> Result<[u8; 32], TransactionError> {
+pub(super) fn intent_set_hash(
+    intent_catalog: &[IntentCatalogEntry],
+) -> Result<[u8; 32], TransactionError> {
     let payload = json!({
-        "intents": matrix.iter().map(|entry| json!({
+        "intents": intent_catalog.iter().map(|entry| json!({
             "intent_id": entry.intent_id,
             "semantic_descriptor": entry.semantic_descriptor,
             "query_binding": entry.query_binding,
@@ -130,7 +132,7 @@ pub(super) fn capability_ontology_hash(
     hash_payload(&payload)
 }
 
-pub(super) fn receipt_hash(
+pub(super) fn evidence_requirements_hash(
     query: &str,
     normalized_query: &str,
     resolved: &ResolvedIntentState,
@@ -157,18 +159,18 @@ pub(super) fn receipt_hash(
         "score": resolved.score,
         "top_k": resolved.top_k,
         "required_capabilities": resolved.required_capabilities,
-        "required_receipts": resolved.required_receipts,
-        "required_postconditions": resolved.required_postconditions,
+        "required_evidence": resolved.required_evidence,
+        "success_conditions": resolved.success_conditions,
         "risk_class": resolved.risk_class,
         "preferred_tier": resolved.preferred_tier,
-        "matrix_version": resolved.matrix_version,
+        "intent_catalog_version": resolved.intent_catalog_version,
         "embedding_model_id": resolved.embedding_model_id,
         "embedding_model_version": resolved.embedding_model_version,
         "similarity_function_id": resolved.similarity_function_id,
         "intent_set_hash": hex::encode(resolved.intent_set_hash),
         "tool_registry_hash": hex::encode(resolved.tool_registry_hash),
         "capability_ontology_hash": hex::encode(resolved.capability_ontology_hash),
-        "matrix_source_hash": hex::encode(resolved.matrix_source_hash),
+        "intent_catalog_source_hash": hex::encode(resolved.intent_catalog_source_hash),
         "provider_selection": resolved.provider_selection,
         "instruction_contract": resolved.instruction_contract,
         "score_quantization_bps": quantization_step_bps(policy),
@@ -206,7 +208,7 @@ pub(super) fn emit_intent_resolution_receipt(
                 selected_score_quantized: resolved.score,
                 top_k: resolved.top_k.clone(),
                 preferred_tier: resolved.preferred_tier.clone(),
-                matrix_version: resolved.matrix_version.clone(),
+                intent_catalog_version: resolved.intent_catalog_version.clone(),
                 embedding_model_id: resolved.embedding_model_id.clone(),
                 embedding_model_version: resolved.embedding_model_version.clone(),
                 similarity_function_id: resolved.similarity_function_id.clone(),
@@ -214,8 +216,8 @@ pub(super) fn emit_intent_resolution_receipt(
                 tool_registry_hash: resolved.tool_registry_hash,
                 capability_ontology_hash: resolved.capability_ontology_hash,
                 query_normalization_version: resolved.query_normalization_version.clone(),
-                matrix_source_hash: resolved.matrix_source_hash,
-                receipt_hash: resolved.receipt_hash,
+                intent_catalog_source_hash: resolved.intent_catalog_source_hash,
+                evidence_requirements_hash: resolved.evidence_requirements_hash,
                 provider_selection: resolved.provider_selection.clone(),
                 error_class,
                 constrained: resolved.constrained,

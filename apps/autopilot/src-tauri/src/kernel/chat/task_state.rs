@@ -1,18 +1,18 @@
 use super::operator_run::refresh_active_operator_run_from_session;
 use super::*;
 
-pub(super) fn non_artifact_single_pass_reply_stays_chat_primary(
+pub(super) fn inline_answer_single_pass_reply_stays_chat_primary(
     outcome_request: &ChatOutcomeRequest,
 ) -> bool {
     outcome_request.outcome_kind == ChatOutcomeKind::Conversation
         && outcome_request.execution_strategy == ioi_types::app::ChatExecutionStrategy::SinglePass
         && !outcome_request.needs_clarification
         && !outcome_request
-            .routing_hints
+            .decision_evidence
             .iter()
             .any(|hint| hint == "workspace_grounding_required")
         && !outcome_request
-            .routing_hints
+            .decision_evidence
             .iter()
             .any(|hint| hint == "currentness_override")
 }
@@ -20,7 +20,7 @@ pub(super) fn non_artifact_single_pass_reply_stays_chat_primary(
 pub(super) fn tool_widget_route_stays_chat_primary(outcome_request: &ChatOutcomeRequest) -> bool {
     outcome_request.outcome_kind == ChatOutcomeKind::ToolWidget
         && !outcome_request.needs_clarification
-        && outcome_request.routing_hints.iter().any(|hint| {
+        && outcome_request.decision_evidence.iter().any(|hint| {
             matches!(
                 hint.as_str(),
                 "tool_widget:weather"
@@ -92,16 +92,12 @@ fn operator_run_terminal_lifecycle(
             Some(ChatArtifactLifecycleState::Failed)
         }
         ioi_api::runtime_harness::ArtifactOperatorRunStatus::Complete => {
-            let present_step_complete = active_run.steps.iter().any(|step| {
-                step.phase == ioi_api::runtime_harness::ArtifactOperatorPhase::PresentArtifact
-                    && step.status == ioi_api::runtime_harness::ArtifactOperatorRunStatus::Complete
-            });
-            let verification_ready = chat_session.artifact_manifest.verification.lifecycle_state
-                == ChatArtifactLifecycleState::Ready;
-            if present_step_complete || verification_ready {
-                Some(ChatArtifactLifecycleState::Ready)
-            } else {
-                None
+            match chat_session.artifact_manifest.verification.lifecycle_state {
+                ChatArtifactLifecycleState::Ready => Some(ChatArtifactLifecycleState::Ready),
+                ChatArtifactLifecycleState::Partial => Some(ChatArtifactLifecycleState::Partial),
+                ChatArtifactLifecycleState::Blocked => Some(ChatArtifactLifecycleState::Blocked),
+                ChatArtifactLifecycleState::Failed => Some(ChatArtifactLifecycleState::Failed),
+                _ => None,
             }
         }
         _ => None,
@@ -446,7 +442,7 @@ pub fn task_requires_chat_primary_execution(task: &AgentTask) -> bool {
 
     chat_session.outcome_request.needs_clarification
         || chat_session.outcome_request.outcome_kind == ChatOutcomeKind::Artifact
-        || non_artifact_single_pass_reply_stays_chat_primary(&chat_session.outcome_request)
+        || inline_answer_single_pass_reply_stays_chat_primary(&chat_session.outcome_request)
         || tool_widget_route_stays_chat_primary(&chat_session.outcome_request)
         || visualizer_route_stays_chat_primary(&chat_session.outcome_request)
 }
@@ -462,7 +458,7 @@ pub fn apply_chat_authoritative_status(task: &mut AgentTask, current_step: Optio
     };
     let lifecycle_state = effective_chat_lifecycle_state(chat_session);
 
-    if non_artifact_single_pass_reply_stays_chat_primary(&chat_session.outcome_request)
+    if inline_answer_single_pass_reply_stays_chat_primary(&chat_session.outcome_request)
         && task.phase == AgentPhase::Complete
         && task.current_step.eq_ignore_ascii_case("ready for input")
         && task

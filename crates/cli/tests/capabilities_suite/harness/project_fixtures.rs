@@ -2138,7 +2138,7 @@ fn bootstrap_spotify_uninstall_fixture_runtime(
         .join(format!("spotify_uninstall_{}", run_unique_num));
     let fixture_bin = temp_dir.path().join("bin");
     let install_state_dir = fixture_root.join("install_state");
-    let receipts_dir = fixture_root.join("receipts");
+    let receipts_dir = fixture_root.join("evidence");
     let local_bin_dir = home_dir.join(".local").join("bin");
 
     std::fs::create_dir_all(&fixture_bin)?;
@@ -2672,7 +2672,7 @@ fn bootstrap_top_memory_apps_fixture_runtime(
         .path()
         .join(format!("top_memory_apps_{}", run_unique_num));
     let fixture_bin = fixture_root.join("bin");
-    let fixture_receipts = fixture_root.join("receipts");
+    let fixture_receipts = fixture_root.join("evidence");
     std::fs::create_dir_all(&fixture_bin)?;
     std::fs::create_dir_all(&fixture_receipts)?;
 
@@ -3001,7 +3001,7 @@ fn bootstrap_media_transcript_fixture_runtime(
         .path()
         .join(format!("media_multimodal_summary_{}", run_unique_num));
     let tool_home = fixture_root.join("tool_home");
-    let receipt_path = tool_home.join("receipts").join("last_success.json");
+    let receipt_path = tool_home.join("evidence").join("last_success.json");
     std::fs::create_dir_all(&tool_home)?;
     let env_media_tool_home = ScopedEnvVar::set(
         MEDIA_TRANSCRIPT_SUMMARY_TOOL_HOME_ENV_KEY,
@@ -3708,7 +3708,7 @@ fn bootstrap_shutdown_schedule_fixture_runtime(
         .path()
         .join(format!("shutdown_schedule_{}", run_unique_num));
     let fixture_bin = fixture_root.join("bin");
-    let fixture_receipts = fixture_root.join("receipts");
+    let fixture_receipts = fixture_root.join("evidence");
     std::fs::create_dir_all(&fixture_bin)?;
     std::fs::create_dir_all(&fixture_receipts)?;
 
@@ -4359,7 +4359,7 @@ fn hacker_news_monitor_fixture_preflight_checks(
 ) -> EnvironmentEvidenceBatch {
     let registry_path =
         ioi_services::agentic::automation::registry_path_for(&fixture.automation_root);
-    let receipts_root = fixture.automation_root.join("receipts");
+    let receipts_root = fixture.automation_root.join("evidence");
     let run_unique_satisfied = fixture
         .fixture_root
         .file_name()
@@ -4513,7 +4513,7 @@ fn hacker_news_monitor_fixture_post_run_checks(
     let install_receipt_path = if workflow_id_present {
         fixture
             .automation_root
-            .join("receipts")
+            .join("evidence")
             .join(&workflow_id)
             .join("install.json")
     } else {
@@ -5590,7 +5590,7 @@ async fn bootstrap_mailbox_runtime_state(
 
     fn wallet_mail_connector_get_receipt_key(request_id: &[u8; 32]) -> Vec<u8> {
         [
-            b"mail_connector_get_receipt::".as_slice(),
+            b"mail_connector_get_evidence::".as_slice(),
             request_id.as_slice(),
         ]
         .concat()
@@ -5598,7 +5598,7 @@ async fn bootstrap_mailbox_runtime_state(
 
     fn wallet_mail_binding_receipt_key(request_id: &[u8; 32]) -> Vec<u8> {
         [
-            b"mail_connector_binding_receipt::".as_slice(),
+            b"mail_connector_binding_evidence::".as_slice(),
             request_id.as_slice(),
         ]
         .concat()

@@ -1,10 +1,10 @@
 use crate::agentic::rules::ActionRules;
 use crate::agentic::runtime::service::step::action::command_contract::{
-    compose_terminal_chat_reply, enrich_command_scope_summary, execution_contract_violation_error,
-    missing_execution_contract_markers_with_rules,
+    compose_terminal_chat_reply, enrich_command_scope_summary, evaluate_completion_requirements,
+    execution_contract_violation_error,
 };
 use crate::agentic::runtime::service::step::action::{
-    has_execution_postcondition, is_command_probe_intent, is_ui_capture_screenshot_intent,
+    has_success_condition, is_command_probe_intent, is_ui_capture_screenshot_intent,
     summarize_command_probe_output,
 };
 use crate::agentic::runtime::service::step::browser_completion::browser_snapshot_completion;
@@ -45,6 +45,43 @@ fn completion_summary_from_output(output: Option<&str>, fallback: &str) -> Strin
                 .map(str::to_string)
         })
         .unwrap_or_else(|| fallback.to_string())
+}
+
+fn terminal_contract_intent_id(agent_state: &AgentState) -> Option<String> {
+    agent_state
+        .resolved_intent
+        .as_ref()
+        .map(|resolved| resolved.intent_id.clone())
+}
+
+fn completion_gate_blocks(
+    agent_state: &mut AgentState,
+    success: &mut bool,
+    out: &mut Option<String>,
+    err: &mut Option<String>,
+    verification_checks: &mut Vec<String>,
+    rules: &ActionRules,
+) -> bool {
+    let intent_id = terminal_contract_intent_id(agent_state);
+    let missing_completion_evidence = evaluate_completion_requirements(
+        agent_state,
+        intent_id.as_deref().unwrap_or_default(),
+        verification_checks,
+        rules,
+    );
+    if missing_completion_evidence.is_empty() {
+        return false;
+    }
+
+    let missing = missing_completion_evidence.join(",");
+    let contract_error = execution_contract_violation_error(&missing);
+    *success = false;
+    *out = Some(contract_error.clone());
+    *err = Some(contract_error);
+    agent_state.status = AgentStatus::Running;
+    verification_checks.push("execution_contract_gate_blocked=true".to_string());
+    verification_checks.push(format!("execution_contract_missing_keys={}", missing));
+    true
 }
 
 fn remaining_queue_is_only_mail_reply_provider_fallbacks(agent_state: &AgentState) -> bool {
@@ -90,6 +127,8 @@ pub(super) fn maybe_complete_mail_reply(
     out: &mut Option<String>,
     err: &mut Option<String>,
     completion_summary: &mut Option<String>,
+    verification_checks: &mut Vec<String>,
+    rules: &ActionRules,
     session_id: [u8; 32],
 ) {
     if is_gated || !*success || completion_summary.is_some() {
@@ -112,7 +151,10 @@ pub(super) fn maybe_complete_mail_reply(
     {
         return;
     }
-    if !has_execution_postcondition(&agent_state.tool_execution_log, "mail.reply.completed") {
+    if !has_success_condition(&agent_state.tool_execution_log, "mail.reply.completed") {
+        return;
+    }
+    if completion_gate_blocks(agent_state, success, out, err, verification_checks, rules) {
         return;
     }
 
@@ -126,6 +168,10 @@ pub(super) fn maybe_complete_mail_reply(
         completion_summary,
         false,
     );
+    let intent_id = terminal_contract_intent_id(agent_state);
+    agent_state
+        .execution_ledger
+        .record_terminal_success(intent_id);
     log::info!(
         "Auto-completed mail reply after provider action for session {} tool={} fallback_only_queue={}.",
         hex::encode(&session_id[..4]),
@@ -158,17 +204,7 @@ pub(super) fn maybe_complete_chat_reply(
         return;
     }
 
-    let missing_contract_markers =
-        missing_execution_contract_markers_with_rules(agent_state, rules);
-    if !missing_contract_markers.is_empty() {
-        let missing = missing_contract_markers.join(",");
-        let contract_error = execution_contract_violation_error(&missing);
-        *success = false;
-        *out = Some(contract_error.clone());
-        *err = Some(contract_error);
-        agent_state.status = AgentStatus::Running;
-        verification_checks.push("execution_contract_gate_blocked=true".to_string());
-        verification_checks.push(format!("execution_contract_missing_keys={}", missing));
+    if completion_gate_blocks(agent_state, success, out, err, verification_checks, rules) {
         return;
     }
 
@@ -183,6 +219,10 @@ pub(super) fn maybe_complete_chat_reply(
         completion_summary,
         false,
     );
+    let intent_id = terminal_contract_intent_id(agent_state);
+    agent_state
+        .execution_ledger
+        .record_terminal_success(intent_id);
     verification_checks.push("terminal_chat_reply_ready=true".to_string());
     verification_checks.push(format!("response_composer_applied={}", composed.applied));
     verification_checks.push(format!(
@@ -193,8 +233,8 @@ pub(super) fn maybe_complete_chat_reply(
         "response_composer_validator_passed={}",
         composed.validator_passed
     ));
-    if let Some(reason) = composed.fallback_reason {
-        verification_checks.push(format!("response_composer_fallback_reason={}", reason));
+    if let Some(reason) = composed.degradation_reason {
+        verification_checks.push(format!("response_composer_degradation_reason={}", reason));
     }
     log::info!(
         "Completed queued chat__reply flow for session {}.",
@@ -210,6 +250,8 @@ pub(super) fn maybe_complete_command_probe(
     out: &mut Option<String>,
     err: &mut Option<String>,
     completion_summary: &mut Option<String>,
+    verification_checks: &mut Vec<String>,
+    rules: &ActionRules,
     session_id: [u8; 32],
 ) {
     if is_gated
@@ -226,6 +268,9 @@ pub(super) fn maybe_complete_command_probe(
         return;
     };
     if let Some(summary) = summarize_command_probe_output(tool_wrapper, raw) {
+        if completion_gate_blocks(agent_state, success, out, err, verification_checks, rules) {
+            return;
+        }
         // Probe markers are deterministic completion signals even when the
         // underlying command exits non-zero (e.g. NOT_FOUND_IN_PATH).
         complete_with_summary(
@@ -237,6 +282,10 @@ pub(super) fn maybe_complete_command_probe(
             completion_summary,
             false,
         );
+        let intent_id = terminal_contract_intent_id(agent_state);
+        agent_state
+            .execution_ledger
+            .record_terminal_success(intent_id);
         log::info!(
             "Auto-completed command probe after shell-command tool for session {}.",
             hex::encode(&session_id[..4])
@@ -252,6 +301,8 @@ pub(super) fn maybe_complete_open_app(
     out: &mut Option<String>,
     err: &mut Option<String>,
     completion_summary: &mut Option<String>,
+    verification_checks: &mut Vec<String>,
+    rules: &ActionRules,
     session_id: [u8; 32],
 ) {
     if is_gated || !*success || completion_summary.is_some() {
@@ -268,6 +319,9 @@ pub(super) fn maybe_complete_open_app(
             .as_ref()
             .and_then(|target| target.app_hint.as_deref()),
     ) {
+        if completion_gate_blocks(agent_state, success, out, err, verification_checks, rules) {
+            return;
+        }
         complete_with_summary(
             agent_state,
             format!("Opened {}.", app_name),
@@ -277,6 +331,10 @@ pub(super) fn maybe_complete_open_app(
             completion_summary,
             false,
         );
+        let intent_id = terminal_contract_intent_id(agent_state);
+        agent_state
+            .execution_ledger
+            .record_terminal_success(intent_id);
         log::info!(
             "Auto-completed app-launch queue flow for session {}.",
             hex::encode(&session_id[..4])
@@ -292,6 +350,8 @@ pub(super) fn maybe_complete_screenshot_capture(
     out: &mut Option<String>,
     err: &mut Option<String>,
     completion_summary: &mut Option<String>,
+    verification_checks: &mut Vec<String>,
+    rules: &ActionRules,
     session_id: [u8; 32],
 ) {
     if is_gated || !*success || completion_summary.is_some() {
@@ -312,6 +372,9 @@ pub(super) fn maybe_complete_screenshot_capture(
     }
 
     let summary = "Screenshot captured.".to_string();
+    if completion_gate_blocks(agent_state, success, out, err, verification_checks, rules) {
+        return;
+    }
     complete_with_summary(
         agent_state,
         summary,
@@ -321,6 +384,10 @@ pub(super) fn maybe_complete_screenshot_capture(
         completion_summary,
         false,
     );
+    let intent_id = terminal_contract_intent_id(agent_state);
+    agent_state
+        .execution_ledger
+        .record_terminal_success(intent_id);
     log::info!(
         "Auto-completed screenshot capture flow for session {}.",
         hex::encode(&session_id[..4])
@@ -336,6 +403,7 @@ pub(super) fn maybe_complete_browser_snapshot_interaction(
     err: &mut Option<String>,
     completion_summary: &mut Option<String>,
     verification_checks: &mut Vec<String>,
+    rules: &ActionRules,
     session_id: [u8; 32],
 ) {
     if is_gated || !*success || completion_summary.is_some() {
@@ -346,6 +414,9 @@ pub(super) fn maybe_complete_browser_snapshot_interaction(
     else {
         return;
     };
+    if completion_gate_blocks(agent_state, success, out, err, verification_checks, rules) {
+        return;
+    }
 
     complete_with_summary(
         agent_state,
@@ -356,6 +427,10 @@ pub(super) fn maybe_complete_browser_snapshot_interaction(
         completion_summary,
         false,
     );
+    let intent_id = terminal_contract_intent_id(agent_state);
+    agent_state
+        .execution_ledger
+        .record_terminal_success(intent_id);
     verification_checks.push("browser_snapshot_success_criteria_auto_completed=true".to_string());
     verification_checks.push(format!(
         "browser_snapshot_success_criteria_count={}",
@@ -380,6 +455,8 @@ pub(super) fn maybe_complete_agent_complete(
     out: &mut Option<String>,
     err: &mut Option<String>,
     completion_summary: &mut Option<String>,
+    verification_checks: &mut Vec<String>,
+    rules: &ActionRules,
     session_id: [u8; 32],
 ) {
     if is_gated || !*success || completion_summary.is_some() {
@@ -390,6 +467,10 @@ pub(super) fn maybe_complete_agent_complete(
         return;
     };
 
+    if completion_gate_blocks(agent_state, success, out, err, verification_checks, rules) {
+        return;
+    }
+
     complete_with_summary(
         agent_state,
         result.clone(),
@@ -399,6 +480,11 @@ pub(super) fn maybe_complete_agent_complete(
         completion_summary,
         false,
     );
+    let intent_id = terminal_contract_intent_id(agent_state);
+    agent_state
+        .execution_ledger
+        .record_terminal_success(intent_id);
+    verification_checks.push("terminal_agent_complete_ready=true".to_string());
     log::info!(
         "Completed queued agent__complete flow for session {}.",
         hex::encode(&session_id[..4])

@@ -72,7 +72,7 @@ fn warning_only_primary_ready_evaluation() -> ChatArtifactRenderEvaluation {
         typography_contrast_score: 4,
         visual_hierarchy_score: 4,
         blueprint_consistency_score: 3,
-        overall_score: 19,
+        overall_score: 17,
         findings: vec![ChatArtifactRenderFinding {
             code: "minor_spacing".to_string(),
             severity: ChatArtifactRenderFindingSeverity::Warning,

@@ -331,7 +331,7 @@ pub(crate) fn parse_receipt_step(value: &str) -> Option<u32> {
 pub(crate) fn latest_workspace_edit_step(agent_state: &AgentState) -> Option<u32> {
     match agent_state
         .tool_execution_log
-        .get("receipt::workspace_edit_applied=true")
+        .get("evidence::workspace_edit_applied=true")
     {
         Some(ToolCallStatus::Executed(value)) => parse_receipt_step(value),
         _ => None,
@@ -341,7 +341,7 @@ pub(crate) fn latest_workspace_edit_step(agent_state: &AgentState) -> Option<u32
 pub(crate) fn latest_workspace_edit_path(agent_state: &AgentState) -> Option<String> {
     match agent_state
         .tool_execution_log
-        .get("receipt::workspace_edit_applied=true")
+        .get("evidence::workspace_edit_applied=true")
     {
         Some(ToolCallStatus::Executed(value)) => parse_receipt_path(value).map(str::to_string),
         _ => None,
@@ -352,7 +352,7 @@ pub(crate) fn latest_workspace_read_step(
     agent_state: &AgentState,
     target_path: &str,
 ) -> Option<u32> {
-    execution_receipt_value(&agent_state.tool_execution_log, "workspace_read_observed").and_then(
+    execution_evidence_value(&agent_state.tool_execution_log, "workspace_read_observed").and_then(
         |value| {
             (parse_receipt_path(value)? == target_path)
                 .then(|| parse_receipt_step(value))
@@ -373,7 +373,7 @@ pub(crate) fn latest_workspace_patch_miss_step(
     agent_state: &AgentState,
     target_path: &str,
 ) -> Option<u32> {
-    execution_receipt_value(
+    execution_evidence_value(
         &agent_state.tool_execution_log,
         "workspace_patch_miss_observed",
     )

@@ -70,7 +70,7 @@ impl ConnectorIntentTarget {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(in crate::kernel::chat) struct ChatConnectorRouteContext {
-    pub(in crate::kernel::chat) routing_hints: Vec<String>,
+    pub(in crate::kernel::chat) decision_evidence: Vec<String>,
     pub(in crate::kernel::chat) force_clarification_question: Option<String>,
     pub(in crate::kernel::chat) clear_redundant_identity_clarification: bool,
 }
@@ -400,7 +400,7 @@ pub(in crate::kernel::chat) fn infer_connector_route_context_from_catalog(
 
     if matching.is_empty() {
         return Some(ChatConnectorRouteContext {
-            routing_hints: vec![
+            decision_evidence: vec![
                 "connector_intent_detected".to_string(),
                 format!("connector_target:{}", target.key()),
                 format!("connector_target_label:{target_label}"),
@@ -433,7 +433,7 @@ pub(in crate::kernel::chat) fn infer_connector_route_context_from_catalog(
         })
         .collect::<Vec<_>>();
     let selected = matching[0];
-    let mut routing_hints = vec![
+    let mut decision_evidence = vec![
         "connector_intent_detected".to_string(),
         "connector_preferred".to_string(),
         format!("connector_target:{}", target.key()),
@@ -446,26 +446,26 @@ pub(in crate::kernel::chat) fn infer_connector_route_context_from_catalog(
     if let Some((provider_family, route_label)) =
         provider_route_for_connector_target(&selected.id, target)
     {
-        routing_hints.push(format!("selected_provider_family:{provider_family}"));
-        routing_hints.push(format!("selected_provider_route_label:{route_label}"));
+        decision_evidence.push(format!("selected_provider_family:{provider_family}"));
+        decision_evidence.push(format!("selected_provider_route_label:{route_label}"));
     }
     if target == ConnectorIntentTarget::Mail && selected.id == "mail.primary" && candidate_count > 1
     {
-        routing_hints.push("connector_tiebreaker:narrow_connector".to_string());
+        decision_evidence.push("connector_tiebreaker:narrow_connector".to_string());
     } else if target == ConnectorIntentTarget::Mail
         && selected.id == "google.workspace"
         && normalized_connector_intent_text(intent).contains("gmail")
     {
-        routing_hints.push("connector_tiebreaker:explicit_provider_mention".to_string());
+        decision_evidence.push("connector_tiebreaker:explicit_provider_mention".to_string());
     }
 
     let force_clarification_question = if best_rank < 3 {
-        routing_hints.push("connector_auth_required".to_string());
+        decision_evidence.push("connector_auth_required".to_string());
         Some(format!(
             "{target_label} is available here but not connected yet. Should Chat wait for you to connect it, or should I use another source?"
         ))
     } else if top_ranked.len() > 1 {
-        routing_hints.push("connector_choice_required".to_string());
+        decision_evidence.push("connector_choice_required".to_string());
         let choice_labels = top_ranked
             .iter()
             .map(|entry| entry.name.trim())
@@ -484,7 +484,7 @@ pub(in crate::kernel::chat) fn infer_connector_route_context_from_catalog(
     };
 
     Some(ChatConnectorRouteContext {
-        routing_hints,
+        decision_evidence,
         force_clarification_question,
         clear_redundant_identity_clarification: best_rank >= 3 && candidate_count == 1,
     })
@@ -494,13 +494,13 @@ pub(in crate::kernel::chat) fn merge_connector_route_context(
     outcome_request: &mut ChatOutcomeRequest,
     connector_context: ChatConnectorRouteContext,
 ) {
-    for hint in connector_context.routing_hints {
+    for hint in connector_context.decision_evidence {
         if !outcome_request
-            .routing_hints
+            .decision_evidence
             .iter()
             .any(|existing| existing == &hint)
         {
-            outcome_request.routing_hints.push(hint);
+            outcome_request.decision_evidence.push(hint);
         }
     }
 
@@ -526,12 +526,12 @@ pub(in crate::kernel::chat) fn merge_connector_route_context(
         outcome_request.needs_clarification = false;
         outcome_request.clarification_questions.clear();
         if !outcome_request
-            .routing_hints
+            .decision_evidence
             .iter()
             .any(|hint| hint == "connector_identity_auto_selected")
         {
             outcome_request
-                .routing_hints
+                .decision_evidence
                 .push("connector_identity_auto_selected".to_string());
         }
     }

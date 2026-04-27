@@ -23,6 +23,7 @@ pub(crate) fn build_deterministic_story_draft(
         retrieval_contract_required_support_count(retrieval_contract, &query).max(1);
     let citations_per_story =
         retrieval_contract_required_citations_per_story(retrieval_contract, &query);
+    let min_sources = pending.min_sources.max(1) as usize;
     let document_briefing_distinct_domain_floor =
         if matches!(layout_profile, SynthesisLayoutProfile::DocumentBriefing) {
             retrieval_contract_required_distinct_domain_floor(retrieval_contract, &query)
@@ -35,7 +36,7 @@ pub(crate) fn build_deterministic_story_draft(
             && document_briefing_distinct_domain_floor > 1;
     let selected_source_target =
         if matches!(layout_profile, SynthesisLayoutProfile::DocumentBriefing) {
-            required_support_count
+            required_support_count.max(min_sources)
         } else if single_snapshot_mode {
             required_story_count
                 .max(required_support_count)
@@ -45,7 +46,6 @@ pub(crate) fn build_deterministic_story_draft(
         };
     let single_snapshot_policy = ResolutionPolicy::default();
     let completion_reason = completion_reason_line(reason).to_string();
-    let min_sources = pending.min_sources.max(1) as usize;
     let required_readable_sources = if headline_lookup_mode && required_story_count > 1 {
         if min_sources <= 1 {
             1
@@ -308,9 +308,33 @@ pub(crate) fn build_deterministic_story_draft(
             };
             if selected_sources
                 .iter()
-                .any(|existing: &PendingSearchReadSummary| {
-                    titles_similar(&title, &canonical_source_title(existing))
-                })
+                .any(|existing| document_briefing_sources_share_url_identity(existing, source))
+            {
+                continue;
+            }
+            let source_is_identifier_backed_authority =
+                matches!(layout_profile, SynthesisLayoutProfile::DocumentBriefing)
+                    && document_briefing_has_document_authority(&query, source, &candidates)
+                    && !document_briefing_required_identifier_labels_for_source(
+                        &query,
+                        source,
+                        &candidates,
+                        &required_document_briefing_identifier_labels(
+                            &query,
+                            &source_pool,
+                            &candidates,
+                        ),
+                    )
+                    .is_empty();
+            let source_is_document_contract_evidence = source_is_identifier_backed_authority
+                || (matches!(layout_profile, SynthesisLayoutProfile::DocumentBriefing)
+                    && document_briefing_source_has_subject_grounding(&query, source));
+            if !source_is_document_contract_evidence
+                && selected_sources
+                    .iter()
+                    .any(|existing: &PendingSearchReadSummary| {
+                        titles_similar(&title, &canonical_source_title(existing))
+                    })
             {
                 continue;
             }
@@ -451,6 +475,30 @@ pub(crate) fn build_deterministic_story_draft(
         &mut candidates,
         &mut citations_by_id,
     );
+    let document_briefing_citation_candidates =
+        if matches!(layout_profile, SynthesisLayoutProfile::DocumentBriefing) {
+            candidates
+                .iter()
+                .filter(|candidate| {
+                    selected_sources.iter().any(|source| {
+                        let source_url = source.url.trim();
+                        let candidate_url = candidate.url.trim();
+                        !source_url.is_empty()
+                            && !candidate_url.is_empty()
+                            && (source_url.eq_ignore_ascii_case(candidate_url)
+                                || url_structurally_equivalent(source_url, candidate_url))
+                    })
+                })
+                .cloned()
+                .collect::<Vec<_>>()
+        } else {
+            Vec::new()
+        };
+    let citation_candidate_scope = if document_briefing_citation_candidates.is_empty() {
+        candidates.as_slice()
+    } else {
+        document_briefing_citation_candidates.as_slice()
+    };
 
     let mut used_citation_urls = BTreeSet::new();
     for source in selected_sources.iter().take(selected_source_target) {
@@ -497,7 +545,7 @@ pub(crate) fn build_deterministic_story_draft(
         let changed_last_hour = changed_last_hour_line(source, &run_timestamp_iso_utc);
         let citation_ids = citation_ids_for_story(
             source,
-            &candidates,
+            citation_candidate_scope,
             &mut used_citation_urls,
             citations_per_story,
             single_snapshot_mode || document_briefing_host_diversity_required,
@@ -975,6 +1023,20 @@ fn document_briefing_document_authority_score(
     source_document_authority_score(query, &source.url, title, &authority_surface)
 }
 
+fn document_briefing_source_has_subject_grounding(
+    query: &str,
+    source: &PendingSearchReadSummary,
+) -> bool {
+    if is_low_priority_coverage_story(source) || is_low_signal_excerpt(source.excerpt.as_str()) {
+        return false;
+    }
+    let title = source.title.as_deref().unwrap_or_default();
+    query_native_anchor_tokens(query)
+        .intersection(&source_anchor_tokens(&source.url, title, &source.excerpt))
+        .count()
+        >= 2
+}
+
 fn document_briefing_authoritative_required_identifier_labels_for_source(
     query: &str,
     source: &PendingSearchReadSummary,
@@ -1427,16 +1489,26 @@ fn finalize_document_briefing_selected_sources(
                 let excerpt = source.excerpt.as_str();
                 let authority_score =
                     document_briefing_document_authority_score(query, source, candidates);
-                let supports_domain_diversity = new_authority_hits > 0
-                    || new_required_hits > 0
-                    || source_has_document_briefing_authority_alignment_with_contract(
-                        retrieval_contract,
-                        query,
-                        selected_source_target,
-                        &source.url,
-                        title,
-                        excerpt,
-                    );
+                let supports_required_identifier = new_authority_hits > 0 || new_required_hits > 0;
+                let supports_document_contract_evidence = supports_required_identifier
+                    || document_briefing_source_has_subject_grounding(query, source);
+                let supports_domain_diversity = supports_document_contract_evidence
+                    || (required_floor == 0
+                        && source_has_document_briefing_authority_alignment_with_contract(
+                            retrieval_contract,
+                            query,
+                            selected_source_target,
+                            &source.url,
+                            title,
+                            excerpt,
+                        ));
+                if required_floor > 0
+                    && identifier_coverage_complete
+                    && domain_coverage_complete
+                    && !supports_document_contract_evidence
+                {
+                    return None;
+                }
                 if !domain_coverage_complete
                     && introduces_new_domain
                     && identifier_coverage_complete
@@ -1543,26 +1615,46 @@ fn finalize_document_briefing_selected_sources(
                 initially_selected_urls.contains(&left.url.trim().to_ascii_lowercase());
             let right_initially_selected =
                 initially_selected_urls.contains(&right.url.trim().to_ascii_lowercase());
-            let left_supports_domain_gain = left_authority_hits > 0
-                || left_required_hits > 0
-                || source_has_document_briefing_authority_alignment_with_contract(
-                    retrieval_contract,
-                    query,
-                    selected_source_target,
-                    &left.url,
-                    left.title.as_deref().unwrap_or_default(),
-                    left.excerpt.as_str(),
-                );
-            let right_supports_domain_gain = right_authority_hits > 0
-                || right_required_hits > 0
-                || source_has_document_briefing_authority_alignment_with_contract(
-                    retrieval_contract,
-                    query,
-                    selected_source_target,
-                    &right.url,
-                    right.title.as_deref().unwrap_or_default(),
-                    right.excerpt.as_str(),
-                );
+            let left_supports_required_identifier =
+                left_authority_hits > 0 || left_required_hits > 0;
+            let right_supports_required_identifier =
+                right_authority_hits > 0 || right_required_hits > 0;
+            let left_supports_document_contract_evidence = left_supports_required_identifier
+                || document_briefing_source_has_subject_grounding(query, left);
+            let right_supports_document_contract_evidence = right_supports_required_identifier
+                || document_briefing_source_has_subject_grounding(query, right);
+            let left_supports_domain_gain = left_supports_document_contract_evidence
+                || (required_floor == 0
+                    && source_has_document_briefing_authority_alignment_with_contract(
+                        retrieval_contract,
+                        query,
+                        selected_source_target,
+                        &left.url,
+                        left.title.as_deref().unwrap_or_default(),
+                        left.excerpt.as_str(),
+                    ));
+            let right_supports_domain_gain = right_supports_document_contract_evidence
+                || (required_floor == 0
+                    && source_has_document_briefing_authority_alignment_with_contract(
+                        retrieval_contract,
+                        query,
+                        selected_source_target,
+                        &right.url,
+                        right.title.as_deref().unwrap_or_default(),
+                        right.excerpt.as_str(),
+                    ));
+            if required_floor > 0
+                && !left_supports_document_contract_evidence
+                && !right_supports_document_contract_evidence
+            {
+                return std::cmp::Ordering::Equal;
+            }
+            if required_floor > 0 && !left_supports_document_contract_evidence {
+                return std::cmp::Ordering::Greater;
+            }
+            if required_floor > 0 && !right_supports_document_contract_evidence {
+                return std::cmp::Ordering::Less;
+            }
             let left_domain_gain = enforce_domain_diversity
                 && finalized_domains.len() < required_domain_floor
                 && document_briefing_domain_key(left)
@@ -1599,6 +1691,29 @@ fn finalize_document_briefing_selected_sources(
         for source in remaining {
             if finalized.len() >= selected_source_target {
                 break;
+            }
+            if required_floor > 0 {
+                let required_hits = document_briefing_required_identifier_labels_for_source(
+                    query,
+                    &source,
+                    candidates,
+                    &required_labels,
+                )
+                .len();
+                let authority_hits =
+                    document_briefing_authoritative_required_identifier_labels_for_source(
+                        query,
+                        &source,
+                        candidates,
+                        &required_labels,
+                    )
+                    .len();
+                let supports_document_briefing_evidence = authority_hits > 0
+                    || required_hits > 0
+                    || document_briefing_source_has_subject_grounding(query, &source);
+                if !supports_document_briefing_evidence {
+                    continue;
+                }
             }
             finalized.push(source);
         }

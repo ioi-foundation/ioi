@@ -162,12 +162,12 @@ pub(crate) fn parse_receipt_path<'a>(value: &'a str) -> Option<&'a str> {
 }
 
 pub(crate) fn latest_workspace_edit_step(agent_state: &AgentState) -> Option<u32> {
-    execution_receipt_value(&agent_state.tool_execution_log, "workspace_edit_applied")
+    execution_evidence_value(&agent_state.tool_execution_log, "workspace_edit_applied")
         .and_then(parse_receipt_step)
 }
 
 pub(crate) fn latest_workspace_edit_path(agent_state: &AgentState) -> Option<String> {
-    execution_receipt_value(&agent_state.tool_execution_log, "workspace_edit_applied")
+    execution_evidence_value(&agent_state.tool_execution_log, "workspace_edit_applied")
         .and_then(parse_receipt_path)
         .map(str::to_string)
 }

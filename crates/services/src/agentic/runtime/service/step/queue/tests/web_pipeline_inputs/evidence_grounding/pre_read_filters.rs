@@ -226,7 +226,7 @@ fn web_pipeline_pre_read_plan_requires_probe_when_only_community_threads_remain(
     );
     assert!(
         !plan.probe_source_hints.is_empty(),
-        "probe recovery should retain the rejected discovery hints as evidence receipts"
+        "probe recovery should retain the rejected discovery hints as evidence evidence"
     );
 }
 

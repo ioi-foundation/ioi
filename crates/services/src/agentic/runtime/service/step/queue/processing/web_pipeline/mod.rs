@@ -274,7 +274,7 @@ fn terminalized_web_pipeline_contract_error(
 
     format!(
         "{} cause_error_class=LowSignalReadInsufficient web_pipeline_reason={} successful_reads={} remaining_candidates={} summary_excerpt={}",
-        execution_contract_violation_error("receipt::final_output_contract_ready=true"),
+        execution_contract_violation_error("evidence::final_output_contract_ready=true"),
         web_pipeline_completion_reason_label(reason),
         pending.successful_reads.len(),
         remaining_pending_web_candidates(pending),

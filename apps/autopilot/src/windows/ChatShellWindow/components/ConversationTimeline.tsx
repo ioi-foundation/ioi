@@ -8,6 +8,8 @@ import type {
 import type { ConversationTurn, TurnContext } from "../hooks/useTurnContexts";
 import { normalizeVisualHash } from "../utils/visualHash";
 import { buildAssistantTurnProcess } from "../utils/assistantTurnProcessModel";
+import { extractUserRequestFromContextualIntent } from "../utils/contextualIntent";
+import { operatorFacingCurrentStep } from "../viewmodels/runtimeStatusCopy";
 import { AnswerCard } from "./AnswerCard";
 import { AssistantTurn } from "./AssistantTurn";
 import {
@@ -41,7 +43,6 @@ type ConversationTimelineProps = {
     artifacts: React.ReactNode;
     sparkles: React.ReactNode;
   };
-  onExportTraceBundle: () => Promise<void> | void;
   onOpenArtifactHub: (
     preferredView?: ArtifactHubViewKey,
     preferredTurnId?: string | null,
@@ -60,13 +61,11 @@ export function ConversationTimeline({
   task = null,
   runtimeModelLabel = null,
   isRunning,
-  currentStep,
   visualHash,
   sourceDurationLabel,
   showInitialLoader,
   suppressPendingIndicators = false,
   icons,
-  onExportTraceBundle,
   onOpenArtifactHub,
   onOpenSourceSummary,
   activeChatArtifactSessionId = null,
@@ -79,7 +78,7 @@ export function ConversationTimeline({
   ) => {
     const fallback = running
       ? "Thinking through the request."
-      : "Runtime timeline is initializing.";
+      : "Getting the response ready.";
 
     if (!detail) {
       return fallback;
@@ -111,6 +110,11 @@ export function ConversationTimeline({
         const hasPendingArtifact =
           turnContext?.hasPendingArtifact || false;
         const hasPendingOperatorRun = operatorRunIsPending(turnContext);
+        const hasCompletedArtifact =
+          !!turnContext &&
+          turnContext.artifacts.length > 0 &&
+          !hasPendingArtifact &&
+          !hasPendingOperatorRun;
         const latestAnswerMatches =
           isLatestAnsweredTurn &&
           !!turn.answer &&
@@ -124,26 +128,27 @@ export function ConversationTimeline({
           !!runPresentation.finalAnswer &&
           runPresentation.finalAnswer.message.timestamp >=
             turn.prompt.timestamp;
-        const hasThoughtSummary = !!runPresentation.thoughtSummary;
         const toolActivityGroup = turnContext?.toolActivityGroup || null;
         const turnSourceSummary =
           turnContext?.sourceSummary ||
           (latestAnswerMatches ? runPresentation.sourceSummary : null);
         const inlineTranscriptRoute =
           toolActivityGroup?.presentation === "inline_transcript";
-        const showInlineTranscript = !!turn.prompt && inlineTranscriptRoute;
         const showLiveThinking =
           isLatestTurn &&
           !!turn.prompt &&
           !turn.answer &&
           isRunning &&
           !suppressPendingIndicators;
+        const showInlineTranscript =
+          !!turn.prompt && inlineTranscriptRoute && showLiveThinking;
         const showInlineStatusCard =
           isLatestTurn &&
           !!turn.prompt &&
           !turn.answer &&
           !!inlineStatusCard &&
           !showInlineTranscript;
+        const turnCurrentStep = operatorFacingCurrentStep(task, turnPlanSummary);
         const showAssistantPendingBubble =
           isLatestTurn &&
           !!turn.prompt &&
@@ -152,14 +157,8 @@ export function ConversationTimeline({
           !runPresentation.finalAnswer &&
           !showInlineTranscript &&
           !showInlineStatusCard &&
+          !hasCompletedArtifact &&
           !suppressPendingIndicators;
-        const showThoughtTrigger =
-          !showInlineStatusCard &&
-          !showInlineTranscript &&
-          !!turn.prompt &&
-          (showLiveThinking || !!turn.answer);
-        const thoughtCount = turnContext?.thoughtCount || 0;
-        const visualReceiptCount = turnContext?.visualReceiptCount || 0;
         const liveVisualHash =
           isLatestTurn && showLiveThinking
             ? normalizeVisualHash(visualHash ?? "") || null
@@ -169,24 +168,8 @@ export function ConversationTimeline({
         const showInlineVisualReceipt =
           !!inlineVisualHash ||
           (!!turnContext && turnContext.visualReceiptCount > 0);
-        const hasTurnTrace =
-          (turnContext?.kernelEventCount || 0) > 0 ||
-          thoughtCount > 0 ||
-          visualReceiptCount > 0;
-        const traceDetail = showLiveThinking
-          ? currentStep || "Reasoning across tools"
-          : !hasTurnTrace
-            ? "No trace captured"
-            : thoughtCount > 0
-              ? `${thoughtCount} ${thoughtCount === 1 ? "step" : "steps"} captured`
-              : visualReceiptCount > 0
-                ? `${visualReceiptCount} visual ${
-                    visualReceiptCount === 1 ? "receipt" : "receipts"
-                  } captured`
-                : `${turnContext?.kernelEventCount || 0} events captured`;
-        const worklogLabel = showLiveThinking ? "Working..." : "Worklog";
         const pendingReplyDetail = normalizePendingReplyDetail(
-          currentStep,
+          turnCurrentStep || undefined,
           showLiveThinking,
         );
         const inlineArtifactReply = artifactReplyText(turnContext);
@@ -213,7 +196,7 @@ export function ConversationTimeline({
                 ? runPresentation.finalAnswer
                 : null,
           isRunning: showLiveThinking,
-          currentStep,
+          currentStep: turnCurrentStep,
         });
         const assistantTurnShell = (children: React.ReactNode) => (
           <AssistantTurn process={assistantProcess}>
@@ -239,7 +222,9 @@ export function ConversationTimeline({
           <React.Fragment key={turn.key}>
             {turn.prompt && (
               <div className="spot-message user spot-message--prompt">
-                <div className="message-content-text">{turn.prompt.text}</div>
+                <div className="message-content-text">
+                  {extractUserRequestFromContextualIntent(turn.prompt.text)}
+                </div>
               </div>
             )}
 
@@ -272,34 +257,11 @@ export function ConversationTimeline({
                 <div className="spot-message--pending-shell">
                   <span className="spot-message--pending-kicker">
                     <span className="spot-message--pending-dot" />
-                    {showLiveThinking ? "Thinking" : "Runtime timeline"}
+                    {showLiveThinking ? "Thinking" : "Working"}
                   </span>
                   <p>{pendingReplyDetail}</p>
                 </div>
               </div>
-            )}
-
-            {showThoughtTrigger && (
-              <button
-                className={`spot-thinking-pill ${
-                  showLiveThinking ? "spot-thinking-pill--active" : ""
-                }`}
-                type="button"
-                onClick={() =>
-                  onOpenArtifactHub(
-                    turnContext?.defaultView ||
-                      (hasThoughtSummary ? "thoughts" : "kernel_logs"),
-                    turnContext?.turnId || null,
-                  )
-                }
-                title="Open thinking artifacts"
-              >
-                <span className="spot-thinking-pill-icon">
-                  {icons.sparkles}
-                </span>
-                <span className="spot-thinking-pill-text">{worklogLabel}</span>
-                <span className="spot-thinking-pill-detail">{traceDetail}</span>
-              </button>
             )}
 
             {showLiveThinking &&
@@ -357,7 +319,6 @@ export function ConversationTimeline({
                       answer={runPresentation.finalAnswer}
                       sourceSummary={null}
                       sourceDurationLabel={sourceDurationLabel}
-                      onExportTraceBundle={onExportTraceBundle}
                       onOpenArtifacts={openTurnDetails}
                       onOpenSources={onOpenSourceSummary}
                     />,
@@ -412,7 +373,6 @@ export function ConversationTimeline({
                     answer={runPresentation.finalAnswer}
                     sourceSummary={null}
                     sourceDurationLabel={sourceDurationLabel}
-                    onExportTraceBundle={onExportTraceBundle}
                     onOpenArtifacts={openTurnDetails}
                     onOpenSources={onOpenSourceSummary}
                   />,
@@ -515,14 +475,16 @@ export function ConversationTimeline({
             thoughtSummary: runPresentation.thoughtSummary,
             finalAnswer: runPresentation.finalAnswer,
             isRunning,
-            currentStep,
+            currentStep: operatorFacingCurrentStep(
+              task,
+              runPresentation.planSummary,
+            ),
           })}
         >
           <AnswerCard
             answer={runPresentation.finalAnswer}
             sourceSummary={null}
             sourceDurationLabel={sourceDurationLabel}
-            onExportTraceBundle={onExportTraceBundle}
             onOpenArtifacts={() =>
               onOpenArtifactHub(
                 runPresentation.thoughtSummary
@@ -538,22 +500,17 @@ export function ConversationTimeline({
       )}
 
       {showInitialLoader && !suppressPendingIndicators && (
-        <button
+        <div
           className="spot-thinking-pill spot-thinking-pill--active"
-          type="button"
-          onClick={() =>
-            onOpenArtifactHub(
-              runPresentation.thoughtSummary ? "thoughts" : "kernel_logs",
-            )
-          }
-          title="Open thinking artifacts"
+          aria-live="polite"
         >
           <span className="spot-thinking-pill-icon">{icons.sparkles}</span>
           <span className="spot-thinking-pill-text">Working...</span>
           <span className="spot-thinking-pill-detail">
-            {currentStep || "Initializing..."}
+            {operatorFacingCurrentStep(task, runPresentation.planSummary) ||
+              "Initializing..."}
           </span>
-        </button>
+        </div>
       )}
     </>
   );

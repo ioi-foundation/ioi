@@ -351,7 +351,7 @@ fn outcome_kind_label(kind: ChatOutcomeKind) -> &'static str {
     }
 }
 
-fn pipeline_steps_for_non_artifact_route(
+fn pipeline_steps_for_inline_answer_route(
     chat_session: &ChatArtifactSession,
 ) -> Vec<ChatArtifactPipelineStep> {
     let materialization = &chat_session.materialization;
@@ -375,7 +375,7 @@ fn pipeline_steps_for_non_artifact_route(
         .as_ref()
         .map(|summary| summary.enabled)
         .unwrap_or(false);
-    let route_hints = outcome_request.routing_hints.clone();
+    let route_hints = outcome_request.decision_evidence.clone();
     let verification_gate = "Verification state, not worker prose, authorizes Chat replies.";
 
     let mut steps = vec![
@@ -1306,7 +1306,7 @@ pub(super) fn refresh_pipeline_steps(
 ) {
     let Some(request) = chat_session.outcome_request.artifact.as_ref() else {
         chat_session.materialization.pipeline_steps =
-            pipeline_steps_for_non_artifact_route(chat_session);
+            pipeline_steps_for_inline_answer_route(chat_session);
         return;
     };
     chat_session.materialization.pipeline_steps = pipeline_steps_for_state(

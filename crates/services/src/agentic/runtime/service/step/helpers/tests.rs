@@ -85,7 +85,10 @@ fn detects_mailbox_connector_goals() {
 fn default_safe_policy_uses_current_intent_matrix_version() {
     let upgraded = default_safe_policy();
     assert_eq!(
-        upgraded.ontology_policy.intent_routing.matrix_version,
+        upgraded
+            .ontology_policy
+            .intent_routing
+            .intent_catalog_version,
         "intent-matrix-v15"
     );
 }

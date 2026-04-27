@@ -290,6 +290,54 @@ async fn browser_render_evaluator_blocks_dead_controls() {
 }
 
 #[tokio::test]
+async fn browser_render_evaluator_witnesses_numeric_controls_as_numeric_state() {
+    let evaluator = BrowserChatArtifactRenderEvaluator::default();
+    let request = interactive_html_request();
+    let mut brief = interactive_html_brief();
+    brief.required_interactions = vec!["adjust calculation inputs".to_string()];
+    let candidate = ChatGeneratedArtifactPayload {
+        summary: "Interactive calculator with numeric controls".to_string(),
+        notes: vec!["numeric controls drive calculated output".to_string()],
+        files: vec![ChatGeneratedArtifactFile {
+            path: "index.html".to_string(),
+            mime: "text/html".to_string(),
+            role: ChatArtifactFileRole::Primary,
+            renderable: true,
+            downloadable: true,
+            encoding: None,
+            body: "<!doctype html><html><head><meta charset=\"utf-8\"><style>body{margin:0;font-family:Inter,Arial,sans-serif;background:#f5f7fb;color:#172033;}main{display:grid;gap:1rem;padding:1.5rem;max-width:760px;margin:0 auto;}section,aside{background:white;border:1px solid #d9e1ec;border-radius:8px;padding:1rem;}label{display:grid;gap:.35rem;font-weight:700;}input{font:inherit;padding:.45rem;border:1px solid #9fb0c7;border-radius:6px;}output{font-weight:800;color:#0a5a50;}</style></head><body><main><section><h1>Mortgage calculator</h1><p>Adjust the loan amount, rate, and term to inspect the monthly estimate.</p></section><section><h2>Inputs</h2><label>Loan amount<input id=\"amount\" type=\"number\" value=\"550000\" step=\"1000\"></label><label>Interest rate<input id=\"rate\" type=\"number\" value=\"6.5\" step=\"0.1\"></label><label>Term<input id=\"term\" type=\"number\" value=\"30\" step=\"1\"></label></section><section><h2>Estimate</h2><p>Monthly payment: <output id=\"payment\">$3,476</output></p><p>Total interest: <output id=\"interest\">$701,210</output></p></section><aside role=\"status\" aria-live=\"polite\" id=\"detail\">Loan amount $550,000 at 6.5% for 30 years.</aside></main><script>const amount=document.getElementById('amount');const rate=document.getElementById('rate');const term=document.getElementById('term');const payment=document.getElementById('payment');const interest=document.getElementById('interest');const detail=document.getElementById('detail');function money(value){return value.toLocaleString('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0});}function update(){const principal=Number(amount.value)||0;const monthlyRate=(Number(rate.value)||0)/100/12;const months=(Number(term.value)||0)*12;const monthly=monthlyRate>0&&months>0?(principal*monthlyRate*Math.pow(1+monthlyRate,months))/(Math.pow(1+monthlyRate,months)-1):(months>0?principal/months:0);payment.textContent=money(monthly);interest.textContent=money(monthly*months-principal);detail.textContent=`Loan amount ${money(principal)} at ${rate.value}% for ${term.value} years.`;}[amount,rate,term].forEach((input)=>input.addEventListener('input',update));update();</script></body></html>".to_string(),
+        }],
+    };
+
+    let render_evaluation = evaluator
+        .evaluate_candidate_render(&request, &brief, None, None, None, &candidate)
+        .await
+        .expect("render evaluation should succeed")
+        .expect("html render evaluation should be supported");
+
+    let controls_obligation = render_evaluation
+        .acceptance_obligations
+        .iter()
+        .find(|obligation| obligation.obligation_id == "controls_execute_cleanly")
+        .expect("controls_execute_cleanly obligation");
+    assert_eq!(
+        controls_obligation.status,
+        ChatArtifactAcceptanceObligationStatus::Passed
+    );
+    assert!(
+        render_evaluation
+            .execution_witnesses
+            .iter()
+            .take(3)
+            .all(|witness| witness.action_kind == "input_step"
+                && witness.status == ChatArtifactExecutionWitnessStatus::Passed
+                && witness.state_changed),
+        "numeric witnesses should all pass: {:?}",
+        render_evaluation.execution_witnesses
+    );
+}
+
+#[tokio::test]
 async fn browser_render_evaluator_does_not_require_interaction_contract_for_document_html() {
     let evaluator = BrowserChatArtifactRenderEvaluator::default();
     let request = document_html_request();

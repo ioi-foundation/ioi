@@ -373,7 +373,7 @@ fn accumulate_environment_receipts_from_checks(
     checks: &[String],
 ) {
     for fact in checks.iter().map(|check| parse_verification_fact(check)) {
-        let Some(normalized_key) = fact.key.strip_prefix("env_receipt::") else {
+        let Some(normalized_key) = fact.key.strip_prefix("env_evidence::") else {
             continue;
         };
         let Some(raw_value) = fact.value else {
@@ -430,9 +430,9 @@ fn accumulate_environment_receipts_from_checks(
 
 fn accumulate_environment_receipts_from_observations(
     grouped: &mut BTreeMap<String, EnvironmentReceiptAccumulator>,
-    receipts: &[EnvironmentReceiptObservation],
+    evidence: &[EnvironmentReceiptObservation],
 ) {
-    for receipt in receipts {
+    for receipt in evidence {
         let entry = grouped.entry(receipt.key.clone()).or_default();
         for value in &receipt.observed_values {
             if !value.is_empty() && !entry.observed_values.contains(value) {
@@ -487,22 +487,22 @@ fn merge_environment_receipts(
 fn mirror_environment_receipt_checks(receipt: &EnvironmentReceiptObservation) -> Vec<String> {
     let mut checks = Vec::new();
     for value in &receipt.observed_values {
-        checks.push(format!("env_receipt::{}={}", receipt.key, value));
+        checks.push(format!("env_evidence::{}={}", receipt.key, value));
     }
     if let Some(probe_source) = receipt.probe_source.as_ref() {
         checks.push(format!(
-            "env_receipt::{}_probe_source={}",
+            "env_evidence::{}_probe_source={}",
             receipt.key, probe_source
         ));
     }
     if let Some(timestamp_ms) = receipt.timestamp_ms {
         checks.push(format!(
-            "env_receipt::{}_timestamp_ms={}",
+            "env_evidence::{}_timestamp_ms={}",
             receipt.key, timestamp_ms
         ));
     }
     if let Some(satisfied) = receipt.satisfied {
-        checks.push(format!("env_receipt::{}_satisfied={}", receipt.key, satisfied));
+        checks.push(format!("env_evidence::{}_satisfied={}", receipt.key, satisfied));
     }
     checks
 }
@@ -520,7 +520,7 @@ fn push_environment_observation(
         satisfied: None,
     };
     batch.checks.extend(mirror_environment_receipt_checks(&receipt));
-    batch.receipts.push(receipt);
+    batch.evidence.push(receipt);
 }
 
 fn push_environment_metadata(
@@ -538,7 +538,7 @@ fn push_environment_metadata(
         satisfied,
     };
     batch.checks.extend(mirror_environment_receipt_checks(&receipt));
-    batch.receipts.push(receipt);
+    batch.evidence.push(receipt);
 }
 
 fn push_environment_receipt(
@@ -557,16 +557,16 @@ fn push_environment_receipt(
         satisfied,
     };
     batch.checks.extend(mirror_environment_receipt_checks(&receipt));
-    batch.receipts.push(receipt);
+    batch.evidence.push(receipt);
 }
 
 fn extend_environment_evidence_batch(
     checks: &mut Vec<String>,
-    receipts: &mut Vec<EnvironmentReceiptObservation>,
+    evidence: &mut Vec<EnvironmentReceiptObservation>,
     batch: EnvironmentEvidenceBatch,
 ) {
     checks.extend(batch.checks);
-    receipts.extend(batch.receipts);
+    evidence.extend(batch.evidence);
 }
 
 fn display_optional_env_value(value: Option<&str>) -> String {

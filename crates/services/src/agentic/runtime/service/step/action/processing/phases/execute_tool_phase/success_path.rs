@@ -4,12 +4,12 @@ use super::events::{
 use super::tool_outcome::{apply_tool_outcome_and_followups, ToolOutcomeContext};
 use super::*;
 use crate::agentic::runtime::connectors::{
-    connector_id_for_tool_name, connector_postcondition_verifier_bindings,
+    connector_id_for_tool_name, connector_success_condition_verifier_bindings,
 };
 use crate::agentic::runtime::service::lifecycle::{
     browser_subagent_request_from_dynamic, run_browser_subagent,
 };
-use crate::agentic::runtime::service::step::action::command_contract::contract_requires_postcondition_with_rules;
+use crate::agentic::runtime::service::step::action::command_contract::contract_requires_success_condition_with_rules;
 use crate::agentic::runtime::service::step::cognition::build_browser_snapshot_pending_state_context_with_history;
 use ioi_types::app::agentic::{
     MediaFrameEvidence, MediaMultimodalBundle, MediaTimelineOutlineBundle, MediaTranscriptBundle,
@@ -1019,12 +1019,12 @@ fn record_browser_marker_receipt(
     key: &str,
     evidence: &str,
 ) {
-    mark_execution_receipt_with_value(
+    record_execution_evidence_with_value(
         &mut agent_state.tool_execution_log,
         key,
         evidence.to_string(),
     );
-    verification_checks.push(receipt_marker(key));
+    verification_checks.push(execution_evidence_key(key));
     emit_execution_contract_receipt_event(
         service,
         session_id,
@@ -1051,8 +1051,8 @@ fn record_browser_marker_postcondition(
     key: &str,
     evidence: &str,
 ) {
-    mark_execution_postcondition(&mut agent_state.tool_execution_log, key);
-    verification_checks.push(postcondition_marker(key));
+    record_success_condition(&mut agent_state.tool_execution_log, key);
+    verification_checks.push(success_condition_key(key));
     emit_execution_contract_receipt_event(
         service,
         session_id,
@@ -1135,7 +1135,7 @@ fn record_workspace_read_receipt(agent_state: &mut AgentState, tool: &AgentTool,
     let Some(evidence) = workspace_read_receipt_details(tool, step_index) else {
         return;
     };
-    mark_execution_receipt_with_value(
+    record_execution_evidence_with_value(
         &mut agent_state.tool_execution_log,
         "workspace_read_observed",
         evidence,
@@ -1156,12 +1156,12 @@ fn record_workspace_edit_receipt(
         return;
     };
 
-    mark_execution_receipt_with_value(
+    record_execution_evidence_with_value(
         &mut agent_state.tool_execution_log,
         "workspace_edit_applied",
         evidence.clone(),
     );
-    verification_checks.push(receipt_marker("workspace_edit_applied"));
+    verification_checks.push(execution_evidence_key("workspace_edit_applied"));
     emit_execution_contract_receipt_event(
         service,
         session_id,
@@ -1728,7 +1728,7 @@ fn record_browser_success_markers(
     }
 }
 
-async fn verify_non_command_postconditions(
+async fn verify_non_command_success_conditions(
     service: &RuntimeAgentService,
     agent_state: &mut AgentState,
     rules: &ActionRules,
@@ -1744,7 +1744,7 @@ async fn verify_non_command_postconditions(
     if agent_state.resolved_intent.is_none() {
         return Ok(());
     }
-    if !contract_requires_postcondition_with_rules(agent_state, rules, "mail.reply.completed") {
+    if !contract_requires_success_condition_with_rules(agent_state, rules, "mail.reply.completed") {
         return Ok(());
     }
     let connector_id = agent_state
@@ -1757,7 +1757,7 @@ async fn verify_non_command_postconditions(
             "ERROR_CLASS=GroundingMissing Postcondition verification requires a selected connector."
                 .to_string()
         })?;
-    let verifier = connector_postcondition_verifier_bindings()
+    let verifier = connector_success_condition_verifier_bindings()
         .into_iter()
         .find(|binding| binding.connector_id == connector_id)
         .ok_or_else(|| {
@@ -1781,8 +1781,8 @@ async fn verify_non_command_postconditions(
     };
 
     for evidence in proof.evidence {
-        mark_execution_postcondition(&mut agent_state.tool_execution_log, &evidence.key);
-        verification_checks.push(postcondition_marker(&evidence.key));
+        record_success_condition(&mut agent_state.tool_execution_log, &evidence.key);
+        verification_checks.push(success_condition_key(&evidence.key));
         emit_execution_contract_receipt_event_with_observation(
             service,
             session_id,
@@ -1817,8 +1817,8 @@ pub(crate) async fn record_non_command_success_receipts(
     synthesized_payload_hash: Option<String>,
     verification_checks: &mut Vec<String>,
 ) -> Result<(), String> {
-    mark_execution_receipt(&mut agent_state.tool_execution_log, "execution");
-    verification_checks.push(receipt_marker("execution"));
+    record_execution_evidence(&mut agent_state.tool_execution_log, "execution");
+    verification_checks.push(execution_evidence_key("execution"));
     emit_execution_contract_receipt_event(
         service,
         session_id,
@@ -1833,7 +1833,7 @@ pub(crate) async fn record_non_command_success_receipts(
         synthesized_payload_hash.clone(),
     );
 
-    verify_non_command_postconditions(
+    verify_non_command_success_conditions(
         service,
         agent_state,
         rules,
@@ -1848,8 +1848,8 @@ pub(crate) async fn record_non_command_success_receipts(
     )
     .await?;
 
-    mark_execution_receipt(&mut agent_state.tool_execution_log, "verification");
-    verification_checks.push(receipt_marker("verification"));
+    record_execution_evidence(&mut agent_state.tool_execution_log, "verification");
+    verification_checks.push(execution_evidence_key("verification"));
     emit_execution_contract_receipt_event(
         service,
         session_id,
@@ -2185,8 +2185,8 @@ pub(super) async fn handle_execution_success(
         }
 
         if command_scope {
-            mark_execution_postcondition(&mut agent_state.tool_execution_log, "execution_artifact");
-            verification_checks.push(postcondition_marker("execution_artifact"));
+            record_success_condition(&mut agent_state.tool_execution_log, "execution_artifact");
+            verification_checks.push(success_condition_key("execution_artifact"));
             let artifact_evidence = raw_entry
                 .as_ref()
                 .map(|entry| format!("command_exit_code={}", entry.exit_code))
@@ -2227,8 +2227,8 @@ pub(super) async fn handle_execution_success(
 
     if command_scope && *success && matches!(tool, AgentTool::SysInstallPackage { .. }) {
         verification_checks.push("capability_execution_evidence=tool_output".to_string());
-        mark_execution_postcondition(&mut agent_state.tool_execution_log, "execution_artifact");
-        verification_checks.push(postcondition_marker("execution_artifact"));
+        record_success_condition(&mut agent_state.tool_execution_log, "execution_artifact");
+        verification_checks.push(success_condition_key("execution_artifact"));
         let (package, manager) = match tool {
             AgentTool::SysInstallPackage { package, manager } => {
                 (package.trim(), manager.as_deref().unwrap_or("auto"))
@@ -2261,8 +2261,8 @@ pub(super) async fn handle_execution_success(
 
     if command_scope && *success && matches!(tool, AgentTool::AutomationCreateMonitor { .. }) {
         verification_checks.push("capability_execution_evidence=tool_output".to_string());
-        mark_execution_postcondition(&mut agent_state.tool_execution_log, "execution_artifact");
-        verification_checks.push(postcondition_marker("execution_artifact"));
+        record_success_condition(&mut agent_state.tool_execution_log, "execution_artifact");
+        verification_checks.push(success_condition_key("execution_artifact"));
         let artifact_evidence = format!(
             "automation_monitor_install=true;tool_output_chars={}",
             history_entry
@@ -2336,12 +2336,12 @@ pub(super) async fn handle_execution_success(
                     AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. }
                 ) {
                     if sys_exec_arms_timer_delay_backend(tool) {
-                        mark_execution_postcondition(
+                        record_success_condition(
                             &mut agent_state.tool_execution_log,
-                            TIMER_SLEEP_BACKEND_POSTCONDITION,
+                            TIMER_SLEEP_BACKEND_SUCCESS_CONDITION,
                         );
                         verification_checks
-                            .push(postcondition_marker(TIMER_SLEEP_BACKEND_POSTCONDITION));
+                            .push(success_condition_key(TIMER_SLEEP_BACKEND_SUCCESS_CONDITION));
                         let delay_seconds =
                             sys_exec_timer_delay_seconds(tool).map(|value| value.to_string());
                         emit_execution_contract_receipt_event_with_observation(
@@ -2350,7 +2350,7 @@ pub(super) async fn handle_execution_success(
                             step_index,
                             resolved_intent_id,
                             "execution",
-                            TIMER_SLEEP_BACKEND_POSTCONDITION,
+                            TIMER_SLEEP_BACKEND_SUCCESS_CONDITION,
                             true,
                             "timer_sleep_backend=armed",
                             Some("tool_payload"),
@@ -2381,19 +2381,20 @@ pub(super) async fn handle_execution_success(
                     }
                     if let Some(command_preview) = sys_exec_command_preview(tool) {
                         if command_arms_deferred_notification_path(&command_preview) {
-                            mark_execution_postcondition(
+                            record_success_condition(
                                 &mut agent_state.tool_execution_log,
-                                TIMER_NOTIFICATION_PATH_POSTCONDITION,
+                                TIMER_NOTIFICATION_PATH_SUCCESS_CONDITION,
                             );
-                            verification_checks
-                                .push(postcondition_marker(TIMER_NOTIFICATION_PATH_POSTCONDITION));
+                            verification_checks.push(success_condition_key(
+                                TIMER_NOTIFICATION_PATH_SUCCESS_CONDITION,
+                            ));
                             emit_execution_contract_receipt_event_with_observation(
                                 service,
                                 session_id,
                                 step_index,
                                 resolved_intent_id,
                                 "execution",
-                                TIMER_NOTIFICATION_PATH_POSTCONDITION,
+                                TIMER_NOTIFICATION_PATH_SUCCESS_CONDITION,
                                 true,
                                 "timer_notification_path_armed=true",
                                 Some("tool_payload"),
@@ -2403,11 +2404,12 @@ pub(super) async fn handle_execution_success(
                                 None,
                                 synthesized_payload_hash.clone(),
                             );
-                            mark_execution_receipt(
+                            record_execution_evidence(
                                 &mut agent_state.tool_execution_log,
                                 "notification_strategy",
                             );
-                            verification_checks.push(receipt_marker("notification_strategy"));
+                            verification_checks
+                                .push(execution_evidence_key("notification_strategy"));
                             emit_execution_contract_receipt_event_with_observation(
                                 service,
                                 session_id,
@@ -2431,8 +2433,8 @@ pub(super) async fn handle_execution_success(
                 }
             }
             if command_scope {
-                mark_execution_receipt(&mut agent_state.tool_execution_log, "execution");
-                verification_checks.push(receipt_marker("execution"));
+                record_execution_evidence(&mut agent_state.tool_execution_log, "execution");
+                verification_checks.push(execution_evidence_key("execution"));
                 emit_execution_contract_receipt_event(
                     service,
                     session_id,
@@ -2449,7 +2451,7 @@ pub(super) async fn handle_execution_success(
             }
             verification_checks.push("capability_execution_phase=verification".to_string());
             if command_scope {
-                record_verification_receipts(
+                record_verification_evidence(
                     &mut agent_state.tool_execution_log,
                     verification_checks,
                     tool,
@@ -2462,9 +2464,9 @@ pub(super) async fn handle_execution_success(
                         None
                     },
                 );
-                let verification_commit = execution_receipt_value(
+                let verification_commit = execution_evidence_value(
                     &agent_state.tool_execution_log,
-                    VERIFICATION_COMMIT_RECEIPT,
+                    VERIFICATION_COMMIT_EVIDENCE,
                 )
                 .map(str::to_string);
                 emit_execution_contract_receipt_event(
@@ -2486,7 +2488,7 @@ pub(super) async fn handle_execution_success(
                     step_index,
                     resolved_intent_id,
                     "verification",
-                    VERIFICATION_COMMIT_RECEIPT,
+                    VERIFICATION_COMMIT_EVIDENCE,
                     verification_commit
                         .as_deref()
                         .map(|value| value.starts_with("sha256:"))

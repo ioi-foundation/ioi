@@ -32,7 +32,7 @@ pub fn case() -> QueryCase {
             "Do not modify files. Return a concise completion summary that lists each ",
             "matching absolute path on its own line."
         ),
-        success_definition: "Identify the fixture-bounded PDF set modified within the last-week window using deterministic filesystem metadata, return all matching absolute paths, and satisfy CEC/environment/cleanup receipts with no contract failures.",
+        success_definition: "Identify the fixture-bounded PDF set modified within the last-week window using deterministic filesystem metadata, return all matching absolute paths, and satisfy CEC/environment/cleanup evidence with no contract failures.",
         seeded_intent_id: "workspace.ops.search_local_files",
         intent_scope: IntentScopeProfile::WorkspaceOps,
         seed_resolved_intent: true,
@@ -49,83 +49,83 @@ pub fn case() -> QueryCase {
 
 fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let fixture_mode =
-        verification_value(obs, "env_receipt::pdf_last_week_fixture_mode").unwrap_or_default();
+        verification_value(obs, "env_evidence::pdf_last_week_fixture_mode").unwrap_or_default();
     let fixture_probe_source =
-        verification_value(obs, "env_receipt::pdf_last_week_fixture_probe_source")
+        verification_value(obs, "env_evidence::pdf_last_week_fixture_probe_source")
             .unwrap_or_default();
     let fixture_timestamp_ms =
-        verification_u64(obs, "env_receipt::pdf_last_week_fixture_timestamp_ms")
+        verification_u64(obs, "env_evidence::pdf_last_week_fixture_timestamp_ms")
             .unwrap_or(obs.run_timestamp_ms);
     let fixture_satisfied =
-        verification_bool(obs, "env_receipt::pdf_last_week_fixture_satisfied").unwrap_or(false);
+        verification_bool(obs, "env_evidence::pdf_last_week_fixture_satisfied").unwrap_or(false);
 
     let expected_paths_csv =
-        verification_value(obs, "env_receipt::pdf_last_week_expected_paths").unwrap_or_default();
+        verification_value(obs, "env_evidence::pdf_last_week_expected_paths").unwrap_or_default();
     let expected_count =
-        verification_u64(obs, "env_receipt::pdf_last_week_expected_count").unwrap_or(0) as usize;
+        verification_u64(obs, "env_evidence::pdf_last_week_expected_count").unwrap_or(0) as usize;
     let expected_paths = parse_csv_paths(&expected_paths_csv);
     let expected_paths_set = expected_paths.iter().cloned().collect::<BTreeSet<_>>();
 
     let observed_paths_csv =
-        verification_value(obs, "env_receipt::pdf_last_week_observed_pdf_paths")
+        verification_value(obs, "env_evidence::pdf_last_week_observed_pdf_paths")
             .unwrap_or_default();
     let observed_paths = parse_csv_paths(&observed_paths_csv);
     let observed_paths_set = observed_paths.iter().cloned().collect::<BTreeSet<_>>();
     let observed_paths_probe_source = verification_value(
         obs,
-        "env_receipt::pdf_last_week_observed_pdf_paths_probe_source",
+        "env_evidence::pdf_last_week_observed_pdf_paths_probe_source",
     )
     .unwrap_or_default();
     let observed_paths_timestamp_ms = verification_u64(
         obs,
-        "env_receipt::pdf_last_week_observed_pdf_paths_timestamp_ms",
+        "env_evidence::pdf_last_week_observed_pdf_paths_timestamp_ms",
     )
     .unwrap_or(obs.run_timestamp_ms);
     let observed_paths_satisfied = verification_bool(
         obs,
-        "env_receipt::pdf_last_week_observed_pdf_paths_satisfied",
+        "env_evidence::pdf_last_week_observed_pdf_paths_satisfied",
     )
     .unwrap_or(false);
 
     let expected_window_start_epoch_ms = verification_u64(
         obs,
-        "env_receipt::pdf_last_week_expected_window_start_epoch_ms",
+        "env_evidence::pdf_last_week_expected_window_start_epoch_ms",
     )
     .unwrap_or(0);
     let observed_window_start_epoch_ms = verification_u64(
         obs,
-        "env_receipt::pdf_last_week_observed_window_start_epoch_ms",
+        "env_evidence::pdf_last_week_observed_window_start_epoch_ms",
     )
     .unwrap_or(0);
     let observed_window_probe_source = verification_value(
         obs,
-        "env_receipt::pdf_last_week_observed_window_start_probe_source",
+        "env_evidence::pdf_last_week_observed_window_start_probe_source",
     )
     .unwrap_or_default();
     let observed_window_timestamp_ms = verification_u64(
         obs,
-        "env_receipt::pdf_last_week_observed_window_start_timestamp_ms",
+        "env_evidence::pdf_last_week_observed_window_start_timestamp_ms",
     )
     .unwrap_or(obs.run_timestamp_ms);
     let observed_within_window_count = verification_u64(
         obs,
-        "env_receipt::pdf_last_week_observed_within_window_count",
+        "env_evidence::pdf_last_week_observed_within_window_count",
     )
     .unwrap_or(0) as usize;
     let observed_within_window_satisfied = verification_bool(
         obs,
-        "env_receipt::pdf_last_week_observed_within_window_satisfied",
+        "env_evidence::pdf_last_week_observed_within_window_satisfied",
     )
     .unwrap_or(false);
 
     let cleanup_probe_source =
-        verification_value(obs, "env_receipt::pdf_last_week_cleanup_probe_source")
+        verification_value(obs, "env_evidence::pdf_last_week_cleanup_probe_source")
             .unwrap_or_default();
     let cleanup_timestamp_ms =
-        verification_u64(obs, "env_receipt::pdf_last_week_cleanup_timestamp_ms")
+        verification_u64(obs, "env_evidence::pdf_last_week_cleanup_timestamp_ms")
             .unwrap_or(obs.run_timestamp_ms);
     let cleanup_satisfied =
-        verification_bool(obs, "env_receipt::pdf_last_week_cleanup_satisfied").unwrap_or(false);
+        verification_bool(obs, "env_evidence::pdf_last_week_cleanup_satisfied").unwrap_or(false);
 
     let list_action_success_count = obs
         .action_evidence
@@ -421,6 +421,6 @@ fn has_mutating_filesystem_action(obs: &RunObservation) -> bool {
     })
 }
 
-fn serialize_environment_receipts(receipts: &[EnvironmentEvidenceReceipt]) -> String {
-    serde_json::to_string(receipts).unwrap_or_else(|_| "[]".to_string())
+fn serialize_environment_receipts(evidence: &[EnvironmentEvidenceReceipt]) -> String {
+    serde_json::to_string(evidence).unwrap_or_else(|_| "[]".to_string())
 }

@@ -1,6 +1,6 @@
 use crate::agentic::runtime::service::step::action::{
-    emit_execution_contract_receipt_event, mark_execution_receipt_for_value, receipt_marker_for,
-    RuntimeReceipt,
+    emit_execution_contract_receipt_event, execution_evidence_key_for,
+    record_execution_evidence_for_value, RuntimeEvidence,
 };
 use crate::agentic::runtime::service::RuntimeAgentService;
 use crate::agentic::runtime::types::AgentState;
@@ -59,19 +59,21 @@ pub(super) fn record_queue_workspace_success_receipts(
     verification_checks: &mut Vec<String>,
 ) {
     if let Some(evidence) = queue_workspace_read_receipt(step_index, tool) {
-        mark_execution_receipt_for_value(
+        record_execution_evidence_for_value(
             &mut agent_state.tool_execution_log,
-            RuntimeReceipt::WorkspaceReadObserved,
+            RuntimeEvidence::WorkspaceReadObserved,
             evidence.clone(),
         );
-        verification_checks.push(receipt_marker_for(RuntimeReceipt::WorkspaceReadObserved));
+        verification_checks.push(execution_evidence_key_for(
+            RuntimeEvidence::WorkspaceReadObserved,
+        ));
         emit_execution_contract_receipt_event(
             service,
             session_id,
             step_index,
             resolved_intent_id,
             "execution",
-            RuntimeReceipt::WorkspaceReadObserved.as_str(),
+            RuntimeEvidence::WorkspaceReadObserved.as_str(),
             true,
             &evidence,
             None,
@@ -81,19 +83,21 @@ pub(super) fn record_queue_workspace_success_receipts(
     }
 
     if let Some((tool_name, evidence)) = queue_workspace_edit_receipt(step_index, tool) {
-        mark_execution_receipt_for_value(
+        record_execution_evidence_for_value(
             &mut agent_state.tool_execution_log,
-            RuntimeReceipt::WorkspaceEditApplied,
+            RuntimeEvidence::WorkspaceEditApplied,
             evidence.clone(),
         );
-        verification_checks.push(receipt_marker_for(RuntimeReceipt::WorkspaceEditApplied));
+        verification_checks.push(execution_evidence_key_for(
+            RuntimeEvidence::WorkspaceEditApplied,
+        ));
         emit_execution_contract_receipt_event(
             service,
             session_id,
             step_index,
             resolved_intent_id,
             "execution",
-            RuntimeReceipt::WorkspaceEditApplied.as_str(),
+            RuntimeEvidence::WorkspaceEditApplied.as_str(),
             true,
             &evidence,
             None,

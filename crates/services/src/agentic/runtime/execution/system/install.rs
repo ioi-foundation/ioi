@@ -1,5 +1,5 @@
+use super::evidence::{scrub_workload_args_for_evidence, scrub_workload_text_field_for_evidence};
 use super::paths::resolve_working_directory;
-use super::receipt::{scrub_workload_args_for_receipt, scrub_workload_text_field_for_receipt};
 use super::sys_exec::{
     command_output_indicates_failure, command_preview, extract_exit_code, process_stream_observer,
     summarize_command_output,
@@ -131,11 +131,11 @@ pub(super) async fn handle_install_package(
     }
 
     let resolved_cwd_string = resolved_cwd.to_string_lossy().to_string();
-    let receipt_command = scrub_workload_text_field_for_receipt(exec, command).await;
-    let receipt_args = scrub_workload_args_for_receipt(exec, &args).await;
-    let receipt_cwd =
-        scrub_workload_text_field_for_receipt(exec, resolved_cwd_string.as_str()).await;
-    let receipt_preview = command_preview(&receipt_command, &receipt_args);
+    let evidence_command = scrub_workload_text_field_for_evidence(exec, command).await;
+    let evidence_args = scrub_workload_args_for_evidence(exec, &args).await;
+    let evidence_cwd =
+        scrub_workload_text_field_for_evidence(exec, resolved_cwd_string.as_str()).await;
+    let receipt_preview = command_preview(&evidence_command, &evidence_args);
     let workload_id =
         compute_workload_id(session_id, step_index, "package__install", &receipt_preview);
     if let Some(tx) = exec.event_sender.as_ref() {
@@ -226,9 +226,9 @@ pub(super) async fn handle_install_package(
             workload_id.clone(),
             WorkloadReceipt::Exec(WorkloadExecReceipt {
                 tool_name: "package__install".to_string(),
-                command: receipt_command,
-                args: receipt_args,
-                cwd: receipt_cwd,
+                command: evidence_command,
+                args: evidence_args,
+                cwd: evidence_cwd,
                 detach: false,
                 timeout_ms: INSTALL_COMMAND_TIMEOUT.as_millis() as u64,
                 success: result.success,

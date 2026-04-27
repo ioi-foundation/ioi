@@ -32,7 +32,7 @@ pub fn case() -> QueryCase {
             "Do not modify files. Return a concise summary that includes the selected absolute path ",
             "and at least two key facts from the selected document."
         ),
-        success_definition: "Identify the latest document by deterministic filesystem metadata inside the isolated Documents fixture, summarize that specific document with path + key facts, and satisfy execution/verification/cleanup evidence receipts without contract failures.",
+        success_definition: "Identify the latest document by deterministic filesystem metadata inside the isolated Documents fixture, summarize that specific document with path + key facts, and satisfy execution/verification/cleanup evidence evidence without contract failures.",
         seeded_intent_id: "workspace.ops",
         intent_scope: IntentScopeProfile::WorkspaceOps,
         seed_resolved_intent: true,
@@ -49,14 +49,14 @@ pub fn case() -> QueryCase {
 
 fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let expected_latest_path =
-        verification_value(obs, "env_receipt::documents_summary_expected_latest_path")
+        verification_value(obs, "env_evidence::documents_summary_expected_latest_path")
             .unwrap_or_default();
     let latest_observed_path =
-        verification_value(obs, "env_receipt::documents_summary_latest_observed_path")
+        verification_value(obs, "env_evidence::documents_summary_latest_observed_path")
             .unwrap_or_default();
     let latest_path_satisfied = verification_bool(
         obs,
-        "env_receipt::documents_summary_latest_observed_path_satisfied",
+        "env_evidence::documents_summary_latest_observed_path_satisfied",
     )
     .unwrap_or(false);
     let expected_latest_path_matches_observed = !expected_latest_path.is_empty()
@@ -117,66 +117,70 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         && !mutating_filesystem_action_seen;
 
     let fixture_mode =
-        verification_value(obs, "env_receipt::documents_summary_fixture_mode").unwrap_or_default();
+        verification_value(obs, "env_evidence::documents_summary_fixture_mode").unwrap_or_default();
     let fixture_probe_source =
-        verification_value(obs, "env_receipt::documents_summary_fixture_probe_source")
+        verification_value(obs, "env_evidence::documents_summary_fixture_probe_source")
             .unwrap_or_default();
     let fixture_timestamp_ms =
-        verification_u64(obs, "env_receipt::documents_summary_fixture_timestamp_ms")
+        verification_u64(obs, "env_evidence::documents_summary_fixture_timestamp_ms")
             .unwrap_or(obs.run_timestamp_ms);
     let fixture_satisfied =
-        verification_bool(obs, "env_receipt::documents_summary_fixture_satisfied").unwrap_or(false);
-    let seeded_files_value =
-        verification_value(obs, "env_receipt::documents_summary_seeded_files").unwrap_or_default();
-    let seeded_files_satisfied =
-        verification_bool(obs, "env_receipt::documents_summary_seeded_files_satisfied")
+        verification_bool(obs, "env_evidence::documents_summary_fixture_satisfied")
             .unwrap_or(false);
+    let seeded_files_value =
+        verification_value(obs, "env_evidence::documents_summary_seeded_files").unwrap_or_default();
+    let seeded_files_satisfied = verification_bool(
+        obs,
+        "env_evidence::documents_summary_seeded_files_satisfied",
+    )
+    .unwrap_or(false);
     let observed_files_value =
-        verification_value(obs, "env_receipt::documents_summary_observed_files")
+        verification_value(obs, "env_evidence::documents_summary_observed_files")
             .unwrap_or_default();
     let observed_files_probe_source = verification_value(
         obs,
-        "env_receipt::documents_summary_observed_files_probe_source",
+        "env_evidence::documents_summary_observed_files_probe_source",
     )
     .unwrap_or_default();
     let observed_files_timestamp_ms = verification_u64(
         obs,
-        "env_receipt::documents_summary_observed_files_timestamp_ms",
+        "env_evidence::documents_summary_observed_files_timestamp_ms",
     )
     .unwrap_or(obs.run_timestamp_ms);
     let observed_files_satisfied = verification_bool(
         obs,
-        "env_receipt::documents_summary_observed_files_satisfied",
+        "env_evidence::documents_summary_observed_files_satisfied",
     )
     .unwrap_or(false);
     let latest_observed_probe_source = verification_value(
         obs,
-        "env_receipt::documents_summary_latest_observed_path_probe_source",
+        "env_evidence::documents_summary_latest_observed_path_probe_source",
     )
     .unwrap_or_default();
     let latest_observed_timestamp_ms = verification_u64(
         obs,
-        "env_receipt::documents_summary_latest_observed_path_timestamp_ms",
+        "env_evidence::documents_summary_latest_observed_path_timestamp_ms",
     )
     .unwrap_or(obs.run_timestamp_ms);
     let latest_content_probe_source = verification_value(
         obs,
-        "env_receipt::documents_summary_latest_content_probe_source",
+        "env_evidence::documents_summary_latest_content_probe_source",
     )
     .unwrap_or_default();
     let latest_content_timestamp_ms = verification_u64(
         obs,
-        "env_receipt::documents_summary_latest_content_timestamp_ms",
+        "env_evidence::documents_summary_latest_content_timestamp_ms",
     )
     .unwrap_or(obs.run_timestamp_ms);
     let cleanup_probe_source =
-        verification_value(obs, "env_receipt::documents_summary_cleanup_probe_source")
+        verification_value(obs, "env_evidence::documents_summary_cleanup_probe_source")
             .unwrap_or_default();
     let cleanup_timestamp_ms =
-        verification_u64(obs, "env_receipt::documents_summary_cleanup_timestamp_ms")
+        verification_u64(obs, "env_evidence::documents_summary_cleanup_timestamp_ms")
             .unwrap_or(obs.run_timestamp_ms);
     let cleanup_satisfied =
-        verification_bool(obs, "env_receipt::documents_summary_cleanup_satisfied").unwrap_or(false);
+        verification_bool(obs, "env_evidence::documents_summary_cleanup_satisfied")
+            .unwrap_or(false);
 
     let environment_receipts = build_environment_receipts(
         obs,
@@ -422,6 +426,6 @@ fn has_mutating_filesystem_action(obs: &RunObservation) -> bool {
     })
 }
 
-fn serialize_environment_receipts(receipts: &[EnvironmentEvidenceReceipt]) -> String {
-    serde_json::to_string(receipts).unwrap_or_else(|_| "[]".to_string())
+fn serialize_environment_receipts(evidence: &[EnvironmentEvidenceReceipt]) -> String {
+    serde_json::to_string(evidence).unwrap_or_else(|_| "[]".to_string())
 }

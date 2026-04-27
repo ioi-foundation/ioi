@@ -35,7 +35,7 @@ pub fn case() -> QueryCase {
     QueryCase {
         id: CASE_ID,
         query: "Create a new folder on my desktop called \"Project_{RUN_UNIQUE_NUM}\"",
-        success_definition: "Create the requested desktop folder inside the isolated temp-home Desktop fixture, verify the created directory with runtime environment receipts, and complete without contract failures.",
+        success_definition: "Create the requested desktop folder inside the isolated temp-home Desktop fixture, verify the created directory with runtime environment evidence, and complete without contract failures.",
         seeded_intent_id: "command.exec",
         intent_scope: IntentScopeProfile::CommandExecution,
         seed_resolved_intent: true,
@@ -52,62 +52,62 @@ pub fn case() -> QueryCase {
 
 fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let fixture_mode =
-        environment_value(obs, "env_receipt::desktop_project_fixture_mode").unwrap_or_default();
+        environment_value(obs, "env_evidence::desktop_project_fixture_mode").unwrap_or_default();
     let fixture_probe_source =
-        environment_value(obs, "env_receipt::desktop_project_fixture_probe_source")
+        environment_value(obs, "env_evidence::desktop_project_fixture_probe_source")
             .unwrap_or_default();
     let fixture_timestamp_ms =
-        environment_u64(obs, "env_receipt::desktop_project_fixture_timestamp_ms")
+        environment_u64(obs, "env_evidence::desktop_project_fixture_timestamp_ms")
             .unwrap_or(obs.run_timestamp_ms);
     let fixture_satisfied =
-        environment_bool(obs, "env_receipt::desktop_project_fixture_satisfied").unwrap_or(false);
+        environment_bool(obs, "env_evidence::desktop_project_fixture_satisfied").unwrap_or(false);
     let expected_absent_satisfied = environment_bool(
         obs,
-        "env_receipt::desktop_project_expected_absent_satisfied",
+        "env_evidence::desktop_project_expected_absent_satisfied",
     )
     .unwrap_or(false);
 
     let expected_path =
-        environment_value(obs, "env_receipt::desktop_project_expected_path").unwrap_or_default();
+        environment_value(obs, "env_evidence::desktop_project_expected_path").unwrap_or_default();
     let observed_path =
-        environment_value(obs, "env_receipt::desktop_project_observed_path").unwrap_or_default();
+        environment_value(obs, "env_evidence::desktop_project_observed_path").unwrap_or_default();
     let created_probe_source =
-        environment_value(obs, "env_receipt::desktop_project_created_probe_source")
+        environment_value(obs, "env_evidence::desktop_project_created_probe_source")
             .unwrap_or_default();
     let created_timestamp_ms =
-        environment_u64(obs, "env_receipt::desktop_project_created_timestamp_ms")
+        environment_u64(obs, "env_evidence::desktop_project_created_timestamp_ms")
             .unwrap_or(obs.run_timestamp_ms);
     let created_satisfied =
-        environment_bool(obs, "env_receipt::desktop_project_created_satisfied").unwrap_or(false);
+        environment_bool(obs, "env_evidence::desktop_project_created_satisfied").unwrap_or(false);
 
     let desktop_entries =
-        environment_value(obs, "env_receipt::desktop_project_desktop_entries").unwrap_or_default();
+        environment_value(obs, "env_evidence::desktop_project_desktop_entries").unwrap_or_default();
     let desktop_entries_probe_source = environment_value(
         obs,
-        "env_receipt::desktop_project_desktop_entries_probe_source",
+        "env_evidence::desktop_project_desktop_entries_probe_source",
     )
     .unwrap_or_default();
     let desktop_entries_timestamp_ms = environment_u64(
         obs,
-        "env_receipt::desktop_project_desktop_entries_timestamp_ms",
+        "env_evidence::desktop_project_desktop_entries_timestamp_ms",
     )
     .unwrap_or(obs.run_timestamp_ms);
     let desktop_entries_satisfied = environment_bool(
         obs,
-        "env_receipt::desktop_project_desktop_entries_satisfied",
+        "env_evidence::desktop_project_desktop_entries_satisfied",
     )
     .unwrap_or(false);
     let scope_satisfied =
-        environment_bool(obs, "env_receipt::desktop_project_scope_satisfied").unwrap_or(false);
+        environment_bool(obs, "env_evidence::desktop_project_scope_satisfied").unwrap_or(false);
 
     let cleanup_probe_source =
-        environment_value(obs, "env_receipt::desktop_project_cleanup_probe_source")
+        environment_value(obs, "env_evidence::desktop_project_cleanup_probe_source")
             .unwrap_or_default();
     let cleanup_timestamp_ms =
-        environment_u64(obs, "env_receipt::desktop_project_cleanup_timestamp_ms")
+        environment_u64(obs, "env_evidence::desktop_project_cleanup_timestamp_ms")
             .unwrap_or(obs.run_timestamp_ms);
     let cleanup_satisfied =
-        environment_bool(obs, "env_receipt::desktop_project_cleanup_satisfied").unwrap_or(false);
+        environment_bool(obs, "env_evidence::desktop_project_cleanup_satisfied").unwrap_or(false);
 
     let create_action_count = obs
         .action_evidence
@@ -399,6 +399,6 @@ fn build_environment_receipts(
     ]
 }
 
-fn serialize_environment_receipts(receipts: &[EnvironmentEvidenceReceipt]) -> String {
-    serde_json::to_string(receipts).unwrap_or_else(|_| "[]".to_string())
+fn serialize_environment_receipts(evidence: &[EnvironmentEvidenceReceipt]) -> String {
+    serde_json::to_string(evidence).unwrap_or_else(|_| "[]".to_string())
 }

@@ -342,7 +342,7 @@ mod tests {
         request.artifact_class = ChatArtifactClass::InteractiveSingleFile;
         let raw = r#"<!doctype html><html><body><main>
           <section><h1>Understanding quantum computers</h1><p>Qubits, gates, superposition, and measurement are introduced with enough authored copy to preview the artifact.</p></section>
-          <section><h2>Explore</h2><p id="detail-content">This visible response region is populated before script repair. It explains how qubits keep probability amplitudes, how gates transform state, and how measurement collapses a distribution into a classical result. The authored copy is already substantial enough for a first preview, and a local repair pass can still add controls or rescue script wiring after the stream settles. That is the important behavior for desktop local GPU runs: the chat UI should not keep showing Stop only because the model began a trailing script tag after completing the visible main artifact.</p></section>
+          <section><h2>Explore</h2><p id="detail-content">This visible response region is populated before script repair. It explains how qubits keep probability amplitudes, how gates transform state, and how measurement collapses a distribution into a classical result. The authored copy is already substantial enough for a first preview, and a local repair pass can still add controls or deterministic_repair script wiring after the stream settles. That is the important behavior for desktop local GPU runs: the chat UI should not keep showing Stop only because the model began a trailing script tag after completing the visible main artifact.</p></section>
         </main>
 
         <script>"#;
@@ -397,7 +397,9 @@ mod tests {
         request.artifact_class = ChatArtifactClass::InteractiveSingleFile;
         let raw = r#"<!doctype html><html><body><main>
           <section><h1>Quantum computer playground</h1><p>Explore qubits, gates, amplitudes, and measurement with a compact authored surface.</p></section>
-        </main></body></html>"#;
+          <section><h2>State evidence</h2><button type="button" id="inspect-state">Inspect state</button><p>A visible default state explains how amplitudes represent possible measurement outcomes before observation.</p></section>
+          <aside role="status" aria-live="polite"><p id="state-detail">Use the authored controls to compare the default quantum state.</p></aside>
+        </main><script>document.getElementById('inspect-state').addEventListener('click',function(){document.getElementById('state-detail').textContent='Measurement collapses the authored qubit state into one visible classical outcome.';});</script></body></html>"#;
 
         let generated =
             parse_direct_author_generated_candidate(raw, &request, &sample_brief(), None, "clean")
@@ -408,13 +410,113 @@ mod tests {
 
         assert!(body.contains("Quantum computer playground"));
         assert!(
-            !body.contains("data-ioi-local-rescue"),
-            "clean direct-author mode must not inject local heuristic rescue wiring"
+            !body.contains("data-ioi-deterministic-repair"),
+            "clean direct-author mode must not inject local heuristic deterministic_repair wiring"
         );
         assert!(generated
             .notes
             .iter()
-            .any(|note| note.contains("without semantic repair heuristics")));
+            .any(|note| note.contains("typed renderer contract checks")));
+    }
+
+    #[test]
+    fn raw_direct_author_fragment_is_rejected_by_primary_view_contract() {
+        let mut request = sample_html_document_request();
+        request.artifact_class = ChatArtifactClass::InteractiveSingleFile;
+        let raw = "<!doctype html><html><head><title>Mortgage Calculator</title>";
+
+        let error = parse_direct_author_generated_candidate(
+            raw,
+            &request,
+            &sample_brief(),
+            None,
+            "fragment",
+        )
+        .expect_err("head-only HTML must not satisfy the raw direct-author contract");
+
+        assert!(
+            error
+                .message
+                .contains("HTML sectioning regions are empty shells on first paint."),
+            "unexpected error: {}",
+            error.message
+        );
+    }
+
+    #[test]
+    fn primary_view_contract_deterministic_repair_removes_html_comments_and_adds_response_region() {
+        let mut request = sample_html_document_request();
+        request.artifact_class = ChatArtifactClass::InteractiveSingleFile;
+        let raw = r#"<!doctype html><html><body><main>
+          <!-- authored notes should not ship -->
+          <section><h1>Mortgage Calculator</h1><p>Compare loan amount, rate, and term with a visible monthly payment.</p></section>
+          <section><h2>Inputs</h2><label for="amount">Loan amount</label><input id="amount" type="number" value="450000"></section>
+          <section><h2>Output</h2><p id="payment">$2,997 monthly payment</p></section>
+        </main><script>document.getElementById('amount').addEventListener('input',function(){document.getElementById('payment').textContent='$3,100 monthly payment';});</script></body></html>"#;
+
+        let (repaired, strategy) = try_local_html_primary_view_contract_repair(
+            &request,
+            ChatRuntimeProvenanceKind::RealLocalRuntime,
+            raw,
+            "HTML still contains placeholder-grade copy or comments on first paint.",
+        )
+        .expect("comment-only primary-view failure should be locally recoverable");
+
+        assert_eq!(strategy, "primary_view_contract");
+        assert!(!repaired.contains("<!--"));
+        assert!(repaired.contains("role=\"status\""));
+        parse_direct_author_generated_candidate(
+            &repaired,
+            &request,
+            &sample_brief(),
+            None,
+            "repaired-primary-view",
+        )
+        .expect("repaired primary view should satisfy typed raw contract");
+    }
+
+    #[test]
+    fn form_control_deterministic_repair_supports_number_inputs_and_evidence_surfaces() {
+        let raw = r#"<!doctype html><html><body><main>
+          <!-- deterministic repair should remove authoring comments -->
+          <section><h1>Adjustable calculator</h1><p>Change the visible inputs to update the result.</p></section>
+          <section><h2>Inputs</h2><label for="amount">Amount</label><input id="amount" type="number" value="450000"><label for="rate">Rate</label><input id="rate" type="number" value="6.5"></section>
+          <section><h2>Result</h2><p id="resultbox">$2,844 monthly payment</p></section>
+        </main></body></html>"#;
+
+        let repaired = try_local_html_form_control_repair(raw, &raw.to_ascii_lowercase())
+            .expect("number-only controls should be eligible for form deterministic_repair");
+        let lower = repaired.to_ascii_lowercase();
+
+        assert!(repaired.contains("data-ioi-deterministic-repair=\"form-response\""));
+        assert!(!html_contains_placeholder_markers(&lower));
+        assert!(count_populated_html_response_regions(&lower) >= 1);
+        assert!(count_populated_html_evidence_regions(&lower) >= 2);
+    }
+
+    #[test]
+    fn form_control_deterministic_repair_marks_visible_result_box_as_live_response() {
+        let raw = r#"<!doctype html><html><body><main>
+          <section><h1>Mortgage calculator</h1><p>Adjust the principal and rate to update the estimate.</p></section>
+          <section><h2>Controls</h2><label for="principal">Principal</label><input id="principal" type="number" value="550000"><label for="rate">Rate</label><input id="rate" type="number" value="6.5"></section>
+          <section><h2>Estimate</h2><div id="result-box" class="result-box"><div class="result-label">Estimated monthly payment</div><div id="monthly-payment" class="result-value">$0.00</div></div></section>
+        </main></body></html>"#;
+
+        let repaired = try_local_html_form_control_repair(raw, &raw.to_ascii_lowercase())
+            .expect("number controls with a visible result box should be recoverable");
+        let lower = repaired.to_ascii_lowercase();
+
+        assert!(
+            lower.contains(
+                "id=\"result-box\" class=\"result-box\" role=\"status\" aria-live=\"polite\""
+            ) || lower.contains(
+                "id=\"result-box\" class=\"result-box\" aria-live=\"polite\" role=\"status\""
+            ),
+            "visible result box should be promoted to the live response surface: {repaired}"
+        );
+        assert!(lower.contains("class~=\"result-value\""));
+        assert!(count_populated_html_response_regions(&lower) >= 1);
+        assert!(count_populated_html_evidence_regions(&lower) >= 2);
     }
 
     #[test]
@@ -693,7 +795,7 @@ fn insert_html_snippet_at(document: &str, index: usize, snippet: &str) -> String
     repaired
 }
 
-fn local_html_structural_rescue_candidates(document: &str) -> Vec<(&'static str, String)> {
+fn local_html_structural_repair_candidates(document: &str) -> Vec<(&'static str, String)> {
     let normalized = normalize_html_terminal_closure(document);
     let lower = normalized.to_ascii_lowercase();
     let content_start = html_document_content_start(&lower, "<main")
@@ -866,9 +968,6 @@ fn html_has_live_response_region_markup(lower: &str) -> bool {
 
 fn ensure_response_region_markup(document: &str, target_ids: &[&str]) -> String {
     let lower = document.to_ascii_lowercase();
-    if html_has_live_response_region_markup(&lower) {
-        return document.to_string();
-    }
 
     for id in target_ids {
         for pattern in [format!("id=\"{id}\""), format!("id='{id}'")] {
@@ -904,27 +1003,31 @@ fn ensure_response_region_markup(document: &str, target_ids: &[&str]) -> String 
         }
     }
 
+    if html_has_live_response_region_markup(&lower) {
+        return document.to_string();
+    }
+
     document.to_string()
 }
 
-fn try_local_html_view_switch_rescue(document: &str, lower: &str) -> Option<String> {
+fn try_local_html_view_switch_repair(document: &str, lower: &str) -> Option<String> {
     if !lower.contains("data-view=")
         || !lower.contains("data-view-panel=")
-        || lower.contains("data-ioi-local-rescue=\"view-switch\"")
+        || lower.contains("data-ioi-deterministic-repair=\"view-switch\"")
     {
         return None;
     }
 
-    let rescue_script = r#"<script data-ioi-local-rescue="view-switch">(function(){const buttons=Array.from(document.querySelectorAll('button[data-view]'));const panels=Array.from(document.querySelectorAll('[data-view-panel]'));const detail=document.querySelector('[id="detail-copy" i]');if(!buttons.length||!panels.length){return;}const describe=(button)=>{const explicit=button.getAttribute('data-detail');if(explicit&&explicit.trim()){return explicit.trim();}const label=(button.textContent||button.dataset.view||'Selection').trim();return `${label} selected.`;};const activate=(button)=>{const view=button.dataset.view||'';buttons.forEach((entry)=>entry.setAttribute('aria-selected',String(entry===button)));panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==view;});if(detail){detail.textContent=describe(button);}};buttons.forEach((button)=>button.addEventListener('click',()=>activate(button)));const initial=buttons.find((button)=>button.getAttribute('aria-selected')==='true')||buttons[0];if(initial){activate(initial);}})();</script>"#;
-    let rescued_document = ensure_response_region_markup(document, &["detail-copy"]);
+    let repair_script = r#"<script data-ioi-deterministic-repair="view-switch">(function(){const buttons=Array.from(document.querySelectorAll('button[data-view]'));const panels=Array.from(document.querySelectorAll('[data-view-panel]'));const detail=document.querySelector('[id="detail-copy" i]');if(!buttons.length||!panels.length){return;}const describe=(button)=>{const explicit=button.getAttribute('data-detail');if(explicit&&explicit.trim()){return explicit.trim();}const label=(button.textContent||button.dataset.view||'Selection').trim();return `${label} selected.`;};const activate=(button)=>{const view=button.dataset.view||'';buttons.forEach((entry)=>entry.setAttribute('aria-selected',String(entry===button)));panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==view;});if(detail){detail.textContent=describe(button);}};buttons.forEach((button)=>button.addEventListener('click',()=>activate(button)));const initial=buttons.find((button)=>button.getAttribute('aria-selected')==='true')||buttons[0];if(initial){activate(initial);}})();</script>"#;
+    let repaired_document = ensure_response_region_markup(document, &["detail-copy"]);
     let sanitized =
-        strip_inline_script_blocks(&strip_inline_event_handler_attributes(&rescued_document));
+        strip_inline_script_blocks(&strip_inline_event_handler_attributes(&repaired_document));
     Some(normalize_html_terminal_closure(
-        &insert_html_snippet_before_close(&sanitized, "</body>", rescue_script),
+        &insert_html_snippet_before_close(&sanitized, "</body>", repair_script),
     ))
 }
 
-fn try_local_html_stage_navigation_rescue(document: &str, lower: &str) -> Option<String> {
+fn try_local_html_stage_navigation_repair(document: &str, lower: &str) -> Option<String> {
     let has_stage_sections = lower.contains("id=\"stage-")
         || lower.contains("id='stage-")
         || lower.contains("id=\"stage_")
@@ -938,7 +1041,7 @@ fn try_local_html_stage_navigation_rescue(document: &str, lower: &str) -> Option
         || lower.contains("data-stage-target=")
         || lower.contains("data-target-stage=")
         || lower.contains("data-stage=");
-    if !has_stage_sections || lower.contains("data-ioi-local-rescue=\"stage-nav\"") {
+    if !has_stage_sections || lower.contains("data-ioi-deterministic-repair=\"stage-nav\"") {
         return None;
     }
 
@@ -952,28 +1055,28 @@ fn try_local_html_stage_navigation_rescue(document: &str, lower: &str) -> Option
         || lower.contains("aria-live=")
         || lower.contains("<aside");
 
-    let mut rescued_document = document.to_string();
+    let mut repaired_document = strip_html_comments(document);
     if !has_response_target {
-        let fallback_region = r#"<aside data-ioi-local-rescue-target="detail-copy" role="status" aria-live="polite"><p id="detail-copy">Select a stage to update this explanation.</p></aside>"#;
-        rescued_document = if lower.contains("</main>") {
-            insert_html_snippet_before_close(&rescued_document, "</main>", fallback_region)
+        let fallback_region = r#"<aside data-ioi-deterministic-repair-target="detail-copy" role="status" aria-live="polite"><p id="detail-copy">Select a stage to update this explanation.</p></aside>"#;
+        repaired_document = if lower.contains("</main>") {
+            insert_html_snippet_before_close(&repaired_document, "</main>", fallback_region)
         } else {
-            insert_html_snippet_before_close(&rescued_document, "</body>", fallback_region)
+            insert_html_snippet_before_close(&repaired_document, "</body>", fallback_region)
         };
     } else if !html_has_live_response_region_markup(lower) {
-        rescued_document = ensure_response_region_markup(
-            &rescued_document,
+        repaired_document = ensure_response_region_markup(
+            &repaired_document,
             &["detail-copy", "feedback", "status-text"],
         );
     }
 
-    let rescue_script = if has_stage_buttons {
-        r#"<script data-ioi-local-rescue="stage-nav">(function(){const stages=Array.from(document.querySelectorAll('section[id^="stage-"],section[id^="stage_"],article[id^="stage-"],article[id^="stage_"],div[id^="stage-"],div[id^="stage_"],section[id^="state-"],section[id^="state_"],article[id^="state-"],article[id^="state_"],div[id^="state-"],div[id^="state_"]'));const buttons=Array.from(document.querySelectorAll('button[id^="btn-"],button[data-stage-target],button[data-target-stage],button[data-stage]'));const detail=document.querySelector('[id="detail-copy" i],[id="feedback" i],[id="status-text" i],[role="status"],[aria-live]');if(stages.length<2||!buttons.length){return;}let currentIndex=Math.max(stages.findIndex((node)=>!node.hidden&&node.style.display!=='none'),0);const readIndex=(value)=>{if(!value){return null;}const match=String(value).match(/(\d+)/g);if(!match||!match.length){return null;}const parsed=Number(match[match.length-1]);return Number.isFinite(parsed)?parsed:null;};const stageTitle=(node,index)=>{const heading=node.querySelector('h1,h2,h3');return (heading&&heading.textContent&&heading.textContent.trim())||`Stage ${index+1}`;};const detailTextFor=(index)=>`${stageTitle(stages[index],index)} selected.`;const targetFor=(button,index)=>{const attributed=readIndex(button.getAttribute('data-stage-target')||button.getAttribute('data-target-stage')||button.getAttribute('data-stage'));if(attributed!==null){return Math.max(0,Math.min(stages.length-1,attributed));}const inferred=readIndex(button.id)||readIndex(button.textContent||'');if(inferred!==null){return Math.max(0,Math.min(stages.length-1,inferred));}const label=((button.textContent||button.id||'').trim()).toLowerCase();if(label.includes('back')||label.includes('prev')){return Math.max(0,currentIndex-1);}return Math.max(0,Math.min(stages.length-1,index+1));};const inspect=(nextIndex)=>{if(detail){detail.textContent=detailTextFor(Math.max(0,Math.min(stages.length-1,nextIndex)));}};const activate=(nextIndex)=>{currentIndex=Math.max(0,Math.min(stages.length-1,nextIndex));stages.forEach((node,idx)=>{const active=idx===currentIndex;node.hidden=!active;node.style.display=active?'':'none';});buttons.forEach((button,idx)=>button.setAttribute('aria-pressed',String(targetFor(button,idx)===currentIndex)));inspect(currentIndex);};buttons.forEach((button,index)=>{const targetIndex=targetFor(button,index);button.setAttribute('data-detail',detailTextFor(targetIndex));button.addEventListener('click',()=>activate(targetIndex));button.addEventListener('focus',()=>inspect(targetIndex));button.addEventListener('mouseenter',()=>inspect(targetIndex));});activate(currentIndex);})();</script>"#
+    let repair_script = if has_stage_buttons {
+        r#"<script data-ioi-deterministic-repair="stage-nav">(function(){const stages=Array.from(document.querySelectorAll('section[id^="stage-"],section[id^="stage_"],article[id^="stage-"],article[id^="stage_"],div[id^="stage-"],div[id^="stage_"],section[id^="state-"],section[id^="state_"],article[id^="state-"],article[id^="state_"],div[id^="state-"],div[id^="state_"]'));const buttons=Array.from(document.querySelectorAll('button[id^="btn-"],button[data-stage-target],button[data-target-stage],button[data-stage]'));const detail=document.querySelector('[id="detail-copy" i],[id="feedback" i],[id="status-text" i],[role="status"],[aria-live]');if(stages.length<2||!buttons.length){return;}let currentIndex=Math.max(stages.findIndex((node)=>!node.hidden&&node.style.display!=='none'),0);const readIndex=(value)=>{if(!value){return null;}const match=String(value).match(/(\d+)/g);if(!match||!match.length){return null;}const parsed=Number(match[match.length-1]);return Number.isFinite(parsed)?parsed:null;};const stageTitle=(node,index)=>{const heading=node.querySelector('h1,h2,h3');return (heading&&heading.textContent&&heading.textContent.trim())||`Stage ${index+1}`;};const detailTextFor=(index)=>`${stageTitle(stages[index],index)} selected.`;const targetFor=(button,index)=>{const attributed=readIndex(button.getAttribute('data-stage-target')||button.getAttribute('data-target-stage')||button.getAttribute('data-stage'));if(attributed!==null){return Math.max(0,Math.min(stages.length-1,attributed));}const inferred=readIndex(button.id)||readIndex(button.textContent||'');if(inferred!==null){return Math.max(0,Math.min(stages.length-1,inferred));}const label=((button.textContent||button.id||'').trim()).toLowerCase();if(label.includes('back')||label.includes('prev')){return Math.max(0,currentIndex-1);}return Math.max(0,Math.min(stages.length-1,index+1));};const inspect=(nextIndex)=>{if(detail){detail.textContent=detailTextFor(Math.max(0,Math.min(stages.length-1,nextIndex)));}};const activate=(nextIndex)=>{currentIndex=Math.max(0,Math.min(stages.length-1,nextIndex));stages.forEach((node,idx)=>{const active=idx===currentIndex;node.hidden=!active;node.style.display=active?'':'none';});buttons.forEach((button,idx)=>button.setAttribute('aria-pressed',String(targetFor(button,idx)===currentIndex)));inspect(currentIndex);};buttons.forEach((button,index)=>{const targetIndex=targetFor(button,index);button.setAttribute('data-detail',detailTextFor(targetIndex));button.addEventListener('click',()=>activate(targetIndex));button.addEventListener('focus',()=>inspect(targetIndex));button.addEventListener('mouseenter',()=>inspect(targetIndex));});activate(currentIndex);})();</script>"#
     } else {
-        r#"<script data-ioi-local-rescue="stage-nav">(function(){const stages=Array.from(document.querySelectorAll('section[id^="stage-"],section[id^="stage_"],article[id^="stage-"],article[id^="stage_"],div[id^="stage-"],div[id^="stage_"],section[id^="state-"],section[id^="state_"],article[id^="state-"],article[id^="state_"],div[id^="state-"],div[id^="state_"]'));const detail=document.querySelector('[id="detail-copy" i],[id="feedback" i],[id="status-text" i],[role="status"],[aria-live]');const buttons=Array.from(document.querySelectorAll('[data-ioi-local-rescue-target="stage-controls"] button,[data-ioi-local-rescue-target="stage-controls"] [data-stage-target]'));if(stages.length<2||!buttons.length){return;}const stageTitle=(node,index)=>{const heading=node.querySelector('h1,h2,h3');return (heading&&heading.textContent&&heading.textContent.trim())||`Stage ${index+1}`;};const detailTextFor=(index)=>`${stageTitle(stages[index],index)} selected.`;let currentIndex=Math.max(stages.findIndex((node)=>!node.hidden&&node.style.display!=='none'),0);const inspect=(nextIndex)=>{if(detail){detail.textContent=detailTextFor(Math.max(0,Math.min(stages.length-1,nextIndex)));}};const activate=(nextIndex)=>{currentIndex=Math.max(0,Math.min(stages.length-1,nextIndex));stages.forEach((node,idx)=>{const active=idx===currentIndex;node.hidden=!active;node.style.display=active?'':'none';node.setAttribute('aria-hidden', String(!active));});buttons.forEach((button,idx)=>button.setAttribute('aria-pressed', String(idx===currentIndex)));inspect(currentIndex);};buttons.forEach((button,index)=>{button.setAttribute('data-detail',detailTextFor(index));button.addEventListener('click',()=>activate(index));button.addEventListener('focus',()=>inspect(index));button.addEventListener('mouseenter',()=>inspect(index));});activate(currentIndex);})();</script>"#
+        r#"<script data-ioi-deterministic-repair="stage-nav">(function(){const stages=Array.from(document.querySelectorAll('section[id^="stage-"],section[id^="stage_"],article[id^="stage-"],article[id^="stage_"],div[id^="stage-"],div[id^="stage_"],section[id^="state-"],section[id^="state_"],article[id^="state-"],article[id^="state_"],div[id^="state-"],div[id^="state_"]'));const detail=document.querySelector('[id="detail-copy" i],[id="feedback" i],[id="status-text" i],[role="status"],[aria-live]');const buttons=Array.from(document.querySelectorAll('[data-ioi-deterministic-repair-target="stage-controls"] button,[data-ioi-deterministic-repair-target="stage-controls"] [data-stage-target]'));if(stages.length<2||!buttons.length){return;}const stageTitle=(node,index)=>{const heading=node.querySelector('h1,h2,h3');return (heading&&heading.textContent&&heading.textContent.trim())||`Stage ${index+1}`;};const detailTextFor=(index)=>`${stageTitle(stages[index],index)} selected.`;let currentIndex=Math.max(stages.findIndex((node)=>!node.hidden&&node.style.display!=='none'),0);const inspect=(nextIndex)=>{if(detail){detail.textContent=detailTextFor(Math.max(0,Math.min(stages.length-1,nextIndex)));}};const activate=(nextIndex)=>{currentIndex=Math.max(0,Math.min(stages.length-1,nextIndex));stages.forEach((node,idx)=>{const active=idx===currentIndex;node.hidden=!active;node.style.display=active?'':'none';node.setAttribute('aria-hidden', String(!active));});buttons.forEach((button,idx)=>button.setAttribute('aria-pressed', String(idx===currentIndex)));inspect(currentIndex);};buttons.forEach((button,index)=>{button.setAttribute('data-detail',detailTextFor(index));button.addEventListener('click',()=>activate(index));button.addEventListener('focus',()=>inspect(index));button.addEventListener('mouseenter',()=>inspect(index));});activate(currentIndex);})();</script>"#
     };
-    let rescued_document = if has_stage_buttons {
-        rescued_document
+    let repaired_document = if has_stage_buttons {
+        repaired_document
     } else {
         let stage_count = lower.matches("id=\"stage-").count()
             + lower.matches("id='stage-'").count()
@@ -984,7 +1087,7 @@ fn try_local_html_stage_navigation_rescue(document: &str, lower: &str) -> Option
             + lower.matches("id=\"state_").count()
             + lower.matches("id='state_'").count();
         let nav_markup = format!(
-            "<nav data-ioi-local-rescue-target=\"stage-controls\" aria-label=\"Stage navigation\" style=\"display:flex;flex-wrap:wrap;gap:0.75rem;margin:1rem 0;\">{}</nav>",
+            "<nav data-ioi-deterministic-repair-target=\"stage-controls\" aria-label=\"Stage navigation\" style=\"display:flex;flex-wrap:wrap;gap:0.75rem;margin:1rem 0;\">{}</nav>",
             (0..stage_count.max(2))
                 .map(|index| format!(
                     "<button type=\"button\" data-stage-target=\"{index}\">Stage {}</button>",
@@ -994,21 +1097,21 @@ fn try_local_html_stage_navigation_rescue(document: &str, lower: &str) -> Option
                 .join("")
         );
         let insertion_index =
-            html_document_content_start(&rescued_document.to_ascii_lowercase(), "<main")
+            html_document_content_start(&repaired_document.to_ascii_lowercase(), "<main")
                 .or_else(|| {
-                    html_document_content_start(&rescued_document.to_ascii_lowercase(), "<body")
+                    html_document_content_start(&repaired_document.to_ascii_lowercase(), "<body")
                 })
                 .unwrap_or(0);
-        insert_html_snippet_at(&rescued_document, insertion_index, &nav_markup)
+        insert_html_snippet_at(&repaired_document, insertion_index, &nav_markup)
     };
     let sanitized =
-        strip_inline_script_blocks(&strip_inline_event_handler_attributes(&rescued_document));
+        strip_inline_script_blocks(&strip_inline_event_handler_attributes(&repaired_document));
     Some(normalize_html_terminal_closure(
-        &insert_html_snippet_before_close(&sanitized, "</body>", rescue_script),
+        &insert_html_snippet_before_close(&sanitized, "</body>", repair_script),
     ))
 }
 
-fn try_local_html_generic_button_rescue(document: &str, lower: &str) -> Option<String> {
+fn try_local_html_generic_button_repair(document: &str, lower: &str) -> Option<String> {
     let has_response_target = lower.contains("id=\"detail-copy\"")
         || lower.contains("id='detail-copy'")
         || lower.contains("id=\"feedback\"")
@@ -1018,38 +1121,41 @@ fn try_local_html_generic_button_rescue(document: &str, lower: &str) -> Option<S
         || lower.contains("id=\"progress-bar\"")
         || lower.contains("id='progress-bar'");
     let has_buttons = lower.contains("<button");
-    if lower.contains("data-ioi-local-rescue=\"button-response\"") || !has_buttons {
+    if lower.contains("data-ioi-deterministic-repair=\"button-response\"") || !has_buttons {
         return None;
     }
 
-    let mut rescued_document = document.to_string();
+    let mut repaired_document = strip_html_comments(document);
     if !has_response_target {
-        let fallback_region = r#"<aside data-ioi-local-rescue-target="detail-copy"><p id="detail-copy">Select a control to update this explanation.</p></aside>"#;
-        rescued_document = if lower.contains("</main>") {
-            insert_html_snippet_before_close(&rescued_document, "</main>", fallback_region)
+        let fallback_region = r#"<aside data-ioi-deterministic-repair-target="detail-copy"><p id="detail-copy">Select a control to update this explanation.</p></aside>"#;
+        repaired_document = if lower.contains("</main>") {
+            insert_html_snippet_before_close(&repaired_document, "</main>", fallback_region)
         } else {
-            insert_html_snippet_before_close(&rescued_document, "</body>", fallback_region)
+            insert_html_snippet_before_close(&repaired_document, "</body>", fallback_region)
         };
     } else if !html_has_live_response_region_markup(lower) {
-        rescued_document = ensure_response_region_markup(
-            &rescued_document,
+        repaired_document = ensure_response_region_markup(
+            &repaired_document,
             &["detail-copy", "feedback", "status-text"],
         );
     }
 
-    let rescue_script = r#"<script data-ioi-local-rescue="button-response">(function(){const buttons=Array.from(document.querySelectorAll('button'));const detail=document.querySelector('[id="detail-copy" i],[id="feedback" i],[id="status-text" i]');const progress=document.querySelector('[id="progress-bar" i]');if(!buttons.length||(!detail&&!progress)){return;}const region=(detail&&detail.closest('aside,[role="status"],[aria-live],[role="region"],[role="alert"]'))||detail;if(region){if(!region.getAttribute('role')){region.setAttribute('role','status');}if(!region.getAttribute('aria-live')){region.setAttribute('aria-live','polite');}}const activate=(button,index)=>{buttons.forEach((entry)=>entry.setAttribute('aria-pressed',String(entry===button)));if(detail){const label=(button.textContent||button.getAttribute('aria-label')||`Action ${index+1}`).trim();detail.textContent=`${label} activated.`;}if(progress){const percent=Math.max(0,Math.min(100,Math.round(((index+1)/buttons.length)*100)));progress.textContent=`${percent}%`;}};buttons.forEach((button,index)=>button.addEventListener('click',()=>activate(button,index)));activate(buttons[0],0);})();</script>"#;
+    let repair_script = r#"<script data-ioi-deterministic-repair="button-response">(function(){const buttons=Array.from(document.querySelectorAll('button'));const detail=document.querySelector('[id="detail-copy" i],[id="feedback" i],[id="status-text" i]');const progress=document.querySelector('[id="progress-bar" i]');if(!buttons.length||(!detail&&!progress)){return;}const region=(detail&&detail.closest('aside,[role="status"],[aria-live],[role="region"],[role="alert"]'))||detail;if(region){if(!region.getAttribute('role')){region.setAttribute('role','status');}if(!region.getAttribute('aria-live')){region.setAttribute('aria-live','polite');}}const activate=(button,index)=>{buttons.forEach((entry)=>entry.setAttribute('aria-pressed',String(entry===button)));if(detail){const label=(button.textContent||button.getAttribute('aria-label')||`Action ${index+1}`).trim();detail.textContent=`${label} activated.`;}if(progress){const percent=Math.max(0,Math.min(100,Math.round(((index+1)/buttons.length)*100)));progress.textContent=`${percent}%`;}};buttons.forEach((button,index)=>button.addEventListener('click',()=>activate(button,index)));activate(buttons[0],0);})();</script>"#;
     let sanitized =
-        strip_inline_script_blocks(&strip_inline_event_handler_attributes(&rescued_document));
+        strip_inline_script_blocks(&strip_inline_event_handler_attributes(&repaired_document));
     Some(normalize_html_terminal_closure(
-        &insert_html_snippet_before_close(&sanitized, "</body>", rescue_script),
+        &insert_html_snippet_before_close(&sanitized, "</body>", repair_script),
     ))
 }
 
-fn try_local_html_form_control_rescue(document: &str, lower: &str) -> Option<String> {
+fn try_local_html_form_control_repair(document: &str, lower: &str) -> Option<String> {
     let has_form_controls = lower.contains("<select")
         || (lower.contains("<input")
-            && (lower.contains("type=\"range\"") || lower.contains("type='range'")));
-    if !has_form_controls || lower.contains("data-ioi-local-rescue=\"form-response\"") {
+            && (lower.contains("type=\"range\"")
+                || lower.contains("type='range'")
+                || lower.contains("type=\"number\"")
+                || lower.contains("type='number'")));
+    if !has_form_controls || lower.contains("data-ioi-deterministic-repair=\"form-response\"") {
         return None;
     }
 
@@ -1062,41 +1168,61 @@ fn try_local_html_form_control_rescue(document: &str, lower: &str) -> Option<Str
         || lower.contains("id=\"sim-result\"")
         || lower.contains("id='sim-result'")
         || lower.contains("id=\"complexity-val\"")
-        || lower.contains("id='complexity-val'");
+        || lower.contains("id='complexity-val'")
+        || lower.contains("id=\"result-box\"")
+        || lower.contains("id='result-box'")
+        || lower.contains("id=\"resultbox\"")
+        || lower.contains("id='resultbox'")
+        || lower.contains("id=\"monthly-payment\"")
+        || lower.contains("id='monthly-payment'")
+        || lower.contains("<output");
 
-    let mut rescued_document = document.to_string();
+    let mut repaired_document = strip_html_comments(document);
     if !has_response_target {
-        let fallback_region = r#"<aside data-ioi-local-rescue-target="detail-copy"><p id="detail-copy">Adjust a control to update this explanation.</p></aside>"#;
-        rescued_document = if lower.contains("</main>") {
-            insert_html_snippet_before_close(&rescued_document, "</main>", fallback_region)
+        let fallback_region = r#"<aside data-ioi-deterministic-repair-target="detail-copy" role="status" aria-live="polite"><p id="detail-copy">Adjust a control to update this explanation.</p></aside>"#;
+        repaired_document = if lower.contains("</main>") {
+            insert_html_snippet_before_close(&repaired_document, "</main>", fallback_region)
         } else {
-            insert_html_snippet_before_close(&rescued_document, "</body>", fallback_region)
+            insert_html_snippet_before_close(&repaired_document, "</body>", fallback_region)
         };
     } else if !html_has_live_response_region_markup(lower) {
-        rescued_document = ensure_response_region_markup(
-            &rescued_document,
+        repaired_document = ensure_response_region_markup(
+            &repaired_document,
             &[
                 "detail-copy",
                 "feedback",
                 "status-text",
                 "sim-result",
                 "complexity-val",
+                "result-box",
+                "resultbox",
+                "monthly-payment",
             ],
         );
     }
 
-    let rescue_script = r##"<script data-ioi-local-rescue="form-response">(function(){const selects=Array.from(document.querySelectorAll('select'));const ranges=Array.from(document.querySelectorAll('input[type="range"]'));const detail=document.querySelector('[id="detail-copy" i],[id="feedback" i],[id="status-text" i],[id="sim-result" i],[id="complexity-val" i]');const statusRegion=(detail&&detail.closest('aside,[role="status"],[aria-live],[role="region"],[role="alert"]'))||detail;if(statusRegion){if(!statusRegion.getAttribute('role')){statusRegion.setAttribute('role','status');}if(!statusRegion.getAttribute('aria-live')){statusRegion.setAttribute('aria-live','polite');}}const labelFor=(control)=>{const explicit=control.getAttribute('aria-label');if(explicit&&explicit.trim()){return explicit.trim();}const id=control.id||'';if(id){const label=document.querySelector(`label[for="${id}"]`);if(label&&label.textContent){return label.textContent.trim();}}return (control.name||control.id||control.tagName||'Control').trim();};const updateSelect=(control)=>{const option=control.options&&control.selectedIndex>=0?control.options[control.selectedIndex]:null;const optionText=option&&option.textContent?option.textContent.trim():control.value;const label=labelFor(control);if(detail){detail.textContent=`${label}: ${optionText}`;}};const updateRange=(control)=>{const value=Number(control.value||control.min||0);const label=labelFor(control);const simResult=document.querySelector('[id="sim-result" i],[id="resultbox" i]');const complexityVal=document.querySelector('[id="complexity-val" i]');if(simResult&&control.id==='n-qubits'){const states=Math.pow(2, Math.max(0, value));simResult.textContent=`${value} Qubit${value===1?'':'s'} = ${states} States`; }else if(simResult){simResult.textContent=`${label}: ${value}`;}if(complexityVal){complexityVal.textContent=value<=1?'Simple':value===2?'Moderate':value===3?'Advanced':value===4?'Complex':'Maximum';}control.setAttribute('aria-valuetext', `${label}: ${value}`);if(detail){detail.textContent=`${label} adjusted to ${value}.`;}};selects.forEach((control)=>control.addEventListener('change',()=>updateSelect(control)));ranges.forEach((control)=>control.addEventListener('input',()=>updateRange(control)));if(selects[0]){updateSelect(selects[0]);}if(ranges[0]){updateRange(ranges[0]);}})();</script>"##;
+    let evidence_lower = repaired_document.to_ascii_lowercase();
+    if count_populated_html_evidence_regions(&evidence_lower) < 2 {
+        let evidence_markup = r#"<section data-ioi-deterministic-repair-target="form-evidence"><h2>Current adjustable inputs</h2><dl><dt>Visible controls</dt><dd>The surfaced number, range, or menu controls are available on first paint.</dd><dt>Default state</dt><dd>The initial values remain visible in the form before any interaction.</dd></dl></section><section data-ioi-deterministic-repair-target="result-evidence"><h2>Result evidence</h2><ul><li>The visible output region is kept on the page while controls change.</li><li>Input events update the displayed result or supporting detail text.</li></ul></section>"#;
+        repaired_document = if evidence_lower.contains("</main>") {
+            insert_html_snippet_before_close(&repaired_document, "</main>", evidence_markup)
+        } else {
+            insert_html_snippet_before_close(&repaired_document, "</body>", evidence_markup)
+        };
+    }
+
+    let repair_script = r##"<script data-ioi-deterministic-repair="form-response">(function(){const selects=Array.from(document.querySelectorAll('select'));const ranges=Array.from(document.querySelectorAll('input[type="range"],input[type="number"]'));const explicitDetail=document.querySelector('[id="detail-copy" i],[id="feedback" i],[id="status-text" i],[id="sim-result" i],[id="complexity-val" i]');const visibleOutput=document.querySelector('output,[class~="result-value" i],[id="monthly-payment" i],[id="payment" i]');const detail=explicitDetail||visibleOutput;const statusRegion=(document.querySelector('[id="result-box" i]')||(detail&&detail.closest('aside,[role="status"],[aria-live],[role="region"],[role="alert"]'))||detail);if(statusRegion){if(!statusRegion.getAttribute('role')){statusRegion.setAttribute('role','status');}if(!statusRegion.getAttribute('aria-live')){statusRegion.setAttribute('aria-live','polite');}}const labelFor=(control)=>{const explicit=control.getAttribute('aria-label');if(explicit&&explicit.trim()){return explicit.trim();}const id=control.id||'';if(id){const label=document.querySelector(`label[for="${id}"]`);if(label&&label.textContent){return label.textContent.trim();}}return (control.name||control.id||control.tagName||'Control').trim();};const updateSelect=(control)=>{const option=control.options&&control.selectedIndex>=0?control.options[control.selectedIndex]:null;const optionText=option&&option.textContent?option.textContent.trim():control.value;const label=labelFor(control);if(detail){detail.textContent=`${label}: ${optionText}`;}};const updateRange=(control)=>{const value=Number(control.value||control.min||0);const label=labelFor(control);const simResult=document.querySelector('[id="sim-result" i],[id="resultbox" i]');const complexityVal=document.querySelector('[id="complexity-val" i]');if(simResult&&control.id==='n-qubits'){const states=Math.pow(2, Math.max(0, value));simResult.textContent=`${value} Qubit${value===1?'':'s'} = ${states} States`; }else if(simResult){simResult.textContent=`${label}: ${value}`;}if(complexityVal){complexityVal.textContent=value<=1?'Simple':value===2?'Moderate':value===3?'Advanced':value===4?'Complex':'Maximum';}control.setAttribute('aria-valuetext', `${label}: ${value}`);if(detail){detail.textContent=`${label}: ${value}`;}};selects.forEach((control)=>control.addEventListener('change',()=>updateSelect(control)));ranges.forEach((control)=>control.addEventListener('input',()=>updateRange(control)));if(selects[0]){updateSelect(selects[0]);}if(ranges[0]){updateRange(ranges[0]);}})();</script>"##;
     Some(normalize_html_terminal_closure(
-        &insert_html_snippet_before_close(&rescued_document, "</body>", rescue_script),
+        &insert_html_snippet_before_close(&repaired_document, "</body>", repair_script),
     ))
 }
 
-fn try_local_html_scroll_nav_rescue(document: &str, lower: &str) -> Option<String> {
+fn try_local_html_scroll_nav_repair(document: &str, lower: &str) -> Option<String> {
     let has_scroll_nav = lower.contains("scrollintoview(")
         || lower.contains("href=\"#")
         || lower.contains("aria-controls=")
         || lower.contains("data-target=");
-    if !has_scroll_nav || lower.contains("data-ioi-local-rescue=\"scroll-nav\"") {
+    if !has_scroll_nav || lower.contains("data-ioi-deterministic-repair=\"scroll-nav\"") {
         return None;
     }
 
@@ -1112,28 +1238,75 @@ fn try_local_html_scroll_nav_rescue(document: &str, lower: &str) -> Option<Strin
         || lower.contains("aria-live=")
         || lower.contains("<aside");
 
-    let mut rescued_document = document.to_string();
+    let mut repaired_document = document.to_string();
     if !has_response_target {
-        let fallback_region = r#"<aside data-ioi-local-rescue-target="detail-copy" role="status" aria-live="polite"><p id="detail-copy">Select a section to update this explanation.</p></aside>"#;
-        rescued_document = if lower.contains("</main>") {
-            insert_html_snippet_before_close(&rescued_document, "</main>", fallback_region)
+        let fallback_region = r#"<aside data-ioi-deterministic-repair-target="detail-copy" role="status" aria-live="polite"><p id="detail-copy">Select a section to update this explanation.</p></aside>"#;
+        repaired_document = if lower.contains("</main>") {
+            insert_html_snippet_before_close(&repaired_document, "</main>", fallback_region)
         } else {
-            insert_html_snippet_before_close(&rescued_document, "</body>", fallback_region)
+            insert_html_snippet_before_close(&repaired_document, "</body>", fallback_region)
         };
     } else if !html_has_live_response_region_markup(lower) {
-        rescued_document = ensure_response_region_markup(
-            &rescued_document,
+        repaired_document = ensure_response_region_markup(
+            &repaired_document,
             &["detail-copy", "feedback", "status-text", "scenario-status"],
         );
     }
 
-    let rescue_script = r##"<script data-ioi-local-rescue="scroll-nav">(function(){const controls=Array.from(document.querySelectorAll('button[onclick*="scrollIntoView"],a[href^="#"],button[aria-controls],button[data-target],button[data-section],nav button,nav a[href]'));if(!controls.length){return;}const detailCandidates=[document.querySelector('[id="detail-copy" i]'),document.querySelector('[id="feedback" i]'),document.querySelector('[id="status-text" i]'),document.querySelector('[id="scenario-status" i]'),document.querySelector('[role="status"]'),document.querySelector('[aria-live]'),document.querySelector('.status'),document.querySelector('aside p')].filter(Boolean);const detail=detailCandidates[0]||null;const region=(detail&&detail.closest('aside,[role="status"],[aria-live],[role="region"],[role="alert"]'))||detail;if(region){if(!region.getAttribute('role')){region.setAttribute('role','status');}if(!region.getAttribute('aria-live')){region.setAttribute('aria-live','polite');}}if(detail&&!detail.id){detail.id='detail-copy';}const sections=Array.from(document.querySelectorAll('main section[id],main article[id],main div[id],section[data-view-panel],article[data-view-panel],[role="region"][id]'));const readTarget=(control)=>{const ariaTarget=control.getAttribute('aria-controls');if(ariaTarget&&ariaTarget.trim()){return ariaTarget.trim().replace(/^#/,'');}const dataTarget=control.getAttribute('data-target')||control.getAttribute('data-section')||'';if(dataTarget&&dataTarget.trim()){return dataTarget.trim().replace(/^#/,'');}if(control.matches('a[href^="#"]')){return (control.getAttribute('href')||'').trim().replace(/^#/,'');}const onclick=control.getAttribute('onclick')||'';const match=onclick.match(/getElementById\\((['"])([^'"]+)\\1\\)/i);return match&&match[2]?match[2]:'';};const summarize=(target,label)=>{if(!target){return label?`${label} selected.`:'Section selected.';}const heading=target.querySelector('h1,h2,h3,strong,figcaption');const detailText=target.querySelector('p,li,td');const headingValue=heading&&heading.textContent?heading.textContent.trim():'';const detailValue=detailText&&detailText.textContent?detailText.textContent.trim():'';if(headingValue&&detailValue){return `${headingValue}: ${detailValue}`;}if(headingValue){return `${headingValue} selected.`;}if(detailValue){return detailValue;}return label?`${label} selected.`:'Section selected.';};const activate=(control)=>{const targetId=readTarget(control);const target=targetId?document.getElementById(targetId):null;controls.forEach((entry)=>{entry.setAttribute('aria-pressed',String(entry===control));entry.setAttribute('aria-selected',String(entry===control));});sections.forEach((section)=>{const active=Boolean(targetId)&&(section.id===targetId||section.dataset.viewPanel===targetId);section.classList.toggle('active',active);if(active){section.removeAttribute('hidden');section.setAttribute('aria-hidden','false');}});if(detail){const label=(control.textContent||control.getAttribute('aria-label')||targetId||'Section').trim();detail.textContent=summarize(target,label);}if(target&&typeof target.scrollIntoView==='function'){target.scrollIntoView({behavior:'smooth',block:'start'});}};controls.forEach((control)=>control.addEventListener('click',(event)=>{if(control.matches('a[href^="#"]')){event.preventDefault();}activate(control);}));const initial=controls.find((control)=>control.getAttribute('aria-pressed')==='true'||control.getAttribute('aria-selected')==='true')||controls[0];if(initial){activate(initial);}})();</script>"##;
+    let repair_script = r##"<script data-ioi-deterministic-repair="scroll-nav">(function(){const controls=Array.from(document.querySelectorAll('button[onclick*="scrollIntoView"],a[href^="#"],button[aria-controls],button[data-target],button[data-section],nav button,nav a[href]'));if(!controls.length){return;}const detailCandidates=[document.querySelector('[id="detail-copy" i]'),document.querySelector('[id="feedback" i]'),document.querySelector('[id="status-text" i]'),document.querySelector('[id="scenario-status" i]'),document.querySelector('[role="status"]'),document.querySelector('[aria-live]'),document.querySelector('.status'),document.querySelector('aside p')].filter(Boolean);const detail=detailCandidates[0]||null;const region=(detail&&detail.closest('aside,[role="status"],[aria-live],[role="region"],[role="alert"]'))||detail;if(region){if(!region.getAttribute('role')){region.setAttribute('role','status');}if(!region.getAttribute('aria-live')){region.setAttribute('aria-live','polite');}}if(detail&&!detail.id){detail.id='detail-copy';}const sections=Array.from(document.querySelectorAll('main section[id],main article[id],main div[id],section[data-view-panel],article[data-view-panel],[role="region"][id]'));const readTarget=(control)=>{const ariaTarget=control.getAttribute('aria-controls');if(ariaTarget&&ariaTarget.trim()){return ariaTarget.trim().replace(/^#/,'');}const dataTarget=control.getAttribute('data-target')||control.getAttribute('data-section')||'';if(dataTarget&&dataTarget.trim()){return dataTarget.trim().replace(/^#/,'');}if(control.matches('a[href^="#"]')){return (control.getAttribute('href')||'').trim().replace(/^#/,'');}const onclick=control.getAttribute('onclick')||'';const match=onclick.match(/getElementById\\((['"])([^'"]+)\\1\\)/i);return match&&match[2]?match[2]:'';};const summarize=(target,label)=>{if(!target){return label?`${label} selected.`:'Section selected.';}const heading=target.querySelector('h1,h2,h3,strong,figcaption');const detailText=target.querySelector('p,li,td');const headingValue=heading&&heading.textContent?heading.textContent.trim():'';const detailValue=detailText&&detailText.textContent?detailText.textContent.trim():'';if(headingValue&&detailValue){return `${headingValue}: ${detailValue}`;}if(headingValue){return `${headingValue} selected.`;}if(detailValue){return detailValue;}return label?`${label} selected.`:'Section selected.';};const activate=(control)=>{const targetId=readTarget(control);const target=targetId?document.getElementById(targetId):null;controls.forEach((entry)=>{entry.setAttribute('aria-pressed',String(entry===control));entry.setAttribute('aria-selected',String(entry===control));});sections.forEach((section)=>{const active=Boolean(targetId)&&(section.id===targetId||section.dataset.viewPanel===targetId);section.classList.toggle('active',active);if(active){section.removeAttribute('hidden');section.setAttribute('aria-hidden','false');}});if(detail){const label=(control.textContent||control.getAttribute('aria-label')||targetId||'Section').trim();detail.textContent=summarize(target,label);}if(target&&typeof target.scrollIntoView==='function'){target.scrollIntoView({behavior:'smooth',block:'start'});}};controls.forEach((control)=>control.addEventListener('click',(event)=>{if(control.matches('a[href^="#"]')){event.preventDefault();}activate(control);}));const initial=controls.find((control)=>control.getAttribute('aria-pressed')==='true'||control.getAttribute('aria-selected')==='true')||controls[0];if(initial){activate(initial);}})();</script>"##;
     Some(normalize_html_terminal_closure(
-        &insert_html_snippet_before_close(&rescued_document, "</body>", rescue_script),
+        &insert_html_snippet_before_close(&repaired_document, "</body>", repair_script),
     ))
 }
 
-fn try_local_html_interaction_rescue(
+fn direct_author_local_html_primary_view_contract_failure(error_message: &str) -> bool {
+    [
+        "HTML still contains placeholder-grade copy or comments on first paint.",
+        "HTML interactive query goals do not surface a populated response region on first paint.",
+        "HTML required interactions do not surface a visible response region on first paint.",
+    ]
+    .iter()
+    .any(|needle| error_message.contains(needle))
+}
+
+fn try_local_html_primary_view_contract_repair(
+    request: &ChatOutcomeArtifactRequest,
+    runtime_kind: ChatRuntimeProvenanceKind,
+    document: &str,
+    error_message: &str,
+) -> Option<(String, &'static str)> {
+    if runtime_kind != ChatRuntimeProvenanceKind::RealLocalRuntime
+        || request.renderer != ChatRendererKind::HtmlIframe
+        || request.artifact_class != ChatArtifactClass::InteractiveSingleFile
+        || !direct_author_local_html_primary_view_contract_failure(error_message)
+        || !direct_author_has_completion_boundary(request, document)
+    {
+        return None;
+    }
+
+    let normalized = normalize_html_terminal_closure(document);
+    let mut repaired_document = strip_html_comments(&normalized);
+    let lower = repaired_document.to_ascii_lowercase();
+    let mut changed = repaired_document != normalized;
+
+    if count_populated_html_response_regions(&lower) == 0
+        && count_html_actionable_affordances(&lower) > 0
+    {
+        let response_region = r#"<aside data-ioi-deterministic-repair-target="primary-view-response" role="status" aria-live="polite"><p id="detail-copy">Adjust a control to update the visible result and supporting details.</p></aside>"#;
+        repaired_document = if lower.contains("</main>") {
+            insert_html_snippet_before_close(&repaired_document, "</main>", response_region)
+        } else {
+            insert_html_snippet_before_close(&repaired_document, "</body>", response_region)
+        };
+        changed = true;
+    }
+
+    changed
+        .then(|| normalize_html_terminal_closure(&repaired_document))
+        .map(|repaired| (repaired, "primary_view_contract"))
+}
+
+fn try_local_html_interaction_repair(
     request: &ChatOutcomeArtifactRequest,
     runtime_kind: ChatRuntimeProvenanceKind,
     document: &str,
@@ -1154,23 +1327,23 @@ fn try_local_html_interaction_rescue(
         return None;
     }
 
-    if let Some(repaired) = try_local_html_view_switch_rescue(&normalized, &lower) {
+    if let Some(repaired) = try_local_html_view_switch_repair(&normalized, &lower) {
         return Some((repaired, "view_switch"));
     }
 
-    if let Some(repaired) = try_local_html_stage_navigation_rescue(&normalized, &lower) {
+    if let Some(repaired) = try_local_html_stage_navigation_repair(&normalized, &lower) {
         return Some((repaired, "stage_navigation"));
     }
 
-    if let Some(repaired) = try_local_html_form_control_rescue(&normalized, &lower) {
+    if let Some(repaired) = try_local_html_form_control_repair(&normalized, &lower) {
         return Some((repaired, "form_response"));
     }
 
-    try_local_html_generic_button_rescue(&normalized, &lower)
+    try_local_html_generic_button_repair(&normalized, &lower)
         .map(|repaired| (repaired, "button_response"))
 }
 
-pub(crate) fn try_local_html_interaction_truth_rescue_document(
+pub(crate) fn try_local_html_interaction_truth_repair_document(
     request: &ChatOutcomeArtifactRequest,
     runtime_kind: ChatRuntimeProvenanceKind,
     document: &str,
@@ -1187,10 +1360,10 @@ pub(crate) fn try_local_html_interaction_truth_rescue_document(
 
     let normalized = normalize_html_terminal_closure(document);
     let lower = normalized.to_ascii_lowercase();
-    try_local_html_scroll_nav_rescue(&normalized, &lower).map(|repaired| (repaired, "scroll_nav"))
+    try_local_html_scroll_nav_repair(&normalized, &lower).map(|repaired| (repaired, "scroll_nav"))
 }
 
-fn try_local_html_structural_rescue(
+fn try_local_html_structural_repair(
     request: &ChatOutcomeArtifactRequest,
     runtime_kind: ChatRuntimeProvenanceKind,
     document: &str,
@@ -1206,7 +1379,7 @@ fn try_local_html_structural_rescue(
         return Vec::new();
     }
 
-    local_html_structural_rescue_candidates(document)
+    local_html_structural_repair_candidates(document)
 }
 
 fn configured_direct_author_stream_timeout() -> Option<Duration> {
@@ -1827,7 +2000,44 @@ fn parse_direct_author_generated_candidate(
     candidate_id: &str,
 ) -> Result<ChatGeneratedArtifactPayload, ChatCandidateMaterializationError> {
     if direct_author_uses_raw_document(request) {
-        return parse_direct_author_raw_document_candidate(raw, request, candidate_id);
+        let mut generated = parse_direct_author_raw_document_candidate(raw, request)?;
+        trace_html_contract_state(
+            "artifact_generation:direct_author_raw_document_contract_state:parsed",
+            request,
+            candidate_id,
+            &generated,
+        );
+        super::enrich_generated_artifact_payload(&mut generated, request, brief);
+        trace_html_contract_state(
+            "artifact_generation:direct_author_raw_document_contract_state:enriched",
+            request,
+            candidate_id,
+            &generated,
+        );
+        super::validate_generated_artifact_payload_against_brief_with_edit_intent(
+            &generated,
+            request,
+            brief,
+            edit_intent,
+        )?;
+        if let Some(contradiction) =
+            renderer_primary_view_contract_failure(request, brief, &generated)
+        {
+            return Err(ChatCandidateMaterializationError {
+                message: contradiction.to_string(),
+                raw_output_preview: truncate_candidate_failure_preview(raw, 2000),
+            });
+        }
+        generated.notes.push(
+            "accepted direct-author raw document after typed renderer contract checks".to_string(),
+        );
+        trace_html_contract_state(
+            "artifact_generation:direct_author_raw_document_accept",
+            request,
+            candidate_id,
+            &generated,
+        );
+        return Ok(generated);
     }
 
     let mut generated = match super::parse_and_validate_generated_artifact_payload(raw, request) {
@@ -1893,7 +2103,6 @@ fn parse_direct_author_generated_candidate(
 fn parse_direct_author_raw_document_candidate(
     raw: &str,
     request: &ChatOutcomeArtifactRequest,
-    candidate_id: &str,
 ) -> Result<ChatGeneratedArtifactPayload, ChatCandidateMaterializationError> {
     let document = direct_author_stream_settle_snapshot(request, raw).unwrap_or_else(|| {
         if request.renderer == ChatRendererKind::HtmlIframe {
@@ -1903,7 +2112,7 @@ fn parse_direct_author_raw_document_candidate(
         }
     });
 
-    let mut generated = synthesize_generated_artifact_payload_from_raw_document(&document, request)
+    let generated = synthesize_generated_artifact_payload_from_raw_document(&document, request)
         .ok_or_else(|| ChatCandidateMaterializationError {
             message: "Chat direct-author raw document output could not be packaged as an artifact"
                 .to_string(),
@@ -1916,15 +2125,6 @@ fn parse_direct_author_raw_document_candidate(
             raw_output_preview: truncate_candidate_failure_preview(&document, 2000),
         }
     })?;
-    generated.notes.push(
-        "accepted clean direct-author raw document without semantic repair heuristics".to_string(),
-    );
-    trace_html_contract_state(
-        "artifact_generation:direct_author_raw_document_accept",
-        request,
-        candidate_id,
-        &generated,
-    );
     Ok(generated)
 }
 
@@ -2808,9 +3008,9 @@ pub(crate) async fn materialize_chat_artifact_candidate_with_runtime_direct_auth
             Ok(generated)
         }
         Err(first_error) => {
-            if returns_raw_document {
-                let mut latest_error = first_error;
-                let mut latest_raw = raw.clone();
+            let (mut latest_error, mut latest_raw) = if returns_raw_document {
+                let mut raw_error = first_error;
+                let mut raw_candidate = raw.clone();
                 for candidate_raw in
                     direct_author_raw_document_parse_candidates(request, &raw, &streamed_preview)
                 {
@@ -2832,36 +3032,27 @@ pub(crate) async fn materialize_chat_artifact_candidate_with_runtime_direct_auth
                             return Ok(generated);
                         }
                         Err(error) => {
-                            latest_error = error;
-                            latest_raw = candidate_raw;
+                            raw_error = error;
+                            raw_candidate = candidate_raw;
                         }
                     }
                 }
 
-                emit_direct_author_live_preview(
-                    live_preview_observer.as_ref(),
-                    &preview_id,
-                    &preview_label,
-                    &preview_language,
-                    "failed",
-                    &latest_raw,
-                    true,
+                let raw_structural_error = format!(
+                    "Chat direct-author raw document output was not structurally complete: {}",
+                    raw_error.message
                 );
-                return Err(ChatCandidateMaterializationError {
-                    message: format!(
-                        "Chat direct-author raw document output was not structurally complete: {}",
-                        latest_error.message
-                    ),
-                    raw_output_preview: truncate_candidate_failure_preview(&latest_raw, 2000),
-                });
-            }
-
-            let mut latest_error = if let Some(inference_error) = inference_error_message {
-                format!("{inference_error}; {}", first_error.message)
+                let error_message = if let Some(inference_error) = inference_error_message {
+                    format!("{inference_error}; {raw_structural_error}")
+                } else {
+                    raw_structural_error
+                };
+                (error_message, raw_candidate)
+            } else if let Some(inference_error) = inference_error_message {
+                (format!("{inference_error}; {}", first_error.message), raw)
             } else {
-                first_error.message
+                (first_error.message, raw)
             };
-            let mut latest_raw = raw;
             let mut document_is_incomplete =
                 direct_author_document_is_incomplete(request, &latest_raw, &latest_error);
             let mut prefer_semantic_continuation =
@@ -2949,17 +3140,17 @@ pub(crate) async fn materialize_chat_artifact_candidate_with_runtime_direct_auth
                         );
                 }
             }
-            for (rescue_strategy, rescued_document) in
-                try_local_html_structural_rescue(request, runtime_kind, &latest_raw, &latest_error)
+            for (repair_strategy, repaired_document) in
+                try_local_html_structural_repair(request, runtime_kind, &latest_raw, &latest_error)
             {
                 chat_generation_trace(format!(
-                    "artifact_generation:direct_author_inference:local_structural_rescue id={} strategy={} existing_bytes={} repaired_bytes={}",
+                    "artifact_generation:direct_author_inference:local_structural_repair id={} strategy={} existing_bytes={} repaired_bytes={}",
                     candidate_id,
-                    rescue_strategy,
+                    repair_strategy,
                     latest_raw.len(),
-                    rescued_document.len()
+                    repaired_document.len()
                 ));
-                match parse_candidate(&rescued_document) {
+                match parse_candidate(&repaired_document) {
                     Ok(generated) => {
                         emit_direct_author_live_preview(
                             live_preview_observer.as_ref(),
@@ -2967,23 +3158,23 @@ pub(crate) async fn materialize_chat_artifact_candidate_with_runtime_direct_auth
                             &preview_label,
                             &preview_language,
                             "recovered",
-                            &rescued_document,
+                            &repaired_document,
                             true,
                         );
                         return Ok(generated);
                     }
-                    Err(rescue_error) => {
+                    Err(repair_error) => {
                         chat_generation_trace(format!(
-                            "artifact_generation:direct_author_inference:local_structural_rescue_failed id={} strategy={} error={}",
+                            "artifact_generation:direct_author_inference:local_structural_repair_failed id={} strategy={} error={}",
                             candidate_id,
-                            rescue_strategy,
-                            rescue_error.message.replace('\n', " ")
+                            repair_strategy,
+                            repair_error.message.replace('\n', " ")
                         ));
                         latest_error = format!(
-                            "{latest_error}; local structural rescue ({rescue_strategy}) failed: {}",
-                            rescue_error.message
+                            "{latest_error}; local structural deterministic repair ({repair_strategy}) failed: {}",
+                            repair_error.message
                         );
-                        latest_raw = rescued_document;
+                        latest_raw = repaired_document;
                         document_is_incomplete = direct_author_document_is_incomplete(
                             request,
                             &latest_raw,
@@ -3009,17 +3200,22 @@ pub(crate) async fn materialize_chat_artifact_candidate_with_runtime_direct_auth
                     }
                 }
             }
-            if let Some((rescued_document, rescue_strategy)) =
-                try_local_html_interaction_rescue(request, runtime_kind, &latest_raw, &latest_error)
+            if let Some((repaired_document, repair_strategy)) =
+                try_local_html_primary_view_contract_repair(
+                    request,
+                    runtime_kind,
+                    &latest_raw,
+                    &latest_error,
+                )
             {
                 chat_generation_trace(format!(
-                    "artifact_generation:direct_author_inference:local_interaction_rescue id={} strategy={} existing_bytes={} repaired_bytes={}",
+                    "artifact_generation:direct_author_inference:local_primary_view_repair id={} strategy={} existing_bytes={} repaired_bytes={}",
                     candidate_id,
-                    rescue_strategy,
+                    repair_strategy,
                     latest_raw.len(),
-                    rescued_document.len()
+                    repaired_document.len()
                 ));
-                match parse_candidate(&rescued_document) {
+                match parse_candidate(&repaired_document) {
                     Ok(generated) => {
                         emit_direct_author_live_preview(
                             live_preview_observer.as_ref(),
@@ -3027,23 +3223,83 @@ pub(crate) async fn materialize_chat_artifact_candidate_with_runtime_direct_auth
                             &preview_label,
                             &preview_language,
                             "recovered",
-                            &rescued_document,
+                            &repaired_document,
                             true,
                         );
                         return Ok(generated);
                     }
-                    Err(rescue_error) => {
+                    Err(repair_error) => {
                         chat_generation_trace(format!(
-                            "artifact_generation:direct_author_inference:local_interaction_rescue_failed id={} strategy={} error={}",
+                            "artifact_generation:direct_author_inference:local_primary_view_repair_failed id={} strategy={} error={}",
                             candidate_id,
-                            rescue_strategy,
-                            rescue_error.message.replace('\n', " ")
+                            repair_strategy,
+                            repair_error.message.replace('\n', " ")
                         ));
                         latest_error = format!(
-                            "{latest_error}; local interaction rescue ({rescue_strategy}) failed: {}",
-                            rescue_error.message
+                            "{latest_error}; local primary-view deterministic repair ({repair_strategy}) failed: {}",
+                            repair_error.message
                         );
-                        latest_raw = rescued_document;
+                        latest_raw = repaired_document;
+                        document_is_incomplete = direct_author_document_is_incomplete(
+                            request,
+                            &latest_raw,
+                            &latest_error,
+                        );
+                        prefer_semantic_continuation =
+                            direct_author_should_continue_semantically_underbuilt_document(
+                                request,
+                                runtime_kind,
+                                &latest_raw,
+                                &latest_error,
+                                recovered_from_partial_stream,
+                            );
+                        continuation_needed =
+                            document_is_incomplete || prefer_semantic_continuation;
+                        skip_continuation = returns_raw_document
+                            && should_skip_direct_author_continuation(
+                                request,
+                                runtime_kind,
+                                &latest_raw,
+                                &latest_error,
+                            );
+                    }
+                }
+            }
+            if let Some((repaired_document, repair_strategy)) =
+                try_local_html_interaction_repair(request, runtime_kind, &latest_raw, &latest_error)
+            {
+                chat_generation_trace(format!(
+                    "artifact_generation:direct_author_inference:local_interaction_repair id={} strategy={} existing_bytes={} repaired_bytes={}",
+                    candidate_id,
+                    repair_strategy,
+                    latest_raw.len(),
+                    repaired_document.len()
+                ));
+                match parse_candidate(&repaired_document) {
+                    Ok(generated) => {
+                        emit_direct_author_live_preview(
+                            live_preview_observer.as_ref(),
+                            &preview_id,
+                            &preview_label,
+                            &preview_language,
+                            "recovered",
+                            &repaired_document,
+                            true,
+                        );
+                        return Ok(generated);
+                    }
+                    Err(repair_error) => {
+                        chat_generation_trace(format!(
+                            "artifact_generation:direct_author_inference:local_interaction_repair_failed id={} strategy={} error={}",
+                            candidate_id,
+                            repair_strategy,
+                            repair_error.message.replace('\n', " ")
+                        ));
+                        latest_error = format!(
+                            "{latest_error}; local interaction deterministic repair ({repair_strategy}) failed: {}",
+                            repair_error.message
+                        );
+                        latest_raw = repaired_document;
                         document_is_incomplete = direct_author_document_is_incomplete(
                             request,
                             &latest_raw,

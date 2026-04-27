@@ -55,99 +55,99 @@ pub fn case() -> QueryCase {
 }
 
 fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
-    let fixture_mode =
-        verification_value(obs, "env_receipt::downloads_png_move_fixture_mode").unwrap_or_default();
+    let fixture_mode = verification_value(obs, "env_evidence::downloads_png_move_fixture_mode")
+        .unwrap_or_default();
     let fixture_probe_source =
-        verification_value(obs, "env_receipt::downloads_png_move_fixture_probe_source")
+        verification_value(obs, "env_evidence::downloads_png_move_fixture_probe_source")
             .unwrap_or_default();
     let fixture_timestamp_ms =
-        verification_u64(obs, "env_receipt::downloads_png_move_fixture_timestamp_ms")
+        verification_u64(obs, "env_evidence::downloads_png_move_fixture_timestamp_ms")
             .unwrap_or(obs.run_timestamp_ms);
     let fixture_satisfied =
-        verification_bool(obs, "env_receipt::downloads_png_move_fixture_satisfied")
+        verification_bool(obs, "env_evidence::downloads_png_move_fixture_satisfied")
             .unwrap_or(false);
 
     let seeded_png_files_csv =
-        verification_value(obs, "env_receipt::downloads_png_move_seeded_png_files")
+        verification_value(obs, "env_evidence::downloads_png_move_seeded_png_files")
             .unwrap_or_default();
     let seeded_non_png_files_csv =
-        verification_value(obs, "env_receipt::downloads_png_move_seeded_non_png_files")
+        verification_value(obs, "env_evidence::downloads_png_move_seeded_non_png_files")
             .unwrap_or_default();
     let seeded_png_satisfied =
-        verification_bool(obs, "env_receipt::downloads_png_move_seeded_png_satisfied")
+        verification_bool(obs, "env_evidence::downloads_png_move_seeded_png_satisfied")
             .unwrap_or(false);
     let seeded_non_png_satisfied = verification_bool(
         obs,
-        "env_receipt::downloads_png_move_seeded_non_png_satisfied",
+        "env_evidence::downloads_png_move_seeded_non_png_satisfied",
     )
     .unwrap_or(false);
 
     let target_dir_path =
-        verification_value(obs, "env_receipt::downloads_png_move_target_dir_path")
+        verification_value(obs, "env_evidence::downloads_png_move_target_dir_path")
             .unwrap_or_default();
     let target_dir_probe_source = verification_value(
         obs,
-        "env_receipt::downloads_png_move_target_dir_probe_source",
+        "env_evidence::downloads_png_move_target_dir_probe_source",
     )
     .unwrap_or_default();
     let target_dir_timestamp_ms = verification_u64(
         obs,
-        "env_receipt::downloads_png_move_target_dir_timestamp_ms",
+        "env_evidence::downloads_png_move_target_dir_timestamp_ms",
     )
     .unwrap_or(obs.run_timestamp_ms);
     let target_dir_satisfied =
-        verification_bool(obs, "env_receipt::downloads_png_move_target_dir_satisfied")
+        verification_bool(obs, "env_evidence::downloads_png_move_target_dir_satisfied")
             .unwrap_or(false);
 
     let images_dir_path =
-        verification_value(obs, "env_receipt::downloads_png_move_images_dir_path")
+        verification_value(obs, "env_evidence::downloads_png_move_images_dir_path")
             .unwrap_or_default();
     let images_dir_probe_source = verification_value(
         obs,
-        "env_receipt::downloads_png_move_images_dir_probe_source",
+        "env_evidence::downloads_png_move_images_dir_probe_source",
     )
     .unwrap_or_default();
     let images_dir_timestamp_ms = verification_u64(
         obs,
-        "env_receipt::downloads_png_move_images_dir_timestamp_ms",
+        "env_evidence::downloads_png_move_images_dir_timestamp_ms",
     )
     .unwrap_or(obs.run_timestamp_ms);
     let images_dir_satisfied =
-        verification_bool(obs, "env_receipt::downloads_png_move_images_dir_satisfied")
+        verification_bool(obs, "env_evidence::downloads_png_move_images_dir_satisfied")
             .unwrap_or(false);
 
     let images_entries_csv =
-        verification_value(obs, "env_receipt::downloads_png_move_images_entries")
+        verification_value(obs, "env_evidence::downloads_png_move_images_entries")
             .unwrap_or_default();
     let images_entries_satisfied = verification_bool(
         obs,
-        "env_receipt::downloads_png_move_images_entries_satisfied",
+        "env_evidence::downloads_png_move_images_entries_satisfied",
     )
     .unwrap_or(false);
     let source_entries_csv =
-        verification_value(obs, "env_receipt::downloads_png_move_source_entries")
+        verification_value(obs, "env_evidence::downloads_png_move_source_entries")
             .unwrap_or_default();
     let source_non_png_preserved_satisfied = verification_bool(
         obs,
-        "env_receipt::downloads_png_move_source_non_png_preserved_satisfied",
+        "env_evidence::downloads_png_move_source_non_png_preserved_satisfied",
     )
     .unwrap_or(false);
     let source_png_absent_satisfied = verification_bool(
         obs,
-        "env_receipt::downloads_png_move_source_png_absent_satisfied",
+        "env_evidence::downloads_png_move_source_png_absent_satisfied",
     )
     .unwrap_or(false);
     let scope_satisfied =
-        verification_bool(obs, "env_receipt::downloads_png_move_scope_satisfied").unwrap_or(false);
+        verification_bool(obs, "env_evidence::downloads_png_move_scope_satisfied").unwrap_or(false);
 
     let cleanup_probe_source =
-        verification_value(obs, "env_receipt::downloads_png_move_cleanup_probe_source")
+        verification_value(obs, "env_evidence::downloads_png_move_cleanup_probe_source")
             .unwrap_or_default();
     let cleanup_timestamp_ms =
-        verification_u64(obs, "env_receipt::downloads_png_move_cleanup_timestamp_ms")
+        verification_u64(obs, "env_evidence::downloads_png_move_cleanup_timestamp_ms")
             .unwrap_or(obs.run_timestamp_ms);
     let cleanup_satisfied =
-        verification_bool(obs, "env_receipt::downloads_png_move_cleanup_satisfied")
+        verification_bool(obs, "env_evidence::downloads_png_move_cleanup_satisfied")
             .unwrap_or(false);
 
     let list_action_success_count = obs
@@ -479,6 +479,6 @@ fn has_disallowed_mutating_action(obs: &RunObservation) -> bool {
     })
 }
 
-fn serialize_environment_receipts(receipts: &[EnvironmentEvidenceReceipt]) -> String {
-    serde_json::to_string(receipts).unwrap_or_else(|_| "[]".to_string())
+fn serialize_environment_receipts(evidence: &[EnvironmentEvidenceReceipt]) -> String {
+    serde_json::to_string(evidence).unwrap_or_else(|_| "[]".to_string())
 }

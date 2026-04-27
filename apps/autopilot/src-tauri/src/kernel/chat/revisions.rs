@@ -283,7 +283,7 @@ pub(super) fn persist_chat_artifact_exemplar(
     };
     if validation.classification != ChatArtifactValidationStatus::Pass
         || chat_artifact_validation_total_score(validation) < CHAT_ARTIFACT_EXEMPLAR_MIN_SCORE
-        || chat_session.materialization.fallback_used
+        || chat_session.materialization.degraded_path_used
     {
         return Ok(None);
     }

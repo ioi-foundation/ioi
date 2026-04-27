@@ -1,4 +1,4 @@
-use crate::agentic::runtime::agent_playbooks::playbook_route_contract;
+use crate::agentic::runtime::agent_playbooks::playbook_decision_record;
 use crate::agentic::runtime::execution::workload;
 use crate::agentic::runtime::service::RuntimeAgentService;
 use crate::agentic::runtime::types::WorkerAssignment;
@@ -24,7 +24,7 @@ pub(crate) fn delegated_prep_mode(assignment: &WorkerAssignment) -> Option<Deleg
     match assignment
         .playbook_id
         .as_deref()
-        .map(playbook_route_contract)
+        .map(playbook_decision_record)
         .map(|contract| contract.route_family)
     {
         Some("research") => return Some(DelegatedPrepMode::Research),

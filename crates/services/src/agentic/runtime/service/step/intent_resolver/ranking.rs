@@ -2,8 +2,8 @@ use super::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct IntentPrototypeCacheKey {
-    matrix_version: String,
-    matrix_source_hash: [u8; 32],
+    intent_catalog_version: String,
+    intent_catalog_source_hash: [u8; 32],
 }
 
 #[derive(Debug, Clone)]
@@ -42,7 +42,7 @@ pub(super) fn quantize_and_sort_scores(
 
 pub(super) fn select_deterministic_winner(
     ranked: &[IntentCandidateScore],
-    matrix: &[IntentMatrixEntry],
+    intent_catalog: &[IntentCatalogEntry],
     policy: &IntentRoutingPolicy,
 ) -> Option<IntentCandidateScore> {
     let top = ranked.first()?;
@@ -54,10 +54,10 @@ pub(super) fn select_deterministic_winner(
         .cloned()
         .collect::<Vec<_>>();
     tie_candidates.sort_by(|left, right| {
-        let left_scope = scope_for_intent(matrix, &left.intent_id)
+        let left_scope = scope_for_intent(intent_catalog, &left.intent_id)
             .map(|scope| format!("{:?}", scope))
             .unwrap_or_else(|| "Unknown".to_string());
-        let right_scope = scope_for_intent(matrix, &right.intent_id)
+        let right_scope = scope_for_intent(intent_catalog, &right.intent_id)
             .map(|scope| format!("{:?}", scope))
             .unwrap_or_else(|| "Unknown".to_string());
         left.intent_id
@@ -91,8 +91,10 @@ pub(super) fn all_candidate_scores_zero(scores: &[IntentCandidateScore]) -> bool
             .all(|candidate| candidate.score <= f32::EPSILON)
 }
 
-pub(super) fn zero_ranked_candidates(matrix: &[IntentMatrixEntry]) -> Vec<IntentCandidateScore> {
-    matrix
+pub(super) fn zero_ranked_candidates(
+    intent_catalog: &[IntentCatalogEntry],
+) -> Vec<IntentCandidateScore> {
+    intent_catalog
         .iter()
         .map(|entry| IntentCandidateScore {
             intent_id: entry.intent_id.clone(),
@@ -101,46 +103,20 @@ pub(super) fn zero_ranked_candidates(matrix: &[IntentMatrixEntry]) -> Vec<Intent
         .collect()
 }
 
-pub(super) fn canonical_descriptor_for_entry(entry: &IntentMatrixEntry) -> String {
-    fn normalize_fragment(value: &str) -> Option<String> {
-        let normalized = value.split_whitespace().collect::<Vec<_>>().join(" ");
-        (!normalized.is_empty()).then_some(normalized)
-    }
-
-    let mut fragments = Vec::new();
-    if let Some(semantic_descriptor) = normalize_fragment(&entry.semantic_descriptor) {
-        fragments.push(format!("semantic: {}", semantic_descriptor));
-    }
-    if !entry.aliases.is_empty() {
-        let aliases = entry
-            .aliases
-            .iter()
-            .filter_map(|alias| normalize_fragment(alias))
-            .collect::<Vec<_>>();
-        if !aliases.is_empty() {
-            fragments.push(format!("aliases: {}", aliases.join(" | ")));
-        }
-    }
-    if !entry.exemplars.is_empty() {
-        let exemplars = entry
-            .exemplars
-            .iter()
-            .filter_map(|exemplar| normalize_fragment(exemplar))
-            .collect::<Vec<_>>();
-        if !exemplars.is_empty() {
-            fragments.push(format!("exemplars: {}", exemplars.join(" | ")));
-        }
-    }
-
-    fragments.join(" || ")
+pub(super) fn canonical_descriptor_for_entry(entry: &IntentCatalogEntry) -> String {
+    entry
+        .semantic_descriptor
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 async fn build_intent_prototypes(
     runtime: &Arc<dyn InferenceRuntime>,
-    matrix: &[IntentMatrixEntry],
+    intent_catalog: &[IntentCatalogEntry],
 ) -> Result<Vec<IntentPrototype>, TransactionError> {
-    let mut prototypes = Vec::with_capacity(matrix.len());
-    for entry in matrix {
+    let mut prototypes = Vec::with_capacity(intent_catalog.len());
+    for entry in intent_catalog {
         let descriptor = canonical_descriptor_for_entry(entry);
         match runtime.embed_text(&descriptor).await {
             Ok(vector) if !vector.is_empty() => {
@@ -161,12 +137,12 @@ async fn build_intent_prototypes(
         }
     }
 
-    if prototypes.len() != matrix.len() {
+    if prototypes.len() != intent_catalog.len() {
         let mapped = prototypes
             .iter()
             .map(|prototype| prototype.intent_id.as_str())
             .collect::<std::collections::BTreeSet<_>>();
-        let missing = matrix
+        let missing = intent_catalog
             .iter()
             .filter_map(|entry| {
                 (!mapped.contains(entry.intent_id.as_str())).then_some(entry.intent_id.clone())
@@ -186,9 +162,9 @@ pub trait IntentRankBackend: Send + Sync {
     async fn embed_or_rank(
         &self,
         query: &str,
-        matrix_version: &str,
-        matrix_source_hash: [u8; 32],
-        matrix: &[IntentMatrixEntry],
+        intent_catalog_version: &str,
+        intent_catalog_source_hash: [u8; 32],
+        intent_catalog: &[IntentCatalogEntry],
         service: Option<&RuntimeAgentService>,
         session_id: Option<[u8; 32]>,
     ) -> Result<IntentRankResult, TransactionError>;
@@ -222,7 +198,7 @@ pub(super) fn cosine_similarity(a: &[f32], b: &[f32]) -> Option<f32> {
 
 fn score_query_against_prototypes(
     query_embedding: &[f32],
-    matrix: &[IntentMatrixEntry],
+    intent_catalog: &[IntentCatalogEntry],
     prototypes: &[IntentPrototype],
 ) -> Vec<IntentCandidateScore> {
     let mut by_intent = BTreeMap::<&str, f32>::new();
@@ -233,7 +209,7 @@ fn score_query_against_prototypes(
         }
     }
 
-    let mut scored = matrix
+    let mut scored = intent_catalog
         .iter()
         .map(|entry| IntentCandidateScore {
             intent_id: entry.intent_id.clone(),
@@ -286,7 +262,7 @@ fn extract_first_json_object(raw: &str) -> Option<String> {
 
 fn parse_model_rank_scores(
     raw: &str,
-    matrix: &[IntentMatrixEntry],
+    intent_catalog: &[IntentCatalogEntry],
 ) -> Result<Vec<IntentCandidateScore>, TransactionError> {
     let parsed = serde_json::from_str::<serde_json::Value>(raw).or_else(|_| {
         let extracted = extract_first_json_object(raw).ok_or_else(|| {
@@ -313,7 +289,7 @@ fn parse_model_rank_scores(
             )
         })?;
 
-    let matrix_ids = matrix
+    let matrix_ids = intent_catalog
         .iter()
         .map(|entry| entry.intent_id.as_str())
         .collect::<BTreeSet<_>>();
@@ -333,7 +309,7 @@ fn parse_model_rank_scores(
         score_map.insert(intent_id.to_string(), score);
     }
 
-    let mut ranked = matrix
+    let mut ranked = intent_catalog
         .iter()
         .map(|entry| IntentCandidateScore {
             intent_id: entry.intent_id.clone(),
@@ -347,15 +323,15 @@ fn parse_model_rank_scores(
 async fn rank_with_inference_model(
     runtime: &Arc<dyn InferenceRuntime>,
     query: &str,
-    matrix: &[IntentMatrixEntry],
+    intent_catalog: &[IntentCatalogEntry],
     service: Option<&RuntimeAgentService>,
     session_id: Option<[u8; 32]>,
 ) -> Result<Vec<IntentCandidateScore>, TransactionError> {
-    if matrix.is_empty() {
+    if intent_catalog.is_empty() {
         return Ok(vec![]);
     }
 
-    let intent_rows = matrix
+    let intent_rows = intent_catalog
         .iter()
         .map(|entry| {
             json!({
@@ -421,7 +397,7 @@ async fn rank_with_inference_model(
             e
         ))
     })?;
-    parse_model_rank_scores(&raw, matrix)
+    parse_model_rank_scores(&raw, intent_catalog)
 }
 
 #[async_trait]
@@ -429,13 +405,13 @@ impl IntentRankBackend for Arc<dyn InferenceRuntime> {
     async fn embed_or_rank(
         &self,
         query: &str,
-        matrix_version: &str,
-        matrix_source_hash: [u8; 32],
-        matrix: &[IntentMatrixEntry],
+        intent_catalog_version: &str,
+        intent_catalog_source_hash: [u8; 32],
+        intent_catalog: &[IntentCatalogEntry],
         service: Option<&RuntimeAgentService>,
         session_id: Option<[u8; 32]>,
     ) -> Result<IntentRankResult, TransactionError> {
-        if matrix.is_empty() {
+        if intent_catalog.is_empty() {
             return Ok(IntentRankResult {
                 scores: vec![],
                 model_id: INTENT_EMBEDDING_MODEL_ID.to_string(),
@@ -445,8 +421,8 @@ impl IntentRankBackend for Arc<dyn InferenceRuntime> {
         }
 
         let key = IntentPrototypeCacheKey {
-            matrix_version: matrix_version.to_string(),
-            matrix_source_hash,
+            intent_catalog_version: intent_catalog_version.to_string(),
+            intent_catalog_source_hash,
         };
         let cached = intent_prototype_cache()
             .read()
@@ -454,7 +430,7 @@ impl IntentRankBackend for Arc<dyn InferenceRuntime> {
             .and_then(|cache| cache.get(&key).cloned());
         let prototypes = match cached {
             Some(existing) => Some(existing),
-            None => match build_intent_prototypes(self, matrix).await {
+            None => match build_intent_prototypes(self, intent_catalog).await {
                 Ok(built) => {
                     if let Ok(mut cache) = intent_prototype_cache().write() {
                         cache.insert(key.clone(), built.clone());
@@ -463,9 +439,9 @@ impl IntentRankBackend for Arc<dyn InferenceRuntime> {
                 }
                 Err(err) => {
                     log::warn!(
-                        "IntentResolver embedding backend unavailable matrix_version={} matrix_source_hash={} error={}",
-                        matrix_version,
-                        hex::encode(matrix_source_hash),
+                        "IntentResolver embedding backend unavailable intent_catalog_version={} intent_catalog_source_hash={} error={}",
+                        intent_catalog_version,
+                        hex::encode(intent_catalog_source_hash),
                         err
                     );
                     None
@@ -478,7 +454,7 @@ impl IntentRankBackend for Arc<dyn InferenceRuntime> {
                     return Ok(IntentRankResult {
                         scores: score_query_against_prototypes(
                             &query_embedding,
-                            matrix,
+                            intent_catalog,
                             &prototypes,
                         ),
                         model_id: INTENT_EMBEDDING_MODEL_ID.to_string(),
@@ -488,21 +464,21 @@ impl IntentRankBackend for Arc<dyn InferenceRuntime> {
                 }
                 Err(err) => {
                     log::warn!(
-                        "IntentResolver query embedding failed matrix_version={} matrix_source_hash={} error={}",
-                        matrix_version,
-                        hex::encode(matrix_source_hash),
+                        "IntentResolver query embedding failed intent_catalog_version={} intent_catalog_source_hash={} error={}",
+                        intent_catalog_version,
+                        hex::encode(intent_catalog_source_hash),
                         err
                     );
                 }
             }
         }
 
-        match rank_with_inference_model(self, query, matrix, service, session_id).await {
+        match rank_with_inference_model(self, query, intent_catalog, service, session_id).await {
             Ok(ranked) => {
                 log::info!(
-                    "IntentResolver used model-ranking backend matrix_version={} matrix_source_hash={}",
-                    matrix_version,
-                    hex::encode(matrix_source_hash)
+                    "IntentResolver used model-ranking backend intent_catalog_version={} intent_catalog_source_hash={}",
+                    intent_catalog_version,
+                    hex::encode(intent_catalog_source_hash)
                 );
                 Ok(IntentRankResult {
                     scores: ranked,
@@ -513,9 +489,9 @@ impl IntentRankBackend for Arc<dyn InferenceRuntime> {
             }
             Err(err) => {
                 log::warn!(
-                    "IntentResolver model-ranking backend failed matrix_version={} matrix_source_hash={} error={}",
-                    matrix_version,
-                    hex::encode(matrix_source_hash),
+                    "IntentResolver model-ranking backend failed intent_catalog_version={} intent_catalog_source_hash={} error={}",
+                    intent_catalog_version,
+                    hex::encode(intent_catalog_source_hash),
                     err
                 );
                 Err(err)
@@ -524,21 +500,64 @@ impl IntentRankBackend for Arc<dyn InferenceRuntime> {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn entry_with_routing_metadata() -> IntentCatalogEntry {
+        IntentCatalogEntry {
+            intent_id: "weather.lookup".to_string(),
+            semantic_descriptor: "lookup current weather conditions for a requested place"
+                .to_string(),
+            query_binding: IntentQueryBindingClass::RemotePublicFact,
+            required_capabilities: vec![CapabilityId::from("web.retrieve")],
+            risk_class: "low".to_string(),
+            scope: IntentScopeProfile::WebResearch,
+            preferred_tier: "tool_first".to_string(),
+            applicability_class: ExecutionApplicabilityClass::RemoteRetrieval,
+            requires_host_discovery: Some(false),
+            provider_selection_mode: None,
+            required_evidence: vec!["execution".to_string(), "verification".to_string()],
+            success_conditions: vec![],
+            verification_mode: None,
+            aliases: vec!["sports score".to_string(), "gmail".to_string()],
+            exemplars: vec![
+                "send a message to alex".to_string(),
+                "who won the game tonight".to_string(),
+            ],
+        }
+    }
+
+    #[test]
+    fn canonical_descriptor_excludes_aliases_and_exemplars() {
+        let entry = entry_with_routing_metadata();
+
+        assert_eq!(
+            canonical_descriptor_for_entry(&entry),
+            "lookup current weather conditions for a requested place"
+        );
+        assert!(!canonical_descriptor_for_entry(&entry).contains("sports"));
+        assert!(!canonical_descriptor_for_entry(&entry).contains("gmail"));
+        assert!(!canonical_descriptor_for_entry(&entry).contains("message"));
+        assert!(!canonical_descriptor_for_entry(&entry).contains("game"));
+    }
+}
+
 pub(super) fn scope_for_intent(
-    matrix: &[IntentMatrixEntry],
+    intent_catalog: &[IntentCatalogEntry],
     intent_id: &str,
 ) -> Option<IntentScopeProfile> {
-    matrix
+    intent_catalog
         .iter()
         .find(|entry| entry.intent_id == intent_id)
         .map(|entry| entry.scope)
 }
 
 pub(super) fn preferred_tier_for_intent(
-    matrix: &[IntentMatrixEntry],
+    intent_catalog: &[IntentCatalogEntry],
     intent_id: &str,
 ) -> Option<String> {
-    matrix
+    intent_catalog
         .iter()
         .find(|entry| entry.intent_id == intent_id)
         .map(|entry| entry.preferred_tier.clone())

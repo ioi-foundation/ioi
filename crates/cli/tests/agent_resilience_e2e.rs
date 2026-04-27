@@ -33,7 +33,6 @@ use std::io::Cursor;
 use std::path::Path;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
-use tempfile::tempdir;
 use tokio::sync::broadcast;
 
 use image::{ImageBuffer, ImageFormat, Rgba};
@@ -244,14 +243,14 @@ fn seed_resolved_intent(
         score: 0.99,
         top_k: vec![],
         required_capabilities,
-        required_receipts: vec![],
-        required_postconditions: vec![],
+        required_evidence: vec![],
+        success_conditions: vec![],
         risk_class: "low".to_string(),
         preferred_tier: match scope {
             IntentScopeProfile::UiInteraction => "visual_last".to_string(),
             _ => "tool_first".to_string(),
         },
-        matrix_version: "test".to_string(),
+        intent_catalog_version: "test".to_string(),
         embedding_model_id: "test".to_string(),
         embedding_model_version: "test".to_string(),
         similarity_function_id: "cosine".to_string(),
@@ -259,8 +258,8 @@ fn seed_resolved_intent(
         tool_registry_hash: [0u8; 32],
         capability_ontology_hash: [0u8; 32],
         query_normalization_version: "test".to_string(),
-        matrix_source_hash: [0u8; 32],
-        receipt_hash: [0u8; 32],
+        intent_catalog_source_hash: [0u8; 32],
+        evidence_requirements_hash: [0u8; 32],
         provider_selection: None,
         instruction_contract: None,
         constrained: false,
@@ -416,9 +415,8 @@ async fn latest_news_timeout_fails_fast_without_remedy_churn() -> Result<()> {
     seed_resolved_intent(&mut state, session_id, IntentScopeProfile::WebResearch);
 
     let started = Instant::now();
-    let mut final_state = read_agent_state(&state, session_id);
     for _ in 0..8 {
-        final_state = read_agent_state(&state, session_id);
+        let mut final_state = read_agent_state(&state, session_id);
         if matches!(final_state.status, AgentStatus::Completed(_)) {
             break;
         }
@@ -464,7 +462,7 @@ async fn latest_news_timeout_fails_fast_without_remedy_churn() -> Result<()> {
         elapsed
     );
 
-    final_state = read_agent_state(&state, session_id);
+    let final_state = read_agent_state(&state, session_id);
     assert!(final_state.step_count <= 8);
 
     let mut saw_filesystem_list_directory = false;

@@ -1,11 +1,11 @@
 use super::{
-    CapabilityId, ExecutionApplicabilityClass, IntentMatrixEntry, IntentQueryBindingClass,
+    CapabilityId, ExecutionApplicabilityClass, IntentCatalogEntry, IntentQueryBindingClass,
     IntentScopeProfile, ProviderSelectionMode, VerificationMode,
 };
 
-pub(super) fn default_intent_matrix() -> Vec<IntentMatrixEntry> {
+pub(super) fn default_intent_catalog() -> Vec<IntentCatalogEntry> {
     vec![
-IntentMatrixEntry {
+IntentCatalogEntry {
     intent_id: "conversation.reply".to_string(),
     semantic_descriptor:
         "respond conversationally without executing external side effects"
@@ -21,13 +21,13 @@ IntentMatrixEntry {
     applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
     requires_host_discovery: Some(false),
     provider_selection_mode: Some(ProviderSelectionMode::DynamicSynthesis),
-    required_receipts: vec![
+    required_evidence: vec![
         "provider_selection".to_string(),
         "provider_selection_commit".to_string(),
         "execution".to_string(),
         "verification".to_string(),
     ],
-    required_postconditions: vec![],
+    success_conditions: vec![],
     verification_mode: Some(VerificationMode::DeterministicCheck),
     aliases: vec![
         "chat".to_string(),
@@ -40,7 +40,7 @@ IntentMatrixEntry {
         "draft a response".to_string(),
     ],
 },
-IntentMatrixEntry {
+IntentCatalogEntry {
     intent_id: "math.eval".to_string(),
     semantic_descriptor:
         "compute deterministic arithmetic results from explicit symbolic numeric expressions using numbers operators and grouping tokens and return the evaluated value"
@@ -56,13 +56,13 @@ IntentMatrixEntry {
     applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
     requires_host_discovery: Some(false),
     provider_selection_mode: Some(ProviderSelectionMode::DynamicSynthesis),
-    required_receipts: vec![
+    required_evidence: vec![
         "provider_selection".to_string(),
         "provider_selection_commit".to_string(),
         "execution".to_string(),
         "verification".to_string(),
     ],
-    required_postconditions: vec![],
+    success_conditions: vec![],
     verification_mode: Some(VerificationMode::DeterministicCheck),
     aliases: vec![
         "math".to_string(),
@@ -75,7 +75,7 @@ IntentMatrixEntry {
         "evaluate (12 + 8) / 5".to_string(),
     ],
 },
-IntentMatrixEntry {
+IntentCatalogEntry {
     intent_id: "memory.recall".to_string(),
     semantic_descriptor:
         "retrieve previously stored durable memory workflow notes learned constraints or remembered project context and answer from that recalled state"
@@ -92,13 +92,13 @@ IntentMatrixEntry {
     applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
     requires_host_discovery: Some(false),
     provider_selection_mode: Some(ProviderSelectionMode::DynamicSynthesis),
-    required_receipts: vec![
+    required_evidence: vec![
         "provider_selection".to_string(),
         "provider_selection_commit".to_string(),
         "execution".to_string(),
         "verification".to_string(),
     ],
-    required_postconditions: vec![],
+    success_conditions: vec![],
     verification_mode: Some(VerificationMode::DeterministicCheck),
     aliases: vec![
         "remember".to_string(),
@@ -111,7 +111,7 @@ IntentMatrixEntry {
         "search memory for the previous localai plan".to_string(),
     ],
 },
-IntentMatrixEntry {
+IntentCatalogEntry {
     intent_id: "web.research".to_string(),
     semantic_descriptor:
         "research live information on the web including latest news headlines and current events then synthesize sourced findings"
@@ -129,13 +129,13 @@ IntentMatrixEntry {
     applicability_class: ExecutionApplicabilityClass::RemoteRetrieval,
     requires_host_discovery: Some(false),
     provider_selection_mode: Some(ProviderSelectionMode::DynamicSynthesis),
-    required_receipts: vec![
+    required_evidence: vec![
         "provider_selection".to_string(),
         "provider_selection_commit".to_string(),
         "execution".to_string(),
         "verification".to_string(),
     ],
-    required_postconditions: vec![],
+    success_conditions: vec![],
     verification_mode: Some(VerificationMode::DeterministicCheck),
     aliases: vec![
         "web".to_string(),
@@ -148,7 +148,7 @@ IntentMatrixEntry {
         "crawl a url and summarize".to_string(),
     ],
 },
-IntentMatrixEntry {
+IntentCatalogEntry {
     intent_id: "workspace.ops".to_string(),
     semantic_descriptor:
         "inspect create and modify files in the local workspace and repository checkout source tree including websites landing pages static sites applications prototypes html css javascript and other shippable artifacts"
@@ -166,13 +166,13 @@ IntentMatrixEntry {
     applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
     requires_host_discovery: Some(false),
     provider_selection_mode: Some(ProviderSelectionMode::DynamicSynthesis),
-    required_receipts: vec![
+    required_evidence: vec![
         "provider_selection".to_string(),
         "provider_selection_commit".to_string(),
         "execution".to_string(),
         "verification".to_string(),
     ],
-    required_postconditions: vec![],
+    success_conditions: vec![],
     verification_mode: Some(VerificationMode::DeterministicCheck),
     aliases: vec![
         "repo".to_string(),
@@ -194,7 +194,7 @@ IntentMatrixEntry {
         "turn this brief into a shippable web page artifact".to_string(),
     ],
 },
-IntentMatrixEntry {
+IntentCatalogEntry {
     intent_id: "app.launch".to_string(),
     semantic_descriptor:
         "open launch start or foreground a named local software process identified by a program title token and make it active for interaction"
@@ -211,18 +211,18 @@ IntentMatrixEntry {
     applicability_class: ExecutionApplicabilityClass::TopologyDependent,
     requires_host_discovery: Some(true),
     provider_selection_mode: Some(ProviderSelectionMode::DynamicSynthesis),
-    required_receipts: vec![
+    required_evidence: vec![
         "host_discovery".to_string(),
         "provider_selection".to_string(),
         "execution".to_string(),
         "verification".to_string(),
     ],
-    required_postconditions: vec![],
+    success_conditions: vec![],
     verification_mode: Some(VerificationMode::DynamicSynthesis),
     aliases: vec!["open app".to_string(), "launch".to_string()],
     exemplars: vec!["open calculator".to_string(), "launch browser".to_string()],
 },
-IntentMatrixEntry {
+IntentCatalogEntry {
     intent_id: "ui.interaction".to_string(),
     semantic_descriptor:
         "perform direct input interactions such as click type scroll drag or keypress within an already-running focused application interface"
@@ -238,13 +238,13 @@ IntentMatrixEntry {
     applicability_class: ExecutionApplicabilityClass::TopologyDependent,
     requires_host_discovery: Some(true),
     provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
-    required_receipts: vec![
+    required_evidence: vec![
         "host_discovery".to_string(),
         "provider_selection".to_string(),
         "execution".to_string(),
         "verification".to_string(),
     ],
-    required_postconditions: vec![],
+    success_conditions: vec![],
     verification_mode: Some(VerificationMode::DeterministicCheck),
     aliases: vec![
         "click".to_string(),
@@ -257,7 +257,7 @@ IntentMatrixEntry {
         "type into the focused field".to_string(),
     ],
 },
-IntentMatrixEntry {
+IntentCatalogEntry {
     intent_id: "ui.capture_screenshot".to_string(),
     semantic_descriptor:
         "take a screenshot of my desktop or capture the current screen image and return capture confirmation without click type scroll or keypress actions"
@@ -273,13 +273,13 @@ IntentMatrixEntry {
     applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
     requires_host_discovery: Some(false),
     provider_selection_mode: Some(ProviderSelectionMode::DynamicSynthesis),
-    required_receipts: vec![
+    required_evidence: vec![
         "provider_selection".to_string(),
         "provider_selection_commit".to_string(),
         "execution".to_string(),
         "verification".to_string(),
     ],
-    required_postconditions: vec![],
+    success_conditions: vec![],
     verification_mode: Some(VerificationMode::DeterministicCheck),
     aliases: vec![
         "screenshot".to_string(),
@@ -291,7 +291,7 @@ IntentMatrixEntry {
         "capture my screen".to_string(),
     ],
 },
-IntentMatrixEntry {
+IntentCatalogEntry {
     intent_id: "mail.read.latest".to_string(),
     semantic_descriptor:
         "read the latest message from a connected mailbox and return sender subject received metadata and body preview"
@@ -307,13 +307,13 @@ IntentMatrixEntry {
     applicability_class: ExecutionApplicabilityClass::Mixed,
     requires_host_discovery: Some(false),
     provider_selection_mode: Some(ProviderSelectionMode::DynamicSynthesis),
-    required_receipts: vec![
+    required_evidence: vec![
         "provider_selection".to_string(),
         "provider_selection_commit".to_string(),
         "execution".to_string(),
         "verification".to_string(),
     ],
-    required_postconditions: vec![],
+    success_conditions: vec![],
     verification_mode: Some(VerificationMode::DeterministicCheck),
     aliases: vec![
         "read email".to_string(),
@@ -325,7 +325,7 @@ IntentMatrixEntry {
         "show the most recent inbox message".to_string(),
     ],
 },
-IntentMatrixEntry {
+IntentCatalogEntry {
     intent_id: "mail.list.recent".to_string(),
     semantic_descriptor:
         "list recent messages from a connected mailbox including sender subject and received metadata"
@@ -341,13 +341,13 @@ IntentMatrixEntry {
     applicability_class: ExecutionApplicabilityClass::Mixed,
     requires_host_discovery: Some(false),
     provider_selection_mode: Some(ProviderSelectionMode::DynamicSynthesis),
-    required_receipts: vec![
+    required_evidence: vec![
         "provider_selection".to_string(),
         "provider_selection_commit".to_string(),
         "execution".to_string(),
         "verification".to_string(),
     ],
-    required_postconditions: vec![],
+    success_conditions: vec![],
     verification_mode: Some(VerificationMode::DeterministicCheck),
     aliases: vec![
         "list emails".to_string(),
@@ -359,7 +359,7 @@ IntentMatrixEntry {
         "show the last 10 inbox messages".to_string(),
     ],
 },
-IntentMatrixEntry {
+IntentCatalogEntry {
     intent_id: "mail.delete.spam".to_string(),
     semantic_descriptor:
         "delete spam or junk messages from a connected mailbox using mailbox cleanup operations"
@@ -375,13 +375,13 @@ IntentMatrixEntry {
     applicability_class: ExecutionApplicabilityClass::Mixed,
     requires_host_discovery: Some(false),
     provider_selection_mode: Some(ProviderSelectionMode::DynamicSynthesis),
-    required_receipts: vec![
+    required_evidence: vec![
         "provider_selection".to_string(),
         "provider_selection_commit".to_string(),
         "execution".to_string(),
         "verification".to_string(),
     ],
-    required_postconditions: vec![],
+    success_conditions: vec![],
     verification_mode: Some(VerificationMode::DeterministicCheck),
     aliases: vec![
         "delete spam".to_string(),
@@ -393,7 +393,7 @@ IntentMatrixEntry {
         "clean junk mailbox messages".to_string(),
     ],
 },
-IntentMatrixEntry {
+IntentCatalogEntry {
     intent_id: "mail.reply".to_string(),
     semantic_descriptor:
         "compose draft and send an email reply or outbound mailbox message with an explicit recipient subject and email body through a connected mailbox account"
@@ -409,14 +409,14 @@ IntentMatrixEntry {
     applicability_class: ExecutionApplicabilityClass::Mixed,
     requires_host_discovery: Some(false),
     provider_selection_mode: Some(ProviderSelectionMode::DynamicSynthesis),
-    required_receipts: vec![
+    required_evidence: vec![
         "provider_selection".to_string(),
         "provider_selection_commit".to_string(),
         "grounding".to_string(),
         "execution".to_string(),
         "verification".to_string(),
     ],
-    required_postconditions: vec!["mail.reply.completed".to_string()],
+    success_conditions: vec!["mail.reply.completed".to_string()],
     verification_mode: Some(VerificationMode::DeterministicCheck),
     aliases: vec![
         "send email".to_string(),
@@ -430,7 +430,7 @@ IntentMatrixEntry {
         "reply to the email thread from Sam with a project update".to_string(),
     ],
 },
-IntentMatrixEntry {
+IntentCatalogEntry {
     intent_id: "automation.monitor".to_string(),
     semantic_descriptor:
         "install a durable local automation monitor that keeps checking a source on a schedule stores dedupe state and notifies later when a predicate matches"
@@ -446,13 +446,13 @@ IntentMatrixEntry {
     applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
     requires_host_discovery: Some(false),
     provider_selection_mode: Some(ProviderSelectionMode::DynamicSynthesis),
-    required_receipts: vec![
+    required_evidence: vec![
         "provider_selection".to_string(),
         "provider_selection_commit".to_string(),
         "execution".to_string(),
         "verification".to_string(),
     ],
-    required_postconditions: vec![],
+    success_conditions: vec![],
     verification_mode: Some(VerificationMode::DeterministicCheck),
     aliases: vec![
         "monitor".to_string(),
@@ -465,7 +465,7 @@ IntentMatrixEntry {
         "watch a source every few minutes and alert on matches".to_string(),
     ],
 },
-IntentMatrixEntry {
+IntentCatalogEntry {
     intent_id: "model.registry.load".to_string(),
     semantic_descriptor:
         "load activate or warm an already installed local model into the kernel inference runtime so it becomes resident and ready for subsequent use"
@@ -482,8 +482,8 @@ IntentMatrixEntry {
     applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
     requires_host_discovery: Some(false),
     provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
-    required_receipts: vec!["execution".to_string(), "verification".to_string()],
-    required_postconditions: vec![],
+    required_evidence: vec!["execution".to_string(), "verification".to_string()],
+    success_conditions: vec![],
     verification_mode: Some(VerificationMode::DeterministicCheck),
     aliases: vec![
         "load model".to_string(),
@@ -496,7 +496,7 @@ IntentMatrixEntry {
         "activate llama3.1 so it is ready for use".to_string(),
     ],
 },
-IntentMatrixEntry {
+IntentCatalogEntry {
     intent_id: "model.registry.unload".to_string(),
     semantic_descriptor:
         "unload deactivate evict or release an already loaded local model from the kernel inference runtime to free memory or vram"
@@ -513,8 +513,8 @@ IntentMatrixEntry {
     applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
     requires_host_discovery: Some(false),
     provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
-    required_receipts: vec!["execution".to_string(), "verification".to_string()],
-    required_postconditions: vec![],
+    required_evidence: vec!["execution".to_string(), "verification".to_string()],
+    success_conditions: vec![],
     verification_mode: Some(VerificationMode::DeterministicCheck),
     aliases: vec![
         "unload model".to_string(),
@@ -527,7 +527,7 @@ IntentMatrixEntry {
         "evict the image model to free memory".to_string(),
     ],
 },
-IntentMatrixEntry {
+IntentCatalogEntry {
     intent_id: "model.registry.install".to_string(),
     semantic_descriptor:
         "install import register or apply a local model artifact gallery entry or model package into the kernel registry and control plane"
@@ -544,8 +544,8 @@ IntentMatrixEntry {
     applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
     requires_host_discovery: Some(false),
     provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
-    required_receipts: vec!["execution".to_string(), "verification".to_string()],
-    required_postconditions: vec![],
+    required_evidence: vec!["execution".to_string(), "verification".to_string()],
+    success_conditions: vec![],
     verification_mode: Some(VerificationMode::DeterministicCheck),
     aliases: vec![
         "install model".to_string(),
@@ -558,7 +558,7 @@ IntentMatrixEntry {
         "import this gguf model into the local engine".to_string(),
     ],
 },
-IntentMatrixEntry {
+IntentCatalogEntry {
     intent_id: "backend.registry.manage".to_string(),
     semantic_descriptor:
         "install start stop apply delete or health-check a local inference backend or sidecar inside the kernel control plane"
@@ -575,8 +575,8 @@ IntentMatrixEntry {
     applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
     requires_host_discovery: Some(false),
     provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
-    required_receipts: vec!["execution".to_string(), "verification".to_string()],
-    required_postconditions: vec![],
+    required_evidence: vec!["execution".to_string(), "verification".to_string()],
+    success_conditions: vec![],
     verification_mode: Some(VerificationMode::DeterministicCheck),
     aliases: vec![
         "install backend".to_string(),
@@ -589,7 +589,7 @@ IntentMatrixEntry {
         "health check the whisper backend".to_string(),
     ],
 },
-IntentMatrixEntry {
+IntentCatalogEntry {
     intent_id: "gallery.sync".to_string(),
     semantic_descriptor:
         "synchronize refresh or update a local model or backend gallery catalog inside the kernel control plane"
@@ -606,8 +606,8 @@ IntentMatrixEntry {
     applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
     requires_host_discovery: Some(false),
     provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
-    required_receipts: vec!["execution".to_string(), "verification".to_string()],
-    required_postconditions: vec![],
+    required_evidence: vec!["execution".to_string(), "verification".to_string()],
+    success_conditions: vec![],
     verification_mode: Some(VerificationMode::DeterministicCheck),
     aliases: vec![
         "sync gallery".to_string(),
@@ -619,7 +619,7 @@ IntentMatrixEntry {
         "refresh backend catalogs from the local engine".to_string(),
     ],
 },
-IntentMatrixEntry {
+IntentCatalogEntry {
     intent_id: "media.transcribe".to_string(),
     semantic_descriptor:
         "transcribe local audio speech or spoken media into text through the kernel media substrate"
@@ -636,8 +636,8 @@ IntentMatrixEntry {
     applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
     requires_host_discovery: Some(false),
     provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
-    required_receipts: vec!["execution".to_string(), "verification".to_string()],
-    required_postconditions: vec![],
+    required_evidence: vec!["execution".to_string(), "verification".to_string()],
+    success_conditions: vec![],
     verification_mode: Some(VerificationMode::DeterministicCheck),
     aliases: vec![
         "transcribe audio".to_string(),
@@ -649,7 +649,7 @@ IntentMatrixEntry {
         "turn the meeting audio into text".to_string(),
     ],
 },
-IntentMatrixEntry {
+IntentCatalogEntry {
     intent_id: "media.synthesize".to_string(),
     semantic_descriptor:
         "generate speech or text to speech audio artifacts from text through the kernel media runtime"
@@ -666,8 +666,8 @@ IntentMatrixEntry {
     applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
     requires_host_discovery: Some(false),
     provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
-    required_receipts: vec!["execution".to_string(), "verification".to_string()],
-    required_postconditions: vec![],
+    required_evidence: vec!["execution".to_string(), "verification".to_string()],
+    success_conditions: vec![],
     verification_mode: Some(VerificationMode::DeterministicCheck),
     aliases: vec![
         "text to speech".to_string(),
@@ -679,7 +679,7 @@ IntentMatrixEntry {
         "generate a spoken version of the release notes".to_string(),
     ],
 },
-IntentMatrixEntry {
+IntentCatalogEntry {
     intent_id: "media.vision".to_string(),
     semantic_descriptor:
         "inspect an image screenshot or multimodal artifact and answer about its contents through the kernel vision runtime"
@@ -696,8 +696,8 @@ IntentMatrixEntry {
     applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
     requires_host_discovery: Some(false),
     provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
-    required_receipts: vec!["execution".to_string(), "verification".to_string()],
-    required_postconditions: vec![],
+    required_evidence: vec!["execution".to_string(), "verification".to_string()],
+    success_conditions: vec![],
     verification_mode: Some(VerificationMode::DeterministicCheck),
     aliases: vec![
         "inspect image".to_string(),
@@ -709,7 +709,7 @@ IntentMatrixEntry {
         "read the screenshot and answer the question".to_string(),
     ],
 },
-IntentMatrixEntry {
+IntentCatalogEntry {
     intent_id: "media.generate.image".to_string(),
     semantic_descriptor:
         "generate edit or inpaint an image artifact from text prompts through the kernel image runtime"
@@ -726,8 +726,8 @@ IntentMatrixEntry {
     applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
     requires_host_discovery: Some(false),
     provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
-    required_receipts: vec!["execution".to_string(), "verification".to_string()],
-    required_postconditions: vec![],
+    required_evidence: vec!["execution".to_string(), "verification".to_string()],
+    success_conditions: vec![],
     verification_mode: Some(VerificationMode::DeterministicCheck),
     aliases: vec![
         "generate image".to_string(),
@@ -739,7 +739,7 @@ IntentMatrixEntry {
         "inpaint this screenshot background".to_string(),
     ],
 },
-IntentMatrixEntry {
+IntentCatalogEntry {
     intent_id: "media.generate.video".to_string(),
     semantic_descriptor:
         "generate a video artifact from prompts through the kernel video runtime"
@@ -756,8 +756,8 @@ IntentMatrixEntry {
     applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
     requires_host_discovery: Some(false),
     provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
-    required_receipts: vec!["execution".to_string(), "verification".to_string()],
-    required_postconditions: vec![],
+    required_evidence: vec!["execution".to_string(), "verification".to_string()],
+    success_conditions: vec![],
     verification_mode: Some(VerificationMode::DeterministicCheck),
     aliases: vec![
         "generate video".to_string(),
@@ -769,7 +769,7 @@ IntentMatrixEntry {
         "render a local video clip from this prompt".to_string(),
     ],
 },
-IntentMatrixEntry {
+IntentCatalogEntry {
     intent_id: "command.probe".to_string(),
     semantic_descriptor:
         "check whether a binary or tool is available in PATH without mutating host state"
@@ -786,8 +786,8 @@ IntentMatrixEntry {
     applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
     requires_host_discovery: Some(false),
     provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
-    required_receipts: vec!["execution".to_string(), "verification".to_string()],
-    required_postconditions: vec![],
+    required_evidence: vec!["execution".to_string(), "verification".to_string()],
+    success_conditions: vec![],
     verification_mode: Some(VerificationMode::DeterministicCheck),
     aliases: vec![
         "installed".to_string(),
@@ -806,7 +806,7 @@ IntentMatrixEntry {
         "is this command available".to_string(),
     ],
 },
-IntentMatrixEntry {
+IntentCatalogEntry {
     intent_id: "system.clock.read".to_string(),
     semantic_descriptor:
         "read only this host machine local or utc clock timestamp and time-of-day"
@@ -823,8 +823,8 @@ IntentMatrixEntry {
     applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
     requires_host_discovery: Some(false),
     provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
-    required_receipts: vec!["execution".to_string(), "verification".to_string()],
-    required_postconditions: vec![],
+    required_evidence: vec!["execution".to_string(), "verification".to_string()],
+    success_conditions: vec![],
     verification_mode: Some(VerificationMode::DeterministicCheck),
     aliases: vec![],
     exemplars: vec![
@@ -834,7 +834,7 @@ IntentMatrixEntry {
         "get local clock time from terminal".to_string(),
     ],
 },
-IntentMatrixEntry {
+IntentCatalogEntry {
     intent_id: "command.exec".to_string(),
     semantic_descriptor:
         "execute local shell or terminal commands on the current machine for local automation tasks including file renaming batch directory transforms filename case normalization and timers"
@@ -851,7 +851,7 @@ IntentMatrixEntry {
     applicability_class: ExecutionApplicabilityClass::TopologyDependent,
     requires_host_discovery: Some(true),
     provider_selection_mode: Some(ProviderSelectionMode::DynamicSynthesis),
-    required_receipts: vec![
+    required_evidence: vec![
         "host_discovery".to_string(),
         "provider_selection".to_string(),
         "provider_selection_commit".to_string(),
@@ -859,7 +859,7 @@ IntentMatrixEntry {
         "verification".to_string(),
         "verification_commit".to_string(),
     ],
-    required_postconditions: vec!["execution_artifact".to_string()],
+    success_conditions: vec!["execution_artifact".to_string()],
     verification_mode: Some(VerificationMode::DynamicSynthesis),
     aliases: vec![
         "shell".to_string(),
@@ -876,7 +876,7 @@ IntentMatrixEntry {
         "install dependency".to_string(),
     ],
 },
-IntentMatrixEntry {
+IntentCatalogEntry {
     intent_id: "command.exec.install_dependency".to_string(),
     semantic_descriptor:
         "download and install a named software package dependency on this local machine using the host package manager and verify the installed binary is available"
@@ -893,7 +893,7 @@ IntentMatrixEntry {
     applicability_class: ExecutionApplicabilityClass::TopologyDependent,
     requires_host_discovery: Some(true),
     provider_selection_mode: Some(ProviderSelectionMode::DynamicSynthesis),
-    required_receipts: vec![
+    required_evidence: vec![
         "host_discovery".to_string(),
         "provider_selection".to_string(),
         "provider_selection_commit".to_string(),
@@ -901,7 +901,7 @@ IntentMatrixEntry {
         "verification".to_string(),
         "verification_commit".to_string(),
     ],
-    required_postconditions: vec!["execution_artifact".to_string()],
+    success_conditions: vec!["execution_artifact".to_string()],
     verification_mode: Some(VerificationMode::DynamicSynthesis),
     aliases: vec![
         "install dependency".to_string(),
@@ -914,7 +914,7 @@ IntentMatrixEntry {
         "install package dependency locally".to_string(),
     ],
 },
-IntentMatrixEntry {
+IntentCatalogEntry {
     intent_id: "delegation.task".to_string(),
     semantic_descriptor:
         "delegate work to child agent sessions and aggregate worker outputs"
@@ -931,8 +931,8 @@ IntentMatrixEntry {
     applicability_class: ExecutionApplicabilityClass::Mixed,
     requires_host_discovery: Some(false),
     provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
-    required_receipts: vec!["execution".to_string(), "verification".to_string()],
-    required_postconditions: vec![],
+    required_evidence: vec!["execution".to_string(), "verification".to_string()],
+    success_conditions: vec![],
     verification_mode: Some(VerificationMode::DeterministicCheck),
     aliases: vec!["delegate".to_string(), "sub-agent".to_string()],
     exemplars: vec![
@@ -944,5 +944,5 @@ IntentMatrixEntry {
 }
 
 #[cfg(test)]
-#[path = "intent_matrix_defaults/tests.rs"]
+#[path = "intent_catalog_defaults/tests.rs"]
 mod tests;

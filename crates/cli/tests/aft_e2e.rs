@@ -5,10 +5,10 @@ use anyhow::Result;
 use ioi_cli::testing::{build_test_artifacts, rpc, wait_for_height, TestCluster};
 use ioi_types::{
     app::{
-        account_id_from_key_material, AccountId, ActiveKeyRecord, BlockTimingParams,
-        BlockTimingRuntime, SignatureSuite, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
+        account_id_from_key_material, ActiveKeyRecord, BlockTimingParams, BlockTimingRuntime,
+        SignatureSuite, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
-    config::{InitialServiceConfig, ValidatorRole},
+    config::InitialServiceConfig,
     service_configs::MigrationConfig,
 };
 use std::collections::HashSet;

@@ -99,13 +99,6 @@ fn sign_hybrid_payload(signer: &HybridSigner, payload: &[u8]) -> Result<Vec<u8>>
     .map_err(|e| anyhow!(e))
 }
 
-fn sign_wallet_approval_decision(
-    approval: WalletApprovalDecision,
-    _signer: &HybridSigner,
-) -> Result<WalletApprovalDecision> {
-    Ok(approval)
-}
-
 #[derive(Clone)]
 struct ApprovalSigner {
     keypair: Ed25519KeyPair,
@@ -567,19 +560,23 @@ fn lease_consumption_storage_key(channel_id: &[u8; 32], lease_id: &[u8; 32]) -> 
 }
 
 fn mail_read_receipt_storage_key(operation_id: &[u8; 32]) -> Vec<u8> {
-    [b"mail_read_receipt::".as_slice(), operation_id.as_slice()].concat()
+    [b"mail_read_evidence::".as_slice(), operation_id.as_slice()].concat()
 }
 
 fn mail_list_receipt_storage_key(operation_id: &[u8; 32]) -> Vec<u8> {
-    [b"mail_list_receipt::".as_slice(), operation_id.as_slice()].concat()
+    [b"mail_list_evidence::".as_slice(), operation_id.as_slice()].concat()
 }
 
 fn mail_delete_receipt_storage_key(operation_id: &[u8; 32]) -> Vec<u8> {
-    [b"mail_delete_receipt::".as_slice(), operation_id.as_slice()].concat()
+    [
+        b"mail_delete_evidence::".as_slice(),
+        operation_id.as_slice(),
+    ]
+    .concat()
 }
 
 fn mail_reply_receipt_storage_key(operation_id: &[u8; 32]) -> Vec<u8> {
-    [b"mail_reply_receipt::".as_slice(), operation_id.as_slice()].concat()
+    [b"mail_reply_evidence::".as_slice(), operation_id.as_slice()].concat()
 }
 
 fn session_storage_key(session_id: &[u8; 32]) -> Vec<u8> {

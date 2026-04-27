@@ -19,12 +19,12 @@ import {
 import {
   defaultVerifierOutcome,
   defaultVerifierRole,
-  explicitRouteContract,
+  explicitDecisionRecord,
   explicitRouteDecision,
-  impliedRouteContractFromPlaybook,
+  impliedDecisionRecordFromPlaybook,
   parseApprovalState,
   verifierRoleTitle,
-} from "./contentPipeline.routeContracts";
+} from "./contentPipeline.decisionRecords";
 import {
   buildActivityGroups,
   buildActivitySummary as buildActivitySummaryBase,
@@ -942,7 +942,7 @@ export function buildPlanSummary(
       typeof digest.playbook_id === "string"
     );
   });
-  const explicitContract = explicitRouteContract(
+  const explicitContract = explicitDecisionRecord(
     events,
     digestRecord,
     detailsRecord,
@@ -954,7 +954,7 @@ export function buildPlanSummary(
     detailsRecord,
     stringFromRecord,
   );
-  const impliedPlaybookContract = impliedRouteContractFromPlaybook(
+  const impliedPlaybookContract = impliedDecisionRecordFromPlaybook(
     events,
     digestRecord,
     detailsRecord,

@@ -545,40 +545,24 @@ fn request_grounded_query_profile(
         ChatRendererKind::HtmlIframe => {
             if request.artifact_class == ChatArtifactClass::InteractiveSingleFile {
                 content_goals.push(ChatArtifactContentGoal {
-                    kind: ChatArtifactContentGoalKind::Compare,
-                    summary: format!("Let the user compare multiple angles of {subject_domain}."),
+                    kind: ChatArtifactContentGoalKind::Implementation,
+                    summary: format!("Expose a working interactive surface for {subject_domain}."),
                     required: true,
                 });
                 evidence_goals.push(ChatArtifactEvidenceGoal {
-                    kind: ChatArtifactEvidenceGoalKind::ComparisonSurface,
-                    summary:
-                        "Keep at least one alternate evidence surface pre-rendered for comparison."
-                            .to_string(),
+                    kind: ChatArtifactEvidenceGoalKind::SupportingSurface,
+                    summary: format!(
+                        "Keep a visible default result or explanation surface for {subject_domain} on first paint."
+                    ),
                     required: true,
                 });
-                interaction_goals.extend([
-                    ChatArtifactInteractionGoal {
-                        kind: ChatArtifactInteractionGoalKind::StateSwitch,
-                        summary: format!(
-                            "Switch between authored states to compare how the explanation of {subject_domain} changes."
-                        ),
-                        required: true,
-                    },
-                    ChatArtifactInteractionGoal {
-                        kind: ChatArtifactInteractionGoalKind::DetailInspect,
-                        summary: format!(
-                            "Inspect visible evidence to reveal more context about {subject_domain} inline."
-                        ),
-                        required: true,
-                    },
-                    ChatArtifactInteractionGoal {
-                        kind: ChatArtifactInteractionGoalKind::SequenceBrowse,
-                        summary: format!(
-                            "Progress through staged evidence or examples so the {subject_domain} story unfolds step by step."
-                        ),
-                        required: false,
-                    },
-                ]);
+                interaction_goals.push(ChatArtifactInteractionGoal {
+                    kind: ChatArtifactInteractionGoalKind::StateAdjust,
+                    summary: format!(
+                        "Adjust visible controls to update the on-page result for {subject_domain}."
+                    ),
+                    required: true,
+                });
                 presentation_constraints.extend([
                     ChatArtifactPresentationConstraint {
                         kind: ChatArtifactPresentationConstraintKind::ResponseRegion,
@@ -625,22 +609,13 @@ fn request_grounded_query_profile(
                 summary: format!("Expose a working interactive surface for {subject_domain}."),
                 required: true,
             });
-            interaction_goals.extend([
-                ChatArtifactInteractionGoal {
-                    kind: ChatArtifactInteractionGoalKind::StateAdjust,
-                    summary: format!(
-                        "Adjust controls to update the visible response for {subject_domain}."
-                    ),
-                    required: true,
-                },
-                ChatArtifactInteractionGoal {
-                    kind: ChatArtifactInteractionGoalKind::DetailInspect,
-                    summary: format!(
-                        "Inspect visible state details to understand the current {subject_domain} response."
-                    ),
-                    required: true,
-                },
-            ]);
+            interaction_goals.push(ChatArtifactInteractionGoal {
+                kind: ChatArtifactInteractionGoalKind::StateAdjust,
+                summary: format!(
+                    "Adjust controls to update the visible response for {subject_domain}."
+                ),
+                required: true,
+            });
             presentation_constraints.extend([
                 ChatArtifactPresentationConstraint {
                     kind: ChatArtifactPresentationConstraintKind::ResponseRegion,
@@ -984,7 +959,7 @@ pub(crate) fn build_chat_artifact_brief_prompt_for_runtime(
             {
                 "role": "user",
                 "content": format!(
-                "Title:\n{}\n\nRequest:\n{}\n\nArtifact request focus JSON:\n{}\n\nCurrent artifact context JSON:\n{}\n\nReturn exactly one JSON object with this camelCase schema:\n{{\"audience\":<string>,\"jobToBeDone\":<string>,\"subjectDomain\":<string>,\"artifactThesis\":<string>,\"requiredConcepts\":[<string>],\"requiredInteractions\":[<string>],\"visualTone\":[<string>],\"factualAnchors\":[<string>],\"styleDirectives\":[<string>],\"referenceHints\":[<string>]}}\nRules:\n1) audience, jobToBeDone, subjectDomain, and artifactThesis must be non-empty request-grounded strings.\n2) Preserve the differentiating nouns and framing words from the request.\n3) For html_iframe, requiredConcepts must include at least three concrete request-grounded concepts.\n4) For html_iframe, requiredInteractions must include at least two concrete multi-word on-page interactions with visible response.\n5) Provide at least one factualAnchors or referenceHints entry tied to visible evidence.\n6) For html_iframe, visualTone or styleDirectives must include at least one concrete multi-word design direction that can actually steer composition, not only generic words like clean, interactive, or minimalist.\n7) When the request leaves visual style open, use referenceHints or styleDirectives to name concrete visual devices, metaphors, or diagram families the artifact can stage.\n8) {}\n9) Use empty arrays instead of filler or generic synonyms.",
+                "Title:\n{}\n\nRequest:\n{}\n\nArtifact request focus JSON:\n{}\n\nCurrent artifact context JSON:\n{}\n\nReturn exactly one JSON object with this camelCase schema:\n{{\"audience\":<string>,\"jobToBeDone\":<string>,\"subjectDomain\":<string>,\"artifactThesis\":<string>,\"requiredConcepts\":[<string>],\"requiredInteractions\":[<string>],\"visualTone\":[<string>],\"factualAnchors\":[<string>],\"styleDirectives\":[<string>],\"referenceHints\":[<string>]}}\nRules:\n1) audience, jobToBeDone, subjectDomain, and artifactThesis must be non-empty request-grounded strings.\n2) Preserve the differentiating nouns and framing words from the request.\n3) For html_iframe, requiredConcepts must include at least three concrete request-grounded concepts.\n4) For interactive html_iframe, requiredInteractions must include at least one concrete multi-word on-page interaction with visible response.\n5) Do not invent view switching, inspection, or sequencing requirements unless those interaction families are part of the request.\n6) Provide at least one factualAnchors or referenceHints entry tied to visible evidence.\n7) For html_iframe, visualTone or styleDirectives must include at least one concrete multi-word design direction that can actually steer composition, not only generic words like clean, interactive, or minimalist.\n8) When the request leaves visual style open, use referenceHints or styleDirectives to name concrete visual devices, metaphors, or diagram families the artifact can stage.\n9) {}\n10) Use empty arrays instead of filler or generic synonyms.",
                     title,
                     intent,
                     request_focus_json,
@@ -1753,7 +1728,7 @@ fn chat_artifact_brief_planning_guidance(request: &ChatOutcomeArtifactRequest) -
     match request.renderer {
         ChatRendererKind::HtmlIframe => {
             if request.artifact_class == ChatArtifactClass::InteractiveSingleFile {
-                "- Name at least two concrete on-page interaction patterns in requiredInteractions.\n- Single-word labels like \"interactive\" or \"explains\" are not sufficient interaction plans.\n- Keep requiredConcepts tied to the visible evidence surfaces or sections.\n- Provide at least one concrete evidence anchor or reference hint.\n- Give visualTone or styleDirectives at least one multi-word design direction that a materializer can actually stage, not just generic words like clean, modern, or interactive.".to_string()
+                "- Name at least one concrete on-page interaction pattern in requiredInteractions.\n- Single-word labels like \"interactive\" or \"explains\" are not sufficient interaction plans.\n- Do not invent view switching, inspection, or sequencing requirements unless those interaction families are part of the request.\n- Keep requiredConcepts tied to the visible evidence surfaces or sections.\n- Provide at least one concrete evidence anchor or reference hint.\n- Give visualTone or styleDirectives at least one multi-word design direction that a materializer can actually stage, not just generic words like clean, modern, or interactive.".to_string()
             } else {
                 "- Keep requiredConcepts tied to the visible evidence surfaces or sections.\n- Do not invent interaction requirements that the request did not ask for.\n- Provide at least one concrete evidence anchor or reference hint.\n- Give visualTone or styleDirectives at least one multi-word design direction that a materializer can actually stage, not just generic words like clean or modern.".to_string()
             }
@@ -1767,7 +1742,7 @@ fn chat_artifact_brief_validation_contract(request: &ChatOutcomeArtifactRequest)
     match request.renderer {
         ChatRendererKind::HtmlIframe => {
             if request.artifact_class == ChatArtifactClass::InteractiveSingleFile {
-                "- requiredConcepts must include at least three concrete request-grounded concepts.\n- requiredInteractions must include at least two multi-word interaction descriptions.\n- At least one factualAnchors or referenceHints entry must be present.\n- visualTone or styleDirectives must contribute at least one concrete multi-word design direction instead of only generic style adjectives.".to_string()
+                "- requiredConcepts must include at least three concrete request-grounded concepts.\n- requiredInteractions must include at least one multi-word interaction description for interactive HTML.\n- View switching, inspection, and sequencing requirements must come from typed interaction goals, not generic renderer defaults.\n- At least one factualAnchors or referenceHints entry must be present.\n- visualTone or styleDirectives must contribute at least one concrete multi-word design direction instead of only generic style adjectives.".to_string()
             } else {
                 "- requiredConcepts must include at least three concrete request-grounded concepts.\n- requiredInteractions may be empty for non-interactive HTML documents.\n- At least one factualAnchors or referenceHints entry must be present.\n- visualTone or styleDirectives must contribute at least one concrete multi-word design direction instead of only generic style adjectives.".to_string()
             }
@@ -2089,9 +2064,9 @@ pub(crate) fn validate_chat_artifact_brief_against_request(
             }
             if request.artifact_class == ChatArtifactClass::InteractiveSingleFile {
                 let required_interactions = brief_required_interaction_summaries(brief);
-                if required_interactions.len() < 2 {
+                if required_interactions.is_empty() {
                     return Err(
-                        "Interactive HTML briefs must name at least two concrete interaction patterns."
+                        "Interactive HTML briefs must name at least one concrete interaction pattern."
                             .to_string(),
                     );
                 }
@@ -2183,7 +2158,7 @@ fn build_chat_artifact_brief_repair_prompt_for_runtime(
             {
                 "role": "user",
                 "content": format!(
-                "Title:\n{}\n\nRequest:\n{}\n\nArtifact request focus JSON:\n{}\n\nCurrent artifact context JSON:\n{}\n\nFailure:\n{}\n\nPrevious raw output excerpt:\n{}\n\nReturn exactly one JSON object with this camelCase schema:\n{{\"audience\":<string>,\"jobToBeDone\":<string>,\"subjectDomain\":<string>,\"artifactThesis\":<string>,\"requiredConcepts\":[<string>],\"requiredInteractions\":[<string>],\"visualTone\":[<string>],\"factualAnchors\":[<string>],\"styleDirectives\":[<string>],\"referenceHints\":[<string>]}}\nRules:\n1) Use arrays for every list field, even for one item.\n2) The four core string fields must be non-empty and request-grounded.\n3) Preserve the differentiating nouns and framing words from the request.\n4) For html_iframe, keep at least three concrete concepts, at least two concrete multi-word interactions, and at least one evidence anchor or reference hint.\n5) For html_iframe, supply at least one concrete multi-word visual direction in visualTone or styleDirectives instead of generic style adjectives alone.\n6) Use empty arrays instead of filler.",
+                "Title:\n{}\n\nRequest:\n{}\n\nArtifact request focus JSON:\n{}\n\nCurrent artifact context JSON:\n{}\n\nFailure:\n{}\n\nPrevious raw output excerpt:\n{}\n\nReturn exactly one JSON object with this camelCase schema:\n{{\"audience\":<string>,\"jobToBeDone\":<string>,\"subjectDomain\":<string>,\"artifactThesis\":<string>,\"requiredConcepts\":[<string>],\"requiredInteractions\":[<string>],\"visualTone\":[<string>],\"factualAnchors\":[<string>],\"styleDirectives\":[<string>],\"referenceHints\":[<string>]}}\nRules:\n1) Use arrays for every list field, even for one item.\n2) The four core string fields must be non-empty and request-grounded.\n3) Preserve the differentiating nouns and framing words from the request.\n4) For interactive html_iframe, keep at least three concrete concepts, at least one concrete multi-word interaction, and at least one evidence anchor or reference hint.\n5) Do not invent view switching, inspection, or sequencing requirements unless those interaction families are part of the request.\n6) For html_iframe, supply at least one concrete multi-word visual direction in visualTone or styleDirectives instead of generic style adjectives alone.\n7) Use empty arrays instead of filler.",
                     title,
                     intent,
                     request_focus_json,
@@ -2265,7 +2240,7 @@ fn build_chat_artifact_brief_field_repair_prompt_for_runtime(
             {
                 "role": "user",
                 "content": format!(
-                "Title:\n{}\n\nRequest:\n{}\n\nArtifact request focus JSON:\n{}\n\nCurrent artifact context JSON:\n{}\n\nFailure:\n{}\n\nPlanner output preview:\n{}\n\nRepair output preview:\n{}\n\nReturn exactly one JSON object with this camelCase schema:\n{{\"audience\":<string>,\"jobToBeDone\":<string>,\"subjectDomain\":<string>,\"artifactThesis\":<string>,\"requiredConcepts\":[<string>],\"requiredInteractions\":[<string>],\"visualTone\":[<string>],\"factualAnchors\":[<string>],\"styleDirectives\":[<string>],\"referenceHints\":[<string>]}}\nRules:\n1) Every string field must be non-empty and request-grounded.\n2) Preserve the differentiating subject nouns from the request.\n3) Keep list items short, concrete, and schema-valid arrays.\n4) For html_iframe, keep at least three concepts, at least two multi-word interactions, and at least one evidence anchor or reference hint.\n5) For html_iframe, keep at least one concrete multi-word visual direction in visualTone or styleDirectives.\n6) Do not leave required strings blank.",
+                "Title:\n{}\n\nRequest:\n{}\n\nArtifact request focus JSON:\n{}\n\nCurrent artifact context JSON:\n{}\n\nFailure:\n{}\n\nPlanner output preview:\n{}\n\nRepair output preview:\n{}\n\nReturn exactly one JSON object with this camelCase schema:\n{{\"audience\":<string>,\"jobToBeDone\":<string>,\"subjectDomain\":<string>,\"artifactThesis\":<string>,\"requiredConcepts\":[<string>],\"requiredInteractions\":[<string>],\"visualTone\":[<string>],\"factualAnchors\":[<string>],\"styleDirectives\":[<string>],\"referenceHints\":[<string>]}}\nRules:\n1) Every string field must be non-empty and request-grounded.\n2) Preserve the differentiating subject nouns from the request.\n3) Keep list items short, concrete, and schema-valid arrays.\n4) For interactive html_iframe, keep at least three concepts, at least one multi-word interaction, and at least one evidence anchor or reference hint.\n5) Do not invent view switching, inspection, or sequencing requirements unless those interaction families are part of the request.\n6) For html_iframe, keep at least one concrete multi-word visual direction in visualTone or styleDirectives.\n7) Do not leave required strings blank.",
                     title,
                     intent,
                     request_focus_json,

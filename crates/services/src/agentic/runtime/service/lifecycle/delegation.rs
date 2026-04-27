@@ -171,6 +171,7 @@ pub async fn spawn_delegated_child_session(
         planner_state: None,
         active_skill_hash: None,
         tool_execution_log: Default::default(),
+        execution_ledger: Default::default(),
         visual_som_map: None,
         visual_semantic_map: None,
         swarm_context: None,

@@ -2,7 +2,7 @@ use super::await_loop::{await_child_burst_step_limit, child_allows_await_burst};
 use super::merge::{materialize_worker_result, merged_worker_output};
 use super::{
     await_child_worker_result as await_child_worker_result_impl, build_parent_playbook_run,
-    execution_receipt_value, inject_parent_playbook_context, latest_failed_goal_command_step,
+    execution_evidence_value, inject_parent_playbook_context, latest_failed_goal_command_step,
     load_child_state, load_parent_playbook_run, load_worker_session_result,
     patch_build_verify_post_edit_followup_due, persist_parent_playbook_run,
     persist_worker_assignment, persist_worker_session_result, resolve_worker_assignment,
@@ -135,6 +135,7 @@ fn build_parent_state_with_goal(goal: &str, budget: u64) -> AgentState {
         planner_state: None,
         active_skill_hash: None,
         tool_execution_log: BTreeMap::new(),
+        execution_ledger: Default::default(),
         visual_som_map: None,
         visual_semantic_map: None,
         swarm_context: None,
