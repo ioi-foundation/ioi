@@ -20,7 +20,7 @@ pub fn case() -> QueryCase {
     QueryCase {
         id: "read_me_the_last_email_i_received",
         query: "Read me the last email I received.",
-        success_definition: "Read the latest inbox message through mailbox connector tooling with runtime connector setup receipts, structured message evidence, and no CEC/CIRC contract failures or mailbox fallback markers.",
+        success_definition: "Read the latest inbox message through mailbox connector tooling with runtime connector setup evidence, structured message evidence, and no CEC/CIRC contract failures or mailbox fallback markers.",
         seeded_intent_id: "mail.read.latest",
         intent_scope: IntentScopeProfile::Conversation,
         seed_resolved_intent: true,
@@ -121,20 +121,21 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
 
     let setup_root_configured = has_verification_pair(
         obs,
-        "env_receipt::mail_wallet_control_root_configured",
+        "env_evidence::mail_wallet_control_root_configured",
         "true",
     );
     let setup_client_registered = has_verification_pair(
         obs,
-        "env_receipt::mail_wallet_capability_client_registered",
+        "env_evidence::mail_wallet_capability_client_registered",
         "true",
     );
     let setup_connector_bootstrap =
-        has_verification_pair(obs, "env_receipt::mail_connector_bootstrap", "true");
-    let setup_binding_ready = has_verification_pair(obs, "env_receipt::mail_binding_ready", "true");
+        has_verification_pair(obs, "env_evidence::mail_connector_bootstrap", "true");
+    let setup_binding_ready =
+        has_verification_pair(obs, "env_evidence::mail_binding_ready", "true");
     let setup_receipt_timestamp_present =
-        verification_value(obs, "env_receipt::mail_setup_timestamp_ms").is_some();
-    let setup_mailbox = verification_value(obs, "env_receipt::mail_mailbox")
+        verification_value(obs, "env_evidence::mail_setup_timestamp_ms").is_some();
+    let setup_mailbox = verification_value(obs, "env_evidence::mail_mailbox")
         .map(|value| value.to_ascii_lowercase());
     let payload_mailbox = latest_payload
         .and_then(|payload| payload.mailbox.as_ref())
@@ -305,12 +306,12 @@ fn build_environment_receipts(
                 "root_configured={} client_registered={}",
                 has_verification_pair(
                     obs,
-                    "env_receipt::mail_wallet_control_root_configured",
+                    "env_evidence::mail_wallet_control_root_configured",
                     "true"
                 ),
                 has_verification_pair(
                     obs,
-                    "env_receipt::mail_wallet_capability_client_registered",
+                    "env_evidence::mail_wallet_capability_client_registered",
                     "true"
                 )
             ),
@@ -318,11 +319,11 @@ fn build_environment_receipts(
             timestamp_ms: obs.run_timestamp_ms,
             satisfied: has_verification_pair(
                 obs,
-                "env_receipt::mail_wallet_control_root_configured",
+                "env_evidence::mail_wallet_control_root_configured",
                 "true"
             ) && has_verification_pair(
                 obs,
-                "env_receipt::mail_wallet_capability_client_registered",
+                "env_evidence::mail_wallet_capability_client_registered",
                 "true"
             ),
         },
@@ -353,7 +354,7 @@ fn build_environment_receipts(
                 "setup_mailbox={:?} setup_mailbox_binding_present={}",
                 setup_mailbox, setup_mailbox_binding_present
             ),
-            probe_source: "env_receipt::mail_mailbox + mail_read_latest action payload",
+            probe_source: "env_evidence::mail_mailbox + mail_read_latest action payload",
             timestamp_ms: obs.run_timestamp_ms,
             satisfied: setup_mailbox.is_some() && setup_mailbox_binding_present,
         },
@@ -367,6 +368,6 @@ fn build_environment_receipts(
     ]
 }
 
-fn serialize_environment_receipts(receipts: &[EnvironmentEvidenceReceipt]) -> String {
-    serde_json::to_string(receipts).unwrap_or_else(|_| "[]".to_string())
+fn serialize_environment_receipts(evidence: &[EnvironmentEvidenceReceipt]) -> String {
+    serde_json::to_string(evidence).unwrap_or_else(|_| "[]".to_string())
 }

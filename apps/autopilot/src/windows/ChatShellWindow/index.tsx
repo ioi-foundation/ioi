@@ -65,7 +65,6 @@ import {
   ChatConversationWelcome,
   ChatRunStateCard,
 } from "../ChatShellWindow/components/ChatConversationPanels";
-import { exportThreadTraceBundle } from "../ChatShellWindow/utils/exportContext";
 import {
   CONTENT_PIPELINE_V2_ENABLED,
   modelOptions,
@@ -991,20 +990,6 @@ export function ChatShellWindow({
     });
   }, [refreshSessionHistory, resetSession]);
 
-  const handleExportTraceBundle = useCallback(async () => {
-    if (!activeSessionId) {
-      return;
-    }
-    try {
-      await exportThreadTraceBundle({
-        threadId: activeSessionId,
-        includeArtifactPayloads: true,
-      });
-    } catch (error) {
-      console.error("Failed to export canonical trace bundle:", error);
-    }
-  }, [activeSessionId]);
-
   // ============================================
   // RUNTIME TIMELINE PRESENTATION
   // ============================================
@@ -1256,7 +1241,6 @@ export function ChatShellWindow({
             showInitialLoader={showInitialLoader}
             suppressPendingIndicators={suppressConversationPendingIndicators}
             icons={icons}
-            onExportTraceBundle={handleExportTraceBundle}
             onOpenArtifactHub={(view, turnId) => {
               openRuntimeWorkbenchView(view, turnId);
             }}

@@ -590,7 +590,7 @@ pub(super) fn refresh_active_operator_run_from_session(
         &verification_refs,
     );
 
-    if prompt_requires_source_pack(session, &run.source_pack) {
+    if prompt_requires_source_pack(&run.source_pack) {
         upsert_step(
             &mut steps,
             ArtifactOperatorStep {

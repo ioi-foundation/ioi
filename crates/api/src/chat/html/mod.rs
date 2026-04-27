@@ -4526,7 +4526,7 @@ pub(super) fn count_populated_html_detail_regions(html_lower: &str) -> usize {
 pub(super) fn count_populated_html_response_regions(html_lower: &str) -> usize {
     let mut total = 0usize;
 
-    for tag in ["aside", "section", "article", "div"] {
+    for tag in ["aside", "section", "article", "div", "p", "span", "output"] {
         let open_pattern = format!("<{tag}");
         let close_pattern = format!("</{tag}>");
         let mut cursor = 0usize;

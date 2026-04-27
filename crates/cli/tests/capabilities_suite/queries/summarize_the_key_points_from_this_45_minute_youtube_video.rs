@@ -28,7 +28,7 @@ pub fn case() -> QueryCase {
     QueryCase {
         id: CASE_ID,
         query: "Summarize the key points from this 45-minute YouTube video: [https://www.youtube.com/watch?v=9Tm2c6NJH4Y]. Use direct media-content retrieval from the video itself. Prefer `media__extract_evidence`, summarize the multimodal evidence you extract, and do not substitute webpage metadata, browser summaries, or shell execution workflows. Do not use `web__search`, `web__read`, `http__fetch`, `browser__*`, or `shell__run*`. Return a concise key-point summary of the video.",
-        success_definition: "Extract direct multimodal evidence from the target YouTube video via the dedicated media tool, using either transcript+visual or timeline+visual evidence with discovery/provider-selection/execution/verification receipts, return a non-raw summary reply, and satisfy isolated fixture + cleanup environment receipts.",
+        success_definition: "Extract direct multimodal evidence from the target YouTube video via the dedicated media tool, using either transcript+visual or timeline+visual evidence with discovery/provider-selection/execution/verification evidence, return a non-raw summary reply, and satisfy isolated fixture + cleanup environment evidence.",
         seeded_intent_id: "web.research",
         intent_scope: IntentScopeProfile::WebResearch,
         seed_resolved_intent: true,
@@ -202,12 +202,13 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         && selected_source_distinct_domains == 1;
 
     let environment_receipts = collect_environment_receipts(obs);
-    let fixture_mode_matches = environment_value(obs, "env_receipt::media_multimodal_fixture_mode")
-        .is_some_and(|value| value == EXPECTED_FIXTURE_MODE);
+    let fixture_mode_matches =
+        environment_value(obs, "env_evidence::media_multimodal_fixture_mode")
+            .is_some_and(|value| value == EXPECTED_FIXTURE_MODE);
     let environment_receipts_present =
         fixture_mode_matches && environment_receipts.iter().all(|receipt| receipt.satisfied);
     let cleanup_evidence_present =
-        environment_bool(obs, "env_receipt::media_multimodal_cleanup_satisfied").unwrap_or(false);
+        environment_bool(obs, "env_evidence::media_multimodal_cleanup_satisfied").unwrap_or(false);
     let contract_failure_marker = has_typed_contract_failure_evidence(obs);
 
     let checks = vec![
@@ -270,11 +271,11 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             cleanup_evidence_present,
             format!(
                 "cleanup={} cleanup_fixture_root_exists={} cleanup_receipt_exists={}",
-                environment_bool(obs, "env_receipt::media_multimodal_cleanup_satisfied")
+                environment_bool(obs, "env_evidence::media_multimodal_cleanup_satisfied")
                     .unwrap_or(false),
-                environment_value(obs, "env_receipt::media_multimodal_cleanup_fixture_root_exists")
+                environment_value(obs, "env_evidence::media_multimodal_cleanup_fixture_root_exists")
                     .unwrap_or_default(),
-                environment_value(obs, "env_receipt::media_multimodal_cleanup_receipt_exists")
+                environment_value(obs, "env_evidence::media_multimodal_cleanup_receipt_exists")
                     .unwrap_or_default(),
             ),
         ),
@@ -306,12 +307,13 @@ fn collect_environment_receipts(obs: &RunObservation) -> Vec<EnvironmentEvidence
     .into_iter()
     .map(|key| EnvironmentEvidenceReceipt {
         key,
-        observed_value: environment_value(obs, &format!("env_receipt::{key}")).unwrap_or_default(),
-        probe_source: environment_value(obs, &format!("env_receipt::{key}_probe_source"))
+        observed_value: environment_value(obs, &format!("env_evidence::{key}")).unwrap_or_default(),
+        probe_source: environment_value(obs, &format!("env_evidence::{key}_probe_source"))
             .unwrap_or_default(),
-        timestamp_ms: environment_u64(obs, &format!("env_receipt::{key}_timestamp_ms"))
+        timestamp_ms: environment_u64(obs, &format!("env_evidence::{key}_timestamp_ms"))
             .unwrap_or(obs.run_timestamp_ms),
-        satisfied: environment_bool(obs, &format!("env_receipt::{key}_satisfied")).unwrap_or(false),
+        satisfied: environment_bool(obs, &format!("env_evidence::{key}_satisfied"))
+            .unwrap_or(false),
     })
     .collect()
 }

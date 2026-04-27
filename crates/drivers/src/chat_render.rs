@@ -977,7 +977,7 @@ fn render_dom_metrics_script() -> &'static str {
   const gapStd = gaps.length ? Math.sqrt(gaps.reduce((sum, gap) => sum + Math.pow(gap - avgGap, 2), 0) / gaps.length) : 0;
   const gapConsistency = avgGap > 0 ? Math.max(0, 1 - Math.min(1, gapStd / avgGap)) : 0;
   const responseRegion = responseRegions[0] || null;
-  const evidenceSurfaceCount = Array.from(document.querySelectorAll("section, article, aside, figure, svg, canvas, table, [role='region'], [role='tabpanel']"))
+  const evidenceSurfaceCount = Array.from(document.querySelectorAll("section, article, aside, figure, svg, canvas, table, [aria-live], [role='region'], [role='tabpanel']"))
     .filter(visible)
     .length;
   return {
@@ -1069,10 +1069,21 @@ fn render_interaction_state_snapshot_script() -> &'static str {
     .filter(visible)
     .slice(0, 12)
     .map((el) => el.getAttribute("aria-label") || el.id || text(el).slice(0, 32));
+  const controlValues = Array.from(document.querySelectorAll("input:not([type='hidden']), select, textarea"))
+    .filter(visible)
+    .slice(0, 12)
+    .map((el) => ({
+      label: el.getAttribute("aria-label") || el.id || el.getAttribute("name") || el.tagName,
+      value: el.matches("input[type='checkbox'], input[type='radio']")
+        ? String(el.checked)
+        : String(el.value || ""),
+      selectedIndex: el.matches("select") ? el.selectedIndex : null
+    }));
   const visibleTextSample = text(document.querySelector("main") || document.body).slice(0, 360);
   const signature = JSON.stringify({
     visibleRegions,
     activeAffordances,
+    controlValues,
     responseText: responseTarget ? text(responseTarget).slice(0, 200) : null,
     visibleTextSample,
   });
@@ -1127,7 +1138,7 @@ fn render_actionable_controls_script() -> &'static str {
     .map((el) => {
       const actionKind = el.matches("select")
         ? "select_next"
-        : el.matches("input[type='range']")
+        : el.matches("input[type='range'], input[type='number']")
         ? "input_step"
         : el.matches("input[type='checkbox'], input[type='radio']")
         ? "toggle_input"
@@ -1187,10 +1198,34 @@ fn render_action_execution_script(selector: &str, action_kind: &str) -> String {
     return true;
   }}
   if (actionKind === "input_step" && el.matches("input")) {{
-    const current = Number(el.value || el.min || 0);
-    const step = Number(el.step || 1) || 1;
-    const next = Number.isFinite(current) ? current + step : step;
-    el.value = String(next);
+    const readNumber = (name) => {{
+      const raw = el.getAttribute(name);
+      if (raw === null || raw === "" || raw === "any") return null;
+      const value = Number(raw);
+      return Number.isFinite(value) ? value : null;
+    }};
+    const current = Number.isFinite(el.valueAsNumber)
+      ? el.valueAsNumber
+      : Number(el.value || el.min || 0);
+    const min = readNumber("min");
+    const max = readNumber("max");
+    const explicitStep = readNumber("step");
+    const fallbackStep = el.matches("input[type='range']") && min !== null && max !== null
+      ? Math.max((max - min) / 10, 1)
+      : 1;
+    const step = explicitStep !== null && explicitStep > 0 ? explicitStep : fallbackStep;
+    let next = Number.isFinite(current) ? current + step : (min !== null ? min + step : step);
+    if (max !== null && next > max) {{
+      next = Number.isFinite(current) ? current - step : max;
+    }}
+    if (min !== null && next < min) {{
+      next = Number.isFinite(current) ? current + step : min;
+    }}
+    if (Number.isFinite(current) && next === current) {{
+      next = max !== null && current !== max ? max : (min !== null && current !== min ? min : current + step);
+    }}
+    const decimals = String(step).includes(".") ? String(step).split(".")[1].length : 0;
+    el.value = Number.isFinite(next) ? String(Number(next.toFixed(Math.min(decimals, 6)))) : String(step);
     el.dispatchEvent(new Event("input", {{ bubbles: true }}));
     el.dispatchEvent(new Event("change", {{ bubbles: true }}));
     return true;

@@ -38,6 +38,7 @@ fn test_agent_state(goal: &str) -> AgentState {
         planner_state: None,
         active_skill_hash: None,
         tool_execution_log: BTreeMap::new(),
+        execution_ledger: Default::default(),
         visual_som_map: None,
         visual_semantic_map: None,
         swarm_context: None,

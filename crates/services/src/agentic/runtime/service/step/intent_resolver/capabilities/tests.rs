@@ -2,8 +2,8 @@ use super::*;
 use crate::agentic::rules::{Rule, RuleConditions, Verdict};
 use ioi_types::app::agentic::{IntentQueryBindingClass, ProviderSelectionMode, VerificationMode};
 
-fn workspace_ops_entry() -> IntentMatrixEntry {
-    IntentMatrixEntry {
+fn workspace_ops_entry() -> IntentCatalogEntry {
+    IntentCatalogEntry {
         intent_id: "workspace.ops".to_string(),
         semantic_descriptor: "inspect and modify files in the local workspace".to_string(),
         query_binding: IntentQueryBindingClass::None,
@@ -14,16 +14,16 @@ fn workspace_ops_entry() -> IntentMatrixEntry {
         applicability_class: ExecutionApplicabilityClass::TopologyDependent,
         requires_host_discovery: Some(false),
         provider_selection_mode: Some(ProviderSelectionMode::DynamicSynthesis),
-        required_receipts: vec![],
-        required_postconditions: vec![],
+        required_evidence: vec![],
+        success_conditions: vec![],
         verification_mode: Some(VerificationMode::DynamicSynthesis),
         aliases: vec![],
         exemplars: vec![],
     }
 }
 
-fn command_exec_entry() -> IntentMatrixEntry {
-    IntentMatrixEntry {
+fn command_exec_entry() -> IntentCatalogEntry {
+    IntentCatalogEntry {
         intent_id: "command.exec".to_string(),
         semantic_descriptor: "execute local shell or terminal commands".to_string(),
         query_binding: IntentQueryBindingClass::CommandDirected,
@@ -34,16 +34,16 @@ fn command_exec_entry() -> IntentMatrixEntry {
         applicability_class: ExecutionApplicabilityClass::TopologyDependent,
         requires_host_discovery: Some(true),
         provider_selection_mode: Some(ProviderSelectionMode::DynamicSynthesis),
-        required_receipts: vec![],
-        required_postconditions: vec![],
+        required_evidence: vec![],
+        success_conditions: vec![],
         verification_mode: Some(VerificationMode::DynamicSynthesis),
         aliases: vec![],
         exemplars: vec![],
     }
 }
 
-fn automation_monitor_entry() -> IntentMatrixEntry {
-    IntentMatrixEntry {
+fn automation_monitor_entry() -> IntentCatalogEntry {
+    IntentCatalogEntry {
         intent_id: "automation.monitor".to_string(),
         semantic_descriptor:
             "install a durable local automation monitor that watches a source on a schedule"
@@ -56,16 +56,16 @@ fn automation_monitor_entry() -> IntentMatrixEntry {
         applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
         requires_host_discovery: Some(false),
         provider_selection_mode: Some(ProviderSelectionMode::DynamicSynthesis),
-        required_receipts: vec![],
-        required_postconditions: vec![],
+        required_evidence: vec![],
+        success_conditions: vec![],
         verification_mode: Some(VerificationMode::DeterministicCheck),
         aliases: vec![],
         exemplars: vec![],
     }
 }
 
-fn model_registry_load_entry() -> IntentMatrixEntry {
-    IntentMatrixEntry {
+fn model_registry_load_entry() -> IntentCatalogEntry {
+    IntentCatalogEntry {
         intent_id: "model.registry.load".to_string(),
         semantic_descriptor: "load a local model into the kernel runtime".to_string(),
         query_binding: IntentQueryBindingClass::ModelRegistryControl,
@@ -76,8 +76,8 @@ fn model_registry_load_entry() -> IntentMatrixEntry {
         applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
         requires_host_discovery: Some(false),
         provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
-        required_receipts: vec![],
-        required_postconditions: vec![],
+        required_evidence: vec![],
+        success_conditions: vec![],
         verification_mode: Some(VerificationMode::DeterministicCheck),
         aliases: vec![],
         exemplars: vec![],
@@ -146,11 +146,11 @@ fn filesystem_edit_line_inherits_filesystem_write_capability() {
         score: 0.99,
         top_k: vec![],
         required_capabilities: vec![capability("filesystem.write")],
-        required_receipts: vec![],
-        required_postconditions: vec![],
+        required_evidence: vec![],
+        success_conditions: vec![],
         risk_class: "low".to_string(),
         preferred_tier: "tool_first".to_string(),
-        matrix_version: "test".to_string(),
+        intent_catalog_version: "test".to_string(),
         embedding_model_id: "test".to_string(),
         embedding_model_version: "v1".to_string(),
         similarity_function_id: "cosine".to_string(),
@@ -158,8 +158,8 @@ fn filesystem_edit_line_inherits_filesystem_write_capability() {
         tool_registry_hash: [0u8; 32],
         capability_ontology_hash: [0u8; 32],
         query_normalization_version: "v1".to_string(),
-        matrix_source_hash: [1u8; 32],
-        receipt_hash: [2u8; 32],
+        intent_catalog_source_hash: [1u8; 32],
+        evidence_requirements_hash: [2u8; 32],
         provider_selection: None,
         instruction_contract: None,
         constrained: false,

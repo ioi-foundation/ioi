@@ -14,7 +14,7 @@ use ioi_services::agentic::runtime::types::AgentState;
 use ioi_services::agentic::runtime::{StartAgentParams, StepAgentParams};
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
-use ioi_types::app::{ActionContext, ActionRequest, ActionTarget, ContextSlice};
+use ioi_types::app::{ActionRequest, ContextSlice};
 use ioi_types::error::VmError;
 use std::io::Cursor;
 use std::path::Path;

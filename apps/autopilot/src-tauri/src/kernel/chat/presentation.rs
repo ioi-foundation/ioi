@@ -350,7 +350,7 @@ pub(super) fn finalize_presentation_assessment(
     assessment: ArtifactPresentationAssessment,
     validation: &ChatArtifactValidationResult,
     render_evaluation: Option<&ChatArtifactRenderEvaluation>,
-    fallback_used: bool,
+    degraded_path_used: bool,
     draft_pending_acceptance: bool,
 ) -> ArtifactPresentationAssessment {
     let assessment = apply_render_evaluation_to_assessment(request, assessment, render_evaluation);
@@ -392,7 +392,7 @@ pub(super) fn finalize_presentation_assessment(
         };
     }
 
-    let acceptance_clears_primary_view = !fallback_used
+    let acceptance_clears_primary_view = !degraded_path_used
         && !assessment.has_structural_blocker
         && render_clears_primary_view
         && validation.classification
@@ -418,7 +418,7 @@ pub(super) fn finalize_presentation_assessment(
         };
     }
 
-    let acceptance_denies_primary_view = fallback_used
+    let acceptance_denies_primary_view = degraded_path_used
         || validation.classification
             != ioi_api::runtime_harness::ChatArtifactValidationStatus::Pass
         || !validation.deserves_primary_artifact_view

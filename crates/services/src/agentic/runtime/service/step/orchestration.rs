@@ -237,7 +237,7 @@ pub(super) async fn apply_planner_fallback_guards(
 ) -> Result<bool, TransactionError> {
     let planning_disabled =
         planner::planner_runtime_disabled_for_policy(rules.ontology_policy.planning_enabled);
-    let mut planner_fallback_reason: Option<String> = None;
+    let mut planner_degradation_reason: Option<String> = None;
     let resolved_intent_snapshot = agent_state.resolved_intent.clone();
     if let Some(planner_state) = agent_state.planner_state.as_mut() {
         if planning_disabled {
@@ -246,7 +246,7 @@ pub(super) async fn apply_planner_fallback_guards(
                 planner::PLANNER_FALLBACK_REASON_PLANNING_DISABLED,
                 resolved_intent_snapshot.as_ref(),
             ) {
-                planner_fallback_reason =
+                planner_degradation_reason =
                     Some(planner::PLANNER_FALLBACK_REASON_PLANNING_DISABLED.to_string());
             }
         } else if let Err(err) = planner::validate_and_hash_planner_state(
@@ -263,11 +263,11 @@ pub(super) async fn apply_planner_fallback_guards(
                 reason.as_str(),
                 resolved_intent_snapshot.as_ref(),
             ) {
-                planner_fallback_reason = Some(reason);
+                planner_degradation_reason = Some(reason);
             }
         }
     }
-    if let Some(reason) = planner_fallback_reason.as_deref() {
+    if let Some(reason) = planner_degradation_reason.as_deref() {
         emit_planner_fallback_evidence(
             service,
             session_id,

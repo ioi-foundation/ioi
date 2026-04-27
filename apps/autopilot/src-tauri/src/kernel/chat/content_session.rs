@@ -19,19 +19,19 @@ use ioi_api::runtime_harness::{
     ChatArtifactBlueprint, ChatArtifactExemplar, ChatArtifactGenerationProgress,
     ChatArtifactGenerationProgressObserver, ChatArtifactIR, ChatArtifactPreparationNeeds,
     ChatArtifactPreparedContextResolution, ChatArtifactRenderEvaluation, ChatArtifactSelectedSkill,
-    ChatArtifactSkillDiscoveryResolution, ChatIntentContext,
+    ChatArtifactSkillDiscoveryResolution, ChatIntentContext, TopologyProjection,
 };
 use ioi_types::app::{
-    ChatExecutionModeDecision, ChatExecutionStrategy, ChatNormalizedRequestFrame,
-    ChatRetainedWidgetState, RoutingRouteDecision,
+    ChatExecutionModeDecision, ChatExecutionStrategy, ChatNormalizedRequest,
+    ChatRetainedWidgetState, ChatSourceFamily,
 };
 use std::time::Duration;
 
 mod clarification;
 mod connectors;
-mod non_artifact;
-mod non_artifact_surface;
-mod route_contract;
+mod decision_record;
+mod inline_answer;
+mod inline_answer_surface;
 
 #[cfg(test)]
 pub(super) use self::apply_connector_routing_from_catalog_entries as apply_connector_catalog_to_outcome_request;
@@ -40,13 +40,13 @@ use self::clarification::specialized_domain_clarification_question;
 pub(super) use self::connectors::{
     infer_connector_route_context_from_catalog, merge_connector_route_context,
 };
-pub(super) use self::non_artifact::attach_non_artifact_chat_session;
-pub(super) use self::non_artifact_surface::refresh_non_artifact_chat_surface;
-pub(crate) use self::route_contract::runtime_handoff_prompt_prefix_for_task;
-pub(super) use self::route_contract::{
-    append_route_contract_event, artifact_execution_envelope_for_contract,
-    build_route_contract_payload, non_artifact_route_status_message,
+pub(crate) use self::decision_record::runtime_handoff_prompt_prefix_for_task;
+pub(super) use self::decision_record::{
+    append_decision_record_event, artifact_execution_envelope_for_contract,
+    build_decision_record_payload, inline_answer_status_message,
 };
+pub(super) use self::inline_answer::attach_inline_answer_chat_session;
+pub(super) use self::inline_answer_surface::refresh_inline_answer_chat_surface;
 #[cfg(test)]
 pub(super) use ioi_api::runtime_harness::route_decision_for_outcome_request;
 
@@ -105,7 +105,7 @@ pub(super) struct MaterializedContentArtifact {
     pub(super) output_origin: ChatArtifactOutputOrigin,
     pub(super) production_provenance: Option<crate::models::ChatRuntimeProvenance>,
     pub(super) acceptance_provenance: Option<crate::models::ChatRuntimeProvenance>,
-    pub(super) fallback_used: bool,
+    pub(super) degraded_path_used: bool,
     pub(super) ux_lifecycle: ChatArtifactUxLifecycle,
     pub(super) failure: Option<crate::models::ChatArtifactFailure>,
     pub(super) taste_memory: Option<ChatArtifactTasteMemory>,
@@ -129,10 +129,10 @@ fn default_chat_outcome_request(
         confidence: 0.0,
         needs_clarification: false,
         clarification_questions: Vec::new(),
-        routing_hints: Vec::new(),
-        lane_frame: None,
-        request_frame: None,
-        source_selection: None,
+        decision_evidence: Vec::new(),
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
@@ -185,13 +185,13 @@ fn blocked_artifact_outcome_request(
         confidence: 0.0,
         needs_clarification: false,
         clarification_questions: Vec::new(),
-        routing_hints: vec![
+        decision_evidence: vec![
             "persistent_artifact_requested".to_string(),
             "routing_failed_closed".to_string(),
         ],
-        lane_frame: None,
-        request_frame: None,
-        source_selection: None,
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
@@ -296,10 +296,10 @@ pub(super) fn chat_outcome_request_with_runtime_timeout(
         confidence: planning.confidence.clamp(0.0, 1.0),
         needs_clarification,
         clarification_questions,
-        routing_hints: planning.routing_hints,
-        lane_frame: planning.lane_frame,
-        request_frame: planning.request_frame,
-        source_selection: planning.source_selection,
+        decision_evidence: planning.decision_evidence,
+        lane_request: planning.lane_request,
+        normalized_request: planning.normalized_request,
+        source_decision: planning.source_decision,
         retained_lane_state: planning.retained_lane_state,
         lane_transitions: planning.lane_transitions,
         orchestration_state: planning.orchestration_state,
@@ -498,7 +498,7 @@ pub(super) fn attach_blocked_chat_failure_session(
     task.pending_request_hash = None;
     task.credential_request = None;
     task.clarification_request = clarification_request_for_outcome_request(&outcome_request);
-    append_route_contract_event(
+    append_decision_record_event(
         task,
         &outcome_request,
         "Chat route blocked",
@@ -507,37 +507,93 @@ pub(super) fn attach_blocked_chat_failure_session(
     );
 }
 
-fn request_frame_has_clarification_slots(frame: &ChatNormalizedRequestFrame) -> bool {
+fn normalized_request_has_clarification_slots(frame: &ChatNormalizedRequest) -> bool {
     match frame {
-        ChatNormalizedRequestFrame::Weather(frame) => {
+        ChatNormalizedRequest::Weather(frame) => !frame.clarification_required_slots.is_empty(),
+        ChatNormalizedRequest::Sports(frame) => !frame.clarification_required_slots.is_empty(),
+        ChatNormalizedRequest::Places(frame) => !frame.clarification_required_slots.is_empty(),
+        ChatNormalizedRequest::Recipe(frame) => !frame.clarification_required_slots.is_empty(),
+        ChatNormalizedRequest::MessageCompose(frame) => {
             !frame.clarification_required_slots.is_empty()
         }
-        ChatNormalizedRequestFrame::Sports(frame) => !frame.clarification_required_slots.is_empty(),
-        ChatNormalizedRequestFrame::Places(frame) => !frame.clarification_required_slots.is_empty(),
-        ChatNormalizedRequestFrame::Recipe(frame) => !frame.clarification_required_slots.is_empty(),
-        ChatNormalizedRequestFrame::MessageCompose(frame) => {
-            !frame.clarification_required_slots.is_empty()
-        }
-        ChatNormalizedRequestFrame::UserInput(frame) => {
-            !frame.clarification_required_slots.is_empty()
-        }
+        ChatNormalizedRequest::UserInput(frame) => !frame.clarification_required_slots.is_empty(),
     }
 }
 
-fn request_frame_matches_retained_widget_state(
-    frame: &ChatNormalizedRequestFrame,
+fn specialized_widget_family_for_request(frame: &ChatNormalizedRequest) -> Option<&'static str> {
+    match frame {
+        ChatNormalizedRequest::Weather(_) => Some("weather"),
+        ChatNormalizedRequest::Sports(_) => Some("sports"),
+        ChatNormalizedRequest::Places(_) => Some("places"),
+        ChatNormalizedRequest::Recipe(_) => Some("recipe"),
+        ChatNormalizedRequest::MessageCompose(_) | ChatNormalizedRequest::UserInput(_) => None,
+    }
+}
+
+fn add_decision_evidence_once(outcome_request: &mut ChatOutcomeRequest, evidence: String) {
+    if !outcome_request
+        .decision_evidence
+        .iter()
+        .any(|existing| existing == &evidence)
+    {
+        outcome_request.decision_evidence.push(evidence);
+    }
+}
+
+fn promote_complete_specialized_widget_request(outcome_request: &mut ChatOutcomeRequest) -> bool {
+    if outcome_request.outcome_kind == ChatOutcomeKind::ToolWidget {
+        return false;
+    }
+    let Some(frame) = outcome_request.normalized_request.as_ref() else {
+        return false;
+    };
+    if normalized_request_has_clarification_slots(frame) {
+        return false;
+    }
+    let Some(widget_family) = specialized_widget_family_for_request(frame) else {
+        return false;
+    };
+    let selected_specialized_tool = outcome_request
+        .source_decision
+        .as_ref()
+        .is_some_and(|decision| decision.selected_source == ChatSourceFamily::SpecializedTool);
+    if !selected_specialized_tool {
+        return false;
+    }
+
+    outcome_request.outcome_kind = ChatOutcomeKind::ToolWidget;
+    add_decision_evidence_once(outcome_request, format!("tool_widget:{widget_family}"));
+    add_decision_evidence_once(outcome_request, "narrow_surface_preferred".to_string());
+    outcome_request
+        .decision_evidence
+        .retain(|evidence| evidence != "shared_answer_surface");
+    let mode_decision = derive_execution_mode_decision(
+        outcome_request.outcome_kind,
+        outcome_request.artifact.as_ref(),
+        ChatExecutionStrategy::PlanExecute,
+        outcome_request.confidence,
+        outcome_request.needs_clarification,
+        outcome_request.active_artifact_id.is_some(),
+    );
+    outcome_request.execution_strategy = mode_decision.resolved_strategy;
+    outcome_request.execution_mode_decision = Some(mode_decision);
+    true
+}
+
+fn normalized_request_matches_retained_widget_state(
+    frame: &ChatNormalizedRequest,
     active_widget_state: Option<&ChatRetainedWidgetState>,
 ) -> bool {
     let Some(widget_state) = active_widget_state else {
         return false;
     };
     let expected_family = match frame {
-        ChatNormalizedRequestFrame::Weather(_) => "weather",
-        ChatNormalizedRequestFrame::Sports(_) => "sports",
-        ChatNormalizedRequestFrame::Places(_) => "places",
-        ChatNormalizedRequestFrame::Recipe(_) => "recipe",
-        ChatNormalizedRequestFrame::MessageCompose(_) => "message",
-        ChatNormalizedRequestFrame::UserInput(_) => "user_input",
+        ChatNormalizedRequest::Weather(_) => "weather",
+        ChatNormalizedRequest::Sports(_) => "sports",
+        ChatNormalizedRequest::Places(_) => "places",
+        ChatNormalizedRequest::Recipe(_) => "recipe",
+        ChatNormalizedRequest::MessageCompose(_) => "message",
+        ChatNormalizedRequest::UserInput(_) => "user_input",
     };
     widget_state.widget_family.as_deref() == Some(expected_family)
 }
@@ -546,13 +602,13 @@ fn apply_retained_widget_state_resolution(
     outcome_request: &mut ChatOutcomeRequest,
     active_widget_state: Option<&ChatRetainedWidgetState>,
 ) {
-    let Some(frame) = outcome_request.request_frame.as_ref() else {
+    let Some(frame) = outcome_request.normalized_request.as_ref() else {
         return;
     };
-    if !request_frame_matches_retained_widget_state(frame, active_widget_state) {
+    if !normalized_request_matches_retained_widget_state(frame, active_widget_state) {
         return;
     }
-    if request_frame_has_clarification_slots(frame) {
+    if normalized_request_has_clarification_slots(frame) {
         return;
     }
     if outcome_request.needs_clarification {
@@ -560,21 +616,21 @@ fn apply_retained_widget_state_resolution(
         outcome_request.clarification_questions.clear();
     }
     if !outcome_request
-        .routing_hints
+        .decision_evidence
         .iter()
         .any(|hint| hint == "retained_widget_state_applied")
     {
         outcome_request
-            .routing_hints
+            .decision_evidence
             .push("retained_widget_state_applied".to_string());
     }
 }
 
-fn apply_request_frame_clarification_resolution(outcome_request: &mut ChatOutcomeRequest) {
-    let Some(frame) = outcome_request.request_frame.as_ref() else {
+fn apply_normalized_request_clarification_resolution(outcome_request: &mut ChatOutcomeRequest) {
+    let Some(frame) = outcome_request.normalized_request.as_ref() else {
         return;
     };
-    if !request_frame_has_clarification_slots(frame) {
+    if !normalized_request_has_clarification_slots(frame) {
         return;
     }
     outcome_request.needs_clarification = true;
@@ -584,13 +640,13 @@ fn apply_request_frame_clarification_resolution(outcome_request: &mut ChatOutcom
         }
     }
     if !outcome_request
-        .routing_hints
+        .decision_evidence
         .iter()
-        .any(|hint| hint == "request_frame_clarification_required")
+        .any(|hint| hint == "normalized_request_clarification_required")
     {
         outcome_request
-            .routing_hints
-            .push("request_frame_clarification_required".to_string());
+            .decision_evidence
+            .push("normalized_request_clarification_required".to_string());
     }
 }
 
@@ -598,7 +654,7 @@ pub(super) fn refresh_outcome_request_topology(
     outcome_request: &mut ChatOutcomeRequest,
     active_widget_state: Option<&ChatRetainedWidgetState>,
 ) {
-    let projection = derive_chat_topology_projection(
+    let mut projection = derive_chat_topology_projection(
         &outcome_request.raw_prompt,
         outcome_request.active_artifact_id.as_deref(),
         active_widget_state,
@@ -608,16 +664,40 @@ pub(super) fn refresh_outcome_request_topology(
         outcome_request.confidence,
         outcome_request.needs_clarification,
         &outcome_request.clarification_questions,
-        &outcome_request.routing_hints,
+        &outcome_request.decision_evidence,
         outcome_request.artifact.as_ref(),
     );
-    outcome_request.lane_frame = projection.lane_frame;
-    outcome_request.request_frame = projection.request_frame;
-    outcome_request.source_selection = projection.source_selection;
+    apply_topology_projection(outcome_request, projection);
+    apply_normalized_request_clarification_resolution(outcome_request);
+    if promote_complete_specialized_widget_request(outcome_request) {
+        projection = derive_chat_topology_projection(
+            &outcome_request.raw_prompt,
+            outcome_request.active_artifact_id.as_deref(),
+            active_widget_state,
+            outcome_request.outcome_kind,
+            outcome_request.execution_strategy,
+            outcome_request.execution_mode_decision.as_ref(),
+            outcome_request.confidence,
+            outcome_request.needs_clarification,
+            &outcome_request.clarification_questions,
+            &outcome_request.decision_evidence,
+            outcome_request.artifact.as_ref(),
+        );
+        apply_topology_projection(outcome_request, projection);
+        apply_normalized_request_clarification_resolution(outcome_request);
+    }
+}
+
+fn apply_topology_projection(
+    outcome_request: &mut ChatOutcomeRequest,
+    projection: TopologyProjection,
+) {
+    outcome_request.lane_request = projection.lane_request;
+    outcome_request.normalized_request = projection.normalized_request;
+    outcome_request.source_decision = projection.source_decision;
     outcome_request.retained_lane_state = projection.retained_lane_state;
     outcome_request.lane_transitions = projection.lane_transitions;
     outcome_request.orchestration_state = projection.orchestration_state;
-    apply_request_frame_clarification_resolution(outcome_request);
 }
 
 pub(super) fn artifact_class_id_for_request(request: &ChatOutcomeArtifactRequest) -> String {
@@ -817,7 +897,7 @@ pub(super) fn materialization_contract_for_request(
         output_origin: None,
         production_provenance: None,
         acceptance_provenance: None,
-        fallback_used: false,
+        degraded_path_used: false,
         ux_lifecycle: None,
         failure: None,
         navigator_nodes: Vec::new(),
@@ -907,7 +987,7 @@ pub(super) fn apply_materialized_artifact_to_contract(
     materialization.output_origin = Some(materialized_artifact.output_origin);
     materialization.production_provenance = materialized_artifact.production_provenance.clone();
     materialization.acceptance_provenance = materialized_artifact.acceptance_provenance.clone();
-    materialization.fallback_used = materialized_artifact.fallback_used;
+    materialization.degraded_path_used = materialized_artifact.degraded_path_used;
     materialization.ux_lifecycle = Some(materialized_artifact.ux_lifecycle);
     materialization.failure = materialized_artifact.failure.clone();
 }
@@ -989,7 +1069,7 @@ pub(super) fn maybe_refine_current_non_workspace_artifact_turn(
         );
     }) as ChatArtifactGenerationProgressObserver;
     let mut materialized_artifact =
-        materialize_non_workspace_artifact_with_execution_strategy_and_progress_observer(
+        materialize_chat_artifact_with_execution_strategy_and_progress_observer(
             app,
             &thread_id,
             &chat_session.title,
@@ -1128,7 +1208,7 @@ pub(super) fn maybe_refine_current_non_workspace_artifact_turn(
     materialization.output_origin = Some(materialized_artifact.output_origin);
     materialization.production_provenance = materialized_artifact.production_provenance.clone();
     materialization.acceptance_provenance = materialized_artifact.acceptance_provenance.clone();
-    materialization.fallback_used = materialized_artifact.fallback_used;
+    materialization.degraded_path_used = materialized_artifact.degraded_path_used;
     materialization.ux_lifecycle = Some(materialized_artifact.ux_lifecycle);
     materialization.failure = materialized_artifact.failure.clone();
     materialization.execution_envelope =

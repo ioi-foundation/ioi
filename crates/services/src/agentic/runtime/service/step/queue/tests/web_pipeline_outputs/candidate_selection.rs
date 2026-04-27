@@ -33,6 +33,7 @@ fn web_pipeline_next_candidate_prefers_distinct_host_for_single_snapshot_queries
     );
 }
 
+#[test]
 fn web_pipeline_next_candidate_prefers_new_domain_for_multi_story_queries() {
     let pending = PendingSearchCompletion {
         query: "Tell me today's top news headlines.".to_string(),

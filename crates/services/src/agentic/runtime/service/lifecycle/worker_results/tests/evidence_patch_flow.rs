@@ -267,7 +267,7 @@ async fn evidence_audited_patch_recovers_paused_refusal_worker_after_successful_
         step_index: 5,
     });
     implement_state.tool_execution_log.insert(
-        "receipt::workspace_edit_applied=true".to_string(),
+        "evidence::workspace_edit_applied=true".to_string(),
         crate::agentic::runtime::types::ToolCallStatus::Executed(
             "step=4;tool=file__write;path=path_utils.py".to_string(),
         ),

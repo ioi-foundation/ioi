@@ -13,7 +13,7 @@ pub fn case() -> QueryCase {
     QueryCase {
         id: CASE_ID,
         query: "Send an email to team@ioi.network saying tomorrow's standup is moved to 2 PM via Gmail.",
-        success_definition: "Send the requested Gmail message through the Google connector with structured send evidence, CEC receipts, grounded recipient evidence, and no contract-failure markers.",
+        success_definition: "Send the requested Gmail message through the Google connector with structured send evidence, CEC evidence, grounded recipient evidence, and no contract-failure markers.",
         seeded_intent_id: "gmail.send_email",
         intent_scope: IntentScopeProfile::Conversation,
         seed_resolved_intent: true,
@@ -96,7 +96,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         || has_tool_with_token(&obs.routing_tools, "file__")
         || has_tool_with_token(&obs.action_tools, "http__fetch")
         || has_tool_with_token(&obs.routing_tools, "http__fetch");
-    let grounding_receipt_present = has_verification_pair(obs, "receipt::grounding", "true");
+    let grounding_receipt_present = has_verification_pair(obs, "evidence::grounding", "true");
     let recipient_grounding_present = verification_values(obs, "grounding_slot")
         .iter()
         .any(|value| value.eq_ignore_ascii_case("to::user_literal_attested"));

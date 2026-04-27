@@ -504,7 +504,7 @@ async fn await_child_worker_result_merges_observed_patch_completion_from_retry_b
         step_index: 5,
     });
     child_state.tool_execution_log.insert(
-        "receipt::workspace_edit_applied=true".to_string(),
+        "evidence::workspace_edit_applied=true".to_string(),
         crate::agentic::runtime::types::ToolCallStatus::Executed(format!(
             "step=4;tool=file__write;path={}",
             repo.join("path_utils.py").display()
@@ -752,7 +752,7 @@ async fn await_child_worker_result_extends_burst_for_patch_verify_post_edit_foll
                 .iter()
                 .map(|request| format!("{:?}", request.target))
                 .collect::<Vec<_>>(),
-            execution_receipt_value(&updated_child.tool_execution_log, "workspace_edit_applied"),
+            execution_evidence_value(&updated_child.tool_execution_log, "workspace_edit_applied"),
             updated_child.recent_actions,
             updated_child
                 .tool_execution_log
@@ -764,7 +764,7 @@ async fn await_child_worker_result_extends_burst_for_patch_verify_post_edit_foll
         );
     assert!(matches!(updated_child.status, AgentStatus::Completed(_)));
     assert!(
-        execution_receipt_value(&updated_child.tool_execution_log, "workspace_edit_applied")
+        execution_evidence_value(&updated_child.tool_execution_log, "workspace_edit_applied")
             .is_some(),
         "workspace edit receipt should be present after the awaited write"
     );

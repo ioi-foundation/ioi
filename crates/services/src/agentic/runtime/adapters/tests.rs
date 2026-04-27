@@ -167,6 +167,7 @@ fn agent_state() -> AgentState {
         execution_queue: vec![],
         active_skill_hash: None,
         tool_execution_log: BTreeMap::new(),
+        execution_ledger: Default::default(),
         visual_som_map: None,
         visual_semantic_map: None,
         swarm_context: None,

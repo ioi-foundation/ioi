@@ -112,7 +112,7 @@ pub(super) async fn generate_workspace_artifact_bundle_with_runtimes(
         acceptance_provenance,
         runtime_policy: None,
         adaptive_search_budget: None,
-        fallback_used: false,
+        degraded_path_used: false,
         ux_lifecycle: ChatArtifactUxLifecycle::Validated,
         taste_memory: refinement.and_then(|context| context.taste_memory.clone()),
         failure: None,

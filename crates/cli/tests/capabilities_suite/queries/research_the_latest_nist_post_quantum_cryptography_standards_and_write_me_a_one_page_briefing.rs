@@ -49,7 +49,7 @@ pub fn case() -> QueryCase {
     QueryCase {
         id: CASE_ID,
         query: "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.",
-        success_definition: "Produce a sourced briefing on the latest NIST post-quantum cryptography standards with multi-standard retrieval planning, authoritative NIST source grounding, currentness + provider-selection receipts, and isolated current-date cleanup evidence.",
+        success_definition: "Produce a sourced briefing on the latest NIST post-quantum cryptography standards with multi-standard retrieval planning, authoritative NIST source grounding, currentness + provider-selection evidence, and isolated current-date cleanup evidence.",
         seeded_intent_id: "web.research",
         intent_scope: IntentScopeProfile::WebResearch,
         seed_resolved_intent: true,
@@ -68,7 +68,7 @@ pub fn case_unseeded() -> QueryCase {
     QueryCase {
         id: UNSEEDED_CASE_ID,
         query: "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.",
-        success_definition: "Resolve and produce a sourced briefing on the latest NIST post-quantum cryptography standards without a seeded intent override, with authoritative NIST source grounding, currentness + provider-selection receipts, and isolated current-date cleanup evidence.",
+        success_definition: "Resolve and produce a sourced briefing on the latest NIST post-quantum cryptography standards without a seeded intent override, with authoritative NIST source grounding, currentness + provider-selection evidence, and isolated current-date cleanup evidence.",
         seeded_intent_id: "web.research",
         intent_scope: IntentScopeProfile::WebResearch,
         seed_resolved_intent: false,
@@ -659,13 +659,13 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
 
     let environment_receipts = collect_environment_receipts(obs);
     let fixture_mode_matches =
-        environment_value(obs, "env_receipt::latest_nist_pqc_briefing_fixture_mode")
+        environment_value(obs, "env_evidence::latest_nist_pqc_briefing_fixture_mode")
             .is_some_and(|value| value == EXPECTED_FIXTURE_MODE);
     let environment_receipts_satisfied =
         fixture_mode_matches && environment_receipts.iter().all(|receipt| receipt.satisfied);
     let cleanup_evidence_present = environment_bool(
         obs,
-        "env_receipt::latest_nist_pqc_briefing_cleanup_satisfied",
+        "env_evidence::latest_nist_pqc_briefing_cleanup_satisfied",
     )
     .unwrap_or(false);
 
@@ -942,16 +942,16 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             cleanup_evidence_present,
             format!(
                 "cleanup={} cleanup_root_exists={} cleanup_manifest_exists={}",
-                environment_bool(obs, "env_receipt::latest_nist_pqc_briefing_cleanup_satisfied")
+                environment_bool(obs, "env_evidence::latest_nist_pqc_briefing_cleanup_satisfied")
                     .unwrap_or(false),
                 environment_value(
                     obs,
-                    "env_receipt::latest_nist_pqc_briefing_cleanup_root_exists"
+                    "env_evidence::latest_nist_pqc_briefing_cleanup_root_exists"
                 )
                 .unwrap_or_default(),
                 environment_value(
                     obs,
-                    "env_receipt::latest_nist_pqc_briefing_cleanup_manifest_exists"
+                    "env_evidence::latest_nist_pqc_briefing_cleanup_manifest_exists"
                 )
                 .unwrap_or_default(),
             ),
@@ -1324,22 +1324,23 @@ fn collect_environment_receipts(obs: &RunObservation) -> Vec<EnvironmentEvidence
     .into_iter()
     .map(|key| EnvironmentEvidenceReceipt {
         key,
-        observed_value: environment_value(obs, &format!("env_receipt::{key}")).unwrap_or_default(),
-        probe_source: environment_value(obs, &format!("env_receipt::{key}_probe_source"))
+        observed_value: environment_value(obs, &format!("env_evidence::{key}")).unwrap_or_default(),
+        probe_source: environment_value(obs, &format!("env_evidence::{key}_probe_source"))
             .unwrap_or_else(|| EXPECTED_FIXTURE_PROBE_SOURCE.to_string()),
-        timestamp_ms: environment_u64(obs, &format!("env_receipt::{key}_timestamp_ms"))
+        timestamp_ms: environment_u64(obs, &format!("env_evidence::{key}_timestamp_ms"))
             .unwrap_or(obs.run_timestamp_ms),
-        satisfied: environment_bool(obs, &format!("env_receipt::{key}_satisfied")).unwrap_or(false),
+        satisfied: environment_bool(obs, &format!("env_evidence::{key}_satisfied"))
+            .unwrap_or(false),
     })
     .collect()
 }
 
-fn serialize_evidence_receipts(receipts: &[EvidenceReceipt]) -> String {
-    serde_json::to_string(receipts).unwrap_or_else(|_| "[]".to_string())
+fn serialize_evidence_receipts(evidence: &[EvidenceReceipt]) -> String {
+    serde_json::to_string(evidence).unwrap_or_else(|_| "[]".to_string())
 }
 
-fn serialize_environment_receipts(receipts: &[EnvironmentEvidenceReceipt]) -> String {
-    serde_json::to_string(receipts).unwrap_or_else(|_| "[]".to_string())
+fn serialize_environment_receipts(evidence: &[EnvironmentEvidenceReceipt]) -> String {
+    serde_json::to_string(evidence).unwrap_or_else(|_| "[]".to_string())
 }
 
 #[cfg(test)]

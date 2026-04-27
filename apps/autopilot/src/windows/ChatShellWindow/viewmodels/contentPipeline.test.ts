@@ -466,7 +466,7 @@ function artifactRuntimeActivityGroupPresentationTest(): void {
       swarmChangeReceipts: [],
       swarmMergeReceipts: [],
       swarmVerificationReceipts: [],
-      fallbackUsed: false,
+      degradedPathUsed: false,
       navigatorNodes: [],
       fileWrites: [],
       commandIntents: [],
@@ -480,7 +480,7 @@ function artifactRuntimeActivityGroupPresentationTest(): void {
       confidence: 0.94,
       clarificationQuestions: [],
       needsClarification: false,
-      routingHints: [],
+      decisionEvidence: [],
       artifact: {
         artifactClass: "interactive_single_file",
         deliverableShape: "single_file",
@@ -721,7 +721,7 @@ function artifactRuntimeActivityOrderingAndSourcePlacementTest(): void {
       swarmChangeReceipts: [],
       swarmMergeReceipts: [],
       swarmVerificationReceipts: [],
-      fallbackUsed: false,
+      degradedPathUsed: false,
       navigatorNodes: [],
       fileWrites: [],
       commandIntents: [],
@@ -735,7 +735,7 @@ function artifactRuntimeActivityOrderingAndSourcePlacementTest(): void {
       confidence: 0.94,
       clarificationQuestions: [],
       needsClarification: false,
-      routingHints: [],
+      decisionEvidence: [],
       artifact: {
         artifactClass: "interactive_single_file",
         deliverableShape: "single_file",
@@ -967,7 +967,7 @@ function artifactReplyTextIsConversationalForCompletedArtifactsTest(): void {
             swarmChangeReceipts: [],
             swarmMergeReceipts: [],
             swarmVerificationReceipts: [],
-            fallbackUsed: false,
+            degradedPathUsed: false,
             navigatorNodes: [],
             fileWrites: [],
             commandIntents: [],
@@ -1332,7 +1332,7 @@ function planSummaryCapturesTypedHierarchyTest(): void {
   );
 }
 
-function streamedParentPlaybookRouteContractTest(): void {
+function streamedParentPlaybookDecisionRecordTest(): void {
   const streamedParentPlaybook: AgentEvent = {
     ...baseEvent,
     event_id: "evt-streamed-parent-playbook",
@@ -1424,7 +1424,7 @@ function routeDecisionReceiptProjectionTest(): void {
           diagnostic_tools: ["web__search"],
         },
       },
-      lane_frame: {
+      lane_request: {
         primaryLane: "communication",
         secondaryLanes: ["integrations"],
         primaryGoal: "Draft and ground the requested email reply.",
@@ -1435,7 +1435,7 @@ function routeDecisionReceiptProjectionTest(): void {
         activeArtifactFollowUp: false,
         laneConfidence: 0.94,
       },
-      request_frame: {
+      normalized_request: {
         kind: "message_compose",
         channel: "email",
         recipientContext: "Finance team",
@@ -1443,7 +1443,7 @@ function routeDecisionReceiptProjectionTest(): void {
         missingSlots: [],
         clarificationRequiredSlots: [],
       },
-      source_selection: {
+      source_decision: {
         candidateSources: [
           "connector",
           "conversation_context",
@@ -1451,7 +1451,7 @@ function routeDecisionReceiptProjectionTest(): void {
         ],
         selectedSource: "connector",
         explicitUserSource: false,
-        fallbackReason: null,
+        degradationReason: null,
       },
       retained_lane_state: {
         activeLane: "communication",
@@ -1466,7 +1466,7 @@ function routeDecisionReceiptProjectionTest(): void {
           toLane: "communication",
           reason:
             "The prompt is best treated as a communication/composition task.",
-          evidence: ["request_frame:message_compose"],
+          evidence: ["normalized_request:message_compose"],
         },
         {
           transitionKind: "planned",
@@ -1567,7 +1567,7 @@ function routeDecisionReceiptProjectionTest(): void {
           completionGate: "surface_and_route_verified",
         },
         policy_contract: {
-          bindings: ["lane_frame", "request_frame", "domain_policy_bundle"],
+          bindings: ["lane_request", "normalized_request", "domain_policy_bundle"],
           hiddenInstructionDependency: false,
           rationale: "Policies are retained in typed bindings.",
         },
@@ -1581,7 +1581,7 @@ function routeDecisionReceiptProjectionTest(): void {
         retained_widget_state: {
           widgetFamily: "message",
           bindings: [
-            { key: "message.channel", value: "email", source: "request_frame" },
+            { key: "message.channel", value: "email", source: "normalized_request" },
           ],
           lastUpdatedAt: null,
         },
@@ -1605,15 +1605,15 @@ function routeDecisionReceiptProjectionTest(): void {
     ["google_gmail__draft_email"],
   );
   assert.equal(
-    presentation.planSummary?.routeDecision?.laneFrame?.primaryLane,
+    presentation.planSummary?.routeDecision?.laneRequest?.primaryLane,
     "communication",
   );
   assert.equal(
-    presentation.planSummary?.routeDecision?.requestFrame?.kind,
+    presentation.planSummary?.routeDecision?.normalizedRequest?.kind,
     "message_compose",
   );
   assert.equal(
-    presentation.planSummary?.routeDecision?.sourceSelection?.selectedSource,
+    presentation.planSummary?.routeDecision?.sourceDecision?.selectedSource,
     "connector",
   );
   assert.equal(
@@ -1669,7 +1669,7 @@ function planSummaryFallsBackToSingleAgentResearchRoute(): void {
   assert.equal(presentation.planSummary?.approvalState, "clear");
 }
 
-function planSummaryUsesExplicitComputerUseRouteContract(): void {
+function planSummaryUsesExplicitComputerUseDecisionRecord(): void {
   const parentPlaybookStarted: AgentEvent = {
     ...baseEvent,
     event_id: "evt-browser-playbook",
@@ -2942,10 +2942,10 @@ thoughtSummaryTest();
 clarificationReasoningFallbackTest();
 ordinaryReasoningDoesNotBecomeAnswerTest();
 planSummaryCapturesTypedHierarchyTest();
-streamedParentPlaybookRouteContractTest();
+streamedParentPlaybookDecisionRecordTest();
 routeDecisionReceiptProjectionTest();
 planSummaryFallsBackToSingleAgentResearchRoute();
-planSummaryUsesExplicitComputerUseRouteContract();
+planSummaryUsesExplicitComputerUseDecisionRecord();
 planSummaryCarriesComputerUsePerceptionVerificationAndRecovery();
 planSummaryCarriesResearchPrepContext();
 planSummaryUsesBuiltinPlaybookContractWhenRouteFieldsAreMissing();

@@ -474,7 +474,7 @@ async fn patch_build_verify_invalid_tool_repair_replays_targeted_exec_after_work
     worker_state.recent_actions = vec!["attempt::NoEffectAfterAction::first".to_string()];
     record_targeted_check_failure(&mut worker_state);
     worker_state.tool_execution_log.insert(
-        "receipt::workspace_edit_applied=true".to_string(),
+        "evidence::workspace_edit_applied=true".to_string(),
         ToolCallStatus::Executed(
             "step=2;tool=filesystem__write_file;path=path_utils.py".to_string(),
         ),
@@ -565,7 +565,7 @@ async fn patch_build_verify_invalid_tool_repair_replays_targeted_exec_after_post
     ];
     record_targeted_check_failure(&mut worker_state);
     worker_state.tool_execution_log.insert(
-        "receipt::workspace_edit_applied=true".to_string(),
+        "evidence::workspace_edit_applied=true".to_string(),
         ToolCallStatus::Executed(
             "step=4;tool=filesystem__write_file;path=path_utils.py".to_string(),
         ),
@@ -649,7 +649,7 @@ async fn patch_build_verify_invalid_tool_repair_prioritizes_targeted_exec_for_po
     ];
     record_targeted_check_failure(&mut worker_state);
     worker_state.tool_execution_log.insert(
-        "receipt::workspace_edit_applied=true".to_string(),
+        "evidence::workspace_edit_applied=true".to_string(),
         ToolCallStatus::Executed(
             "step=5;tool=filesystem__write_file;path=path_utils.py".to_string(),
         ),
@@ -746,7 +746,7 @@ fn patch_build_verify_post_success_completion_rewrites_followup_patch_attempt() 
         step_index: 6,
     });
     worker_state.tool_execution_log.insert(
-        "receipt::workspace_edit_applied=true".to_string(),
+        "evidence::workspace_edit_applied=true".to_string(),
         ToolCallStatus::Executed(
             "step=4;tool=filesystem__write_file;path=path_utils.py".to_string(),
         ),
@@ -806,7 +806,7 @@ async fn patch_build_verify_invalid_tool_repair_completes_after_successful_targe
         step_index: 8,
     });
     worker_state.tool_execution_log.insert(
-        "receipt::workspace_edit_applied=true".to_string(),
+        "evidence::workspace_edit_applied=true".to_string(),
         ToolCallStatus::Executed(
             "step=4;tool=filesystem__write_file;path=path_utils.py".to_string(),
         ),

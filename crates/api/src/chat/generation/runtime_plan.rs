@@ -423,7 +423,7 @@ pub(super) fn prefers_distinct_local_specialist_planning_runtime(
         && !chat_runtime_provenance_matches(&acceptance_provenance, generation_provenance)
 }
 
-pub(super) fn fallback_reason_for_premium_lane(
+pub(super) fn degradation_reason_for_premium_lane(
     acceptance_runtime: Option<&Arc<dyn InferenceRuntime>>,
     generation_provenance: &ChatRuntimeProvenance,
     require_distinct_runtime: bool,
@@ -448,14 +448,14 @@ pub(super) fn build_runtime_binding(
     preferred_tier: ChatArtifactRuntimeTier,
     selected_tier: ChatArtifactRuntimeTier,
     runtime: &Arc<dyn InferenceRuntime>,
-    fallback_reason: Option<String>,
+    degradation_reason: Option<String>,
 ) -> ChatArtifactRuntimeBinding {
     ChatArtifactRuntimeBinding {
         step,
         preferred_tier,
         selected_tier,
-        fallback_applied: fallback_reason.is_some(),
-        fallback_reason,
+        fallback_applied: degradation_reason.is_some(),
+        degradation_reason,
         provenance: runtime.chat_runtime_provenance(),
     }
 }
@@ -535,8 +535,8 @@ pub fn resolve_chat_artifact_runtime_plan(
         request.renderer,
         ChatRendererKind::HtmlIframe | ChatRendererKind::JsxSandbox
     );
-    let planning_fallback_reason = if planning_prefers_premium {
-        fallback_reason_for_premium_lane(
+    let planning_degradation_reason = if planning_prefers_premium {
+        degradation_reason_for_premium_lane(
             acceptance_runtime.as_ref(),
             &generation_provenance,
             planning_policy.require_distinct_runtime,
@@ -558,7 +558,7 @@ pub fn resolve_chat_artifact_runtime_plan(
                 None,
             ),
         )
-    } else if planning_prefers_premium && planning_fallback_reason.is_none() {
+    } else if planning_prefers_premium && planning_degradation_reason.is_none() {
         let runtime = acceptance_runtime
             .as_ref()
             .expect("premium planning requires acceptance runtime");
@@ -580,16 +580,20 @@ pub fn resolve_chat_artifact_runtime_plan(
                 planning_policy.preferred_tier,
                 generation_tier,
                 &generation_runtime,
-                planning_fallback_reason,
+                planning_degradation_reason,
             ),
         )
     };
 
-    let generation_fallback_reason = if matches!(
+    let generation_degradation_reason = if matches!(
         resolved_profile,
         ChatArtifactRuntimePolicyProfile::PremiumEndToEnd
     ) {
-        fallback_reason_for_premium_lane(acceptance_runtime.as_ref(), &generation_provenance, false)
+        degradation_reason_for_premium_lane(
+            acceptance_runtime.as_ref(),
+            &generation_provenance,
+            false,
+        )
     } else {
         None
     };
@@ -610,7 +614,7 @@ pub fn resolve_chat_artifact_runtime_plan(
     } else if matches!(
         resolved_profile,
         ChatArtifactRuntimePolicyProfile::PremiumEndToEnd
-    ) && generation_fallback_reason.is_none()
+    ) && generation_degradation_reason.is_none()
     {
         let runtime = acceptance_runtime
             .as_ref()
@@ -633,19 +637,19 @@ pub fn resolve_chat_artifact_runtime_plan(
                 generation_policy.preferred_tier,
                 generation_tier,
                 &generation_runtime,
-                generation_fallback_reason,
+                generation_degradation_reason,
             ),
         )
     };
     let resolved_generation_provenance = resolved_generation_runtime.chat_runtime_provenance();
 
-    let acceptance_fallback_reason = if matches!(
+    let acceptance_degradation_reason = if matches!(
         resolved_profile,
         ChatArtifactRuntimePolicyProfile::FullyLocal
     ) {
         None
     } else {
-        fallback_reason_for_premium_lane(
+        degradation_reason_for_premium_lane(
             acceptance_runtime.as_ref(),
             &resolved_generation_provenance,
             acceptance_policy.require_distinct_runtime,
@@ -665,7 +669,7 @@ pub fn resolve_chat_artifact_runtime_plan(
     } else if matches!(
         resolved_profile,
         ChatArtifactRuntimePolicyProfile::FullyLocal
-    ) || acceptance_fallback_reason.is_some()
+    ) || acceptance_degradation_reason.is_some()
     {
         (
             generation_runtime.clone(),
@@ -674,7 +678,7 @@ pub fn resolve_chat_artifact_runtime_plan(
                 acceptance_policy.preferred_tier,
                 generation_tier,
                 &generation_runtime,
-                acceptance_fallback_reason,
+                acceptance_degradation_reason,
             ),
         )
     } else {
@@ -703,12 +707,12 @@ pub fn resolve_chat_artifact_runtime_plan(
         ChatArtifactRuntimePolicyProfile::PremiumEndToEnd => true,
         ChatArtifactRuntimePolicyProfile::Auto => false,
     };
-    let repair_fallback_reason = if repair_prefers_premium
+    let repair_degradation_reason = if repair_prefers_premium
         && !matches!(
             resolved_profile,
             ChatArtifactRuntimePolicyProfile::FullyLocal
         ) {
-        fallback_reason_for_premium_lane(
+        degradation_reason_for_premium_lane(
             acceptance_runtime.as_ref(),
             &resolved_generation_provenance,
             repair_policy.require_distinct_runtime,
@@ -731,7 +735,7 @@ pub fn resolve_chat_artifact_runtime_plan(
             ),
         )
     } else if repair_prefers_premium
-        && repair_fallback_reason.is_none()
+        && repair_degradation_reason.is_none()
         && !matches!(
             resolved_profile,
             ChatArtifactRuntimePolicyProfile::FullyLocal
@@ -758,7 +762,7 @@ pub fn resolve_chat_artifact_runtime_plan(
                 repair_policy.preferred_tier,
                 generation_tier,
                 &generation_runtime,
-                repair_fallback_reason,
+                repair_degradation_reason,
             ),
         )
     };

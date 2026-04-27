@@ -1,10 +1,11 @@
 use super::{
-    ConnectorPostconditionEvidence, ConnectorPostconditionProof,
-    ConnectorPostconditionVerifierBinding, ConnectorProtectedSlotBinding,
-    ConnectorProviderProbeBinding, ConnectorSymbolicReferenceBinding,
+    ConnectorProtectedSlotBinding, ConnectorProviderProbeBinding,
+    ConnectorSuccessConditionEvidence, ConnectorSuccessConditionProof,
+    ConnectorSuccessConditionVerifierBinding, ConnectorSymbolicReferenceBinding,
     ConnectorSymbolicReferenceInferenceBinding, ConnectorToolRouteBinding,
-    PostconditionVerificationFuture, ProviderCandidateDiscoveryFuture, ResolvedSymbolicReference,
-    SymbolicReferenceInferenceFuture, SymbolicReferenceResolutionFuture,
+    ProviderCandidateDiscoveryFuture, ResolvedSymbolicReference,
+    SuccessConditionVerificationFuture, SymbolicReferenceInferenceFuture,
+    SymbolicReferenceResolutionFuture,
 };
 use crate::agentic::runtime::types::AgentState;
 use ioi_api::state::StateAccess;
@@ -278,12 +279,12 @@ fn mailto_citation_matches(citation: &str, expected_to: &str, expected_subject: 
         && subject_query.trim() == expected_subject.trim()
 }
 
-fn verify_mail_postconditions_boxed<'a>(
+fn verify_mail_success_conditions_boxed<'a>(
     agent_state: &'a AgentState,
     tool_name: &'a str,
     tool_args: &'a Value,
     history_entry: &'a str,
-) -> PostconditionVerificationFuture<'a> {
+) -> SuccessConditionVerificationFuture<'a> {
     Box::pin(async move {
         let normalized = tool_name.trim().to_ascii_lowercase();
         if !matches!(
@@ -359,13 +360,13 @@ fn verify_mail_postconditions_boxed<'a>(
 
         if !(mailbox_matches && to_matches && subject_matches && body_matches && citation_matches) {
             return Err(format!(
-                "ERROR_CLASS=PostconditionFailed Mail reply verification failed. mailbox_matches={} to_matches={} subject_matches={} body_matches={} citation_matches={}",
+                "ERROR_CLASS=SuccessConditionFailed Mail reply verification failed. mailbox_matches={} to_matches={} subject_matches={} body_matches={} citation_matches={}",
                 mailbox_matches, to_matches, subject_matches, body_matches, citation_matches
             ));
         }
 
-        Ok(Some(ConnectorPostconditionProof {
-            evidence: vec![ConnectorPostconditionEvidence {
+        Ok(Some(ConnectorSuccessConditionProof {
+            evidence: vec![ConnectorSuccessConditionEvidence {
                 key: "mail.reply.completed".to_string(),
                 evidence: format!(
                     "mailbox={};to={};subject={};sent_message_id={}",
@@ -379,11 +380,11 @@ fn verify_mail_postconditions_boxed<'a>(
     })
 }
 
-pub fn mail_connector_postcondition_verifier_bindings() -> Vec<ConnectorPostconditionVerifierBinding>
-{
-    vec![ConnectorPostconditionVerifierBinding {
+pub fn mail_connector_success_condition_verifier_bindings(
+) -> Vec<ConnectorSuccessConditionVerifierBinding> {
+    vec![ConnectorSuccessConditionVerifierBinding {
         connector_id: MAIL_CONNECTOR_ID,
-        verify: verify_mail_postconditions_boxed,
+        verify: verify_mail_success_conditions_boxed,
     }]
 }
 

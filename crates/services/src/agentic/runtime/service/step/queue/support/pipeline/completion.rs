@@ -379,7 +379,19 @@ pub(crate) fn story_completion_contract_ready(
     if required_story_floor == 0 {
         return true;
     }
-    let facts = final_web_completion_facts(pending, WebPipelineCompletionReason::MinSourcesReached);
+    let raw_facts =
+        final_web_completion_facts(pending, WebPipelineCompletionReason::MinSourcesReached);
+    let facts = if raw_facts.briefing_layout_profile == "document_briefing" {
+        let rendered_summary =
+            synthesize_web_pipeline_reply(pending, WebPipelineCompletionReason::MinSourcesReached);
+        final_web_completion_facts_with_rendered_summary(
+            pending,
+            WebPipelineCompletionReason::MinSourcesReached,
+            &rendered_summary,
+        )
+    } else {
+        raw_facts
+    };
     if facts.briefing_layout_profile == "single_snapshot" {
         return facts.single_snapshot_metric_grounding
             && facts.briefing_selected_source_quality_floor_met

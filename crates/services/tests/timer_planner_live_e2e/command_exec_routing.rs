@@ -88,7 +88,7 @@ async fn timer_query_routes_to_command_exec_without_planner_fast_path() -> Resul
             KernelEvent::PlanReceipt(receipt) => receipt.session_id == Some(session_id),
             _ => false,
         }),
-        "planner receipts should not be emitted for timer queries anymore"
+        "planner evidence should not be emitted for timer queries anymore"
     );
     assert!(
         !events.iter().any(|event| match event {

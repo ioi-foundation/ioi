@@ -1890,7 +1890,7 @@ fn local_generation_remote_acceptance_policy_falls_back_truthfully_when_acceptan
         .expect("acceptance binding");
     assert!(acceptance_binding.fallback_applied);
     assert_eq!(
-        acceptance_binding.fallback_reason.as_deref(),
+        acceptance_binding.degradation_reason.as_deref(),
         Some("acceptance_runtime_unavailable")
     );
     assert_eq!(acceptance_binding.provenance.label, "local producer");
@@ -1959,7 +1959,7 @@ fn local_generation_remote_acceptance_prefers_local_specialist_for_markdown_gene
     assert_eq!(acceptance_binding.provenance.label, "local specialist");
     assert!(acceptance_binding.fallback_applied);
     assert_eq!(
-        acceptance_binding.fallback_reason.as_deref(),
+        acceptance_binding.degradation_reason.as_deref(),
         Some("compact_local_specialist_acceptance")
     );
 }
@@ -2003,7 +2003,7 @@ fn local_generation_remote_acceptance_prefers_local_specialist_for_download_bund
     assert_eq!(acceptance_binding.provenance.label, "local specialist");
     assert!(acceptance_binding.fallback_applied);
     assert_eq!(
-        acceptance_binding.fallback_reason.as_deref(),
+        acceptance_binding.degradation_reason.as_deref(),
         Some("compact_local_specialist_acceptance")
     );
 }

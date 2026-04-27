@@ -4,7 +4,7 @@ use crate::agentic::runtime::types::{
 use ioi_types::app::agentic::{LlmToolDefinition, ResolvedIntentState};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct AgentPlaybookRouteContract {
+pub struct AgentPlaybookDecisionRecord {
     pub route_family: &'static str,
     pub topology: &'static str,
     pub planner_authority: &'static str,
@@ -12,44 +12,44 @@ pub struct AgentPlaybookRouteContract {
     pub requires_verifier: bool,
 }
 
-pub fn playbook_route_contract(playbook_id: &str) -> AgentPlaybookRouteContract {
+pub fn playbook_decision_record(playbook_id: &str) -> AgentPlaybookDecisionRecord {
     match playbook_id.trim() {
-        "evidence_audited_patch" => AgentPlaybookRouteContract {
+        "evidence_audited_patch" => AgentPlaybookDecisionRecord {
             route_family: "coding",
             topology: "planner_specialist_verifier",
             planner_authority: "kernel",
             verifier_role: Some("test_verifier"),
             requires_verifier: true,
         },
-        "citation_grounded_brief" => AgentPlaybookRouteContract {
+        "citation_grounded_brief" => AgentPlaybookDecisionRecord {
             route_family: "research",
             topology: "planner_specialist_verifier",
             planner_authority: "kernel",
             verifier_role: Some("citation_verifier"),
             requires_verifier: true,
         },
-        "browser_postcondition_gate" => AgentPlaybookRouteContract {
+        "browser_postcondition_gate" => AgentPlaybookDecisionRecord {
             route_family: "computer_use",
             topology: "planner_specialist_verifier",
             planner_authority: "kernel",
             verifier_role: Some("postcondition_verifier"),
             requires_verifier: true,
         },
-        "artifact_generation_gate" => AgentPlaybookRouteContract {
+        "artifact_generation_gate" => AgentPlaybookDecisionRecord {
             route_family: "artifacts",
             topology: "planner_specialist_verifier",
             planner_authority: "kernel",
             verifier_role: Some("artifact_validation_verifier"),
             requires_verifier: true,
         },
-        "research_backed_artifact_gate" => AgentPlaybookRouteContract {
+        "research_backed_artifact_gate" => AgentPlaybookDecisionRecord {
             route_family: "artifacts",
             topology: "planner_specialist_verifier",
             planner_authority: "kernel",
             verifier_role: Some("artifact_validation_verifier"),
             requires_verifier: true,
         },
-        _ => AgentPlaybookRouteContract {
+        _ => AgentPlaybookDecisionRecord {
             route_family: "general",
             topology: "planner_specialist",
             planner_authority: "kernel",

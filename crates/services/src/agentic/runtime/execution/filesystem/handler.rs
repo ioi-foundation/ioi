@@ -189,10 +189,10 @@ async fn emit_fs_write_receipt(
     };
 
     let target_path =
-        workload::scrub_workload_text_field_for_receipt(exec, target_path.trim()).await;
+        workload::scrub_workload_text_field_for_evidence(exec, target_path.trim()).await;
     let destination_path = match destination_path {
         Some(path) => {
-            Some(workload::scrub_workload_text_field_for_receipt(exec, path.trim()).await)
+            Some(workload::scrub_workload_text_field_for_evidence(exec, path.trim()).await)
         }
         None => None,
     };

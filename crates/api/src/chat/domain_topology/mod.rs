@@ -2,7 +2,7 @@
 //!
 //! The functions in this module should stay provenance-free and product-shell
 //! agnostic. They compute reusable runtime semantics such as lane/topology
-//! projections, route decisions, source selection, verification state, and
+//! projections, route decisions, source decision, verification state, and
 //! non-artifact execution policy.
 //!
 //! UI-specific presentation, session lifecycle mutation, and shell-only render
@@ -11,7 +11,7 @@
 use super::intent_signals::ChatIntentContext;
 use super::runtime_locality::runtime_locality_scope_hint;
 use super::specialized_policy::{
-    chat_request_frame_clarification_slots, chat_request_frame_missing_slots,
+    chat_normalized_request_clarification_slots, chat_normalized_request_missing_slots,
     chat_specialized_domain_kind, chat_specialized_domain_policy,
 };
 use super::types::{
@@ -27,16 +27,16 @@ use crate::execution::{
 use ioi_types::app::{
     ChatArtifactClass, ChatArtifactLifecycleState, ChatArtifactManifest,
     ChatArtifactManifestVerification, ChatArtifactVerificationStatus, ChatCheckpointState,
-    ChatClarificationMode, ChatClarificationPolicy, ChatCompletionInvariant, ChatDomainLaneFrame,
+    ChatClarificationMode, ChatClarificationPolicy, ChatCompletionInvariant,
     ChatDomainPolicyBundle, ChatExecutionModeDecision, ChatExecutionStrategy,
-    ChatExecutionSubstrate, ChatFallbackMode, ChatFallbackPolicy, ChatLaneFamily,
+    ChatExecutionSubstrate, ChatFallbackMode, ChatFallbackPolicy, ChatLaneFamily, ChatLaneRequest,
     ChatLaneTransition, ChatLaneTransitionKind, ChatMessageComposeRequestFrame,
-    ChatNormalizedRequestFrame, ChatObjectiveState, ChatOrchestrationState,
-    ChatOutcomeArtifactRequest, ChatOutcomeKind, ChatOutcomeRequest, ChatPlacesRequestFrame,
-    ChatPolicyContractSummary, ChatPresentationPolicy, ChatRecipeRequestFrame, ChatRendererKind,
-    ChatRetainedLaneState, ChatRetainedWidgetState, ChatRiskProfile, ChatRiskSensitivity,
-    ChatRuntimeProvenance, ChatSourceFamily, ChatSourceRankingEntry, ChatSourceSelection,
-    ChatSportsRequestFrame, ChatTaskUnitState, ChatTransformationPolicy, ChatUserInputRequestFrame,
+    ChatNormalizedRequest, ChatObjectiveState, ChatOrchestrationState, ChatOutcomeArtifactRequest,
+    ChatOutcomeKind, ChatOutcomeRequest, ChatPlacesRequestFrame, ChatPolicyContractSummary,
+    ChatPresentationPolicy, ChatRecipeRequestFrame, ChatRendererKind, ChatRetainedLaneState,
+    ChatRetainedWidgetState, ChatRiskProfile, ChatRiskSensitivity, ChatRuntimeProvenance,
+    ChatSourceDecision, ChatSourceFamily, ChatSourceRankingEntry, ChatSportsRequestFrame,
+    ChatTaskUnitState, ChatTransformationPolicy, ChatUserInputRequestFrame,
     ChatVerificationContract, ChatWeatherRequestFrame, ChatWidgetStateBinding, ChatWorkStatus,
     RoutingEffectiveToolSurface, RoutingRouteDecision,
 };
@@ -44,9 +44,9 @@ use serde_json::json;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct TopologyProjection {
-    pub lane_frame: Option<ChatDomainLaneFrame>,
-    pub request_frame: Option<ChatNormalizedRequestFrame>,
-    pub source_selection: Option<ChatSourceSelection>,
+    pub lane_request: Option<ChatLaneRequest>,
+    pub normalized_request: Option<ChatNormalizedRequest>,
+    pub source_decision: Option<ChatSourceDecision>,
     pub retained_lane_state: Option<ChatRetainedLaneState>,
     pub lane_transitions: Vec<ChatLaneTransition>,
     pub orchestration_state: Option<ChatOrchestrationState>,
@@ -63,43 +63,47 @@ pub fn derive_chat_topology_projection(
     confidence: f32,
     needs_clarification: bool,
     clarification_questions: &[String],
-    routing_hints: &[String],
+    decision_evidence: &[String],
     artifact: Option<&ChatOutcomeArtifactRequest>,
 ) -> TopologyProjection {
     let context = ChatIntentContext::new(intent);
-    let request_frame = derive_request_frame(&context, routing_hints, active_widget_state);
+    let active_tool_widget_family =
+        active_tool_widget_family(&context, decision_evidence, active_widget_state);
+    let normalized_request =
+        derive_normalized_request(&context, decision_evidence, active_widget_state);
     let primary_lane = primary_lane_family(
         &context,
         outcome_kind,
-        routing_hints,
+        decision_evidence,
         artifact,
-        request_frame.as_ref(),
+        normalized_request.as_ref(),
     );
-    let lane_frame = Some(ChatDomainLaneFrame {
+    let lane_request = Some(ChatLaneRequest {
         primary_lane,
         secondary_lanes: secondary_lane_families(
             primary_lane,
-            request_frame.as_ref(),
-            routing_hints,
+            normalized_request.as_ref(),
+            decision_evidence,
             artifact,
         ),
         primary_goal: primary_goal(
             intent,
             primary_lane,
             outcome_kind,
-            routing_hints,
-            request_frame.as_ref(),
+            decision_evidence,
+            normalized_request.as_ref(),
             artifact,
         ),
-        tool_widget_family: tool_widget_family_hint(routing_hints).map(str::to_string),
-        currentness_pressure: routing_hint_flag(routing_hints, "currentness_override")
-            || matches!(
-                tool_widget_family_hint(routing_hints),
-                Some("weather" | "sports" | "places")
-            )
-            || context.currentness_pressure(),
-        workspace_grounding_required: routing_hint_flag(
-            routing_hints,
+        tool_widget_family: active_tool_widget_family.map(str::to_string),
+        currentness_pressure: decision_evidence_item_flag(
+            decision_evidence,
+            "currentness_override",
+        ) || matches!(
+            active_tool_widget_family,
+            Some("weather" | "sports" | "places")
+        ) || context.currentness_pressure(),
+        workspace_grounding_required: decision_evidence_item_flag(
+            decision_evidence,
             "workspace_grounding_required",
         ) || artifact.is_some_and(|request| {
             matches!(
@@ -115,11 +119,11 @@ pub fn derive_chat_topology_projection(
             0.0
         },
     });
-    let source_selection = Some(derive_source_selection(
+    let source_decision = Some(derive_source_decision(
         &context,
         primary_lane,
-        request_frame.as_ref(),
-        routing_hints,
+        normalized_request.as_ref(),
+        decision_evidence,
         active_artifact_id,
     ));
     let retained_lane_state = Some(ChatRetainedLaneState {
@@ -128,28 +132,31 @@ pub fn derive_chat_topology_projection(
         } else {
             primary_lane
         },
-        active_tool_widget_family: tool_widget_family_hint(routing_hints).map(str::to_string),
+        active_tool_widget_family: tool_widget_family_hint(decision_evidence).map(str::to_string),
         active_artifact_id: active_artifact_id.map(str::to_string),
         unresolved_clarification_question: clarification_questions.first().cloned(),
-        selected_provider_family: routing_hint_value(routing_hints, "selected_provider_family:"),
-        selected_provider_route_label: routing_hint_value(
-            routing_hints,
+        selected_provider_family: decision_evidence_item_value(
+            decision_evidence,
+            "selected_provider_family:",
+        ),
+        selected_provider_route_label: decision_evidence_item_value(
+            decision_evidence,
             "selected_provider_route_label:",
         ),
-        selected_source_family: source_selection
+        selected_source_family: source_decision
             .as_ref()
             .map(|selection| selection.selected_source),
     });
     let lane_transitions = derive_lane_transitions(
         primary_lane,
-        lane_frame
+        lane_request
             .as_ref()
             .map(|frame| frame.secondary_lanes.as_slice())
             .unwrap_or(&[]),
-        request_frame.as_ref(),
+        normalized_request.as_ref(),
         needs_clarification,
         clarification_questions,
-        routing_hints,
+        decision_evidence,
     );
     let orchestration_state = derive_orchestration_state(
         intent,
@@ -159,13 +166,13 @@ pub fn derive_chat_topology_projection(
         execution_mode_decision,
         needs_clarification,
         clarification_questions,
-        request_frame.as_ref(),
+        normalized_request.as_ref(),
     );
 
     ChatTopologyProjection {
-        lane_frame,
-        request_frame,
-        source_selection,
+        lane_request,
+        normalized_request,
+        source_decision,
         retained_lane_state,
         lane_transitions,
         orchestration_state,
@@ -173,37 +180,42 @@ pub fn derive_chat_topology_projection(
 }
 
 pub fn derive_chat_domain_policy_bundle(
-    lane_frame: Option<&ChatDomainLaneFrame>,
-    request_frame: Option<&ChatNormalizedRequestFrame>,
-    source_selection: Option<&ChatSourceSelection>,
+    lane_request: Option<&ChatLaneRequest>,
+    normalized_request: Option<&ChatNormalizedRequest>,
+    source_decision: Option<&ChatSourceDecision>,
     outcome_kind: ChatOutcomeKind,
-    routing_hints: &[String],
+    decision_evidence: &[String],
     needs_clarification: bool,
     active_widget_state: Option<&ChatRetainedWidgetState>,
 ) -> ChatDomainPolicyBundle {
-    let retained_widget_state = merge_retained_widget_state(request_frame, active_widget_state);
+    let retained_widget_state =
+        merge_retained_widget_state(normalized_request, active_widget_state);
     let clarification_policy = derive_clarification_policy(
-        request_frame,
+        normalized_request,
         needs_clarification,
         retained_widget_state.as_ref(),
     );
     let fallback_policy = derive_fallback_policy(
-        lane_frame,
-        request_frame,
-        routing_hints,
+        lane_request,
+        normalized_request,
+        decision_evidence,
         needs_clarification,
     );
     let presentation_policy = derive_presentation_policy(
-        lane_frame,
-        request_frame,
+        lane_request,
+        normalized_request,
         outcome_kind,
         retained_widget_state.as_ref(),
     );
-    let transformation_policy = derive_transformation_policy(request_frame, outcome_kind);
-    let risk_profile = derive_risk_profile(lane_frame, request_frame, routing_hints);
-    let verification_contract =
-        derive_verification_contract(lane_frame, request_frame, outcome_kind, needs_clarification);
-    let source_ranking = derive_source_ranking(request_frame, source_selection);
+    let transformation_policy = derive_transformation_policy(normalized_request, outcome_kind);
+    let risk_profile = derive_risk_profile(lane_request, normalized_request, decision_evidence);
+    let verification_contract = derive_verification_contract(
+        lane_request,
+        normalized_request,
+        outcome_kind,
+        needs_clarification,
+    );
+    let source_ranking = derive_source_ranking(normalized_request, source_decision);
 
     ChatDomainPolicyBundle {
         clarification_policy,
@@ -214,9 +226,9 @@ pub fn derive_chat_domain_policy_bundle(
         verification_contract,
         policy_contract: Some(ChatPolicyContractSummary {
             bindings: vec![
-                "lane_frame".to_string(),
-                "request_frame".to_string(),
-                "source_selection".to_string(),
+                "lane_request".to_string(),
+                "normalized_request".to_string(),
+                "source_decision".to_string(),
                 "route_decision.effective_tool_surface".to_string(),
                 "domain_policy_bundle".to_string(),
             ],
@@ -230,12 +242,12 @@ pub fn derive_chat_domain_policy_bundle(
     }
 }
 
-fn routing_hint_flag(routing_hints: &[String], needle: &str) -> bool {
-    routing_hints.iter().any(|hint| hint == needle)
+fn decision_evidence_item_flag(decision_evidence: &[String], needle: &str) -> bool {
+    decision_evidence.iter().any(|hint| hint == needle)
 }
 
-fn routing_hint_value(routing_hints: &[String], prefix: &str) -> Option<String> {
-    routing_hints
+fn decision_evidence_item_value(decision_evidence: &[String], prefix: &str) -> Option<String> {
+    decision_evidence
         .iter()
         .find_map(|hint| hint.strip_prefix(prefix))
         .map(str::to_string)
@@ -245,24 +257,33 @@ pub fn artifact_connector_grounding_for_outcome_request(
     outcome_request: &ChatOutcomeRequest,
 ) -> Option<ArtifactConnectorGrounding> {
     if outcome_request.outcome_kind != ChatOutcomeKind::Artifact
-        || !routing_hint_flag(&outcome_request.routing_hints, "connector_intent_detected")
+        || !decision_evidence_item_flag(
+            &outcome_request.decision_evidence,
+            "connector_intent_detected",
+        )
     {
         return None;
     }
 
     Some(ArtifactConnectorGrounding {
-        connector_id: routing_hint_value(&outcome_request.routing_hints, "selected_connector_id:"),
-        provider_family: routing_hint_value(
-            &outcome_request.routing_hints,
+        connector_id: decision_evidence_item_value(
+            &outcome_request.decision_evidence,
+            "selected_connector_id:",
+        ),
+        provider_family: decision_evidence_item_value(
+            &outcome_request.decision_evidence,
             "selected_provider_family:",
         ),
-        target_label: routing_hint_value(&outcome_request.routing_hints, "connector_target_label:"),
+        target_label: decision_evidence_item_value(
+            &outcome_request.decision_evidence,
+            "connector_target_label:",
+        ),
     })
 }
 
 pub fn route_family_for_outcome_request(outcome_request: &ChatOutcomeRequest) -> &'static str {
-    if let Some(lane_frame) = outcome_request.lane_frame.as_ref() {
-        return match lane_frame.primary_lane {
+    if let Some(lane_request) = outcome_request.lane_request.as_ref() {
+        return match lane_request.primary_lane {
             ChatLaneFamily::Research => "research",
             ChatLaneFamily::Coding => "coding",
             ChatLaneFamily::Integrations => "integrations",
@@ -275,12 +296,15 @@ pub fn route_family_for_outcome_request(outcome_request: &ChatOutcomeRequest) ->
         };
     }
 
-    let widget_family = tool_widget_family_hint(&outcome_request.routing_hints);
-    if routing_hint_flag(&outcome_request.routing_hints, "connector_intent_detected") {
+    let widget_family = tool_widget_family_hint(&outcome_request.decision_evidence);
+    if decision_evidence_item_flag(
+        &outcome_request.decision_evidence,
+        "connector_intent_detected",
+    ) {
         return "integrations";
     }
-    if routing_hint_flag(
-        &outcome_request.routing_hints,
+    if decision_evidence_item_flag(
+        &outcome_request.decision_evidence,
         "workspace_grounding_required",
     ) {
         return "coding";
@@ -301,7 +325,7 @@ pub fn route_family_for_outcome_request(outcome_request: &ChatOutcomeRequest) ->
         return "artifacts";
     }
     if outcome_request
-        .routing_hints
+        .decision_evidence
         .iter()
         .any(|hint| hint == "currentness_override")
         || matches!(
@@ -318,15 +342,15 @@ pub fn selected_route_label_for_outcome_request(outcome_request: &ChatOutcomeReq
     match outcome_request.outcome_kind {
         ChatOutcomeKind::Conversation => {
             if matches!(
-                outcome_request.request_frame.as_ref(),
-                Some(ChatNormalizedRequestFrame::MessageCompose(_))
+                outcome_request.normalized_request.as_ref(),
+                Some(ChatNormalizedRequest::MessageCompose(_))
             ) {
                 format!(
                     "communication_{}",
                     execution_strategy_id(outcome_request.execution_strategy)
                 )
-            } else if let Some(route_label) = routing_hint_value(
-                &outcome_request.routing_hints,
+            } else if let Some(route_label) = decision_evidence_item_value(
+                &outcome_request.decision_evidence,
                 "selected_provider_route_label:",
             ) {
                 format!(
@@ -334,21 +358,26 @@ pub fn selected_route_label_for_outcome_request(outcome_request: &ChatOutcomeReq
                     route_label,
                     execution_strategy_id(outcome_request.execution_strategy)
                 )
-            } else if routing_hint_flag(
-                &outcome_request.routing_hints,
+            } else if decision_evidence_item_flag(
+                &outcome_request.decision_evidence,
                 "workspace_grounding_required",
             ) {
                 format!(
                     "conversation_workspace_grounded_{}",
                     execution_strategy_id(outcome_request.execution_strategy)
                 )
-            } else if routing_hint_flag(&outcome_request.routing_hints, "currentness_override") {
+            } else if decision_evidence_item_flag(
+                &outcome_request.decision_evidence,
+                "currentness_override",
+            ) {
                 format!(
                     "conversation_currentness_{}",
                     execution_strategy_id(outcome_request.execution_strategy)
                 )
-            } else if routing_hint_flag(&outcome_request.routing_hints, "connector_intent_detected")
-            {
+            } else if decision_evidence_item_flag(
+                &outcome_request.decision_evidence,
+                "connector_intent_detected",
+            ) {
                 format!(
                     "conversation_connector_{}",
                     execution_strategy_id(outcome_request.execution_strategy)
@@ -361,7 +390,7 @@ pub fn selected_route_label_for_outcome_request(outcome_request: &ChatOutcomeReq
             }
         }
         ChatOutcomeKind::ToolWidget => {
-            match tool_widget_family_hint(&outcome_request.routing_hints) {
+            match tool_widget_family_hint(&outcome_request.decision_evidence) {
                 Some(widget_family) => format!("tool_widget_{widget_family}"),
                 None => "tool_widget".to_string(),
             }
@@ -382,10 +411,10 @@ pub fn route_decision_for_outcome_request(
     outcome_request: &ChatOutcomeRequest,
 ) -> RoutingRouteDecision {
     let currentness_override = outcome_request
-        .routing_hints
+        .decision_evidence
         .iter()
         .any(|hint| hint == "currentness_override");
-    let tool_widget_family = tool_widget_family_hint(&outcome_request.routing_hints);
+    let tool_widget_family = tool_widget_family_hint(&outcome_request.decision_evidence);
     let file_output_intent = file_output_intent_for_outcome_request(outcome_request);
     let skill_prep_required = skill_prep_required_for_outcome_request(outcome_request);
     let mut direct_answer_blockers = Vec::<String>::new();
@@ -395,8 +424,8 @@ pub fn route_decision_for_outcome_request(
     if currentness_override {
         direct_answer_blockers.push("currentness_override".to_string());
     }
-    if routing_hint_flag(
-        &outcome_request.routing_hints,
+    if decision_evidence_item_flag(
+        &outcome_request.decision_evidence,
         "workspace_grounding_required",
     ) {
         direct_answer_blockers.push("workspace_grounding_required".to_string());
@@ -404,7 +433,7 @@ pub fn route_decision_for_outcome_request(
     if tool_widget_family.is_some() {
         direct_answer_blockers.push("tool_widget_surface_selected".to_string());
     }
-    if request_frame_surface_hint(outcome_request).is_some() {
+    if normalized_request_surface_hint(outcome_request).is_some() {
         direct_answer_blockers.push("structured_surface_selected".to_string());
     }
     if outcome_request.outcome_kind == ChatOutcomeKind::Visualizer {
@@ -420,10 +449,13 @@ pub fn route_decision_for_outcome_request(
     {
         direct_answer_blockers.push("planned_execution_selected".to_string());
     }
-    if routing_hint_flag(&outcome_request.routing_hints, "connector_missing") {
+    if decision_evidence_item_flag(&outcome_request.decision_evidence, "connector_missing") {
         direct_answer_blockers.push("connector_unavailable".to_string());
     }
-    if routing_hint_flag(&outcome_request.routing_hints, "connector_auth_required") {
+    if decision_evidence_item_flag(
+        &outcome_request.decision_evidence,
+        "connector_auth_required",
+    ) {
         direct_answer_blockers.push("connector_auth_required".to_string());
     }
     let raw_output_intent = output_intent_for_outcome_request(outcome_request);
@@ -440,22 +472,22 @@ pub fn route_decision_for_outcome_request(
         direct_answer_allowed,
         direct_answer_blockers,
         currentness_override,
-        connector_candidate_count: routing_hint_value(
-            &outcome_request.routing_hints,
+        connector_candidate_count: decision_evidence_item_value(
+            &outcome_request.decision_evidence,
             "connector_candidate_count:",
         )
         .and_then(|value| value.parse::<u32>().ok())
         .unwrap_or(0),
-        selected_provider_family: routing_hint_value(
-            &outcome_request.routing_hints,
+        selected_provider_family: decision_evidence_item_value(
+            &outcome_request.decision_evidence,
             "selected_provider_family:",
         ),
-        selected_provider_route_label: routing_hint_value(
-            &outcome_request.routing_hints,
+        selected_provider_route_label: decision_evidence_item_value(
+            &outcome_request.decision_evidence,
             "selected_provider_route_label:",
         ),
-        connector_first_preference: routing_hint_flag(
-            &outcome_request.routing_hints,
+        connector_first_preference: decision_evidence_item_flag(
+            &outcome_request.decision_evidence,
             "connector_intent_detected",
         ),
         narrow_tool_preference: narrow_tool_preference_for_outcome_request(outcome_request),
@@ -488,11 +520,11 @@ pub fn verifier_state_for_outcome_event(
     if completed {
         return "passed";
     }
-    if routing_hint_flag(&outcome_request.routing_hints, "currentness_override") {
+    if decision_evidence_item_flag(&outcome_request.decision_evidence, "currentness_override") {
         return "active";
     }
-    if routing_hint_flag(
-        &outcome_request.routing_hints,
+    if decision_evidence_item_flag(
+        &outcome_request.decision_evidence,
         "workspace_grounding_required",
     ) {
         return "active";
@@ -505,47 +537,44 @@ pub fn verifier_state_for_outcome_event(
     "not_engaged"
 }
 
-pub fn non_artifact_route_status_message(outcome_request: &ChatOutcomeRequest) -> String {
+pub fn inline_answer_status_message(outcome_request: &ChatOutcomeRequest) -> String {
     if outcome_request.needs_clarification {
-        return "Chat needs clarification before selecting the correct outcome surface."
-            .to_string();
+        return "Chat needs clarification before preparing the right answer surface.".to_string();
     }
 
     let base = match outcome_request.outcome_kind {
-        ChatOutcomeKind::Conversation => "Chat routed this request to conversation.",
-        ChatOutcomeKind::ToolWidget => "Chat routed this request to a tool-widget surface.",
-        ChatOutcomeKind::Visualizer => "Chat routed this request to a visualizer surface.",
-        ChatOutcomeKind::Artifact => "Chat routed this request to artifact materialization.",
+        ChatOutcomeKind::Conversation => "Chat prepared a direct answer.",
+        ChatOutcomeKind::ToolWidget => "Chat prepared an interactive tool surface.",
+        ChatOutcomeKind::Visualizer => "Chat prepared a visual answer surface.",
+        ChatOutcomeKind::Artifact => "Chat prepared an artifact workspace.",
     };
 
     let continuation = if outcome_request
-        .routing_hints
+        .decision_evidence
         .iter()
         .any(|hint| hint == "currentness_override")
     {
-        " Continuing on the main runtime with currentness pressure in view."
+        " Current information needs stay attached."
     } else if let Some(widget_family) = outcome_request
-        .routing_hints
+        .decision_evidence
         .iter()
         .find_map(|hint| hint.strip_prefix("tool_widget:"))
     {
-        return format!(
-            "{base} Continuing on the main runtime with a narrow {widget_family} surface preference."
-        );
+        return format!("{base} Keeping the {widget_family} surface preference attached.");
     } else if outcome_request
-        .routing_hints
+        .decision_evidence
         .iter()
         .any(|hint| hint == "inline_visual_requested")
     {
-        " Continuing on the main runtime with inline visual intent preserved."
+        " Inline visual intent stays attached."
     } else {
-        " Continuing on the main runtime without opening an artifact renderer."
+        " No artifact renderer is needed."
     };
 
     format!("{base}{continuation}")
 }
 
-pub fn non_artifact_route_summary(outcome_request: &ChatOutcomeRequest) -> String {
+pub fn inline_answer_route_summary(outcome_request: &ChatOutcomeRequest) -> String {
     if outcome_request.needs_clarification {
         let question = outcome_request
             .clarification_questions
@@ -636,8 +665,8 @@ pub fn build_chat_runtime_handoff_prompt_prefix(
                 .to_string(),
         );
     }
-    if routing_hint_flag(
-        &outcome_request.routing_hints,
+    if decision_evidence_item_flag(
+        &outcome_request.decision_evidence,
         "workspace_grounding_required",
     ) {
         execution_rules.push(
@@ -649,13 +678,16 @@ pub fn build_chat_runtime_handoff_prompt_prefix(
                 .to_string(),
         );
     }
-    if routing_hint_flag(&outcome_request.routing_hints, "currentness_override") {
+    if decision_evidence_item_flag(&outcome_request.decision_evidence, "currentness_override") {
         execution_rules.push(
             "Fresh external information is required here; use current retrieval before answering."
                 .to_string(),
         );
     }
-    if routing_hint_flag(&outcome_request.routing_hints, "connector_intent_detected") {
+    if decision_evidence_item_flag(
+        &outcome_request.decision_evidence,
+        "connector_intent_detected",
+    ) {
         execution_rules.push(
             "Prefer the selected connector/provider route over generic fallbacks.".to_string(),
         );
@@ -685,7 +717,7 @@ pub fn build_chat_runtime_handoff_prompt_prefix(
     )
 }
 
-pub fn non_artifact_route_notes(outcome_request: &ChatOutcomeRequest) -> Vec<String> {
+pub fn inline_answer_route_notes(outcome_request: &ChatOutcomeRequest) -> Vec<String> {
     let route_decision = route_decision_for_outcome_request(outcome_request);
     let mut notes = vec![
         format!("Route family: {}", route_decision.route_family),
@@ -707,7 +739,7 @@ pub fn non_artifact_route_notes(outcome_request: &ChatOutcomeRequest) -> Vec<Str
     notes
 }
 
-pub fn non_artifact_verification_receipts(
+pub fn inline_answer_verification_receipts(
     outcome_request: &ChatOutcomeRequest,
 ) -> Vec<SwarmVerificationReceipt> {
     let status = if outcome_request.needs_clarification {
@@ -738,7 +770,7 @@ pub fn non_artifact_verification_receipts(
             details: if outcome_request.needs_clarification {
                 outcome_request.clarification_questions.clone()
             } else {
-                outcome_request.routing_hints.clone()
+                outcome_request.decision_evidence.clone()
             },
         },
         SwarmVerificationReceipt {
@@ -757,14 +789,14 @@ pub fn non_artifact_verification_receipts(
                     "strategy:{}",
                     execution_strategy_id(outcome_request.execution_strategy)
                 )];
-                details.extend(outcome_request.routing_hints.iter().cloned());
+                details.extend(outcome_request.decision_evidence.iter().cloned());
                 details
             },
         },
     ]
 }
 
-pub fn non_artifact_operator_steps(
+pub fn inline_answer_operator_steps(
     outcome_request: &ChatOutcomeRequest,
 ) -> Vec<ArtifactOperatorStep> {
     vec![
@@ -772,7 +804,7 @@ pub fn non_artifact_operator_steps(
             step_id: "verify_route".to_string(),
             origin_prompt_event_id: String::new(),
             phase: ArtifactOperatorPhase::VerifyArtifact,
-            engine: "non_artifact_route".to_string(),
+            engine: "inline_answer_route".to_string(),
             status: ArtifactOperatorRunStatus::Complete,
             label: "Verify route".to_string(),
             detail: "Verify route completed.".to_string(),
@@ -788,7 +820,7 @@ pub fn non_artifact_operator_steps(
             step_id: "verify_reply_surface".to_string(),
             origin_prompt_event_id: String::new(),
             phase: ArtifactOperatorPhase::VerifyArtifact,
-            engine: "non_artifact_route".to_string(),
+            engine: "inline_answer_route".to_string(),
             status: if outcome_request.needs_clarification {
                 ArtifactOperatorRunStatus::Blocked
             } else {
@@ -811,7 +843,7 @@ pub fn non_artifact_operator_steps(
     ]
 }
 
-pub fn non_artifact_swarm_plan(outcome_request: &ChatOutcomeRequest) -> SwarmPlan {
+pub fn inline_answer_swarm_plan(outcome_request: &ChatOutcomeRequest) -> SwarmPlan {
     let outcome_kind_id = match outcome_request.outcome_kind {
         ChatOutcomeKind::Conversation => "conversation",
         ChatOutcomeKind::ToolWidget => "tool_widget",
@@ -938,7 +970,7 @@ pub fn non_artifact_swarm_plan(outcome_request: &ChatOutcomeRequest) -> SwarmPla
     }
 }
 
-pub fn apply_non_artifact_clarification_gate(
+pub fn apply_inline_answer_clarification_gate(
     swarm_plan: &mut SwarmPlan,
     outcome_request: &ChatOutcomeRequest,
 ) -> (
@@ -1005,7 +1037,7 @@ pub fn apply_non_artifact_clarification_gate(
     )
 }
 
-pub fn non_artifact_worker_receipts(
+pub fn inline_answer_worker_receipts(
     outcome_request: &ChatOutcomeRequest,
     provenance: &ChatRuntimeProvenance,
     swarm_plan: &SwarmPlan,
@@ -1072,7 +1104,7 @@ pub fn non_artifact_worker_receipts(
             clarification_questions.clone()
         } else {
             let mut notes = vec!["No artifact files were requested on this route.".to_string()];
-            notes.extend(outcome_request.routing_hints.iter().cloned());
+            notes.extend(outcome_request.decision_evidence.iter().cloned());
             notes
         },
         failure: None,
@@ -1131,7 +1163,7 @@ pub fn non_artifact_worker_receipts(
         notes: vec![
             "Chat kept the shared execution evidence instead of surfacing a blocked artifact failure."
                 .to_string(),
-            outcome_request.routing_hints.join(" · "),
+            outcome_request.decision_evidence.join(" · "),
         ],
         failure: if outcome_request.needs_clarification {
             Some("Clarification is still required before reply handoff can complete.".to_string())
@@ -1196,7 +1228,7 @@ pub fn verified_reply_evidence_for_manifest(
     evidence
 }
 
-pub fn non_artifact_verified_reply_evidence(
+pub fn inline_answer_verified_reply_evidence(
     outcome_request: &ChatOutcomeRequest,
     provenance_label: &str,
 ) -> Vec<String> {
@@ -1219,14 +1251,14 @@ pub fn non_artifact_verified_reply_evidence(
     .into_iter()
     .chain(
         outcome_request
-            .routing_hints
+            .decision_evidence
             .iter()
             .map(|hint| format!("route_hint:{hint}")),
     )
     .collect()
 }
 
-pub fn non_artifact_route_title(intent: &str, outcome_request: &ChatOutcomeRequest) -> String {
+pub fn inline_answer_route_title(intent: &str, outcome_request: &ChatOutcomeRequest) -> String {
     let trimmed = intent.trim();
     let base = if trimmed.is_empty() {
         "Untitled request".to_string()
@@ -1248,17 +1280,17 @@ pub fn non_artifact_route_title(intent: &str, outcome_request: &ChatOutcomeReque
     }
 }
 
-pub fn build_chat_route_contract_payload(
+pub fn build_chat_decision_record_payload(
     outcome_request: &ChatOutcomeRequest,
     completed: bool,
     retained_widget_state: Option<&ChatRetainedWidgetState>,
 ) -> serde_json::Value {
     let domain_policy_bundle = derive_chat_domain_policy_bundle(
-        outcome_request.lane_frame.as_ref(),
-        outcome_request.request_frame.as_ref(),
-        outcome_request.source_selection.as_ref(),
+        outcome_request.lane_request.as_ref(),
+        outcome_request.normalized_request.as_ref(),
+        outcome_request.source_decision.as_ref(),
         outcome_request.outcome_kind,
-        &outcome_request.routing_hints,
+        &outcome_request.decision_evidence,
         outcome_request.needs_clarification,
         retained_widget_state,
     );
@@ -1272,9 +1304,9 @@ pub fn build_chat_route_contract_payload(
         "verifier_state": verifier_state,
         "verifier_outcome": if completed { Some("pass") } else { None::<&str> },
         "route_decision": route_decision,
-        "lane_frame": outcome_request.lane_frame,
-        "request_frame": outcome_request.request_frame,
-        "source_selection": outcome_request.source_selection,
+        "lane_request": outcome_request.lane_request,
+        "normalized_request": outcome_request.normalized_request,
+        "source_decision": outcome_request.source_decision,
         "retained_lane_state": outcome_request.retained_lane_state,
         "lane_transitions": outcome_request.lane_transitions,
         "orchestration_state": outcome_request.orchestration_state,
@@ -1306,10 +1338,10 @@ fn renderer_kind_id(renderer: ChatRendererKind) -> &'static str {
     }
 }
 
-fn request_frame_surface_hint(outcome_request: &ChatOutcomeRequest) -> Option<&'static str> {
-    match outcome_request.request_frame.as_ref() {
-        Some(ChatNormalizedRequestFrame::MessageCompose(_)) => Some("message_compose"),
-        Some(ChatNormalizedRequestFrame::UserInput(_)) => Some("user_input"),
+fn normalized_request_surface_hint(outcome_request: &ChatOutcomeRequest) -> Option<&'static str> {
+    match outcome_request.normalized_request.as_ref() {
+        Some(ChatNormalizedRequest::MessageCompose(_)) => Some("message_compose"),
+        Some(ChatNormalizedRequest::UserInput(_)) => Some("user_input"),
         _ => None,
     }
 }
@@ -1364,22 +1396,27 @@ fn skill_prep_required_for_outcome_request(outcome_request: &ChatOutcomeRequest)
 }
 
 fn narrow_tool_preference_for_outcome_request(outcome_request: &ChatOutcomeRequest) -> bool {
-    tool_widget_family_hint(&outcome_request.routing_hints).is_some()
-        || request_frame_surface_hint(outcome_request).is_some()
-        || routing_hint_flag(&outcome_request.routing_hints, "narrow_surface_preferred")
-        || routing_hint_flag(
-            &outcome_request.routing_hints,
+    tool_widget_family_hint(&outcome_request.decision_evidence).is_some()
+        || normalized_request_surface_hint(outcome_request).is_some()
+        || decision_evidence_item_flag(
+            &outcome_request.decision_evidence,
+            "narrow_surface_preferred",
+        )
+        || decision_evidence_item_flag(
+            &outcome_request.decision_evidence,
             "workspace_grounding_required",
         )
-        || routing_hint_flag(&outcome_request.routing_hints, "connector_intent_detected")
+        || decision_evidence_item_flag(
+            &outcome_request.decision_evidence,
+            "connector_intent_detected",
+        )
         || outcome_request.outcome_kind == ChatOutcomeKind::Visualizer
 }
 
 fn output_intent_for_outcome_request(outcome_request: &ChatOutcomeRequest) -> &'static str {
     if matches!(
-        outcome_request.request_frame.as_ref(),
-        Some(ChatNormalizedRequestFrame::MessageCompose(_))
-            | Some(ChatNormalizedRequestFrame::UserInput(_))
+        outcome_request.normalized_request.as_ref(),
+        Some(ChatNormalizedRequest::MessageCompose(_)) | Some(ChatNormalizedRequest::UserInput(_))
     ) {
         return "tool_execution";
     }
@@ -1388,17 +1425,17 @@ fn output_intent_for_outcome_request(outcome_request: &ChatOutcomeRequest) -> &'
         ChatOutcomeKind::Conversation
             if outcome_request.execution_strategy == ChatExecutionStrategy::SinglePass
                 && !outcome_request.needs_clarification
-                && tool_widget_family_hint(&outcome_request.routing_hints).is_none()
+                && tool_widget_family_hint(&outcome_request.decision_evidence).is_none()
                 && !outcome_request
-                    .routing_hints
+                    .decision_evidence
                     .iter()
                     .any(|hint| hint == "workspace_grounding_required")
                 && !outcome_request
-                    .routing_hints
+                    .decision_evidence
                     .iter()
                     .any(|hint| hint == "currentness_override")
                 && !outcome_request
-                    .routing_hints
+                    .decision_evidence
                     .iter()
                     .any(|hint| hint == "connector_intent_detected") =>
         {
@@ -1417,29 +1454,32 @@ fn effective_tool_surface_for_outcome_request(
     let mut primary_tools = Vec::<String>::new();
     let mut broad_fallback_tools = Vec::<String>::new();
     if let Some(connector_id) =
-        routing_hint_value(&outcome_request.routing_hints, "selected_connector_id:")
+        decision_evidence_item_value(&outcome_request.decision_evidence, "selected_connector_id:")
     {
         primary_tools.push(format!("connector:{connector_id}"));
     }
-    if let Some(route_label) = routing_hint_value(
-        &outcome_request.routing_hints,
+    if let Some(route_label) = decision_evidence_item_value(
+        &outcome_request.decision_evidence,
         "selected_provider_route_label:",
     ) {
         primary_tools.push(format!("provider_route:{route_label}"));
     }
     match outcome_request.outcome_kind {
         ChatOutcomeKind::Conversation => {
-            if let Some(surface_hint) = request_frame_surface_hint(outcome_request) {
+            if let Some(surface_hint) = normalized_request_surface_hint(outcome_request) {
                 match surface_hint {
                     "message_compose" => primary_tools.push("message_compose_v1".to_string()),
                     "user_input" => primary_tools.push("ask_user_input_v0".to_string()),
                     _ => {}
                 }
-            } else if routing_hint_flag(&outcome_request.routing_hints, "currentness_override") {
+            } else if decision_evidence_item_flag(
+                &outcome_request.decision_evidence,
+                "currentness_override",
+            ) {
                 primary_tools.push("web_search".to_string());
                 primary_tools.push("web_fetch".to_string());
-            } else if routing_hint_flag(
-                &outcome_request.routing_hints,
+            } else if decision_evidence_item_flag(
+                &outcome_request.decision_evidence,
                 "workspace_grounding_required",
             ) {
                 primary_tools.push("view".to_string());
@@ -1447,7 +1487,7 @@ fn effective_tool_surface_for_outcome_request(
             }
         }
         ChatOutcomeKind::ToolWidget => {
-            match tool_widget_family_hint(&outcome_request.routing_hints) {
+            match tool_widget_family_hint(&outcome_request.decision_evidence) {
                 Some("weather") => {
                     primary_tools.push("weather_fetch".to_string());
                     broad_fallback_tools.push("web_search".to_string());
@@ -1485,7 +1525,7 @@ fn effective_tool_surface_for_outcome_request(
         primary_tools,
         broad_fallback_tools,
         diagnostic_tools: outcome_request
-            .routing_hints
+            .decision_evidence
             .iter()
             .map(|hint| format!("route_hint:{hint}"))
             .collect(),
@@ -1494,7 +1534,7 @@ fn effective_tool_surface_for_outcome_request(
 
 fn chat_route_hint_reason_fragments(outcome_request: &ChatOutcomeRequest) -> Vec<String> {
     let mut fragments = Vec::<String>::new();
-    for hint in &outcome_request.routing_hints {
+    for hint in &outcome_request.decision_evidence {
         match hint.as_str() {
             "currentness_override" => fragments.push(
                 "Currentness pressure makes a shared answer lane safer than precommitting to a persistent artifact."
@@ -1549,10 +1589,56 @@ fn chat_route_hint_reason_fragments(outcome_request: &ChatOutcomeRequest) -> Vec
     fragments
 }
 
-fn tool_widget_family_hint(routing_hints: &[String]) -> Option<&str> {
-    routing_hints
+fn tool_widget_family_hint(decision_evidence: &[String]) -> Option<&str> {
+    decision_evidence
         .iter()
         .find_map(|hint| hint.strip_prefix("tool_widget:"))
+}
+
+fn retained_widget_family_applies_to_context(
+    family: &str,
+    context: &ChatIntentContext,
+    active_widget_state: Option<&ChatRetainedWidgetState>,
+) -> bool {
+    match family {
+        "weather" => {
+            widget_binding_value(active_widget_state, "weather.location").is_some()
+                && (context.weather_temporal_scope().is_some()
+                    || context.currentness_pressure()
+                    || !context.extract_weather_scopes().is_empty())
+        }
+        "sports" => {
+            widget_binding_value(active_widget_state, "sports.target").is_some()
+                && (context.sports_data_scope().is_some() || context.currentness_pressure())
+        }
+        "places" => {
+            widget_binding_value(active_widget_state, "places.location_scope").is_some()
+                && (context.requests_runtime_locality()
+                    || context.currentness_pressure()
+                    || context.places_category_label().is_some())
+        }
+        "recipe" => {
+            widget_binding_value(active_widget_state, "recipe.dish").is_some()
+                && context.recipe_servings().is_some()
+        }
+        _ => false,
+    }
+}
+
+fn active_tool_widget_family<'a>(
+    context: &ChatIntentContext,
+    decision_evidence: &'a [String],
+    active_widget_state: Option<&'a ChatRetainedWidgetState>,
+) -> Option<&'a str> {
+    if let Some(family) = tool_widget_family_hint(decision_evidence) {
+        return Some(family);
+    }
+    if let Some(family) = context.tool_widget_family() {
+        return Some(family);
+    }
+    let retained_family = active_widget_state.and_then(|state| state.widget_family.as_deref())?;
+    retained_widget_family_applies_to_context(retained_family, context, active_widget_state)
+        .then_some(retained_family)
 }
 
 fn widget_binding_value(
@@ -1587,14 +1673,14 @@ fn is_self_referential_places_anchor(anchor: &str) -> bool {
     )
 }
 
-fn derive_request_frame(
+fn derive_normalized_request(
     context: &ChatIntentContext,
-    routing_hints: &[String],
+    decision_evidence: &[String],
     active_widget_state: Option<&ChatRetainedWidgetState>,
-) -> Option<ChatNormalizedRequestFrame> {
-    if matches!(tool_widget_family_hint(routing_hints), Some("weather"))
-        || context.tool_widget_family() == Some("weather")
-    {
+) -> Option<ChatNormalizedRequest> {
+    let widget_family = active_tool_widget_family(context, decision_evidence, active_widget_state);
+
+    if matches!(widget_family, Some("weather")) {
         let inferred_locations = context.extract_weather_scopes();
         let retained_location = widget_binding_value(active_widget_state, "weather.location");
         let assumed_location = runtime_locality_scope_for_context(context).or(retained_location);
@@ -1604,33 +1690,29 @@ fn derive_request_frame(
             Vec::new()
         };
         let clarification_required_slots =
-            if routing_hint_flag(routing_hints, "location_required_for_weather_advice")
-                || (routing_hint_flag(routing_hints, "tool_widget:weather")
-                    && !missing_slots.is_empty())
+            if decision_evidence_item_flag(
+                decision_evidence,
+                "location_required_for_weather_advice",
+            ) || (decision_evidence_item_flag(decision_evidence, "tool_widget:weather")
+                && !missing_slots.is_empty())
             {
                 missing_slots.clone()
             } else {
                 Vec::new()
             };
-        return Some(ChatNormalizedRequestFrame::Weather(
-            ChatWeatherRequestFrame {
-                inferred_locations,
-                assumed_location,
-                temporal_scope: context
-                    .weather_temporal_scope()
-                    .map(str::to_string)
-                    .or_else(|| {
-                        widget_binding_value(active_widget_state, "weather.temporal_scope")
-                    }),
-                missing_slots,
-                clarification_required_slots,
-            },
-        ));
+        return Some(ChatNormalizedRequest::Weather(ChatWeatherRequestFrame {
+            inferred_locations,
+            assumed_location,
+            temporal_scope: context
+                .weather_temporal_scope()
+                .map(str::to_string)
+                .or_else(|| widget_binding_value(active_widget_state, "weather.temporal_scope")),
+            missing_slots,
+            clarification_required_slots,
+        }));
     }
 
-    if matches!(tool_widget_family_hint(routing_hints), Some("sports"))
-        || context.tool_widget_family() == Some("sports")
-    {
+    if matches!(widget_family, Some("sports")) {
         let league = context
             .sports_league()
             .map(str::to_string)
@@ -1645,14 +1727,15 @@ fn derive_request_frame(
         if team_or_target.is_none() {
             missing_slots.push("target".to_string());
         }
-        let clarification_required_slots = if routing_hint_flag(routing_hints, "tool_widget:sports")
-            && !missing_slots.is_empty()
-        {
-            missing_slots.clone()
-        } else {
-            Vec::new()
-        };
-        return Some(ChatNormalizedRequestFrame::Sports(ChatSportsRequestFrame {
+        let clarification_required_slots =
+            if decision_evidence_item_flag(decision_evidence, "tool_widget:sports")
+                && !missing_slots.is_empty()
+            {
+                missing_slots.clone()
+            } else {
+                Vec::new()
+            };
+        return Some(ChatNormalizedRequest::Sports(ChatSportsRequestFrame {
             league,
             team_or_target,
             data_scope: context
@@ -1664,9 +1747,7 @@ fn derive_request_frame(
         }));
     }
 
-    if matches!(tool_widget_family_hint(routing_hints), Some("places"))
-        || context.tool_widget_family() == Some("places")
-    {
+    if matches!(widget_family, Some("places")) {
         let runtime_locality_scope = runtime_locality_scope_for_context(context);
         let search_anchor = context
             .places_anchor_phrase()
@@ -1689,14 +1770,15 @@ fn derive_request_frame(
         if location_scope.is_none() {
             missing_slots.push("location".to_string());
         }
-        let clarification_required_slots = if routing_hint_flag(routing_hints, "tool_widget:places")
-            && !missing_slots.is_empty()
-        {
-            missing_slots.clone()
-        } else {
-            Vec::new()
-        };
-        return Some(ChatNormalizedRequestFrame::Places(ChatPlacesRequestFrame {
+        let clarification_required_slots =
+            if decision_evidence_item_flag(decision_evidence, "tool_widget:places")
+                && !missing_slots.is_empty()
+            {
+                missing_slots.clone()
+            } else {
+                Vec::new()
+            };
+        return Some(ChatNormalizedRequest::Places(ChatPlacesRequestFrame {
             search_anchor,
             category,
             location_scope,
@@ -1705,9 +1787,7 @@ fn derive_request_frame(
         }));
     }
 
-    if matches!(tool_widget_family_hint(routing_hints), Some("recipe"))
-        || context.tool_widget_family() == Some("recipe")
-    {
+    if matches!(widget_family, Some("recipe")) {
         let dish = context
             .recipe_dish()
             .or_else(|| widget_binding_value(active_widget_state, "recipe.dish"));
@@ -1716,14 +1796,15 @@ fn derive_request_frame(
         } else {
             Vec::new()
         };
-        let clarification_required_slots = if routing_hint_flag(routing_hints, "tool_widget:recipe")
-            && !missing_slots.is_empty()
-        {
-            missing_slots.clone()
-        } else {
-            Vec::new()
-        };
-        return Some(ChatNormalizedRequestFrame::Recipe(ChatRecipeRequestFrame {
+        let clarification_required_slots =
+            if decision_evidence_item_flag(decision_evidence, "tool_widget:recipe")
+                && !missing_slots.is_empty()
+            {
+                missing_slots.clone()
+            } else {
+                Vec::new()
+            };
+        return Some(ChatNormalizedRequest::Recipe(ChatRecipeRequestFrame {
             dish,
             servings: context
                 .recipe_servings()
@@ -1733,9 +1814,9 @@ fn derive_request_frame(
         }));
     }
 
-    if matches!(tool_widget_family_hint(routing_hints), Some("user_input"))
-        || routing_hint_flag(routing_hints, "prioritization_request")
-        || routing_hint_flag(routing_hints, "prioritization_guidance_request")
+    if matches!(widget_family, Some("user_input"))
+        || decision_evidence_item_flag(decision_evidence, "prioritization_request")
+        || decision_evidence_item_flag(decision_evidence, "prioritization_guidance_request")
         || context.requests_prioritization()
     {
         let explicit_options_present = context.explicit_prioritization_options();
@@ -1745,7 +1826,7 @@ fn derive_request_frame(
             vec!["options".to_string()]
         };
         let clarification_required_slots =
-            if (routing_hint_flag(routing_hints, "tool_widget:user_input")
+            if (decision_evidence_item_flag(decision_evidence, "tool_widget:user_input")
                 || context.requests_prioritization())
                 && !missing_slots.is_empty()
             {
@@ -1753,17 +1834,18 @@ fn derive_request_frame(
             } else {
                 Vec::new()
             };
-        return Some(ChatNormalizedRequestFrame::UserInput(
+        return Some(ChatNormalizedRequest::UserInput(
             ChatUserInputRequestFrame {
                 interaction_kind: Some(
                     widget_binding_value(active_widget_state, "user_input.interaction_kind")
                         .unwrap_or_else(|| {
-                            if routing_hint_flag(routing_hints, "prioritization_request")
-                                || routing_hint_flag(
-                                    routing_hints,
-                                    "prioritization_guidance_request",
-                                )
-                            {
+                            if decision_evidence_item_flag(
+                                decision_evidence,
+                                "prioritization_request",
+                            ) || decision_evidence_item_flag(
+                                decision_evidence,
+                                "prioritization_guidance_request",
+                            ) {
                                 "prioritization".to_string()
                             } else {
                                 "selection".to_string()
@@ -1788,7 +1870,7 @@ fn derive_request_frame(
     let message_recipient_context = context
         .message_recipient_context()
         .or_else(|| widget_binding_value(active_widget_state, "message.recipient_context"));
-    if routing_hint_flag(routing_hints, "message_compose_surface")
+    if decision_evidence_item_flag(decision_evidence, "message_compose_surface")
         || context.prefers_message_compose_surface()
         || message_channel.is_some()
     {
@@ -1803,7 +1885,7 @@ fn derive_request_frame(
         {
             missing_slots.push("recipient_context".to_string());
         }
-        return Some(ChatNormalizedRequestFrame::MessageCompose(
+        return Some(ChatNormalizedRequest::MessageCompose(
             ChatMessageComposeRequestFrame {
                 channel: message_channel,
                 recipient_context: message_recipient_context,
@@ -1817,19 +1899,19 @@ fn derive_request_frame(
     None
 }
 
-fn request_frame_kind(frame: &ChatNormalizedRequestFrame) -> &'static str {
+fn normalized_request_kind(frame: &ChatNormalizedRequest) -> &'static str {
     match frame {
-        ChatNormalizedRequestFrame::Weather(_) => "weather",
-        ChatNormalizedRequestFrame::Sports(_) => "sports",
-        ChatNormalizedRequestFrame::Places(_) => "places",
-        ChatNormalizedRequestFrame::Recipe(_) => "recipe",
-        ChatNormalizedRequestFrame::MessageCompose(_) => "message",
-        ChatNormalizedRequestFrame::UserInput(_) => "user_input",
+        ChatNormalizedRequest::Weather(_) => "weather",
+        ChatNormalizedRequest::Sports(_) => "sports",
+        ChatNormalizedRequest::Places(_) => "places",
+        ChatNormalizedRequest::Recipe(_) => "recipe",
+        ChatNormalizedRequest::MessageCompose(_) => "message",
+        ChatNormalizedRequest::UserInput(_) => "user_input",
     }
 }
 
 fn merge_retained_widget_state(
-    request_frame: Option<&ChatNormalizedRequestFrame>,
+    normalized_request: Option<&ChatNormalizedRequest>,
     active_widget_state: Option<&ChatRetainedWidgetState>,
 ) -> Option<ChatRetainedWidgetState> {
     let mut state = active_widget_state
@@ -1839,7 +1921,7 @@ fn merge_retained_widget_state(
             bindings: Vec::new(),
             last_updated_at: None,
         });
-    let Some(frame) = request_frame else {
+    let Some(frame) = normalized_request else {
         return if state.bindings.is_empty() && state.widget_family.is_none() {
             None
         } else {
@@ -1847,7 +1929,7 @@ fn merge_retained_widget_state(
         };
     };
 
-    state.widget_family = Some(request_frame_kind(frame).to_string());
+    state.widget_family = Some(normalized_request_kind(frame).to_string());
     let mut upsert = |key: &str, value: Option<String>, source: &str| {
         let Some(value) = value else {
             return;
@@ -1868,7 +1950,7 @@ fn merge_retained_widget_state(
     };
 
     match frame {
-        ChatNormalizedRequestFrame::Weather(frame) => {
+        ChatNormalizedRequest::Weather(frame) => {
             upsert(
                 "weather.location",
                 frame
@@ -1876,56 +1958,72 @@ fn merge_retained_widget_state(
                     .first()
                     .cloned()
                     .or_else(|| frame.assumed_location.clone()),
-                "request_frame",
+                "normalized_request",
             );
             upsert(
                 "weather.temporal_scope",
                 frame.temporal_scope.clone(),
-                "request_frame",
+                "normalized_request",
             );
         }
-        ChatNormalizedRequestFrame::Sports(frame) => {
-            upsert("sports.league", frame.league.clone(), "request_frame");
+        ChatNormalizedRequest::Sports(frame) => {
+            upsert("sports.league", frame.league.clone(), "normalized_request");
             upsert(
                 "sports.target",
                 frame.team_or_target.clone(),
-                "request_frame",
+                "normalized_request",
             );
             upsert(
                 "sports.data_scope",
                 frame.data_scope.clone(),
-                "request_frame",
+                "normalized_request",
             );
         }
-        ChatNormalizedRequestFrame::Places(frame) => {
-            upsert("places.category", frame.category.clone(), "request_frame");
+        ChatNormalizedRequest::Places(frame) => {
+            upsert(
+                "places.category",
+                frame.category.clone(),
+                "normalized_request",
+            );
             upsert(
                 "places.location_scope",
                 frame
                     .location_scope
                     .clone()
                     .or_else(|| frame.search_anchor.clone()),
-                "request_frame",
+                "normalized_request",
             );
         }
-        ChatNormalizedRequestFrame::Recipe(frame) => {
-            upsert("recipe.dish", frame.dish.clone(), "request_frame");
-            upsert("recipe.servings", frame.servings.clone(), "request_frame");
+        ChatNormalizedRequest::Recipe(frame) => {
+            upsert("recipe.dish", frame.dish.clone(), "normalized_request");
+            upsert(
+                "recipe.servings",
+                frame.servings.clone(),
+                "normalized_request",
+            );
         }
-        ChatNormalizedRequestFrame::MessageCompose(frame) => {
-            upsert("message.channel", frame.channel.clone(), "request_frame");
+        ChatNormalizedRequest::MessageCompose(frame) => {
+            upsert(
+                "message.channel",
+                frame.channel.clone(),
+                "normalized_request",
+            );
             upsert(
                 "message.recipient_context",
                 frame.recipient_context.clone(),
-                "request_frame",
+                "normalized_request",
             );
-            upsert("message.purpose", frame.purpose.clone(), "request_frame");
+            upsert(
+                "message.purpose",
+                frame.purpose.clone(),
+                "normalized_request",
+            );
         }
-        ChatNormalizedRequestFrame::UserInput(frame) => {
+        ChatNormalizedRequest::UserInput(frame) => {
             upsert(
                 "user_input.interaction_kind",
                 frame.interaction_kind.clone(),
-                "request_frame",
+                "normalized_request",
             );
         }
     }
@@ -1934,11 +2032,11 @@ fn merge_retained_widget_state(
 }
 
 fn derive_clarification_policy(
-    request_frame: Option<&ChatNormalizedRequestFrame>,
+    normalized_request: Option<&ChatNormalizedRequest>,
     needs_clarification: bool,
     retained_widget_state: Option<&ChatRetainedWidgetState>,
 ) -> Option<ChatClarificationPolicy> {
-    let Some(frame) = request_frame else {
+    let Some(frame) = normalized_request else {
         return needs_clarification.then(|| ChatClarificationPolicy {
             mode: ChatClarificationMode::BlockUntilClarified,
             assumed_bindings: Vec::new(),
@@ -1948,7 +2046,7 @@ fn derive_clarification_policy(
                     .to_string(),
         });
     };
-    let blocking_slots = chat_request_frame_clarification_slots(frame).to_vec();
+    let blocking_slots = chat_normalized_request_clarification_slots(frame).to_vec();
     let rationale = chat_specialized_domain_kind(Some(frame))
         .map(chat_specialized_domain_policy)
         .map(|policy| policy.clarification_rationale.to_string())
@@ -1979,14 +2077,14 @@ fn derive_clarification_policy(
 }
 
 fn derive_fallback_policy(
-    lane_frame: Option<&ChatDomainLaneFrame>,
-    request_frame: Option<&ChatNormalizedRequestFrame>,
-    routing_hints: &[String],
+    lane_request: Option<&ChatLaneRequest>,
+    normalized_request: Option<&ChatNormalizedRequest>,
+    decision_evidence: &[String],
     needs_clarification: bool,
 ) -> Option<ChatFallbackPolicy> {
-    let primary_lane = lane_frame?.primary_lane;
+    let primary_lane = lane_request?.primary_lane;
     let specialized_policy =
-        chat_specialized_domain_kind(request_frame).map(chat_specialized_domain_policy);
+        chat_specialized_domain_kind(normalized_request).map(chat_specialized_domain_policy);
     Some(ChatFallbackPolicy {
         mode: if needs_clarification {
             ChatFallbackMode::BlockUntilClarified
@@ -1996,10 +2094,10 @@ fn derive_fallback_policy(
             ChatFallbackMode::AllowRankedFallbacks
         },
         primary_lane,
-        fallback_lanes: lane_frame
+        fallback_lanes: lane_request
             .map(|frame| frame.secondary_lanes.clone())
             .unwrap_or_default(),
-        trigger_signals: routing_hints
+        trigger_signals: decision_evidence
             .iter()
             .filter(|hint| {
                 matches!(
@@ -2024,20 +2122,20 @@ fn derive_fallback_policy(
 }
 
 fn derive_presentation_policy(
-    lane_frame: Option<&ChatDomainLaneFrame>,
-    request_frame: Option<&ChatNormalizedRequestFrame>,
+    lane_request: Option<&ChatLaneRequest>,
+    normalized_request: Option<&ChatNormalizedRequest>,
     outcome_kind: ChatOutcomeKind,
     retained_widget_state: Option<&ChatRetainedWidgetState>,
 ) -> Option<ChatPresentationPolicy> {
     let specialized_policy =
-        chat_specialized_domain_kind(request_frame).map(chat_specialized_domain_policy);
+        chat_specialized_domain_kind(normalized_request).map(chat_specialized_domain_policy);
     let primary_surface = if let Some(policy) = specialized_policy {
         policy.presentation_surface
     } else {
         match outcome_kind {
             ChatOutcomeKind::Artifact => "artifact_surface",
             ChatOutcomeKind::Visualizer => "inline_visualizer",
-            _ => match request_frame {
+            _ => match normalized_request {
                 None => match outcome_kind {
                     ChatOutcomeKind::ToolWidget => "tool_widget_surface",
                     ChatOutcomeKind::Conversation => "reply_surface",
@@ -2052,7 +2150,7 @@ fn derive_presentation_policy(
         primary_surface: primary_surface.to_string(),
         widget_family: retained_widget_state
             .and_then(|state| state.widget_family.clone())
-            .or_else(|| lane_frame.and_then(|frame| frame.tool_widget_family.clone()))
+            .or_else(|| lane_request.and_then(|frame| frame.tool_widget_family.clone()))
             .or_else(|| specialized_policy.and_then(|policy| policy.widget_family.map(str::to_string))),
         renderer: if let Some(policy) = specialized_policy {
             policy.renderer
@@ -2089,11 +2187,11 @@ fn derive_presentation_policy(
 }
 
 fn derive_transformation_policy(
-    request_frame: Option<&ChatNormalizedRequestFrame>,
+    normalized_request: Option<&ChatNormalizedRequest>,
     outcome_kind: ChatOutcomeKind,
 ) -> Option<ChatTransformationPolicy> {
     let specialized_policy =
-        chat_specialized_domain_kind(request_frame).map(chat_specialized_domain_policy);
+        chat_specialized_domain_kind(normalized_request).map(chat_specialized_domain_policy);
     let (output_shape, ordered_steps, rationale) = match outcome_kind {
         ChatOutcomeKind::Artifact => (
             "persistent_artifact",
@@ -2137,15 +2235,15 @@ fn derive_transformation_policy(
 }
 
 fn derive_risk_profile(
-    lane_frame: Option<&ChatDomainLaneFrame>,
-    request_frame: Option<&ChatNormalizedRequestFrame>,
-    routing_hints: &[String],
+    lane_request: Option<&ChatLaneRequest>,
+    normalized_request: Option<&ChatNormalizedRequest>,
+    decision_evidence: &[String],
 ) -> Option<ChatRiskProfile> {
-    let Some(frame) = lane_frame else {
+    let Some(frame) = lane_request else {
         return None;
     };
     let specialized_policy =
-        chat_specialized_domain_kind(request_frame).map(chat_specialized_domain_policy);
+        chat_specialized_domain_kind(normalized_request).map(chat_specialized_domain_policy);
     let (sensitivity, mut reasons) = if let Some(policy) = specialized_policy {
         (
             policy.sensitivity,
@@ -2171,13 +2269,13 @@ fn derive_risk_profile(
             _ => (ChatRiskSensitivity::Low, Vec::new()),
         }
     };
-    if matches!(request_frame, Some(ChatNormalizedRequestFrame::Places(_))) {
+    if matches!(normalized_request, Some(ChatNormalizedRequest::Places(_))) {
         reasons.push(
             "ranked place recommendations should stay grounded in the requested location scope"
                 .to_string(),
         );
     }
-    if routing_hints
+    if decision_evidence
         .iter()
         .any(|hint| hint == "connector_auth_required")
     {
@@ -2209,13 +2307,13 @@ fn derive_risk_profile(
 }
 
 fn derive_verification_contract(
-    lane_frame: Option<&ChatDomainLaneFrame>,
-    request_frame: Option<&ChatNormalizedRequestFrame>,
+    lane_request: Option<&ChatLaneRequest>,
+    normalized_request: Option<&ChatNormalizedRequest>,
     outcome_kind: ChatOutcomeKind,
     needs_clarification: bool,
 ) -> Option<ChatVerificationContract> {
     let specialized_policy =
-        chat_specialized_domain_kind(request_frame).map(chat_specialized_domain_policy);
+        chat_specialized_domain_kind(normalized_request).map(chat_specialized_domain_policy);
     let strategy = if outcome_kind == ChatOutcomeKind::Artifact {
         "artifact_contract"
     } else if let Some(policy) = specialized_policy {
@@ -2223,7 +2321,7 @@ fn derive_verification_contract(
     } else {
         match outcome_kind {
             ChatOutcomeKind::Visualizer => "inline_visual_contract",
-            _ => "route_contract",
+            _ => "decision_record",
         }
     };
     Some(ChatVerificationContract {
@@ -2242,7 +2340,7 @@ fn derive_verification_contract(
         } else {
             {
                 if matches!(
-                    lane_frame.map(|frame| frame.primary_lane),
+                    lane_request.map(|frame| frame.primary_lane),
                     Some(ChatLaneFamily::Research)
                 ) {
                     vec![
@@ -2250,7 +2348,7 @@ fn derive_verification_contract(
                         "reply_surface_rendered".to_string(),
                     ]
                 } else {
-                    vec!["route_contract_recorded".to_string()]
+                    vec!["decision_record_recorded".to_string()]
                 }
             }
         },
@@ -2263,14 +2361,14 @@ fn derive_verification_contract(
 }
 
 fn derive_source_ranking(
-    request_frame: Option<&ChatNormalizedRequestFrame>,
-    source_selection: Option<&ChatSourceSelection>,
+    normalized_request: Option<&ChatNormalizedRequest>,
+    source_decision: Option<&ChatSourceDecision>,
 ) -> Vec<ChatSourceRankingEntry> {
-    let Some(selection) = source_selection else {
+    let Some(selection) = source_decision else {
         return Vec::new();
     };
     let specialized_policy =
-        chat_specialized_domain_kind(request_frame).map(chat_specialized_domain_policy);
+        chat_specialized_domain_kind(normalized_request).map(chat_specialized_domain_policy);
     let mut ordered_sources = vec![selection.selected_source];
     for source in &selection.candidate_sources {
         if !ordered_sources.contains(source) {
@@ -2301,20 +2399,20 @@ fn derive_source_ranking(
 fn primary_lane_family(
     context: &ChatIntentContext,
     outcome_kind: ChatOutcomeKind,
-    routing_hints: &[String],
+    decision_evidence: &[String],
     artifact: Option<&ChatOutcomeArtifactRequest>,
-    request_frame: Option<&ChatNormalizedRequestFrame>,
+    normalized_request: Option<&ChatNormalizedRequest>,
 ) -> ChatLaneFamily {
     if matches!(
-        request_frame,
-        Some(ChatNormalizedRequestFrame::MessageCompose(_))
+        normalized_request,
+        Some(ChatNormalizedRequest::MessageCompose(_))
     ) {
         return ChatLaneFamily::Communication;
     }
-    if routing_hint_flag(routing_hints, "connector_intent_detected") {
+    if decision_evidence_item_flag(decision_evidence, "connector_intent_detected") {
         return ChatLaneFamily::Integrations;
     }
-    if routing_hint_flag(routing_hints, "workspace_grounding_required")
+    if decision_evidence_item_flag(decision_evidence, "workspace_grounding_required")
         || artifact.is_some_and(|request| {
             matches!(
                 request.artifact_class,
@@ -2330,17 +2428,29 @@ fn primary_lane_family(
     if outcome_kind == ChatOutcomeKind::Visualizer {
         return ChatLaneFamily::Visualizer;
     }
+    match normalized_request {
+        Some(
+            ChatNormalizedRequest::Weather(_)
+            | ChatNormalizedRequest::Sports(_)
+            | ChatNormalizedRequest::Places(_)
+            | ChatNormalizedRequest::Recipe(_),
+        ) => return ChatLaneFamily::Research,
+        Some(ChatNormalizedRequest::UserInput(_)) => return ChatLaneFamily::UserInput,
+        _ => {}
+    }
     if outcome_kind == ChatOutcomeKind::ToolWidget {
-        return match request_frame {
-            Some(ChatNormalizedRequestFrame::Weather(_))
-            | Some(ChatNormalizedRequestFrame::Sports(_))
-            | Some(ChatNormalizedRequestFrame::Places(_))
-            | Some(ChatNormalizedRequestFrame::Recipe(_)) => ChatLaneFamily::Research,
-            Some(ChatNormalizedRequestFrame::UserInput(_)) => ChatLaneFamily::UserInput,
+        return match normalized_request {
+            Some(ChatNormalizedRequest::Weather(_))
+            | Some(ChatNormalizedRequest::Sports(_))
+            | Some(ChatNormalizedRequest::Places(_))
+            | Some(ChatNormalizedRequest::Recipe(_)) => ChatLaneFamily::Research,
+            Some(ChatNormalizedRequest::UserInput(_)) => ChatLaneFamily::UserInput,
             _ => ChatLaneFamily::ToolWidget,
         };
     }
-    if routing_hint_flag(routing_hints, "currentness_override") || context.currentness_pressure() {
+    if decision_evidence_item_flag(decision_evidence, "currentness_override")
+        || context.currentness_pressure()
+    {
         return ChatLaneFamily::Research;
     }
     ChatLaneFamily::Conversation
@@ -2348,8 +2458,8 @@ fn primary_lane_family(
 
 fn secondary_lane_families(
     primary_lane: ChatLaneFamily,
-    request_frame: Option<&ChatNormalizedRequestFrame>,
-    routing_hints: &[String],
+    normalized_request: Option<&ChatNormalizedRequest>,
+    decision_evidence: &[String],
     artifact: Option<&ChatOutcomeArtifactRequest>,
 ) -> Vec<ChatLaneFamily> {
     let mut lanes = Vec::new();
@@ -2361,7 +2471,7 @@ fn secondary_lane_families(
 
     match primary_lane {
         ChatLaneFamily::Research => {
-            if tool_widget_family_hint(routing_hints).is_some() {
+            if tool_widget_family_hint(decision_evidence).is_some() {
                 push_unique(ChatLaneFamily::ToolWidget);
             }
             push_unique(ChatLaneFamily::Conversation);
@@ -2369,14 +2479,14 @@ fn secondary_lane_families(
         ChatLaneFamily::Integrations => {
             push_unique(ChatLaneFamily::Conversation);
             if matches!(
-                request_frame,
-                Some(ChatNormalizedRequestFrame::MessageCompose(_))
+                normalized_request,
+                Some(ChatNormalizedRequest::MessageCompose(_))
             ) {
                 push_unique(ChatLaneFamily::Communication);
             }
         }
         ChatLaneFamily::Communication => {
-            if routing_hint_flag(routing_hints, "connector_intent_detected") {
+            if decision_evidence_item_flag(decision_evidence, "connector_intent_detected") {
                 push_unique(ChatLaneFamily::Integrations);
             }
         }
@@ -2398,20 +2508,20 @@ fn secondary_lane_families(
             }) {
                 push_unique(ChatLaneFamily::Coding);
             }
-            match request_frame {
+            match normalized_request {
                 Some(
-                    ChatNormalizedRequestFrame::Weather(_)
-                    | ChatNormalizedRequestFrame::Sports(_)
-                    | ChatNormalizedRequestFrame::Places(_)
-                    | ChatNormalizedRequestFrame::Recipe(_),
+                    ChatNormalizedRequest::Weather(_)
+                    | ChatNormalizedRequest::Sports(_)
+                    | ChatNormalizedRequest::Places(_)
+                    | ChatNormalizedRequest::Recipe(_),
                 ) => {
                     push_unique(ChatLaneFamily::Research);
                     push_unique(ChatLaneFamily::ToolWidget);
                 }
-                Some(ChatNormalizedRequestFrame::MessageCompose(_)) => {
+                Some(ChatNormalizedRequest::MessageCompose(_)) => {
                     push_unique(ChatLaneFamily::Communication);
                 }
-                Some(ChatNormalizedRequestFrame::UserInput(_)) => {
+                Some(ChatNormalizedRequest::UserInput(_)) => {
                     push_unique(ChatLaneFamily::UserInput);
                     push_unique(ChatLaneFamily::ToolWidget);
                 }
@@ -2428,27 +2538,27 @@ fn primary_goal(
     intent: &str,
     primary_lane: ChatLaneFamily,
     outcome_kind: ChatOutcomeKind,
-    _routing_hints: &[String],
-    request_frame: Option<&ChatNormalizedRequestFrame>,
+    _decision_evidence: &[String],
+    normalized_request: Option<&ChatNormalizedRequest>,
     artifact: Option<&ChatOutcomeArtifactRequest>,
 ) -> String {
-    match request_frame {
-        Some(ChatNormalizedRequestFrame::Weather(_)) => {
+    match normalized_request {
+        Some(ChatNormalizedRequest::Weather(_)) => {
             "Resolve the weather scope and return current conditions for the requested location.".to_string()
         }
-        Some(ChatNormalizedRequestFrame::Sports(_)) => {
+        Some(ChatNormalizedRequest::Sports(_)) => {
             "Resolve the sports target and return the requested current sports context.".to_string()
         }
-        Some(ChatNormalizedRequestFrame::Places(_)) => {
+        Some(ChatNormalizedRequest::Places(_)) => {
             "Resolve the place category and anchor location before searching the map surface.".to_string()
         }
-        Some(ChatNormalizedRequestFrame::Recipe(_)) => {
+        Some(ChatNormalizedRequest::Recipe(_)) => {
             "Turn the recipe request into a concise, kitchen-usable deliverable.".to_string()
         }
-        Some(ChatNormalizedRequestFrame::MessageCompose(_)) => {
+        Some(ChatNormalizedRequest::MessageCompose(_)) => {
             "Compose a message that fits the requested channel, audience, and purpose.".to_string()
         }
-        Some(ChatNormalizedRequestFrame::UserInput(_)) => {
+        Some(ChatNormalizedRequest::UserInput(_)) => {
             "Collect structured user input before continuing with the requested comparison or prioritization.".to_string()
         }
         None => match primary_lane {
@@ -2490,15 +2600,15 @@ fn summarize_prompt_fragment(intent: &str) -> String {
     summary
 }
 
-fn derive_source_selection(
+fn derive_source_decision(
     context: &ChatIntentContext,
     primary_lane: ChatLaneFamily,
-    request_frame: Option<&ChatNormalizedRequestFrame>,
-    routing_hints: &[String],
+    normalized_request: Option<&ChatNormalizedRequest>,
+    decision_evidence: &[String],
     active_artifact_id: Option<&str>,
-) -> ChatSourceSelection {
+) -> ChatSourceDecision {
     let specialized_policy =
-        chat_specialized_domain_kind(request_frame).map(chat_specialized_domain_policy);
+        chat_specialized_domain_kind(normalized_request).map(chat_specialized_domain_policy);
     let mut candidate_sources = Vec::new();
     let mut push_unique = |source: ChatSourceFamily| {
         if !candidate_sources.contains(&source) {
@@ -2517,48 +2627,53 @@ fn derive_source_selection(
     }
     push_unique(ChatSourceFamily::ConversationContext);
 
-    let selected_source = if active_artifact_id.is_some() {
+    let specialized_tool_required = matches!(
+        normalized_request,
+        Some(
+            ChatNormalizedRequest::Weather(_)
+                | ChatNormalizedRequest::Sports(_)
+                | ChatNormalizedRequest::Places(_)
+                | ChatNormalizedRequest::Recipe(_)
+                | ChatNormalizedRequest::UserInput(_)
+        )
+    );
+
+    let selected_source = if specialized_tool_required {
+        push_unique(ChatSourceFamily::SpecializedTool);
+        if !matches!(
+            normalized_request,
+            Some(ChatNormalizedRequest::UserInput(_))
+        ) {
+            push_unique(ChatSourceFamily::WebSearch);
+        }
+        ChatSourceFamily::SpecializedTool
+    } else if active_artifact_id.is_some() {
         ChatSourceFamily::ArtifactContext
-    } else if routing_hint_flag(routing_hints, "connector_intent_detected") {
+    } else if decision_evidence_item_flag(decision_evidence, "connector_intent_detected") {
         push_unique(ChatSourceFamily::Connector);
         ChatSourceFamily::Connector
-    } else if routing_hint_flag(routing_hints, "workspace_grounding_required") {
+    } else if decision_evidence_item_flag(decision_evidence, "workspace_grounding_required") {
         push_unique(ChatSourceFamily::Workspace);
         ChatSourceFamily::Workspace
-    } else if routing_hint_flag(routing_hints, "currentness_override")
+    } else if decision_evidence_item_flag(decision_evidence, "currentness_override")
         || primary_lane == ChatLaneFamily::Research
         || matches!(
-            request_frame,
+            normalized_request,
             Some(
-                ChatNormalizedRequestFrame::Weather(_)
-                    | ChatNormalizedRequestFrame::Sports(_)
-                    | ChatNormalizedRequestFrame::Places(_)
-                    | ChatNormalizedRequestFrame::Recipe(_)
+                ChatNormalizedRequest::Weather(_)
+                    | ChatNormalizedRequest::Sports(_)
+                    | ChatNormalizedRequest::Places(_)
+                    | ChatNormalizedRequest::Recipe(_)
             )
         )
     {
-        if matches!(
-            request_frame,
-            Some(
-                ChatNormalizedRequestFrame::Weather(_)
-                    | ChatNormalizedRequestFrame::Sports(_)
-                    | ChatNormalizedRequestFrame::Places(_)
-                    | ChatNormalizedRequestFrame::Recipe(_)
-                    | ChatNormalizedRequestFrame::UserInput(_)
-            )
-        ) {
-            push_unique(ChatSourceFamily::SpecializedTool);
-            push_unique(ChatSourceFamily::WebSearch);
-            ChatSourceFamily::SpecializedTool
-        } else {
-            push_unique(ChatSourceFamily::WebSearch);
-            ChatSourceFamily::WebSearch
-        }
+        push_unique(ChatSourceFamily::WebSearch);
+        ChatSourceFamily::WebSearch
     } else if matches!(
-        request_frame,
-        Some(ChatNormalizedRequestFrame::MessageCompose(_))
+        normalized_request,
+        Some(ChatNormalizedRequest::MessageCompose(_))
     ) {
-        if routing_hint_flag(routing_hints, "connector_intent_detected") {
+        if decision_evidence_item_flag(decision_evidence, "connector_intent_detected") {
             push_unique(ChatSourceFamily::Connector);
             ChatSourceFamily::Connector
         } else {
@@ -2575,22 +2690,24 @@ fn derive_source_selection(
     push_unique(selected_source);
 
     let explicit_user_source = active_artifact_id.is_some()
-        || routing_hint_flag(routing_hints, "connector_intent_detected")
-        || routing_hint_flag(routing_hints, "workspace_grounding_required")
-        || routing_hint_flag(routing_hints, "currentness_override")
-        || tool_widget_family_hint(routing_hints).is_some()
+        || decision_evidence_item_flag(decision_evidence, "connector_intent_detected")
+        || decision_evidence_item_flag(decision_evidence, "workspace_grounding_required")
+        || decision_evidence_item_flag(decision_evidence, "currentness_override")
+        || tool_widget_family_hint(decision_evidence).is_some()
         || context.references_previous_conversation()
         || context.references_memory_context();
 
-    let fallback_reason = if routing_hint_flag(routing_hints, "connector_missing") {
+    let degradation_reason = if decision_evidence_item_flag(decision_evidence, "connector_missing")
+    {
         Some("connector route is preferred but unavailable in this runtime".to_string())
-    } else if routing_hint_flag(routing_hints, "connector_auth_required") {
+    } else if decision_evidence_item_flag(decision_evidence, "connector_auth_required") {
         Some("connector route is preferred but still needs authentication".to_string())
-    } else if request_frame.is_some_and(|frame| !chat_request_frame_missing_slots(frame).is_empty())
+    } else if normalized_request
+        .is_some_and(|frame| !chat_normalized_request_missing_slots(frame).is_empty())
     {
         Some(
             specialized_policy
-                .map(|policy| policy.missing_slot_fallback_reason.to_string())
+                .map(|policy| policy.missing_slot_degradation_reason.to_string())
                 .unwrap_or_else(|| {
                     "required lane slots are still missing, so execution is blocked on clarification"
                         .to_string()
@@ -2600,28 +2717,28 @@ fn derive_source_selection(
         None
     };
 
-    ChatSourceSelection {
+    ChatSourceDecision {
         candidate_sources,
         selected_source,
         explicit_user_source,
-        fallback_reason,
+        degradation_reason,
     }
 }
 
 fn derive_lane_transitions(
     primary_lane: ChatLaneFamily,
     secondary_lanes: &[ChatLaneFamily],
-    request_frame: Option<&ChatNormalizedRequestFrame>,
+    normalized_request: Option<&ChatNormalizedRequest>,
     needs_clarification: bool,
     clarification_questions: &[String],
-    routing_hints: &[String],
+    decision_evidence: &[String],
 ) -> Vec<ChatLaneTransition> {
     let mut transitions = vec![ChatLaneTransition {
         transition_kind: ChatLaneTransitionKind::Planned,
         from_lane: None,
         to_lane: primary_lane,
-        reason: planned_transition_reason(primary_lane, request_frame, routing_hints),
-        evidence: planned_transition_evidence(primary_lane, request_frame, routing_hints),
+        reason: planned_transition_reason(primary_lane, normalized_request, decision_evidence),
+        evidence: planned_transition_evidence(primary_lane, normalized_request, decision_evidence),
     }];
 
     for secondary_lane in secondary_lanes {
@@ -2629,8 +2746,12 @@ fn derive_lane_transitions(
             transition_kind: ChatLaneTransitionKind::Planned,
             from_lane: Some(primary_lane),
             to_lane: *secondary_lane,
-            reason: secondary_transition_reason(primary_lane, *secondary_lane, request_frame),
-            evidence: secondary_transition_evidence(primary_lane, *secondary_lane, routing_hints),
+            reason: secondary_transition_reason(primary_lane, *secondary_lane, normalized_request),
+            evidence: secondary_transition_evidence(
+                primary_lane,
+                *secondary_lane,
+                decision_evidence,
+            ),
         });
     }
 
@@ -2650,35 +2771,36 @@ fn derive_lane_transitions(
 
 fn planned_transition_reason(
     primary_lane: ChatLaneFamily,
-    request_frame: Option<&ChatNormalizedRequestFrame>,
-    routing_hints: &[String],
+    normalized_request: Option<&ChatNormalizedRequest>,
+    decision_evidence: &[String],
 ) -> String {
-    match request_frame {
-        Some(ChatNormalizedRequestFrame::Weather(_)) => {
+    match normalized_request {
+        Some(ChatNormalizedRequest::Weather(_)) => {
             "The prompt maps to a weather-specific lane with location-bound tool semantics."
                 .to_string()
         }
-        Some(ChatNormalizedRequestFrame::Sports(_)) => {
+        Some(ChatNormalizedRequest::Sports(_)) => {
             "The prompt maps to a sports-specific lane with team and league semantics.".to_string()
         }
-        Some(ChatNormalizedRequestFrame::Places(_)) => {
+        Some(ChatNormalizedRequest::Places(_)) => {
             "The prompt maps to a places lane with category and anchor-location semantics."
                 .to_string()
         }
-        Some(ChatNormalizedRequestFrame::Recipe(_)) => {
+        Some(ChatNormalizedRequest::Recipe(_)) => {
             "The prompt maps to a recipe lane that benefits from a specialized response shape."
                 .to_string()
         }
-        Some(ChatNormalizedRequestFrame::MessageCompose(_)) => {
+        Some(ChatNormalizedRequest::MessageCompose(_)) => {
             "The prompt is best treated as a communication/composition task.".to_string()
         }
-        Some(ChatNormalizedRequestFrame::UserInput(_)) => {
+        Some(ChatNormalizedRequest::UserInput(_)) => {
             "The prompt benefits from a structured user-input lane before execution.".to_string()
         }
         None => {
-            if routing_hint_flag(routing_hints, "connector_intent_detected") {
+            if decision_evidence_item_flag(decision_evidence, "connector_intent_detected") {
                 "A connector-capable route outranks a broad fallback here.".to_string()
-            } else if routing_hint_flag(routing_hints, "workspace_grounding_required") {
+            } else if decision_evidence_item_flag(decision_evidence, "workspace_grounding_required")
+            {
                 "The request must be grounded in the current workspace.".to_string()
             } else {
                 format!("Chat selected the {:?} lane for this turn.", primary_lane)
@@ -2690,20 +2812,20 @@ fn planned_transition_reason(
 
 fn planned_transition_evidence(
     _primary_lane: ChatLaneFamily,
-    request_frame: Option<&ChatNormalizedRequestFrame>,
-    routing_hints: &[String],
+    normalized_request: Option<&ChatNormalizedRequest>,
+    decision_evidence: &[String],
 ) -> Vec<String> {
-    let mut evidence = routing_hints.to_vec();
-    if let Some(frame) = request_frame {
+    let mut evidence = decision_evidence.to_vec();
+    if let Some(frame) = normalized_request {
         evidence.push(match frame {
-            ChatNormalizedRequestFrame::Weather(_) => "request_frame:weather".to_string(),
-            ChatNormalizedRequestFrame::Sports(_) => "request_frame:sports".to_string(),
-            ChatNormalizedRequestFrame::Places(_) => "request_frame:places".to_string(),
-            ChatNormalizedRequestFrame::Recipe(_) => "request_frame:recipe".to_string(),
-            ChatNormalizedRequestFrame::MessageCompose(_) => {
-                "request_frame:message_compose".to_string()
+            ChatNormalizedRequest::Weather(_) => "normalized_request:weather".to_string(),
+            ChatNormalizedRequest::Sports(_) => "normalized_request:sports".to_string(),
+            ChatNormalizedRequest::Places(_) => "normalized_request:places".to_string(),
+            ChatNormalizedRequest::Recipe(_) => "normalized_request:recipe".to_string(),
+            ChatNormalizedRequest::MessageCompose(_) => {
+                "normalized_request:message_compose".to_string()
             }
-            ChatNormalizedRequestFrame::UserInput(_) => "request_frame:user_input".to_string(),
+            ChatNormalizedRequest::UserInput(_) => "normalized_request:user_input".to_string(),
         });
     }
     evidence
@@ -2712,13 +2834,13 @@ fn planned_transition_evidence(
 fn secondary_transition_reason(
     primary_lane: ChatLaneFamily,
     secondary_lane: ChatLaneFamily,
-    request_frame: Option<&ChatNormalizedRequestFrame>,
+    normalized_request: Option<&ChatNormalizedRequest>,
 ) -> String {
-    match (primary_lane, secondary_lane, request_frame) {
+    match (primary_lane, secondary_lane, normalized_request) {
         (
             ChatLaneFamily::Communication,
             ChatLaneFamily::Integrations,
-            Some(ChatNormalizedRequestFrame::MessageCompose(_)),
+            Some(ChatNormalizedRequest::MessageCompose(_)),
         ) => {
             "The message lane will lean on a connected provider when one is available.".to_string()
         }
@@ -2742,9 +2864,9 @@ fn secondary_transition_reason(
 fn secondary_transition_evidence(
     primary_lane: ChatLaneFamily,
     secondary_lane: ChatLaneFamily,
-    routing_hints: &[String],
+    decision_evidence: &[String],
 ) -> Vec<String> {
-    let mut evidence = routing_hints.to_vec();
+    let mut evidence = decision_evidence.to_vec();
     evidence.push(
         format!("secondary_lane:{:?}->{:?}", primary_lane, secondary_lane).to_ascii_lowercase(),
     );
@@ -2759,7 +2881,7 @@ fn derive_orchestration_state(
     execution_mode_decision: Option<&ChatExecutionModeDecision>,
     needs_clarification: bool,
     clarification_questions: &[String],
-    request_frame: Option<&ChatNormalizedRequestFrame>,
+    normalized_request: Option<&ChatNormalizedRequest>,
 ) -> Option<ChatOrchestrationState> {
     let should_surface = needs_clarification
         || outcome_kind == ChatOutcomeKind::Artifact
@@ -2791,11 +2913,11 @@ fn derive_orchestration_state(
         primary_lane,
         outcome_kind,
         needs_clarification,
-        request_frame,
+        normalized_request,
     );
     let checkpoints = vec![
         ChatCheckpointState {
-            checkpoint_id: "route_contract".to_string(),
+            checkpoint_id: "decision_record".to_string(),
             label: "Route contract recorded".to_string(),
             status: ChatWorkStatus::Complete,
             summary: "Chat captured a typed route, source, and lane contract.".to_string(),
@@ -2825,7 +2947,7 @@ fn derive_orchestration_state(
             primary_lane,
             outcome_kind,
             needs_clarification,
-            request_frame,
+            normalized_request,
             execution_mode_decision,
         ),
     });
@@ -2867,7 +2989,7 @@ fn orchestration_tasks(
     primary_lane: ChatLaneFamily,
     outcome_kind: ChatOutcomeKind,
     needs_clarification: bool,
-    request_frame: Option<&ChatNormalizedRequestFrame>,
+    normalized_request: Option<&ChatNormalizedRequest>,
 ) -> Vec<ChatTaskUnitState> {
     let blocked_or_pending = if needs_clarification {
         ChatWorkStatus::Blocked
@@ -2915,24 +3037,20 @@ fn orchestration_tasks(
             },
         ],
         _ => {
-            let resolve_label = if let Some(frame) = request_frame {
+            let resolve_label = if let Some(frame) = normalized_request {
                 match frame {
-                    ChatNormalizedRequestFrame::Weather(_) => {
-                        "Resolve the weather scope".to_string()
-                    }
-                    ChatNormalizedRequestFrame::Sports(_) => {
-                        "Resolve the sports target".to_string()
-                    }
-                    ChatNormalizedRequestFrame::Places(_) => {
+                    ChatNormalizedRequest::Weather(_) => "Resolve the weather scope".to_string(),
+                    ChatNormalizedRequest::Sports(_) => "Resolve the sports target".to_string(),
+                    ChatNormalizedRequest::Places(_) => {
                         "Resolve the places request frame".to_string()
                     }
-                    ChatNormalizedRequestFrame::Recipe(_) => {
+                    ChatNormalizedRequest::Recipe(_) => {
                         "Resolve the recipe request frame".to_string()
                     }
-                    ChatNormalizedRequestFrame::MessageCompose(_) => {
+                    ChatNormalizedRequest::MessageCompose(_) => {
                         "Resolve the message composition frame".to_string()
                     }
-                    ChatNormalizedRequestFrame::UserInput(_) => {
+                    ChatNormalizedRequest::UserInput(_) => {
                         "Resolve the required options".to_string()
                     }
                 }
@@ -3003,31 +3121,31 @@ fn outstanding_requirements(
     primary_lane: ChatLaneFamily,
     outcome_kind: ChatOutcomeKind,
     needs_clarification: bool,
-    request_frame: Option<&ChatNormalizedRequestFrame>,
+    normalized_request: Option<&ChatNormalizedRequest>,
     execution_mode_decision: Option<&ChatExecutionModeDecision>,
 ) -> Vec<String> {
     let mut requirements = Vec::new();
     if needs_clarification {
         requirements.push("resolve_clarification".to_string());
     }
-    if let Some(frame) = request_frame {
+    if let Some(frame) = normalized_request {
         match frame {
-            ChatNormalizedRequestFrame::Weather(frame) => {
+            ChatNormalizedRequest::Weather(frame) => {
                 requirements.extend(frame.missing_slots.clone());
             }
-            ChatNormalizedRequestFrame::Sports(frame) => {
+            ChatNormalizedRequest::Sports(frame) => {
                 requirements.extend(frame.missing_slots.clone());
             }
-            ChatNormalizedRequestFrame::Places(frame) => {
+            ChatNormalizedRequest::Places(frame) => {
                 requirements.extend(frame.missing_slots.clone());
             }
-            ChatNormalizedRequestFrame::Recipe(frame) => {
+            ChatNormalizedRequest::Recipe(frame) => {
                 requirements.extend(frame.missing_slots.clone());
             }
-            ChatNormalizedRequestFrame::MessageCompose(frame) => {
+            ChatNormalizedRequest::MessageCompose(frame) => {
                 requirements.extend(frame.missing_slots.clone());
             }
-            ChatNormalizedRequestFrame::UserInput(frame) => {
+            ChatNormalizedRequest::UserInput(frame) => {
                 requirements.extend(frame.missing_slots.clone());
             }
         }

@@ -4,7 +4,7 @@ use ioi_crypto::algorithms::hash::sha256;
 use ioi_ipc::blockchain::QueryRawStateRequest;
 use ioi_ipc::public::public_api_client::PublicApiClient;
 use ioi_services::agentic::rules::ActionRules;
-use ioi_types::app::agentic::{IntentMatrixEntry, IntentRoutingPolicy};
+use ioi_types::app::agentic::{IntentCatalogEntry, IntentRoutingPolicy};
 use ioi_types::app::{
     determinism_commit_state_key, determinism_evidence_state_key,
     determinism_step_contract_state_key, execution_observation_receipt_state_key,
@@ -450,7 +450,7 @@ async fn run_verify_determinism(
         Err(err) => output.push_reason("STATE_QUERY_FAILED", err),
     }
 
-    let mut intent_matrix = IntentRoutingPolicy::default().matrix;
+    let mut intent_catalog = IntentRoutingPolicy::default().intent_catalog;
     if let Some(path) = policy_file {
         match load_action_rules(&path) {
             Ok(rules) => {
@@ -459,7 +459,7 @@ async fn run_verify_determinism(
                 {
                     output.push_reason("POLICY_HASH_CHECK_FAILED", err.to_string());
                 }
-                intent_matrix = rules.ontology_policy.intent_routing.matrix;
+                intent_catalog = rules.ontology_policy.intent_routing.intent_catalog;
             }
             Err(err) => {
                 output.push_reason("POLICY_FILE_LOAD_FAILED", err.to_string());
@@ -485,7 +485,7 @@ async fn run_verify_determinism(
                             ),
                         );
                     }
-                    match verify_required_receipt_set(&step_contract, &intent_matrix) {
+                    match verify_required_receipt_set(&step_contract, &intent_catalog) {
                         Ok(rrs) => {
                             if !rrs.missing_receipts.is_empty() {
                                 output.push_reason(
@@ -557,7 +557,7 @@ struct RrsCheckOutcome {
 
 fn verify_required_receipt_set(
     step_contract: &DeterminismStepContractEvidence,
-    intent_matrix: &[IntentMatrixEntry],
+    intent_catalog: &[IntentCatalogEntry],
 ) -> std::result::Result<RrsCheckOutcome, (&'static str, String)> {
     let intent_id = step_contract.intent_id.trim().to_string();
     if intent_id.is_empty() {
@@ -567,7 +567,7 @@ fn verify_required_receipt_set(
         ));
     }
 
-    let Some(entry) = intent_matrix
+    let Some(entry) = intent_catalog
         .iter()
         .find(|entry| entry.intent_id.trim() == intent_id)
     else {
@@ -580,19 +580,19 @@ fn verify_required_receipt_set(
         ));
     };
 
-    let required_receipts = canonical_markers(&entry.required_receipts);
-    let mut required_postconditions = canonical_markers(&entry.required_postconditions);
+    let required_evidence = canonical_markers(&entry.required_evidence);
+    let mut success_conditions = canonical_markers(&entry.success_conditions);
 
     if intent_id == "system.clock.read" {
-        push_unique(&mut required_postconditions, "clock_timestamp_observed");
+        push_unique(&mut success_conditions, "clock_timestamp_observed");
     }
     if has_observed_receipt(step_contract, "timer_notification_contract_required") {
-        push_unique(&mut required_postconditions, "timer_sleep_backend");
+        push_unique(&mut success_conditions, "timer_sleep_backend");
     }
 
     let mut outcome = RrsCheckOutcome::default();
 
-    for receipt in &required_receipts {
+    for receipt in &required_evidence {
         let Some(value) = observed_receipt_value(step_contract, receipt) else {
             outcome.missing_receipts.push(receipt.clone());
             continue;
@@ -603,7 +603,7 @@ fn verify_required_receipt_set(
         }
     }
 
-    for postcondition in &required_postconditions {
+    for postcondition in &success_conditions {
         if !has_observed_postcondition(step_contract, postcondition) {
             outcome.missing_postconditions.push(postcondition.clone());
         }

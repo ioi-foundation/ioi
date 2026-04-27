@@ -1,7 +1,7 @@
 use super::events::{emit_completion_gate_status_event, emit_completion_gate_violation_events};
 use super::*;
 use crate::agentic::runtime::service::lifecycle::load_worker_assignment;
-use crate::agentic::runtime::service::step::action::execution_receipt_value;
+use crate::agentic::runtime::service::step::action::execution_evidence_value;
 use crate::agentic::runtime::service::step::action::support::action_fingerprint_execution_label;
 use crate::agentic::runtime::service::step::anti_loop::{latest_failure_class, FailureClass};
 use crate::agentic::runtime::service::step::intent_resolver::is_mail_reply_provider_tool;
@@ -87,12 +87,12 @@ fn parse_receipt_path<'a>(value: &'a str) -> Option<&'a str> {
 }
 
 fn latest_workspace_edit_step(agent_state: &AgentState) -> Option<u32> {
-    execution_receipt_value(&agent_state.tool_execution_log, "workspace_edit_applied")
+    execution_evidence_value(&agent_state.tool_execution_log, "workspace_edit_applied")
         .and_then(parse_receipt_step)
 }
 
 fn latest_workspace_read_step(agent_state: &AgentState, target_path: &str) -> Option<u32> {
-    execution_receipt_value(&agent_state.tool_execution_log, "workspace_read_observed").and_then(
+    execution_evidence_value(&agent_state.tool_execution_log, "workspace_read_observed").and_then(
         |value| {
             (parse_receipt_path(value)? == target_path)
                 .then(|| parse_receipt_step(value))
@@ -102,7 +102,7 @@ fn latest_workspace_read_step(agent_state: &AgentState, target_path: &str) -> Op
 }
 
 fn latest_workspace_patch_miss_step(agent_state: &AgentState, target_path: &str) -> Option<u32> {
-    execution_receipt_value(
+    execution_evidence_value(
         &agent_state.tool_execution_log,
         "workspace_patch_miss_observed",
     )
@@ -187,15 +187,22 @@ pub(super) fn handle_duplicate_command_execution(
     if let Some(summary) =
         duplicate_command_completion_summary(tool, matching_command_history_entry)
     {
-        let missing_contract_markers =
-            missing_execution_contract_markers_with_rules(agent_state, rules);
-        if missing_contract_markers.is_empty() {
+        let missing_completion_evidence = evaluate_completion_requirements(
+            agent_state,
+            resolved_intent_id,
+            verification_checks,
+            rules,
+        );
+        if missing_completion_evidence.is_empty() {
             success = true;
             history_entry = Some(summary.clone());
             action_output = Some(summary.clone());
             terminal_chat_reply_output = Some(summary.clone());
             is_lifecycle_action = true;
             agent_state.status = AgentStatus::Completed(Some(summary));
+            agent_state
+                .execution_ledger
+                .record_terminal_success(Some(resolved_intent_id.to_string()));
             agent_state.execution_queue.clear();
             agent_state.pending_search_completion = None;
             verification_checks.push("duplicate_action_fingerprint_terminalized=true".to_string());
@@ -209,7 +216,7 @@ pub(super) fn handle_duplicate_command_execution(
                 "duplicate_command_completion",
             );
         } else {
-            let missing = missing_contract_markers.join(",");
+            let missing = missing_completion_evidence.join(",");
             let contract_error = execution_contract_violation_error(&missing);
             error_msg = Some(contract_error.clone());
             history_entry = Some(contract_error.clone());
@@ -229,9 +236,13 @@ pub(super) fn handle_duplicate_command_execution(
     } else if let Some(summary) =
         duplicate_command_cached_success_summary(tool, matching_command_history_entry)
     {
-        let missing_contract_markers =
-            missing_execution_contract_markers_with_rules(agent_state, rules);
-        if missing_contract_markers.is_empty() {
+        let missing_completion_evidence = evaluate_completion_requirements(
+            agent_state,
+            resolved_intent_id,
+            verification_checks,
+            rules,
+        );
+        if missing_completion_evidence.is_empty() {
             success = true;
             history_entry = Some(summary.clone());
             if command_scope {
@@ -244,6 +255,9 @@ pub(super) fn handle_duplicate_command_execution(
                 action_output = Some(completion.clone());
                 terminal_chat_reply_output = Some(completion.clone());
                 agent_state.status = AgentStatus::Completed(Some(completion));
+                agent_state
+                    .execution_ledger
+                    .record_terminal_success(Some(resolved_intent_id.to_string()));
                 is_lifecycle_action = true;
                 agent_state.execution_queue.clear();
                 agent_state.pending_search_completion = None;
@@ -264,7 +278,7 @@ pub(super) fn handle_duplicate_command_execution(
                 "duplicate_command_cached_completion",
             );
         } else {
-            let missing = missing_contract_markers.join(",");
+            let missing = missing_completion_evidence.join(",");
             let contract_error = execution_contract_violation_error(&missing);
             error_msg = Some(contract_error.clone());
             history_entry = Some(contract_error.clone());
@@ -459,18 +473,26 @@ fn maybe_terminalize_duplicate_worker_noop(
         return None;
     }
 
-    let missing_contract_markers =
-        missing_execution_contract_markers_with_rules(agent_state, rules);
-    if !missing_contract_markers.is_empty() {
+    let resolved_intent_id = resolved_intent_id(agent_state);
+    let missing_completion_evidence = evaluate_completion_requirements(
+        agent_state,
+        resolved_intent_id.as_str(),
+        verification_checks,
+        rules,
+    );
+    if !missing_completion_evidence.is_empty() {
         verification_checks.push(format!(
             "duplicate_worker_completion_missing_execution_contract_keys={}",
-            missing_contract_markers.join(",")
+            missing_completion_evidence.join(",")
         ));
         return None;
     }
 
     let completion = synthesize_repo_context_brief_from_duplicate(&assignment.goal, tool)?;
     agent_state.status = AgentStatus::Completed(Some(completion.clone()));
+    agent_state
+        .execution_ledger
+        .record_terminal_success(Some(resolved_intent_id));
     agent_state.execution_queue.clear();
     agent_state.pending_search_completion = None;
     verification_checks.push("duplicate_repo_context_worker_terminalized=true".to_string());
@@ -947,7 +969,7 @@ fn synthesize_repo_context_brief_from_duplicate(goal: &str, tool: &AgentTool) ->
         "Confirm the exact patch surface if the repo contains more than one plausible candidate."
             .to_string()
     } else {
-        "Confirm hidden postconditions once the focused verification passes.".to_string()
+        "Confirm hidden success_conditions once the focused verification passes.".to_string()
     };
 
     let likely_files_text = if likely_files.is_empty() {

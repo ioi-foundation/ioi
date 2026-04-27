@@ -928,12 +928,12 @@ pub(in super::super) async fn maybe_handle_web_read(
                 pre_state_step_index,
                 intent_id.as_str(),
                 false,
-                "receipt::final_output_contract_ready=true",
+                "evidence::final_output_contract_ready=true",
             );
             verification_checks.push("cec_completion_gate_emitted=true".to_string());
             verification_checks.push("execution_contract_gate_blocked=true".to_string());
             verification_checks.push(
-                "execution_contract_missing_keys=receipt::final_output_contract_ready=true"
+                "execution_contract_missing_keys=evidence::final_output_contract_ready=true"
                     .to_string(),
             );
             if matches!(

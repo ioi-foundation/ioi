@@ -948,7 +948,7 @@ export interface ChatArtifactMaterializationContract {
   outputOrigin?: ChatArtifactOutputOrigin | null;
   productionProvenance?: ChatRuntimeProvenance | null;
   acceptanceProvenance?: ChatRuntimeProvenance | null;
-  fallbackUsed: boolean;
+  degradedPathUsed: boolean;
   uxLifecycle?: ChatArtifactUxLifecycle | null;
   failure?: ChatArtifactFailure | null;
   navigatorNodes: ChatArtifactNavigatorNode[];
@@ -1104,7 +1104,7 @@ export interface ChatOutcomeRequest {
   confidence: number;
   needsClarification: boolean;
   clarificationQuestions: string[];
-  routingHints?: string[];
+  decisionEvidence?: string[];
   artifact?: ChatOutcomeArtifactRequest | null;
 }
 
@@ -1115,7 +1115,7 @@ export interface ChatOutcomePlanningPayload {
   confidence: number;
   needsClarification: boolean;
   clarificationQuestions: string[];
-  routingHints?: string[];
+  decisionEvidence?: string[];
   artifact?: ChatOutcomeArtifactRequest | null;
 }
 
@@ -3528,7 +3528,7 @@ export interface PlanSourceSelectionSummary {
   candidateSources: PlanSourceFamily[];
   selectedSource: PlanSourceFamily;
   explicitUserSource: boolean;
-  fallbackReason: string | null;
+  degradationReason: string | null;
 }
 
 export interface PlanClarificationPolicySummary {
@@ -3739,9 +3739,9 @@ export interface PlanRouteDecisionSummary {
   skillPrepRequired: boolean;
   outputIntent: PlanOutputIntent;
   effectiveToolSurface: PlanEffectiveToolSurfaceSummary;
-  laneFrame: PlanLaneFrameSummary | null;
-  requestFrame: PlanNormalizedRequestFrameSummary | null;
-  sourceSelection: PlanSourceSelectionSummary | null;
+  laneRequest: PlanLaneFrameSummary | null;
+  normalizedRequest: PlanNormalizedRequestFrameSummary | null;
+  sourceDecision: PlanSourceSelectionSummary | null;
   retainedLaneState: PlanRetainedLaneStateSummary | null;
   laneTransitions: PlanLaneTransitionSummary[];
   orchestrationState: PlanOrchestrationStateSummary | null;

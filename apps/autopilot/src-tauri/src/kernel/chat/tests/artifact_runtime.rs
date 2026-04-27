@@ -63,7 +63,7 @@ fn materialize_nonworkspace_artifact_replans_after_direct_author_timeout_then_re
     );
 
     let materialized =
-        materialize_non_workspace_artifact_with_dependencies_and_timeout_and_execution_strategy(
+        materialize_chat_artifact_with_dependencies_and_timeout_and_execution_strategy(
             &proof_memory_runtime(),
             Some(runtime.clone()),
             Some(runtime),
@@ -88,7 +88,7 @@ fn materialize_nonworkspace_artifact_replans_after_direct_author_timeout_then_re
         materialized.lifecycle_state,
         ChatArtifactLifecycleState::Blocked
     );
-    assert!(!materialized.fallback_used);
+    assert!(!materialized.degraded_path_used);
     assert!(materialized.files.is_empty());
     assert!(materialized.operator_steps.iter().any(|step| {
         step.phase == ioi_api::runtime_harness::ArtifactOperatorPhase::RepairArtifact
@@ -180,7 +180,7 @@ fn direct_author_streaming_progress_prevents_mid_document_kernel_timeout() {
     let progress_sink = observed_progress.clone();
 
     let render_evaluator = KernelPassingRenderEvaluator;
-    let materialized = materialize_non_workspace_artifact_with_dependencies_and_timeout_and_execution_strategy_and_render_evaluator(
+    let materialized = materialize_chat_artifact_with_dependencies_and_timeout_and_execution_strategy_and_render_evaluator(
         &proof_memory_runtime(),
         Some(runtime.clone()),
         Some(runtime),
@@ -585,7 +585,7 @@ fn direct_author_inactivity_replans_to_plan_execute_and_returns_artifact() {
     );
 
     let materialized =
-        materialize_non_workspace_artifact_with_dependencies_and_timeout_and_execution_strategy(
+        materialize_chat_artifact_with_dependencies_and_timeout_and_execution_strategy(
             &proof_memory_runtime(),
             Some(runtime.clone()),
             Some(runtime),
@@ -705,7 +705,7 @@ fn direct_author_replan_terminalizes_stale_stream_preview_before_plan_execute() 
     };
 
     let materialized =
-        materialize_non_workspace_artifact_with_dependencies_and_timeout_and_execution_strategy(
+        materialize_chat_artifact_with_dependencies_and_timeout_and_execution_strategy(
             &proof_memory_runtime(),
             Some(runtime.clone()),
             Some(runtime),
@@ -837,7 +837,7 @@ fn replanned_plan_execute_quiet_materialization_stays_alive_past_outer_inactivit
     );
 
     let materialized =
-        materialize_non_workspace_artifact_with_dependencies_and_timeout_and_execution_strategy(
+        materialize_chat_artifact_with_dependencies_and_timeout_and_execution_strategy(
             &proof_memory_runtime(),
             Some(runtime.clone()),
             Some(runtime),
@@ -1395,10 +1395,10 @@ fn provisional_nonworkspace_session_surfaces_planning_context_before_materializa
         confidence: 0.94,
         needs_clarification: false,
         clarification_questions: Vec::new(),
-        routing_hints: Vec::new(),
-        lane_frame: None,
-        request_frame: None,
-        source_selection: None,
+        decision_evidence: Vec::new(),
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
@@ -1523,7 +1523,7 @@ fn materialize_nonworkspace_artifact_falls_back_to_local_acceptance_when_no_acce
     };
 
     let materialized =
-        materialize_non_workspace_artifact_with_dependencies_and_timeout_and_execution_strategy(
+        materialize_chat_artifact_with_dependencies_and_timeout_and_execution_strategy(
             &proof_memory_runtime(),
             Some(runtime),
             None,
@@ -1544,7 +1544,7 @@ fn materialize_nonworkspace_artifact_falls_back_to_local_acceptance_when_no_acce
         materialized.lifecycle_state,
         ChatArtifactLifecycleState::Partial | ChatArtifactLifecycleState::Blocked
     ));
-    assert!(!materialized.fallback_used);
+    assert!(!materialized.degraded_path_used);
     assert_eq!(
         materialized
             .production_provenance
@@ -1799,7 +1799,7 @@ fn html_generation_failure_blocks_primary_artifact_without_synthetic_fallback() 
             }),
         );
 
-    assert!(!blocked.fallback_used);
+    assert!(!blocked.degraded_path_used);
     assert_eq!(blocked.lifecycle_state, ChatArtifactLifecycleState::Blocked);
     assert_eq!(
         blocked

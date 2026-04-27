@@ -16,11 +16,11 @@ fn resolved(scope: IntentScopeProfile) -> ResolvedIntentState {
         score: 0.92,
         top_k: vec![],
         required_capabilities: vec![],
-        required_receipts: vec![],
-        required_postconditions: vec![],
+        required_evidence: vec![],
+        success_conditions: vec![],
         risk_class: "low".to_string(),
         preferred_tier: "tool_first".to_string(),
-        matrix_version: "v1".to_string(),
+        intent_catalog_version: "v1".to_string(),
         embedding_model_id: "test".to_string(),
         embedding_model_version: "test".to_string(),
         similarity_function_id: "cosine".to_string(),
@@ -28,8 +28,8 @@ fn resolved(scope: IntentScopeProfile) -> ResolvedIntentState {
         tool_registry_hash: [0u8; 32],
         capability_ontology_hash: [0u8; 32],
         query_normalization_version: "v1".to_string(),
-        matrix_source_hash: [0u8; 32],
-        receipt_hash: [0u8; 32],
+        intent_catalog_source_hash: [0u8; 32],
+        evidence_requirements_hash: [0u8; 32],
         provider_selection: None,
         instruction_contract: None,
         constrained: false,
@@ -184,7 +184,7 @@ fn upsert_structured_field_replaces_inline_marker_segment() {
 
 #[test]
 fn execution_contract_violation_uses_spec_error_class() {
-    let message = execution_contract_violation_error("receipt::verification=true");
-    assert!(message.starts_with("ERROR_CLASS=VerificationMissing "));
-    assert!(message.contains("base_error_class=ExecutionContractViolation"));
+    let message = execution_contract_violation_error("evidence::verification=true");
+    assert!(message.starts_with("ERROR_CLASS=ExecutionContractViolation "));
+    assert!(message.contains("detail_class=VerificationMissing"));
 }

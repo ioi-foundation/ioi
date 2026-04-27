@@ -33,7 +33,7 @@ pub fn case() -> QueryCase {
             "After archive creation, verify the archive members include README.md, src/main.rs, and docs/spec.txt, ",
             "then return a concise completion summary."
         ),
-        success_definition: "Create ~/Desktop/Projects.zip from ~/Projects using deterministic filesystem zip tooling, verify expected archive members and fixture receipts (including cleanup), and complete without contract failures.",
+        success_definition: "Create ~/Desktop/Projects.zip from ~/Projects using deterministic filesystem zip tooling, verify expected archive members and fixture evidence (including cleanup), and complete without contract failures.",
         seeded_intent_id: "workspace.ops.archive_local_directory",
         intent_scope: IntentScopeProfile::WorkspaceOps,
         seed_resolved_intent: true,
@@ -63,41 +63,41 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let cec_contract_gate_seen = has_cec_completion_gate_evidence(obs);
 
     let fixture_mode =
-        verification_value(obs, "env_receipt::projects_zip_fixture_mode").unwrap_or_default();
+        verification_value(obs, "env_evidence::projects_zip_fixture_mode").unwrap_or_default();
     let fixture_mode_satisfied = fixture_mode.eq_ignore_ascii_case(EXPECTED_FIXTURE_MODE);
     let fixture_probe_source =
-        verification_value(obs, "env_receipt::projects_zip_fixture_probe_source")
+        verification_value(obs, "env_evidence::projects_zip_fixture_probe_source")
             .unwrap_or_default();
     let fixture_timestamp_ms =
-        verification_u64(obs, "env_receipt::projects_zip_fixture_timestamp_ms")
+        verification_u64(obs, "env_evidence::projects_zip_fixture_timestamp_ms")
             .unwrap_or(obs.run_timestamp_ms);
     let fixture_satisfied =
-        verification_bool(obs, "env_receipt::projects_zip_fixture_satisfied").unwrap_or(false);
+        verification_bool(obs, "env_evidence::projects_zip_fixture_satisfied").unwrap_or(false);
 
     let archive_path =
-        verification_value(obs, "env_receipt::projects_zip_archive_path").unwrap_or_default();
+        verification_value(obs, "env_evidence::projects_zip_archive_path").unwrap_or_default();
     let archive_probe_source =
-        verification_value(obs, "env_receipt::projects_zip_archive_probe_source")
+        verification_value(obs, "env_evidence::projects_zip_archive_probe_source")
             .unwrap_or_default();
     let archive_timestamp_ms =
-        verification_u64(obs, "env_receipt::projects_zip_archive_timestamp_ms")
+        verification_u64(obs, "env_evidence::projects_zip_archive_timestamp_ms")
             .unwrap_or(obs.run_timestamp_ms);
     let archive_satisfied =
-        verification_bool(obs, "env_receipt::projects_zip_archive_satisfied").unwrap_or(false);
+        verification_bool(obs, "env_evidence::projects_zip_archive_satisfied").unwrap_or(false);
     let archive_name_satisfied = archive_path
         .to_ascii_lowercase()
         .ends_with(&format!("/{}", EXPECTED_ARCHIVE_NAME));
 
     let entries_csv =
-        verification_value(obs, "env_receipt::projects_zip_entries").unwrap_or_default();
+        verification_value(obs, "env_evidence::projects_zip_entries").unwrap_or_default();
     let entries_probe_source =
-        verification_value(obs, "env_receipt::projects_zip_entries_probe_source")
+        verification_value(obs, "env_evidence::projects_zip_entries_probe_source")
             .unwrap_or_default();
     let entries_timestamp_ms =
-        verification_u64(obs, "env_receipt::projects_zip_entries_timestamp_ms")
+        verification_u64(obs, "env_evidence::projects_zip_entries_timestamp_ms")
             .unwrap_or(obs.run_timestamp_ms);
     let entries_satisfied =
-        verification_bool(obs, "env_receipt::projects_zip_entries_satisfied").unwrap_or(false);
+        verification_bool(obs, "env_evidence::projects_zip_entries_satisfied").unwrap_or(false);
     let entry_list = entries_csv
         .split(',')
         .map(str::trim)
@@ -111,15 +111,15 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     });
 
     let cleanup_probe_source =
-        verification_value(obs, "env_receipt::projects_zip_cleanup_probe_source")
+        verification_value(obs, "env_evidence::projects_zip_cleanup_probe_source")
             .unwrap_or_default();
     let cleanup_timestamp_ms =
-        verification_u64(obs, "env_receipt::projects_zip_cleanup_timestamp_ms")
+        verification_u64(obs, "env_evidence::projects_zip_cleanup_timestamp_ms")
             .unwrap_or(obs.run_timestamp_ms);
     let cleanup_satisfied =
-        verification_bool(obs, "env_receipt::projects_zip_cleanup_satisfied").unwrap_or(false);
+        verification_bool(obs, "env_evidence::projects_zip_cleanup_satisfied").unwrap_or(false);
     let source_preserved =
-        verification_bool(obs, "env_receipt::projects_zip_source_preserved_satisfied")
+        verification_bool(obs, "env_evidence::projects_zip_source_preserved_satisfied")
             .unwrap_or(false);
 
     let action_path_seen = has_tool_with_token(&obs.action_tools, "file__zip");
@@ -329,8 +329,8 @@ fn build_environment_receipts(
     ]
 }
 
-fn serialize_environment_receipts(receipts: &[EnvironmentEvidenceReceipt]) -> String {
-    serde_json::to_string(receipts).unwrap_or_else(|_| "[]".to_string())
+fn serialize_environment_receipts(evidence: &[EnvironmentEvidenceReceipt]) -> String {
+    serde_json::to_string(evidence).unwrap_or_else(|_| "[]".to_string())
 }
 
 fn has_cec_completion_gate_evidence(obs: &RunObservation) -> bool {

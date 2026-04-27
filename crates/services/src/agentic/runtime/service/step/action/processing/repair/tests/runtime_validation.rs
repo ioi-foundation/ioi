@@ -475,7 +475,7 @@ async fn patch_build_verify_invalid_tool_repair_retries_same_runtime_with_edit_o
     let mut worker_state = build_worker_state(session_id);
     worker_state.working_directory = repo.path().to_string_lossy().to_string();
     record_targeted_check_failure(&mut worker_state);
-    mark_execution_receipt_with_value(
+    record_execution_evidence_with_value(
         &mut worker_state.tool_execution_log,
         "workspace_read_observed",
         "step=2;tool=filesystem__read_file;path=path_utils.py".to_string(),
@@ -568,7 +568,7 @@ fn patch_build_verify_redundant_refresh_read_rewrites_post_command_reread_to_goa
     let mut worker_state = build_worker_state(session_id);
     worker_state.working_directory = repo.path().to_string_lossy().to_string();
     record_targeted_check_failure(&mut worker_state);
-    mark_execution_receipt_with_value(
+    record_execution_evidence_with_value(
         &mut worker_state.tool_execution_log,
         "workspace_read_observed",
         format!(
@@ -677,7 +677,7 @@ async fn patch_build_verify_invalid_tool_repair_retries_same_runtime_with_edit_o
     let mut worker_state = build_worker_state(session_id);
     worker_state.working_directory = repo.path().to_string_lossy().to_string();
     record_targeted_check_failure(&mut worker_state);
-    mark_execution_receipt_with_value(
+    record_execution_evidence_with_value(
         &mut worker_state.tool_execution_log,
         "workspace_read_observed",
         "step=2;tool=filesystem__read_file;path=path_utils.py".to_string(),

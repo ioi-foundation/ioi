@@ -2,21 +2,21 @@ use super::*;
 
 #[test]
 fn conversation_reply_does_not_inherit_mail_grounding_contract() {
-    let entry = default_intent_matrix()
+    let entry = default_intent_catalog()
         .into_iter()
         .find(|entry| entry.intent_id == "conversation.reply")
         .expect("conversation.reply entry should exist");
 
     assert!(
         !entry
-            .required_receipts
+            .required_evidence
             .iter()
             .any(|receipt| receipt == "grounding"),
         "conversation.reply should not require connector grounding receipts"
     );
     assert!(
         !entry
-            .required_postconditions
+            .success_conditions
             .iter()
             .any(|postcondition| postcondition == "mail.reply.completed"),
         "conversation.reply should not require mail completion postconditions"
@@ -25,7 +25,7 @@ fn conversation_reply_does_not_inherit_mail_grounding_contract() {
 
 #[test]
 fn generic_mail_reply_defaults_to_dynamic_provider_selection() {
-    let entry = default_intent_matrix()
+    let entry = default_intent_catalog()
         .into_iter()
         .find(|entry| entry.intent_id == "mail.reply")
         .expect("mail.reply entry should exist");
@@ -36,28 +36,28 @@ fn generic_mail_reply_defaults_to_dynamic_provider_selection() {
     );
     assert!(
         entry
-            .required_receipts
+            .required_evidence
             .iter()
             .any(|receipt| receipt == "provider_selection"),
         "mail.reply should require provider selection receipts"
     );
     assert!(
         entry
-            .required_receipts
+            .required_evidence
             .iter()
             .any(|receipt| receipt == "provider_selection_commit"),
         "mail.reply should require provider selection commit receipts"
     );
     assert!(
         entry
-            .required_receipts
+            .required_evidence
             .iter()
             .any(|receipt| receipt == "grounding"),
         "mail.reply should require grounding receipts"
     );
     assert!(
         entry
-            .required_postconditions
+            .success_conditions
             .iter()
             .any(|postcondition| postcondition == "mail.reply.completed"),
         "mail.reply should require verified completion postconditions"
@@ -66,7 +66,7 @@ fn generic_mail_reply_defaults_to_dynamic_provider_selection() {
 
 #[test]
 fn memory_recall_defaults_to_local_memory_capability_surface() {
-    let entry = default_intent_matrix()
+    let entry = default_intent_catalog()
         .into_iter()
         .find(|entry| entry.intent_id == "memory.recall")
         .expect("memory.recall entry should exist");
@@ -94,7 +94,7 @@ fn memory_recall_defaults_to_local_memory_capability_surface() {
 
 #[test]
 fn model_registry_control_intents_use_kernel_managed_capability_surface() {
-    let entries = default_intent_matrix();
+    let entries = default_intent_catalog();
     for intent_id in [
         "model.registry.load",
         "model.registry.unload",
@@ -135,7 +135,7 @@ fn model_registry_control_intents_use_kernel_managed_capability_surface() {
 
 #[test]
 fn media_generation_and_analysis_intents_use_kernel_media_capabilities() {
-    let entries = default_intent_matrix();
+    let entries = default_intent_catalog();
     for (intent_id, capability) in [
         ("media.transcribe", "media.transcribe"),
         ("media.synthesize", "media.synthesize"),

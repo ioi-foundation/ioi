@@ -1,4 +1,4 @@
-use crate::agentic::runtime::agent_playbooks::playbook_route_contract;
+use crate::agentic::runtime::agent_playbooks::playbook_decision_record;
 use crate::agentic::runtime::types::{
     AgentPlaybookDefinition, AgentPlaybookStepDefinition, ParentPlaybookRun, ParentPlaybookStepRun,
     ParentPlaybookStepStatus,
@@ -165,13 +165,13 @@ pub(crate) fn build_parent_playbook_route_receipt_metadata(
     playbook: &AgentPlaybookDefinition,
     run: &ParentPlaybookRun,
 ) -> ParentPlaybookRouteReceiptMetadata {
-    let route_contract = playbook_route_contract(&run.playbook_id);
+    let decision_record = playbook_decision_record(&run.playbook_id);
     ParentPlaybookRouteReceiptMetadata {
-        route_family: route_contract.route_family.to_string(),
-        topology: route_contract.topology.to_string(),
-        planner_authority: route_contract.planner_authority.to_string(),
+        route_family: decision_record.route_family.to_string(),
+        topology: decision_record.topology.to_string(),
+        planner_authority: decision_record.planner_authority.to_string(),
         verifier_state: parent_playbook_verifier_state(playbook, run).to_string(),
-        verifier_role: route_contract.verifier_role.unwrap_or("").to_string(),
+        verifier_role: decision_record.verifier_role.unwrap_or("").to_string(),
         verifier_outcome: parent_playbook_verifier_outcome(playbook, run).to_string(),
     }
 }

@@ -523,8 +523,12 @@ fn record_rrsa_receipt(
     value: &str,
     satisfied: bool,
 ) {
-    mark_execution_receipt_with_value(&mut agent_state.tool_execution_log, key, value.to_string());
-    verification_checks.push(receipt_marker(key));
+    record_execution_evidence_with_value(
+        &mut agent_state.tool_execution_log,
+        key,
+        value.to_string(),
+    );
+    verification_checks.push(execution_evidence_key(key));
     emit_execution_contract_receipt_event(
         service,
         session_id,

@@ -62,12 +62,12 @@ fn gmail_body_matches(actual_body: Option<&str>, expected_body: &str) -> bool {
         .unwrap_or(false)
 }
 
-fn verify_google_postconditions_boxed<'a>(
+fn verify_google_success_conditions_boxed<'a>(
     agent_state: &'a AgentState,
     tool_name: &'a str,
     tool_args: &'a Value,
     history_entry: &'a str,
-) -> PostconditionVerificationFuture<'a> {
+) -> SuccessConditionVerificationFuture<'a> {
     Box::pin(async move {
         let normalized = tool_name.trim().to_ascii_lowercase();
         let (message_id, required_label) = match normalized.as_str() {
@@ -140,8 +140,8 @@ fn verify_google_postconditions_boxed<'a>(
             ));
         }
 
-        Ok(Some(ConnectorPostconditionProof {
-            evidence: vec![ConnectorPostconditionEvidence {
+        Ok(Some(ConnectorSuccessConditionProof {
+            evidence: vec![ConnectorSuccessConditionEvidence {
                 key: "mail.reply.completed".to_string(),
                 evidence: format!(
                     "message_id={};thread_id={};label={};to={};subject={}",
@@ -159,11 +159,11 @@ fn verify_google_postconditions_boxed<'a>(
     })
 }
 
-pub fn google_connector_postcondition_verifier_bindings(
-) -> Vec<ConnectorPostconditionVerifierBinding> {
-    vec![ConnectorPostconditionVerifierBinding {
+pub fn google_connector_success_condition_verifier_bindings(
+) -> Vec<ConnectorSuccessConditionVerifierBinding> {
+    vec![ConnectorSuccessConditionVerifierBinding {
         connector_id: GOOGLE_CONNECTOR_ID,
-        verify: verify_google_postconditions_boxed,
+        verify: verify_google_success_conditions_boxed,
     }]
 }
 

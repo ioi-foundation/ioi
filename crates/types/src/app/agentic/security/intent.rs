@@ -2,7 +2,7 @@ use crate::app::ActionTarget;
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
-use super::intent_matrix_defaults::default_intent_matrix;
+use super::intent_catalog_defaults::default_intent_catalog;
 
 /// Canonical intent scope profiles used by the step/action resolver.
 #[derive(
@@ -164,9 +164,9 @@ pub enum IntentQueryBindingClass {
     ModelRegistryControl,
 }
 
-/// A single canonical intent matrix row.
+/// A single canonical intent catalog row.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
-pub struct IntentMatrixEntry {
+pub struct IntentCatalogEntry {
     /// Stable intent identifier (for example: "web.research").
     pub intent_id: String,
     /// Canonical semantic descriptor used for embedding-based ranking.
@@ -194,10 +194,10 @@ pub struct IntentMatrixEntry {
     pub provider_selection_mode: Option<ProviderSelectionMode>,
     /// Required execution receipts for completion gate enforcement.
     #[serde(default)]
-    pub required_receipts: Vec<String>,
+    pub required_evidence: Vec<String>,
     /// Required execution postconditions for completion gate enforcement.
     #[serde(default)]
-    pub required_postconditions: Vec<String>,
+    pub success_conditions: Vec<String>,
     /// Optional verification mode.
     #[serde(default)]
     pub verification_mode: Option<VerificationMode>,
@@ -211,7 +211,7 @@ pub struct IntentMatrixEntry {
     pub exemplars: Vec<String>,
 }
 
-impl IntentMatrixEntry {
+impl IntentCatalogEntry {
     /// Returns the effective host-discovery requirement after class defaults.
     pub fn effective_requires_host_discovery(&self) -> bool {
         self.requires_host_discovery.unwrap_or(matches!(
@@ -454,12 +454,12 @@ pub struct InstructionContract {
 /// Global policy for the step/action intent resolver.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
 pub struct IntentRoutingPolicy {
-    /// Enables or disables matrix-scoped resolution.
+    /// Enables or disables intent_catalog-scoped resolution.
     pub enabled: bool,
     /// Emits receipts without enforcing routing changes when true.
     pub shadow_mode: bool,
-    /// Matrix schema/version marker.
-    pub matrix_version: String,
+    /// Intent catalog schema/version marker.
+    pub intent_catalog_version: String,
     /// Confidence thresholds for banding.
     pub confidence: IntentConfidenceBandPolicy,
     /// Ambiguity handling policy.
@@ -477,9 +477,9 @@ pub struct IntentRoutingPolicy {
     /// This is policy-defined and versioned behavior, not resolver heuristics.
     #[serde(default)]
     pub ambiguity_abstain_exempt_intents: Vec<String>,
-    /// Baseline + override matrix entries.
+    /// Baseline + override intent_catalog entries.
     #[serde(default)]
-    pub matrix: Vec<IntentMatrixEntry>,
+    pub intent_catalog: Vec<IntentCatalogEntry>,
 }
 
 fn default_score_quantization_bps() -> u16 {
@@ -498,7 +498,7 @@ impl Default for IntentRoutingPolicy {
         Self {
             enabled: true,
             shadow_mode: false,
-            matrix_version: "intent-matrix-v15".to_string(),
+            intent_catalog_version: "intent-catalog-v15".to_string(),
             confidence: IntentConfidenceBandPolicy::default(),
             ambiguity: IntentAmbiguityPolicy::default(),
             score_quantization_bps: default_score_quantization_bps(),
@@ -510,7 +510,7 @@ impl Default for IntentRoutingPolicy {
                 "command.exec.install_dependency".to_string(),
                 "ui.capture_screenshot".to_string(),
             ],
-            matrix: default_intent_matrix(),
+            intent_catalog: default_intent_catalog(),
         }
     }
 }
@@ -534,17 +534,17 @@ pub struct ResolvedIntentState {
     pub required_capabilities: Vec<CapabilityId>,
     /// Required execution receipts copied from the winning intent profile.
     #[serde(default)]
-    pub required_receipts: Vec<String>,
+    pub required_evidence: Vec<String>,
     /// Required execution postconditions copied from the winning intent profile.
     #[serde(default)]
-    pub required_postconditions: Vec<String>,
+    pub success_conditions: Vec<String>,
     /// Risk class copied from winning intent profile.
     #[serde(default)]
     pub risk_class: String,
-    /// Preferred tier label resolved from matrix profile.
+    /// Preferred tier label resolved from intent_catalog profile.
     pub preferred_tier: String,
-    /// Matrix version used for this resolution.
-    pub matrix_version: String,
+    /// IntentCatalog version used for this resolution.
+    pub intent_catalog_version: String,
     /// Embedding model identifier used for ranking.
     #[serde(default)]
     pub embedding_model_id: String,
@@ -566,10 +566,10 @@ pub struct ResolvedIntentState {
     /// Query normalization version used before embedding.
     #[serde(default)]
     pub query_normalization_version: String,
-    /// Hash commitment to the active matrix source.
-    pub matrix_source_hash: [u8; 32],
+    /// Hash commitment to the active intent_catalog source.
+    pub intent_catalog_source_hash: [u8; 32],
     /// Deterministic receipt hash over resolution material.
-    pub receipt_hash: [u8; 32],
+    pub evidence_requirements_hash: [u8; 32],
     /// Optional provider-selection material for connector-backed execution.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub provider_selection: Option<ProviderSelectionState>,

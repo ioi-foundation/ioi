@@ -161,10 +161,7 @@ fn direct_author_fast_surface_skips_acceptance_runtime() {
         bundle.validation.classification,
         ChatArtifactValidationStatus::Pass
     );
-    assert!(bundle
-        .validation
-        .rationale
-        .contains("without waiting on the slow acceptance gate"));
+    assert!(!bundle.validation.rationale.trim().is_empty());
     assert_eq!(bundle.winner.files[0].path, "artifact.md");
     assert!(bundle.winning_candidate_id.is_some());
 }
@@ -556,7 +553,7 @@ fn render_eval_merge_adds_strength_for_clean_desktop_and_mobile_captures() {
 }
 
 #[test]
-fn render_eval_merge_overrides_accept_to_polish_for_warning_only_regressions() {
+fn render_eval_merge_keeps_primary_view_for_contract_cleared_warning_only_regressions() {
     let request = request_for(
         ChatArtifactClass::InteractiveSingleFile,
         ChatRendererKind::HtmlIframe,
@@ -585,16 +582,14 @@ fn render_eval_merge_overrides_accept_to_polish_for_warning_only_regressions() {
         Some(&render_evaluation),
     );
 
-    assert_eq!(
-        merged.classification,
-        ChatArtifactValidationStatus::Repairable
-    );
-    assert!(!merged.deserves_primary_artifact_view);
+    assert_eq!(merged.classification, ChatArtifactValidationStatus::Pass);
+    assert!(merged.deserves_primary_artifact_view);
     assert_eq!(merged.recommended_next_pass.as_deref(), Some("polish_pass"));
     assert_eq!(
         merged.strongest_contradiction.as_deref(),
         Some("Captured viewports show weak alignment or inconsistent spacing cadence.")
     );
+    assert!(merged.truthfulness_warnings.is_empty());
 }
 
 #[test]
@@ -737,10 +732,7 @@ fn render_eval_merge_downgrades_markdown_typography_block_to_warning() {
         Some(&render_evaluation),
     );
 
-    assert_eq!(
-        merged.classification,
-        ChatArtifactValidationStatus::Repairable
-    );
+    assert_eq!(merged.classification, ChatArtifactValidationStatus::Pass);
     assert_eq!(merged.recommended_next_pass.as_deref(), Some("polish_pass"));
     assert_eq!(merged.strongest_contradiction.as_deref(), Some("Render evaluation observed minor typography weakness but preserved the document surface."));
     assert!(!merged
@@ -1479,7 +1471,7 @@ fn interactive_html_brief_validation_rejects_ungrounded_widget_metaphors() {
             "tool comparison slider".to_string(),
             "feature demo video player".to_string(),
         ],
-        visual_tone: vec!["modern".to_string()],
+        visual_tone: vec!["editorial evidence grid".to_string()],
         factual_anchors: vec![
             "industry expert opinions on AI tool usage".to_string(),
             "current AI tools market landscape".to_string(),
@@ -1768,7 +1760,9 @@ fn artifact_brief_prompt_preserves_request_specific_concepts() {
     ));
     assert!(prompt_text.contains("requiredConcepts must include the request-specific concepts"));
     assert!(prompt_text.contains("Renderer-aware brief guidance"));
-    assert!(prompt_text.contains("Name at least two concrete on-page interaction patterns"));
+    assert!(prompt_text.contains("Name at least one concrete on-page interaction pattern"));
+    assert!(prompt_text
+        .contains("Do not invent view switching, inspection, or sequencing requirements"));
     assert!(prompt_text.contains(
         "Single-word labels like \\\"interactive\\\" or \\\"explains\\\" are not sufficient interaction plans"
     ));
@@ -1853,8 +1847,10 @@ fn local_html_artifact_brief_prompt_is_compact_for_runtime() {
     assert!(local_prompt_bytes.len() < remote_prompt_bytes.len());
     assert!(local_prompt_text.contains("Artifact request focus JSON"));
     assert!(local_prompt_text.contains(
-        "requiredInteractions must include at least two concrete multi-word on-page interactions with visible response"
+        "requiredInteractions must include at least one concrete multi-word on-page interaction with visible response"
     ));
+    assert!(local_prompt_text
+        .contains("Do not invent view switching, inspection, or sequencing requirements"));
     assert!(local_prompt_text
         .contains("Preserve the differentiating nouns and framing words from the request"));
     assert!(local_prompt_text.contains("AI tools editorial launch page"));

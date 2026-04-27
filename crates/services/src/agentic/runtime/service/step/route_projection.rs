@@ -2,7 +2,7 @@ use super::cognition::{filter_cognition_tools, reply_safe_browser_semantics_enab
 use super::intent_resolver::{tool_has_capability, tool_provider_family};
 use super::signals::is_browser_surface;
 use super::worker::{filter_tools_for_worker_recovery, worker_recovery_failure_class};
-use crate::agentic::runtime::agent_playbooks::playbook_route_contract;
+use crate::agentic::runtime::agent_playbooks::playbook_decision_record;
 use crate::agentic::runtime::service::lifecycle::load_worker_assignment;
 use crate::agentic::runtime::service::RuntimeAgentService;
 use crate::agentic::runtime::tools::discover_tools;
@@ -46,7 +46,7 @@ fn route_family_for_resolved_intent(resolved_intent: Option<&ResolvedIntentState
     };
 
     if let Some(playbook_id) = playbook_slot_value(resolved, "playbook_id") {
-        let contract = playbook_route_contract(playbook_id);
+        let contract = playbook_decision_record(playbook_id);
         if !contract.route_family.trim().is_empty() {
             return contract.route_family.to_string();
         }

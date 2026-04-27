@@ -10,9 +10,9 @@ use crate::agentic::runtime::connectors::{
 use crate::agentic::runtime::execution::filesystem::resolve_tool_path;
 use crate::agentic::runtime::keys::get_parent_playbook_run_key;
 use crate::agentic::runtime::service::lifecycle::load_worker_assignment;
-use crate::agentic::runtime::service::step::action::command_contract::contract_requires_receipt_with_rules;
+use crate::agentic::runtime::service::step::action::command_contract::contract_requires_evidence_with_rules;
 use crate::agentic::runtime::service::step::action::support::{
-    mark_execution_receipt_with_value, receipt_marker,
+    execution_evidence_key, record_execution_evidence_with_value,
 };
 use crate::agentic::runtime::types::{ParentPlaybookRun, WorkerAssignment};
 use ioi_api::state::StateAccess;
@@ -680,7 +680,7 @@ pub(super) async fn apply_instruction_contract_grounding(
     let Some(resolved) = agent_state.resolved_intent.as_ref() else {
         return Ok(tool);
     };
-    let requires_grounding = contract_requires_receipt_with_rules(agent_state, rules, "grounding");
+    let requires_grounding = contract_requires_evidence_with_rules(agent_state, rules, "grounding");
     let tool_name = serde_json::to_value(&tool)
         .ok()
         .and_then(|value| tool_name_for_grounding(&value).map(str::to_string));
@@ -941,12 +941,12 @@ pub(super) async fn apply_instruction_contract_grounding(
         .and_then(|bytes| sha256(&bytes).ok())
         .map(|digest| format!("sha256:{}", hex::encode(digest.as_ref())))
         .unwrap_or_else(|| "sha256:unavailable".to_string());
-    mark_execution_receipt_with_value(
+    record_execution_evidence_with_value(
         &mut agent_state.tool_execution_log,
         "grounding",
         grounding_commit.clone(),
     );
-    verification_checks.push(receipt_marker("grounding"));
+    verification_checks.push(execution_evidence_key("grounding"));
     verification_checks.push(format!("grounding_commit={}", grounding_commit));
 
     serde_json::from_value::<AgentTool>(Value::Object(

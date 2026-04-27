@@ -59,6 +59,13 @@ assert.equal(
 );
 
 assert.equal(
+  isInfrastructureCurrentStep(
+    "Chat verified candidate-1 after clearing 4/4 required obligations across 1 candidate(s).",
+  ),
+  true,
+);
+
+assert.equal(
   defaultRunActivityTitle(researchSummary as any),
   "Checking current sources",
 );
@@ -87,6 +94,17 @@ assert.equal(
     researchSummary as any,
   ),
   "Checking fresh public information before answering.",
+);
+
+assert.equal(
+  operatorFacingCurrentStep(
+    {
+      current_step:
+        "Chat verified candidate-1 after clearing 4/4 required obligations across 1 candidate(s).",
+    } as any,
+    directInlineSummary as any,
+  ),
+  "Drafting the answer inline.",
 );
 
 assert.equal(

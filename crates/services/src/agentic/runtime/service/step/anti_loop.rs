@@ -4,10 +4,10 @@
 mod attempts;
 #[path = "anti_loop/classify.rs"]
 mod classify;
+#[path = "anti_loop/evidence.rs"]
+mod evidence;
 #[path = "anti_loop/model.rs"]
 mod model;
-#[path = "anti_loop/receipts.rs"]
-mod receipts;
 #[path = "anti_loop/routing.rs"]
 mod routing;
 
@@ -18,13 +18,13 @@ pub use attempts::{
     specialized_attempt_target_id, trailing_repetition_count,
 };
 pub use classify::{classify_failure, requires_wait_for_clarification, to_routing_failure_class};
+pub use evidence::{
+    emit_routing_receipt, extract_artifacts, lineage_pointer, mutation_receipt_artifact_id,
+    mutation_receipt_pointer, mutation_receipt_pointer_for_artifact_id, policy_binding_hash,
+};
 pub use model::{
     tier_as_str, AttemptKey, FailureClass, TierRoutingDecision, RETRY_GUARD_REPEAT_LIMIT,
     RETRY_GUARD_WINDOW,
-};
-pub use receipts::{
-    emit_routing_receipt, extract_artifacts, lineage_pointer, mutation_receipt_artifact_id,
-    mutation_receipt_pointer, mutation_receipt_pointer_for_artifact_id, policy_binding_hash,
 };
 pub use routing::{
     build_post_state_summary, build_state_summary, choose_routing_tier, escalation_path_for_failure,

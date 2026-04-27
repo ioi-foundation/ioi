@@ -15,7 +15,6 @@ interface AnswerCardProps {
   answer: AnswerPresentation;
   sourceSummary: SourceSummary | null;
   sourceDurationLabel?: string;
-  onExportTraceBundle: () => Promise<void> | void;
   onOpenArtifacts?: () => void;
   onOpenSources?: (summary: SourceSummary) => void;
 }
@@ -62,12 +61,10 @@ export function AnswerCard({
   answer,
   sourceSummary,
   sourceDurationLabel,
-  onExportTraceBundle,
   onOpenArtifacts,
   onOpenSources,
 }: AnswerCardProps) {
   const [copied, setCopied] = useState(false);
-  const [downloading, setDownloading] = useState(false);
 
   const citations = useMemo(
     () => answer.citations.slice(0, MAX_CITATION_PILLS),
@@ -103,15 +100,6 @@ export function AnswerCard({
       window.open(url, "_blank", "noopener,noreferrer");
     }
   }, []);
-
-  const handleDownload = useCallback(async () => {
-    setDownloading(true);
-    try {
-      await onExportTraceBundle();
-    } finally {
-      setDownloading(false);
-    }
-  }, [onExportTraceBundle]);
 
   const handleOpenArtifacts = useCallback(() => {
     onOpenArtifacts?.();
@@ -284,26 +272,6 @@ export function AnswerCard({
         >
           {copied ? icons.check : icons.copy}
           <span>{copied ? "Copied" : "Copy"}</span>
-        </button>
-        <button
-          className="answer-action-btn"
-          onClick={() => void handleDownload()}
-          type="button"
-          disabled={downloading}
-          title="Export canonical trace bundle"
-        >
-          {icons.code}
-          <span>{downloading ? "Exporting..." : "Export Trace"}</span>
-        </button>
-        <button
-          className="answer-action-btn"
-          onClick={handleOpenArtifacts}
-          type="button"
-          disabled={!onOpenArtifacts}
-          title="Open thoughts and evidence"
-        >
-          {icons.externalLink}
-          <span>Thoughts</span>
         </button>
       </div>
     </section>

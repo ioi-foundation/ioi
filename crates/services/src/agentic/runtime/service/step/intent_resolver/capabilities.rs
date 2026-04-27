@@ -758,7 +758,7 @@ pub(super) fn capability_known(
 }
 
 fn workspace_temporal_filter_known(
-    entry: &IntentMatrixEntry,
+    entry: &IntentCatalogEntry,
     bindings: &[ToolCapabilityBinding],
     query_binding_profile: &QueryBindingProfile,
 ) -> bool {
@@ -771,7 +771,7 @@ fn workspace_temporal_filter_known(
 }
 
 fn workspace_temporal_filter_satisfiable(
-    entry: &IntentMatrixEntry,
+    entry: &IntentCatalogEntry,
     bindings: &[ToolCapabilityBinding],
     rules: &ActionRules,
     query_binding_profile: &QueryBindingProfile,
@@ -785,7 +785,7 @@ fn workspace_temporal_filter_satisfiable(
 }
 
 pub(super) fn intent_feasible_without_policy(
-    entry: &IntentMatrixEntry,
+    entry: &IntentCatalogEntry,
     bindings: &[ToolCapabilityBinding],
     query_binding_profile: &QueryBindingProfile,
 ) -> bool {
@@ -805,7 +805,7 @@ pub(super) fn intent_feasible_without_policy(
 }
 
 pub(super) fn intent_feasible_for_execution(
-    entry: &IntentMatrixEntry,
+    entry: &IntentCatalogEntry,
     bindings: &[ToolCapabilityBinding],
     rules: &ActionRules,
     query_binding_profile: &QueryBindingProfile,
@@ -827,7 +827,7 @@ pub(super) fn intent_feasible_for_execution(
 
 pub(super) fn infer_unclassified_error_class(
     ranked_candidates: &[IntentCandidateScore],
-    matrix: &[IntentMatrixEntry],
+    intent_catalog: &[IntentCatalogEntry],
     bindings: &[ToolCapabilityBinding],
     rules: &ActionRules,
     query_binding_profile: &QueryBindingProfile,
@@ -839,7 +839,7 @@ pub(super) fn infer_unclassified_error_class(
     let ranked_entries = ranked_candidates
         .iter()
         .filter_map(|candidate| {
-            matrix
+            intent_catalog
                 .iter()
                 .find(|entry| entry.intent_id == candidate.intent_id)
         })

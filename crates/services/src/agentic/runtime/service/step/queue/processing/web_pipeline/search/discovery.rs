@@ -250,7 +250,7 @@ fn briefing_authority_link_out_sources_from_html(
     ) -> (String, bool) {
         let mut kept = Vec::new();
         let mut seen = BTreeSet::new();
-        let mut rescued = false;
+        let mut repaired = false;
         for segment in page_context.split('|') {
             let normalized = compact_whitespace(segment);
             let trimmed = normalized.trim();
@@ -266,7 +266,7 @@ fn briefing_authority_link_out_sources_from_html(
             let marker_stripped = !trimmed_candidate.eq_ignore_ascii_case(trimmed);
             if trimmed_candidate.is_empty() {
                 if marker_stripped {
-                    rescued = true;
+                    repaired = true;
                 }
                 continue;
             }
@@ -277,7 +277,7 @@ fn briefing_authority_link_out_sources_from_html(
                     trimmed_candidate,
                 );
             if signals.low_priority_hits > 0 || signals.low_priority_dominates() {
-                rescued = true;
+                repaired = true;
                 continue;
             }
             let grounded = crate::agentic::runtime::service::step::queue::support::excerpt_has_query_grounding_signal_with_contract(
@@ -290,7 +290,7 @@ fn briefing_authority_link_out_sources_from_html(
             );
             if grounded || trimmed_candidate.split_whitespace().count() >= 3 {
                 if marker_stripped {
-                    rescued = true;
+                    repaired = true;
                 }
                 if seen.insert(trimmed_candidate.to_ascii_lowercase()) {
                     kept.push(trimmed_candidate.to_string());
@@ -298,7 +298,7 @@ fn briefing_authority_link_out_sources_from_html(
             }
         }
 
-        (kept.join(" | "), rescued)
+        (kept.join(" | "), repaired)
     }
 
     #[derive(Debug)]

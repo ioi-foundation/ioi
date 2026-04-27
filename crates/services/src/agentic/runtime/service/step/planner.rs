@@ -96,7 +96,7 @@ fn normalize_plan_step(step: &mut PlanStep) -> Result<(), TransactionError> {
         step.arguments_json = Some(canonicalize_json(args)?);
     }
     normalize_string_list(&mut step.depends_on);
-    normalize_string_list(&mut step.receipts);
+    normalize_string_list(&mut step.evidence);
     Ok(())
 }
 
@@ -395,8 +395,8 @@ fn append_step_receipt(step: &mut PlanStep, receipt: String) {
     if trimmed.is_empty() {
         return;
     }
-    if !step.receipts.iter().any(|existing| existing == trimmed) {
-        step.receipts.push(trimmed.to_string());
+    if !step.evidence.iter().any(|existing| existing == trimmed) {
+        step.evidence.push(trimmed.to_string());
     }
 }
 

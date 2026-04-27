@@ -4,6 +4,7 @@ import type {
   SourceSummary,
 } from "../../../types";
 import type { TurnContext } from "../hooks/useTurnContexts";
+import { artifactSummaryLooksOperational } from "./artifactSurfaceShared";
 
 export function formatLifecycleLabel(value: string | null | undefined): string {
   if (!value) {
@@ -123,22 +124,6 @@ function joinLabels(labels: string[]): string | null {
   return `${labels[0]}, ${labels[1]}, and ${labels[2]}`;
 }
 
-function artifactSummaryLooksOperational(summary: string): boolean {
-  const normalized = summary.trim().toLowerCase();
-  if (!normalized) {
-    return false;
-  }
-  return (
-    normalized.includes("chat materialized")
-    || normalized.includes("final acceptance validation")
-    || normalized.includes("primary artifact view")
-    || normalized.includes("lifecycle")
-    || normalized.includes("verification cleared")
-    || normalized.includes("candidate-")
-    || normalized.includes("artifact view")
-  );
-}
-
 export function artifactReplyText(turnContext: TurnContext | null): string | null {
   if (
     !turnContext ||
@@ -162,11 +147,18 @@ export function artifactReplyText(turnContext: TurnContext | null): string | nul
       .toLowerCase();
     const failedLifecycle =
       lifecycleState === "blocked" || lifecycleState === "failed";
+    const partialLifecycle = lifecycleState === "partial";
 
     if (failedLifecycle) {
       return summary.length > 0
         ? `I wasn’t able to land **${artifact.title}**. ${summary}`
         : `I wasn’t able to land **${artifact.title}**. Inspect the blocked artifact card below for details.`;
+    }
+
+    if (partialLifecycle) {
+      return summary.length > 0
+        ? `I drafted **${artifact.title}**. ${summary}`
+        : `I drafted **${artifact.title}**. It needs another verification pass before it is ready.`;
     }
 
     const sourceAttribution = joinLabels(preferredSourceLabels(turnContext.sourceSummary));

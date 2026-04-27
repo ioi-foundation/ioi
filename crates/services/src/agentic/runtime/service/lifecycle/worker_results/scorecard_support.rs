@@ -600,10 +600,10 @@ pub(crate) fn synthesize_patch_synthesis_completion_result(
         })
         .unwrap_or_else(|| {
             if verification_ready {
-                "Inherited verifier receipts already mark the focused coding handoff as passed."
+                "Inherited verifier evidence already mark the focused coding handoff as passed."
                     .to_string()
             } else {
-                "Inherited verifier receipts still need attention before the final patch handoff is ready."
+                "Inherited verifier evidence still need attention before the final patch handoff is ready."
                     .to_string()
             }
         });

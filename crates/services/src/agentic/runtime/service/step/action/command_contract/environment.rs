@@ -2,7 +2,7 @@ use super::sys_exec_command_preview;
 use ioi_types::app::agentic::AgentTool;
 
 #[derive(Debug, Clone)]
-pub struct HostEnvironmentReceipt {
+pub struct HostEnvironmentEvidence {
     pub observed_value: String,
     pub probe_source: String,
     pub timestamp_ms: u64,
@@ -27,17 +27,17 @@ pub fn runtime_desktop_directory() -> Option<String> {
     Some(runtime_desktop_from_home(&home_dir))
 }
 
-pub fn runtime_host_environment_receipt(timestamp_ms: u64) -> HostEnvironmentReceipt {
+pub fn runtime_host_environment_evidence(timestamp_ms: u64) -> HostEnvironmentEvidence {
     let fallback_probe = "process_env:HOME|USERPROFILE|HOMEDRIVE+HOMEPATH".to_string();
     match discover_runtime_home_directory() {
-        Some((home_dir, probe_source)) => HostEnvironmentReceipt {
+        Some((home_dir, probe_source)) => HostEnvironmentEvidence {
             observed_value: home_dir.clone(),
             probe_source,
             timestamp_ms,
             satisfied: true,
             desktop_directory: Some(runtime_desktop_from_home(&home_dir)),
         },
-        None => HostEnvironmentReceipt {
+        None => HostEnvironmentEvidence {
             observed_value: "unavailable".to_string(),
             probe_source: fallback_probe,
             timestamp_ms,

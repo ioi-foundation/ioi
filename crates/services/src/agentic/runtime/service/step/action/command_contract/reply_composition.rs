@@ -6,7 +6,7 @@ pub fn compose_terminal_chat_reply(summary: &str) -> TerminalReplyComposerOutcom
             applied: false,
             template_id: "passthrough",
             validator_passed: true,
-            fallback_reason: None,
+            degradation_reason: None,
         };
     }
 
@@ -17,7 +17,7 @@ pub fn compose_terminal_chat_reply(summary: &str) -> TerminalReplyComposerOutcom
             applied: false,
             template_id: "passthrough",
             validator_passed: true,
-            fallback_reason: None,
+            degradation_reason: None,
         };
     }
 
@@ -29,7 +29,7 @@ pub fn compose_terminal_chat_reply(summary: &str) -> TerminalReplyComposerOutcom
             applied: false,
             template_id: "passthrough",
             validator_passed: true,
-            fallback_reason: None,
+            degradation_reason: None,
         };
     }
 
@@ -76,7 +76,7 @@ pub fn compose_terminal_chat_reply(summary: &str) -> TerminalReplyComposerOutcom
             applied: false,
             template_id,
             validator_passed: false,
-            fallback_reason: Some("empty_candidate"),
+            degradation_reason: Some("empty_candidate"),
         };
     }
 
@@ -92,7 +92,7 @@ pub fn compose_terminal_chat_reply(summary: &str) -> TerminalReplyComposerOutcom
             applied: false,
             template_id,
             validator_passed: false,
-            fallback_reason: Some("validator_failed"),
+            degradation_reason: Some("validator_failed"),
         };
     }
 
@@ -101,7 +101,7 @@ pub fn compose_terminal_chat_reply(summary: &str) -> TerminalReplyComposerOutcom
         applied: true,
         template_id,
         validator_passed: true,
-        fallback_reason: None,
+        degradation_reason: None,
     }
 }
 

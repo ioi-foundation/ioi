@@ -9,7 +9,7 @@ use crate::agentic::runtime::keys::get_state_key;
 use crate::agentic::runtime::service::lifecycle::{
     persist_worker_assignment, resolve_worker_assignment,
 };
-use crate::agentic::runtime::service::step::action::mark_execution_receipt_with_value;
+use crate::agentic::runtime::service::step::action::record_execution_evidence_with_value;
 use crate::agentic::runtime::service::step::anti_loop::FailureClass;
 use crate::agentic::runtime::service::{RuntimeAgentService, ServiceCallContext};
 use crate::agentic::runtime::types::{
@@ -116,6 +116,7 @@ fn build_worker_state(session_id: [u8; 32]) -> AgentState {
         execution_queue: Vec::new(),
         active_skill_hash: None,
         tool_execution_log: BTreeMap::new(),
+        execution_ledger: Default::default(),
         visual_som_map: None,
         visual_semantic_map: None,
         swarm_context: None,
@@ -826,7 +827,7 @@ fn patch_build_verify_recovery_restores_targeted_exec_after_workspace_edit_recei
             timestamp_ms: 1,
             step_index: 5,
         });
-    mark_execution_receipt_with_value(
+    record_execution_evidence_with_value(
         &mut worker_state.tool_execution_log,
         "workspace_edit_applied",
         "step=6;tool=file__edit;path=path_utils.py".to_string(),

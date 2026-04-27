@@ -36,10 +36,15 @@ pub type SymbolicReferenceInferencer = for<'a> fn(
     ProtectedSlotKind,
 ) -> SymbolicReferenceInferenceFuture<'a>;
 
-pub type PostconditionVerificationFuture<'a> =
-    Pin<Box<dyn Future<Output = Result<Option<ConnectorPostconditionProof>, String>> + Send + 'a>>;
-pub type PostconditionVerifier =
-    for<'a> fn(&'a AgentState, &'a str, &'a Value, &'a str) -> PostconditionVerificationFuture<'a>;
+pub type SuccessConditionVerificationFuture<'a> = Pin<
+    Box<dyn Future<Output = Result<Option<ConnectorSuccessConditionProof>, String>> + Send + 'a>,
+>;
+pub type SuccessConditionVerifier = for<'a> fn(
+    &'a AgentState,
+    &'a str,
+    &'a Value,
+    &'a str,
+) -> SuccessConditionVerificationFuture<'a>;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ConnectorToolRouteBinding {
@@ -63,7 +68,7 @@ pub struct ResolvedSymbolicReference {
 }
 
 #[derive(Debug, Clone)]
-pub struct ConnectorPostconditionEvidence {
+pub struct ConnectorSuccessConditionEvidence {
     pub key: String,
     pub evidence: String,
     pub observed_value: Option<String>,
@@ -72,8 +77,8 @@ pub struct ConnectorPostconditionEvidence {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct ConnectorPostconditionProof {
-    pub evidence: Vec<ConnectorPostconditionEvidence>,
+pub struct ConnectorSuccessConditionProof {
+    pub evidence: Vec<ConnectorSuccessConditionEvidence>,
 }
 
 #[derive(Clone, Copy)]
@@ -96,9 +101,9 @@ pub struct ConnectorProtectedSlotBinding {
 }
 
 #[derive(Clone, Copy)]
-pub struct ConnectorPostconditionVerifierBinding {
+pub struct ConnectorSuccessConditionVerifierBinding {
     pub connector_id: &'static str,
-    pub verify: PostconditionVerifier,
+    pub verify: SuccessConditionVerifier,
 }
 
 pub fn connector_tool_route_bindings() -> Vec<ConnectorToolRouteBinding> {
@@ -151,8 +156,9 @@ pub fn connector_protected_slot_bindings() -> Vec<ConnectorProtectedSlotBinding>
     bindings
 }
 
-pub fn connector_postcondition_verifier_bindings() -> Vec<ConnectorPostconditionVerifierBinding> {
-    let mut bindings = mail_connector::mail_connector_postcondition_verifier_bindings();
-    bindings.extend(google_workspace::google_connector_postcondition_verifier_bindings());
+pub fn connector_success_condition_verifier_bindings(
+) -> Vec<ConnectorSuccessConditionVerifierBinding> {
+    let mut bindings = mail_connector::mail_connector_success_condition_verifier_bindings();
+    bindings.extend(google_workspace::google_connector_success_condition_verifier_bindings());
     bindings
 }

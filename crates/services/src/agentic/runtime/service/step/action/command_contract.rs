@@ -1,14 +1,12 @@
 use super::support::{
-    execution_receipt_value, has_execution_postcondition, has_execution_receipt,
-    mark_execution_receipt, mark_execution_receipt_with_value, postcondition_marker,
-    receipt_marker,
+    execution_evidence_key, execution_evidence_value, has_execution_evidence,
+    persist_step_evidence_to_ledger, record_execution_evidence,
+    record_execution_evidence_with_value, success_condition_key,
 };
 use crate::agentic::rules::ActionRules;
 use crate::agentic::runtime::types::{AgentState, CommandExecution, ToolCallStatus};
 use ioi_crypto::algorithms::hash::sha256;
-use ioi_types::app::agentic::{
-    AgentTool, IntentMatrixEntry, IntentRoutingPolicy, IntentScopeProfile,
-};
+use ioi_types::app::agentic::{AgentTool, IntentCatalogEntry, IntentScopeProfile};
 use ioi_types::app::ActionTarget;
 use regex::Regex;
 use std::collections::BTreeMap;
@@ -23,17 +21,17 @@ mod history;
 pub const TARGET_UTC_MARKER: &str = "Target UTC:";
 pub const RUN_TIMESTAMP_UTC_MARKER: &str = "Run timestamp (UTC):";
 pub const MECHANISM_MARKER: &str = "Mechanism:";
-pub const TIMER_SLEEP_BACKEND_POSTCONDITION: &str = "timer_sleep_backend";
-pub const TIMER_NOTIFICATION_PATH_POSTCONDITION: &str = "notification_path_armed";
-pub const TIMER_NOTIFICATION_CONTRACT_REQUIRED_RECEIPT: &str =
+pub const TIMER_SLEEP_BACKEND_SUCCESS_CONDITION: &str = "timer_sleep_backend";
+pub const TIMER_NOTIFICATION_PATH_SUCCESS_CONDITION: &str = "notification_path_armed";
+pub const TIMER_NOTIFICATION_CONTRACT_REQUIRED_EVIDENCE: &str =
     "timer_notification_contract_required";
-pub const WEB_PIPELINE_TERMINAL_RECEIPT: &str = "web_pipeline_terminal";
-pub const PROVIDER_SELECTION_COMMIT_RECEIPT: &str = "provider_selection_commit";
-pub const VERIFICATION_COMMIT_RECEIPT: &str = "verification_commit";
-const COMMAND_SCOPE_REQUIRED_RECEIPTS: [&str; 3] =
+pub const WEB_PIPELINE_TERMINAL_EVIDENCE: &str = "web_pipeline_terminal";
+pub const PROVIDER_SELECTION_COMMIT_EVIDENCE: &str = "provider_selection_commit";
+pub const VERIFICATION_COMMIT_EVIDENCE: &str = "verification_commit";
+const COMMAND_SCOPE_REQUIRED_EVIDENCE: [&str; 3] =
     ["provider_selection", "execution", "verification"];
-const COMMAND_SCOPE_REQUIRED_POSTCONDITIONS: [&str; 1] = ["execution_artifact"];
-pub const CLOCK_TIMESTAMP_POSTCONDITION: &str = "clock_timestamp_observed";
+const COMMAND_SCOPE_SUCCESS_CONDITIONS: [&str; 1] = ["execution_artifact"];
+pub const CLOCK_TIMESTAMP_SUCCESS_CONDITION: &str = "clock_timestamp_observed";
 const RRSA_BASE_REQUIRED_RECEIPTS: [&str; 3] = [
     "rrsa_request_binding",
     "rrsa_firewall_decision",
@@ -67,13 +65,13 @@ pub struct TerminalReplyComposerOutcome {
     pub applied: bool,
     pub template_id: &'static str,
     pub validator_passed: bool,
-    pub fallback_reason: Option<&'static str>,
+    pub degradation_reason: Option<&'static str>,
 }
 
 #[allow(unused_imports)]
 pub use environment::{
-    runtime_desktop_directory, runtime_home_directory, runtime_host_environment_receipt,
-    sys_exec_foreign_absolute_home_path, ForeignHomePathEvidence, HostEnvironmentReceipt,
+    runtime_desktop_directory, runtime_home_directory, runtime_host_environment_evidence,
+    sys_exec_foreign_absolute_home_path, ForeignHomePathEvidence, HostEnvironmentEvidence,
 };
 pub use history::{append_command_history_entry, command_history_entry, command_history_exit_code};
 
@@ -85,27 +83,26 @@ pub fn resolved_contract_requirements_with_rules(
 ) -> (Vec<String>, Vec<String>) {
     resolved_contract_requirements(
         agent_state,
-        Some(&rules.ontology_policy.intent_routing.matrix),
+        Some(&rules.ontology_policy.intent_routing.intent_catalog),
     )
 }
 
-pub fn contract_requires_receipt_with_rules(
+pub fn contract_requires_evidence_with_rules(
     agent_state: &AgentState,
     rules: &ActionRules,
     receipt: &str,
 ) -> bool {
-    let (required_receipts, _) = resolved_contract_requirements_with_rules(agent_state, rules);
-    required_receipts.iter().any(|marker| marker == receipt)
+    let (required_evidence, _) = resolved_contract_requirements_with_rules(agent_state, rules);
+    required_evidence.iter().any(|marker| marker == receipt)
 }
 
-pub fn contract_requires_postcondition_with_rules(
+pub fn contract_requires_success_condition_with_rules(
     agent_state: &AgentState,
     rules: &ActionRules,
     postcondition: &str,
 ) -> bool {
-    let (_, required_postconditions) =
-        resolved_contract_requirements_with_rules(agent_state, rules);
-    required_postconditions
+    let (_, success_conditions) = resolved_contract_requirements_with_rules(agent_state, rules);
+    success_conditions
         .iter()
         .any(|marker| marker == postcondition)
 }
@@ -377,45 +374,45 @@ pub fn sys_exec_timer_delay_seconds(tool: &AgentTool) -> Option<i64> {
         .and_then(inferred_timer_delay_seconds)
 }
 
-pub fn record_provider_selection_receipts(
+pub fn record_provider_selection_evidence(
     tool_execution_log: &mut BTreeMap<String, ToolCallStatus>,
     verification_checks: &mut Vec<String>,
     tool_name: &str,
     route_label: &str,
 ) {
-    mark_execution_receipt_with_value(
+    record_execution_evidence_with_value(
         tool_execution_log,
         "provider_selection",
         route_label.to_string(),
     );
-    verification_checks.push(receipt_marker("provider_selection"));
+    verification_checks.push(execution_evidence_key("provider_selection"));
     let commit = provider_selection_commit(tool_name, route_label)
         .unwrap_or_else(|| "sha256:unavailable".to_string());
-    mark_execution_receipt_with_value(
+    record_execution_evidence_with_value(
         tool_execution_log,
-        PROVIDER_SELECTION_COMMIT_RECEIPT,
+        PROVIDER_SELECTION_COMMIT_EVIDENCE,
         commit.clone(),
     );
-    verification_checks.push(receipt_marker(PROVIDER_SELECTION_COMMIT_RECEIPT));
+    verification_checks.push(execution_evidence_key(PROVIDER_SELECTION_COMMIT_EVIDENCE));
     verification_checks.push(format!("provider_selection_route={}", route_label));
     verification_checks.push(format!("provider_selection_commit={}", commit));
 }
 
-pub fn record_verification_receipts(
+pub fn record_verification_evidence(
     tool_execution_log: &mut BTreeMap<String, ToolCallStatus>,
     verification_checks: &mut Vec<String>,
     tool: &AgentTool,
     history_entry: Option<&CommandExecution>,
 ) {
-    mark_execution_receipt(tool_execution_log, "verification");
-    verification_checks.push(receipt_marker("verification"));
+    record_execution_evidence(tool_execution_log, "verification");
+    verification_checks.push(execution_evidence_key("verification"));
     if let Some(commit) = verification_probe_commit(tool, history_entry) {
-        mark_execution_receipt_with_value(
+        record_execution_evidence_with_value(
             tool_execution_log,
-            VERIFICATION_COMMIT_RECEIPT,
+            VERIFICATION_COMMIT_EVIDENCE,
             commit.clone(),
         );
-        verification_checks.push(receipt_marker(VERIFICATION_COMMIT_RECEIPT));
+        verification_checks.push(execution_evidence_key(VERIFICATION_COMMIT_EVIDENCE));
         verification_checks.push(format!("verification_probe_commit={}", commit));
     } else {
         verification_checks.push("verification_probe_commit=missing".to_string());
@@ -513,9 +510,19 @@ fn append_unique_marker(values: &mut Vec<String>, marker: &str) {
 }
 
 fn rrsa_required_receipts(agent_state: &AgentState) -> Vec<String> {
+    rrsa_required_receipts_for_domain(execution_evidence_value(
+        &agent_state.tool_execution_log,
+        "rrsa_domain",
+    ))
+}
+
+fn rrsa_required_receipts_from_ledger(agent_state: &AgentState) -> Vec<String> {
+    rrsa_required_receipts_for_domain(agent_state.execution_ledger.evidence_value("rrsa_domain"))
+}
+
+fn rrsa_required_receipts_for_domain(domain_raw: Option<&str>) -> Vec<String> {
     let mut required = Vec::<String>::new();
-    let Some(domain_raw) = execution_receipt_value(&agent_state.tool_execution_log, "rrsa_domain")
-    else {
+    let Some(domain_raw) = domain_raw else {
         return required;
     };
     let domain = domain_raw.trim().to_ascii_lowercase();
@@ -555,7 +562,7 @@ fn rrsa_required_receipts(agent_state: &AgentState) -> Vec<String> {
 fn receipt_requires_commit_hash(receipt: &str) -> bool {
     matches!(
         receipt,
-        PROVIDER_SELECTION_COMMIT_RECEIPT | VERIFICATION_COMMIT_RECEIPT
+        PROVIDER_SELECTION_COMMIT_EVIDENCE | VERIFICATION_COMMIT_EVIDENCE
     ) || receipt.ends_with("_commit")
 }
 

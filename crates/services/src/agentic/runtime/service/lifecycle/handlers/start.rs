@@ -129,6 +129,7 @@ pub async fn handle_start(
         execution_queue: Vec::new(),
         current_tier: ExecutionTier::DomHeadless,
         tool_execution_log: BTreeMap::new(),
+        execution_ledger: Default::default(),
         active_skill_hash: None,
         visual_som_map: None,
         visual_semantic_map: None,

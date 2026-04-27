@@ -1,6 +1,6 @@
 use super::places::places_request_for_tool_widget;
 use crate::models::ChatOutcomeRequest;
-use ioi_types::app::chat::{ChatNormalizedRequestFrame, ChatOutcomeKind, ChatPlacesRequestFrame};
+use ioi_types::app::chat::{ChatNormalizedRequest, ChatOutcomeKind, ChatPlacesRequestFrame};
 use ioi_types::app::ChatExecutionStrategy;
 
 fn places_outcome_request(frame: Option<ChatPlacesRequestFrame>) -> ChatOutcomeRequest {
@@ -14,10 +14,10 @@ fn places_outcome_request(frame: Option<ChatPlacesRequestFrame>) -> ChatOutcomeR
         confidence: 0.92,
         needs_clarification: false,
         clarification_questions: Vec::new(),
-        routing_hints: vec!["tool_widget:places".to_string()],
-        lane_frame: None,
-        request_frame: frame.map(ChatNormalizedRequestFrame::Places),
-        source_selection: None,
+        decision_evidence: vec!["tool_widget:places".to_string()],
+        lane_request: None,
+        normalized_request: frame.map(ChatNormalizedRequest::Places),
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
@@ -26,7 +26,7 @@ fn places_outcome_request(frame: Option<ChatPlacesRequestFrame>) -> ChatOutcomeR
 }
 
 #[test]
-fn places_request_for_tool_widget_prefers_request_frame_state() {
+fn places_request_for_tool_widget_prefers_normalized_request_state() {
     let outcome_request = places_outcome_request(Some(ChatPlacesRequestFrame {
         search_anchor: None,
         category: Some("coffee shops".to_string()),

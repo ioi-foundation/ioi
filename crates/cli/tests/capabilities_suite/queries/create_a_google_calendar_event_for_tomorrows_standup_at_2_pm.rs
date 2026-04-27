@@ -11,7 +11,7 @@ pub fn case() -> QueryCase {
     QueryCase {
         id: CASE_ID,
         query: "Create a Google Calendar event for tomorrow's standup at 2 PM.",
-        success_definition: "Create the requested Google Calendar event through the Google connector with structured calendar event evidence, tool-path receipts, and no contract-failure markers.",
+        success_definition: "Create the requested Google Calendar event through the Google connector with structured calendar event evidence, tool-path evidence, and no contract-failure markers.",
         seeded_intent_id: "calendar.create_event",
         intent_scope: IntentScopeProfile::WorkspaceOps,
         seed_resolved_intent: true,

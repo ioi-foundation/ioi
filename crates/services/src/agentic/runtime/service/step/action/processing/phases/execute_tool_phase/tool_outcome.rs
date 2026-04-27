@@ -5,7 +5,7 @@ use super::events::{
 use super::system_fail::handle_system_fail_outcome;
 use super::web_followup::apply_web_research_followups;
 use super::*;
-use crate::agentic::runtime::service::step::action::command_contract::WEB_PIPELINE_TERMINAL_RECEIPT;
+use crate::agentic::runtime::service::step::action::command_contract::WEB_PIPELINE_TERMINAL_EVIDENCE;
 use crate::agentic::runtime::service::step::cognition::{
     build_browser_snapshot_pending_state_context_with_history,
     build_recent_pending_browser_state_context_with_snapshot, current_browser_observation_snapshot,
@@ -177,10 +177,14 @@ pub(super) async fn apply_tool_outcome_and_followups(
                 );
                 return Ok(());
             }
-            let missing_contract_markers =
-                missing_execution_contract_markers_with_rules(agent_state, rules);
-            if !missing_contract_markers.is_empty() {
-                let missing = missing_contract_markers.join(",");
+            let missing_completion_evidence = evaluate_completion_requirements(
+                agent_state,
+                resolved_intent_id,
+                verification_checks,
+                rules,
+            );
+            if !missing_completion_evidence.is_empty() {
+                let missing = missing_completion_evidence.join(",");
                 let contract_error = execution_contract_violation_error(&missing);
                 *success = false;
                 *error_msg = Some(contract_error.clone());
@@ -206,6 +210,9 @@ pub(super) async fn apply_tool_outcome_and_followups(
                     };
                 let completed_result = enrich_command_scope_summary(&completed_result, agent_state);
                 agent_state.status = AgentStatus::Completed(Some(completed_result.clone()));
+                agent_state
+                    .execution_ledger
+                    .record_terminal_success(Some(resolved_intent_id.to_string()));
                 *is_lifecycle_action = true;
                 *action_output = Some(completed_result.clone());
                 if !completed_result.trim().is_empty() {
@@ -326,7 +333,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                         verification_checks,
                     );
                     if !crate::agentic::runtime::service::step::queue::web_pipeline::final_web_completion_contract_ready(&final_facts) {
-                        let missing = "receipt::final_output_contract_ready=true".to_string();
+                        let missing = "evidence::final_output_contract_ready=true".to_string();
                         let contract_error = execution_contract_violation_error(&missing);
                         *success = false;
                         *error_msg = Some(contract_error.clone());
@@ -351,11 +358,12 @@ pub(super) async fn apply_tool_outcome_and_followups(
                         );
                         return Ok(());
                     }
-                    mark_execution_receipt(
+                    record_execution_evidence(
                         &mut agent_state.tool_execution_log,
-                        WEB_PIPELINE_TERMINAL_RECEIPT,
+                        WEB_PIPELINE_TERMINAL_EVIDENCE,
                     );
-                    verification_checks.push(receipt_marker(WEB_PIPELINE_TERMINAL_RECEIPT));
+                    verification_checks
+                        .push(execution_evidence_key(WEB_PIPELINE_TERMINAL_EVIDENCE));
                     verification_checks.push("web_pipeline_active=false".to_string());
                     verification_checks.push("terminal_chat_reply_ready=true".to_string());
                     agent_state.status = AgentStatus::Completed(Some(summary.clone()));
@@ -386,7 +394,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                         step_index,
                         resolved_intent_id,
                         "completion_gate",
-                        WEB_PIPELINE_TERMINAL_RECEIPT,
+                        WEB_PIPELINE_TERMINAL_EVIDENCE,
                         true,
                         "pending_web_pipeline_terminalized",
                         None,
@@ -430,10 +438,14 @@ pub(super) async fn apply_tool_outcome_and_followups(
                 );
                 return Ok(());
             }
-            let missing_contract_markers =
-                missing_execution_contract_markers_with_rules(agent_state, rules);
-            if !missing_contract_markers.is_empty() {
-                let missing = missing_contract_markers.join(",");
+            let missing_completion_evidence = evaluate_completion_requirements(
+                agent_state,
+                resolved_intent_id,
+                verification_checks,
+                rules,
+            );
+            if !missing_completion_evidence.is_empty() {
+                let missing = missing_completion_evidence.join(",");
                 let contract_error = execution_contract_violation_error(&missing);
                 *success = false;
                 *error_msg = Some(contract_error.clone());
@@ -452,6 +464,9 @@ pub(super) async fn apply_tool_outcome_and_followups(
             } else {
                 let message = enrich_command_scope_summary(message, agent_state);
                 agent_state.status = AgentStatus::Completed(Some(message.clone()));
+                agent_state
+                    .execution_ledger
+                    .record_terminal_success(Some(resolved_intent_id.to_string()));
                 *is_lifecycle_action = true;
                 *action_output = Some(message.clone());
                 *terminal_chat_reply_output = Some(message.clone());
@@ -529,23 +544,26 @@ pub(super) async fn apply_tool_outcome_and_followups(
                         bundle.provider_candidates.clone()
                     };
 
-                    mark_execution_receipt(&mut agent_state.tool_execution_log, "host_discovery");
-                    mark_execution_receipt(
+                    record_execution_evidence(
+                        &mut agent_state.tool_execution_log,
+                        "host_discovery",
+                    );
+                    record_execution_evidence(
                         &mut agent_state.tool_execution_log,
                         "provider_selection",
                     );
-                    mark_execution_receipt(&mut agent_state.tool_execution_log, "execution");
-                    mark_execution_receipt(&mut agent_state.tool_execution_log, "verification");
-                    mark_execution_postcondition(
+                    record_execution_evidence(&mut agent_state.tool_execution_log, "execution");
+                    record_execution_evidence(&mut agent_state.tool_execution_log, "verification");
+                    record_success_condition(
                         &mut agent_state.tool_execution_log,
                         "media_transcript_available",
                     );
 
-                    verification_checks.push(receipt_marker("host_discovery"));
-                    verification_checks.push(receipt_marker("provider_selection"));
-                    verification_checks.push(receipt_marker("execution"));
-                    verification_checks.push(receipt_marker("verification"));
-                    verification_checks.push(postcondition_marker("media_transcript_available"));
+                    verification_checks.push(execution_evidence_key("host_discovery"));
+                    verification_checks.push(execution_evidence_key("provider_selection"));
+                    verification_checks.push(execution_evidence_key("execution"));
+                    verification_checks.push(execution_evidence_key("verification"));
+                    verification_checks.push(success_condition_key("media_transcript_available"));
 
                     emit_execution_contract_receipt_event_with_observation(
                         service,
@@ -870,52 +888,55 @@ pub(super) async fn apply_tool_outcome_and_followups(
                     let selected_providers_value = selected_provider_ids.join(",");
                     let provider_candidates = bundle.provider_candidates.clone();
 
-                    mark_execution_receipt(&mut agent_state.tool_execution_log, "host_discovery");
-                    mark_execution_receipt(
+                    record_execution_evidence(
+                        &mut agent_state.tool_execution_log,
+                        "host_discovery",
+                    );
+                    record_execution_evidence(
                         &mut agent_state.tool_execution_log,
                         "provider_selection",
                     );
-                    mark_execution_receipt(&mut agent_state.tool_execution_log, "execution");
-                    mark_execution_receipt(&mut agent_state.tool_execution_log, "verification");
-                    mark_execution_postcondition(
+                    record_execution_evidence(&mut agent_state.tool_execution_log, "execution");
+                    record_execution_evidence(&mut agent_state.tool_execution_log, "verification");
+                    record_success_condition(
                         &mut agent_state.tool_execution_log,
                         "media_multimodal_evidence_available",
                     );
                     if bundle.transcript.is_some() {
-                        mark_execution_postcondition(
+                        record_success_condition(
                             &mut agent_state.tool_execution_log,
                             "media_transcript_available",
                         );
                     }
                     if bundle.timeline.is_some() {
-                        mark_execution_postcondition(
+                        record_success_condition(
                             &mut agent_state.tool_execution_log,
                             "media_timeline_available",
                         );
                     }
                     if bundle.visual.is_some() {
-                        mark_execution_postcondition(
+                        record_success_condition(
                             &mut agent_state.tool_execution_log,
                             "media_visual_evidence_available",
                         );
                     }
 
-                    verification_checks.push(receipt_marker("host_discovery"));
-                    verification_checks.push(receipt_marker("provider_selection"));
-                    verification_checks.push(receipt_marker("execution"));
-                    verification_checks.push(receipt_marker("verification"));
+                    verification_checks.push(execution_evidence_key("host_discovery"));
+                    verification_checks.push(execution_evidence_key("provider_selection"));
+                    verification_checks.push(execution_evidence_key("execution"));
+                    verification_checks.push(execution_evidence_key("verification"));
                     verification_checks
-                        .push(postcondition_marker("media_multimodal_evidence_available"));
+                        .push(success_condition_key("media_multimodal_evidence_available"));
                     if bundle.transcript.is_some() {
                         verification_checks
-                            .push(postcondition_marker("media_transcript_available"));
+                            .push(success_condition_key("media_transcript_available"));
                     }
                     if bundle.timeline.is_some() {
-                        verification_checks.push(postcondition_marker("media_timeline_available"));
+                        verification_checks.push(success_condition_key("media_timeline_available"));
                     }
                     if bundle.visual.is_some() {
                         verification_checks
-                            .push(postcondition_marker("media_visual_evidence_available"));
+                            .push(success_condition_key("media_visual_evidence_available"));
                     }
 
                     emit_execution_contract_receipt_event_with_observation(
@@ -1369,11 +1390,18 @@ pub(super) async fn apply_tool_outcome_and_followups(
                     .map(str::to_string)
                     .unwrap_or_else(|| format!("Installed package '{}'.", package));
                 let summary = enrich_command_scope_summary(&summary, agent_state);
-                let missing_contract_markers =
-                    missing_execution_contract_markers_with_rules(agent_state, rules);
-                if missing_contract_markers.is_empty() {
+                let missing_completion_evidence = evaluate_completion_requirements(
+                    agent_state,
+                    resolved_intent_id,
+                    verification_checks,
+                    rules,
+                );
+                if missing_completion_evidence.is_empty() {
                     *error_msg = None;
                     agent_state.status = AgentStatus::Completed(Some(summary.clone()));
+                    agent_state
+                        .execution_ledger
+                        .record_terminal_success(Some(resolved_intent_id.to_string()));
                     *is_lifecycle_action = true;
                     *action_output = Some(summary.clone());
                     *terminal_chat_reply_output = None;
@@ -1397,7 +1425,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                         "install_dependency_completion_gate_passed",
                     );
                 } else {
-                    let missing = missing_contract_markers.join(",");
+                    let missing = missing_completion_evidence.join(",");
                     let contract_error = execution_contract_violation_error(&missing);
                     *success = false;
                     *error_msg = Some(contract_error.clone());
@@ -1431,11 +1459,18 @@ pub(super) async fn apply_tool_outcome_and_followups(
                         )
                     });
                 let summary = enrich_command_scope_summary(&summary, agent_state);
-                let missing_contract_markers =
-                    missing_execution_contract_markers_with_rules(agent_state, rules);
-                if missing_contract_markers.is_empty() {
+                let missing_completion_evidence = evaluate_completion_requirements(
+                    agent_state,
+                    resolved_intent_id,
+                    verification_checks,
+                    rules,
+                );
+                if missing_completion_evidence.is_empty() {
                     *error_msg = None;
                     agent_state.status = AgentStatus::Completed(Some(summary.clone()));
+                    agent_state
+                        .execution_ledger
+                        .record_terminal_success(Some(resolved_intent_id.to_string()));
                     *is_lifecycle_action = true;
                     *action_output = Some(summary.clone());
                     *terminal_chat_reply_output = Some(summary);
@@ -1460,7 +1495,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                         "automation_monitor_completion_gate_passed",
                     );
                 } else {
-                    let missing = missing_contract_markers.join(",");
+                    let missing = missing_completion_evidence.join(",");
                     let contract_error = execution_contract_violation_error(&missing);
                     *success = false;
                     *error_msg = Some(contract_error.clone());
@@ -1490,6 +1525,9 @@ pub(super) async fn apply_tool_outcome_and_followups(
                         *success = true;
                         *error_msg = None;
                         agent_state.status = AgentStatus::Completed(Some(summary.clone()));
+                        agent_state
+                            .execution_ledger
+                            .record_terminal_success(Some(resolved_intent_id.to_string()));
                         *is_lifecycle_action = true;
                         *action_output = Some(summary);
                         agent_state.execution_queue.clear();
@@ -1510,18 +1548,19 @@ pub(super) async fn apply_tool_outcome_and_followups(
                     .and_then(summarize_system_clock_or_plain_output)
                 {
                     let summary = enrich_command_scope_summary(&summary, agent_state);
-                    mark_execution_postcondition(
+                    record_success_condition(
                         &mut agent_state.tool_execution_log,
-                        CLOCK_TIMESTAMP_POSTCONDITION,
+                        CLOCK_TIMESTAMP_SUCCESS_CONDITION,
                     );
-                    verification_checks.push(postcondition_marker(CLOCK_TIMESTAMP_POSTCONDITION));
+                    verification_checks
+                        .push(success_condition_key(CLOCK_TIMESTAMP_SUCCESS_CONDITION));
                     emit_execution_contract_receipt_event_with_observation(
                         service,
                         session_id,
                         step_index,
                         resolved_intent_id,
                         "verification",
-                        CLOCK_TIMESTAMP_POSTCONDITION,
+                        CLOCK_TIMESTAMP_SUCCESS_CONDITION,
                         true,
                         "clock_timestamp_observed=true",
                         Some("command_history"),
@@ -1548,7 +1587,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                     )
                     .await;
                 } else {
-                    let missing = postcondition_marker(CLOCK_TIMESTAMP_POSTCONDITION);
+                    let missing = success_condition_key(CLOCK_TIMESTAMP_SUCCESS_CONDITION);
                     let contract_error = execution_contract_violation_error(&missing);
                     *success = false;
                     *error_msg = Some(contract_error.clone());
@@ -1564,7 +1603,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                         step_index,
                         resolved_intent_id,
                         "verification",
-                        CLOCK_TIMESTAMP_POSTCONDITION,
+                        CLOCK_TIMESTAMP_SUCCESS_CONDITION,
                         false,
                         "clock_timestamp_observed=false",
                         Some("command_history"),
@@ -1586,12 +1625,19 @@ pub(super) async fn apply_tool_outcome_and_followups(
                     )
                 }) {
                     let summary = enrich_command_scope_summary(&summary, agent_state);
-                    let missing_contract_markers =
-                        missing_execution_contract_markers_with_rules(agent_state, rules);
-                    if missing_contract_markers.is_empty() {
+                    let missing_completion_evidence = evaluate_completion_requirements(
+                        agent_state,
+                        resolved_intent_id,
+                        verification_checks,
+                        rules,
+                    );
+                    if missing_completion_evidence.is_empty() {
                         *success = true;
                         *error_msg = None;
                         agent_state.status = AgentStatus::Completed(Some(summary.clone()));
+                        agent_state
+                            .execution_ledger
+                            .record_terminal_success(Some(resolved_intent_id.to_string()));
                         *is_lifecycle_action = true;
                         *action_output = Some(summary.clone());
                         *terminal_chat_reply_output = Some(summary);
@@ -1617,7 +1663,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                             "command_scope_structured_receipt_completion_gate_passed",
                         );
                     } else {
-                        let missing = missing_contract_markers.join(",");
+                        let missing = missing_completion_evidence.join(",");
                         let contract_error = execution_contract_violation_error(&missing);
                         *success = false;
                         *error_msg = Some(contract_error.clone());
@@ -1638,12 +1684,19 @@ pub(super) async fn apply_tool_outcome_and_followups(
                 } else if let Some(summary) =
                     duplicate_command_completion_summary(tool, agent_state.command_history.back())
                 {
-                    let missing_contract_markers =
-                        missing_execution_contract_markers_with_rules(agent_state, rules);
-                    if missing_contract_markers.is_empty() {
+                    let missing_completion_evidence = evaluate_completion_requirements(
+                        agent_state,
+                        resolved_intent_id,
+                        verification_checks,
+                        rules,
+                    );
+                    if missing_completion_evidence.is_empty() {
                         *success = true;
                         *error_msg = None;
                         agent_state.status = AgentStatus::Completed(Some(summary.clone()));
+                        agent_state
+                            .execution_ledger
+                            .record_terminal_success(Some(resolved_intent_id.to_string()));
                         *is_lifecycle_action = true;
                         *action_output = Some(summary.clone());
                         *terminal_chat_reply_output = Some(summary);
@@ -1668,7 +1721,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                             "command_scope_completion_gate_passed",
                         );
                     } else {
-                        let missing = missing_contract_markers.join(",");
+                        let missing = missing_completion_evidence.join(",");
                         let contract_error = execution_contract_violation_error(&missing);
                         *success = false;
                         *error_msg = Some(contract_error.clone());
@@ -1690,9 +1743,13 @@ pub(super) async fn apply_tool_outcome_and_followups(
                     verified_command_probe_completion_summary(tool, &agent_state.command_history)
                 {
                     let summary = enrich_command_scope_summary(&summary, agent_state);
-                    let missing_contract_markers =
-                        missing_execution_contract_markers_with_rules(agent_state, rules);
-                    if missing_contract_markers.is_empty() {
+                    let missing_completion_evidence = evaluate_completion_requirements(
+                        agent_state,
+                        resolved_intent_id,
+                        verification_checks,
+                        rules,
+                    );
+                    if missing_completion_evidence.is_empty() {
                         *success = true;
                         *error_msg = None;
                         agent_state.status = AgentStatus::Completed(Some(summary.clone()));
@@ -1721,7 +1778,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                             "command_scope_verified_probe_completion_gate_passed",
                         );
                     } else {
-                        let missing = missing_contract_markers.join(",");
+                        let missing = missing_completion_evidence.join(",");
                         let contract_error = execution_contract_violation_error(&missing);
                         *success = false;
                         *error_msg = Some(contract_error.clone());

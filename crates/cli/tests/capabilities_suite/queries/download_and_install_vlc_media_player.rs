@@ -30,7 +30,7 @@ pub fn case() -> QueryCase {
     QueryCase {
         id: "download_and_install_vlc_media_player",
         query: "Download and install VLC media player.",
-        success_definition: "Install VLC through the package-install execution path, satisfy CEC discovery/execution/verification receipts, and prove download/install/binary postconditions through fixture-backed environment receipts.",
+        success_definition: "Install VLC through the package-install execution path, satisfy CEC discovery/execution/verification evidence, and prove download/install/binary success_conditions through fixture-backed environment evidence.",
         seeded_intent_id: "command.exec.install_dependency",
         intent_scope: IntentScopeProfile::CommandExecution,
         seed_resolved_intent: true,
@@ -49,7 +49,7 @@ pub fn case_unseeded() -> QueryCase {
     QueryCase {
         id: "download_and_install_vlc_media_player_unseeded",
         query: UNSEEDED_QUERY,
-        success_definition: "Resolve and execute VLC install without seeded intent override: route through package-install execution, satisfy CEC discovery/execution/verification receipts, and prove download/install/binary postconditions through fixture-backed environment receipts.",
+        success_definition: "Resolve and execute VLC install without seeded intent override: route through package-install execution, satisfy CEC discovery/execution/verification evidence, and prove download/install/binary success_conditions through fixture-backed environment evidence.",
         seeded_intent_id: "command.exec.install_dependency",
         intent_scope: IntentScopeProfile::CommandExecution,
         seed_resolved_intent: false,
@@ -90,50 +90,52 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         && cec_verification_seen
         && cec_postcondition_seen;
 
-    let fixture_mode = verification_value(obs, "env_receipt::vlc_fixture_mode").unwrap_or_default();
+    let fixture_mode =
+        verification_value(obs, "env_evidence::vlc_fixture_mode").unwrap_or_default();
     let fixture_mode_satisfied = fixture_mode.eq_ignore_ascii_case(EXPECTED_FIXTURE_MODE);
     let fixture_probe_source =
-        verification_value(obs, "env_receipt::vlc_fixture_probe_source").unwrap_or_default();
-    let fixture_timestamp_ms = verification_u64(obs, "env_receipt::vlc_fixture_timestamp_ms")
+        verification_value(obs, "env_evidence::vlc_fixture_probe_source").unwrap_or_default();
+    let fixture_timestamp_ms = verification_u64(obs, "env_evidence::vlc_fixture_timestamp_ms")
         .unwrap_or(obs.run_timestamp_ms);
     let fixture_satisfied =
-        verification_bool(obs, "env_receipt::vlc_fixture_satisfied").unwrap_or(false);
+        verification_bool(obs, "env_evidence::vlc_fixture_satisfied").unwrap_or(false);
 
     let download_receipt_path =
-        verification_value(obs, "env_receipt::vlc_download_receipt_path").unwrap_or_default();
+        verification_value(obs, "env_evidence::vlc_download_receipt_path").unwrap_or_default();
     let download_receipt_probe_source =
-        verification_value(obs, "env_receipt::vlc_download_receipt_probe_source")
+        verification_value(obs, "env_evidence::vlc_download_receipt_probe_source")
             .unwrap_or_default();
     let download_receipt_timestamp_ms =
-        verification_u64(obs, "env_receipt::vlc_download_receipt_timestamp_ms")
+        verification_u64(obs, "env_evidence::vlc_download_receipt_timestamp_ms")
             .unwrap_or(obs.run_timestamp_ms);
     let download_receipt_satisfied =
-        verification_bool(obs, "env_receipt::vlc_download_receipt_satisfied").unwrap_or(false);
+        verification_bool(obs, "env_evidence::vlc_download_receipt_satisfied").unwrap_or(false);
 
     let install_receipt_path =
-        verification_value(obs, "env_receipt::vlc_install_receipt_path").unwrap_or_default();
+        verification_value(obs, "env_evidence::vlc_install_receipt_path").unwrap_or_default();
     let install_receipt_probe_source =
-        verification_value(obs, "env_receipt::vlc_install_receipt_probe_source")
+        verification_value(obs, "env_evidence::vlc_install_receipt_probe_source")
             .unwrap_or_default();
     let install_receipt_timestamp_ms =
-        verification_u64(obs, "env_receipt::vlc_install_receipt_timestamp_ms")
+        verification_u64(obs, "env_evidence::vlc_install_receipt_timestamp_ms")
             .unwrap_or(obs.run_timestamp_ms);
     let install_receipt_satisfied =
-        verification_bool(obs, "env_receipt::vlc_install_receipt_satisfied").unwrap_or(false);
+        verification_bool(obs, "env_evidence::vlc_install_receipt_satisfied").unwrap_or(false);
     let install_receipt_value =
-        verification_value(obs, "env_receipt::vlc_install_receipt_value").unwrap_or_default();
+        verification_value(obs, "env_evidence::vlc_install_receipt_value").unwrap_or_default();
     let install_receipt_value_satisfied =
-        verification_bool(obs, "env_receipt::vlc_install_receipt_value_satisfied").unwrap_or(false)
+        verification_bool(obs, "env_evidence::vlc_install_receipt_value_satisfied")
+            .unwrap_or(false)
             && install_receipt_value.eq_ignore_ascii_case("vlc");
 
     let vlc_binary_path =
-        verification_value(obs, "env_receipt::vlc_binary_path").unwrap_or_default();
+        verification_value(obs, "env_evidence::vlc_binary_path").unwrap_or_default();
     let vlc_binary_probe_source =
-        verification_value(obs, "env_receipt::vlc_binary_probe_source").unwrap_or_default();
-    let vlc_binary_timestamp_ms = verification_u64(obs, "env_receipt::vlc_binary_timestamp_ms")
+        verification_value(obs, "env_evidence::vlc_binary_probe_source").unwrap_or_default();
+    let vlc_binary_timestamp_ms = verification_u64(obs, "env_evidence::vlc_binary_timestamp_ms")
         .unwrap_or(obs.run_timestamp_ms);
     let vlc_binary_satisfied =
-        verification_bool(obs, "env_receipt::vlc_binary_satisfied").unwrap_or(false);
+        verification_bool(obs, "env_evidence::vlc_binary_satisfied").unwrap_or(false);
 
     let installation_receipts_satisfied = fixture_mode_satisfied
         && fixture_satisfied
@@ -361,7 +363,7 @@ fn build_environment_receipts(
         EnvironmentEvidenceReceipt {
             key: "vlc_install_receipt_value_observed",
             observed_value: install_receipt_value,
-            probe_source: "env_receipt::vlc_install_receipt_value".to_string(),
+            probe_source: "env_evidence::vlc_install_receipt_value".to_string(),
             timestamp_ms: obs.run_timestamp_ms,
             satisfied: install_receipt_value_satisfied,
         },
@@ -382,6 +384,6 @@ fn build_environment_receipts(
     ]
 }
 
-fn serialize_environment_receipts(receipts: &[EnvironmentEvidenceReceipt]) -> String {
-    serde_json::to_string(receipts).unwrap_or_else(|_| "[]".to_string())
+fn serialize_environment_receipts(evidence: &[EnvironmentEvidenceReceipt]) -> String {
+    serde_json::to_string(evidence).unwrap_or_else(|_| "[]".to_string())
 }

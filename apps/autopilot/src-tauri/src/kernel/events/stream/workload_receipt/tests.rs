@@ -2,7 +2,7 @@ use super::{summarize_workload_receipt, WorkloadReceiptKind};
 use ioi_ipc::public::{WorkloadParentPlaybookReceipt, WorkloadReceipt};
 
 #[test]
-fn parent_playbook_summary_preserves_explicit_route_contract_fields() {
+fn parent_playbook_summary_preserves_explicit_decision_record_fields() {
     let receipt = WorkloadReceipt {
         session_id: "session-1".to_string(),
         workload_id: "workload-1".to_string(),

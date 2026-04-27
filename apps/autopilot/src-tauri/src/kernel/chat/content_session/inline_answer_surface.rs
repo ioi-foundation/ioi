@@ -12,12 +12,12 @@ use super::*;
 use crate::models::ChatArtifactFileRole;
 use base64::Engine as _;
 use ioi_api::runtime_harness::{
-    derive_chat_domain_policy_bundle, non_artifact_verified_reply_evidence,
-    route_decision_for_outcome_request, verification_status_for_lifecycle,
+    derive_chat_domain_policy_bundle, inline_answer_verified_reply_evidence,
+    verification_status_for_lifecycle,
 };
 use ioi_types::app::ChatDomainPolicyBundle;
 
-pub(super) fn verified_reply_for_non_artifact_route(
+pub(super) fn verified_reply_for_inline_answer_route(
     title: &str,
     summary: &str,
     lifecycle_state: ChatArtifactLifecycleState,
@@ -31,7 +31,7 @@ pub(super) fn verified_reply_for_non_artifact_route(
         lifecycle_state,
         title: title.to_string(),
         summary: summary.to_string(),
-        evidence: non_artifact_verified_reply_evidence(outcome_request, &provenance.label),
+        evidence: inline_answer_verified_reply_evidence(outcome_request, &provenance.label),
         production_provenance: Some(provenance.clone()),
         acceptance_provenance: Some(provenance.clone()),
         failure: None,
@@ -39,16 +39,16 @@ pub(super) fn verified_reply_for_non_artifact_route(
     }
 }
 
-pub(super) fn non_artifact_domain_policy_bundle(
+pub(super) fn inline_answer_domain_policy_bundle(
     outcome_request: &ChatOutcomeRequest,
     widget_state: Option<&ChatRetainedWidgetState>,
 ) -> ChatDomainPolicyBundle {
     derive_chat_domain_policy_bundle(
-        outcome_request.lane_frame.as_ref(),
-        outcome_request.request_frame.as_ref(),
-        outcome_request.source_selection.as_ref(),
+        outcome_request.lane_request.as_ref(),
+        outcome_request.normalized_request.as_ref(),
+        outcome_request.source_decision.as_ref(),
         outcome_request.outcome_kind,
-        &outcome_request.routing_hints,
+        &outcome_request.decision_evidence,
         outcome_request.needs_clarification,
         widget_state,
     )
@@ -80,68 +80,9 @@ fn extract_mermaid_block(content: &str) -> Option<String> {
     }
 }
 
-fn non_artifact_surface_markdown(
+fn inline_answer_surface_html(
     title: &str,
     summary: &str,
-    route_decision: &RoutingRouteDecision,
-    domain_policy_bundle: &ChatDomainPolicyBundle,
-    outcome_request: &ChatOutcomeRequest,
-) -> String {
-    let mut sections = vec![
-        format!("# {title}"),
-        String::new(),
-        summary.trim().to_string(),
-        String::new(),
-        "## Route contract".to_string(),
-        format!("- route family: {}", route_decision.route_family),
-        format!("- output intent: {}", route_decision.output_intent),
-        format!(
-            "- direct answer allowed: {}",
-            route_decision.direct_answer_allowed
-        ),
-    ];
-    if let Some(policy) = domain_policy_bundle.presentation_policy.as_ref() {
-        sections.push(format!(
-            "- presentation surface: {}",
-            policy.primary_surface
-        ));
-    }
-    if !domain_policy_bundle.source_ranking.is_empty() {
-        sections.push(String::new());
-        sections.push("## Source ranking".to_string());
-        for entry in &domain_policy_bundle.source_ranking {
-            sections.push(format!(
-                "- {}. {:?}: {}",
-                entry.rank, entry.source, entry.rationale
-            ));
-        }
-    }
-    if let Some(widget_state) = domain_policy_bundle.retained_widget_state.as_ref() {
-        if !widget_state.bindings.is_empty() {
-            sections.push(String::new());
-            sections.push("## Retained widget state".to_string());
-            for binding in &widget_state.bindings {
-                sections.push(format!(
-                    "- {} = {} ({})",
-                    binding.key, binding.value, binding.source
-                ));
-            }
-        }
-    }
-    if outcome_request.needs_clarification && !outcome_request.clarification_questions.is_empty() {
-        sections.push(String::new());
-        sections.push("## Clarification".to_string());
-        for question in &outcome_request.clarification_questions {
-            sections.push(format!("- {question}"));
-        }
-    }
-    sections.join("\n")
-}
-
-fn non_artifact_surface_html(
-    title: &str,
-    summary: &str,
-    route_decision: &RoutingRouteDecision,
     domain_policy_bundle: &ChatDomainPolicyBundle,
     outcome_request: &ChatOutcomeRequest,
 ) -> String {
@@ -151,45 +92,6 @@ fn non_artifact_surface_html(
         .map(|line| format!("<p>{}</p>", escape_html(line)))
         .collect::<Vec<_>>()
         .join("");
-    let chips = [
-        Some(format!("Route: {}", route_decision.route_family)),
-        Some(format!("Output: {}", route_decision.output_intent)),
-        domain_policy_bundle
-            .presentation_policy
-            .as_ref()
-            .map(|policy| format!("Surface: {}", policy.primary_surface)),
-        domain_policy_bundle
-            .risk_profile
-            .as_ref()
-            .map(|risk| format!("Risk: {:?}", risk.sensitivity).to_ascii_lowercase()),
-    ]
-    .into_iter()
-    .flatten()
-    .map(|label: String| {
-        format!(
-            "<span class=\"chip\">{}</span>",
-            escape_html(label.as_str())
-        )
-    })
-    .collect::<Vec<_>>()
-    .join("");
-    let ranking_html = if domain_policy_bundle.source_ranking.is_empty() {
-        String::new()
-    } else {
-        format!(
-            "<section><h3>Source ranking</h3><ol>{}</ol></section>",
-            domain_policy_bundle
-                .source_ranking
-                .iter()
-                .map(|entry| format!(
-                    "<li><strong>{:?}</strong> · {}</li>",
-                    entry.source,
-                    escape_html(&entry.rationale)
-                ))
-                .collect::<Vec<_>>()
-                .join("")
-        )
-    };
     let clarification_html = if outcome_request.needs_clarification
         && !outcome_request.clarification_questions.is_empty()
     {
@@ -254,17 +156,7 @@ fn non_artifact_surface_html(
         font-size: 28px;
       }}
       .chips {{
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin: 18px 0 20px;
-      }}
-      .chip {{
-        font-size: 12px;
-        padding: 6px 10px;
-        border-radius: 999px;
-        border: 1px solid var(--line);
-        background: rgba(255,255,255,0.04);
+        display: none;
       }}
       section {{
         margin-top: 22px;
@@ -288,14 +180,12 @@ fn non_artifact_surface_html(
   </head>
   <body>
     <main class=\"shell\">
-      <div class=\"eyebrow\">Chat parity surface</div>
+      <div class=\"eyebrow\">Answer</div>
       <h1>{title_html}</h1>
-      <div class=\"chips\">{chips}</div>
       <section>
         <h3>Outcome</h3>
         {summary_html}
       </section>
-      {ranking_html}
       {clarification_html}
     </main>
     <script>
@@ -311,15 +201,13 @@ fn non_artifact_surface_html(
 </html>",
         title = escape_html(title),
         title_html = escape_html(title),
-        chips = chips,
         summary_html = summary_html,
-        ranking_html = ranking_html,
         clarification_html = clarification_html,
         retained_widget_state = retained_widget_state,
     )
 }
 
-pub(super) fn non_artifact_manifest(
+pub(super) fn inline_answer_manifest(
     artifact_id: &str,
     title: &str,
     summary: &str,
@@ -328,52 +216,33 @@ pub(super) fn non_artifact_manifest(
     outcome_request: &ChatOutcomeRequest,
     widget_state: Option<&ChatRetainedWidgetState>,
 ) -> ChatArtifactManifest {
-    let route_decision = route_decision_for_outcome_request(outcome_request);
-    let domain_policy_bundle = non_artifact_domain_policy_bundle(outcome_request, widget_state);
-    let source_markdown = non_artifact_surface_markdown(
-        title,
-        summary,
-        &route_decision,
-        &domain_policy_bundle,
-        outcome_request,
-    );
-    let (renderer, render_path, render_mime, render_content) =
-        if outcome_request.outcome_kind == ChatOutcomeKind::Visualizer {
-            if let Some(mermaid) = extract_mermaid_block(summary) {
-                (
-                    ChatRendererKind::Mermaid,
-                    "surface/diagram.mmd".to_string(),
-                    "text/plain".to_string(),
-                    mermaid,
-                )
-            } else {
-                (
-                    ChatRendererKind::HtmlIframe,
-                    "surface/index.html".to_string(),
-                    "text/html".to_string(),
-                    non_artifact_surface_html(
-                        title,
-                        summary,
-                        &route_decision,
-                        &domain_policy_bundle,
-                        outcome_request,
-                    ),
-                )
-            }
+    let domain_policy_bundle = inline_answer_domain_policy_bundle(outcome_request, widget_state);
+    let (renderer, render_path, render_mime, render_content) = if outcome_request.outcome_kind
+        == ChatOutcomeKind::Visualizer
+    {
+        if let Some(mermaid) = extract_mermaid_block(summary) {
+            (
+                ChatRendererKind::Mermaid,
+                "surface/diagram.mmd".to_string(),
+                "text/plain".to_string(),
+                mermaid,
+            )
         } else {
             (
                 ChatRendererKind::HtmlIframe,
                 "surface/index.html".to_string(),
                 "text/html".to_string(),
-                non_artifact_surface_html(
-                    title,
-                    summary,
-                    &route_decision,
-                    &domain_policy_bundle,
-                    outcome_request,
-                ),
+                inline_answer_surface_html(title, summary, &domain_policy_bundle, outcome_request),
             )
-        };
+        }
+    } else {
+        (
+            ChatRendererKind::HtmlIframe,
+            "surface/index.html".to_string(),
+            "text/html".to_string(),
+            inline_answer_surface_html(title, summary, &domain_policy_bundle, outcome_request),
+        )
+    };
 
     ChatArtifactManifest {
         artifact_id: artifact_id.to_string(),
@@ -385,52 +254,23 @@ pub(super) fn non_artifact_manifest(
         },
         renderer,
         primary_tab: "render".to_string(),
-        tabs: vec![
-            ChatArtifactManifestTab {
-                id: "render".to_string(),
-                label: "Render".to_string(),
-                kind: ChatArtifactTabKind::Render,
-                renderer: Some(renderer),
-                file_path: Some(render_path.clone()),
-                lens: Some("render".to_string()),
-            },
-            ChatArtifactManifestTab {
-                id: "source".to_string(),
-                label: "Source".to_string(),
-                kind: ChatArtifactTabKind::Source,
-                renderer: None,
-                file_path: Some("surface/route.md".to_string()),
-                lens: Some("source".to_string()),
-            },
-            ChatArtifactManifestTab {
-                id: "evidence".to_string(),
-                label: "Evidence".to_string(),
-                kind: ChatArtifactTabKind::Evidence,
-                renderer: None,
-                file_path: None,
-                lens: Some("evidence".to_string()),
-            },
-        ],
-        files: vec![
-            ChatArtifactManifestFile {
-                path: render_path,
-                mime: render_mime.clone(),
-                role: ChatArtifactFileRole::Primary,
-                renderable: true,
-                downloadable: false,
-                artifact_id: None,
-                external_url: Some(text_data_url(&render_mime, &render_content)),
-            },
-            ChatArtifactManifestFile {
-                path: "surface/route.md".to_string(),
-                mime: "text/markdown".to_string(),
-                role: ChatArtifactFileRole::Source,
-                renderable: false,
-                downloadable: false,
-                artifact_id: None,
-                external_url: Some(text_data_url("text/markdown", &source_markdown)),
-            },
-        ],
+        tabs: vec![ChatArtifactManifestTab {
+            id: "render".to_string(),
+            label: "Render".to_string(),
+            kind: ChatArtifactTabKind::Render,
+            renderer: Some(renderer),
+            file_path: Some(render_path.clone()),
+            lens: Some("render".to_string()),
+        }],
+        files: vec![ChatArtifactManifestFile {
+            path: render_path,
+            mime: render_mime.clone(),
+            role: ChatArtifactFileRole::Primary,
+            renderable: true,
+            downloadable: false,
+            artifact_id: None,
+            external_url: Some(text_data_url(&render_mime, &render_content)),
+        }],
         verification: ChatArtifactManifestVerification {
             status: if outcome_request.needs_clarification {
                 ChatArtifactVerificationStatus::Blocked
@@ -447,7 +287,7 @@ pub(super) fn non_artifact_manifest(
     }
 }
 
-pub(in crate::kernel::chat) fn refresh_non_artifact_chat_surface(
+pub(in crate::kernel::chat) fn refresh_inline_answer_chat_surface(
     chat_session: &mut ChatArtifactSession,
 ) {
     if chat_session.outcome_request.outcome_kind == ChatOutcomeKind::Artifact {
@@ -469,10 +309,10 @@ pub(in crate::kernel::chat) fn refresh_non_artifact_chat_surface(
         });
     if chat_session.widget_state.is_none() {
         chat_session.widget_state =
-            non_artifact_domain_policy_bundle(&chat_session.outcome_request, None)
+            inline_answer_domain_policy_bundle(&chat_session.outcome_request, None)
                 .retained_widget_state;
     }
-    let manifest = non_artifact_manifest(
+    let manifest = inline_answer_manifest(
         &chat_session.artifact_id,
         &title,
         &summary,
@@ -483,10 +323,6 @@ pub(in crate::kernel::chat) fn refresh_non_artifact_chat_surface(
     );
     chat_session.artifact_manifest = manifest;
     chat_session.current_lens = "render".to_string();
-    chat_session.available_lenses = vec![
-        "render".to_string(),
-        "source".to_string(),
-        "evidence".to_string(),
-    ];
+    chat_session.available_lenses = vec!["render".to_string()];
     chat_session.navigator_nodes = navigator_nodes_for_manifest(&chat_session.artifact_manifest);
 }

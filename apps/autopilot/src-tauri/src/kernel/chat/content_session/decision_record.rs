@@ -1,22 +1,25 @@
 use super::*;
 use ioi_api::runtime_harness::{
-    build_chat_route_contract_payload, build_chat_runtime_handoff_prompt_prefix,
-    non_artifact_route_status_message as shared_non_artifact_route_status_message,
+    build_chat_decision_record_payload, build_chat_runtime_handoff_prompt_prefix,
+    inline_answer_status_message as shared_inline_answer_status_message,
 };
 
-pub(super) fn routing_hint_flag(outcome_request: &ChatOutcomeRequest, needle: &str) -> bool {
+pub(super) fn decision_evidence_item_flag(
+    outcome_request: &ChatOutcomeRequest,
+    needle: &str,
+) -> bool {
     outcome_request
-        .routing_hints
+        .decision_evidence
         .iter()
         .any(|hint| hint == needle || hint.starts_with(&format!("{needle}:")))
 }
 
-pub(super) fn routing_hint_prefixed_value(
+pub(super) fn decision_evidence_item_prefixed_value(
     outcome_request: &ChatOutcomeRequest,
     prefix: &str,
 ) -> Option<String> {
     outcome_request
-        .routing_hints
+        .decision_evidence
         .iter()
         .find_map(|hint| hint.strip_prefix(prefix))
         .map(str::to_string)
@@ -50,24 +53,24 @@ pub(crate) fn runtime_handoff_prompt_prefix_for_task(task: &AgentTask) -> Option
     ))
 }
 
-fn build_route_contract_payload_with_widget_state(
+fn build_decision_record_payload_with_widget_state(
     outcome_request: &ChatOutcomeRequest,
     completed: bool,
     retained_widget_state: Option<&ChatRetainedWidgetState>,
 ) -> serde_json::Value {
     let mut resolved_outcome_request = outcome_request.clone();
     super::refresh_outcome_request_topology(&mut resolved_outcome_request, retained_widget_state);
-    build_chat_route_contract_payload(&resolved_outcome_request, completed, retained_widget_state)
+    build_chat_decision_record_payload(&resolved_outcome_request, completed, retained_widget_state)
 }
 
-pub(in crate::kernel::chat) fn build_route_contract_payload(
+pub(in crate::kernel::chat) fn build_decision_record_payload(
     outcome_request: &ChatOutcomeRequest,
     completed: bool,
 ) -> serde_json::Value {
-    build_route_contract_payload_with_widget_state(outcome_request, completed, None)
+    build_decision_record_payload_with_widget_state(outcome_request, completed, None)
 }
 
-pub(in crate::kernel::chat) fn append_route_contract_event(
+pub(in crate::kernel::chat) fn append_decision_record_event(
     task: &mut AgentTask,
     outcome_request: &ChatOutcomeRequest,
     title: impl Into<String>,
@@ -84,7 +87,7 @@ pub(in crate::kernel::chat) fn append_route_contract_event(
         .max()
         .unwrap_or(0)
         .saturating_add(1);
-    let payload = build_route_contract_payload_with_widget_state(
+    let payload = build_decision_record_payload_with_widget_state(
         outcome_request,
         completed,
         task.chat_session
@@ -111,9 +114,9 @@ pub(in crate::kernel::chat) fn append_route_contract_event(
             "planner_authority": payload.get("planner_authority").cloned().unwrap_or_else(|| json!("kernel")),
             "verifier_state": payload.get("verifier_state").cloned().unwrap_or_else(|| json!("not_engaged")),
             "verifier_outcome": payload.get("verifier_outcome").cloned().unwrap_or(serde_json::Value::Null),
-            "lane_frame": payload.get("lane_frame").cloned().unwrap_or(serde_json::Value::Null),
-            "request_frame": payload.get("request_frame").cloned().unwrap_or(serde_json::Value::Null),
-            "source_selection": payload.get("source_selection").cloned().unwrap_or(serde_json::Value::Null),
+            "lane_request": payload.get("lane_request").cloned().unwrap_or(serde_json::Value::Null),
+            "normalized_request": payload.get("normalized_request").cloned().unwrap_or(serde_json::Value::Null),
+            "source_decision": payload.get("source_decision").cloned().unwrap_or(serde_json::Value::Null),
             "retained_lane_state": payload.get("retained_lane_state").cloned().unwrap_or(serde_json::Value::Null),
             "lane_transitions": payload.get("lane_transitions").cloned().unwrap_or_else(|| json!([])),
             "orchestration_state": payload.get("orchestration_state").cloned().unwrap_or(serde_json::Value::Null),
@@ -129,10 +132,10 @@ pub(in crate::kernel::chat) fn append_route_contract_event(
     event_id
 }
 
-pub(in crate::kernel::chat) fn non_artifact_route_status_message(
+pub(in crate::kernel::chat) fn inline_answer_status_message(
     outcome_request: &ChatOutcomeRequest,
 ) -> String {
-    shared_non_artifact_route_status_message(outcome_request)
+    shared_inline_answer_status_message(outcome_request)
 }
 
 pub(in crate::kernel::chat) fn artifact_execution_envelope_for_contract(

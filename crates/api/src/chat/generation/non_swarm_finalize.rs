@@ -136,7 +136,7 @@ pub(super) fn build_non_swarm_winner_bundle(
         acceptance_provenance,
         runtime_policy: Some(runtime_policy),
         adaptive_search_budget: Some(adaptive_search_budget),
-        fallback_used: false,
+        degraded_path_used: false,
         ux_lifecycle: ChatArtifactUxLifecycle::Validated,
         taste_memory: refinement.and_then(|context| context.taste_memory.clone()),
         failure: None,

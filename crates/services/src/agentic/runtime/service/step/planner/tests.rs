@@ -23,11 +23,11 @@ fn resolved_command_intent() -> ResolvedIntentState {
             score: 0.99,
         }],
         required_capabilities: vec![CapabilityId::from("command.exec")],
-        required_receipts: vec![],
-        required_postconditions: vec![],
+        required_evidence: vec![],
+        success_conditions: vec![],
         risk_class: "low".to_string(),
         preferred_tier: "tool_first".to_string(),
-        matrix_version: "intent-matrix-test".to_string(),
+        intent_catalog_version: "intent-catalog-test".to_string(),
         embedding_model_id: "test".to_string(),
         embedding_model_version: "v1".to_string(),
         similarity_function_id: "cosine".to_string(),
@@ -35,8 +35,8 @@ fn resolved_command_intent() -> ResolvedIntentState {
         tool_registry_hash: [2u8; 32],
         capability_ontology_hash: [3u8; 32],
         query_normalization_version: "intent_query_norm_v1".to_string(),
-        matrix_source_hash: [4u8; 32],
-        receipt_hash: [5u8; 32],
+        intent_catalog_source_hash: [4u8; 32],
+        evidence_requirements_hash: [5u8; 32],
         provider_selection: None,
         instruction_contract: None,
         constrained: false,
@@ -54,11 +54,11 @@ fn resolved_web_intent() -> ResolvedIntentState {
             score: 0.99,
         }],
         required_capabilities: vec![CapabilityId::from("browser.interact")],
-        required_receipts: vec![],
-        required_postconditions: vec![],
+        required_evidence: vec![],
+        success_conditions: vec![],
         risk_class: "low".to_string(),
         preferred_tier: "tool_first".to_string(),
-        matrix_version: "intent-matrix-test".to_string(),
+        intent_catalog_version: "intent-catalog-test".to_string(),
         embedding_model_id: "test".to_string(),
         embedding_model_version: "v1".to_string(),
         similarity_function_id: "cosine".to_string(),
@@ -66,8 +66,8 @@ fn resolved_web_intent() -> ResolvedIntentState {
         tool_registry_hash: [2u8; 32],
         capability_ontology_hash: [3u8; 32],
         query_normalization_version: "intent_query_norm_v1".to_string(),
-        matrix_source_hash: [4u8; 32],
-        receipt_hash: [5u8; 32],
+        intent_catalog_source_hash: [4u8; 32],
+        evidence_requirements_hash: [5u8; 32],
         provider_selection: None,
         instruction_contract: None,
         constrained: false,
@@ -95,7 +95,7 @@ fn base_planner_state() -> PlannerState {
             },
             depends_on: vec![],
             status: PlannerStepStatus::Pending,
-            receipts: vec![],
+            evidence: vec![],
         }],
         cursor: 0,
         replan_count: 0,
@@ -134,6 +134,7 @@ fn test_agent_state() -> AgentState {
         planner_state: None,
         active_skill_hash: None,
         tool_execution_log: BTreeMap::new(),
+        execution_ledger: Default::default(),
         visual_som_map: None,
         visual_semantic_map: None,
         swarm_context: None,
@@ -259,7 +260,7 @@ fn planner_outcome_marks_success_and_hashes() {
     assert_eq!(state.status, PlannerStatus::Completed);
     assert_ne!(state.plan_hash, original_hash);
     assert!(state.steps[0]
-        .receipts
+        .evidence
         .iter()
         .any(|receipt| receipt.contains("execution_request_hash=abc")));
 }
@@ -283,7 +284,7 @@ fn planner_outcome_marks_blocked_without_retry() {
     assert_eq!(state.steps[0].status, PlannerStepStatus::Blocked);
     assert_eq!(state.status, PlannerStatus::Blocked);
     assert!(state.steps[0]
-        .receipts
+        .evidence
         .iter()
         .any(|receipt| receipt.contains("execution_error=ERROR_CLASS=PolicyBlocked")));
 }

@@ -202,8 +202,8 @@ pub(super) fn weather_scopes_for_tool_widget(
         return scopes;
     }
 
-    match outcome_request.request_frame.as_ref() {
-        Some(ioi_types::app::chat::ChatNormalizedRequestFrame::Weather(frame)) => {
+    match outcome_request.normalized_request.as_ref() {
+        Some(ioi_types::app::chat::ChatNormalizedRequest::Weather(frame)) => {
             let mut retained = frame.inferred_locations.clone();
             if let Some(location) = frame.assumed_location.as_ref() {
                 if !retained

@@ -3,7 +3,7 @@ use crate::agentic::runtime::keys::{
     get_parent_playbook_run_key, get_session_result_key, get_state_key, get_worker_assignment_key,
 };
 use crate::agentic::runtime::service::step::action::command_contract::extract_error_class_token;
-use crate::agentic::runtime::service::step::action::execution_receipt_value;
+use crate::agentic::runtime::service::step::action::execution_evidence_value;
 use crate::agentic::runtime::service::step::handle_step;
 use crate::agentic::runtime::service::step::queue::web_pipeline::merge_pending_search_completion;
 use crate::agentic::runtime::service::{RuntimeAgentService, ServiceCallContext};
@@ -48,9 +48,9 @@ use super::parent_playbook_receipts::{
 };
 
 mod await_loop;
+mod evidence;
 mod merge;
 mod parent_playbook;
-mod receipts;
 mod scorecard_support;
 mod scorecards;
 mod state;
@@ -61,15 +61,15 @@ pub(crate) use parent_playbook::*;
 pub(crate) use scorecard_support::*;
 pub(crate) use state::*;
 
-use merge::{
-    advance_parent_playbook_after_worker_merge, block_parent_playbook_after_worker_failure,
-    load_or_materialize_worker_result,
-};
-use receipts::{
+use evidence::{
     emit_parent_playbook_blocked_receipt, emit_parent_playbook_completed_receipt,
     emit_parent_playbook_started_receipt, emit_parent_playbook_step_completed_receipt,
     emit_parent_playbook_step_spawned_receipt, emit_worker_completion_receipt,
     emit_worker_merge_receipt, worker_receipt_summary,
+};
+use merge::{
+    advance_parent_playbook_after_worker_merge, block_parent_playbook_after_worker_failure,
+    load_or_materialize_worker_result,
 };
 
 #[cfg(test)]

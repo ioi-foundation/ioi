@@ -1,6 +1,6 @@
 use super::super::*;
 use crate::agentic::runtime::service::step::action::{
-    mark_execution_receipt_for, receipt_marker_for, RuntimeReceipt,
+    execution_evidence_key_for, record_execution_evidence_for, RuntimeEvidence,
 };
 use ioi_api::vm::drivers::os::OsDriver;
 use std::sync::Arc;
@@ -68,7 +68,7 @@ pub(crate) async fn run_approval_validation_phase(
     if let Some(route_label) = capability_route_label(&tool, &tool_name) {
         verification_checks.push(format!("capability_route_selected={}", route_label));
         if command_scope {
-            record_provider_selection_receipts(
+            record_provider_selection_evidence(
                 &mut agent_state.tool_execution_log,
                 verification_checks,
                 &tool_name,
@@ -80,11 +80,12 @@ pub(crate) async fn run_approval_validation_phase(
         if agent_state.command_history.is_empty() {
             verification_checks.push("capability_execution_phase=discovery".to_string());
             if command_scope {
-                mark_execution_receipt_for(
+                record_execution_evidence_for(
                     &mut agent_state.tool_execution_log,
-                    RuntimeReceipt::HostDiscovery,
+                    RuntimeEvidence::HostDiscovery,
                 );
-                verification_checks.push(receipt_marker_for(RuntimeReceipt::HostDiscovery));
+                verification_checks
+                    .push(execution_evidence_key_for(RuntimeEvidence::HostDiscovery));
             }
         }
         verification_checks.push("capability_execution_phase=execution".to_string());

@@ -444,8 +444,8 @@ fn build_spans(
             let receipt_times = step
                 .get("execution_receipts")
                 .and_then(Value::as_array)
-                .map(|receipts| {
-                    receipts
+                .map(|evidence| {
+                    evidence
                         .iter()
                         .filter_map(|receipt| receipt.get("timestamp_ms").and_then(Value::as_u64))
                         .collect::<Vec<_>>()
@@ -487,11 +487,11 @@ fn build_spans(
         }
     }
 
-    if let Some(receipts) = diagnostic
+    if let Some(evidence) = diagnostic
         .and_then(|value| value.get("execution_receipts"))
         .and_then(Value::as_array)
     {
-        for (index, receipt) in receipts.iter().enumerate() {
+        for (index, receipt) in evidence.iter().enumerate() {
             let observed = receipt.get("observed_value").and_then(Value::as_object);
             let start_ms = observed
                 .and_then(|value| value.get("started_at_ms"))
@@ -726,7 +726,7 @@ fn build_metrics(
         } else {
             "pass"
         },
-        "Post-action verification is derived from per-step execution receipts and action outcomes.",
+        "Post-action verification is derived from per-step execution evidence and action outcomes.",
         spans_with_tag(spans, "verification_signal"),
         artifact_refs(source_artifacts, &["diagnostic_json"]),
     ));

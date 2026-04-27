@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import type { SessionSummary } from "../../../types";
 import { icons } from "../../../components/ui/icons";
 import { extractUserRequestFromContextualIntent } from "../utils/contextualIntent";
+import { userFacingRuntimeStep } from "../viewmodels/runtimeStatusCopy";
 
 type ChatConversationSidebarProps = {
   sessions: SessionSummary[];
@@ -190,7 +191,10 @@ export function ChatConversationSidebar({
                     extractUserRequestFromContextualIntent(session.title) ||
                     session.title;
                   const secondary =
-                    session.resume_hint || session.current_step || session.phase;
+                    userFacingRuntimeStep(
+                      session.resume_hint || session.current_step,
+                      session.phase === "Complete" ? "Ready" : session.phase,
+                    ) || session.phase;
                   const sessionTooltip = [
                     displayTitle,
                     secondary,

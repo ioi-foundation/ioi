@@ -44,7 +44,9 @@ fn direct_author_runtime_failure_reason_ignores_console_noise_after_passed_state
             action_kind: "click".to_string(),
             status: ChatArtifactExecutionWitnessStatus::Passed,
             summary: "The control updated the rendered explanation.".to_string(),
-            detail: Some("The rescue script updated the shared detail panel.".to_string()),
+            detail: Some(
+                "The deterministic_repair script updated the shared detail panel.".to_string(),
+            ),
             selector: Some("[data-ioi-affordance-id=\"aff-1\"]".to_string()),
             console_errors: vec!["TypeError: stale stage helper failed".to_string()],
             state_changed: true,
@@ -1834,7 +1836,7 @@ async fn direct_author_incomplete_empty_shell_sections_prefer_continuation_over_
 }
 
 #[tokio::test]
-async fn direct_author_modal_first_dead_controls_local_rescue_avoids_repair() {
+async fn direct_author_modal_first_dead_controls_deterministic_repair_avoids_repair() {
     with_modal_first_html_env_async(|| async {
         #[derive(Debug, Clone)]
         struct DeadControlsRepairRuntime {
@@ -1958,7 +1960,7 @@ async fn direct_author_modal_first_dead_controls_local_rescue_avoids_repair() {
             None,
         )
         .await
-        .expect("dead controls should be rescued locally before repair is needed");
+        .expect("dead controls should be repaired locally before repair is needed");
 
         assert!(payload.files[0].body.contains("addEventListener"));
         assert!(payload.files[0]
@@ -1966,7 +1968,7 @@ async fn direct_author_modal_first_dead_controls_local_rescue_avoids_repair() {
             .contains("querySelectorAll('[data-view-panel]')"));
         assert!(payload.files[0]
             .body
-            .contains("data-ioi-local-rescue=\"view-switch\""));
+            .contains("data-ioi-deterministic-repair=\"view-switch\""));
 
         let prompt_log = prompts.lock().expect("prompt log");
         assert!(!prompt_log
@@ -1977,15 +1979,15 @@ async fn direct_author_modal_first_dead_controls_local_rescue_avoids_repair() {
 }
 
 #[tokio::test]
-async fn direct_author_stage_navigation_local_rescue_avoids_repair() {
+async fn direct_author_stage_navigation_deterministic_repair_avoids_repair() {
     with_modal_first_html_env_async(|| async {
         #[derive(Debug, Clone)]
-        struct StageNavigationLocalRescueRuntime {
+        struct StageNavigationDeterministicRepairRuntime {
             prompts: Arc<Mutex<Vec<String>>>,
         }
 
         #[async_trait]
-        impl InferenceRuntime for StageNavigationLocalRescueRuntime {
+        impl InferenceRuntime for StageNavigationDeterministicRepairRuntime {
             async fn execute_inference(
                 &self,
                 _model_hash: [u8; 32],
@@ -1998,7 +2000,7 @@ async fn direct_author_stage_navigation_local_rescue_avoids_repair() {
                     .expect("prompt log")
                     .push(prompt.clone());
                 Err(VmError::HostError(format!(
-                    "unexpected non-streaming prompt in stage navigation local rescue runtime: {prompt}"
+                    "unexpected non-streaming prompt in stage navigation deterministic repair runtime: {prompt}"
                 )))
             }
 
@@ -2038,9 +2040,9 @@ async fn direct_author_stage_navigation_local_rescue_avoids_repair() {
             fn chat_runtime_provenance(&self) -> ChatRuntimeProvenance {
                 ChatRuntimeProvenance {
                     kind: ChatRuntimeProvenanceKind::RealLocalRuntime,
-                    label: "fixture stage navigation local rescue runtime".to_string(),
-                    model: Some("fixture-stage-navigation-local-rescue".to_string()),
-                    endpoint: Some("fixture://stage-navigation-local-rescue".to_string()),
+                    label: "fixture stage navigation deterministic repair runtime".to_string(),
+                    model: Some("fixture-stage-navigation-deterministic-repair".to_string()),
+                    endpoint: Some("fixture://stage-navigation-deterministic-repair".to_string()),
                 }
             }
         }
@@ -2083,7 +2085,7 @@ async fn direct_author_stage_navigation_local_rescue_avoids_repair() {
         let prompts = Arc::new(Mutex::new(Vec::<String>::new()));
 
         let payload = super::generation::materialize_chat_artifact_candidate_with_runtime_direct_author_detailed(
-            Arc::new(StageNavigationLocalRescueRuntime {
+            Arc::new(StageNavigationDeterministicRepairRuntime {
                 prompts: prompts.clone(),
             }),
             None,
@@ -2094,16 +2096,16 @@ async fn direct_author_stage_navigation_local_rescue_avoids_repair() {
             &[],
             None,
             None,
-            "candidate-stage-local-rescue",
+            "candidate-stage-deterministic-repair",
             41,
             0.72,
             None,
             None,
         )
         .await
-        .expect("stage navigation should be rescued locally before repair is needed");
+        .expect("stage navigation should be repaired locally before repair is needed");
 
-        assert!(payload.files[0].body.contains("data-ioi-local-rescue=\"stage-nav\""));
+        assert!(payload.files[0].body.contains("data-ioi-deterministic-repair=\"stage-nav\""));
         assert!(payload.files[0].body.contains("aria-pressed"));
         assert!(payload.files[0].body.contains("Stage 0 is selected by default."));
 
@@ -2116,7 +2118,7 @@ async fn direct_author_stage_navigation_local_rescue_avoids_repair() {
 }
 
 #[tokio::test]
-async fn direct_author_stage_navigation_rescue_synthesizes_missing_controls() {
+async fn direct_author_stage_navigation_deterministic_repair_synthesizes_missing_controls() {
     with_modal_first_html_env_async(|| async {
         #[derive(Debug, Clone)]
         struct StageNavigationSynthesisRuntime {
@@ -2210,12 +2212,12 @@ async fn direct_author_stage_navigation_rescue_synthesizes_missing_controls() {
             None,
         )
         .await
-        .expect("stage navigation rescue should synthesize missing controls locally");
+        .expect("stage navigation deterministic_repair should synthesize missing controls locally");
 
-        assert!(payload.files[0].body.contains("data-ioi-local-rescue=\"stage-nav\""));
+        assert!(payload.files[0].body.contains("data-ioi-deterministic-repair=\"stage-nav\""));
         assert!(payload.files[0]
             .body
-            .contains("data-ioi-local-rescue-target=\"stage-controls\""));
+            .contains("data-ioi-deterministic-repair-target=\"stage-controls\""));
         assert!(payload.files[0].body.contains("Select a stage to update this explanation."));
         assert!(payload.files[0].body.contains("data-stage-target=\"0\""));
         assert!(payload.files[0].body.contains("addEventListener('focus'"));
@@ -2230,7 +2232,8 @@ async fn direct_author_stage_navigation_rescue_synthesizes_missing_controls() {
 }
 
 #[tokio::test]
-async fn direct_author_form_response_rescue_falls_through_to_repair_when_first_paint_underbuilt() {
+async fn direct_author_form_response_deterministic_repair_falls_through_to_repair_when_first_paint_underbuilt(
+) {
     with_modal_first_html_env_async(|| async {
         #[derive(Debug, Clone)]
         struct UnderbuiltQuantumRuntime {
@@ -2338,7 +2341,7 @@ async fn direct_author_form_response_rescue_falls_through_to_repair_when_first_p
         assert!(payload.files[0].body.contains("addEventListener('mouseenter'"));
         assert!(!payload.files[0]
             .body
-            .contains("data-ioi-local-rescue=\"form-response\""));
+            .contains("data-ioi-deterministic-repair=\"form-response\""));
 
         let prompt_log = prompts.lock().expect("prompt log");
         assert!(prompt_log
@@ -2349,7 +2352,8 @@ async fn direct_author_form_response_rescue_falls_through_to_repair_when_first_p
 }
 
 #[tokio::test]
-async fn direct_author_form_response_rescue_keeps_single_goal_slider_without_repair() {
+async fn direct_author_form_response_deterministic_repair_keeps_single_goal_slider_without_repair()
+{
     with_modal_first_html_env_async(|| async {
         #[derive(Debug, Clone)]
         struct SingleGoalSliderRuntime {
@@ -2484,11 +2488,11 @@ async fn direct_author_form_response_rescue_keeps_single_goal_slider_without_rep
             None,
         )
         .await
-        .expect("single-goal slider should be rescued locally without repair");
+        .expect("single-goal slider should be repaired locally without repair");
 
         assert!(payload.files[0]
             .body
-            .contains("data-ioi-local-rescue=\"form-response\""));
+            .contains("data-ioi-deterministic-repair=\"form-response\""));
 
         let prompt_log = prompts.lock().expect("prompt log");
         assert!(!prompt_log
@@ -2502,12 +2506,12 @@ async fn direct_author_form_response_rescue_keeps_single_goal_slider_without_rep
 async fn direct_author_mismatched_nesting_is_repaired_locally_before_follow_up() {
     with_modal_first_html_env_async(|| async {
         #[derive(Debug, Clone)]
-        struct MismatchedNestingLocalRescueRuntime {
+        struct MismatchedNestingDeterministicRepairRuntime {
             prompts: Arc<Mutex<Vec<String>>>,
         }
 
         #[async_trait]
-        impl InferenceRuntime for MismatchedNestingLocalRescueRuntime {
+        impl InferenceRuntime for MismatchedNestingDeterministicRepairRuntime {
             async fn execute_inference(
                 &self,
                 _model_hash: [u8; 32],
@@ -2520,7 +2524,7 @@ async fn direct_author_mismatched_nesting_is_repaired_locally_before_follow_up()
                     .expect("prompt log")
                     .push(prompt.clone());
                 Err(VmError::HostError(format!(
-                    "unexpected non-streaming prompt in mismatched nesting local rescue runtime: {prompt}"
+                    "unexpected non-streaming prompt in mismatched nesting deterministic repair runtime: {prompt}"
                 )))
             }
 
@@ -2560,9 +2564,9 @@ async fn direct_author_mismatched_nesting_is_repaired_locally_before_follow_up()
             fn chat_runtime_provenance(&self) -> ChatRuntimeProvenance {
                 ChatRuntimeProvenance {
                     kind: ChatRuntimeProvenanceKind::RealLocalRuntime,
-                    label: "fixture mismatched nesting local rescue runtime".to_string(),
-                    model: Some("fixture-mismatched-nesting-local-rescue".to_string()),
-                    endpoint: Some("fixture://mismatched-nesting-local-rescue".to_string()),
+                    label: "fixture mismatched nesting deterministic repair runtime".to_string(),
+                    model: Some("fixture-mismatched-nesting-deterministic-repair".to_string()),
+                    endpoint: Some("fixture://mismatched-nesting-deterministic-repair".to_string()),
                 }
             }
         }
@@ -2575,7 +2579,7 @@ async fn direct_author_mismatched_nesting_is_repaired_locally_before_follow_up()
         let prompts = Arc::new(Mutex::new(Vec::<String>::new()));
 
         let payload = super::generation::materialize_chat_artifact_candidate_with_runtime_direct_author_detailed(
-            Arc::new(MismatchedNestingLocalRescueRuntime {
+            Arc::new(MismatchedNestingDeterministicRepairRuntime {
                 prompts: prompts.clone(),
             }),
             None,
@@ -2586,7 +2590,7 @@ async fn direct_author_mismatched_nesting_is_repaired_locally_before_follow_up()
             &[],
             None,
             None,
-            "candidate-mismatched-nesting-local-rescue",
+            "candidate-mismatched-nesting-deterministic-repair",
             59,
             0.72,
             None,
@@ -2595,7 +2599,7 @@ async fn direct_author_mismatched_nesting_is_repaired_locally_before_follow_up()
         .await
         .expect("mismatched nesting should be repaired locally before continuation or repair");
 
-        assert!(payload.files[0].body.contains("data-ioi-local-rescue=\"button-response\""));
+        assert!(payload.files[0].body.contains("data-ioi-deterministic-repair=\"button-response\""));
         assert!(payload.files[0].body.contains("<div class=\"detail\"><p id=\"detail-copy\">"));
         assert!(payload.files[0].body.contains("</main></body></html>"));
         assert!(payload.files[0].body.ends_with("</html>"));
@@ -2612,25 +2616,25 @@ async fn direct_author_mismatched_nesting_is_repaired_locally_before_follow_up()
 }
 
 #[test]
-fn local_html_interaction_truth_rescue_promotes_scroll_nav_buttons_into_stateful_controls() {
+fn local_html_interaction_truth_repair_promotes_scroll_nav_buttons_into_stateful_controls() {
     let request = request_for(
         ChatArtifactClass::InteractiveSingleFile,
         ChatRendererKind::HtmlIframe,
     );
     let raw = "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>Quantum Computers Explained</title></head><body><header><nav><button onclick=\"document.getElementById('intro').scrollIntoView({behavior:'smooth'})\">Introduction</button><button onclick=\"document.getElementById('scenario').scrollIntoView({behavior:'smooth'})\">Scenario Explorer</button></nav></header><main><section id=\"intro\"><h2>Intro</h2><p>Quantum computers use qubits.</p></section><section id=\"scenario\"><h2>Scenario Explorer</h2><div class=\"status\" id=\"scenario-status\">Initializing...</div></section></main></body></html>";
-    let (rescued, strategy) = super::generation::try_local_html_interaction_truth_rescue_document(
+    let (repaired, strategy) = super::generation::try_local_html_interaction_truth_repair_document(
         &request,
         ChatRuntimeProvenanceKind::RealLocalRuntime,
         raw,
         "Surfaced controls executed without runtime errors or no-op behavior. successfulWitnesses=0 failedWitnesses=4",
     )
-    .expect("scroll-nav interaction truth rescue should trigger");
+    .expect("scroll-nav interaction truth deterministic_repair should trigger");
 
     assert_eq!(strategy, "scroll_nav");
-    assert!(rescued.contains("data-ioi-local-rescue=\"scroll-nav\""));
-    assert!(rescued.contains("scenario-status"));
-    assert!(rescued.contains("aria-pressed"));
-    assert!(rescued.contains("setAttribute('role','status')"));
+    assert!(repaired.contains("data-ioi-deterministic-repair=\"scroll-nav\""));
+    assert!(repaired.contains("scenario-status"));
+    assert!(repaired.contains("aria-pressed"));
+    assert!(repaired.contains("setAttribute('role','status')"));
 }
 
 #[tokio::test]
@@ -2757,15 +2761,15 @@ async fn direct_author_large_local_incomplete_html_prefers_raw_continuation_over
 }
 
 #[tokio::test]
-async fn direct_author_broken_inline_handlers_are_stripped_before_local_rescue() {
+async fn direct_author_broken_inline_handlers_are_stripped_before_deterministic_repair() {
     with_modal_first_html_env_async(|| async {
         #[derive(Debug, Clone)]
-        struct BrokenInlineHandlersLocalRescueRuntime {
+        struct BrokenInlineHandlersDeterministicRepairRuntime {
             prompts: Arc<Mutex<Vec<String>>>,
         }
 
         #[async_trait]
-        impl InferenceRuntime for BrokenInlineHandlersLocalRescueRuntime {
+        impl InferenceRuntime for BrokenInlineHandlersDeterministicRepairRuntime {
             async fn execute_inference(
                 &self,
                 _model_hash: [u8; 32],
@@ -2778,7 +2782,7 @@ async fn direct_author_broken_inline_handlers_are_stripped_before_local_rescue()
                     .expect("prompt log")
                     .push(prompt.clone());
                 Err(VmError::HostError(format!(
-                    "unexpected non-streaming prompt in broken inline handler rescue runtime: {prompt}"
+                    "unexpected non-streaming prompt in broken inline handler deterministic_repair runtime: {prompt}"
                 )))
             }
 
@@ -2818,9 +2822,9 @@ async fn direct_author_broken_inline_handlers_are_stripped_before_local_rescue()
             fn chat_runtime_provenance(&self) -> ChatRuntimeProvenance {
                 ChatRuntimeProvenance {
                     kind: ChatRuntimeProvenanceKind::RealLocalRuntime,
-                    label: "fixture broken inline handlers local rescue runtime".to_string(),
-                    model: Some("fixture-broken-inline-handlers-local-rescue".to_string()),
-                    endpoint: Some("fixture://broken-inline-handlers-local-rescue".to_string()),
+                    label: "fixture broken inline handlers deterministic repair runtime".to_string(),
+                    model: Some("fixture-broken-inline-handlers-deterministic-repair".to_string()),
+                    endpoint: Some("fixture://broken-inline-handlers-deterministic-repair".to_string()),
                 }
             }
         }
@@ -2833,7 +2837,7 @@ async fn direct_author_broken_inline_handlers_are_stripped_before_local_rescue()
         let prompts = Arc::new(Mutex::new(Vec::<String>::new()));
 
         let payload = super::generation::materialize_chat_artifact_candidate_with_runtime_direct_author_detailed(
-            Arc::new(BrokenInlineHandlersLocalRescueRuntime {
+            Arc::new(BrokenInlineHandlersDeterministicRepairRuntime {
                 prompts: prompts.clone(),
             }),
             None,
@@ -2844,18 +2848,18 @@ async fn direct_author_broken_inline_handlers_are_stripped_before_local_rescue()
             &[],
             None,
             None,
-            "candidate-inline-handler-local-rescue",
+            "candidate-inline-handler-deterministic-repair",
             53,
             0.72,
             None,
             None,
         )
         .await
-        .expect("broken inline handlers should be stripped before local rescue");
+        .expect("broken inline handlers should be stripped before deterministic repair");
 
         assert!(payload.files[0]
             .body
-            .contains("data-ioi-local-rescue=\"button-response\""));
+            .contains("data-ioi-deterministic-repair=\"button-response\""));
         assert!(!payload.files[0].body.contains("onclick=\"showStage"));
         assert!(payload.files[0].body.contains("aria-pressed"));
 
@@ -2868,15 +2872,15 @@ async fn direct_author_broken_inline_handlers_are_stripped_before_local_rescue()
 }
 
 #[tokio::test]
-async fn direct_author_generic_button_rescue_injects_fallback_detail_region() {
+async fn direct_author_generic_button_deterministic_repair_injects_fallback_detail_region() {
     with_modal_first_html_env_async(|| async {
         #[derive(Debug, Clone)]
-        struct FallbackDetailRegionLocalRescueRuntime {
+        struct FallbackDetailRegionDeterministicRepairRuntime {
             prompts: Arc<Mutex<Vec<String>>>,
         }
 
         #[async_trait]
-        impl InferenceRuntime for FallbackDetailRegionLocalRescueRuntime {
+        impl InferenceRuntime for FallbackDetailRegionDeterministicRepairRuntime {
             async fn execute_inference(
                 &self,
                 _model_hash: [u8; 32],
@@ -2889,7 +2893,7 @@ async fn direct_author_generic_button_rescue_injects_fallback_detail_region() {
                     .expect("prompt log")
                     .push(prompt.clone());
                 Err(VmError::HostError(format!(
-                    "unexpected non-streaming prompt in fallback detail region rescue runtime: {prompt}"
+                    "unexpected non-streaming prompt in fallback detail region deterministic_repair runtime: {prompt}"
                 )))
             }
 
@@ -2929,9 +2933,9 @@ async fn direct_author_generic_button_rescue_injects_fallback_detail_region() {
             fn chat_runtime_provenance(&self) -> ChatRuntimeProvenance {
                 ChatRuntimeProvenance {
                     kind: ChatRuntimeProvenanceKind::RealLocalRuntime,
-                    label: "fixture fallback detail region local rescue runtime".to_string(),
-                    model: Some("fixture-fallback-detail-region-local-rescue".to_string()),
-                    endpoint: Some("fixture://fallback-detail-region-local-rescue".to_string()),
+                    label: "fixture fallback detail region deterministic repair runtime".to_string(),
+                    model: Some("fixture-fallback-detail-region-deterministic-repair".to_string()),
+                    endpoint: Some("fixture://fallback-detail-region-deterministic-repair".to_string()),
                 }
             }
         }
@@ -2944,7 +2948,7 @@ async fn direct_author_generic_button_rescue_injects_fallback_detail_region() {
         let prompts = Arc::new(Mutex::new(Vec::<String>::new()));
 
         let payload = super::generation::materialize_chat_artifact_candidate_with_runtime_direct_author_detailed(
-            Arc::new(FallbackDetailRegionLocalRescueRuntime {
+            Arc::new(FallbackDetailRegionDeterministicRepairRuntime {
                 prompts: prompts.clone(),
             }),
             None,
@@ -2955,7 +2959,7 @@ async fn direct_author_generic_button_rescue_injects_fallback_detail_region() {
             &[],
             None,
             None,
-            "candidate-fallback-detail-region-local-rescue",
+            "candidate-fallback-detail-region-deterministic-repair",
             67,
             0.72,
             None,
@@ -2966,10 +2970,10 @@ async fn direct_author_generic_button_rescue_injects_fallback_detail_region() {
 
         assert!(payload.files[0]
             .body
-            .contains("data-ioi-local-rescue-target=\"detail-copy\""));
+            .contains("data-ioi-deterministic-repair-target=\"detail-copy\""));
         assert!(payload.files[0]
             .body
-            .contains("data-ioi-local-rescue=\"button-response\""));
+            .contains("data-ioi-deterministic-repair=\"button-response\""));
         assert!(payload.files[0].body.contains("Select a control to update this explanation."));
         assert!(payload.files[0].body.contains("setAttribute('role','status')"));
         assert!(payload.files[0].body.contains("activate(buttons[0],0)"));
@@ -2983,15 +2987,15 @@ async fn direct_author_generic_button_rescue_injects_fallback_detail_region() {
 }
 
 #[tokio::test]
-async fn direct_author_form_control_rescue_wires_inert_range_inputs() {
+async fn direct_author_form_control_deterministic_repair_wires_inert_range_inputs() {
     with_modal_first_html_env_async(|| async {
         #[derive(Debug, Clone)]
-        struct FormControlLocalRescueRuntime {
+        struct FormControlDeterministicRepairRuntime {
             prompts: Arc<Mutex<Vec<String>>>,
         }
 
         #[async_trait]
-        impl InferenceRuntime for FormControlLocalRescueRuntime {
+        impl InferenceRuntime for FormControlDeterministicRepairRuntime {
             async fn execute_inference(
                 &self,
                 _model_hash: [u8; 32],
@@ -3004,7 +3008,7 @@ async fn direct_author_form_control_rescue_wires_inert_range_inputs() {
                     .expect("prompt log")
                     .push(prompt.clone());
                 Err(VmError::HostError(format!(
-                    "unexpected non-streaming prompt in form control rescue runtime: {prompt}"
+                    "unexpected non-streaming prompt in form control deterministic_repair runtime: {prompt}"
                 )))
             }
 
@@ -3044,9 +3048,9 @@ async fn direct_author_form_control_rescue_wires_inert_range_inputs() {
             fn chat_runtime_provenance(&self) -> ChatRuntimeProvenance {
                 ChatRuntimeProvenance {
                     kind: ChatRuntimeProvenanceKind::RealLocalRuntime,
-                    label: "fixture form control local rescue runtime".to_string(),
-                    model: Some("fixture-form-control-local-rescue".to_string()),
-                    endpoint: Some("fixture://form-control-local-rescue".to_string()),
+                    label: "fixture form control deterministic repair runtime".to_string(),
+                    model: Some("fixture-form-control-deterministic-repair".to_string()),
+                    endpoint: Some("fixture://form-control-deterministic-repair".to_string()),
                 }
             }
         }
@@ -3055,11 +3059,11 @@ async fn direct_author_form_control_rescue_wires_inert_range_inputs() {
             ChatArtifactClass::InteractiveSingleFile,
             ChatRendererKind::HtmlIframe,
         );
-        let brief = sample_quantum_explainer_brief();
+        let brief = sample_simple_quantum_interactive_brief();
         let prompts = Arc::new(Mutex::new(Vec::<String>::new()));
 
         let payload = super::generation::materialize_chat_artifact_candidate_with_runtime_direct_author_detailed(
-            Arc::new(FormControlLocalRescueRuntime {
+            Arc::new(FormControlDeterministicRepairRuntime {
                 prompts: prompts.clone(),
             }),
             None,
@@ -3070,16 +3074,16 @@ async fn direct_author_form_control_rescue_wires_inert_range_inputs() {
             &[],
             None,
             None,
-            "candidate-form-control-local-rescue",
+            "candidate-form-control-deterministic-repair",
             61,
             0.72,
             None,
             None,
         )
         .await
-        .expect("inert range inputs should be rescued locally before repair is needed");
+        .expect("inert range inputs should be repaired locally before repair is needed");
 
-        assert!(payload.files[0].body.contains("data-ioi-local-rescue=\"form-response\""));
+        assert!(payload.files[0].body.contains("data-ioi-deterministic-repair=\"form-response\""));
         assert!(payload.files[0].body.contains("aria-valuetext"));
         assert!(payload.files[0].body.contains("1 Qubit = 2 States"));
 
@@ -3092,15 +3096,15 @@ async fn direct_author_form_control_rescue_wires_inert_range_inputs() {
 }
 
 #[tokio::test]
-async fn direct_author_local_rescue_strips_broken_inline_script_blocks() {
+async fn direct_author_deterministic_repair_strips_broken_inline_script_blocks() {
     with_modal_first_html_env_async(|| async {
         #[derive(Debug, Clone)]
-        struct BrokenInlineScriptLocalRescueRuntime {
+        struct BrokenInlineScriptDeterministicRepairRuntime {
             prompts: Arc<Mutex<Vec<String>>>,
         }
 
         #[async_trait]
-        impl InferenceRuntime for BrokenInlineScriptLocalRescueRuntime {
+        impl InferenceRuntime for BrokenInlineScriptDeterministicRepairRuntime {
             async fn execute_inference(
                 &self,
                 _model_hash: [u8; 32],
@@ -3113,7 +3117,7 @@ async fn direct_author_local_rescue_strips_broken_inline_script_blocks() {
                     .expect("prompt log")
                     .push(prompt.clone());
                 Err(VmError::HostError(format!(
-                    "unexpected non-streaming prompt in broken inline script rescue runtime: {prompt}"
+                    "unexpected non-streaming prompt in broken inline script deterministic_repair runtime: {prompt}"
                 )))
             }
 
@@ -3153,9 +3157,9 @@ async fn direct_author_local_rescue_strips_broken_inline_script_blocks() {
             fn chat_runtime_provenance(&self) -> ChatRuntimeProvenance {
                 ChatRuntimeProvenance {
                     kind: ChatRuntimeProvenanceKind::RealLocalRuntime,
-                    label: "fixture broken inline script local rescue runtime".to_string(),
-                    model: Some("fixture-broken-inline-script-local-rescue".to_string()),
-                    endpoint: Some("fixture://broken-inline-script-local-rescue".to_string()),
+                    label: "fixture broken inline script deterministic repair runtime".to_string(),
+                    model: Some("fixture-broken-inline-script-deterministic-repair".to_string()),
+                    endpoint: Some("fixture://broken-inline-script-deterministic-repair".to_string()),
                 }
             }
         }
@@ -3168,7 +3172,7 @@ async fn direct_author_local_rescue_strips_broken_inline_script_blocks() {
         let prompts = Arc::new(Mutex::new(Vec::<String>::new()));
 
         let payload = super::generation::materialize_chat_artifact_candidate_with_runtime_direct_author_detailed(
-            Arc::new(BrokenInlineScriptLocalRescueRuntime {
+            Arc::new(BrokenInlineScriptDeterministicRepairRuntime {
                 prompts: prompts.clone(),
             }),
             None,
@@ -3179,18 +3183,18 @@ async fn direct_author_local_rescue_strips_broken_inline_script_blocks() {
             &[],
             None,
             None,
-            "candidate-broken-inline-script-local-rescue",
+            "candidate-broken-inline-script-deterministic-repair",
             71,
             0.72,
             None,
             None,
         )
         .await
-        .expect("broken inline scripts should be stripped before local rescue");
+        .expect("broken inline scripts should be stripped before deterministic repair");
 
         assert!(payload.files[0]
             .body
-            .contains("data-ioi-local-rescue=\"button-response\""));
+            .contains("data-ioi-deterministic-repair=\"button-response\""));
         assert!(!payload.files[0]
             .body
             .contains("stage.forEach(()=>{})"));
@@ -3208,12 +3212,12 @@ async fn direct_author_local_rescue_strips_broken_inline_script_blocks() {
 async fn direct_author_structurally_closed_partial_html_is_trimmed_locally_before_repair() {
     with_modal_first_html_env_async(|| async {
         #[derive(Debug, Clone)]
-        struct StructuralTrimLocalRescueRuntime {
+        struct StructuralTrimDeterministicRepairRuntime {
             prompts: Arc<Mutex<Vec<String>>>,
         }
 
         #[async_trait]
-        impl InferenceRuntime for StructuralTrimLocalRescueRuntime {
+        impl InferenceRuntime for StructuralTrimDeterministicRepairRuntime {
             async fn execute_inference(
                 &self,
                 _model_hash: [u8; 32],
@@ -3226,7 +3230,7 @@ async fn direct_author_structurally_closed_partial_html_is_trimmed_locally_befor
                     .expect("prompt log")
                     .push(prompt.clone());
                 Err(VmError::HostError(format!(
-                    "unexpected non-streaming prompt in structural trim local rescue runtime: {prompt}"
+                    "unexpected non-streaming prompt in structural trim deterministic repair runtime: {prompt}"
                 )))
             }
 
@@ -3266,9 +3270,9 @@ async fn direct_author_structurally_closed_partial_html_is_trimmed_locally_befor
             fn chat_runtime_provenance(&self) -> ChatRuntimeProvenance {
                 ChatRuntimeProvenance {
                     kind: ChatRuntimeProvenanceKind::RealLocalRuntime,
-                    label: "fixture structural trim local rescue runtime".to_string(),
-                    model: Some("fixture-structural-trim-local-rescue".to_string()),
-                    endpoint: Some("fixture://structural-trim-local-rescue".to_string()),
+                    label: "fixture structural trim deterministic repair runtime".to_string(),
+                    model: Some("fixture-structural-trim-deterministic-repair".to_string()),
+                    endpoint: Some("fixture://structural-trim-deterministic-repair".to_string()),
                 }
             }
         }
@@ -3281,7 +3285,7 @@ async fn direct_author_structurally_closed_partial_html_is_trimmed_locally_befor
         let prompts = Arc::new(Mutex::new(Vec::<String>::new()));
 
         let payload = super::generation::materialize_chat_artifact_candidate_with_runtime_direct_author_detailed(
-            Arc::new(StructuralTrimLocalRescueRuntime {
+            Arc::new(StructuralTrimDeterministicRepairRuntime {
                 prompts: prompts.clone(),
             }),
             None,
@@ -3292,7 +3296,7 @@ async fn direct_author_structurally_closed_partial_html_is_trimmed_locally_befor
             &[],
             None,
             None,
-            "candidate-structural-trim-local-rescue",
+            "candidate-structural-trim-deterministic-repair",
             59,
             0.72,
             None,
@@ -4649,6 +4653,136 @@ async fn direct_author_stream_timeout_trims_incomplete_trailing_fragment_before_
 
         let prompt_log = prompts.lock().expect("prompt log");
         assert_eq!(prompt_log.len(), 1);
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn direct_author_incomplete_raw_html_remediates_before_terminal_failure() {
+    with_modal_first_html_env_async(|| async {
+        #[derive(Debug, Clone)]
+        struct IncompleteRawHtmlRuntime {
+            prompts: Arc<Mutex<Vec<String>>>,
+        }
+
+        #[async_trait]
+        impl InferenceRuntime for IncompleteRawHtmlRuntime {
+            async fn execute_inference(
+                &self,
+                _model_hash: [u8; 32],
+                input_context: &[u8],
+                _options: InferenceOptions,
+            ) -> Result<Vec<u8>, VmError> {
+                let prompt = decode_chat_test_prompt(input_context);
+                self.prompts.lock().expect("prompt log").push(prompt.clone());
+                if prompt.contains("typed direct document continuation author")
+                    || prompt.contains("Continuation output schema")
+                {
+                    return Ok("</script></main></body></html>".as_bytes().to_vec());
+                }
+                if prompt.contains("typed direct document repair author")
+                    || prompt.contains("Repair output schema")
+                {
+                    let repaired = "<!doctype html><html><body><main><section><h1>Mortgage estimator</h1><p>Adjust loan amount, rate, and term to inspect the monthly payment.</p><label for=\"loan\">Loan amount</label><input id=\"loan\" type=\"range\" min=\"200000\" max=\"900000\" value=\"550000\"></section><section><h2>Payment summary</h2><p id=\"monthly-payment\">$3,154</p><p>The default loan amount is $550,000 with an adjustable scenario control.</p></section><aside><h2>Scenario detail</h2><p id=\"detail-copy\">Loan amount is $550,000 by default.</p></aside><script>const loan=document.getElementById('loan');const detail=document.getElementById('detail-copy');loan.addEventListener('input',()=>{detail.textContent='Loan amount changed to $'+Number(loan.value).toLocaleString();});</script></main></body></html>";
+                    return Ok(repaired.as_bytes().to_vec());
+                }
+                Err(VmError::HostError(format!(
+                    "unexpected non-streaming direct-author prompt: {prompt}"
+                )))
+            }
+
+            async fn execute_inference_streaming(
+                &self,
+                _model_hash: [u8; 32],
+                input_context: &[u8],
+                _options: InferenceOptions,
+                token_stream: Option<Sender<String>>,
+            ) -> Result<Vec<u8>, VmError> {
+                let prompt = decode_chat_test_prompt(input_context);
+                self.prompts.lock().expect("prompt log").push(prompt.clone());
+                if !prompt.contains("direct document author")
+                    && !prompt.contains("Return only one complete self-contained index.html.")
+                {
+                    return self
+                        .execute_inference([0u8; 32], input_context, InferenceOptions::default())
+                        .await;
+                }
+                let partial = "<!doctype html><html><body><main><section><h1>Mortgage estimator</h1><p>Adjust loan amount, rate, and term to inspect the monthly payment.</p><label for=\"loan\">Loan amount</label><input id=\"loan\" type=\"range\" min=\"200000\" max=\"900000\" value=\"550000\"></section><section><h2>Payment summary</h2><p id=\"monthly-payment\">$3,154</p><p>The default loan amount is $550,000 with an adjustable scenario control.</p></section><aside><h2>Scenario detail</h2><p id=\"detail-copy\">Loan amount is $550,000 by default.</p></aside><script>const loan=document.getElementById('loan');const detail=document.getElementById('detail-copy');loan.addEventListener('input',()=>{detail.textContent='Loan amount changed to $'+Number(loan.value).toLocaleString();});";
+                if let Some(sender) = token_stream.as_ref() {
+                    sender
+                        .send(partial.to_string())
+                        .await
+                        .map_err(|error| VmError::HostError(format!("stream send failed: {error}")))?;
+                }
+                Ok(partial.as_bytes().to_vec())
+            }
+
+            async fn embed_text(&self, _text: &str) -> Result<Vec<f32>, VmError> {
+                Ok(Vec::new())
+            }
+
+            async fn load_model(
+                &self,
+                _model_hash: [u8; 32],
+                _path: &Path,
+            ) -> Result<(), VmError> {
+                Ok(())
+            }
+
+            async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+                Ok(())
+            }
+
+            fn chat_runtime_provenance(&self) -> ChatRuntimeProvenance {
+                ChatRuntimeProvenance {
+                    kind: ChatRuntimeProvenanceKind::RealLocalRuntime,
+                    label: "fixture incomplete raw html runtime".to_string(),
+                    model: Some("fixture-incomplete-raw-html".to_string()),
+                    endpoint: Some("fixture://incomplete-raw-html".to_string()),
+                }
+            }
+        }
+
+        let request = request_for(
+            ChatArtifactClass::InteractiveSingleFile,
+            ChatRendererKind::HtmlIframe,
+        );
+        let brief = sample_simple_quantum_interactive_brief();
+        let prompts = Arc::new(Mutex::new(Vec::<String>::new()));
+
+        let payload = super::generation::materialize_chat_artifact_candidate_with_runtime_direct_author_detailed(
+            Arc::new(IncompleteRawHtmlRuntime {
+                prompts: prompts.clone(),
+            }),
+            None,
+            "Mortgage estimator",
+            "For the calculator you just made, update the default loan amount to $550,000.",
+            &request,
+            &brief,
+            &[],
+            None,
+            None,
+            "candidate-incomplete-raw-html",
+            37,
+            0.72,
+            None,
+            None,
+        )
+        .await
+        .expect("incomplete raw HTML should create a typed remediation attempt before failing terminally");
+
+        let html = payload.files[0].body.as_str();
+        assert!(html.ends_with("</script></main></body></html>"));
+        assert!(html.contains("550000"));
+        assert!(html.contains("Loan amount is $550,000 by default."));
+
+        let prompt_log = prompts.lock().expect("prompt log");
+        assert!(
+            prompt_log.iter().any(|prompt| prompt
+                .contains("typed direct document continuation author")
+                || prompt.contains("typed direct document repair author")),
+            "raw structural failure should route through typed remediation instead of terminalizing"
+        );
     })
     .await;
 }

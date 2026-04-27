@@ -1,5 +1,5 @@
 use super::*;
-use crate::kernel::chat::content_session::attach_non_artifact_chat_session;
+use crate::kernel::chat::content_session::attach_inline_answer_chat_session;
 use ioi_api::runtime_harness::{
     ArtifactOperatorPhase, ArtifactOperatorRunStatus, ArtifactOperatorStep,
 };
@@ -38,6 +38,34 @@ fn authoritative_status_prefers_terminal_operator_run_over_stale_lifecycle_state
         task.current_step.contains("verified"),
         "expected a ready/verified step, got {:?}",
         task.current_step
+    );
+}
+
+#[test]
+fn terminal_operator_run_does_not_promote_partial_manifest_to_ready() {
+    let mut task = test_task(ChatArtifactVerificationStatus::Partial);
+    let chat_session = task.chat_session.as_mut().expect("chat session");
+    chat_session.lifecycle_state = ChatArtifactLifecycleState::Materializing;
+    chat_session.status = "materializing".to_string();
+    super::operator_run::start_operator_run_for_session(
+        chat_session,
+        Some("prompt-evt-1"),
+        ioi_api::runtime_harness::ArtifactOperatorRunMode::Create,
+    );
+    super::operator_run::refresh_active_operator_run_from_session(chat_session, None);
+
+    apply_chat_authoritative_status(&mut task, None);
+
+    assert_eq!(task.phase, AgentPhase::Complete);
+    assert!(
+        task.current_step.contains("provisional")
+            || task.current_step.contains("partially materialized"),
+        "partial verification must remain visible to runtime state, got {:?}",
+        task.current_step
+    );
+    assert!(
+        !task.current_step.contains("verified"),
+        "operator completion must not override the typed manifest verification result"
     );
 }
 
@@ -542,7 +570,7 @@ fn current_task_turn_surfaces_routing_timeouts_as_blocked_chat_session() {
 }
 
 #[test]
-fn current_task_turn_surfaces_non_artifact_routes_as_shared_execution_sessions() {
+fn current_task_turn_surfaces_inline_answer_routes_as_shared_execution_sessions() {
     let prompt =
         "Talk through whether an AI tools editorial launch page needs a stronger story arc";
     let mut task = empty_task(prompt);
@@ -587,7 +615,7 @@ fn current_task_turn_surfaces_non_artifact_routes_as_shared_execution_sessions()
         .contains("routed this request to conversation"));
     assert!(chat_session
         .outcome_request
-        .routing_hints
+        .decision_evidence
         .iter()
         .any(|hint| hint == "no_persistent_artifact_requested"));
     assert_eq!(
@@ -626,19 +654,19 @@ fn authoritative_conversation_route_marks_task_complete_with_shared_summary() {
         confidence: 0.92,
         needs_clarification: false,
         clarification_questions: Vec::new(),
-        routing_hints: vec![
+        decision_evidence: vec![
             "currentness_override".to_string(),
             "shared_answer_surface".to_string(),
         ],
-        lane_frame: None,
-        request_frame: None,
-        source_selection: None,
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
         artifact: None,
     };
-    super::content_session::attach_non_artifact_chat_session(
+    super::content_session::attach_inline_answer_chat_session(
         &mut task,
         "Explain the rollout in chat",
         crate::models::ChatRuntimeProvenance {
@@ -670,20 +698,20 @@ fn weather_tool_widget_route_requires_chat_primary_execution() {
         confidence: 0.96,
         needs_clarification: false,
         clarification_questions: Vec::new(),
-        routing_hints: vec![
+        decision_evidence: vec![
             "tool_widget:weather".to_string(),
             "narrow_surface_preferred".to_string(),
             "no_persistent_artifact_requested".to_string(),
         ],
-        lane_frame: None,
-        request_frame: None,
-        source_selection: None,
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
         artifact: None,
     };
-    super::content_session::attach_non_artifact_chat_session(
+    super::content_session::attach_inline_answer_chat_session(
         &mut task,
         "What is the weather in Boston today?",
         crate::models::ChatRuntimeProvenance {
@@ -740,13 +768,13 @@ fn weather_tool_widget_follow_up_reuses_retained_location_scope() {
         confidence: 0.97,
         needs_clarification: false,
         clarification_questions: Vec::new(),
-        routing_hints: vec![
+        decision_evidence: vec![
             "tool_widget:weather".to_string(),
             "narrow_surface_preferred".to_string(),
             "no_persistent_artifact_requested".to_string(),
         ],
-        lane_frame: None,
-        request_frame: Some(ioi_types::app::chat::ChatNormalizedRequestFrame::Weather(
+        lane_request: None,
+        normalized_request: Some(ioi_types::app::chat::ChatNormalizedRequest::Weather(
             ioi_types::app::chat::ChatWeatherRequestFrame {
                 inferred_locations: vec!["Boston".to_string()],
                 assumed_location: None,
@@ -755,7 +783,7 @@ fn weather_tool_widget_follow_up_reuses_retained_location_scope() {
                 clarification_required_slots: Vec::new(),
             },
         )),
-        source_selection: None,
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
@@ -783,20 +811,20 @@ fn sports_tool_widget_route_requires_chat_primary_execution() {
         confidence: 0.95,
         needs_clarification: false,
         clarification_questions: Vec::new(),
-        routing_hints: vec![
+        decision_evidence: vec![
             "tool_widget:sports".to_string(),
             "narrow_surface_preferred".to_string(),
             "no_persistent_artifact_requested".to_string(),
         ],
-        lane_frame: None,
-        request_frame: None,
-        source_selection: None,
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
         artifact: None,
     };
-    super::content_session::attach_non_artifact_chat_session(
+    super::content_session::attach_inline_answer_chat_session(
         &mut task,
         "What's the story with the Lakers this season?",
         crate::models::ChatRuntimeProvenance {
@@ -825,20 +853,20 @@ fn places_tool_widget_route_requires_chat_primary_execution() {
         confidence: 0.94,
         needs_clarification: false,
         clarification_questions: Vec::new(),
-        routing_hints: vec![
+        decision_evidence: vec![
             "tool_widget:places".to_string(),
             "narrow_surface_preferred".to_string(),
             "no_persistent_artifact_requested".to_string(),
         ],
-        lane_frame: None,
-        request_frame: None,
-        source_selection: None,
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
         artifact: None,
     };
-    super::content_session::attach_non_artifact_chat_session(
+    super::content_session::attach_inline_answer_chat_session(
         &mut task,
         "What are some good coffee shops near downtown Portland?",
         crate::models::ChatRuntimeProvenance {
@@ -867,16 +895,16 @@ fn conversation_single_pass_route_requires_chat_primary_execution() {
         confidence: 0.99,
         needs_clarification: false,
         clarification_questions: Vec::new(),
-        routing_hints: vec!["no_persistent_artifact_requested".to_string()],
-        lane_frame: None,
-        request_frame: None,
-        source_selection: None,
+        decision_evidence: vec!["no_persistent_artifact_requested".to_string()],
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
         artifact: None,
     };
-    super::content_session::attach_non_artifact_chat_session(
+    super::content_session::attach_inline_answer_chat_session(
         &mut task,
         "What is the capital of Spain?",
         crate::models::ChatRuntimeProvenance {
@@ -905,20 +933,20 @@ fn workspace_grounded_single_pass_route_stays_off_chat_primary_execution() {
         confidence: 0.93,
         needs_clarification: false,
         clarification_questions: Vec::new(),
-        routing_hints: vec![
+        decision_evidence: vec![
             "workspace_grounding_required".to_string(),
             "coding_workspace_context".to_string(),
             "no_persistent_artifact_requested".to_string(),
         ],
-        lane_frame: None,
-        request_frame: None,
-        source_selection: None,
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
         artifact: None,
     };
-    super::content_session::attach_non_artifact_chat_session(
+    super::content_session::attach_inline_answer_chat_session(
         &mut task,
         "What npm script launches the desktop app in this repo?",
         crate::models::ChatRuntimeProvenance {
@@ -947,16 +975,16 @@ fn visualizer_route_requires_chat_primary_execution() {
         confidence: 0.99,
         needs_clarification: false,
         clarification_questions: Vec::new(),
-        routing_hints: vec!["no_persistent_artifact_requested".to_string()],
-        lane_frame: None,
-        request_frame: None,
-        source_selection: None,
+        decision_evidence: vec!["no_persistent_artifact_requested".to_string()],
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
         artifact: None,
     };
-    super::content_session::attach_non_artifact_chat_session(
+    super::content_session::attach_inline_answer_chat_session(
         &mut task,
         "Show a simple mermaid diagram of the HTTP request lifecycle.",
         crate::models::ChatRuntimeProvenance {
@@ -973,7 +1001,7 @@ fn visualizer_route_requires_chat_primary_execution() {
 }
 
 #[test]
-fn non_artifact_route_receipt_event_preserves_explicit_route_decision() {
+fn inline_answer_route_receipt_event_preserves_explicit_route_decision() {
     let mut task = empty_task("What is the capital of Spain?");
     let outcome_request = ChatOutcomeRequest {
         request_id: "conversation-route".to_string(),
@@ -985,16 +1013,16 @@ fn non_artifact_route_receipt_event_preserves_explicit_route_decision() {
         confidence: 0.99,
         needs_clarification: false,
         clarification_questions: Vec::new(),
-        routing_hints: vec!["no_persistent_artifact_requested".to_string()],
-        lane_frame: None,
-        request_frame: None,
-        source_selection: None,
+        decision_evidence: vec!["no_persistent_artifact_requested".to_string()],
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
         artifact: None,
     };
-    super::content_session::attach_non_artifact_chat_session(
+    super::content_session::attach_inline_answer_chat_session(
         &mut task,
         "What is the capital of Spain?",
         crate::models::ChatRuntimeProvenance {
@@ -1035,7 +1063,7 @@ fn non_artifact_route_receipt_event_preserves_explicit_route_decision() {
 }
 
 #[test]
-fn route_contract_payload_maps_weather_widget_to_research_surface() {
+fn decision_record_payload_maps_weather_widget_to_research_surface() {
     let outcome_request = ChatOutcomeRequest {
         request_id: "weather-route".to_string(),
         raw_prompt: "What is the weather in Boston today?".to_string(),
@@ -1046,20 +1074,20 @@ fn route_contract_payload_maps_weather_widget_to_research_surface() {
         confidence: 0.96,
         needs_clarification: false,
         clarification_questions: Vec::new(),
-        routing_hints: vec![
+        decision_evidence: vec![
             "tool_widget:weather".to_string(),
             "narrow_surface_preferred".to_string(),
         ],
-        lane_frame: None,
-        request_frame: None,
-        source_selection: None,
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
         artifact: None,
     };
 
-    let payload = super::content_session::build_route_contract_payload(&outcome_request, false);
+    let payload = super::content_session::build_decision_record_payload(&outcome_request, false);
     let payload_object = payload.as_object().expect("payload object");
     assert_eq!(
         payload_object
@@ -1067,36 +1095,38 @@ fn route_contract_payload_maps_weather_widget_to_research_surface() {
             .and_then(|value| value.as_str()),
         Some("research")
     );
-    let lane_frame = payload_object
-        .get("lane_frame")
+    let lane_request = payload_object
+        .get("lane_request")
         .and_then(|value| value.as_object())
         .expect("lane frame");
     assert_eq!(
-        lane_frame
+        lane_request
             .get("primaryLane")
             .and_then(|value| value.as_str()),
         Some("research")
     );
-    let request_frame = payload_object
-        .get("request_frame")
+    let normalized_request = payload_object
+        .get("normalized_request")
         .and_then(|value| value.as_object())
         .expect("request frame");
     assert_eq!(
-        request_frame.get("kind").and_then(|value| value.as_str()),
+        normalized_request
+            .get("kind")
+            .and_then(|value| value.as_str()),
         Some("weather")
     );
-    assert!(request_frame
+    assert!(normalized_request
         .get("inferredLocations")
         .and_then(|value| value.as_array())
         .is_some_and(|locations| locations
             .iter()
             .any(|value| value.as_str() == Some("boston"))));
-    let source_selection = payload_object
-        .get("source_selection")
+    let source_decision = payload_object
+        .get("source_decision")
         .and_then(|value| value.as_object())
-        .expect("source selection");
+        .expect("source decision");
     assert_eq!(
-        source_selection
+        source_decision
             .get("selectedSource")
             .and_then(|value| value.as_str()),
         Some("specialized_tool")
@@ -1138,7 +1168,7 @@ fn route_contract_payload_maps_weather_widget_to_research_surface() {
 }
 
 #[test]
-fn route_contract_payload_maps_recipe_widget_to_research_surface() {
+fn decision_record_payload_maps_recipe_widget_to_research_surface() {
     let outcome_request = ChatOutcomeRequest {
         request_id: "recipe-route".to_string(),
         raw_prompt: "How do I make carbonara for 3 people?".to_string(),
@@ -1149,20 +1179,20 @@ fn route_contract_payload_maps_recipe_widget_to_research_surface() {
         confidence: 0.95,
         needs_clarification: false,
         clarification_questions: Vec::new(),
-        routing_hints: vec![
+        decision_evidence: vec![
             "tool_widget:recipe".to_string(),
             "narrow_surface_preferred".to_string(),
         ],
-        lane_frame: None,
-        request_frame: None,
-        source_selection: None,
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
         artifact: None,
     };
 
-    let payload = super::content_session::build_route_contract_payload(&outcome_request, false);
+    let payload = super::content_session::build_decision_record_payload(&outcome_request, false);
     let payload_object = payload.as_object().expect("payload object");
     assert_eq!(
         payload_object
@@ -1170,12 +1200,12 @@ fn route_contract_payload_maps_recipe_widget_to_research_surface() {
             .and_then(|value| value.as_str()),
         Some("research")
     );
-    let lane_frame = payload_object
-        .get("lane_frame")
+    let lane_request = payload_object
+        .get("lane_request")
         .and_then(|value| value.as_object())
         .expect("lane frame");
     assert_eq!(
-        lane_frame
+        lane_request
             .get("primaryLane")
             .and_then(|value| value.as_str()),
         Some("research")
@@ -1183,7 +1213,7 @@ fn route_contract_payload_maps_recipe_widget_to_research_surface() {
 }
 
 #[test]
-fn route_contract_payload_preserves_connector_source_selection_and_lane_transition() {
+fn decision_record_payload_preserves_connector_source_decision_and_lane_transition() {
     let connectors = vec![ConnectorCatalogEntry {
         id: "mail.primary".to_string(),
         plugin_id: "wallet_mail".to_string(),
@@ -1213,10 +1243,10 @@ fn route_contract_payload_preserves_connector_source_selection_and_lane_transiti
         confidence: 0.91,
         needs_clarification: false,
         clarification_questions: Vec::new(),
-        routing_hints: vec!["shared_answer_surface".to_string()],
-        lane_frame: None,
-        request_frame: None,
-        source_selection: None,
+        decision_evidence: vec!["shared_answer_surface".to_string()],
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
@@ -1224,7 +1254,7 @@ fn route_contract_payload_preserves_connector_source_selection_and_lane_transiti
     };
     super::content_session::merge_connector_route_context(&mut outcome_request, context);
 
-    let payload = super::content_session::build_route_contract_payload(&outcome_request, false);
+    let payload = super::content_session::build_decision_record_payload(&outcome_request, false);
     let payload_object = payload.as_object().expect("payload object");
     assert_eq!(
         payload_object
@@ -1232,12 +1262,12 @@ fn route_contract_payload_preserves_connector_source_selection_and_lane_transiti
             .and_then(|value| value.as_str()),
         Some("communication")
     );
-    let source_selection = payload_object
-        .get("source_selection")
+    let source_decision = payload_object
+        .get("source_decision")
         .and_then(|value| value.as_object())
-        .expect("source selection");
+        .expect("source decision");
     assert_eq!(
-        source_selection
+        source_decision
             .get("selectedSource")
             .and_then(|value| value.as_str()),
         Some("connector")
@@ -1261,7 +1291,7 @@ fn route_contract_payload_preserves_connector_source_selection_and_lane_transiti
 }
 
 #[test]
-fn route_contract_payload_maps_sports_widget_to_specialized_tool_surface() {
+fn decision_record_payload_maps_sports_widget_to_specialized_tool_surface() {
     let outcome_request = ChatOutcomeRequest {
         request_id: "sports-route".to_string(),
         raw_prompt: "What's the story with the Lakers this season?".to_string(),
@@ -1272,20 +1302,20 @@ fn route_contract_payload_maps_sports_widget_to_specialized_tool_surface() {
         confidence: 0.95,
         needs_clarification: false,
         clarification_questions: Vec::new(),
-        routing_hints: vec![
+        decision_evidence: vec![
             "tool_widget:sports".to_string(),
             "narrow_surface_preferred".to_string(),
         ],
-        lane_frame: None,
-        request_frame: None,
-        source_selection: None,
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
         artifact: None,
     };
 
-    let payload = super::content_session::build_route_contract_payload(&outcome_request, false);
+    let payload = super::content_session::build_decision_record_payload(&outcome_request, false);
     let payload_object = payload.as_object().expect("payload object");
     assert_eq!(
         payload_object
@@ -1312,7 +1342,7 @@ fn route_contract_payload_maps_sports_widget_to_specialized_tool_surface() {
 }
 
 #[test]
-fn route_contract_payload_maps_places_widget_to_search_and_map_surface() {
+fn decision_record_payload_maps_places_widget_to_search_and_map_surface() {
     let outcome_request = ChatOutcomeRequest {
         request_id: "places-route".to_string(),
         raw_prompt: "What are some good coffee shops near downtown Portland?".to_string(),
@@ -1323,20 +1353,20 @@ fn route_contract_payload_maps_places_widget_to_search_and_map_surface() {
         confidence: 0.94,
         needs_clarification: false,
         clarification_questions: Vec::new(),
-        routing_hints: vec![
+        decision_evidence: vec![
             "tool_widget:places".to_string(),
             "narrow_surface_preferred".to_string(),
         ],
-        lane_frame: None,
-        request_frame: None,
-        source_selection: None,
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
         artifact: None,
     };
 
-    let payload = super::content_session::build_route_contract_payload(&outcome_request, false);
+    let payload = super::content_session::build_decision_record_payload(&outcome_request, false);
     let payload_object = payload.as_object().expect("payload object");
     assert_eq!(
         payload_object
@@ -1365,7 +1395,7 @@ fn route_contract_payload_maps_places_widget_to_search_and_map_surface() {
 }
 
 #[test]
-fn route_contract_payload_maps_currentness_conversation_to_research_surface() {
+fn decision_record_payload_maps_currentness_conversation_to_research_surface() {
     let outcome_request = ChatOutcomeRequest {
         request_id: "currentness-route".to_string(),
         raw_prompt: "Who is the current Secretary-General of the UN?".to_string(),
@@ -1376,21 +1406,21 @@ fn route_contract_payload_maps_currentness_conversation_to_research_surface() {
         confidence: 0.91,
         needs_clarification: false,
         clarification_questions: Vec::new(),
-        routing_hints: vec![
+        decision_evidence: vec![
             "currentness_override".to_string(),
             "no_persistent_artifact_requested".to_string(),
             "shared_answer_surface".to_string(),
         ],
-        lane_frame: None,
-        request_frame: None,
-        source_selection: None,
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
         artifact: None,
     };
 
-    let payload = super::content_session::build_route_contract_payload(&outcome_request, false);
+    let payload = super::content_session::build_decision_record_payload(&outcome_request, false);
     let payload_object = payload.as_object().expect("payload object");
     assert_eq!(
         payload_object
@@ -1435,7 +1465,7 @@ fn route_contract_payload_maps_currentness_conversation_to_research_surface() {
 }
 
 #[test]
-fn route_contract_payload_maps_workspace_grounded_conversation_to_coding_surface() {
+fn decision_record_payload_maps_workspace_grounded_conversation_to_coding_surface() {
     let outcome_request = ChatOutcomeRequest {
         request_id: "workspace-grounding-route".to_string(),
         raw_prompt: "What npm script launches the desktop app in this repo?".to_string(),
@@ -1446,21 +1476,21 @@ fn route_contract_payload_maps_workspace_grounded_conversation_to_coding_surface
         confidence: 0.93,
         needs_clarification: false,
         clarification_questions: Vec::new(),
-        routing_hints: vec![
+        decision_evidence: vec![
             "workspace_grounding_required".to_string(),
             "coding_workspace_context".to_string(),
             "no_persistent_artifact_requested".to_string(),
         ],
-        lane_frame: None,
-        request_frame: None,
-        source_selection: None,
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
         artifact: None,
     };
 
-    let payload = super::content_session::build_route_contract_payload(&outcome_request, false);
+    let payload = super::content_session::build_decision_record_payload(&outcome_request, false);
     let payload_object = payload.as_object().expect("payload object");
     assert_eq!(
         payload_object
@@ -1517,7 +1547,7 @@ fn route_contract_payload_maps_workspace_grounded_conversation_to_coding_surface
 }
 
 #[test]
-fn runtime_handoff_prefix_carries_workspace_grounded_route_contract() {
+fn runtime_handoff_prefix_carries_workspace_grounded_decision_record() {
     let mut task = empty_task("What npm script launches the desktop app in this repo?");
     let outcome_request = ChatOutcomeRequest {
         request_id: "workspace-grounding-handoff".to_string(),
@@ -1529,21 +1559,21 @@ fn runtime_handoff_prefix_carries_workspace_grounded_route_contract() {
         confidence: 0.93,
         needs_clarification: false,
         clarification_questions: Vec::new(),
-        routing_hints: vec![
+        decision_evidence: vec![
             "workspace_grounding_required".to_string(),
             "coding_workspace_context".to_string(),
             "no_persistent_artifact_requested".to_string(),
         ],
-        lane_frame: None,
-        request_frame: None,
-        source_selection: None,
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
         artifact: None,
     };
 
-    super::content_session::attach_non_artifact_chat_session(
+    super::content_session::attach_inline_answer_chat_session(
         &mut task,
         "What npm script launches the desktop app in this repo?",
         crate::models::ChatRuntimeProvenance {
@@ -1565,7 +1595,7 @@ fn runtime_handoff_prefix_carries_workspace_grounded_route_contract() {
 }
 
 #[test]
-fn clarification_non_artifact_route_stays_chat_primary() {
+fn clarification_inline_answer_route_stays_chat_primary() {
     let mut task = empty_task("Make me a report.");
     let outcome_request = ChatOutcomeRequest {
         request_id: "clarification-route".to_string(),
@@ -1577,19 +1607,19 @@ fn clarification_non_artifact_route_stays_chat_primary() {
         confidence: 0.75,
         needs_clarification: true,
         clarification_questions: vec!["What should the report cover?".to_string()],
-        routing_hints: vec![
+        decision_evidence: vec![
             "artifact_clarification_required".to_string(),
             "under_specified_document_request".to_string(),
         ],
-        lane_frame: None,
-        request_frame: None,
-        source_selection: None,
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
         artifact: None,
     };
-    super::content_session::attach_non_artifact_chat_session(
+    super::content_session::attach_inline_answer_chat_session(
         &mut task,
         "Make me a report.",
         crate::models::ChatRuntimeProvenance {
@@ -1660,10 +1690,10 @@ fn missing_connector_reframes_impossible_workspace_clarification() {
         confidence: 0.92,
         needs_clarification: true,
         clarification_questions: vec!["Which Slack workspace should I monitor?".to_string()],
-        routing_hints: vec!["shared_answer_surface".to_string()],
-        lane_frame: None,
-        request_frame: None,
-        source_selection: None,
+        decision_evidence: vec!["shared_answer_surface".to_string()],
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
@@ -1679,7 +1709,7 @@ fn missing_connector_reframes_impossible_workspace_clarification() {
         ]
     );
     assert!(outcome_request
-        .routing_hints
+        .decision_evidence
         .iter()
         .any(|hint| hint == "connector_missing"));
 
@@ -1732,10 +1762,10 @@ fn connected_mail_route_clears_redundant_identity_clarification() {
         confidence: 0.91,
         needs_clarification: true,
         clarification_questions: vec!["Which inbox should Chat check?".to_string()],
-        routing_hints: vec!["shared_answer_surface".to_string()],
-        lane_frame: None,
-        request_frame: None,
-        source_selection: None,
+        decision_evidence: vec!["shared_answer_surface".to_string()],
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
@@ -1746,7 +1776,7 @@ fn connected_mail_route_clears_redundant_identity_clarification() {
     assert!(!outcome_request.needs_clarification);
     assert!(outcome_request.clarification_questions.is_empty());
     assert!(outcome_request
-        .routing_hints
+        .decision_evidence
         .iter()
         .any(|hint| hint == "connector_identity_auto_selected"));
 
@@ -1808,15 +1838,15 @@ fn generic_mail_prefers_dedicated_connector_over_broader_platform_route() {
             .expect("mail request should synthesize connector context");
 
     assert!(context
-        .routing_hints
+        .decision_evidence
         .iter()
         .any(|hint| hint == "selected_connector_id:mail.primary"));
     assert!(context
-        .routing_hints
+        .decision_evidence
         .iter()
         .any(|hint| hint == "selected_provider_family:mail.wallet_network"));
     assert!(context
-        .routing_hints
+        .decision_evidence
         .iter()
         .any(|hint| hint == "connector_tiebreaker:narrow_connector"));
 }
@@ -1876,7 +1906,7 @@ fn pure_draft_email_prompt_prefers_local_message_compose_over_connector_gate() {
 }
 
 #[test]
-fn document_artifact_route_contract_preserves_artifact_vs_file_split() {
+fn document_artifact_decision_record_preserves_artifact_vs_file_split() {
     let outcome_request = test_outcome_request();
     let route_decision = route_decision_for_outcome_request(&outcome_request);
 
@@ -1890,7 +1920,7 @@ fn document_artifact_route_contract_preserves_artifact_vs_file_split() {
 }
 
 #[test]
-fn communication_route_contract_uses_tool_execution_surface() {
+fn communication_decision_record_uses_tool_execution_surface() {
     let outcome_request = ChatOutcomeRequest {
         request_id: "message-route".to_string(),
         raw_prompt: "Draft a professional email to my landlord asking whether the lease renewal paperwork is ready and keep it concise.".to_string(),
@@ -1901,20 +1931,20 @@ fn communication_route_contract_uses_tool_execution_surface() {
         confidence: 0.94,
         needs_clarification: false,
         clarification_questions: Vec::new(),
-        routing_hints: vec![
+        decision_evidence: vec![
             "email_draft".to_string(),
             "shared_answer_surface".to_string(),
         ],
-        lane_frame: None,
-        request_frame: None,
-        source_selection: None,
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
         artifact: None,
     };
 
-    let payload = super::content_session::build_route_contract_payload(&outcome_request, false);
+    let payload = super::content_session::build_decision_record_payload(&outcome_request, false);
     let payload_object = payload.as_object().expect("payload object");
     assert_eq!(
         payload_object
@@ -1959,7 +1989,7 @@ fn communication_route_contract_uses_tool_execution_surface() {
 }
 
 #[test]
-fn artifact_route_contract_prefers_artifact_surface_over_specialized_prompt_terms() {
+fn artifact_decision_record_prefers_artifact_surface_over_specialized_prompt_terms() {
     let outcome_request = ChatOutcomeRequest {
         request_id: "itinerary-artifact".to_string(),
         raw_prompt: "Plan a Saturday in Portland by comparing the weather, choosing a coffee shop downtown, and suggesting one nearby dinner spot, then turn it into a short itinerary artifact.".to_string(),
@@ -1970,20 +2000,20 @@ fn artifact_route_contract_prefers_artifact_surface_over_specialized_prompt_term
         confidence: 0.97,
         needs_clarification: false,
         clarification_questions: Vec::new(),
-        routing_hints: vec![
+        decision_evidence: vec![
             "persistent_artifact_requested".to_string(),
             "generic_document_artifact_defaults_to_markdown".to_string(),
         ],
-        lane_frame: None,
-        request_frame: None,
-        source_selection: None,
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
         artifact: Some(test_outcome_request().artifact.expect("artifact request")),
     };
 
-    let payload = super::content_session::build_route_contract_payload(&outcome_request, false);
+    let payload = super::content_session::build_decision_record_payload(&outcome_request, false);
     let payload_object = payload.as_object().expect("payload object");
     let bundle = payload_object
         .get("domain_policy_bundle")
@@ -2010,7 +2040,7 @@ fn artifact_route_contract_prefers_artifact_surface_over_specialized_prompt_term
             .iter()
             .any(|value| value.as_str() == Some("artifact_surface_rendered"))));
     assert!(payload_object
-        .get("lane_frame")
+        .get("lane_request")
         .and_then(|value| value
             .get("secondaryLanes")
             .or_else(|| value.get("secondary_lanes")))
@@ -2030,14 +2060,14 @@ fn conversation_with_tool_widget_hint_is_not_marked_direct_inline() {
         confidence: 0.74,
         needs_clarification: false,
         clarification_questions: Vec::new(),
-        routing_hints: vec![
+        decision_evidence: vec![
             "tool_widget:places".to_string(),
             "narrow_surface_preferred".to_string(),
             "shared_answer_surface".to_string(),
         ],
-        lane_frame: None,
-        request_frame: None,
-        source_selection: None,
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
@@ -2055,7 +2085,7 @@ fn conversation_with_tool_widget_hint_is_not_marked_direct_inline() {
 }
 
 #[test]
-fn workspace_artifact_route_contract_uses_coding_family_and_workspace_prep() {
+fn workspace_artifact_decision_record_uses_coding_family_and_workspace_prep() {
     let outcome_request = ChatOutcomeRequest {
         request_id: "workspace-route".to_string(),
         raw_prompt:
@@ -2068,13 +2098,13 @@ fn workspace_artifact_route_contract_uses_coding_family_and_workspace_prep() {
         confidence: 0.97,
         needs_clarification: false,
         clarification_questions: Vec::new(),
-        routing_hints: vec![
+        decision_evidence: vec![
             "explicit_workspace_project_deliverable".to_string(),
             "workspace_runtime_required".to_string(),
         ],
-        lane_frame: None,
-        request_frame: None,
-        source_selection: None,
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
@@ -2091,7 +2121,7 @@ fn workspace_artifact_route_contract_uses_coding_family_and_workspace_prep() {
 }
 
 #[test]
-fn non_artifact_weather_route_builds_renderable_parity_surface_and_widget_state() {
+fn inline_answer_weather_route_builds_renderable_parity_surface_and_widget_state() {
     let mut task = test_task(ChatArtifactVerificationStatus::Ready);
     let outcome_request = ChatOutcomeRequest {
         request_id: "weather-widget".to_string(),
@@ -2103,20 +2133,20 @@ fn non_artifact_weather_route_builds_renderable_parity_surface_and_widget_state(
         confidence: 0.88,
         needs_clarification: false,
         clarification_questions: Vec::new(),
-        routing_hints: vec![
+        decision_evidence: vec![
             "tool_widget:weather".to_string(),
             "narrow_surface_preferred".to_string(),
         ],
-        lane_frame: None,
-        request_frame: None,
-        source_selection: None,
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
         artifact: None,
     };
 
-    attach_non_artifact_chat_session(
+    attach_inline_answer_chat_session(
         &mut task,
         "What is the weather in Boston today?",
         crate::models::ChatRuntimeProvenance {
@@ -2149,7 +2179,7 @@ fn non_artifact_weather_route_builds_renderable_parity_surface_and_widget_state(
 }
 
 #[test]
-fn attach_non_artifact_session_preserves_retained_widget_state_during_topology_refresh() {
+fn attach_inline_answer_session_preserves_retained_widget_state_during_topology_refresh() {
     let mut task = test_task(ChatArtifactVerificationStatus::Ready);
     let provenance = crate::models::ChatRuntimeProvenance {
         kind: crate::models::ChatRuntimeProvenanceKind::RealLocalRuntime,
@@ -2167,12 +2197,12 @@ fn attach_non_artifact_session_preserves_retained_widget_state_during_topology_r
         confidence: 0.9,
         needs_clarification: false,
         clarification_questions: Vec::new(),
-        routing_hints: vec![
+        decision_evidence: vec![
             "tool_widget:weather".to_string(),
             "narrow_surface_preferred".to_string(),
         ],
-        lane_frame: None,
-        request_frame: Some(ioi_types::app::chat::ChatNormalizedRequestFrame::Weather(
+        lane_request: None,
+        normalized_request: Some(ioi_types::app::chat::ChatNormalizedRequest::Weather(
             ioi_types::app::chat::ChatWeatherRequestFrame {
                 inferred_locations: vec!["Boston".to_string()],
                 assumed_location: Some("Boston".to_string()),
@@ -2181,43 +2211,43 @@ fn attach_non_artifact_session_preserves_retained_widget_state_during_topology_r
                 clarification_required_slots: Vec::new(),
             },
         )),
-        source_selection: None,
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
         artifact: None,
     };
-    attach_non_artifact_chat_session(
+    attach_inline_answer_chat_session(
         &mut task,
         "What is the weather in Boston today?",
         provenance.clone(),
         &initial_request,
     );
 
+    let active_artifact_id = task
+        .chat_session
+        .as_ref()
+        .map(|session| session.artifact_manifest.artifact_id.clone());
     let follow_up_request = ChatOutcomeRequest {
         request_id: "weather-follow-up".to_string(),
-        raw_prompt: "How about tomorrow instead?".to_string(),
-        active_artifact_id: None,
-        outcome_kind: ChatOutcomeKind::ToolWidget,
-        execution_strategy: ChatExecutionStrategy::PlanExecute,
+        raw_prompt: "What about tomorrow?".to_string(),
+        active_artifact_id,
+        outcome_kind: ChatOutcomeKind::Conversation,
+        execution_strategy: ChatExecutionStrategy::SinglePass,
         execution_mode_decision: None,
         confidence: 0.92,
         needs_clarification: false,
         clarification_questions: Vec::new(),
-        routing_hints: vec![
-            "tool_widget:weather".to_string(),
-            "retained_widget_follow_up".to_string(),
-            "narrow_surface_preferred".to_string(),
-        ],
-        lane_frame: None,
-        request_frame: None,
-        source_selection: None,
+        decision_evidence: vec!["shared_answer_surface".to_string()],
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
         artifact: None,
     };
-    attach_non_artifact_chat_session(
+    attach_inline_answer_chat_session(
         &mut task,
         "How about tomorrow instead?",
         provenance,
@@ -2227,10 +2257,10 @@ fn attach_non_artifact_session_preserves_retained_widget_state_during_topology_r
     match task
         .chat_outcome
         .as_ref()
-        .and_then(|request| request.request_frame.as_ref())
+        .and_then(|request| request.normalized_request.as_ref())
         .expect("request frame after retained follow-up")
     {
-        ioi_types::app::chat::ChatNormalizedRequestFrame::Weather(frame) => {
+        ioi_types::app::chat::ChatNormalizedRequest::Weather(frame) => {
             assert!(frame
                 .assumed_location
                 .as_deref()
@@ -2244,13 +2274,23 @@ fn attach_non_artifact_session_preserves_retained_widget_state_during_topology_r
         .chat_outcome
         .as_ref()
         .expect("chat outcome")
-        .routing_hints
+        .decision_evidence
         .iter()
         .any(|hint| hint == "retained_widget_state_applied"));
+    let follow_up_outcome = task.chat_outcome.as_ref().expect("chat outcome");
+    assert_eq!(follow_up_outcome.outcome_kind, ChatOutcomeKind::ToolWidget);
+    assert_eq!(
+        follow_up_outcome
+            .source_decision
+            .as_ref()
+            .expect("source decision")
+            .selected_source,
+        ioi_types::app::ChatSourceFamily::SpecializedTool
+    );
 }
 
 #[test]
-fn route_contract_payload_includes_domain_policy_bundle() {
+fn decision_record_payload_includes_domain_policy_bundle() {
     let outcome_request = ChatOutcomeRequest {
         request_id: "places-policy".to_string(),
         raw_prompt: "Find coffee shops near downtown Portland".to_string(),
@@ -2261,20 +2301,20 @@ fn route_contract_payload_includes_domain_policy_bundle() {
         confidence: 0.84,
         needs_clarification: false,
         clarification_questions: Vec::new(),
-        routing_hints: vec![
+        decision_evidence: vec![
             "tool_widget:places".to_string(),
             "narrow_surface_preferred".to_string(),
         ],
-        lane_frame: None,
-        request_frame: None,
-        source_selection: None,
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
         artifact: None,
     };
 
-    let payload = super::content_session::build_route_contract_payload(&outcome_request, false);
+    let payload = super::content_session::build_decision_record_payload(&outcome_request, false);
     let object = payload.as_object().expect("payload object");
     let bundle = object
         .get("domain_policy_bundle")
@@ -2313,15 +2353,15 @@ fn weather_advice_clarification_surfaces_structured_scope_options() {
             clarification_questions: vec![
                 "What city should Chat check the weather for?".to_string()
             ],
-            routing_hints: vec![
+            decision_evidence: vec![
                 "tool_widget:weather".to_string(),
                 "weather_advice_request".to_string(),
                 "location_required_for_weather_advice".to_string(),
                 "narrow_surface_preferred".to_string(),
             ],
-            lane_frame: None,
-            request_frame: None,
-            source_selection: None,
+            lane_request: None,
+            normalized_request: None,
+            source_decision: None,
             retained_lane_state: None,
             lane_transitions: Vec::new(),
             orchestration_state: None,
@@ -2357,15 +2397,15 @@ fn weather_advice_clarification_promotes_current_area_when_runtime_locality_exis
             clarification_questions: vec![
                 "What city should Chat check the weather for?".to_string()
             ],
-            routing_hints: vec![
+            decision_evidence: vec![
                 "tool_widget:weather".to_string(),
                 "weather_advice_request".to_string(),
                 "location_required_for_weather_advice".to_string(),
                 "narrow_surface_preferred".to_string(),
             ],
-            lane_frame: None,
-            request_frame: None,
-            source_selection: None,
+            lane_request: None,
+            normalized_request: None,
+            source_decision: None,
             retained_lane_state: None,
             lane_transitions: Vec::new(),
             orchestration_state: None,
@@ -2395,20 +2435,18 @@ fn message_compose_clarification_uses_domain_specific_prompt_and_options() {
         confidence: 0.9,
         needs_clarification: true,
         clarification_questions: vec!["What channel should Chat use?".to_string()],
-        routing_hints: vec!["shared_answer_surface".to_string()],
-        lane_frame: None,
-        request_frame: Some(
-            ioi_types::app::chat::ChatNormalizedRequestFrame::MessageCompose(
-                ioi_types::app::chat::ChatMessageComposeRequestFrame {
-                    channel: None,
-                    recipient_context: Some("landlord".to_string()),
-                    purpose: Some("draft".to_string()),
-                    missing_slots: vec!["channel".to_string()],
-                    clarification_required_slots: vec!["channel".to_string()],
-                },
-            ),
-        ),
-        source_selection: None,
+        decision_evidence: vec!["shared_answer_surface".to_string()],
+        lane_request: None,
+        normalized_request: Some(ioi_types::app::chat::ChatNormalizedRequest::MessageCompose(
+            ioi_types::app::chat::ChatMessageComposeRequestFrame {
+                channel: None,
+                recipient_context: Some("landlord".to_string()),
+                purpose: Some("draft".to_string()),
+                missing_slots: vec!["channel".to_string()],
+                clarification_required_slots: vec!["channel".to_string()],
+            },
+        )),
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
@@ -2442,12 +2480,12 @@ fn places_clarification_uses_domain_specific_anchor_options() {
             confidence: 0.87,
             needs_clarification: true,
             clarification_questions: vec!["Where should Chat search?".to_string()],
-            routing_hints: vec![
+            decision_evidence: vec![
                 "tool_widget:places".to_string(),
                 "narrow_surface_preferred".to_string(),
             ],
-            lane_frame: None,
-            request_frame: Some(ioi_types::app::chat::ChatNormalizedRequestFrame::Places(
+            lane_request: None,
+            normalized_request: Some(ioi_types::app::chat::ChatNormalizedRequest::Places(
                 ioi_types::app::chat::ChatPlacesRequestFrame {
                     search_anchor: None,
                     category: Some("coffee shops".to_string()),
@@ -2456,7 +2494,7 @@ fn places_clarification_uses_domain_specific_anchor_options() {
                     clarification_required_slots: vec!["search_anchor".to_string()],
                 },
             )),
-            source_selection: None,
+            source_decision: None,
             retained_lane_state: None,
             lane_transitions: Vec::new(),
             orchestration_state: None,
@@ -2490,12 +2528,12 @@ fn places_clarification_surfaces_current_area_when_runtime_locality_exists() {
             confidence: 0.87,
             needs_clarification: true,
             clarification_questions: vec!["Where should Chat search?".to_string()],
-            routing_hints: vec![
+            decision_evidence: vec![
                 "tool_widget:places".to_string(),
                 "narrow_surface_preferred".to_string(),
             ],
-            lane_frame: None,
-            request_frame: Some(ioi_types::app::chat::ChatNormalizedRequestFrame::Places(
+            lane_request: None,
+            normalized_request: Some(ioi_types::app::chat::ChatNormalizedRequest::Places(
                 ioi_types::app::chat::ChatPlacesRequestFrame {
                     search_anchor: None,
                     category: Some("coffee shops".to_string()),
@@ -2504,7 +2542,7 @@ fn places_clarification_surfaces_current_area_when_runtime_locality_exists() {
                     clarification_required_slots: vec!["search_anchor".to_string()],
                 },
             )),
-            source_selection: None,
+            source_decision: None,
             retained_lane_state: None,
             lane_transitions: Vec::new(),
             orchestration_state: None,
@@ -2521,7 +2559,7 @@ fn places_clarification_surfaces_current_area_when_runtime_locality_exists() {
 }
 
 #[test]
-fn places_request_frame_promotes_missing_anchor_into_clarification_gate() {
+fn places_normalized_request_promotes_missing_anchor_into_clarification_gate() {
     let mut outcome_request = ChatOutcomeRequest {
         request_id: "places-topology".to_string(),
         raw_prompt: "Find coffee shops open now.".to_string(),
@@ -2532,13 +2570,13 @@ fn places_request_frame_promotes_missing_anchor_into_clarification_gate() {
         confidence: 0.88,
         needs_clarification: false,
         clarification_questions: Vec::new(),
-        routing_hints: vec![
+        decision_evidence: vec![
             "tool_widget:places".to_string(),
             "narrow_surface_preferred".to_string(),
         ],
-        lane_frame: None,
-        request_frame: None,
-        source_selection: None,
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
@@ -2553,11 +2591,11 @@ fn places_request_frame_promotes_missing_anchor_into_clarification_gate() {
         vec!["Which neighborhood, city, or anchor location should Chat search around?".to_string()]
     );
     assert!(outcome_request
-        .routing_hints
+        .decision_evidence
         .iter()
-        .any(|hint| hint == "request_frame_clarification_required"));
-    match outcome_request.request_frame.as_ref() {
-        Some(ioi_types::app::chat::ChatNormalizedRequestFrame::Places(frame)) => {
+        .any(|hint| hint == "normalized_request_clarification_required"));
+    match outcome_request.normalized_request.as_ref() {
+        Some(ioi_types::app::chat::ChatNormalizedRequest::Places(frame)) => {
             assert!(frame.clarification_required_slots.iter().any(|slot| {
                 slot == "search_anchor" || slot == "location_scope" || slot == "location"
             }));
@@ -2580,15 +2618,15 @@ fn currentness_scope_clarification_surfaces_structured_topic_options() {
         clarification_questions: vec![
             "Do you mean local events, a specific topic, or general news this week?".to_string(),
         ],
-        routing_hints: vec![
+        decision_evidence: vec![
             "currentness_override".to_string(),
             "currentness_scope_ambiguous".to_string(),
             "clarification_required_for_currentness".to_string(),
             "shared_answer_surface".to_string(),
         ],
-        lane_frame: None,
-        request_frame: None,
-        source_selection: None,
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
@@ -2634,10 +2672,10 @@ fn connector_catalog_application_routes_mail_intent_into_integrations_lane() {
         confidence: 0.9,
         needs_clarification: false,
         clarification_questions: Vec::new(),
-        routing_hints: vec!["shared_answer_surface".to_string()],
-        lane_frame: None,
-        request_frame: None,
-        source_selection: None,
+        decision_evidence: vec!["shared_answer_surface".to_string()],
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
@@ -2651,19 +2689,19 @@ fn connector_catalog_application_routes_mail_intent_into_integrations_lane() {
     super::content_session::refresh_outcome_request_topology(&mut outcome_request, None);
 
     assert!(outcome_request
-        .routing_hints
+        .decision_evidence
         .iter()
         .any(|hint| hint == "connector_intent_detected"));
     assert!(outcome_request
-        .routing_hints
+        .decision_evidence
         .iter()
         .any(|hint| hint == "connector_preferred"));
     assert!(outcome_request
-        .routing_hints
+        .decision_evidence
         .iter()
         .any(|hint| hint == "selected_connector_id:mail.primary"));
 
-    let payload = super::content_session::build_route_contract_payload(&outcome_request, false);
+    let payload = super::content_session::build_decision_record_payload(&outcome_request, false);
     let payload_object = payload.as_object().expect("payload object");
     assert_eq!(
         payload_object
@@ -2671,12 +2709,12 @@ fn connector_catalog_application_routes_mail_intent_into_integrations_lane() {
             .and_then(|value| value.as_str()),
         Some("communication")
     );
-    let source_selection = payload_object
-        .get("source_selection")
+    let source_decision = payload_object
+        .get("source_decision")
         .and_then(|value| value.as_object())
-        .expect("source selection");
+        .expect("source decision");
     assert_eq!(
-        source_selection
+        source_decision
             .get("selectedSource")
             .and_then(|value| value.as_str()),
         Some("connector")
@@ -2734,10 +2772,10 @@ fn connector_catalog_application_preserves_connector_source_for_artifact_report_
         confidence: 0.92,
         needs_clarification: false,
         clarification_questions: Vec::new(),
-        routing_hints: vec!["persistent_artifact_requested".to_string()],
-        lane_frame: None,
-        request_frame: None,
-        source_selection: None,
+        decision_evidence: vec!["persistent_artifact_requested".to_string()],
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
@@ -2751,10 +2789,10 @@ fn connector_catalog_application_preserves_connector_source_for_artifact_report_
     super::content_session::refresh_outcome_request_topology(&mut outcome_request, None);
 
     assert!(outcome_request
-        .routing_hints
+        .decision_evidence
         .iter()
         .any(|hint| hint == "connector_intent_detected"));
-    let payload = super::content_session::build_route_contract_payload(&outcome_request, false);
+    let payload = super::content_session::build_decision_record_payload(&outcome_request, false);
     let payload_object = payload.as_object().expect("payload object");
     assert_eq!(
         payload_object
@@ -2768,12 +2806,12 @@ fn connector_catalog_application_preserves_connector_source_for_artifact_report_
             .and_then(|value| value.as_str()),
         Some("communication")
     );
-    let source_selection = payload_object
-        .get("source_selection")
+    let source_decision = payload_object
+        .get("source_decision")
         .and_then(|value| value.as_object())
-        .expect("source selection");
+        .expect("source decision");
     assert_eq!(
-        source_selection
+        source_decision
             .get("selectedSource")
             .and_then(|value| value.as_str()),
         Some("connector")
@@ -2804,16 +2842,16 @@ fn prioritization_clarification_surfaces_structured_ranking_options() {
         clarification_questions: vec![
             "What options or decision shape should Chat present?".to_string()
         ],
-        routing_hints: vec![
+        decision_evidence: vec![
             "tool_widget:user_input".to_string(),
             "user_input_preferred".to_string(),
             "prioritization_request".to_string(),
             "structured_input_options_missing".to_string(),
             "no_persistent_artifact_requested".to_string(),
         ],
-        lane_frame: None,
-        request_frame: None,
-        source_selection: None,
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
@@ -2853,20 +2891,20 @@ fn currentness_override_conversation_does_not_stay_chat_primary() {
         confidence: 0.94,
         needs_clarification: false,
         clarification_questions: Vec::new(),
-        routing_hints: vec![
+        decision_evidence: vec![
             "currentness_override".to_string(),
             "no_persistent_artifact_requested".to_string(),
             "shared_answer_surface".to_string(),
         ],
-        lane_frame: None,
-        request_frame: None,
-        source_selection: None,
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
         artifact: None,
     };
-    super::content_session::attach_non_artifact_chat_session(
+    super::content_session::attach_inline_answer_chat_session(
         &mut task,
         "What is the latest OpenAI API pricing?",
         crate::models::ChatRuntimeProvenance {
@@ -2917,10 +2955,10 @@ fn provisional_artifact_route_state_emits_route_receipt_before_materialization()
         confidence: 0.94,
         needs_clarification: false,
         clarification_questions: Vec::new(),
-        routing_hints: vec!["interactive_surface_requested".to_string()],
-        lane_frame: None,
-        request_frame: None,
-        source_selection: None,
+        decision_evidence: vec!["interactive_surface_requested".to_string()],
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,

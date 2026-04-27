@@ -60,6 +60,12 @@ assert.doesNotMatch(
   "default final answers should not render a dashboard-style Results/Autopilot header",
 );
 
+assert.doesNotMatch(
+  answerCardSource,
+  /Export Trace|Open thoughts and evidence|onExportTraceBundle/,
+  "default answer card must not expose trace export or thoughts controls",
+);
+
 assert.match(
   answerCardSource,
   /answer-card--plain/,
@@ -96,6 +102,30 @@ assert.doesNotMatch(
   "default chat transcript should not contain old dashboard route-card copy",
 );
 
+assert.match(
+  timelineSource,
+  /extractUserRequestFromContextualIntent\(turn\.prompt\.text\)/,
+  "default user prompt bubbles should display the user request, not injected runtime context",
+);
+
+assert.match(
+  timelineSource,
+  /const showInlineTranscript =[\s\S]*inlineTranscriptRoute && showLiveThinking/,
+  "completed tool-widget and research turns should not render execution transcript rows in the answer UI",
+);
+
+assert.doesNotMatch(
+  timelineSource,
+  /Worklog|steps captured|Open thinking artifacts/,
+  "default conversation timeline must not surface retained worklog or trace controls",
+);
+
+assert.doesNotMatch(
+  timelineSource,
+  /Runtime timeline|required obligations|cleared obligations/,
+  "default conversation timeline must not expose runtime ledger or completion-gate wording",
+);
+
 assert.doesNotMatch(
   artifactHubTaskViewsSource,
   /ExecutionRouteCard|Conversation Single Pass|Planner of record|Active Worker|GENERAL ROUTE/,
@@ -121,8 +151,8 @@ assert.doesNotMatch(
 
 assert.match(
   modelSource,
-  /items\.length > 0 \|\| process\.status === "running"/,
-  "empty process categories should be omitted unless the run is active, blocked, or failed",
+  /process\.status === "running"[\s\S]*process\.status === "thinking"[\s\S]*process\.status === "blocked"[\s\S]*process\.status === "failed"/,
+  "completed process evidence should stay out of the default answer UI",
 );
 
 assert.doesNotMatch(

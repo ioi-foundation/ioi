@@ -78,23 +78,23 @@ fn maybe_normalize_unchanged_browser_snapshot(
     };
     let snapshot_hash = hex::encode(snapshot_digest);
     let current_step = agent_state.step_count;
-    let prior_hash = execution_receipt_value(
+    let prior_hash = execution_evidence_value(
         &agent_state.tool_execution_log,
         BROWSER_SNAPSHOT_CONTENT_HASH_RECEIPT,
     )
     .map(str::to_string);
-    let prior_step = execution_receipt_value(
+    let prior_step = execution_evidence_value(
         &agent_state.tool_execution_log,
         BROWSER_SNAPSHOT_CONTENT_STEP_RECEIPT,
     )
     .and_then(|value| value.parse::<u32>().ok());
 
-    mark_execution_receipt_with_value(
+    record_execution_evidence_with_value(
         &mut agent_state.tool_execution_log,
         BROWSER_SNAPSHOT_CONTENT_HASH_RECEIPT,
         snapshot_hash.clone(),
     );
-    mark_execution_receipt_with_value(
+    record_execution_evidence_with_value(
         &mut agent_state.tool_execution_log,
         BROWSER_SNAPSHOT_CONTENT_STEP_RECEIPT,
         current_step.to_string(),
@@ -499,7 +499,7 @@ pub(crate) async fn apply_post_execution_guards(
                     agent_state.pending_search_completion = Some(pending);
                     verification_checks.push("execution_contract_gate_blocked=true".to_string());
                     verification_checks.push(
-                        "execution_contract_missing_keys=receipt::final_output_contract_ready=true"
+                        "execution_contract_missing_keys=evidence::final_output_contract_ready=true"
                             .to_string(),
                     );
                     verification_checks.push(

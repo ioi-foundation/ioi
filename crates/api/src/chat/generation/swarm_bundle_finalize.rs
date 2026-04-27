@@ -957,7 +957,7 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
         acceptance_provenance,
         runtime_policy: Some(runtime_plan.policy),
         adaptive_search_budget: None,
-        fallback_used: false,
+        degraded_path_used: false,
         ux_lifecycle: if repair_applied {
             ChatArtifactUxLifecycle::Refining
         } else {

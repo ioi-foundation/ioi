@@ -23,7 +23,7 @@ pub fn case() -> QueryCase {
     QueryCase {
         id: CASE_ID,
         query: "What's the current price of Bitcoin?",
-        success_definition: "Return the current Bitcoin price with runtime-grounded web retrieval evidence, explicit single-snapshot metric grounding, and final source-quality receipts that satisfy the runtime retrieval contract.",
+        success_definition: "Return the current Bitcoin price with runtime-grounded web retrieval evidence, explicit single-snapshot metric grounding, and final source-quality evidence that satisfy the runtime retrieval contract.",
         seeded_intent_id: "web.research",
         intent_scope: IntentScopeProfile::WebResearch,
         seed_resolved_intent: true,
@@ -508,8 +508,8 @@ fn observed_receipt(
     }
 }
 
-fn serialize_evidence_receipts(receipts: &[EvidenceReceipt]) -> String {
-    serde_json::to_string(receipts).unwrap_or_else(|_| "[]".to_string())
+fn serialize_evidence_receipts(evidence: &[EvidenceReceipt]) -> String {
+    serde_json::to_string(evidence).unwrap_or_else(|_| "[]".to_string())
 }
 
 fn sha256_prefixed(value: &str) -> String {

@@ -9,7 +9,7 @@ use super::{
 };
 use crate::agentic::runtime::service::lifecycle::persist_worker_assignment;
 use crate::agentic::runtime::service::step::action::{
-    mark_action_fingerprint_executed_at_step, mark_execution_receipt_with_value,
+    mark_action_fingerprint_executed_at_step, record_execution_evidence_with_value,
 };
 use crate::agentic::runtime::service::step::helpers::default_safe_policy;
 use crate::agentic::runtime::types::{
@@ -53,6 +53,7 @@ fn test_agent_state() -> AgentState {
         planner_state: None,
         active_skill_hash: None,
         tool_execution_log: BTreeMap::new(),
+        execution_ledger: Default::default(),
         visual_som_map: None,
         visual_semantic_map: None,
         swarm_context: None,
@@ -123,11 +124,11 @@ fn workspace_package_read_duplicate_summary_requires_chat_reply() {
         score: 0.95,
         top_k: vec![],
         required_capabilities: vec![],
-        required_receipts: vec![],
-        required_postconditions: vec![],
+        required_evidence: vec![],
+        success_conditions: vec![],
         risk_class: "low".to_string(),
         preferred_tier: "tool_first".to_string(),
-        matrix_version: "test".to_string(),
+        intent_catalog_version: "test".to_string(),
         embedding_model_id: "test".to_string(),
         embedding_model_version: "test".to_string(),
         similarity_function_id: "cosine".to_string(),
@@ -135,8 +136,8 @@ fn workspace_package_read_duplicate_summary_requires_chat_reply() {
         tool_registry_hash: [0u8; 32],
         capability_ontology_hash: [0u8; 32],
         query_normalization_version: "v1".to_string(),
-        matrix_source_hash: [0u8; 32],
-        receipt_hash: [0u8; 32],
+        intent_catalog_source_hash: [0u8; 32],
+        evidence_requirements_hash: [0u8; 32],
         provider_selection: None,
         instruction_contract: None,
         constrained: false,
@@ -634,12 +635,12 @@ fn patch_build_verify_refresh_read_is_allowed_after_workspace_edit_receipt() {
 
     let mut agent_state = test_agent_state();
     agent_state.recent_actions = vec!["attempt::NoEffectAfterAction::first".to_string()];
-    mark_execution_receipt_with_value(
+    record_execution_evidence_with_value(
         &mut agent_state.tool_execution_log,
         "workspace_edit_applied",
         format!("step=7;tool=file__write;path={}", source_path.display()),
     );
-    mark_execution_receipt_with_value(
+    record_execution_evidence_with_value(
         &mut agent_state.tool_execution_log,
         "workspace_read_observed",
         format!("step=3;tool=file__read;path={}", source_path.display()),
@@ -700,7 +701,7 @@ fn patch_build_verify_refresh_read_is_allowed_after_patch_miss_receipt() {
 
     let mut agent_state = test_agent_state();
     agent_state.recent_actions = vec!["attempt::NoEffectAfterAction::first".to_string()];
-    mark_execution_receipt_with_value(
+    record_execution_evidence_with_value(
         &mut agent_state.tool_execution_log,
         "workspace_patch_miss_observed",
         format!(
@@ -708,7 +709,7 @@ fn patch_build_verify_refresh_read_is_allowed_after_patch_miss_receipt() {
             source_path.display()
         ),
     );
-    mark_execution_receipt_with_value(
+    record_execution_evidence_with_value(
         &mut agent_state.tool_execution_log,
         "workspace_read_observed",
         format!("step=3;tool=file__read;path={}", source_path.display()),
@@ -769,12 +770,12 @@ fn patch_build_verify_refresh_read_stays_blocked_after_post_edit_refresh_read() 
 
     let mut agent_state = test_agent_state();
     agent_state.recent_actions = vec!["attempt::NoEffectAfterAction::first".to_string()];
-    mark_execution_receipt_with_value(
+    record_execution_evidence_with_value(
         &mut agent_state.tool_execution_log,
         "workspace_edit_applied",
         format!("step=7;tool=file__write;path={}", source_path.display()),
     );
-    mark_execution_receipt_with_value(
+    record_execution_evidence_with_value(
         &mut agent_state.tool_execution_log,
         "workspace_read_observed",
         format!("step=8;tool=file__read;path={}", source_path.display()),
@@ -843,12 +844,12 @@ fn patch_build_verify_refresh_read_stays_blocked_when_post_edit_verifier_rerun_i
         timestamp_ms: 1,
         step_index: 4,
     });
-    mark_execution_receipt_with_value(
+    record_execution_evidence_with_value(
         &mut agent_state.tool_execution_log,
         "workspace_edit_applied",
         format!("step=7;tool=file__write;path={}", source_path.display()),
     );
-    mark_execution_receipt_with_value(
+    record_execution_evidence_with_value(
         &mut agent_state.tool_execution_log,
         "workspace_read_observed",
         format!("step=3;tool=file__read;path={}", source_path.display()),
@@ -922,7 +923,7 @@ fn patch_build_verify_refresh_read_stays_blocked_after_patch_miss_refresh_read()
 
     let mut agent_state = test_agent_state();
     agent_state.recent_actions = vec!["attempt::NoEffectAfterAction::first".to_string()];
-    mark_execution_receipt_with_value(
+    record_execution_evidence_with_value(
         &mut agent_state.tool_execution_log,
         "workspace_patch_miss_observed",
         format!(
@@ -930,7 +931,7 @@ fn patch_build_verify_refresh_read_stays_blocked_after_patch_miss_refresh_read()
             source_path.display()
         ),
     );
-    mark_execution_receipt_with_value(
+    record_execution_evidence_with_value(
         &mut agent_state.tool_execution_log,
         "workspace_read_observed",
         format!("step=8;tool=file__read;path={}", source_path.display()),

@@ -607,7 +607,7 @@ struct EnvironmentReceiptAccumulator {
 #[derive(Default)]
 struct EnvironmentEvidenceBatch {
     checks: Vec<String>,
-    receipts: Vec<EnvironmentReceiptObservation>,
+    evidence: Vec<EnvironmentReceiptObservation>,
 }
 
 trait IntoEnvironmentEvidenceBatch {
@@ -622,10 +622,10 @@ impl IntoEnvironmentEvidenceBatch for EnvironmentEvidenceBatch {
 
 impl IntoEnvironmentEvidenceBatch for Vec<String> {
     fn into_environment_evidence_batch(self) -> EnvironmentEvidenceBatch {
-        let receipts = derive_environment_receipts(&self);
+        let evidence = derive_environment_receipts(&self);
         EnvironmentEvidenceBatch {
             checks: self,
-            receipts,
+            evidence,
         }
     }
 }
@@ -1556,13 +1556,13 @@ fn insert_fixture_evidence<T>(
         return;
     };
     let post_run_batch = post_run(fixture);
-    environment_receipts.extend(post_run_batch.receipts);
+    environment_receipts.extend(post_run_batch.evidence);
     for check in post_run_batch.checks {
         verification_checks.insert(check);
     }
     if let Some(cleanup_fn) = cleanup {
         let cleanup_batch = cleanup_fn(fixture);
-        environment_receipts.extend(cleanup_batch.receipts);
+        environment_receipts.extend(cleanup_batch.evidence);
         for check in cleanup_batch.checks {
             verification_checks.insert(check);
         }
@@ -1651,8 +1651,8 @@ mod tests {
             satisfied: Some(true),
         }];
         let checks = vec![
-            "env_receipt::top_memory_apps_row=1|code|4003|4437552".to_string(),
-            "env_receipt::top_memory_apps_row=2|firefox-bin|5461|841404".to_string(),
+            "env_evidence::top_memory_apps_row=1|code|4003|4437552".to_string(),
+            "env_evidence::top_memory_apps_row=2|firefox-bin|5461|841404".to_string(),
         ];
 
         let merged = merge_environment_receipts(existing, &checks);

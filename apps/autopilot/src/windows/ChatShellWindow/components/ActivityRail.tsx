@@ -27,8 +27,8 @@ export function ActivityRail({
     () => [
       { label: "Search", value: summary.searchCount },
       { label: "Read", value: summary.readCount },
-      { label: "Receipts", value: summary.receiptCount },
-      { label: "Worklog", value: summary.reasoningCount },
+      { label: "Checks", value: summary.receiptCount },
+      { label: "Steps", value: summary.reasoningCount },
       { label: "Actions", value: summary.systemCount },
       { label: "Outputs", value: summary.artifactCount },
     ],

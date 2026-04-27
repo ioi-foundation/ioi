@@ -218,7 +218,7 @@ fn local_html_interaction_truth_block_reason(
         })
 }
 
-fn try_local_html_interaction_truth_rescue_candidate(
+fn try_local_html_interaction_truth_repair_candidate(
     request: &ChatOutcomeArtifactRequest,
     brief: &ChatArtifactBrief,
     edit_intent: Option<&ChatArtifactEditIntent>,
@@ -231,14 +231,14 @@ fn try_local_html_interaction_truth_rescue_candidate(
         .find(|file| file.renderable)
         .or_else(|| payload.files.first())
         .map(|file| file.body.clone())?;
-    let (rescued_document, strategy) = try_local_html_interaction_truth_rescue_document(
+    let (repaired_document, strategy) = try_local_html_interaction_truth_repair_document(
         request,
         ChatRuntimeProvenanceKind::RealLocalRuntime,
         &latest_raw,
         error_message,
     )?;
     let mut generated =
-        super::parse_and_validate_generated_artifact_payload(&rescued_document, request).ok()?;
+        super::parse_and_validate_generated_artifact_payload(&repaired_document, request).ok()?;
     super::enrich_generated_artifact_payload(&mut generated, request, brief);
     super::validate_generated_artifact_payload_against_brief_with_edit_intent(
         &generated,
@@ -251,7 +251,7 @@ fn try_local_html_interaction_truth_rescue_candidate(
         generated.summary = payload.summary.clone();
     }
     generated.notes.push(format!(
-        "local interaction-truth rescue ({strategy}) applied after: {error_message}"
+        "local interaction-truth deterministic_repair ({strategy}) applied after: {error_message}"
     ));
     Some((generated, strategy))
 }
@@ -397,8 +397,8 @@ pub(crate) async fn materialize_and_locally_validation_candidate(
         if let Some(interaction_truth_reason) =
             local_html_interaction_truth_block_reason(render_evaluation.as_ref())
         {
-            if let Some((rescued_payload, strategy)) =
-                try_local_html_interaction_truth_rescue_candidate(
+            if let Some((repaired_payload, strategy)) =
+                try_local_html_interaction_truth_repair_candidate(
                     request,
                     brief,
                     edit_intent,
@@ -407,11 +407,11 @@ pub(crate) async fn materialize_and_locally_validation_candidate(
                 )
             {
                 chat_generation_trace(format!(
-                    "artifact_generation:candidate_local_interaction_truth_rescue:ok id={} strategy={}",
+                    "artifact_generation:candidate_local_interaction_truth_deterministic_repair:ok id={} strategy={}",
                     candidate_id, strategy
                 ));
-                payload = rescued_payload;
-                let rescued_eval_future = evaluate_candidate_render_with_fallback(
+                payload = repaired_payload;
+                let repaired_eval_future = evaluate_candidate_render_with_fallback(
                     render_evaluator,
                     request,
                     brief,
@@ -428,13 +428,13 @@ pub(crate) async fn materialize_and_locally_validation_candidate(
                 .is_some()
                 {
                     await_with_activity_heartbeat(
-                        rescued_eval_future,
+                        repaired_eval_future,
                         activity_observer.clone(),
                         Duration::from_millis(125),
                     )
                     .await
                 } else {
-                    rescued_eval_future.await
+                    repaired_eval_future.await
                 };
             }
         }
@@ -536,8 +536,8 @@ pub(crate) async fn materialize_and_locally_validation_candidate(
         if let Some(interaction_truth_reason) =
             local_html_interaction_truth_block_reason(render_evaluation.as_ref())
         {
-            if let Some((rescued_payload, strategy)) =
-                try_local_html_interaction_truth_rescue_candidate(
+            if let Some((repaired_payload, strategy)) =
+                try_local_html_interaction_truth_repair_candidate(
                     request,
                     brief,
                     edit_intent,
@@ -546,11 +546,11 @@ pub(crate) async fn materialize_and_locally_validation_candidate(
                 )
             {
                 chat_generation_trace(format!(
-                    "artifact_generation:candidate_local_interaction_truth_rescue:post_runtime_repair id={} strategy={}",
+                    "artifact_generation:candidate_local_interaction_truth_deterministic_repair:post_runtime_repair id={} strategy={}",
                     candidate_id, strategy
                 ));
-                payload = rescued_payload;
-                let rescued_eval_future = evaluate_candidate_render_with_fallback(
+                payload = repaired_payload;
+                let repaired_eval_future = evaluate_candidate_render_with_fallback(
                     render_evaluator,
                     request,
                     brief,
@@ -567,13 +567,13 @@ pub(crate) async fn materialize_and_locally_validation_candidate(
                 .is_some()
                 {
                     await_with_activity_heartbeat(
-                        rescued_eval_future,
+                        repaired_eval_future,
                         activity_observer.clone(),
                         Duration::from_millis(125),
                     )
                     .await
                 } else {
-                    rescued_eval_future.await
+                    repaired_eval_future.await
                 };
             }
         }
@@ -906,13 +906,11 @@ pub(super) fn render_sanity_repair_reason(
 fn render_sanity_warning_only_primary_ready(
     render_evaluation: &ChatArtifactRenderEvaluation,
 ) -> bool {
-    render_evaluation.first_paint_captured
-        && !render_evaluation.has_failed_required_obligations()
-        && render_evaluation.overall_score >= render_evaluation.primary_view_score_threshold()
+    render_evaluation.clears_required_runtime_contract()
         && render_evaluation
             .findings
             .iter()
-            .all(|finding| finding.severity != ChatArtifactRenderFindingSeverity::Blocked)
+            .any(|finding| finding.severity == ChatArtifactRenderFindingSeverity::Warning)
 }
 
 pub(super) fn render_sanity_candidate_validation_preview(

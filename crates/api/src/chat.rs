@@ -105,23 +105,24 @@ pub fn chat_modal_first_html_enabled_for_tests_and_runtime() -> bool {
 }
 
 pub use domain_topology::{
-    apply_non_artifact_clarification_gate, artifact_connector_grounding_for_outcome_request,
-    build_chat_route_contract_payload, build_chat_runtime_handoff_prompt_prefix,
-    derive_chat_domain_policy_bundle, derive_chat_topology_projection, non_artifact_operator_steps,
-    non_artifact_route_notes, non_artifact_route_status_message, non_artifact_route_summary,
-    non_artifact_route_title, non_artifact_swarm_plan, non_artifact_verification_receipts,
-    non_artifact_verified_reply_evidence, non_artifact_worker_receipts,
-    route_decision_for_outcome_request, route_family_for_outcome_request,
-    route_topology_for_outcome_request, selected_route_label_for_outcome_request,
-    verification_status_for_lifecycle, verified_reply_evidence_for_manifest,
-    verifier_state_for_outcome_event, ChatTopologyProjection, TopologyProjection,
+    apply_inline_answer_clarification_gate, artifact_connector_grounding_for_outcome_request,
+    build_chat_decision_record_payload, build_chat_runtime_handoff_prompt_prefix,
+    derive_chat_domain_policy_bundle, derive_chat_topology_projection,
+    inline_answer_operator_steps, inline_answer_route_notes, inline_answer_route_summary,
+    inline_answer_route_title, inline_answer_status_message, inline_answer_swarm_plan,
+    inline_answer_verification_receipts, inline_answer_verified_reply_evidence,
+    inline_answer_worker_receipts, route_decision_for_outcome_request,
+    route_family_for_outcome_request, route_topology_for_outcome_request,
+    selected_route_label_for_outcome_request, verification_status_for_lifecycle,
+    verified_reply_evidence_for_manifest, verifier_state_for_outcome_event, ChatTopologyProjection,
+    TopologyProjection,
 };
 use html::*;
 use html_registry::*;
 pub use intent_context::extract_user_request_from_contextualized_intent;
 pub use intent_signals::ChatIntentContext;
 pub use specialized_policy::{
-    chat_request_frame_clarification_slots, chat_request_frame_missing_slots,
+    chat_normalized_request_clarification_slots, chat_normalized_request_missing_slots,
     chat_specialized_domain_kind, chat_specialized_domain_kind_for_frame,
     chat_specialized_domain_policy, ChatSpecializedDomainKind, ChatSpecializedDomainPolicySpec,
 };

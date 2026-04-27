@@ -1,3 +1,4 @@
+use super::evidence::redact_args_for_evidence;
 use super::install::classify_install_failure;
 use super::launch::{
     build_linux_launch_plan, extract_exec_binary, launch_attempt_failed,
@@ -6,7 +7,6 @@ use super::launch::{
     rank_launch_identity_entries, LaunchIdentityEntry,
 };
 use super::paths::{resolve_home_directory, resolve_target_directory, resolve_working_directory};
-use super::receipt::redact_args_for_receipt;
 use super::sys_exec::{
     append_sys_exec_command_history, classify_sys_exec_failure, command_output_indicates_failure,
     extract_exit_code, foreground_sleep_duration_seconds, normalize_stdin_data,
@@ -540,7 +540,7 @@ fn workload_receipt_arg_redaction_redacts_sensitive_values() {
         "Authorization: Bearer jwt.jwt.jwt".to_string(),
     ];
 
-    let redacted = redact_args_for_receipt(&args);
+    let redacted = redact_args_for_evidence(&args);
     assert_eq!(redacted.len(), args.len());
     assert_eq!(redacted[0], "--password");
     assert_eq!(

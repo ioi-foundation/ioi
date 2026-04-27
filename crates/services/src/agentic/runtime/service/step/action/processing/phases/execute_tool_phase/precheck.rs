@@ -49,7 +49,7 @@ pub(super) fn run_execution_prechecks(
     {
         *policy_decision = "denied".to_string();
         *success = false;
-        let missing = receipt_marker("provider_selection");
+        let missing = execution_evidence_key("provider_selection");
         let contract_error = execution_contract_violation_error(&missing);
         *error_msg = Some(contract_error.clone());
         *history_entry = Some(contract_error.clone());
@@ -90,7 +90,7 @@ pub(super) fn run_execution_prechecks(
                 .duration_since(UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_millis() as u64;
-            let host_receipt = runtime_host_environment_receipt(timestamp_ms);
+            let host_receipt = runtime_host_environment_evidence(timestamp_ms);
             let lint_error = format!(
                 "ERROR_CLASS=SynthesisFailed stage=provider_selection cause=home_path_contract_lint_failed runtime_home_dir={} runtime_home_owner={} payload_home_dir={} payload_home_owner={}",
                 home_mismatch.runtime_home_directory.as_str(),

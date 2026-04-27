@@ -48,7 +48,7 @@ use ioi_validator::firewall::{enforce_firewall, inference::HeuristicBitNet};
 use serde_json::json;
 use std::collections::BTreeMap;
 use std::path::Path;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 #[derive(Default)]
 struct DummyGui;
@@ -168,6 +168,7 @@ fn build_agent_state(session_id: [u8; 32], tool_jcs: Vec<u8>, tool_hash: [u8; 32
         planner_state: None,
         active_skill_hash: None,
         tool_execution_log: BTreeMap::new(),
+        execution_ledger: Default::default(),
         visual_som_map: None,
         visual_semantic_map: None,
         swarm_context: None,

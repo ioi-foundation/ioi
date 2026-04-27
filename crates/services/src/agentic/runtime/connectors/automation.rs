@@ -37,7 +37,7 @@ fn discover_automation_provider_candidates(
         account_label: Some("local automation kernel".to_string()),
         capabilities: capability_vec(capabilities),
         summary:
-            "Local workflow kernel for durable automation installs with persisted artifacts and receipts."
+            "Local workflow kernel for durable automation installs with persisted artifacts and evidence."
                 .to_string(),
     }]
 }

@@ -174,13 +174,6 @@ fn sign_hybrid_payload(signer: &HybridSigner, payload: &[u8]) -> Vec<u8> {
     codec::to_bytes_canonical(&proof).expect("encode hybrid signature proof")
 }
 
-fn sign_wallet_approval_decision(
-    approval: WalletApprovalDecision,
-    _signer: &HybridSigner,
-) -> WalletApprovalDecision {
-    approval
-}
-
 #[derive(Clone)]
 struct ApprovalSigner {
     keypair: Ed25519KeyPair,

@@ -90,7 +90,8 @@ pub(super) async fn apply_queue_failure_policies(
     if *success && !is_gated {
         agent_state.recent_actions.clear();
     } else if !*success && !awaiting_sudo_password && !*awaiting_clarification {
-        if is_cec_terminal_error(err.as_deref()) {
+        let failure_intent_id = resolved_intent_id(agent_state);
+        if is_completion_contract_error(err.as_deref()) {
             outcome.stop_condition_hit = true;
             outcome.escalation_path = Some("execution_contract_terminal".to_string());
             outcome.remediation_queued = false;
@@ -101,6 +102,11 @@ pub(super) async fn apply_queue_failure_policies(
             agent_state.status = AgentStatus::Failed(terminal_reason);
             verification_checks.push("cec_terminal_error=true".to_string());
         } else {
+            agent_state.execution_ledger.record_execution_failure(
+                Some(failure_intent_id),
+                ExecutionStage::Execution,
+                "ExecutionFailed",
+            );
             outcome.failure_class = classify_failure(err.as_deref(), policy_decision);
             if let Some(class) = outcome.failure_class {
                 let target_id = agent_state.target.as_ref().and_then(|target| {

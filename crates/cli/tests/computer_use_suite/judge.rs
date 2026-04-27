@@ -204,7 +204,7 @@ fn judge_hover_shape_receipts(result: &ComputerUseCaseResult) -> (bool, bool, Ve
 
     let hover_success = hover_receipts >= 3 && total_wait_ms >= 2_200;
     let notes = vec![format!(
-        "hover-shape local judge counted {} successful browser__hover receipts on #highlight across {}ms of browser__wait time",
+        "hover-shape local judge counted {} successful browser__hover evidence on #highlight across {}ms of browser__wait time",
         hover_receipts, total_wait_ms
     )];
     (hover_success, hover_success, notes)

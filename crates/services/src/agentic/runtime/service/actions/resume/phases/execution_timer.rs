@@ -1,7 +1,7 @@
 use super::super::*;
 use crate::agentic::runtime::service::step::action::{
-    command_contract::timer_payload_requires_allowlisted_scheduler, mark_execution_receipt_for,
-    receipt_marker_for, RuntimeReceipt,
+    command_contract::timer_payload_requires_allowlisted_scheduler, execution_evidence_key_for,
+    record_execution_evidence_for, RuntimeEvidence,
 };
 use ioi_api::vm::drivers::os::OsDriver;
 use std::sync::Arc;
@@ -119,10 +119,12 @@ pub(crate) async fn run_execution_timer_phase(
     if timer_notification_required && (!timer_delay_backend_armed || !notification_path_armed) {
         let mut missing_keys = Vec::<String>::new();
         if !timer_delay_backend_armed {
-            missing_keys.push(postcondition_marker(TIMER_SLEEP_BACKEND_POSTCONDITION));
+            missing_keys.push(success_condition_key(TIMER_SLEEP_BACKEND_SUCCESS_CONDITION));
         }
         if !notification_path_armed {
-            missing_keys.push(postcondition_marker(TIMER_NOTIFICATION_PATH_POSTCONDITION));
+            missing_keys.push(success_condition_key(
+                TIMER_NOTIFICATION_PATH_SUCCESS_CONDITION,
+            ));
         }
         for marker in &missing_keys {
             verification_checks.push(format!("execution_contract_missing_keys={}", marker));
@@ -176,11 +178,11 @@ pub(crate) async fn run_execution_timer_phase(
                 command_history_seen = true;
                 append_command_history_entry(&mut agent_state.command_history, entry);
                 if command_scope {
-                    mark_execution_postcondition(
+                    record_success_condition(
                         &mut agent_state.tool_execution_log,
                         "execution_artifact",
                     );
-                    verification_checks.push(postcondition_marker("execution_artifact"));
+                    verification_checks.push(success_condition_key("execution_artifact"));
                 }
             }
             if let Some(exit_code) = command_history_exit_code(raw) {
@@ -196,11 +198,12 @@ pub(crate) async fn run_execution_timer_phase(
         }
         if success && command_scope && requires_timer_notification_contract(agent_state) {
             if sys_exec_arms_timer_delay_backend(&tool) {
-                mark_execution_postcondition(
+                record_success_condition(
                     &mut agent_state.tool_execution_log,
-                    TIMER_SLEEP_BACKEND_POSTCONDITION,
+                    TIMER_SLEEP_BACKEND_SUCCESS_CONDITION,
                 );
-                verification_checks.push(postcondition_marker(TIMER_SLEEP_BACKEND_POSTCONDITION));
+                verification_checks
+                    .push(success_condition_key(TIMER_SLEEP_BACKEND_SUCCESS_CONDITION));
                 let delay_seconds =
                     sys_exec_timer_delay_seconds(&tool).map(|value| value.to_string());
                 emit_execution_contract_receipt_event_with_observation(
@@ -209,7 +212,7 @@ pub(crate) async fn run_execution_timer_phase(
                     step_index,
                     &resolved_intent_id(agent_state),
                     "execution",
-                    TIMER_SLEEP_BACKEND_POSTCONDITION,
+                    TIMER_SLEEP_BACKEND_SUCCESS_CONDITION,
                     true,
                     "timer_sleep_backend=armed",
                     Some("tool_payload"),
@@ -240,24 +243,25 @@ pub(crate) async fn run_execution_timer_phase(
             }
             if let Some(command_preview) = sys_exec_command_preview(&tool) {
                 if command_arms_deferred_notification_path(&command_preview) {
-                    mark_execution_postcondition(
+                    record_success_condition(
                         &mut agent_state.tool_execution_log,
-                        TIMER_NOTIFICATION_PATH_POSTCONDITION,
+                        TIMER_NOTIFICATION_PATH_SUCCESS_CONDITION,
                     );
-                    verification_checks
-                        .push(postcondition_marker(TIMER_NOTIFICATION_PATH_POSTCONDITION));
-                    mark_execution_receipt(
+                    verification_checks.push(success_condition_key(
+                        TIMER_NOTIFICATION_PATH_SUCCESS_CONDITION,
+                    ));
+                    record_execution_evidence(
                         &mut agent_state.tool_execution_log,
                         "notification_strategy",
                     );
-                    verification_checks.push(receipt_marker("notification_strategy"));
+                    verification_checks.push(execution_evidence_key("notification_strategy"));
                     emit_execution_contract_receipt_event_with_observation(
                         service,
                         session_id,
                         step_index,
                         &resolved_intent_id(agent_state),
                         "execution",
-                        TIMER_NOTIFICATION_PATH_POSTCONDITION,
+                        TIMER_NOTIFICATION_PATH_SUCCESS_CONDITION,
                         true,
                         "timer_notification_path_armed=true",
                         Some("tool_payload"),
@@ -291,18 +295,18 @@ pub(crate) async fn run_execution_timer_phase(
 
     if command_scope && success && matches!(tool, AgentTool::SysInstallPackage { .. }) {
         verification_checks.push("capability_execution_evidence=tool_output".to_string());
-        mark_execution_postcondition(&mut agent_state.tool_execution_log, "execution_artifact");
-        verification_checks.push(postcondition_marker("execution_artifact"));
+        record_success_condition(&mut agent_state.tool_execution_log, "execution_artifact");
+        verification_checks.push(success_condition_key("execution_artifact"));
     }
 
     if success && command_scope && is_command_provider_tool {
-        mark_execution_receipt_for(
+        record_execution_evidence_for(
             &mut agent_state.tool_execution_log,
-            RuntimeReceipt::Execution,
+            RuntimeEvidence::Execution,
         );
-        verification_checks.push(receipt_marker_for(RuntimeReceipt::Execution));
+        verification_checks.push(execution_evidence_key_for(RuntimeEvidence::Execution));
         verification_checks.push("capability_execution_phase=verification".to_string());
-        record_verification_receipts(
+        record_verification_evidence(
             &mut agent_state.tool_execution_log,
             verification_checks,
             &tool,

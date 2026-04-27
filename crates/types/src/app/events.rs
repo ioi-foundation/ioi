@@ -232,7 +232,7 @@ pub struct PiiDecisionReceiptEvent {
     pub assist_output_graph_hash: [u8; 32],
 }
 
-/// Intent resolution receipt emitted by the global step/action intent router.
+/// Intent resolution event emitted by the global step/action intent resolver.
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq)]
 pub struct IntentResolutionReceiptEvent {
     /// Resolver contract version.
@@ -257,10 +257,10 @@ pub struct IntentResolutionReceiptEvent {
     /// Ranked top-k candidates for diagnostics.
     #[serde(default)]
     pub top_k: Vec<IntentCandidateScore>,
-    /// Preferred tier selected from the matrix profile.
+    /// Preferred tier selected from the intent catalog profile.
     pub preferred_tier: String,
-    /// Matrix version used for this decision.
-    pub matrix_version: String,
+    /// Intent catalog version used for this decision.
+    pub intent_catalog_version: String,
     /// Embedding model identifier used for ranking.
     #[serde(default)]
     pub embedding_model_id: String,
@@ -282,10 +282,10 @@ pub struct IntentResolutionReceiptEvent {
     /// Query normalization version used before embedding.
     #[serde(default)]
     pub query_normalization_version: String,
-    /// Hash commitment to the active matrix source.
-    pub matrix_source_hash: [u8; 32],
-    /// Deterministic receipt hash over resolution material.
-    pub receipt_hash: [u8; 32],
+    /// Hash commitment to the active intent catalog source.
+    pub intent_catalog_source_hash: [u8; 32],
+    /// Deterministic hash over evidence requirements for this resolution.
+    pub evidence_requirements_hash: [u8; 32],
     /// Optional provider-selection material synthesized for this intent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub provider_selection: Option<crate::app::agentic::ProviderSelectionState>,

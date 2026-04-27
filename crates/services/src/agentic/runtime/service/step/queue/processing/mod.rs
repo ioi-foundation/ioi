@@ -4,10 +4,10 @@ use crate::agentic::runtime::keys::{get_state_key, AGENT_POLICY_PREFIX};
 use crate::agentic::runtime::service::handler::{
     build_pii_review_request_for_tool, emit_pii_review_requested, persist_pii_review_request,
 };
-use crate::agentic::runtime::service::step::action::command_contract::is_cec_terminal_error;
+use crate::agentic::runtime::service::step::action::command_contract::is_completion_contract_error;
 use crate::agentic::runtime::service::step::action::{
     canonical_intent_hash, canonical_retry_intent_hash, canonical_tool_identity,
-    mark_action_fingerprint_executed_at_step, resolved_intent_id,
+    mark_action_fingerprint_executed_at_step, persist_step_evidence_to_ledger, resolved_intent_id,
 };
 use crate::agentic::runtime::service::step::anti_loop::TierRoutingDecision;
 use crate::agentic::runtime::service::step::anti_loop::{
@@ -27,7 +27,7 @@ use crate::agentic::runtime::service::step::planner::{
     self, PlannerDispatchMatch, PLANNER_FALLBACK_REASON_EXECUTOR_MISMATCH,
 };
 use crate::agentic::runtime::service::{RuntimeAgentService, ServiceCallContext};
-use crate::agentic::runtime::types::{AgentState, AgentStatus, StepAgentParams};
+use crate::agentic::runtime::types::{AgentState, AgentStatus, ExecutionStage, StepAgentParams};
 use crate::agentic::runtime::utils::{goto_trace_log, persist_agent_state};
 use ioi_api::state::StateAccess;
 use ioi_crypto::algorithms::hash::sha256;
@@ -465,6 +465,8 @@ pub async fn process_queue_item(
         &mut out,
         &mut err,
         &mut completion_summary,
+        &mut verification_checks,
+        &rules,
         p.session_id,
     );
     maybe_complete_agent_complete(
@@ -475,6 +477,8 @@ pub async fn process_queue_item(
         &mut out,
         &mut err,
         &mut completion_summary,
+        &mut verification_checks,
+        &rules,
         p.session_id,
     );
     maybe_complete_open_app(
@@ -485,6 +489,8 @@ pub async fn process_queue_item(
         &mut out,
         &mut err,
         &mut completion_summary,
+        &mut verification_checks,
+        &rules,
         p.session_id,
     );
     maybe_complete_screenshot_capture(
@@ -495,6 +501,8 @@ pub async fn process_queue_item(
         &mut out,
         &mut err,
         &mut completion_summary,
+        &mut verification_checks,
+        &rules,
         p.session_id,
     );
     maybe_complete_browser_snapshot_interaction(
@@ -506,6 +514,7 @@ pub async fn process_queue_item(
         &mut err,
         &mut completion_summary,
         &mut verification_checks,
+        &rules,
         p.session_id,
     );
     maybe_complete_mail_reply(
@@ -516,6 +525,8 @@ pub async fn process_queue_item(
         &mut out,
         &mut err,
         &mut completion_summary,
+        &mut verification_checks,
+        &rules,
         p.session_id,
     );
     maybe_complete_chat_reply(
@@ -688,6 +699,12 @@ pub async fn process_queue_item(
         "trace://session/{}",
         hex::encode(&p.session_id[..4])
     ));
+    let intent_id_for_contract = resolved_intent_id(agent_state);
+    persist_step_evidence_to_ledger(
+        agent_state,
+        intent_id_for_contract.as_str(),
+        &verification_checks,
+    );
     let post_state = build_post_state_summary(agent_state, success, verification_checks);
     let policy_binding = policy_binding_hash(&intent_hash, &policy_decision);
     let incident_fields =

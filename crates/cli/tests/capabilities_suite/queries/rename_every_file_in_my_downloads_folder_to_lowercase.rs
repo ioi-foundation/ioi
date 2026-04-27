@@ -51,64 +51,76 @@ pub fn case() -> QueryCase {
 }
 
 fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
-    let fixture_mode = verification_value(obs, "env_receipt::downloads_lowercase_fixture_mode")
+    let fixture_mode = verification_value(obs, "env_evidence::downloads_lowercase_fixture_mode")
         .unwrap_or_default();
-    let fixture_probe_source =
-        verification_value(obs, "env_receipt::downloads_lowercase_fixture_probe_source")
-            .unwrap_or_default();
-    let fixture_timestamp_ms =
-        verification_u64(obs, "env_receipt::downloads_lowercase_fixture_timestamp_ms")
-            .unwrap_or(obs.run_timestamp_ms);
+    let fixture_probe_source = verification_value(
+        obs,
+        "env_evidence::downloads_lowercase_fixture_probe_source",
+    )
+    .unwrap_or_default();
+    let fixture_timestamp_ms = verification_u64(
+        obs,
+        "env_evidence::downloads_lowercase_fixture_timestamp_ms",
+    )
+    .unwrap_or(obs.run_timestamp_ms);
     let fixture_satisfied =
-        verification_bool(obs, "env_receipt::downloads_lowercase_fixture_satisfied")
+        verification_bool(obs, "env_evidence::downloads_lowercase_fixture_satisfied")
             .unwrap_or(false);
 
-    let seeded_files_csv = verification_value(obs, "env_receipt::downloads_lowercase_seeded_files")
-        .unwrap_or_default();
+    let seeded_files_csv =
+        verification_value(obs, "env_evidence::downloads_lowercase_seeded_files")
+            .unwrap_or_default();
     let seeded_files_satisfied = verification_bool(
         obs,
-        "env_receipt::downloads_lowercase_seeded_files_satisfied",
+        "env_evidence::downloads_lowercase_seeded_files_satisfied",
     )
     .unwrap_or(false);
 
     let target_dir_path =
-        verification_value(obs, "env_receipt::downloads_lowercase_target_dir_path")
+        verification_value(obs, "env_evidence::downloads_lowercase_target_dir_path")
             .unwrap_or_default();
     let target_dir_probe_source = verification_value(
         obs,
-        "env_receipt::downloads_lowercase_target_dir_probe_source",
+        "env_evidence::downloads_lowercase_target_dir_probe_source",
     )
     .unwrap_or_default();
     let target_dir_timestamp_ms = verification_u64(
         obs,
-        "env_receipt::downloads_lowercase_target_dir_timestamp_ms",
+        "env_evidence::downloads_lowercase_target_dir_timestamp_ms",
     )
     .unwrap_or(obs.run_timestamp_ms);
-    let target_dir_satisfied =
-        verification_bool(obs, "env_receipt::downloads_lowercase_target_dir_satisfied")
-            .unwrap_or(false);
+    let target_dir_satisfied = verification_bool(
+        obs,
+        "env_evidence::downloads_lowercase_target_dir_satisfied",
+    )
+    .unwrap_or(false);
 
     let entries_csv =
-        verification_value(obs, "env_receipt::downloads_lowercase_entries").unwrap_or_default();
+        verification_value(obs, "env_evidence::downloads_lowercase_entries").unwrap_or_default();
     let entries_satisfied =
-        verification_bool(obs, "env_receipt::downloads_lowercase_entries_satisfied")
+        verification_bool(obs, "env_evidence::downloads_lowercase_entries_satisfied")
             .unwrap_or(false);
     let uppercase_absent_satisfied = verification_bool(
         obs,
-        "env_receipt::downloads_lowercase_uppercase_absent_satisfied",
+        "env_evidence::downloads_lowercase_uppercase_absent_satisfied",
     )
     .unwrap_or(false);
     let scope_satisfied =
-        verification_bool(obs, "env_receipt::downloads_lowercase_scope_satisfied").unwrap_or(false);
+        verification_bool(obs, "env_evidence::downloads_lowercase_scope_satisfied")
+            .unwrap_or(false);
 
-    let cleanup_probe_source =
-        verification_value(obs, "env_receipt::downloads_lowercase_cleanup_probe_source")
-            .unwrap_or_default();
-    let cleanup_timestamp_ms =
-        verification_u64(obs, "env_receipt::downloads_lowercase_cleanup_timestamp_ms")
-            .unwrap_or(obs.run_timestamp_ms);
+    let cleanup_probe_source = verification_value(
+        obs,
+        "env_evidence::downloads_lowercase_cleanup_probe_source",
+    )
+    .unwrap_or_default();
+    let cleanup_timestamp_ms = verification_u64(
+        obs,
+        "env_evidence::downloads_lowercase_cleanup_timestamp_ms",
+    )
+    .unwrap_or(obs.run_timestamp_ms);
     let cleanup_satisfied =
-        verification_bool(obs, "env_receipt::downloads_lowercase_cleanup_satisfied")
+        verification_bool(obs, "env_evidence::downloads_lowercase_cleanup_satisfied")
             .unwrap_or(false);
 
     let list_action_success_count = obs
@@ -385,6 +397,6 @@ fn has_disallowed_mutating_action(obs: &RunObservation) -> bool {
     })
 }
 
-fn serialize_environment_receipts(receipts: &[EnvironmentEvidenceReceipt]) -> String {
-    serde_json::to_string(receipts).unwrap_or_else(|_| "[]".to_string())
+fn serialize_environment_receipts(evidence: &[EnvironmentEvidenceReceipt]) -> String {
+    serde_json::to_string(evidence).unwrap_or_else(|_| "[]".to_string())
 }

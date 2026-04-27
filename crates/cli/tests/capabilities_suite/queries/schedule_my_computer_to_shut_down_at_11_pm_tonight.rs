@@ -29,13 +29,13 @@ pub fn case() -> QueryCase {
             "Schedule my computer to shut down at 11 PM tonight. ",
             "Use exactly one `shell__run` invocation to run ",
             "\"{SHUTDOWN_SCHEDULE_PROBE_PATH} --target-local 23:00\". ",
-            "The fixture-backed probe performs provider discovery and writes schedule receipts; ",
+            "The fixture-backed probe performs provider discovery and writes schedule evidence; ",
             "do not invoke raw shutdown/poweroff/halt/reboot/systemctl/at commands directly. ",
             "Do not use web, browser, net, install, or filesystem mutation tools. ",
             "No additional command-exec invocations are allowed after that single command. ",
             "Return a concise completion summary that includes the selected provider and target local time."
         ),
-        success_definition: "Schedule a shutdown for 11 PM local time via the isolated fixture-backed scheduling probe with a single command execution, CEC phase receipts, provider/runtime environment receipts, and deterministic cleanup evidence.",
+        success_definition: "Schedule a shutdown for 11 PM local time via the isolated fixture-backed scheduling probe with a single command execution, CEC phase evidence, provider/runtime environment evidence, and deterministic cleanup evidence.",
         seeded_intent_id: "command.exec",
         intent_scope: IntentScopeProfile::CommandExecution,
         seed_resolved_intent: true,
@@ -52,44 +52,45 @@ pub fn case() -> QueryCase {
 
 fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let fixture_mode =
-        verification_value(obs, "env_receipt::shutdown_schedule_fixture_mode").unwrap_or_default();
+        verification_value(obs, "env_evidence::shutdown_schedule_fixture_mode").unwrap_or_default();
     let fixture_probe_source =
-        verification_value(obs, "env_receipt::shutdown_schedule_fixture_probe_source")
+        verification_value(obs, "env_evidence::shutdown_schedule_fixture_probe_source")
             .unwrap_or_default();
     let fixture_timestamp_ms =
-        verification_u64(obs, "env_receipt::shutdown_schedule_fixture_timestamp_ms")
+        verification_u64(obs, "env_evidence::shutdown_schedule_fixture_timestamp_ms")
             .unwrap_or(obs.run_timestamp_ms);
     let fixture_satisfied =
-        verification_bool(obs, "env_receipt::shutdown_schedule_fixture_satisfied").unwrap_or(false);
+        verification_bool(obs, "env_evidence::shutdown_schedule_fixture_satisfied")
+            .unwrap_or(false);
     let run_unique_satisfied =
-        verification_bool(obs, "env_receipt::shutdown_schedule_run_unique_satisfied")
+        verification_bool(obs, "env_evidence::shutdown_schedule_run_unique_satisfied")
             .unwrap_or(false);
     let probe_script_seeded_satisfied = verification_bool(
         obs,
-        "env_receipt::shutdown_schedule_probe_script_seeded_satisfied",
+        "env_evidence::shutdown_schedule_probe_script_seeded_satisfied",
     )
     .unwrap_or(false);
     let receipt_absent_satisfied = verification_bool(
         obs,
-        "env_receipt::shutdown_schedule_receipt_absent_satisfied",
+        "env_evidence::shutdown_schedule_receipt_absent_satisfied",
     )
     .unwrap_or(false);
     let provider_receipt_absent_satisfied = verification_bool(
         obs,
-        "env_receipt::shutdown_schedule_provider_receipt_absent_satisfied",
+        "env_evidence::shutdown_schedule_provider_receipt_absent_satisfied",
     )
     .unwrap_or(false);
 
     let provider =
-        verification_value(obs, "env_receipt::shutdown_schedule_provider").unwrap_or_default();
+        verification_value(obs, "env_evidence::shutdown_schedule_provider").unwrap_or_default();
     let provider_probe_source =
-        verification_value(obs, "env_receipt::shutdown_schedule_provider_probe_source")
+        verification_value(obs, "env_evidence::shutdown_schedule_provider_probe_source")
             .unwrap_or_default();
     let provider_timestamp_ms =
-        verification_u64(obs, "env_receipt::shutdown_schedule_provider_timestamp_ms")
+        verification_u64(obs, "env_evidence::shutdown_schedule_provider_timestamp_ms")
             .unwrap_or(obs.run_timestamp_ms);
     let provider_receipt_satisfied =
-        verification_bool(obs, "env_receipt::shutdown_schedule_provider_satisfied")
+        verification_bool(obs, "env_evidence::shutdown_schedule_provider_satisfied")
             .unwrap_or(false);
     let provider_allowed = EXPECTED_PROVIDER_IDS
         .iter()
@@ -97,70 +98,75 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let provider_satisfied = provider_allowed && provider_receipt_satisfied;
 
     let target_local_time =
-        verification_value(obs, "env_receipt::shutdown_schedule_target_local_time")
+        verification_value(obs, "env_evidence::shutdown_schedule_target_local_time")
             .unwrap_or_default();
     let target_local_date =
-        verification_value(obs, "env_receipt::shutdown_schedule_target_local_date")
+        verification_value(obs, "env_evidence::shutdown_schedule_target_local_date")
             .unwrap_or_default();
     let target_local_time_satisfied = verification_bool(
         obs,
-        "env_receipt::shutdown_schedule_target_local_time_satisfied",
+        "env_evidence::shutdown_schedule_target_local_time_satisfied",
     )
     .unwrap_or(false);
     let now_epoch_sec =
-        verification_u64(obs, "env_receipt::shutdown_schedule_now_epoch_sec").unwrap_or(0);
+        verification_u64(obs, "env_evidence::shutdown_schedule_now_epoch_sec").unwrap_or(0);
     let target_epoch_sec =
-        verification_u64(obs, "env_receipt::shutdown_schedule_target_epoch_sec").unwrap_or(0);
+        verification_u64(obs, "env_evidence::shutdown_schedule_target_epoch_sec").unwrap_or(0);
     let delay_seconds =
-        verification_u64(obs, "env_receipt::shutdown_schedule_delay_seconds").unwrap_or(0);
-    let delay_window_satisfied =
-        verification_bool(obs, "env_receipt::shutdown_schedule_delay_window_satisfied")
-            .unwrap_or(false);
+        verification_u64(obs, "env_evidence::shutdown_schedule_delay_seconds").unwrap_or(0);
+    let delay_window_satisfied = verification_bool(
+        obs,
+        "env_evidence::shutdown_schedule_delay_window_satisfied",
+    )
+    .unwrap_or(false);
     let target_after_run_satisfied = verification_bool(
         obs,
-        "env_receipt::shutdown_schedule_target_after_run_satisfied",
+        "env_evidence::shutdown_schedule_target_after_run_satisfied",
     )
     .unwrap_or(false);
     let run_unique_match_satisfied = verification_bool(
         obs,
-        "env_receipt::shutdown_schedule_run_unique_match_satisfied",
+        "env_evidence::shutdown_schedule_run_unique_match_satisfied",
     )
     .unwrap_or(false);
     let scheduled_satisfied =
-        verification_bool(obs, "env_receipt::shutdown_schedule_scheduled_satisfied")
+        verification_bool(obs, "env_evidence::shutdown_schedule_scheduled_satisfied")
             .unwrap_or(false);
 
-    let provider_args =
-        verification_value(obs, "env_receipt::shutdown_schedule_provider_args").unwrap_or_default();
+    let provider_args = verification_value(obs, "env_evidence::shutdown_schedule_provider_args")
+        .unwrap_or_default();
     let provider_invoked_satisfied = verification_bool(
         obs,
-        "env_receipt::shutdown_schedule_provider_invoked_satisfied",
+        "env_evidence::shutdown_schedule_provider_invoked_satisfied",
     )
     .unwrap_or(false);
     let provider_args_target_satisfied = verification_bool(
         obs,
-        "env_receipt::shutdown_schedule_provider_args_target_satisfied",
+        "env_evidence::shutdown_schedule_provider_args_target_satisfied",
     )
     .unwrap_or(false);
-    let receipt_path_satisfied =
-        verification_bool(obs, "env_receipt::shutdown_schedule_receipt_path_satisfied")
-            .unwrap_or(false);
+    let receipt_path_satisfied = verification_bool(
+        obs,
+        "env_evidence::shutdown_schedule_receipt_path_satisfied",
+    )
+    .unwrap_or(false);
     let provider_receipt_path_satisfied = verification_bool(
         obs,
-        "env_receipt::shutdown_schedule_provider_receipt_path_satisfied",
+        "env_evidence::shutdown_schedule_provider_receipt_path_satisfied",
     )
     .unwrap_or(false);
     let scope_satisfied =
-        verification_bool(obs, "env_receipt::shutdown_schedule_scope_satisfied").unwrap_or(false);
+        verification_bool(obs, "env_evidence::shutdown_schedule_scope_satisfied").unwrap_or(false);
 
     let cleanup_probe_source =
-        verification_value(obs, "env_receipt::shutdown_schedule_cleanup_probe_source")
+        verification_value(obs, "env_evidence::shutdown_schedule_cleanup_probe_source")
             .unwrap_or_default();
     let cleanup_timestamp_ms =
-        verification_u64(obs, "env_receipt::shutdown_schedule_cleanup_timestamp_ms")
+        verification_u64(obs, "env_evidence::shutdown_schedule_cleanup_timestamp_ms")
             .unwrap_or(obs.run_timestamp_ms);
     let cleanup_satisfied =
-        verification_bool(obs, "env_receipt::shutdown_schedule_cleanup_satisfied").unwrap_or(false);
+        verification_bool(obs, "env_evidence::shutdown_schedule_cleanup_satisfied")
+            .unwrap_or(false);
 
     let exec_action_success_count = obs
         .action_evidence
@@ -438,6 +444,6 @@ fn is_exec_action_success(entry: &super::super::types::ActionEvidence) -> bool {
         && !action_has_hard_error_class(entry)
 }
 
-fn serialize_environment_receipts(receipts: &[EnvironmentEvidenceReceipt]) -> String {
-    serde_json::to_string(receipts).unwrap_or_else(|_| "[]".to_string())
+fn serialize_environment_receipts(evidence: &[EnvironmentEvidenceReceipt]) -> String {
+    serde_json::to_string(evidence).unwrap_or_else(|_| "[]".to_string())
 }

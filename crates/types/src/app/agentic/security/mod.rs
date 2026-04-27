@@ -1,6 +1,6 @@
 mod firewall;
 mod intent;
-mod intent_matrix_defaults;
+mod intent_catalog_defaults;
 mod pii;
 
 pub use firewall::*;

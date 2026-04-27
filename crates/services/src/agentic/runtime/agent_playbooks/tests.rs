@@ -1,6 +1,6 @@
 use super::{
-    builtin_agent_playbooks, playbook_route_contract, recommended_agent_playbook,
-    render_agent_playbook_catalog, AgentPlaybookRouteContract,
+    builtin_agent_playbooks, playbook_decision_record, recommended_agent_playbook,
+    render_agent_playbook_catalog, AgentPlaybookDecisionRecord,
 };
 use ioi_types::app::agentic::{
     CapabilityId, IntentConfidenceBand, IntentScopeProfile, LlmToolDefinition, ResolvedIntentState,
@@ -14,11 +14,11 @@ fn workspace_ops_intent() -> ResolvedIntentState {
         score: 0.98,
         top_k: vec![],
         required_capabilities: vec![CapabilityId::from("filesystem.patch")],
-        required_receipts: vec![],
-        required_postconditions: vec![],
+        required_evidence: vec![],
+        success_conditions: vec![],
         risk_class: "medium".to_string(),
         preferred_tier: "tool_first".to_string(),
-        matrix_version: "v1".to_string(),
+        intent_catalog_version: "v1".to_string(),
         embedding_model_id: "test".to_string(),
         embedding_model_version: "test".to_string(),
         similarity_function_id: "cosine".to_string(),
@@ -26,8 +26,8 @@ fn workspace_ops_intent() -> ResolvedIntentState {
         tool_registry_hash: [0u8; 32],
         capability_ontology_hash: [0u8; 32],
         query_normalization_version: "v1".to_string(),
-        matrix_source_hash: [0u8; 32],
-        receipt_hash: [0u8; 32],
+        intent_catalog_source_hash: [0u8; 32],
+        evidence_requirements_hash: [0u8; 32],
         provider_selection: None,
         instruction_contract: None,
         constrained: false,
@@ -218,10 +218,10 @@ fn builtin_agent_playbook_catalog_contains_research_backed_artifact_gate() {
 }
 
 #[test]
-fn playbook_route_contracts_cover_primary_workload_families() {
+fn playbook_decision_records_cover_primary_workload_families() {
     assert_eq!(
-        playbook_route_contract("evidence_audited_patch"),
-        AgentPlaybookRouteContract {
+        playbook_decision_record("evidence_audited_patch"),
+        AgentPlaybookDecisionRecord {
             route_family: "coding",
             topology: "planner_specialist_verifier",
             planner_authority: "kernel",
@@ -230,8 +230,8 @@ fn playbook_route_contracts_cover_primary_workload_families() {
         }
     );
     assert_eq!(
-        playbook_route_contract("citation_grounded_brief"),
-        AgentPlaybookRouteContract {
+        playbook_decision_record("citation_grounded_brief"),
+        AgentPlaybookDecisionRecord {
             route_family: "research",
             topology: "planner_specialist_verifier",
             planner_authority: "kernel",
@@ -240,8 +240,8 @@ fn playbook_route_contracts_cover_primary_workload_families() {
         }
     );
     assert_eq!(
-        playbook_route_contract("browser_postcondition_gate"),
-        AgentPlaybookRouteContract {
+        playbook_decision_record("browser_postcondition_gate"),
+        AgentPlaybookDecisionRecord {
             route_family: "computer_use",
             topology: "planner_specialist_verifier",
             planner_authority: "kernel",
@@ -250,8 +250,8 @@ fn playbook_route_contracts_cover_primary_workload_families() {
         }
     );
     assert_eq!(
-        playbook_route_contract("artifact_generation_gate"),
-        AgentPlaybookRouteContract {
+        playbook_decision_record("artifact_generation_gate"),
+        AgentPlaybookDecisionRecord {
             route_family: "artifacts",
             topology: "planner_specialist_verifier",
             planner_authority: "kernel",
@@ -260,8 +260,8 @@ fn playbook_route_contracts_cover_primary_workload_families() {
         }
     );
     assert_eq!(
-        playbook_route_contract("research_backed_artifact_gate"),
-        AgentPlaybookRouteContract {
+        playbook_decision_record("research_backed_artifact_gate"),
+        AgentPlaybookDecisionRecord {
             route_family: "artifacts",
             topology: "planner_specialist_verifier",
             planner_authority: "kernel",

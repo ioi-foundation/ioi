@@ -133,6 +133,49 @@ export function displayArtifactClassLabel(kind: string): string {
   return labels[kind] || `${formatStatusLabel(kind)} artifact`;
 }
 
+export function artifactSummaryLooksOperational(
+  summary: string | null | undefined,
+): boolean {
+  const normalized = String(summary || "").trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+  return [
+    "chat materialized",
+    "final acceptance validation",
+    "primary artifact view",
+    "lifecycle",
+    "verification cleared",
+    "candidate-",
+    "required obligations",
+    "cleared obligations",
+    "route verified",
+    "route decision",
+    "receipt::",
+    "postcondition::",
+    "execution contract",
+    "artifact brief",
+    "execution is starting",
+    "skill guidance",
+    "before authoring",
+    "authoring attempt",
+  ].some((marker) => normalized.includes(marker));
+}
+
+export function productArtifactSummary(
+  title: string,
+  ...summaries: Array<string | null | undefined>
+): string {
+  for (const summary of summaries) {
+    const trimmed = String(summary || "").replace(/\s+/g, " ").trim();
+    if (trimmed && !artifactSummaryLooksOperational(trimmed)) {
+      return trimmed;
+    }
+  }
+
+  return `${title || "The artifact"} is ready to open.`;
+}
+
 export function formatRuntimeProvenance(
   provenance:
     | NonNullable<ChatArtifactManifest["verification"]["productionProvenance"]>

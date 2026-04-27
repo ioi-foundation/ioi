@@ -83,7 +83,7 @@ pub(crate) mod workload {
         }
     }
 
-    pub(crate) async fn scrub_workload_text_field_for_receipt(
+    pub(crate) async fn scrub_workload_text_field_for_evidence(
         exec: &ToolExecutor,
         input: &str,
     ) -> String {

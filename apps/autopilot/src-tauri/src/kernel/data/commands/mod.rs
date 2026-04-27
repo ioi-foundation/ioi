@@ -3,7 +3,7 @@ use crate::models::{EventStatus, InterventionRecord, InterventionStatus, Notific
 use chrono::{DateTime, Utc};
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_services::agentic::runtime::agent_playbooks::{
-    builtin_agent_playbooks, playbook_route_contract,
+    builtin_agent_playbooks, playbook_decision_record,
 };
 use ioi_services::agentic::runtime::utils::load_agent_state_checkpoint;
 use ioi_services::agentic::runtime::worker_templates::builtin_worker_templates;

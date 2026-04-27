@@ -55,7 +55,7 @@ fn render_single_snapshot_layout_omits_unread_citations() {
         run_timestamp_iso_utc: "2026-03-11T13:42:57Z".to_string(),
         completion_reason: "min_sources_reached".to_string(),
         overall_confidence: "high".to_string(),
-        overall_caveat: "retrieval receipts available".to_string(),
+        overall_caveat: "retrieval evidence available".to_string(),
         stories: vec![StoryDraft {
             title: "Bitcoin".to_string(),
             what_happened: "Bitcoin price right now: $86,743.63 USD.".to_string(),
@@ -132,7 +132,7 @@ fn render_single_snapshot_layout_aggregates_read_backed_citations_across_stories
         run_timestamp_iso_utc: "2026-03-11T13:19:18Z".to_string(),
         completion_reason: "min_sources_reached".to_string(),
         overall_confidence: "high".to_string(),
-        overall_caveat: "retrieval receipts available".to_string(),
+        overall_caveat: "retrieval evidence available".to_string(),
         stories: vec![
             StoryDraft {
                 title: "National Weather Service".to_string(),
@@ -227,7 +227,7 @@ fn render_single_snapshot_layout_surfaces_direct_current_fact_without_metric_cav
         run_timestamp_iso_utc: "2026-04-14T21:08:14Z".to_string(),
         completion_reason: "min_sources_reached".to_string(),
         overall_confidence: "high".to_string(),
-        overall_caveat: "retrieval receipts available".to_string(),
+        overall_caveat: "retrieval evidence available".to_string(),
         stories: vec![StoryDraft {
             title: "United Nations".to_string(),
             what_happened:
@@ -300,7 +300,7 @@ fn render_single_snapshot_layout_keeps_strong_price_snapshot_concise() {
         run_timestamp_iso_utc: "2026-04-15T06:04:04Z".to_string(),
         completion_reason: "min_sources_reached".to_string(),
         overall_confidence: "high".to_string(),
-        overall_caveat: "retrieval receipts available".to_string(),
+        overall_caveat: "retrieval evidence available".to_string(),
         stories: vec![StoryDraft {
             title: "OpenAI API Pricing".to_string(),
             what_happened: "Current pricing from retrieved source text: Pricing: Audio: $32.00 for inputs $0.40 for cached inputs $64.00 for outputs Text: $4.00 for inputs $0.40 for cached inputs $16.00 for outputs".to_string(),

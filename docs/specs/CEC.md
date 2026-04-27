@@ -78,8 +78,8 @@ Each applicable intent MUST define:
 Each applicable intent MAY additionally define:
 - `requires_host_discovery: bool`
 - `provider_selection_mode: dynamic_synthesis | capability_only | discovery_backed_only`
-- `required_receipts: [string]`
-- `required_postconditions: [string]`
+- `required_evidence: [string]`
+- `success_conditions: [string]`
 - `verification_mode: dynamic_synthesis | deterministic_check`
 
 *(Note: `fallback_chain` is explicitly deprecated in v0.5. Infinite topology variance MUST be handled by robust `discovery` and `dynamic_synthesis` loops prior to execution, not via execution retries).*

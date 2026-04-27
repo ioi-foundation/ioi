@@ -111,10 +111,12 @@ pub(super) fn prepare_timer_contract(ctx: TimerContractContext<'_>) -> TimerCont
     if timer_notification_required && (!timer_delay_backend_armed || !notification_path_armed) {
         let mut missing_keys = Vec::<String>::new();
         if !timer_delay_backend_armed {
-            missing_keys.push(postcondition_marker(TIMER_SLEEP_BACKEND_POSTCONDITION));
+            missing_keys.push(success_condition_key(TIMER_SLEEP_BACKEND_SUCCESS_CONDITION));
         }
         if !notification_path_armed {
-            missing_keys.push(postcondition_marker(TIMER_NOTIFICATION_PATH_POSTCONDITION));
+            missing_keys.push(success_condition_key(
+                TIMER_NOTIFICATION_PATH_SUCCESS_CONDITION,
+            ));
         }
         for marker in &missing_keys {
             verification_checks.push(format!("execution_contract_missing_keys={}", marker));
@@ -148,7 +150,7 @@ pub(super) fn prepare_timer_contract(ctx: TimerContractContext<'_>) -> TimerCont
                 step_index,
                 resolved_intent_id,
                 "execution",
-                TIMER_SLEEP_BACKEND_POSTCONDITION,
+                TIMER_SLEEP_BACKEND_SUCCESS_CONDITION,
                 false,
                 "timer_sleep_backend=missing_pre_execution",
                 None,
@@ -163,7 +165,7 @@ pub(super) fn prepare_timer_contract(ctx: TimerContractContext<'_>) -> TimerCont
                 step_index,
                 resolved_intent_id,
                 "execution",
-                TIMER_NOTIFICATION_PATH_POSTCONDITION,
+                TIMER_NOTIFICATION_PATH_SUCCESS_CONDITION,
                 false,
                 "timer_notification_path_armed=false_pre_execution",
                 None,

@@ -88,7 +88,7 @@ pub enum ChatWorkStatus {
 /// Typed lane frame derived from Chat routing signals.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub struct ChatDomainLaneFrame {
+pub struct ChatLaneRequest {
     pub primary_lane: ChatLaneFamily,
     #[serde(default)]
     pub secondary_lanes: Vec<ChatLaneFamily>,
@@ -105,13 +105,13 @@ pub struct ChatDomainLaneFrame {
 /// Structured source-selection summary retained alongside Chat route truth.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct ChatSourceSelection {
+pub struct ChatSourceDecision {
     #[serde(default)]
     pub candidate_sources: Vec<ChatSourceFamily>,
     pub selected_source: ChatSourceFamily,
     pub explicit_user_source: bool,
     #[serde(default)]
-    pub fallback_reason: Option<String>,
+    pub degradation_reason: Option<String>,
 }
 
 /// Clarification posture used by a specialized lane.
@@ -365,7 +365,7 @@ pub struct ChatUserInputRequestFrame {
 /// Tagged normalized request frame for high-value first-party lanes.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "kind", rename_all = "snake_case")]
-pub enum ChatNormalizedRequestFrame {
+pub enum ChatNormalizedRequest {
     Weather(ChatWeatherRequestFrame),
     Sports(ChatSportsRequestFrame),
     Places(ChatPlacesRequestFrame),
@@ -726,13 +726,13 @@ pub struct ChatOutcomeRequest {
     pub needs_clarification: bool,
     pub clarification_questions: Vec<String>,
     #[serde(default)]
-    pub routing_hints: Vec<String>,
+    pub decision_evidence: Vec<String>,
     #[serde(default)]
-    pub lane_frame: Option<ChatDomainLaneFrame>,
+    pub lane_request: Option<ChatLaneRequest>,
     #[serde(default)]
-    pub request_frame: Option<ChatNormalizedRequestFrame>,
+    pub normalized_request: Option<ChatNormalizedRequest>,
     #[serde(default)]
-    pub source_selection: Option<ChatSourceSelection>,
+    pub source_decision: Option<ChatSourceDecision>,
     #[serde(default)]
     pub retained_lane_state: Option<ChatRetainedLaneState>,
     #[serde(default)]
@@ -758,13 +758,13 @@ pub struct ChatOutcomePlanningPayload {
     #[serde(default)]
     pub clarification_questions: Vec<String>,
     #[serde(default)]
-    pub routing_hints: Vec<String>,
+    pub decision_evidence: Vec<String>,
     #[serde(default)]
-    pub lane_frame: Option<ChatDomainLaneFrame>,
+    pub lane_request: Option<ChatLaneRequest>,
     #[serde(default)]
-    pub request_frame: Option<ChatNormalizedRequestFrame>,
+    pub normalized_request: Option<ChatNormalizedRequest>,
     #[serde(default)]
-    pub source_selection: Option<ChatSourceSelection>,
+    pub source_decision: Option<ChatSourceDecision>,
     #[serde(default)]
     pub retained_lane_state: Option<ChatRetainedLaneState>,
     #[serde(default)]

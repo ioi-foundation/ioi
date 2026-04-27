@@ -329,7 +329,7 @@ fn summarize_kernel_event(kernel_event: &ioi_types::app::KernelEvent) -> String 
             text_fingerprint(&summary.span_summary)
         ),
         Ev::IntentResolutionReceipt(receipt) => format!(
-            "IntentResolutionReceipt session={} intent_id={} scope={:?} band={:?} score={:.3} constrained={} receipt_hash={}",
+            "IntentResolutionReceipt session={} intent_id={} scope={:?} band={:?} score={:.3} constrained={} evidence_requirements_hash={}",
             receipt
                 .session_id
                 .as_ref()
@@ -340,7 +340,7 @@ fn summarize_kernel_event(kernel_event: &ioi_types::app::KernelEvent) -> String 
             receipt.band,
             receipt.score,
             receipt.constrained,
-            hex::encode(receipt.receipt_hash)
+            hex::encode(receipt.evidence_requirements_hash)
         ),
         Ev::ExecutionContractReceipt(receipt) => format!(
             "ExecutionContractReceipt session={} step_index={} intent_id={} stage={} key={} satisfied={} evidence_commit_hash={}",

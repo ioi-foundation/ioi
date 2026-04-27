@@ -662,7 +662,7 @@ pub(crate) fn synthesis_insight_receipts(draft: &SynthesisDraft) -> Vec<String> 
         query_metric_axes(&draft.query),
         required_citations_per_story(&draft.query).max(1),
     );
-    let mut receipts = Vec::new();
+    let mut evidence = Vec::new();
     for story in &draft.stories {
         let source = PendingSearchReadSummary {
             url: String::new(),
@@ -682,7 +682,7 @@ pub(crate) fn synthesis_insight_receipts(draft: &SynthesisDraft) -> Vec<String> 
             let Some(insight) = insights.get(citation_id) else {
                 continue;
             };
-            receipts.push(format!(
+            evidence.push(format!(
                 "{}[rel={},relia={},rec={},ind={},risk={}]",
                 citation_id,
                 insight.features.relevance,
@@ -693,9 +693,9 @@ pub(crate) fn synthesis_insight_receipts(draft: &SynthesisDraft) -> Vec<String> 
             ));
         }
     }
-    receipts.sort();
-    receipts.dedup();
-    receipts
+    evidence.sort();
+    evidence.dedup();
+    evidence
 }
 
 pub(crate) fn append_synthesis_diagnostics(
@@ -772,7 +772,7 @@ pub(crate) fn append_retrieval_receipts_for_source_floor(
         return;
     }
 
-    lines.push("Retrieval receipts:".to_string());
+    lines.push("Retrieval evidence:".to_string());
     for url in receipt_urls {
         if surfaced_urls.len() >= required_distinct_source_floor {
             break;

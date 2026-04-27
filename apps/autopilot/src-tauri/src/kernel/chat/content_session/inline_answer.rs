@@ -1,14 +1,14 @@
 use super::clarification::clarification_request_for_outcome_request;
-use super::non_artifact_surface::{
-    non_artifact_domain_policy_bundle, non_artifact_manifest, refresh_non_artifact_chat_surface,
-    verified_reply_for_non_artifact_route,
+use super::decision_record::append_decision_record_event;
+use super::inline_answer_surface::{
+    inline_answer_domain_policy_bundle, inline_answer_manifest, refresh_inline_answer_chat_surface,
+    verified_reply_for_inline_answer_route,
 };
-use super::route_contract::append_route_contract_event;
 use super::*;
 use ioi_api::runtime_harness::{
-    apply_non_artifact_clarification_gate, non_artifact_operator_steps, non_artifact_route_notes,
-    non_artifact_route_summary, non_artifact_route_title, non_artifact_swarm_plan,
-    non_artifact_verification_receipts, non_artifact_worker_receipts,
+    apply_inline_answer_clarification_gate, inline_answer_operator_steps,
+    inline_answer_route_notes, inline_answer_route_summary, inline_answer_route_title,
+    inline_answer_swarm_plan, inline_answer_verification_receipts, inline_answer_worker_receipts,
 };
 
 fn outcome_kind_id(kind: ChatOutcomeKind) -> &'static str {
@@ -20,26 +20,26 @@ fn outcome_kind_id(kind: ChatOutcomeKind) -> &'static str {
     }
 }
 
-fn non_artifact_swarm_worker_receipts(
+fn inline_answer_swarm_worker_receipts(
     outcome_request: &ChatOutcomeRequest,
     provenance: &crate::models::ChatRuntimeProvenance,
     swarm_plan: &SwarmPlan,
 ) -> Vec<SwarmWorkerReceipt> {
-    non_artifact_worker_receipts(outcome_request, provenance, swarm_plan, &now_iso())
+    inline_answer_worker_receipts(outcome_request, provenance, swarm_plan, &now_iso())
 }
 
-fn non_artifact_materialization_contract(
+fn inline_answer_materialization_contract(
     intent: &str,
     outcome_request: &ChatOutcomeRequest,
     summary: &str,
     provenance: &crate::models::ChatRuntimeProvenance,
 ) -> ChatArtifactMaterializationContract {
-    let mut swarm_plan = non_artifact_swarm_plan(outcome_request);
+    let mut swarm_plan = inline_answer_swarm_plan(outcome_request);
     let (graph_mutation_receipts, replan_receipts) =
-        apply_non_artifact_clarification_gate(&mut swarm_plan, outcome_request);
+        apply_inline_answer_clarification_gate(&mut swarm_plan, outcome_request);
     let swarm_worker_receipts =
-        non_artifact_swarm_worker_receipts(outcome_request, provenance, &swarm_plan);
-    let swarm_verification_receipts = non_artifact_verification_receipts(outcome_request);
+        inline_answer_swarm_worker_receipts(outcome_request, provenance, &swarm_plan);
+    let swarm_verification_receipts = inline_answer_verification_receipts(outcome_request);
     let verification_status = if outcome_request.needs_clarification {
         "blocked".to_string()
     } else {
@@ -169,14 +169,14 @@ fn non_artifact_materialization_contract(
         output_origin: Some(output_origin_from_runtime_provenance(provenance)),
         production_provenance: Some(provenance.clone()),
         acceptance_provenance: Some(provenance.clone()),
-        fallback_used: false,
+        degraded_path_used: false,
         ux_lifecycle: Some(ChatArtifactUxLifecycle::Validated),
         failure: None,
         navigator_nodes: Vec::new(),
         file_writes: Vec::new(),
         command_intents: Vec::new(),
         preview_intent: None,
-        operator_steps: non_artifact_operator_steps(outcome_request),
+        operator_steps: inline_answer_operator_steps(outcome_request),
         pipeline_steps: Vec::new(),
         notes: vec![
             "Chat intentionally kept this request off the artifact materialization path."
@@ -184,19 +184,19 @@ fn non_artifact_materialization_contract(
             "The shared execution envelope still records plan, worker, and verification state."
                 .to_string(),
             "No renderer-specific fallback artifact was injected for this route.".to_string(),
-            if outcome_request.routing_hints.is_empty() {
-                "routing_hints:none".to_string()
+            if outcome_request.decision_evidence.is_empty() {
+                "decision_evidence:none".to_string()
             } else {
                 format!(
-                    "routing_hints:{}",
-                    outcome_request.routing_hints.join(" | ")
+                    "decision_evidence:{}",
+                    outcome_request.decision_evidence.join(" | ")
                 )
             },
         ],
     }
 }
 
-pub(in crate::kernel::chat) fn attach_non_artifact_chat_session(
+pub(in crate::kernel::chat) fn attach_inline_answer_chat_session(
     task: &mut AgentTask,
     intent: &str,
     provenance: crate::models::ChatRuntimeProvenance,
@@ -218,9 +218,9 @@ pub(in crate::kernel::chat) fn attach_non_artifact_chat_session(
     } else {
         ChatArtifactLifecycleState::Ready
     };
-    let title = non_artifact_route_title(intent, &resolved_outcome_request);
-    let summary = non_artifact_route_summary(&resolved_outcome_request);
-    let mut materialization = non_artifact_materialization_contract(
+    let title = inline_answer_route_title(intent, &resolved_outcome_request);
+    let summary = inline_answer_route_summary(&resolved_outcome_request);
+    let mut materialization = inline_answer_materialization_contract(
         intent,
         &resolved_outcome_request,
         &summary,
@@ -228,9 +228,9 @@ pub(in crate::kernel::chat) fn attach_non_artifact_chat_session(
     );
     materialization
         .notes
-        .extend(non_artifact_route_notes(&resolved_outcome_request));
-    let domain_policy_bundle = non_artifact_domain_policy_bundle(&resolved_outcome_request, None);
-    let manifest = non_artifact_manifest(
+        .extend(inline_answer_route_notes(&resolved_outcome_request));
+    let domain_policy_bundle = inline_answer_domain_policy_bundle(&resolved_outcome_request, None);
+    let manifest = inline_answer_manifest(
         &Uuid::new_v4().to_string(),
         &title,
         &summary,
@@ -258,7 +258,7 @@ pub(in crate::kernel::chat) fn attach_non_artifact_chat_session(
         materialization,
         outcome_request: resolved_outcome_request.clone(),
         artifact_manifest: manifest,
-        verified_reply: verified_reply_for_non_artifact_route(
+        verified_reply: verified_reply_for_inline_answer_route(
             &title,
             &summary,
             lifecycle_state,
@@ -283,7 +283,7 @@ pub(in crate::kernel::chat) fn attach_non_artifact_chat_session(
         workspace_root: None,
         renderer_session_id: None,
     };
-    refresh_non_artifact_chat_surface(&mut chat_session);
+    refresh_inline_answer_chat_surface(&mut chat_session);
     refresh_pipeline_steps(&mut chat_session, None);
     let initial_revision = initial_revision_for_session(&chat_session, intent);
     chat_session.active_revision_id = Some(initial_revision.revision_id.clone());
@@ -297,7 +297,7 @@ pub(in crate::kernel::chat) fn attach_non_artifact_chat_session(
     task.credential_request = None;
     task.clarification_request =
         clarification_request_for_outcome_request(&resolved_outcome_request);
-    append_route_contract_event(
+    append_decision_record_event(
         task,
         &resolved_outcome_request,
         "Chat route decision",

@@ -544,14 +544,14 @@ pub(crate) fn default_agent_playbooks() -> Vec<crate::models::LocalEngineAgentPl
     builtin_agent_playbooks()
         .into_iter()
         .map(|playbook| {
-            let route_contract = playbook_route_contract(&playbook.playbook_id);
+            let decision_record = playbook_decision_record(&playbook.playbook_id);
             crate::models::LocalEngineAgentPlaybookRecord {
                 playbook_id: playbook.playbook_id,
                 label: playbook.label,
                 summary: playbook.summary,
                 goal_template: playbook.goal_template,
-                route_family: route_contract.route_family.to_string(),
-                topology: route_contract.topology.to_string(),
+                route_family: decision_record.route_family.to_string(),
+                topology: decision_record.topology.to_string(),
                 trigger_intents: playbook.trigger_intents,
                 recommended_for: playbook.recommended_for,
                 default_budget: playbook.default_budget,

@@ -1,16 +1,16 @@
 use super::command_contract::{
     capability_route_label, command_arms_deferred_notification_path, compose_terminal_chat_reply,
-    enrich_command_scope_summary, execution_contract_violation_error, extract_error_class_token,
-    is_cec_terminal_error, is_command_execution_provider_tool,
-    missing_execution_contract_markers_with_rules, record_provider_selection_receipts,
-    record_timer_notification_contract_requirement, record_verification_receipts,
-    requires_timer_notification_contract, runtime_host_environment_receipt,
-    synthesize_allowlisted_timer_notification_tool, sys_exec_arms_timer_delay_backend,
-    sys_exec_command_preview, sys_exec_foreign_absolute_home_path,
-    sys_exec_satisfies_clock_read_contract, sys_exec_timer_delay_seconds,
-    CLOCK_TIMESTAMP_POSTCONDITION, PROVIDER_SELECTION_COMMIT_RECEIPT,
-    TIMER_NOTIFICATION_PATH_POSTCONDITION, TIMER_SLEEP_BACKEND_POSTCONDITION,
-    VERIFICATION_COMMIT_RECEIPT,
+    enrich_command_scope_summary, evaluate_completion_requirements,
+    execution_contract_violation_error, extract_error_class_token,
+    is_command_execution_provider_tool, is_completion_contract_error,
+    record_provider_selection_evidence, record_timer_notification_contract_requirement,
+    record_verification_evidence, requires_timer_notification_contract,
+    runtime_host_environment_evidence, synthesize_allowlisted_timer_notification_tool,
+    sys_exec_arms_timer_delay_backend, sys_exec_command_preview,
+    sys_exec_foreign_absolute_home_path, sys_exec_satisfies_clock_read_contract,
+    sys_exec_timer_delay_seconds, CLOCK_TIMESTAMP_SUCCESS_CONDITION,
+    PROVIDER_SELECTION_COMMIT_EVIDENCE, TIMER_NOTIFICATION_PATH_SUCCESS_CONDITION,
+    TIMER_SLEEP_BACKEND_SUCCESS_CONDITION, VERIFICATION_COMMIT_EVIDENCE,
 };
 use super::probe::{
     is_command_probe_intent, is_system_clock_read_intent, summarize_command_probe_output,
@@ -22,10 +22,11 @@ use super::search::{extract_navigation_url, is_search_results_url, search_query_
 use super::support::{
     action_fingerprint_execution_step, canonical_intent_hash, canonical_retry_intent_hash,
     canonical_tool_identity, drop_legacy_action_fingerprint_receipt,
-    enforce_system_fail_terminal_status, execution_receipt_value, get_status_str,
-    has_execution_receipt, mark_action_fingerprint_executed_at_step, mark_execution_postcondition,
-    mark_execution_receipt, mark_execution_receipt_with_value, mark_system_fail_status,
-    persist_step_contract_evidence, postcondition_marker, receipt_marker,
+    enforce_system_fail_terminal_status, execution_evidence_key, execution_evidence_value,
+    get_status_str, has_execution_evidence, mark_action_fingerprint_executed_at_step,
+    mark_system_fail_status, persist_step_evidence, persist_step_evidence_to_ledger,
+    record_execution_evidence, record_execution_evidence_with_value, record_success_condition,
+    success_condition_key,
 };
 use crate::agentic::rules::ActionRules;
 use crate::agentic::runtime::execution::system::is_sudo_password_required_install_error;
@@ -66,7 +67,7 @@ use crate::agentic::runtime::service::step::queue::web_pipeline::{
 use crate::agentic::runtime::service::step::signals::is_mail_connector_tool_name;
 use crate::agentic::runtime::service::{RuntimeAgentService, ServiceCallContext};
 use crate::agentic::runtime::types::{
-    AgentState, AgentStatus, ToolCallStatus, MAX_COMMAND_HISTORY,
+    AgentState, AgentStatus, ExecutionStage, ToolCallStatus, MAX_COMMAND_HISTORY,
 };
 use crate::agentic::runtime::utils::{goto_trace_log, persist_agent_state};
 use ioi_api::state::StateAccess;
@@ -562,7 +563,7 @@ pub async fn process_tool_output(
         }
         Err(e) => {
             // Tool-call schema/parse errors are not policy denials. Mark them as deterministic
-            // UnexpectedState so anti-loop + receipts don't imply approval/policy gating.
+            // UnexpectedState so anti-loop + evidence don't imply approval/policy gating.
             processing_state.policy_decision = "allowed".to_string();
             processing_state.current_tool_name = "system::invalid_tool_call".to_string();
             let parse_error = format!("Failed to parse tool call: {}", e);

@@ -337,9 +337,9 @@ async fn web_retrieval_and_net_fetch_emit_deterministic_receipts_and_anti_loop()
     );
 
     for success_step in [1u32, 2, 3] {
-        let receipts = receipts_for_step(&all_events, success_step);
+        let evidence = receipts_for_step(&all_events, success_step);
         assert_eq!(
-            receipts.len(),
+            evidence.len(),
             1,
             "anti-loop guard: expected one receipt for success step {}",
             success_step

@@ -2,7 +2,7 @@ use super::*;
 use async_trait::async_trait;
 use ioi_types::app::agentic::InferenceOptions;
 use ioi_types::app::{
-    ChatLaneFamily, ChatNormalizedRequestFrame, ChatRetainedWidgetState, ChatSourceFamily,
+    ChatLaneFamily, ChatNormalizedRequest, ChatRetainedWidgetState, ChatSourceFamily,
     ChatWidgetStateBinding,
 };
 use ioi_types::error::VmError;
@@ -279,6 +279,50 @@ fn request_grounded_artifact_brief_uses_user_request_inside_context_envelope() {
 }
 
 #[test]
+fn request_grounded_interactive_html_brief_does_not_invent_inspection_or_sequence_goals() {
+    let request = ChatOutcomeArtifactRequest {
+        artifact_class: ChatArtifactClass::InteractiveSingleFile,
+        deliverable_shape: ChatArtifactDeliverableShape::SingleFile,
+        renderer: ChatRendererKind::HtmlIframe,
+        presentation_surface: ChatPresentationSurface::SidePanel,
+        persistence: ChatArtifactPersistenceMode::SharedArtifactScoped,
+        execution_substrate: ChatExecutionSubstrate::ClientSandbox,
+        workspace_recipe_id: None,
+        presentation_variant_id: None,
+        scope: ChatOutcomeArtifactScope {
+            target_project: None,
+            create_new_workspace: false,
+            mutation_boundary: vec!["artifact".to_string()],
+        },
+        verification: ChatOutcomeArtifactVerificationRequest {
+            require_render: true,
+            require_build: false,
+            require_preview: false,
+            require_export: false,
+            require_diff_review: false,
+        },
+    };
+
+    let brief = derive_request_grounded_chat_artifact_brief(
+        "Mortgage payment calculator",
+        "show me an interactive mortgage payment calculator I can adjust",
+        &request,
+        None,
+    );
+    let profile = brief.query_profile.as_ref().expect("query profile");
+
+    assert_eq!(brief.required_interaction_goal_count(), 1);
+    assert!(profile.has_interaction_kind(ChatArtifactInteractionGoalKind::StateAdjust));
+    assert!(!profile.has_interaction_kind(ChatArtifactInteractionGoalKind::StateSwitch));
+    assert!(!profile.has_interaction_kind(ChatArtifactInteractionGoalKind::DetailInspect));
+    assert!(!profile.has_interaction_kind(ChatArtifactInteractionGoalKind::SequenceBrowse));
+    assert!(brief
+        .required_interaction_summaries()
+        .iter()
+        .any(|interaction| interaction.contains("on-page result")));
+}
+
+#[test]
 fn outcome_router_prompt_spells_out_html_vs_jsx_contracts() {
     let prompt = build_chat_outcome_router_prompt(
         "Create an interactive HTML artifact that explains a product rollout with charts",
@@ -287,7 +331,7 @@ fn outcome_router_prompt_spells_out_html_vs_jsx_contracts() {
     );
     let prompt_text = serde_json::to_string(&prompt).expect("prompt text");
     assert!(prompt_text.contains("executionStrategy"));
-    assert!(prompt_text.contains("routingHints"));
+    assert!(prompt_text.contains("decisionEvidence"));
     assert!(prompt_text.contains("direct_author = direct first-pass authoring"));
     assert!(
         prompt_text.contains("Prefer direct_author for a fresh coherent single-file document ask")
@@ -484,19 +528,19 @@ async fn local_outcome_router_uses_text_json_contract() {
     assert_eq!(prompt_log.len(), 1);
     assert!(prompt_log[0].contains("typed outcome router for local runtimes"));
     assert!(prompt_log[0].contains("Renderer meanings:"));
-    assert!(prompt_log[0].contains("routingHints"));
+    assert!(prompt_log[0].contains("decisionEvidence"));
     assert!(prompt_log[0].contains("JSON only."));
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn weather_route_derives_lane_frame_request_frame_and_source_selection() {
+async fn weather_route_derives_lane_request_normalized_request_and_source_decision() {
     let runtime = scripted_outcome_router_runtime(serde_json::json!({
         "outcomeKind": "conversation",
         "executionStrategy": "single_pass",
         "confidence": 0.41,
         "needsClarification": false,
         "clarificationQuestions": [],
-        "routingHints": [],
+        "decisionEvidence": [],
         "artifact": null
     }));
 
@@ -506,27 +550,242 @@ async fn weather_route_derives_lane_frame_request_frame_and_source_selection() {
             .expect("planning");
 
     assert_eq!(planning.outcome_kind, ChatOutcomeKind::ToolWidget);
-    let lane_frame = planning.lane_frame.expect("lane frame");
-    assert_eq!(lane_frame.primary_lane, ChatLaneFamily::Research);
-    assert_eq!(lane_frame.tool_widget_family.as_deref(), Some("weather"));
-    let request_frame = planning.request_frame.expect("request frame");
-    match request_frame {
-        ChatNormalizedRequestFrame::Weather(frame) => {
+    let lane_request = planning.lane_request.expect("lane frame");
+    assert_eq!(lane_request.primary_lane, ChatLaneFamily::Research);
+    assert_eq!(lane_request.tool_widget_family.as_deref(), Some("weather"));
+    let normalized_request = planning.normalized_request.expect("request frame");
+    match normalized_request {
+        ChatNormalizedRequest::Weather(frame) => {
             assert_eq!(frame.inferred_locations, vec!["boston".to_string()]);
             assert_eq!(frame.temporal_scope.as_deref(), Some("today"));
             assert!(frame.missing_slots.is_empty());
         }
         other => panic!("expected weather frame, got {other:?}"),
     }
-    let source_selection = planning.source_selection.expect("source selection");
+    let source_decision = planning.source_decision.expect("source decision");
     assert_eq!(
-        source_selection.selected_source,
+        source_decision.selected_source,
         ChatSourceFamily::SpecializedTool
     );
-    assert!(source_selection
+    assert!(source_decision
         .candidate_sources
         .contains(&ChatSourceFamily::WebSearch));
     assert!(planning.orchestration_state.is_some());
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn weather_advice_route_uses_weather_widget_without_weather_keyword() {
+    for prompt in [
+        "Should I wear a jacket today in New York City?",
+        "[Codebase context] Workspace: . [User request] Should I wear a jacket today in New York City?",
+    ] {
+        let runtime = scripted_outcome_router_runtime(serde_json::json!({
+            "outcomeKind": "conversation",
+            "executionStrategy": "single_pass",
+            "confidence": 0.41,
+            "needsClarification": false,
+            "clarificationQuestions": [],
+            "decisionEvidence": [],
+            "artifact": null
+        }));
+
+        let planning = plan_chat_outcome_with_runtime(runtime, prompt, None, None)
+            .await
+            .expect("planning");
+
+        assert_eq!(planning.outcome_kind, ChatOutcomeKind::ToolWidget);
+        assert!(planning
+            .decision_evidence
+            .iter()
+            .any(|hint| hint == "tool_widget:weather"));
+        match planning.normalized_request.as_ref().expect("request frame") {
+            ChatNormalizedRequest::Weather(frame) => {
+                assert_eq!(frame.inferred_locations, vec!["new york city".to_string()]);
+                assert!(frame.clarification_required_slots.is_empty());
+            }
+            other => panic!("expected weather frame, got {other:?}"),
+        }
+        let source_decision = planning.source_decision.expect("source decision");
+        assert_eq!(
+            source_decision.selected_source,
+            ChatSourceFamily::SpecializedTool
+        );
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn complete_specialized_source_overrides_model_live_data_clarification() {
+    let runtime = scripted_outcome_router_runtime(serde_json::json!({
+        "outcomeKind": "tool_widget",
+        "executionStrategy": "direct_author",
+        "confidence": 0.0,
+        "needsClarification": true,
+        "clarificationQuestions": [
+            "I do not have live access to sports scores. Please provide the game result."
+        ],
+        "decisionEvidence": ["tool_widget:sports"],
+        "artifact": null
+    }));
+
+    let planning = plan_chat_outcome_with_runtime(
+        runtime,
+        "Did the Lakers win their most recent completed game, and who led them in scoring?",
+        None,
+        None,
+    )
+    .await
+    .expect("planning");
+
+    assert_eq!(planning.outcome_kind, ChatOutcomeKind::ToolWidget);
+    assert!(!planning.needs_clarification);
+    assert!(planning.clarification_questions.is_empty());
+    match planning.normalized_request.as_ref().expect("request frame") {
+        ChatNormalizedRequest::Sports(frame) => {
+            assert_eq!(frame.league.as_deref(), Some("nba"));
+            assert_eq!(frame.team_or_target.as_deref(), Some("Los Angeles Lakers"));
+            assert!(frame.clarification_required_slots.is_empty());
+        }
+        other => panic!("expected sports frame, got {other:?}"),
+    }
+    assert_eq!(
+        planning
+            .source_decision
+            .as_ref()
+            .map(|selection| selection.selected_source),
+        Some(ChatSourceFamily::SpecializedTool)
+    );
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn interactive_adjustable_calculator_overrides_user_input_gate() {
+    let runtime = scripted_outcome_router_runtime(serde_json::json!({
+        "outcomeKind": "tool_widget",
+        "executionStrategy": "plan_execute",
+        "confidence": 0.72,
+        "needsClarification": true,
+        "clarificationQuestions": [
+            "What options or decision shape should Chat present?"
+        ],
+        "decisionEvidence": ["tool_widget:user_input", "no_persistent_artifact_requested"],
+        "artifact": null
+    }));
+
+    let planning = plan_chat_outcome_with_runtime(
+        runtime,
+        "Show me an interactive mortgage payment calculator I can adjust.",
+        None,
+        None,
+    )
+    .await
+    .expect("planning");
+
+    assert_eq!(planning.outcome_kind, ChatOutcomeKind::Artifact);
+    assert!(!planning.needs_clarification);
+    assert!(planning.clarification_questions.is_empty());
+    assert_eq!(
+        planning.artifact.as_ref().map(|artifact| artifact.renderer),
+        Some(ChatRendererKind::HtmlIframe)
+    );
+    assert_eq!(
+        planning
+            .artifact
+            .as_ref()
+            .map(|artifact| artifact.artifact_class),
+        Some(ChatArtifactClass::InteractiveSingleFile)
+    );
+    assert_eq!(
+        planning
+            .artifact
+            .as_ref()
+            .map(|artifact| artifact.verification.require_render),
+        Some(true)
+    );
+    assert!(!planning
+        .decision_evidence
+        .iter()
+        .any(|hint| hint == "tool_widget:user_input"));
+    assert!(planning
+        .decision_evidence
+        .iter()
+        .any(|hint| hint == "interactive_single_file_artifact"));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn active_interactive_artifact_follow_up_preserves_typed_contract() {
+    let runtime = scripted_outcome_router_runtime(serde_json::json!({
+        "outcomeKind": "artifact",
+        "executionStrategy": "direct_author",
+        "confidence": 0.82,
+        "needsClarification": false,
+        "clarificationQuestions": [],
+        "decisionEvidence": [],
+        "artifact": {
+            "renderer": "html_iframe",
+            "scope": { "mutationBoundary": ["loan_amount"] },
+            "verification": { "requireExport": false }
+        }
+    }));
+    let active_artifact = ChatArtifactRefinementContext {
+        artifact_id: Some("artifact-1".to_string()),
+        revision_id: Some("revision-1".to_string()),
+        title: "Mortgage calculator".to_string(),
+        summary: "Interactive mortgage calculator with adjustable loan inputs.".to_string(),
+        renderer: ChatRendererKind::HtmlIframe,
+        files: Vec::new(),
+        selected_targets: Vec::new(),
+        taste_memory: None,
+        retrieved_exemplars: Vec::new(),
+        blueprint: None,
+        artifact_ir: Some(ChatArtifactIR {
+            version: 1,
+            renderer: ChatRendererKind::HtmlIframe,
+            scaffold_family: "calculator".to_string(),
+            semantic_structure: Vec::new(),
+            interaction_graph: vec![ChatArtifactIRInteractionEdge {
+                id: "adjust-loan".to_string(),
+                family: "state_adjust".to_string(),
+                control_node_ids: vec!["loan-amount".to_string()],
+                target_node_ids: vec!["payment".to_string()],
+                default_state: "loan amount defaults are editable".to_string(),
+            }],
+            evidence_surfaces: Vec::new(),
+            design_tokens: Vec::new(),
+            motion_plan: Vec::new(),
+            accessibility_obligations: Vec::new(),
+            responsive_layout_rules: Vec::new(),
+            component_bindings: Vec::new(),
+            static_audit_expectations: Vec::new(),
+            render_eval_checklist: Vec::new(),
+        }),
+        selected_skills: Vec::new(),
+    };
+
+    let planning = plan_chat_outcome_with_runtime(
+        runtime,
+        "Update the default loan amount to $550,000.",
+        Some("artifact-1"),
+        Some(&active_artifact),
+    )
+    .await
+    .expect("planning");
+
+    let artifact = planning.artifact.as_ref().expect("artifact request");
+    assert_eq!(planning.outcome_kind, ChatOutcomeKind::Artifact);
+    assert_eq!(artifact.renderer, ChatRendererKind::HtmlIframe);
+    assert_eq!(
+        artifact.artifact_class,
+        ChatArtifactClass::InteractiveSingleFile
+    );
+    assert_eq!(
+        artifact.execution_substrate,
+        ChatExecutionSubstrate::ClientSandbox
+    );
+    assert!(artifact.verification.require_render);
+    assert_eq!(artifact.scope.mutation_boundary, vec!["loan_amount"]);
+    assert!(planning
+        .decision_evidence
+        .iter()
+        .any(|hint| hint == "interactive_single_file_artifact"));
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -537,7 +796,7 @@ async fn explicit_table_artifact_overrides_conversation_router_output() {
         "confidence": 0.52,
         "needsClarification": false,
         "clarificationQuestions": [],
-        "routingHints": ["shared_answer_surface"],
+        "decisionEvidence": ["shared_answer_surface"],
         "artifact": null
     }));
 
@@ -558,19 +817,19 @@ async fn explicit_table_artifact_overrides_conversation_router_output() {
     let artifact = planning.artifact.expect("artifact request");
     assert_eq!(artifact.renderer, ChatRendererKind::Markdown);
     assert!(planning
-        .routing_hints
+        .decision_evidence
         .contains(&"persistent_artifact_requested".to_string()));
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn explicit_non_artifact_request_removes_workspace_clarification() {
+async fn explicit_inline_answer_request_removes_workspace_clarification() {
     let runtime = scripted_outcome_router_runtime(serde_json::json!({
         "outcomeKind": "conversation",
         "executionStrategy": "plan_execute",
         "confidence": 0.49,
         "needsClarification": true,
         "clarificationQuestions": ["What specific type of artifact do you expect to generate?"],
-        "routingHints": [
+        "decisionEvidence": [
             "workspace_grounding_required",
             "coding_workspace_context",
             "shared_answer_surface"
@@ -591,13 +850,13 @@ async fn explicit_non_artifact_request_removes_workspace_clarification() {
     assert!(!planning.needs_clarification);
     assert!(planning.clarification_questions.is_empty());
     assert!(!planning
-        .routing_hints
+        .decision_evidence
         .contains(&"workspace_grounding_required".to_string()));
     assert!(!planning
-        .routing_hints
+        .decision_evidence
         .contains(&"coding_workspace_context".to_string()));
     assert!(planning
-        .routing_hints
+        .decision_evidence
         .contains(&"no_persistent_artifact_requested".to_string()));
 }
 
@@ -609,7 +868,7 @@ async fn example_request_does_not_materialize_artifact_without_artifact_signal()
         "confidence": 0.73,
         "needsClarification": false,
         "clarificationQuestions": [],
-        "routingHints": ["persistent_artifact_requested"],
+        "decisionEvidence": ["persistent_artifact_requested"],
         "artifact": {
             "renderer": "markdown"
         }
@@ -627,7 +886,7 @@ async fn example_request_does_not_materialize_artifact_without_artifact_signal()
     assert_eq!(planning.outcome_kind, ChatOutcomeKind::Conversation);
     assert!(planning.artifact.is_none());
     assert!(planning
-        .routing_hints
+        .decision_evidence
         .contains(&"no_persistent_artifact_requested".to_string()));
 }
 
@@ -639,7 +898,7 @@ async fn messy_task_list_with_coffee_does_not_escalate_to_places_widget() {
         "confidence": 0.86,
         "needsClarification": true,
         "clarificationQuestions": ["Which neighborhood, city, or anchor location should Chat search around?"],
-        "routingHints": ["tool_widget:places", "narrow_surface_preferred"],
+        "decisionEvidence": ["tool_widget:places", "narrow_surface_preferred"],
         "artifact": null
     }));
 
@@ -655,10 +914,10 @@ async fn messy_task_list_with_coffee_does_not_escalate_to_places_widget() {
     assert_eq!(planning.outcome_kind, ChatOutcomeKind::Conversation);
     assert!(!planning.needs_clarification);
     assert!(planning
-        .routing_hints
+        .decision_evidence
         .contains(&"shared_answer_surface".to_string()));
     assert!(!planning
-        .routing_hints
+        .decision_evidence
         .iter()
         .any(|hint| hint.starts_with("tool_widget:")));
 }
@@ -671,7 +930,7 @@ async fn explicit_places_lookup_still_routes_to_places_widget() {
         "confidence": 0.58,
         "needsClarification": false,
         "clarificationQuestions": [],
-        "routingHints": ["shared_answer_surface"],
+        "decisionEvidence": ["shared_answer_surface"],
         "artifact": null
     }));
 
@@ -686,7 +945,7 @@ async fn explicit_places_lookup_still_routes_to_places_widget() {
 
     assert_eq!(planning.outcome_kind, ChatOutcomeKind::ToolWidget);
     assert!(planning
-        .routing_hints
+        .decision_evidence
         .contains(&"tool_widget:places".to_string()));
 }
 
@@ -706,9 +965,9 @@ fn communication_draft_without_recipient_context_does_not_gate() {
         None,
     );
 
-    let request_frame = projection.request_frame.expect("request frame");
-    match request_frame {
-        ChatNormalizedRequestFrame::MessageCompose(frame) => {
+    let normalized_request = projection.normalized_request.expect("request frame");
+    match normalized_request {
+        ChatNormalizedRequest::MessageCompose(frame) => {
             assert_eq!(frame.channel.as_deref(), Some("email"));
             assert_eq!(frame.purpose.as_deref(), Some("draft"));
             assert!(frame.recipient_context.is_none());
@@ -735,11 +994,11 @@ fn communication_projection_infers_message_compose_lane_and_missing_slots() {
         None,
     );
 
-    let lane_frame = projection.lane_frame.expect("lane frame");
-    assert_eq!(lane_frame.primary_lane, ChatLaneFamily::Communication);
-    let request_frame = projection.request_frame.expect("request frame");
-    match request_frame {
-        ChatNormalizedRequestFrame::MessageCompose(frame) => {
+    let lane_request = projection.lane_request.expect("lane frame");
+    assert_eq!(lane_request.primary_lane, ChatLaneFamily::Communication);
+    let normalized_request = projection.normalized_request.expect("request frame");
+    match normalized_request {
+        ChatNormalizedRequest::MessageCompose(frame) => {
             assert_eq!(frame.channel.as_deref(), Some("email"));
             assert_eq!(frame.purpose.as_deref(), Some("draft"));
             assert_eq!(frame.recipient_context.as_deref(), Some("The Finance Team"));
@@ -749,8 +1008,8 @@ fn communication_projection_infers_message_compose_lane_and_missing_slots() {
     }
     assert_eq!(
         projection
-            .source_selection
-            .expect("source selection")
+            .source_decision
+            .expect("source decision")
             .selected_source,
         ChatSourceFamily::DirectAnswer
     );
@@ -781,9 +1040,12 @@ fn retained_widget_state_backfills_weather_scope_and_domain_policy_bundle() {
         None,
     );
 
-    let request_frame = projection.request_frame.as_ref().expect("request frame");
-    match request_frame {
-        ChatNormalizedRequestFrame::Weather(frame) => {
+    let normalized_request = projection
+        .normalized_request
+        .as_ref()
+        .expect("request frame");
+    match normalized_request {
+        ChatNormalizedRequest::Weather(frame) => {
             assert_eq!(frame.assumed_location.as_deref(), Some("Boston"));
             assert!(frame.missing_slots.is_empty());
         }
@@ -791,9 +1053,9 @@ fn retained_widget_state_backfills_weather_scope_and_domain_policy_bundle() {
     }
 
     let policy_bundle = derive_chat_domain_policy_bundle(
-        projection.lane_frame.as_ref(),
-        projection.request_frame.as_ref(),
-        projection.source_selection.as_ref(),
+        projection.lane_request.as_ref(),
+        projection.normalized_request.as_ref(),
+        projection.source_decision.as_ref(),
         ChatOutcomeKind::ToolWidget,
         &["tool_widget:weather".to_string()],
         false,
@@ -816,7 +1078,69 @@ fn retained_widget_state_backfills_weather_scope_and_domain_policy_bundle() {
 }
 
 #[test]
-fn weather_missing_scope_uses_domain_specific_fallback_reason() {
+fn retained_weather_widget_state_inherits_follow_up_without_tool_hint() {
+    let widget_state = ChatRetainedWidgetState {
+        widget_family: Some("weather".to_string()),
+        bindings: vec![
+            ChatWidgetStateBinding {
+                key: "weather.location".to_string(),
+                value: "New York City".to_string(),
+                source: "normalized_request".to_string(),
+            },
+            ChatWidgetStateBinding {
+                key: "weather.temporal_scope".to_string(),
+                value: "today".to_string(),
+                source: "normalized_request".to_string(),
+            },
+        ],
+        last_updated_at: None,
+    };
+    let projection = derive_chat_topology_projection(
+        "What about tomorrow?",
+        Some("weather-widget-artifact"),
+        Some(&widget_state),
+        ChatOutcomeKind::Conversation,
+        ChatExecutionStrategy::SinglePass,
+        None,
+        0.9,
+        false,
+        &[],
+        &["shared_answer_surface".to_string()],
+        None,
+    );
+
+    let normalized_request = projection
+        .normalized_request
+        .as_ref()
+        .expect("normalized request");
+    match normalized_request {
+        ChatNormalizedRequest::Weather(frame) => {
+            assert_eq!(frame.assumed_location.as_deref(), Some("New York City"));
+            assert_eq!(frame.temporal_scope.as_deref(), Some("tomorrow"));
+            assert!(frame.missing_slots.is_empty());
+        }
+        other => panic!("expected weather frame, got {other:?}"),
+    }
+    assert_eq!(
+        projection
+            .lane_request
+            .as_ref()
+            .expect("lane request")
+            .primary_lane,
+        ChatLaneFamily::Research
+    );
+    assert_eq!(
+        projection
+            .source_decision
+            .as_ref()
+            .expect("source decision")
+            .selected_source,
+        ChatSourceFamily::SpecializedTool
+    );
+}
+
+#[test]
+fn weather_missing_scope_uses_domain_specific_degradation_reason() {
     let projection = derive_chat_topology_projection(
         "What's the weather tomorrow?",
         None,
@@ -833,11 +1157,73 @@ fn weather_missing_scope_uses_domain_specific_fallback_reason() {
 
     assert_eq!(
         projection
-            .source_selection
+            .source_decision
             .as_ref()
-            .and_then(|selection| selection.fallback_reason.as_deref()),
+            .and_then(|selection| selection.degradation_reason.as_deref()),
         Some("weather execution is blocked until location scope is clarified or safely inherited")
     );
+}
+
+#[test]
+fn complete_specialized_lanes_select_specialized_source_not_generic_web() {
+    let scenarios = [
+        (
+            "Did the Lakers win their most recent completed game?",
+            "tool_widget:sports",
+            "sports",
+        ),
+        (
+            "Find coffee shops near downtown Boston.",
+            "tool_widget:places",
+            "places",
+        ),
+        (
+            "Recipe for chickpea curry for 4.",
+            "tool_widget:recipe",
+            "recipe",
+        ),
+    ];
+
+    for (prompt, hint, expected_frame) in scenarios {
+        let projection = derive_chat_topology_projection(
+            prompt,
+            None,
+            None,
+            ChatOutcomeKind::ToolWidget,
+            ChatExecutionStrategy::PlanExecute,
+            None,
+            0.9,
+            false,
+            &[],
+            &[hint.to_string()],
+            None,
+        );
+        let normalized_request = projection
+            .normalized_request
+            .as_ref()
+            .expect("request frame");
+        let (actual_frame, missing_slots) = match normalized_request {
+            ChatNormalizedRequest::Sports(frame) => ("sports", &frame.missing_slots),
+            ChatNormalizedRequest::Places(frame) => ("places", &frame.missing_slots),
+            ChatNormalizedRequest::Recipe(frame) => ("recipe", &frame.missing_slots),
+            other => panic!("unexpected request frame for {prompt}: {other:?}"),
+        };
+        assert_eq!(actual_frame, expected_frame);
+        assert!(missing_slots.is_empty());
+
+        let source_decision = projection
+            .source_decision
+            .as_ref()
+            .expect("source decision");
+        assert_eq!(
+            source_decision.selected_source,
+            ChatSourceFamily::SpecializedTool
+        );
+        assert!(source_decision
+            .candidate_sources
+            .contains(&ChatSourceFamily::WebSearch));
+        assert!(source_decision.degradation_reason.is_none());
+    }
 }
 
 #[test]
@@ -860,9 +1246,9 @@ fn message_compose_domain_policy_bundle_is_explicit_and_medium_risk() {
     );
 
     let bundle = derive_chat_domain_policy_bundle(
-        projection.lane_frame.as_ref(),
-        projection.request_frame.as_ref(),
-        projection.source_selection.as_ref(),
+        projection.lane_request.as_ref(),
+        projection.normalized_request.as_ref(),
+        projection.source_decision.as_ref(),
         ChatOutcomeKind::Conversation,
         &[
             "email_draft".to_string(),
@@ -915,9 +1301,12 @@ fn weather_scope_extraction_separates_location_from_temporal_suffix() {
         None,
     );
 
-    let request_frame = projection.request_frame.as_ref().expect("request frame");
-    match request_frame {
-        ChatNormalizedRequestFrame::Weather(frame) => {
+    let normalized_request = projection
+        .normalized_request
+        .as_ref()
+        .expect("request frame");
+    match normalized_request {
+        ChatNormalizedRequest::Weather(frame) => {
             assert_eq!(frame.inferred_locations, vec!["boston".to_string()]);
             assert_eq!(frame.temporal_scope.as_deref(), Some("this_weekend"));
         }
@@ -942,9 +1331,12 @@ fn weather_current_area_requests_resolve_runtime_locality_without_placeholder_sl
             None,
         );
 
-        let request_frame = projection.request_frame.as_ref().expect("request frame");
-        match request_frame {
-            ChatNormalizedRequestFrame::Weather(frame) => {
+        let normalized_request = projection
+            .normalized_request
+            .as_ref()
+            .expect("request frame");
+        match normalized_request {
+            ChatNormalizedRequest::Weather(frame) => {
                 assert_eq!(frame.assumed_location.as_deref(), Some("Brooklyn, NY"));
                 assert!(frame.missing_slots.is_empty());
             }
@@ -970,9 +1362,12 @@ fn places_current_area_requests_resolve_runtime_locality_without_near_me_placeho
             None,
         );
 
-        let request_frame = projection.request_frame.as_ref().expect("request frame");
-        match request_frame {
-            ChatNormalizedRequestFrame::Places(frame) => {
+        let normalized_request = projection
+            .normalized_request
+            .as_ref()
+            .expect("request frame");
+        match normalized_request {
+            ChatNormalizedRequest::Places(frame) => {
                 assert_eq!(
                     frame.location_scope.as_deref(),
                     Some("Williamsburg, Brooklyn")
@@ -1004,9 +1399,12 @@ fn places_anchor_extraction_drops_presentation_suffixes() {
         None,
     );
 
-    let request_frame = projection.request_frame.as_ref().expect("request frame");
-    match request_frame {
-        ChatNormalizedRequestFrame::Places(frame) => {
+    let normalized_request = projection
+        .normalized_request
+        .as_ref()
+        .expect("request frame");
+    match normalized_request {
+        ChatNormalizedRequest::Places(frame) => {
             assert_eq!(frame.search_anchor.as_deref(), Some("downtown portland"));
             assert_eq!(frame.location_scope.as_deref(), Some("downtown portland"));
             assert_eq!(frame.category.as_deref(), Some("coffee shops"));

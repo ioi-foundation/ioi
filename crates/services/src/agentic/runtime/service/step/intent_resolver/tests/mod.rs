@@ -13,7 +13,7 @@ use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_types::app::agentic::{
     CapabilityId, ExecutionApplicabilityClass, InferenceOptions, IntentAmbiguityAction,
-    IntentConfidenceBand, IntentConfidenceBandPolicy, IntentMatrixEntry, IntentQueryBindingClass,
+    IntentCatalogEntry, IntentConfidenceBand, IntentConfidenceBandPolicy, IntentQueryBindingClass,
     IntentRoutingPolicy, IntentScopeProfile, ProviderSelectionMode, ResolvedIntentState,
     VerificationMode,
 };
@@ -461,8 +461,9 @@ impl InferenceRuntime for WeatherVsClockRuntime {
     async fn embed_text(&self, text: &str) -> Result<Vec<f32>, VmError> {
         let text_lc = text.to_ascii_lowercase();
         let web_terms = [
-            "web",
-            "research",
+            "research live information",
+            "latest news",
+            "current events",
             "online",
             "internet",
             "weather",
@@ -654,7 +655,14 @@ impl InferenceRuntime for LocalitySkewedRuntime {
             // query-binding feasibility must correct the winner.
             return Ok(vec![0.95, 0.05]);
         }
-        if text_lc.contains("time") || text_lc.contains("clock") {
+        let terms = text_lc
+            .split(|ch: char| !ch.is_ascii_alphanumeric())
+            .filter(|term| !term.is_empty())
+            .collect::<Vec<_>>();
+        if terms
+            .iter()
+            .any(|term| matches!(*term, "time" | "clock" | "timestamp" | "utc"))
+        {
             return Ok(vec![1.0, 0.0]);
         }
         Ok(vec![0.1, 0.1])
@@ -882,7 +890,7 @@ impl InferenceRuntime for LowConfidenceExemptRuntime {
         if text_lc.contains("execute local shell or terminal commands") {
             return Ok(vec![1.0, 0.0, 0.0]);
         }
-        if text_lc.contains("inspect and modify files in the local workspace") {
+        if text_lc.contains("inspect create and modify files in the local workspace") {
             return Ok(vec![0.0, 1.0, 0.0]);
         }
         if text_lc.contains("rename every file in my downloads folder to lowercase") {
@@ -1160,6 +1168,7 @@ fn test_agent_state() -> AgentState {
         planner_state: None,
         active_skill_hash: None,
         tool_execution_log: BTreeMap::new(),
+        execution_ledger: Default::default(),
         visual_som_map: None,
         visual_semantic_map: None,
         swarm_context: None,

@@ -1,278 +1,6 @@
 use super::*;
 use ioi_api::state::StateAccess;
 
-fn matrix_contains_intent(matrix: &[IntentMatrixEntry], intent_id: &str) -> bool {
-    matrix.iter().any(|entry| entry.intent_id == intent_id)
-}
-
-fn query_contains_non_inline_markers(normalized: &str) -> bool {
-    normalized.contains("http://")
-        || normalized.contains("https://")
-        || normalized.contains("www.")
-        || normalized.contains("```")
-        || normalized.contains("~/")
-        || normalized.contains("./")
-        || normalized.contains('/')
-        || normalized.contains('\\')
-}
-
-fn obvious_casual_conversation_query(
-    query: &str,
-    query_binding_profile: &QueryBindingProfile,
-    matrix: &[IntentMatrixEntry],
-) -> bool {
-    if !matrix_contains_intent(matrix, "conversation.reply") {
-        return false;
-    }
-
-    if query_binding_profile.remote_public_fact_required
-        || query_binding_profile.host_local_clock_targeted
-        || query_binding_profile.durable_automation_requested
-        || query_binding_profile.model_registry_control_requested
-        || query_binding_profile.app_launch_directed
-        || query_binding_profile.desktop_screenshot_requested
-        || query_binding_profile.temporal_filesystem_filter
-    {
-        return false;
-    }
-
-    let trimmed = query.trim();
-    if trimmed.is_empty() {
-        return false;
-    }
-
-    let normalized = trimmed.to_ascii_lowercase();
-    if query_contains_non_inline_markers(&normalized) {
-        return false;
-    }
-
-    let words = normalized
-        .split_whitespace()
-        .map(|word| word.trim_matches(|ch: char| !ch.is_ascii_alphanumeric() && ch != '\''))
-        .filter(|word| !word.is_empty())
-        .collect::<Vec<_>>();
-    if words.is_empty() || words.len() > 14 {
-        return false;
-    }
-
-    let first_two = words.iter().take(2).copied().collect::<Vec<_>>().join(" ");
-    let first_three = words.iter().take(3).copied().collect::<Vec<_>>().join(" ");
-    let first_word = words.first().copied().unwrap_or_default();
-
-    let explanatory_reply_format = matches!(
-        first_two.as_str(),
-        "explain what" | "describe what" | "summarize what"
-    ) || matches!(
-        first_three.as_str(),
-        "summarize what you" | "explain what you" | "describe what you"
-    );
-    if explanatory_reply_format
-        && words
-            .iter()
-            .any(|word| matches!(*word, "you" | "your" | "me" | "we"))
-    {
-        return true;
-    }
-
-    let action_verbs = [
-        "open",
-        "launch",
-        "run",
-        "execute",
-        "create",
-        "build",
-        "make",
-        "install",
-        "search",
-        "find",
-        "look",
-        "click",
-        "type",
-        "scroll",
-        "copy",
-        "paste",
-        "download",
-        "load",
-        "unload",
-        "sync",
-        "monitor",
-        "set",
-        "list",
-        "show",
-        "navigate",
-        "read",
-        "edit",
-        "write",
-        "summarize",
-        "draft",
-        "transcribe",
-        "generate",
-        "remove",
-        "delete",
-        "rename",
-        "move",
-    ];
-    if action_verbs.contains(&first_word) {
-        return false;
-    }
-
-    let greeting_like = matches!(
-        first_word,
-        "hi" | "hello" | "hey" | "yo" | "thanks" | "thank"
-    ) || matches!(
-        first_two.as_str(),
-        "good morning" | "good afternoon" | "good evening" | "thank you"
-    );
-    if greeting_like {
-        return true;
-    }
-
-    let explicit_reply_format = normalized.starts_with("reply with ")
-        || normalized.starts_with("answer with ")
-        || normalized.starts_with("respond with ")
-        || normalized.starts_with("say ")
-        || normalized.starts_with("tell me ");
-    if explicit_reply_format {
-        return true;
-    }
-
-    let conversational_question = matches!(
-        first_two.as_str(),
-        "do you"
-            | "did you"
-            | "are you"
-            | "can you"
-            | "could you"
-            | "would you"
-            | "will you"
-            | "have you"
-            | "how are"
-            | "who are"
-    ) || matches!(
-        first_three.as_str(),
-        "what do you" | "what are you" | "what is your" | "how do you" | "why do you"
-    );
-    if conversational_question {
-        return true;
-    }
-
-    normalized.ends_with('?')
-        && words
-            .iter()
-            .any(|word| matches!(*word, "you" | "your" | "we" | "i" | "me"))
-}
-
-fn obvious_expository_reply_query(
-    query: &str,
-    query_binding_profile: &QueryBindingProfile,
-    matrix: &[IntentMatrixEntry],
-) -> bool {
-    if !matrix_contains_intent(matrix, "conversation.reply") {
-        return false;
-    }
-
-    if query_binding_profile.remote_public_fact_required
-        || query_binding_profile.host_local_clock_targeted
-        || query_binding_profile.command_directed
-        || query_binding_profile.durable_automation_requested
-        || query_binding_profile.model_registry_control_requested
-        || query_binding_profile.app_launch_directed
-        || query_binding_profile.direct_ui_input
-        || query_binding_profile.desktop_screenshot_requested
-        || query_binding_profile.temporal_filesystem_filter
-    {
-        return false;
-    }
-
-    let trimmed = query.trim();
-    if trimmed.is_empty() {
-        return false;
-    }
-
-    let normalized = trimmed.to_ascii_lowercase();
-    if query_contains_non_inline_markers(&normalized) {
-        return false;
-    }
-
-    let words = normalized
-        .split_whitespace()
-        .map(|word| word.trim_matches(|ch: char| !ch.is_ascii_alphanumeric() && ch != '\''))
-        .filter(|word| !word.is_empty())
-        .collect::<Vec<_>>();
-    if words.len() < 3 || words.len() > 12 {
-        return false;
-    }
-
-    let first_two = words.iter().take(2).copied().collect::<Vec<_>>().join(" ");
-    let first_three = words.iter().take(3).copied().collect::<Vec<_>>().join(" ");
-    let first_word = words.first().copied().unwrap_or_default();
-
-    let explanatory_prefix = matches!(
-        first_two.as_str(),
-        "what is"
-            | "what are"
-            | "what was"
-            | "what were"
-            | "how does"
-            | "how do"
-            | "how is"
-            | "why is"
-            | "why do"
-            | "who was"
-            | "who were"
-    ) || matches!(
-        first_three.as_str(),
-        "what's the" | "what's a" | "what's an"
-    ) || matches!(first_word, "define" | "explain" | "describe");
-    if !explanatory_prefix {
-        return false;
-    }
-
-    let local_or_operational_terms = [
-        "app",
-        "branch",
-        "browser",
-        "button",
-        "click",
-        "command",
-        "computer",
-        "cursor",
-        "directory",
-        "docker",
-        "env",
-        "file",
-        "folder",
-        "installed",
-        "local",
-        "port",
-        "process",
-        "repo",
-        "repository",
-        "running",
-        "screen",
-        "service",
-        "shell",
-        "terminal",
-        "this",
-        "type",
-        "window",
-        "workspace",
-    ];
-    if words
-        .iter()
-        .any(|word| local_or_operational_terms.contains(word))
-    {
-        return false;
-    }
-
-    let temporal_terms = ["current", "latest", "today", "recent", "now"];
-    if words.iter().any(|word| temporal_terms.contains(word)) {
-        return false;
-    }
-
-    true
-}
-
 pub async fn resolve_step_intent(
     service: &RuntimeAgentService,
     agent_state: &AgentState,
@@ -301,11 +29,11 @@ pub async fn resolve_step_intent_with_state(
                 score: 1.0,
             }],
             required_capabilities: vec![],
-            required_receipts: vec![],
-            required_postconditions: vec![],
+            required_evidence: vec![],
+            success_conditions: vec![],
             risk_class: "unknown".to_string(),
             preferred_tier: "tool_first".to_string(),
-            matrix_version: policy.matrix_version.clone(),
+            intent_catalog_version: policy.intent_catalog_version.clone(),
             embedding_model_id: String::new(),
             embedding_model_version: String::new(),
             similarity_function_id: String::new(),
@@ -313,8 +41,8 @@ pub async fn resolve_step_intent_with_state(
             tool_registry_hash: [0u8; 32],
             capability_ontology_hash: [0u8; 32],
             query_normalization_version: INTENT_QUERY_NORMALIZATION_VERSION.to_string(),
-            matrix_source_hash: [0u8; 32],
-            receipt_hash: [0u8; 32],
+            intent_catalog_source_hash: [0u8; 32],
+            evidence_requirements_hash: [0u8; 32],
             provider_selection: None,
             instruction_contract: None,
             constrained: false,
@@ -381,81 +109,54 @@ pub async fn resolve_step_intent_with_state(
             INTENT_QUERY_NORMALIZATION_VERSION
         );
     }
-    let matrix = effective_matrix(policy)?;
-    let matrix_hash = matrix_source_hash(policy, &matrix)?;
+    let intent_catalog = effective_intent_catalog(policy)?;
+    let matrix_hash = intent_catalog_source_hash(policy, &intent_catalog)?;
     let bindings = tool_capability_bindings();
-    let intent_hash = intent_set_hash(&matrix)?;
+    let intent_hash = intent_set_hash(&intent_catalog)?;
     let registry_hash = tool_registry_hash(&bindings)?;
     let ontology_hash = capability_ontology_hash(&bindings)?;
-    if matrix.is_empty() {
+    if intent_catalog.is_empty() {
         log::warn!(
-            "IntentResolver matrix is empty for version={}, abstaining.",
-            policy.matrix_version
+            "IntentResolver intent_catalog is empty for version={}, abstaining.",
+            policy.intent_catalog_version
         );
     }
 
-    let forced_intent_id =
-        if obvious_casual_conversation_query(&query, &query_binding_profile, &matrix)
-            || obvious_expository_reply_query(&query, &query_binding_profile, &matrix)
-        {
-            Some("conversation.reply")
-        } else {
+    let rank_result = match timeout(
+        INTENT_EMBED_RANK_TIMEOUT,
+        runtime.embed_or_rank(
+            &ranking_query,
+            &policy.intent_catalog_version,
+            matrix_hash,
+            &intent_catalog,
+            Some(service),
+            Some(agent_state.session_id),
+        ),
+    )
+    .await
+    {
+        Ok(Ok(result)) => Some(result),
+        Ok(Err(e)) => {
+            log::warn!(
+                "IntentResolver semantic rank failed session={} error={}",
+                session_prefix,
+                e
+            );
             None
-        };
-    if forced_intent_id.is_some() {
-        log::info!(
-            "IntentResolver forced obvious casual conversation to conversation.reply session={} query_hash={}",
-            session_prefix,
-            query_hash
-        );
-    }
-
-    let rank_result = if forced_intent_id.is_some() {
-        None
-    } else {
-        match timeout(
-            INTENT_EMBED_RANK_TIMEOUT,
-            runtime.embed_or_rank(
-                &ranking_query,
-                &policy.matrix_version,
-                matrix_hash,
-                &matrix,
-                Some(service),
-                Some(agent_state.session_id),
-            ),
-        )
-        .await
-        {
-            Ok(Ok(result)) => Some(result),
-            Ok(Err(e)) => {
-                log::warn!(
-                    "IntentResolver semantic rank failed session={} error={}",
-                    session_prefix,
-                    e
-                );
-                None
-            }
-            Err(_) => {
-                log::warn!(
-                    "IntentResolver semantic rank timed out session={} timeout_ms={}",
-                    session_prefix,
-                    INTENT_EMBED_RANK_TIMEOUT.as_millis()
-                );
-                None
-            }
+        }
+        Err(_) => {
+            log::warn!(
+                "IntentResolver semantic rank timed out session={} timeout_ms={}",
+                session_prefix,
+                INTENT_EMBED_RANK_TIMEOUT.as_millis()
+            );
+            None
         }
     };
-    let mut ranked_candidates = if let Some(intent_id) = forced_intent_id {
-        vec![IntentCandidateScore {
-            intent_id: intent_id.to_string(),
-            score: 1.0,
-        }]
-    } else {
-        rank_result
-            .as_ref()
-            .map(|result| result.scores.clone())
-            .unwrap_or_default()
-    };
+    let mut ranked_candidates = rank_result
+        .as_ref()
+        .map(|result| result.scores.clone())
+        .unwrap_or_default();
     let rank_model_id = rank_result
         .as_ref()
         .map(|result| result.model_id.clone())
@@ -468,8 +169,8 @@ pub async fn resolve_step_intent_with_state(
         .as_ref()
         .map(|result| result.similarity_function_id.clone())
         .unwrap_or_else(|| "none".to_string());
-    if ranked_candidates.is_empty() && !matrix.is_empty() {
-        ranked_candidates = zero_ranked_candidates(&matrix);
+    if ranked_candidates.is_empty() && !intent_catalog.is_empty() {
+        ranked_candidates = zero_ranked_candidates(&intent_catalog);
     }
     quantize_and_sort_scores(&mut ranked_candidates, policy);
     let routed_top_k = ranked_candidates
@@ -480,7 +181,7 @@ pub async fn resolve_step_intent_with_state(
     let selection_top_k = ranked_candidates
         .iter()
         .filter_map(|candidate| {
-            let entry = matrix
+            let entry = intent_catalog
                 .iter()
                 .find(|entry| entry.intent_id == candidate.intent_id)?;
             intent_feasible_for_execution(entry, &bindings, rules, &query_binding_profile)
@@ -493,7 +194,7 @@ pub async fn resolve_step_intent_with_state(
         let durable_candidates = selection_top_k
             .iter()
             .filter_map(|candidate| {
-                let entry = matrix
+                let entry = intent_catalog
                     .iter()
                     .find(|entry| entry.intent_id == candidate.intent_id)?;
                 matches!(
@@ -522,7 +223,7 @@ pub async fn resolve_step_intent_with_state(
         let model_control_candidates = preferred_selection_top_k
             .iter()
             .filter_map(|candidate| {
-                let entry = matrix
+                let entry = intent_catalog
                     .iter()
                     .find(|entry| entry.intent_id == candidate.intent_id)?;
                 matches!(
@@ -553,7 +254,7 @@ pub async fn resolve_step_intent_with_state(
         );
         resolver_error_class = Some(infer_unclassified_error_class(
             &ranked_candidates,
-            &matrix,
+            &intent_catalog,
             &bindings,
             rules,
             &query_binding_profile,
@@ -570,7 +271,7 @@ pub async fn resolve_step_intent_with_state(
             score: 0.0,
         }
     } else {
-        select_deterministic_winner(&preferred_selection_top_k, &matrix, policy).unwrap_or(
+        select_deterministic_winner(&preferred_selection_top_k, &intent_catalog, policy).unwrap_or(
             IntentCandidateScore {
                 intent_id: "resolver.unclassified".to_string(),
                 score: 0.0,
@@ -627,7 +328,7 @@ pub async fn resolve_step_intent_with_state(
     fn maybe_promote_low_band_for_binding_anchored_winner(
         winner: &IntentCandidateScore,
         selection_top_k: &[IntentCandidateScore],
-        matrix: &[IntentMatrixEntry],
+        intent_catalog: &[IntentCatalogEntry],
         query_binding_profile: &QueryBindingProfile,
         band: IntentConfidenceBand,
     ) -> IntentConfidenceBand {
@@ -638,7 +339,7 @@ pub async fn resolve_step_intent_with_state(
         if !query_binding_profile.available || selection_top_k.len() != 1 {
             return band;
         }
-        let Some(entry) = matrix
+        let Some(entry) = intent_catalog
             .iter()
             .find(|entry| entry.intent_id == winner.intent_id)
         else {
@@ -676,8 +377,8 @@ pub async fn resolve_step_intent_with_state(
         score,
         band,
         required_capabilities,
-        required_receipts,
-        required_postconditions,
+        required_evidence,
+        success_conditions,
         risk_class,
         provider_selection,
     ) = if winner.intent_id == "resolver.unclassified" {
@@ -693,23 +394,23 @@ pub async fn resolve_step_intent_with_state(
             None,
         )
     } else {
-        let entry = matrix
+        let entry = intent_catalog
             .iter()
             .find(|entry| entry.intent_id == winner.intent_id)
             .ok_or_else(|| {
                 TransactionError::Invalid(format!(
-                    "ERROR_CLASS=ResolverContractViolation Intent '{}' missing matrix binding",
+                    "ERROR_CLASS=ResolverContractViolation Intent '{}' missing intent_catalog binding",
                     winner.intent_id
                 ))
             })?;
-        let scope = scope_for_intent(&matrix, &winner.intent_id).ok_or_else(|| {
+        let scope = scope_for_intent(&intent_catalog, &winner.intent_id).ok_or_else(|| {
             TransactionError::Invalid(format!(
-                "ERROR_CLASS=ResolverContractViolation Intent '{}' missing matrix scope binding",
+                "ERROR_CLASS=ResolverContractViolation Intent '{}' missing intent_catalog scope binding",
                 winner.intent_id
             ))
         })?;
-        let preferred_tier =
-            preferred_tier_for_intent(&matrix, &winner.intent_id).ok_or_else(|| {
+        let preferred_tier = preferred_tier_for_intent(&intent_catalog, &winner.intent_id)
+            .ok_or_else(|| {
                 TransactionError::Invalid(format!(
                 "ERROR_CLASS=ResolverContractViolation Intent '{}' missing preferred tier binding",
                 winner.intent_id
@@ -720,7 +421,7 @@ pub async fn resolve_step_intent_with_state(
         let band = maybe_promote_low_band_for_binding_anchored_winner(
             &winner,
             &preferred_selection_top_k,
-            &matrix,
+            &intent_catalog,
             &query_binding_profile,
             maybe_promote_low_band_for_policy_exempt_winner(
                 &winner,
@@ -746,8 +447,8 @@ pub async fn resolve_step_intent_with_state(
             score,
             band,
             entry.required_capabilities.clone(),
-            entry.required_receipts.clone(),
-            entry.required_postconditions.clone(),
+            entry.required_evidence.clone(),
+            entry.success_conditions.clone(),
             entry.risk_class.clone(),
             provider_selection,
         )
@@ -773,11 +474,11 @@ pub async fn resolve_step_intent_with_state(
         score,
         top_k: routed_top_k,
         required_capabilities,
-        required_receipts,
-        required_postconditions,
+        required_evidence,
+        success_conditions,
         risk_class,
         preferred_tier,
-        matrix_version: policy.matrix_version.clone(),
+        intent_catalog_version: policy.intent_catalog_version.clone(),
         embedding_model_id: rank_model_id,
         embedding_model_version: rank_model_version,
         similarity_function_id: rank_similarity_function_id,
@@ -785,14 +486,14 @@ pub async fn resolve_step_intent_with_state(
         tool_registry_hash: registry_hash,
         capability_ontology_hash: ontology_hash,
         query_normalization_version: INTENT_QUERY_NORMALIZATION_VERSION.to_string(),
-        matrix_source_hash: matrix_hash,
-        receipt_hash: [0u8; 32],
+        intent_catalog_source_hash: matrix_hash,
+        evidence_requirements_hash: [0u8; 32],
         provider_selection,
         instruction_contract,
         // Constrained routing is deprecated (compat field only). We rely on policy gates + ontology.
         constrained: false,
     };
-    resolved.receipt_hash = receipt_hash(
+    resolved.evidence_requirements_hash = evidence_requirements_hash(
         &query,
         &ranking_query,
         &resolved,

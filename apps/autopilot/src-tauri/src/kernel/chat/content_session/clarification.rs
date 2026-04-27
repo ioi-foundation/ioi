@@ -1,7 +1,7 @@
-use super::route_contract::{routing_hint_flag, routing_hint_prefixed_value};
+use super::decision_record::{decision_evidence_item_flag, decision_evidence_item_prefixed_value};
 use super::*;
 use ioi_api::runtime_harness::{
-    chat_request_frame_clarification_slots, chat_specialized_domain_kind,
+    chat_normalized_request_clarification_slots, chat_specialized_domain_kind,
     runtime_locality_scope_hint, ChatSpecializedDomainKind,
 };
 
@@ -24,9 +24,9 @@ fn use_current_area_option(
 pub(super) fn specialized_domain_clarification_question(
     outcome_request: &ChatOutcomeRequest,
 ) -> Option<String> {
-    let frame = outcome_request.request_frame.as_ref()?;
+    let frame = outcome_request.normalized_request.as_ref()?;
     let kind = chat_specialized_domain_kind(Some(frame))?;
-    let blocking_slots = chat_request_frame_clarification_slots(frame);
+    let blocking_slots = chat_normalized_request_clarification_slots(frame);
     if blocking_slots.is_empty() {
         return None;
     }
@@ -76,13 +76,13 @@ pub(super) fn specialized_domain_clarification_question(
 fn specialized_domain_clarification_options(
     outcome_request: &ChatOutcomeRequest,
 ) -> Vec<crate::models::ClarificationOption> {
-    let Some(frame) = outcome_request.request_frame.as_ref() else {
+    let Some(frame) = outcome_request.normalized_request.as_ref() else {
         return Vec::new();
     };
     let Some(kind) = chat_specialized_domain_kind(Some(frame)) else {
         return Vec::new();
     };
-    let blocking_slots = chat_request_frame_clarification_slots(frame);
+    let blocking_slots = chat_normalized_request_clarification_slots(frame);
     if blocking_slots.is_empty() {
         return Vec::new();
     }
@@ -348,18 +348,20 @@ pub(in crate::kernel::chat) fn clarification_request_for_outcome_request(
         .first()
         .cloned()
         .unwrap_or_else(|| "What should Chat create before it continues?".to_string());
-    let has_hint = |needle: &str| routing_hint_flag(outcome_request, needle);
+    let has_hint = |needle: &str| decision_evidence_item_flag(outcome_request, needle);
     let question = if has_hint("prioritization_request") && has_hint("user_input_preferred") {
         "What should drive the ranking: impact, urgency, or return on investment?".to_string()
     } else if has_hint("connector_missing") {
-        let target_label = routing_hint_prefixed_value(outcome_request, "connector_target_label:")
-            .unwrap_or_else(|| "That connector".to_string());
+        let target_label =
+            decision_evidence_item_prefixed_value(outcome_request, "connector_target_label:")
+                .unwrap_or_else(|| "That connector".to_string());
         format!(
             "{target_label} is not available in this runtime yet. Should Chat wait for you to connect it, or should I work from pasted data instead?"
         )
     } else if has_hint("connector_auth_required") {
-        let target_label = routing_hint_prefixed_value(outcome_request, "connector_target_label:")
-            .unwrap_or_else(|| "That connector".to_string());
+        let target_label =
+            decision_evidence_item_prefixed_value(outcome_request, "connector_target_label:")
+                .unwrap_or_else(|| "That connector".to_string());
         format!(
             "{target_label} is available here but not connected yet. Should Chat wait for you to connect it, or should I use another source?"
         )
@@ -371,12 +373,12 @@ pub(in crate::kernel::chat) fn clarification_request_for_outcome_request(
     } else {
         question
     };
-    let context_hint = if outcome_request.routing_hints.is_empty() {
+    let context_hint = if outcome_request.decision_evidence.is_empty() {
         None
     } else {
         Some(format!(
             "Routing hints: {}",
-            outcome_request.routing_hints.join(", ")
+            outcome_request.decision_evidence.join(", ")
         ))
     };
     let options = route_clarification_options(outcome_request);
@@ -400,7 +402,7 @@ pub(in crate::kernel::chat) fn clarification_request_for_outcome_request(
 fn route_clarification_options(
     outcome_request: &ChatOutcomeRequest,
 ) -> Vec<crate::models::ClarificationOption> {
-    let has_hint = |needle: &str| routing_hint_flag(outcome_request, needle);
+    let has_hint = |needle: &str| decision_evidence_item_flag(outcome_request, needle);
 
     if has_hint("connector_missing") {
         return vec![

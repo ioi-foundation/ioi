@@ -3,7 +3,7 @@ use super::ToolExecutor;
 
 const WORKLOAD_RECEIPT_MAX_ARG_LEN: usize = 512;
 
-fn is_sensitive_key_for_receipt(raw: &str) -> bool {
+fn is_sensitive_key_for_evidence(raw: &str) -> bool {
     let key = raw
         .trim_start_matches('-')
         .trim_matches(|c: char| c == '"' || c == '\'');
@@ -27,7 +27,7 @@ fn is_sensitive_key_for_receipt(raw: &str) -> bool {
         || lower == "auth"
 }
 
-fn is_sensitive_flag_for_receipt(raw: &str) -> bool {
+fn is_sensitive_flag_for_evidence(raw: &str) -> bool {
     matches!(
         raw,
         "--password"
@@ -116,7 +116,7 @@ fn looks_like_long_token(arg: &str) -> bool {
     arg.chars().all(allowed)
 }
 
-pub(super) fn redact_args_for_receipt(args: &[String]) -> Vec<String> {
+pub(super) fn redact_args_for_evidence(args: &[String]) -> Vec<String> {
     let mut out = Vec::with_capacity(args.len());
     let mut redact_next = false;
     let mut header_next = false;
@@ -150,7 +150,7 @@ pub(super) fn redact_args_for_receipt(args: &[String]) -> Vec<String> {
             continue;
         }
 
-        if is_sensitive_flag_for_receipt(trimmed) {
+        if is_sensitive_flag_for_evidence(trimmed) {
             out.push(trimmed.to_string());
             redact_next = true;
             continue;
@@ -170,7 +170,7 @@ pub(super) fn redact_args_for_receipt(args: &[String]) -> Vec<String> {
         }
 
         if let Some((left, right)) = trimmed.split_once('=') {
-            if !right.is_empty() && is_sensitive_key_for_receipt(left) {
+            if !right.is_empty() && is_sensitive_key_for_evidence(left) {
                 out.push(format!(
                     "{}={}",
                     left, WORKLOAD_RECEIPT_REDACTED_PLACEHOLDER
@@ -185,18 +185,18 @@ pub(super) fn redact_args_for_receipt(args: &[String]) -> Vec<String> {
     out
 }
 
-pub(super) async fn scrub_workload_text_field_for_receipt(
+pub(super) async fn scrub_workload_text_field_for_evidence(
     exec: &ToolExecutor,
     input: &str,
 ) -> String {
-    workload::scrub_workload_text_field_for_receipt(exec, input).await
+    workload::scrub_workload_text_field_for_evidence(exec, input).await
 }
 
-pub(super) async fn scrub_workload_args_for_receipt(
+pub(super) async fn scrub_workload_args_for_evidence(
     exec: &ToolExecutor,
     args: &[String],
 ) -> Vec<String> {
-    let redacted = redact_args_for_receipt(args);
+    let redacted = redact_args_for_evidence(args);
     let Some(scrubber) = exec.pii_scrubber.as_ref() else {
         return redacted;
     };

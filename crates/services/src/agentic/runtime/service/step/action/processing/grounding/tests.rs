@@ -41,7 +41,7 @@ fn resolved_without_contract() -> ResolvedIntentState {
         required_capabilities: vec![],
         risk_class: "medium".to_string(),
         preferred_tier: "tool_first".to_string(),
-        matrix_version: "test".to_string(),
+        intent_catalog_version: "test".to_string(),
         embedding_model_id: "test".to_string(),
         embedding_model_version: "test".to_string(),
         similarity_function_id: "cosine".to_string(),
@@ -49,12 +49,12 @@ fn resolved_without_contract() -> ResolvedIntentState {
         tool_registry_hash: [0u8; 32],
         capability_ontology_hash: [0u8; 32],
         query_normalization_version: "test".to_string(),
-        matrix_source_hash: [0u8; 32],
-        receipt_hash: [0u8; 32],
+        intent_catalog_source_hash: [0u8; 32],
+        evidence_requirements_hash: [0u8; 32],
         provider_selection: None,
         constrained: false,
-        required_receipts: vec!["grounding".to_string()],
-        required_postconditions: vec!["mail.reply.completed".to_string()],
+        required_evidence: vec!["grounding".to_string()],
+        success_conditions: vec!["mail.reply.completed".to_string()],
         instruction_contract: None,
     }
 }
@@ -86,6 +86,7 @@ fn test_agent_state() -> AgentState {
         execution_queue: vec![],
         active_skill_hash: None,
         tool_execution_log: BTreeMap::new(),
+        execution_ledger: Default::default(),
         visual_som_map: None,
         visual_semantic_map: None,
         swarm_context: None,
@@ -267,7 +268,7 @@ async fn delegate_template_binding_applies_without_grounding_receipt() {
         negative_constraints: vec![],
         success_criteria: vec![],
     });
-    resolved.required_receipts = vec!["execution".to_string(), "verification".to_string()];
+    resolved.required_evidence = vec!["execution".to_string(), "verification".to_string()];
     agent_state.resolved_intent = Some(resolved);
 
     let state = IAVLTree::new(HashCommitmentScheme::new());
@@ -336,7 +337,7 @@ async fn root_workspace_playbook_synthesizes_delegate_before_direct_tool_use() {
     let mut resolved = resolved_without_contract();
     resolved.intent_id = "workspace.ops".to_string();
     resolved.scope = IntentScopeProfile::WorkspaceOps;
-    resolved.required_receipts = vec!["execution".to_string(), "verification".to_string()];
+    resolved.required_evidence = vec!["execution".to_string(), "verification".to_string()];
     resolved.instruction_contract = Some(ioi_types::app::agentic::InstructionContract {
         operation: "delegate".to_string(),
         side_effect_mode: ioi_types::app::agentic::InstructionSideEffectMode::Update,
@@ -422,7 +423,7 @@ async fn root_workspace_playbook_rewrites_malformed_delegate_before_playbook_sta
     let mut resolved = resolved_without_contract();
     resolved.intent_id = "workspace.ops".to_string();
     resolved.scope = IntentScopeProfile::WorkspaceOps;
-    resolved.required_receipts = vec!["execution".to_string(), "verification".to_string()];
+    resolved.required_evidence = vec!["execution".to_string(), "verification".to_string()];
     resolved.instruction_contract = Some(ioi_types::app::agentic::InstructionContract {
         operation: "delegate".to_string(),
         side_effect_mode: ioi_types::app::agentic::InstructionSideEffectMode::Update,
@@ -521,7 +522,7 @@ async fn active_parent_playbook_synthesizes_await_before_direct_tool_use() {
     let mut resolved = resolved_without_contract();
     resolved.intent_id = "workspace.ops".to_string();
     resolved.scope = IntentScopeProfile::WorkspaceOps;
-    resolved.required_receipts = vec!["execution".to_string(), "verification".to_string()];
+    resolved.required_evidence = vec!["execution".to_string(), "verification".to_string()];
     resolved.instruction_contract = Some(ioi_types::app::agentic::InstructionContract {
         operation: "delegate".to_string(),
         side_effect_mode: ioi_types::app::agentic::InstructionSideEffectMode::Update,
@@ -600,7 +601,7 @@ async fn delegated_child_intent_keeps_direct_tool_when_playbook_is_already_activ
     let mut resolved = resolved_without_contract();
     resolved.intent_id = "delegation.task".to_string();
     resolved.scope = IntentScopeProfile::WorkspaceOps;
-    resolved.required_receipts = vec!["execution".to_string(), "verification".to_string()];
+    resolved.required_evidence = vec!["execution".to_string(), "verification".to_string()];
     resolved.instruction_contract = Some(ioi_types::app::agentic::InstructionContract {
         operation: "delegate".to_string(),
         side_effect_mode: ioi_types::app::agentic::InstructionSideEffectMode::ReadOnly,
@@ -660,7 +661,7 @@ async fn delegated_workspace_child_keeps_direct_tool_when_parent_exists() {
     let mut resolved = resolved_without_contract();
     resolved.intent_id = "workspace.ops".to_string();
     resolved.scope = IntentScopeProfile::WorkspaceOps;
-    resolved.required_receipts = vec!["execution".to_string(), "verification".to_string()];
+    resolved.required_evidence = vec!["execution".to_string(), "verification".to_string()];
     resolved.instruction_contract = Some(ioi_types::app::agentic::InstructionContract {
         operation: "delegate".to_string(),
         side_effect_mode: ioi_types::app::agentic::InstructionSideEffectMode::ReadOnly,
@@ -719,7 +720,7 @@ async fn filesystem_read_directory_rewrites_to_list_directory() {
     let mut agent_state = test_agent_state();
     agent_state.working_directory = repo_root.to_string_lossy().to_string();
     let mut resolved = resolved_without_contract();
-    resolved.required_receipts.clear();
+    resolved.required_evidence.clear();
     agent_state.resolved_intent = Some(resolved);
 
     let state = IAVLTree::new(HashCommitmentScheme::new());
@@ -777,7 +778,7 @@ async fn filesystem_read_file_keeps_regular_file() {
     let mut agent_state = test_agent_state();
     agent_state.working_directory = repo_root.to_string_lossy().to_string();
     let mut resolved = resolved_without_contract();
-    resolved.required_receipts.clear();
+    resolved.required_evidence.clear();
     agent_state.resolved_intent = Some(resolved);
 
     let state = IAVLTree::new(HashCommitmentScheme::new());
@@ -836,7 +837,7 @@ async fn patch_build_verify_directory_read_redirects_to_first_likely_file() {
     agent_state.session_id = [0x44; 32];
     agent_state.working_directory = repo_root.to_string_lossy().to_string();
     let mut resolved = resolved_without_contract();
-    resolved.required_receipts.clear();
+    resolved.required_evidence.clear();
     agent_state.resolved_intent = Some(resolved);
 
     let mut state = IAVLTree::new(HashCommitmentScheme::new());
@@ -911,7 +912,7 @@ async fn patch_build_verify_stray_file_read_redirects_to_first_likely_file() {
     agent_state.session_id = [0x55; 32];
     agent_state.working_directory = repo_root.to_string_lossy().to_string();
     let mut resolved = resolved_without_contract();
-    resolved.required_receipts.clear();
+    resolved.required_evidence.clear();
     agent_state.resolved_intent = Some(resolved);
 
     let mut state = IAVLTree::new(HashCommitmentScheme::new());

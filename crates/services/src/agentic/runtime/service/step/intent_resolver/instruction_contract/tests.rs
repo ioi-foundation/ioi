@@ -451,53 +451,21 @@ fn seeds_coder_workflow_for_explicit_code_change_delegation() {
 }
 
 #[test]
-fn seeded_instruction_contract_helper_returns_coding_parent_playbook_contract() {
-    let contract = seeded_instruction_contract_for_intent(
+fn seeded_instruction_contract_helper_does_not_create_coding_parent_playbook_contract() {
+    assert!(seeded_instruction_contract_for_intent(
         "Port the path-normalization parity fix into the repo, run the focused tests first, and report what changed.",
         "workspace.ops",
     )
-    .expect("seeded coding contract should exist");
-
-    let playbook_binding = contract
-        .slot_bindings
-        .iter()
-        .find(|binding| binding.slot == "playbook_id")
-        .expect("coding parent playbook binding should exist");
-    assert_eq!(
-        playbook_binding.value.as_deref(),
-        Some("evidence_audited_patch")
-    );
-    let template_binding = contract
-        .slot_bindings
-        .iter()
-        .find(|binding| binding.slot == "template_id")
-        .expect("coding template binding should exist");
-    assert_eq!(template_binding.value.as_deref(), Some("context_worker"));
+    .is_none());
 }
 
 #[test]
-fn seeded_instruction_contract_helper_returns_research_parent_playbook_contract() {
-    let contract = seeded_instruction_contract_for_intent(
+fn seeded_instruction_contract_helper_does_not_create_research_parent_playbook_contract() {
+    assert!(seeded_instruction_contract_for_intent(
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.",
         "web.research",
     )
-    .expect("seeded research contract should exist");
-
-    let playbook_binding = contract
-        .slot_bindings
-        .iter()
-        .find(|binding| binding.slot == "playbook_id")
-        .expect("research parent playbook binding should exist");
-    assert_eq!(
-        playbook_binding.value.as_deref(),
-        Some("citation_grounded_brief")
-    );
-    let template_binding = contract
-        .slot_bindings
-        .iter()
-        .find(|binding| binding.slot == "template_id")
-        .expect("research template binding should exist");
-    assert_eq!(template_binding.value.as_deref(), Some("researcher"));
+    .is_none());
 }
 
 #[test]

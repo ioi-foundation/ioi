@@ -51,7 +51,7 @@
         tools.push(LlmToolDefinition {
             name: "media__extract_transcript".to_string(),
             description:
-                "Extract transcript text from a remote audio/video URL using managed media providers with provenance receipts."
+                "Extract transcript text from a remote audio/video URL using managed media providers with provenance evidence."
                     .to_string(),
             parameters: media_params.to_string(),
         });
@@ -69,7 +69,7 @@
         tools.push(LlmToolDefinition {
             name: "media__extract_evidence".to_string(),
             description:
-                "Extract transcript plus visual frame evidence from a remote audio/video URL using managed media tooling with provenance receipts."
+                "Extract transcript plus visual frame evidence from a remote audio/video URL using managed media tooling with provenance evidence."
                     .to_string(),
             parameters: multimodal_params.to_string(),
         });

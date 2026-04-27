@@ -782,7 +782,7 @@ pub fn parse_verification_facts(checks: &[String]) -> Vec<VerificationFact> {
 }
 
 fn normalize_environment_receipt_key(key: &str) -> Option<&str> {
-    key.trim().strip_prefix("env_receipt::")
+    key.trim().strip_prefix("env_evidence::")
 }
 
 fn is_environment_receipt_query(key: &str) -> bool {
@@ -1086,21 +1086,21 @@ mod tests {
     fn environment_receipt_queries_do_not_fallback_to_verification_facts() {
         let mut observation = empty_observation();
         observation.verification_facts.push(VerificationFact {
-            key: "env_receipt::fixture_mode".to_string(),
+            key: "env_evidence::fixture_mode".to_string(),
             value: Some("string_fallback".to_string()),
         });
 
         assert_eq!(
-            environment_value(&observation, "env_receipt::fixture_mode"),
+            environment_value(&observation, "env_evidence::fixture_mode"),
             None
         );
         assert_eq!(
-            verification_value(&observation, "env_receipt::fixture_mode"),
+            verification_value(&observation, "env_evidence::fixture_mode"),
             None
         );
         assert!(!has_verification_pair(
             &observation,
-            "env_receipt::fixture_mode",
+            "env_evidence::fixture_mode",
             "string_fallback"
         ));
     }
@@ -1119,23 +1119,23 @@ mod tests {
             });
 
         assert_eq!(
-            environment_value(&observation, "env_receipt::fixture_mode").as_deref(),
+            environment_value(&observation, "env_evidence::fixture_mode").as_deref(),
             Some("typed_runtime")
         );
         assert_eq!(
-            verification_value(&observation, "env_receipt::fixture_mode").as_deref(),
+            verification_value(&observation, "env_evidence::fixture_mode").as_deref(),
             Some("typed_runtime")
         );
         assert_eq!(
-            verification_value(&observation, "env_receipt::fixture_mode_probe_source").as_deref(),
+            verification_value(&observation, "env_evidence::fixture_mode_probe_source").as_deref(),
             Some("harness.fixture")
         );
         assert_eq!(
-            verification_bool(&observation, "env_receipt::fixture_mode_satisfied"),
+            verification_bool(&observation, "env_evidence::fixture_mode_satisfied"),
             Some(true)
         );
         assert_eq!(
-            verification_u64(&observation, "env_receipt::fixture_mode_timestamp_ms"),
+            verification_u64(&observation, "env_evidence::fixture_mode_timestamp_ms"),
             Some(42)
         );
     }

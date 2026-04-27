@@ -24,7 +24,7 @@ pub fn case() -> QueryCase {
     QueryCase {
         id: CASE_ID,
         query: "Draft an email to team@ioi.network saying tomorrow's standup is moved to 2 PM and send it.",
-        success_definition: "Draft and send the requested standup-update email through the generic mail.reply intent using mailbox connector runtime receipts, provider-specific send receipts, and no fallback degradation.",
+        success_definition: "Draft and send the requested standup-update email through the generic mail.reply intent using mailbox connector runtime evidence, provider-specific send evidence, and no fallback degradation.",
         seeded_intent_id: "mail.reply",
         intent_scope: IntentScopeProfile::Conversation,
         seed_resolved_intent: true,
@@ -215,21 +215,22 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
 
     let setup_root_configured = has_verification_pair(
         obs,
-        "env_receipt::mail_wallet_control_root_configured",
+        "env_evidence::mail_wallet_control_root_configured",
         "true",
     );
     let setup_client_registered = has_verification_pair(
         obs,
-        "env_receipt::mail_wallet_capability_client_registered",
+        "env_evidence::mail_wallet_capability_client_registered",
         "true",
     );
     let setup_connector_bootstrap =
-        has_verification_pair(obs, "env_receipt::mail_connector_bootstrap", "true");
-    let setup_binding_ready = has_verification_pair(obs, "env_receipt::mail_binding_ready", "true");
+        has_verification_pair(obs, "env_evidence::mail_connector_bootstrap", "true");
+    let setup_binding_ready =
+        has_verification_pair(obs, "env_evidence::mail_binding_ready", "true");
     let setup_send_capability_bound =
-        has_verification_pair(obs, "env_receipt::mail_send_capability_bound", "true");
+        has_verification_pair(obs, "env_evidence::mail_send_capability_bound", "true");
     let setup_receipt_timestamp_present =
-        verification_value(obs, "env_receipt::mail_setup_timestamp_ms").is_some();
+        verification_value(obs, "env_evidence::mail_setup_timestamp_ms").is_some();
 
     let google_provider_selected = provider_surface == "google_gmail_send"
         || gmail_send_tool_action_seen
@@ -520,6 +521,6 @@ fn build_environment_receipts(
     ]
 }
 
-fn serialize_environment_receipts(receipts: &[EnvironmentEvidenceReceipt]) -> String {
-    serde_json::to_string(receipts).unwrap_or_else(|_| "[]".to_string())
+fn serialize_environment_receipts(evidence: &[EnvironmentEvidenceReceipt]) -> String {
+    serde_json::to_string(evidence).unwrap_or_else(|_| "[]".to_string())
 }

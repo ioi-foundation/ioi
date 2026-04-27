@@ -1,15 +1,17 @@
 use super::brief::{normalize_chat_outcome_planning_value, parse_chat_json_object_value};
 use super::shared::{chat_planning_trace, truncate_planning_preview};
 use crate::chat::intent_signals::ChatIntentContext;
+use crate::chat::specialized_policy::chat_normalized_request_clarification_slots;
 use crate::chat::validation::chat_artifact_refinement_context_view;
 use crate::chat::*;
 use crate::vm::inference::InferenceRuntime;
 use ioi_types::app::agentic::InferenceOptions;
+use ioi_types::app::ChatSourceFamily;
 use ioi_types::app::{
     ChatArtifactClass, ChatArtifactDeliverableShape, ChatArtifactPersistenceMode,
-    ChatExecutionStrategy, ChatExecutionSubstrate, ChatOutcomeArtifactRequest,
-    ChatOutcomeArtifactScope, ChatOutcomeArtifactVerificationRequest, ChatOutcomeKind,
-    ChatOutcomePlanningPayload, ChatPresentationSurface, ChatRendererKind,
+    ChatExecutionStrategy, ChatExecutionSubstrate, ChatNormalizedRequest,
+    ChatOutcomeArtifactRequest, ChatOutcomeArtifactScope, ChatOutcomeArtifactVerificationRequest,
+    ChatOutcomeKind, ChatOutcomePlanningPayload, ChatPresentationSurface, ChatRendererKind,
     ChatRuntimeProvenanceKind,
 };
 use serde_json::json;
@@ -28,6 +30,16 @@ fn compact_local_outcome_router_refinement_context(
         "title": truncate_planning_preview(&refinement.title, 120),
         "summary": truncate_planning_preview(&refinement.summary, 220),
         "renderer": refinement.renderer,
+        "interactionPlanCount": refinement
+            .blueprint
+            .as_ref()
+            .map(|blueprint| blueprint.interaction_plan.len())
+            .unwrap_or_default(),
+        "interactionGraphCount": refinement
+            .artifact_ir
+            .as_ref()
+            .map(|artifact_ir| artifact_ir.interaction_graph.len())
+            .unwrap_or_default(),
         "files": refinement
             .files
             .iter()
@@ -82,7 +94,7 @@ fn build_compact_local_outcome_router_prompt(
            \"confidence\": <0_to_1_float>,\n\
            \"needsClarification\": <boolean>,\n\
            \"clarificationQuestions\": [<string>],\n\
-           \"routingHints\": [<string>],\n\
+           \"decisionEvidence\": [<string>],\n\
            \"artifact\": null | {{\n\
              \"renderer\": \"markdown\" | \"html_iframe\" | \"jsx_sandbox\" | \"svg\" | \"mermaid\" | \"pdf_embed\" | \"download_card\" | \"workspace_surface\" | \"bundle_manifest\",\n\
              \"artifactClass\": \"document\" | \"visual\" | \"interactive_single_file\" | \"downloadable_file\" | \"workspace_project\" | \"compound_bundle\" | \"code_patch\" | \"report_bundle\",\n\
@@ -100,7 +112,7 @@ fn build_compact_local_outcome_router_prompt(
          - workspace_surface only when a real multi-file workspace and supervised preview runtime are required.\n\
          - Explicit medium-plus-deliverable requests are sufficiently specified artifact work.\n\
          - direct_author only for a fresh coherent single-file artifact; follow-up edits should continue the active artifact.\n\
-         - For tool_widget, include exactly one routingHints entry of tool_widget:weather | tool_widget:recipe | tool_widget:sports | tool_widget:places | tool_widget:user_input.\n\
+         - For tool_widget, include exactly one decisionEvidence entry of tool_widget:weather | tool_widget:recipe | tool_widget:sports | tool_widget:places | tool_widget:user_input.\n\
          - Include currentness_override when the request requires fresh or up-to-date information.\n\
          - Include workspace_grounding_required and coding_workspace_context when the answer should come from the current repo or workspace.\n\
          - Include downloadable_export_requested for download_card or bundle_manifest artifacts, plus download_format:<ext> when the requested export format is explicit.\n\
@@ -143,7 +155,7 @@ fn build_compact_local_follow_up_outcome_router_prompt(
            \"confidence\": <0_to_1_float>,\n\
            \"needsClarification\": <boolean>,\n\
            \"clarificationQuestions\": [<string>],\n\
-           \"routingHints\": [<string>],\n\
+           \"decisionEvidence\": [<string>],\n\
            \"artifact\": null | {{\n\
              \"renderer\": \"markdown\" | \"html_iframe\" | \"jsx_sandbox\" | \"svg\" | \"mermaid\" | \"pdf_embed\" | \"download_card\" | \"workspace_surface\" | \"bundle_manifest\",\n\
              \"workspaceRecipeId\": null | \"react-vite\" | \"vite-static-html\",\n\
@@ -232,9 +244,9 @@ pub async fn plan_chat_outcome_with_runtime(
     ));
     let mut planning = parse_chat_outcome_planning_payload(&raw)?;
     planning.artifact = planning.artifact.map(canonicalize_artifact_request);
-    enforce_contextual_routing_contract(&mut planning, intent, active_artifact_id);
-    let contract_hints = default_routing_hints_for_planning(&planning);
-    merge_routing_hints(&mut planning.routing_hints, contract_hints);
+    enforce_contextual_routing_contract(&mut planning, intent, active_artifact_id, active_artifact);
+    let contract_hints = default_decision_evidence_for_planning(&planning);
+    merge_decision_evidence(&mut planning.decision_evidence, contract_hints);
     let planning_confidence = planning.confidence;
     apply_topology_projection_to_planning(
         &mut planning,
@@ -257,6 +269,7 @@ fn enforce_contextual_routing_contract(
     planning: &mut ChatOutcomePlanningPayload,
     intent: &str,
     active_artifact_id: Option<&str>,
+    active_artifact: Option<&ChatArtifactRefinementContext>,
 ) {
     let context = ChatIntentContext::new(intent);
     let explicit_renderer = context
@@ -273,16 +286,16 @@ fn enforce_contextual_routing_contract(
 
     if context.explicitly_declines_persistent_artifact() {
         force_conversation_route(planning);
-        remove_routing_hints(
-            &mut planning.routing_hints,
+        remove_decision_evidence(
+            &mut planning.decision_evidence,
             &[
                 "persistent_artifact_requested",
                 "workspace_grounding_required",
                 "coding_workspace_context",
             ],
         );
-        merge_routing_hints(
-            &mut planning.routing_hints,
+        merge_decision_evidence(
+            &mut planning.decision_evidence,
             vec![
                 "no_persistent_artifact_requested".to_string(),
                 "shared_answer_surface".to_string(),
@@ -293,8 +306,8 @@ fn enforce_contextual_routing_contract(
         force_artifact_route(planning, renderer);
     } else if planning.outcome_kind == ChatOutcomeKind::Artifact && !artifact_allowed {
         force_conversation_route(planning);
-        merge_routing_hints(
-            &mut planning.routing_hints,
+        merge_decision_evidence(
+            &mut planning.decision_evidence,
             vec![
                 "no_persistent_artifact_requested".to_string(),
                 "shared_answer_surface".to_string(),
@@ -308,7 +321,7 @@ fn enforce_contextual_routing_contract(
         }
     } else if planning.outcome_kind == ChatOutcomeKind::ToolWidget {
         if let Some(widget_family) =
-            tool_widget_family_hint(&planning.routing_hints).map(str::to_string)
+            tool_widget_family_hint(&planning.decision_evidence).map(str::to_string)
         {
             if matches!(
                 widget_family.as_str(),
@@ -316,12 +329,12 @@ fn enforce_contextual_routing_contract(
             ) && context.tool_widget_family() != Some(widget_family.as_str())
             {
                 force_conversation_route(planning);
-                remove_routing_hints(
-                    &mut planning.routing_hints,
+                remove_decision_evidence(
+                    &mut planning.decision_evidence,
                     &["tool_widget:", "narrow_surface_preferred"],
                 );
-                merge_routing_hints(
-                    &mut planning.routing_hints,
+                merge_decision_evidence(
+                    &mut planning.decision_evidence,
                     vec![
                         "no_persistent_artifact_requested".to_string(),
                         "shared_answer_surface".to_string(),
@@ -337,11 +350,82 @@ fn enforce_contextual_routing_contract(
             Some(ChatRendererKind::WorkspaceSurface)
         )
     {
-        remove_routing_hints(
-            &mut planning.routing_hints,
+        remove_decision_evidence(
+            &mut planning.decision_evidence,
             &["workspace_grounding_required", "coding_workspace_context"],
         );
     }
+
+    preserve_active_artifact_contract(planning, &context, active_artifact);
+
+    if planning.outcome_kind == ChatOutcomeKind::Artifact
+        && context.explicit_interactive_single_document_signal()
+    {
+        let artifact = planning.artifact.get_or_insert_with(|| {
+            default_artifact_request_for_renderer(ChatRendererKind::HtmlIframe)
+        });
+        if artifact.renderer == ChatRendererKind::HtmlIframe {
+            artifact.artifact_class = ChatArtifactClass::InteractiveSingleFile;
+            artifact.execution_substrate = ChatExecutionSubstrate::ClientSandbox;
+            artifact.verification.require_render = true;
+            merge_decision_evidence(
+                &mut planning.decision_evidence,
+                vec!["interactive_single_file_artifact".to_string()],
+            );
+        }
+    }
+}
+
+fn active_refinement_has_interaction_contract(refinement: &ChatArtifactRefinementContext) -> bool {
+    refinement.renderer == ChatRendererKind::HtmlIframe
+        && (refinement
+            .blueprint
+            .as_ref()
+            .is_some_and(|blueprint| !blueprint.interaction_plan.is_empty())
+            || refinement
+                .artifact_ir
+                .as_ref()
+                .is_some_and(|artifact_ir| !artifact_ir.interaction_graph.is_empty()))
+}
+
+fn preserve_active_artifact_contract(
+    planning: &mut ChatOutcomePlanningPayload,
+    context: &ChatIntentContext,
+    active_artifact: Option<&ChatArtifactRefinementContext>,
+) {
+    if planning.outcome_kind != ChatOutcomeKind::Artifact {
+        return;
+    }
+    let Some(active_artifact) = active_artifact else {
+        return;
+    };
+
+    let explicit_renderer = context
+        .explicit_single_document_renderer()
+        .map(|(renderer, _)| renderer);
+    let preserve_renderer = explicit_renderer.is_none();
+    let mut artifact = planning
+        .artifact
+        .take()
+        .unwrap_or_else(|| default_artifact_request_for_renderer(active_artifact.renderer));
+    if preserve_renderer {
+        artifact.renderer = active_artifact.renderer;
+    }
+    let mut artifact = canonicalize_artifact_request(artifact);
+
+    if artifact.renderer == ChatRendererKind::HtmlIframe
+        && active_refinement_has_interaction_contract(active_artifact)
+    {
+        artifact.artifact_class = ChatArtifactClass::InteractiveSingleFile;
+        artifact.execution_substrate = ChatExecutionSubstrate::ClientSandbox;
+        artifact.verification.require_render = true;
+        merge_decision_evidence(
+            &mut planning.decision_evidence,
+            vec!["interactive_single_file_artifact".to_string()],
+        );
+    }
+
+    planning.artifact = Some(artifact);
 }
 
 fn force_tool_widget_route(planning: &mut ChatOutcomePlanningPayload, widget_family: &str) {
@@ -350,12 +434,12 @@ fn force_tool_widget_route(planning: &mut ChatOutcomePlanningPayload, widget_fam
         planning.execution_strategy = ChatExecutionStrategy::PlanExecute;
     }
     planning.artifact = None;
-    remove_routing_hints(
-        &mut planning.routing_hints,
+    remove_decision_evidence(
+        &mut planning.decision_evidence,
         &["no_persistent_artifact_requested", "shared_answer_surface"],
     );
-    merge_routing_hints(
-        &mut planning.routing_hints,
+    merge_decision_evidence(
+        &mut planning.decision_evidence,
         vec![
             format!("tool_widget:{widget_family}"),
             "narrow_surface_preferred".to_string(),
@@ -363,8 +447,8 @@ fn force_tool_widget_route(planning: &mut ChatOutcomePlanningPayload, widget_fam
     );
 }
 
-fn tool_widget_family_hint(routing_hints: &[String]) -> Option<&str> {
-    routing_hints
+fn tool_widget_family_hint(decision_evidence: &[String]) -> Option<&str> {
+    decision_evidence
         .iter()
         .find_map(|hint| hint.strip_prefix("tool_widget:"))
 }
@@ -380,8 +464,8 @@ fn force_conversation_route(planning: &mut ChatOutcomePlanningPayload) {
     planning.artifact = None;
     planning.needs_clarification = false;
     planning.clarification_questions.clear();
-    remove_routing_hints(
-        &mut planning.routing_hints,
+    remove_decision_evidence(
+        &mut planning.decision_evidence,
         &[
             "persistent_artifact_requested",
             "downloadable_export_requested",
@@ -396,12 +480,17 @@ fn force_artifact_route(planning: &mut ChatOutcomePlanningPayload, renderer: Cha
     planning.needs_clarification = false;
     planning.clarification_questions.clear();
     planning.artifact = Some(default_artifact_request_for_renderer(renderer));
-    remove_routing_hints(
-        &mut planning.routing_hints,
-        &["no_persistent_artifact_requested", "shared_answer_surface"],
+    remove_decision_evidence(
+        &mut planning.decision_evidence,
+        &[
+            "no_persistent_artifact_requested",
+            "shared_answer_surface",
+            "tool_widget:",
+            "narrow_surface_preferred",
+        ],
     );
-    merge_routing_hints(
-        &mut planning.routing_hints,
+    merge_decision_evidence(
+        &mut planning.decision_evidence,
         vec!["persistent_artifact_requested".to_string()],
     );
 }
@@ -439,7 +528,7 @@ fn default_artifact_request_for_renderer(renderer: ChatRendererKind) -> ChatOutc
     })
 }
 
-fn remove_routing_hints(target: &mut Vec<String>, removals: &[&str]) {
+fn remove_decision_evidence(target: &mut Vec<String>, removals: &[&str]) {
     target.retain(|hint| {
         !removals.iter().any(|removal| {
             hint == removal
@@ -455,6 +544,22 @@ fn apply_topology_projection_to_planning(
     active_artifact_id: Option<&str>,
     confidence: f32,
 ) {
+    apply_topology_projection_fields(planning, intent, active_artifact_id, confidence);
+    let mut changed = clear_model_clarification_for_complete_specialized_frame(planning);
+    if promote_conversation_to_specialized_outcome_from_typed_frame(planning) {
+        changed = true;
+    }
+    if changed {
+        apply_topology_projection_fields(planning, intent, active_artifact_id, confidence);
+    }
+}
+
+fn apply_topology_projection_fields(
+    planning: &mut ChatOutcomePlanningPayload,
+    intent: &str,
+    active_artifact_id: Option<&str>,
+    confidence: f32,
+) {
     let projection = derive_chat_topology_projection(
         intent,
         active_artifact_id,
@@ -465,15 +570,81 @@ fn apply_topology_projection_to_planning(
         confidence,
         planning.needs_clarification,
         &planning.clarification_questions,
-        &planning.routing_hints,
+        &planning.decision_evidence,
         planning.artifact.as_ref(),
     );
-    planning.lane_frame = projection.lane_frame;
-    planning.request_frame = projection.request_frame;
-    planning.source_selection = projection.source_selection;
+    planning.lane_request = projection.lane_request;
+    planning.normalized_request = projection.normalized_request;
+    planning.source_decision = projection.source_decision;
     planning.retained_lane_state = projection.retained_lane_state;
     planning.lane_transitions = projection.lane_transitions;
     planning.orchestration_state = projection.orchestration_state;
+}
+
+fn promote_conversation_to_specialized_outcome_from_typed_frame(
+    planning: &mut ChatOutcomePlanningPayload,
+) -> bool {
+    if planning.outcome_kind != ChatOutcomeKind::Conversation {
+        return false;
+    }
+
+    let Some(frame) = planning.normalized_request.as_ref() else {
+        return false;
+    };
+
+    let widget_family = match frame {
+        ChatNormalizedRequest::Weather(_) => "weather",
+        ChatNormalizedRequest::Sports(_) => "sports",
+        ChatNormalizedRequest::Places(_) => "places",
+        ChatNormalizedRequest::Recipe(_) => "recipe",
+        ChatNormalizedRequest::MessageCompose(_) | ChatNormalizedRequest::UserInput(_) => {
+            return false
+        }
+    };
+
+    let selected_specialized_tool = planning
+        .source_decision
+        .as_ref()
+        .is_some_and(|selection| selection.selected_source == ChatSourceFamily::SpecializedTool);
+    if !selected_specialized_tool {
+        return false;
+    }
+
+    force_tool_widget_route(planning, widget_family);
+    true
+}
+
+fn complete_specialized_tool_frame(planning: &ChatOutcomePlanningPayload) -> bool {
+    let Some(frame) = planning.normalized_request.as_ref() else {
+        return false;
+    };
+    if !matches!(
+        frame,
+        ChatNormalizedRequest::Weather(_)
+            | ChatNormalizedRequest::Sports(_)
+            | ChatNormalizedRequest::Places(_)
+            | ChatNormalizedRequest::Recipe(_)
+    ) {
+        return false;
+    }
+    if !chat_normalized_request_clarification_slots(frame).is_empty() {
+        return false;
+    }
+    planning
+        .source_decision
+        .as_ref()
+        .is_some_and(|selection| selection.selected_source == ChatSourceFamily::SpecializedTool)
+}
+
+fn clear_model_clarification_for_complete_specialized_frame(
+    planning: &mut ChatOutcomePlanningPayload,
+) -> bool {
+    if !planning.needs_clarification || !complete_specialized_tool_frame(planning) {
+        return false;
+    }
+    planning.needs_clarification = false;
+    planning.clarification_questions.clear();
+    true
 }
 
 pub fn build_chat_outcome_router_prompt(
@@ -514,7 +685,7 @@ pub(crate) fn build_chat_outcome_router_prompt_for_runtime(
         chat_artifact_refinement_context_view(active_artifact).to_string();
     let system_content = "You are Chat's typed outcome router. Route a user request to exactly one outcome kind: conversation, tool_widget, visualizer, or artifact. Do not guess. If confidence is low, set needsClarification true. Workspace is only one artifact renderer, not the default. Artifact output must be chosen when the request should become a persistent work product. When an active artifact context is supplied, continue that artifact by default for under-specified follow-up edits instead of switching renderer families. Output JSON only.";
     let user_content = format!(
-        "Request:\n{}\n\nActive artifact id: {}\n\nActive artifact context JSON:\n{}\n\nReturn exactly one JSON object with this camelCase schema:\n{{\n  \"outcomeKind\": \"conversation\" | \"tool_widget\" | \"visualizer\" | \"artifact\",\n  \"executionStrategy\": \"single_pass\" | \"direct_author\" | \"plan_execute\" | \"micro_swarm\" | \"adaptive_work_graph\",\n  \"confidence\": <0_to_1_float>,\n  \"needsClarification\": <boolean>,\n  \"clarificationQuestions\": [<string>],\n  \"routingHints\": [<string>],\n  \"artifact\": null | {{\n    \"artifactClass\": \"document\" | \"visual\" | \"interactive_single_file\" | \"downloadable_file\" | \"workspace_project\" | \"compound_bundle\" | \"code_patch\" | \"report_bundle\",\n    \"deliverableShape\": \"single_file\" | \"file_set\" | \"workspace_project\",\n    \"renderer\": \"markdown\" | \"html_iframe\" | \"jsx_sandbox\" | \"svg\" | \"mermaid\" | \"pdf_embed\" | \"download_card\" | \"workspace_surface\" | \"bundle_manifest\",\n    \"presentationSurface\": \"inline\" | \"side_panel\" | \"overlay\" | \"tabbed_panel\",\n    \"persistence\": \"ephemeral\" | \"artifact_scoped\" | \"shared_artifact_scoped\" | \"workspace_filesystem\",\n    \"executionSubstrate\": \"none\" | \"client_sandbox\" | \"binary_generator\" | \"workspace_runtime\",\n    \"workspaceRecipeId\": null | \"react-vite\" | \"vite-static-html\",\n    \"presentationVariantId\": null | \"sport-editorial\" | \"minimal-agency\" | \"hospitality-retreat\" | \"product-launch\",\n    \"scope\": {{\n      \"targetProject\": null | <string>,\n      \"createNewWorkspace\": <boolean>,\n      \"mutationBoundary\": [<string>]\n    }},\n    \"verification\": {{\n      \"requireRender\": <boolean>,\n      \"requireBuild\": <boolean>,\n      \"requirePreview\": <boolean>,\n      \"requireExport\": <boolean>,\n      \"requireDiffReview\": <boolean>\n    }}\n  }}\n}}\nExecution strategy contracts:\n- single_pass = one bounded draft with no candidate search.\n- direct_author = direct first-pass authoring for one coherent single-document artifact; preserve the raw request and skip planner scaffolding on the first generation.\n- plan_execute = default when one planned execution unit is sufficient.\n- micro_swarm = use when the request implies a small known work graph.\n- adaptive_work_graph = use only when the request clearly needs a mutable multi-node work graph.\nRenderer contracts:\n- markdown = a single renderable .md document.\n- html_iframe = a single self-contained .html document for browser presentation. Choose this when the final artifact should be HTML itself, such as a landing page, explainer, launch page, editorial page, or browser-native interactive document.\n- jsx_sandbox = a single .jsx source module with a default export. Choose this only when the final artifact should be JSX/React source as the work product rather than a plain HTML document.\n- svg = a single .svg visual artifact.\n- mermaid = a single .mermaid diagram source artifact.\n- pdf_embed = a document artifact that will be compiled into PDF bytes.\n- download_card = downloadable files or exports, not a primary inline document surface.\n- workspace_surface = a real multi-file workspace with supervised build/preview.\nCoherence rules:\n- html_iframe uses single_file deliverableShape and client_sandbox executionSubstrate, and may be artifactClass=document for plain authored HTML or interactive_single_file when the request truly needs browser interaction.\n- jsx_sandbox is an interactive_single_file artifact with single_file deliverableShape and client_sandbox executionSubstrate.\n- workspace_surface is the only renderer that may use workspace_project deliverableShape, workspace_runtime executionSubstrate, createNewWorkspace=true, requireBuild=true, or requirePreview=true.\n- Non-workspace artifact renderers should not request build or preview verification.\nRules:\n1) conversation is for plain reply only.\n2) tool_widget is for first-party tool display surfaces.\n3) visualizer is for ephemeral inline visuals.\n4) artifact is for persistent work products.\n5) Use workspace_surface only when a real multi-file workspace and preview runtime are required.\n6) Prefer direct_author for a fresh coherent single-file document ask that the model can author directly, such as markdown, html_iframe, svg, mermaid, or pdf_embed; otherwise prefer plan_execute unless the request is trivial enough for single_pass, small-graph enough for micro_swarm, or clearly mutable enough for adaptive_work_graph.\n7) Treat explicit medium-plus-deliverable requests as sufficiently specified artifact work. If the user already asked for an HTML artifact, landing page, launch page, editorial page, markdown document, SVG concept, Mermaid diagram, PDF artifact, downloadable bundle, or workspace project, do not ask clarification merely to restate that same deliverable form.\n8) For example, \"Create an interactive HTML artifact for an AI tools editorial launch page\" is already an artifact request for html_iframe, not a clarification request.\n9) When active artifact context JSON is not null and the request is a follow-up refinement, patch or branch the current artifact by default instead of switching renderer, artifactClass, or deliverableShape unless the user explicitly asks for a different deliverable form.\n10) Under-specified follow-up requests should continue the active artifact rather than restarting as a new artifact kind.\n11) For tool_widget, include exactly one routingHints entry of tool_widget:weather | tool_widget:recipe | tool_widget:sports | tool_widget:places | tool_widget:user_input.\n12) Include currentness_override when the request requires fresh or up-to-date information.\n13) Include workspace_grounding_required and coding_workspace_context when the answer should come from the current repo or workspace.\n14) Include downloadable_export_requested for download_card or bundle_manifest artifacts, plus download_format:<ext> when the requested export format is explicit.\n15) Include shared_answer_surface for inline conversation answers and narrow_surface_preferred when you choose a tool_widget.\n16) Do not use lexical fallbacks or benchmark phrase maps.\n17) When uncertainty remains about a required missing constraint, keep confidence low and ask clarification.",
+        "Request:\n{}\n\nActive artifact id: {}\n\nActive artifact context JSON:\n{}\n\nReturn exactly one JSON object with this camelCase schema:\n{{\n  \"outcomeKind\": \"conversation\" | \"tool_widget\" | \"visualizer\" | \"artifact\",\n  \"executionStrategy\": \"single_pass\" | \"direct_author\" | \"plan_execute\" | \"micro_swarm\" | \"adaptive_work_graph\",\n  \"confidence\": <0_to_1_float>,\n  \"needsClarification\": <boolean>,\n  \"clarificationQuestions\": [<string>],\n  \"decisionEvidence\": [<string>],\n  \"artifact\": null | {{\n    \"artifactClass\": \"document\" | \"visual\" | \"interactive_single_file\" | \"downloadable_file\" | \"workspace_project\" | \"compound_bundle\" | \"code_patch\" | \"report_bundle\",\n    \"deliverableShape\": \"single_file\" | \"file_set\" | \"workspace_project\",\n    \"renderer\": \"markdown\" | \"html_iframe\" | \"jsx_sandbox\" | \"svg\" | \"mermaid\" | \"pdf_embed\" | \"download_card\" | \"workspace_surface\" | \"bundle_manifest\",\n    \"presentationSurface\": \"inline\" | \"side_panel\" | \"overlay\" | \"tabbed_panel\",\n    \"persistence\": \"ephemeral\" | \"artifact_scoped\" | \"shared_artifact_scoped\" | \"workspace_filesystem\",\n    \"executionSubstrate\": \"none\" | \"client_sandbox\" | \"binary_generator\" | \"workspace_runtime\",\n    \"workspaceRecipeId\": null | \"react-vite\" | \"vite-static-html\",\n    \"presentationVariantId\": null | \"sport-editorial\" | \"minimal-agency\" | \"hospitality-retreat\" | \"product-launch\",\n    \"scope\": {{\n      \"targetProject\": null | <string>,\n      \"createNewWorkspace\": <boolean>,\n      \"mutationBoundary\": [<string>]\n    }},\n    \"verification\": {{\n      \"requireRender\": <boolean>,\n      \"requireBuild\": <boolean>,\n      \"requirePreview\": <boolean>,\n      \"requireExport\": <boolean>,\n      \"requireDiffReview\": <boolean>\n    }}\n  }}\n}}\nExecution strategy contracts:\n- single_pass = one bounded draft with no candidate search.\n- direct_author = direct first-pass authoring for one coherent single-document artifact; preserve the raw request and skip planner scaffolding on the first generation.\n- plan_execute = default when one planned execution unit is sufficient.\n- micro_swarm = use when the request implies a small known work graph.\n- adaptive_work_graph = use only when the request clearly needs a mutable multi-node work graph.\nRenderer contracts:\n- markdown = a single renderable .md document.\n- html_iframe = a single self-contained .html document for browser presentation. Choose this when the final artifact should be HTML itself, such as a landing page, explainer, launch page, editorial page, or browser-native interactive document.\n- jsx_sandbox = a single .jsx source module with a default export. Choose this only when the final artifact should be JSX/React source as the work product rather than a plain HTML document.\n- svg = a single .svg visual artifact.\n- mermaid = a single .mermaid diagram source artifact.\n- pdf_embed = a document artifact that will be compiled into PDF bytes.\n- download_card = downloadable files or exports, not a primary inline document surface.\n- workspace_surface = a real multi-file workspace with supervised build/preview.\nCoherence rules:\n- html_iframe uses single_file deliverableShape and client_sandbox executionSubstrate, and may be artifactClass=document for plain authored HTML or interactive_single_file when the request truly needs browser interaction.\n- jsx_sandbox is an interactive_single_file artifact with single_file deliverableShape and client_sandbox executionSubstrate.\n- workspace_surface is the only renderer that may use workspace_project deliverableShape, workspace_runtime executionSubstrate, createNewWorkspace=true, requireBuild=true, or requirePreview=true.\n- Non-workspace artifact renderers should not request build or preview verification.\nRules:\n1) conversation is for plain reply only.\n2) tool_widget is for first-party tool display surfaces.\n3) visualizer is for ephemeral inline visuals.\n4) artifact is for persistent work products.\n5) Use workspace_surface only when a real multi-file workspace and preview runtime are required.\n6) Prefer direct_author for a fresh coherent single-file document ask that the model can author directly, such as markdown, html_iframe, svg, mermaid, or pdf_embed; otherwise prefer plan_execute unless the request is trivial enough for single_pass, small-graph enough for micro_swarm, or clearly mutable enough for adaptive_work_graph.\n7) Treat explicit medium-plus-deliverable requests as sufficiently specified artifact work. If the user already asked for an HTML artifact, landing page, launch page, editorial page, markdown document, SVG concept, Mermaid diagram, PDF artifact, downloadable bundle, or workspace project, do not ask clarification merely to restate that same deliverable form.\n8) For example, \"Create an interactive HTML artifact for an AI tools editorial launch page\" is already an artifact request for html_iframe, not a clarification request.\n9) When active artifact context JSON is not null and the request is a follow-up refinement, patch or branch the current artifact by default instead of switching renderer, artifactClass, or deliverableShape unless the user explicitly asks for a different deliverable form.\n10) Under-specified follow-up requests should continue the active artifact rather than restarting as a new artifact kind.\n11) For tool_widget, include exactly one decisionEvidence entry of tool_widget:weather | tool_widget:recipe | tool_widget:sports | tool_widget:places | tool_widget:user_input.\n12) Include currentness_override when the request requires fresh or up-to-date information.\n13) Include workspace_grounding_required and coding_workspace_context when the answer should come from the current repo or workspace.\n14) Include downloadable_export_requested for download_card or bundle_manifest artifacts, plus download_format:<ext> when the requested export format is explicit.\n15) Include shared_answer_surface for inline conversation answers and narrow_surface_preferred when you choose a tool_widget.\n16) Do not use lexical fallbacks or benchmark phrase maps.\n17) When uncertainty remains about a required missing constraint, keep confidence low and ask clarification.",
         intent,
         active_artifact_id.unwrap_or("<none>"),
         active_artifact_context_json,
@@ -627,7 +798,7 @@ fn canonicalize_artifact_request(
     }
 }
 
-fn merge_routing_hints(target: &mut Vec<String>, incoming: Vec<String>) {
+fn merge_decision_evidence(target: &mut Vec<String>, incoming: Vec<String>) {
     for hint in incoming {
         if target.iter().any(|existing| existing == &hint) {
             continue;
@@ -636,7 +807,7 @@ fn merge_routing_hints(target: &mut Vec<String>, incoming: Vec<String>) {
     }
 }
 
-fn default_routing_hints_for_planning(planning: &ChatOutcomePlanningPayload) -> Vec<String> {
+fn default_decision_evidence_for_planning(planning: &ChatOutcomePlanningPayload) -> Vec<String> {
     let mut hints = Vec::<String>::new();
     match planning.outcome_kind {
         ChatOutcomeKind::Artifact => {
@@ -660,7 +831,7 @@ fn default_routing_hints_for_planning(planning: &ChatOutcomePlanningPayload) -> 
 
     if planning.outcome_kind == ChatOutcomeKind::ToolWidget
         && planning
-            .routing_hints
+            .decision_evidence
             .iter()
             .any(|hint| hint.starts_with("tool_widget:"))
     {

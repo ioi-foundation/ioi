@@ -6,7 +6,7 @@ fn resolve_researcher_assignment_uses_template_defaults() {
         [0x11; 32],
         4,
         120,
-        "Research latest grounding receipts",
+        "Research latest grounding evidence",
         None,
         Some("researcher"),
         None,
