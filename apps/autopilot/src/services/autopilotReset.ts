@@ -66,7 +66,15 @@ export async function resetAutopilotFrontendState(): Promise<void> {
   window.location.reload();
 }
 
+function isTauriRuntime(): boolean {
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+}
+
 export function listenForAutopilotDataReset(): Promise<() => void> {
+  if (!isTauriRuntime()) {
+    return Promise.resolve(() => {});
+  }
+
   return listen("autopilot-data-reset", () => {
     void resetAutopilotFrontendState();
   });

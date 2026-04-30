@@ -1500,6 +1500,8 @@ pub fn export_workflow_package(
         workflow_name: bundle.workflow.metadata.name.clone(),
         workflow_slug: bundle.workflow.metadata.slug.clone(),
         source_workflow_path: workflow_path.display().to_string(),
+        harness: bundle.workflow.metadata.harness.clone(),
+        worker_harness_binding: bundle.workflow.metadata.worker_harness_binding.clone(),
         readiness_status: readiness.status.clone(),
         portable: readiness.status != "blocked",
         blockers,

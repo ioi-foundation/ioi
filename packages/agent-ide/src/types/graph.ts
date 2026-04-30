@@ -559,6 +559,7 @@ export interface Node extends Record<string, unknown> {
   outputs?: string[];
   ports?: WorkflowPortDefinition[];
   ioTypes?: { in: string; out: string };
+  runtimeBinding?: WorkflowHarnessNodeBinding;
   
   isGhost?: boolean;
   attested?: boolean;
@@ -722,6 +723,136 @@ export type WorkflowKind =
 
 export type WorkflowExecutionMode = "local" | "external_adapter" | "hybrid";
 
+export type WorkflowHarnessComponentKind =
+  | "planner"
+  | "model_router"
+  | "model_call"
+  | "tool_router"
+  | "tool_call"
+  | "mcp_provider"
+  | "mcp_tool_call"
+  | "connector_call"
+  | "policy_gate"
+  | "approval_gate"
+  | "wallet_capability"
+  | "memory_read"
+  | "memory_write"
+  | "verifier"
+  | "output_writer"
+  | "receipt_writer"
+  | "retry_policy"
+  | "repair_loop"
+  | "merge_judge"
+  | "completion_gate";
+
+export type WorkflowHarnessSlotKind =
+  | "model_policy"
+  | "tool_grant_policy"
+  | "verifier_policy"
+  | "approval_policy"
+  | "output_policy"
+  | "memory_policy"
+  | "retry_repair_policy";
+
+export interface WorkflowHarnessRetryBehavior {
+  maxAttempts: number;
+  backoffMs: number;
+  retryableErrors: string[];
+}
+
+export interface WorkflowHarnessTimeoutBehavior {
+  timeoutMs: number;
+  cancellation: "cooperative" | "hard" | "none";
+}
+
+export interface WorkflowHarnessApprovalSemantics {
+  required: boolean;
+  mode: "none" | "policy_gate" | "human_gate" | "wallet_capability";
+  reason: string;
+}
+
+export interface WorkflowHarnessComponentSpec {
+  componentId: string;
+  version: string;
+  kind: WorkflowHarnessComponentKind;
+  label: string;
+  description: string;
+  kernelRef: string;
+  inputSchema: unknown;
+  outputSchema: unknown;
+  errorSchema: unknown;
+  timeout: WorkflowHarnessTimeoutBehavior;
+  retry: WorkflowHarnessRetryBehavior;
+  requiredCapabilityScope: string[];
+  approval: WorkflowHarnessApprovalSemantics;
+  emittedEvents: string[];
+  evidence: string[];
+  ui: {
+    icon: string;
+    group: string;
+    summary: string;
+  };
+}
+
+export interface WorkflowHarnessSlotSpec {
+  slotId: string;
+  kind: WorkflowHarnessSlotKind;
+  label: string;
+  description: string;
+  required: boolean;
+  allowedComponentKinds: WorkflowHarnessComponentKind[];
+  defaultComponentId?: string;
+  validation: {
+    blocksActivation: boolean;
+    reason: string;
+  };
+}
+
+export interface WorkflowHarnessNodeBinding {
+  componentId: string;
+  componentVersion: string;
+  componentKind: WorkflowHarnessComponentKind;
+  kernelRef: string;
+  slotIds?: string[];
+  evidenceEventKinds: string[];
+  receiptKinds: string[];
+  replay: {
+    deterministicEnvelope: boolean;
+    capturesInput: boolean;
+    capturesOutput: boolean;
+    capturesPolicyDecision: boolean;
+  };
+}
+
+export interface WorkflowHarnessMetadata {
+  schemaVersion: "workflow.harness.v1" | string;
+  harnessWorkflowId: string;
+  harnessVersion: string;
+  harnessHash: string;
+  templateName: string;
+  blessed: boolean;
+  forkable: boolean;
+  forkedFrom?: {
+    harnessWorkflowId: string;
+    harnessVersion: string;
+    harnessHash: string;
+  };
+  packageName?: string;
+  activationId?: string;
+  activationState?: "read_only" | "draft" | "blocked" | "validated" | "active";
+  validationGates: string[];
+  aiMutationMode: "proposal_only";
+  componentIds: string[];
+  slotIds: string[];
+}
+
+export interface WorkflowHarnessWorkerBinding {
+  harnessWorkflowId: string;
+  harnessActivationId?: string;
+  harnessHash: string;
+  source: "default" | "fork" | "legacy";
+}
+
 export type WorkflowNodeKind =
   | "source"
   | "trigger"
@@ -776,6 +907,8 @@ export interface WorkflowProjectMetadata {
   branch?: string;
   dirty?: boolean;
   readOnly?: boolean;
+  harness?: WorkflowHarnessMetadata;
+  workerHarnessBinding?: WorkflowHarnessWorkerBinding;
   createdAtMs?: number;
   updatedAtMs?: number;
 }
@@ -1136,6 +1269,8 @@ export interface WorkflowPortablePackageManifest {
   workflowName: string;
   workflowSlug: string;
   sourceWorkflowPath: string;
+  harness?: WorkflowHarnessMetadata;
+  workerHarnessBinding?: WorkflowHarnessWorkerBinding;
   readinessStatus: WorkflowValidationResult["status"];
   portable: boolean;
   blockers: WorkflowValidationIssue[];

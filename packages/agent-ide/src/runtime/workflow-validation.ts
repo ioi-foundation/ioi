@@ -14,6 +14,13 @@ import {
   validateWorkflowConnection,
 } from "./agent-execution-substrate";
 import {
+  harnessComponentForNode,
+  harnessSlotsForWorkflow,
+  workflowIsBlessedHarness,
+  workflowIsHarness,
+  workflowIsHarnessFork,
+} from "./harness-workflow";
+import {
   workflowExpressionReferences,
   workflowFieldMappingEntries,
   workflowNodeDeclaredOutputSchema,
@@ -301,6 +308,41 @@ const WORKFLOW_REPAIR_BY_CODE: Record<
     repairActionId: "open-binding-mode",
     repairLabel: "Review binding mode",
   },
+  harness_activation_not_validated: {
+    configSection: "advanced",
+    repairActionId: "open-harness-readiness",
+    repairLabel: "Validate harness activation",
+  },
+  harness_component_contract_missing: {
+    configSection: "advanced",
+    repairActionId: "open-harness-component",
+    repairLabel: "Review component contract",
+  },
+  harness_fork_lineage_missing: {
+    configSection: "advanced",
+    repairActionId: "open-harness-lineage",
+    repairLabel: "Review harness lineage",
+  },
+  harness_read_only_template: {
+    configSection: "advanced",
+    repairActionId: "fork-harness",
+    repairLabel: "Fork harness",
+  },
+  harness_required_slot_unbound: {
+    configSection: "advanced",
+    repairActionId: "open-harness-slots",
+    repairLabel: "Bind harness slot",
+  },
+  harness_self_mutation_not_proposal_only: {
+    configSection: "policy",
+    repairActionId: "open-policy",
+    repairLabel: "Require proposal-only edits",
+  },
+  harness_worker_binding_missing: {
+    configSection: "advanced",
+    repairActionId: "open-harness-worker-binding",
+    repairLabel: "Bind worker identity",
+  },
   open_proposal: {
     configSection: "advanced",
     repairActionId: "open-proposals",
@@ -531,6 +573,51 @@ export function validateWorkflowProject(
       if (edge.to !== nodeId) return false;
       return nodeTypesById.get(edge.from) === "human_gate";
     });
+
+  if (workflowIsHarness(workflow)) {
+    const harness = workflow.metadata.harness;
+    if (harness?.aiMutationMode !== "proposal_only") {
+      executionReadinessIssues.push({
+        code: "harness_self_mutation_not_proposal_only",
+        message: "Harness workflow edits authored by AI must remain proposal-only.",
+      });
+    }
+    if (!workflow.metadata.workerHarnessBinding) {
+      missingConfig.push({
+        code: "harness_worker_binding_missing",
+        message: "Harness workflows need worker harness identity fields before workers can bind to them.",
+      });
+    }
+    workflow.nodes.forEach((nodeItem) => {
+      const component = harnessComponentForNode(nodeItem);
+      if (!component || !nodeItem.runtimeBinding) {
+        executionReadinessIssues.push({
+          nodeId: nodeItem.id,
+          code: "harness_component_contract_missing",
+          message: `Harness node '${nodeItem.name}' needs a durable component contract and runtime binding.`,
+        });
+        return;
+      }
+      if (
+        nodeItem.runtimeBinding.componentId !== component.componentId ||
+        nodeItem.runtimeBinding.componentVersion !== component.version ||
+        nodeItem.runtimeBinding.componentKind !== component.kind
+      ) {
+        executionReadinessIssues.push({
+          nodeId: nodeItem.id,
+          code: "harness_component_contract_missing",
+          message: `Harness node '${nodeItem.name}' runtime binding must match its component contract.`,
+        });
+      }
+      if (!component.inputSchema || !component.outputSchema || !component.errorSchema) {
+        verificationIssues.push({
+          nodeId: nodeItem.id,
+          code: "harness_component_contract_missing",
+          message: `Harness component '${component.componentId}' needs input, output, and error schemas.`,
+        });
+      }
+    });
+  }
 
   tests.forEach((test) => {
     test.targetNodeIds.forEach((nodeId) => {
@@ -816,6 +903,13 @@ export function validateWorkflowProject(
     }
     if (nodeItem.type === "proposal") {
       const boundedTargets = logic.proposalAction?.boundedTargets ?? [];
+      if (workflowIsHarness(workflow) && logic.proposalAction?.actionKind === "apply") {
+        executionReadinessIssues.push({
+          nodeId: nodeItem.id,
+          code: "harness_self_mutation_not_proposal_only",
+          message: "Harness self-mutation nodes may preview or create proposals but cannot directly apply them.",
+        });
+      }
       if (boundedTargets.length === 0) {
         missingConfig.push({
           nodeId: nodeItem.id,
@@ -1021,6 +1115,50 @@ export function evaluateWorkflowActivationReadiness(
       code: "operational_value_not_estimated",
       message: "Add an expected time-saved estimate so the workflow has an operator-facing value baseline.",
     });
+  }
+  if (workflowIsBlessedHarness(workflow)) {
+    addAdvisoryWarning({
+      code: "harness_read_only_template",
+      message: "The Default Agent Harness is a read-only blessed template. Fork it before attempting activation changes.",
+    });
+  }
+  if (workflowIsHarnessFork(workflow)) {
+    const harness = workflow.metadata.harness;
+    if (!harness?.forkedFrom) {
+      addReadinessIssue({
+        code: "harness_fork_lineage_missing",
+        message: "Harness forks need lineage metadata before they can be packaged or activated.",
+      });
+    }
+    if (!workflow.metadata.workerHarnessBinding?.harnessWorkflowId) {
+      addReadinessIssue({
+        code: "harness_worker_binding_missing",
+        message: "Harness forks need worker binding fields for harness workflow id, activation id, and hash.",
+      });
+    }
+    const boundSlotIds = new Set(
+      workflow.nodes.flatMap((node) => node.runtimeBinding?.slotIds ?? []),
+    );
+    harnessSlotsForWorkflow(workflow)
+      .filter((slot) => slot.required && !boundSlotIds.has(slot.slotId))
+      .forEach((slot) => {
+        addReadinessIssue({
+          code: "harness_required_slot_unbound",
+          message: `${slot.label} must be bound before this harness fork can activate. ${slot.validation.reason}`,
+        });
+      });
+    if (harness?.aiMutationMode !== "proposal_only") {
+      addReadinessIssue({
+        code: "harness_self_mutation_not_proposal_only",
+        message: "Harness forks can only accept AI-authored edits as proposals until a user applies them.",
+      });
+    }
+    if (!harness?.activationId || harness.activationState !== "validated") {
+      addReadinessIssue({
+        code: "harness_activation_not_validated",
+        message: "Harness forks remain inactive until validation creates a reviewed activation id.",
+      });
+    }
   }
   if (fixtures !== null) {
     const replayFixturesBlockActivation =

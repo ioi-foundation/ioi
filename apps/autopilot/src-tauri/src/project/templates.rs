@@ -34,6 +34,8 @@ pub(super) fn default_workflow_project(
             .branch,
             dirty: Some(false),
             read_only: Some(false),
+            harness: None,
+            worker_harness_binding: None,
             created_at_ms: Some(timestamp),
             updated_at_ms: Some(timestamp),
         },

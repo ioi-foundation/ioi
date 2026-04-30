@@ -37,6 +37,10 @@ pub struct WorkflowProjectMetadata {
     #[serde(default)]
     pub read_only: Option<bool>,
     #[serde(default)]
+    pub harness: Option<Value>,
+    #[serde(default)]
+    pub worker_harness_binding: Option<Value>,
+    #[serde(default)]
     pub created_at_ms: Option<u64>,
     #[serde(default)]
     pub updated_at_ms: Option<u64>,
@@ -551,6 +555,10 @@ pub struct WorkflowPortablePackageManifest {
     pub workflow_name: String,
     pub workflow_slug: String,
     pub source_workflow_path: String,
+    #[serde(default)]
+    pub harness: Option<Value>,
+    #[serde(default)]
+    pub worker_harness_binding: Option<Value>,
     pub readiness_status: String,
     pub portable: bool,
     #[serde(default)]

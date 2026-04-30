@@ -4508,3 +4508,63 @@ fn workflow_portable_package_exports_and_imports_bundle_sidecars() {
         .iter()
         .any(|item| item.kind == "binding_manifest" && item.path.is_none()));
 }
+
+#[test]
+fn workflow_portable_package_preserves_harness_lineage_metadata() {
+    let root = temp_root("portable-harness");
+    let mut bundle = create_workflow_project(CreateWorkflowProjectRequest {
+        project_root: root.display().to_string(),
+        name: "Harness Fork".to_string(),
+        workflow_kind: "agent_workflow".to_string(),
+        execution_mode: "hybrid".to_string(),
+        template_id: None,
+    })
+    .expect("workflow bundle should create");
+    bundle.workflow.metadata.harness = Some(json!({
+        "schemaVersion": "workflow.harness.v1",
+        "harnessWorkflowId": "default-agent-harness",
+        "harnessVersion": "2026.04.default-harness.v1",
+        "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+        "templateName": "Default Agent Harness",
+        "blessed": false,
+        "forkable": false,
+        "forkedFrom": {
+            "harnessWorkflowId": "default-agent-harness",
+            "harnessVersion": "2026.04.default-harness.v1",
+            "harnessHash": "sha256:default-agent-harness-component-projection-v1"
+        },
+        "validationGates": ["component_contracts_present"],
+        "aiMutationMode": "proposal_only",
+        "componentIds": ["ioi.agent-harness.planner.v1"],
+        "slotIds": ["slot.model-policy"]
+    }));
+    bundle.workflow.metadata.worker_harness_binding = Some(json!({
+        "harnessWorkflowId": "harness-fork",
+        "harnessActivationId": "activation:harness-fork:sandbox",
+        "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+        "source": "fork"
+    }));
+    save_workflow_project(bundle.workflow_path.clone(), bundle.workflow)
+        .expect("harness workflow should save");
+
+    let package =
+        export_workflow_package(bundle.workflow_path.clone(), None).expect("package should export");
+    assert_eq!(
+        package
+            .manifest
+            .harness
+            .as_ref()
+            .and_then(|value| value.get("aiMutationMode"))
+            .and_then(Value::as_str),
+        Some("proposal_only")
+    );
+    assert_eq!(
+        package
+            .manifest
+            .worker_harness_binding
+            .as_ref()
+            .and_then(|value| value.get("harnessActivationId"))
+            .and_then(Value::as_str),
+        Some("activation:harness-fork:sandbox")
+    );
+}

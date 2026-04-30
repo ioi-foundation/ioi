@@ -5,6 +5,7 @@ pub mod agent_playbooks;
 pub mod cloud_airlock;
 pub mod connectors;
 pub mod execution; // Points to execution/mod.rs now
+pub mod harness;
 pub mod kernel;
 pub mod keys;
 pub mod middleware;

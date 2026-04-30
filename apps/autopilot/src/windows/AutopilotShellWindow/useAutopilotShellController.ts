@@ -246,6 +246,10 @@ async function sendNativeAutopilotNotification(
   }
 }
 
+function isTauriRuntime(): boolean {
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+}
+
 export function useAutopilotShellController() {
   const [activeView, setActiveView] = useState<PrimaryView>(resolveInitialPrimaryView);
   const [chatSurface, setChatSurface] = useState<ChatSurface>("chat");
@@ -638,20 +642,19 @@ export function useAutopilotShellController() {
 
   useEffect(() => {
     let active = true;
-    const unlistenPromise = listen<PendingChatLaunchEnvelope>(
-      "request-chat-launch",
-      (event) => {
-        if (!active) {
-          return;
-        }
-        void recordChatLaunchReceipt("chat_launch_event_received", {
-          launchId: event.payload.launchId,
-          kind: event.payload.request.kind,
-          request: summarizePendingChatLaunchRequest(event.payload.request),
-        });
-        void applyPendingChatLaunchRequest(event.payload, "event");
-      },
-    );
+    const unlistenPromise = isTauriRuntime()
+      ? listen<PendingChatLaunchEnvelope>("request-chat-launch", (event) => {
+          if (!active) {
+            return;
+          }
+          void recordChatLaunchReceipt("chat_launch_event_received", {
+            launchId: event.payload.launchId,
+            kind: event.payload.request.kind,
+            request: summarizePendingChatLaunchRequest(event.payload.request),
+          });
+          void applyPendingChatLaunchRequest(event.payload, "event");
+        })
+      : null;
 
     return () => {
       active = false;
@@ -672,14 +675,13 @@ export function useAutopilotShellController() {
         // Best-effort bootstrap only.
       });
 
-    const unlistenPromise = listen<AssistantUserProfile>(
-      "assistant-user-profile-updated",
-      (event) => {
-        if (cancelled) return;
-        setProfile(event.payload);
-        setProfileDraft(event.payload);
-      },
-    );
+    const unlistenPromise = isTauriRuntime()
+      ? listen<AssistantUserProfile>("assistant-user-profile-updated", (event) => {
+          if (cancelled) return;
+          setProfile(event.payload);
+          setProfileDraft(event.payload);
+        })
+      : null;
 
     return () => {
       cancelled = true;
@@ -720,24 +722,24 @@ export function useAutopilotShellController() {
         // Best-effort bootstrap only.
       });
 
-    const badgeUnlistenPromise = listen<number>(
-      "notifications-badge-updated",
-      (event) => {
-        setNotificationBadgeCount(event.payload);
-      },
-    );
-    const interventionToastUnlistenPromise = listen<InterventionRecord>(
-      "intervention-toast-candidate",
-      (event) => {
-        void sendNativeAutopilotNotification(event.payload);
-      },
-    );
-    const assistantToastUnlistenPromise = listen<AssistantNotificationRecord>(
-      "assistant-notification-toast-candidate",
-      (event) => {
-        void sendNativeAutopilotNotification(event.payload);
-      },
-    );
+    const badgeUnlistenPromise = isTauriRuntime()
+      ? listen<number>("notifications-badge-updated", (event) => {
+          setNotificationBadgeCount(event.payload);
+        })
+      : null;
+    const interventionToastUnlistenPromise = isTauriRuntime()
+      ? listen<InterventionRecord>("intervention-toast-candidate", (event) => {
+          void sendNativeAutopilotNotification(event.payload);
+        })
+      : null;
+    const assistantToastUnlistenPromise = isTauriRuntime()
+      ? listen<AssistantNotificationRecord>(
+          "assistant-notification-toast-candidate",
+          (event) => {
+            void sendNativeAutopilotNotification(event.payload);
+          },
+        )
+      : null;
 
     return () => {
       cancelled = true;
@@ -785,14 +787,16 @@ export function useAutopilotShellController() {
         }
       });
 
-    const unlistenPromise = listen<CapabilityGovernanceRequest | null>(
-      "capability-governance-request-updated",
-      (event) => {
-        if (!cancelled) {
-          setCapabilityGovernanceRequest(event.payload);
-        }
-      },
-    );
+    const unlistenPromise = isTauriRuntime()
+      ? listen<CapabilityGovernanceRequest | null>(
+          "capability-governance-request-updated",
+          (event) => {
+            if (!cancelled) {
+              setCapabilityGovernanceRequest(event.payload);
+            }
+          },
+        )
+      : null;
 
     return () => {
       cancelled = true;

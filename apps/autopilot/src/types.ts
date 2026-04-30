@@ -2155,6 +2155,9 @@ export interface LocalEngineWorkerCompletionContract {
 
 export interface LocalEngineWorkerWorkflowRecord {
   workflowId: string;
+  harnessWorkflowId?: string | null;
+  harnessActivationId?: string | null;
+  harnessHash?: string | null;
   label: string;
   summary: string;
   goalTemplate: string;
