@@ -36,6 +36,7 @@ async-trait = { workspace = true }
 
 reqwest = { version = "0.11", features = ["blocking", "json"] }
 regex = { workspace = true }
+sha2 = "0.10"
 url = "2.5"
 chrono = { version = "0.4", features = ["serde"] }
 once_cell = "1.19"

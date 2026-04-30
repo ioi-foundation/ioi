@@ -10,6 +10,157 @@
   cursor: pointer;
 }
 
+.canvas-edge--model,
+.canvas-edge--tool,
+.canvas-edge--memory,
+.canvas-edge--parser,
+.canvas-edge--subgraph {
+  stroke-dasharray: 3 5;
+  stroke-width: 1.8px;
+  stroke-opacity: 0.78;
+}
+
+.canvas-edge--model {
+  stroke: #a78bfa;
+}
+
+.canvas-edge--tool {
+  stroke: #22c55e;
+}
+
+.canvas-edge--memory,
+.canvas-edge--state {
+  stroke: #38bdf8;
+}
+
+.canvas-edge--approval {
+  stroke: #f59e0b;
+}
+
+.canvas-edge--error {
+  stroke: var(--status-error);
+}
+
+.canvas-edge--retry {
+  stroke: var(--status-warning);
+}
+
+.canvas-edge--delivery {
+  stroke: #f472b6;
+}
+
+.canvas-edge--macro {
+  stroke-opacity: 0.92;
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--accent-blue) 36%, transparent));
+}
+
+.canvas-edge.has-issues {
+  stroke: var(--status-warning);
+  stroke-dasharray: 5 4;
+}
+
+.canvas-edge-label {
+  opacity: 0;
+  transition: opacity 0.16s ease;
+}
+
+.canvas-edge-label-background {
+  fill: color-mix(in srgb, var(--workflow-panel-strong) 92%, transparent);
+  stroke: var(--border-subtle);
+  stroke-width: 1;
+}
+
+.canvas-edge-label-text {
+  fill: var(--text-primary);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.react-flow__edge:hover .canvas-edge-label,
+.react-flow__edge.selected .canvas-edge-label {
+  opacity: 1;
+}
+
+.canvas-edge-label--model .canvas-edge-label-background {
+  stroke: color-mix(in srgb, #a78bfa 70%, transparent);
+}
+
+.canvas-edge-label--model .canvas-edge-label-text {
+  fill: #ddd6fe;
+}
+
+.canvas-edge-label--tool .canvas-edge-label-background {
+  stroke: color-mix(in srgb, #22c55e 70%, transparent);
+}
+
+.canvas-edge-label--tool .canvas-edge-label-text {
+  fill: #bbf7d0;
+}
+
+.canvas-edge-label--memory .canvas-edge-label-background,
+.canvas-edge-label--state .canvas-edge-label-background {
+  stroke: color-mix(in srgb, #38bdf8 70%, transparent);
+}
+
+.canvas-edge-label--memory .canvas-edge-label-text,
+.canvas-edge-label--state .canvas-edge-label-text {
+  fill: #bae6fd;
+}
+
+.canvas-edge-label--parser .canvas-edge-label-background,
+.canvas-edge-label--subgraph .canvas-edge-label-background {
+  stroke: color-mix(in srgb, #818cf8 70%, transparent);
+}
+
+.canvas-edge-label--parser .canvas-edge-label-text,
+.canvas-edge-label--subgraph .canvas-edge-label-text {
+  fill: #c7d2fe;
+}
+
+.canvas-edge-label--approval .canvas-edge-label-background,
+.canvas-edge-label--retry .canvas-edge-label-background {
+  stroke: color-mix(in srgb, var(--status-warning) 70%, transparent);
+}
+
+.canvas-edge-label--approval .canvas-edge-label-text,
+.canvas-edge-label--retry .canvas-edge-label-text {
+  fill: #fde68a;
+}
+
+.canvas-edge-label--error .canvas-edge-label-background {
+  stroke: color-mix(in srgb, var(--status-error) 70%, transparent);
+}
+
+.canvas-edge-label--error .canvas-edge-label-text {
+  fill: #fecaca;
+}
+
+.canvas-edge-label--delivery .canvas-edge-label-background {
+  stroke: color-mix(in srgb, #f472b6 70%, transparent);
+}
+
+.canvas-edge-label--delivery .canvas-edge-label-text {
+  fill: #fbcfe8;
+}
+
+.canvas-edge-warning {
+  opacity: 0.94;
+}
+
+.canvas-edge-warning-background {
+  fill: color-mix(in srgb, var(--bg-panel) 88%, var(--status-warning) 12%);
+  stroke: color-mix(in srgb, var(--status-warning) 68%, var(--border-default));
+  stroke-width: 1;
+}
+
+.canvas-edge-warning-text {
+  fill: color-mix(in srgb, var(--status-warning) 74%, white 26%);
+  font-size: 12px;
+  font-weight: 900;
+}
+
 /* Hover state */
 .react-flow__edge:hover .canvas-edge {
   stroke: var(--border-strong);

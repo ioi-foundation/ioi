@@ -18,13 +18,14 @@ interface CanvasProps {
   onEdgesChange: any;
   onConnect: any;
   onNodeSelect: (id: string | null) => void;
+  onNodeActivate?: (id: string) => void;
   onDrop: (e: React.DragEvent) => void;
 }
 
-export function Canvas({ 
-  nodes, edges, onNodesChange, onEdgesChange, onConnect, onNodeSelect, onDrop 
+export function Canvas({
+  nodes, edges, onNodesChange, onEdgesChange, onConnect, onNodeSelect, onNodeActivate, onDrop
 }: CanvasProps) {
-  
+
   const nodeTypes = useMemo(() => ({
     action: CanvasNode,
     trigger: CanvasNode,
@@ -47,6 +48,20 @@ export function Canvas({
     retrieval: CanvasNode,
     web_search: CanvasNode,
     web_read: CanvasNode,
+    source: CanvasNode,
+    state: CanvasNode,
+    function: CanvasNode,
+    model_call: CanvasNode,
+    adapter: CanvasNode,
+    plugin_tool: CanvasNode,
+    decision: CanvasNode,
+    loop: CanvasNode,
+    barrier: CanvasNode,
+    subgraph: CanvasNode,
+    human_gate: CanvasNode,
+    output: CanvasNode,
+    test_assertion: CanvasNode,
+    proposal: CanvasNode,
   }), []);
 
   const edgeTypes = useMemo(() => ({
@@ -54,8 +69,8 @@ export function Canvas({
   }), []);
 
   return (
-    <div style={{ width: '100%', height: '100%', background: 'var(--bg-dark)' }} 
-         onDragOver={e => e.preventDefault()} 
+    <div className="agent-ide-react-flow-surface" style={{ width: '100%', height: '100%', background: 'var(--bg-dark)' }}
+         onDragOver={e => e.preventDefault()}
          onDrop={onDrop}>
       <ReactFlow
         nodes={nodes}
@@ -64,13 +79,14 @@ export function Canvas({
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onNodeClick={(_, node) => onNodeSelect(node.id)}
+        onNodeDoubleClick={(_, node) => onNodeActivate?.(node.id)}
         onPaneClick={() => onNodeSelect(null)}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         fitView
       >
         {/* @ts-ignore */}
-        <Background color="#2E333D" gap={20} />
+        <Background color="rgba(123, 143, 164, 0.22)" gap={20} />
         {/* @ts-ignore */}
         <Controls />
         <MiniMap style={{background: 'var(--bg-panel)'}} />

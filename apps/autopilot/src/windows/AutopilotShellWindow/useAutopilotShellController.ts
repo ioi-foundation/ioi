@@ -79,8 +79,19 @@ function resolveInitialPrimaryView(): PrimaryView {
     if (requested === "chat") {
       return "chat";
     }
-    if (requested === "workspace") {
-      return "workspace";
+    const supportedRequestedViews: PrimaryView[] = [
+      "home",
+      "chat",
+      "workspace",
+      "workflows",
+      "runs",
+      "inbox",
+      "capabilities",
+      "policy",
+      "settings",
+    ];
+    if (supportedRequestedViews.includes(requested as PrimaryView)) {
+      return requested as PrimaryView;
     }
   }
 
@@ -91,9 +102,15 @@ function resolveInitialPrimaryView(): PrimaryView {
   if (
     envRequestedView === "home" ||
     envRequestedView === "chat" ||
-    envRequestedView === "workspace"
+    envRequestedView === "workspace" ||
+    envRequestedView === "workflows" ||
+    envRequestedView === "runs" ||
+    envRequestedView === "inbox" ||
+    envRequestedView === "capabilities" ||
+    envRequestedView === "policy" ||
+    envRequestedView === "settings"
   ) {
-    return envRequestedView;
+    return envRequestedView as PrimaryView;
   }
 
   return "home";
@@ -149,12 +166,18 @@ function projectFromBuilderConfig(config: AgentConfiguration): ProjectFile {
     nodes: [
       {
         id: nodeId,
-        type: "model",
+        type: "model_call",
         name,
         x: 280,
         y: 180,
+        metricLabel: "Model",
+        metricValue: config.model,
+        ioTypes: { in: "prompt", out: "message" },
+        inputs: ["input", "context"],
+        outputs: ["output", "error", "retry"],
         config: {
           logic: {
+            modelRef: "reasoning",
             model: config.model,
             systemPrompt: config.instructions,
             temperature: config.temperature,
@@ -229,7 +252,7 @@ export function useAutopilotShellController() {
   const [chatPaneVisible, setChatPaneVisible] = useState(true);
   const [chatPaneMaximized, setChatPaneMaximized] = useState(false);
   const [workflowSurface, setWorkflowSurface] =
-    useState<WorkflowSurface>("home");
+    useState<WorkflowSurface>("canvas");
   const [focusedPolicyConnectorId, setFocusedPolicyConnectorId] = useState<
     string | null
   >(null);
@@ -347,6 +370,9 @@ export function useAutopilotShellController() {
         setActiveView("workflows");
         return;
       case "workflows":
+        setWorkflowSurface("canvas");
+        setActiveView("workflows");
+        return;
       case "catalog":
         setWorkflowSurface("catalog");
         setActiveView("workflows");
@@ -798,6 +824,9 @@ export function useAutopilotShellController() {
   }, [shieldPolicy, shieldPolicyHydrated]);
 
   const changePrimaryView = (view: PrimaryView) => {
+    if (view === "workflows") {
+      setWorkflowSurface("canvas");
+    }
     setActiveView(view);
   };
 

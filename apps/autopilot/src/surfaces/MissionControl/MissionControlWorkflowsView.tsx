@@ -1,5 +1,4 @@
 import {
-  AgentEditor,
   AgentsDashboard,
   BuilderView,
   type RuntimeCatalogEntry,
@@ -7,6 +6,7 @@ import {
   type ProjectFile,
   type AgentSummary,
   RuntimeCatalogView,
+  WorkflowComposer,
 } from "@ioi/agent-ide";
 import { WelcomeView } from "./WelcomeView";
 
@@ -66,7 +66,6 @@ export function MissionControlWorkflowsView({
   onOpenInbox,
   onOpenCapabilities,
   onOpenPolicy,
-  onOpenSettings,
   onOpenAgent,
   onCloseAgent,
   onStageCatalogEntry,
@@ -77,9 +76,22 @@ export function MissionControlWorkflowsView({
   const surfaceLabel = workflowSurfaceLabel(surface);
   const title =
     surface === "home"
-      ? "Builder internals"
+      ? "Workflow home"
       : "Workflow authoring";
-  const kicker = surface === "home" ? "Internal" : "Encode";
+  const kicker = surface === "home" ? "Workflows" : "Encode";
+
+  if (surface === "canvas") {
+    return (
+      <div className="mission-control-view mission-control-view--workflows mission-control-view--workflow-canvas">
+        <WorkflowComposer
+          runtime={runtime}
+          currentProject={currentProject}
+          initialFile={composeSeedProject ?? undefined}
+          onInitialFileLoaded={onConsumeComposeSeedProject}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="mission-control-view mission-control-view--workflows">
@@ -107,7 +119,6 @@ export function MissionControlWorkflowsView({
             </button>
             <button
               type="button"
-              className={surface === "canvas" ? "is-active" : ""}
               onClick={() => onSurfaceChange("canvas")}
             >
               Canvas
@@ -146,19 +157,6 @@ export function MissionControlWorkflowsView({
               onOpenPolicy={onOpenPolicy}
               onSelectProject={onSelectProject}
             />
-          </div>
-        ) : null}
-
-        {surface === "canvas" ? (
-          <div className="mission-control-stage-frame mission-control-stage-frame--workflow">
-            <div className="mission-control-workflow-plane">
-              <AgentEditor
-                runtime={runtime}
-                initialFile={composeSeedProject ?? undefined}
-                onInitialFileLoaded={onConsumeComposeSeedProject}
-                onOpenSystemSettings={onOpenSettings}
-              />
-            </div>
           </div>
         ) : null}
 

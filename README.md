@@ -26,7 +26,7 @@ This repository already contains substantial pieces of that stack:
 - `sas.xyz`: the provider OS for packaging, deploying, serving, and commercializing worker services
 - `aiagent.xyz`: the discovery and procurement layer for worker services
 - `agent-ide`: the shared builder/canvas substrate for provider and orchestration surfaces
-- the active `FQF` and `ai://` direction for canonical app state, projection-native serving, and rooted resolution
+- the active `Agentgres` and `ai://` direction for scoped state changes, settled truth, relational/query surfaces, projection-native serving, and rooted resolution
 
 ## Why This Exists
 
@@ -57,15 +57,15 @@ It is an attempt to provide the **runtime substrate** those systems need in orde
 | `L0` | The root coordination layer. For IOI this means global `ai://` registry, publication, trust anchors, and settlement roots. |
 | `L1` | A sovereign agentic runtime built on top of that root layer. It owns its own execution, state, projections, and serving. |
 | `MemoryRuntime` | The runtime-backed memory layer used by live product flows for checkpoints, archival recall, and artifact blobs. |
-| `CSPS` | Canonical State and Projection System. The new taxonomy for systems where canonical state is truth and projections are first-class runtime artifacts. |
-| `FQF` | Fractal Query Fabric. IOI's proposed `CSPS` architecture for canonical app state, projections, subscriptions, and query receipts. |
+| Canonical state/projections | The generic pattern behind Agentgres: settled state is authority and projections are first-class runtime artifacts. |
+| `Agentgres` | IOI's local-first, zero-to-idle state fabric for autonomous software: state changes are patches, truth is settled, and rows are views over settled state. |
 | `wallet.network` | The sovereign IAM and capability-control plane for sessions, approvals, leases, and secret-safe execution. |
 | `ai://` | The emerging application, publication, and resolution model anchored by IOI mainnet as `L0`. |
 
 Relevant taxonomy and architecture docs:
 
 - [`docs/canonical-state-and-projection-system-whitepaper.md`](docs/canonical-state-and-projection-system-whitepaper.md)
-- [`docs/fractal-query-fabric-spec.md`](docs/fractal-query-fabric-spec.md)
+- [`docs/specs/agentgres-spec.md`](docs/specs/agentgres-spec.md)
 - [`docs/specs/verifiable_bounded_agency.md`](docs/specs/verifiable_bounded_agency.md)
 
 ## The Fractal Architecture
@@ -82,7 +82,7 @@ IOI is called fractal because the same core ideas are meant to work:
 ```mermaid
 graph TD
     L0[IOI Mainnet - L0<br/>ai:// registry, trust anchors, publication, settlement]
-    L1[Sovereign Agentic Runtime - L1<br/>kernel + FQF + ioi-memory + wallet.network]
+    L1[Sovereign Agentic Runtime - L1<br/>kernel + Agentgres + ioi-memory + wallet.network]
     UI[Product Surfaces<br/>IOI CLI, Autopilot, sas.xyz, aiagent.xyz, ioi.ai, ai:// apps]
 
     L0 --> L1
@@ -184,11 +184,6 @@ The live product architecture now uses `ioi-memory` for:
 - local artifact and evidence blobs
 - semantic recall over persisted archival records
 
-The earlier `SCS` exploration has been removed from the live repository surface
-in favor of this clean-room `ioi-memory` architecture. Lower-level
-proof-oriented state and retrieval primitives still exist where they are
-useful, but they are no longer expressed as a separate product-memory crate.
-
 Important current implementation note:
 
 - archival retrieval for live product flows is runtime-backed through
@@ -196,18 +191,19 @@ Important current implementation note:
 - artifacts and evidence no longer share the same abstraction boundary as
   semantic recall
 
-### 4. Canonical State and Projection System (CSPS) and FQF
+### 4. Agentgres
 
-Agentic applications eventually need more than a relational authority layer.
+Agentic applications need more than a mutable-row authority layer.
 
-IOI is moving toward a **Canonical State and Projection System** (`CSPS`) in which:
+IOI is moving toward **Agentgres**, a local-first, zero-to-idle state fabric in which:
 
-- canonical state is the source of truth
-- projections are first-class runtime artifacts
+- consequential changes are proposed as scoped patches before they become truth
+- accepted patches settle into canonical operation logs and deterministic object state
+- rows are views over settled state
+- relations, constraints, indexes, transactions, SQL, subscriptions, files, patches, and receipts are protocol-visible surfaces
+- projections are first-class, portable runtime artifacts
 - subscriptions are resumable and checkpoint-aware
-- local-first React apps bind to shared canonical state without depending on sticky backend sessions
-
-Within IOI, the proposed architecture for that is the **Fractal Query Fabric** (`FQF`).
+- local-first React apps embed a verified client runtime and wake shared authority only when necessary
 
 This is the layer intended to replace the standard:
 
@@ -218,16 +214,19 @@ This is the layer intended to replace the standard:
 
 with:
 
-- kernel-native canonical state
-- named projections
+- scoped patch lifecycle and chain-rooted canonical settlement
+- native relations, constraints, indexes, and transactions
+- SQL-shaped reads and generated SDKs
+- named materialized projections
 - resumable subscriptions
 - portable checkpoints
 - scoped query and mutation semantics
+- database-grade migration, backup, restore, and operator tooling
 
 See:
 
 - [`docs/canonical-state-and-projection-system-whitepaper.md`](docs/canonical-state-and-projection-system-whitepaper.md)
-- [`docs/fractal-query-fabric-spec.md`](docs/fractal-query-fabric-spec.md)
+- [`docs/specs/agentgres-spec.md`](docs/specs/agentgres-spec.md)
 
 ### 5. Zero-Exposure Agency via wallet.network
 
@@ -331,7 +330,7 @@ If you want the fastest path to understanding the current repo, read in this ord
 4. [`apps/autopilot/README.md`](apps/autopilot/README.md)
 5. [`docs/wallet_network.md`](docs/wallet_network.md)
 6. [`docs/canonical-state-and-projection-system-whitepaper.md`](docs/canonical-state-and-projection-system-whitepaper.md)
-7. [`docs/fractal-query-fabric-spec.md`](docs/fractal-query-fabric-spec.md)
+7. [`docs/specs/agentgres-spec.md`](docs/specs/agentgres-spec.md)
 
 ## Getting Started
 
@@ -466,8 +465,8 @@ IOI does not add "blockchain vibes" to AI wrappers. It uses strict cryptographic
 
 ### Active architectural direction
 
-- `FQF` as the shared canonical app-state and projection fabric
-- `CSPS` as the taxonomy above that architecture
+- `Agentgres` as the shared state-change and state-retention fabric for scoped patches, settled truth, relational/query surfaces, and portable projections
+- canonical projections as first-class Agentgres serving surfaces
 - rooted `ai://` publication, registry resolution, and `L0` trust anchoring
 - sovereign multi-node serving across portable remote environments and clean-room style runtimes
 

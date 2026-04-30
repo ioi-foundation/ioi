@@ -212,7 +212,7 @@ pub async fn execute_ephemeral_node(
     let logic_config = full_config.get("logic").unwrap_or(full_config);
 
     match node_type {
-        "model" | "responses" => {
+        "model_call" | "responses" => {
             runners::run_responses_execution(logic_config, input_json, inference.clone()).await
         }
         "embeddings" => {

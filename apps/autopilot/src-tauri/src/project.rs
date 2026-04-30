@@ -1,455 +1,170 @@
 // apps/autopilot/src-tauri/src/project.rs
 
-use crate::orchestrator::{GraphEdge, GraphNode};
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use crate::agent_runtime_substrate::{
+    completion_requirement_kinds, validate_action_edge, validate_workflow_connection_class,
+    ActionBindingRef, ActionFrame, ActionKind, ActionPolicy, ActionSurface,
+};
+use regex::Regex;
+use serde_json::{json, Value};
 use std::fs;
 use std::io::Write;
-use std::path::{Component, Path, PathBuf};
-use std::process::Command;
-use std::time::UNIX_EPOCH;
+use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
+use std::time::{Duration, Instant};
 
-const EXPLORER_MAX_DEPTH: usize = 2;
-const EXPLORER_MAX_CHILDREN: usize = 10;
-const ARTIFACT_SCAN_MAX_DEPTH: usize = 3;
-const ARTIFACT_SCAN_LIMIT: usize = 12;
-const SKIPPED_DIRS: &[&str] = &[".git", "node_modules", "target", "dist", "build"];
-const EDITOR_MAX_BYTES: usize = 512 * 1024;
-
-// Define the file format structure
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ProjectFile {
-    pub version: String,
-    pub nodes: Vec<GraphNode>,
-    pub edges: Vec<GraphEdge>,
-    pub global_config: Option<Value>,
-    // Metadata for tracking
-    pub metadata: Option<ProjectMetadata>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ProjectMetadata {
-    pub name: String,
-    pub created_at: u64,
-    pub last_modified: u64,
-    pub author: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct ProjectGitStatus {
-    pub is_repo: bool,
-    pub branch: Option<String>,
-    pub dirty: bool,
-    pub last_commit: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct ProjectExplorerNode {
-    pub name: String,
-    pub path: String,
-    pub kind: String,
-    pub has_children: bool,
-    pub children: Vec<ProjectExplorerNode>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct ProjectArtifactCandidate {
-    pub title: String,
-    pub path: String,
-    pub artifact_type: String,
-}
-
-#[derive(Debug, Serialize)]
-pub struct ProjectShellSnapshot {
-    pub root_path: String,
-    pub git: ProjectGitStatus,
-    pub tree: Vec<ProjectExplorerNode>,
-    pub artifacts: Vec<ProjectArtifactCandidate>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct ProjectFileDocument {
-    pub name: String,
-    pub path: String,
-    pub absolute_path: String,
-    pub language_hint: Option<String>,
-    pub content: String,
-    pub size_bytes: usize,
-    pub modified_at_ms: Option<u64>,
-    pub is_binary: bool,
-    pub is_too_large: bool,
-    pub read_only: bool,
-}
-
-fn resolve_root_path(root: &str, create_if_missing: bool) -> Result<PathBuf, String> {
-    let requested = PathBuf::from(root);
-    let resolved = if requested.is_absolute() {
-        requested
-    } else {
-        std::env::current_dir()
-            .map_err(|error| format!("Failed to resolve current directory: {}", error))?
-            .join(requested)
-    };
-
-    if create_if_missing {
-        fs::create_dir_all(&resolved).map_err(|error| {
-            format!(
-                "Failed to create project directory '{}': {}",
-                resolved.display(),
-                error
-            )
-        })?;
-    }
-
-    if !resolved.exists() {
-        return Err(format!(
-            "Project root '{}' does not exist.",
-            resolved.display()
-        ));
-    }
-
-    resolved
-        .canonicalize()
-        .map_err(|error| format!("Failed to canonicalize '{}': {}", resolved.display(), error))
-}
-
-fn relative_path(root: &PathBuf, path: &PathBuf) -> String {
-    path.strip_prefix(root)
-        .ok()
-        .map(|value| {
-            let rendered = value.display().to_string();
-            if rendered.is_empty() {
-                ".".to_string()
-            } else {
-                rendered
-            }
-        })
-        .unwrap_or_else(|| path.display().to_string())
-}
-
-fn should_skip_dir(name: &str) -> bool {
-    SKIPPED_DIRS.iter().any(|value| value == &name)
-}
-
-fn file_name_for_path(path: &Path) -> String {
-    path.file_name()
-        .and_then(|value| value.to_str())
-        .unwrap_or("unknown")
-        .to_string()
-}
-
-fn sort_paths(a: &PathBuf, b: &PathBuf) -> std::cmp::Ordering {
-    match (a.is_dir(), b.is_dir()) {
-        (true, false) => std::cmp::Ordering::Less,
-        (false, true) => std::cmp::Ordering::Greater,
-        _ => a
-            .file_name()
-            .and_then(|value| value.to_str())
-            .unwrap_or_default()
-            .cmp(
-                b.file_name()
-                    .and_then(|value| value.to_str())
-                    .unwrap_or_default(),
-            ),
-    }
-}
-
-fn visible_entries(current: &PathBuf) -> std::vec::IntoIter<PathBuf> {
-    let mut entries = match fs::read_dir(current) {
-        Ok(read_dir) => read_dir
-            .filter_map(|entry| entry.ok().map(|value| value.path()))
-            .collect::<Vec<_>>(),
-        Err(_) => return Vec::new().into_iter(),
-    };
-
-    entries.sort_by(sort_paths);
-
-    entries
-        .into_iter()
-        .filter(|path| {
-            path.file_name()
-                .and_then(|value| value.to_str())
-                .map(|name| !should_skip_dir(name))
-                .unwrap_or(true)
-        })
-        .collect::<Vec<_>>()
-        .into_iter()
-}
-
-fn directory_has_visible_children(path: &Path) -> bool {
-    fs::read_dir(path)
-        .ok()
-        .into_iter()
-        .flat_map(|entries| entries.filter_map(|entry| entry.ok()))
-        .map(|entry| entry.path())
-        .any(|child| {
-            child
-                .file_name()
-                .and_then(|value| value.to_str())
-                .map(|name| !should_skip_dir(name))
-                .unwrap_or(true)
-        })
-}
-
-fn build_directory_listing(root: &PathBuf, current: &PathBuf) -> Vec<ProjectExplorerNode> {
-    visible_entries(current)
-        .take(EXPLORER_MAX_CHILDREN)
-        .map(|path| {
-            let is_dir = path.is_dir();
-            ProjectExplorerNode {
-                name: file_name_for_path(&path),
-                path: relative_path(root, &path),
-                kind: if is_dir { "directory" } else { "file" }.to_string(),
-                has_children: is_dir && directory_has_visible_children(&path),
-                children: Vec::new(),
-            }
-        })
-        .collect()
-}
-
-fn build_tree(root: &PathBuf, current: &PathBuf, depth: usize) -> Vec<ProjectExplorerNode> {
-    visible_entries(current)
-        .take(EXPLORER_MAX_CHILDREN)
-        .map(|path| {
-            let is_dir = path.is_dir();
-            let children = if is_dir && depth < EXPLORER_MAX_DEPTH {
-                build_tree(root, &path, depth + 1)
-            } else {
-                Vec::new()
-            };
-
-            ProjectExplorerNode {
-                name: file_name_for_path(&path),
-                path: relative_path(root, &path),
-                kind: if is_dir { "directory" } else { "file" }.to_string(),
-                has_children: is_dir && directory_has_visible_children(&path),
-                children,
-            }
-        })
-        .collect()
-}
-
-fn safe_relative_input(relative_path: &str) -> Result<PathBuf, String> {
-    let path = PathBuf::from(relative_path);
-    if path.as_os_str().is_empty() || relative_path == "." {
-        return Ok(PathBuf::new());
-    }
-    if path.is_absolute() {
-        return Err("Absolute paths are not allowed in the project shell.".to_string());
-    }
-    if path.components().any(|component| {
-        matches!(
-            component,
-            Component::ParentDir | Component::RootDir | Component::Prefix(_)
-        )
-    }) {
-        return Err("Path traversal is not allowed in the project shell.".to_string());
-    }
-    Ok(path)
-}
-
-fn resolve_scoped_existing_path(root: &PathBuf, relative_path: &str) -> Result<PathBuf, String> {
-    let safe_relative = safe_relative_input(relative_path)?;
-    let candidate = root.join(&safe_relative);
-    let canonical = candidate.canonicalize().map_err(|error| {
-        format!(
-            "Failed to resolve project path '{}': {}",
-            candidate.display(),
-            error
-        )
-    })?;
-
-    if !canonical.starts_with(root) {
-        return Err("Resolved path falls outside the project boundary.".to_string());
-    }
-
-    Ok(canonical)
-}
-
-fn modified_time_ms(path: &Path) -> Option<u64> {
-    fs::metadata(path)
-        .ok()
-        .and_then(|metadata| metadata.modified().ok())
-        .and_then(|timestamp| timestamp.duration_since(UNIX_EPOCH).ok())
-        .map(|duration| duration.as_millis() as u64)
-}
-
-fn language_hint_for_path(path: &Path) -> Option<String> {
-    match path.extension().and_then(|value| value.to_str()) {
-        Some("ts") => Some("typescript".to_string()),
-        Some("tsx") => Some("tsx".to_string()),
-        Some("js") => Some("javascript".to_string()),
-        Some("jsx") => Some("jsx".to_string()),
-        Some("json") => Some("json".to_string()),
-        Some("md") => Some("markdown".to_string()),
-        Some("rs") => Some("rust".to_string()),
-        Some("css") => Some("css".to_string()),
-        Some("html") | Some("htm") => Some("html".to_string()),
-        Some("yaml") | Some("yml") => Some("yaml".to_string()),
-        Some("sh") | Some("bash") => Some("shell".to_string()),
-        Some("toml") => Some("toml".to_string()),
-        Some("xml") | Some("svg") => Some("xml".to_string()),
-        _ => None,
-    }
-}
-
-fn read_project_file_document(
-    root: &PathBuf,
-    relative_file_path: &str,
-) -> Result<ProjectFileDocument, String> {
-    let file_path = resolve_scoped_existing_path(root, relative_file_path)?;
-    if file_path.is_dir() {
-        return Err(format!(
-            "'{}' is a directory, not an editable file.",
-            file_path.display()
-        ));
-    }
-
-    let bytes = fs::read(&file_path)
-        .map_err(|error| format!("Failed to read '{}': {}", file_path.display(), error))?;
-    let size_bytes = bytes.len();
-    let is_too_large = size_bytes > EDITOR_MAX_BYTES;
-    let is_binary = bytes.iter().any(|byte| *byte == 0);
-
-    let content = if is_too_large || is_binary {
-        String::new()
-    } else {
-        String::from_utf8(bytes).map_err(|_| {
-            format!(
-                "'{}' is not valid UTF-8 and cannot be edited in the embedded editor.",
-                file_path.display()
-            )
-        })?
-    };
-
-    Ok(ProjectFileDocument {
-        name: file_name_for_path(&file_path),
-        path: relative_path(root, &file_path),
-        absolute_path: file_path.display().to_string(),
-        language_hint: language_hint_for_path(&file_path),
-        content,
-        size_bytes,
-        modified_at_ms: modified_time_ms(&file_path),
-        is_binary,
-        is_too_large,
-        read_only: is_binary || is_too_large,
-    })
-}
-
-fn artifact_type_for_path(path: &PathBuf) -> Option<&'static str> {
-    match path
-        .extension()
-        .and_then(|value| value.to_str())
-        .map(|value| value.to_ascii_lowercase())
-    {
-        Some(ext) if ext == "log" => Some("log"),
-        Some(ext) if ext == "diff" || ext == "patch" => Some("revision"),
-        Some(ext) if ext == "html" => Some("web"),
-        Some(ext) if ext == "md" => Some("report"),
-        Some(ext) if ext == "json" => Some("bundle"),
-        Some(ext) if ext == "txt" => Some("file"),
-        _ => None,
-    }
-}
-
-fn gather_artifacts(
-    root: &PathBuf,
-    current: &PathBuf,
-    depth: usize,
-    artifacts: &mut Vec<ProjectArtifactCandidate>,
-) {
-    if artifacts.len() >= ARTIFACT_SCAN_LIMIT {
-        return;
-    }
-
-    let mut entries = match fs::read_dir(current) {
-        Ok(read_dir) => read_dir
-            .filter_map(|entry| entry.ok().map(|value| value.path()))
-            .collect::<Vec<_>>(),
-        Err(_) => return,
-    };
-
-    entries.sort_by(sort_paths);
-
-    for path in entries {
-        if artifacts.len() >= ARTIFACT_SCAN_LIMIT {
-            break;
-        }
-
-        let file_name = path
-            .file_name()
-            .and_then(|value| value.to_str())
-            .unwrap_or_default();
-        if should_skip_dir(file_name) {
-            continue;
-        }
-
-        if path.is_dir() {
-            if depth < ARTIFACT_SCAN_MAX_DEPTH {
-                gather_artifacts(root, &path, depth + 1, artifacts);
-            }
-            continue;
-        }
-
-        if let Some(artifact_type) = artifact_type_for_path(&path) {
-            artifacts.push(ProjectArtifactCandidate {
-                title: file_name.to_string(),
-                path: relative_path(root, &path),
-                artifact_type: artifact_type.to_string(),
-            });
-        }
-    }
-}
-
-fn run_git(root: &PathBuf, args: &[&str]) -> Result<String, String> {
-    let output = Command::new("git")
-        .arg("-C")
-        .arg(root)
-        .args(args)
-        .output()
-        .map_err(|error| format!("Failed to launch git: {}", error))?;
-
-    if !output.status.success() {
-        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
-    }
-
-    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
-}
-
-fn inspect_git(root: &PathBuf) -> ProjectGitStatus {
-    let is_repo = run_git(root, &["rev-parse", "--is-inside-work-tree"])
-        .map(|value| value == "true")
-        .unwrap_or(false);
-
-    if !is_repo {
-        return ProjectGitStatus {
-            is_repo: false,
-            branch: None,
-            dirty: false,
-            last_commit: None,
-        };
-    }
-
-    let branch = run_git(root, &["branch", "--show-current"])
-        .ok()
-        .filter(|value| !value.is_empty());
-    let dirty = run_git(root, &["status", "--porcelain"])
-        .map(|value| !value.is_empty())
-        .unwrap_or(false);
-    let last_commit = run_git(root, &["log", "-1", "--pretty=%h %s"])
-        .ok()
-        .filter(|value| !value.is_empty());
-
-    ProjectGitStatus {
-        is_repo,
-        branch,
-        dirty,
-        last_commit,
-    }
-}
+mod commands;
+mod explorer;
+mod ids;
+mod package;
+mod paths;
+mod runtime;
+mod sidecars;
+mod templates;
+pub mod types;
+mod validation;
+pub use commands::*;
+use explorer::*;
+use ids::*;
+use package::*;
+use paths::*;
+use runtime::*;
+use sidecars::*;
+use templates::*;
+pub use types::*;
+use validation::*;
 
 fn default_gitignore() -> &'static str {
     "node_modules/\ndist/\ntarget/\n.DS_Store\n.env\nioi-data/\n.autopilot/\n"
+}
+
+fn normalize_legacy_workflow_output_nodes(workflow: &mut WorkflowProject) {
+    for node in &mut workflow.nodes {
+        let Some(node_object) = node.as_object_mut() else {
+            continue;
+        };
+        let was_legacy_artifact = node_object
+            .get("type")
+            .and_then(Value::as_str)
+            .map(|node_type| node_type == "artifact")
+            .unwrap_or(false);
+        if was_legacy_artifact {
+            node_object.insert("type".to_string(), json!("output"));
+        }
+        if !was_legacy_artifact
+            && node_object
+                .get("type")
+                .and_then(Value::as_str)
+                .map(|node_type| node_type != "output")
+                .unwrap_or(true)
+        {
+            continue;
+        }
+        if let Some(io_types) = node_object
+            .get_mut("ioTypes")
+            .and_then(Value::as_object_mut)
+        {
+            if io_types
+                .get("out")
+                .and_then(Value::as_str)
+                .map(|value| value == "file")
+                .unwrap_or(false)
+            {
+                io_types.insert("out".to_string(), json!("output_bundle"));
+            }
+        }
+        let Some(logic) = node_object
+            .get_mut("config")
+            .and_then(Value::as_object_mut)
+            .and_then(|config| config.get_mut("logic"))
+            .and_then(Value::as_object_mut)
+        else {
+            continue;
+        };
+        logic
+            .entry("rendererRef".to_string())
+            .or_insert_with(|| json!({ "rendererId": "markdown", "displayMode": "inline" }));
+        let legacy_path = logic
+            .remove("path")
+            .and_then(|value| value.as_str().map(str::to_string))
+            .filter(|value| !value.trim().is_empty());
+        if let Some(materialization) = logic
+            .get_mut("materialization")
+            .and_then(Value::as_object_mut)
+        {
+            if let Some(path) = legacy_path {
+                materialization.insert("enabled".to_string(), json!(true));
+                materialization.insert("assetPath".to_string(), json!(path));
+                materialization
+                    .entry("assetKind".to_string())
+                    .or_insert_with(|| json!("file"));
+            }
+        } else {
+            logic.insert(
+                "materialization".to_string(),
+                match legacy_path {
+                    Some(path) => json!({
+                        "enabled": true,
+                        "assetPath": path,
+                        "assetKind": "file"
+                    }),
+                    None => json!({ "enabled": false }),
+                },
+            );
+        }
+        logic
+            .entry("deliveryTarget".to_string())
+            .or_insert_with(|| json!({ "targetKind": "none" }));
+        logic
+            .entry("retentionPolicy".to_string())
+            .or_insert_with(|| json!({ "retentionKind": "run_scoped" }));
+        logic
+            .entry("versioning".to_string())
+            .or_insert_with(|| json!({ "enabled": true }));
+    }
+}
+
+fn workflow_validation_blockers(result: &WorkflowValidationResult) -> Vec<WorkflowValidationIssue> {
+    let mut seen = std::collections::BTreeSet::new();
+    let mut blockers = Vec::new();
+    for issue in result
+        .errors
+        .iter()
+        .chain(result.execution_readiness_issues.iter())
+        .chain(result.missing_config.iter())
+        .chain(result.connector_binding_issues.iter())
+        .chain(result.verification_issues.iter())
+    {
+        let key = format!(
+            "{}\n{}\n{}",
+            issue.node_id.clone().unwrap_or_default(),
+            issue.code,
+            issue.message
+        );
+        if seen.insert(key) {
+            blockers.push(issue.clone());
+        }
+    }
+    blockers
+}
+
+fn load_workflow_bundle_from_path(workflow_path: &Path) -> Result<WorkflowWorkbenchBundle, String> {
+    let mut workflow: WorkflowProject = read_json_file(workflow_path)?;
+    normalize_legacy_workflow_output_nodes(&mut workflow);
+    let tests_path = workflow_tests_path(workflow_path);
+    let proposals_dir = workflow_proposals_dir(workflow_path);
+    let runs_path = workflow_runs_path(workflow_path);
+    let tests = load_workflow_tests(&tests_path)?;
+    let proposals = load_workflow_proposals(&proposals_dir)?;
+    let runs = load_workflow_runs(&runs_path)?;
+    Ok(WorkflowWorkbenchBundle {
+        workflow_path: workflow_path.display().to_string(),
+        tests_path: tests_path.display().to_string(),
+        proposals_dir: proposals_dir.display().to_string(),
+        workflow,
+        tests,
+        proposals,
+        runs,
+    })
 }
 
 fn inspect_project_root(root: &PathBuf) -> ProjectShellSnapshot {
@@ -465,152 +180,313 @@ fn inspect_project_root(root: &PathBuf) -> ProjectShellSnapshot {
     }
 }
 
-#[tauri::command]
-pub fn save_project(path: String, project: ProjectFile) -> Result<(), String> {
-    // 1. Enforce versioning
-    let mut final_project = project;
-    final_project.version = "1.0.0".to_string();
+fn workflow_json_type_matches(expected_type: &str, value: &Value) -> bool {
+    match expected_type {
+        "object" => value.is_object(),
+        "array" => value.is_array(),
+        "string" => value.is_string(),
+        "number" => value.is_number(),
+        "integer" => value.as_i64().is_some() || value.as_u64().is_some(),
+        "boolean" => value.is_boolean(),
+        "null" => value.is_null(),
+        _ => true,
+    }
+}
 
-    // 2. Update metadata
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64;
-
-    if let Some(ref mut meta) = final_project.metadata {
-        meta.last_modified = now;
-    } else {
-        final_project.metadata = Some(ProjectMetadata {
-            name: std::path::Path::new(&path)
-                .file_stem()
-                .and_then(|s| s.to_str())
-                .unwrap_or("Untitled")
-                .to_string(),
-            created_at: now,
-            last_modified: now,
-            author: None,
-        });
+fn workflow_json_satisfies_schema(schema: &Value, value: &Value) -> Result<(), String> {
+    if let Some(expected_type) = schema.get("type").and_then(Value::as_str) {
+        if !workflow_json_type_matches(expected_type, value) {
+            return Err(format!(
+                "Expected JSON value of type '{}', but received {}.",
+                expected_type,
+                match value {
+                    Value::Null => "null",
+                    Value::Bool(_) => "boolean",
+                    Value::Number(_) => "number",
+                    Value::String(_) => "string",
+                    Value::Array(_) => "array",
+                    Value::Object(_) => "object",
+                }
+            ));
+        }
     }
 
-    let json = serde_json::to_string_pretty(&final_project).map_err(|e| e.to_string())?;
-
-    // 3. Ensure directory exists
-    let path_buf = PathBuf::from(&path);
-    if let Some(parent) = path_buf.parent() {
-        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    let required = schema
+        .get("required")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    for required_key in required {
+        let Some(key) = required_key.as_str() else {
+            continue;
+        };
+        if value.get(key).is_none() {
+            return Err(format!("Output did not include required field '{}'.", key));
+        }
     }
 
-    // 4. Atomic Write (Write to .tmp then rename)
-    let temp_path = format!("{}.tmp", path);
-    let mut file = fs::File::create(&temp_path).map_err(|e| e.to_string())?;
-    file.write_all(json.as_bytes()).map_err(|e| e.to_string())?;
+    if let (Some(properties), Some(object)) = (
+        schema.get("properties").and_then(Value::as_object),
+        value.as_object(),
+    ) {
+        for (key, property_schema) in properties {
+            let Some(property_value) = object.get(key) else {
+                continue;
+            };
+            workflow_json_satisfies_schema(property_schema, property_value)
+                .map_err(|error| format!("Property '{}': {}", key, error))?;
+        }
+    }
 
-    // Sync to disk to ensure data is flushed
-    file.sync_all().map_err(|e| e.to_string())?;
-
-    // Rename to overwrite target
-    fs::rename(temp_path, path).map_err(|e| e.to_string())?;
-
-    println!("[Project] Saved successfully to {}", path_buf.display());
     Ok(())
 }
 
-#[tauri::command]
-pub fn load_project(path: String) -> Result<ProjectFile, String> {
-    let content = fs::read_to_string(&path).map_err(|e| e.to_string())?;
-    let project: ProjectFile = serde_json::from_str(&content).map_err(|e| e.to_string())?;
-
-    // Basic validation
-    if project.nodes.is_empty() && project.global_config.is_none() {
-        println!("[Project] Warning: Loaded empty project from {}", path);
-    } else {
-        println!(
-            "[Project] Loaded {} nodes from {}",
-            project.nodes.len(),
-            path
-        );
-    }
-
-    Ok(project)
+fn workflow_node_output_schema(node: &Value) -> Option<Value> {
+    workflow_node_logic(node)
+        .get("functionBinding")
+        .and_then(|binding| binding.get("outputSchema"))
+        .cloned()
+        .or_else(|| {
+            workflow_node_logic(node)
+                .get("toolBinding")
+                .and_then(|binding| binding.get("workflowTool"))
+                .and_then(|tool| tool.get("resultSchema"))
+                .cloned()
+        })
+        .or_else(|| {
+            workflow_node_logic(node)
+                .get("parserBinding")
+                .and_then(|binding| binding.get("resultSchema"))
+                .cloned()
+        })
+        .or_else(|| workflow_node_schema(node, "outputSchema"))
 }
 
-#[tauri::command]
-pub fn project_shell_inspect(root: String) -> Result<ProjectShellSnapshot, String> {
-    let root_path = resolve_root_path(&root, false)?;
-    Ok(inspect_project_root(&root_path))
+fn workflow_output_satisfies_test_schema(schema: &Value, output: &Value) -> Result<(), String> {
+    match workflow_json_satisfies_schema(schema, output) {
+        Ok(()) => Ok(()),
+        Err(output_error) => {
+            if let Some(result) = output.get("result") {
+                workflow_json_satisfies_schema(schema, result).map_err(|result_error| {
+                    format!(
+                        "{} Result payload also failed schema validation: {}",
+                        output_error, result_error
+                    )
+                })
+            } else {
+                Err(output_error)
+            }
+        }
+    }
 }
 
-#[tauri::command]
-pub fn project_initialize_repository(root: String) -> Result<ProjectShellSnapshot, String> {
-    let root_path = resolve_root_path(&root, true)?;
-
-    if !inspect_git(&root_path).is_repo {
-        run_git(&root_path, &["init"])?;
+fn workflow_output_contains_expected(output: &Value, expected: &Value) -> bool {
+    if expected.is_null() {
+        return false;
     }
-
-    let gitignore_path = root_path.join(".gitignore");
-    if !gitignore_path.exists() {
-        fs::write(&gitignore_path, default_gitignore()).map_err(|error| {
-            format!(
-                "Failed to write default .gitignore at '{}': {}",
-                gitignore_path.display(),
-                error
-            )
-        })?;
-    }
-
-    Ok(inspect_project_root(&root_path))
+    let haystack = serde_json::to_string(output).unwrap_or_else(|_| output.to_string());
+    let needle = expected.as_str().map(str::to_string).unwrap_or_else(|| {
+        serde_json::to_string(expected).unwrap_or_else(|_| expected.to_string())
+    });
+    haystack.contains(&needle)
 }
 
-#[tauri::command]
-pub fn project_shell_list_directory(
-    root: String,
-    directory: String,
-) -> Result<Vec<ProjectExplorerNode>, String> {
-    let root_path = resolve_root_path(&root, false)?;
-    let directory_path = if directory.is_empty() || directory == "." {
-        root_path.clone()
-    } else {
-        resolve_scoped_existing_path(&root_path, &directory)?
+fn workflow_custom_assertion_result(
+    expression: &str,
+    input: Value,
+) -> Result<(bool, String), String> {
+    if expression.trim().is_empty() {
+        return Err("Custom assertion expression is empty.".to_string());
+    }
+    let code = format!(
+        r#"
+const assertionResult = (() => {{
+{expression}
+}})();
+if (typeof assertionResult === "boolean") {{
+  return {{ passed: assertionResult, message: assertionResult ? "Custom assertion passed." : "Custom assertion returned false." }};
+}}
+if (assertionResult && typeof assertionResult === "object" && Object.prototype.hasOwnProperty.call(assertionResult, "passed")) {{
+  return assertionResult;
+}}
+return {{ passed: Boolean(assertionResult), message: "Custom assertion returned a truthy/falsy value." }};
+"#,
+        expression = expression
+    );
+    let assertion_node = json!({
+        "id": "custom-assertion",
+        "type": "function",
+        "name": "Custom assertion",
+        "config": {
+            "logic": {
+                "functionBinding": {
+                    "language": "javascript",
+                    "code": code,
+                    "outputSchema": {
+                        "type": "object",
+                        "required": ["passed"]
+                    },
+                    "sandboxPolicy": {
+                        "timeoutMs": 1000,
+                        "memoryMb": 64,
+                        "outputLimitBytes": 32768,
+                        "permissions": []
+                    }
+                }
+            },
+            "law": {}
+        }
+    });
+    let output = execute_workflow_function_node(&assertion_node, input)?;
+    let passed = output
+        .pointer("/result/passed")
+        .and_then(Value::as_bool)
+        .or_else(|| output.get("result").and_then(Value::as_bool))
+        .ok_or_else(|| "Custom assertion did not return a boolean 'passed' field.".to_string())?;
+    let message = output
+        .pointer("/result/message")
+        .and_then(Value::as_str)
+        .unwrap_or(if passed {
+            "Custom assertion passed."
+        } else {
+            "Custom assertion failed."
+        })
+        .to_string();
+    Ok((passed, message))
+}
+
+fn workflow_evaluate_value_assertion(
+    assertion: &WorkflowTestAssertion,
+    value: &Value,
+    schema: Option<&Value>,
+) -> Result<(bool, String), String> {
+    match assertion.kind.as_str() {
+        "schema_matches" => {
+            let Some(schema_value) = assertion.expected.as_ref().or(schema) else {
+                return Err(
+                    "Schema assertion needs an expected schema or node output schema.".to_string(),
+                );
+            };
+            workflow_output_satisfies_test_schema(schema_value, value)?;
+            Ok((true, "Output matches schema.".to_string()))
+        }
+        "output_contains" => {
+            let Some(expected) = assertion.expected.as_ref() else {
+                return Err("Output contains assertion needs an expected value.".to_string());
+            };
+            let passed = workflow_output_contains_expected(value, expected);
+            Ok((
+                passed,
+                if passed {
+                    "Output contains expected value.".to_string()
+                } else {
+                    "Output did not contain expected value.".to_string()
+                },
+            ))
+        }
+        "custom" => workflow_custom_assertion_result(
+            assertion
+                .expression
+                .as_deref()
+                .ok_or_else(|| "Custom assertion needs an expression.".to_string())?,
+            json!({
+                "value": value,
+                "expected": assertion.expected
+            }),
+        ),
+        "node_exists" => Ok((!value.is_null(), "Value is present.".to_string())),
+        other => Err(format!("Unsupported workflow assertion kind '{}'.", other)),
+    }
+}
+
+fn workflow_test_needs_run(test: &WorkflowTestCase) -> bool {
+    test.assertion.kind != "node_exists"
+}
+
+fn workflow_evaluate_test_case(
+    test: &WorkflowTestCase,
+    workflow: &WorkflowProject,
+    node_ids: &std::collections::HashSet<String>,
+    run_result: Option<&WorkflowRunResult>,
+) -> WorkflowTestCaseRun {
+    let missing = test
+        .target_node_ids
+        .iter()
+        .filter(|node_id| !node_ids.contains(*node_id))
+        .cloned()
+        .collect::<Vec<_>>();
+    if !missing.is_empty() {
+        return WorkflowTestCaseRun {
+            test_id: test.id.clone(),
+            status: "failed".to_string(),
+            message: format!("Missing targets: {}", missing.join(", ")),
+            covered_node_ids: test.target_node_ids.clone(),
+        };
+    }
+
+    if test.assertion.kind == "node_exists" {
+        return WorkflowTestCaseRun {
+            test_id: test.id.clone(),
+            status: "passed".to_string(),
+            message: "Targets are present.".to_string(),
+            covered_node_ids: test.target_node_ids.clone(),
+        };
+    }
+
+    let Some(run) = run_result else {
+        return WorkflowTestCaseRun {
+            test_id: test.id.clone(),
+            status: "blocked".to_string(),
+            message: "Executable assertion needs a workflow run result.".to_string(),
+            covered_node_ids: test.target_node_ids.clone(),
+        };
     };
-
-    if !directory_path.is_dir() {
-        return Err(format!(
-            "'{}' is not a directory inside the project boundary.",
-            directory_path.display()
-        ));
+    for node_id in &test.target_node_ids {
+        let Some(output) = run.final_state.node_outputs.get(node_id) else {
+            return WorkflowTestCaseRun {
+                test_id: test.id.clone(),
+                status: if run.summary.status == "passed" {
+                    "failed"
+                } else {
+                    "blocked"
+                }
+                .to_string(),
+                message: format!(
+                    "Node '{}' did not produce output before workflow status '{}'.",
+                    node_id, run.summary.status
+                ),
+                covered_node_ids: test.target_node_ids.clone(),
+            };
+        };
+        let schema = workflow_node_by_id(workflow, node_id).and_then(workflow_node_output_schema);
+        match workflow_evaluate_value_assertion(&test.assertion, output, schema.as_ref()) {
+            Ok((true, _message)) => {}
+            Ok((false, message)) => {
+                return WorkflowTestCaseRun {
+                    test_id: test.id.clone(),
+                    status: "failed".to_string(),
+                    message: format!("Node '{}': {}", node_id, message),
+                    covered_node_ids: test.target_node_ids.clone(),
+                };
+            }
+            Err(error) => {
+                return WorkflowTestCaseRun {
+                    test_id: test.id.clone(),
+                    status: "blocked".to_string(),
+                    message: format!("Node '{}': {}", node_id, error),
+                    covered_node_ids: test.target_node_ids.clone(),
+                };
+            }
+        }
     }
 
-    Ok(build_directory_listing(&root_path, &directory_path))
-}
-
-#[tauri::command]
-pub fn project_read_file(
-    root: String,
-    relative_path: String,
-) -> Result<ProjectFileDocument, String> {
-    let root_path = resolve_root_path(&root, false)?;
-    read_project_file_document(&root_path, &relative_path)
-}
-
-#[tauri::command]
-pub fn project_write_file(
-    root: String,
-    relative_path: String,
-    content: String,
-) -> Result<ProjectFileDocument, String> {
-    let root_path = resolve_root_path(&root, false)?;
-    let file_path = resolve_scoped_existing_path(&root_path, &relative_path)?;
-
-    if file_path.is_dir() {
-        return Err(format!(
-            "'{}' is a directory, not an editable file.",
-            file_path.display()
-        ));
+    WorkflowTestCaseRun {
+        test_id: test.id.clone(),
+        status: "passed".to_string(),
+        message: "Executable assertion passed for all target outputs.".to_string(),
+        covered_node_ids: test.target_node_ids.clone(),
     }
-
-    fs::write(&file_path, content.as_bytes())
-        .map_err(|error| format!("Failed to save '{}': {}", file_path.display(), error))?;
-
-    read_project_file_document(&root_path, &relative_path)
 }
+
+#[cfg(test)]
+mod workflow_project_tests;

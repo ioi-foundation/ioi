@@ -3,6 +3,15 @@
 //   · Suppliers → who's selling it (Providers)
 // dApp-style: the marketplace is one destination with a segmented switch.
 
+const CATEGORY_HEROES = {
+  finance:   { title: 'Finance & Accounting',       tagline: 'Reconcile, close, detect — outcome-priced.', gradient: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' },
+  hr:        { title: 'People & Hiring',             tagline: 'Onboard, verify, comply — per hire.',          gradient: 'linear-gradient(135deg, #1a1a2e 0%, #2d1b4e 50%, #4a1942 100%)' },
+  security:  { title: 'Security & Compliance',       tagline: 'Patch, audit, certify — per scan.',            gradient: 'linear-gradient(135deg, #1a1a2e 0%, #0d2137 50%, #1a3a4a 100%)' },
+  legal:     { title: 'Legal & Contracts',            tagline: 'Redline, sign, archive — per document.',       gradient: 'linear-gradient(135deg, #1a1a2e 0%, #2e1f0f 50%, #3d2b1f 100%)' },
+  support:   { title: 'Support & Operations',         tagline: 'Route, resolve, escalate — per ticket.',       gradient: 'linear-gradient(135deg, #1a1a2e 0%, #1a2e1a 50%, #2d4a2e 100%)' },
+  analytics: { title: 'Data & Analytics',             tagline: 'Ingest, model, report — per insight.',         gradient: 'linear-gradient(135deg, #1a1a2e 0%, #1a1a3e 50%, #2d2d6e 100%)' },
+};
+
 const MarketView = ({ mode, onMode, activeCategory, onCategory, catalogProps, providersProps }) => {
   // Map top-nav category id to providers category label (reusing app.jsx's map is too clumsy; local)
   const CAT_TO_PROVIDER_CAT = {
@@ -20,14 +29,26 @@ const MarketView = ({ mode, onMode, activeCategory, onCategory, catalogProps, pr
     return c ? c.name : activeCategory;
   }, [activeCategory]);
 
+  const hero = activeCategory ? CATEGORY_HEROES[activeCategory] : null;
+
   return (
     <div>
+      {/* Category hero banner — shown when a category is selected */}
+      {hero && (
+        <div className="market-category-hero" style={{ background: hero.gradient }}>
+          <div className="market-category-hero-inner">
+            <h1 className="market-category-hero-title">{hero.title}</h1>
+            <p className="market-category-hero-tagline">{hero.tagline}</p>
+          </div>
+        </div>
+      )}
+
       <div className="page" style={{paddingBottom: 0}}>
         {activeCategory && (
           <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:14}}>
             <span className="mono" style={{fontSize:10, letterSpacing:'0.14em', textTransform:'uppercase', color:'var(--muted-2)'}}>Market / </span>
-            <span className="serif" style={{fontSize:18, letterSpacing:'-0.01em'}}>
-              <em>{catalogCategoryLabel}</em>
+            <span style={{fontSize:18, fontFamily:'var(--sans, sans-serif)', fontWeight:600, letterSpacing:'-0.01em'}}>
+              {catalogCategoryLabel}
             </span>
             <span onClick={() => onCategory(null)} className="mono" style={{fontSize:10, letterSpacing:'0.06em', color:'var(--accent-ink)', cursor:'pointer', textTransform:'uppercase', marginLeft:6}}>
               × clear
@@ -53,7 +74,7 @@ const MarketView = ({ mode, onMode, activeCategory, onCategory, catalogProps, pr
                   display: 'flex', alignItems: 'baseline', gap: 8,
                   transition: 'background .15s, color .15s',
                 }}>
-                  <span className="serif" style={{fontSize: 15, letterSpacing: '-0.005em'}}>{opt.label}</span>
+                  <span style={{fontSize: 15, fontFamily:'var(--sans, sans-serif)', fontWeight: 500, letterSpacing: '-0.005em'}}>{opt.label}</span>
                   <span className="mono" style={{fontSize: 9.5, letterSpacing: '0.12em', textTransform: 'uppercase', opacity: 0.7}}>
                     {opt.sub}
                   </span>

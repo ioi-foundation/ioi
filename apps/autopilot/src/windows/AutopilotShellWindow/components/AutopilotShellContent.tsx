@@ -33,12 +33,16 @@ export function AutopilotShellContent({
     controller;
   const workspaceHost = getDefaultWorkspaceWorkbenchHost();
   const workspaceActive = activeView === "workspace";
+  const workflowActive = activeView === "workflows";
 
   const auxiliaryChatVisible =
     !workspaceActive &&
+    !workflowActive &&
     activeView !== "chat" &&
     activeView !== "home" &&
     controller.chat.paneVisible;
+  const utilityDrawerVisible =
+    activeView !== "chat" && activeView !== "home" && !workflowActive;
   const auxiliaryChatFullscreen =
     auxiliaryChatVisible && controller.chat.paneMaximized;
 
@@ -249,7 +253,7 @@ export function AutopilotShellContent({
                 ) : null}
               </div>
 
-              {activeView !== "chat" && activeView !== "home" ? (
+              {utilityDrawerVisible ? (
                 <ChatUtilityDrawer
                   runtime={runtime}
                   activeView={activeView}
