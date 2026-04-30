@@ -409,6 +409,18 @@ export function CommandPalette({
           }),
       },
       {
+        id: "open-canvas",
+        title: "Open Canvas",
+        description: "Jump straight into the workflow graph editor.",
+        meta: "Workflows",
+        icon: icons.expand,
+        active: activeView === "workflows" && workflowSurface === "canvas",
+        onSelect: () =>
+          runAction(() => {
+            onOpenWorkflowSurface("canvas");
+          }),
+      },
+      {
         id: "open-workflow-home",
         title: "Open Workflow Home",
         description: "Review workflow entrypoints, graph posture, and builder lanes.",
@@ -418,18 +430,6 @@ export function CommandPalette({
         onSelect: () =>
           runAction(() => {
             onOpenWorkflowSurface("home");
-          }),
-      },
-      {
-        id: "open-canvas",
-        title: "Open Canvas",
-        description: "Jump straight into the live graph editor.",
-        meta: "Canvas",
-        icon: icons.expand,
-        active: activeView === "workflows" && workflowSurface === "canvas",
-        onSelect: () =>
-          runAction(() => {
-            onOpenWorkflowSurface("canvas");
           }),
       },
       {

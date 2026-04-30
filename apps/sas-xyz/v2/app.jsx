@@ -15,9 +15,19 @@ const CATEGORY_NAV = [
 ];
 
 const Topbar = ({ tab, activeCategory, onTab, onCategory, inboxActionCount, onBell, onDraft, onAvatar, onSearchFocus, variant = 'app' }) => {
+  const [scrolled, setScrolled] = React.useState(false);
+
+  React.useEffect(() => {
+    if (variant !== 'marketing') return;
+    const onScroll = () => setScrolled(window.scrollY > 300);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [variant]);
+
   if (variant === 'marketing') {
     return (
-      <header className="topbar-marketing">
+      <header className={'topbar-marketing' + (scrolled ? ' topbar-marketing-scrolled' : '')}>
         <div className="topbar-marketing-inner">
           <div className="brand" onClick={() => onTab('Overview')} style={{cursor:'pointer'}} title="sas.xyz">
             <img src="v2/logo.svg" alt="" />
@@ -40,6 +50,18 @@ const Topbar = ({ tab, activeCategory, onTab, onCategory, inboxActionCount, onBe
             </button>
           </nav>
         </div>
+        <nav className="ui-subnav ui-subnav-marketing">
+          <div className="ui-subnav-inner">
+            {CATEGORY_NAV.map(c => (
+              <div key={c.id} className={'ui-subnav-link' + (activeCategory === c.id ? ' active' : '')} onClick={() => { onCategory(c.id); onTab('Market'); }}>
+                {c.label}
+              </div>
+            ))}
+            <div className={'ui-subnav-link' + (tab === 'Market' && !activeCategory ? ' active' : '')} onClick={() => { onCategory(null); onTab('Market'); }}>
+              All market
+            </div>
+          </div>
+        </nav>
       </header>
     );
   }
@@ -87,13 +109,15 @@ const Topbar = ({ tab, activeCategory, onTab, onCategory, inboxActionCount, onBe
 
       {/* Category nav — persistent, service-category-first */}
       <nav className="ui-subnav">
-        {CATEGORY_NAV.map(c => (
-          <div key={c.id} className={'ui-subnav-link' + (activeCategory === c.id ? ' active' : '')} onClick={() => { onCategory(c.id); onTab('Market'); }}>
-            {c.label}
+        <div className="ui-subnav-inner">
+          {CATEGORY_NAV.map(c => (
+            <div key={c.id} className={'ui-subnav-link' + (activeCategory === c.id ? ' active' : '')} onClick={() => { onCategory(c.id); onTab('Market'); }}>
+              {c.label}
+            </div>
+          ))}
+          <div className={'ui-subnav-link' + (tab === 'Market' && !activeCategory ? ' active' : '')} onClick={() => { onCategory(null); onTab('Market'); }}>
+            All market
           </div>
-        ))}
-        <div className={'ui-subnav-link' + (tab === 'Market' && !activeCategory ? ' active' : '')} onClick={() => { onCategory(null); onTab('Market'); }}>
-          All market
         </div>
       </nav>
     </header>
@@ -333,7 +357,7 @@ const App = () => {
       <Topbar
         tab={tab}
         activeCategory={activeCategory}
-        onTab={(t) => { if (t !== 'Market') setActiveCategory(null); setTab(t); }}
+        onTab={(t) => { if (t !== 'Market') setActiveCategory(null); setTab(t); window.scrollTo(0, 0); }}
         onCategory={setActiveCategory}
         variant={tab === 'Overview' ? 'marketing' : 'app'}
         inboxActionCount={inboxActionCount}

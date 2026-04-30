@@ -11,7 +11,7 @@ import { GraphGlobalConfig } from "../types/graph";
 interface ExecutionState {
     logs: any[];
     nodeStatus: Record<string, string>;
-    artifacts: Record<string, any>;
+    outputs: Record<string, any>;
     isRunning: boolean;
 }
 
@@ -30,7 +30,7 @@ function modelStatusIsRunnable(status?: string): boolean {
 }
 
 const NODE_TYPES_BY_CAPABILITY: Record<string, string[]> = {
-    reasoning: ["responses"],
+    reasoning: ["responses", "model_call"],
     vision: ["vision_read"],
     embedding: ["embeddings"],
     image: ["generate_image", "edit_image"],
@@ -39,6 +39,29 @@ const NODE_TYPES_BY_CAPABILITY: Record<string, string[]> = {
 };
 
 const MODEL_BOUND_CAPABILITY_KEYS = new Set(["reasoning", "vision", "embedding", "image"]);
+
+const EXECUTION_NODE_TYPES: Record<string, string> = {
+    source: "context",
+    function: "code",
+    model_call: "responses",
+    adapter: "tool",
+    plugin_tool: "tool",
+    decision: "router",
+    human_gate: "gate",
+    output: "context",
+    test_assertion: "validator",
+};
+
+const BLOCKED_WORKFLOW_NODE_TYPES = new Set<string>();
+
+function workflowNodeType(node: any): string {
+    return String(node?.data?.type || node?.type || "");
+}
+
+function executionNodeType(node: any): string {
+    const nodeType = workflowNodeType(node);
+    return EXECUTION_NODE_TYPES[nodeType] || nodeType;
+}
 
 export function useGraphExecution(
     runtime: AgentWorkbenchRuntime,
@@ -50,7 +73,7 @@ export function useGraphExecution(
     const [state, setState] = useState<ExecutionState>({
         logs: [],
         nodeStatus: {},
-        artifacts: {},
+        outputs: {},
         isRunning: false
     });
 
@@ -95,7 +118,7 @@ export function useGraphExecution(
                     const impactedNodeIds = new Set(
                         nodes
                             .filter((node: any) =>
-                                (NODE_TYPES_BY_CAPABILITY[capabilityKey] ?? []).includes(node.type)
+                                (NODE_TYPES_BY_CAPABILITY[capabilityKey] ?? []).includes(workflowNodeType(node))
                             )
                             .map((node: any) => node.id)
                     );
@@ -235,7 +258,7 @@ export function useGraphExecution(
             setState(prev => ({
                 ...prev,
                 nodeStatus: { ...prev.nodeStatus, [node_id]: status },
-                artifacts: result ? { ...prev.artifacts, [node_id]: result } : prev.artifacts,
+                outputs: result ? { ...prev.outputs, [node_id]: result } : prev.outputs,
                 logs: [...prev.logs, {
                     id: Date.now(),
                     source: node_id,
@@ -274,7 +297,7 @@ export function useGraphExecution(
         setNodes((nds: any[]) => nds.map((n) => ({ ...n, data: { ...n.data, status: 'idle' } })));
         setEdges((eds: any[]) => eds.map((e: any) => ({ ...e, animated: false })));
 
-        const legacyModelNode = nodes.find((node) => node.type === "model");
+        const legacyModelNode = nodes.find((node) => workflowNodeType(node) === "model");
         if (legacyModelNode) {
             setState(prev => ({
                 ...prev,
@@ -288,7 +311,7 @@ export function useGraphExecution(
                     {
                         id: Date.now(),
                         source: legacyModelNode.id,
-                        message: "Legacy graph node type 'model' is rejected. Use 'responses' for kernel-backed model proposals.",
+                        message: "Legacy graph node type 'model' is rejected. Use 'model_call' for workflow model steps.",
                         level: "error",
                     },
                 ],
@@ -296,6 +319,38 @@ export function useGraphExecution(
             setNodes((nds: any[]) =>
                 nds.map((node) =>
                     node.id === legacyModelNode.id
+                        ? { ...node, data: { ...node.data, status: "blocked" } }
+                        : node
+                )
+            );
+            return;
+        }
+
+        const blockedWorkflowNode = nodes.find((node) =>
+            BLOCKED_WORKFLOW_NODE_TYPES.has(workflowNodeType(node))
+        );
+        if (blockedWorkflowNode) {
+            const nodeType = workflowNodeType(blockedWorkflowNode);
+            setState(prev => ({
+                ...prev,
+                isRunning: false,
+                nodeStatus: {
+                    ...prev.nodeStatus,
+                    [blockedWorkflowNode.id]: "blocked",
+                },
+                logs: [
+                    ...prev.logs,
+                    {
+                        id: Date.now(),
+                        source: blockedWorkflowNode.id,
+                        message: `Workflow node type '${nodeType}' is a validation node and cannot be executed as a runtime step.`,
+                        level: "error",
+                    },
+                ],
+            }));
+            setNodes((nds: any[]) =>
+                nds.map((node) =>
+                    node.id === blockedWorkflowNode.id
                         ? { ...node, data: { ...node.data, status: "blocked" } }
                         : node
                 )
@@ -311,7 +366,7 @@ export function useGraphExecution(
         const payload: GraphPayload = {
             nodes: nodes.map(n => ({
                 id: n.id,
-                type: n.type,
+                type: executionNodeType(n),
                 config: n.data.config
             })),
             edges: edges.map(e => ({
@@ -335,11 +390,11 @@ export function useGraphExecution(
         const node = nodes.find(n => n.id === nodeId);
         if (!node) return;
         
-        const result = await runtime.runNode(node.type!, node.data.config, "{}");
+        const result = await runtime.runNode(executionNodeType(node), node.data.config, "{}");
         
         setState(prev => ({
             ...prev,
-            artifacts: { ...prev.artifacts, [nodeId]: result }
+            outputs: { ...prev.outputs, [nodeId]: result }
         }));
     }, [runtime, nodes]);
 
@@ -349,23 +404,23 @@ export function useGraphExecution(
         const mergedContext: Record<string, any> = {};
         
         incomingEdges.forEach((edge: any) => {
-            const artifact = state.artifacts[edge.source];
-            if (artifact?.output) {
+            const output = state.outputs[edge.source];
+            if (output?.output) {
                 try {
-                    const parsed = JSON.parse(artifact.output);
+                    const parsed = JSON.parse(output.output);
                     if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
                         Object.assign(mergedContext, parsed);
                     } else {
                         mergedContext[edge.source] = parsed;
                     }
                 } catch {
-                    mergedContext[edge.source] = artifact.output;
+                    mergedContext[edge.source] = output.output;
                 }
             }
         });
         
         return Object.keys(mergedContext).length > 0 ? mergedContext : null;
-    }, [edges, state.artifacts]);
+    }, [edges, state.outputs]);
 
     return {
         ...state,

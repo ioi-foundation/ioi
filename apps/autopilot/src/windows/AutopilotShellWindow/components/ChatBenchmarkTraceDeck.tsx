@@ -308,7 +308,7 @@ export function ChatBenchmarkTraceDeck({
             </div>
           ) : (
             <div className="chat-trace-inline-empty">
-              <p>No receipt spans were emitted for this trace.</p>
+              <p>No activity events are available for this run.</p>
             </div>
           )}
         </>

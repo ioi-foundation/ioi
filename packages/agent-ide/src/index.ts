@@ -1,6 +1,16 @@
 // packages/agent-ide/src/index.ts
 
 export { AgentEditor } from "./AgentEditor";
+export { WorkflowComposer } from "./WorkflowComposer";
+export { createWorkflowHarnessTools } from "./runtime/workflow-harness-tools";
+export {
+  actionKindForWorkflowNodeType,
+  actionKindIsEntry,
+  actionKindIsTerminal,
+  actionKindRequiresCompletionVerification,
+  validateActionEdge,
+  workflowNodeTypeForActionKind,
+} from "./runtime/agent-execution-substrate";
 export { ActivityBar } from "./features/Shell/ActivityBar";
 export { AssistantWorkbenchView } from "./features/Shell/AssistantWorkbenchView";
 export { SessionHistorySidebar } from "./features/Shell/SessionHistorySidebar";
@@ -235,6 +245,14 @@ export type {
   AssistantWorkbenchActivityStatus,
 } from "./runtime/agent-runtime";
 export type { ShieldApprovalRequest } from "./runtime/shield-approval";
+export type {
+  AgentActionBindingRef,
+  AgentActionFrame,
+  AgentActionKind,
+  AgentActionPolicy,
+  AgentActionValidationIssue,
+  AgentExecutionSurface,
+} from "./runtime/agent-execution-substrate";
 export type {
   UseAssistantWorkbenchStateOptions,
 } from "./runtime/use-assistant-workbench-state";

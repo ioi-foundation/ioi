@@ -3373,6 +3373,17 @@
   background: var(--chat-bg);
 }
 
+.mission-control-view--workflow-canvas {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.mission-control-view--workflow-canvas > .workflow-composer {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
 .mission-control-view--control {
   gap: 0;
   padding: 0;

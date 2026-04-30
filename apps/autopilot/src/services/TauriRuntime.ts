@@ -27,6 +27,36 @@ import {
   InstalledWorkflowSummary,
   RuntimeCatalogEntry,
   ProjectFile,
+  CreateWorkflowProjectRequest,
+  CreateWorkflowFromTemplateRequest,
+  CreateWorkflowProposalRequest,
+  ImportWorkflowPackageRequest,
+  WorkflowBindingCheckResult,
+  WorkflowBindingManifest,
+  WorkflowConnectorBinding,
+  WorkflowCheckpoint,
+  WorkflowCheckpointForkRequest,
+  WorkflowDogfoodRun,
+  WorkflowDeliveryTarget,
+  WorkflowEvidenceSummary,
+  WorkflowModelBinding,
+  WorkflowNodeFixture,
+  WorkflowPortablePackage,
+  WorkflowProject,
+  WorkflowProjectSummary,
+  WorkflowResumeRequest,
+  WorkflowRunComparison,
+  WorkflowRunResult,
+  WorkflowRunSummary,
+  WorkflowScaffoldDefinition,
+  WorkflowStateSnapshot,
+  WorkflowStreamEvent,
+  WorkflowTestCase,
+  WorkflowTestRunResult,
+  WorkflowToolBinding,
+  WorkflowThread,
+  WorkflowValidationResult,
+  WorkflowWorkbenchBundle,
   AgentSummary,
   ChatViewTarget,
   WalletMailConfigureAccountInput,
@@ -1158,6 +1188,267 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
 
     async saveProject(path: string, project: ProjectFile): Promise<void> {
         await invoke("save_project", { path, project });
+    }
+
+    async listWorkflowProjects(projectRoot: string): Promise<WorkflowProjectSummary[]> {
+        return invoke("list_workflow_projects", { projectRoot });
+    }
+
+    async createWorkflowProject(
+        request: CreateWorkflowProjectRequest
+    ): Promise<WorkflowWorkbenchBundle> {
+        return invoke("create_workflow_project", { request });
+    }
+
+    async loadWorkflowBundle(path: string): Promise<WorkflowWorkbenchBundle> {
+        return invoke("load_workflow_bundle", { path });
+    }
+
+    async saveWorkflowProject(path: string, workflow: WorkflowProject): Promise<void> {
+        await invoke("save_workflow_project", { path, workflow });
+    }
+
+    async saveWorkflowTests(path: string, tests: WorkflowTestCase[]): Promise<void> {
+        await invoke("save_workflow_tests", { path, tests });
+    }
+
+    async runWorkflowTests(
+        path: string,
+        testIds?: string[]
+    ): Promise<WorkflowTestRunResult> {
+        return invoke("run_workflow_tests", { path, testIds: testIds ?? null });
+    }
+
+    async createWorkflowThread(
+        path: string,
+        input?: Record<string, unknown>
+    ): Promise<WorkflowThread> {
+        return invoke("create_workflow_thread", { path, input: input ?? null });
+    }
+
+    async runWorkflowProject(
+        path: string,
+        options?: Record<string, unknown>
+    ): Promise<WorkflowRunResult> {
+        return invoke("run_workflow_project", { path, options: options ?? null });
+    }
+
+    async runWorkflowNode(
+        path: string,
+        nodeId: string,
+        input?: unknown,
+        options?: Record<string, unknown>
+    ): Promise<WorkflowRunResult> {
+        return invoke("run_workflow_node", { path, nodeId, input: input ?? null, options: options ?? null });
+    }
+
+    async dryRunWorkflowFunction(
+        path: string,
+        nodeId: string,
+        input?: unknown
+    ): Promise<WorkflowRunResult> {
+        return invoke("dry_run_workflow_function", { path, nodeId, input: input ?? null });
+    }
+
+    async listWorkflowScaffolds(projectRoot: string): Promise<WorkflowScaffoldDefinition[]> {
+        return invoke("list_workflow_scaffolds", { projectRoot });
+    }
+
+    async createWorkflowNodeFromScaffold(
+        path: string,
+        request: { scaffoldId: string; nodeId?: string; name?: string; x?: number; y?: number }
+    ): Promise<WorkflowWorkbenchBundle> {
+        return invoke("create_workflow_node_from_scaffold", { path, request });
+    }
+
+    async validateWorkflowNodeConfig(
+        path: string,
+        nodeId: string
+    ): Promise<WorkflowValidationResult> {
+        return invoke("validate_workflow_node_config", { path, nodeId });
+    }
+
+    async dryRunWorkflowNode(
+        path: string,
+        nodeId: string,
+        input?: unknown
+    ): Promise<WorkflowRunResult> {
+        return invoke("dry_run_workflow_node", { path, nodeId, input: input ?? null });
+    }
+
+    async materializeWorkflowFunction(
+        path: string,
+        nodeId: string,
+        options?: Record<string, unknown>
+    ): Promise<WorkflowWorkbenchBundle> {
+        return invoke("materialize_workflow_function", { path, nodeId, options: options ?? null });
+    }
+
+    async listWorkflowModelBindings(projectRoot: string): Promise<WorkflowModelBinding[]> {
+        return invoke("list_workflow_model_bindings", { projectRoot });
+    }
+
+    async listWorkflowDeliveryTargets(projectRoot: string): Promise<WorkflowDeliveryTarget[]> {
+        return invoke("list_workflow_delivery_targets", { projectRoot });
+    }
+
+    async listWorkflowToolCatalog(projectRoot: string): Promise<WorkflowToolBinding[]> {
+        return invoke("list_workflow_tool_catalog", { projectRoot });
+    }
+
+    async listWorkflowConnectorCatalog(projectRoot: string): Promise<WorkflowConnectorBinding[]> {
+        return invoke("list_workflow_connector_catalog", { projectRoot });
+    }
+
+    async *streamWorkflowRun(
+        path: string,
+        runId: string
+    ): AsyncIterable<WorkflowStreamEvent> {
+        const result = await invoke<WorkflowRunResult>("load_workflow_run", { path, runId });
+        for (const event of result.events) {
+            yield event;
+        }
+    }
+
+    async loadWorkflowRun(
+        path: string,
+        runId: string
+    ): Promise<WorkflowRunResult> {
+        return invoke("load_workflow_run", { path, runId });
+    }
+
+    async resumeWorkflowRun(
+        path: string,
+        request: WorkflowResumeRequest
+    ): Promise<WorkflowRunResult> {
+        return invoke("resume_workflow_run", { path, request });
+    }
+
+    async listWorkflowRuns(path: string): Promise<WorkflowRunSummary[]> {
+        return invoke("list_workflow_runs", { path });
+    }
+
+    async listWorkflowCheckpoints(
+        path: string,
+        threadId: string
+    ): Promise<WorkflowCheckpoint[]> {
+        return invoke("list_workflow_checkpoints", { path, threadId });
+    }
+
+    async loadWorkflowCheckpoint(
+        path: string,
+        checkpointId: string
+    ): Promise<WorkflowStateSnapshot> {
+        return invoke("load_workflow_checkpoint", { path, checkpointId });
+    }
+
+    async forkWorkflowCheckpoint(
+        path: string,
+        request: WorkflowCheckpointForkRequest
+    ): Promise<WorkflowThread> {
+        return invoke("fork_workflow_checkpoint", { path, request });
+    }
+
+    async compareWorkflowRuns(
+        path: string,
+        baselineRunId: string,
+        targetRunId: string
+    ): Promise<WorkflowRunComparison> {
+        return invoke("compare_workflow_runs", { path, baselineRunId, targetRunId });
+    }
+
+    async validateWorkflowBundle(path: string): Promise<WorkflowValidationResult> {
+        return invoke("validate_workflow_bundle", { path });
+    }
+
+    async validateWorkflowExecutionReadiness(path: string): Promise<WorkflowValidationResult> {
+        return invoke("validate_workflow_execution_readiness", { path });
+    }
+
+    async checkWorkflowBinding(
+        path: string,
+        nodeId: string,
+        bindingId?: string
+    ): Promise<WorkflowBindingCheckResult> {
+        return invoke("check_workflow_binding", { path, nodeId, bindingId: bindingId ?? null });
+    }
+
+    async generateWorkflowBindingManifest(
+        path: string
+    ): Promise<WorkflowBindingManifest> {
+        return invoke("generate_workflow_binding_manifest", { path });
+    }
+
+    async loadWorkflowBindingManifest(
+        path: string
+    ): Promise<WorkflowBindingManifest | null> {
+        return invoke("load_workflow_binding_manifest", { path });
+    }
+
+    async exportWorkflowPackage(
+        path: string,
+        outputDir?: string
+    ): Promise<WorkflowPortablePackage> {
+        return invoke("export_workflow_package", { path, outputDir: outputDir ?? null });
+    }
+
+    async importWorkflowPackage(
+        request: ImportWorkflowPackageRequest
+    ): Promise<WorkflowWorkbenchBundle> {
+        return invoke("import_workflow_package", { request });
+    }
+
+    async listWorkflowEvidence(path: string): Promise<WorkflowEvidenceSummary[]> {
+        return invoke("list_workflow_evidence", { path });
+    }
+
+    async listWorkflowNodeFixtures(
+        path: string,
+        nodeId?: string
+    ): Promise<WorkflowNodeFixture[]> {
+        return invoke("list_workflow_node_fixtures", { path, nodeId: nodeId ?? null });
+    }
+
+    async saveWorkflowNodeFixture(
+        path: string,
+        fixture: WorkflowNodeFixture
+    ): Promise<WorkflowNodeFixture[]> {
+        return invoke("save_workflow_node_fixture", { path, fixture });
+    }
+
+    async createWorkflowFromTemplate(
+        request: CreateWorkflowFromTemplateRequest
+    ): Promise<WorkflowWorkbenchBundle> {
+        return invoke("create_workflow_from_template", { request });
+    }
+
+    async createWorkflowProposal(
+        path: string,
+        request: CreateWorkflowProposalRequest
+    ): Promise<WorkflowWorkbenchBundle> {
+        return invoke("create_workflow_proposal", { path, request });
+    }
+
+    async createWorkflowRepairProposal(
+        path: string,
+        validationIssueIds: string[]
+    ): Promise<WorkflowWorkbenchBundle> {
+        return invoke("create_workflow_repair_proposal", { path, validationIssueIds });
+    }
+
+    async applyWorkflowProposal(
+        path: string,
+        proposalId: string
+    ): Promise<WorkflowWorkbenchBundle> {
+        return invoke("apply_workflow_proposal", { path, proposalId });
+    }
+
+    async runWorkflowDogfoodSuite(
+        projectRoot: string,
+        suiteId: string,
+        options?: Record<string, unknown>
+    ): Promise<WorkflowDogfoodRun> {
+        return invoke("run_workflow_dogfood_suite", { projectRoot, suiteId, options: options ?? null });
     }
 
     async getAgents(): Promise<AgentSummary[]> {

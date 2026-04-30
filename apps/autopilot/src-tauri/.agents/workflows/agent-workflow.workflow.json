@@ -1,0 +1,664 @@
+{
+  "version": "workflow.v1",
+  "metadata": {
+    "id": "agent-workflow",
+    "name": "Agent workflow",
+    "slug": "agent-workflow",
+    "workflowKind": "agent_workflow",
+    "executionMode": "local",
+    "gitLocation": ".agents/workflows/agent-workflow.workflow.json",
+    "branch": null,
+    "dirty": false,
+    "readOnly": false,
+    "createdAtMs": 1777510647579,
+    "updatedAtMs": 1777510705064
+  },
+  "nodes": [
+    {
+      "config": {
+        "kind": "trigger",
+        "law": {},
+        "logic": {
+          "cronSchedule": "0 9 * * 1",
+          "dedupeKey": "{{scheduled_at}}",
+          "runtimeReady": false,
+          "triggerKind": "scheduled"
+        }
+      },
+      "id": "node-1777510649367-7bnbtd",
+      "inputs": [],
+      "ioTypes": {
+        "in": "none",
+        "out": "payload"
+      },
+      "metricLabel": "Trigger",
+      "metricValue": "cron",
+      "name": "Scheduled trigger",
+      "outputs": [
+        "output"
+      ],
+      "ports": [
+        {
+          "cardinality": "one",
+          "connectionClass": "data",
+          "dataType": "payload",
+          "direction": "output",
+          "id": "output",
+          "label": "Output",
+          "required": false,
+          "semanticRole": "trigger"
+        }
+      ],
+      "type": "trigger",
+      "x": 120,
+      "y": 160
+    },
+    {
+      "config": {
+        "kind": "function",
+        "law": {
+          "sandboxPolicy": {
+            "memoryMb": 64,
+            "outputLimitBytes": 32768,
+            "permissions": [],
+            "timeoutMs": 1000
+          }
+        },
+        "logic": {
+          "code": "return { result: input };",
+          "functionBinding": {
+            "code": "return { result: input };",
+            "inputSchema": {
+              "type": "object"
+            },
+            "language": "javascript",
+            "outputSchema": {
+              "type": "object"
+            },
+            "sandboxPolicy": {
+              "memoryMb": 64,
+              "outputLimitBytes": 32768,
+              "permissions": [],
+              "timeoutMs": 1000
+            },
+            "testInput": {
+              "payload": "sample"
+            }
+          },
+          "inputSchema": {
+            "type": "object"
+          },
+          "language": "javascript",
+          "outputSchema": {
+            "type": "object"
+          }
+        }
+      },
+      "id": "node-1777510660582-gkluvn",
+      "inputs": [
+        "input"
+      ],
+      "ioTypes": {
+        "in": "payload",
+        "out": "payload"
+      },
+      "metricLabel": "Runtime",
+      "metricValue": "javascript",
+      "name": "JavaScript function",
+      "outputs": [
+        "output",
+        "error"
+      ],
+      "ports": [
+        {
+          "cardinality": "one",
+          "connectionClass": "data",
+          "dataType": "payload",
+          "direction": "input",
+          "id": "input",
+          "label": "Input",
+          "required": true,
+          "semanticRole": "input"
+        },
+        {
+          "cardinality": "one",
+          "connectionClass": "data",
+          "dataType": "payload",
+          "direction": "output",
+          "id": "output",
+          "label": "Output",
+          "required": false,
+          "semanticRole": "output"
+        },
+        {
+          "cardinality": "one",
+          "connectionClass": "error",
+          "dataType": "payload",
+          "direction": "output",
+          "id": "error",
+          "label": "Error",
+          "required": false,
+          "semanticRole": "error"
+        }
+      ],
+      "type": "function",
+      "x": 380,
+      "y": 160
+    },
+    {
+      "config": {
+        "kind": "output",
+        "law": {},
+        "logic": {
+          "deliveryTarget": {
+            "targetKind": "none"
+          },
+          "format": "markdown",
+          "materialization": {
+            "enabled": false
+          },
+          "rendererRef": {
+            "displayMode": "inline",
+            "rendererId": "markdown"
+          },
+          "retentionPolicy": {
+            "retentionKind": "run_scoped",
+            "ttlMs": 2592000000
+          },
+          "versioning": {
+            "enabled": true
+          }
+        }
+      },
+      "id": "node-1777510668629-wjll7d",
+      "inputs": [
+        "input"
+      ],
+      "ioTypes": {
+        "in": "payload",
+        "out": "output_bundle"
+      },
+      "metricLabel": "Output",
+      "metricValue": "inline",
+      "name": "Inline output",
+      "outputs": [],
+      "ports": [
+        {
+          "cardinality": "one",
+          "connectionClass": "data",
+          "dataType": "payload",
+          "direction": "input",
+          "id": "input",
+          "label": "Input",
+          "required": true,
+          "semanticRole": "input"
+        }
+      ],
+      "type": "output",
+      "x": 640,
+      "y": 160
+    },
+    {
+      "config": {
+        "kind": "model_call",
+        "law": {},
+        "logic": {
+          "jsonMode": true,
+          "modelBinding": {
+            "argumentSchema": {
+              "type": "object"
+            },
+            "capabilityScope": [
+              "vision"
+            ],
+            "credentialReady": false,
+            "mockBinding": true,
+            "modelRef": "vision",
+            "requiresApproval": false,
+            "resultSchema": {
+              "type": "object"
+            },
+            "sideEffectClass": "none",
+            "toolUseMode": "none"
+          },
+          "modelRef": "vision",
+          "prompt": "Inspect the media input and return structured observations.",
+          "validateStructuredOutput": true
+        }
+      },
+      "id": "node-1777510687967-fcwxwb",
+      "inputs": [
+        "input",
+        "context",
+        "model",
+        "memory",
+        "tool",
+        "parser"
+      ],
+      "ioTypes": {
+        "in": "prompt",
+        "out": "message"
+      },
+      "metricLabel": "Model",
+      "metricValue": "vision",
+      "name": "Vision model",
+      "outputs": [
+        "output",
+        "error",
+        "retry"
+      ],
+      "ports": [
+        {
+          "cardinality": "one",
+          "connectionClass": "data",
+          "dataType": "prompt",
+          "direction": "input",
+          "id": "input",
+          "label": "Input",
+          "required": true,
+          "semanticRole": "input"
+        },
+        {
+          "cardinality": "one",
+          "connectionClass": "data",
+          "dataType": "payload",
+          "direction": "input",
+          "id": "context",
+          "label": "Context",
+          "required": false,
+          "semanticRole": "context"
+        },
+        {
+          "cardinality": "one",
+          "connectionClass": "model",
+          "dataType": "payload",
+          "direction": "input",
+          "id": "model",
+          "label": "Chat model",
+          "required": false,
+          "semanticRole": "model"
+        },
+        {
+          "cardinality": "one",
+          "connectionClass": "memory",
+          "dataType": "state",
+          "direction": "input",
+          "id": "memory",
+          "label": "Memory",
+          "required": false,
+          "semanticRole": "memory"
+        },
+        {
+          "cardinality": "one",
+          "connectionClass": "tool",
+          "dataType": "args",
+          "direction": "input",
+          "id": "tool",
+          "label": "Tool",
+          "required": false,
+          "semanticRole": "tool"
+        },
+        {
+          "cardinality": "one",
+          "connectionClass": "parser",
+          "dataType": "payload",
+          "direction": "input",
+          "id": "parser",
+          "label": "Parser",
+          "required": false,
+          "semanticRole": "parser"
+        },
+        {
+          "cardinality": "one",
+          "connectionClass": "data",
+          "dataType": "message",
+          "direction": "output",
+          "id": "output",
+          "label": "Output",
+          "required": false,
+          "semanticRole": "output"
+        },
+        {
+          "cardinality": "one",
+          "connectionClass": "error",
+          "dataType": "message",
+          "direction": "output",
+          "id": "error",
+          "label": "Error",
+          "required": false,
+          "semanticRole": "error"
+        },
+        {
+          "cardinality": "one",
+          "connectionClass": "retry",
+          "dataType": "message",
+          "direction": "output",
+          "id": "retry",
+          "label": "Retry",
+          "required": false,
+          "semanticRole": "retry"
+        }
+      ],
+      "type": "model_call",
+      "x": 900,
+      "y": 160
+    },
+    {
+      "config": {
+        "kind": "plugin_tool",
+        "law": {},
+        "logic": {
+          "toolBinding": {
+            "arguments": {},
+            "bindingKind": "plugin_tool",
+            "capabilityScope": [
+              "read"
+            ],
+            "credentialReady": false,
+            "mockBinding": true,
+            "requiresApproval": false,
+            "sideEffectClass": "read",
+            "toolRef": ""
+          }
+        }
+      },
+      "id": "node-1777510694895-bk6g5q",
+      "inputs": [
+        "input"
+      ],
+      "ioTypes": {
+        "in": "args",
+        "out": "result"
+      },
+      "metricLabel": "Plugin",
+      "metricValue": "tool",
+      "name": "Plugin/MCP tool",
+      "outputs": [
+        "output",
+        "tool",
+        "error"
+      ],
+      "ports": [
+        {
+          "cardinality": "one",
+          "connectionClass": "data",
+          "dataType": "args",
+          "direction": "input",
+          "id": "input",
+          "label": "Input",
+          "required": true,
+          "semanticRole": "input"
+        },
+        {
+          "cardinality": "one",
+          "connectionClass": "data",
+          "dataType": "result",
+          "direction": "output",
+          "id": "output",
+          "label": "Output",
+          "required": false,
+          "semanticRole": "output"
+        },
+        {
+          "cardinality": "one",
+          "connectionClass": "tool",
+          "dataType": "args",
+          "direction": "output",
+          "id": "tool",
+          "label": "Tool attachment",
+          "required": false,
+          "semanticRole": "tool"
+        },
+        {
+          "cardinality": "one",
+          "connectionClass": "error",
+          "dataType": "result",
+          "direction": "output",
+          "id": "error",
+          "label": "Error",
+          "required": false,
+          "semanticRole": "error"
+        }
+      ],
+      "type": "plugin_tool",
+      "x": 1160,
+      "y": 160
+    },
+    {
+      "config": {
+        "kind": "decision",
+        "law": {},
+        "logic": {
+          "defaultRoute": "left",
+          "routes": [
+            "left",
+            "right"
+          ]
+        }
+      },
+      "id": "node-1777510701111-bskkx5",
+      "inputs": [
+        "input",
+        "context"
+      ],
+      "ioTypes": {
+        "in": "payload",
+        "out": "branch"
+      },
+      "metricLabel": "Paths",
+      "metricValue": "2",
+      "name": "Decision",
+      "outputs": [
+        "left",
+        "right",
+        "error"
+      ],
+      "ports": [
+        {
+          "cardinality": "one",
+          "connectionClass": "data",
+          "dataType": "payload",
+          "direction": "input",
+          "id": "input",
+          "label": "Input",
+          "required": true,
+          "semanticRole": "input"
+        },
+        {
+          "cardinality": "one",
+          "connectionClass": "data",
+          "dataType": "payload",
+          "direction": "input",
+          "id": "context",
+          "label": "Context",
+          "required": false,
+          "semanticRole": "context"
+        },
+        {
+          "cardinality": "one",
+          "connectionClass": "data",
+          "dataType": "branch",
+          "direction": "output",
+          "id": "left",
+          "label": "Left",
+          "required": false,
+          "semanticRole": "branch"
+        },
+        {
+          "cardinality": "one",
+          "connectionClass": "data",
+          "dataType": "branch",
+          "direction": "output",
+          "id": "right",
+          "label": "Right",
+          "required": false,
+          "semanticRole": "branch"
+        },
+        {
+          "cardinality": "one",
+          "connectionClass": "error",
+          "dataType": "branch",
+          "direction": "output",
+          "id": "error",
+          "label": "Error",
+          "required": false,
+          "semanticRole": "error"
+        }
+      ],
+      "type": "decision",
+      "x": 120,
+      "y": 310
+    }
+  ],
+  "edges": [
+    {
+      "connectionClass": "data",
+      "data": {
+        "active": false,
+        "connectionClass": "data",
+        "createdBy": "compatible_node_picker",
+        "direction": "downstream",
+        "status": "idle"
+      },
+      "from": "node-1777510649367-7bnbtd",
+      "fromPort": "output",
+      "id": "edge-node-1777510649367-7bnbtd-node-1777510660582-gkluvn-1777510660584",
+      "to": "node-1777510660582-gkluvn",
+      "toPort": "input",
+      "type": "data"
+    },
+    {
+      "connectionClass": "data",
+      "data": {
+        "active": false,
+        "connectionClass": "data",
+        "createdBy": "compatible_node_picker",
+        "direction": "downstream",
+        "status": "idle"
+      },
+      "from": "node-1777510660582-gkluvn",
+      "fromPort": "output",
+      "id": "edge-node-1777510660582-gkluvn-node-1777510668629-wjll7d-1777510668630",
+      "to": "node-1777510668629-wjll7d",
+      "toPort": "input",
+      "type": "data"
+    },
+    {
+      "connectionClass": "data",
+      "data": {
+        "active": false,
+        "connectionClass": "data",
+        "createdBy": "compatible_node_picker",
+        "direction": "downstream",
+        "status": "idle"
+      },
+      "from": "node-1777510649367-7bnbtd",
+      "fromPort": "output",
+      "id": "edge-node-1777510649367-7bnbtd-node-1777510687967-fcwxwb-1777510687978",
+      "to": "node-1777510687967-fcwxwb",
+      "toPort": "input",
+      "type": "data"
+    },
+    {
+      "connectionClass": "data",
+      "data": {
+        "active": false,
+        "connectionClass": "data",
+        "createdBy": "compatible_node_picker",
+        "direction": "attachment",
+        "status": "idle"
+      },
+      "from": "node-1777510694895-bk6g5q",
+      "fromPort": "output",
+      "id": "edge-node-1777510694895-bk6g5q-node-1777510660582-gkluvn-1777510694896",
+      "to": "node-1777510660582-gkluvn",
+      "toPort": "input",
+      "type": "data"
+    },
+    {
+      "connectionClass": "data",
+      "data": {
+        "active": false,
+        "connectionClass": "data",
+        "createdBy": "compatible_node_picker",
+        "direction": "attachment",
+        "status": "idle"
+      },
+      "from": "node-1777510701111-bskkx5",
+      "fromPort": "left",
+      "id": "edge-node-1777510701111-bskkx5-node-1777510694895-bk6g5q-1777510701113",
+      "to": "node-1777510694895-bk6g5q",
+      "toPort": "input",
+      "type": "data"
+    }
+  ],
+  "global_config": {
+    "contract": {
+      "adjudicationRubric": "",
+      "developerBond": 0
+    },
+    "env": "{}",
+    "environmentProfile": {
+      "credentialScope": "local",
+      "mockBindingPolicy": "block",
+      "target": "local"
+    },
+    "meta": {
+      "description": "Git-backed visual workflow.",
+      "name": "Agent workflow"
+    },
+    "modelBindings": {
+      "embedding": {
+        "modelId": "",
+        "required": false
+      },
+      "image": {
+        "modelId": "",
+        "required": false
+      },
+      "reasoning": {
+        "modelId": "",
+        "required": false
+      },
+      "vision": {
+        "modelId": "",
+        "required": false
+      }
+    },
+    "policy": {
+      "maxBudget": 5,
+      "maxSteps": 50,
+      "timeoutMs": 30000
+    },
+    "production": {
+      "errorWorkflowPath": "",
+      "evaluationSetPath": "",
+      "expectedTimeSavedMinutes": 0,
+      "mcpAccessReviewed": false
+    },
+    "requiredCapabilities": {
+      "embedding": {
+        "bindingKey": "embedding",
+        "required": false
+      },
+      "image": {
+        "bindingKey": "image",
+        "required": false
+      },
+      "reasoning": {
+        "bindingKey": "reasoning",
+        "required": false
+      },
+      "speech": {
+        "required": false
+      },
+      "video": {
+        "required": false
+      },
+      "vision": {
+        "bindingKey": "vision",
+        "required": false
+      }
+    }
+  }
+}

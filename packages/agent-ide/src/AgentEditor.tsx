@@ -91,7 +91,7 @@ function AgentEditorContent({
   const execution = useGraphExecution(runtime, nodes, edges, setNodes, setEdges);
   const selectedNode =
     (nodes.find((node) => node.id === selectedNodeId)?.data as Node | undefined) ?? null;
-  const selectedArtifact = selectedNodeId ? execution.artifacts[selectedNodeId] : null;
+  const selectedOutput = selectedNodeId ? execution.outputs[selectedNodeId] : null;
   const upstreamContext = selectedNodeId
     ? execution.getUpstreamContext(selectedNodeId)
     : null;
@@ -161,9 +161,9 @@ function AgentEditorContent({
           {showConsole ? (
             <div className="agent-ide-console-slot">
               <Console 
-                  logs={execution.logs} 
-                  height={CONSOLE_HEIGHT} 
-                  selectedArtifact={selectedArtifact}
+                  logs={execution.logs}
+                  height={CONSOLE_HEIGHT}
+                  selectedArtifact={selectedOutput}
                   onCollapse={() => setShowConsole(false)}
               />
             </div>

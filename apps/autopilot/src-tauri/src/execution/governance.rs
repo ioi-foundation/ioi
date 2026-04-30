@@ -30,7 +30,7 @@ pub(super) fn synthesize_node_policy(node_type: &str, law_config: &Value) -> Act
         "browser" => "browser::interact",
         "web_search" | "web_read" => "web::retrieve",
         "tool" => "net::fetch",
-        "model" | "responses" => "model::respond",
+        "model_call" | "responses" => "model::respond",
         "embeddings" => "model::embed",
         "rerank" => "model::rerank",
         "transcribe_audio" => "media::extract_transcript",
@@ -79,7 +79,7 @@ pub(super) fn map_to_action_request(
     let target = match node_type {
         "browser" => ActionTarget::BrowserInteract,
         "web_search" | "web_read" => ActionTarget::WebRetrieve,
-        "model" | "responses" => ActionTarget::ModelRespond,
+        "model_call" | "responses" => ActionTarget::ModelRespond,
         "embeddings" => ActionTarget::ModelEmbed,
         "rerank" => ActionTarget::ModelRerank,
         "transcribe_audio" => ActionTarget::MediaExtractTranscript,

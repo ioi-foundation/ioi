@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
+  ComposeIcon,
   FleetIcon,
   HomeIcon,
   IntegrationsIcon,
@@ -62,39 +63,47 @@ const NAV_ITEMS: Array<NavItem & { id: PrimaryView }> = [
     shortcut: chatNavigationShortcutLabel(2),
   },
   {
+    id: "workflows",
+    label: "Workflows",
+    icon: <ComposeIcon />,
+    description:
+      "Open the workflow composer for graph editing, tests, proposals, and git-backed agent automation.",
+    shortcut: chatNavigationShortcutLabel(3),
+  },
+  {
     id: "runs",
     label: "Runs",
     icon: <FleetIcon />,
-    description: "Inspect runtime health, verification evidence, and supervised receipts.",
-    shortcut: chatNavigationShortcutLabel(3),
+    description: "Inspect runtime health, supervised run history, and operator actions.",
+    shortcut: chatNavigationShortcutLabel(4),
   },
   {
     id: "inbox",
     label: "Inbox",
     icon: <NotificationsIcon />,
     description: "Review ranked prompts, approvals, and interventions.",
-    shortcut: chatNavigationShortcutLabel(4),
+    shortcut: chatNavigationShortcutLabel(5),
   },
   {
     id: "capabilities",
     label: "Capabilities",
     icon: <IntegrationsIcon />,
     description: "Equip workers with connections, skills, and extension manifests.",
-    shortcut: chatNavigationShortcutLabel(5),
+    shortcut: chatNavigationShortcutLabel(6),
   },
   {
     id: "policy",
     label: "Policy",
     icon: <ShieldIcon />,
     description: "Set governance, approvals, and execution posture.",
-    shortcut: chatNavigationShortcutLabel(6),
+    shortcut: chatNavigationShortcutLabel(7),
   },
   {
     id: "settings",
     label: "Settings",
     icon: <SettingsIcon />,
     description: "Manage shell identity, diagnostics, and local system state.",
-    shortcut: chatNavigationShortcutLabel(7),
+    shortcut: chatNavigationShortcutLabel(8),
   },
 ];
 

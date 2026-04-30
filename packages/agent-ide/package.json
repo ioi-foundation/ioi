@@ -37,6 +37,7 @@
   },
   "dependencies": {
     "clsx": "^2.1.0",
+    "lucide-react": "^0.469.0",
     "zustand": "^4.5.0",
     "uuid": "^9.0.1"
   }

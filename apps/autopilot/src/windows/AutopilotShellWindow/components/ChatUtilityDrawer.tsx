@@ -97,8 +97,8 @@ function defaultTraceSpanId(caseView: BenchmarkTraceCaseView | null): string | n
 const TABS: Array<{ id: UtilityTab; label: string }> = [
   { id: "logs", label: "Logs" },
   { id: "sessions", label: "Sessions" },
-  { id: "trace", label: "Trace" },
-  { id: "receipts", label: "Receipts" },
+  { id: "trace", label: "Replay" },
+  { id: "receipts", label: "Activity" },
 ];
 
 function utilityTabLabel(tab: UtilityTab): string {
@@ -482,11 +482,11 @@ export function ChatUtilityDrawer({
                 <article className="chat-utility-card">
                   <div className="chat-utility-card-head">
                     <span>execution</span>
-                    <strong>No active execution receipts yet</strong>
+                    <strong>No active run activity yet</strong>
                   </div>
                   <p>
                     Start a Chat run to inspect plan, dispatch, work, merge,
-                    verification, and repair evidence here.
+                    verification, and repair status here.
                   </p>
                 </article>
               </div>

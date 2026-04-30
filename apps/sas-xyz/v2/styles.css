@@ -279,8 +279,8 @@ em, i, cite, address, dfn, var { font-style: normal; }
 }
 .contract:hover {
   border-color: var(--ink);
-  transform: translateY(-2px);
-  box-shadow: 0 20px 40px -28px rgba(11,11,46,0.2);
+  transform: translateY(-3px);
+  box-shadow: 0 16px 40px -16px rgba(11,11,46,0.18);
 }
 
 .contract-head {
@@ -320,15 +320,15 @@ em, i, cite, address, dfn, var { font-style: normal; }
 }
 
 .contract-outcome {
-  font-family: var(--serif);
+  font-family: var(--sans, sans-serif);
   font-size: 28px;
   line-height: 1.1;
   letter-spacing: -0.015em;
-  font-weight: 400;
+  font-weight: 600;
   margin: 0;
   text-wrap: balance;
 }
-.contract-outcome em { }
+.contract-outcome em { font-style: normal; }
 
 /* Pulse — a running row of squares, each = a recent receipt */
 .pulse {
@@ -364,13 +364,14 @@ em, i, cite, address, dfn, var { font-style: normal; }
   margin-bottom: 3px;
 }
 .contract-stat-v {
-  font-family: var(--serif);
+  font-family: var(--sans, sans-serif);
   font-size: 22px; line-height: 1;
   letter-spacing: -0.01em;
+  font-weight: 600;
   color: var(--ink);
 }
 .contract-stat-v .unit { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-left: 3px; letter-spacing: 0.04em; }
-.contract-stat-v em { }
+.contract-stat-v em { font-style: normal; }
 
 .contract-substrate {
   display: flex; align-items: center; gap: 6px;
@@ -541,15 +542,16 @@ em, i, cite, address, dfn, var { font-style: normal; }
   display: flex; align-items: center; gap: 10px;
 }
 .detail-title {
-  font-family: var(--serif);
-  font-size: 40px;
-  line-height: 0.98;
-  letter-spacing: -0.02em;
+  font-family: var(--sans, sans-serif);
+  font-size: 36px;
+  line-height: 1.05;
+  letter-spacing: -0.025em;
   margin: 0;
-  font-weight: 400;
+  font-weight: 600;
   max-width: 640px;
+  color: var(--ink);
 }
-.detail-title em { }
+.detail-title em { font-style: normal; }
 .detail-close {
   width: 34px; height: 34px;
   border-radius: 8px;
@@ -628,12 +630,13 @@ em, i, cite, address, dfn, var { font-style: normal; }
 }
 .stream-head-line {
   display: flex; gap: 10px; align-items: baseline;
-  font-family: var(--serif);
-  font-size: 17px;
-  line-height: 1.25;
+  font-family: var(--sans, sans-serif);
+  font-size: 16px;
+  line-height: 1.3;
+  font-weight: 500;
   color: var(--ink);
 }
-.stream-head-line em { }
+.stream-head-line em { font-style: normal; }
 .stream-sub {
   font-family: var(--mono);
   font-size: 10.5px;
@@ -645,15 +648,16 @@ em, i, cite, address, dfn, var { font-style: normal; }
 .stream-sub .by { color: var(--muted); }
 
 .stream-amt {
-  font-family: var(--serif);
-  font-size: 18px;
+  font-family: var(--sans, sans-serif);
+  font-size: 17px;
+  font-weight: 600;
   line-height: 1;
   letter-spacing: -0.01em;
   text-align: right;
   white-space: nowrap;
 }
 .stream-amt .unit { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-left: 4px; }
-.stream-amt em { }
+.stream-amt em { font-style: normal; }
 
 .stream-state {
   font-family: var(--mono);
@@ -715,8 +719,9 @@ em, i, cite, address, dfn, var { font-style: normal; }
   background: var(--paper);
   border: 1px solid var(--rule-soft);
   border-radius: 10px;
-  font-family: var(--serif);
+  font-family: var(--sans, sans-serif);
   font-size: 15px; line-height: 1.45;
+  font-weight: 500;
   color: var(--ink);
 }
 .side-outcome-sub {
@@ -742,13 +747,13 @@ em, i, cite, address, dfn, var { font-style: normal; }
   gap: 10px;
 }
 .provider-name {
-  font-family: var(--serif);
-  font-size: 20px;
-  line-height: 1.1;
+  font-family: var(--sans, sans-serif);
+  font-size: 18px;
+  line-height: 1.15;
   margin: 0 0 3px;
-  font-weight: 400;
+  font-weight: 600;
 }
-.provider-name em { }
+.provider-name em { font-style: normal; }
 .provider-sub {
   font-family: var(--mono);
   font-size: 10px;
@@ -756,13 +761,14 @@ em, i, cite, address, dfn, var { font-style: normal; }
   letter-spacing: 0.08em;
 }
 .provider-price {
-  font-family: var(--serif);
-  font-size: 18px;
+  font-family: var(--sans, sans-serif);
+  font-size: 17px;
+  font-weight: 600;
   letter-spacing: -0.005em;
   text-align: right;
   white-space: nowrap;
 }
-.provider-price em { }
+.provider-price em { font-style: normal; }
 .provider-price .unit { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-left: 2px; }
 
 .provider-bars {
@@ -836,8 +842,9 @@ em, i, cite, address, dfn, var { font-style: normal; }
 }
 .alt:hover { border-color: var(--ink); background: #fff; }
 .alt-name {
-  font-family: var(--serif);
-  font-size: 15px;
+  font-family: var(--sans, sans-serif);
+  font-size: 14px;
+  font-weight: 600;
   line-height: 1.2;
 }
 .alt-meta {
@@ -2093,6 +2100,20 @@ em, i, cite, address, dfn, var { font-style: normal; }
   color: #000000;
   display: block;
   padding: 0;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+/* Category subnav hidden by default on marketing, revealed on scroll */
+.topbar-marketing .ui-subnav-marketing {
+  max-height: 0;
+  overflow: hidden;
+  border-bottom: none;
+  transition: max-height 0.3s ease, border-bottom-color 0.3s ease;
+}
+.topbar-marketing-scrolled .ui-subnav-marketing {
+  max-height: 50px;
+  border-bottom: 1px solid var(--rule-soft);
 }
 .topbar-marketing-inner {
   max-width: 1180px;
@@ -2202,6 +2223,34 @@ em, i, cite, address, dfn, var { font-style: normal; }
   color: #000000;
 }
 
+/* ─── Market category hero banner ───────────────────────────────── */
+.market-category-hero {
+  padding: 0;
+  text-align: center;
+  color: #ffffff;
+}
+.market-category-hero-inner {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 48px 32px;
+}
+.market-category-hero-title {
+  font-family: var(--sans, sans-serif);
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  margin: 0 0 8px;
+  line-height: 1.1;
+}
+.market-category-hero-tagline {
+  font-family: var(--sans, sans-serif);
+  font-size: 16px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.75);
+  margin: 0;
+  letter-spacing: 0;
+}
+
 /* ═══════════════════════════════════════════════════════════════════
    Dashboard Authenticated Layout & Topbar
    ═══════════════════════════════════════════════════════════════════ */
@@ -2228,6 +2277,12 @@ em, i, cite, address, dfn, var { font-style: normal; }
   color: #404145;
   margin-bottom: 32px;
 }
+/* Dashboard-wide: override serif class to sans for cleaner Fiverr feel */
+.ui-dash-container .serif {
+  font-family: var(--sans, sans-serif);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
 div.ui-dash-cards {
   display: grid !important;
   grid-template-columns: repeat(3, 1fr);
@@ -2236,7 +2291,7 @@ div.ui-dash-cards {
 }
 div.ui-dash-card {
   border: 1px solid var(--rule);
-  border-radius: 4px;
+  border-radius: 12px;
   background: #ffffff;
   padding: 20px 24px;
   display: flex !important;
@@ -2245,7 +2300,12 @@ div.ui-dash-card {
   gap: 16px;
   position: relative;
   overflow: hidden;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+div.ui-dash-card:hover {
+  border-color: var(--ink);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px -12px rgba(11,11,46,0.14);
 }
 .ui-dash-card .card-k {
   font-size: 11px;
@@ -2297,12 +2357,20 @@ div.ui-dash-card {
 nav.ui-subnav {
   display: flex !important;
   flex-direction: row !important;
-  gap: 24px;
-  padding: 0 32px;
   border-bottom: 1px solid var(--rule-soft);
-  overflow-x: auto;
   width: 100%;
   box-sizing: border-box;
+}
+.ui-subnav-inner {
+  display: flex;
+  flex-direction: row;
+  gap: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 32px;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-x: auto;
 }
 .ui-subnav-link {
   font-family: var(--sans, sans-serif);
