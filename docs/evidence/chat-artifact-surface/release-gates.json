@@ -1,0 +1,195 @@
+{
+  "version": 1,
+  "generatedAt": "2026-04-30T10:06:51.047Z",
+  "configPath": null,
+  "summaryPath": null,
+  "conformanceReportPath": null,
+  "arenaLedgerPath": "arena/ledger.json",
+  "passing": false,
+  "status": "pending_measurement",
+  "summary": {
+    "gateCount": 7,
+    "passCount": 0,
+    "failCount": 0,
+    "pendingCount": 7,
+    "blockingGateIds": [
+      "ready_rate",
+      "average_validation_score",
+      "screenshot_quality_score",
+      "pairwise_win_rate",
+      "shim_required_rate",
+      "variance_across_repeats",
+      "lexical_routing_regressions"
+    ],
+    "ratchetCandidateIds": [
+      "lexical_routing_regressions"
+    ],
+    "changeRequirement": "Major artifact-lane changes should raise the floor, raise the ceiling, reduce variance, or reduce cost at the same quality; release gates make that obligation explicit."
+  },
+  "gates": [
+    {
+      "id": "ready_rate",
+      "label": "Ready rate",
+      "required": true,
+      "status": "pending_measurement",
+      "operator": "minimum",
+      "shipThreshold": 0.95,
+      "reading": {
+        "value": null,
+        "available": false,
+        "method": "share of benchmark cases whose surfaced verification cleared to ready/pass",
+        "supportingBenchmarkIds": [],
+        "supportingCheckIds": [],
+        "failedCheckIds": []
+      },
+      "ratchet": {
+        "status": "pending",
+        "floor": 0.8,
+        "deltaToFloor": null,
+        "candidateFloor": null
+      }
+    },
+    {
+      "id": "average_validation_score",
+      "label": "Average validation score",
+      "required": true,
+      "status": "pending_measurement",
+      "operator": "minimum",
+      "shipThreshold": 0.85,
+      "reading": {
+        "value": null,
+        "available": false,
+        "method": "mean of the six structured acceptance dimensions normalized to the 0-1 range",
+        "supportingBenchmarkIds": [],
+        "supportingCheckIds": [],
+        "failedCheckIds": []
+      },
+      "ratchet": {
+        "status": "pending",
+        "floor": 0.8,
+        "deltaToFloor": null,
+        "candidateFloor": null
+      }
+    },
+    {
+      "id": "screenshot_quality_score",
+      "label": "Screenshot quality score",
+      "required": true,
+      "status": "pending_measurement",
+      "operator": "minimum",
+      "shipThreshold": 0.8,
+      "reading": {
+        "value": null,
+        "available": false,
+        "method": "mean normalized overall render-evaluation score across executed benchmarks with first-paint screenshot receipts",
+        "supportingBenchmarkIds": [],
+        "supportingCheckIds": [],
+        "failedCheckIds": []
+      },
+      "ratchet": {
+        "status": "pending",
+        "floor": 0.75,
+        "deltaToFloor": null,
+        "candidateFloor": null
+      }
+    },
+    {
+      "id": "pairwise_win_rate",
+      "label": "Pairwise win rate",
+      "required": true,
+      "status": "pending_measurement",
+      "operator": "minimum",
+      "shipThreshold": 0.55,
+      "reading": {
+        "value": null,
+        "available": false,
+        "method": "blind pairwise win rate against externally supplied references when arena evidence is present",
+        "supportingBenchmarkIds": [],
+        "supportingCheckIds": [],
+        "failedCheckIds": []
+      },
+      "ratchet": {
+        "status": "pending",
+        "floor": 0.5,
+        "deltaToFloor": null,
+        "candidateFloor": null
+      }
+    },
+    {
+      "id": "shim_required_rate",
+      "label": "Shim-required rate",
+      "required": true,
+      "status": "pending_measurement",
+      "operator": "maximum",
+      "shipThreshold": 0.1,
+      "reading": {
+        "value": null,
+        "available": false,
+        "method": "share of executed benchmark cases that still relied on Chat runtime normalization repair shims",
+        "supportingBenchmarkIds": [],
+        "supportingCheckIds": [],
+        "failedCheckIds": []
+      },
+      "ratchet": {
+        "status": "pending",
+        "floor": 0.7,
+        "deltaToFloor": null,
+        "candidateFloor": null
+      }
+    },
+    {
+      "id": "variance_across_repeats",
+      "label": "Variance across repeated runs",
+      "required": true,
+      "status": "pending_measurement",
+      "operator": "maximum",
+      "shipThreshold": 0.15,
+      "reading": {
+        "value": null,
+        "available": false,
+        "method": "requires retained repeated-run corpus summaries with repeatedRunVariationFlow receipts",
+        "supportingBenchmarkIds": [],
+        "supportingCheckIds": [],
+        "failedCheckIds": []
+      },
+      "ratchet": {
+        "status": "pending",
+        "floor": 0.25,
+        "deltaToFloor": null,
+        "candidateFloor": null
+      }
+    },
+    {
+      "id": "lexical_routing_regressions",
+      "label": "Lexical routing regressions",
+      "required": true,
+      "status": "pending_measurement",
+      "operator": "maximum",
+      "shipThreshold": 0,
+      "reading": {
+        "value": 0,
+        "available": false,
+        "method": "count of non-pass conformance checks across benchmark_specific_routing, skill_name_routing",
+        "supportingBenchmarkIds": [],
+        "supportingCheckIds": [],
+        "failedCheckIds": []
+      },
+      "ratchet": {
+        "status": "eligible_raise_floor",
+        "floor": 0,
+        "deltaToFloor": 0,
+        "candidateFloor": 0
+      }
+    }
+  ],
+  "ratchetCandidates": [
+    {
+      "id": "lexical_routing_regressions",
+      "label": "Lexical routing regressions",
+      "operator": "maximum",
+      "currentValue": 0,
+      "currentFloor": 0,
+      "candidateFloor": 0
+    }
+  ]
+}

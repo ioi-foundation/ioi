@@ -3,5 +3,6 @@ import type { SessionCompactionPolicy } from "./SessionCompactionPolicy";
 import type { SessionCompactionPreview } from "./SessionCompactionPreview";
 import type { SessionCompactionRecommendation } from "./SessionCompactionRecommendation";
 import type { SessionCompactionRecord } from "./SessionCompactionRecord";
+import type { SessionDurabilityPortfolio } from "./SessionDurabilityPortfolio";
 
-export type SessionCompactionSnapshot = { generatedAtMs: number, activeSessionId: string | null, activeSessionTitle: string | null, policyForActive: SessionCompactionPolicy, recordCount: number, latestForActive: SessionCompactionRecord | null, previewForActive: SessionCompactionPreview | null, recommendationForActive: SessionCompactionRecommendation | null, records: Array<SessionCompactionRecord>, };
+export type SessionCompactionSnapshot = { generatedAtMs: number, activeSessionId: string | null, activeSessionTitle: string | null, policyForActive: SessionCompactionPolicy, recordCount: number, latestForActive: SessionCompactionRecord | null, previewForActive: SessionCompactionPreview | null, recommendationForActive: SessionCompactionRecommendation | null, durabilityPortfolio: SessionDurabilityPortfolio, records: Array<SessionCompactionRecord>, };
