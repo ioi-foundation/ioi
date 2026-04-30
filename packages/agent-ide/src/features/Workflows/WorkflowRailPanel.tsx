@@ -21,6 +21,14 @@ import type {
   WorkflowValidationResult,
 } from "../../types/graph";
 import { workflowInterruptPreview } from "../../runtime/workflow-bottom-panel-model";
+import {
+  harnessNodeEvidenceSummary,
+  harnessSlotsForWorkflow,
+  workflowHarnessWorkerBinding,
+  workflowIsBlessedHarness,
+  workflowIsHarness,
+  workflowIsHarnessFork,
+} from "../../runtime/harness-workflow";
 import { workflowValuePreview } from "../../runtime/workflow-value-preview";
 import {
   compareRunRecords,
@@ -176,6 +184,13 @@ export function WorkflowRailPanel({
   );
   const workflowPolicy = workflow.global_config.policy;
   const productionProfile = workflow.global_config.production ?? {};
+  const workflowReadOnly = workflow.metadata.readOnly === true;
+  const harnessWorkflow = workflowIsHarness(workflow);
+  const blessedHarnessWorkflow = workflowIsBlessedHarness(workflow);
+  const harnessForkWorkflow = workflowIsHarnessFork(workflow);
+  const harnessSlots = harnessSlotsForWorkflow(workflow);
+  const harnessWorkerBinding = harnessWorkflow ? workflowHarnessWorkerBinding(workflow) : null;
+  const boundHarnessSlotIds = new Set(workflow.nodes.flatMap((node) => node.runtimeBinding?.slotIds ?? []));
   const environmentProfile = workflowEnvironmentProfile(workflow);
   const bindingRegistryRows = workflowBindingRegistryRows(workflow);
   const bindingRegistrySummary = workflowBindingRegistrySummary(bindingRegistryRows);
@@ -611,6 +626,8 @@ export function WorkflowRailPanel({
       { label: "Value estimate", ready: Number(productionProfile.expectedTimeSavedMinutes ?? 0) > 0 },
       { label: "Outputs defined", ready: workflow.nodes.some((node) => node.type === "output") },
       { label: "Tests present", ready: tests.length > 0 },
+      { label: "Harness slots", ready: !harnessWorkflow || harnessSlots.every((slot) => boundHarnessSlotIds.has(slot.slotId)) },
+      { label: "Harness activation", ready: !harnessForkWorkflow || Boolean(workflow.metadata.harness?.activationId && workflow.metadata.harness?.activationState === "validated") },
       { label: "Readiness checked", ready: readinessResult !== null },
       { label: "No blockers", ready: blockers.length === 0 && result?.status !== "blocked" },
     ];
@@ -924,6 +941,65 @@ export function WorkflowRailPanel({
             <span>{workflow.metadata.branch ?? "main"} · {workflow.metadata.dirty ? "modified" : "saved"}</span>
           </article>
         </section>
+        {harnessWorkflow ? (
+          <section className="workflow-rail-section" data-testid="workflow-settings-harness-summary">
+            <h4>Harness</h4>
+            <dl className="workflow-rail-stats">
+              <div>
+                <dt>Template</dt>
+                <dd>{blessedHarnessWorkflow ? "blessed" : "fork"}</dd>
+              </div>
+              <div>
+                <dt>Activation</dt>
+                <dd>{workflow.metadata.harness?.activationId ?? workflow.metadata.harness?.activationState ?? "blocked"}</dd>
+              </div>
+              <div>
+                <dt>Components</dt>
+                <dd>{workflow.metadata.harness?.componentIds?.length ?? 0}</dd>
+              </div>
+              <div>
+                <dt>Slots</dt>
+                <dd>{harnessSlots.filter((slot) => boundHarnessSlotIds.has(slot.slotId)).length}/{harnessSlots.length}</dd>
+              </div>
+            </dl>
+            {harnessWorkerBinding ? (
+              <article className="workflow-output-row" data-testid="workflow-harness-worker-identity">
+                <strong>{harnessWorkerBinding.harnessWorkflowId}</strong>
+                <span>{harnessWorkerBinding.harnessActivationId ?? "activation blocked"}</span>
+                <small>{harnessWorkerBinding.harnessHash}</small>
+              </article>
+            ) : null}
+            {workflow.metadata.harness?.forkedFrom ? (
+              <article className="workflow-output-row" data-testid="workflow-harness-lineage">
+                <strong>Fork lineage</strong>
+                <span>{workflow.metadata.harness.forkedFrom.harnessWorkflowId}</span>
+                <small>{workflow.metadata.harness.forkedFrom.harnessHash}</small>
+              </article>
+            ) : null}
+            <div className="workflow-rail-list" data-testid="workflow-harness-slots">
+              {harnessSlots.map((slot) => {
+                const ready = boundHarnessSlotIds.has(slot.slotId);
+                return (
+                  <article key={slot.slotId} className={`workflow-test-row is-${ready ? "passed" : "blocked"}`}>
+                    <strong>{slot.label}</strong>
+                    <span>{ready ? "bound" : "unbound"} · {slot.kind}</span>
+                    <small>{slot.description}</small>
+                  </article>
+                );
+              })}
+            </div>
+            {harnessForkWorkflow ? (
+              <article className="workflow-output-row" data-testid="workflow-harness-activation-blockers">
+                <strong>Activation blockers</strong>
+                <span>
+                  Blocked until validation passes, required slots stay bound,
+                  replay evidence is present, and an activation id is minted.
+                </span>
+                <small>{workflow.metadata.harness?.activationState ?? "blocked"}</small>
+              </article>
+            ) : null}
+          </section>
+        ) : null}
         <section className="workflow-rail-section" data-testid="workflow-environment-profile">
           <h4>Environment</h4>
           <dl className="workflow-rail-stats">
@@ -950,6 +1026,7 @@ export function WorkflowRailPanel({
               <select
                 data-testid="workflow-environment-target"
                 value={environmentProfile.target}
+                disabled={workflowReadOnly}
                 onChange={(event) =>
                   onUpdateEnvironmentProfile({
                     target: event.target.value as NonNullable<GraphGlobalConfig["environmentProfile"]>["target"],
@@ -967,6 +1044,7 @@ export function WorkflowRailPanel({
               <input
                 data-testid="workflow-environment-credential-scope"
                 value={environmentProfile.credentialScope ?? ""}
+                disabled={workflowReadOnly}
                 placeholder="local, sandbox, staging, production"
                 onChange={(event) => onUpdateEnvironmentProfile({ credentialScope: event.target.value })}
               />
@@ -976,6 +1054,7 @@ export function WorkflowRailPanel({
               <select
                 data-testid="workflow-environment-mock-policy"
                 value={environmentProfile.mockBindingPolicy ?? "warn"}
+                disabled={workflowReadOnly}
                 onChange={(event) =>
                   onUpdateEnvironmentProfile({
                     mockBindingPolicy: event.target.value as NonNullable<GraphGlobalConfig["environmentProfile"]>["mockBindingPolicy"],
@@ -1194,6 +1273,7 @@ export function WorkflowRailPanel({
               <input
                 data-testid="workflow-production-error-path"
                 value={productionProfile.errorWorkflowPath ?? ""}
+                disabled={workflowReadOnly}
                 placeholder=".agents/workflows/error-handler.workflow.json"
                 onChange={(event) => onUpdateProductionProfile({ errorWorkflowPath: event.target.value })}
               />
@@ -1203,6 +1283,7 @@ export function WorkflowRailPanel({
               <input
                 data-testid="workflow-production-evaluation-path"
                 value={productionProfile.evaluationSetPath ?? ""}
+                disabled={workflowReadOnly}
                 placeholder=".agents/workflows/evaluations/reporting.tests.json"
                 onChange={(event) => onUpdateProductionProfile({ evaluationSetPath: event.target.value })}
               />
@@ -1215,6 +1296,7 @@ export function WorkflowRailPanel({
                 min={0}
                 step={1}
                 value={productionProfile.expectedTimeSavedMinutes ?? 0}
+                disabled={workflowReadOnly}
                 onChange={(event) =>
                   onUpdateProductionProfile({
                     expectedTimeSavedMinutes: Number(event.target.value || 0),
@@ -1227,6 +1309,7 @@ export function WorkflowRailPanel({
                 data-testid="workflow-production-mcp-reviewed"
                 type="checkbox"
                 checked={productionProfile.mcpAccessReviewed === true}
+                disabled={workflowReadOnly}
                 onChange={(event) => onUpdateProductionProfile({ mcpAccessReviewed: event.target.checked })}
               />
               MCP access reviewed
@@ -1262,6 +1345,7 @@ export function WorkflowRailPanel({
   const selectedOutputPorts = selectedNode?.ports?.filter((port) => port.direction === "output") ?? [];
   const selectedLogic = selectedNode?.config?.logic ?? {};
   const bindingSummary = selectedNode ? workflowSelectedNodeBindingSummary(selectedNode, selectedLogic) : [];
+  const selectedHarnessEvidence = selectedNode ? harnessNodeEvidenceSummary(selectedNode) : [];
   const selectedPinnedFixture =
     selectedNodeFixtures.find((fixture) => fixture.pinned) ??
     selectedNodeFixtures[0] ??
@@ -1320,7 +1404,12 @@ export function WorkflowRailPanel({
               <strong>{selectedNode.name}</strong>
               <span>{selectedNode.type} · {selectedNodeRun?.status ?? selectedNode.status ?? "idle"}</span>
             </div>
-            <button type="button" data-testid="workflow-rail-configure-node" onClick={onConfigureNode}>
+            <button
+              type="button"
+              data-testid="workflow-rail-configure-node"
+              disabled={workflowReadOnly}
+              onClick={onConfigureNode}
+            >
               Configure
             </button>
           </header>
@@ -1331,6 +1420,7 @@ export function WorkflowRailPanel({
             <button
               type="button"
               data-testid="workflow-inspector-run-node"
+              disabled={workflowReadOnly}
               onClick={() => onRunNode(selectedNode, selectedPinnedFixture ?? undefined)}
             >
               Execute node
@@ -1338,6 +1428,7 @@ export function WorkflowRailPanel({
             <button
               type="button"
               data-testid="workflow-inspector-run-upstream"
+              disabled={workflowReadOnly}
               onClick={() => onRunUpstream(selectedNode)}
             >
               Execute upstream
@@ -1345,7 +1436,7 @@ export function WorkflowRailPanel({
             <button
               type="button"
               data-testid="workflow-inspector-replay-fixture"
-              disabled={!selectedPinnedFixture}
+              disabled={workflowReadOnly || !selectedPinnedFixture}
               onClick={() =>
                 onDryRunFixtureForNode(selectedNode, selectedPinnedFixture ?? undefined)
               }
@@ -1355,6 +1446,7 @@ export function WorkflowRailPanel({
             <button
               type="button"
               data-testid="workflow-inspector-capture-fixture"
+              disabled={workflowReadOnly}
               onClick={() => onCaptureFixtureForNode(selectedNode)}
             >
               Capture fixture
@@ -1362,7 +1454,7 @@ export function WorkflowRailPanel({
             <button
               type="button"
               data-testid="workflow-inspector-pin-fixture"
-              disabled={!selectedPinnedFixture || selectedPinnedFixture.pinned === true}
+              disabled={workflowReadOnly || !selectedPinnedFixture || selectedPinnedFixture.pinned === true}
               onClick={() => {
                 if (selectedPinnedFixture) {
                   onPinFixtureForNode(selectedNode, selectedPinnedFixture);
@@ -1374,6 +1466,7 @@ export function WorkflowRailPanel({
             <button
               type="button"
               data-testid="workflow-inspector-add-test-from-output"
+              disabled={workflowReadOnly}
               onClick={() => onAddTestFromOutput(selectedNode)}
             >
               Add test from output
@@ -1397,6 +1490,35 @@ export function WorkflowRailPanel({
               <dd>{selectedNodeIssues.length}</dd>
             </div>
           </dl>
+          {selectedHarnessEvidence.length > 0 ? (
+            <section
+              className="workflow-node-inspector-section"
+              data-testid="workflow-selected-node-harness-component"
+            >
+              <h4>Harness component</h4>
+              <div className="workflow-rail-list" data-testid="workflow-selected-node-harness-receipts">
+                {selectedHarnessEvidence.map((item) => (
+                  <article key={item.label} className="workflow-output-row">
+                    <strong>{item.label}</strong>
+                    <span>{item.value}</span>
+                  </article>
+                ))}
+              </div>
+              {selectedNode.runtimeBinding ? (
+                <article className="workflow-output-row" data-testid="workflow-selected-node-replay-binding">
+                  <strong>Replay envelope</strong>
+                  <span>
+                    {selectedNode.runtimeBinding.replay.deterministicEnvelope ? "deterministic" : "best effort"}
+                    {" · "}
+                    {selectedNode.runtimeBinding.slotIds?.join(", ") || "no slots"}
+                  </span>
+                  <small>
+                    {selectedNode.runtimeBinding.evidenceEventKinds.join(", ")}
+                  </small>
+                </article>
+              ) : null}
+            </section>
+          ) : null}
           <section
             className="workflow-node-inspector-zones"
             data-testid="workflow-selected-node-io-workbench"

@@ -110,6 +110,10 @@ import {
 const LOCAL_ENGINE_ZONE_ID = "local-engine";
 const ORCHESTRATION_ZONE_ID = "orchestration";
 
+function isTauriRuntime(): boolean {
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+}
+
 type LocalEngineBackend = LocalEngineSnapshot["managedBackends"][number];
 type LocalEngineWorkerTemplate = LocalEngineSnapshot["workerTemplates"][number];
 type LocalEnginePlaybook = LocalEngineSnapshot["agentPlaybooks"][number];
@@ -692,6 +696,9 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     async activateAssistantWorkbenchSession(
       session: AssistantWorkbenchSession,
     ): Promise<void> {
+        if (!isTauriRuntime()) {
+          return;
+        }
         await invoke("set_active_assistant_workbench_session", { session });
         await this.reportAssistantWorkbenchActivity(
           createAssistantWorkbenchActivity(session, {
@@ -706,6 +713,9 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     }
 
     async getActiveAssistantWorkbenchSession(): Promise<AssistantWorkbenchSession | null> {
+        if (!isTauriRuntime()) {
+          return null;
+        }
         return invoke("get_active_assistant_workbench_session");
     }
 
@@ -725,6 +735,9 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     async listenAssistantWorkbenchSession(
       handler: (session: AssistantWorkbenchSession) => void,
     ): Promise<() => void> {
+        if (!isTauriRuntime()) {
+          return () => {};
+        }
         return listen<AssistantWorkbenchSession>(
           "assistant-workbench-session-updated",
           (event) => handler(event.payload),
@@ -734,6 +747,9 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     async reportAssistantWorkbenchActivity(
       activity: AssistantWorkbenchActivity,
     ): Promise<void> {
+        if (!isTauriRuntime()) {
+          return;
+        }
         try {
             await invoke("record_assistant_workbench_activity", { activity });
         } catch (error) {
@@ -745,12 +761,18 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     async getRecentAssistantWorkbenchActivities(
       limit?: number,
     ): Promise<AssistantWorkbenchActivity[]> {
+        if (!isTauriRuntime()) {
+          return [];
+        }
         return invoke("get_recent_assistant_workbench_activities", { limit });
     }
 
     async listenAssistantWorkbenchActivity(
       handler: (activity: AssistantWorkbenchActivity) => void,
     ): Promise<() => void> {
+        if (!isTauriRuntime()) {
+          return () => {};
+        }
         return listen<AssistantWorkbenchActivity>(
           "assistant-workbench-activity",
           (event) => handler(event.payload),
@@ -1696,6 +1718,9 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     }
 
     onEvent(callback: (event: GraphEvent) => void): () => void {
+        if (!isTauriRuntime()) {
+            return () => {};
+        }
         const unlisten = listen<any>("graph-event", (e) => {
             callback({
                 node_id: e.payload.node_id,

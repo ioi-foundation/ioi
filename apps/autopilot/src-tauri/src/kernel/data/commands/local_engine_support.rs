@@ -506,6 +506,13 @@ fn default_worker_templates() -> Vec<crate::models::LocalEngineWorkerTemplateRec
                 .into_iter()
                 .map(|workflow| crate::models::LocalEngineWorkerWorkflowRecord {
                     workflow_id: workflow.workflow_id,
+                    harness_workflow_id: Some(
+                        ioi_types::app::DEFAULT_AGENT_HARNESS_WORKFLOW_ID.to_string(),
+                    ),
+                    harness_activation_id: Some(
+                        ioi_types::app::DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+                    ),
+                    harness_hash: Some(ioi_types::app::DEFAULT_AGENT_HARNESS_HASH.to_string()),
                     label: workflow.label,
                     summary: workflow.summary,
                     goal_template: workflow.goal_template,

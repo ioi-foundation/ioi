@@ -200,7 +200,7 @@ export function toWorkflowProject(
       ...previous.metadata,
       name: globalConfig.meta.name,
       slug: previous.metadata.slug || slugify(globalConfig.meta.name),
-      dirty: true,
+      dirty: previous.metadata.readOnly ? false : true,
       updatedAtMs: Date.now(),
     },
     nodes: nodes.map((flowNode) => {

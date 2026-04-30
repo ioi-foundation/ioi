@@ -111,6 +111,14 @@ import {
   slugify,
 } from "./runtime/workflow-defaults";
 import {
+  defaultAgentHarnessTests,
+  forkDefaultAgentHarnessWorkflow,
+  makeDefaultAgentHarnessWorkflow,
+  workflowHarnessWorkerBinding,
+  workflowIsBlessedHarness,
+  workflowIsHarness,
+} from "./runtime/harness-workflow";
+import {
   compatiblePortPair,
   createBlockedTestResult,
   createLocalProposal,
@@ -398,6 +406,7 @@ function WorkflowHeaderAction({
   variant = "secondary",
   showLabel = false,
   title,
+  disabled = false,
 }: {
   label: string;
   icon: LucideIcon;
@@ -406,6 +415,7 @@ function WorkflowHeaderAction({
   variant?: "primary" | "secondary";
   showLabel?: boolean;
   title?: string;
+  disabled?: boolean;
 }) {
   return (
     <button
@@ -414,6 +424,7 @@ function WorkflowHeaderAction({
       data-testid={testId}
       aria-label={label}
       title={title ?? label}
+      disabled={disabled}
       onClick={onClick}
     >
       <WorkflowInlineIcon icon={Icon} />
@@ -1232,6 +1243,12 @@ function WorkflowComposerContent({
     () => toWorkflowProject(nodes, edges, globalConfig, workflow),
     [nodes, edges, globalConfig, workflow],
   );
+  const isReadOnlyWorkflow = currentProjectFile.metadata.readOnly === true;
+  const isHarnessWorkflow = workflowIsHarness(currentProjectFile);
+  const isBlessedHarnessWorkflow = workflowIsBlessedHarness(currentProjectFile);
+  const harnessWorkerBinding = isHarnessWorkflow
+    ? workflowHarnessWorkerBinding(currentProjectFile)
+    : null;
   const activeRightPanelMeta =
     RIGHT_PANELS.find((panel) => panel.id === rightPanel) ?? {
       id: "outputs" as WorkflowRightPanel,
@@ -1466,15 +1483,56 @@ function WorkflowComposerContent({
   };
 
   const markWorkflowDirty = useCallback(() => {
+    if (isReadOnlyWorkflow) {
+      setStatusMessage("Read-only harness graph cannot be edited. Fork it first.");
+      return;
+    }
     setReadinessResult(null);
     setWorkflow((current) => ({
       ...current,
       metadata: { ...current.metadata, dirty: true },
     }));
-  }, []);
+  }, [isReadOnlyWorkflow]);
+
+  const guardedOnNodesChange = useCallback(
+    (...args: Parameters<typeof onNodesChange>) => {
+      if (isReadOnlyWorkflow) return;
+      onNodesChange(...args);
+      markWorkflowDirty();
+    },
+    [isReadOnlyWorkflow, markWorkflowDirty, onNodesChange],
+  );
+  const guardedOnEdgesChange = useCallback(
+    (...args: Parameters<typeof onEdgesChange>) => {
+      if (isReadOnlyWorkflow) return;
+      onEdgesChange(...args);
+      markWorkflowDirty();
+    },
+    [isReadOnlyWorkflow, markWorkflowDirty, onEdgesChange],
+  );
+  const guardedOnConnect = useCallback(
+    (...args: Parameters<typeof onConnect>) => {
+      if (isReadOnlyWorkflow) return;
+      onConnect(...args);
+      markWorkflowDirty();
+    },
+    [isReadOnlyWorkflow, markWorkflowDirty, onConnect],
+  );
+  const guardedCanvasDrop = useCallback(
+    (...args: Parameters<typeof handleCanvasDrop>) => {
+      if (isReadOnlyWorkflow) return;
+      handleCanvasDrop(...args);
+      markWorkflowDirty();
+    },
+    [handleCanvasDrop, isReadOnlyWorkflow, markWorkflowDirty],
+  );
 
   const handleUpdateProductionProfile = useCallback(
     (updates: NonNullable<GraphGlobalConfig["production"]>) => {
+      if (isReadOnlyWorkflow) {
+        setStatusMessage("Read-only harness graph cannot be edited. Fork it first.");
+        return;
+      }
       setGlobalConfig((current) =>
         normalizeGlobalConfig({
           ...current,
@@ -1487,13 +1545,17 @@ function WorkflowComposerContent({
       markWorkflowDirty();
       setStatusMessage("Production checklist updated");
     },
-    [markWorkflowDirty],
+    [isReadOnlyWorkflow, markWorkflowDirty],
   );
 
   const handleUpdateEnvironmentProfile = useCallback(
     (
       updates: Partial<NonNullable<GraphGlobalConfig["environmentProfile"]>>,
     ) => {
+      if (isReadOnlyWorkflow) {
+        setStatusMessage("Read-only harness graph cannot be edited. Fork it first.");
+        return;
+      }
       setGlobalConfig((current) =>
         normalizeGlobalConfig({
           ...current,
@@ -1510,7 +1572,7 @@ function WorkflowComposerContent({
       markWorkflowDirty();
       setStatusMessage("Environment profile updated");
     },
-    [markWorkflowDirty],
+    [isReadOnlyWorkflow, markWorkflowDirty],
   );
 
   const handleAddNodeFromLibrary = useCallback(
@@ -1528,6 +1590,10 @@ function WorkflowComposerContent({
         metricValue?: string;
       } = {},
     ): string => {
+      if (isReadOnlyWorkflow) {
+        setStatusMessage("Read-only harness graph cannot be edited. Fork it first.");
+        return selectedNodeId ?? "";
+      }
       const nodeId = addNode(type, label, preferredId);
       const definition =
         (options.creatorId
@@ -1599,7 +1665,9 @@ function WorkflowComposerContent({
       closeCanvasSearch,
       closeLeftDrawer,
       handleNodeSelect,
+      isReadOnlyWorkflow,
       markWorkflowDirty,
+      selectedNodeId,
       setNodes,
     ],
   );
@@ -2153,6 +2221,10 @@ function WorkflowComposerContent({
 
   const updateNode = useCallback(
     (nodeId: string, updates: Partial<Node>) => {
+      if (isReadOnlyWorkflow) {
+        setStatusMessage("Read-only harness graph cannot be edited. Fork it first.");
+        return;
+      }
       setNodes((currentNodes) =>
         currentNodes.map((flowNode) =>
           flowNode.id === nodeId
@@ -2169,7 +2241,7 @@ function WorkflowComposerContent({
       );
       markWorkflowDirty();
     },
-    [markWorkflowDirty, setNodes],
+    [isReadOnlyWorkflow, markWorkflowDirty, setNodes],
   );
 
   const handleCreateWorkflow = async () => {
@@ -2203,7 +2275,52 @@ function WorkflowComposerContent({
     setCreateOpen(false);
   };
 
+  const handleOpenDefaultHarness = useCallback(() => {
+    const next = makeDefaultAgentHarnessWorkflow();
+    const projectRoot = currentProject?.rootPath || ".";
+    setWorkflowPath(
+      `${projectRoot}/.agents/workflows/${next.metadata.slug}.workflow.json`,
+    );
+    setTestsPath(
+      `${projectRoot}/.agents/workflows/${next.metadata.slug}.tests.json`,
+    );
+    setTests(defaultAgentHarnessTests(next));
+    setProposals([]);
+    setRuns([]);
+    clearRunState();
+    loadWorkflowProject(next);
+    setValidationResult(validateWorkflowProject(next, defaultAgentHarnessTests(next)));
+    setRightPanel("settings");
+    setBottomPanel("selection");
+    setStatusMessage("Default Agent Harness opened as a read-only graph");
+  }, [clearRunState, currentProject?.rootPath, loadWorkflowProject]);
+
+  const handleForkDefaultHarness = useCallback(() => {
+    const fork = forkDefaultAgentHarnessWorkflow();
+    const projectRoot = currentProject?.rootPath || ".";
+    const nextPath = `${projectRoot}/.agents/workflows/${fork.workflow.metadata.slug}.workflow.json`;
+    setWorkflowPath(nextPath);
+    setTestsPath(nextPath.replace(/\.workflow\.json$/, ".tests.json"));
+    setTests(fork.tests);
+    setProposals(fork.proposals);
+    setRuns([]);
+    clearRunState();
+    loadWorkflowProject(fork.workflow);
+    const base = validateWorkflowProject(fork.workflow, fork.tests);
+    setValidationResult(base);
+    setReadinessResult(
+      evaluateWorkflowActivationReadiness(fork.workflow, fork.tests, base, fork.proposals),
+    );
+    setRightPanel("readiness");
+    setBottomPanel("selection");
+    setStatusMessage("Harness fork created with lineage and activation blockers");
+  }, [clearRunState, currentProject?.rootPath, loadWorkflowProject]);
+
   const handleSave = async () => {
+    if (isReadOnlyWorkflow) {
+      setStatusMessage("Read-only harness graph cannot be saved. Fork it first.");
+      return;
+    }
     const next = toWorkflowProject(nodes, edges, globalConfig, workflow);
     if (runtime.saveWorkflowProject) {
       await runtime.saveWorkflowProject(workflowPath, next);
@@ -3379,6 +3496,7 @@ function WorkflowComposerContent({
           <input
             aria-label="Workflow name"
             value={globalConfig.meta.name}
+            disabled={isReadOnlyWorkflow}
             onChange={(event) =>
               setGlobalConfig((current) => ({
                 ...current,
@@ -3395,6 +3513,23 @@ function WorkflowComposerContent({
           >
             {workflow.metadata.dirty ? "Unsaved" : "Saved"}
           </span>
+          {isReadOnlyWorkflow ? (
+            <span
+              className="workflow-composer-readonly-badge"
+              data-testid="workflow-readonly-badge"
+            >
+              Read-only
+            </span>
+          ) : null}
+          {harnessWorkerBinding ? (
+            <span
+              className="workflow-composer-harness-badge"
+              data-testid="workflow-harness-worker-binding"
+              title={`${harnessWorkerBinding.harnessWorkflowId} · ${harnessWorkerBinding.harnessHash}`}
+            >
+              Harness {harnessWorkerBinding.source} · {harnessWorkerBinding.harnessWorkflowId}
+            </span>
+          ) : null}
           <span
             className={`workflow-composer-lifecycle is-${lifecycleState.status}`}
             data-testid="workflow-lifecycle-state"
@@ -3416,6 +3551,14 @@ function WorkflowComposerContent({
               testId="workflow-open-node-drawer"
               onClick={toggleLeftDrawer}
               title="Add nodes"
+              disabled={isReadOnlyWorkflow}
+            />
+            <WorkflowHeaderAction
+              label="Harness"
+              icon={GitCompare}
+              testId="workflow-open-default-harness"
+              onClick={handleOpenDefaultHarness}
+              title="Open the read-only Default Agent Harness graph"
             />
             <WorkflowHeaderAction
               label="New"
@@ -3462,6 +3605,7 @@ function WorkflowComposerContent({
               testId="workflow-run-tests-button"
               onClick={handleRunTests}
               title={`Run tests: ${testsPath}`}
+              disabled={isReadOnlyWorkflow}
             />
             <WorkflowHeaderAction
               label="Run"
@@ -3470,6 +3614,7 @@ function WorkflowComposerContent({
               onClick={handleRun}
               variant="primary"
               showLabel
+              disabled={isReadOnlyWorkflow}
             />
           </div>
           <div
@@ -3482,6 +3627,19 @@ function WorkflowComposerContent({
               icon={GitPullRequest}
               testId="workflow-propose-button"
               onClick={handleCreateProposal}
+              disabled={isReadOnlyWorkflow}
+            />
+            <WorkflowHeaderAction
+              label="Fork harness"
+              icon={GitCompare}
+              testId="workflow-fork-harness-button"
+              onClick={handleForkDefaultHarness}
+              disabled={!isBlessedHarnessWorkflow}
+              title={
+                isBlessedHarnessWorkflow
+                  ? "Fork the Default Agent Harness into an editable package"
+                  : "Open the Default Agent Harness first"
+              }
             />
             <WorkflowHeaderAction
               label="Deploy"
@@ -3490,12 +3648,14 @@ function WorkflowComposerContent({
               onClick={() => {
                 void handleOpenDeploy();
               }}
+              disabled={isReadOnlyWorkflow}
             />
             <WorkflowHeaderAction
               label="Save"
               icon={Save}
               testId="workflow-save-button"
               onClick={handleSave}
+              disabled={isReadOnlyWorkflow}
             />
           </div>
         </div>
@@ -4023,11 +4183,12 @@ function WorkflowComposerContent({
               <Canvas
                 nodes={displayNodes}
                 edges={displayEdges}
-                onNodesChange={onNodesChange}
-                onEdgesChange={onEdgesChange}
-                onConnect={onConnect}
+                onNodesChange={guardedOnNodesChange}
+                onEdgesChange={guardedOnEdgesChange}
+                onConnect={guardedOnConnect}
                 onNodeSelect={handleWorkflowNodeSelect}
                 onNodeActivate={(nodeId) => {
+                  if (isReadOnlyWorkflow) return;
                   const nodeItem = nodes.find((node) => node.id === nodeId)
                     ?.data as Node | undefined;
                   handleWorkflowNodeSelect(nodeId);
@@ -4036,10 +4197,8 @@ function WorkflowComposerContent({
                   );
                   setNodeConfigOpen(true);
                 }}
-                onDrop={(event) => {
-                  handleCanvasDrop(event);
-                  markWorkflowDirty();
-                }}
+                onDrop={guardedCanvasDrop}
+                readOnly={isReadOnlyWorkflow}
               />
 
               {nodes.length === 0 ? (

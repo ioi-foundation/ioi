@@ -20,10 +20,11 @@ interface CanvasProps {
   onNodeSelect: (id: string | null) => void;
   onNodeActivate?: (id: string) => void;
   onDrop: (e: React.DragEvent) => void;
+  readOnly?: boolean;
 }
 
 export function Canvas({
-  nodes, edges, onNodesChange, onEdgesChange, onConnect, onNodeSelect, onNodeActivate, onDrop
+  nodes, edges, onNodesChange, onEdgesChange, onConnect, onNodeSelect, onNodeActivate, onDrop, readOnly = false
 }: CanvasProps) {
 
   const nodeTypes = useMemo(() => ({
@@ -71,13 +72,18 @@ export function Canvas({
   return (
     <div className="agent-ide-react-flow-surface" style={{ width: '100%', height: '100%', background: 'var(--bg-dark)' }}
          onDragOver={e => e.preventDefault()}
-         onDrop={onDrop}>
+         onDrop={readOnly ? undefined : onDrop}
+         data-read-only={readOnly ? "true" : "false"}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        nodesDraggable={!readOnly}
+        nodesConnectable={!readOnly}
+        edgesFocusable={!readOnly}
+        elementsSelectable
         onNodeClick={(_, node) => onNodeSelect(node.id)}
         onNodeDoubleClick={(_, node) => onNodeActivate?.(node.id)}
         onPaneClick={() => onNodeSelect(null)}

@@ -13,6 +13,20 @@ const shellContent = fs.readFileSync(
   new URL("./components/AutopilotShellContent.tsx", import.meta.url),
   "utf8",
 );
+const engineDetailPane = fs.readFileSync(
+  new URL(
+    "../../surfaces/Capabilities/components/EngineDetailPane.tsx",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const localEngineSupport = fs.readFileSync(
+  new URL(
+    "../../../../../apps/autopilot/src-tauri/src/kernel/data/commands/local_engine_support.rs",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const workflowsView = fs.readFileSync(
   new URL(
     "../../surfaces/MissionControl/MissionControlWorkflowsView.tsx",
@@ -161,6 +175,13 @@ const workflowDefaults = fs.readFileSync(
   ),
   "utf8",
 );
+const harnessWorkflow = fs.readFileSync(
+  new URL(
+    "../../../../../packages/agent-ide/src/runtime/harness-workflow.ts",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const workflowFixtureModel = fs.readFileSync(
   new URL(
     "../../../../../packages/agent-ide/src/runtime/workflow-fixture-model.ts",
@@ -257,23 +278,6 @@ const usabilityProbe = fs.readFileSync(
   ),
   "utf8",
 );
-const n8nParityProbe = fs.readFileSync(
-  new URL("../../../scripts/desktop_n8n_parity_probe.py", import.meta.url),
-  "utf8",
-);
-const workflowParityScorecard = fs.readFileSync(
-  new URL("../../../scripts/workflow_parity_scorecard.py", import.meta.url),
-  "utf8",
-);
-const n8nParityScorecardDoc = fs.readFileSync(
-  new URL("../../../../../docs/audits/n8n-parity-plus-scorecard.md", import.meta.url),
-  "utf8",
-);
-const n8nParityMasterGuide = fs.readFileSync(
-  new URL("../../../../../docs/plans/n8n-parity-plus-master-guide.md", import.meta.url),
-  "utf8",
-);
-
 const escapeRegExp = (value: string) =>
   value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -573,7 +577,7 @@ assert.match(
 assert.match(
   graphTypes,
   /type WorkflowConnectionClass[\s\S]*"control"[\s\S]*"model"[\s\S]*"memory"[\s\S]*"tool"[\s\S]*"approval"[\s\S]*"delivery"[\s\S]*"subgraph"/,
-  "Workflow schema should define n8n-class typed connection categories",
+  "Workflow schema should define production-grade typed connection categories",
 );
 
 assert.match(
@@ -1051,6 +1055,48 @@ assert.match(
 );
 
 assert.match(
+  graphTypes,
+  /WorkflowHarnessComponentSpec[\s\S]*inputSchema[\s\S]*outputSchema[\s\S]*errorSchema[\s\S]*WorkflowHarnessWorkerBinding[\s\S]*harnessWorkflowId[\s\S]*harnessActivationId[\s\S]*harnessHash/,
+  "Harness-as-workflow types should expose durable component contracts and worker harness identity fields",
+);
+
+assert.match(
+  harnessWorkflow,
+  /DEFAULT_AGENT_HARNESS_COMPONENTS[\s\S]*kind: "planner"[\s\S]*kind: "mcp_provider"[\s\S]*kind: "mcp_tool_call"[\s\S]*kind: "receipt_writer"[\s\S]*makeDefaultAgentHarnessWorkflow[\s\S]*readOnly: true/,
+  "Default Agent Harness projection should componentize planner, MCP providers/tools, receipts, and expose a read-only workflow graph",
+);
+
+assert.match(
+  harnessWorkflow,
+  /forkDefaultAgentHarnessWorkflow[\s\S]*forkedFrom[\s\S]*activationState: "blocked"[\s\S]*proposal-[\s\S]*activation-gates/,
+  "Forking the Default Agent Harness should create editable lineage metadata with activation blockers and package proposal sidecars",
+);
+
+assert.match(
+  workflowValidation,
+  /(?=[\s\S]*workflowIsHarnessFork)(?=[\s\S]*harness_required_slot_unbound)(?=[\s\S]*harness_activation_not_validated)(?=[\s\S]*harness_self_mutation_not_proposal_only)/,
+  "Harness activation readiness should block invalid forks, unbound slots, missing activation ids, and direct AI self-mutation",
+);
+
+assert.match(
+  workflowComposerUi,
+  /(?=[\s\S]*workflow-open-default-harness)(?=[\s\S]*handleOpenDefaultHarness)(?=[\s\S]*workflow-fork-harness-button)(?=[\s\S]*handleForkDefaultHarness)(?=[\s\S]*workflow-readonly-badge)(?=[\s\S]*workflow-harness-worker-binding)/,
+  "Workflow GUI should expose a read-only Default Agent Harness view and an editable fork path with worker harness identity",
+);
+
+assert.match(
+  workflowRailPanel,
+  /workflow-settings-harness-summary[\s\S]*workflow-harness-slots[\s\S]*workflow-selected-node-harness-component[\s\S]*workflow-selected-node-harness-receipts[\s\S]*workflow-selected-node-replay-binding/,
+  "Workflow rail should render harness slots, component ids, receipt mappings, and replay metadata at node level",
+);
+
+assert.match(
+  `${engineDetailPane}\n${localEngineSupport}`,
+  /worker-harness-binding[\s\S]*harnessWorkflowId[\s\S]*harnessActivationId[\s\S]*harnessHash[\s\S]*DEFAULT_AGENT_HARNESS_WORKFLOW_ID[\s\S]*DEFAULT_AGENT_HARNESS_ACTIVATION_ID[\s\S]*DEFAULT_AGENT_HARNESS_HASH/,
+  "Worker workflow records should expose harness workflow id, activation id, and harness hash in Autopilot inspection surfaces",
+);
+
+assert.match(
   workflowSchema,
   /schemaFromSample[\s\S]*workflowOutputBundleSchema[\s\S]*workflowNodeHasDeclaredOutputSchema[\s\S]*workflowNodeDeclaredOutputSchema[\s\S]*node\.type === "output"[\s\S]*workflowNodeDeclaredInputSchema[\s\S]*workflowSchemaFieldReferences/,
   "Workflow schema inference, output-bundle schema, declared-schema posture, and field references should live in the runtime schema module",
@@ -1180,30 +1226,6 @@ assert.match(
   workflowBottomShelf,
   /workflow-bottom-runtime-log-list[\s\S]*workflow-bottom-runtime-log-row[\s\S]*workflow-run-summary-fallback[\s\S]*workflow-run-event-snapshot/,
   "Run Output fallback states should render readable log and event summaries instead of raw runtime objects",
-);
-
-assert.match(
-  n8nParityProbe,
-  /\/tmp\/autopilot-n8n-parity[\s\S]*source-trace-hashes\.json[\s\S]*corepack", "pnpm", "start"[\s\S]*scorecard\.json[\s\S]*gap-ledger\.json/,
-  "n8n parity evidence runner should capture launch evidence, source hashes, a scorecard, and a gap ledger",
-);
-
-assert.match(
-  workflowParityScorecard,
-  /parse_table_rows[\s\S]*parse_blocker_floors[\s\S]*hard_guard_results[\s\S]*canonicalExercises[\s\S]*complete/,
-  "n8n parity scorecard evaluator should convert the markdown scorecard into executable gates and canonical exercise status",
-);
-
-assert.match(
-  n8nParityScorecardDoc,
-  /Current substrate estimate: \*\*\d+ \/ 100\*\*[\s\S]*Substrate Blocker Floors[\s\S]*Current professional builder UX estimate: \*\*\d+ \/ 100\*\*[\s\S]*UX Blocker Floors[\s\S]*E10/,
-  "n8n parity scorecard should define current scores, blocker floors, and canonical GUI exercises",
-);
-
-assert.match(
-  n8nParityMasterGuide,
-  /Phase 0: Make The Scorecard Executable[\s\S]*Phase 1: Action-Aware Node Creator[\s\S]*Phase 8: GUI Dogfood Closure And Scorecard Certification/,
-  "n8n parity master guide should define the validated slice sequence from executable scorecard through GUI certification",
 );
 
 assert.match(
@@ -1806,7 +1828,7 @@ assert.match(
 assert.match(
   workflowValidation,
   /missing_error_handling_path[\s\S]*missing_ai_evaluation_coverage[\s\S]*mcp_access_not_reviewed[\s\S]*operational_value_not_estimated[\s\S]*missing_replay_fixture/,
-  "Activation readiness should include n8n-class production checklist concerns without exposing audit jargon",
+  "Activation readiness should include production checklist concerns without exposing audit jargon",
 );
 
 assert.match(

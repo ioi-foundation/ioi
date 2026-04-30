@@ -15,6 +15,8 @@ pub mod consensus;
 pub mod events;
 /// Data structures for guardianized signing, receipts, and attestation evidence.
 pub mod guardianized;
+/// Workflow-addressable agent harness component contracts.
+pub mod harness;
 /// Data structures for on-chain identity, including the canonical AccountId.
 pub mod identity;
 /// Typed first-party inference workload contracts.
@@ -47,6 +49,7 @@ pub use agentic::{
 pub use chat::*;
 pub use events::*;
 pub use guardianized::*;
+pub use harness::*;
 pub use identity::{
     account_id_from_key_material, AccountId, ActiveKeyRecord, BinaryMeasurement, BootAttestation,
     ChainId, Credential, GuardianReport, SignatureSuite,

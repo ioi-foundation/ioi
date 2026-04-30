@@ -1977,6 +1977,20 @@ export function EngineDetailPane({
                                       <span>{workflow.workflowId}</span>
                                     </div>
                                     <p>{workflow.summary}</p>
+                                    {workflow.harnessWorkflowId ? (
+                                      <p
+                                        className="capabilities-inline-note"
+                                        data-testid="worker-harness-binding"
+                                      >
+                                        Harness: {workflow.harnessWorkflowId}
+                                        {workflow.harnessActivationId
+                                          ? ` · ${workflow.harnessActivationId}`
+                                          : ""}
+                                        {workflow.harnessHash
+                                          ? ` · ${workflow.harnessHash}`
+                                          : ""}
+                                      </p>
+                                    ) : null}
                                     <p className="capabilities-inline-note">
                                       Goal template: {workflow.goalTemplate}
                                     </p>

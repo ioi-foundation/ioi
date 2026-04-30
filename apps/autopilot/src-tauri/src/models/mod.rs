@@ -280,6 +280,12 @@ pub struct LocalEngineWorkerCompletionContract {
 #[serde(rename_all = "camelCase")]
 pub struct LocalEngineWorkerWorkflowRecord {
     pub workflow_id: String,
+    #[serde(default)]
+    pub harness_workflow_id: Option<String>,
+    #[serde(default)]
+    pub harness_activation_id: Option<String>,
+    #[serde(default)]
+    pub harness_hash: Option<String>,
     pub label: String,
     pub summary: String,
     pub goal_template: String,

@@ -4,6 +4,24 @@ export { AgentEditor } from "./AgentEditor";
 export { WorkflowComposer } from "./WorkflowComposer";
 export { createWorkflowHarnessTools } from "./runtime/workflow-harness-tools";
 export {
+  DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+  DEFAULT_AGENT_HARNESS_COMPONENTS,
+  DEFAULT_AGENT_HARNESS_HASH,
+  DEFAULT_AGENT_HARNESS_SLOTS,
+  DEFAULT_AGENT_HARNESS_VERSION,
+  DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+  defaultAgentHarnessTests,
+  forkDefaultAgentHarnessWorkflow,
+  harnessComponentForNode,
+  harnessNodeEvidenceSummary,
+  harnessSlotsForWorkflow,
+  makeDefaultAgentHarnessWorkflow,
+  workflowHarnessWorkerBinding,
+  workflowIsBlessedHarness,
+  workflowIsHarness,
+  workflowIsHarnessFork,
+} from "./runtime/harness-workflow";
+export {
   actionKindForWorkflowNodeType,
   actionKindIsEntry,
   actionKindIsTerminal,

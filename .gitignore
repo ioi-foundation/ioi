@@ -37,6 +37,7 @@ apps/autopilot/src/generated/*
 !apps/autopilot/src/generated/autopilot-contracts/**
 apps/autopilot/src-tauri/gen/schemas/
 docs/context-atlas-implementation-plan.md
+packages/agent-ide/tsconfig.tsbuildinfo
 
 # Python cache/build artifacts
 __pycache__/
