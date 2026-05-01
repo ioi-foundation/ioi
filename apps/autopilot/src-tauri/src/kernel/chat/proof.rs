@@ -7,8 +7,8 @@ use ioi_api::runtime_harness::{
     ArtifactRenderEvaluation as ChatArtifactRenderEvaluation, ChatArtifactExemplar,
     ChatArtifactMergeReceipt, ChatArtifactPatchReceipt, ChatArtifactPreparationNeeds,
     ChatArtifactPreparedContextResolution, ChatArtifactSkillDiscoveryResolution,
-    ChatArtifactSwarmExecutionSummary, ChatArtifactSwarmPlan, ChatArtifactVerificationReceipt,
-    ChatArtifactWorkerReceipt,
+    ChatArtifactVerificationReceipt, ChatArtifactWorkGraphExecutionSummary,
+    ChatArtifactWorkGraphPlan, ChatArtifactWorkerReceipt,
 };
 use std::time::Duration;
 
@@ -228,12 +228,12 @@ fn prepare_task_for_chat_with_request_for_proof(
     let mut winning_candidate_id: Option<String> = None;
     let mut winning_candidate_rationale: Option<String> = None;
     let mut execution_envelope: Option<ExecutionEnvelope> = None;
-    let mut swarm_plan: Option<ChatArtifactSwarmPlan> = None;
-    let mut swarm_execution: Option<ChatArtifactSwarmExecutionSummary> = None;
-    let mut swarm_worker_receipts = Vec::<ChatArtifactWorkerReceipt>::new();
-    let mut swarm_change_receipts = Vec::<ChatArtifactPatchReceipt>::new();
-    let mut swarm_merge_receipts = Vec::<ChatArtifactMergeReceipt>::new();
-    let mut swarm_verification_receipts = Vec::<ChatArtifactVerificationReceipt>::new();
+    let mut work_graph_plan: Option<ChatArtifactWorkGraphPlan> = None;
+    let mut work_graph_execution: Option<ChatArtifactWorkGraphExecutionSummary> = None;
+    let mut work_graph_worker_receipts = Vec::<ChatArtifactWorkerReceipt>::new();
+    let mut work_graph_change_receipts = Vec::<ChatArtifactPatchReceipt>::new();
+    let mut work_graph_merge_receipts = Vec::<ChatArtifactMergeReceipt>::new();
+    let mut work_graph_verification_receipts = Vec::<ChatArtifactVerificationReceipt>::new();
     let mut render_evaluation: Option<ChatArtifactRenderEvaluation> = None;
     let mut validation: Option<ChatArtifactValidationResult> = None;
     let mut output_origin: Option<ChatArtifactOutputOrigin> = None;
@@ -388,12 +388,14 @@ fn prepare_task_for_chat_with_request_for_proof(
         winning_candidate_id = materialized_artifact.winning_candidate_id.clone();
         winning_candidate_rationale = materialized_artifact.winning_candidate_rationale.clone();
         execution_envelope = materialized_artifact.execution_envelope.clone();
-        swarm_plan = materialized_artifact.swarm_plan.clone();
-        swarm_execution = materialized_artifact.swarm_execution.clone();
-        swarm_worker_receipts = materialized_artifact.swarm_worker_receipts.clone();
-        swarm_change_receipts = materialized_artifact.swarm_change_receipts.clone();
-        swarm_merge_receipts = materialized_artifact.swarm_merge_receipts.clone();
-        swarm_verification_receipts = materialized_artifact.swarm_verification_receipts.clone();
+        work_graph_plan = materialized_artifact.work_graph_plan.clone();
+        work_graph_execution = materialized_artifact.work_graph_execution.clone();
+        work_graph_worker_receipts = materialized_artifact.work_graph_worker_receipts.clone();
+        work_graph_change_receipts = materialized_artifact.work_graph_change_receipts.clone();
+        work_graph_merge_receipts = materialized_artifact.work_graph_merge_receipts.clone();
+        work_graph_verification_receipts = materialized_artifact
+            .work_graph_verification_receipts
+            .clone();
         render_evaluation = materialized_artifact.render_evaluation.clone();
         validation = materialized_artifact.validation.clone();
         output_origin = Some(materialized_artifact.output_origin);
@@ -467,12 +469,12 @@ fn prepare_task_for_chat_with_request_for_proof(
     materialization.candidate_summaries = candidate_summaries.clone();
     materialization.winning_candidate_id = winning_candidate_id.clone();
     materialization.winning_candidate_rationale = winning_candidate_rationale.clone();
-    materialization.swarm_plan = swarm_plan.clone();
-    materialization.swarm_execution = swarm_execution.clone();
-    materialization.swarm_worker_receipts = swarm_worker_receipts.clone();
-    materialization.swarm_change_receipts = swarm_change_receipts.clone();
-    materialization.swarm_merge_receipts = swarm_merge_receipts.clone();
-    materialization.swarm_verification_receipts = swarm_verification_receipts.clone();
+    materialization.work_graph_plan = work_graph_plan.clone();
+    materialization.work_graph_execution = work_graph_execution.clone();
+    materialization.work_graph_worker_receipts = work_graph_worker_receipts.clone();
+    materialization.work_graph_change_receipts = work_graph_change_receipts.clone();
+    materialization.work_graph_merge_receipts = work_graph_merge_receipts.clone();
+    materialization.work_graph_verification_receipts = work_graph_verification_receipts.clone();
     materialization.execution_envelope = execution_envelope.clone().or_else(|| {
         super::content_session::artifact_execution_envelope_for_contract(
             outcome_request.execution_mode_decision.clone(),

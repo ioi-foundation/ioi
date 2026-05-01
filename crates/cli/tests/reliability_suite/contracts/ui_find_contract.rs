@@ -14,12 +14,12 @@ use ioi_drivers::terminal::TerminalDriver;
 use ioi_services::agentic::pii_scrubber::PiiScrubber;
 use ioi_services::agentic::runtime::execution::screen::find_semantic_ui_match;
 use ioi_services::agentic::runtime::execution::ToolExecutor;
-use ioi_services::agentic::runtime::service::step::action::{
-    canonical_intent_hash, canonical_tool_identity,
-};
-use ioi_services::agentic::runtime::service::step::anti_loop::{
+use ioi_services::agentic::runtime::service::recovery::anti_loop::{
     build_post_state_summary, build_state_summary, classify_failure, policy_binding_hash,
     to_routing_failure_class, FailureClass,
+};
+use ioi_services::agentic::runtime::service::tool_execution::{
+    canonical_intent_hash, canonical_tool_identity,
 };
 use ioi_services::agentic::runtime::types::{ExecutionTier, InteractionTarget};
 use ioi_services::agentic::runtime::{AgentMode, AgentState, AgentStatus};

@@ -13,7 +13,7 @@ cargo test -p ioi-services tools::contracts --lib
 cargo test -p ioi-services builtin_tools_project_complete_runtime_contracts --lib
 cargo test -p ioi-services substrate --lib
 cargo test -p ioi-cli --bin cli commands::agent::tests --no-default-features
-cargo test -p ioi-services "agentic::runtime::service::step::tests::"
+cargo test -p ioi-services "agentic::runtime::service::decision_loop::tests::"
 cargo test -p ioi-services sudo_retry_restores_install_from_incident_when_pending_tool_is_stale
 cargo test -p ioi-services reset_for_new_user_goal_refreshes_target_and_intent_state
 cargo test -p ioi-services --test pii_hard_gates

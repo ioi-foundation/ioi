@@ -83,7 +83,7 @@ fn task_with_workspace_root(workspace_root: &str) -> AgentTask {
         build_session: Some(build_session(workspace_root)),
         run_bundle_id: None,
         processed_steps: HashSet::new(),
-        swarm_tree: Vec::new(),
+        work_graph_tree: Vec::new(),
         generation: 0,
         lineage_id: "genesis".to_string(),
         fitness_score: 0.0,

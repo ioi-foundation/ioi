@@ -82,7 +82,7 @@ import {
   actionKindForWorkflowNodeType,
   validateActionEdge,
   validateWorkflowConnection,
-} from "../runtime/agent-execution-substrate";
+} from "../runtime/runtime-projection-adapter";
 import {
   WORKFLOW_NODE_DEFINITIONS,
   type WorkflowNodeCreatorDefinition,
@@ -108,9 +108,9 @@ import {
 import {
   compatiblePortPair,
   createBlockedTestResult,
-  createLocalProposal,
-  createLocalRunSummary,
-  createLocalTestResult,
+  createSubstrateProjectionProposal,
+  createSubstrateProjectionRunSummary,
+  createSubstrateProjectionTestResult,
   createWorkflowActionFailure,
   errorMessage,
   nodeFamilyCounts,
@@ -1970,7 +1970,7 @@ export function useWorkflowComposerController({
     try {
       result = runtime.runWorkflowTests
         ? await runtime.runWorkflowTests(workflowPath)
-        : createLocalTestResult(tests, nodes);
+        : createSubstrateProjectionTestResult(tests, nodes);
     } catch (error) {
       result = createBlockedTestResult(
         tests,
@@ -2016,27 +2016,19 @@ export function useWorkflowComposerController({
         await applyRunResult(result);
         setRightPanel("runs");
       } catch (error) {
-        const blocked = createLocalRunSummary(
-          currentProjectFile,
-          createWorkflowActionFailure(
-            "workflow_bundle_unavailable",
-            `Saved workflow bundle is unavailable. ${errorMessage(error)}`,
-          ),
-        );
-        setRuns((current) => [blocked, ...current]);
         setRightPanel("runs");
-        setStatusMessage("Run blocked");
+        setStatusMessage(`Run blocked by runtime substrate: ${errorMessage(error)}`);
       }
     } else if (validation.status === "passed") {
       await execution.runGraph(globalConfig);
       setRuns((current) => [
-        createLocalRunSummary(currentProjectFile, validation),
+        createSubstrateProjectionRunSummary(currentProjectFile, validation),
         ...current,
       ]);
       setStatusMessage("Run completed");
     } else {
       setRuns((current) => [
-        createLocalRunSummary(currentProjectFile, validation),
+        createSubstrateProjectionRunSummary(currentProjectFile, validation),
         ...current,
       ]);
       setRightPanel("runs");
@@ -2260,7 +2252,7 @@ export function useWorkflowComposerController({
           await applyRunResult(result);
           setStatusMessage(`Node run ${result.summary.status}`);
         } catch (error) {
-          const blocked = createLocalRunSummary(
+          const blocked = createSubstrateProjectionRunSummary(
             currentProjectFile,
             createWorkflowActionFailure(
               "workflow_node_run_unavailable",
@@ -2297,7 +2289,7 @@ export function useWorkflowComposerController({
           await applyRunResult(result);
           setStatusMessage(`Upstream run ${result.summary.status}`);
         } catch (error) {
-          const blocked = createLocalRunSummary(
+          const blocked = createSubstrateProjectionRunSummary(
             currentProjectFile,
             createWorkflowActionFailure(
               "workflow_upstream_run_unavailable",
@@ -2510,7 +2502,7 @@ export function useWorkflowComposerController({
 
       const testsResult = runtime.runWorkflowTests
         ? await runtime.runWorkflowTests(bundle.workflowPath)
-        : createLocalTestResult(
+        : createSubstrateProjectionTestResult(
             scratch.tests,
             scratch.workflow.nodes.map((node) => ({
               id: node.id,
@@ -2674,13 +2666,14 @@ export function useWorkflowComposerController({
               (proposal) => proposal.status === "open",
             ) ?? null,
           );
-        } catch {
-          const proposal = createLocalProposal(proposalRequest);
-          setProposals((current) => [proposal, ...current]);
-          setProposalToReview(proposal);
+        } catch (error) {
+          setProposalToReview(null);
+          setStatusMessage(
+            `Proposal blocked by runtime substrate: ${errorMessage(error)}`,
+          );
         }
       } else {
-        const proposal = createLocalProposal(proposalRequest);
+        const proposal = createSubstrateProjectionProposal(proposalRequest);
         setProposals((current) => [proposal, ...current]);
         setProposalToReview(proposal);
       }
@@ -2818,13 +2811,15 @@ export function useWorkflowComposerController({
           bundle.proposals.find((proposal) => proposal.status === "open") ??
             null,
         );
-      } catch {
-        const proposal = createLocalProposal(request);
-        setProposals((current) => [proposal, ...current]);
-        setProposalToReview(proposal);
+      } catch (error) {
+        setProposalToReview(null);
+        setStatusMessage(
+          `Proposal blocked by runtime substrate: ${errorMessage(error)}`,
+        );
+        return;
       }
     } else {
-      const proposal = createLocalProposal(request);
+      const proposal = createSubstrateProjectionProposal(request);
       setProposals((current) => [proposal, ...current]);
       setProposalToReview(proposal);
     }

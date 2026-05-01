@@ -24,8 +24,8 @@ use ioi_services::agentic::rules::{ActionRules, DefaultPolicy};
 use ioi_services::agentic::runtime::keys::{
     get_approval_authority_key, get_incident_key, get_state_key, pii,
 };
-use ioi_services::agentic::runtime::service::step::helpers::default_safe_policy;
-use ioi_services::agentic::runtime::service::step::incident::{
+use ioi_services::agentic::runtime::service::decision_loop::helpers::default_safe_policy;
+use ioi_services::agentic::runtime::service::recovery::incident::{
     action_fingerprint_from_tool_jcs, load_incident_state, register_pending_approval,
 };
 use ioi_services::agentic::runtime::{AgentMode, AgentState, AgentStatus, RuntimeAgentService};

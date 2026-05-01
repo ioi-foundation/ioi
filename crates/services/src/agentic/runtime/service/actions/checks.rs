@@ -1,6 +1,8 @@
 // Path: crates/services/src/agentic/runtime/service/actions/checks.rs
 
-use crate::agentic::runtime::service::step::signals::{analyze_goal_signals, is_system_surface};
+use crate::agentic::runtime::service::decision_loop::signals::{
+    analyze_goal_signals, is_system_surface,
+};
 use crate::agentic::runtime::types::AgentState;
 use ioi_api::vm::drivers::os::OsDriver;
 use ioi_types::app::agentic::{AgentTool, ScreenAction};

@@ -1,13 +1,13 @@
 use crate::kernel::events::emission::{build_event, register_event};
 use crate::kernel::events::support::thread_id_from_session;
 use crate::kernel::state::update_task_state;
-use crate::models::{EventStatus, EventType, SwarmAgent};
+use crate::models::{EventStatus, EventType, WorkGraphAgent};
 use ioi_ipc::public::AgentSpawn;
 use serde_json::json;
 
 pub(super) async fn handle_spawn(app: &tauri::AppHandle, spawn: AgentSpawn) {
     update_task_state(app, |t| {
-        let agent = SwarmAgent {
+        let agent = WorkGraphAgent {
             id: spawn.new_session_id.clone(),
             parent_id: if spawn.parent_session_id.is_empty() {
                 None
@@ -25,10 +25,10 @@ pub(super) async fn handle_spawn(app: &tauri::AppHandle, spawn: AgentSpawn) {
             policy_hash: "".to_string(),
         };
 
-        if let Some(pos) = t.swarm_tree.iter().position(|a| a.id == agent.id) {
-            t.swarm_tree[pos] = agent;
+        if let Some(pos) = t.work_graph_tree.iter().position(|a| a.id == agent.id) {
+            t.work_graph_tree[pos] = agent;
         } else {
-            t.swarm_tree.push(agent);
+            t.work_graph_tree.push(agent);
         }
     });
 

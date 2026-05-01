@@ -143,16 +143,16 @@ pub(in crate::kernel::chat) fn artifact_execution_envelope_for_contract(
     execution_strategy: ChatExecutionStrategy,
     materialization: &ChatArtifactMaterializationContract,
 ) -> Option<ExecutionEnvelope> {
-    let mut envelope = build_execution_envelope_from_swarm(
+    let mut envelope = build_execution_envelope_from_work_graph(
         Some(execution_strategy),
         Some("chat_artifact".to_string()),
         Some(ExecutionDomainKind::Artifact),
-        materialization.swarm_plan.as_ref(),
-        materialization.swarm_execution.as_ref(),
-        &materialization.swarm_worker_receipts,
-        &materialization.swarm_change_receipts,
-        &materialization.swarm_merge_receipts,
-        &materialization.swarm_verification_receipts,
+        materialization.work_graph_plan.as_ref(),
+        materialization.work_graph_execution.as_ref(),
+        &materialization.work_graph_worker_receipts,
+        &materialization.work_graph_change_receipts,
+        &materialization.work_graph_merge_receipts,
+        &materialization.work_graph_verification_receipts,
     );
     annotate_execution_envelope(
         &mut envelope,

@@ -151,7 +151,7 @@ export function ArtifactWorkspaceSurface({
           copyText={headerCopyText}
           copyPath={activePath}
           rendererLabel={displayRendererLabel(manifest.renderer)}
-          swarmExecution={chatSession.materialization.swarmExecution}
+          workGraphExecution={chatSession.materialization.workGraphExecution}
           retrying={retrying}
           stageMode={stageMode}
           evidenceOpen={evidenceOpen}

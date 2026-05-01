@@ -1243,7 +1243,8 @@ pub struct RuntimeToolContract {
     pub timeout_default_ms: u64,
     pub timeout_max_ms: u64,
     pub cancellation_behavior: String,
-    pub capability_lease_requirements: Vec<String>,
+    pub primitive_capabilities: Vec<String>,
+    pub authority_scope_requirements: Vec<String>,
     pub policy_target: String,
     pub approval_scope_fields: Vec<String>,
     pub evidence_requirements: Vec<String>,
@@ -1267,7 +1268,8 @@ impl Default for RuntimeToolContract {
             timeout_default_ms: 30_000,
             timeout_max_ms: 120_000,
             cancellation_behavior: "cooperative".to_string(),
-            capability_lease_requirements: Vec::new(),
+            primitive_capabilities: Vec::new(),
+            authority_scope_requirements: Vec::new(),
             policy_target: String::new(),
             approval_scope_fields: Vec::new(),
             evidence_requirements: Vec::new(),
@@ -1286,6 +1288,18 @@ impl RuntimeToolContract {
             effect.as_str(),
             "write" | "effectful" | "external_effect" | "mutation" | "destructive"
         )
+    }
+
+    pub fn requires_primitive_capability(&self, capability: &str) -> bool {
+        self.primitive_capabilities
+            .iter()
+            .any(|required| required == capability)
+    }
+
+    pub fn requires_authority_scope(&self, scope: &str) -> bool {
+        self.authority_scope_requirements
+            .iter()
+            .any(|required| required == scope)
     }
 }
 
@@ -2120,6 +2134,24 @@ mod tests {
         assert!(harness.consumes_scorecards);
         assert!(!harness.imports_compositor_ui_state);
         assert!(harness.validates_runtime_consistency);
+    }
+
+    #[test]
+    fn runtime_tool_contract_separates_primitive_capabilities_from_authority_scopes() {
+        let contract = RuntimeToolContract {
+            stable_tool_id: "tool:gmail.send@v1".to_string(),
+            primitive_capabilities: vec![
+                "prim:connector.invoke".to_string(),
+                "prim:net.request".to_string(),
+            ],
+            authority_scope_requirements: vec!["scope:gmail.send".to_string()],
+            ..RuntimeToolContract::default()
+        };
+
+        assert!(contract.requires_primitive_capability("prim:connector.invoke"));
+        assert!(!contract.requires_primitive_capability("scope:gmail.send"));
+        assert!(contract.requires_authority_scope("scope:gmail.send"));
+        assert!(!contract.requires_authority_scope("prim:net.request"));
     }
 
     #[test]

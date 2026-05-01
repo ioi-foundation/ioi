@@ -1,7 +1,7 @@
 use crate::agentic::runtime::keys::{
     get_incident_key, get_remediation_key, get_state_key, AGENT_POLICY_PREFIX,
 };
-use crate::agentic::runtime::service::step::signals::infer_interaction_target;
+use crate::agentic::runtime::service::decision_loop::signals::infer_interaction_target;
 use crate::agentic::runtime::service::RuntimeAgentService;
 use crate::agentic::runtime::types::{
     AgentMode, AgentState, AgentStatus, ExecutionTier, SessionSummary, WorkerAssignment,
@@ -174,7 +174,7 @@ pub async fn spawn_delegated_child_session(
         execution_ledger: Default::default(),
         visual_som_map: None,
         visual_semantic_map: None,
-        swarm_context: None,
+        work_graph_context: None,
         target,
         resolved_intent: delegated_child_preset_resolved_intent(&assignment),
         awaiting_intent_clarification: false,

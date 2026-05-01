@@ -1,8 +1,8 @@
 use super::*;
-use crate::agentic::runtime::service::step::action::command_contract::{
+use crate::agentic::runtime::service::tool_execution::command_contract::{
     PROVIDER_SELECTION_COMMIT_EVIDENCE, VERIFICATION_COMMIT_EVIDENCE,
 };
-use crate::agentic::runtime::service::step::action::{
+use crate::agentic::runtime::service::tool_execution::{
     execution_evidence_key, record_success_condition,
 };
 use crate::agentic::runtime::types::{AgentMode, ExecutionTier, ToolCallStatus};
@@ -183,7 +183,7 @@ fn agent_state_with_mail_reply() -> AgentState {
         execution_ledger: Default::default(),
         visual_som_map: None,
         visual_semantic_map: None,
-        swarm_context: None,
+        work_graph_context: None,
         target: None,
         resolved_intent: Some(mail_reply_resolved_intent()),
         awaiting_intent_clarification: false,
@@ -281,7 +281,7 @@ fn agent_state_with_automation_monitor() -> AgentState {
         execution_ledger: Default::default(),
         visual_som_map: None,
         visual_semantic_map: None,
-        swarm_context: None,
+        work_graph_context: None,
         target: None,
         resolved_intent: Some(automation_monitor_resolved_intent()),
         awaiting_intent_clarification: false,
@@ -323,7 +323,7 @@ fn agent_state_with_install_dependency() -> AgentState {
         execution_ledger: Default::default(),
         visual_som_map: None,
         visual_semantic_map: None,
-        swarm_context: None,
+        work_graph_context: None,
         target: None,
         resolved_intent: Some(install_dependency_resolved_intent()),
         awaiting_intent_clarification: false,

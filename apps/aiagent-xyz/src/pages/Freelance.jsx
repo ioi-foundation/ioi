@@ -15,7 +15,7 @@ const jobs = [
 export default function Freelance() {
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
 
-  const FilterContent = () => (
+  const renderFilterContent = () => (
     <div className="space-y-6">
       <div className="bg-white border border-gray-200 rounded-lg p-5">
         <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Verification Type</h3>
@@ -53,7 +53,7 @@ export default function Freelance() {
       <Header />
       
       <MobileFilterDrawer isOpen={isMobileFiltersOpen} onClose={() => setIsMobileFiltersOpen(false)}>
-        <FilterContent />
+        {renderFilterContent()}
       </MobileFilterDrawer>
 
       <main className="container mx-auto px-4 py-8 max-w-6xl">
@@ -85,7 +85,7 @@ export default function Freelance() {
           
           {/* LEFT SIDEBAR (Desktop) */}
           <aside className="hidden lg:block lg:col-span-3 space-y-6">
-             <FilterContent />
+             {renderFilterContent()}
           </aside>
 
           {/* MAIN CONTENT: Job Feed */}

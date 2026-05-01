@@ -123,38 +123,38 @@ export function ArtifactEvidencePanel({
   const selectedSkills = chatSession.materialization.selectedSkills ?? [];
   const validation = chatSession.materialization.validation ?? null;
   const executionEnvelope = chatSession.materialization.executionEnvelope ?? null;
-  const swarmPlan = chatSession.materialization.swarmPlan ?? executionEnvelope?.plan ?? null;
-  const swarmExecution =
-    chatSession.materialization.swarmExecution ??
+  const workGraphPlan = chatSession.materialization.workGraphPlan ?? executionEnvelope?.plan ?? null;
+  const workGraphExecution =
+    chatSession.materialization.workGraphExecution ??
     executionEnvelope?.executionSummary ??
     null;
-  const swarmWorkerReceipts =
-    chatSession.materialization.swarmWorkerReceipts ??
+  const workerReceipts =
+    chatSession.materialization.workerReceipts ??
     executionEnvelope?.workerReceipts ??
     [];
-  const swarmChangeReceipts =
-    chatSession.materialization.swarmChangeReceipts ??
+  const changeReceipts =
+    chatSession.materialization.changeReceipts ??
     executionEnvelope?.changeReceipts ??
     [];
-  const swarmMergeReceipts =
-    chatSession.materialization.swarmMergeReceipts ??
+  const mergeReceipts =
+    chatSession.materialization.mergeReceipts ??
     executionEnvelope?.mergeReceipts ??
     [];
-  const swarmVerificationReceipts =
-    chatSession.materialization.swarmVerificationReceipts ??
+  const verificationReceipts =
+    chatSession.materialization.verificationReceipts ??
     executionEnvelope?.verificationReceipts ??
     [];
   const graphMutationReceipts = executionEnvelope?.graphMutationReceipts ?? [];
   const dispatchBatches = executionEnvelope?.dispatchBatches ?? [];
   const repairReceipts = executionEnvelope?.repairReceipts ?? [];
   const replanReceipts = executionEnvelope?.replanReceipts ?? [];
-  const hasSwarmExecution = Boolean(
-    swarmExecution?.enabled || swarmPlan || executionEnvelope,
+  const hasWorkGraphExecution = Boolean(
+    workGraphExecution?.enabled || workGraphPlan || executionEnvelope,
   );
   const candidates = chatSession.materialization.candidateSummaries ?? [];
   const tasteMemory = chatSession.tasteMemory ?? null;
-  const repairPassCount = hasSwarmExecution
-    ? swarmChangeReceipts.filter(
+  const repairPassCount = hasWorkGraphExecution
+    ? changeReceipts.filter(
         (receipt) =>
           (receipt.workItemId.startsWith("repair-pass-") ||
             receipt.workItemId === "repair") &&
@@ -165,7 +165,7 @@ export function ArtifactEvidencePanel({
           candidate.convergence && candidate.convergence.passKind !== "initial",
       ).length;
   const winningCandidate =
-    !hasSwarmExecution
+    !hasWorkGraphExecution
       ? candidates.find((candidate) => candidate.selected) ??
         (chatSession.materialization.winningCandidateId
           ? (candidates.find(
@@ -209,10 +209,10 @@ export function ArtifactEvidencePanel({
     formatStatusLabel,
   );
   const deliveryInspection = buildArtifactDeliveryInspection({
-    hasSwarmExecution,
-    adapterLabel: swarmExecution?.adapterLabel ?? null,
-    completedWorkItems: swarmExecution?.completedWorkItems ?? 0,
-    totalWorkItems: swarmExecution?.totalWorkItems ?? 0,
+    hasWorkGraphExecution,
+    adapterLabel: workGraphExecution?.adapterLabel ?? null,
+    completedWorkItems: workGraphExecution?.completedWorkItems ?? 0,
+    totalWorkItems: workGraphExecution?.totalWorkItems ?? 0,
     evidenceCount: evidence.length,
     receiptCount: receipts.length,
     revisionCount: revisions.length,
@@ -223,7 +223,7 @@ export function ArtifactEvidencePanel({
       ? `${validationCounts.cleared}/${validationCounts.required} required obligations cleared`
       : "Execution-witness obligation counts pending",
     repairPassCount,
-    activeWorkerRole: swarmExecution?.activeWorkerRole ?? null,
+    activeWorkerRole: workGraphExecution?.activeWorkerRole ?? null,
     workspaceDetail: workspaceActivity[0]?.detail ?? null,
     formatStatusLabel,
   });
@@ -763,9 +763,9 @@ export function ArtifactEvidencePanel({
         </section>
       ) : null}
 
-      {hasSwarmExecution ? (
+      {hasWorkGraphExecution ? (
         <>
-          {swarmPlan ? (
+          {workGraphPlan ? (
             <section className="chat-artifact-inspector-section">
               <span className="chat-artifact-panel-label">Execution plan</span>
               <div className="chat-artifact-note-list">
@@ -773,8 +773,8 @@ export function ArtifactEvidencePanel({
                   <strong>Strategy:</strong>{" "}
                   {executionEnvelope?.strategy
                     ? formatStatusLabel(executionEnvelope.strategy)
-                    : swarmPlan.strategy}{" "}
-                  · {swarmPlan.adapterLabel}
+                    : workGraphPlan.strategy}{" "}
+                  · {workGraphPlan.adapterLabel}
                 </p>
                 {executionEnvelope?.executionDomain ? (
                   <p>
@@ -785,13 +785,13 @@ export function ArtifactEvidencePanel({
                   </p>
                 ) : null}
                 <p>
-                  <strong>Parallelism:</strong> {swarmPlan.parallelismMode}
+                  <strong>Parallelism:</strong> {workGraphPlan.parallelismMode}
                 </p>
                 <p>
-                  <strong>Work graph:</strong> {swarmPlan.workItems.length} item
-                  {swarmPlan.workItems.length === 1 ? "" : "s"}
+                  <strong>Work graph:</strong> {workGraphPlan.workItems.length} item
+                  {workGraphPlan.workItems.length === 1 ? "" : "s"}
                 </p>
-                {swarmPlan.workItems.map((item) => (
+                {workGraphPlan.workItems.map((item) => (
                   <div key={item.id} className="chat-artifact-activity">
                     <div>
                       <strong>
@@ -854,11 +854,11 @@ export function ArtifactEvidencePanel({
             </section>
           ) : null}
 
-          {swarmWorkerReceipts.length ? (
+          {workerReceipts.length ? (
             <section className="chat-artifact-inspector-section">
               <span className="chat-artifact-panel-label">Worker receipts</span>
               <div className="chat-artifact-note-list">
-                {swarmWorkerReceipts.map((receipt) => (
+                {workerReceipts.map((receipt) => (
                   <div
                     key={`${receipt.workItemId}-${receipt.startedAt}`}
                     className="chat-artifact-activity"
@@ -891,9 +891,9 @@ export function ArtifactEvidencePanel({
             </section>
           ) : null}
 
-          {swarmChangeReceipts.length ||
-          swarmMergeReceipts.length ||
-          swarmVerificationReceipts.length ||
+          {changeReceipts.length ||
+          mergeReceipts.length ||
+          verificationReceipts.length ||
           dispatchBatches.length ||
           graphMutationReceipts.length ||
           repairReceipts.length ||
@@ -924,7 +924,7 @@ export function ArtifactEvidencePanel({
                     <span>{formatStatusLabel(batch.status)}</span>
                   </div>
                 ))}
-                {swarmChangeReceipts.map((receipt) => (
+                {changeReceipts.map((receipt) => (
                   <div key={`patch-${receipt.workItemId}`} className="chat-artifact-activity">
                     <div>
                       <strong>Patch · {receipt.workItemId}</strong>
@@ -937,7 +937,7 @@ export function ArtifactEvidencePanel({
                     <span>{formatStatusLabel(receipt.status)}</span>
                   </div>
                 ))}
-                {swarmMergeReceipts.map((receipt) => (
+                {mergeReceipts.map((receipt) => (
                   <div key={`merge-${receipt.workItemId}`} className="chat-artifact-activity">
                     <div>
                       <strong>Merge · {receipt.workItemId}</strong>
@@ -949,7 +949,7 @@ export function ArtifactEvidencePanel({
                     <span>{formatStatusLabel(receipt.status)}</span>
                   </div>
                 ))}
-                {swarmVerificationReceipts.map((receipt) => (
+                {verificationReceipts.map((receipt) => (
                   <div key={`verify-${receipt.id}`} className="chat-artifact-activity">
                     <div>
                       <strong>{formatStatusLabel(receipt.kind)}</strong>

@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "ioi.agent-runtime.p3-exhaustive-validation.v1.diagnostic_bundle",
+  "generatedAt": "2026-05-01T19:28:07.488Z",
+  "status": "Complete",
+  "counts": {
+    "p3": 10,
+    "exhaustiveWorkflowSuites": 15,
+    "betterAgentValidations": 31,
+    "scorecardDimensions": 33,
+    "scorecardSchemaCategories": 9,
+    "incomplete": 0
+  },
+  "masterGuide": {
+    "path": "docs/plans/architectural-improvements-broad-master-guide.md",
+    "present": true,
+    "guideHash": "e5d4bf46cad3467bedfd5ba6cd5fec9bf5bc08e03b14fed112a49b5131d58617",
+    "p3Lines": [
+      2396,
+      2416
+    ],
+    "exhaustiveWorkflowLines": [
+      1354,
+      1378
+    ],
+    "betterAgentLines": [
+      2106,
+      2193
+    ],
+    "finalBeatLines": [
+      2520,
+      2570
+    ]
+  },
+  "guiEvidence": {
+    "resultPath": "docs/evidence/architectural-improvements-broad/gui-retained-validation/2026-05-01T17-44-28-666Z/result.json",
+    "runtimeArtifactsPath": "docs/evidence/architectural-improvements-broad/gui-retained-validation/2026-05-01T17-44-28-666Z/runtime-artifacts.json",
+    "queryCount": 8,
+    "screenshotCount": 8,
+    "chatUx": {
+      "final_answer_primary": true,
+      "markdown_rendered": true,
+      "mermaid_rendered": true,
+      "collapsible_thinking": true,
+      "collapsible_explored_files": true,
+      "source_pills_reserved_for_search": true,
+      "no_raw_receipt_dump": true,
+      "no_default_facts_dashboard": true,
+      "no_default_evidence_drawer": true,
+      "no_overlapping_text": true
+    },
+    "runtimeConsistency": {
+      "visible_output_matches_trace": true,
+      "visible_sources_match_selected_sources": true,
+      "policy_blocks_match_receipts": true,
+      "task_state_matches_transcript": true,
+      "scorecard_matches_stop_reason": true,
+      "better_agent_artifacts_present": true
+    }
+  },
+  "importBoundary": {
+    "status": "Complete",
+    "findings": []
+  },
+  "failures": []
+}

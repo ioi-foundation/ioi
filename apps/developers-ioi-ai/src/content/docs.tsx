@@ -87,17 +87,17 @@ export const DOC_PAGES: DocPage[] = [
     title: 'Choose the Right Surface',
     eyebrow: 'Orientation',
     summary:
-      'Use this page to decide whether you should start in Autopilot, IOI CLI, ioi-swarm, sas.xyz, aiagent.xyz, or the canonical docs layer.',
+      'Use this page to decide whether you should start in Autopilot, IOI CLI, @ioi/agent-sdk, sas.xyz, aiagent.xyz, or the canonical docs layer.',
     section: 'overview',
     status: 'Current',
     lastVerified: '2026-03-31',
     keywords: ['surface map', 'developers', 'docs', 'autopilot', 'cli', 'swarm', 'sas', 'aiagent', 'forge'],
     sources: [
       'apps/developers-ioi-ai/README.md',
-      'docs/specs/ioi-cli.md',
-      'docs/specs/autopilot/internal_product_spec.md',
-      'docs/specs/sas_xyz.md',
-      'docs/specs/aiagent_xyz.md',
+      'docs/architecture/runtime/ioi-cli-daemon-runtime.md',
+      'docs/architecture/surfaces/autopilot-internal-product-spec.md',
+      'docs/architecture/marketplaces/sas-xyz-service-marketplace.md',
+      'docs/architecture/marketplaces/aiagent-xyz-worker-marketplace.md',
     ],
     canonicalLinks: [
       {
@@ -131,7 +131,7 @@ export const DOC_PAGES: DocPage[] = [
                 ['docs.ioi.network', 'Canonical reference', 'You need low-level specs, internals, operator docs, or formal protocol material.'],
                 ['Autopilot', 'Private/local runtime', 'You want to run workers locally, supervise execution, work with Spotlight or Chat, and stay inside your trust boundary.'],
                 ['IOI CLI', 'Kernel-adjacent toolchain', 'You want to scaffold projects, run local nodes, inspect artifacts, query state, and work close to the repo and runtime.'],
-                ['ioi-swarm', 'Python SDK', 'You want to build agent logic in Python and connect it to runtime, policy, and receipted action flows.'],
+                ['@ioi/agent-sdk', 'Developer SDK', 'You want to build agents against the daemon-backed runtime substrate with policy, receipts, traces, and replay preserved.'],
                 ['sas.xyz', 'Provider path', 'You want to package and productize repeatable worker delivery as a service.'],
                 ['aiagent.xyz', 'Discovery and procurement', 'You want to distribute, compare, buy, install, or procure worker services.'],
               ]}
@@ -197,9 +197,9 @@ export const DOC_PAGES: DocPage[] = [
                 .
               </li>
               <li>
-                Want Python-first agent development? Start with{' '}
-                <a className={linkClass(isDark)} href="#build-your-first-agent-with-ioi-swarm">
-                  Build Your First Agent with ioi-swarm
+                Want SDK-first agent development? Start with{' '}
+                <a className={linkClass(isDark)} href="#build-your-first-agent-with-ioi-agent-sdk">
+                  Build Your First Agent with @ioi/agent-sdk
                 </a>
                 .
               </li>
@@ -284,8 +284,9 @@ export const DOC_PAGES: DocPage[] = [
                 validation, and materialization helpers in the API and CLI layers.
               </li>
               <li>
-                <strong>ioi-swarm:</strong> a Python SDK for agent construction with policy and
-                receipted execution in view.
+                <strong>@ioi/agent-sdk:</strong> the developer SDK over the shared runtime
+                substrate for daemon-backed agent construction with policy, receipts, traces, and
+                replay in view.
               </li>
               <li>
                 <strong>Provider/discovery surfaces:</strong> <code>sas.xyz</code> and{' '}
@@ -349,7 +350,7 @@ docs.ioi.network = how IOI works`}
                 ['Node.js', 'Workspace apps', 'Required for the docs app and frontend surfaces. Node 20+ is a safe target.'],
                 ['Rust', 'CLI and native runtime', 'Required for crates and the native desktop stack.'],
                 ['Tauri CLI', 'Autopilot native shell', 'Only needed when you want the desktop runtime rather than web-only UI.'],
-                ['Python 3.10+', 'ioi-swarm SDK', 'Required if you are following the Python agent path.'],
+                ['Node.js', '@ioi/agent-sdk', 'Required if you are following the SDK agent path.'],
               ]}
             />
             <Callout isDark={isDark} tone="current" title="Current workspace shape">
@@ -517,7 +518,7 @@ npm run lint --workspace=apps/developers-ioi-ai`}
     sources: [
       'apps/autopilot/README.md',
       'apps/autopilot/package.json',
-      'docs/specs/autopilot/internal_product_spec.md',
+      'docs/architecture/surfaces/autopilot-internal-product-spec.md',
     ],
     canonicalLinks: [],
     nextSteps: [
@@ -601,19 +602,19 @@ sudo apt install -y \\
     ],
   },
   {
-    id: 'build-your-first-agent-with-ioi-swarm',
-    title: 'Build Your First Agent with ioi-swarm',
+    id: 'build-your-first-agent-with-ioi-agent-sdk',
+    title: 'Build Your First Agent with @ioi/agent-sdk',
     eyebrow: 'Get started',
     summary:
-      'Use the Python SDK when you want a lightweight path to agent construction while keeping IOI memory, policy, and receipt concepts in scope.',
+      'Use the agent SDK when you want an ergonomic path to agent construction without leaving IOI runtime substrate contracts.',
     section: 'get-started',
     status: 'Current',
     lastVerified: '2026-03-31',
-    keywords: ['python', 'sdk', 'swarm', 'agent', 'quickstart'],
-    sources: ['ioi-swarm/python/README.md', 'ioi-swarm/python/pyproject.toml'],
+    keywords: ['typescript', 'sdk', 'agent', 'quickstart', 'runtime substrate'],
+    sources: ['packages/agent-sdk/package.json', 'packages/agent-sdk/examples/quickstart-local.ts'],
     canonicalLinks: [
       {
-        label: 'Protocol-level swarm docs',
+        label: 'Runtime substrate architecture',
         href: 'https://docs.ioi.network',
         external: true,
       },
@@ -628,10 +629,11 @@ sudo apt install -y \\
         title: 'Install The SDK',
         render: (isDark) => (
           <div className={bodyClass(isDark)}>
-            <CodeBlock isDark={isDark} code="pip install ioi-swarm" />
+            <CodeBlock isDark={isDark} code="npm install @ioi/agent-sdk" />
             <p>
-              The current package metadata requires Python 3.10+ and ships as the{' '}
-              <code>ioi-swarm</code> package from <code>ioi-swarm/python</code>.
+              The SDK is the developer-facing client over the daemon/public runtime API. Explicit
+              testing clients are available for local projections, but the canonical runtime path
+              remains substrate-backed.
             </p>
           </div>
         ),
@@ -643,21 +645,23 @@ sudo apt install -y \\
           <div className={bodyClass(isDark)}>
             <CodeBlock
               isDark={isDark}
-              code={`from ioi_swarm import Agent, tool, ActionTarget
+              code={`import { Agent } from "@ioi/agent-sdk";
 
-agent = Agent(name="Autopilot", policy_id="finance-restricted")
+const agent = await Agent.create({
+  name: "Autopilot",
+  model: "local:auto",
+});
 
-@tool(name="get_balance", target=ActionTarget.FS_READ)
-def check_vault_balance(vault_id: str):
-    return 100.0
+const run = await agent.send("Check my vault balance and alert me if it is below 50");
+const result = await run.wait();
+const trace = await run.trace();
 
-agent.register_tool(check_vault_balance)
-agent.run("Check my vault balance and alert me if it's below 50")`}
+console.log(result.status, trace.receipts.length);`}
             />
             <p>
-              This quickstart is intentionally narrow. The useful part is the shape: define an
-              agent, bind a tool to an action target, register it, then run inside a policy-aware
-              path.
+              This quickstart is intentionally narrow. The useful part is the shape: create an
+              agent through the SDK, send work through the substrate, and inspect receipts or
+              traces without inventing a second runtime.
             </p>
           </div>
         ),
@@ -696,7 +700,7 @@ agent.run("Check my vault balance and alert me if it's below 50")`}
     status: 'Current',
     lastVerified: '2026-03-31',
     keywords: ['cli', 'command line', 'artifact', 'node', 'query', 'verify', 'policy'],
-    sources: ['crates/cli/src/main.rs', 'docs/specs/ioi-cli.md', 'crates/cli/Cargo.toml'],
+    sources: ['crates/cli/src/main.rs', 'docs/architecture/runtime/ioi-cli-daemon-runtime.md', 'crates/cli/Cargo.toml'],
     canonicalLinks: [],
     nextSteps: [
       { label: 'CLI Command Reference', href: '#cli-command-reference' },
@@ -795,7 +799,7 @@ cargo run -p ioi-cli --bin cli -- query status`}
     nextSteps: [
       { label: 'IOI CLI Overview', href: '#ioi-cli-overview' },
       { label: 'Run Autopilot Locally', href: '#run-autopilot-locally' },
-      { label: 'Build Your First Agent with ioi-swarm', href: '#build-your-first-agent-with-ioi-swarm' },
+      { label: 'Build Your First Agent with @ioi/agent-sdk', href: '#build-your-first-agent-with-ioi-agent-sdk' },
     ],
     sections: [
       {
@@ -877,9 +881,9 @@ cargo run -p ioi-cli --bin cli -- query status`}
     lastVerified: '2026-03-31',
     keywords: ['promotion path', 'service candidate', 'autopilot', 'sas', 'forge'],
     sources: [
-      'docs/specs/autopilot/internal_product_spec.md',
-      'docs/specs/sas_xyz.md',
-      'docs/specs/ioi-cli.md',
+      'docs/architecture/surfaces/autopilot-internal-product-spec.md',
+      'docs/architecture/marketplaces/sas-xyz-service-marketplace.md',
+      'docs/architecture/runtime/ioi-cli-daemon-runtime.md',
     ],
     canonicalLinks: [],
     nextSteps: [
@@ -943,7 +947,7 @@ cargo run -p ioi-cli --bin cli -- query status`}
     status: 'Preview',
     lastVerified: '2026-03-31',
     keywords: ['sas.xyz', 'provider', 'service as software', 'deploy', 'productize'],
-    sources: ['apps/sas-xyz/README.md', 'docs/specs/sas_xyz.md'],
+    sources: ['apps/sas-xyz/README.md', 'docs/architecture/marketplaces/sas-xyz-service-marketplace.md'],
     canonicalLinks: [],
     nextSteps: [
       { label: 'From Autopilot to Service Candidate', href: '#from-autopilot-to-service-candidate' },
@@ -998,7 +1002,7 @@ cargo run -p ioi-cli --bin cli -- query status`}
     status: 'Preview',
     lastVerified: '2026-03-31',
     keywords: ['aiagent.xyz', 'marketplace', 'discovery', 'procurement', 'listing'],
-    sources: ['apps/aiagent-xyz/README.md', 'docs/specs/aiagent_xyz.md'],
+    sources: ['apps/aiagent-xyz/README.md', 'docs/architecture/marketplaces/aiagent-xyz-worker-marketplace.md'],
     canonicalLinks: [],
     nextSteps: [
       { label: 'Using sas.xyz to Productize Worker Delivery', href: '#using-sas-xyz-to-productize-worker-delivery' },
@@ -1056,7 +1060,7 @@ cargo run -p ioi-cli --bin cli -- query status`}
     lastVerified: '2026-03-31',
     keywords: ['forge', 'sovereign domain', 'ioi cli', 'init', 'scaffold', 'node'],
     sources: [
-      'docs/specs/ioi-cli.md',
+      'docs/architecture/runtime/ioi-cli-daemon-runtime.md',
       'crates/cli/src/commands/init.rs',
       'crates/cli/src/commands/scaffold.rs',
       'crates/cli/src/commands/node.rs',

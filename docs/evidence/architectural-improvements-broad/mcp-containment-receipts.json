@@ -1,0 +1,31 @@
+{
+  "mcpServerNames": [],
+  "toolSequence": [
+    "authority_check",
+    "task_state_projection",
+    "trace_export",
+    "mcp_containment",
+    "skill_instruction_import",
+    "runtime_event_hook"
+  ],
+  "receipts": [
+    {
+      "id": "receipt_run_4c533027-edfc-455b-8ae0-5a8b86f36b71_authority",
+      "kind": "authority_decision",
+      "summary": "SDK mock action used an explicit non-authoritative runtime substrate projection.",
+      "redaction": "none",
+      "evidenceRefs": [
+        "RuntimeSubstratePortContract"
+      ]
+    },
+    {
+      "id": "receipt_run_4c533027-edfc-455b-8ae0-5a8b86f36b71_trace",
+      "kind": "trace_export",
+      "summary": "Trace export was generated from the explicit SDK mock runtime projection.",
+      "redaction": "redacted",
+      "evidenceRefs": [
+        "RuntimeTraceBundle"
+      ]
+    }
+  ]
+}

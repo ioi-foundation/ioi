@@ -8,6 +8,7 @@ pub mod execution; // Points to execution/mod.rs now
 pub mod harness;
 pub mod kernel;
 pub mod keys;
+pub(crate) mod legacy;
 pub mod middleware;
 pub mod runtime_secret;
 pub mod service;

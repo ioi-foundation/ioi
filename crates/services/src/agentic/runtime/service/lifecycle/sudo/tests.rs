@@ -1,10 +1,10 @@
 use super::*;
 use crate::agentic::runtime::keys::get_incident_key;
-use crate::agentic::runtime::service::step::anti_loop::FailureClass;
-use crate::agentic::runtime::service::step::incident::IncidentState;
-use crate::agentic::runtime::service::step::ontology::{
+use crate::agentic::runtime::service::decision_loop::ontology::{
     GateState, IncidentStage, IntentClass, StrategyName, StrategyNode,
 };
+use crate::agentic::runtime::service::recovery::anti_loop::FailureClass;
+use crate::agentic::runtime::service::recovery::incident::IncidentState;
 use crate::agentic::runtime::types::{AgentMode, AgentState, AgentStatus, ExecutionTier};
 use ioi_api::state::{StateAccess, StateScanIter};
 use ioi_types::app::ActionRequest;
@@ -131,7 +131,7 @@ fn test_agent_state(session_id: [u8; 32]) -> AgentState {
         execution_ledger: Default::default(),
         visual_som_map: None,
         visual_semantic_map: None,
-        swarm_context: None,
+        work_graph_context: None,
         target: None,
         resolved_intent: None,
         awaiting_intent_clarification: false,

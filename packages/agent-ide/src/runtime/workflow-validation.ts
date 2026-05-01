@@ -12,7 +12,7 @@ import {
   actionKindForWorkflowNodeType,
   validateActionEdge,
   validateWorkflowConnection,
-} from "./agent-execution-substrate";
+} from "./runtime-projection-adapter";
 import {
   harnessComponentForNode,
   harnessSlotsForWorkflow,

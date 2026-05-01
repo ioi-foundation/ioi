@@ -54,6 +54,35 @@ export interface RuntimeTraceBundle {
   scorecard: RuntimeScorecard;
 }
 
+export interface RuntimeAccountProfile {
+  id: string;
+  email?: string | null;
+  authorityLevel: "local" | "operator" | "admin" | "hosted";
+  privacyClass: "local_private" | "workspace" | "hosted" | "external";
+  source: string;
+}
+
+export interface RuntimeNodeProfile {
+  id: string;
+  kind: "local" | "hosted" | "self_hosted" | "tee" | "depin";
+  status: "available" | "unavailable" | "blocked";
+  endpoint?: string;
+  privacyClass: "local_private" | "workspace" | "hosted" | "external";
+  evidenceRefs: string[];
+}
+
+export interface RuntimeToolCatalogEntry {
+  stableToolId: string;
+  displayName: string;
+  primitiveCapabilities: string[];
+  authorityScopeRequirements: string[];
+  effectClass: string;
+  riskDomain: string;
+  inputSchema: Record<string, unknown>;
+  outputSchema: Record<string, unknown>;
+  evidenceRequirements: string[];
+}
+
 export interface RuntimeReceipt {
   id: string;
   kind: string;

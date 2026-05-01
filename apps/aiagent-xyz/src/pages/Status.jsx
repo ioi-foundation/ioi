@@ -2,6 +2,12 @@
 import React from 'react';
 import Header from '../components/Header';
 
+const STATUS_GRAPH_HEIGHTS = [
+  45, 62, 58, 76, 69, 84, 72, 88, 81, 66,
+  74, 91, 78, 63, 70, 86, 92, 75, 67, 80,
+  73, 89, 77, 64, 83, 95, 71, 68, 82, 90,
+];
+
 export default function Status() {
   return (
     <div className="min-h-screen bg-slate-50">
@@ -123,11 +129,11 @@ function StatusCard({ title, status, uptime, latency, graphColor, extra }) {
       
       {/* Mock Uptime Bar */}
       <div className="flex gap-0.5 h-6 mb-4 items-end">
-         {[...Array(30)].map((_, i) => (
+         {STATUS_GRAPH_HEIGHTS.map((height, i) => (
             <div 
               key={i} 
               className={`flex-1 rounded-sm opacity-80 hover:opacity-100 transition-opacity ${graphColor}`} 
-              style={{ height: `${30 + Math.random() * 70}%` }}
+              style={{ height: `${height}%` }}
             ></div>
          ))}
       </div>

@@ -1,0 +1,57 @@
+{
+  "runId": "run_4c533027-edfc-455b-8ae0-5a8b86f36b71",
+  "replayedEvents": [
+    {
+      "id": "run_4c533027-edfc-455b-8ae0-5a8b86f36b71:event:000:run_started",
+      "cursor": "run_4c533027-edfc-455b-8ae0-5a8b86f36b71:0",
+      "type": "run_started"
+    },
+    {
+      "id": "run_4c533027-edfc-455b-8ae0-5a8b86f36b71:event:001:task_state",
+      "cursor": "run_4c533027-edfc-455b-8ae0-5a8b86f36b71:1",
+      "type": "task_state"
+    },
+    {
+      "id": "run_4c533027-edfc-455b-8ae0-5a8b86f36b71:event:002:uncertainty",
+      "cursor": "run_4c533027-edfc-455b-8ae0-5a8b86f36b71:2",
+      "type": "uncertainty"
+    },
+    {
+      "id": "run_4c533027-edfc-455b-8ae0-5a8b86f36b71:event:003:probe",
+      "cursor": "run_4c533027-edfc-455b-8ae0-5a8b86f36b71:3",
+      "type": "probe"
+    },
+    {
+      "id": "run_4c533027-edfc-455b-8ae0-5a8b86f36b71:event:004:postcondition_synthesized",
+      "cursor": "run_4c533027-edfc-455b-8ae0-5a8b86f36b71:4",
+      "type": "postcondition_synthesized"
+    },
+    {
+      "id": "run_4c533027-edfc-455b-8ae0-5a8b86f36b71:event:005:semantic_impact",
+      "cursor": "run_4c533027-edfc-455b-8ae0-5a8b86f36b71:5",
+      "type": "semantic_impact"
+    },
+    {
+      "id": "run_4c533027-edfc-455b-8ae0-5a8b86f36b71:event:006:delta",
+      "cursor": "run_4c533027-edfc-455b-8ae0-5a8b86f36b71:6",
+      "type": "delta"
+    },
+    {
+      "id": "run_4c533027-edfc-455b-8ae0-5a8b86f36b71:event:007:stop_condition",
+      "cursor": "run_4c533027-edfc-455b-8ae0-5a8b86f36b71:7",
+      "type": "stop_condition"
+    },
+    {
+      "id": "run_4c533027-edfc-455b-8ae0-5a8b86f36b71:event:008:quality_ledger",
+      "cursor": "run_4c533027-edfc-455b-8ae0-5a8b86f36b71:8",
+      "type": "quality_ledger"
+    },
+    {
+      "id": "run_4c533027-edfc-455b-8ae0-5a8b86f36b71:event:009:completed",
+      "cursor": "run_4c533027-edfc-455b-8ae0-5a8b86f36b71:9",
+      "type": "completed"
+    }
+  ],
+  "monotonicCursorOrder": true,
+  "terminalEventCount": 1
+}

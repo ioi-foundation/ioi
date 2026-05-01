@@ -67,19 +67,21 @@ pub(super) fn diff_payloads_to_patch_operations(
     operations
 }
 
-pub(super) fn sanitize_swarm_payload_for_validation(
+pub(super) fn sanitize_work_graph_payload_for_validation(
     payload: &ChatGeneratedArtifactPayload,
 ) -> ChatGeneratedArtifactPayload {
     let mut sanitized = payload.clone();
     for file in &mut sanitized.files {
         if file.mime == "text/html" || file.path.ends_with(".html") {
-            file.body = normalize_html_swarm_document(&strip_html_swarm_region_markers(&file.body));
+            file.body = normalize_html_work_graph_document(&strip_html_work_graph_region_markers(
+                &file.body,
+            ));
         }
     }
     sanitized
 }
 
-pub(super) fn repair_swarm_primary_file_assignment(
+pub(super) fn repair_work_graph_primary_file_assignment(
     payload: &ChatGeneratedArtifactPayload,
     request: &ChatOutcomeArtifactRequest,
 ) -> ChatGeneratedArtifactPayload {
@@ -115,15 +117,15 @@ pub(super) fn repair_swarm_primary_file_assignment(
     repaired
 }
 
-pub(crate) fn validate_swarm_generated_artifact_payload(
+pub(crate) fn validate_work_graph_generated_artifact_payload(
     payload: &ChatGeneratedArtifactPayload,
     request: &ChatOutcomeArtifactRequest,
 ) -> Result<ChatGeneratedArtifactPayload, String> {
-    let sanitized = sanitize_swarm_payload_for_validation(payload);
-    let repaired = repair_swarm_primary_file_assignment(&sanitized, request);
+    let sanitized = sanitize_work_graph_payload_for_validation(payload);
+    let repaired = repair_work_graph_primary_file_assignment(&sanitized, request);
     if let Err(error) = super::validate_generated_artifact_payload(&repaired, request) {
         if request.renderer == ChatRendererKind::HtmlIframe
-            && chat_swarm_soft_validation_error(&error)
+            && chat_work_graph_soft_validation_error(&error)
         {
             return Ok(repaired);
         }
@@ -181,19 +183,21 @@ pub(super) struct ChatTokenStreamPreviewCollector {
     combined_state: Arc<Mutex<String>>,
 }
 
-pub(super) fn chat_swarm_progress_step(
-    swarm_execution: &ChatArtifactSwarmExecutionSummary,
+pub(super) fn chat_work_graph_progress_step(
+    work_graph_execution: &ChatArtifactWorkGraphExecutionSummary,
     summary: impl Into<String>,
 ) -> String {
     format!(
-        "{} Swarm is at {}/{} completed work items.",
+        "{} WorkGraph is at {}/{} completed work items.",
         summary.into(),
-        swarm_execution.completed_work_items,
-        swarm_execution.total_work_items
+        work_graph_execution.completed_work_items,
+        work_graph_execution.total_work_items
     )
 }
 
-pub(super) fn chat_swarm_preview_language(request: &ChatOutcomeArtifactRequest) -> Option<String> {
+pub(super) fn chat_work_graph_preview_language(
+    request: &ChatOutcomeArtifactRequest,
+) -> Option<String> {
     let language = match request.renderer {
         ChatRendererKind::HtmlIframe => "html",
         ChatRendererKind::Markdown => "markdown",
@@ -206,7 +210,7 @@ pub(super) fn chat_swarm_preview_language(request: &ChatOutcomeArtifactRequest) 
     Some(language.to_string())
 }
 
-pub(super) fn chat_swarm_live_preview(
+pub(super) fn chat_work_graph_live_preview(
     id: impl Into<String>,
     kind: ExecutionLivePreviewKind,
     label: impl Into<String>,
@@ -227,7 +231,7 @@ pub(super) fn chat_swarm_live_preview(
         language,
         content: content.into(),
         is_final,
-        updated_at: chat_swarm_now_iso(),
+        updated_at: chat_work_graph_now_iso(),
     }
 }
 
@@ -277,7 +281,7 @@ pub(super) fn spawn_token_stream_preview_collector(
                         .map(|combined| combined.clone())
                         .unwrap_or_default();
                     if !snapshot.trim().is_empty() && snapshot != last_emitted {
-                        observer(chat_swarm_live_preview(
+                        observer(chat_work_graph_live_preview(
                             preview_id.clone(),
                             ExecutionLivePreviewKind::TokenStream,
                             preview_label.clone(),
@@ -372,7 +376,7 @@ pub(super) fn summarize_patch_preview(operations: &[ChatArtifactPatchOperation])
     Some(preview_body)
 }
 
-pub(super) fn chat_swarm_canonical_preview(
+pub(super) fn chat_work_graph_canonical_preview(
     payload: &ChatGeneratedArtifactPayload,
     work_item_id: Option<String>,
     work_item_role: Option<ChatArtifactWorkerRole>,
@@ -392,7 +396,7 @@ pub(super) fn chat_swarm_canonical_preview(
                 .iter()
                 .find(|file| !file.body.trim().is_empty())
         })?;
-    Some(chat_swarm_live_preview(
+    Some(chat_work_graph_live_preview(
         "canonical-artifact-preview".to_string(),
         ExecutionLivePreviewKind::ChangePreview,
         format!("Live artifact code · {}", preview_file.path),
@@ -405,10 +409,10 @@ pub(super) fn chat_swarm_canonical_preview(
     ))
 }
 
-pub(super) fn chat_swarm_partial_budget_summary(
+pub(super) fn chat_work_graph_partial_budget_summary(
     request: &ChatOutcomeArtifactRequest,
     production_provenance: ChatRuntimeProvenanceKind,
-    swarm_plan: &ChatArtifactSwarmPlan,
+    work_graph_plan: &ChatArtifactWorkGraphPlan,
     worker_receipts: &[ChatArtifactWorkerReceipt],
 ) -> ExecutionBudgetSummary {
     let dispatched_worker_count = worker_receipts
@@ -416,21 +420,26 @@ pub(super) fn chat_swarm_partial_budget_summary(
         .filter(|receipt| {
             !matches!(
                 receipt.result_kind,
-                Some(SwarmWorkerResultKind::Noop) | Some(SwarmWorkerResultKind::Blocked)
+                Some(WorkGraphWorkerResultKind::Noop) | Some(WorkGraphWorkerResultKind::Blocked)
             )
         })
         .count();
     let conflict_count = worker_receipts
         .iter()
-        .filter(|receipt| matches!(receipt.result_kind, Some(SwarmWorkerResultKind::Conflict)))
+        .filter(|receipt| {
+            matches!(
+                receipt.result_kind,
+                Some(WorkGraphWorkerResultKind::Conflict)
+            )
+        })
         .count();
     ExecutionBudgetSummary {
-        planned_worker_count: Some(swarm_plan.work_items.len()),
+        planned_worker_count: Some(work_graph_plan.work_items.len()),
         dispatched_worker_count: Some(dispatched_worker_count),
-        token_budget: Some(chat_swarm_planned_token_budget(
+        token_budget: Some(chat_work_graph_planned_token_budget(
             request,
             production_provenance,
-            swarm_plan,
+            work_graph_plan,
         )),
         token_usage: None,
         wall_clock_ms: None,
@@ -445,7 +454,7 @@ pub(super) fn chat_swarm_partial_budget_summary(
     }
 }
 
-pub(super) fn non_swarm_required_artifact_paths(
+pub(super) fn single_pass_required_artifact_paths(
     payload: &ChatGeneratedArtifactPayload,
 ) -> Vec<String> {
     let mut paths = payload
@@ -473,7 +482,7 @@ pub(super) fn non_swarm_required_artifact_paths(
     paths
 }
 
-pub(super) fn non_swarm_canonical_preview(
+pub(super) fn single_pass_canonical_preview(
     request: &ChatOutcomeArtifactRequest,
     payload: &ChatGeneratedArtifactPayload,
     status: &str,
@@ -494,14 +503,14 @@ pub(super) fn non_swarm_canonical_preview(
                 .iter()
                 .find(|file| !file.body.trim().is_empty())
         })?;
-    Some(chat_swarm_live_preview(
+    Some(chat_work_graph_live_preview(
         "canonical-artifact-preview".to_string(),
         ExecutionLivePreviewKind::ChangePreview,
         format!("Live artifact code · {}", preview_file.path),
         None,
         None,
         status,
-        chat_swarm_preview_language(request),
+        chat_work_graph_preview_language(request),
         preview_file.body.clone(),
         is_final,
     ))
@@ -511,14 +520,14 @@ pub(super) fn non_swarm_canonical_preview(
 #[path = "validation_preview/tests.rs"]
 mod tests;
 
-pub(super) fn build_non_swarm_execution_envelope(
+pub(super) fn build_single_pass_execution_envelope(
     request: &ChatOutcomeArtifactRequest,
     execution_strategy: ChatExecutionStrategy,
     live_previews: &[ExecutionLivePreview],
     invariant_status: ExecutionCompletionInvariantStatus,
     required_artifact_paths: Vec<String>,
 ) -> Option<ExecutionEnvelope> {
-    let mut execution_envelope = build_execution_envelope_from_swarm(
+    let mut execution_envelope = build_execution_envelope_from_work_graph(
         Some(execution_strategy),
         Some("chat_artifact".to_string()),
         Some(ExecutionDomainKind::Artifact),
@@ -549,7 +558,7 @@ pub(super) fn build_non_swarm_execution_envelope(
     execution_envelope
 }
 
-pub(super) fn emit_non_swarm_generation_progress(
+pub(super) fn emit_single_pass_generation_progress(
     observer: Option<&ChatArtifactGenerationProgressObserver>,
     request: &ChatOutcomeArtifactRequest,
     execution_strategy: ChatExecutionStrategy,
@@ -576,19 +585,19 @@ pub(super) fn emit_non_swarm_generation_progress(
         selected_skills: Vec::new(),
         retrieved_exemplars: Vec::new(),
         retrieved_sources: Vec::new(),
-        execution_envelope: build_non_swarm_execution_envelope(
+        execution_envelope: build_single_pass_execution_envelope(
             request,
             execution_strategy,
             live_previews,
             invariant_status,
             required_artifact_paths,
         ),
-        swarm_plan: None,
-        swarm_execution: None,
-        swarm_worker_receipts: Vec::new(),
-        swarm_change_receipts: Vec::new(),
-        swarm_merge_receipts: Vec::new(),
-        swarm_verification_receipts: Vec::new(),
+        work_graph_plan: None,
+        work_graph_execution: None,
+        work_graph_worker_receipts: Vec::new(),
+        work_graph_change_receipts: Vec::new(),
+        work_graph_merge_receipts: Vec::new(),
+        work_graph_verification_receipts: Vec::new(),
         render_evaluation: render_evaluation.cloned(),
         validation: validation.cloned(),
         operator_steps,

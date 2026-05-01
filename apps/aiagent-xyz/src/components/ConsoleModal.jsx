@@ -4,13 +4,17 @@ import React, { useEffect, useRef, useState } from 'react';
 export default function ConsoleModal({ isOpen, onClose, agentName }) {
   if (!isOpen) return null;
 
-  const [logs, setLogs] = useState([]);
+  return <ConsoleModalContent onClose={onClose} agentName={agentName} />;
+}
+
+function ConsoleModalContent({ onClose, agentName }) {
+  const [logs, setLogs] = useState(() => [
+    { text: `> Initializing ${agentName}...`, color: 'text-slate-300' },
+  ]);
   const bottomRef = useRef(null);
 
   // Simulation Script
   useEffect(() => {
-    setLogs([`> Initializing ${agentName}...`]);
-    
     const messages = [
       { text: "> Connected to IOI Network (Node #882)", delay: 800, color: "text-green-400" },
       { text: "> Loading strategy 'Vol_Arb_v4.py'", delay: 1500, color: "text-blue-300" },

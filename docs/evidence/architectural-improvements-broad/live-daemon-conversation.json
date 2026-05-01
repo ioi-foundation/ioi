@@ -1,0 +1,14 @@
+[
+  {
+    "role": "user",
+    "content": "Create a local SDK run, cancel it, reconnect, and prove no terminal event was duplicated. Then replay the run from canonical state and summarize the scorecard.",
+    "eventId": "run_d479ea75-0574-4652-8dab-958d2726cfc3:event:000:run_started",
+    "createdAt": "2026-05-01T19:37:07.928Z"
+  },
+  {
+    "role": "assistant",
+    "content": "IOI daemon run completed for /home/heathledger/Documents/ioi/repos/ioi/docs/evidence/architectural-improvements-broad/live-daemon-workspace. Source=local_daemon_agentgres. Trace, receipts, Agentgres canonical projection, task state, uncertainty, probe, postconditions, semantic impact, stop condition, and scorecard are available through public runtime APIs.",
+    "eventId": "run_d479ea75-0574-4652-8dab-958d2726cfc3:event:006:delta",
+    "createdAt": "2026-05-01T19:37:07.928Z"
+  }
+]

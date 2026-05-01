@@ -1,8 +1,8 @@
-use crate::agentic::runtime::service::step::queue::web_pipeline::query_is_generic_headline_collection;
-use crate::agentic::runtime::service::step::queue::web_pipeline::source_has_human_challenge_signal;
-use crate::agentic::runtime::service::step::signals::{
+use crate::agentic::runtime::service::decision_loop::signals::{
     analyze_query_facets, analyze_source_record_signals, query_semantic_anchor_tokens,
 };
+use crate::agentic::runtime::service::queue::web_pipeline::query_is_generic_headline_collection;
+use crate::agentic::runtime::service::queue::web_pipeline::source_has_human_challenge_signal;
 use ioi_types::app::agentic::WebSource;
 use std::collections::HashSet;
 

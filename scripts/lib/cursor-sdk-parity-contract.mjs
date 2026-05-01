@@ -17,7 +17,6 @@ export const IOI_SDK_REQUIRED_EXPORTS = Object.freeze([
   "CursorCompatibleAgent",
   "Run",
   "IoiAgentError",
-  "LocalRuntimeSubstrateClient",
   "createAgentPlatform",
   "createRuntimeSubstrateClient",
 ]);
@@ -40,6 +39,9 @@ export async function validateCursorSdkParity({
 
   const packageJson = readJson(path.join(repoRoot, "packages", "agent-sdk", "package.json"));
   const sdk = await import(pathToFileURL(path.join(repoRoot, "packages", "agent-sdk", "dist", "index.js")));
+  const testing = await import(
+    pathToFileURL(path.join(repoRoot, "packages", "agent-sdk", "dist", "testing.js"))
+  );
   const missingExports = IOI_SDK_REQUIRED_EXPORTS.filter((name) => !(name in sdk));
   const checks = [];
   checks.push(check("installable_package", packageJson.name === "@ioi/agent-sdk"));
@@ -47,9 +49,17 @@ export async function validateCursorSdkParity({
   checks.push(check("cjs_export", Boolean(packageJson.exports?.["."]?.require)));
   checks.push(check("types_export", Boolean(packageJson.exports?.["."]?.types)));
   checks.push(check("required_exports", missingExports.length === 0, { missingExports }));
+  checks.push(
+    check(
+      "mock_projection_is_testing_subpath",
+      !("createMockRuntimeSubstrateClient" in sdk) &&
+        typeof testing.createMockRuntimeSubstrateClient === "function" &&
+        Boolean(packageJson.exports?.["./testing"]),
+    ),
+  );
   checks.push(check("cursor_capability_classification", REQUIRED_CURSOR_CAPABILITIES.length >= 20));
 
-  const proof = await runLocalSdkProof(sdk, rootEvidenceDir);
+  const proof = await runLocalSdkProof(sdk, testing, rootEvidenceDir);
   checks.push(check("local_quickstart", proof.quickstart.status === "completed"));
   checks.push(check("stream_reconnect", proof.reconnect.noDuplicateTerminalEvents));
   checks.push(check("conversation_accumulator", proof.quickstart.conversationLength === 2));
@@ -90,7 +100,7 @@ export async function validateCursorSdkParity({
   return summary;
 }
 
-export async function runLocalSdkProof(sdk, evidenceDir) {
+export async function runLocalSdkProof(sdk, testing, evidenceDir) {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-sdk-proof-"));
   fs.mkdirSync(path.join(cwd, ".cursor", "skills", "proof-skill"), { recursive: true });
   fs.writeFileSync(
@@ -101,7 +111,7 @@ export async function runLocalSdkProof(sdk, evidenceDir) {
     path.join(cwd, ".cursor", "hooks.json"),
     `${JSON.stringify({ onStep: { command: "echo", args: ["step"] } }, null, 2)}\n`,
   );
-  const client = sdk.createRuntimeSubstrateClient({
+  const client = testing.createMockRuntimeSubstrateClient({
     cwd,
     checkpointDir: path.join(cwd, ".ioi", "agent-sdk"),
   });

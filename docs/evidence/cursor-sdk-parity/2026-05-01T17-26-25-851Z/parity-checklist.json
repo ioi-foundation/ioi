@@ -1,0 +1,208 @@
+{
+  "schemaVersion": "ioi.cursor-sdk-parity-plus.v1",
+  "capturedAt": "2026-05-01T17:26:27.590Z",
+  "evidenceDir": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/cursor-sdk-parity/2026-05-01T17-26-25-851Z",
+  "status": "complete_plus_local_external_blockers",
+  "checks": [
+    {
+      "id": "installable_package",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "id": "esm_export",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "id": "cjs_export",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "id": "types_export",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "id": "required_exports",
+      "pass": true,
+      "details": {
+        "missingExports": []
+      }
+    },
+    {
+      "id": "mock_projection_is_testing_subpath",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "id": "cursor_capability_classification",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "id": "local_quickstart",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "id": "stream_reconnect",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "id": "conversation_accumulator",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "id": "artifact_export",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "id": "trace_replay",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "id": "smarter_agent_records",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "id": "cloud_fail_closed",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "id": "clean_ux_contract_not_bypassed",
+      "pass": true,
+      "details": {}
+    },
+    {
+      "id": "no_gui_internal_imports",
+      "pass": true,
+      "details": {}
+    }
+  ],
+  "externallyBlocked": [
+    {
+      "lane": "cloud_hosted_self_hosted_live_provider",
+      "status": "blocked",
+      "reason": "No IOI_AGENT_SDK_HOSTED_ENDPOINT or IOI_AGENT_SDK_SELF_HOSTED_ENDPOINT was configured for a live provider run.",
+      "environmentChecked": [
+        "IOI_AGENT_SDK_HOSTED_ENDPOINT",
+        "IOI_AGENT_SDK_SELF_HOSTED_ENDPOINT"
+      ]
+    },
+    {
+      "lane": "cursor_billing_account_semantics",
+      "status": "blocked",
+      "reason": "Cursor account and billing semantics are external to the IOI repository."
+    }
+  ],
+  "proof": {
+    "quickstart": {
+      "runId": "run_642512d2-3a76-4a33-bfd0-89448d0ec3a6",
+      "status": "completed",
+      "eventCount": 10,
+      "replayedEventCount": 10,
+      "conversationLength": 2,
+      "artifactNames": [
+        "trace.json",
+        "scorecard.json"
+      ],
+      "stopReason": "evidence_sufficient",
+      "scorecard": {
+        "taskPassRate": 1,
+        "recoverySuccess": 1,
+        "memoryRelevance": 0.9,
+        "toolQuality": 0.95,
+        "strategyRoi": 0.9,
+        "operatorInterventionRate": 0,
+        "verifierIndependence": 1
+      },
+      "smarterRecordsPresent": true
+    },
+    "reconnect": {
+      "firstBatchLastEventId": "run_642512d2-3a76-4a33-bfd0-89448d0ec3a6:event:003:probe",
+      "resumedFirstEventType": "postcondition_synthesized",
+      "noDuplicateTerminalEvents": true
+    },
+    "plan": {
+      "runId": "run_996fc09d-78fc-402b-b3c1-0230f839c2b5",
+      "selectedStrategy": "plan_only_with_postconditions",
+      "selectedAction": "verify",
+      "stopReason": "evidence_sufficient",
+      "toolSequence": [
+        "authority_check",
+        "task_state_projection",
+        "trace_export",
+        "mcp_containment",
+        "skill_instruction_import",
+        "runtime_event_hook"
+      ]
+    },
+    "dryRun": {
+      "runId": "run_0aba2253-af96-465e-97ef-888d2580743f",
+      "selectedStrategy": "dry_run_before_effect",
+      "selectedAction": "dry_run",
+      "stopReason": "evidence_sufficient",
+      "toolSequence": [
+        "authority_check",
+        "task_state_projection",
+        "trace_export",
+        "mcp_containment",
+        "skill_instruction_import",
+        "runtime_event_hook",
+        "side_effect_preview"
+      ]
+    },
+    "handoff": {
+      "runId": "run_3f0fde53-8893-442f-b4a2-89802fdcb838",
+      "selectedStrategy": "handoff_with_state_preservation",
+      "selectedAction": "execute",
+      "stopReason": "evidence_sufficient",
+      "toolSequence": [
+        "authority_check",
+        "task_state_projection",
+        "trace_export",
+        "mcp_containment",
+        "skill_instruction_import",
+        "runtime_event_hook",
+        "handoff_quality"
+      ]
+    },
+    "learned": {
+      "runId": "run_7c3a9ae3-e77e-4668-bc9e-ad336c32a3da",
+      "selectedStrategy": "bounded_learning_gate",
+      "selectedAction": "probe",
+      "stopReason": "evidence_sufficient",
+      "toolSequence": [
+        "authority_check",
+        "task_state_projection",
+        "trace_export",
+        "mcp_containment",
+        "skill_instruction_import",
+        "runtime_event_hook",
+        "memory_quality_gate"
+      ]
+    },
+    "cloudBlocker": {
+      "name": "IoiAgentError",
+      "code": "external_blocker",
+      "message": "cloud runtime requested, but no IOI SDK provider endpoint is configured.",
+      "status": 424,
+      "retryable": false,
+      "details": {
+        "runtime": "cloud",
+        "requiredEnvironment": [
+          "IOI_AGENT_SDK_HOSTED_ENDPOINT",
+          "IOI_AGENT_SDK_SELF_HOSTED_ENDPOINT"
+        ]
+      }
+    }
+  }
+}

@@ -28,7 +28,7 @@ export {
   actionKindRequiresCompletionVerification,
   validateActionEdge,
   workflowNodeTypeForActionKind,
-} from "./runtime/agent-execution-substrate";
+} from "./runtime/runtime-projection-adapter";
 export { ActivityBar } from "./features/Shell/ActivityBar";
 export { AssistantWorkbenchView } from "./features/Shell/AssistantWorkbenchView";
 export { SessionHistorySidebar } from "./features/Shell/SessionHistorySidebar";
@@ -270,7 +270,7 @@ export type {
   AgentActionPolicy,
   AgentActionValidationIssue,
   AgentExecutionSurface,
-} from "./runtime/agent-execution-substrate";
+} from "./runtime/runtime-projection-adapter";
 export type {
   UseAssistantWorkbenchStateOptions,
 } from "./runtime/use-assistant-workbench-state";

@@ -108,7 +108,7 @@ fn test_agent_state(session_id: [u8; 32]) -> AgentState {
         execution_ledger: Default::default(),
         visual_som_map: None,
         visual_semantic_map: None,
-        swarm_context: None,
+        work_graph_context: None,
         target: None,
         resolved_intent: None,
         awaiting_intent_clarification: false,

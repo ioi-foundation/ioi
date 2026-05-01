@@ -4,8 +4,15 @@
 
 pub mod actions;
 pub mod builder;
+pub mod decision_loop;
 pub mod lifecycle;
-pub mod step;
+pub mod output;
+pub mod planning;
+pub mod queue;
+pub mod recovery;
+pub mod tool_execution;
+pub mod visual_loop;
+pub mod web_pipeline;
 
 // [NEW] Submodules for refactored logic
 pub mod handler;
@@ -49,12 +56,12 @@ use crate::agentic::pii_scrubber::PiiScrubber;
 use ioi_api::ibc::AgentZkVerifier;
 use ioi_api::vm::drivers::os::OsDriver;
 
+use self::decision_loop::handle_step;
 use self::lifecycle::{
     handle_cancel, handle_delete_session, handle_deny, handle_pause, handle_post_message,
     handle_register_approval_authority, handle_resume, handle_revoke_approval_authority,
     handle_start,
 };
-use self::step::handle_step;
 use crate::agentic::runtime::types::{
     CancelAgentParams, DenyAgentParams, PauseAgentParams, PostMessageParams,
     RegisterApprovalAuthorityParams, RevokeApprovalAuthorityParams, StepAgentParams,
@@ -220,12 +227,12 @@ impl BlockchainService for RuntimeAgentService {
 
 // Forwarding methods to new submodules
 impl RuntimeAgentService {
-    pub async fn fetch_swarm_manifest(
+    pub async fn fetch_work_graph_manifest(
         &self,
         state: &dyn ioi_api::state::StateAccess,
         hash: [u8; 32],
-    ) -> Option<ioi_types::app::agentic::SwarmManifest> {
-        self::memory::fetch_swarm_manifest(state, hash).await
+    ) -> Option<ioi_types::app::agentic::WorkGraphManifest> {
+        self::memory::fetch_work_graph_manifest(state, hash).await
     }
 
     pub async fn restore_visual_context(

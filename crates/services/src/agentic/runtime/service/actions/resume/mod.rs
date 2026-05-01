@@ -16,7 +16,23 @@ use super::evaluation::evaluate_and_crystallize;
 use crate::agentic::rules::ActionRules;
 use crate::agentic::runtime::execution::system::is_sudo_password_required_install_error;
 use crate::agentic::runtime::keys::{get_state_key, pii, AGENT_POLICY_PREFIX};
-use crate::agentic::runtime::service::step::action::command_contract::{
+use crate::agentic::runtime::service::decision_loop::helpers::{
+    default_safe_policy, should_auto_complete_open_app_goal,
+};
+use crate::agentic::runtime::service::recovery::anti_loop::{
+    build_attempt_key, build_post_state_summary, build_state_summary, classify_failure,
+    emit_routing_receipt, escalation_path_for_failure, extract_artifacts, latest_failure_class,
+    lineage_pointer, mutation_receipt_pointer, policy_binding_hash, register_failure_attempt,
+    requires_wait_for_clarification, retry_budget_remaining, should_block_retry_without_change,
+    should_trip_retry_guard, tier_as_str, to_routing_failure_class, FailureClass,
+    TierRoutingDecision,
+};
+use crate::agentic::runtime::service::recovery::incident::{
+    advance_incident_after_action_outcome, incident_receipt_fields, load_incident_state,
+    mark_gate_denied, mark_incident_wait_for_user, should_enter_incident_recovery,
+    start_or_continue_incident_recovery, IncidentDirective,
+};
+use crate::agentic::runtime::service::tool_execution::command_contract::{
     append_command_history_entry, capability_route_label, command_arms_deferred_notification_path,
     command_history_entry, command_history_exit_code, compose_terminal_chat_reply,
     enrich_command_scope_summary, evaluate_completion_requirements,
@@ -28,7 +44,7 @@ use crate::agentic::runtime::service::step::action::command_contract::{
     sys_exec_command_preview, sys_exec_timer_delay_seconds, target_utc_from_run_and_sleep,
     TIMER_NOTIFICATION_PATH_SUCCESS_CONDITION, TIMER_SLEEP_BACKEND_SUCCESS_CONDITION,
 };
-use crate::agentic::runtime::service::step::action::{
+use crate::agentic::runtime::service::tool_execution::{
     canonical_intent_hash, canonical_retry_intent_hash, canonical_tool_identity,
     emit_completion_gate_status_event, emit_execution_contract_receipt_event_with_observation,
     execution_evidence_key, is_command_probe_intent, is_system_clock_read_intent,
@@ -37,22 +53,6 @@ use crate::agentic::runtime::service::step::action::{
     record_success_condition, resolved_intent_id, success_condition_key,
     summarize_command_probe_output, summarize_structured_command_receipt_output,
     summarize_system_clock_or_plain_output, summarize_system_clock_output,
-};
-use crate::agentic::runtime::service::step::anti_loop::{
-    build_attempt_key, build_post_state_summary, build_state_summary, classify_failure,
-    emit_routing_receipt, escalation_path_for_failure, extract_artifacts, latest_failure_class,
-    lineage_pointer, mutation_receipt_pointer, policy_binding_hash, register_failure_attempt,
-    requires_wait_for_clarification, retry_budget_remaining, should_block_retry_without_change,
-    should_trip_retry_guard, tier_as_str, to_routing_failure_class, FailureClass,
-    TierRoutingDecision,
-};
-use crate::agentic::runtime::service::step::helpers::{
-    default_safe_policy, should_auto_complete_open_app_goal,
-};
-use crate::agentic::runtime::service::step::incident::{
-    advance_incident_after_action_outcome, incident_receipt_fields, load_incident_state,
-    mark_gate_denied, mark_incident_wait_for_user, should_enter_incident_recovery,
-    start_or_continue_incident_recovery, IncidentDirective,
 };
 use crate::agentic::runtime::service::{RuntimeAgentService, ServiceCallContext};
 use crate::agentic::runtime::types::{AgentState, AgentStatus, CommandExecution, ExecutionStage};

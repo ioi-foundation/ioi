@@ -1,7 +1,7 @@
 // Path: crates/services/src/agentic/runtime/service/memory.rs
 
 use super::RuntimeAgentService;
-use crate::agentic::runtime::service::step::perception::PerceptionContext;
+use crate::agentic::runtime::service::visual_loop::perception::PerceptionContext;
 use crate::agentic::runtime::types::{
     AgentState, MessagePrivacyMetadata, RecordedMessage, DEFAULT_MESSAGE_PRIVACY_POLICY_ID,
     DEFAULT_MESSAGE_PRIVACY_POLICY_VERSION, DEFAULT_MESSAGE_REDACTION_VERSION,
@@ -16,7 +16,7 @@ use ioi_memory::{
     StoredTranscriptMessage, TranscriptPrivacyMetadata, TranscriptSurface,
 };
 use ioi_state::tree::mhnsw::proof::RetrievalSearchPolicy;
-use ioi_types::app::agentic::{ChatMessage, SwarmManifest};
+use ioi_types::app::agentic::{ChatMessage, WorkGraphManifest};
 use ioi_types::app::{RedactionMap, RedactionType, WorkloadMemoryRetrieveReceipt};
 use ioi_types::codec;
 use ioi_types::error::TransactionError;

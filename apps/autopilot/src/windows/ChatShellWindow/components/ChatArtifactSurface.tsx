@@ -59,14 +59,14 @@ export function ChatArtifactSurface({
         : null;
   const manifest = chatSession?.artifactManifest ?? null;
   const executionEnvelope = chatSession?.materialization?.executionEnvelope ?? null;
-  const swarmExecution =
-    chatSession?.materialization?.swarmExecution ??
+  const workGraphExecution =
+    chatSession?.materialization?.workGraphExecution ??
     executionEnvelope?.executionSummary ??
     null;
   const livePreview = resolveChatExecutionPreview({
     executionEnvelope,
-    workerReceipts: chatSession?.materialization?.swarmWorkerReceipts,
-    changeReceipts: chatSession?.materialization?.swarmChangeReceipts,
+    workerReceipts: chatSession?.materialization?.workerReceipts,
+    changeReceipts: chatSession?.materialization?.changeReceipts,
   });
   const [retrying, setRetrying] = useState(false);
   const handleBrowseArtifacts =
@@ -150,10 +150,10 @@ export function ChatArtifactSurface({
             renderer shell opens early so you can follow the work while files,
             verification, and preview state are still landing.
           </p>
-          {swarmExecution ? (
+          {workGraphExecution ? (
             <p>
-              {swarmExecution.completedWorkItems}/{swarmExecution.totalWorkItems} work items
-              completed · {swarmExecution.currentStage}
+              {workGraphExecution.completedWorkItems}/{workGraphExecution.totalWorkItems} work items
+              completed · {workGraphExecution.currentStage}
             </p>
           ) : null}
         </div>

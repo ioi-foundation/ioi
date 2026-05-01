@@ -49,7 +49,7 @@ pub enum ExecutionLivePreviewKind {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum SwarmWorkerRole {
+pub enum WorkGraphWorkerRole {
     Planner,
     Coordinator,
     Responder,
@@ -64,14 +64,14 @@ pub enum SwarmWorkerRole {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum SwarmLeaseMode {
+pub enum WorkGraphLeaseMode {
     SharedRead,
     ExclusiveWrite,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum SwarmLeaseScopeKind {
+pub enum WorkGraphLeaseScopeKind {
     File,
     Region,
     Surface,
@@ -79,15 +79,15 @@ pub enum SwarmLeaseScopeKind {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct SwarmLeaseRequirement {
+pub struct WorkGraphLeaseRequirement {
     pub target: String,
-    pub scope_kind: SwarmLeaseScopeKind,
-    pub mode: SwarmLeaseMode,
+    pub scope_kind: WorkGraphLeaseScopeKind,
+    pub mode: WorkGraphLeaseMode,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum SwarmVerificationPolicy {
+pub enum WorkGraphVerificationPolicy {
     Normal,
     Elevated,
     Blocking,
@@ -95,7 +95,7 @@ pub enum SwarmVerificationPolicy {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum SwarmWorkItemStatus {
+pub enum WorkGraphWorkItemStatus {
     Pending,
     Blocked,
     Running,
@@ -107,7 +107,7 @@ pub enum SwarmWorkItemStatus {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum SwarmWorkerResultKind {
+pub enum WorkGraphWorkerResultKind {
     Completed,
     Noop,
     Blocked,
@@ -120,10 +120,10 @@ pub enum SwarmWorkerResultKind {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct SwarmWorkItem {
+pub struct WorkGraphWorkItem {
     pub id: String,
     pub title: String,
-    pub role: SwarmWorkerRole,
+    pub role: WorkGraphWorkerRole,
     pub summary: String,
     #[serde(default)]
     pub spawned_from_id: Option<String>,
@@ -134,7 +134,7 @@ pub struct SwarmWorkItem {
     #[serde(default)]
     pub write_regions: Vec<String>,
     #[serde(default)]
-    pub lease_requirements: Vec<SwarmLeaseRequirement>,
+    pub lease_requirements: Vec<WorkGraphLeaseRequirement>,
     #[serde(default)]
     pub acceptance_criteria: Vec<String>,
     #[serde(default)]
@@ -142,15 +142,15 @@ pub struct SwarmWorkItem {
     #[serde(default)]
     pub blocked_on_ids: Vec<String>,
     #[serde(default)]
-    pub verification_policy: Option<SwarmVerificationPolicy>,
+    pub verification_policy: Option<WorkGraphVerificationPolicy>,
     #[serde(default)]
     pub retry_budget: Option<u32>,
-    pub status: SwarmWorkItemStatus,
+    pub status: WorkGraphWorkItemStatus,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct SwarmPlan {
+pub struct WorkGraphPlan {
     pub version: u32,
     pub strategy: String,
     #[serde(default = "default_execution_domain")]
@@ -178,18 +178,18 @@ pub struct SwarmPlan {
     #[serde(default)]
     pub completion_invariant: Option<ExecutionCompletionInvariant>,
     #[serde(default)]
-    pub work_items: Vec<SwarmWorkItem>,
+    pub work_items: Vec<WorkGraphWorkItem>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub struct SwarmExecutionSummary {
+pub struct WorkGraphExecutionSummary {
     pub enabled: bool,
     pub current_stage: String,
     #[serde(default)]
     pub execution_stage: Option<ExecutionStage>,
     #[serde(default)]
-    pub active_worker_role: Option<SwarmWorkerRole>,
+    pub active_worker_role: Option<WorkGraphWorkerRole>,
     pub total_work_items: usize,
     pub completed_work_items: usize,
     pub failed_work_items: usize,
@@ -203,12 +203,12 @@ pub struct SwarmExecutionSummary {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub struct SwarmWorkerReceipt {
+pub struct WorkGraphWorkerReceipt {
     pub work_item_id: String,
-    pub role: SwarmWorkerRole,
-    pub status: SwarmWorkItemStatus,
+    pub role: WorkGraphWorkerRole,
+    pub status: WorkGraphWorkItemStatus,
     #[serde(default)]
-    pub result_kind: Option<SwarmWorkerResultKind>,
+    pub result_kind: Option<WorkGraphWorkerResultKind>,
     pub summary: String,
     pub started_at: String,
     #[serde(default)]
@@ -240,9 +240,9 @@ pub struct SwarmWorkerReceipt {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct SwarmChangeReceipt {
+pub struct WorkGraphChangeReceipt {
     pub work_item_id: String,
-    pub status: SwarmWorkItemStatus,
+    pub status: WorkGraphWorkItemStatus,
     pub summary: String,
     pub operation_count: usize,
     #[serde(default)]
@@ -261,9 +261,9 @@ pub struct SwarmChangeReceipt {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct SwarmMergeReceipt {
+pub struct WorkGraphMergeReceipt {
     pub work_item_id: String,
-    pub status: SwarmWorkItemStatus,
+    pub status: WorkGraphWorkItemStatus,
     pub summary: String,
     pub applied_operation_count: usize,
     #[serde(default)]
@@ -276,7 +276,7 @@ pub struct SwarmMergeReceipt {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct SwarmVerificationReceipt {
+pub struct WorkGraphVerificationReceipt {
     pub id: String,
     pub kind: String,
     pub status: String,
@@ -287,9 +287,9 @@ pub struct SwarmVerificationReceipt {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct SwarmWorkItemCommit {
+pub struct WorkGraphWorkItemCommit {
     pub work_item_id: String,
-    pub status: SwarmWorkItemStatus,
+    pub status: WorkGraphWorkItemStatus,
     #[serde(default)]
     pub write_paths: Vec<String>,
     #[serde(default)]
@@ -304,9 +304,9 @@ pub struct SwarmWorkItemCommit {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct SwarmMergeDecisionArtifact {
+pub struct WorkGraphMergeDecisionArtifact {
     pub work_item_id: String,
-    pub status: SwarmWorkItemStatus,
+    pub status: WorkGraphWorkItemStatus,
     pub scope_conflict_free: bool,
     #[serde(default)]
     pub required_commit_hashes: Vec<String>,
@@ -319,7 +319,7 @@ pub struct SwarmMergeDecisionArtifact {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct SwarmRetryDecisionArtifact {
+pub struct WorkGraphRetryDecisionArtifact {
     pub id: String,
     pub status: String,
     #[serde(default)]
@@ -335,7 +335,7 @@ pub struct SwarmRetryDecisionArtifact {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct SwarmRepairActionArtifact {
+pub struct WorkGraphRepairActionArtifact {
     pub id: String,
     pub status: String,
     #[serde(default)]
@@ -468,7 +468,7 @@ pub struct ExecutionLivePreview {
     #[serde(default)]
     pub work_item_id: Option<String>,
     #[serde(default)]
-    pub role: Option<SwarmWorkerRole>,
+    pub role: Option<WorkGraphWorkerRole>,
     pub status: String,
     #[serde(default)]
     pub language: Option<String>,
@@ -496,21 +496,21 @@ pub struct ExecutionEnvelope {
     #[serde(default)]
     pub completion_invariant: Option<ExecutionCompletionInvariant>,
     #[serde(default)]
-    pub plan: Option<SwarmPlan>,
+    pub plan: Option<WorkGraphPlan>,
     #[serde(default)]
-    pub execution_summary: Option<SwarmExecutionSummary>,
+    pub execution_summary: Option<WorkGraphExecutionSummary>,
     #[serde(default)]
-    pub worker_receipts: Vec<SwarmWorkerReceipt>,
+    pub worker_receipts: Vec<WorkGraphWorkerReceipt>,
     #[serde(default)]
-    pub change_receipts: Vec<SwarmChangeReceipt>,
+    pub change_receipts: Vec<WorkGraphChangeReceipt>,
     #[serde(default)]
-    pub merge_receipts: Vec<SwarmMergeReceipt>,
+    pub merge_receipts: Vec<WorkGraphMergeReceipt>,
     #[serde(default)]
-    pub verification_receipts: Vec<SwarmVerificationReceipt>,
+    pub verification_receipts: Vec<WorkGraphVerificationReceipt>,
     #[serde(default)]
-    pub work_item_commits: Vec<SwarmWorkItemCommit>,
+    pub work_item_commits: Vec<WorkGraphWorkItemCommit>,
     #[serde(default)]
-    pub merge_decision_artifacts: Vec<SwarmMergeDecisionArtifact>,
+    pub merge_decision_artifacts: Vec<WorkGraphMergeDecisionArtifact>,
     #[serde(default)]
     pub graph_mutation_receipts: Vec<ExecutionGraphMutationReceipt>,
     #[serde(default)]
@@ -520,9 +520,9 @@ pub struct ExecutionEnvelope {
     #[serde(default)]
     pub replan_receipts: Vec<ExecutionReplanReceipt>,
     #[serde(default)]
-    pub retry_decision_artifacts: Vec<SwarmRetryDecisionArtifact>,
+    pub retry_decision_artifacts: Vec<WorkGraphRetryDecisionArtifact>,
     #[serde(default)]
-    pub repair_action_artifacts: Vec<SwarmRepairActionArtifact>,
+    pub repair_action_artifacts: Vec<WorkGraphRepairActionArtifact>,
     #[serde(default)]
     pub budget_summary: Option<ExecutionBudgetSummary>,
     #[serde(default)]
@@ -534,7 +534,7 @@ fn execution_strategy_id(strategy: ChatExecutionStrategy) -> &'static str {
         ChatExecutionStrategy::SinglePass => "single_pass",
         ChatExecutionStrategy::DirectAuthor => "direct_author",
         ChatExecutionStrategy::PlanExecute => "plan_execute",
-        ChatExecutionStrategy::MicroSwarm => "micro_swarm",
+        ChatExecutionStrategy::MicroWorkGraph => "micro_work_graph",
         ChatExecutionStrategy::AdaptiveWorkGraph => "adaptive_work_graph",
     }
 }
@@ -579,10 +579,10 @@ fn canonical_execution_hash<T: Serialize>(value: &T) -> String {
         .unwrap_or_else(|| "unavailable".to_string())
 }
 
-fn build_swarm_work_item_commits(
-    worker_receipts: &[SwarmWorkerReceipt],
-    change_receipts: &[SwarmChangeReceipt],
-) -> Vec<SwarmWorkItemCommit> {
+fn build_work_graph_work_item_commits(
+    worker_receipts: &[WorkGraphWorkerReceipt],
+    change_receipts: &[WorkGraphChangeReceipt],
+) -> Vec<WorkGraphWorkItemCommit> {
     let worker_by_id = worker_receipts
         .iter()
         .map(|receipt| (receipt.work_item_id.clone(), receipt))
@@ -612,7 +612,7 @@ fn build_swarm_work_item_commits(
             let status = worker
                 .map(|receipt| receipt.status)
                 .or_else(|| change.map(|receipt| receipt.status))
-                .unwrap_or(SwarmWorkItemStatus::Pending);
+                .unwrap_or(WorkGraphWorkItemStatus::Pending);
             let write_scope_hash =
                 canonical_execution_hash(&(work_item_id, &write_paths, &write_regions, status));
             let worker_receipt_hash = worker.map(canonical_execution_hash);
@@ -625,7 +625,7 @@ fn build_swarm_work_item_commits(
                 &worker_receipt_hash,
                 &change_receipt_hash,
             ));
-            SwarmWorkItemCommit {
+            WorkGraphWorkItemCommit {
                 work_item_id: work_item_id.clone(),
                 status,
                 write_paths,
@@ -639,10 +639,10 @@ fn build_swarm_work_item_commits(
         .collect()
 }
 
-fn build_swarm_merge_decision_artifacts(
-    merge_receipts: &[SwarmMergeReceipt],
-    work_item_commits: &[SwarmWorkItemCommit],
-) -> Vec<SwarmMergeDecisionArtifact> {
+fn build_work_graph_merge_decision_artifacts(
+    merge_receipts: &[WorkGraphMergeReceipt],
+    work_item_commits: &[WorkGraphWorkItemCommit],
+) -> Vec<WorkGraphMergeDecisionArtifact> {
     let commit_by_id = work_item_commits
         .iter()
         .map(|commit| (commit.work_item_id.clone(), commit))
@@ -655,7 +655,7 @@ fn build_swarm_merge_decision_artifacts(
                 .map(|commit| vec![commit.commit_hash.clone()])
                 .unwrap_or_default();
             let merge_receipt_hash = Some(canonical_execution_hash(receipt));
-            let scope_conflict_free = receipt.status != SwarmWorkItemStatus::Rejected
+            let scope_conflict_free = receipt.status != WorkGraphWorkItemStatus::Rejected
                 && receipt.rejected_reason.is_none();
             let merge_hash = canonical_execution_hash(&(
                 &receipt.work_item_id,
@@ -665,7 +665,7 @@ fn build_swarm_merge_decision_artifacts(
                 &merge_receipt_hash,
                 &receipt.rejected_reason,
             ));
-            SwarmMergeDecisionArtifact {
+            WorkGraphMergeDecisionArtifact {
                 work_item_id: receipt.work_item_id.clone(),
                 status: receipt.status,
                 scope_conflict_free,
@@ -678,9 +678,9 @@ fn build_swarm_merge_decision_artifacts(
         .collect()
 }
 
-fn build_swarm_retry_decision_artifacts(
+fn build_work_graph_retry_decision_artifacts(
     replan_receipts: &[ExecutionReplanReceipt],
-) -> Vec<SwarmRetryDecisionArtifact> {
+) -> Vec<WorkGraphRetryDecisionArtifact> {
     replan_receipts
         .iter()
         .map(|receipt| {
@@ -693,7 +693,7 @@ fn build_swarm_retry_decision_artifacts(
                 &receipt.blocked_work_item_ids,
                 &replan_receipt_hash,
             ));
-            SwarmRetryDecisionArtifact {
+            WorkGraphRetryDecisionArtifact {
                 id: receipt.id.clone(),
                 status: receipt.status.clone(),
                 triggered_by_work_item_id: receipt.triggered_by_work_item_id.clone(),
@@ -706,9 +706,9 @@ fn build_swarm_retry_decision_artifacts(
         .collect()
 }
 
-fn build_swarm_repair_action_artifacts(
+fn build_work_graph_repair_action_artifacts(
     repair_receipts: &[ExecutionRepairReceipt],
-) -> Vec<SwarmRepairActionArtifact> {
+) -> Vec<WorkGraphRepairActionArtifact> {
     repair_receipts
         .iter()
         .map(|receipt| {
@@ -720,7 +720,7 @@ fn build_swarm_repair_action_artifacts(
                 &receipt.work_item_ids,
                 &repair_receipt_hash,
             ));
-            SwarmRepairActionArtifact {
+            WorkGraphRepairActionArtifact {
                 id: receipt.id.clone(),
                 status: receipt.status.clone(),
                 triggered_by_verification_id: receipt.triggered_by_verification_id.clone(),
@@ -733,10 +733,10 @@ fn build_swarm_repair_action_artifacts(
 }
 
 fn build_workflow_artifact_root_hash(
-    work_item_commits: &[SwarmWorkItemCommit],
-    merge_decision_artifacts: &[SwarmMergeDecisionArtifact],
-    retry_decision_artifacts: &[SwarmRetryDecisionArtifact],
-    repair_action_artifacts: &[SwarmRepairActionArtifact],
+    work_item_commits: &[WorkGraphWorkItemCommit],
+    merge_decision_artifacts: &[WorkGraphMergeDecisionArtifact],
+    retry_decision_artifacts: &[WorkGraphRetryDecisionArtifact],
+    repair_action_artifacts: &[WorkGraphRepairActionArtifact],
 ) -> String {
     canonical_execution_hash(&(
         work_item_commits,
@@ -873,7 +873,7 @@ pub fn validate_execution_envelope(envelope: &ExecutionEnvelope) -> Result<(), S
     );
     if envelope.workflow_artifact_root_hash.as_deref() != Some(expected_root.as_str()) {
         return Err(
-            "workflow_artifact_root_hash does not match canonical swarm settlement artifacts"
+            "workflow_artifact_root_hash does not match canonical work_graph settlement artifacts"
                 .to_string(),
         );
     }
@@ -934,7 +934,7 @@ pub fn execution_budget_envelope_for_strategy(
             max_repairs: 1,
             expansion_policy: ChatExecutionBudgetExpansionPolicy::Fixed,
         },
-        ChatExecutionStrategy::MicroSwarm => ChatExecutionBudgetEnvelope {
+        ChatExecutionStrategy::MicroWorkGraph => ChatExecutionBudgetEnvelope {
             max_workers: 3,
             max_parallel_depth: 2,
             max_replans: 1,
@@ -1081,7 +1081,7 @@ pub fn derive_execution_mode_decision(
                 ChatExecutionStrategy::PlanExecute
             } else if matches!(
                 requested_strategy,
-                ChatExecutionStrategy::AdaptiveWorkGraph | ChatExecutionStrategy::MicroSwarm
+                ChatExecutionStrategy::AdaptiveWorkGraph | ChatExecutionStrategy::MicroWorkGraph
             ) {
                 requested_strategy
             } else {
@@ -1101,7 +1101,7 @@ pub fn derive_execution_mode_decision(
             Some(request)
                 if artifact_supports_direct_authoring(request, has_active_artifact)
                     && !needs_clarification
-                    && requested_strategy != ChatExecutionStrategy::MicroSwarm
+                    && requested_strategy != ChatExecutionStrategy::MicroWorkGraph
                     && requested_strategy != ChatExecutionStrategy::AdaptiveWorkGraph
                     && one_shot_sufficiency >= 0.48
                     && decomposition_payoff < 0.62 =>
@@ -1117,7 +1117,7 @@ pub fn derive_execution_mode_decision(
                 ChatExecutionStrategy::SinglePass
             }
             Some(request)
-                if requested_strategy == ChatExecutionStrategy::MicroSwarm
+                if requested_strategy == ChatExecutionStrategy::MicroWorkGraph
                     || (matches!(
                         request.renderer,
                         ioi_types::app::ChatRendererKind::HtmlIframe
@@ -1127,14 +1127,14 @@ pub fn derive_execution_mode_decision(
                 if decomposition_payoff >= 0.72 {
                     ChatExecutionStrategy::AdaptiveWorkGraph
                 } else {
-                    ChatExecutionStrategy::MicroSwarm
+                    ChatExecutionStrategy::MicroWorkGraph
                 }
             }
             Some(_request) if requested_strategy == ChatExecutionStrategy::AdaptiveWorkGraph => {
                 ChatExecutionStrategy::AdaptiveWorkGraph
             }
-            Some(_) if requested_strategy == ChatExecutionStrategy::MicroSwarm => {
-                ChatExecutionStrategy::MicroSwarm
+            Some(_) if requested_strategy == ChatExecutionStrategy::MicroWorkGraph => {
+                ChatExecutionStrategy::MicroWorkGraph
             }
             Some(_) => ChatExecutionStrategy::PlanExecute,
             None => ChatExecutionStrategy::PlanExecute,
@@ -1153,7 +1153,7 @@ pub fn derive_execution_mode_decision(
             "The request benefits from planning and verification, but not from a mutable work graph."
                 .to_string()
         }
-        ChatExecutionStrategy::MicroSwarm => {
+        ChatExecutionStrategy::MicroWorkGraph => {
             "A small known work graph is justified, but full adaptive graph expansion would be coordination overkill."
                 .to_string()
         }
@@ -1166,7 +1166,7 @@ pub fn derive_execution_mode_decision(
     let budget_envelope = execution_budget_envelope_for_strategy(resolved_strategy);
     let work_graph_required = matches!(
         resolved_strategy,
-        ChatExecutionStrategy::MicroSwarm | ChatExecutionStrategy::AdaptiveWorkGraph
+        ChatExecutionStrategy::MicroWorkGraph | ChatExecutionStrategy::AdaptiveWorkGraph
     );
     let mode_confidence = clamp_score(
         confidence * 0.5
@@ -1215,7 +1215,7 @@ pub fn committed_execution_mode_decision(
     decision.mode_confidence = 1.0;
     decision.work_graph_required = matches!(
         execution_strategy,
-        ChatExecutionStrategy::MicroSwarm | ChatExecutionStrategy::AdaptiveWorkGraph
+        ChatExecutionStrategy::MicroWorkGraph | ChatExecutionStrategy::AdaptiveWorkGraph
     );
     decision.decomposition_reason = match execution_strategy {
         ChatExecutionStrategy::SinglePass => {
@@ -1227,8 +1227,8 @@ pub fn committed_execution_mode_decision(
         ChatExecutionStrategy::PlanExecute => {
             "Chat committed to a staged plan-and-execute pass for this outcome.".to_string()
         }
-        ChatExecutionStrategy::MicroSwarm => {
-            "Chat committed to a bounded micro-swarm for this outcome.".to_string()
+        ChatExecutionStrategy::MicroWorkGraph => {
+            "Chat committed to a bounded micro-work_graph for this outcome.".to_string()
         }
         ChatExecutionStrategy::AdaptiveWorkGraph => {
             "Chat committed to an adaptive work graph for this outcome.".to_string()
@@ -1300,14 +1300,16 @@ pub fn completion_invariant_for_direct_execution(
 }
 
 pub fn completion_invariant_for_plan(
-    plan: &SwarmPlan,
-    verification_receipts: &[SwarmVerificationReceipt],
+    plan: &WorkGraphPlan,
+    verification_receipts: &[WorkGraphVerificationReceipt],
     required_artifact_paths: Vec<String>,
 ) -> ExecutionCompletionInvariant {
     let required_work_item_ids = plan
         .work_items
         .iter()
-        .filter(|item| item.role != SwarmWorkerRole::Repair && !item.id.starts_with("repair-pass-"))
+        .filter(|item| {
+            item.role != WorkGraphWorkerRole::Repair && !item.id.starts_with("repair-pass-")
+        })
         .map(|item| item.id.clone())
         .collect::<Vec<_>>();
     let satisfied_work_item_ids = plan
@@ -1316,7 +1318,7 @@ pub fn completion_invariant_for_plan(
         .filter(|item| {
             matches!(
                 item.status,
-                SwarmWorkItemStatus::Succeeded | SwarmWorkItemStatus::Skipped
+                WorkGraphWorkItemStatus::Succeeded | WorkGraphWorkItemStatus::Skipped
             )
         })
         .map(|item| item.id.clone())
@@ -1324,16 +1326,18 @@ pub fn completion_invariant_for_plan(
     let speculative_work_item_ids = plan
         .work_items
         .iter()
-        .filter(|item| item.role == SwarmWorkerRole::Repair || item.id.starts_with("repair-pass-"))
+        .filter(|item| {
+            item.role == WorkGraphWorkerRole::Repair || item.id.starts_with("repair-pass-")
+        })
         .map(|item| item.id.clone())
         .collect::<Vec<_>>();
     let pruned_work_item_ids = plan
         .work_items
         .iter()
         .filter(|item| {
-            item.status == SwarmWorkItemStatus::Skipped
-                && (item.role == SwarmWorkerRole::Repair
-                    || item.role == SwarmWorkerRole::Integrator
+            item.status == WorkGraphWorkItemStatus::Skipped
+                && (item.role == WorkGraphWorkerRole::Repair
+                    || item.role == WorkGraphWorkerRole::Integrator
                     || item.id.starts_with("repair-pass-"))
         })
         .map(|item| item.id.clone())
@@ -1363,9 +1367,9 @@ pub fn completion_invariant_for_plan(
     } else if plan.work_items.iter().any(|item| {
         matches!(
             item.status,
-            SwarmWorkItemStatus::Failed
-                | SwarmWorkItemStatus::Rejected
-                | SwarmWorkItemStatus::Blocked
+            WorkGraphWorkItemStatus::Failed
+                | WorkGraphWorkItemStatus::Rejected
+                | WorkGraphWorkItemStatus::Blocked
         )
     }) {
         ExecutionCompletionInvariantStatus::Blocked
@@ -1392,58 +1396,58 @@ pub fn completion_invariant_for_plan(
         remaining_obligations,
         allows_early_exit: matches!(
             plan.strategy.as_str(),
-            "micro_swarm" | "adaptive_work_graph" | "swarm"
+            "micro_work_graph" | "adaptive_work_graph" | "work_graph"
         ),
     }
 }
 
-pub fn shared_read_lease_for_path(path: impl Into<String>) -> SwarmLeaseRequirement {
-    SwarmLeaseRequirement {
+pub fn shared_read_lease_for_path(path: impl Into<String>) -> WorkGraphLeaseRequirement {
+    WorkGraphLeaseRequirement {
         target: path.into(),
-        scope_kind: SwarmLeaseScopeKind::File,
-        mode: SwarmLeaseMode::SharedRead,
+        scope_kind: WorkGraphLeaseScopeKind::File,
+        mode: WorkGraphLeaseMode::SharedRead,
     }
 }
 
-pub fn exclusive_write_lease_for_path(path: impl Into<String>) -> SwarmLeaseRequirement {
-    SwarmLeaseRequirement {
+pub fn exclusive_write_lease_for_path(path: impl Into<String>) -> WorkGraphLeaseRequirement {
+    WorkGraphLeaseRequirement {
         target: path.into(),
-        scope_kind: SwarmLeaseScopeKind::File,
-        mode: SwarmLeaseMode::ExclusiveWrite,
+        scope_kind: WorkGraphLeaseScopeKind::File,
+        mode: WorkGraphLeaseMode::ExclusiveWrite,
     }
 }
 
-pub fn exclusive_write_lease_for_region(region: impl Into<String>) -> SwarmLeaseRequirement {
-    SwarmLeaseRequirement {
+pub fn exclusive_write_lease_for_region(region: impl Into<String>) -> WorkGraphLeaseRequirement {
+    WorkGraphLeaseRequirement {
         target: region.into(),
-        scope_kind: SwarmLeaseScopeKind::Region,
-        mode: SwarmLeaseMode::ExclusiveWrite,
+        scope_kind: WorkGraphLeaseScopeKind::Region,
+        mode: WorkGraphLeaseMode::ExclusiveWrite,
     }
 }
 
-pub fn spawn_follow_up_swarm_work_item(
-    swarm_plan: &mut SwarmPlan,
-    mut work_item: SwarmWorkItem,
+pub fn spawn_follow_up_work_graph_work_item(
+    work_graph_plan: &mut WorkGraphPlan,
+    mut work_item: WorkGraphWorkItem,
 ) -> Result<(), String> {
-    if swarm_plan
+    if work_graph_plan
         .work_items
         .iter()
         .any(|item| item.id == work_item.id)
     {
         return Err(format!(
-            "Swarm work item '{}' already exists in the work graph.",
+            "WorkGraph work item '{}' already exists in the work graph.",
             work_item.id
         ));
     }
 
     if let Some(parent_id) = work_item.spawned_from_id.as_ref() {
-        if !swarm_plan
+        if !work_graph_plan
             .work_items
             .iter()
             .any(|item| item.id == *parent_id)
         {
             return Err(format!(
-                "Swarm work item '{}' cannot spawn from missing parent '{}'.",
+                "WorkGraph work item '{}' cannot spawn from missing parent '{}'.",
                 work_item.id, parent_id
             ));
         }
@@ -1456,36 +1460,36 @@ pub fn spawn_follow_up_swarm_work_item(
         }
     }
 
-    swarm_plan.work_items.push(work_item);
-    swarm_plan.version = swarm_plan.version.saturating_add(1);
+    work_graph_plan.work_items.push(work_item);
+    work_graph_plan.version = work_graph_plan.version.saturating_add(1);
     Ok(())
 }
 
-pub fn block_swarm_work_item_on(
-    swarm_plan: &mut SwarmPlan,
+pub fn block_work_graph_work_item_on(
+    work_graph_plan: &mut WorkGraphPlan,
     work_item_id: &str,
     blocked_on_ids: &[String],
 ) -> Result<(), String> {
     for blocked_on_id in blocked_on_ids {
-        if !swarm_plan
+        if !work_graph_plan
             .work_items
             .iter()
             .any(|item| item.id == *blocked_on_id)
         {
             return Err(format!(
-                "Swarm work item '{}' cannot be blocked on missing work item '{}'.",
+                "WorkGraph work item '{}' cannot be blocked on missing work item '{}'.",
                 work_item_id, blocked_on_id
             ));
         }
     }
 
-    let Some(work_item) = swarm_plan
+    let Some(work_item) = work_graph_plan
         .work_items
         .iter_mut()
         .find(|item| item.id == work_item_id)
     else {
         return Err(format!(
-            "Swarm work item '{}' is missing from the work graph.",
+            "WorkGraph work item '{}' is missing from the work graph.",
             work_item_id
         ));
     };
@@ -1509,29 +1513,32 @@ pub fn block_swarm_work_item_on(
     if !blocked_on_ids.is_empty()
         && !matches!(
             work_item.status,
-            SwarmWorkItemStatus::Succeeded | SwarmWorkItemStatus::Skipped
+            WorkGraphWorkItemStatus::Succeeded | WorkGraphWorkItemStatus::Skipped
         )
     {
-        work_item.status = SwarmWorkItemStatus::Blocked;
+        work_item.status = WorkGraphWorkItemStatus::Blocked;
     }
-    swarm_plan.version = swarm_plan.version.saturating_add(1);
+    work_graph_plan.version = work_graph_plan.version.saturating_add(1);
     Ok(())
 }
 
-pub fn swarm_work_item_lease_conflicts(left: &SwarmWorkItem, right: &SwarmWorkItem) -> bool {
+pub fn work_graph_work_item_lease_conflicts(
+    left: &WorkGraphWorkItem,
+    right: &WorkGraphWorkItem,
+) -> bool {
     left.lease_requirements.iter().any(|left_lease| {
         right.lease_requirements.iter().any(|right_lease| {
             left_lease.target == right_lease.target
                 && left_lease.scope_kind == right_lease.scope_kind
-                && (left_lease.mode == SwarmLeaseMode::ExclusiveWrite
-                    || right_lease.mode == SwarmLeaseMode::ExclusiveWrite)
+                && (left_lease.mode == WorkGraphLeaseMode::ExclusiveWrite
+                    || right_lease.mode == WorkGraphLeaseMode::ExclusiveWrite)
         })
     })
 }
 
-fn swarm_dependency_states<'a>(
-    work_item: &SwarmWorkItem,
-    work_item_by_id: &HashMap<String, &'a SwarmWorkItem>,
+fn work_graph_dependency_states<'a>(
+    work_item: &WorkGraphWorkItem,
+    work_item_by_id: &HashMap<String, &'a WorkGraphWorkItem>,
 ) -> (Vec<String>, Vec<String>) {
     let mut unmet_dependencies = Vec::new();
     let mut failed_dependencies = Vec::new();
@@ -1542,13 +1549,13 @@ fn swarm_dependency_states<'a>(
     {
         match work_item_by_id.get(dependency_id) {
             Some(dependency) => match dependency.status {
-                SwarmWorkItemStatus::Succeeded | SwarmWorkItemStatus::Skipped => {}
-                SwarmWorkItemStatus::Failed | SwarmWorkItemStatus::Rejected => {
+                WorkGraphWorkItemStatus::Succeeded | WorkGraphWorkItemStatus::Skipped => {}
+                WorkGraphWorkItemStatus::Failed | WorkGraphWorkItemStatus::Rejected => {
                     failed_dependencies.push(dependency_id.clone());
                 }
-                SwarmWorkItemStatus::Pending
-                | SwarmWorkItemStatus::Blocked
-                | SwarmWorkItemStatus::Running => {
+                WorkGraphWorkItemStatus::Pending
+                | WorkGraphWorkItemStatus::Blocked
+                | WorkGraphWorkItemStatus::Running => {
                     unmet_dependencies.push(dependency_id.clone());
                 }
             },
@@ -1558,12 +1565,12 @@ fn swarm_dependency_states<'a>(
     (unmet_dependencies, failed_dependencies)
 }
 
-pub fn next_swarm_dispatch_batch(
-    swarm_plan: &SwarmPlan,
+pub fn next_work_graph_dispatch_batch(
+    work_graph_plan: &WorkGraphPlan,
     candidate_work_item_ids: &[String],
     sequence: u32,
 ) -> Option<ExecutionDispatchBatch> {
-    let work_item_by_id = swarm_plan
+    let work_item_by_id = work_graph_plan
         .work_items
         .iter()
         .map(|item| (item.id.clone(), item))
@@ -1578,10 +1585,10 @@ pub fn next_swarm_dispatch_batch(
         .filter(|item| {
             !matches!(
                 item.status,
-                SwarmWorkItemStatus::Succeeded
-                    | SwarmWorkItemStatus::Skipped
-                    | SwarmWorkItemStatus::Failed
-                    | SwarmWorkItemStatus::Rejected
+                WorkGraphWorkItemStatus::Succeeded
+                    | WorkGraphWorkItemStatus::Skipped
+                    | WorkGraphWorkItemStatus::Failed
+                    | WorkGraphWorkItemStatus::Rejected
             )
         })
         .map(|item| item.id.clone())
@@ -1599,7 +1606,7 @@ pub fn next_swarm_dispatch_batch(
             continue;
         };
         let (unmet_dependencies, failed_dependencies) =
-            swarm_dependency_states(work_item, &work_item_by_id);
+            work_graph_dependency_states(work_item, &work_item_by_id);
         if !failed_dependencies.is_empty() {
             blocked_ids.push(work_item_id.clone());
             blocked_details.push(format!(
@@ -1641,7 +1648,7 @@ pub fn next_swarm_dispatch_batch(
         if let Some(conflicting_id) = dispatchable_ids.iter().find(|selected_id| {
             work_item_by_id
                 .get(*selected_id)
-                .map(|selected| swarm_work_item_lease_conflicts(candidate, selected))
+                .map(|selected| work_graph_work_item_lease_conflicts(candidate, selected))
                 .unwrap_or(false)
         }) {
             deferred_ids.push(ready_id.clone());
@@ -1712,32 +1719,34 @@ pub fn constrain_dispatch_batch_by_parallelism(
     }
 }
 
-pub fn plan_swarm_dispatch_batches(swarm_plan: &SwarmPlan) -> Vec<ExecutionDispatchBatch> {
-    let work_item_by_id = swarm_plan
+pub fn plan_work_graph_dispatch_batches(
+    work_graph_plan: &WorkGraphPlan,
+) -> Vec<ExecutionDispatchBatch> {
+    let work_item_by_id = work_graph_plan
         .work_items
         .iter()
         .map(|item| (item.id.clone(), item))
         .collect::<HashMap<_, _>>();
-    let mut remaining = swarm_plan
+    let mut remaining = work_graph_plan
         .work_items
         .iter()
         .filter(|item| {
             matches!(
                 item.status,
-                SwarmWorkItemStatus::Pending
-                    | SwarmWorkItemStatus::Blocked
-                    | SwarmWorkItemStatus::Running
+                WorkGraphWorkItemStatus::Pending
+                    | WorkGraphWorkItemStatus::Blocked
+                    | WorkGraphWorkItemStatus::Running
             )
         })
         .map(|item| item.id.clone())
         .collect::<Vec<_>>();
-    let mut completed = swarm_plan
+    let mut completed = work_graph_plan
         .work_items
         .iter()
         .filter(|item| {
             matches!(
                 item.status,
-                SwarmWorkItemStatus::Succeeded | SwarmWorkItemStatus::Skipped
+                WorkGraphWorkItemStatus::Succeeded | WorkGraphWorkItemStatus::Skipped
             )
         })
         .map(|item| item.id.clone())
@@ -1755,7 +1764,7 @@ pub fn plan_swarm_dispatch_batches(swarm_plan: &SwarmPlan) -> Vec<ExecutionDispa
                 continue;
             };
             let (mut unmet_dependencies, failed_dependencies) =
-                swarm_dependency_states(work_item, &work_item_by_id);
+                work_graph_dependency_states(work_item, &work_item_by_id);
             unmet_dependencies.retain(|dependency_id| !completed.contains(dependency_id));
             if !failed_dependencies.is_empty() {
                 blocked_ids.push(work_item_id.clone());
@@ -1799,7 +1808,7 @@ pub fn plan_swarm_dispatch_batches(swarm_plan: &SwarmPlan) -> Vec<ExecutionDispa
             if let Some(conflicting_id) = dispatchable_ids.iter().find(|selected_id| {
                 work_item_by_id
                     .get(*selected_id)
-                    .map(|selected| swarm_work_item_lease_conflicts(candidate, selected))
+                    .map(|selected| work_graph_work_item_lease_conflicts(candidate, selected))
                     .unwrap_or(false)
             }) {
                 deferred_ids.push(ready_id.clone());
@@ -1895,25 +1904,25 @@ pub fn parse_execution_strategy_id(raw: &str) -> Option<ChatExecutionStrategy> {
         "single_pass" => Some(ChatExecutionStrategy::SinglePass),
         "direct_author" => Some(ChatExecutionStrategy::DirectAuthor),
         "plan_execute" => Some(ChatExecutionStrategy::PlanExecute),
-        "micro_swarm" => Some(ChatExecutionStrategy::MicroSwarm),
-        "adaptive_work_graph" | "swarm" => Some(ChatExecutionStrategy::AdaptiveWorkGraph),
+        "micro_work_graph" => Some(ChatExecutionStrategy::MicroWorkGraph),
+        "adaptive_work_graph" | "work_graph" => Some(ChatExecutionStrategy::AdaptiveWorkGraph),
         _ => None,
     }
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn build_execution_envelope_from_swarm(
+pub fn build_execution_envelope_from_work_graph(
     strategy: Option<ChatExecutionStrategy>,
     execution_domain: Option<String>,
     domain_kind: Option<ExecutionDomainKind>,
-    plan: Option<&SwarmPlan>,
-    execution_summary: Option<&SwarmExecutionSummary>,
-    worker_receipts: &[SwarmWorkerReceipt],
-    change_receipts: &[SwarmChangeReceipt],
-    merge_receipts: &[SwarmMergeReceipt],
-    verification_receipts: &[SwarmVerificationReceipt],
+    plan: Option<&WorkGraphPlan>,
+    execution_summary: Option<&WorkGraphExecutionSummary>,
+    worker_receipts: &[WorkGraphWorkerReceipt],
+    change_receipts: &[WorkGraphChangeReceipt],
+    merge_receipts: &[WorkGraphMergeReceipt],
+    verification_receipts: &[WorkGraphVerificationReceipt],
 ) -> Option<ExecutionEnvelope> {
-    build_execution_envelope_from_swarm_with_receipts(
+    build_execution_envelope_from_work_graph_with_receipts(
         strategy,
         execution_domain,
         domain_kind,
@@ -1933,16 +1942,16 @@ pub fn build_execution_envelope_from_swarm(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn build_execution_envelope_from_swarm_with_receipts(
+pub fn build_execution_envelope_from_work_graph_with_receipts(
     strategy: Option<ChatExecutionStrategy>,
     execution_domain: Option<String>,
     domain_kind: Option<ExecutionDomainKind>,
-    plan: Option<&SwarmPlan>,
-    execution_summary: Option<&SwarmExecutionSummary>,
-    worker_receipts: &[SwarmWorkerReceipt],
-    change_receipts: &[SwarmChangeReceipt],
-    merge_receipts: &[SwarmMergeReceipt],
-    verification_receipts: &[SwarmVerificationReceipt],
+    plan: Option<&WorkGraphPlan>,
+    execution_summary: Option<&WorkGraphExecutionSummary>,
+    worker_receipts: &[WorkGraphWorkerReceipt],
+    change_receipts: &[WorkGraphChangeReceipt],
+    merge_receipts: &[WorkGraphMergeReceipt],
+    verification_receipts: &[WorkGraphVerificationReceipt],
     graph_mutation_receipts: &[ExecutionGraphMutationReceipt],
     dispatch_batches: &[ExecutionDispatchBatch],
     repair_receipts: &[ExecutionRepairReceipt],
@@ -1981,15 +1990,16 @@ pub fn build_execution_envelope_from_swarm_with_receipts(
     let resolved_domain_kind =
         domain_kind.or_else(|| infer_execution_domain_kind(&resolved_domain));
     let resolved_dispatch_batches = if dispatch_batches.is_empty() {
-        plan.map(plan_swarm_dispatch_batches).unwrap_or_default()
+        plan.map(plan_work_graph_dispatch_batches)
+            .unwrap_or_default()
     } else {
         dispatch_batches.to_vec()
     };
-    let work_item_commits = build_swarm_work_item_commits(worker_receipts, change_receipts);
+    let work_item_commits = build_work_graph_work_item_commits(worker_receipts, change_receipts);
     let merge_decision_artifacts =
-        build_swarm_merge_decision_artifacts(merge_receipts, &work_item_commits);
-    let retry_decision_artifacts = build_swarm_retry_decision_artifacts(replan_receipts);
-    let repair_action_artifacts = build_swarm_repair_action_artifacts(repair_receipts);
+        build_work_graph_merge_decision_artifacts(merge_receipts, &work_item_commits);
+    let retry_decision_artifacts = build_work_graph_retry_decision_artifacts(replan_receipts);
+    let repair_action_artifacts = build_work_graph_repair_action_artifacts(repair_receipts);
     let workflow_artifact_root_hash = build_workflow_artifact_root_hash(
         &work_item_commits,
         &merge_decision_artifacts,

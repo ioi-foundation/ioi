@@ -77,11 +77,11 @@ fn pipeline_steps_for_ready_markdown_artifact_are_complete() {
 }
 
 #[test]
-fn pipeline_steps_surface_swarm_execution_merge_and_repair() {
+fn pipeline_steps_surface_work_graph_execution_merge_and_repair() {
     let request = test_outcome_request().artifact.expect("artifact request");
     let manifest = test_manifest(ChatArtifactVerificationStatus::Ready);
     let mut materialization = test_materialization_contract();
-    materialization.swarm_plan = Some(ChatArtifactSwarmPlan {
+    materialization.work_graph_plan = Some(ChatArtifactWorkGraphPlan {
         version: 1,
         strategy: "markdown_adaptive_work_graph".to_string(),
         execution_domain: "chat_artifact".to_string(),
@@ -125,7 +125,7 @@ fn pipeline_steps_surface_swarm_execution_merge_and_repair() {
                 acceptance_criteria: vec!["ordered".to_string()],
                 dependency_ids: Vec::new(),
                 blocked_on_ids: Vec::new(),
-                verification_policy: Some(ioi_api::chat::SwarmVerificationPolicy::Normal),
+                verification_policy: Some(ioi_api::chat::WorkGraphVerificationPolicy::Normal),
                 retry_budget: Some(0),
                 status: ChatArtifactWorkItemStatus::Succeeded,
             },
@@ -142,13 +142,13 @@ fn pipeline_steps_surface_swarm_execution_merge_and_repair() {
                 acceptance_criteria: vec!["bounded".to_string()],
                 dependency_ids: vec!["validation".to_string()],
                 blocked_on_ids: Vec::new(),
-                verification_policy: Some(ioi_api::chat::SwarmVerificationPolicy::Blocking),
+                verification_policy: Some(ioi_api::chat::WorkGraphVerificationPolicy::Blocking),
                 retry_budget: Some(1),
                 status: ChatArtifactWorkItemStatus::Rejected,
             },
         ],
     });
-    materialization.swarm_execution = Some(ChatArtifactSwarmExecutionSummary {
+    materialization.work_graph_execution = Some(ChatArtifactWorkGraphExecutionSummary {
         enabled: true,
         current_stage: "repair".to_string(),
         execution_stage: Some(ExecutionStage::Mutate),
@@ -162,11 +162,11 @@ fn pipeline_steps_surface_swarm_execution_merge_and_repair() {
         adapter_label: "markdown_coarse_v1".to_string(),
         parallelism_mode: "sequential_by_default".to_string(),
     });
-    materialization.swarm_worker_receipts = vec![ChatArtifactWorkerReceipt {
+    materialization.work_graph_worker_receipts = vec![ChatArtifactWorkerReceipt {
         work_item_id: "repair".to_string(),
         role: ChatArtifactWorkerRole::Repair,
         status: ChatArtifactWorkItemStatus::Rejected,
-        result_kind: Some(ioi_api::chat::SwarmWorkerResultKind::Conflict),
+        result_kind: Some(ioi_api::chat::WorkGraphWorkerResultKind::Conflict),
         summary: "Rejected the out-of-scope patch.".to_string(),
         started_at: now_iso(),
         finished_at: Some(now_iso()),
@@ -188,7 +188,7 @@ fn pipeline_steps_surface_swarm_execution_merge_and_repair() {
         notes: vec!["bounded scope enforced".to_string()],
         failure: Some("out-of-scope path".to_string()),
     }];
-    materialization.swarm_change_receipts = vec![ChatArtifactPatchReceipt {
+    materialization.work_graph_change_receipts = vec![ChatArtifactPatchReceipt {
         work_item_id: "repair".to_string(),
         status: ChatArtifactWorkItemStatus::Rejected,
         summary: "Rejected repair patch".to_string(),
@@ -200,7 +200,7 @@ fn pipeline_steps_surface_swarm_execution_merge_and_repair() {
         preview_language: None,
         failure: Some("out-of-scope path".to_string()),
     }];
-    materialization.swarm_merge_receipts = vec![ChatArtifactMergeReceipt {
+    materialization.work_graph_merge_receipts = vec![ChatArtifactMergeReceipt {
         work_item_id: "repair".to_string(),
         status: ChatArtifactWorkItemStatus::Rejected,
         summary: "Rejected out-of-scope patch".to_string(),
@@ -209,7 +209,7 @@ fn pipeline_steps_surface_swarm_execution_merge_and_repair() {
         touched_regions: Vec::new(),
         rejected_reason: Some("out-of-scope path".to_string()),
     }];
-    materialization.swarm_verification_receipts = vec![ChatArtifactVerificationReceipt {
+    materialization.work_graph_verification_receipts = vec![ChatArtifactVerificationReceipt {
         id: "artifact-validation".to_string(),
         kind: "artifact_validation".to_string(),
         status: "blocked".to_string(),
@@ -231,10 +231,10 @@ fn pipeline_steps_surface_swarm_execution_merge_and_repair() {
         .iter()
         .find(|step| step.id == "planner")
         .expect("planner step");
-    let swarm_execution_step = steps
+    let work_graph_execution_step = steps
         .iter()
-        .find(|step| step.id == "swarm_execution")
-        .expect("swarm execution step");
+        .find(|step| step.id == "work_graph_execution")
+        .expect("work graph execution step");
     let merge_step = steps
         .iter()
         .find(|step| step.id == "merge")
@@ -252,11 +252,11 @@ fn pipeline_steps_surface_swarm_execution_merge_and_repair() {
         .outputs
         .iter()
         .any(|output| output == "work_items:2"));
-    assert!(swarm_execution_step
+    assert!(work_graph_execution_step
         .outputs
         .iter()
         .any(|output| output == "worker_receipts:1"));
-    assert!(swarm_execution_step
+    assert!(work_graph_execution_step
         .outputs
         .iter()
         .any(|output| output == "progress:4/5"));
@@ -271,11 +271,11 @@ fn pipeline_steps_surface_swarm_execution_merge_and_repair() {
 }
 
 #[test]
-fn materialization_contract_carries_micro_swarm_mode_decision_and_budget() {
+fn materialization_contract_carries_micro_work_graph_mode_decision_and_budget() {
     let request = test_outcome_request().artifact.expect("artifact request");
     let decision = ioi_types::app::ChatExecutionModeDecision {
         requested_strategy: ChatExecutionStrategy::PlanExecute,
-        resolved_strategy: ChatExecutionStrategy::MicroSwarm,
+        resolved_strategy: ChatExecutionStrategy::MicroWorkGraph,
         mode_confidence: 0.84,
         one_shot_sufficiency: 0.42,
         ambiguity: 0.08,
@@ -306,14 +306,17 @@ fn materialization_contract_carries_micro_swarm_mode_decision_and_budget() {
         &request,
         "Chat is preparing the artifact.",
         Some(decision.clone()),
-        ChatExecutionStrategy::MicroSwarm,
+        ChatExecutionStrategy::MicroWorkGraph,
     );
     let envelope = materialization
         .execution_envelope
         .as_ref()
         .expect("execution envelope");
 
-    assert_eq!(envelope.strategy, Some(ChatExecutionStrategy::MicroSwarm));
+    assert_eq!(
+        envelope.strategy,
+        Some(ChatExecutionStrategy::MicroWorkGraph)
+    );
     assert_eq!(envelope.mode_decision, Some(decision.clone()));
     assert_eq!(
         envelope.budget_envelope,
@@ -336,7 +339,7 @@ fn materialization_contract_carries_micro_swarm_mode_decision_and_budget() {
 }
 
 #[test]
-fn pipeline_steps_label_micro_swarm_and_surface_completion_progress() {
+fn pipeline_steps_label_micro_work_graph_and_surface_completion_progress() {
     let request = ChatOutcomeArtifactRequest {
         artifact_class: ChatArtifactClass::InteractiveSingleFile,
         deliverable_shape: ChatArtifactDeliverableShape::SingleFile,
@@ -372,10 +375,10 @@ fn pipeline_steps_label_micro_swarm_and_surface_completion_progress() {
         version: 1,
         execution_domain: "chat_artifact".to_string(),
         domain_kind: Some(ioi_api::execution::ExecutionDomainKind::Artifact),
-        strategy: Some(ChatExecutionStrategy::MicroSwarm),
+        strategy: Some(ChatExecutionStrategy::MicroWorkGraph),
         mode_decision: Some(ioi_types::app::ChatExecutionModeDecision {
             requested_strategy: ChatExecutionStrategy::PlanExecute,
-            resolved_strategy: ChatExecutionStrategy::MicroSwarm,
+            resolved_strategy: ChatExecutionStrategy::MicroWorkGraph,
             mode_confidence: 0.84,
             one_shot_sufficiency: 0.42,
             ambiguity: 0.08,
@@ -449,9 +452,9 @@ fn pipeline_steps_label_micro_swarm_and_surface_completion_progress() {
         budget_summary: None,
         live_previews: Vec::new(),
     });
-    materialization.swarm_plan = Some(ChatArtifactSwarmPlan {
+    materialization.work_graph_plan = Some(ChatArtifactWorkGraphPlan {
         version: 1,
-        strategy: "html_micro_swarm".to_string(),
+        strategy: "html_micro_work_graph".to_string(),
         execution_domain: "chat_artifact".to_string(),
         adapter_label: "html_micro_v1".to_string(),
         parallelism_mode: "bounded_frontier".to_string(),
@@ -484,7 +487,7 @@ fn pipeline_steps_label_micro_swarm_and_surface_completion_progress() {
                 acceptance_criteria: vec!["bounded".to_string()],
                 dependency_ids: Vec::new(),
                 blocked_on_ids: Vec::new(),
-                verification_policy: Some(ioi_api::chat::SwarmVerificationPolicy::Normal),
+                verification_policy: Some(ioi_api::chat::WorkGraphVerificationPolicy::Normal),
                 retry_budget: Some(0),
                 status: ChatArtifactWorkItemStatus::Succeeded,
             },
@@ -501,13 +504,13 @@ fn pipeline_steps_label_micro_swarm_and_surface_completion_progress() {
                 acceptance_criteria: vec!["renderable".to_string()],
                 dependency_ids: vec!["planner".to_string()],
                 blocked_on_ids: Vec::new(),
-                verification_policy: Some(ioi_api::chat::SwarmVerificationPolicy::Normal),
+                verification_policy: Some(ioi_api::chat::WorkGraphVerificationPolicy::Normal),
                 retry_budget: Some(0),
                 status: ChatArtifactWorkItemStatus::Running,
             },
         ],
     });
-    materialization.swarm_execution = Some(ChatArtifactSwarmExecutionSummary {
+    materialization.work_graph_execution = Some(ChatArtifactWorkGraphExecutionSummary {
         enabled: true,
         current_stage: "draft".to_string(),
         execution_stage: Some(ExecutionStage::Mutate),
@@ -516,7 +519,7 @@ fn pipeline_steps_label_micro_swarm_and_surface_completion_progress() {
         completed_work_items: 1,
         failed_work_items: 0,
         verification_status: "pending".to_string(),
-        strategy: "html_micro_swarm".to_string(),
+        strategy: "html_micro_work_graph".to_string(),
         execution_domain: "chat_artifact".to_string(),
         adapter_label: "html_micro_v1".to_string(),
         parallelism_mode: "bounded_frontier".to_string(),
@@ -537,14 +540,14 @@ fn pipeline_steps_label_micro_swarm_and_surface_completion_progress() {
         .expect("planner step");
     let execution_step = steps
         .iter()
-        .find(|step| step.id == "swarm_execution")
-        .expect("swarm execution step");
+        .find(|step| step.id == "work_graph_execution")
+        .expect("work graph execution step");
     let verification_step = steps
         .iter()
         .find(|step| step.id == "verification")
         .expect("verification step");
 
-    assert_eq!(execution_step.label, "Micro swarm");
+    assert_eq!(execution_step.label, "Micro work graph");
     assert!(planner_step
         .outputs
         .iter()

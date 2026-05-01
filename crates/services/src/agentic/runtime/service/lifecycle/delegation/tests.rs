@@ -47,7 +47,7 @@ fn test_agent_state(goal: &str) -> AgentState {
         execution_ledger: Default::default(),
         visual_som_map: None,
         visual_semantic_map: None,
-        swarm_context: None,
+        work_graph_context: None,
         target: None,
         resolved_intent: None,
         awaiting_intent_clarification: false,
@@ -540,19 +540,19 @@ fn targeted_test_audit_worker_bootstraps_to_read_only_workspace_verifier_intent(
         Some("targeted_test_audit")
     );
     assert!(
-        crate::agentic::runtime::service::step::intent_resolver::is_tool_allowed_for_resolution(
+        crate::agentic::runtime::service::decision_loop::intent_resolver::is_tool_allowed_for_resolution(
             Some(&resolved),
             "shell__start",
         )
     );
     assert!(
-        crate::agentic::runtime::service::step::intent_resolver::is_tool_allowed_for_resolution(
+        crate::agentic::runtime::service::decision_loop::intent_resolver::is_tool_allowed_for_resolution(
             Some(&resolved),
             "file__read",
         )
     );
     assert!(
-        !crate::agentic::runtime::service::step::intent_resolver::is_tool_allowed_for_resolution(
+        !crate::agentic::runtime::service::decision_loop::intent_resolver::is_tool_allowed_for_resolution(
             Some(&resolved),
             "file__write",
         )
@@ -610,19 +610,19 @@ fn patch_synthesis_handoff_worker_bootstraps_to_read_only_workspace_synthesizer_
         Some("patch_synthesis_handoff")
     );
     assert!(
-        crate::agentic::runtime::service::step::intent_resolver::is_tool_allowed_for_resolution(
+        crate::agentic::runtime::service::decision_loop::intent_resolver::is_tool_allowed_for_resolution(
             Some(&resolved),
             "file__read",
         )
     );
     assert!(
-        crate::agentic::runtime::service::step::intent_resolver::is_tool_allowed_for_resolution(
+        crate::agentic::runtime::service::decision_loop::intent_resolver::is_tool_allowed_for_resolution(
             Some(&resolved),
             "memory__read",
         )
     );
     assert!(
-        !crate::agentic::runtime::service::step::intent_resolver::is_tool_allowed_for_resolution(
+        !crate::agentic::runtime::service::decision_loop::intent_resolver::is_tool_allowed_for_resolution(
             Some(&resolved),
             "shell__start",
         )
@@ -674,19 +674,19 @@ fn live_research_worker_bootstraps_to_web_research_intent() {
         Some("live_research_brief")
     );
     assert!(
-        crate::agentic::runtime::service::step::intent_resolver::is_tool_allowed_for_resolution(
+        crate::agentic::runtime::service::decision_loop::intent_resolver::is_tool_allowed_for_resolution(
             Some(&resolved),
             "web__search",
         )
     );
     assert!(
-        crate::agentic::runtime::service::step::intent_resolver::is_tool_allowed_for_resolution(
+        crate::agentic::runtime::service::decision_loop::intent_resolver::is_tool_allowed_for_resolution(
             Some(&resolved),
             "web__read",
         )
     );
     assert!(
-        crate::agentic::runtime::service::step::intent_resolver::is_tool_allowed_for_resolution(
+        crate::agentic::runtime::service::decision_loop::intent_resolver::is_tool_allowed_for_resolution(
             Some(&resolved),
             "memory__search",
         )
@@ -746,19 +746,19 @@ fn patch_build_verify_worker_bootstraps_to_workspace_ops_with_exec_capabilities(
         Some("patch_build_verify")
     );
     assert!(
-        crate::agentic::runtime::service::step::intent_resolver::is_tool_allowed_for_resolution(
+        crate::agentic::runtime::service::decision_loop::intent_resolver::is_tool_allowed_for_resolution(
             Some(&resolved),
             "shell__start",
         )
     );
     assert!(
-        crate::agentic::runtime::service::step::intent_resolver::is_tool_allowed_for_resolution(
+        crate::agentic::runtime::service::decision_loop::intent_resolver::is_tool_allowed_for_resolution(
             Some(&resolved),
             "file__edit",
         )
     );
     assert!(
-        crate::agentic::runtime::service::step::intent_resolver::is_tool_allowed_for_resolution(
+        crate::agentic::runtime::service::decision_loop::intent_resolver::is_tool_allowed_for_resolution(
             Some(&resolved),
             "file__write",
         )

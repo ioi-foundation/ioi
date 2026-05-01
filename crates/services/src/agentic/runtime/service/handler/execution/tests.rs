@@ -68,7 +68,7 @@ fn test_agent_state() -> AgentState {
         execution_ledger: Default::default(),
         visual_som_map: None,
         visual_semantic_map: None,
-        swarm_context: None,
+        work_graph_context: None,
         target: None,
         resolved_intent: None,
 
@@ -473,7 +473,7 @@ fn rewrites_search_navigation_to_web_search_for_web_research_scope() {
             assert!(retrieval_contract.is_none());
             assert_eq!(
                     limit,
-                    Some(crate::agentic::runtime::service::step::queue::web_pipeline::WEB_PIPELINE_SEARCH_LIMIT)
+                    Some(crate::agentic::runtime::service::queue::web_pipeline::WEB_PIPELINE_SEARCH_LIMIT)
                 );
             let expected = crate::agentic::web::build_default_search_url("latest news");
             assert_eq!(url.as_deref(), Some(expected.as_str()));
@@ -532,7 +532,7 @@ fn rewrites_browser_snapshot_to_web_search_for_web_research_scope() {
             assert!(retrieval_contract.is_none());
             assert_eq!(
                 limit,
-                Some(crate::agentic::runtime::service::step::queue::web_pipeline::WEB_PIPELINE_SEARCH_LIMIT)
+                Some(crate::agentic::runtime::service::queue::web_pipeline::WEB_PIPELINE_SEARCH_LIMIT)
             );
             let expected = crate::agentic::web::build_default_search_url("italian menus");
             assert_eq!(url.as_deref(), Some(expected.as_str()));
@@ -759,7 +759,7 @@ fn normalizes_direct_web_search_limit_for_web_research_scope() {
             assert!(retrieval_contract.is_none());
             assert_eq!(
                     limit,
-                    Some(crate::agentic::runtime::service::step::queue::web_pipeline::WEB_PIPELINE_SEARCH_LIMIT)
+                    Some(crate::agentic::runtime::service::queue::web_pipeline::WEB_PIPELINE_SEARCH_LIMIT)
                 );
             let expected =
                 crate::agentic::web::build_default_search_url("top US breaking news last 6 hours");
@@ -803,7 +803,7 @@ fn normalizes_web_search_query_contract_from_resolved_locality_query() {
             assert!(retrieval_contract.is_none());
             assert_eq!(
                 limit,
-                Some(crate::agentic::runtime::service::step::queue::web_pipeline::WEB_PIPELINE_SEARCH_LIMIT)
+                Some(crate::agentic::runtime::service::queue::web_pipeline::WEB_PIPELINE_SEARCH_LIMIT)
             );
             let expected = crate::agentic::web::build_default_search_url(
                 "best-reviewed Italian restaurants in Anderson, SC",
@@ -882,7 +882,7 @@ fn rewrites_memory_search_to_web_search_for_web_research_scope() {
             assert!(retrieval_contract.is_none());
             assert_eq!(
                     limit,
-                    Some(crate::agentic::runtime::service::step::queue::web_pipeline::WEB_PIPELINE_SEARCH_LIMIT)
+                    Some(crate::agentic::runtime::service::queue::web_pipeline::WEB_PIPELINE_SEARCH_LIMIT)
                 );
             let expected =
                 crate::agentic::web::build_default_search_url("active cloud incidents us impact");
@@ -920,7 +920,7 @@ fn rewrites_empty_memory_search_with_fallback_for_web_research_scope() {
             assert!(retrieval_contract.is_none());
             assert_eq!(
                     limit,
-                    Some(crate::agentic::runtime::service::step::queue::web_pipeline::WEB_PIPELINE_SEARCH_LIMIT)
+                    Some(crate::agentic::runtime::service::queue::web_pipeline::WEB_PIPELINE_SEARCH_LIMIT)
                 );
             let expected = crate::agentic::web::build_default_search_url(
                 "as of now top active us cloud incidents",
@@ -959,7 +959,7 @@ fn rewrites_memory_search_when_goal_is_live_external_even_if_scope_is_not_web() 
             assert!(retrieval_contract.is_none());
             assert_eq!(
                 limit,
-                Some(crate::agentic::runtime::service::step::queue::web_pipeline::WEB_PIPELINE_SEARCH_LIMIT)
+                Some(crate::agentic::runtime::service::queue::web_pipeline::WEB_PIPELINE_SEARCH_LIMIT)
             );
         }
         other => panic!("expected WebSearch, got {:?}", other),
@@ -1012,7 +1012,7 @@ fn normalizes_live_external_restaurant_search_even_if_scope_is_not_web() {
             assert!(retrieval_contract.is_none());
             assert_eq!(
                 limit,
-                Some(crate::agentic::runtime::service::step::queue::web_pipeline::WEB_PIPELINE_SEARCH_LIMIT)
+                Some(crate::agentic::runtime::service::queue::web_pipeline::WEB_PIPELINE_SEARCH_LIMIT)
             );
         }
         other => panic!("expected WebSearch, got {:?}", other),

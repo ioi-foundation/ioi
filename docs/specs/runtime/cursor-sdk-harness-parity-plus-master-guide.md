@@ -124,8 +124,8 @@ Key public API modules:
 | Runtime event construction | `crates/services/src/agentic/runtime/substrate.rs:238-257` |
 | Harness components for task state, uncertainty, probe, budget, model/router, MCP, policy, approval, memory, semantic impact, postcondition, verifier, drift, receipts, handoff, GUI validation | `crates/types/src/app/harness.rs:24-62` |
 | Harness kernel references map workflow nodes back to runtime contracts | `crates/types/src/app/harness.rs:111-158` |
-| Workflow/compositor action vocabulary includes smarter-agent nodes | `packages/agent-ide/src/runtime/agent-execution-substrate.ts:7-40` |
-| Workflow node mapping for smarter-agent nodes | `packages/agent-ide/src/runtime/agent-execution-substrate.ts:72-166` |
+| Workflow/compositor action vocabulary includes smarter-agent nodes | `packages/agent-ide/src/runtime/runtime-projection-adapter.ts:7-40` |
+| Workflow node mapping for smarter-agent nodes | `packages/agent-ide/src/runtime/runtime-projection-adapter.ts:72-166` |
 | Runtime CLI commands for run, chat, resume, pause, cancel, approval, policy, tools, config, status, events, trace, verify, replay, export | `crates/cli/src/commands/agent.rs:41-206` |
 | MCP CLI inspection, receipts, containment checks | `crates/cli/src/commands/mcp.rs:24-38` |
 | MCP production containment rules | `crates/types/src/config/mod.rs:417-790` |

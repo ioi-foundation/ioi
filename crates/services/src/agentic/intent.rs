@@ -15,6 +15,9 @@ use serde::Deserialize;
 use serde_json::Value;
 use std::sync::Arc; // [FIX] Required for decoding session ID
 
+/// Service identifier for daemon-hosted desktop agent starts.
+const DESKTOP_AGENT_SERVICE_ID: &str = "desktop_agent";
+
 fn decode_session_id_hex_compat(session_id_hex: &str) -> Option<[u8; 32]> {
     let normalized = session_id_hex
         .trim()
@@ -136,7 +139,7 @@ impl IntentResolver {
                 .map_err(|e| anyhow!("Failed to encode agent params: {}", e))?;
 
             let payload = SystemPayload::CallService {
-                service_id: "desktop_agent".to_string(),
+                service_id: DESKTOP_AGENT_SERVICE_ID.to_string(),
                 method: "start@v1".to_string(),
                 params: params_bytes,
             };
@@ -310,7 +313,7 @@ impl IntentResolver {
                     .map_err(|e| anyhow!("Failed to encode agent params: {}", e))?;
 
                 let payload = SystemPayload::CallService {
-                    service_id: "desktop_agent".to_string(),
+                    service_id: DESKTOP_AGENT_SERVICE_ID.to_string(),
                     method: "start@v1".to_string(),
                     params: params_bytes,
                 };

@@ -12,6 +12,7 @@ import { Run } from "./run.js";
 import {
   createRuntimeSubstrateClient,
   type RuntimeAgentRecord,
+  type RuntimeArtifact,
   type RuntimeSubstrateClient,
 } from "./substrate-client.js";
 
@@ -32,6 +33,7 @@ export class Agent {
   readonly id: string;
   readonly runtime: string;
   readonly cwd: string;
+  readonly agents: Record<string, AgentSubagent>;
   private readonly client: RuntimeSubstrateClient;
 
   private constructor(client: RuntimeSubstrateClient, record: RuntimeAgentRecord) {
@@ -39,6 +41,9 @@ export class Agent {
     this.id = record.id;
     this.runtime = record.runtime;
     this.cwd = record.cwd;
+    this.agents = Object.fromEntries(
+      record.options.subagentNames.map((name) => [name, new AgentSubagent(this, name)]),
+    );
   }
 
   static async create(options: AgentOptions = {}): Promise<Agent> {
@@ -137,9 +142,25 @@ export class Agent {
     return new Agent(this.client, await this.client.reloadAgent(this.id));
   }
 
-  async artifacts(): Promise<unknown[]> {
+  async artifacts(): Promise<RuntimeArtifact[]> {
     const runs = await this.client.listRuns(this.id);
-    return Promise.all(runs.flatMap((run) => this.client.listArtifacts(run.id)));
+    return (await Promise.all(runs.map((run) => this.client.listArtifacts(run.id)))).flat();
+  }
+
+  tools() {
+    return this.client.listTools();
+  }
+
+  account() {
+    return this.client.getAccount();
+  }
+
+  runtimeNodes() {
+    return this.client.listRuntimeNodes();
+  }
+
+  subagent(name: string): AgentSubagent {
+    return this.agents[name] ?? new AgentSubagent(this, name);
   }
 
   private wrapRun(record: Awaited<ReturnType<RuntimeSubstrateClient["send"]>>): Run {
@@ -148,6 +169,17 @@ export class Agent {
 }
 
 export const CursorCompatibleAgent = Agent;
+
+export class AgentSubagent {
+  constructor(
+    private readonly parent: Agent,
+    readonly name: string,
+  ) {}
+
+  send(prompt: string, options: HandoffOptions = {}): Promise<Run> {
+    return this.parent.handoff(prompt, { ...options, receiver: options.receiver ?? this.name });
+  }
+}
 
 export const Cursor = {
   me: async () => ({
@@ -160,6 +192,12 @@ export const Cursor = {
   },
   repositories: {
     list: async (options: AgentOptions = {}) => clientForOptions(options).listRepositories(),
+  },
+  account: {
+    get: async (options: AgentOptions = {}) => clientForOptions(options).getAccount(),
+  },
+  runtimeNodes: {
+    list: async (options: AgentOptions = {}) => clientForOptions(options).listRuntimeNodes(),
   },
 };
 

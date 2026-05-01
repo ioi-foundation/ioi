@@ -14,7 +14,7 @@ import {
   actionKindForWorkflowNodeType,
   connectionClassForPorts,
   validateActionEdge,
-} from "../runtime/agent-execution-substrate";
+} from "../runtime/runtime-projection-adapter";
 import {
   workflowNodeDefaultLaw,
   workflowNodeDefaultLogic,

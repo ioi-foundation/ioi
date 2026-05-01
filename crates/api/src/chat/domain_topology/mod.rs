@@ -19,10 +19,12 @@ use super::types::{
     ArtifactOperatorStep,
 };
 use crate::execution::{
-    block_swarm_work_item_on, spawn_follow_up_swarm_work_item, ExecutionCompletionInvariant,
-    ExecutionCompletionInvariantStatus, ExecutionGraphMutationReceipt, ExecutionReplanReceipt,
-    SwarmPlan, SwarmVerificationPolicy, SwarmVerificationReceipt, SwarmWorkItem,
-    SwarmWorkItemStatus, SwarmWorkerReceipt, SwarmWorkerResultKind, SwarmWorkerRole,
+    block_work_graph_work_item_on, spawn_follow_up_work_graph_work_item,
+    ExecutionCompletionInvariant, ExecutionCompletionInvariantStatus,
+    ExecutionGraphMutationReceipt, ExecutionReplanReceipt, WorkGraphPlan,
+    WorkGraphVerificationPolicy, WorkGraphVerificationReceipt, WorkGraphWorkItem,
+    WorkGraphWorkItemStatus, WorkGraphWorkerReceipt, WorkGraphWorkerResultKind,
+    WorkGraphWorkerRole,
 };
 use ioi_types::app::{
     ChatArtifactClass, ChatArtifactLifecycleState, ChatArtifactManifest,

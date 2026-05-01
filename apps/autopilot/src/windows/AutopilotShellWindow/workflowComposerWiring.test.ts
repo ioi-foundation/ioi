@@ -234,7 +234,7 @@ const graphState = fs.readFileSync(
 );
 const executionSubstrate = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/runtime/agent-execution-substrate.ts",
+    "../../../../../packages/agent-ide/src/runtime/runtime-projection-adapter.ts",
     import.meta.url,
   ),
   "utf8",

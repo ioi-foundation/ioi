@@ -1,7 +1,7 @@
-export { Agent, Cursor, CursorCompatibleAgent, createAgentPlatform } from "./agent.js";
+export { Agent, AgentSubagent, Cursor, CursorCompatibleAgent, createAgentPlatform } from "./agent.js";
 export { Run } from "./run.js";
 export { IoiAgentError, ensureIoiAgentError } from "./errors.js";
-export { createRuntimeSubstrateClient, LocalRuntimeSubstrateClient } from "./substrate-client.js";
+export { createRuntimeSubstrateClient } from "./substrate-client.js";
 export type {
   RuntimeAgentRecord,
   RuntimeArtifact,
@@ -13,12 +13,14 @@ export type {
   CloudAgentOptions,
   DryRunOptions,
   HandoffOptions,
+  HostedWorkerProvider,
   LearnOptions,
   LocalAgentOptions,
   McpServerConfig,
   ModelSelection,
   PlanOptions,
   SandboxOptions,
+  SelfHostedWorkerProvider,
   SelfHostedWorkerOptions,
   SendOptions,
   StreamOptions,
@@ -29,8 +31,11 @@ export type {
   ConversationMessage,
   IOIRunResult,
   IOISDKMessage,
+  RuntimeAccountProfile,
+  RuntimeNodeProfile,
   RuntimeReceipt,
   RuntimeScorecard,
+  RuntimeToolCatalogEntry,
   RuntimeTraceBundle,
   SemanticImpactProjection,
   StopConditionProjection,
@@ -50,7 +55,8 @@ export interface RuntimeToolContract {
   timeoutDefaultMs: number;
   timeoutMaxMs: number;
   cancellationBehavior: string;
-  capabilityLeaseRequirements: string[];
+  primitiveCapabilities: string[];
+  authorityScopeRequirements: string[];
   policyTarget: string;
   approvalScopeFields: string[];
   evidenceRequirements: string[];

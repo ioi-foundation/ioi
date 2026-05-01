@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "ioi.agentgres.runtime.v0",
+  "relationSchemas": {
+    "runs": [
+      "id",
+      "agentId",
+      "status",
+      "objective",
+      "mode",
+      "createdAt",
+      "updatedAt"
+    ],
+    "tasks": [
+      "runId",
+      "currentObjective",
+      "facts",
+      "constraints",
+      "evidenceRefs"
+    ],
+    "artifacts": [
+      "id",
+      "runId",
+      "name",
+      "mediaType",
+      "redaction",
+      "receiptId"
+    ],
+    "receipts": [
+      "id",
+      "runId",
+      "kind",
+      "summary",
+      "redaction",
+      "evidenceRefs"
+    ],
+    "quality": [
+      "runId",
+      "scorecard",
+      "qualityLedger",
+      "stopCondition"
+    ],
+    "operationLog": [
+      "sequence",
+      "operationId",
+      "kind",
+      "objectId",
+      "createdAt",
+      "digest"
+    ]
+  },
+  "canonicalOwner": "Agentgres",
+  "sdkCheckpointAuthority": "cache_only"
+}

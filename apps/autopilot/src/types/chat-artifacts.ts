@@ -4,15 +4,15 @@ import type {
   ChatRuntimeProvenance,
   ExecutionEnvelope,
   ExecutionStage,
-  SwarmChangeReceipt,
-  SwarmExecutionSummary,
-  SwarmMergeReceipt,
-  SwarmPlan,
-  SwarmVerificationReceipt,
-  SwarmWorkItem,
-  SwarmWorkItemStatus,
-  SwarmWorkerReceipt,
-  SwarmWorkerRole,
+  WorkGraphChangeReceipt,
+  WorkGraphExecutionSummary,
+  WorkGraphMergeReceipt,
+  WorkGraphPlan,
+  WorkGraphVerificationReceipt,
+  WorkGraphWorkItem,
+  WorkGraphWorkItemStatus,
+  WorkGraphWorkerReceipt,
+  WorkGraphWorkerRole,
 } from "./execution";
 
 export interface ChatArtifactNavigatorNode {
@@ -574,15 +574,15 @@ export interface ChatArtifactCandidateConvergenceTrace {
   terminatedReason?: string | null;
 }
 
-export type ChatArtifactWorkerRole = SwarmWorkerRole;
-export type ChatArtifactWorkItemStatus = SwarmWorkItemStatus;
-export type ChatArtifactWorkItem = SwarmWorkItem;
-export type ChatArtifactSwarmPlan = SwarmPlan;
-export type ChatArtifactSwarmExecutionSummary = SwarmExecutionSummary;
-export type ChatArtifactWorkerReceipt = SwarmWorkerReceipt;
-export type ChatArtifactPatchReceipt = SwarmChangeReceipt;
-export type ChatArtifactMergeReceipt = SwarmMergeReceipt;
-export type ChatArtifactVerificationReceipt = SwarmVerificationReceipt;
+export type ChatArtifactWorkerRole = WorkGraphWorkerRole;
+export type ChatArtifactWorkItemStatus = WorkGraphWorkItemStatus;
+export type ChatArtifactWorkItem = WorkGraphWorkItem;
+export type ChatArtifactWorkGraphPlan = WorkGraphPlan;
+export type ChatArtifactWorkGraphExecutionSummary = WorkGraphExecutionSummary;
+export type ChatArtifactWorkerReceipt = WorkGraphWorkerReceipt;
+export type ChatArtifactPatchReceipt = WorkGraphChangeReceipt;
+export type ChatArtifactMergeReceipt = WorkGraphMergeReceipt;
+export type ChatArtifactVerificationReceipt = WorkGraphVerificationReceipt;
 
 export interface ChatArtifactRuntimePreviewSnapshot {
   label: string;
@@ -780,12 +780,12 @@ export interface ChatArtifactMaterializationContract {
   winningCandidateId?: string | null;
   winningCandidateRationale?: string | null;
   executionEnvelope?: ExecutionEnvelope | null;
-  swarmPlan?: SwarmPlan | null;
-  swarmExecution?: SwarmExecutionSummary | null;
-  swarmWorkerReceipts: SwarmWorkerReceipt[];
-  swarmChangeReceipts: SwarmChangeReceipt[];
-  swarmMergeReceipts: SwarmMergeReceipt[];
-  swarmVerificationReceipts: SwarmVerificationReceipt[];
+  workGraphPlan?: WorkGraphPlan | null;
+  workGraphExecution?: WorkGraphExecutionSummary | null;
+  workerReceipts: WorkGraphWorkerReceipt[];
+  changeReceipts: WorkGraphChangeReceipt[];
+  mergeReceipts: WorkGraphMergeReceipt[];
+  verificationReceipts: WorkGraphVerificationReceipt[];
   renderEvaluation?: ChatArtifactRenderEvaluation | null;
   validation?: ChatArtifactValidationResult | null;
   outputOrigin?: ChatArtifactOutputOrigin | null;
@@ -1071,12 +1071,12 @@ export interface ChatArtifactRevision {
   candidateSummaries: ChatArtifactCandidateSummary[];
   winningCandidateId?: string | null;
   executionEnvelope?: ExecutionEnvelope | null;
-  swarmPlan?: SwarmPlan | null;
-  swarmExecution?: SwarmExecutionSummary | null;
-  swarmWorkerReceipts: SwarmWorkerReceipt[];
-  swarmChangeReceipts: SwarmChangeReceipt[];
-  swarmMergeReceipts: SwarmMergeReceipt[];
-  swarmVerificationReceipts: SwarmVerificationReceipt[];
+  workGraphPlan?: WorkGraphPlan | null;
+  workGraphExecution?: WorkGraphExecutionSummary | null;
+  workerReceipts: WorkGraphWorkerReceipt[];
+  changeReceipts: WorkGraphChangeReceipt[];
+  mergeReceipts: WorkGraphMergeReceipt[];
+  verificationReceipts: WorkGraphVerificationReceipt[];
   renderEvaluation?: ChatArtifactRenderEvaluation | null;
   validation?: ChatArtifactValidationResult | null;
   outputOrigin?: ChatArtifactOutputOrigin | null;

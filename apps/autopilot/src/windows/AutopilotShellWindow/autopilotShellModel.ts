@@ -46,7 +46,7 @@ export const PROJECT_SCOPES: ProjectScope[] = [
     name: "Nested Guardian",
     description: "Consensus verification and safety protocols.",
     environment: "Research",
-    rootPath: "docs/consensus/aft",
+    rootPath: "docs/architecture/consensus/aft",
   },
   {
     id: "capability-lab",

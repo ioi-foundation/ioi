@@ -31,19 +31,22 @@ Important invariants:
 If a new runtime feature needs more lifecycle state, prefer extending a typed
 substructure or helper API instead of adding more top-level scalar fields.
 
-### Step path
+### Decision loop and service lanes
 
-`service/step/mod.rs` is the public entrypoint and should stay a thin
+`service/decision_loop/mod.rs` is the public entrypoint and should stay a thin
 orchestrator.
 
 The main phase seams are:
 
-- `step/clarification.rs`
-- `step/pending_resume.rs`
-- `step/direct_inline.rs`
-- `step/playbook.rs`
-- `step/orchestration.rs`
-- `step/queue/processing/*`
+- `service/decision_loop/clarification.rs`
+- `service/decision_loop/pending_resume.rs`
+- `service/output/direct_inline.rs`
+- `service/planning/playbook.rs`
+- `service/decision_loop/orchestration.rs`
+- `service/queue/processing/*`
+- `service/tool_execution/processing/*`
+- `service/recovery/*`
+- `service/visual_loop/*`
 
 The intent is that `handle_step` reads like a runtime script, while branch-heavy
 behavior lives behind focused modules with seam-specific tests.
@@ -106,8 +109,8 @@ Use these as review rules for runtime changes:
 
 Guidance budgets for hotspot entrypoints:
 
-- `service/step/mod.rs`: target under 900 lines
-- `service/step/queue/processing/mod.rs`: target under 800 lines
+- `service/decision_loop/mod.rs`: target under 900 lines
+- `service/queue/processing/mod.rs`: target under 800 lines
 - `service/lifecycle/delegation.rs`: target under 1000 lines
 - `service/lifecycle/handlers.rs`: target under 300 lines
 
@@ -120,8 +123,8 @@ conversation.
   `SystemTime` plumbing in hot paths.
 - Prefer the typed pause helpers over matching on `AgentStatus::Paused` message
   text.
-- Prefer typed receipt helpers in `step/action/support.rs` for core execution
-  markers.
+- Prefer typed receipt helpers in `service/tool_execution/support.rs` for core
+  execution markers.
 - Keep state persistence and transcript writes close to the lifecycle edge so
   invariants stay obvious.
 

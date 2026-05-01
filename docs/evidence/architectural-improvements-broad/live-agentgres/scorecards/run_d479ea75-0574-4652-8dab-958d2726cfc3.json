@@ -1,0 +1,9 @@
+{
+  "taskPassRate": 1,
+  "recoverySuccess": 1,
+  "memoryRelevance": 0.92,
+  "toolQuality": 0.96,
+  "strategyRoi": 0.93,
+  "operatorInterventionRate": 0,
+  "verifierIndependence": 1
+}

@@ -9,7 +9,7 @@ export const AGENT_RUNTIME_P3_SCHEMA_VERSION =
   "ioi.agent-runtime.p3-exhaustive-validation.v1";
 
 export const MASTER_GUIDE_PATH =
-  "docs/specs/runtime/agent-runtime-parity-plus-master-guide.md";
+  "docs/plans/architectural-improvements-broad-master-guide.md";
 
 export const P3_PRODUCT_POLISH_ITEMS = Object.freeze([
   {
@@ -224,7 +224,7 @@ export const EXHAUSTIVE_WORKFLOW_SUITES = Object.freeze([
   ]),
   workflowSuite("filesystem_safety", 1360, "Filesystem stale-write/device/symlink/read-before-edit safety suite", [
     sourceAnchor(
-      "crates/services/src/agentic/runtime/service/step/action/processing/phases/execute_tool_phase/file_observation.rs",
+      "crates/services/src/agentic/runtime/service/tool_execution/processing/phases/execute_tool_phase/file_observation.rs",
       ["stale write", "read"],
     ),
     sourceAnchor("crates/services/src/agentic/runtime/execution/filesystem/handler/tests.rs", [
@@ -232,7 +232,7 @@ export const EXHAUSTIVE_WORKFLOW_SUITES = Object.freeze([
     ]),
   ]),
   workflowSuite("shell_job_control", 1361, "Shell job-control suite", [
-    sourceAnchor("crates/services/src/agentic/runtime/service/step/action/command_contract/tests.rs", [
+    sourceAnchor("crates/services/src/agentic/runtime/service/tool_execution/command_contract/tests.rs", [
       "command_history",
       "CommandExecution",
     ]),
@@ -264,10 +264,10 @@ export const EXHAUSTIVE_WORKFLOW_SUITES = Object.freeze([
     ]),
   ]),
   workflowSuite("plan_execution_binding", 1365, "Plan/execution binding suite", [
-    sourceAnchor("crates/services/src/agentic/runtime/service/step/planner/tests.rs", [
+    sourceAnchor("crates/services/src/agentic/runtime/service/planning/planner/tests.rs", [
       "plan",
     ]),
-    sourceAnchor("crates/services/src/agentic/runtime/service/step/queue/processing/execution/tests.rs", [
+    sourceAnchor("crates/services/src/agentic/runtime/service/queue/processing/execution/tests.rs", [
       "browser_queue_timeout_for_tool",
     ]),
   ]),
@@ -276,7 +276,7 @@ export const EXHAUSTIVE_WORKFLOW_SUITES = Object.freeze([
       "PromptAssemblyContract",
       "PromptLayerKind",
     ]),
-    sourceAnchor("crates/services/src/agentic/runtime/service/step/intent_resolver/instruction_contract/tests.rs", [
+    sourceAnchor("crates/services/src/agentic/runtime/service/decision_loop/intent_resolver/instruction_contract/tests.rs", [
       "instruction",
     ]),
   ]),
@@ -289,7 +289,7 @@ export const EXHAUSTIVE_WORKFLOW_SUITES = Object.freeze([
     ]),
   ]),
   workflowSuite("model_routing_fallback", 1368, "Model routing/fallback suite", [
-    sourceAnchor("crates/services/src/agentic/runtime/service/step/cognition/router.rs", [
+    sourceAnchor("crates/services/src/agentic/runtime/service/decision_loop/cognition/router.rs", [
       "model_hash",
     ]),
     sourceAnchor("scripts/chat-artifact-corpus/runtime.test.ts", [
@@ -335,7 +335,7 @@ export const BETTER_AGENT_VALIDATIONS = Object.freeze([
   ]),
   betterAgent("recovery_policy", 2116, "Recovery-policy tests", [
     sourceAnchor("crates/types/src/app/runtime_contracts.rs", ["ErrorRecoveryContract"]),
-    sourceAnchor("crates/services/src/agentic/runtime/service/step/incident/recovery/tests.rs", [
+    sourceAnchor("crates/services/src/agentic/runtime/service/recovery/incident/recovery/tests.rs", [
       "recovery",
     ]),
   ]),
@@ -361,7 +361,7 @@ export const BETTER_AGENT_VALIDATIONS = Object.freeze([
   ]),
   betterAgent("model_routing_quality", 2126, "Model-routing quality tests", [
     sourceAnchor("crates/types/src/app/runtime_contracts.rs", ["ModelRoutingDecision"]),
-    sourceAnchor("crates/services/src/agentic/runtime/service/step/cognition/inference/tests.rs", [
+    sourceAnchor("crates/services/src/agentic/runtime/service/decision_loop/cognition/inference/tests.rs", [
       "cognition_inference_timeout",
     ]),
   ]),
@@ -419,7 +419,7 @@ export const BETTER_AGENT_VALIDATIONS = Object.freeze([
     ]),
   ]),
   betterAgent("probe_loop", 2150, "Probe-loop tests", [
-    sourceAnchor("crates/services/src/agentic/runtime/service/step/action/probe/tests.rs", [
+    sourceAnchor("crates/services/src/agentic/runtime/service/tool_execution/probe/tests.rs", [
       "probe",
     ]),
     sourceAnchor("crates/services/src/agentic/runtime/substrate.rs", ["probes_for_state"]),
@@ -639,14 +639,18 @@ function sha256Text(text) {
 }
 
 export function latestPassingGuiHarnessEvidence(repoRoot) {
-  const evidenceRoot = path.join(repoRoot, "docs/evidence/autopilot-gui-harness-validation");
-  if (!fs.existsSync(evidenceRoot)) {
-    return null;
-  }
-  const candidates = fs
-    .readdirSync(evidenceRoot)
-    .map((entry) => path.join(evidenceRoot, entry))
-    .filter((entryPath) => fs.existsSync(path.join(entryPath, "result.json")))
+  const evidenceRoots = [
+    "docs/evidence/architectural-improvements-broad/gui-retained-validation",
+    "docs/evidence/autopilot-gui-harness-validation",
+  ].map((relativePath) => path.join(repoRoot, relativePath));
+  const candidates = evidenceRoots
+    .filter((evidenceRoot) => fs.existsSync(evidenceRoot))
+    .flatMap((evidenceRoot) =>
+      fs
+        .readdirSync(evidenceRoot)
+        .map((entry) => path.join(evidenceRoot, entry))
+        .filter((entryPath) => fs.existsSync(path.join(entryPath, "result.json"))),
+    )
     .sort((left, right) => path.basename(right).localeCompare(path.basename(left)));
 
   for (const candidate of candidates) {
@@ -662,9 +666,12 @@ export function latestPassingGuiHarnessEvidence(repoRoot) {
             ? path.relative(repoRoot, path.join(candidate, "runtime-artifacts.json"))
             : null,
           queryCount: Array.isArray(result.queryResults) ? result.queryResults.length : 0,
-          screenshotCount: Array.isArray(result.screenshots)
-            ? result.screenshots.length
-            : result.queryResults?.filter((query) => query.screenshotPath).length ?? 0,
+          screenshotCount:
+            Object.keys(result.artifacts?.screenshots ?? {}).length ||
+            (Array.isArray(result.screenshots)
+              ? result.screenshots.length
+              : result.queryResults?.filter((query) => query.screenshotPath || query.screenshot)
+                  .length ?? 0),
           chatUx: result.chatUx ?? {},
           runtimeConsistency: result.runtimeConsistency ?? {},
           validation,
@@ -721,7 +728,7 @@ function evaluateAnchor(repoRoot, anchor, context) {
             ...anchor,
             status: context.requireGuiEvidence ? "Missing" : "Unknown",
             detail:
-              "No passing Autopilot GUI retained-query result was found in docs/evidence/autopilot-gui-harness-validation.",
+              "No passing Autopilot GUI retained-query result was found in architectural-improvements or legacy GUI evidence roots.",
           };
     }
   }

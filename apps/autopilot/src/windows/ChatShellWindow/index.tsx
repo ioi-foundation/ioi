@@ -1360,7 +1360,7 @@ export function ChatShellWindow({
         artifactCount={activeArtifacts.length}
         workerCount={Math.max(
           runPresentation.planSummary?.workerCount ?? 0,
-          task?.swarm_tree.length ?? 0,
+          task?.work_graph_tree.length ?? 0,
         )}
         activeDropdown={activeDropdown}
         setActiveDropdown={setActiveDropdown}

@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "filesystemProbe": {
+      "command": "node",
+      "args": [
+        "tools/filesystem-probe.mjs"
+      ],
+      "transport": "stdio"
+    }
+  }
+}

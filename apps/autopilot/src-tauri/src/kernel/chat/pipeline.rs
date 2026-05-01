@@ -38,7 +38,7 @@ fn execution_stage_for_pipeline_phase(phase_id: &str) -> ExecutionStage {
     match phase_id {
         "intake" | "requirements" | "specification" | "planner" => ExecutionStage::Plan,
         "routing" => ExecutionStage::Dispatch,
-        "swarm_execution" => ExecutionStage::Work,
+        "work_graph_execution" => ExecutionStage::Work,
         "materialization" | "execution" | "repair" => ExecutionStage::Mutate,
         "merge" => ExecutionStage::Merge,
         "verification" => ExecutionStage::Verify,
@@ -71,7 +71,7 @@ fn pipeline_execution_strategy_id(strategy: ChatExecutionStrategy) -> &'static s
         ChatExecutionStrategy::SinglePass => "single_pass",
         ChatExecutionStrategy::DirectAuthor => "direct_author",
         ChatExecutionStrategy::PlanExecute => "plan_execute",
-        ChatExecutionStrategy::MicroSwarm => "micro_swarm",
+        ChatExecutionStrategy::MicroWorkGraph => "micro_work_graph",
         ChatExecutionStrategy::AdaptiveWorkGraph => "adaptive_work_graph",
     }
 }
@@ -112,7 +112,7 @@ fn pipeline_status_for_phase(
 ) -> &'static str {
     match phase_id {
         "intake" | "routing" | "requirements" | "specification" | "planner" => "complete",
-        "swarm_execution" | "merge" => match lifecycle_state {
+        "work_graph_execution" | "merge" => match lifecycle_state {
             ChatArtifactLifecycleState::Draft | ChatArtifactLifecycleState::Planned => "pending",
             ChatArtifactLifecycleState::Materializing
             | ChatArtifactLifecycleState::Rendering
@@ -370,8 +370,8 @@ fn pipeline_steps_for_inline_answer_route(
         | ChatArtifactLifecycleState::Verifying => "active",
     };
     let prompt_excerpt = truncate_pipeline_output(&materialization.normalized_intent, 88);
-    let has_swarm_execution = materialization
-        .swarm_execution
+    let has_work_graph_execution = materialization
+        .work_graph_execution
         .as_ref()
         .map(|summary| summary.enabled)
         .unwrap_or(false);
@@ -401,7 +401,7 @@ fn pipeline_steps_for_inline_answer_route(
                 route_kind.to_string(),
                 materialization.request_kind.clone(),
                 materialization
-                    .swarm_execution
+                    .work_graph_execution
                     .as_ref()
                     .map(|summary| format!("strategy:{}", summary.strategy))
                     .unwrap_or_else(|| "strategy:plan_execute".to_string()),
@@ -413,7 +413,7 @@ fn pipeline_steps_for_inline_answer_route(
         ),
     ];
 
-    if let Some(plan) = materialization.swarm_plan.as_ref() {
+    if let Some(plan) = materialization.work_graph_plan.as_ref() {
         steps.push(pipeline_step(
             "planner",
             execution_stage_for_pipeline_phase("planner"),
@@ -429,19 +429,19 @@ fn pipeline_steps_for_inline_answer_route(
         ));
     }
 
-    if has_swarm_execution {
+    if has_work_graph_execution {
         steps.push(pipeline_step(
-            "swarm_execution",
-            execution_stage_for_pipeline_phase("swarm_execution"),
+            "work_graph_execution",
+            execution_stage_for_pipeline_phase("work_graph_execution"),
             "Shared execution",
             status,
             "The shared execution envelope recorded worker receipts without pretending an artifact renderer ran.",
             {
                 let mut outputs = vec![format!(
                     "worker_receipts:{}",
-                    materialization.swarm_worker_receipts.len()
+                    materialization.work_graph_worker_receipts.len()
                 )];
-                if let Some(summary) = materialization.swarm_execution.as_ref() {
+                if let Some(summary) = materialization.work_graph_execution.as_ref() {
                     outputs.push(format!(
                         "progress:{}/{}",
                         summary.completed_work_items, summary.total_work_items
@@ -479,7 +479,7 @@ fn pipeline_steps_for_inline_answer_route(
             status,
             "Chat verified the selected non-artifact route before composing the reply state.",
             materialization
-                .swarm_verification_receipts
+                .work_graph_verification_receipts
                 .iter()
                 .map(|receipt| format!("{} ({})", receipt.kind, receipt.status))
                 .collect::<Vec<_>>(),
@@ -538,17 +538,17 @@ pub(super) fn pipeline_steps_for_state(
         .execution_envelope
         .as_ref()
         .and_then(|envelope| envelope.completion_invariant.as_ref());
-    let has_swarm_execution = matches!(
+    let has_work_graph_execution = matches!(
         execution_strategy,
-        ChatExecutionStrategy::MicroSwarm | ChatExecutionStrategy::AdaptiveWorkGraph
+        ChatExecutionStrategy::MicroWorkGraph | ChatExecutionStrategy::AdaptiveWorkGraph
     ) || materialization
-        .swarm_execution
+        .work_graph_execution
         .as_ref()
         .map(|summary| summary.enabled)
         .unwrap_or(false);
     let show_execution_step = request.renderer == ChatRendererKind::WorkspaceSurface
         || build_session.is_some()
-        || has_swarm_execution
+        || has_work_graph_execution
         || materialization
             .execution_envelope
             .as_ref()
@@ -617,11 +617,11 @@ pub(super) fn pipeline_steps_for_state(
     let candidate_count = materialization.candidate_summaries.len();
     let repair_passes = repair_pass_count(materialization);
     let obligation_counts = validation_obligation_counts(materialization);
-    let show_repair_step = has_swarm_execution
+    let show_repair_step = has_work_graph_execution
         || repair_passes > 0
         || materialization.failure.is_some()
         || manifest.verification.failure.is_some();
-    let swarm_receipt_count = materialization.swarm_worker_receipts.len();
+    let work_graph_receipt_count = materialization.work_graph_worker_receipts.len();
     let winner_summary = materialization.winning_candidate_id.as_ref().map(|winner| {
         if let Some(rationale) = materialization.winning_candidate_rationale.as_ref() {
             format!(
@@ -634,10 +634,10 @@ pub(super) fn pipeline_steps_for_state(
         }
     });
     let mut materialization_outputs = Vec::new();
-    if has_swarm_execution {
-        if let Some(summary) = materialization.swarm_execution.as_ref() {
+    if has_work_graph_execution {
+        if let Some(summary) = materialization.work_graph_execution.as_ref() {
             materialization_outputs.push(format!(
-                "swarm:{}/{}",
+                "work_graph:{}/{}",
                 summary.completed_work_items, summary.total_work_items
             ));
             materialization_outputs.push(format!("adapter:{}", summary.adapter_label));
@@ -679,9 +679,9 @@ pub(super) fn pipeline_steps_for_state(
                 .collect()
         }
     } else {
-        let mut outputs = if has_swarm_execution {
+        let mut outputs = if has_work_graph_execution {
             materialization
-                .swarm_worker_receipts
+                .work_graph_worker_receipts
                 .iter()
                 .take(4)
                 .map(|receipt| {
@@ -750,10 +750,10 @@ pub(super) fn pipeline_steps_for_state(
             verification_outputs.push(format!("repair_hints:{}", validation.repair_hints.len()));
         }
     }
-    if has_swarm_execution {
+    if has_work_graph_execution {
         verification_outputs.extend(
             materialization
-                .swarm_verification_receipts
+                .work_graph_verification_receipts
                 .iter()
                 .map(|receipt| format!("{} ({})", receipt.kind, receipt.status)),
         );
@@ -1044,7 +1044,7 @@ pub(super) fn pipeline_steps_for_state(
             None,
         ));
     }
-    if has_swarm_execution {
+    if has_work_graph_execution {
         steps.push(pipeline_step_for_phase(
             "planner",
             "Planner",
@@ -1054,7 +1054,7 @@ pub(super) fn pipeline_steps_for_state(
             preview_ready,
             "Chat locked one canonical artifact plan and explicit worker scopes before authoring.",
             materialization
-                .swarm_plan
+                .work_graph_plan
                 .as_ref()
                 .map(|plan| {
                     let mut outputs = vec![
@@ -1071,9 +1071,9 @@ pub(super) fn pipeline_steps_for_state(
             None,
         ));
         steps.push(pipeline_step_for_phase(
-            "swarm_execution",
-            if execution_strategy == ChatExecutionStrategy::MicroSwarm {
-                "Micro swarm"
+            "work_graph_execution",
+            if execution_strategy == ChatExecutionStrategy::MicroWorkGraph {
+                "Micro work graph"
             } else {
                 "Adaptive work graph"
             },
@@ -1083,8 +1083,8 @@ pub(super) fn pipeline_steps_for_state(
             preview_ready,
             "Scoped workers patched the same canonical artifact instead of drafting competing full candidates.",
             {
-                let mut outputs = vec![format!("worker_receipts:{swarm_receipt_count}")];
-                if let Some(summary) = materialization.swarm_execution.as_ref() {
+                let mut outputs = vec![format!("worker_receipts:{work_graph_receipt_count}")];
+                if let Some(summary) = materialization.work_graph_execution.as_ref() {
                     outputs.push(format!(
                         "progress:{}/{}",
                         summary.completed_work_items, summary.total_work_items
@@ -1141,7 +1141,7 @@ pub(super) fn pipeline_steps_for_state(
             preview_ready,
             "Deterministic patch gating and merge receipts reconciled worker output onto one artifact state.",
             materialization
-                .swarm_merge_receipts
+                .work_graph_merge_receipts
                 .iter()
                 .take(4)
                 .map(|receipt| {
@@ -1237,16 +1237,16 @@ pub(super) fn pipeline_steps_for_state(
             lifecycle_state,
             has_files,
             preview_ready,
-            if has_swarm_execution {
+            if has_work_graph_execution {
                 "Repair stays bounded to cited validation or verification failures on the merged artifact."
                     .to_string()
             } else {
                 "Repair tracks bounded follow-up passes when verification cites contradictions."
                     .to_string()
             },
-            if has_swarm_execution {
+            if has_work_graph_execution {
                 let mut outputs = materialization
-                    .swarm_change_receipts
+                    .work_graph_change_receipts
                     .iter()
                     .filter(|receipt| {
                         receipt.work_item_id == "repair"

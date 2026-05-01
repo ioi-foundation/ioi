@@ -2,8 +2,6 @@
 import React, { useState } from 'react';
 
 export default function WalletModal({ isOpen, onClose, onConnect }) {
-  if (!isOpen) return null;
-
   const [connecting, setConnecting] = useState(null);
 
   const handleConnect = (walletType) => {
@@ -15,6 +13,8 @@ export default function WalletModal({ isOpen, onClose, onConnect }) {
       setConnecting(null);
     }, 1500);
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">

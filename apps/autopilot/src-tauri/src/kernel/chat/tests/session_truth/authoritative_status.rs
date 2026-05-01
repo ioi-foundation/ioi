@@ -622,13 +622,13 @@ fn current_task_turn_surfaces_inline_answer_routes_as_shared_execution_sessions(
         chat_session.outcome_request.outcome_kind,
         ChatOutcomeKind::Conversation
     );
-    assert!(chat_session.materialization.swarm_execution.is_some());
+    assert!(chat_session.materialization.work_graph_execution.is_some());
     assert_eq!(
         chat_session
             .materialization
-            .swarm_execution
+            .work_graph_execution
             .as_ref()
-            .expect("swarm execution")
+            .expect("work graph execution")
             .execution_domain,
         "chat_conversation"
     );

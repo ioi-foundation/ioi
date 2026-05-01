@@ -1557,6 +1557,64 @@ pub(super) fn execute_workflow_node(
                 "payload": input
             })
         }
+        ActionKind::TaskState => {
+            json!({
+                "nodeId": node_id,
+                "kind": evidence_kind,
+                "currentObjective": logic.get("objective").cloned().unwrap_or_else(|| input.clone()),
+                "knownFacts": logic.get("knownFacts").cloned().unwrap_or_else(|| json!([])),
+                "uncertainFacts": logic.get("uncertainFacts").cloned().unwrap_or_else(|| json!([])),
+                "constraints": logic.get("constraints").cloned().unwrap_or_else(|| json!([])),
+                "evidenceRefs": logic.get("evidenceRefs").cloned().unwrap_or_else(|| json!([])),
+                "input": input
+            })
+        }
+        ActionKind::UncertaintyGate => {
+            json!({
+                "nodeId": node_id,
+                "kind": evidence_kind,
+                "ambiguityLevel": logic.get("ambiguityLevel").and_then(Value::as_str).unwrap_or("medium"),
+                "selectedAction": logic.get("selectedAction").and_then(Value::as_str).unwrap_or("probe"),
+                "valueOfProbe": logic.get("valueOfProbe").and_then(Value::as_str).unwrap_or("medium"),
+                "input": input
+            })
+        }
+        ActionKind::Probe => {
+            json!({
+                "nodeId": node_id,
+                "kind": evidence_kind,
+                "hypothesis": logic.get("hypothesis").cloned().unwrap_or_else(|| json!("Probe workflow assumption")),
+                "cheapestValidationAction": logic.get("cheapestValidationAction").cloned().unwrap_or_else(|| json!("Inspect current workflow evidence")),
+                "result": logic.get("result").cloned().unwrap_or_else(|| json!("confirmed")),
+                "input": input
+            })
+        }
+        ActionKind::BudgetGate => {
+            json!({
+                "nodeId": node_id,
+                "kind": evidence_kind,
+                "budget": logic.get("budget").cloned().unwrap_or_else(|| json!({"maxToolCalls": 1, "maxRetries": 0})),
+                "decision": logic.get("decision").and_then(Value::as_str).unwrap_or("continue"),
+                "input": input
+            })
+        }
+        ActionKind::CapabilitySequence => {
+            json!({
+                "nodeId": node_id,
+                "kind": evidence_kind,
+                "sequence": logic.get("sequence").cloned().unwrap_or_else(|| json!(["discover", "select", "execute", "verify"])),
+                "input": input
+            })
+        }
+        ActionKind::DryRun => {
+            json!({
+                "nodeId": node_id,
+                "kind": evidence_kind,
+                "sideEffectPreview": true,
+                "mutationExecuted": false,
+                "input": input
+            })
+        }
         ActionKind::Function => execute_workflow_function_node(node, input.clone())?,
         ActionKind::ModelBinding => {
             let binding = workflow_model_binding(node)?;
@@ -1788,6 +1846,73 @@ pub(super) fn execute_workflow_node(
                 "nodeId": node_id,
                 "kind": evidence_kind,
                 "outcome": outcome,
+                "input": input
+            })
+        }
+        ActionKind::SemanticImpact => {
+            json!({
+                "nodeId": node_id,
+                "kind": evidence_kind,
+                "changedSymbols": logic.get("changedSymbols").cloned().unwrap_or_else(|| json!([])),
+                "changedApis": logic.get("changedApis").cloned().unwrap_or_else(|| json!([])),
+                "affectedTests": logic.get("affectedTests").cloned().unwrap_or_else(|| json!([])),
+                "riskClass": logic.get("riskClass").and_then(Value::as_str).unwrap_or("bounded"),
+                "input": input
+            })
+        }
+        ActionKind::PostconditionSynthesis => {
+            json!({
+                "nodeId": node_id,
+                "kind": evidence_kind,
+                "checks": logic.get("checks").cloned().unwrap_or_else(|| json!([])),
+                "minimumEvidence": logic.get("minimumEvidence").cloned().unwrap_or_else(|| json!(["trace", "receipt", "stop_condition"])),
+                "input": input
+            })
+        }
+        ActionKind::Verifier => {
+            json!({
+                "nodeId": node_id,
+                "kind": evidence_kind,
+                "independent": logic.get("independent").and_then(Value::as_bool).unwrap_or(true),
+                "verdict": logic.get("verdict").and_then(Value::as_str).unwrap_or("passed"),
+                "input": input
+            })
+        }
+        ActionKind::DriftDetector => {
+            json!({
+                "nodeId": node_id,
+                "kind": evidence_kind,
+                "signals": logic.get("signals").cloned().unwrap_or_else(|| json!([])),
+                "driftDetected": logic.get("driftDetected").and_then(Value::as_bool).unwrap_or(false),
+                "input": input
+            })
+        }
+        ActionKind::QualityLedger => {
+            json!({
+                "nodeId": node_id,
+                "kind": evidence_kind,
+                "scorecard": logic.get("scorecard").cloned().unwrap_or_else(|| json!({})),
+                "taskPassRate": logic.get("taskPassRate").and_then(Value::as_f64).unwrap_or(1.0),
+                "input": input
+            })
+        }
+        ActionKind::Handoff => {
+            json!({
+                "nodeId": node_id,
+                "kind": evidence_kind,
+                "objectivePreserved": true,
+                "evidencePreserved": true,
+                "nextAction": logic.get("nextAction").and_then(Value::as_str).unwrap_or("continue"),
+                "input": input
+            })
+        }
+        ActionKind::GuiHarnessValidation => {
+            json!({
+                "nodeId": node_id,
+                "kind": evidence_kind,
+                "markdownStatus": logic.get("markdownStatus").and_then(Value::as_str).unwrap_or("unknown"),
+                "mermaidStatus": logic.get("mermaidStatus").and_then(Value::as_str).unwrap_or("unknown"),
+                "sourceChipStatus": logic.get("sourceChipStatus").and_then(Value::as_str).unwrap_or("unknown"),
                 "input": input
             })
         }

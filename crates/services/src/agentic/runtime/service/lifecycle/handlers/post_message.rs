@@ -6,7 +6,7 @@ use super::super::sudo::{
 use super::reset_for_new_user_goal;
 use crate::agentic::runtime::keys::{get_incident_key, get_remediation_key, get_state_key};
 use crate::agentic::runtime::runtime_secret;
-use crate::agentic::runtime::service::step::incident::mark_incident_retry_root;
+use crate::agentic::runtime::service::recovery::incident::mark_incident_retry_root;
 use crate::agentic::runtime::service::RuntimeAgentService;
 use crate::agentic::runtime::types::PostMessageParams;
 use crate::agentic::runtime::utils::{persist_agent_state, timestamp_ms_now};

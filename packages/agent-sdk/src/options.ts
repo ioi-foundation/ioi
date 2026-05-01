@@ -36,9 +36,24 @@ export interface CloudAgentOptions {
   endpoint?: string;
 }
 
+export interface HostedWorkerProvider {
+  endpoint?: string;
+  providerId?: string;
+  authEnv?: string;
+  runtimeManifestUrl?: string;
+}
+
 export interface SelfHostedWorkerOptions {
   endpoint?: string;
   workerId?: string;
+  manifestPath?: string;
+}
+
+export interface SelfHostedWorkerProvider {
+  endpoint?: string;
+  workerId?: string;
+  healthPath?: string;
+  authEnv?: string;
 }
 
 export interface McpServerConfig {
@@ -67,7 +82,7 @@ export interface AgentOptions {
   model?: ModelSelection;
   local?: LocalAgentOptions;
   cloud?: CloudAgentOptions;
-  hosted?: CloudAgentOptions;
+  hosted?: CloudAgentOptions & { provider?: HostedWorkerProvider };
   selfHosted?: SelfHostedWorkerOptions;
   mcpServers?: Record<string, McpServerConfig>;
   agents?: Record<string, SubagentDefinition>;

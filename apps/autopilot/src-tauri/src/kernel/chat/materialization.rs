@@ -84,7 +84,7 @@ fn execution_strategy_id(strategy: ChatExecutionStrategy) -> &'static str {
         ChatExecutionStrategy::SinglePass => "single_pass",
         ChatExecutionStrategy::DirectAuthor => "direct_author",
         ChatExecutionStrategy::PlanExecute => "plan_execute",
-        ChatExecutionStrategy::MicroSwarm => "micro_swarm",
+        ChatExecutionStrategy::MicroWorkGraph => "micro_work_graph",
         ChatExecutionStrategy::AdaptiveWorkGraph => "adaptive_work_graph",
     }
 }
@@ -783,12 +783,14 @@ pub(super) fn materialize_chat_artifact_with_dependencies_and_timeout_and_execut
                             retrieved_exemplars: prepared_context.retrieved_exemplars.clone(),
                             retrieved_sources: prepared_context.retrieved_sources.clone(),
                             execution_envelope: bundle.execution_envelope.clone(),
-                            swarm_plan: bundle.swarm_plan.clone(),
-                            swarm_execution: bundle.swarm_execution.clone(),
-                            swarm_worker_receipts: bundle.swarm_worker_receipts.clone(),
-                            swarm_change_receipts: bundle.swarm_change_receipts.clone(),
-                            swarm_merge_receipts: bundle.swarm_merge_receipts.clone(),
-                            swarm_verification_receipts: bundle.swarm_verification_receipts.clone(),
+                            work_graph_plan: bundle.work_graph_plan.clone(),
+                            work_graph_execution: bundle.work_graph_execution.clone(),
+                            work_graph_worker_receipts: bundle.work_graph_worker_receipts.clone(),
+                            work_graph_change_receipts: bundle.work_graph_change_receipts.clone(),
+                            work_graph_merge_receipts: bundle.work_graph_merge_receipts.clone(),
+                            work_graph_verification_receipts: bundle
+                                .work_graph_verification_receipts
+                                .clone(),
                             render_evaluation: bundle.render_evaluation.clone(),
                             validation: Some(bundle.validation.clone()),
                             operator_steps: vec![present_artifact_complete_step()],
@@ -799,7 +801,7 @@ pub(super) fn materialize_chat_artifact_with_dependencies_and_timeout_and_execut
                         bundle
                             .winning_candidate_id
                             .clone()
-                            .unwrap_or_else(|| "swarm-merged".to_string()),
+                            .unwrap_or_else(|| "work-graph-merged".to_string()),
                         bundle.ux_lifecycle,
                         bundle.degraded_path_used
                     ));
@@ -877,27 +879,29 @@ pub(super) fn materialize_chat_artifact_with_dependencies_and_timeout_and_execut
                                 retrieved_exemplars: prepared_context.retrieved_exemplars.clone(),
                                 retrieved_sources: prepared_context.retrieved_sources.clone(),
                                 execution_envelope: terminalized_execution_envelope,
-                                swarm_plan: last_progress
+                                work_graph_plan: last_progress
                                     .as_ref()
-                                    .and_then(|progress| progress.swarm_plan.clone()),
-                                swarm_execution: last_progress
+                                    .and_then(|progress| progress.work_graph_plan.clone()),
+                                work_graph_execution: last_progress
                                     .as_ref()
-                                    .and_then(|progress| progress.swarm_execution.clone()),
-                                swarm_worker_receipts: last_progress
+                                    .and_then(|progress| progress.work_graph_execution.clone()),
+                                work_graph_worker_receipts: last_progress
                                     .as_ref()
-                                    .map(|progress| progress.swarm_worker_receipts.clone())
+                                    .map(|progress| progress.work_graph_worker_receipts.clone())
                                     .unwrap_or_default(),
-                                swarm_change_receipts: last_progress
+                                work_graph_change_receipts: last_progress
                                     .as_ref()
-                                    .map(|progress| progress.swarm_change_receipts.clone())
+                                    .map(|progress| progress.work_graph_change_receipts.clone())
                                     .unwrap_or_default(),
-                                swarm_merge_receipts: last_progress
+                                work_graph_merge_receipts: last_progress
                                     .as_ref()
-                                    .map(|progress| progress.swarm_merge_receipts.clone())
+                                    .map(|progress| progress.work_graph_merge_receipts.clone())
                                     .unwrap_or_default(),
-                                swarm_verification_receipts: last_progress
+                                work_graph_verification_receipts: last_progress
                                     .as_ref()
-                                    .map(|progress| progress.swarm_verification_receipts.clone())
+                                    .map(|progress| {
+                                        progress.work_graph_verification_receipts.clone()
+                                    })
                                     .unwrap_or_default(),
                                 render_evaluation: last_progress
                                     .as_ref()
@@ -1046,27 +1050,29 @@ pub(super) fn materialize_chat_artifact_with_dependencies_and_timeout_and_execut
                                 retrieved_exemplars: prepared_context.retrieved_exemplars.clone(),
                                 retrieved_sources: prepared_context.retrieved_sources.clone(),
                                 execution_envelope: terminalized_execution_envelope,
-                                swarm_plan: last_progress
+                                work_graph_plan: last_progress
                                     .as_ref()
-                                    .and_then(|progress| progress.swarm_plan.clone()),
-                                swarm_execution: last_progress
+                                    .and_then(|progress| progress.work_graph_plan.clone()),
+                                work_graph_execution: last_progress
                                     .as_ref()
-                                    .and_then(|progress| progress.swarm_execution.clone()),
-                                swarm_worker_receipts: last_progress
+                                    .and_then(|progress| progress.work_graph_execution.clone()),
+                                work_graph_worker_receipts: last_progress
                                     .as_ref()
-                                    .map(|progress| progress.swarm_worker_receipts.clone())
+                                    .map(|progress| progress.work_graph_worker_receipts.clone())
                                     .unwrap_or_default(),
-                                swarm_change_receipts: last_progress
+                                work_graph_change_receipts: last_progress
                                     .as_ref()
-                                    .map(|progress| progress.swarm_change_receipts.clone())
+                                    .map(|progress| progress.work_graph_change_receipts.clone())
                                     .unwrap_or_default(),
-                                swarm_merge_receipts: last_progress
+                                work_graph_merge_receipts: last_progress
                                     .as_ref()
-                                    .map(|progress| progress.swarm_merge_receipts.clone())
+                                    .map(|progress| progress.work_graph_merge_receipts.clone())
                                     .unwrap_or_default(),
-                                swarm_verification_receipts: last_progress
+                                work_graph_verification_receipts: last_progress
                                     .as_ref()
-                                    .map(|progress| progress.swarm_verification_receipts.clone())
+                                    .map(|progress| {
+                                        progress.work_graph_verification_receipts.clone()
+                                    })
                                     .unwrap_or_default(),
                                 render_evaluation: last_progress
                                     .as_ref()
@@ -1292,12 +1298,12 @@ pub(super) fn materialize_chat_artifact_with_dependencies_and_timeout_and_execut
             prepared_context.retrieved_sources.len()
         ));
     }
-    if let Some(swarm_execution) = bundle.swarm_execution.as_ref() {
+    if let Some(work_graph_execution) = bundle.work_graph_execution.as_ref() {
         notes.push(format!(
-            "Swarm execution completed {}/{} work item(s) via {}.",
-            swarm_execution.completed_work_items,
-            swarm_execution.total_work_items,
-            swarm_execution.adapter_label
+            "Work graph execution completed {}/{} work item(s) via {}.",
+            work_graph_execution.completed_work_items,
+            work_graph_execution.total_work_items,
+            work_graph_execution.adapter_label
         ));
     } else if let Some(winner_id) = bundle.winning_candidate_id.as_ref() {
         notes.push(format!(
@@ -1326,12 +1332,12 @@ pub(super) fn materialize_chat_artifact_with_dependencies_and_timeout_and_execut
         winning_candidate_id: bundle.winning_candidate_id,
         winning_candidate_rationale: bundle.winning_candidate_rationale,
         execution_envelope: bundle.execution_envelope,
-        swarm_plan: bundle.swarm_plan,
-        swarm_execution: bundle.swarm_execution,
-        swarm_worker_receipts: bundle.swarm_worker_receipts,
-        swarm_change_receipts: bundle.swarm_change_receipts,
-        swarm_merge_receipts: bundle.swarm_merge_receipts,
-        swarm_verification_receipts: bundle.swarm_verification_receipts,
+        work_graph_plan: bundle.work_graph_plan,
+        work_graph_execution: bundle.work_graph_execution,
+        work_graph_worker_receipts: bundle.work_graph_worker_receipts,
+        work_graph_change_receipts: bundle.work_graph_change_receipts,
+        work_graph_merge_receipts: bundle.work_graph_merge_receipts,
+        work_graph_verification_receipts: bundle.work_graph_verification_receipts,
         render_evaluation: bundle.render_evaluation,
         validation: Some(bundle.validation),
         output_origin,
@@ -1533,12 +1539,12 @@ pub(super) fn blocked_materialized_artifact_from_error(
         winning_candidate_id: None,
         winning_candidate_rationale: None,
         execution_envelope,
-        swarm_plan: None,
-        swarm_execution: None,
-        swarm_worker_receipts: Vec::new(),
-        swarm_change_receipts: Vec::new(),
-        swarm_merge_receipts: Vec::new(),
-        swarm_verification_receipts: Vec::new(),
+        work_graph_plan: None,
+        work_graph_execution: None,
+        work_graph_worker_receipts: Vec::new(),
+        work_graph_change_receipts: Vec::new(),
+        work_graph_merge_receipts: Vec::new(),
+        work_graph_verification_receipts: Vec::new(),
         render_evaluation,
         validation: Some(validation),
         output_origin: output_origin_from_runtime_provenance(&production_provenance),

@@ -1,6 +1,6 @@
 // apps/autopilot/src-tauri/src/project.rs
 
-use crate::agent_runtime_substrate::{
+use crate::runtime_projection::{
     completion_requirement_kinds, validate_action_edge, validate_workflow_connection_class,
     ActionBindingRef, ActionFrame, ActionKind, ActionPolicy, ActionSurface,
 };

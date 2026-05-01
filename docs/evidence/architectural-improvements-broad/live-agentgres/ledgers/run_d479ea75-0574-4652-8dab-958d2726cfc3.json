@@ -1,0 +1,26 @@
+{
+  "ledgerId": "quality_run_d479ea75-0574-4652-8dab-958d2726cfc3",
+  "taskFamily": "local_daemon_agentgres",
+  "selectedStrategy": "local_daemon_agentgres_execution",
+  "toolSequence": [
+    "authority_check",
+    "policy_check",
+    "task_state_write",
+    "agentgres_operation_log",
+    "trace_export",
+    "canonical_replay",
+    "mcp_containment"
+  ],
+  "scorecardMetrics": {
+    "task_pass_rate": 100,
+    "recovery_success": 100,
+    "memory_relevance": 92,
+    "tool_quality": 96,
+    "strategy_roi": 93,
+    "operator_interventions": 0,
+    "verifier_independence": 100
+  },
+  "failureOntologyLabels": [
+    "operator_cancel"
+  ]
+}

@@ -1,7 +1,7 @@
 use crate::agentic::rules::ActionRules;
 use crate::agentic::runtime::kernel::approval::{ApprovalScopeContext, AuthorityScopeMatcher};
 use crate::agentic::runtime::keys::{get_approval_authority_key, get_approval_grant_key, pii};
-use crate::agentic::runtime::service::step::incident::mark_gate_approved;
+use crate::agentic::runtime::service::recovery::incident::mark_gate_approved;
 use crate::agentic::runtime::service::RuntimeAgentService;
 use crate::agentic::runtime::types::AgentState;
 use ioi_api::crypto::{SerializableKey, VerifyingKey};

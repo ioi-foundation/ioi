@@ -13,7 +13,7 @@ import type {
   WorkflowTestRunResult,
   WorkflowValidationResult,
 } from "../types/graph";
-import { connectionClassForPorts } from "./agent-execution-substrate";
+import { connectionClassForPorts } from "./runtime-projection-adapter";
 import { slugify } from "./workflow-defaults";
 import type { WorkflowNodeDefinition } from "./workflow-node-registry";
 import { workflowConfiguredFieldNames } from "./workflow-value-preview";
@@ -49,7 +49,10 @@ export function workflowNodeCreatorBadge(
   return { label: "Ready", status: "ready" };
 }
 
-export function createLocalProposal(
+// These helpers create UI-side projections when no runtime adapter is attached.
+// They are intentionally non-canonical; daemon/Agentgres-backed substrate APIs
+// own durable run, proposal, task, receipt, and quality state.
+export function createSubstrateProjectionProposal(
   request: CreateWorkflowProposalRequest,
 ): WorkflowProposal {
   const createdAtMs = Date.now();
@@ -79,7 +82,7 @@ export function createLocalProposal(
   };
 }
 
-export function createLocalRunSummary(
+export function createSubstrateProjectionRunSummary(
   workflow: WorkflowProject,
   validation: WorkflowValidationResult,
 ): WorkflowRunSummary {
@@ -89,10 +92,10 @@ export function createLocalRunSummary(
     status: validation.status === "passed" ? "passed" : validation.status,
     startedAtMs,
     finishedAtMs: Date.now(),
-    nodeCount: workflow.nodes.length,
-    summary:
-      validation.status === "passed"
-        ? "Workflow validation passed and local run path completed."
+      nodeCount: workflow.nodes.length,
+      summary:
+        validation.status === "passed"
+        ? "Workflow validation passed and a non-canonical substrate projection was recorded."
         : `Workflow blocked by ${validation.errors.length + validation.warnings.length} validation issue(s).`,
   };
 }
@@ -236,7 +239,7 @@ export function toWorkflowProject(
   };
 }
 
-export function createLocalTestResult(
+export function createSubstrateProjectionTestResult(
   tests: WorkflowTestCase[],
   nodes: any[],
   selectedIds?: string[],

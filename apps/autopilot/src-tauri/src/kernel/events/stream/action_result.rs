@@ -181,7 +181,11 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
         t.current_step = format!("Executed {}: {}", res.tool_name, res.output);
         bind_task_session(t, &res.session_id);
 
-        if let Some(agent) = t.swarm_tree.iter_mut().find(|a| a.id == res.session_id) {
+        if let Some(agent) = t
+            .work_graph_tree
+            .iter_mut()
+            .find(|a| a.id == res.session_id)
+        {
             agent.artifacts_produced += 1;
         }
 
@@ -325,7 +329,11 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
                 t.credential_request = None;
                 t.clarification_request = None;
 
-                if let Some(agent) = t.swarm_tree.iter_mut().find(|a| a.id == res.session_id) {
+                if let Some(agent) = t
+                    .work_graph_tree
+                    .iter_mut()
+                    .find(|a| a.id == res.session_id)
+                {
                     agent.status = "completed".to_string();
                 }
 
@@ -375,7 +383,11 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
                         None
                     };
 
-                if let Some(agent) = t.swarm_tree.iter_mut().find(|a| a.id == res.session_id) {
+                if let Some(agent) = t
+                    .work_graph_tree
+                    .iter_mut()
+                    .find(|a| a.id == res.session_id)
+                {
                     agent.status = "failed".to_string();
                 }
 
@@ -405,7 +417,11 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
                 }
             }
             "Paused" => {
-                if let Some(agent) = t.swarm_tree.iter_mut().find(|a| a.id == res.session_id) {
+                if let Some(agent) = t
+                    .work_graph_tree
+                    .iter_mut()
+                    .find(|a| a.id == res.session_id)
+                {
                     agent.status = "paused".to_string();
                 }
             }

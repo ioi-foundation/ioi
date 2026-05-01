@@ -1,0 +1,334 @@
+// Path: crates/services/src/agentic/runtime/service/decision_loop/ontology.rs
+
+use super::signals::{infer_intent_surface, IntentSurface};
+use crate::agentic::runtime::service::recovery::anti_loop::FailureClass;
+use ioi_types::app::agentic::{IntentScopeProfile, ResolvedIntentState};
+use parity_scale_codec::{Decode, Encode};
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub enum IntentClass {
+    OpenApp,
+    InstallDependency,
+    BrowserTask,
+    FileTask,
+    UIInteraction,
+    CommandTask,
+    DelegationTask,
+    ConversationTask,
+    Unknown,
+}
+
+impl IntentClass {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            IntentClass::OpenApp => "OpenApp",
+            IntentClass::InstallDependency => "InstallDependency",
+            IntentClass::BrowserTask => "BrowserTask",
+            IntentClass::FileTask => "FileTask",
+            IntentClass::UIInteraction => "UIInteraction",
+            IntentClass::CommandTask => "CommandTask",
+            IntentClass::DelegationTask => "DelegationTask",
+            IntentClass::ConversationTask => "ConversationTask",
+            IntentClass::Unknown => "Unknown",
+        }
+    }
+
+    pub fn from_str(value: &str) -> Self {
+        match value {
+            "OpenApp" => IntentClass::OpenApp,
+            "InstallDependency" => IntentClass::InstallDependency,
+            "BrowserTask" => IntentClass::BrowserTask,
+            "FileTask" => IntentClass::FileTask,
+            "UIInteraction" => IntentClass::UIInteraction,
+            "CommandTask" => IntentClass::CommandTask,
+            "DelegationTask" => IntentClass::DelegationTask,
+            "ConversationTask" => IntentClass::ConversationTask,
+            _ => IntentClass::Unknown,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub enum IncidentStage {
+    New,
+    Diagnose,
+    Plan,
+    AwaitApproval,
+    ExecuteRemedy,
+    RetryRoot,
+    Resolved,
+    Exhausted,
+    PausedForUser,
+}
+
+impl IncidentStage {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            IncidentStage::New => "New",
+            IncidentStage::Diagnose => "Diagnose",
+            IncidentStage::Plan => "Plan",
+            IncidentStage::AwaitApproval => "AwaitApproval",
+            IncidentStage::ExecuteRemedy => "ExecuteRemedy",
+            IncidentStage::RetryRoot => "RetryRoot",
+            IncidentStage::Resolved => "Resolved",
+            IncidentStage::Exhausted => "Exhausted",
+            IncidentStage::PausedForUser => "PausedForUser",
+        }
+    }
+
+    pub fn from_str(value: &str) -> Self {
+        match value {
+            "New" => IncidentStage::New,
+            "Diagnose" => IncidentStage::Diagnose,
+            "Plan" => IncidentStage::Plan,
+            "AwaitApproval" => IncidentStage::AwaitApproval,
+            "ExecuteRemedy" => IncidentStage::ExecuteRemedy,
+            "RetryRoot" => IncidentStage::RetryRoot,
+            "Resolved" => IncidentStage::Resolved,
+            "Exhausted" => IncidentStage::Exhausted,
+            "PausedForUser" => IncidentStage::PausedForUser,
+            _ => IncidentStage::New,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub enum StrategyName {
+    OpenAppRecovery,
+    InstallRecovery,
+    BrowserRecovery,
+    FileRecovery,
+    UIRecovery,
+    CommandRecovery,
+    DelegationRecovery,
+    ConversationRecovery,
+    GenericRecovery,
+}
+
+impl StrategyName {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            StrategyName::OpenAppRecovery => "OpenAppRecovery",
+            StrategyName::InstallRecovery => "InstallRecovery",
+            StrategyName::BrowserRecovery => "BrowserRecovery",
+            StrategyName::FileRecovery => "FileRecovery",
+            StrategyName::UIRecovery => "UIRecovery",
+            StrategyName::CommandRecovery => "CommandRecovery",
+            StrategyName::DelegationRecovery => "DelegationRecovery",
+            StrategyName::ConversationRecovery => "ConversationRecovery",
+            StrategyName::GenericRecovery => "GenericRecovery",
+        }
+    }
+
+    pub fn from_str(value: &str) -> Self {
+        match value {
+            "OpenAppRecovery" => StrategyName::OpenAppRecovery,
+            "InstallRecovery" => StrategyName::InstallRecovery,
+            "BrowserRecovery" => StrategyName::BrowserRecovery,
+            "FileRecovery" => StrategyName::FileRecovery,
+            "UIRecovery" => StrategyName::UIRecovery,
+            "CommandRecovery" => StrategyName::CommandRecovery,
+            "DelegationRecovery" => StrategyName::DelegationRecovery,
+            "ConversationRecovery" => StrategyName::ConversationRecovery,
+            _ => StrategyName::GenericRecovery,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub enum StrategyNode {
+    DiagnoseFailure,
+    DiscoverRemedy,
+    InstallDependency,
+    RefreshContext,
+    RetryRootAction,
+    VerifyOutcome,
+    PauseForUser,
+    Complete,
+    Exhausted,
+}
+
+impl StrategyNode {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            StrategyNode::DiagnoseFailure => "DiagnoseFailure",
+            StrategyNode::DiscoverRemedy => "DiscoverRemedy",
+            StrategyNode::InstallDependency => "InstallDependency",
+            StrategyNode::RefreshContext => "RefreshContext",
+            StrategyNode::RetryRootAction => "RetryRootAction",
+            StrategyNode::VerifyOutcome => "VerifyOutcome",
+            StrategyNode::PauseForUser => "PauseForUser",
+            StrategyNode::Complete => "Complete",
+            StrategyNode::Exhausted => "Exhausted",
+        }
+    }
+
+    pub fn from_str(value: &str) -> Self {
+        match value {
+            "DiagnoseFailure" => StrategyNode::DiagnoseFailure,
+            "DiscoverRemedy" => StrategyNode::DiscoverRemedy,
+            "InstallDependency" => StrategyNode::InstallDependency,
+            "RefreshContext" => StrategyNode::RefreshContext,
+            "RetryRootAction" => StrategyNode::RetryRootAction,
+            "VerifyOutcome" => StrategyNode::VerifyOutcome,
+            "PauseForUser" => StrategyNode::PauseForUser,
+            "Complete" => StrategyNode::Complete,
+            "Exhausted" => StrategyNode::Exhausted,
+            _ => StrategyNode::DiagnoseFailure,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub enum GateState {
+    None,
+    Pending,
+    Approved,
+    Denied,
+    Cleared,
+}
+
+impl GateState {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            GateState::None => "None",
+            GateState::Pending => "Pending",
+            GateState::Approved => "Approved",
+            GateState::Denied => "Denied",
+            GateState::Cleared => "Cleared",
+        }
+    }
+
+    pub fn from_str(value: &str) -> Self {
+        match value {
+            "Pending" => GateState::Pending,
+            "Approved" => GateState::Approved,
+            "Denied" => GateState::Denied,
+            "Cleared" => GateState::Cleared,
+            _ => GateState::None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub enum ResolutionAction {
+    None,
+    WaitForUser,
+    ExecuteRemedy,
+    RetryRoot,
+    Pause,
+    Escalate,
+    MarkResolved,
+    MarkExhausted,
+}
+
+impl ResolutionAction {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ResolutionAction::None => "none",
+            ResolutionAction::WaitForUser => "wait_for_user",
+            ResolutionAction::ExecuteRemedy => "execute_remedy",
+            ResolutionAction::RetryRoot => "retry_root",
+            ResolutionAction::Pause => "pause",
+            ResolutionAction::Escalate => "escalate",
+            ResolutionAction::MarkResolved => "mark_resolved",
+            ResolutionAction::MarkExhausted => "mark_exhausted",
+        }
+    }
+
+    pub fn from_str(value: &str) -> Self {
+        match value {
+            "wait_for_user" => ResolutionAction::WaitForUser,
+            "execute_remedy" => ResolutionAction::ExecuteRemedy,
+            "retry_root" => ResolutionAction::RetryRoot,
+            "pause" => ResolutionAction::Pause,
+            "escalate" => ResolutionAction::Escalate,
+            "mark_resolved" => ResolutionAction::MarkResolved,
+            "mark_exhausted" => ResolutionAction::MarkExhausted,
+            _ => ResolutionAction::None,
+        }
+    }
+}
+
+pub fn classify_intent(goal: &str, root_tool_name: &str, target_hint: Option<&str>) -> IntentClass {
+    match infer_intent_surface(goal, root_tool_name, target_hint) {
+        IntentSurface::Delegation => IntentClass::DelegationTask,
+        IntentSurface::Conversation => IntentClass::ConversationTask,
+        IntentSurface::AppLaunch => IntentClass::OpenApp,
+        IntentSurface::DependencyInstall => IntentClass::InstallDependency,
+        IntentSurface::WebResearch => IntentClass::BrowserTask,
+        IntentSurface::WorkspaceOps => IntentClass::FileTask,
+        IntentSurface::UiInteraction => IntentClass::UIInteraction,
+        IntentSurface::CommandExecution => IntentClass::CommandTask,
+        IntentSurface::Unknown => IntentClass::Unknown,
+    }
+}
+
+pub fn classify_intent_from_resolved(
+    resolved_intent: Option<&ResolvedIntentState>,
+    goal: &str,
+    root_tool_name: &str,
+    target_hint: Option<&str>,
+) -> IntentClass {
+    if let Some(resolved) = resolved_intent {
+        return match resolved.scope {
+            IntentScopeProfile::Conversation => IntentClass::ConversationTask,
+            IntentScopeProfile::WebResearch => IntentClass::BrowserTask,
+            IntentScopeProfile::WorkspaceOps => IntentClass::FileTask,
+            IntentScopeProfile::AppLaunch => IntentClass::OpenApp,
+            IntentScopeProfile::UiInteraction => IntentClass::UIInteraction,
+            IntentScopeProfile::CommandExecution => IntentClass::CommandTask,
+            IntentScopeProfile::Delegation => IntentClass::DelegationTask,
+            IntentScopeProfile::Unknown => IntentClass::Unknown,
+        };
+    }
+    let _ = (goal, root_tool_name, target_hint);
+    IntentClass::Unknown
+}
+
+pub fn default_strategy_for(
+    intent: IntentClass,
+    failure: FailureClass,
+) -> (StrategyName, StrategyNode) {
+    match intent {
+        IntentClass::OpenApp => match failure {
+            FailureClass::ToolUnavailable | FailureClass::MissingDependency => (
+                StrategyName::OpenAppRecovery,
+                StrategyNode::InstallDependency,
+            ),
+            FailureClass::PermissionOrApprovalRequired => {
+                (StrategyName::OpenAppRecovery, StrategyNode::RetryRootAction)
+            }
+            FailureClass::UserInterventionNeeded => {
+                (StrategyName::OpenAppRecovery, StrategyNode::PauseForUser)
+            }
+            _ => (StrategyName::OpenAppRecovery, StrategyNode::DiscoverRemedy),
+        },
+        IntentClass::InstallDependency => {
+            (StrategyName::InstallRecovery, StrategyNode::RetryRootAction)
+        }
+        IntentClass::BrowserTask => match failure {
+            FailureClass::UserInterventionNeeded => {
+                (StrategyName::BrowserRecovery, StrategyNode::PauseForUser)
+            }
+            _ => (StrategyName::BrowserRecovery, StrategyNode::RefreshContext),
+        },
+        IntentClass::FileTask => (StrategyName::FileRecovery, StrategyNode::DiscoverRemedy),
+        IntentClass::UIInteraction => (StrategyName::UIRecovery, StrategyNode::RefreshContext),
+        IntentClass::CommandTask => (StrategyName::CommandRecovery, StrategyNode::DiscoverRemedy),
+        IntentClass::DelegationTask => (
+            StrategyName::DelegationRecovery,
+            StrategyNode::RetryRootAction,
+        ),
+        IntentClass::ConversationTask => (
+            StrategyName::ConversationRecovery,
+            StrategyNode::PauseForUser,
+        ),
+        IntentClass::Unknown => (StrategyName::GenericRecovery, StrategyNode::DiagnoseFailure),
+    }
+}
+
+#[cfg(test)]
+#[path = "ontology/tests.rs"]
+mod tests;

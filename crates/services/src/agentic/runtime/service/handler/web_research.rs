@@ -1,10 +1,7 @@
-use crate::agentic::runtime::service::step::action::{
-    is_search_results_url, search_query_from_url,
-};
-use crate::agentic::runtime::service::step::helpers::{
+use crate::agentic::runtime::service::decision_loop::helpers::{
     is_live_external_research_goal, is_mailbox_connector_goal,
 };
-use crate::agentic::runtime::service::step::queue::web_pipeline::{
+use crate::agentic::runtime::service::queue::web_pipeline::{
     constraint_grounded_search_query_with_contract_and_hints_and_locality_hint,
     explicit_query_scope_hint, local_business_discovery_query_contract,
     local_business_entity_discovery_query_contract, next_pending_web_candidate,
@@ -13,6 +10,9 @@ use crate::agentic::runtime::service::step::queue::web_pipeline::{
     select_web_pipeline_query_contract,
     semantic_retrieval_query_contract_with_contract_and_locality_hint, url_structurally_equivalent,
     web_pipeline_min_sources, WEB_PIPELINE_SEARCH_LIMIT,
+};
+use crate::agentic::runtime::service::tool_execution::{
+    is_search_results_url, search_query_from_url,
 };
 use crate::agentic::runtime::types::PendingSearchCompletion;
 use ioi_types::app::agentic::{AgentTool, IntentScopeProfile, ResolvedIntentState};

@@ -1,0 +1,152 @@
+{
+  "me": {
+    "id": "local-operator",
+    "email": null,
+    "source": "ioi-agent-sdk"
+  },
+  "models": [
+    {
+      "id": "local:auto",
+      "provider": "ioi-local",
+      "cost": "local",
+      "quality": "adaptive"
+    },
+    {
+      "id": "gpt-5.5",
+      "provider": "configured-provider",
+      "cost": "high",
+      "quality": "frontier"
+    },
+    {
+      "id": "gpt-5.4-mini",
+      "provider": "configured-provider",
+      "cost": "low",
+      "quality": "fast"
+    }
+  ],
+  "repositories": [
+    {
+      "url": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/architectural-improvements-broad/sdk-proof-workspace",
+      "source": "local",
+      "status": "available"
+    }
+  ],
+  "account": {
+    "id": "local-operator",
+    "email": null,
+    "authorityLevel": "local",
+    "privacyClass": "local_private",
+    "source": "explicit_mock_runtime_substrate_projection"
+  },
+  "runtimeNodes": [
+    {
+      "id": "local-mock-projection",
+      "kind": "local",
+      "status": "available",
+      "privacyClass": "local_private",
+      "evidenceRefs": [
+        "explicit_mock_runtime_substrate_projection"
+      ]
+    },
+    {
+      "id": "hosted-provider",
+      "kind": "hosted",
+      "status": "blocked",
+      "privacyClass": "hosted",
+      "evidenceRefs": [
+        "IOI_AGENT_SDK_HOSTED_ENDPOINT"
+      ]
+    },
+    {
+      "id": "self-hosted-provider",
+      "kind": "self_hosted",
+      "status": "blocked",
+      "privacyClass": "workspace",
+      "evidenceRefs": [
+        "IOI_AGENT_SDK_SELF_HOSTED_ENDPOINT"
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "stableToolId": "fs.read",
+      "displayName": "Read file",
+      "primitiveCapabilities": [
+        "prim:fs.read"
+      ],
+      "authorityScopeRequirements": [],
+      "effectClass": "local_read",
+      "riskDomain": "filesystem",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "path"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "content"
+        ]
+      },
+      "evidenceRequirements": [
+        "file_read_receipt"
+      ]
+    },
+    {
+      "stableToolId": "sys.exec",
+      "displayName": "Shell command",
+      "primitiveCapabilities": [
+        "prim:sys.exec"
+      ],
+      "authorityScopeRequirements": [
+        "scope:host.controlled_execution"
+      ],
+      "effectClass": "local_command",
+      "riskDomain": "host",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "command"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "exitCode",
+          "stdout",
+          "stderr"
+        ]
+      },
+      "evidenceRequirements": [
+        "shell_receipt",
+        "sandbox_profile"
+      ]
+    },
+    {
+      "stableToolId": "mcp.invoke",
+      "displayName": "MCP tool invocation",
+      "primitiveCapabilities": [
+        "prim:connector.invoke"
+      ],
+      "authorityScopeRequirements": [
+        "scope:mcp.invoke"
+      ],
+      "effectClass": "connector_call",
+      "riskDomain": "connector",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "server",
+          "tool"
+        ]
+      },
+      "outputSchema": {
+        "type": "object"
+      },
+      "evidenceRequirements": [
+        "mcp_containment_receipt"
+      ]
+    }
+  ]
+}

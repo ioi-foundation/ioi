@@ -1,0 +1,9 @@
+{
+  "id": "artifact_run_d479ea75-0574-4652-8dab-958d2726cfc3_agentgres_projection_json",
+  "runId": "run_d479ea75-0574-4652-8dab-958d2726cfc3",
+  "name": "agentgres-projection.json",
+  "mediaType": "application/json",
+  "redaction": "redacted",
+  "receiptId": "receipt_run_d479ea75-0574-4652-8dab-958d2726cfc3_agentgres",
+  "content": "{\n  \"runId\": \"run_d479ea75-0574-4652-8dab-958d2726cfc3\",\n  \"canonicalOwner\": \"Agentgres\",\n  \"source\": \"agentgres_canonical_operation_log\"\n}"
+}

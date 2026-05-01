@@ -17,7 +17,8 @@ pub fn runtime_tool_contract_for_definition(tool: &LlmToolDefinition) -> Runtime
         timeout_default_ms: profile.timeout_default_ms,
         timeout_max_ms: profile.timeout_max_ms,
         cancellation_behavior: profile.cancellation_behavior.to_string(),
-        capability_lease_requirements: profile.capability_lease_requirements,
+        primitive_capabilities: profile.primitive_capabilities.clone(),
+        authority_scope_requirements: profile.authority_scope_requirements.clone(),
         policy_target: profile.policy_target.clone(),
         approval_scope_fields: profile.approval_scope_fields,
         evidence_requirements: profile.evidence_requirements,
@@ -43,7 +44,8 @@ struct ToolContractProfile {
     timeout_default_ms: u64,
     timeout_max_ms: u64,
     cancellation_behavior: &'static str,
-    capability_lease_requirements: Vec<String>,
+    primitive_capabilities: Vec<String>,
+    authority_scope_requirements: Vec<String>,
     policy_target: String,
     approval_scope_fields: Vec<String>,
     evidence_requirements: Vec<String>,
@@ -318,8 +320,9 @@ impl ToolContractProfile {
             ),
         };
         profile.evidence_requirements = canonical_evidence(profile.evidence_requirements);
-        profile.capability_lease_requirements =
-            capability_leases_for(name, &profile.policy_target, profile.effect_class);
+        profile.primitive_capabilities = primitive_capabilities_for(&profile.policy_target);
+        profile.authority_scope_requirements =
+            authority_scopes_for(name, &profile.policy_target, profile.effect_class);
         profile
     }
 
@@ -336,7 +339,8 @@ impl ToolContractProfile {
             timeout_default_ms: 30_000,
             timeout_max_ms: 120_000,
             cancellation_behavior: "immediate",
-            capability_lease_requirements: Vec::new(),
+            primitive_capabilities: Vec::new(),
+            authority_scope_requirements: Vec::new(),
             policy_target: policy_target.into(),
             approval_scope_fields: strings(scope_fields),
             evidence_requirements: strings(&[
@@ -363,7 +367,8 @@ impl ToolContractProfile {
             timeout_default_ms: 30_000,
             timeout_max_ms: 120_000,
             cancellation_behavior: "cooperative",
-            capability_lease_requirements: Vec::new(),
+            primitive_capabilities: Vec::new(),
+            authority_scope_requirements: Vec::new(),
             policy_target: policy_target.into(),
             approval_scope_fields: strings(scope_fields),
             evidence_requirements: strings(evidence),
@@ -386,7 +391,8 @@ impl ToolContractProfile {
             timeout_default_ms: 30_000,
             timeout_max_ms: 180_000,
             cancellation_behavior: "cooperative",
-            capability_lease_requirements: Vec::new(),
+            primitive_capabilities: Vec::new(),
+            authority_scope_requirements: Vec::new(),
             policy_target: policy_target.into(),
             approval_scope_fields: strings(scope_fields),
             evidence_requirements: strings(evidence),
@@ -409,7 +415,8 @@ impl ToolContractProfile {
             timeout_default_ms: 120_000,
             timeout_max_ms: 600_000,
             cancellation_behavior: "cooperative_with_retained_handle",
-            capability_lease_requirements: Vec::new(),
+            primitive_capabilities: Vec::new(),
+            authority_scope_requirements: Vec::new(),
             policy_target: policy_target.into(),
             approval_scope_fields: strings(scope_fields),
             evidence_requirements: strings(evidence),
@@ -431,7 +438,8 @@ impl ToolContractProfile {
             timeout_default_ms: 30_000,
             timeout_max_ms: 120_000,
             cancellation_behavior: "cooperative_until_commit",
-            capability_lease_requirements: Vec::new(),
+            primitive_capabilities: Vec::new(),
+            authority_scope_requirements: Vec::new(),
             policy_target: policy_target.into(),
             approval_scope_fields: strings(scope_fields),
             evidence_requirements: strings(evidence),
@@ -457,13 +465,58 @@ fn canonical_evidence(mut evidence: Vec<String>) -> Vec<String> {
     evidence
 }
 
-fn capability_leases_for(tool_name: &str, policy_target: &str, effect_class: &str) -> Vec<String> {
-    let mut leases = Vec::new();
+fn primitive_capabilities_for(policy_target: &str) -> Vec<String> {
+    let mut capabilities = Vec::new();
+    let primitive = match policy_target {
+        "fs::read" => Some("prim:fs.read"),
+        "fs::write" => Some("prim:fs.write"),
+        _ if policy_target.starts_with("file__") => Some("prim:fs.write"),
+        "sys::exec" | "sys::install_package" => Some("prim:sys.exec"),
+        "browser::inspect" | "web::retrieve" | "net::fetch" => Some("prim:net.request"),
+        "browser::interact" => Some("prim:browser.interact"),
+        "gui::inspect" => Some("prim:ui.inspect"),
+        "gui::click" | "gui::type" | "gui::scroll" | "os::focus" | "os::launch_app" => {
+            Some("prim:ui.interact")
+        }
+        "clipboard::read" => Some("prim:clipboard.read"),
+        "clipboard::write" => Some("prim:clipboard.write"),
+        "model::embed" | "model::rerank" => Some("prim:model.invoke"),
+        "memory::search" | "memory::inspect" => Some("prim:memory.read"),
+        _ if policy_target.starts_with("memory::") => Some("prim:memory.write"),
+        "monitor__create" => Some("prim:automation.schedule"),
+        "ucp::checkout" | "ucp::discovery" => Some("prim:commerce.request"),
+        _ if policy_target.starts_with("media::")
+            || policy_target.starts_with("media__")
+            || policy_target.starts_with("gallery__") =>
+        {
+            Some("prim:media.process")
+        }
+        _ if policy_target.starts_with("agent__") || policy_target.starts_with("chat__") => {
+            Some("prim:runtime.control")
+        }
+        _ if policy_target.starts_with("connector__") => Some("prim:connector.invoke"),
+        _ if policy_target.starts_with("model_registry__")
+            || policy_target.starts_with("backend__") =>
+        {
+            Some("prim:model.registry")
+        }
+        _ => None,
+    };
+    if let Some(primitive) = primitive {
+        capabilities.push(primitive.to_string());
+    }
+    capabilities.sort();
+    capabilities.dedup();
+    capabilities
+}
+
+fn authority_scopes_for(tool_name: &str, policy_target: &str, effect_class: &str) -> Vec<String> {
+    let mut scopes = Vec::new();
     if effect_class != "read" {
-        leases.push(format!("cap:{}", policy_target));
+        scopes.push(format!("scope:{}", policy_target));
     }
     if tool_name.starts_with("connector__") {
-        leases.push("connector:session".to_string());
+        scopes.push("scope:connector.session".to_string());
     }
     if matches!(
         tool_name,
@@ -474,11 +527,11 @@ fn capability_leases_for(tool_name: &str, policy_target: &str, effect_class: &st
             | "package__install"
             | "app__launch"
     ) {
-        leases.push("host:controlled_execution".to_string());
+        scopes.push("scope:host.controlled_execution".to_string());
     }
-    leases.sort();
-    leases.dedup();
-    leases
+    scopes.sort();
+    scopes.dedup();
+    scopes
 }
 
 fn namespace_for_tool_name(name: &str) -> String {
@@ -558,18 +611,19 @@ mod tests {
     }
 
     #[test]
-    fn filesystem_write_contract_carries_authority_metadata() {
+    fn filesystem_write_contract_splits_runtime_primitive_from_authority_scope() {
         let contract = runtime_tool_contract_for_definition(&tool("file__edit"));
         assert_eq!(contract.policy_target, "fs::write");
         assert!(contract.is_effectful());
+        assert_eq!(contract.primitive_capabilities, vec!["prim:fs.write"]);
+        assert_eq!(
+            contract.authority_scope_requirements,
+            vec!["scope:fs::write"]
+        );
         assert!(contract
             .evidence_requirements
             .iter()
             .any(|item| item == "diff_summary"));
-        assert!(contract
-            .capability_lease_requirements
-            .iter()
-            .any(|item| item == "cap:fs::write"));
         assert!(contract
             .approval_scope_fields
             .iter()
@@ -583,7 +637,8 @@ mod tests {
         assert_eq!(contract.effect_class, "read");
         assert_eq!(contract.concurrency_class, "parallel_read");
         assert!(!contract.is_effectful());
-        assert!(contract.capability_lease_requirements.is_empty());
+        assert_eq!(contract.primitive_capabilities, vec!["prim:net.request"]);
+        assert!(contract.authority_scope_requirements.is_empty());
     }
 
     #[test]
@@ -606,9 +661,13 @@ mod tests {
         assert_eq!(contract.namespace, "connector");
         assert_eq!(contract.policy_target, "connector__google__gmail_send");
         assert!(contract.is_effectful());
+        assert_eq!(
+            contract.primitive_capabilities,
+            vec!["prim:connector.invoke"]
+        );
         assert!(contract
-            .capability_lease_requirements
+            .authority_scope_requirements
             .iter()
-            .any(|item| item == "connector:session"));
+            .any(|item| item == "scope:connector.session"));
     }
 }

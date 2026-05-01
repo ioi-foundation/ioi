@@ -1,0 +1,520 @@
+{
+  "schemaVersion": "ioi.cursor-sdk-reference.v1",
+  "capturedAt": "2026-05-01T19:25:31.128Z",
+  "packageName": "@cursor/sdk",
+  "npmVersion": "1.0.12",
+  "distTagLatest": "1.0.12",
+  "engines": {
+    "node": ">=18"
+  },
+  "packageJson": {
+    "name": "@cursor/sdk",
+    "version": "1.0.12",
+    "type": "module",
+    "exports": {
+      ".": {
+        "require": {
+          "default": "./dist/cjs/index.js"
+        },
+        "import": {
+          "default": "./dist/esm/index.js"
+        }
+      },
+      "./agent": {
+        "require": {
+          "default": "./dist/cjs/index.js"
+        },
+        "import": {
+          "default": "./dist/esm/index.js"
+        }
+      }
+    },
+    "dependencies": {
+      "@bufbuild/protobuf": "1.10.0",
+      "@connectrpc/connect": "^1.6.1",
+      "@connectrpc/connect-node": "^1.6.1",
+      "@statsig/js-client": "3.31.0",
+      "sqlite3": "^5.1.7",
+      "zod": "^3.25.0"
+    },
+    "optionalDependencies": {
+      "@cursor/sdk-darwin-arm64": "1.0.12",
+      "@cursor/sdk-darwin-x64": "1.0.12",
+      "@cursor/sdk-linux-arm64": "1.0.12",
+      "@cursor/sdk-linux-x64": "1.0.12",
+      "@cursor/sdk-win32-x64": "1.0.12"
+    }
+  },
+  "capabilities": [
+    "Agent.create",
+    "Agent.resume",
+    "Agent.prompt",
+    "Agent.list",
+    "Agent.listRuns",
+    "Agent.get",
+    "Agent.getRun",
+    "Agent.archive",
+    "Agent.unarchive",
+    "Agent.delete",
+    "Agent.messages.list",
+    "Cursor.me",
+    "Cursor.models.list",
+    "Cursor.repositories.list",
+    "agent.send",
+    "agent.close",
+    "agent.reload",
+    "Run.stream",
+    "Run.wait",
+    "Run.cancel",
+    "Run.conversation",
+    "mcpServers",
+    "agents",
+    "sandboxOptions",
+    "structured_errors"
+  ],
+  "modules": {
+    "dist/esm/stubs.d.ts": {
+      "exports": [
+        "createUnimplementedError",
+        "UnimplementedRun",
+        "UnimplementedAgent",
+        "Agent",
+        "Cursor"
+      ],
+      "interfaces": [],
+      "classes": [
+        "UnimplementedRun",
+        "UnimplementedAgent",
+        "Agent",
+        "Cursor"
+      ],
+      "methods": [
+        "createUnimplementedError",
+        "supports",
+        "unsupportedReason",
+        "stream",
+        "conversation",
+        "wait",
+        "cancel",
+        "status",
+        "onDidChangeStatus",
+        "send",
+        "close",
+        "reload",
+        "listArtifacts",
+        "downloadArtifact",
+        "constructor",
+        "create",
+        "resume",
+        "prompt",
+        "list",
+        "listRuns",
+        "getRun",
+        "get",
+        "archive",
+        "unarchive",
+        "delete",
+        "list",
+        "concerns",
+        "constructor",
+        "me",
+        "list",
+        "list"
+      ]
+    },
+    "dist/esm/agent.d.ts": {
+      "exports": [
+        "SDKAgent",
+        "SendOptions",
+        "ListAgentsOptions",
+        "ListResult",
+        "SDKAgentInfo",
+        "ListRunsOptions",
+        "GetAgentMessagesOptions",
+        "GetRunOptions",
+        "AgentMessage",
+        "GetAgentOptions",
+        "AgentOperationOptions",
+        "CursorRequestOptions",
+        "SDKUser",
+        "SDKRepository",
+        "SDKModel"
+      ],
+      "interfaces": [
+        "SDKAgent",
+        "SendOptions",
+        "ListResult",
+        "GetAgentMessagesOptions",
+        "AgentMessage",
+        "GetAgentOptions",
+        "AgentOperationOptions",
+        "CursorRequestOptions",
+        "SDKUser",
+        "SDKRepository"
+      ],
+      "classes": [],
+      "methods": [
+        "send",
+        "send",
+        "close",
+        "reload",
+        "listArtifacts",
+        "import",
+        "downloadArtifact",
+        "side",
+        "archive",
+        "store",
+        "cwd",
+        "API",
+        "operations",
+        "list"
+      ]
+    },
+    "dist/esm/options.d.ts": {
+      "exports": [
+        "SDKImageDimension",
+        "SDKImage",
+        "SDKUserMessage",
+        "McpServerConfig",
+        "SettingSource",
+        "SandboxOptions",
+        "ModelParameterValue",
+        "ModelSelection",
+        "ModelParameterDefinition",
+        "ModelVariant",
+        "ModelListItem",
+        "AgentDefinition",
+        "LocalAgentOptions",
+        "CloudAgentOptions",
+        "AgentOptions"
+      ],
+      "interfaces": [
+        "SDKImageDimension",
+        "SDKUserMessage",
+        "SandboxOptions",
+        "ModelParameterValue",
+        "ModelSelection",
+        "ModelParameterDefinition",
+        "ModelVariant",
+        "ModelListItem",
+        "AgentDefinition",
+        "LocalAgentOptions",
+        "CloudAgentOptions",
+        "AgentOptions"
+      ],
+      "classes": [],
+      "methods": [
+        "directly",
+        "directly",
+        "selection",
+        "cloud",
+        "list",
+        "list",
+        "get"
+      ]
+    },
+    "dist/esm/run.d.ts": {
+      "exports": [
+        "RunStatus",
+        "RunResultStatus",
+        "RunOperation",
+        "UnsupportedRunOperationError",
+        "RunGitBranchInfo",
+        "RunGitInfo",
+        "RunResult",
+        "Run"
+      ],
+      "interfaces": [
+        "RunGitBranchInfo",
+        "RunGitInfo",
+        "RunResult",
+        "Run"
+      ],
+      "classes": [
+        "UnsupportedRunOperationError"
+      ],
+      "methods": [
+        "constructor",
+        "supports",
+        "unsupportedReason",
+        "stream",
+        "conversation",
+        "wait",
+        "cancel",
+        "onDidChangeStatus"
+      ]
+    },
+    "dist/esm/messages.d.ts": {
+      "exports": [
+        "LOCAL_RUN_STREAM_SCHEMA_VERSION",
+        "LOCAL_RUN_STREAM_EVENT_TYPE",
+        "TextBlock",
+        "ToolUseBlock",
+        "SDKSystemMessage",
+        "SDKAssistantMessage",
+        "SDKUserMessageEvent",
+        "SDKToolUseMessage",
+        "SDKThinkingMessage",
+        "SDKStatusMessage",
+        "SDKRequestMessage",
+        "SDKTaskMessage",
+        "SDKMessage",
+        "LocalRunStreamSdkMessageEvent",
+        "LocalRunStreamResultEvent",
+        "LocalRunStreamDoneEvent",
+        "LocalRunStreamEvent",
+        "createSdkMessageRunStreamEvent",
+        "decodeLocalRunStreamEvent",
+        "localRunStreamEventToSdkMessage",
+        "decodeSdkMessageRunStreamEvent",
+        "isTerminalLocalRunStreamEvent"
+      ],
+      "interfaces": [
+        "TextBlock",
+        "ToolUseBlock",
+        "SDKSystemMessage",
+        "SDKAssistantMessage",
+        "SDKUserMessageEvent",
+        "SDKToolUseMessage",
+        "SDKThinkingMessage",
+        "SDKStatusMessage",
+        "SDKRequestMessage",
+        "SDKTaskMessage",
+        "LocalRunStreamSdkMessageEvent",
+        "LocalRunStreamResultEvent",
+        "LocalRunStreamDoneEvent"
+      ],
+      "classes": [],
+      "methods": [
+        "createSdkMessageRunStreamEvent",
+        "decodeLocalRunStreamEvent",
+        "localRunStreamEventToSdkMessage",
+        "decodeSdkMessageRunStreamEvent",
+        "isTerminalLocalRunStreamEvent"
+      ]
+    },
+    "dist/esm/errors.d.ts": {
+      "exports": [
+        "CursorSdkErrorOptions",
+        "CursorAgentErrorOptions",
+        "SdkErrorContext",
+        "CursorSdkError",
+        "CursorAgentError",
+        "AuthenticationError",
+        "RateLimitError",
+        "ConfigurationError",
+        "IntegrationNotConnectedError",
+        "NetworkError",
+        "UnknownAgentError",
+        "wrapSdkError",
+        "convertError",
+        "convertConnectError"
+      ],
+      "interfaces": [
+        "CursorSdkErrorOptions",
+        "CursorSdkErrorConstructorOptions",
+        "SdkErrorContext"
+      ],
+      "classes": [
+        "for",
+        "CursorSdkError",
+        "CursorAgentError",
+        "AuthenticationError",
+        "RateLimitError",
+        "ConfigurationError",
+        "IntegrationNotConnectedError",
+        "NetworkError",
+        "UnknownAgentError"
+      ],
+      "methods": [
+        "errors",
+        "retryable",
+        "ConnectError",
+        "constructor",
+        "toJSON",
+        "constructor",
+        "errors",
+        "constructor",
+        "errors",
+        "constructor",
+        "errors",
+        "constructor",
+        "constructor",
+        "toJSON",
+        "errors",
+        "constructor",
+        "constructor",
+        "wrapSdkError",
+        "convertError",
+        "convertConnectError"
+      ]
+    },
+    "dist/esm/cloud-api-client.d.ts": {
+      "exports": [
+        "V1Image",
+        "V1Prompt",
+        "V1Env",
+        "V1Repository",
+        "V1McpServer",
+        "V1CustomSubagent",
+        "V1CreateAgentRequest",
+        "V1CreateRunRequest",
+        "V1Agent",
+        "V1Run",
+        "V1Artifact",
+        "V1MeResponse",
+        "V1GitHubRepository",
+        "V1ListResult",
+        "V1RunPathParams",
+        "mapV1RunResultMetadataToSdk",
+        "CloudApiClient"
+      ],
+      "interfaces": [
+        "V1Prompt",
+        "V1Env",
+        "V1Repository",
+        "V1CustomSubagent",
+        "V1CreateAgentRequest",
+        "V1CreateRunRequest",
+        "V1Agent",
+        "V1Run",
+        "V1Artifact",
+        "V1MeResponse",
+        "V1GitHubRepository",
+        "V1ListResult",
+        "V1RunPathParams"
+      ],
+      "classes": [
+        "CloudApiClient"
+      ],
+      "methods": [
+        "mapV1RunResultMetadataToSdk",
+        "constructor",
+        "createAgent",
+        "getAgent",
+        "listAgents",
+        "archiveAgent",
+        "unarchiveAgent",
+        "deleteAgent",
+        "createRun",
+        "listRuns",
+        "getRun",
+        "cancelRun",
+        "streamRun",
+        "listArtifacts",
+        "getArtifactDownloadUrl",
+        "getMe",
+        "listModels",
+        "listRepositories"
+      ]
+    },
+    "dist/esm/run-event-tailer.d.ts": {
+      "exports": [
+        "RunEventTailerStreamOptions",
+        "RunEventTailer"
+      ],
+      "interfaces": [
+        "RunEventTailerStreamOptions",
+        "RunEventTailerOptions"
+      ],
+      "classes": [
+        "RunEventTailer"
+      ],
+      "methods": [
+        "loadRunStatus",
+        "constructor",
+        "streamRunEvents"
+      ]
+    },
+    "dist/esm/run-interaction-accumulator.d.ts": {
+      "exports": [
+        "RunInteractionAccumulatorOptions",
+        "RunInteractionAccumulator",
+        "accumulateSdkMessageStream",
+        "sdkMessageToInteractionUpdate"
+      ],
+      "interfaces": [
+        "RunInteractionAccumulatorOptions"
+      ],
+      "classes": [
+        "RunInteractionAccumulator"
+      ],
+      "methods": [
+        "constructor",
+        "conversation",
+        "finalAssistantText",
+        "apply",
+        "flushPendingStep",
+        "accumulateSdkMessageStream",
+        "sdkMessageToInteractionUpdate"
+      ]
+    },
+    "dist/esm/platform.d.ts": {
+      "exports": [
+        "CursorAgentPlatform",
+        "createAgentPlatform",
+        "createDefaultAgent",
+        "resumeDefaultAgent",
+        "listDefaultAgents",
+        "listDefaultRuns",
+        "getDefaultRun",
+        "getDefaultAgentMessages",
+        "getDefaultAgent",
+        "archiveDefaultAgent",
+        "unarchiveDefaultAgent",
+        "deleteDefaultAgent",
+        "getDefaultMe",
+        "listDefaultModels",
+        "listDefaultRepositories"
+      ],
+      "interfaces": [],
+      "classes": [
+        "CursorAgentPlatform"
+      ],
+      "methods": [
+        "constructor",
+        "resolveLocalModelSelection",
+        "createAgent",
+        "resumeAgent",
+        "listAgents",
+        "getAgent",
+        "archiveAgent",
+        "unarchiveAgent",
+        "deleteAgent",
+        "listRuns",
+        "getRun",
+        "getAgentMessages",
+        "appendRunMessage",
+        "createAgentPlatform",
+        "createDefaultAgent",
+        "resumeDefaultAgent",
+        "listDefaultAgents",
+        "listDefaultRuns",
+        "getDefaultRun",
+        "getDefaultAgentMessages",
+        "getDefaultAgent",
+        "archiveDefaultAgent",
+        "unarchiveDefaultAgent",
+        "deleteDefaultAgent",
+        "getDefaultMe",
+        "listDefaultModels",
+        "listDefaultRepositories"
+      ]
+    },
+    "dist/esm/subagent-conversion.d.ts": {
+      "exports": [
+        "SDKCustomSubagentDefinition",
+        "convertAgentDefinitionsToCustomSubagents",
+        "convertAgentDefinitionsToV1CustomSubagents"
+      ],
+      "interfaces": [
+        "SDKCustomSubagentDefinition"
+      ],
+      "classes": [],
+      "methods": [
+        "convertAgentDefinitionsToCustomSubagents",
+        "convertAgentDefinitionsToV1CustomSubagents"
+      ]
+    }
+  }
+}

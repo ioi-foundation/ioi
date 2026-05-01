@@ -39,7 +39,7 @@ fn test_state() -> AgentState {
         execution_ledger: Default::default(),
         visual_som_map: None,
         visual_semantic_map: None,
-        swarm_context: None,
+        work_graph_context: None,
         target: None,
         resolved_intent: Some(ResolvedIntentState {
             intent_id: "conversation.reply".to_string(),
