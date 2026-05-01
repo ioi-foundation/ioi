@@ -1,502 +1,136 @@
-# IOI: Internet of Intelligence
+# Internet of Intelligence
 
 ![Status](https://img.shields.io/badge/status-alpha-yellow)
 ![License](https://img.shields.io/badge/license-BBSL-blue)
 ![Consensus](https://img.shields.io/badge/consensus-AFT-purple)
-![Cryptography](https://img.shields.io/badge/crypto-Post--Quantum-green)
+![Runtime](https://img.shields.io/badge/runtime-Web4-black)
 
-**The L0 Web4 framework for sovereign agentic L1s.**  
-**The Fractal Operating System for Agency.**
+**The runtime substrate for Web4: sovereign action bounded by cryptographic determinism.**
 
-The internet democratized information (Web1/Web2). Blockchains democratized value (Web3). IOI is aimed at the next primitive: **sovereign action**.
+Web1 made information readable. Web2 made it writable. Web3 made it ownable.
+IOI is building the next layer: **sovereign action that can be delegated,
+governed, verified, replayed, and settled.**
 
-IOI is a local-first, proof-oriented kernel for agentic software. It is designed to bridge the gap between **probabilistic AI inference** and **deterministic cryptographic settlement**. We do not treat agents as prompts glued to SaaS databases. We treat them as kernel-managed processes with explicit capability boundaries, verifiable memory, durable canonical state, and receipted real-world effects.
+Most agent systems give a model tools. IOI gives autonomous work a deterministic
+execution boundary. Alignment is infrastructure here: recursive improvement,
+model choice, tool use, spending, signing, data egress, and real-world effects
+stay inside capability bounds, policy gates, approvals, receipts, replay, and
+stop conditions. IOI lets intelligence remain probabilistic in thought while
+collapsing consequential action into canonical, policy-checked, receipted
+execution before it can touch the world.
 
-In one sentence:
-
-> **IOI is an L0 Web4 framework that lets sovereign agentic L1s run local-first applications with canonical state, verifiable context, cryptographic capability control, and rooted `ai://` publication.**
-
-This repository already contains substantial pieces of that stack:
-
-- the fractal kernel: consensus, execution, state, storage, validator/runtime machinery
-- `IOI CLI`: the kernel-adjacent, CLI-first surface for scaffolding and instantiating intelligent blockchains and sovereign domains (currently rooted in `crates/cli`, with `forge` as a command namespace)
-- `ioi-memory`: the local-first checkpoint, archival memory, and artifact runtime for live product flows
-- `wallet.network`: the authority and capability-control plane for sessions, approvals, and delegated execution
-- `Autopilot`: the native desktop runtime with Spotlight, chat/artifact runtime, gates, receipts, and Context Atlas
-- `sas.xyz`: the provider OS for packaging, deploying, serving, and commercializing worker services
-- `aiagent.xyz`: the discovery and procurement layer for worker services
-- `agent-ide`: the shared builder/canvas substrate for provider and orchestration surfaces
-- the active `Agentgres` and `ai://` direction for scoped state changes, settled truth, relational/query surfaces, projection-native serving, and rooted resolution
-
-## Why This Exists
-
-Safe agentic systems cannot be built by pretending models are deterministic. They are not. The correct design move is not to freeze inference. It is to **collapse effects**.
-
-IOI enforces what we describe as the **Wave Function Collapse of Agency**:
-
-- the model can reason probabilistically
-- the runtime can explore, rank, and plan
-- but spending, signing, data egress, connector execution, and other real-world effects must pass through strict, cryptographically verifiable control planes before execution
-
-The model is allowed to be fuzzy. The consequences are not.
-
-That is why IOI is not just:
-
-- a blockchain
-- a vector database
-- an agent framework
-- an IDE
-- or a desktop assistant
-
-It is an attempt to provide the **runtime substrate** those systems need in order to be trustworthy.
-
-## Core Vocabulary
-
-| Term | Meaning |
-| :--- | :--- |
-| `L0` | The root coordination layer. For IOI this means global `ai://` registry, publication, trust anchors, and settlement roots. |
-| `L1` | A sovereign agentic runtime built on top of that root layer. It owns its own execution, state, projections, and serving. |
-| `MemoryRuntime` | The runtime-backed memory layer used by live product flows for checkpoints, archival recall, and artifact blobs. |
-| Canonical state/projections | The generic pattern behind Agentgres: settled state is authority and projections are first-class runtime artifacts. |
-| `Agentgres` | IOI's local-first, zero-to-idle state fabric for autonomous software: state changes are patches, truth is settled, and rows are views over settled state. |
-| `wallet.network` | The sovereign IAM and capability-control plane for sessions, approvals, leases, and secret-safe execution. |
-| `ai://` | The emerging application, publication, and resolution model anchored by IOI mainnet as `L0`. |
-
-Relevant taxonomy and architecture docs:
-
-- [`docs/canonical-state-and-projection-system-whitepaper.md`](docs/canonical-state-and-projection-system-whitepaper.md)
-- [`docs/specs/agentgres-spec.md`](docs/specs/agentgres-spec.md)
-- [`docs/specs/verifiable_bounded_agency.md`](docs/specs/verifiable_bounded_agency.md)
-
-## The Fractal Architecture
-
-IOI is called fractal because the same core ideas are meant to work:
-
-- on one laptop
-- across a private enterprise swarm
-- across a sovereign agent runtime
-- and across a global `L0` registry and trust-anchor layer
-
-### The Internet Topology
-
-```mermaid
-graph TD
-    L0[IOI Mainnet - L0<br/>ai:// registry, trust anchors, publication, settlement]
-    L1[Sovereign Agentic Runtime - L1<br/>kernel + Agentgres + ioi-memory + wallet.network]
-    UI[Product Surfaces<br/>IOI CLI, Autopilot, sas.xyz, aiagent.xyz, ioi.ai, ai:// apps]
-
-    L0 --> L1
-    L1 --> UI
+```text
+probabilistic reasoning
+  -> bounded authority
+  -> receipted execution
+  -> canonical operational memory
+  -> replayable proof
+  -> settlement-grade recourse
 ```
 
-The separation matters:
+That is the breakthrough: IOI does not force AI models to be deterministic; it
+makes the economic consequences of their actions deterministic.
 
-- `L0` should own global namespace, publication, trust, and settlement roots
-- sovereign runtimes should own most execution, state, projections, and serving
-- local-first clients should own drafts, optimistic state, local caches, and ephemeral UX
+## What IOI Is
 
-### The Node Topology
+IOI is the reference implementation of canonical Web4:
 
-At the runtime layer, IOI decomposes an agent system into three isolated security domains:
+> **Read + Write + Own + Act, with cryptographic determinism.**
 
-```mermaid
-graph TD
-    User[User / Autopilot UI] <--> O[Orchestrator]
+<p align="center">
+  <img src="docs/assets/readme-web4-equation.svg" alt="Web4 equals read plus write plus own plus act with cryptographic determinism." width="100%">
+</p>
 
-    subgraph Trust_Boundary
-        O <== gRPC ==> W[Workload Container]
-        O <== mTLS ==> G[Guardian]
-    end
+It is not a chatbot, a workflow toy, a wallet wrapper, or a chain with AI bolted
+on. It is one substrate for intelligent applications where:
 
-    W -- Data Plane / Shmem --> O
-    G -- Signing Oracle / Attestation --> O
-```
+- the **daemon** executes workflows, tools, models, agents, connectors, and artifacts;
+- **wallet.network** authorizes identity, secrets, authority scopes, approvals, and payments;
+- **Agentgres** records canonical operational truth, projections, receipts, quality, and replay state;
+- **IOI L1** settles public rights, registries, roots, bonds, disputes, and economic commitments;
+- **Autopilot**, `ioi-cli`, `@ioi/agent-sdk`, `agent-ide`, harnesses, benchmarks, and workflow composers are clients over the same runtime substrate.
 
-- **Orchestrator (the nervous system):** handles networking, consensus ordering, runtime coordination, and the Agency Firewall
-- **Workload (the brain):** executes AI logic, Wasm/Python workloads, and local context processing
-- **Guardian (the conscience):** hardware/software-isolated sidecar for keys, attestation, monotonicity, and non-equivocation
+<p align="center">
+  <img src="docs/assets/readme-ioi-runtime-flowchart.svg" alt="IOI runtime stack flowchart showing clients using the daemon, daemon using wallet.network, Agentgres, and Filecoin/CAS, and relevant commitments anchoring into IOI L1." width="100%">
+</p>
 
-## Core Technological Breakthroughs
+## The Rules That Make It Different
 
-### 1. Asymptote Fault Tolerance (AFT)
-
-IOI's consensus family is now specified as **Asymptote Fault Tolerance
-(`AFT`)**. Instead of treating dense positive voting as the only source of
-ordering truth, AFT combines guardian-backed tentative progress,
-proof-carrying canonical ordering, deterministic collapse, compact hot-path
-frontier bindings, and cold-path recovery / restart continuity.
-
-The repository's theorem surface is singular: AFT claims
-relay-free, coordinator-free, pure-software deterministic
-`99% Byzantine Tolerance`; explicitly claims that the whole AFT stack
-universally breaks the lower bound with no qualifiers; and promotes that
-result to unconditional classical `99% Byzantine agreement` in the ordinary
-dense-vote permissioned model. In the implementation and formal package, that
-sentence is realized through proof-carrying public evidence, omission-dominant
-canonical ordering, collapse-gated durability, and endogenous historical
-continuation rather than through dense positive quorum intersection alone. The
-retrievability and restart plane is treated as theorem-internal protocol
-machinery, not as a hidden helper surface sitting outside the claim.
-
-- **GuardianMajority:** guardian-backed transport and tentative `BaseFinal`
-  progression on the hot path
-- **CanonicalOrdering:** proof-carrying equal-authority ordering with
-  omission-dominant close-or-abort
-- **Asymptote:** deterministic sealing and irreversible-effect release through
-  canonical close/abort and observer-backed collapse
-- **NestedGuardian:** witness-augmented layered threshold mode for stronger
-  recovery-backed compositions
-- **Historical continuation:** canonical collapse / replay and the recovered
-  state surface jointly carry the continuation root used for deeper restart
-  ancestry paging
-
-The canonical theorem/protocol specification is
-[`docs/consensus/aft/specs/yellow_paper.tex`](docs/consensus/aft/specs/yellow_paper.tex).
-Supporting protocol specs live in
-[`docs/consensus/aft/specs/guardian_majority.md`](docs/consensus/aft/specs/guardian_majority.md),
-[`docs/consensus/aft/specs/asymptote.md`](docs/consensus/aft/specs/asymptote.md),
-[`docs/consensus/aft/specs/canonical_ordering.md`](docs/consensus/aft/specs/canonical_ordering.md),
-[`docs/consensus/aft/specs/equal_authority_ordering.md`](docs/consensus/aft/specs/equal_authority_ordering.md),
-and [`docs/consensus/aft/specs/nested_guardian.md`](docs/consensus/aft/specs/nested_guardian.md).
-Formal models live under [`docs/specs/formal/aft/`](docs/specs/formal/aft/).
-
-### 2. The Agency Firewall
-
-The Agency Firewall is the semantic security boundary between model intent and real execution.
-
-- intercepts all tool calls and effectful operations
-- validates requested actions against explicit scopes and policy
-- blocks or pauses before execution, not after damage
-- turns "prompt injection" from a UX problem into a runtime control problem
-
-The current framing in the project remains accurate:
-
-> the model may generate fuzzy plans, but the runtime must collapse all effects through deterministic policy and cryptographic control.
-
-### 3. Memory Runtime
-
-Memory is not prompt stuffing.
-
-The live product architecture now uses `ioi-memory` for:
-
-- thread checkpoints and transcript hydration
-- runtime-backed core and archival memory
-- local artifact and evidence blobs
-- semantic recall over persisted archival records
-
-Important current implementation note:
-
-- archival retrieval for live product flows is runtime-backed through
-  `ioi-memory`
-- artifacts and evidence no longer share the same abstraction boundary as
-  semantic recall
-
-### 4. Agentgres
-
-Agentic applications need more than a mutable-row authority layer.
-
-IOI is moving toward **Agentgres**, a local-first, zero-to-idle state fabric in which:
-
-- consequential changes are proposed as scoped patches before they become truth
-- accepted patches settle into canonical operation logs and deterministic object state
-- rows are views over settled state
-- relations, constraints, indexes, transactions, SQL, subscriptions, files, patches, and receipts are protocol-visible surfaces
-- projections are first-class, portable runtime artifacts
-- subscriptions are resumable and checkpoint-aware
-- local-first React apps embed a verified client runtime and wake shared authority only when necessary
-
-This is the layer intended to replace the standard:
-
-- hosted Postgres as authority
-- ad hoc realtime
-- bespoke cache invalidation
-- app-specific sync glue
-
-with:
-
-- scoped patch lifecycle and chain-rooted canonical settlement
-- native relations, constraints, indexes, and transactions
-- SQL-shaped reads and generated SDKs
-- named materialized projections
-- resumable subscriptions
-- portable checkpoints
-- scoped query and mutation semantics
-- database-grade migration, backup, restore, and operator tooling
-
-See:
-
-- [`docs/canonical-state-and-projection-system-whitepaper.md`](docs/canonical-state-and-projection-system-whitepaper.md)
-- [`docs/specs/agentgres-spec.md`](docs/specs/agentgres-spec.md)
-
-### 5. Zero-Exposure Agency via wallet.network
-
-High-risk operations are not authorized through vague backend sessions or ambient secrets.
-
-IOI's direction is to mediate those operations through:
-
-- explicit session authorization
-- short-lived or one-shot approval tokens
-- audience-bound capability artifacts
-- revocation epochs
-- lease and receipt commitments
-
-Agents do not need to hold raw API keys or seed phrases. They request bounded effects from the control plane.
-
-See:
-
-- [`docs/wallet_network.md`](docs/wallet_network.md)
-
-### 6. Service-as-Software
-
-IOI aims to make agents distributable as portable software artifacts rather than opaque cloud endpoints.
-
-The long-term idea behind **Service-as-Software** is:
-
-- worker logic is portable
-- UI can be bundled with the service
-- policy and capability boundaries travel with the artifact
-- publication can anchor into `ai://`
-- execution can happen locally or in sovereign remote environments
-
-This is part of why the repo contains both runtime systems and product-surface work.
-
-## The Product Ecosystem
-
-The intended product topology remains multi-surface and intentionally separated.
-
-1. **IOI CLI (`crates/cli` today)**: The Web4 L0 surface. A CLI-first, kernel-adjacent builder for scaffolding, instantiating, publishing, upgrading, and inspecting intelligent blockchains and other sovereign domains, with `forge` as a major command family.
-
-2. **`ioi.ai`**: The hosted demand ingress and execution UX. A user-facing surface for expressing intent, being routed to the right worker or service, approving actions when needed, and receiving outcomes plus receipts.
-
-3. **Native Autopilot**: The private/local operator shell. When an intent needs local filesystem, wallet, browser, desktop GUI, or other high-trust capabilities, execution escalates to the local runtime.
-
-4. **`sas.xyz` and the shared builder substrate**: The provider operating system and builder environment. `sas.xyz` packages, deploys, serves, and commercializes worker services, including intelligent-blockchain-backed services when those domains are exposed as provider products.
-
-5. **`aiagent.xyz`**: The discovery and procurement layer where buyers discover, compare, install, run, or procure worker services.
-
-The repo currently includes:
-
-- [`crates/cli`](crates/cli) as the current kernel-adjacent CLI surface that is expected to evolve into IOI CLI
-- [`apps/autopilot`](apps/autopilot)
-- [`apps/sas-xyz`](apps/sas-xyz)
-- [`apps/aiagent-xyz`](apps/aiagent-xyz)
-- [`packages/agent-ide`](packages/agent-ide)
+- **One runtime substrate.** No separate SDK, GUI, CLI, benchmark, harness, or workflow runtime.
+- **Authority is portable and explicit.** `prim:*` and `scope:*` turn ambient permission into delegated capabilities: what the runtime may execute, what the wallet/provider may authorize, and what evidence must exist before power crosses a trust boundary.
+- **Tool calls are requests, not grants.** Raw model output is never the authority for consequential action.
+- **Logs become receipts.** Runs emit externally legible events, receipts, traces, scorecards, stop reasons, and replayable evidence.
+- **Memory is operational.** Agentgres is not prompt stuffing; it is canonical state for autonomous work.
+- **AFT breaks the 40-year BFT ceiling.** IOI's Asymptote Fault Tolerance line uses omission-dominant ordering, deterministic collapse, and proof-carrying continuation to break the classical lower-bound shape that has constrained Byzantine agreement since the 1980s.
 
 ## Repository Map
 
-The codebase is a Rust workspace with a TS/React application layer on top.
-
-### Applications and Interfaces
-
 | Path | Role |
-| :--- | :--- |
-| [`crates/cli`](crates/cli) | Current kernel-adjacent CLI surface expected to evolve into IOI CLI for scaffolding, instantiating, publishing, and inspecting intelligent blockchains and sovereign domains. |
-| [`apps/autopilot`](apps/autopilot) | Private/local operator shell and desktop runtime with Spotlight, chat/artifact runtime, policy gates, receipts, and Context Atlas. |
-| [`apps/sas-xyz`](apps/sas-xyz) | Provider OS surface for packaging, deploying, serving, and commercializing worker services. |
-| [`apps/aiagent-xyz`](apps/aiagent-xyz) | Discovery and procurement surface for worker services and bespoke demand. |
-| [`packages/agent-ide`](packages/agent-ide) | Shared builder/canvas package intended to be embedded into Autopilot and future apps such as `sas.xyz`. |
+|---|---|
+| [`crates/`](crates) | Rust runtime, consensus, execution, state, storage, services, drivers, CLI, and IPC. |
+| [`packages/agent-sdk`](packages/agent-sdk) | Developer SDK over the public runtime substrate. |
+| [`packages/runtime-daemon`](packages/runtime-daemon) | TypeScript daemon-facing runtime API surface and validation harnesses. |
+| [`packages/agent-ide`](packages/agent-ide) | Workbench and workflow-composition client over shared contracts. |
+| [`packages/workspace-substrate`](packages/workspace-substrate) | Shared workspace substrate for app and workbench surfaces. |
+| [`apps/autopilot`](apps/autopilot) | Local desktop operator shell for chat, workflows, artifacts, approvals, and runtime UX. |
+| [`apps/aiagent-xyz`](apps/aiagent-xyz) | Marketplace for bounded agents and autonomous capabilities. |
+| [`apps/sas-xyz`](apps/sas-xyz) | Marketplace for verified autonomous service outcomes. |
+| [`apps/benchmarks`](apps/benchmarks) | Benchmark and scorecard surfaces. |
+| [`docs/architecture`](docs/architecture) | Canonical architecture authority. Start here when docs disagree. |
 
-### Kernel and Runtime
-
-| Path | Role |
-| :--- | :--- |
-| [`crates/node`](crates/node) | Entry points for runtime binaries such as `ioi-local`, `guardian`, and `workload`. |
-| [`crates/consensus`](crates/consensus) | Asymptote Fault Tolerance (AFT) consensus machinery spanning GuardianMajority, CanonicalOrdering, Asymptote, and NestedGuardian. |
-| [`crates/validator`](crates/validator) | Runtime orchestration, enforcement, reactor loops, and event handling. |
-| [`crates/execution`](crates/execution) | Deterministic execution and state transition handling. |
-| [`crates/state`](crates/state) | Commitment trees and proof-oriented state structures. |
-| [`crates/storage`](crates/storage) | Durable storage over `redb` plus write-ahead logging. |
-| [`crates/services`](crates/services) | First-party services and domain logic. |
-| [`crates/tx`](crates/tx) | Transaction validation and execution-facing transaction logic. |
-| [`crates/ipc`](crates/ipc) | IPC/public proto contracts and runtime data surfaces. |
-
-### Context, Identity, and Safety
-
-| Path | Role |
-| :--- | :--- |
-| [`crates/memory`](crates/memory) | The live `ioi-memory` runtime for checkpoints, archival memory, and artifact blobs. |
-| [`crates/pii`](crates/pii) | Privacy, review, and scrub-on-export primitives. |
-| [`crates/api`](crates/api) | Core chain/state traits and interfaces. |
-| [`crates/types`](crates/types) | Shared protocol and runtime types. |
-| [`crates/drivers`](crates/drivers) | Native capability surfaces: GUI, browser, terminal, MCP, and more. |
-
-## Read These First
-
-If you want the fastest path to understanding the current repo, read in this order:
-
-1. [`docs/specs/ioi-cli.md`](docs/specs/ioi-cli.md)
-2. [`docs/consensus/aft/specs/yellow_paper.tex`](docs/consensus/aft/specs/yellow_paper.tex)
-3. [`crates/cli/src/lib.rs`](crates/cli/src/lib.rs)
-4. [`apps/autopilot/README.md`](apps/autopilot/README.md)
-5. [`docs/wallet_network.md`](docs/wallet_network.md)
-6. [`docs/canonical-state-and-projection-system-whitepaper.md`](docs/canonical-state-and-projection-system-whitepaper.md)
-7. [`docs/specs/agentgres-spec.md`](docs/specs/agentgres-spec.md)
-
-## Getting Started
-
-### Prerequisites
-
-- **Rust via rustup:** toolchain `1.93.1` pinned in [`rust-toolchain.toml`](rust-toolchain.toml)
-- **Protobuf:** `protoc` for `tonic-build`
-- **Node.js:** v20+
-- **Desktop build dependencies** for Tauri on Linux
-
-On Ubuntu or Pop!_OS:
+## Start Here
 
 ```bash
-sudo apt update
-sudo apt install -y \
-  build-essential \
-  pkg-config \
-  protobuf-compiler \
-  libssl-dev \
-  libdbus-1-dev \
-  libxcb1-dev \
-  libxdo-dev \
-  libgtk-3-dev \
-  libayatana-appindicator3-dev \
-  librsvg2-dev \
-  libsoup-3.0-dev \
-  libwebkit2gtk-4.1-dev
-```
-
-### 1. Install and Build
-
-```bash
-rustup toolchain install 1.93.1
-rustup override set 1.93.1
 npm install
-cargo check
-npm run build:all
+cargo check --workspace
+npm run typecheck
+npm run check:architecture-docs
 ```
 
-### 2. Run the Local Kernel (Mode 0)
-
-First initialize the local node. This generates identity keys and genesis state.
-
-```bash
-cargo run --bin ioi-local --features "local-mode"
-```
-
-For live model-backed demos:
-
-```bash
-OPENAI_API_KEY=sk-proj-... ./target/debug/ioi-local
-```
-
-Wait for the orchestration RPC to log:
-
-```text
-ORCHESTRATION_RPC_LISTENING_ON_0.0.0.0:9000
-```
-
-### 3. Run Autopilot
-
-From the repo root:
+Run the local desktop surface:
 
 ```bash
 npm run dev:desktop
 ```
 
-For Wayland:
+Build and test the SDK:
 
 ```bash
-npm run dev:desktop:wayland
+npm run build:agent-sdk
+npm run test:agent-sdk
 ```
 
-Or directly:
+Run the architecture/readiness gate:
 
 ```bash
-cd apps/autopilot
-npm run tauri dev
+npm run check:pre-next-leg
 ```
 
-Tip: use `Ctrl+Space` on Linux/Windows or `Cmd+Space` on macOS to open Spotlight.
+Rust uses the pinned toolchain in [`rust-toolchain.toml`](rust-toolchain.toml).
+Desktop builds require the usual Tauri system dependencies for your platform.
 
-### 4. Run the Current Runtime Workbench Shell
+## Read Next
 
-```bash
-npm run dev:web
-```
+- [`docs/architecture/README.md`](docs/architecture/README.md) - architecture navigation and source-of-authority index.
+- [`docs/architecture/foundations/canonical-web4-and-ioi-stack.md`](docs/architecture/foundations/canonical-web4-and-ioi-stack.md) - the canonical Web4 definition.
+- [`docs/architecture/runtime/ioi-cli-daemon-runtime.md`](docs/architecture/runtime/ioi-cli-daemon-runtime.md) - daemon, CLI, and operator-surface boundaries.
+- [`docs/architecture/runtime/ioi-daemon-runtime-api.md`](docs/architecture/runtime/ioi-daemon-runtime-api.md) - public runtime API.
+- [`docs/architecture/state/agentgres-state-substrate.md`](docs/architecture/state/agentgres-state-substrate.md) - Agentgres and canonical operational truth.
+- [`docs/architecture/authority/wallet-network-authority-layer.md`](docs/architecture/authority/wallet-network-authority-layer.md) - wallet.network authority plane.
+- [`docs/architecture/conformance/CIRC.md`](docs/architecture/conformance/CIRC.md) - intent-resolution invariant.
+- [`docs/architecture/conformance/CEC.md`](docs/architecture/conformance/CEC.md) - completion-evidence invariant.
+- [`docs/architecture/consensus/README.md`](docs/architecture/consensus/README.md) - AFT consensus corpus.
 
-## Testing and Verification
+## Status
 
-IOI follows a trace-first methodology. Start with the base checks:
+IOI is active alpha research and engineering. Some surfaces are production-shaped;
+some are still proofs, scaffolds, or gated by local environment. The architectural
+direction is intentionally strict:
 
-```bash
-cargo check
-npm run build:all
-```
-
-Focused kernel / IOI CLI harness tests:
-
-```bash
-# Infrastructure E2E: P2P sync and block production
-cargo test -p ioi-cli --test infra_e2e --features "consensus-aft,vm-wasm,state-iavl" -- --nocapture --test-threads=1
-
-# Consensus / AFT
-RUST_LOG=info,consensus=info cargo test -p ioi-cli --test aft_e2e --features "consensus-aft,vm-wasm,state-iavl" -- --nocapture
-
-# Agentic security: PII scrubbing and policy gates
-cargo test -p ioi-cli --test agent_scrub_e2e --features "consensus-aft,vm-wasm,state-iavl"
-```
-
-## Cryptography and Trust
-
-IOI does not add "blockchain vibes" to AI wrappers. It uses strict cryptographic structure to make agentic systems legible, constrainable, and attributable.
-
-- **Post-quantum and hybrid cryptography:** via `dcrypt`, including ML-KEM and ML-DSA based flows
-- **Hybrid transport posture:** classical plus PQ session establishment to resist harvest-now-decrypt-later attacks
-- **Guardian-backed non-equivocation:** monotonicity, attestation, and explicit chains of custody for effects
-- **Scoped authority artifacts:** session authorization, approval tokens, leases, revocation epochs
-- **Proof-oriented state and retrieval:** commitment structures for both canonical state and context retrieval
-
-## Status and Direction
-
-**IOI is in active alpha.**
-
-### Materially present in this repo today
-
-- kernel execution, storage, consensus, and validator machinery
-- `ioi-memory`, `ContextSlice`, and the runtime-backed checkpoint / archival memory path
-- `wallet.network` session and approval primitives
-- Autopilot desktop runtime and Context Atlas work
-- the shared `agent-ide` package and the current standalone shell
-
-### Active architectural direction
-
-- `Agentgres` as the shared state-change and state-retention fabric for scoped patches, settled truth, relational/query surfaces, and portable projections
-- canonical projections as first-class Agentgres serving surfaces
-- rooted `ai://` publication, registry resolution, and `L0` trust anchoring
-- sovereign multi-node serving across portable remote environments and clean-room style runtimes
-
-## Why the L0 Framing Matters
-
-Calling IOI an `L0 Web4 framework` is not branding theater. It is a concrete boundary claim.
-
-For IOI, `L0` means:
-
-- global `ai://` namespace commitments
-- publisher and identity trust anchors
-- manifest and version publication commitments
-- resolver bootstrapping and runtime discovery anchors
-- shared settlement, receipt, and proof roots where cross-runtime trust matters
-
-It does **not** mean:
-
-- every app runs directly on mainnet
-- every subscription is delivered by the root layer
-- every projection is executed at `L0`
-
-Instead:
-
-- `L0` is root coordination
-- sovereign agentic `L1`s are the execution domains
-- local-first clients remain the UX surface
-
-That is the architectural center of gravity this README is meant to make clear.
+> **The daemon executes. wallet.network authorizes. Agentgres remembers. IOI L1 settles. Clients compose. Evidence proves.**
 
 ## License
 
-- **Core interfaces (`ioi-api`, `ioi-types`):** MIT / Apache 2.0
-- **Kernel engine and higher-assurance components:** Business Source License (`LICENSE-BBSL`)
+Kernel/runtime components are governed by [`LICENSE-BBSL`](LICENSE-BBSL) unless
+a crate, package, or file declares otherwise. Some interface surfaces use
+Apache-2.0 metadata; always check the package manifest for the exact boundary.

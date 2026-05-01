@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="760" viewBox="0 0 1120 760" role="img" aria-labelledby="title desc">
+  <title id="title">IOI Runtime Stack Flowchart</title>
+  <desc id="desc">Formal flowchart showing client surfaces using the IOI daemon, which coordinates authority through wallet.network, state through Agentgres, payload availability through Filecoin or CAS, and commitments through IOI L1.</desc>
+  <style>
+    .page { fill: #fffdf6; }
+    .ink { fill: #111111; }
+    .muted { fill: #333333; }
+    .box { fill: #fffdf6; stroke: #111111; stroke-width: 1.15; }
+    .box-heavy { fill: #fffdf6; stroke: #111111; stroke-width: 1.6; }
+    .rule { stroke: #111111; stroke-width: 1.2; }
+    .hairline { stroke: #111111; stroke-width: 0.75; }
+    .edge { fill: none; stroke: #111111; stroke-width: 1.1; marker-end: url(#arrow); }
+    .edge-heavy { fill: none; stroke: #111111; stroke-width: 1.45; marker-end: url(#arrow); }
+    .node-title {
+      fill: #111111;
+      font-family: "Times New Roman", Times, serif;
+      font-size: 22px;
+      font-weight: 700;
+    }
+    .node-body {
+      fill: #222222;
+      font-family: "Times New Roman", Times, serif;
+      font-size: 15px;
+    }
+    .caption {
+      fill: #222222;
+      font-family: "Times New Roman", Times, serif;
+      font-size: 15px;
+    }
+    .figure {
+      fill: #111111;
+      font-family: "Times New Roman", Times, serif;
+      font-size: 13px;
+      letter-spacing: 0.08em;
+    }
+    .small {
+      fill: #333333;
+      font-family: "Times New Roman", Times, serif;
+      font-size: 13px;
+    }
+  </style>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#111111"/>
+    </marker>
+  </defs>
+
+  <rect class="page" x="0" y="0" width="1120" height="760"/>
+  <line class="rule" x1="56" y1="48" x2="1064" y2="48"/>
+  <text class="figure" x="56" y="78">FIGURE 1</text>
+  <text class="caption" x="152" y="78">IOI execution substrate. Clients compose; the daemon executes; authority, state, payloads, and settlement remain separate.</text>
+  <line class="hairline" x1="56" y1="96" x2="1064" y2="96"/>
+
+  <rect class="box" x="152" y="136" width="816" height="88"/>
+  <text class="node-title" x="184" y="171">Client Surfaces</text>
+  <text class="node-body" x="184" y="198">Autopilot, ioi-cli, @ioi/agent-sdk, agent-ide, harnesses, benchmarks, workflow compositor</text>
+
+  <path class="edge-heavy" d="M560 224 V286"/>
+
+  <rect class="box-heavy" x="330" y="286" width="460" height="100"/>
+  <text class="node-title" x="362" y="323">IOI Daemon</text>
+  <text class="node-body" x="362" y="350">Public runtime endpoint for tools, models, agents,</text>
+  <text class="node-body" x="362" y="371">connectors, workflows, artifacts, traces, and approvals.</text>
+
+  <path class="edge" d="M438 386 V458 H210 V506"/>
+  <path class="edge" d="M560 386 V506"/>
+  <path class="edge" d="M682 386 V458 H910 V506"/>
+
+  <rect class="box" x="82" y="506" width="256" height="108"/>
+  <text class="node-title" x="112" y="541">wallet.network</text>
+  <text class="node-body" x="112" y="568">Authority scopes, secrets,</text>
+  <text class="node-body" x="112" y="589">approvals, identity, payments.</text>
+
+  <rect class="box" x="432" y="506" width="256" height="108"/>
+  <text class="node-title" x="462" y="541">Agentgres</text>
+  <text class="node-body" x="462" y="568">Runs, tasks, receipts, quality,</text>
+  <text class="node-body" x="462" y="589">projections, replay state.</text>
+
+  <rect class="box" x="782" y="506" width="256" height="108"/>
+  <text class="node-title" x="812" y="541">Filecoin / CAS</text>
+  <text class="node-body" x="812" y="568">Packages, artifacts, evidence,</text>
+  <text class="node-body" x="812" y="589">checkpoints, payload bytes.</text>
+
+  <path class="edge" d="M210 614 V660 H501"/>
+  <path class="edge" d="M560 614 V660"/>
+
+  <rect class="box-heavy" x="386" y="660" width="348" height="56"/>
+  <text class="node-title" x="426" y="696">IOI L1</text>
+  <text class="node-body" x="510" y="696">registry, rights, roots, settlement, governance</text>
+
+  <line class="hairline" x1="56" y1="736" x2="1064" y2="736"/>
+  <text class="small" x="56" y="724">Invariant: no client owns a private runtime; no authority scope is flattened into a primitive execution capability.</text>
+</svg>
