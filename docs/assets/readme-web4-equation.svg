@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="132" viewBox="0 0 980 132" role="img" aria-labelledby="title desc">
+  <title id="title">Canonical Web4 Equation</title>
+  <desc id="desc">Web4 equals read plus write plus own plus act with cryptographic determinism.</desc>
+  <metadata>LaTeX source: \mathrm{Web4} = \mathrm{Read} + \mathrm{Write} + \mathrm{Own} + \mathrm{Act}_{\mathrm{cryptographic\ determinism}}</metadata>
+  <style>
+    .page { fill: #fffdf6; }
+    .rule { stroke: #111111; stroke-width: 1.2; }
+    .hairline { stroke: #111111; stroke-width: 0.7; }
+    .eq {
+      fill: #111111;
+      font-family: "STIX Two Text", "Cambria Math", "Times New Roman", serif;
+      font-size: 39px;
+      font-style: italic;
+    }
+    .op {
+      fill: #111111;
+      font-family: "STIX Two Text", "Cambria Math", "Times New Roman", serif;
+      font-size: 38px;
+      font-style: normal;
+    }
+    .sub {
+      fill: #111111;
+      font-family: "STIX Two Text", "Cambria Math", "Times New Roman", serif;
+      font-size: 16px;
+      font-style: italic;
+      letter-spacing: 0.01em;
+    }
+    .caption {
+      fill: #333333;
+      font-family: "Times New Roman", Times, serif;
+      font-size: 14px;
+    }
+    .label {
+      fill: #111111;
+      font-family: "Times New Roman", Times, serif;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+    }
+  </style>
+
+  <rect class="page" x="0" y="0" width="980" height="132"/>
+  <line class="rule" x1="26" y1="22" x2="954" y2="22"/>
+  <line class="hairline" x1="26" y1="104" x2="954" y2="104"/>
+
+  <text class="label" x="26" y="49">DEFINITION 1</text>
+  <text class="eq" x="196" y="66">Web4</text>
+  <text class="op" x="314" y="66">=</text>
+  <text class="eq" x="376" y="66">Read</text>
+  <text class="op" x="485" y="66">+</text>
+  <text class="eq" x="532" y="66">Write</text>
+  <text class="op" x="654" y="66">+</text>
+  <text class="eq" x="701" y="66">Own</text>
+  <text class="op" x="804" y="66">+</text>
+  <text class="eq" x="842" y="66">Act</text>
+  <text class="sub" x="744" y="86">cryptographic determinism</text>
+
+  <text class="caption" x="26" y="123">Autonomous action is admissible only after authority, policy, receipt, replay, and settlement constraints collapse it into deterministic state.</text>
+</svg>
