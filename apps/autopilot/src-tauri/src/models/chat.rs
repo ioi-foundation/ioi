@@ -4,8 +4,8 @@ use ioi_api::chat::{
     ChatArtifactPreparedContextResolution, ChatArtifactRenderEvaluation, ChatArtifactSelectedSkill,
     ChatArtifactSelectionTarget, ChatArtifactSkillDiscoveryResolution, ChatArtifactTasteMemory,
     ChatArtifactUxLifecycle, ChatArtifactValidationResult, ExecutionEnvelope, ExecutionStage,
-    SwarmChangeReceipt, SwarmExecutionSummary, SwarmMergeReceipt, SwarmPlan,
-    SwarmVerificationReceipt, SwarmWorkerReceipt,
+    WorkGraphChangeReceipt, WorkGraphExecutionSummary, WorkGraphMergeReceipt, WorkGraphPlan,
+    WorkGraphVerificationReceipt, WorkGraphWorkerReceipt,
 };
 use ioi_api::runtime_harness::{
     ArtifactOperatorRun, ArtifactOperatorStep, ArtifactSourceReference,
@@ -125,18 +125,18 @@ pub struct ChatArtifactMaterializationContract {
     pub winning_candidate_rationale: Option<String>,
     #[serde(default)]
     pub execution_envelope: Option<ExecutionEnvelope>,
-    #[serde(default)]
-    pub swarm_plan: Option<SwarmPlan>,
-    #[serde(default)]
-    pub swarm_execution: Option<SwarmExecutionSummary>,
-    #[serde(default)]
-    pub swarm_worker_receipts: Vec<SwarmWorkerReceipt>,
-    #[serde(default)]
-    pub swarm_change_receipts: Vec<SwarmChangeReceipt>,
-    #[serde(default)]
-    pub swarm_merge_receipts: Vec<SwarmMergeReceipt>,
-    #[serde(default)]
-    pub swarm_verification_receipts: Vec<SwarmVerificationReceipt>,
+    #[serde(default, alias = "swarmPlan")]
+    pub work_graph_plan: Option<WorkGraphPlan>,
+    #[serde(default, alias = "swarmExecution")]
+    pub work_graph_execution: Option<WorkGraphExecutionSummary>,
+    #[serde(default, alias = "swarmWorkerReceipts")]
+    pub work_graph_worker_receipts: Vec<WorkGraphWorkerReceipt>,
+    #[serde(default, alias = "swarmChangeReceipts")]
+    pub work_graph_change_receipts: Vec<WorkGraphChangeReceipt>,
+    #[serde(default, alias = "swarmMergeReceipts")]
+    pub work_graph_merge_receipts: Vec<WorkGraphMergeReceipt>,
+    #[serde(default, alias = "swarmVerificationReceipts")]
+    pub work_graph_verification_receipts: Vec<WorkGraphVerificationReceipt>,
     #[serde(default)]
     pub render_evaluation: Option<ChatArtifactRenderEvaluation>,
     #[serde(default)]
@@ -207,18 +207,18 @@ pub struct ChatArtifactRevision {
     pub winning_candidate_id: Option<String>,
     #[serde(default)]
     pub execution_envelope: Option<ExecutionEnvelope>,
-    #[serde(default)]
-    pub swarm_plan: Option<SwarmPlan>,
-    #[serde(default)]
-    pub swarm_execution: Option<SwarmExecutionSummary>,
-    #[serde(default)]
-    pub swarm_worker_receipts: Vec<SwarmWorkerReceipt>,
-    #[serde(default)]
-    pub swarm_change_receipts: Vec<SwarmChangeReceipt>,
-    #[serde(default)]
-    pub swarm_merge_receipts: Vec<SwarmMergeReceipt>,
-    #[serde(default)]
-    pub swarm_verification_receipts: Vec<SwarmVerificationReceipt>,
+    #[serde(default, alias = "swarmPlan")]
+    pub work_graph_plan: Option<WorkGraphPlan>,
+    #[serde(default, alias = "swarmExecution")]
+    pub work_graph_execution: Option<WorkGraphExecutionSummary>,
+    #[serde(default, alias = "swarmWorkerReceipts")]
+    pub work_graph_worker_receipts: Vec<WorkGraphWorkerReceipt>,
+    #[serde(default, alias = "swarmChangeReceipts")]
+    pub work_graph_change_receipts: Vec<WorkGraphChangeReceipt>,
+    #[serde(default, alias = "swarmMergeReceipts")]
+    pub work_graph_merge_receipts: Vec<WorkGraphMergeReceipt>,
+    #[serde(default, alias = "swarmVerificationReceipts")]
+    pub work_graph_verification_receipts: Vec<WorkGraphVerificationReceipt>,
     #[serde(default)]
     pub render_evaluation: Option<ChatArtifactRenderEvaluation>,
     #[serde(default)]

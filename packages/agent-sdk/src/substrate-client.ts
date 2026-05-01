@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-import { IoiAgentError } from "./errors.js";
+import { IoiAgentError, type IoiAgentErrorCode } from "./errors.js";
 import type {
   AgentOptions,
   CloudAgentOptions,
@@ -22,7 +22,10 @@ import type {
   PostconditionProjection,
   ProbeProjection,
   RuntimeReceipt,
+  RuntimeAccountProfile,
+  RuntimeNodeProfile,
   RuntimeScorecard,
+  RuntimeToolCatalogEntry,
   RuntimeTraceBundle,
   SemanticImpactProjection,
   StopConditionProjection,
@@ -107,20 +110,449 @@ export interface RuntimeSubstrateClient {
   scorecard(runId: string): Promise<RuntimeScorecard>;
   listModels(): Promise<Array<{ id: string; provider: string; cost: string; quality: string }>>;
   listRepositories(): Promise<Array<{ url: string; source: string; status: string }>>;
+  getAccount(): Promise<RuntimeAccountProfile>;
+  listRuntimeNodes(): Promise<RuntimeNodeProfile[]>;
+  listTools(): Promise<RuntimeToolCatalogEntry[]>;
 }
 
 export interface RuntimeSubstrateClientOptions {
   cwd?: string;
   checkpointDir?: string;
+  endpoint?: string;
+  apiKey?: string;
+  headers?: Record<string, string>;
 }
 
 export function createRuntimeSubstrateClient(
   options: RuntimeSubstrateClientOptions = {},
 ): RuntimeSubstrateClient {
-  return new LocalRuntimeSubstrateClient(options);
+  return new DaemonRuntimeSubstrateClient(options);
 }
 
-export class LocalRuntimeSubstrateClient implements RuntimeSubstrateClient {
+export function createMockRuntimeSubstrateClient(
+  options: RuntimeSubstrateClientOptions = {},
+): RuntimeSubstrateClient {
+  return new MockRuntimeSubstrateClient(options);
+}
+
+export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
+  private readonly endpoint?: string;
+  private readonly apiKey?: string;
+  private readonly headers: Record<string, string>;
+
+  constructor(options: RuntimeSubstrateClientOptions = {}) {
+    this.endpoint = options.endpoint ?? process.env.IOI_DAEMON_ENDPOINT;
+    this.apiKey = options.apiKey ?? process.env.IOI_DAEMON_TOKEN;
+    this.headers = options.headers ?? {};
+  }
+
+  async createAgent(options: AgentOptions): Promise<RuntimeAgentRecord> {
+    return this.request("createAgent", "POST", "/v1/agents", { options });
+  }
+
+  async resumeAgent(agentId: string): Promise<RuntimeAgentRecord> {
+    return this.request("resumeAgent", "POST", `/v1/agents/${encodePath(agentId)}/resume`);
+  }
+
+  async closeAgent(agentId: string): Promise<void> {
+    await this.request("closeAgent", "POST", `/v1/agents/${encodePath(agentId)}/close`);
+  }
+
+  async reloadAgent(agentId: string): Promise<RuntimeAgentRecord> {
+    return this.request("reloadAgent", "POST", `/v1/agents/${encodePath(agentId)}/reload`);
+  }
+
+  async listAgents(): Promise<RuntimeAgentRecord[]> {
+    return this.request("listAgents", "GET", "/v1/agents");
+  }
+
+  async getAgent(agentId: string): Promise<RuntimeAgentRecord> {
+    return this.request("getAgent", "GET", `/v1/agents/${encodePath(agentId)}`);
+  }
+
+  async archiveAgent(agentId: string): Promise<RuntimeAgentRecord> {
+    return this.request("archiveAgent", "POST", `/v1/agents/${encodePath(agentId)}/archive`);
+  }
+
+  async unarchiveAgent(agentId: string): Promise<RuntimeAgentRecord> {
+    return this.request("unarchiveAgent", "POST", `/v1/agents/${encodePath(agentId)}/unarchive`);
+  }
+
+  async deleteAgent(agentId: string): Promise<void> {
+    await this.request("deleteAgent", "DELETE", `/v1/agents/${encodePath(agentId)}`);
+  }
+
+  async send(agentId: string, prompt: string, options: SendOptions = {}): Promise<RuntimeRunRecord> {
+    return this.createRun("send", agentId, prompt, options);
+  }
+
+  async plan(agentId: string, prompt: string, options: PlanOptions = {}): Promise<RuntimeRunRecord> {
+    return this.createRun("plan", agentId, prompt, options);
+  }
+
+  async dryRun(agentId: string, prompt: string, options: DryRunOptions = {}): Promise<RuntimeRunRecord> {
+    return this.createRun("dry_run", agentId, prompt, options);
+  }
+
+  async handoff(agentId: string, prompt: string, options: HandoffOptions = {}): Promise<RuntimeRunRecord> {
+    return this.createRun("handoff", agentId, prompt, options);
+  }
+
+  async learn(agentId: string, options: LearnOptions): Promise<RuntimeRunRecord> {
+    return this.request("learn", "POST", `/v1/agents/${encodePath(agentId)}/runs`, {
+      mode: "learn",
+      options,
+    });
+  }
+
+  async *streamRun(runId: string, options: { lastEventId?: string } = {}): AsyncIterable<IOISDKMessage> {
+    const query = options.lastEventId ? `?lastEventId=${encodeURIComponent(options.lastEventId)}` : "";
+    const events = await this.requestEvents("streamRun", `/v1/runs/${encodePath(runId)}/events${query}`);
+    for (const event of eventsFromResponse(events)) {
+      yield event;
+    }
+  }
+
+  async waitRun(runId: string): Promise<IOIRunResult> {
+    return this.request("waitRun", "GET", `/v1/runs/${encodePath(runId)}/wait`);
+  }
+
+  async cancelRun(runId: string): Promise<RuntimeRunRecord> {
+    return this.request("cancelRun", "POST", `/v1/runs/${encodePath(runId)}/cancel`);
+  }
+
+  async getRun(runId: string): Promise<RuntimeRunRecord> {
+    return this.request("getRun", "GET", `/v1/runs/${encodePath(runId)}`);
+  }
+
+  async listRuns(agentId?: string): Promise<RuntimeRunRecord[]> {
+    const query = agentId ? `?agentId=${encodeURIComponent(agentId)}` : "";
+    return this.request("listRuns", "GET", `/v1/runs${query}`);
+  }
+
+  async conversation(runId: string): Promise<ConversationMessage[]> {
+    return this.request("conversation", "GET", `/v1/runs/${encodePath(runId)}/conversation`);
+  }
+
+  async listArtifacts(runId: string): Promise<RuntimeArtifact[]> {
+    return this.request("listArtifacts", "GET", `/v1/runs/${encodePath(runId)}/artifacts`);
+  }
+
+  async downloadArtifact(runId: string, artifactId: string): Promise<RuntimeArtifact> {
+    return this.request(
+      "downloadArtifact",
+      "GET",
+      `/v1/runs/${encodePath(runId)}/artifacts/${encodePath(artifactId)}`,
+    );
+  }
+
+  async exportTrace(runId: string): Promise<RuntimeTraceBundle> {
+    return this.request("exportTrace", "GET", `/v1/runs/${encodePath(runId)}/trace`);
+  }
+
+  async *replayTrace(runId: string): AsyncIterable<IOISDKMessage> {
+    const events = await this.requestEvents("replayTrace", `/v1/runs/${encodePath(runId)}/replay`);
+    for (const event of eventsFromResponse(events)) {
+      yield event;
+    }
+  }
+
+  async inspectRun(runId: string): Promise<RuntimeTraceBundle> {
+    return this.request("inspectRun", "GET", `/v1/runs/${encodePath(runId)}/inspect`);
+  }
+
+  async scorecard(runId: string): Promise<RuntimeScorecard> {
+    return this.request("scorecard", "GET", `/v1/runs/${encodePath(runId)}/scorecard`);
+  }
+
+  async listModels(): Promise<Array<{ id: string; provider: string; cost: string; quality: string }>> {
+    return this.request("listModels", "GET", "/v1/models");
+  }
+
+  async listRepositories(): Promise<Array<{ url: string; source: string; status: string }>> {
+    return this.request("listRepositories", "GET", "/v1/repositories");
+  }
+
+  async getAccount(): Promise<RuntimeAccountProfile> {
+    return this.request("getAccount", "GET", "/v1/account");
+  }
+
+  async listRuntimeNodes(): Promise<RuntimeNodeProfile[]> {
+    return this.request("listRuntimeNodes", "GET", "/v1/runtime/nodes");
+  }
+
+  async listTools(): Promise<RuntimeToolCatalogEntry[]> {
+    return this.request("listTools", "GET", "/v1/tools");
+  }
+
+  private createRun(
+    mode: RuntimeRunRecord["mode"],
+    agentId: string,
+    prompt: string,
+    options: SendOptions | PlanOptions | DryRunOptions | HandoffOptions,
+  ): Promise<RuntimeRunRecord> {
+    return this.request(mode, "POST", `/v1/agents/${encodePath(agentId)}/runs`, {
+      mode,
+      prompt,
+      options,
+    });
+  }
+
+  private async request<T>(
+    sdkMethod: string,
+    method: "GET" | "POST" | "DELETE",
+    route: string,
+    body?: unknown,
+  ): Promise<T> {
+    const endpoint = this.requireEndpoint(sdkMethod);
+    const url = new URL(route.replace(/^\/+/, ""), endpoint);
+    const headers: Record<string, string> = {
+      accept: "application/json",
+      ...this.headers,
+    };
+    if (body !== undefined) {
+      headers["content-type"] = "application/json";
+    }
+    if (this.apiKey) {
+      headers.authorization = `Bearer ${this.apiKey}`;
+    }
+
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method,
+        headers,
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+    } catch (error) {
+      throw new IoiAgentError({
+        code: "network",
+        message: `IOI daemon request failed for ${sdkMethod}.`,
+        cause: error,
+        details: { method: sdkMethod, endpoint: this.endpoint, route },
+      });
+    }
+
+    const requestId = response.headers.get("x-request-id") ?? undefined;
+    const text = await response.text();
+    const parsed = parseDaemonResponseBody(text);
+    if (!response.ok) {
+      throw errorFromDaemonResponse({
+        sdkMethod,
+        route,
+        status: response.status,
+        requestId,
+        parsed,
+      });
+    }
+    return parsed as T;
+  }
+
+  private async requestEvents(sdkMethod: string, route: string): Promise<IOISDKMessage[]> {
+    const endpoint = this.requireEndpoint(sdkMethod);
+    const url = new URL(route.replace(/^\/+/, ""), endpoint);
+    const headers: Record<string, string> = {
+      accept: "text/event-stream, application/json",
+      ...this.headers,
+    };
+    if (this.apiKey) {
+      headers.authorization = `Bearer ${this.apiKey}`;
+    }
+
+    let response: Response;
+    try {
+      response = await fetch(url, { method: "GET", headers });
+    } catch (error) {
+      throw new IoiAgentError({
+        code: "network",
+        message: `IOI daemon event stream failed for ${sdkMethod}.`,
+        cause: error,
+        details: { method: sdkMethod, endpoint: this.endpoint, route },
+      });
+    }
+
+    const requestId = response.headers.get("x-request-id") ?? undefined;
+    const text = await response.text();
+    if (!response.ok) {
+      throw errorFromDaemonResponse({
+        sdkMethod,
+        route,
+        status: response.status,
+        requestId,
+        parsed: parseDaemonResponseBody(text),
+      });
+    }
+    const contentType = response.headers.get("content-type") ?? "";
+    return contentType.includes("text/event-stream")
+      ? parseServerSentEvents(text)
+      : eventsFromResponse(parseDaemonResponseBody(text) as IOISDKMessage[] | { events: IOISDKMessage[] });
+  }
+
+  private requireEndpoint(method: string): URL {
+    if (!this.endpoint) {
+      throw this.unavailableError(method);
+    }
+    try {
+      return new URL(this.endpoint.endsWith("/") ? this.endpoint : `${this.endpoint}/`);
+    } catch (error) {
+      throw new IoiAgentError({
+        code: "config",
+        message: "IOI_DAEMON_ENDPOINT must be a valid URL.",
+        cause: error,
+        details: { endpoint: this.endpoint, method },
+      });
+    }
+  }
+
+  private unavailableError(method: string): IoiAgentError {
+    return new IoiAgentError({
+      code: "external_blocker",
+      message:
+        "The default IOI SDK client targets the daemon substrate and is fail-closed until the daemon transport is configured.",
+      details: {
+        method,
+        endpointConfigured: Boolean(this.endpoint),
+        requiredEnvironment: ["IOI_DAEMON_ENDPOINT"],
+        explicitMockFactory: "@ioi/agent-sdk/testing#createMockRuntimeSubstrateClient",
+      },
+    });
+  }
+}
+
+function encodePath(value: string): string {
+  return encodeURIComponent(value);
+}
+
+function parseDaemonResponseBody(text: string): unknown {
+  if (!text.trim()) {
+    return undefined;
+  }
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    throw new IoiAgentError({
+      code: "runtime",
+      message: "IOI daemon returned a non-JSON substrate response.",
+      cause: error,
+      details: { preview: text.slice(0, 240) },
+    });
+  }
+}
+
+function eventsFromResponse(value: IOISDKMessage[] | { events: IOISDKMessage[] }): IOISDKMessage[] {
+  if (Array.isArray(value)) {
+    return value;
+  }
+  if (value && Array.isArray(value.events)) {
+    return value.events;
+  }
+  throw new IoiAgentError({
+    code: "runtime",
+    message: "IOI daemon event endpoint returned an invalid event stream projection.",
+    details: { value },
+  });
+}
+
+function parseServerSentEvents(text: string): IOISDKMessage[] {
+  const events: IOISDKMessage[] = [];
+  for (const block of text.split(/\r?\n\r?\n/)) {
+    const dataLines = block
+      .split(/\r?\n/)
+      .filter((line) => line.startsWith("data:"))
+      .map((line) => line.slice("data:".length).trimStart());
+    if (dataLines.length === 0) {
+      continue;
+    }
+    const data = dataLines.join("\n").trim();
+    if (!data || data === "[DONE]") {
+      continue;
+    }
+    const parsed = parseDaemonResponseBody(data);
+    if (!isSdkMessage(parsed)) {
+      throw new IoiAgentError({
+        code: "runtime",
+        message: "IOI daemon SSE stream yielded an invalid SDK event.",
+        details: { data: data.slice(0, 240) },
+      });
+    }
+    events.push(parsed);
+  }
+  return events;
+}
+
+function isSdkMessage(value: unknown): value is IOISDKMessage {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      typeof (value as IOISDKMessage).id === "string" &&
+      typeof (value as IOISDKMessage).runId === "string" &&
+      typeof (value as IOISDKMessage).type === "string" &&
+      typeof (value as IOISDKMessage).cursor === "string",
+  );
+}
+
+function errorFromDaemonResponse({
+  sdkMethod,
+  route,
+  status,
+  requestId,
+  parsed,
+}: {
+  sdkMethod: string;
+  route: string;
+  status: number;
+  requestId?: string;
+  parsed: unknown;
+}): IoiAgentError {
+  const record = parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
+  const nested = record.error && typeof record.error === "object"
+    ? (record.error as Record<string, unknown>)
+    : record;
+  const code = normalizeDaemonErrorCode(nested.code, status);
+  return new IoiAgentError({
+    code,
+    status,
+    requestId: typeof nested.requestId === "string" ? nested.requestId : requestId,
+    retryable: typeof nested.retryable === "boolean" ? nested.retryable : undefined,
+    message:
+      typeof nested.message === "string"
+        ? nested.message
+        : `IOI daemon request failed for ${sdkMethod}.`,
+    details: {
+      method: sdkMethod,
+      route,
+      daemon: nested.details && typeof nested.details === "object" ? nested.details : record,
+    },
+  });
+}
+
+function normalizeDaemonErrorCode(value: unknown, status: number): IoiAgentErrorCode {
+  if (
+    value === "auth" ||
+    value === "config" ||
+    value === "policy" ||
+    value === "rate_limit" ||
+    value === "network" ||
+    value === "model" ||
+    value === "tool" ||
+    value === "verifier" ||
+    value === "postcondition" ||
+    value === "not_found" ||
+    value === "external_blocker" ||
+    value === "runtime"
+  ) {
+    return value;
+  }
+  if (status === 401) return "auth";
+  if (status === 403) return "policy";
+  if (status === 404) return "not_found";
+  if (status === 429) return "rate_limit";
+  if (status === 424) return "external_blocker";
+  if (status >= 500) return "network";
+  return "runtime";
+}
+
+export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
   private readonly cwd: string;
   private readonly checkpointDir: string;
   private readonly agents = new Map<string, RuntimeAgentRecord>();
@@ -129,7 +561,7 @@ export class LocalRuntimeSubstrateClient implements RuntimeSubstrateClient {
   constructor(options: RuntimeSubstrateClientOptions = {}) {
     this.cwd = path.resolve(options.cwd ?? process.cwd());
     this.checkpointDir = path.resolve(
-      options.checkpointDir ?? path.join(this.cwd, ".ioi", "agent-sdk"),
+      options.checkpointDir ?? path.join(this.cwd, ".ioi", "agent-sdk-mock"),
     );
     this.loadCheckpoints();
   }
@@ -355,6 +787,82 @@ export class LocalRuntimeSubstrateClient implements RuntimeSubstrateClient {
     return [{ url: this.cwd, source: "local", status: "available" }];
   }
 
+  async getAccount(): Promise<RuntimeAccountProfile> {
+    return {
+      id: "local-operator",
+      email: process.env.IOI_OPERATOR_EMAIL ?? null,
+      authorityLevel: "local",
+      privacyClass: "local_private",
+      source: "explicit_mock_runtime_substrate_projection",
+    };
+  }
+
+  async listRuntimeNodes(): Promise<RuntimeNodeProfile[]> {
+    return [
+      {
+        id: "local-mock-projection",
+        kind: "local",
+        status: "available",
+        privacyClass: "local_private",
+        evidenceRefs: ["explicit_mock_runtime_substrate_projection"],
+      },
+      {
+        id: "hosted-provider",
+        kind: "hosted",
+        status: process.env.IOI_AGENT_SDK_HOSTED_ENDPOINT ? "available" : "blocked",
+        endpoint: process.env.IOI_AGENT_SDK_HOSTED_ENDPOINT,
+        privacyClass: "hosted",
+        evidenceRefs: ["IOI_AGENT_SDK_HOSTED_ENDPOINT"],
+      },
+      {
+        id: "self-hosted-provider",
+        kind: "self_hosted",
+        status: process.env.IOI_AGENT_SDK_SELF_HOSTED_ENDPOINT ? "available" : "blocked",
+        endpoint: process.env.IOI_AGENT_SDK_SELF_HOSTED_ENDPOINT,
+        privacyClass: "workspace",
+        evidenceRefs: ["IOI_AGENT_SDK_SELF_HOSTED_ENDPOINT"],
+      },
+    ];
+  }
+
+  async listTools(): Promise<RuntimeToolCatalogEntry[]> {
+    return [
+      {
+        stableToolId: "fs.read",
+        displayName: "Read file",
+        primitiveCapabilities: ["prim:fs.read"],
+        authorityScopeRequirements: [],
+        effectClass: "local_read",
+        riskDomain: "filesystem",
+        inputSchema: { type: "object", required: ["path"] },
+        outputSchema: { type: "object", required: ["content"] },
+        evidenceRequirements: ["file_read_receipt"],
+      },
+      {
+        stableToolId: "sys.exec",
+        displayName: "Shell command",
+        primitiveCapabilities: ["prim:sys.exec"],
+        authorityScopeRequirements: ["scope:host.controlled_execution"],
+        effectClass: "local_command",
+        riskDomain: "host",
+        inputSchema: { type: "object", required: ["command"] },
+        outputSchema: { type: "object", required: ["exitCode", "stdout", "stderr"] },
+        evidenceRequirements: ["shell_receipt", "sandbox_profile"],
+      },
+      {
+        stableToolId: "mcp.invoke",
+        displayName: "MCP tool invocation",
+        primitiveCapabilities: ["prim:connector.invoke"],
+        authorityScopeRequirements: ["scope:mcp.invoke"],
+        effectClass: "connector_call",
+        riskDomain: "connector",
+        inputSchema: { type: "object", required: ["server", "tool"] },
+        outputSchema: { type: "object" },
+        evidenceRequirements: ["mcp_containment_receipt"],
+      },
+    ];
+  }
+
   private async createRun(
     agentId: string,
     prompt: string,
@@ -369,7 +877,7 @@ export class LocalRuntimeSubstrateClient implements RuntimeSubstrateClient {
         details: { runtime: agent.runtime, agentId },
       });
     }
-    const run = buildLocalRun(agent, prompt, mode, options);
+    const run = buildMockRun(agent, prompt, mode, options);
     await emitCallbacks(run, options);
     this.persistRun(run);
     return run;
@@ -441,7 +949,7 @@ export class LocalRuntimeSubstrateClient implements RuntimeSubstrateClient {
     try {
       fs.rmSync(filePath, { force: true });
     } catch {
-      // Best-effort cleanup; authoritative state is the governed checkpoint map.
+      // Best-effort cleanup; mock checkpoints are projections, not canonical runtime state.
     }
   }
 }
@@ -517,7 +1025,7 @@ function loadCursorCompatibilityConfig(cwd: string): {
   return { mcpServers, hookNames, skillNames };
 }
 
-function buildLocalRun(
+function buildMockRun(
   agent: RuntimeAgentRecord,
   prompt: string,
   mode: RuntimeRunRecord["mode"],
@@ -533,16 +1041,16 @@ function buildLocalRun(
   const taskState: TaskStateProjection = {
     currentObjective: prompt,
     knownFacts: [
-      "SDK run entered through RuntimeSubstrateClient",
+      "SDK run entered through the explicit mock RuntimeSubstrateClient",
       "Authority and trace export are required by the IOI runtime contract",
       `Selected model profile: ${selectedModel}`,
     ],
     uncertainFacts: mode === "dry_run" ? ["Side effects are previewed, not executed"] : [],
-    assumptions: ["Local SDK execution uses checkpointed substrate records"],
+    assumptions: ["Mock SDK execution writes non-authoritative checkpoint projections"],
     constraints: ["No GUI internals", "No raw receipt dump", "No policy bypass"],
     blockers: [],
     changedObjects: mode === "send" ? [] : [`sdk:${mode}`],
-    evidenceRefs: ["runtime_substrate_client", "agent_sdk_checkpoint", ...inlineMcpServerNames],
+    evidenceRefs: ["runtime_substrate_client", "agent_sdk_mock_checkpoint", ...inlineMcpServerNames],
   };
   const uncertainty: UncertaintyProjection = {
     ambiguityLevel: mode === "send" ? "low" : "medium",
@@ -554,17 +1062,17 @@ function buildLocalRun(
           : mode === "handoff"
             ? "execute"
             : "probe",
-    rationale: "SDK local runs choose a bounded substrate action before terminal output.",
+    rationale: "Explicit SDK mock runs choose a bounded substrate projection before terminal output.",
     valueOfProbe: mode === "send" ? "medium" : "high",
   };
   const probes: ProbeProjection[] = [
     {
       probeId: `${runId}:probe:substrate`,
-      hypothesis: "The SDK path can preserve substrate events, trace, receipts, and scorecard.",
+      hypothesis: "The explicit SDK mock path can preserve substrate events, trace, receipts, and scorecard.",
       cheapestValidationAction: "Inspect generated local checkpoint and replay event cursor.",
       expectedObservation: "Monotonic event stream with terminal event and trace bundle.",
       result: "confirmed",
-      confidenceUpdate: "SDK substrate projection is replayable for this run.",
+      confidenceUpdate: "SDK mock substrate projection is replayable for this run.",
     },
   ];
   const postconditions: PostconditionProjection = {
@@ -633,14 +1141,14 @@ function buildLocalRun(
     {
       id: `receipt_${runId}_authority`,
       kind: "authority_decision",
-      summary: "SDK action used local runtime substrate authority profile.",
+      summary: "SDK mock action used an explicit non-authoritative runtime substrate projection.",
       redaction: "none",
       evidenceRefs: ["RuntimeSubstratePortContract"],
     },
     {
       id: `receipt_${runId}_trace`,
       kind: "trace_export",
-      summary: "Trace export was generated from the SDK runtime projection.",
+      summary: "Trace export was generated from the explicit SDK mock runtime projection.",
       redaction: "redacted",
       evidenceRefs: ["RuntimeTraceBundle"],
     },
@@ -736,7 +1244,7 @@ function resultForMode(mode: RuntimeRunRecord["mode"], agent: RuntimeAgentRecord
     case "learn":
       return "Governed learning record created behind memory quality and bounded self-improvement gates.";
     case "send":
-      return `IOI SDK local run completed for ${agent.cwd}. Trace, receipts, task state, uncertainty, probe, postconditions, semantic impact, stop condition, and scorecard are available through run.inspect(), run.trace(), and run.scorecard().`;
+      return `IOI SDK mock run completed for ${agent.cwd}. This is a non-authoritative projection; trace, receipts, task state, uncertainty, probe, postconditions, semantic impact, stop condition, and scorecard are available through run.inspect(), run.trace(), and run.scorecard().`;
   }
 }
 
@@ -751,7 +1259,7 @@ function taskFamilyForMode(mode: RuntimeRunRecord["mode"]): string {
     case "learn":
       return "learning";
     case "send":
-      return "local_sdk_execution";
+      return "mock_sdk_projection";
   }
 }
 
@@ -766,7 +1274,7 @@ function strategyForMode(mode: RuntimeRunRecord["mode"]): string {
     case "learn":
       return "bounded_learning_gate";
     case "send":
-      return "local_substrate_execution";
+      return "explicit_mock_substrate_projection";
   }
 }
 

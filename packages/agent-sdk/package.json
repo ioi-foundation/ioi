@@ -42,6 +42,11 @@
       "types": "./dist/substrate-client.d.ts",
       "import": "./dist/substrate-client.js",
       "require": "./dist/substrate-client.cjs"
+    },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "import": "./dist/testing.js",
+      "require": "./dist/testing.cjs"
     }
   },
   "files": [

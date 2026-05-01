@@ -182,7 +182,7 @@ export function buildArtifactValidationInspection(
 }
 
 export function buildArtifactDeliveryInspection(input: {
-  hasSwarmExecution: boolean;
+  hasWorkGraphExecution: boolean;
   adapterLabel?: string | null;
   completedWorkItems?: number | null;
   totalWorkItems?: number | null;
@@ -197,12 +197,12 @@ export function buildArtifactDeliveryInspection(input: {
   workspaceDetail?: string | null;
   formatStatusLabel: (value: string | null | undefined) => string;
 }): ArtifactDeliveryInspection {
-  const headline = input.hasSwarmExecution
+  const headline = input.hasWorkGraphExecution
     ? `${formatInspectionCount(input.completedWorkItems ?? 0, "worker receipt")} · ${formatInspectionCount(input.receiptCount, "receipt")}`
     : `${formatInspectionCount(input.evidenceCount, "file")} · ${formatInspectionCount(input.receiptCount, "receipt")}`;
 
-  const summary = input.hasSwarmExecution
-    ? `${input.adapterLabel ?? "Swarm"} · ${input.completedWorkItems ?? 0}/${input.totalWorkItems ?? 0} work items completed`
+  const summary = input.hasWorkGraphExecution
+    ? `${input.adapterLabel ?? "Work graph"} · ${input.completedWorkItems ?? 0}/${input.totalWorkItems ?? 0} work items completed`
     : input.winningCandidateId
       ? `Winner ${input.winningCandidateId}${input.winningCandidateRationale ? ` · ${input.winningCandidateRationale}` : ""}`
       : "Winning candidate not recorded yet.";
@@ -219,7 +219,7 @@ export function buildArtifactDeliveryInspection(input: {
       ? `Active role: ${input.formatStatusLabel(input.activeWorkerRole)}`
       : null,
     workspaceDetail: input.workspaceDetail ?? null,
-    tone: input.hasSwarmExecution ? "running" : "ready",
+    tone: input.hasWorkGraphExecution ? "running" : "ready",
   };
 }
 

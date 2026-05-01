@@ -1,0 +1,58 @@
+{
+  "runId": "run_708c12b3-ab7f-46b3-a9a2-64c8aacd7726",
+  "result": "Handoff bundle is complete: objective, state, blockers, evidence, and next action are preserved.",
+  "qualityLedger": {
+    "ledgerId": "quality_run_708c12b3-ab7f-46b3-a9a2-64c8aacd7726",
+    "taskFamily": "delegation",
+    "selectedStrategy": "handoff_with_state_preservation",
+    "toolSequence": [
+      "authority_check",
+      "task_state_projection",
+      "trace_export",
+      "mcp_containment",
+      "skill_instruction_import",
+      "runtime_event_hook",
+      "handoff_quality"
+    ],
+    "scorecardMetrics": {
+      "task_pass_rate": 100,
+      "recovery_success": 100,
+      "memory_relevance": 90,
+      "tool_quality": 95,
+      "strategy_roi": 90,
+      "operator_interventions": 0,
+      "verifier_independence": 100
+    },
+    "failureOntologyLabels": []
+  },
+  "taskState": {
+    "currentObjective": "Delegate a runtime evidence review and preserve a handoff another agent can continue from.",
+    "knownFacts": [
+      "SDK run entered through the explicit mock RuntimeSubstrateClient",
+      "Authority and trace export are required by the IOI runtime contract",
+      "Selected model profile: local:auto"
+    ],
+    "uncertainFacts": [],
+    "assumptions": [
+      "Mock SDK execution writes non-authoritative checkpoint projections"
+    ],
+    "constraints": [
+      "No GUI internals",
+      "No raw receipt dump",
+      "No policy bypass"
+    ],
+    "blockers": [],
+    "changedObjects": [
+      "sdk:handoff"
+    ],
+    "evidenceRefs": [
+      "runtime_substrate_client",
+      "agent_sdk_mock_checkpoint"
+    ]
+  },
+  "stopCondition": {
+    "reason": "evidence_sufficient",
+    "evidenceSufficient": true,
+    "rationale": "Required SDK trace, replay, postcondition, and scorecard evidence were produced."
+  }
+}

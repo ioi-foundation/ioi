@@ -1,6 +1,6 @@
 use crate::agentic::runtime::keys::get_incident_key;
 use crate::agentic::runtime::middleware;
-use crate::agentic::runtime::service::step::incident::IncidentState;
+use crate::agentic::runtime::service::recovery::incident::IncidentState;
 use crate::agentic::runtime::types::{AgentPauseReason, AgentState, AgentStatus};
 use ioi_api::state::StateAccess;
 use ioi_crypto::algorithms::hash::sha256;

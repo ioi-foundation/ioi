@@ -5,7 +5,7 @@ use ioi_api::state::service_namespace_prefix;
 use ioi_client::WorkloadClient;
 use ioi_memory::MemoryRuntime;
 use ioi_services::agentic::runtime::keys::{get_incident_key, get_state_key, pii};
-use ioi_services::agentic::runtime::service::step::incident::IncidentState;
+use ioi_services::agentic::runtime::service::recovery::incident::IncidentState;
 use ioi_services::agentic::runtime::utils::load_agent_state_checkpoint;
 use ioi_services::agentic::runtime::{AgentState, ResumeAgentParams};
 use ioi_types::app::action::ApprovalGrant;

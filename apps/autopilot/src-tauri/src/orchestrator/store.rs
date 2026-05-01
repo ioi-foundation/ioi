@@ -484,11 +484,11 @@ fn runtime_task_family(task: &AgentTask) -> String {
         if !materialization.file_writes.is_empty() {
             return "chat_artifact_change".to_string();
         }
-        if materialization.swarm_execution.is_some()
-            || !materialization.swarm_worker_receipts.is_empty()
-            || !materialization.swarm_verification_receipts.is_empty()
+        if materialization.work_graph_execution.is_some()
+            || !materialization.work_graph_worker_receipts.is_empty()
+            || !materialization.work_graph_verification_receipts.is_empty()
         {
-            return "chat_swarm_execution".to_string();
+            return "chat_work_graph_execution".to_string();
         }
         if materialization.validation.is_some() || materialization.render_evaluation.is_some() {
             return "chat_verified_answer".to_string();
@@ -564,7 +564,10 @@ fn runtime_has_mutation_evidence(task: &AgentTask) -> bool {
         .as_ref()
         .map(|session| {
             !session.materialization.file_writes.is_empty()
-                || !session.materialization.swarm_change_receipts.is_empty()
+                || !session
+                    .materialization
+                    .work_graph_change_receipts
+                    .is_empty()
         })
         .unwrap_or(false)
         || task.build_session.is_some()
@@ -578,7 +581,7 @@ fn runtime_has_verification_evidence(task: &AgentTask) -> bool {
                 || session.materialization.render_evaluation.is_some()
                 || !session
                     .materialization
-                    .swarm_verification_receipts
+                    .work_graph_verification_receipts
                     .is_empty()
                 || session.materialization.acceptance_provenance.is_some()
         })
@@ -711,10 +714,13 @@ fn runtime_evidence_scorecard(
                 .chat_session
                 .as_ref()
                 .map(|session| {
-                    !session.materialization.swarm_worker_receipts.is_empty()
+                    !session
+                        .materialization
+                        .work_graph_worker_receipts
+                        .is_empty()
                         || !session
                             .materialization
-                            .swarm_verification_receipts
+                            .work_graph_verification_receipts
                             .is_empty()
                         || session.materialization.execution_envelope.is_some()
                 })

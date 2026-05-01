@@ -1133,7 +1133,7 @@ pub(super) async fn handle_workload_receipt(app: &tauri::AppHandle, receipt: Wor
     if let Some(WorkloadReceiptKind::Worker(worker)) = receipt.receipt.as_ref() {
         update_task_state(app, |task| {
             if let Some(agent) = task
-                .swarm_tree
+                .work_graph_tree
                 .iter_mut()
                 .find(|agent| agent.id == worker.child_session_id)
             {

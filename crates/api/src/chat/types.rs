@@ -1418,15 +1418,15 @@ pub struct ChatArtifactRuntimePolicy {
     pub bindings: Vec<ChatArtifactRuntimeBinding>,
 }
 
-pub type ChatArtifactWorkerRole = SwarmWorkerRole;
-pub type ChatArtifactWorkItemStatus = SwarmWorkItemStatus;
-pub type ChatArtifactWorkItem = SwarmWorkItem;
-pub type ChatArtifactSwarmPlan = SwarmPlan;
-pub type ChatArtifactSwarmExecutionSummary = SwarmExecutionSummary;
-pub type ChatArtifactWorkerReceipt = SwarmWorkerReceipt;
-pub type ChatArtifactPatchReceipt = SwarmChangeReceipt;
-pub type ChatArtifactMergeReceipt = SwarmMergeReceipt;
-pub type ChatArtifactVerificationReceipt = SwarmVerificationReceipt;
+pub type ChatArtifactWorkerRole = WorkGraphWorkerRole;
+pub type ChatArtifactWorkItemStatus = WorkGraphWorkItemStatus;
+pub type ChatArtifactWorkItem = WorkGraphWorkItem;
+pub type ChatArtifactWorkGraphPlan = WorkGraphPlan;
+pub type ChatArtifactWorkGraphExecutionSummary = WorkGraphExecutionSummary;
+pub type ChatArtifactWorkerReceipt = WorkGraphWorkerReceipt;
+pub type ChatArtifactPatchReceipt = WorkGraphChangeReceipt;
+pub type ChatArtifactMergeReceipt = WorkGraphMergeReceipt;
+pub type ChatArtifactVerificationReceipt = WorkGraphVerificationReceipt;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -1599,18 +1599,18 @@ pub struct ChatArtifactGenerationProgress {
     pub retrieved_sources: Vec<ChatArtifactSourceReference>,
     #[serde(default)]
     pub execution_envelope: Option<ExecutionEnvelope>,
-    #[serde(default)]
-    pub swarm_plan: Option<SwarmPlan>,
-    #[serde(default)]
-    pub swarm_execution: Option<SwarmExecutionSummary>,
-    #[serde(default)]
-    pub swarm_worker_receipts: Vec<SwarmWorkerReceipt>,
-    #[serde(default)]
-    pub swarm_change_receipts: Vec<SwarmChangeReceipt>,
-    #[serde(default)]
-    pub swarm_merge_receipts: Vec<SwarmMergeReceipt>,
-    #[serde(default)]
-    pub swarm_verification_receipts: Vec<SwarmVerificationReceipt>,
+    #[serde(default, alias = "swarmPlan")]
+    pub work_graph_plan: Option<WorkGraphPlan>,
+    #[serde(default, alias = "swarmExecution")]
+    pub work_graph_execution: Option<WorkGraphExecutionSummary>,
+    #[serde(default, alias = "swarmWorkerReceipts")]
+    pub work_graph_worker_receipts: Vec<WorkGraphWorkerReceipt>,
+    #[serde(default, alias = "swarmChangeReceipts")]
+    pub work_graph_change_receipts: Vec<WorkGraphChangeReceipt>,
+    #[serde(default, alias = "swarmMergeReceipts")]
+    pub work_graph_merge_receipts: Vec<WorkGraphMergeReceipt>,
+    #[serde(default, alias = "swarmVerificationReceipts")]
+    pub work_graph_verification_receipts: Vec<WorkGraphVerificationReceipt>,
     #[serde(default)]
     pub render_evaluation: Option<ChatArtifactRenderEvaluation>,
     #[serde(default)]
@@ -1639,18 +1639,18 @@ pub struct ChatArtifactGenerationBundle {
     pub winning_candidate_rationale: Option<String>,
     #[serde(default)]
     pub execution_envelope: Option<ExecutionEnvelope>,
-    #[serde(default)]
-    pub swarm_plan: Option<SwarmPlan>,
-    #[serde(default)]
-    pub swarm_execution: Option<SwarmExecutionSummary>,
-    #[serde(default)]
-    pub swarm_worker_receipts: Vec<SwarmWorkerReceipt>,
-    #[serde(default)]
-    pub swarm_change_receipts: Vec<SwarmChangeReceipt>,
-    #[serde(default)]
-    pub swarm_merge_receipts: Vec<SwarmMergeReceipt>,
-    #[serde(default)]
-    pub swarm_verification_receipts: Vec<SwarmVerificationReceipt>,
+    #[serde(default, alias = "swarmPlan")]
+    pub work_graph_plan: Option<WorkGraphPlan>,
+    #[serde(default, alias = "swarmExecution")]
+    pub work_graph_execution: Option<WorkGraphExecutionSummary>,
+    #[serde(default, alias = "swarmWorkerReceipts")]
+    pub work_graph_worker_receipts: Vec<WorkGraphWorkerReceipt>,
+    #[serde(default, alias = "swarmChangeReceipts")]
+    pub work_graph_change_receipts: Vec<WorkGraphChangeReceipt>,
+    #[serde(default, alias = "swarmMergeReceipts")]
+    pub work_graph_merge_receipts: Vec<WorkGraphMergeReceipt>,
+    #[serde(default, alias = "swarmVerificationReceipts")]
+    pub work_graph_verification_receipts: Vec<WorkGraphVerificationReceipt>,
     pub winner: ChatGeneratedArtifactPayload,
     #[serde(default)]
     pub render_evaluation: Option<ChatArtifactRenderEvaluation>,

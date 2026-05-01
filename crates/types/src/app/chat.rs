@@ -24,8 +24,9 @@ pub enum ChatExecutionStrategy {
     SinglePass,
     DirectAuthor,
     PlanExecute,
-    MicroSwarm,
-    #[serde(rename = "adaptive_work_graph", alias = "swarm")]
+    #[serde(alias = "micro_swarm")]
+    MicroWorkGraph,
+    #[serde(rename = "adaptive_work_graph")]
     AdaptiveWorkGraph,
 }
 

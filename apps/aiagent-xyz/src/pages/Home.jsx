@@ -115,8 +115,8 @@ export default function Home() {
     return matchesFormat && matchesSearch;
   });
 
-  // Reusable Filter Content
-  const FilterContent = () => (
+  // Reusable filter content
+  const renderFilterContent = () => (
     <div className="space-y-8">
       <div>
         <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Execution Shape</h3>
@@ -184,7 +184,7 @@ export default function Home() {
         isOpen={isMobileFiltersOpen} 
         onClose={() => setIsMobileFiltersOpen(false)}
       >
-        <FilterContent />
+        {renderFilterContent()}
       </MobileFilterDrawer>
       
       <main className="container mx-auto px-4 py-8">
@@ -279,7 +279,7 @@ export default function Home() {
                   </select>
                </div>
                
-               <FilterContent />
+               {renderFilterContent()}
              </div>
           </aside>
           

@@ -1,0 +1,11 @@
+{
+  "runId": "run_d479ea75-0574-4652-8dab-958d2726cfc3",
+  "id": "receipt_run_d479ea75-0574-4652-8dab-958d2726cfc3_trace",
+  "kind": "trace_export",
+  "summary": "Trace export is reconstructed from daemon runtime state and canonical Agentgres projection.",
+  "redaction": "redacted",
+  "evidenceRefs": [
+    "RuntimeTraceBundle",
+    "canonical_replay"
+  ]
+}

@@ -4,12 +4,6 @@ import Header from '../components/Header';
 
 export default function SellAgent() {
   const [step, setStep] = useState(1);
-  const [manifest, setManifest] = useState({
-    name: '',
-    description: '',
-    price: '',
-    repo: ''
-  });
 
   const nextStep = () => setStep(step + 1);
   const prevStep = () => setStep(step - 1);

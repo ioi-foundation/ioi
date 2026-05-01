@@ -10,23 +10,19 @@ use tauri::{
 };
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
-mod agent_runtime_substrate;
-pub mod chat_proof;
 mod execution;
-pub mod file_context_proof;
 mod identity;
 mod ingestion;
 mod kernel;
 mod models;
 mod observability;
 mod orchestrator;
-pub mod plugin_proof;
 mod project;
+pub mod proofs;
 pub mod repl_cli;
-pub mod repl_proof;
+mod runtime_projection;
 mod template;
 mod windows;
-pub mod workflow_proof;
 mod workspace;
 mod workspace_direct_webview;
 mod workspace_ide;

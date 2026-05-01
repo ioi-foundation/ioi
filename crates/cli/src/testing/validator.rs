@@ -34,7 +34,7 @@ use tokio::time::Duration;
 
 // [FIX] Removed unused imports
 // use ioi_types::app::PanicMessage;
-// use ioi_networking::libp2p::SwarmCommand;
+// use ioi_networking::libp2p::WorkGraphCommand;
 // use ioi_types::codec;
 
 const WORKLOAD_READY_TIMEOUT: Duration = Duration::from_secs(120);
@@ -264,7 +264,7 @@ pub struct TestValidator {
     guardian_log_tx: Option<broadcast::Sender<String>>,
     pub log_drain_handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
     pub signing_oracle_guard: Option<SigningOracleGuard>,
-    // [NEW] Access to swarm commander for whitebox testing
+    // [NEW] Access to work graph commander for whitebox testing
     // We can't easily expose the mpsc::Sender because it's buried in the backend process for ProcessBackend.
     // However, for the test harness, we mostly interact via RPC or logs.
     // The `ValidatorGuard` exposes methods that might use RPC.

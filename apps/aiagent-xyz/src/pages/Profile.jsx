@@ -1,7 +1,7 @@
 // src/pages/Profile.jsx
 import React from 'react';
 import Header from '../components/Header';
-import { useParams, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 // Mock Data
 const profileData = {
@@ -23,8 +23,6 @@ const profileData = {
 };
 
 export default function Profile() {
-  const { id } = useParams();
-
   return (
     <div className="min-h-screen bg-slate-50">
       <Header />

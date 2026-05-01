@@ -1,4 +1,4 @@
-use crate::agentic::runtime::service::step::signals::infer_interaction_target;
+use crate::agentic::runtime::service::decision_loop::signals::infer_interaction_target;
 use crate::agentic::runtime::types::AgentState;
 
 mod approval_authority;

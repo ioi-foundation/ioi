@@ -1,14 +1,14 @@
 // Path: crates/cli/tests/routing_queue_tier_contract.rs
 
 use ioi_crypto::algorithms::hash::sha256;
-use ioi_services::agentic::runtime::service::step::action::{
-    canonical_intent_hash, canonical_tool_identity,
+use ioi_services::agentic::runtime::service::queue::{
+    queue_action_request_to_tool, resolve_queue_routing_context,
 };
-use ioi_services::agentic::runtime::service::step::anti_loop::{
+use ioi_services::agentic::runtime::service::recovery::anti_loop::{
     build_post_state_summary, failure_attempt_fingerprint, policy_binding_hash, FailureClass,
 };
-use ioi_services::agentic::runtime::service::step::queue::{
-    queue_action_request_to_tool, resolve_queue_routing_context,
+use ioi_services::agentic::runtime::service::tool_execution::{
+    canonical_intent_hash, canonical_tool_identity,
 };
 use ioi_services::agentic::runtime::types::{ExecutionTier, InteractionTarget};
 use ioi_services::agentic::runtime::{AgentMode, AgentState, AgentStatus};
@@ -238,7 +238,7 @@ fn queue_browser_target_feeds_routing_receipt_intent_hash() {
 
     let state = queue_failure_state();
     let pre_state =
-        ioi_services::agentic::runtime::service::step::anti_loop::build_state_summary(&state);
+        ioi_services::agentic::runtime::service::recovery::anti_loop::build_state_summary(&state);
     let receipt = RoutingReceiptEvent {
         session_id: state.session_id,
         step_index: pre_state.step_index,

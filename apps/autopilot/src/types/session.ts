@@ -13,6 +13,10 @@ import type {
   ChatRendererSession,
 } from "./chat-artifacts";
 import type { AgentEvent } from "./events";
+import {
+  normalizeMaterializationWorkGraphFields,
+  normalizeWorkGraphTree,
+} from "./work-graph-compat";
 
 export type AgentStatus =
   | "requisition"
@@ -110,7 +114,7 @@ export interface PolicyContext {
   constraints: string[];
 }
 
-export interface SwarmAgent {
+export interface WorkGraphAgent {
   id: string;
   parentId: string | null;
   name: string;
@@ -143,7 +147,7 @@ export interface AgentTask {
   generation: number;
   lineage_id: string;
   fitness_score: number;
-  swarm_tree: SwarmAgent[];
+  work_graph_tree: WorkGraphAgent[];
   processed_steps: Set<string>;
   visual_hash?: string;
   pending_request_hash?: string;
@@ -160,8 +164,9 @@ export interface AgentTask {
   build_session?: BuildArtifactSession | null;
 }
 
-export type AgentTaskModelInput = Omit<AgentTask, "processed_steps"> & {
+export type AgentTaskModelInput = Omit<AgentTask, "processed_steps" | "work_graph_tree"> & {
   processed_steps?: Set<string> | string[] | null;
+  work_graph_tree?: WorkGraphAgent[] | null;
 };
 
 export function normalizeAgentTaskModel(task: AgentTaskModelInput): AgentTask {
@@ -172,9 +177,20 @@ export function normalizeAgentTaskModel(task: AgentTaskModelInput): AgentTask {
           Array.isArray(task.processed_steps) ? task.processed_steps : [],
         );
 
+  const chatSession = task.chat_session
+    ? {
+        ...task.chat_session,
+        materialization: normalizeMaterializationWorkGraphFields(
+          task.chat_session.materialization,
+        ),
+      }
+    : task.chat_session;
+
   return {
     ...task,
+    work_graph_tree: normalizeWorkGraphTree(task),
     processed_steps: processedSteps,
+    chat_session: chatSession,
     session_checklist: Array.isArray(task.session_checklist)
       ? task.session_checklist
       : [],

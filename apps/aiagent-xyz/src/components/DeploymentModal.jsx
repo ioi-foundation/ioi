@@ -2,8 +2,6 @@
 import React, { useState } from 'react';
 
 export default function DeploymentModal({ isOpen, onClose, agent }) {
-  if (!isOpen) return null;
-
   const [optimization, setOptimization] = useState(50);
   const [useTEE, setUseTEE] = useState(true);
   const [step, setStep] = useState(1);
@@ -16,6 +14,8 @@ export default function DeploymentModal({ isOpen, onClose, agent }) {
   };
 
   const match = getMatch();
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">

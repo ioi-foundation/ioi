@@ -166,12 +166,12 @@ fn seed_resolved_intent(
     let mut agent_state: AgentState =
         codec::from_bytes_canonical(&bytes).expect("agent state should decode");
     let instruction_contract =
-        ioi_services::agentic::runtime::service::step::intent_resolver::seeded_instruction_contract_for_intent(
+        ioi_services::agentic::runtime::service::decision_loop::intent_resolver::seeded_instruction_contract_for_intent(
             query,
             intent_id,
         );
     let required_capabilities =
-        ioi_services::agentic::runtime::service::step::intent_resolver::required_capabilities_with_instruction_contract(
+        ioi_services::agentic::runtime::service::decision_loop::intent_resolver::required_capabilities_with_instruction_contract(
             &seeded_required_capabilities(scope, intent_id),
             instruction_contract.as_ref(),
         );

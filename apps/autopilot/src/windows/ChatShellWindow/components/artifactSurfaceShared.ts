@@ -7,7 +7,7 @@ import type {
   ChatArtifactManifest,
   ChatArtifactManifestFile,
   ChatArtifactPipelineStep,
-  ChatArtifactSwarmExecutionSummary,
+  ChatArtifactWorkGraphExecutionSummary,
   ChatRendererSession,
 } from "../../../types";
 import { formatRuntimeStatusLabel } from "../../../services/runtimeInspection";
@@ -30,7 +30,7 @@ export interface SurfaceStageHeaderProps {
   copyText?: string | null;
   copyPath?: string | null;
   rendererLabel: string;
-  swarmExecution?: ChatArtifactSwarmExecutionSummary | null;
+  workGraphExecution?: ChatArtifactWorkGraphExecutionSummary | null;
   retrying: boolean;
   stageMode: ChatArtifactStageMode;
   evidenceOpen: boolean;

@@ -4,6 +4,8 @@ Status: canonical roadmap for the next execution-surface leg
 Date: 2026-05-01
 Scope: IOI agent runtime, SDK, CLI, Autopilot, workflow compositor, hosted workers, Agentgres persistence, CIRC/CEC invariants, and developer/operator execution ergonomics
 
+Implementation guide: [architectural-improvements-broad-master-guide.md](./architectural-improvements-broad-master-guide.md)
+
 ## Executive Truth
 
 IOI has a stronger substrate than Cursor SDK or Claude Code, but it must also expose a competitive execution surface.
@@ -26,19 +28,20 @@ Next target: competitive live execution surface over the unified substrate.
 
 This roadmap is grounded in:
 
-- [docs/architecture/00_INDEX.md](../architecture/00_INDEX.md)
-- [docs/architecture/runtime-vocabulary.md](../architecture/runtime-vocabulary.md)
-- [docs/architecture/03_FRACTAL_L0_KERNEL_AND_DOMAIN_KERNELS.md](../architecture/03_FRACTAL_L0_KERNEL_AND_DOMAIN_KERNELS.md)
-- [docs/architecture/04_AGENTGRES_STATE_SUBSTRATE.md](../architecture/04_AGENTGRES_STATE_SUBSTRATE.md)
-- [docs/architecture/05_AUTOPILOT_LOCAL_APP_AND_WORKFLOW_CANVAS.md](../architecture/05_AUTOPILOT_LOCAL_APP_AND_WORKFLOW_CANVAS.md)
-- [docs/architecture/06_IOI_CLI_DAEMON_RUNTIME.md](../architecture/06_IOI_CLI_DAEMON_RUNTIME.md)
-- [docs/architecture/07_WALLET_NETWORK_AUTHORITY_LAYER.md](../architecture/07_WALLET_NETWORK_AUTHORITY_LAYER.md)
-- [docs/architecture/13_MODEL_ROUTER_BYOK_RUN_TO_IDLE.md](../architecture/13_MODEL_ROUTER_BYOK_RUN_TO_IDLE.md)
-- [docs/architecture/14_CONNECTORS_TOOLS_AND_CAPABILITY_REGISTRY.md](../architecture/14_CONNECTORS_TOOLS_AND_CAPABILITY_REGISTRY.md)
-- [docs/architecture/15_MARKETPLACE_NEUTRALITY_CONTRIBUTION_ACCOUNTING.md](../architecture/15_MARKETPLACE_NEUTRALITY_CONTRIBUTION_ACCOUNTING.md)
-- [docs/architecture/16_SECURITY_PRIVACY_AND_POLICY_INVARIANTS.md](../architecture/16_SECURITY_PRIVACY_AND_POLICY_INVARIANTS.md)
-- [docs/specs/CIRC.md](../specs/CIRC.md)
-- [docs/specs/CEC.md](../specs/CEC.md)
+- [docs/architecture/README.md](../architecture/README.md)
+- [docs/architecture/operations/runtime-vocabulary.md](../architecture/operations/runtime-vocabulary.md)
+- [docs/architecture/foundations/fractal-kernel-and-domain-kernels.md](../architecture/foundations/fractal-kernel-and-domain-kernels.md)
+- [docs/architecture/state/agentgres-state-substrate.md](../architecture/state/agentgres-state-substrate.md)
+- [docs/architecture/surfaces/autopilot-local-app-and-workflow-canvas.md](../architecture/surfaces/autopilot-local-app-and-workflow-canvas.md)
+- [docs/architecture/runtime/ioi-cli-daemon-runtime.md](../architecture/runtime/ioi-cli-daemon-runtime.md)
+- [docs/architecture/authority/wallet-network-authority-layer.md](../architecture/authority/wallet-network-authority-layer.md)
+- [docs/architecture/runtime/model-router-byok-run-to-idle.md](../architecture/runtime/model-router-byok-run-to-idle.md)
+- [docs/architecture/tools/connectors-tools-and-authority-registry.md](../architecture/tools/connectors-tools-and-authority-registry.md)
+- [docs/architecture/marketplaces/marketplace-neutrality-and-contribution-accounting.md](../architecture/marketplaces/marketplace-neutrality-and-contribution-accounting.md)
+- [docs/architecture/foundations/security-privacy-and-policy-invariants.md](../architecture/foundations/security-privacy-and-policy-invariants.md)
+- [docs/architecture/operations/runtime-package-boundaries.md](../architecture/operations/runtime-package-boundaries.md)
+- [docs/architecture/conformance/CIRC.md](../architecture/conformance/CIRC.md)
+- [docs/architecture/conformance/CEC.md](../architecture/conformance/CEC.md)
 - [docs/specs/runtime/cursor-sdk-harness-parity-plus-master-guide.md](../specs/runtime/cursor-sdk-harness-parity-plus-master-guide.md)
 
 ## Canonical Product Target
@@ -704,7 +707,8 @@ This leg is complete when:
 The following facets may be adjusted by future questions without changing the central truth of this roadmap:
 
 - exact namespace names for `prim:*` and `scope:*`
-- whether existing `cap:*` remains as a compatibility alias for authority scopes
+- whether external adapters still need explicit one-way migrations from older
+  `cap:*` labels into `scope:*`
 - SDK default behavior when daemon is unavailable
 - how much Cursor compatibility remains public versus adapter-only
 - how aggressively the CLI mimics slash-command ergonomics

@@ -50,7 +50,7 @@ export function ArtifactStageHeader({
   copyText = null,
   copyPath = null,
   rendererLabel,
-  swarmExecution,
+  workGraphExecution,
   retrying,
   stageMode,
   evidenceOpen: _evidenceOpen,
@@ -64,15 +64,15 @@ export function ArtifactStageHeader({
   const [copyMenuOpen, setCopyMenuOpen] = useState(false);
   const [copiedOptionId, setCopiedOptionId] = useState<string | null>(null);
   const copyMenuRef = useRef<HTMLDivElement | null>(null);
-  const genericExecutionStage = swarmExecution?.enabled
-    ? swarmExecution.executionStage ??
-      executionStageForCurrentStage(swarmExecution.currentStage)
+  const genericExecutionStage = workGraphExecution?.enabled
+    ? workGraphExecution.executionStage ??
+      executionStageForCurrentStage(workGraphExecution.currentStage)
     : null;
   const isRunningMaterialization =
-    Boolean(swarmExecution?.enabled) &&
+    Boolean(workGraphExecution?.enabled) &&
     manifest.files.length === 0 &&
-    (swarmExecution?.totalWorkItems ?? 0) > 0 &&
-    (swarmExecution?.completedWorkItems ?? 0) < (swarmExecution?.totalWorkItems ?? 0);
+    (workGraphExecution?.totalWorkItems ?? 0) > 0 &&
+    (workGraphExecution?.completedWorkItems ?? 0) < (workGraphExecution?.totalWorkItems ?? 0);
   const primaryStatusLabel = isRunningMaterialization
     ? "Running"
     : formatStatusLabel(manifest.verification.status);
@@ -84,13 +84,13 @@ export function ArtifactStageHeader({
     rendererLabel,
     primaryStatusLabel,
     lifecycleLabel,
-    swarmExecution?.enabled ? formatStatusLabel(genericExecutionStage) : null,
-    swarmExecution?.enabled ? formatStatusLabel(swarmExecution.currentStage) : null,
-    swarmExecution?.enabled
-      ? `${swarmExecution.completedWorkItems}/${swarmExecution.totalWorkItems} work items`
+    workGraphExecution?.enabled ? formatStatusLabel(genericExecutionStage) : null,
+    workGraphExecution?.enabled ? formatStatusLabel(workGraphExecution.currentStage) : null,
+    workGraphExecution?.enabled
+      ? `${workGraphExecution.completedWorkItems}/${workGraphExecution.totalWorkItems} work items`
       : null,
-    swarmExecution?.enabled
-      ? formatStatusLabel(swarmExecution.verificationStatus)
+    workGraphExecution?.enabled
+      ? formatStatusLabel(workGraphExecution.verificationStatus)
       : null,
   ].filter((value): value is string => Boolean(value));
   const titleLabel = stageMeta.length

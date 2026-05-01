@@ -32,7 +32,7 @@ fn sample_task(phase: AgentPhase) -> AgentTask {
         build_session: None,
         run_bundle_id: None,
         processed_steps: HashSet::new(),
-        swarm_tree: Vec::new(),
+        work_graph_tree: Vec::new(),
         generation: 0,
         lineage_id: "genesis".to_string(),
         fitness_score: 0.0,
@@ -75,4 +75,35 @@ fn sync_runtime_views_exposes_latest_output_for_completed_tasks() {
         task.background_tasks[0].latest_output.as_deref(),
         Some("Drafted the first pass of the checklist.")
     );
+}
+
+#[test]
+fn agent_task_accepts_legacy_swarm_tree_payloads() {
+    let mut payload = serde_json::to_value(sample_task(AgentPhase::Running)).unwrap();
+    let object = payload.as_object_mut().unwrap();
+    object.remove("work_graph_tree");
+    object.insert(
+        "swarm_tree".to_string(),
+        serde_json::json!([
+            {
+                "id": "worker-1",
+                "parent_id": null,
+                "name": "Investigator",
+                "role": "Read relevant files",
+                "status": "completed",
+                "budget_used": 1.0,
+                "budget_cap": 3.0,
+                "current_thought": "Captured evidence",
+                "artifacts_produced": 2,
+                "estimated_cost": 0.12,
+                "policy_hash": "policy:test"
+            }
+        ]),
+    );
+
+    let decoded: AgentTask = serde_json::from_value(payload).unwrap();
+
+    assert_eq!(decoded.work_graph_tree.len(), 1);
+    assert_eq!(decoded.work_graph_tree[0].id, "worker-1");
+    assert_eq!(decoded.work_graph_tree[0].role, "Read relevant files");
 }

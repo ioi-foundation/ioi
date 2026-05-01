@@ -16,7 +16,7 @@ use ioi_drivers::terminal::TerminalDriver;
 use ioi_memory::MemoryRuntime;
 use ioi_services::agentic::rules::{ActionRules, Rule, Verdict};
 use ioi_services::agentic::runtime::keys::{get_state_key, AGENT_POLICY_PREFIX};
-use ioi_services::agentic::runtime::service::step::helpers::default_safe_policy;
+use ioi_services::agentic::runtime::service::decision_loop::helpers::default_safe_policy;
 use ioi_services::agentic::runtime::{AgentMode, AgentState, AgentStatus, RuntimeAgentService};
 use ioi_services::agentic::runtime::{ResumeAgentParams, StartAgentParams, StepAgentParams};
 use ioi_state::primitives::hash::HashCommitmentScheme;

@@ -1,0 +1,14 @@
+{
+  "name": "@ioi/runtime-daemon",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local IOI runtime daemon service over the public runtime substrate API.",
+  "type": "module",
+  "main": "./src/index.mjs",
+  "exports": {
+    ".": "./src/index.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

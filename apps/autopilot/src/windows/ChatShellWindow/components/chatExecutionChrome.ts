@@ -1,9 +1,9 @@
 import type {
   ExecutionEnvelope,
-  SwarmChangeReceipt,
-  SwarmExecutionSummary,
-  SwarmPlan,
-  SwarmWorkerReceipt,
+  WorkGraphChangeReceipt,
+  WorkGraphExecutionSummary,
+  WorkGraphPlan,
+  WorkGraphWorkerReceipt,
 } from "../../../types";
 import {
   resolveChatExecutionCodePreview,
@@ -157,20 +157,20 @@ function invariantProcesses(
 
 export function deriveChatExecutionChrome({
   executionEnvelope,
-  swarmExecution,
-  swarmPlan,
+  workGraphExecution,
+  workGraphPlan,
   workerReceipts,
   changeReceipts,
 }: {
   executionEnvelope?: ExecutionEnvelope | null;
-  swarmExecution?: SwarmExecutionSummary | null;
-  swarmPlan?: SwarmPlan | null;
-  workerReceipts?: SwarmWorkerReceipt[] | null;
-  changeReceipts?: SwarmChangeReceipt[] | null;
+  workGraphExecution?: WorkGraphExecutionSummary | null;
+  workGraphPlan?: WorkGraphPlan | null;
+  workerReceipts?: WorkGraphWorkerReceipt[] | null;
+  changeReceipts?: WorkGraphChangeReceipt[] | null;
 }): ChatExecutionChrome {
   const activePreviewWorkItemId = latestPreviewWorkItemId(executionEnvelope);
-  const processes = Array.isArray(swarmPlan?.workItems)
-    ? [...swarmPlan.workItems]
+  const processes = Array.isArray(workGraphPlan?.workItems)
+    ? [...workGraphPlan.workItems]
         .filter(
           (item) =>
             item?.status === "running" ||
@@ -197,7 +197,7 @@ export function deriveChatExecutionChrome({
           summary: item.summary || "Working the assigned scope.",
           isActive:
             item.id === activePreviewWorkItemId ||
-            item.role === swarmExecution?.activeWorkerRole,
+            item.role === workGraphExecution?.activeWorkerRole,
         }))
     : invariantProcesses(executionEnvelope);
 
@@ -213,20 +213,20 @@ export function deriveChatExecutionChrome({
   });
 
   return {
-    metrics: swarmExecution
+    metrics: workGraphExecution
       ? {
           stage:
             formatRuntimeStatusLabel(
-              swarmExecution.executionStage || swarmExecution.currentStage,
+              workGraphExecution.executionStage || workGraphExecution.currentStage,
             ) || null,
-          activeRole: swarmExecution.activeWorkerRole
-            ? formatRuntimeStatusLabel(swarmExecution.activeWorkerRole)
+          activeRole: workGraphExecution.activeWorkerRole
+            ? formatRuntimeStatusLabel(workGraphExecution.activeWorkerRole)
             : null,
           progress:
-            swarmExecution.totalWorkItems > 0
-              ? `${swarmExecution.completedWorkItems}/${swarmExecution.totalWorkItems} work items`
+            workGraphExecution.totalWorkItems > 0
+              ? `${workGraphExecution.completedWorkItems}/${workGraphExecution.totalWorkItems} work items`
               : null,
-          verification: formatRuntimeStatusLabel(swarmExecution.verificationStatus) || null,
+          verification: formatRuntimeStatusLabel(workGraphExecution.verificationStatus) || null,
         }
       : executionEnvelope?.modeDecision
         ? {

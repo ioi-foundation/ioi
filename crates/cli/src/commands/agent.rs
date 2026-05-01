@@ -19,6 +19,12 @@ use ioi_types::app::{
     SystemPayload,
 };
 use std::path::PathBuf;
+use tonic::transport::Channel;
+
+/// Service identifier for the daemon-hosted desktop agent runtime.
+/// CLI command handlers are clients of this service; execution semantics remain
+/// owned by the daemon/runtime substrate.
+const DESKTOP_AGENT_SERVICE_ID: &str = "desktop_agent";
 
 #[derive(Parser, Debug)]
 pub struct AgentArgs {
@@ -278,10 +284,6 @@ async fn run_agent_goal(goal: String, rpc: String, steps: u32) -> Result<()> {
     let session_id: [u8; 32] = rand::random();
     println!("   Session ID: 0x{}", hex::encode(session_id));
 
-    // 2. Load Local Identity (Client-side)
-    let keypair = ioi_crypto::sign::eddsa::Ed25519KeyPair::generate().unwrap();
-
-    // 3. Construct "Start Agent" Transaction
     let params = StartAgentParams {
         session_id,
         goal,
@@ -292,36 +294,12 @@ async fn run_agent_goal(goal: String, rpc: String, steps: u32) -> Result<()> {
         mode: AgentMode::Agent,
     };
 
-    let payload = SystemPayload::CallService {
-        service_id: "desktop_agent".to_string(),
-        method: "start@v1".to_string(),
-        params: ioi_types::codec::to_bytes_canonical(&params).unwrap(),
-    };
+    let mut client = CliAgentRuntimeClient::connect(&rpc).await?;
+    let tx_hash = client
+        .submit_runtime_call("start@v1", encode_agent_params(&params, "start")?)
+        .await?;
+    println!("✅ Agent Started! TxHash: {}", tx_hash);
 
-    // Helper to wrap in SystemTransaction and sign
-    let tx = create_cli_tx(&keypair, payload, 0);
-
-    // 4. Submit
-    let channel = tonic::transport::Channel::from_shared(format!("http://{}", rpc))?
-        .connect()
-        .await
-        .context("Failed to connect to node RPC")?;
-    let mut client = ioi_ipc::public::public_api_client::PublicApiClient::new(channel);
-
-    let req = ioi_ipc::public::SubmitTransactionRequest {
-        transaction_bytes: ioi_types::codec::to_bytes_canonical(&tx).unwrap(),
-    };
-
-    match client.submit_transaction(req).await {
-        Ok(resp) => {
-            println!("✅ Agent Started! TxHash: {}", resp.into_inner().tx_hash);
-        }
-        Err(e) => {
-            return Err(anyhow!("Failed to start agent: {}", e.message()));
-        }
-    }
-
-    // 5. Trigger the Loop (The Heartbeat)
     println!("   Triggering execution loop...");
 
     for i in 1..=steps {
@@ -329,20 +307,12 @@ async fn run_agent_goal(goal: String, rpc: String, steps: u32) -> Result<()> {
         print!("   Step {}/{}... ", i, steps);
 
         let step_params = StepAgentParams { session_id };
-        let step_payload = SystemPayload::CallService {
-            service_id: "desktop_agent".to_string(),
-            method: "step@v1".to_string(),
-            params: ioi_types::codec::to_bytes_canonical(&step_params).unwrap(),
-        };
-        let step_tx = create_cli_tx(&keypair, step_payload, i as u64);
-
-        let step_req = ioi_ipc::public::SubmitTransactionRequest {
-            transaction_bytes: ioi_types::codec::to_bytes_canonical(&step_tx).unwrap(),
-        };
-
-        match client.submit_transaction(step_req).await {
+        match client
+            .submit_runtime_call("step@v1", encode_agent_params(&step_params, "step")?)
+            .await
+        {
             Ok(_) => println!("OK"),
-            Err(e) => println!("Error: {}", e.message()),
+            Err(e) => println!("Error: {}", e),
         }
     }
 
@@ -452,30 +422,61 @@ fn parse_optional_hash_hex(input: Option<&str>, label: &str) -> Result<Option<[u
     Ok(Some(hash))
 }
 
-async fn submit_desktop_agent_call(rpc: &str, method: &str, params: Vec<u8>) -> Result<String> {
-    let keypair = ioi_crypto::sign::eddsa::Ed25519KeyPair::generate()
-        .map_err(|e| anyhow!("Failed to generate signer key: {}", e))?;
-    let payload = SystemPayload::CallService {
-        service_id: "desktop_agent".to_string(),
+struct CliAgentRuntimeClient {
+    client: PublicApiClient<Channel>,
+    keypair: ioi_crypto::sign::eddsa::Ed25519KeyPair,
+    nonce: u64,
+}
+
+impl CliAgentRuntimeClient {
+    async fn connect(rpc: &str) -> Result<Self> {
+        let keypair = ioi_crypto::sign::eddsa::Ed25519KeyPair::generate()
+            .map_err(|e| anyhow!("Failed to generate signer key: {}", e))?;
+        let channel = Channel::from_shared(format!("http://{}", rpc))?
+            .connect()
+            .await
+            .context("Failed to connect to node RPC")?;
+        Ok(Self {
+            client: PublicApiClient::new(channel),
+            keypair,
+            nonce: 0,
+        })
+    }
+
+    async fn submit_runtime_call(&mut self, method: &str, params: Vec<u8>) -> Result<String> {
+        let payload = desktop_agent_payload(method, params);
+        let tx = create_cli_tx(&self.keypair, payload, self.nonce);
+        self.nonce = self.nonce.saturating_add(1);
+        let req = ioi_ipc::public::SubmitTransactionRequest {
+            transaction_bytes: ioi_types::codec::to_bytes_canonical(&tx)
+                .map_err(|e| anyhow!("Failed to encode tx: {}", e))?,
+        };
+        let response = self
+            .client
+            .submit_transaction(req)
+            .await
+            .with_context(|| format!("Failed to submit {DESKTOP_AGENT_SERVICE_ID}.{method}"))?
+            .into_inner();
+        Ok(response.tx_hash)
+    }
+}
+
+fn desktop_agent_payload(method: &str, params: Vec<u8>) -> SystemPayload {
+    SystemPayload::CallService {
+        service_id: DESKTOP_AGENT_SERVICE_ID.to_string(),
         method: method.to_string(),
         params,
-    };
-    let tx = create_cli_tx(&keypair, payload, 0);
-    let channel = tonic::transport::Channel::from_shared(format!("http://{}", rpc))?
-        .connect()
-        .await
-        .context("Failed to connect to node RPC")?;
-    let mut client = PublicApiClient::new(channel);
-    let req = ioi_ipc::public::SubmitTransactionRequest {
-        transaction_bytes: ioi_types::codec::to_bytes_canonical(&tx)
-            .map_err(|e| anyhow!("Failed to encode tx: {}", e))?,
-    };
-    let response = client
-        .submit_transaction(req)
-        .await
-        .with_context(|| format!("Failed to submit desktop_agent.{method}"))?
-        .into_inner();
-    Ok(response.tx_hash)
+    }
+}
+
+fn encode_agent_params<T: parity_scale_codec::Encode>(params: &T, label: &str) -> Result<Vec<u8>> {
+    ioi_types::codec::to_bytes_canonical(params)
+        .map_err(|e| anyhow!("Failed to encode {label} params: {}", e))
+}
+
+async fn submit_desktop_agent_call(rpc: &str, method: &str, params: Vec<u8>) -> Result<String> {
+    let mut client = CliAgentRuntimeClient::connect(rpc).await?;
+    client.submit_runtime_call(method, params).await
 }
 
 fn print_submission(json: bool, action: &str, session_id: [u8; 32], tx_hash: String) -> Result<()> {

@@ -54,7 +54,7 @@ fn action_target_for_macro_step(target: &str, _params: &serde_json::Value) -> Ac
     }
 }
 
-// Keep this key in sync with queue execution (`crates/services/src/agentic/runtime/service/step/queue/support.rs`).
+// Keep this key in sync with queue execution (`crates/services/src/agentic/runtime/service/queue/support.rs`).
 const QUEUE_TOOL_NAME_KEY: &str = "__ioi_tool_name";
 const GUI_CLICK_ELEMENT_TOOL_NAME: &str = "screen__click";
 

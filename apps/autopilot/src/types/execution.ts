@@ -53,7 +53,7 @@ export function executionStageForCurrentStage(
     case "routing":
     case "dispatch":
       return "dispatch";
-    case "swarm_execution":
+    case "work_graph_execution":
     case "work":
       return "work";
     case "materialization":
@@ -76,7 +76,7 @@ export function executionStageForCurrentStage(
   }
 }
 
-export type SwarmWorkerRole =
+export type WorkGraphWorkerRole =
   | "planner"
   | "coordinator"
   | "responder"
@@ -88,19 +88,19 @@ export type SwarmWorkerRole =
   | "validation"
   | "repair";
 
-export type SwarmLeaseMode = "shared_read" | "exclusive_write";
+export type WorkGraphLeaseMode = "shared_read" | "exclusive_write";
 
-export type SwarmLeaseScopeKind = "file" | "region" | "surface";
+export type WorkGraphLeaseScopeKind = "file" | "region" | "surface";
 
-export interface SwarmLeaseRequirement {
+export interface WorkGraphLeaseRequirement {
   target: string;
-  scopeKind: SwarmLeaseScopeKind;
-  mode: SwarmLeaseMode;
+  scopeKind: WorkGraphLeaseScopeKind;
+  mode: WorkGraphLeaseMode;
 }
 
-export type SwarmVerificationPolicy = "normal" | "elevated" | "blocking";
+export type WorkGraphVerificationPolicy = "normal" | "elevated" | "blocking";
 
-export type SwarmWorkItemStatus =
+export type WorkGraphWorkItemStatus =
   | "pending"
   | "blocked"
   | "running"
@@ -109,7 +109,7 @@ export type SwarmWorkItemStatus =
   | "skipped"
   | "rejected";
 
-export type SwarmWorkerResultKind =
+export type WorkGraphWorkerResultKind =
   | "completed"
   | "noop"
   | "blocked"
@@ -119,25 +119,25 @@ export type SwarmWorkerResultKind =
   | "replan_requested"
   | "verification_concern";
 
-export interface SwarmWorkItem {
+export interface WorkGraphWorkItem {
   id: string;
   title: string;
-  role: SwarmWorkerRole;
+  role: WorkGraphWorkerRole;
   summary: string;
   spawnedFromId?: string | null;
   readPaths: string[];
   writePaths: string[];
   writeRegions: string[];
-  leaseRequirements: SwarmLeaseRequirement[];
+  leaseRequirements: WorkGraphLeaseRequirement[];
   acceptanceCriteria: string[];
   dependencyIds: string[];
   blockedOnIds: string[];
-  verificationPolicy?: SwarmVerificationPolicy | null;
+  verificationPolicy?: WorkGraphVerificationPolicy | null;
   retryBudget?: number | null;
-  status: SwarmWorkItemStatus;
+  status: WorkGraphWorkItemStatus;
 }
 
-export interface SwarmPlan {
+export interface WorkGraphPlan {
   version: number;
   strategy: string;
   executionDomain: string;
@@ -153,14 +153,14 @@ export interface SwarmPlan {
   verificationStrategy?: string | null;
   fallbackCollapseStrategy?: string | null;
   completionInvariant?: ExecutionCompletionInvariant | null;
-  workItems: SwarmWorkItem[];
+  workItems: WorkGraphWorkItem[];
 }
 
-export interface SwarmExecutionSummary {
+export interface WorkGraphExecutionSummary {
   enabled: boolean;
   currentStage: string;
   executionStage?: ExecutionStage | null;
-  activeWorkerRole?: SwarmWorkerRole | null;
+  activeWorkerRole?: WorkGraphWorkerRole | null;
   totalWorkItems: number;
   completedWorkItems: number;
   failedWorkItems: number;
@@ -171,11 +171,11 @@ export interface SwarmExecutionSummary {
   parallelismMode: string;
 }
 
-export interface SwarmWorkerReceipt {
+export interface WorkGraphWorkerReceipt {
   workItemId: string;
-  role: SwarmWorkerRole;
-  status: SwarmWorkItemStatus;
-  resultKind?: SwarmWorkerResultKind | null;
+  role: WorkGraphWorkerRole;
+  status: WorkGraphWorkItemStatus;
+  resultKind?: WorkGraphWorkerResultKind | null;
   summary: string;
   startedAt: string;
   finishedAt?: string | null;
@@ -193,9 +193,9 @@ export interface SwarmWorkerReceipt {
   failure?: string | null;
 }
 
-export interface SwarmChangeReceipt {
+export interface WorkGraphChangeReceipt {
   workItemId: string;
-  status: SwarmWorkItemStatus;
+  status: WorkGraphWorkItemStatus;
   summary: string;
   operationCount: number;
   touchedPaths: string[];
@@ -206,9 +206,9 @@ export interface SwarmChangeReceipt {
   failure?: string | null;
 }
 
-export interface SwarmMergeReceipt {
+export interface WorkGraphMergeReceipt {
   workItemId: string;
-  status: SwarmWorkItemStatus;
+  status: WorkGraphWorkItemStatus;
   summary: string;
   appliedOperationCount: number;
   touchedPaths: string[];
@@ -216,7 +216,7 @@ export interface SwarmMergeReceipt {
   rejectedReason?: string | null;
 }
 
-export interface SwarmVerificationReceipt {
+export interface WorkGraphVerificationReceipt {
   id: string;
   kind: string;
   status: string;
@@ -331,7 +331,7 @@ export interface ExecutionLivePreview {
   kind: ExecutionLivePreviewKind;
   label: string;
   workItemId?: string | null;
-  role?: SwarmWorkerRole | null;
+  role?: WorkGraphWorkerRole | null;
   status: string;
   language?: string | null;
   content: string;
@@ -347,12 +347,12 @@ export interface ExecutionEnvelope {
   executionDomain: string;
   domainKind?: ExecutionDomainKind | null;
   completionInvariant?: ExecutionCompletionInvariant | null;
-  plan?: SwarmPlan | null;
-  executionSummary?: SwarmExecutionSummary | null;
-  workerReceipts: SwarmWorkerReceipt[];
-  changeReceipts: SwarmChangeReceipt[];
-  mergeReceipts: SwarmMergeReceipt[];
-  verificationReceipts: SwarmVerificationReceipt[];
+  plan?: WorkGraphPlan | null;
+  executionSummary?: WorkGraphExecutionSummary | null;
+  workerReceipts: WorkGraphWorkerReceipt[];
+  changeReceipts: WorkGraphChangeReceipt[];
+  mergeReceipts: WorkGraphMergeReceipt[];
+  verificationReceipts: WorkGraphVerificationReceipt[];
   graphMutationReceipts: ExecutionGraphMutationReceipt[];
   dispatchBatches: ExecutionDispatchBatch[];
   repairReceipts: ExecutionRepairReceipt[];
@@ -365,5 +365,4 @@ export type ChatExecutionStrategy =
   | "single_pass"
   | "direct_author"
   | "plan_execute"
-  | "micro_swarm"
   | "adaptive_work_graph";

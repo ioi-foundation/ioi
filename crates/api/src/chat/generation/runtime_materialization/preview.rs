@@ -13,7 +13,7 @@ fn emit_direct_author_live_preview(
     }
 
     if let Some(observer) = observer {
-        observer(chat_swarm_live_preview(
+        observer(chat_work_graph_live_preview(
             preview_id.to_string(),
             ExecutionLivePreviewKind::TokenStream,
             preview_label.to_string(),

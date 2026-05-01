@@ -270,8 +270,9 @@ pub enum ExecutionTier {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
-pub struct SwarmContext {
-    pub swarm_id: [u8; 32],
+pub struct WorkGraphContext {
+    #[serde(alias = "swarm_id")]
+    pub work_graph_id: [u8; 32],
     pub role: String,
     pub allowed_delegates: Vec<String>,
 }
@@ -985,13 +986,13 @@ pub struct AgentState {
     #[serde(default)]
     pub visual_semantic_map: Option<BTreeMap<u32, String>>,
 
-    #[serde(default)]
-    pub swarm_context: Option<SwarmContext>,
+    #[serde(default, alias = "swarm_context")]
+    pub work_graph_context: Option<WorkGraphContext>,
 
     #[serde(default)]
     pub target: Option<InteractionTarget>,
 
-    /// Global resolver output used by step/action/incident routing.
+    /// Global resolver output used by decision-loop/tool/recovery routing.
     #[serde(default)]
     pub resolved_intent: Option<ResolvedIntentState>,
 

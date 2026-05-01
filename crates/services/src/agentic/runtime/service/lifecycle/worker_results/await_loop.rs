@@ -1,5 +1,5 @@
 use super::*;
-use crate::agentic::runtime::service::step::action::command_contract::is_completion_contract_error;
+use crate::agentic::runtime::service::tool_execution::command_contract::is_completion_contract_error;
 use ioi_types::app::ActionTarget;
 
 pub(crate) fn await_child_burst_step_limit(

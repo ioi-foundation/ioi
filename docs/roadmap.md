@@ -657,13 +657,13 @@ Primary implementation surfaces checked while synthesizing this roadmap:
 - `apps/autopilot/src-tauri/src/project/`
 - `apps/autopilot/src-tauri/src/orchestrator/graph_runner.rs`
 - `apps/autopilot/src-tauri/src/execution.rs`
-- `apps/autopilot/src-tauri/src/agent_runtime_substrate.rs`
+- `apps/autopilot/src-tauri/src/runtime_projection.rs`
 - `crates/services/src/agentic/runtime/`
 - `crates/services/src/wallet_network/`
 - `crates/memory/src/lib.rs`
-- `docs/specs/agentgres-spec.md`
-- `docs/specs/aiagent_xyz.md`
-- `docs/specs/sas_xyz.md`
+- `docs/architecture/state/agentgres-state-substrate.md`
+- `docs/architecture/marketplaces/aiagent-xyz-worker-marketplace.md`
+- `docs/architecture/marketplaces/sas-xyz-service-marketplace.md`
 - `docs/audits/workflow-gui-product-audit.md`
 - `docs/audits/workflow-node-ontology-audit.md`
 - `docs/audits/n8n-parity-workflow-orchestrator-audit.md`

@@ -111,10 +111,10 @@ export function ArtifactLogicalSurface({
   const executionEnvelope = chatSession.materialization.executionEnvelope ?? null;
   const executionChrome = deriveChatExecutionChrome({
     executionEnvelope,
-    swarmExecution: chatSession.materialization.swarmExecution,
-    swarmPlan: chatSession.materialization.swarmPlan,
-    workerReceipts: chatSession.materialization.swarmWorkerReceipts,
-    changeReceipts: chatSession.materialization.swarmChangeReceipts,
+    workGraphExecution: chatSession.materialization.workGraphExecution,
+    workGraphPlan: chatSession.materialization.workGraphPlan,
+    workerReceipts: chatSession.materialization.workerReceipts,
+    changeReceipts: chatSession.materialization.changeReceipts,
   });
   const livePreview = executionChrome.livePreview;
   const codePreview = executionChrome.codePreview;
@@ -308,7 +308,7 @@ export function ArtifactLogicalSurface({
           copyText={headerCopyText}
           copyPath={activeStageFile?.path ?? null}
           rendererLabel={rendererLabel}
-          swarmExecution={chatSession.materialization.swarmExecution}
+          workGraphExecution={chatSession.materialization.workGraphExecution}
           retrying={retrying}
           stageMode={stageMode}
           evidenceOpen={evidenceOpen}
@@ -336,11 +336,11 @@ export function ArtifactLogicalSurface({
                 <div className="chat-artifact-renderer-empty">
                   <strong>Response ready</strong>
                   <p>{artifactSummary}</p>
-                  {chatSession.materialization.swarmExecution ? (
+                  {chatSession.materialization.workGraphExecution ? (
                     <p>
-                      {chatSession.materialization.swarmExecution.completedWorkItems}/
-                      {chatSession.materialization.swarmExecution.totalWorkItems} work items
-                      completed · {formatStatusLabel(chatSession.materialization.swarmExecution.verificationStatus)}
+                      {chatSession.materialization.workGraphExecution.completedWorkItems}/
+                      {chatSession.materialization.workGraphExecution.totalWorkItems} work items
+                      completed · {formatStatusLabel(chatSession.materialization.workGraphExecution.verificationStatus)}
                     </p>
                   ) : null}
                 </div>
@@ -356,12 +356,12 @@ export function ArtifactLogicalSurface({
                         : "Building the first renderable artifact files…"}
                   </strong>
                 <p>{artifactSummary}</p>
-                {chatSession.materialization.swarmExecution ? (
+                {chatSession.materialization.workGraphExecution ? (
                   <p>
-                    {chatSession.materialization.swarmExecution.completedWorkItems}/
-                    {chatSession.materialization.swarmExecution.totalWorkItems} work items
+                    {chatSession.materialization.workGraphExecution.completedWorkItems}/
+                    {chatSession.materialization.workGraphExecution.totalWorkItems} work items
                     completed · {formatStatusLabel(
-                      chatSession.materialization.swarmExecution.currentStage,
+                      chatSession.materialization.workGraphExecution.currentStage,
                     )}
                   </p>
                 ) : null}

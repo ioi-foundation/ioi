@@ -582,13 +582,17 @@ pub(super) fn apply_revision_to_chat_session(
         .as_ref()
         .map(|validation| validation.rationale.clone());
     chat_session.materialization.execution_envelope = revision.execution_envelope.clone();
-    chat_session.materialization.swarm_plan = revision.swarm_plan.clone();
-    chat_session.materialization.swarm_execution = revision.swarm_execution.clone();
-    chat_session.materialization.swarm_worker_receipts = revision.swarm_worker_receipts.clone();
-    chat_session.materialization.swarm_change_receipts = revision.swarm_change_receipts.clone();
-    chat_session.materialization.swarm_merge_receipts = revision.swarm_merge_receipts.clone();
-    chat_session.materialization.swarm_verification_receipts =
-        revision.swarm_verification_receipts.clone();
+    chat_session.materialization.work_graph_plan = revision.work_graph_plan.clone();
+    chat_session.materialization.work_graph_execution = revision.work_graph_execution.clone();
+    chat_session.materialization.work_graph_worker_receipts =
+        revision.work_graph_worker_receipts.clone();
+    chat_session.materialization.work_graph_change_receipts =
+        revision.work_graph_change_receipts.clone();
+    chat_session.materialization.work_graph_merge_receipts =
+        revision.work_graph_merge_receipts.clone();
+    chat_session
+        .materialization
+        .work_graph_verification_receipts = revision.work_graph_verification_receipts.clone();
     chat_session.materialization.render_evaluation = revision.render_evaluation.clone();
     chat_session.materialization.validation = revision.validation.clone();
     chat_session.materialization.output_origin = revision.output_origin;
@@ -931,14 +935,23 @@ fn build_revision_from_session(
         candidate_summaries: chat_session.materialization.candidate_summaries.clone(),
         winning_candidate_id: chat_session.materialization.winning_candidate_id.clone(),
         execution_envelope: chat_session.materialization.execution_envelope.clone(),
-        swarm_plan: chat_session.materialization.swarm_plan.clone(),
-        swarm_execution: chat_session.materialization.swarm_execution.clone(),
-        swarm_worker_receipts: chat_session.materialization.swarm_worker_receipts.clone(),
-        swarm_change_receipts: chat_session.materialization.swarm_change_receipts.clone(),
-        swarm_merge_receipts: chat_session.materialization.swarm_merge_receipts.clone(),
-        swarm_verification_receipts: chat_session
+        work_graph_plan: chat_session.materialization.work_graph_plan.clone(),
+        work_graph_execution: chat_session.materialization.work_graph_execution.clone(),
+        work_graph_worker_receipts: chat_session
             .materialization
-            .swarm_verification_receipts
+            .work_graph_worker_receipts
+            .clone(),
+        work_graph_change_receipts: chat_session
+            .materialization
+            .work_graph_change_receipts
+            .clone(),
+        work_graph_merge_receipts: chat_session
+            .materialization
+            .work_graph_merge_receipts
+            .clone(),
+        work_graph_verification_receipts: chat_session
+            .materialization
+            .work_graph_verification_receipts
             .clone(),
         render_evaluation: chat_session.materialization.render_evaluation.clone(),
         validation: chat_session.materialization.validation.clone(),

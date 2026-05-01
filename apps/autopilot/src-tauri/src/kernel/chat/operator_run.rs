@@ -140,7 +140,7 @@ fn execution_strategy_id(strategy: ChatExecutionStrategy) -> &'static str {
         ChatExecutionStrategy::SinglePass => "single_pass",
         ChatExecutionStrategy::DirectAuthor => "direct_author",
         ChatExecutionStrategy::PlanExecute => "plan_execute",
-        ChatExecutionStrategy::MicroSwarm => "micro_swarm",
+        ChatExecutionStrategy::MicroWorkGraph => "micro_work_graph",
         ChatExecutionStrategy::AdaptiveWorkGraph => "adaptive_work_graph",
     }
 }

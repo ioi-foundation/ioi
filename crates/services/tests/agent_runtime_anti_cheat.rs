@@ -1,6 +1,7 @@
 #[test]
 fn circ_resolver_has_no_lexical_forced_winner_shortcuts() {
-    let source = include_str!("../src/agentic/runtime/service/step/intent_resolver/resolve.rs");
+    let source =
+        include_str!("../src/agentic/runtime/service/decision_loop/intent_resolver/resolve.rs");
     for forbidden in [
         "obvious_casual_conversation_query",
         "obvious_expository_reply_query",
@@ -18,7 +19,8 @@ fn circ_resolver_has_no_lexical_forced_winner_shortcuts() {
 
 #[test]
 fn circ_policy_has_no_query_facet_backstop() {
-    let source = include_str!("../src/agentic/runtime/service/step/intent_resolver/policy.rs");
+    let source =
+        include_str!("../src/agentic/runtime/service/decision_loop/intent_resolver/policy.rs");
     for forbidden in [
         "analyze_query_facets",
         "backstop",
@@ -34,14 +36,16 @@ fn circ_policy_has_no_query_facet_backstop() {
 
 #[test]
 fn circ_instruction_contract_has_no_seeded_fallback_contract() {
-    let source =
-        include_str!("../src/agentic/runtime/service/step/intent_resolver/instruction_contract.rs");
+    let source = include_str!(
+        "../src/agentic/runtime/service/decision_loop/intent_resolver/instruction_contract.rs"
+    );
     assert!(!source.contains("fallback_instruction_contract"));
 }
 
 #[test]
 fn circ_ranker_descriptor_function_excludes_metadata_fields() {
-    let source = include_str!("../src/agentic/runtime/service/step/intent_resolver/ranking.rs");
+    let source =
+        include_str!("../src/agentic/runtime/service/decision_loop/intent_resolver/ranking.rs");
     let descriptor_fn = source
         .split("pub(super) fn canonical_descriptor_for_entry")
         .nth(1)
@@ -69,7 +73,8 @@ fn circ_ranker_descriptor_function_excludes_metadata_fields() {
 
 #[test]
 fn circ_model_rank_payload_excludes_routing_metadata() {
-    let source = include_str!("../src/agentic/runtime/service/step/intent_resolver/ranking.rs");
+    let source =
+        include_str!("../src/agentic/runtime/service/decision_loop/intent_resolver/ranking.rs");
     let model_rank_fn = source
         .split("async fn rank_with_inference_model")
         .nth(1)
@@ -127,12 +132,12 @@ fn parity_generic_web_source_selection_is_centralized_and_typed() {
 fn runtime_authority_paths_use_behavior_first_vocabulary() {
     let checked_sources = [
         include_str!("../src/agentic/runtime/types.rs"),
-        include_str!("../src/agentic/runtime/service/step/action/command_contract.rs"),
+        include_str!("../src/agentic/runtime/service/tool_execution/command_contract.rs"),
         include_str!(
-            "../src/agentic/runtime/service/step/action/command_contract/contract_resolution.rs"
+            "../src/agentic/runtime/service/tool_execution/command_contract/contract_resolution.rs"
         ),
-        include_str!("../src/agentic/runtime/service/step/intent_resolver/resolve.rs"),
-        include_str!("../src/agentic/runtime/service/step/intent_resolver/ranking.rs"),
+        include_str!("../src/agentic/runtime/service/decision_loop/intent_resolver/resolve.rs"),
+        include_str!("../src/agentic/runtime/service/decision_loop/intent_resolver/ranking.rs"),
         include_str!("../../api/src/chat/domain_topology/mod.rs"),
         include_str!("../../api/src/chat/planning/routing.rs"),
         include_str!("../../types/src/app/chat.rs"),
@@ -229,7 +234,7 @@ fn artifact_source_retrieval_has_no_prompt_keyword_or_fallback_plan_authority() 
 #[test]
 fn cec_contract_error_uses_single_primary_error_class() {
     let source = include_str!(
-        "../src/agentic/runtime/service/step/action/command_contract/contract_resolution.rs"
+        "../src/agentic/runtime/service/tool_execution/command_contract/contract_resolution.rs"
     );
     let error_fn = source
         .split("pub fn execution_contract_violation_error")
@@ -247,7 +252,7 @@ fn cec_contract_error_uses_single_primary_error_class() {
 
 #[test]
 fn cec_terminal_paths_use_shared_completion_gate() {
-    let source = include_str!("../src/agentic/runtime/service/step/queue/processing/completion.rs");
+    let source = include_str!("../src/agentic/runtime/service/queue/processing/completion.rs");
     assert!(source.contains("fn completion_gate_blocks"));
     assert!(
         source.matches("completion_gate_blocks(").count() >= 7,
@@ -260,15 +265,15 @@ fn cec_terminal_paths_use_shared_completion_gate() {
 #[test]
 fn cec_marker_only_completion_authority_is_deleted() {
     let contract_source = include_str!(
-        "../src/agentic/runtime/service/step/action/command_contract/contract_resolution.rs"
+        "../src/agentic/runtime/service/tool_execution/command_contract/contract_resolution.rs"
     );
     let terminal_sources = [
-        include_str!("../src/agentic/runtime/service/step/queue/processing/completion.rs"),
+        include_str!("../src/agentic/runtime/service/queue/processing/completion.rs"),
         include_str!(
-            "../src/agentic/runtime/service/step/action/processing/phases/execute_tool_phase/tool_outcome.rs"
+            "../src/agentic/runtime/service/tool_execution/processing/phases/execute_tool_phase/tool_outcome.rs"
         ),
         include_str!(
-            "../src/agentic/runtime/service/step/action/processing/phases/execute_tool_phase/duplicate.rs"
+            "../src/agentic/runtime/service/tool_execution/processing/phases/execute_tool_phase/duplicate.rs"
         ),
         include_str!(
             "../src/agentic/runtime/service/actions/resume/phases/lifecycle_status.rs"

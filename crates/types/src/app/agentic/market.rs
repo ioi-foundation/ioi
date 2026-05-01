@@ -12,7 +12,7 @@ pub enum AssetType {
     Skill,
     /// An autonomous worker with persona, tools, and policy (e.g., "Invoice Analyst").
     Agent,
-    /// A coordinated graph of agents (e.g., "Finance Department").
+    /// Legacy wire name for a coordinated work graph of agents.
     Swarm,
 }
 
@@ -25,7 +25,7 @@ pub enum IntelligenceAsset {
     Skill(SkillManifest),
     /// An autonomous worker with persona, tools, and policy (e.g., "Invoice Analyst").
     Agent(AgentManifest),
-    /// A coordinated graph of agents (e.g., "Finance Department").
+    /// Legacy wire name for a coordinated work graph of agents.
     Swarm(SwarmManifest),
 }
 
@@ -145,28 +145,34 @@ pub struct AgentManifest {
     pub ui_assets_root: [u8; 32],
 }
 
-/// Represents a listing for a coordinated team of agents.
+/// Legacy marketplace encoding for a coordinated work graph of agents.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
 pub struct SwarmManifest {
-    /// The human-readable name of the swarm.
+    /// The human-readable name of the work graph.
     pub name: String,
-    /// A description of the swarm's collective purpose.
+    /// A description of the work graph's collective purpose.
     pub description: String,
-    /// The agents that make up this swarm.
+    /// The agents that make up this work graph.
     /// Key: Role Name (e.g. "Manager"), Value: AgentManifest Hash.
     pub roster: Vec<(String, [u8; 32])>,
     /// The delegation graph (Adjacency List).
     /// e.g. ("Manager", "Researcher"), ("Manager", "Writer")
     pub delegation_flow: Vec<(String, String)>,
-    /// The author/developer of this swarm configuration.
+    /// The author/developer of this work graph configuration.
     pub author: AccountId,
-    /// Licensing fee for the swarm.
+    /// Licensing fee for the work graph.
     pub price: u64,
     /// Semantic tags for discovery.
     pub tags: Vec<String>,
-    /// The version string of the swarm manifest.
+    /// The version string of the work graph manifest.
     pub version: String,
 }
+
+/// Canonical runtime name for the coordinated-agent marketplace manifest.
+///
+/// The `SwarmManifest` type name remains as an explicit legacy market encoding
+/// compatibility surface for persisted assets.
+pub type WorkGraphManifest = SwarmManifest;
 
 /// Proof of purchase for a specific intelligence asset.
 /// Required by the Kernel to load a remote skill or agent into the runtime.
@@ -174,7 +180,7 @@ pub struct SwarmManifest {
 pub struct AssetLicense {
     /// The unique hash of the asset being licensed.
     pub asset_hash: [u8; 32],
-    /// The type of asset (Skill, Agent, Swarm).
+    /// The type of asset. Legacy coordinated work graph assets use `Swarm`.
     pub asset_type: AssetType,
     /// The account that purchased the license.
     pub licensee: AccountId,

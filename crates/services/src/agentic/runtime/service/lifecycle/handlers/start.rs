@@ -1,10 +1,11 @@
 use super::super::runtime_locality::maybe_seed_runtime_locality_context;
 use crate::agentic::runtime::keys::{get_incident_key, get_remediation_key, get_state_key};
-use crate::agentic::runtime::service::step::signals::infer_interaction_target;
+use crate::agentic::runtime::legacy::split_work_graph_goal_prefix;
+use crate::agentic::runtime::service::decision_loop::signals::infer_interaction_target;
 use crate::agentic::runtime::service::RuntimeAgentService;
 use crate::agentic::runtime::types::{
     AgentMode, AgentState, AgentStatus, ExecutionTier, SessionSummary, StartAgentParams,
-    SwarmContext,
+    WorkGraphContext,
 };
 use crate::agentic::runtime::utils::{persist_agent_state, timestamp_ms_now};
 use ioi_api::state::StateAccess;
@@ -26,39 +27,36 @@ pub async fn handle_start(
     state.delete(&remediation_key)?;
     state.delete(&incident_key)?;
 
-    let mut swarm_context = None;
+    let mut work_graph_context = None;
     let mut actual_goal = p.goal.clone();
 
-    if p.goal.starts_with("SWARM:") {
-        let parts: Vec<&str> = p.goal.split_whitespace().collect();
-        if let Some(hash_hex) = parts.first().and_then(|s| s.strip_prefix("SWARM:")) {
-            if let Ok(swarm_hash) = hex::decode(hash_hex) {
-                if swarm_hash.len() == 32 {
-                    let mut arr = [0u8; 32];
-                    arr.copy_from_slice(&swarm_hash);
+    if let Some((hash_hex, goal_without_prefix)) = split_work_graph_goal_prefix(&p.goal) {
+        if let Ok(work_graph_hash) = hex::decode(hash_hex) {
+            if work_graph_hash.len() == 32 {
+                let mut arr = [0u8; 32];
+                arr.copy_from_slice(&work_graph_hash);
 
-                    if let Some(manifest) = service.fetch_swarm_manifest(state, arr).await {
-                        log::info!("Hydrating Swarm '{}' ({})", manifest.name, hash_hex);
+                if let Some(manifest) = service.fetch_work_graph_manifest(state, arr).await {
+                    log::info!("Hydrating work graph '{}' ({})", manifest.name, hash_hex);
 
-                        if let Some((root_role, _root_agent_hash)) = manifest.roster.first() {
-                            let delegates: Vec<String> = manifest
-                                .delegation_flow
-                                .iter()
-                                .filter(|(from, _)| from == root_role)
-                                .map(|(_, to)| to.clone())
-                                .collect();
+                    if let Some((root_role, _root_agent_hash)) = manifest.roster.first() {
+                        let delegates: Vec<String> = manifest
+                            .delegation_flow
+                            .iter()
+                            .filter(|(from, _)| from == root_role)
+                            .map(|(_, to)| to.clone())
+                            .collect();
 
-                            swarm_context = Some(SwarmContext {
-                                swarm_id: arr,
-                                role: root_role.clone(),
-                                allowed_delegates: delegates,
-                            });
+                        work_graph_context = Some(WorkGraphContext {
+                            work_graph_id: arr,
+                            role: root_role.clone(),
+                            allowed_delegates: delegates,
+                        });
 
-                            actual_goal = parts[1..].join(" ");
-                            if actual_goal.is_empty() {
-                                actual_goal =
-                                    format!("Execute swarm mission: {}", manifest.description);
-                            }
+                        actual_goal = goal_without_prefix.to_string();
+                        if actual_goal.is_empty() {
+                            actual_goal =
+                                format!("Execute work graph mission: {}", manifest.description);
                         }
                     }
                 }
@@ -133,7 +131,7 @@ pub async fn handle_start(
         active_skill_hash: None,
         visual_som_map: None,
         visual_semantic_map: None,
-        swarm_context,
+        work_graph_context,
         target,
         resolved_intent: None,
         awaiting_intent_clarification: false,

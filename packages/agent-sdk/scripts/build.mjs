@@ -13,6 +13,7 @@ const packageEntryPoints = [
   "src/options.ts",
   "src/errors.ts",
   "src/substrate-client.ts",
+  "src/testing.ts",
 ].map((entry) => path.join(root, entry));
 const exampleEntryPoints = ["examples/quickstart-local.ts"].map((entry) => path.join(root, entry));
 

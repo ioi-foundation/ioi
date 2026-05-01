@@ -25,7 +25,7 @@ use ioi_services::agentic::runtime::kernel::approval::{
 use ioi_services::agentic::runtime::keys::{
     get_approval_authority_key, get_approval_grant_key, get_incident_key, get_state_key, pii,
 };
-use ioi_services::agentic::runtime::service::step::incident::IncidentState;
+use ioi_services::agentic::runtime::service::recovery::incident::IncidentState;
 use ioi_services::agentic::runtime::{AgentState, ResumeAgentParams, StepAgentParams};
 
 use ioi_api::crypto::{SerializableKey, VerifyingKey};

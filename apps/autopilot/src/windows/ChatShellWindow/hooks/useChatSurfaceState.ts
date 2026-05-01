@@ -138,13 +138,13 @@ function deriveTaskChatExecutionChrome(task: any) {
   const executionEnvelope = materialization?.executionEnvelope ?? null;
   return deriveChatExecutionChromeState({
     executionEnvelope,
-    swarmExecution:
-      materialization?.swarmExecution ?? executionEnvelope?.executionSummary ?? null,
-    swarmPlan: materialization?.swarmPlan ?? executionEnvelope?.plan ?? null,
+    workGraphExecution:
+      materialization?.workGraphExecution ?? executionEnvelope?.executionSummary ?? null,
+    workGraphPlan: materialization?.workGraphPlan ?? executionEnvelope?.plan ?? null,
     workerReceipts:
-      materialization?.swarmWorkerReceipts ?? executionEnvelope?.workerReceipts ?? [],
+      materialization?.workerReceipts ?? executionEnvelope?.workerReceipts ?? [],
     changeReceipts:
-      materialization?.swarmChangeReceipts ?? executionEnvelope?.changeReceipts ?? [],
+      materialization?.changeReceipts ?? executionEnvelope?.changeReceipts ?? [],
   });
 }
 

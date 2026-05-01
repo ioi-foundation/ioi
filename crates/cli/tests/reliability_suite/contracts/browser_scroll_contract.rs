@@ -3,13 +3,13 @@
 use ioi_api::state::{StateAccess, StateScanIter};
 use ioi_api::vm::inference::mock::MockInferenceRuntime;
 use ioi_services::agentic::runtime::middleware::normalize_tool_call;
-use ioi_services::agentic::runtime::service::step::action::{
-    canonical_intent_hash, canonical_tool_identity,
-};
-use ioi_services::agentic::runtime::service::step::anti_loop::{
+use ioi_services::agentic::runtime::service::queue::queue_action_request_to_tool;
+use ioi_services::agentic::runtime::service::recovery::anti_loop::{
     build_post_state_summary, build_state_summary,
 };
-use ioi_services::agentic::runtime::service::step::queue::queue_action_request_to_tool;
+use ioi_services::agentic::runtime::service::tool_execution::{
+    canonical_intent_hash, canonical_tool_identity,
+};
 use ioi_services::agentic::runtime::tools::discover_tools;
 use ioi_services::agentic::runtime::types::{ExecutionTier, InteractionTarget};
 use ioi_services::agentic::runtime::{AgentMode, AgentState, AgentStatus};

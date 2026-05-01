@@ -1,0 +1,19 @@
+{
+  "runId": "run_c430a2b1-cdb1-4347-885f-e9496fdd58c6",
+  "firstBatchIds": [
+    "run_c430a2b1-cdb1-4347-885f-e9496fdd58c6:event:000:run_started",
+    "run_c430a2b1-cdb1-4347-885f-e9496fdd58c6:event:001:task_state",
+    "run_c430a2b1-cdb1-4347-885f-e9496fdd58c6:event:002:uncertainty",
+    "run_c430a2b1-cdb1-4347-885f-e9496fdd58c6:event:003:probe"
+  ],
+  "resumedIds": [
+    "run_c430a2b1-cdb1-4347-885f-e9496fdd58c6:event:004:postcondition_synthesized",
+    "run_c430a2b1-cdb1-4347-885f-e9496fdd58c6:event:005:semantic_impact",
+    "run_c430a2b1-cdb1-4347-885f-e9496fdd58c6:event:006:delta",
+    "run_c430a2b1-cdb1-4347-885f-e9496fdd58c6:event:007:stop_condition",
+    "run_c430a2b1-cdb1-4347-885f-e9496fdd58c6:event:008:quality_ledger",
+    "run_c430a2b1-cdb1-4347-885f-e9496fdd58c6:event:009:completed"
+  ],
+  "duplicateTerminalEvents": false,
+  "terminalEventCount": 1
+}

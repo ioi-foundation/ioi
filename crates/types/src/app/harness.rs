@@ -110,7 +110,7 @@ impl HarnessComponentKind {
 
     pub fn kernel_ref(self) -> &'static str {
         match self {
-            Self::Planner => "crates/services/src/agentic/runtime/service/step/planner",
+            Self::Planner => "crates/services/src/agentic/runtime/service/planning/planner",
             Self::PromptAssembler => {
                 "crates/types/src/app/runtime_contracts.rs::PromptAssemblyContract"
             }
@@ -123,7 +123,7 @@ impl HarnessComponentKind {
             Self::CapabilitySequencer => {
                 "crates/types/src/app/runtime_contracts.rs::CapabilitySequence"
             }
-            Self::ModelRouter => "crates/services/src/agentic/runtime/service/step/cognition/router.rs",
+            Self::ModelRouter => "crates/services/src/agentic/runtime/service/decision_loop/cognition/router.rs",
             Self::ModelCall => "crates/services/src/agentic/runtime/service/handler/execution/handlers/model.rs",
             Self::ToolRouter => "crates/services/src/agentic/runtime/service/handler/execution/execution/action_execution.rs",
             Self::ToolCall => "crates/services/src/agentic/runtime/service/handler/execution",
@@ -145,14 +145,14 @@ impl HarnessComponentKind {
             }
             Self::Verifier => "crates/services/src/agentic/runtime/service/handler/execution/execution/receipt_emission.rs",
             Self::DriftDetector => "crates/types/src/app/runtime_contracts.rs::DriftSignal",
-            Self::OutputWriter => "crates/services/src/agentic/runtime/service/step/queue/processing/completion_receipts.rs",
+            Self::OutputWriter => "crates/services/src/agentic/runtime/service/queue/processing/completion_receipts.rs",
             Self::ReceiptWriter => "crates/services/src/agentic/runtime/service/handler/execution/execution/receipt_emission.rs",
             Self::QualityLedger => "crates/types/src/app/runtime_contracts.rs::AgentQualityLedger",
-            Self::RetryPolicy => "crates/services/src/agentic/runtime/service/step/anti_loop",
-            Self::RepairLoop => "crates/services/src/agentic/runtime/service/step/action/processing/repair",
+            Self::RetryPolicy => "crates/services/src/agentic/runtime/service/recovery/anti_loop",
+            Self::RepairLoop => "crates/services/src/agentic/runtime/service/tool_execution/processing/repair",
             Self::MergeJudge => "crates/services/src/agentic/runtime/service/lifecycle/worker_results/merge.rs",
             Self::HandoffBridge => "crates/types/src/app/runtime_contracts.rs::HandoffQuality",
-            Self::CompletionGate => "crates/services/src/agentic/runtime/service/step/browser_completion.rs",
+            Self::CompletionGate => "crates/services/src/agentic/runtime/service/visual_loop/browser_completion.rs",
             Self::GuiHarnessValidator => {
                 "crates/types/src/app/runtime_contracts.rs::AutopilotGuiHarnessValidationContract"
             }

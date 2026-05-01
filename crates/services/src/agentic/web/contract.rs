@@ -4,7 +4,8 @@ use serde::Serialize;
 use std::sync::Arc;
 
 use super::util::normalize_url_for_id;
-use crate::agentic::runtime::service::step::queue::web_pipeline::{
+use crate::agentic::runtime::service::decision_loop::signals::analyze_query_facets;
+use crate::agentic::runtime::service::queue::web_pipeline::{
     build_query_constraint_projection, candidate_constraint_compatibility,
     candidate_time_sensitive_resolvable_payload, compatibility_passes_projection,
     explicit_query_scope_hint, is_search_hub_url,
@@ -15,7 +16,6 @@ use crate::agentic::runtime::service::step::queue::web_pipeline::{
     retrieval_contract_min_sources, source_has_document_briefing_authority_alignment_with_contract,
     source_matches_local_business_search_entity_anchor,
 };
-use crate::agentic::runtime::service::step::signals::analyze_query_facets;
 
 const WEB_RETRIEVAL_CONTRACT_VERSION: &str = "web_retrieval_contract.v1";
 pub(crate) const WEB_SOURCE_ALIGNMENT_MAX_SOURCES: usize = 40;
@@ -142,12 +142,13 @@ fn lint_web_retrieval_contract(
     };
     let structural_citation_count_min =
         required_citations_per_story(normalized_query_contract).clamp(1, 4) as u32;
-    let explicit_locality_scope_present = crate::agentic::runtime::service::step::queue::web_pipeline::explicit_query_scope_hint(raw_query)
-        .is_some()
-        || crate::agentic::runtime::service::step::queue::web_pipeline::explicit_query_scope_hint(
-            normalized_query_contract,
-        )
-        .is_some();
+    let explicit_locality_scope_present =
+        crate::agentic::runtime::service::queue::web_pipeline::explicit_query_scope_hint(raw_query)
+            .is_some()
+            || crate::agentic::runtime::service::queue::web_pipeline::explicit_query_scope_hint(
+                normalized_query_contract,
+            )
+            .is_some();
     let runtime_locality_required = query_requires_runtime_locality_scope(raw_query)
         || (raw_query.is_empty()
             && query_requires_runtime_locality_scope(normalized_query_contract));
@@ -313,11 +314,11 @@ fn deterministic_web_retrieval_contract(
         required_story_count(structural_query).clamp(1, 6) as u32
     };
     let explicit_locality_scope_present =
-        crate::agentic::runtime::service::step::queue::web_pipeline::explicit_query_scope_hint(
+        crate::agentic::runtime::service::queue::web_pipeline::explicit_query_scope_hint(
             query.trim(),
         )
         .is_some()
-            || crate::agentic::runtime::service::step::queue::web_pipeline::explicit_query_scope_hint(
+            || crate::agentic::runtime::service::queue::web_pipeline::explicit_query_scope_hint(
                 structural_query,
             )
             .is_some();

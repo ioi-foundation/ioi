@@ -1,5 +1,5 @@
 use super::super::*;
-use crate::agentic::runtime::service::step::action::verified_command_probe_completion_summary;
+use crate::agentic::runtime::service::tool_execution::verified_command_probe_completion_summary;
 use crate::agentic::runtime::utils::{persist_agent_state, timestamp_ms_now};
 
 pub(crate) struct LifecycleStatusPhaseContext<'a, 's> {
@@ -54,13 +54,15 @@ fn remaining_queue_is_only_mail_reply_provider_fallbacks(agent_state: &AgentStat
     let mut saw_mail_reply_fallback = false;
     for request in &agent_state.execution_queue {
         let target = request.target.canonical_label();
-        if crate::agentic::runtime::service::step::intent_resolver::tool_has_capability(
+        if crate::agentic::runtime::service::decision_loop::intent_resolver::tool_has_capability(
             &target,
             "mail.reply",
-        ) || crate::agentic::runtime::service::step::intent_resolver::tool_has_capability(
-            &target,
-            "mail.send",
-        ) {
+        )
+            || crate::agentic::runtime::service::decision_loop::intent_resolver::tool_has_capability(
+                &target,
+                "mail.send",
+            )
+        {
             saw_mail_reply_fallback = true;
             continue;
         }
@@ -82,7 +84,7 @@ fn should_terminalize_mail_reply_intent(agent_state: &AgentState, tool_name: &st
         })
         .unwrap_or(false);
     let fallback_only_queue = remaining_queue_is_only_mail_reply_provider_fallbacks(agent_state);
-    crate::agentic::runtime::service::step::intent_resolver::tool_has_capability(
+    crate::agentic::runtime::service::decision_loop::intent_resolver::tool_has_capability(
         tool_name,
         "mail.reply",
     ) && (resolved_mail_reply_intent || fallback_only_queue)
@@ -1094,7 +1096,7 @@ pub(crate) async fn run_lifecycle_status_phase(
             );
             failure_class = classify_failure(err.as_deref(), &policy_decision);
             if let Some(class) = failure_class {
-                let target_id = crate::agentic::runtime::service::step::anti_loop::specialized_attempt_target_id(
+                let target_id = crate::agentic::runtime::service::recovery::anti_loop::specialized_attempt_target_id(
                     state,
                     service.memory_runtime.as_ref(),
                     &tool_name,
@@ -1121,7 +1123,7 @@ pub(crate) async fn run_lifecycle_status_phase(
                     Some(hex::encode(log_visual_hash))
                 };
                 let window_fingerprint =
-                    crate::agentic::runtime::service::step::anti_loop::canonical_attempt_window_fingerprint(
+                    crate::agentic::runtime::service::recovery::anti_loop::canonical_attempt_window_fingerprint(
                         class,
                         command_scope,
                         raw_window_fingerprint.as_deref(),
@@ -1355,7 +1357,7 @@ pub(crate) async fn run_lifecycle_status_phase(
         .map(|class| class.as_str().to_string())
         .unwrap_or_default();
     let route_decision =
-        crate::agentic::runtime::service::step::route_projection::project_route_decision(
+        crate::agentic::runtime::service::decision_loop::route_projection::project_route_decision(
             service,
             state,
             agent_state,

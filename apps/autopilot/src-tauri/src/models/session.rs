@@ -58,9 +58,9 @@ pub struct PiiReviewInfo {
     pub target_id: Option<PiiTarget>,
 }
 
-// Represents a node in the hierarchical swarm visualization
+// Represents a node in the hierarchical work graph visualization
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SwarmAgent {
+pub struct WorkGraphAgent {
     pub id: String,
     pub parent_id: Option<String>,
     pub name: String,
@@ -218,9 +218,9 @@ pub struct AgentTask {
     #[serde(skip, default)]
     pub processed_steps: HashSet<String>,
 
-    // The hierarchical swarm state for SwarmViz
-    #[serde(default)]
-    pub swarm_tree: Vec<SwarmAgent>,
+    // The hierarchical work graph state for WorkGraphViz.
+    #[serde(default, alias = "swarm_tree")]
+    pub work_graph_tree: Vec<WorkGraphAgent>,
 
     // Evolutionary Metadata (Genetics)
     #[serde(default)]

@@ -107,8 +107,10 @@ The repo now ships a route-first execution ladder on the Studio path:
 - `micro_swarm`
 - `adaptive_work_graph`
 
-Legacy `swarm` remains as a compatibility alias for
-`adaptive_work_graph`.
+The active chat execution strategy now serializes the generic
+`adaptive_work_graph` label. Persisted historical records may still mention
+`swarm`, but new runtime contracts should not accept or introduce it as a wire
+alias.
 
 What is now real:
 

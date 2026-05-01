@@ -11,7 +11,7 @@ import type {
   WorkflowTestRunResult,
   WorkflowValidationResult,
 } from "../../types/graph";
-import { actionKindForWorkflowNodeType } from "../../runtime/agent-execution-substrate";
+import { actionKindForWorkflowNodeType } from "../../runtime/runtime-projection-adapter";
 import { slugify } from "../../runtime/workflow-defaults";
 import {
   workflowFunctionDryRunView,

@@ -5,8 +5,8 @@ use ioi_types::app::{
     ChatPresentationSurface, ChatRendererKind, ChatRuntimeProvenance, ChatRuntimeProvenanceKind,
 };
 
-fn test_swarm_plan(strategy: &str, work_items: Vec<SwarmWorkItem>) -> SwarmPlan {
-    SwarmPlan {
+fn test_work_graph_plan(strategy: &str, work_items: Vec<WorkGraphWorkItem>) -> WorkGraphPlan {
+    WorkGraphPlan {
         version: 1,
         strategy: strategy.to_string(),
         execution_domain: "chat_artifact".to_string(),
@@ -27,7 +27,7 @@ fn test_swarm_plan(strategy: &str, work_items: Vec<SwarmWorkItem>) -> SwarmPlan 
             required_work_item_ids: work_items
                 .iter()
                 .filter(|item| {
-                    item.role != SwarmWorkerRole::Repair && !item.id.starts_with("repair-pass-")
+                    item.role != WorkGraphWorkerRole::Repair && !item.id.starts_with("repair-pass-")
                 })
                 .map(|item| item.id.clone())
                 .collect(),
@@ -35,7 +35,7 @@ fn test_swarm_plan(strategy: &str, work_items: Vec<SwarmWorkItem>) -> SwarmPlan 
             speculative_work_item_ids: work_items
                 .iter()
                 .filter(|item| {
-                    item.role == SwarmWorkerRole::Repair || item.id.starts_with("repair-pass-")
+                    item.role == WorkGraphWorkerRole::Repair || item.id.starts_with("repair-pass-")
                 })
                 .map(|item| item.id.clone())
                 .collect(),
@@ -51,9 +51,9 @@ fn test_swarm_plan(strategy: &str, work_items: Vec<SwarmWorkItem>) -> SwarmPlan 
 }
 
 #[test]
-fn build_execution_envelope_derives_strategy_and_domain_kind_from_swarm() {
-    let plan = test_swarm_plan("swarm", Vec::new());
-    let summary = SwarmExecutionSummary {
+fn build_execution_envelope_derives_strategy_and_domain_kind_from_work_graph() {
+    let plan = test_work_graph_plan("work_graph", Vec::new());
+    let summary = WorkGraphExecutionSummary {
         enabled: true,
         current_stage: "merge".to_string(),
         execution_stage: Some(ExecutionStage::Merge),
@@ -62,13 +62,13 @@ fn build_execution_envelope_derives_strategy_and_domain_kind_from_swarm() {
         completed_work_items: 2,
         failed_work_items: 0,
         verification_status: "pending".to_string(),
-        strategy: "swarm".to_string(),
+        strategy: "work_graph".to_string(),
         execution_domain: "chat_artifact".to_string(),
-        adapter_label: "artifact_swarm_v1".to_string(),
+        adapter_label: "artifact_work_graph_v1".to_string(),
         parallelism_mode: "serial".to_string(),
     };
 
-    let envelope = build_execution_envelope_from_swarm(
+    let envelope = build_execution_envelope_from_work_graph(
         None,
         None,
         None,
@@ -99,11 +99,11 @@ fn build_execution_envelope_derives_strategy_and_domain_kind_from_swarm() {
 
 #[test]
 fn execution_envelope_rejects_tampered_workflow_root_hash() {
-    let worker_receipts = vec![SwarmWorkerReceipt {
+    let worker_receipts = vec![WorkGraphWorkerReceipt {
         work_item_id: "draft".to_string(),
-        role: SwarmWorkerRole::Integrator,
-        status: SwarmWorkItemStatus::Succeeded,
-        result_kind: Some(SwarmWorkerResultKind::Completed),
+        role: WorkGraphWorkerRole::Integrator,
+        status: WorkGraphWorkItemStatus::Succeeded,
+        result_kind: Some(WorkGraphWorkerResultKind::Completed),
         summary: "Drafted artifact".to_string(),
         started_at: "1".to_string(),
         finished_at: Some("2".to_string()),
@@ -125,9 +125,9 @@ fn execution_envelope_rejects_tampered_workflow_root_hash() {
         notes: Vec::new(),
         failure: None,
     }];
-    let change_receipts = vec![SwarmChangeReceipt {
+    let change_receipts = vec![WorkGraphChangeReceipt {
         work_item_id: "draft".to_string(),
-        status: SwarmWorkItemStatus::Succeeded,
+        status: WorkGraphWorkItemStatus::Succeeded,
         summary: "Patched index".to_string(),
         operation_count: 1,
         touched_paths: vec!["index.html".to_string()],
@@ -137,16 +137,16 @@ fn execution_envelope_rejects_tampered_workflow_root_hash() {
         preview_language: None,
         failure: None,
     }];
-    let merge_receipts = vec![SwarmMergeReceipt {
+    let merge_receipts = vec![WorkGraphMergeReceipt {
         work_item_id: "draft".to_string(),
-        status: SwarmWorkItemStatus::Succeeded,
+        status: WorkGraphWorkItemStatus::Succeeded,
         summary: "Merged draft".to_string(),
         applied_operation_count: 1,
         touched_paths: vec!["index.html".to_string()],
         touched_regions: vec!["main".to_string()],
         rejected_reason: None,
     }];
-    let envelope = build_execution_envelope_from_swarm_with_receipts(
+    let envelope = build_execution_envelope_from_work_graph_with_receipts(
         Some(ChatExecutionStrategy::AdaptiveWorkGraph),
         Some("chat_artifact".to_string()),
         Some(ExecutionDomainKind::Artifact),
@@ -380,7 +380,7 @@ fn derive_execution_mode_decision_routes_workspace_artifacts_to_adaptive_work_gr
 
 #[test]
 fn annotate_execution_envelope_carries_mode_decision_budget_and_invariant() {
-    let mut envelope = build_execution_envelope_from_swarm(
+    let mut envelope = build_execution_envelope_from_work_graph(
         Some(ChatExecutionStrategy::PlanExecute),
         Some("chat_artifact".to_string()),
         Some(ExecutionDomainKind::Artifact),
@@ -393,7 +393,7 @@ fn annotate_execution_envelope_carries_mode_decision_budget_and_invariant() {
     );
     let decision = ChatExecutionModeDecision {
         requested_strategy: ChatExecutionStrategy::PlanExecute,
-        resolved_strategy: ChatExecutionStrategy::MicroSwarm,
+        resolved_strategy: ChatExecutionStrategy::MicroWorkGraph,
         mode_confidence: 0.81,
         one_shot_sufficiency: 0.44,
         ambiguity: 0.12,
@@ -406,10 +406,12 @@ fn annotate_execution_envelope_carries_mode_decision_budget_and_invariant() {
         decomposition_payoff: 0.58,
         work_graph_required: true,
         decomposition_reason: "A bounded work graph is justified.".to_string(),
-        budget_envelope: execution_budget_envelope_for_strategy(ChatExecutionStrategy::MicroSwarm),
+        budget_envelope: execution_budget_envelope_for_strategy(
+            ChatExecutionStrategy::MicroWorkGraph,
+        ),
     };
     let invariant = completion_invariant_for_direct_execution(
-        ChatExecutionStrategy::MicroSwarm,
+        ChatExecutionStrategy::MicroWorkGraph,
         vec!["index.html".to_string()],
         vec!["verify".to_string()],
         ExecutionCompletionInvariantStatus::Pending,
@@ -422,7 +424,10 @@ fn annotate_execution_envelope_carries_mode_decision_budget_and_invariant() {
     );
 
     let envelope = envelope.expect("execution envelope");
-    assert_eq!(envelope.strategy, Some(ChatExecutionStrategy::MicroSwarm));
+    assert_eq!(
+        envelope.strategy,
+        Some(ChatExecutionStrategy::MicroWorkGraph)
+    );
     assert_eq!(envelope.mode_decision, Some(decision));
     assert_eq!(
         envelope.budget_envelope,
@@ -432,17 +437,17 @@ fn annotate_execution_envelope_carries_mode_decision_budget_and_invariant() {
 }
 
 fn invariant_allows_micro_budget() -> ChatExecutionBudgetEnvelope {
-    execution_budget_envelope_for_strategy(ChatExecutionStrategy::MicroSwarm)
+    execution_budget_envelope_for_strategy(ChatExecutionStrategy::MicroWorkGraph)
 }
 
 #[test]
-fn parse_execution_strategy_id_accepts_legacy_swarm_alias() {
+fn parse_execution_strategy_id_accepts_legacy_work_graph_alias() {
     assert_eq!(
         parse_execution_strategy_id("direct_author"),
         Some(ChatExecutionStrategy::DirectAuthor)
     );
     assert_eq!(
-        parse_execution_strategy_id("swarm"),
+        parse_execution_strategy_id("work_graph"),
         Some(ChatExecutionStrategy::AdaptiveWorkGraph)
     );
     assert_eq!(
@@ -450,19 +455,19 @@ fn parse_execution_strategy_id_accepts_legacy_swarm_alias() {
         Some(ChatExecutionStrategy::AdaptiveWorkGraph)
     );
     assert_eq!(
-        parse_execution_strategy_id("micro_swarm"),
-        Some(ChatExecutionStrategy::MicroSwarm)
+        parse_execution_strategy_id("micro_work_graph"),
+        Some(ChatExecutionStrategy::MicroWorkGraph)
     );
 }
 
 #[test]
 fn spawn_follow_up_work_item_preserves_parent_lineage_and_increments_version() {
-    let mut plan = test_swarm_plan(
+    let mut plan = test_work_graph_plan(
         "adaptive_work_graph",
-        vec![SwarmWorkItem {
+        vec![WorkGraphWorkItem {
             id: "repair".to_string(),
             title: "Repair".to_string(),
-            role: SwarmWorkerRole::Repair,
+            role: WorkGraphWorkerRole::Repair,
             summary: "Repair cited failures.".to_string(),
             spawned_from_id: None,
             read_paths: vec!["index.html".to_string()],
@@ -472,18 +477,18 @@ fn spawn_follow_up_work_item_preserves_parent_lineage_and_increments_version() {
             acceptance_criteria: vec!["Stay scoped.".to_string()],
             dependency_ids: vec!["validation".to_string()],
             blocked_on_ids: Vec::new(),
-            verification_policy: Some(SwarmVerificationPolicy::Blocking),
+            verification_policy: Some(WorkGraphVerificationPolicy::Blocking),
             retry_budget: Some(2),
-            status: SwarmWorkItemStatus::Pending,
+            status: WorkGraphWorkItemStatus::Pending,
         }],
     );
 
-    spawn_follow_up_swarm_work_item(
+    spawn_follow_up_work_graph_work_item(
         &mut plan,
-        SwarmWorkItem {
+        WorkGraphWorkItem {
             id: "repair-pass-1".to_string(),
             title: "Repair pass 1".to_string(),
-            role: SwarmWorkerRole::Repair,
+            role: WorkGraphWorkerRole::Repair,
             summary: "Resolve the first blocked verification issue.".to_string(),
             spawned_from_id: Some("repair".to_string()),
             read_paths: vec!["index.html".to_string()],
@@ -493,9 +498,9 @@ fn spawn_follow_up_work_item_preserves_parent_lineage_and_increments_version() {
             acceptance_criteria: vec!["Patch only cited issues.".to_string()],
             dependency_ids: vec!["validation".to_string()],
             blocked_on_ids: Vec::new(),
-            verification_policy: Some(SwarmVerificationPolicy::Blocking),
+            verification_policy: Some(WorkGraphVerificationPolicy::Blocking),
             retry_budget: Some(0),
-            status: SwarmWorkItemStatus::Pending,
+            status: WorkGraphWorkItemStatus::Pending,
         },
     )
     .expect("follow-up work item should append");
@@ -515,10 +520,10 @@ fn spawn_follow_up_work_item_preserves_parent_lineage_and_increments_version() {
 
 #[test]
 fn exclusive_write_leases_conflict_on_the_same_target() {
-    let left = SwarmWorkItem {
+    let left = WorkGraphWorkItem {
         id: "section-1".to_string(),
         title: "Section 1".to_string(),
-        role: SwarmWorkerRole::SectionContent,
+        role: WorkGraphWorkerRole::SectionContent,
         summary: "Own hero copy.".to_string(),
         spawned_from_id: None,
         read_paths: vec!["index.html".to_string()],
@@ -528,14 +533,14 @@ fn exclusive_write_leases_conflict_on_the_same_target() {
         acceptance_criteria: vec!["Keep hero visible.".to_string()],
         dependency_ids: vec!["skeleton".to_string()],
         blocked_on_ids: Vec::new(),
-        verification_policy: Some(SwarmVerificationPolicy::Normal),
+        verification_policy: Some(WorkGraphVerificationPolicy::Normal),
         retry_budget: Some(0),
-        status: SwarmWorkItemStatus::Pending,
+        status: WorkGraphWorkItemStatus::Pending,
     };
-    let right = SwarmWorkItem {
+    let right = WorkGraphWorkItem {
         id: "repair-pass-1".to_string(),
         title: "Repair pass 1".to_string(),
-        role: SwarmWorkerRole::Repair,
+        role: WorkGraphWorkerRole::Repair,
         summary: "Patch hero issues.".to_string(),
         spawned_from_id: Some("repair".to_string()),
         read_paths: vec!["index.html".to_string()],
@@ -545,23 +550,23 @@ fn exclusive_write_leases_conflict_on_the_same_target() {
         acceptance_criteria: vec!["Stay bounded.".to_string()],
         dependency_ids: vec!["validation".to_string()],
         blocked_on_ids: Vec::new(),
-        verification_policy: Some(SwarmVerificationPolicy::Blocking),
+        verification_policy: Some(WorkGraphVerificationPolicy::Blocking),
         retry_budget: Some(0),
-        status: SwarmWorkItemStatus::Pending,
+        status: WorkGraphWorkItemStatus::Pending,
     };
 
-    assert!(swarm_work_item_lease_conflicts(&left, &right));
+    assert!(work_graph_work_item_lease_conflicts(&left, &right));
 }
 
 #[test]
-fn block_swarm_work_item_on_adds_runtime_blockers() {
-    let mut plan = test_swarm_plan(
+fn block_work_graph_work_item_on_adds_runtime_blockers() {
+    let mut plan = test_work_graph_plan(
         "plan_execute",
         vec![
-            SwarmWorkItem {
+            WorkGraphWorkItem {
                 id: "planner".to_string(),
                 title: "Planner".to_string(),
-                role: SwarmWorkerRole::Planner,
+                role: WorkGraphWorkerRole::Planner,
                 summary: "Plan".to_string(),
                 spawned_from_id: None,
                 read_paths: Vec::new(),
@@ -573,12 +578,12 @@ fn block_swarm_work_item_on_adds_runtime_blockers() {
                 blocked_on_ids: Vec::new(),
                 verification_policy: None,
                 retry_budget: None,
-                status: SwarmWorkItemStatus::Succeeded,
+                status: WorkGraphWorkItemStatus::Succeeded,
             },
-            SwarmWorkItem {
+            WorkGraphWorkItem {
                 id: "handoff".to_string(),
                 title: "Handoff".to_string(),
-                role: SwarmWorkerRole::Responder,
+                role: WorkGraphWorkerRole::Responder,
                 summary: "Reply".to_string(),
                 spawned_from_id: None,
                 read_paths: Vec::new(),
@@ -590,19 +595,19 @@ fn block_swarm_work_item_on_adds_runtime_blockers() {
                 blocked_on_ids: Vec::new(),
                 verification_policy: None,
                 retry_budget: None,
-                status: SwarmWorkItemStatus::Pending,
+                status: WorkGraphWorkItemStatus::Pending,
             },
         ],
     );
     plan.execution_domain = "chat_conversation".to_string();
     plan.adapter_label = "conversation_route_v1".to_string();
 
-    spawn_follow_up_swarm_work_item(
+    spawn_follow_up_work_graph_work_item(
         &mut plan,
-        SwarmWorkItem {
+        WorkGraphWorkItem {
             id: "clarification_gate".to_string(),
             title: "Clarification gate".to_string(),
-            role: SwarmWorkerRole::Coordinator,
+            role: WorkGraphWorkerRole::Coordinator,
             summary: "Wait for the user.".to_string(),
             spawned_from_id: Some("planner".to_string()),
             read_paths: Vec::new(),
@@ -612,13 +617,13 @@ fn block_swarm_work_item_on_adds_runtime_blockers() {
             acceptance_criteria: Vec::new(),
             dependency_ids: vec!["planner".to_string()],
             blocked_on_ids: Vec::new(),
-            verification_policy: Some(SwarmVerificationPolicy::Blocking),
+            verification_policy: Some(WorkGraphVerificationPolicy::Blocking),
             retry_budget: Some(0),
-            status: SwarmWorkItemStatus::Pending,
+            status: WorkGraphWorkItemStatus::Pending,
         },
     )
     .expect("clarification gate should spawn");
-    block_swarm_work_item_on(&mut plan, "handoff", &[String::from("clarification_gate")])
+    block_work_graph_work_item_on(&mut plan, "handoff", &[String::from("clarification_gate")])
         .expect("handoff should become blocked");
 
     let handoff = plan
@@ -626,7 +631,7 @@ fn block_swarm_work_item_on_adds_runtime_blockers() {
         .iter()
         .find(|item| item.id == "handoff")
         .expect("handoff item");
-    assert_eq!(handoff.status, SwarmWorkItemStatus::Blocked);
+    assert_eq!(handoff.status, WorkGraphWorkItemStatus::Blocked);
     assert!(handoff
         .blocked_on_ids
         .iter()
@@ -635,13 +640,13 @@ fn block_swarm_work_item_on_adds_runtime_blockers() {
 
 #[test]
 fn dispatch_batches_respect_dependencies_and_lease_conflicts() {
-    let plan = test_swarm_plan(
+    let plan = test_work_graph_plan(
         "adaptive_work_graph",
         vec![
-            SwarmWorkItem {
+            WorkGraphWorkItem {
                 id: "planner".to_string(),
                 title: "Planner".to_string(),
-                role: SwarmWorkerRole::Planner,
+                role: WorkGraphWorkerRole::Planner,
                 summary: "Plan".to_string(),
                 spawned_from_id: None,
                 read_paths: Vec::new(),
@@ -653,12 +658,12 @@ fn dispatch_batches_respect_dependencies_and_lease_conflicts() {
                 blocked_on_ids: Vec::new(),
                 verification_policy: None,
                 retry_budget: None,
-                status: SwarmWorkItemStatus::Succeeded,
+                status: WorkGraphWorkItemStatus::Succeeded,
             },
-            SwarmWorkItem {
+            WorkGraphWorkItem {
                 id: "skeleton".to_string(),
                 title: "Skeleton".to_string(),
-                role: SwarmWorkerRole::Skeleton,
+                role: WorkGraphWorkerRole::Skeleton,
                 summary: "Create scaffold".to_string(),
                 spawned_from_id: None,
                 read_paths: vec!["index.html".to_string()],
@@ -670,12 +675,12 @@ fn dispatch_batches_respect_dependencies_and_lease_conflicts() {
                 blocked_on_ids: Vec::new(),
                 verification_policy: None,
                 retry_budget: None,
-                status: SwarmWorkItemStatus::Pending,
+                status: WorkGraphWorkItemStatus::Pending,
             },
-            SwarmWorkItem {
+            WorkGraphWorkItem {
                 id: "hero".to_string(),
                 title: "Hero".to_string(),
-                role: SwarmWorkerRole::SectionContent,
+                role: WorkGraphWorkerRole::SectionContent,
                 summary: "Patch hero".to_string(),
                 spawned_from_id: None,
                 read_paths: vec!["index.html".to_string()],
@@ -687,12 +692,12 @@ fn dispatch_batches_respect_dependencies_and_lease_conflicts() {
                 blocked_on_ids: Vec::new(),
                 verification_policy: None,
                 retry_budget: None,
-                status: SwarmWorkItemStatus::Pending,
+                status: WorkGraphWorkItemStatus::Pending,
             },
-            SwarmWorkItem {
+            WorkGraphWorkItem {
                 id: "style".to_string(),
                 title: "Style".to_string(),
-                role: SwarmWorkerRole::StyleSystem,
+                role: WorkGraphWorkerRole::StyleSystem,
                 summary: "Patch style".to_string(),
                 spawned_from_id: None,
                 read_paths: vec!["index.html".to_string()],
@@ -704,12 +709,12 @@ fn dispatch_batches_respect_dependencies_and_lease_conflicts() {
                 blocked_on_ids: Vec::new(),
                 verification_policy: None,
                 retry_budget: None,
-                status: SwarmWorkItemStatus::Pending,
+                status: WorkGraphWorkItemStatus::Pending,
             },
         ],
     );
 
-    let batches = plan_swarm_dispatch_batches(&plan);
+    let batches = plan_work_graph_dispatch_batches(&plan);
 
     assert_eq!(batches.len(), 3);
     assert_eq!(batches[0].work_item_ids, vec!["skeleton".to_string()]);
@@ -786,7 +791,7 @@ fn build_execution_envelope_preserves_graph_and_repair_receipts() {
         details: vec!["Widen section ownership".to_string()],
     }];
 
-    let envelope = build_execution_envelope_from_swarm_with_receipts(
+    let envelope = build_execution_envelope_from_work_graph_with_receipts(
         Some(ChatExecutionStrategy::AdaptiveWorkGraph),
         Some("chat_artifact".to_string()),
         Some(ExecutionDomainKind::Artifact),

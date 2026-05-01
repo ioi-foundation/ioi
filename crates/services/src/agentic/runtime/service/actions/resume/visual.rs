@@ -1,6 +1,6 @@
 use super::hashing::compute_context_phash;
 use crate::agentic::runtime::service::actions::checks::requires_visual_integrity;
-use crate::agentic::runtime::service::step::visual::hamming_distance;
+use crate::agentic::runtime::service::visual_loop::visual::hamming_distance;
 use crate::agentic::runtime::service::RuntimeAgentService;
 use ioi_api::vm::drivers::os::OsDriver;
 use ioi_types::app::agentic::AgentTool;

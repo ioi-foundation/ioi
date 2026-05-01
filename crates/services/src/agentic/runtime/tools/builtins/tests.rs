@@ -240,8 +240,9 @@ fn builtin_tools_project_complete_runtime_contracts() {
         assert!(!contract.owner_module.is_empty(), "{contract:?}");
         assert!(!contract.version.is_empty(), "{contract:?}");
         if contract.is_effectful() {
+            assert!(!contract.primitive_capabilities.is_empty(), "{contract:?}");
             assert!(
-                !contract.capability_lease_requirements.is_empty(),
+                !contract.authority_scope_requirements.is_empty(),
                 "{contract:?}"
             );
             assert!(!contract.approval_scope_fields.is_empty(), "{contract:?}");

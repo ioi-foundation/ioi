@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "ioi.agentgres.runtime.v0",
+  "runId": "run_d479ea75-0574-4652-8dab-958d2726cfc3",
+  "source": "agentgres_canonical_operation_log",
+  "watermark": 2,
+  "freshness": {
+    "source": "local-agentgres-v0",
+    "operationCount": 2,
+    "generatedAt": "2026-05-01T19:37:07.934Z"
+  },
+  "paths": {
+    "run": "runs/run_d479ea75-0574-4652-8dab-958d2726cfc3.json",
+    "task": "tasks/run_d479ea75-0574-4652-8dab-958d2726cfc3.json",
+    "quality": "quality/run_d479ea75-0574-4652-8dab-958d2726cfc3.json",
+    "operationLog": "operation-log.jsonl"
+  },
+  "terminalState": "canceled",
+  "stopCondition": {
+    "reason": "marginal_improvement_too_low",
+    "evidenceSufficient": true,
+    "rationale": "Cancellation became the single terminal event and replay cursor continuity was preserved."
+  },
+  "scorecard": {
+    "taskPassRate": 1,
+    "recoverySuccess": 1,
+    "memoryRelevance": 0.92,
+    "toolQuality": 0.96,
+    "strategyRoi": 0.93,
+    "operatorInterventionRate": 0,
+    "verifierIndependence": 1
+  }
+}

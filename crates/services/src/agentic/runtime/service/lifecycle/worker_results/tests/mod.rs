@@ -141,7 +141,7 @@ fn build_parent_state_with_goal(goal: &str, budget: u64) -> AgentState {
         execution_ledger: Default::default(),
         visual_som_map: None,
         visual_semantic_map: None,
-        swarm_context: None,
+        work_graph_context: None,
         target: None,
         resolved_intent: None,
         awaiting_intent_clarification: false,

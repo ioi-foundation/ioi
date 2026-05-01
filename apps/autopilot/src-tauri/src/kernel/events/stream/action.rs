@@ -396,7 +396,11 @@ pub(super) async fn handle_action(app: &tauri::AppHandle, action: ActionIntercep
                     timestamp: crate::kernel::state::now(),
                 });
 
-                if let Some(agent) = t.swarm_tree.iter_mut().find(|a| a.id == action.session_id) {
+                if let Some(agent) = t
+                    .work_graph_tree
+                    .iter_mut()
+                    .find(|a| a.id == action.session_id)
+                {
                     agent.status = "paused".to_string();
                 }
             });
@@ -434,7 +438,11 @@ pub(super) async fn handle_action(app: &tauri::AppHandle, action: ActionIntercep
             t.current_step = format!("⛔ Action Blocked: {}", action.target);
             t.phase = AgentPhase::Failed;
 
-            if let Some(agent) = t.swarm_tree.iter_mut().find(|a| a.id == action.session_id) {
+            if let Some(agent) = t
+                .work_graph_tree
+                .iter_mut()
+                .find(|a| a.id == action.session_id)
+            {
                 agent.status = "failed".to_string();
             }
 

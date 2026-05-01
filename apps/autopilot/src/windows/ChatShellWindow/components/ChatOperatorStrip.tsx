@@ -126,7 +126,7 @@ export function ChatOperatorStrip({
 }: ChatOperatorStripProps) {
   const workerCount = Math.max(
     planSummary?.workerCount ?? 0,
-    task?.swarm_tree.length ?? 0,
+    task?.work_graph_tree.length ?? 0,
   );
   const shouldShowWorkers =
     workerCount > 0 || (planSummary?.branchCount ?? 0) > 0;

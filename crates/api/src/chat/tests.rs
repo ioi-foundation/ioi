@@ -1,11 +1,11 @@
 use super::generation::{
-    apply_chat_swarm_patch_envelope,
+    apply_chat_work_graph_patch_envelope,
     build_chat_artifact_direct_author_continuation_prompt_for_runtime,
     build_chat_artifact_direct_author_prompt_for_runtime,
     build_chat_artifact_materialization_prompt_for_runtime,
     evaluate_candidate_render_with_fallback, render_eval_timeout_for_runtime,
     render_evaluation_required, requested_follow_up_pass,
-    validate_swarm_generated_artifact_payload, ChatArtifactPatchEnvelope,
+    validate_work_graph_generated_artifact_payload, ChatArtifactPatchEnvelope,
     ChatArtifactPatchOperation, ChatArtifactPatchOperationKind,
 };
 use super::planning::{
@@ -37,7 +37,7 @@ mod artifact_contract;
 mod direct_author;
 mod payload_validation;
 mod planning_and_routing;
-mod swarm_plans;
+mod work_graph_plans;
 
 pub(super) use artifact_contract::{
     chat_test_candidate_summary, chat_test_render_capture, chat_test_render_evaluation,
@@ -509,7 +509,7 @@ fn required_presentation_constraint(
 }
 
 #[test]
-fn html_swarm_semantic_conflict_rejects_cross_boundary_patch() {
+fn html_work_graph_semantic_conflict_rejects_cross_boundary_patch() {
     let request = request_for(
         ChatArtifactClass::InteractiveSingleFile,
         ChatRendererKind::HtmlIframe,
@@ -543,7 +543,7 @@ fn html_swarm_semantic_conflict_rejects_cross_boundary_patch() {
         acceptance_criteria: vec!["Stay inside the intro region.".to_string()],
         dependency_ids: vec!["skeleton".to_string()],
         blocked_on_ids: Vec::new(),
-        verification_policy: Some(SwarmVerificationPolicy::Normal),
+        verification_policy: Some(WorkGraphVerificationPolicy::Normal),
         retry_budget: Some(0),
         status: ChatArtifactWorkItemStatus::Pending,
     };
@@ -567,7 +567,7 @@ fn html_swarm_semantic_conflict_rejects_cross_boundary_patch() {
     };
 
     let (patch_receipt, merge_receipt) =
-        apply_chat_swarm_patch_envelope(&request, &mut payload, &work_item, &envelope)
+        apply_chat_work_graph_patch_envelope(&request, &mut payload, &work_item, &envelope)
             .expect("semantic conflict should surface as a bounded rejection");
 
     assert_eq!(patch_receipt.status, ChatArtifactWorkItemStatus::Rejected);
@@ -584,7 +584,7 @@ fn html_swarm_semantic_conflict_rejects_cross_boundary_patch() {
 }
 
 #[test]
-fn validate_swarm_generated_artifact_payload_repairs_default_primary_renderable_flag() {
+fn validate_work_graph_generated_artifact_payload_repairs_default_primary_renderable_flag() {
     let request = request_for(
         ChatArtifactClass::InteractiveSingleFile,
         ChatRendererKind::HtmlIframe,
@@ -603,7 +603,7 @@ fn validate_swarm_generated_artifact_payload_repairs_default_primary_renderable_
         }],
     };
 
-    let repaired = validate_swarm_generated_artifact_payload(&payload, &request)
+    let repaired = validate_work_graph_generated_artifact_payload(&payload, &request)
         .expect("default HTML primary file should be normalized before validation");
 
     let primary = repaired

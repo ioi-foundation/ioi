@@ -28,6 +28,8 @@ pub mod model_registry;
 /// Data structures for reporting and penalizing misbehavior.
 pub mod penalties;
 /// Unified agent runtime substrate and cognitive-loop contracts.
+pub mod runtime;
+/// Compatibility re-export surface for unified agent runtime contracts.
 pub mod runtime_contracts;
 /// Data structures for economic settlement.
 pub mod settlement;

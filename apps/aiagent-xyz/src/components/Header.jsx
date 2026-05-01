@@ -1,5 +1,5 @@
 // src/components/Header.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import WalletModal from './WalletModal';
 
@@ -7,11 +7,11 @@ export default function Header() {
   const [user, setUser] = useState(null); 
   const [menuOpen, setMenuOpen] = useState(false);
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
   const activeFormat = searchParams.get('format') || 'All Listings';
 
   const tickerItems = [
@@ -20,12 +20,6 @@ export default function Header() {
     { label: 'LLAMA3_TOK', val: '$0.15/M', delta: '0.0%' },
     { label: 'ZKP_VERIFY', val: '$0.08', delta: '+2.1%' },
   ];
-
-  // Sync input with URL param
-  useEffect(() => {
-    const q = searchParams.get('q');
-    if (q) setSearchQuery(q);
-  }, [searchParams]);
 
   const handleSearch = (e) => {
     if (e.key === 'Enter' || e.type === 'click') {

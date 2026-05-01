@@ -1,0 +1,8 @@
+{
+  "onEvent": {
+    "command": "node",
+    "args": [
+      "hooks/runtime-event-hook.mjs"
+    ]
+  }
+}

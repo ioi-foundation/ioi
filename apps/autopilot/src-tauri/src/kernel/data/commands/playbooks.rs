@@ -470,7 +470,7 @@ fn mark_parent_playbook_operator_state(
         if let Some(step) = step {
             if let Some(child_session_id) = step.child_session_id.as_deref() {
                 if let Some(agent) = task
-                    .swarm_tree
+                    .work_graph_tree
                     .iter_mut()
                     .find(|agent| agent.id == child_session_id)
                 {

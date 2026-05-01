@@ -10,7 +10,7 @@ use ioi_ipc::public::{
     GetTransactionStatusRequest, SetRuntimeSecretRequest, SubmitTransactionRequest,
 };
 use ioi_services::agentic::runtime::keys as runtime_keys;
-use ioi_services::agentic::runtime::service::step::incident::IncidentState;
+use ioi_services::agentic::runtime::service::recovery::incident::IncidentState;
 use ioi_services::agentic::runtime::AgentState;
 use ioi_types::app::action::PiiApprovalAction;
 use ioi_types::app::agentic::ResumeAgentParams;

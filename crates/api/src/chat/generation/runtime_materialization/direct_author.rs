@@ -540,7 +540,7 @@ pub(crate) async fn materialize_chat_artifact_candidate_with_runtime_direct_auth
         max_tokens,
         returns_raw_document
     ));
-    let preview_language = chat_swarm_preview_language(request);
+    let preview_language = chat_work_graph_preview_language(request);
     let preview_id = format!("{candidate_id}-live-output");
     let preview_label = "Direct author output".to_string();
     let stop_sequences = direct_author_stop_sequences(request);

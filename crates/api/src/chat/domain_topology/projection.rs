@@ -473,7 +473,7 @@ pub fn route_topology_for_outcome_request(outcome_request: &ChatOutcomeRequest) 
     match outcome_request.execution_strategy {
         ChatExecutionStrategy::SinglePass | ChatExecutionStrategy::DirectAuthor => "single_agent",
         ChatExecutionStrategy::AdaptiveWorkGraph => "planner_specialist_verifier",
-        ChatExecutionStrategy::PlanExecute | ChatExecutionStrategy::MicroSwarm => {
+        ChatExecutionStrategy::PlanExecute | ChatExecutionStrategy::MicroWorkGraph => {
             "planner_specialist"
         }
     }
@@ -710,7 +710,7 @@ pub fn inline_answer_route_notes(outcome_request: &ChatOutcomeRequest) -> Vec<St
 
 pub fn inline_answer_verification_receipts(
     outcome_request: &ChatOutcomeRequest,
-) -> Vec<SwarmVerificationReceipt> {
+) -> Vec<WorkGraphVerificationReceipt> {
     let status = if outcome_request.needs_clarification {
         "blocked"
     } else {
@@ -724,7 +724,7 @@ pub fn inline_answer_verification_receipts(
     };
 
     vec![
-        SwarmVerificationReceipt {
+        WorkGraphVerificationReceipt {
             id: "route_verification".to_string(),
             kind: "route_verification".to_string(),
             status: status.to_string(),
@@ -742,7 +742,7 @@ pub fn inline_answer_verification_receipts(
                 outcome_request.decision_evidence.clone()
             },
         },
-        SwarmVerificationReceipt {
+        WorkGraphVerificationReceipt {
             id: "reply_surface".to_string(),
             kind: "reply_surface".to_string(),
             status: status.to_string(),
@@ -812,7 +812,7 @@ pub fn inline_answer_operator_steps(
     ]
 }
 
-pub fn inline_answer_swarm_plan(outcome_request: &ChatOutcomeRequest) -> SwarmPlan {
+pub fn inline_answer_work_graph_plan(outcome_request: &ChatOutcomeRequest) -> WorkGraphPlan {
     let outcome_kind_id = match outcome_request.outcome_kind {
         ChatOutcomeKind::Conversation => "conversation",
         ChatOutcomeKind::ToolWidget => "tool_widget",
@@ -845,7 +845,7 @@ pub fn inline_answer_swarm_plan(outcome_request: &ChatOutcomeRequest) -> SwarmPl
         }
     };
 
-    SwarmPlan {
+    WorkGraphPlan {
         version: 1,
         strategy: execution_strategy_id(outcome_request.execution_strategy).to_string(),
         execution_domain,
@@ -893,10 +893,10 @@ pub fn inline_answer_swarm_plan(outcome_request: &ChatOutcomeRequest) -> SwarmPl
             allows_early_exit: true,
         }),
         work_items: vec![
-            SwarmWorkItem {
+            WorkGraphWorkItem {
                 id: "planner".to_string(),
                 title: "Outcome planner".to_string(),
-                role: SwarmWorkerRole::Planner,
+                role: WorkGraphWorkerRole::Planner,
                 summary:
                     "Lock the correct non-artifact route and execution strategy before any downstream handoff."
                         .to_string(),
@@ -913,12 +913,12 @@ pub fn inline_answer_swarm_plan(outcome_request: &ChatOutcomeRequest) -> SwarmPl
                 blocked_on_ids: Vec::new(),
                 verification_policy: None,
                 retry_budget: None,
-                status: SwarmWorkItemStatus::Succeeded,
+                status: WorkGraphWorkItemStatus::Succeeded,
             },
-            SwarmWorkItem {
+            WorkGraphWorkItem {
                 id: "handoff".to_string(),
                 title: responder_title.to_string(),
-                role: SwarmWorkerRole::Responder,
+                role: WorkGraphWorkerRole::Responder,
                 summary: responder_summary.to_string(),
                 spawned_from_id: None,
                 read_paths: vec!["request".to_string(), "execution_plan".to_string()],
@@ -933,14 +933,14 @@ pub fn inline_answer_swarm_plan(outcome_request: &ChatOutcomeRequest) -> SwarmPl
                 blocked_on_ids: Vec::new(),
                 verification_policy: None,
                 retry_budget: None,
-                status: SwarmWorkItemStatus::Succeeded,
+                status: WorkGraphWorkItemStatus::Succeeded,
             },
         ],
     }
 }
 
 pub fn apply_inline_answer_clarification_gate(
-    swarm_plan: &mut SwarmPlan,
+    work_graph_plan: &mut WorkGraphPlan,
     outcome_request: &ChatOutcomeRequest,
 ) -> (
     Vec<ExecutionGraphMutationReceipt>,
@@ -950,10 +950,10 @@ pub fn apply_inline_answer_clarification_gate(
         return (Vec::new(), Vec::new());
     }
 
-    let clarification_gate = SwarmWorkItem {
+    let clarification_gate = WorkGraphWorkItem {
         id: "clarification_gate".to_string(),
         title: "Clarification gate".to_string(),
-        role: SwarmWorkerRole::Coordinator,
+        role: WorkGraphWorkerRole::Coordinator,
         summary: "Hold the response until the user answers the required clarification questions."
             .to_string(),
         spawned_from_id: Some("planner".to_string()),
@@ -967,15 +967,15 @@ pub fn apply_inline_answer_clarification_gate(
         ],
         dependency_ids: vec!["planner".to_string()],
         blocked_on_ids: Vec::new(),
-        verification_policy: Some(SwarmVerificationPolicy::Blocking),
+        verification_policy: Some(WorkGraphVerificationPolicy::Blocking),
         retry_budget: Some(0),
-        status: SwarmWorkItemStatus::Blocked,
+        status: WorkGraphWorkItemStatus::Blocked,
     };
     let clarification_gate_id = clarification_gate.id.clone();
     let clarification_details = outcome_request.clarification_questions.clone();
-    let _ = spawn_follow_up_swarm_work_item(swarm_plan, clarification_gate);
-    let _ = block_swarm_work_item_on(
-        swarm_plan,
+    let _ = spawn_follow_up_work_graph_work_item(work_graph_plan, clarification_gate);
+    let _ = block_work_graph_work_item_on(
+        work_graph_plan,
         "handoff",
         std::slice::from_ref(&clarification_gate_id),
     );
@@ -1009,9 +1009,9 @@ pub fn apply_inline_answer_clarification_gate(
 pub fn inline_answer_worker_receipts(
     outcome_request: &ChatOutcomeRequest,
     provenance: &ChatRuntimeProvenance,
-    swarm_plan: &SwarmPlan,
+    work_graph_plan: &WorkGraphPlan,
     now: &str,
-) -> Vec<SwarmWorkerReceipt> {
+) -> Vec<WorkGraphWorkerReceipt> {
     let handoff_summary = match outcome_request.outcome_kind {
         ChatOutcomeKind::Conversation => {
             "Conversation stayed primary and no artifact renderer was launched."
@@ -1031,21 +1031,21 @@ pub fn inline_answer_worker_receipts(
     } else {
         Vec::new()
     };
-    let handoff_status = swarm_plan
+    let handoff_status = work_graph_plan
         .work_items
         .iter()
         .find(|item| item.id == "handoff")
         .map(|item| item.status)
-        .unwrap_or(SwarmWorkItemStatus::Succeeded);
+        .unwrap_or(WorkGraphWorkItemStatus::Succeeded);
 
-    let mut receipts = vec![SwarmWorkerReceipt {
+    let mut receipts = vec![WorkGraphWorkerReceipt {
         work_item_id: "planner".to_string(),
-        role: SwarmWorkerRole::Planner,
-        status: SwarmWorkItemStatus::Succeeded,
+        role: WorkGraphWorkerRole::Planner,
+        status: WorkGraphWorkItemStatus::Succeeded,
         result_kind: Some(if outcome_request.needs_clarification {
-            SwarmWorkerResultKind::DependencyDiscovered
+            WorkGraphWorkerResultKind::DependencyDiscovered
         } else {
-            SwarmWorkerResultKind::Completed
+            WorkGraphWorkerResultKind::Completed
         }),
         summary: format!(
             "Selected the {} route with the {} strategy.",
@@ -1079,11 +1079,11 @@ pub fn inline_answer_worker_receipts(
         failure: None,
     }];
     if outcome_request.needs_clarification {
-        receipts.push(SwarmWorkerReceipt {
+        receipts.push(WorkGraphWorkerReceipt {
             work_item_id: "clarification_gate".to_string(),
-            role: SwarmWorkerRole::Coordinator,
-            status: SwarmWorkItemStatus::Blocked,
-            result_kind: Some(SwarmWorkerResultKind::Blocked),
+            role: WorkGraphWorkerRole::Coordinator,
+            status: WorkGraphWorkItemStatus::Blocked,
+            result_kind: Some(WorkGraphWorkerResultKind::Blocked),
             summary:
                 "Clarification is required before the shared responder can safely finalize the route."
                     .to_string(),
@@ -1103,14 +1103,14 @@ pub fn inline_answer_worker_receipts(
             failure: None,
         });
     }
-    receipts.push(SwarmWorkerReceipt {
+    receipts.push(WorkGraphWorkerReceipt {
         work_item_id: "handoff".to_string(),
-        role: SwarmWorkerRole::Responder,
+        role: WorkGraphWorkerRole::Responder,
         status: handoff_status,
         result_kind: Some(if outcome_request.needs_clarification {
-            SwarmWorkerResultKind::Blocked
+            WorkGraphWorkerResultKind::Blocked
         } else {
-            SwarmWorkerResultKind::Completed
+            WorkGraphWorkerResultKind::Completed
         }),
         summary: handoff_summary.to_string(),
         started_at: now.to_string(),

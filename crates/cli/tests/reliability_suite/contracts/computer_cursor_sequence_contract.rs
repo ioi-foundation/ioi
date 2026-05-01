@@ -10,11 +10,11 @@ use ioi_services::agentic::runtime::execution::screen::{
 };
 use ioi_services::agentic::runtime::execution::ToolExecutor;
 use ioi_services::agentic::runtime::service::actions::checks::requires_visual_integrity;
-use ioi_services::agentic::runtime::service::step::action::{
-    canonical_intent_hash, canonical_tool_identity,
-};
-use ioi_services::agentic::runtime::service::step::anti_loop::{
+use ioi_services::agentic::runtime::service::recovery::anti_loop::{
     build_post_state_summary, build_state_summary,
+};
+use ioi_services::agentic::runtime::service::tool_execution::{
+    canonical_intent_hash, canonical_tool_identity,
 };
 use ioi_services::agentic::runtime::types::{ExecutionTier, InteractionTarget};
 use ioi_services::agentic::runtime::{AgentMode, AgentState, AgentStatus};

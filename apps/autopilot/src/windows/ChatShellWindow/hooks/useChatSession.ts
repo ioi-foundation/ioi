@@ -205,7 +205,7 @@ export function useChatSession({
     beforeStartTask: async (text) => {
       if (
         !isChatVariant &&
-        (text.toLowerCase().includes("swarm") || text.toLowerCase().includes("team"))
+        (text.toLowerCase().includes("work graph") || text.toLowerCase().includes("team"))
       ) {
         await openChat("autopilot");
       }

@@ -54,7 +54,7 @@ fn sample_payload(body: String, mime: &str, path: &str) -> ChatGeneratedArtifact
 }
 
 #[test]
-fn non_swarm_canonical_preview_preserves_full_primary_file_body() {
+fn single_pass_canonical_preview_preserves_full_primary_file_body() {
     let request = sample_request(ChatRendererKind::HtmlIframe);
     let long_body = format!(
         "<!doctype html><html><body>{}<!-- preview tail marker --></body></html>",
@@ -62,8 +62,8 @@ fn non_swarm_canonical_preview_preserves_full_primary_file_body() {
     );
     let payload = sample_payload(long_body.clone(), "text/html", "index.html");
 
-    let preview = non_swarm_canonical_preview(&request, &payload, "draft_ready", false)
-        .expect("non-swarm canonical preview");
+    let preview = single_pass_canonical_preview(&request, &payload, "draft_ready", false)
+        .expect("non-work_graph canonical preview");
 
     assert_eq!(preview.kind, ExecutionLivePreviewKind::ChangePreview);
     assert_eq!(preview.content, long_body);
@@ -71,21 +71,21 @@ fn non_swarm_canonical_preview_preserves_full_primary_file_body() {
 }
 
 #[test]
-fn swarm_canonical_preview_preserves_full_primary_file_body() {
+fn work_graph_canonical_preview_preserves_full_primary_file_body() {
     let long_body = format!(
         "<svg xmlns=\"http://www.w3.org/2000/svg\">{}<!-- preview tail marker --></svg>",
         "<g><text>quantum</text></g>".repeat(350)
     );
     let payload = sample_payload(long_body.clone(), "image/svg+xml", "index.svg");
 
-    let preview = chat_swarm_canonical_preview(
+    let preview = chat_work_graph_canonical_preview(
         &payload,
         Some("repair-pass-1".to_string()),
         Some(ChatArtifactWorkerRole::Repair),
         "repairing",
         false,
     )
-    .expect("swarm canonical preview");
+    .expect("work_graph canonical preview");
 
     assert_eq!(preview.kind, ExecutionLivePreviewKind::ChangePreview);
     assert_eq!(preview.content, long_body);

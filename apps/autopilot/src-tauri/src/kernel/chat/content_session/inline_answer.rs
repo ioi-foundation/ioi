@@ -8,7 +8,8 @@ use super::*;
 use ioi_api::runtime_harness::{
     apply_inline_answer_clarification_gate, inline_answer_operator_steps,
     inline_answer_route_notes, inline_answer_route_summary, inline_answer_route_title,
-    inline_answer_swarm_plan, inline_answer_verification_receipts, inline_answer_worker_receipts,
+    inline_answer_verification_receipts, inline_answer_work_graph_plan,
+    inline_answer_worker_receipts,
 };
 
 fn outcome_kind_id(kind: ChatOutcomeKind) -> &'static str {
@@ -20,12 +21,12 @@ fn outcome_kind_id(kind: ChatOutcomeKind) -> &'static str {
     }
 }
 
-fn inline_answer_swarm_worker_receipts(
+fn inline_answer_work_graph_worker_receipts(
     outcome_request: &ChatOutcomeRequest,
     provenance: &crate::models::ChatRuntimeProvenance,
-    swarm_plan: &SwarmPlan,
-) -> Vec<SwarmWorkerReceipt> {
-    inline_answer_worker_receipts(outcome_request, provenance, swarm_plan, &now_iso())
+    work_graph_plan: &WorkGraphPlan,
+) -> Vec<WorkGraphWorkerReceipt> {
+    inline_answer_worker_receipts(outcome_request, provenance, work_graph_plan, &now_iso())
 }
 
 fn inline_answer_materialization_contract(
@@ -34,40 +35,40 @@ fn inline_answer_materialization_contract(
     summary: &str,
     provenance: &crate::models::ChatRuntimeProvenance,
 ) -> ChatArtifactMaterializationContract {
-    let mut swarm_plan = inline_answer_swarm_plan(outcome_request);
+    let mut work_graph_plan = inline_answer_work_graph_plan(outcome_request);
     let (graph_mutation_receipts, replan_receipts) =
-        apply_inline_answer_clarification_gate(&mut swarm_plan, outcome_request);
-    let swarm_worker_receipts =
-        inline_answer_swarm_worker_receipts(outcome_request, provenance, &swarm_plan);
-    let swarm_verification_receipts = inline_answer_verification_receipts(outcome_request);
+        apply_inline_answer_clarification_gate(&mut work_graph_plan, outcome_request);
+    let work_graph_worker_receipts =
+        inline_answer_work_graph_worker_receipts(outcome_request, provenance, &work_graph_plan);
+    let work_graph_verification_receipts = inline_answer_verification_receipts(outcome_request);
     let verification_status = if outcome_request.needs_clarification {
         "blocked".to_string()
     } else {
         "ready".to_string()
     };
-    let completed_work_items = swarm_plan
+    let completed_work_items = work_graph_plan
         .work_items
         .iter()
         .filter(|item| {
             matches!(
                 item.status,
-                SwarmWorkItemStatus::Succeeded | SwarmWorkItemStatus::Skipped
+                WorkGraphWorkItemStatus::Succeeded | WorkGraphWorkItemStatus::Skipped
             )
         })
         .count();
-    let failed_work_items = swarm_plan
+    let failed_work_items = work_graph_plan
         .work_items
         .iter()
         .filter(|item| {
             matches!(
                 item.status,
-                SwarmWorkItemStatus::Blocked
-                    | SwarmWorkItemStatus::Failed
-                    | SwarmWorkItemStatus::Rejected
+                WorkGraphWorkItemStatus::Blocked
+                    | WorkGraphWorkItemStatus::Failed
+                    | WorkGraphWorkItemStatus::Rejected
             )
         })
         .count();
-    let swarm_execution = SwarmExecutionSummary {
+    let work_graph_execution = WorkGraphExecutionSummary {
         enabled: true,
         current_stage: if outcome_request.needs_clarification {
             "routing".to_string()
@@ -80,23 +81,26 @@ fn inline_answer_materialization_contract(
             ExecutionStage::Finalize
         }),
         active_worker_role: None,
-        total_work_items: swarm_plan.work_items.len(),
+        total_work_items: work_graph_plan.work_items.len(),
         completed_work_items,
         failed_work_items,
         verification_status,
-        strategy: swarm_plan.strategy.clone(),
-        execution_domain: swarm_plan.execution_domain.clone(),
-        adapter_label: swarm_plan.adapter_label.clone(),
-        parallelism_mode: swarm_plan.parallelism_mode.clone(),
+        strategy: work_graph_plan.strategy.clone(),
+        execution_domain: work_graph_plan.execution_domain.clone(),
+        adapter_label: work_graph_plan.adapter_label.clone(),
+        parallelism_mode: work_graph_plan.parallelism_mode.clone(),
     };
-    let dispatch_batches = plan_swarm_dispatch_batches(&swarm_plan);
+    let dispatch_batches = plan_work_graph_dispatch_batches(&work_graph_plan);
     let execution_budget_summary = ExecutionBudgetSummary {
-        planned_worker_count: Some(swarm_plan.work_items.len()),
+        planned_worker_count: Some(work_graph_plan.work_items.len()),
         dispatched_worker_count: Some(
-            swarm_worker_receipts
+            work_graph_worker_receipts
                 .iter()
                 .filter(|receipt| {
-                    !matches!(receipt.result_kind, Some(SwarmWorkerResultKind::Blocked))
+                    !matches!(
+                        receipt.result_kind,
+                        Some(WorkGraphWorkerResultKind::Blocked)
+                    )
                 })
                 .count(),
         ),
@@ -110,18 +114,18 @@ fn inline_answer_materialization_contract(
             "completed".to_string()
         },
     };
-    let mut execution_envelope = build_execution_envelope_from_swarm_with_receipts(
+    let mut execution_envelope = build_execution_envelope_from_work_graph_with_receipts(
         Some(outcome_request.execution_strategy),
-        Some(swarm_plan.execution_domain.clone()),
+        Some(work_graph_plan.execution_domain.clone()),
         Some(execution_domain_kind_for_outcome(
             outcome_request.outcome_kind,
         )),
-        Some(&swarm_plan),
-        Some(&swarm_execution),
-        &swarm_worker_receipts,
+        Some(&work_graph_plan),
+        Some(&work_graph_execution),
+        &work_graph_worker_receipts,
         &[],
         &[],
-        &swarm_verification_receipts,
+        &work_graph_verification_receipts,
         &graph_mutation_receipts,
         &dispatch_batches,
         &[],
@@ -133,8 +137,8 @@ fn inline_answer_materialization_contract(
         &mut execution_envelope,
         outcome_request.execution_mode_decision.clone(),
         Some(ioi_api::execution::completion_invariant_for_plan(
-            &swarm_plan,
-            &swarm_verification_receipts,
+            &work_graph_plan,
+            &work_graph_verification_receipts,
             Vec::new(),
         )),
     );
@@ -158,12 +162,12 @@ fn inline_answer_materialization_contract(
         winning_candidate_id: None,
         winning_candidate_rationale: None,
         execution_envelope,
-        swarm_execution: Some(swarm_execution),
-        swarm_plan: Some(swarm_plan),
-        swarm_worker_receipts,
-        swarm_change_receipts: Vec::new(),
-        swarm_merge_receipts: Vec::new(),
-        swarm_verification_receipts,
+        work_graph_execution: Some(work_graph_execution),
+        work_graph_plan: Some(work_graph_plan),
+        work_graph_worker_receipts,
+        work_graph_change_receipts: Vec::new(),
+        work_graph_merge_receipts: Vec::new(),
+        work_graph_verification_receipts,
         render_evaluation: None,
         validation: None,
         output_origin: Some(output_origin_from_runtime_provenance(provenance)),

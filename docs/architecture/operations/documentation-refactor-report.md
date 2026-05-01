@@ -1,0 +1,105 @@
+# Architecture Documentation Refactor Report
+
+Status: refactor report.
+Canonical owner: this file for the 2026-05-01 architecture-doc reorganization pass.
+Supersedes: none.
+Superseded by: future documentation refactor reports.
+Last alignment pass: 2026-05-01.
+
+## Executive Verdict
+
+The architecture docs are reorganized into subject directories under
+`docs/architecture/`. Context was preserved by moving existing prose into
+canonical homes, canonical ownership was made explicit, and drift-prone
+vocabulary was normalized.
+
+## New Documentation Structure
+
+```text
+docs/architecture/README.md
+  navigation and authority index
+
+docs/architecture/foundations/
+  Web4 stack, IOI L1, kernels, contracts, and security invariants
+
+docs/architecture/runtime/
+  daemon, common envelopes, event/receipt/replay, model routing, runtime nodes,
+  and low-level milestones
+
+docs/architecture/state/
+  Agentgres doctrine, APIs, canonical operation log, projections, and replay
+
+docs/architecture/authority/
+  wallet.network doctrine and authority scope/grant APIs
+
+docs/architecture/surfaces/
+  Autopilot/workflow canvas and ai:// manifests
+
+docs/architecture/marketplaces/
+  aiagent.xyz, sas.xyz, worker/service endpoints, and marketplace neutrality
+
+docs/architecture/artifacts/
+  Filecoin/CAS artifact plane and artifact reference APIs
+
+docs/architecture/tools/
+  connector/tool registry and RuntimeToolContract
+
+docs/architecture/operations/source-of-truth-map.md
+  subject ownership and edit rules
+
+docs/architecture/operations/documentation-contradiction-log.md
+  resolved contradictions and legacy-context policy
+
+docs/architecture/operations/runtime-vocabulary.md
+docs/architecture/operations/runtime-package-boundaries.md
+docs/architecture/operations/runtime-module-map.md
+  vocabulary, package boundaries, and implementation-source map
+
+docs/architecture/conformance/
+  hidden CIRC/CEC conformance invariants
+```
+
+## Context Preserved
+
+- Existing architecture prose was moved into named subject directories.
+- Low-level API/reference docs remain separate from high-level doctrine.
+- Historical vocabulary is preserved only where clearly marked as legacy or
+  hidden-conformance language.
+- Plans/specs remain supporting references rather than being deleted or folded
+  into architecture prose.
+
+## Contradictions Resolved
+
+See [`documentation-contradiction-log.md`](./documentation-contradiction-log.md).
+
+The main resolved contradictions were:
+
+- `cap:*` / generic capability grants -> `prim:*` + `scope:*`.
+- CLI/daemon conflation -> daemon owns runtime, CLI/TUI is a client.
+- SDK synthetic/local runtime ambiguity -> SDK is a client; mocks are explicit.
+- Agentgres generic-store ambiguity -> Agentgres owns canonical operation-log
+  state for serious runs.
+- Event stream authority ambiguity -> events are replayable observations, not
+  canonical state by themselves.
+- `adaptive work graph` public-surface ambiguity -> adaptive work graph/execution strategy.
+
+## Validation
+
+Required validation for this refactor:
+
+```text
+rg checks for stale architecture vocabulary
+npm run check:architecture-docs
+npm run check:pre-next-leg
+```
+
+## Remaining Documentation Debt
+
+No architecture context was intentionally pruned. Remaining debt is editorial:
+
+- Some historical plan files still contain legacy `adaptive work graph` vocabulary because
+  they describe historical execution-strategy work. They should not be used as
+  public naming authority.
+- Plan/master-guide docs may duplicate architecture requirements for
+  implementation convenience. When they conflict, use
+  [`source-of-truth-map.md`](./source-of-truth-map.md).

@@ -24,7 +24,11 @@ pub(super) async fn handle_thought(app: &tauri::AppHandle, thought: AgentThought
     let visual_hash = normalize_visual_hash(&thought.visual_hash);
 
     update_task_state(&app, |t| {
-        if let Some(agent) = t.swarm_tree.iter_mut().find(|a| a.id == thought.session_id) {
+        if let Some(agent) = t
+            .work_graph_tree
+            .iter_mut()
+            .find(|a| a.id == thought.session_id)
+        {
             if let Some(existing) = &agent.current_thought {
                 agent.current_thought = Some(format!("{}{}", existing, thought.content));
             } else {

@@ -5,13 +5,14 @@ use super::revisions::persist_chat_artifact_exemplar;
 use super::*;
 use crate::models::ChatVerifiedReply;
 use ioi_api::execution::{
-    annotate_execution_envelope, build_execution_envelope_from_swarm,
-    build_execution_envelope_from_swarm_with_receipts, completion_invariant_for_direct_execution,
-    derive_execution_mode_decision, execution_domain_kind_for_outcome,
-    execution_strategy_for_outcome, plan_swarm_dispatch_batches, ExecutionBudgetSummary,
-    ExecutionCompletionInvariantStatus, ExecutionDomainKind, ExecutionEnvelope, ExecutionStage,
-    SwarmChangeReceipt, SwarmExecutionSummary, SwarmMergeReceipt, SwarmPlan,
-    SwarmVerificationReceipt, SwarmWorkItemStatus, SwarmWorkerReceipt, SwarmWorkerResultKind,
+    annotate_execution_envelope, build_execution_envelope_from_work_graph,
+    build_execution_envelope_from_work_graph_with_receipts,
+    completion_invariant_for_direct_execution, derive_execution_mode_decision,
+    execution_domain_kind_for_outcome, execution_strategy_for_outcome,
+    plan_work_graph_dispatch_batches, ExecutionBudgetSummary, ExecutionCompletionInvariantStatus,
+    ExecutionDomainKind, ExecutionEnvelope, ExecutionStage, WorkGraphChangeReceipt,
+    WorkGraphExecutionSummary, WorkGraphMergeReceipt, WorkGraphPlan, WorkGraphVerificationReceipt,
+    WorkGraphWorkItemStatus, WorkGraphWorkerReceipt, WorkGraphWorkerResultKind,
 };
 use ioi_api::runtime_harness::{
     derive_chat_topology_projection, ArtifactOperatorPhase, ArtifactOperatorRunMode,
@@ -94,12 +95,12 @@ pub(super) struct MaterializedContentArtifact {
     pub(super) winning_candidate_id: Option<String>,
     pub(super) winning_candidate_rationale: Option<String>,
     pub(super) execution_envelope: Option<ExecutionEnvelope>,
-    pub(super) swarm_plan: Option<SwarmPlan>,
-    pub(super) swarm_execution: Option<SwarmExecutionSummary>,
-    pub(super) swarm_worker_receipts: Vec<SwarmWorkerReceipt>,
-    pub(super) swarm_change_receipts: Vec<SwarmChangeReceipt>,
-    pub(super) swarm_merge_receipts: Vec<SwarmMergeReceipt>,
-    pub(super) swarm_verification_receipts: Vec<SwarmVerificationReceipt>,
+    pub(super) work_graph_plan: Option<WorkGraphPlan>,
+    pub(super) work_graph_execution: Option<WorkGraphExecutionSummary>,
+    pub(super) work_graph_worker_receipts: Vec<WorkGraphWorkerReceipt>,
+    pub(super) work_graph_change_receipts: Vec<WorkGraphChangeReceipt>,
+    pub(super) work_graph_merge_receipts: Vec<WorkGraphMergeReceipt>,
+    pub(super) work_graph_verification_receipts: Vec<WorkGraphVerificationReceipt>,
     pub(super) render_evaluation: Option<ChatArtifactRenderEvaluation>,
     pub(super) validation: Option<ChatArtifactValidationResult>,
     pub(super) output_origin: ChatArtifactOutputOrigin,
@@ -892,7 +893,7 @@ pub(super) fn materialization_contract_for_request(
             ),
         ]
     };
-    let mut execution_envelope = build_execution_envelope_from_swarm(
+    let mut execution_envelope = build_execution_envelope_from_work_graph(
         Some(execution_strategy),
         Some("chat_artifact".to_string()),
         Some(ExecutionDomainKind::Artifact),
@@ -933,12 +934,12 @@ pub(super) fn materialization_contract_for_request(
         winning_candidate_id: None,
         winning_candidate_rationale: None,
         execution_envelope,
-        swarm_plan: None,
-        swarm_execution: None,
-        swarm_worker_receipts: Vec::new(),
-        swarm_change_receipts: Vec::new(),
-        swarm_merge_receipts: Vec::new(),
-        swarm_verification_receipts: Vec::new(),
+        work_graph_plan: None,
+        work_graph_execution: None,
+        work_graph_worker_receipts: Vec::new(),
+        work_graph_change_receipts: Vec::new(),
+        work_graph_merge_receipts: Vec::new(),
+        work_graph_verification_receipts: Vec::new(),
         render_evaluation: None,
         validation: None,
         output_origin: None,
@@ -1010,13 +1011,17 @@ pub(super) fn apply_materialized_artifact_to_contract(
     materialization.winning_candidate_id = materialized_artifact.winning_candidate_id.clone();
     materialization.winning_candidate_rationale =
         materialized_artifact.winning_candidate_rationale.clone();
-    materialization.swarm_plan = materialized_artifact.swarm_plan.clone();
-    materialization.swarm_execution = materialized_artifact.swarm_execution.clone();
-    materialization.swarm_worker_receipts = materialized_artifact.swarm_worker_receipts.clone();
-    materialization.swarm_change_receipts = materialized_artifact.swarm_change_receipts.clone();
-    materialization.swarm_merge_receipts = materialized_artifact.swarm_merge_receipts.clone();
-    materialization.swarm_verification_receipts =
-        materialized_artifact.swarm_verification_receipts.clone();
+    materialization.work_graph_plan = materialized_artifact.work_graph_plan.clone();
+    materialization.work_graph_execution = materialized_artifact.work_graph_execution.clone();
+    materialization.work_graph_worker_receipts =
+        materialized_artifact.work_graph_worker_receipts.clone();
+    materialization.work_graph_change_receipts =
+        materialized_artifact.work_graph_change_receipts.clone();
+    materialization.work_graph_merge_receipts =
+        materialized_artifact.work_graph_merge_receipts.clone();
+    materialization.work_graph_verification_receipts = materialized_artifact
+        .work_graph_verification_receipts
+        .clone();
     materialization.operator_steps = materialized_artifact.operator_steps.clone();
     materialization.execution_envelope =
         materialized_artifact
@@ -1243,13 +1248,17 @@ pub(super) fn maybe_refine_current_non_workspace_artifact_turn(
     materialization.winning_candidate_id = materialized_artifact.winning_candidate_id.clone();
     materialization.winning_candidate_rationale =
         materialized_artifact.winning_candidate_rationale.clone();
-    materialization.swarm_plan = materialized_artifact.swarm_plan.clone();
-    materialization.swarm_execution = materialized_artifact.swarm_execution.clone();
-    materialization.swarm_worker_receipts = materialized_artifact.swarm_worker_receipts.clone();
-    materialization.swarm_change_receipts = materialized_artifact.swarm_change_receipts.clone();
-    materialization.swarm_merge_receipts = materialized_artifact.swarm_merge_receipts.clone();
-    materialization.swarm_verification_receipts =
-        materialized_artifact.swarm_verification_receipts.clone();
+    materialization.work_graph_plan = materialized_artifact.work_graph_plan.clone();
+    materialization.work_graph_execution = materialized_artifact.work_graph_execution.clone();
+    materialization.work_graph_worker_receipts =
+        materialized_artifact.work_graph_worker_receipts.clone();
+    materialization.work_graph_change_receipts =
+        materialized_artifact.work_graph_change_receipts.clone();
+    materialization.work_graph_merge_receipts =
+        materialized_artifact.work_graph_merge_receipts.clone();
+    materialization.work_graph_verification_receipts = materialized_artifact
+        .work_graph_verification_receipts
+        .clone();
     materialization.render_evaluation = materialized_artifact.render_evaluation.clone();
     materialization.validation = materialized_artifact.validation.clone();
     materialization.output_origin = Some(materialized_artifact.output_origin);

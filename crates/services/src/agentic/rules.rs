@@ -68,7 +68,7 @@ pub struct OntologyPolicy {
     pub intent_failure_overrides: Vec<IntentFailureOverride>,
     /// Planner preferences and constraints.
     pub tool_preferences: ToolPreferences,
-    /// Global intent-routing policy for step/action ontology resolution.
+    /// Global intent-routing policy for decision-loop/tool ontology resolution.
     #[serde(default)]
     pub intent_routing: IntentRoutingPolicy,
 }

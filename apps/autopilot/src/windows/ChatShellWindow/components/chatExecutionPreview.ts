@@ -1,7 +1,7 @@
 import type {
   ExecutionEnvelope,
-  SwarmChangeReceipt,
-  SwarmWorkerReceipt,
+  WorkGraphChangeReceipt,
+  WorkGraphWorkerReceipt,
 } from "../../../types";
 import { formatRuntimeStatusLabel } from "../../../services/runtimeInspection";
 
@@ -102,8 +102,8 @@ export function resolveChatExecutionStreamPreview({
   changeReceipts = [],
 }: {
   executionEnvelope?: ExecutionEnvelope | null;
-  workerReceipts?: SwarmWorkerReceipt[] | null;
-  changeReceipts?: SwarmChangeReceipt[] | null;
+  workerReceipts?: WorkGraphWorkerReceipt[] | null;
+  changeReceipts?: WorkGraphChangeReceipt[] | null;
 }): ChatExecutionPreview {
   const latestCanonicalPreview = latestCanonicalExecutionPreview(executionEnvelope);
   const latestLivePreview = latestSortedLivePreviews(executionEnvelope)
@@ -167,8 +167,8 @@ export function resolveChatExecutionCodePreview({
   changeReceipts = [],
 }: {
   executionEnvelope?: ExecutionEnvelope | null;
-  workerReceipts?: SwarmWorkerReceipt[] | null;
-  changeReceipts?: SwarmChangeReceipt[] | null;
+  workerReceipts?: WorkGraphWorkerReceipt[] | null;
+  changeReceipts?: WorkGraphChangeReceipt[] | null;
 }): ChatExecutionPreview {
   const latestCanonicalPreview = latestCanonicalExecutionPreview(executionEnvelope);
   const latestChangePreview = [...(changeReceipts ?? [])]
@@ -222,8 +222,8 @@ export function resolveChatExecutionPreview({
   changeReceipts = [],
 }: {
   executionEnvelope?: ExecutionEnvelope | null;
-  workerReceipts?: SwarmWorkerReceipt[] | null;
-  changeReceipts?: SwarmChangeReceipt[] | null;
+  workerReceipts?: WorkGraphWorkerReceipt[] | null;
+  changeReceipts?: WorkGraphChangeReceipt[] | null;
 }): ChatExecutionPreview {
   return (
     resolveChatExecutionCodePreview({

@@ -1,8 +1,8 @@
 use crate::agentic::runtime::adapters;
-use crate::agentic::runtime::service::step::intent_resolver::{
+use crate::agentic::runtime::service::decision_loop::intent_resolver::{
     is_tool_allowed_for_resolution, is_tool_allowed_for_selected_provider,
 };
-use crate::agentic::runtime::service::step::signals::is_browser_surface;
+use crate::agentic::runtime::service::decision_loop::signals::is_browser_surface;
 use crate::agentic::runtime::types::ExecutionTier;
 use ioi_api::state::StateAccess;
 use ioi_api::vm::inference::InferenceRuntime;

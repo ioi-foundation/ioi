@@ -10,8 +10,8 @@
   gap: 8px;
 }
 
-/* --- Swarm Pane (Right) --- */
-.copilot-swarm {
+/* --- Work graph pane (Right) --- */
+.copilot-work-graph {
   flex: 3;
   padding: 16px;
   background: var(--chat-bg);

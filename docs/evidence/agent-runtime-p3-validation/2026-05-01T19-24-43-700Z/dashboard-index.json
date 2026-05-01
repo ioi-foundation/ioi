@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "ioi.agent-runtime.p3-exhaustive-validation.v1.dashboard_index",
+  "generatedAt": "2026-05-01T19:24:43.759Z",
+  "dashboards": [
+    {
+      "id": "runtime_scorecard",
+      "file": "runtime-scorecard-dashboard.md",
+      "title": "Runtime Scorecard Dashboard",
+      "path": "docs/evidence/agent-runtime-p3-validation/2026-05-01T19-24-43-700Z/dashboards/runtime-scorecard-dashboard.md"
+    },
+    {
+      "id": "agent_quality",
+      "file": "agent-quality-dashboard.md",
+      "title": "Agent Quality Dashboard",
+      "path": "docs/evidence/agent-runtime-p3-validation/2026-05-01T19-24-43-700Z/dashboards/agent-quality-dashboard.md"
+    },
+    {
+      "id": "dogfooding",
+      "file": "dogfooding-dashboard.md",
+      "title": "Dogfooding Dashboard",
+      "path": "docs/evidence/agent-runtime-p3-validation/2026-05-01T19-24-43-700Z/dashboards/dogfooding-dashboard.md"
+    },
+    {
+      "id": "cognitive_loop",
+      "file": "cognitive-loop-dashboard.md",
+      "title": "Cognitive Loop Dashboard",
+      "path": "docs/evidence/agent-runtime-p3-validation/2026-05-01T19-24-43-700Z/dashboards/cognitive-loop-dashboard.md"
+    },
+    {
+      "id": "playbook_marketplace",
+      "file": "playbook-marketplace-dashboard.md",
+      "title": "Playbook Marketplace Dashboard",
+      "path": "docs/evidence/agent-runtime-p3-validation/2026-05-01T19-24-43-700Z/dashboards/playbook-marketplace-dashboard.md"
+    },
+    {
+      "id": "desktop_validation",
+      "file": "desktop-validation-dashboard.md",
+      "title": "Desktop Validation Dashboard",
+      "path": "docs/evidence/agent-runtime-p3-validation/2026-05-01T19-24-43-700Z/dashboards/desktop-validation-dashboard.md"
+    },
+    {
+      "id": "tool_mcp_authoring",
+      "file": "tool-and-mcp-authoring-dashboard.md",
+      "title": "Tool And MCP Authoring Dashboard",
+      "path": "docs/evidence/agent-runtime-p3-validation/2026-05-01T19-24-43-700Z/dashboards/tool-and-mcp-authoring-dashboard.md"
+    },
+    {
+      "id": "workflow_benchmarks",
+      "file": "workflow-benchmark-dashboard.md",
+      "title": "Workflow Benchmark Dashboard",
+      "path": "docs/evidence/agent-runtime-p3-validation/2026-05-01T19-24-43-700Z/dashboards/workflow-benchmark-dashboard.md"
+    }
+  ]
+}

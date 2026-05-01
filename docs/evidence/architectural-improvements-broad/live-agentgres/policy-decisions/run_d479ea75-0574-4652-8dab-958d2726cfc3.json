@@ -1,0 +1,10 @@
+{
+  "runId": "run_d479ea75-0574-4652-8dab-958d2726cfc3",
+  "decision": "allowed",
+  "rationale": "Local daemon run stayed inside bounded local/private runtime contract.",
+  "primitiveCapabilities": [
+    "prim:model.invoke"
+  ],
+  "authorityScopes": [],
+  "receiptId": "receipt_run_d479ea75-0574-4652-8dab-958d2726cfc3_policy"
+}

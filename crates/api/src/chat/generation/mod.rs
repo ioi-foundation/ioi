@@ -7,7 +7,7 @@ use super::validation::{
 };
 use super::*;
 use crate::execution::{
-    annotate_execution_envelope, build_execution_envelope_from_swarm,
+    annotate_execution_envelope, build_execution_envelope_from_work_graph,
     committed_execution_mode_decision, completion_invariant_for_direct_execution,
     ExecutionCompletionInvariantStatus, ExecutionDomainKind, ExecutionEnvelope,
     ExecutionLivePreview, ExecutionLivePreviewKind,
@@ -26,24 +26,24 @@ mod adaptive_search;
 mod candidate_materialization;
 mod common;
 mod compact_html_materialization;
-mod compact_html_swarm;
+mod compact_html_work_graph;
 mod materialization_prompt;
 mod materialization_repair_prompt;
-mod non_swarm_bundle;
-mod non_swarm_entrypoints;
-mod non_swarm_finalize;
 mod planning_and_validation;
 mod refinement_prompt;
 mod runtime_materialization;
 mod runtime_plan;
-mod swarm;
-mod swarm_bundle;
-mod swarm_bundle_finalize;
-mod swarm_patch_parse;
-mod swarm_patch_worker;
-mod swarm_plan;
-mod swarm_progress;
+mod single_pass_bundle;
+mod single_pass_entrypoints;
+mod single_pass_finalize;
 mod validation_preview;
+mod work_graph;
+mod work_graph_bundle;
+mod work_graph_bundle_finalize;
+mod work_graph_patch_parse;
+mod work_graph_patch_worker;
+mod work_graph_plan;
+mod work_graph_progress;
 
 #[cfg(test)]
 pub(crate) use adaptive_search::requested_follow_up_pass;
@@ -61,24 +61,12 @@ pub(crate) use candidate_materialization::materialize_and_locally_validation_can
 use candidate_materialization::*;
 use common::*;
 use compact_html_materialization::*;
-use compact_html_swarm::*;
+use compact_html_work_graph::*;
 #[cfg(test)]
 pub(crate) use materialization_prompt::build_chat_artifact_direct_author_continuation_prompt_for_runtime;
 pub use materialization_prompt::build_chat_artifact_materialization_prompt;
 use materialization_prompt::*;
 pub use materialization_repair_prompt::build_chat_artifact_materialization_repair_prompt;
-pub use non_swarm_bundle::generate_chat_artifact_bundle_with_runtime_plan_and_planning_context_and_execution_strategy_and_render_evaluator;
-use non_swarm_entrypoints::*;
-pub use non_swarm_entrypoints::{
-    generate_chat_artifact_bundle_with_runtime,
-    generate_chat_artifact_bundle_with_runtime_plan_and_planning_context,
-    generate_chat_artifact_bundle_with_runtime_plan_and_planning_context_and_execution_strategy,
-    generate_chat_artifact_bundle_with_runtime_plan_and_planning_context_and_render_evaluator,
-    generate_chat_artifact_bundle_with_runtimes,
-    generate_chat_artifact_bundle_with_runtimes_and_planning_context,
-    generate_chat_artifact_bundle_with_runtimes_and_planning_context_and_render_evaluator,
-};
-use non_swarm_finalize::*;
 pub use planning_and_validation::derive_chat_artifact_prepared_context;
 pub(crate) use planning_and_validation::evaluate_candidate_render_with_fallback;
 #[allow(unused_imports)]
@@ -116,28 +104,40 @@ pub use runtime_plan::{
     render_eval_timeout_for_runtime, resolve_chat_artifact_runtime_plan,
     ChatArtifactResolvedRuntimePlan,
 };
-use swarm::{
-    chat_artifact_uses_swarm_execution, chat_swarm_execution_summary, chat_swarm_now_iso,
-    chat_swarm_soft_validation_error, chat_swarm_strategy_for_request,
-    default_chat_artifact_execution_strategy, default_generated_artifact_file_for_renderer,
-    push_unique_focus_strings, section_region_id, update_swarm_work_item_status,
-    validation_status_id,
+pub use single_pass_bundle::generate_chat_artifact_bundle_with_runtime_plan_and_planning_context_and_execution_strategy_and_render_evaluator;
+use single_pass_entrypoints::*;
+pub use single_pass_entrypoints::{
+    generate_chat_artifact_bundle_with_runtime,
+    generate_chat_artifact_bundle_with_runtime_plan_and_planning_context,
+    generate_chat_artifact_bundle_with_runtime_plan_and_planning_context_and_execution_strategy,
+    generate_chat_artifact_bundle_with_runtime_plan_and_planning_context_and_render_evaluator,
+    generate_chat_artifact_bundle_with_runtimes,
+    generate_chat_artifact_bundle_with_runtimes_and_planning_context,
+    generate_chat_artifact_bundle_with_runtimes_and_planning_context_and_render_evaluator,
 };
-use swarm_bundle::*;
-use swarm_bundle_finalize::*;
-use swarm_patch_parse::*;
-pub(crate) use swarm_patch_parse::{
-    ChatArtifactPatchEnvelope, ChatArtifactPatchOperation, ChatArtifactPatchOperationKind,
-};
-use swarm_patch_worker::*;
-pub(crate) use swarm_plan::build_chat_artifact_swarm_plan;
-pub(crate) use swarm_progress::apply_chat_swarm_patch_envelope;
-use swarm_progress::*;
-pub(crate) use validation_preview::validate_swarm_generated_artifact_payload;
+use single_pass_finalize::*;
+pub(crate) use validation_preview::validate_work_graph_generated_artifact_payload;
 use validation_preview::*;
 pub use validation_preview::{
     ChatArtifactActivityObserver, ChatArtifactGenerationProgressObserver,
 };
+use work_graph::{
+    chat_artifact_uses_work_graph_execution, chat_work_graph_execution_summary,
+    chat_work_graph_now_iso, chat_work_graph_soft_validation_error,
+    chat_work_graph_strategy_for_request, default_chat_artifact_execution_strategy,
+    default_generated_artifact_file_for_renderer, push_unique_focus_strings, section_region_id,
+    update_work_graph_work_item_status, validation_status_id,
+};
+use work_graph_bundle::*;
+use work_graph_bundle_finalize::*;
+use work_graph_patch_parse::*;
+pub(crate) use work_graph_patch_parse::{
+    ChatArtifactPatchEnvelope, ChatArtifactPatchOperation, ChatArtifactPatchOperationKind,
+};
+use work_graph_patch_worker::*;
+pub(crate) use work_graph_plan::build_chat_artifact_work_graph_plan;
+pub(crate) use work_graph_progress::apply_chat_work_graph_patch_envelope;
+use work_graph_progress::*;
 
 pub(crate) use materialization_prompt::{
     build_chat_artifact_direct_author_prompt_for_runtime,

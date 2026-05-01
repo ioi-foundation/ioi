@@ -61,7 +61,7 @@ fn task(session_id: &str, intent: &str) -> AgentTask {
         build_session: None,
         run_bundle_id: None,
         processed_steps: HashSet::new(),
-        swarm_tree: Vec::new(),
+        work_graph_tree: Vec::new(),
         generation: 0,
         lineage_id: "lineage".to_string(),
         fitness_score: 0.0,

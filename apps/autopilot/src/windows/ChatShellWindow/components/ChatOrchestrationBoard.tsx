@@ -229,7 +229,7 @@ export function ChatOrchestrationBoard({
   }, [sessionChecklist]);
   const workerCount = Math.max(
     planSummary?.workerCount ?? 0,
-    task?.swarm_tree.length ?? 0,
+    task?.work_graph_tree.length ?? 0,
   );
   const hasDelegatedSignals =
     runs.length > 0 ||

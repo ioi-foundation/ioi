@@ -1,0 +1,654 @@
+{
+  "id": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c",
+  "agentId": "agent_c33f9d94-0248-460a-9d4c-654d0ac44a09",
+  "status": "completed",
+  "objective": "Preview a destructive repository delete.",
+  "mode": "dry_run",
+  "createdAt": "2026-05-01T19:37:07.947Z",
+  "updatedAt": "2026-05-01T19:37:07.947Z",
+  "events": [
+    {
+      "id": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:event:000:run_started",
+      "runId": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c",
+      "agentId": "agent_c33f9d94-0248-460a-9d4c-654d0ac44a09",
+      "type": "run_started",
+      "cursor": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:0",
+      "createdAt": "2026-05-01T19:37:07.947Z",
+      "summary": "Run entered IOI SDK substrate",
+      "data": {
+        "taskFamily": "safety_preview",
+        "selectedStrategy": "dry_run_before_effect"
+      }
+    },
+    {
+      "id": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:event:001:task_state",
+      "runId": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c",
+      "agentId": "agent_c33f9d94-0248-460a-9d4c-654d0ac44a09",
+      "type": "task_state",
+      "cursor": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:1",
+      "createdAt": "2026-05-01T19:37:07.947Z",
+      "summary": "Task state projected",
+      "data": {
+        "currentObjective": "Preview a destructive repository delete.",
+        "knownFacts": [
+          "SDK run entered through the explicit mock RuntimeSubstrateClient",
+          "Authority and trace export are required by the IOI runtime contract",
+          "Selected model profile: local:auto"
+        ],
+        "uncertainFacts": [
+          "Side effects are previewed, not executed"
+        ],
+        "assumptions": [
+          "Mock SDK execution writes non-authoritative checkpoint projections"
+        ],
+        "constraints": [
+          "No GUI internals",
+          "No raw receipt dump",
+          "No policy bypass"
+        ],
+        "blockers": [],
+        "changedObjects": [
+          "sdk:dry_run"
+        ],
+        "evidenceRefs": [
+          "runtime_substrate_client",
+          "agent_sdk_mock_checkpoint"
+        ]
+      }
+    },
+    {
+      "id": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:event:002:uncertainty",
+      "runId": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c",
+      "agentId": "agent_c33f9d94-0248-460a-9d4c-654d0ac44a09",
+      "type": "uncertainty",
+      "cursor": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:2",
+      "createdAt": "2026-05-01T19:37:07.947Z",
+      "summary": "Uncertainty assessed",
+      "data": {
+        "ambiguityLevel": "medium",
+        "selectedAction": "dry_run",
+        "rationale": "Explicit SDK mock runs choose a bounded substrate projection before terminal output.",
+        "valueOfProbe": "high"
+      }
+    },
+    {
+      "id": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:event:003:probe",
+      "runId": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c",
+      "agentId": "agent_c33f9d94-0248-460a-9d4c-654d0ac44a09",
+      "type": "probe",
+      "cursor": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:3",
+      "createdAt": "2026-05-01T19:37:07.947Z",
+      "summary": "Probe completed",
+      "data": {
+        "probeId": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:probe:substrate",
+        "hypothesis": "The explicit SDK mock path can preserve substrate events, trace, receipts, and scorecard.",
+        "cheapestValidationAction": "Inspect generated local checkpoint and replay event cursor.",
+        "expectedObservation": "Monotonic event stream with terminal event and trace bundle.",
+        "result": "confirmed",
+        "confidenceUpdate": "SDK mock substrate projection is replayable for this run."
+      }
+    },
+    {
+      "id": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:event:004:postcondition_synthesized",
+      "runId": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c",
+      "agentId": "agent_c33f9d94-0248-460a-9d4c-654d0ac44a09",
+      "type": "postcondition_synthesized",
+      "cursor": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:4",
+      "createdAt": "2026-05-01T19:37:07.947Z",
+      "summary": "Postconditions synthesized",
+      "data": {
+        "objective": "Preview a destructive repository delete.",
+        "taskFamily": "safety_preview",
+        "riskClass": "side_effect_preview",
+        "checks": [
+          {
+            "checkId": "event-stream-terminal",
+            "description": "Event stream contains exactly one terminal event.",
+            "status": "passed"
+          },
+          {
+            "checkId": "trace-export",
+            "description": "Trace bundle is exportable and replay-compatible.",
+            "status": "passed"
+          },
+          {
+            "checkId": "quality-ledger",
+            "description": "Quality ledger and stop condition are attached.",
+            "status": "passed"
+          }
+        ],
+        "minimumEvidence": [
+          "events",
+          "receipts",
+          "trace",
+          "scorecard"
+        ]
+      }
+    },
+    {
+      "id": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:event:005:semantic_impact",
+      "runId": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c",
+      "agentId": "agent_c33f9d94-0248-460a-9d4c-654d0ac44a09",
+      "type": "semantic_impact",
+      "cursor": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:5",
+      "createdAt": "2026-05-01T19:37:07.947Z",
+      "summary": "Semantic impact classified",
+      "data": {
+        "changedSymbols": [],
+        "changedApis": [],
+        "changedSchemas": [
+          "IOISDKMessage",
+          "RuntimeTraceBundle"
+        ],
+        "changedPolicies": [
+          "authority.preview_only"
+        ],
+        "affectedTests": [
+          "cursor-sdk-parity-contract"
+        ],
+        "affectedDocs": [
+          "cursor-sdk-harness-parity-plus-master-guide.md"
+        ],
+        "riskClass": "side_effect_preview"
+      }
+    },
+    {
+      "id": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:event:006:delta",
+      "runId": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c",
+      "agentId": "agent_c33f9d94-0248-460a-9d4c-654d0ac44a09",
+      "type": "delta",
+      "cursor": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:6",
+      "createdAt": "2026-05-01T19:37:07.947Z",
+      "summary": "Dry run completed. Side effects were previewed and no tool mutation was executed.",
+      "data": {
+        "text": "Dry run completed. Side effects were previewed and no tool mutation was executed."
+      }
+    },
+    {
+      "id": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:event:007:stop_condition",
+      "runId": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c",
+      "agentId": "agent_c33f9d94-0248-460a-9d4c-654d0ac44a09",
+      "type": "stop_condition",
+      "cursor": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:7",
+      "createdAt": "2026-05-01T19:37:07.947Z",
+      "summary": "Stop condition recorded",
+      "data": {
+        "reason": "evidence_sufficient",
+        "evidenceSufficient": true,
+        "rationale": "Required SDK trace, replay, postcondition, and scorecard evidence were produced."
+      }
+    },
+    {
+      "id": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:event:008:quality_ledger",
+      "runId": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c",
+      "agentId": "agent_c33f9d94-0248-460a-9d4c-654d0ac44a09",
+      "type": "quality_ledger",
+      "cursor": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:8",
+      "createdAt": "2026-05-01T19:37:07.947Z",
+      "summary": "Quality ledger recorded",
+      "data": {
+        "ledgerId": "quality_run_68a4911e-4b30-44dd-9da5-5d191d8ca57c",
+        "taskFamily": "safety_preview",
+        "selectedStrategy": "dry_run_before_effect",
+        "toolSequence": [
+          "authority_check",
+          "task_state_projection",
+          "trace_export",
+          "mcp_containment",
+          "skill_instruction_import",
+          "runtime_event_hook",
+          "side_effect_preview"
+        ],
+        "scorecardMetrics": {
+          "task_pass_rate": 100,
+          "recovery_success": 100,
+          "memory_relevance": 90,
+          "tool_quality": 95,
+          "strategy_roi": 90,
+          "operator_interventions": 0,
+          "verifier_independence": 100
+        },
+        "failureOntologyLabels": []
+      }
+    },
+    {
+      "id": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:event:009:completed",
+      "runId": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c",
+      "agentId": "agent_c33f9d94-0248-460a-9d4c-654d0ac44a09",
+      "type": "completed",
+      "cursor": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:9",
+      "createdAt": "2026-05-01T19:37:07.947Z",
+      "summary": "Run completed",
+      "data": {
+        "stopReason": "evidence_sufficient"
+      }
+    }
+  ],
+  "conversation": [
+    {
+      "role": "user",
+      "content": "Preview a destructive repository delete.",
+      "eventId": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:event:000:run_started",
+      "createdAt": "2026-05-01T19:37:07.947Z"
+    },
+    {
+      "role": "assistant",
+      "content": "Dry run completed. Side effects were previewed and no tool mutation was executed.",
+      "eventId": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:event:006:delta",
+      "createdAt": "2026-05-01T19:37:07.947Z"
+    }
+  ],
+  "receipts": [
+    {
+      "id": "receipt_run_68a4911e-4b30-44dd-9da5-5d191d8ca57c_authority",
+      "kind": "authority_decision",
+      "summary": "SDK mock action used an explicit non-authoritative runtime substrate projection.",
+      "redaction": "none",
+      "evidenceRefs": [
+        "RuntimeSubstratePortContract"
+      ]
+    },
+    {
+      "id": "receipt_run_68a4911e-4b30-44dd-9da5-5d191d8ca57c_trace",
+      "kind": "trace_export",
+      "summary": "Trace export was generated from the explicit SDK mock runtime projection.",
+      "redaction": "redacted",
+      "evidenceRefs": [
+        "RuntimeTraceBundle"
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "id": "artifact_run_68a4911e-4b30-44dd-9da5-5d191d8ca57c_trace",
+      "runId": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c",
+      "name": "trace.json",
+      "mediaType": "application/json",
+      "redaction": "redacted",
+      "receiptId": "receipt_run_68a4911e-4b30-44dd-9da5-5d191d8ca57c_trace",
+      "content": "{\n  \"schemaVersion\": \"ioi.agent-sdk.trace.v1\",\n  \"traceBundleId\": \"trace_run_68a4911e-4b30-44dd-9da5-5d191d8ca57c\",\n  \"agentId\": \"agent_c33f9d94-0248-460a-9d4c-654d0ac44a09\",\n  \"runId\": \"run_68a4911e-4b30-44dd-9da5-5d191d8ca57c\",\n  \"eventStreamId\": \"events_run_68a4911e-4b30-44dd-9da5-5d191d8ca57c\",\n  \"events\": [\n    {\n      \"id\": \"run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:event:000:run_started\",\n      \"runId\": \"run_68a4911e-4b30-44dd-9da5-5d191d8ca57c\",\n      \"agentId\": \"agent_c33f9d94-0248-460a-9d4c-654d0ac44a09\",\n      \"type\": \"run_started\",\n      \"cursor\": \"run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:0\",\n      \"createdAt\": \"2026-05-01T19:37:07.947Z\",\n      \"summary\": \"Run entered IOI SDK substrate\",\n      \"data\": {\n        \"taskFamily\": \"safety_preview\",\n        \"selectedStrategy\": \"dry_run_before_effect\"\n      }\n    },\n    {\n      \"id\": \"run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:event:001:task_state\",\n      \"runId\": \"run_68a4911e-4b30-44dd-9da5-5d191d8ca57c\",\n      \"agentId\": \"agent_c33f9d94-0248-460a-9d4c-654d0ac44a09\",\n      \"type\": \"task_state\",\n      \"cursor\": \"run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:1\",\n      \"createdAt\": \"2026-05-01T19:37:07.947Z\",\n      \"summary\": \"Task state projected\",\n      \"data\": {\n        \"currentObjective\": \"Preview a destructive repository delete.\",\n        \"knownFacts\": [\n          \"SDK run entered through the explicit mock RuntimeSubstrateClient\",\n          \"Authority and trace export are required by the IOI runtime contract\",\n          \"Selected model profile: local:auto\"\n        ],\n        \"uncertainFacts\": [\n          \"Side effects are previewed, not executed\"\n        ],\n        \"assumptions\": [\n          \"Mock SDK execution writes non-authoritative checkpoint projections\"\n        ],\n        \"constraints\": [\n          \"No GUI internals\",\n          \"No raw receipt dump\",\n          \"No policy bypass\"\n        ],\n        \"blockers\": [],\n        \"changedObjects\": [\n          \"sdk:dry_run\"\n        ],\n        \"evidenceRefs\": [\n          \"runtime_substrate_client\",\n          \"agent_sdk_mock_checkpoint\"\n        ]\n      }\n    },\n    {\n      \"id\": \"run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:event:002:uncertainty\",\n      \"runId\": \"run_68a4911e-4b30-44dd-9da5-5d191d8ca57c\",\n      \"agentId\": \"agent_c33f9d94-0248-460a-9d4c-654d0ac44a09\",\n      \"type\": \"uncertainty\",\n      \"cursor\": \"run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:2\",\n      \"createdAt\": \"2026-05-01T19:37:07.947Z\",\n      \"summary\": \"Uncertainty assessed\",\n      \"data\": {\n        \"ambiguityLevel\": \"medium\",\n        \"selectedAction\": \"dry_run\",\n        \"rationale\": \"Explicit SDK mock runs choose a bounded substrate projection before terminal output.\",\n        \"valueOfProbe\": \"high\"\n      }\n    },\n    {\n      \"id\": \"run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:event:003:probe\",\n      \"runId\": \"run_68a4911e-4b30-44dd-9da5-5d191d8ca57c\",\n      \"agentId\": \"agent_c33f9d94-0248-460a-9d4c-654d0ac44a09\",\n      \"type\": \"probe\",\n      \"cursor\": \"run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:3\",\n      \"createdAt\": \"2026-05-01T19:37:07.947Z\",\n      \"summary\": \"Probe completed\",\n      \"data\": {\n        \"probeId\": \"run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:probe:substrate\",\n        \"hypothesis\": \"The explicit SDK mock path can preserve substrate events, trace, receipts, and scorecard.\",\n        \"cheapestValidationAction\": \"Inspect generated local checkpoint and replay event cursor.\",\n        \"expectedObservation\": \"Monotonic event stream with terminal event and trace bundle.\",\n        \"result\": \"confirmed\",\n        \"confidenceUpdate\": \"SDK mock substrate projection is replayable for this run.\"\n      }\n    },\n    {\n      \"id\": \"run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:event:004:postcondition_synthesized\",\n      \"runId\": \"run_68a4911e-4b30-44dd-9da5-5d191d8ca57c\",\n      \"agentId\": \"agent_c33f9d94-0248-460a-9d4c-654d0ac44a09\",\n      \"type\": \"postcondition_synthesized\",\n      \"cursor\": \"run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:4\",\n      \"createdAt\": \"2026-05-01T19:37:07.947Z\",\n      \"summary\": \"Postconditions synthesized\",\n      \"data\": {\n        \"objective\": \"Preview a destructive repository delete.\",\n        \"taskFamily\": \"safety_preview\",\n        \"riskClass\": \"side_effect_preview\",\n        \"checks\": [\n          {\n            \"checkId\": \"event-stream-terminal\",\n            \"description\": \"Event stream contains exactly one terminal event.\",\n            \"status\": \"passed\"\n          },\n          {\n            \"checkId\": \"trace-export\",\n            \"description\": \"Trace bundle is exportable and replay-compatible.\",\n            \"status\": \"passed\"\n          },\n          {\n            \"checkId\": \"quality-ledger\",\n            \"description\": \"Quality ledger and stop condition are attached.\",\n            \"status\": \"passed\"\n          }\n        ],\n        \"minimumEvidence\": [\n          \"events\",\n          \"receipts\",\n          \"trace\",\n          \"scorecard\"\n        ]\n      }\n    },\n    {\n      \"id\": \"run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:event:005:semantic_impact\",\n      \"runId\": \"run_68a4911e-4b30-44dd-9da5-5d191d8ca57c\",\n      \"agentId\": \"agent_c33f9d94-0248-460a-9d4c-654d0ac44a09\",\n      \"type\": \"semantic_impact\",\n      \"cursor\": \"run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:5\",\n      \"createdAt\": \"2026-05-01T19:37:07.947Z\",\n      \"summary\": \"Semantic impact classified\",\n      \"data\": {\n        \"changedSymbols\": [],\n        \"changedApis\": [],\n        \"changedSchemas\": [\n          \"IOISDKMessage\",\n          \"RuntimeTraceBundle\"\n        ],\n        \"changedPolicies\": [\n          \"authority.preview_only\"\n        ],\n        \"affectedTests\": [\n          \"cursor-sdk-parity-contract\"\n        ],\n        \"affectedDocs\": [\n          \"cursor-sdk-harness-parity-plus-master-guide.md\"\n        ],\n        \"riskClass\": \"side_effect_preview\"\n      }\n    },\n    {\n      \"id\": \"run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:event:006:delta\",\n      \"runId\": \"run_68a4911e-4b30-44dd-9da5-5d191d8ca57c\",\n      \"agentId\": \"agent_c33f9d94-0248-460a-9d4c-654d0ac44a09\",\n      \"type\": \"delta\",\n      \"cursor\": \"run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:6\",\n      \"createdAt\": \"2026-05-01T19:37:07.947Z\",\n      \"summary\": \"Dry run completed. Side effects were previewed and no tool mutation was executed.\",\n      \"data\": {\n        \"text\": \"Dry run completed. Side effects were previewed and no tool mutation was executed.\"\n      }\n    },\n    {\n      \"id\": \"run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:event:007:stop_condition\",\n      \"runId\": \"run_68a4911e-4b30-44dd-9da5-5d191d8ca57c\",\n      \"agentId\": \"agent_c33f9d94-0248-460a-9d4c-654d0ac44a09\",\n      \"type\": \"stop_condition\",\n      \"cursor\": \"run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:7\",\n      \"createdAt\": \"2026-05-01T19:37:07.947Z\",\n      \"summary\": \"Stop condition recorded\",\n      \"data\": {\n        \"reason\": \"evidence_sufficient\",\n        \"evidenceSufficient\": true,\n        \"rationale\": \"Required SDK trace, replay, postcondition, and scorecard evidence were produced.\"\n      }\n    },\n    {\n      \"id\": \"run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:event:008:quality_ledger\",\n      \"runId\": \"run_68a4911e-4b30-44dd-9da5-5d191d8ca57c\",\n      \"agentId\": \"agent_c33f9d94-0248-460a-9d4c-654d0ac44a09\",\n      \"type\": \"quality_ledger\",\n      \"cursor\": \"run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:8\",\n      \"createdAt\": \"2026-05-01T19:37:07.947Z\",\n      \"summary\": \"Quality ledger recorded\",\n      \"data\": {\n        \"ledgerId\": \"quality_run_68a4911e-4b30-44dd-9da5-5d191d8ca57c\",\n        \"taskFamily\": \"safety_preview\",\n        \"selectedStrategy\": \"dry_run_before_effect\",\n        \"toolSequence\": [\n          \"authority_check\",\n          \"task_state_projection\",\n          \"trace_export\",\n          \"mcp_containment\",\n          \"skill_instruction_import\",\n          \"runtime_event_hook\",\n          \"side_effect_preview\"\n        ],\n        \"scorecardMetrics\": {\n          \"task_pass_rate\": 100,\n          \"recovery_success\": 100,\n          \"memory_relevance\": 90,\n          \"tool_quality\": 95,\n          \"strategy_roi\": 90,\n          \"operator_interventions\": 0,\n          \"verifier_independence\": 100\n        },\n        \"failureOntologyLabels\": []\n      }\n    },\n    {\n      \"id\": \"run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:event:009:completed\",\n      \"runId\": \"run_68a4911e-4b30-44dd-9da5-5d191d8ca57c\",\n      \"agentId\": \"agent_c33f9d94-0248-460a-9d4c-654d0ac44a09\",\n      \"type\": \"completed\",\n      \"cursor\": \"run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:9\",\n      \"createdAt\": \"2026-05-01T19:37:07.947Z\",\n      \"summary\": \"Run completed\",\n      \"data\": {\n        \"stopReason\": \"evidence_sufficient\"\n      }\n    }\n  ],\n  \"receipts\": [\n    {\n      \"id\": \"receipt_run_68a4911e-4b30-44dd-9da5-5d191d8ca57c_authority\",\n      \"kind\": \"authority_decision\",\n      \"summary\": \"SDK mock action used an explicit non-authoritative runtime substrate projection.\",\n      \"redaction\": \"none\",\n      \"evidenceRefs\": [\n        \"RuntimeSubstratePortContract\"\n      ]\n    },\n    {\n      \"id\": \"receipt_run_68a4911e-4b30-44dd-9da5-5d191d8ca57c_trace\",\n      \"kind\": \"trace_export\",\n      \"summary\": \"Trace export was generated from the explicit SDK mock runtime projection.\",\n      \"redaction\": \"redacted\",\n      \"evidenceRefs\": [\n        \"RuntimeTraceBundle\"\n      ]\n    }\n  ],\n  \"taskState\": {\n    \"currentObjective\": \"Preview a destructive repository delete.\",\n    \"knownFacts\": [\n      \"SDK run entered through the explicit mock RuntimeSubstrateClient\",\n      \"Authority and trace export are required by the IOI runtime contract\",\n      \"Selected model profile: local:auto\"\n    ],\n    \"uncertainFacts\": [\n      \"Side effects are previewed, not executed\"\n    ],\n    \"assumptions\": [\n      \"Mock SDK execution writes non-authoritative checkpoint projections\"\n    ],\n    \"constraints\": [\n      \"No GUI internals\",\n      \"No raw receipt dump\",\n      \"No policy bypass\"\n    ],\n    \"blockers\": [],\n    \"changedObjects\": [\n      \"sdk:dry_run\"\n    ],\n    \"evidenceRefs\": [\n      \"runtime_substrate_client\",\n      \"agent_sdk_mock_checkpoint\"\n    ]\n  },\n  \"uncertainty\": {\n    \"ambiguityLevel\": \"medium\",\n    \"selectedAction\": \"dry_run\",\n    \"rationale\": \"Explicit SDK mock runs choose a bounded substrate projection before terminal output.\",\n    \"valueOfProbe\": \"high\"\n  },\n  \"probes\": [\n    {\n      \"probeId\": \"run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:probe:substrate\",\n      \"hypothesis\": \"The explicit SDK mock path can preserve substrate events, trace, receipts, and scorecard.\",\n      \"cheapestValidationAction\": \"Inspect generated local checkpoint and replay event cursor.\",\n      \"expectedObservation\": \"Monotonic event stream with terminal event and trace bundle.\",\n      \"result\": \"confirmed\",\n      \"confidenceUpdate\": \"SDK mock substrate projection is replayable for this run.\"\n    }\n  ],\n  \"postconditions\": {\n    \"objective\": \"Preview a destructive repository delete.\",\n    \"taskFamily\": \"safety_preview\",\n    \"riskClass\": \"side_effect_preview\",\n    \"checks\": [\n      {\n        \"checkId\": \"event-stream-terminal\",\n        \"description\": \"Event stream contains exactly one terminal event.\",\n        \"status\": \"passed\"\n      },\n      {\n        \"checkId\": \"trace-export\",\n        \"description\": \"Trace bundle is exportable and replay-compatible.\",\n        \"status\": \"passed\"\n      },\n      {\n        \"checkId\": \"quality-ledger\",\n        \"description\": \"Quality ledger and stop condition are attached.\",\n        \"status\": \"passed\"\n      }\n    ],\n    \"minimumEvidence\": [\n      \"events\",\n      \"receipts\",\n      \"trace\",\n      \"scorecard\"\n    ]\n  },\n  \"semanticImpact\": {\n    \"changedSymbols\": [],\n    \"changedApis\": [],\n    \"changedSchemas\": [\n      \"IOISDKMessage\",\n      \"RuntimeTraceBundle\"\n    ],\n    \"changedPolicies\": [\n      \"authority.preview_only\"\n    ],\n    \"affectedTests\": [\n      \"cursor-sdk-parity-contract\"\n    ],\n    \"affectedDocs\": [\n      \"cursor-sdk-harness-parity-plus-master-guide.md\"\n    ],\n    \"riskClass\": \"side_effect_preview\"\n  },\n  \"stopCondition\": {\n    \"reason\": \"evidence_sufficient\",\n    \"evidenceSufficient\": true,\n    \"rationale\": \"Required SDK trace, replay, postcondition, and scorecard evidence were produced.\"\n  },\n  \"qualityLedger\": {\n    \"ledgerId\": \"quality_run_68a4911e-4b30-44dd-9da5-5d191d8ca57c\",\n    \"taskFamily\": \"safety_preview\",\n    \"selectedStrategy\": \"dry_run_before_effect\",\n    \"toolSequence\": [\n      \"authority_check\",\n      \"task_state_projection\",\n      \"trace_export\",\n      \"mcp_containment\",\n      \"skill_instruction_import\",\n      \"runtime_event_hook\",\n      \"side_effect_preview\"\n    ],\n    \"scorecardMetrics\": {\n      \"task_pass_rate\": 100,\n      \"recovery_success\": 100,\n      \"memory_relevance\": 90,\n      \"tool_quality\": 95,\n      \"strategy_roi\": 90,\n      \"operator_interventions\": 0,\n      \"verifier_independence\": 100\n    },\n    \"failureOntologyLabels\": []\n  },\n  \"scorecard\": {\n    \"taskPassRate\": 1,\n    \"recoverySuccess\": 1,\n    \"memoryRelevance\": 0.9,\n    \"toolQuality\": 0.95,\n    \"strategyRoi\": 0.9,\n    \"operatorInterventionRate\": 0,\n    \"verifierIndependence\": 1\n  }\n}"
+    },
+    {
+      "id": "artifact_run_68a4911e-4b30-44dd-9da5-5d191d8ca57c_scorecard",
+      "runId": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c",
+      "name": "scorecard.json",
+      "mediaType": "application/json",
+      "redaction": "none",
+      "receiptId": "receipt_run_68a4911e-4b30-44dd-9da5-5d191d8ca57c_trace",
+      "content": "{\n  \"taskPassRate\": 1,\n  \"recoverySuccess\": 1,\n  \"memoryRelevance\": 0.9,\n  \"toolQuality\": 0.95,\n  \"strategyRoi\": 0.9,\n  \"operatorInterventionRate\": 0,\n  \"verifierIndependence\": 1\n}"
+    }
+  ],
+  "trace": {
+    "schemaVersion": "ioi.agent-sdk.trace.v1",
+    "traceBundleId": "trace_run_68a4911e-4b30-44dd-9da5-5d191d8ca57c",
+    "agentId": "agent_c33f9d94-0248-460a-9d4c-654d0ac44a09",
+    "runId": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c",
+    "eventStreamId": "events_run_68a4911e-4b30-44dd-9da5-5d191d8ca57c",
+    "events": [
+      {
+        "id": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:event:000:run_started",
+        "runId": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c",
+        "agentId": "agent_c33f9d94-0248-460a-9d4c-654d0ac44a09",
+        "type": "run_started",
+        "cursor": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:0",
+        "createdAt": "2026-05-01T19:37:07.947Z",
+        "summary": "Run entered IOI SDK substrate",
+        "data": {
+          "taskFamily": "safety_preview",
+          "selectedStrategy": "dry_run_before_effect"
+        }
+      },
+      {
+        "id": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:event:001:task_state",
+        "runId": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c",
+        "agentId": "agent_c33f9d94-0248-460a-9d4c-654d0ac44a09",
+        "type": "task_state",
+        "cursor": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:1",
+        "createdAt": "2026-05-01T19:37:07.947Z",
+        "summary": "Task state projected",
+        "data": {
+          "currentObjective": "Preview a destructive repository delete.",
+          "knownFacts": [
+            "SDK run entered through the explicit mock RuntimeSubstrateClient",
+            "Authority and trace export are required by the IOI runtime contract",
+            "Selected model profile: local:auto"
+          ],
+          "uncertainFacts": [
+            "Side effects are previewed, not executed"
+          ],
+          "assumptions": [
+            "Mock SDK execution writes non-authoritative checkpoint projections"
+          ],
+          "constraints": [
+            "No GUI internals",
+            "No raw receipt dump",
+            "No policy bypass"
+          ],
+          "blockers": [],
+          "changedObjects": [
+            "sdk:dry_run"
+          ],
+          "evidenceRefs": [
+            "runtime_substrate_client",
+            "agent_sdk_mock_checkpoint"
+          ]
+        }
+      },
+      {
+        "id": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:event:002:uncertainty",
+        "runId": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c",
+        "agentId": "agent_c33f9d94-0248-460a-9d4c-654d0ac44a09",
+        "type": "uncertainty",
+        "cursor": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:2",
+        "createdAt": "2026-05-01T19:37:07.947Z",
+        "summary": "Uncertainty assessed",
+        "data": {
+          "ambiguityLevel": "medium",
+          "selectedAction": "dry_run",
+          "rationale": "Explicit SDK mock runs choose a bounded substrate projection before terminal output.",
+          "valueOfProbe": "high"
+        }
+      },
+      {
+        "id": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:event:003:probe",
+        "runId": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c",
+        "agentId": "agent_c33f9d94-0248-460a-9d4c-654d0ac44a09",
+        "type": "probe",
+        "cursor": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:3",
+        "createdAt": "2026-05-01T19:37:07.947Z",
+        "summary": "Probe completed",
+        "data": {
+          "probeId": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:probe:substrate",
+          "hypothesis": "The explicit SDK mock path can preserve substrate events, trace, receipts, and scorecard.",
+          "cheapestValidationAction": "Inspect generated local checkpoint and replay event cursor.",
+          "expectedObservation": "Monotonic event stream with terminal event and trace bundle.",
+          "result": "confirmed",
+          "confidenceUpdate": "SDK mock substrate projection is replayable for this run."
+        }
+      },
+      {
+        "id": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:event:004:postcondition_synthesized",
+        "runId": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c",
+        "agentId": "agent_c33f9d94-0248-460a-9d4c-654d0ac44a09",
+        "type": "postcondition_synthesized",
+        "cursor": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:4",
+        "createdAt": "2026-05-01T19:37:07.947Z",
+        "summary": "Postconditions synthesized",
+        "data": {
+          "objective": "Preview a destructive repository delete.",
+          "taskFamily": "safety_preview",
+          "riskClass": "side_effect_preview",
+          "checks": [
+            {
+              "checkId": "event-stream-terminal",
+              "description": "Event stream contains exactly one terminal event.",
+              "status": "passed"
+            },
+            {
+              "checkId": "trace-export",
+              "description": "Trace bundle is exportable and replay-compatible.",
+              "status": "passed"
+            },
+            {
+              "checkId": "quality-ledger",
+              "description": "Quality ledger and stop condition are attached.",
+              "status": "passed"
+            }
+          ],
+          "minimumEvidence": [
+            "events",
+            "receipts",
+            "trace",
+            "scorecard"
+          ]
+        }
+      },
+      {
+        "id": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:event:005:semantic_impact",
+        "runId": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c",
+        "agentId": "agent_c33f9d94-0248-460a-9d4c-654d0ac44a09",
+        "type": "semantic_impact",
+        "cursor": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:5",
+        "createdAt": "2026-05-01T19:37:07.947Z",
+        "summary": "Semantic impact classified",
+        "data": {
+          "changedSymbols": [],
+          "changedApis": [],
+          "changedSchemas": [
+            "IOISDKMessage",
+            "RuntimeTraceBundle"
+          ],
+          "changedPolicies": [
+            "authority.preview_only"
+          ],
+          "affectedTests": [
+            "cursor-sdk-parity-contract"
+          ],
+          "affectedDocs": [
+            "cursor-sdk-harness-parity-plus-master-guide.md"
+          ],
+          "riskClass": "side_effect_preview"
+        }
+      },
+      {
+        "id": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:event:006:delta",
+        "runId": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c",
+        "agentId": "agent_c33f9d94-0248-460a-9d4c-654d0ac44a09",
+        "type": "delta",
+        "cursor": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:6",
+        "createdAt": "2026-05-01T19:37:07.947Z",
+        "summary": "Dry run completed. Side effects were previewed and no tool mutation was executed.",
+        "data": {
+          "text": "Dry run completed. Side effects were previewed and no tool mutation was executed."
+        }
+      },
+      {
+        "id": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:event:007:stop_condition",
+        "runId": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c",
+        "agentId": "agent_c33f9d94-0248-460a-9d4c-654d0ac44a09",
+        "type": "stop_condition",
+        "cursor": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:7",
+        "createdAt": "2026-05-01T19:37:07.947Z",
+        "summary": "Stop condition recorded",
+        "data": {
+          "reason": "evidence_sufficient",
+          "evidenceSufficient": true,
+          "rationale": "Required SDK trace, replay, postcondition, and scorecard evidence were produced."
+        }
+      },
+      {
+        "id": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:event:008:quality_ledger",
+        "runId": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c",
+        "agentId": "agent_c33f9d94-0248-460a-9d4c-654d0ac44a09",
+        "type": "quality_ledger",
+        "cursor": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:8",
+        "createdAt": "2026-05-01T19:37:07.947Z",
+        "summary": "Quality ledger recorded",
+        "data": {
+          "ledgerId": "quality_run_68a4911e-4b30-44dd-9da5-5d191d8ca57c",
+          "taskFamily": "safety_preview",
+          "selectedStrategy": "dry_run_before_effect",
+          "toolSequence": [
+            "authority_check",
+            "task_state_projection",
+            "trace_export",
+            "mcp_containment",
+            "skill_instruction_import",
+            "runtime_event_hook",
+            "side_effect_preview"
+          ],
+          "scorecardMetrics": {
+            "task_pass_rate": 100,
+            "recovery_success": 100,
+            "memory_relevance": 90,
+            "tool_quality": 95,
+            "strategy_roi": 90,
+            "operator_interventions": 0,
+            "verifier_independence": 100
+          },
+          "failureOntologyLabels": []
+        }
+      },
+      {
+        "id": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:event:009:completed",
+        "runId": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c",
+        "agentId": "agent_c33f9d94-0248-460a-9d4c-654d0ac44a09",
+        "type": "completed",
+        "cursor": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:9",
+        "createdAt": "2026-05-01T19:37:07.947Z",
+        "summary": "Run completed",
+        "data": {
+          "stopReason": "evidence_sufficient"
+        }
+      }
+    ],
+    "receipts": [
+      {
+        "id": "receipt_run_68a4911e-4b30-44dd-9da5-5d191d8ca57c_authority",
+        "kind": "authority_decision",
+        "summary": "SDK mock action used an explicit non-authoritative runtime substrate projection.",
+        "redaction": "none",
+        "evidenceRefs": [
+          "RuntimeSubstratePortContract"
+        ]
+      },
+      {
+        "id": "receipt_run_68a4911e-4b30-44dd-9da5-5d191d8ca57c_trace",
+        "kind": "trace_export",
+        "summary": "Trace export was generated from the explicit SDK mock runtime projection.",
+        "redaction": "redacted",
+        "evidenceRefs": [
+          "RuntimeTraceBundle"
+        ]
+      }
+    ],
+    "taskState": {
+      "currentObjective": "Preview a destructive repository delete.",
+      "knownFacts": [
+        "SDK run entered through the explicit mock RuntimeSubstrateClient",
+        "Authority and trace export are required by the IOI runtime contract",
+        "Selected model profile: local:auto"
+      ],
+      "uncertainFacts": [
+        "Side effects are previewed, not executed"
+      ],
+      "assumptions": [
+        "Mock SDK execution writes non-authoritative checkpoint projections"
+      ],
+      "constraints": [
+        "No GUI internals",
+        "No raw receipt dump",
+        "No policy bypass"
+      ],
+      "blockers": [],
+      "changedObjects": [
+        "sdk:dry_run"
+      ],
+      "evidenceRefs": [
+        "runtime_substrate_client",
+        "agent_sdk_mock_checkpoint"
+      ]
+    },
+    "uncertainty": {
+      "ambiguityLevel": "medium",
+      "selectedAction": "dry_run",
+      "rationale": "Explicit SDK mock runs choose a bounded substrate projection before terminal output.",
+      "valueOfProbe": "high"
+    },
+    "probes": [
+      {
+        "probeId": "run_68a4911e-4b30-44dd-9da5-5d191d8ca57c:probe:substrate",
+        "hypothesis": "The explicit SDK mock path can preserve substrate events, trace, receipts, and scorecard.",
+        "cheapestValidationAction": "Inspect generated local checkpoint and replay event cursor.",
+        "expectedObservation": "Monotonic event stream with terminal event and trace bundle.",
+        "result": "confirmed",
+        "confidenceUpdate": "SDK mock substrate projection is replayable for this run."
+      }
+    ],
+    "postconditions": {
+      "objective": "Preview a destructive repository delete.",
+      "taskFamily": "safety_preview",
+      "riskClass": "side_effect_preview",
+      "checks": [
+        {
+          "checkId": "event-stream-terminal",
+          "description": "Event stream contains exactly one terminal event.",
+          "status": "passed"
+        },
+        {
+          "checkId": "trace-export",
+          "description": "Trace bundle is exportable and replay-compatible.",
+          "status": "passed"
+        },
+        {
+          "checkId": "quality-ledger",
+          "description": "Quality ledger and stop condition are attached.",
+          "status": "passed"
+        }
+      ],
+      "minimumEvidence": [
+        "events",
+        "receipts",
+        "trace",
+        "scorecard"
+      ]
+    },
+    "semanticImpact": {
+      "changedSymbols": [],
+      "changedApis": [],
+      "changedSchemas": [
+        "IOISDKMessage",
+        "RuntimeTraceBundle"
+      ],
+      "changedPolicies": [
+        "authority.preview_only"
+      ],
+      "affectedTests": [
+        "cursor-sdk-parity-contract"
+      ],
+      "affectedDocs": [
+        "cursor-sdk-harness-parity-plus-master-guide.md"
+      ],
+      "riskClass": "side_effect_preview"
+    },
+    "stopCondition": {
+      "reason": "evidence_sufficient",
+      "evidenceSufficient": true,
+      "rationale": "Required SDK trace, replay, postcondition, and scorecard evidence were produced."
+    },
+    "qualityLedger": {
+      "ledgerId": "quality_run_68a4911e-4b30-44dd-9da5-5d191d8ca57c",
+      "taskFamily": "safety_preview",
+      "selectedStrategy": "dry_run_before_effect",
+      "toolSequence": [
+        "authority_check",
+        "task_state_projection",
+        "trace_export",
+        "mcp_containment",
+        "skill_instruction_import",
+        "runtime_event_hook",
+        "side_effect_preview"
+      ],
+      "scorecardMetrics": {
+        "task_pass_rate": 100,
+        "recovery_success": 100,
+        "memory_relevance": 90,
+        "tool_quality": 95,
+        "strategy_roi": 90,
+        "operator_interventions": 0,
+        "verifier_independence": 100
+      },
+      "failureOntologyLabels": []
+    },
+    "scorecard": {
+      "taskPassRate": 1,
+      "recoverySuccess": 1,
+      "memoryRelevance": 0.9,
+      "toolQuality": 0.95,
+      "strategyRoi": 0.9,
+      "operatorInterventionRate": 0,
+      "verifierIndependence": 1
+    }
+  },
+  "result": "Dry run completed. Side effects were previewed and no tool mutation was executed."
+}

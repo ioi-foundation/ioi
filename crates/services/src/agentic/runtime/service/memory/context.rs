@@ -98,11 +98,11 @@ pub(crate) fn archival_record_id_from_inspect_id(inspect_id: u64) -> Option<i64>
         .and_then(|value| i64::try_from(value).ok())
 }
 
-/// Retrieve a Swarm manifest from the market registry state.
-pub async fn fetch_swarm_manifest(
+/// Retrieve a work graph manifest from the legacy market registry state.
+pub async fn fetch_work_graph_manifest(
     state: &dyn StateAccess,
     hash: [u8; 32],
-) -> Option<SwarmManifest> {
+) -> Option<WorkGraphManifest> {
     let key = [MARKET_ASSET_REGISTRY_PREFIX, &hash].concat();
     let bytes = state.get(&key).ok()??;
     match codec::from_bytes_canonical::<ioi_types::app::agentic::IntelligenceAsset>(&bytes).ok()? {
@@ -432,4 +432,3 @@ pub async fn prepare_prompt_memory_context(
     .await?;
     format_prompt_eligible_core_memory(memory_runtime, session_id)
 }
-
