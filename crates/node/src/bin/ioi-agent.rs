@@ -2,21 +2,28 @@
 #![forbid(unsafe_code)]
 
 use anyhow::{anyhow, Result};
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::time::Duration;
 
 // IOI Imports
-use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime};
+use ioi_api::vm::inference::{
+    HttpInferenceRuntime, InferenceRuntime, ModelRouterInput, RuntimeModelRouter,
+    UnavailableInferenceRuntime,
+};
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::gui::IoiGuiDriver;
 use ioi_drivers::os::NativeOsDriver;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_memory::MemoryRuntime;
+use ioi_services::agentic::runtime::kernel::profile::{
+    RuntimeProfile, RuntimeProfileConfig, RuntimeProfileValidator, RuntimeStartupGateInput,
+    RuntimeStartupVerification,
+};
 use ioi_services::agentic::runtime::RuntimeAgentService;
 use ioi_services::market::licensing::LicenseVerifier;
-use ioi_types::app::{account_id_from_key_material, AccountId, SignatureSuite};
+use ioi_types::app::{account_id_from_key_material, AccountId, PromptPrivacyClass, SignatureSuite};
 use ioi_validator::common::GuardianContainer;
 use libp2p::identity;
 
@@ -42,6 +49,39 @@ struct AgentOpts {
 
     #[clap(long)]
     headless: bool,
+
+    /// Runtime safety profile. Production-like profiles fail closed on license,
+    /// policy, and security verification failures.
+    #[clap(
+        long,
+        env = "IOI_AGENT_RUNTIME_PROFILE",
+        value_enum,
+        default_value_t = AgentRuntimeProfileArg::LocalProduct
+    )]
+    runtime_profile: AgentRuntimeProfileArg,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+enum AgentRuntimeProfileArg {
+    Dev,
+    Test,
+    LocalProduct,
+    Production,
+    Marketplace,
+    Validator,
+}
+
+impl From<AgentRuntimeProfileArg> for RuntimeProfile {
+    fn from(value: AgentRuntimeProfileArg) -> Self {
+        match value {
+            AgentRuntimeProfileArg::Dev => Self::Dev,
+            AgentRuntimeProfileArg::Test => Self::Test,
+            AgentRuntimeProfileArg::LocalProduct => Self::LocalProduct,
+            AgentRuntimeProfileArg::Production => Self::Production,
+            AgentRuntimeProfileArg::Marketplace => Self::Marketplace,
+            AgentRuntimeProfileArg::Validator => Self::Validator,
+        }
+    }
 }
 
 #[tokio::main]
@@ -49,6 +89,7 @@ async fn main() -> Result<()> {
     let _ = rustls::crypto::ring::default_provider().install_default();
     ioi_telemetry::init::init_tracing()?;
     let opts = AgentOpts::parse();
+    let runtime_profile: RuntimeProfile = opts.runtime_profile.into();
     std::fs::create_dir_all(&opts.data_dir)?;
 
     // 1. Load User Identity
@@ -90,35 +131,36 @@ async fn main() -> Result<()> {
     println!("   Asset Hash: 0x{}", hex::encode(asset_hash));
 
     // 3. DRM Check
-    // Fetch current root from RPC (Bootstrap trust anchor)
-    // In production, this might be pinned in the binary or fetched via light client.
-    let client = ioi_client::WorkloadClient::new(&opts.mainnet_rpc, "", "", "").await?;
-    let trusted_root = client.get_state_root().await?;
-
-    let trusted_root_bytes: [u8; 32] = trusted_root
-        .0
-        .as_slice()
-        .try_into()
-        .map_err(|_| anyhow!("invalid mainnet state root length"))?;
-    let verifier = LicenseVerifier::new(opts.mainnet_rpc.clone(), trusted_root_bytes);
-
     println!("🌐 Verifying license on Mainnet...");
-    match verifier.verify_license(account_id, asset_hash).await {
-        Ok(true) => println!("✅ License Verified (Merkle Proof Valid)."),
-        Ok(false) => {
-            println!("❌ ACCESS DENIED: You do not own a license for this agent.");
-            println!(
-                "   Please purchase it at: https://market.ioi.network/asset/0x{}",
-                hex::encode(asset_hash)
-            );
-            // In a real build, we would exit here.
-            // std::process::exit(1);
-        }
-        Err(e) => {
-            println!("⚠️  License Error: {}", e);
-            // Decide fail-open or fail-closed based on config
-        }
+    let license_verification =
+        verify_agent_license(&opts.mainnet_rpc, account_id, asset_hash).await;
+    let profile_config = RuntimeProfileConfig::strict(runtime_profile);
+    let startup_gate = RuntimeProfileValidator::evaluate_startup_gate(RuntimeStartupGateInput {
+        profile_config,
+        license: license_verification,
+        security_attestation: RuntimeStartupVerification::NotRequired {
+            reason: "ioi-agent binary does not configure a remote attestation verifier".to_string(),
+        },
+        policy_config: RuntimeStartupVerification::Verified,
+    });
+
+    for warning in &startup_gate.warnings {
+        println!("⚠️  Startup warning [{}]: {}", warning.key, warning.reason);
     }
+
+    if let Err(report) = startup_gate.into_result() {
+        for failure in &report.failures {
+            println!("❌ Startup blocked [{}]: {}", failure.key, failure.reason);
+        }
+        return Err(anyhow!(
+            "agent startup blocked by fail-closed {:?} profile ({} failure{})",
+            report.profile,
+            report.failures.len(),
+            if report.failures.len() == 1 { "" } else { "s" }
+        ));
+    }
+
+    println!("✅ Runtime startup gate passed.");
 
     // 4. Initialize Local Hypervisor
     let memory_runtime = Arc::new(MemoryRuntime::open_sqlite(
@@ -168,11 +210,58 @@ async fn main() -> Result<()> {
     let terminal_driver = Arc::new(TerminalDriver::new());
 
     // 6. Initialize Inference
-    let inference_runtime: Arc<dyn InferenceRuntime> = Arc::new(HttpInferenceRuntime::new(
-        "https://api.openai.com/v1/chat/completions".into(),
-        std::env::var("OPENAI_API_KEY").unwrap_or_default(),
-        manifest.model_selector.clone(),
-    ));
+    let model_route = RuntimeModelRouter::route_from_env(ModelRouterInput {
+        task_class: "ioi_agent_manifest_runtime".to_string(),
+        risk_class: if runtime_profile.fail_closed() {
+            "fail_closed_product".to_string()
+        } else {
+            "local_product".to_string()
+        },
+        privacy_class: agent_prompt_privacy_class(runtime_profile),
+        required_modality: "text".to_string(),
+        requested_model: Some(manifest.model_selector.clone()),
+        policy_allows_egress: !runtime_profile.fail_closed()
+            || env_truthy("IOI_AGENT_ALLOW_MODEL_EGRESS"),
+        allow_sensitive_remote: env_truthy("IOI_AGENT_ALLOW_SENSITIVE_MODEL_EGRESS"),
+        latency_budget_ms: 30_000,
+        token_estimate: 0,
+    });
+    let inference_runtime: Arc<dyn InferenceRuntime> = match model_route {
+        Ok(route) => {
+            println!(
+                "🤖 Model route selected: profile={} provider={} model={} candidates={}",
+                route.decision.selected_profile,
+                route.decision.selected_provider,
+                route.decision.selected_model,
+                route.decision.candidates.len()
+            );
+            Arc::new(HttpInferenceRuntime::new(
+                route.api_url,
+                route.api_key,
+                route.model_name,
+            ))
+        }
+        Err(decision) => {
+            for candidate in &decision.candidates {
+                println!(
+                    "⚠️  Model candidate rejected: profile={} provider={} model={} reason={}",
+                    candidate.profile,
+                    candidate.provider,
+                    candidate.model,
+                    candidate.rejection_reason
+                );
+            }
+            if runtime_profile.fail_closed() {
+                return Err(anyhow!(
+                    "agent startup blocked: no policy-allowed model route for {:?} profile",
+                    runtime_profile
+                ));
+            }
+            Arc::new(UnavailableInferenceRuntime::new(
+                "Agent inference runtime is unavailable because no policy-allowed model route is configured.",
+            ))
+        }
+    };
 
     // 7. Start Embedded App (if enabled)
     if manifest.has_embedded_app && !opts.headless {
@@ -199,4 +288,87 @@ async fn main() -> Result<()> {
     loop {
         tokio::time::sleep(Duration::from_secs(1)).await;
     }
+}
+
+async fn verify_agent_license(
+    mainnet_rpc: &str,
+    account_id: AccountId,
+    asset_hash: [u8; 32],
+) -> RuntimeStartupVerification {
+    let client = match ioi_client::WorkloadClient::new(mainnet_rpc, "", "", "").await {
+        Ok(client) => client,
+        Err(error) => {
+            return RuntimeStartupVerification::unavailable(format!(
+                "failed to create mainnet client: {error}"
+            ));
+        }
+    };
+    let trusted_root = match client.get_state_root().await {
+        Ok(root) => root,
+        Err(error) => {
+            return RuntimeStartupVerification::unavailable(format!(
+                "failed to fetch trusted state root: {error}"
+            ));
+        }
+    };
+
+    let trusted_root_bytes: [u8; 32] = match trusted_root.0.as_slice().try_into() {
+        Ok(bytes) => bytes,
+        Err(_) => {
+            return RuntimeStartupVerification::unavailable(
+                "invalid mainnet state root length".to_string(),
+            );
+        }
+    };
+    let verifier = LicenseVerifier::new(mainnet_rpc.to_string(), trusted_root_bytes);
+
+    match verifier.verify_license(account_id, asset_hash).await {
+        Ok(true) => {
+            println!("✅ License Verified (Merkle Proof Valid).");
+            RuntimeStartupVerification::Verified
+        }
+        Ok(false) => {
+            println!("❌ ACCESS DENIED: You do not own a license for this agent.");
+            println!(
+                "   Please purchase it at: https://market.ioi.network/asset/0x{}",
+                hex::encode(asset_hash)
+            );
+            RuntimeStartupVerification::failed("license proof rejected")
+        }
+        Err(error) => {
+            RuntimeStartupVerification::unavailable(format!("license verifier error: {error}"))
+        }
+    }
+}
+
+fn agent_prompt_privacy_class(profile: RuntimeProfile) -> PromptPrivacyClass {
+    std::env::var("IOI_AGENT_PROMPT_PRIVACY_CLASS")
+        .ok()
+        .and_then(|value| parse_prompt_privacy_class(&value))
+        .unwrap_or_else(|| {
+            if profile.fail_closed() {
+                PromptPrivacyClass::Sensitive
+            } else {
+                PromptPrivacyClass::Internal
+            }
+        })
+}
+
+fn parse_prompt_privacy_class(value: &str) -> Option<PromptPrivacyClass> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "public" => Some(PromptPrivacyClass::Public),
+        "internal" => Some(PromptPrivacyClass::Internal),
+        "sensitive" => Some(PromptPrivacyClass::Sensitive),
+        "secret" => Some(PromptPrivacyClass::Secret),
+        _ => None,
+    }
+}
+
+fn env_truthy(key: &str) -> bool {
+    std::env::var(key).is_ok_and(|value| {
+        matches!(
+            value.trim().to_ascii_lowercase().as_str(),
+            "1" | "true" | "yes" | "on"
+        )
+    })
 }

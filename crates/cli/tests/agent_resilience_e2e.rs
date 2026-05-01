@@ -88,7 +88,7 @@ impl GuiDriver for MockGuiDriver {
     }
 
     async fn capture_tree(&self) -> Result<String, VmError> {
-        Ok(String::new())
+        Ok("<window id=\"fixture\" name=\"Resilience Fixture\"><button id=\"recover\" name=\"Recover\" rect=\"95,95,20,20\" /></window>".to_string())
     }
 
     async fn capture_context(&self, _: &ActionRequest) -> Result<ContextSlice, VmError> {

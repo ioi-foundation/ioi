@@ -1,8 +1,8 @@
 use super::*;
 use crate::chat::payload::{
     extract_authored_document_body, renderer_document_completeness_failure,
-    renderer_primary_view_contract_failure,
-    synthesize_generated_artifact_payload_from_raw_document,
+    renderer_primary_view_contract_failure, synthesize_bundle_manifest_payload,
+    synthesize_download_bundle_payload, synthesize_generated_artifact_payload_from_raw_document,
 };
 use ioi_types::error::VmError;
 

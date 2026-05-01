@@ -69,7 +69,7 @@ fn parent_playbook_event(
 #[test]
 fn default_worker_templates_expose_researcher_contract() {
     let templates = default_worker_templates();
-    assert_eq!(templates.len(), 8);
+    assert_eq!(templates.len(), 9);
     let researcher = templates
         .iter()
         .find(|template| template.template_id == "researcher")
@@ -181,13 +181,13 @@ fn load_or_initialize_worker_templates_persists_defaults() {
     let result = (|| -> Result<(), String> {
         let runtime = Arc::new(crate::open_or_create_memory_runtime(&data_dir)?);
         let templates = load_or_initialize_worker_templates(&runtime);
-        assert_eq!(templates.len(), 8);
+        assert_eq!(templates.len(), 9);
         assert!(templates
             .iter()
             .any(|template| template.template_id == "researcher"));
 
         let persisted = orchestrator::load_worker_templates(&runtime);
-        assert_eq!(persisted.len(), 8);
+        assert_eq!(persisted.len(), 9);
         assert!(persisted
             .iter()
             .any(|template| template.template_id == "researcher"));
@@ -210,7 +210,7 @@ fn load_or_initialize_worker_templates_persists_defaults() {
 #[test]
 fn default_agent_playbooks_expose_evidence_audited_patch_contract() {
     let playbooks = default_agent_playbooks();
-    assert_eq!(playbooks.len(), 4);
+    assert_eq!(playbooks.len(), 5);
     let playbook = playbooks
         .iter()
         .find(|entry| entry.playbook_id == "evidence_audited_patch")

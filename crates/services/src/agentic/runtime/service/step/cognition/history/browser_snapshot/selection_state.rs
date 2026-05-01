@@ -28,7 +28,7 @@ pub(super) fn snapshot_has_selected_controls(snapshot: &str) -> bool {
     lower.contains("checked=\"true\"") || lower.contains("selected=\"true\"")
 }
 
-fn snapshot_visible_submit_control_id_local(snapshot: &str) -> Option<String> {
+pub(super) fn snapshot_visible_submit_control_id_local(snapshot: &str) -> Option<String> {
     let mut best_match: Option<((u8, u8, u8, u8, u8), String)> = None;
 
     for fragment in snapshot.split('<') {
@@ -136,6 +136,19 @@ pub(super) fn snapshot_visible_selectable_control_states(
     states
 }
 
+fn recent_successful_click_matches_selected_snapshot_control(
+    history: &[ChatMessage],
+    snapshot: &str,
+) -> bool {
+    let Some(clicked_id) = recent_successful_click_semantic_id(history) else {
+        return false;
+    };
+
+    snapshot_visible_selectable_control_states(snapshot)
+        .into_iter()
+        .any(|control| control.selected && control.semantic_id == clicked_id)
+}
+
 pub(super) fn snapshot_select_submit_progress_pending_signal_for_requested_targets(
     snapshot: &str,
     requested_targets: &str,
@@ -158,6 +171,12 @@ pub(super) fn snapshot_select_submit_progress_pending_signal_for_requested_targe
         .filter(|control| !control.selected)
         .collect::<Vec<_>>();
     if !missing_controls.is_empty() {
+        if requested_controls.len() == 1
+            && requested_controls.iter().all(|control| !control.selected)
+        {
+            return None;
+        }
+
         let remaining = missing_controls
             .iter()
             .take(4)
@@ -190,6 +209,41 @@ pub(super) fn snapshot_select_submit_progress_pending_signal_for_requested_targe
     ))
 }
 
+pub(super) fn snapshot_select_submit_progress_success_signal(snapshot: &str) -> Option<String> {
+    let decoded_snapshot = decode_browser_xml_text(snapshot);
+    let requested_targets = extract_select_submit_target(&decoded_snapshot)?;
+    let selectable_controls = snapshot_visible_selectable_control_states(snapshot);
+    let requested_controls = selectable_controls
+        .iter()
+        .filter(|control| normalized_text_contains_exact_phrase(&requested_targets, &control.name))
+        .collect::<Vec<_>>();
+    if requested_controls.is_empty() || requested_controls.iter().all(|control| !control.selected)
+    {
+        return None;
+    }
+
+    let submit_id = snapshot_visible_submit_control_id_local(snapshot)?;
+    let missing_controls = requested_controls
+        .iter()
+        .filter(|control| !control.selected)
+        .collect::<Vec<_>>();
+    if !missing_controls.is_empty() {
+        let remaining = missing_controls
+            .iter()
+            .take(4)
+            .map(|control| format!("`{}` (`{}`)", control.semantic_id, control.name))
+            .collect::<Vec<_>>()
+            .join(", ");
+        return Some(format!(
+            "Recent browser selection progress is preserved. Remaining requested selectable controls are {remaining}. Click the remaining controls next, then use `{submit_id}`. Do not re-click already selected controls or finish before submitting."
+        ));
+    }
+
+    Some(format!(
+        "Recent browser selection progress shows all requested selectable controls are already checked or selected. Use `{submit_id}` next. Do not re-click the same controls or finish before submitting."
+    ))
+}
+
 pub(super) fn snapshot_select_submit_progress_pending_signal(snapshot: &str) -> Option<String> {
     let decoded_snapshot = decode_browser_xml_text(snapshot);
     let requested_targets = extract_select_submit_target(&decoded_snapshot)?;
@@ -212,6 +266,14 @@ pub(super) fn browser_snapshot_pending_signal_with_history(
         && snapshot_has_selected_controls(snapshot)
     {
         return Some("The page-visible instruction requires no selections, but current browser state already shows checked or selected controls. Do not submit yet. Clear those selections so the relevant controls return to unchecked or unselected, then continue with the next required control.".to_string());
+    }
+
+    if recent_successful_selected_control_semantic_id(history).is_none()
+        && !recent_successful_click_matches_selected_snapshot_control(history, snapshot)
+    {
+        if let Some(signal) = snapshot_select_submit_progress_pending_signal(snapshot) {
+            return Some(signal);
+        }
     }
 
     if history_requests_scroll_surface(history) {

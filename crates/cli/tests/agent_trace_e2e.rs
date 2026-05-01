@@ -5,11 +5,13 @@ use anyhow::Result;
 use async_trait::async_trait;
 use image::{ImageBuffer, ImageFormat, Rgba};
 use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
+use ioi_api::vm::drivers::os::{OsDriver, WindowInfo};
 use ioi_api::vm::inference::{mock::MockInferenceRuntime, InferenceRuntime};
 use ioi_cli::testing::build_test_artifacts;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_memory::NewArchivalMemoryRecord;
+use ioi_services::agentic::rules::{ActionRules, DefaultPolicy, Rule, Verdict};
 use ioi_services::agentic::runtime::keys::get_state_key;
 use ioi_services::agentic::runtime::types::AgentState;
 use ioi_services::agentic::skill_registry::{
@@ -78,6 +80,38 @@ impl GuiDriver for MockGuiDriver {
     }
 }
 
+struct MockOsDriver;
+
+#[async_trait]
+impl OsDriver for MockOsDriver {
+    async fn get_active_window_title(&self) -> Result<Option<String>, VmError> {
+        Ok(Some("Test App".to_string()))
+    }
+
+    async fn get_active_window_info(&self) -> Result<Option<WindowInfo>, VmError> {
+        Ok(Some(WindowInfo {
+            title: "Test App".to_string(),
+            x: 0,
+            y: 0,
+            width: 1280,
+            height: 720,
+            app_name: "TestApp".to_string(),
+        }))
+    }
+
+    async fn focus_window(&self, _title_query: &str) -> Result<bool, VmError> {
+        Ok(true)
+    }
+
+    async fn set_clipboard(&self, _content: &str) -> Result<(), VmError> {
+        Ok(())
+    }
+
+    async fn get_clipboard(&self) -> Result<String, VmError> {
+        Ok(String::new())
+    }
+}
+
 // Mock Brain that simulates GPT-4 behavior
 #[derive(Clone)]
 struct MockBrain {
@@ -93,8 +127,8 @@ impl InferenceRuntime for MockBrain {
         _options: InferenceOptions,
     ) -> Result<Vec<u8>, VmError> {
         let prompt_str = String::from_utf8_lossy(input_context).to_string();
-        if prompt_str.contains("\"remote_public_fact_required\"")
-            && prompt_str.contains("\"direct_ui_input\"")
+        if prompt_str.contains("remote_public_fact_required")
+            && prompt_str.contains("direct_ui_input")
         {
             return Ok(json!({
                 "remote_public_fact_required": false,
@@ -116,11 +150,9 @@ impl InferenceRuntime for MockBrain {
         // Simulate Tool Call Output (JSON)
         // This validates that the Kernel can parse structured outputs
         let tool_call = json!({
-            "name": "screen__click_at",
+            "name": "screen__type",
             "arguments": {
-                "x": 100,
-                "y": 200,
-                "button": "left"
+                "text": "hello"
             }
         });
         Ok(tool_call.to_string().into_bytes())
@@ -169,6 +201,7 @@ async fn test_agent_trace_records_ui_step() -> Result<()> {
         Arc::new(BrowserDriver::new()),
         mock_brain.clone(),
     )
+    .with_os_driver(Arc::new(MockOsDriver))
     .with_memory_runtime(memory_runtime.clone());
     let mut state = IAVLTree::new(HashCommitmentScheme::new());
 
@@ -230,10 +263,33 @@ async fn test_agent_trace_records_ui_step() -> Result<()> {
 
     // 3. Start Session
     let session_id = [1u8; 32];
+    let policy_key = [b"agent::policy::".as_slice(), session_id.as_slice()].concat();
+    let mut policy = ActionRules {
+        policy_id: "agent-trace-e2e-policy".to_string(),
+        defaults: DefaultPolicy::DenyAll,
+        ontology_policy: Default::default(),
+        pii_controls: Default::default(),
+        rules: vec![
+            Rule {
+                rule_id: Some("allow-gui-screenshot".into()),
+                target: "gui::screenshot".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            Rule {
+                rule_id: Some("allow-gui-type".into()),
+                target: "gui::type".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+        ],
+    };
+    policy.ontology_policy.intent_routing.enabled = false;
+    state.insert(&policy_key, &codec::to_bytes_canonical(&policy).unwrap())?;
+
     let start_params = StartAgentParams {
         session_id,
-        // [FIX] Simplified goal to ensure keyword match in MVP search logic
-        goal: "Click the UI button".to_string(),
+        goal: "Type hello into the focused UI field".to_string(),
         max_steps: 5,
         parent_session_id: None,
         initial_budget: 1_000,
@@ -310,7 +366,7 @@ async fn test_agent_trace_records_ui_step() -> Result<()> {
         .iter()
         .find(|trace| {
             trace.skill_hash == Some(skill_hash)
-                || trace.raw_output.contains("\"name\":\"screen__click_at\"")
+                || trace.raw_output.contains("\"name\":\"screen__type\"")
         })
         .or_else(|| traces.last())
         .unwrap();
@@ -318,7 +374,7 @@ async fn test_agent_trace_records_ui_step() -> Result<()> {
     assert_eq!(trace.session_id, session_id);
     assert!(
         trace.skill_hash == Some(skill_hash)
-            || trace.raw_output.contains("\"name\":\"screen__click_at\""),
+            || trace.raw_output.contains("\"name\":\"screen__type\""),
         "unexpected traces: {}",
         trace_summaries
     );

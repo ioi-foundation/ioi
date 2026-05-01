@@ -514,20 +514,23 @@ fn invalid_canonical_close_challenge_blames_producer_and_remains_published_witho
         assignment: None,
         observation_request: None,
         transcript: None,
-        canonical_close: Some(canonical_close),
+        canonical_close: Some(canonical_close.clone()),
         evidence_hash,
         details: "invalid proof-carried canonical close is challenge-dominated".into(),
     };
+    let challenges_root =
+        canonical_asymptote_observer_challenges_hash(std::slice::from_ref(&challenge))
+            .expect("observer challenge root");
     let abort = AsymptoteObserverCanonicalAbort {
         epoch: 8,
         height: 13,
         view: 2,
         assignments_hash: [71u8; 32],
         transcripts_root: [72u8; 32],
-        challenges_root: [73u8; 32],
+        challenges_root,
         transcript_count: 1,
         challenge_count: 1,
-        challenge_cutoff_timestamp_ms: 1_760_000_100,
+        challenge_cutoff_timestamp_ms: canonical_close.challenge_cutoff_timestamp_ms,
     };
 
     let mut state = MockState::default();
@@ -916,6 +919,16 @@ fn publishing_observer_canonical_sealing_artifacts_persists_registry_state() {
         evidence_hash,
         details: "published veto transcript dominates close".into(),
     };
+    let refreshed_challenge_commitment = AsymptoteObserverChallengeCommitment {
+        epoch: 7,
+        height: 12,
+        view: 3,
+        challenges_root: canonical_asymptote_observer_challenges_hash(std::slice::from_ref(
+            &challenge,
+        ))
+        .expect("observer challenge root"),
+        challenge_count: 1,
+    };
     let abort = AsymptoteObserverCanonicalAbort {
         epoch: 7,
         height: 12,
@@ -999,7 +1012,10 @@ fn publishing_observer_canonical_sealing_artifacts_persists_registry_state() {
         .expect("challenge commitment stored");
     let restored_challenge_commitment: AsymptoteObserverChallengeCommitment =
         codec::from_bytes_canonical(&stored_challenge_commitment).unwrap();
-    assert_eq!(restored_challenge_commitment, challenge_commitment);
+    assert_eq!(
+        restored_challenge_commitment,
+        refreshed_challenge_commitment
+    );
 
     let stored_challenge = state
         .get(&guardian_registry_observer_challenge_key(

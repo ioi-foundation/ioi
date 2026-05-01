@@ -15,8 +15,7 @@ export function AssistantProcessDisclosure({
     process.status === "running" ||
     process.status === "thinking" ||
     process.status === "blocked" ||
-    process.status === "failed" ||
-    process.items.length > 0;
+    process.status === "failed";
   const [open, setOpen] = useState(defaultOpen);
 
   useEffect(() => {

@@ -1,5 +1,10 @@
 #[tokio::test]
 async fn direct_author_stream_timeout_salvages_complete_partial_document() {
+    super::generation::with_direct_author_timeout_overrides_async(
+        Some(Duration::from_millis(50)),
+        None,
+        None,
+        || async {
     #[derive(Debug, Clone)]
     struct HangingStreamingDirectAuthorRuntime;
 
@@ -66,13 +71,6 @@ async fn direct_author_stream_timeout_salvages_complete_partial_document() {
         }
     }
 
-    let previous_timeout =
-        std::env::var("AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_STREAM_TIMEOUT_MS").ok();
-    std::env::set_var(
-        "AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_STREAM_TIMEOUT_MS",
-        "50",
-    );
-
     let request = request_for(
         ChatArtifactClass::InteractiveSingleFile,
         ChatRendererKind::HtmlIframe,
@@ -110,14 +108,6 @@ async fn direct_author_stream_timeout_salvages_complete_partial_document() {
         )
         .await;
 
-    match previous_timeout {
-        Some(value) => std::env::set_var(
-            "AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_STREAM_TIMEOUT_MS",
-            value,
-        ),
-        None => std::env::remove_var("AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_STREAM_TIMEOUT_MS"),
-    }
-
     let payload = payload_result
         .expect("timed out direct-author stream should salvage the streamed document");
     assert_eq!(payload.files[0].path, "index.html");
@@ -138,6 +128,9 @@ async fn direct_author_stream_timeout_salvages_complete_partial_document() {
         .expect("recovered preview should be recorded");
     assert_eq!(latest_preview.status, "recovered");
     assert!(latest_preview.is_final);
+        },
+    )
+    .await;
 }
 
 #[tokio::test]
@@ -522,6 +515,11 @@ async fn direct_author_incomplete_raw_html_remediates_before_terminal_failure() 
 #[tokio::test]
 async fn direct_author_idle_fast_finish_uses_stable_stream_snapshot() {
     with_modal_first_html_env_async(|| async {
+        super::generation::with_direct_author_timeout_overrides_async(
+            Some(Duration::from_millis(500)),
+            None,
+            Some(Duration::from_millis(50)),
+            || async {
         #[derive(Debug, Clone)]
         struct IdleSnapshotRuntime;
 
@@ -583,13 +581,6 @@ async fn direct_author_idle_fast_finish_uses_stable_stream_snapshot() {
             }
         }
 
-        let previous_stream_timeout =
-            std::env::var("AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_STREAM_TIMEOUT_MS").ok();
-        let previous_idle_timeout =
-            std::env::var("AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_IDLE_SETTLE_TIMEOUT_MS").ok();
-        std::env::set_var("AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_STREAM_TIMEOUT_MS", "500");
-        std::env::set_var("AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_IDLE_SETTLE_TIMEOUT_MS", "50");
-
         let request = request_for(
             ChatArtifactClass::InteractiveSingleFile,
             ChatRendererKind::HtmlIframe,
@@ -615,19 +606,13 @@ async fn direct_author_idle_fast_finish_uses_stable_stream_snapshot() {
             )
             .await;
 
-        match previous_stream_timeout {
-            Some(value) => std::env::set_var("AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_STREAM_TIMEOUT_MS", value),
-            None => std::env::remove_var("AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_STREAM_TIMEOUT_MS"),
-        }
-        match previous_idle_timeout {
-            Some(value) => std::env::set_var("AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_IDLE_SETTLE_TIMEOUT_MS", value),
-            None => std::env::remove_var("AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_IDLE_SETTLE_TIMEOUT_MS"),
-        }
-
         let payload =
             payload_result.expect("idle stream snapshot should finish without waiting for timeout");
         assert!(started.elapsed() < Duration::from_millis(500));
         assert!(payload.files[0].body.contains("data-view-panel=\"measurement\""));
+            },
+        )
+        .await;
     })
     .await;
 }
@@ -635,6 +620,11 @@ async fn direct_author_idle_fast_finish_uses_stable_stream_snapshot() {
 #[tokio::test]
 async fn direct_author_idle_fast_finish_ignores_trailing_whitespace_dribble() {
     with_modal_first_html_env_async(|| async {
+        super::generation::with_direct_author_timeout_overrides_async(
+            Some(Duration::from_millis(500)),
+            None,
+            Some(Duration::from_millis(50)),
+            || async {
         #[derive(Debug, Clone)]
         struct IdleWhitespaceDribbleRuntime;
 
@@ -703,13 +693,6 @@ async fn direct_author_idle_fast_finish_ignores_trailing_whitespace_dribble() {
             }
         }
 
-        let previous_stream_timeout =
-            std::env::var("AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_STREAM_TIMEOUT_MS").ok();
-        let previous_idle_timeout =
-            std::env::var("AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_IDLE_SETTLE_TIMEOUT_MS").ok();
-        std::env::set_var("AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_STREAM_TIMEOUT_MS", "500");
-        std::env::set_var("AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_IDLE_SETTLE_TIMEOUT_MS", "50");
-
         let request = request_for(
             ChatArtifactClass::InteractiveSingleFile,
             ChatRendererKind::HtmlIframe,
@@ -735,19 +718,13 @@ async fn direct_author_idle_fast_finish_ignores_trailing_whitespace_dribble() {
             )
             .await;
 
-        match previous_stream_timeout {
-            Some(value) => std::env::set_var("AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_STREAM_TIMEOUT_MS", value),
-            None => std::env::remove_var("AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_STREAM_TIMEOUT_MS"),
-        }
-        match previous_idle_timeout {
-            Some(value) => std::env::set_var("AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_IDLE_SETTLE_TIMEOUT_MS", value),
-            None => std::env::remove_var("AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_IDLE_SETTLE_TIMEOUT_MS"),
-        }
-
         let payload =
             payload_result.expect("whitespace-only trailing chunks should not prevent idle fast finish");
         assert!(started.elapsed() < Duration::from_millis(500));
         assert!(payload.files[0].body.ends_with("</main></body></html>"));
+            },
+        )
+        .await;
     })
     .await;
 }
@@ -755,6 +732,11 @@ async fn direct_author_idle_fast_finish_ignores_trailing_whitespace_dribble() {
 #[tokio::test]
 async fn direct_author_boundary_fast_finish_uses_completed_document_prefix() {
     with_modal_first_html_env_async(|| async {
+        super::generation::with_direct_author_timeout_overrides_async(
+            Some(Duration::from_millis(700)),
+            None,
+            Some(Duration::from_millis(50)),
+            || async {
         #[derive(Debug, Clone)]
         struct BoundaryPrefixRuntime;
 
@@ -816,13 +798,6 @@ async fn direct_author_boundary_fast_finish_uses_completed_document_prefix() {
             }
         }
 
-        let previous_stream_timeout =
-            std::env::var("AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_STREAM_TIMEOUT_MS").ok();
-        let previous_boundary_timeout =
-            std::env::var("AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_IDLE_SETTLE_TIMEOUT_MS").ok();
-        std::env::set_var("AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_STREAM_TIMEOUT_MS", "700");
-        std::env::set_var("AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_IDLE_SETTLE_TIMEOUT_MS", "50");
-
         let request = request_for(
             ChatArtifactClass::InteractiveSingleFile,
             ChatRendererKind::HtmlIframe,
@@ -849,17 +824,6 @@ async fn direct_author_boundary_fast_finish_uses_completed_document_prefix() {
             .await
             .expect("boundary prefix snapshot should fast-finish");
 
-        if let Some(value) = previous_stream_timeout {
-            std::env::set_var("AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_STREAM_TIMEOUT_MS", value);
-        } else {
-            std::env::remove_var("AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_STREAM_TIMEOUT_MS");
-        }
-        if let Some(value) = previous_boundary_timeout {
-            std::env::set_var("AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_IDLE_SETTLE_TIMEOUT_MS", value);
-        } else {
-            std::env::remove_var("AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_IDLE_SETTLE_TIMEOUT_MS");
-        }
-
         assert!(
             started_at.elapsed() < Duration::from_millis(700),
             "completed document prefix should finish before the stream timeout"
@@ -867,12 +831,20 @@ async fn direct_author_boundary_fast_finish_uses_completed_document_prefix() {
         let html_lower = payload.files[0].body.to_ascii_lowercase();
         assert!(html_lower.ends_with("</body></html>"));
         assert!(!html_lower.contains("trailing junk after terminal boundary"));
+            },
+        )
+        .await;
     })
     .await;
 }
 
 #[tokio::test]
 async fn direct_author_follow_up_timeout_marks_preview_failed_after_interrupted_stream() {
+    super::generation::with_direct_author_timeout_overrides_async(
+        None,
+        Some(Duration::from_millis(50)),
+        None,
+        || async {
     #[derive(Debug, Clone)]
     struct HangingContinuationDirectAuthorRuntime;
 
@@ -956,13 +928,6 @@ async fn direct_author_follow_up_timeout_marks_preview_failed_after_interrupted_
         }
     }
 
-    let previous_timeout =
-        std::env::var("AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_FOLLOWUP_TIMEOUT_MS").ok();
-    std::env::set_var(
-        "AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_FOLLOWUP_TIMEOUT_MS",
-        "50",
-    );
-
     let request = request_for(
         ChatArtifactClass::InteractiveSingleFile,
         ChatRendererKind::HtmlIframe,
@@ -1000,14 +965,6 @@ async fn direct_author_follow_up_timeout_marks_preview_failed_after_interrupted_
         )
         .await;
 
-    match previous_timeout {
-        Some(value) => std::env::set_var(
-            "AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_FOLLOWUP_TIMEOUT_MS",
-            value,
-        ),
-        None => std::env::remove_var("AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_FOLLOWUP_TIMEOUT_MS"),
-    }
-
     let error =
         payload_result.expect_err("hanging follow-up inference should fail instead of stalling");
     assert!(error
@@ -1028,10 +985,18 @@ async fn direct_author_follow_up_timeout_marks_preview_failed_after_interrupted_
         .expect("failed preview should be recorded");
     assert_eq!(latest_preview.status, "failed");
     assert!(latest_preview.is_final);
+        },
+    )
+    .await;
 }
 
 #[tokio::test]
 async fn direct_author_continuation_timeout_falls_through_to_repair() {
+    super::generation::with_direct_author_timeout_overrides_async(
+        None,
+        Some(Duration::from_millis(50)),
+        None,
+        || async {
     #[derive(Debug, Clone)]
     struct TimeoutThenRepairDirectAuthorRuntime {
         prompts: Arc<Mutex<Vec<String>>>,
@@ -1128,13 +1093,6 @@ async fn direct_author_continuation_timeout_falls_through_to_repair() {
         }
     }
 
-    let previous_timeout =
-        std::env::var("AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_FOLLOWUP_TIMEOUT_MS").ok();
-    std::env::set_var(
-        "AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_FOLLOWUP_TIMEOUT_MS",
-        "50",
-    );
-
     let request = request_for(
         ChatArtifactClass::InteractiveSingleFile,
         ChatRendererKind::HtmlIframe,
@@ -1175,14 +1133,6 @@ async fn direct_author_continuation_timeout_falls_through_to_repair() {
         )
         .await;
 
-    match previous_timeout {
-        Some(value) => std::env::set_var(
-            "AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_FOLLOWUP_TIMEOUT_MS",
-            value,
-        ),
-        None => std::env::remove_var("AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_FOLLOWUP_TIMEOUT_MS"),
-    }
-
     let payload = payload_result.expect("repair should recover after continuation timeout");
     assert!(payload.files[0]
         .body
@@ -1203,6 +1153,9 @@ async fn direct_author_continuation_timeout_falls_through_to_repair() {
         .expect("recovered preview should be recorded");
     assert_eq!(latest_preview.status, "recovered");
     assert!(latest_preview.is_final);
+        },
+    )
+    .await;
 }
 
 #[tokio::test]
@@ -1377,4 +1330,3 @@ fn direct_author_continuation_prompt_requires_full_document_for_semantic_underbu
     ));
     assert!(!prompt_text.contains("Prefer returning only the missing tail when possible."));
 }
-

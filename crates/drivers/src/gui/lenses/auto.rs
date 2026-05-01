@@ -5,6 +5,8 @@ use crate::gui::accessibility::AccessibilityNode;
 use ioi_crypto::algorithms::hash::sha256;
 use std::collections::HashSet;
 
+const MAX_AUTO_LENS_DEPTH: usize = 96;
+
 /// A generalized lens that auto-generates stable semantic IDs.
 ///
 /// V4 Update: More permissive semantic pruning for legacy/native UI trees.
@@ -66,6 +68,10 @@ impl AutoLens {
         sibling_index: usize,
         depth: usize,
     ) -> Option<AccessibilityNode> {
+        if depth > MAX_AUTO_LENS_DEPTH {
+            return None;
+        }
+
         // [FIX] Removed early visibility return.
         // We traverse invisible containers because they might hold visible children (e.g. scroll panes).
 
@@ -422,11 +428,7 @@ impl AutoLens {
         }
 
         let clean_slug = clean_slug.trim_matches('_');
-        if clean_slug.len() > 30 {
-            clean_slug[..30].to_string()
-        } else {
-            clean_slug.to_string()
-        }
+        clean_slug.chars().take(30).collect()
     }
 
     fn compute_fingerprint(&self, node: &AccessibilityNode, ancestry: &[String]) -> String {

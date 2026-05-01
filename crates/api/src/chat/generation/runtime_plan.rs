@@ -90,12 +90,11 @@ pub(crate) fn materialization_max_tokens_for_execution_strategy(
             }
             ChatRendererKind::HtmlIframe => {
                 if runtime_kind == ChatRuntimeProvenanceKind::RealLocalRuntime {
-                    // Local raw-document authoring must have enough room to
-                    // finish the actual HTML document. Completion is now
-                    // governed by structural settle boundaries instead of
-                    // semantic repair heuristics, so an undersized budget
-                    // causes false failures before </main></body></html>.
-                    3600
+                    if chat_modal_first_html_enabled() {
+                        2400
+                    } else {
+                        materialization_max_tokens_for_runtime(renderer, runtime_kind)
+                    }
                 } else {
                     materialization_max_tokens(renderer).min(2600)
                 }

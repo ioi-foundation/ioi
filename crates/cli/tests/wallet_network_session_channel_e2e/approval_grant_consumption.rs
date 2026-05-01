@@ -29,12 +29,13 @@ async fn wallet_network_approval_grant_consumption_via_real_callservice_txs() ->
 
         let request_hash_1 = unique_id("wallet_network_approval_request_1");
         let session_id_1 = unique_id("wallet_network_approval_session_1");
+        let policy_hash_1 = unique_id("wallet_network_approval_policy_1");
 
         let interception_1 = WalletInterceptionContext {
             session_id: Some(session_id_1),
             request_hash: request_hash_1,
             target: ioi_types::app::ActionTarget::WebRetrieve,
-            policy_hash: unique_id("wallet_network_approval_policy_1"),
+            policy_hash: policy_hash_1,
             value_usd_micros: Some(42),
             reason: "manual approval required".to_string(),
             intercepted_at_ms: 4_100_000_000_000,
@@ -66,7 +67,7 @@ async fn wallet_network_approval_grant_consumption_via_real_callservice_txs() ->
                 session_id: Some(session_id_1),
                 request_hash: request_hash_1,
                 target: ioi_types::app::ActionTarget::WebRetrieve,
-                policy_hash: unique_id("wallet_network_approval_policy_1"),
+                policy_hash: policy_hash_1,
                 value_usd_micros: Some(42),
                 reason: "manual approval required".to_string(),
                 intercepted_at_ms: 4_100_000_000_000,
@@ -75,7 +76,7 @@ async fn wallet_network_approval_grant_consumption_via_real_callservice_txs() ->
             approval_grant: Some(signed_wallet_approval_grant(
                 &approval_signer,
                 request_hash_1,
-                unique_id("wallet_network_approval_policy_1"),
+                policy_hash_1,
                 tx_signer_audience,
                 unique_id("wallet_network_approval_grant_nonce_1"),
                 1,
@@ -144,11 +145,12 @@ async fn wallet_network_approval_grant_consumption_via_real_callservice_txs() ->
         assert_eq!(consumed_after_reuse.remaining_usages, 0);
 
         let request_hash_2 = unique_id("wallet_network_approval_request_2");
+        let policy_hash_2 = unique_id("wallet_network_approval_policy_2");
         let interception_2 = WalletInterceptionContext {
             session_id: None,
             request_hash: request_hash_2,
             target: ioi_types::app::ActionTarget::NetFetch,
-            policy_hash: unique_id("wallet_network_approval_policy_2"),
+            policy_hash: policy_hash_2,
             value_usd_micros: None,
             reason: "manual approval required".to_string(),
             intercepted_at_ms: 4_100_000_003_000,
@@ -169,7 +171,7 @@ async fn wallet_network_approval_grant_consumption_via_real_callservice_txs() ->
                 session_id: None,
                 request_hash: request_hash_2,
                 target: ioi_types::app::ActionTarget::NetFetch,
-                policy_hash: unique_id("wallet_network_approval_policy_2"),
+                policy_hash: policy_hash_2,
                 value_usd_micros: None,
                 reason: "manual approval required".to_string(),
                 intercepted_at_ms: 4_100_000_003_000,
@@ -178,7 +180,7 @@ async fn wallet_network_approval_grant_consumption_via_real_callservice_txs() ->
             approval_grant: Some(signed_wallet_approval_grant(
                 &approval_signer,
                 request_hash_2,
-                unique_id("wallet_network_approval_policy_2"),
+                policy_hash_2,
                 tx_signer_audience,
                 unique_id("wallet_network_approval_grant_nonce_2"),
                 2,

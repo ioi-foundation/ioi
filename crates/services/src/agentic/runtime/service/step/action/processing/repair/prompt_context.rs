@@ -244,7 +244,9 @@ pub(crate) fn patch_build_verify_primary_patch_file(
 }
 
 pub(crate) fn patch_build_verify_explicit_target_path(raw_tool_output: &str) -> Option<String> {
-    let tool = middleware::normalize_tool_call(raw_tool_output).ok()?;
+    let tool = super::canonicalize_legacy_filesystem_edit_tool(
+        middleware::normalize_tool_call(raw_tool_output).ok()?,
+    );
     let path = match tool {
         AgentTool::FsRead { path }
         | AgentTool::FsPatch { path, .. }

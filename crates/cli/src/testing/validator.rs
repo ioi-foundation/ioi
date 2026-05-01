@@ -384,6 +384,7 @@ impl TestValidator {
         min_finality_depth: Option<u64>,
         service_policies: BTreeMap<String, ServicePolicy>,
         workload_env: BTreeMap<String, String>,
+        inference_config: InferenceConfig,
         role: ValidatorRole,
         aft_safety_mode: AftSafetyMode,
         guardian_config_toml: Option<String>,
@@ -633,7 +634,7 @@ impl TestValidator {
             epoch_size: epoch_size.unwrap_or(50_000),
             gc_interval_secs: gc_interval_secs.unwrap_or(3600),
             zk_config: Default::default(),
-            inference: InferenceConfig::default(),
+            inference: inference_config,
             fast_inference: None,
             reasoning_inference: None,
             connectors: HashMap::new(),
@@ -685,7 +686,10 @@ impl TestValidator {
                 .try_into_ed25519()
                 .map_err(|_| anyhow!("Validator key must be Ed25519 for Oracle auto-spawn"))?;
             let secret = ed_kp.secret();
-            let guard = SigningOracleGuard::spawn(Some(secret.as_ref()))?;
+            let guard = SigningOracleGuard::spawn_from_binary_dir(
+                Some(&test_node_binary_dir(&build_profile, &features)),
+                Some(secret.as_ref()),
+            )?;
             oracle_url_arg = Some(guard.url.clone());
             signing_oracle_guard = Some(guard);
         } else {

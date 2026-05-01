@@ -24,7 +24,7 @@ use ioi_types::app::{
     build_archived_recovered_history_retention_receipt, build_archived_recovered_history_segment,
     build_archived_recovered_restart_page, build_bulletin_custody_receipt,
     build_bulletin_retrievability_profile, build_bulletin_shard_manifest,
-    build_bulletin_surface_entries, build_canonical_bulletin_close,
+    build_bulletin_surface_entries,
     build_committed_surface_canonical_order_certificate,
     canonical_archived_recovered_history_checkpoint_hash,
     canonical_archived_recovered_history_profile_hash,
@@ -68,7 +68,7 @@ use ioi_types::app::{
     GuardianQuorumCertificate, GuardianTransparencyLogDescriptor, GuardianWitnessEpochSeed,
     MissingRecoveryShare, OmissionProof, PublicationFrontier, PublicationFrontierContradiction,
     PublicationFrontierContradictionKind, QuorumCertificate, RecoverableSlotPayloadV3,
-    RecoveredPublicationBundle, RecoveredSegmentFoldCursor, RecoveryCapsule,
+    RecoverableSlotPayloadV5, RecoveredPublicationBundle, RecoveredSegmentFoldCursor, RecoveryCapsule,
     RecoveryCodingDescriptor, RecoveryCodingFamily, RecoveryShareMaterial, RecoveryShareReceipt,
     RecoveryWitnessCertificate, SealedEffectClass, SealedEffectRecord, SignHeader, SignatureProof,
     SignatureSuite, StateRoot, SystemPayload, SystemTransaction, ValidatorSetV1, ValidatorSetsV1,
@@ -80,9 +80,20 @@ use ioi_types::keys::{EVIDENCE_REGISTRY_KEY, QUARANTINED_VALIDATORS_KEY, VALIDAT
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
-#[derive(Default)]
 struct MockState {
     data: BTreeMap<Vec<u8>, Vec<u8>>,
+}
+
+impl Default for MockState {
+    fn default() -> Self {
+        let mut data = BTreeMap::new();
+        data.insert(
+            VALIDATOR_SET_KEY.to_vec(),
+            write_validator_sets(&validator_sets(&[(18, 1), (145, 1), (19, 1)]))
+                .expect("encode default guardian test validator set"),
+        );
+        Self { data }
+    }
 }
 
 impl StateAccess for MockState {
@@ -403,6 +414,19 @@ fn sample_bulletin_custody_plane_hashes(
         canonical_bulletin_custody_assignment_hash(&assignment).unwrap(),
         canonical_bulletin_custody_response_hash(&response).unwrap(),
     )
+}
+
+fn verified_canonical_bulletin_close_for_bundle(
+    bundle: &CanonicalOrderPublicationBundle,
+) -> CanonicalBulletinClose {
+    verify_canonical_order_publication_bundle(bundle).expect("verify canonical publication bundle")
+}
+
+fn canonical_bulletin_close_from_recovered_surface(
+    full_surface: &RecoverableSlotPayloadV5,
+) -> CanonicalBulletinClose {
+    codec::from_bytes_canonical(&full_surface.canonical_bulletin_close_bytes)
+        .expect("decode recovered canonical bulletin close")
 }
 
 fn assert_bulletin_reconstruction_abort_present(
@@ -1111,4 +1135,3 @@ fn publish_recovered_publication_fixture(
         .unwrap();
     });
 }
-

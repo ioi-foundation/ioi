@@ -485,8 +485,7 @@ pub(crate) fn local_business_search_entity_anchor_tokens_with_contract(
         .map(|contract| {
             (crate::agentic::web::contract_requires_geo_scoped_entity_expansion(contract)
                 && contract.comparison_required
-                && contract.runtime_locality_required
-                && !contract.currentness_required)
+                && contract.runtime_locality_required)
                 || (contract.runtime_locality_required
                     && !contract.currentness_required
                     && query_native_anchor_tokens(&resolved).len() >= 2)
@@ -495,19 +494,29 @@ pub(crate) fn local_business_search_entity_anchor_tokens_with_contract(
             let facets = analyze_query_facets(&resolved);
             (facets.locality_sensitive_public_fact
                 && facets.grounded_external_required
-                && !facets.time_sensitive_public_fact)
+                && (query_requires_local_business_entity_diversity(&resolved)
+                    || !facets.time_sensitive_public_fact))
                 || (effective_locality_scope_hint(locality_hint).is_some()
                     && !facets.time_sensitive_public_fact
                     && query_native_anchor_tokens(&resolved).len() >= 2)
         });
-    if !local_business_lookup {
+    let comparison_local_business_lookup = query_requests_comparison(&resolved)
+        && effective_locality_scope_hint(locality_hint).is_some()
+        && !local_business_discovery_class_tokens(&resolved, locality_hint).is_empty();
+    if !local_business_lookup && !comparison_local_business_lookup {
         return Vec::new();
     }
 
     let scope_tokens = scope_tokens_for_local_business_anchor(&resolved, locality_hint);
     let structural_tokens = query_structural_directive_tokens(&resolved);
     local_business_search_entity_label(search_query, locality_hint)
-        .map(|label| ordered_anchor_phrase_tokens(&label, &scope_tokens, &structural_tokens))
+        .map(|label| {
+            ordered_anchor_phrase_tokens(&label, &scope_tokens, &structural_tokens)
+                .into_iter()
+                .filter(|token| !GENERIC_LOCAL_BUSINESS_LISTING_TOKENS.contains(&token.as_str()))
+                .filter(|token| !LOCAL_BUSINESS_COMPARISON_AXIS_TOKENS.contains(&token.as_str()))
+                .collect::<Vec<_>>()
+        })
         .filter(|tokens| !tokens.is_empty())
         .unwrap_or_else(|| {
             ordered_anchor_phrase_tokens(&resolved, &scope_tokens, &structural_tokens)
@@ -1300,6 +1309,8 @@ pub(crate) fn local_business_entity_discovery_query_contract(
         ordered_anchor_phrase_tokens(&resolved, &scope_tokens, &structural_tokens)
             .into_iter()
             .filter(|token| !scope_tokens.contains(token))
+            .filter(|token| !GENERIC_LOCAL_BUSINESS_LISTING_TOKENS.contains(&token.as_str()))
+            .filter(|token| !LOCAL_BUSINESS_COMPARISON_AXIS_TOKENS.contains(&token.as_str()))
             .collect::<Vec<_>>()
     } else {
         search_entity_tokens
@@ -1584,7 +1595,6 @@ pub(crate) fn query_requires_local_business_entity_diversity(query: &str) -> boo
         && query_requests_comparison(&compact)
         && facets.locality_sensitive_public_fact
         && facets.grounded_external_required
-        && !facets.time_sensitive_public_fact
 }
 
 #[cfg(test)]

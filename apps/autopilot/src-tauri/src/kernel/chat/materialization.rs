@@ -704,12 +704,14 @@ pub(super) fn materialize_chat_artifact_with_dependencies_and_timeout_and_execut
             let last_activity = Arc::new(Mutex::new(Instant::now()));
             let last_progress_snapshot =
                 Arc::new(Mutex::new(None::<ChatArtifactGenerationProgress>));
+            let last_execution_envelope_snapshot = Arc::new(Mutex::new(None::<ExecutionEnvelope>));
             let observed_operator_steps_state =
                 Arc::new(Mutex::new(Vec::<ArtifactOperatorStep>::new()));
             let observed_progress = progress_observer.as_ref().map(|observer| {
                 let observer = observer.clone();
                 let last_activity = last_activity.clone();
                 let last_progress_snapshot = last_progress_snapshot.clone();
+                let last_execution_envelope_snapshot = last_execution_envelope_snapshot.clone();
                 let observed_operator_steps_state = observed_operator_steps_state.clone();
                 Arc::new(move |progress: ChatArtifactGenerationProgress| {
                     if let Ok(mut activity) = last_activity.lock() {
@@ -720,6 +722,11 @@ pub(super) fn materialize_chat_artifact_with_dependencies_and_timeout_and_execut
                     }
                     if let Ok(mut snapshot) = last_progress_snapshot.lock() {
                         *snapshot = Some(progress.clone());
+                    }
+                    if let Some(envelope) = progress.execution_envelope.clone() {
+                        if let Ok(mut snapshot) = last_execution_envelope_snapshot.lock() {
+                            *snapshot = Some(envelope);
+                        }
                     }
                     observer(progress);
                 }) as ChatArtifactGenerationProgressObserver
@@ -810,11 +817,17 @@ pub(super) fn materialize_chat_artifact_with_dependencies_and_timeout_and_execut
                     if execution_strategy == ChatExecutionStrategy::DirectAuthor
                         && direct_author_error_requires_replan(&error.message)
                     {
-                        let terminalized_execution_envelope = finalize_latest_execution_preview(
-                            last_progress
-                                .as_ref()
-                                .and_then(|progress| progress.execution_envelope.clone()),
-                        );
+                        let latest_execution_envelope = last_progress
+                            .as_ref()
+                            .and_then(|progress| progress.execution_envelope.clone())
+                            .or_else(|| {
+                                last_execution_envelope_snapshot
+                                    .lock()
+                                    .ok()
+                                    .and_then(|snapshot| snapshot.clone())
+                            });
+                        let terminalized_execution_envelope =
+                            finalize_latest_execution_preview(latest_execution_envelope);
                         let stalled_attempt_id = last_progress.as_ref().and_then(|progress| {
                             latest_author_attempt_id(&progress.operator_steps)
                         });
@@ -967,11 +980,17 @@ pub(super) fn materialize_chat_artifact_with_dependencies_and_timeout_and_execut
                         .ok()
                         .and_then(|snapshot| snapshot.clone());
                     if execution_strategy == ChatExecutionStrategy::DirectAuthor {
-                        let terminalized_execution_envelope = finalize_latest_execution_preview(
-                            last_progress
-                                .as_ref()
-                                .and_then(|progress| progress.execution_envelope.clone()),
-                        );
+                        let latest_execution_envelope = last_progress
+                            .as_ref()
+                            .and_then(|progress| progress.execution_envelope.clone())
+                            .or_else(|| {
+                                last_execution_envelope_snapshot
+                                    .lock()
+                                    .ok()
+                                    .and_then(|snapshot| snapshot.clone())
+                            });
+                        let terminalized_execution_envelope =
+                            finalize_latest_execution_preview(latest_execution_envelope);
                         let stalled_attempt_id = last_progress.as_ref().and_then(|progress| {
                             latest_author_attempt_id(&progress.operator_steps)
                         });

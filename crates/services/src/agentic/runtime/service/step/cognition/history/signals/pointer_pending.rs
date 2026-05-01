@@ -156,6 +156,16 @@ pub(super) fn pointer_hold_pending_signal(
     let pointer_held = recent_pointer_press_hold_state(history).unwrap_or(false);
 
     if !pointer_held {
+        if latest_action.action == "mouse_up" && !recent_goal_likely_needs_multiple_pointer_commits(history)
+        {
+            let snapshot =
+                current_snapshot.or_else(|| history.iter().rev().find_map(browser_snapshot_payload))?;
+            let submit_id = snapshot_visible_submit_control_id(snapshot)?;
+            return Some(format!(
+                "The requested pointer gesture has just been released. Use `browser__click` on `{submit_id}` now to submit the result. Do not call `agent__complete` before submitting."
+            ));
+        }
+
         if !matches!(latest_action.action.as_str(), "hover" | "move") {
             return None;
         }

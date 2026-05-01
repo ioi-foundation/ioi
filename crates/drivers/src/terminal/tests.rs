@@ -22,6 +22,29 @@ async fn wait_for_retained_completion(
     panic!("retained command '{}' did not finish in time", command_id);
 }
 
+#[cfg(unix)]
+async fn wait_for_retained_output(
+    driver: &TerminalDriver,
+    command_id: &str,
+    expected: &str,
+) -> super::RetainedCommandSnapshot {
+    for _ in 0..40 {
+        let snapshot = driver
+            .retained_command_status(command_id)
+            .await
+            .expect("retained command status should resolve");
+        if snapshot.output_tail.contains(expected) {
+            return snapshot;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+
+    panic!(
+        "retained command '{}' did not emit expected output {:?} in time",
+        command_id, expected
+    );
+}
+
 #[test]
 fn combine_success_output_keeps_stdout_when_stderr_empty() {
     let output = combine_success_output("hello world\n", "");
@@ -211,7 +234,7 @@ async fn retained_process_command_accepts_input_and_completes() {
     assert!(snapshot.running);
     assert!(snapshot.terminal_id.is_none());
     assert_eq!(snapshot.command, "bash");
-    assert!(snapshot.output_tail.contains("ready"));
+    let snapshot = wait_for_retained_output(&driver, &snapshot.command_id, "ready").await;
 
     let after_input = driver
         .retained_command_input(&snapshot.command_id, b"hello\n")

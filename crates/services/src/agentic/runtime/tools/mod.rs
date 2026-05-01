@@ -1,4 +1,5 @@
 mod builtins;
+pub mod contracts;
 mod discovery;
 mod mcp;
 pub(crate) mod services;

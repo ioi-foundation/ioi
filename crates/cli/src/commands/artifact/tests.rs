@@ -414,6 +414,19 @@ async fn route_uses_local_http_runtime_path() -> Result<()> {
         }))
     }
 
+    async fn respond_native(
+        State(state): State<LocalFixtureState>,
+        Json(_request): Json<Value>,
+    ) -> Json<Value> {
+        Json(json!({
+            "message": {
+                "role": "assistant",
+                "content": state.content
+            },
+            "done": true
+        }))
+    }
+
     let listener = TcpListener::bind("127.0.0.1:0").await?;
     let address = listener.local_addr()?;
     let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
@@ -423,6 +436,7 @@ async fn route_uses_local_http_runtime_path() -> Result<()> {
         };
     let app = Router::new()
         .route("/v1/chat/completions", post(respond))
+        .route("/api/chat", post(respond_native))
         .with_state(state);
     let server = tokio::spawn(async move {
         let _ = axum::serve(listener, app)
@@ -1334,12 +1348,27 @@ fn load_generated_evidence_accepts_blocked_verified_reply_envelope() -> Result<(
                 "deservesPrimaryArtifactView": false,
                 "patchedExistingArtifact": null,
                 "continuityRevisionUx": null,
+                "scoreTotal": 0,
+                "proofKind": "blocked_failure",
+                "primaryViewCleared": false,
+                "validatedPaths": [],
+                "issueCodes": ["inference_unavailable"],
+                "repairHints": [],
+                "blockedReasons": ["inference_unavailable"],
+                "issueClasses": ["inference_unavailable"],
+                "strengths": [],
+                "toneDirectives": [],
+                "selectedTargets": [],
+                "styleDirectives": [],
+                "branchRequested": false,
                 "strongestContradiction": failure.message,
+                "summary": failure.message,
                 "rationale": failure.message
             },
             "outputOrigin": "inference_unavailable",
             "productionProvenance": production_provenance,
             "acceptanceProvenance": acceptance_provenance,
+            "degradedPathUsed": false,
             "fallbackUsed": false,
             "uxLifecycle": "draft",
             "failure": failure,

@@ -540,6 +540,7 @@ pub(crate) fn upconvert_patch_build_verify_runtime_line_edit_repair(
     repaired_tool: AgentTool,
     verification_checks: &mut Vec<String>,
 ) -> AgentTool {
+    let repaired_tool = canonicalize_legacy_filesystem_edit_tool(repaired_tool);
     let Some(assignment) = worker_assignment else {
         return repaired_tool;
     };
@@ -613,10 +614,89 @@ pub(crate) fn upconvert_patch_build_verify_runtime_line_edit_repair(
     }
 }
 
+pub(crate) fn canonicalize_legacy_filesystem_edit_tool(repaired_tool: AgentTool) -> AgentTool {
+    let AgentTool::Dynamic(value) = repaired_tool else {
+        return repaired_tool;
+    };
+    let Some(name) = value.get("name").and_then(|name| name.as_str()) else {
+        return AgentTool::Dynamic(value);
+    };
+    let Some(arguments) = value
+        .get("arguments")
+        .and_then(|arguments| arguments.as_object())
+    else {
+        return AgentTool::Dynamic(value);
+    };
+
+    if repair_tool_names_match(name, "filesystem__patch") {
+        let Some(path) = arguments.get("path").and_then(|path| path.as_str()) else {
+            return AgentTool::Dynamic(value);
+        };
+        let Some(search) = arguments.get("search").and_then(|search| search.as_str()) else {
+            return AgentTool::Dynamic(value);
+        };
+        let Some(replace) = arguments
+            .get("replace")
+            .and_then(|replace| replace.as_str())
+        else {
+            return AgentTool::Dynamic(value);
+        };
+        return AgentTool::FsPatch {
+            path: path.to_string(),
+            search: search.to_string(),
+            replace: replace.to_string(),
+        };
+    }
+
+    if repair_tool_names_match(name, "filesystem__write_file") {
+        let Some(path) = arguments.get("path").and_then(|path| path.as_str()) else {
+            return AgentTool::Dynamic(value);
+        };
+        let Some(content) = arguments
+            .get("content")
+            .and_then(|content| content.as_str())
+        else {
+            return AgentTool::Dynamic(value);
+        };
+        return AgentTool::FsWrite {
+            path: path.to_string(),
+            content: content.to_string(),
+            line_number: None,
+        };
+    }
+
+    if repair_tool_names_match(name, "filesystem__edit_line") {
+        let Some(path) = arguments.get("path").and_then(|path| path.as_str()) else {
+            return AgentTool::Dynamic(value);
+        };
+        let line_number = arguments
+            .get("line_number")
+            .or_else(|| arguments.get("line"))
+            .and_then(|line| line.as_u64())
+            .and_then(|line| u32::try_from(line).ok());
+        let Some(content) = arguments
+            .get("content")
+            .or_else(|| arguments.get("text"))
+            .and_then(|content| content.as_str())
+        else {
+            return AgentTool::Dynamic(value);
+        };
+        return AgentTool::FsWrite {
+            path: path.to_string(),
+            content: content.to_string(),
+            line_number,
+        };
+    }
+
+    AgentTool::Dynamic(value)
+}
+
 pub(crate) fn patch_build_verify_repair_source_from_raw_tool_output(
     raw_tool_output: &str,
 ) -> Option<String> {
-    let tool = middleware::normalize_tool_call(raw_tool_output).ok()?;
+    let tool = canonicalize_legacy_filesystem_edit_tool(
+        middleware::normalize_tool_call(raw_tool_output).ok()?,
+    );
     match tool {
         AgentTool::FsPatch { replace, .. } => Some(replace),
         AgentTool::FsWrite { content, .. } => Some(content),
@@ -721,6 +801,18 @@ pub(crate) fn maybe_salvage_disallowed_patch_build_verify_runtime_edit(
 
     let repair_source = match repaired_tool {
         AgentTool::FsPatch { replace, .. } => replace.clone(),
+        AgentTool::Dynamic(value)
+            if value
+                .get("name")
+                .and_then(|name| name.as_str())
+                .is_some_and(|name| repair_tool_names_match(name, "filesystem__patch")) =>
+        {
+            value
+                .get("arguments")
+                .and_then(|arguments| arguments.get("replace"))
+                .and_then(|replace| replace.as_str())
+                .map(str::to_string)?
+        }
         _ => return None,
     };
     let (target_path, updated_content) = patch_build_verify_updated_content_from_repair_source(

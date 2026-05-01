@@ -381,9 +381,10 @@ async fn run_golden_pii_review_determinism_desktop_validator_desktop() -> Result
         revoked: false,
         scope_allowlist: vec!["desktop_agent.resume".to_string()],
     };
-    state.insert(
-        &get_approval_authority_key(&authority.authority_id),
-        &codec::to_bytes_canonical(&authority).map_err(anyhow::Error::msg)?,
+    insert_raw_and_namespaced(
+        &mut state,
+        get_approval_authority_key(&authority.authority_id),
+        codec::to_bytes_canonical(&authority).map_err(anyhow::Error::msg)?,
     )?;
     let mut approval_grant = ApprovalGrant {
         schema_version: 1,
@@ -489,7 +490,10 @@ async fn run_golden_pii_review_determinism_desktop_validator_desktop() -> Result
     assert_eq!(final_agent_state.status, AgentStatus::Running);
 
     let incident = load_incident_state(&state, &session_id)?.expect("incident state");
-    assert!(incident.pending_gate.is_none());
+    assert!(
+        incident.pending_gate.is_none(),
+        "PII deny should clear the pending approval gate: {incident:#?}"
+    );
     assert_eq!(incident.gate_state, "Denied");
 
     let persisted_request: PiiReviewRequest = codec::from_bytes_canonical(

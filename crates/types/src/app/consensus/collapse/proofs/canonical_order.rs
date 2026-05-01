@@ -1120,7 +1120,9 @@ pub fn derive_canonical_collapse_object_with_previous(
         .as_ref()
         .map(derive_canonical_sealing_collapse)
         .transpose()?;
-    verify_block_header_canonical_collapse_evidence(header, previous)?;
+    if previous.is_some() || header.canonical_collapse_extension_certificate.is_some() {
+        verify_block_header_canonical_collapse_evidence(header, previous)?;
+    }
 
     let mut collapse = CanonicalCollapseObject {
         height: header.height,

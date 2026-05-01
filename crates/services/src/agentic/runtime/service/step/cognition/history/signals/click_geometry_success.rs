@@ -275,7 +275,7 @@ fn click_opened_new_surface_success_signal(
     }
 
     Some(format!(
-        "A recent browser interaction exposed a different task surface. Continue with the newly visible targets such as `{}`. Do not repeat `{}` or finish just because the page opened or changed.",
+        "A recent browser interaction exposed a different task surface. Continue with the newly visible targets such as `{}`. Do not repeat `{}`. Do not spend the next step on another `browser__inspect` just because the page opened or changed.",
         revealed_targets.join("`, `"),
         clicked_id
     ))

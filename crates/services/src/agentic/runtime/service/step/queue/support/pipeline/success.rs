@@ -20,6 +20,18 @@ fn preserve_retrieved_excerpt_over_hint(
         || source_has_briefing_standard_identifier_signal(query_contract, url, title, trimmed)
 }
 
+fn grounded_document_briefing_source_quality_required(
+    retrieval_contract: Option<&WebRetrievalContract>,
+    query_contract: &str,
+) -> bool {
+    matches!(
+        synthesis_layout_profile(retrieval_contract, query_contract),
+        SynthesisLayoutProfile::DocumentBriefing
+    ) && !retrieval_contract_requests_comparison(retrieval_contract, query_contract)
+        && crate::agentic::runtime::service::step::signals::analyze_query_facets(query_contract)
+            .grounded_external_required
+}
+
 pub(crate) fn push_pending_web_success(
     pending: &mut PendingSearchCompletion,
     url: &str,
@@ -280,20 +292,20 @@ pub(crate) fn push_pending_web_success(
             }
         }
 
-        if retrieval_contract_requires_document_briefing_identifier_evidence(
-            retrieval_contract,
-            &query_contract,
-        ) && !source_has_briefing_standard_identifier_signal(
-            &query_contract,
-            trimmed,
-            resolved_title.as_deref().unwrap_or_default(),
-            &resolved_excerpt,
-        ) && !source_has_document_authority(
-            &query_contract,
-            trimmed,
-            resolved_title.as_deref().unwrap_or_default(),
-            &resolved_excerpt,
-        ) {
+        if grounded_document_briefing_source_quality_required(retrieval_contract, &query_contract)
+            && !source_has_briefing_standard_identifier_signal(
+                &query_contract,
+                trimmed,
+                resolved_title.as_deref().unwrap_or_default(),
+                &resolved_excerpt,
+            )
+            && !source_has_document_authority(
+                &query_contract,
+                trimmed,
+                resolved_title.as_deref().unwrap_or_default(),
+                &resolved_excerpt,
+            )
+        {
             return;
         }
 

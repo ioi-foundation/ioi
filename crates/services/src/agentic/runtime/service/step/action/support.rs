@@ -339,6 +339,53 @@ pub fn persist_step_evidence_to_ledger(
     let intent_id = (!intent_id.trim().is_empty()).then(|| intent_id.to_string());
     let mut evidence = BTreeMap::<String, String>::new();
     let mut success_conditions = BTreeMap::<String, String>::new();
+    let has_typed_log_evidence = agent_state.tool_execution_log.iter().any(|(key, status)| {
+        key.trim().starts_with(EXECUTION_EVIDENCE_PREFIX)
+            && matches!(
+                status,
+                ToolCallStatus::Executed(value)
+                    if {
+                        let value = value.trim();
+                        !value.is_empty() && value != "true"
+                    }
+            )
+    });
+    if has_typed_log_evidence {
+        for (key, status) in &agent_state.tool_execution_log {
+            let Some(rest) = key.trim().strip_prefix(EXECUTION_EVIDENCE_PREFIX) else {
+                continue;
+            };
+            let (name, _) = rest
+                .split_once('=')
+                .map(|(name, value)| (name.trim(), value.trim()))
+                .unwrap_or((rest.trim(), "true"));
+            if name.is_empty() || evidence.contains_key(name) {
+                continue;
+            }
+            if let ToolCallStatus::Executed(value) = status {
+                if !value.trim().is_empty() {
+                    evidence.insert(name.to_string(), value.to_string());
+                }
+            }
+        }
+        for (key, status) in &agent_state.tool_execution_log {
+            let Some(rest) = key.trim().strip_prefix(SUCCESS_CONDITION_PREFIX) else {
+                continue;
+            };
+            let (name, _) = rest
+                .split_once('=')
+                .map(|(name, value)| (name.trim(), value.trim()))
+                .unwrap_or((rest.trim(), "true"));
+            if name.is_empty() || success_conditions.contains_key(name) {
+                continue;
+            }
+            if let ToolCallStatus::Executed(value) = status {
+                if !value.trim().is_empty() {
+                    success_conditions.insert(name.to_string(), value.to_string());
+                }
+            }
+        }
+    }
     for check in verification_checks {
         let token = check.trim();
         if let Some(rest) = token.strip_prefix(EXECUTION_EVIDENCE_PREFIX) {
@@ -371,6 +418,19 @@ pub fn persist_step_evidence_to_ledger(
         agent_state.execution_ledger.record_success_condition(
             intent_id.clone(),
             postcondition,
+            value,
+        );
+    }
+    if let Some(value) = agent_state
+        .execution_ledger
+        .evidence_value("verification")
+        .map(str::trim)
+        .filter(|value| !value.is_empty() && *value != "true")
+        .map(str::to_string)
+    {
+        agent_state.execution_ledger.record_verification_evidence(
+            intent_id.clone(),
+            "verification",
             value,
         );
     }

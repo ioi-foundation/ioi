@@ -44,48 +44,68 @@ const MarketView = ({ mode, onMode, activeCategory, onCategory, catalogProps, pr
       )}
 
       <div className="page" style={{paddingBottom: 0}}>
-        {activeCategory && (
-          <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:14}}>
-            <span className="mono" style={{fontSize:10, letterSpacing:'0.14em', textTransform:'uppercase', color:'var(--muted-2)'}}>Market / </span>
-            <span style={{fontSize:18, fontFamily:'var(--sans, sans-serif)', fontWeight:600, letterSpacing:'-0.01em'}}>
-              {catalogCategoryLabel}
-            </span>
-            <span onClick={() => onCategory(null)} className="mono" style={{fontSize:10, letterSpacing:'0.06em', color:'var(--accent-ink)', cursor:'pointer', textTransform:'uppercase', marginLeft:6}}>
-              × clear
-            </span>
+        {activeCategory ? (
+          // Category page: breadcrumb + small "see suppliers instead" link.
+          // Toggle is suppressed — the page is now an outcomes directory.
+          <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:16, marginBottom: 0, flexWrap: 'wrap'}}>
+            <div style={{display:'flex', alignItems:'center', gap:10}}>
+              <span onClick={() => onCategory(null)} className="mono" style={{fontSize:10, letterSpacing:'0.14em', textTransform:'uppercase', color:'var(--muted-2)', cursor:'pointer'}}>
+                Market
+              </span>
+              <span className="mono" style={{fontSize:10, color:'var(--muted-2)'}}>/</span>
+              <span style={{fontSize:18, fontFamily:'var(--sans, sans-serif)', fontWeight:600, letterSpacing:'-0.01em'}}>
+                {catalogCategoryLabel}
+              </span>
+              <span onClick={() => onCategory(null)} className="mono" style={{fontSize:10, letterSpacing:'0.06em', color:'var(--accent-ink)', cursor:'pointer', textTransform:'uppercase', marginLeft:6}}>
+                × clear
+              </span>
+            </div>
+            <div style={{display:'flex', alignItems:'center', gap:14}}>
+              <span
+                onClick={() => onMode(mode === 'outcomes' ? 'suppliers' : 'outcomes')}
+                className="mono"
+                style={{fontSize:10, letterSpacing:'0.12em', textTransform:'uppercase', color:'var(--accent-ink)', cursor:'pointer'}}
+              >
+                {mode === 'outcomes' ? 'See suppliers instead →' : '← Back to outcomes'}
+              </span>
+              <span className="mono" style={{fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color:'var(--muted)'}}>
+                Marketplace · live
+              </span>
+            </div>
+          </div>
+        ) : (
+          // All-market: segmented switch sits above content.
+          <div style={{
+            display:'flex', justifyContent:'space-between', alignItems:'center',
+            gap: 16, marginBottom: 0,
+          }}>
+            <div style={{display:'inline-flex', padding:4, borderRadius: 999, border:'1px solid var(--rule)', background:'var(--paper)'}}>
+              {[
+                { k:'outcomes',  label:'Outcomes',  sub:'what you buy' },
+                { k:'suppliers', label:'Suppliers', sub:'who delivers' },
+              ].map(opt => {
+                const active = mode === opt.k;
+                return (
+                  <div key={opt.k} onClick={() => onMode(opt.k)} style={{
+                    padding: '8px 16px', borderRadius: 999, cursor: 'pointer',
+                    background: active ? 'var(--ink)' : 'transparent',
+                    color: active ? 'var(--paper)' : 'var(--ink-2)',
+                    display: 'flex', alignItems: 'baseline', gap: 8,
+                    transition: 'background .15s, color .15s',
+                  }}>
+                    <span style={{fontSize: 15, fontFamily:'var(--sans, sans-serif)', fontWeight: 500, letterSpacing: '-0.005em'}}>{opt.label}</span>
+                    <span className="mono" style={{fontSize: 9.5, letterSpacing: '0.12em', textTransform: 'uppercase', opacity: 0.7}}>
+                      {opt.sub}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mono" style={{fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color:'var(--muted)'}}>
+              Marketplace · live
+            </div>
           </div>
         )}
-        {/* Segmented switch — sits above whichever surface we're showing */}
-        <div style={{
-          display:'flex', justifyContent:'space-between', alignItems:'center',
-          gap: 16, marginBottom: 0,
-        }}>
-          <div style={{display:'inline-flex', padding:4, borderRadius: 999, border:'1px solid var(--rule)', background:'var(--paper)'}}>
-            {[
-              { k:'outcomes',  label:'Outcomes',  sub:'what you buy' },
-              { k:'suppliers', label:'Suppliers', sub:'who delivers' },
-            ].map(opt => {
-              const active = mode === opt.k;
-              return (
-                <div key={opt.k} onClick={() => onMode(opt.k)} style={{
-                  padding: '8px 16px', borderRadius: 999, cursor: 'pointer',
-                  background: active ? 'var(--ink)' : 'transparent',
-                  color: active ? 'var(--paper)' : 'var(--ink-2)',
-                  display: 'flex', alignItems: 'baseline', gap: 8,
-                  transition: 'background .15s, color .15s',
-                }}>
-                  <span style={{fontSize: 15, fontFamily:'var(--sans, sans-serif)', fontWeight: 500, letterSpacing: '-0.005em'}}>{opt.label}</span>
-                  <span className="mono" style={{fontSize: 9.5, letterSpacing: '0.12em', textTransform: 'uppercase', opacity: 0.7}}>
-                    {opt.sub}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-          <div className="mono" style={{fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color:'var(--muted)'}}>
-            Marketplace · live
-          </div>
-        </div>
       </div>
 
       {mode === 'outcomes'  && <CatalogView   {...catalogProps}  initialCategory={activeCategory || 'all'} onClearFilter={() => onCategory(null)} />}

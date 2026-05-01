@@ -75,6 +75,7 @@ pub async fn handle_resume(
                 hex::encode(&p.session_id[0..4]),
                 hex::encode(&grant.request_hash)
             );
+            agent_state.pending_approval = Some(grant.clone());
             state.insert(
                 &get_approval_grant_key(&p.session_id),
                 &codec::to_bytes_canonical(&grant)?,
@@ -92,6 +93,7 @@ pub async fn handle_resume(
             let new_root = service.append_chat_to_scs(p.session_id, &msg, 0).await?;
             agent_state.transcript_root = new_root;
         } else {
+            agent_state.pending_approval = None;
             state.delete(&get_approval_grant_key(&p.session_id))?;
             let msg = ioi_types::app::agentic::ChatMessage {
                 role: "system".to_string(),

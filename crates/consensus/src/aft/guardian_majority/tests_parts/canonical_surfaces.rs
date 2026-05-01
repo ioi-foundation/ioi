@@ -1080,10 +1080,9 @@ fn asymptote_observe_committed_block_ignores_mismatched_collapse_object() {
 #[test]
 fn asymptote_observe_committed_block_with_matching_collapse_enables_reset_promotion() {
     let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
-    let previous_collapse = test_canonical_collapse_object(4, None, [48u8; 32], [49u8; 32]);
-    engine
-        .committed_collapses
-        .insert(previous_collapse.height, previous_collapse.clone());
+    let collapse_chain = test_canonical_collapse_chain_ending(4, [48u8; 32], [49u8; 32]);
+    seed_committed_collapse_chain(&mut engine, &collapse_chain);
+    let previous_collapse = collapse_chain.last().unwrap().clone();
     let mut committed_header = build_progress_parent_header(5, 0);
     link_header_to_previous_collapse(&mut committed_header, &previous_collapse);
     let committed_hash = to_root_hash(&committed_header.hash().unwrap()).unwrap();
@@ -1111,10 +1110,9 @@ fn asymptote_observe_committed_block_with_matching_collapse_enables_reset_promot
 #[test]
 fn asymptote_reset_replaces_stale_same_height_qc_with_latest_committed_header() {
     let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
-    let previous_collapse = test_canonical_collapse_object(4, None, [0x51u8; 32], [0x52u8; 32]);
-    engine
-        .committed_collapses
-        .insert(previous_collapse.height, previous_collapse.clone());
+    let collapse_chain = test_canonical_collapse_chain_ending(4, [0x51u8; 32], [0x52u8; 32]);
+    seed_committed_collapse_chain(&mut engine, &collapse_chain);
+    let previous_collapse = collapse_chain.last().unwrap().clone();
 
     let mut original_header = build_progress_parent_header(5, 0);
     link_header_to_previous_collapse(&mut original_header, &previous_collapse);
@@ -1137,7 +1135,8 @@ fn asymptote_reset_replaces_stale_same_height_qc_with_latest_committed_header() 
     assert_eq!(engine.highest_qc.block_hash, original_hash);
 
     let mut enriched_header = original_header.clone();
-    enriched_header.signature[0] ^= 0xFF;
+    enriched_header.timestamp = enriched_header.timestamp.saturating_add(1);
+    enriched_header.timestamp_ms = enriched_header.timestamp_ms.saturating_add(1_000);
     let enriched_hash = to_root_hash(&enriched_header.hash().unwrap()).unwrap();
     assert_ne!(enriched_hash, original_hash);
     let enriched_collapse = derive_canonical_collapse_object_with_previous(
@@ -1146,6 +1145,26 @@ fn asymptote_reset_replaces_stale_same_height_qc_with_latest_committed_header() 
         Some(&previous_collapse),
     )
     .unwrap();
+    let enriched_surface = engine
+        .canonical_collapse_from_header_surface_with_previous(
+            &enriched_header,
+            Some(&previous_collapse),
+        )
+        .expect("enriched header surface should derive");
+    assert!(
+        canonical_collapse_eq_on_header_surface(&enriched_surface, &enriched_collapse),
+        "enriched collapse must match its header surface"
+    );
+    engine
+        .verify_runtime_canonical_collapse_continuity(
+            &enriched_collapse,
+            Some(&previous_collapse),
+        )
+        .expect("enriched collapse continuity should verify");
+    assert_eq!(
+        engine.committed_collapses.get(&previous_collapse.height),
+        Some(&previous_collapse)
+    );
 
     let enriched_accepted =
         <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::observe_committed_block(
@@ -1163,10 +1182,9 @@ fn asymptote_reset_replaces_stale_same_height_qc_with_latest_committed_header() 
 #[test]
 fn asymptote_observe_committed_block_accepts_archived_anchor_upgrade() {
     let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
-    let previous_collapse = test_canonical_collapse_object(4, None, [0x61u8; 32], [0x62u8; 32]);
-    engine
-        .committed_collapses
-        .insert(previous_collapse.height, previous_collapse.clone());
+    let collapse_chain = test_canonical_collapse_chain_ending(4, [0x61u8; 32], [0x62u8; 32]);
+    seed_committed_collapse_chain(&mut engine, &collapse_chain);
+    let previous_collapse = collapse_chain.last().unwrap().clone();
     let mut committed_header = build_progress_parent_header(5, 0);
     link_header_to_previous_collapse(&mut committed_header, &previous_collapse);
     let committed_hash = to_root_hash(&committed_header.hash().unwrap()).unwrap();
@@ -1201,10 +1219,9 @@ fn asymptote_observe_committed_block_accepts_archived_anchor_upgrade() {
 #[test]
 fn asymptote_observe_committed_block_accepts_header_compatible_materialized_collapse() {
     let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
-    let previous_collapse = test_canonical_collapse_object(4, None, [0x74u8; 32], [0x75u8; 32]);
-    engine
-        .committed_collapses
-        .insert(previous_collapse.height, previous_collapse.clone());
+    let collapse_chain = test_canonical_collapse_chain_ending(4, [0x74u8; 32], [0x75u8; 32]);
+    seed_committed_collapse_chain(&mut engine, &collapse_chain);
+    let previous_collapse = collapse_chain.last().unwrap().clone();
     let mut committed_header = build_progress_parent_header(5, 0);
     link_header_to_previous_collapse(&mut committed_header, &previous_collapse);
     committed_header.canonical_order_certificate = Some(
@@ -1252,10 +1269,9 @@ fn asymptote_observe_committed_block_with_matching_succinct_collapse_enables_res
     std::env::set_var("IOI_AFT_CONTINUITY_PROOF_SYSTEM", "succinct-sp1-v1");
 
     let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
-    let previous_collapse = test_canonical_collapse_object(4, None, [0x31u8; 32], [0x32u8; 32]);
-    engine
-        .committed_collapses
-        .insert(previous_collapse.height, previous_collapse.clone());
+    let collapse_chain = test_canonical_collapse_chain_ending(4, [0x31u8; 32], [0x32u8; 32]);
+    seed_committed_collapse_chain(&mut engine, &collapse_chain);
+    let previous_collapse = collapse_chain.last().unwrap().clone();
     let mut committed_header = build_progress_parent_header(5, 0);
     link_header_to_previous_collapse(&mut committed_header, &previous_collapse);
     let committed_hash = to_root_hash(&committed_header.hash().unwrap()).unwrap();
@@ -1323,4 +1339,3 @@ fn asymptote_observe_committed_block_rejects_corrupted_local_succinct_predecesso
         std::env::remove_var("IOI_AFT_CONTINUITY_PROOF_SYSTEM");
     }
 }
-

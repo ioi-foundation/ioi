@@ -44,3 +44,128 @@ use serde_json::json;
 
 include!("projection.rs");
 include!("decision_policy.rs");
+
+fn derive_source_decision(
+    context: &ChatIntentContext,
+    primary_lane: ChatLaneFamily,
+    normalized_request: Option<&ChatNormalizedRequest>,
+    decision_evidence: &[String],
+    active_artifact_id: Option<&str>,
+) -> ChatSourceDecision {
+    let specialized_policy =
+        chat_specialized_domain_kind(normalized_request).map(chat_specialized_domain_policy);
+    let mut candidate_sources = Vec::new();
+    let mut push_unique = |source: ChatSourceFamily| {
+        if !candidate_sources.contains(&source) {
+            candidate_sources.push(source);
+        }
+    };
+
+    if active_artifact_id.is_some() {
+        push_unique(ChatSourceFamily::ArtifactContext);
+    }
+    if context.references_previous_conversation() {
+        push_unique(ChatSourceFamily::ConversationRetrieval);
+    }
+    if context.references_memory_context() {
+        push_unique(ChatSourceFamily::Memory);
+    }
+    push_unique(ChatSourceFamily::ConversationContext);
+
+    let specialized_tool_required = matches!(
+        normalized_request,
+        Some(
+            ChatNormalizedRequest::Weather(_)
+                | ChatNormalizedRequest::Sports(_)
+                | ChatNormalizedRequest::Places(_)
+                | ChatNormalizedRequest::Recipe(_)
+                | ChatNormalizedRequest::UserInput(_)
+        )
+    );
+
+    let selected_source = if specialized_tool_required {
+        push_unique(ChatSourceFamily::SpecializedTool);
+        if !matches!(
+            normalized_request,
+            Some(ChatNormalizedRequest::UserInput(_))
+        ) {
+            push_unique(ChatSourceFamily::WebSearch);
+        }
+        ChatSourceFamily::SpecializedTool
+    } else if active_artifact_id.is_some() {
+        ChatSourceFamily::ArtifactContext
+    } else if decision_evidence_item_flag(decision_evidence, "connector_intent_detected") {
+        push_unique(ChatSourceFamily::Connector);
+        ChatSourceFamily::Connector
+    } else if decision_evidence_item_flag(decision_evidence, "workspace_grounding_required") {
+        push_unique(ChatSourceFamily::Workspace);
+        ChatSourceFamily::Workspace
+    } else if decision_evidence_item_flag(decision_evidence, "currentness_override")
+        || primary_lane == ChatLaneFamily::Research
+        || matches!(
+            normalized_request,
+            Some(
+                ChatNormalizedRequest::Weather(_)
+                    | ChatNormalizedRequest::Sports(_)
+                    | ChatNormalizedRequest::Places(_)
+                    | ChatNormalizedRequest::Recipe(_)
+            )
+        )
+    {
+        push_unique(ChatSourceFamily::WebSearch);
+        ChatSourceFamily::WebSearch
+    } else if matches!(
+        normalized_request,
+        Some(ChatNormalizedRequest::MessageCompose(_))
+    ) {
+        if decision_evidence_item_flag(decision_evidence, "connector_intent_detected") {
+            push_unique(ChatSourceFamily::Connector);
+            ChatSourceFamily::Connector
+        } else {
+            ChatSourceFamily::DirectAnswer
+        }
+    } else if context.references_memory_context() {
+        ChatSourceFamily::Memory
+    } else if context.references_previous_conversation() {
+        ChatSourceFamily::ConversationRetrieval
+    } else {
+        ChatSourceFamily::DirectAnswer
+    };
+
+    push_unique(selected_source);
+
+    let explicit_user_source = active_artifact_id.is_some()
+        || decision_evidence_item_flag(decision_evidence, "connector_intent_detected")
+        || decision_evidence_item_flag(decision_evidence, "workspace_grounding_required")
+        || decision_evidence_item_flag(decision_evidence, "currentness_override")
+        || tool_widget_family_hint(decision_evidence).is_some()
+        || context.references_previous_conversation()
+        || context.references_memory_context();
+
+    let degradation_reason = if decision_evidence_item_flag(decision_evidence, "connector_missing")
+    {
+        Some("connector route is preferred but unavailable in this runtime".to_string())
+    } else if decision_evidence_item_flag(decision_evidence, "connector_auth_required") {
+        Some("connector route is preferred but still needs authentication".to_string())
+    } else if normalized_request
+        .is_some_and(|frame| !chat_normalized_request_missing_slots(frame).is_empty())
+    {
+        Some(
+            specialized_policy
+                .map(|policy| policy.missing_slot_degradation_reason.to_string())
+                .unwrap_or_else(|| {
+                    "required lane slots are still missing, so execution is blocked on clarification"
+                        .to_string()
+                }),
+        )
+    } else {
+        None
+    };
+
+    ChatSourceDecision {
+        candidate_sources,
+        selected_source,
+        explicit_user_source,
+        degradation_reason,
+    }
+}

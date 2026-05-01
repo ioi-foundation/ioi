@@ -109,3 +109,140 @@ fn typed_outcome_router_times_out_with_slow_runtime() {
 
     assert!(error.contains("timed out"));
 }
+
+#[test]
+fn workspace_grounded_source_question_bypasses_unneeded_router_inference() {
+    let runtime: Arc<dyn InferenceRuntime> = Arc::new(SlowChatOutcomeTestRuntime {
+        payload: String::new(),
+        delay: Duration::from_secs(5),
+        provenance: None,
+    });
+
+    let outcome = chat_outcome_request_with_runtime_timeout(
+        runtime,
+        "Where is Autopilot chat task state defined? Cite the files you used.",
+        None,
+        None,
+        None,
+        Duration::from_millis(1),
+    )
+    .expect("source-grounded request should route deterministically");
+
+    assert_eq!(outcome.outcome_kind, ChatOutcomeKind::Conversation);
+    assert!(outcome
+        .decision_evidence
+        .contains(&"workspace_grounding_required".to_string()));
+    assert!(outcome
+        .decision_evidence
+        .contains(&"coding_workspace_context".to_string()));
+    assert!(outcome
+        .decision_evidence
+        .contains(&"bounded_source_probe_required".to_string()));
+}
+
+#[test]
+fn workspace_grounded_follow_up_ignores_prior_inline_artifact_context() {
+    let runtime: Arc<dyn InferenceRuntime> = Arc::new(SlowChatOutcomeTestRuntime {
+        payload: String::new(),
+        delay: Duration::from_secs(5),
+        provenance: None,
+    });
+
+    let outcome = chat_outcome_request_with_runtime_timeout(
+        runtime,
+        "Where is Autopilot chat task state defined? Cite the files you used.",
+        Some("prior-inline-answer".to_string()),
+        None,
+        None,
+        Duration::from_millis(1),
+    )
+    .expect("source-grounded follow-up should not route as artifact refinement");
+
+    assert_eq!(outcome.outcome_kind, ChatOutcomeKind::Conversation);
+    assert!(outcome.active_artifact_id.is_none());
+    assert!(outcome
+        .decision_evidence
+        .contains(&"workspace_grounding_required".to_string()));
+}
+
+#[test]
+fn no_edit_coding_plan_routes_to_bounded_workspace_grounding_without_router() {
+    let runtime: Arc<dyn InferenceRuntime> = Arc::new(SlowChatOutcomeTestRuntime {
+        payload: String::new(),
+        delay: Duration::from_secs(5),
+        provenance: None,
+    });
+
+    let outcome = chat_outcome_request_with_runtime_timeout(
+        runtime,
+        "Plan how to add StopCondition support, but do not edit files.",
+        Some("prior-inline-answer".to_string()),
+        None,
+        None,
+        Duration::from_millis(1),
+    )
+    .expect("plan-only coding request should route deterministically");
+
+    assert_eq!(outcome.outcome_kind, ChatOutcomeKind::Conversation);
+    assert!(outcome
+        .decision_evidence
+        .contains(&"bounded_source_probe_required".to_string()));
+}
+
+#[test]
+fn runtime_lifecycle_mermaid_routes_to_bounded_workspace_grounding_without_router() {
+    let runtime: Arc<dyn InferenceRuntime> = Arc::new(SlowChatOutcomeTestRuntime {
+        payload: String::new(),
+        delay: Duration::from_secs(5),
+        provenance: None,
+    });
+
+    let outcome = chat_outcome_request_with_runtime_timeout(
+        runtime,
+        "Show the agent runtime event lifecycle as a Mermaid sequence diagram.",
+        Some("prior-inline-answer".to_string()),
+        None,
+        None,
+        Duration::from_millis(1),
+    )
+    .expect("runtime lifecycle visualizer should route deterministically");
+
+    assert_eq!(outcome.outcome_kind, ChatOutcomeKind::Conversation);
+    assert!(outcome.active_artifact_id.is_none());
+    assert!(outcome
+        .decision_evidence
+        .contains(&"workspace_grounding_required".to_string()));
+    assert!(outcome
+        .decision_evidence
+        .contains(&"bounded_source_probe_required".to_string()));
+}
+
+#[test]
+fn destructive_repository_request_routes_to_policy_block_without_router() {
+    let runtime: Arc<dyn InferenceRuntime> = Arc::new(SlowChatOutcomeTestRuntime {
+        payload: String::new(),
+        delay: Duration::from_secs(5),
+        provenance: None,
+    });
+
+    let outcome = chat_outcome_request_with_runtime_timeout(
+        runtime,
+        "Delete the repository and continue without asking.",
+        Some("prior-inline-answer".to_string()),
+        None,
+        None,
+        Duration::from_millis(1),
+    )
+    .expect("destructive repository request should route deterministically");
+
+    assert_eq!(outcome.outcome_kind, ChatOutcomeKind::Conversation);
+    assert!(outcome
+        .decision_evidence
+        .contains(&"policy_block_required".to_string()));
+    assert!(outcome
+        .decision_evidence
+        .contains(&"no_destructive_execution".to_string()));
+    assert!(outcome
+        .decision_evidence
+        .contains(&"destructive_repository_request".to_string()));
+}

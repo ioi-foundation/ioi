@@ -16,7 +16,7 @@ use ioi_types::{
         ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
     codec,
-    config::{InitialServiceConfig, ValidatorRole},
+    config::{InferenceConfig, InitialServiceConfig, ValidatorRole},
     service_configs::MigrationConfig,
 };
 use std::time::Duration;
@@ -105,6 +105,10 @@ async fn test_workload_control_plane_flow() -> Result<()> {
                 vram_capacity: 16 * 1024 * 1024 * 1024,
             },
         )
+        .with_inference_config(InferenceConfig {
+            provider: "standard".to_string(),
+            ..InferenceConfig::default()
+        })
         .with_extra_feature("validator-bins")
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
             chain_id: 1,

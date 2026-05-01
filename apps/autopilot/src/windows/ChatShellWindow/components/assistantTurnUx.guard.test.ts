@@ -29,6 +29,14 @@ const modelSource = fs.readFileSync(
   new URL("../utils/assistantTurnProcessModel.ts", import.meta.url),
   "utf8",
 );
+const artifactPanelCss = fs.readFileSync(
+  new URL("../styles/ArtifactPanel.css", import.meta.url),
+  "utf8",
+);
+const thoughtsViewSource = fs.readFileSync(
+  new URL("./views/ThoughtsView.tsx", import.meta.url),
+  "utf8",
+);
 
 assert.equal(
   fs.existsSync(new URL("./RuntimeFactsStrip.tsx", import.meta.url)),
@@ -151,8 +159,8 @@ assert.doesNotMatch(
 
 assert.match(
   modelSource,
-  /process\.status === "running"[\s\S]*process\.status === "thinking"[\s\S]*process\.status === "blocked"[\s\S]*process\.status === "failed"/,
-  "completed process evidence should stay out of the default answer UI",
+  /process\.status === "running"[\s\S]*process\.status === "thinking"[\s\S]*process\.status === "blocked"[\s\S]*process\.status === "failed"[\s\S]*"source_read"/,
+  "completed process evidence should stay out of the default answer UI except collapsed local explored-file provenance",
 );
 
 assert.doesNotMatch(
@@ -187,8 +195,26 @@ assert.doesNotMatch(
 
 assert.match(
   sourceChipRowSource,
-  /spot-source-chip__icon--fallback/,
-  "source chip rows should provide an icon fallback when favicon metadata is absent",
+  /aria-label="Search sources"[\s\S]*spot-source-chip__icon--fallback/,
+  "source chip rows should be search-scoped and provide an icon fallback when favicon metadata is absent",
+);
+
+assert.doesNotMatch(
+  artifactPanelCss,
+  /thoughts-items-linked::before/,
+  "thoughts surfaces should not render raw timeline rails for process evidence",
+);
+
+assert.match(
+  thoughtsViewSource,
+  /thoughts-items-compact/,
+  "artifact thoughts should present research as compact grouped rows",
+);
+
+assert.match(
+  thoughtsViewSource,
+  /Searched web[\s\S]*Browsed source/,
+  "artifact thoughts should label search and browse rows without exposing a raw event feed",
 );
 
 console.log("assistantTurnUx.guard.test.ts: ok");

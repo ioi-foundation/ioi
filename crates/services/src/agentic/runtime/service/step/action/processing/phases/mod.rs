@@ -8,8 +8,8 @@ pub(super) use apply_post_execution_guards::apply_post_execution_guards;
 pub(super) use execute_tool_phase::execute_tool_phase;
 pub(crate) use execute_tool_phase::{
     emit_completion_gate_status_event, emit_execution_contract_receipt_event,
-    emit_execution_contract_receipt_event_with_observation, record_non_command_success_receipts,
-    resolved_intent_id,
+    emit_execution_contract_receipt_event_with_observation, enforce_file_write_observation,
+    record_file_read_observation, record_non_command_success_receipts, resolved_intent_id,
 };
 pub(super) use finalize_action_processing::finalize_action_processing;
 

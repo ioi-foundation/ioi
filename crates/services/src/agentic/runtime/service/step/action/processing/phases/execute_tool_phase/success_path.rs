@@ -1,6 +1,7 @@
 use super::events::{
     emit_execution_contract_receipt_event, emit_execution_contract_receipt_event_with_observation,
 };
+use super::file_observation::record_file_read_observation;
 use super::tool_outcome::{apply_tool_outcome_and_followups, ToolOutcomeContext};
 use super::*;
 use crate::agentic::runtime::connectors::{
@@ -421,6 +422,12 @@ fn browser_fragment_priority_score_for_chat(fragment: &str, tag_name: &str) -> O
     {
         score = score.saturating_add(5);
     }
+    if normalized_name
+        .as_deref()
+        .is_some_and(browser_name_looks_like_calendar_header_for_chat)
+    {
+        score = score.saturating_add(16);
+    }
     if matches!(
         tag_name,
         "button"
@@ -458,6 +465,30 @@ fn browser_name_looks_like_navigation_control_for_chat(name: &str) -> bool {
         name.trim(),
         "<" | ">" | "<<" | ">>" | "prev" | "previous" | "previous month" | "next" | "next month"
     )
+}
+
+fn browser_name_looks_like_calendar_header_for_chat(name: &str) -> bool {
+    let name = name.trim();
+    let has_month = [
+        "january",
+        "february",
+        "march",
+        "april",
+        "may",
+        "june",
+        "july",
+        "august",
+        "september",
+        "october",
+        "november",
+        "december",
+    ]
+    .iter()
+    .any(|month| name.contains(month));
+    has_month
+        && name
+            .split_whitespace()
+            .any(|part| part.len() == 4 && part.chars().all(|ch| ch.is_ascii_digit()))
 }
 
 fn browser_context_looks_like_dense_numeric_noise_for_chat(context: &str) -> bool {
@@ -1139,6 +1170,12 @@ fn record_workspace_read_receipt(agent_state: &mut AgentState, tool: &AgentTool,
         &mut agent_state.tool_execution_log,
         "workspace_read_observed",
         evidence,
+    );
+    record_file_read_observation(
+        &mut agent_state.tool_execution_log,
+        &agent_state.working_directory,
+        tool,
+        step_index,
     );
 }
 

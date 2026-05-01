@@ -12,6 +12,22 @@ import { LiveStagedOperationsSection } from "../LiveStagedOperationsSection";
 import { workerInsightForPlanSummary } from "../artifactHubWorkerInsight";
 import { ArtifactHubEmptyState } from "./shared/ArtifactHubEmptyState";
 
+function compactThoughtText(value: string, maxChars = 120): string {
+  const compact = value.replace(/\s+/g, " ").trim();
+  if (compact.length <= maxChars) {
+    return compact;
+  }
+  return `${compact.slice(0, maxChars - 1).trim()}…`;
+}
+
+function sourceHostname(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url.replace(/^https?:\/\//, "").split(/[/?#]/)[0] || url;
+  }
+}
+
 export function ThoughtsView({
   planSummary,
   searches,
@@ -81,6 +97,24 @@ export function ThoughtsView({
     stagedOperationsLoading ||
     !!stagedOperationsMessage ||
     !!stagedOperationsError;
+  const researchRows = [
+    ...searches.map((entry, index) => ({
+      id: `thought-search-${index}`,
+      icon: icons.search,
+      kind: "Searched web",
+      title: compactThoughtText(entry.query),
+      meta: `${entry.resultCount} result${entry.resultCount === 1 ? "" : "s"}`,
+      url: null as string | null,
+    })),
+    ...browses.map((entry, index) => ({
+      id: `thought-browse-${index}`,
+      icon: icons.globe,
+      kind: "Browsed source",
+      title: compactThoughtText(sourceHostname(entry.url)),
+      meta: "Opened",
+      url: entry.url,
+    })),
+  ];
   const hasContent =
     searches.length > 0 ||
     browses.length > 0 ||
@@ -123,53 +157,36 @@ export function ThoughtsView({
         onRemoveOperation={onRemoveStagedOperation}
       />
 
-      {searches.length > 0 ? (
-        <section className="thoughts-section">
-          <div className="thoughts-agent-header">
-            <span className="thoughts-agent-dot" />
-            <span className="thoughts-agent-name">Autopilot</span>
-            <span className="thoughts-agent-role">Retrieval</span>
-          </div>
-          <div className="thoughts-items thoughts-items-linked">
-            {searches.map((entry, index) => (
-              <div
-                className="thoughts-item thoughts-item-search"
-                key={`thought-search-${index}`}
-              >
-                <span className="thoughts-item-icon">{icons.search}</span>
-                <div className="thoughts-item-main">
-                  <span className="thoughts-item-kind">Search</span>
-                  <span className="thoughts-item-query">{entry.query}</span>
-                </div>
-                <span className="thoughts-item-count">{entry.resultCount}</span>
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      {browses.length > 0 ? (
-        <section className="thoughts-section">
+      {researchRows.length > 0 ? (
+        <section className="thoughts-section thoughts-section--compact">
           <div className="thoughts-agent-header">
             <span className="thoughts-agent-dot" />
             <span className="thoughts-agent-name">Autopilot</span>
             <span className="thoughts-agent-role">Research</span>
           </div>
-          <div className="thoughts-items thoughts-items-linked">
-            {browses.map((entry, index) => (
-              <div className="thoughts-item" key={`thought-browse-${index}`}>
-                <span className="thoughts-item-icon">{icons.globe}</span>
+          <div className="thoughts-items thoughts-items-compact">
+            {researchRows.map((entry) => (
+              <div
+                className="thoughts-item thoughts-item-compact"
+                key={entry.id}
+              >
+                <span className="thoughts-item-icon">{entry.icon}</span>
                 <div className="thoughts-item-main">
-                  <span className="thoughts-item-kind">Opened source</span>
-                  <button
-                    className="thoughts-item-link"
-                    onClick={() => void openExternalUrl(entry.url)}
-                    type="button"
-                    title={entry.url}
-                  >
-                    {entry.url}
-                  </button>
+                  <span className="thoughts-item-kind">{entry.kind}</span>
+                  {entry.url ? (
+                    <button
+                      className="thoughts-item-link"
+                      onClick={() => void openExternalUrl(entry.url as string)}
+                      type="button"
+                      title={entry.url}
+                    >
+                      {entry.title}
+                    </button>
+                  ) : (
+                    <span className="thoughts-item-query">{entry.title}</span>
+                  )}
                 </div>
+                <span className="thoughts-item-count">{entry.meta}</span>
               </div>
             ))}
           </div>

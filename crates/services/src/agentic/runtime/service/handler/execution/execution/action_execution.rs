@@ -1,4 +1,5 @@
 use crate::agentic::runtime::service::lifecycle::load_worker_assignment;
+use crate::agentic::runtime::service::step::action::enforce_file_write_observation;
 use crate::agentic::runtime::service::step::worker::{
     worker_assignment_allows_tool_name, worker_assignment_disallowed_tool_error,
 };
@@ -387,13 +388,12 @@ pub async fn handle_action_execution(
         }),
     );
 
-    let persist_terminal_outcome = |
-        success: bool,
-        history_entry: Option<String>,
-        error: Option<String>,
-        visual_hash: Option<[u8; 32]>,
-        execution_state: &mut Option<&mut dyn StateAccess>,
-    | -> Result<ActionExecutionOutcome, TransactionError> {
+    let persist_terminal_outcome = |success: bool,
+                                    history_entry: Option<String>,
+                                    error: Option<String>,
+                                    visual_hash: Option<[u8; 32]>,
+                                    execution_state: &mut Option<&mut dyn StateAccess>|
+     -> Result<ActionExecutionOutcome, TransactionError> {
         let finished_at_ms = unix_timestamp_ms_now();
         let started_at_ms =
             finished_at_ms.saturating_sub(execution_started.elapsed().as_millis() as u64);
@@ -441,6 +441,40 @@ pub async fn handle_action_execution(
             "net_mode": determinism.workload_spec.net_mode.as_label(),
         }),
     );
+
+    match enforce_file_write_observation(
+        &agent_state.tool_execution_log,
+        &agent_state.working_directory,
+        &tool,
+        step_index,
+    ) {
+        Ok(Some(evidence)) => {
+            emit_execution_contract_receipt_event(
+                service,
+                session_id,
+                step_index,
+                &determinism.intent_id,
+                "policy",
+                "workspace_file_observation_guard",
+                true,
+                &evidence,
+            );
+        }
+        Ok(None) => {}
+        Err(error) => {
+            emit_execution_contract_receipt_event(
+                service,
+                session_id,
+                step_index,
+                &determinism.intent_id,
+                "policy",
+                "workspace_file_observation_guard",
+                false,
+                &error,
+            );
+            return persist_terminal_outcome(false, None, Some(error), None, &mut execution_state);
+        }
+    }
 
     // Pre-execution focus recovery for click-like tools.
     // This reduces FocusMismatch loops by verifying/repairing focus before click dispatch.
@@ -888,8 +922,8 @@ pub async fn handle_action_execution(
                 ),
                 Err(err) => {
                     let finished_at_ms = unix_timestamp_ms_now();
-                    let started_at_ms =
-                        finished_at_ms.saturating_sub(execution_started.elapsed().as_millis() as u64);
+                    let started_at_ms = finished_at_ms
+                        .saturating_sub(execution_started.elapsed().as_millis() as u64);
                     if let Some(state) = execution_state.as_deref_mut() {
                         let _ = persist_terminal_settlement(
                             state,

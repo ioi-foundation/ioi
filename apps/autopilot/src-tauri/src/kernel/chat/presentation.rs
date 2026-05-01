@@ -469,13 +469,10 @@ pub(super) fn finalize_presentation_assessment(
 }
 
 fn apply_render_evaluation_to_assessment(
-    request: &ChatOutcomeArtifactRequest,
+    _request: &ChatOutcomeArtifactRequest,
     assessment: ArtifactPresentationAssessment,
     render_evaluation: Option<&ChatArtifactRenderEvaluation>,
 ) -> ArtifactPresentationAssessment {
-    if chat_modal_first_html_enabled_for_request(request) {
-        return assessment;
-    }
     let Some(render_evaluation) = render_evaluation else {
         return assessment;
     };
@@ -542,12 +539,9 @@ fn apply_render_evaluation_to_assessment(
 }
 
 fn render_evaluation_clears_primary_view(
-    request: &ChatOutcomeArtifactRequest,
+    _request: &ChatOutcomeArtifactRequest,
     render_evaluation: Option<&ChatArtifactRenderEvaluation>,
 ) -> bool {
-    if chat_modal_first_html_enabled_for_request(request) {
-        return true;
-    }
     let Some(render_evaluation) = render_evaluation else {
         return true;
     };
@@ -555,7 +549,11 @@ fn render_evaluation_clears_primary_view(
         return true;
     }
 
-    render_evaluation.clears_primary_view_by_policy()
+    let warning_finding_present = render_evaluation
+        .findings
+        .iter()
+        .any(|finding| finding.severity == ChatArtifactRenderFindingSeverity::Warning);
+    !warning_finding_present && render_evaluation.clears_primary_view_by_policy()
 }
 
 fn placeholder_marker_hits(text: &str) -> usize {

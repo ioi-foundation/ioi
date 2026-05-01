@@ -31,12 +31,31 @@ pub(super) fn browser_effect_success_signal_for_message(
         && compact.contains("Clicked element")
         && (compact.contains("\"checked\":true") || compact.contains("\"selected\":true"))
     {
+        if let Some(snapshot) = snapshot {
+            if let Some(signal) = snapshot_select_submit_progress_success_signal(snapshot) {
+                return Some(signal);
+            }
+        }
+
         return Some(
             "A recent browser interaction already selected a form control (`checked=true` or `selected=true`). Do not click the surrounding option group or form container again. Continue with the next required control (for example `Submit`) or verify once if the goal is already satisfied.".to_string(),
         );
     }
 
     if has_click_postcondition_success && compact.contains("Clicked element") {
+        if let Some(snapshot) = snapshot {
+            if let Some(clicked_id) = clicked_element_semantic_id(message) {
+                let clicked_control_selected = snapshot_visible_selectable_control_states(snapshot)
+                    .into_iter()
+                    .any(|control| control.selected && control.semantic_id == clicked_id);
+                if clicked_control_selected {
+                    if let Some(signal) = snapshot_select_submit_progress_success_signal(snapshot) {
+                        return Some(signal);
+                    }
+                }
+            }
+        }
+
         if let Some(signal) =
             geometry_progress_success_signal_for_message(history, message, snapshot)
         {

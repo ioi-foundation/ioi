@@ -591,6 +591,20 @@ fn resume_contract_rejects_missing_pii_action_for_review_request() {
 }
 
 #[test]
+fn resume_contract_rejects_missing_review_binding_for_actioned_review_request() {
+    let expected_hash = [10u8; 32];
+    let grant = sample_approval_grant(expected_hash, Some(PiiApprovalAction::Deny));
+    let request = sample_review_request(expected_hash, 10_000);
+
+    let result =
+        validate_resume_review_contract_for_grant(expected_hash, &grant, Some(&request), 9_000);
+    assert_eq!(
+        result,
+        Err(PiiReviewContractError::ReviewRequestHashMismatch)
+    );
+}
+
+#[test]
 fn resume_contract_rejects_expired_deadline() {
     let expected_hash = [11u8; 32];
     let grant = sample_approval_grant(expected_hash, Some(PiiApprovalAction::Deny));

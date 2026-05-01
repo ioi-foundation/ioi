@@ -146,6 +146,7 @@ fn test_agent_state(session_id: [u8; 32]) -> AgentState {
         working_directory: ".".to_string(),
         command_history: VecDeque::new(),
         active_lens: None,
+        execution_ledger: Default::default(),
     }
 }
 

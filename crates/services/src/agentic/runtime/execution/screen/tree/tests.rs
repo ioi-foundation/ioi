@@ -112,3 +112,78 @@ fn choose_active_window_subtree_returns_none_when_no_match() {
 
     assert!(choose_active_window_subtree(&root, &active).is_none());
 }
+
+fn deep_chain(depth: usize) -> AccessibilityNode {
+    let mut current = node(
+        "leaf",
+        "button",
+        Some("Leaf"),
+        Rect {
+            x: 110,
+            y: 210,
+            width: 10,
+            height: 10,
+        },
+        vec![],
+    );
+    for index in (0..depth).rev() {
+        current = node(
+            &format!("deep-{index}"),
+            "pane",
+            Some("Nested"),
+            Rect {
+                x: 110,
+                y: 210,
+                width: 10,
+                height: 10,
+            },
+            vec![current],
+        );
+    }
+    current
+}
+
+fn tree_depth(node: &AccessibilityNode) -> usize {
+    1 + node.children.iter().map(tree_depth).max().unwrap_or(0)
+}
+
+#[test]
+fn choose_active_window_subtree_bounds_deep_platform_trees() {
+    let active = WindowInfo {
+        title: "Target Window".to_string(),
+        x: 100,
+        y: 200,
+        width: 800,
+        height: 600,
+        app_name: "TargetApp".to_string(),
+    };
+
+    let window = node(
+        "win-good",
+        "window",
+        Some("Target Window - TargetApp"),
+        Rect {
+            x: 100,
+            y: 200,
+            width: 800,
+            height: 600,
+        },
+        vec![deep_chain(MAX_SCOPED_SUBTREE_CLONE_DEPTH + 32)],
+    );
+    let root = node(
+        "root",
+        "root",
+        None,
+        Rect {
+            x: 0,
+            y: 0,
+            width: 1920,
+            height: 1080,
+        },
+        vec![window],
+    );
+
+    let scoped = choose_active_window_subtree(&root, &active).expect("expected a match");
+    assert_eq!(scoped.id, "win-good");
+    assert!(tree_depth(&scoped) <= MAX_SCOPED_SUBTREE_CLONE_DEPTH + 2);
+}

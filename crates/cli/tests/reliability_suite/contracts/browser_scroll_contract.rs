@@ -182,9 +182,9 @@ fn browser_scroll_normalizer_accepts_float_json_numbers() {
 }
 
 #[test]
-fn queue_browser_scroll_custom_target_maps_to_typed_tool() {
+fn queue_browser_scroll_canonical_custom_target_maps_to_typed_tool() {
     let request = ActionRequest {
-        target: ActionTarget::Custom("browser::scroll".to_string()),
+        target: ActionTarget::Custom("browser__scroll".to_string()),
         params: serde_jcs::to_vec(&serde_json::json!({
             "delta_y": 500
         }))

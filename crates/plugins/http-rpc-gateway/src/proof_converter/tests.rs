@@ -21,7 +21,7 @@ fn setup_tree_and_get_iavl_proof() -> (
     let root_commit = tree.root_commitment();
     let root_hash: [u8; 32] = root_commit.as_ref().try_into().unwrap();
 
-    let (_membership, proof_wrapper) = tree.get_with_proof_at(&root_commit, b"key1").unwrap();
+    let proof_wrapper = tree.create_proof(b"key1").unwrap();
 
     // The proof wrapper is a `HashProof`. Its `value` field contains the SCALE-encoded `IavlProof`.
     // The raw proof for conversion is the content of the `value` field.
@@ -56,7 +56,7 @@ fn test_case_2_wrapped_in_hashproof() {
     let root_commit = tree.root_commitment();
     let root_hash: [u8; 32] = root_commit.as_ref().try_into().unwrap();
 
-    let (_membership, proof_wrapper) = tree.get_with_proof_at(&root_commit, b"key1").unwrap();
+    let proof_wrapper = tree.create_proof(b"key1").unwrap();
 
     // The `proof_wrapper` *is* the `HashProof`. We encode the entire struct.
     let hash_proof_bytes = proof_wrapper.encode();
@@ -108,10 +108,8 @@ fn test_case_4_wrapped_in_hex() {
 #[test]
 fn test_case_5_non_existence() {
     let (tree, root_hash, _) = setup_tree_and_get_iavl_proof();
-    let root_commit = tree.root_commitment();
-
     // Generate non-existence proof for a key between "key1" and "key3"
-    let (_membership, proof_wrapper) = tree.get_with_proof_at(&root_commit, b"key2").unwrap();
+    let proof_wrapper = tree.create_proof(b"key2").unwrap();
     let iavl_proof_bytes = proof_wrapper.value;
 
     // Verify it's a valid non-existence proof natively first
@@ -141,7 +139,7 @@ fn test_case_6_malformed_inputs() {
     assert!(res
         .unwrap_err()
         .to_string()
-        .contains("unsupported proof encoding"));
+        .contains("Failed to decode canonical IavlProof bytes"));
 
     // Truncated valid proof
     let (_, _, mut iavl_proof_bytes) = setup_tree_and_get_iavl_proof();
@@ -161,10 +159,8 @@ fn test_case_7_sibling_placement() {
     tree.insert(b"a", b"val_a").unwrap(); // Triggers a rotation, creating an inner node
     tree.commit_version(1).unwrap();
 
-    let root = tree.root_commitment();
-
     // Proof for "a" (left child)
-    let (_mem_a, proof_a_wrapper) = tree.get_with_proof_at(&root, b"a").unwrap();
+    let proof_a_wrapper = tree.create_proof(b"a").unwrap();
     let iavl_proof_bytes_a = proof_a_wrapper.value;
     let converted_a = convert_proof(&iavl_proof_bytes_a, ProofFormat::Ics23, Some("a")).unwrap();
     let merkle_proof_a = PbMerkleProof::decode(converted_a.as_slice()).unwrap();
@@ -184,7 +180,7 @@ fn test_case_7_sibling_placement() {
     }
 
     // Proof for "b" (right child)
-    let (_mem_b, proof_b_wrapper) = tree.get_with_proof_at(&root, b"b").unwrap();
+    let proof_b_wrapper = tree.create_proof(b"b").unwrap();
     let iavl_proof_bytes_b = proof_b_wrapper.value;
     let converted_b = convert_proof(&iavl_proof_bytes_b, ProofFormat::Ics23, Some("b")).unwrap();
     let merkle_proof_b = PbMerkleProof::decode(converted_b.as_slice()).unwrap();
@@ -213,9 +209,7 @@ proptest! {
         let mut tree = IAVLTree::new(ioi_state::primitives::hash::HashCommitmentScheme::new());
         tree.insert(&key, &value).unwrap();
         tree.commit_version(1).unwrap();
-        let root_commit = tree.root_commitment();
-
-        let (_mem, proof_wrapper) = tree.get_with_proof_at(&root_commit, &key).unwrap();
+        let proof_wrapper = tree.create_proof(&key).unwrap();
         let iavl_proof_bytes = proof_wrapper.value;
 
         // The property being tested is that conversion never panics for valid proofs.

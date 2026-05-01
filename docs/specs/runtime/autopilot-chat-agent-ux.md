@@ -89,13 +89,16 @@ Runtime Details contains policy decisions, capabilities, approvals, receipts, se
 
 ## Source And Favicon Contract
 
-Source pills support:
+Default chat distinguishes local exploration from external retrieval:
 
-- URL sources: domain label and cached/known favicon when already present in runtime metadata, otherwise globe fallback.
-- Files: file icon and basename.
-- Commands: terminal icon and command label.
-- Screenshots/images: image icon and capture label.
-- Trace/receipt/evidence: shield/check icon and authority tier.
+- Local workspace grounding renders as a compact collapsed "Explored N files"
+  disclosure with per-file rows such as "Read runtime_contracts.rs".
+- Search/browse retrieval renders source pills near the answer, using domain
+  labels and cached/known favicons when already present in runtime metadata,
+  otherwise a deterministic globe fallback.
+- Commands, screenshots, trace, receipts, and deeper evidence remain in the
+  workbench/trace lane unless a specific answer UX calls for compact visible
+  provenance.
 
 Rendering source pills must not initiate arbitrary network requests for favicons. Use source metadata already projected by runtime, or deterministic local icon fallback.
 
@@ -113,7 +116,8 @@ GUI probes should prove:
 - process disclosure appears only when meaningful;
 - tool rows appear when tools ran;
 - empty process categories are omitted;
-- source pills render with favicon/icon fallback;
+- local explored-file disclosures render for repo-grounded answers;
+- search source pills render with favicon/icon fallback;
 - local GPU mode shows `Local: qwen3.5:9b`;
 - projection-only is a compact badge;
 - workbench opens and contains full runtime details.

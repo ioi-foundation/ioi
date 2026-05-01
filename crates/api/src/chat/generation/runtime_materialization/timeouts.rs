@@ -1,4 +1,47 @@
+#[derive(Clone, Copy, Default)]
+struct ChatDirectAuthorTimeoutOverrides {
+    stream_timeout: Option<Duration>,
+    follow_up_timeout: Option<Duration>,
+    idle_settle_timeout: Option<Duration>,
+}
+
+tokio::task_local! {
+    static CHAT_DIRECT_AUTHOR_TIMEOUT_OVERRIDES: ChatDirectAuthorTimeoutOverrides;
+}
+
+#[cfg(test)]
+pub(crate) async fn with_direct_author_timeout_overrides_async<T, F>(
+    stream_timeout: Option<Duration>,
+    follow_up_timeout: Option<Duration>,
+    idle_settle_timeout: Option<Duration>,
+    f: impl FnOnce() -> F,
+) -> T
+where
+    F: std::future::Future<Output = T>,
+{
+    CHAT_DIRECT_AUTHOR_TIMEOUT_OVERRIDES
+        .scope(
+            ChatDirectAuthorTimeoutOverrides {
+                stream_timeout,
+                follow_up_timeout,
+                idle_settle_timeout,
+            },
+            async move { f().await },
+        )
+        .await
+}
+
+fn direct_author_timeout_overrides() -> ChatDirectAuthorTimeoutOverrides {
+    CHAT_DIRECT_AUTHOR_TIMEOUT_OVERRIDES
+        .try_with(|overrides| *overrides)
+        .unwrap_or_default()
+}
+
 fn configured_direct_author_stream_timeout() -> Option<Duration> {
+    if let Some(timeout) = direct_author_timeout_overrides().stream_timeout {
+        return Some(timeout);
+    }
+
     [
         "AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_STREAM_TIMEOUT_MS",
         "IOI_CHAT_DIRECT_AUTHOR_STREAM_TIMEOUT_MS",
@@ -36,6 +79,10 @@ fn direct_author_stream_timeout_for_request(
 }
 
 fn configured_direct_author_follow_up_timeout() -> Option<Duration> {
+    if let Some(timeout) = direct_author_timeout_overrides().follow_up_timeout {
+        return Some(timeout);
+    }
+
     [
         "AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_FOLLOWUP_TIMEOUT_MS",
         "IOI_CHAT_DIRECT_AUTHOR_FOLLOWUP_TIMEOUT_MS",
@@ -51,6 +98,10 @@ fn configured_direct_author_follow_up_timeout() -> Option<Duration> {
 }
 
 fn configured_direct_author_idle_settle_timeout() -> Option<Duration> {
+    if let Some(timeout) = direct_author_timeout_overrides().idle_settle_timeout {
+        return Some(timeout);
+    }
+
     [
         "AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_IDLE_SETTLE_TIMEOUT_MS",
         "IOI_CHAT_DIRECT_AUTHOR_IDLE_SETTLE_TIMEOUT_MS",

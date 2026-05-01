@@ -106,8 +106,8 @@ use self::phases::{
 };
 pub(crate) use self::phases::{
     emit_completion_gate_status_event, emit_execution_contract_receipt_event,
-    emit_execution_contract_receipt_event_with_observation, record_non_command_success_receipts,
-    resolved_intent_id,
+    emit_execution_contract_receipt_event_with_observation, enforce_file_write_observation,
+    record_file_read_observation, record_non_command_success_receipts, resolved_intent_id,
 };
 use self::repair::{
     attempt_invalid_tool_call_repair, attempt_patch_build_verify_runtime_patch_miss_repair,

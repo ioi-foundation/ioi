@@ -228,6 +228,12 @@ pub(super) fn browser_fragment_priority_score(fragment: &str, tag_name: &str) ->
     }
     if normalized_name
         .as_deref()
+        .is_some_and(browser_name_looks_like_calendar_header)
+    {
+        score = score.saturating_add(16);
+    }
+    if normalized_name
+        .as_deref()
         .is_some_and(browser_fragment_is_start_gate_label)
     {
         score = score.saturating_add(18);
@@ -269,6 +275,32 @@ fn browser_name_looks_like_navigation_control(name: &str) -> bool {
         name.trim(),
         "<" | ">" | "<<" | ">>" | "prev" | "previous" | "previous month" | "next" | "next month"
     )
+}
+
+fn browser_name_looks_like_calendar_header(name: &str) -> bool {
+    let name = name.trim();
+    let has_month = [
+        "january",
+        "february",
+        "march",
+        "april",
+        "may",
+        "june",
+        "july",
+        "august",
+        "september",
+        "october",
+        "november",
+        "december",
+    ]
+    .iter()
+    .any(|month| name.contains(month));
+    has_month && name.split_whitespace().any(|part| {
+        part.len() == 4
+            && part
+                .chars()
+                .all(|ch| ch.is_ascii_digit())
+    })
 }
 
 fn browser_name_looks_like_reusable_navigation_control(name: &str) -> bool {
@@ -698,6 +730,12 @@ pub(super) fn compact_priority_target_score(summary: &str) -> Option<u8> {
             .any(|hint| summary.to_ascii_lowercase().contains(hint))
     {
         score = score.saturating_add(6);
+    }
+    if priority_target_name(summary)
+        .as_deref()
+        .is_some_and(browser_name_looks_like_calendar_header)
+    {
+        score = score.saturating_add(16);
     }
     if matches!(
         tag_name,

@@ -719,7 +719,10 @@ fn rendered_briefing_contract_facts(
     let required_identifier_labels =
         infer_briefing_required_identifier_labels(query_contract, &successful_read_observations);
     let observed_identifier_labels =
-        observed_briefing_standard_identifier_labels(query_contract, &full_surface);
+        observed_briefing_standard_identifier_labels_with_compressed_fips(
+            query_contract,
+            &full_surface,
+        );
     let standard_identifier_count = observed_identifier_labels.len();
     let required_standard_identifier_count = observed_identifier_labels
         .iter()
@@ -822,7 +825,10 @@ fn rendered_briefing_contract_facts(
         if matches!(kind, ReportSectionKind::Summary) {
             let inventory_surface = rendered_summary_inventory_surface(blocks);
             let inventory_identifiers =
-                observed_briefing_standard_identifier_labels(query_contract, &inventory_surface);
+                observed_briefing_standard_identifier_labels_with_compressed_fips(
+                    query_contract,
+                    &inventory_surface,
+                );
             summary_inventory_identifier_count = inventory_identifiers.len();
             summary_inventory_required_identifier_count = inventory_identifiers
                 .iter()

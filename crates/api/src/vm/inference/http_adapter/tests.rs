@@ -15,10 +15,18 @@ use reqwest::Client;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 use tokio::sync::oneshot;
+
+fn ollama_context_env_lock() -> std::sync::MutexGuard<'static, ()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(()))
+        .lock()
+        .expect("ollama context env lock")
+}
 
 #[test]
 fn openai_stream_accumulator_returns_complete_tool_call_before_done() {
@@ -191,6 +199,7 @@ fn openai_tool_requests_skip_redundant_json_object_mode() {
 
 #[test]
 fn local_openai_requests_include_ollama_num_ctx_when_configured() {
+    let _guard = ollama_context_env_lock();
     std::env::set_var("OLLAMA_CONTEXT_LENGTH", "2048");
     let request = OpenAiStrategy
         .build_request(
@@ -249,7 +258,7 @@ fn openai_requests_include_stop_sequences_when_configured() {
 }
 
 #[test]
-fn ollama_native_request_options_omit_html_document_stop_sequences() {
+fn ollama_native_request_options_forward_html_document_stop_sequences() {
     let options = ollama_native_request_options_for_request(
         "http://127.0.0.1:11434/v1/chat/completions",
         &InferenceOptions {
@@ -261,7 +270,7 @@ fn ollama_native_request_options_omit_html_document_stop_sequences() {
     .expect("native request options");
 
     assert_eq!(options["num_predict"], 128);
-    assert!(options.get("stop").is_none());
+    assert_eq!(options["stop"], json!(["</html>", "</svg>"]));
 }
 
 #[test]
@@ -433,7 +442,7 @@ fn openai_streaming_requests_still_serialize_stream_true() {
 }
 
 #[tokio::test]
-async fn openai_parse_response_does_not_wait_for_chunked_body_termination() {
+async fn openai_parse_response_does_not_wait_for_chunked_connection_close() {
     let listener = TcpListener::bind("127.0.0.1:0")
         .await
         .expect("bind local listener");
@@ -466,26 +475,33 @@ async fn openai_parse_response_does_not_wait_for_chunked_body_termination() {
             .write_all(response_chunk.as_bytes())
             .await
             .expect("write chunk");
+        socket
+            .write_all(b"0\r\n\r\n")
+            .await
+            .expect("write chunk terminator");
         tokio::time::sleep(Duration::from_secs(5)).await;
     });
 
     let runtime = HttpInferenceRuntime::new(
         format!("http://{address}/v1/chat/completions"),
         String::new(),
-        "qwen2.5:7b".to_string(),
+        "local-openai-test".to_string(),
     );
     let result = tokio::time::timeout(
         Duration::from_secs(2),
         runtime.execute_inference(
             [0u8; 32],
             br#"[{"role":"user","content":"Say ok"}]"#,
-            InferenceOptions::default(),
+            InferenceOptions {
+                json_mode: true,
+                ..Default::default()
+            },
         ),
     )
     .await;
 
     let output = result
-        .expect("non-stream parse should not wait for terminal chunk")
+        .expect("non-stream parse should not wait for connection close")
         .expect("inference result");
     assert_eq!(String::from_utf8(output).unwrap(), "{\"ok\":true}");
 }
@@ -746,6 +762,7 @@ fn remote_openai_tool_requests_can_still_stream_without_token_sink() {
 
 #[tokio::test]
 async fn local_runtime_load_model_uses_tiny_chat_warmup_request() {
+    let _guard = ollama_context_env_lock();
     let listener = TcpListener::bind("127.0.0.1:0")
         .await
         .expect("bind local listener");

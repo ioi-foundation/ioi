@@ -1,6 +1,9 @@
 // Path: crates/services/src/agentic/runtime/utils.rs
 
-use crate::agentic::runtime::keys::{get_parent_playbook_run_key, get_state_key, TRACE_PREFIX};
+use crate::agentic::runtime::keys::{
+    get_parent_playbook_run_key, get_runtime_substrate_key, get_state_key, TRACE_PREFIX,
+};
+use crate::agentic::runtime::substrate::runtime_substrate_snapshot_for_state;
 use crate::agentic::runtime::types::{AgentState, AgentStatus, ParentPlaybookRun};
 use ioi_api::state::StateAccess;
 use ioi_memory::MemoryRuntime;
@@ -15,6 +18,7 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub const AGENT_STATE_CHECKPOINT_NAME: &str = "desktop.agent_state.v1";
+pub const AGENT_RUNTIME_SUBSTRATE_CHECKPOINT_NAME: &str = "desktop.agent_runtime_substrate.v1";
 
 pub fn timestamp_ms_now() -> u64 {
     SystemTime::now()
@@ -63,12 +67,35 @@ pub fn persist_agent_state(
     let bytes = codec::to_bytes_canonical(agent_state)?;
     state.insert(key, &bytes)?;
 
+    let snapshot =
+        runtime_substrate_snapshot_for_state(agent_state, ioi_types::app::RuntimeSurface::Api);
+    let snapshot_bytes = serde_json::to_vec(&snapshot).map_err(|error| {
+        TransactionError::Invalid(format!(
+            "Failed to encode runtime substrate snapshot: {}",
+            error
+        ))
+    })?;
+    let snapshot_key = get_runtime_substrate_key(&agent_state.session_id, agent_state.step_count);
+    state.insert(&snapshot_key, &snapshot_bytes)?;
+
     if let Some(memory_runtime) = memory_runtime {
         memory_runtime
             .upsert_checkpoint_blob(agent_state.session_id, AGENT_STATE_CHECKPOINT_NAME, &bytes)
             .map_err(|error| {
                 TransactionError::Invalid(format!(
                     "Failed to persist agent-state checkpoint: {}",
+                    error
+                ))
+            })?;
+        memory_runtime
+            .upsert_checkpoint_blob(
+                agent_state.session_id,
+                AGENT_RUNTIME_SUBSTRATE_CHECKPOINT_NAME,
+                &snapshot_bytes,
+            )
+            .map_err(|error| {
+                TransactionError::Invalid(format!(
+                    "Failed to persist runtime substrate checkpoint: {}",
                     error
                 ))
             })?;
@@ -90,6 +117,14 @@ pub fn delete_agent_state_checkpoint(
         .map_err(|error| {
             TransactionError::Invalid(format!(
                 "Failed to delete agent-state checkpoint: {}",
+                error
+            ))
+        })?;
+    memory_runtime
+        .delete_checkpoint_blob(session_id, AGENT_RUNTIME_SUBSTRATE_CHECKPOINT_NAME)
+        .map_err(|error| {
+            TransactionError::Invalid(format!(
+                "Failed to delete runtime substrate checkpoint: {}",
                 error
             ))
         })?;

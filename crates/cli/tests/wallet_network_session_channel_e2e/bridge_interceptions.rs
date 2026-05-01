@@ -56,7 +56,7 @@ async fn wallet_network_bridge_records_firewall_interceptions_from_ingestion() -
         let (mut orch_logs, mut workload_logs, _) = node.subscribe_logs();
         let mut recent_logs = Vec::new();
         let rpc_addr = &node.rpc_addr;
-        let keypair = &node.keypair;
+        let client_keypair = Keypair::generate_ed25519();
         let chain_id: ChainId = 1.into();
         let nonce = 0u64;
 
@@ -71,7 +71,7 @@ async fn wallet_network_bridge_records_firewall_interceptions_from_ingestion() -
             mode: AgentMode::Agent,
         };
         let tx = create_call_service_tx(
-            keypair,
+            &client_keypair,
             "desktop_agent",
             "start@v1",
             start_params,

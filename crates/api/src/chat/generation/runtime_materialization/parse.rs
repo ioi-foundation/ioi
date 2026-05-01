@@ -194,6 +194,16 @@ fn validate_direct_author_raw_document_payload(
             {
                 return Err(failure.to_string());
             }
+            if lower.contains("chart-shell\"></div>")
+                || lower.contains("chart-shell'></div>")
+                || lower.contains("chart-shell\"></canvas>")
+                || lower.contains("chart-shell'></canvas>")
+            {
+                return Err(
+                    "HTML chart containers are empty placeholder shells on first paint."
+                        .to_string(),
+                );
+            }
         }
         ChatRendererKind::Svg => {
             if primary_file.mime != "image/svg+xml" || !primary_file.path.ends_with(".svg") {

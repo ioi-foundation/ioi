@@ -1113,7 +1113,7 @@ fn document_briefing_required_identifier_labels_for_source(
     required_labels: &BTreeSet<String>,
 ) -> BTreeSet<String> {
     let surface = document_briefing_identifier_surface_for_source(source, candidates);
-    observed_briefing_standard_identifier_labels(query, &surface)
+    observed_briefing_standard_identifier_labels_with_compressed_fips(query, &surface)
         .into_iter()
         .filter(|label| required_labels.contains(label))
         .collect()
@@ -1923,7 +1923,7 @@ fn document_briefing_candidate_required_identifier_labels(
     if !candidate.from_successful_read {
         return BTreeSet::new();
     }
-    observed_briefing_standard_identifier_labels(
+    observed_briefing_standard_identifier_labels_with_compressed_fips(
         query,
         &format!(
             "{} {} {}",

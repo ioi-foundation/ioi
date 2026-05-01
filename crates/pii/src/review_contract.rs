@@ -171,11 +171,11 @@ pub fn validate_resume_review_contract_for_grant(
     if now_ms > request.deadline_ms {
         return Err(PiiReviewContractError::ReviewApprovalDeadlineExceeded);
     }
-    if approval_grant.review_request_hash != Some(request.decision_hash) {
-        return Err(PiiReviewContractError::ReviewRequestHashMismatch);
-    }
     if approval_grant.pii_action.is_none() {
         return Err(PiiReviewContractError::MissingPiiActionForReview);
+    }
+    if approval_grant.review_request_hash != Some(request.decision_hash) {
+        return Err(PiiReviewContractError::ReviewRequestHashMismatch);
     }
 
     Ok(ResumeReviewMode::ReviewBound)

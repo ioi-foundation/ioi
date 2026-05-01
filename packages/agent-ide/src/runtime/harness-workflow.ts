@@ -128,6 +128,62 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] = 
     icon: "list-checks",
   }),
   makeComponent({
+    kind: "task_state",
+    label: "Task state",
+    description: "Projects the current objective, known facts, uncertainty, blockers, stale facts, and evidence references.",
+    kernelRef: "crates/services/src/agentic/runtime/substrate.rs",
+    capabilityScope: ["session.state.read", "evidence.read"],
+    eventKinds: ["AgentRuntimeEvent", "TaskStateModel"],
+    evidence: ["task_state_id", "evidence_refs", "stale_fact_refs"],
+    group: "Cognition",
+    icon: "map",
+  }),
+  makeComponent({
+    kind: "uncertainty_gate",
+    label: "Uncertainty gate",
+    description: "Chooses whether to ask, retrieve, probe, dry-run, execute, verify, escalate, or stop.",
+    kernelRef: "crates/services/src/agentic/runtime/substrate.rs",
+    capabilityScope: ["reasoning.route", "session.state.read"],
+    eventKinds: ["UncertaintyAssessment", "RuntimeStrategyDecision"],
+    evidence: ["ambiguity_level", "value_of_information", "selected_action"],
+    group: "Cognition",
+    icon: "circle-help",
+  }),
+  makeComponent({
+    kind: "probe_runner",
+    label: "Probe runner",
+    description: "Runs the cheapest bounded validation action for a stated hypothesis.",
+    kernelRef: "crates/services/src/agentic/runtime/service/step/action/probe.rs",
+    capabilityScope: ["probe.run", "verification.read"],
+    eventKinds: ["ProbeStarted", "ProbeCompleted"],
+    evidence: ["hypothesis", "expected_observation", "probe_result"],
+    group: "Cognition",
+    icon: "radar",
+    maxAttempts: 2,
+  }),
+  makeComponent({
+    kind: "budget_gate",
+    label: "Cognitive budget",
+    description: "Bounds reasoning tokens, tool calls, retries, verification spend, and wall time.",
+    kernelRef: "crates/services/src/agentic/runtime/substrate.rs",
+    capabilityScope: ["budget.evaluate", "session.state.read"],
+    eventKinds: ["CognitiveBudget", "RuntimeStrategyDecision"],
+    evidence: ["remaining_tokens", "remaining_tool_calls", "stop_threshold"],
+    group: "Cognition",
+    icon: "gauge",
+  }),
+  makeComponent({
+    kind: "capability_sequencer",
+    label: "Capability sequencer",
+    description: "Separates capability discovery, selection, sequencing, and retirement decisions.",
+    kernelRef: "crates/services/src/agentic/runtime/substrate.rs",
+    capabilityScope: ["capability.read", "tool.route"],
+    eventKinds: ["CapabilitySequence", "RoutingReceipt"],
+    evidence: ["discovered_capabilities", "selected_sequence", "retired_capabilities"],
+    group: "Routing",
+    icon: "waypoints",
+  }),
+  makeComponent({
     kind: "model_router",
     label: "Model router",
     description: "Selects a model binding under workflow-level model policy.",
@@ -174,6 +230,18 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] = 
     group: "Execution",
     icon: "wrench",
     timeoutMs: 60000,
+    maxAttempts: 2,
+  }),
+  makeComponent({
+    kind: "dry_run_simulator",
+    label: "Dry-run simulator",
+    description: "Previews side effects and policy outcomes before file, shell, connector, or commerce actions execute.",
+    kernelRef: "crates/services/src/agentic/runtime/substrate.rs",
+    capabilityScope: ["dry_run.preview", "policy.evaluate"],
+    eventKinds: ["DryRunPreview", "PolicyPreview"],
+    evidence: ["side_effect_preview", "policy_preview", "preview_artifact"],
+    group: "Governance",
+    icon: "scan-search",
     maxAttempts: 2,
   }),
   makeComponent({
@@ -287,6 +355,73 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] = 
     icon: "check-circle",
   }),
   makeComponent({
+    kind: "semantic_impact_analyzer",
+    label: "Semantic impact",
+    description: "Classifies changed symbols, APIs, schemas, policies, call sites, tests, docs, and migration implications.",
+    kernelRef: "crates/services/src/agentic/runtime/substrate.rs",
+    capabilityScope: ["impact.analyze", "evidence.read"],
+    eventKinds: ["SemanticImpactAnalysis"],
+    evidence: ["changed_symbols", "affected_tests", "risk_class"],
+    group: "Verification",
+    icon: "git-branch-plus",
+  }),
+  makeComponent({
+    kind: "postcondition_synthesizer",
+    label: "Postcondition synthesizer",
+    description: "Derives success criteria, required receipts, and minimum verification evidence from the objective.",
+    kernelRef: "crates/services/src/agentic/runtime/substrate.rs",
+    capabilityScope: ["verification.plan", "evidence.read"],
+    eventKinds: ["PostconditionSynthesis"],
+    evidence: ["postcondition_checks", "minimum_evidence", "unknowns"],
+    group: "Verification",
+    icon: "list-checks",
+  }),
+  makeComponent({
+    kind: "drift_detector",
+    label: "Drift detector",
+    description: "Detects plan, file, branch, connector, requirement, policy, model, and projection drift.",
+    kernelRef: "crates/services/src/agentic/runtime/substrate.rs",
+    capabilityScope: ["drift.detect", "session.state.read"],
+    eventKinds: ["DriftSignal"],
+    evidence: ["drift_flags", "drift_evidence_refs"],
+    group: "Verification",
+    icon: "activity",
+  }),
+  makeComponent({
+    kind: "quality_ledger",
+    label: "Quality ledger",
+    description: "Records strategy, tool sequence, costs, failures, stop reason, scorecards, and promotion decisions.",
+    kernelRef: "crates/services/src/agentic/runtime/substrate.rs",
+    capabilityScope: ["quality.write", "scorecard.read"],
+    eventKinds: ["AgentQualityLedger", "BenchmarkScorecard"],
+    evidence: ["quality_ledger_id", "scorecard_metrics", "stop_condition"],
+    group: "Verification",
+    icon: "badge-check",
+  }),
+  makeComponent({
+    kind: "handoff_bridge",
+    label: "Handoff bridge",
+    description: "Preserves objective, current state, blockers, evidence refs, and receiving-agent outcome across delegation.",
+    kernelRef: "crates/services/src/agentic/runtime/service/lifecycle/worker_results",
+    capabilityScope: ["handoff.write", "delegation.merge"],
+    eventKinds: ["HandoffQuality", "WorkerResultMerged"],
+    evidence: ["objective_preserved", "blockers_included", "receiver_succeeded"],
+    group: "Delegation",
+    icon: "split",
+  }),
+  makeComponent({
+    kind: "gui_harness_validator",
+    label: "GUI harness validator",
+    description: "Validates retained Autopilot chat queries, screenshots, transcripts, traces, receipts, source chips, scorecards, and clean chat UX.",
+    kernelRef: "scripts/run-autopilot-gui-harness-validation.mjs",
+    capabilityScope: ["gui.validate", "harness.validate"],
+    eventKinds: ["AutopilotGuiHarnessValidation", "CleanChatUxValidation"],
+    evidence: ["screenshots", "transcripts", "trace_refs", "quality_ledger"],
+    group: "Validation",
+    icon: "monitor-check",
+    timeoutMs: 600000,
+  }),
+  makeComponent({
     kind: "output_writer",
     label: "Output writer",
     description: "Materializes final user-visible output under output policy.",
@@ -385,12 +520,58 @@ const REQUIRED_HARNESS_SLOTS: WorkflowHarnessSlotSpec[] = [
     },
   },
   {
+    slotId: "slot.state-policy",
+    kind: "state_policy",
+    label: "State policy",
+    description: "Task state, drift, memory, and projection-state access rules.",
+    required: true,
+    allowedComponentKinds: ["task_state", "drift_detector", "memory_read", "memory_write"],
+    defaultComponentId: componentId("task_state"),
+    validation: {
+      blocksActivation: true,
+      reason: "Activated harnesses must project task/world state through the shared substrate.",
+    },
+  },
+  {
+    slotId: "slot.budget-policy",
+    kind: "budget_policy",
+    label: "Budget policy",
+    description: "Cognitive budget, escalation threshold, stop threshold, and retry bounds.",
+    required: true,
+    allowedComponentKinds: ["budget_gate", "model_router", "retry_policy"],
+    defaultComponentId: componentId("budget_gate"),
+    validation: {
+      blocksActivation: true,
+      reason: "Autonomous harnesses must expose their cognitive budget before activation.",
+    },
+  },
+  {
+    slotId: "slot.dry-run-policy",
+    kind: "dry_run_policy",
+    label: "Dry-run policy",
+    description: "Preview rules for file, shell, connector, commerce, and policy side effects.",
+    required: true,
+    allowedComponentKinds: ["dry_run_simulator", "policy_gate", "tool_call", "connector_call"],
+    defaultComponentId: componentId("dry_run_simulator"),
+    validation: {
+      blocksActivation: true,
+      reason: "Effectful harness paths need a dry-run or preview policy.",
+    },
+  },
+  {
     slotId: "slot.verifier",
     kind: "verifier_policy",
     label: "Verifier policy",
     description: "Schema, receipt, and completion verification policy.",
     required: true,
-    allowedComponentKinds: ["verifier", "merge_judge", "completion_gate"],
+    allowedComponentKinds: [
+      "verifier",
+      "semantic_impact_analyzer",
+      "postcondition_synthesizer",
+      "merge_judge",
+      "completion_gate",
+      "gui_harness_validator",
+    ],
     defaultComponentId: componentId("verifier"),
     validation: {
       blocksActivation: true,
@@ -437,6 +618,32 @@ const REQUIRED_HARNESS_SLOTS: WorkflowHarnessSlotSpec[] = [
     },
   },
   {
+    slotId: "slot.quality-ledger",
+    kind: "quality_ledger_policy",
+    label: "Quality ledger policy",
+    description: "Scorecard, ledger writeback, stop reason, and bounded self-improvement evidence.",
+    required: true,
+    allowedComponentKinds: ["quality_ledger", "verifier", "completion_gate"],
+    defaultComponentId: componentId("quality_ledger"),
+    validation: {
+      blocksActivation: true,
+      reason: "Harness runs must emit quality ledger evidence before activation.",
+    },
+  },
+  {
+    slotId: "slot.handoff-policy",
+    kind: "handoff_policy",
+    label: "Handoff policy",
+    description: "Delegation handoff, worker merge, blocker preservation, and receiver outcome quality.",
+    required: true,
+    allowedComponentKinds: ["handoff_bridge", "merge_judge", "receipt_writer"],
+    defaultComponentId: componentId("handoff_bridge"),
+    validation: {
+      blocksActivation: true,
+      reason: "Delegation-capable harnesses must preserve handoff quality evidence.",
+    },
+  },
+  {
     slotId: "slot.retry-repair",
     kind: "retry_repair_policy",
     label: "Retry and repair policy",
@@ -455,9 +662,14 @@ export const DEFAULT_AGENT_HARNESS_SLOTS = REQUIRED_HARNESS_SLOTS;
 
 const HARNESS_FLOW: WorkflowHarnessComponentKind[] = [
   "planner",
+  "task_state",
+  "uncertainty_gate",
+  "budget_gate",
+  "capability_sequencer",
   "model_router",
   "model_call",
   "tool_router",
+  "dry_run_simulator",
   "policy_gate",
   "approval_gate",
   "wallet_capability",
@@ -465,22 +677,35 @@ const HARNESS_FLOW: WorkflowHarnessComponentKind[] = [
   "mcp_tool_call",
   "tool_call",
   "connector_call",
+  "probe_runner",
   "memory_read",
   "memory_write",
+  "semantic_impact_analyzer",
+  "postcondition_synthesizer",
   "verifier",
+  "drift_detector",
   "retry_policy",
   "repair_loop",
   "merge_judge",
+  "quality_ledger",
+  "handoff_bridge",
+  "gui_harness_validator",
   "completion_gate",
   "receipt_writer",
   "output_writer",
 ];
 
 const SLOT_BY_KIND: Partial<Record<WorkflowHarnessComponentKind, WorkflowHarnessSlotKind[]>> = {
+  task_state: ["state_policy"],
+  uncertainty_gate: ["state_policy", "budget_policy"],
+  probe_runner: ["verifier_policy", "budget_policy"],
+  budget_gate: ["budget_policy"],
+  capability_sequencer: ["tool_grant_policy"],
   model_router: ["model_policy"],
   model_call: ["model_policy"],
   tool_router: ["tool_grant_policy"],
   tool_call: ["tool_grant_policy"],
+  dry_run_simulator: ["dry_run_policy"],
   mcp_provider: ["tool_grant_policy"],
   mcp_tool_call: ["tool_grant_policy"],
   connector_call: ["tool_grant_policy"],
@@ -489,13 +714,19 @@ const SLOT_BY_KIND: Partial<Record<WorkflowHarnessComponentKind, WorkflowHarness
   wallet_capability: ["approval_policy"],
   memory_read: ["memory_policy"],
   memory_write: ["memory_policy"],
+  semantic_impact_analyzer: ["verifier_policy"],
+  postcondition_synthesizer: ["verifier_policy"],
   verifier: ["verifier_policy"],
+  drift_detector: ["state_policy", "verifier_policy"],
   retry_policy: ["retry_repair_policy"],
   repair_loop: ["retry_repair_policy"],
   merge_judge: ["retry_repair_policy", "verifier_policy"],
+  quality_ledger: ["quality_ledger_policy"],
+  handoff_bridge: ["handoff_policy"],
+  gui_harness_validator: ["verifier_policy", "quality_ledger_policy"],
   output_writer: ["output_policy"],
   receipt_writer: ["output_policy"],
-  completion_gate: ["verifier_policy"],
+  completion_gate: ["verifier_policy", "quality_ledger_policy"],
 };
 
 function componentFor(kind: WorkflowHarnessComponentKind): WorkflowHarnessComponentSpec {
@@ -525,13 +756,30 @@ function runtimeBindingFor(component: WorkflowHarnessComponentSpec): WorkflowHar
       deterministicEnvelope: true,
       capturesInput: true,
       capturesOutput: true,
-      capturesPolicyDecision: ["policy_gate", "approval_gate", "wallet_capability"].includes(component.kind),
+      capturesPolicyDecision: [
+        "uncertainty_gate",
+        "budget_gate",
+        "dry_run_simulator",
+        "policy_gate",
+        "approval_gate",
+        "wallet_capability",
+      ].includes(component.kind),
     },
   };
 }
 
 function nodeTypeFor(kind: WorkflowHarnessComponentKind): WorkflowNode["type"] {
   switch (kind) {
+    case "task_state":
+      return "task_state";
+    case "uncertainty_gate":
+      return "uncertainty_gate";
+    case "probe_runner":
+      return "probe";
+    case "budget_gate":
+      return "budget_gate";
+    case "capability_sequencer":
+      return "capability_sequence";
     case "model_call":
       return "model_call";
     case "tool_call":
@@ -546,6 +794,20 @@ function nodeTypeFor(kind: WorkflowHarnessComponentKind): WorkflowNode["type"] {
     case "memory_read":
     case "memory_write":
       return "state";
+    case "dry_run_simulator":
+      return "dry_run";
+    case "semantic_impact_analyzer":
+      return "semantic_impact";
+    case "postcondition_synthesizer":
+      return "postcondition_synthesis";
+    case "drift_detector":
+      return "drift_detector";
+    case "quality_ledger":
+      return "quality_ledger";
+    case "handoff_bridge":
+      return "handoff";
+    case "gui_harness_validator":
+      return "gui_harness_validation";
     case "tool_router":
     case "model_router":
     case "policy_gate":

@@ -46,10 +46,10 @@ fn web_pipeline_required_citations_per_story_honors_for_each_clause() {
 }
 
 #[test]
-fn web_pipeline_required_citations_per_story_defaults_to_two_for_generic_headlines() {
+fn web_pipeline_required_citations_per_story_defaults_to_one_for_generic_headlines() {
     assert_eq!(
         required_citations_per_story("Tell me today's top news headlines."),
-        2
+        1
     );
 }
 

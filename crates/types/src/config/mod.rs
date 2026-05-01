@@ -965,6 +965,8 @@ pub fn default_service_policies() -> BTreeMap<String, ServicePolicy> {
         "grant_secret_injection@v1",
         "record_interception@v1",
         "record_approval@v1",
+        "register_approval_authority@v1",
+        "revoke_approval_authority@v1",
         "consume_approval_grant@v1",
         "panic_stop@v1",
     ] {

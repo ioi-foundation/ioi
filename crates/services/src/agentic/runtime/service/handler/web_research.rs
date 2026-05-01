@@ -549,13 +549,17 @@ pub(crate) fn normalize_web_research_tool_call(
             }
         }
         AgentTool::MemorySearch { query } => {
+            let used_fallback_query = query.trim().is_empty();
             let raw_query = if query.trim().is_empty() {
                 fallback_query.trim().to_string()
             } else {
                 query.trim().to_string()
             };
-            let normalized_query =
-                normalized_web_search_query(fallback_query, &raw_query).unwrap_or(raw_query);
+            let normalized_query = if used_fallback_query {
+                raw_query.clone()
+            } else {
+                normalized_web_search_query(fallback_query, &raw_query).unwrap_or(raw_query)
+            };
             if normalized_query.is_empty() {
                 return;
             }

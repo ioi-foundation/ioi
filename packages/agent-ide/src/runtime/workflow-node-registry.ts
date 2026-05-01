@@ -1727,7 +1727,7 @@ export function makeWorkflowNode(
       kind: type,
       logic: logic ? clone(logic) : workflowNodeDefaultLogic(type),
       law: law ? clone(law) : workflowNodeDefaultLaw(type),
-    },
+    } as WorkflowNode["config"],
   };
 }
 

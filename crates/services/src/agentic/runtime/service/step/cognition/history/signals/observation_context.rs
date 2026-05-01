@@ -68,7 +68,7 @@ pub(super) fn browser_effect_pending_signal(
     if compact.contains("\"key\":{")
         && (compact.contains("\"tag_name\":\"body\"") || compact.contains("\"tag_name\":\"html\""))
     {
-        return Some("A recent browser key landed on the page itself, not on a specific control. If you intended a textarea, listbox, or nested scroll region, target that control directly with `browser__press_key` `selector` when it is already grounded; otherwise focus it first or continue with the next required visible control. Do not repeat the same key blindly.".to_string());
+        return Some("A recent browser key landed on the page itself, not on a specific control. If you intended a textarea, listbox, or nested scroll region, target that control directly with `browser__press_key` `selector` when it is already grounded; focus that control first with `browser__click`; otherwise continue with the next required visible control. Do not repeat the same key blindly.".to_string());
     }
 
     if compact.contains("\"key\":{")

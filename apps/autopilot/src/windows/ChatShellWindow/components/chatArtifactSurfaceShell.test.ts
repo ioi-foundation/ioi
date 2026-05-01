@@ -151,4 +151,29 @@ assert.match(
   "the non-artifact drawer should present as a Thoughts drawer",
 );
 
+assert.match(
+  thoughtsDrawerSource,
+  /chat-thoughts-groups/,
+  "the Thoughts drawer should group process evidence instead of rendering a raw activity feed",
+);
+
+for (const heading of [
+  "Thinking about your request",
+  "Research and tools",
+  "What I learned",
+  "Verification",
+]) {
+  assert.match(
+    thoughtsDrawerSource,
+    new RegExp(heading),
+    `the Thoughts drawer should include the ${heading} group`,
+  );
+}
+
+assert.doesNotMatch(
+  thoughtsDrawerSource,
+  /chat-thoughts-source-pill|Sources<\/span>|Used this turn/,
+  "the Thoughts drawer should not render source pills as its default process summary",
+);
+
 console.log("studioArtifactSurfaceShell.test.ts: ok");

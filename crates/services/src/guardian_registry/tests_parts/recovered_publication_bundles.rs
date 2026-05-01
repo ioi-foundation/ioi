@@ -68,11 +68,7 @@ fn publishing_recovered_publication_bundle_round_trips_after_three_public_reveal
     let (_, expected_bundle) =
         recover_canonical_order_publication_bundle_from_share_materials(&materials)
             .expect("reconstruct recovered publication bundle");
-    let expected_close = build_canonical_bulletin_close(
-        &expected_bundle.bulletin_commitment,
-        &expected_bundle.bulletin_availability_certificate,
-    )
-    .expect("canonical bulletin close");
+    let expected_close = verified_canonical_bulletin_close_for_bundle(&expected_bundle);
     let mut expected_surface = expected_bundle.bulletin_entries.clone();
     expected_surface.sort_unstable_by(|left, right| left.tx_hash.cmp(&right.tx_hash));
 
@@ -176,11 +172,7 @@ fn publishing_recovered_publication_bundle_round_trips_after_three_of_seven_publ
     let (_, expected_bundle) =
         recover_canonical_order_publication_bundle_from_share_materials(&materials)
             .expect("reconstruct recovered publication bundle");
-    let expected_close = build_canonical_bulletin_close(
-        &expected_bundle.bulletin_commitment,
-        &expected_bundle.bulletin_availability_certificate,
-    )
-    .expect("canonical bulletin close");
+    let expected_close = verified_canonical_bulletin_close_for_bundle(&expected_bundle);
     let mut expected_surface = expected_bundle.bulletin_entries.clone();
     expected_surface.sort_unstable_by(|left, right| left.tx_hash.cmp(&right.tx_hash));
 
@@ -275,11 +267,7 @@ fn publishing_recovered_publication_bundle_round_trips_after_four_public_reveals
     let (_, expected_bundle) =
         recover_canonical_order_publication_bundle_from_share_materials(&materials)
             .expect("reconstruct recovered publication bundle");
-    let expected_close = build_canonical_bulletin_close(
-        &expected_bundle.bulletin_commitment,
-        &expected_bundle.bulletin_availability_certificate,
-    )
-    .expect("canonical bulletin close");
+    let expected_close = verified_canonical_bulletin_close_for_bundle(&expected_bundle);
     let mut expected_surface = expected_bundle.bulletin_entries.clone();
     expected_surface.sort_unstable_by(|left, right| left.tx_hash.cmp(&right.tx_hash));
 
@@ -374,11 +362,7 @@ fn publishing_recovered_publication_bundle_round_trips_after_four_of_seven_publi
     let (_, expected_bundle) =
         recover_canonical_order_publication_bundle_from_share_materials(&materials)
             .expect("reconstruct recovered publication bundle");
-    let expected_close = build_canonical_bulletin_close(
-        &expected_bundle.bulletin_commitment,
-        &expected_bundle.bulletin_availability_certificate,
-    )
-    .expect("canonical bulletin close");
+    let expected_close = verified_canonical_bulletin_close_for_bundle(&expected_bundle);
     let mut expected_surface = expected_bundle.bulletin_entries.clone();
     expected_surface.sort_unstable_by(|left, right| left.tx_hash.cmp(&right.tx_hash));
 
@@ -465,11 +449,7 @@ fn publishing_recovered_publication_bundle_with_omission_proof_materializes_abor
     let (_, expected_bundle) =
         recover_canonical_order_publication_bundle_from_share_materials(&materials)
             .expect("reconstruct recovered publication bundle");
-    let expected_close = build_canonical_bulletin_close(
-        &expected_bundle.bulletin_commitment,
-        &expected_bundle.bulletin_availability_certificate,
-    )
-    .expect("canonical bulletin close");
+    let expected_close = verified_canonical_bulletin_close_for_bundle(&expected_bundle);
     let omission = expected_bundle
         .canonical_order_certificate
         .omission_proofs
@@ -1376,4 +1356,3 @@ fn recovery_threshold_status_excludes_conflicting_same_witness_receipts_from_sup
         RecoveryThresholdStatus::Impossible
     );
 }
-

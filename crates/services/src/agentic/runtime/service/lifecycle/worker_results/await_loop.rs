@@ -1,4 +1,6 @@
 use super::*;
+use crate::agentic::runtime::service::step::action::command_contract::is_completion_contract_error;
+use ioi_types::app::ActionTarget;
 
 pub(crate) fn await_child_burst_step_limit(
     state: &dyn StateAccess,
@@ -231,6 +233,115 @@ pub(crate) async fn maybe_merge_observed_patch_build_verify_completion(
     Ok(Some(merged_output))
 }
 
+fn queued_agent_complete_result(child_state: &AgentState) -> Option<String> {
+    let request = child_state.execution_queue.first()?;
+    match &request.target {
+        ActionTarget::Custom(name) if name.trim() == "agent__complete" => {}
+        _ => return None,
+    }
+    let value = serde_json::from_slice::<serde_json::Value>(&request.params).ok()?;
+    value
+        .get("result")
+        .and_then(|result| result.as_str())
+        .map(str::trim)
+        .filter(|result| !result.is_empty())
+        .map(str::to_string)
+}
+
+fn worker_contract_has_material_handoff(contract: &WorkerCompletionContract) -> bool {
+    !contract.success_criteria.trim().is_empty() && !contract.expected_output.trim().is_empty()
+}
+
+fn assignment_authorizes_completion_tool(assignment: &WorkerAssignment) -> bool {
+    assignment
+        .allowed_tools
+        .iter()
+        .any(|tool_name| tool_name.trim() == "agent__complete")
+}
+
+fn assignment_requires_workspace_edit_evidence(assignment: &WorkerAssignment) -> bool {
+    assignment.allowed_tools.iter().any(|tool_name| {
+        matches!(
+            tool_name.trim(),
+            "file__edit" | "file__replace_line" | "file__write"
+        )
+    })
+}
+
+pub(crate) fn awaited_worker_handoff_completion_allowed(
+    child_state: &AgentState,
+    assignment: &WorkerAssignment,
+) -> bool {
+    if !worker_contract_has_material_handoff(&assignment.completion_contract)
+        || !assignment_authorizes_completion_tool(assignment)
+    {
+        return false;
+    }
+
+    if assignment_requires_workspace_edit_evidence(assignment) {
+        return latest_workspace_edit_step(child_state).is_some()
+            && assignment
+                .completion_contract
+                .verification_hint
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .is_some();
+    }
+
+    true
+}
+
+pub(crate) async fn maybe_merge_queued_worker_handoff_completion(
+    service: &RuntimeAgentService,
+    state: &mut dyn StateAccess,
+    parent_state: &mut AgentState,
+    parent_step_index: u32,
+    block_height: u64,
+    child_session_id_hex: &str,
+    child_state: &mut AgentState,
+) -> Result<Option<String>, String> {
+    let Some(result) = queued_agent_complete_result(child_state) else {
+        return Ok(None);
+    };
+    let Some(assignment) = load_worker_assignment(state, child_state.session_id)? else {
+        return Ok(None);
+    };
+    if !awaited_worker_handoff_completion_allowed(child_state, &assignment) {
+        return Ok(None);
+    }
+
+    child_state.execution_queue.remove(0);
+    child_state.clear_pending_action_state();
+    child_state.step_count = child_state.step_count.saturating_add(1);
+    child_state.status = AgentStatus::Completed(Some(result));
+    let child_key = get_state_key(&child_state.session_id);
+    persist_agent_state(
+        state,
+        &child_key,
+        child_state,
+        service.memory_runtime.as_ref(),
+    )
+    .map_err(|error| {
+        format!(
+            "ERROR_CLASS=UnexpectedState Failed to persist awaited worker handoff completion: {}",
+            error
+        )
+    })?;
+
+    let merged_output = merge_terminal_child_worker_result(
+        service,
+        state,
+        parent_state,
+        parent_step_index,
+        block_height,
+        child_session_id_hex,
+        child_state,
+    )
+    .await?;
+    Ok(Some(merged_output))
+}
+
 pub(crate) async fn await_child_worker_result(
     service: &RuntimeAgentService,
     state: &mut dyn StateAccess,
@@ -264,6 +375,20 @@ pub(crate) async fn await_child_worker_result(
             }
             _ => None,
         };
+        if let Some(merged_output) = maybe_merge_queued_worker_handoff_completion(
+            service,
+            state,
+            parent_state,
+            parent_step_index,
+            block_height,
+            &active_child_session_id_hex,
+            &mut child_state,
+        )
+        .await?
+        {
+            merged_updates.push(merged_output);
+            return Ok(merged_updates.join("\n\n"));
+        }
         if retry_blocked_reason.is_some() {
             if let Some(merged_output) = maybe_merge_observed_patch_build_verify_completion(
                 service,
@@ -294,7 +419,37 @@ pub(crate) async fn await_child_worker_result(
                     .pop()
                     .unwrap_or_else(|| "Running".to_string()));
             }
-            drive_child_session_once(service, state, call_context, active_child_session_id).await?;
+            if let Err(error) =
+                drive_child_session_once(service, state, call_context, active_child_session_id)
+                    .await
+            {
+                if is_completion_contract_error(Some(&error)) {
+                    child_state = load_child_state(
+                        state,
+                        service.memory_runtime.as_ref(),
+                        active_child_session_id,
+                        &active_child_session_id_hex,
+                    )?;
+                    if let Some(merged_output) = maybe_merge_queued_worker_handoff_completion(
+                        service,
+                        state,
+                        parent_state,
+                        parent_step_index,
+                        block_height,
+                        &active_child_session_id_hex,
+                        &mut child_state,
+                    )
+                    .await?
+                    {
+                        merged_updates.push(merged_output);
+                        return Ok(merged_updates.join("\n\n"));
+                    }
+                    return Ok(merged_updates
+                        .pop()
+                        .unwrap_or_else(|| "Running".to_string()));
+                }
+                return Err(error);
+            }
             burst_steps = burst_steps.saturating_add(1);
             child_state = load_child_state(
                 state,

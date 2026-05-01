@@ -20,6 +20,12 @@ type ThoughtRow = {
   kind: "thought" | "tool" | "source" | "verify";
 };
 
+type ThoughtSection = {
+  id: "thinking" | "research" | "learned" | "verification";
+  title: string;
+  rows: ThoughtRow[];
+};
+
 const MAX_EVENT_ROWS = 6;
 const MAX_SOURCE_ROWS = 6;
 const URL_RE = /https?:\/\/[^\s)"'<>]+/gi;
@@ -154,6 +160,17 @@ function rowIcon(kind: ThoughtRow["kind"]) {
   }
 }
 
+function sectionIcon(section: ThoughtSection["id"]) {
+  switch (section) {
+    case "research":
+      return icons.search;
+    case "verification":
+      return icons.check;
+    default:
+      return icons.sparkles;
+  }
+}
+
 export function ThoughtsDrawerSurface({
   task,
   events = [],
@@ -161,7 +178,34 @@ export function ThoughtsDrawerSurface({
   onSeedIntent,
 }: ThoughtsDrawerSurfaceProps) {
   const sourceRows = collectSourceRows(events);
-  const rows = [...taskRows(task), ...collectEventRows(events)];
+  const taskProcessRows = taskRows(task);
+  const eventRows = collectEventRows(events);
+  const candidateSections: ThoughtSection[] = [
+    {
+      id: "thinking",
+      title: "Thinking about your request",
+      rows: taskProcessRows.filter((row) => row.kind === "thought").slice(0, 3),
+    },
+    {
+      id: "research",
+      title: "Research and tools",
+      rows: [
+        ...sourceRows,
+        ...eventRows.filter((row) => row.kind === "tool" || row.kind === "source"),
+      ].slice(0, 6),
+    },
+    {
+      id: "learned",
+      title: "What I learned",
+      rows: eventRows.filter((row) => row.kind === "thought").slice(0, 4),
+    },
+    {
+      id: "verification",
+      title: "Verification",
+      rows: taskProcessRows.filter((row) => row.kind === "verify").slice(0, 5),
+    },
+  ];
+  const sections = candidateSections.filter((section) => section.rows.length > 0);
   const title =
     task?.chat_session?.title?.trim() ||
     task?.intent?.trim() ||
@@ -193,50 +237,37 @@ export function ThoughtsDrawerSurface({
         <div>
           <strong>{compactText(title, 92)}</strong>
           <p>
-            Process, tools, sources, and verification notes for this chat turn.
+            Process summary for this chat turn, grouped for scanning.
           </p>
         </div>
       </div>
 
-      {sourceRows.length > 0 ? (
-        <section className="thoughts-section">
-          <div className="thoughts-agent-header">
-            <span className="thoughts-agent-dot" />
-            <span className="thoughts-agent-name">Sources</span>
-            <span className="thoughts-agent-role">Used this turn</span>
-          </div>
-          <div className="chat-thoughts-source-pills">
-            {sourceRows.map((row) => (
-              <span className="chat-thoughts-source-pill" key={row.id}>
-                <span aria-hidden="true">{icons.globe}</span>
-                {row.body}
-              </span>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      {rows.length > 0 ? (
-        <section className="thoughts-section">
-          <div className="thoughts-agent-header">
-            <span className="thoughts-agent-dot" />
-            <span className="thoughts-agent-name">Autopilot</span>
-            <span className="thoughts-agent-role">Process</span>
-          </div>
-          <div className="chat-thoughts-drawer__rows">
-            {rows.map((row) => (
-              <article className="chat-thoughts-row" key={row.id}>
-                <span className="chat-thoughts-row__icon" aria-hidden="true">
-                  {rowIcon(row.kind)}
+      {sections.length > 0 ? (
+        <div className="chat-thoughts-groups">
+          {sections.map((section) => (
+            <section className="chat-thoughts-group" key={section.id}>
+              <div className="chat-thoughts-group__header">
+                <span className="chat-thoughts-group__icon" aria-hidden="true">
+                  {sectionIcon(section.id)}
                 </span>
-                <div>
-                  <span className="chat-thoughts-row__label">{row.label}</span>
-                  <p>{row.body}</p>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
+                <h3>{section.title}</h3>
+              </div>
+              <div className="chat-thoughts-drawer__rows">
+                {section.rows.map((row) => (
+                  <article className="chat-thoughts-row" key={row.id}>
+                    <span className="chat-thoughts-row__icon" aria-hidden="true">
+                      {rowIcon(row.kind)}
+                    </span>
+                    <div>
+                      <span className="chat-thoughts-row__label">{row.label}</span>
+                      <p>{row.body}</p>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
       ) : (
         <p className="chat-thoughts-drawer__empty">
           No process entries were retained for this turn yet.

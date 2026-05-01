@@ -498,7 +498,7 @@ impl Default for IntentRoutingPolicy {
         Self {
             enabled: true,
             shadow_mode: false,
-            intent_catalog_version: "intent-catalog-v15".to_string(),
+            intent_catalog_version: "intent-matrix-v15".to_string(),
             confidence: IntentConfidenceBandPolicy::default(),
             ambiguity: IntentAmbiguityPolicy::default(),
             score_quantization_bps: default_score_quantization_bps(),

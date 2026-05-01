@@ -1,16 +1,17 @@
 use super::{
-    get_local_sessions, get_local_sessions_with_live_tasks, load_local_engine_control_plane,
-    load_local_engine_control_plane_document, load_session_file_context,
-    persisted_workspace_root_for_session, save_local_engine_control_plane,
-    save_local_engine_control_plane_document, save_local_session_summary, save_local_task_state,
-    save_session_file_context, session_summary_from_task,
-    LOCAL_ENGINE_CONTROL_PLANE_CHECKPOINT_NAME, LOCAL_ENGINE_CONTROL_PLANE_SCHEMA_VERSION,
+    get_local_sessions, get_local_sessions_with_live_tasks, load_artifact_content, load_artifacts,
+    load_events, load_local_engine_control_plane, load_local_engine_control_plane_document,
+    load_session_file_context, persisted_workspace_root_for_session,
+    save_local_engine_control_plane, save_local_engine_control_plane_document,
+    save_local_session_summary, save_local_task_state, save_session_file_context,
+    session_summary_from_task, thread_storage_key, LOCAL_ENGINE_CONTROL_PLANE_CHECKPOINT_NAME,
+    LOCAL_ENGINE_CONTROL_PLANE_SCHEMA_VERSION,
 };
 use crate::kernel::file_context::{
     apply_exclude_file_context_path, apply_include_file_context_path,
 };
 use crate::models::{
-    AgentPhase, AgentTask, BuildArtifactSession, ChatCodeWorkerLease,
+    AgentPhase, AgentTask, BuildArtifactSession, ChatCodeWorkerLease, ChatMessage,
     LocalEngineConfigMigrationRecord, LocalEngineControlPlaneDocument, SessionFileContext,
     SessionSummary,
 };
@@ -224,6 +225,130 @@ fn live_task_summary_appears_even_when_not_retained_in_session_index() {
         summaries[0].workspace_root.as_deref(),
         Some("/tmp/live-workspace")
     );
+
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
+fn save_local_task_state_exports_gui_runtime_evidence_projection() {
+    let dir = temp_runtime_dir();
+    let memory_runtime = Arc::new(open_or_create_memory_runtime(&dir).expect("memory runtime"));
+    let mut task = task_without_workspace_root();
+    task.session_id = Some("session-runtime-evidence".to_string());
+    task.phase = AgentPhase::Complete;
+    task.progress = 2;
+    task.current_step = "Ready for input".to_string();
+    task.history.push(ChatMessage {
+        role: "user".to_string(),
+        text: "Where is Autopilot chat task state defined? Cite the files you used.".to_string(),
+        timestamp: 100,
+    });
+    task.history.push(ChatMessage {
+        role: "agent".to_string(),
+        text: "Autopilot chat task state is defined in the task-state module.".to_string(),
+        timestamp: 200,
+    });
+
+    save_local_task_state(&memory_runtime, &task);
+    save_local_task_state(&memory_runtime, &task);
+
+    let thread_key = thread_storage_key("session-runtime-evidence").expect("thread key");
+    let transcript = memory_runtime
+        .load_transcript_messages(thread_key)
+        .expect("transcript projection");
+    assert_eq!(transcript.len(), 2);
+    assert_eq!(transcript[0].role, "user");
+    assert_eq!(
+        transcript[1].privacy_metadata.redaction_version,
+        "autopilot-runtime-evidence-v1"
+    );
+
+    let artifacts = load_artifacts(&memory_runtime, "session-runtime-evidence");
+    let runtime_artifact = artifacts
+        .iter()
+        .find(|artifact| artifact.title.contains("quality ledger"))
+        .expect("runtime evidence artifact");
+    assert_eq!(
+        runtime_artifact.artifact_type,
+        crate::models::ArtifactType::Report
+    );
+    let content = load_artifact_content(&memory_runtime, &runtime_artifact.artifact_id)
+        .expect("runtime evidence content");
+    let projection: serde_json::Value =
+        serde_json::from_slice(&content).expect("runtime projection json");
+    assert_eq!(
+        projection
+            .get("StopConditionRecord")
+            .and_then(|value| value.get("reason"))
+            .and_then(|value| value.as_str()),
+        Some("objective_satisfied")
+    );
+    assert!(projection.get("AgentQualityLedger").is_some());
+    assert_eq!(
+        projection
+            .get("PromptAssemblyContract")
+            .and_then(|value| value.get("sections"))
+            .and_then(|value| value.as_array())
+            .map(|sections| !sections.is_empty()),
+        Some(true)
+    );
+    assert_eq!(
+        projection
+            .get("PromptAssemblyContract")
+            .and_then(|value| value.get("policyOverridesBlocked"))
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert!(projection.get("TaskStateModel").is_some());
+    assert!(projection.get("AgentTurnState").is_some());
+    assert!(projection.get("AgentDecisionLoop").is_some());
+    assert!(projection.get("SessionTraceBundle").is_some());
+    assert!(projection.get("ModelRoutingDecision").is_some());
+    assert!(projection.get("RuntimeStrategyRouter").is_some());
+    assert!(projection.get("PostconditionSynthesizer").is_some());
+    assert!(projection.get("CapabilityDiscovery").is_some());
+    assert!(projection.get("ToolSelectionQualityModel").is_some());
+    assert!(projection.get("MemoryQualityGate").is_some());
+    assert_eq!(
+        projection
+            .get("SessionTraceBundle")
+            .and_then(|value| value.get("reconstructsFinalState"))
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        projection
+            .get("ModelRoutingDecision")
+            .and_then(|value| value.get("policyAllowsEgress"))
+            .and_then(|value| value.as_bool()),
+        Some(false)
+    );
+    assert_eq!(
+        projection
+            .get("WorkflowEnvelopeAdapter")
+            .and_then(|value| value.get("usesPublicSubstrateContract"))
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        projection
+            .get("HarnessTraceAdapter")
+            .and_then(|value| value.get("importsCompositorUiState"))
+            .and_then(|value| value.as_bool()),
+        Some(false)
+    );
+    assert_eq!(
+        projection
+            .get("OperatorInterruptionContract")
+            .and_then(|value| value.get("preservesObjectiveTaskStateAndAuthority"))
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+
+    let events = load_events(&memory_runtime, "session-runtime-evidence", None, None);
+    assert!(events
+        .iter()
+        .any(|event| event.title == "Runtime trace export"));
 
     let _ = fs::remove_dir_all(dir);
 }

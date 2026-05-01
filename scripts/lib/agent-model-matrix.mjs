@@ -380,9 +380,9 @@ function buildCandidateLedger(normalizedPresets, decision, scorecardSchema) {
             ? decision.missingCoverage.slice(0, 3)
             : [],
       evidenceLinks: [
-        { label: "summary", href: preset.summaryHref },
-        { label: "retained_run", href: preset.runRootHref },
-      ].filter((entry) => entry.href),
+        { label: "summary", path: preset.summaryPath, href: preset.summaryHref },
+        { label: "retained_run", path: preset.runRootPath, href: preset.runRootHref },
+      ].filter((entry) => entry.href || entry.path),
     };
   });
 }
@@ -411,7 +411,7 @@ function normalizeCandidateLedgerEntry(entry, normalizedPresetMap) {
             typeof link?.href === "string" && link.href
               ? link.href
               : toFileHref(pathValue);
-          if (!href) {
+          if (!href && !pathValue) {
             return null;
           }
           return {
@@ -419,6 +419,7 @@ function normalizeCandidateLedgerEntry(entry, normalizedPresetMap) {
               typeof link?.label === "string" && link.label.trim()
                 ? link.label
                 : "evidence",
+            path: pathValue ?? "",
             href,
           };
         })

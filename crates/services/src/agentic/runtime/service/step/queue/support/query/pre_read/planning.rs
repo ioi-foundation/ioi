@@ -111,6 +111,7 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
         temporal_recency_score: usize,
         observed_identifier_label_count: usize,
         optional_identifier_label_count: usize,
+        observed_identifier_labels: BTreeSet<String>,
         required_identifier_labels: BTreeSet<String>,
         query_grounding_signal: bool,
         current_holder_grounded: bool,
@@ -320,6 +321,7 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
                 temporal_recency_score,
                 observed_identifier_label_count: observed_identifier_labels.len(),
                 optional_identifier_label_count,
+                observed_identifier_labels,
                 required_identifier_labels,
                 query_grounding_signal,
                 current_holder_grounded,
@@ -808,19 +810,34 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
                 })
                 .unwrap_or_else(|| trimmed.to_ascii_lowercase());
             let adds_required_identifier_coverage = candidate.is_some_and(|candidate| {
-                candidate.document_authority_score > 0
-                    && candidate
-                        .required_identifier_labels
-                        .iter()
-                        .any(|label| !seen_required_identifier_labels.contains(label))
+                if candidate.document_authority_score == 0 {
+                    return false;
+                }
+                let coverage_labels = if required_briefing_identifier_labels.is_empty()
+                    || candidate.canonical_publication_detail
+                {
+                    &candidate.observed_identifier_labels
+                } else {
+                    &candidate.required_identifier_labels
+                };
+                coverage_labels
+                    .iter()
+                    .any(|label| !seen_required_identifier_labels.contains(label))
             });
             let preserves_same_domain_authority_source = primary_authority_source_required
                 && candidate.is_some_and(|candidate| candidate.document_authority_score > 0);
             if seen_domains.insert(domain_key) || adds_required_identifier_coverage {
                 distinct_domain_urls.push(trimmed.to_string());
                 if let Some(candidate) = candidate {
-                    seen_required_identifier_labels
-                        .extend(candidate.required_identifier_labels.iter().cloned());
+                    if required_briefing_identifier_labels.is_empty()
+                        || candidate.canonical_publication_detail
+                    {
+                        seen_required_identifier_labels
+                            .extend(candidate.observed_identifier_labels.iter().cloned());
+                    } else {
+                        seen_required_identifier_labels
+                            .extend(candidate.required_identifier_labels.iter().cloned());
+                    }
                 }
             } else if preserves_same_domain_authority_source {
                 deferred_same_domain_authority_urls.push(trimmed.to_string());

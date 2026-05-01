@@ -34,13 +34,15 @@ const workflowsView = fs.readFileSync(
   ),
   "utf8",
 );
-const composer = fs.readFileSync(
-  new URL(
-    "../../../../../packages/agent-ide/src/WorkflowComposer.tsx",
-    import.meta.url,
-  ),
-  "utf8",
-);
+const composer = [
+  "../../../../../packages/agent-ide/src/WorkflowComposer.tsx",
+  "../../../../../packages/agent-ide/src/WorkflowComposer/content.tsx",
+  "../../../../../packages/agent-ide/src/WorkflowComposer/support.tsx",
+  "../../../../../packages/agent-ide/src/WorkflowComposer/controller.tsx",
+  "../../../../../packages/agent-ide/src/WorkflowComposer/view.tsx",
+]
+  .map((path) => fs.readFileSync(new URL(path, import.meta.url), "utf8"))
+  .join("\n");
 const workflowBottomShelf = fs.readFileSync(
   new URL(
     "../../../../../packages/agent-ide/src/features/Workflows/WorkflowBottomShelf.tsx",
@@ -76,6 +78,13 @@ const workflowNodeBindingEditor = fs.readFileSync(
   ),
   "utf8",
 );
+const workflowNodeBindingEditorSections = fs.readFileSync(
+  new URL(
+    "../../../../../packages/agent-ide/src/features/Workflows/WorkflowNodeBindingEditor/sections.tsx",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const workflowFunctionBindingEditor = fs.readFileSync(
   new URL(
     "../../../../../packages/agent-ide/src/features/Workflows/WorkflowFunctionBindingEditor.tsx",
@@ -97,14 +106,15 @@ const workflowRailPanel = fs.readFileSync(
   ),
   "utf8",
 );
-const workflowComposerCss = fs.readFileSync(
-  new URL(
-    "../../../../../packages/agent-ide/src/WorkflowComposer.css",
-    import.meta.url,
-  ),
-  "utf8",
-);
-const workflowComposerUi = `${composer}\n${workflowComposerModals}\n${workflowNodeConfigModal}\n${workflowNodeBindingEditor}\n${workflowFunctionBindingEditor}\n${workflowNodeDetailGrid}\n${workflowRailPanel}\n${workflowBottomShelf}`;
+const workflowComposerCss = [
+  "../../../../../packages/agent-ide/src/WorkflowComposer.css",
+  "../../../../../packages/agent-ide/src/WorkflowComposer/styles/composer-shell.css",
+  "../../../../../packages/agent-ide/src/WorkflowComposer/styles/composer-panels.css",
+  "../../../../../packages/agent-ide/src/WorkflowComposer/styles/composer-modals.css",
+]
+  .map((path) => fs.readFileSync(new URL(path, import.meta.url), "utf8"))
+  .join("\n");
+const workflowComposerUi = `${composer}\n${workflowComposerModals}\n${workflowNodeConfigModal}\n${workflowNodeBindingEditor}\n${workflowNodeBindingEditorSections}\n${workflowFunctionBindingEditor}\n${workflowNodeDetailGrid}\n${workflowRailPanel}\n${workflowBottomShelf}`;
 const templates = fs.readFileSync(
   new URL(
     "../../../../../packages/agent-ide/src/workflowTemplates.ts",
@@ -768,12 +778,12 @@ assert.match(
 
 assert.match(
   `${workflowNodeConfigModal}\n${workflowComposerCss}`,
-  /workflow-node-repair-strip[\s\S]*workflow-node-repair-action-\$\{index\}[\s\S]*workflowConfigSectionForNodeIssue[\s\S]*workflow-config-repair-strip/,
+  /(?=[\s\S]*workflowConfigSectionForNodeIssue)(?=[\s\S]*workflow-node-repair-strip[\s\S]*workflow-node-repair-action-\$\{index\}[\s\S]*scrollToConfigSection)(?=[\s\S]*workflow-config-repair-strip)/,
   "Node details should promote repair actions that jump to the exact configuration section for the selected node",
 );
 
 assert.match(
-  workflowNodeBindingEditor,
+  `${workflowNodeBindingEditor}\n${workflowNodeBindingEditorSections}`,
   /workflow-state-reducer[\s\S]*workflow-subgraph-output-mapping[\s\S]*workflow-subgraph-run-controls[\s\S]*workflow-output-asset-kind[\s\S]*workflow-output-delivery-target-ref[\s\S]*workflow-output-delivery-approval[\s\S]*workflow-proposal-summary[\s\S]*workflow-proposal-requires-approval[\s\S]*workflow-connector-operation[\s\S]*workflow-connector-capability-scope[\s\S]*workflow-connector-requires-approval/,
   "Node-specific editors should expose deeper state, subgraph, proposal, connector-write, and output delivery controls",
 );
@@ -1019,7 +1029,7 @@ assert.match(
 );
 
 assert.match(
-  workflowNodeBindingEditor,
+  `${workflowNodeBindingEditor}\n${workflowNodeBindingEditorSections}`,
   /(?=[\s\S]*OUTPUT_FORMAT_OPTIONS)(?=[\s\S]*OUTPUT_RENDERER_OPTIONS)(?=[\s\S]*OUTPUT_DISPLAY_MODE_OPTIONS)(?=[\s\S]*<select[\s\S]*data-testid="workflow-output-format")(?=[\s\S]*<select[\s\S]*data-testid="workflow-output-renderer")(?=[\s\S]*<select[\s\S]*data-testid="workflow-output-display-mode")/,
   "Output node configuration should use typed format, renderer, and display choices instead of free-text runtime ontology fields",
 );
@@ -1044,7 +1054,7 @@ assert.match(
 
 assert.match(
   composer,
-  /from "\.\/runtime\/workflow-defaults"[\s\S]*from "\.\/runtime\/workflow-schema"[\s\S]*from "\.\/runtime\/workflow-validation"/,
+  /from "\.\.\/runtime\/workflow-defaults"[\s\S]*from "\.\.\/runtime\/workflow-schema"[\s\S]*from "\.\.\/runtime\/workflow-validation"/,
   "WorkflowComposer should consume extracted workflow defaults, schema, and validation modules instead of owning those runtime concerns",
 );
 

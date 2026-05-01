@@ -1,25 +1,25 @@
 use super::*;
 
 pub(super) struct CanonicalObserverPublicationArtifacts {
-    transcripts: Vec<AsymptoteObserverTranscript>,
-    challenges: Vec<AsymptoteObserverChallenge>,
-    transcript_commitment: AsymptoteObserverTranscriptCommitment,
-    challenge_commitment: AsymptoteObserverChallengeCommitment,
-    canonical_close: Option<AsymptoteObserverCanonicalClose>,
-    canonical_abort: Option<AsymptoteObserverCanonicalAbort>,
+    pub(super) transcripts: Vec<AsymptoteObserverTranscript>,
+    pub(super) challenges: Vec<AsymptoteObserverChallenge>,
+    pub(super) transcript_commitment: AsymptoteObserverTranscriptCommitment,
+    pub(super) challenge_commitment: AsymptoteObserverChallengeCommitment,
+    pub(super) canonical_close: Option<AsymptoteObserverCanonicalClose>,
+    pub(super) canonical_abort: Option<AsymptoteObserverCanonicalAbort>,
 }
 
 #[derive(Debug, Clone)]
 pub(super) struct CanonicalOrderPublicationArtifacts {
-    bundle: Option<CanonicalOrderPublicationBundle>,
-    publication_frontier: Option<PublicationFrontier>,
-    canonical_abort: Option<CanonicalOrderAbort>,
+    pub(super) bundle: Option<CanonicalOrderPublicationBundle>,
+    pub(super) publication_frontier: Option<PublicationFrontier>,
+    pub(super) canonical_abort: Option<CanonicalOrderAbort>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct ExperimentalRecoveryScaffoldArtifacts {
-    capsule: RecoveryCapsule,
-    share_commitment_hash: [u8; 32],
+    pub(super) capsule: RecoveryCapsule,
+    pub(super) share_commitment_hash: [u8; 32],
 }
 
 impl ExperimentalRecoveryScaffoldArtifacts {
@@ -35,26 +35,26 @@ impl ExperimentalRecoveryScaffoldArtifacts {
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct ExperimentalMultiWitnessRecoverySharePlan {
-    assignment: GuardianWitnessAssignment,
-    share_index: u16,
-    share_count: u16,
-    recovery_threshold: u16,
-    share_commitment_hash: [u8; 32],
+    pub(super) assignment: GuardianWitnessAssignment,
+    pub(super) share_index: u16,
+    pub(super) share_count: u16,
+    pub(super) recovery_threshold: u16,
+    pub(super) share_commitment_hash: [u8; 32],
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct ExperimentalMultiWitnessRecoveryPlan {
-    payload_commitment_hash: [u8; 32],
-    recovery_committee_root_hash: [u8; 32],
-    coding_root_hash: [u8; 32],
-    recovery_window_close_ms: u64,
-    coding: RecoveryCodingDescriptor,
-    share_count: u16,
-    recovery_threshold: u16,
-    data_shard_count: u16,
-    parity_shard_count: u16,
-    shares: Vec<ExperimentalMultiWitnessRecoverySharePlan>,
+    pub(super) payload_commitment_hash: [u8; 32],
+    pub(super) recovery_committee_root_hash: [u8; 32],
+    pub(super) coding_root_hash: [u8; 32],
+    pub(super) recovery_window_close_ms: u64,
+    pub(super) coding: RecoveryCodingDescriptor,
+    pub(super) share_count: u16,
+    pub(super) recovery_threshold: u16,
+    pub(super) data_shard_count: u16,
+    pub(super) parity_shard_count: u16,
+    pub(super) shares: Vec<ExperimentalMultiWitnessRecoverySharePlan>,
 }
 
 #[derive(Clone)]

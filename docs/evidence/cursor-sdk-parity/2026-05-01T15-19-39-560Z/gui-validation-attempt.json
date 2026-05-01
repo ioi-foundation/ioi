@@ -1,0 +1,32 @@
+{
+  "lane": "autopilot_gui_retained_query_validation",
+  "status": "blocked",
+  "attemptedAt": "2026-05-01T15:08:00Z",
+  "command": "AUTOPILOT_LOCAL_GPU_DEV=1 npm run validate:autopilot-gui-harness:run -- --window-timeout-ms 300000",
+  "observedBehavior": "The harness started node scripts/run-autopilot-gui-harness-validation.mjs and launched the desktop dev path, then emitted no terminal output for more than the requested 300000 ms window.",
+  "termination": {
+    "reason": "Prevent a hung GUI validation process from remaining active after the configured window timeout.",
+    "processGroupsTerminated": [1981804, 1981859]
+  },
+  "environmentChecked": [
+    "DISPLAY",
+    "WAYLAND_DISPLAY",
+    "AUTOPILOT_LOCAL_GPU_DEV"
+  ],
+  "nonBlockedChecksPassed": [
+    "npm run build --workspace=@ioi/agent-sdk",
+    "npm test --workspace=@ioi/agent-sdk",
+    "npm run typecheck --workspace=@ioi/agent-sdk",
+    "npm run smoke:quickstart --workspace=@ioi/agent-sdk",
+    "npm pack --workspace=@ioi/agent-sdk --dry-run",
+    "npm run test:cursor-sdk-parity",
+    "npm run validate:cursor-sdk-parity",
+    "npm run test:autopilot-gui-harness"
+  ],
+  "replayableArtifacts": [
+    "docs/evidence/cursor-sdk-parity/2026-05-01T15-19-39-560Z/reference-api.json",
+    "docs/evidence/cursor-sdk-parity/2026-05-01T15-19-39-560Z/sdk-local-proof.json",
+    "docs/evidence/cursor-sdk-parity/2026-05-01T15-19-39-560Z/sdk-local-trace.json",
+    "docs/evidence/cursor-sdk-parity/2026-05-01T15-19-39-560Z/parity-checklist.json"
+  ]
+}

@@ -1,4 +1,5 @@
 use super::events::emit_execution_contract_receipt_event;
+use super::file_observation::enforce_file_write_observation;
 use super::*;
 
 #[allow(clippy::too_many_arguments)]
@@ -37,6 +38,64 @@ pub(super) fn run_execution_prechecks(
             );
         }
         return false;
+    }
+
+    match enforce_file_write_observation(
+        &agent_state.tool_execution_log,
+        &agent_state.working_directory,
+        tool,
+        step_index,
+    ) {
+        Ok(Some(evidence)) => {
+            verification_checks.push("workspace_file_observation_guard_passed=true".to_string());
+            record_execution_evidence_with_value(
+                &mut agent_state.tool_execution_log,
+                "workspace_file_observation_guard",
+                evidence.clone(),
+            );
+            emit_execution_contract_receipt_event(
+                service,
+                session_id,
+                step_index,
+                resolved_intent_id,
+                "policy",
+                "workspace_file_observation_guard",
+                true,
+                &evidence,
+                None,
+                route_label.map(str::to_string),
+                synthesized_payload_hash.clone(),
+            );
+        }
+        Ok(None) => {}
+        Err(error) => {
+            *policy_decision = "denied".to_string();
+            *success = false;
+            *error_msg = Some(error.clone());
+            *history_entry = Some(error.clone());
+            *action_output = Some(error.clone());
+            verification_checks.push("workspace_file_observation_guard_blocked=true".to_string());
+            emit_execution_contract_receipt_event(
+                service,
+                session_id,
+                step_index,
+                resolved_intent_id,
+                "policy",
+                "workspace_file_observation_guard",
+                false,
+                &error,
+                None,
+                route_label.map(str::to_string),
+                synthesized_payload_hash.clone(),
+            );
+            if !req_hash_hex.is_empty() {
+                agent_state.tool_execution_log.insert(
+                    req_hash_hex.to_string(),
+                    ToolCallStatus::Failed("workspace_file_observation_guard".to_string()),
+                );
+            }
+            return false;
+        }
     }
 
     if command_scope

@@ -16,12 +16,20 @@ use std::sync::{Arc, Mutex};
 #[derive(Default)]
 struct RecordingGuiDriver {
     injected: Mutex<Vec<InputEvent>>,
+    tree_xml: Mutex<Option<String>>,
 }
 
 impl RecordingGuiDriver {
     fn take_events(&self) -> Vec<InputEvent> {
         let mut guard = self.injected.lock().unwrap_or_else(|e| e.into_inner());
         std::mem::take(&mut *guard)
+    }
+
+    fn with_tree_xml(xml: impl Into<String>) -> Self {
+        Self {
+            injected: Mutex::new(Vec::new()),
+            tree_xml: Mutex::new(Some(xml.into())),
+        }
     }
 }
 
@@ -41,7 +49,16 @@ impl GuiDriver for RecordingGuiDriver {
     }
 
     async fn capture_tree(&self) -> Result<String, VmError> {
-        Err(VmError::HostError("capture_tree not implemented".into()))
+        if let Some(xml) = self
+            .tree_xml
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
+        {
+            Ok(xml)
+        } else {
+            Err(VmError::HostError("capture_tree not implemented".into()))
+        }
     }
 
     async fn capture_context(&self, _intent: &ActionRequest) -> Result<ContextSlice, VmError> {
@@ -121,6 +138,50 @@ fn build_executor(
         .with_window_context(active_window, None, Some(tier))
 }
 
+#[test]
+fn raw_coordinate_click_skips_tree_fetch_without_grounding_context() {
+    let empty_som_map = BTreeMap::new();
+    let empty_semantic_map = BTreeMap::new();
+
+    assert!(!dispatch::should_try_coordinate_semantic_override(
+        true, None, None, None
+    ));
+    assert!(!dispatch::should_try_coordinate_semantic_override(
+        true,
+        Some(&empty_som_map),
+        Some(&empty_semantic_map),
+        None
+    ));
+}
+
+#[test]
+fn coordinate_click_uses_tree_fetch_when_grounding_is_required() {
+    let som_map = BTreeMap::from([(42u32, (600, 600, 40, 40))]);
+    let semantic_map = BTreeMap::from([(42u32, "submit".to_string())]);
+
+    assert!(dispatch::should_try_coordinate_semantic_override(
+        false, None, None, None
+    ));
+    assert!(dispatch::should_try_coordinate_semantic_override(
+        true,
+        Some(&som_map),
+        None,
+        None
+    ));
+    assert!(dispatch::should_try_coordinate_semantic_override(
+        true,
+        None,
+        Some(&semantic_map),
+        None
+    ));
+    assert!(dispatch::should_try_coordinate_semantic_override(
+        true,
+        None,
+        None,
+        Some("auto")
+    ));
+}
+
 #[tokio::test(flavor = "current_thread")]
 async fn gui_scroll_is_allowed_outside_visual_foreground() {
     let gui = Arc::new(RecordingGuiDriver::default());
@@ -142,6 +203,22 @@ async fn gui_scroll_is_allowed_outside_visual_foreground() {
     assert_eq!(
         gui.take_events(),
         vec![InputEvent::Scroll { dx: 12, dy: 340 }]
+    );
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn gui_snapshot_prefers_driver_capture_tree() {
+    let gui = Arc::new(RecordingGuiDriver::with_tree_xml(
+        "<window id=\"fixture\" name=\"Fixture\" />",
+    ));
+    let exec = build_executor(gui, None, ExecutionTier::VisualBackground);
+
+    let result = handle(&exec, AgentTool::GuiSnapshot {}, None, None, None).await;
+
+    assert!(result.success);
+    assert_eq!(
+        result.history_entry.as_deref(),
+        Some("<window id=\"fixture\" name=\"Fixture\" />")
     );
 }
 

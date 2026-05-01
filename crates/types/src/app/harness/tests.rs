@@ -67,13 +67,34 @@ fn routing_receipt(policy_decision: &str, gate_state: &str) -> RoutingReceiptEve
 #[test]
 fn default_harness_components_have_complete_contracts() {
     let components = default_agent_harness_components();
-    assert_eq!(components.len(), 20);
+    assert!(components.len() >= 30);
     assert!(components
         .iter()
         .any(|component| component.kind == HarnessComponentKind::McpProvider));
     assert!(components
         .iter()
         .any(|component| component.kind == HarnessComponentKind::McpToolCall));
+    for required in [
+        HarnessComponentKind::TaskState,
+        HarnessComponentKind::UncertaintyGate,
+        HarnessComponentKind::ProbeRunner,
+        HarnessComponentKind::BudgetGate,
+        HarnessComponentKind::CapabilitySequencer,
+        HarnessComponentKind::DryRunSimulator,
+        HarnessComponentKind::SemanticImpactAnalyzer,
+        HarnessComponentKind::PostconditionSynthesizer,
+        HarnessComponentKind::DriftDetector,
+        HarnessComponentKind::QualityLedger,
+        HarnessComponentKind::HandoffBridge,
+        HarnessComponentKind::GuiHarnessValidator,
+    ] {
+        assert!(
+            components
+                .iter()
+                .any(|component| component.kind == required),
+            "missing {required:?}"
+        );
+    }
     for component in components {
         assert!(component.component_id.starts_with("ioi.agent-harness."));
         assert_eq!(component.version, HARNESS_COMPONENT_VERSION_V1);
@@ -92,7 +113,7 @@ fn default_harness_components_have_complete_contracts() {
 #[test]
 fn default_harness_action_frames_are_workflow_addressable() {
     let frames = default_agent_harness_action_frames();
-    assert_eq!(frames.len(), 20);
+    assert!(frames.len() >= 30);
     assert!(frames.iter().all(|frame| {
         frame.workflow_id == DEFAULT_AGENT_HARNESS_WORKFLOW_ID
             && frame.workflow_hash == DEFAULT_AGENT_HARNESS_HASH
@@ -104,6 +125,18 @@ fn default_harness_action_frames_are_workflow_addressable() {
         .find(|frame| frame.component_kind == HarnessComponentKind::ToolCall)
         .expect("tool call frame");
     assert_eq!(tool_frame.slot_ids, vec!["slot.tool-grants"]);
+
+    let task_state_frame = frames
+        .iter()
+        .find(|frame| frame.component_kind == HarnessComponentKind::TaskState)
+        .expect("task state frame");
+    assert_eq!(task_state_frame.slot_ids, vec!["slot.state-policy"]);
+
+    let gui_frame = frames
+        .iter()
+        .find(|frame| frame.component_kind == HarnessComponentKind::GuiHarnessValidator)
+        .expect("gui validator frame");
+    assert_eq!(gui_frame.slot_ids, vec!["slot.output-policy"]);
 }
 
 #[test]

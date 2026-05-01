@@ -302,6 +302,7 @@ fn local_business_listing_surface_signal(
     combined.contains("restaurant directory")
         || combined.contains("directory listing")
         || combined.contains("restaurants in ")
+        || combined.contains("restaurants near ")
         || combined.contains("traveller reviews")
         || combined.contains("traveler reviews")
         || combined.contains("ratings and menus")

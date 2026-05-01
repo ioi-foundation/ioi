@@ -177,7 +177,7 @@ async fn fetch_active_policy_hash(
     Ok(out)
 }
 
-async fn run_approve(args: PolicyApproveArgs) -> Result<()> {
+pub(crate) async fn run_approve(args: PolicyApproveArgs) -> Result<()> {
     let request_hash = parse_hex_32("request hash", &args.request_hash)?;
     let session_id = parse_hex_32("session id", &args.session_id)?;
 

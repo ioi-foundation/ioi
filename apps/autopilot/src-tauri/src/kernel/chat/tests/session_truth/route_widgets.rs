@@ -234,7 +234,7 @@ fn conversation_single_pass_route_requires_chat_primary_execution() {
 }
 
 #[test]
-fn workspace_grounded_single_pass_route_stays_off_chat_primary_execution() {
+fn workspace_grounded_single_pass_route_requires_chat_primary_execution() {
     let mut task = empty_task("What npm script launches the desktop app in this repo?");
     let outcome_request = ChatOutcomeRequest {
         request_id: "workspace-grounding-single-pass".to_string(),
@@ -272,7 +272,7 @@ fn workspace_grounded_single_pass_route_stays_off_chat_primary_execution() {
     );
 
     assert!(task_is_chat_authoritative(&task));
-    assert!(!task_requires_chat_primary_execution(&task));
+    assert!(task_requires_chat_primary_execution(&task));
 }
 
 #[test]
@@ -374,4 +374,3 @@ fn inline_answer_route_receipt_event_preserves_explicit_route_decision() {
         Some(true)
     );
 }
-

@@ -97,6 +97,63 @@ fn classify_local_view(path: &Path, bytes: &[u8]) -> LocalViewKind {
     LocalViewKind::Binary
 }
 
+fn ensure_safe_regular_file_read(path: &Path, operation: &str) -> Result<(), String> {
+    let metadata = fs::symlink_metadata(path).map_err(|error| {
+        format!(
+            "Failed to inspect {} before {}: {}",
+            path.display(),
+            operation,
+            error
+        )
+    })?;
+    let file_type = metadata.file_type();
+    if file_type.is_symlink() {
+        return Err(format!(
+            "ERROR_CLASS=PolicyBlocked Refusing to {} {}: symlink paths must be resolved by an explicit, governed workflow.",
+            operation,
+            path.display()
+        ));
+    }
+    if !file_type.is_file() {
+        return Err(format!(
+            "ERROR_CLASS=PolicyBlocked Refusing to {} {}: only regular files are allowed; directories, devices, sockets, FIFOs, and other special files are blocked.",
+            operation,
+            path.display()
+        ));
+    }
+    Ok(())
+}
+
+fn ensure_safe_regular_file_write_target(path: &Path, operation: &str) -> Result<(), String> {
+    match fs::symlink_metadata(path) {
+        Ok(metadata) => {
+            let file_type = metadata.file_type();
+            if file_type.is_symlink() {
+                return Err(format!(
+                    "ERROR_CLASS=PolicyBlocked Refusing to {} {}: symlink write targets are blocked.",
+                    operation,
+                    path.display()
+                ));
+            }
+            if !file_type.is_file() {
+                return Err(format!(
+                    "ERROR_CLASS=PolicyBlocked Refusing to {} {}: existing target is not a regular file.",
+                    operation,
+                    path.display()
+                ));
+            }
+            Ok(())
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(format!(
+            "Failed to inspect {} before {}: {}",
+            path.display(),
+            operation,
+            error
+        )),
+    }
+}
+
 fn render_text_window(
     path: &Path,
     content: &str,
@@ -261,6 +318,9 @@ pub async fn handle(
                     return ToolExecutionResult::failure(format!("Failed to read {}: {}", path, e))
                 }
             };
+            if let Err(e) = ensure_safe_regular_file_read(&resolved_path, "read") {
+                return ToolExecutionResult::failure(e);
+            }
 
             match fs::read_to_string(&resolved_path) {
                 Ok(content) => ToolExecutionResult::success(content),
@@ -282,6 +342,9 @@ pub async fn handle(
                     return ToolExecutionResult::failure(format!("Failed to view {}: {}", path, e))
                 }
             };
+            if let Err(e) = ensure_safe_regular_file_read(&resolved_path, "view") {
+                return ToolExecutionResult::failure(e);
+            }
 
             let bytes = match fs::read(&resolved_path) {
                 Ok(bytes) => bytes,
@@ -407,6 +470,24 @@ pub async fn handle(
             };
 
             if let Some(line_number) = line_number {
+                if let Err(e) = ensure_safe_regular_file_write_target(&resolved_path, "edit line") {
+                    let result = ToolExecutionResult::failure(e);
+                    let target = path_to_string(&resolved_path);
+                    emit_fs_write_receipt(
+                        exec,
+                        session_id,
+                        step_index,
+                        "file__write",
+                        "edit_line",
+                        target.as_str(),
+                        None,
+                        None,
+                        false,
+                        result.error.as_deref(),
+                    )
+                    .await;
+                    return result;
+                }
                 let existing = match fs::read_to_string(&resolved_path) {
                     Ok(content) => content,
                     Err(e) => {
@@ -497,6 +578,24 @@ pub async fn handle(
                     let _ = fs::create_dir_all(parent);
                 }
             }
+            if let Err(e) = ensure_safe_regular_file_write_target(&resolved_path, "write") {
+                let result = ToolExecutionResult::failure(e);
+                let target = path_to_string(&resolved_path);
+                emit_fs_write_receipt(
+                    exec,
+                    session_id,
+                    step_index,
+                    "file__write",
+                    "write_file",
+                    target.as_str(),
+                    None,
+                    None,
+                    false,
+                    result.error.as_deref(),
+                )
+                .await;
+                return result;
+            }
             let bytes_written = content.as_bytes().len() as u64;
             let result = match fs::write(&resolved_path, content) {
                 Ok(_) => {
@@ -550,6 +649,24 @@ pub async fn handle(
                     return result;
                 }
             };
+            if let Err(e) = ensure_safe_regular_file_write_target(&resolved_path, "patch") {
+                let result = ToolExecutionResult::failure(e);
+                let target = path_to_string(&resolved_path);
+                emit_fs_write_receipt(
+                    exec,
+                    session_id,
+                    step_index,
+                    "file__edit",
+                    "patch",
+                    target.as_str(),
+                    None,
+                    None,
+                    false,
+                    result.error.as_deref(),
+                )
+                .await;
+                return result;
+            }
 
             let existing = match fs::read_to_string(&resolved_path) {
                 Ok(content) => content,
@@ -653,6 +770,24 @@ pub async fn handle(
                     return result;
                 }
             };
+            if let Err(e) = ensure_safe_regular_file_write_target(&resolved_path, "multi-edit") {
+                let result = ToolExecutionResult::failure(e);
+                let target = path_to_string(&resolved_path);
+                emit_fs_write_receipt(
+                    exec,
+                    session_id,
+                    step_index,
+                    "file__multi_edit",
+                    "multi_patch",
+                    target.as_str(),
+                    None,
+                    None,
+                    false,
+                    result.error.as_deref(),
+                )
+                .await;
+                return result;
+            }
 
             if edits.is_empty() {
                 let result = ToolExecutionResult::failure(format!(

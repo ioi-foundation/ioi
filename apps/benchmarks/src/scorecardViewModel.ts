@@ -339,6 +339,86 @@ const METRIC_LABELS: Record<string, string> = {
   rollbackReadinessRate: "rollback",
 };
 
+export const DEFAULT_SCORECARD_SCHEMA: ScorecardMatrixInput["scorecardSchema"] = {
+  version: 1,
+  categories: [
+    {
+      id: "baseModelQuality",
+      label: "Base model quality",
+      requiredForPromotion: false,
+      metrics: ["normalizedScore", "passRate"],
+    },
+    {
+      id: "artifactQuality",
+      label: "Artifact quality",
+      requiredForPromotion: true,
+      metrics: [
+        "averageValidationScore",
+        "verifierPassRate",
+        "averageRepairLoopIterations",
+        "routeMatchRate",
+      ],
+    },
+    {
+      id: "codingCompletion",
+      label: "Coding completion",
+      requiredForPromotion: true,
+      metrics: ["taskPassRate", "targetedTestPassRate", "verifierPassRate"],
+    },
+    {
+      id: "researchQuality",
+      label: "Research quality",
+      requiredForPromotion: true,
+      metrics: [
+        "citationVerifierPassRate",
+        "sourceIndependenceRate",
+        "synthesisCompleteness",
+      ],
+    },
+    {
+      id: "computerUseCompletion",
+      label: "Computer-use completion",
+      requiredForPromotion: true,
+      metrics: ["rewardFloorPassRate", "postconditionPassRate", "meanStepCount"],
+    },
+    {
+      id: "toolApiReliability",
+      label: "Tool/API reliability",
+      requiredForPromotion: false,
+      metrics: ["normalizedScore", "taskPassRate", "policyPassRate"],
+    },
+    {
+      id: "generalAgentQuality",
+      label: "General-agent quality",
+      requiredForPromotion: false,
+      metrics: ["normalizedScore", "taskPassRate", "reasoningPassRate"],
+    },
+    {
+      id: "latencyAndResourcePressure",
+      label: "Latency and resource pressure",
+      requiredForPromotion: true,
+      metrics: [
+        "meanWallClockMs",
+        "p95WallClockMs",
+        "residentModelBytes",
+        "processorKind",
+      ],
+    },
+    {
+      id: "operationalDiscipline",
+      label: "Operational discipline",
+      requiredForPromotion: false,
+      metrics: [
+        "malformedToolCallRate",
+        "noOpStallRate",
+        "repairLoopIterations",
+        "interruptionRecoveryQuality",
+        "conformancePassRate",
+      ],
+    },
+  ],
+};
+
 const LOWER_IS_BETTER_METRICS = new Set([
   "meanWallClockMs",
   "p95WallClockMs",

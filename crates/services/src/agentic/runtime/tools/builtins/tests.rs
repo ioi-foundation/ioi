@@ -1,4 +1,5 @@
 use super::*;
+use crate::agentic::runtime::tools::contracts::runtime_tool_contracts_for_tools;
 use ioi_types::app::agentic::{
     CapabilityId, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
 };
@@ -180,4 +181,70 @@ fn delegate_tool_surfaces_builtin_worker_templates() {
     );
     assert!(delegation_template_hint().contains("researcher"));
     assert!(delegation_template_hint().contains("live_research_brief"));
+}
+
+#[test]
+fn builtin_tools_project_complete_runtime_contracts() {
+    let mut tools = Vec::new();
+    push_builtin_tools(
+        &mut tools,
+        ExecutionTier::DomHeadless,
+        true,
+        true,
+        true,
+        true,
+        None,
+    );
+    let resolved = resolved_ui_intent();
+    push_builtin_tools(
+        &mut tools,
+        ExecutionTier::DomHeadless,
+        true,
+        true,
+        true,
+        true,
+        Some(&resolved),
+    );
+
+    let contracts = runtime_tool_contracts_for_tools(&tools);
+    assert_eq!(contracts.len(), tools.len());
+    assert!(contracts.len() >= 25, "expected broad builtin coverage");
+
+    for required in [
+        "file__delete",
+        "shell__run",
+        "browser__click_at",
+        "web__read",
+        "memory__append",
+        "agent__delegate",
+        "commerce__checkout",
+    ] {
+        assert!(
+            contracts
+                .iter()
+                .any(|contract| contract.display_name == required),
+            "missing runtime contract for {required}"
+        );
+    }
+
+    for contract in contracts {
+        assert!(!contract.stable_tool_id.is_empty(), "{contract:?}");
+        assert!(!contract.namespace.is_empty(), "{contract:?}");
+        assert!(!contract.input_schema.is_empty(), "{contract:?}");
+        assert!(!contract.output_schema.is_empty(), "{contract:?}");
+        assert!(!contract.risk_domain.is_empty(), "{contract:?}");
+        assert!(!contract.effect_class.is_empty(), "{contract:?}");
+        assert!(!contract.concurrency_class.is_empty(), "{contract:?}");
+        assert!(!contract.policy_target.is_empty(), "{contract:?}");
+        assert!(!contract.evidence_requirements.is_empty(), "{contract:?}");
+        assert!(!contract.owner_module.is_empty(), "{contract:?}");
+        assert!(!contract.version.is_empty(), "{contract:?}");
+        if contract.is_effectful() {
+            assert!(
+                !contract.capability_lease_requirements.is_empty(),
+                "{contract:?}"
+            );
+            assert!(!contract.approval_scope_fields.is_empty(), "{contract:?}");
+        }
+    }
 }

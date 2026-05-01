@@ -31,6 +31,7 @@ use super::super::support::{
     preferred_pre_read_action_count_with_locality_hint,
     projection_candidate_url_allowed_with_projection, query_is_generic_headline_collection,
     query_prefers_document_briefing_layout, query_requests_comparison,
+    query_requires_local_business_entity_diversity, query_requires_local_business_menu_surface,
     query_requires_runtime_locality_scope, queue_web_read_from_pipeline,
     queue_web_search_from_pipeline, remaining_pending_web_candidates,
     retrieval_affordances_with_contract_and_locality_hint,

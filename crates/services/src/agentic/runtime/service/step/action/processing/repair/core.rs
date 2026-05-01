@@ -533,6 +533,15 @@ pub(crate) async fn attempt_invalid_tool_call_repair(
         &mut verification_checks,
         "invalid_tool_call_repair",
     );
+    let mut runtime_allowed_tool_names = deterministic_allowed_tool_names.clone();
+    if worker_assignment.as_ref().is_some_and(|assignment| {
+        assignment
+            .allowed_tools
+            .iter()
+            .any(|tool| super::repair_tool_names_match(tool, "filesystem__patch"))
+    }) {
+        runtime_allowed_tool_names.insert("filesystem__patch".to_string());
+    }
     verification_checks.push("invalid_tool_call_repair_attempted=true".to_string());
     verification_checks.push(format!(
         "invalid_tool_call_repair_tool_count={}",
@@ -645,7 +654,7 @@ pub(crate) async fn attempt_invalid_tool_call_repair(
             worker_assignment.as_ref(),
             session_id,
             &repair_tools,
-            &allowed_tool_names,
+            &runtime_allowed_tool_names,
             effective_failure.map(|class| class.as_str()),
             parse_error,
             compact_output,
@@ -693,7 +702,7 @@ pub(crate) async fn attempt_invalid_tool_call_repair(
             worker_assignment.as_ref(),
             session_id,
             &repair_tools,
-            &allowed_tool_names,
+            &runtime_allowed_tool_names,
             effective_failure.map(|class| class.as_str()),
             parse_error,
             compact_output,

@@ -14,6 +14,7 @@ pub mod contracts;
 pub mod driver;
 pub mod http_adapter;
 pub mod mock;
+pub mod router;
 pub mod unavailable;
 
 pub use contracts::{
@@ -26,6 +27,7 @@ pub use contracts::{
 };
 pub use driver::{AcceleratorType, DeviceCapabilities, HardwareDriver, ModelHandle};
 pub use http_adapter::HttpInferenceRuntime;
+pub use router::{ModelRouterInput, ModelRuntimeRoute, RuntimeModelRouter};
 pub use unavailable::UnavailableInferenceRuntime;
 
 /// A kernel-owned runtime capable of executing deterministic inference plus
