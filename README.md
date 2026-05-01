@@ -84,7 +84,6 @@ on. It is one substrate for intelligent applications where:
 npm install
 cargo check --workspace
 npm run typecheck
-npm run check:architecture-docs
 ```
 
 Run the local desktop surface:
@@ -98,12 +97,6 @@ Build and test the SDK:
 ```bash
 npm run build:agent-sdk
 npm run test:agent-sdk
-```
-
-Run the architecture/readiness gate:
-
-```bash
-npm run check:pre-next-leg
 ```
 
 Rust uses the pinned toolchain in [`rust-toolchain.toml`](rust-toolchain.toml).
@@ -124,7 +117,7 @@ Desktop builds require the usual Tauri system dependencies for your platform.
 ## Status
 
 IOI is active alpha research and engineering. Some surfaces are production-shaped;
-some are still proofs, scaffolds, or gated by local environment. The architectural
+others are research prototypes or environment-dependent. The architectural
 direction is intentionally strict:
 
 > **The daemon executes. wallet.network authorizes. Agentgres remembers. IOI L1 settles. Clients compose. Evidence proves.**
