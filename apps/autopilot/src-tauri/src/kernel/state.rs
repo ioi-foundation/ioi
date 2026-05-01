@@ -230,6 +230,11 @@ fn kernel_rpc_target_is_remote(raw: &str) -> bool {
         return false;
     }
 
+    let host = host
+        .strip_prefix('[')
+        .and_then(|value| value.strip_suffix(']'))
+        .unwrap_or(host);
+
     host.parse::<IpAddr>()
         .map(|ip| !ip.is_loopback())
         .unwrap_or(true)

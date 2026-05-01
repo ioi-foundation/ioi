@@ -12,6 +12,16 @@ fn wallet_network_policy_exposes_policy_rule_upsert() {
         wallet.methods.contains_key("upsert_policy_rule@v1"),
         "wallet_network ActiveServiceMeta must advertise upsert_policy_rule@v1",
     );
+    assert_eq!(
+        wallet.methods.get("register_approval_authority@v1"),
+        Some(&MethodPermission::User),
+        "wallet_network ActiveServiceMeta must advertise approval authority registration",
+    );
+    assert_eq!(
+        wallet.methods.get("revoke_approval_authority@v1"),
+        Some(&MethodPermission::User),
+        "wallet_network ActiveServiceMeta must advertise approval authority revocation",
+    );
 }
 
 #[test]

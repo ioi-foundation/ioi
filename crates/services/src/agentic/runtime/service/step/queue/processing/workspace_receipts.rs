@@ -1,6 +1,6 @@
 use crate::agentic::runtime::service::step::action::{
     emit_execution_contract_receipt_event, execution_evidence_key_for,
-    record_execution_evidence_for_value, RuntimeEvidence,
+    record_execution_evidence_for_value, record_file_read_observation, RuntimeEvidence,
 };
 use crate::agentic::runtime::service::RuntimeAgentService;
 use crate::agentic::runtime::types::AgentState;
@@ -59,6 +59,12 @@ pub(super) fn record_queue_workspace_success_receipts(
     verification_checks: &mut Vec<String>,
 ) {
     if let Some(evidence) = queue_workspace_read_receipt(step_index, tool) {
+        record_file_read_observation(
+            &mut agent_state.tool_execution_log,
+            &agent_state.working_directory,
+            tool,
+            step_index,
+        );
         record_execution_evidence_for_value(
             &mut agent_state.tool_execution_log,
             RuntimeEvidence::WorkspaceReadObserved,

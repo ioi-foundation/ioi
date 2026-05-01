@@ -57,7 +57,7 @@ export function SourceChipRow({
   }
 
   return (
-    <div className="spot-source-chip-row" aria-label="Sources used">
+    <div className="spot-source-chip-row" aria-label="Search sources">
       {onOpenSummary ? (
         <button
           type="button"

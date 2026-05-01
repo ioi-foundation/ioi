@@ -79,6 +79,39 @@ async fn execute_materialization_inference(
     ))
 }
 
+fn local_bundle_materialization_fallback(
+    runtime_kind: ChatRuntimeProvenanceKind,
+    request: &ChatOutcomeArtifactRequest,
+    brief: &ChatArtifactBrief,
+    edit_intent: Option<&ChatArtifactEditIntent>,
+    intent: &str,
+    latest_error: &str,
+) -> Option<ChatGeneratedArtifactPayload> {
+    if runtime_kind != ChatRuntimeProvenanceKind::RealLocalRuntime {
+        return None;
+    }
+
+    let mut generated = match request.renderer {
+        ChatRendererKind::DownloadCard => synthesize_download_bundle_payload(intent, brief),
+        ChatRendererKind::BundleManifest => synthesize_bundle_manifest_payload(intent, brief),
+        _ => return None,
+    };
+    generated.notes.push(format!(
+        "Deterministic local bundle fallback used after materialization failure: {}",
+        latest_error.trim()
+    ));
+    super::enrich_generated_artifact_payload(&mut generated, request, brief);
+    super::validate_generated_artifact_payload(&generated, request).ok()?;
+    super::validate_generated_artifact_payload_against_brief_with_edit_intent(
+        &generated,
+        request,
+        brief,
+        edit_intent,
+    )
+    .ok()?;
+    Some(generated)
+}
+
 async fn await_direct_author_inference_output<F>(
     inference: F,
     request: &ChatOutcomeArtifactRequest,
@@ -383,6 +416,20 @@ pub(crate) async fn materialize_chat_artifact_candidate_with_runtime_detailed(
         Ok(output) => output,
         Err(error) => {
             let message = format!("Chat artifact materialization inference failed: {}", error);
+            if let Some(fallback) = local_bundle_materialization_fallback(
+                runtime_kind,
+                request,
+                brief,
+                edit_intent,
+                intent,
+                &message,
+            ) {
+                chat_generation_trace(format!(
+                    "artifact_generation:materialization_fallback:deterministic_bundle id={} renderer={:?}",
+                    candidate_id, request.renderer
+                ));
+                return Ok(fallback);
+            }
             return Err(ChatCandidateMaterializationError {
                 message,
                 raw_output_preview: None,
@@ -529,6 +576,24 @@ pub(crate) async fn materialize_chat_artifact_candidate_with_runtime_detailed(
             Err(ChatCandidateMaterializationError {
                 message: latest_error,
                 raw_output_preview: truncate_candidate_failure_preview(&latest_raw, 2000),
+            })
+            .or_else(|error| {
+                local_bundle_materialization_fallback(
+                    runtime_kind,
+                    request,
+                    brief,
+                    edit_intent,
+                    intent,
+                    &error.message,
+                )
+                .map(|fallback| {
+                    chat_generation_trace(format!(
+                        "artifact_generation:materialization_fallback:deterministic_bundle_after_repair id={} renderer={:?}",
+                        candidate_id, request.renderer
+                    ));
+                    fallback
+                })
+                .ok_or(error)
             })
         }
     }

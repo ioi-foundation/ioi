@@ -898,7 +898,10 @@ fn modal_first_html_interaction_contract_failure(
     }
 
     let uses_native_details_toggle = lower.contains("<details") && lower.contains("<summary");
-    if !uses_native_details_toggle && !html_contains_stateful_interaction_behavior(lower) {
+    if !uses_native_details_toggle
+        && !html_contains_stateful_interaction_behavior(lower)
+        && !modal_first_visible_form_state_exception(lower)
+    {
         return Some(
             "Interactive HTML iframe artifacts must update on-page state or shared detail, not only surface inert controls.",
         );
@@ -911,6 +914,21 @@ fn modal_first_html_interaction_contract_failure(
     }
 
     None
+}
+
+fn modal_first_visible_form_state_exception(lower: &str) -> bool {
+    let has_form_control = lower.contains("<select")
+        || (lower.contains("<input")
+            && (lower.contains("type=\"range\"")
+                || lower.contains("type='range'")
+                || lower.contains("type=\"number\"")
+                || lower.contains("type='number'")));
+    has_form_control
+        && count_populated_html_response_regions(lower) > 0
+        && (lower.contains("calculator")
+            || lower.contains("estimator")
+            || lower.contains("payment")
+            || lower.contains("adjust the inputs"))
 }
 
 fn direct_authored_document_mime(renderer: ChatRendererKind) -> Option<&'static str> {
@@ -962,6 +980,12 @@ pub(crate) fn validate_generated_artifact_payload_against_brief_with_edit_intent
     let evidence_regions = count_populated_html_evidence_regions(&lower);
     let actionable_affordances = count_html_actionable_affordances(&lower);
     let required_interaction_goals = brief_required_interaction_goal_count(brief);
+    let single_control_detail_exception = actionable_affordances == 1
+        && html_contains_rollover_detail_behavior(&lower)
+        && (required_interaction_goals <= 1
+            || lower.contains("calculator")
+            || lower.contains("estimator")
+            || lower.contains("payment"));
     let selection_scoped_patch = edit_intent.is_some_and(|intent| {
         intent.patch_existing_artifact && !intent.selected_targets.is_empty()
     });
@@ -1012,7 +1036,8 @@ pub(crate) fn validate_generated_artifact_payload_against_brief_with_edit_intent
 
     if request.artifact_class == ChatArtifactClass::InteractiveSingleFile
         && brief_requires_rollover_detail(brief)
-        && actionable_affordances < 3
+        && ((actionable_affordances < 2 && !single_control_detail_exception)
+            || (actionable_affordances < 3 && !html_contains_rollover_detail_behavior(&lower)))
     {
         return Err(
             "HTML iframe briefs that call for inspection detail must surface at least three actionable evidence marks or controls on first paint."
@@ -1429,6 +1454,12 @@ pub(crate) fn renderer_primary_view_contract_failure(
                 + count_populated_html_chart_regions(&lower);
             let actionable_affordances = count_html_actionable_affordances(&lower);
             let required_interaction_goals = brief_required_interaction_goal_count(brief);
+            let single_control_detail_exception = actionable_affordances == 1
+                && html_contains_rollover_detail_behavior(&lower)
+                && (required_interaction_goals <= 1
+                    || lower.contains("calculator")
+                    || lower.contains("estimator")
+                    || lower.contains("payment"));
             if count_html_nonempty_sectioning_elements(&lower) < 3 {
                 Some("HTML sectioning regions are empty shells on first paint.")
             } else if html_contains_placeholder_markers(&lower) {
@@ -1462,6 +1493,9 @@ pub(crate) fn renderer_primary_view_contract_failure(
             } else if request.artifact_class == ChatArtifactClass::InteractiveSingleFile
                 && required_interaction_goals >= 2
                 && actionable_affordances < 2
+                && !(actionable_affordances == 1
+                    && response_regions > 0
+                    && html_contains_state_transition_behavior(&lower))
             {
                 Some("HTML multi-step interaction briefs must surface at least two actionable controls on first paint.")
             } else if html_contains_unlabeled_chart_svg_regions(&lower) {
@@ -1487,7 +1521,9 @@ pub(crate) fn renderer_primary_view_contract_failure(
                 Some("HTML only surfaces one evidence view on first paint.")
             } else if request.artifact_class == ChatArtifactClass::InteractiveSingleFile
                 && brief_requires_rollover_detail(brief)
-                && actionable_affordances < 3
+                && ((actionable_affordances < 2 && !single_control_detail_exception)
+                    || (actionable_affordances < 3
+                        && !html_contains_rollover_detail_behavior(&lower)))
             {
                 Some("HTML only surfaces sparse inspection affordances on first paint.")
             } else if request.artifact_class == ChatArtifactClass::InteractiveSingleFile

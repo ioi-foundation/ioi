@@ -442,6 +442,43 @@ async fn direct_inline_authoring_skips_research_routes() {
 }
 
 #[tokio::test(flavor = "current_thread")]
+async fn direct_inline_authoring_skips_delegation_routes() {
+    let fast_runtime = Arc::new(RecordingInferenceRuntime::with_outputs([
+        "This should never be used.",
+    ]));
+    let service = build_test_service_hybrid(fast_runtime.clone(), fast_runtime.clone());
+    let state = MockState::default();
+    let mut agent_state = test_agent_state();
+    agent_state.session_id = [0x63; 32];
+    agent_state.goal = "Wait for the child worker result".to_string();
+    let mut intent = resolved_conversation_intent();
+    intent.intent_id = "delegation.task".to_string();
+    intent.scope = IntentScopeProfile::Delegation;
+    intent.required_capabilities = vec![
+        CapabilityId::from("agent.lifecycle"),
+        CapabilityId::from("delegation.manage"),
+    ];
+    agent_state.resolved_intent = Some(intent);
+
+    let tool_call = maybe_direct_inline_author_tool_call(
+        &service,
+        &state,
+        &agent_state,
+        agent_state.session_id,
+        ExecutionTier::DomHeadless,
+    )
+    .await
+    .expect("delegation route should evaluate");
+
+    assert!(tool_call.is_none());
+    assert!(fast_runtime
+        .seen_inputs
+        .lock()
+        .expect("seen_inputs mutex poisoned")
+        .is_empty());
+}
+
+#[tokio::test(flavor = "current_thread")]
 async fn optimizer_recovery_is_skipped_without_optimizer_configuration() {
     let service = build_test_service();
     let mut state = MockState::default();

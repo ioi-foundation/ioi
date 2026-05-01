@@ -1,6 +1,7 @@
 import type {
   AgentTask,
   AnswerPresentation,
+  ArtifactSourceReference,
   EvidenceTier,
   PlanSummary,
   SourceSummary,
@@ -69,6 +70,7 @@ export interface BuildAssistantTurnProcessInput {
   planSummary?: PlanSummary | null;
   runtimeModelLabel?: string | null;
   sourceSummary?: SourceSummary | null;
+  workspaceSources?: ArtifactSourceReference[] | null;
   thoughtSummary?: ThoughtSummary | null;
   toolActivityGroup?: ToolActivityGroupPresentation | null;
   finalAnswer?: AnswerPresentation | null;
@@ -79,6 +81,7 @@ export interface BuildAssistantTurnProcessInput {
 const SECRET_KEY_RE = /(token|secret|password|api[_-]?key|credential|authorization)/i;
 const MAX_PROCESS_ITEMS = 8;
 const MAX_SOURCES = 8;
+const MAX_WORKSPACE_SOURCE_ITEMS = 6;
 
 function compactWhitespace(value: string | null | undefined): string {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -300,6 +303,56 @@ function toolRowsFromGroup(
   return group?.rows ?? [];
 }
 
+function workspaceSourcePath(source: ArtifactSourceReference): string | null {
+  if (source.url) {
+    return null;
+  }
+  const candidate = compactWhitespace(source.title || source.sourceId || "");
+  if (!candidate) {
+    return null;
+  }
+  return candidate.replace(/:\d+$/u, "");
+}
+
+function workspaceFileLabel(path: string): string {
+  const basename = path.split("/").filter(Boolean).pop() || path;
+  return `Read ${basename}`;
+}
+
+function workspaceSourceItems(
+  sources: ArtifactSourceReference[] | null | undefined,
+): AssistantProcessItem[] {
+  if (!sources?.length) {
+    return [];
+  }
+  const items: AssistantProcessItem[] = [];
+  const seen = new Set<string>();
+  for (const source of sources) {
+    const path = workspaceSourcePath(source);
+    if (!path) {
+      continue;
+    }
+    const key = path.toLowerCase();
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    items.push({
+      id: `workspace-source:${key}`,
+      kind: "source_read",
+      status: "complete",
+      label: workspaceFileLabel(path),
+      detail: path,
+      preview: redactProcessText(source.excerpt),
+      authority: "runtime",
+    });
+    if (items.length >= MAX_WORKSPACE_SOURCE_ITEMS) {
+      break;
+    }
+  }
+  return items;
+}
+
 function thoughtItems(
   thoughtSummary: ThoughtSummary | null | undefined,
 ): AssistantProcessItem[] {
@@ -441,6 +494,7 @@ function processItems(input: BuildAssistantTurnProcessInput): AssistantProcessIt
 
   items.push(...taskGateItems(input.task));
   items.push(...validationItems(input.planSummary));
+  items.push(...workspaceSourceItems(input.workspaceSources));
 
   for (const row of rows) {
     items.push({
@@ -504,7 +558,13 @@ function summaryLine(
   }
 
   const toolCount = items.filter((item) => item.kind === "tool_call").length;
+  const exploredFileCount = items.filter((item) => item.kind === "source_read").length;
   const useful: string[] = [];
+  if (exploredFileCount > 0) {
+    useful.push(
+      `Explored ${exploredFileCount} ${exploredFileCount === 1 ? "file" : "files"}`,
+    );
+  }
   if (toolCount > 0) {
     useful.push(`${toolCount} ${toolCount === 1 ? "tool call" : "tool calls"}`);
   }
@@ -516,6 +576,9 @@ function summaryLine(
   ).length;
   if (validationCount > 0) {
     useful.push(`${validationCount} validation ${validationCount === 1 ? "check" : "checks"}`);
+  }
+  if (useful.length === 1 && exploredFileCount > 0) {
+    return useful[0] || "Ready";
   }
   return useful.length > 0 ? `Worked with ${useful.join(" · ")}` : "Ready";
 }
@@ -545,7 +608,12 @@ export function hasMeaningfulProcess(process: AssistantTurnProcess): boolean {
     process.status === "running" ||
     process.status === "thinking" ||
     process.status === "blocked" ||
-    process.status === "failed"
+    process.status === "failed" ||
+    process.items.some((item) =>
+      ["source_read", "tool_call", "validation_check", "approval_gate", "evidence_ref"].includes(
+        item.kind,
+      ),
+    )
   );
 }
 

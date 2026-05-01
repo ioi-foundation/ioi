@@ -12,11 +12,15 @@ use ioi_cli::testing::build_test_artifacts;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_memory::MemoryRuntime;
+use ioi_services::agentic::runtime::types::ExecutionTier;
 use ioi_services::agentic::runtime::{AgentState, StartAgentParams, StepAgentParams};
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
 use ioi_types::{
-    app::{ActionRequest, ContextSlice},
+    app::{
+        agentic::{CapabilityId, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState},
+        ActionRequest, ContextSlice,
+    },
     codec,
     error::VmError,
 };
@@ -79,6 +83,55 @@ impl SwarmMockBrain {
     fn set_child_session_id(&self, child_session_id: [u8; 32]) {
         *self.child_session_id_hex.lock().unwrap() = Some(hex::encode(child_session_id));
     }
+}
+
+fn seed_delegation_intent(state: &mut IAVLTree<HashCommitmentScheme>, session_id: [u8; 32]) {
+    let key = [b"agent::state::".as_slice(), session_id.as_slice()].concat();
+    let bytes = state
+        .get(&key)
+        .expect("state get should not fail")
+        .expect("session state should exist");
+    let mut agent_state: AgentState =
+        codec::from_bytes_canonical(&bytes).expect("agent state should decode");
+
+    agent_state.resolved_intent = Some(ResolvedIntentState {
+        intent_id: "delegation.task".to_string(),
+        scope: IntentScopeProfile::Delegation,
+        band: IntentConfidenceBand::High,
+        score: 0.99,
+        top_k: vec![],
+        required_capabilities: vec![
+            CapabilityId::from("agent.lifecycle"),
+            CapabilityId::from("delegation.manage"),
+            CapabilityId::from("conversation.reply"),
+        ],
+        required_evidence: vec!["execution".to_string(), "verification".to_string()],
+        success_conditions: vec![],
+        risk_class: "medium".to_string(),
+        preferred_tier: "tool_first".to_string(),
+        intent_catalog_version: "test".to_string(),
+        embedding_model_id: "test".to_string(),
+        embedding_model_version: "test".to_string(),
+        similarity_function_id: "cosine".to_string(),
+        intent_set_hash: [0u8; 32],
+        tool_registry_hash: [0u8; 32],
+        capability_ontology_hash: [0u8; 32],
+        query_normalization_version: "test".to_string(),
+        intent_catalog_source_hash: [0u8; 32],
+        evidence_requirements_hash: [0u8; 32],
+        provider_selection: None,
+        instruction_contract: None,
+        constrained: false,
+    });
+    agent_state.awaiting_intent_clarification = false;
+    agent_state.current_tier = ExecutionTier::DomHeadless;
+
+    state
+        .insert(
+            &key,
+            &codec::to_bytes_canonical(&agent_state).expect("agent state encode"),
+        )
+        .expect("state insert should not fail");
 }
 
 #[async_trait]
@@ -159,6 +212,7 @@ async fn test_agent_delegation_flow() -> Result<()> {
     service
         .handle_service_call(&mut state, "start@v1", &start_bytes, &mut ctx)
         .await?;
+    seed_delegation_intent(&mut state, parent_id);
 
     // 2. Seed a child worker directly so this test focuses on the
     // await/merge lifecycle rather than delegate-tool routing.

@@ -1220,6 +1220,12 @@ pub(crate) fn prefer_excerpt_for_query(
         return if right_low_priority { left } else { right };
     }
 
+    let left_structured_noise = looks_like_structured_metadata_noise(&left);
+    let right_structured_noise = looks_like_structured_metadata_noise(&right);
+    if right_structured_noise != left_structured_noise {
+        return if right_structured_noise { left } else { right };
+    }
+
     let left_current = contains_current_condition_metric_signal(&left);
     let right_current = contains_current_condition_metric_signal(&right);
     if right_current != left_current {

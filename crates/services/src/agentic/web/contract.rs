@@ -192,6 +192,14 @@ fn lint_web_retrieval_contract(
             query_is_generic_headline_collection(normalized_query_contract);
     }
 
+    if contract.ordered_collection_preferred
+        && query_is_generic_headline_collection(normalized_query_contract)
+        && !contract.runtime_locality_required
+        && !explicit_locality_scope_present
+    {
+        contract.geo_scoped_detail_required = false;
+    }
+
     if document_briefing_layout && !comparison_required && !contract.runtime_locality_required {
         contract.entity_cardinality_min = 1;
         contract.entity_diversity_required = false;

@@ -116,6 +116,13 @@ fn materialize_nonworkspace_artifact_replans_after_direct_author_timeout_then_re
     );
 }
 
+fn chat_artifact_env_lock() -> std::sync::MutexGuard<'static, ()> {
+    static LOCK: std::sync::OnceLock<Mutex<()>> = std::sync::OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(()))
+        .lock()
+        .expect("chat artifact test env lock")
+}
+
 #[test]
 fn direct_author_streaming_progress_prevents_mid_document_kernel_timeout() {
     let runtime: Arc<dyn InferenceRuntime> = Arc::new(StreamingDirectAuthorTestRuntime {
@@ -317,7 +324,7 @@ impl InferenceRuntime for StreamingSilentDirectAuthorReplanTestRuntime {
                     "renderable": true,
                     "downloadable": true,
                     "encoding": "utf8",
-                    "body": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>Quantum computers</title><style>:root{font-family:Georgia,serif;background:#08111d;color:#f5f2eb;}body{margin:0;}main{display:grid;gap:16px;max-width:960px;margin:0 auto;padding:24px;}section,aside{background:#111b2b;border:1px solid #2f4a68;border-radius:18px;padding:18px;}button{border:1px solid #5cc7ff;background:#10263a;color:#f5f2eb;border-radius:999px;padding:10px 14px;}table{width:100%;border-collapse:collapse;}th,td{padding:8px;border-bottom:1px solid #29415a;}</style></head><body><main><section><h1>Quantum computers</h1><p>Quantum computers use qubits, interference, and measurement to process some problems differently from classical machines.</p><button type=\"button\" data-view=\"basics\" aria-controls=\"basics-panel\" aria-selected=\"true\">Basics</button><button type=\"button\" data-view=\"gates\" aria-controls=\"gates-panel\" aria-selected=\"false\">Gates</button></section><section id=\"basics-panel\" data-view-panel=\"basics\"><h2>Qubits</h2><dl><dt>State blend</dt><dd>A qubit can carry amplitudes for both 0 and 1 until measurement selects one outcome.</dd><dt>Observation</dt><dd>Measurement resolves the blended state into a sampled result.</dd></dl></section><section id=\"gates-panel\" data-view-panel=\"gates\" hidden><h2>Gates</h2><dl><dt>Rotation</dt><dd>Quantum gates rotate amplitudes to reshape the result distribution.</dd><dt>Interference</dt><dd>Constructive interference strengthens useful answers.</dd></dl></section><aside><h2>Detail</h2><p id=\"detail-copy\">Basics selected by default so the first paint already explains the artifact.</p><table><tr><th>Concept</th><th>Why it matters</th></tr><tr><td>Superposition</td><td>Keeps multiple amplitudes in play.</td></tr><tr><td>Interference</td><td>Amplifies useful paths.</td></tr></table></aside><script>const detail=document.getElementById('detail-copy');const panels=document.querySelectorAll('[data-view-panel]');document.querySelectorAll('button[data-view]').forEach((button)=>button.addEventListener('click',()=>{panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});document.querySelectorAll('button[data-view]').forEach((control)=>control.setAttribute('aria-selected', String(control===button)));detail.textContent=button.dataset.view==='basics'?'Basics selected by default so the first paint already explains the artifact.':'Gate view selected to show how amplitudes are transformed.';}));</script></main></body></html>"
+                    "body": slow_replan_quantum_repair_document()
                 }]
             })
             .to_string()
@@ -408,6 +415,10 @@ struct SlowPlanExecuteAfterReplanTestRuntime {
     stream_attempts: Arc<std::sync::atomic::AtomicUsize>,
 }
 
+fn slow_replan_quantum_repair_document() -> &'static str {
+    r#"<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Quantum computers</title><style>:root{font-family:Arial,sans-serif;background:#f5f7fb;color:#111827;}body{margin:0;background:#f5f7fb;color:#111827;}main{display:grid;gap:18px;max-width:980px;margin:0 auto;padding:24px;}section,aside,fieldset{background:#ffffff;color:#111827;border:1px solid #9ca3af;border-radius:10px;padding:20px;}h1{font-size:36px;line-height:1.1;margin:0 0 12px;}h2{font-size:24px;line-height:1.2;margin:0 0 10px;}p{font-size:16px;line-height:1.55;}fieldset{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;}legend{font-weight:800;padding:0 6px;}label{display:flex;gap:8px;align-items:center;border:1px solid #6b7280;border-radius:8px;padding:12px;background:#eef2ff;color:#111827;font-weight:700;}input{accent-color:#111827;}table{width:100%;border-collapse:collapse;}th,td{padding:8px;border-bottom:1px solid #9ca3af;text-align:left;}th{font-weight:800;}</style></head><body><main><section><h1>Quantum computers</h1><p>Quantum computers use qubits, gates, interference, and measurement to process some problems differently from classical machines.</p></section><fieldset aria-label="Switch explainer focus"><legend>Switch between concepts</legend><label><input type="radio" name="focus" value="basics">Basics</label><label><input type="radio" name="focus" value="qubits">Qubits</label><label><input type="radio" name="focus" value="gates">Gates</label><label><input type="radio" name="focus" value="measurement">Measurement</label></fieldset><section><h2>Qubits</h2><p>A qubit carries amplitudes for multiple outcomes until measurement returns one classical result.</p></section><section><h2>Quantum gates</h2><p>Gates rotate amplitudes and make useful answers more likely through interference.</p></section><section><h2>Measurement</h2><p>Measurement converts the quantum state into observed bits, so algorithms are designed around probability and verification.</p></section><aside role="status" aria-live="polite"><h2>Classical vs quantum</h2><p id="detail-copy">Basics selected: classical bits hold one visible value, while qubits carry amplitudes that can interfere before measurement.</p><table><tr><th>Concept</th><th>Why it matters</th></tr><tr><td>Superposition</td><td>Keeps multiple amplitudes in play.</td></tr><tr><td>Interference</td><td>Amplifies useful paths.</td></tr><tr><td>Measurement</td><td>Returns one classical outcome.</td></tr></table></aside><script>const detail=document.getElementById('detail-copy');const copy={basics:'Basics selected: classical bits hold one visible value, while qubits carry amplitudes that can interfere before measurement.',qubits:'Qubits selected: amplitudes describe possible outcomes before an observation is made.',gates:'Gates selected: operations rotate amplitudes so interference can strengthen useful answers.',measurement:'Measurement selected: the final readout samples one classical result from the quantum state.'};document.querySelectorAll('input[name="focus"]').forEach((control)=>control.addEventListener('change',()=>{if(control.checked&&detail){detail.textContent=copy[control.value]||copy.basics;}}));</script></main></body></html>"#
+}
+
 #[async_trait]
 impl InferenceRuntime for SlowPlanExecuteAfterReplanTestRuntime {
     async fn execute_inference(
@@ -432,6 +443,9 @@ impl InferenceRuntime for SlowPlanExecuteAfterReplanTestRuntime {
                 "referenceHints": []
             })
             .to_string()
+        } else if prompt.contains("typed direct document repair author") {
+            tokio::time::sleep(self.plan_execute_delay).await;
+            slow_replan_quantum_repair_document().to_string()
         } else if prompt.contains("typed artifact materializer") {
             tokio::time::sleep(self.plan_execute_delay).await;
             serde_json::json!({
@@ -484,6 +498,10 @@ impl InferenceRuntime for SlowPlanExecuteAfterReplanTestRuntime {
         _token_stream: Option<Sender<String>>,
     ) -> Result<Vec<u8>, VmError> {
         let prompt = String::from_utf8_lossy(input_context);
+        if prompt.contains("typed direct document repair author") {
+            tokio::time::sleep(self.plan_execute_delay).await;
+            return Ok(slow_replan_quantum_repair_document().as_bytes().to_vec());
+        }
         if prompt.contains("Author the artifact directly")
             || prompt.contains("direct document author")
             || prompt.contains("Return only one complete self-contained index.html")
@@ -497,7 +515,7 @@ impl InferenceRuntime for SlowPlanExecuteAfterReplanTestRuntime {
             }
 
             tokio::time::sleep(self.plan_execute_delay).await;
-            return Ok("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>Quantum computers</title><style>:root{font-family:Georgia,serif;background:#08111d;color:#f5f2eb;}body{margin:0;}main{display:grid;gap:16px;max-width:960px;margin:0 auto;padding:24px;}section,aside{background:#111b2b;border:1px solid #2f4a68;border-radius:18px;padding:18px;}button{border:1px solid #5cc7ff;background:#10263a;color:#f5f2eb;border-radius:999px;padding:10px 14px;}table{width:100%;border-collapse:collapse;}th,td{padding:8px;border-bottom:1px solid #29415a;}</style></head><body><main><section><h1>Quantum computers</h1><p>Quantum computers use qubits, interference, and measurement to process some problems differently from classical machines.</p><button type=\"button\" data-view=\"basics\" aria-controls=\"basics-panel\" aria-selected=\"true\">Basics</button><button type=\"button\" data-view=\"gates\" aria-controls=\"gates-panel\" aria-selected=\"false\">Gates</button></section><section id=\"basics-panel\" data-view-panel=\"basics\"><h2>Qubits</h2><dl><dt>State blend</dt><dd>A qubit can carry amplitudes for both 0 and 1 until measurement selects one outcome.</dd><dt>Observation</dt><dd>Measurement resolves the blended state into a sampled result.</dd></dl></section><section id=\"gates-panel\" data-view-panel=\"gates\" hidden><h2>Gates</h2><dl><dt>Rotation</dt><dd>Quantum gates rotate amplitudes to reshape the result distribution.</dd><dt>Interference</dt><dd>Constructive interference strengthens useful answers.</dd></dl></section><aside><h2>Detail</h2><p id=\"detail-copy\">Basics selected by default so the first paint already explains the artifact.</p><table><tr><th>Concept</th><th>Why it matters</th></tr><tr><td>Superposition</td><td>Keeps multiple amplitudes in play.</td></tr><tr><td>Interference</td><td>Amplifies useful paths.</td></tr></table></aside><script>const detail=document.getElementById('detail-copy');const panels=document.querySelectorAll('[data-view-panel]');document.querySelectorAll('button[data-view]').forEach((button)=>button.addEventListener('click',()=>{panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});document.querySelectorAll('button[data-view]').forEach((control)=>control.setAttribute('aria-selected', String(control===button)));detail.textContent=button.dataset.view==='basics'?'Basics selected by default so the first paint already explains the artifact.':'Gate view selected to show how amplitudes are transformed.';}));</script></main></body></html>".as_bytes().to_vec());
+            return Ok(slow_replan_quantum_repair_document().as_bytes().to_vec());
         }
 
         self.execute_inference(model_hash, input_context, options)
@@ -632,6 +650,7 @@ fn direct_author_inactivity_replans_to_plan_execute_and_returns_artifact() {
 
 #[test]
 fn direct_author_replan_terminalizes_stale_stream_preview_before_plan_execute() {
+    let _env_guard = chat_artifact_env_lock();
     let runtime: Arc<dyn InferenceRuntime> =
         Arc::new(StreamingSilentDirectAuthorReplanTestRuntime {
             provenance: crate::models::ChatRuntimeProvenance {
@@ -870,12 +889,17 @@ fn replanned_plan_execute_quiet_materialization_stays_alive_past_outer_inactivit
     assert!(materialized.failure.is_none());
     assert_ne!(
         materialized.lifecycle_state,
-        ChatArtifactLifecycleState::Blocked
+        ChatArtifactLifecycleState::Blocked,
+        "validation={:?} notes={:?} operator_steps={:?}",
+        materialized.validation,
+        materialized.notes,
+        materialized.operator_steps
     );
 }
 
 #[test]
 fn chat_generation_timeout_extends_local_modal_first_html_for_split_acceptance() {
+    let _env_guard = chat_artifact_env_lock();
     let previous_profile = std::env::var("AUTOPILOT_CHAT_ARTIFACT_MODEL_ROUTING_PROFILE").ok();
     let previous_timeout = std::env::var("AUTOPILOT_CHAT_ARTIFACT_GENERATION_TIMEOUT_SECS").ok();
 
@@ -932,6 +956,7 @@ fn chat_generation_timeout_extends_local_modal_first_html_for_split_acceptance()
 
 #[test]
 fn direct_author_timeout_uses_strategy_budget_for_local_html() {
+    let _env_guard = chat_artifact_env_lock();
     let previous_profile = std::env::var("AUTOPILOT_CHAT_ARTIFACT_MODEL_ROUTING_PROFILE").ok();
     let previous_timeout = std::env::var("AUTOPILOT_CHAT_ARTIFACT_GENERATION_TIMEOUT_SECS").ok();
 

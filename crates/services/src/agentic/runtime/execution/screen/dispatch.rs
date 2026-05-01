@@ -30,6 +30,18 @@ fn is_missing_focus_dependency_error(msg: &str) -> bool {
         || lower.contains("not found")
 }
 
+pub(super) fn should_try_coordinate_semantic_override(
+    allow_raw_coords: bool,
+    som_map: Option<&BTreeMap<u32, (i32, i32, i32, i32)>>,
+    semantic_map: Option<&BTreeMap<u32, String>>,
+    active_lens: Option<&str>,
+) -> bool {
+    !allow_raw_coords
+        || som_map.is_some_and(|map| !map.is_empty())
+        || semantic_map.is_some_and(|map| !map.is_empty())
+        || active_lens.is_some()
+}
+
 pub(super) async fn handle(
     exec: &ToolExecutor,
     tool: AgentTool,
@@ -67,8 +79,15 @@ pub(super) async fn handle(
             }
 
             let mut semantic_override = None;
-            if let Ok(tree) = fetch_lensed_tree(exec, active_lens).await {
-                semantic_override = find_best_element_for_point(&tree, x as i32, y as i32);
+            if should_try_coordinate_semantic_override(
+                allow_raw_coords,
+                som_map,
+                semantic_map,
+                active_lens,
+            ) {
+                if let Ok(tree) = fetch_lensed_tree(exec, active_lens).await {
+                    semantic_override = find_best_element_for_point(&tree, x as i32, y as i32);
+                }
             }
 
             if let Some(element_id) = semantic_override {
@@ -140,24 +159,32 @@ pub(super) async fn handle(
             .await
         }
 
-        AgentTool::GuiSnapshot {} => match fetch_lensed_tree(exec, active_lens).await {
-            Ok(tree) => {
-                let strict_xml = ioi_drivers::gui::accessibility::serialize_tree_to_xml(&tree, 0);
-                if !strict_xml.trim().is_empty() {
-                    ToolExecutionResult::success(strict_xml)
-                } else {
-                    let relaxed_xml =
-                        ioi_drivers::gui::accessibility::serialize_tree_to_xml_relaxed(&tree, 0);
-                    if !relaxed_xml.trim().is_empty() {
-                        ToolExecutionResult::success(relaxed_xml)
+        AgentTool::GuiSnapshot {} => match exec.gui.capture_tree().await {
+            Ok(xml) if !xml.trim().is_empty() => ToolExecutionResult::success(xml),
+            _ => match fetch_lensed_tree(exec, active_lens).await {
+                Ok(tree) => {
+                    let strict_xml =
+                        ioi_drivers::gui::accessibility::serialize_tree_to_xml(&tree, 0);
+                    if !strict_xml.trim().is_empty() {
+                        ToolExecutionResult::success(strict_xml)
                     } else {
-                        ToolExecutionResult::success(
-                            ioi_drivers::gui::accessibility::serialize_tree_to_xml_debug(&tree, 0),
-                        )
+                        let relaxed_xml =
+                            ioi_drivers::gui::accessibility::serialize_tree_to_xml_relaxed(
+                                &tree, 0,
+                            );
+                        if !relaxed_xml.trim().is_empty() {
+                            ToolExecutionResult::success(relaxed_xml)
+                        } else {
+                            ToolExecutionResult::success(
+                                ioi_drivers::gui::accessibility::serialize_tree_to_xml_debug(
+                                    &tree, 0,
+                                ),
+                            )
+                        }
                     }
                 }
-            }
-            Err(e) => ToolExecutionResult::failure(format!("Extraction failed: {}", e)),
+                Err(e) => ToolExecutionResult::failure(format!("Extraction failed: {}", e)),
+            },
         },
 
         AgentTool::GuiClickElement { id } => {
@@ -296,9 +323,16 @@ async fn handle_computer_action(
                 }
 
                 let mut semantic_override = None;
-                if let Ok(tree) = fetch_lensed_tree(exec, active_lens).await {
-                    semantic_override =
-                        find_best_element_for_point(&tree, coord[0] as i32, coord[1] as i32);
+                if should_try_coordinate_semantic_override(
+                    allow_raw_coords,
+                    som_map,
+                    semantic_map,
+                    active_lens,
+                ) {
+                    if let Ok(tree) = fetch_lensed_tree(exec, active_lens).await {
+                        semantic_override =
+                            find_best_element_for_point(&tree, coord[0] as i32, coord[1] as i32);
+                    }
                 }
 
                 if let Some(element_id) = semantic_override {
@@ -381,19 +415,26 @@ async fn handle_computer_action(
                     }
                 }
 
-                if let Ok(tree) = fetch_lensed_tree(exec, active_lens).await {
-                    if let Some(element_id) =
-                        find_best_element_for_point(&tree, coord[0] as i32, coord[1] as i32)
-                    {
-                        let semantic_result = click_element_by_id_with_button(
-                            exec,
-                            &element_id,
-                            active_lens,
-                            MouseButton::Right,
-                        )
-                        .await;
-                        if semantic_result.success || !allow_raw_coords {
-                            return semantic_result;
+                if should_try_coordinate_semantic_override(
+                    allow_raw_coords,
+                    som_map,
+                    semantic_map,
+                    active_lens,
+                ) {
+                    if let Ok(tree) = fetch_lensed_tree(exec, active_lens).await {
+                        if let Some(element_id) =
+                            find_best_element_for_point(&tree, coord[0] as i32, coord[1] as i32)
+                        {
+                            let semantic_result = click_element_by_id_with_button(
+                                exec,
+                                &element_id,
+                                active_lens,
+                                MouseButton::Right,
+                            )
+                            .await;
+                            if semantic_result.success || !allow_raw_coords {
+                                return semantic_result;
+                            }
                         }
                     }
                 }
@@ -483,9 +524,16 @@ async fn handle_computer_action(
                 }
 
                 let mut semantic_override = None;
-                if let Ok(tree) = fetch_lensed_tree(exec, active_lens).await {
-                    semantic_override =
-                        find_best_element_for_point(&tree, coord[0] as i32, coord[1] as i32);
+                if should_try_coordinate_semantic_override(
+                    allow_raw_coords,
+                    som_map,
+                    semantic_map,
+                    active_lens,
+                ) {
+                    if let Ok(tree) = fetch_lensed_tree(exec, active_lens).await {
+                        semantic_override =
+                            find_best_element_for_point(&tree, coord[0] as i32, coord[1] as i32);
+                    }
                 }
 
                 if let Some(element_id) = semantic_override {

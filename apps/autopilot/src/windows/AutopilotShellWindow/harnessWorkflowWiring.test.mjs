@@ -15,13 +15,15 @@ const harnessWorkflow = fs.readFileSync(
   ),
   "utf8",
 );
-const workflowComposer = fs.readFileSync(
-  new URL(
-    "../../../../../packages/agent-ide/src/WorkflowComposer.tsx",
-    import.meta.url,
-  ),
-  "utf8",
-);
+const workflowComposer = [
+  "../../../../../packages/agent-ide/src/WorkflowComposer.tsx",
+  "../../../../../packages/agent-ide/src/WorkflowComposer/content.tsx",
+  "../../../../../packages/agent-ide/src/WorkflowComposer/support.tsx",
+  "../../../../../packages/agent-ide/src/WorkflowComposer/controller.tsx",
+  "../../../../../packages/agent-ide/src/WorkflowComposer/view.tsx",
+]
+  .map((path) => fs.readFileSync(new URL(path, import.meta.url), "utf8"))
+  .join("\n");
 const workflowRailPanel = fs.readFileSync(
   new URL(
     "../../../../../packages/agent-ide/src/features/Workflows/WorkflowRailPanel.tsx",

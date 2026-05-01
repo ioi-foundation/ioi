@@ -3,7 +3,9 @@ use crate::agentic::runtime::service::RuntimeAgentService;
 use crate::agentic::runtime::types::{AgentState, ExecutionTier};
 use ioi_api::state::StateAccess;
 use ioi_api::vm::inference::InferenceRuntime;
-use ioi_types::app::agentic::{ChatMessage as AgentChatMessage, InferenceOptions};
+use ioi_types::app::agentic::{
+    ChatMessage as AgentChatMessage, InferenceOptions, IntentScopeProfile,
+};
 use ioi_types::app::RoutingRouteDecision;
 use ioi_types::error::TransactionError;
 use serde_json::json;
@@ -236,6 +238,16 @@ pub(super) async fn maybe_direct_inline_author_tool_call(
     session_id: [u8; 32],
     target_tier: ExecutionTier,
 ) -> Result<Option<String>, TransactionError> {
+    if !matches!(
+        agent_state
+            .resolved_intent
+            .as_ref()
+            .map(|resolved| resolved.scope),
+        Some(IntentScopeProfile::Conversation)
+    ) {
+        return Ok(None);
+    }
+
     let route_decision = route_projection::project_route_decision(
         service,
         state,

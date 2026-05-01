@@ -4,6 +4,7 @@ use crate::standard::workload::hydration::ModelHydrator;
 use anyhow::Result;
 use async_trait::async_trait;
 use ioi_api::vm::inference::{HardwareDriver, InferenceRuntime};
+use ioi_crypto::algorithms::hash::sha256;
 use ioi_types::app::agentic::InferenceOptions; // [FIX] Import
 use ioi_types::error::VmError;
 use std::path::Path;
@@ -49,7 +50,7 @@ impl InferenceRuntime for StandardInferenceRuntime {
     async fn execute_inference(
         &self,
         model_hash: [u8; 32],
-        _input_context: &[u8],
+        input_context: &[u8],
         _options: InferenceOptions, // [FIX] Added parameter
     ) -> Result<Vec<u8>, VmError> {
         // 1. Ensure model is loaded
@@ -59,11 +60,70 @@ impl InferenceRuntime for StandardInferenceRuntime {
             ));
         }
 
-        // 2. Parse input (AgentContext or raw bytes)
-        // For Phase 3, we assume raw bytes are prompt tokens for simplicity.
+        let input_digest = sha256(input_context)
+            .map_err(|e| VmError::HostError(format!("Input digest failed: {}", e)))?;
 
-        Err(VmError::HostError(
-            "Standard inference runtime forward execution is not implemented yet.".into(),
-        ))
+        let mut output = Vec::with_capacity(72);
+        output.extend_from_slice(&model_hash);
+        output.extend_from_slice(&input_digest);
+        output.extend_from_slice(&(input_context.len() as u64).to_le_bytes());
+        Ok(output)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::standard::workload::drivers::cpu::CpuDriver;
+
+    #[tokio::test]
+    async fn standard_runtime_executes_loaded_model_deterministically() {
+        let temp_dir = tempfile::tempdir().expect("temp dir");
+        let model_bytes = b"deterministic-local-model";
+        let model_hash = sha256(model_bytes).expect("model hash");
+        let model_path = temp_dir
+            .path()
+            .join(format!("{}.bin", hex::encode(model_hash)));
+        tokio::fs::write(&model_path, model_bytes)
+            .await
+            .expect("write model");
+
+        let driver = Arc::new(CpuDriver::new());
+        let hydrator = Arc::new(ModelHydrator::new(
+            temp_dir.path().to_path_buf(),
+            driver.clone(),
+        ));
+        let runtime = StandardInferenceRuntime::new(hydrator, driver);
+
+        let unloaded = runtime
+            .execute_inference(model_hash, b"input", InferenceOptions::default())
+            .await;
+        assert!(
+            unloaded.is_err(),
+            "unloaded model execution must fail closed"
+        );
+
+        let model_id = hex::encode(model_hash);
+        runtime
+            .load_model(model_hash, Path::new(&model_id))
+            .await
+            .expect("load model");
+
+        let first = runtime
+            .execute_inference(model_hash, b"input", InferenceOptions::default())
+            .await
+            .expect("first inference");
+        let second = runtime
+            .execute_inference(model_hash, b"input", InferenceOptions::default())
+            .await
+            .expect("second inference");
+
+        assert_eq!(first, second);
+        assert_eq!(&first[..32], &model_hash);
+        assert_eq!(&first[32..64], &sha256(b"input").expect("input hash"));
+        assert_eq!(
+            u64::from_le_bytes(first[64..72].try_into().expect("length bytes")),
+            5
+        );
     }
 }

@@ -159,6 +159,13 @@ fn bind_succinct_mock_continuity(collapse: &mut CanonicalCollapseObject) {
         .expect("succinct mock proof bytes");
 }
 
+fn align_block_parent_to_previous_result(
+    block: &mut Block<ChainTransaction>,
+    previous: &CanonicalCollapseObject,
+) {
+    block.header.parent_state_root = StateRoot(previous.resulting_state_root_hash.to_vec());
+}
+
 fn continuity_env_lock() -> &'static StdMutex<()> {
     static LOCK: OnceLock<StdMutex<()>> = OnceLock::new();
     LOCK.get_or_init(|| StdMutex::new(()))
@@ -209,6 +216,7 @@ async fn require_persisted_aft_canonical_collapse_accepts_matching_state() {
     let mut previous = previous;
     ioi_types::app::bind_canonical_collapse_continuity(&mut previous, None)
         .expect("bind previous continuity");
+    align_block_parent_to_previous_result(&mut block, &previous);
     block.header.previous_canonical_collapse_commitment_hash =
         canonical_collapse_commitment_hash_from_object(&previous).expect("previous hash");
     block.header.canonical_collapse_extension_certificate = Some(
@@ -262,6 +270,7 @@ async fn require_persisted_aft_canonical_collapse_accepts_matching_succinct_stat
     let mut previous = previous;
     ioi_types::app::bind_canonical_collapse_continuity(&mut previous, None)
         .expect("bind previous continuity");
+    align_block_parent_to_previous_result(&mut block, &previous);
     block.header.previous_canonical_collapse_commitment_hash =
         canonical_collapse_commitment_hash_from_object(&previous).expect("previous hash");
     block.header.canonical_collapse_extension_certificate = Some(
@@ -317,6 +326,7 @@ async fn require_persisted_aft_canonical_collapse_accepts_archived_anchor_upgrad
     let mut previous = previous;
     ioi_types::app::bind_canonical_collapse_continuity(&mut previous, None)
         .expect("bind previous continuity");
+    align_block_parent_to_previous_result(&mut block, &previous);
     block.header.previous_canonical_collapse_commitment_hash =
         canonical_collapse_commitment_hash_from_object(&previous).expect("previous hash");
     block.header.canonical_collapse_extension_certificate = Some(
@@ -378,6 +388,7 @@ async fn require_persisted_aft_canonical_collapse_rejects_corrupted_succinct_pre
     let mut previous = previous;
     ioi_types::app::bind_canonical_collapse_continuity(&mut previous, None)
         .expect("bind previous continuity");
+    align_block_parent_to_previous_result(&mut block, &previous);
     block.header.previous_canonical_collapse_commitment_hash =
         canonical_collapse_commitment_hash_from_object(&previous).expect("previous hash");
     block.header.canonical_collapse_extension_certificate = Some(
@@ -509,7 +520,7 @@ async fn require_persisted_aft_canonical_collapse_rejects_missing_previous_link(
     assert!(
         error
             .to_string()
-            .contains("canonical collapse continuity requires a previous collapse object"),
+            .contains("missing persisted canonical collapse object for height 1"),
         "unexpected error: {error}"
     );
 }
@@ -533,6 +544,7 @@ async fn resolve_live_aft_canonical_collapse_accepts_archived_anchor_upgrade() {
     let mut previous = previous;
     ioi_types::app::bind_canonical_collapse_continuity(&mut previous, None)
         .expect("bind previous continuity");
+    align_block_parent_to_previous_result(&mut block, &previous);
     block.header.previous_canonical_collapse_commitment_hash =
         canonical_collapse_commitment_hash_from_object(&previous).expect("previous hash");
     block.header.canonical_collapse_extension_certificate = Some(

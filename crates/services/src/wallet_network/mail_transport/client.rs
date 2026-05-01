@@ -16,6 +16,8 @@ use ioi_types::app::wallet_network::{
     MailConnectorAuthMode, MailConnectorConfig, MailConnectorEndpoint, MailConnectorProvider,
     MailConnectorTlsMode,
 };
+#[cfg(test)]
+use ioi_types::app::MailboxTotalCountProvenance;
 use ioi_types::error::TransactionError;
 use lettre::message::{header::ContentType, Mailbox};
 use lettre::transport::smtp::authentication::{Credentials, Mechanism};
@@ -30,8 +32,166 @@ const SMTP_TLS_PORT: u16 = 465;
 pub(crate) fn mail_provider_for_config(
     config: &MailConnectorConfig,
 ) -> Result<Box<dyn MailProviderClient>, TransactionError> {
+    #[cfg(test)]
+    if config.imap.host.eq_ignore_ascii_case("imap.example.com")
+        && config.smtp.host.eq_ignore_ascii_case("smtp.example.com")
+    {
+        return Ok(Box::new(ExampleMailProviderClient));
+    }
+
     match config.provider {
         MailConnectorProvider::ImapSmtp => Ok(Box::new(ImapSmtpMailProviderClient)),
+    }
+}
+
+#[cfg(test)]
+struct ExampleMailProviderClient;
+
+#[cfg(test)]
+impl ExampleMailProviderClient {
+    fn fixture_messages(limit: usize, now_ms: u64) -> Vec<MailProviderMessage> {
+        let available = [
+            (
+                "fixture-1",
+                "promo@example.com",
+                "Limited time prize offer",
+                "Act now for a free reward. Unsubscribe from this promotion.",
+            ),
+            (
+                "fixture-2",
+                "alerts@example.com",
+                "Security digest",
+                "Your account digest is ready for review.",
+            ),
+            (
+                "fixture-3",
+                "newsletter@example.com",
+                "Weekly product update",
+                "A concise update with new features and release notes.",
+            ),
+            (
+                "fixture-4",
+                "billing@example.com",
+                "Receipt available",
+                "Your receipt and invoice are available in the billing portal.",
+            ),
+        ];
+
+        available
+            .iter()
+            .take(limit.max(1).min(available.len()))
+            .enumerate()
+            .map(
+                |(index, (message_id, from, subject, preview))| MailProviderMessage {
+                    message_id: (*message_id).to_string(),
+                    from: (*from).to_string(),
+                    subject: (*subject).to_string(),
+                    received_at_ms: now_ms.saturating_sub((index as u64) * 60_000),
+                    preview: (*preview).to_string(),
+                },
+            )
+            .collect()
+    }
+}
+
+#[cfg(test)]
+impl MailProviderClient for ExampleMailProviderClient {
+    fn read_latest(
+        &self,
+        _config: &MailConnectorConfig,
+        _credentials: &MailProviderCredentials,
+        _mailbox: &str,
+        now_ms: u64,
+    ) -> Result<MailProviderMessage, TransactionError> {
+        Ok(Self::fixture_messages(1, now_ms)
+            .into_iter()
+            .next()
+            .expect("fixture message"))
+    }
+
+    fn list_recent(
+        &self,
+        _config: &MailConnectorConfig,
+        _credentials: &MailProviderCredentials,
+        _mailbox: &str,
+        limit: usize,
+        now_ms: u64,
+    ) -> Result<MailProviderListOutcome, TransactionError> {
+        let messages = Self::fixture_messages(limit, now_ms);
+        Ok(MailProviderListOutcome {
+            evaluated_count: messages.len(),
+            requested_limit: limit,
+            parse_error_count: 0,
+            parse_confidence_bps: 9800,
+            parse_volume_band: "fixture".to_string(),
+            mailbox_total_count: 42,
+            messages,
+        })
+    }
+
+    fn mailbox_total_count(
+        &self,
+        _config: &MailConnectorConfig,
+        _credentials: &MailProviderCredentials,
+        _mailbox: &str,
+    ) -> Result<MailProviderMailboxTotalCountOutcome, TransactionError> {
+        Ok(MailProviderMailboxTotalCountOutcome {
+            mailbox_total_count: 42,
+            provenance: MailboxTotalCountProvenance {
+                status_exists: Some(42),
+                select_exists: None,
+                uid_search_count: None,
+                search_count: None,
+                freshness_marker: "fixture-status".to_string(),
+            },
+        })
+    }
+
+    fn delete_spam(
+        &self,
+        _config: &MailConnectorConfig,
+        _credentials: &MailProviderCredentials,
+        mailbox: &str,
+        max_delete: u32,
+    ) -> Result<MailProviderDeleteSpamOutcome, TransactionError> {
+        let cleanup_scope = cleanup_scope_from_mailbox(mailbox);
+        let spam_scope = matches!(cleanup_scope, CleanupMailboxScope::SpamMailbox);
+        let deleted_count = if spam_scope {
+            max_delete
+        } else {
+            max_delete.min(2)
+        };
+        Ok(MailProviderDeleteSpamOutcome {
+            evaluated_count: deleted_count.saturating_add(if spam_scope { 0 } else { 4 }),
+            deleted_count,
+            skipped_low_confidence_count: 0,
+            high_confidence_deleted_count: deleted_count,
+            mailbox_total_count_before: 42,
+            mailbox_total_count_after: 42u32.saturating_sub(deleted_count),
+            mailbox_total_count_delta: deleted_count,
+            spam_confidence_threshold_bps: 9000,
+            ontology_version: "fixture-mail-ontology-v1".to_string(),
+            cleanup_scope: if spam_scope {
+                "spam_mailbox".to_string()
+            } else {
+                "primary_inbox".to_string()
+            },
+            preserved_transactional_or_personal_count: if spam_scope { 0 } else { 3 },
+            preserved_trusted_system_count: 0,
+            preserved_low_confidence_other_count: 0,
+            preserved_due_to_delete_cap_count: 0,
+        })
+    }
+
+    fn send_reply(
+        &self,
+        _config: &MailConnectorConfig,
+        _credentials: &MailProviderCredentials,
+        to: &str,
+        _subject: &str,
+        _body: &str,
+    ) -> Result<String, TransactionError> {
+        Ok(format!("fixture-sent:{to}"))
     }
 }
 

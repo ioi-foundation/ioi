@@ -11,7 +11,9 @@ impl GuardianMajorityEngine {
         self.validator_count_by_height.retain(|h, _| *h >= height);
         self.qc_pool.retain(|h, _| *h + 2 >= height);
         self.committed_headers.retain(|h, _| *h + 2 >= height);
-        self.committed_collapses.retain(|h, _| *h + 2 >= height);
+        if !matches!(self.safety_mode, AftSafetyMode::Asymptote) {
+            self.committed_collapses.retain(|h, _| *h + 2 >= height);
+        }
         self.recovered_headers.retain(|h, _| *h + 2 >= height);
         self.recovered_certified_headers
             .retain(|h, _| *h + 2 >= height);

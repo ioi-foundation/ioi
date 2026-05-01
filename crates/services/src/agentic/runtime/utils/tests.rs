@@ -1,9 +1,11 @@
 use super::{
     await_child_session_status_for_inspection, delete_agent_state_checkpoint, get_state_key,
     load_agent_state_checkpoint, persist_agent_state,
-    should_terminalize_running_agent_after_max_steps, AGENT_STATE_CHECKPOINT_NAME,
+    should_terminalize_running_agent_after_max_steps, AGENT_RUNTIME_SUBSTRATE_CHECKPOINT_NAME,
+    AGENT_STATE_CHECKPOINT_NAME,
 };
-use crate::agentic::runtime::keys::get_parent_playbook_run_key;
+use crate::agentic::runtime::keys::{get_parent_playbook_run_key, get_runtime_substrate_key};
+use crate::agentic::runtime::substrate::RuntimeSubstrateSnapshot;
 use crate::agentic::runtime::types::{
     AgentMode, AgentState, AgentStatus, ExecutionTier, ParentPlaybookRun, ParentPlaybookStatus,
 };
@@ -178,6 +180,28 @@ fn persist_agent_state_mirrors_runtime_checkpoint_blob() {
             .expect("load checkpoint"),
         Some(expected_bytes),
     );
+
+    let substrate_bytes = runtime
+        .load_checkpoint_blob(session_id, AGENT_RUNTIME_SUBSTRATE_CHECKPOINT_NAME)
+        .expect("load substrate checkpoint")
+        .expect("substrate checkpoint present");
+    let snapshot: RuntimeSubstrateSnapshot =
+        serde_json::from_slice(&substrate_bytes).expect("decode substrate snapshot");
+    assert_eq!(snapshot.task_state.current_objective, agent_state.goal);
+    assert!(snapshot
+        .events
+        .iter()
+        .any(|event| event.event_kind == "uncertainty_assessed"));
+    assert!(snapshot.strategy_router.used_task_state);
+    assert_eq!(
+        state
+            .get(&get_runtime_substrate_key(
+                &session_id,
+                agent_state.step_count
+            ))
+            .expect("state substrate get"),
+        Some(substrate_bytes)
+    );
 }
 
 #[test]
@@ -197,6 +221,12 @@ fn delete_agent_state_checkpoint_removes_runtime_blob() {
         runtime
             .load_checkpoint_blob(session_id, AGENT_STATE_CHECKPOINT_NAME)
             .expect("load checkpoint"),
+        None,
+    );
+    assert_eq!(
+        runtime
+            .load_checkpoint_blob(session_id, AGENT_RUNTIME_SUBSTRATE_CHECKPOINT_NAME)
+            .expect("load substrate checkpoint"),
         None,
     );
 }

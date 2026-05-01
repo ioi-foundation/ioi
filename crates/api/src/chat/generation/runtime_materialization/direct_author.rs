@@ -49,6 +49,15 @@ fn should_skip_direct_author_continuation(
             || direct_author_local_html_semantic_underbuild_failure(error_message)
             || direct_author_local_html_interaction_truth_failure(error_message))
     {
+        if direct_author_should_continue_semantically_underbuilt_document(
+            request,
+            runtime_kind,
+            raw,
+            error_message,
+            false,
+        ) {
+            return false;
+        }
         return true;
     }
 
@@ -57,7 +66,8 @@ fn should_skip_direct_author_continuation(
         && direct_author_uses_raw_document(request)
         && direct_author_document_is_incomplete(request, raw, error_message)
     {
-        return direct_author_has_stream_settle_boundary(request, raw)
+        return direct_author_has_completion_boundary(request, raw)
+            && direct_author_has_stream_settle_boundary(request, raw)
             && (raw.len() >= 6000
                 || (raw.to_ascii_lowercase().contains("<main")
                     && count_html_nonempty_sectioning_elements(&raw.to_ascii_lowercase()) >= 3));
@@ -248,7 +258,7 @@ fn direct_author_should_continue_semantically_underbuilt_document(
     runtime_kind: ChatRuntimeProvenanceKind,
     raw: &str,
     error_message: &str,
-    _recovered_from_partial_stream: bool,
+    recovered_from_partial_stream: bool,
 ) -> bool {
     if runtime_kind != ChatRuntimeProvenanceKind::RealLocalRuntime
         || request.renderer != ChatRendererKind::HtmlIframe
@@ -260,6 +270,14 @@ fn direct_author_should_continue_semantically_underbuilt_document(
     }
 
     let lower = raw.to_ascii_lowercase();
+    if !recovered_from_partial_stream
+        && count_html_actionable_affordances(&lower) >= 3
+        && (count_populated_html_detail_regions(&lower) >= 1
+            || count_populated_html_response_regions(&lower) >= 1)
+    {
+        return false;
+    }
+
     (lower.contains("<main") || count_html_nonempty_sectioning_elements(&lower) >= 2)
         && (contains_html_interaction_hooks(&lower)
             || count_html_actionable_affordances(&lower) >= 2
@@ -287,6 +305,16 @@ fn direct_author_local_html_structural_failure(error_message: &str) -> bool {
     ]
     .iter()
     .any(|needle| error_message.contains(needle))
+}
+
+fn generated_payload_contains_empty_chart_shell(payload: &ChatGeneratedArtifactPayload) -> bool {
+    payload.files.iter().any(|file| {
+        let lower = file.body.to_ascii_lowercase();
+        lower.contains("chart-shell\"></div>")
+            || lower.contains("chart-shell'></div>")
+            || lower.contains("chart-shell\"></canvas>")
+            || lower.contains("chart-shell'></canvas>")
+    })
 }
 
 fn direct_author_follow_up_max_tokens(
@@ -559,6 +587,7 @@ pub(crate) async fn materialize_chat_artifact_candidate_with_runtime_direct_auth
         .map(|error| format!("Chat direct-author artifact inference failed: {error}"));
     let recovered_from_partial_stream =
         output_result.is_err() && !streamed_preview.trim().is_empty();
+    let output_was_ok = output_result.is_ok();
     let raw = match output_result {
         Ok(output) => {
             String::from_utf8(output).map_err(|error| ChatCandidateMaterializationError {
@@ -647,14 +676,48 @@ pub(crate) async fn materialize_chat_artifact_candidate_with_runtime_direct_auth
             }
         }
     };
-    match parse_candidate(&raw) {
+    let recovered_from_timeout_edge = output_was_ok
+        && configured_direct_author_stream_timeout().is_some()
+        && !streamed_preview.trim().is_empty()
+        && streamed_preview.trim() == raw.trim();
+    if recovered_from_timeout_edge {
+        emit_direct_author_live_preview(
+            live_preview_observer.as_ref(),
+            &preview_id,
+            &preview_label,
+            &preview_language,
+            "interrupted",
+            &streamed_preview,
+            false,
+        );
+    }
+    let raw_has_empty_chart_shell = raw.to_ascii_lowercase().contains("chart-shell");
+    match if raw_has_empty_chart_shell {
+        Err(ChatCandidateMaterializationError {
+            message: "HTML chart containers are empty placeholder shells on first paint."
+                .to_string(),
+            raw_output_preview: truncate_candidate_failure_preview(&raw, 2000),
+        })
+    } else {
+        parse_candidate(&raw).and_then(|generated| {
+        if generated_payload_contains_empty_chart_shell(&generated) {
+            Err(ChatCandidateMaterializationError {
+                message: "HTML chart containers are empty placeholder shells on first paint."
+                    .to_string(),
+                raw_output_preview: truncate_candidate_failure_preview(&raw, 2000),
+            })
+        } else {
+            Ok(generated)
+        }
+        })
+    } {
         Ok(generated) => {
             emit_direct_author_live_preview(
                 live_preview_observer.as_ref(),
                 &preview_id,
                 &preview_label,
                 &preview_language,
-                if recovered_from_partial_stream {
+                if recovered_from_partial_stream || recovered_from_timeout_edge {
                     "recovered"
                 } else {
                     "completed"
@@ -671,7 +734,35 @@ pub(crate) async fn materialize_chat_artifact_candidate_with_runtime_direct_auth
                 for candidate_raw in
                     direct_author_raw_document_parse_candidates(request, &raw, &streamed_preview)
                 {
-                    match parse_candidate(&candidate_raw) {
+                    let candidate_has_empty_chart_shell =
+                        candidate_raw.to_ascii_lowercase().contains("chart-shell");
+                    match if candidate_has_empty_chart_shell {
+                        Err(ChatCandidateMaterializationError {
+                            message:
+                                "HTML chart containers are empty placeholder shells on first paint."
+                                    .to_string(),
+                            raw_output_preview: truncate_candidate_failure_preview(
+                                &candidate_raw,
+                                2000,
+                            ),
+                        })
+                    } else {
+                        parse_candidate(&candidate_raw).and_then(|generated| {
+                        if generated_payload_contains_empty_chart_shell(&generated) {
+                            Err(ChatCandidateMaterializationError {
+                                message:
+                                    "HTML chart containers are empty placeholder shells on first paint."
+                                        .to_string(),
+                                raw_output_preview: truncate_candidate_failure_preview(
+                                    &candidate_raw,
+                                    2000,
+                                ),
+                            })
+                        } else {
+                            Ok(generated)
+                        }
+                        })
+                    } {
                         Ok(generated) => {
                             emit_direct_author_live_preview(
                                 live_preview_observer.as_ref(),
@@ -857,13 +948,21 @@ pub(crate) async fn materialize_chat_artifact_candidate_with_runtime_direct_auth
                     }
                 }
             }
+            let defer_local_semantic_repairs_for_continuation = returns_raw_document
+                && recovered_from_partial_stream
+                && prefer_semantic_continuation
+                && !skip_continuation;
             if let Some((repaired_document, repair_strategy)) =
-                try_local_html_primary_view_contract_repair(
-                    request,
-                    runtime_kind,
-                    &latest_raw,
-                    &latest_error,
-                )
+                (!defer_local_semantic_repairs_for_continuation)
+                    .then(|| {
+                        try_local_html_primary_view_contract_repair(
+                            request,
+                            runtime_kind,
+                            &latest_raw,
+                            &latest_error,
+                        )
+                    })
+                    .flatten()
             {
                 chat_generation_trace(format!(
                     "artifact_generation:direct_author_inference:local_primary_view_repair id={} strategy={} existing_bytes={} repaired_bytes={}",
@@ -923,7 +1022,17 @@ pub(crate) async fn materialize_chat_artifact_candidate_with_runtime_direct_auth
                 }
             }
             if let Some((repaired_document, repair_strategy)) =
-                try_local_html_interaction_repair(request, runtime_kind, &latest_raw, &latest_error)
+                (!defer_local_semantic_repairs_for_continuation)
+                    .then(|| {
+                        try_local_html_interaction_repair(
+                            request,
+                            brief,
+                            runtime_kind,
+                            &latest_raw,
+                            &latest_error,
+                        )
+                    })
+                    .flatten()
             {
                 chat_generation_trace(format!(
                     "artifact_generation:direct_author_inference:local_interaction_repair id={} strategy={} existing_bytes={} repaired_bytes={}",
@@ -999,6 +1108,7 @@ pub(crate) async fn materialize_chat_artifact_candidate_with_runtime_direct_auth
                 && request.renderer == ChatRendererKind::HtmlIframe
                 && request.artifact_class == ChatArtifactClass::Document
                 && returns_raw_document
+                && !latest_raw.to_ascii_lowercase().contains("chart-shell")
             {
                 match parse_direct_author_provisional_candidate_from_snapshot(
                     &latest_raw,

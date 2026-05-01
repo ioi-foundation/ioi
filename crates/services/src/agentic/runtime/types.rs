@@ -1039,6 +1039,25 @@ pub struct PostMessageParams {
 }
 
 #[derive(Encode, Decode)]
+pub struct PauseAgentParams {
+    pub session_id: [u8; 32],
+    pub reason: String,
+}
+
+#[derive(Encode, Decode)]
+pub struct CancelAgentParams {
+    pub session_id: [u8; 32],
+    pub reason: String,
+}
+
+#[derive(Encode, Decode)]
+pub struct DenyAgentParams {
+    pub session_id: [u8; 32],
+    pub request_hash: Option<[u8; 32]>,
+    pub reason: String,
+}
+
+#[derive(Encode, Decode)]
 pub struct ResumeAgentParams {
     pub session_id: [u8; 32],
     pub approval_grant: Option<ApprovalGrant>,

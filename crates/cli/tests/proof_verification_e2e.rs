@@ -111,6 +111,8 @@ async fn test_orchestration_rejects_tampered_proof() -> Result<()> {
         None, // min_finality_depth
         // [FIX] Use default policies
         ioi_types::config::default_service_policies(),
+        std::collections::BTreeMap::new(),
+        ioi_types::config::InferenceConfig::default(),
         // [FIX] Pass default Consensus role
         ValidatorRole::Consensus,
         ioi_types::config::AftSafetyMode::GuardianMajority,

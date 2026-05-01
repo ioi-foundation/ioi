@@ -48,12 +48,33 @@ fn worker_assignment_tool_names_match(allowed: &str, candidate: &str) -> bool {
         return true;
     }
 
+    if worker_assignment_tool_alias(allowed) == worker_assignment_tool_alias(candidate) {
+        return true;
+    }
+
     match (
         canonical_deterministic_tool_name(allowed),
         canonical_deterministic_tool_name(candidate),
     ) {
         (Some(left), Some(right)) => left == right,
         _ => false,
+    }
+}
+
+fn worker_assignment_tool_alias(name: &str) -> String {
+    match name.trim().to_ascii_lowercase().as_str() {
+        "filesystem__write_file" | "file__write" => "file__write".to_string(),
+        "filesystem__patch" | "file__edit" => "file__edit".to_string(),
+        "filesystem__edit_line" | "file__replace_line" => "file__replace_line".to_string(),
+        "filesystem__read_file" | "file__read" | "file__view" => "file__read".to_string(),
+        "filesystem__search" | "file__search" => "file__search".to_string(),
+        "filesystem__list_directory" | "filesystem__list_dir" | "file__list" => {
+            "file__list".to_string()
+        }
+        "filesystem__stat" | "file__info" => "file__info".to_string(),
+        "sys__exec_session" | "shell__run" => "shell__run".to_string(),
+        "system__fail" | "agent__escalate" => "agent__escalate".to_string(),
+        other => other.to_string(),
     }
 }
 
@@ -106,7 +127,7 @@ fn worker_assignment_tool_name_suppressed_by_recovery(
         agent_state,
         Some(assignment),
         last_failure_class,
-    ) && tool_name == "file__read"
+    ) && worker_assignment_tool_names_match("file__read", tool_name)
 }
 
 fn worker_assignment_allows_tool_name_for_recovery(

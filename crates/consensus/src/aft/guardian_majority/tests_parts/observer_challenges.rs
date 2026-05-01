@@ -271,6 +271,7 @@ async fn asymptote_accepts_valid_canonical_order_certificate() {
         },
         ..template_certificate
     });
+    header.publication_frontier = Some(build_publication_frontier(&header, None).unwrap());
 
     let policy = AsymptotePolicy {
         epoch: manifest.epoch,
@@ -1105,7 +1106,8 @@ async fn asymptote_rejects_abort_only_outcome_when_parent_state_coexists_with_po
 
 #[tokio::test]
 async fn asymptote_accepts_matching_published_canonical_collapse_object() {
-    let (mut engine, header, manifest, _preimage, _, log_keypair) = build_case(&[(0, 0), (1, 1)]);
+    let (mut engine, mut header, manifest, _preimage, _, log_keypair) =
+        build_case(&[(0, 0), (1, 1)]);
     engine.safety_mode = AftSafetyMode::Asymptote;
 
     let bulletin = BulletinCommitment {
@@ -1149,14 +1151,13 @@ async fn asymptote_accepts_matching_published_canonical_collapse_object() {
             .unwrap()],
         bulletin,
     );
-    let previous =
-        test_canonical_collapse_object(header.height - 1, None, [210u8; 32], [211u8; 32]);
-    parent_view.state.insert(
-        aft_canonical_collapse_object_key(previous.height),
-        codec::to_bytes_canonical(&previous).unwrap(),
-    );
+    let collapse_chain =
+        test_canonical_collapse_chain_ending(header.height - 1, [210u8; 32], [211u8; 32]);
+    insert_published_collapse_chain(&mut parent_view, &collapse_chain);
+    let previous = collapse_chain.last().unwrap();
+    link_header_to_previous_collapse(&mut header, previous);
     let collapse =
-        derive_canonical_collapse_object_with_previous(&header, &[], Some(&previous)).unwrap();
+        derive_canonical_collapse_object_with_previous(&header, &[], Some(previous)).unwrap();
     parent_view.state.insert(
         aft_canonical_collapse_object_key(header.height),
         codec::to_bytes_canonical(&collapse).unwrap(),
@@ -1170,7 +1171,8 @@ async fn asymptote_accepts_matching_published_canonical_collapse_object() {
 
 #[tokio::test]
 async fn asymptote_rejects_mismatched_published_canonical_collapse_object() {
-    let (mut engine, header, manifest, _preimage, _, log_keypair) = build_case(&[(0, 0), (1, 1)]);
+    let (mut engine, mut header, manifest, _preimage, _, log_keypair) =
+        build_case(&[(0, 0), (1, 1)]);
     engine.safety_mode = AftSafetyMode::Asymptote;
 
     let bulletin = BulletinCommitment {
@@ -1214,14 +1216,13 @@ async fn asymptote_rejects_mismatched_published_canonical_collapse_object() {
             .unwrap()],
         bulletin,
     );
-    let previous =
-        test_canonical_collapse_object(header.height - 1, None, [212u8; 32], [213u8; 32]);
-    parent_view.state.insert(
-        aft_canonical_collapse_object_key(previous.height),
-        codec::to_bytes_canonical(&previous).unwrap(),
-    );
+    let collapse_chain =
+        test_canonical_collapse_chain_ending(header.height - 1, [212u8; 32], [213u8; 32]);
+    insert_published_collapse_chain(&mut parent_view, &collapse_chain);
+    let previous = collapse_chain.last().unwrap();
+    link_header_to_previous_collapse(&mut header, previous);
     let mut collapse =
-        derive_canonical_collapse_object_with_previous(&header, &[], Some(&previous)).unwrap();
+        derive_canonical_collapse_object_with_previous(&header, &[], Some(previous)).unwrap();
     collapse.resulting_state_root_hash = [143u8; 32];
     parent_view.state.insert(
         aft_canonical_collapse_object_key(header.height),
@@ -1602,4 +1603,3 @@ async fn experimental_nested_guardian_rejects_witness_checkpoint_rollback_agains
         .unwrap_err();
     assert!(matches!(err, ConsensusError::BlockVerificationFailed(_)));
 }
-

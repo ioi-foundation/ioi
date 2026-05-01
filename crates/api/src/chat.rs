@@ -78,11 +78,20 @@ fn chat_modal_first_html_enabled() -> bool {
 
 #[doc(hidden)]
 pub fn with_chat_modal_first_html_override<T>(enabled: bool, f: impl FnOnce() -> T) -> T {
+    struct ModalFirstHtmlOverrideGuard(Option<bool>);
+
+    impl Drop for ModalFirstHtmlOverrideGuard {
+        fn drop(&mut self) {
+            STUDIO_MODAL_FIRST_HTML_THREAD_OVERRIDE.with(|override_cell| {
+                override_cell.set(self.0);
+            });
+        }
+    }
+
     STUDIO_MODAL_FIRST_HTML_THREAD_OVERRIDE.with(|override_cell| {
         let previous = override_cell.replace(Some(enabled));
-        let result = f();
-        override_cell.set(previous);
-        result
+        let _guard = ModalFirstHtmlOverrideGuard(previous);
+        f()
     })
 }
 

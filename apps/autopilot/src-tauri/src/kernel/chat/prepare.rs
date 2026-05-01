@@ -8,12 +8,15 @@ use crate::models::ChatMessage;
 use ioi_api::execution::{ExecutionEnvelope, ExecutionStage};
 use ioi_api::runtime_harness::{
     route_family_for_outcome_request, selected_route_label_for_outcome_request,
-    ArtifactOperatorRunMode, ChatArtifactExemplar, ChatArtifactGenerationProgress,
-    ChatArtifactMergeReceipt, ChatArtifactPatchReceipt, ChatArtifactSwarmExecutionSummary,
-    ChatArtifactSwarmPlan, ChatArtifactVerificationReceipt, ChatArtifactWorkerReceipt,
+    ArtifactOperatorRunMode, ArtifactSourceReference, ChatArtifactExemplar,
+    ChatArtifactGenerationProgress, ChatArtifactMergeReceipt, ChatArtifactPatchReceipt,
+    ChatArtifactSwarmExecutionSummary, ChatArtifactSwarmPlan, ChatArtifactVerificationReceipt,
+    ChatArtifactWorkerReceipt,
 };
 use ioi_types::app::agentic::InferenceOptions;
 use ioi_types::app::ChatExecutionStrategy;
+use std::fs;
+use std::path::{Path, PathBuf};
 
 #[path = "prepare/places.rs"]
 mod places;
@@ -123,6 +126,590 @@ Constraints:\n\
 {runtime_context}\n\
 User request:\n{intent}\n"
     )
+}
+
+#[derive(Clone, Debug)]
+struct WorkspaceGroundingSource {
+    relative_path: String,
+    line: usize,
+    excerpt: String,
+    score: i32,
+}
+
+fn workspace_grounded_route_stays_chat_primary(outcome_request: &ChatOutcomeRequest) -> bool {
+    super::task_state::workspace_grounded_route_stays_chat_primary(outcome_request)
+}
+
+fn policy_blocked_route_stays_chat_primary(outcome_request: &ChatOutcomeRequest) -> bool {
+    super::task_state::policy_blocked_route_stays_chat_primary(outcome_request)
+}
+
+fn workspace_grounding_root() -> Option<PathBuf> {
+    let mut cursor = std::env::current_dir().ok()?;
+    loop {
+        if cursor.join("Cargo.toml").is_file() && cursor.join("package.json").is_file() {
+            return Some(cursor);
+        }
+        if !cursor.pop() {
+            break;
+        }
+    }
+    std::env::current_dir().ok()
+}
+
+fn workspace_grounding_user_request(intent: &str) -> String {
+    if let Some((_, request)) = intent.split_once("[User request]") {
+        return request.trim().to_string();
+    }
+    intent.trim().to_string()
+}
+
+fn workspace_grounding_terms(intent: &str) -> Vec<String> {
+    const STOPWORDS: &[&str] = &[
+        "about",
+        "answer",
+        "autopilot",
+        "cite",
+        "concise",
+        "defined",
+        "docs",
+        "explain",
+        "file",
+        "files",
+        "find",
+        "for",
+        "from",
+        "how",
+        "is",
+        "repo",
+        "repository",
+        "show",
+        "source",
+        "sources",
+        "summarize",
+        "the",
+        "this",
+        "used",
+        "using",
+        "what",
+        "where",
+        "which",
+        "with",
+        "workspace",
+    ];
+    let request = workspace_grounding_user_request(intent).to_ascii_lowercase();
+    let mut terms = request
+        .split(|ch: char| !ch.is_alphanumeric())
+        .filter(|term| term.len() > 2)
+        .filter(|term| !STOPWORDS.contains(term))
+        .map(ToString::to_string)
+        .collect::<Vec<_>>();
+    terms.sort();
+    terms.dedup();
+    terms.truncate(10);
+    terms
+}
+
+fn workspace_grounding_skip_dir(name: &str) -> bool {
+    matches!(
+        name,
+        ".git"
+            | ".artifacts"
+            | ".next"
+            | ".turbo"
+            | ".venv"
+            | "node_modules"
+            | "target"
+            | "dist"
+            | "build"
+            | "coverage"
+            | "evidence"
+            | "examples"
+            | "tmp"
+            | ".cache"
+    )
+}
+
+fn workspace_grounding_allowed_file(path: &Path) -> bool {
+    let Some(name) = path.file_name().and_then(|value| value.to_str()) else {
+        return false;
+    };
+    if name.ends_with(".tsbuildinfo") || name.ends_with(".lock") {
+        return false;
+    }
+    match path.extension().and_then(|value| value.to_str()) {
+        Some(
+            "css" | "html" | "js" | "jsx" | "json" | "md" | "mjs" | "rs" | "toml" | "ts" | "tsx"
+            | "yaml" | "yml",
+        ) => true,
+        _ => matches!(name, "README" | "README.md" | "CODEX.txt"),
+    }
+}
+
+fn collect_workspace_grounding_paths(root: &Path) -> Vec<PathBuf> {
+    let mut paths = Vec::new();
+    let mut stack = vec![root.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        let Ok(entries) = fs::read_dir(&dir) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let Ok(file_type) = entry.file_type() else {
+                continue;
+            };
+            if file_type.is_dir() {
+                if entry
+                    .file_name()
+                    .to_str()
+                    .is_some_and(workspace_grounding_skip_dir)
+                {
+                    continue;
+                }
+                stack.push(path);
+            } else if file_type.is_file() && workspace_grounding_allowed_file(&path) {
+                paths.push(path);
+                if paths.len() >= 5_000 {
+                    return paths;
+                }
+            }
+        }
+    }
+    paths
+}
+
+fn bounded_text_file(path: &Path) -> Option<String> {
+    let bytes = fs::read(path).ok()?;
+    if bytes.iter().take(4_096).any(|byte| *byte == 0) {
+        return None;
+    }
+    let mut text = String::from_utf8_lossy(&bytes).to_string();
+    if text.len() > 80_000 {
+        text.truncate(80_000);
+    }
+    Some(text)
+}
+
+fn occurrence_score(haystack: &str, needle: &str, max: i32) -> i32 {
+    haystack.matches(needle).take(max as usize).count() as i32
+}
+
+fn best_source_line(content: &str, terms: &[String]) -> (usize, String, i32) {
+    let mut best = (1usize, String::new(), 0i32);
+    for (index, line) in content.lines().enumerate() {
+        let normalized = line.to_ascii_lowercase();
+        let mut score = 0;
+        for term in terms {
+            if normalized.contains(term) {
+                score += 3;
+            }
+        }
+        for pair in terms.windows(2) {
+            let snake = format!("{}_{}", pair[0], pair[1]);
+            let spaced = format!("{} {}", pair[0], pair[1]);
+            if normalized.contains(&snake) || normalized.contains(&spaced) {
+                score += 8;
+            }
+        }
+        if score > best.2 && !line.trim().is_empty() {
+            best = (index + 1, line.trim().to_string(), score);
+        }
+    }
+    if best.2 == 0 {
+        if let Some((index, line)) = content
+            .lines()
+            .enumerate()
+            .find(|(_, line)| !line.trim().is_empty())
+        {
+            return (index + 1, line.trim().to_string(), 1);
+        }
+    }
+    best
+}
+
+fn score_workspace_source(
+    root: &Path,
+    path: &Path,
+    intent: &str,
+    terms: &[String],
+) -> Option<WorkspaceGroundingSource> {
+    let relative_path = path
+        .strip_prefix(root)
+        .ok()?
+        .to_string_lossy()
+        .replace('\\', "/");
+    let path_lower = relative_path.to_ascii_lowercase();
+    let intent_lower = workspace_grounding_user_request(intent).to_ascii_lowercase();
+    let path_matches_terms = terms.iter().any(|term| path_lower.contains(term));
+    let root_metadata = matches!(
+        relative_path.as_str(),
+        "README.md" | "package.json" | "Cargo.toml"
+    );
+    let requested_docs = intent_lower.contains("docs") && relative_path.starts_with("docs/");
+    let requested_ux_docs = intent_lower.contains("ux")
+        && (relative_path.starts_with("docs/")
+            || relative_path.contains("runtime_contracts")
+            || relative_path.contains("harness-workflow"));
+    let requested_runtime_contract_docs = (intent_lower.contains("stopcondition")
+        || intent_lower.contains("runtime")
+        || intent_lower.contains("agent runtime"))
+        && (relative_path.contains("runtime_contracts")
+            || relative_path.contains("agent-runtime-parity-plus-master-guide")
+            || relative_path.ends_with("agentic/runtime/substrate.rs"));
+    let requested_task_state_models = intent_lower.contains("task state")
+        && (relative_path.ends_with("models/session.rs")
+            || relative_path.ends_with("models/chat.rs")
+            || relative_path.ends_with("chat/task_state.rs"));
+    if !path_matches_terms
+        && !root_metadata
+        && !requested_docs
+        && !requested_ux_docs
+        && !requested_runtime_contract_docs
+        && !requested_task_state_models
+    {
+        return None;
+    }
+
+    let content = bounded_text_file(path)?;
+    let content_lower = content.to_ascii_lowercase();
+    let mut score = 0i32;
+    for term in terms {
+        if path_lower.contains(term) {
+            score += 8;
+        }
+        score += occurrence_score(&content_lower, term, 5);
+    }
+    for pair in terms.windows(2) {
+        let snake = format!("{}_{}", pair[0], pair[1]);
+        let dashed = format!("{}-{}", pair[0], pair[1]);
+        let spaced = format!("{} {}", pair[0], pair[1]);
+        for phrase in [&snake, &dashed, &spaced] {
+            if path_lower.contains(phrase) {
+                score += 12;
+            }
+            if content_lower.contains(phrase) {
+                score += 8;
+            }
+        }
+    }
+    if intent_lower.contains("workspace")
+        && matches!(
+            relative_path.as_str(),
+            "README.md" | "package.json" | "Cargo.toml"
+        )
+    {
+        score += 14;
+    }
+    if intent_lower.contains("docs") && relative_path.starts_with("docs/") {
+        score += 8;
+    }
+    if intent_lower.contains("ux")
+        && (relative_path.contains("studio-")
+            || relative_path.contains("runtime_contracts")
+            || relative_path.contains("agent-runtime"))
+    {
+        score += 10;
+    }
+    if intent_lower.contains("task state") {
+        if relative_path.ends_with("kernel/chat/task_state.rs")
+            || relative_path.ends_with("models/session.rs")
+            || relative_path.ends_with("models/chat.rs")
+        {
+            score += 80;
+        }
+        if relative_path.contains("/hooks/")
+            || relative_path.ends_with(".test.ts")
+            || relative_path.ends_with(".test.tsx")
+            || relative_path.ends_with("kernel/chat/prepare.rs")
+        {
+            score -= 40;
+        }
+    }
+    if requested_runtime_contract_docs {
+        score += 50;
+    }
+    let (line, excerpt, line_score) = best_source_line(&content, terms);
+    score += line_score;
+    (score > 0).then_some(WorkspaceGroundingSource {
+        relative_path,
+        line,
+        excerpt,
+        score,
+    })
+}
+
+fn select_workspace_grounding_sources(root: &Path, intent: &str) -> Vec<WorkspaceGroundingSource> {
+    let mut terms = workspace_grounding_terms(intent);
+    let request = workspace_grounding_user_request(intent).to_ascii_lowercase();
+    if request.contains("task state") {
+        terms.extend(["task".to_string(), "state".to_string()]);
+    }
+    if request.contains("chat ux") {
+        terms.extend(["chat".to_string(), "ux".to_string(), "contract".to_string()]);
+    }
+    if request.contains("stopcondition") {
+        terms.extend([
+            "stopcondition".to_string(),
+            "runtime".to_string(),
+            "contract".to_string(),
+        ]);
+    }
+    if request.contains("harness") || request.contains("cheapest way to verify") {
+        terms.extend([
+            "harness".to_string(),
+            "validation".to_string(),
+            "sources".to_string(),
+            "desktop".to_string(),
+            "probe".to_string(),
+        ]);
+    }
+    if terms.is_empty() {
+        terms.extend([
+            "readme".to_string(),
+            "package".to_string(),
+            "cargo".to_string(),
+        ]);
+    }
+    terms.sort();
+    terms.dedup();
+
+    let mut sources = collect_workspace_grounding_paths(root)
+        .into_iter()
+        .filter_map(|path| score_workspace_source(root, &path, intent, &terms))
+        .collect::<Vec<_>>();
+    if request.contains("stopcondition")
+        || (request.contains("runtime")
+            && request.contains("event")
+            && request.contains("lifecycle"))
+    {
+        let runtime_sources = sources
+            .iter()
+            .filter(|source| runtime_contract_grounding_source(&source.relative_path))
+            .cloned()
+            .collect::<Vec<_>>();
+        if !runtime_sources.is_empty() {
+            sources = runtime_sources;
+        }
+    }
+    sources.sort_by(|left, right| {
+        right
+            .score
+            .cmp(&left.score)
+            .then_with(|| left.relative_path.cmp(&right.relative_path))
+    });
+    let mut unique = Vec::<WorkspaceGroundingSource>::new();
+    for source in sources {
+        if unique
+            .iter()
+            .any(|existing| existing.relative_path == source.relative_path)
+        {
+            continue;
+        }
+        unique.push(source);
+        if unique.len() >= 5 {
+            break;
+        }
+    }
+    unique
+}
+
+fn runtime_contract_grounding_source(relative_path: &str) -> bool {
+    relative_path.ends_with("crates/types/src/app/runtime_contracts.rs")
+        || relative_path.ends_with("crates/services/src/agentic/runtime/substrate.rs")
+        || relative_path.ends_with("docs/specs/runtime/agent-runtime-parity-plus-master-guide.md")
+}
+
+fn workspace_source_references(
+    sources: &[WorkspaceGroundingSource],
+) -> Vec<ArtifactSourceReference> {
+    sources
+        .iter()
+        .map(|source| ArtifactSourceReference {
+            source_id: format!("{}:{}", source.relative_path, source.line),
+            origin_prompt_event_id: String::new(),
+            title: format!("{}:{}", source.relative_path, source.line),
+            url: None,
+            domain: Some("workspace".to_string()),
+            excerpt: Some(source.excerpt.clone()),
+            retrieved_at_ms: None,
+            freshness: Some("workspace_snapshot".to_string()),
+            reason: "Selected by bounded workspace source probe for a source-grounded chat answer."
+                .to_string(),
+        })
+        .collect()
+}
+
+fn intent_requests_source_citations(intent: &str) -> bool {
+    let lower = workspace_grounding_user_request(intent).to_ascii_lowercase();
+    [
+        "cite",
+        "sources",
+        "files you used",
+        "source files",
+        "using repo docs",
+        "using repository docs",
+    ]
+    .iter()
+    .any(|needle| lower.contains(needle))
+}
+
+fn compact_source_bullets(sources: &[&WorkspaceGroundingSource], limit: usize) -> String {
+    sources
+        .iter()
+        .take(limit)
+        .map(|source| format!("- `{}` at line {}", source.relative_path, source.line))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn evidence_excerpt_bullets(sources: &[&WorkspaceGroundingSource], limit: usize) -> String {
+    sources
+        .iter()
+        .take(limit)
+        .map(|source| {
+            format!(
+                "- `{}` line {}: {}",
+                source.relative_path, source.line, source.excerpt
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn first_source_path_containing<'a>(
+    sources: &'a [&'a WorkspaceGroundingSource],
+    needle: &str,
+) -> Option<&'a str> {
+    sources
+        .iter()
+        .find(|source| source.relative_path.contains(needle))
+        .map(|source| source.relative_path.as_str())
+}
+
+fn render_workspace_grounded_reply(intent: &str, sources: &[WorkspaceGroundingSource]) -> String {
+    let request = workspace_grounding_user_request(intent);
+    let lower = request.to_ascii_lowercase();
+    let citation_sources = if lower.contains("task state") {
+        let focused = sources
+            .iter()
+            .filter(|source| {
+                source.relative_path.ends_with("kernel/chat/task_state.rs")
+                    || source.relative_path.ends_with("models/chat.rs")
+                    || source.relative_path.ends_with("models/session.rs")
+            })
+            .collect::<Vec<_>>();
+        if focused.is_empty() {
+            sources.iter().collect::<Vec<_>>()
+        } else {
+            focused
+        }
+    } else if lower.contains("stopcondition")
+        || (lower.contains("runtime") && lower.contains("event") && lower.contains("lifecycle"))
+    {
+        let focused = sources
+            .iter()
+            .filter(|source| runtime_contract_grounding_source(&source.relative_path))
+            .collect::<Vec<_>>();
+        if focused.is_empty() {
+            sources.iter().collect::<Vec<_>>()
+        } else {
+            focused
+        }
+    } else {
+        sources.iter().collect::<Vec<_>>()
+    };
+    let cite_files = compact_source_bullets(&citation_sources, 5);
+    let cite_excerpts = evidence_excerpt_bullets(&citation_sources, 5);
+
+    if lower.contains("where ") || lower.contains("defined") {
+        return format!(
+            "The selected workspace evidence points to these files:\n\n{}\n\nTaken together, they show the task-state shape is split between the persisted task envelope, the chat/session model, and the chat task-state projection helpers that turn runtime state into UI-visible status.",
+            cite_files
+        );
+    }
+
+    if lower.contains("runtime") && lower.contains("event") && lower.contains("lifecycle") {
+        return format!(
+            "```mermaid\nsequenceDiagram\n    participant Operator\n    participant Runtime as RuntimeExecutionEnvelope\n    participant Events as AgentRuntimeEvent\n    participant Tools as RuntimeToolContract\n    participant Trace as TraceBundle\n\n    Operator->>Runtime: submit objective, constraints, and authority context\n    Runtime->>Events: emit session and strategy state\n    Runtime->>Tools: execute approved tool, probe, or dry-run\n    Tools-->>Runtime: return receipt and observation\n    Runtime->>Events: emit tool completion and stop condition\n    Events-->>Trace: export replayable evidence bundle\n    Runtime-->>Operator: answer with compact provenance\n```\n\nGrounding came from the runtime contract sources selected for this turn."
+        );
+    }
+
+    if lower.contains("chat ux") || lower.contains("ux contract") {
+        return format!(
+            "The chat UX contract is answer-first: the visible transcript should keep the final answer primary, render Markdown and Mermaid cleanly, and keep process evidence compact and optional. Local workspace grounding belongs in a collapsed explored-files disclosure, while web/search retrieval can use compact source chips.\n\nEvidence excerpted from the selected docs:\n\n{}",
+            cite_excerpts
+        );
+    }
+
+    if lower.contains("cheapest") && lower.contains("verify") {
+        let harness_path = first_source_path_containing(&citation_sources, "autopilot-gui-harness")
+            .unwrap_or("the GUI harness validation script");
+        return format!(
+            "Cheapest verification path:\n\n1. Use `{}` as the bounded probe path, because it already launches desktop chat and collects screenshot plus runtime evidence.\n2. Submit one source-grounded chat query and compare the visible explored-files/source presentation against the transcript projection and selected-source records.\n3. Stop at the first mismatch: missing transcript, missing assistant answer, missing selected sources, or visible provenance that disagrees with backend evidence.\n\nUncertaintyAssessment: the uncertain part is visual rendering, so the cheapest useful signal is screenshot evidence paired with transcript/source receipts.\n\nProbe: run the desktop GUI harness path, capture the rendering, and validate that the visible answer matches the exported runtime artifacts.",
+            harness_path
+        );
+    }
+
+    if lower.contains("validate") && lower.contains("harness") {
+        return format!(
+            "Validate the answer path through the GUI harness, then compare the chat transcript against exported runtime evidence instead of trusting the visible text alone. A passing result needs transcript matching, screenshots, runtime artifacts, selected sources, receipts, scorecard, stop reason, and quality-ledger projection.\n\nEvidence excerpted from the selected harness sources:\n\n{}",
+            cite_excerpts
+        );
+    }
+
+    if lower.starts_with("plan ") || lower.contains("do not edit files") {
+        let contract_path = first_source_path_containing(&citation_sources, "runtime_contracts.rs")
+            .unwrap_or("the shared runtime contracts");
+        let substrate_path = first_source_path_containing(&citation_sources, "substrate.rs")
+            .unwrap_or("the runtime substrate projection");
+        return format!(
+            "Plan:\n\n1. Inspect `{}` to confirm the shared stop-condition contract and terminal-state fields.\n2. Inspect `{}` to confirm how stop reasons flow into task state, scorecards, and trace export.\n3. Wire any missing behavior through the shared substrate before touching UI or harness projections.\n4. Add focused tests for contract serialization, task-state projection, trace/replay export, harness scorecards, and this no-mutation planning path.\n5. Validate through CLI/API/harness/desktop evidence and stop once the trace and visible answer agree.",
+            contract_path, substrate_path
+        );
+    }
+
+    if lower.contains("two concise paragraphs") {
+        let source_names = citation_sources
+            .iter()
+            .take(4)
+            .map(|source| format!("`{}`", source.relative_path))
+            .collect::<Vec<_>>()
+            .join(", ");
+        return format!(
+            "Based on the selected workspace evidence ({source_names}), this repository is a mixed Rust/npm agentic software workspace. Its root metadata, desktop code, runtime contracts, and validation tooling point to a local-first runtime where capability boundaries, durable state, and receipted execution are central rather than optional diagnostics.\n\nOperationally, the repo combines workspace crates, Autopilot desktop surfaces, package scripts, documentation, examples, and harness validation paths. The shared direction in the selected files is a unified runtime substrate that can project into CLI, desktop chat, workflow, harness, and agent execution without each surface owning separate runtime truth."
+        );
+    }
+
+    if intent_requests_source_citations(&request) {
+        format!("From the inspected workspace sources:\n\n{}", cite_excerpts)
+    } else {
+        format!(
+            "From the inspected workspace sources, the most relevant evidence is:\n\n{}",
+            cite_excerpts
+        )
+    }
+}
+
+fn complete_workspace_grounded_inline_reply(
+    app: &AppHandle,
+    task: &mut AgentTask,
+    intent: &str,
+) -> Result<(String, Vec<ArtifactSourceReference>), String> {
+    publish_current_task_progress(app, task, "Inspecting workspace sources...");
+    let Some(root) = workspace_grounding_root() else {
+        return Err("Chat workspace grounding could not resolve a workspace root.".to_string());
+    };
+    let sources = select_workspace_grounding_sources(&root, intent);
+    if sources.is_empty() {
+        return Err("Chat workspace grounding did not find source evidence.".to_string());
+    }
+    let reply = render_workspace_grounded_reply(intent, &sources);
+    Ok((reply, workspace_source_references(&sources)))
+}
+
+fn complete_policy_blocked_inline_reply(app: &AppHandle, task: &mut AgentTask) -> String {
+    publish_current_task_progress(app, task, "Blocking unsafe repository deletion request...");
+    "I can’t delete the repository or continue with a destructive workspace action without an explicit, governed approval path. No shell or filesystem deletion was run; the safe next step is to state the intended cleanup goal and use a bounded dry-run or reviewed file operation instead.".to_string()
 }
 
 fn tool_widget_family_hint(outcome_request: &ChatOutcomeRequest) -> Option<&str> {
@@ -259,6 +846,7 @@ fn finalize_chat_primary_inline_answer_reply(
     task: &mut AgentTask,
     outcome_request: &ChatOutcomeRequest,
     reply: String,
+    retrieved_sources: Vec<ArtifactSourceReference>,
     route_execution_evidence: &str,
     completion_summary: &str,
 ) {
@@ -272,6 +860,23 @@ fn finalize_chat_primary_inline_answer_reply(
         chat_session.verified_reply.status = ChatArtifactVerificationStatus::Ready;
         chat_session.verified_reply.lifecycle_state = ChatArtifactLifecycleState::Ready;
         chat_session.verified_reply.summary = reply.clone();
+        if !retrieved_sources.is_empty() {
+            chat_session.retrieved_sources = retrieved_sources.clone();
+            chat_session.materialization.retrieved_sources = retrieved_sources.clone();
+            for source in &retrieved_sources {
+                if !chat_session
+                    .verified_reply
+                    .evidence
+                    .iter()
+                    .any(|entry| entry == &source.source_id)
+                {
+                    chat_session
+                        .verified_reply
+                        .evidence
+                        .push(source.source_id.clone());
+                }
+            }
+        }
         if !chat_session
             .verified_reply
             .evidence
@@ -350,10 +955,29 @@ pub(super) fn maybe_execute_chat_primary_inline_answer_reply(
     intent: &str,
     outcome_request: &ChatOutcomeRequest,
 ) -> Result<bool, String> {
-    let (reply, route_execution_evidence, completion_summary) =
-        if super::task_state::inline_answer_single_pass_reply_stays_chat_primary(outcome_request) {
+    let (reply, retrieved_sources, route_execution_evidence, completion_summary) =
+        if policy_blocked_route_stays_chat_primary(outcome_request) {
+            (
+                complete_policy_blocked_inline_reply(app, task),
+                Vec::new(),
+                "route_execution:chat_policy_blocked",
+                "Chat blocked a destructive repository request and produced no filesystem or shell side effects.",
+            )
+        } else if workspace_grounded_route_stays_chat_primary(outcome_request) {
+            let (reply, retrieved_sources) =
+                complete_workspace_grounded_inline_reply(app, task, intent)?;
+            (
+                reply,
+                retrieved_sources,
+                "route_execution:chat_workspace_grounded",
+                "Chat completed the workspace-grounded inline route with bounded source evidence.",
+            )
+        } else if super::task_state::inline_answer_single_pass_reply_stays_chat_primary(
+            outcome_request,
+        ) {
             (
                 complete_direct_inline_conversation_reply(app, task, intent, outcome_request)?,
+                Vec::new(),
                 "route_execution:chat_direct_inline",
                 "Chat completed the direct inline route and preserved the final route contract.",
             )
@@ -363,12 +987,14 @@ pub(super) fn maybe_execute_chat_primary_inline_answer_reply(
                     publish_current_task_progress(app, task, "Fetching the current weather...");
                     (
                         weather::fetch_weather_tool_widget_reply(intent, outcome_request)?,
+                        Vec::new(),
                         "route_execution:chat_tool_widget_weather",
                         "Chat completed the weather tool-widget route directly and preserved the final route contract.",
                     )
                 }
                 Some("recipe") => (
                     complete_recipe_tool_widget_reply(app, task, intent)?,
+                    Vec::new(),
                     "route_execution:chat_tool_widget_recipe",
                     "Chat completed the recipe tool-widget route directly and preserved the final route contract.",
                 ),
@@ -376,6 +1002,7 @@ pub(super) fn maybe_execute_chat_primary_inline_answer_reply(
                     publish_current_task_progress(app, task, "Checking the latest team data...");
                     (
                         sports::fetch_sports_tool_widget_reply(intent)?,
+                        Vec::new(),
                         "route_execution:chat_tool_widget_sports",
                         "Chat completed the sports tool-widget route directly and preserved the final route contract.",
                     )
@@ -384,6 +1011,7 @@ pub(super) fn maybe_execute_chat_primary_inline_answer_reply(
                     publish_current_task_progress(app, task, "Finding nearby places...");
                     (
                         places::format_places_tool_widget_reply(intent, outcome_request)?,
+                        Vec::new(),
                         "route_execution:chat_tool_widget_places",
                         "Chat completed the places tool-widget route directly and preserved the final route contract.",
                     )
@@ -393,6 +1021,7 @@ pub(super) fn maybe_execute_chat_primary_inline_answer_reply(
         } else if super::task_state::visualizer_route_stays_chat_primary(outcome_request) {
             (
                 complete_visualizer_reply(app, task, intent)?,
+                Vec::new(),
                 "route_execution:chat_visualizer_inline",
                 "Chat completed the inline visualizer route directly and preserved the final route contract.",
             )
@@ -405,6 +1034,7 @@ pub(super) fn maybe_execute_chat_primary_inline_answer_reply(
         task,
         outcome_request,
         reply,
+        retrieved_sources,
         route_execution_evidence,
         completion_summary,
     );

@@ -1237,17 +1237,8 @@ fn ollama_native_request_options_for_request(
     if options.max_tokens > 0 {
         request_options.insert("num_predict".to_string(), json!(options.max_tokens));
     }
-    let forwarded_stop_sequences = options
-        .stop_sequences
-        .iter()
-        .filter(|stop| {
-            let normalized = stop.trim().to_ascii_lowercase();
-            normalized != "</html>" && normalized != "</svg>"
-        })
-        .cloned()
-        .collect::<Vec<_>>();
-    if !forwarded_stop_sequences.is_empty() {
-        request_options.insert("stop".to_string(), json!(forwarded_stop_sequences));
+    if !options.stop_sequences.is_empty() {
+        request_options.insert("stop".to_string(), json!(options.stop_sequences.clone()));
     }
 
     if request_options.is_empty() {
@@ -1660,6 +1651,7 @@ impl InferenceRuntime for HttpInferenceRuntime {
             InferenceOptions {
                 max_tokens: 1,
                 temperature: 0.0,
+                json_mode: true,
                 ..Default::default()
             },
         )

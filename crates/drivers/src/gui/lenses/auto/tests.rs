@@ -229,3 +229,57 @@ fn transform_keeps_human_readable_button_ids_when_dom_id_is_opaque() {
     let button = transformed.children.first().expect("button should survive");
     assert_eq!(button.id, "btn_submit");
 }
+
+#[test]
+fn slugify_truncates_on_unicode_char_boundaries() {
+    let slug = AutoLens.slugify("radix design framework by lukáš straňák for platform");
+
+    assert_eq!(slug.chars().count(), 30);
+    assert!(slug.starts_with("radix_design_framework_by_luk"));
+}
+
+#[test]
+fn transform_prunes_extreme_depth_before_stack_growth() {
+    let mut node = AccessibilityNode {
+        id: "leaf".to_string(),
+        role: "button".to_string(),
+        name: Some("Deep button".to_string()),
+        value: None,
+        rect: Rect {
+            x: 0,
+            y: 0,
+            width: 10,
+            height: 10,
+        },
+        children: vec![],
+        is_visible: true,
+        attributes: HashMap::new(),
+        som_id: None,
+    };
+    for depth in 0..120 {
+        node = AccessibilityNode {
+            id: format!("node-{depth}"),
+            role: "group".to_string(),
+            name: None,
+            value: None,
+            rect: Rect {
+                x: 0,
+                y: 0,
+                width: 10,
+                height: 10,
+            },
+            children: vec![node],
+            is_visible: true,
+            attributes: HashMap::new(),
+            som_id: None,
+        };
+    }
+
+    let transformed = AutoLens.transform(&node).expect("root should survive");
+
+    fn max_depth(node: &AccessibilityNode) -> usize {
+        1 + node.children.iter().map(max_depth).max().unwrap_or(0)
+    }
+
+    assert!(max_depth(&transformed) <= 98, "{transformed:#?}");
+}

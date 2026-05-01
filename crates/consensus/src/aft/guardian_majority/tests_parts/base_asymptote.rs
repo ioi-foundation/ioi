@@ -43,16 +43,16 @@ async fn local_timeout_does_not_enter_new_view_without_timeout_certificate() {
         GuardianMajorityEngine::with_view_timeout(AftSafetyMode::GuardianMajority, Duration::ZERO);
 
     let first: ConsensusDecision<ChainTransaction> = engine
-        .decide(&validators[0], 1, 0, &parent_view, &known_peers)
+        .decide(&validators[0], 4, 0, &parent_view, &known_peers)
         .await;
     assert!(matches!(
         first,
-        ConsensusDecision::Timeout { view: 1, height: 1 }
+        ConsensusDecision::Timeout { view: 1, height: 4 }
     ));
     assert_eq!(engine.pacemaker.lock().await.current_view, 0);
 
     let second: ConsensusDecision<ChainTransaction> = engine
-        .decide(&validators[0], 1, 0, &parent_view, &known_peers)
+        .decide(&validators[0], 4, 0, &parent_view, &known_peers)
         .await;
     assert!(matches!(second, ConsensusDecision::WaitForBlock));
     assert_eq!(engine.pacemaker.lock().await.current_view, 0);
@@ -66,11 +66,22 @@ async fn bootstrap_grace_pins_view_zero_without_blocking_leader_production() {
         AccountId([3u8; 32]),
     ];
     let parent_view = build_decide_parent_view(validators.clone());
+    let mut parent_view = parent_view;
+    let collapse_chain = test_canonical_collapse_chain_ending(1, [0x21u8; 32], [0x22u8; 32]);
+    insert_published_collapse_chain(&mut parent_view, &collapse_chain);
     let known_peers = HashSet::from([PeerId::random()]);
     let mut engine = GuardianMajorityEngine::with_view_timeout(
         AftSafetyMode::GuardianMajority,
         Duration::from_secs(5),
     );
+    engine.highest_qc = QuorumCertificate {
+        height: 1,
+        view: 0,
+        block_hash: [0x41u8; 32],
+        signatures: vec![],
+        aggregated_signature: vec![],
+        signers_bitfield: vec![],
+    };
     engine.bootstrap_grace_until = Instant::now() + Duration::from_secs(60);
 
     let decision: ConsensusDecision<ChainTransaction> = engine
@@ -399,4 +410,3 @@ async fn asymptote_accepts_ready_commit_once_parent_is_collapse_backed() {
     );
     assert!(engine.safety.next_ready_commit().is_none());
 }
-

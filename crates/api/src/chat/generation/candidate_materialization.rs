@@ -143,6 +143,20 @@ fn hydrate_validation_result(
         .cloned()
         .or_else(|| validation.repair_hints.first().cloned());
 
+    let mut strengths = if validation.classification == ChatArtifactValidationStatus::Pass {
+        vec![validation.summary.clone()]
+    } else {
+        Vec::new()
+    };
+    if validation.classification == ChatArtifactValidationStatus::Pass
+        && validation.rationale != validation.summary
+        && !strengths
+            .iter()
+            .any(|strength| strength == &validation.rationale)
+    {
+        strengths.push(validation.rationale.clone());
+    }
+
     ChatArtifactValidationResult {
         classification,
         request_faithfulness: default_score,
@@ -159,11 +173,7 @@ fn hydrate_validation_result(
         continuity_revision_ux,
         issue_classes: validation.issue_codes.clone(),
         repair_hints: validation.repair_hints.clone(),
-        strengths: if validation.classification == ChatArtifactValidationStatus::Pass {
-            vec![validation.summary.clone()]
-        } else {
-            Vec::new()
-        },
+        strengths,
         blocked_reasons: validation.blocked_reasons.clone(),
         file_findings: validation
             .validated_paths

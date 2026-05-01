@@ -240,7 +240,7 @@ fn warmup_cache_is_kept_for_started_task_surface() {
 
 #[test]
 fn dom_fallback_script_declares_selector_helper_before_use() {
-    let source = include_str!("../accessibility.rs");
+    let source = include_str!("capture.rs");
     let helper_idx = source
         .find("const selectorFor = (el) =>")
         .expect("DOM fallback script should declare selectorFor");
@@ -253,7 +253,7 @@ fn dom_fallback_script_declares_selector_helper_before_use() {
 
 #[test]
 fn dom_fallback_script_surfaces_svg_geometry_roles_and_line_metrics() {
-    let source = include_str!("../accessibility.rs")
+    let source = include_str!("capture.rs")
         .split("\n#[cfg(test)]")
         .next()
         .expect("pre-test source");

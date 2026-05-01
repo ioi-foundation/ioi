@@ -19,6 +19,136 @@ fn local_gpu_profile_dir() -> PathBuf {
     )
 }
 
+fn minimal_chat_outcome_request(raw_prompt: &str) -> crate::models::ChatOutcomeRequest {
+    crate::models::ChatOutcomeRequest {
+        request_id: "request-1".to_string(),
+        raw_prompt: raw_prompt.to_string(),
+        active_artifact_id: None,
+        outcome_kind: crate::models::ChatOutcomeKind::Conversation,
+        execution_strategy: ioi_types::app::ChatExecutionStrategy::SinglePass,
+        execution_mode_decision: None,
+        confidence: 1.0,
+        needs_clarification: false,
+        clarification_questions: Vec::new(),
+        decision_evidence: Vec::new(),
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
+        retained_lane_state: None,
+        lane_transitions: Vec::new(),
+        orchestration_state: None,
+        artifact: None,
+    }
+}
+
+fn minimal_chat_manifest() -> crate::models::ChatArtifactManifest {
+    crate::models::ChatArtifactManifest {
+        artifact_id: "artifact-session".to_string(),
+        title: "Inline answer".to_string(),
+        artifact_class: crate::models::ChatArtifactClass::Document,
+        renderer: crate::models::ChatRendererKind::Markdown,
+        primary_tab: "render".to_string(),
+        tabs: Vec::new(),
+        files: Vec::new(),
+        verification: crate::models::ChatArtifactManifestVerification {
+            status: crate::models::ChatArtifactVerificationStatus::Ready,
+            lifecycle_state: crate::models::ChatArtifactLifecycleState::Ready,
+            summary: "Ready.".to_string(),
+            production_provenance: None,
+            acceptance_provenance: None,
+            failure: None,
+        },
+        storage: None,
+    }
+}
+
+fn minimal_chat_session() -> crate::models::ChatArtifactSession {
+    crate::models::ChatArtifactSession {
+        session_id: "chat-session".to_string(),
+        thread_id: "thread-session".to_string(),
+        artifact_id: "artifact-session".to_string(),
+        origin_prompt_event_id: None,
+        title: "Inline answer".to_string(),
+        summary: "Ready.".to_string(),
+        current_lens: "render".to_string(),
+        navigator_backing_mode: "artifact".to_string(),
+        navigator_nodes: Vec::new(),
+        attached_artifact_ids: Vec::new(),
+        available_lenses: Vec::new(),
+        materialization: crate::models::ChatArtifactMaterializationContract {
+            version: 1,
+            request_kind: "conversation".to_string(),
+            normalized_intent: "answer".to_string(),
+            summary: "Ready.".to_string(),
+            artifact_brief: None,
+            preparation_needs: None,
+            prepared_context_resolution: None,
+            skill_discovery_resolution: None,
+            blueprint: None,
+            artifact_ir: None,
+            selected_skills: Vec::new(),
+            retrieved_exemplars: Vec::new(),
+            retrieved_sources: Vec::new(),
+            edit_intent: None,
+            candidate_summaries: Vec::new(),
+            winning_candidate_id: None,
+            winning_candidate_rationale: None,
+            execution_envelope: None,
+            swarm_plan: None,
+            swarm_execution: None,
+            swarm_worker_receipts: Vec::new(),
+            swarm_change_receipts: Vec::new(),
+            swarm_merge_receipts: Vec::new(),
+            swarm_verification_receipts: Vec::new(),
+            render_evaluation: None,
+            validation: None,
+            output_origin: None,
+            production_provenance: None,
+            acceptance_provenance: None,
+            degraded_path_used: false,
+            ux_lifecycle: None,
+            failure: None,
+            navigator_nodes: Vec::new(),
+            file_writes: Vec::new(),
+            command_intents: Vec::new(),
+            preview_intent: None,
+            pipeline_steps: Vec::new(),
+            operator_steps: Vec::new(),
+            notes: Vec::new(),
+        },
+        outcome_request: minimal_chat_outcome_request("answer"),
+        artifact_manifest: minimal_chat_manifest(),
+        verified_reply: crate::models::ChatVerifiedReply {
+            status: crate::models::ChatArtifactVerificationStatus::Ready,
+            lifecycle_state: crate::models::ChatArtifactLifecycleState::Ready,
+            title: "Inline answer".to_string(),
+            summary: "Ready.".to_string(),
+            evidence: Vec::new(),
+            production_provenance: None,
+            acceptance_provenance: None,
+            failure: None,
+            updated_at: now_iso(),
+        },
+        lifecycle_state: crate::models::ChatArtifactLifecycleState::Ready,
+        status: "ready".to_string(),
+        active_revision_id: None,
+        revisions: Vec::new(),
+        taste_memory: None,
+        retrieved_exemplars: Vec::new(),
+        retrieved_sources: Vec::new(),
+        selected_targets: Vec::new(),
+        widget_state: None,
+        ux_lifecycle: None,
+        active_operator_run: None,
+        operator_run_history: Vec::new(),
+        created_at: now_iso(),
+        updated_at: now_iso(),
+        build_session_id: None,
+        workspace_root: None,
+        renderer_session_id: None,
+    }
+}
+
 async fn wait_for_tx_commit(
     client: &mut PublicApiClient<tonic::transport::Channel>,
     tx_hash: &str,
@@ -105,6 +235,47 @@ fn session_state_key_targets_desktop_agent_namespace() {
     let ns_prefix = ioi_api::state::service_namespace_prefix("desktop_agent");
     let local_key = get_state_key(&session_id);
     assert_eq!(key, [ns_prefix.as_slice(), local_key.as_slice()].concat());
+}
+
+#[test]
+fn session_hex_matches_active_chat_session_identifiers() {
+    let task = AgentTask {
+        id: "task-session".to_string(),
+        intent: "chat".to_string(),
+        agent: "autopilot".to_string(),
+        phase: AgentPhase::Running,
+        progress: 0,
+        total_steps: 0,
+        current_step: "Ready.".to_string(),
+        gate_info: None,
+        receipt: None,
+        visual_hash: None,
+        pending_request_hash: None,
+        session_id: Some("task-session".to_string()),
+        credential_request: None,
+        clarification_request: None,
+        session_checklist: Vec::new(),
+        background_tasks: Vec::new(),
+        history: Vec::new(),
+        events: Vec::new(),
+        artifacts: Vec::new(),
+        chat_session: Some(minimal_chat_session()),
+        chat_outcome: None,
+        renderer_session: None,
+        build_session: None,
+        run_bundle_id: None,
+        processed_steps: HashSet::new(),
+        swarm_tree: Vec::new(),
+        generation: 0,
+        lineage_id: "genesis".to_string(),
+        fitness_score: 0.0,
+    };
+
+    assert!(session_hex_matches_task(&task, "task-session"));
+    assert!(session_hex_matches_task(&task, "chat-session"));
+    assert!(session_hex_matches_task(&task, "thread-session"));
+    assert!(session_hex_matches_task(&task, "artifact-session"));
+    assert!(!session_hex_matches_task(&task, "unrelated-session"));
 }
 
 #[test]

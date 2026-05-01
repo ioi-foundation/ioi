@@ -190,6 +190,25 @@ fn build_compact_local_follow_up_outcome_router_prompt(
     ])
 }
 
+fn build_chat_outcome_router_json_repair_prompt(
+    intent: &str,
+    raw_output: &str,
+) -> serde_json::Value {
+    let raw_preview = truncate_planning_preview(raw_output, 1200);
+    json!([
+        {
+            "role": "system",
+            "content": "You repair Chat typed outcome-router output. Return exactly one JSON object and no prose. Do not infer from keyword maps; preserve the safest typed route supported by the request and schema."
+        },
+        {
+            "role": "user",
+            "content": format!(
+                "Original request:\n{intent}\n\nRouter output that failed JSON parsing:\n{raw_preview}\n\nReturn exactly one JSON object with camelCase fields:\n{{\"outcomeKind\":\"conversation\"|\"tool_widget\"|\"visualizer\"|\"artifact\",\"executionStrategy\":\"single_pass\"|\"direct_author\"|\"plan_execute\"|\"micro_swarm\"|\"adaptive_work_graph\",\"confidence\":0.0,\"needsClarification\":false,\"clarificationQuestions\":[],\"decisionEvidence\":[\"json_parse_repair\"],\"artifact\":null}}\nUse artifact only when the request clearly asks for a persistent work product. Otherwise use conversation. JSON only."
+            )
+        }
+    ])
+}
+
 pub fn chat_execution_strategy_for_outcome(
     outcome_kind: ChatOutcomeKind,
     artifact: Option<&ChatOutcomeArtifactRequest>,
@@ -242,7 +261,59 @@ pub async fn plan_chat_outcome_with_runtime(
         raw.len(),
         truncate_planning_preview(&raw, 240)
     ));
-    let mut planning = parse_chat_outcome_planning_payload(&raw)?;
+    let mut planning = match parse_chat_outcome_planning_payload(&raw) {
+        Ok(planning) => planning,
+        Err(parse_error) if compact_local_contract => {
+            chat_planning_trace(format!(
+                "outcome_route:parse_repair_start error={} raw_preview={}",
+                parse_error,
+                truncate_planning_preview(&raw, 240)
+            ));
+            let repair_payload = build_chat_outcome_router_json_repair_prompt(intent, &raw);
+            let repair_input = serde_json::to_vec(&repair_payload).map_err(|error| {
+                format!(
+                    "Failed to encode Chat outcome planning repair payload: {}",
+                    error
+                )
+            })?;
+            let repair_output = runtime
+                .execute_inference(
+                    [0u8; 32],
+                    &repair_input,
+                    InferenceOptions {
+                        temperature: 0.0,
+                        json_mode: true,
+                        max_tokens: 512,
+                        ..Default::default()
+                    },
+                )
+                .await
+                .map_err(|error| {
+                    format!(
+                        "Chat outcome planning repair inference failed after parse error '{}': {}",
+                        parse_error, error
+                    )
+                })?;
+            let repair_raw = String::from_utf8(repair_output).map_err(|error| {
+                format!(
+                    "Chat outcome planning repair utf8 decode failed after parse error '{}': {}",
+                    parse_error, error
+                )
+            })?;
+            chat_planning_trace(format!(
+                "outcome_route:parse_repair_raw bytes={} preview={}",
+                repair_raw.len(),
+                truncate_planning_preview(&repair_raw, 240)
+            ));
+            parse_chat_outcome_planning_payload(&repair_raw).map_err(|repair_error| {
+                format!(
+                    "{}; JSON repair retry failed: {}",
+                    parse_error, repair_error
+                )
+            })?
+        }
+        Err(parse_error) => return Err(parse_error),
+    };
     planning.artifact = planning.artifact.map(canonicalize_artifact_request);
     enforce_contextual_routing_contract(&mut planning, intent, active_artifact_id, active_artifact);
     let contract_hints = default_decision_evidence_for_planning(&planning);
@@ -254,6 +325,14 @@ pub async fn plan_chat_outcome_with_runtime(
         active_artifact_id,
         planning_confidence,
     );
+    if clear_overeager_conversation_clarification(&mut planning) {
+        apply_topology_projection_fields(
+            &mut planning,
+            intent,
+            active_artifact_id,
+            planning_confidence,
+        );
+    }
     chat_planning_trace(format!(
         "outcome_route:parsed outcome={:?} strategy={:?} confidence={} needs_clarification={} artifact_present={}",
         planning.outcome_kind,
@@ -279,8 +358,24 @@ fn enforce_contextual_routing_contract(
         || explicit_renderer.is_some())
         && !context.explicitly_declines_persistent_artifact();
     let active_artifact_follow_up = active_artifact_id.is_some();
+    let typed_workspace_artifact = planning.outcome_kind == ChatOutcomeKind::Artifact
+        && planning.artifact.as_ref().is_some_and(|artifact| {
+            matches!(
+                artifact.renderer,
+                ChatRendererKind::WorkspaceSurface | ChatRendererKind::BundleManifest
+            ) || matches!(
+                artifact.artifact_class,
+                ChatArtifactClass::WorkspaceProject
+                    | ChatArtifactClass::CodePatch
+                    | ChatArtifactClass::ReportBundle
+            ) || matches!(
+                artifact.execution_substrate,
+                ChatExecutionSubstrate::WorkspaceRuntime
+            )
+        });
     let artifact_allowed = explicit_artifact_request
         || active_artifact_follow_up
+        || typed_workspace_artifact
         || context.requests_downloadable_fileset()
         || context.supports_bundle_manifest_renderer();
 
@@ -294,6 +389,15 @@ fn enforce_contextual_routing_contract(
                 "coding_workspace_context",
             ],
         );
+        merge_decision_evidence(
+            &mut planning.decision_evidence,
+            vec![
+                "no_persistent_artifact_requested".to_string(),
+                "shared_answer_surface".to_string(),
+            ],
+        );
+    } else if context.runtime_lifecycle_grounding_required() {
+        force_conversation_route(planning);
         merge_decision_evidence(
             &mut planning.decision_evidence,
             vec![
@@ -344,12 +448,18 @@ fn enforce_contextual_routing_contract(
         }
     }
 
-    if !context.workspace_grounding_required()
-        && !matches!(
-            planning.artifact.as_ref().map(|artifact| artifact.renderer),
-            Some(ChatRendererKind::WorkspaceSurface)
-        )
-    {
+    if context.workspace_grounding_required() {
+        merge_decision_evidence(
+            &mut planning.decision_evidence,
+            vec![
+                "workspace_grounding_required".to_string(),
+                "coding_workspace_context".to_string(),
+            ],
+        );
+    } else if !matches!(
+        planning.artifact.as_ref().map(|artifact| artifact.renderer),
+        Some(ChatRendererKind::WorkspaceSurface)
+    ) {
         remove_decision_evidence(
             &mut planning.decision_evidence,
             &["workspace_grounding_required", "coding_workspace_context"],
@@ -552,6 +662,31 @@ fn apply_topology_projection_to_planning(
     if changed {
         apply_topology_projection_fields(planning, intent, active_artifact_id, confidence);
     }
+}
+
+fn clear_overeager_conversation_clarification(planning: &mut ChatOutcomePlanningPayload) -> bool {
+    if !planning.needs_clarification
+        || planning.outcome_kind != ChatOutcomeKind::Conversation
+        || planning.artifact.is_some()
+    {
+        return false;
+    }
+
+    if planning
+        .normalized_request
+        .as_ref()
+        .is_some_and(|frame| !chat_normalized_request_clarification_slots(frame).is_empty())
+    {
+        return false;
+    }
+
+    planning.needs_clarification = false;
+    planning.clarification_questions.clear();
+    merge_decision_evidence(
+        &mut planning.decision_evidence,
+        vec!["answer_with_stated_uncertainty".to_string()],
+    );
+    true
 }
 
 fn apply_topology_projection_fields(

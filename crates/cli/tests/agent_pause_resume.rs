@@ -7,11 +7,13 @@ use ioi_api::services::BlockchainService;
 // [FIX] Import StateAccess trait to use .get()
 use ioi_api::state::StateAccess;
 use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
+use ioi_api::vm::drivers::os::{OsDriver, WindowInfo};
 use ioi_api::vm::inference::{mock::MockInferenceRuntime, InferenceRuntime};
 use ioi_cli::testing::build_test_artifacts;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_memory::MemoryRuntime;
+use ioi_services::agentic::rules::{ActionRules, DefaultPolicy, Rule, Verdict};
 use ioi_services::agentic::runtime::{
     AgentState, AgentStatus, ResumeAgentParams, StartAgentParams, StepAgentParams,
 };
@@ -72,15 +74,79 @@ impl GuiDriver for MockGuiDriver {
     }
 }
 
+struct MockOsDriver;
+
+#[async_trait]
+impl OsDriver for MockOsDriver {
+    async fn get_active_window_title(&self) -> Result<Option<String>, VmError> {
+        Ok(Some("Terminal".to_string()))
+    }
+
+    async fn get_active_window_info(&self) -> Result<Option<WindowInfo>, VmError> {
+        Ok(Some(WindowInfo {
+            title: "Terminal".to_string(),
+            x: 0,
+            y: 0,
+            width: 1280,
+            height: 720,
+            app_name: "Terminal".to_string(),
+        }))
+    }
+
+    async fn focus_window(&self, _title_query: &str) -> Result<bool, VmError> {
+        Ok(true)
+    }
+
+    async fn set_clipboard(&self, _content: &str) -> Result<(), VmError> {
+        Ok(())
+    }
+
+    async fn get_clipboard(&self) -> Result<String, VmError> {
+        Ok(String::new())
+    }
+}
+
 struct PausingBrain;
 #[async_trait]
 impl InferenceRuntime for PausingBrain {
     async fn execute_inference(
         &self,
         _: [u8; 32],
-        _: &[u8],
+        input: &[u8],
         _: ioi_types::app::agentic::InferenceOptions,
     ) -> Result<Vec<u8>, VmError> {
+        let prompt = String::from_utf8_lossy(input);
+        if prompt.contains("remote_public_fact_required") && prompt.contains("command_directed") {
+            return Ok(json!({
+                "remote_public_fact_required": false,
+                "host_local_clock_targeted": false,
+                "command_directed": true,
+                "durable_automation_requested": false,
+                "model_registry_control_requested": false,
+                "app_launch_directed": false,
+                "direct_ui_input": false,
+                "desktop_screenshot_requested": false,
+                "temporal_filesystem_filter": false
+            })
+            .to_string()
+            .into_bytes());
+        }
+        if prompt.contains("Rank user query semantic similarity to intent descriptors")
+            && prompt.contains("\"scores\"")
+        {
+            return Ok(json!({
+                "scores": [
+                    { "intent_id": "command.exec", "score": 0.96 },
+                    { "intent_id": "conversation.reply", "score": 0.12 },
+                    { "intent_id": "app.launch", "score": 0.08 }
+                ]
+            })
+            .to_string()
+            .into_bytes());
+        }
+        if prompt.contains("direct-inline authoring path") {
+            return Ok(Vec::new());
+        }
         let tool_call = json!({
             "name": "agent__pause",
             "arguments": { "reason": "Ask human" }
@@ -113,6 +179,7 @@ async fn test_agent_pause_resume() -> Result<()> {
         brain.clone(),
         brain.clone(),
     )
+    .with_os_driver(Arc::new(MockOsDriver))
     .with_memory_runtime(Arc::new(
         MemoryRuntime::open_sqlite_in_memory().expect("memory runtime"),
     ));
@@ -132,6 +199,38 @@ async fn test_agent_pause_resume() -> Result<()> {
     };
 
     let session_id = [1u8; 32];
+    let policy_key = [b"agent::policy::".as_slice(), session_id.as_slice()].concat();
+    let mut policy = ActionRules {
+        policy_id: "pause-resume-e2e-policy".to_string(),
+        defaults: DefaultPolicy::DenyAll,
+        ontology_policy: Default::default(),
+        pii_controls: Default::default(),
+        rules: vec![
+            Rule {
+                rule_id: Some("allow-shell-probe-scope".into()),
+                target: "sys::exec".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            Rule {
+                rule_id: Some("allow-agent-pause".into()),
+                target: "agent__pause".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+        ],
+    };
+    policy.ontology_policy.intent_routing.intent_catalog_version =
+        "intent-catalog-pause-resume-command-exec-test".into();
+    policy.ontology_policy.intent_routing.intent_catalog = policy
+        .ontology_policy
+        .intent_routing
+        .intent_catalog
+        .iter()
+        .filter(|entry| entry.intent_id == "command.exec")
+        .cloned()
+        .collect();
+    state.insert(&policy_key, &codec::to_bytes_canonical(&policy).unwrap())?;
 
     // 1. Start
     // Use a concrete command goal so the pause comes from the mock brain, not
@@ -165,7 +264,12 @@ async fn test_agent_pause_resume() -> Result<()> {
     let key = [b"agent::state::".as_slice(), session_id.as_slice()].concat();
     let state_paused: AgentState =
         codec::from_bytes_canonical(&state.get(&key).unwrap().unwrap()).unwrap();
-    assert_eq!(state_paused.status, AgentStatus::Paused("Ask human".into()));
+    assert_eq!(
+        state_paused.status,
+        AgentStatus::Paused("Ask human".into()),
+        "resolved intent before pause check: {:?}",
+        state_paused.resolved_intent
+    );
 
     // 3. Attempt Step (Should fail)
     let res = service

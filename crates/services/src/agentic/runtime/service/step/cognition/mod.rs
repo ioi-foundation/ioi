@@ -779,6 +779,7 @@ pub(crate) fn filter_cognition_tools(
             && !browser_observation_has_grounded_geometry_targets(browser_observation_context);
     let prefer_sustained_hover_surface = goal_prefers_sustained_hover_browser_surface(goal);
 
+    let mut seen_tool_names = std::collections::BTreeSet::<String>::new();
     tools
         .iter()
         .filter(|tool| {
@@ -796,6 +797,7 @@ pub(crate) fn filter_cognition_tools(
                     ))
                 && (!hide_synthetic_click || tool.name != "browser__click_at")
         })
+        .filter(|tool| seen_tool_names.insert(tool.name.clone()))
         .map(|tool| compact_cognition_tool(tool, prefer_browser_semantics))
         .collect()
 }

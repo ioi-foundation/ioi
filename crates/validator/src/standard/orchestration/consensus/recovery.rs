@@ -1282,9 +1282,9 @@ pub(super) async fn load_segment_range_recovered_restart_block_headers(
 pub(super) struct LoadedRecoveredSegmentFoldPage {
     start_height: u64,
     end_height: u64,
-    consensus_headers: Vec<RecoveredCanonicalHeaderEntry>,
-    certified_headers: Vec<RecoveredCertifiedHeaderEntry>,
-    restart_headers: Vec<RecoveredRestartBlockHeaderEntry>,
+    pub(super) consensus_headers: Vec<RecoveredCanonicalHeaderEntry>,
+    pub(super) certified_headers: Vec<RecoveredCertifiedHeaderEntry>,
+    pub(super) restart_headers: Vec<RecoveredRestartBlockHeaderEntry>,
 }
 
 pub(super) async fn load_recovered_segment_fold_page(

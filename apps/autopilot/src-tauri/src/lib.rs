@@ -1,3 +1,5 @@
+#![recursion_limit = "256"]
+
 use serde_json::json;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -29,13 +31,16 @@ mod workspace;
 mod workspace_direct_webview;
 mod workspace_ide;
 
-use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime, UnavailableInferenceRuntime};
+use ioi_api::vm::inference::{
+    HttpInferenceRuntime, InferenceRuntime, ModelRouterInput, RuntimeModelRouter,
+    UnavailableInferenceRuntime,
+};
 use ioi_memory::MemoryRuntime;
 use ioi_services::agentic::media_runtime::KernelMediaRuntime;
 use ioi_services::agentic::runtime::kernel::profile::{
     RuntimeProfile, RuntimeProfileConfig, RuntimeProfileValidator,
 };
-use ioi_types::app::{ChatRuntimeProvenance, ChatRuntimeProvenanceKind};
+use ioi_types::app::{ChatRuntimeProvenance, ChatRuntimeProvenanceKind, PromptPrivacyClass};
 use models::AppState;
 use std::time::Duration;
 
@@ -288,26 +293,25 @@ fn runtime_provenance_matches(left: &ChatRuntimeProvenance, right: &ChatRuntimeP
 }
 
 pub(crate) fn create_inference_runtime() -> Arc<dyn InferenceRuntime> {
-    let openai_key = std::env::var("OPENAI_API_KEY").ok();
     let local_url = env_text("LOCAL_LLM_URL").or_else(|| env_text("AUTOPILOT_LOCAL_RUNTIME_URL"));
     let local_health_url = env_text("AUTOPILOT_LOCAL_RUNTIME_HEALTH_URL").or_else(|| {
         local_url
             .as_deref()
             .and_then(derive_health_url_from_runtime_url)
     });
-    let local_model = env_text("AUTOPILOT_LOCAL_RUNTIME_MODEL")
-        .or_else(|| env_text("OPENAI_MODEL"))
-        .unwrap_or_else(|| "llama3".to_string());
     let local_gpu_dev = is_env_var_truthy("AUTOPILOT_LOCAL_GPU_DEV");
+    let local_ready = local_url
+        .as_deref()
+        .map(|_| {
+            local_health_url
+                .as_deref()
+                .map(http_endpoint_healthy)
+                .unwrap_or(true)
+        })
+        .unwrap_or(false);
 
     let runtime: Arc<dyn InferenceRuntime> = if let Some(url) = local_url.clone() {
-        let local_ready = local_health_url
-            .as_deref()
-            .map(http_endpoint_healthy)
-            .unwrap_or(true);
-        if local_ready {
-            Arc::new(HttpInferenceRuntime::new(url, "".to_string(), local_model))
-        } else if local_gpu_dev {
+        if !local_ready && local_gpu_dev {
             println!(
                 "[Chat] Local GPU dev mode is enabled, but the local runtime at {} is not healthy yet. Chat will surface inference_unavailable until the runtime becomes healthy.",
                 local_health_url
@@ -318,29 +322,105 @@ pub(crate) fn create_inference_runtime() -> Arc<dyn InferenceRuntime> {
                 "Inference is unavailable because the configured local runtime at {} is not healthy.",
                 local_health_url.as_deref().unwrap_or(url.as_str())
             )))
-        } else if let Some(key) = openai_key.clone() {
-            let model = std::env::var("OPENAI_MODEL").unwrap_or_else(|_| "gpt-4o".to_string());
-            let api_url = "https://api.openai.com/v1/chat/completions".to_string();
-            Arc::new(HttpInferenceRuntime::new(api_url, key, model))
         } else {
-            Arc::new(HttpInferenceRuntime::new(url, "".to_string(), local_model))
+            create_routed_chat_runtime(local_ready)
         }
-    } else if let Some(key) = openai_key {
-        let model = std::env::var("OPENAI_MODEL").unwrap_or_else(|_| "gpt-4o".to_string());
-        let api_url = "https://api.openai.com/v1/chat/completions".to_string();
-        Arc::new(HttpInferenceRuntime::new(api_url, key, model))
     } else {
         if local_gpu_dev {
             println!(
                 "[Chat] Local GPU dev mode is enabled, but no LOCAL_LLM_URL/AUTOPILOT_LOCAL_RUNTIME_URL was provided. Chat will surface inference_unavailable until a runtime is configured."
             );
         }
-        Arc::new(UnavailableInferenceRuntime::new(
-            "Inference is unavailable because no Chat inference runtime is configured.",
-        ))
+        create_routed_chat_runtime(false)
     };
 
     wrap_kernel_runtime(runtime)
+}
+
+fn create_routed_chat_runtime(local_ready: bool) -> Arc<dyn InferenceRuntime> {
+    let profile = runtime_profile_from_env();
+    let route = RuntimeModelRouter::route_with_lookup(
+        ModelRouterInput {
+            task_class: "autopilot_desktop_chat".to_string(),
+            risk_class: if profile.fail_closed() {
+                "fail_closed_product".to_string()
+            } else {
+                "local_product".to_string()
+            },
+            privacy_class: chat_prompt_privacy_class(profile),
+            required_modality: "text".to_string(),
+            requested_model: env_text("AUTOPILOT_LOCAL_RUNTIME_MODEL")
+                .or_else(|| env_text("OPENAI_MODEL")),
+            policy_allows_egress: !profile.fail_closed()
+                || is_env_var_truthy("AUTOPILOT_ALLOW_MODEL_EGRESS")
+                || is_env_var_truthy("IOI_AGENT_ALLOW_MODEL_EGRESS"),
+            allow_sensitive_remote: is_env_var_truthy("AUTOPILOT_ALLOW_SENSITIVE_MODEL_EGRESS")
+                || is_env_var_truthy("IOI_AGENT_ALLOW_SENSITIVE_MODEL_EGRESS"),
+            latency_budget_ms: 30_000,
+            token_estimate: 0,
+        },
+        |key| {
+            if !local_ready && matches!(key, "LOCAL_LLM_URL" | "AUTOPILOT_LOCAL_RUNTIME_URL") {
+                None
+            } else {
+                env_text(key)
+            }
+        },
+    );
+
+    match route {
+        Ok(route) => {
+            println!(
+                "[Chat] Model route selected: profile={} provider={} model={} candidates={}",
+                route.decision.selected_profile,
+                route.decision.selected_provider,
+                route.decision.selected_model,
+                route.decision.candidates.len()
+            );
+            Arc::new(HttpInferenceRuntime::new(
+                route.api_url,
+                route.api_key,
+                route.model_name,
+            ))
+        }
+        Err(decision) => {
+            for candidate in &decision.candidates {
+                println!(
+                    "[Chat] Model candidate rejected: profile={} provider={} model={} reason={}",
+                    candidate.profile,
+                    candidate.provider,
+                    candidate.model,
+                    candidate.rejection_reason
+                );
+            }
+            Arc::new(UnavailableInferenceRuntime::new(
+                "Inference is unavailable because no policy-allowed Chat inference runtime is configured.",
+            ))
+        }
+    }
+}
+
+fn chat_prompt_privacy_class(profile: RuntimeProfile) -> PromptPrivacyClass {
+    env_text("AUTOPILOT_PROMPT_PRIVACY_CLASS")
+        .or_else(|| env_text("IOI_AGENT_PROMPT_PRIVACY_CLASS"))
+        .and_then(|value| parse_prompt_privacy_class(&value))
+        .unwrap_or_else(|| {
+            if profile.fail_closed() {
+                PromptPrivacyClass::Sensitive
+            } else {
+                PromptPrivacyClass::Internal
+            }
+        })
+}
+
+fn parse_prompt_privacy_class(value: &str) -> Option<PromptPrivacyClass> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "public" => Some(PromptPrivacyClass::Public),
+        "internal" => Some(PromptPrivacyClass::Internal),
+        "sensitive" => Some(PromptPrivacyClass::Sensitive),
+        "secret" => Some(PromptPrivacyClass::Secret),
+        _ => None,
+    }
 }
 
 pub(crate) fn create_chat_routing_inference_runtime(

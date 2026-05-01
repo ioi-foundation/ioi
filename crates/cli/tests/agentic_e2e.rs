@@ -7,8 +7,10 @@ use image::{ImageBuffer, Rgba};
 use ioi_api::services::BlockchainService;
 use ioi_api::state::StateAccess;
 use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
+use ioi_api::vm::drivers::os::{OsDriver, WindowInfo};
 use ioi_api::vm::inference::{mock::MockInferenceRuntime, InferenceRuntime};
 use ioi_cli::testing::build_test_artifacts;
+use ioi_services::agentic::rules::{ActionRules, DefaultPolicy, Rule, Verdict};
 use ioi_services::agentic::runtime::keys::get_state_key;
 use ioi_services::agentic::runtime::types::AgentState;
 use ioi_services::agentic::runtime::{StartAgentParams, StepAgentParams};
@@ -77,6 +79,38 @@ impl GuiDriver for MockGuiDriver {
     }
 }
 
+struct MockOsDriver;
+
+#[async_trait]
+impl OsDriver for MockOsDriver {
+    async fn get_active_window_title(&self) -> Result<Option<String>, VmError> {
+        Ok(Some("Test App".to_string()))
+    }
+
+    async fn get_active_window_info(&self) -> Result<Option<WindowInfo>, VmError> {
+        Ok(Some(WindowInfo {
+            title: "Test App".to_string(),
+            x: 0,
+            y: 0,
+            width: 1280,
+            height: 720,
+            app_name: "TestApp".to_string(),
+        }))
+    }
+
+    async fn focus_window(&self, _title_query: &str) -> Result<bool, VmError> {
+        Ok(true)
+    }
+
+    async fn set_clipboard(&self, _content: &str) -> Result<(), VmError> {
+        Ok(())
+    }
+
+    async fn get_clipboard(&self) -> Result<String, VmError> {
+        Ok(String::new())
+    }
+}
+
 struct MockBrain;
 #[async_trait]
 impl InferenceRuntime for MockBrain {
@@ -87,9 +121,7 @@ impl InferenceRuntime for MockBrain {
         _opts: ioi_types::app::agentic::InferenceOptions,
     ) -> Result<Vec<u8>, VmError> {
         let prompt = String::from_utf8_lossy(input);
-        if prompt.contains("\"remote_public_fact_required\"")
-            && prompt.contains("\"direct_ui_input\"")
-        {
+        if prompt.contains("remote_public_fact_required") && prompt.contains("direct_ui_input") {
             return Ok(serde_json::json!({
                 "remote_public_fact_required": false,
                 "host_local_clock_targeted": false,
@@ -105,11 +137,9 @@ impl InferenceRuntime for MockBrain {
             .into_bytes());
         }
         Ok(serde_json::json!({
-            "name": "screen__click_at",
+            "name": "screen__type",
             "arguments": {
-                "x": 500,
-                "y": 500,
-                "button": "left"
+                "text": "hello"
             }
         })
         .to_string()
@@ -158,6 +188,7 @@ async fn test_agentic_loop_end_to_end() -> Result<()> {
         Arc::new(MockBrain),
         Arc::new(MockBrain),
     )
+    .with_os_driver(Arc::new(MockOsDriver))
     .with_memory_runtime(Arc::new(
         ioi_memory::MemoryRuntime::open_sqlite_in_memory().expect("memory runtime"),
     ));
@@ -167,9 +198,36 @@ async fn test_agentic_loop_end_to_end() -> Result<()> {
 
     // 3. Initialize Session (Start)
     let session_id = [1u8; 32];
+    let policy_key = [b"agent::policy::".as_slice(), session_id.as_slice()].concat();
+    let mut policy = ActionRules {
+        policy_id: "agentic-loop-e2e-policy".to_string(),
+        defaults: DefaultPolicy::DenyAll,
+        ontology_policy: Default::default(),
+        pii_controls: Default::default(),
+        rules: vec![
+            Rule {
+                rule_id: Some("allow-gui-screenshot".into()),
+                target: "gui::screenshot".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            Rule {
+                rule_id: Some("allow-gui-type".into()),
+                target: "gui::type".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+        ],
+    };
+    policy.ontology_policy.intent_routing.enabled = false;
+    state.insert(
+        &policy_key,
+        &ioi_types::codec::to_bytes_canonical(&policy).unwrap(),
+    )?;
+
     let start_params = StartAgentParams {
         session_id,
-        goal: "Click the UI button".into(),
+        goal: "Type hello into the focused UI field".into(),
         max_steps: 5,
         parent_session_id: None,
         initial_budget: 1000,
@@ -218,13 +276,13 @@ async fn test_agentic_loop_end_to_end() -> Result<()> {
         assert_eq!(agent_state.step_count, 1);
         assert_eq!(
             agent_state.last_action_type.as_deref(),
-            Some("screen__click_at")
+            Some("screen__type")
         );
-        println!("✅ Agent Logic E2E Passed: runtime selected and recorded screen__click_at.");
+        println!("✅ Agent Logic E2E Passed: runtime selected and recorded screen__type.");
         return Ok(());
     }
     assert_eq!(logs.len(), 1);
-    assert_eq!(logs[0], "click(500, 500)");
+    assert_eq!(logs[0], "type('hello')");
 
     println!("✅ Agent Logic E2E Passed: VLM -> Grounding -> Driver execution verified.");
     Ok(())

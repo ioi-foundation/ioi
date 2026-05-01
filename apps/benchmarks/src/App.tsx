@@ -18,6 +18,7 @@ import {
   buildCandidatesViewModel,
   buildDeploymentsViewModel,
   buildScorecardViewModel,
+  DEFAULT_SCORECARD_SCHEMA,
 } from "./scorecardViewModel";
 import type { ScorecardMatrixInput } from "./scorecardViewModel";
 
@@ -210,6 +211,106 @@ type BenchmarkMetricReading = {
   denominator?: number | null;
   supportingBenchmarkIds?: string[];
 };
+
+function buildPendingScorecards(
+  reason: string,
+): ScorecardMatrixInput["presets"][number]["scorecards"] {
+  return Object.fromEntries(
+    DEFAULT_SCORECARD_SCHEMA.categories.map((category) => [
+      category.id,
+      {
+        available: false,
+        reason,
+        comparisonStatus: "not_comparable",
+        confidenceClass: "low",
+        coverageClass: "none",
+        benchmarkPrograms: [],
+        metrics: {},
+      },
+    ]),
+  ) as ScorecardMatrixInput["presets"][number]["scorecards"];
+}
+
+function buildPendingAgentModelMatrix(generatedAt: string): ScorecardMatrixInput {
+  const pendingReason =
+    "No retained benchmark matrix summary has been exported for this workspace yet.";
+  const requiredGaps = DEFAULT_SCORECARD_SCHEMA.categories
+    .filter((category) => category.requiredForPromotion)
+    .map((category) => category.id);
+
+  return {
+    status: "not_run",
+    generatedAt,
+    runAbortReason: null,
+    decision: {
+      outcome: "keep_default",
+      summary:
+        "Benchmark matrix evidence is pending. The dashboard is showing a fail-closed baseline placeholder until a retained run is exported.",
+      leaderPresetId: "retained-baseline-pending",
+      artifactLeaderPresetId: null,
+      missingCoverage: requiredGaps,
+    },
+    scorecardSchema: DEFAULT_SCORECARD_SCHEMA,
+    plannedPresetCount: 0,
+    summarizedPresetCount: 0,
+    fullyCompletedPresetCount: 0,
+    comparedPresetCount: 0,
+    executedPresetCount: 0,
+    preservedDefault: true,
+    summaryHref: "",
+    runRootHref: "",
+    runManifestHref: "",
+    candidateLedgerHref: "",
+    comparisonExportJsonHref: "",
+    comparisonExportCsvHref: "",
+    modelRegistryHref: "",
+    deploymentProfilesHref: "",
+    presetCatalogHref: "",
+    benchmarkCatalogHref: "",
+    runManifest: {
+      comparisonIntent: "baseline_anchor",
+      executionScope: "fleet_shared",
+    },
+    presets: [
+      {
+        presetId: "retained-baseline-pending",
+        label: "Retained baseline pending",
+        role: "baseline_anchor",
+        benchmarkTier: "pending",
+        experimental: false,
+        shippedDefault: true,
+        deploymentProfile: "local_gpu_8gb_class",
+        availabilityStatus: "not_run",
+        availabilitySummary: pendingReason,
+        runtimeModel: null,
+        artifactAcceptanceModel: null,
+        modelFingerprint: null,
+        roleAssignments: [],
+        comparisonContext: {
+          comparisonIntent: "baseline_anchor",
+          executionScope: "fleet_shared",
+          baselinePresetId: "retained-baseline-pending",
+          manifestPath: null,
+        },
+        conformanceSummary: {
+          status: "warn",
+          comparisonValidityRate: null,
+          conformancePassRate: null,
+          protectedSplitPassRate: null,
+          rollbackReadinessRate: null,
+        },
+        caseCount: 0,
+        availableWorkloadCount: 0,
+        summaryHref: "",
+        manifestHref: "",
+        runRootHref: "",
+        topFindings: [pendingReason],
+        scorecards: buildPendingScorecards(pendingReason),
+      },
+    ],
+    candidateLedger: [],
+  };
+}
 
 type ChatArtifactArenaRating = {
   participant: string;
@@ -1109,12 +1210,23 @@ function App() {
     };
   }, [benchmarkData.liveDataPath, benchmarkData.liveStorePath]);
 
+  const benchmarkDataWithMatrix = useMemo(
+    () =>
+      benchmarkData.agentModelMatrix
+        ? benchmarkData
+        : {
+            ...benchmarkData,
+            agentModelMatrix: buildPendingAgentModelMatrix(benchmarkData.generatedAt),
+          },
+    [benchmarkData],
+  );
+
   const effectiveBenchmarkData = useMemo(
     () =>
       scorecardPreviewEnabled
-        ? withScorecardPreview(benchmarkData)
-        : benchmarkData,
-    [benchmarkData, scorecardPreviewEnabled],
+        ? withScorecardPreview(benchmarkDataWithMatrix)
+        : benchmarkDataWithMatrix,
+    [benchmarkDataWithMatrix, scorecardPreviewEnabled],
   );
 
   const suiteSummaries = effectiveBenchmarkData.suiteSummaries as SuiteSummary[];

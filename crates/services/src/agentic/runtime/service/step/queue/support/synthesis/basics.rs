@@ -951,7 +951,7 @@ fn subject_currentness_led_by_identity_payload(text: &str) -> bool {
     let normalized = format!(" {} ", compact.to_ascii_lowercase());
 
     for marker in [" is led by ", " led by "] {
-        let Some(idx) = normalized.find(marker) else {
+        let Some(idx) = normalized.find(marker).map(|idx| idx.saturating_sub(1)) else {
             continue;
         };
         let Some((left, remainder)) = compact.get(..idx).zip(compact.get(idx + marker.len()..))
@@ -987,7 +987,7 @@ fn subject_currentness_subject_identity_payload(text: &str) -> bool {
         " appointed ",
         " elected ",
     ] {
-        let Some(idx) = normalized.find(marker) else {
+        let Some(idx) = normalized.find(marker).map(|idx| idx.saturating_sub(1)) else {
             continue;
         };
         let Some((left, right)) = compact.get(..idx).zip(compact.get(idx + marker.len()..)) else {

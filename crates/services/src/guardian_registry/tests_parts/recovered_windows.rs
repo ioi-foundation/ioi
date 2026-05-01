@@ -70,11 +70,7 @@ fn publishing_recovered_publication_bundle_round_trips_after_two_public_reveals(
     let (expected_full_surface, _, _, _) =
         recover_full_canonical_order_surface_from_share_materials(&materials)
             .expect("reconstruct recovered full extractable surface");
-    let expected_close = build_canonical_bulletin_close(
-        &expected_bundle.bulletin_commitment,
-        &expected_bundle.bulletin_availability_certificate,
-    )
-    .expect("canonical bulletin close");
+    let expected_close = verified_canonical_bulletin_close_for_bundle(&expected_bundle);
     let mut expected_surface = expected_bundle.bulletin_entries.clone();
     expected_surface.sort_unstable_by(|left, right| left.tx_hash.cmp(&right.tx_hash));
 
@@ -319,33 +315,9 @@ fn publishing_recovered_publication_window_with_middle_omission_abort_supports_r
     let header_c = recovered_publication_frontier_header(&full_surface_c);
     let frontier_c = ioi_types::app::build_publication_frontier(&header_c, Some(&frontier_a))
         .expect("slot-c recovered frontier");
-    let close_a = build_canonical_bulletin_close(
-        &full_surface_a
-            .canonical_order_certificate
-            .bulletin_commitment,
-        &full_surface_a
-            .canonical_order_certificate
-            .bulletin_availability_certificate,
-    )
-    .expect("slot-a canonical bulletin close");
-    let close_b = build_canonical_bulletin_close(
-        &full_surface_b
-            .canonical_order_certificate
-            .bulletin_commitment,
-        &full_surface_b
-            .canonical_order_certificate
-            .bulletin_availability_certificate,
-    )
-    .expect("slot-b canonical bulletin close");
-    let close_c = build_canonical_bulletin_close(
-        &full_surface_c
-            .canonical_order_certificate
-            .bulletin_commitment,
-        &full_surface_c
-            .canonical_order_certificate
-            .bulletin_availability_certificate,
-    )
-    .expect("slot-c canonical bulletin close");
+    let close_a = canonical_bulletin_close_from_recovered_surface(&full_surface_a);
+    let close_b = canonical_bulletin_close_from_recovered_surface(&full_surface_b);
+    let close_c = canonical_bulletin_close_from_recovered_surface(&full_surface_c);
     let expected_collapse_a =
         derive_canonical_collapse_object_from_recovered_surface(&full_surface_a, &close_a, None)
             .expect("slot-a recovered collapse");
@@ -575,51 +547,11 @@ fn extracting_recovered_only_replay_prefix_matches_durable_mixed_window_surface(
     let header_e = recovered_publication_frontier_header(&full_surface_e);
     let frontier_e = ioi_types::app::build_publication_frontier(&header_e, Some(&frontier_d))
         .expect("slot-e recovered frontier");
-    let close_a = build_canonical_bulletin_close(
-        &full_surface_a
-            .canonical_order_certificate
-            .bulletin_commitment,
-        &full_surface_a
-            .canonical_order_certificate
-            .bulletin_availability_certificate,
-    )
-    .expect("slot-a canonical bulletin close");
-    let close_b = build_canonical_bulletin_close(
-        &full_surface_b
-            .canonical_order_certificate
-            .bulletin_commitment,
-        &full_surface_b
-            .canonical_order_certificate
-            .bulletin_availability_certificate,
-    )
-    .expect("slot-b canonical bulletin close");
-    let close_c = build_canonical_bulletin_close(
-        &full_surface_c
-            .canonical_order_certificate
-            .bulletin_commitment,
-        &full_surface_c
-            .canonical_order_certificate
-            .bulletin_availability_certificate,
-    )
-    .expect("slot-c canonical bulletin close");
-    let close_d = build_canonical_bulletin_close(
-        &full_surface_d
-            .canonical_order_certificate
-            .bulletin_commitment,
-        &full_surface_d
-            .canonical_order_certificate
-            .bulletin_availability_certificate,
-    )
-    .expect("slot-d canonical bulletin close");
-    let close_e = build_canonical_bulletin_close(
-        &full_surface_e
-            .canonical_order_certificate
-            .bulletin_commitment,
-        &full_surface_e
-            .canonical_order_certificate
-            .bulletin_availability_certificate,
-    )
-    .expect("slot-e canonical bulletin close");
+    let close_a = canonical_bulletin_close_from_recovered_surface(&full_surface_a);
+    let close_b = canonical_bulletin_close_from_recovered_surface(&full_surface_b);
+    let close_c = canonical_bulletin_close_from_recovered_surface(&full_surface_c);
+    let close_d = canonical_bulletin_close_from_recovered_surface(&full_surface_d);
+    let close_e = canonical_bulletin_close_from_recovered_surface(&full_surface_e);
     let expected_collapse_a =
         derive_canonical_collapse_object_from_recovered_surface(&full_surface_a, &close_a, None)
             .expect("slot-a recovered collapse");
@@ -956,4 +888,3 @@ fn extracting_recovered_only_replay_prefix_matches_durable_mixed_window_surface(
     );
     assert_eq!(aft_recovered_state.restart_headers, expected_restart_prefix);
 }
-

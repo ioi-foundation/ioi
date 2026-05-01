@@ -1092,8 +1092,11 @@ pub(super) fn chat_artifact_renderer_authoring_guidance_for_runtime(
                 "the typed request concepts",
                 4,
             );
-            let interaction_focus =
+            let mut interaction_focus =
                 summarized_guidance_terms(&required_interactions, "the required interactions", 3);
+            interaction_focus.push_str(
+                "; one isolated button or slider does not satisfy an interactive artifact",
+            );
             let sequence_browsing_directive = if super::brief_requires_sequence_browsing(brief) {
                 " Include a visible progression mechanic such as previous/next, a stepper, a scrubber, or an evidence rail."
             } else {

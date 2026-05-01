@@ -4,9 +4,12 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use ioi_api::services::BlockchainService;
+use ioi_api::state::StateAccess;
 use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
+use ioi_api::vm::drivers::os::{OsDriver, WindowInfo};
 use ioi_api::vm::inference::{mock::MockInferenceRuntime, InferenceRuntime};
 use ioi_cli::testing::build_test_artifacts;
+use ioi_services::agentic::rules::{ActionRules, DefaultPolicy, Rule, Verdict};
 use ioi_services::agentic::runtime::{StartAgentParams, StepAgentParams};
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
@@ -70,6 +73,38 @@ impl GuiDriver for MockGuiDriver {
     }
 }
 
+struct MockOsDriver;
+
+#[async_trait]
+impl OsDriver for MockOsDriver {
+    async fn get_active_window_title(&self) -> Result<Option<String>, VmError> {
+        Ok(Some("Test App".to_string()))
+    }
+
+    async fn get_active_window_info(&self) -> Result<Option<WindowInfo>, VmError> {
+        Ok(Some(WindowInfo {
+            title: "Test App".to_string(),
+            x: 0,
+            y: 0,
+            width: 1280,
+            height: 720,
+            app_name: "TestApp".to_string(),
+        }))
+    }
+
+    async fn focus_window(&self, _title_query: &str) -> Result<bool, VmError> {
+        Ok(true)
+    }
+
+    async fn set_clipboard(&self, _content: &str) -> Result<(), VmError> {
+        Ok(())
+    }
+
+    async fn get_clipboard(&self) -> Result<String, VmError> {
+        Ok(String::new())
+    }
+}
+
 // "Big Brain" - Only handles logic/planning, fails on clicks
 struct ReasoningBrain {
     called: Arc<Mutex<bool>>,
@@ -83,9 +118,7 @@ impl InferenceRuntime for ReasoningBrain {
         _: ioi_types::app::agentic::InferenceOptions,
     ) -> Result<Vec<u8>, VmError> {
         let prompt = String::from_utf8_lossy(input);
-        if prompt.contains("\"remote_public_fact_required\"")
-            && prompt.contains("\"direct_ui_input\"")
-        {
+        if prompt.contains("remote_public_fact_required") && prompt.contains("direct_ui_input") {
             return Ok(json!({
                 "remote_public_fact_required": false,
                 "host_local_clock_targeted": false,
@@ -103,8 +136,8 @@ impl InferenceRuntime for ReasoningBrain {
         *self.called.lock().unwrap() = true;
         // First step (planning) -> returns a click
         let tool_call = json!({
-            "name": "screen__click_at",
-            "arguments": { "x": 10, "y": 10 }
+            "name": "screen",
+            "arguments": { "action": "left_click", "coordinate": [10, 10] }
         });
         Ok(tool_call.to_string().into_bytes())
     }
@@ -138,8 +171,8 @@ impl InferenceRuntime for FastBrain {
         *self.called.lock().unwrap() = true;
         // Fast loop response
         let tool_call = json!({
-            "name": "screen__click_at",
-            "arguments": { "x": 20, "y": 20 }
+            "name": "screen",
+            "arguments": { "action": "left_click", "coordinate": [20, 20] }
         });
         Ok(tool_call.to_string().into_bytes())
     }
@@ -180,6 +213,7 @@ async fn test_hybrid_routing_logic() -> Result<()> {
     let browser = Arc::new(BrowserDriver::new());
 
     let service = RuntimeAgentService::new_hybrid(gui, terminal, browser, fast, reasoning)
+        .with_os_driver(Arc::new(MockOsDriver))
         .with_memory_runtime(Arc::new(
             ioi_memory::MemoryRuntime::open_sqlite_in_memory().expect("memory runtime"),
         ));
@@ -199,6 +233,29 @@ async fn test_hybrid_routing_logic() -> Result<()> {
     };
 
     let session_id = [1u8; 32];
+    let policy_key = [b"agent::policy::".as_slice(), session_id.as_slice()].concat();
+    let policy = ActionRules {
+        policy_id: "hybrid-routing-e2e-policy".to_string(),
+        defaults: DefaultPolicy::DenyAll,
+        ontology_policy: Default::default(),
+        pii_controls: Default::default(),
+        rules: vec![
+            Rule {
+                rule_id: Some("allow-gui-screenshot".into()),
+                target: "gui::screenshot".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            Rule {
+                rule_id: Some("allow-gui-click".into()),
+                target: "gui::click".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+        ],
+    };
+    state.insert(&policy_key, &codec::to_bytes_canonical(&policy).unwrap())?;
+
     let start_params = StartAgentParams {
         session_id,
         goal: "Click the UI button".into(),
@@ -229,7 +286,6 @@ async fn test_hybrid_routing_logic() -> Result<()> {
             &mut ctx,
         )
         .await?;
-
     assert!(
         *reasoner_called.lock().unwrap(),
         "Step 1 should use Reasoning model"
@@ -238,9 +294,8 @@ async fn test_hybrid_routing_logic() -> Result<()> {
     // Reset flags
     *reasoner_called.lock().unwrap() = false;
 
-    // 3. Step 2: Execution Loop (Should use Fast)
-    // Last action was "screen__click_at" (from Reasoning brain output above).
-    // State now has last_action_type = "screen__click_at".
+    // 3. Step 2: Visual UI work should remain on the reasoning path.
+    // The fast model is intentionally not used for foreground UI actions.
     service
         .handle_service_call(
             &mut state,
@@ -251,14 +306,14 @@ async fn test_hybrid_routing_logic() -> Result<()> {
         .await?;
 
     assert!(
-        *fast_called.lock().unwrap(),
-        "Step 2 should use Fast model (reflex)"
+        !*fast_called.lock().unwrap(),
+        "Visual foreground UI work should not use the fast model"
     );
     assert!(
-        !*reasoner_called.lock().unwrap(),
-        "Step 2 should NOT use Reasoning model"
+        *reasoner_called.lock().unwrap(),
+        "Step 2 should continue using the reasoning model for UI work"
     );
 
-    println!("✅ Hybrid Routing E2E Passed: Switched brains correctly.");
+    println!("✅ Hybrid Routing E2E Passed: UI work stayed on the reasoning path.");
     Ok(())
 }

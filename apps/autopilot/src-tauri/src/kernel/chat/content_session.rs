@@ -142,6 +142,39 @@ fn default_chat_outcome_request(
     request
 }
 
+fn workspace_grounded_chat_outcome_request(
+    raw_prompt: &str,
+    active_artifact_id: Option<String>,
+) -> ChatOutcomeRequest {
+    let mut request = default_chat_outcome_request(raw_prompt, active_artifact_id);
+    request.confidence = 0.92;
+    request.decision_evidence = vec![
+        "workspace_grounding_required".to_string(),
+        "coding_workspace_context".to_string(),
+        "bounded_source_probe_required".to_string(),
+        "no_persistent_artifact_requested".to_string(),
+        "shared_answer_surface".to_string(),
+    ];
+    refresh_outcome_request_topology(&mut request, None);
+    request
+}
+
+fn policy_blocked_chat_outcome_request(
+    raw_prompt: &str,
+    active_artifact_id: Option<String>,
+) -> ChatOutcomeRequest {
+    let mut request = default_chat_outcome_request(raw_prompt, active_artifact_id);
+    request.confidence = 1.0;
+    request.decision_evidence = vec![
+        "policy_block_required".to_string(),
+        "destructive_repository_request".to_string(),
+        "no_destructive_execution".to_string(),
+        "shared_answer_surface".to_string(),
+    ];
+    refresh_outcome_request_topology(&mut request, None);
+    request
+}
+
 fn default_blocked_artifact_request() -> ChatOutcomeArtifactRequest {
     ChatOutcomeArtifactRequest {
         artifact_class: ChatArtifactClass::Document,
@@ -239,6 +272,20 @@ pub(super) fn chat_outcome_request_with_runtime_timeout(
         return Ok(default_chat_outcome_request(
             trimmed_intent,
             active_artifact_id,
+        ));
+    }
+
+    let intent_context = ChatIntentContext::new(trimmed_intent);
+    if intent_context.destructive_repository_request() {
+        return Ok(policy_blocked_chat_outcome_request(
+            trimmed_intent,
+            active_artifact_id,
+        ));
+    }
+    if intent_context.workspace_grounding_required() {
+        return Ok(workspace_grounded_chat_outcome_request(
+            trimmed_intent,
+            None,
         ));
     }
 
@@ -541,7 +588,7 @@ fn add_decision_evidence_once(outcome_request: &mut ChatOutcomeRequest, evidence
 }
 
 fn promote_complete_specialized_widget_request(outcome_request: &mut ChatOutcomeRequest) -> bool {
-    if outcome_request.outcome_kind == ChatOutcomeKind::ToolWidget {
+    if outcome_request.outcome_kind != ChatOutcomeKind::Conversation {
         return false;
     }
     let Some(frame) = outcome_request.normalized_request.as_ref() else {

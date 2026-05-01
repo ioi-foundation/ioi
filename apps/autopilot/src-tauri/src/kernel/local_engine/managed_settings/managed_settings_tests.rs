@@ -12,8 +12,13 @@ use ioi_api::crypto::{SerializableKey, SigningKeyPair as _};
 use ioi_crypto::sign::eddsa::Ed25519KeyPair;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, OnceLock};
 use uuid::Uuid;
+
+fn fixture_env_lock() -> &'static Mutex<()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(()))
+}
 
 fn temp_dir() -> PathBuf {
     let dir = std::env::temp_dir().join(format!(
@@ -73,6 +78,7 @@ fn signed_channel(
 
 #[test]
 fn refresh_selects_highest_precedence_verified_channel() {
+    let _fixture_env_guard = fixture_env_lock().lock().expect("fixture env lock");
     let data_dir = temp_dir();
     let fixture_dir = temp_dir();
     let fixture_path = fixture_dir.join("managed-settings.json");
@@ -139,6 +145,7 @@ fn refresh_selects_highest_precedence_verified_channel() {
 
 #[test]
 fn save_persists_local_override_patch_over_managed_channel() {
+    let _fixture_env_guard = fixture_env_lock().lock().expect("fixture env lock");
     let data_dir = temp_dir();
     let fixture_dir = temp_dir();
     let fixture_path = fixture_dir.join("managed-settings.json");
@@ -201,6 +208,7 @@ fn save_persists_local_override_patch_over_managed_channel() {
 
 #[test]
 fn invalid_signature_falls_back_to_local_settings() {
+    let _fixture_env_guard = fixture_env_lock().lock().expect("fixture env lock");
     let data_dir = temp_dir();
     let fixture_dir = temp_dir();
     let fixture_path = fixture_dir.join("managed-settings.json");

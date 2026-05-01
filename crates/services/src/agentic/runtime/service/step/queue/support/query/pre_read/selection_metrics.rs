@@ -134,6 +134,14 @@ pub(crate) fn selected_source_quality_observation_with_contract_and_locality_hin
         } else if local_business_entity_selection_flow {
             local_business_target_name_from_source(&selected_source_summary, locality_hint)
                 .is_some()
+                && source_matches_local_business_search_entity_anchor(
+                    query_contract,
+                    retrieval_contract,
+                    locality_hint,
+                    selected_trimmed,
+                    title,
+                    excerpt,
+                )
         } else {
             source_matches_local_business_search_entity_anchor(
                 query_contract,
@@ -209,14 +217,16 @@ pub(crate) fn selected_source_quality_observation_with_contract_and_locality_hin
                 excerpt,
             ))
         };
-        let excerpt_lower = excerpt.to_ascii_lowercase();
-        let menu_bearing_detail_excerpt = excerpt_lower.contains(" on the menu")
-            || excerpt_lower.contains("menu specials")
-            || excerpt_lower.contains("menu classics")
-            || excerpt_lower.contains("menu items")
-            || excerpt_lower.contains("dinner menu")
-            || excerpt_lower.contains("lunch menu")
-            || excerpt_lower.contains("brunch menu");
+        let menu_surface = format!("{title} {excerpt}").to_ascii_lowercase();
+        let menu_bearing_detail_excerpt = menu_surface.contains(" on the menu")
+            || menu_surface.contains("menu specials")
+            || menu_surface.contains("menu classics")
+            || menu_surface.contains("menu items")
+            || menu_surface.contains("dinner menu")
+            || menu_surface.contains("lunch menu")
+            || menu_surface.contains("brunch menu")
+            || menu_surface.contains(" - menu")
+            || menu_surface.contains(", menu");
         let local_business_menu_surface_compatible = !local_business_menu_surface_required
             || local_business_menu_surface_url(selected_trimmed)
             || local_business_menu_inventory_excerpt(excerpt, excerpt.chars().count()).is_some()

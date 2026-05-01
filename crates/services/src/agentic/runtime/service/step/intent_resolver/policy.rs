@@ -140,21 +140,60 @@ struct QueryBindingProfilePayload {
     temporal_filesystem_filter: bool,
 }
 
-fn parse_query_binding_profile(raw: &str) -> Result<QueryBindingProfile, TransactionError> {
-    let parsed = serde_json::from_str::<QueryBindingProfilePayload>(raw).or_else(|_| {
+const QUERY_BINDING_PROFILE_FIELDS: &[&str] = &[
+    "remote_public_fact_required",
+    "host_local_clock_targeted",
+    "command_directed",
+    "durable_automation_requested",
+    "model_registry_control_requested",
+    "app_launch_directed",
+    "direct_ui_input",
+    "desktop_screenshot_requested",
+    "temporal_filesystem_filter",
+];
+
+fn parse_query_binding_payload(raw: &str) -> Result<QueryBindingProfilePayload, TransactionError> {
+    let parsed_value = serde_json::from_str::<serde_json::Value>(raw).or_else(|_| {
         let extracted = extract_first_json_object(raw).ok_or_else(|| {
             TransactionError::Invalid(
                 "ERROR_CLASS=ResolverContractViolation query binding output missing JSON"
                     .to_string(),
             )
         })?;
-        serde_json::from_str::<QueryBindingProfilePayload>(&extracted).map_err(|e| {
+        serde_json::from_str::<serde_json::Value>(&extracted).map_err(|e| {
             TransactionError::Invalid(format!(
                 "ERROR_CLASS=ResolverContractViolation query binding output parse failed: {}",
                 e
             ))
         })
     })?;
+
+    let object = parsed_value.as_object().ok_or_else(|| {
+        TransactionError::Invalid(
+            "ERROR_CLASS=ResolverContractViolation query binding output must be a JSON object"
+                .to_string(),
+        )
+    })?;
+    if !QUERY_BINDING_PROFILE_FIELDS
+        .iter()
+        .any(|field| object.contains_key(*field))
+    {
+        return Err(TransactionError::Invalid(
+            "ERROR_CLASS=ResolverContractViolation query binding output missing schema fields"
+                .to_string(),
+        ));
+    }
+
+    serde_json::from_value::<QueryBindingProfilePayload>(parsed_value).map_err(|e| {
+        TransactionError::Invalid(format!(
+            "ERROR_CLASS=ResolverContractViolation query binding output parse failed: {}",
+            e
+        ))
+    })
+}
+
+fn parse_query_binding_profile(raw: &str) -> Result<QueryBindingProfile, TransactionError> {
+    let parsed = parse_query_binding_payload(raw)?;
     Ok(QueryBindingProfile {
         available: true,
         remote_public_fact_required: parsed.remote_public_fact_required,
@@ -167,6 +206,34 @@ fn parse_query_binding_profile(raw: &str) -> Result<QueryBindingProfile, Transac
         desktop_screenshot_requested: parsed.desktop_screenshot_requested,
         temporal_filesystem_filter: parsed.temporal_filesystem_filter,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn query_binding_profile_rejects_unrelated_tool_call_json() {
+        let err =
+            parse_query_binding_profile(r#"{"name":"chat__reply","arguments":{"text":"ok"}}"#)
+                .expect_err("tool-call JSON must not masquerade as query binding evidence");
+
+        assert!(err
+            .to_string()
+            .contains("query binding output missing schema fields"));
+    }
+
+    #[test]
+    fn query_binding_profile_accepts_explicit_all_false_schema() {
+        let profile = parse_query_binding_profile(
+            r#"{"remote_public_fact_required":false,"host_local_clock_targeted":false,"command_directed":false,"durable_automation_requested":false,"model_registry_control_requested":false,"app_launch_directed":false,"direct_ui_input":false,"desktop_screenshot_requested":false,"temporal_filesystem_filter":false}"#,
+        )
+        .expect("explicit all-false classifier output should remain valid");
+
+        assert!(profile.available);
+        assert!(!profile.command_directed);
+        assert!(!profile.remote_public_fact_required);
+    }
 }
 
 pub(super) async fn infer_query_binding_profile(

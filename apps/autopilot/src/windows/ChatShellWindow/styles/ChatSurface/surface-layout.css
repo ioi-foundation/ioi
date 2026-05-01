@@ -1252,7 +1252,7 @@
   align-items: start;
   padding: 12px;
   border: 1px solid var(--spot-border-subtle);
-  border-radius: 12px;
+  border-radius: 8px;
   background: var(--spot-bg-tertiary);
 }
 
@@ -1272,42 +1272,57 @@
   line-height: 1.45;
 }
 
-.chat-thoughts-source-pills {
+.chat-thoughts-groups {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  flex-direction: column;
+  gap: 18px;
 }
 
-.chat-thoughts-source-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  max-width: 100%;
-  border: 1px solid var(--spot-border-subtle);
-  border-radius: 999px;
-  padding: 5px 9px;
-  background: var(--spot-bg-tertiary);
-  color: var(--spot-text-secondary);
-  font-size: 12px;
-  line-height: 1;
-}
-
-.chat-thoughts-source-pill span {
-  display: inline-flex;
-}
-
-.chat-thoughts-drawer__rows {
+.chat-thoughts-group {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
+.chat-thoughts-group + .chat-thoughts-group {
+  padding-top: 16px;
+  border-top: 1px solid var(--spot-border-subtle);
+}
+
+.chat-thoughts-group__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-thoughts-group__header h3 {
+  margin: 0;
+  color: var(--spot-text-primary);
+  font-size: 14px;
+  line-height: 1.3;
+  font-weight: 650;
+}
+
+.chat-thoughts-group__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  color: var(--spot-text-muted);
+}
+
+.chat-thoughts-drawer__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
 .chat-thoughts-row {
   display: grid;
-  grid-template-columns: 20px minmax(0, 1fr);
-  gap: 10px;
-  padding: 9px 0;
-  border-bottom: 1px solid var(--spot-border-subtle);
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 9px;
+  padding: 8px 0;
 }
 
 .chat-thoughts-row:last-child {
@@ -1324,15 +1339,15 @@
 .chat-thoughts-row__label {
   display: block;
   margin-bottom: 3px;
-  color: var(--spot-text-muted);
-  font-size: 11px;
+  color: var(--spot-text-primary);
+  font-size: 12px;
   font-weight: 600;
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 .chat-thoughts-row p {
   margin: 0;
-  color: var(--spot-text-primary);
+  color: var(--spot-text-secondary);
   font-size: 13px;
   line-height: 1.45;
 }

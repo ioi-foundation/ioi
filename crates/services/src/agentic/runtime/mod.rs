@@ -11,6 +11,7 @@ pub mod keys;
 pub mod middleware;
 pub mod runtime_secret;
 pub mod service;
+pub mod substrate;
 pub mod tools;
 pub mod types;
 pub mod utils;
@@ -19,5 +20,6 @@ pub mod worker_templates;
 
 pub use service::RuntimeAgentService;
 pub use types::{
-    AgentMode, AgentState, AgentStatus, ResumeAgentParams, StartAgentParams, StepAgentParams,
+    AgentMode, AgentState, AgentStatus, CancelAgentParams, DenyAgentParams, PauseAgentParams,
+    PostMessageParams, ResumeAgentParams, StartAgentParams, StepAgentParams,
 };

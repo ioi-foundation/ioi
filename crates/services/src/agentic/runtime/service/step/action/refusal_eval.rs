@@ -1,3 +1,7 @@
+use crate::agentic::runtime::service::actions::evaluation::{
+    gate_allows_candidate_staging, persist_self_improvement_gate,
+    skill_candidate_self_improvement_gate,
+};
 use crate::agentic::runtime::service::RuntimeAgentService;
 use crate::agentic::runtime::types::{AgentState, AgentStatus};
 use crate::agentic::runtime::utils::{goto_trace_log, persist_agent_state};
@@ -69,6 +73,17 @@ pub(super) async fn evaluate_and_crystallize(
                         ioi_crypto::algorithms::hash::sha256(&trace_bytes).unwrap_or([0u8; 32]);
                     let mut trace_hash_arr = [0u8; 32];
                     trace_hash_arr.copy_from_slice(trace_hash_bytes.as_ref());
+                    let gate = skill_candidate_self_improvement_gate(
+                        trace_hash_arr,
+                        traces.len(),
+                        report.score,
+                        report.passed_hard_constraints,
+                    );
+                    if !gate_allows_candidate_staging(&gate)
+                        || !persist_self_improvement_gate(state, session_id, trace_hash_arr, &gate)
+                    {
+                        return;
+                    }
                     let _ = opt
                         .crystallize_skill_internal(
                             state,

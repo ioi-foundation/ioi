@@ -89,13 +89,10 @@ pub fn canonical_collapse_recursive_proof(
             ));
         }
         [0u8; 32]
+    } else if let Some(previous) = previous {
+        canonical_collapse_recursive_proof_hash(previous)?
     } else {
-        canonical_collapse_recursive_proof_hash(previous.ok_or_else(|| {
-            format!(
-                "canonical collapse proof at height {} requires a previous proof",
-                collapse.height
-            )
-        })?)?
+        [0u8; 32]
     };
     let commitment = canonical_collapse_commitment(collapse);
     let payload_hash = canonical_collapse_payload_hash(collapse)?;
@@ -139,13 +136,18 @@ pub fn verify_canonical_collapse_recursive_proof(
                 proof.commitment.height
             ));
         }
-    } else {
-        if proof.previous_canonical_collapse_commitment_hash == [0u8; 32] {
+    } else if proof.previous_canonical_collapse_commitment_hash == [0u8; 32] {
+        if proof.previous_recursive_proof_hash != [0u8; 32] {
             return Err(format!(
-                "canonical collapse proof at height {} must carry a non-zero predecessor commitment hash",
+                "canonical collapse proof at height {} carries a bootstrap predecessor commitment but a non-zero predecessor proof hash",
                 proof.commitment.height
             ));
         }
+    } else if proof.previous_recursive_proof_hash == [0u8; 32] {
+        return Err(format!(
+            "canonical collapse proof at height {} must carry a non-zero predecessor proof hash",
+            proof.commitment.height
+        ));
     }
 
     let statement_hash = canonical_collapse_recursive_statement_hash(
@@ -212,12 +214,17 @@ pub fn verify_canonical_collapse_recursive_proof_matches_collapse(
         }
         return Ok(());
     }
-    let previous = previous.ok_or_else(|| {
-        format!(
+    let Some(previous) = previous else {
+        if proof.previous_canonical_collapse_commitment_hash == [0u8; 32]
+            && proof.previous_recursive_proof_hash == [0u8; 32]
+        {
+            return Ok(());
+        }
+        return Err(format!(
             "canonical collapse proof at height {} requires an anchored predecessor collapse object",
             collapse.height
-        )
-    })?;
+        ));
+    };
     if previous.height + 1 != collapse.height {
         return Err(format!(
             "canonical collapse proof expected anchored predecessor height {}, found {}",
@@ -340,16 +347,11 @@ pub fn expected_previous_canonical_collapse_commitment_hash(
     height: u64,
     previous: Option<&CanonicalCollapseObject>,
 ) -> Result<[u8; 32], String> {
-    if height <= 1 {
+    if height <= 1 || previous.is_none() {
         return Ok([0u8; 32]);
     }
 
-    let previous = previous.ok_or_else(|| {
-        format!(
-            "canonical collapse continuity requires a previous collapse object for height {}",
-            height
-        )
-    })?;
+    let previous = previous.expect("checked above");
     if previous.height + 1 != height {
         return Err(format!(
             "canonical collapse continuity expected previous height {}, found {}",
@@ -366,16 +368,11 @@ pub fn expected_previous_canonical_collapse_accumulator_hash(
     height: u64,
     previous: Option<&CanonicalCollapseObject>,
 ) -> Result<[u8; 32], String> {
-    if height <= 1 {
+    if height <= 1 || previous.is_none() {
         return Ok([0u8; 32]);
     }
 
-    let previous = previous.ok_or_else(|| {
-        format!(
-            "canonical collapse accumulator requires a previous collapse object for height {}",
-            height
-        )
-    })?;
+    let previous = previous.expect("checked above");
     if previous.height + 1 != height {
         return Err(format!(
             "canonical collapse accumulator expected previous height {}, found {}",

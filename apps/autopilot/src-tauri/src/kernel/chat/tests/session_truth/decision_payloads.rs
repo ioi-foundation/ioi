@@ -483,7 +483,7 @@ fn decision_record_payload_maps_workspace_grounded_conversation_to_coding_surfac
 }
 
 #[test]
-fn runtime_handoff_prefix_carries_workspace_grounded_decision_record() {
+fn workspace_grounded_chat_primary_route_does_not_emit_runtime_handoff_prefix() {
     let mut task = empty_task("What npm script launches the desktop app in this repo?");
     let outcome_request = ChatOutcomeRequest {
         request_id: "workspace-grounding-handoff".to_string(),
@@ -521,12 +521,6 @@ fn runtime_handoff_prefix_carries_workspace_grounded_decision_record() {
         &outcome_request,
     );
 
-    let prefix = runtime_handoff_prompt_prefix_for_task(&task).expect("route handoff prefix");
-    assert!(prefix.contains("CHAT ARTIFACT ROUTE CONTRACT:"));
-    assert!(prefix.contains("selected_route: conversation_workspace_grounded_single_pass"));
-    assert!(prefix.contains("route_family: coding"));
-    assert!(prefix.contains("primary_tools: view, bash_tool"));
-    assert!(prefix.contains("workspace_grounding_required"));
-    assert!(prefix.contains("Treat local workspace inspection as mandatory"));
+    assert!(task_requires_chat_primary_execution(&task));
+    assert!(runtime_handoff_prompt_prefix_for_task(&task).is_none());
 }
-

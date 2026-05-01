@@ -6,6 +6,7 @@ use ioi_types::app::{
     ChatWidgetStateBinding,
 };
 use ioi_types::error::VmError;
+use std::collections::VecDeque;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
@@ -108,6 +109,25 @@ fn places_anchor_phrase_preserves_multi_segment_locations() {
         context.places_anchor_phrase().as_deref(),
         Some("williamsburg, brooklyn")
     );
+}
+
+#[test]
+fn using_repo_docs_request_requires_workspace_grounding() {
+    let context =
+        ChatIntentContext::new("Using repo docs, summarize the chat UX contract and cite sources.");
+
+    assert!(context.source_citation_grounding_required());
+    assert!(context.workspace_grounding_required());
+}
+
+#[test]
+fn harness_validation_request_requires_workspace_grounding() {
+    let context = ChatIntentContext::new(
+        "Validate this answer path through the harness and explain the result.",
+    );
+
+    assert!(context.agent_validation_grounding_required());
+    assert!(context.workspace_grounding_required());
 }
 
 #[test]
@@ -533,6 +553,106 @@ async fn local_outcome_router_uses_text_json_contract() {
 }
 
 #[tokio::test(flavor = "current_thread")]
+async fn local_outcome_router_repairs_non_json_router_output_once() {
+    #[derive(Debug, Clone)]
+    struct SequentialOutcomeRouterRuntime {
+        responses: Arc<Mutex<VecDeque<String>>>,
+        prompts: Arc<Mutex<Vec<String>>>,
+        json_modes: Arc<Mutex<Vec<bool>>>,
+    }
+
+    #[async_trait]
+    impl InferenceRuntime for SequentialOutcomeRouterRuntime {
+        async fn execute_inference(
+            &self,
+            _model_hash: [u8; 32],
+            input_context: &[u8],
+            options: InferenceOptions,
+        ) -> Result<Vec<u8>, VmError> {
+            self.prompts
+                .lock()
+                .expect("prompt log")
+                .push(decode_chat_test_prompt(input_context));
+            self.json_modes
+                .lock()
+                .expect("json mode log")
+                .push(options.json_mode);
+            let response = self
+                .responses
+                .lock()
+                .expect("responses")
+                .pop_front()
+                .expect("scripted response");
+            Ok(response.into_bytes())
+        }
+
+        async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        fn chat_runtime_provenance(&self) -> ChatRuntimeProvenance {
+            ChatRuntimeProvenance {
+                kind: ChatRuntimeProvenanceKind::RealLocalRuntime,
+                label: "local router".to_string(),
+                model: Some("qwen3.5:9b".to_string()),
+                endpoint: Some("http://127.0.0.1:11434/v1/chat/completions".to_string()),
+            }
+        }
+    }
+
+    let responses = Arc::new(Mutex::new(VecDeque::from([
+        "I would answer this directly in chat.".to_string(),
+        serde_json::json!({
+            "outcomeKind": "conversation",
+            "executionStrategy": "single_pass",
+            "confidence": 0.71,
+            "needsClarification": false,
+            "clarificationQuestions": [],
+            "decisionEvidence": ["json_parse_repair"],
+            "artifact": null
+        })
+        .to_string(),
+    ])));
+    let prompts = Arc::new(Mutex::new(Vec::<String>::new()));
+    let json_modes = Arc::new(Mutex::new(Vec::<bool>::new()));
+    let runtime: Arc<dyn InferenceRuntime> = Arc::new(SequentialOutcomeRouterRuntime {
+        responses,
+        prompts: prompts.clone(),
+        json_modes: json_modes.clone(),
+    });
+
+    let planning = plan_chat_outcome_with_runtime(
+        runtime,
+        "Plan how to add StopCondition support, but do not edit files.",
+        None,
+        None,
+    )
+    .await
+    .expect("local router should repair malformed JSON output");
+
+    assert_eq!(planning.outcome_kind, ChatOutcomeKind::Conversation);
+    assert_eq!(
+        planning.execution_strategy,
+        ChatExecutionStrategy::SinglePass
+    );
+    assert!(planning
+        .decision_evidence
+        .iter()
+        .any(|entry| entry == "json_parse_repair"));
+    assert_eq!(
+        *json_modes.lock().expect("json mode log"),
+        vec![false, true]
+    );
+    let prompt_log = prompts.lock().expect("prompt log");
+    assert_eq!(prompt_log.len(), 2);
+    assert!(prompt_log[1].contains("repair Chat typed outcome-router output"));
+}
+
+#[tokio::test(flavor = "current_thread")]
 async fn weather_route_derives_lane_request_normalized_request_and_source_decision() {
     let runtime = scripted_outcome_router_runtime(serde_json::json!({
         "outcomeKind": "conversation",
@@ -858,6 +978,197 @@ async fn explicit_inline_answer_request_removes_workspace_clarification() {
     assert!(planning
         .decision_evidence
         .contains(&"no_persistent_artifact_requested".to_string()));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn low_risk_conversation_answers_with_uncertainty_instead_of_overasking() {
+    let runtime = scripted_outcome_router_runtime(serde_json::json!({
+        "outcomeKind": "conversation",
+        "executionStrategy": "single_pass",
+        "confidence": 0.52,
+        "needsClarification": true,
+        "clarificationQuestions": [
+            "Is this a fresh workspace or an existing project with context?"
+        ],
+        "decisionEvidence": ["shared_answer_surface"],
+        "artifact": null
+    }));
+
+    let planning = plan_chat_outcome_with_runtime(
+        runtime,
+        "Explain what this workspace is for in two concise paragraphs.",
+        None,
+        None,
+    )
+    .await
+    .expect("planning");
+
+    assert_eq!(planning.outcome_kind, ChatOutcomeKind::Conversation);
+    assert!(!planning.needs_clarification);
+    assert!(planning.clarification_questions.is_empty());
+    assert!(planning
+        .decision_evidence
+        .contains(&"answer_with_stated_uncertainty".to_string()));
+    assert!(planning
+        .decision_evidence
+        .contains(&"shared_answer_surface".to_string()));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn source_citation_question_requires_workspace_grounding_even_without_repo_phrase() {
+    let runtime = scripted_outcome_router_runtime(serde_json::json!({
+        "outcomeKind": "conversation",
+        "executionStrategy": "single_pass",
+        "confidence": 0.76,
+        "needsClarification": false,
+        "clarificationQuestions": [],
+        "decisionEvidence": ["shared_answer_surface"],
+        "artifact": null
+    }));
+
+    let planning = plan_chat_outcome_with_runtime(
+        runtime,
+        "Where is Autopilot chat task state defined? Cite the files you used.",
+        None,
+        None,
+    )
+    .await
+    .expect("planning");
+
+    assert_eq!(planning.outcome_kind, ChatOutcomeKind::Conversation);
+    assert!(planning
+        .decision_evidence
+        .contains(&"workspace_grounding_required".to_string()));
+    assert!(planning
+        .decision_evidence
+        .contains(&"coding_workspace_context".to_string()));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn explain_this_workspace_requires_grounding_without_clarification() {
+    let runtime = scripted_outcome_router_runtime(serde_json::json!({
+        "outcomeKind": "conversation",
+        "executionStrategy": "single_pass",
+        "confidence": 0.58,
+        "needsClarification": true,
+        "clarificationQuestions": ["Is this a fresh workspace or an existing project with context?"],
+        "decisionEvidence": ["shared_answer_surface"],
+        "artifact": null
+    }));
+
+    let planning = plan_chat_outcome_with_runtime(
+        runtime,
+        "Explain what this workspace is for in two concise paragraphs.",
+        None,
+        None,
+    )
+    .await
+    .expect("planning");
+
+    assert_eq!(planning.outcome_kind, ChatOutcomeKind::Conversation);
+    assert!(!planning.needs_clarification);
+    assert!(planning
+        .decision_evidence
+        .contains(&"workspace_grounding_required".to_string()));
+    assert!(planning
+        .decision_evidence
+        .contains(&"coding_workspace_context".to_string()));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn no_edit_coding_plan_requires_workspace_grounding() {
+    let runtime = scripted_outcome_router_runtime(serde_json::json!({
+        "outcomeKind": "conversation",
+        "executionStrategy": "single_pass",
+        "confidence": 0.61,
+        "needsClarification": false,
+        "clarificationQuestions": [],
+        "decisionEvidence": ["shared_answer_surface"],
+        "artifact": null
+    }));
+
+    let planning = plan_chat_outcome_with_runtime(
+        runtime,
+        "Plan how to add StopCondition support, but do not edit files.",
+        None,
+        None,
+    )
+    .await
+    .expect("planning");
+
+    assert_eq!(planning.outcome_kind, ChatOutcomeKind::Conversation);
+    assert!(planning
+        .decision_evidence
+        .contains(&"workspace_grounding_required".to_string()));
+    assert!(planning
+        .decision_evidence
+        .contains(&"coding_workspace_context".to_string()));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn runtime_lifecycle_mermaid_request_requires_workspace_grounding() {
+    let runtime = scripted_outcome_router_runtime(serde_json::json!({
+        "outcomeKind": "artifact",
+        "executionStrategy": "direct_author",
+        "confidence": 0.72,
+        "needsClarification": false,
+        "clarificationQuestions": [],
+        "decisionEvidence": ["persistent_artifact_requested"],
+        "artifact": {
+            "renderer": "mermaid"
+        }
+    }));
+
+    let planning = plan_chat_outcome_with_runtime(
+        runtime,
+        "Show the agent runtime event lifecycle as a Mermaid sequence diagram.",
+        None,
+        None,
+    )
+    .await
+    .expect("planning");
+
+    assert_eq!(planning.outcome_kind, ChatOutcomeKind::Conversation);
+    assert!(planning.artifact.is_none());
+    assert!(planning
+        .decision_evidence
+        .contains(&"workspace_grounding_required".to_string()));
+    assert!(planning
+        .decision_evidence
+        .contains(&"coding_workspace_context".to_string()));
+    assert!(planning
+        .decision_evidence
+        .contains(&"shared_answer_surface".to_string()));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn harness_probe_requests_require_workspace_grounding() {
+    let runtime = scripted_outcome_router_runtime(serde_json::json!({
+        "outcomeKind": "conversation",
+        "executionStrategy": "single_pass",
+        "confidence": 0.66,
+        "needsClarification": false,
+        "clarificationQuestions": [],
+        "decisionEvidence": ["shared_answer_surface"],
+        "artifact": null
+    }));
+
+    let planning = plan_chat_outcome_with_runtime(
+        runtime,
+        "Find the cheapest way to verify whether desktop chat sources render.",
+        None,
+        None,
+    )
+    .await
+    .expect("planning");
+
+    assert_eq!(planning.outcome_kind, ChatOutcomeKind::Conversation);
+    assert!(planning
+        .decision_evidence
+        .contains(&"workspace_grounding_required".to_string()));
+    assert!(planning
+        .decision_evidence
+        .contains(&"coding_workspace_context".to_string()));
 }
 
 #[tokio::test(flavor = "current_thread")]

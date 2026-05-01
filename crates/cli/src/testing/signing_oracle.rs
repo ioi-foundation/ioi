@@ -4,7 +4,7 @@ use ioi_api::crypto::{SerializableKey, SigningKeyPair};
 use ioi_crypto::key_store::encrypt_key; // NEW
 use ioi_crypto::sign::eddsa::{Ed25519KeyPair, Ed25519PrivateKey};
 use std::io::Write; // NEW
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::Duration;
 use tempfile::TempDir;
@@ -19,6 +19,13 @@ pub struct SigningOracleGuard {
 
 impl SigningOracleGuard {
     pub fn spawn(key_seed: Option<&[u8]>) -> Result<Self> {
+        Self::spawn_from_binary_dir(None, key_seed)
+    }
+
+    pub fn spawn_from_binary_dir(
+        binary_dir: Option<&Path>,
+        key_seed: Option<&[u8]>,
+    ) -> Result<Self> {
         let temp_dir = tempfile::tempdir()?;
         let state_path = temp_dir.path().join("signer_state.bin");
         let key_path = temp_dir.path().join("signer_key.seed");
@@ -41,20 +48,30 @@ impl SigningOracleGuard {
         let port = portpicker::pick_unused_port().ok_or(anyhow!("No free ports"))?;
         let addr = format!("127.0.0.1:{}", port);
 
-        let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        // We are in crates/cli. Workspace root is ../../
-        let workspace_root = manifest_dir.parent().unwrap().parent().unwrap();
-        // Check release first, then debug
-        let binary_path_release = workspace_root.join("target/release/ioi-signer");
-        let binary_path_debug = workspace_root.join("target/debug/ioi-signer");
-
-        let binary_path = if binary_path_release.exists() {
-            binary_path_release
-        } else if binary_path_debug.exists() {
-            binary_path_debug
+        let binary_name = if cfg!(windows) {
+            "ioi-signer.exe"
         } else {
-            return Err(anyhow!("ioi-signer binary not found. Run `cargo build -p ioi-node --bin ioi-signer --features validator-bins` first."));
+            "ioi-signer"
         };
+        let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let workspace_root = manifest_dir.parent().unwrap().parent().unwrap();
+        let mut candidates = Vec::new();
+        if let Some(dir) = binary_dir {
+            candidates.push(dir.join(binary_name));
+        }
+        candidates.push(workspace_root.join("target/release").join(binary_name));
+        candidates.push(workspace_root.join("target/debug").join(binary_name));
+
+        let binary_path = candidates.iter().find(|path| path.exists()).cloned().ok_or_else(|| {
+            anyhow!(
+                "ioi-signer binary not found. Searched: {}. Run `cargo build -p ioi-node --bin ioi-signer --features validator-bins` first.",
+                candidates
+                    .iter()
+                    .map(|path| path.display().to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+        })?;
 
         let mut process = Command::new(binary_path)
             .arg("--state-file")

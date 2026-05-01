@@ -285,7 +285,7 @@ mod tests {
                 ChatExecutionStrategy::DirectAuthor,
                 ChatRuntimeProvenanceKind::RealLocalRuntime,
             ),
-            3600
+            2200
         );
         assert_eq!(
             direct_author_stream_timeout_for_request(
@@ -304,6 +304,9 @@ mod tests {
             "<!doctype html><html><body><main><section><h1>Quantum</h1><p>unfinished";
         let streamed_raw = r#"<!doctype html><html><body><main>
           <section><h1>Quantum computers</h1><p>Explore qubits, gates, amplitudes, and measurement.</p></section>
+          <section><h2>Concepts</h2><p>Superposition keeps a qubit in a blend of possible outcomes until a measurement is made.</p></section>
+          <section><h2>Try it</h2><button id="gate-button" type="button">Apply gate</button><p id="detail-content" role="status" aria-live="polite">A gate rotates the qubit state and changes the measurement probabilities.</p></section>
+          <script>document.getElementById('gate-button').addEventListener('click',function(){document.getElementById('detail-content').textContent='The gate changed the state, so measurement is now more likely to return the highlighted outcome.';});</script>
         </main></body></html>"#;
 
         let candidates =

@@ -238,27 +238,17 @@ pub fn artifact_connector_grounding_for_outcome_request(
 }
 
 pub fn route_family_for_outcome_request(outcome_request: &ChatOutcomeRequest) -> &'static str {
-    if let Some(lane_request) = outcome_request.lane_request.as_ref() {
-        return match lane_request.primary_lane {
-            ChatLaneFamily::Research => "research",
-            ChatLaneFamily::Coding => "coding",
-            ChatLaneFamily::Integrations => "integrations",
-            ChatLaneFamily::Communication => "communication",
-            ChatLaneFamily::UserInput => "user_input",
-            ChatLaneFamily::Visualizer => "artifacts",
-            ChatLaneFamily::Artifact => "artifacts",
-            ChatLaneFamily::ToolWidget => "tool_widget",
-            ChatLaneFamily::Conversation | ChatLaneFamily::General => "general",
-        };
-    }
-
-    let widget_family = tool_widget_family_hint(&outcome_request.decision_evidence);
     if decision_evidence_item_flag(
         &outcome_request.decision_evidence,
         "connector_intent_detected",
     ) {
         return "integrations";
     }
+    if let Some(lane_request) = outcome_request.lane_request.as_ref() {
+        return route_family_for_lane(lane_request.primary_lane);
+    }
+
+    let widget_family = tool_widget_family_hint(&outcome_request.decision_evidence);
     if decision_evidence_item_flag(
         &outcome_request.decision_evidence,
         "workspace_grounding_required",
@@ -292,6 +282,29 @@ pub fn route_family_for_outcome_request(outcome_request: &ChatOutcomeRequest) ->
         return "research";
     }
     "general"
+}
+
+fn decision_record_route_family_for_outcome_request(
+    outcome_request: &ChatOutcomeRequest,
+) -> &'static str {
+    if let Some(lane_request) = outcome_request.lane_request.as_ref() {
+        return route_family_for_lane(lane_request.primary_lane);
+    }
+    route_family_for_outcome_request(outcome_request)
+}
+
+fn route_family_for_lane(lane: ChatLaneFamily) -> &'static str {
+    match lane {
+        ChatLaneFamily::Research => "research",
+        ChatLaneFamily::Coding => "coding",
+        ChatLaneFamily::Integrations => "integrations",
+        ChatLaneFamily::Communication => "communication",
+        ChatLaneFamily::UserInput => "user_input",
+        ChatLaneFamily::Visualizer => "artifacts",
+        ChatLaneFamily::Artifact => "artifacts",
+        ChatLaneFamily::ToolWidget => "tool_widget",
+        ChatLaneFamily::Conversation | ChatLaneFamily::General => "general",
+    }
 }
 
 pub fn selected_route_label_for_outcome_request(outcome_request: &ChatOutcomeRequest) -> String {

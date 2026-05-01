@@ -214,13 +214,179 @@ const INBOX_ITEMS = [
 // ─── Productized catalog ──────────────────────────────────────────────
 // Shoppable outcome cards — the demand-side browse surface.
 // Each includes a price RANGE across providers + sample SLA + liveness signal.
+// 3-level taxonomy: Category > Subcategory > Service (= CATALOG_ITEM)
+// Subcategories drive the "Explore [Category]" grid on a single category page.
+// Each subcategory has 3-5 service strings; only some map to a real CATALOG_ITEM
+// via `itemId` — the rest are surfaced as "coming soon" links so the directory feels populated.
 const CATALOG_CATEGORIES = [
-  { id: 'finance',   name: 'Finance & Accounting' },
-  { id: 'hr',        name: 'People & Hiring' },
-  { id: 'security',  name: 'Security & Compliance' },
-  { id: 'legal',     name: 'Legal & Contracts' },
-  { id: 'support',   name: 'Support & Ops' },
-  { id: 'analytics', name: 'Data & Analytics' },
+  { id: 'finance',   name: 'Finance & Accounting', tone: 'indigo',
+    subcategories: [
+      { id: 'recon',   name: 'Reconciliation',
+        services: [
+          { label: 'Invoice reconciliation, nightly', itemId: 'cat-invoice-recon' },
+          { label: 'Three-way match (PO ↔ invoice ↔ receipt)' },
+          { label: 'GL exception detection' },
+          { label: 'Bank statement reconciliation' },
+        ]},
+      { id: 'close',   name: 'Period Close',
+        services: [
+          { label: 'Quarterly books close', itemId: 'cat-q-close' },
+          { label: 'Month-end close' },
+          { label: 'Audit pack generation' },
+          { label: 'Intercompany eliminations' },
+        ]},
+      { id: 'ap',      name: 'AP Operations',
+        services: [
+          { label: 'Duplicate-payment detection', itemId: 'cat-ap-scan' },
+          { label: 'Vendor onboarding & W-9' },
+          { label: 'Payment run scheduling' },
+          { label: 'Expense categorization' },
+        ]},
+      { id: 'revrec',  name: 'Revenue Recognition',
+        services: [
+          { label: 'ASC 606 deferred revenue' },
+          { label: 'Subscription accruals' },
+          { label: 'Contract waterfall' },
+        ]},
+    ]},
+  { id: 'hr',        name: 'People & Hiring', tone: 'rose',
+    subcategories: [
+      { id: 'onboard',   name: 'Onboarding',
+        services: [
+          { label: 'New-hire provisioning', itemId: 'cat-onboard' },
+          { label: 'Day-one welcome pack' },
+          { label: 'Identity & SSO setup' },
+          { label: 'Device shipment & MDM' },
+        ]},
+      { id: 'offboard',  name: 'Offboarding',
+        services: [
+          { label: 'Termination & offboarding', itemId: 'cat-offboard' },
+          { label: 'SaaS revoke sweep' },
+          { label: 'Final-pay trigger' },
+          { label: 'Exit documentation' },
+        ]},
+      { id: 'verify',    name: 'Background Verification',
+        services: [
+          { label: 'Identity verification' },
+          { label: 'Reference checks' },
+          { label: 'Right-to-work checks' },
+        ]},
+      { id: 'contractor',name: 'Contractor Operations',
+        services: [
+          { label: '1099 onboarding' },
+          { label: 'EOR / global hire' },
+          { label: 'Contractor compliance' },
+        ]},
+    ]},
+  { id: 'security',  name: 'Security & Compliance', tone: 'teal',
+    subcategories: [
+      { id: 'patch',    name: 'Patch Management',
+        services: [
+          { label: 'CVE patching — staging to prod', itemId: 'cat-cve' },
+          { label: 'Critical-CVE rapid response' },
+          { label: 'Dependency upgrade sweeps' },
+        ]},
+      { id: 'access',   name: 'Access Reviews',
+        services: [
+          { label: 'Weekly access review', itemId: 'cat-access' },
+          { label: 'Stale-account sweep' },
+          { label: 'Privileged-role recertification' },
+          { label: 'SaaS estate audit' },
+        ]},
+      { id: 'evidence', name: 'Audit Evidence',
+        services: [
+          { label: 'SOC 2 evidence collection' },
+          { label: 'ISO 27001 evidence pack' },
+          { label: 'PCI-DSS quarterly' },
+        ]},
+      { id: 'vendor',   name: 'Vendor Risk',
+        services: [
+          { label: 'Vendor risk assessment' },
+          { label: 'Subprocessor monitoring' },
+          { label: 'Penetration testing' },
+        ]},
+    ]},
+  { id: 'legal',     name: 'Legal & Contracts', tone: 'amber',
+    subcategories: [
+      { id: 'redline',  name: 'Contract Redline',
+        services: [
+          { label: 'Inbound contract redline', itemId: 'cat-redline' },
+          { label: 'MSA negotiation support' },
+          { label: 'SaaS order-form review' },
+        ]},
+      { id: 'dpa',      name: 'Data & Privacy',
+        services: [
+          { label: 'DPA & subprocessor review', itemId: 'cat-dpa' },
+          { label: 'GDPR transfer assessment' },
+          { label: 'Privacy policy update' },
+        ]},
+      { id: 'nda',      name: 'NDA & Routine',
+        services: [
+          { label: 'NDA generation' },
+          { label: 'NDA tracking & e-sign' },
+          { label: 'Standard-form library' },
+        ]},
+      { id: 'reg',      name: 'Regulatory Filings',
+        services: [
+          { label: 'IP assignment review' },
+          { label: 'Annual regulatory filings' },
+          { label: 'Beneficial-ownership reports' },
+        ]},
+    ]},
+  { id: 'support',   name: 'Support & Operations', tone: 'sage',
+    subcategories: [
+      { id: 'tier2',    name: 'Escalation Triage',
+        services: [
+          { label: 'Tier-2 escalation triage', itemId: 'cat-tier2' },
+          { label: 'After-hours coverage' },
+          { label: 'P1 incident commander' },
+        ]},
+      { id: 'routing',  name: 'Ticket Operations',
+        services: [
+          { label: 'Inbound ticket routing' },
+          { label: 'SLA monitoring & alerts' },
+          { label: 'Auto-tagging & deflection' },
+        ]},
+      { id: 'csat',     name: 'Customer Voice',
+        services: [
+          { label: 'CSAT & NPS surveys' },
+          { label: 'Quarterly QBR pack' },
+          { label: 'Churn-signal triage' },
+        ]},
+      { id: 'kb',       name: 'Knowledge Base',
+        services: [
+          { label: 'KB article maintenance' },
+          { label: 'Support macro updates' },
+          { label: 'Self-serve audit' },
+        ]},
+    ]},
+  { id: 'analytics', name: 'Data & Analytics', tone: 'violet',
+    subcategories: [
+      { id: 'dash',     name: 'Dashboards',
+        services: [
+          { label: 'Morning dashboard refresh', itemId: 'cat-dash' },
+          { label: 'Executive scorecard' },
+          { label: 'Real-time metric alerts' },
+        ]},
+      { id: 'forecast', name: 'Forecasting',
+        services: [
+          { label: 'Pipeline forecasting' },
+          { label: 'Revenue waterfall' },
+          { label: 'Cash-runway model' },
+        ]},
+      { id: 'churn',    name: 'Churn & Retention',
+        services: [
+          { label: 'Churn prediction model' },
+          { label: 'Cohort retention curves' },
+          { label: 'Expansion-signal scoring' },
+        ]},
+      { id: 'reports',  name: 'Reporting',
+        services: [
+          { label: 'Board pre-read pack' },
+          { label: 'Investor update memo' },
+          { label: 'Usage analytics digest' },
+        ]},
+    ]},
 ];
 
 const CATALOG_ITEMS = [
@@ -228,6 +394,7 @@ const CATALOG_ITEMS = [
   {
     id: 'cat-invoice-recon',
     category: 'finance',
+    subcategory: 'recon',
     title: 'Invoice reconciliation, nightly',
     tagline: 'Three-way match invoice ↔ PO ↔ receipt. Flag variance > 0.5%.',
     priceFrom: 0.65, priceTo: 1.20, priceUnit: '/ invoice',
@@ -241,6 +408,7 @@ const CATALOG_ITEMS = [
   {
     id: 'cat-q-close',
     category: 'finance',
+    subcategory: 'close',
     title: 'Quarterly books close',
     tagline: 'Period-end close, GL reconciliation, audit pack delivery.',
     priceFrom: 1800, priceTo: 3400, priceUnit: '/ quarter',
@@ -254,6 +422,7 @@ const CATALOG_ITEMS = [
   {
     id: 'cat-ap-scan',
     category: 'finance',
+    subcategory: 'ap',
     title: 'Duplicate-payment detection',
     tagline: 'Scan AP run for duplicates across invoice, vendor, amount.',
     priceFrom: 0.02, priceTo: 0.08, priceUnit: '/ line',
@@ -269,6 +438,7 @@ const CATALOG_ITEMS = [
   {
     id: 'cat-onboard',
     category: 'hr',
+    subcategory: 'onboard',
     title: 'New-hire provisioning',
     tagline: 'Identity, payroll, device, compliance — day-one ready.',
     priceFrom: 95, priceTo: 140, priceUnit: '/ hire',
@@ -282,6 +452,7 @@ const CATALOG_ITEMS = [
   {
     id: 'cat-offboard',
     category: 'hr',
+    subcategory: 'offboard',
     title: 'Termination & offboarding',
     tagline: 'SaaS revoke, device recall, final-pay trigger, exit docs.',
     priceFrom: 60, priceTo: 95, priceUnit: '/ exit',
@@ -297,6 +468,7 @@ const CATALOG_ITEMS = [
   {
     id: 'cat-cve',
     category: 'security',
+    subcategory: 'patch',
     title: 'CVE patching — staging to prod',
     tagline: 'Identify, stage, test, promote under two-eyes sign-off.',
     priceFrom: 9, priceTo: 15, priceUnit: '/ CVE',
@@ -310,6 +482,7 @@ const CATALOG_ITEMS = [
   {
     id: 'cat-access',
     category: 'security',
+    subcategory: 'access',
     title: 'Weekly access review',
     tagline: 'SaaS estate × user × role · stale-account detection.',
     priceFrom: 0.10, priceTo: 0.25, priceUnit: '/ identity',
@@ -325,6 +498,7 @@ const CATALOG_ITEMS = [
   {
     id: 'cat-redline',
     category: 'legal',
+    subcategory: 'redline',
     title: 'Inbound contract redline',
     tagline: 'First-pass review against your playbook · counsel memo.',
     priceFrom: 38, priceTo: 60, priceUnit: '/ document',
@@ -338,6 +512,7 @@ const CATALOG_ITEMS = [
   {
     id: 'cat-dpa',
     category: 'legal',
+    subcategory: 'dpa',
     title: 'DPA & subprocessor review',
     tagline: 'GDPR/CCPA fit check, transfer mechanism, subprocessor audit.',
     priceFrom: 48, priceTo: 82, priceUnit: '/ document',
@@ -353,6 +528,7 @@ const CATALOG_ITEMS = [
   {
     id: 'cat-tier2',
     category: 'support',
+    subcategory: 'tier2',
     title: 'Tier-2 escalation triage',
     tagline: 'Inbound ticket → triage → resolve or hand off with context.',
     priceFrom: 0.40, priceTo: 0.75, priceUnit: '/ ticket',
@@ -368,6 +544,7 @@ const CATALOG_ITEMS = [
   {
     id: 'cat-dash',
     category: 'analytics',
+    subcategory: 'dash',
     title: 'Morning dashboard refresh',
     tagline: 'ARR, pipeline, usage — freshened before 09:00.',
     priceFrom: 0.20, priceTo: 0.30, priceUnit: '/ refresh',

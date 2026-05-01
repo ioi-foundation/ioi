@@ -125,9 +125,11 @@ mod linux_impl {
     use atspi::proxy::accessible::AccessibleProxy;
     use atspi::proxy::component::ComponentProxy;
     use atspi::{Accessible, CoordType, State}; // [NEW] Import State enum
-    use futures::future::BoxFuture;
-    use futures::FutureExt;
-    use std::collections::HashMap;
+    use std::collections::{HashMap, HashSet, VecDeque};
+
+    const MAX_ATSPI_CRAWL_DEPTH: usize = 32;
+    const MAX_ATSPI_CHILDREN_PER_NODE: usize = 32;
+    const MAX_ATSPI_NODES_PER_CRAWL: usize = 2048;
 
     fn is_likely_atspi_bus_error(message: &str) -> bool {
         let lower = message.to_ascii_lowercase();
@@ -182,8 +184,10 @@ mod linux_impl {
             desktop_root
         };
 
-        // 3. Recursive crawl
-        crawl_atspi_node(&root, &conn, 0).await
+        // 3. Recursive crawl. AT-SPI can expose cross-links back to ancestor
+        // objects, so track visited object paths across the crawl rather than
+        // relying only on a direct self-reference check.
+        crawl_atspi_tree(&root, &conn).await
     }
 
     async fn build_accessible_proxy<'a>(
@@ -205,9 +209,11 @@ mod linux_impl {
     ) -> Option<Accessible> {
         let child_refs = desktop_root.get_children().await.ok()?;
         let mut fallback_ref: Option<Accessible> = None;
+        let desktop_path = desktop_root.path().to_string();
 
         for child_ref in child_refs.into_iter().take(32) {
-            if child_ref.path.as_str().ends_with("/null") {
+            if child_ref.path.as_str().ends_with("/null") || child_ref.path.as_str() == desktop_path
+            {
                 continue;
             }
 
@@ -284,12 +290,12 @@ mod linux_impl {
 
         let normalized = out.split_whitespace().collect::<Vec<_>>().join(" ");
         let canonical = match normalized.as_str() {
-            "pushbutton" | "togglebutton" => "button",
+            "pushbutton" | "push button" | "togglebutton" | "toggle button" => "button",
             "combobox" => "combobox",
             "checkbox" => "checkbox",
-            "radiobutton" => "radio",
-            "menuitem" => "menuitem",
-            "listitem" => "listitem",
+            "radiobutton" | "radio button" => "radio",
+            "menuitem" | "menu item" => "menuitem",
+            "listitem" | "list item" => "listitem",
             "textbox" => "textbox",
             "searchbox" => "searchbox",
             _ => normalized.as_str(),
@@ -325,170 +331,135 @@ mod linux_impl {
         format!("atspi_{}_{}", stable_destination, stable_object_path)
     }
 
-    fn crawl_atspi_node<'a>(
-        proxy: &'a AccessibleProxy<'a>,
-        conn: &'a AccessibilityConnection,
+    #[derive(Clone)]
+    struct PendingAccessible {
+        destination: String,
+        path: String,
         depth: usize,
-    ) -> BoxFuture<'a, Result<AccessibilityNode>> {
-        async move {
-            if depth > 50 {
-                return Err(anyhow!("Max depth reached"));
-            }
+        parent: Option<usize>,
+    }
 
-            let name = proxy.name().await.unwrap_or_default();
-            // Map the role enum to a string.
-            let role = proxy
-                .get_role()
-                .await
-                .map(|r| normalize_role(&format!("{:?}", r)))
-                .unwrap_or_else(|_| "unknown".into());
+    struct NodeSlot {
+        parent: Option<usize>,
+        node: AccessibilityNode,
+    }
 
-            // Retrieve real coordinates from AT-SPI
-            let ext = {
-                let comp_builder = ComponentProxy::builder(&conn.connection().clone())
-                    .destination(proxy.destination().to_owned())
-                    .expect("Invalid destination");
+    async fn read_atspi_node(
+        proxy: &AccessibleProxy<'_>,
+        conn: &AccessibilityConnection,
+    ) -> (AccessibilityNode, Vec<Accessible>) {
+        let name = proxy.name().await.unwrap_or_default();
+        let role = proxy
+            .get_role()
+            .await
+            .map(|r| normalize_role(&format!("{:?}", r)))
+            .unwrap_or_else(|_| "unknown".into());
 
-                if let Ok(comp_builder) = comp_builder.path(proxy.path().to_owned()) {
-                    if let Ok(comp) = comp_builder.build().await {
-                        comp.get_extents(CoordType::Screen)
-                            .await
-                            .unwrap_or((0, 0, 0, 0))
-                    } else {
-                        (0, 0, 0, 0)
-                    }
+        let ext = {
+            let comp_builder = ComponentProxy::builder(&conn.connection().clone())
+                .destination(proxy.destination().to_owned())
+                .expect("Invalid destination");
+
+            if let Ok(comp_builder) = comp_builder.path(proxy.path().to_owned()) {
+                if let Ok(comp) = comp_builder.build().await {
+                    comp.get_extents(CoordType::Screen)
+                        .await
+                        .unwrap_or((0, 0, 0, 0))
                 } else {
                     (0, 0, 0, 0)
                 }
-            };
-
-            let rect = Rect {
-                x: ext.0,
-                y: ext.1,
-                width: ext.2,
-                height: ext.3,
-            };
-
-            // [NEW] Capture Attributes & State
-            let mut attributes = HashMap::new();
-
-            // 1. Raw AT-SPI attributes
-            if let Ok(attrs) = proxy.get_attributes().await {
-                for (k, v) in attrs {
-                    if !k.is_empty() {
-                        attributes.insert(k.clone(), v.clone());
-                    }
-                    let normalized_key = normalize_attribute_key(&k);
-                    if !normalized_key.is_empty() {
-                        attributes.insert(normalized_key, v);
-                    }
-                }
-            }
-
-            // 2. Standard State (The Critical Addition)
-            let mut state_available = false;
-            let mut state_indicates_visible = false;
-            if let Ok(state_set) = proxy.get_state().await {
-                state_available = true;
-                // Map critical states to attributes for the Lens/XML serializer
-                if !state_set.contains(State::Enabled) {
-                    attributes.insert("disabled".to_string(), "true".to_string());
-                }
-                if state_set.contains(State::Checked) {
-                    attributes.insert("checked".to_string(), "true".to_string());
-                }
-                if state_set.contains(State::Selected) {
-                    attributes.insert("selected".to_string(), "true".to_string());
-                }
-                if state_set.contains(State::Focused) {
-                    attributes.insert("focused".to_string(), "true".to_string());
-                }
-                if state_set.contains(State::Active) {
-                    attributes.insert("active".to_string(), "true".to_string());
-                }
-                if state_set.contains(State::Expanded) {
-                    attributes.insert("expanded".to_string(), "true".to_string());
-                }
-                if state_set.contains(State::Showing) {
-                    attributes.insert("showing".to_string(), "true".to_string());
-                }
-                if state_set.contains(State::Visible)
-                    || state_set.contains(State::Showing)
-                    || state_set.contains(State::Focused)
-                {
-                    state_indicates_visible = true;
-                }
-            }
-
-            // 3. Map standard fields if useful
-            if let Ok(desc) = proxy.description().await {
-                if !desc.is_empty() {
-                    attributes.insert("description".into(), desc);
-                }
-            }
-
-            // Determine visibility. AT-SPI state reporting can be sparse/inconsistent in
-            // headless CI (xvfb/bridge startup), so use geometry/structure fallbacks rather
-            // than marking nodes hidden solely because State::Visible is absent.
-            let structural_role = matches!(
-                role.as_str(),
-                "root" | "window" | "application" | "frame" | "pane" | "panel"
-            );
-            let has_rect = rect.width > 0 && rect.height > 0;
-            let has_label = !name.trim().is_empty();
-            let is_visible = if state_available {
-                state_indicates_visible || has_rect || structural_role
             } else {
-                has_rect || has_label || structural_role
-            };
+                (0, 0, 0, 0)
+            }
+        };
 
-            // Fetch children. `get_children()` is more reliable for the AT-SPI registry/root;
-            // some environments report child_count=0 while still exposing child references.
-            let child_refs = match proxy.get_children().await {
-                Ok(children) if !children.is_empty() => children,
-                _ => {
-                    let child_count = proxy.child_count().await.unwrap_or(0);
-                    let mut refs = Vec::new();
-                    for i in 0..child_count.min(50) {
-                        if let Ok(child_ref) = proxy.get_child_at_index(i).await {
-                            refs.push(child_ref);
-                        }
-                    }
-                    refs
-                }
-            };
+        let rect = Rect {
+            x: ext.0,
+            y: ext.1,
+            width: ext.2,
+            height: ext.3,
+        };
 
-            let mut children = Vec::new();
-            let current_path = proxy.path().to_string();
-            for child_ref in child_refs.into_iter().take(50) {
-                let child_path = child_ref.path.to_string();
-                // Skip invalid/null/self refs to avoid crawler stalls or trivial cycles.
-                if child_path.ends_with("/null") || child_path == current_path {
-                    continue;
+        let mut attributes = HashMap::new();
+        if let Ok(attrs) = proxy.get_attributes().await {
+            for (k, v) in attrs {
+                if !k.is_empty() {
+                    attributes.insert(k.clone(), v.clone());
                 }
-                let child_builder = match AccessibleProxy::builder(&conn.connection().clone())
-                    .destination(child_ref.name.clone())
-                {
-                    Ok(builder) => builder,
-                    Err(_) => continue,
-                };
-                let child_builder = match child_builder.path(child_ref.path.clone()) {
-                    Ok(builder) => builder,
-                    Err(_) => continue,
-                };
-                if let Ok(child_proxy) = child_builder.build().await {
-                    if let Ok(child_node) = crawl_atspi_node(&child_proxy, conn, depth + 1).await {
-                        // Keep structural/informative descendants even if a container is
-                        // currently marked invisible to avoid dropping viable targets.
-                        if child_node.is_visible || !child_node.children.is_empty() {
-                            children.push(child_node);
-                        }
-                    }
+                let normalized_key = normalize_attribute_key(&k);
+                if !normalized_key.is_empty() {
+                    attributes.insert(normalized_key, v);
                 }
             }
+        }
 
-            Ok(AccessibilityNode {
-                // Generate a stable-ish ID based on path + index to allow referencing
+        let mut state_available = false;
+        let mut state_indicates_visible = false;
+        if let Ok(state_set) = proxy.get_state().await {
+            state_available = true;
+            if !state_set.contains(State::Enabled) {
+                attributes.insert("disabled".to_string(), "true".to_string());
+            }
+            if state_set.contains(State::Checked) {
+                attributes.insert("checked".to_string(), "true".to_string());
+            }
+            if state_set.contains(State::Selected) {
+                attributes.insert("selected".to_string(), "true".to_string());
+            }
+            if state_set.contains(State::Focused) {
+                attributes.insert("focused".to_string(), "true".to_string());
+            }
+            if state_set.contains(State::Active) {
+                attributes.insert("active".to_string(), "true".to_string());
+            }
+            if state_set.contains(State::Expanded) {
+                attributes.insert("expanded".to_string(), "true".to_string());
+            }
+            if state_set.contains(State::Showing) {
+                attributes.insert("showing".to_string(), "true".to_string());
+            }
+            if state_set.contains(State::Visible)
+                || state_set.contains(State::Showing)
+                || state_set.contains(State::Focused)
+            {
+                state_indicates_visible = true;
+            }
+        }
+
+        if let Ok(desc) = proxy.description().await {
+            if !desc.is_empty() {
+                attributes.insert("description".into(), desc);
+            }
+        }
+
+        let structural_role = matches!(
+            role.as_str(),
+            "root" | "window" | "application" | "frame" | "pane" | "panel"
+        );
+        let has_rect = rect.width > 0 && rect.height > 0;
+        let has_label = !name.trim().is_empty();
+        let is_visible = if state_available {
+            state_indicates_visible || has_rect || structural_role
+        } else {
+            has_rect || has_label || structural_role
+        };
+
+        let child_refs = match proxy.get_children().await {
+            Ok(children) if !children.is_empty() => children,
+            _ => {
+                let child_count = proxy.child_count().await.unwrap_or(0);
+                let mut refs = Vec::new();
+                for i in 0..child_count.min(MAX_ATSPI_CHILDREN_PER_NODE as i32) {
+                    if let Ok(child_ref) = proxy.get_child_at_index(i).await {
+                        refs.push(child_ref);
+                    }
+                }
+                refs
+            }
+        };
+
+        (
+            AccessibilityNode {
                 id: stable_accessible_id(
                     &proxy.destination().to_string(),
                     &proxy.path().to_string(),
@@ -497,13 +468,109 @@ mod linux_impl {
                 name: if name.is_empty() { None } else { Some(name) },
                 value: None,
                 rect,
-                children,
+                children: Vec::new(),
                 is_visible,
-                attributes,   // [NEW]
-                som_id: None, // [FIX] Added missing field
-            })
+                attributes,
+                som_id: None,
+            },
+            child_refs,
+        )
+    }
+
+    async fn crawl_atspi_tree(
+        root: &AccessibleProxy<'_>,
+        conn: &AccessibilityConnection,
+    ) -> Result<AccessibilityNode> {
+        let mut queue = VecDeque::from([PendingAccessible {
+            destination: root.destination().to_string(),
+            path: root.path().to_string(),
+            depth: 0,
+            parent: None,
+        }]);
+        let mut visited = HashSet::new();
+        let mut slots: Vec<NodeSlot> = Vec::new();
+
+        while let Some(pending) = queue.pop_front() {
+            if pending.depth > MAX_ATSPI_CRAWL_DEPTH || slots.len() >= MAX_ATSPI_NODES_PER_CRAWL {
+                continue;
+            }
+            if pending.path.ends_with("/null") {
+                continue;
+            }
+            let key = format!("{}{}", pending.destination, pending.path);
+            if !visited.insert(key) {
+                continue;
+            }
+
+            let proxy =
+                match build_accessible_proxy(conn, &pending.destination, &pending.path).await {
+                    Ok(proxy) => proxy,
+                    Err(_) => continue,
+                };
+            let current_path = proxy.path().to_string();
+            let (node, child_refs) = read_atspi_node(&proxy, conn).await;
+            let index = slots.len();
+            slots.push(NodeSlot {
+                parent: pending.parent,
+                node,
+            });
+
+            if pending.depth >= MAX_ATSPI_CRAWL_DEPTH {
+                continue;
+            }
+            for child_ref in child_refs.into_iter().take(MAX_ATSPI_CHILDREN_PER_NODE) {
+                let child_path = child_ref.path.to_string();
+                if child_path.ends_with("/null") || child_path == current_path {
+                    continue;
+                }
+                queue.push_back(PendingAccessible {
+                    destination: child_ref.name.to_string(),
+                    path: child_path,
+                    depth: pending.depth + 1,
+                    parent: Some(index),
+                });
+            }
         }
-        .boxed()
+
+        if slots.is_empty() {
+            return Err(anyhow!("AT-SPI crawl produced no accessible nodes"));
+        }
+
+        let parents = slots.iter().map(|slot| slot.parent).collect::<Vec<_>>();
+        let mut nodes = slots
+            .into_iter()
+            .map(|slot| Some(slot.node))
+            .collect::<Vec<_>>();
+        let mut root_node = None;
+
+        for index in (0..nodes.len()).rev() {
+            let Some(node) = nodes[index].take() else {
+                continue;
+            };
+            if let Some(parent_index) = parents[index] {
+                if let Some(parent) = nodes.get_mut(parent_index).and_then(Option::as_mut) {
+                    if node.is_visible || !node.children.is_empty() {
+                        parent.children.push(node);
+                    }
+                }
+            } else {
+                root_node = Some(node);
+            }
+        }
+
+        let mut root_node = root_node.ok_or_else(|| anyhow!("AT-SPI crawl lost root node"))?;
+        reverse_child_order(&mut root_node);
+        Ok(root_node)
+    }
+
+    fn reverse_child_order(root: &mut AccessibilityNode) {
+        let mut stack = vec![root];
+        while let Some(node) = stack.pop() {
+            node.children.reverse();
+            for child in &mut node.children {
+                stack.push(child);
+            }
+        }
     }
 
     #[cfg(test)]

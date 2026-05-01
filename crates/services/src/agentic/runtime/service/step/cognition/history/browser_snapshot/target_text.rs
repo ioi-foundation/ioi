@@ -365,7 +365,11 @@ pub(super) fn recent_goal_primary_target(history: &[ChatMessage]) -> Option<Stri
         .rev()
         .filter(|message| message.role == "user")
         .take(3)
-        .find_map(|message| extract_first_quoted_value(&message.content))
+        .find_map(|message| {
+            extract_first_quoted_value(&message.content)
+                .or_else(|| extract_message_source_target(&message.content))
+                .or_else(|| extract_find_by_target(&message.content))
+        })
 }
 
 pub(super) fn recent_goal_message_recipient_target(history: &[ChatMessage]) -> Option<String> {
@@ -374,7 +378,7 @@ pub(super) fn recent_goal_message_recipient_target(history: &[ChatMessage]) -> O
         .rev()
         .filter(|message| message.role == "user")
         .take(3)
-        .find_map(|message| extract_first_quoted_value(&message.content))
+        .find_map(|message| extract_message_recipient_target(&message.content))
 }
 
 pub(super) fn recent_goal_mentions_submit(history: &[ChatMessage]) -> bool {
@@ -458,4 +462,21 @@ pub(super) fn priority_target_tag(summary: &str) -> Option<&str> {
                 .split_once('#')
                 .map(|(tag, _)| tag)
         })
+}
+
+pub(super) fn priority_target_name(summary: &str) -> Option<String> {
+    let marker = " name=";
+    let start = summary.find(marker)? + marker.len();
+    let rest = &summary[start..];
+    let end = rest
+        .find(" dom_id=")
+        .or_else(|| rest.find(" selector="))
+        .or_else(|| rest.find(" class_name="))
+        .or_else(|| rest.find(" dom_clickable="))
+        .or_else(|| rest.find(" focused="))
+        .or_else(|| rest.find(" selected="))
+        .or_else(|| rest.find(" checked="))
+        .or_else(|| rest.find(" omitted"))
+        .unwrap_or(rest.len());
+    Some(rest[..end].trim().to_ascii_lowercase())
 }

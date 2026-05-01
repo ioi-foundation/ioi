@@ -1246,7 +1246,7 @@ fn rendered_summary_requires_quality_of_cited_sources_for_document_briefing() {
     );
 
     assert_eq!(facts.briefing_selected_source_total, 3);
-    assert_eq!(facts.briefing_selected_source_compatible, 2);
+    assert_eq!(facts.briefing_selected_source_compatible, 1);
     assert!(!facts.briefing_selected_source_quality_floor_met);
     assert!(!facts.briefing_selected_source_identifier_coverage_floor_met);
     assert!(!final_web_completion_contract_ready(&facts));

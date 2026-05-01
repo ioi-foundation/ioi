@@ -1,4 +1,7 @@
-use super::await_loop::{await_child_burst_step_limit, child_allows_await_burst};
+use super::await_loop::{
+    await_child_burst_step_limit, awaited_worker_handoff_completion_allowed,
+    child_allows_await_burst,
+};
 use super::merge::{materialize_worker_result, merged_worker_output};
 use super::{
     await_child_worker_result as await_child_worker_result_impl, build_parent_playbook_run,
@@ -18,7 +21,7 @@ use crate::agentic::runtime::service::lifecycle::delegation::spawn_delegated_chi
 use crate::agentic::runtime::service::{RuntimeAgentService, ServiceCallContext};
 use crate::agentic::runtime::types::{
     AgentMode, AgentState, AgentStatus, CommandExecution, ExecutionTier, ParentPlaybookStatus,
-    ParentPlaybookStepStatus, PendingSearchCompletion, PendingSearchReadSummary,
+    ParentPlaybookStepStatus, PendingSearchCompletion, PendingSearchReadSummary, WorkerAssignment,
     WorkerCompletionContract, WorkerMergeMode,
 };
 use crate::agentic::runtime::utils::persist_agent_state;

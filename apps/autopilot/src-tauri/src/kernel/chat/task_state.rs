@@ -36,6 +36,32 @@ pub(super) fn visualizer_route_stays_chat_primary(outcome_request: &ChatOutcomeR
         && !outcome_request.needs_clarification
 }
 
+pub(super) fn workspace_grounded_route_stays_chat_primary(
+    outcome_request: &ChatOutcomeRequest,
+) -> bool {
+    outcome_request.outcome_kind == ChatOutcomeKind::Conversation
+        && !outcome_request.needs_clarification
+        && outcome_request
+            .decision_evidence
+            .iter()
+            .any(|hint| hint == "workspace_grounding_required")
+}
+
+pub(super) fn policy_blocked_route_stays_chat_primary(
+    outcome_request: &ChatOutcomeRequest,
+) -> bool {
+    outcome_request.outcome_kind == ChatOutcomeKind::Conversation
+        && !outcome_request.needs_clarification
+        && outcome_request
+            .decision_evidence
+            .iter()
+            .any(|hint| hint == "policy_block_required")
+        && outcome_request
+            .decision_evidence
+            .iter()
+            .any(|hint| hint == "no_destructive_execution")
+}
+
 fn chat_repair_pass_count(chat_session: &ChatArtifactSession) -> usize {
     if let Some(run) = chat_session.active_operator_run.as_ref() {
         return run.repair_count as usize;
@@ -442,6 +468,8 @@ pub fn task_requires_chat_primary_execution(task: &AgentTask) -> bool {
 
     chat_session.outcome_request.needs_clarification
         || chat_session.outcome_request.outcome_kind == ChatOutcomeKind::Artifact
+        || workspace_grounded_route_stays_chat_primary(&chat_session.outcome_request)
+        || policy_blocked_route_stays_chat_primary(&chat_session.outcome_request)
         || inline_answer_single_pass_reply_stays_chat_primary(&chat_session.outcome_request)
         || tool_widget_route_stays_chat_primary(&chat_session.outcome_request)
         || visualizer_route_stays_chat_primary(&chat_session.outcome_request)
@@ -592,6 +620,12 @@ pub fn apply_chat_authoritative_status(task: &mut AgentTask, current_step: Optio
             task.phase = AgentPhase::Complete;
             task.current_step =
                 current_step.unwrap_or_else(|| "Chat workspace renderer verified.".to_string());
+            return;
+        }
+
+        if lifecycle_state == ChatArtifactLifecycleState::Blocked {
+            task.phase = AgentPhase::Gate;
+            task.current_step = fallback_step;
             return;
         }
 

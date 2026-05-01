@@ -5,8 +5,12 @@ import {
   redactProcessText,
   sourceIconFallbackForKind,
   testOnlySourceRefsFromSummary,
-} from "./assistantTurnProcessModel";
-import type { SourceSummary, ToolActivityGroupPresentation } from "../../../types";
+} from "./assistantTurnProcessModel.ts";
+import type {
+  ArtifactSourceReference,
+  SourceSummary,
+  ToolActivityGroupPresentation,
+} from "../../../types";
 
 const empty = buildAssistantTurnProcess({
   task: null,
@@ -81,5 +85,35 @@ assert.equal(sources[0]?.iconFallback, "globe");
 assert.equal(sourceIconFallbackForKind("command"), "terminal");
 assert.equal(sourceIconFallbackForKind("screenshot"), "image");
 assert.equal(redactProcessText("Authorization bearer abcdefghijklmnopqrstuvwxyz123456"), "[redacted] [redacted] [redacted]");
+
+const workspaceSources: ArtifactSourceReference[] = [
+  {
+    sourceId: "crates/types/src/app/runtime_contracts.rs:1144",
+    title: "crates/types/src/app/runtime_contracts.rs:1144",
+    domain: "workspace",
+    excerpt: "query: Plan how to add StopCondition support",
+    reason: "Selected by bounded workspace source probe.",
+  },
+  {
+    sourceId: "docs/specs/runtime/agent-runtime-parity-plus-master-guide.md:50",
+    title: "docs/specs/runtime/agent-runtime-parity-plus-master-guide.md:50",
+    domain: "workspace",
+    excerpt: "Partial: current runtime has foundations",
+    reason: "Selected by bounded workspace source probe.",
+  },
+];
+const withWorkspaceSources = buildAssistantTurnProcess({
+  workspaceSources,
+  runtimeModelLabel: "Local: qwen3.5:9b",
+});
+assert.equal(withWorkspaceSources.sources.length, 0);
+assert.equal(withWorkspaceSources.summaryLine, "Explored 2 files");
+assert.equal(withWorkspaceSources.items[0]?.kind, "source_read");
+assert.equal(withWorkspaceSources.items[0]?.label, "Read runtime_contracts.rs");
+assert.ok(
+  (withWorkspaceSources.items[0]?.detail ?? "").includes(
+    "crates/types/src/app/runtime_contracts.rs",
+  ),
+);
 
 console.log("assistantTurnProcessModel.test.ts: ok");

@@ -27,6 +27,8 @@ pub mod media;
 pub mod model_registry;
 /// Data structures for reporting and penalizing misbehavior.
 pub mod penalties;
+/// Unified agent runtime substrate and cognitive-loop contracts.
+pub mod runtime_contracts;
 /// Data structures for economic settlement.
 pub mod settlement;
 /// Data structures for deterministic block timing.
@@ -58,6 +60,7 @@ pub use inference::*;
 pub use media::*;
 pub use model_registry::*;
 pub use penalties::*;
+pub use runtime_contracts::*;
 pub use settlement::*;
 pub use timing::*; // [NEW]
 pub use wallet_network::*;

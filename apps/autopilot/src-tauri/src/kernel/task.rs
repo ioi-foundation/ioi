@@ -65,8 +65,16 @@ fn normalize_session_id_string(value: &str) -> String {
 }
 
 fn session_hex_matches_task(task: &AgentTask, session_id_hex: &str) -> bool {
+    let normalized_input = normalize_session_id_string(session_id_hex);
     let task_session = task.session_id.as_deref().unwrap_or(task.id.as_str());
-    normalize_session_id_string(task_session) == normalize_session_id_string(session_id_hex)
+    if normalize_session_id_string(task_session) == normalized_input {
+        return true;
+    }
+    task.chat_session.as_ref().is_some_and(|chat_session| {
+        normalize_session_id_string(&chat_session.session_id) == normalized_input
+            || normalize_session_id_string(&chat_session.thread_id) == normalized_input
+            || normalize_session_id_string(&chat_session.artifact_id) == normalized_input
+    })
 }
 
 fn task_should_continue_through_kernel(task: &AgentTask) -> bool {

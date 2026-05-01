@@ -38,12 +38,7 @@ fn inferred_briefing_identifier_probe_terms(
             let title = hint.title.as_deref().unwrap_or_default();
             (!trimmed.is_empty()).then(|| BriefingIdentifierObservation {
                 url: trimmed.to_string(),
-                surface: preferred_source_briefing_identifier_surface(
-                    query_contract,
-                    &hint.url,
-                    title,
-                    &hint.excerpt,
-                ),
+                surface: compact_whitespace(&format!("{} {} {}", hint.url, title, hint.excerpt)),
                 authoritative: source_has_document_authority(
                     query_contract,
                     trimmed,

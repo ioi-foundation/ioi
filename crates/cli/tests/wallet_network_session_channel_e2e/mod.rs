@@ -446,6 +446,8 @@ fn wallet_network_user_policy() -> ServicePolicy {
         "grant_secret_injection@v1",
         "record_interception@v1",
         "record_approval@v1",
+        "register_approval_authority@v1",
+        "revoke_approval_authority@v1",
         "consume_approval_grant@v1",
         "panic_stop@v1",
     ] {

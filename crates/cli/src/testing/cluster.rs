@@ -14,10 +14,10 @@ use ioi_crypto::sign::bls::BlsKeyPair;
 use ioi_crypto::sign::guardian_committee::{
     canonical_manifest_hash, canonical_witness_manifest_hash,
 };
-use ioi_types::config::ValidatorRole;
 use ioi_types::config::{
     AftSafetyMode, GuardianCommitteeConfig, GuardianCommitteeMemberConfig,
-    GuardianWitnessCommitteeConfig, InitialServiceConfig, ServicePolicy,
+    GuardianWitnessCommitteeConfig, InferenceConfig, InitialServiceConfig, ServicePolicy,
+    ValidatorRole,
 };
 // [FIX] Add imports for default genesis setup
 use ioi_types::app::{
@@ -205,6 +205,7 @@ pub struct TestClusterBuilder {
     min_finality_depth: Option<u64>,
     service_policies_override: BTreeMap<String, ServicePolicy>,
     workload_env: BTreeMap<String, String>,
+    inference_config: InferenceConfig,
     roles: BTreeMap<usize, ValidatorRole>,
     aft_safety_mode: AftSafetyMode,
     guardian_config_toml: Option<String>,
@@ -233,6 +234,7 @@ impl Default for TestClusterBuilder {
             min_finality_depth: None,
             service_policies_override: BTreeMap::new(),
             workload_env: BTreeMap::new(),
+            inference_config: InferenceConfig::default(),
             roles: BTreeMap::new(),
             aft_safety_mode: AftSafetyMode::GuardianMajority,
             guardian_config_toml: None,
@@ -705,6 +707,11 @@ impl TestClusterBuilder {
         self
     }
 
+    pub fn with_inference_config(mut self, inference_config: InferenceConfig) -> Self {
+        self.inference_config = inference_config;
+        self
+    }
+
     pub fn with_role(mut self, index: usize, role: ValidatorRole) -> Self {
         self.roles.insert(index, role);
         self
@@ -934,6 +941,7 @@ impl TestClusterBuilder {
             let captured_min_finality = self.min_finality_depth;
             let captured_policies = service_policies.clone();
             let captured_workload_env = self.workload_env.clone();
+            let captured_inference_config = self.inference_config.clone();
             let captured_safety_mode = self.aft_safety_mode;
             let captured_guardian_config = self.guardian_config_toml.clone();
             let base_port = validator_base_ports[0];
@@ -969,6 +977,7 @@ impl TestClusterBuilder {
                 captured_min_finality,
                 captured_policies,
                 captured_workload_env,
+                captured_inference_config,
                 role,
                 captured_safety_mode,
                 captured_guardian_config,
@@ -1013,6 +1022,7 @@ impl TestClusterBuilder {
                 let captured_min_finality = self.min_finality_depth;
                 let captured_policies = service_policies.clone();
                 let captured_workload_env = self.workload_env.clone();
+                let captured_inference_config = self.inference_config.clone();
                 let captured_safety_mode = self.aft_safety_mode;
                 let captured_guardian_config = self.guardian_config_toml.clone();
                 let captured_chain_id = self.chain_id;
@@ -1051,6 +1061,7 @@ impl TestClusterBuilder {
                         captured_min_finality,
                         captured_policies,
                         captured_workload_env,
+                        captured_inference_config,
                         role,
                         captured_safety_mode,
                         captured_guardian_config,
@@ -1097,6 +1108,7 @@ impl TestClusterBuilder {
                 let captured_min_finality = self.min_finality_depth;
                 let captured_policies = service_policies.clone();
                 let captured_workload_env = self.workload_env.clone();
+                let captured_inference_config = self.inference_config.clone();
                 let captured_safety_mode = self.aft_safety_mode;
                 let captured_guardian_config = self.guardian_config_toml.clone();
                 let key_clone = key.clone();
@@ -1138,6 +1150,7 @@ impl TestClusterBuilder {
                         captured_min_finality,
                         captured_policies,
                         captured_workload_env,
+                        captured_inference_config,
                         role,
                         captured_safety_mode,
                         captured_guardian_config,

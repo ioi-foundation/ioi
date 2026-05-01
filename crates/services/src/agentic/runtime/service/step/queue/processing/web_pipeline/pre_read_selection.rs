@@ -58,6 +58,16 @@ fn pre_read_url_has_allowed_affordance(
             title,
             excerpt,
         )
+        || pre_read_on_topic_secondary_support_allowed(
+            retrieval_contract,
+            query_contract,
+            required_url_count as u32,
+            source_hints,
+            locality_hint,
+            url,
+            title,
+            excerpt,
+        )
 }
 
 fn pre_read_primary_authority_override_allowed(
@@ -78,6 +88,100 @@ fn pre_read_primary_authority_override_allowed(
             title,
             excerpt,
         )
+}
+
+fn pre_read_on_topic_secondary_support_allowed(
+    retrieval_contract: Option<&WebRetrievalContract>,
+    query_contract: &str,
+    min_sources: u32,
+    source_hints: &[PendingSearchReadSummary],
+    locality_hint: Option<&str>,
+    url: &str,
+    title: &str,
+    excerpt: &str,
+) -> bool {
+    if min_sources < 2
+        || !query_prefers_document_briefing_layout(query_contract)
+        || query_requests_comparison(query_contract)
+        || !pre_read_authority_source_required(retrieval_contract, query_contract)
+        || !retrieval_contract
+            .map(|contract| contract.currentness_required || contract.source_independence_min > 1)
+            .unwrap_or(false)
+    {
+        return false;
+    }
+
+    let trimmed = url.trim();
+    if trimmed.is_empty()
+        || !is_citable_web_url(trimmed)
+        || is_search_hub_url(trimmed)
+        || is_multi_item_listing_url(trimmed)
+        || title.trim().is_empty() && excerpt.trim().is_empty()
+        || pre_read_source_has_primary_authority(query_contract, trimmed, title, excerpt)
+        || crate::agentic::runtime::service::step::queue::support::source_has_human_challenge_signal(
+            trimmed,
+            title,
+            excerpt,
+        )
+    {
+        return false;
+    }
+
+    let Ok(parsed) = Url::parse(trimmed) else {
+        return false;
+    };
+    if parsed.path().trim_matches('/').is_empty() {
+        return false;
+    }
+
+    let has_primary_authority_hint = source_hints.iter().any(|hint| {
+        pre_read_source_counts_as_primary_authority(
+            query_contract,
+            &hint.url,
+            hint.title.as_deref().unwrap_or_default(),
+            &hint.excerpt,
+        )
+    });
+    if !has_primary_authority_hint {
+        return false;
+    }
+
+    let projection = build_query_constraint_projection_with_locality_hint(
+        query_contract,
+        min_sources.max(1),
+        source_hints,
+        locality_hint,
+    );
+    let compatibility = candidate_constraint_compatibility(
+        &projection.constraints,
+        &projection.query_facets,
+        &projection.query_native_tokens,
+        &projection.query_tokens,
+        &projection.locality_tokens,
+        projection.locality_scope.is_some(),
+        trimmed,
+        title,
+        excerpt,
+    );
+    if !compatibility_passes_projection(&projection, &compatibility) {
+        return false;
+    }
+
+    let signals = analyze_source_record_signals(trimmed, title, excerpt);
+    if signals.low_priority_hits > 0 || signals.low_priority_dominates() {
+        return false;
+    }
+
+    let surface = format!("{trimmed} {title} {excerpt}").to_ascii_lowercase();
+    let semantic_anchor_hits =
+        crate::agentic::runtime::service::step::signals::query_semantic_anchor_tokens(
+            query_contract,
+        )
+        .iter()
+        .filter(|token| token.len() >= 4 && surface.contains(token.as_str()))
+        .count();
+
+    semantic_anchor_hits >= 3
 }
 
 fn pre_read_candidate_url_allowed_for_query(
@@ -106,6 +210,15 @@ fn pre_read_candidate_url_allowed_for_query(
     ) || pre_read_primary_authority_override_allowed(
         retrieval_contract,
         query_contract,
+        url,
+        title,
+        excerpt,
+    ) || pre_read_on_topic_secondary_support_allowed(
+        retrieval_contract,
+        query_contract,
+        min_sources,
+        source_hints,
+        locality_hint,
         url,
         title,
         excerpt,
@@ -210,6 +323,13 @@ fn payload_allows_external_article_url(
         return false;
     };
     if !allowed_hosts.contains(&host) {
+        return false;
+    }
+    let payload_contains_selected_url = discovery_sources.iter().any(|source| {
+        let source_url = source.url.trim();
+        source_url.eq_ignore_ascii_case(trimmed) || url_structurally_equivalent(source_url, trimmed)
+    });
+    if !payload_contains_selected_url {
         return false;
     }
     let source_hints = discovery_source_hints(discovery_sources);
@@ -779,9 +899,21 @@ fn build_pre_read_selection_payload(
                 .to_string(),
         );
     }
-    if retrieval_contract.entity_diversity_required {
+    if retrieval_contract.entity_diversity_required
+        || query_requires_local_business_entity_diversity(query_contract)
+    {
         constraints.push(
             "For multi-entity comparison queries, prefer URLs about distinct answer entities even when domains repeat."
+                .to_string(),
+        );
+    }
+    if query_requires_local_business_menu_surface(
+        query_contract,
+        None,
+        None,
+    ) {
+        constraints.push(
+            "For local business menu comparisons, prefer official menu pages or business-detail pages with menu evidence."
                 .to_string(),
         );
     }
@@ -1426,6 +1558,15 @@ fn url_in_allowed_resolution_set(url: &str, allowed_urls: &[String]) -> bool {
     })
 }
 
+fn selected_url_is_google_news_article_wrapper(raw: &str) -> bool {
+    let Ok(parsed) = Url::parse(raw.trim()) else {
+        return false;
+    };
+    let host = parsed.host_str().unwrap_or_default().to_ascii_lowercase();
+    let path = parsed.path().to_ascii_lowercase();
+    host == "news.google.com" && path.starts_with("/rss/articles/")
+}
+
 fn resolve_selected_urls_from_hints(
     selected_urls: &mut Vec<String>,
     source_hints: &[PendingSearchReadSummary],
@@ -1438,7 +1579,8 @@ fn resolve_selected_urls_from_hints(
         }
         let selected_requires_resolution = !is_citable_web_url(&selected_trimmed)
             || is_search_hub_url(&selected_trimmed)
-            || is_multi_item_listing_url(&selected_trimmed);
+            || is_multi_item_listing_url(&selected_trimmed)
+            || selected_url_is_google_news_article_wrapper(&selected_trimmed);
         if !selected_requires_resolution {
             continue;
         }

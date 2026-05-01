@@ -240,15 +240,25 @@ fn observed_generic_briefing_standard_identifier_labels(surface: &str) -> Vec<St
             continue;
         }
 
-        let mut cursor = idx + 1;
-        let mut saw_identifier = false;
+        let Some(token) = tokens.get(idx + 1).copied() else {
+            idx += 1;
+            continue;
+        };
+        if !is_briefing_fips_number(token) {
+            idx += 1;
+            continue;
+        }
+
+        let mut cursor = idx + 2;
+        let mut shorthand_or_revision = false;
         while cursor < tokens.len() {
             let token = tokens[cursor];
-            if is_briefing_fips_number(token) {
-                labels.insert(format!("FIPS {}", token));
-                saw_identifier = true;
-                cursor += 1;
-                continue;
+            if token == "fips" {
+                break;
+            }
+            if is_briefing_fips_number(token) || token.chars().all(|ch| ch.is_ascii_digit()) {
+                shorthand_or_revision = true;
+                break;
             }
             if matches!(token, "and" | "or" | "plus") {
                 cursor += 1;
@@ -257,13 +267,92 @@ fn observed_generic_briefing_standard_identifier_labels(surface: &str) -> Vec<St
             break;
         }
 
-        if saw_identifier {
-            idx = cursor;
+        if !shorthand_or_revision {
+            labels.insert(format!("FIPS {}", token));
+            idx += 2;
             continue;
         }
         idx += 1;
     }
 
+    sort_briefing_identifier_labels(labels)
+}
+
+fn observed_compressed_fips_identifier_labels(query_contract: &str, surface: &str) -> Vec<String> {
+    if !query_prefers_document_briefing_layout(query_contract)
+        || query_requests_comparison(query_contract)
+    {
+        return Vec::new();
+    }
+    let lower = surface.to_ascii_lowercase();
+    if !(lower.contains("post-quantum")
+        || lower.contains("post quantum")
+        || lower.contains("postquantum")
+        || lower.contains("quantum"))
+    {
+        return Vec::new();
+    }
+
+    let normalized = normalized_identifier_surface(surface);
+    if normalized.is_empty() {
+        return Vec::new();
+    }
+    let tokens = normalized.split_whitespace().collect::<Vec<_>>();
+    let mut labels = BTreeSet::new();
+    let mut idx = 0usize;
+    while idx + 1 < tokens.len() {
+        if tokens[idx] != "fips" || !is_briefing_fips_number(tokens[idx + 1]) {
+            idx += 1;
+            continue;
+        }
+
+        let mut numbers = vec![tokens[idx + 1]];
+        let mut cursor = idx + 2;
+        let lookahead_end = (idx + 10).min(tokens.len());
+        while cursor < lookahead_end {
+            let token = tokens[cursor];
+            if token == "fips" {
+                break;
+            }
+            if is_briefing_fips_number(token) {
+                numbers.push(token);
+                cursor += 1;
+                continue;
+            }
+            if token.chars().all(|ch| ch.is_ascii_digit()) {
+                break;
+            }
+            if matches!(token, "and" | "or" | "plus") {
+                cursor += 1;
+                continue;
+            }
+            break;
+        }
+
+        if numbers.len() >= 2 {
+            for number in numbers {
+                labels.insert(format!("FIPS {}", number));
+            }
+            idx = cursor.max(idx + 2);
+            continue;
+        }
+        idx += 1;
+    }
+
+    sort_briefing_identifier_labels(labels)
+}
+
+pub(crate) fn observed_briefing_standard_identifier_labels_with_compressed_fips(
+    query_contract: &str,
+    surface: &str,
+) -> Vec<String> {
+    let mut labels = observed_briefing_standard_identifier_labels(query_contract, surface)
+        .into_iter()
+        .collect::<BTreeSet<_>>();
+    labels.extend(observed_compressed_fips_identifier_labels(
+        query_contract,
+        surface,
+    ));
     sort_briefing_identifier_labels(labels)
 }
 
@@ -324,7 +413,7 @@ pub(crate) fn source_briefing_standard_identifier_labels(
     title: &str,
     excerpt: &str,
 ) -> BTreeSet<String> {
-    observed_briefing_standard_identifier_labels(
+    observed_briefing_standard_identifier_labels_with_compressed_fips(
         query_contract,
         &preferred_source_briefing_identifier_surface(query_contract, url, title, excerpt),
     )
@@ -644,7 +733,7 @@ fn prioritized_standard_identifier_excerpt(
         return String::new();
     }
     if observed_briefing_standard_identifier_labels(query_contract, &compact).is_empty() {
-        return String::new();
+        return prioritized_fips_shorthand_excerpt(query_contract, &compact, max_chars);
     }
 
     #[derive(Clone)]
@@ -713,7 +802,10 @@ fn prioritized_standard_identifier_excerpt(
             .filter_map(|label| lower.find(&label.to_ascii_lowercase()))
             .min();
         let Some(anchor) = anchor else {
-            return segment.chars().take(max_chars).collect::<String>();
+            return normalize_briefing_identifier_display_text(segment)
+                .chars()
+                .take(max_chars)
+                .collect::<String>();
         };
         let start = segment[..anchor]
             .rfind(|ch: char| matches!(ch, '.' | '!' | '?' | ';' | '\n'))
@@ -724,7 +816,10 @@ fn prioritized_standard_identifier_excerpt(
                     .map(|idx| idx + 1)
             })
             .unwrap_or(0);
-        segment[start..].trim().chars().take(max_chars).collect()
+        normalize_briefing_identifier_display_text(segment[start..].trim())
+            .chars()
+            .take(max_chars)
+            .collect()
     };
     if best_segment.required_labels.len() >= required_floor.max(1) {
         return anchored_identifier_excerpt(&best_segment.text);
@@ -822,6 +917,64 @@ fn preferred_briefing_identifier_alias(label: &str, surface: &str) -> Option<Str
     None
 }
 
+fn normalize_briefing_identifier_display_text(input: &str) -> String {
+    compact_whitespace(input).replace("(FIPS) ", "FIPS ")
+}
+
+fn prioritized_fips_shorthand_excerpt(
+    query_contract: &str,
+    input: &str,
+    max_chars: usize,
+) -> String {
+    if !query_prefers_document_briefing_layout(query_contract)
+        || query_requests_comparison(query_contract)
+    {
+        return String::new();
+    }
+    let lower = input.to_ascii_lowercase();
+    if !(lower.contains("post-quantum")
+        || lower.contains("post quantum")
+        || lower.contains("quantum"))
+    {
+        return String::new();
+    }
+
+    let normalized = normalized_identifier_surface(input);
+    let tokens = normalized.split_whitespace().collect::<Vec<_>>();
+    let mut has_shorthand = false;
+    let mut idx = 0usize;
+    while idx + 2 < tokens.len() {
+        if tokens[idx] != "fips" || !is_briefing_fips_number(tokens[idx + 1]) {
+            idx += 1;
+            continue;
+        }
+        let lookahead_end = (idx + 8).min(tokens.len());
+        if tokens[idx + 2..lookahead_end]
+            .iter()
+            .any(|token| is_briefing_fips_number(token))
+        {
+            has_shorthand = true;
+            break;
+        }
+        idx += 1;
+    }
+    if !has_shorthand {
+        return String::new();
+    }
+
+    let Some(anchor) = lower.find("fips") else {
+        return String::new();
+    };
+    let start = input[..anchor]
+        .rfind(|ch: char| matches!(ch, '.' | '!' | '?' | ';' | '\n'))
+        .map(|idx| idx + 1)
+        .unwrap_or(0);
+    normalize_briefing_identifier_display_text(input[start..].trim())
+        .chars()
+        .take(max_chars)
+        .collect()
+}
+
 pub(crate) fn infer_briefing_required_identifier_labels(
     query_contract: &str,
     observations: &[BriefingIdentifierObservation],
@@ -840,10 +993,12 @@ pub(crate) fn infer_briefing_required_identifier_labels(
         if normalized_url.trim().is_empty() {
             continue;
         }
-        let labels =
-            observed_briefing_standard_identifier_labels(query_contract, &observation.surface)
-                .into_iter()
-                .collect::<BTreeSet<_>>();
+        let labels = observed_briefing_standard_identifier_labels_with_compressed_fips(
+            query_contract,
+            &observation.surface,
+        )
+        .into_iter()
+        .collect::<BTreeSet<_>>();
         if labels.is_empty() {
             continue;
         }
@@ -1378,6 +1533,71 @@ fn source_has_identifier_backed_document_authority_evidence(
     source_has_briefing_standard_identifier_signal(query_contract, url, title, excerpt)
 }
 
+fn document_authority_subject_query_tokens(query_contract: &str) -> BTreeSet<String> {
+    query_native_anchor_tokens(query_contract)
+        .into_iter()
+        .filter(|token| token.len() >= 4)
+        .filter(|token| {
+            !matches!(
+                token.as_str(),
+                "latest"
+                    | "current"
+                    | "today"
+                    | "briefing"
+                    | "overview"
+                    | "summary"
+                    | "research"
+                    | "write"
+                    | "page"
+                    | "pages"
+                    | "official"
+                    | "public"
+                    | "source"
+                    | "sources"
+                    | "standard"
+                    | "standards"
+                    | "guidance"
+                    | "transition"
+                    | "migration"
+            )
+        })
+        .collect()
+}
+
+fn source_has_document_authority_subject_grounding(
+    query_contract: &str,
+    url: &str,
+    title: &str,
+    excerpt: &str,
+) -> bool {
+    let query_tokens = document_authority_subject_query_tokens(query_contract);
+    if query_tokens.is_empty() {
+        return true;
+    }
+    let source_tokens = source_anchor_tokens(url, title, excerpt);
+    query_tokens.intersection(&source_tokens).count() >= 2
+}
+
+fn source_lacks_required_document_subject_grounding(
+    query_contract: &str,
+    url: &str,
+    title: &str,
+    excerpt: &str,
+    signals: SourceSignalProfile,
+) -> bool {
+    query_prefers_document_briefing_layout(query_contract)
+        && !query_requests_comparison(query_contract)
+        && analyze_query_facets(query_contract).grounded_external_required
+        && !has_primary_status_authority(signals)
+        && !source_has_identifier_backed_document_authority_evidence(
+            query_contract,
+            url,
+            title,
+            excerpt,
+        )
+        && !source_has_document_authority_subject_grounding(query_contract, url, title, excerpt)
+}
+
 pub(crate) fn source_document_authority_score(
     query_contract: &str,
     url: &str,
@@ -1405,6 +1625,15 @@ pub(crate) fn source_document_authority_score(
             excerpt,
         )
     {
+        return 0;
+    }
+    if source_lacks_required_document_subject_grounding(
+        query_contract,
+        url,
+        title,
+        excerpt,
+        signals,
+    ) {
         return 0;
     }
 
@@ -1452,6 +1681,15 @@ pub(crate) fn source_has_document_authority(
             excerpt,
         )
     {
+        return false;
+    }
+    if source_lacks_required_document_subject_grounding(
+        query_contract,
+        url,
+        title,
+        excerpt,
+        signals,
+    ) {
         return false;
     }
     if has_primary_status_authority(signals) {

@@ -3,6 +3,9 @@ use ioi_api::vm::drivers::os::WindowInfo;
 use ioi_drivers::gui::accessibility::{AccessibilityNode, Rect};
 use ioi_drivers::gui::platform::fetch_tree_direct;
 
+const MAX_ACTIVE_WINDOW_TREE_DEPTH: usize = 128;
+const MAX_SCOPED_SUBTREE_CLONE_DEPTH: usize = 128;
+
 fn rect_overlap_ratio(a: Rect, b: Rect) -> f32 {
     if a.width <= 0 || a.height <= 0 || b.width <= 0 || b.height <= 0 {
         return 0.0;
@@ -77,11 +80,10 @@ fn choose_active_window_subtree(
     root: &AccessibilityNode,
     active: &WindowInfo,
 ) -> Option<AccessibilityNode> {
-    fn walk(
-        node: &AccessibilityNode,
-        active: &WindowInfo,
-        best: &mut Option<(f32, AccessibilityNode)>,
-    ) {
+    let mut best: Option<(f32, &AccessibilityNode)> = None;
+    let mut stack = vec![(root, 0usize)];
+
+    while let Some((node, depth)) = stack.pop() {
         let score = window_match_score(node, active);
         let role = node.role.to_ascii_lowercase();
         let window_like_role =
@@ -91,16 +93,44 @@ fn choose_active_window_subtree(
         // a no-op.
         if window_like_role && score > 2.5 && best.as_ref().map(|(s, _)| score > *s).unwrap_or(true)
         {
-            *best = Some((score, node.clone()));
+            best = Some((score, node));
         }
-        for child in &node.children {
-            walk(child, active, best);
+
+        if depth >= MAX_ACTIVE_WINDOW_TREE_DEPTH {
+            continue;
+        }
+
+        for child in node.children.iter().rev() {
+            stack.push((child, depth + 1));
         }
     }
 
-    let mut best = None;
-    walk(root, active, &mut best);
-    best.map(|(_, node)| node)
+    best.map(|(_, node)| clone_tree_bounded(node, 0))
+}
+
+fn clone_tree_bounded(node: &AccessibilityNode, depth: usize) -> AccessibilityNode {
+    let mut cloned = AccessibilityNode {
+        id: node.id.clone(),
+        role: node.role.clone(),
+        name: node.name.clone(),
+        value: node.value.clone(),
+        rect: node.rect,
+        children: Vec::new(),
+        is_visible: node.is_visible,
+        attributes: node.attributes.clone(),
+        som_id: node.som_id,
+    };
+
+    if depth >= MAX_SCOPED_SUBTREE_CLONE_DEPTH {
+        return cloned;
+    }
+
+    cloned.children = node
+        .children
+        .iter()
+        .map(|child| clone_tree_bounded(child, depth + 1))
+        .collect();
+    cloned
 }
 
 pub(in super::super) async fn fetch_lensed_tree(

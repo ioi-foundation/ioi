@@ -347,6 +347,7 @@ fn query_requests_code_change_work(query: &str) -> bool {
             " component ",
             " class ",
             " method ",
+            " parser ",
             " crate ",
             " rust ",
             " typescript ",
@@ -580,6 +581,17 @@ fn preferred_agent_playbook_for_intent(query: &str, intent_id: &str) -> Option<&
 }
 
 fn preferred_delegation_template_for_intent(query: &str, intent_id: &str) -> Option<&'static str> {
+    if intent_id.trim() == "delegation.task" {
+        let browser_playbook = query_requests_browser_work(query);
+        let artifact_playbook = query_requests_artifact_work(query);
+        if query_requests_verification_work(query) && !browser_playbook && !artifact_playbook {
+            return Some("verifier");
+        }
+        if query_requests_code_change_work(query) {
+            return Some("coder");
+        }
+    }
+
     match preferred_agent_playbook_for_intent(query, intent_id) {
         Some("evidence_audited_patch") => {
             return Some("context_worker");
@@ -610,6 +622,30 @@ fn preferred_delegation_workflow_for_intent(
     intent_id: &str,
     template_id: &str,
 ) -> Option<&'static str> {
+    if intent_id.trim() == "delegation.task" {
+        let browser_playbook = query_requests_browser_work(query);
+        let artifact_playbook = query_requests_artifact_work(query);
+        match template_id.trim() {
+            "coder" if query_requests_code_change_work(query) => {
+                return Some("patch_build_verify");
+            }
+            "verifier"
+                if query_requests_code_change_work(query)
+                    && query_requests_verification_work(query) =>
+            {
+                return Some("targeted_test_audit");
+            }
+            "verifier"
+                if query_requests_verification_work(query)
+                    && !browser_playbook
+                    && !artifact_playbook =>
+            {
+                return Some("postcondition_audit");
+            }
+            _ => {}
+        }
+    }
+
     match preferred_agent_playbook_for_intent(query, intent_id) {
         Some("evidence_audited_patch") if template_id.trim() == "context_worker" => {
             return Some("repo_context_brief");

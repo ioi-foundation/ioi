@@ -1,7 +1,9 @@
 import React from "react";
 import type {
   AgentTask,
+  ArtifactSourceReference,
   ArtifactHubViewKey,
+  ChatArtifactSession,
   RunPresentation,
   SourceSummary,
 } from "../../../types";
@@ -52,6 +54,33 @@ type ConversationTimelineProps = {
   onOpenChatArtifact?: (chatSessionId: string) => void;
   inlineStatusCard?: React.ReactNode;
 };
+
+function workspaceSourcesForChatSession(
+  session: ChatArtifactSession | null | undefined,
+): ArtifactSourceReference[] {
+  if (!session) {
+    return [];
+  }
+  const materializationSources =
+    (session.materialization as { retrievedSources?: ArtifactSourceReference[] })
+      .retrievedSources || [];
+  const sessionSources =
+    (session as { retrievedSources?: ArtifactSourceReference[] }).retrievedSources || [];
+  const seen = new Set<string>();
+  const sources: ArtifactSourceReference[] = [];
+  for (const source of [...sessionSources, ...materializationSources]) {
+    if (source.url) {
+      continue;
+    }
+    const key = (source.sourceId || source.title || "").toLowerCase();
+    if (!key || seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    sources.push(source);
+  }
+  return sources;
+}
 
 export function ConversationTimeline({
   conversationTurns,
@@ -187,6 +216,7 @@ export function ConversationTimeline({
           planSummary: turnPlanSummary,
           runtimeModelLabel,
           sourceSummary: turnSourceSummary,
+          workspaceSources: workspaceSourcesForChatSession(turnContext?.chatSession),
           thoughtSummary: turnContext?.thoughtSummary || null,
           toolActivityGroup,
           finalAnswer:
@@ -472,6 +502,9 @@ export function ConversationTimeline({
             planSummary: runPresentation.planSummary,
             runtimeModelLabel,
             sourceSummary: runPresentation.sourceSummary,
+            workspaceSources: workspaceSourcesForChatSession(
+              task?.chat_session as ChatArtifactSession | null | undefined,
+            ),
             thoughtSummary: runPresentation.thoughtSummary,
             finalAnswer: runPresentation.finalAnswer,
             isRunning,

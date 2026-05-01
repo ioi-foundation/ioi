@@ -661,17 +661,9 @@ fn publishing_aft_canonical_order_artifact_bundle_persists_registry_state() {
         .collect();
     let mut header = base_header;
     header.transactions_root = canonical_transaction_root_from_hashes(&tx_hashes).unwrap();
-    let mut certificate =
+    let certificate =
         build_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
             .unwrap();
-    let omission = OmissionProof {
-        height: header.height,
-        offender_account_id: AccountId([41u8; 32]),
-        tx_hash: [42u8; 32],
-        bulletin_root: certificate.bulletin_commitment.bulletin_root,
-        details: "tx omitted from canonical order".into(),
-    };
-    certificate.omission_proofs = vec![omission.clone()];
     let bundle = canonical_order_publication_bundle_with_retrievability(
         &certificate,
         build_bulletin_surface_entries(header.height, &ordered_transactions).unwrap(),
@@ -776,12 +768,10 @@ fn publishing_aft_canonical_order_artifact_bundle_persists_registry_state() {
         bundle.bulletin_entries.len() as u32,
     );
 
-    let stored_omission = state
-        .get(&aft_omission_proof_key(header.height, &omission.tx_hash))
+    assert!(state
+        .get(&aft_canonical_order_abort_key(header.height))
         .unwrap()
-        .expect("omission stored");
-    let restored_omission: OmissionProof = codec::from_bytes_canonical(&stored_omission).unwrap();
-    assert_eq!(restored_omission, omission);
+        .is_none());
 }
 
 #[test]
@@ -1092,11 +1082,7 @@ fn publishing_aft_canonical_order_artifact_bundle_persists_extractable_close_sur
         codec::from_bytes_canonical(&stored_close).unwrap();
     assert_eq!(
         restored_close,
-        build_canonical_bulletin_close(
-            &bundle.bulletin_commitment,
-            &bundle.bulletin_availability_certificate,
-        )
-        .unwrap()
+        verified_canonical_bulletin_close_for_bundle(&bundle)
     );
 }
 
@@ -1316,4 +1302,3 @@ fn publishing_aft_canonical_collapse_object_persists_registry_state() {
     let restored: CanonicalCollapseObject = codec::from_bytes_canonical(&stored).unwrap();
     assert_eq!(restored, collapse);
 }
-

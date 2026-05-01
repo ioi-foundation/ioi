@@ -46,6 +46,15 @@ pub(crate) fn normalized_anchor_tokens(text: &str) -> BTreeSet<String> {
 pub(crate) fn normalized_locality_tokens(text: &str) -> BTreeSet<String> {
     let ordered = ordered_normalized_locality_tokens(text);
     let mut tokens = ordered.iter().cloned().collect::<BTreeSet<_>>();
+    if tokens.contains("nyc") {
+        tokens.insert("new".to_string());
+        tokens.insert("york".to_string());
+        tokens.insert("newyork".to_string());
+        tokens.insert("ny".to_string());
+    }
+    if tokens.contains("new") && tokens.contains("york") {
+        tokens.insert("nyc".to_string());
+    }
     for window_len in 2..=3usize {
         for window in ordered.windows(window_len) {
             let compact = window.join("");

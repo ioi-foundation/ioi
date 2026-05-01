@@ -33,10 +33,10 @@ use ioi_types::app::{
     guardian_registry_observer_transcript_commitment_key, guardian_registry_witness_key,
     guardian_registry_witness_seed_key, guardian_registry_witness_set_key,
     recovered_restart_block_header_entry, set_canonical_collapse_archived_recovered_history_anchor,
-    write_validator_sets, AftRecoveredStateSurface, AsymptoteObserverCanonicalAbort,
-    AsymptoteObserverCanonicalClose, AsymptoteObserverCertificate, AsymptoteObserverChallenge,
-    AsymptoteObserverChallengeCommitment, AsymptoteObserverCloseCertificate,
-    AsymptoteObserverCorrelationBudget, AsymptoteObserverTranscript,
+    canonical_collapse_eq_ignoring_archived_recovered_history_anchor, write_validator_sets,
+    AftRecoveredStateSurface, AsymptoteObserverCanonicalAbort, AsymptoteObserverCanonicalClose,
+    AsymptoteObserverCertificate, AsymptoteObserverChallenge, AsymptoteObserverChallengeCommitment,
+    AsymptoteObserverCloseCertificate, AsymptoteObserverCorrelationBudget, AsymptoteObserverTranscript,
     AsymptoteObserverTranscriptCommitment, AsymptoteObserverVerdict, AsymptotePolicy,
     AsymptoteVetoKind, AsymptoteVetoProof, BulletinAvailabilityCertificate, BulletinCommitment,
     CanonicalCollapseContinuityProofSystem, CanonicalOrderAbort, CanonicalOrderAbortReason,
@@ -854,6 +854,58 @@ fn test_canonical_collapse_object(
     collapse
 }
 
+fn test_canonical_collapse_chain_ending(
+    height: u64,
+    terminal_transactions_root_hash: [u8; 32],
+    terminal_resulting_state_root_hash: [u8; 32],
+) -> Vec<CanonicalCollapseObject> {
+    let mut chain = Vec::new();
+    for current_height in 1..=height {
+        let seed = current_height as u8;
+        let transactions_root_hash = if current_height == height {
+            terminal_transactions_root_hash
+        } else {
+            [0x80u8.wrapping_add(seed); 32]
+        };
+        let resulting_state_root_hash = if current_height == height {
+            terminal_resulting_state_root_hash
+        } else {
+            [0x90u8.wrapping_add(seed); 32]
+        };
+        let previous = chain.last();
+        chain.push(test_canonical_collapse_object(
+            current_height,
+            previous,
+            transactions_root_hash,
+            resulting_state_root_hash,
+        ));
+    }
+    chain
+}
+
+fn seed_committed_collapse_chain(
+    engine: &mut GuardianMajorityEngine,
+    chain: &[CanonicalCollapseObject],
+) {
+    for collapse in chain {
+        engine
+            .committed_collapses
+            .insert(collapse.height, collapse.clone());
+    }
+}
+
+fn insert_published_collapse_chain(
+    view: &mut MockAnchoredView,
+    chain: &[CanonicalCollapseObject],
+) {
+    for collapse in chain {
+        view.state.insert(
+            aft_canonical_collapse_object_key(collapse.height),
+            codec::to_bytes_canonical(collapse).unwrap(),
+        );
+    }
+}
+
 fn bind_succinct_mock_continuity(collapse: &mut CanonicalCollapseObject) {
     let proof = &mut collapse.continuity_recursive_proof;
     let public_inputs = canonical_collapse_continuity_public_inputs(
@@ -889,4 +941,3 @@ fn link_header_to_collapse_chain(header: &mut BlockHeader, chain: &[CanonicalCol
     ));
     header.parent_state_root = StateRoot(previous.resulting_state_root_hash.to_vec());
 }
-

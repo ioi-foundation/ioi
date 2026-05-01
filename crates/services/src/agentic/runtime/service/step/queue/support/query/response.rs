@@ -356,7 +356,7 @@ pub(crate) fn required_citations_per_story(query: &str) -> usize {
     }
 
     if query_is_generic_headline_collection(query) {
-        return WEB_PIPELINE_CITATIONS_PER_STORY;
+        return 1;
     }
 
     if query_prefers_multi_item_cardinality(query) {

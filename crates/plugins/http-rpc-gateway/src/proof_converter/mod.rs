@@ -10,6 +10,7 @@ use ibc_proto::{
         LeafOp as PbLeafOp, LengthOp as PbLengthOp, NonExistenceProof as PbNonExistenceProof,
     },
 };
+use ioi_state::primitives::hash::HashProof;
 use ioi_state::tree::iavl::{ExistenceProof, IavlProof, NonExistenceProof, Side};
 use parity_scale_codec::Decode; // enables IavlProof::decode
 use prost::Message;
@@ -92,20 +93,53 @@ pub fn convert_proof(
     Ok(out)
 }
 
-/// Try to decode an `IavlProof`, tolerating an optional hex prefix.
+/// Try to decode an `IavlProof`, tolerating structured wrappers used by RPC callers.
 fn decode_iavl_proof_flex(input: &[u8]) -> Result<(IavlProof, Vec<&'static str>, &'static str)> {
-    // The only remaining tolerance is for an optional "0x" hex prefix, which is a
-    // common convenience for RPC interfaces. All other wrappers are gone.
-    let (bytes_result, steps) = if input.starts_with(b"0x") {
+    let (bytes_result, mut steps) = if input.starts_with(b"0x") {
         (hex::decode(&input[2..]), vec!["hex"])
     } else {
         (Ok(input.to_vec()), vec![])
     };
     let bytes = bytes_result?;
 
-    IavlProof::decode(&mut &*bytes)
-        .map(|proof| (proof, steps, "scale_iavl"))
-        .map_err(|e| anyhow!("Failed to decode canonical IavlProof bytes: {}", e))
+    match IavlProof::decode(&mut &*bytes) {
+        Ok(proof) => return Ok((proof, steps, "scale_iavl")),
+        Err(error) => {
+            let canonical_error = error.to_string();
+            if let Ok(wrapper) = HashProof::decode(&mut &*bytes) {
+                let mut wrapped_steps = steps.clone();
+                wrapped_steps.push("hashproof");
+                match IavlProof::decode(&mut &*wrapper.value) {
+                    Ok(proof) => return Ok((proof, wrapped_steps, "scale_hashproof_iavl")),
+                    Err(wrapped_error) => {
+                        return Err(anyhow!(
+                            "unsupported proof encoding: canonical IavlProof decode failed ({canonical_error}); HashProof wrapper payload decode failed ({wrapped_error})"
+                        ));
+                    }
+                }
+            }
+            if let Ok(wrapped_bytes) = <Vec<u8> as parity_scale_codec::Decode>::decode(&mut &*bytes)
+            {
+                steps.push("scale_vec");
+                match IavlProof::decode(&mut &*wrapped_bytes) {
+                    Ok(proof) => return Ok((proof, steps, "scale_vec_iavl")),
+                    Err(wrapped_error) => {
+                        return Err(anyhow!(
+                            "unsupported proof encoding: canonical IavlProof decode failed ({canonical_error}); SCALE Vec payload decode failed ({wrapped_error})"
+                        ));
+                    }
+                }
+            }
+            if canonical_error.contains("Not enough data") {
+                return Err(anyhow!(
+                    "Failed to decode canonical IavlProof bytes: {canonical_error}"
+                ));
+            }
+            Err(anyhow!(
+                "unsupported proof encoding: canonical IavlProof decode failed ({canonical_error})"
+            ))
+        }
+    }
 }
 
 /// Converts a native IAVL proof into a standard ICS‑23 `CommitmentProof` (protobuf).

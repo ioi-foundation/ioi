@@ -8,8 +8,10 @@ use ioi_api::services::BlockchainService;
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
 use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
+use ioi_api::vm::drivers::os::{OsDriver, WindowInfo};
 use ioi_api::vm::inference::{mock::MockInferenceRuntime, InferenceRuntime};
 use ioi_cli::testing::build_test_artifacts;
+use ioi_services::agentic::rules::{ActionRules, DefaultPolicy, Rule, Verdict};
 use ioi_services::agentic::runtime::keys::get_state_key;
 use ioi_services::agentic::runtime::types::AgentState;
 use ioi_services::agentic::runtime::{RuntimeAgentService, StartAgentParams, StepAgentParams};
@@ -85,6 +87,38 @@ impl GuiDriver for MockGuiDriver {
     }
 }
 
+struct MockOsDriver;
+
+#[async_trait]
+impl OsDriver for MockOsDriver {
+    async fn get_active_window_title(&self) -> Result<Option<String>, VmError> {
+        Ok(Some("Test App".to_string()))
+    }
+
+    async fn get_active_window_info(&self) -> Result<Option<WindowInfo>, VmError> {
+        Ok(Some(WindowInfo {
+            title: "Test App".to_string(),
+            x: 0,
+            y: 0,
+            width: 1280,
+            height: 720,
+            app_name: "TestApp".to_string(),
+        }))
+    }
+
+    async fn focus_window(&self, _title_query: &str) -> Result<bool, VmError> {
+        Ok(true)
+    }
+
+    async fn set_clipboard(&self, _content: &str) -> Result<(), VmError> {
+        Ok(())
+    }
+
+    async fn get_clipboard(&self) -> Result<String, VmError> {
+        Ok(String::new())
+    }
+}
+
 struct ClickerBrain;
 #[async_trait]
 impl InferenceRuntime for ClickerBrain {
@@ -95,9 +129,7 @@ impl InferenceRuntime for ClickerBrain {
         _: InferenceOptions,
     ) -> Result<Vec<u8>, VmError> {
         let prompt = String::from_utf8_lossy(input);
-        if prompt.contains("\"remote_public_fact_required\"")
-            && prompt.contains("\"direct_ui_input\"")
-        {
+        if prompt.contains("remote_public_fact_required") && prompt.contains("direct_ui_input") {
             return Ok(json!({
                 "remote_public_fact_required": false,
                 "host_local_clock_targeted": false,
@@ -114,8 +146,8 @@ impl InferenceRuntime for ClickerBrain {
         }
         // Output a tool call that triggers the GUI driver
         let tool_call = json!({
-            "name": "screen__click_at",
-            "arguments": { "x": 100, "y": 200, "button": "left" }
+            "name": "screen__type",
+            "arguments": { "text": "hello" }
         });
         Ok(tool_call.to_string().into_bytes())
     }
@@ -155,6 +187,7 @@ async fn test_ghost_mode_event_pipeline() -> Result<()> {
         brain.clone(),
         brain.clone(),
     )
+    .with_os_driver(Arc::new(MockOsDriver))
     .with_memory_runtime(Arc::new(
         ioi_memory::MemoryRuntime::open_sqlite_in_memory().expect("memory runtime"),
     ));
@@ -174,11 +207,34 @@ async fn test_ghost_mode_event_pipeline() -> Result<()> {
     };
 
     let session_id = [1u8; 32];
+    let policy_key = [b"agent::policy::".as_slice(), session_id.as_slice()].concat();
+    let mut policy = ActionRules {
+        policy_id: "ghost-mode-e2e-policy".to_string(),
+        defaults: DefaultPolicy::DenyAll,
+        ontology_policy: Default::default(),
+        pii_controls: Default::default(),
+        rules: vec![
+            Rule {
+                rule_id: Some("allow-gui-screenshot".into()),
+                target: "gui::screenshot".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            Rule {
+                rule_id: Some("allow-gui-type".into()),
+                target: "gui::type".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+        ],
+    };
+    policy.ontology_policy.intent_routing.enabled = false;
+    state.insert(&policy_key, &codec::to_bytes_canonical(&policy).unwrap())?;
 
     // 2. Start Agent (Initialize State)
     let start_params = StartAgentParams {
         session_id,
-        goal: "Click the UI element".into(),
+        goal: "Type hello into the focused UI field".into(),
         max_steps: 5,
         parent_session_id: None,
         initial_budget: 1000,
@@ -193,7 +249,7 @@ async fn test_ghost_mode_event_pipeline() -> Result<()> {
         )
         .await?;
 
-    // 3. Step Agent (Triggers Brain -> Output "screen__click_at" -> Service Calls Driver -> Driver Emits GhostEvent)
+    // 3. Step Agent (Triggers Brain -> Output "screen__type" -> Service Calls Driver -> Driver Emits GhostEvent)
     let step_params = StepAgentParams { session_id };
     service
         .handle_service_call(
@@ -211,7 +267,7 @@ async fn test_ghost_mode_event_pipeline() -> Result<()> {
         match event {
             KernelEvent::AgentStep(trace) => {
                 println!("Got AgentStep: Step {}", trace.step_index);
-                if trace.raw_output.contains("screen__click_at") {
+                if trace.raw_output.contains("\"name\":\"screen__type\"") {
                     found_step = true;
                 }
             }
@@ -229,7 +285,7 @@ async fn test_ghost_mode_event_pipeline() -> Result<()> {
     assert!(found_step, "AgentStep event missing from bus");
     assert_eq!(
         agent_state.last_action_type.as_deref(),
-        Some("screen__click_at")
+        Some("screen__type")
     );
 
     println!("✅ Ghost Mode Event Pipeline Verified");

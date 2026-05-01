@@ -830,7 +830,13 @@ fn download_bundle_focus_points(
 
 fn download_bundle_readme_looks_complete(body: &str) -> bool {
     let trimmed = body.trim();
-    trimmed.len() >= 80 && trimmed.contains("## Files")
+    if trimmed.len() >= 80 && trimmed.contains("## Files") {
+        return true;
+    }
+
+    trimmed.len() >= 24
+        && trimmed.starts_with('#')
+        && !trimmed.to_ascii_lowercase().contains("placeholder")
 }
 
 pub(crate) fn is_download_bundle_readme_file(path: &str, mime: &str) -> bool {

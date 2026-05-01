@@ -172,6 +172,74 @@ async fn coding_patch_worker_enables_await_burst() {
     );
 }
 
+#[test]
+fn queued_worker_handoff_gate_uses_contract_and_evidence_not_workflow_name() {
+    let mut child_state = build_parent_state_with_goal("Return delegated handoff", 32);
+    let mut assignment = WorkerAssignment {
+        step_key: "delegate:test".to_string(),
+        budget: 32,
+        goal: "Return delegated handoff".to_string(),
+        success_criteria: "Return a bounded handoff.".to_string(),
+        max_retries: 1,
+        retries_used: 0,
+        assigned_session_id: Some(child_state.session_id),
+        status: "running".to_string(),
+        playbook_id: None,
+        template_id: Some("custom_context_worker".to_string()),
+        workflow_id: Some("custom_context_brief".to_string()),
+        role: Some("Context Worker".to_string()),
+        allowed_tools: vec!["file__read".to_string(), "agent__complete".to_string()],
+        completion_contract: WorkerCompletionContract {
+            success_criteria: "Return a bounded repo context handoff.".to_string(),
+            expected_output: "Context handoff with files, checks, and unknowns.".to_string(),
+            merge_mode: WorkerMergeMode::AppendAsEvidence,
+            verification_hint: Some(
+                "Parent checks that the handoff names concrete evidence.".to_string(),
+            ),
+        },
+    };
+
+    assert!(
+        awaited_worker_handoff_completion_allowed(&child_state, &assignment),
+        "material completion contract should authorize handoff collapse without depending on a builtin workflow id"
+    );
+
+    assignment.workflow_id = Some("repo_context_brief".to_string());
+    assignment.completion_contract = WorkerCompletionContract::default();
+    assert!(
+        !awaited_worker_handoff_completion_allowed(&child_state, &assignment),
+        "a builtin workflow label must not authorize handoff collapse without a material contract"
+    );
+
+    assignment.completion_contract = WorkerCompletionContract {
+        success_criteria: "Return a deterministic implementation handoff.".to_string(),
+        expected_output: "Touched files, verification, and residual risk.".to_string(),
+        merge_mode: WorkerMergeMode::AppendSummaryToParent,
+        verification_hint: Some("Parent checks edit and verification evidence.".to_string()),
+    };
+    assignment.allowed_tools = vec![
+        "file__read".to_string(),
+        "file__write".to_string(),
+        "agent__complete".to_string(),
+    ];
+    assignment.workflow_id = Some("patch_build_verify".to_string());
+    assert!(
+        !awaited_worker_handoff_completion_allowed(&child_state, &assignment),
+        "mutating handoff contracts require workspace edit evidence before collapse"
+    );
+
+    child_state.tool_execution_log.insert(
+        "evidence::workspace_edit_applied=true".to_string(),
+        crate::agentic::runtime::types::ToolCallStatus::Executed(
+            "step=2;tool=file__write;path=src/lib.rs".to_string(),
+        ),
+    );
+    assert!(
+        awaited_worker_handoff_completion_allowed(&child_state, &assignment),
+        "mutating handoff contract should become collapsible only after deterministic edit evidence exists"
+    );
+}
+
 #[tokio::test(flavor = "current_thread")]
 async fn generic_patch_build_verify_child_inherits_parent_contract_context() {
     let (tx, _rx) = tokio::sync::broadcast::channel(16);
@@ -743,7 +811,7 @@ async fn await_child_worker_result_extends_burst_for_patch_verify_post_edit_foll
         codec::from_bytes_canonical(&child_bytes).expect("child state should decode");
     assert!(
             merged.contains("Touched files: path_utils.py"),
-            "unexpected awaited child output: {merged}; status={:?}; step_count={}; queue_len={}; next_targets={:?}; workspace_edit_receipt={:?}; recent_actions={:?}; tool_execution_log_keys={:?}; source_contents={}",
+            "unexpected awaited child output: {merged}; status={:?}; step_count={}; queue_len={}; next_targets={:?}; workspace_edit_receipt={:?}; recent_actions={:?}; tool_execution_log={:?}; source_contents={}",
             updated_child.status,
             updated_child.step_count,
             updated_child.execution_queue.len(),
@@ -754,11 +822,7 @@ async fn await_child_worker_result_extends_burst_for_patch_verify_post_edit_foll
                 .collect::<Vec<_>>(),
             execution_evidence_value(&updated_child.tool_execution_log, "workspace_edit_applied"),
             updated_child.recent_actions,
-            updated_child
-                .tool_execution_log
-                .keys()
-                .cloned()
-                .collect::<Vec<_>>(),
+            updated_child.tool_execution_log,
             std::fs::read_to_string(repo.join("path_utils.py"))
                 .unwrap_or_else(|error| format!("<read failed: {error}>")),
         );

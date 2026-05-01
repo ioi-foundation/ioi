@@ -7,6 +7,7 @@ pub mod dev;
 pub mod ghost;
 pub mod init;
 pub mod keys;
+pub mod mcp;
 pub mod node;
 pub mod pii;
 pub mod policy;

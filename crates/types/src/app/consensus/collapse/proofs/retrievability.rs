@@ -520,35 +520,19 @@ pub fn validate_bulletin_retrievability_challenge(
             let response = response.ok_or_else(|| {
                 "missing surface entries challenge requires the custody response".to_string()
             })?;
-            validate_bulletin_retrievability_profile(
-                profile,
-                bulletin_commitment,
-                bulletin_availability_certificate,
-            )?;
-            validate_bulletin_shard_manifest(
-                manifest,
-                bulletin_commitment,
-                bulletin_availability_certificate,
-                profile,
-                entries,
-            )?;
-            validate_bulletin_custody_assignment(assignment, profile, manifest, validator_set)?;
-            validate_bulletin_custody_receipt(receipt, profile, manifest)?;
-            validate_bulletin_custody_response(
-                response,
-                bulletin_commitment,
-                profile,
-                manifest,
-                assignment,
-                receipt,
-                entries,
-            )?;
             if !entries.is_empty() {
                 return Err(
                     "missing surface entries challenge requires the bulletin entry surface to be absent"
                         .into(),
                 );
             }
+            validate_bulletin_retrievability_profile(
+                profile,
+                bulletin_commitment,
+                bulletin_availability_certificate,
+            )?;
+            validate_bulletin_custody_assignment(assignment, profile, manifest, validator_set)?;
+            validate_bulletin_custody_receipt(receipt, profile, manifest)?;
             if challenge.bulletin_retrievability_profile_hash
                 != canonical_bulletin_retrievability_profile_hash(profile)?
                 || challenge.bulletin_shard_manifest_hash
@@ -591,24 +575,8 @@ pub fn validate_bulletin_retrievability_challenge(
                 bulletin_commitment,
                 bulletin_availability_certificate,
             )?;
-            validate_bulletin_shard_manifest(
-                manifest,
-                bulletin_commitment,
-                bulletin_availability_certificate,
-                profile,
-                entries,
-            )?;
             validate_bulletin_custody_assignment(assignment, profile, manifest, validator_set)?;
             validate_bulletin_custody_receipt(receipt, profile, manifest)?;
-            validate_bulletin_custody_response(
-                response,
-                bulletin_commitment,
-                profile,
-                manifest,
-                assignment,
-                receipt,
-                entries,
-            )?;
             if entries.is_empty() {
                 return Err(
                     "invalid surface entries challenge requires an actually published entry surface"

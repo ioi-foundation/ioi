@@ -192,6 +192,28 @@ pub(super) fn visible_target_click_pending_signal(
                 .map(|candidate| (candidate.name.clone(), candidate))
         })?;
 
+    if candidate.semantic_role == "heading"
+        && recent_goal_requests_related_address_click(history, &target)
+    {
+        return None;
+    }
+
+    if matches!(
+        candidate.semantic_role.as_str(),
+        "checkbox" | "radio" | "option"
+    ) && recent_goal_has_single_unstarted_select_submit_target(history, snapshot, &target)
+    {
+        return None;
+    }
+
+    if candidate.semantic_role == "heading"
+        && recent_find_text_state(history)
+            .is_some_and(|recent_find| normalized_exact_target_text(&recent_find.query)
+                == normalized_exact_target_text(&target))
+    {
+        return None;
+    }
+
     if recent_successful_selected_control_semantic_id(history).as_deref()
         == Some(candidate.semantic_id.as_str())
         || snapshot_semantic_id_has_selected_state(snapshot, &candidate.semantic_id)
@@ -225,10 +247,64 @@ pub(super) fn select_submit_progress_pending_signal(
         .filter(|message| message.role == "user")
         .take(3)
         .find_map(|message| extract_select_submit_target(&message.content))?;
+    if let Some(submit_id) = snapshot_visible_submit_control_id_local(snapshot) {
+        if recent_successful_click_has_post_action_observation(
+            history,
+            &submit_id,
+            current_snapshot,
+        ) {
+            return None;
+        }
+    }
+
     snapshot_select_submit_progress_pending_signal_for_requested_targets(
         snapshot,
         &requested_targets,
     )
+}
+
+fn recent_goal_requests_related_address_click(history: &[ChatMessage], target: &str) -> bool {
+    let normalized_target = normalized_exact_target_text(target);
+    if normalized_target.is_empty() {
+        return false;
+    }
+
+    history
+        .iter()
+        .rev()
+        .filter(|message| message.role == "user")
+        .take(3)
+        .any(|message| {
+            let normalized_goal = normalized_exact_target_text(&message.content);
+            (normalized_goal == normalized_target
+                || normalized_goal.starts_with(&format!("{normalized_target} "))
+                || normalized_goal.ends_with(&format!(" {normalized_target}"))
+                || normalized_goal.contains(&format!(" {normalized_target} ")))
+                && (normalized_goal.contains("click on their address")
+                    || normalized_goal.contains("click their address")
+                    || normalized_goal.contains("click on the address")
+                    || normalized_goal.contains("click the address"))
+        })
+}
+
+fn recent_goal_has_single_unstarted_select_submit_target(
+    history: &[ChatMessage],
+    snapshot: &str,
+    target: &str,
+) -> bool {
+    if snapshot_has_selected_controls(snapshot) {
+        return false;
+    }
+
+    history
+        .iter()
+        .rev()
+        .filter(|message| message.role == "user")
+        .take(3)
+        .filter_map(|message| extract_select_submit_target(&message.content))
+        .any(|requested_target| {
+            normalized_exact_target_text(&requested_target) == normalized_exact_target_text(target)
+        })
 }
 
 pub(super) fn active_target_submit_pending_signal(

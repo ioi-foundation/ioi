@@ -453,6 +453,10 @@ pub(super) fn queue_reverification_history_follow_up_pending_signal_for_snapshot
     snapshot: &str,
     history: &[ChatMessage],
 ) -> Option<String> {
+    if let Some(signal) = alternate_history_return_follow_up_pending_signal(snapshot, history) {
+        return Some(signal);
+    }
+
     if !recent_history_viewed_item_ids(history).is_empty() {
         return None;
     }
@@ -525,6 +529,27 @@ pub(super) fn queue_reverification_history_follow_up_pending_signal_for_snapshot
     Some(format!(
         "The refreshed queue already shows `{target_item}` ahead of `{distractor_item}` under `{requested_sort}`{matched_clause}. Do not reopen `{target_item}` or spend the next step on another `browser__inspect`. Continue the remaining verification on `{distractor_item}` by using `{}` now.",
         distractor_history_link.semantic_id
+    ))
+}
+
+fn alternate_history_return_follow_up_pending_signal(
+    snapshot: &str,
+    history: &[ChatMessage],
+) -> Option<String> {
+    let completed_item = recent_history_return_item_id(history)?;
+    let goal_items = recent_goal_item_sequence(history);
+    if goal_items.len() < 2 {
+        return None;
+    }
+
+    let next_item = goal_items
+        .iter()
+        .find(|item| !item.eq_ignore_ascii_case(&completed_item))?;
+    let next_history_link = snapshot_history_link_for_item(snapshot, next_item)?;
+
+    Some(format!(
+        "Recent audit/history verification already covered `{completed_item}`. Do not reopen `{completed_item}` or spend the next step on another `browser__inspect`. Continue the remaining verification on `{next_item}` by using `{}` for `{next_item}` now.",
+        next_history_link.semantic_id
     ))
 }
 

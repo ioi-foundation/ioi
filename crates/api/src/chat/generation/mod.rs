@@ -90,6 +90,8 @@ pub use refinement_prompt::{
     build_chat_artifact_candidate_refinement_prompt,
     build_chat_artifact_candidate_refinement_repair_prompt,
 };
+#[cfg(test)]
+pub(crate) use runtime_materialization::with_direct_author_timeout_overrides_async;
 pub use runtime_materialization::{
     materialize_chat_artifact_candidate_with_runtime, materialize_chat_artifact_with_runtime,
 };

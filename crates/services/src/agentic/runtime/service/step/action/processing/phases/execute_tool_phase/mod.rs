@@ -4,6 +4,7 @@ mod contracts;
 mod duplicate;
 mod events;
 mod execute;
+mod file_observation;
 mod pending_approval;
 mod precheck;
 mod rrsa;
@@ -19,4 +20,5 @@ pub(crate) use events::{
     emit_execution_contract_receipt_event_with_observation, resolved_intent_id,
 };
 pub(crate) use execute::execute_tool_phase;
+pub(crate) use file_observation::{enforce_file_write_observation, record_file_read_observation};
 pub(crate) use success_path::record_non_command_success_receipts;

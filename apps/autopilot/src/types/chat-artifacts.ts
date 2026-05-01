@@ -774,6 +774,7 @@ export interface ChatArtifactMaterializationContract {
   artifactIr?: ChatArtifactIR | null;
   selectedSkills: ChatArtifactSelectedSkill[];
   retrievedExemplars: ChatArtifactExemplar[];
+  retrievedSources?: ArtifactSourceReference[];
   editIntent?: ChatArtifactEditIntent | null;
   candidateSummaries: ChatArtifactCandidateSummary[];
   winningCandidateId?: string | null;
@@ -1085,6 +1086,7 @@ export interface ChatArtifactRevision {
   fileWrites: ChatArtifactMaterializationFileWrite[];
   tasteMemory?: ChatArtifactTasteMemory | null;
   retrievedExemplars: ChatArtifactExemplar[];
+  retrievedSources?: ArtifactSourceReference[];
   selectedTargets: ChatArtifactSelectionTarget[];
 }
 

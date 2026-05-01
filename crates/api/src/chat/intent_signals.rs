@@ -68,14 +68,16 @@ const KNOWN_SPORTS_TARGETS: &[KnownSportsTarget] = &[
 
 #[derive(Clone, Debug)]
 pub struct ChatIntentContext {
+    surface: String,
     normalized: String,
     terms: Vec<String>,
 }
 
 impl ChatIntentContext {
     pub fn new(intent: &str) -> Self {
-        let semantic_intent = user_request_segment(intent);
+        let semantic_intent = normalize_inline_whitespace(&user_request_segment(intent));
         Self {
+            surface: semantic_intent.clone(),
             normalized: normalize_inline_whitespace(&semantic_intent.to_ascii_lowercase()),
             terms: semantic_intent
                 .split(|ch: char| !ch.is_alphanumeric())
@@ -346,14 +348,26 @@ impl ChatIntentContext {
             "this workspace",
             "in this workspace",
         ]);
-        if !repo_context {
+        let source_grounding = self.source_citation_grounding_required();
+        let coding_plan_grounding = self.coding_plan_grounding_required();
+        let runtime_lifecycle_grounding = self.runtime_lifecycle_grounding_required();
+        let agent_validation_grounding = self.agent_validation_grounding_required();
+        if !repo_context
+            && !source_grounding
+            && !coding_plan_grounding
+            && !runtime_lifecycle_grounding
+            && !agent_validation_grounding
+        {
             return false;
         }
 
         self.normalized.ends_with('?')
+            || self.normalized.starts_with("plan ")
             || self.normalized.starts_with("what ")
             || self.normalized.starts_with("which ")
             || self.normalized.starts_with("where ")
+            || self.normalized.starts_with("explain ")
+            || self.normalized.starts_with("summarize ")
             || self.normalized.starts_with("how many ")
             || self.normalized.starts_with("list ")
             || self.normalized.starts_with("show ")
@@ -361,7 +375,128 @@ impl ChatIntentContext {
             || self.normalized.starts_with("look in ")
             || self.normalized.starts_with("read ")
             || self.normalized.starts_with("tell me ")
+            || self.normalized.starts_with("using ")
+            || self.normalized.starts_with("validate ")
             || self.normalized.starts_with("does ")
+    }
+
+    pub fn runtime_lifecycle_grounding_required(&self) -> bool {
+        if self.requests_created_deliverable() {
+            return false;
+        }
+
+        let runtime_subject = self.contains_any_phrase(&["agent runtime", "runtime event"])
+            || (self.contains_any_term(&["runtime"]) && self.contains_any_term(&["event"]));
+        let lifecycle_subject = self.contains_any_term(&["lifecycle", "sequence", "diagram"])
+            || self.contains_any_phrase(&["event lifecycle", "sequence diagram"]);
+        let diagram_shape = self.contains_any_term(&["mermaid", "diagram"])
+            || self.contains_any_phrase(&["sequence diagram", "flow diagram"]);
+        runtime_subject && lifecycle_subject && diagram_shape
+    }
+
+    pub fn destructive_repository_request(&self) -> bool {
+        let destructive_action =
+            self.contains_any_term(&[
+                "delete", "remove", "erase", "wipe", "destroy", "rm", "rmdir",
+            ]) || self.contains_any_phrase(&["rm -rf", "delete everything", "wipe everything"]);
+        let repository_scope = self.contains_any_term(&["repo", "repository", "workspace"])
+            || self.contains_any_phrase(&[
+                "this repo",
+                "the repo",
+                "this repository",
+                "the repository",
+                "this workspace",
+                "the workspace",
+            ]);
+        destructive_action && repository_scope
+    }
+
+    pub fn agent_validation_grounding_required(&self) -> bool {
+        if self.requests_created_deliverable() {
+            return false;
+        }
+
+        let validation_shape = self.normalized.starts_with("find ")
+            || self.normalized.starts_with("validate ")
+            || self.contains_any_phrase(&[
+                "cheapest way to verify",
+                "cheapest way to validate",
+                "answer path through the harness",
+            ]);
+        let agent_runtime_subject = self.contains_any_term(&[
+            "harness", "probe", "verify", "validate", "sources", "render", "desktop", "chat",
+        ]) || self
+            .contains_any_phrase(&["desktop chat", "source chips"]);
+        validation_shape && agent_runtime_subject
+    }
+
+    pub fn source_citation_grounding_required(&self) -> bool {
+        if self.requests_created_deliverable() {
+            return false;
+        }
+
+        let asks_for_source_receipts = self.contains_any_phrase(&[
+            "cite the files",
+            "cite files",
+            "cite sources",
+            "cite the sources",
+            "sources you used",
+            "files you used",
+            "source files",
+            "using repo docs",
+            "from repo docs",
+            "from repository docs",
+            "using repository docs",
+        ]);
+        if asks_for_source_receipts {
+            return true;
+        }
+
+        let location_question = self.normalized.starts_with("where ")
+            || self.normalized.starts_with("which file ")
+            || self.normalized.starts_with("which files ")
+            || self.normalized.starts_with("what file ")
+            || self.normalized.starts_with("what files ");
+        location_question
+            && self.contains_any_term(&[
+                "defined",
+                "implemented",
+                "declared",
+                "located",
+                "lives",
+                "stored",
+            ])
+    }
+
+    pub fn coding_plan_grounding_required(&self) -> bool {
+        if self.requests_created_deliverable() {
+            return false;
+        }
+
+        let no_mutation_requested = self.contains_any_phrase(&[
+            "do not edit",
+            "don't edit",
+            "without editing",
+            "without changing files",
+            "no file changes",
+            "no edits",
+        ]);
+        let planning_shape = self.normalized.starts_with("plan ")
+            || self.normalized.starts_with("outline ")
+            || self.normalized.starts_with("how would ")
+            || self.normalized.starts_with("how should ");
+        let implementation_subject = self.contains_any_term(&[
+            "add",
+            "implement",
+            "support",
+            "wire",
+            "refactor",
+            "fix",
+            "test",
+            "runtime",
+        ]);
+
+        no_mutation_requested && planning_shape && implementation_subject
     }
 
     pub fn tool_widget_family(&self) -> Option<&'static str> {
@@ -528,6 +663,9 @@ impl ChatIntentContext {
             "show me a chart",
             "show me an svg",
             "show me a mermaid",
+            "sequence diagram",
+            "as a mermaid",
+            "as mermaid",
         ]) {
             return Some("inline_visual_requested");
         }
@@ -589,9 +727,10 @@ impl ChatIntentContext {
     }
 
     pub fn extract_weather_scopes(&self) -> Vec<String> {
-        let trimmed = self.normalized.trim().trim_end_matches('?').trim();
-        if let Some(index) = trimmed.rfind(':') {
-            let prefix = &trimmed[..index];
+        let trimmed = self.surface.trim().trim_end_matches('?').trim();
+        let normalized = self.normalized.trim().trim_end_matches('?').trim();
+        if let Some(index) = normalized.rfind(':') {
+            let prefix = &normalized[..index];
             if prefix.contains("weather") || prefix.contains("forecast") {
                 let suffix = trimmed[index + 1..].trim();
                 let scopes = split_scope_list(suffix);
@@ -602,7 +741,7 @@ impl ChatIntentContext {
         }
 
         for marker in ["weather in ", "weather for ", "forecast for "] {
-            if let Some(index) = trimmed.find(marker) {
+            if let Some(index) = normalized.find(marker) {
                 let scope = trim_intent_suffix_case_insensitive(
                     &trimmed[index + marker.len()..],
                     &[
@@ -631,7 +770,7 @@ impl ChatIntentContext {
 
         if self.weather_advice_request() {
             for marker in [" in ", " for "] {
-                if let Some(index) = trimmed.rfind(marker) {
+                if let Some(index) = normalized.rfind(marker) {
                     let scope = trim_intent_suffix_case_insensitive(
                         &trimmed[index + marker.len()..],
                         &[

@@ -121,15 +121,16 @@ fn cited_briefing_sources(
                         compact
                     }
                 },
-                standard_identifiers: observed_briefing_standard_identifier_labels(
-                    &draft.query,
-                    &preferred_source_briefing_identifier_surface(
+                standard_identifiers:
+                    observed_briefing_standard_identifier_labels_with_compressed_fips(
                         &draft.query,
-                        &citation.url,
-                        &citation.source_label,
-                        &citation.excerpt,
+                        &preferred_source_briefing_identifier_surface(
+                            &draft.query,
+                            &citation.url,
+                            &citation.source_label,
+                            &citation.excerpt,
+                        ),
                     ),
-                ),
                 authoritative: source_has_document_authority(
                     &draft.query,
                     &citation.url,
@@ -447,7 +448,7 @@ fn query_grounded_briefing_supports(
             source_label: compact_source_label(&story.title),
             url: String::new(),
             fragment: cleaned,
-            standard_identifiers: observed_briefing_standard_identifier_labels(
+            standard_identifiers: observed_briefing_standard_identifier_labels_with_compressed_fips(
                 &draft.query,
                 &normalized,
             ),

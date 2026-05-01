@@ -248,7 +248,7 @@ fn materialize_backend_install(
         .ok_or_else(|| "backend package did not resolve an entrypoint".to_string())?;
     let resolved_entrypoint = resolve_backend_entrypoint(&context.install_root, &entrypoint);
     let resolved_entrypoint_path = PathBuf::from(&resolved_entrypoint);
-    if resolved_entrypoint_path.exists() {
+    if resolved_entrypoint_path.starts_with(&context.install_root) && resolved_entrypoint_path.exists() {
         ensure_script_is_executable(&resolved_entrypoint_path)?;
     }
     let installed_manifest = json!({
@@ -1234,4 +1234,3 @@ fn apply_backend_effect(
         state.managed_backends.push(record);
     }
 }
-

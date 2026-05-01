@@ -1,5 +1,10 @@
 #[tokio::test]
 async fn local_html_hybrid_raw_document_timeout_is_bounded() {
+    super::generation::with_direct_author_timeout_overrides_async(
+        Some(Duration::from_millis(50)),
+        None,
+        None,
+        || async {
     #[derive(Debug, Clone)]
     struct HangingHybridLocalHtmlRuntime;
 
@@ -58,13 +63,6 @@ async fn local_html_hybrid_raw_document_timeout_is_bounded() {
         }
     }
 
-    let previous_timeout =
-        std::env::var("AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_STREAM_TIMEOUT_MS").ok();
-    std::env::set_var(
-        "AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_STREAM_TIMEOUT_MS",
-        "50",
-    );
-
     let request = request_for(
         ChatArtifactClass::InteractiveSingleFile,
         ChatRendererKind::HtmlIframe,
@@ -90,19 +88,14 @@ async fn local_html_hybrid_raw_document_timeout_is_bounded() {
     )
     .await;
 
-    match previous_timeout {
-        Some(value) => std::env::set_var(
-            "AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_STREAM_TIMEOUT_MS",
-            value,
-        ),
-        None => std::env::remove_var("AUTOPILOT_CHAT_ARTIFACT_DIRECT_AUTHOR_STREAM_TIMEOUT_MS"),
-    }
-
     let error =
         result.expect_err("hybrid local html materialization should time out instead of hanging");
     assert!(error.message.contains(
         "Chat direct-author artifact inference failed: Host function error: Chat direct-author artifact inference timed out"
     ));
+        },
+    )
+    .await;
 }
 
 #[tokio::test]
@@ -694,7 +687,7 @@ async fn complex_local_html_materialization_prefers_plan_backed_direct_author_st
     );
     assert_eq!(
         &*streaming_max_tokens.lock().expect("max tokens log"),
-        &[2400]
+        &[2200]
     );
     assert_eq!(
         &*streaming_stop_sequences.lock().expect("stop sequences log"),
@@ -941,4 +934,3 @@ async fn local_html_materialization_repairs_runtime_failure_before_surface() {
     })
     .await;
 }
-

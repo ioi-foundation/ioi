@@ -19,6 +19,60 @@ fn build_swarm_generation_error(
     }
 }
 
+fn require_swarm_bounded_repair_for_render_warning(
+    mut validation: ChatArtifactValidationResult,
+    render_evaluation: Option<&ChatArtifactRenderEvaluation>,
+) -> ChatArtifactValidationResult {
+    if validation.classification != ChatArtifactValidationStatus::Pass {
+        return validation;
+    }
+    let Some(finding) = render_evaluation
+        .and_then(|evaluation| {
+            evaluation
+                .findings
+                .iter()
+                .find(|finding| finding.severity == ChatArtifactRenderFindingSeverity::Warning)
+        })
+        .cloned()
+    else {
+        return validation;
+    };
+
+    validation.classification = ChatArtifactValidationStatus::Repairable;
+    validation.primary_view_cleared = false;
+    validation.deserves_primary_artifact_view = false;
+    validation.summary =
+        "Render validation surfaced a concrete issue that should drive a bounded repair."
+            .to_string();
+    validation.rationale = finding.summary.clone();
+    validation.recommended_next_pass = Some("structural_repair".to_string());
+    if !finding.code.is_empty() {
+        if !validation
+            .issue_codes
+            .iter()
+            .any(|code| code == &finding.code)
+        {
+            validation.issue_codes.push(finding.code.clone());
+        }
+        if !validation
+            .issue_classes
+            .iter()
+            .any(|class| class == &finding.code)
+        {
+            validation.issue_classes.push(finding.code.clone());
+        }
+    }
+    if !validation
+        .repair_hints
+        .iter()
+        .any(|hint| hint == &finding.summary)
+    {
+        validation.repair_hints.insert(0, finding.summary);
+    }
+    validation.score_total = validation.score_total.min(280);
+    validation
+}
+
 pub(super) async fn finalize_swarm_bundle_after_initial_execution(
     runtime_plan: ChatArtifactResolvedRuntimePlan,
     title: &str,
@@ -168,6 +222,8 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
         &final_payload,
         render_evaluation.as_ref(),
     );
+    validation =
+        require_swarm_bounded_repair_for_render_warning(validation, render_evaluation.as_ref());
     update_swarm_work_item_status(
         &mut swarm_plan,
         &validation_item.id,
@@ -644,6 +700,10 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
                 request,
                 brief,
                 &final_payload,
+                render_evaluation.as_ref(),
+            );
+            validation = require_swarm_bounded_repair_for_render_warning(
+                validation,
                 render_evaluation.as_ref(),
             );
             verification_receipts.push(ChatArtifactVerificationReceipt {

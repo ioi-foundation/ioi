@@ -39,12 +39,33 @@ pub(crate) fn repair_tool_names_match(left: &str, right: &str) -> bool {
         return true;
     }
 
+    if repair_tool_alias(left) == repair_tool_alias(right) {
+        return true;
+    }
+
     match (
         middleware::canonical_deterministic_tool_name(left),
         middleware::canonical_deterministic_tool_name(right),
     ) {
         (Some(left), Some(right)) => left == right,
         _ => false,
+    }
+}
+
+fn repair_tool_alias(name: &str) -> String {
+    match name.trim().to_ascii_lowercase().as_str() {
+        "filesystem__write_file" | "file__write" => "file__write".to_string(),
+        "filesystem__patch" | "file__edit" => "file__edit".to_string(),
+        "filesystem__edit_line" | "file__replace_line" => "file__replace_line".to_string(),
+        "filesystem__read_file" | "file__read" | "file__view" => "file__read".to_string(),
+        "filesystem__search" | "file__search" => "file__search".to_string(),
+        "filesystem__list_directory" | "filesystem__list_dir" | "file__list" => {
+            "file__list".to_string()
+        }
+        "filesystem__stat" | "file__info" => "file__info".to_string(),
+        "sys__exec_session" | "shell__run" => "shell__run".to_string(),
+        "system__fail" | "agent__escalate" => "agent__escalate".to_string(),
+        other => other.to_string(),
     }
 }
 
@@ -799,6 +820,7 @@ async fn run_invalid_tool_call_repair_inference(
             });
         }
     };
+    let repaired_tool = canonicalize_legacy_filesystem_edit_tool(repaired_tool);
     let repaired_tool = maybe_salvage_disallowed_patch_build_verify_runtime_edit(
         agent_state,
         worker_assignment,
@@ -916,6 +938,7 @@ async fn run_refusal_repair_inference(
         }
     };
 
+    let repaired_tool = canonicalize_legacy_filesystem_edit_tool(repaired_tool);
     let repaired_tool = maybe_salvage_disallowed_patch_build_verify_runtime_edit(
         agent_state,
         worker_assignment,

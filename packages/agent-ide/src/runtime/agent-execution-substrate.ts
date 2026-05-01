@@ -9,18 +9,31 @@ export type AgentExecutionSurface = "chat" | "workflow" | "harness" | "gui" | "u
 export type AgentActionKind =
   | "source_input"
   | "trigger"
+  | "task_state"
+  | "uncertainty_gate"
+  | "probe"
+  | "budget_gate"
+  | "capability_sequence"
   | "function"
   | "model_binding"
   | "model_call"
   | "parser"
   | "adapter_connector"
   | "plugin_tool"
+  | "dry_run"
   | "state"
   | "decision"
   | "loop"
   | "barrier"
   | "subgraph"
   | "human_gate"
+  | "semantic_impact"
+  | "postcondition_synthesis"
+  | "verifier"
+  | "drift_detector"
+  | "quality_ledger"
+  | "handoff"
+  | "gui_harness_validation"
   | "output"
   | "test_assertion"
   | "proposal"
@@ -62,6 +75,16 @@ export function actionKindForWorkflowNodeType(nodeType: string): AgentActionKind
       return "source_input";
     case "trigger":
       return "trigger";
+    case "task_state":
+      return "task_state";
+    case "uncertainty_gate":
+      return "uncertainty_gate";
+    case "probe":
+      return "probe";
+    case "budget_gate":
+      return "budget_gate";
+    case "capability_sequence":
+      return "capability_sequence";
     case "function":
       return "function";
     case "model_binding":
@@ -74,6 +97,8 @@ export function actionKindForWorkflowNodeType(nodeType: string): AgentActionKind
       return "adapter_connector";
     case "plugin_tool":
       return "plugin_tool";
+    case "dry_run":
+      return "dry_run";
     case "state":
       return "state";
     case "decision":
@@ -86,6 +111,20 @@ export function actionKindForWorkflowNodeType(nodeType: string): AgentActionKind
       return "subgraph";
     case "human_gate":
       return "human_gate";
+    case "semantic_impact":
+      return "semantic_impact";
+    case "postcondition_synthesis":
+      return "postcondition_synthesis";
+    case "verifier":
+      return "verifier";
+    case "drift_detector":
+      return "drift_detector";
+    case "quality_ledger":
+      return "quality_ledger";
+    case "handoff":
+      return "handoff";
+    case "gui_harness_validation":
+      return "gui_harness_validation";
     case "output":
       return "output";
     case "test_assertion":
@@ -107,6 +146,20 @@ export function workflowNodeTypeForActionKind(kind: AgentActionKind): string {
       return "adapter";
     case "output":
       return "output";
+    case "task_state":
+    case "uncertainty_gate":
+    case "probe":
+    case "budget_gate":
+    case "capability_sequence":
+    case "dry_run":
+    case "semantic_impact":
+    case "postcondition_synthesis":
+    case "verifier":
+    case "drift_detector":
+    case "quality_ledger":
+    case "handoff":
+    case "gui_harness_validation":
+      return kind;
     default:
       return kind;
   }
@@ -121,7 +174,7 @@ export function actionKindIsTerminal(kind: AgentActionKind): boolean {
 }
 
 export function actionKindRequiresCompletionVerification(kind: AgentActionKind): boolean {
-  return kind === "function" || kind === "model_binding" || kind === "model_call" || kind === "parser" || kind === "adapter_connector" || kind === "plugin_tool" || kind === "subgraph" || kind === "proposal";
+  return kind === "function" || kind === "model_binding" || kind === "model_call" || kind === "parser" || kind === "adapter_connector" || kind === "plugin_tool" || kind === "subgraph" || kind === "proposal" || kind === "probe" || kind === "dry_run" || kind === "semantic_impact" || kind === "postcondition_synthesis" || kind === "verifier" || kind === "gui_harness_validation";
 }
 
 export function validateActionEdge(

@@ -538,6 +538,47 @@ pub(super) fn delegated_child_preset_resolved_intent(
     let slot_bindings = delegated_child_contract_slots(assignment, workflow_id);
 
     match workflow_id {
+        Some("repo_context_brief") => Some(ResolvedIntentState {
+            intent_id: "delegation.task".to_string(),
+            scope: IntentScopeProfile::Delegation,
+            band: IntentConfidenceBand::High,
+            score: 0.95,
+            top_k: vec![],
+            required_capabilities: vec![
+                CapabilityId::from("filesystem.read"),
+                CapabilityId::from("memory.access"),
+                CapabilityId::from("conversation.reply"),
+            ],
+            required_evidence: vec![],
+            success_conditions: vec![],
+            risk_class: "low".to_string(),
+            preferred_tier: "tool_first".to_string(),
+            intent_catalog_version: "delegated-child-bootstrap-v1".to_string(),
+            embedding_model_id: "delegated-child-bootstrap".to_string(),
+            embedding_model_version: "v1".to_string(),
+            similarity_function_id: "cosine".to_string(),
+            intent_set_hash: [0u8; 32],
+            tool_registry_hash: [0u8; 32],
+            capability_ontology_hash: [0u8; 32],
+            query_normalization_version: "v1".to_string(),
+            intent_catalog_source_hash: [1u8; 32],
+            evidence_requirements_hash: [2u8; 32],
+            provider_selection: None,
+            instruction_contract: Some(InstructionContract {
+                operation: "delegation.task".to_string(),
+                side_effect_mode: InstructionSideEffectMode::ReadOnly,
+                slot_bindings,
+                negative_constraints: vec![
+                    "Return repo context only; do not make edits or run broad verification from the context lane."
+                        .to_string(),
+                ],
+                success_criteria: vec![
+                    "Return a bounded repo context brief with likely files, skill cues, targeted checks, and explicit unknowns."
+                        .to_string(),
+                ],
+            }),
+            constrained: false,
+        }),
         Some("patch_build_verify") => Some(ResolvedIntentState {
             intent_id: "workspace.ops".to_string(),
             scope: IntentScopeProfile::WorkspaceOps,

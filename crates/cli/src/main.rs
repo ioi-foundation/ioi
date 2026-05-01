@@ -77,6 +77,9 @@ enum Commands {
     /// Policy management tools.
     Policy(policy::PolicyArgs),
 
+    /// Manage and inspect configured MCP servers.
+    Mcp(mcp::McpArgs),
+
     /// PII review tools.
     Pii(pii::PiiArgs),
 
@@ -132,6 +135,9 @@ async fn main() -> Result<()> {
 
         // --- Policy ---
         Commands::Policy(args) => policy::run(args).await,
+
+        // --- MCP ---
+        Commands::Mcp(args) => mcp::run(args),
 
         // --- PII ---
         Commands::Pii(args) => pii::run(args).await,

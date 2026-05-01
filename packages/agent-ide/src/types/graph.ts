@@ -475,18 +475,31 @@ export interface WorkflowNodeConfigBase<TKind extends WorkflowNodeKind, TLogic e
 export type WorkflowNodeConfig =
   | WorkflowNodeConfigBase<"source">
   | WorkflowNodeConfigBase<"trigger">
+  | WorkflowNodeConfigBase<"task_state">
+  | WorkflowNodeConfigBase<"uncertainty_gate">
+  | WorkflowNodeConfigBase<"probe">
+  | WorkflowNodeConfigBase<"budget_gate">
+  | WorkflowNodeConfigBase<"capability_sequence">
   | WorkflowNodeConfigBase<"function">
   | WorkflowNodeConfigBase<"model_binding">
   | WorkflowNodeConfigBase<"model_call">
   | WorkflowNodeConfigBase<"parser">
   | WorkflowNodeConfigBase<"adapter">
   | WorkflowNodeConfigBase<"plugin_tool">
+  | WorkflowNodeConfigBase<"dry_run">
   | WorkflowNodeConfigBase<"state">
   | WorkflowNodeConfigBase<"decision">
   | WorkflowNodeConfigBase<"loop">
   | WorkflowNodeConfigBase<"barrier">
   | WorkflowNodeConfigBase<"subgraph">
   | WorkflowNodeConfigBase<"human_gate">
+  | WorkflowNodeConfigBase<"semantic_impact">
+  | WorkflowNodeConfigBase<"postcondition_synthesis">
+  | WorkflowNodeConfigBase<"verifier">
+  | WorkflowNodeConfigBase<"drift_detector">
+  | WorkflowNodeConfigBase<"quality_ledger">
+  | WorkflowNodeConfigBase<"handoff">
+  | WorkflowNodeConfigBase<"gui_harness_validation">
   | WorkflowNodeConfigBase<"output">
   | WorkflowNodeConfigBase<"test_assertion">
   | WorkflowNodeConfigBase<"proposal">;
@@ -725,10 +738,16 @@ export type WorkflowExecutionMode = "local" | "external_adapter" | "hybrid";
 
 export type WorkflowHarnessComponentKind =
   | "planner"
+  | "task_state"
+  | "uncertainty_gate"
+  | "probe_runner"
+  | "budget_gate"
+  | "capability_sequencer"
   | "model_router"
   | "model_call"
   | "tool_router"
   | "tool_call"
+  | "dry_run_simulator"
   | "mcp_provider"
   | "mcp_tool_call"
   | "connector_call"
@@ -738,6 +757,12 @@ export type WorkflowHarnessComponentKind =
   | "memory_read"
   | "memory_write"
   | "verifier"
+  | "semantic_impact_analyzer"
+  | "postcondition_synthesizer"
+  | "drift_detector"
+  | "quality_ledger"
+  | "handoff_bridge"
+  | "gui_harness_validator"
   | "output_writer"
   | "receipt_writer"
   | "retry_policy"
@@ -748,10 +773,15 @@ export type WorkflowHarnessComponentKind =
 export type WorkflowHarnessSlotKind =
   | "model_policy"
   | "tool_grant_policy"
+  | "state_policy"
+  | "budget_policy"
+  | "dry_run_policy"
   | "verifier_policy"
   | "approval_policy"
   | "output_policy"
   | "memory_policy"
+  | "quality_ledger_policy"
+  | "handoff_policy"
   | "retry_repair_policy";
 
 export interface WorkflowHarnessRetryBehavior {
@@ -856,18 +886,31 @@ export interface WorkflowHarnessWorkerBinding {
 export type WorkflowNodeKind =
   | "source"
   | "trigger"
+  | "task_state"
+  | "uncertainty_gate"
+  | "probe"
+  | "budget_gate"
+  | "capability_sequence"
   | "function"
   | "model_binding"
   | "model_call"
   | "parser"
   | "adapter"
   | "plugin_tool"
+  | "dry_run"
   | "state"
   | "decision"
   | "loop"
   | "barrier"
   | "subgraph"
   | "human_gate"
+  | "semantic_impact"
+  | "postcondition_synthesis"
+  | "verifier"
+  | "drift_detector"
+  | "quality_ledger"
+  | "handoff"
+  | "gui_harness_validation"
   | "output"
   | "test_assertion"
   | "proposal";

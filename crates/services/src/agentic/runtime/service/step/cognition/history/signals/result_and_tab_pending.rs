@@ -132,6 +132,162 @@ pub(super) fn ranked_result_pending_signal(
     ))
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct ShortestFlightActionCandidate {
+    semantic_id: String,
+    duration_minutes: u32,
+}
+
+fn recent_goal_requests_shortest_flight(history: &[ChatMessage]) -> bool {
+    history
+        .iter()
+        .rev()
+        .filter(|message| message.role == "user")
+        .take(3)
+        .any(|message| {
+            let lower = message.content.to_ascii_lowercase();
+            lower.contains("shortest")
+                && (lower.contains("flight") || lower.contains("one-way"))
+                && lower.contains("book")
+        })
+}
+
+fn duration_minutes_from_text(text: &str) -> Option<u32> {
+    let tokens = text
+        .split_whitespace()
+        .map(|token| {
+            token
+                .trim_matches(|ch: char| !ch.is_ascii_alphanumeric())
+                .to_ascii_lowercase()
+        })
+        .collect::<Vec<_>>();
+
+    for (idx, token) in tokens.iter().enumerate() {
+        if token != "duration" {
+            continue;
+        }
+
+        let mut hours = None;
+        let mut minutes = None;
+        for value in tokens.iter().skip(idx + 1).take(4) {
+            if let Some(raw_hours) = value.strip_suffix('h') {
+                hours = raw_hours.parse::<u32>().ok();
+            } else if let Some(raw_minutes) = value.strip_suffix('m') {
+                minutes = raw_minutes.parse::<u32>().ok();
+            }
+        }
+
+        if hours.is_some() || minutes.is_some() {
+            return Some(hours.unwrap_or(0) * 60 + minutes.unwrap_or(0));
+        }
+    }
+
+    None
+}
+
+fn shortest_flight_action_candidate(snapshot: &str) -> Option<ShortestFlightActionCandidate> {
+    let mut row_durations = Vec::new();
+    let mut action_candidates = Vec::new();
+    let mut pending_actions = Vec::new();
+
+    for fragment in snapshot.split('<') {
+        if fragment.contains(r#" visible="false""#) {
+            continue;
+        }
+
+        let Some(semantic_role) = browser_fragment_tag_name(fragment) else {
+            continue;
+        };
+        let Some(semantic_id) = extract_browser_xml_attr(fragment, "id")
+            .map(|value| compact_ws_for_prompt(&decode_browser_xml_text(&value)))
+            .filter(|value| !value.is_empty())
+        else {
+            continue;
+        };
+
+        let name = extract_browser_xml_attr(fragment, "name")
+            .map(|value| compact_ws_for_prompt(&decode_browser_xml_text(&value)))
+            .unwrap_or_default();
+        let context = extract_browser_xml_attr(fragment, "context")
+            .map(|value| compact_ws_for_prompt(&decode_browser_xml_text(&value)))
+            .unwrap_or_default();
+        let searchable_text = compact_ws_for_prompt(&format!("{name} {context}"));
+        let lower_text = searchable_text.to_ascii_lowercase();
+        let looks_like_flight_action = lower_text.contains("book flight")
+            || semantic_id
+                .to_ascii_lowercase()
+                .contains("book_flight");
+        let actionable = browser_fragment_allows_omitted_action_target(fragment, semantic_role);
+
+        if looks_like_flight_action && actionable {
+            if let Some(duration_minutes) = duration_minutes_from_text(&searchable_text) {
+                action_candidates.push(ShortestFlightActionCandidate {
+                    semantic_id,
+                    duration_minutes,
+                });
+            } else {
+                pending_actions.push(semantic_id);
+            }
+            continue;
+        }
+
+        if let Some(duration_minutes) = duration_minutes_from_text(&searchable_text) {
+            if let Some(result_key) = semantic_id_numeric_suffix(&semantic_id) {
+                row_durations.push((result_key, duration_minutes));
+            }
+        }
+    }
+
+    for semantic_id in pending_actions {
+        let Some(action_key) = semantic_id_numeric_suffix(&semantic_id) else {
+            continue;
+        };
+        let Some((_, duration_minutes)) = row_durations
+            .iter()
+            .find(|(result_key, _)| *result_key == action_key)
+        else {
+            continue;
+        };
+        action_candidates.push(ShortestFlightActionCandidate {
+            semantic_id,
+            duration_minutes: *duration_minutes,
+        });
+    }
+
+    action_candidates
+        .into_iter()
+        .min_by(|left, right| {
+            left.duration_minutes
+                .cmp(&right.duration_minutes)
+                .then_with(|| left.semantic_id.cmp(&right.semantic_id))
+        })
+}
+
+pub(super) fn shortest_flight_result_pending_signal(
+    history: &[ChatMessage],
+    current_snapshot: Option<&str>,
+) -> Option<String> {
+    if !recent_goal_requests_shortest_flight(history) {
+        return None;
+    }
+
+    let snapshot =
+        current_snapshot.or_else(|| history.iter().rev().find_map(browser_snapshot_payload))?;
+    let candidate = shortest_flight_action_candidate(snapshot)?;
+    if recent_successful_click_has_post_action_observation(
+        history,
+        &candidate.semantic_id,
+        current_snapshot,
+    ) {
+        return None;
+    }
+
+    Some(format!(
+        "The shortest visible flight result is `{}` at {} minutes. Use `browser__click` on `{}` now. Do not click destination text or repeat the search button.",
+        candidate.semantic_id, candidate.duration_minutes, candidate.semantic_id
+    ))
+}
+
 pub(super) fn instruction_only_find_text_pagination_pending_signal(
     history: &[ChatMessage],
     current_snapshot: Option<&str>,

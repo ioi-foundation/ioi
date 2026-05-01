@@ -121,9 +121,14 @@ impl InferenceRuntime for McpBrain {
     async fn execute_inference(
         &self,
         _: [u8; 32],
-        _: &[u8],
+        input: &[u8],
         _: ioi_types::app::agentic::InferenceOptions,
     ) -> Result<Vec<u8>, VmError> {
+        let prompt = String::from_utf8_lossy(input);
+        if prompt.contains("direct-inline authoring path") {
+            return Ok(Vec::new());
+        }
+
         // The agent decides to call the MCP tool
         let tool_call = json!({
             "name": "echo_server__echo", // Namespaced tool name

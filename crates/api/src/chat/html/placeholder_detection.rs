@@ -540,6 +540,13 @@ pub(super) fn html_contains_empty_chart_container_regions(html_lower: &str) -> b
     if html_lower.contains("chat-inline-chart-fallback") {
         return false;
     }
+    if html_lower.contains("chart-shell\"></div>")
+        || html_lower.contains("chart-shell'></div>")
+        || html_lower.contains("chart-shell\"></canvas>")
+        || html_lower.contains("chart-shell'></canvas>")
+    {
+        return true;
+    }
     count_empty_html_chart_container_regions(html_lower) > 0
 }
 
@@ -637,6 +644,8 @@ pub(super) fn count_populated_html_response_regions(html_lower: &str) -> usize {
             let open_tag = &html_lower[start..open_end];
             let response_hint_present = tag == "aside"
                 || open_tag.contains("aria-live=")
+                || open_tag.contains("class=\"detail")
+                || open_tag.contains("class='detail")
                 || open_tag.contains("role=\"status\"")
                 || open_tag.contains("role='status'")
                 || open_tag.contains("role=\"region\"")
@@ -781,11 +790,18 @@ pub(super) fn html_contains_rollover_detail_behavior(html_lower: &str) -> bool {
     .iter()
     .any(|needle| html_lower.contains(needle));
 
-    has_hover_or_focus_handlers
+    let has_equivalent_detail_activation = html_contains_state_transition_behavior(html_lower)
+        && (html_lower.contains("data-detail=")
+            || html_lower.contains("detail-copy")
+            || html_lower.contains("feedback")
+            || html_lower.contains("status-text")
+            || html_lower.contains("response-panel"))
+        && html_contains_state_mutation_behavior(html_lower);
+
+    (has_hover_or_focus_handlers || has_equivalent_detail_activation)
         && count_html_actionable_affordances(html_lower) > 0
         && (count_populated_html_response_regions(html_lower) > 0
             || count_populated_html_detail_regions(html_lower) > 0)
-        && html_contains_state_mutation_behavior(html_lower)
 }
 
 pub(super) fn html_contains_state_transition_behavior(html_lower: &str) -> bool {

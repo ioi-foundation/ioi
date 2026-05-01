@@ -312,7 +312,6 @@ pub(crate) fn collect_projection_candidate_urls_with_contract_and_locality_hint(
     );
     let preserve_local_business_seed = |candidate: &CandidateRecord| {
         local_business_entity_diversity_flow
-            && !candidate.low_priority
             && candidate
                 .affordances
                 .contains(&RetrievalAffordanceKind::DiscoveryExpansionSeedRead)

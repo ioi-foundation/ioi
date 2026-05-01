@@ -590,6 +590,9 @@ pub(crate) fn patch_build_verify_edit_only_repair_tools(
                 "filesystem__patch",
                 "filesystem__edit_line",
                 "filesystem__write_file",
+                "file__edit",
+                "file__replace_line",
+                "file__write",
             ]
             .iter()
             .any(|candidate| repair_tool_names_match(&tool.name, candidate))

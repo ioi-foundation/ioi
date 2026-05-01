@@ -27,10 +27,17 @@ pub const HARNESS_ERROR_SCHEMA_ID: &str = "ioi.agent-harness.error.v1";
 #[serde(rename_all = "snake_case")]
 pub enum HarnessComponentKind {
     Planner,
+    PromptAssembler,
+    TaskState,
+    UncertaintyGate,
+    ProbeRunner,
+    BudgetGate,
+    CapabilitySequencer,
     ModelRouter,
     ModelCall,
     ToolRouter,
     ToolCall,
+    DryRunSimulator,
     McpProvider,
     McpToolCall,
     ConnectorCall,
@@ -39,23 +46,36 @@ pub enum HarnessComponentKind {
     WalletCapability,
     MemoryRead,
     MemoryWrite,
+    SemanticImpactAnalyzer,
+    PostconditionSynthesizer,
     Verifier,
+    DriftDetector,
     OutputWriter,
     ReceiptWriter,
+    QualityLedger,
     RetryPolicy,
     RepairLoop,
     MergeJudge,
+    HandoffBridge,
     CompletionGate,
+    GuiHarnessValidator,
 }
 
 impl HarnessComponentKind {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Planner => "planner",
+            Self::PromptAssembler => "prompt_assembler",
+            Self::TaskState => "task_state",
+            Self::UncertaintyGate => "uncertainty_gate",
+            Self::ProbeRunner => "probe_runner",
+            Self::BudgetGate => "budget_gate",
+            Self::CapabilitySequencer => "capability_sequencer",
             Self::ModelRouter => "model_router",
             Self::ModelCall => "model_call",
             Self::ToolRouter => "tool_router",
             Self::ToolCall => "tool_call",
+            Self::DryRunSimulator => "dry_run_simulator",
             Self::McpProvider => "mcp_provider",
             Self::McpToolCall => "mcp_tool_call",
             Self::ConnectorCall => "connector_call",
@@ -64,13 +84,19 @@ impl HarnessComponentKind {
             Self::WalletCapability => "wallet_capability",
             Self::MemoryRead => "memory_read",
             Self::MemoryWrite => "memory_write",
+            Self::SemanticImpactAnalyzer => "semantic_impact_analyzer",
+            Self::PostconditionSynthesizer => "postcondition_synthesizer",
             Self::Verifier => "verifier",
+            Self::DriftDetector => "drift_detector",
             Self::OutputWriter => "output_writer",
             Self::ReceiptWriter => "receipt_writer",
+            Self::QualityLedger => "quality_ledger",
             Self::RetryPolicy => "retry_policy",
             Self::RepairLoop => "repair_loop",
             Self::MergeJudge => "merge_judge",
+            Self::HandoffBridge => "handoff_bridge",
             Self::CompletionGate => "completion_gate",
+            Self::GuiHarnessValidator => "gui_harness_validator",
         }
     }
 
@@ -85,10 +111,25 @@ impl HarnessComponentKind {
     pub fn kernel_ref(self) -> &'static str {
         match self {
             Self::Planner => "crates/services/src/agentic/runtime/service/step/planner",
+            Self::PromptAssembler => {
+                "crates/types/src/app/runtime_contracts.rs::PromptAssemblyContract"
+            }
+            Self::TaskState => "crates/types/src/app/runtime_contracts.rs::TaskStateModel",
+            Self::UncertaintyGate => {
+                "crates/types/src/app/runtime_contracts.rs::UncertaintyAssessment"
+            }
+            Self::ProbeRunner => "crates/types/src/app/runtime_contracts.rs::Probe",
+            Self::BudgetGate => "crates/types/src/app/runtime_contracts.rs::CognitiveBudget",
+            Self::CapabilitySequencer => {
+                "crates/types/src/app/runtime_contracts.rs::CapabilitySequence"
+            }
             Self::ModelRouter => "crates/services/src/agentic/runtime/service/step/cognition/router.rs",
             Self::ModelCall => "crates/services/src/agentic/runtime/service/handler/execution/handlers/model.rs",
             Self::ToolRouter => "crates/services/src/agentic/runtime/service/handler/execution/execution/action_execution.rs",
             Self::ToolCall => "crates/services/src/agentic/runtime/service/handler/execution",
+            Self::DryRunSimulator => {
+                "crates/types/src/app/runtime_contracts.rs::DryRunCapability"
+            }
             Self::McpProvider => "crates/services/src/agentic/runtime/tools/mcp.rs",
             Self::McpToolCall => "crates/services/src/agentic/runtime/tools/mcp.rs",
             Self::ConnectorCall => "crates/services/src/agentic/runtime/connectors",
@@ -96,23 +137,42 @@ impl HarnessComponentKind {
             Self::ApprovalGate => "crates/services/src/agentic/runtime/service/handler/approvals.rs",
             Self::WalletCapability => "crates/services/src/agentic/runtime/kernel/capability.rs",
             Self::MemoryRead | Self::MemoryWrite => "crates/services/src/agentic/runtime/service/memory",
+            Self::SemanticImpactAnalyzer => {
+                "crates/types/src/app/runtime_contracts.rs::SemanticImpactAnalysis"
+            }
+            Self::PostconditionSynthesizer => {
+                "crates/types/src/app/runtime_contracts.rs::PostconditionSynthesis"
+            }
             Self::Verifier => "crates/services/src/agentic/runtime/service/handler/execution/execution/receipt_emission.rs",
+            Self::DriftDetector => "crates/types/src/app/runtime_contracts.rs::DriftSignal",
             Self::OutputWriter => "crates/services/src/agentic/runtime/service/step/queue/processing/completion_receipts.rs",
             Self::ReceiptWriter => "crates/services/src/agentic/runtime/service/handler/execution/execution/receipt_emission.rs",
+            Self::QualityLedger => "crates/types/src/app/runtime_contracts.rs::AgentQualityLedger",
             Self::RetryPolicy => "crates/services/src/agentic/runtime/service/step/anti_loop",
             Self::RepairLoop => "crates/services/src/agentic/runtime/service/step/action/processing/repair",
             Self::MergeJudge => "crates/services/src/agentic/runtime/service/lifecycle/worker_results/merge.rs",
+            Self::HandoffBridge => "crates/types/src/app/runtime_contracts.rs::HandoffQuality",
             Self::CompletionGate => "crates/services/src/agentic/runtime/service/step/browser_completion.rs",
+            Self::GuiHarnessValidator => {
+                "crates/types/src/app/runtime_contracts.rs::AutopilotGuiHarnessValidationContract"
+            }
         }
     }
 
     pub fn label(self) -> &'static str {
         match self {
             Self::Planner => "Planner",
+            Self::PromptAssembler => "Prompt assembler",
+            Self::TaskState => "Task state model",
+            Self::UncertaintyGate => "Uncertainty gate",
+            Self::ProbeRunner => "Probe runner",
+            Self::BudgetGate => "Cognitive budget gate",
+            Self::CapabilitySequencer => "Capability sequencer",
             Self::ModelRouter => "Model router",
             Self::ModelCall => "Model call",
             Self::ToolRouter => "Tool router",
             Self::ToolCall => "Tool call",
+            Self::DryRunSimulator => "Dry-run simulator",
             Self::McpProvider => "MCP provider",
             Self::McpToolCall => "MCP tool invocation",
             Self::ConnectorCall => "Connector call",
@@ -121,13 +181,19 @@ impl HarnessComponentKind {
             Self::WalletCapability => "Wallet capability request",
             Self::MemoryRead => "Memory read",
             Self::MemoryWrite => "Memory write",
+            Self::SemanticImpactAnalyzer => "Semantic impact analyzer",
+            Self::PostconditionSynthesizer => "Postcondition synthesizer",
             Self::Verifier => "Verifier",
+            Self::DriftDetector => "Drift detector",
             Self::OutputWriter => "Output writer",
             Self::ReceiptWriter => "Receipt writer",
+            Self::QualityLedger => "Quality ledger",
             Self::RetryPolicy => "Retry policy",
             Self::RepairLoop => "Repair loop",
             Self::MergeJudge => "Merge and judge",
+            Self::HandoffBridge => "Handoff bridge",
             Self::CompletionGate => "Completion gate",
+            Self::GuiHarnessValidator => "Autopilot GUI harness validator",
         }
     }
 }
@@ -135,25 +201,35 @@ impl HarnessComponentKind {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum HarnessSlotKind {
+    StatePolicy,
     ModelPolicy,
     ToolGrantPolicy,
+    BudgetPolicy,
+    DryRunPolicy,
     VerifierPolicy,
     ApprovalPolicy,
     OutputPolicy,
     MemoryPolicy,
+    QualityLedgerPolicy,
     RetryRepairPolicy,
+    HandoffPolicy,
 }
 
 impl HarnessSlotKind {
     pub fn slot_id(self) -> &'static str {
         match self {
+            Self::StatePolicy => "slot.state-policy",
             Self::ModelPolicy => "slot.model-policy",
             Self::ToolGrantPolicy => "slot.tool-grants",
+            Self::BudgetPolicy => "slot.budget",
+            Self::DryRunPolicy => "slot.dry-run",
             Self::VerifierPolicy => "slot.verifier",
             Self::ApprovalPolicy => "slot.approval",
             Self::OutputPolicy => "slot.output-policy",
             Self::MemoryPolicy => "slot.memory-policy",
+            Self::QualityLedgerPolicy => "slot.quality-ledger",
             Self::RetryRepairPolicy => "slot.retry-repair",
+            Self::HandoffPolicy => "slot.handoff",
         }
     }
 }
@@ -256,11 +332,18 @@ pub enum HarnessBindingError {
     MissingHash,
 }
 
-const DEFAULT_HARNESS_FLOW: [HarnessComponentKind; 20] = [
+const DEFAULT_HARNESS_FLOW: &[HarnessComponentKind] = &[
     HarnessComponentKind::Planner,
+    HarnessComponentKind::PromptAssembler,
+    HarnessComponentKind::TaskState,
+    HarnessComponentKind::UncertaintyGate,
+    HarnessComponentKind::ProbeRunner,
+    HarnessComponentKind::BudgetGate,
+    HarnessComponentKind::CapabilitySequencer,
     HarnessComponentKind::ModelRouter,
     HarnessComponentKind::ModelCall,
     HarnessComponentKind::ToolRouter,
+    HarnessComponentKind::DryRunSimulator,
     HarnessComponentKind::PolicyGate,
     HarnessComponentKind::ApprovalGate,
     HarnessComponentKind::WalletCapability,
@@ -270,13 +353,19 @@ const DEFAULT_HARNESS_FLOW: [HarnessComponentKind; 20] = [
     HarnessComponentKind::ConnectorCall,
     HarnessComponentKind::MemoryRead,
     HarnessComponentKind::MemoryWrite,
+    HarnessComponentKind::SemanticImpactAnalyzer,
+    HarnessComponentKind::PostconditionSynthesizer,
     HarnessComponentKind::Verifier,
+    HarnessComponentKind::DriftDetector,
     HarnessComponentKind::RetryPolicy,
     HarnessComponentKind::RepairLoop,
     HarnessComponentKind::MergeJudge,
+    HarnessComponentKind::HandoffBridge,
     HarnessComponentKind::CompletionGate,
     HarnessComponentKind::ReceiptWriter,
+    HarnessComponentKind::QualityLedger,
     HarnessComponentKind::OutputWriter,
+    HarnessComponentKind::GuiHarnessValidator,
 ];
 
 fn strings(values: &[&str]) -> Vec<String> {
@@ -286,10 +375,25 @@ fn strings(values: &[&str]) -> Vec<String> {
 fn component_scope(kind: HarnessComponentKind) -> Vec<String> {
     match kind {
         HarnessComponentKind::Planner => strings(&["reasoning.read", "session.state.read"]),
+        HarnessComponentKind::PromptAssembler => {
+            strings(&["prompt.assemble", "session.state.read", "evidence.read"])
+        }
+        HarnessComponentKind::TaskState => {
+            strings(&["session.state.read", "session.state.write", "evidence.read"])
+        }
+        HarnessComponentKind::UncertaintyGate => {
+            strings(&["uncertainty.assess", "session.state.read"])
+        }
+        HarnessComponentKind::ProbeRunner => strings(&["probe.plan", "probe.run"]),
+        HarnessComponentKind::BudgetGate => strings(&["budget.evaluate"]),
+        HarnessComponentKind::CapabilitySequencer => {
+            strings(&["capability.read", "tool.route", "quality.read"])
+        }
         HarnessComponentKind::ModelRouter => strings(&["model.route"]),
         HarnessComponentKind::ModelCall => strings(&["model.invoke"]),
         HarnessComponentKind::ToolRouter => strings(&["tool.route", "capability.read"]),
         HarnessComponentKind::ToolCall => strings(&["tool.invoke"]),
+        HarnessComponentKind::DryRunSimulator => strings(&["dry_run.preview"]),
         HarnessComponentKind::McpProvider => strings(&["mcp.provider.read", "mcp.catalog.read"]),
         HarnessComponentKind::McpToolCall => strings(&["mcp.tool.invoke"]),
         HarnessComponentKind::ConnectorCall => strings(&["connector.invoke"]),
@@ -298,19 +402,41 @@ fn component_scope(kind: HarnessComponentKind) -> Vec<String> {
         HarnessComponentKind::WalletCapability => strings(&["wallet.request", "capability.grant"]),
         HarnessComponentKind::MemoryRead => strings(&["memory.read"]),
         HarnessComponentKind::MemoryWrite => strings(&["memory.write"]),
+        HarnessComponentKind::SemanticImpactAnalyzer => {
+            strings(&["impact.analyze", "workspace.read"])
+        }
+        HarnessComponentKind::PostconditionSynthesizer => {
+            strings(&["postcondition.synthesize", "evidence.read"])
+        }
         HarnessComponentKind::Verifier => strings(&["verification.run"]),
+        HarnessComponentKind::DriftDetector => strings(&["drift.detect", "session.state.read"]),
         HarnessComponentKind::OutputWriter => strings(&["output.write"]),
         HarnessComponentKind::ReceiptWriter => strings(&["receipt.write"]),
+        HarnessComponentKind::QualityLedger => strings(&["quality.write", "scorecard.read"]),
         HarnessComponentKind::RetryPolicy => strings(&["retry.evaluate"]),
         HarnessComponentKind::RepairLoop => strings(&["repair.propose"]),
         HarnessComponentKind::MergeJudge => strings(&["judgement.run"]),
+        HarnessComponentKind::HandoffBridge => strings(&["handoff.write", "session.state.read"]),
         HarnessComponentKind::CompletionGate => strings(&["completion.evaluate"]),
+        HarnessComponentKind::GuiHarnessValidator => strings(&["gui.validate", "trace.read"]),
     }
 }
 
 fn component_events(kind: HarnessComponentKind) -> Vec<String> {
     match kind {
         HarnessComponentKind::Planner => strings(&["PlanReceipt", "KernelEvent::PlanReceipt"]),
+        HarnessComponentKind::PromptAssembler => {
+            strings(&["PromptAssemblyContract", "AgentRuntimeEvent"])
+        }
+        HarnessComponentKind::TaskState => strings(&["TaskStateModel", "AgentRuntimeEvent"]),
+        HarnessComponentKind::UncertaintyGate => {
+            strings(&["UncertaintyAssessment", "AgentRuntimeEvent"])
+        }
+        HarnessComponentKind::ProbeRunner => strings(&["Probe", "AgentRuntimeEvent"]),
+        HarnessComponentKind::BudgetGate => strings(&["CognitiveBudget", "AgentRuntimeEvent"]),
+        HarnessComponentKind::CapabilitySequencer => {
+            strings(&["CapabilitySequence", "AgentRuntimeEvent"])
+        }
         HarnessComponentKind::ModelRouter => {
             strings(&["RoutingReceipt", "KernelEvent::RoutingReceipt"])
         }
@@ -319,6 +445,9 @@ fn component_events(kind: HarnessComponentKind) -> Vec<String> {
         }
         HarnessComponentKind::ToolRouter => strings(&["RoutingReceipt", "ActionDispatchPrepared"]),
         HarnessComponentKind::ToolCall => strings(&["AgentActionResult", "WorkloadReceipt"]),
+        HarnessComponentKind::DryRunSimulator => {
+            strings(&["DryRunCapability", "AgentRuntimeEvent"])
+        }
         HarnessComponentKind::McpProvider => strings(&["McpServerCatalogued", "CapabilityLease"]),
         HarnessComponentKind::McpToolCall => {
             strings(&["AgentActionResult", "ExecutionContractReceipt"])
@@ -331,19 +460,31 @@ fn component_events(kind: HarnessComponentKind) -> Vec<String> {
         }
         HarnessComponentKind::MemoryRead => strings(&["WorkloadReceipt::MemoryRetrieve"]),
         HarnessComponentKind::MemoryWrite => strings(&["StateUpdate", "WorkloadReceipt"]),
+        HarnessComponentKind::SemanticImpactAnalyzer => {
+            strings(&["SemanticImpactAnalysis", "AgentRuntimeEvent"])
+        }
+        HarnessComponentKind::PostconditionSynthesizer => {
+            strings(&["PostconditionSynthesis", "ExecutionContractReceipt"])
+        }
         HarnessComponentKind::Verifier => {
             strings(&["ExecutionContractReceipt", "VerificationReceipt"])
         }
+        HarnessComponentKind::DriftDetector => strings(&["DriftSignal", "AgentRuntimeEvent"]),
         HarnessComponentKind::OutputWriter => strings(&["OutputWritten", "AgentActionResult"]),
         HarnessComponentKind::ReceiptWriter => {
             strings(&["ExecutionContractReceipt", "PlanReceipt", "WorkloadReceipt"])
         }
+        HarnessComponentKind::QualityLedger => strings(&["AgentQualityLedger", "Scorecard"]),
         HarnessComponentKind::RetryPolicy => strings(&["RetryScheduled", "RetryExhausted"]),
         HarnessComponentKind::RepairLoop => {
             strings(&["RepairAttemptStarted", "RepairAttemptCompleted"])
         }
         HarnessComponentKind::MergeJudge => strings(&["MergeReceipt", "JudgementReceipt"]),
+        HarnessComponentKind::HandoffBridge => strings(&["HandoffQuality", "AgentRuntimeEvent"]),
         HarnessComponentKind::CompletionGate => strings(&["CompletionGateReceipt", "PlanReceipt"]),
+        HarnessComponentKind::GuiHarnessValidator => {
+            strings(&["AutopilotGuiHarnessValidationContract", "Scorecard"])
+        }
     }
 }
 
@@ -352,6 +493,42 @@ fn component_evidence(kind: HarnessComponentKind) -> Vec<String> {
         HarnessComponentKind::Planner => {
             strings(&["plan_id", "planner_policy_hash", "chosen_step_reason"])
         }
+        HarnessComponentKind::PromptAssembler => strings(&[
+            "sections",
+            "final_prompt_hash",
+            "conflict_resolutions",
+            "truncation_diagnostics",
+        ]),
+        HarnessComponentKind::TaskState => strings(&[
+            "objective",
+            "known_facts",
+            "uncertain_facts",
+            "evidence_refs",
+        ]),
+        HarnessComponentKind::UncertaintyGate => strings(&[
+            "ambiguity_level",
+            "value_of_information",
+            "selected_action",
+            "rationale",
+        ]),
+        HarnessComponentKind::ProbeRunner => strings(&[
+            "hypothesis",
+            "expected_observation",
+            "result",
+            "confidence_update",
+        ]),
+        HarnessComponentKind::BudgetGate => strings(&[
+            "max_tool_calls",
+            "max_retries",
+            "max_wall_time_ms",
+            "stop_threshold",
+        ]),
+        HarnessComponentKind::CapabilitySequencer => strings(&[
+            "discovered",
+            "selected",
+            "ordered_steps",
+            "retired_or_deprioritized",
+        ]),
         HarnessComponentKind::ModelRouter => {
             strings(&["model_policy_slot", "candidate_models", "routing_reason"])
         }
@@ -364,6 +541,11 @@ fn component_evidence(kind: HarnessComponentKind) -> Vec<String> {
         HarnessComponentKind::ToolCall => {
             strings(&["action_request_id", "tool_ref", "result_hash"])
         }
+        HarnessComponentKind::DryRunSimulator => strings(&[
+            "capability_id",
+            "supported_tool_classes",
+            "side_effect_preview",
+        ]),
         HarnessComponentKind::McpProvider => strings(&["server_id", "catalog_hash", "grant_scope"]),
         HarnessComponentKind::McpToolCall => {
             strings(&["server_id", "tool_name", "argument_hash", "result_hash"])
@@ -382,15 +564,36 @@ fn component_evidence(kind: HarnessComponentKind) -> Vec<String> {
         }
         HarnessComponentKind::MemoryRead => strings(&["memory_key", "state_hash"]),
         HarnessComponentKind::MemoryWrite => strings(&["memory_key", "previous_hash", "next_hash"]),
+        HarnessComponentKind::SemanticImpactAnalyzer => strings(&[
+            "changed_symbols",
+            "affected_tests",
+            "risk_class",
+            "unknowns",
+        ]),
+        HarnessComponentKind::PostconditionSynthesizer => {
+            strings(&["objective", "checks", "minimum_evidence", "unknowns"])
+        }
         HarnessComponentKind::Verifier => {
             strings(&["schema_hash", "contract_key", "verification_result"])
         }
+        HarnessComponentKind::DriftDetector => strings(&[
+            "plan_drift",
+            "file_drift",
+            "policy_drift",
+            "projection_state_drift",
+        ]),
         HarnessComponentKind::OutputWriter => {
             strings(&["output_hash", "delivery_target", "output_policy_slot"])
         }
         HarnessComponentKind::ReceiptWriter => {
             strings(&["receipt_id", "node_id", "evidence_commit_hash"])
         }
+        HarnessComponentKind::QualityLedger => strings(&[
+            "ledger_id",
+            "task_family",
+            "scorecard_metrics",
+            "stop_condition",
+        ]),
         HarnessComponentKind::RetryPolicy => strings(&["attempt", "max_attempts", "retry_reason"]),
         HarnessComponentKind::RepairLoop => {
             strings(&["failure_ref", "repair_strategy", "bounded_targets"])
@@ -398,9 +601,20 @@ fn component_evidence(kind: HarnessComponentKind) -> Vec<String> {
         HarnessComponentKind::MergeJudge => {
             strings(&["candidate_hashes", "winner_reason", "judge_policy_hash"])
         }
+        HarnessComponentKind::HandoffBridge => strings(&[
+            "objective_preserved",
+            "blockers_included",
+            "evidence_refs_included",
+        ]),
         HarnessComponentKind::CompletionGate => {
             strings(&["completion_contract", "pending_actions", "final_decision"])
         }
+        HarnessComponentKind::GuiHarnessValidator => strings(&[
+            "launch_command",
+            "retained_queries",
+            "screenshots",
+            "scorecard",
+        ]),
     }
 }
 
@@ -408,6 +622,7 @@ fn approval_for(kind: HarnessComponentKind) -> HarnessApprovalSemantics {
     let required = matches!(
         kind,
         HarnessComponentKind::ToolCall
+            | HarnessComponentKind::DryRunSimulator
             | HarnessComponentKind::McpToolCall
             | HarnessComponentKind::ConnectorCall
             | HarnessComponentKind::ApprovalGate
@@ -436,15 +651,19 @@ pub fn default_harness_component_spec(kind: HarnessComponentKind) -> HarnessComp
     let max_attempts = match kind {
         HarnessComponentKind::RetryPolicy => 3,
         HarnessComponentKind::RepairLoop
+        | HarnessComponentKind::ProbeRunner
         | HarnessComponentKind::ModelCall
         | HarnessComponentKind::ToolCall
+        | HarnessComponentKind::DryRunSimulator
         | HarnessComponentKind::McpToolCall
         | HarnessComponentKind::ConnectorCall => 2,
         _ => 1,
     };
     let timeout_ms = match kind {
         HarnessComponentKind::ModelCall => 120_000,
+        HarnessComponentKind::GuiHarnessValidator => 600_000,
         HarnessComponentKind::ToolCall
+        | HarnessComponentKind::DryRunSimulator
         | HarnessComponentKind::McpToolCall
         | HarnessComponentKind::ConnectorCall => 60_000,
         _ => 30_000,
@@ -484,6 +703,12 @@ pub fn default_agent_harness_components() -> Vec<HarnessComponentSpec> {
 
 fn slot_kinds_for_component(kind: HarnessComponentKind) -> Vec<HarnessSlotKind> {
     match kind {
+        HarnessComponentKind::Planner
+        | HarnessComponentKind::PromptAssembler
+        | HarnessComponentKind::TaskState
+        | HarnessComponentKind::UncertaintyGate
+        | HarnessComponentKind::CapabilitySequencer
+        | HarnessComponentKind::DriftDetector => vec![HarnessSlotKind::StatePolicy],
         HarnessComponentKind::ModelRouter | HarnessComponentKind::ModelCall => {
             vec![HarnessSlotKind::ModelPolicy]
         }
@@ -492,18 +717,26 @@ fn slot_kinds_for_component(kind: HarnessComponentKind) -> Vec<HarnessSlotKind> 
         | HarnessComponentKind::McpProvider
         | HarnessComponentKind::McpToolCall
         | HarnessComponentKind::ConnectorCall => vec![HarnessSlotKind::ToolGrantPolicy],
+        HarnessComponentKind::BudgetGate => vec![HarnessSlotKind::BudgetPolicy],
+        HarnessComponentKind::DryRunSimulator => vec![HarnessSlotKind::DryRunPolicy],
         HarnessComponentKind::PolicyGate
         | HarnessComponentKind::ApprovalGate
         | HarnessComponentKind::WalletCapability => vec![HarnessSlotKind::ApprovalPolicy],
         HarnessComponentKind::MemoryRead | HarnessComponentKind::MemoryWrite => {
             vec![HarnessSlotKind::MemoryPolicy]
         }
-        HarnessComponentKind::Verifier | HarnessComponentKind::CompletionGate => {
+        HarnessComponentKind::SemanticImpactAnalyzer
+        | HarnessComponentKind::PostconditionSynthesizer
+        | HarnessComponentKind::Verifier
+        | HarnessComponentKind::CompletionGate => {
             vec![HarnessSlotKind::VerifierPolicy]
         }
-        HarnessComponentKind::OutputWriter | HarnessComponentKind::ReceiptWriter => {
+        HarnessComponentKind::OutputWriter
+        | HarnessComponentKind::ReceiptWriter
+        | HarnessComponentKind::GuiHarnessValidator => {
             vec![HarnessSlotKind::OutputPolicy]
         }
+        HarnessComponentKind::QualityLedger => vec![HarnessSlotKind::QualityLedgerPolicy],
         HarnessComponentKind::RetryPolicy | HarnessComponentKind::RepairLoop => {
             vec![HarnessSlotKind::RetryRepairPolicy]
         }
@@ -513,12 +746,34 @@ fn slot_kinds_for_component(kind: HarnessComponentKind) -> Vec<HarnessSlotKind> 
                 HarnessSlotKind::VerifierPolicy,
             ]
         }
-        HarnessComponentKind::Planner => vec![],
+        HarnessComponentKind::ProbeRunner => vec![
+            HarnessSlotKind::StatePolicy,
+            HarnessSlotKind::ToolGrantPolicy,
+            HarnessSlotKind::BudgetPolicy,
+        ],
+        HarnessComponentKind::HandoffBridge => vec![HarnessSlotKind::HandoffPolicy],
     }
 }
 
 pub fn default_agent_harness_slots() -> Vec<HarnessSlotSpec> {
     vec![
+        HarnessSlotSpec {
+            slot_id: HarnessSlotKind::StatePolicy.slot_id().to_string(),
+            kind: HarnessSlotKind::StatePolicy,
+            label: "Task state and strategy policy".to_string(),
+            required: true,
+            allowed_component_kinds: vec![
+                HarnessComponentKind::Planner,
+                HarnessComponentKind::PromptAssembler,
+                HarnessComponentKind::TaskState,
+                HarnessComponentKind::UncertaintyGate,
+                HarnessComponentKind::ProbeRunner,
+                HarnessComponentKind::CapabilitySequencer,
+                HarnessComponentKind::DriftDetector,
+            ],
+            default_component_id: HarnessComponentKind::TaskState.component_id(),
+            blocks_activation: true,
+        },
         HarnessSlotSpec {
             slot_id: HarnessSlotKind::ModelPolicy.slot_id().to_string(),
             kind: HarnessSlotKind::ModelPolicy,
@@ -547,11 +802,34 @@ pub fn default_agent_harness_slots() -> Vec<HarnessSlotSpec> {
             blocks_activation: true,
         },
         HarnessSlotSpec {
+            slot_id: HarnessSlotKind::BudgetPolicy.slot_id().to_string(),
+            kind: HarnessSlotKind::BudgetPolicy,
+            label: "Cognitive budget policy".to_string(),
+            required: true,
+            allowed_component_kinds: vec![
+                HarnessComponentKind::BudgetGate,
+                HarnessComponentKind::ProbeRunner,
+            ],
+            default_component_id: HarnessComponentKind::BudgetGate.component_id(),
+            blocks_activation: true,
+        },
+        HarnessSlotSpec {
+            slot_id: HarnessSlotKind::DryRunPolicy.slot_id().to_string(),
+            kind: HarnessSlotKind::DryRunPolicy,
+            label: "Dry-run policy".to_string(),
+            required: true,
+            allowed_component_kinds: vec![HarnessComponentKind::DryRunSimulator],
+            default_component_id: HarnessComponentKind::DryRunSimulator.component_id(),
+            blocks_activation: true,
+        },
+        HarnessSlotSpec {
             slot_id: HarnessSlotKind::VerifierPolicy.slot_id().to_string(),
             kind: HarnessSlotKind::VerifierPolicy,
             label: "Verifier policy".to_string(),
             required: true,
             allowed_component_kinds: vec![
+                HarnessComponentKind::SemanticImpactAnalyzer,
+                HarnessComponentKind::PostconditionSynthesizer,
                 HarnessComponentKind::Verifier,
                 HarnessComponentKind::MergeJudge,
                 HarnessComponentKind::CompletionGate,
@@ -580,6 +858,7 @@ pub fn default_agent_harness_slots() -> Vec<HarnessSlotSpec> {
             allowed_component_kinds: vec![
                 HarnessComponentKind::OutputWriter,
                 HarnessComponentKind::ReceiptWriter,
+                HarnessComponentKind::GuiHarnessValidator,
             ],
             default_component_id: HarnessComponentKind::OutputWriter.component_id(),
             blocks_activation: true,
@@ -597,6 +876,15 @@ pub fn default_agent_harness_slots() -> Vec<HarnessSlotSpec> {
             blocks_activation: true,
         },
         HarnessSlotSpec {
+            slot_id: HarnessSlotKind::QualityLedgerPolicy.slot_id().to_string(),
+            kind: HarnessSlotKind::QualityLedgerPolicy,
+            label: "Quality ledger policy".to_string(),
+            required: true,
+            allowed_component_kinds: vec![HarnessComponentKind::QualityLedger],
+            default_component_id: HarnessComponentKind::QualityLedger.component_id(),
+            blocks_activation: true,
+        },
+        HarnessSlotSpec {
             slot_id: HarnessSlotKind::RetryRepairPolicy.slot_id().to_string(),
             kind: HarnessSlotKind::RetryRepairPolicy,
             label: "Retry and repair policy".to_string(),
@@ -607,6 +895,15 @@ pub fn default_agent_harness_slots() -> Vec<HarnessSlotSpec> {
                 HarnessComponentKind::MergeJudge,
             ],
             default_component_id: HarnessComponentKind::RetryPolicy.component_id(),
+            blocks_activation: true,
+        },
+        HarnessSlotSpec {
+            slot_id: HarnessSlotKind::HandoffPolicy.slot_id().to_string(),
+            kind: HarnessSlotKind::HandoffPolicy,
+            label: "Handoff policy".to_string(),
+            required: true,
+            allowed_component_kinds: vec![HarnessComponentKind::HandoffBridge],
+            default_component_id: HarnessComponentKind::HandoffBridge.component_id(),
             blocks_activation: true,
         },
     ]
