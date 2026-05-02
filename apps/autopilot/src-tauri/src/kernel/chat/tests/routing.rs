@@ -246,3 +246,103 @@ fn destructive_repository_request_routes_to_policy_block_without_router() {
         .decision_evidence
         .contains(&"destructive_repository_request".to_string()));
 }
+
+#[test]
+fn explicit_install_request_routes_to_runtime_not_direct_inline() {
+    for prompt in [
+        "install lmstudio",
+        "[Codebase context]\nWorkspace: .\n\n[User request]\ninstall lmstudio",
+    ] {
+        let runtime: Arc<dyn InferenceRuntime> = Arc::new(SlowChatOutcomeTestRuntime {
+            payload: String::new(),
+            delay: Duration::from_secs(5),
+            provenance: None,
+        });
+
+        let outcome = chat_outcome_request_with_runtime_timeout(
+            runtime,
+            prompt,
+            None,
+            None,
+            None,
+            Duration::from_millis(1),
+        )
+        .expect("install request should route deterministically");
+        let route_decision = route_decision_for_outcome_request(&outcome);
+
+        assert_eq!(outcome.outcome_kind, ChatOutcomeKind::Conversation);
+        assert_eq!(
+            route_decision.route_family, "command_execution",
+            "install requests should project a command-execution route family"
+        );
+        assert_eq!(route_decision.output_intent, "tool_execution");
+        assert!(!route_decision.direct_answer_allowed);
+        assert!(route_decision
+            .direct_answer_blockers
+            .contains(&"local_install_requested".to_string()));
+        assert!(route_decision
+            .effective_tool_surface
+            .primary_tools
+            .contains(&"software_install__execute_plan".to_string()));
+    }
+}
+
+#[test]
+fn install_route_seed_publishes_structured_outcome_before_runtime_bootstrap() {
+    let mut task = empty_task("install lmstudio");
+
+    assert!(seed_task_route_from_intent_signals(
+        &mut task,
+        "install lmstudio"
+    ));
+    let outcome = task.chat_outcome.as_ref().expect("seeded outcome");
+    let route_decision = route_decision_for_outcome_request(outcome);
+
+    assert!(outcome
+        .decision_evidence
+        .contains(&"local_install_requested".to_string()));
+    assert_eq!(route_decision.output_intent, "tool_execution");
+    assert!(!route_decision.direct_answer_allowed);
+    assert!(task.events.iter().any(|event| {
+        event.title == "Chat route selected"
+            && event
+                .digest
+                .get("selected_route")
+                .and_then(|value| value.as_str())
+                == Some("install lmstudio")
+    }));
+}
+
+#[test]
+fn install_routing_keeps_product_identity_out_of_route_selection() {
+    let runtime: Arc<dyn InferenceRuntime> = Arc::new(SlowChatOutcomeTestRuntime {
+        payload: String::new(),
+        delay: Duration::from_secs(5),
+        provenance: None,
+    });
+
+    let outcome = chat_outcome_request_with_runtime_timeout(
+        runtime,
+        "install autopilot",
+        None,
+        None,
+        None,
+        Duration::from_millis(1),
+    )
+    .expect("autopilot install request should route deterministically");
+
+    assert!(outcome
+        .decision_evidence
+        .contains(&"software_install_target_text:autopilot".to_string()));
+    assert!(outcome
+        .decision_evidence
+        .contains(&"install_intent_class:local_software_install".to_string()));
+    assert!(!outcome
+        .decision_evidence
+        .iter()
+        .any(|evidence| evidence.starts_with("product_identity:")));
+    assert!(!outcome
+        .decision_evidence
+        .iter()
+        .any(|evidence| evidence.to_ascii_lowercase().contains("copilot")));
+}

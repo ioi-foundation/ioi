@@ -38,15 +38,15 @@ This guide implements the entirety of:
 
 It must stay aligned with:
 
-- [runtime-package-boundaries.md](../architecture/operations/runtime-package-boundaries.md)
-- [runtime-vocabulary.md](../architecture/operations/runtime-vocabulary.md)
-- [ioi-cli-daemon-runtime.md](../architecture/runtime/ioi-cli-daemon-runtime.md)
-- [wallet-network-authority-layer.md](../architecture/authority/wallet-network-authority-layer.md)
-- [model-router-byok-run-to-idle.md](../architecture/runtime/model-router-byok-run-to-idle.md)
-- [connectors-tools-and-authority-registry.md](../architecture/tools/connectors-tools-and-authority-registry.md)
-- [security-privacy-and-policy-invariants.md](../architecture/foundations/security-privacy-and-policy-invariants.md)
-- [conformance/CIRC.md](../architecture/conformance/CIRC.md)
-- [conformance/CEC.md](../architecture/conformance/CEC.md)
+- [runtime-package-boundaries.md](../implementation/runtime-package-boundaries.md)
+- [runtime-vocabulary.md](../architecture/_meta/vocabulary.md)
+- [ioi-cli-daemon-runtime.md](../architecture/components/daemon-runtime/doctrine.md)
+- [wallet-network-authority-layer.md](../architecture/components/wallet-network/doctrine.md)
+- [model-router-byok-run-to-idle.md](../architecture/components/model-router/doctrine.md)
+- [connectors-tools-and-authority-registry.md](../architecture/components/connectors-tools/doctrine.md)
+- [security-privacy-and-policy-invariants.md](../architecture/foundations/security-privacy-policy-invariants.md)
+- [conformance/CIRC.md](../conformance/agentic-runtime/CIRC.md)
+- [conformance/CEC.md](../conformance/agentic-runtime/CEC.md)
 - [pre-next-leg-cleanup-checklist.md](./pre-next-leg-cleanup-checklist.md)
 - [cursor-sdk-harness-parity-plus-master-guide.md](../specs/runtime/cursor-sdk-harness-parity-plus-master-guide.md)
 

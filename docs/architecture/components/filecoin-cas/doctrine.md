@@ -1,10 +1,10 @@
 # Filecoin / CAS / CDN Artifact Plane Specification
 
 Status: canonical architecture authority.
-Canonical owner: this file for artifact/payload availability doctrine; low-level artifact APIs live in [`filecoin-cas-api-and-artifact-refs.md`](./filecoin-cas-api-and-artifact-refs.md).
+Canonical owner: this file for artifact/payload availability doctrine; low-level artifact APIs live in [`filecoin-cas-api-and-artifact-refs.md`](./api-artifact-refs.md).
 Supersedes: overlapping artifact-storage prose when payload authority conflicts.
 Superseded by: none.
-Last alignment pass: 2026-05-01.
+Last alignment pass: 2026-05-02.
 
 ## Canonical Definition
 
@@ -19,6 +19,51 @@ Trust comes from:
 - Agentgres refs;
 - receipt bundles;
 - IOI L1 commitments when applicable.
+
+## Relationship To Agentgres
+
+Filecoin/CAS is not the live Agentgres database. It is the
+content-addressed payload and evidence availability layer.
+
+Agentgres stores canonical operational state in its own domain-local state
+engine: operations, object heads, constraints, indexes, projections,
+subscriptions, receipt metadata, delivery state, and quality/contribution
+ledgers. Filecoin/CAS stores immutable payload bytes and large bundles that
+Agentgres references by hash/CID.
+
+The boundary is:
+
+```text
+Agentgres:
+  hot operational state
+  canonical operation log
+  object heads
+  indexes
+  constraints
+  projections
+  subscriptions
+  receipt metadata
+  artifact refs
+  delivery state
+  quality/contribution ledgers
+
+Filecoin / CAS / CDN:
+  worker packages
+  model artifacts
+  large files
+  reports
+  screenshots/videos
+  evidence bundles
+  trace bundles
+  projection checkpoints
+  historical snapshots
+  encrypted archives
+```
+
+Snapshots and projection checkpoints stored here are immutable evidence/export
+objects. They can accelerate repair, replay, audit, cold storage, or client
+hydration, but they do not replace the Agentgres operation log or live object
+state.
 
 ## What It Stores
 
@@ -47,6 +92,10 @@ The artifact plane may store:
 It does not own:
 
 - canonical application state;
+- Agentgres object heads;
+- Agentgres indexes or projections;
+- Agentgres subscription state;
+- Agentgres transaction admission;
 - wallet authority;
 - IOI L1 settlement;
 - worker license rights;

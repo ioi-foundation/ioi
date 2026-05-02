@@ -1,7 +1,7 @@
 # aiagent.xyz Worker Marketplace Specification
 
 Status: canonical architecture authority.
-Canonical owner: this file for aiagent.xyz marketplace doctrine; low-level worker endpoints live in [`aiagent-xyz-agent-and-worker-endpoints.md`](./aiagent-xyz-agent-and-worker-endpoints.md).
+Canonical owner: this file for aiagent.xyz marketplace doctrine; low-level worker endpoints live in [`aiagent-xyz-agent-and-worker-endpoints.md`](./worker-endpoints.md).
 Supersedes: overlapping worker-marketplace plan prose when marketplace boundaries conflict.
 Superseded by: none.
 Last alignment pass: 2026-05-01.
@@ -168,7 +168,7 @@ The following module preserves product-positioning and demand-side marketplace c
 
 # `aiagent.xyz` v1.0 Product Spec
 
-Status: preserved product-context reference; current marketplace architecture remains weighted to [`aiagent-xyz-worker-marketplace.md`](./aiagent-xyz-worker-marketplace.md) when product positioning or mechanics disagree.
+Status: preserved product-context reference; current marketplace architecture remains weighted to [`aiagent-xyz-worker-marketplace.md`](./worker-marketplace.md) when product positioning or mechanics disagree.
 Context owner: this file for aiagent.xyz product positioning, demand-side UX, procurement loops, and market context.
 Supersedes: `docs/specs/aiagent_xyz.md`.
 Superseded by: none.
@@ -198,7 +198,7 @@ That means:
 
 * providers package and operate services in `sas.xyz`
 * operators run workers privately in `Autopilot`
-* domain authors instantiate sovereign domains in `Forge`
+* domain authors instantiate sovereign domains through `IOI CLI`
 * end users express intent in `ioi.ai`
 * buyers discover or procure in `aiagent.xyz`
 
@@ -262,11 +262,11 @@ Private/local operator shell and worker runtime.
 
 Provider OS for packaging, deploying, billing, and operating services.
 
-## 3.3 `Forge`
+## 3.3 `IOI CLI`
 
 **Instantiate sovereign domains**
 
-Kernel-adjacent L0 surface for intelligent blockchains and sovereign autonomous domains.
+Kernel-adjacent command surface for intelligent blockchains and sovereign autonomous domains.
 
 ## 3.4 `aiagent.xyz`
 

@@ -105,14 +105,14 @@ Desktop builds require the usual Tauri system dependencies for your platform.
 ## Read Next
 
 - [`docs/architecture/README.md`](docs/architecture/README.md) - architecture navigation and source-of-authority index.
-- [`docs/architecture/foundations/canonical-web4-and-ioi-stack.md`](docs/architecture/foundations/canonical-web4-and-ioi-stack.md) - the canonical Web4 definition.
-- [`docs/architecture/runtime/ioi-cli-daemon-runtime.md`](docs/architecture/runtime/ioi-cli-daemon-runtime.md) - daemon, CLI, and operator-surface boundaries.
-- [`docs/architecture/runtime/ioi-daemon-runtime-api.md`](docs/architecture/runtime/ioi-daemon-runtime-api.md) - public runtime API.
-- [`docs/architecture/state/agentgres-state-substrate.md`](docs/architecture/state/agentgres-state-substrate.md) - Agentgres and canonical operational truth.
-- [`docs/architecture/authority/wallet-network-authority-layer.md`](docs/architecture/authority/wallet-network-authority-layer.md) - wallet.network authority plane.
-- [`docs/architecture/conformance/CIRC.md`](docs/architecture/conformance/CIRC.md) - intent-resolution invariant.
-- [`docs/architecture/conformance/CEC.md`](docs/architecture/conformance/CEC.md) - completion-evidence invariant.
-- [`docs/architecture/consensus/README.md`](docs/architecture/consensus/README.md) - AFT consensus corpus.
+- [`docs/architecture/foundations/web4-and-ioi-stack.md`](docs/architecture/foundations/web4-and-ioi-stack.md) - the canonical Web4 definition.
+- [`docs/architecture/components/daemon-runtime/doctrine.md`](docs/architecture/components/daemon-runtime/doctrine.md) - daemon, CLI, and operator-surface boundaries.
+- [`docs/architecture/components/daemon-runtime/api.md`](docs/architecture/components/daemon-runtime/api.md) - public runtime API.
+- [`docs/architecture/components/agentgres/doctrine.md`](docs/architecture/components/agentgres/doctrine.md) - Agentgres and canonical operational truth.
+- [`docs/architecture/components/wallet-network/doctrine.md`](docs/architecture/components/wallet-network/doctrine.md) - wallet.network authority plane.
+- [`docs/conformance/agentic-runtime/CIRC.md`](docs/conformance/agentic-runtime/CIRC.md) - intent-resolution invariant.
+- [`docs/conformance/agentic-runtime/CEC.md`](docs/conformance/agentic-runtime/CEC.md) - completion-evidence invariant.
+- [`docs/architecture/protocols/aft/README.md`](docs/architecture/protocols/aft/README.md) - AFT consensus corpus.
 
 ## Status
 

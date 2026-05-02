@@ -1,7 +1,9 @@
 use super::{
     automation_artifact_path_from_output, completion_message_for_history, is_chat_reply_tool,
-    is_planner_execute_tool, truncate_message_chars,
+    is_planner_execute_tool, should_preserve_existing_operator_gate, truncate_message_chars,
 };
+use crate::models::{AgentPhase, AgentTask, GateInfo};
+use std::collections::HashSet;
 
 #[test]
 fn chat_reply_tool_detection_is_case_insensitive() {
@@ -54,4 +56,64 @@ fn automation_artifact_path_is_parsed_from_tool_output() {
         path,
         std::path::PathBuf::from("/tmp/ioi-data/automation/artifacts/monitor_hn.json")
     );
+}
+
+fn gated_task() -> AgentTask {
+    let mut task = AgentTask {
+        id: "install-session".to_string(),
+        intent: "install lmstudio".to_string(),
+        agent: "Autopilot".to_string(),
+        phase: AgentPhase::Gate,
+        progress: 0,
+        total_steps: 1,
+        current_step: "Awaiting install approval: LM Studio".to_string(),
+        gate_info: None,
+        receipt: None,
+        visual_hash: None,
+        pending_request_hash: None,
+        session_id: Some("install-session".to_string()),
+        credential_request: None,
+        clarification_request: None,
+        session_checklist: Vec::new(),
+        background_tasks: Vec::new(),
+        history: Vec::new(),
+        events: Vec::new(),
+        artifacts: Vec::new(),
+        chat_session: None,
+        chat_outcome: None,
+        renderer_session: None,
+        build_session: None,
+        run_bundle_id: None,
+        processed_steps: HashSet::new(),
+        work_graph_tree: Vec::new(),
+        generation: 0,
+        lineage_id: "genesis".to_string(),
+        fitness_score: 0.0,
+    };
+    task.phase = AgentPhase::Gate;
+    task.gate_info = Some(GateInfo {
+        title: "Approve software install".to_string(),
+        description: "Resolver-backed install approval is pending.".to_string(),
+        risk: "high".to_string(),
+        approve_label: Some("Approve install".to_string()),
+        deny_label: Some("Deny".to_string()),
+        deadline_ms: None,
+        surface_label: Some("Host system".to_string()),
+        scope_label: Some("Software install".to_string()),
+        operation_label: Some("Install".to_string()),
+        target_label: Some("LM Studio".to_string()),
+        operator_note: None,
+        pii: None,
+    });
+    task.pending_request_hash = Some("approval-hash".to_string());
+    task
+}
+
+#[test]
+fn action_result_preserves_existing_operator_gate_until_decision() {
+    let task = gated_task();
+
+    assert!(should_preserve_existing_operator_gate(&task, "Completed"));
+    assert!(should_preserve_existing_operator_gate(&task, "Paused"));
+    assert!(!should_preserve_existing_operator_gate(&task, "Failed"));
 }

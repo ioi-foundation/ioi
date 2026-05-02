@@ -1,3 +1,80 @@
+fn single_quoted_receipt_field(value: &str, field: &str) -> Option<String> {
+    let needle = format!("{field}='");
+    let (_, tail) = value.split_once(&needle)?;
+    let (field_value, _) = tail.split_once('\'')?;
+    let trimmed = field_value.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
+fn verification_phrase_for_install_summary(verification: Option<String>) -> String {
+    match verification
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        Some("current_exe_exists") => "Verification passed: current executable exists.".to_string(),
+        Some("package_manager_success_only") => {
+            "Verification passed: package manager reported success.".to_string()
+        }
+        Some(command) => format!("Verification passed with `{}`.", command),
+        None => "Verification passed.".to_string(),
+    }
+}
+
+pub fn install_operator_completion_summary(raw_summary: &str) -> Option<String> {
+    if !raw_summary.contains("SOFTWARE_INSTALL") {
+        return None;
+    }
+
+    let stage = single_quoted_receipt_field(raw_summary, "stage")?;
+    let display_name = single_quoted_receipt_field(raw_summary, "display_name")
+        .unwrap_or_else(|| "The requested software".to_string());
+    let manager = single_quoted_receipt_field(raw_summary, "manager")
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "the resolved installer".to_string());
+    let package_id = single_quoted_receipt_field(raw_summary, "package_id")
+        .filter(|value| !value.is_empty());
+    let verification =
+        single_quoted_receipt_field(raw_summary, "verification").filter(|value| {
+            !value.eq_ignore_ascii_case("unknown error")
+                && !value.eq_ignore_ascii_case("current_exe_exists")
+        });
+    let source = single_quoted_receipt_field(raw_summary, "source_discovery_url")
+        .or_else(|| single_quoted_receipt_field(raw_summary, "installer_url"));
+    let verification_phrase = verification_phrase_for_install_summary(verification);
+
+    match stage.as_str() {
+        "already_available" => Some(format!(
+            "{} is already available as the running IOI product. Verification passed before host mutation, so no installer command or approval was needed.",
+            display_name
+        )),
+        "already_installed" => Some(format!(
+            "{} is already installed. {} No installer command or approval was needed.",
+            display_name, verification_phrase
+        )),
+        "installed" => {
+            let installed_as = package_id
+                .as_deref()
+                .filter(|value| *value != display_name)
+                .map(|value| format!(" as `{}`", value))
+                .unwrap_or_default();
+            let source_suffix = source
+                .as_deref()
+                .map(|value| format!(" Source: {}.", value))
+                .unwrap_or_default();
+            Some(format!(
+                "Installed {}{} via {}. {}{}",
+                display_name, installed_as, manager, verification_phrase, source_suffix
+            ))
+        }
+        _ => None,
+    }
+}
+
 pub fn compose_terminal_chat_reply(summary: &str) -> TerminalReplyComposerOutcome {
     let trimmed = summary.trim();
     if trimmed.is_empty() {

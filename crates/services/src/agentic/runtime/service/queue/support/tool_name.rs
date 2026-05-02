@@ -105,7 +105,8 @@ pub(super) fn infer_custom_tool_name(name: &str, args: &serde_json::Value) -> St
         "sys::exec" => infer_sys_tool_name(args).to_string(),
         "sys::exec_session" => "shell__start".to_string(),
         "sys::exec_session_reset" => "shell__reset".to_string(),
-        "sys::install_package" => "package__install".to_string(),
+        "software::install_resolve" => "software_install__resolve".to_string(),
+        "software::install_execute" => "software_install__execute_plan".to_string(),
         _ => name.to_string(),
     }
 }
@@ -436,7 +437,12 @@ pub(super) fn queue_target_to_tool_name_and_args(
         ActionTarget::GuiInspect => Ok(("screen__inspect".to_string(), raw_args)),
         ActionTarget::GuiSequence => Ok(("screen".to_string(), raw_args)),
         ActionTarget::SysExec => Ok((infer_sys_tool_name(&raw_args).to_string(), raw_args)),
-        ActionTarget::SysInstallPackage => Ok(("package__install".to_string(), raw_args)),
+        ActionTarget::SoftwareInstallResolve => {
+            Ok(("software_install__resolve".to_string(), raw_args))
+        }
+        ActionTarget::SoftwareInstallExecute => {
+            Ok(("software_install__execute_plan".to_string(), raw_args))
+        }
         ActionTarget::WindowFocus => Ok(("window__focus".to_string(), raw_args)),
         ActionTarget::ClipboardWrite => Ok(("clipboard__copy".to_string(), raw_args)),
         ActionTarget::ClipboardRead => Ok(("clipboard__paste".to_string(), raw_args)),

@@ -204,6 +204,15 @@ fn emit_policy_decision_and_exit(
     exit_error: TransactionError,
 ) -> Result<TransactionError, TransactionError> {
     let firewall_receipt_hash = if let Some(state) = execution_state.as_deref_mut() {
+        if verdict == "REQUIRE_APPROVAL" {
+            state.insert(
+                &crate::agentic::runtime::keys::get_approval_policy_hash_key(
+                    &session_id,
+                    &determinism.request_hash,
+                ),
+                &determinism.policy_hash,
+            )?;
+        }
         let matched_rules = policy_record
             .map(PolicyEvaluationRecord::matched_rules_for_decision)
             .unwrap_or_else(|| vec![format!("default:{}", default_policy_label(rules))]);
@@ -399,6 +408,35 @@ async fn enforce_policy_and_record(
         os_driver,
     )
     .await;
+
+    if matches!(
+        determinism.request.target,
+        ActionTarget::SoftwareInstallExecute
+    ) && !is_approved
+    {
+        let mut install_gate_record = policy_record.clone();
+        install_gate_record
+            .matched_rule_ids
+            .push("cec:install_requires_explicit_approval".to_string());
+        log::info!(
+            "Policy Gate: CEC install approval invariant requires approval for hash: {}",
+            hex::encode(determinism.request_hash)
+        );
+        let exit = emit_policy_decision_and_exit(
+            service,
+            rules,
+            Some(&install_gate_record),
+            execution_state,
+            session_id,
+            step_index,
+            &determinism.target_str,
+            determinism,
+            "REQUIRE_APPROVAL",
+            PolicyVerdict::Block("install_requires_explicit_approval".to_string()),
+            TransactionError::PendingApproval(hex::encode(determinism.request_hash)),
+        )?;
+        return Err(exit);
+    }
 
     let firewall_verdict = match policy_record.verdict {
         Verdict::Allow => {

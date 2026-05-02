@@ -115,13 +115,14 @@ When the user asks what this run can expose, answer from these facts. Do not cla
 
     format!(
         "You are Autopilot Chat's direct inline reply path.\n\
-Answer the user's request directly.\n\
-Constraints:\n\
-- Answer in plain prose with no preamble about tools, routing, or process.\n\
-- Do not mention unavailable tools or system internals unless the user explicitly asks about runtime/tool/evidence visibility.\n\
-- Avoid markdown headings unless the user explicitly asked for structure.\n\
-- Keep the answer compact but complete for a normal chat turn.\n\
-- If the request truly cannot be answered safely without fresh external information, say that briefly instead of inventing details.\n\
+	Answer the user's request directly.\n\
+	Constraints:\n\
+	- Answer in plain prose with no preamble about tools, routing, or process.\n\
+	- Do not mention unavailable tools or system internals unless the user explicitly asks about runtime/tool/evidence visibility.\n\
+	- Product identity: unqualified Autopilot means IOI Autopilot, the app/repo currently running this chat. Do not switch to GitHub Copilot unless the user explicitly says GitHub Copilot or Copilot.\n\
+	- Avoid markdown headings unless the user explicitly asked for structure.\n\
+	- Keep the answer compact but complete for a normal chat turn.\n\
+	- If the request truly cannot be answered safely without fresh external information, say that briefly instead of inventing details.\n\
 \n\
 {runtime_context}\n\
 User request:\n{intent}\n"
@@ -142,6 +143,13 @@ fn workspace_grounded_route_stays_chat_primary(outcome_request: &ChatOutcomeRequ
 
 fn policy_blocked_route_stays_chat_primary(outcome_request: &ChatOutcomeRequest) -> bool {
     super::task_state::policy_blocked_route_stays_chat_primary(outcome_request)
+}
+
+fn outcome_request_is_local_install_runtime_route(outcome_request: &ChatOutcomeRequest) -> bool {
+    outcome_request
+        .decision_evidence
+        .iter()
+        .any(|hint| hint == "local_install_requested")
 }
 
 fn workspace_grounding_root() -> Option<PathBuf> {
@@ -1273,6 +1281,14 @@ pub fn maybe_prepare_task_for_chat(
     intent: &str,
 ) -> Result<(), String> {
     publish_current_task_progress(app, task, "Routing the request...");
+    if task
+        .chat_outcome
+        .as_ref()
+        .is_some_and(outcome_request_is_local_install_runtime_route)
+    {
+        publish_current_task_snapshot(app, task);
+        return Ok(());
+    }
     let active_artifact_id = task
         .chat_session
         .as_ref()
@@ -1364,6 +1380,12 @@ pub fn maybe_prepare_task_for_chat(
         }
     };
     task.chat_outcome = Some(outcome_request.clone());
+
+    if outcome_request_is_local_install_runtime_route(&outcome_request) {
+        super::task_state::detach_chat_primary_surface_for_runtime_handoff(task);
+        publish_current_task_snapshot(app, task);
+        return Ok(());
+    }
 
     if outcome_request.needs_clarification {
         let provenance = app_chat_routing_inference_runtime(app)
@@ -2072,6 +2094,10 @@ pub fn maybe_prepare_current_task_for_chat_turn(
         outcome_request.outcome_kind, outcome_request.decision_evidence
     );
 
+    let previous_outcome_request_id = task
+        .chat_outcome
+        .as_ref()
+        .map(|request| request.request_id.clone());
     task.chat_outcome = Some(outcome_request.clone());
 
     let previous_build_session_id = task
@@ -2085,10 +2111,6 @@ pub fn maybe_prepare_current_task_for_chat_turn(
     let previous_artifact_count = task.artifacts.len();
     let previous_phase = task.phase.clone();
     let previous_current_step = task.current_step.clone();
-    let previous_outcome_request_id = task
-        .chat_outcome
-        .as_ref()
-        .map(|request| request.request_id.clone());
     let previous_chat_lifecycle = task
         .chat_session
         .as_ref()
@@ -2101,6 +2123,38 @@ pub fn maybe_prepare_current_task_for_chat_turn(
         .chat_session
         .as_ref()
         .map(|session| session.artifact_manifest.files.len());
+
+    if outcome_request_is_local_install_runtime_route(&outcome_request) {
+        let detached_chat_primary_surface =
+            super::task_state::detach_chat_primary_surface_for_runtime_handoff(&mut task);
+        let outcome_changed = previous_outcome_request_id
+            != task
+                .chat_outcome
+                .as_ref()
+                .map(|request| request.request_id.clone());
+        if !outcome_changed && !detached_chat_primary_surface {
+            println!("[Autopilot][ChatContinue] follow-up produced no install route change");
+            return Ok(());
+        }
+        {
+            let mut guard = state
+                .lock()
+                .map_err(|_| "Failed to lock app state".to_string())?;
+            if let Some(current_task) = guard.current_task.as_mut() {
+                *current_task = task.clone();
+            }
+        }
+        if let Some(memory_runtime) = memory_runtime.as_ref() {
+            orchestrator::save_local_task_state(memory_runtime, &task);
+        }
+        let _ = app.emit("task-updated", &task);
+        println!("[Autopilot][ChatContinue] follow-up install route prepared for runtime handoff");
+        let app_clone = app.clone();
+        tauri::async_runtime::spawn(async move {
+            crate::kernel::session::emit_session_projection_update(&app_clone, false).await;
+        });
+        return Ok(());
+    }
 
     if outcome_request.outcome_kind == ChatOutcomeKind::Artifact
         && !outcome_request.needs_clarification

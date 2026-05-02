@@ -116,6 +116,7 @@ fn skill_prep_required_for_outcome_request(outcome_request: &ChatOutcomeRequest)
 fn narrow_tool_preference_for_outcome_request(outcome_request: &ChatOutcomeRequest) -> bool {
     tool_widget_family_hint(&outcome_request.decision_evidence).is_some()
         || normalized_request_surface_hint(outcome_request).is_some()
+        || local_install_request_for_outcome_request(outcome_request)
         || decision_evidence_item_flag(
             &outcome_request.decision_evidence,
             "narrow_surface_preferred",
@@ -132,6 +133,10 @@ fn narrow_tool_preference_for_outcome_request(outcome_request: &ChatOutcomeReque
 }
 
 fn output_intent_for_outcome_request(outcome_request: &ChatOutcomeRequest) -> &'static str {
+    if local_install_request_for_outcome_request(outcome_request) {
+        return "tool_execution";
+    }
+
     if matches!(
         outcome_request.normalized_request.as_ref(),
         Some(ChatNormalizedRequest::MessageCompose(_)) | Some(ChatNormalizedRequest::UserInput(_))
@@ -184,7 +189,13 @@ fn effective_tool_surface_for_outcome_request(
     }
     match outcome_request.outcome_kind {
         ChatOutcomeKind::Conversation => {
-            if let Some(surface_hint) = normalized_request_surface_hint(outcome_request) {
+            if local_install_request_for_outcome_request(outcome_request) {
+                primary_tools.push("host_discovery".to_string());
+                primary_tools.push("software_install_resolver".to_string());
+                primary_tools.push("software_install__resolve".to_string());
+                primary_tools.push("software_install__execute_plan".to_string());
+                primary_tools.push("app__launch".to_string());
+            } else if let Some(surface_hint) = normalized_request_surface_hint(outcome_request) {
                 match surface_hint {
                     "message_compose" => primary_tools.push("message_compose_v1".to_string()),
                     "user_input" => primary_tools.push("ask_user_input_v0".to_string()),
@@ -289,6 +300,14 @@ fn chat_route_hint_reason_fragments(outcome_request: &ChatOutcomeRequest) -> Vec
             ),
             "connector_tiebreaker:explicit_provider_mention" => fragments.push(
                 "The prompt explicitly named a provider, so Chat kept that connector route in front."
+                    .to_string(),
+            ),
+            "local_install_requested" => fragments.push(
+                "The prompt asks for a local install, so direct prose must yield to an approval-gated runtime workflow."
+                    .to_string(),
+            ),
+            "desktop_app_install_requested" => fragments.push(
+                "Desktop app installs need host discovery, source resolution, execution, and verification receipts."
                     .to_string(),
             ),
             "shared_answer_surface" => fragments.push(
@@ -1136,6 +1155,9 @@ fn primary_lane_family(
     if decision_evidence_item_flag(decision_evidence, "connector_intent_detected") {
         return ChatLaneFamily::Integrations;
     }
+    if decision_evidence_item_flag(decision_evidence, "local_install_requested") {
+        return ChatLaneFamily::General;
+    }
     if decision_evidence_item_flag(decision_evidence, "workspace_grounding_required")
         || artifact.is_some_and(|request| {
             matches!(
@@ -1286,6 +1308,9 @@ fn primary_goal(
             "Collect structured user input before continuing with the requested comparison or prioritization.".to_string()
         }
         None => match primary_lane {
+            _ if decision_evidence_item_flag(_decision_evidence, "local_install_requested") => {
+                "Install the requested local software through an approval-gated, verified runtime workflow.".to_string()
+            }
             ChatLaneFamily::Research => {
                 "Gather fresh evidence before answering in the shared reply lane.".to_string()
             }

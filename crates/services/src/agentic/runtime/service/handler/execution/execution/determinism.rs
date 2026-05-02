@@ -162,10 +162,22 @@ async fn build_determinism_context(
             .to_string(),
     };
 
+    let policy_hash = compute_policy_hash(rules)?;
+    log::warn!(
+        "CEC determinism policy hash context: session={} policy_id={} defaults={:?} rule_count={} cwd={} policy_hash={} request_hash={}",
+        hex::encode(&session_id[..4]),
+        rules.policy_id,
+        rules.defaults,
+        rules.rules.len(),
+        agent_state.working_directory,
+        hex::encode(&policy_hash[..6]),
+        hex::encode(&request_hash[..6])
+    );
+
     Ok(DeterminismContext {
         request,
         request_hash,
-        policy_hash: compute_policy_hash(rules)?,
+        policy_hash,
         target_str,
         tool_hash,
         intent_id: resolved_intent_id(agent_state),

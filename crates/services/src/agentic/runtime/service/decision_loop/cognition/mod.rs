@@ -1398,7 +1398,7 @@ fn build_tool_routing_contract(
         IntentScopeProfile::CommandExecution => {
             "TOOL ROUTING CONTRACT:\n\
 1. Prefer the most specific typed capability over raw shell when a dedicated tool exists.\n\
-2. Use `app__launch` for GUI app launch, `package__install` for explicit install requests, `model_registry__*` / `backend__*` for model lifecycle, and `monitor__create` for durable watch or notify workflows.\n\
+2. Use `app__launch` for GUI app launch, `software_install__resolve` and `software_install__execute_plan` for explicit package or desktop app install requests, `model_registry__*` / `backend__*` for model lifecycle, and `monitor__create` for durable watch or notify workflows.\n\
 3. Use `shell__run` for bounded single-step command execution and `shell__start` for multi-step command workflows that need continuity.\n\
 4. If the task is really retrieval, filesystem work, or media extraction, route to the corresponding typed tools instead of shell scraping.\n\
 5. Escalate only when no equivalent typed capability or shell path can achieve the action safely."
@@ -1646,7 +1646,7 @@ fn build_operating_rules(
 8ab. FETCH HYGIENE RULE: Never invent API keys, placeholder credentials (for example `YOUR_API_KEY`), or auto-IP endpoints. If credentials or endpoint details are missing, switch to source-grounded web retrieval and cite the sources.\n\
 8ac. MEMORY RETRIEVAL RULE: For questions about prior durable workflow, remembered constraints, or stored project context, use `memory__search` and `memory__read` before answering. If you need to order candidate snippets by relevance, use `model__rerank`. Use `model__embeddings` only for semantic comparison inputs, not as a final answer.\n\
 8b. BROWSER CLICK RULE: In a browser window, never use `screen__click_at` on web content. Prefer `browser__click` with IDs from `browser__inspect`; use `browser__click` with concrete CSS selectors only as fallback. Use GUI clicks only for OS chrome (address bar/system dialogs) when browser tools cannot target it.\n\
-8c. PACKAGE INSTALL RULE: Only use `package__install` when the user explicitly asked to install something.\n\
+8c. SOFTWARE INSTALL RULE: Only use `software_install__resolve` / `software_install__execute_plan` when the user explicitly asked to install something. For desktop apps, let the resolver discover host OS, source candidates, approval details, and verification; do not answer with manual prose unless the resolver reports an installer-resolution blocker.\n\
 8d. BROWSER RESILIENCE RULE: If `browser__navigate` fails with CDP/connection errors, retry `browser__navigate` once. If it still fails, switch to visual tools.\n\
 8e. SHELL CONTINUITY RULE: For command workflows with more than one command step (build/test/install sequences, iterative probing), prefer `shell__start` for continuity. Use `shell__reset` only when output indicates the session is wedged.\n\
 9. APP LAUNCH RULE: To open applications, use `app__launch` as the primary launch mechanism whenever it is available in TOOLS.\n\

@@ -7,8 +7,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const schemaPath = path.join(
   root,
   "docs",
-  "architecture",
-  "operations",
+  "implementation",
   "runtime-action-schema.json",
 );
 const schema = JSON.parse(fs.readFileSync(schemaPath, "utf8"));

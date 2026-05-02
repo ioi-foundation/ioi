@@ -293,7 +293,7 @@ pub(crate) async fn run_execution_timer_phase(
         }
     }
 
-    if command_scope && success && matches!(tool, AgentTool::SysInstallPackage { .. }) {
+    if command_scope && success && matches!(tool, AgentTool::SoftwareInstallExecutePlan { .. }) {
         verification_checks.push("capability_execution_evidence=tool_output".to_string());
         record_success_condition(&mut agent_state.tool_execution_log, "execution_artifact");
         verification_checks.push(success_condition_key("execution_artifact"));

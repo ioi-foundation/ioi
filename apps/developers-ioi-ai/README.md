@@ -14,7 +14,7 @@ It should not try to be the canonical answer to:
 
 | Surface | Job | Typical content |
 | --- | --- | --- |
-| `developers.ioi.ai` | Product, onboarding, and execution-facing developer experience | Quickstarts, API and SDK onboarding, auth guides, tutorials, examples, hosted API docs, pricing, and product guides for Forge, Autopilot, and `sas.xyz` |
+| `developers.ioi.ai` | Product, onboarding, and execution-facing developer experience | Quickstarts, API and SDK onboarding, auth guides, tutorials, examples, hosted API docs, pricing, and product guides for IOI CLI, Autopilot, and `sas.xyz` |
 | `docs.ioi.network` | Canonical protocol and infrastructure reference | Protocol specs, runtime and kernel internals, consensus and AFT docs, receipts, AIIP and publication docs, coordinator and node operator docs, formal schemas |
 
 `ioi.network` lives in a separate monorepo. For this app, we are only responsible for the `developers.ioi.ai` layer.
@@ -26,7 +26,7 @@ It should not try to be the canonical answer to:
 - API and SDK getting started
 - Auth, keys, and environment setup
 - "Build your first worker"
-- Forge guides
+- IOI CLI domain scaffolding guides
 - Autopilot integration guides
 - `sas.xyz` publishing and deployment guides
 - Examples, tutorials, and walkthroughs

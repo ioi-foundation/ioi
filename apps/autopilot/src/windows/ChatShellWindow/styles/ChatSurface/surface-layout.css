@@ -711,6 +711,18 @@
   margin-left: 46px;
 }
 
+.spot-chat-status-card.is-terminal-only .spot-agent-progress-previews {
+  margin-left: 0;
+}
+
+.assistant-turn
+  .spot-chat-status-card.is-terminal-only
+  .spot-agent-progress-preview.is-stream-preview
+  pre {
+  min-height: 112px;
+  max-height: 180px;
+}
+
 .spot-chat-status-workbench-row {
   display: flex;
   flex-wrap: wrap;

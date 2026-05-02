@@ -15,7 +15,7 @@ use crate::models::{AgentPhase, ArtifactRef, ArtifactType, ChatMessage, GateInfo
 use crate::orchestrator;
 use ioi_ipc::public::RoutingReceipt;
 use serde_json::json;
-use std::sync::Mutex;
+use std::{collections::BTreeMap, sync::Mutex};
 use tauri::Manager;
 
 fn humanize_route_token(value: &str) -> String {
@@ -158,6 +158,9 @@ fn route_progress_label(receipt: &RoutingReceipt) -> String {
     if tool_name.starts_with("chat__reply") || tool_name.starts_with("model__responses") {
         return "Preparing the reply".to_string();
     }
+    if is_install_package_tool(&tool_name) {
+        return "Resolving install source".to_string();
+    }
 
     if !route_family.is_empty() {
         return match route_family.as_str() {
@@ -175,6 +178,87 @@ fn route_progress_label(receipt: &RoutingReceipt) -> String {
     "Continuing the request".to_string()
 }
 
+fn install_resolution_map(verification_checks: &[String]) -> BTreeMap<String, String> {
+    verification_checks
+        .iter()
+        .filter_map(|check| {
+            let (key, value) = check.split_once('=')?;
+            let key = key.trim();
+            if !key.starts_with("software_install.") {
+                return None;
+            }
+            Some((
+                key.trim_start_matches("software_install.").to_string(),
+                value.trim().to_string(),
+            ))
+        })
+        .collect()
+}
+
+fn install_resolution_value<'a>(
+    resolution: &'a BTreeMap<String, String>,
+    key: &str,
+) -> Option<&'a str> {
+    resolution
+        .get(key)
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+}
+
+fn install_approval_step_from_resolution(resolution: &BTreeMap<String, String>) -> String {
+    install_resolution_value(resolution, "display_name")
+        .map(|display_name| format!("Awaiting install approval: {}", display_name))
+        .unwrap_or_else(|| "Awaiting install approval".to_string())
+}
+
+fn install_gate_info_from_resolution(resolution: &BTreeMap<String, String>) -> Option<GateInfo> {
+    let display_name = install_resolution_value(resolution, "display_name")?;
+    let source_kind = install_resolution_value(resolution, "source_kind").unwrap_or("unknown");
+    let manager = install_resolution_value(resolution, "manager").unwrap_or("unknown");
+    let package_id = install_resolution_value(resolution, "package_id").unwrap_or(display_name);
+    let command = install_resolution_value(resolution, "command").unwrap_or("not_available");
+    let verification =
+        install_resolution_value(resolution, "verification").unwrap_or("not_available");
+    let platform = install_resolution_value(resolution, "platform").unwrap_or("unknown");
+    let architecture = install_resolution_value(resolution, "architecture").unwrap_or("unknown");
+    let elevation = match install_resolution_value(resolution, "requires_elevation") {
+        Some("true") => "requires elevation",
+        Some("false") => "does not require elevation",
+        _ => "has unknown elevation requirements",
+    };
+    let installer_url = install_resolution_value(resolution, "installer_url");
+    let blocker = install_resolution_value(resolution, "blocker");
+
+    let mut description = format!(
+        "Resolved {} for {} {} as {} via {}. Package/source: {}. Command: {}. Verification: {}. This {} and will not continue without approval.",
+        display_name, platform, architecture, source_kind, manager, package_id, command, verification, elevation
+    );
+    if let Some(url) = installer_url {
+        description.push_str(&format!(" Source URL: {}.", url));
+    }
+    if let Some(blocker) = blocker {
+        description.push_str(&format!(" Blocker before execution: {}.", blocker));
+    }
+
+    Some(GateInfo {
+        title: "Approve software install".to_string(),
+        description,
+        risk: "high".to_string(),
+        approve_label: Some("Approve install".to_string()),
+        deny_label: Some("Deny".to_string()),
+        deadline_ms: None,
+        surface_label: Some("Host system".to_string()),
+        scope_label: Some("Software install".to_string()),
+        operation_label: Some("Install".to_string()),
+        target_label: Some(display_name.to_string()),
+        operator_note: Some(
+            "Approval permits the resolved installer command to run; success is only reported after verification passes."
+                .to_string(),
+        ),
+        pii: None,
+    })
+}
+
 pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: RoutingReceipt) {
     let thread_id = thread_id_from_session(&app, &receipt.session_id);
     let receipt_is_install_tool = is_install_package_tool(&receipt.tool_name);
@@ -185,6 +269,11 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
         .as_ref()
         .map(|s| s.verification_checks.clone())
         .unwrap_or_default();
+    let install_resolution = if receipt_is_install_tool {
+        install_resolution_map(&verification_checks)
+    } else {
+        BTreeMap::new()
+    };
     let receipt_waiting_for_sudo = receipt
         .post_state
         .as_ref()
@@ -540,8 +629,15 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
             && !receipt_can_assert_clarification_wait
         {
             t.phase = AgentPhase::Gate;
-            t.current_step = "Waiting for approval".to_string();
-            if t.gate_info.is_none() {
+            let install_gate_info = install_gate_info_from_resolution(&install_resolution);
+            if receipt_is_install_tool {
+                t.current_step = install_approval_step_from_resolution(&install_resolution);
+            } else {
+                t.current_step = "Waiting for approval".to_string();
+            }
+            if let Some(gate_info) = install_gate_info {
+                t.gate_info = Some(gate_info);
+            } else if t.gate_info.is_none() {
                 t.gate_info = Some(GateInfo {
                     title: "Restricted Action Intercepted".to_string(),
                     description: format!(
@@ -583,6 +679,19 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
     });
     if !accepted_for_processing {
         return;
+    }
+    if receipt
+        .policy_decision
+        .eq_ignore_ascii_case("require_approval")
+    {
+        if let Some(window) = app
+            .get_webview_window("chat")
+            .or_else(|| app.get_webview_window("chat-session"))
+        {
+            if window.is_visible().unwrap_or(false) {
+                crate::windows::hide_pill(app.clone());
+            }
+        }
     }
 
     let receipt_id = format!("{}:{}:{}", thread_id, receipt.step_index, receipt.tool_name);
@@ -740,4 +849,40 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
         Vec::new(),
     );
     register_event(&app, event);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn install_resolution_checks_build_receipt_backed_gate_info() {
+        let checks = vec![
+            "software_install.stage=resolved".to_string(),
+            "software_install.display_name=Example App".to_string(),
+            "software_install.platform=linux".to_string(),
+            "software_install.architecture=x86_64".to_string(),
+            "software_install.source_kind=manual_installer".to_string(),
+            "software_install.manager=apt-get".to_string(),
+            "software_install.package_id=example-app".to_string(),
+            "software_install.requires_elevation=true".to_string(),
+            "software_install.verification=example-app --version".to_string(),
+            "software_install.source_discovery_url=https://example.test".to_string(),
+            "software_install.command=not_available".to_string(),
+            "software_install.blocker=ERROR_CLASS=InstallerResolutionRequired".to_string(),
+        ];
+
+        let resolution = install_resolution_map(&checks);
+        let gate = install_gate_info_from_resolution(&resolution).expect("install gate info");
+
+        assert_eq!(
+            install_approval_step_from_resolution(&resolution),
+            "Awaiting install approval: Example App"
+        );
+        assert_eq!(gate.title, "Approve software install");
+        assert_eq!(gate.target_label.as_deref(), Some("Example App"));
+        assert!(gate.description.contains("manual_installer"));
+        assert!(gate.description.contains("example-app --version"));
+        assert!(gate.description.contains("InstallerResolutionRequired"));
+    }
 }

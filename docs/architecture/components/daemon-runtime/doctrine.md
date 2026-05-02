@@ -1,8 +1,8 @@
 # IOI CLI / Daemon Runtime Specification
 
 Status: canonical architecture authority.
-Canonical owner: this file for daemon/CLI ownership boundaries and IOI CLI operator-surface positioning; low-level daemon endpoints live in [`ioi-daemon-runtime-api.md`](./ioi-daemon-runtime-api.md).
-Supersedes: older CLI/daemon wording that implies the CLI owns runtime semantics or is primarily a chain/domain forge.
+Canonical owner: this file for daemon/CLI ownership boundaries and IOI CLI operator-surface positioning; low-level daemon endpoints live in [`ioi-daemon-runtime-api.md`](./api.md).
+Supersedes: older CLI/daemon wording that implies the CLI owns runtime semantics or is primarily a chain/domain generator.
 Superseded by: none.
 Last alignment pass: 2026-05-01.
 
@@ -26,7 +26,7 @@ TEE, and enterprise environments.
 ## CLI Operator Surface
 
 The CLI should feel like the structured operator shell for the whole IOI/Web4
-stack, not primarily like a chain forge.
+stack, not primarily like a chain/domain generator.
 
 One-line positioning:
 
@@ -276,7 +276,7 @@ Sensitive actions require:
 
 ## Preserved Partially Superseded CLI Spec Module
 
-The following module preserves the detailed `IOI CLI` v1.1 product-spec context from the former `docs/specs/ioi-cli.md`. It is retained for command-family, natural-language-to-plan, artifact, evidence, receipt, policy, publish, and execution-path details. Its old chain/domain-forge framing is partially superseded: the canonical doctrine above wins wherever this preserved module implies that the CLI is primarily an intelligent-blockchain or sovereign-domain creation surface.
+The following module preserves the detailed `IOI CLI` v1.1 product-spec context from the former `docs/specs/ioi-cli.md`. It is retained for command-family, natural-language-to-plan, artifact, evidence, receipt, policy, publish, and execution-path details. Its old chain/domain-generator framing is partially superseded: the canonical doctrine above wins wherever this preserved module implies that the CLI is primarily an intelligent-blockchain or sovereign-domain creation surface.
 
 ---
 
@@ -425,7 +425,7 @@ Later, it may grow richer IDE or visual surfaces, but the canonical first interf
 
 ## 5. Ecosystem Role
 
-The ecosystem becomes cleaner when the fifth distinct surface is named `IOI CLI` rather than `Forge`.
+The ecosystem becomes cleaner when the fifth distinct surface is named `IOI CLI`, with `forge` treated as a command namespace inside it.
 
 ## 5.1 `Autopilot`
 

@@ -25,7 +25,8 @@ pub(super) fn target_for_tool(tool: &AgentTool) -> ActionTarget {
         | AgentTool::SysExecTerminate { .. }
         | AgentTool::SysExecSessionReset {}
         | AgentTool::SysChangeDir { .. } => ActionTarget::SysExec,
-        AgentTool::SysInstallPackage { .. } => ActionTarget::SysInstallPackage,
+        AgentTool::SoftwareInstallResolve { .. } => ActionTarget::SoftwareInstallResolve,
+        AgentTool::SoftwareInstallExecutePlan { .. } => ActionTarget::SoftwareInstallExecute,
 
         AgentTool::WebSearch { .. } | AgentTool::WebRead { .. } => ActionTarget::WebRetrieve,
         AgentTool::MediaExtractTranscript { .. } => ActionTarget::MediaExtractTranscript,
@@ -158,7 +159,8 @@ pub(super) fn target_for_tool(tool: &AgentTool) -> ActionTarget {
                     "app__launch" => ActionTarget::Custom("os::launch_app".to_string()),
                     "math__eval" => ActionTarget::Custom("math::eval".to_string()),
                     "monitor__create" => ActionTarget::Custom("monitor__create".to_string()),
-                    "package__install" => ActionTarget::SysInstallPackage,
+                    "software_install__resolve" => ActionTarget::SoftwareInstallResolve,
+                    "software_install__execute_plan" => ActionTarget::SoftwareInstallExecute,
                     "connector__google__bigquery_execute_query" => {
                         let query = val
                             .get("arguments")

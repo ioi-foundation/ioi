@@ -40,6 +40,41 @@ pub(super) fn run_execution_prechecks(
         return false;
     }
 
+    if let Some(already_satisfied) =
+        crate::agentic::runtime::execution::system::install_already_satisfied_before_approval_for_tool(tool)
+    {
+        *policy_decision = "already_satisfied".to_string();
+        *success = true;
+        *history_entry = Some(already_satisfied.clone());
+        *action_output = Some(already_satisfied.clone());
+        verification_checks.push("install_already_satisfied_before_approval=true".to_string());
+        if !req_hash_hex.is_empty() {
+            agent_state.tool_execution_log.insert(
+                req_hash_hex.to_string(),
+                ToolCallStatus::Executed(
+                    "install_already_satisfied_before_approval=true".to_string(),
+                ),
+            );
+        }
+        return false;
+    }
+
+    if let Some(blocker) = install_resolution_preapproval_blocker(tool) {
+        *policy_decision = "resolver_blocked".to_string();
+        *success = false;
+        *error_msg = Some(blocker.clone());
+        *history_entry = Some(blocker.clone());
+        *action_output = Some(blocker.clone());
+        verification_checks.push("software_install_blocked_before_approval=true".to_string());
+        if !req_hash_hex.is_empty() {
+            agent_state.tool_execution_log.insert(
+                req_hash_hex.to_string(),
+                ToolCallStatus::Failed("software_install_blocked_before_approval".to_string()),
+            );
+        }
+        return false;
+    }
+
     match enforce_file_write_observation(
         &agent_state.tool_execution_log,
         &agent_state.working_directory,
@@ -233,4 +268,74 @@ pub(super) fn run_execution_prechecks(
     }
 
     true
+}
+
+fn install_resolution_preapproval_blocker(tool: &AgentTool) -> Option<String> {
+    let summary = install_resolution_summary_for_tool(tool)?;
+    if summary.stage.eq_ignore_ascii_case("resolved") {
+        return None;
+    }
+
+    let display_name = summary.display_name.as_deref().unwrap_or("software");
+    let manager = summary.manager.as_deref().unwrap_or("auto");
+    let source_kind = summary.source_kind.as_deref().unwrap_or("unknown");
+    let blocker = summary.blocker.unwrap_or_else(|| {
+        "ERROR_CLASS=InstallerResolutionRequired Install target is not executable.".to_string()
+    });
+    Some(format!(
+        "{} SOFTWARE_INSTALL stage='{}' display_name='{}' manager='{}' source_kind='{}'",
+        blocker, summary.stage, display_name, manager, source_kind
+    ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::agentic::runtime::execution::system::software_install_plan_ref_for_request;
+    use ioi_types::app::agentic::SoftwareInstallRequestFrame;
+
+    fn software_install_execute_plan_tool(
+        target_text: &str,
+        manager_preference: Option<&str>,
+    ) -> AgentTool {
+        let request = SoftwareInstallRequestFrame {
+            target_text: target_text.to_string(),
+            target_kind: None,
+            manager_preference: manager_preference.map(str::to_string),
+            launch_after_install: None,
+            provenance: Some("test".to_string()),
+        };
+        AgentTool::SoftwareInstallExecutePlan {
+            plan_ref: software_install_plan_ref_for_request(&request),
+        }
+    }
+
+    #[test]
+    fn unresolved_auto_install_blocks_before_approval() {
+        let tool = software_install_execute_plan_tool("snorflepaint", Some("auto"));
+        let blocker = install_resolution_preapproval_blocker(&tool)
+            .expect("unknown auto target should block before approval");
+
+        assert!(blocker.contains("InstallerResolutionRequired"));
+        assert!(blocker.contains("stage='unresolved'"));
+        assert!(blocker.contains("source_kind='unknown_target'"));
+    }
+
+    #[test]
+    fn unsupported_manual_install_blocks_before_approval() {
+        let tool = software_install_execute_plan_tool("snorflepaint", Some("auto"));
+        let blocker = install_resolution_preapproval_blocker(&tool)
+            .expect("manual installer target without executable plan should block");
+
+        assert!(blocker.contains("InstallerResolutionRequired"));
+        assert!(blocker.contains("stage='unresolved'"));
+        assert!(blocker.contains("source_kind='unknown_target'"));
+    }
+
+    #[test]
+    fn resolved_package_install_can_reach_policy_approval() {
+        let tool = software_install_execute_plan_tool("generic tool", Some("apt-get"));
+
+        assert!(install_resolution_preapproval_blocker(&tool).is_none());
+    }
 }

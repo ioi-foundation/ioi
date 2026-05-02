@@ -6,7 +6,9 @@ use ioi_api::vm::inference::LocalSafetyModel;
 use ioi_client::WorkloadClient;
 use ioi_memory::MemoryRuntime;
 use ioi_pii::validate_resume_review_contract_for_grant;
+use ioi_services::agentic::policy::augment_workspace_filesystem_policy;
 use ioi_services::agentic::rules::ActionRules;
+use ioi_services::agentic::runtime::service::decision_loop::helpers::default_safe_policy;
 use ioi_types::app::{ChainTransaction, KernelEvent};
 use lru::LruCache;
 use std::sync::Arc;
@@ -15,6 +17,36 @@ use tracing::{info, warn};
 use super::policy::evaluate_service_policy_and_egress;
 use super::review::{resolve_resume_context, verify_scoped_exception};
 use ioi_types::codec;
+
+async fn query_action_rules(
+    workload_client: &Arc<WorkloadClient>,
+    key: Vec<u8>,
+) -> Option<ActionRules> {
+    workload_client
+        .query_raw_state(&key)
+        .await
+        .ok()
+        .flatten()
+        .and_then(|bytes| codec::from_bytes_canonical::<ActionRules>(&bytes).ok())
+}
+
+async fn load_action_rules_for_session(
+    workload_client: &Arc<WorkloadClient>,
+    session_id: Option<[u8; 32]>,
+) -> ActionRules {
+    let policy_prefix = b"agent::policy::";
+    if let Some(session_id) = session_id {
+        let session_policy_key = [policy_prefix.as_slice(), session_id.as_slice()].concat();
+        if let Some(rules) = query_action_rules(workload_client, session_policy_key).await {
+            return rules;
+        }
+    }
+
+    let global_policy_key = [policy_prefix.as_slice(), &[0u8; 32]].concat();
+    query_action_rules(workload_client, global_policy_key)
+        .await
+        .unwrap_or_else(default_safe_policy)
+}
 
 pub(crate) async fn evaluate_system_transaction(
     p_tx: &ProcessedTx,
@@ -91,11 +123,13 @@ pub(crate) async fn evaluate_system_transaction(
         }
     }
 
-    let global_policy_key = [b"agent::policy::".as_slice(), &[0u8; 32]].concat();
-    let rules = match workload_client.query_raw_state(&global_policy_key).await {
-        Ok(Some(bytes)) => codec::from_bytes_canonical::<ActionRules>(&bytes).unwrap_or_default(),
-        _ => ActionRules::default(), // DenyAll
-    };
+    let stored_rules = load_action_rules_for_session(workload_client, resume_session_id).await;
+    let rules = augment_workspace_filesystem_policy(
+        &stored_rules,
+        agent_state
+            .as_ref()
+            .map(|state| state.working_directory.as_str()),
+    );
 
     if service_id == "desktop_agent" && method == "resume@v1" {
         if pii_request_opt.is_some() && approval_grant.is_none() {

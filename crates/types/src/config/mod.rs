@@ -999,6 +999,11 @@ pub fn default_service_policies() -> BTreeMap<String, ServicePolicy> {
         "resume@v1",
         "step@v1",
         "post_message@v1",
+        "pause@v1",
+        "cancel@v1",
+        "deny@v1",
+        "register_approval_authority@v1",
+        "revoke_approval_authority@v1",
         "delete_session@v1",
     ] {
         desktop_agent_methods.insert(method.to_string(), MethodPermission::User);

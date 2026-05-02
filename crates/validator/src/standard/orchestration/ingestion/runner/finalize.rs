@@ -65,6 +65,16 @@ fn dispatch_swarm_command(sender: &mpsc::Sender<SwarmCommand>, command: SwarmCom
     }
 }
 
+fn is_desktop_agent_step(tx: &ChainTransaction) -> bool {
+    let ChainTransaction::System(system) = tx else {
+        return false;
+    };
+    let ioi_types::app::SystemPayload::CallService {
+        service_id, method, ..
+    } = &system.payload;
+    service_id == "desktop_agent" && method == "step@v1"
+}
+
 pub(crate) async fn finalize_valid_transactions(
     workload_client: &Arc<WorkloadClient>,
     tx_pool: &Arc<Mempool>,
@@ -157,7 +167,16 @@ pub(crate) async fn finalize_valid_transactions(
         let validation_ok = result.is_ok() || is_approval_error;
 
         if validation_ok {
-            if receipt_guard.peek(&p_tx.canonical_hash).is_some() {
+            let receipt_already_present = receipt_guard.peek(&p_tx.canonical_hash).is_some();
+            let readmit_after_operator_pause =
+                receipt_already_present && is_desktop_agent_step(&p_tx.tx) && !is_approval_error;
+            if readmit_after_operator_pause {
+                receipt_guard.pop(&p_tx.canonical_hash);
+                tx_pool.remove_by_hash(&p_tx.canonical_hash);
+                if let (Some(account_id), Some(nonce)) = (p_tx.account_id, p_tx.nonce) {
+                    tx_pool.remove_by_account_nonce(&account_id, nonce);
+                }
+            } else if receipt_already_present {
                 accepted_count += 1;
                 status_guard.put(
                     p_tx.receipt_hash_hex.clone(),
@@ -175,6 +194,13 @@ pub(crate) async fn finalize_valid_transactions(
                 .account_id
                 .and_then(|acc| nonce_cache.get(&acc).copied())
                 .unwrap_or(0);
+            let committed_nonce = if readmit_after_operator_pause {
+                p_tx.nonce
+                    .map(|nonce| committed_nonce.max(nonce))
+                    .unwrap_or(committed_nonce)
+            } else {
+                committed_nonce
+            };
 
             let add_result = tx_pool.add(
                 p_tx.tx.clone(),
@@ -268,4 +294,47 @@ pub(crate) async fn finalize_valid_transactions(
 
     metrics().set_mempool_size(tx_pool.len() as f64);
     accepted_count > 0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ioi_types::app::{
+        ChainId, SignHeader, SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
+    };
+
+    fn system_call(service_id: &str, method: &str) -> ChainTransaction {
+        ChainTransaction::System(Box::new(SystemTransaction {
+            header: SignHeader {
+                account_id: AccountId([3u8; 32]),
+                nonce: 1,
+                chain_id: ChainId(1),
+                tx_version: 1,
+                session_auth: None,
+            },
+            payload: SystemPayload::CallService {
+                service_id: service_id.to_string(),
+                method: method.to_string(),
+                params: Vec::new(),
+            },
+            signature_proof: SignatureProof {
+                suite: SignatureSuite::ED25519,
+                public_key: Vec::new(),
+                signature: Vec::new(),
+            },
+        }))
+    }
+
+    #[test]
+    fn ingestion_readmission_identifies_only_desktop_agent_step() {
+        assert!(is_desktop_agent_step(&system_call(
+            "desktop_agent",
+            "step@v1"
+        )));
+        assert!(!is_desktop_agent_step(&system_call(
+            "desktop_agent",
+            "start@v1"
+        )));
+        assert!(!is_desktop_agent_step(&system_call("agentic", "step@v1")));
+    }
 }

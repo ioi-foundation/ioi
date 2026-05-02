@@ -5,7 +5,7 @@ Status: Complete
 | Lane | Status | Evidence |
 | --- | --- | --- |
 | A. Baseline and boundary inventory | Complete | `docs/evidence/runtime-layout-refactor/baseline-inventory.md` |
-| B. Runtime module map | Complete | `docs/architecture/operations/runtime-module-map.md`, `docs/architecture/operations/runtime-package-boundaries.md`, `docs/architecture/operations/runtime-vocabulary.md` |
+| B. Runtime module map | Complete | `docs/implementation/runtime-module-map.md`, `docs/implementation/runtime-package-boundaries.md`, `docs/architecture/_meta/vocabulary.md` |
 | C. Promote daemon implementation | Complete | `packages/runtime-daemon/src/index.mjs`, `packages/runtime-daemon/package.json`, `scripts/ioi-local-runtime-daemon.mjs` |
 | D. Split runtime contracts by family | Complete | `crates/types/src/app/runtime/*.rs`, `crates/types/src/app/mod.rs` |
 | E. Physically split overloaded step layer | Complete | `crates/services/src/agentic/runtime/service/{decision_loop,planning,queue,tool_execution,recovery,output,web_pipeline,visual_loop}/`, `docs/evidence/runtime-layout-refactor/step-split-map.md` |
@@ -15,6 +15,7 @@ Status: Complete
 | I. Retire swarm as new public/runtime vocabulary | Complete | `apps/autopilot/src/types/work-graph-compat.ts`, `crates/services/src/agentic/runtime/types.rs`, `docs/evidence/runtime-layout-refactor/work-graph-migration-report.md` |
 | J. Durable conformance names | Complete | `scripts/conformance/runtime-complete-plus.mjs`, `scripts/evidence/runtime-complete-plus.mjs`, deprecated wrappers |
 | K. Runtime layout guardrail | Complete | `npm run check:runtime-layout`, `docs/evidence/runtime-layout-refactor/guardrail-report.json` |
+| L. Retire `ioi-swarm` product package | Complete | deleted `ioi-swarm/python`, deleted `docs/ioi-swarm-release.md`, removed stale `pyrightconfig.json`, guarded by `retired-ioi-swarm-product` |
 
 ## Compatibility Aliases Retained
 

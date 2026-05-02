@@ -194,7 +194,7 @@ function promotionCard(
         ? "Evidence-preserving promotion ready"
         : "Promotion still needs review",
     detail: !input.replayReady
-      ? "Load the canonical replay bundle before staging service-candidate or Forge promotion from shared runtime truth."
+      ? "Load the canonical replay bundle before staging service-candidate or IOI CLI promotion from shared runtime truth."
       : tone === "ready"
         ? "Replay, privacy, durability, and reviewer handoff posture are aligned for evidence-preserving promotion."
         : "Promotion can already stay on the canonical evidence path, but privacy, durability, or reviewer posture still deserves one more pass.",

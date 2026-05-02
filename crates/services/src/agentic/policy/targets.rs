@@ -16,11 +16,24 @@ fn model_control_policy_target(target: &ActionTarget) -> Option<&'static str> {
     }
 }
 
+fn install_policy_target(target: &ActionTarget) -> Option<&'static str> {
+    match target {
+        ActionTarget::SoftwareInstallResolve => Some("software::install_resolve"),
+        ActionTarget::SoftwareInstallExecute => Some("software::install_execute"),
+        _ => None,
+    }
+}
+
 pub(crate) fn policy_target_aliases(target: &ActionTarget) -> Vec<String> {
     let mut aliases = vec![target.canonical_label()];
     if let Some(scope_target) = filesystem_scope_policy_target(target) {
         if !aliases.iter().any(|alias| alias == scope_target) {
             aliases.push(scope_target.to_string());
+        }
+    }
+    if let Some(install_target) = install_policy_target(target) {
+        if !aliases.iter().any(|alias| alias == install_target) {
+            aliases.push(install_target.to_string());
         }
     }
     if let Some(model_control_target) = model_control_policy_target(target) {

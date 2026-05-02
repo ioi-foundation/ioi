@@ -1005,6 +1005,7 @@ export function parseRouteFamily(
     case "communication":
     case "user_input":
     case "tool_widget":
+    case "command_execution":
     case "computer_use":
     case "artifacts":
     case "general":

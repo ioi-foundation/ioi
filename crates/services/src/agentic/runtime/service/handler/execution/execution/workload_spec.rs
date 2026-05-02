@@ -38,7 +38,8 @@ fn runtime_target_for_tool(tool: &AgentTool) -> RuntimeTarget {
         | AgentTool::SysExecInput { .. }
         | AgentTool::SysExecTerminate { .. }
         | AgentTool::SysExecSessionReset {}
-        | AgentTool::SysInstallPackage { .. }
+        | AgentTool::SoftwareInstallResolve { .. }
+        | AgentTool::SoftwareInstallExecutePlan { .. }
         | AgentTool::SysChangeDir { .. }
         | AgentTool::OsLaunchApp { .. } => RuntimeTarget::System,
         AgentTool::Screen(_)

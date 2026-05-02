@@ -1,6 +1,7 @@
 use super::{
-    build_effective_tool_surface, currentness_override_for_resolved_intent, file_output_intent,
-    output_intent, route_family_for_resolved_intent, skill_prep_required,
+    build_effective_tool_surface, currentness_override_for_resolved_intent, direct_answer_blockers,
+    file_output_intent, output_intent, resolved_intent_requires_local_install,
+    route_family_for_resolved_intent, skill_prep_required,
 };
 use ioi_types::app::agentic::{
     CapabilityId, IntentConfidenceBand, IntentScopeProfile, LlmToolDefinition,
@@ -146,5 +147,25 @@ fn tool_steps_without_delivery_intent_stay_in_tool_execution_mode() {
     assert_eq!(
         output_intent("chat__reply", true, false, false, false),
         "direct_inline"
+    );
+}
+
+#[test]
+fn resolved_install_intent_blocks_direct_inline_output() {
+    let mut install_intent = resolved(IntentScopeProfile::CommandExecution);
+    install_intent.intent_id = "software.install.desktop_app".to_string();
+    install_intent.required_capabilities = vec![CapabilityId::from("software.install.execute")];
+    assert!(resolved_intent_requires_local_install(Some(
+        &install_intent
+    )));
+    assert!(!resolved_intent_requires_local_install(Some(&resolved(
+        IntentScopeProfile::Conversation
+    ))));
+
+    let blockers = direct_answer_blockers(false, true, false, false, false, false, false);
+    assert!(blockers.contains(&"local_install_requested".to_string()));
+    assert_eq!(
+        output_intent("chat__reply", false, false, false, false),
+        "tool_execution"
     );
 }

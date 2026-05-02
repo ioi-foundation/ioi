@@ -5,6 +5,22 @@ import { icons } from "../../../components/ui/icons";
 import { AssistantProcessRow } from "./AssistantProcessRow";
 import { ToolCallRow } from "./ToolCallRow";
 
+function processMeta(process: AssistantTurnProcess): string {
+  if (process.items.length > 0) {
+    return `${process.items.length} ${process.items.length === 1 ? "step" : "steps"}`;
+  }
+  switch (process.status) {
+    case "complete":
+      return "done";
+    case "blocked":
+      return "attention";
+    case "failed":
+      return "failed";
+    default:
+      return "working";
+  }
+}
+
 export function AssistantProcessDisclosure({
   process,
 }: {
@@ -42,11 +58,7 @@ export function AssistantProcessDisclosure({
         <span className="assistant-process__summary">
           {process.summaryLine}
         </span>
-        <span className="assistant-process__meta">
-          {process.items.length > 0
-            ? `${process.items.length} ${process.items.length === 1 ? "step" : "steps"}`
-            : "working"}
-        </span>
+        <span className="assistant-process__meta">{processMeta(process)}</span>
         <span
           className={`assistant-process__chevron ${open ? "is-open" : ""}`}
           aria-hidden="true"

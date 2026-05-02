@@ -836,7 +836,7 @@ async fn resolver_routes_vlc_install_query_to_install_dependency_intent() {
     assert!(resolved
         .required_capabilities
         .iter()
-        .any(|capability| { capability.as_str() == "system.install_package" }));
+        .any(|capability| { capability.as_str() == "software.install.execute" }));
 }
 
 #[tokio::test(flavor = "current_thread")]

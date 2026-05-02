@@ -18,10 +18,11 @@ import {
 } from "../../ChatShellWindow/components/chatExecutionChrome";
 import {
   defaultRunActivityDetail,
-  defaultRunActivityTitle,
+  operatorFacingRunTitle,
   operatorFacingCurrentStep,
   runtimeExecutionFailureDetail,
 } from "../../ChatShellWindow/viewmodels/runtimeStatusCopy";
+import { buildInstallExecutionTranscript } from "../../ChatShellWindow/utils/installExecutionTranscript";
 import type {
   AgentEvent,
   Artifact,
@@ -59,6 +60,9 @@ export type ChatStatusCardState = {
 } | null;
 
 type ChatStatusPreview = NonNullable<ChatStatusCardState>["livePreview"];
+type InstallExecutionTranscript = NonNullable<
+  ReturnType<typeof buildInstallExecutionTranscript>
+>;
 
 function looksLikeSettledHtmlTokenStream(content: string): boolean {
   const normalized = content.trim().toLowerCase();
@@ -133,10 +137,51 @@ function selectArtifactStatusPreviews({
   return { livePreview, codePreview };
 }
 
+function installStatusPreview(
+  installTranscript: InstallExecutionTranscript | null,
+): ChatStatusPreview {
+  if (!installTranscript) {
+    return null;
+  }
+  return {
+    label: installTranscript.title,
+    content: installTranscript.content,
+    status: installTranscript.status,
+    kind: "command_stream",
+    language: "terminal",
+    isFinal:
+      installTranscript.status === "complete" ||
+      installTranscript.status === "failed",
+  };
+}
+
+function installBlockedDetail(
+  installTranscript: InstallExecutionTranscript,
+): string {
+  const blockerLine = installTranscript.content
+    .split(/\r?\n/)
+    .find((line) => line.trim().toLowerCase().startsWith("blocker:"));
+  const failureLine = installTranscript.content
+    .split(/\r?\n/)
+    .find((line) => line.trim().toLowerCase().startsWith("failure:"));
+  const errorLine = installTranscript.content
+    .split(/\r?\n/)
+    .find((line) => line.trim().toLowerCase().startsWith("error_class:"));
+  const selected = blockerLine || failureLine || errorLine;
+  if (selected) {
+    const detail = selected.replace(/^[^:]+:\s*/, "").trim();
+    if (detail.includes("InstallerResolutionRequired")) {
+      return "Install resolver blocked before host mutation. Review the terminal receipt for the resolved source, manager, installer, and verification plan.";
+    }
+    return detail.length > 180 ? `${detail.slice(0, 177).trim()}...` : detail;
+  }
+  return "The install workflow stopped before host mutation. Review the terminal receipt for resolver, execution, and verification details.";
+}
+
 function deriveTaskChatExecutionChrome(task: any) {
   const materialization = task?.chat_session?.materialization;
   const executionEnvelope = materialization?.executionEnvelope ?? null;
-  return deriveChatExecutionChromeState({
+  const chrome = deriveChatExecutionChromeState({
     executionEnvelope,
     workGraphExecution:
       materialization?.workGraphExecution ?? executionEnvelope?.executionSummary ?? null,
@@ -146,6 +191,21 @@ function deriveTaskChatExecutionChrome(task: any) {
     changeReceipts:
       materialization?.changeReceipts ?? executionEnvelope?.changeReceipts ?? [],
   });
+  const installTranscript = buildInstallExecutionTranscript(task);
+  if (!installTranscript) {
+    return chrome;
+  }
+
+  const installPreview = installStatusPreview(installTranscript);
+
+  return {
+    ...chrome,
+    metrics: chrome.metrics?.verification
+      ? { verification: chrome.metrics.verification }
+      : null,
+    processes: [],
+    livePreview: installPreview,
+  };
 }
 
 function isArtifactRuntimeRoute(task: any): boolean {
@@ -285,9 +345,9 @@ function summarizeRuntimeFailure(
     normalized.includes("inmempool")
   ) {
     return {
-      title: "Chat kept the request in conversation",
+      title: "Runtime handoff delayed",
       detail:
-        "The artifact route stalled before a stable surface was ready. Keep iterating in chat, or inspect the thinking trace if you need runtime detail.",
+        "The runtime accepted the request but the kernel transaction did not settle before the UI timeout. The session will continue reconciling from committed receipts when they arrive.",
     };
   }
 
@@ -306,7 +366,7 @@ function summarizeRuntimeFailure(
   return {
     title: "Chat kept the request in conversation",
     detail:
-      "The request did not settle into a usable Chat surface yet. Continue in chat, or inspect the trace if you need the underlying runtime details.",
+      "The request did not settle into a usable Chat surface yet. Continue in chat or review the runtime activity for the underlying details.",
   };
 }
 
@@ -477,6 +537,8 @@ export function useChatSurfaceState({
 
     const submissionFailureSummary = summarizeRuntimeFailure(submissionError);
     const executionChrome = deriveTaskChatExecutionChrome(task);
+    const installTranscript = buildInstallExecutionTranscript(task);
+    const installPreview = installStatusPreview(installTranscript);
     const artifactRouteActive = isArtifactRuntimeRoute(task);
     const artifactThinkingProcesses = artifactRouteActive
       ? buildArtifactThinkingProcesses(task)
@@ -498,21 +560,82 @@ export function useChatSurfaceState({
       executionChromeCodePreview: executionChrome.codePreview,
     });
     const artifactThinkingTitle = artifactRouteActive
-      ? `Thinking through ${resolveArtifactThinkingSubject(task)}`
+      ? `Working on ${resolveArtifactThinkingSubject(task)}`
       : "Routing the request";
     const artifactThinkingDetail =
       artifactThinkingActiveProcess?.summary ||
       artifactThinkingLatestProcess?.summary ||
       task?.current_step ||
       "Chat is moving through the current artifact run.";
-    const routeActivityTitle = defaultRunActivityTitle(runPresentation.planSummary);
+    const routeActivityTitle = operatorFacingRunTitle(runPresentation.planSummary, task);
     const routeActivityDetail =
       operatorFacingCurrentStep(task, runPresentation.planSummary) ||
-      defaultRunActivityDetail(runPresentation.planSummary);
+      defaultRunActivityDetail(runPresentation.planSummary, task);
     const runtimeFailureDetail = runtimeExecutionFailureDetail(task);
+    const routeDecision = runPresentation.planSummary?.routeDecision ?? null;
+    const directInlineRoute =
+      routeDecision?.directAnswerAllowed &&
+      routeDecision.outputIntent === "direct_inline";
+    const answerOnlyRoute =
+      directInlineRoute || routeActivityTitle === "Preparing answer";
+
+    if (
+      answerOnlyRoute &&
+      !installTranscript &&
+      !hasOperatorDecisionPrompt &&
+      !submissionError &&
+      !runtimeFailureDetail
+    ) {
+      return null;
+    }
+
+    if (hasOperatorDecisionPrompt && installTranscript) {
+      return {
+        title: installTranscript.title,
+        detail:
+          routeActivityDetail ||
+          "Awaiting approval before the install workflow can mutate the host.",
+        metrics: null,
+        processes: [],
+        selectedSkills: [],
+        livePreview: installPreview,
+        codePreview: null,
+      };
+    }
 
     if (hasOperatorDecisionPrompt) {
       return null;
+    }
+
+    if (installTranscript) {
+      const installFailed =
+        submissionError ||
+        task?.phase === "Failed" ||
+        task?.chat_session?.lifecycleState === "blocked";
+      if (installFailed) {
+        return {
+          tone: "error",
+          title: installTranscript.title,
+          detail: installBlockedDetail(installTranscript),
+          metrics: executionChrome.metrics,
+          processes: [],
+          selectedSkills: [],
+          livePreview: installPreview,
+          codePreview: null,
+        };
+      }
+
+      if (submissionInFlight || isRunning || task?.phase === "Gate") {
+        return {
+          title: installTranscript.title,
+          detail: routeActivityDetail,
+          metrics: executionChrome.metrics,
+          processes: [],
+          selectedSkills: [],
+          livePreview: installPreview,
+          codePreview: null,
+        };
+      }
     }
 
     if (submissionError) {
@@ -570,9 +693,12 @@ export function useChatSurfaceState({
       !activeChatSessionId &&
       !runPresentation.finalAnswer
     ) {
+      if (directInlineRoute) {
+        return null;
+      }
       return {
         title: studioArtifactExpected
-          ? "Thinking through the artifact request"
+          ? "Working on the artifact request"
           : routeActivityTitle,
         detail: routeActivityDetail,
         ...executionChrome,
@@ -604,7 +730,7 @@ export function useChatSurfaceState({
         title:
           studioArtifactExpected || task.chat_session.outcomeRequest?.outcomeKind === "artifact"
             ? artifactThinkingTitle
-            : routeActivityTitle || outcomeLabel || "Thinking",
+            : routeActivityTitle || outcomeLabel || "Working",
         detail:
           studioArtifactExpected || task.chat_session.outcomeRequest?.outcomeKind === "artifact"
             ? artifactThinkingDetail

@@ -10,16 +10,19 @@ pub fn extract_user_request_from_contextualized_intent(intent: &str) -> String {
         return String::new();
     }
 
-    for marker in ["[User request]", "User request:"] {
-        if let Some(index) = trimmed.rfind(marker) {
-            let request = &trimmed[index + marker.len()..];
-            let request = request.trim_start_matches(|character: char| {
-                character.is_whitespace() || matches!(character, ':' | '-')
-            });
-            let request = request.trim();
-            if !request.is_empty() {
-                return request.to_string();
-            }
+    let lowered = trimmed.to_ascii_lowercase();
+    let marker = ["[user request]", "user request:"]
+        .iter()
+        .filter_map(|marker| lowered.rfind(marker).map(|index| (index, marker.len())))
+        .max_by_key(|(index, _)| *index);
+    if let Some((index, marker_len)) = marker {
+        let request = &trimmed[index + marker_len..];
+        let request = request.trim_start_matches(|character: char| {
+            character.is_whitespace() || matches!(character, ':' | '-')
+        });
+        let request = request.trim();
+        if !request.is_empty() {
+            return request.to_string();
         }
     }
 

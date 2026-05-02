@@ -239,7 +239,7 @@ function PromotionStageCard({
       </div>
       <p>
         Stage this run into the governed Local Engine queue so `sas.xyz` service
-        candidate review and `Forge` productionization can continue from the
+        candidate review and IOI CLI domain productionization can continue from the
         same replay-safe trace bundle truth.
       </p>
       <div className="artifact-hub-files-meta artifact-hub-permissions__meta">
@@ -279,11 +279,11 @@ function PromotionStageCard({
           type="button"
           className="artifact-hub-open-btn"
           onClick={() => {
-            void onStagePromotionCandidate?.("Forge");
+            void onStagePromotionCandidate?.("IOI CLI");
           }}
           disabled={stageDisabled}
         >
-          {busyTarget === "Forge" ? "Staging..." : "Stage for Forge"}
+          {busyTarget === "IOI CLI" ? "Staging..." : "Stage for IOI CLI"}
         </button>
         {onOpenView ? (
           <button

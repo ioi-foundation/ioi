@@ -161,9 +161,7 @@ pub(crate) async fn apply_post_execution_guards(
         invalid_tool_call_fail_fast_mailbox,
         mut terminal_chat_reply_output,
     } = state_in;
-    let is_install_package_tool = current_tool_name == "package__install"
-        || current_tool_name == "sys::install_package"
-        || current_tool_name.ends_with("install_package");
+    let is_install_package_tool = current_tool_name == "software_install__execute_plan";
     let clarification_required = !success
         && error_msg
             .as_deref()

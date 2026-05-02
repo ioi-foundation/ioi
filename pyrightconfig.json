@@ -1,8 +1,0 @@
-{
-  "include": [
-    "ioi-swarm/python/src"
-  ],
-  "extraPaths": [
-    "ioi-swarm/python/src"
-  ]
-}

@@ -10,7 +10,9 @@ use crate::agentic::runtime::service::decision_loop::cognition::{
     build_recent_pending_browser_state_context_with_snapshot, current_browser_observation_snapshot,
 };
 use crate::agentic::runtime::service::queue::handle_web_search_result;
-use crate::agentic::runtime::service::tool_execution::command_contract::WEB_PIPELINE_TERMINAL_EVIDENCE;
+use crate::agentic::runtime::service::tool_execution::command_contract::{
+    install_operator_completion_summary, WEB_PIPELINE_TERMINAL_EVIDENCE,
+};
 use ioi_types::app::agentic::ChatMessage;
 
 pub(super) struct ToolOutcomeContext<'a, 's> {
@@ -1381,14 +1383,15 @@ pub(super) async fn apply_tool_outcome_and_followups(
                 }
             }
         }
-        AgentTool::SysInstallPackage { package, .. } => {
+        AgentTool::SoftwareInstallExecutePlan { .. } => {
             if *success && command_scope {
                 let summary = history_entry
                     .as_deref()
                     .map(str::trim)
                     .filter(|entry| !entry.is_empty())
                     .map(str::to_string)
-                    .unwrap_or_else(|| format!("Installed package '{}'.", package));
+                    .unwrap_or_else(|| "Software install completed.".to_string());
+                let summary = install_operator_completion_summary(&summary).unwrap_or(summary);
                 let summary = enrich_command_scope_summary(&summary, agent_state);
                 let missing_completion_evidence = evaluate_completion_requirements(
                     agent_state,

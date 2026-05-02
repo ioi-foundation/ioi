@@ -524,3 +524,176 @@ fn workspace_grounded_chat_primary_route_does_not_emit_runtime_handoff_prefix() 
     assert!(task_requires_chat_primary_execution(&task));
     assert!(runtime_handoff_prompt_prefix_for_task(&task).is_none());
 }
+
+#[test]
+fn direct_inline_conversation_does_not_surface_synthetic_work_graph_status() {
+    let mut task = empty_task("What is the capital of Spain?");
+    let outcome_request = ChatOutcomeRequest {
+        request_id: "direct-inline-no-fake-work".to_string(),
+        raw_prompt: "What is the capital of Spain?".to_string(),
+        active_artifact_id: None,
+        outcome_kind: ChatOutcomeKind::Conversation,
+        execution_strategy: ChatExecutionStrategy::SinglePass,
+        execution_mode_decision: None,
+        confidence: 0.93,
+        needs_clarification: false,
+        clarification_questions: Vec::new(),
+        decision_evidence: vec!["shared_answer_surface".to_string()],
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
+        retained_lane_state: None,
+        lane_transitions: Vec::new(),
+        orchestration_state: None,
+        artifact: None,
+    };
+
+    super::content_session::attach_inline_answer_chat_session(
+        &mut task,
+        "What is the capital of Spain?",
+        crate::models::ChatRuntimeProvenance {
+            kind: crate::models::ChatRuntimeProvenanceKind::RealLocalRuntime,
+            label: "test".to_string(),
+            model: None,
+            endpoint: None,
+        },
+        &outcome_request,
+    );
+
+    let materialization = &task
+        .chat_session
+        .as_ref()
+        .expect("chat session")
+        .materialization;
+    let execution = materialization
+        .work_graph_execution
+        .as_ref()
+        .expect("execution summary");
+    assert!(!execution.enabled);
+    assert_eq!(execution.total_work_items, 0);
+    assert!(execution.execution_stage.is_none());
+    assert!(execution.verification_status.is_empty());
+}
+
+#[test]
+fn install_route_emits_runtime_handoff_prefix_with_install_tools() {
+    let mut task = empty_task("install lmstudio");
+    let outcome_request = ChatOutcomeRequest {
+        request_id: "install-handoff".to_string(),
+        raw_prompt: "install lmstudio".to_string(),
+        active_artifact_id: None,
+        outcome_kind: ChatOutcomeKind::Conversation,
+        execution_strategy: ChatExecutionStrategy::PlanExecute,
+        execution_mode_decision: None,
+        confidence: 0.99,
+        needs_clarification: false,
+        clarification_questions: Vec::new(),
+        decision_evidence: vec![
+            "local_install_requested".to_string(),
+            "desktop_app_install_requested".to_string(),
+            "tool_first_execution".to_string(),
+            "approval_required".to_string(),
+            "software_install_target_text:lmstudio".to_string(),
+        ],
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
+        retained_lane_state: None,
+        lane_transitions: Vec::new(),
+        orchestration_state: None,
+        artifact: None,
+    };
+    task.chat_outcome = Some(outcome_request.clone());
+    super::content_session::attach_inline_answer_chat_session(
+        &mut task,
+        "install lmstudio",
+        crate::models::ChatRuntimeProvenance {
+            kind: crate::models::ChatRuntimeProvenanceKind::RealLocalRuntime,
+            label: "test".to_string(),
+            model: None,
+            endpoint: None,
+        },
+        &outcome_request,
+    );
+
+    assert!(!task_requires_chat_primary_execution(&task));
+    let prefix = runtime_handoff_prompt_prefix_for_task(&task).expect("runtime handoff prefix");
+    assert!(prefix.contains("software_install__execute_plan"));
+    assert!(prefix.contains("selected_route: install lmstudio"));
+    assert!(prefix.contains("software_install_target_text: lmstudio"));
+    assert!(prefix.contains("approval-gated"));
+    assert!(!prefix.contains("unqualified Autopilot means IOI Autopilot"));
+    assert!(!prefix.contains("GitHub Copilot"));
+}
+
+#[test]
+fn install_followup_detaches_stale_direct_inline_surface_for_runtime_handoff() {
+    let mut task = empty_task("What is the capital of Spain?");
+    let direct_outcome_request = ChatOutcomeRequest {
+        request_id: "direct-inline-before-install".to_string(),
+        raw_prompt: "What is the capital of Spain?".to_string(),
+        active_artifact_id: None,
+        outcome_kind: ChatOutcomeKind::Conversation,
+        execution_strategy: ChatExecutionStrategy::SinglePass,
+        execution_mode_decision: None,
+        confidence: 0.93,
+        needs_clarification: false,
+        clarification_questions: Vec::new(),
+        decision_evidence: vec!["shared_answer_surface".to_string()],
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
+        retained_lane_state: None,
+        lane_transitions: Vec::new(),
+        orchestration_state: None,
+        artifact: None,
+    };
+    task.chat_outcome = Some(direct_outcome_request.clone());
+    super::content_session::attach_inline_answer_chat_session(
+        &mut task,
+        "What is the capital of Spain?",
+        crate::models::ChatRuntimeProvenance {
+            kind: crate::models::ChatRuntimeProvenanceKind::RealLocalRuntime,
+            label: "test".to_string(),
+            model: None,
+            endpoint: None,
+        },
+        &direct_outcome_request,
+    );
+    assert!(task_requires_chat_primary_execution(&task));
+
+    let install_outcome_request = ChatOutcomeRequest {
+        request_id: "install-followup-handoff".to_string(),
+        raw_prompt: "install lm studio".to_string(),
+        active_artifact_id: None,
+        outcome_kind: ChatOutcomeKind::Conversation,
+        execution_strategy: ChatExecutionStrategy::PlanExecute,
+        execution_mode_decision: None,
+        confidence: 0.99,
+        needs_clarification: false,
+        clarification_questions: Vec::new(),
+        decision_evidence: vec![
+            "local_install_requested".to_string(),
+            "desktop_app_install_requested".to_string(),
+            "tool_first_execution".to_string(),
+            "approval_required".to_string(),
+            "software_install_target_text:lmstudio".to_string(),
+        ],
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
+        retained_lane_state: None,
+        lane_transitions: Vec::new(),
+        orchestration_state: None,
+        artifact: None,
+    };
+    task.chat_outcome = Some(install_outcome_request);
+
+    assert!(super::task_state::detach_chat_primary_surface_for_runtime_handoff(
+        &mut task
+    ));
+    assert!(!task_requires_chat_primary_execution(&task));
+    let prefix = runtime_handoff_prompt_prefix_for_task(&task).expect("runtime handoff prefix");
+    assert!(prefix.contains("software_install__execute_plan"));
+    assert!(prefix.contains("software_install_target_text: lmstudio"));
+}

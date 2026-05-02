@@ -17,8 +17,8 @@ use tokio::time::sleep;
 // [FIX] Removed unused SigningKey import
 use tokio::task;
 
-// Helper to forge a divergence proof using a validator's key
-fn forge_divergence(
+// Helper to build a divergence proof using a validator's key
+fn build_divergence_proof(
     keypair: &Keypair,
     account_id: AccountId,
     height: u64,
@@ -138,15 +138,15 @@ async fn test_protocol_apex_lifecycle() {
         ioi_types::app::account_id_from_key_material(SignatureSuite::ED25519, &pk).unwrap(),
     );
 
-    // Forge proof for a future height
+    // Create proof for a future height
     let target_height = status.height + 5;
-    let proof = forge_divergence(&mal_key, offender_id, target_height, 0);
+    let proof = build_divergence_proof(&mal_key, offender_id, target_height, 0);
 
     // 4. Verify Proof Logic (Unit Test the Divergence Detector)
     use ioi_consensus::aft::guardian_majority::divergence::verify_divergence_proof;
 
     let is_valid = verify_divergence_proof(&proof).expect("Verification failed");
-    assert!(is_valid, "Forged divergence proof should be valid");
+    assert!(is_valid, "Constructed divergence proof should be valid");
 
     println!("✅ Proof of Divergence verified successfully.");
 

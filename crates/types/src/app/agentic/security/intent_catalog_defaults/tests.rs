@@ -169,3 +169,30 @@ fn media_generation_and_analysis_intents_use_kernel_media_capabilities() {
         );
     }
 }
+
+#[test]
+fn desktop_app_install_intent_requires_host_discovery_and_verification() {
+    let entry = default_intent_catalog()
+        .into_iter()
+        .find(|entry| entry.intent_id == "software.install.desktop_app")
+        .expect("software.install.desktop_app entry should exist");
+
+    assert_eq!(entry.scope, IntentScopeProfile::CommandExecution);
+    assert_eq!(entry.requires_host_discovery, Some(true));
+    assert!(entry
+        .required_capabilities
+        .iter()
+        .any(|capability| capability.as_str() == "software.install.execute"));
+    assert!(entry
+        .required_evidence
+        .iter()
+        .any(|receipt| receipt == "software_install_resolution"));
+    assert!(entry
+        .required_evidence
+        .iter()
+        .any(|receipt| receipt == "approval"));
+    assert!(entry
+        .success_conditions
+        .iter()
+        .any(|condition| condition == "verified_local_app_available"));
+}

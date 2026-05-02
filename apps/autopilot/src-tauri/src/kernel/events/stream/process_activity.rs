@@ -65,6 +65,15 @@ fn stream_progress_excerpt(chunk: &str) -> Option<String> {
     Some(clipped)
 }
 
+fn workload_display_name(workload_id: &str) -> String {
+    workload_id
+        .split_once(':')
+        .map(|(tool, _)| tool)
+        .filter(|tool| !tool.trim().is_empty())
+        .unwrap_or(workload_id)
+        .to_string()
+}
+
 fn emit_coalesced_stream_event(
     app: &tauri::AppHandle,
     thread_id: &str,
@@ -193,7 +202,7 @@ pub(super) async fn handle_workload_activity(app: &tauri::AppHandle, activity: W
             let tool_name = if workload_id.is_empty() {
                 "workload".to_string()
             } else {
-                workload_id.clone()
+                workload_display_name(&workload_id)
             };
             let stream_id = if workload_id.is_empty() {
                 format!("step-{}", step_index)
@@ -389,12 +398,12 @@ pub(super) async fn handle_workload_activity(app: &tauri::AppHandle, activity: W
             let display = if workload_id.is_empty() {
                 "workload".to_string()
             } else {
-                workload_id
+                workload_display_name(&workload_id)
             };
-            let stream_id = if display == "workload" {
+            let stream_id = if workload_id.is_empty() {
                 format!("step-{}", step_index)
             } else {
-                display.clone()
+                workload_id
             };
             let exit_code = if lifecycle.has_exit_code {
                 Some(lifecycle.exit_code)

@@ -290,6 +290,28 @@ impl Mempool {
         }
     }
 
+    /// Removes the transaction occupying a specific account nonce, if present.
+    ///
+    /// Lifecycle service calls can be semantically rejected after they have already
+    /// advanced runtime state to an operator pause. A later approval can legitimately
+    /// re-admit the same account nonce against the new state, so admission needs a
+    /// nonce-scoped eviction primitive rather than hash-only cleanup.
+    pub fn remove_by_account_nonce(&self, account_id: &AccountId, nonce: u64) -> Option<TxHash> {
+        let idx = self.get_shard_index(account_id);
+        let mut guard = self.shards[idx].lock();
+        let queue = guard.get_mut(account_id)?;
+        if let Some((_, hash)) = queue.ready.remove(&nonce) {
+            self.total_count.fetch_sub(1, Ordering::Relaxed);
+            queue.repair_hole(nonce);
+            return Some(hash);
+        }
+        if let Some((_, hash)) = queue.future.remove(&nonce) {
+            self.total_count.fetch_sub(1, Ordering::Relaxed);
+            return Some(hash);
+        }
+        None
+    }
+
     /// Selects a batch of valid transactions for inclusion in a new block.
     pub fn select_transactions(&self, total_limit: usize) -> Vec<ChainTransaction> {
         let mut selected = Vec::with_capacity(total_limit);
@@ -317,5 +339,49 @@ impl Mempool {
             }
         }
         selected
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ioi_types::app::{
+        ChainId, SignHeader, SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
+    };
+
+    fn system_tx(account_id: AccountId, nonce: u64) -> ChainTransaction {
+        ChainTransaction::System(Box::new(SystemTransaction {
+            header: SignHeader {
+                account_id,
+                nonce,
+                chain_id: ChainId(1),
+                tx_version: 1,
+                session_auth: None,
+            },
+            payload: SystemPayload::CallService {
+                service_id: "desktop_agent".to_string(),
+                method: "step@v1".to_string(),
+                params: Vec::new(),
+            },
+            signature_proof: SignatureProof {
+                suite: SignatureSuite::ED25519,
+                public_key: Vec::new(),
+                signature: Vec::new(),
+            },
+        }))
+    }
+
+    #[test]
+    fn removes_account_nonce_slot_for_lifecycle_readmission() {
+        let pool = Mempool::new();
+        let account = AccountId([7u8; 32]);
+        let tx = system_tx(account, 1);
+        let hash = tx.hash().expect("hash");
+
+        assert_eq!(pool.add(tx, hash, Some((account, 1)), 1), AddResult::Ready);
+        assert_eq!(pool.len(), 1);
+        assert_eq!(pool.remove_by_account_nonce(&account, 1), Some(hash));
+        assert_eq!(pool.len(), 0);
+        assert!(pool.select_transactions(8).is_empty());
     }
 }

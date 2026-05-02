@@ -25,7 +25,11 @@ pub(super) struct SysExecInvocation {
     shell_wrapped: bool,
 }
 
-pub(crate) use install::is_sudo_password_required_install_error;
+pub(crate) use install::{
+    install_already_satisfied_before_approval_for_tool, install_resolution_checks_for_tool,
+    install_resolution_summary_for_tool, is_sudo_password_required_install_error,
+    software_install_plan_ref_for_request,
+};
 
 fn compute_workload_id(
     session_id: [u8; 32],
@@ -129,14 +133,13 @@ pub async fn handle(
             Err(error) => ToolExecutionResult::failure(error),
         },
 
-        AgentTool::SysInstallPackage { package, manager } => {
-            install::handle_install_package(
-                exec,
-                cwd,
-                &package,
-                manager.as_deref(),
-                session_id,
-                step_index,
+        AgentTool::SoftwareInstallResolve { request } => {
+            install::handle_software_install_resolve(&request).await
+        }
+
+        AgentTool::SoftwareInstallExecutePlan { plan_ref } => {
+            install::handle_software_install_execute_plan(
+                exec, cwd, &plan_ref, session_id, step_index,
             )
             .await
         }

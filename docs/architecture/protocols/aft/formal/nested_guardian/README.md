@@ -3,7 +3,7 @@
 This directory holds the formal artifacts for `NestedGuardian`.
 
 The canonical prose spec lives at
-[`docs/architecture/consensus/aft/specs/nested_guardian.md`](/home/heathledger/Documents/ioi/repos/ioi/docs/architecture/consensus/aft/specs/nested_guardian.md).
+[`docs/architecture/protocols/aft/specs/nested_guardian.md`](/home/heathledger/Documents/ioi/repos/ioi/docs/architecture/protocols/aft/specs/nested_guardian.md).
 
 The model includes the witness-layer mechanics that are absent from the
 production-only baseline:

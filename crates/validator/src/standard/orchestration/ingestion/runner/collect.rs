@@ -8,7 +8,7 @@ use ioi_client::WorkloadClient;
 use ioi_tx::unified::UnifiedTransactionModel;
 use ioi_types::app::{
     compute_next_timestamp_ms, timestamp_millis_to_legacy_seconds, AccountId, ChainTransaction,
-    StateRoot, TxHash,
+    StateEntry, StateRoot, TxHash,
 };
 use ioi_types::codec;
 use ioi_types::keys::ACCOUNT_NONCE_PREFIX;
@@ -20,6 +20,29 @@ use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, watch};
 
 use crate::standard::orchestration::ingestion::types::{ChainTipInfo, ProcessedTx, TimingCache};
+
+fn decode_state_value<T>(bytes: &[u8]) -> Option<T>
+where
+    T: parity_scale_codec::Decode,
+{
+    if let Ok(value) = codec::from_bytes_canonical::<T>(bytes) {
+        return Some(value);
+    }
+    let entry: StateEntry = codec::from_bytes_canonical(bytes).ok()?;
+    codec::from_bytes_canonical(&entry.value).ok()
+}
+
+fn decode_account_nonce(bytes: &[u8]) -> u64 {
+    if let Some(value) = decode_state_value::<u64>(bytes) {
+        return value;
+    }
+    if bytes.len() == 8 {
+        let mut raw = [0u8; 8];
+        raw.copy_from_slice(bytes);
+        return u64::from_le_bytes(raw);
+    }
+    0
+}
 
 pub(crate) struct CollectedBatch {
     pub processed_batch: Vec<ProcessedTx>,
@@ -161,7 +184,7 @@ where
                         Ok(resp) => resp
                             .membership
                             .into_option()
-                            .map(|b| codec::from_bytes_canonical::<u64>(&b).unwrap_or(0))
+                            .map(|b| decode_account_nonce(&b))
                             .unwrap_or(0),
                         _ => 0,
                     };
@@ -226,4 +249,20 @@ where
         expected_ts,
         anchor,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ingestion_nonce_refresh_decodes_wrapped_state_entry() {
+        let wrapped = StateEntry {
+            value: codec::to_bytes_canonical(&11u64).expect("encode nonce"),
+            block_height: 7,
+        };
+        let bytes = codec::to_bytes_canonical(&wrapped).expect("encode state entry");
+
+        assert_eq!(decode_account_nonce(&bytes), 11);
+    }
 }

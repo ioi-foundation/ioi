@@ -34,7 +34,7 @@ pub fn is_atomic_os_action(goal: &str) -> bool {
         "app",
         "application",
         "code",
-        "vscode",
+        "editor",
     ];
     let has_verb = verbs.iter().any(|v| g.starts_with(v));
     let has_object = objects.iter().any(|o| g.contains(o));

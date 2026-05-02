@@ -35,7 +35,7 @@ fn uses_native_integration_route(tool_name: &str, target: &ActionTarget) -> bool
 
 pub fn capability_route_label(tool: &AgentTool, tool_name: &str) -> Option<String> {
     match tool {
-        AgentTool::SysInstallPackage { .. } => Some("enablement_request".to_string()),
+        AgentTool::SoftwareInstallExecutePlan { .. } => Some("enablement_request".to_string()),
         AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. } => {
             Some("script_backend".to_string())
         }

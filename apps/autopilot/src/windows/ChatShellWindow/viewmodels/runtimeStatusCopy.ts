@@ -1,5 +1,12 @@
 import type { AgentTask, PlanRouteDecisionSummary, PlanSummary } from "../../../types";
 
+const INSTALL_WORKFLOW_TOOL_IDS = new Set([
+  "host_discovery",
+  "software_install_resolver",
+  "software_install__resolve",
+  "software_install__execute_plan",
+]);
+
 const INFRASTRUCTURE_STEP_MARKERS = [
   "connecting to kernel",
   "submitting session start",
@@ -10,6 +17,10 @@ const INFRASTRUCTURE_STEP_MARKERS = [
   "session queued",
   "session state is reconciling",
   "session start committed",
+  "session start commit is delayed",
+  "bootstrap is continuing",
+  "did not commit within",
+  "last tx status",
   "preparing the outcome surface",
   "routing the request",
   "working the conversation route",
@@ -87,6 +98,61 @@ function routeDecision(
   return summary?.routeDecision ?? null;
 }
 
+function installDecisionEvidence(task: AgentTask | null | undefined): string[] {
+  return [
+    ...(task?.chat_outcome?.decisionEvidence ?? []),
+    ...(task?.chat_session?.outcomeRequest?.decisionEvidence ?? []),
+  ]
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function evidenceFlag(task: AgentTask | null | undefined, flag: string): boolean {
+  return installDecisionEvidence(task).some(
+    (entry) => entry === flag || entry.startsWith(`${flag}:`),
+  );
+}
+
+function evidenceValue(
+  task: AgentTask | null | undefined,
+  prefix: string,
+): string | null {
+  for (const entry of installDecisionEvidence(task)) {
+    if (!entry.startsWith(prefix)) {
+      continue;
+    }
+    const value = entry.slice(prefix.length).trim();
+    if (value) {
+      return value;
+    }
+  }
+  return null;
+}
+
+function installTargetLabel(task: AgentTask | null | undefined): string | null {
+  return (
+    normalizedText(task?.gate_info?.target_label) ||
+    evidenceValue(task, "software_install_target_text:")
+  );
+}
+
+function isInstallWorkflow(
+  summary: PlanSummary | null | undefined,
+  task: AgentTask | null | undefined = null,
+): boolean {
+  if (
+    evidenceFlag(task, "local_install_requested") ||
+    evidenceFlag(task, "desktop_app_install_requested") ||
+    evidenceFlag(task, "software_install_capability_required")
+  ) {
+    return true;
+  }
+  const tools = projectedToolSet(summary);
+  return [...tools].some(
+    (tool) => INSTALL_WORKFLOW_TOOL_IDS.has(tool),
+  );
+}
+
 export function isInfrastructureCurrentStep(
   value: string | null | undefined,
 ): boolean {
@@ -113,11 +179,17 @@ export function userFacingRuntimeStep(
 
 export function defaultRunActivityTitle(
   summary: PlanSummary | null | undefined,
+  task: AgentTask | null | undefined = null,
 ): string {
   const decision = routeDecision(summary);
 
+  if (isInstallWorkflow(summary, task)) {
+    const target = installTargetLabel(task);
+    return target ? `Install ${target}` : "Local software install";
+  }
+
   if (decision?.directAnswerAllowed && decision.outputIntent === "direct_inline") {
-    return "Thinking";
+    return "Preparing answer";
   }
 
   if (decision?.artifactOutputIntent || decision?.outputIntent === "artifact") {
@@ -158,16 +230,32 @@ export function defaultRunActivityTitle(
     case "artifacts":
       return "Working on the artifact";
     case "general":
-      return "Thinking";
+      return "Preparing answer";
     default:
-      return "Thinking";
+      return "Preparing answer";
   }
+}
+
+export function operatorFacingRunTitle(
+  summary: PlanSummary | null | undefined,
+  task: AgentTask | null | undefined = null,
+): string {
+  return defaultRunActivityTitle(summary, task);
 }
 
 export function defaultRunActivityDetail(
   summary: PlanSummary | null | undefined,
+  task: AgentTask | null | undefined = null,
 ): string {
   const decision = routeDecision(summary);
+
+  if (isInstallWorkflow(summary, task)) {
+    const target = installTargetLabel(task);
+    if (target) {
+      return `Resolving ${target} install route before host mutation.`;
+    }
+    return "Resolving host, source, approval, execution, and verification for the install route.";
+  }
 
   if (decision?.currentnessOverride) {
     return "Checking fresh public information before answering.";
@@ -257,5 +345,12 @@ export function operatorFacingCurrentStep(
     return candidate;
   }
 
-  return defaultRunActivityDetail(summary);
+  if (isInstallWorkflow(summary, task)) {
+    const target = installTargetLabel(task);
+    return target
+      ? `Resolving ${target} install route before host mutation.`
+      : "Resolving install route before host mutation.";
+  }
+
+  return defaultRunActivityDetail(summary, task);
 }

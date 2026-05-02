@@ -18,8 +18,21 @@ pub(crate) async fn evaluate_policy_verdict(
     status_guard: &mut LruCache<String, TxStatusEntry>,
     event_broadcaster: &tokio::sync::broadcast::Sender<KernelEvent>,
     allow_approval_bypass_for_message: bool,
+    skip_pii_overlay: bool,
 ) -> bool {
-    let verdict = PolicyEngine::evaluate(rules, request, safety_model, os_driver).await;
+    let verdict = if skip_pii_overlay {
+        PolicyEngine::evaluate_record_without_pii_overlay(
+            rules,
+            request,
+            None,
+            safety_model,
+            os_driver,
+        )
+        .await
+        .verdict
+    } else {
+        PolicyEngine::evaluate(rules, request, safety_model, os_driver).await
+    };
 
     let mut is_safe = true;
     match verdict {

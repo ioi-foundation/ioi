@@ -52,7 +52,7 @@ pub async fn handle_resume(
             .map(|tool| {
                 matches!(
                     tool,
-                    ioi_types::app::agentic::AgentTool::SysInstallPackage { .. }
+                    ioi_types::app::agentic::AgentTool::SoftwareInstallExecutePlan { .. }
                 )
             })
             .unwrap_or(false);

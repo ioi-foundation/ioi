@@ -66,4 +66,22 @@ assert.match(
   "chat surface state should suppress the separate status card when the unified operator-run transcript is active",
 );
 
+assert.match(
+  hookSource,
+  /hasOperatorDecisionPrompt && installTranscript[\s\S]*livePreview: installPreview/,
+  "install approval should not suppress the separate terminal/status stream",
+);
+
+assert.match(
+  hookSource,
+  /metrics:\s*chrome\.metrics\?\.verification[\s\S]*processes:\s*\[\]/,
+  "install terminal/status streams should not create synthetic work-stage rows around the real receipt preview",
+);
+
+assert.match(
+  hookSource,
+  /if \(installTranscript\) \{[\s\S]*const installFailed =[\s\S]*tone: "error"[\s\S]*title: installTranscript\.title[\s\S]*detail: installBlockedDetail\(installTranscript\)[\s\S]*processes: \[\][\s\S]*livePreview: installPreview/,
+  "failed install runs should render as install blockers with the receipt transcript instead of artifact failure chrome",
+);
+
 console.log("useChatSurfaceState.test.ts: ok");

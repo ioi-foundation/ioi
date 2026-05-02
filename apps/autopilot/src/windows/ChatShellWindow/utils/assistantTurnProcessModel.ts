@@ -76,6 +76,7 @@ export interface BuildAssistantTurnProcessInput {
   finalAnswer?: AnswerPresentation | null;
   isRunning?: boolean;
   currentStep?: string | null;
+  turnDurationLabel?: string | null;
 }
 
 const SECRET_KEY_RE = /(token|secret|password|api[_-]?key|credential|authorization)/i;
@@ -353,34 +354,6 @@ function workspaceSourceItems(
   return items;
 }
 
-function thoughtItems(
-  thoughtSummary: ThoughtSummary | null | undefined,
-): AssistantProcessItem[] {
-  if (!thoughtSummary?.agents.length) {
-    return [];
-  }
-
-  const items: AssistantProcessItem[] = [];
-  thoughtSummary.agents.forEach((agent, agentIndex) => {
-    agent.notes.slice(0, 2).forEach((note, noteIndex) => {
-      const detail = redactProcessText(note);
-      if (!detail) {
-        return;
-      }
-      items.push({
-        id: `thought:${agentIndex}:${noteIndex}`,
-        kind: "thought_summary",
-        status: "complete",
-        label: agent.agentLabel || "Work note",
-        detail,
-        authority: "model_note",
-      });
-    });
-  });
-
-  return items.slice(0, 3);
-}
-
 function planItem(
   planSummary: PlanSummary | null | undefined,
   currentStep: string | null | undefined,
@@ -411,7 +384,10 @@ function planItem(
   };
 }
 
-function validationItems(planSummary: PlanSummary | null | undefined) {
+function validationItems(
+  planSummary: PlanSummary | null | undefined,
+  turnStatus: AssistantTurnStatus,
+) {
   const items: AssistantProcessItem[] = [];
   if (
     planSummary?.verifierOutcome &&
@@ -430,18 +406,29 @@ function validationItems(planSummary: PlanSummary | null | undefined) {
     });
   }
 
-  if (planSummary?.approvalState && planSummary.approvalState !== "clear") {
+  const approvalState =
+    planSummary?.approvalState === "pending" && turnStatus === "complete"
+      ? "approved"
+      : planSummary?.approvalState;
+
+  if (approvalState && approvalState !== "clear") {
+    const approvalLabel =
+      approvalState === "approved"
+        ? "Approval granted"
+        : approvalState === "denied"
+          ? "Approval denied"
+          : "Approval pending";
     items.push({
-      id: `approval:${planSummary.approvalState}`,
+      id: `approval:${approvalState}`,
       kind: "approval_gate",
       status:
-        planSummary.approvalState === "denied"
+        approvalState === "denied"
           ? "blocked"
-          : planSummary.approvalState === "pending"
+          : approvalState === "pending"
             ? "running"
             : "complete",
-      label: `Approval ${planSummary.approvalState}`,
-      detail: redactProcessText(planSummary.pauseSummary),
+      label: approvalLabel,
+      detail: redactProcessText(planSummary?.pauseSummary),
       authority: "runtime",
     });
   }
@@ -493,7 +480,7 @@ function processItems(input: BuildAssistantTurnProcessInput): AssistantProcessIt
   }
 
   items.push(...taskGateItems(input.task));
-  items.push(...validationItems(input.planSummary));
+  items.push(...validationItems(input.planSummary, status));
   items.push(...workspaceSourceItems(input.workspaceSources));
 
   for (const row of rows) {
@@ -507,10 +494,6 @@ function processItems(input: BuildAssistantTurnProcessInput): AssistantProcessIt
       sourceId: row.sourceUrl ? `url:${row.sourceUrl}` : null,
       authority: "runtime",
     });
-  }
-
-  if (rows.length === 0 && status !== "complete") {
-    items.push(...thoughtItems(input.thoughtSummary));
   }
 
   if (input.task?.visual_hash) {
@@ -547,11 +530,17 @@ function summaryLine(
   sources: AssistantSourceRef[],
   input: BuildAssistantTurnProcessInput,
 ): string {
+  const duration = compactDurationLabel(input.turnDurationLabel);
+  if (duration) {
+    return status === "complete"
+      ? `Worked for ${duration}`
+      : `Working for ${duration}`;
+  }
   if (status === "running" || status === "thinking") {
-    return compactWhitespace(input.currentStep) || "Thinking";
+    return compactWhitespace(input.currentStep) || "Working";
   }
   if (status === "blocked") {
-    return "Needs operator attention";
+    return compactWhitespace(input.currentStep) || "Needs operator attention";
   }
   if (status === "failed") {
     return "Run failed";
@@ -583,6 +572,17 @@ function summaryLine(
   return useful.length > 0 ? `Worked with ${useful.join(" · ")}` : "Ready";
 }
 
+function compactDurationLabel(value: string | null | undefined): string | null {
+  const compact = compactWhitespace(value);
+  if (!compact) {
+    return null;
+  }
+  return compact
+    .replace(/^(?:thought|thinking|worked|working)\s+for\s+/i, "")
+    .replace(/^for\s+/i, "")
+    .trim() || null;
+}
+
 export function buildAssistantTurnProcess(
   input: BuildAssistantTurnProcessInput,
 ): AssistantTurnProcess {
@@ -609,6 +609,7 @@ export function hasMeaningfulProcess(process: AssistantTurnProcess): boolean {
     process.status === "thinking" ||
     process.status === "blocked" ||
     process.status === "failed" ||
+    /^(?:worked|working) for\b/i.test(process.summaryLine) ||
     process.items.some((item) =>
       ["source_read", "tool_call", "validation_check", "approval_gate", "evidence_ref"].includes(
         item.kind,

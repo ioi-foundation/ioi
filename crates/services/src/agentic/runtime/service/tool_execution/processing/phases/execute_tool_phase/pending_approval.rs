@@ -67,6 +67,25 @@ pub(super) async fn handle_pending_approval(
     let action_fingerprint = sha256(&tool_jcs)
         .map(hex::encode)
         .unwrap_or_else(|_| String::new());
+    let effective_rules = crate::agentic::policy::augment_workspace_filesystem_policy(
+        rules,
+        Some(agent_state.working_directory.as_str()),
+    );
+    let policy_hash_bytes = serde_jcs::to_vec(&effective_rules)
+        .ok()
+        .and_then(|canonical| sha256(&canonical).ok())
+        .ok_or_else(|| {
+            TransactionError::Invalid(
+                "ERROR_CLASS=DeterminismBoundary Failed to hash pending approval policy"
+                    .to_string(),
+            )
+        })?;
+    let mut policy_hash = [0u8; 32];
+    policy_hash.copy_from_slice(policy_hash_bytes.as_ref());
+    state.insert(
+        &crate::agentic::runtime::keys::get_approval_policy_hash_key(&session_id, &hash_arr),
+        &policy_hash,
+    )?;
     let root_retry_hash = retry_intent_hash.unwrap_or(intent_hash);
     if let Ok(bytes) = hex::decode(approval_hash_hex) {
         if bytes.len() == 32 {
@@ -132,7 +151,9 @@ pub(super) async fn handle_pending_approval(
     agent_state.pending_visual_hash = Some(final_visual_phash);
     agent_state.pending_tool_call = Some(tool_call_result.to_string());
     agent_state.last_screen_phash = Some(final_visual_phash);
-    agent_state.status = AgentStatus::Paused("Waiting for approval".into());
+    agent_state.status = AgentStatus::Paused(
+        install_approval_pause_message(tool).unwrap_or_else(|| "Waiting for approval".to_string()),
+    );
 
     if let Some(incident_state) = load_incident_state(state, &session_id)? {
         if incident_state.active {
@@ -222,4 +243,64 @@ pub(super) async fn handle_pending_approval(
         is_gated,
         is_lifecycle_action,
     })
+}
+
+fn install_approval_pause_message(tool: &AgentTool) -> Option<String> {
+    let summary = install_resolution_summary_for_tool(tool)?;
+    let display = summary.display_name.as_deref().unwrap_or("software");
+    let manager = summary.manager.as_deref().unwrap_or("auto");
+    let source_kind = summary.source_kind.as_deref().unwrap_or("resolved_source");
+    if summary.stage == "unresolved" {
+        return Some(format!(
+            "Install source unresolved: {} ({})",
+            display, source_kind
+        ));
+    }
+    Some(format!(
+        "Awaiting install approval: {} via {} ({})",
+        display, manager, source_kind
+    ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::agentic::runtime::execution::system::software_install_plan_ref_for_request;
+    use ioi_types::app::agentic::SoftwareInstallRequestFrame;
+
+    fn software_install_execute_plan_tool(
+        target_text: &str,
+        manager_preference: Option<&str>,
+    ) -> AgentTool {
+        let request = SoftwareInstallRequestFrame {
+            target_text: target_text.to_string(),
+            target_kind: None,
+            manager_preference: manager_preference.map(str::to_string),
+            launch_after_install: None,
+            provenance: Some("test".to_string()),
+        };
+        AgentTool::SoftwareInstallExecutePlan {
+            plan_ref: software_install_plan_ref_for_request(&request),
+        }
+    }
+
+    #[test]
+    fn pending_install_approval_status_uses_resolution_summary() {
+        let tool = software_install_execute_plan_tool("generic tool", Some("apt"));
+
+        assert_eq!(
+            install_approval_pause_message(&tool).as_deref(),
+            Some("Awaiting install approval: generic tool via apt-get (package_manager)")
+        );
+    }
+
+    #[test]
+    fn pending_unknown_install_status_is_resolution_blocker() {
+        let tool = software_install_execute_plan_tool("snorflepaint", Some("auto"));
+
+        assert_eq!(
+            install_approval_pause_message(&tool).as_deref(),
+            Some("Install source unresolved: snorflepaint (unknown_target)")
+        );
+    }
 }

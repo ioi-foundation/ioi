@@ -1,5 +1,7 @@
 use super::{
-    duplicate_prior_success_noop, maybe_enqueue_workspace_package_manifest_recovery,
+    duplicate_prior_success_noop, install_already_satisfied_operator_reply,
+    install_already_satisfied_terminal_reason, install_resolution_terminal_block_reason,
+    maybe_enqueue_workspace_package_manifest_recovery,
     maybe_terminalize_workspace_package_manifest_read, observe_terminal_chat_reply_shape,
     select_manifest_script_recovery_candidate, terminal_chat_reply_layout_profile,
     workspace_goal_prefers_package_manifest_recovery, FailureClass,
@@ -144,6 +146,61 @@ fn duplicate_prior_success_noop_detects_retry_boundary() {
     assert!(!duplicate_prior_success_noop(&[
         "duplicate_action_fingerprint_non_command_noop=true".to_string(),
     ]));
+}
+
+#[test]
+fn install_resolution_blocker_is_terminalized_from_receipt() {
+    let checks = vec!["software_install_blocked_before_approval=true".to_string()];
+    let reason = install_resolution_terminal_block_reason(
+        &checks,
+        Some(
+            "ERROR_CLASS=InstallerResolutionRequired No verified install mapping exists for 'snorflepaint'.",
+        ),
+        None,
+        None,
+    )
+    .expect("resolver blocker should terminalize");
+
+    assert!(reason.contains("InstallerResolutionRequired"));
+    assert!(reason.contains("snorflepaint"));
+}
+
+#[test]
+fn non_install_failure_is_not_terminalized_as_install_blocker() {
+    let checks = vec!["policy_decision=allowed".to_string()];
+
+    assert!(install_resolution_terminal_block_reason(
+        &checks,
+        Some("ERROR_CLASS=UnexpectedState unrelated failure"),
+        None,
+        None,
+    )
+    .is_none());
+}
+
+#[test]
+fn already_satisfied_install_is_terminalized_as_completion() {
+    let checks = vec!["install_already_satisfied_before_approval=true".to_string()];
+    let reason = install_already_satisfied_terminal_reason(
+        &checks,
+        Some("Already installed: 'LM Studio' is present before host mutation."),
+        None,
+    )
+    .expect("verified installed target should terminalize");
+
+    assert!(reason.contains("Already installed"));
+    assert!(reason.contains("LM Studio"));
+}
+
+#[test]
+fn already_satisfied_install_reply_hides_raw_receipt_tokens() {
+    let reply = install_already_satisfied_operator_reply(
+        "Already installed: 'LM Studio' is present. SOFTWARE_INSTALL stage='already_installed' display_name='LM Studio' verification='lms --version'",
+    );
+
+    assert!(reply.contains("LM Studio is already installed"));
+    assert!(reply.contains("`lms --version`"));
+    assert!(!reply.contains("SOFTWARE_INSTALL"));
 }
 
 #[test]

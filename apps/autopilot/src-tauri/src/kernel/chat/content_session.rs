@@ -176,6 +176,95 @@ fn policy_blocked_chat_outcome_request(
     request
 }
 
+fn install_chat_outcome_request(
+    raw_prompt: &str,
+    active_artifact_id: Option<String>,
+    intent_context: &ChatIntentContext,
+) -> ChatOutcomeRequest {
+    let execution_mode_decision = derive_execution_mode_decision(
+        ChatOutcomeKind::Conversation,
+        None,
+        ChatExecutionStrategy::PlanExecute,
+        0.99,
+        false,
+        active_artifact_id.is_some(),
+    );
+    let mut decision_evidence = vec![
+        "local_install_requested".to_string(),
+        "desktop_app_install_requested".to_string(),
+        "tool_first_execution".to_string(),
+        "approval_required".to_string(),
+        "software_install_capability_required".to_string(),
+    ];
+    if let Some(install_intent) = intent_context.local_install_intent() {
+        decision_evidence.push(format!(
+            "software_install_target_text:{}",
+            install_intent.target_text
+        ));
+        decision_evidence.push(format!(
+            "install_intent_class:{}",
+            install_intent.intent_class
+        ));
+        decision_evidence.push(format!(
+            "install_target_kind:{}",
+            install_intent.target_kind
+        ));
+        decision_evidence.push(format!(
+            "install_requires_host_mutation:{}",
+            install_intent.requires_host_mutation
+        ));
+    }
+
+    let mut request = ChatOutcomeRequest {
+        request_id: Uuid::new_v4().to_string(),
+        raw_prompt: raw_prompt.trim().to_string(),
+        active_artifact_id,
+        outcome_kind: ChatOutcomeKind::Conversation,
+        execution_strategy: execution_mode_decision.resolved_strategy,
+        execution_mode_decision: Some(execution_mode_decision),
+        confidence: 0.99,
+        needs_clarification: false,
+        clarification_questions: Vec::new(),
+        decision_evidence,
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
+        retained_lane_state: None,
+        lane_transitions: Vec::new(),
+        orchestration_state: None,
+        artifact: None,
+    };
+    refresh_outcome_request_topology(&mut request, None);
+    request
+}
+
+pub(crate) fn seed_task_route_from_intent_signals(task: &mut AgentTask, raw_prompt: &str) -> bool {
+    if task.chat_outcome.is_some() {
+        return false;
+    }
+
+    let trimmed_prompt = raw_prompt.trim();
+    if trimmed_prompt.is_empty() {
+        return false;
+    }
+
+    let intent_context = ChatIntentContext::new(trimmed_prompt);
+    if intent_context.local_install_intent().is_none() {
+        return false;
+    }
+
+    let outcome_request = install_chat_outcome_request(trimmed_prompt, None, &intent_context);
+    task.chat_outcome = Some(outcome_request.clone());
+    append_decision_record_event(
+        task,
+        &outcome_request,
+        "Chat route selected",
+        "Local software install request routed to approval-gated runtime execution.",
+        false,
+    );
+    true
+}
+
 fn default_blocked_artifact_request() -> ChatOutcomeArtifactRequest {
     ChatOutcomeArtifactRequest {
         artifact_class: ChatArtifactClass::Document,
@@ -281,6 +370,13 @@ pub(super) fn chat_outcome_request_with_runtime_timeout(
         return Ok(policy_blocked_chat_outcome_request(
             trimmed_intent,
             active_artifact_id,
+        ));
+    }
+    if intent_context.local_install_intent().is_some() {
+        return Ok(install_chat_outcome_request(
+            trimmed_intent,
+            active_artifact_id,
+            &intent_context,
         ));
     }
     if intent_context.workspace_grounding_required() {

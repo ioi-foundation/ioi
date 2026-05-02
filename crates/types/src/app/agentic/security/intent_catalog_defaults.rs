@@ -876,8 +876,49 @@ IntentCatalogEntry {
         "install dependency".to_string(),
     ],
 },
-IntentCatalogEntry {
-    intent_id: "command.exec.install_dependency".to_string(),
+	IntentCatalogEntry {
+	    intent_id: "software.install.desktop_app".to_string(),
+	    semantic_descriptor:
+	        "resolve install approve execute and verify a named desktop application on this local machine using host discovery package managers official installers and app launch checks"
+	            .to_string(),
+	    query_binding: IntentQueryBindingClass::None,
+	    required_capabilities: vec![
+	        CapabilityId::from("agent.lifecycle"),
+	        CapabilityId::from("conversation.reply"),
+	        CapabilityId::from("software.install.resolve"),
+	        CapabilityId::from("software.install.execute"),
+	    ],
+	    risk_class: "high".to_string(),
+	    scope: IntentScopeProfile::CommandExecution,
+	    preferred_tier: "tool_first".to_string(),
+	    applicability_class: ExecutionApplicabilityClass::TopologyDependent,
+	    requires_host_discovery: Some(true),
+	    provider_selection_mode: Some(ProviderSelectionMode::DynamicSynthesis),
+	    required_evidence: vec![
+	        "host_discovery".to_string(),
+	        "software_install_resolution".to_string(),
+	        "approval".to_string(),
+	        "execution".to_string(),
+	        "verification".to_string(),
+	        "verification_commit".to_string(),
+	    ],
+	    success_conditions: vec!["verified_local_app_available".to_string()],
+	    verification_mode: Some(VerificationMode::DynamicSynthesis),
+	    aliases: vec![
+	        "install app".to_string(),
+	        "install desktop app".to_string(),
+	        "install software".to_string(),
+	        "download and install app".to_string(),
+	    ],
+	    exemplars: vec![
+	        "install a named desktop application".to_string(),
+	        "download and install a local software application".to_string(),
+	        "install the app requested by name".to_string(),
+	        "install a desktop app locally".to_string(),
+	    ],
+	},
+	IntentCatalogEntry {
+	    intent_id: "command.exec.install_dependency".to_string(),
     semantic_descriptor:
         "download and install a named software package dependency on this local machine using the host package manager and verify the installed binary is available"
             .to_string(),
@@ -885,7 +926,8 @@ IntentCatalogEntry {
     required_capabilities: vec![
         CapabilityId::from("agent.lifecycle"),
         CapabilityId::from("conversation.reply"),
-        CapabilityId::from("system.install_package"),
+        CapabilityId::from("software.install.resolve"),
+        CapabilityId::from("software.install.execute"),
     ],
     risk_class: "high".to_string(),
     scope: IntentScopeProfile::CommandExecution,
@@ -909,8 +951,8 @@ IntentCatalogEntry {
         "package manager".to_string(),
     ],
     exemplars: vec![
-        "download and install vlc media player".to_string(),
-        "install ffmpeg on this machine".to_string(),
+        "download and install a named package dependency".to_string(),
+        "install a command line package on this machine".to_string(),
         "install package dependency locally".to_string(),
     ],
 },

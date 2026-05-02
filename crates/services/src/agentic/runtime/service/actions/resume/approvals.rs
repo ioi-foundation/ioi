@@ -157,6 +157,12 @@ pub(crate) fn validate_registered_approval_grant(
     }
     if let Some(expected_policy_hash) = expected_policy_hash {
         if grant.policy_hash != expected_policy_hash {
+            log::warn!(
+                "Approval grant policy hash mismatch: grant_policy_hash={} expected_policy_hash={} request_hash={}",
+                hex::encode(&grant.policy_hash[..6]),
+                hex::encode(&expected_policy_hash[..6]),
+                hex::encode(&grant.request_hash[..6])
+            );
             return Err(TransactionError::Invalid(
                 "Approval grant policy hash mismatch".to_string(),
             ));
@@ -224,7 +230,7 @@ pub(super) async fn validate_and_apply(
     let approval_grant = load_pending_approval_grant(state, &session_id)?;
 
     // Validate approval grant before executing anything.
-    // Runtime secret retries for package__install are allowed without approval grant.
+    // Runtime secret retries for approved software install plans are allowed without approval grant.
     if let Some(grant) = approval_grant.as_ref() {
         let scope_context = ApprovalScopeContext::new("desktop_agent.resume");
         validate_registered_approval_grant(
@@ -367,7 +373,7 @@ pub(super) async fn validate_and_apply(
         return Err(TransactionError::Invalid(
             "Missing approval authority for review request".into(),
         ));
-    } else if !matches!(tool, AgentTool::SysInstallPackage { .. }) {
+    } else if !matches!(tool, AgentTool::SoftwareInstallExecutePlan { .. }) {
         return Err(TransactionError::Invalid(
             "Missing approval authority".into(),
         ));

@@ -1,6 +1,6 @@
 use super::reset_for_new_user_goal;
 use crate::agentic::runtime::types::{
-    AgentMode, AgentState, AgentStatus, ExecutionTier, PendingSearchCompletion,
+    AgentMode, AgentState, AgentStatus, ExecutionTier, PendingSearchCompletion, ToolCallStatus,
 };
 use ioi_types::app::agentic::{
     IntentCandidateScore, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
@@ -79,6 +79,18 @@ fn test_state() -> AgentState {
 #[test]
 fn reset_for_new_user_goal_refreshes_target_and_intent_state() {
     let mut state = test_state();
+    state.pending_tool_call = Some(r#"{"name":"software_install__execute_plan"}"#.to_string());
+    state.pending_tool_jcs = Some(vec![1, 2, 3]);
+    state.pending_tool_hash = Some([7u8; 32]);
+    state.pending_request_nonce = Some(42);
+    state.pending_visual_hash = Some([9u8; 32]);
+    state
+        .recent_actions
+        .push("route_contract_tool_call:software_install__execute_plan:lm studio".to_string());
+    state.tool_execution_log.insert(
+        "software_install__execute_plan".to_string(),
+        ToolCallStatus::Pending,
+    );
     reset_for_new_user_goal(&mut state, "open calculator");
 
     assert_eq!(state.goal, "open calculator");
@@ -93,5 +105,13 @@ fn reset_for_new_user_goal_refreshes_target_and_intent_state() {
     assert!(!state.awaiting_intent_clarification);
     assert_eq!(state.step_count, 0);
     assert!(state.last_action_type.is_none());
+    assert!(state.pending_tool_call.is_none());
+    assert!(state.pending_tool_jcs.is_none());
+    assert!(state.pending_tool_hash.is_none());
+    assert!(state.pending_request_nonce.is_none());
+    assert!(state.pending_visual_hash.is_none());
+    assert!(state.recent_actions.is_empty());
+    assert!(state.execution_queue.is_empty());
+    assert!(state.tool_execution_log.is_empty());
     assert!(state.pending_search_completion.is_none());
 }

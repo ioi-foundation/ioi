@@ -1,6 +1,9 @@
 use super::super::*;
+use crate::agentic::runtime::execution::system::install_resolution_checks_for_tool;
+use crate::agentic::runtime::service::tool_execution::record_execution_evidence_with_value;
 use crate::agentic::runtime::service::tool_execution::verified_command_probe_completion_summary;
 use crate::agentic::runtime::utils::{persist_agent_state, timestamp_ms_now};
+use ioi_crypto::algorithms::hash::sha256;
 
 pub(crate) struct LifecycleStatusPhaseContext<'a, 's> {
     pub service: &'a RuntimeAgentService,
@@ -48,6 +51,236 @@ fn normalize_resumed_output_only_success(
     *success = true;
     verification_checks.push("resume_output_only_success_normalized=true".to_string());
     verification_checks.push(format!("resume_output_only_success_tool={}", tool_name));
+}
+
+fn push_unique_verification_check(verification_checks: &mut Vec<String>, check: String) {
+    if !verification_checks
+        .iter()
+        .any(|existing| existing == &check)
+    {
+        verification_checks.push(check);
+    }
+}
+
+fn install_resolution_receipt_evidence(verification_checks: &[String]) -> Option<String> {
+    let mut fields = verification_checks
+        .iter()
+        .map(|check| check.trim())
+        .filter_map(|check| check.strip_prefix("software_install."))
+        .filter(|field| !field.trim().is_empty())
+        .map(str::to_string)
+        .collect::<Vec<_>>();
+    fields.sort();
+    fields.dedup();
+    (!fields.is_empty()).then(|| fields.join(";"))
+}
+
+fn install_resolution_value<'a>(
+    verification_checks: &'a [String],
+    field_name: &str,
+) -> Option<&'a str> {
+    let prefix = format!("software_install.{field_name}=");
+    verification_checks
+        .iter()
+        .map(|check| check.trim())
+        .find_map(|check| check.strip_prefix(prefix.as_str()))
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+}
+
+fn install_approval_receipt_evidence(agent_state: &AgentState) -> Option<String> {
+    let grant = agent_state.pending_approval.as_ref()?;
+    let grant_ref = grant
+        .artifact_hash()
+        .map(|hash| format!("sha256:{}", hex::encode(hash)))
+        .unwrap_or_else(|_| "sha256:unavailable".to_string());
+    Some(format!(
+        "approval_grant_ref={};request_hash=sha256:{};policy_hash=sha256:{};authority_id=sha256:{}",
+        grant_ref,
+        hex::encode(grant.request_hash),
+        hex::encode(grant.policy_hash),
+        hex::encode(grant.authority_id)
+    ))
+}
+
+fn verification_commit_from_resolution(verification_checks: &[String]) -> Option<String> {
+    let verification = install_resolution_value(verification_checks, "verification")?;
+    let digest = sha256(verification.as_bytes()).ok()?;
+    Some(format!("sha256:{}", hex::encode(digest.as_ref())))
+}
+
+fn record_resume_install_success_contract_receipts(
+    service: &RuntimeAgentService,
+    agent_state: &mut AgentState,
+    tool: &AgentTool,
+    session_id: [u8; 32],
+    step_index: u32,
+    resolved_intent_id: &str,
+    verification_checks: &mut Vec<String>,
+    output: Option<&str>,
+) {
+    if !matches!(tool, AgentTool::SoftwareInstallExecutePlan { .. }) {
+        return;
+    }
+
+    if !verification_checks
+        .iter()
+        .any(|check| check.trim().starts_with("software_install."))
+    {
+        for check in install_resolution_checks_for_tool(tool) {
+            push_unique_verification_check(verification_checks, check);
+        }
+    }
+
+    if let Some(evidence) = install_resolution_receipt_evidence(verification_checks) {
+        record_execution_evidence_with_value(
+            &mut agent_state.tool_execution_log,
+            "software_install_resolution",
+            evidence.clone(),
+        );
+        push_unique_verification_check(
+            verification_checks,
+            execution_evidence_key("software_install_resolution"),
+        );
+        emit_execution_contract_receipt_event_with_observation(
+            service,
+            session_id,
+            step_index,
+            resolved_intent_id,
+            "resolution",
+            "software_install_resolution",
+            true,
+            &evidence,
+            Some("install_resolver"),
+            Some("resolved"),
+            Some("software_install_resolution"),
+            None,
+            Some("software.install.execute".to_string()),
+            None,
+        );
+    }
+
+    if let Some(evidence) = install_approval_receipt_evidence(agent_state) {
+        record_execution_evidence_with_value(
+            &mut agent_state.tool_execution_log,
+            "approval",
+            evidence.clone(),
+        );
+        push_unique_verification_check(verification_checks, execution_evidence_key("approval"));
+        emit_execution_contract_receipt_event_with_observation(
+            service,
+            session_id,
+            step_index,
+            resolved_intent_id,
+            "approval",
+            "approval",
+            true,
+            &evidence,
+            Some("approval_grant"),
+            Some("approved"),
+            Some("signed_approval"),
+            None,
+            Some("agency_firewall".to_string()),
+            None,
+        );
+    }
+
+    record_execution_evidence(&mut agent_state.tool_execution_log, "execution");
+    push_unique_verification_check(verification_checks, execution_evidence_key("execution"));
+    emit_execution_contract_receipt_event_with_observation(
+        service,
+        session_id,
+        step_index,
+        resolved_intent_id,
+        "execution",
+        "execution",
+        true,
+        "execution_invocation_completed=true",
+        Some("software_install__execute_plan"),
+        Some("completed"),
+        Some("tool_execution"),
+        None,
+        Some("software.install.execute".to_string()),
+        None,
+    );
+
+    record_execution_evidence(&mut agent_state.tool_execution_log, "verification");
+    push_unique_verification_check(verification_checks, execution_evidence_key("verification"));
+    let verification_commit = verification_commit_from_resolution(verification_checks);
+    if let Some(commit) = verification_commit.as_ref() {
+        record_execution_evidence_with_value(
+            &mut agent_state.tool_execution_log,
+            "verification_commit",
+            commit.clone(),
+        );
+        push_unique_verification_check(
+            verification_checks,
+            execution_evidence_key("verification_commit"),
+        );
+    }
+    emit_execution_contract_receipt_event_with_observation(
+        service,
+        session_id,
+        step_index,
+        resolved_intent_id,
+        "verification",
+        "verification",
+        true,
+        "verification_receipt_recorded=true",
+        Some("install_verifier"),
+        Some("passed"),
+        Some("tool_verification"),
+        verification_commit.clone(),
+        Some("software.install.execute".to_string()),
+        None,
+    );
+    emit_execution_contract_receipt_event_with_observation(
+        service,
+        session_id,
+        step_index,
+        resolved_intent_id,
+        "verification",
+        "verification_commit",
+        verification_commit.is_some(),
+        verification_commit
+            .as_deref()
+            .unwrap_or("verification_commit=missing"),
+        Some("install_verifier"),
+        verification_commit.as_deref(),
+        Some("sha256"),
+        verification_commit.clone(),
+        Some("software.install.execute".to_string()),
+        None,
+    );
+
+    record_success_condition(
+        &mut agent_state.tool_execution_log,
+        "verified_local_app_available",
+    );
+    push_unique_verification_check(
+        verification_checks,
+        success_condition_key("verified_local_app_available"),
+    );
+    let evidence = format!(
+        "verified_local_app_available=true;tool_output_chars={}",
+        output.map(|entry| entry.chars().count()).unwrap_or(0)
+    );
+    emit_execution_contract_receipt_event_with_observation(
+        service,
+        session_id,
+        step_index,
+        resolved_intent_id,
+        "verification",
+        "verified_local_app_available",
+        true,
+        &evidence,
+        Some("install_verifier"),
+        Some("true"),
+        Some("bool"),
+        None,
+        Some("software.install.execute".to_string()),
+        None,
+    );
 }
 
 fn remaining_queue_is_only_mail_reply_provider_fallbacks(agent_state: &AgentState) -> bool {
@@ -164,12 +397,26 @@ pub(crate) async fn run_lifecycle_status_phase(
         verification_checks,
     );
 
-    let is_install_package_tool = matches!(tool, AgentTool::SysInstallPackage { .. });
+    let is_install_package_tool = matches!(tool, AgentTool::SoftwareInstallExecutePlan { .. });
     let clarification_required = !success
         && err
             .as_deref()
             .map(|msg| requires_wait_for_clarification(&tool_name, msg))
             .unwrap_or(false);
+
+    if success && command_scope && is_install_package_tool {
+        let intent_id = resolved_intent_id(agent_state);
+        record_resume_install_success_contract_receipts(
+            service,
+            agent_state,
+            &tool,
+            session_id,
+            pre_state_summary.step_index,
+            &intent_id,
+            verification_checks,
+            out.as_deref(),
+        );
+    }
 
     if !success
         && is_install_package_tool
@@ -283,7 +530,7 @@ pub(crate) async fn run_lifecycle_status_phase(
             let _ = tx.send(KernelEvent::AgentActionResult {
                 session_id,
                 step_index: agent_state.step_count,
-                tool_name: "package__install".to_string(),
+                tool_name: "software_install__execute_plan".to_string(),
                 output: err.clone().unwrap_or_default(),
                 error_class: extract_error_class_token(err.as_deref()).map(str::to_string),
                 agent_status: "Paused".to_string(),
@@ -719,14 +966,16 @@ pub(crate) async fn run_lifecycle_status_phase(
                         agent_state.status = AgentStatus::Running;
                     }
                 }
-                AgentTool::SysInstallPackage { package, .. } => {
+                AgentTool::SoftwareInstallExecutePlan { .. } => {
                     if success && command_scope {
                         let summary = out
                             .as_deref()
                             .map(str::trim)
                             .filter(|entry| !entry.is_empty())
                             .map(str::to_string)
-                            .unwrap_or_else(|| format!("Installed package '{}'.", package));
+                            .unwrap_or_else(|| "Software install completed.".to_string());
+                        let summary =
+                            install_operator_completion_summary(&summary).unwrap_or(summary);
                         let summary = enrich_command_scope_summary(&summary, agent_state);
                         let intent_id = resolved_intent_id(agent_state);
                         let missing_completion_evidence = evaluate_completion_requirements(

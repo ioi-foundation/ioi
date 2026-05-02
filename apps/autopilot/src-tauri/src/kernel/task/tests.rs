@@ -19,6 +19,17 @@ fn local_gpu_profile_dir() -> PathBuf {
     )
 }
 
+#[test]
+fn task_submitter_decodes_wrapped_account_nonce_state() {
+    let wrapped = StateEntry {
+        value: codec::to_bytes_canonical(&11u64).expect("encode nonce"),
+        block_height: 42,
+    };
+    let bytes = codec::to_bytes_canonical(&wrapped).expect("encode state entry");
+
+    assert_eq!(decode_account_nonce(&bytes), 11);
+}
+
 fn minimal_chat_outcome_request(raw_prompt: &str) -> crate::models::ChatOutcomeRequest {
     crate::models::ChatOutcomeRequest {
         request_id: "request-1".to_string(),
@@ -203,6 +214,9 @@ fn reconciler_replaces_optimistic_ui_running_steps() {
         "Connecting to Kernel..."
     ));
     assert!(should_replace_with_reconciled_running_step(
+        "Waiting for session start to commit..."
+    ));
+    assert!(should_replace_with_reconciled_running_step(
         "Scheduling first step..."
     ));
     assert!(should_replace_with_reconciled_running_step(
@@ -235,6 +249,26 @@ fn session_state_key_targets_desktop_agent_namespace() {
     let ns_prefix = ioi_api::state::service_namespace_prefix("desktop_agent");
     let local_key = get_state_key(&session_id);
     assert_eq!(key, [ns_prefix.as_slice(), local_key.as_slice()].concat());
+}
+
+#[test]
+fn paused_policy_approval_reconciles_as_gate_not_complete() {
+    assert_eq!(
+        phase_for_paused_kernel_state(false, false, true),
+        AgentPhase::Gate
+    );
+    assert_eq!(
+        phase_for_paused_kernel_state(true, false, true),
+        AgentPhase::Running
+    );
+    assert_eq!(
+        phase_for_paused_kernel_state(false, true, true),
+        AgentPhase::Running
+    );
+    assert_eq!(
+        phase_for_paused_kernel_state(false, false, false),
+        AgentPhase::Complete
+    );
 }
 
 #[test]
@@ -319,15 +353,145 @@ fn live_activity_prevents_false_session_materialization_failure() {
 }
 
 #[test]
-fn bootstrap_step_commit_delay_reconciles_instead_of_failing() {
+fn seeded_install_bootstrap_uses_route_contract_without_chat_session() {
+    let mut task = AgentTask {
+        id: "session-install".to_string(),
+        intent: "install lmstudio".to_string(),
+        agent: "autopilot".to_string(),
+        phase: AgentPhase::Running,
+        progress: 0,
+        total_steps: 0,
+        current_step: "Initializing...".to_string(),
+        gate_info: None,
+        receipt: None,
+        visual_hash: None,
+        pending_request_hash: None,
+        session_id: Some("session-install".to_string()),
+        credential_request: None,
+        clarification_request: None,
+        session_checklist: Vec::new(),
+        background_tasks: Vec::new(),
+        history: Vec::new(),
+        events: Vec::new(),
+        artifacts: Vec::new(),
+        chat_session: None,
+        chat_outcome: None,
+        renderer_session: None,
+        build_session: None,
+        run_bundle_id: None,
+        processed_steps: HashSet::new(),
+        work_graph_tree: Vec::new(),
+        generation: 0,
+        lineage_id: "genesis".to_string(),
+        fitness_score: 0.0,
+    };
+
+    assert!(crate::kernel::chat::seed_task_route_from_intent_signals(
+        &mut task,
+        "install lmstudio"
+    ));
+    assert!(task.chat_session.is_none());
+
+    let handoff = apply_chat_route_handoff_to_runtime_input(&task, "install lmstudio");
+    assert!(handoff.starts_with("CHAT ARTIFACT ROUTE CONTRACT:"));
+    assert!(handoff.contains("selected_route: install lmstudio"));
+    assert!(handoff.contains("software_install_target_text: lmstudio"));
+    assert!(handoff.contains("software_install__execute_plan"));
+    assert!(handoff.contains("USER REQUEST:\ninstall lmstudio"));
+}
+
+#[test]
+fn chat_primary_followup_runtime_route_bootstraps_new_kernel_session() {
+    let mut task = AgentTask {
+        id: "session-install".to_string(),
+        intent: "install lmstudio".to_string(),
+        agent: "autopilot".to_string(),
+        phase: AgentPhase::Complete,
+        progress: 1,
+        total_steps: 1,
+        current_step: "Ready for input".to_string(),
+        gate_info: None,
+        receipt: None,
+        visual_hash: None,
+        pending_request_hash: None,
+        session_id: Some("session-install".to_string()),
+        credential_request: None,
+        clarification_request: None,
+        session_checklist: Vec::new(),
+        background_tasks: Vec::new(),
+        history: Vec::new(),
+        events: Vec::new(),
+        artifacts: Vec::new(),
+        chat_session: None,
+        chat_outcome: None,
+        renderer_session: None,
+        build_session: None,
+        run_bundle_id: None,
+        processed_steps: HashSet::new(),
+        work_graph_tree: Vec::new(),
+        generation: 0,
+        lineage_id: "genesis".to_string(),
+        fitness_score: 0.0,
+    };
+    assert!(crate::kernel::chat::seed_task_route_from_intent_signals(
+        &mut task,
+        "install lmstudio"
+    ));
+
+    assert!(task_should_continue_through_kernel(&task));
+    assert!(should_bootstrap_runtime_from_chat_primary_followup(
+        &task, true
+    ));
+    assert!(!should_bootstrap_runtime_from_chat_primary_followup(
+        &task, false
+    ));
+}
+
+#[test]
+fn bootstrap_step_pending_commit_delay_retries_instead_of_hanging() {
     assert!(bootstrap_step_commit_delay_should_reconcile(
+        "Triggered session step at nonce 1 but it did not commit: Tx abc did not commit within 15000ms (last tx status: InMempool).",
+    ));
+    assert!(!bootstrap_step_commit_delay_should_retry(
         "Triggered session step at nonce 1 but it did not commit: Tx abc did not commit within 15000ms (last tx status: InMempool).",
     ));
     assert!(bootstrap_step_commit_delay_should_reconcile(
         "step submit already exists for nonce 1",
     ));
+    assert!(!bootstrap_step_commit_delay_should_retry(
+        "step submit already exists for nonce 1",
+    ));
     assert!(!bootstrap_step_commit_delay_should_reconcile(
         "permission denied",
+    ));
+    assert!(!bootstrap_step_commit_delay_should_retry(
+        "permission denied"
+    ));
+}
+
+#[test]
+fn approval_pause_rejection_is_treated_as_step_outcome() {
+    assert!(step_rejection_indicates_approval_pause(
+        "Rejected during block production: Transaction processing error: tx_index=1: Invalid transaction: Agent not running: Paused(\"Awaiting install approval: LM Studio via apt-get (manual_installer)\")",
+    ));
+    assert!(step_rejection_indicates_approval_pause(
+        "Invalid transaction: Agent not running: Paused(\"Waiting for approval\")",
+    ));
+    assert!(!step_rejection_indicates_approval_pause(
+        "Invalid transaction: Agent not running: Paused(\"Waiting for user input\")",
+    ));
+}
+
+#[test]
+fn terminal_step_rejection_is_treated_as_committed_outcome() {
+    assert!(step_rejection_indicates_terminal_agent_outcome(
+        "Rejected during block production: Invalid transaction: Agent not running: Failed(\"ERROR_CLASS=InstallerResolutionRequired\")",
+    ));
+    assert!(step_rejection_indicates_terminal_agent_outcome(
+        "Invalid transaction: Agent not running: Completed(Some(\"done\"))",
+    ));
+    assert!(!step_rejection_indicates_terminal_agent_outcome(
+        "Invalid transaction: Agent not running: Paused(\"Waiting for approval\")",
     ));
 }
 
@@ -387,6 +551,19 @@ fn bootstrap_pending_step_escalates_after_retry_budget_is_exhausted() {
         true,
         true,
     ));
+}
+
+#[test]
+fn bootstrap_recovery_uses_ephemeral_first_step_after_ephemeral_start() {
+    assert_eq!(
+        bootstrap_step_nonce_after_start_recovery(Some(7), false),
+        Some(7)
+    );
+    assert_eq!(
+        bootstrap_step_nonce_after_start_recovery(Some(7), true),
+        None
+    );
+    assert_eq!(bootstrap_step_nonce_after_start_recovery(None, true), None);
 }
 
 #[test]

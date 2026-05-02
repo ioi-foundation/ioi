@@ -24,6 +24,19 @@ fn policy_request_params(method: &str, params: &[u8]) -> Vec<u8> {
     .unwrap_or_else(|_| b"{\"__ioi_policy_non_json_params\":null}".to_vec())
 }
 
+fn is_desktop_agent_lifecycle_control(method: &str) -> bool {
+    matches!(
+        method,
+        "start@v1"
+            | "step@v1"
+            | "post_message@v1"
+            | "resume@v1"
+            | "deny@v1"
+            | "register_approval_authority@v1"
+            | "revoke_approval_authority@v1"
+    )
+}
+
 pub(crate) async fn evaluate_service_policy_and_egress(
     p_tx: &ProcessedTx,
     service_id: &str,
@@ -59,11 +72,16 @@ pub(crate) async fn evaluate_service_policy_and_egress(
         status_guard,
         event_broadcaster,
         allow_approval_bypass_for_message,
+        service_id == "desktop_agent" && is_desktop_agent_lifecycle_control(method),
     )
     .await;
 
     if !is_safe {
         return false;
+    }
+
+    if service_id == "desktop_agent" && is_desktop_agent_lifecycle_control(method) {
+        return true;
     }
 
     let input_str = match std::str::from_utf8(params) {
@@ -100,4 +118,34 @@ pub(crate) async fn evaluate_service_policy_and_egress(
     }
 
     is_safe
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_desktop_agent_lifecycle_control;
+
+    #[test]
+    fn desktop_agent_lifecycle_controls_are_distinct_from_runtime_tools() {
+        for method in [
+            "start@v1",
+            "step@v1",
+            "post_message@v1",
+            "resume@v1",
+            "deny@v1",
+            "register_approval_authority@v1",
+            "revoke_approval_authority@v1",
+        ] {
+            assert!(
+                is_desktop_agent_lifecycle_control(method),
+                "{method} should be treated as a lifecycle control"
+            );
+        }
+
+        for method in ["package__install", "shell__run", "browser__click"] {
+            assert!(
+                !is_desktop_agent_lifecycle_control(method),
+                "{method} is a runtime tool and must remain receipt/policy evaluated"
+            );
+        }
+    }
 }

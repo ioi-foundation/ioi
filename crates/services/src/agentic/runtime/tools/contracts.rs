@@ -82,16 +82,30 @@ impl ToolContractProfile {
                 &["path_scope", "pre_delete_hash", "post_delete_observation"],
             ),
             "shell__run" | "shell__start" | "shell__input" | "shell__terminate"
-            | "shell__reset" | "shell__cd" | "package__install" => Self::external_effect(
+            | "shell__reset" | "shell__cd" => Self::external_effect(
                 "system",
-                if name == "package__install" {
-                    "sys::install_package"
-                } else {
-                    "sys::exec"
-                },
-                &["command", "args", "stdin", "path", "package"],
+                "sys::exec",
+                &["command", "args", "stdin", "path"],
                 &["policy_verdict", "stdout_stderr_exit", "working_directory"],
                 "non_replayable_external_effect",
+            ),
+            "software_install__resolve" => Self::read_only(
+                "software_install",
+                "software::install_resolve",
+                &["request"],
+                "resolver_discovery",
+            ),
+            "software_install__execute_plan" => Self::external_effect(
+                "software_install",
+                "software::install_execute",
+                &["plan_ref"],
+                &[
+                    "policy_verdict",
+                    "command_stream",
+                    "verification",
+                    "final_receipt",
+                ],
+                "approved_host_mutation",
             ),
             "shell__status" => Self::read_only(
                 "system",
@@ -471,7 +485,7 @@ fn primitive_capabilities_for(policy_target: &str) -> Vec<String> {
         "fs::read" => Some("prim:fs.read"),
         "fs::write" => Some("prim:fs.write"),
         _ if policy_target.starts_with("file__") => Some("prim:fs.write"),
-        "sys::exec" | "sys::install_package" => Some("prim:sys.exec"),
+        "sys::exec" | "software::install_execute" => Some("prim:sys.exec"),
         "browser::inspect" | "web::retrieve" | "net::fetch" => Some("prim:net.request"),
         "browser::interact" => Some("prim:browser.interact"),
         "gui::inspect" => Some("prim:ui.inspect"),
@@ -524,7 +538,7 @@ fn authority_scopes_for(tool_name: &str, policy_target: &str, effect_class: &str
             | "shell__start"
             | "shell__input"
             | "shell__terminate"
-            | "package__install"
+            | "software_install__execute_plan"
             | "app__launch"
     ) {
         scopes.push("scope:host.controlled_execution".to_string());

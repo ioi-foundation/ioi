@@ -209,6 +209,14 @@ fn decision_evidence_item_value(decision_evidence: &[String], prefix: &str) -> O
         .map(str::to_string)
 }
 
+fn local_install_request_for_outcome_request(outcome_request: &ChatOutcomeRequest) -> bool {
+    decision_evidence_item_flag(&outcome_request.decision_evidence, "local_install_requested")
+        || decision_evidence_item_flag(
+            &outcome_request.decision_evidence,
+            "desktop_app_install_requested",
+        )
+}
+
 pub fn artifact_connector_grounding_for_outcome_request(
     outcome_request: &ChatOutcomeRequest,
 ) -> Option<ArtifactConnectorGrounding> {
@@ -238,6 +246,9 @@ pub fn artifact_connector_grounding_for_outcome_request(
 }
 
 pub fn route_family_for_outcome_request(outcome_request: &ChatOutcomeRequest) -> &'static str {
+    if local_install_request_for_outcome_request(outcome_request) {
+        return "command_execution";
+    }
     if decision_evidence_item_flag(
         &outcome_request.decision_evidence,
         "connector_intent_detected",
@@ -310,7 +321,11 @@ fn route_family_for_lane(lane: ChatLaneFamily) -> &'static str {
 pub fn selected_route_label_for_outcome_request(outcome_request: &ChatOutcomeRequest) -> String {
     match outcome_request.outcome_kind {
         ChatOutcomeKind::Conversation => {
-            if matches!(
+            if local_install_request_for_outcome_request(outcome_request) {
+                decision_evidence_item_value(&outcome_request.decision_evidence, "software_install_target_text:")
+                    .map(|target| format!("install {}", target))
+                    .unwrap_or_else(|| "local software install".to_string())
+            } else if matches!(
                 outcome_request.normalized_request.as_ref(),
                 Some(ChatNormalizedRequest::MessageCompose(_))
             ) {
@@ -417,6 +432,9 @@ pub fn route_decision_for_outcome_request(
         && !currentness_override
     {
         direct_answer_blockers.push("planned_execution_selected".to_string());
+    }
+    if local_install_request_for_outcome_request(outcome_request) {
+        direct_answer_blockers.push("local_install_requested".to_string());
     }
     if decision_evidence_item_flag(&outcome_request.decision_evidence, "connector_missing") {
         direct_answer_blockers.push("connector_unavailable".to_string());
@@ -613,6 +631,14 @@ pub fn build_chat_runtime_handoff_prompt_prefix(
     } else {
         route_decision.direct_answer_blockers.join(", ")
     };
+    let install_target_line = decision_evidence_item_value(
+        &outcome_request.decision_evidence,
+        "software_install_target_text:",
+    )
+    .map(|target| target.replace(['\r', '\n'], " "))
+    .filter(|target| !target.trim().is_empty())
+    .map(|target| format!("- software_install_target_text: {target}\n"))
+    .unwrap_or_default();
 
     let mut execution_rules = vec![
         "Honor this Chat route contract unless the user explicitly changes the task.".to_string(),
@@ -653,6 +679,20 @@ pub fn build_chat_runtime_handoff_prompt_prefix(
                 .to_string(),
         );
     }
+    if local_install_request_for_outcome_request(outcome_request) {
+        execution_rules.push(
+            "This is an explicit local software install request; do not answer with instructions only."
+                .to_string(),
+        );
+        execution_rules.push(
+            "Detect the host OS, architecture, available package managers, and whether elevation is required before selecting an installer."
+                .to_string(),
+        );
+        execution_rules.push(
+            "Use an approval-gated install flow: resolve the requested app to a provenance-backed source candidate, request approval before mutation, execute through software_install__execute_plan, and verify the installed binary or app before claiming success."
+                .to_string(),
+        );
+    }
     if decision_evidence_item_flag(
         &outcome_request.decision_evidence,
         "connector_intent_detected",
@@ -675,6 +715,7 @@ pub fn build_chat_runtime_handoff_prompt_prefix(
          - direct_answer_blockers: {blockers}\n\
          - primary_tools: {primary_tools}\n\
          - broad_fallback_tools: {fallback_tools}\n\
+         {install_target_line}\
          - {workspace_line}\n\
          \n\
          EXECUTION RULES:\n\

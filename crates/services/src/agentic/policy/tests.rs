@@ -16,7 +16,10 @@ use ioi_types::app::agentic::{
 };
 use ioi_types::app::{ActionContext, ActionRequest, ActionTarget};
 use ioi_types::error::VmError;
-use std::sync::Arc;
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
 
 struct DummySafety {
     graph: EvidenceGraph,
@@ -40,6 +43,39 @@ impl LocalSafetyModel for DummySafety {
         Ok(PiiInspection {
             evidence: self.graph.clone(),
             ambiguous: self.graph.ambiguous,
+            stage2_status: None,
+        })
+    }
+}
+
+struct CountingSafety {
+    inspections: Arc<AtomicUsize>,
+}
+
+#[async_trait]
+impl LocalSafetyModel for CountingSafety {
+    async fn classify_intent(&self, _input: &str) -> anyhow::Result<SafetyVerdict> {
+        Ok(SafetyVerdict::Safe)
+    }
+
+    async fn detect_pii(&self, _input: &str) -> anyhow::Result<Vec<(usize, usize, String)>> {
+        Ok(vec![])
+    }
+
+    async fn inspect_pii(
+        &self,
+        _input: &str,
+        _risk_surface: PiiRiskSurface,
+    ) -> anyhow::Result<PiiInspection> {
+        self.inspections.fetch_add(1, Ordering::SeqCst);
+        Ok(PiiInspection {
+            evidence: EvidenceGraph {
+                version: 1,
+                source_hash: [0u8; 32],
+                ambiguous: false,
+                spans: vec![],
+            },
+            ambiguous: false,
             stage2_status: None,
         })
     }
@@ -82,6 +118,15 @@ fn model_registry_target_keeps_exact_name_and_model_control_alias() {
     let aliases = policy_target_aliases(&ActionTarget::Custom("model_registry__load".into()));
     assert_eq!(aliases[0], "model_registry__load");
     assert!(aliases.iter().any(|alias| alias == "model::control"));
+}
+
+#[test]
+fn software_install_execute_target_keeps_canonical_alias() {
+    let aliases = policy_target_aliases(&ActionTarget::SoftwareInstallExecute);
+    assert_eq!(aliases[0], "software::install_execute");
+    assert!(aliases
+        .iter()
+        .any(|alias| alias == "software::install_execute"));
 }
 
 #[test]
@@ -340,6 +385,258 @@ fn allow_domains_blocks_substring_bypass_host() {
 
     let verdict = rt.block_on(PolicyEngine::evaluate(&rules, &request, &safety, &os));
     assert_eq!(verdict, Verdict::Block);
+}
+
+#[test]
+fn install_policy_accepts_resolver_backed_appimage_manager() {
+    let graph = EvidenceGraph {
+        version: 1,
+        source_hash: [0u8; 32],
+        ambiguous: false,
+        spans: vec![],
+    };
+
+    let rules = ActionRules {
+        policy_id: "policy".to_string(),
+        defaults: DefaultPolicy::DenyAll,
+        ontology_policy: Default::default(),
+        pii_controls: PiiControls::default(),
+        rules: vec![Rule {
+            rule_id: Some("require-install-approval".to_string()),
+            target: "software::install_execute".to_string(),
+            conditions: RuleConditions::default(),
+            action: Verdict::RequireApproval,
+        }],
+    };
+
+    let safety = Arc::new(DummySafety { graph }) as Arc<dyn LocalSafetyModel>;
+    let os = Arc::new(DummyOs) as Arc<dyn OsDriver>;
+
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("runtime");
+
+    let params = serde_json::json!({
+        "plan_ref": "software-install-plan:v1:eyJ2ZXJzaW9uIjoxLCJyZXF1ZXN0Ijp7InRhcmdldF90ZXh0IjoiTE0gU3R1ZGlvIn19"
+    });
+    let params = serde_json::to_vec(&params).expect("params should serialize");
+    let request = ActionRequest {
+        target: ActionTarget::SoftwareInstallExecute,
+        params,
+        context: ActionContext {
+            agent_id: "agent".to_string(),
+            session_id: None,
+            window_id: None,
+        },
+        nonce: 1,
+    };
+
+    let verdict = rt.block_on(PolicyEngine::evaluate(&rules, &request, &safety, &os));
+    assert_eq!(verdict, Verdict::RequireApproval);
+}
+
+#[test]
+fn install_policy_accepts_resolver_request_for_approval() {
+    let graph = EvidenceGraph {
+        version: 1,
+        source_hash: [0u8; 32],
+        ambiguous: false,
+        spans: vec![],
+    };
+
+    let rules = ActionRules {
+        policy_id: "policy".to_string(),
+        defaults: DefaultPolicy::AllowAll,
+        ontology_policy: Default::default(),
+        pii_controls: PiiControls::default(),
+        rules: vec![Rule {
+            rule_id: Some("require-install-approval".to_string()),
+            target: "software::install_resolve".to_string(),
+            conditions: RuleConditions::default(),
+            action: Verdict::RequireApproval,
+        }],
+    };
+
+    let safety = Arc::new(DummySafety { graph }) as Arc<dyn LocalSafetyModel>;
+    let os = Arc::new(DummyOs) as Arc<dyn OsDriver>;
+
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("runtime");
+
+    let params = serde_json::json!({
+        "request": {
+            "target_text": "LM Studio",
+            "manager_preference": "appimage"
+        }
+    });
+    let params = serde_json::to_vec(&params).expect("params should serialize");
+    let request = ActionRequest {
+        target: ActionTarget::SoftwareInstallResolve,
+        params,
+        context: ActionContext {
+            agent_id: "agent".to_string(),
+            session_id: None,
+            window_id: None,
+        },
+        nonce: 1,
+    };
+
+    let verdict = rt.block_on(PolicyEngine::evaluate(&rules, &request, &safety, &os));
+    assert_eq!(verdict, Verdict::RequireApproval);
+}
+
+#[test]
+fn install_policy_accepts_auto_resolver_target_text_for_approval() {
+    let graph = EvidenceGraph {
+        version: 1,
+        source_hash: [0u8; 32],
+        ambiguous: false,
+        spans: vec![],
+    };
+
+    let rules = ActionRules {
+        policy_id: "policy".to_string(),
+        defaults: DefaultPolicy::DenyAll,
+        ontology_policy: Default::default(),
+        pii_controls: PiiControls::default(),
+        rules: vec![Rule {
+            rule_id: Some("require-install-approval".to_string()),
+            target: "software::install_resolve".to_string(),
+            conditions: RuleConditions::default(),
+            action: Verdict::RequireApproval,
+        }],
+    };
+
+    let safety = Arc::new(DummySafety { graph }) as Arc<dyn LocalSafetyModel>;
+    let os = Arc::new(DummyOs) as Arc<dyn OsDriver>;
+
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("runtime");
+
+    let params = serde_json::json!({
+        "request": {
+            "target_text": "lm studio",
+            "manager_preference": "auto"
+        }
+    });
+    let params = serde_json::to_vec(&params).expect("params should serialize");
+    let request = ActionRequest {
+        target: ActionTarget::SoftwareInstallResolve,
+        params,
+        context: ActionContext {
+            agent_id: "agent".to_string(),
+            session_id: None,
+            window_id: None,
+        },
+        nonce: 1,
+    };
+
+    let verdict = rt.block_on(PolicyEngine::evaluate(&rules, &request, &safety, &os));
+    assert_eq!(verdict, Verdict::RequireApproval);
+}
+
+#[test]
+fn install_policy_blocks_unknown_manager_token() {
+    let graph = EvidenceGraph {
+        version: 1,
+        source_hash: [0u8; 32],
+        ambiguous: false,
+        spans: vec![],
+    };
+
+    let rules = ActionRules {
+        policy_id: "policy".to_string(),
+        defaults: DefaultPolicy::DenyAll,
+        ontology_policy: Default::default(),
+        pii_controls: PiiControls::default(),
+        rules: vec![Rule {
+            rule_id: Some("require-install-approval".to_string()),
+            target: "software::install_resolve".to_string(),
+            conditions: RuleConditions::default(),
+            action: Verdict::RequireApproval,
+        }],
+    };
+
+    let safety = Arc::new(DummySafety { graph }) as Arc<dyn LocalSafetyModel>;
+    let os = Arc::new(DummyOs) as Arc<dyn OsDriver>;
+
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("runtime");
+
+    let params = serde_json::json!({
+        "request": {
+            "target_text": "LM Studio",
+            "manager_preference": "definitely-not-a-manager"
+        }
+    });
+    let params = serde_json::to_vec(&params).expect("params should serialize");
+    let request = ActionRequest {
+        target: ActionTarget::SoftwareInstallResolve,
+        params,
+        context: ActionContext {
+            agent_id: "agent".to_string(),
+            session_id: None,
+            window_id: None,
+        },
+        nonce: 1,
+    };
+
+    let verdict = rt.block_on(PolicyEngine::evaluate(&rules, &request, &safety, &os));
+    assert_eq!(verdict, Verdict::Block);
+}
+
+#[test]
+fn policy_record_without_pii_overlay_does_not_inspect_control_payload() {
+    let rules = ActionRules {
+        policy_id: "policy".to_string(),
+        defaults: DefaultPolicy::RequireApproval,
+        ontology_policy: Default::default(),
+        pii_controls: PiiControls::default(),
+        rules: vec![],
+    };
+    let inspections = Arc::new(AtomicUsize::new(0));
+    let safety = Arc::new(CountingSafety {
+        inspections: Arc::clone(&inspections),
+    }) as Arc<dyn LocalSafetyModel>;
+    let os = Arc::new(DummyOs) as Arc<dyn OsDriver>;
+
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("runtime");
+
+    let request = ActionRequest {
+        target: ActionTarget::Custom("resume@v1".to_string()),
+        params: serde_json::to_vec(&serde_json::json!({
+            "__ioi_policy_non_json_params": {
+                "method": "resume@v1",
+                "encoding": "hex",
+                "value": "009f92d3010203"
+            }
+        }))
+        .expect("policy params should serialize"),
+        context: ActionContext {
+            agent_id: "agent".to_string(),
+            session_id: None,
+            window_id: None,
+        },
+        nonce: 1,
+    };
+
+    let record = rt.block_on(PolicyEngine::evaluate_record_without_pii_overlay(
+        &rules, &request, None, &safety, &os,
+    ));
+
+    assert_eq!(record.verdict, Verdict::RequireApproval);
+    assert_eq!(record.pii_decision_hash, None);
+    assert_eq!(inspections.load(Ordering::SeqCst), 0);
 }
 
 #[test]

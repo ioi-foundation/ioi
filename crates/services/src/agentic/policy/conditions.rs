@@ -49,12 +49,66 @@ fn allow_domains_match_url(allowed_domains: &[String], url: &str) -> bool {
         .any(|allowed| host == allowed || host.ends_with(&format!(".{}", allowed)))
 }
 
-fn is_safe_package_identifier(package: &str) -> bool {
-    !package.is_empty()
-        && package.len() <= 128
-        && package.chars().all(|c| {
-            c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-' | '+' | '@' | '/' | ':')
-        })
+fn is_safe_install_target_text(target: &str) -> bool {
+    !target.is_empty()
+        && target.len() <= 256
+        && target
+            .chars()
+            .all(|c| !c.is_control() && c != '\0' && c != '`')
+}
+
+fn is_supported_install_manager_token(manager: &str) -> bool {
+    matches!(
+        manager,
+        "auto"
+            | "default"
+            | "system"
+            | "apt-get"
+            | "apt"
+            | "brew"
+            | "brew-cask"
+            | "cask"
+            | "homebrew-cask"
+            | "pip"
+            | "pip3"
+            | "npm"
+            | "pnpm"
+            | "cargo"
+            | "winget"
+            | "choco"
+            | "chocolatey"
+            | "scoop"
+            | "yum"
+            | "dnf"
+            | "pacman"
+            | "zypper"
+            | "apk"
+            | "flatpak"
+            | "snap"
+            | "appimage"
+            | "app-image"
+            | "manual"
+            | "official-installer"
+            | "self"
+    )
+}
+
+fn is_software_install_action_target(target: &ActionTarget) -> bool {
+    matches!(
+        target,
+        ActionTarget::SoftwareInstallResolve | ActionTarget::SoftwareInstallExecute
+    )
+}
+
+fn is_safe_software_install_plan_ref(plan_ref: &str) -> bool {
+    const PREFIX: &str = "software-install-plan:v1:";
+    let encoded = match plan_ref.strip_prefix(PREFIX) {
+        Some(encoded) if !encoded.is_empty() && encoded.len() <= 8192 => encoded,
+        _ => return false,
+    };
+    encoded
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_'))
 }
 
 fn normalize_sys_exec_command_for_policy(raw: &str) -> Option<String> {
@@ -190,45 +244,53 @@ impl PolicyEngine {
             }
         }
 
-        if let ActionTarget::SysInstallPackage = target {
+        if is_software_install_action_target(target) {
             if let Ok(json) = serde_json::from_slice::<serde_json::Value>(params) {
-                let package = json["package"].as_str().unwrap_or("").trim();
-                if !is_safe_package_identifier(package) {
-                    tracing::warn!(
-                        "Policy Violation: install package '{}' is not a safe identifier.",
-                        package
-                    );
-                    return false;
-                }
-
-                let manager = json["manager"]
-                    .as_str()
-                    .unwrap_or("")
-                    .trim()
-                    .to_ascii_lowercase();
-                if !manager.is_empty()
-                    && !matches!(
-                        manager.as_str(),
-                        "apt-get"
-                            | "apt"
-                            | "brew"
-                            | "pip"
-                            | "pip3"
-                            | "npm"
-                            | "pnpm"
-                            | "cargo"
-                            | "winget"
-                            | "choco"
-                            | "chocolatey"
-                            | "yum"
-                            | "dnf"
-                    )
-                {
-                    tracing::warn!(
-                        "Policy Violation: install manager '{}' is unsupported.",
-                        manager
-                    );
-                    return false;
+                match target {
+                    ActionTarget::SoftwareInstallResolve => {
+                        let request = json.get("request").unwrap_or(&Value::Null);
+                        let target_text = request
+                            .get("target_text")
+                            .and_then(|value| value.as_str())
+                            .unwrap_or("")
+                            .trim();
+                        if !is_safe_install_target_text(target_text) {
+                            tracing::warn!(
+                                "Policy Violation: software install target '{}' is not safe resolver target text.",
+                                target_text
+                            );
+                            return false;
+                        }
+                        if let Some(manager) = request
+                            .get("manager_preference")
+                            .and_then(|value| value.as_str())
+                            .map(str::trim)
+                            .filter(|value| !value.is_empty())
+                            .map(str::to_ascii_lowercase)
+                        {
+                            if !is_supported_install_manager_token(manager.as_str()) {
+                                tracing::warn!(
+                                    "Policy Violation: software install manager '{}' is unsupported.",
+                                    manager
+                                );
+                                return false;
+                            }
+                        }
+                    }
+                    ActionTarget::SoftwareInstallExecute => {
+                        let plan_ref = json
+                            .get("plan_ref")
+                            .and_then(|value| value.as_str())
+                            .unwrap_or("")
+                            .trim();
+                        if !is_safe_software_install_plan_ref(plan_ref) {
+                            tracing::warn!(
+                                "Policy Violation: software install execute plan_ref is missing or malformed."
+                            );
+                            return false;
+                        }
+                    }
+                    _ => {}
                 }
             } else {
                 return false;

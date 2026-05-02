@@ -427,16 +427,77 @@ fn should_emit_toast(
     )
 }
 
+fn is_chat_bound_workflow_intervention(record: &InterventionRecord) -> bool {
+    if record.session_id.is_none() && record.thread_id.is_none() {
+        return false;
+    }
+    if !matches!(
+        record.intervention_type,
+        InterventionType::ApprovalGate
+            | InterventionType::ClarificationGate
+            | InterventionType::CredentialGate
+            | InterventionType::PiiReviewGate
+    ) {
+        return false;
+    }
+    record.source.service_name.eq_ignore_ascii_case("Autopilot")
+        && record.source.workflow_name.eq_ignore_ascii_case("workflow")
+}
+
+fn is_chat_bound_workflow_notification(record: &AssistantNotificationRecord) -> bool {
+    if record.session_id.is_none() && record.thread_id.is_none() {
+        return false;
+    }
+    record.source.service_name.eq_ignore_ascii_case("Autopilot")
+        && record.source.workflow_name.eq_ignore_ascii_case("workflow")
+}
+
+fn should_emit_intervention_toast(
+    record: &InterventionRecord,
+    policy: &AssistantAttentionPolicy,
+) -> bool {
+    if is_chat_bound_workflow_intervention(record) {
+        return false;
+    }
+    should_emit_toast(
+        &record.severity,
+        matches!(record.status, InterventionStatus::New),
+        policy,
+    )
+}
+
+fn should_emit_assistant_toast(
+    record: &AssistantNotificationRecord,
+    policy: &AssistantAttentionPolicy,
+) -> bool {
+    if is_chat_bound_workflow_notification(record) {
+        return false;
+    }
+    if !should_emit_toast(
+        &record.severity,
+        matches!(record.status, AssistantNotificationStatus::New),
+        policy,
+    ) {
+        return false;
+    }
+
+    let detector_key = detector_key_for_class(&record.notification_class);
+    let detector = policy.detectors.get(detector_key);
+    if detector.is_some_and(|item| !item.enabled) {
+        return false;
+    }
+    let min_score = detector
+        .and_then(|item| item.toast_min_score)
+        .unwrap_or(0.85);
+    record.priority_score >= min_score
+}
+
 fn maybe_emit_intervention_toast<R: Runtime>(
     app: &AppHandle<R>,
     record: &InterventionRecord,
     policy: &AssistantAttentionPolicy,
 ) {
-    if should_emit_toast(
-        &record.severity,
-        matches!(record.status, InterventionStatus::New),
-        policy,
-    ) {
+    if should_emit_intervention_toast(record, policy) {
         let _ = app.emit("intervention-toast-candidate", record);
     }
 }
@@ -446,23 +507,7 @@ fn maybe_emit_assistant_toast<R: Runtime>(
     record: &AssistantNotificationRecord,
     policy: &AssistantAttentionPolicy,
 ) {
-    if !should_emit_toast(
-        &record.severity,
-        matches!(record.status, AssistantNotificationStatus::New),
-        policy,
-    ) {
-        return;
-    }
-
-    let detector_key = detector_key_for_class(&record.notification_class);
-    let detector = policy.detectors.get(detector_key);
-    if detector.is_some_and(|item| !item.enabled) {
-        return;
-    }
-    let min_score = detector
-        .and_then(|item| item.toast_min_score)
-        .unwrap_or(0.85);
-    if record.priority_score >= min_score {
+    if should_emit_assistant_toast(record, policy) {
         let _ = app.emit("assistant-notification-toast-candidate", record);
     }
 }
@@ -1668,5 +1713,101 @@ impl IfEmptyThen for String {
         } else {
             self
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn chat_gate_record() -> InterventionRecord {
+        InterventionRecord {
+            item_id: "intv-test".to_string(),
+            rail: NotificationRail::Control,
+            intervention_type: InterventionType::ApprovalGate,
+            status: InterventionStatus::New,
+            severity: NotificationSeverity::High,
+            blocking: true,
+            title: "Approval required".to_string(),
+            summary: "Review in chat.".to_string(),
+            created_at_ms: 1,
+            updated_at_ms: 1,
+            dedupe_key: "approval:test".to_string(),
+            thread_id: Some("thread-1".to_string()),
+            session_id: Some("session-1".to_string()),
+            delivery_state: NotificationDeliveryState {
+                inbox_visible: true,
+                badge_counted: true,
+                ..Default::default()
+            },
+            privacy: default_privacy(ObservationTier::WorkflowState),
+            source: default_source("Autopilot", "workflow", "approval_gate"),
+            ..Default::default()
+        }
+    }
+
+    fn chat_workflow_notification() -> AssistantNotificationRecord {
+        AssistantNotificationRecord {
+            item_id: "notif-test".to_string(),
+            rail: NotificationRail::Assistant,
+            notification_class: AssistantNotificationClass::ValuableCompletion,
+            status: AssistantNotificationStatus::New,
+            severity: NotificationSeverity::High,
+            title: "Autopilot ready".to_string(),
+            summary: "Open Chat for the result.".to_string(),
+            thread_id: Some("thread-1".to_string()),
+            session_id: Some("session-1".to_string()),
+            delivery_state: NotificationDeliveryState {
+                inbox_visible: true,
+                ..Default::default()
+            },
+            privacy: default_privacy(ObservationTier::WorkflowState),
+            source: default_source("Autopilot", "workflow", "valuable_completion"),
+            priority_score: 1.0,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn chat_bound_workflow_gates_do_not_emit_toasts() {
+        let policy = AssistantAttentionPolicy::default();
+        let record = chat_gate_record();
+
+        assert!(is_chat_bound_workflow_intervention(&record));
+        assert!(!should_emit_intervention_toast(&record, &policy));
+    }
+
+    #[test]
+    fn non_chat_high_severity_interventions_can_still_toast() {
+        let policy = AssistantAttentionPolicy::default();
+        let mut record = chat_gate_record();
+        record.thread_id = None;
+        record.session_id = None;
+        record.source = default_source("Google Gmail", "assistant", "follow_up_risk");
+
+        assert!(!is_chat_bound_workflow_intervention(&record));
+        assert!(should_emit_intervention_toast(&record, &policy));
+    }
+
+    #[test]
+    fn chat_bound_workflow_notifications_do_not_emit_toasts() {
+        let policy = AssistantAttentionPolicy::default();
+        let record = chat_workflow_notification();
+
+        assert!(is_chat_bound_workflow_notification(&record));
+        assert!(!should_emit_assistant_toast(&record, &policy));
+    }
+
+    #[test]
+    fn non_chat_high_severity_assistant_notifications_can_still_toast() {
+        let policy = AssistantAttentionPolicy::default();
+        let mut record = chat_workflow_notification();
+        record.thread_id = None;
+        record.session_id = None;
+        record.source = default_source("Google Gmail", "assistant", "follow_up_risk");
+        record.notification_class = AssistantNotificationClass::FollowUpRisk;
+
+        assert!(!is_chat_bound_workflow_notification(&record));
+        assert!(should_emit_assistant_toast(&record, &policy));
     }
 }

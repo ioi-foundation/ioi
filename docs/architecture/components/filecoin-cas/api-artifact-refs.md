@@ -4,11 +4,17 @@ Status: canonical low-level reference.
 Canonical owner: this file for artifact refs, package refs, artifact bundle APIs, and artifact verification flow.
 Supersedes: overlapping artifact API examples in plans/specs when ref or bundle fields conflict.
 Superseded by: none.
-Last alignment pass: 2026-05-01.
+Last alignment pass: 2026-05-02.
 
 ## Purpose
 
 Filecoin/CAS/CDN is the payload availability layer. It stores packages, worker capsules, model artifacts, delivery artifacts, evidence bundles, trace bundles, projection checkpoints, and large immutable payloads. Trust comes from hashes, signatures, manifests, and receipts, not from the CDN itself.
+
+It does not store Agentgres state "as blobs" in the simple sense. Agentgres owns
+canonical operations, object heads, indexes, constraints, projections,
+subscriptions, receipt metadata, delivery state, and quality/contribution
+ledgers. This API stores immutable payloads and returns refs that Agentgres can
+record and verify.
 
 ## ArtifactRef
 
@@ -105,3 +111,4 @@ client receives ArtifactRef
 3. Private artifacts must separate availability from readability.
 4. Agentgres stores artifact metadata and provenance; Filecoin/CAS stores payloads.
 5. L1 contracts store only roots or commitments, not payloads.
+6. Filecoin/CAS checkpoint or snapshot artifacts are cold evidence/export objects, not the Agentgres live state authority.

@@ -91,13 +91,13 @@ export const DOC_PAGES: DocPage[] = [
     section: 'overview',
     status: 'Current',
     lastVerified: '2026-03-31',
-    keywords: ['surface map', 'developers', 'docs', 'autopilot', 'cli', 'swarm', 'sas', 'aiagent', 'forge'],
+    keywords: ['surface map', 'developers', 'docs', 'autopilot', 'cli', 'swarm', 'sas', 'aiagent', 'ioi'],
     sources: [
       'apps/developers-ioi-ai/README.md',
-      'docs/architecture/runtime/ioi-cli-daemon-runtime.md',
-      'docs/architecture/surfaces/autopilot-internal-product-spec.md',
-      'docs/architecture/marketplaces/sas-xyz-service-marketplace.md',
-      'docs/architecture/marketplaces/aiagent-xyz-worker-marketplace.md',
+      'docs/architecture/components/daemon-runtime/doctrine.md',
+      'docs/architecture/products/autopilot/internal-product-spec.md',
+      'docs/architecture/domains/sas/service-marketplace.md',
+      'docs/architecture/domains/aiagent/worker-marketplace.md',
     ],
     canonicalLinks: [
       {
@@ -518,7 +518,7 @@ npm run lint --workspace=apps/developers-ioi-ai`}
     sources: [
       'apps/autopilot/README.md',
       'apps/autopilot/package.json',
-      'docs/architecture/surfaces/autopilot-internal-product-spec.md',
+      'docs/architecture/products/autopilot/internal-product-spec.md',
     ],
     canonicalLinks: [],
     nextSteps: [
@@ -700,7 +700,7 @@ console.log(result.status, trace.receipts.length);`}
     status: 'Current',
     lastVerified: '2026-03-31',
     keywords: ['cli', 'command line', 'artifact', 'node', 'query', 'verify', 'policy'],
-    sources: ['crates/cli/src/main.rs', 'docs/architecture/runtime/ioi-cli-daemon-runtime.md', 'crates/cli/Cargo.toml'],
+    sources: ['crates/cli/src/main.rs', 'docs/architecture/components/daemon-runtime/doctrine.md', 'crates/cli/Cargo.toml'],
     canonicalLinks: [],
     nextSteps: [
       { label: 'CLI Command Reference', href: '#cli-command-reference' },
@@ -879,16 +879,16 @@ cargo run -p ioi-cli --bin cli -- query status`}
     section: 'ship',
     status: 'Preview',
     lastVerified: '2026-03-31',
-    keywords: ['promotion path', 'service candidate', 'autopilot', 'sas', 'forge'],
+    keywords: ['promotion path', 'service candidate', 'autopilot', 'sas', 'ioi cli'],
     sources: [
-      'docs/architecture/surfaces/autopilot-internal-product-spec.md',
-      'docs/architecture/marketplaces/sas-xyz-service-marketplace.md',
-      'docs/architecture/runtime/ioi-cli-daemon-runtime.md',
+      'docs/architecture/products/autopilot/internal-product-spec.md',
+      'docs/architecture/domains/sas/service-marketplace.md',
+      'docs/architecture/components/daemon-runtime/doctrine.md',
     ],
     canonicalLinks: [],
     nextSteps: [
       { label: 'Using sas.xyz to Productize Worker Delivery', href: '#using-sas-xyz-to-productize-worker-delivery' },
-      { label: 'When to Use Forge or Sovereign Domain Flows', href: '#when-to-use-forge-or-sovereign-domain-flows' },
+      { label: 'When to Use IOI CLI Sovereign Domain Flows', href: '#when-to-use-ioi-cli-sovereign-domain-flows' },
     ],
     sections: [
       {
@@ -899,7 +899,7 @@ cargo run -p ioi-cli --bin cli -- query status`}
             <Callout isDark={isDark} tone="preview" title="Current doctrine">
               <p>
                 The most stable current product distinction is: Autopilot stabilizes work,{' '}
-                <code>sas.xyz</code> productizes it, and Forge or IOI CLI own the heavier sovereign
+                <code>sas.xyz</code> productizes it, and IOI CLI owns the heavier sovereign
                 domain path.
               </p>
             </Callout>
@@ -929,7 +929,7 @@ cargo run -p ioi-cli --bin cli -- query status`}
                 ['A stable private operator workflow', 'Autopilot', 'Keep refining and supervising it locally.'],
                 ['A reusable provider-facing service', 'sas.xyz', 'You need manifests, contracts, deployment posture, and productization.'],
                 ['A demand-facing listing or install path', 'aiagent.xyz', 'You need discovery, comparison, routing, or procurement.'],
-                ['A sovereign execution domain', 'IOI CLI / Forge direction', 'You need domain roots, policy permanence, and heavier lifecycle semantics.'],
+                ['A sovereign execution domain', 'IOI CLI domain path', 'You need domain roots, policy permanence, and heavier lifecycle semantics.'],
               ]}
             />
           </div>
@@ -947,7 +947,7 @@ cargo run -p ioi-cli --bin cli -- query status`}
     status: 'Preview',
     lastVerified: '2026-03-31',
     keywords: ['sas.xyz', 'provider', 'service as software', 'deploy', 'productize'],
-    sources: ['apps/sas-xyz/README.md', 'docs/architecture/marketplaces/sas-xyz-service-marketplace.md'],
+    sources: ['apps/sas-xyz/README.md', 'docs/architecture/domains/sas/service-marketplace.md'],
     canonicalLinks: [],
     nextSteps: [
       { label: 'From Autopilot to Service Candidate', href: '#from-autopilot-to-service-candidate' },
@@ -980,8 +980,8 @@ cargo run -p ioi-cli --bin cli -- query status`}
             <ul className={listClass(isDark)}>
               <li>It is not the private/local operator shell. That remains Autopilot.</li>
               <li>
-                It is not the canonical domain-instantiation surface. That remains the IOI CLI /
-                Forge direction.
+                It is not the canonical domain-instantiation surface. That remains the IOI CLI
+                domain path.
               </li>
               <li>
                 It is not the discovery marketplace. That role belongs to <code>aiagent.xyz</code>.
@@ -1002,7 +1002,7 @@ cargo run -p ioi-cli --bin cli -- query status`}
     status: 'Preview',
     lastVerified: '2026-03-31',
     keywords: ['aiagent.xyz', 'marketplace', 'discovery', 'procurement', 'listing'],
-    sources: ['apps/aiagent-xyz/README.md', 'docs/architecture/marketplaces/aiagent-xyz-worker-marketplace.md'],
+    sources: ['apps/aiagent-xyz/README.md', 'docs/architecture/domains/aiagent/worker-marketplace.md'],
     canonicalLinks: [],
     nextSteps: [
       { label: 'Using sas.xyz to Productize Worker Delivery', href: '#using-sas-xyz-to-productize-worker-delivery' },
@@ -1050,17 +1050,17 @@ cargo run -p ioi-cli --bin cli -- query status`}
     ],
   },
   {
-    id: 'when-to-use-forge-or-sovereign-domain-flows',
-    title: 'When to Use Forge or Sovereign Domain Flows',
+    id: 'when-to-use-ioi-cli-sovereign-domain-flows',
+    title: 'When to Use IOI CLI Sovereign Domain Flows',
     eyebrow: 'Ship',
     summary:
       'Reach for the sovereign domain path when a system needs durable policy roots, publication semantics, or execution-economy behavior that is heavier than a single reusable service.',
     section: 'ship',
     status: 'Preview',
     lastVerified: '2026-03-31',
-    keywords: ['forge', 'sovereign domain', 'ioi cli', 'init', 'scaffold', 'node'],
+    keywords: ['sovereign domain', 'ioi cli', 'init', 'scaffold', 'node'],
     sources: [
-      'docs/architecture/runtime/ioi-cli-daemon-runtime.md',
+      'docs/architecture/components/daemon-runtime/doctrine.md',
       'crates/cli/src/commands/init.rs',
       'crates/cli/src/commands/scaffold.rs',
       'crates/cli/src/commands/node.rs',
@@ -1114,8 +1114,8 @@ cargo run -p ioi-cli --bin cli -- scaffold contract receipts
 cargo run -p ioi-cli --bin cli -- node`}
             />
             <p>
-              The command surface already exists. The broader product story around "Forge" remains
-              directionally useful, but it should still be treated as evolving.
+              The command surface already exists. The broader sovereign-domain story is CLI-led
+              and should still be treated as evolving.
             </p>
           </div>
         ),

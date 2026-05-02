@@ -16,7 +16,7 @@ use ioi_pii::{
     resolve_expected_request_hash, validate_review_request_v3_cim,
     verify_scoped_exception_for_decision, RiskSurface, ScopedExceptionVerifyError,
 };
-use ioi_services::agentic::policy::PolicyEngine;
+use ioi_services::agentic::policy::{augment_workspace_filesystem_policy, PolicyEngine};
 use ioi_services::agentic::rules::{ActionRules, Verdict};
 // [NEW] Imports for state lookup
 use ioi_services::agentic::runtime::kernel::approval::{
@@ -25,6 +25,7 @@ use ioi_services::agentic::runtime::kernel::approval::{
 use ioi_services::agentic::runtime::keys::{
     get_approval_authority_key, get_approval_grant_key, get_incident_key, get_state_key, pii,
 };
+use ioi_services::agentic::runtime::service::decision_loop::helpers::default_safe_policy;
 use ioi_services::agentic::runtime::service::recovery::incident::IncidentState;
 use ioi_services::agentic::runtime::{AgentState, ResumeAgentParams, StepAgentParams};
 
@@ -272,6 +273,45 @@ fn load_committed_incident_state(
     codec::from_bytes_canonical::<IncidentState>(&bytes).ok()
 }
 
+fn decode_action_rules(bytes: &[u8]) -> Option<ActionRules> {
+    codec::from_bytes_canonical::<ActionRules>(bytes).ok()
+}
+
+fn load_action_rules_for_session(
+    overlay: &StateOverlay<'_>,
+    session_id: Option<[u8; 32]>,
+) -> Result<ActionRules, TransactionError> {
+    let policy_prefix = b"agent::policy::";
+
+    if let Some(session_id) = session_id {
+        let session_policy_key = [policy_prefix.as_slice(), session_id.as_slice()].concat();
+        if let Some(rules) = overlay
+            .get(&session_policy_key)?
+            .and_then(|bytes| decode_action_rules(&bytes))
+        {
+            return Ok(rules);
+        }
+    }
+
+    let global_policy_key = [policy_prefix.as_slice(), [0u8; 32].as_slice()].concat();
+    if let Some(rules) = overlay
+        .get(&global_policy_key)?
+        .and_then(|bytes| decode_action_rules(&bytes))
+    {
+        return Ok(rules);
+    }
+
+    Ok(default_safe_policy())
+}
+
+fn effective_action_rules_for_session(
+    rules: &ActionRules,
+    agent_state: Option<&AgentState>,
+) -> ActionRules {
+    let working_directory = agent_state.map(|state| state.working_directory.as_str());
+    augment_workspace_filesystem_policy(rules, working_directory)
+}
+
 /// The main firewall entry point.
 pub async fn enforce_firewall(
     state: &mut dyn StateAccess,
@@ -412,43 +452,8 @@ pub async fn enforce_firewall(
                 }
             }
 
-            // [FIX] Load active policy from state (Global Fallback)
-            // We use the global policy key (zero session ID) defined in `ioi-local.rs`.
-            // Canonical prefix: b"agent::policy::"
-            // The namespaced prefix is not applied here because we are reading raw state in the firewall,
-            // but the policy was inserted in ioi-local via raw insert which might or might not be namespaced.
-            // Wait, ioi-local.rs uses `workload_container.state_tree().write()` which is raw access.
-            // But `ioi-local.rs` inserts keys `agent::policy::{session_id}`.
-
-            // NOTE: The `ioi-local` setup writes to raw state.
-            // The policy prefix is `b"agent::policy::"`.
-            // The global policy uses a zeroed session ID.
-
-            let policy_prefix = b"agent::policy::";
-
-            let rules = if let Some(sid) = session_id_opt {
-                // Try session specific policy first
-                let session_policy_key = [policy_prefix, sid.as_slice()].concat();
-                if let Ok(Some(bytes)) = overlay.get(&session_policy_key) {
-                    codec::from_bytes_canonical::<ActionRules>(&bytes).unwrap_or_default()
-                } else {
-                    // Fallback to global
-                    let global_key = [policy_prefix, [0u8; 32].as_slice()].concat();
-                    if let Ok(Some(bytes)) = overlay.get(&global_key) {
-                        codec::from_bytes_canonical::<ActionRules>(&bytes).unwrap_or_default()
-                    } else {
-                        ActionRules::default()
-                    }
-                }
-            } else {
-                // Global fallback
-                let global_key = [policy_prefix, [0u8; 32].as_slice()].concat();
-                if let Ok(Some(bytes)) = overlay.get(&global_key) {
-                    codec::from_bytes_canonical::<ActionRules>(&bytes).unwrap_or_default()
-                } else {
-                    ActionRules::default()
-                }
-            };
+            let stored_rules = load_action_rules_for_session(&overlay, session_id_opt)?;
+            let rules = effective_action_rules_for_session(&stored_rules, agent_state_opt.as_ref());
 
             if service_id == "desktop_agent" && method == "resume@v1" {
                 let agent_state = agent_state_opt.as_ref().ok_or_else(|| {

@@ -10,7 +10,7 @@ pub(super) fn is_runtime_secret_install_retry_approved(
     session_id: [u8; 32],
     agent_state: &AgentState,
 ) -> bool {
-    if !matches!(tool, AgentTool::SysInstallPackage { .. }) {
+    if !matches!(tool, AgentTool::SoftwareInstallExecutePlan { .. }) {
         return false;
     }
     if agent_state.pending_tool_hash != Some(tool_hash) {

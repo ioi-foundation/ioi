@@ -1,7 +1,8 @@
 use super::{
     build_session_rewind_snapshot, compact_retained_session_for_sessions,
-    forget_team_memory_entry_for_sessions, session_compaction_snapshot_for_sessions,
-    sync_team_memory_for_sessions, team_memory_snapshot_for_sessions,
+    forget_team_memory_entry_for_sessions, merge_remote_session_history,
+    session_compaction_snapshot_for_sessions, sync_team_memory_for_sessions,
+    team_memory_snapshot_for_sessions,
 };
 use crate::models::{
     AgentPhase, AgentTask, ChatMessage, GateInfo, SessionBackgroundTaskRecord,
@@ -208,6 +209,51 @@ fn compact_session_records_resume_anchor_and_workspace_root() {
             .resume_anchor,
         latest.resume_anchor
     );
+}
+
+#[test]
+fn remote_history_merge_preserves_clean_local_title_over_route_contract() {
+    let mut local = vec![summary(
+        "session-remote-title",
+        "install lmstudio",
+        100,
+        Some(AgentPhase::Running),
+        Some("Waiting for approval"),
+    )];
+    let remote = vec![summary(
+        "session-remote-title",
+        "CHAT ARTIFACT ROUTE CONTRACT:",
+        200,
+        None,
+        None,
+    )];
+
+    let overlap = merge_remote_session_history(&mut local, remote);
+
+    assert_eq!(overlap, 1);
+    assert_eq!(local[0].title, "install lmstudio");
+    assert_eq!(local[0].timestamp, 200);
+    assert_eq!(
+        local[0].current_step.as_deref(),
+        Some("Waiting for approval")
+    );
+}
+
+#[test]
+fn remote_history_merge_neutralizes_route_contract_title_without_local_summary() {
+    let mut local = Vec::new();
+    let remote = vec![summary(
+        "session-remote-title",
+        "CHAT ARTIFACT ROUTE CONTRACT:",
+        200,
+        None,
+        None,
+    )];
+
+    let overlap = merge_remote_session_history(&mut local, remote);
+
+    assert_eq!(overlap, 0);
+    assert_eq!(local[0].title, "Session session-");
 }
 
 #[test]

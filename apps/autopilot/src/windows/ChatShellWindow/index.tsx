@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import {
   hideChatSessionShell,
+  hidePillShell,
   setActiveAssistantSessionRuntime,
   stopAssistantSession,
   type AssistantSessionRuntime,
@@ -248,6 +249,11 @@ export function ChatShellWindow({
   workspaceRootHint = null,
 }: ChatShellWindowProps) {
   const isChatVariant = variant === "chat";
+  useEffect(() => {
+    if (isChatVariant) {
+      void hidePillShell();
+    }
+  }, [isChatVariant]);
   const [chatArtifactVisible, setChatArtifactVisible] = useState(false);
   const [selectedChatArtifactSessionId, setSelectedChatArtifactSessionId] =
     useState<string | null>(null);
@@ -344,7 +350,6 @@ export function ChatShellWindow({
   } = useSessionApprovalState({
     task,
   });
-
   const activeSessionSummary = useMemo(
     () =>
       sessions.find((session) => session.session_id === activeSessionId) ??

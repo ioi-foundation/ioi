@@ -214,7 +214,10 @@ fn classify_launch_lookup_failures_as_user_intervention_needed() {
 fn clarification_gate_detects_marker_only_install_failures() {
     let msg =
         "ERROR_CLASS=MissingDependency Failed to install 'calculator' via 'apt-get': Command failed: exit status: 100";
-    assert!(requires_wait_for_clarification("package__install", msg));
+    assert!(requires_wait_for_clarification(
+        "software_install__execute_plan",
+        msg
+    ));
 }
 
 #[test]

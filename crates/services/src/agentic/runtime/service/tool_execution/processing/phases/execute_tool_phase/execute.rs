@@ -81,6 +81,9 @@ pub(crate) async fn execute_tool_phase(
     let resolved_intent_id = bootstrap.resolved_intent_id;
     let mut synthesized_payload_hash = bootstrap.synthesized_payload_hash;
     let route_label = bootstrap.route_label;
+    if matches!(&tool, AgentTool::SoftwareInstallExecutePlan { .. }) {
+        verification_checks.extend(install_resolution_checks_for_tool(&tool));
+    }
     if agent_state.consecutive_failures > 0 {
         verification_checks.push("determinism_recovery_retry=true".to_string());
         verification_checks.push(format!(

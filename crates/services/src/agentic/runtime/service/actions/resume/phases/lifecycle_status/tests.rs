@@ -1,4 +1,5 @@
 use super::*;
+use crate::agentic::runtime::execution::system::software_install_plan_ref_for_request;
 use crate::agentic::runtime::service::tool_execution::command_contract::{
     PROVIDER_SELECTION_COMMIT_EVIDENCE, VERIFICATION_COMMIT_EVIDENCE,
 };
@@ -16,12 +17,29 @@ use ioi_drivers::terminal::TerminalDriver;
 use ioi_memory::MemoryRuntime;
 use ioi_types::app::agentic::{
     AgentTool, CapabilityId, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
+    SoftwareInstallRequestFrame,
 };
 use ioi_types::app::{ActionRequest, ContextSlice, KernelEvent, RoutingStateSummary};
 use ioi_types::error::{StateError, VmError};
 use serde_json::json;
 use std::collections::{BTreeMap, VecDeque};
 use std::sync::Arc;
+
+fn software_install_execute_plan_tool(
+    target_text: &str,
+    manager_preference: Option<&str>,
+) -> AgentTool {
+    let request = SoftwareInstallRequestFrame {
+        target_text: target_text.to_string(),
+        target_kind: None,
+        manager_preference: manager_preference.map(str::to_string),
+        launch_after_install: None,
+        provenance: Some("test".to_string()),
+    };
+    AgentTool::SoftwareInstallExecutePlan {
+        plan_ref: software_install_plan_ref_for_request(&request),
+    }
+}
 
 #[derive(Debug, Default, Clone)]
 struct MockState {
@@ -523,9 +541,10 @@ async fn approved_install_resume_terminalizes_instead_of_looping() {
         .subscribe();
     let mut state = MockState::default();
     let mut agent_state = agent_state_with_install_dependency();
-    let tool = AgentTool::SysInstallPackage {
-        package: "cowsay".to_string(),
-        manager: Some("apt".to_string()),
+    let tool = software_install_execute_plan_tool("cowsay", Some("apt"));
+    let plan_ref = match &tool {
+        AgentTool::SoftwareInstallExecutePlan { plan_ref } => plan_ref.clone(),
+        _ => unreachable!("test helper returns a software install execute-plan tool"),
     };
     let tool_jcs = serde_jcs::to_vec(&tool).expect("tool jcs");
     let output = "Installed 'cowsay' via 'apt-get' (sudo-password)".to_string();
@@ -546,7 +565,7 @@ async fn approved_install_resume_terminalizes_instead_of_looping() {
     );
     agent_state.tool_execution_log.insert(
         execution_evidence_key("execution"),
-        ToolCallStatus::Executed("package__install".to_string()),
+        ToolCallStatus::Executed("software_install__execute_plan".to_string()),
     );
     agent_state.tool_execution_log.insert(
         execution_evidence_key("verification"),
@@ -579,15 +598,14 @@ async fn approved_install_resume_terminalizes_instead_of_looping() {
         policy_decision: "approved".to_string(),
         verification_checks: &mut verification_checks,
         tool,
-        tool_name: "package__install".to_string(),
+        tool_name: "software_install__execute_plan".to_string(),
         tool_jcs,
         tool_hash: [0u8; 32],
         pending_vhash: [0u8; 32],
         action_json: json!({
-            "name": "package__install",
+            "name": "software_install__execute_plan",
             "arguments": {
-                "package": "cowsay",
-                "manager": "apt",
+                "plan_ref": plan_ref,
             }
         })
         .to_string(),
@@ -621,7 +639,7 @@ async fn approved_install_resume_terminalizes_instead_of_looping() {
             if tool_name == "chat__reply" && agent_status == "Completed" {
                 saw_chat_reply = true;
             }
-            if tool_name == "package__install" && agent_status == "Running" {
+            if tool_name == "software_install__execute_plan" && agent_status == "Running" {
                 saw_running_install_result = true;
             }
         }

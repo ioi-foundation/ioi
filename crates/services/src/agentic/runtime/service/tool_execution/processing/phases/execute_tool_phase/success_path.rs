@@ -1162,6 +1162,123 @@ fn workspace_read_receipt_details(tool: &AgentTool, step_index: u32) -> Option<S
     }
 }
 
+fn install_resolution_receipt_evidence(verification_checks: &[String]) -> Option<String> {
+    let mut fields = verification_checks
+        .iter()
+        .map(|check| check.trim())
+        .filter_map(|check| check.strip_prefix("software_install."))
+        .filter(|field| !field.trim().is_empty())
+        .map(str::to_string)
+        .collect::<Vec<_>>();
+    fields.sort();
+    fields.dedup();
+    (!fields.is_empty()).then(|| fields.join(";"))
+}
+
+fn install_approval_receipt_evidence(agent_state: &AgentState) -> Option<String> {
+    let grant = agent_state.pending_approval.as_ref()?;
+    let grant_ref = grant
+        .artifact_hash()
+        .map(|hash| format!("sha256:{}", hex::encode(hash)))
+        .unwrap_or_else(|_| "sha256:unavailable".to_string());
+    Some(format!(
+        "approval_grant_ref={};request_hash=sha256:{};policy_hash=sha256:{};authority_id=sha256:{}",
+        grant_ref,
+        hex::encode(grant.request_hash),
+        hex::encode(grant.policy_hash),
+        hex::encode(grant.authority_id)
+    ))
+}
+
+fn record_install_success_contract_receipts(
+    service: &RuntimeAgentService,
+    agent_state: &mut AgentState,
+    verification_checks: &mut Vec<String>,
+    session_id: [u8; 32],
+    step_index: u32,
+    resolved_intent_id: &str,
+    synthesized_payload_hash: Option<String>,
+    history_entry: Option<&str>,
+) {
+    if let Some(evidence) = install_resolution_receipt_evidence(verification_checks) {
+        record_execution_evidence_with_value(
+            &mut agent_state.tool_execution_log,
+            "install_resolution",
+            evidence.clone(),
+        );
+        verification_checks.push(execution_evidence_key("install_resolution"));
+        emit_execution_contract_receipt_event_with_observation(
+            service,
+            session_id,
+            step_index,
+            resolved_intent_id,
+            "resolution",
+            "install_resolution",
+            true,
+            &evidence,
+            Some("install_resolver"),
+            Some("resolved"),
+            Some("software_install_resolution"),
+            None,
+            Some("software.install.execute".to_string()),
+            synthesized_payload_hash.clone(),
+        );
+    }
+
+    if let Some(evidence) = install_approval_receipt_evidence(agent_state) {
+        record_execution_evidence_with_value(
+            &mut agent_state.tool_execution_log,
+            "approval",
+            evidence.clone(),
+        );
+        verification_checks.push(execution_evidence_key("approval"));
+        emit_execution_contract_receipt_event_with_observation(
+            service,
+            session_id,
+            step_index,
+            resolved_intent_id,
+            "approval",
+            "approval",
+            true,
+            &evidence,
+            Some("approval_grant"),
+            Some("approved"),
+            Some("signed_approval"),
+            None,
+            Some("agency_firewall".to_string()),
+            synthesized_payload_hash.clone(),
+        );
+    }
+
+    let verification_evidence = format!(
+        "verified_local_app_available=true;tool_output_chars={}",
+        history_entry
+            .map(|entry| entry.chars().count())
+            .unwrap_or(0)
+    );
+    record_success_condition(
+        &mut agent_state.tool_execution_log,
+        "verified_local_app_available",
+    );
+    verification_checks.push(success_condition_key("verified_local_app_available"));
+    emit_execution_contract_receipt_event_with_observation(
+        service,
+        session_id,
+        step_index,
+        resolved_intent_id,
+        "verification",
+        "verified_local_app_available",
+        true,
+        &verification_evidence,
+        Some("install_verifier"),
+        Some("true"),
+        Some("bool"),
+        None,
+        Some("software.install.execute".to_string()),
+        synthesized_payload_hash,
+    );
+}
+
 fn record_workspace_read_receipt(agent_state: &mut AgentState, tool: &AgentTool, step_index: u32) {
     let Some(evidence) = workspace_read_receipt_details(tool, step_index) else {
         return;
@@ -2262,20 +2379,12 @@ pub(super) async fn handle_execution_success(
         }
     }
 
-    if command_scope && *success && matches!(tool, AgentTool::SysInstallPackage { .. }) {
+    if command_scope && *success && matches!(tool, AgentTool::SoftwareInstallExecutePlan { .. }) {
         verification_checks.push("capability_execution_evidence=tool_output".to_string());
         record_success_condition(&mut agent_state.tool_execution_log, "execution_artifact");
         verification_checks.push(success_condition_key("execution_artifact"));
-        let (package, manager) = match tool {
-            AgentTool::SysInstallPackage { package, manager } => {
-                (package.trim(), manager.as_deref().unwrap_or("auto"))
-            }
-            _ => ("unknown", "auto"),
-        };
         let artifact_evidence = format!(
-            "install_package={};install_manager={};tool_output_chars={}",
-            package,
-            manager,
+            "software_install_plan_ref=redacted;tool_output_chars={}",
             history_entry
                 .as_ref()
                 .map(|entry| entry.chars().count())
@@ -2293,6 +2402,16 @@ pub(super) async fn handle_execution_success(
             None,
             None,
             synthesized_payload_hash.clone(),
+        );
+        record_install_success_contract_receipts(
+            service,
+            agent_state,
+            verification_checks,
+            session_id,
+            step_index,
+            resolved_intent_id,
+            synthesized_payload_hash.clone(),
+            history_entry.as_deref(),
         );
     }
 

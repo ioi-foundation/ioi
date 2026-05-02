@@ -1,9 +1,14 @@
 use super::operator_run::refresh_active_operator_run_from_session;
 use super::*;
+use ioi_api::runtime_harness::route_decision_for_outcome_request;
 
 pub(super) fn inline_answer_single_pass_reply_stays_chat_primary(
     outcome_request: &ChatOutcomeRequest,
 ) -> bool {
+    if !route_decision_for_outcome_request(outcome_request).direct_answer_allowed {
+        return false;
+    }
+
     outcome_request.outcome_kind == ChatOutcomeKind::Conversation
         && outcome_request.execution_strategy == ioi_types::app::ChatExecutionStrategy::SinglePass
         && !outcome_request.needs_clarification
@@ -473,6 +478,18 @@ pub fn task_requires_chat_primary_execution(task: &AgentTask) -> bool {
         || inline_answer_single_pass_reply_stays_chat_primary(&chat_session.outcome_request)
         || tool_widget_route_stays_chat_primary(&chat_session.outcome_request)
         || visualizer_route_stays_chat_primary(&chat_session.outcome_request)
+}
+
+pub(super) fn detach_chat_primary_surface_for_runtime_handoff(task: &mut AgentTask) -> bool {
+    let had_chat_primary_surface = task.chat_session.is_some()
+        || task.build_session.is_some()
+        || task.renderer_session.is_some()
+        || task.clarification_request.is_some();
+    task.chat_session = None;
+    task.build_session = None;
+    task.renderer_session = None;
+    task.clarification_request = None;
+    had_chat_primary_surface
 }
 
 #[cfg_attr(not(test), allow(dead_code))]

@@ -97,7 +97,7 @@ assert(
 
 const tsSubstrate = read("packages/agent-ide/src/runtime/runtime-projection-adapter.ts");
 const rustSubstrate = read("apps/autopilot/src-tauri/src/runtime_projection.rs");
-const actionSchema = readJson("docs/architecture/operations/runtime-action-schema.json");
+const actionSchema = readJson("docs/implementation/runtime-action-schema.json");
 const generatedTsActionSchema = read("packages/agent-ide/src/runtime/generated/action-schema.ts");
 const generatedRustActionSchema = read(
   "apps/autopilot/src-tauri/src/generated/runtime_action_schema.rs",
@@ -173,7 +173,7 @@ assert(
   "Service intent helpers must centralize the desktop_agent service id.",
 );
 
-const boundaryDoc = read("docs/architecture/operations/runtime-package-boundaries.md");
+const boundaryDoc = read("docs/implementation/runtime-package-boundaries.md");
 for (const required of [
   "ioi-daemon",
   "@ioi/agent-sdk",
@@ -187,13 +187,13 @@ for (const required of [
   assert(boundaryDoc.includes(required), `Runtime package boundary doc missing ${required}.`);
 }
 
-const circ = read("docs/architecture/conformance/CIRC.md");
+const circ = read("docs/conformance/agentic-runtime/CIRC.md");
 assert(
   circ.includes("prim:sys.exec") && circ.includes("scope:*"),
   "CIRC must keep primitive capabilities separate from authority scopes.",
 );
 
-const connectorDoc = read("docs/architecture/tools/connectors-tools-and-authority-registry.md");
+const connectorDoc = read("docs/architecture/components/connectors-tools/doctrine.md");
 assert(
   connectorDoc.includes("primitive_capabilities") &&
     connectorDoc.includes("authority_scope_required") &&
@@ -201,7 +201,7 @@ assert(
   "Connector/tool architecture doc must show split primitive and authority scope fields without the old flattened projection.",
 );
 
-const daemonDoc = read("docs/architecture/runtime/ioi-cli-daemon-runtime.md");
+const daemonDoc = read("docs/architecture/components/daemon-runtime/doctrine.md");
 assert(
   daemonDoc.includes("The IOI CLI is a terminal/TUI client") &&
     /must not own a separate agent\s+runtime/.test(daemonDoc),

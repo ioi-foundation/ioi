@@ -64,7 +64,7 @@ const allowedSwarmCompatibilityFiles = new Set([
 ]);
 const generatedTs = read("packages/agent-ide/src/runtime/generated/action-schema.ts");
 const generatedRust = read("apps/autopilot/src-tauri/src/generated/runtime_action_schema.rs");
-const actionSchema = JSON.parse(read("docs/architecture/operations/runtime-action-schema.json"));
+const actionSchema = JSON.parse(read("docs/implementation/runtime-action-schema.json"));
 
 assert(
   "daemon-promoted",
@@ -99,10 +99,10 @@ assert(
 );
 assert(
   "runtime-module-map",
-  exists("docs/architecture/operations/runtime-module-map.md") &&
-    read("docs/architecture/operations/runtime-module-map.md").includes("RuntimeSubstrate") &&
-    read("docs/architecture/operations/runtime-package-boundaries.md").includes("runtime-module-map.md"),
-  ["docs/architecture/operations/runtime-module-map.md", "docs/architecture/operations/runtime-package-boundaries.md"],
+  exists("docs/implementation/runtime-module-map.md") &&
+    read("docs/implementation/runtime-module-map.md").includes("RuntimeSubstrate") &&
+    read("docs/implementation/runtime-package-boundaries.md").includes("runtime-module-map.md"),
+  ["docs/implementation/runtime-module-map.md", "docs/implementation/runtime-package-boundaries.md"],
   "runtime module map must identify canonical homes and be linked from boundary docs",
 );
 assert(
@@ -199,14 +199,14 @@ assert(
 assert(
   "action-schema-drift",
   actionSchema.actionKinds.every((kind) => generatedTs.includes(`"${kind}"`) && generatedRust.includes(`"${kind}"`)),
-  ["docs/architecture/operations/runtime-action-schema.json", "packages/agent-ide/src/runtime/generated/action-schema.ts", "apps/autopilot/src-tauri/src/generated/runtime_action_schema.rs"],
+  ["docs/implementation/runtime-action-schema.json", "packages/agent-ide/src/runtime/generated/action-schema.ts", "apps/autopilot/src-tauri/src/generated/runtime_action_schema.rs"],
   "generated action schema projections must match shared runtime-action-schema.json",
 );
 assert(
   "public-swarm-boundary",
   !read("crates/types/src/app/chat.rs").includes('alias = "swarm"') &&
     !read("crates/types/src/app/chat.rs").includes("MicroSwarm") &&
-    read("docs/architecture/operations/runtime-vocabulary.md").includes("adaptive_work_graph") &&
+    read("docs/architecture/_meta/vocabulary.md").includes("adaptive_work_graph") &&
     activeRuntimeSwarmFiles.every((file) => {
       const content = read(file);
       if (!/\bswarm\b|Swarm|swarm[A-Z_]/.test(content)) return true;
@@ -214,6 +214,14 @@ assert(
     }),
   ["crates/types/src/app/chat.rs", "apps/autopilot/src", "crates/services/src/agentic/runtime"],
   "active public runtime vocabulary must use adaptive work graph terminology; legacy swarm decoding must stay isolated",
+);
+assert(
+  "retired-ioi-swarm-product",
+  !exists("ioi-swarm") &&
+    !exists("docs/ioi-swarm-release.md") &&
+    (!exists("pyrightconfig.json") || !read("pyrightconfig.json").includes("ioi-swarm")),
+  ["ioi-swarm", "docs/ioi-swarm-release.md", "pyrightconfig.json"],
+  "retired ioi-swarm product package and release surface must not return",
 );
 assert(
   "debt-ledger-closed",

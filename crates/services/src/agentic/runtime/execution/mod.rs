@@ -64,6 +64,7 @@ pub(crate) mod workload {
         );
         sha256(seed.as_bytes())
             .map(hex::encode)
+            .map(|hash| format!("{tool_name}:{hash}"))
             .unwrap_or_else(|_| format!("{}:{}:{}", hex::encode(session_id), step_index, tool_name))
     }
 
@@ -390,7 +391,8 @@ impl ToolExecutor {
             | AgentTool::SysExecSession { .. }
             | AgentTool::SysExecSessionReset {}
             | AgentTool::SysChangeDir { .. }
-            | AgentTool::SysInstallPackage { .. }
+            | AgentTool::SoftwareInstallResolve { .. }
+            | AgentTool::SoftwareInstallExecutePlan { .. }
             | AgentTool::OsLaunchApp { .. } => {
                 let cwd = self.working_directory.as_deref().unwrap_or(".");
                 system::handle(self, tool, cwd, session_id, step_index).await

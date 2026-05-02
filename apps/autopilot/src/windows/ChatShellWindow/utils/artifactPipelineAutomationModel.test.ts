@@ -129,7 +129,7 @@ const readyProof: SavedBundleProofOverview = {
   assert.equal(plan.actionKind, "stage_promotion");
   assert.equal(plan.promotionTarget, "sas.xyz");
   assert.equal(plan.queuedActions.length, 2);
-  assert.equal(plan.queuedActions[1].promotionTarget, "Forge");
+  assert.equal(plan.queuedActions[1].promotionTarget, "IOI CLI");
 }
 
 {
@@ -164,7 +164,7 @@ const readyProof: SavedBundleProofOverview = {
   });
 
   assert.equal(plan.actionKind, "stage_promotion");
-  assert.equal(plan.promotionTarget, "Forge");
+  assert.equal(plan.promotionTarget, "IOI CLI");
   assert.equal(plan.queuedActions.length, 1);
 }
 
@@ -198,11 +198,11 @@ const readyProof: SavedBundleProofOverview = {
       },
       {
         operationId: "op-2",
-        subjectKind: "forge_release",
+        subjectKind: "ioi_cli_domain_release",
         operation: "promote",
-        title: "Forge",
+        title: "IOI CLI",
         sourceUri: "trace-bundle:thread-1",
-        subjectId: "Forge",
+        subjectId: "IOI CLI",
         notes: null,
         createdAtMs: 2,
         status: "staged",

@@ -1,7 +1,7 @@
 # Runtime Nodes, DePIN, TEE, and Execution Privacy Specification
 
 Status: canonical architecture authority.
-Canonical owner: this file for runtime-node and execution-privacy doctrine; low-level task capsule protocol lives in [`runtime-node-and-task-capsule-protocol.md`](./runtime-node-and-task-capsule-protocol.md).
+Canonical owner: this file for runtime-node and execution-privacy doctrine; low-level task capsule protocol lives in [`runtime-node-and-task-capsule-protocol.md`](./task-capsule-protocol.md).
 Supersedes: overlapping hosted/DePIN/TEE prose when execution-venue boundaries conflict.
 Superseded by: none.
 Last alignment pass: 2026-05-01.

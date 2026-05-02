@@ -24,6 +24,15 @@ fn reset_for_new_user_goal(agent_state: &mut AgentState, goal: &str) {
     agent_state.awaiting_intent_clarification = false;
     agent_state.step_count = 0;
     agent_state.last_action_type = None;
+    agent_state.pending_approval = None;
+    agent_state.pending_tool_call = None;
+    agent_state.pending_tool_jcs = None;
+    agent_state.pending_tool_hash = None;
+    agent_state.pending_request_nonce = None;
+    agent_state.pending_visual_hash = None;
+    agent_state.recent_actions.clear();
+    agent_state.execution_queue.clear();
+    agent_state.tool_execution_log.clear();
     agent_state.pending_search_completion = None;
 }
 

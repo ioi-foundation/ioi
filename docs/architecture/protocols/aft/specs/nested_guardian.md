@@ -303,7 +303,7 @@ as a half-promoted corollary waiting for another qualifier to fall away. That
 same achieved result is now also promoted directly to unconditional classical
 `99% Byzantine agreement` in the ordinary dense-vote permissioned model. The
 canonical statement of that promotion lives in
-[`yellow_paper.tex`](/home/heathledger/Documents/ioi/repos/ioi/docs/architecture/consensus/aft/specs/yellow_paper.tex),
+[`yellow_paper.tex`](/home/heathledger/Documents/ioi/repos/ioi/docs/architecture/protocols/aft/specs/yellow_paper.tex),
 not as an open theorem gap, but as the final specification.
 
 The intended semantics are:
