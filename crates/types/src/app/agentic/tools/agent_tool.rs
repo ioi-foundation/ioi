@@ -27,6 +27,25 @@ pub struct AgentToolCall {
     pub arguments: serde_json::Value,
 }
 
+/// Structured install intent produced by CIRC before resolver execution.
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone)]
+pub struct SoftwareInstallRequestFrame {
+    /// User-visible target text, preserved as query content for resolver providers.
+    pub target_text: String,
+    /// Ontological target kind, e.g. desktop_app, command_line_tool, editor_extension, current_product.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_kind: Option<String>,
+    /// Optional explicit manager/package ecosystem requested by the user.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manager_preference: Option<String>,
+    /// Whether the user asked to launch the app after install.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub launch_after_install: Option<bool>,
+    /// Source of the frame, such as circ_route_contract or model_intent_frame.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provenance: Option<String>,
+}
+
 /// The single source of truth for all Agent Capabilities.
 #[derive(Debug, Serialize, Deserialize, JsonSchema, Clone)]
 #[serde(tag = "name", content = "arguments", rename_all = "snake_case")]
@@ -243,14 +262,18 @@ pub enum AgentTool {
         command_id: String,
     },
 
-    /// Installs a package using a deterministic package manager mapping.
-    #[serde(rename = "package__install")]
-    SysInstallPackage {
-        /// Package name or identifier.
-        package: String,
-        /// Optional package manager override.
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        manager: Option<String>,
+    /// Resolve a local software install request into a provenance-backed install plan.
+    #[serde(rename = "software_install__resolve")]
+    SoftwareInstallResolve {
+        /// Typed install request frame produced by CIRC or an equivalent structured caller.
+        request: SoftwareInstallRequestFrame,
+    },
+
+    /// Execute an approved resolver plan. The plan ref is opaque to the model/UI.
+    #[serde(rename = "software_install__execute_plan")]
+    SoftwareInstallExecutePlan {
+        /// Resolver-issued plan reference.
+        plan_ref: String,
     },
 
     /// Changes the persistent working directory for subsequent system commands.
@@ -922,7 +945,8 @@ impl AgentTool {
                 | "shell__run"
                 | "shell__start"
                 | "shell__reset"
-                | "package__install"
+                | "software_install__resolve"
+                | "software_install__execute_plan"
                 | "shell__cd"
                 | "browser__navigate"
                 | "browser__subagent"

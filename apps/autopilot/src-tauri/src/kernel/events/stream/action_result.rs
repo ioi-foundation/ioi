@@ -82,6 +82,15 @@ fn automation_artifact_path_from_output(output: &str) -> Option<PathBuf> {
     })
 }
 
+fn should_preserve_existing_operator_gate(
+    task: &crate::models::AgentTask,
+    result_agent_status: &str,
+) -> bool {
+    matches!(task.phase, AgentPhase::Gate)
+        && (task.gate_info.is_some() || task.pending_request_hash.is_some())
+        && !result_agent_status.eq_ignore_ascii_case("failed")
+}
+
 pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActionResult) {
     let password_required = is_sudo_password_required_install(&res.tool_name, &res.output);
     let thread_id = thread_id_from_session(&app, &res.session_id);
@@ -314,6 +323,19 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
 
         t.credential_request = None;
         t.clarification_request = None;
+        if should_preserve_existing_operator_gate(t, &res.agent_status) {
+            if !res.output.trim().is_empty() {
+                let tool_msg = format!("Tool Output ({}): {}", res.tool_name, res.output);
+                if t.history.last().map(|m| m.text != tool_msg).unwrap_or(true) {
+                    t.history.push(ChatMessage {
+                        role: "tool".to_string(),
+                        text: tool_msg,
+                        timestamp: crate::kernel::state::now(),
+                    });
+                }
+            }
+            return;
+        }
         if t.phase == AgentPhase::Gate && !res.agent_status.eq_ignore_ascii_case("paused") {
             t.gate_info = None;
             t.pending_request_hash = None;

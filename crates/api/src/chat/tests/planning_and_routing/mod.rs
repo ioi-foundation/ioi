@@ -2,8 +2,8 @@ use super::*;
 use async_trait::async_trait;
 use ioi_types::app::agentic::InferenceOptions;
 use ioi_types::app::{
-    ChatLaneFamily, ChatNormalizedRequest, ChatRetainedWidgetState, ChatSourceFamily,
-    ChatWidgetStateBinding,
+    ChatLaneFamily, ChatNormalizedRequest, ChatOutcomeRequest, ChatRetainedWidgetState,
+    ChatSourceFamily, ChatWidgetStateBinding,
 };
 use ioi_types::error::VmError;
 use std::collections::VecDeque;
@@ -128,6 +128,44 @@ fn harness_validation_request_requires_workspace_grounding() {
 
     assert!(context.agent_validation_grounding_required());
     assert!(context.workspace_grounding_required());
+}
+
+#[test]
+fn explicit_install_intent_exposes_structured_host_mutation_contract() {
+    let context = ChatIntentContext::new("install lmstudio");
+    let install = context.local_install_intent().expect("install intent");
+
+    assert_eq!(install.intent_class, "local_software_install");
+    assert_eq!(install.target_text, "lmstudio");
+    assert_eq!(install.target_kind, "software_or_package");
+    assert_eq!(install.confidence, 95);
+    assert!(install.requires_host_mutation);
+}
+
+#[test]
+fn install_route_selection_modules_do_not_embed_app_targets() {
+    let route_sources = [
+        include_str!("../../domain_topology/projection.rs"),
+        include_str!("../../domain_topology/decision_policy.rs"),
+        include_str!(
+            "../../../../../services/src/agentic/runtime/service/decision_loop/route_projection.rs"
+        ),
+    ]
+    .join("\n");
+    let lowered = route_sources.to_ascii_lowercase();
+    let app_targets = [
+        ["lm", "studio"].concat(),
+        ["ff", "mpeg"].concat(),
+        ["vs", "code"].concat(),
+        ["co", "pilot"].concat(),
+    ];
+
+    for target in app_targets {
+        assert!(
+            !lowered.contains(&target),
+            "route selection must consume structured install intent, not app catalog entries"
+        );
+    }
 }
 
 #[test]
@@ -1324,6 +1362,108 @@ fn communication_projection_infers_message_compose_lane_and_missing_slots() {
             .selected_source,
         ChatSourceFamily::DirectAnswer
     );
+}
+
+#[test]
+fn explicit_install_projection_blocks_direct_answer_and_projects_install_tools() {
+    let projection = derive_chat_topology_projection(
+        "install ffmpeg",
+        None,
+        None,
+        ChatOutcomeKind::Conversation,
+        ChatExecutionStrategy::PlanExecute,
+        None,
+        0.98,
+        false,
+        &[],
+        &[
+            "local_install_requested".to_string(),
+            "desktop_app_install_requested".to_string(),
+        ],
+        None,
+    );
+    let mut outcome = ChatOutcomeRequest {
+        request_id: "install-test".to_string(),
+        raw_prompt: "install ffmpeg".to_string(),
+        active_artifact_id: None,
+        outcome_kind: ChatOutcomeKind::Conversation,
+        execution_strategy: ChatExecutionStrategy::PlanExecute,
+        execution_mode_decision: None,
+        confidence: 0.98,
+        needs_clarification: false,
+        clarification_questions: Vec::new(),
+        decision_evidence: vec![
+            "local_install_requested".to_string(),
+            "desktop_app_install_requested".to_string(),
+            "software_install_target_text:ffmpeg".to_string(),
+        ],
+        lane_request: projection.lane_request,
+        normalized_request: projection.normalized_request,
+        source_decision: projection.source_decision,
+        retained_lane_state: projection.retained_lane_state,
+        lane_transitions: projection.lane_transitions,
+        orchestration_state: projection.orchestration_state,
+        artifact: None,
+    };
+    let route_decision = route_decision_for_outcome_request(&outcome);
+
+    assert_eq!(
+        selected_route_label_for_outcome_request(&outcome),
+        "install ffmpeg"
+    );
+    assert!(!route_decision.direct_answer_allowed);
+    assert_eq!(route_decision.output_intent, "tool_execution");
+    assert!(route_decision
+        .effective_tool_surface
+        .primary_tools
+        .contains(&"software_install__execute_plan".to_string()));
+    assert_eq!(
+        outcome
+            .source_decision
+            .take()
+            .expect("source decision")
+            .selected_source,
+        ChatSourceFamily::UserDirected
+    );
+}
+
+#[test]
+fn projection_does_not_reclassify_install_from_raw_prompt_without_evidence() {
+    let outcome = ChatOutcomeRequest {
+        request_id: "install-raw-prompt-only".to_string(),
+        raw_prompt: "install lmstudio".to_string(),
+        active_artifact_id: None,
+        outcome_kind: ChatOutcomeKind::Conversation,
+        execution_strategy: ChatExecutionStrategy::SinglePass,
+        execution_mode_decision: None,
+        confidence: 0.5,
+        needs_clarification: false,
+        clarification_questions: Vec::new(),
+        decision_evidence: Vec::new(),
+        lane_request: None,
+        normalized_request: None,
+        source_decision: None,
+        retained_lane_state: None,
+        lane_transitions: Vec::new(),
+        orchestration_state: None,
+        artifact: None,
+    };
+    let route_decision = route_decision_for_outcome_request(&outcome);
+
+    assert_eq!(route_family_for_outcome_request(&outcome), "general");
+    assert_eq!(
+        selected_route_label_for_outcome_request(&outcome),
+        "conversation_single_pass"
+    );
+    assert_eq!(route_decision.output_intent, "direct_inline");
+    assert!(route_decision.direct_answer_allowed);
+    assert!(!route_decision
+        .direct_answer_blockers
+        .contains(&"local_install_requested".to_string()));
+    assert!(!route_decision
+        .effective_tool_surface
+        .primary_tools
+        .contains(&"software_install__execute_plan".to_string()));
 }
 
 #[test]

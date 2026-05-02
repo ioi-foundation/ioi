@@ -282,6 +282,12 @@ pub(super) async fn handle_action(app: &tauri::AppHandle, action: ActionIntercep
                 .unwrap_or_else(|| {
                     format!("The agent is attempting to execute: {}", action.target)
                 });
+            let summary = if action_is_install {
+                "The software install workflow is paused before it can mutate the host. Review the resolver-backed source, command, elevation, and verification plan before approving."
+                    .to_string()
+            } else {
+                summary
+            };
             notifications::record_approval_intervention(
                 app,
                 &thread_id,
@@ -305,10 +311,14 @@ pub(super) async fn handle_action(app: &tauri::AppHandle, action: ActionIntercep
             update_task_state(app, |t| {
                 t.phase = AgentPhase::Gate;
                 let connector_presentation = connector_gate_presentation(&action.target);
-                t.current_step = connector_presentation
-                    .as_ref()
-                    .map(|_| "Waiting for approval".to_string())
-                    .unwrap_or_else(|| "Waiting for approval".to_string());
+                t.current_step = if action_is_install {
+                    "Awaiting install approval".to_string()
+                } else {
+                    connector_presentation
+                        .as_ref()
+                        .map(|_| "Waiting for approval".to_string())
+                        .unwrap_or_else(|| "Waiting for approval".to_string())
+                };
                 t.credential_request = None;
                 t.clarification_request = None;
 
@@ -328,6 +338,24 @@ pub(super) async fn handle_action(app: &tauri::AppHandle, action: ActionIntercep
                         target_label: None,
                         operator_note: None,
                         pii: Some(pii),
+                    }
+                } else if action_is_install {
+                    GateInfo {
+                        title: "Approve software install".to_string(),
+                        description: summary.clone(),
+                        risk: "high".to_string(),
+                        approve_label: Some("Approve install".to_string()),
+                        deny_label: Some("Deny".to_string()),
+                        deadline_ms: None,
+                        surface_label: Some("Host system".to_string()),
+                        scope_label: Some("Software install".to_string()),
+                        operation_label: Some("Install".to_string()),
+                        target_label: None,
+                        operator_note: Some(
+                            "Routing receipts carry the resolved source, command, elevation, and verification plan."
+                                .to_string(),
+                        ),
+                        pii: None,
                     }
                 } else if let Some(presentation) = native_control_presentation.clone() {
                     GateInfo {
@@ -427,8 +455,12 @@ pub(super) async fn handle_action(app: &tauri::AppHandle, action: ActionIntercep
             );
             register_event(&app, event);
 
-            if let Some(w) = app.get_webview_window("chat") {
+            if let Some(w) = app
+                .get_webview_window("chat")
+                .or_else(|| app.get_webview_window("chat-session"))
+            {
                 if w.is_visible().unwrap_or(false) {
+                    crate::windows::hide_pill(app.clone());
                     let _ = w.set_focus();
                 }
             }

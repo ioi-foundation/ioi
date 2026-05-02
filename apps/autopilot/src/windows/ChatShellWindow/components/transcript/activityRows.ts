@@ -194,9 +194,17 @@ export function toolGroupLabel(
   if (chatSession) {
     const hasActiveRow = rows.some((row) => row.status === "active");
     if (hasActiveRow) {
-      return `Thinking through ${chatSession.title}`;
+      return `Working on ${chatSession.title}`;
     }
     return `${chatSession.title} activity`;
+  }
+
+  const commandCount = rows.filter((row) => row.kind === "command").length;
+  if (commandCount === rows.length && commandCount > 0) {
+    const active = rows.some((row) => row.status === "active");
+    return active
+      ? `Running ${commandCount} ${commandCount === 1 ? "command" : "commands"}`
+      : `Ran ${commandCount} ${commandCount === 1 ? "command" : "commands"}`;
   }
 
   return `${rows.length} ${rows.length === 1 ? "tool call" : "tool calls"}`;

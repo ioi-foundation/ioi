@@ -414,9 +414,17 @@ pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
             capabilities: vec![capability("command.exec")],
         },
         ToolCapabilityBinding {
-            tool_name: "package__install".to_string(),
-            action_target: ActionTarget::SysInstallPackage,
-            capabilities: vec![capability("system.install_package")],
+            tool_name: "software_install__resolve".to_string(),
+            action_target: ActionTarget::SoftwareInstallResolve,
+            capabilities: vec![capability("software.install.resolve")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "software_install__execute_plan".to_string(),
+            action_target: ActionTarget::SoftwareInstallExecute,
+            capabilities: vec![
+                capability("software.install.resolve"),
+                capability("software.install.execute"),
+            ],
         },
         ToolCapabilityBinding {
             tool_name: "web__search".to_string(),

@@ -89,13 +89,13 @@ function baseBundle(): CanonicalTraceBundle {
 
 {
   const draft = buildPromotionStageDraft({
-    target: "Forge",
+    target: "IOI CLI",
     sessionId: "session-12345678",
     threadId: "thread-abcdef12",
     bundle: baseBundle(),
   });
 
-  assert.equal(draft.subjectKind, "forge_release");
-  assert.equal(draft.subjectId, "Forge");
-  assert.match(draft.notes, /Forge productionization review/);
+  assert.equal(draft.subjectKind, "ioi_cli_domain_release");
+  assert.equal(draft.subjectId, "IOI CLI");
+  assert.match(draft.notes, /IOI CLI domain productionization review/);
 }

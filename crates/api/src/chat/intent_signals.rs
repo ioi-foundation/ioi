@@ -73,6 +73,15 @@ pub struct ChatIntentContext {
     terms: Vec<String>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LocalInstallIntent {
+    pub intent_class: &'static str,
+    pub target_text: String,
+    pub target_kind: &'static str,
+    pub confidence: u8,
+    pub requires_host_mutation: bool,
+}
+
 impl ChatIntentContext {
     pub fn new(intent: &str) -> Self {
         let semantic_intent = normalize_inline_whitespace(&user_request_segment(intent));
@@ -105,6 +114,62 @@ impl ChatIntentContext {
         self.terms
             .iter()
             .any(|term| candidates.iter().any(|candidate| term == candidate))
+    }
+
+    pub fn local_install_intent(&self) -> Option<LocalInstallIntent> {
+        let install_index = self
+            .terms
+            .iter()
+            .position(|term| matches!(term.as_str(), "install" | "setup"))?;
+        if self.terms.windows(3).any(|terms| {
+            matches!(
+                terms,
+                [a, b, c]
+                    if (a == "how" && b == "to" && c == "install")
+                        || (a == "how" && b == "do" && c == "i")
+            )
+        }) || self
+            .terms
+            .windows(2)
+            .any(|terms| matches!(terms, [a, b] if a == "without" && b == "installing"))
+        {
+            return None;
+        }
+
+        let target_terms = self
+            .terms
+            .iter()
+            .skip(install_index + 1)
+            .take_while(|term| !matches!(term.as_str(), "on" | "via" | "using" | "with"))
+            .filter(|term| {
+                !matches!(
+                    term.as_str(),
+                    "please" | "download" | "then" | "and" | "app" | "software"
+                )
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        if target_terms.is_empty() {
+            return None;
+        }
+
+        let target = target_terms.join(" ");
+
+        Some(LocalInstallIntent {
+            intent_class: "local_software_install",
+            target_text: target,
+            target_kind: "software_or_package",
+            confidence: 95,
+            requires_host_mutation: true,
+        })
+    }
+
+    pub fn explicit_local_install_request(&self) -> bool {
+        self.local_install_intent().is_some()
+    }
+
+    pub fn local_install_target(&self) -> Option<String> {
+        self.local_install_intent().map(|intent| intent.target_text)
     }
 
     pub fn requests_runtime_locality(&self) -> bool {
@@ -1135,10 +1200,14 @@ fn normalize_inline_whitespace(value: &str) -> String {
 
 fn user_request_segment(value: &str) -> &str {
     let lowered = value.to_ascii_lowercase();
-    let Some(index) = lowered.rfind("[user request]") else {
+    let marker = ["[user request]", "user request:"]
+        .iter()
+        .filter_map(|marker| lowered.rfind(marker).map(|index| (index, marker.len())))
+        .max_by_key(|(index, _)| *index);
+    let Some((index, marker_len)) = marker else {
         return value;
     };
-    value[index + "[user request]".len()..].trim_matches(|ch: char| ch == ':' || ch.is_whitespace())
+    value[index + marker_len..].trim_matches(|ch: char| ch == ':' || ch.is_whitespace())
 }
 
 fn trim_intent_suffix_case_insensitive<'a>(value: &'a str, suffixes: &[&str]) -> &'a str {

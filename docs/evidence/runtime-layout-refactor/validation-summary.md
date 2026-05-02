@@ -50,5 +50,6 @@ Status: passed
 The physical runtime service split and active work graph vocabulary migration
 are complete. `npm run check:runtime-layout` now fails if `service/step/`
 returns, if production code imports `service::step`, or if active runtime/UI/API
-code reintroduces non-compatibility `swarm` vocabulary. No open
+code reintroduces non-compatibility `swarm` vocabulary. It also fails if the
+retired `ioi-swarm` product package or release surface returns. No open
 runtime-layout debt remains.

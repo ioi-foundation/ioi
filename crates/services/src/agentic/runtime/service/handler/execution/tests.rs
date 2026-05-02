@@ -4,6 +4,8 @@ use super::focus::is_focus_sensitive_tool;
 use super::query_active_window_with_timeout;
 use super::target_requires_window_binding;
 use super::{normalize_web_research_tool_call, reconcile_pending_web_research_tool_call};
+use crate::agentic::rules::{ActionRules, DefaultPolicy};
+use crate::agentic::runtime::execution::system::software_install_plan_ref_for_request;
 use crate::agentic::runtime::runtime_secret;
 use crate::agentic::runtime::service::RuntimeAgentService;
 use crate::agentic::runtime::types::{
@@ -24,7 +26,7 @@ use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_types::app::agentic::{
     AgentTool, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState, ScreenAction,
-    WebRetrievalContract,
+    SoftwareInstallRequestFrame, WebRetrievalContract,
 };
 use ioi_types::app::{
     AccountId, ActionRequest, ActionTarget, ChainId, ContextSlice, InferenceOperationKind,
@@ -37,6 +39,22 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use tokio::time::{sleep, Duration, Instant};
+
+fn software_install_execute_plan_tool(
+    target_text: &str,
+    manager_preference: Option<&str>,
+) -> AgentTool {
+    let request = SoftwareInstallRequestFrame {
+        target_text: target_text.to_string(),
+        target_kind: None,
+        manager_preference: manager_preference.map(str::to_string),
+        launch_after_install: None,
+        provenance: Some("test".to_string()),
+    };
+    AgentTool::SoftwareInstallExecutePlan {
+        plan_ref: software_install_plan_ref_for_request(&request),
+    }
+}
 
 fn test_agent_state() -> AgentState {
     AgentState {
@@ -379,10 +397,7 @@ fn runtime_secret_retry_is_approved_only_for_matching_pending_install() {
     let hash = [7u8; 32];
     state.pending_tool_hash = Some(hash);
 
-    let install_tool = AgentTool::SysInstallPackage {
-        package: "gnome-calculator".to_string(),
-        manager: Some("apt-get".to_string()),
-    };
+    let install_tool = software_install_execute_plan_tool("gnome-calculator", Some("apt-get"));
     assert!(is_runtime_secret_install_retry_approved(
         &install_tool,
         hash,
@@ -410,6 +425,43 @@ fn runtime_secret_retry_is_approved_only_for_matching_pending_install() {
         session_id,
         &state
     ));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn cec_requires_explicit_approval_for_install_even_under_allow_all_policy() {
+    let runtime = Arc::new(RecordingInferenceRuntime::default());
+    let service = build_test_service(runtime, None);
+    let rules = ActionRules {
+        policy_id: "permissive-dev-policy".to_string(),
+        defaults: DefaultPolicy::AllowAll,
+        ..ActionRules::default()
+    };
+    let os_driver: Arc<dyn OsDriver> = Arc::new(SlowWindowOsDriver);
+    let agent_state = test_agent_state();
+    let tool = software_install_execute_plan_tool("generic tool", Some("apt-get"));
+
+    let result = super::handle_action_execution(
+        &service,
+        tool,
+        [4u8; 32],
+        1,
+        [0u8; 32],
+        &rules,
+        &agent_state,
+        &os_driver,
+        None,
+        None,
+        None,
+    )
+    .await;
+
+    assert!(
+        matches!(
+            result,
+            Err(ioi_types::error::TransactionError::PendingApproval(_))
+        ),
+        "install execution must fail closed into approval, got {result:?}"
+    );
 }
 
 #[test]

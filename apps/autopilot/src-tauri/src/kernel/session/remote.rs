@@ -62,6 +62,28 @@ fn local_session_history_snapshot(
         .unwrap_or_default()
 }
 
+fn fallback_session_title(session_id: &str) -> String {
+    format!("Session {}", &session_id[..session_id.len().min(8)])
+}
+
+fn merged_remote_session_title(
+    remote: &SessionSummary,
+    existing: Option<&SessionSummary>,
+) -> String {
+    let remote_title = remote.title.trim();
+    if let Some(title) =
+        crate::orchestrator::store::clean_chat_session_title_candidate(remote_title)
+    {
+        return title;
+    }
+
+    existing
+        .and_then(|summary| {
+            crate::orchestrator::store::clean_chat_session_title_candidate(summary.title.as_str())
+        })
+        .unwrap_or_else(|| fallback_session_title(remote.session_id.as_str()))
+}
+
 pub(crate) async fn fetch_remote_session_history(
     state: &State<'_, Mutex<AppState>>,
 ) -> Result<Vec<SessionSummary>, String> {
@@ -121,7 +143,9 @@ pub(crate) fn merge_remote_session_history(
         {
             overlap_count += 1;
             let existing = all_sessions[position].clone();
+            let title = merged_remote_session_title(&remote, Some(&existing));
             all_sessions[position] = SessionSummary {
+                title,
                 phase: existing.phase,
                 current_step: existing.current_step,
                 resume_hint: existing.resume_hint,
@@ -129,7 +153,8 @@ pub(crate) fn merge_remote_session_history(
                 ..remote
             };
         } else {
-            all_sessions.push(remote);
+            let title = merged_remote_session_title(&remote, None);
+            all_sessions.push(SessionSummary { title, ..remote });
         }
     }
 

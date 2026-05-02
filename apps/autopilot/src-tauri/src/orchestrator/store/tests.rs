@@ -1,4 +1,5 @@
 use super::{
+    canonical_chat_session_title_from_query, clean_chat_session_title_candidate,
     get_local_sessions, get_local_sessions_with_live_tasks, load_artifact_content, load_artifacts,
     load_events, load_local_engine_control_plane, load_local_engine_control_plane_document,
     load_session_file_context, persisted_workspace_root_for_session,
@@ -162,6 +163,24 @@ fn session_summary_from_task_derives_title_when_no_summary_exists() {
 }
 
 #[test]
+fn canonical_chat_title_is_query_derived_for_install_and_direct_answers() {
+    assert_eq!(
+        canonical_chat_session_title_from_query("install lmstudio").as_deref(),
+        Some("install lmstudio")
+    );
+    assert_eq!(
+        canonical_chat_session_title_from_query("what is 2+2").as_deref(),
+        Some("what is 2+2")
+    );
+}
+
+#[test]
+fn canonical_chat_title_rejects_route_and_context_envelopes_as_titles() {
+    assert!(clean_chat_session_title_candidate("CHAT ARTIFACT ROUTE CONTRACT:").is_none());
+    assert!(clean_chat_session_title_candidate("[Codebase context] Workspace").is_none());
+}
+
+#[test]
 fn session_summary_from_task_strips_context_envelope_from_title() {
     let mut task = task_with_workspace_root("/tmp/workspace");
     task.intent = "[Codebase context]\nWorkspace: /home/user/project\n\n[User request]\nCreate an interactive HTML artifact that explains quantum computers".to_string();
@@ -181,6 +200,26 @@ fn session_summary_from_task_strips_context_envelope_from_title() {
     assert!(summary
         .title
         .starts_with("Create an interactive HTML artifact that explains"));
+    assert_eq!(summary.timestamp, 42);
+}
+
+#[test]
+fn session_summary_from_task_strips_runtime_handoff_envelope_from_title() {
+    let mut task = task_with_workspace_root("/tmp/workspace");
+    task.intent = "CHAT ARTIFACT ROUTE CONTRACT:\nRoute family: command_execution\n\nUSER REQUEST:\n[Codebase context]\nWorkspace: .\n\n[User request]\ninstall lmstudio".to_string();
+    let existing = SessionSummary {
+        session_id: "session-123".to_string(),
+        title: "CHAT ARTIFACT ROUTE CONTRACT:".to_string(),
+        timestamp: 42,
+        phase: Some(AgentPhase::Running),
+        current_step: Some("Waiting for approval".to_string()),
+        resume_hint: None,
+        workspace_root: None,
+    };
+
+    let summary = session_summary_from_task(&task, Some(&existing));
+
+    assert_eq!(summary.title, "install lmstudio");
     assert_eq!(summary.timestamp, 42);
 }
 

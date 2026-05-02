@@ -118,11 +118,25 @@ fn nonce_chain_edge_count(block: &Block<ChainTransaction>) -> usize {
     edges
 }
 
+fn contains_system_service_call(block: &Block<ChainTransaction>) -> bool {
+    block.transactions.iter().any(|tx| {
+        matches!(
+            tx,
+            ChainTransaction::System(system)
+                if matches!(
+                    &system.payload,
+                    ioi_types::app::SystemPayload::CallService { .. }
+                )
+        )
+    })
+}
+
 fn replay_gate_label(
     num_txs: usize,
     externally_committed: bool,
     force_sequential_replay: bool,
     has_nonce_chains: bool,
+    has_system_service_calls: bool,
 ) -> &'static str {
     if num_txs == 0 {
         "empty"
@@ -134,6 +148,8 @@ fn replay_gate_label(
         "forced_sequential"
     } else if has_nonce_chains {
         "nonce_chains"
+    } else if has_system_service_calls {
+        "system_service_calls"
     } else {
         "parallel"
     }
@@ -145,6 +161,7 @@ struct ParallelReplayStats {
     validation_errors: AtomicUsize,
     validation_rewinds: AtomicUsize,
     execution_errors: AtomicUsize,
+    validation_abort_budget_exhausted: AtomicBool,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -153,6 +170,7 @@ struct ParallelReplayStatsSnapshot {
     validation_errors: usize,
     validation_rewinds: usize,
     execution_errors: usize,
+    validation_abort_budget_exhausted: bool,
 }
 
 impl ParallelReplayStats {
@@ -162,6 +180,9 @@ impl ParallelReplayStats {
             validation_errors: self.validation_errors.load(Ordering::Relaxed),
             validation_rewinds: self.validation_rewinds.load(Ordering::Relaxed),
             execution_errors: self.execution_errors.load(Ordering::Relaxed),
+            validation_abort_budget_exhausted: self
+                .validation_abort_budget_exhausted
+                .load(Ordering::Relaxed),
         }
     }
 }
@@ -176,6 +197,8 @@ impl ParallelReplayStatsSnapshot {
             Some("parallel_execution_error_fallback")
         } else if self.validation_errors > 0 {
             Some("parallel_validation_error_fallback")
+        } else if self.validation_abort_budget_exhausted {
+            Some("parallel_validation_abort_budget_fallback")
         } else {
             None
         }
@@ -508,11 +531,13 @@ where
             0
         };
         let has_nonce_chains = nonce_chain_edges > 0;
+        let has_system_service_calls = contains_system_service_call(&block);
         let mut replay_gate = replay_gate_label(
             num_txs,
             externally_committed,
             force_sequential_replay,
             has_nonce_chains,
+            has_system_service_calls,
         );
         let replay_sequentially = replay_gate != "parallel";
         let mut replay_mode = if replay_sequentially {
@@ -587,6 +612,7 @@ where
             let results = Arc::new(DashMap::new());
             let replay_stats = Arc::new(ParallelReplayStats::default());
             let abort_parallel = Arc::new(AtomicBool::new(false));
+            let validation_abort_budget = (num_txs.saturating_mul(16)).max(64);
 
             // 3. Prepare Parallel Executor Context
             let executor = Arc::new(ParallelExecutor {
@@ -701,9 +727,17 @@ where
                                             match mv_memory.validate_read_set(&rs, idx) {
                                                 Ok(valid) => {
                                                     if !valid {
-                                                        replay_stats
+                                                        let aborts = replay_stats
                                                             .validation_aborts
-                                                            .fetch_add(1, Ordering::Relaxed);
+                                                            .fetch_add(1, Ordering::Relaxed)
+                                                            + 1;
+                                                        if aborts >= validation_abort_budget {
+                                                            replay_stats
+                                                                .validation_abort_budget_exhausted
+                                                                .store(true, Ordering::Relaxed);
+                                                            abort_parallel
+                                                                .store(true, Ordering::Relaxed);
+                                                        }
                                                         scheduler.abort_tx(idx);
                                                     } else {
                                                         scheduler.finish_validation(idx);

@@ -34,7 +34,8 @@ fn is_expected_egress_tool_exhaustive(tool: &AgentTool) -> bool {
         | AgentTool::SysExecInput { .. }
         | AgentTool::SysExecTerminate { .. }
         | AgentTool::SysExecSessionReset {}
-        | AgentTool::SysInstallPackage { .. }
+        | AgentTool::SoftwareInstallResolve { .. }
+        | AgentTool::SoftwareInstallExecutePlan { .. }
         | AgentTool::SysChangeDir { .. }
         | AgentTool::BrowserSnapshot {}
         | AgentTool::BrowserClick { .. }

@@ -62,6 +62,13 @@ fn workload_progress_label(receipt: &WorkloadReceipt) -> Option<String> {
         WorkloadReceiptKind::Exec(exec) => {
             let tool_name = exec.tool_name.trim().to_ascii_lowercase();
             let command_preview = exec.command_preview.trim().to_ascii_lowercase();
+            if tool_name == "software_install__execute_plan" {
+                return Some(if exec.success {
+                    "Software install verified".to_string()
+                } else {
+                    "Software install failed".to_string()
+                });
+            }
             if tool_name.starts_with("shell__run") {
                 if command_preview.starts_with("pip install")
                     || command_preview.starts_with("uv pip install")

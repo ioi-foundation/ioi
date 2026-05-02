@@ -96,6 +96,9 @@ fn derive_source_decision(
         ChatSourceFamily::SpecializedTool
     } else if active_artifact_id.is_some() {
         ChatSourceFamily::ArtifactContext
+    } else if decision_evidence_item_flag(decision_evidence, "local_install_requested") {
+        push_unique(ChatSourceFamily::UserDirected);
+        ChatSourceFamily::UserDirected
     } else if decision_evidence_item_flag(decision_evidence, "connector_intent_detected") {
         push_unique(ChatSourceFamily::Connector);
         ChatSourceFamily::Connector
@@ -139,6 +142,7 @@ fn derive_source_decision(
     let explicit_user_source = active_artifact_id.is_some()
         || decision_evidence_item_flag(decision_evidence, "connector_intent_detected")
         || decision_evidence_item_flag(decision_evidence, "workspace_grounding_required")
+        || decision_evidence_item_flag(decision_evidence, "local_install_requested")
         || decision_evidence_item_flag(decision_evidence, "currentness_override")
         || tool_widget_family_hint(decision_evidence).is_some()
         || context.references_previous_conversation()

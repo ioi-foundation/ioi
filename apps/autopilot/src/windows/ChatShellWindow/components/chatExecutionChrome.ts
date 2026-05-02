@@ -76,25 +76,6 @@ function latestPreviewWorkItemId(executionEnvelope?: ExecutionEnvelope | null): 
   return latestLivePreview?.workItemId ?? null;
 }
 
-function completionInvariantProgress(
-  executionEnvelope?: ExecutionEnvelope | null,
-): string | null {
-  const invariant = executionEnvelope?.completionInvariant;
-  if (!invariant) {
-    return null;
-  }
-  const satisfiedCount =
-    (invariant.satisfiedWorkItemIds?.length ?? 0) +
-    (invariant.satisfiedVerificationIds?.length ?? 0);
-  const requiredCount =
-    (invariant.requiredWorkItemIds?.length ?? 0) +
-    (invariant.requiredVerificationIds?.length ?? 0);
-  if (requiredCount <= 0) {
-    return null;
-  }
-  return `${satisfiedCount}/${requiredCount} obligations`;
-}
-
 function invariantProcesses(
   executionEnvelope?: ExecutionEnvelope | null,
 ): ChatExecutionProcess[] {
@@ -168,6 +149,7 @@ export function deriveChatExecutionChrome({
   workerReceipts?: WorkGraphWorkerReceipt[] | null;
   changeReceipts?: WorkGraphChangeReceipt[] | null;
 }): ChatExecutionChrome {
+  const visibleWorkGraphExecution = workGraphExecution?.enabled === false ? null : workGraphExecution;
   const activePreviewWorkItemId = latestPreviewWorkItemId(executionEnvelope);
   const processes = Array.isArray(workGraphPlan?.workItems)
     ? [...workGraphPlan.workItems]
@@ -197,7 +179,7 @@ export function deriveChatExecutionChrome({
           summary: item.summary || "Working the assigned scope.",
           isActive:
             item.id === activePreviewWorkItemId ||
-            item.role === workGraphExecution?.activeWorkerRole,
+            item.role === visibleWorkGraphExecution?.activeWorkerRole,
         }))
     : invariantProcesses(executionEnvelope);
 
@@ -213,37 +195,24 @@ export function deriveChatExecutionChrome({
   });
 
   return {
-    metrics: workGraphExecution
+    metrics: visibleWorkGraphExecution
       ? {
           stage:
             formatRuntimeStatusLabel(
-              workGraphExecution.executionStage || workGraphExecution.currentStage,
+              visibleWorkGraphExecution.executionStage ||
+                visibleWorkGraphExecution.currentStage,
             ) || null,
-          activeRole: workGraphExecution.activeWorkerRole
-            ? formatRuntimeStatusLabel(workGraphExecution.activeWorkerRole)
+          activeRole: visibleWorkGraphExecution.activeWorkerRole
+            ? formatRuntimeStatusLabel(visibleWorkGraphExecution.activeWorkerRole)
             : null,
           progress:
-            workGraphExecution.totalWorkItems > 0
-              ? `${workGraphExecution.completedWorkItems}/${workGraphExecution.totalWorkItems} work items`
+            visibleWorkGraphExecution.totalWorkItems > 0
+              ? `${visibleWorkGraphExecution.completedWorkItems}/${visibleWorkGraphExecution.totalWorkItems} work items`
               : null,
-          verification: formatRuntimeStatusLabel(workGraphExecution.verificationStatus) || null,
+          verification:
+            formatRuntimeStatusLabel(visibleWorkGraphExecution.verificationStatus) || null,
         }
-      : executionEnvelope?.modeDecision
-        ? {
-            stage:
-              formatRuntimeStatusLabel(
-                executionEnvelope.modeDecision.resolvedStrategy,
-              ) || null,
-            activeRole: executionEnvelope.modeDecision.workGraphRequired
-              ? "Work graph"
-              : "Bounded execution",
-            progress: completionInvariantProgress(executionEnvelope),
-            verification:
-              formatRuntimeStatusLabel(
-                executionEnvelope.completionInvariant?.status,
-              ) || null,
-          }
-        : null,
+      : null,
     processes,
     livePreview,
     codePreview,

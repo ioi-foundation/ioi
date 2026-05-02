@@ -1,12 +1,10 @@
-use super::helpers::default_safe_policy;
 use crate::agentic::rules::ActionRules;
-use crate::agentic::runtime::keys::{
-    get_mutation_receipt_ptr_key, get_state_key, get_trace_key, AGENT_POLICY_PREFIX,
-};
+use crate::agentic::runtime::keys::{get_mutation_receipt_ptr_key, get_state_key, get_trace_key};
 use crate::agentic::runtime::service::planning::planner;
 use crate::agentic::runtime::service::planning::playbook::{
     queue_parent_playbook_await_request, queue_root_playbook_delegate_request,
 };
+use crate::agentic::runtime::service::policy::load_action_rules_for_session;
 use crate::agentic::runtime::service::queue;
 use crate::agentic::runtime::service::recovery::anti_loop::{
     mutation_receipt_artifact_id, mutation_receipt_pointer_for_artifact_id,
@@ -223,11 +221,7 @@ pub(super) fn load_action_rules(
     state: &dyn StateAccess,
     session_id: [u8; 32],
 ) -> Result<ActionRules, TransactionError> {
-    let policy_key = [AGENT_POLICY_PREFIX, session_id.as_slice()].concat();
-    Ok(state
-        .get(&policy_key)?
-        .and_then(|bytes| codec::from_bytes_canonical(&bytes).ok())
-        .unwrap_or_else(default_safe_policy))
+    load_action_rules_for_session(state, session_id)
 }
 
 pub(super) async fn apply_planner_fallback_guards(

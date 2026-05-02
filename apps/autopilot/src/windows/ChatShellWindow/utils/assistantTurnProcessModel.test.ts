@@ -105,15 +105,44 @@ const workspaceSources: ArtifactSourceReference[] = [
 const withWorkspaceSources = buildAssistantTurnProcess({
   workspaceSources,
   runtimeModelLabel: "Local: qwen3.5:9b",
+  turnDurationLabel: "1m 8s",
 });
 assert.equal(withWorkspaceSources.sources.length, 0);
-assert.equal(withWorkspaceSources.summaryLine, "Explored 2 files");
+assert.equal(withWorkspaceSources.summaryLine, "Worked for 1m 8s");
 assert.equal(withWorkspaceSources.items[0]?.kind, "source_read");
 assert.equal(withWorkspaceSources.items[0]?.label, "Read runtime_contracts.rs");
 assert.ok(
   (withWorkspaceSources.items[0]?.detail ?? "").includes(
     "crates/types/src/app/runtime_contracts.rs",
   ),
+);
+
+const runningWithDuration = buildAssistantTurnProcess({
+  task: { id: "task-running", phase: "Running" } as any,
+  isRunning: true,
+  turnDurationLabel: "Thought for 12 seconds",
+});
+assert.equal(runningWithDuration.summaryLine, "Working for 12 seconds");
+
+const completedWithStaleApprovalReceipt = buildAssistantTurnProcess({
+  task: { id: "task-install-complete", phase: "Complete" } as any,
+  planSummary: {
+    approvalState: "pending",
+    pauseSummary: "Receipt: Resolving install source (require_approval)",
+  } as any,
+  turnDurationLabel: "1m 28s",
+});
+assert.equal(
+  completedWithStaleApprovalReceipt.items.some(
+    (item) => item.label === "Approval pending",
+  ),
+  false,
+);
+assert.equal(
+  completedWithStaleApprovalReceipt.items.some(
+    (item) => item.label === "Approval granted" && item.status === "complete",
+  ),
+  true,
 );
 
 console.log("assistantTurnProcessModel.test.ts: ok");

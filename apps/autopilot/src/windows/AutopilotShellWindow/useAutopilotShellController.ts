@@ -49,7 +49,13 @@ import type { SettingsSection } from "../../surfaces/Settings/settingsViewShared
 type ToastCandidate = Pick<
   InterventionRecord,
   "title" | "summary" | "reason" | "privacy"
->;
+> &
+  Partial<
+    Pick<
+      InterventionRecord,
+      "interventionType" | "sessionId" | "threadId" | "source"
+    >
+  >;
 
 type ChatSurface = "chat" | "reply-composer" | "meeting-prep";
 type WorkflowSurface = "home" | "canvas" | "agents" | "catalog";
@@ -223,6 +229,14 @@ function projectFromBuilderConfig(config: AgentConfiguration): ProjectFile {
 async function sendNativeAutopilotNotification(
   candidate: ToastCandidate,
 ): Promise<void> {
+  if (
+    candidate.source?.serviceName === "Autopilot" &&
+    candidate.source.workflowName === "workflow" &&
+    (candidate.sessionId || candidate.threadId)
+  ) {
+    return;
+  }
+
   try {
     let granted = await isPermissionGranted();
     if (!granted) {

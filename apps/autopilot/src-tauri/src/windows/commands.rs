@@ -22,6 +22,9 @@ pub fn show_chat_session(app: AppHandle) {
 }
 
 pub fn show_pill(app: AppHandle) {
+    if !no_primary_operator_surface_visible(&app) {
+        return;
+    }
     if let Some(window) = app.get_webview_window("pill") {
         position_pill_window(&app, &window);
         surface_window_best_effort(&window, false);

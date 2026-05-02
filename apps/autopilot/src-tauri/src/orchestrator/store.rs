@@ -395,9 +395,32 @@ fn normalize_workspace_root(value: Option<String>) -> Option<String> {
         .filter(|value| !value.is_empty())
 }
 
+pub(crate) fn clean_chat_session_title_candidate(title: &str) -> Option<String> {
+    let trimmed = title.trim();
+    if trimmed.is_empty()
+        || trimmed.starts_with("[Codebase context]")
+        || trimmed.starts_with("CHAT ARTIFACT ROUTE CONTRACT")
+    {
+        return None;
+    }
+    Some(truncate_session_summary_label(trimmed, 54))
+}
+
+pub(crate) fn canonical_chat_session_title_from_query(query: &str) -> Option<String> {
+    let user_request = extract_user_request_from_contextualized_intent(query);
+    let trimmed = user_request.trim();
+    if trimmed.is_empty()
+        || trimmed.starts_with("[Codebase context]")
+        || trimmed.starts_with("CHAT ARTIFACT ROUTE CONTRACT")
+    {
+        return None;
+    }
+    Some(truncate_session_summary_label(trimmed, 54))
+}
+
 fn session_summary_title_from_task_intent(intent: &str) -> String {
-    let user_request = extract_user_request_from_contextualized_intent(intent);
-    truncate_session_summary_label(user_request.trim(), 54)
+    canonical_chat_session_title_from_query(intent)
+        .unwrap_or_else(|| "Untitled request".to_string())
 }
 
 fn truncate_session_summary_label(value: &str, max_chars: usize) -> String {
@@ -1785,15 +1808,10 @@ pub fn session_summary_from_task(
     let existing_workspace_root =
         existing.and_then(|summary| normalize_workspace_root(summary.workspace_root.clone()));
 
-    let existing_title = existing
-        .map(|summary| summary.title.trim())
-        .filter(|title| !title.is_empty())
-        .map(ToOwned::to_owned);
+    let existing_title =
+        existing.and_then(|summary| clean_chat_session_title_candidate(summary.title.as_str()));
     let task_title = session_summary_title_from_task_intent(&task.intent);
-    let title = match existing_title {
-        Some(title) if !title.starts_with("[Codebase context]") => title,
-        _ => task_title,
-    };
+    let title = existing_title.unwrap_or(task_title);
 
     SessionSummary {
         session_id,

@@ -784,6 +784,7 @@ function defaultRouteLabel(
   if (routeFamily === "communication") return "Communication route";
   if (routeFamily === "user_input") return "Decision route";
   if (routeFamily === "tool_widget") return "Specialized tool route";
+  if (routeFamily === "command_execution") return "Command execution route";
   if (routeFamily === "computer_use") return "Computer-use route";
   if (routeFamily === "artifacts") return "Artifact route";
   return topology === "single_agent" ? "Primary agent route" : "Planned route";
@@ -1012,6 +1013,9 @@ export function buildPlanSummary(
         detailsRecord(routeSignalEvent).playbook_id,
       )
     : undefined;
+  const selectedRoute = explicitRoute
+    ? humanizeToken(explicitRoute)
+    : defaultRouteLabel(routeFamily, topology);
 
   const branchIds = new Set<string>();
   for (const entry of workerEvents) {
@@ -1181,15 +1185,11 @@ export function buildPlanSummary(
     firstStringValue(
       latestProgressEvent ? eventNarrative(latestProgressEvent) : null,
       latestStepEvent ? eventNarrative(latestStepEvent) : null,
-      activeWorkerLabel
-        ? `${activeWorkerLabel} is active in the selected route.`
-        : null,
+      activeWorkerLabel ? `Route active: ${selectedRoute.toLowerCase()}.` : null,
     ) || null;
 
   return {
-    selectedRoute: explicitRoute
-      ? humanizeToken(explicitRoute)
-      : defaultRouteLabel(routeFamily, topology),
+    selectedRoute,
     routeFamily,
     topology,
     plannerAuthority,

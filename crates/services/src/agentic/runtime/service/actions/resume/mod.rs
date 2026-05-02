@@ -15,10 +15,9 @@ use super::checks::requires_visual_integrity;
 use super::evaluation::evaluate_and_crystallize;
 use crate::agentic::rules::ActionRules;
 use crate::agentic::runtime::execution::system::is_sudo_password_required_install_error;
-use crate::agentic::runtime::keys::{get_state_key, pii, AGENT_POLICY_PREFIX};
-use crate::agentic::runtime::service::decision_loop::helpers::{
-    default_safe_policy, should_auto_complete_open_app_goal,
-};
+use crate::agentic::runtime::keys::{get_state_key, pii};
+use crate::agentic::runtime::service::decision_loop::helpers::should_auto_complete_open_app_goal;
+use crate::agentic::runtime::service::policy::load_action_rules_for_session;
 use crate::agentic::runtime::service::recovery::anti_loop::{
     build_attempt_key, build_post_state_summary, build_state_summary, classify_failure,
     emit_routing_receipt, escalation_path_for_failure, extract_artifacts, latest_failure_class,
@@ -37,9 +36,10 @@ use crate::agentic::runtime::service::tool_execution::command_contract::{
     command_history_entry, command_history_exit_code, compose_terminal_chat_reply,
     enrich_command_scope_summary, evaluate_completion_requirements,
     execution_contract_violation_error, extract_error_class_token, format_utc_rfc3339,
-    is_command_execution_provider_tool, is_completion_contract_error, parse_sleep_seconds,
-    record_provider_selection_evidence, record_timer_notification_contract_requirement,
-    record_verification_evidence, render_command_preview, requires_timer_notification_contract,
+    install_operator_completion_summary, is_command_execution_provider_tool,
+    is_completion_contract_error, parse_sleep_seconds, record_provider_selection_evidence,
+    record_timer_notification_contract_requirement, record_verification_evidence,
+    render_command_preview, requires_timer_notification_contract,
     synthesize_allowlisted_timer_notification_tool, sys_exec_arms_timer_delay_backend,
     sys_exec_command_preview, sys_exec_timer_delay_seconds, target_utc_from_run_and_sleep,
     TIMER_NOTIFICATION_PATH_SUCCESS_CONDITION, TIMER_SLEEP_BACKEND_SUCCESS_CONDITION,

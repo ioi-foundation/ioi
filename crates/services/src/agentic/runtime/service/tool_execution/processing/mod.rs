@@ -29,11 +29,14 @@ use super::support::{
     success_condition_key,
 };
 use crate::agentic::rules::ActionRules;
-use crate::agentic::runtime::execution::system::is_sudo_password_required_install_error;
-use crate::agentic::runtime::keys::{get_state_key, AGENT_POLICY_PREFIX};
+use crate::agentic::runtime::execution::system::{
+    install_resolution_checks_for_tool, install_resolution_summary_for_tool,
+    is_sudo_password_required_install_error,
+};
+use crate::agentic::runtime::keys::get_state_key;
 use crate::agentic::runtime::middleware;
 use crate::agentic::runtime::service::decision_loop::helpers::{
-    default_safe_policy, is_mailbox_connector_goal, should_auto_complete_open_app_goal,
+    is_mailbox_connector_goal, should_auto_complete_open_app_goal,
 };
 use crate::agentic::runtime::service::decision_loop::intent_resolver::is_tool_allowed_for_resolution;
 use crate::agentic::runtime::service::decision_loop::signals::is_mail_connector_tool_name;
@@ -43,6 +46,7 @@ use crate::agentic::runtime::service::handler::{
     resolve_window_binding_for_target, target_requires_window_binding,
 };
 use crate::agentic::runtime::service::lifecycle::spawn_delegated_child_session;
+use crate::agentic::runtime::service::policy::load_action_rules_for_session;
 use crate::agentic::runtime::service::queue::web_pipeline::{
     append_final_web_completion_receipts_with_rendered_summary,
     append_pending_web_success_fallback, append_pending_web_success_from_bundle,
@@ -77,7 +81,6 @@ use ioi_types::app::{
     ActionContext, ActionRequest, ActionTarget, KernelEvent, RoutingReceiptEvent,
     RoutingStateSummary,
 };
-use ioi_types::codec;
 use ioi_types::error::TransactionError;
 use serde_json;
 use serde_json::json;
@@ -213,11 +216,7 @@ pub async fn process_tool_output(
     call_context: ServiceCallContext<'_>,
 ) -> Result<(), TransactionError> {
     let key = get_state_key(&session_id);
-    let policy_key = [AGENT_POLICY_PREFIX, session_id.as_slice()].concat();
-    let rules: ActionRules = state
-        .get(&policy_key)?
-        .and_then(|b| codec::from_bytes_canonical(&b).ok())
-        .unwrap_or_else(default_safe_policy);
+    let rules: ActionRules = load_action_rules_for_session(state, session_id)?;
     let (routing_decision, pre_state_summary) = resolve_action_routing_context(agent_state);
     let tool_version = env!("CARGO_PKG_VERSION");
     let mut processing_state = ActionProcessingState::new(&tool_call_result);

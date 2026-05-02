@@ -4,7 +4,7 @@ Status: canonical low-level reference.
 Canonical owner: this file for runtime events, receipts, delivery bundles, trace bundles, and quality records.
 Supersedes: overlapping event/receipt examples in plans/specs when event, trace, or receipt fields conflict.
 Superseded by: none.
-Last alignment pass: 2026-05-01.
+Last alignment pass: 2026-05-02.
 
 ## Purpose
 
@@ -116,7 +116,24 @@ RuntimeAttestationReceipt
   "worker_invocation_id": "optional",
   "run_ids": ["run_123"],
   "output_artifacts": ["artifact://report"],
+  "artifact_refs": [
+    {
+      "cid": "bafy...",
+      "sha256": "...",
+      "media_type": "application/pdf",
+      "privacy_class": "shared_encrypted"
+    }
+  ],
   "evidence_bundle": ["receipt://execution", "receipt://validation"],
+  "receipt_bundle_ref": {
+    "cid": "bafy...",
+    "sha256": "..."
+  },
+  "state_commitment": {
+    "agentgres_domain": "agentgres://domain/sas.xyz",
+    "operation_id": "op_789",
+    "state_root": "sha256:..."
+  },
   "quality_summary": {
     "score": 0.91,
     "checks_passed": true,
@@ -133,6 +150,13 @@ RuntimeAttestationReceipt
   }
 }
 ```
+
+Agentgres owns the delivery state: whether the delivery happened, what state
+changed, which receipts are required, which artifacts exist, which
+quality/contribution ledgers update, and which projections/subscriptions should
+advance. Filecoin/CAS owns the heavy immutable payloads: artifact bytes,
+receipt/evidence bundles, trace bundles, screenshots/videos, reports, and
+archival checkpoint files.
 
 ## SessionTraceBundle
 

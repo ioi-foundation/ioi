@@ -1,7 +1,7 @@
 # Connectors, Tools, and Authority-Aware Registry Specification
 
 Status: canonical architecture authority.
-Canonical owner: this file for connector/tool registry doctrine; low-level tool contracts live in [`connector-and-tool-contracts.md`](./connector-and-tool-contracts.md).
+Canonical owner: this file for connector/tool registry doctrine; low-level tool contracts live in [`connector-and-tool-contracts.md`](./contracts.md).
 Supersedes: older flattened capability-registry wording when it conflicts with primitive capability and authority scope tiers.
 Superseded by: none.
 Last alignment pass: 2026-05-01.

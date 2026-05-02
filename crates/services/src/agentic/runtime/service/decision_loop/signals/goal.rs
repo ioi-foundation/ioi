@@ -580,10 +580,7 @@ pub fn infer_interaction_target(goal: &str) -> Option<InteractionTarget> {
     let goal_lc = goal.to_ascii_lowercase();
     let app_hint = [
         ("calculator", &["calculator", "calc"] as &[_]),
-        (
-            "code",
-            &["vscode", "visual studio code", "code editor", "code"],
-        ),
+        ("code", &["code editor", "code", "editor"]),
         (
             "terminal",
             &["terminal", "shell", "command prompt", "powershell", "iterm"],
@@ -630,7 +627,8 @@ pub fn infer_intent_surface(
     if tool.contains("app__launch") {
         return IntentSurface::AppLaunch;
     }
-    if tool.contains("package__install") || tool.ends_with("install_package") {
+    if tool.contains("software_install__execute_plan") || tool.contains("software_install__resolve")
+    {
         return IntentSurface::DependencyInstall;
     }
     if tool.starts_with("web__") || tool.starts_with("browser__") {

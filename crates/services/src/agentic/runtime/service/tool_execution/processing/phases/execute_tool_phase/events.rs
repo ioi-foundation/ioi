@@ -110,15 +110,18 @@ pub(super) fn synthesized_payload_hash_for_tool(tool: &AgentTool) -> Option<Stri
 fn stage_for_contract_key(key: &str) -> &'static str {
     match key {
         "host_discovery" => "discovery",
+        "install_resolution" => "resolution",
+        "approval" => "approval",
         "provider_selection" | PROVIDER_SELECTION_COMMIT_EVIDENCE => "provider_selection",
         "execution"
         | "execution_artifact"
         | "notification_strategy"
         | TIMER_SLEEP_BACKEND_SUCCESS_CONDITION
         | TIMER_NOTIFICATION_PATH_SUCCESS_CONDITION => "execution",
-        "verification" | VERIFICATION_COMMIT_EVIDENCE | CLOCK_TIMESTAMP_SUCCESS_CONDITION => {
-            "verification"
-        }
+        "verification"
+        | VERIFICATION_COMMIT_EVIDENCE
+        | CLOCK_TIMESTAMP_SUCCESS_CONDITION
+        | "verified_local_app_available" => "verification",
         _ => "completion_gate",
     }
 }

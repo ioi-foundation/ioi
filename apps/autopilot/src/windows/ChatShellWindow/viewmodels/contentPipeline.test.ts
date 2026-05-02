@@ -14,6 +14,7 @@ import {
 } from "./contentPipeline";
 import {
   buildReasoningDurationLabel,
+  formatTurnDurationSeconds,
   buildTurnToolActivityGroup,
 } from "../components/conversationTranscriptModel";
 import { artifactReplyText } from "../components/ConversationTimeline.helpers";
@@ -437,8 +438,43 @@ function toolActivityGroupPresentationTest(): void {
       activityRefs,
       Date.parse("2026-02-19T03:00:00Z"),
     ),
-    "Thought for 7 seconds",
+    "7s",
   );
+  assert.equal(formatTurnDurationSeconds(68), "1m 8s");
+}
+
+function commandActivityGroupPresentationTest(): void {
+  const commandStream: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-command-stream",
+    step_index: 24,
+    timestamp: "2026-02-19T03:00:08Z",
+    event_type: "COMMAND_STREAM",
+    status: "PARTIAL",
+    title: "Streaming software_install__execute_plan (stdout)",
+    digest: {
+      tool_name: "software_install__execute_plan",
+      command_preview: "bash -lc install_appimage_from_official_url",
+      channel: "stdout",
+    },
+    details: {
+      chunk: "Downloading Example App AppImage...\n",
+    },
+  };
+
+  const group = buildTurnToolActivityGroup(
+    activityRefsFromEvents([commandStream]),
+    null,
+    [],
+  );
+
+  assert.ok(group);
+  assert.equal(group?.label, "Running 1 command");
+  assert.deepEqual(group?.rows.map((row) => row.label), [
+    "Running bash -lc install_appimage_from_official_url",
+  ]);
+  assert.equal(group?.rows[0]?.status, "active");
+  assert.match(group?.rows[0]?.preview || "", /Downloading Example App AppImage/);
 }
 
 function artifactRuntimeActivityGroupPresentationTest(): void {
@@ -608,7 +644,7 @@ function artifactRuntimeActivityGroupPresentationTest(): void {
 
   assert.equal(artifactSessionIsPresentable(chatSession), false);
   assert.ok(group);
-  assert.equal(group?.label, "Thinking through Quantum computers explainer");
+  assert.equal(group?.label, "Working on Quantum computers explainer");
   assert.equal(group?.presentation, "inline_transcript");
   assert.equal(group?.defaultOpen, true);
   assert.deepEqual(
@@ -1044,7 +1080,7 @@ function artifactReplyTextIsConversationalForCompletedArtifactsTest(): void {
     false,
   );
   assert.equal(
-    reply?.includes("I put together **Create an HTML file that explains quantum computers**."),
+    reply?.includes("I put together **Create an HTML file that explains quantum computers**"),
     true,
   );
   assert.equal(reply?.includes("NASA Science"), true);
@@ -2935,6 +2971,7 @@ activitySummaryTest();
 sourceSummaryTest();
 sourceSummaryReceiptOnlyTest();
 toolActivityGroupPresentationTest();
+commandActivityGroupPresentationTest();
 artifactRuntimeActivityGroupPresentationTest();
 artifactRuntimeActivityOrderingAndSourcePlacementTest();
 artifactReplyTextIsConversationalForCompletedArtifactsTest();

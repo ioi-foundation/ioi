@@ -13,6 +13,10 @@ const chatPanelsSource = fs.readFileSync(
   new URL("./ChatConversationPanels.tsx", import.meta.url),
   "utf8",
 );
+const chatApprovalCardSource = fs.readFileSync(
+  new URL("./ChatApprovalCard.tsx", import.meta.url),
+  "utf8",
+);
 const artifactHubTaskViewsSource = fs.readFileSync(
   new URL("./ArtifactHubTaskViews.tsx", import.meta.url),
   "utf8",
@@ -27,6 +31,18 @@ const sourceChipRowSource = fs.readFileSync(
 );
 const modelSource = fs.readFileSync(
   new URL("../utils/assistantTurnProcessModel.ts", import.meta.url),
+  "utf8",
+);
+const surfaceStateSource = fs.readFileSync(
+  new URL("../hooks/useChatSurfaceState.ts", import.meta.url),
+  "utf8",
+);
+const contentPipelineSummariesSource = fs.readFileSync(
+  new URL("../viewmodels/contentPipeline.summaries.ts", import.meta.url),
+  "utf8",
+);
+const runtimeStatusCopySource = fs.readFileSync(
+  new URL("../viewmodels/runtimeStatusCopy.ts", import.meta.url),
   "utf8",
 );
 const artifactPanelCss = fs.readFileSync(
@@ -118,8 +134,20 @@ assert.match(
 
 assert.match(
   timelineSource,
-  /const showInlineTranscript =[\s\S]*inlineTranscriptRoute && showLiveThinking/,
-  "completed tool-widget and research turns should not render execution transcript rows in the answer UI",
+  /const showLiveActivityTurn =\s*showInlineStatusCard \|\| showInlineTranscript \|\| showAssistantPendingBubble;/,
+  "active chat turns should converge on one assistant activity disclosure boundary",
+);
+
+assert.match(
+  timelineSource,
+  /showLiveActivityTurn \? assistantTurnShell\(liveActivityChildren\) : null/,
+  "live status cards, terminal streams, and pending progress should render inside the unified assistant turn shell",
+);
+
+assert.doesNotMatch(
+  timelineSource,
+  /spot-message--pending|<ToolActivityGroup|ReasoningDisclosure/,
+  "the chat timeline should not render separate pending, tool, or reasoning surfaces beside the assistant turn activity disclosure",
 );
 
 assert.doesNotMatch(
@@ -165,14 +193,68 @@ assert.match(
 
 assert.doesNotMatch(
   chatPanelsSource,
-  /Tool transcript and observations attach when used|Policy and approval posture projected|spot-chat-status-workbench-row|spot-chat-status-timeline|spot-chat-status-skill-shell|Skill guidance/,
+  /Tool transcript and observations attach when used|Policy and approval posture projected|spot-chat-status-workbench-row|spot-chat-status-timeline|spot-chat-status-skill-shell|Skill guidance|Active worker|Runtime stage/,
   "pending status cards should omit placeholder policy/tool/workbench/skill panels in the default chat lane",
+);
+
+assert.doesNotMatch(
+  chatApprovalCardSource,
+  /executionTranscript|gate-terminal/,
+  "approval cards should stay decision-only; install terminal streaming belongs in the separate runtime status panel",
+);
+
+assert.match(
+  surfaceStateSource,
+  /hasOperatorDecisionPrompt && installTranscript[\s\S]*metrics:\s*null[\s\S]*processes:\s*\[\][\s\S]*livePreview: installPreview/,
+  "install workflows should keep a separate terminal/status stream visible while an approval card is present without synthetic work-graph rows",
+);
+
+assert.doesNotMatch(
+  contentPipelineSummariesSource,
+  /active in the selected route|is working in \$\{selectedRoute\.toLowerCase\(\)\}/,
+  "route progress copy should name the concrete route instead of framing it as an agent/worker placeholder",
+);
+
+assert.doesNotMatch(
+  surfaceStateSource,
+  /activeRole:\s*"Install workflow"|summary:\s*"Resolver, approval, command output, and verification/,
+  "install status rows should use route-derived labels and receipt-backed summaries instead of generic workflow placeholders",
+);
+
+assert.match(
+  surfaceStateSource,
+  /metrics:\s*chrome\.metrics\?\.verification[\s\S]*processes:\s*\[\]/,
+  "install terminal previews should not add synthetic progress rows on top of receipt-backed command output",
+);
+
+assert.match(
+  surfaceStateSource,
+  /if \(installTranscript\) \{[\s\S]*const installFailed =[\s\S]*detail: installBlockedDetail\(installTranscript\)[\s\S]*livePreview: installPreview/,
+  "failed install workflows should keep install-blocker copy and terminal receipts instead of artifact failure fallback copy",
 );
 
 assert.match(
   chatPanelsSource,
-  /spot-agent-progress-row[\s\S]*spot-agent-progress-rail[\s\S]*spot-agent-progress-preview/,
-  "pending status should render as a sparse thinking/tool transcript rail",
+  /livePreview\?\.kind === "command_stream" && livePreview\.status === "failed"[\s\S]*label: commandStreamFailed \? "Install blocked" : "Needs repair"/,
+  "failed install terminal previews should label the terminal-backed blocker directly instead of asking for generic repair",
+);
+
+assert.doesNotMatch(
+  runtimeStatusCopySource,
+  /install\|set up\|setup|task\?\.intent[\s\S]*Software install workflow/,
+  "runtime status copy must not classify install workflows by sniffing the prompt text",
+);
+
+assert.match(
+  chatPanelsSource,
+  /is-terminal-only[\s\S]*spot-agent-progress-previews[\s\S]*renderPreview\(livePreview\)/,
+  "terminal-backed runtime status should render as terminal output without a second synthetic progress rail",
+);
+
+assert.doesNotMatch(
+  surfaceStateSource,
+  /Thinking through|Thinking through the artifact request|outcomeLabel \|\| "Thinking"/,
+  "chat status copy should use the unified working/activity vocabulary rather than a separate thinking lane",
 );
 
 assert.match(

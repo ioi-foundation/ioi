@@ -70,6 +70,46 @@ fn firewall_is_verify_only_for_scoped_exception_usage() {
     );
 }
 
+#[test]
+fn approval_policy_hash_fallback_uses_runtime_safe_policy_in_both_paths() {
+    let firewall_src = include_str!("mod.rs");
+    let ingestion_src = ingestion_semantic_sources();
+
+    assert!(
+        firewall_src.contains("default_safe_policy()"),
+        "firewall approval verification must fallback to the same runtime safe policy as CEC"
+    );
+    assert!(
+        ingestion_src.contains("unwrap_or_else(default_safe_policy)"),
+        "ingestion approval verification must fallback to the same runtime safe policy as CEC"
+    );
+    assert!(
+        !firewall_src.contains("ActionRules::default()"),
+        "firewall must not bind approval grants to raw ActionRules::default()"
+    );
+    assert!(
+        !ingestion_src.contains("ActionRules::default()"),
+        "ingestion must not bind approval grants to raw ActionRules::default()"
+    );
+}
+
+#[test]
+fn approval_policy_hash_uses_effective_workspace_policy_in_both_paths() {
+    let firewall_src = include_str!("mod.rs");
+    let ingestion_src = ingestion_semantic_sources();
+
+    assert!(
+        firewall_src.contains(
+            "effective_action_rules_for_session(&stored_rules, agent_state_opt.as_ref())"
+        ),
+        "firewall approval verification must hash the effective workspace policy"
+    );
+    assert!(
+        ingestion_src.contains("augment_workspace_filesystem_policy("),
+        "ingestion approval verification must hash the effective workspace policy"
+    );
+}
+
 fn ingestion_semantic_sources() -> String {
     [
         include_str!("../standard/orchestration/ingestion/mod.rs"),

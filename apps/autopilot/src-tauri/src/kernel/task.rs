@@ -3,7 +3,7 @@ use crate::kernel::notifications;
 use crate::kernel::state::{hydrate_session_history, update_task_state};
 use crate::models::{
     AgentEvent, AgentPhase, AgentTask, AppState, ChatMessage, CredentialRequest, EventStatus,
-    EventType,
+    EventType, GateInfo,
 };
 use crate::orchestrator;
 use crate::windows;
@@ -17,7 +17,7 @@ use ioi_services::agentic::runtime::{
 };
 use ioi_types::app::{
     account_id_from_key_material, AccountId, ChainId, ChainTransaction, SignHeader, SignatureProof,
-    SignatureSuite, SystemPayload, SystemTransaction,
+    SignatureSuite, StateEntry, SystemPayload, SystemTransaction,
 };
 use ioi_types::codec;
 use parity_scale_codec::{Decode, Encode};
@@ -29,10 +29,13 @@ use tauri::{AppHandle, Emitter, Manager, Runtime, State};
 use tokio::time::{sleep, timeout, Duration, Instant};
 
 const TX_SUBMIT_TIMEOUT_MS: u64 = 8_000;
+const TX_STATUS_POLL_TIMEOUT_MS: u64 = 750;
+const RAW_STATE_POLL_TIMEOUT_MS: u64 = 750;
 const SESSION_START_CONVERGENCE_TIMEOUT_MS: u64 = 15_000;
 const CONTINUE_TASK_SEND_TIMEOUT_MS: u64 = 30_000;
 const SESSION_START_CONVERGENCE_POLL_MS: u64 = 250;
 const SESSION_STATE_RECONCILE_TIMEOUT_MS: u64 = 90_000;
+const SESSION_BOOTSTRAP_BACKGROUND_VISIBILITY_TIMEOUT_MS: u64 = 300_000;
 const SESSION_STATE_RECONCILE_POLL_MS: u64 = 750;
 const SESSION_BOOTSTRAP_STEP_RETRY_GRACE_MS: u64 = 2_000;
 const SESSION_BOOTSTRAP_STEP_RETRY_INTERVAL_MS: u64 = 2_000;
@@ -81,6 +84,13 @@ fn task_should_continue_through_kernel(task: &AgentTask) -> bool {
     !crate::kernel::chat::task_requires_chat_primary_execution(task)
 }
 
+fn should_bootstrap_runtime_from_chat_primary_followup(
+    prepared_task: &AgentTask,
+    started_from_chat_primary: bool,
+) -> bool {
+    started_from_chat_primary && task_should_continue_through_kernel(prepared_task)
+}
+
 fn apply_chat_route_handoff_to_runtime_input(task: &AgentTask, input: &str) -> String {
     crate::kernel::chat::runtime_handoff_prompt_prefix_for_task(task)
         .map(|prefix| format!("{prefix}\nUSER REQUEST:\n{input}"))
@@ -119,11 +129,30 @@ fn session_bootstrap_commit_delay_should_reconcile(error: &str) -> bool {
     normalized.contains("did not commit")
         || normalized.contains("already exists")
         || normalized.contains("inmempool")
+        || normalized.contains("pending")
         || normalized.contains("too low")
 }
 
 fn bootstrap_step_commit_delay_should_reconcile(error: &str) -> bool {
     session_bootstrap_commit_delay_should_reconcile(error)
+}
+
+fn bootstrap_step_commit_delay_should_retry(error: &str) -> bool {
+    let normalized = error.trim().to_ascii_lowercase();
+    (normalized.contains("did not commit") || normalized.contains("inmempool"))
+        && !bootstrap_step_commit_delay_should_reconcile(error)
+}
+
+fn step_rejection_indicates_approval_pause(error: &str) -> bool {
+    let normalized = error.to_ascii_lowercase();
+    normalized.contains("agent not running: paused") && normalized.contains("approval")
+}
+
+fn step_rejection_indicates_terminal_agent_outcome(error: &str) -> bool {
+    let normalized = error.to_ascii_lowercase();
+    normalized.contains("agent not running: failed(")
+        || normalized.contains("agent not running: completed(")
+        || normalized.contains("agent not running: terminated")
 }
 
 fn workspace_workflow_expansion(
@@ -364,6 +393,74 @@ fn task_has_live_session_activity(task: &AgentTask) -> bool {
     !task.history.is_empty() || !task.events.is_empty() || !task.artifacts.is_empty()
 }
 
+fn latest_policy_approval_request_hash(task: &AgentTask) -> Option<String> {
+    task.events.iter().rev().find_map(|event| {
+        if event.event_type != EventType::Warning {
+            return None;
+        }
+        let verdict = event
+            .digest
+            .get("verdict")
+            .and_then(|value| value.as_str())
+            .unwrap_or_default();
+        if !verdict.eq_ignore_ascii_case("REQUIRE_APPROVAL") {
+            return None;
+        }
+        event
+            .digest
+            .get("request_hash")
+            .and_then(|value| value.as_str())
+            .map(str::to_string)
+    })
+}
+
+fn paused_kernel_state_has_policy_gate(agent_state: &AgentState, _task: &AgentTask) -> bool {
+    agent_state.pending_tool_call.is_some() || agent_state.pending_tool_hash.is_some()
+}
+
+fn policy_gate_info_from_pause(reason: &str) -> GateInfo {
+    let trimmed = reason.trim();
+    GateInfo {
+        title: "Approval required".to_string(),
+        description: if trimmed.is_empty() {
+            "Runtime is paused at a policy gate. Review the runtime receipts, then approve or deny."
+                .to_string()
+        } else {
+            format!(
+                "Runtime is paused at a policy gate: {}. Review the runtime receipts, then approve or deny.",
+                trimmed
+            )
+        },
+        risk: "high".to_string(),
+        approve_label: Some("Approve".to_string()),
+        deny_label: Some("Deny".to_string()),
+        deadline_ms: None,
+        surface_label: Some("Host system".to_string()),
+        scope_label: Some("Policy gate".to_string()),
+        operation_label: Some("Approve action".to_string()),
+        target_label: None,
+        operator_note: Some(
+            "Receipts carry the resolved source, command, elevation, and verification plan."
+                .to_string(),
+        ),
+        pii: None,
+    }
+}
+
+fn phase_for_paused_kernel_state(
+    waiting_for_sudo: bool,
+    waiting_for_clarification: bool,
+    waiting_for_policy_approval: bool,
+) -> AgentPhase {
+    if waiting_for_sudo || waiting_for_clarification {
+        AgentPhase::Running
+    } else if waiting_for_policy_approval {
+        AgentPhase::Gate
+    } else {
+        AgentPhase::Complete
+    }
+}
+
 fn submit_error_indicates_bootstrap_step_already_pending(error: &str) -> bool {
     let normalized = error.trim().to_ascii_lowercase();
     normalized.contains("already exists")
@@ -395,6 +492,17 @@ fn bootstrap_step_should_escalate_pending_recovery(
         && !bootstrap_fallback_attempted
         && bootstrap_retry_window_open
         && bootstrap_retry_interval_elapsed
+}
+
+fn bootstrap_step_nonce_after_start_recovery(
+    authenticated_next_step_nonce: Option<u64>,
+    recovery_start_submitted: bool,
+) -> Option<u64> {
+    if recovery_start_submitted {
+        None
+    } else {
+        authenticated_next_step_nonce
+    }
 }
 
 async fn maybe_retry_or_escalate_bootstrap_step(
@@ -695,7 +803,7 @@ async fn query_account_nonce(
             if val.is_empty() {
                 0
             } else {
-                codec::from_bytes_canonical::<u64>(&val).unwrap_or(0)
+                decode_account_nonce(&val)
             }
         }
         Ok(Err(error)) => {
@@ -713,6 +821,29 @@ async fn query_account_nonce(
             0
         }
     }
+}
+
+fn decode_state_value<T>(bytes: &[u8]) -> Option<T>
+where
+    T: Decode,
+{
+    if let Ok(value) = codec::from_bytes_canonical::<T>(bytes) {
+        return Some(value);
+    }
+    let entry: StateEntry = codec::from_bytes_canonical(bytes).ok()?;
+    codec::from_bytes_canonical(&entry.value).ok()
+}
+
+fn decode_account_nonce(bytes: &[u8]) -> u64 {
+    if let Some(value) = decode_state_value::<u64>(bytes) {
+        return value;
+    }
+    if bytes.len() == 8 {
+        let mut raw = [0u8; 8];
+        raw.copy_from_slice(bytes);
+        return u64::from_le_bytes(raw);
+    }
+    0
 }
 
 async fn submit_service_call_with_nonce_retry(
@@ -1013,31 +1144,64 @@ async fn wait_for_tx_commit(
     timeout_ms: u64,
 ) -> Result<(), String> {
     let deadline = Instant::now() + Duration::from_millis(timeout_ms);
-    let mut last_status: TxStatus;
-    let mut last_error: String;
+    let mut last_status = TxStatus::Unknown;
+    let mut last_error = String::new();
+    let mut status_timeouts = 0usize;
 
     loop {
-        let response = timeout(
-            Duration::from_millis(TX_SUBMIT_TIMEOUT_MS),
+        let now = Instant::now();
+        if now >= deadline {
+            let detail = if last_error.trim().is_empty() {
+                format!("last tx status: {:?}", last_status)
+            } else {
+                format!("last tx status: {:?} ({})", last_status, last_error.trim())
+            };
+            return Err(format!(
+                "Tx {} did not commit within {}ms ({detail}).",
+                tx_hash, timeout_ms
+            ));
+        }
+
+        let remaining = deadline.saturating_duration_since(now);
+        let poll_timeout = remaining.min(Duration::from_millis(TX_STATUS_POLL_TIMEOUT_MS));
+        let response = match timeout(
+            poll_timeout,
             client.get_transaction_status(tonic::Request::new(GetTransactionStatusRequest {
                 tx_hash: tx_hash.to_string(),
             })),
         )
         .await
-        .map_err(|_| {
-            format!(
-                "Timed out while waiting for tx {} status after {}ms",
-                tx_hash, TX_SUBMIT_TIMEOUT_MS
-            )
-        })?
-        .map_err(|error| format!("Failed to query tx {} status: {}", tx_hash, error))?
-        .into_inner();
+        {
+            Ok(Ok(response)) => {
+                status_timeouts = 0;
+                response.into_inner()
+            }
+            Ok(Err(error)) => {
+                return Err(format!("Failed to query tx {} status: {}", tx_hash, error));
+            }
+            Err(_) => {
+                status_timeouts = status_timeouts.saturating_add(1);
+                if status_timeouts == 1 || status_timeouts % 5 == 0 {
+                    eprintln!(
+                        "[Autopilot] Tx {} status query timed out after {}ms while waiting for commit ({} consecutive timeouts).",
+                        tx_hash,
+                        poll_timeout.as_millis(),
+                        status_timeouts
+                    );
+                }
+                sleep(Duration::from_millis(SESSION_START_CONVERGENCE_POLL_MS)).await;
+                continue;
+            }
+        };
 
         last_status = TxStatus::try_from(response.status).unwrap_or(TxStatus::Unknown);
         last_error = response.error_message;
 
         match last_status {
-            TxStatus::Committed => return Ok(()),
+            TxStatus::Committed => {
+                println!("[Autopilot] Tx {} committed.", tx_hash);
+                return Ok(());
+            }
             TxStatus::Rejected => {
                 return Err(if last_error.trim().is_empty() {
                     format!("Tx {} was rejected by the kernel.", tx_hash)
@@ -1052,18 +1216,6 @@ async fn wait_for_tx_commit(
             _ => {}
         }
 
-        if Instant::now() >= deadline {
-            let detail = if last_error.trim().is_empty() {
-                format!("last tx status: {:?}", last_status)
-            } else {
-                format!("last tx status: {:?} ({})", last_status, last_error.trim())
-            };
-            return Err(format!(
-                "Tx {} did not commit within {}ms ({detail}).",
-                tx_hash, timeout_ms
-            ));
-        }
-
         sleep(Duration::from_millis(SESSION_START_CONVERGENCE_POLL_MS)).await;
     }
 }
@@ -1074,14 +1226,14 @@ async fn query_agent_state(
 ) -> Result<Option<AgentState>, String> {
     let state_key = session_state_key(session_id);
     let response = timeout(
-        Duration::from_millis(TX_SUBMIT_TIMEOUT_MS),
+        Duration::from_millis(RAW_STATE_POLL_TIMEOUT_MS),
         client.query_raw_state(tonic::Request::new(QueryRawStateRequest { key: state_key })),
     )
     .await
     .map_err(|_| {
         format!(
             "Timed out while reading session state after {}ms",
-            TX_SUBMIT_TIMEOUT_MS
+            RAW_STATE_POLL_TIMEOUT_MS
         )
     })?
     .map_err(|error| format!("Failed to query session state: {}", error))?
@@ -1102,18 +1254,32 @@ async fn wait_for_session_state_visibility(
     timeout_ms: u64,
 ) -> Result<AgentState, String> {
     let deadline = Instant::now() + Duration::from_millis(timeout_ms);
+    let mut last_error: Option<String> = None;
 
     loop {
-        if let Some(state) = query_agent_state(client, session_id).await? {
-            return Ok(state);
+        match query_agent_state(client, session_id).await {
+            Ok(Some(state)) => return Ok(state),
+            Ok(None) => {}
+            Err(error) => {
+                eprintln!(
+                    "[Autopilot] Session {} state query did not converge yet: {}",
+                    hex::encode(session_id),
+                    error
+                );
+                last_error = Some(error);
+            }
         }
 
         if Instant::now() >= deadline {
+            let detail = last_error
+                .as_deref()
+                .map(|error| format!(" Last query error: {error}"))
+                .unwrap_or_default();
             return Err(format!(
                 "Session {} did not become visible within {}ms.",
                 hex::encode(session_id),
                 timeout_ms
-            ));
+            ) + &detail);
         }
 
         sleep(Duration::from_millis(SESSION_START_CONVERGENCE_POLL_MS)).await;
@@ -1145,7 +1311,7 @@ async fn continue_session_bootstrap_after_visibility_timeout(
     match wait_for_session_state_visibility(
         &mut client,
         session_id,
-        SESSION_STATE_RECONCILE_TIMEOUT_MS,
+        SESSION_BOOTSTRAP_BACKGROUND_VISIBILITY_TIMEOUT_MS,
     )
     .await
     {
@@ -1185,50 +1351,6 @@ async fn continue_session_bootstrap_after_visibility_timeout(
             );
         }
         Err(error) => {
-            if next_step_nonce.is_some() {
-                match trigger_agent_step_for_session(&mut client, &app, session_id, next_step_nonce)
-                    .await
-                {
-                    Ok(()) => {
-                        update_task_state(&app, |t| {
-                            if session_hex_matches_task(t, &session_id_hex) {
-                                t.phase = AgentPhase::Running;
-                                t.current_step = "Session state is reconciling, but the first step was queued using the bootstrap nonce.".to_string();
-                            }
-                        });
-                        spawn_session_state_reconciler_with_bootstrap_nonce(
-                            app.clone(),
-                            session_id,
-                            next_step_nonce,
-                        );
-                        return;
-                    }
-                    Err(step_error)
-                        if bootstrap_step_commit_delay_should_reconcile(&step_error)
-                            || submit_error_indicates_bootstrap_step_already_pending(
-                                &step_error,
-                            ) =>
-                    {
-                        update_task_state(&app, |t| {
-                            if session_hex_matches_task(t, &session_id_hex) {
-                                t.phase = AgentPhase::Running;
-                                t.current_step = format!(
-                                    "Session state is still reconciling, and the optimistic first-step submit could not complete yet. Continuing bootstrap in the background: {} | {}",
-                                    error, step_error
-                                );
-                            }
-                        });
-                        spawn_session_state_reconciler_with_bootstrap_nonce(
-                            app.clone(),
-                            session_id,
-                            next_step_nonce,
-                        );
-                        return;
-                    }
-                    Err(_) => {}
-                }
-            }
-
             let mut keep_running = false;
             update_task_state(&app, |t| {
                 if session_hex_matches_task(t, &session_id_hex) {
@@ -1318,7 +1440,7 @@ async fn bootstrap_kernel_session_after_chat_prepare(
                     base_err
                 );
             if let Err(fallback_err) =
-                submit_start_via_ephemeral_start_agent(&mut client, fallback_params).await
+                submit_start_via_ephemeral_start_agent(&mut client, fallback_params.clone()).await
             {
                 update_task_if_current_matches(&app, &task_id, |task| {
                     task.phase = AgentPhase::Failed;
@@ -1333,44 +1455,72 @@ async fn bootstrap_kernel_session_after_chat_prepare(
         }
     };
 
-    update_task_if_current_matches(&app, &task_id, |task| {
-        task.current_step = "Waiting for session start to commit...".to_string();
-    });
+    let mut start_recovery_submitted = start_tx_hash.is_none();
     if let Some(start_tx_hash) = start_tx_hash.as_deref() {
-        if let Err(error) = wait_for_tx_commit(
+        println!(
+            "[Autopilot] Session start tx {} submitted for chat session {}. Waiting on state visibility.",
+            start_tx_hash, task_id
+        );
+        update_task_if_current_matches(&app, &task_id, |task| {
+            task.current_step = "Waiting for session start to commit...".to_string();
+        });
+        match wait_for_tx_commit(
             &mut client,
             start_tx_hash,
             SESSION_START_CONVERGENCE_TIMEOUT_MS,
         )
         .await
         {
-            if session_bootstrap_commit_delay_should_reconcile(&error) {
+            Ok(()) => {
+                println!(
+                    "[Autopilot] Session start tx {} committed for chat session {}.",
+                    start_tx_hash, task_id
+                );
+            }
+            Err(error) if session_bootstrap_commit_delay_should_reconcile(&error) => {
+                println!(
+                    "[Autopilot] Session start tx {} is still reconciling for chat session {}. Submitting start recovery before first-step scheduling: {}",
+                    start_tx_hash, task_id, error
+                );
                 update_task_if_current_matches(&app, &task_id, |task| {
                     task.phase = AgentPhase::Running;
+                    task.current_step =
+                        "Session start is reconciling; submitting runtime recovery start..."
+                            .to_string();
+                });
+                match submit_start_via_ephemeral_start_agent(&mut client, fallback_params.clone())
+                    .await
+                {
+                    Ok(()) => {
+                        start_recovery_submitted = true;
+                    }
+                    Err(fallback_err)
+                        if session_bootstrap_commit_delay_should_reconcile(&fallback_err) =>
+                    {
+                        start_recovery_submitted = true;
+                        println!(
+                            "[Autopilot] Start recovery for chat session {} is already pending or visible: {}",
+                            task_id, fallback_err
+                        );
+                    }
+                    Err(fallback_err) => {
+                        eprintln!(
+                            "[Autopilot] Start recovery submit failed for chat session {} after authenticated start delay: {}",
+                            task_id, fallback_err
+                        );
+                    }
+                }
+            }
+            Err(error) => {
+                update_task_if_current_matches(&app, &task_id, |task| {
+                    task.phase = AgentPhase::Failed;
                     task.current_step = format!(
-                        "Session start commit is delayed, but bootstrap is continuing in the background: {}",
+                        "Session start transaction did not commit before the first step could be scheduled: {}",
                         error
                     );
                 });
-                tauri::async_runtime::spawn(continue_session_bootstrap_after_visibility_timeout(
-                    app.clone(),
-                    session_id,
-                    next_step_nonce,
-                ));
                 return;
             }
-            update_task_if_current_matches(&app, &task_id, |task| {
-                if task.phase == AgentPhase::Running
-                    && matches!(
-                        task.current_step.as_str(),
-                        "Submitting session start..." | "Waiting for session start to commit..."
-                    )
-                {
-                    task.phase = AgentPhase::Failed;
-                    task.current_step = format!("Session start failed to commit: {}", error);
-                }
-            });
-            return;
         }
     }
 
@@ -1378,6 +1528,12 @@ async fn bootstrap_kernel_session_after_chat_prepare(
         task.current_step = "Waiting for session state...".to_string();
     });
 
+    println!(
+        "[Autopilot] Waiting for session state visibility for chat session {}.",
+        task_id
+    );
+    let step_nonce_for_bootstrap =
+        bootstrap_step_nonce_after_start_recovery(next_step_nonce, start_recovery_submitted);
     if let Err(error) = wait_for_session_state_visibility(
         &mut client,
         session_id,
@@ -1385,52 +1541,65 @@ async fn bootstrap_kernel_session_after_chat_prepare(
     )
     .await
     {
+        if !start_recovery_submitted {
+            eprintln!(
+                "[Autopilot] Session state is not visible yet. Submitting fallback start before background recovery: {}",
+                error
+            );
+            match submit_start_via_ephemeral_start_agent(&mut client, fallback_params.clone()).await
+            {
+                Ok(()) => start_recovery_submitted = true,
+                Err(fallback_err)
+                    if session_bootstrap_commit_delay_should_reconcile(&fallback_err) =>
+                {
+                    start_recovery_submitted = true;
+                    println!(
+                        "[Autopilot] Fallback start for chat session {} is already pending or visible: {}",
+                        task_id, fallback_err
+                    );
+                }
+                Err(fallback_err) => {
+                    eprintln!(
+                        "[Autopilot] Fallback start failed for session {} after visibility delay: {}",
+                        task_id, fallback_err
+                    );
+                }
+            }
+        }
+
         update_task_if_current_matches(&app, &task_id, |task| {
             task.phase = AgentPhase::Running;
             task.current_step = format!(
-                "Session start committed, but kernel state is taking longer than expected. Continuing bootstrap in the background: {}",
+                "Session state is taking longer than expected. Continuing bootstrap in the background: {}",
                 error
             );
         });
 
-        match trigger_agent_step_for_session(&mut client, &app, session_id, next_step_nonce).await {
-            Ok(()) => {
-                update_task_if_current_matches(&app, &task_id, |task| {
-                    task.phase = AgentPhase::Running;
-                    task.current_step =
-                        "Session state is reconciling, but the first step was queued using the committed bootstrap nonce.".to_string();
-                });
-                spawn_session_state_reconciler_with_bootstrap_nonce(
-                    app.clone(),
-                    session_id,
-                    next_step_nonce,
-                );
-                return;
-            }
-            Err(step_error) => {
-                update_task_if_current_matches(&app, &task_id, |task| {
-                    task.phase = AgentPhase::Running;
-                    task.current_step = format!(
-                        "Session state is still reconciling, and the optimistic first-step submit could not complete yet. Continuing bootstrap in the background: {} | {}",
-                        error, step_error
-                    );
-                });
-                tauri::async_runtime::spawn(continue_session_bootstrap_after_visibility_timeout(
-                    app.clone(),
-                    session_id,
-                    next_step_nonce,
-                ));
-                return;
-            }
-        }
+        let background_step_nonce =
+            bootstrap_step_nonce_after_start_recovery(next_step_nonce, start_recovery_submitted);
+        tauri::async_runtime::spawn(continue_session_bootstrap_after_visibility_timeout(
+            app.clone(),
+            session_id,
+            background_step_nonce,
+        ));
+        return;
     }
+    println!(
+        "[Autopilot] Session state is visible for chat session {}.",
+        task_id
+    );
 
     update_task_if_current_matches(&app, &task_id, |task| {
         task.current_step = "Scheduling first step...".to_string();
     });
 
+    println!(
+        "[Autopilot] Scheduling first agent step for chat session {}.",
+        task_id
+    );
     if let Err(step_error) =
-        trigger_agent_step_for_session(&mut client, &app, session_id, next_step_nonce).await
+        trigger_agent_step_for_session(&mut client, &app, session_id, step_nonce_for_bootstrap)
+            .await
     {
         if bootstrap_step_commit_delay_should_reconcile(&step_error) {
             update_task_if_current_matches(&app, &task_id, |task| {
@@ -1443,7 +1612,7 @@ async fn bootstrap_kernel_session_after_chat_prepare(
             spawn_session_state_reconciler_with_bootstrap_nonce(
                 app.clone(),
                 session_id,
-                next_step_nonce,
+                step_nonce_for_bootstrap,
             );
             return;
         }
@@ -1456,12 +1625,36 @@ async fn bootstrap_kernel_session_after_chat_prepare(
         });
         return;
     }
+    println!(
+        "[Autopilot] First agent step scheduled for chat session {}.",
+        task_id
+    );
 
     update_task_if_current_matches(&app, &task_id, |task| {
         task.phase = AgentPhase::Running;
         task.current_step = "Agent session queued. Waiting for first step...".to_string();
     });
-    spawn_session_state_reconciler_with_bootstrap_nonce(app.clone(), session_id, next_step_nonce);
+    spawn_session_state_reconciler_with_bootstrap_nonce(
+        app.clone(),
+        session_id,
+        step_nonce_for_bootstrap,
+    );
+}
+
+async fn sync_terminal_agent_state_after_step_rejection(
+    client: &mut PublicApiClient<tonic::transport::Channel>,
+    app: &AppHandle,
+    session_id: [u8; 32],
+) {
+    let Ok(Some(agent_state)) = query_agent_state(client, session_id).await else {
+        return;
+    };
+    if matches!(agent_state.status, AgentStatus::Idle | AgentStatus::Running) {
+        return;
+    }
+    let session_id_hex = hex::encode(session_id);
+    let history = hydrate_session_history(client, &session_id_hex).await.ok();
+    sync_task_from_kernel_state(app, &session_id_hex, &agent_state, history);
 }
 
 fn sync_task_from_kernel_state(
@@ -1557,15 +1750,17 @@ fn sync_task_from_kernel_state(
                     || reason
                         .to_ascii_lowercase()
                         .contains("waiting for clarification");
-                task.phase = if waiting_for_sudo || waiting_for_clarification {
-                    AgentPhase::Running
-                } else {
-                    AgentPhase::Complete
-                };
+                let waiting_for_policy_approval =
+                    paused_kernel_state_has_policy_gate(agent_state, task);
+                task.phase = phase_for_paused_kernel_state(
+                    waiting_for_sudo,
+                    waiting_for_clarification,
+                    waiting_for_policy_approval,
+                );
                 task.current_step = reason.clone();
-                task.gate_info = None;
-                task.pending_request_hash = None;
                 if waiting_for_sudo {
+                    task.gate_info = None;
+                    task.pending_request_hash = None;
                     task.clarification_request = None;
                     task.credential_request = Some(CredentialRequest {
                         kind: "sudo_password".to_string(),
@@ -1573,7 +1768,22 @@ fn sync_task_from_kernel_state(
                             .to_string(),
                         one_time: true,
                     });
+                } else if waiting_for_clarification {
+                    task.gate_info = None;
+                    task.pending_request_hash = None;
+                    task.credential_request = None;
+                } else if waiting_for_policy_approval {
+                    if task.pending_request_hash.is_none() {
+                        task.pending_request_hash = latest_policy_approval_request_hash(task);
+                    }
+                    if task.gate_info.is_none() {
+                        task.gate_info = Some(policy_gate_info_from_pause(reason));
+                    }
+                    task.credential_request = None;
+                    task.clarification_request = None;
                 } else {
+                    task.gate_info = None;
+                    task.pending_request_hash = None;
                     task.credential_request = None;
                 }
             }
@@ -1753,17 +1963,42 @@ pub(crate) async fn trigger_agent_step_for_session(
                 {
                     Ok(()) => return Ok(()),
                     Err(error) => {
+                        if step_rejection_indicates_terminal_agent_outcome(&error) {
+                            println!(
+                                "[Autopilot] step@v1 exact-nonce tx {} at nonce {} reached a terminal agent state. Treating the terminal receipt as the committed step outcome: {}",
+                                tx_hash, nonce, error
+                            );
+                            sync_terminal_agent_state_after_step_rejection(client, app, session_id)
+                                .await;
+                            return Ok(());
+                        }
+                        if step_rejection_indicates_approval_pause(&error) {
+                            println!(
+                                "[Autopilot] step@v1 exact-nonce tx {} at nonce {} reached an approval pause. Treating the gate as the committed step outcome: {}",
+                                tx_hash, nonce, error
+                            );
+                            sync_terminal_agent_state_after_step_rejection(client, app, session_id)
+                                .await;
+                            return Ok(());
+                        }
                         if bootstrap_step_commit_delay_should_reconcile(&error) {
                             println!(
-                                "[Autopilot] step@v1 exact-nonce tx {} at nonce {} is still pending. Deferring commit confirmation to the reconciler: {}",
+                                "[Autopilot] step@v1 exact-nonce tx {} at nonce {} is still reconciling. Deferring commit confirmation to the reconciler: {}",
                                 tx_hash, nonce, error
                             );
                             return Ok(());
                         }
-                        eprintln!(
-                            "[Autopilot] step@v1 exact-nonce tx {} at nonce {} did not commit in time. Falling back to retry path: {}",
-                            tx_hash, nonce, error
-                        );
+                        if bootstrap_step_commit_delay_should_retry(&error) {
+                            eprintln!(
+                                "[Autopilot] step@v1 exact-nonce tx {} at nonce {} stayed pending. Retrying via alternate submit path: {}",
+                                tx_hash, nonce, error
+                            );
+                        } else {
+                            eprintln!(
+                                "[Autopilot] step@v1 exact-nonce tx {} at nonce {} did not commit in time. Falling back to retry path: {}",
+                                tx_hash, nonce, error
+                            );
+                        }
                     }
                 }
             }
@@ -1790,9 +2025,34 @@ pub(crate) async fn trigger_agent_step_for_session(
                 Ok(()) => Ok(()),
                 Err(error) if bootstrap_step_commit_delay_should_reconcile(&error) => {
                     println!(
-                        "[Autopilot] step@v1 authenticated tx {} is still pending. Deferring commit confirmation to the reconciler: {}",
+                        "[Autopilot] step@v1 authenticated tx {} is still reconciling. Deferring commit confirmation to the reconciler: {}",
                         tx_hash, error
                     );
+                    Ok(())
+                }
+                Err(error) if step_rejection_indicates_terminal_agent_outcome(&error) => {
+                    println!(
+                        "[Autopilot] step@v1 authenticated tx {} reached a terminal agent state. Treating the terminal receipt as the committed step outcome: {}",
+                        tx_hash, error
+                    );
+                    sync_terminal_agent_state_after_step_rejection(client, app, session_id).await;
+                    Ok(())
+                }
+                Err(error)
+                    if bootstrap_step_commit_delay_should_reconcile(&error)
+                        || bootstrap_step_commit_delay_should_retry(&error) =>
+                {
+                    Err(format!(
+                        "Triggered session step but the authenticated tx {} stayed pending: {}",
+                        tx_hash, error
+                    ))
+                }
+                Err(error) if step_rejection_indicates_approval_pause(&error) => {
+                    println!(
+                        "[Autopilot] step@v1 authenticated tx {} reached an approval pause. Treating the gate as the committed step outcome: {}",
+                        tx_hash, error
+                    );
+                    sync_terminal_agent_state_after_step_rejection(client, app, session_id).await;
                     Ok(())
                 }
                 Err(error) => Err(format!(
@@ -1821,6 +2081,17 @@ pub(crate) async fn trigger_agent_step_for_session(
             SESSION_START_CONVERGENCE_TIMEOUT_MS,
         )
         .await
+        .or_else(|error| {
+            if bootstrap_step_commit_delay_should_reconcile(&error) {
+                println!(
+                    "[Autopilot] step@v1 ephemeral fallback tx {} stayed pending. Deferring commit confirmation to the reconciler: {}",
+                    fallback_tx_hash, error
+                );
+                Ok(())
+            } else {
+                Err(error)
+            }
+        })
         .map_err(|error| {
             format!(
                 "Failed to trigger session step: {} | fallback tx {} did not commit: {}",
@@ -1837,7 +2108,16 @@ pub(crate) async fn send_message_to_session(
     session_id: &str,
     user_input: String,
 ) -> Result<(), String> {
-    crate::kernel::chat::maybe_prepare_current_task_for_chat_turn(app, &user_input)?;
+    let app_for_prepare = app.clone();
+    let user_input_for_prepare = user_input.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::kernel::chat::maybe_prepare_current_task_for_chat_turn(
+            &app_for_prepare,
+            &user_input_for_prepare,
+        )
+    })
+    .await
+    .map_err(|error| format!("Chat continuation prepare worker failed: {error}"))??;
     let routed_user_input = if let Some(task) = app
         .state::<Mutex<AppState>>()
         .lock()
@@ -2022,6 +2302,7 @@ pub fn start_task(
         fitness_score: 0.0,
     };
 
+    crate::kernel::chat::seed_task_route_from_intent_signals(&mut task, &intent);
     task.sync_runtime_views();
 
     let memory_runtime = {
@@ -2112,24 +2393,20 @@ pub fn start_task(
 
         match prepare_outcome {
             Ok(Ok((prepared_task, chat_primary))) => {
+                let bootstrap_intent = if chat_primary {
+                    None
+                } else {
+                    Some(apply_chat_route_handoff_to_runtime_input(
+                        &prepared_task,
+                        &session_bootstrap_intent,
+                    ))
+                };
                 replace_current_task_snapshot(&app_clone, &task_id_for_prepare, prepared_task);
                 if !chat_primary {
-                    let bootstrap_intent = app_clone
-                        .state::<Mutex<AppState>>()
-                        .lock()
-                        .ok()
-                        .and_then(|state| state.current_task.clone())
-                        .map(|task| {
-                            apply_chat_route_handoff_to_runtime_input(
-                                &task,
-                                &session_bootstrap_intent,
-                            )
-                        })
-                        .unwrap_or_else(|| session_bootstrap_intent.clone());
                     bootstrap_kernel_session_after_chat_prepare(
                         app_clone.clone(),
                         task_id_for_prepare,
-                        bootstrap_intent,
+                        bootstrap_intent.unwrap_or_else(|| session_bootstrap_intent.clone()),
                     )
                     .await;
                 }
@@ -2291,13 +2568,53 @@ pub async fn continue_task(
                     timestamp: crate::kernel::state::now(),
                 });
             });
+            return Ok(());
         } else {
             println!(
                 "[Autopilot][ChatContinue] chat follow-up prepared for session={}",
                 session_id
             );
+            let prepared_task = app
+                .state::<Mutex<AppState>>()
+                .lock()
+                .ok()
+                .and_then(|state| state.current_task.clone());
+            let should_handoff_to_kernel = prepared_task
+                .as_ref()
+                .is_some_and(|task| task_should_continue_through_kernel(task));
+            if !should_handoff_to_kernel {
+                return Ok(());
+            }
+            if let Some(prepared_task) = prepared_task
+                .as_ref()
+                .filter(|task| should_bootstrap_runtime_from_chat_primary_followup(task, true))
+            {
+                let task_id = prepared_task
+                    .session_id
+                    .clone()
+                    .unwrap_or_else(|| prepared_task.id.clone());
+                let bootstrap_intent =
+                    apply_chat_route_handoff_to_runtime_input(prepared_task, &user_input_for_send);
+                let app_for_bootstrap = app.clone();
+                println!(
+                    "[Autopilot][ChatContinue] chat-primary follow-up changed to runtime route; bootstrapping kernel session={}",
+                    task_id
+                );
+                tauri::async_runtime::spawn(async move {
+                    bootstrap_kernel_session_after_chat_prepare(
+                        app_for_bootstrap,
+                        task_id,
+                        bootstrap_intent,
+                    )
+                    .await;
+                });
+                return Ok(());
+            }
+            println!(
+                "[Autopilot][ChatContinue] follow-up route requires runtime handoff for session={}",
+                session_id
+            );
         }
-        return Ok(());
     }
 
     let session_arr = normalize_session_id(&session_id)?;

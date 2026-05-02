@@ -1,21 +1,39 @@
 use super::{
     capability_route_label, compose_terminal_chat_reply, contract_requires_evidence_with_rules,
     contract_requires_success_condition_with_rules, enrich_command_scope_summary,
-    execution_contract_violation_error, is_command_execution_provider_tool,
-    missing_completion_evidence_with_rules, record_verification_evidence,
-    synthesize_allowlisted_timer_notification_tool, timer_payload_requires_allowlisted_scheduler,
-    VERIFICATION_COMMIT_EVIDENCE, WEB_PIPELINE_TERMINAL_EVIDENCE,
+    execution_contract_violation_error, install_operator_completion_summary,
+    is_command_execution_provider_tool, missing_completion_evidence_with_rules,
+    record_verification_evidence, synthesize_allowlisted_timer_notification_tool,
+    timer_payload_requires_allowlisted_scheduler, VERIFICATION_COMMIT_EVIDENCE,
+    WEB_PIPELINE_TERMINAL_EVIDENCE,
 };
 use crate::agentic::rules::ActionRules;
+use crate::agentic::runtime::execution::system::software_install_plan_ref_for_request;
 use crate::agentic::runtime::service::tool_execution::support::{
     record_execution_evidence, record_success_condition,
 };
 use crate::agentic::runtime::types::{
     AgentMode, AgentState, AgentStatus, CommandExecution, ExecutionTier, ToolCallStatus,
 };
-use ioi_types::app::agentic::{AgentTool, CapabilityId};
+use ioi_types::app::agentic::{AgentTool, CapabilityId, SoftwareInstallRequestFrame};
 use ioi_types::app::agentic::{IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState};
 use std::collections::{BTreeMap, VecDeque};
+
+fn software_install_execute_plan_tool(
+    target_text: &str,
+    manager_preference: Option<&str>,
+) -> AgentTool {
+    let request = SoftwareInstallRequestFrame {
+        target_text: target_text.to_string(),
+        target_kind: None,
+        manager_preference: manager_preference.map(str::to_string),
+        launch_after_install: None,
+        provenance: Some("test".to_string()),
+    };
+    AgentTool::SoftwareInstallExecutePlan {
+        plan_ref: software_install_plan_ref_for_request(&request),
+    }
+}
 
 fn test_agent_state() -> AgentState {
     AgentState {
@@ -110,22 +128,16 @@ fn execution_contract_violation_error_uses_contract_violation_as_primary_class()
 }
 
 #[test]
-fn install_package_is_treated_as_command_execution_provider_tool() {
-    let install = AgentTool::SysInstallPackage {
-        package: "vlc".to_string(),
-        manager: None,
-    };
+fn software_install_execute_plan_is_treated_as_command_execution_provider_tool() {
+    let install = software_install_execute_plan_tool("vlc", None);
     assert!(is_command_execution_provider_tool(&install));
 }
 
 #[test]
-fn install_package_verification_receipts_emit_commit() {
+fn software_install_execute_plan_verification_receipts_emit_commit() {
     let mut log = BTreeMap::<String, ToolCallStatus>::new();
     let mut checks = Vec::<String>::new();
-    let tool = AgentTool::SysInstallPackage {
-        package: "vlc".to_string(),
-        manager: Some("apt-get".to_string()),
-    };
+    let tool = software_install_execute_plan_tool("vlc", Some("apt-get"));
 
     record_verification_evidence(&mut log, &mut checks, &tool, None);
 
@@ -136,6 +148,54 @@ fn install_package_verification_receipts_emit_commit() {
     assert!(checks
         .iter()
         .any(|check| check == "evidence::verification=true"));
+}
+
+#[test]
+fn desktop_app_install_contract_accepts_receipt_backed_verified_app() {
+    let mut state = test_agent_state();
+    state.resolved_intent = Some(command_scope_intent("software.install.desktop_app"));
+    record_ledger_receipt(&mut state, "host_discovery", "home=/home/test");
+    record_ledger_receipt(
+        &mut state,
+        "software_install_resolution",
+        "stage=resolved;display_name=LM Studio;manager=appimage",
+    );
+    record_ledger_receipt(&mut state, "approval", "approval_grant_ref=sha256:approved");
+    record_ledger_receipt(
+        &mut state,
+        "execution",
+        "execution_invocation_completed=true",
+    );
+    record_ledger_receipt(
+        &mut state,
+        "verification",
+        "verification_receipt_recorded=true",
+    );
+    record_ledger_receipt(&mut state, VERIFICATION_COMMIT_EVIDENCE, "sha256:verified");
+    state
+        .execution_ledger
+        .record_success_condition(None, "verified_local_app_available", "true");
+
+    let missing = missing_completion_evidence_with_rules(&state, &ActionRules::default());
+
+    assert!(
+        missing.is_empty(),
+        "receipt-backed install should satisfy the desktop app contract, got {missing:?}"
+    );
+}
+
+#[test]
+fn install_completion_summary_hides_raw_resolution_receipt() {
+    let raw = "Installed 'LM Studio' as 'LM-Studio.AppImage' via 'appimage' (source_kind=appimage, mode=bash); verification passed: unknown error. SOFTWARE_INSTALL stage='installed' display_name='LM Studio' canonical_id='lm-studio' target_kind='desktop_app' platform='linux' architecture='x86_64' source_kind='appimage' manager='appimage' package_id='LM-Studio.AppImage' requires_elevation='false' verification='sh -lc test -x \"$HOME/.local/bin/LM-Studio.AppImage\" || test -x \"$HOME/.local/bin/lm-studio\"' command='bash /tmp/install-lm-studio.sh' source_discovery_url='https://lmstudio.ai'";
+
+    let summary = install_operator_completion_summary(raw)
+        .expect("install receipt should produce an operator-facing completion summary");
+
+    assert!(summary.contains("Installed LM Studio as `LM-Studio.AppImage` via appimage."));
+    assert!(summary.contains("Verification passed with `sh -lc test -x"));
+    assert!(summary.contains("Source: https://lmstudio.ai."));
+    assert!(!summary.contains("SOFTWARE_INSTALL"));
+    assert!(!summary.contains("unknown error"));
 }
 
 #[test]

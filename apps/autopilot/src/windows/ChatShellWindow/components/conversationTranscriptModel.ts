@@ -45,6 +45,15 @@ function humanizeFsOperation(operation: string): string {
   return "Wrote";
 }
 
+function humanizeToolName(toolName: string): string {
+  return toolName
+    .trim()
+    .split(":")[0]
+    .replace(/[_:]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function previewLines(lines: string[]): string | null {
   const compact = lines
     .map((line) => line.replace(/\s+/g, " ").trim())
@@ -95,10 +104,42 @@ function webReadPreview(entry: ActivityEventRef): string | null {
 
 function rowStatusFromEvent(entry: ActivityEventRef): "active" | "blocked" | "complete" {
   const status = toEventString(entry.event.status).trim().toUpperCase();
+  if (status === "PARTIAL" || status === "RUNNING" || status === "ACTIVE") {
+    return "active";
+  }
   if (status === "ERROR" || status === "FAILED" || status === "BLOCKED") {
     return "blocked";
   }
   return "complete";
+}
+
+function commandActivityLabel(
+  entry: ActivityEventRef,
+  digest: Record<string, unknown>,
+  details: Record<string, unknown>,
+): string | null {
+  const receiptKind = toEventString(digest.kind).trim().toLowerCase();
+  const payload = asRecord(details.payload) || {};
+  const toolName = firstStringValue(digest.tool_name, details.tool_name, entry.toolName);
+  const commandPreview = firstStringValue(
+    digest.command_preview,
+    details.command_preview,
+    payload.command_preview,
+  );
+  const toolLabel = toolName ? humanizeToolName(toolName) : "";
+  const commandLabel = commandPreview || toolLabel;
+  if (!commandLabel) {
+    return null;
+  }
+  if (entry.event.event_type === "COMMAND_STREAM") {
+    return rowStatusFromEvent(entry) === "active"
+      ? `Running ${commandLabel}`
+      : `Ran ${commandLabel}`;
+  }
+  if (entry.event.event_type === "COMMAND_RUN" || receiptKind === "exec") {
+    return `Ran ${commandLabel}`;
+  }
+  return null;
 }
 
 type BuildTurnToolActivityOptions = {
@@ -251,6 +292,32 @@ export function buildTurnToolActivityGroup(
           phaseOrder: 500,
           source: "receipt",
         });
+        continue;
+      }
+
+      const commandLabel = commandActivityLabel(entry, digest, details);
+      if (commandLabel) {
+        const commandPreview =
+          firstStringValue(
+            digest.command_preview,
+            details.command_preview,
+            asRecord(details.payload)?.command_preview,
+          ) || null;
+        appendRow(rows, seen, {
+          key: `command:${entry.event.step_index}:${commandLabel.toLowerCase()}`,
+          kind: "command",
+          status: rowStatusFromEvent(entry),
+          stepIndex: entry.event.step_index,
+          label: commandLabel,
+          detail: commandPreview,
+          preview:
+            firstStringValue(details.summary, digest.summary, details.chunk, details.output) ||
+            null,
+          sourceUrl: null,
+          sortOrder: 1_500 + entry.event.step_index,
+          phaseOrder: 600,
+          source: "receipt",
+        });
       }
     }
   }
@@ -305,6 +372,21 @@ export function buildTurnToolActivityGroup(
   };
 }
 
+export function formatTurnDurationSeconds(seconds: number): string {
+  const safeSeconds = Math.max(1, Math.round(seconds));
+  if (safeSeconds < 60) {
+    return `${safeSeconds}s`;
+  }
+  const minutes = Math.floor(safeSeconds / 60);
+  const remainder = safeSeconds % 60;
+  if (minutes < 60) {
+    return remainder > 0 ? `${minutes}m ${remainder}s` : `${minutes}m`;
+  }
+  const hours = Math.floor(minutes / 60);
+  const minuteRemainder = minutes % 60;
+  return minuteRemainder > 0 ? `${hours}h ${minuteRemainder}m` : `${hours}h`;
+}
+
 export function buildReasoningDurationLabel(
   events: ActivityEventRef[],
   promptTimestamp: number | null,
@@ -322,5 +404,5 @@ export function buildReasoningDurationLabel(
 
   const latest = Math.max(...timestamps);
   const seconds = Math.max(1, Math.round((latest - promptTimestamp) / 1000));
-  return `Thought for ${seconds} ${seconds === 1 ? "second" : "seconds"}`;
+  return formatTurnDurationSeconds(seconds);
 }

@@ -39,6 +39,10 @@ async fn append_operator_control_message(
         .await
 }
 
+fn denied_approval_completion_message() -> &'static str {
+    "Install approval denied. No host changes were made."
+}
+
 pub async fn handle_pause(
     service: &RuntimeAgentService,
     state: &mut dyn StateAccess,
@@ -98,10 +102,28 @@ pub async fn handle_deny(
         )
     };
     agent_state.clear_pending_action_state();
-    agent_state.set_pause_reason(AgentPauseReason::Other(reason.clone()));
+    agent_state.status =
+        AgentStatus::Completed(Some(denied_approval_completion_message().to_string()));
     state.delete(&get_approval_grant_key(&p.session_id))?;
     agent_state.transcript_root =
         append_operator_control_message(service, p.session_id, reason, ctx.block_height).await?;
     let key = get_state_key(&p.session_id);
     persist_agent_state(state, &key, &agent_state, service.memory_runtime.as_ref())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::denied_approval_completion_message;
+
+    #[test]
+    fn denied_approval_completion_message_is_operator_safe() {
+        let message = denied_approval_completion_message();
+
+        assert_eq!(
+            message,
+            "Install approval denied. No host changes were made."
+        );
+        assert!(!message.contains("request_hash"));
+        assert!(!message.contains("Operator denied approval for"));
+    }
 }

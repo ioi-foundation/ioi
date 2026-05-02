@@ -378,9 +378,41 @@ pub(crate) async fn finalize_action_processing(
 
     if success && !is_gated {
         agent_state.recent_actions.clear();
+        if let Some(terminal_reason) = install_already_satisfied_terminal_reason(
+            &verification_checks,
+            history_entry.as_deref(),
+            action_output.as_deref(),
+        ) {
+            let operator_reply = install_already_satisfied_operator_reply(&terminal_reason);
+            stop_condition_hit = true;
+            escalation_path = Some("install_already_satisfied".to_string());
+            is_lifecycle_action = true;
+            remediation_queued = false;
+            agent_state.execution_queue.clear();
+            history_entry = Some(terminal_reason.clone());
+            action_output = Some(terminal_reason.clone());
+            terminal_chat_reply_output = Some(operator_reply.clone());
+            agent_state.status = AgentStatus::Completed(Some(operator_reply));
+            verification_checks.push("install_already_satisfied_terminal=true".to_string());
+            verification_checks.push("terminal_chat_reply_ready=true".to_string());
+        }
     } else if !success && !awaiting_sudo_password && !awaiting_clarification {
         let failure_intent_id = resolved_intent_id(agent_state);
-        if is_completion_contract_error(error_msg.as_deref()) {
+        if let Some(terminal_reason) = install_resolution_terminal_block_reason(
+            &verification_checks,
+            error_msg.as_deref(),
+            history_entry.as_deref(),
+            action_output.as_deref(),
+        ) {
+            stop_condition_hit = true;
+            escalation_path = Some("software_install_resolution_blocked".to_string());
+            is_lifecycle_action = true;
+            remediation_queued = false;
+            failure_class = Some(FailureClass::UserInterventionNeeded);
+            agent_state.execution_queue.clear();
+            agent_state.status = AgentStatus::Failed(terminal_reason);
+            verification_checks.push("software_install_terminal_block=true".to_string());
+        } else if is_completion_contract_error(error_msg.as_deref()) {
             stop_condition_hit = true;
             escalation_path = Some("execution_contract_terminal".to_string());
             is_lifecycle_action = true;
@@ -1161,6 +1193,97 @@ pub(crate) async fn finalize_action_processing(
     emit_routing_receipt(service.event_sender.as_ref(), receipt);
 
     Ok(())
+}
+
+fn install_resolution_terminal_block_reason(
+    verification_checks: &[String],
+    error_msg: Option<&str>,
+    history_entry: Option<&str>,
+    action_output: Option<&str>,
+) -> Option<String> {
+    let blocked_before_approval = verification_checks
+        .iter()
+        .any(|check| check == "software_install_blocked_before_approval=true");
+    if !blocked_before_approval {
+        return None;
+    }
+
+    [error_msg, history_entry, action_output]
+        .into_iter()
+        .flatten()
+        .map(str::trim)
+        .find(|value| !value.is_empty())
+        .map(str::to_string)
+        .or_else(|| {
+            Some(
+                "ERROR_CLASS=InstallerResolutionRequired Install target is not executable."
+                    .to_string(),
+            )
+        })
+}
+
+fn install_already_satisfied_terminal_reason(
+    verification_checks: &[String],
+    history_entry: Option<&str>,
+    action_output: Option<&str>,
+) -> Option<String> {
+    let already_satisfied = verification_checks
+        .iter()
+        .any(|check| check == "install_already_satisfied_before_approval=true");
+    if !already_satisfied {
+        return None;
+    }
+
+    [history_entry, action_output]
+        .into_iter()
+        .flatten()
+        .map(str::trim)
+        .find(|value| !value.is_empty())
+        .map(str::to_string)
+        .or_else(|| {
+            Some(
+                "Already available: requested software passed verification before host mutation."
+                    .to_string(),
+            )
+        })
+}
+
+fn single_quoted_field(value: &str, field: &str) -> Option<String> {
+    let needle = format!("{field}='");
+    let (_, tail) = value.split_once(&needle)?;
+    let (field_value, _) = tail.split_once('\'')?;
+    let trimmed = field_value.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
+fn install_already_satisfied_operator_reply(receipt: &str) -> String {
+    let display_name = single_quoted_field(receipt, "display_name")
+        .unwrap_or_else(|| "The requested software".to_string());
+    let stage = single_quoted_field(receipt, "stage").unwrap_or_default();
+    let verification = single_quoted_field(receipt, "verification")
+        .filter(|value| !value.eq_ignore_ascii_case("current_exe_exists"));
+
+    if stage == "already_available" {
+        return format!(
+            "{} is already available as the running IOI product. Verification passed before host mutation, so no installer command or approval was needed.",
+            display_name
+        );
+    }
+
+    match verification {
+        Some(command) => format!(
+            "{} is already installed. Verification passed with `{}`, so no installer command or approval was needed.",
+            display_name, command
+        ),
+        None => format!(
+            "{} is already installed. Verification passed before host mutation, so no installer command or approval was needed.",
+            display_name
+        ),
+    }
 }
 
 fn maybe_enqueue_lowercase_rename_recovery(

@@ -4,7 +4,7 @@ This document defines the architectural meaning of AFT's `99%`
 equal-authority ordering consensus claim.
 
 The normative protocol details now live in
-[`canonical_ordering.md`](/home/heathledger/Documents/ioi/repos/ioi/docs/architecture/consensus/aft/specs/canonical_ordering.md).
+[`canonical_ordering.md`](/home/heathledger/Documents/ioi/repos/ioi/docs/architecture/protocols/aft/specs/canonical_ordering.md).
 This note explains why that claim is honest, what object is being agreed on,
 and how the live repository surface separates revelation from dense voting.
 

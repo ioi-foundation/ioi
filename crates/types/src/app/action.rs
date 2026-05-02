@@ -47,9 +47,12 @@ pub enum ActionTarget {
     /// Execute a system command (highly restricted).
     #[serde(rename = "sys::exec")]
     SysExec,
-    /// Install a package through deterministic manager adapters.
-    #[serde(rename = "sys::install_package")]
-    SysInstallPackage,
+    /// Resolve a local software install plan without mutating the host.
+    #[serde(rename = "software::install_resolve")]
+    SoftwareInstallResolve,
+    /// Execute an approved local software install plan.
+    #[serde(rename = "software::install_execute")]
+    SoftwareInstallExecute,
     /// Request a signature from the user's wallet.
     #[serde(rename = "wallet::sign")]
     WalletSign,
@@ -136,7 +139,8 @@ impl ActionTarget {
             ActionTarget::UiClick => "ui::click".to_string(),
             ActionTarget::UiType => "ui::type".to_string(),
             ActionTarget::SysExec => "sys::exec".to_string(),
-            ActionTarget::SysInstallPackage => "sys::install_package".to_string(),
+            ActionTarget::SoftwareInstallResolve => "software::install_resolve".to_string(),
+            ActionTarget::SoftwareInstallExecute => "software::install_execute".to_string(),
             ActionTarget::WalletSign => "wallet::sign".to_string(),
             ActionTarget::WalletSend => "wallet::send".to_string(),
             ActionTarget::GuiMouseMove => "gui::mouse_move".to_string(),

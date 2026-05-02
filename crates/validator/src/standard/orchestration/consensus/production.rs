@@ -1507,6 +1507,15 @@ where
                 tx_pool_ref.select_transactions(proposal_tx_limit),
                 proposal_tx_max_bytes,
             )?;
+            if benchmark_trace_enabled() && !candidate_txs.is_empty() {
+                eprintln!(
+                    "[BENCH-AFT-ORCH] height={} view={} action=selected_transactions count={} pool_len={}",
+                    producing_h,
+                    view,
+                    candidate_txs.len(),
+                    tx_pool_ref.len()
+                );
+            }
             let selection_elapsed = select_started.elapsed();
             let verify_started = Instant::now();
             let valid_txs =

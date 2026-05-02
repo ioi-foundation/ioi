@@ -1315,6 +1315,7 @@ dependencies = [
  "ron",
  "scraper 0.19.1",
  "serde",
+ "serde_jcs",
  "serde_json",
  "serde_yaml",
  "sha2 0.10.9",

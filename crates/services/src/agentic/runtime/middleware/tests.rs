@@ -830,24 +830,36 @@ fn test_normalize_browser_scroll() {
 }
 
 #[test]
-fn test_normalize_install_package_preserves_typed_tool() {
-    let input = r#"{"name":"package__install","arguments":{"manager":"pip","package":"pydantic"}}"#;
+fn test_normalize_software_install_resolve_preserves_typed_request() {
+    let input = r#"{"name":"software_install__resolve","arguments":{"request":{"target_text":"pydantic","manager_preference":"pip"}}}"#;
     let tool = ToolNormalizer::normalize(input).unwrap();
     match tool {
-        AgentTool::SysInstallPackage { package, manager } => {
-            assert_eq!(package, "pydantic");
-            assert_eq!(manager.as_deref(), Some("pip"));
+        AgentTool::SoftwareInstallResolve { request } => {
+            assert_eq!(request.target_text, "pydantic");
+            assert_eq!(request.manager_preference.as_deref(), Some("pip"));
         }
         _ => panic!("Wrong tool type"),
     }
 }
 
 #[test]
-fn test_normalize_install_package_rejects_unsafe_package() {
+fn test_normalize_software_install_execute_plan_preserves_plan_ref() {
+    let input = r#"{"name":"software_install__execute_plan","arguments":{"plan_ref":"software-install-plan:v1:abc"}}"#;
+    let tool = ToolNormalizer::normalize(input).unwrap();
+    match tool {
+        AgentTool::SoftwareInstallExecutePlan { plan_ref } => {
+            assert_eq!(plan_ref, "software-install-plan:v1:abc");
+        }
+        _ => panic!("Wrong tool type"),
+    }
+}
+
+#[test]
+fn test_normalize_rejects_legacy_package_install_contract() {
     let input =
         r#"{"name":"package__install","arguments":{"manager":"pip","package":"bad; rm -rf /"}}"#;
     let err = ToolNormalizer::normalize(input).expect_err("expected validation error");
-    assert!(err.to_string().contains("Invalid package identifier"));
+    assert!(err.to_string().contains("legacy tool alias"));
 }
 
 #[test]

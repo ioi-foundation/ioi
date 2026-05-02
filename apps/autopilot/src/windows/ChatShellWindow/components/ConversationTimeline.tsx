@@ -12,6 +12,7 @@ import { normalizeVisualHash } from "../utils/visualHash";
 import { buildAssistantTurnProcess } from "../utils/assistantTurnProcessModel";
 import { extractUserRequestFromContextualIntent } from "../utils/contextualIntent";
 import { operatorFacingCurrentStep } from "../viewmodels/runtimeStatusCopy";
+import { formatTurnDurationSeconds } from "./conversationTranscriptModel";
 import { AnswerCard } from "./AnswerCard";
 import { AssistantTurn } from "./AssistantTurn";
 import {
@@ -23,9 +24,7 @@ import {
   operatorRunIsPending,
 } from "./ConversationTimeline.helpers";
 import { MarkdownMessage } from "./MarkdownMessage";
-import { ReasoningDisclosure } from "./ReasoningDisclosure";
 import { SourceChipRow } from "./SourceChipRow";
-import { ToolActivityGroup } from "./ToolActivityGroup";
 import { VisualEvidenceCard } from "./VisualEvidenceCard";
 
 type ConversationTimelineProps = {
@@ -82,6 +81,17 @@ function workspaceSourcesForChatSession(
   return sources;
 }
 
+function durationLabelFromMessages(turn: ConversationTurn): string | null {
+  if (!turn.prompt || !turn.answer) {
+    return null;
+  }
+  const elapsedMs = turn.answer.timestamp - turn.prompt.timestamp;
+  if (!Number.isFinite(elapsedMs) || elapsedMs <= 0) {
+    return null;
+  }
+  return formatTurnDurationSeconds(elapsedMs / 1000);
+}
+
 export function ConversationTimeline({
   conversationTurns,
   latestAnsweredTurnIndex,
@@ -101,32 +111,6 @@ export function ConversationTimeline({
   onOpenChatArtifact,
   inlineStatusCard,
 }: ConversationTimelineProps) {
-  const normalizePendingReplyDetail = (
-    detail: string | undefined,
-    running: boolean,
-  ) => {
-    const fallback = running
-      ? "Thinking through the request."
-      : "Getting the response ready.";
-
-    if (!detail) {
-      return fallback;
-    }
-
-    const trimmed = detail.trim();
-    const normalized = trimmed.toLowerCase();
-    if (
-      normalized.includes("routed this request to") ||
-      normalized.includes("shared execution lane") ||
-      normalized.includes("artifact renderer was invoked") ||
-      normalized.includes("route ready")
-    ) {
-      return fallback;
-    }
-
-    return trimmed;
-  };
-
   return (
     <>
       {conversationTurns.map((turn, index) => {
@@ -161,6 +145,8 @@ export function ConversationTimeline({
         const turnSourceSummary =
           turnContext?.sourceSummary ||
           (latestAnswerMatches ? runPresentation.sourceSummary : null);
+        const turnDurationLabel =
+          turnContext?.reasoningDurationLabel || durationLabelFromMessages(turn);
         const inlineTranscriptRoute =
           toolActivityGroup?.presentation === "inline_transcript";
         const showLiveThinking =
@@ -197,11 +183,9 @@ export function ConversationTimeline({
         const showInlineVisualReceipt =
           !!inlineVisualHash ||
           (!!turnContext && turnContext.visualReceiptCount > 0);
-        const pendingReplyDetail = normalizePendingReplyDetail(
-          turnCurrentStep || undefined,
-          showLiveThinking,
-        );
         const inlineArtifactReply = artifactReplyText(turnContext);
+        const showLiveActivityTurn =
+          showInlineStatusCard || showInlineTranscript || showAssistantPendingBubble;
         const openTurnDetails = () =>
           onOpenArtifactHub(
             turnContext?.thoughtSummary
@@ -225,13 +209,53 @@ export function ConversationTimeline({
               : showPendingRunAnswer
                 ? runPresentation.finalAnswer
                 : null,
-          isRunning: showLiveThinking,
+          isRunning: showLiveThinking || showLiveActivityTurn,
           currentStep: turnCurrentStep,
+          turnDurationLabel,
         });
         const assistantTurnShell = (children: React.ReactNode) => (
           <AssistantTurn process={assistantProcess}>
             {children}
           </AssistantTurn>
+        );
+        const liveActivityChildren = (
+          <>
+            {showInlineStatusCard ? inlineStatusCard : null}
+            {showLiveThinking && !!turnContext?.streamPreview ? (
+              <div className="thought-stream-panel spot-inline-stream-panel">
+                <div className="thought-stream-header">
+                  <span>{turnContext.streamLabel || "Terminal output"}</span>
+                  <span>{turnContext.streamIsFinal ? "final" : "live"}</span>
+                </div>
+                <pre className="thought-stream-output">
+                  {turnContext.streamPreview}
+                </pre>
+              </div>
+            ) : null}
+            {showInlineVisualReceipt ? (
+              <VisualEvidenceCard
+                hash={inlineVisualHash || ""}
+                timestamp={turnContext?.latestVisualTimestamp || null}
+                stepIndex={turnContext?.latestVisualStepIndex || null}
+                title={
+                  showLiveThinking
+                    ? "Live visual context"
+                    : turnContext?.latestVisualHasBlob
+                      ? "Captured visual context"
+                      : "Captured screenshot receipt (metadata-only)"
+                }
+                compact={true}
+                className="spot-inline-visual-evidence"
+              />
+            ) : null}
+            {showInlineVisualReceipt &&
+            !inlineVisualHash &&
+            !!turnContext?.latestVisualSummary ? (
+              <p className="spot-inline-visual-summary">
+                {turnContext.latestVisualSummary}
+              </p>
+            ) : null}
+          </>
         );
         const effectiveInlineAnswer =
           showInlineTranscript && inlineArtifactReply
@@ -258,56 +282,9 @@ export function ConversationTimeline({
               </div>
             )}
 
-            {showInlineStatusCard && (
-              <div className="spot-message agent spot-message--chat-status">
-                {inlineStatusCard}
-              </div>
-            )}
+            {showLiveActivityTurn ? assistantTurnShell(liveActivityChildren) : null}
 
-            {showInlineTranscript && toolActivityGroup ? (
-              <ToolActivityGroup group={toolActivityGroup} />
-            ) : null}
-
-            {showInlineTranscript &&
-            turnContext?.reasoningDurationLabel &&
-            turnContext.thoughtSummary &&
-            !hasPendingOperatorRun &&
-            !hasPendingArtifact ? (
-              <ReasoningDisclosure
-                label={turnContext.reasoningDurationLabel}
-                thoughtSummary={turnContext.thoughtSummary}
-              />
-            ) : null}
-
-            {showAssistantPendingBubble && (
-              <div
-                className="spot-message agent spot-message--pending"
-                aria-live="polite"
-              >
-                <div className="spot-message--pending-shell">
-                  <span className="spot-message--pending-kicker">
-                    <span className="spot-message--pending-dot" />
-                    {showLiveThinking ? "Thinking" : "Working"}
-                  </span>
-                  <p>{pendingReplyDetail}</p>
-                </div>
-              </div>
-            )}
-
-            {showLiveThinking &&
-              !!turnContext?.streamPreview && (
-                <div className="thought-stream-panel spot-inline-stream-panel">
-                  <div className="thought-stream-header">
-                    <span>{turnContext.streamLabel || "Terminal output"}</span>
-                    <span>{turnContext.streamIsFinal ? "final" : "live"}</span>
-                  </div>
-                  <pre className="thought-stream-output">
-                    {turnContext.streamPreview}
-                  </pre>
-                </div>
-              )}
-
-            {showInlineVisualReceipt && (
+            {!showLiveActivityTurn && showInlineVisualReceipt && (
               <VisualEvidenceCard
                 hash={inlineVisualHash || ""}
                 timestamp={turnContext?.latestVisualTimestamp || null}
@@ -323,7 +300,8 @@ export function ConversationTimeline({
                 className="spot-inline-visual-evidence"
               />
             )}
-            {showInlineVisualReceipt &&
+            {!showLiveActivityTurn &&
+              showInlineVisualReceipt &&
               !inlineVisualHash &&
               !!turnContext?.latestVisualSummary && (
                 <p className="spot-inline-visual-summary">
@@ -355,7 +333,8 @@ export function ConversationTimeline({
                   )
                 )
               ) : (
-                <>
+                assistantTurnShell(
+                  <>
                   <div className="spot-message agent spot-message--inline-answer">
                     <MarkdownMessage text={effectiveInlineAnswer || turn.answer.text} />
                   </div>
@@ -365,7 +344,8 @@ export function ConversationTimeline({
                       onOpenSummary={onOpenSourceSummary}
                     />
                   ) : null}
-                </>
+                  </>,
+                )
               ))}
 
             {showArtifactReplyBubble && inlineArtifactReply ? (
@@ -512,6 +492,7 @@ export function ConversationTimeline({
               task,
               runPresentation.planSummary,
             ),
+            turnDurationLabel: null,
           })}
         >
           <AnswerCard
@@ -533,17 +514,25 @@ export function ConversationTimeline({
       )}
 
       {showInitialLoader && !suppressPendingIndicators && (
-        <div
-          className="spot-thinking-pill spot-thinking-pill--active"
-          aria-live="polite"
-        >
-          <span className="spot-thinking-pill-icon">{icons.sparkles}</span>
-          <span className="spot-thinking-pill-text">Working...</span>
-          <span className="spot-thinking-pill-detail">
-            {operatorFacingCurrentStep(task, runPresentation.planSummary) ||
-              "Initializing..."}
-          </span>
-        </div>
+        <AssistantTurn
+          process={buildAssistantTurnProcess({
+            task,
+            planSummary: runPresentation.planSummary,
+            runtimeModelLabel,
+            sourceSummary: runPresentation.sourceSummary,
+            workspaceSources: workspaceSourcesForChatSession(
+              task?.chat_session as ChatArtifactSession | null | undefined,
+            ),
+            thoughtSummary: null,
+            toolActivityGroup: null,
+            finalAnswer: null,
+            isRunning: true,
+            currentStep:
+              operatorFacingCurrentStep(task, runPresentation.planSummary) ||
+              "Initializing...",
+            turnDurationLabel: null,
+          })}
+        />
       )}
     </>
   );

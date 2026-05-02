@@ -91,11 +91,7 @@ pub(crate) async fn run_approval_validation_phase(
         verification_checks.push("capability_execution_phase=execution".to_string());
     }
 
-    let policy_key = [AGENT_POLICY_PREFIX, session_id.as_slice()].concat();
-    let mut rules: ActionRules = state
-        .get(&policy_key)?
-        .and_then(|b| codec::from_bytes_canonical(&b).ok())
-        .unwrap_or_else(default_safe_policy);
+    let mut rules: ActionRules = load_action_rules_for_session(state, session_id)?;
     let block_timestamp_ms = block_timestamp_ns / 1_000_000;
     let block_timestamp_secs = block_timestamp_ns / 1_000_000_000;
     let incident_state = load_incident_state(state, &session_id)?;

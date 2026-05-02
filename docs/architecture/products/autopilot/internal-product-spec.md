@@ -26,12 +26,12 @@ gen-AI hypervisor -> software worker runtime -> adaptive work graph coordinator 
 
 Autopilot should not be marketed as a robot runtime first. It should be described as the runtime and operator shell for bounded autonomous action, starting with software and extending outward only when the same policy, approval, evidence, and authority guarantees can be maintained.
 
-Within the broader IOI surface map, Autopilot is where workers are operated privately and locally. When stable local work should become a provider-facing product with deployment presets, billing, tenants, and marketplace publication, the promotion path continues into `sas.xyz`. When it should become a sovereign domain or intelligent blockchain with durable policy, publication, and delegation semantics, the heavier promotion path continues into `Forge`.
+Within the broader IOI surface map, Autopilot is where workers are operated privately and locally. When stable local work should become a provider-facing product with deployment presets, billing, tenants, and marketplace publication, the promotion path continues into `sas.xyz`. When it should become a sovereign domain or intelligent blockchain with durable policy, publication, and delegation semantics, the heavier promotion path continues through `IOI CLI`.
 
 **Doctrine:** Autopilot stabilizes work; `sas.xyz` productizes it.
-**Doctrine:** Autopilot can feed both `sas.xyz` and `Forge`, but it is not the primary surface for provider commercialization or L0 domain instantiation.
+**Doctrine:** Autopilot can feed both `sas.xyz` and `IOI CLI`, but it is not the primary surface for provider commercialization or L0 domain instantiation.
 
-Autopilot overlaps with `sas.xyz` in the shared authoring layer, but that overlap is the private/local lens: operate, refine, stabilize, and promote. Formal packaging, deployment presets, serving posture, tenancy, billing, and distribution live in `sas.xyz`. Sovereign domain instantiation, policy roots, publication roots, and intelligent blockchain lifecycle live in `Forge`.
+Autopilot overlaps with `sas.xyz` in the shared authoring layer, but that overlap is the private/local lens: operate, refine, stabilize, and promote. Formal packaging, deployment presets, serving posture, tenancy, billing, and distribution live in `sas.xyz`. Sovereign domain instantiation, policy roots, publication roots, and intelligent blockchain lifecycle live in `IOI CLI`.
 
 Autopilot should unify six things that are usually split apart:
 
@@ -252,7 +252,7 @@ Operators should be able to:
 
 Autopilot should own the local promotion path and pre-product validation. Provider packaging, tenant operations, billing, and publication should continue in `sas.xyz`.
 **Doctrine:** Autopilot stabilizes work; `sas.xyz` productizes it.
-Autopilot may preview service shape or deployment implications, but `sas.xyz` is the source of truth for provider manifests, deployment presets, readiness posture, tenant setup, billing, and publication. `Forge` is the source of truth when a stabilized system must become a sovereign domain or intelligent blockchain with durable policy, delegation, and publication semantics.
+Autopilot may preview service shape or deployment implications, but `sas.xyz` is the source of truth for provider manifests, deployment presets, readiness posture, tenant setup, billing, and publication. `IOI CLI` is the source of truth when a stabilized system must become a sovereign domain or intelligent blockchain with durable policy, delegation, and publication semantics.
 
 ---
 
@@ -497,7 +497,7 @@ Autopilot’s product loop should be:
    The system proposes workflow extraction, refinement, new tests, or serviceization.
 
 9. **Productize**
-   Repeated successful work becomes a durable service candidate that can be promoted into `sas.xyz` for provider packaging and serving, or exported into `Forge` when it must become a sovereign domain or intelligent blockchain.
+   Repeated successful work becomes a durable service candidate that can be promoted into `sas.xyz` for provider packaging and serving, or exported through `IOI CLI` when it must become a sovereign domain or intelligent blockchain.
 
 That loop is the core of the product.
 
@@ -559,7 +559,7 @@ Unified inspection surface for outputs, evidence, previews, receipts, and proven
 
 ### Catalog and Services
 
-Surface for reusable workers, promoted workflows, local installs, service candidates, and export-ready artifacts. It overlaps with `sas.xyz` through the shared Builder engine, but provider publication, deployment presets, tenant ops, and commercial distribution should continue in `sas.xyz`, while sovereign domain instantiation should continue in `Forge`.
+Surface for reusable workers, promoted workflows, local installs, service candidates, and export-ready artifacts. It overlaps with `sas.xyz` through the shared Builder engine, but provider publication, deployment presets, tenant ops, and commercial distribution should continue in `sas.xyz`, while sovereign domain instantiation should continue through `IOI CLI`.
 
 ### Home and Mission Control
 

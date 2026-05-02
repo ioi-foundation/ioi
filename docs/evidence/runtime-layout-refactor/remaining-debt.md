@@ -9,8 +9,9 @@ migration have been completed.
 
 | Debt | Closure Evidence |
 | --- | --- |
-| Physical `service/step/` split | The old `crates/services/src/agentic/runtime/service/decision_loop/` tree no longer exists. Runtime service code is physically organized under `decision_loop`, `planning`, `queue`, `tool_execution`, `recovery`, `output`, `web_pipeline`, and `visual_loop` lanes. |
+| Physical `service/step/` split | The old `crates/services/src/agentic/runtime/service/step/` tree no longer exists. Runtime service code is physically organized under `decision_loop`, `planning`, `queue`, `tool_execution`, `recovery`, `output`, `web_pipeline`, and `visual_loop` lanes. |
 | Legacy active `swarm` UI vocabulary | Active Autopilot UI and artifact presentation fields use work graph terminology. Legacy payload compatibility is isolated in `apps/autopilot/src/types/work-graph-compat.ts`. |
+| Retired `ioi-swarm` product package | The stale `ioi-swarm/python` SDK package is removed from the repo, the release workflow doc is gone, and `check:runtime-layout` fails if the retired product package/release surface returns. |
 
 ## Compatibility That Remains By Design
 

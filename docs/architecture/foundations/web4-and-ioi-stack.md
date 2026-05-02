@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for the Web4 category definition and IOI stack boundary.
 Supersedes: overlapping product or plan prose when the Web4 stack definition conflicts.
 Superseded by: none.
-Last alignment pass: 2026-05-01.
+Last alignment pass: 2026-05-02.
 
 ## Canonical Definition
 
@@ -43,7 +43,7 @@ Autopilot / IOI CLI/Daemon
   execution runtime for workflows, workers, tools, models, connectors, artifacts
 
 Filecoin / CAS / CDN
-  package, artifact, evidence, receipt, checkpoint availability
+  immutable package, artifact, evidence, receipt, checkpoint, snapshot availability
 
 aiagent.xyz
   worker marketplace Web4 application domain
@@ -79,6 +79,20 @@ Authority Plane           = wallet.network
 Payload Plane             = Filecoin/CAS/CDN
 Application Surfaces      = React/Web/native apps such as Autopilot, aiagent.xyz, sas.xyz
 ```
+
+Storage/state split:
+
+```text
+Agentgres = state machine and query substrate
+Filecoin/CAS = content-addressed payload and evidence availability
+IOI L1 = trust, registry, rights, settlement, and sparse commitments
+Autopilot/daemon = application and execution layer
+```
+
+Agentgres state is not Filecoin blobs. Agentgres records canonical operations,
+object heads, indexes, projections, subscriptions, delivery state, receipts
+metadata, and artifact refs. Filecoin/CAS stores the bulky immutable payloads
+those refs point to.
 
 ## What Web4 Apps Are Not
 

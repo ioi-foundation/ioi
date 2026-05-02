@@ -1,7 +1,7 @@
 # wallet.network Authority Layer Specification
 
 Status: canonical architecture authority.
-Canonical owner: this file for wallet.network authority doctrine; low-level scope APIs live in [`wallet-network-api-and-authority-scopes.md`](./wallet-network-api-and-authority-scopes.md).
+Canonical owner: this file for wallet.network authority doctrine; low-level scope APIs live in [`wallet-network-api-and-authority-scopes.md`](./api-authority-scopes.md).
 Supersedes: older generic capability-grant wording when it conflicts with `scope:*` authority grants.
 Superseded by: none.
 Last alignment pass: 2026-05-01.

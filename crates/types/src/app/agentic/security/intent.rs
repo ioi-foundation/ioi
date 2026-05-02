@@ -508,6 +508,7 @@ impl Default for IntentRoutingPolicy {
                 "app.launch".to_string(),
                 "command.exec".to_string(),
                 "command.exec.install_dependency".to_string(),
+                "software.install.desktop_app".to_string(),
                 "ui.capture_screenshot".to_string(),
             ],
             intent_catalog: default_intent_catalog(),

@@ -57,7 +57,7 @@ pub(super) async fn maybe_resume_pending_action_or_clear_stale(
 
     let allow_runtime_secret_retry = serde_json::from_slice::<AgentTool>(raw_pending)
         .ok()
-        .map(|tool| matches!(tool, AgentTool::SysInstallPackage { .. }))
+        .map(|tool| matches!(tool, AgentTool::SoftwareInstallExecutePlan { .. }))
         .unwrap_or(false);
     if allow_runtime_secret_retry && agent_state.pending_approval.is_none() {
         let session_id_hex = hex::encode(session_id);

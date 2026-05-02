@@ -49,7 +49,8 @@ fn action_target_for_macro_step(target: &str, _params: &serde_json::Value) -> Ac
         "screen__click" => ActionTarget::GuiClick,
         "math__eval" => ActionTarget::Custom("math::eval".to_string()),
         "shell__run" | "shell__start" | "shell__reset" | "shell__cd" => ActionTarget::SysExec,
-        "package__install" => ActionTarget::SysInstallPackage,
+        "software_install__resolve" => ActionTarget::SoftwareInstallResolve,
+        "software_install__execute_plan" => ActionTarget::SoftwareInstallExecute,
         _ => ActionTarget::Custom(target.to_string()),
     }
 }

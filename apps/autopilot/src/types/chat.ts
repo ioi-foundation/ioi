@@ -44,6 +44,7 @@ export type ToolActivityKind =
   | "understand"
   | "guidance"
   | "present"
+  | "command"
   | "other";
 
 export type ToolActivityStatus = "complete" | "active" | "blocked";
@@ -196,6 +197,7 @@ export type PlanRouteFamily =
   | "communication"
   | "user_input"
   | "tool_widget"
+  | "command_execution"
   | "computer_use"
   | "artifacts";
 

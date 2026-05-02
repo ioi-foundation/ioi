@@ -1,4 +1,5 @@
 use super::*;
+use crate::agentic::runtime::execution::system::software_install_plan_ref_for_request;
 use crate::agentic::runtime::keys::get_incident_key;
 use crate::agentic::runtime::service::decision_loop::ontology::{
     GateState, IncidentStage, IntentClass, StrategyName, StrategyNode,
@@ -7,10 +8,27 @@ use crate::agentic::runtime::service::recovery::anti_loop::FailureClass;
 use crate::agentic::runtime::service::recovery::incident::IncidentState;
 use crate::agentic::runtime::types::{AgentMode, AgentState, AgentStatus, ExecutionTier};
 use ioi_api::state::{StateAccess, StateScanIter};
+use ioi_types::app::agentic::{AgentTool, SoftwareInstallRequestFrame};
 use ioi_types::app::ActionRequest;
 use ioi_types::error::StateError;
 use std::collections::{BTreeMap, VecDeque};
 use std::sync::Arc;
+
+fn software_install_execute_plan_tool(
+    target_text: &str,
+    manager_preference: Option<&str>,
+) -> AgentTool {
+    let request = SoftwareInstallRequestFrame {
+        target_text: target_text.to_string(),
+        target_kind: None,
+        manager_preference: manager_preference.map(str::to_string),
+        launch_after_install: None,
+        provenance: Some("test".to_string()),
+    };
+    AgentTool::SoftwareInstallExecutePlan {
+        plan_ref: software_install_plan_ref_for_request(&request),
+    }
+}
 
 struct MockState {
     data: BTreeMap<Vec<u8>, Vec<u8>>,
@@ -144,17 +162,14 @@ fn test_agent_state(session_id: [u8; 32]) -> AgentState {
 #[test]
 fn sudo_retry_restores_install_from_incident_when_pending_tool_is_stale() {
     let session_id = [7u8; 32];
-    let install_tool = AgentTool::SysInstallPackage {
-        package: "sl".to_string(),
-        manager: Some("apt-get".to_string()),
-    };
+    let install_tool = software_install_execute_plan_tool("sl", Some("apt-get"));
     let install_jcs = serde_jcs::to_vec(&install_tool).expect("install tool jcs");
     let incident = IncidentState {
         active: true,
         incident_id: "incident-test".to_string(),
         root_retry_hash: "retry-hash".to_string(),
         root_tool_jcs: install_jcs.clone(),
-        root_tool_name: "package__install".to_string(),
+        root_tool_name: "software_install__execute_plan".to_string(),
         intent_class: IntentClass::InstallDependency.as_str().to_string(),
         root_failure_class: FailureClass::PermissionOrApprovalRequired
             .as_str()
@@ -194,9 +209,10 @@ fn sudo_retry_restores_install_from_incident_when_pending_tool_is_stale() {
         .expect("restored pending tool call");
     let restored_json: serde_json::Value =
         serde_json::from_str(&restored_call).expect("restored tool call json");
-    assert_eq!(restored_json["name"], "package__install");
-    assert_eq!(restored_json["arguments"]["package"], "sl");
-    assert_eq!(restored_json["arguments"]["manager"], "apt-get");
+    assert_eq!(restored_json["name"], "software_install__execute_plan");
+    assert!(restored_json["arguments"]["plan_ref"]
+        .as_str()
+        .is_some_and(|value| value.starts_with("software-install-plan:v1:")));
     assert_eq!(agent_state.pending_visual_hash, Some([4u8; 32]));
     assert!(agent_state.execution_queue.is_empty());
 }

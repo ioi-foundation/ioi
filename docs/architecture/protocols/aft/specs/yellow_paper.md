@@ -1,7 +1,7 @@
 # Asymptote Fault Tolerance (AFT) Yellow Paper
 
 The canonical yellow paper is now maintained in
-[`yellow_paper.tex`](/home/heathledger/Documents/ioi/repos/ioi/docs/architecture/consensus/aft/specs/yellow_paper.tex).
+[`yellow_paper.tex`](/home/heathledger/Documents/ioi/repos/ioi/docs/architecture/protocols/aft/specs/yellow_paper.tex).
 
 Build it from the canonical location with
 `./.github/scripts/build_aft_yellow_paper.sh`, which writes the PDF and TeX

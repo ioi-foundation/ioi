@@ -1,25 +1,32 @@
 use super::{
-    ensure_agent_running_or_resume_retry_pause, maybe_direct_inline_author_tool_call,
-    maybe_run_optimizer_recovery, queue_parent_playbook_await_request,
-    queue_root_playbook_delegate_request, should_clear_stale_canonical_pending,
+    ensure_agent_running_or_resume_retry_pause, handle_step, maybe_direct_inline_author_tool_call,
+    maybe_route_contract_local_install_tool_call, maybe_run_optimizer_recovery,
+    queue_parent_playbook_await_request, queue_root_playbook_delegate_request,
+    should_clear_stale_canonical_pending,
 };
 use crate::agentic::runtime::keys::{get_parent_playbook_run_key, get_state_key};
 use crate::agentic::runtime::service::RuntimeAgentService;
 use crate::agentic::runtime::types::{
     AgentMode, AgentState, AgentStatus, ExecutionTier, ParentPlaybookRun, ParentPlaybookStatus,
+    StepAgentParams,
 };
 use async_trait::async_trait;
+use ioi_api::services::access::ServiceDirectory;
 use ioi_api::state::{StateAccess, StateScanIter};
+use ioi_api::transaction::context::TxContext;
 use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
 use ioi_api::vm::inference::mock::MockInferenceRuntime;
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::terminal::TerminalDriver;
+use ioi_memory::MemoryRuntime;
 use ioi_types::app::agentic::{
     ArgumentOrigin, CapabilityId, InferenceOptions, InstructionBindingKind, InstructionContract,
     InstructionSlotBinding, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
 };
-use ioi_types::app::{ActionContext, ActionRequest, ActionTarget, ContextSlice};
+use ioi_types::app::{
+    AccountId, ActionContext, ActionRequest, ActionTarget, ChainId, ContextSlice,
+};
 use ioi_types::codec;
 use ioi_types::error::{StateError, VmError};
 use std::collections::{BTreeMap, HashMap};
@@ -67,6 +74,30 @@ fn test_agent_state() -> AgentState {
         command_history: Default::default(),
         active_lens: None,
     }
+}
+
+#[test]
+fn route_contract_install_tool_emits_software_install_plan_from_structured_contract() {
+    let mut state = test_agent_state();
+    state.goal = "CHAT ARTIFACT ROUTE CONTRACT:\n- selected_route: install lmstudio\n- route_family: command_execution\n- output_intent: tool_execution\n- direct_answer_allowed: false\n- primary_tools: host_discovery, software_install_resolver, software_install__execute_plan, app__launch\n- software_install_target_text: lmstudio\nUSER REQUEST:\n[Codebase context]\nWorkspace: .\n\n[User request]\ninstall lmstudio".to_string();
+
+    let tool_call =
+        maybe_route_contract_local_install_tool_call(&mut state).expect("tool call should route");
+    assert!(tool_call.contains("\"name\":\"software_install__execute_plan\""));
+    assert!(tool_call.contains("\"plan_ref\""));
+    assert!(state.recent_actions.iter().any(
+        |action| action.starts_with("route_contract_tool_call:software_install__execute_plan")
+    ));
+
+    assert!(maybe_route_contract_local_install_tool_call(&mut state).is_none());
+}
+
+#[test]
+fn route_contract_install_tool_does_not_parse_user_text_without_contract_target() {
+    let mut state = test_agent_state();
+    state.goal = "CHAT ARTIFACT ROUTE CONTRACT:\n- selected_route: install lmstudio\n- route_family: command_execution\n- output_intent: tool_execution\n- direct_answer_allowed: false\n- primary_tools: host_discovery, software_install_resolver, software_install__execute_plan, app__launch\nUSER REQUEST:\ninstall lmstudio".to_string();
+
+    assert!(maybe_route_contract_local_install_tool_call(&mut state).is_none());
 }
 
 #[derive(Default)]
@@ -203,6 +234,103 @@ fn build_test_service_hybrid(
         fast_inference,
         reasoning_inference,
     )
+}
+
+fn install_route_contract_goal(target: &str) -> String {
+    format!(
+        "CHAT ARTIFACT ROUTE CONTRACT:\n\
+         - selected_route: install {target}\n\
+         - route_family: command_execution\n\
+         - output_intent: tool_execution\n\
+         - direct_answer_allowed: false\n\
+         - primary_tools: host_discovery, software_install_resolver, software_install__execute_plan, app__launch\n\
+         - software_install_target_text: {target}\n\
+         USER REQUEST:\n\
+         [Codebase context]\n\
+         Workspace: .\n\n\
+         [User request]\n\
+         install {target}"
+    )
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn route_contract_install_bypasses_intent_inference_before_approval() {
+    let runtime = Arc::new(RecordingInferenceRuntime::with_outputs([
+        "This inference output should never be consumed.",
+    ]));
+    let memory_path = std::env::temp_dir().join(format!(
+        "ioi_route_contract_install_bypass_{}.db",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |time| time.as_nanos())
+    ));
+    let memory_runtime =
+        MemoryRuntime::open_sqlite(&memory_path).expect("memory runtime should initialize");
+    let service = build_test_service_hybrid(runtime.clone(), runtime.clone())
+        .with_memory_runtime(Arc::new(memory_runtime));
+    let mut state = MockState::default();
+    let session_id = [0x64; 32];
+    let mut agent_state = test_agent_state();
+    agent_state.session_id = session_id;
+    agent_state.goal = install_route_contract_goal("ffmpeg");
+    let key = get_state_key(&session_id);
+    state
+        .insert(
+            &key,
+            &codec::to_bytes_canonical(&agent_state).expect("agent state encodes"),
+        )
+        .expect("state insert succeeds");
+
+    let services = ServiceDirectory::default();
+    let mut ctx = TxContext {
+        block_height: 7,
+        block_timestamp: 1_750_000_000_000_000_000,
+        chain_id: ChainId(0),
+        signer_account_id: AccountId([9u8; 32]),
+        services: &services,
+        simulation: false,
+        is_internal: false,
+    };
+
+    handle_step(
+        &service,
+        &mut state,
+        StepAgentParams { session_id },
+        &mut ctx,
+    )
+    .await
+    .expect("route contract install step should process");
+
+    assert!(runtime
+        .seen_inputs
+        .lock()
+        .expect("seen_inputs mutex poisoned")
+        .is_empty());
+
+    let updated: AgentState = codec::from_bytes_canonical(
+        &state
+            .get(&key)
+            .expect("state get succeeds")
+            .expect("agent state remains persisted"),
+    )
+    .expect("updated state decodes");
+    assert!(
+        matches!(
+        updated.status,
+        AgentStatus::Paused(ref reason)
+            if reason.contains("Awaiting install approval: ffmpeg")
+        ),
+        "unexpected status after route-contract install handoff: status={:?} pending_tool_call={:?} queue_len={} log={:?}",
+        updated.status,
+        updated.pending_tool_call,
+        updated.execution_queue.len(),
+        updated.tool_execution_log
+    );
+    assert!(updated
+        .pending_tool_call
+        .as_deref()
+        .is_some_and(|tool_call| tool_call.contains("\"plan_ref\"")));
+    let _ = std::fs::remove_file(memory_path);
 }
 
 #[derive(Debug, Default)]

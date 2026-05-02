@@ -1,7 +1,7 @@
 # `ai://` Registry and Manifest Specification
 
 Status: canonical architecture authority.
-Canonical owner: this file for `ai://` naming doctrine; low-level manifest schemas live in [`ai-url-manifest-schemas.md`](./ai-url-manifest-schemas.md).
+Canonical owner: this file for `ai://` naming doctrine; low-level manifest schemas live in [`ai-url-manifest-schemas.md`](./manifest-schemas.md).
 Supersedes: overlapping manifest prose when naming or manifest requirements conflict.
 Superseded by: none.
 Last alignment pass: 2026-05-01.

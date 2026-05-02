@@ -9,7 +9,7 @@ Companion documents:
 - `docs/plans/benchmark-combination-matrix-plan.md`
 - `docs/ioi-zero-to-hero-autonomy-prompt.md`
 - `docs/computer-use-autonomy-prompt.md`
-- `docs/architecture/surfaces/autopilot-internal-product-spec.md`
+- `docs/architecture/products/autopilot/internal-product-spec.md`
 
 ## Purpose
 

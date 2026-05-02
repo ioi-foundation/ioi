@@ -45,4 +45,10 @@ assert.match(
   "workspace bridge view launch targets should include canonical Chat view names, not only legacy aliases",
 );
 
+assert.match(
+  source,
+  /candidate\.source\?\.serviceName === "Autopilot" &&[\s\S]*candidate\.source\.workflowName === "workflow" &&[\s\S]*\(candidate\.sessionId \|\| candidate\.threadId\)[\s\S]*return;/,
+  "chat-bound Autopilot workflow notifications should stay in the Chat UX instead of opening separate pill/native notification surfaces",
+);
+
 console.log("useAutopilotShellController.seedIntent.test.ts: ok");

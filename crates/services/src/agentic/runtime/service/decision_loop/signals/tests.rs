@@ -26,7 +26,7 @@ fn live_external_research_signal_respects_explicit_browser_only_constraints() {
 
 #[test]
 fn infers_interaction_target_from_launch_goal() {
-    let target = infer_interaction_target("Launch Visual Chat Code and open this folder")
+    let target = infer_interaction_target("Launch the code editor and open this folder")
         .expect("target should be inferred");
     assert_eq!(target.app_hint.as_deref(), Some("code"));
 }

@@ -39,7 +39,7 @@ Agentgres settles canonical state changes and queryable projections.
 sas.xyz productizes repeatable worker services.
 aiagent.xyz discovers, compares, installs, or procures worker services.
 ioi.ai is the hosted intent/use surface.
-Forge instantiates sovereign domains.
+IOI CLI instantiates sovereign domains.
 ```
 
 ## Current Architecture Read
@@ -661,9 +661,9 @@ Primary implementation surfaces checked while synthesizing this roadmap:
 - `crates/services/src/agentic/runtime/`
 - `crates/services/src/wallet_network/`
 - `crates/memory/src/lib.rs`
-- `docs/architecture/state/agentgres-state-substrate.md`
-- `docs/architecture/marketplaces/aiagent-xyz-worker-marketplace.md`
-- `docs/architecture/marketplaces/sas-xyz-service-marketplace.md`
+- `docs/architecture/components/agentgres/doctrine.md`
+- `docs/architecture/domains/aiagent/worker-marketplace.md`
+- `docs/architecture/domains/sas/service-marketplace.md`
 - `docs/audits/workflow-gui-product-audit.md`
 - `docs/audits/workflow-node-ontology-audit.md`
 - `docs/audits/n8n-parity-workflow-orchestrator-audit.md`

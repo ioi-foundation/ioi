@@ -1,13 +1,16 @@
 use crate::agentic::rules::ActionRules;
-use crate::agentic::runtime::execution::system::is_sudo_password_required_install_error;
-use crate::agentic::runtime::keys::{get_state_key, AGENT_POLICY_PREFIX};
-use crate::agentic::runtime::service::decision_loop::helpers::default_safe_policy;
+use crate::agentic::runtime::execution::system::{
+    install_resolution_checks_for_tool, install_resolution_summary_for_tool,
+    is_sudo_password_required_install_error,
+};
+use crate::agentic::runtime::keys::get_state_key;
 use crate::agentic::runtime::service::handler::{
     build_pii_review_request_for_tool, emit_pii_review_requested, persist_pii_review_request,
 };
 use crate::agentic::runtime::service::planning::planner::{
     self, PlannerDispatchMatch, PLANNER_FALLBACK_REASON_EXECUTOR_MISMATCH,
 };
+use crate::agentic::runtime::service::policy::load_action_rules_for_session;
 use crate::agentic::runtime::service::recovery::anti_loop::TierRoutingDecision;
 use crate::agentic::runtime::service::recovery::anti_loop::{
     build_attempt_key, build_post_state_summary, canonical_attempt_window_fingerprint,
@@ -33,13 +36,13 @@ use ioi_api::state::StateAccess;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_types::app::agentic::IntentScopeProfile;
 use ioi_types::app::{RoutingReceiptEvent, RoutingStateSummary};
-use ioi_types::codec;
 use ioi_types::error::TransactionError;
 
 mod completion;
 mod completion_receipts;
 mod execution;
 mod failure;
+mod install_receipts;
 mod messaging;
 mod pause_state;
 mod routing;
@@ -55,6 +58,7 @@ use self::completion::{
 use self::completion_receipts::emit_terminal_chat_reply_receipts;
 use self::execution::{execute_queue_tool_request, queue_action_to_tool};
 use self::failure::{apply_queue_failure_policies, QueueFailureHandlingOutcome};
+use self::install_receipts::record_queue_install_success_receipts;
 use self::messaging::{
     enter_wait_for_clarification, enter_wait_for_sudo_password, record_pending_approval_wait,
     resolve_approval_directive_outcome,
@@ -74,6 +78,17 @@ pub fn resolve_queue_routing_context(
     resolve_routing(agent_state)
 }
 
+fn install_approval_status_from_tool(tool: &ioi_types::app::agentic::AgentTool) -> Option<String> {
+    let summary = install_resolution_summary_for_tool(tool)?;
+    let display_name = summary.display_name.as_deref()?;
+    let source_kind = summary.source_kind.as_deref().unwrap_or("source");
+    let manager = summary.manager.as_deref().unwrap_or("manager");
+    Some(format!(
+        "Awaiting install approval: {} via {} ({})",
+        display_name, manager, source_kind
+    ))
+}
+
 pub async fn process_queue_item(
     service: &RuntimeAgentService,
     state: &mut dyn StateAccess,
@@ -90,11 +105,7 @@ pub async fn process_queue_item(
     );
 
     let key = get_state_key(&p.session_id);
-    let policy_key = [AGENT_POLICY_PREFIX, p.session_id.as_slice()].concat();
-    let rules: ActionRules = state
-        .get(&policy_key)?
-        .and_then(|b| codec::from_bytes_canonical(&b).ok())
-        .unwrap_or_else(default_safe_policy);
+    let rules: ActionRules = load_action_rules_for_session(state, p.session_id)?;
     let (routing_decision, pre_state_summary) = resolve_queue_routing_context(agent_state);
     let mut policy_decision = "allowed".to_string();
 
@@ -107,6 +118,7 @@ pub async fn process_queue_item(
     let tool_hash_bytes = sha256(&tool_jcs)
         .map_err(|e| TransactionError::Invalid(format!("Failed to hash queued tool JCS: {}", e)))?;
     let (tool_name, intent_args) = canonical_tool_identity(&tool_wrapper);
+    let is_install_package_tool = tool_name == "software_install__execute_plan";
     let action_json = serde_json::to_string(&tool_wrapper).unwrap_or_else(|_| "{}".to_string());
     let intent_hash = canonical_intent_hash(
         &tool_name,
@@ -127,6 +139,9 @@ pub async fn process_queue_item(
         .map(|resolved| resolved.scope == IntentScopeProfile::CommandExecution)
         .unwrap_or(false);
     let mut verification_checks = Vec::new();
+    if is_install_package_tool {
+        verification_checks.extend(install_resolution_checks_for_tool(&tool_wrapper));
+    }
     let action_request_hash_hex = hex::encode(action_request.hash());
     let resolved_intent_snapshot = agent_state.resolved_intent.clone();
     let mut planner_step_index: Option<usize> = None;
@@ -294,6 +309,11 @@ pub async fn process_queue_item(
                 hash_arr,
                 pending_visual_hash,
             );
+            if is_install_package_tool {
+                if let Some(status) = install_approval_status_from_tool(&tool_wrapper) {
+                    agent_state.status = AgentStatus::Paused(status);
+                }
+            }
             is_gated = true;
 
             if let Some(incident_state) = load_incident_state(state, &p.session_id)? {
@@ -341,6 +361,19 @@ pub async fn process_queue_item(
         &err,
         &mut verification_checks,
     );
+    if success && !is_gated && is_install_package_tool {
+        let intent_id = resolved_intent_id(agent_state);
+        record_queue_install_success_receipts(
+            service,
+            agent_state,
+            &tool_wrapper,
+            p.session_id,
+            pre_state_summary.step_index,
+            intent_id.as_str(),
+            &mut verification_checks,
+            out.as_deref(),
+        );
+    }
     if !is_gated
         && command_scope
         && !success
@@ -360,9 +393,6 @@ pub async fn process_queue_item(
             ));
         }
     }
-    let is_install_package_tool = tool_name == "package__install"
-        || tool_name == "sys::install_package"
-        || tool_name.ends_with("install_package");
     let clarification_required = !success
         && err
             .as_deref()
@@ -759,4 +789,37 @@ pub async fn process_queue_item(
     persist_agent_state(state, &key, &agent_state, service.memory_runtime.as_ref())?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::agentic::runtime::execution::system::software_install_plan_ref_for_request;
+    use ioi_types::app::agentic::{AgentTool, SoftwareInstallRequestFrame};
+
+    fn software_install_execute_plan_tool(
+        target_text: &str,
+        manager_preference: Option<&str>,
+    ) -> AgentTool {
+        let request = SoftwareInstallRequestFrame {
+            target_text: target_text.to_string(),
+            target_kind: None,
+            manager_preference: manager_preference.map(str::to_string),
+            launch_after_install: None,
+            provenance: Some("test".to_string()),
+        };
+        AgentTool::SoftwareInstallExecutePlan {
+            plan_ref: software_install_plan_ref_for_request(&request),
+        }
+    }
+
+    #[test]
+    fn install_approval_status_uses_resolution_summary() {
+        let tool = software_install_execute_plan_tool("generic tool", Some("apt"));
+
+        assert_eq!(
+            install_approval_status_from_tool(&tool).as_deref(),
+            Some("Awaiting install approval: generic tool via apt-get (package_manager)")
+        );
+    }
 }

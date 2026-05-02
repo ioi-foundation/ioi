@@ -16,6 +16,7 @@ mod task_state;
 mod workspace_build;
 mod workspace_scaffold;
 pub(crate) use self::content_session::runtime_handoff_prompt_prefix_for_task;
+pub(crate) use self::content_session::seed_task_route_from_intent_signals;
 use self::content_session::{
     artifact_class_id_for_request, attach_blocked_chat_failure_session, chat_outcome_request,
     lifecycle_state_label, materialization_contract_for_request,

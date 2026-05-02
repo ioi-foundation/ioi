@@ -1,6 +1,6 @@
 {
   "schemaVersion": "ioi.runtime-layout-refactor.check.v1",
-  "generatedAt": "2026-05-01T19:37:05.995Z",
+  "generatedAt": "2026-05-02T22:32:06.686Z",
   "status": "passed",
   "report": [
     {
@@ -42,8 +42,8 @@
       "id": "runtime-module-map",
       "status": "passed",
       "evidence": [
-        "docs/architecture/operations/runtime-module-map.md",
-        "docs/architecture/operations/runtime-package-boundaries.md"
+        "docs/implementation/runtime-module-map.md",
+        "docs/implementation/runtime-package-boundaries.md"
       ],
       "message": "runtime module map must identify canonical homes and be linked from boundary docs"
     },
@@ -150,7 +150,7 @@
       "id": "action-schema-drift",
       "status": "passed",
       "evidence": [
-        "docs/architecture/operations/runtime-action-schema.json",
+        "docs/implementation/runtime-action-schema.json",
         "packages/agent-ide/src/runtime/generated/action-schema.ts",
         "apps/autopilot/src-tauri/src/generated/runtime_action_schema.rs"
       ],
@@ -165,6 +165,16 @@
         "crates/services/src/agentic/runtime"
       ],
       "message": "active public runtime vocabulary must use adaptive work graph terminology; legacy swarm decoding must stay isolated"
+    },
+    {
+      "id": "retired-ioi-swarm-product",
+      "status": "passed",
+      "evidence": [
+        "ioi-swarm",
+        "docs/ioi-swarm-release.md",
+        "pyrightconfig.json"
+      ],
+      "message": "retired ioi-swarm product package and release surface must not return"
     },
     {
       "id": "debt-ledger-closed",

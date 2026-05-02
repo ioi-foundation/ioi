@@ -44,7 +44,8 @@ function stagedPromotionCount(
   stagedOperations: LocalEngineStagedOperation[],
   target: PromotionTarget,
 ): number {
-  const subjectKind = target === "sas.xyz" ? "service_candidate" : "forge_release";
+  const subjectKind =
+    target === "sas.xyz" ? "service_candidate" : "ioi_cli_domain_release";
   return stagedOperations.filter(
     (operation) =>
       operation.subjectKind === subjectKind ||
@@ -61,14 +62,14 @@ export function buildArtifactPipelineAutomationPlan(input: {
 }): ArtifactPipelineAutomationPlan {
   const stagedOperations = input.stagedOperations ?? [];
   const sasStagedCount = stagedPromotionCount(stagedOperations, "sas.xyz");
-  const forgeStagedCount = stagedPromotionCount(stagedOperations, "Forge");
+  const cliStagedCount = stagedPromotionCount(stagedOperations, "IOI CLI");
   const checklist = [
     `Recommended pack: ${input.dossier.recommendedVariantLabel}`,
     `Saved proof: ${input.savedBundleProof.statusLabel}`,
     `Privacy: ${input.privacyOverview.statusLabel}`,
     `Durability: ${input.durabilityOverview.statusLabel}`,
     `${sasStagedCount} sas.xyz staged`,
-    `${forgeStagedCount} Forge staged`,
+    `${cliStagedCount} IOI CLI staged`,
   ];
 
   if (
@@ -171,14 +172,14 @@ export function buildArtifactPipelineAutomationPlan(input: {
           "Replay evidence, retained portfolio posture, and saved bundle proof are aligned, so the artifact path can now stage a `sas.xyz` candidate without leaving the canonical export flow.",
       });
     }
-    if (forgeStagedCount === 0) {
+    if (cliStagedCount === 0) {
       queuedActions.push({
         kind: "stage_promotion",
-        label: "Stage Forge promotion",
+        label: "Stage IOI CLI promotion",
         recommendedView: "review",
-        promotionTarget: "Forge",
+        promotionTarget: "IOI CLI",
         detail:
-          "The same retained dossier and saved bundle proof are strong enough to carry a Forge productionization review once the promotion queue advances past the service-candidate lane.",
+          "The same retained dossier and saved bundle proof are strong enough to carry an IOI CLI domain productionization review once the promotion queue advances past the service-candidate lane.",
       });
     }
 
@@ -189,12 +190,12 @@ export function buildArtifactPipelineAutomationPlan(input: {
         statusLabel:
           queuedActions.length > 1
             ? "Promotion queue ready"
-            : primaryAction.promotionTarget === "Forge"
-              ? "Forge staging is now the next safe move"
+            : primaryAction.promotionTarget === "IOI CLI"
+              ? "IOI CLI staging is now the next safe move"
               : "Service-candidate staging is now the next safe move",
         detail:
           queuedActions.length > 1
-            ? `There are ${queuedActions.length} evidence-preserving promotion steps ready. Start with ${primaryAction.label.toLowerCase()} and keep the same dossier attached as the queue advances toward Forge.`
+            ? `There are ${queuedActions.length} evidence-preserving promotion steps ready. Start with ${primaryAction.label.toLowerCase()} and keep the same dossier attached as the queue advances toward IOI CLI.`
             : primaryAction.detail,
         actionKind: primaryAction.kind,
         primaryActionLabel: primaryAction.label,

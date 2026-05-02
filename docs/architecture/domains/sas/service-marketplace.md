@@ -1,7 +1,7 @@
 # sas.xyz Service-as-Software Marketplace Specification
 
 Status: canonical architecture authority.
-Canonical owner: this file for sas.xyz service marketplace doctrine; low-level service endpoints live in [`sas-xyz-service-endpoints.md`](./sas-xyz-service-endpoints.md).
+Canonical owner: this file for sas.xyz service marketplace doctrine; low-level service endpoints live in [`sas-xyz-service-endpoints.md`](./service-endpoints.md).
 Supersedes: overlapping service-marketplace plan prose when outcome/service boundaries conflict.
 Superseded by: none.
 Last alignment pass: 2026-05-01.
@@ -160,7 +160,7 @@ The following module preserves product-positioning and provider-OS context from 
 
 # `sas.xyz` v1.4 Product Spec
 
-Status: preserved product-context reference; current service-marketplace architecture remains weighted to [`sas-xyz-service-marketplace.md`](./sas-xyz-service-marketplace.md) when product positioning or mechanics disagree.
+Status: preserved product-context reference; current service-marketplace architecture remains weighted to [`sas-xyz-service-marketplace.md`](./service-marketplace.md) when product positioning or mechanics disagree.
 Context owner: this file for sas.xyz product positioning, provider OS UX, service-packaging context, and market context.
 Supersedes: `docs/specs/sas_xyz.md`.
 Superseded by: none.
@@ -180,7 +180,7 @@ It is the provider-side surface where a team takes:
 * an OSS model pipeline,
 * a BYOK-enabled service,
 * a proprietary hosted product,
-* a Forge-instantiated sovereign domain that now needs provider serving or commercialization,
+* an IOI CLI-instantiated sovereign domain that now needs provider serving or commercialization,
 * or a hybrid human+worker delivery flow ready to be bounded into software delivery
 
 and turns it into a **service package** with:
@@ -271,7 +271,7 @@ Those roles belong to:
 
 * `ioi.ai` for intent ingress and hosted demand UX,
 * `Autopilot` for private/local operator execution,
-* `Forge` for sovereign domain and intelligent blockchain instantiation,
+* `IOI CLI` for sovereign domain and intelligent blockchain instantiation,
 * `aiagent.xyz` for discovery and procurement.
 
 ---
@@ -295,11 +295,11 @@ Autopilot is the private/local operator shell and worker runtime, software-first
 
 Autopilot is the source surface for many future services and overlaps with `sas.xyz` in the shared authoring layer, but it is not the primary provider monetization, tenant-ops, or deployment source-of-truth surface.
 
-## 3.2 `Forge`
+## 3.2 `IOI CLI`
 
 **Instantiate sovereign domains**
 
-`Forge` is the kernel-adjacent L0 surface where developers and operators:
+`IOI CLI` is the kernel-adjacent command surface where developers and operators:
 
 * scaffold intelligent blockchains,
 * define policy roots,
@@ -308,7 +308,7 @@ Autopilot is the source surface for many future services and overlaps with `sas.
 * define publication and upgrade semantics,
 * and publish or inspect kernel-native domain objects.
 
-`Forge` owns sovereign domain instantiation and lifecycle. It does not replace `Autopilot` as the private shell or `sas.xyz` as the provider-serving surface.
+`IOI CLI` owns sovereign domain instantiation and lifecycle. It does not replace `Autopilot` as the private shell or `sas.xyz` as the provider-serving surface.
 
 ## 3.3 `sas.xyz`
 
@@ -364,7 +364,7 @@ It is the user-facing demand ingress, not the provider operating surface.
 ## 3.6 Boundary rules
 
 * `Autopilot` is for private/local operation and promotion source material.
-* `Forge` is for sovereign domain and intelligent blockchain instantiation.
+* `IOI CLI` is for sovereign domain and intelligent blockchain instantiation.
 * `sas.xyz` is for provider-side productization and service operations.
 * `aiagent.xyz` is for discovery, comparison, and procurement.
 * `ioi.ai` is for user-facing demand and hosted execution UX.
@@ -372,18 +372,18 @@ It is the user-facing demand ingress, not the provider operating surface.
 More concretely:
 
 * `Autopilot` owns local/operator policy: local worker authority, local capability leases, local approvals, local egress rules, and trust boundary controls.
-* `Forge` owns domain-instantiation concerns: policy roots, delegation model, publication semantics, domain continuity, and upgrade lifecycle.
+* `IOI CLI` owns domain-instantiation concerns: policy roots, delegation model, publication semantics, domain continuity, and upgrade lifecycle.
 * `sas.xyz` owns provider/service policy: service operating envelope, tenant-facing approvals, hosted execution restrictions, deployment-specific profiles, exposure limits, and billing-related enforcement.
 * `Autopilot` may preview or suggest deployment characteristics during promotion.
 * `sas.xyz` is the source of truth for actual deployment presets, readiness posture, hosted configuration, tenancy, billing, and publication when a system is exposed as a provider service.
-* Not every `Forge` domain needs `sas.xyz`, but `sas.xyz` is the right surface when a `Forge` domain becomes a provider-grade service product.
+* Not every IOI CLI-instantiated domain needs `sas.xyz`, but `sas.xyz` is the right surface when such a domain becomes a provider-grade service product.
 
 If those jobs blur, the ecosystem becomes confusing.
 
 **Doctrine:** `Autopilot` stabilizes work; `sas.xyz` productizes it.
-**Doctrine:** `Forge` instantiates sovereign domains.
+**Doctrine:** `IOI CLI` instantiates sovereign domains.
 **Doctrine:** `sas.xyz` does not replace `Autopilot` as the private operating shell; it extends stabilized worker systems into provider-grade products, deployment presets, and distribution surfaces.
-**Doctrine:** `Forge` creates the sovereign execution object. `Autopilot` refines the worker system. `sas.xyz` serves and commercializes it when it becomes a provider product.
+**Doctrine:** `IOI CLI` creates the sovereign execution object. `Autopilot` refines the worker system. `sas.xyz` serves and commercializes it when it becomes a provider product.
 
 ---
 
@@ -782,7 +782,7 @@ This is the intended path from power user to service provider.
 `Autopilot` may preview or suggest deployment characteristics during promotion, but `sas.xyz` is the source of truth for actual deployment presets, readiness posture, hosted configuration, tenant setup, billing, and publication.
 
 Heavier L0 branch:
-when a stabilized system needs durable sovereign state, policy roots, participant or delegation logic, or protocolized continuity, export it into `Forge` to instantiate a sovereign domain or intelligent blockchain. If that domain later needs provider exposure, `sas.xyz` becomes the serving and commercialization surface for it.
+when a stabilized system needs durable sovereign state, policy roots, participant or delegation logic, or protocolized continuity, export it through `IOI CLI` to instantiate a sovereign domain or intelligent blockchain. If that domain later needs provider exposure, `sas.xyz` becomes the serving and commercialization surface for it.
 
 ---
 

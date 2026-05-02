@@ -8,6 +8,7 @@ pub mod decision_loop;
 pub mod lifecycle;
 pub mod output;
 pub mod planning;
+pub(crate) mod policy;
 pub mod queue;
 pub mod recovery;
 pub mod tool_execution;

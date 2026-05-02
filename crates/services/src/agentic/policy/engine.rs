@@ -17,30 +17,13 @@ use super::targets::{is_high_risk_target_for_rules, policy_target_aliases};
 pub struct PolicyEngine;
 
 impl PolicyEngine {
-    pub async fn evaluate_with_working_directory(
+    async fn evaluate_record_inner(
         rules: &ActionRules,
         request: &ActionRequest,
         working_directory: Option<&str>,
         safety_model: &Arc<dyn LocalSafetyModel>,
         os_driver: &Arc<dyn OsDriver>,
-    ) -> Verdict {
-        Self::evaluate_record_with_working_directory(
-            rules,
-            request,
-            working_directory,
-            safety_model,
-            os_driver,
-        )
-        .await
-        .verdict
-    }
-
-    pub async fn evaluate_record_with_working_directory(
-        rules: &ActionRules,
-        request: &ActionRequest,
-        working_directory: Option<&str>,
-        safety_model: &Arc<dyn LocalSafetyModel>,
-        os_driver: &Arc<dyn OsDriver>,
+        include_pii_overlay: bool,
     ) -> PolicyEvaluationRecord {
         let policy_hash = compute_policy_hash(rules);
         if let Err(err) = request.try_hash() {
@@ -99,7 +82,11 @@ impl PolicyEngine {
         };
 
         // 3. Stage B/C PII router overlay.
-        let pii_overlay = Self::evaluate_pii_overlay_details(rules, request, safety_model).await;
+        let pii_overlay = if include_pii_overlay {
+            Self::evaluate_pii_overlay_details(rules, request, safety_model).await
+        } else {
+            None
+        };
         let pii_decision_hash = pii_overlay
             .as_ref()
             .and_then(|(_verdict, material)| material.as_ref())
@@ -126,6 +113,60 @@ impl PolicyEngine {
             rule_eval_trace_hash: None,
             lease_eval_hash: None,
         }
+    }
+
+    pub async fn evaluate_with_working_directory(
+        rules: &ActionRules,
+        request: &ActionRequest,
+        working_directory: Option<&str>,
+        safety_model: &Arc<dyn LocalSafetyModel>,
+        os_driver: &Arc<dyn OsDriver>,
+    ) -> Verdict {
+        Self::evaluate_record_with_working_directory(
+            rules,
+            request,
+            working_directory,
+            safety_model,
+            os_driver,
+        )
+        .await
+        .verdict
+    }
+
+    pub async fn evaluate_record_with_working_directory(
+        rules: &ActionRules,
+        request: &ActionRequest,
+        working_directory: Option<&str>,
+        safety_model: &Arc<dyn LocalSafetyModel>,
+        os_driver: &Arc<dyn OsDriver>,
+    ) -> PolicyEvaluationRecord {
+        Self::evaluate_record_inner(
+            rules,
+            request,
+            working_directory,
+            safety_model,
+            os_driver,
+            true,
+        )
+        .await
+    }
+
+    pub async fn evaluate_record_without_pii_overlay(
+        rules: &ActionRules,
+        request: &ActionRequest,
+        working_directory: Option<&str>,
+        safety_model: &Arc<dyn LocalSafetyModel>,
+        os_driver: &Arc<dyn OsDriver>,
+    ) -> PolicyEvaluationRecord {
+        Self::evaluate_record_inner(
+            rules,
+            request,
+            working_directory,
+            safety_model,
+            os_driver,
+            false,
+        )
+        .await
     }
 
     /// Evaluates an ActionRequest against the active policy.

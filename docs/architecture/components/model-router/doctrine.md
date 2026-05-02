@@ -1,7 +1,7 @@
 # Model Router, BYOK, and Run-to-Idle Specification
 
 Status: canonical architecture authority.
-Canonical owner: this file for model routing doctrine; low-level model-router API lives in [`model-router-api-byok-and-mounting.md`](./model-router-api-byok-and-mounting.md).
+Canonical owner: this file for model routing doctrine; low-level model-router API lives in [`model-router-api-byok-and-mounting.md`](./api-byok-mounting.md).
 Supersedes: overlapping model/provider prose when routing or BYOK boundaries conflict.
 Superseded by: none.
 Last alignment pass: 2026-05-01.

@@ -62,6 +62,20 @@ fn route_family_for_resolved_intent(resolved_intent: Option<&ResolvedIntentState
     .to_string()
 }
 
+fn resolved_intent_requires_local_install(resolved_intent: Option<&ResolvedIntentState>) -> bool {
+    let Some(resolved) = resolved_intent else {
+        return false;
+    };
+
+    let intent_id = resolved.intent_id.trim().to_ascii_lowercase();
+    intent_id == "software.install.desktop_app"
+        || intent_id == "command.exec.install_dependency"
+        || resolved
+            .required_capabilities
+            .iter()
+            .any(|capability| capability.as_str() == "software.install.execute")
+}
+
 fn currentness_override_for_resolved_intent(resolved_intent: Option<&ResolvedIntentState>) -> bool {
     let Some(resolved) = resolved_intent else {
         return false;
@@ -272,7 +286,11 @@ fn output_intent(
     if current_tool_name.eq_ignore_ascii_case("chat__reply")
         || current_tool_name.eq_ignore_ascii_case("model__responses")
     {
-        return "direct_inline";
+        return if direct_answer_allowed {
+            "direct_inline"
+        } else {
+            "tool_execution"
+        };
     }
     if artifact_output_intent {
         return "artifact";
@@ -291,6 +309,7 @@ fn output_intent(
 
 fn direct_answer_blockers(
     currentness_override: bool,
+    local_install_request: bool,
     connector_first_preference: bool,
     file_output_intent: bool,
     artifact_output_intent: bool,
@@ -300,6 +319,9 @@ fn direct_answer_blockers(
     let mut blockers = Vec::new();
     if currentness_override {
         blockers.push("currentness_override".to_string());
+    }
+    if local_install_request {
+        blockers.push("local_install_requested".to_string());
     }
     if connector_first_preference {
         blockers.push("connector_preferred".to_string());
@@ -392,6 +414,13 @@ pub(crate) async fn project_route_decision(
     );
 
     let route_family = route_family_for_resolved_intent(agent_state.resolved_intent.as_ref());
+    let local_install_request =
+        resolved_intent_requires_local_install(agent_state.resolved_intent.as_ref());
+    let route_family = if local_install_request {
+        "command_execution".to_string()
+    } else {
+        route_family
+    };
     let currentness_override =
         currentness_override_for_resolved_intent(agent_state.resolved_intent.as_ref());
     let effective_tool_surface = build_effective_tool_surface(
@@ -442,6 +471,7 @@ pub(crate) async fn project_route_decision(
     let skill_prep_required = skill_prep_required(&route_family, current_tool_name);
     let direct_answer_blockers = direct_answer_blockers(
         currentness_override,
+        local_install_request,
         connector_first_preference,
         file_output_intent,
         artifact_output_intent,

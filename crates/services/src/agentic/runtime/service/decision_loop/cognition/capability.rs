@@ -39,7 +39,7 @@ pub(super) fn preflight_missing_capability(
     let can_type = has_tool("screen") || has_tool("screen__type");
 
     let has_command_tool = has_tool("shell__run") || has_tool("shell__start");
-    let has_install_package_tool = has_tool("package__install");
+    let has_install_package_tool = has_tool("software_install__execute_plan");
     let has_automation_tool = has_tool("monitor__create");
     let has_file_tooling = tools.iter().any(|t| t.name.starts_with("file__"));
     let has_google_workspace_tooling = tools.iter().any(|t| {

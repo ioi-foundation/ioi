@@ -183,7 +183,7 @@ fn resolve_workspace_root(working_directory: Option<&str>) -> Option<String> {
     Some(resolved.display().to_string())
 }
 
-pub(crate) fn augment_workspace_filesystem_policy(
+pub fn augment_workspace_filesystem_policy(
     rules: &ActionRules,
     working_directory: Option<&str>,
 ) -> ActionRules {

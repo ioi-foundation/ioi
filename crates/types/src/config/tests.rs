@@ -49,3 +49,23 @@ fn leakage_controller_policy_exposes_registration_and_internal_debit() {
         "leakage_controller must retain access to its private state prefix",
     );
 }
+
+#[test]
+fn desktop_agent_policy_exposes_gate_control_methods() {
+    let policies = default_service_policies();
+    let desktop_agent = policies
+        .get("desktop_agent")
+        .expect("desktop_agent service policy should exist");
+
+    for method in [
+        "deny@v1",
+        "register_approval_authority@v1",
+        "revoke_approval_authority@v1",
+    ] {
+        assert_eq!(
+            desktop_agent.methods.get(method),
+            Some(&MethodPermission::User),
+            "desktop_agent ActiveServiceMeta must advertise {method}",
+        );
+    }
+}

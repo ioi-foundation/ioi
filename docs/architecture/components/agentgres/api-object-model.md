@@ -4,11 +4,17 @@ Status: canonical low-level reference.
 Canonical owner: this file for Agentgres APIs, canonical object classes, runtime v0 state, operation logs, projection watermarks, and replay/export authority.
 Supersedes: older Agentgres-as-generic-store wording when runtime truth ownership conflicts.
 Superseded by: none.
-Last alignment pass: 2026-05-01.
+Last alignment pass: 2026-05-02.
 
 ## Purpose
 
 Agentgres is the per-domain state substrate. It stores operational truth, not IOI L1 economic settlement. Each serious Web4 application domain runs its own kernel/runtime deployment with its own Agentgres domain.
+
+Agentgres is also not a thin index over Filecoin/CAS blobs. Its operation log,
+object heads, constraints, indexes, projections, subscriptions, receipt
+metadata, delivery state, and quality/contribution ledgers are canonical
+Agentgres state. Filecoin/CAS stores immutable payload bytes and large evidence
+objects that Agentgres references by hash/CID.
 
 ## Core API
 
@@ -115,6 +121,14 @@ SettlementMirror
   "policy_hash": "sha256:...",
   "authority_grant_refs": ["grant_..."],
   "payload": {},
+  "payload_refs": [
+    {
+      "cid": "bafy...",
+      "sha256": "...",
+      "media_type": "application/json",
+      "role": "large_payload | evidence | trace | checkpoint"
+    }
+  ],
   "resulting_head": "sha256:...",
   "state_root": "sha256:...",
   "receipt_refs": []
@@ -239,3 +253,4 @@ Agentgres mirrors L1 contract state but does not replace it.
 4. Every consequential operation must bind to actor, policy, schema, and receipts when required.
 5. Projections must be rebuildable and checkpointable.
 6. Agent runtime truth lives in Agentgres operation logs; client checkpoints are non-authoritative caches or exports.
+7. Filecoin/CAS payloads, checkpoints, snapshots, and evidence bundles are refs from Agentgres state, not replacements for Agentgres state.

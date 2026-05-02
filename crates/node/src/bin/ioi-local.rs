@@ -111,6 +111,129 @@ fn local_runtime_thread_stack_size_bytes() -> usize {
         .unwrap_or(32 * 1024 * 1024)
 }
 
+fn local_interactive_policy_defaults(local_gpu_dev_mode: bool) -> DefaultPolicy {
+    if local_gpu_dev_mode {
+        DefaultPolicy::AllowAll
+    } else {
+        DefaultPolicy::RequireApproval
+    }
+}
+
+fn build_local_interactive_policy(local_gpu_dev_mode: bool) -> ActionRules {
+    ActionRules {
+        policy_id: "interactive-mode".to_string(),
+        defaults: local_interactive_policy_defaults(local_gpu_dev_mode),
+        ontology_policy: Default::default(),
+        pii_controls: Default::default(),
+        rules: vec![
+            Rule {
+                rule_id: Some("require-install-approval".into()),
+                target: "sys::install_package".into(),
+                conditions: Default::default(),
+                action: Verdict::RequireApproval,
+            },
+            Rule {
+                rule_id: Some("allow-ui-read".into()),
+                target: "gui::screenshot".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            Rule {
+                rule_id: Some("allow-lifecycle".into()),
+                target: "start@v1".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            Rule {
+                rule_id: Some("allow-step".into()),
+                target: "step@v1".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            Rule {
+                rule_id: Some("allow-resume".into()),
+                target: "resume@v1".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            Rule {
+                rule_id: Some("allow-post-message".into()),
+                target: "post_message@v1".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            Rule {
+                rule_id: Some("allow-deny".into()),
+                target: "deny@v1".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            Rule {
+                rule_id: Some("allow-approval-authority-registration".into()),
+                target: "register_approval_authority@v1".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            Rule {
+                rule_id: Some("allow-approval-authority-revocation".into()),
+                target: "revoke_approval_authority@v1".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            Rule {
+                rule_id: Some("allow-complete".into()),
+                target: "agent__complete".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            Rule {
+                rule_id: Some("allow-pause".into()),
+                target: "agent__pause".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            Rule {
+                rule_id: Some("allow-await".into()),
+                target: "agent__await".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            Rule {
+                rule_id: Some("allow-chat".into()),
+                target: "chat__reply".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            // Allow echo for the test macro.
+            Rule {
+                rule_id: Some("allow-sys-exec-echo".into()),
+                target: "sys::exec".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            // Allow screen control for UI-TARS.
+            Rule {
+                rule_id: Some("allow-computer".into()),
+                target: "gui::click".into(), // Maps to screen.left_click AND screen__click
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            Rule {
+                rule_id: Some("allow-computer-type".into()),
+                target: "gui::type".into(), // Maps to screen.type
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            Rule {
+                rule_id: Some("allow-computer-mouse".into()),
+                target: "gui::mouse_move".into(), // Maps to screen.mouse_move
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+        ],
+    }
+}
+
 fn main() -> Result<()> {
     // Install default crypto provider for rustls 0.23+
     let _ = rustls::crypto::ring::default_provider().install_default();
@@ -161,10 +284,19 @@ async fn async_main() -> Result<()> {
 
     // Agent Meta
     let mut agent_methods = std::collections::BTreeMap::new();
-    agent_methods.insert("start@v1".to_string(), MethodPermission::User);
-    agent_methods.insert("step@v1".to_string(), MethodPermission::User);
-    agent_methods.insert("resume@v1".to_string(), MethodPermission::User);
-    agent_methods.insert("post_message@v1".to_string(), MethodPermission::User);
+    for method in [
+        "start@v1",
+        "step@v1",
+        "resume@v1",
+        "post_message@v1",
+        "pause@v1",
+        "cancel@v1",
+        "deny@v1",
+        "register_approval_authority@v1",
+        "revoke_approval_authority@v1",
+    ] {
+        agent_methods.insert(method.to_string(), MethodPermission::User);
+    }
 
     let agent_meta = ActiveServiceMeta {
         id: "desktop_agent".to_string(),
@@ -186,100 +318,7 @@ async fn async_main() -> Result<()> {
         .ok()
         .map(|value| matches!(value.trim(), "1" | "true" | "TRUE" | "yes" | "on"))
         .unwrap_or(false);
-    let local_policy_defaults = if local_gpu_dev_mode {
-        ioi_services::agentic::rules::DefaultPolicy::AllowAll
-    } else {
-        ioi_services::agentic::rules::DefaultPolicy::RequireApproval
-    };
-
-    let local_policy = ActionRules {
-        policy_id: "interactive-mode".to_string(),
-        defaults: local_policy_defaults,
-        ontology_policy: Default::default(),
-        pii_controls: Default::default(),
-        rules: vec![
-            Rule {
-                rule_id: Some("allow-ui-read".into()),
-                target: "gui::screenshot".into(),
-                conditions: Default::default(),
-                action: Verdict::Allow,
-            },
-            Rule {
-                rule_id: Some("allow-lifecycle".into()),
-                target: "start@v1".into(),
-                conditions: Default::default(),
-                action: Verdict::Allow,
-            },
-            Rule {
-                rule_id: Some("allow-step".into()),
-                target: "step@v1".into(),
-                conditions: Default::default(),
-                action: Verdict::Allow,
-            },
-            Rule {
-                rule_id: Some("allow-resume".into()),
-                target: "resume@v1".into(),
-                conditions: Default::default(),
-                action: Verdict::Allow,
-            },
-            Rule {
-                rule_id: Some("allow-post-message".into()),
-                target: "post_message@v1".into(),
-                conditions: Default::default(),
-                action: Verdict::Allow,
-            },
-            Rule {
-                rule_id: Some("allow-complete".into()),
-                target: "agent__complete".into(),
-                conditions: Default::default(),
-                action: Verdict::Allow,
-            },
-            Rule {
-                rule_id: Some("allow-pause".into()),
-                target: "agent__pause".into(),
-                conditions: Default::default(),
-                action: Verdict::Allow,
-            },
-            Rule {
-                rule_id: Some("allow-await".into()),
-                target: "agent__await".into(),
-                conditions: Default::default(),
-                action: Verdict::Allow,
-            },
-            Rule {
-                rule_id: Some("allow-chat".into()),
-                target: "chat__reply".into(),
-                conditions: Default::default(),
-                action: Verdict::Allow,
-            },
-            // Allow echo for the test macro
-            Rule {
-                rule_id: Some("allow-sys-exec-echo".into()),
-                target: "sys::exec".into(),
-                conditions: Default::default(),
-                action: Verdict::Allow,
-            },
-            // Allow screen control for UI-TARS
-            Rule {
-                rule_id: Some("allow-computer".into()),
-                target: "gui::click".into(), // Maps to screen.left_click AND screen__click
-                conditions: Default::default(),
-                action: Verdict::Allow,
-            },
-            Rule {
-                rule_id: Some("allow-computer-type".into()),
-                target: "gui::type".into(), // Maps to screen.type
-                conditions: Default::default(),
-                action: Verdict::Allow,
-            },
-            Rule {
-                rule_id: Some("allow-computer-mouse".into()),
-                target: "gui::mouse_move".into(), // Maps to screen.mouse_move
-                conditions: Default::default(),
-                action: Verdict::Allow,
-            },
-        ],
-    };
+    let local_policy = build_local_interactive_policy(local_gpu_dev_mode);
 
     // 3. Configuration Setup
     let rpc_addr = std::env::var("ORCHESTRATION_RPC_LISTEN_ADDRESS")
@@ -541,6 +580,15 @@ async fn async_main() -> Result<()> {
 
         let policy_key = [b"agent::policy::", session_id.as_slice()].concat();
         insert_raw(&policy_key, to_bytes_canonical(&local_policy).unwrap());
+        let desktop_agent_policy_key = [
+            service_namespace_prefix("desktop_agent").as_slice(),
+            policy_key.as_slice(),
+        ]
+        .concat();
+        insert_raw(
+            &desktop_agent_policy_key,
+            to_bytes_canonical(&local_policy).unwrap(),
+        );
 
         let market_meta = ActiveServiceMeta {
             id: "market".to_string(),
@@ -619,6 +667,14 @@ async fn async_main() -> Result<()> {
         let policy_bytes = codec::to_bytes_canonical(&local_policy).map_err(|e| anyhow!(e))?;
         state
             .insert(&policy_key, &policy_bytes)
+            .map_err(|e| anyhow!(e.to_string()))?;
+        let desktop_agent_policy_key = [
+            service_namespace_prefix("desktop_agent").as_slice(),
+            policy_key.as_slice(),
+        ]
+        .concat();
+        state
+            .insert(&desktop_agent_policy_key, &policy_bytes)
             .map_err(|e| anyhow!(e.to_string()))?;
 
         let agent_key = ioi_types::keys::active_service_key("desktop_agent");
@@ -946,4 +1002,34 @@ async fn async_main() -> Result<()> {
     Container::stop(&*orchestrator).await?;
     println!("Bye!");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn local_gpu_dev_policy_still_requires_install_approval() {
+        let policy = build_local_interactive_policy(true);
+
+        assert!(matches!(policy.defaults, DefaultPolicy::AllowAll));
+        let install_rule = policy
+            .rules
+            .iter()
+            .find(|rule| rule.target == "sys::install_package")
+            .expect("local interactive policy should gate install mutation");
+
+        assert_eq!(
+            install_rule.rule_id.as_deref(),
+            Some("require-install-approval")
+        );
+        assert!(matches!(install_rule.action, Verdict::RequireApproval));
+    }
+
+    #[test]
+    fn normal_local_policy_defaults_to_approval() {
+        let policy = build_local_interactive_policy(false);
+
+        assert!(matches!(policy.defaults, DefaultPolicy::RequireApproval));
+    }
 }

@@ -112,7 +112,7 @@ pub fn is_command_execution_provider_tool(tool: &AgentTool) -> bool {
         tool,
         AgentTool::SysExec { .. }
             | AgentTool::SysExecSession { .. }
-            | AgentTool::SysInstallPackage { .. }
+            | AgentTool::SoftwareInstallExecutePlan { .. }
             | AgentTool::AutomationCreateMonitor { .. }
     )
 }
@@ -432,12 +432,12 @@ fn verification_probe_command(
     tool: &AgentTool,
     history_entry: Option<&CommandExecution>,
 ) -> Option<String> {
-    if let AgentTool::SysInstallPackage { package, .. } = tool {
-        let package = package.trim();
-        if package.is_empty() {
-            return None;
-        }
-        return Some(format!("command -v -- {}", shell_quote_single(package)));
+    if let AgentTool::SoftwareInstallExecutePlan { plan_ref } = tool {
+        let digest = sha256(plan_ref.as_bytes()).ok()?;
+        return Some(format!(
+            "software_install_plan_ref=sha256:{}",
+            hex::encode(digest.as_ref())
+        ));
     }
 
     let source_command = history_entry

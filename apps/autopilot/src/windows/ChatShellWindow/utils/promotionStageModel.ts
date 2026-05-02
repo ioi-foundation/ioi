@@ -5,7 +5,7 @@ import {
 } from "./traceBundleExportModel";
 import type { RetainedPortfolioDossier } from "./retainedPortfolioDossierModel";
 
-export type PromotionTarget = "sas.xyz" | "Forge";
+export type PromotionTarget = "sas.xyz" | "IOI CLI";
 
 export interface PromotionStageDraft {
   subjectKind: string;
@@ -16,13 +16,13 @@ export interface PromotionStageDraft {
 }
 
 function promotionSubjectKind(target: PromotionTarget): string {
-  return target === "sas.xyz" ? "service_candidate" : "forge_release";
+  return target === "sas.xyz" ? "service_candidate" : "ioi_cli_domain_release";
 }
 
 function promotionIntentLabel(target: PromotionTarget): string {
   return target === "sas.xyz"
     ? "service candidate review"
-    : "productionization review";
+    : "domain productionization review";
 }
 
 export function buildPromotionStageDraft(input: {

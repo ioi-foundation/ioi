@@ -359,25 +359,60 @@
         parameters: fs_create_zip_params.to_string(),
     });
 
-    let install_pkg_params = json!({
+    let install_request_frame = json!({
         "type": "object",
         "properties": {
-            "package": {
+            "target_text": {
                 "type": "string",
-                "description": "Package name or identifier to install (e.g. 'pydantic', '@scope/pkg', 'ripgrep')."
+                "description": "The user's named software target, preserved as query text for resolver providers."
             },
-            "manager": {
+            "target_kind": {
                 "type": "string",
-                "enum": ["apt-get", "brew", "pip", "npm", "pnpm", "cargo", "winget", "choco", "yum", "dnf"],
-                "description": "Optional package manager. If omitted, platform default is used (Linux: apt-get, macOS: brew, Windows: winget)."
+                "description": "Ontological target kind when known, such as desktop_app, command_line_tool, editor_extension, or current_product."
+            },
+            "manager_preference": {
+                "type": "string",
+                "description": "Optional explicit manager/ecosystem named by the user, such as apt-get, brew, winget, flatpak, snap, pip, npm, pnpm, or cargo."
+            },
+            "launch_after_install": {
+                "type": "boolean",
+                "description": "True only when the user explicitly asked to launch the software after install."
+            },
+            "provenance": {
+                "type": "string",
+                "description": "Structured origin for the request frame."
             }
         },
-        "required": ["package"]
+        "required": ["target_text"]
     });
     tools.push(LlmToolDefinition {
-        name: "package__install".to_string(),
-        description: "Install a dependency via a deterministic manager mapping. Prefer this over raw shell__run for package installs."
+        name: "software_install__resolve".to_string(),
+        description: "Resolve a local software install request into a host-aware, provenance-backed install plan. This does not mutate the host."
             .to_string(),
-        parameters: install_pkg_params.to_string(),
+        parameters: json!({
+            "type": "object",
+            "properties": {
+                "request": install_request_frame
+            },
+            "required": ["request"]
+        })
+        .to_string(),
+    });
+
+    let install_execute_params = json!({
+        "type": "object",
+        "properties": {
+            "plan_ref": {
+                "type": "string",
+                "description": "Opaque resolver-issued install plan reference. Do not pass raw package names or URLs here."
+            }
+        },
+        "required": ["plan_ref"]
+    });
+    tools.push(LlmToolDefinition {
+        name: "software_install__execute_plan".to_string(),
+        description: "Execute an approved resolver-backed local software install plan, stream command output, and verify before reporting success."
+            .to_string(),
+        parameters: install_execute_params.to_string(),
     });
 }

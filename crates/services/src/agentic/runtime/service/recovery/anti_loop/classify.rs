@@ -130,9 +130,7 @@ pub fn requires_wait_for_clarification(tool_name: &str, error: &str) -> bool {
     let tool = tool_name.to_ascii_lowercase();
     let msg = error.to_ascii_lowercase();
 
-    let is_install_tool = tool == "package__install"
-        || tool == "sys::install_package"
-        || tool.ends_with("install_package");
+    let is_install_tool = tool == "software_install__execute_plan";
     if is_install_tool
         && (is_package_lookup_failure(&msg) || is_install_missing_dependency_failure(&msg))
     {

@@ -1,6 +1,6 @@
 # Canonical State and Projection System (CSPS)
 
-Status: preserved taxonomy reference; Agentgres state doctrine remains weighted to [`agentgres-state-substrate.md`](./agentgres-state-substrate.md) when terminology or mechanics disagree.
+Status: preserved taxonomy reference; Agentgres state doctrine remains weighted to [`agentgres-state-substrate.md`](./doctrine.md) when terminology or mechanics disagree.
 Context owner: this file for the generic Canonical State and Projection System category above Agentgres/FQF-style state systems.
 Supersedes: `docs/specs/formal/canonical-state-and-projection-system-whitepaper.md`.
 Superseded by: none.

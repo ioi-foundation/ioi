@@ -9,7 +9,7 @@ use ioi_api::runtime_harness::{
     apply_inline_answer_clarification_gate, inline_answer_operator_steps,
     inline_answer_route_notes, inline_answer_route_summary, inline_answer_route_title,
     inline_answer_verification_receipts, inline_answer_work_graph_plan,
-    inline_answer_worker_receipts,
+    inline_answer_worker_receipts, route_decision_for_outcome_request,
 };
 
 fn outcome_kind_id(kind: ChatOutcomeKind) -> &'static str {
@@ -35,12 +35,22 @@ fn inline_answer_materialization_contract(
     summary: &str,
     provenance: &crate::models::ChatRuntimeProvenance,
 ) -> ChatArtifactMaterializationContract {
+    let route_decision = route_decision_for_outcome_request(outcome_request);
+    let surface_synthetic_work_graph = outcome_request.needs_clarification
+        || outcome_request.outcome_kind != ChatOutcomeKind::Conversation;
     let mut work_graph_plan = inline_answer_work_graph_plan(outcome_request);
     let (graph_mutation_receipts, replan_receipts) =
         apply_inline_answer_clarification_gate(&mut work_graph_plan, outcome_request);
-    let work_graph_worker_receipts =
-        inline_answer_work_graph_worker_receipts(outcome_request, provenance, &work_graph_plan);
-    let work_graph_verification_receipts = inline_answer_verification_receipts(outcome_request);
+    let work_graph_worker_receipts = if surface_synthetic_work_graph {
+        inline_answer_work_graph_worker_receipts(outcome_request, provenance, &work_graph_plan)
+    } else {
+        Vec::new()
+    };
+    let work_graph_verification_receipts = if surface_synthetic_work_graph {
+        inline_answer_verification_receipts(outcome_request)
+    } else {
+        Vec::new()
+    };
     let verification_status = if outcome_request.needs_clarification {
         "blocked".to_string()
     } else {
@@ -69,22 +79,40 @@ fn inline_answer_materialization_contract(
         })
         .count();
     let work_graph_execution = WorkGraphExecutionSummary {
-        enabled: true,
+        enabled: surface_synthetic_work_graph,
         current_stage: if outcome_request.needs_clarification {
             "routing".to_string()
+        } else if route_decision.output_intent == "tool_execution" {
+            "runtime_handoff".to_string()
         } else {
             "reply".to_string()
         },
-        execution_stage: Some(if outcome_request.needs_clarification {
-            ExecutionStage::Dispatch
+        execution_stage: if surface_synthetic_work_graph {
+            Some(if outcome_request.needs_clarification {
+                ExecutionStage::Dispatch
+            } else {
+                ExecutionStage::Finalize
+            })
         } else {
-            ExecutionStage::Finalize
-        }),
+            None
+        },
         active_worker_role: None,
-        total_work_items: work_graph_plan.work_items.len(),
-        completed_work_items,
+        total_work_items: if surface_synthetic_work_graph {
+            work_graph_plan.work_items.len()
+        } else {
+            0
+        },
+        completed_work_items: if surface_synthetic_work_graph {
+            completed_work_items
+        } else {
+            0
+        },
         failed_work_items,
-        verification_status,
+        verification_status: if surface_synthetic_work_graph {
+            verification_status
+        } else {
+            String::new()
+        },
         strategy: work_graph_plan.strategy.clone(),
         execution_domain: work_graph_plan.execution_domain.clone(),
         adapter_label: work_graph_plan.adapter_label.clone(),
@@ -185,8 +213,13 @@ fn inline_answer_materialization_contract(
         notes: vec![
             "Chat intentionally kept this request off the artifact materialization path."
                 .to_string(),
-            "The shared execution envelope still records plan, worker, and verification state."
-                .to_string(),
+            if surface_synthetic_work_graph {
+                "The shared execution envelope still records plan, worker, and verification state."
+                    .to_string()
+            } else {
+                "No synthetic work items or validation rows were projected for this conversation route."
+                    .to_string()
+            },
             "No renderer-specific fallback artifact was injected for this route.".to_string(),
             if outcome_request.decision_evidence.is_empty() {
                 "decision_evidence:none".to_string()

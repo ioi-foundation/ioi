@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import type {
   Dispatch,
   RefObject,
@@ -47,7 +47,12 @@ type UseChatSessionOptions = {
 export function shouldContinueChatComposerSession(
   isChatVariant: boolean,
   task: AgentTask | null,
+  forceNewSession = false,
 ): boolean {
+  if (forceNewSession) {
+    return false;
+  }
+
   if (!task?.id || task.phase === "Failed") {
     return false;
   }
@@ -82,6 +87,7 @@ export function useChatSession({
   loadThreadArtifacts,
   contextualizeIntent,
 }: UseChatSessionOptions) {
+  const forceNextSubmitToStartSessionRef = useRef(false);
   const {
     intent,
     setIntent,
@@ -180,15 +186,22 @@ export function useChatSession({
   const {
     handleSubmit,
     submitText: handleSubmitText,
-    handleNewSession: handleNewChat,
+    handleNewSession: handleComposerNewChat,
     handleInputChange,
     handleInputKeyDown,
   } = useSessionInputComposer<AgentTask, ChatMessage, ChatEvent>({
     task,
     intent,
     inputRef,
-    startTask: (text) =>
-      startTask(buildPlanModeIntent(contextualizeIntent?.(text) ?? text, planMode)),
+    startTask: async (text) => {
+      try {
+        return await startTask(
+          buildPlanModeIntent(contextualizeIntent?.(text) ?? text, planMode),
+        );
+      } finally {
+        forceNextSubmitToStartSessionRef.current = false;
+      }
+    },
     continueTask: (sessionId, text) =>
       continueTask(
         sessionId,
@@ -211,7 +224,11 @@ export function useChatSession({
       }
     },
     shouldContinueExistingSession: (currentTask) =>
-      shouldContinueChatComposerSession(isChatVariant, currentTask),
+      shouldContinueChatComposerSession(
+        isChatVariant,
+        currentTask,
+        forceNextSubmitToStartSessionRef.current,
+      ),
     onSubmitError: (error) => {
       console.error(error);
     },
@@ -227,6 +244,11 @@ export function useChatSession({
         : currentTask.current_step || "Chat could not complete this run.";
     },
   });
+
+  const handleNewChat = useCallback(() => {
+    forceNextSubmitToStartSessionRef.current = true;
+    handleComposerNewChat();
+  }, [handleComposerNewChat]);
 
   const {
     handleSubmitRuntimePassword,

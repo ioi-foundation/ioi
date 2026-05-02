@@ -1,10 +1,10 @@
 # Security, Privacy, and Policy Invariants
 
 Status: canonical architecture authority.
-Canonical owner: this file for public security/privacy/policy invariants; hidden conformance details live in [`../conformance/`](../conformance/).
+Canonical owner: this file for public security/privacy/policy invariants; hidden conformance details live in [`../../conformance/agentic-runtime/`](../../conformance/agentic-runtime/).
 Supersedes: overlapping plan prose when invariants conflict.
 Superseded by: none.
-Last alignment pass: 2026-05-01.
+Last alignment pass: 2026-05-02.
 
 ## Canonical Definition
 
@@ -34,7 +34,7 @@ This document defines the non-negotiable authority, security, privacy, and execu
 
 1. Agentgres is per-domain and does not run on IOI L1.
 2. IOI L1 stores commitments and economic state, not operational traces.
-3. Filecoin/CAS stores payloads, not authority.
+3. Filecoin/CAS stores payloads, not Agentgres state authority.
 4. Local speculative state must be labeled speculative.
 5. Projection state must expose freshness and source watermark.
 6. Receipts are bundled; only sparse roots may reach IOI L1.

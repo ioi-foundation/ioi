@@ -7,9 +7,9 @@ use super::coercion::{
     lower_edit_line_to_fs_write, normalize_browser_click_element_arguments,
     normalize_browser_key_arguments, normalize_browser_synthetic_click_arguments,
     normalize_browser_wait_arguments, normalize_file_search_arguments,
-    normalize_install_package_arguments, normalize_net_fetch_arguments,
-    normalize_ui_click_arguments, normalize_ui_click_component_arguments,
-    normalize_ui_scroll_arguments, normalize_ui_type_arguments,
+    normalize_net_fetch_arguments, normalize_ui_click_arguments,
+    normalize_ui_click_component_arguments, normalize_ui_scroll_arguments,
+    normalize_ui_type_arguments,
 };
 use super::envelope::{sanitize_json, unwrap_tool_envelope};
 use super::{ToolNormalizationObservation, ToolNormalizationResult, ToolNormalizer};
@@ -25,12 +25,14 @@ fn normalized_tool_name(tool_call: &AgentTool) -> Option<String> {
 
 fn rejected_legacy_tool_name(name: &str) -> bool {
     let normalized = name.trim().to_ascii_lowercase();
+    let retired_install_tool = ["package", "__", "install"].concat();
     normalized.starts_with("functions.")
         || normalized.contains("::")
         || matches!(
             normalized.as_str(),
             "computer" | "sys_exec" | "filesystem__list_dir"
         )
+        || normalized == retired_install_tool
 }
 
 impl ToolNormalizer {
@@ -96,7 +98,6 @@ impl ToolNormalizer {
             }
         }
 
-        let mut install_package_args: Option<Value> = None;
         let mut edit_line_args: Option<Value> = None;
 
         let mut ui_click_component_args: Option<Value> = None;
@@ -151,14 +152,6 @@ impl ToolNormalizer {
             }
 
             if let Some(name) = map_mut.get("name").and_then(|n| n.as_str()) {
-                if name == "package__install" {
-                    install_package_args = Some(
-                        map_mut
-                            .get("arguments")
-                            .cloned()
-                            .unwrap_or_else(|| json!({})),
-                    );
-                }
                 if name == "file__replace_line" {
                     edit_line_args = Some(
                         map_mut
@@ -317,16 +310,7 @@ impl ToolNormalizer {
             }
         }
 
-        if let Some(install_args) = install_package_args {
-            let normalized = normalize_install_package_arguments(&install_args)?;
-            if normalized != install_args {
-                observation.push_label("package_install_arguments_normalized");
-            }
-            raw_val = json!({
-                "name": "package__install",
-                "arguments": normalized,
-            });
-        } else if let Some(edit_args) = edit_line_args {
+        if let Some(edit_args) = edit_line_args {
             observation.push_label("file_replace_line_lowered_to_file_write");
             raw_val = lower_edit_line_to_fs_write(&edit_args)?;
         } else if ui_click_component_present {

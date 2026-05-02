@@ -62,6 +62,8 @@ function processIcon(iconKey: string | null | undefined) {
       return icons.check;
     case "artifacts":
       return icons.artifacts;
+    case "terminal":
+      return icons.code;
     default:
       return icons.sparkles;
   }
@@ -175,39 +177,42 @@ export function ChatRunStateCard({
   const seenRows = new Set<string>();
   const progressRows: ProgressRow[] = [];
 
-  if (hasText(metrics?.activeRole)) {
-    pushProgressRow(
-      progressRows,
-      {
-        id: "active-role",
-        label: metrics.activeRole,
-        detail: "Active worker",
-        icon: icons.history,
-        active: true,
-      },
-      seenRows,
-    );
-  }
-
   if (hasText(metrics?.progress)) {
+    const detailParts = [metrics.stage, metrics.activeRole]
+      .filter(hasText)
+      .filter((part) => part !== metrics.progress);
     pushProgressRow(
       progressRows,
       {
         id: "progress",
         label: metrics.progress,
-        detail: hasText(metrics.stage) ? metrics.stage : null,
+        detail: detailParts.length ? detailParts.join(" · ") : null,
         icon: icons.history,
         active: true,
       },
       seenRows,
     );
   } else if (hasText(metrics?.stage)) {
+    const detail = hasText(metrics.activeRole) && metrics.activeRole !== metrics.stage
+      ? metrics.activeRole
+      : null;
     pushProgressRow(
       progressRows,
       {
         id: "stage",
         label: metrics.stage,
-        detail: "Runtime stage",
+        detail,
+        icon: icons.history,
+        active: true,
+      },
+      seenRows,
+    );
+  } else if (hasText(metrics?.activeRole)) {
+    pushProgressRow(
+      progressRows,
+      {
+        id: "active-role",
+        label: metrics.activeRole,
         icon: icons.history,
         active: true,
       },
@@ -252,7 +257,10 @@ export function ChatRunStateCard({
         label: livePreview.label,
         detail: formatChatExecutionPreviewPhase(livePreview),
         meta: livePreview.language || livePreview.kind || null,
-        icon: livePreview.kind === "html" ? icons.code : icons.artifacts,
+        icon:
+          livePreview.kind === "html" || livePreview.kind === "command_stream"
+            ? icons.code
+            : icons.artifacts,
         active: !livePreview.isFinal,
       },
       seenRows,
@@ -267,7 +275,10 @@ export function ChatRunStateCard({
         label: codePreview.label,
         detail: formatChatExecutionPreviewPhase(codePreview),
         meta: codePreview.language || codePreview.kind || null,
-        icon: codePreview.kind === "html" ? icons.code : icons.artifacts,
+        icon:
+          codePreview.kind === "html" || codePreview.kind === "command_stream"
+            ? icons.code
+            : icons.artifacts,
         active: !codePreview.isFinal,
       },
       seenRows,
@@ -280,7 +291,6 @@ export function ChatRunStateCard({
       {
         id: "verification",
         label: metrics.verification,
-        detail: "Validation",
         icon: icons.check,
         tone: "success",
       },
@@ -289,17 +299,70 @@ export function ChatRunStateCard({
   }
 
   if (isError) {
+    const commandStreamFailed =
+      livePreview?.kind === "command_stream" && livePreview.status === "failed";
     pushProgressRow(
       progressRows,
       {
         id: "repair",
-        label: "Needs repair",
-        detail: "This run needs operator or runtime repair before it can continue.",
+        label: commandStreamFailed ? "Install blocked" : "Needs repair",
+        detail: commandStreamFailed
+          ? "Review the resolver or execution receipt above before retrying."
+          : "This run needs operator or runtime repair before it can continue.",
         icon: icons.alert,
         tone: "error",
         active: true,
       },
       seenRows,
+    );
+  }
+
+  const renderPreview = (
+    preview: NonNullable<ChatRunStateCardProps["livePreview"]>,
+  ) => (
+    <div
+      className={`spot-agent-progress-preview ${
+        previewMode(preview) === "code"
+          ? "is-code-preview"
+          : "is-stream-preview"
+      }`}
+      aria-live="polite"
+      aria-label={renderPreviewAriaLabel(preview)}
+    >
+      <div className="spot-agent-progress-preview-head">
+        <span>{preview.label}</span>
+        <span>{formatChatExecutionPreviewPhase(preview)}</span>
+      </div>
+      <div className="spot-agent-progress-preview-meta">
+        <span>{formatPreviewStats(preview.content)}</span>
+        {previewMode(preview) === "code" ? (
+          <span>Scroll to inspect the full artifact.</span>
+        ) : null}
+      </div>
+      <pre tabIndex={0}>
+        <code>{preview.content}</code>
+      </pre>
+    </div>
+  );
+
+  const terminalOnly =
+    livePreview?.kind === "command_stream" &&
+    !!livePreview.content &&
+    progressRows.length === 0 &&
+    !codePreview?.content;
+
+  if (terminalOnly) {
+    return (
+      <section
+        className={`spot-chat-status-card spot-agent-progress ${
+          isError ? "is-error" : "is-active"
+        } is-terminal-only`}
+        aria-live="polite"
+      >
+        <div className="spot-agent-progress-previews">
+          {renderPreview(livePreview)}
+        </div>
+      </section>
     );
   }
 
@@ -343,59 +406,9 @@ export function ChatRunStateCard({
         </div>
       ) : null}
       <div className="spot-agent-progress-previews">
-        {livePreview?.content ? (
-          <div
-            className={`spot-agent-progress-preview ${
-              previewMode(livePreview) === "code"
-                ? "is-code-preview"
-                : "is-stream-preview"
-            }`}
-            aria-live="polite"
-            aria-label={renderPreviewAriaLabel(livePreview)}
-          >
-            <div className="spot-agent-progress-preview-head">
-              <span>{livePreview.label}</span>
-              <span>
-                {formatChatExecutionPreviewPhase(livePreview)}
-              </span>
-            </div>
-            <div className="spot-agent-progress-preview-meta">
-              <span>{formatPreviewStats(livePreview.content)}</span>
-              {previewMode(livePreview) === "code" ? (
-                <span>Scroll to inspect the full artifact.</span>
-              ) : null}
-            </div>
-            <pre tabIndex={0}>
-              <code>{livePreview.content}</code>
-            </pre>
-          </div>
-        ) : null}
+        {livePreview?.content ? renderPreview(livePreview) : null}
         {codePreview?.content && codePreview.content !== livePreview?.content ? (
-          <div
-            className={`spot-agent-progress-preview ${
-              previewMode(codePreview) === "code"
-                ? "is-code-preview"
-                : "is-stream-preview"
-            }`}
-            aria-live="polite"
-            aria-label={renderPreviewAriaLabel(codePreview)}
-          >
-            <div className="spot-agent-progress-preview-head">
-              <span>{codePreview.label}</span>
-              <span>
-                {formatChatExecutionPreviewPhase(codePreview)}
-              </span>
-            </div>
-            <div className="spot-agent-progress-preview-meta">
-              <span>{formatPreviewStats(codePreview.content)}</span>
-              {previewMode(codePreview) === "code" ? (
-                <span>Scroll to inspect the full artifact.</span>
-              ) : null}
-            </div>
-            <pre tabIndex={0}>
-              <code>{codePreview.content}</code>
-            </pre>
-          </div>
+          renderPreview(codePreview)
         ) : null}
       </div>
     </section>

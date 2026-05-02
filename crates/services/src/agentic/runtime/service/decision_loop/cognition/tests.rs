@@ -1334,7 +1334,7 @@ fn command_execution_does_not_require_clipboard_when_exec_session_available() {
 
 #[test]
 fn command_execution_accepts_install_package_tooling() {
-    let tools = vec![tool("package__install")];
+    let tools = vec![tool("software_install__execute_plan")];
     assert!(preflight_missing_capability(
         None,
         IntentScopeProfile::CommandExecution,

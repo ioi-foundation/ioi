@@ -3,7 +3,7 @@
 Status: hidden conformance invariant; Draft v0.5
 Owners: Agentic Platform
 Canonical owner: this file for completion, evidence, and terminal-state invariants.
-Supersedes: overlapping CEC descriptions outside `docs/architecture/conformance/` when invariant wording conflicts.
+Supersedes: overlapping CEC descriptions outside `docs/conformance/agentic-runtime/` when invariant wording conflicts.
 Superseded by: none.
 Last alignment pass: 2026-05-01.
 Scope: Post-resolution execution discipline for inference-driven tasks

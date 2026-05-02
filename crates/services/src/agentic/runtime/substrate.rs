@@ -1814,7 +1814,9 @@ fn semantic_impact_for_state(state: &AgentState) -> SemanticImpactAnalysis {
             ));
         }
 
-        if effective_tool_name.starts_with("shell__") || effective_tool_name == "package__install" {
+        if effective_tool_name.starts_with("shell__")
+            || effective_tool_name == "software_install__execute_plan"
+        {
             migration_implications
                 .insert("host command may have changed local environment".to_string());
             if matches!(status, ToolCallStatus::Executed(_)) {
@@ -1822,7 +1824,7 @@ fn semantic_impact_for_state(state: &AgentState) -> SemanticImpactAnalysis {
                     .insert("rerun command-specific verification from shell receipt".to_string());
             } else {
                 unknowns.insert(format!(
-                    "shell/package tool lacks execution receipt details: {effective_tool_name}"
+                    "shell/software install tool lacks execution receipt details: {effective_tool_name}"
                 ));
             }
         }
@@ -2285,7 +2287,7 @@ fn default_dry_run_capabilities() -> Vec<DryRunCapability> {
             supported_tool_classes: vec![
                 "shell__run".to_string(),
                 "shell__start".to_string(),
-                "package__install".to_string(),
+                "software_install__execute_plan".to_string(),
             ],
             side_effect_preview: true,
             policy_preview: true,

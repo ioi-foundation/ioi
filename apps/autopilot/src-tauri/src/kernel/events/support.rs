@@ -123,9 +123,7 @@ pub(super) fn event_type_for_tool(tool_name: &str) -> EventType {
 
 pub(super) fn is_install_package_tool(tool_name: &str) -> bool {
     let tool = tool_name.to_ascii_lowercase();
-    tool == "package__install"
-        || tool == "sys::install_package"
-        || tool.ends_with("install_package")
+    tool == "software_install__execute_plan"
 }
 
 pub(super) fn is_sudo_password_required_install(tool_name: &str, output: &str) -> bool {

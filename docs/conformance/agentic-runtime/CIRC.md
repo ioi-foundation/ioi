@@ -3,7 +3,7 @@
 Status: hidden conformance invariant; Draft v0.6
 Owners: Agentic Platform
 Canonical owner: this file for intent-resolution ontology, primitive capability admission, and anti-heuristic routing invariants.
-Supersedes: overlapping CIRC descriptions outside `docs/architecture/conformance/` when invariant wording conflicts.
+Supersedes: overlapping CIRC descriptions outside `docs/conformance/agentic-runtime/` when invariant wording conflicts.
 Superseded by: none.
 Last alignment pass: 2026-05-01.
 Scope: Intent resolution and capability ontology for desktop agent execution

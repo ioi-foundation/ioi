@@ -16,7 +16,7 @@ fn pending_install_available(agent_state: &AgentState) -> bool {
         .tool_jcs
         .as_ref()
         .and_then(|raw| serde_json::from_slice::<AgentTool>(raw).ok())
-        .map(|tool| matches!(tool, AgentTool::SysInstallPackage { .. }))
+        .map(|tool| matches!(tool, AgentTool::SoftwareInstallExecutePlan { .. }))
         .unwrap_or(false)
 }
 
@@ -69,7 +69,7 @@ fn restore_pending_install_from_tool_call(
         Ok(tool) => tool,
         Err(_) => return Ok(false),
     };
-    if !matches!(parsed, AgentTool::SysInstallPackage { .. }) {
+    if !matches!(parsed, AgentTool::SoftwareInstallExecutePlan { .. }) {
         return Ok(false);
     }
 
@@ -123,11 +123,7 @@ pub(super) fn maybe_restore_pending_install_from_incident(
         .eq_ignore_ascii_case("wait_for_sudo_password");
     let is_install_root = incident
         .root_tool_name
-        .eq_ignore_ascii_case("package__install")
-        || incident
-            .root_tool_name
-            .eq_ignore_ascii_case("sys::install_package")
-        || incident.root_tool_name.ends_with("install_package");
+        .eq_ignore_ascii_case("software_install__execute_plan");
     if !waiting_for_sudo || !is_install_root || incident.root_tool_jcs.is_empty() {
         return Ok(());
     }

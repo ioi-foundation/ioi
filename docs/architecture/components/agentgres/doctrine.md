@@ -1,10 +1,10 @@
 # Agentgres State Substrate Specification
 
 Status: canonical architecture authority.
-Canonical owner: this file for high-level Agentgres doctrine; low-level runtime objects live in [`agentgres-api-and-object-model.md`](./agentgres-api-and-object-model.md).
+Canonical owner: this file for high-level Agentgres doctrine; low-level runtime objects live in [`agentgres-api-and-object-model.md`](./api-object-model.md).
 Supersedes: overlapping plan prose when Agentgres state ownership conflicts.
 Superseded by: none.
-Last alignment pass: 2026-05-01.
+Last alignment pass: 2026-05-02.
 
 ## Canonical Definition
 
@@ -22,20 +22,28 @@ Database doctrine:
 
 > **Rows are views. Settled state is truth.**
 
+State/payload doctrine:
+
+> **Agentgres is the ledger of what is true; Filecoin/CAS is the warehouse of what proves it.**
+
 ## What Agentgres Owns
 
 Agentgres owns per-domain operational truth:
 
+- hot operational state;
 - canonical operation log;
 - deterministic object state;
+- object heads;
+- commit-critical constraints;
+- commit-critical indexes;
 - patch/change lifecycle;
 - runs;
 - tasks;
 - orders;
 - workflow state;
 - delivery bundles;
-- artifacts refs;
-- receipts;
+- artifact refs;
+- receipt metadata;
 - policy decision records;
 - quality ledgers;
 - contribution accounting;
@@ -61,6 +69,114 @@ Agentgres does not own:
 - private working memory unless promoted.
 
 wallet.network owns authority. Autopilot/IOI daemon owns execution. Filecoin/CAS owns payload availability. IOI L1 owns public settlement and rights.
+
+## State And Payload Boundary
+
+Agentgres state MUST NOT be reduced to opaque Filecoin blobs.
+
+Agentgres stores canonical state in its own domain-local state-engine substrate.
+Filecoin/CAS stores large immutable payloads, artifacts, evidence bundles,
+checkpoints, snapshots, packages, and archival data. Agentgres stores refs and
+commitments to those payloads.
+
+Do not model the system as:
+
+```text
+state = Filecoin blobs
+```
+
+Model it as:
+
+```text
+state = Agentgres objects, operations, heads, indexes, projections
+payloads = Filecoin/CAS blobs
+state references payloads by hash/CID
+```
+
+Agentgres remains the state machine and query substrate. Filecoin/CAS remains
+the content-addressed payload and evidence availability layer.
+
+### Agentgres Owns
+
+```text
+hot operational state
+canonical operation log
+object heads
+indexes
+constraints
+projections
+subscriptions
+receipt metadata
+artifact refs
+delivery state
+quality/contribution ledgers
+```
+
+### Filecoin/CAS Owns
+
+```text
+worker packages
+model artifacts
+large files
+reports
+screenshots/videos
+evidence bundles
+trace bundles
+projection checkpoints
+historical snapshots
+encrypted archives
+```
+
+## Why State Is Not Filecoin Blobs
+
+Filecoin/CAS is optimized for immutable object availability. Agentgres needs to
+manage mutable logical state over immutable evidence.
+
+Agentgres requires:
+
+- low-latency reads;
+- transaction admission;
+- constraint checks;
+- object-head compare-and-set;
+- indexes;
+- materialized projections;
+- subscriptions;
+- query planning;
+- local-first sync;
+- repair/replay;
+- small frequent state transitions;
+- ordering-domain semantics.
+
+If every state mutation becomes "write a new blob to Filecoin," the system loses
+the database properties that make Agentgres useful.
+
+## Layered Storage Path
+
+The scalable path is layered:
+
+```text
+1. Hot Agentgres state engine
+   Recent canonical operations, object heads, indexes, active projections.
+
+2. Warm Agentgres log/checkpoint store
+   Operation segments, projection deltas, receipt metadata, snapshots.
+
+3. Filecoin/CAS archival/evidence plane
+   Large immutable payloads, encrypted bundles, checkpoint files, trace archives.
+
+4. IOI L1 contract layer
+   Registry, rights, escrow, settlement, dispute roots, selected commitments.
+```
+
+Operational flow:
+
+```text
+hot state in Agentgres domain storage
+-> periodic checkpoints/snapshots to Filecoin/CAS
+-> receipt/evidence bundles to Filecoin/CAS
+-> selected economic/trust commitments to IOI L1
+-> local/client projections for read scale
+```
 
 ## State Lifecycle
 

@@ -20,15 +20,141 @@ fn tx_account_nonce(tx: &ChainTransaction) -> Option<(AccountId, u64)> {
     }
 }
 
+fn decode_state_value<T>(bytes: &[u8]) -> Option<T>
+where
+    T: parity_scale_codec::Decode,
+{
+    if let Ok(value) = codec::from_bytes_canonical::<T>(bytes) {
+        return Some(value);
+    }
+    let entry: ioi_types::app::StateEntry = codec::from_bytes_canonical(bytes).ok()?;
+    codec::from_bytes_canonical(&entry.value).ok()
+}
+
+fn decode_account_nonce(bytes: &[u8]) -> u64 {
+    if let Some(value) = decode_state_value::<u64>(bytes) {
+        return value;
+    }
+    if bytes.len() == 8 {
+        let mut raw = [0u8; 8];
+        raw.copy_from_slice(bytes);
+        return u64::from_le_bytes(raw);
+    }
+    0
+}
+
+fn tx_status_is_rejected(entry: Option<&TxStatusEntry>) -> bool {
+    matches!(entry.map(|entry| entry.status), Some(TxStatus::Rejected))
+}
+
+fn tx_lifecycle_label(tx: &ChainTransaction) -> Option<&'static str> {
+    let ChainTransaction::System(system) = tx else {
+        return None;
+    };
+    let ioi_types::app::SystemPayload::CallService {
+        service_id, method, ..
+    } = &system.payload;
+    if service_id == "desktop_agent" && is_desktop_agent_lifecycle_control(method) {
+        Some(match method.as_str() {
+            "start@v1" => "desktop_agent.start",
+            "step@v1" => "desktop_agent.step",
+            "post_message@v1" => "desktop_agent.post_message",
+            "resume@v1" => "desktop_agent.resume",
+            "deny@v1" => "desktop_agent.deny",
+            "register_approval_authority@v1" => "desktop_agent.register_approval_authority",
+            "revoke_approval_authority@v1" => "desktop_agent.revoke_approval_authority",
+            "delete_session@v1" => "desktop_agent.delete_session",
+            _ => "desktop_agent.lifecycle",
+        })
+    } else {
+        None
+    }
+}
+
+fn lifecycle_step_can_be_readmitted(label: Option<&str>) -> bool {
+    matches!(label, Some("desktop_agent.step"))
+}
+
+fn lifecycle_control_can_use_tx_nonce_floor(label: Option<&str>) -> bool {
+    matches!(
+        label,
+        Some(
+            "desktop_agent.step"
+                | "desktop_agent.post_message"
+                | "desktop_agent.resume"
+                | "desktop_agent.deny"
+                | "desktop_agent.register_approval_authority"
+                | "desktop_agent.revoke_approval_authority"
+                | "desktop_agent.delete_session"
+        )
+    )
+}
+
+fn admission_committed_nonce_state(
+    tx_info: Option<&(AccountId, u64)>,
+    lifecycle_label: Option<&str>,
+    observed_state_nonce: u64,
+    previous_status_was_rejected: bool,
+) -> u64 {
+    if lifecycle_control_can_use_tx_nonce_floor(lifecycle_label) {
+        if let Some((_, tx_nonce)) = tx_info {
+            return observed_state_nonce.max(*tx_nonce);
+        }
+    }
+    if previous_status_was_rejected && lifecycle_step_can_be_readmitted(lifecycle_label) {
+        if let Some((_, tx_nonce)) = tx_info {
+            return observed_state_nonce.max(*tx_nonce);
+        }
+    }
+    observed_state_nonce
+}
+
+fn should_fast_admit_rpc_transaction(
+    requires_semantic_screening: bool,
+    lifecycle_label: Option<&str>,
+    previous_status_was_rejected: bool,
+    _mempool_len: usize,
+    _fast_admit_limit: usize,
+) -> bool {
+    if lifecycle_label.is_some() && !requires_semantic_screening {
+        return true;
+    }
+    if previous_status_was_rejected && lifecycle_step_can_be_readmitted(lifecycle_label) {
+        return true;
+    }
+    false
+}
+
 fn requires_ingestion_semantic_screening(tx: &ChainTransaction) -> bool {
     let ChainTransaction::System(sys) = tx else {
         return false;
     };
 
+    let ioi_types::app::SystemPayload::CallService {
+        service_id, method, ..
+    } = &sys.payload;
+
+    if service_id == "desktop_agent" && is_desktop_agent_lifecycle_control(method) {
+        return false;
+    }
+
     matches!(
-        &sys.payload,
-        ioi_types::app::SystemPayload::CallService { service_id, .. }
-            if matches!(service_id.as_str(), "agentic" | "desktop_agent" | "compute_market")
+        service_id.as_str(),
+        "agentic" | "desktop_agent" | "compute_market"
+    )
+}
+
+fn is_desktop_agent_lifecycle_control(method: &str) -> bool {
+    matches!(
+        method,
+        "start@v1"
+            | "step@v1"
+            | "post_message@v1"
+            | "resume@v1"
+            | "deny@v1"
+            | "register_approval_authority@v1"
+            | "revoke_approval_authority@v1"
+            | "delete_session@v1"
     )
 }
 
@@ -184,8 +310,9 @@ where
             }
         };
 
-        {
+        let previous_status = {
             let mut cache = tx_status_cache.lock().await;
+            let previous = cache.peek(&tx_hash_hex).cloned();
             cache.put(
                 tx_hash_hex.clone(),
                 TxStatusEntry {
@@ -194,12 +321,15 @@ where
                     block_height: None,
                 },
             );
-        }
+            previous
+        };
 
         {
             let tx = decoded_tx;
             let tx_info = tx_account_nonce(&tx);
             let tx_hash = tx.hash().unwrap_or(tx_hash_bytes);
+            let lifecycle_label = tx_lifecycle_label(&tx);
+            let previous_status_was_rejected = tx_status_is_rejected(previous_status.as_ref());
 
             let (
                 tx_pool_ref,
@@ -258,23 +388,54 @@ where
             };
 
             let requires_semantic_screening = requires_ingestion_semantic_screening(&tx);
-            let should_fast_admit = {
-                let limit = fast_admit_mempool_limit();
-                limit > 0 && tx_pool_ref.len() < limit && !requires_semantic_screening
-            };
+            let should_fast_admit = should_fast_admit_rpc_transaction(
+                requires_semantic_screening,
+                lifecycle_label,
+                previous_status_was_rejected,
+                tx_pool_ref.len(),
+                fast_admit_mempool_limit(),
+            );
 
-            let committed_nonce_state = if let Some((account_id, _)) = tx_info.as_ref() {
+            let observed_committed_nonce_state = if let Some((account_id, _)) = tx_info.as_ref() {
                 let nonce_key = [ACCOUNT_NONCE_PREFIX, account_id.as_ref()].concat();
                 match workload_client.query_raw_state(&nonce_key).await {
-                    Ok(Some(bytes)) => codec::from_bytes_canonical::<u64>(&bytes).unwrap_or(0),
+                    Ok(Some(bytes)) => decode_account_nonce(&bytes),
                     _ => 0,
                 }
             } else {
                 0
             };
+            let committed_nonce_state = admission_committed_nonce_state(
+                tx_info.as_ref(),
+                lifecycle_label,
+                observed_committed_nonce_state,
+                previous_status_was_rejected,
+            );
 
             let fast_admit = if should_fast_admit {
-                Some(tx_pool_ref.add(tx, tx_hash, tx_info, committed_nonce_state))
+                if previous_status_was_rejected {
+                    tx_pool_ref.remove_by_hash(&tx_hash);
+                }
+                if lifecycle_step_can_be_readmitted(lifecycle_label) {
+                    if let Some((account_id, nonce)) = tx_info.as_ref() {
+                        tx_pool_ref.remove_by_account_nonce(account_id, *nonce);
+                    }
+                }
+                let result = tx_pool_ref.add(tx, tx_hash, tx_info, committed_nonce_state);
+                if std::env::var("IOI_AFT_BENCH_TRACE").is_ok() {
+                    eprintln!(
+                        "[BENCH-AFT-ORCH] rpc_fast_admit hash={} label={:?} tx_info={:?} observed_nonce={} committed_nonce={} previous_rejected={} result={:?} pool_len={}",
+                        tx_hash_hex,
+                        lifecycle_label,
+                        tx_info,
+                        observed_committed_nonce_state,
+                        committed_nonce_state,
+                        previous_status_was_rejected,
+                        result,
+                        tx_pool_ref.len()
+                    );
+                }
+                Some(result)
             } else {
                 None
             };
@@ -455,7 +616,7 @@ where
         let nonce_key = [ioi_types::keys::ACCOUNT_NONCE_PREFIX, account_id.as_ref()].concat();
 
         let state_nonce = match workload_client.query_raw_state(&nonce_key).await {
-            Ok(Some(b)) => codec::from_bytes_canonical::<u64>(&b).unwrap_or(0),
+            Ok(Some(b)) => decode_account_nonce(&b),
             _ => 0,
         };
 
