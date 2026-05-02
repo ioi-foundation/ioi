@@ -16,12 +16,30 @@ function allMarkdownFiles(dir) {
   });
 }
 
+function allFiles(dir) {
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  return entries.flatMap((entry) => {
+    const absolute = path.join(dir, entry.name);
+    if (entry.isDirectory()) return allFiles(absolute);
+    return [absolute];
+  });
+}
+
 function relative(file) {
   return path.relative(root, file);
 }
 
 function isImportedConsensusCorpus(file) {
-  return relative(file).startsWith("docs/architecture/consensus/aft/");
+  return relative(file).startsWith("docs/architecture/protocols/aft/");
+}
+
+function isGeneratedArchitectureArtifact(file) {
+  const rel = relative(file);
+  return (
+    rel.includes("/states/") ||
+    /_TTrace_/.test(rel) ||
+    /\.(st|fp|bin|aux|log|out|pdf)$/.test(rel)
+  );
 }
 
 function fail(message) {
@@ -29,6 +47,11 @@ function fail(message) {
 }
 
 const markdownFiles = allMarkdownFiles(architectureRoot);
+for (const file of allFiles(architectureRoot)) {
+  if (isGeneratedArchitectureArtifact(file)) {
+    fail(`${relative(file)} is generated proof/evidence output and must live under docs/formal-artifacts/.`);
+  }
+}
 const rootMarkdownFiles = fs
   .readdirSync(architectureRoot, { withFileTypes: true })
   .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
@@ -92,8 +115,8 @@ const staleLinePatterns = [
 function lineIsAllowedLegacyNote(file, line) {
   const rel = relative(file);
   if (
-    rel.endsWith("documentation-contradiction-log.md") ||
-    rel.endsWith("documentation-refactor-report.md")
+    rel.endsWith("_meta/contradiction-log.md") ||
+    rel.includes("_meta/changelog/")
   ) {
     return true;
   }
@@ -115,12 +138,12 @@ for (const file of markdownFiles) {
 
 const index = fs.readFileSync(path.join(architectureRoot, "README.md"), "utf8");
 for (const required of [
-  "operations/source-of-truth-map.md",
-  "operations/documentation-contradiction-log.md",
-  "operations/documentation-refactor-report.md",
-  "runtime/ioi-daemon-runtime-api.md",
-  "state/agentgres-api-and-object-model.md",
-  "runtime/low-level-implementation-milestones.md",
+  "_meta/source-of-truth-map.md",
+  "_meta/contradiction-log.md",
+  "_meta/doc-classes.md",
+  "components/daemon-runtime/api.md",
+  "components/agentgres/api-object-model.md",
+  "../implementation/low-level-implementation-milestones.md",
 ]) {
   if (!index.includes(required)) {
     fail(`README.md must link ${required}.`);
@@ -128,7 +151,7 @@ for (const required of [
 }
 
 const sourceMap = fs.readFileSync(
-  path.join(architectureRoot, "operations/source-of-truth-map.md"),
+  path.join(architectureRoot, "_meta/source-of-truth-map.md"),
   "utf8",
 );
 for (const required of [
@@ -139,12 +162,12 @@ for (const required of [
   "Legacy Context Policy",
 ]) {
   if (!sourceMap.includes(required)) {
-    fail(`operations/source-of-truth-map.md missing ${required}.`);
+    fail(`_meta/source-of-truth-map.md missing ${required}.`);
   }
 }
 
 const contradictionLog = fs.readFileSync(
-  path.join(architectureRoot, "operations/documentation-contradiction-log.md"),
+  path.join(architectureRoot, "_meta/contradiction-log.md"),
   "utf8",
 );
 for (const required of [
@@ -154,7 +177,7 @@ for (const required of [
   "Swarm naming",
 ]) {
   if (!contradictionLog.includes(required)) {
-    fail(`documentation-contradiction-log.md missing ${required}.`);
+    fail(`_meta/contradiction-log.md missing ${required}.`);
   }
 }
 
