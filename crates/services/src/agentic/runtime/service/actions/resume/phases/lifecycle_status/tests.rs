@@ -173,6 +173,7 @@ fn agent_state_with_mail_reply() -> AgentState {
     AgentState {
         session_id: [4u8; 32],
         goal: "send the email".to_string(),
+        runtime_route_frame: None,
         transcript_root: [0u8; 32],
         status: AgentStatus::Running,
         step_count: 0,
@@ -271,6 +272,7 @@ fn agent_state_with_automation_monitor() -> AgentState {
     AgentState {
         session_id: [7u8; 32],
         goal: "Monitor Hacker News and notify me whenever a post about Web4 or post-quantum cryptography hits the front page.".to_string(),
+        runtime_route_frame: None,
         transcript_root: [0u8; 32],
         status: AgentStatus::Running,
         step_count: 0,
@@ -313,6 +315,7 @@ fn agent_state_with_install_dependency() -> AgentState {
     AgentState {
         session_id: [9u8; 32],
         goal: "install cowsay".to_string(),
+        runtime_route_frame: None,
         transcript_root: [0u8; 32],
         status: AgentStatus::Running,
         step_count: 0,
@@ -569,7 +572,7 @@ async fn approved_install_resume_terminalizes_instead_of_looping() {
     );
     agent_state.tool_execution_log.insert(
         execution_evidence_key("verification"),
-        ToolCallStatus::Executed("install_package_success=true".to_string()),
+        ToolCallStatus::Executed("software_install_success=true".to_string()),
     );
     agent_state.tool_execution_log.insert(
         execution_evidence_key(VERIFICATION_COMMIT_EVIDENCE),

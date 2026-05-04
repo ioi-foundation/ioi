@@ -8,10 +8,18 @@ use super::{
     compute_workload_id, emit_workload_activity, emit_workload_receipt, extract_error_class,
     ToolExecutionResult, ToolExecutor,
 };
+use crate::agentic::runtime::resolver::software_install::{
+    host_discovery_snapshot, install_source_candidate_from_target,
+    resolve_install_plan_for_request, target_from_resolved_plan, InstallResolutionPlan,
+    ResolvedInstallTarget,
+};
 use crate::agentic::runtime::runtime_secret;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use ioi_drivers::terminal::CommandExecutionOptions;
-use ioi_types::app::agentic::{AgentTool, SoftwareInstallRequestFrame};
+use ioi_types::app::agentic::{
+    AgentTool, InstallFinalReceipt, InstallResolutionEvent, InstallVerificationEvent,
+    ResolvedInstallPlan, SoftwareInstallRequestFrame,
+};
 use ioi_types::app::{WorkloadActivityKind, WorkloadExecReceipt, WorkloadReceipt};
 use serde::{Deserialize, Serialize};
 use std::env;
@@ -21,35 +29,11 @@ use std::time::Duration;
 
 const INSTALL_COMMAND_TIMEOUT: Duration = Duration::from_secs(600);
 const RUNTIME_SECRET_KIND_SUDO_PASSWORD: &str = "sudo_password";
-const INSTALL_RESOLVER_FETCH_TIMEOUT_SECS: &str = "6";
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct ResolvedInstallTarget {
-    pub display_name: String,
-    pub canonical_id: String,
-    pub target_kind: String,
-    pub platform: String,
-    pub architecture: String,
-    pub source_kind: String,
-    pub manager: String,
-    pub package_id: String,
-    pub installer_url: Option<String>,
-    pub source_discovery_url: Option<String>,
-    pub requires_elevation: bool,
-    pub verification_command: Option<Vec<String>>,
-    pub launch_target: Option<String>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) enum InstallResolutionPlan {
-    Resolved(ResolvedInstallTarget),
-    Unsupported(ResolvedInstallTarget),
-    Ambiguous {
-        target_text: String,
-        candidates: Vec<String>,
-    },
-    Unresolved(ResolvedInstallTarget),
-}
+#[cfg(test)]
+use crate::agentic::runtime::resolver::software_install::{
+    normalize_install_manager, resolve_install_target,
+};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct InstallResolutionSummary {
@@ -63,25 +47,38 @@ pub(crate) struct InstallResolutionSummary {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct SoftwareInstallPlanRefPayload {
     version: u8,
-    request: SoftwareInstallRequestFrame,
+    plan: ResolvedInstallPlan,
 }
 
+pub(crate) fn software_install_plan_ref_for_resolved_plan(plan: &ResolvedInstallPlan) -> String {
+    let payload = SoftwareInstallPlanRefPayload {
+        version: 2,
+        plan: plan.clone(),
+    };
+    let bytes = serde_json::to_vec(&payload).unwrap_or_default();
+    format!("software-install-plan:v2:{}", URL_SAFE_NO_PAD.encode(bytes))
+}
+
+#[cfg(test)]
 pub(crate) fn software_install_plan_ref_for_request(
     request: &SoftwareInstallRequestFrame,
 ) -> String {
-    let payload = SoftwareInstallPlanRefPayload {
-        version: 1,
-        request: request.clone(),
+    let target = match resolve_install_plan_for_request(request) {
+        Ok(InstallResolutionPlan::Resolved(target)) => target,
+        Ok(plan) => panic!(
+            "test helper requires a resolved install plan, got {}",
+            install_plan_blocker_error(&plan)
+        ),
+        Err(error) => panic!("test helper failed to resolve install plan: {error}"),
     };
-    let bytes = serde_json::to_vec(&payload).unwrap_or_default();
-    format!("software-install-plan:v1:{}", URL_SAFE_NO_PAD.encode(bytes))
+    let plan = resolved_install_plan_for_target(request, &target)
+        .expect("test helper should build resolved install plan");
+    software_install_plan_ref_for_resolved_plan(&plan)
 }
 
-fn software_install_request_from_plan_ref(
-    plan_ref: &str,
-) -> Result<SoftwareInstallRequestFrame, String> {
+fn software_install_plan_from_plan_ref(plan_ref: &str) -> Result<ResolvedInstallPlan, String> {
     let encoded = plan_ref
-        .strip_prefix("software-install-plan:v1:")
+        .strip_prefix("software-install-plan:v2:")
         .ok_or_else(|| {
             "ERROR_CLASS=InstallerResolutionRequired Invalid software install plan_ref.".to_string()
         })?;
@@ -93,13 +90,13 @@ fn software_install_request_from_plan_ref(
     let payload: SoftwareInstallPlanRefPayload = serde_json::from_slice(&bytes).map_err(|error| {
         format!("ERROR_CLASS=InstallerResolutionRequired Invalid software install plan payload: {error}.")
     })?;
-    if payload.version != 1 {
+    if payload.version != 2 {
         return Err(format!(
             "ERROR_CLASS=InstallerResolutionRequired Unsupported software install plan version '{}'.",
             payload.version
         ));
     }
-    Ok(payload.request)
+    Ok(payload.plan)
 }
 
 pub(super) async fn handle_software_install_resolve(
@@ -107,20 +104,18 @@ pub(super) async fn handle_software_install_resolve(
 ) -> ToolExecutionResult {
     match resolve_install_plan_for_request(request) {
         Ok(InstallResolutionPlan::Resolved(target)) => {
-            let plan_ref = software_install_plan_ref_for_request(request);
-            ToolExecutionResult::success(format!(
-                "Software install plan resolved. SOFTWARE_INSTALL stage='resolved' target='{}' canonical_id='{}' target_kind='{}' platform='{}' architecture='{}' source_kind='{}' manager='{}' package_id='{}' plan_ref='{}' provenance='{}' verification='{}'",
-                compact_resolution_value(&target.display_name),
-                compact_resolution_value(&target.canonical_id),
-                compact_resolution_value(&target.target_kind),
-                compact_resolution_value(&target.platform),
-                compact_resolution_value(&target.architecture),
-                compact_resolution_value(&target.source_kind),
-                compact_resolution_value(&target.manager),
-                compact_resolution_value(&target.package_id),
-                compact_resolution_value(&plan_ref),
-                compact_resolution_value(target.source_discovery_url.as_deref().unwrap_or("resolver_provider")),
-                compact_resolution_value(&verification_preview(&target)),
+            let plan = match resolved_install_plan_for_target(request, &target) {
+                Ok(plan) => plan,
+                Err(error) => return ToolExecutionResult::failure(error),
+            };
+            let plan_ref = software_install_plan_ref_for_resolved_plan(&plan);
+            let event = install_resolution_event("resolved", &target, Some(plan_ref), None);
+            ToolExecutionResult::success(install_resolution_output(
+                event,
+                format!(
+                    "Resolved install plan for {} via {}.",
+                    target.display_name, target.manager
+                ),
             ))
         }
         Ok(plan) => ToolExecutionResult::failure(install_plan_blocker_error(&plan)),
@@ -140,28 +135,49 @@ pub(super) async fn handle_software_install_execute_plan(
         Err(error) => return ToolExecutionResult::failure(error),
     };
 
-    let request = match software_install_request_from_plan_ref(plan_ref) {
-        Ok(request) => request,
+    let plan = match software_install_plan_from_plan_ref(plan_ref) {
+        Ok(plan) => plan,
         Err(error) => return ToolExecutionResult::failure(error),
     };
+    let request = plan.request.clone();
     let target_text = request.target_text.trim();
     if target_text.is_empty() {
         return ToolExecutionResult::failure(
             "ERROR_CLASS=MissingDependency Software install target cannot be empty.".to_string(),
         );
     }
-
-    let target = match resolve_install_plan_for_request(&request) {
-        Ok(InstallResolutionPlan::Resolved(target)) => target,
-        Ok(plan) => {
-            return ToolExecutionResult::failure(install_plan_blocker_error(&plan));
-        }
-        Err(error) => return ToolExecutionResult::failure(error),
-    };
+    let target = target_from_resolved_plan(&plan);
+    if target.verification_command.is_none() {
+        let verification = InstallVerificationEvent {
+            plan_ref: plan_ref.to_string(),
+            status: "blocked_manual_verification".to_string(),
+            command: Vec::new(),
+            summary: format!(
+                "No verification command is registered for {}.",
+                target.package_id
+            ),
+        };
+        let receipt = InstallFinalReceipt {
+            plan_ref: plan_ref.to_string(),
+            status: "blocked_manual_verification".to_string(),
+            display_name: target.display_name.clone(),
+            failure_class: Some("VerificationMissing".to_string()),
+            verification: Some(verification),
+        };
+        return ToolExecutionResult::failure(format!(
+            "ERROR_CLASS=VerificationMissing {}",
+            install_final_receipt_output(
+                receipt,
+                format!(
+                    "Install plan for {} cannot report success without verification.",
+                    target.display_name
+                ),
+            )
+        ));
+    }
 
     let manager = target.manager.clone();
     let mut stdin_data: Option<Vec<u8>> = None;
-    let mut used_runtime_password = false;
     let (command, mut args) = match install_command_for_target(&target) {
         Ok(command) => command,
         Err(error) => return ToolExecutionResult::failure(error),
@@ -172,7 +188,6 @@ pub(super) async fn handle_software_install_execute_plan(
         if let Some(secret) =
             runtime_secret::take_secret(&session_id_hex, RUNTIME_SECRET_KIND_SUDO_PASSWORD)
         {
-            used_runtime_password = true;
             args = sudo_password_retry_args(&target);
             stdin_data = Some(format!("{}\n", secret).into_bytes());
         }
@@ -221,51 +236,99 @@ pub(super) async fn handle_software_install_execute_plan(
         Ok(output) => {
             if command_output_indicates_failure(&output) {
                 let class = classify_install_failure(output.as_str(), &command, &manager);
-                ToolExecutionResult::failure(format!(
-                    "ERROR_CLASS={} Failed to install '{}' via '{}': {}. {}",
-                    class,
+                let summary = format!(
+                    "Failed to install '{}' via '{}': {}.",
                     target_text,
                     manager,
-                    summarize_install_failure_output(&output),
-                    install_resolution_receipt(&target, "failed", &receipt_preview),
+                    summarize_install_failure_output(&output)
+                );
+                let receipt = InstallFinalReceipt {
+                    plan_ref: plan_ref.to_string(),
+                    status: "failed".to_string(),
+                    display_name: target.display_name.clone(),
+                    failure_class: Some(class.to_string()),
+                    verification: None,
+                };
+                ToolExecutionResult::failure(format!(
+                    "ERROR_CLASS={} {}",
+                    class,
+                    install_final_receipt_output(receipt, summary),
                 ))
             } else {
-                let mode_note = if used_runtime_password {
-                    "sudo-password"
-                } else {
-                    command.as_str()
-                };
                 match verify_install_target(exec, &target, Some(resolved_cwd.as_path())).await {
-                    Ok(verification) => ToolExecutionResult::success(format!(
-                        "Installed '{}' as '{}' via '{}' (source_kind={}, mode={}); verification passed: {}. {}",
-                        target.display_name,
-                        target.package_id,
-                        target.manager,
-                        target.source_kind,
-                        mode_note,
-                        verification,
-                        install_resolution_receipt(&target, "installed", &receipt_preview),
-                    )),
-                    Err(verification_error) => ToolExecutionResult::failure(format!(
-                        "ERROR_CLASS=VerificationFailed Package manager completed for '{}' via '{}', but verification failed: {}. {}",
-                        target.display_name,
-                        target.manager,
-                        verification_error,
-                        install_resolution_receipt(&target, "verification_failed", &receipt_preview),
-                    )),
+                    Ok(verification) => {
+                        let verification_event = InstallVerificationEvent {
+                            plan_ref: plan_ref.to_string(),
+                            status: "verified".to_string(),
+                            command: target.verification_command.clone().unwrap_or_default(),
+                            summary: verification.clone(),
+                        };
+                        let receipt = InstallFinalReceipt {
+                            plan_ref: plan_ref.to_string(),
+                            status: "installed_verified".to_string(),
+                            display_name: target.display_name.clone(),
+                            failure_class: None,
+                            verification: Some(verification_event),
+                        };
+                        ToolExecutionResult::success(install_final_receipt_output(
+                            receipt,
+                            format!(
+                                "Installed '{}' as '{}' via '{}'; verification passed: {}.",
+                                target.display_name,
+                                target.package_id,
+                                target.manager,
+                                verification
+                            ),
+                        ))
+                    }
+                    Err(verification_error) => {
+                        let verification_event = InstallVerificationEvent {
+                            plan_ref: plan_ref.to_string(),
+                            status: "failed".to_string(),
+                            command: target.verification_command.clone().unwrap_or_default(),
+                            summary: verification_error.clone(),
+                        };
+                        let receipt = InstallFinalReceipt {
+                            plan_ref: plan_ref.to_string(),
+                            status: "verification_failed".to_string(),
+                            display_name: target.display_name.clone(),
+                            failure_class: Some("VerificationFailed".to_string()),
+                            verification: Some(verification_event),
+                        };
+                        ToolExecutionResult::failure(format!(
+                            "ERROR_CLASS=VerificationFailed {}",
+                            install_final_receipt_output(
+                                receipt,
+                                format!(
+                                    "Installer completed for '{}' via '{}', but verification failed: {}.",
+                                    target.display_name, target.manager, verification_error
+                                ),
+                            )
+                        ))
+                    }
                 }
             }
         }
         Err(e) => {
             let msg = e.to_string();
             let class = classify_install_failure(msg.as_str(), &command, &manager);
+            let receipt = InstallFinalReceipt {
+                plan_ref: plan_ref.to_string(),
+                status: "failed".to_string(),
+                display_name: target.display_name.clone(),
+                failure_class: Some(class.to_string()),
+                verification: None,
+            };
             ToolExecutionResult::failure(format!(
-                "ERROR_CLASS={} Failed to install '{}' via '{}': {}. {}",
+                "ERROR_CLASS={} {}",
                 class,
-                target_text,
-                manager,
-                msg,
-                install_resolution_receipt(&target, "failed", &receipt_preview),
+                install_final_receipt_output(
+                    receipt,
+                    format!(
+                        "Failed to install '{}' via '{}': {}.",
+                        target_text, manager, msg
+                    ),
+                ),
             ))
         }
     };
@@ -398,18 +461,29 @@ pub(crate) fn install_already_satisfied_before_approval_for_tool(
         if !current_exe.is_file() {
             return None;
         }
-        return Some(format!(
-            "Already available: '{}' resolves to the running product, so no host mutation was performed; verification passed: current executable exists at {}. SOFTWARE_INSTALL stage='already_available' display_name='{}' canonical_id='{}' target_kind='{}' platform='{}' architecture='{}' source_kind='{}' manager='{}' package_id='{}' requires_elevation='false' verification='current_exe_exists' command='skipped_already_available'",
-            target.display_name,
-            compact_resolution_value(current_exe.to_string_lossy().as_ref()),
-            target.display_name,
-            target.canonical_id,
-            target.target_kind,
-            target.platform,
-            target.architecture,
-            target.source_kind,
-            target.manager,
-            target.package_id,
+        let plan_ref = format!("already-current-app:{}", target.canonical_id);
+        let verification = InstallVerificationEvent {
+            plan_ref: plan_ref.clone(),
+            status: "verified".to_string(),
+            command: vec!["current_exe_exists".to_string()],
+            summary: format!(
+                "Current executable exists at {}.",
+                compact_resolution_value(current_exe.to_string_lossy().as_ref())
+            ),
+        };
+        let receipt = InstallFinalReceipt {
+            plan_ref,
+            status: "already_available_verified".to_string(),
+            display_name: target.display_name.clone(),
+            failure_class: None,
+            verification: Some(verification),
+        };
+        return Some(install_final_receipt_output(
+            receipt,
+            format!(
+                "{} is already available as the running product; no host mutation was performed.",
+                target.display_name
+            ),
         ));
     }
 
@@ -428,20 +502,28 @@ pub(crate) fn install_already_satisfied_before_approval_for_tool(
     let combined = format!("Stdout:\n{}\nStderr:\n{}", stdout, stderr);
     let verification = summarize_command_output(&combined);
 
-    Some(format!(
-        "Already installed: '{}' is present before host mutation; verification passed: {}. SOFTWARE_INSTALL stage='already_installed' display_name='{}' canonical_id='{}' target_kind='{}' platform='{}' architecture='{}' source_kind='{}' manager='{}' package_id='{}' requires_elevation='{}' verification='{}' command='skipped_already_installed'",
-        target.display_name,
-        compact_resolution_value(&verification),
-        target.display_name,
-        target.canonical_id,
-        target.target_kind,
-        target.platform,
-        target.architecture,
-        target.source_kind,
-        target.manager,
-        target.package_id,
-        target.requires_elevation,
-        verification_preview(&target),
+    let plan = resolved_install_plan_for_target(&request, &target).ok()?;
+    let plan_ref = software_install_plan_ref_for_resolved_plan(&plan);
+    let verification_event = InstallVerificationEvent {
+        plan_ref: plan_ref.clone(),
+        status: "verified".to_string(),
+        command: target.verification_command.clone().unwrap_or_default(),
+        summary: verification.clone(),
+    };
+    let receipt = InstallFinalReceipt {
+        plan_ref,
+        status: "already_installed_verified".to_string(),
+        display_name: target.display_name.clone(),
+        failure_class: None,
+        verification: Some(verification_event),
+    };
+    Some(install_final_receipt_output(
+        receipt,
+        format!(
+            "{} is already installed; verification passed: {}.",
+            target.display_name,
+            compact_resolution_value(&verification)
+        ),
     ))
 }
 
@@ -449,7 +531,9 @@ fn install_request_from_tool(tool: &AgentTool) -> Option<SoftwareInstallRequestF
     match tool {
         AgentTool::SoftwareInstallResolve { request } => Some(request.clone()),
         AgentTool::SoftwareInstallExecutePlan { plan_ref } => {
-            software_install_request_from_plan_ref(plan_ref).ok()
+            software_install_plan_from_plan_ref(plan_ref)
+                .ok()
+                .map(|plan| plan.request)
         }
         _ => None,
     }
@@ -461,6 +545,57 @@ fn compact_resolution_value(value: &str) -> String {
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+fn install_resolution_event(
+    stage: &str,
+    target: &ResolvedInstallTarget,
+    plan_ref: Option<String>,
+    blocker: Option<String>,
+) -> InstallResolutionEvent {
+    InstallResolutionEvent {
+        stage: stage.to_string(),
+        display_name: target.display_name.clone(),
+        canonical_id: target.canonical_id.clone(),
+        target_kind: target.target_kind.clone(),
+        host: host_discovery_snapshot(),
+        source: install_source_candidate_from_target(target),
+        requires_elevation: target.requires_elevation,
+        plan_ref,
+        blocker,
+    }
+}
+
+fn install_resolution_output(event: InstallResolutionEvent, summary: String) -> String {
+    serde_json::to_string(&serde_json::json!({
+        "kind": "install_resolution",
+        "summary": summary,
+        "install_event": event,
+    }))
+    .unwrap_or_else(|_| summary)
+}
+
+fn install_blocker_output(
+    error_class: &str,
+    event: InstallResolutionEvent,
+    summary: String,
+) -> String {
+    serde_json::to_string(&serde_json::json!({
+        "kind": "install_resolution",
+        "error_class": error_class,
+        "summary": summary,
+        "install_event": event,
+    }))
+    .unwrap_or_else(|_| format!("ERROR_CLASS={error_class} {summary}"))
+}
+
+fn install_final_receipt_output(receipt: InstallFinalReceipt, summary: String) -> String {
+    serde_json::to_string(&serde_json::json!({
+        "kind": "install_final_receipt",
+        "summary": summary,
+        "install_final_receipt": receipt,
+    }))
+    .unwrap_or_else(|_| summary)
 }
 
 fn install_resolution_checks(plan: &InstallResolutionPlan) -> Vec<String> {
@@ -572,832 +707,32 @@ fn install_resolution_checks(plan: &InstallResolutionPlan) -> Vec<String> {
     checks
 }
 
-fn supported_install_managers() -> &'static [&'static str] {
-    &[
-        "apt-get",
-        "brew",
-        "brew-cask",
-        "pip",
-        "npm",
-        "pnpm",
-        "cargo",
-        "winget",
-        "choco",
-        "scoop",
-        "yum",
-        "dnf",
-        "pacman",
-        "zypper",
-        "apk",
-        "flatpak",
-        "snap",
-        "appimage",
-        "manual",
-        "self",
-    ]
-}
-
-fn command_exists(command: &str) -> bool {
-    let Some(paths) = env::var_os("PATH") else {
-        return false;
-    };
-    let candidates = if cfg!(windows) {
-        vec![
-            command.to_string(),
-            format!("{command}.exe"),
-            format!("{command}.cmd"),
-            format!("{command}.bat"),
-        ]
-    } else {
-        vec![command.to_string()]
-    };
-    env::split_paths(&paths).any(|path| {
-        candidates
-            .iter()
-            .map(|candidate| path.join(candidate))
-            .any(|candidate| candidate.is_file())
-    })
-}
-
-fn first_available_manager(candidates: &[&str], fallback: &str) -> String {
-    candidates
-        .iter()
-        .copied()
-        .find(|candidate| {
-            let command = match *candidate {
-                "brew-cask" => "brew",
-                "apt-get" => "apt-get",
-                other => other,
-            };
-            command_exists(command)
-        })
-        .unwrap_or(fallback)
-        .to_string()
-}
-
-fn default_install_manager() -> String {
-    if cfg!(target_os = "macos") {
-        first_available_manager(&["brew"], "brew")
-    } else if cfg!(target_os = "windows") {
-        first_available_manager(&["winget", "choco", "scoop"], "winget")
-    } else {
-        first_available_manager(
-            &[
-                "apt-get", "dnf", "yum", "pacman", "zypper", "apk", "flatpak", "snap",
-            ],
-            "apt-get",
-        )
-    }
-}
-
-fn normalize_install_manager(raw: Option<&str>) -> String {
-    let manager = raw
-        .map(|m| m.trim().to_ascii_lowercase())
-        .filter(|m| !m.is_empty())
-        .unwrap_or_else(default_install_manager);
-    match manager.as_str() {
-        "auto" | "default" | "system" => default_install_manager(),
-        "apt" | "apt-get" => "apt-get".to_string(),
-        "brew" => "brew".to_string(),
-        "cask" | "brew-cask" | "homebrew-cask" => "brew-cask".to_string(),
-        "pip" | "pip3" => "pip".to_string(),
-        "npm" => "npm".to_string(),
-        "pnpm" => "pnpm".to_string(),
-        "cargo" => "cargo".to_string(),
-        "winget" => "winget".to_string(),
-        "choco" | "chocolatey" => "choco".to_string(),
-        "scoop" => "scoop".to_string(),
-        "yum" => "yum".to_string(),
-        "dnf" => "dnf".to_string(),
-        "pacman" => "pacman".to_string(),
-        "zypper" => "zypper".to_string(),
-        "apk" => "apk".to_string(),
-        "flatpak" => "flatpak".to_string(),
-        "snap" => "snap".to_string(),
-        "appimage" | "app-image" => "appimage".to_string(),
-        "manual" | "official-installer" => "manual".to_string(),
-        "self" => "self".to_string(),
-        _ => manager,
-    }
-}
-
-fn host_platform() -> String {
-    env::consts::OS.to_string()
-}
-
-fn host_architecture() -> String {
-    env::consts::ARCH.to_string()
-}
-
-fn canonical_package_key(package: &str) -> String {
-    package
-        .chars()
-        .filter(|ch| ch.is_ascii_alphanumeric())
-        .flat_map(|ch| ch.to_lowercase())
-        .collect()
-}
-
-fn generic_resolved_target(package: &str, manager: String) -> ResolvedInstallTarget {
-    ResolvedInstallTarget {
-        display_name: package.to_string(),
-        canonical_id: canonical_package_key(package),
-        target_kind: "package".to_string(),
-        platform: host_platform(),
-        architecture: host_architecture(),
-        source_kind: "package_manager".to_string(),
-        requires_elevation: manager_requires_elevation(&manager),
-        manager,
-        package_id: package.to_string(),
-        installer_url: None,
-        source_discovery_url: None,
-        verification_command: None,
-        launch_target: None,
-    }
-}
-
-fn unknown_resolved_target(package: &str, manager: String) -> ResolvedInstallTarget {
-    ResolvedInstallTarget {
-        display_name: package.to_string(),
-        canonical_id: canonical_package_key(package),
-        target_kind: "unknown".to_string(),
-        platform: host_platform(),
-        architecture: host_architecture(),
-        source_kind: "unknown_target".to_string(),
-        requires_elevation: false,
-        manager,
-        package_id: package.to_string(),
-        installer_url: None,
-        source_discovery_url: None,
-        verification_command: None,
-        launch_target: None,
-    }
-}
-
-struct CurrentProductInstallIdentity {
-    display_name: String,
-    canonical_id: String,
-    aliases: Vec<String>,
-}
-
-fn current_product_install_identity() -> CurrentProductInstallIdentity {
-    let display_name = env::var("IOI_PRODUCT_INSTALL_DISPLAY_NAME")
-        .unwrap_or_else(|_| "IOI Autopilot".to_string());
-    let canonical_id = env::var("IOI_PRODUCT_INSTALL_CANONICAL_ID")
-        .unwrap_or_else(|_| "ioi-autopilot".to_string());
-    let aliases = env::var("IOI_PRODUCT_INSTALL_ALIASES")
-        .unwrap_or_else(|_| "autopilot,ioi autopilot".to_string())
-        .split(',')
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(str::to_string)
-        .collect();
-    CurrentProductInstallIdentity {
-        display_name,
-        canonical_id,
-        aliases,
-    }
-}
-
-fn current_product_target(package: &str) -> Option<ResolvedInstallTarget> {
-    let key = canonical_package_key(package);
-    let identity = current_product_install_identity();
-    if !identity
-        .aliases
-        .iter()
-        .any(|alias| canonical_package_key(alias) == key)
-    {
-        return None;
-    }
-    Some(ResolvedInstallTarget {
-        display_name: identity.display_name.clone(),
-        canonical_id: identity.canonical_id.clone(),
-        target_kind: "current_product".to_string(),
-        platform: host_platform(),
-        architecture: host_architecture(),
-        source_kind: "current_app".to_string(),
-        manager: "self".to_string(),
-        package_id: identity.canonical_id,
-        installer_url: None,
-        source_discovery_url: None,
-        requires_elevation: false,
-        verification_command: None,
-        launch_target: Some(identity.display_name),
-    })
-}
-
-fn slugify_package_id(target: &str, separator: &str) -> String {
-    let mut out = String::new();
-    let mut last_was_sep = false;
-    for ch in target.chars() {
-        if ch.is_ascii_alphanumeric() {
-            out.push(ch.to_ascii_lowercase());
-            last_was_sep = false;
-        } else if !last_was_sep {
-            out.push_str(separator);
-            last_was_sep = true;
-        }
-    }
-    out.trim_matches(|ch| separator.contains(ch)).to_string()
-}
-
-fn manager_package_id_for_target(target: &str, manager: &str) -> String {
-    match manager {
-        "npm" => target.trim().to_string(),
-        "pip" | "cargo" | "pnpm" => slugify_package_id(target, "-"),
-        "brew-cask" => slugify_package_id(target, "-"),
-        "flatpak" => target.trim().to_string(),
-        "winget" | "choco" | "scoop" => target.trim().to_string(),
-        _ => slugify_package_id(target, "-"),
-    }
-}
-
-fn inferred_verification_command(
-    package_id: &str,
-    target_kind: Option<&str>,
-) -> Option<Vec<String>> {
-    if matches!(target_kind, Some("desktop_app" | "editor_extension")) {
-        return None;
-    }
-    let binary = package_id
-        .rsplit(['/', ':'])
-        .next()
-        .unwrap_or(package_id)
-        .trim()
-        .to_string();
-    if binary.is_empty() {
-        None
-    } else {
-        Some(vec![binary, "--version".to_string()])
-    }
-}
-
-fn explicit_manager_target(
+fn resolved_install_plan_for_target(
     request: &SoftwareInstallRequestFrame,
-    manager: String,
-) -> ResolvedInstallTarget {
-    let package_id = manager_package_id_for_target(&request.target_text, &manager);
-    let mut target = generic_resolved_target(&package_id, manager);
-    target.display_name = request.target_text.trim().to_string();
-    target.target_kind = request
-        .target_kind
-        .clone()
-        .unwrap_or_else(|| "package".to_string());
-    target.verification_command =
-        inferred_verification_command(&target.package_id, request.target_kind.as_deref());
-    target
-}
-
-fn auto_discovery_managers_for_host() -> Vec<&'static str> {
-    if cfg!(target_os = "macos") {
-        vec!["brew", "brew-cask"]
-    } else if cfg!(target_os = "windows") {
-        vec!["winget", "choco", "scoop"]
-    } else {
-        vec![
-            "apt-get", "dnf", "yum", "pacman", "zypper", "apk", "flatpak", "snap",
-        ]
-    }
-}
-
-fn manager_probe_binary(manager: &str) -> &str {
-    match manager {
-        "apt-get" => "apt-cache",
-        "brew-cask" => "brew",
-        other => other,
-    }
-}
-
-fn manager_exact_probe(manager: &str, package_id: &str) -> Option<(String, Vec<String>)> {
-    let pkg = package_id.trim();
-    if pkg.is_empty() {
-        return None;
-    }
-    let args = match manager {
-        "apt-get" => vec![
-            "show".to_string(),
-            "--no-all-versions".to_string(),
-            pkg.to_string(),
-        ],
-        "dnf" | "yum" => vec!["info".to_string(), pkg.to_string()],
-        "pacman" => vec!["-Si".to_string(), pkg.to_string()],
-        "zypper" => vec!["info".to_string(), pkg.to_string()],
-        "apk" => vec!["info".to_string(), "-a".to_string(), pkg.to_string()],
-        "flatpak" => vec![
-            "remote-info".to_string(),
-            "flathub".to_string(),
-            pkg.to_string(),
-        ],
-        "snap" => vec!["info".to_string(), pkg.to_string()],
-        "brew" => vec!["info".to_string(), "--formula".to_string(), pkg.to_string()],
-        "brew-cask" => vec!["info".to_string(), "--cask".to_string(), pkg.to_string()],
-        "winget" => vec![
-            "search".to_string(),
-            "--exact".to_string(),
-            "--id".to_string(),
-            pkg.to_string(),
-        ],
-        "choco" => vec!["search".to_string(), "--exact".to_string(), pkg.to_string()],
-        "scoop" => vec!["search".to_string(), pkg.to_string()],
-        _ => return None,
-    };
-    Some((manager_probe_binary(manager).to_string(), args))
-}
-
-fn package_manager_has_exact_candidate(manager: &str, package_id: &str) -> bool {
-    let Some((binary, args)) = manager_exact_probe(manager, package_id) else {
-        return false;
-    };
-    if !command_exists(&binary) {
-        return false;
-    }
-    Command::new(binary)
-        .args(args)
-        .output()
-        .ok()
-        .filter(|output| output.status.success())
-        .is_some()
-}
-
-fn package_id_candidates_for_auto(target: &str) -> Vec<String> {
-    let mut candidates = Vec::new();
-    for candidate in [
-        target.trim().to_string(),
-        slugify_package_id(target, "-"),
-        slugify_package_id(target, ""),
-    ] {
-        let candidate = candidate.trim().to_string();
-        if candidate.is_empty() || candidates.iter().any(|seen| seen == &candidate) {
-            continue;
-        }
-        candidates.push(candidate);
-    }
-    candidates
-}
-
-fn discover_package_manager_candidates(
-    request: &SoftwareInstallRequestFrame,
-) -> Vec<ResolvedInstallTarget> {
-    let mut candidates = Vec::new();
-    for manager in auto_discovery_managers_for_host() {
-        for package_id in package_id_candidates_for_auto(&request.target_text) {
-            if !package_manager_has_exact_candidate(manager, &package_id) {
-                continue;
-            }
-            let mut target = generic_resolved_target(&package_id, manager.to_string());
-            target.display_name = request.target_text.trim().to_string();
-            target.target_kind = request
-                .target_kind
-                .clone()
-                .unwrap_or_else(|| "package".to_string());
-            target.verification_command =
-                inferred_verification_command(&target.package_id, request.target_kind.as_deref());
-            candidates.push(target);
-        }
-    }
-    candidates
-}
-
-fn fetch_text_with_system_tool(url: &str) -> Option<String> {
-    let output = if command_exists("curl") {
-        Command::new("curl")
-            .args([
-                "-fsSL",
-                "--compressed",
-                "--max-time",
-                INSTALL_RESOLVER_FETCH_TIMEOUT_SECS,
-                "-A",
-                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36",
-                "-H",
-                "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                "-H",
-                "Accept-Language: en-US,en;q=0.9",
-                url,
-            ])
-            .output()
-            .ok()?
-    } else if command_exists("wget") {
-        Command::new("wget")
-            .args([
-                "-qO-",
-                "--timeout=6",
-                "--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/124 Safari/537.36",
-                "--header=Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                "--header=Accept-Language: en-US,en;q=0.9",
-                url,
-            ])
-            .output()
-            .ok()?
-    } else {
-        return None;
-    };
-    output
-        .status
-        .success()
-        .then(|| String::from_utf8_lossy(&output.stdout).to_string())
-}
-
-fn compact_target_tokens(target: &str) -> Vec<String> {
-    target
-        .split(|ch: char| !ch.is_ascii_alphanumeric())
-        .filter(|term| term.len() > 1)
-        .map(|term| term.to_ascii_lowercase())
-        .collect()
-}
-
-fn html_entity_decode_basic(value: &str) -> String {
-    value
-        .replace("&amp;", "&")
-        .replace("&quot;", "\"")
-        .replace("&#39;", "'")
-        .replace("&apos;", "'")
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-}
-
-fn query_encode(value: &str) -> String {
-    url::form_urlencoded::byte_serialize(value.as_bytes()).collect()
-}
-
-fn push_unique(values: &mut Vec<String>, value: String) {
-    if !values.iter().any(|seen| seen == &value) {
-        values.push(value);
-    }
-}
-
-fn url_from_candidate(raw: &str, base_url: &str) -> Option<String> {
-    let decoded = html_entity_decode_basic(raw.trim());
-    if decoded.is_empty() || decoded.starts_with('#') || decoded.starts_with("javascript:") {
-        return None;
-    }
-
-    let absolute = if decoded.starts_with("//") {
-        format!("https:{decoded}")
-    } else if decoded.starts_with('/') {
-        let base = url::Url::parse(base_url).ok()?;
-        base.join(&decoded).ok()?.to_string()
-    } else {
-        decoded
-    };
-
-    let parsed = url::Url::parse(&absolute).ok()?;
-    if parsed
-        .host_str()
-        .unwrap_or_default()
-        .contains("duckduckgo.com")
-    {
-        if let Some((_, uddg)) = parsed.query_pairs().find(|(key, _)| key == "uddg") {
-            return Some(uddg.into_owned());
-        }
-    }
-
-    Some(parsed.to_string())
-}
-
-fn extract_links_from_text(text: &str, base_url: &str) -> Vec<String> {
-    let mut links = Vec::new();
-    for token in text.split(['"', '\'', '<', '>', ' ', '\n', '\r', '\t', '(', ')', ',']) {
-        let Some(url) = url_from_candidate(token, base_url) else {
-            continue;
-        };
-        push_unique(&mut links, url);
-    }
-
-    for marker in ["href=", "src=", "url=", "downloadUrl"] {
-        let mut rest = text;
-        while let Some((_, after_marker)) = rest.split_once(marker) {
-            let trimmed = after_marker.trim_start_matches([' ', ':', '=']);
-            let quote = trimmed.chars().next().unwrap_or_default();
-            if matches!(quote, '"' | '\'') {
-                if let Some(end) = trimmed[1..].find(quote) {
-                    if let Some(url) = url_from_candidate(&trimmed[1..1 + end], base_url) {
-                        push_unique(&mut links, url);
-                    }
-                    rest = &trimmed[1 + end..];
-                    continue;
-                }
-            }
-            rest = trimmed;
-        }
-    }
-
-    links
-}
-
-fn is_search_or_asset_url(url: &str) -> bool {
-    let Ok(parsed) = url::Url::parse(url) else {
-        return true;
-    };
-    let host = parsed.host_str().unwrap_or_default();
-    if [
-        "duckduckgo.com",
-        "bing.com",
-        "google.com",
-        "brave.com",
-        "yahoo.com",
-        "w3.org",
-    ]
-    .iter()
-    .any(|blocked| host.ends_with(blocked))
-    {
-        return true;
-    }
-    let path = parsed.path().to_ascii_lowercase();
-    path.ends_with(".css")
-        || path.ends_with(".js")
-        || path.ends_with(".png")
-        || path.ends_with(".jpg")
-        || path.ends_with(".jpeg")
-        || path.ends_with(".gif")
-        || path.ends_with(".svg")
-        || path.ends_with(".ico")
-        || path.ends_with(".woff")
-        || path.ends_with(".woff2")
-}
-
-fn url_matches_target(url: &str, target: &str) -> bool {
-    let compact_target = canonical_package_key(target);
-    if compact_target.is_empty() {
-        return false;
-    }
-    let compact_url = canonical_package_key(url);
-    if compact_url.contains(&compact_target) {
-        return true;
-    }
-    let tokens = compact_target_tokens(target);
-    !tokens.is_empty()
-        && tokens
-            .iter()
-            .all(|token| compact_url.contains(&canonical_package_key(token)))
-}
-
-fn source_page_matches_target(target: &str, source_url: &str, html: &str) -> bool {
-    if !url_matches_target(source_url, target) && !url_matches_target(html, target) {
-        return false;
-    }
-    let lower = html.to_ascii_lowercase();
-    lower.contains("softwareapplication")
-        || lower.contains("downloadurl")
-        || lower.contains("download")
-        || lower.contains("appimage")
-        || lower.contains("installer")
-}
-
-fn query_derived_source_candidates(target: &str) -> Vec<String> {
-    let mut candidates = Vec::new();
-    let compact = canonical_package_key(target);
-    let dashed = slugify_package_id(target, "-");
-    for stem in [compact, dashed] {
-        if stem.is_empty() {
-            continue;
-        }
-        for tld in ["com", "ai", "app", "dev", "io", "org", "net"] {
-            let origin = format!("https://{stem}.{tld}");
-            push_unique(&mut candidates, format!("{origin}/download"));
-            push_unique(&mut candidates, format!("{origin}/downloads"));
-            push_unique(&mut candidates, origin);
-        }
-    }
-    candidates
-}
-
-fn search_engine_source_candidates(target: &str) -> Vec<String> {
-    let mut candidates = Vec::new();
-    let queries = [
-        format!("{target} official download"),
-        format!("\"{target}\" official download"),
-    ];
-    for query in queries {
-        let encoded = query_encode(&query);
-        for endpoint in [
-            format!("https://duckduckgo.com/html/?q={encoded}"),
-            format!("https://lite.duckduckgo.com/lite/?q={encoded}"),
-            format!("https://www.bing.com/search?format=rss&q={encoded}"),
-        ] {
-            let Some(html) = fetch_text_with_system_tool(&endpoint) else {
-                continue;
-            };
-            for link in extract_links_from_text(&html, &endpoint) {
-                if is_search_or_asset_url(&link) || !url_matches_target(&link, target) {
-                    continue;
-                }
-                push_unique(&mut candidates, link);
-            }
-        }
-    }
-    candidates
-}
-
-fn search_official_source_url(target: &str) -> Option<String> {
-    let mut candidates = query_derived_source_candidates(target);
-    for candidate in search_engine_source_candidates(target) {
-        push_unique(&mut candidates, candidate);
-    }
-
-    for candidate in candidates.into_iter().take(48) {
-        if is_search_or_asset_url(&candidate) {
-            continue;
-        }
-        let Some(html) = fetch_text_with_system_tool(&candidate) else {
-            continue;
-        };
-        if source_page_matches_target(target, &candidate, &html) {
-            return Some(candidate);
-        }
-    }
-
-    None
-}
-
-fn appimage_installer_url_from_html(source_url: &str, source_html: &str) -> Option<String> {
-    let normalized = source_html.replace(['\\', '\n', '\r'], "");
-    for link in extract_links_from_text(&normalized, source_url) {
-        if link.contains(".AppImage") {
-            return Some(link);
-        }
-    }
-
-    let origin = url::Url::parse(source_url).ok()?;
-    let origin = format!(
-        "{}://{}",
-        origin.scheme(),
-        origin.host_str().unwrap_or_default()
-    );
-    let route_prefix = normalized
-        .split('"')
-        .find(|part| part.starts_with("/download/") && part.ends_with('/'))?;
-    Some(format!(
-        "{}{}linux/{}?format=AppImage",
-        origin,
-        route_prefix,
-        download_artifact_architecture(&host_architecture())
-    ))
-}
-
-fn internal_download_pages(source_url: &str, source_html: &str) -> Vec<String> {
-    extract_links_from_text(source_html, source_url)
-        .into_iter()
-        .filter(|link| {
-            let same_origin = match (url::Url::parse(source_url), url::Url::parse(link)) {
-                (Ok(source), Ok(candidate)) => source.host_str() == candidate.host_str(),
-                _ => false,
-            };
-            same_origin && link.to_ascii_lowercase().contains("download")
-        })
-        .collect()
-}
-
-fn discover_appimage_candidate(target: &str, source_url: &str) -> Option<ResolvedInstallTarget> {
-    let source_html = fetch_text_with_system_tool(source_url)?;
-    let installer_url =
-        appimage_installer_url_from_html(source_url, &source_html).or_else(|| {
-            for download_page in internal_download_pages(source_url, &source_html) {
-                let Some(download_html) = fetch_text_with_system_tool(&download_page) else {
-                    continue;
-                };
-                if let Some(url) = appimage_installer_url_from_html(&download_page, &download_html)
-                {
-                    return Some(url);
-                }
-            }
-            None
-        })?;
-    let display_name = target.trim().to_string();
-    let canonical_id = slugify_package_id(&display_name, "-");
-    let appimage_name = format!(
-        "{}.AppImage",
-        display_name
-            .split_whitespace()
-            .collect::<Vec<_>>()
-            .join("-")
-    );
-    Some(ResolvedInstallTarget {
-        display_name: display_name.clone(),
-        canonical_id,
-        target_kind: "desktop_app".to_string(),
-        platform: host_platform(),
-        architecture: host_architecture(),
-        source_kind: "appimage".to_string(),
-        manager: "appimage".to_string(),
-        package_id: appimage_name,
-        installer_url: Some(installer_url),
-        source_discovery_url: Some(source_url.to_string()),
-        requires_elevation: false,
-        verification_command: Some(vec![
-            "sh".to_string(),
-            "-lc".to_string(),
-            format!(
-                "test -x \"$HOME/.local/bin/{}\" || test -x \"$HOME/.local/bin/{}\"",
-                display_name
-                    .split_whitespace()
-                    .collect::<Vec<_>>()
-                    .join("-")
-                    + ".AppImage",
-                slugify_package_id(&display_name, "-")
-            ),
-        ]),
-        launch_target: Some(display_name),
+    target: &ResolvedInstallTarget,
+) -> Result<ResolvedInstallPlan, String> {
+    let (command, args) = install_command_for_target(target)?;
+    let mut command_parts = Vec::with_capacity(args.len() + 1);
+    command_parts.push(command);
+    command_parts.extend(args);
+    Ok(ResolvedInstallPlan {
+        request: request.clone(),
+        display_name: target.display_name.clone(),
+        canonical_id: target.canonical_id.clone(),
+        target_kind: target.target_kind.clone(),
+        host: host_discovery_snapshot(),
+        source: install_source_candidate_from_target(target),
+        requires_elevation: target.requires_elevation,
+        command: command_parts,
+        verification_command: target.verification_command.clone(),
+        launch_target: target.launch_target.clone(),
+        approval_scope: if target.requires_elevation {
+            "host_mutation:elevated_install".to_string()
+        } else {
+            "host_mutation:user_install".to_string()
+        },
+        failure_policy: "verification_required_for_success".to_string(),
     })
-}
-
-pub(crate) fn resolve_install_plan_for_request(
-    request: &SoftwareInstallRequestFrame,
-) -> Result<InstallResolutionPlan, String> {
-    let target_text = request.target_text.trim();
-    if target_text.is_empty() {
-        return Err(
-            "ERROR_CLASS=MissingDependency Software install target cannot be empty.".to_string(),
-        );
-    }
-    let requested_manager = request.manager_preference.as_deref();
-    let manager_was_auto = requested_manager
-        .map(|manager| manager.trim().to_ascii_lowercase())
-        .filter(|manager| !manager.is_empty())
-        .map(|manager| matches!(manager.as_str(), "auto" | "default" | "system"))
-        .unwrap_or(true);
-    let manager = normalize_install_manager(requested_manager);
-    if !supported_install_managers().contains(&manager.as_str()) {
-        return Err(format!(
-            "ERROR_CLASS=ToolUnavailable Unsupported package manager '{}'. Supported managers: {}.",
-            manager,
-            supported_install_managers().join(", ")
-        ));
-    }
-
-    if let Some(target) = current_product_target(target_text) {
-        return Ok(InstallResolutionPlan::Unsupported(target));
-    }
-
-    if !manager_was_auto {
-        return Ok(InstallResolutionPlan::Resolved(explicit_manager_target(
-            request, manager,
-        )));
-    }
-
-    let package_manager_candidates = discover_package_manager_candidates(request);
-    if package_manager_candidates.len() == 1 {
-        return Ok(InstallResolutionPlan::Resolved(
-            package_manager_candidates
-                .into_iter()
-                .next()
-                .expect("len checked"),
-        ));
-    }
-    if package_manager_candidates.len() > 1 {
-        return Ok(InstallResolutionPlan::Ambiguous {
-            target_text: target_text.to_string(),
-            candidates: package_manager_candidates
-                .into_iter()
-                .map(|target| format!("{} via {}", target.package_id, target.manager))
-                .collect(),
-        });
-    }
-
-    if host_platform() == "linux" {
-        if let Some(source_url) = search_official_source_url(target_text) {
-            if let Some(target) = discover_appimage_candidate(target_text, &source_url) {
-                return Ok(InstallResolutionPlan::Resolved(target));
-            }
-        }
-    }
-
-    Ok(InstallResolutionPlan::Unresolved(unknown_resolved_target(
-        target_text,
-        manager,
-    )))
-}
-
-#[cfg(test)]
-pub(crate) fn resolve_install_target(
-    package: &str,
-    requested_manager: Option<&str>,
-) -> Result<ResolvedInstallTarget, String> {
-    let request = SoftwareInstallRequestFrame {
-        target_text: package.to_string(),
-        target_kind: None,
-        manager_preference: requested_manager.map(str::to_string),
-        launch_after_install: None,
-        provenance: Some("test".to_string()),
-    };
-    match resolve_install_plan_for_request(&request)? {
-        InstallResolutionPlan::Resolved(target)
-        | InstallResolutionPlan::Unsupported(target)
-        | InstallResolutionPlan::Unresolved(target) => Ok(target),
-        InstallResolutionPlan::Ambiguous {
-            target_text,
-            candidates,
-        } => Err(format!(
-            "ERROR_CLASS=InstallerResolutionRequired Install target '{}' is ambiguous. Candidates: {}.",
-            target_text,
-            candidates.join(", ")
-        )),
-    }
-}
-
-fn manager_requires_elevation(manager: &str) -> bool {
-    matches!(
-        manager,
-        "apt-get" | "yum" | "dnf" | "pacman" | "zypper" | "apk" | "snap"
-    )
 }
 
 fn install_plan_blocker_error(plan: &InstallResolutionPlan) -> String {
@@ -1423,65 +758,62 @@ fn install_plan_blocker_error(plan: &InstallResolutionPlan) -> String {
 }
 
 fn unsupported_target_error(target: &ResolvedInstallTarget) -> Option<String> {
-    match target.source_kind.as_str() {
-        "unsupported_platform" => Some(format!(
-            "ERROR_CLASS=UnsupportedPlatform '{}' has resolver metadata, but no verified installer is registered for {} {}. SOFTWARE_INSTALL display_name='{}' canonical_id='{}' target_kind='{}' source_kind='{}'",
-            target.display_name,
-            target.platform,
-            target.architecture,
-            target.display_name,
-            target.canonical_id,
-            target.target_kind,
-            target.source_kind,
-        )),
+    let (class, stage, summary) = match target.source_kind.as_str() {
+        "unsupported_platform" => (
+            "UnsupportedPlatform",
+            "unsupported",
+            format!(
+                "'{}' has resolver metadata, but no verified installer is registered for {} {}.",
+                target.display_name, target.platform, target.architecture
+            ),
+        ),
         "manual_installer" => {
             let official_source = target
                 .installer_url
                 .as_deref()
                 .or(target.source_discovery_url.as_deref())
                 .unwrap_or("no_url_available");
-            Some(format!(
-            "ERROR_CLASS=InstallerResolutionRequired Resolved '{}' for {} {} as an official manual installer source ({}), but no verified unattended installer candidate passed policy for manager '{}'. SOFTWARE_INSTALL display_name='{}' canonical_id='{}' target_kind='{}' source_kind='{}' source_discovery_url='{}' verification='{}'",
-            target.display_name,
-            target.platform,
-            target.architecture,
-            official_source,
-            target.manager,
-            target.display_name,
-            target.canonical_id,
-            target.target_kind,
-            target.source_kind,
-            official_source,
-            verification_preview(target),
-        ))
-        },
-        "current_app" => Some(format!(
-            "ERROR_CLASS=AlreadyCurrentApp '{}' resolves to the current product. Use the product release/update workflow or build artifacts for self-install/update. SOFTWARE_INSTALL display_name='{}' canonical_id='{}' target_kind='{}' source_kind='{}'",
-            target.display_name, target.display_name, target.canonical_id, target.target_kind, target.source_kind
-        )),
-        "editor_extension" => Some(format!(
-            "ERROR_CLASS=InstallerResolutionRequired '{}' resolves to an editor extension, not a desktop app package. Use an editor extension resolver for '{}'. SOFTWARE_INSTALL display_name='{}' canonical_id='{}' target_kind='{}' source_kind='{}' installer_url='{}'",
-            target.display_name,
-            target.package_id,
-            target.display_name,
-            target.canonical_id,
-            target.target_kind,
-            target.source_kind,
-            target
-                .installer_url
-                .as_deref()
-                .unwrap_or("no_url_available"),
-        )),
-        "unknown_target" => Some(format!(
-            "ERROR_CLASS=InstallerResolutionRequired No verified install candidate passed resolver policy for '{}'. Specify an explicit package manager/package id or choose a resolver-supported target before mutating the host. SOFTWARE_INSTALL display_name='{}' canonical_id='{}' target_kind='{}' source_kind='{}'",
-            target.display_name,
-            target.display_name,
-            target.canonical_id,
-            target.target_kind,
-            target.source_kind,
-        )),
-        _ => None,
-    }
+            (
+                "InstallerResolutionRequired",
+                "unsupported",
+                format!(
+                    "Resolved '{}' for {} {} as an official manual installer source ({}), but no verified unattended installer candidate passed policy for manager '{}'.",
+                    target.display_name, target.platform, target.architecture, official_source, target.manager
+                ),
+            )
+        }
+        "current_app" => (
+            "AlreadyCurrentApp",
+            "already_current_app",
+            format!(
+                "'{}' resolves to the current product. Use the product release/update workflow or build artifacts for self-install/update.",
+                target.display_name
+            ),
+        ),
+        "editor_extension" => (
+            "InstallerResolutionRequired",
+            "unsupported",
+            format!(
+                "'{}' resolves to an editor extension, not a desktop app package. Use an editor extension resolver for '{}'.",
+                target.display_name, target.package_id
+            ),
+        ),
+        "unresolved" => (
+            "InstallerResolutionRequired",
+            "unresolved",
+            format!(
+                "No verified install candidate passed resolver policy for '{}'. Specify an explicit package manager/package id or choose a resolver-supported target before mutating the host.",
+                target.display_name
+            ),
+        ),
+        _ => return None,
+    };
+    let event = install_resolution_event(stage, target, None, Some(summary.clone()));
+    Some(format!(
+        "ERROR_CLASS={} {}",
+        class,
+        install_blocker_output(class, event, summary)
+    ))
 }
 
 fn verification_preview(target: &ResolvedInstallTarget) -> String {
@@ -1490,49 +822,6 @@ fn verification_preview(target: &ResolvedInstallTarget) -> String {
         .as_ref()
         .map(|parts| parts.join(" "))
         .unwrap_or_else(|| "package_manager_success_only".to_string())
-}
-
-fn download_artifact_architecture(architecture: &str) -> String {
-    match architecture {
-        "x86_64" | "amd64" => "x64".to_string(),
-        "aarch64" => "arm64".to_string(),
-        other => other.to_string(),
-    }
-}
-
-fn install_resolution_receipt(
-    target: &ResolvedInstallTarget,
-    stage: &str,
-    command: &str,
-) -> String {
-    let mut receipt = format!(
-        "SOFTWARE_INSTALL stage='{}' display_name='{}' canonical_id='{}' target_kind='{}' platform='{}' architecture='{}' source_kind='{}' manager='{}' package_id='{}' requires_elevation='{}' verification='{}' command='{}'",
-        compact_resolution_value(stage),
-        compact_resolution_value(&target.display_name),
-        compact_resolution_value(&target.canonical_id),
-        compact_resolution_value(&target.target_kind),
-        compact_resolution_value(&target.platform),
-        compact_resolution_value(&target.architecture),
-        compact_resolution_value(&target.source_kind),
-        compact_resolution_value(&target.manager),
-        compact_resolution_value(&target.package_id),
-        target.requires_elevation,
-        compact_resolution_value(&verification_preview(target)),
-        compact_resolution_value(command),
-    );
-    if let Some(url) = target.installer_url.as_deref() {
-        receipt.push_str(&format!(
-            " installer_url='{}'",
-            compact_resolution_value(url)
-        ));
-    }
-    if let Some(url) = target.source_discovery_url.as_deref() {
-        receipt.push_str(&format!(
-            " source_discovery_url='{}'",
-            compact_resolution_value(url)
-        ));
-    }
-    receipt
 }
 
 fn install_command_for_target(
@@ -1775,13 +1064,13 @@ async fn verify_install_target(
     cwd: Option<&Path>,
 ) -> Result<String, String> {
     let Some(parts) = target.verification_command.as_ref() else {
-        return Ok(format!(
-            "manager '{}' reported success; no binary verification command is registered for '{}'",
-            target.manager, target.package_id
+        return Err(format!(
+            "No binary/app verification command is registered for '{}'.",
+            target.package_id
         ));
     };
     let Some((command, args)) = parts.split_first() else {
-        return Ok("verification command was empty".to_string());
+        return Err("verification command was empty".to_string());
     };
     let output = exec
         .terminal
@@ -1916,6 +1205,12 @@ mod tests {
         }
     }
 
+    fn resolve_tool(target_text: &str, manager_preference: Option<&str>) -> AgentTool {
+        AgentTool::SoftwareInstallResolve {
+            request: request(target_text, manager_preference),
+        }
+    }
+
     #[test]
     fn explicit_manager_install_keeps_package_manager_path_for_unknown_package() {
         let target = resolve_install_target("generic-tool", Some("apt-get")).expect("target");
@@ -1941,15 +1236,19 @@ mod tests {
     #[test]
     fn unknown_auto_install_target_blocks_without_package_manager_guess() {
         let target = resolve_install_target("snorflepaint", Some("auto")).expect("target");
-        assert_eq!(target.source_kind, "unknown_target");
+        assert_eq!(target.source_kind, "unresolved");
+        assert!(target.manager.is_empty());
+        assert!(target.package_id.is_empty());
         assert!(unsupported_target_error(&target)
             .expect("unknown app should block")
             .contains("No verified install candidate"));
 
         let checks =
-            install_resolution_checks_for_tool(&execute_plan_tool("snorflepaint", Some("auto")))
+            install_resolution_checks_for_tool(&resolve_tool("snorflepaint", Some("auto")))
                 .join("\n");
-        assert!(checks.contains("software_install.source_kind=unknown_target"));
+        assert!(checks.contains("software_install.source_kind=unresolved"));
+        assert!(checks.contains("software_install.manager="));
+        assert!(checks.contains("software_install.package_id="));
         assert!(checks.contains("software_install.command=not_available"));
         assert!(checks.contains("No verified install candidate"));
     }
@@ -1968,15 +1267,15 @@ mod tests {
 
     #[test]
     fn autopilot_current_product_can_complete_as_already_available() {
-        let summary = install_already_satisfied_before_approval_for_tool(&execute_plan_tool(
+        let summary = install_already_satisfied_before_approval_for_tool(&resolve_tool(
             "autopilot",
             Some("auto"),
         ))
         .expect("current executable verifies the running product");
 
         assert!(summary.contains("IOI Autopilot"));
-        assert!(summary.contains("stage='already_available'"));
-        assert!(summary.contains("source_kind='current_app'"));
+        assert!(summary.contains("already_available_verified"));
+        assert!(summary.contains("install_final_receipt"));
         assert!(!summary.contains("GitHub Copilot"));
     }
 
@@ -1989,6 +1288,24 @@ mod tests {
             !source.contains(&legacy_tool_name) && !source.contains(&legacy_variant_name),
             "software install runtime must not retain legacy package install contract"
         );
+    }
+
+    #[test]
+    fn execution_module_does_not_own_install_provider_discovery() {
+        let source = include_str!("install.rs");
+        for forbidden in [
+            ["fetch_text", "_with_system_tool"].concat(),
+            ["search_official", "_source_url"].concat(),
+            ["package_manager", "_has_exact_candidate"].concat(),
+            ["current_product", "_target("].concat(),
+            ["install_product", "_metadata"].concat(),
+            ["install", "_resolver"].concat(),
+        ] {
+            assert!(
+                !source.contains(&forbidden),
+                "CEC install executor must not contain resolver/provider discovery: {forbidden}"
+            );
+        }
     }
 
     #[test]
@@ -2006,84 +1323,5 @@ mod tests {
         ] {
             assert_eq!(normalize_install_manager(Some(raw)), expected);
         }
-    }
-
-    #[test]
-    fn provider_decodes_search_redirect_links_without_app_specific_targets() {
-        let html = r#"
-            <a class="result__a" href="/l/?kh=-1&amp;uddg=https%3A%2F%2Facmestudio.ai%2Fdownload">Download</a>
-            <a href="https://duckduckgo.com/y.js">asset</a>
-        "#;
-        let links = extract_links_from_text(html, "https://duckduckgo.com/html/?q=acme+studio");
-
-        assert!(links.contains(&"https://acmestudio.ai/download".to_string()));
-        assert!(links
-            .iter()
-            .any(|link| url_matches_target(link, "acme studio")));
-    }
-
-    #[test]
-    fn provider_extracts_download_script_links_without_app_specific_targets() {
-        let html = r#"
-            <script src="/_next/static/chunks/app/(dynamic)/download/page.js"></script>
-        "#;
-        let links = extract_links_from_text(html, "https://acmestudio.ai/download");
-
-        assert!(links.contains(
-            &"https://acmestudio.ai/_next/static/chunks/app/(dynamic)/download/page.js".to_string()
-        ));
-    }
-
-    #[test]
-    fn provider_derives_appimage_download_route_from_download_script() {
-        let script = r#"
-            function build(B,P){return "/download/latest/".concat(B,"/").concat(P)}
-            params.set("format","AppImage");
-        "#;
-        let installer = appimage_installer_url_from_html(
-            "https://acmestudio.ai/_next/static/chunks/app/(dynamic)/download/page.js",
-            script,
-        )
-        .expect("appimage route from script");
-
-        assert!(installer.starts_with("https://acmestudio.ai/download/latest/linux/"));
-        assert!(installer.ends_with("?format=AppImage"));
-    }
-
-    #[test]
-    fn provider_derives_appimage_download_route_from_official_page_metadata() {
-        let html = r#"
-            <script>
-                let href = "/download/latest/".concat(os, "/").concat(arch) + "?format=AppImage";
-            </script>
-            <script type="application/ld+json">
-                {"@type":"SoftwareApplication","name":"Acme Studio","downloadUrl":"https://acmestudio.ai/download"}
-            </script>
-        "#;
-
-        assert!(source_page_matches_target(
-            "acme studio",
-            "https://acmestudio.ai/download",
-            html
-        ));
-        let installer = appimage_installer_url_from_html("https://acmestudio.ai/download", html)
-            .expect("appimage route");
-
-        assert!(installer.starts_with("https://acmestudio.ai/download/latest/linux/"));
-        assert!(installer.ends_with("?format=AppImage"));
-    }
-
-    #[test]
-    fn provider_extracts_direct_appimage_link_from_download_page() {
-        let html = r#"
-            <a href="https://downloads.example.dev/releases/Acme-Studio-x64.AppImage">AppImage</a>
-        "#;
-        let installer = appimage_installer_url_from_html("https://acmestudio.ai/download", html)
-            .expect("direct appimage");
-
-        assert_eq!(
-            installer,
-            "https://downloads.example.dev/releases/Acme-Studio-x64.AppImage"
-        );
     }
 }

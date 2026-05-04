@@ -269,30 +269,16 @@ fn normalize_browser_follow_up_accepts_browser_type() {
 }
 
 #[test]
-fn normalize_browser_follow_up_accepts_nested_synthetic_click() {
-    let tool = normalize_browser_follow_up(
+fn normalize_browser_follow_up_rejects_ungrounded_nested_synthetic_click() {
+    let err = normalize_browser_follow_up(
         &AgentToolCall {
             name: "browser__click_at".to_string(),
             arguments: json!({ "x": "85.012", "y": "105.824" }),
         },
         "browser__wait",
     )
-    .expect("follow-up should normalize");
-
-    match tool {
-        ioi_types::app::agentic::AgentTool::BrowserSyntheticClick {
-            id,
-            x,
-            y,
-            continue_with,
-        } => {
-            assert!(id.is_none());
-            assert!((x.expect("x") - 85.012).abs() < f64::EPSILON);
-            assert!((y.expect("y") - 105.824).abs() < f64::EPSILON);
-            assert!(continue_with.is_none());
-        }
-        other => panic!("expected BrowserSyntheticClick, got {:?}", other),
-    }
+    .expect_err("ungrounded coordinate follow-up should be rejected");
+    assert!(err.to_string().contains("raw coordinates require grounded"));
 }
 
 #[test]
@@ -302,6 +288,9 @@ fn normalize_browser_follow_up_preserves_grounded_synthetic_click_coordinates() 
             name: "browser__click_at".to_string(),
             arguments: json!({
                 "id": "grp_click_canvas",
+                "observation_ref": "obs_browser_1",
+                "coordinate_space_id": "viewport_css_px",
+                "semantic_id": "grp_click_canvas",
                 "x": "51",
                 "y": 116
             }),
@@ -313,11 +302,17 @@ fn normalize_browser_follow_up_preserves_grounded_synthetic_click_coordinates() 
     match tool {
         ioi_types::app::agentic::AgentTool::BrowserSyntheticClick {
             id,
+            observation_ref,
+            coordinate_space_id,
+            semantic_id,
             x,
             y,
             continue_with,
         } => {
             assert_eq!(id.as_deref(), Some("grp_click_canvas"));
+            assert_eq!(observation_ref.as_deref(), Some("obs_browser_1"));
+            assert_eq!(coordinate_space_id.as_deref(), Some("viewport_css_px"));
+            assert_eq!(semantic_id.as_deref(), Some("grp_click_canvas"));
             assert_eq!(x, Some(51.0));
             assert_eq!(y, Some(116.0));
             assert!(continue_with.is_none());

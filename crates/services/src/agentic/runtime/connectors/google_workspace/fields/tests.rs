@@ -170,6 +170,7 @@ fn base_agent_state() -> AgentState {
     AgentState {
         session_id: [7u8; 32],
         goal: "test google connector policy".to_string(),
+        runtime_route_frame: None,
         transcript_root: [0u8; 32],
         status: AgentStatus::Running,
         step_count: 0,

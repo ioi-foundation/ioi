@@ -22,11 +22,33 @@ use ioi_api::runtime_harness::{
     ChatArtifactPreparedContextResolution, ChatArtifactRenderEvaluation, ChatArtifactSelectedSkill,
     ChatArtifactSkillDiscoveryResolution, ChatIntentContext, TopologyProjection,
 };
+use ioi_types::app::agentic::{
+    BrowserActionPlanRef, CommandExecutionPlanRef, RequiredCapability, RuntimeActionFrame,
+    SoftwareInstallRequestFrame,
+};
 use ioi_types::app::{
     ChatExecutionModeDecision, ChatExecutionStrategy, ChatNormalizedRequest,
     ChatRetainedWidgetState, ChatSourceFamily,
 };
+use sha2::Digest;
 use std::time::Duration;
+
+fn command_plan_ref_for_literal(command: &str) -> String {
+    let digest = sha2::Sha256::digest(command.as_bytes());
+    format!("command.exec:{}", hex::encode(digest))
+}
+
+fn command_plan_for_literal(command: &str) -> CommandExecutionPlanRef {
+    CommandExecutionPlanRef {
+        plan_ref: command_plan_ref_for_literal(command),
+        argv: vec!["bash".to_string(), "-lc".to_string(), command.to_string()],
+        shell_policy: "bounded".to_string(),
+        cwd: Some(".".to_string()),
+        env: Vec::new(),
+        approval_scope: None,
+        expected_receipt: Some("command_receipt".to_string()),
+    }
+}
 
 mod clarification;
 mod connectors;
@@ -41,10 +63,12 @@ use self::clarification::specialized_domain_clarification_question;
 pub(super) use self::connectors::{
     infer_connector_route_context_from_catalog, merge_connector_route_context,
 };
-pub(crate) use self::decision_record::runtime_handoff_prompt_prefix_for_task;
 pub(super) use self::decision_record::{
     append_decision_record_event, artifact_execution_envelope_for_contract,
     build_decision_record_payload, inline_answer_status_message,
+};
+pub(crate) use self::decision_record::{
+    runtime_handoff_prompt_prefix_for_task, runtime_route_frame_for_task,
 };
 pub(super) use self::inline_answer::attach_inline_answer_chat_session;
 pub(super) use self::inline_answer_surface::refresh_inline_answer_chat_surface;
@@ -189,31 +213,20 @@ fn install_chat_outcome_request(
         false,
         active_artifact_id.is_some(),
     );
-    let mut decision_evidence = vec![
-        "local_install_requested".to_string(),
-        "desktop_app_install_requested".to_string(),
+    let decision_evidence = vec![
         "tool_first_execution".to_string(),
         "approval_required".to_string(),
         "software_install_capability_required".to_string(),
     ];
-    if let Some(install_intent) = intent_context.local_install_intent() {
-        decision_evidence.push(format!(
-            "software_install_target_text:{}",
-            install_intent.target_text
-        ));
-        decision_evidence.push(format!(
-            "install_intent_class:{}",
-            install_intent.intent_class
-        ));
-        decision_evidence.push(format!(
-            "install_target_kind:{}",
-            install_intent.target_kind
-        ));
-        decision_evidence.push(format!(
-            "install_requires_host_mutation:{}",
-            install_intent.requires_host_mutation
-        ));
-    }
+    let normalized_request = intent_context.local_install_intent().map(|install_intent| {
+        ChatNormalizedRequest::SoftwareInstall(SoftwareInstallRequestFrame {
+            target_text: install_intent.target_text,
+            target_kind: Some(install_intent.target_kind.to_string()),
+            manager_preference: None,
+            launch_after_install: None,
+            provenance: Some("circ_intent_context".to_string()),
+        })
+    });
 
     let mut request = ChatOutcomeRequest {
         request_id: Uuid::new_v4().to_string(),
@@ -227,7 +240,124 @@ fn install_chat_outcome_request(
         clarification_questions: Vec::new(),
         decision_evidence,
         lane_request: None,
-        normalized_request: None,
+        normalized_request,
+        source_decision: None,
+        retained_lane_state: None,
+        lane_transitions: Vec::new(),
+        orchestration_state: None,
+        artifact: None,
+    };
+    refresh_outcome_request_topology(&mut request, None);
+    request
+}
+
+fn local_runtime_action_chat_outcome_request(
+    raw_prompt: &str,
+    active_artifact_id: Option<String>,
+    intent_context: &ChatIntentContext,
+) -> ChatOutcomeRequest {
+    let execution_mode_decision = derive_execution_mode_decision(
+        ChatOutcomeKind::Conversation,
+        None,
+        ChatExecutionStrategy::PlanExecute,
+        0.95,
+        false,
+        active_artifact_id.is_some(),
+    );
+    let action_intent = intent_context.local_runtime_action_intent();
+    let action_family = action_intent
+        .as_ref()
+        .map(|intent| intent.action_family)
+        .unwrap_or("local");
+    let action_target_kind = action_intent
+        .as_ref()
+        .map(|intent| intent.target_kind)
+        .unwrap_or("local_runtime_action");
+    let runtime_action_frame = action_intent.as_ref().map(|intent| {
+        let browser_plan = if intent.action_family == "browser" {
+            intent.target_url.as_ref().map(|url| BrowserActionPlanRef {
+                plan_ref: format!("browser.navigate:{}", url),
+                action: "navigate".to_string(),
+                url: url.clone(),
+                observation_required: true,
+                observation_ref: None,
+                coordinate_space_id: None,
+                semantic_id: None,
+            })
+        } else {
+            None
+        };
+        let command_plan = if intent.action_family == "shell" {
+            intent
+                .target_command
+                .as_deref()
+                .map(command_plan_for_literal)
+        } else {
+            None
+        };
+        let required_capabilities = match intent.action_family {
+            "browser" => vec![
+                RequiredCapability {
+                    capability_id: "browser.interact".to_string(),
+                    reason: Some("explicit browser action request".to_string()),
+                },
+                RequiredCapability {
+                    capability_id: "browser.inspect".to_string(),
+                    reason: Some(
+                        "browser response must be based on observation receipt".to_string(),
+                    ),
+                },
+            ],
+            "shell" => vec![RequiredCapability {
+                capability_id: "command.exec".to_string(),
+                reason: Some("explicit shell action request".to_string()),
+            }],
+            _ => vec![RequiredCapability {
+                capability_id: "agent.lifecycle".to_string(),
+                reason: Some("explicit local runtime action request".to_string()),
+            }],
+        };
+        RuntimeActionFrame {
+            intent_class: intent.intent_class.to_string(),
+            action_family: intent.action_family.to_string(),
+            target_text: intent.target_text.clone(),
+            target_kind: intent.target_kind.to_string(),
+            host_mutation: intent.requires_host_mutation,
+            required_capabilities,
+            browser_plan,
+            command_plan,
+            file_plan: None,
+            provenance: Some("circ_intent_context".to_string()),
+        }
+    });
+    let mut decision_evidence = vec![
+        "tool_first_execution".to_string(),
+        "local_runtime_action_required".to_string(),
+        format!("runtime_action_family:{action_family}"),
+        format!("runtime_action_target_kind:{action_target_kind}"),
+    ];
+    match action_family {
+        "browser" => decision_evidence.push("browser_action_required".to_string()),
+        "shell" => decision_evidence.push("shell_command_required".to_string()),
+        _ => {}
+    }
+
+    let mut request = ChatOutcomeRequest {
+        request_id: Uuid::new_v4().to_string(),
+        raw_prompt: raw_prompt.trim().to_string(),
+        active_artifact_id,
+        outcome_kind: ChatOutcomeKind::Conversation,
+        execution_strategy: execution_mode_decision.resolved_strategy,
+        execution_mode_decision: Some(execution_mode_decision),
+        confidence: action_intent
+            .as_ref()
+            .map(|intent| f32::from(intent.confidence) / 100.0)
+            .unwrap_or(0.95),
+        needs_clarification: false,
+        clarification_questions: Vec::new(),
+        decision_evidence,
+        lane_request: None,
+        normalized_request: runtime_action_frame.map(ChatNormalizedRequest::RuntimeAction),
         source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
@@ -249,17 +379,23 @@ pub(crate) fn seed_task_route_from_intent_signals(task: &mut AgentTask, raw_prom
     }
 
     let intent_context = ChatIntentContext::new(trimmed_prompt);
-    if intent_context.local_install_intent().is_none() {
+    let outcome_request = if intent_context.local_install_intent().is_some() {
+        install_chat_outcome_request(trimmed_prompt, None, &intent_context)
+    } else if intent_context.local_runtime_action_intent().is_some() {
+        local_runtime_action_chat_outcome_request(trimmed_prompt, None, &intent_context)
+    } else {
         return false;
-    }
-
-    let outcome_request = install_chat_outcome_request(trimmed_prompt, None, &intent_context);
+    };
     task.chat_outcome = Some(outcome_request.clone());
     append_decision_record_event(
         task,
         &outcome_request,
         "Chat route selected",
-        "Local software install request routed to approval-gated runtime execution.",
+        if intent_context.local_install_intent().is_some() {
+            "Local software install request routed to approval-gated runtime execution."
+        } else {
+            "Local runtime action request routed to tool execution."
+        },
         false,
     );
     true
@@ -374,6 +510,13 @@ pub(super) fn chat_outcome_request_with_runtime_timeout(
     }
     if intent_context.local_install_intent().is_some() {
         return Ok(install_chat_outcome_request(
+            trimmed_intent,
+            active_artifact_id,
+            &intent_context,
+        ));
+    }
+    if intent_context.local_runtime_action_intent().is_some() {
+        return Ok(local_runtime_action_chat_outcome_request(
             trimmed_intent,
             active_artifact_id,
             &intent_context,
@@ -661,6 +804,9 @@ fn normalized_request_has_clarification_slots(frame: &ChatNormalizedRequest) -> 
             !frame.clarification_required_slots.is_empty()
         }
         ChatNormalizedRequest::UserInput(frame) => !frame.clarification_required_slots.is_empty(),
+        ChatNormalizedRequest::SoftwareInstall(_) | ChatNormalizedRequest::RuntimeAction(_) => {
+            false
+        }
     }
 }
 
@@ -670,7 +816,10 @@ fn specialized_widget_family_for_request(frame: &ChatNormalizedRequest) -> Optio
         ChatNormalizedRequest::Sports(_) => Some("sports"),
         ChatNormalizedRequest::Places(_) => Some("places"),
         ChatNormalizedRequest::Recipe(_) => Some("recipe"),
-        ChatNormalizedRequest::MessageCompose(_) | ChatNormalizedRequest::UserInput(_) => None,
+        ChatNormalizedRequest::MessageCompose(_)
+        | ChatNormalizedRequest::UserInput(_)
+        | ChatNormalizedRequest::SoftwareInstall(_)
+        | ChatNormalizedRequest::RuntimeAction(_) => None,
     }
 }
 
@@ -738,6 +887,8 @@ fn normalized_request_matches_retained_widget_state(
         ChatNormalizedRequest::Recipe(_) => "recipe",
         ChatNormalizedRequest::MessageCompose(_) => "message",
         ChatNormalizedRequest::UserInput(_) => "user_input",
+        ChatNormalizedRequest::SoftwareInstall(_) => "software_install",
+        ChatNormalizedRequest::RuntimeAction(_) => "runtime_action",
     };
     widget_state.widget_family.as_deref() == Some(expected_family)
 }

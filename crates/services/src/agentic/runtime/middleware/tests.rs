@@ -267,25 +267,10 @@ fn test_observation_rejects_common_aliases_without_migration() {
 }
 
 #[test]
-fn test_normalize_with_observation_records_ui_click_lowering() {
+fn test_normalize_with_observation_rejects_ungrounded_ui_click_coordinates() {
     let input = r#"{"name":"ui__click","arguments":{"x":"24","y":"48"}}"#;
-    let result = normalize_tool_call_with_observation(input).unwrap();
-    match result.tool {
-        AgentTool::GuiClick { x, y, .. } => {
-            assert_eq!(x, 24);
-            assert_eq!(y, 48);
-        }
-        other => panic!("Expected GuiClick, got {:?}", other),
-    }
-    assert_eq!(result.observation.raw_name.as_deref(), Some("ui__click"));
-    assert_eq!(
-        result.observation.normalized_name.as_deref(),
-        Some("screen__click_at")
-    );
-    assert!(result
-        .observation
-        .labels
-        .contains(&"ui_click_to_screen_click_at".to_string()));
+    let err = normalize_tool_call_with_observation(input).expect_err("expected legacy alias error");
+    assert!(err.to_string().contains("legacy tool alias"));
 }
 
 #[test]
@@ -562,13 +547,12 @@ fn test_normalize_ui_click_component_lowers_to_gui_click_element() {
 }
 
 #[test]
-fn test_normalize_ui_click_component_accepts_component_id_alias() {
+fn test_normalize_ui_click_component_rejects_component_id_alias() {
     let input = r#"{"name":"screen__click","arguments":{"component_id":"btn_submit"}}"#;
-    let tool = ToolNormalizer::normalize(input).unwrap();
-    match tool {
-        AgentTool::GuiClickElement { id } => assert_eq!(id, "btn_submit"),
-        other => panic!("Expected GuiClickElement, got {:?}", other),
-    }
+    let err = ToolNormalizer::normalize(input).expect_err("expected schema error");
+    assert!(err.to_string().contains("Schema Validation Error"));
+    assert!(err.to_string().contains("screen__click"));
+    assert!(err.to_string().contains("id"));
 }
 
 #[test]
@@ -581,8 +565,8 @@ fn test_normalize_ui_click_component_rejects_missing_id() {
 }
 
 #[test]
-fn test_normalize_ui_type_lowers_to_gui_type() {
-    let input = r#"{"name":"ui__type","arguments":{"text":"hello"}}"#;
+fn test_normalize_screen_type_accepts_canonical_tool() {
+    let input = r#"{"name":"screen__type","arguments":{"text":"hello"}}"#;
     let tool = ToolNormalizer::normalize(input).unwrap();
     match tool {
         AgentTool::GuiType { text } => assert_eq!(text, "hello"),
@@ -591,8 +575,8 @@ fn test_normalize_ui_type_lowers_to_gui_type() {
 }
 
 #[test]
-fn test_normalize_ui_scroll_lowers_to_gui_scroll() {
-    let input = r#"{"name":"ui__scroll","arguments":{"delta_y":120}}"#;
+fn test_normalize_screen_scroll_accepts_canonical_tool() {
+    let input = r#"{"name":"screen__scroll","arguments":{"delta_y":120}}"#;
     let tool = ToolNormalizer::normalize(input).unwrap();
     match tool {
         AgentTool::GuiScroll { delta_x, delta_y } => {
@@ -604,27 +588,17 @@ fn test_normalize_ui_scroll_lowers_to_gui_scroll() {
 }
 
 #[test]
-fn test_normalize_ui_click_with_id_lowers_to_gui_click_element() {
+fn test_normalize_ui_click_with_id_rejects_legacy_alias() {
     let input = r#"{"name":"ui__click","arguments":{"id":"btn_submit"}}"#;
-    let tool = ToolNormalizer::normalize(input).unwrap();
-    match tool {
-        AgentTool::GuiClickElement { id } => assert_eq!(id, "btn_submit"),
-        other => panic!("Expected GuiClickElement, got {:?}", other),
-    }
+    let err = ToolNormalizer::normalize(input).expect_err("expected legacy alias error");
+    assert!(err.to_string().contains("legacy tool alias"));
 }
 
 #[test]
-fn test_normalize_ui_click_with_coordinate_lowers_to_gui_click() {
+fn test_normalize_ui_click_with_coordinate_requires_grounded_id() {
     let input = r#"{"name":"ui__click","arguments":{"coordinate":[100,200]}}"#;
-    let tool = ToolNormalizer::normalize(input).unwrap();
-    match tool {
-        AgentTool::GuiClick { x, y, button } => {
-            assert_eq!(x, 100);
-            assert_eq!(y, 200);
-            assert!(button.is_none());
-        }
-        other => panic!("Expected GuiClick, got {:?}", other),
-    }
+    let err = ToolNormalizer::normalize(input).expect_err("expected legacy alias error");
+    assert!(err.to_string().contains("legacy tool alias"));
 }
 
 #[test]
@@ -639,11 +613,10 @@ fn test_normalize_ui_click_element_lowers_to_gui_click_element() {
 
 #[test]
 fn test_normalize_ui_type_rejects_missing_text() {
-    let input = r#"{"name":"ui__type","arguments":{}}"#;
+    let input = r#"{"name":"screen__type","arguments":{}}"#;
     let err = ToolNormalizer::normalize(input).expect_err("expected schema error");
     assert!(err.to_string().contains("Schema Validation Error"));
-    assert!(err.to_string().contains("ui__type"));
-    assert!(err.to_string().contains("text"));
+    assert!(err.to_string().contains("screen__type"));
 }
 
 #[test]
@@ -658,6 +631,15 @@ fn test_normalize_net_fetch_accepts_valid_args() {
         }
         other => panic!("Expected NetFetch tool, got {:?}", other),
     }
+}
+
+#[test]
+fn test_normalize_net_fetch_rejects_max_chars_alias() {
+    let input =
+        r#"{"name":"http__fetch","arguments":{"url":"https://example.com","maxChars":123}}"#;
+    let err = ToolNormalizer::normalize(input).expect_err("expected schema error");
+    assert!(err.to_string().contains("Schema Validation Error"));
+    assert!(err.to_string().contains("maxChars"));
 }
 
 #[test]
@@ -695,23 +677,12 @@ fn test_empty_input_fails() {
 }
 
 #[test]
-fn test_normalize_synthetic_click() {
+fn test_normalize_synthetic_click_rejects_ungrounded_coordinates() {
     let input = r#"{"name": "browser__click_at", "arguments": {"x": 100.5, "y": 200.1}}"#;
-    let tool = ToolNormalizer::normalize(input).unwrap();
-    match tool {
-        AgentTool::BrowserSyntheticClick {
-            id,
-            x,
-            y,
-            continue_with,
-        } => {
-            assert!(id.is_none());
-            assert!((x.expect("x") - 100.5).abs() < f64::EPSILON);
-            assert!((y.expect("y") - 200.1).abs() < f64::EPSILON);
-            assert!(continue_with.is_none());
-        }
-        _ => panic!("Wrong tool type"),
-    }
+    let err = ToolNormalizer::normalize(input).expect_err("expected grounded id error");
+    assert!(err
+        .to_string()
+        .contains("browser__click_at raw coordinates require grounded"));
 }
 
 #[test]
@@ -721,11 +692,17 @@ fn test_normalize_synthetic_click_with_grounded_id() {
     match tool {
         AgentTool::BrowserSyntheticClick {
             id,
+            observation_ref,
+            coordinate_space_id,
+            semantic_id,
             x,
             y,
             continue_with,
         } => {
             assert_eq!(id.as_deref(), Some("grp_blue_circle"));
+            assert!(observation_ref.is_none());
+            assert!(coordinate_space_id.is_none());
+            assert!(semantic_id.is_none());
             assert!(x.is_none());
             assert!(y.is_none());
             assert!(continue_with.is_none());
@@ -735,17 +712,31 @@ fn test_normalize_synthetic_click_with_grounded_id() {
 }
 
 #[test]
-fn test_normalize_synthetic_click_preserves_coordinates_with_grounded_id() {
+fn test_normalize_synthetic_click_rejects_coordinates_without_observation_contract() {
     let input = r#"{"name": "browser__click_at", "arguments": {"id": "grp_click_canvas", "x": "51", "y": 116}}"#;
+    let err = ToolNormalizer::normalize(input)
+        .expect_err("coordinate click without observation contract must be rejected");
+    assert!(err.to_string().contains("observation_ref"));
+}
+
+#[test]
+fn test_normalize_synthetic_click_preserves_coordinates_with_grounded_id() {
+    let input = r#"{"name": "browser__click_at", "arguments": {"id": "grp_click_canvas", "observation_ref": "obs_browser_1", "coordinate_space_id": "viewport_css_px", "semantic_id": "grp_click_canvas", "x": "51", "y": 116}}"#;
     let tool = ToolNormalizer::normalize(input).unwrap();
     match tool {
         AgentTool::BrowserSyntheticClick {
             id,
+            observation_ref,
+            coordinate_space_id,
+            semantic_id,
             x,
             y,
             continue_with,
         } => {
             assert_eq!(id.as_deref(), Some("grp_click_canvas"));
+            assert_eq!(observation_ref.as_deref(), Some("obs_browser_1"));
+            assert_eq!(coordinate_space_id.as_deref(), Some("viewport_css_px"));
+            assert_eq!(semantic_id.as_deref(), Some("grp_click_canvas"));
             assert_eq!(x, Some(51.0));
             assert_eq!(y, Some(116.0));
             assert!(continue_with.is_none());
@@ -759,6 +750,10 @@ fn test_normalize_synthetic_click_with_follow_up_shorthand_arguments() {
     let input = r#"{
         "name": "browser__click_at",
         "arguments": {
+            "id": "grp_click_canvas",
+            "observation_ref": "obs_browser_1",
+            "coordinate_space_id": "viewport_css_px",
+            "semantic_id": "grp_click_canvas",
             "x": "85.012",
             "y": "105.824",
             "continue_with": {
@@ -771,11 +766,17 @@ fn test_normalize_synthetic_click_with_follow_up_shorthand_arguments() {
     match tool {
         AgentTool::BrowserSyntheticClick {
             id,
+            observation_ref,
+            coordinate_space_id,
+            semantic_id,
             x,
             y,
             continue_with,
         } => {
-            assert!(id.is_none());
+            assert_eq!(id.as_deref(), Some("grp_click_canvas"));
+            assert_eq!(observation_ref.as_deref(), Some("obs_browser_1"));
+            assert_eq!(coordinate_space_id.as_deref(), Some("viewport_css_px"));
+            assert_eq!(semantic_id.as_deref(), Some("grp_click_canvas"));
             assert!((x.expect("x") - 85.012).abs() < f64::EPSILON);
             assert!((y.expect("y") - 105.824).abs() < f64::EPSILON);
             let continue_with = continue_with.expect("follow-up should be present");
@@ -791,6 +792,10 @@ fn test_normalize_synthetic_click_rejects_pointer_state_follow_up() {
     let input = r#"{
         "name": "browser__click_at",
         "arguments": {
+            "id": "grp_click_canvas",
+            "observation_ref": "obs_browser_1",
+            "coordinate_space_id": "viewport_css_px",
+            "semantic_id": "grp_click_canvas",
             "x": 85,
             "y": 107,
             "continue_with": {
@@ -814,6 +819,37 @@ fn test_normalize_synthetic_click_rejects_missing_target_and_coordinates() {
     assert!(err
         .to_string()
         .contains("browser__click_at requires both numeric 'x' and 'y'"));
+}
+
+#[test]
+fn test_normalize_browser_move_pointer_rejects_ungrounded_coordinates() {
+    let input = r#"{"name":"browser__move_pointer","arguments":{"x":120,"y":80}}"#;
+    let err = ToolNormalizer::normalize(input).expect_err("expected schema error");
+    assert!(err
+        .to_string()
+        .contains("browser__move_pointer requires grounded"));
+}
+
+#[test]
+fn test_normalize_browser_move_pointer_requires_observation_contract() {
+    let input = r#"{"name":"browser__move_pointer","arguments":{"observation_ref":"obs_browser_1","coordinate_space_id":"viewport_css_px","semantic_id":"grp_slider","x":"120","y":80}}"#;
+    let tool = ToolNormalizer::normalize(input).unwrap();
+    match tool {
+        AgentTool::BrowserMoveMouse {
+            observation_ref,
+            coordinate_space_id,
+            semantic_id,
+            x,
+            y,
+        } => {
+            assert_eq!(observation_ref, "obs_browser_1");
+            assert_eq!(coordinate_space_id, "viewport_css_px");
+            assert_eq!(semantic_id, "grp_slider");
+            assert_eq!(x, 120.0);
+            assert_eq!(y, 80.0);
+        }
+        other => panic!("Expected BrowserMoveMouse, got {:?}", other),
+    }
 }
 
 #[test]
@@ -873,26 +909,15 @@ fn test_normalize_sys_change_directory() {
 }
 
 #[test]
-fn test_normalize_filesystem_edit_line_alias() {
+fn test_normalize_filesystem_edit_line_alias_is_rejected() {
     let input = r#"{"name":"file__replace_line","arguments":{"path":"/tmp/demo.txt","line_number":2,"content":"BETA"}}"#;
-    let tool = ToolNormalizer::normalize(input).unwrap();
-    match tool {
-        AgentTool::FsWrite {
-            path,
-            content,
-            line_number,
-        } => {
-            assert_eq!(path, "/tmp/demo.txt");
-            assert_eq!(content, "BETA");
-            assert_eq!(line_number, Some(2));
-        }
-        _ => panic!("Wrong tool type"),
-    }
+    let err = ToolNormalizer::normalize(input).expect_err("expected legacy alias error");
+    assert!(err.to_string().contains("legacy tool alias"));
 }
 
 #[test]
 fn test_normalize_filesystem_edit_line_rejects_invalid_line_number() {
     let input = r#"{"name":"file__replace_line","arguments":{"path":"/tmp/demo.txt","line_number":0,"content":"BETA"}}"#;
-    let err = ToolNormalizer::normalize(input).expect_err("expected validation error");
-    assert!(err.to_string().contains("line_number"));
+    let err = ToolNormalizer::normalize(input).expect_err("expected legacy alias error");
+    assert!(err.to_string().contains("legacy tool alias"));
 }

@@ -1,33 +1,17 @@
-use tauri::{
-    AppHandle, Emitter, Manager, Position, Size, UserAttentionType, WebviewWindow,
-    WebviewWindowBuilder,
-};
+use tauri::{AppHandle, Emitter, Manager, UserAttentionType, WebviewWindow, WebviewWindowBuilder};
 
 use super::layout::{apply_layout, focus_window_best_effort};
-use super::monitor::get_target_monitor;
 use super::state::CHAT_SESSION_LAYOUT;
-use super::{
-    queue_pending_chat_launch_for_app, record_chat_launch_receipt_for_app,
-    should_surface_overlay_windows_in_task_switcher, summarize_chat_launch_envelope,
-    TASKBAR_MARGIN,
-};
+use super::{record_chat_launch_receipt_for_app, summarize_chat_launch_envelope};
 use serde_json::{json, Value};
-
-const PILL_WIDTH: f64 = 440.0;
-const PILL_HEIGHT: f64 = 138.0;
-const PILL_BOTTOM_MARGIN: f64 = 32.0;
 
 pub fn show_chat_session(app: AppHandle) {
     show_autopilot_surface(app);
 }
 
 pub fn show_pill(app: AppHandle) {
-    if !no_primary_operator_surface_visible(&app) {
-        return;
-    }
     if let Some(window) = app.get_webview_window("pill") {
-        position_pill_window(&app, &window);
-        surface_window_best_effort(&window, false);
+        let _ = window.hide();
     }
 }
 
@@ -38,72 +22,13 @@ pub fn hide_pill(app: AppHandle) {
 }
 
 pub fn hide_chat_session(app: AppHandle) {
-    hide_autopilot_surface(app);
+    if let Some(window) = app.get_webview_window("chat-session") {
+        let _ = window.hide();
+    }
 }
 
 fn show_autopilot_surface(app: AppHandle) {
-    hide_pill(app.clone());
-    if let Some(window) = app.get_webview_window("chat-session") {
-        let layout_snapshot = CHAT_SESSION_LAYOUT
-            .lock()
-            .map(|layout| *layout)
-            .unwrap_or_default();
-        let _ = apply_layout(&app, &layout_snapshot);
-        surface_window_best_effort(&window, should_surface_overlay_windows_in_task_switcher());
-        return;
-    }
-
-    let envelope = queue_pending_chat_launch_for_app(
-        &app,
-        json!({
-            "kind": "view",
-            "view": "autopilot",
-        }),
-    );
-    if let Ok(envelope) = envelope {
-        show_chat_with_target(app, envelope);
-    } else {
-        show_chat(app);
-    }
-}
-
-fn hide_autopilot_surface(app: AppHandle) {
-    if let Some(window) = app.get_webview_window("chat-session") {
-        let _ = window.hide();
-        show_pill(app);
-        return;
-    }
-
-    hide_chat(app);
-}
-
-fn position_pill_window(app: &AppHandle, window: &WebviewWindow) {
-    let Some(monitor) = get_target_monitor(app) else {
-        let _ = window.center();
-        return;
-    };
-
-    let scale = monitor.scale_factor();
-    let monitor_size = monitor.size();
-    let monitor_pos = monitor.position();
-
-    let width_px = PILL_WIDTH * scale;
-    let height_px = PILL_HEIGHT * scale;
-    let x = monitor_pos.x as f64 + ((monitor_size.width as f64 - width_px) / 2.0).max(0.0);
-    let y = monitor_pos.y as f64
-        + (monitor_size.height as f64
-            - height_px
-            - ((PILL_BOTTOM_MARGIN + TASKBAR_MARGIN) * scale))
-            .max(0.0);
-
-    let _ = window.set_size(Size::Physical(tauri::PhysicalSize {
-        width: width_px.round().max(1.0) as u32,
-        height: height_px.round().max(1.0) as u32,
-    }));
-    let _ = window.set_position(Position::Physical(tauri::PhysicalPosition {
-        x: x.round() as i32,
-        y: y.round() as i32,
-    }));
+    show_chat(app);
 }
 
 pub fn toggle_chat_session_sidebar(app: AppHandle, visible: bool) {
@@ -141,18 +66,14 @@ pub fn get_chat_session_layout() -> Result<(bool, bool), String> {
 pub fn show_gate(app: AppHandle) {
     hide_pill(app.clone());
     if let Some(window) = app.get_webview_window("gate") {
-        let _ = window.center();
-        let _ = window.set_always_on_top(true);
-        surface_window_best_effort(&window, true);
+        let _ = window.hide();
     }
+    show_chat(app);
 }
 
 pub fn hide_gate(app: AppHandle) {
     if let Some(window) = app.get_webview_window("gate") {
         let _ = window.hide();
-    }
-    if no_primary_operator_surface_visible(&app) {
-        show_pill(app);
     }
 }
 
@@ -265,26 +186,6 @@ pub fn hide_chat(app: AppHandle) {
     if let Some(window) = app.get_webview_window("chat") {
         let _ = window.hide();
     }
-    if no_primary_operator_surface_visible(&app) {
-        show_pill(app);
-    }
-}
-
-fn no_primary_operator_surface_visible(app: &AppHandle) -> bool {
-    let chat_session_visible = app
-        .get_webview_window("chat-session")
-        .and_then(|window| window.is_visible().ok())
-        .unwrap_or(false);
-    let chat_visible = app
-        .get_webview_window("chat")
-        .and_then(|window| window.is_visible().ok())
-        .unwrap_or(false);
-    let gate_visible = app
-        .get_webview_window("gate")
-        .and_then(|window| window.is_visible().ok())
-        .unwrap_or(false);
-
-    !chat_session_visible && !chat_visible && !gate_visible
 }
 
 fn ensure_webview_window(app: &AppHandle, label: &str) -> Option<WebviewWindow> {
@@ -315,6 +216,73 @@ fn ensure_webview_window(app: &AppHandle, label: &str) -> Option<WebviewWindow> 
             );
             None
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn gate_command_routes_to_primary_chat_surface() {
+        let source = include_str!("commands.rs");
+        let show_gate_start = source
+            .find("pub fn show_gate")
+            .expect("show_gate should exist");
+        let show_gate_end = source[show_gate_start..]
+            .find("pub fn hide_gate")
+            .map(|offset| show_gate_start + offset)
+            .expect("hide_gate should follow show_gate");
+        let show_gate_source = &source[show_gate_start..show_gate_end];
+
+        assert!(
+            show_gate_source.contains("show_chat(app)"),
+            "chat-origin approvals should surface the primary /chat window",
+        );
+        assert!(
+            !show_gate_source.contains("set_always_on_top(true)")
+                && !show_gate_source.contains("surface_window_best_effort(&window, true)"),
+            "show_gate must not open a separate primary approval window",
+        );
+    }
+
+    #[test]
+    fn legacy_chat_session_hide_does_not_hide_primary_chat() {
+        let source = include_str!("commands.rs");
+        let hide_start = source
+            .find("pub fn hide_chat_session")
+            .expect("hide_chat_session should exist");
+        let hide_end = source[hide_start..]
+            .find("pub fn toggle_chat_session_sidebar")
+            .map(|offset| hide_start + offset)
+            .expect("toggle_chat_session_sidebar should follow hide_chat_session");
+        let hide_source = &source[hide_start..hide_end];
+
+        assert!(
+            !hide_source.contains("hide_chat(app)"),
+            "hiding the passive legacy chat-session surface must not close the primary /chat window",
+        );
+    }
+
+    #[test]
+    fn pill_surface_is_not_a_primary_operator_window() {
+        let source = include_str!("commands.rs");
+        let show_start = source
+            .find("pub fn show_pill")
+            .expect("show_pill should exist");
+        let show_end = source[show_start..]
+            .find("pub fn hide_pill")
+            .map(|offset| show_start + offset)
+            .expect("hide_pill should follow show_pill");
+        let show_source = &source[show_start..show_end];
+
+        assert!(
+            show_source.contains("window.hide()"),
+            "show_pill should be inert and hide any stale pill window",
+        );
+        assert!(
+            !show_source.contains("surface_window_best_effort")
+                && !show_source.contains("window.show()"),
+            "pill must not be surfaced as an operator window",
+        );
     }
 }
 

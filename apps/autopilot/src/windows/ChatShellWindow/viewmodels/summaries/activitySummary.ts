@@ -19,7 +19,9 @@ export function buildActivityGroups(
   const orderedStepIndexes = Array.from(byStep.keys()).sort((a, b) => a - b);
   return orderedStepIndexes.map((stepIndex) => {
     const entries = byStep.get(stepIndex) || [];
-    entries.sort((a, b) => a.event.timestamp.localeCompare(b.event.timestamp));
+    entries.sort((a, b) =>
+      String(a.event.timestamp || "").localeCompare(String(b.event.timestamp || "")),
+    );
     return {
       stepIndex,
       title: groupTitle(stepIndex, entries),

@@ -15,7 +15,7 @@ use serde_json::json;
 use std::time::Duration;
 
 pub(super) fn browser_queue_action_timeout() -> Duration {
-    const DEFAULT_TIMEOUT_SECS: u64 = 12;
+    const DEFAULT_TIMEOUT_SECS: u64 = 30;
     std::env::var("IOI_BROWSER_QUEUE_TOOL_TIMEOUT_SECS")
         .ok()
         .and_then(|raw| raw.parse::<u64>().ok())

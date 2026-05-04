@@ -99,6 +99,43 @@ fn workspace_grounding_sources_select_real_task_state_files() {
 }
 
 #[test]
+fn workspace_grounding_prefers_explicit_file_reference() {
+    let root = std::env::temp_dir().join(format!(
+        "autopilot-explicit-file-grounding-test-{}",
+        std::process::id()
+    ));
+    let _ = fs::remove_dir_all(&root);
+    fs::create_dir_all(root.join("nested")).expect("nested");
+    fs::write(root.join("Cargo.toml"), "[workspace]\nmembers=[]\n").expect("cargo");
+    fs::write(
+        root.join("package.json"),
+        "{\n  \"name\": \"ioi-network-monorepo\",\n  \"private\": true\n}\n",
+    )
+    .expect("package");
+    fs::write(
+        root.join("nested/package-lock.json"),
+        "{\n  \"name\": \"wrong-package-lock\",\n  \"packages\": {}\n}\n",
+    )
+    .expect("package lock");
+
+    let sources = super::select_workspace_grounding_sources(
+        &root,
+        "Read package.json and tell me the package name.",
+    );
+
+    assert_eq!(sources[0].relative_path, "package.json");
+    assert!(sources[0].excerpt.contains("ioi-network-monorepo"));
+
+    let rendered = super::render_workspace_grounded_reply(
+        "Read package.json and tell me the package name.",
+        &sources,
+    );
+    assert!(rendered.contains("`ioi-network-monorepo`"));
+
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[test]
 fn runtime_contract_grounding_ignores_example_noise_for_stopcondition_plan() {
     let root = std::env::temp_dir().join(format!(
         "autopilot-runtime-grounding-test-{}",

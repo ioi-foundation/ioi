@@ -93,6 +93,7 @@ fn build_worker_state(session_id: [u8; 32]) -> AgentState {
     AgentState {
         session_id,
         goal: "Inspect host environment and available timer surfaces".to_string(),
+        runtime_route_frame: None,
         transcript_root: [0u8; 32],
         status: AgentStatus::Running,
         step_count: 0,

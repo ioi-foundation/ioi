@@ -10,6 +10,8 @@ pub enum ChatSpecializedDomainKind {
     Recipe,
     MessageCompose,
     UserInput,
+    SoftwareInstall,
+    RuntimeAction,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -52,6 +54,8 @@ pub fn chat_specialized_domain_kind_for_frame(
         ChatNormalizedRequest::Recipe(_) => ChatSpecializedDomainKind::Recipe,
         ChatNormalizedRequest::MessageCompose(_) => ChatSpecializedDomainKind::MessageCompose,
         ChatNormalizedRequest::UserInput(_) => ChatSpecializedDomainKind::UserInput,
+        ChatNormalizedRequest::SoftwareInstall(_) => ChatSpecializedDomainKind::SoftwareInstall,
+        ChatNormalizedRequest::RuntimeAction(_) => ChatSpecializedDomainKind::RuntimeAction,
     }
 }
 
@@ -63,6 +67,7 @@ pub fn chat_normalized_request_missing_slots(frame: &ChatNormalizedRequest) -> &
         ChatNormalizedRequest::Recipe(frame) => &frame.missing_slots,
         ChatNormalizedRequest::MessageCompose(frame) => &frame.missing_slots,
         ChatNormalizedRequest::UserInput(frame) => &frame.missing_slots,
+        ChatNormalizedRequest::SoftwareInstall(_) | ChatNormalizedRequest::RuntimeAction(_) => &[],
     }
 }
 
@@ -74,6 +79,7 @@ pub fn chat_normalized_request_clarification_slots(frame: &ChatNormalizedRequest
         ChatNormalizedRequest::Recipe(frame) => &frame.clarification_required_slots,
         ChatNormalizedRequest::MessageCompose(frame) => &frame.clarification_required_slots,
         ChatNormalizedRequest::UserInput(frame) => &frame.clarification_required_slots,
+        ChatNormalizedRequest::SoftwareInstall(_) | ChatNormalizedRequest::RuntimeAction(_) => &[],
     }
 }
 
@@ -327,6 +333,92 @@ pub fn chat_specialized_domain_policy(
                 "Conversation context remains supporting evidence, but the decision surface stays primary until options are clarified.",
             missing_slot_degradation_reason:
                 "structured input execution is blocked until the option set is explicit",
+        },
+        ChatSpecializedDomainKind::SoftwareInstall => ChatSpecializedDomainPolicySpec {
+            domain_id: "software_install",
+            clarification_rationale:
+                "Software install routes clarify only when the install target is missing from the typed request frame.",
+            fallback_mode: ChatFallbackMode::BlockUntilClarified,
+            fallback_rationale:
+                "Software installs must resolve through provider discovery and approval, not prose fallback.",
+            presentation_surface: "chat_process",
+            widget_family: None,
+            renderer: None,
+            tab_priority: &["process", "receipt"],
+            presentation_rationale:
+                "Install progress should stay in the chat turn as structured process events and receipts.",
+            output_shape: "approval_gated_install_receipt",
+            ordered_steps: &[
+                "classify_install_request",
+                "discover_host",
+                "resolve_source_candidate",
+                "await_approval",
+                "execute_plan",
+                "verify_install",
+            ],
+            transformation_rationale:
+                "Install turns transform the user query into a resolver-backed plan before CEC can mutate the host.",
+            sensitivity: ChatRiskSensitivity::High,
+            base_risk_reasons: &[
+                "software installs mutate the host",
+                "install success must be verified before being reported",
+            ],
+            user_visible_guardrails: &[
+                "Show the resolved source, command or installer, elevation scope, and verification plan before approval.",
+            ],
+            verification_strategy: "install_receipt_and_verification",
+            verification_required_checks: &[
+                "host_discovered",
+                "source_candidate_provenance",
+                "approval_gate_bound",
+                "verification_receipt",
+            ],
+            selected_source_rationale:
+                "The typed software-install lane outranks direct prose because it carries host mutation and verification obligations.",
+            fallback_source_rationale:
+                "Conversation context can help label the request, but resolver providers own install source discovery.",
+            missing_slot_degradation_reason:
+                "software install execution is blocked until the target is present in the typed request frame",
+        },
+        ChatSpecializedDomainKind::RuntimeAction => ChatSpecializedDomainPolicySpec {
+            domain_id: "runtime_action",
+            clarification_rationale:
+                "Runtime-action routes clarify only when the typed action frame lacks an executable plan.",
+            fallback_mode: ChatFallbackMode::BlockUntilClarified,
+            fallback_rationale:
+                "Explicit local runtime actions must execute through typed planner and CEC receipts, not direct prose.",
+            presentation_surface: "chat_process",
+            widget_family: None,
+            renderer: None,
+            tab_priority: &["process", "receipt"],
+            presentation_rationale:
+                "Runtime action progress should stay in the chat turn as structured process events and receipts.",
+            output_shape: "approval_gated_runtime_receipt",
+            ordered_steps: &[
+                "classify_runtime_action",
+                "build_typed_plan",
+                "await_approval_if_required",
+                "execute_action",
+                "emit_receipt",
+            ],
+            transformation_rationale:
+                "Runtime-action turns transform explicit tool requests into typed plans before CEC execution.",
+            sensitivity: ChatRiskSensitivity::Medium,
+            base_risk_reasons: &[
+                "local runtime actions can affect host, browser, or workspace state",
+                "success must come from runtime receipts instead of prose",
+            ],
+            user_visible_guardrails: &[
+                "Show the selected action, plan reference, approval scope, and receipt before finalizing.",
+            ],
+            verification_strategy: "runtime_action_receipt",
+            verification_required_checks: &["typed_plan_ref", "tool_final_receipt"],
+            selected_source_rationale:
+                "The typed runtime-action lane outranks direct prose because the user explicitly requested a local tool action.",
+            fallback_source_rationale:
+                "Conversation context can describe the action, but planner and CEC own execution.",
+            missing_slot_degradation_reason:
+                "runtime action execution is blocked until the typed plan is available",
         },
     }
 }

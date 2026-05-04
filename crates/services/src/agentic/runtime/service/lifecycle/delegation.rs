@@ -146,6 +146,7 @@ pub async fn spawn_delegated_child_session(
     let child_state = AgentState {
         session_id: child_session_id,
         goal: assignment.goal.clone(),
+        runtime_route_frame: None,
         transcript_root,
         status: AgentStatus::Running,
         step_count: 0,

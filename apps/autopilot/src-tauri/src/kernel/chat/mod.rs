@@ -15,7 +15,6 @@ mod source_research;
 mod task_state;
 mod workspace_build;
 mod workspace_scaffold;
-pub(crate) use self::content_session::runtime_handoff_prompt_prefix_for_task;
 pub(crate) use self::content_session::seed_task_route_from_intent_signals;
 use self::content_session::{
     artifact_class_id_for_request, attach_blocked_chat_failure_session, chat_outcome_request,
@@ -23,6 +22,9 @@ use self::content_session::{
     maybe_refine_current_non_workspace_artifact_turn, persistence_mode_id, presentation_surface_id,
     renderer_kind_id, should_refine_current_non_workspace_artifact, summary_for_request,
     MaterializedContentArtifact,
+};
+pub(crate) use self::content_session::{
+    runtime_handoff_prompt_prefix_for_task, runtime_route_frame_for_task,
 };
 use self::manifest::{
     artifact_manifest_for_request, manifest_files_for_request, manifest_tabs_for_request,

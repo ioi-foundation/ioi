@@ -392,7 +392,8 @@ fn active_worker_instruction_surfaces_patch_context_hints() {
     assert!(rendered.contains("Focused verification command from parent context"));
     assert!(rendered.contains("python3 -m unittest tests.test_path_utils -v"));
     assert!(rendered.contains("do not reread the identical file"));
-    assert!(rendered.contains("file__replace_line"));
+    assert!(rendered.contains("file__write"));
+    assert!(!rendered.contains("file__replace_line"));
     assert!(rendered.contains("If `file__search` fails or returns nothing useful"));
 }
 
@@ -1333,7 +1334,7 @@ fn command_execution_does_not_require_clipboard_when_exec_session_available() {
 }
 
 #[test]
-fn command_execution_accepts_install_package_tooling() {
+fn command_execution_accepts_software_install_tooling() {
     let tools = vec![tool("software_install__execute_plan")];
     assert!(preflight_missing_capability(
         None,

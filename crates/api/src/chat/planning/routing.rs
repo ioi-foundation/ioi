@@ -732,9 +732,10 @@ fn promote_conversation_to_specialized_outcome_from_typed_frame(
         ChatNormalizedRequest::Sports(_) => "sports",
         ChatNormalizedRequest::Places(_) => "places",
         ChatNormalizedRequest::Recipe(_) => "recipe",
-        ChatNormalizedRequest::MessageCompose(_) | ChatNormalizedRequest::UserInput(_) => {
-            return false
-        }
+        ChatNormalizedRequest::MessageCompose(_)
+        | ChatNormalizedRequest::UserInput(_)
+        | ChatNormalizedRequest::SoftwareInstall(_)
+        | ChatNormalizedRequest::RuntimeAction(_) => return false,
     };
 
     let selected_specialized_tool = planning

@@ -28,14 +28,8 @@ fn queue_workspace_read_receipt(step_index: u32, tool: &AgentTool) -> Option<Str
 
 fn queue_workspace_edit_receipt(step_index: u32, tool: &AgentTool) -> Option<(String, String)> {
     match tool {
-        AgentTool::FsWrite {
-            path, line_number, ..
-        } => {
-            let tool_name = if line_number.is_some() {
-                "file__replace_line"
-            } else {
-                "file__write"
-            };
+        AgentTool::FsWrite { path, .. } => {
+            let tool_name = "file__write";
             let path = path.trim();
             if path.is_empty() {
                 return None;

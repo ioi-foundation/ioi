@@ -9,6 +9,7 @@ import type {
   ToolActivityGroupPresentation,
   ToolActivityRow,
 } from "../../../types";
+import { userFacingRuntimeStep } from "../viewmodels/runtimeStatusCopy";
 
 export type AssistantTurnStatus =
   | "thinking"
@@ -102,8 +103,12 @@ export function redactProcessText(value: string | null | undefined): string | nu
   if (!compact) {
     return null;
   }
+  const displayText = userFacingRuntimeStep(compact);
+  if (!displayText) {
+    return null;
+  }
 
-  const redacted = compact
+  const redacted = displayText
     .split(/\s+/g)
     .map((token) => {
       if (SECRET_KEY_RE.test(token)) {
@@ -178,14 +183,14 @@ function evidenceTier(task: AgentTask | null | undefined): EvidenceTier {
 }
 
 function runtimeFailureDetail(task: AgentTask | null | undefined): string | null {
+  if (task?.phase !== "Failed") {
+    return null;
+  }
   const detail = redactProcessText(task?.current_step);
   if (!detail) {
     return null;
   }
-  if (/error_class=|failed to parse tool call|invalid_tool_call/i.test(detail)) {
-    return detail;
-  }
-  return null;
+  return detail;
 }
 
 function taskStatus(
@@ -195,7 +200,7 @@ function taskStatus(
   if (task?.phase === "Gate") {
     return "blocked";
   }
-  if (task?.phase === "Failed" || runtimeFailureDetail(task)) {
+  if (task?.phase === "Failed") {
     return "failed";
   }
   if (isRunning || task?.phase === "Running") {

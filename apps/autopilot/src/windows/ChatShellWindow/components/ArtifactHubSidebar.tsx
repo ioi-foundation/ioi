@@ -1121,7 +1121,9 @@ export function ArtifactHubSidebar({
         errorClass: errorClass || undefined,
       });
     }
-    rows.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+    rows.sort((a, b) =>
+      String(a.timestamp || "").localeCompare(String(b.timestamp || "")),
+    );
     return rows;
   }, [scopedEvents]);
   const taskSectionCount = useMemo(() => {

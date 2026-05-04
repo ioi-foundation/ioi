@@ -23,6 +23,8 @@ const HEALTH_PROBE_TIMEOUT: Duration = Duration::from_millis(1_500);
 const HEALTH_PROBE_CACHE_TTL: Duration = Duration::from_millis(1_000);
 const DEFAULT_BROWSER_REQUEST_TIMEOUT_MS: u64 = 2_000;
 const DEFAULT_BROWSER_LAUNCH_TIMEOUT_MS: u64 = 15_000;
+const BROWSER_CLOSE_TIMEOUT: Duration = Duration::from_millis(1_500);
+const BROWSER_WAIT_TIMEOUT: Duration = Duration::from_millis(1_500);
 static RESOLVED_CHROMIUM_BINARY: OnceCell<PathBuf> = OnceCell::const_new();
 
 fn evaluate_health(cdp_ok: bool, _handler_alive: bool) -> bool {
@@ -159,6 +161,7 @@ impl BrowserDriver {
             retrieval_page_url: Arc::new(Mutex::new(None)),
             profile_dir: Arc::new(Mutex::new(None)),
             handler_alive: Arc::new(AtomicBool::new(false)),
+            browser_process_id: Arc::new(Mutex::new(None)),
             lease_active: Arc::new(AtomicBool::new(false)),
             pointer_state: Arc::new(Mutex::new(BrowserPointerState::default())),
             last_accessibility_snapshot: Arc::new(Mutex::new(None)),
@@ -482,11 +485,87 @@ impl BrowserDriver {
         }
     }
 
-    pub(crate) async fn force_reset(&self) {
-        {
-            let mut b_guard = self.browser.lock().await;
-            *b_guard = None;
+    async fn close_browser_process(browser_arc: Arc<Browser>) -> bool {
+        let Ok(mut browser) = Arc::try_unwrap(browser_arc) else {
+            log::warn!(
+                target: "browser",
+                "Browser session reset skipped process close because session still has live references."
+            );
+            return false;
+        };
+
+        match tokio::time::timeout(BROWSER_CLOSE_TIMEOUT, browser.close()).await {
+            Ok(Ok(_)) => {}
+            Ok(Err(error)) => {
+                log::warn!(target: "browser", "Browser close request failed: {}", error);
+            }
+            Err(_) => {
+                log::warn!(
+                    target: "browser",
+                    "Browser close request timed out after {:?}.",
+                    BROWSER_CLOSE_TIMEOUT
+                );
+            }
         }
+
+        match tokio::time::timeout(BROWSER_WAIT_TIMEOUT, browser.wait()).await {
+            Ok(Ok(_)) => return true,
+            Ok(Err(error)) => {
+                log::warn!(target: "browser", "Browser wait failed after close: {}", error);
+            }
+            Err(_) => {
+                log::warn!(
+                    target: "browser",
+                    "Browser wait timed out after {:?}; killing process.",
+                    BROWSER_WAIT_TIMEOUT
+                );
+            }
+        }
+
+        match browser.kill().await {
+            Some(Ok(())) | None => true,
+            Some(Err(error)) => {
+                log::warn!(target: "browser", "Browser kill failed during reset: {}", error);
+                false
+            }
+        }
+    }
+
+    #[cfg(unix)]
+    async fn terminate_owned_browser_process(pid: u32) {
+        let pid = pid as libc::pid_t;
+        unsafe {
+            libc::kill(pid, libc::SIGTERM);
+        }
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        let still_alive = unsafe { libc::kill(pid, 0) == 0 };
+        if still_alive {
+            unsafe {
+                libc::kill(pid, libc::SIGKILL);
+            }
+        }
+    }
+
+    #[cfg(windows)]
+    async fn terminate_owned_browser_process(pid: u32) {
+        let pid_arg = pid.to_string();
+        let _ = tokio::task::spawn_blocking(move || {
+            std::process::Command::new("taskkill")
+                .args(["/PID", &pid_arg, "/T", "/F"])
+                .status()
+        })
+        .await;
+    }
+
+    #[cfg(not(any(unix, windows)))]
+    async fn terminate_owned_browser_process(_pid: u32) {}
+
+    pub(crate) async fn force_reset(&self) {
+        let browser = {
+            let mut b_guard = self.browser.lock().await;
+            b_guard.take()
+        };
+        let browser_process_id = { self.browser_process_id.lock().await.take() };
         {
             let mut p_guard = self.active_page.lock().await;
             *p_guard = None;
@@ -506,7 +585,21 @@ impl BrowserDriver {
         self.reset_pointer_state().await;
         self.handler_alive.store(false, Ordering::SeqCst);
         *self.recent_successful_health_probe_at.lock().await = None;
+        let closed_browser = if let Some(browser) = browser {
+            Self::close_browser_process(browser).await
+        } else {
+            true
+        };
+        if !closed_browser {
+            if let Some(pid) = browser_process_id {
+                Self::terminate_owned_browser_process(pid).await;
+            }
+        }
         self.cleanup_profile_dir().await;
+    }
+
+    pub async fn release_session(&self) {
+        self.force_reset().await;
     }
 
     async fn is_healthy(&self) -> bool {
@@ -778,7 +871,7 @@ impl BrowserDriver {
             }
         };
 
-        let (profile_dir, browser, mut handler) = match launch_with_retries(headless).await {
+        let (profile_dir, mut browser, mut handler) = match launch_with_retries(headless).await {
             Ok(launched) => launched,
             Err(err) if should_fallback_to_headless_launch(headless, &err.to_string()) => {
                 log::warn!(
@@ -790,6 +883,7 @@ impl BrowserDriver {
             }
             Err(err) => return Err(err),
         };
+        let browser_process_id = browser.get_mut_child().map(|child| child.inner.id());
 
         let alive_signal = self.handler_alive.clone();
         tokio::spawn(async move {
@@ -823,6 +917,7 @@ impl BrowserDriver {
         });
 
         *self.profile_dir.lock().await = Some(profile_dir);
+        *self.browser_process_id.lock().await = browser_process_id;
         *self.browser.lock().await = Some(Arc::new(browser));
         *self.recent_successful_health_probe_at.lock().await = Some(Instant::now());
         Ok(())

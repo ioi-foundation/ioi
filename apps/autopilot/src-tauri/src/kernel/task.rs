@@ -15,6 +15,7 @@ use ioi_services::agentic::runtime::keys::get_state_key;
 use ioi_services::agentic::runtime::{
     AgentMode, AgentState, AgentStatus, StartAgentParams, StepAgentParams,
 };
+use ioi_types::app::agentic::RuntimeRouteFrame;
 use ioi_types::app::{
     account_id_from_key_material, AccountId, ChainId, ChainTransaction, SignHeader, SignatureProof,
     SignatureSuite, StateEntry, SystemPayload, SystemTransaction,
@@ -57,6 +58,57 @@ fn generate_session_id_hex() -> String {
     session_bytes[..16].copy_from_slice(uuid::Uuid::new_v4().as_bytes());
     session_bytes[16..].copy_from_slice(uuid::Uuid::new_v4().as_bytes());
     hex::encode(session_bytes)
+}
+
+fn install_failure_summary_from_output(output: &str) -> Option<String> {
+    let value: serde_json::Value = serde_json::from_str(first_json_object_slice(output)?).ok()?;
+    if value.get("install_event").is_none() && value.get("install_final_receipt").is_none() {
+        return None;
+    }
+    value
+        .get("summary")
+        .and_then(|summary| summary.as_str())
+        .map(|summary| format!("Install blocked: {summary}"))
+}
+
+fn first_json_object_slice(value: &str) -> Option<&str> {
+    let start = value.find('{')?;
+    let mut depth = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+    for (offset, ch) in value[start..].char_indices() {
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if ch == '\\' {
+                escaped = true;
+            } else if ch == '"' {
+                in_string = false;
+            }
+            continue;
+        }
+        match ch {
+            '"' => in_string = true,
+            '{' => depth += 1,
+            '}' => {
+                depth = depth.saturating_sub(1);
+                if depth == 0 {
+                    let end = start + offset + ch.len_utf8();
+                    return Some(&value[start..end]);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn task_failure_step(reason: &str) -> String {
+    install_failure_summary_from_output(reason).unwrap_or_else(|| format!("Task failed: {reason}"))
+}
+
+fn task_failure_history_message(reason: &str) -> String {
+    task_failure_step(reason)
 }
 
 fn normalize_session_id_string(value: &str) -> String {
@@ -648,10 +700,15 @@ fn encode_post_message_params(session_id: [u8; 32], content: String) -> Result<V
     codec::to_bytes_canonical(&params).map_err(|e| e.to_string())
 }
 
-fn encode_start_agent_params(session_id: [u8; 32], goal: String) -> Result<Vec<u8>, String> {
+fn encode_start_agent_params(
+    session_id: [u8; 32],
+    goal: String,
+    runtime_route_frame: Option<RuntimeRouteFrame>,
+) -> Result<Vec<u8>, String> {
     let params = StartAgentParams {
         session_id,
         goal,
+        runtime_route_frame,
         max_steps: 20,
         parent_session_id: None,
         initial_budget: 1000,
@@ -1382,6 +1439,7 @@ async fn bootstrap_kernel_session_after_chat_prepare(
     app: AppHandle,
     task_id: String,
     intent: String,
+    runtime_route_frame: Option<RuntimeRouteFrame>,
 ) {
     let session_id = match normalize_session_id(&task_id) {
         Ok(session_id) => session_id,
@@ -1394,16 +1452,17 @@ async fn bootstrap_kernel_session_after_chat_prepare(
         }
     };
 
-    let start_params = match encode_start_agent_params(session_id, intent.clone()) {
-        Ok(params) => params,
-        Err(error) => {
-            update_task_if_current_matches(&app, &task_id, |task| {
-                task.phase = AgentPhase::Failed;
-                task.current_step = format!("Start encoding error: {}", error);
-            });
-            return;
-        }
-    };
+    let start_params =
+        match encode_start_agent_params(session_id, intent.clone(), runtime_route_frame) {
+            Ok(params) => params,
+            Err(error) => {
+                update_task_if_current_matches(&app, &task_id, |task| {
+                    task.phase = AgentPhase::Failed;
+                    task.current_step = format!("Start encoding error: {}", error);
+                });
+                return;
+            }
+        };
     let fallback_params = start_params.clone();
 
     update_task_if_current_matches(&app, &task_id, |task| {
@@ -1670,9 +1729,9 @@ fn sync_task_from_kernel_state(
             .find(|message| message.role == "agent" && !message.text.trim().is_empty())
             .map(|message| message.text.clone())
     });
-    let terminal_reply = match &agent_state.status {
+    let status_terminal_reply = match &agent_state.status {
         AgentStatus::Completed(Some(text)) if !text.trim().is_empty() => Some(text.clone()),
-        _ => history_terminal_reply,
+        _ => None,
     };
     let failed_reason = match &agent_state.status {
         AgentStatus::Failed(reason) if !reason.trim().is_empty() => Some(reason.clone()),
@@ -1705,6 +1764,15 @@ fn sync_task_from_kernel_state(
                 }
             }
             AgentStatus::Completed(_) => {
+                let task_requires_chat_primary_execution =
+                    crate::kernel::chat::task_requires_chat_primary_execution(task);
+                let route_expects_chat_reply = runtime_route_expects_chat_reply(agent_state);
+                let terminal_reply = completed_terminal_reply_for_task(
+                    task_requires_chat_primary_execution,
+                    route_expects_chat_reply,
+                    status_terminal_reply.as_deref(),
+                    history_terminal_reply.as_deref(),
+                );
                 task.phase = AgentPhase::Complete;
                 task.gate_info = None;
                 task.pending_request_hash = None;
@@ -1721,16 +1789,10 @@ fn sync_task_from_kernel_state(
                 });
 
                 if let Some(reply) = terminal_reply.as_ref() {
-                    let exists = task
-                        .history
-                        .iter()
-                        .rev()
-                        .take(8)
-                        .any(|message| message.role == "agent" && message.text == *reply);
-                    if !exists {
+                    if !terminal_reply_exists_after_latest_user(&task.history, reply) {
                         task.history.push(ChatMessage {
                             role: "agent".to_string(),
-                            text: reply.clone(),
+                            text: reply.to_string(),
                             timestamp: crate::kernel::state::now(),
                         });
                     }
@@ -1789,21 +1851,19 @@ fn sync_task_from_kernel_state(
             }
             AgentStatus::Failed(reason) => {
                 task.phase = AgentPhase::Failed;
-                task.current_step = format!("Task failed: {}", reason);
+                task.current_step = task_failure_step(&reason);
                 task.gate_info = None;
                 task.pending_request_hash = None;
                 task.credential_request = None;
                 if let Some(message) = failed_reason.as_ref() {
-                    let exists = task
-                        .history
-                        .iter()
-                        .rev()
-                        .take(8)
-                        .any(|entry| entry.role == "system" && entry.text.contains(message));
+                    let history_message = task_failure_history_message(message);
+                    let exists = task.history.iter().rev().take(8).any(|entry| {
+                        entry.role == "system" && entry.text.contains(&history_message)
+                    });
                     if !exists {
                         task.history.push(ChatMessage {
                             role: "system".to_string(),
-                            text: format!("Task Failed: {}", message),
+                            text: history_message,
                             timestamp: crate::kernel::state::now(),
                         });
                     }
@@ -1818,6 +1878,43 @@ fn sync_task_from_kernel_state(
             }
         }
     });
+}
+
+fn completed_terminal_reply_for_task<'a>(
+    task_requires_chat_primary_execution: bool,
+    route_expects_chat_reply: bool,
+    status_terminal_reply: Option<&'a str>,
+    history_terminal_reply: Option<&'a str>,
+) -> Option<&'a str> {
+    if route_expects_chat_reply {
+        return None;
+    }
+    if task_requires_chat_primary_execution {
+        history_terminal_reply
+    } else {
+        status_terminal_reply.or(history_terminal_reply)
+    }
+}
+
+fn terminal_reply_exists_after_latest_user(history: &[ChatMessage], reply: &str) -> bool {
+    history
+        .iter()
+        .rev()
+        .take_while(|message| message.role != "user")
+        .any(|message| message.role == "agent" && message.text == reply)
+}
+
+fn runtime_route_expects_chat_reply(agent_state: &AgentState) -> bool {
+    let Some(frame) = agent_state.runtime_route_frame.as_ref() else {
+        return false;
+    };
+    !frame.direct_answer_allowed
+        && frame.output_intent.eq_ignore_ascii_case("tool_execution")
+        && frame.required_capabilities.iter().any(|capability| {
+            capability
+                .as_str()
+                .eq_ignore_ascii_case("conversation.reply")
+        })
 }
 
 pub(crate) fn spawn_session_state_reconciler(app: AppHandle, session_id: [u8; 32]) {
@@ -2401,12 +2498,18 @@ pub fn start_task(
                         &session_bootstrap_intent,
                     ))
                 };
+                let runtime_route_frame = if chat_primary {
+                    None
+                } else {
+                    crate::kernel::chat::runtime_route_frame_for_task(&prepared_task)
+                };
                 replace_current_task_snapshot(&app_clone, &task_id_for_prepare, prepared_task);
                 if !chat_primary {
                     bootstrap_kernel_session_after_chat_prepare(
                         app_clone.clone(),
                         task_id_for_prepare,
                         bootstrap_intent.unwrap_or_else(|| session_bootstrap_intent.clone()),
+                        runtime_route_frame,
                     )
                     .await;
                 }
@@ -2595,6 +2698,8 @@ pub async fn continue_task(
                     .unwrap_or_else(|| prepared_task.id.clone());
                 let bootstrap_intent =
                     apply_chat_route_handoff_to_runtime_input(prepared_task, &user_input_for_send);
+                let runtime_route_frame =
+                    crate::kernel::chat::runtime_route_frame_for_task(prepared_task);
                 let app_for_bootstrap = app.clone();
                 println!(
                     "[Autopilot][ChatContinue] chat-primary follow-up changed to runtime route; bootstrapping kernel session={}",
@@ -2605,6 +2710,7 @@ pub async fn continue_task(
                         app_for_bootstrap,
                         task_id,
                         bootstrap_intent,
+                        runtime_route_frame,
                     )
                     .await;
                 });

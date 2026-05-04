@@ -7,7 +7,7 @@ use crate::kernel::events::support::{
     bind_task_session, clarification_prompt_for_preset, clarification_wait_step_for_preset,
     detect_clarification_preset, event_status_from_agent_status, event_type_for_tool,
     explicit_clarification_preset_for_tool, is_hard_terminal_task, is_identity_resolution_kind,
-    is_install_package_tool, is_sudo_password_required_install,
+    is_software_install_tool, is_sudo_password_required_install,
     is_waiting_for_identity_clarification_step, thread_id_from_session, ClarificationPreset,
 };
 use crate::kernel::notifications;
@@ -15,11 +15,13 @@ use crate::kernel::state::update_task_state;
 use crate::models::AppState;
 use crate::models::{AgentPhase, ChatMessage, CredentialRequest, EventType, Receipt};
 use ioi_ipc::public::AgentActionResult;
+use serde_json::{json, Value};
 use std::path::PathBuf;
 use std::sync::Mutex;
-use tauri::{Manager, State};
+use tauri::{Emitter, Manager, State};
 
 const MAX_COMPLETION_MESSAGE_CHARS: usize = 1200;
+const CHAT_COMPOSER_FOCUS_REQUESTED_EVENT: &str = "chat-composer-focus-requested";
 
 fn is_chat_reply_tool(tool_name: &str) -> bool {
     tool_name.eq_ignore_ascii_case("chat::reply") || tool_name.eq_ignore_ascii_case("chat__reply")
@@ -28,6 +30,50 @@ fn is_chat_reply_tool(tool_name: &str) -> bool {
 fn is_planner_execute_tool(tool_name: &str) -> bool {
     tool_name.eq_ignore_ascii_case("planner::execute")
         || tool_name.eq_ignore_ascii_case("planner__execute")
+}
+
+fn is_browser_surface_tool(tool_name: &str) -> bool {
+    let normalized = tool_name.to_ascii_lowercase();
+    normalized == "browser__navigate"
+        || normalized == "browser::navigate"
+        || normalized == "browser__snapshot"
+        || normalized == "browser::snapshot"
+        || normalized == "browser__inspect"
+        || normalized == "browser::inspect"
+}
+
+fn should_refocus_chat_after_action_result(tool_name: &str, agent_status: &str) -> bool {
+    is_browser_surface_tool(tool_name)
+        && (agent_status.eq_ignore_ascii_case("completed")
+            || agent_status.eq_ignore_ascii_case("failed"))
+}
+
+fn should_release_browser_after_action_result(
+    tool_name: &str,
+    agent_status: &str,
+    task_has_browser_surface_event: bool,
+) -> bool {
+    agent_status.eq_ignore_ascii_case("completed")
+        && (is_browser_surface_tool(tool_name) || task_has_browser_surface_event)
+}
+
+fn task_has_browser_surface_event(task: &crate::models::AgentTask) -> bool {
+    task.events.iter().any(|event| {
+        matches!(
+            event.event_type,
+            EventType::BrowserNavigate | EventType::BrowserSnapshot
+        )
+    })
+}
+
+fn should_append_completed_tool_message_from_action_result(
+    task_requires_chat_primary_execution: bool,
+    task_has_chat_outcome: bool,
+    tool_name: &str,
+) -> bool {
+    !task_requires_chat_primary_execution
+        && !task_has_chat_outcome
+        && !is_chat_reply_tool(tool_name)
 }
 
 fn truncate_message_chars(text: &str, max_chars: usize) -> String {
@@ -45,10 +91,27 @@ fn truncate_message_chars(text: &str, max_chars: usize) -> String {
     format!("{}…", text[..end].trim_end())
 }
 
+fn agent_message_exists_after_latest_user(history: &[ChatMessage], text: &str) -> bool {
+    history
+        .iter()
+        .rev()
+        .take_while(|message| message.role != "user")
+        .any(|message| message.role == "agent" && message.text == text)
+}
+
 fn completion_message_for_history(tool_name: &str, output: &str) -> Option<String> {
     let trimmed = output.trim();
     if trimmed.is_empty() {
         return None;
+    }
+
+    if is_software_install_tool(tool_name) {
+        if let Some(summary) = install_output_summary(trimmed) {
+            return Some(truncate_message_chars(
+                &summary,
+                MAX_COMPLETION_MESSAGE_CHARS,
+            ));
+        }
     }
 
     let candidate = if is_planner_execute_tool(tool_name) {
@@ -72,6 +135,78 @@ fn completion_message_for_history(tool_name: &str, output: &str) -> Option<Strin
         candidate,
         MAX_COMPLETION_MESSAGE_CHARS,
     ))
+}
+
+fn install_json_payload(output: &str) -> Option<Value> {
+    let trimmed = output.trim();
+    let json = first_json_object_slice(trimmed)?;
+    serde_json::from_str(json).ok()
+}
+
+fn first_json_object_slice(value: &str) -> Option<&str> {
+    let start = value.find('{')?;
+    let mut depth = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+    for (offset, ch) in value[start..].char_indices() {
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if ch == '\\' {
+                escaped = true;
+            } else if ch == '"' {
+                in_string = false;
+            }
+            continue;
+        }
+        match ch {
+            '"' => in_string = true,
+            '{' => depth += 1,
+            '}' => {
+                depth = depth.saturating_sub(1);
+                if depth == 0 {
+                    let end = start + offset + ch.len_utf8();
+                    return Some(&value[start..end]);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn install_output_summary(output: &str) -> Option<String> {
+    install_json_payload(output).and_then(|value| {
+        value
+            .get("summary")
+            .and_then(Value::as_str)
+            .map(str::to_string)
+    })
+}
+
+fn install_current_step(tool_name: &str, output: &str) -> Option<String> {
+    if !is_software_install_tool(tool_name) {
+        return None;
+    }
+    install_output_summary(output).or_else(|| Some("Software install event received".to_string()))
+}
+
+fn install_failure_summary(tool_name: &str, output: &str) -> Option<String> {
+    if !is_software_install_tool(tool_name) {
+        return None;
+    }
+    install_output_summary(output).map(|summary| format!("Install blocked: {summary}"))
+}
+
+fn failure_message_for_history(tool_name: &str, output: &str) -> String {
+    install_failure_summary(tool_name, output).unwrap_or_else(|| {
+        let trimmed = output.trim();
+        if trimmed.is_empty() {
+            "Task failed.".to_string()
+        } else {
+            format!("Task failed: {trimmed}")
+        }
+    })
 }
 
 fn automation_artifact_path_from_output(output: &str) -> Option<PathBuf> {
@@ -187,7 +322,8 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
         t.processed_steps.insert(dedup_key);
         accepted_for_processing = true;
 
-        t.current_step = format!("Executed {}: {}", res.tool_name, res.output);
+        t.current_step = install_current_step(&res.tool_name, &res.output)
+            .unwrap_or_else(|| format!("Executed {}: {}", res.tool_name, res.output));
         bind_task_session(t, &res.session_id);
 
         if let Some(agent) = t
@@ -287,7 +423,7 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
             || res.agent_status.eq_ignore_ascii_case("completed");
         let keep_waiting_for_sudo = waiting_for_sudo
             && !terminal_status
-            && is_install_package_tool(&res.tool_name)
+            && is_software_install_tool(&res.tool_name)
             && password_required;
         if keep_waiting_for_sudo {
             if !res.output.trim().is_empty() {
@@ -365,24 +501,15 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
                     cost: Some("$0.00".to_string()),
                 });
 
-                let chat_verified_reply =
-                    if crate::kernel::chat::task_requires_chat_primary_execution(t) {
-                        crate::kernel::chat::verified_reply_summary_for_task(t)
-                    } else {
-                        None
-                    };
-
-                if !is_chat_reply_tool(&res.tool_name) {
-                    if let Some(msg) = chat_verified_reply
-                        .or_else(|| completion_message_for_history(&res.tool_name, &res.output))
-                    {
-                        let duplicate = t
-                            .history
-                            .iter()
-                            .rev()
-                            .take(8)
-                            .any(|m| m.role == "agent" && m.text == msg);
-                        if !duplicate {
+                let task_requires_chat_primary_execution =
+                    crate::kernel::chat::task_requires_chat_primary_execution(t);
+                if should_append_completed_tool_message_from_action_result(
+                    task_requires_chat_primary_execution,
+                    t.chat_outcome.is_some(),
+                    &res.tool_name,
+                ) {
+                    if let Some(msg) = completion_message_for_history(&res.tool_name, &res.output) {
+                        if !agent_message_exists_after_latest_user(&t.history, &msg) {
                             t.history.push(ChatMessage {
                                 role: "agent".to_string(),
                                 text: msg,
@@ -413,24 +540,25 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
                     agent.status = "failed".to_string();
                 }
 
-                t.history.push(ChatMessage {
-                    role: "system".to_string(),
-                    text: format!("Task Failed: {}", res.output),
-                    timestamp: crate::kernel::state::now(),
-                });
-
                 // Keep terminal failures visible in the primary conversation stream.
                 let agent_failure = chat_failure_summary
                     .clone()
-                    .unwrap_or_else(|| format!("Task failed: {}", res.output));
-                t.current_step = agent_failure.clone();
-                let duplicate = t
+                    .unwrap_or_else(|| failure_message_for_history(&res.tool_name, &res.output));
+                if !t
                     .history
                     .iter()
                     .rev()
                     .take(8)
-                    .any(|m| m.role == "agent" && m.text == agent_failure);
-                if !duplicate {
+                    .any(|entry| entry.role == "system" && entry.text == agent_failure)
+                {
+                    t.history.push(ChatMessage {
+                        role: "system".to_string(),
+                        text: agent_failure.clone(),
+                        timestamp: crate::kernel::state::now(),
+                    });
+                }
+                t.current_step = agent_failure.clone();
+                if !agent_message_exists_after_latest_user(&t.history, &agent_failure) {
                     t.history.push(ChatMessage {
                         role: "agent".to_string(),
                         text: agent_failure,
@@ -466,13 +594,7 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
             } else {
                 res.output.clone()
             };
-            let duplicate = t
-                .history
-                .iter()
-                .rev()
-                .take(8)
-                .any(|m| m.role == "agent" && m.text == reply_text);
-            if !duplicate {
+            if !agent_message_exists_after_latest_user(&t.history, &reply_text) {
                 t.history.push(ChatMessage {
                     role: "agent".to_string(),
                     text: reply_text,
@@ -561,7 +683,7 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
         );
     }
 
-    let event = match kind {
+    let mut event = match kind {
         EventType::CodeSearch => emit_code_search(
             &thread_id,
             res.step_index,
@@ -617,7 +739,60 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
             Vec::new(),
         ),
     };
+    if let Some(payload) = install_json_payload(&res.output) {
+        if let Some(details) = event.details.as_object_mut() {
+            details.insert("install_payload".to_string(), payload.clone());
+            if let Some(install_event) = payload.get("install_event").cloned() {
+                details.insert("install_event".to_string(), install_event);
+            }
+            if let Some(receipt) = payload.get("install_final_receipt").cloned() {
+                details.insert("install_final_receipt".to_string(), receipt);
+            }
+        }
+    }
     register_event(&app, event);
+
+    let has_browser_surface_event = {
+        let state_handle = app.state::<Mutex<AppState>>();
+        state_handle
+            .lock()
+            .ok()
+            .and_then(|guard| {
+                guard
+                    .current_task
+                    .as_ref()
+                    .map(task_has_browser_surface_event)
+            })
+            .unwrap_or(false)
+    };
+
+    if should_release_browser_after_action_result(
+        &res.tool_name,
+        &res.agent_status,
+        has_browser_surface_event,
+    ) {
+        crate::execution::release_browser_session().await;
+    }
+
+    if should_refocus_chat_after_action_result(&res.tool_name, &res.agent_status) {
+        let window = app.get_webview_window("chat").or_else(|| {
+            app.get_webview_window("chat-session")
+                .filter(|candidate| candidate.is_visible().unwrap_or(false))
+        });
+        if let Some(window) = window {
+            let _ = window.show();
+            let _ = window.unminimize();
+            let _ = window.set_focus();
+            let _ = window.emit(
+                CHAT_COMPOSER_FOCUS_REQUESTED_EVENT,
+                json!({
+                    "source": "terminal_action_result",
+                    "tool_name": res.tool_name,
+                    "agent_status": res.agent_status,
+                }),
+            );
+        }
+    }
 }
 
 #[cfg(test)]

@@ -111,12 +111,7 @@ fn tool_name_has_prefix(tool_name: &str, prefixes: &[&str]) -> bool {
 fn file_mutation_tool(current_tool_name: &str) -> bool {
     matches!(
         current_tool_name.trim().to_ascii_lowercase().as_str(),
-        "file__write"
-            | "file__edit"
-            | "file__replace_line"
-            | "file__multi_edit"
-            | "file__move"
-            | "file__copy"
+        "file__write" | "file__edit" | "file__multi_edit" | "file__move" | "file__copy"
     )
 }
 
@@ -321,7 +316,7 @@ fn direct_answer_blockers(
         blockers.push("currentness_override".to_string());
     }
     if local_install_request {
-        blockers.push("local_install_requested".to_string());
+        blockers.push("host_mutation_requested".to_string());
     }
     if connector_first_preference {
         blockers.push("connector_preferred".to_string());

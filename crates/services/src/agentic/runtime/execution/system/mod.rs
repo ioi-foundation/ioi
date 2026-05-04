@@ -25,10 +25,11 @@ pub(super) struct SysExecInvocation {
     shell_wrapped: bool,
 }
 
+#[cfg(test)]
+pub(crate) use install::software_install_plan_ref_for_request;
 pub(crate) use install::{
     install_already_satisfied_before_approval_for_tool, install_resolution_checks_for_tool,
     install_resolution_summary_for_tool, is_sudo_password_required_install_error,
-    software_install_plan_ref_for_request,
 };
 
 fn compute_workload_id(

@@ -7,6 +7,7 @@ fn test_agent_state() -> AgentState {
     AgentState {
         session_id: [0u8; 32],
         goal: String::new(),
+        runtime_route_frame: None,
         transcript_root: [0u8; 32],
         status: AgentStatus::Idle,
         step_count: 0,

@@ -397,14 +397,14 @@ pub(crate) async fn run_lifecycle_status_phase(
         verification_checks,
     );
 
-    let is_install_package_tool = matches!(tool, AgentTool::SoftwareInstallExecutePlan { .. });
+    let is_software_install_tool = matches!(tool, AgentTool::SoftwareInstallExecutePlan { .. });
     let clarification_required = !success
         && err
             .as_deref()
             .map(|msg| requires_wait_for_clarification(&tool_name, msg))
             .unwrap_or(false);
 
-    if success && command_scope && is_install_package_tool {
+    if success && command_scope && is_software_install_tool {
         let intent_id = resolved_intent_id(agent_state);
         record_resume_install_success_contract_receipts(
             service,
@@ -419,7 +419,7 @@ pub(crate) async fn run_lifecycle_status_phase(
     }
 
     if !success
-        && is_install_package_tool
+        && is_software_install_tool
         && err
             .as_deref()
             .map(is_sudo_password_required_install_error)

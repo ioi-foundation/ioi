@@ -4,40 +4,68 @@ import {
   testOnlyInstallExecutionTranscript,
 } from "./installExecutionTranscript.ts";
 
-const receiptSummary =
-  "RoutingReceipt(step=0, tier=host, tool=software_install__execute_plan, decision=require_approval, stop=false, policy_hash=abc, verify=[software_install.stage=resolved, software_install.display_name=Example App, software_install.platform=linux, software_install.architecture=x86_64, software_install.source_kind=manual_installer, software_install.manager=apt-get, software_install.package_id=example-app, software_install.requires_elevation=true, software_install.verification=example-app --version, software_install.command=not_available])";
+const installResolution = {
+  stage: "resolved",
+  display_name: "Example App",
+  canonical_id: "example-app",
+  target_kind: "desktop_app",
+  host: {
+    platform: "linux",
+    architecture: "x86_64",
+  },
+  source: {
+    source_kind: "appimage",
+    manager: "appimage",
+    package_id: "example-app.AppImage",
+    source_discovery_url: "https://example.test",
+  },
+  requires_elevation: false,
+  command: "bash -lc /tmp/install-example-app.sh",
+  verification: "test -x $HOME/.local/bin/example-app.AppImage",
+  plan_ref: "software-install-plan:v2:test",
+};
 
-const parsed =
-  testOnlyInstallExecutionTranscript.parseInstallResolutionFromText(receiptSummary);
-assert.equal(parsed.display_name, "Example App");
-assert.equal(parsed.platform, "linux");
-assert.equal(parsed.requires_elevation, "true");
+const flattened =
+  testOnlyInstallExecutionTranscript.flattenInstallPayload(installResolution);
+assert.equal(flattened.display_name, "Example App");
+assert.equal(flattened.platform, "linux");
+assert.equal(flattened.source_kind, "appimage");
+assert.equal(flattened.requires_elevation, "false");
 
-const terminalReceipt =
-  "Task failed: ERROR_CLASS=InstallerResolutionRequired Resolved 'Example App' for linux x86_64 as an official manual installer source (https://example.test), but no verified unattended installer candidate passed policy for manager 'apt-get'. SOFTWARE_INSTALL display_name='Example App' canonical_id='example-app' target_kind='desktop_app' source_kind='manual_installer' source_discovery_url='https://example.test' verification='example-app --version' SOFTWARE_INSTALL stage='unsupported' display_name='Example App' manager='apt-get' source_kind='manual_installer'";
-const parsedTerminal =
-  testOnlyInstallExecutionTranscript.parseInstallResolutionFromText(terminalReceipt);
-assert.equal(parsedTerminal.display_name, "Example App");
-assert.equal(parsedTerminal.stage, "unsupported");
-assert.equal(parsedTerminal.source_discovery_url, "https://example.test");
+function event(overrides: Record<string, unknown> = {}) {
+  return {
+    event_id: "evt",
+    timestamp: "now",
+    thread_id: "task",
+    step_index: 0,
+    event_type: "COMMAND_RUN",
+    title: "Install event",
+    digest: {
+      tool_name: "software_install__resolve",
+    },
+    details: {
+      install_event: installResolution,
+    },
+    artifact_refs: [],
+    receipt_ref: null,
+    input_refs: [],
+    status: "SUCCESS",
+    duration_ms: null,
+    ...overrides,
+  };
+}
 
 const gatedTranscript = buildInstallExecutionTranscript({
   id: "task-install",
   intent: "install example app",
   phase: "Gate",
   current_step: "Awaiting install approval: Example App",
-  history: [
-    {
-      role: "system",
-      text: receiptSummary,
-      timestamp: 1,
-    },
-  ],
-  events: [],
+  history: [],
+  events: [event()],
   gate_info: {
     title: "Approve software install",
     description:
-      "Resolved Example App for linux x86_64 as manual_installer via apt-get.",
+      "Resolved Example App for linux x86_64 as appimage via appimage.",
     risk: "high",
     approve_label: "Approve install",
     deny_label: "Deny",
@@ -53,48 +81,11 @@ assert.ok(gatedTranscript);
 assert.equal(gatedTranscript?.status, "blocked");
 assert.match(gatedTranscript?.content ?? "", /# install example app: awaiting approval/);
 assert.match(gatedTranscript?.content ?? "", /target: Example App/);
-assert.match(gatedTranscript?.content ?? "", /command: not_available/);
-assert.match(gatedTranscript?.content ?? "", /verify: example-app --version/);
-assert.doesNotMatch(
-  gatedTranscript?.content ?? "",
-  /state:/,
-  "install terminal transcript should not echo task.current_step as command output",
-);
-
-const appImageApprovalTranscript = buildInstallExecutionTranscript({
-  id: "task-install-appimage",
-  intent: "install example app",
-  phase: "Gate",
-  current_step: "Awaiting install approval: Example App via appimage (appimage)",
-  history: [
-    {
-      role: "system",
-      text:
-        "RoutingReceipt(step=0, tier=host, tool=software_install__execute_plan, decision=require_approval, stop=false, policy_hash=abc, verify=[software_install.stage=resolved, software_install.display_name=Example App, software_install.platform=linux, software_install.architecture=x86_64, software_install.source_kind=appimage, software_install.manager=appimage, software_install.package_id=example-app.AppImage, software_install.requires_elevation=false, software_install.verification=sh -lc test -x \"$HOME/.local/bin/example-app.AppImage\", software_install.source_discovery_url=https://example.test, software_install.command=bash -lc /tmp/install-example-app.sh])",
-      timestamp: 1,
-    },
-  ],
-  events: [],
-  gate_info: {
-    title: "Approve software install",
-    description:
-      "Resolved Example App for linux x86_64 as appimage via appimage.",
-    risk: "high",
-    target_label: "Example App",
-  },
-} as any);
-
-assert.ok(appImageApprovalTranscript);
-assert.equal(appImageApprovalTranscript?.status, "blocked");
-assert.match(appImageApprovalTranscript?.content ?? "", /source: appimage via appimage/);
-assert.match(
-  appImageApprovalTranscript?.content ?? "",
-  /discover: https:\/\/example\.test/,
-);
-assert.doesNotMatch(
-  appImageApprovalTranscript?.content ?? "",
-  /download\/latest\/linux\/x64/,
-);
+assert.match(gatedTranscript?.content ?? "", /source: appimage via appimage/);
+assert.match(gatedTranscript?.content ?? "", /command: bash -lc/);
+assert.match(gatedTranscript?.content ?? "", /verify: test -x/);
+assert.match(gatedTranscript?.content ?? "", /discover: https:\/\/example\.test/);
+assert.doesNotMatch(gatedTranscript?.content ?? "", /state:/);
 
 const seededRouteTranscript = buildInstallExecutionTranscript({
   id: "task-install-seeded",
@@ -105,10 +96,8 @@ const seededRouteTranscript = buildInstallExecutionTranscript({
   events: [],
   chat_outcome: {
     decisionEvidence: [
-      "local_install_requested",
-      "desktop_app_install_requested",
+      "legacy installer route evidence",
       "software_install_capability_required",
-      "software_install_target_text:example app",
     ],
   },
 } as any);
@@ -116,86 +105,93 @@ const seededRouteTranscript = buildInstallExecutionTranscript({
 assert.equal(
   seededRouteTranscript,
   null,
-  "seeded route evidence and infrastructure current_step alone must not fabricate an install terminal transcript",
+  "route evidence and current_step alone must not fabricate an install terminal transcript",
 );
 
-const failedTerminalTranscript = buildInstallExecutionTranscript({
+const legacyStringOnlyTranscript = buildInstallExecutionTranscript({
   id: "task-install-terminal",
   intent: "install example app",
   phase: "Failed",
-  current_step: terminalReceipt,
-  history: [{ role: "system", text: terminalReceipt, timestamp: 1 }],
+  current_step: "Task failed: legacy installer stage marker",
+  history: [
+    {
+      role: "system",
+      text: "legacy installer display marker",
+      timestamp: 1,
+    },
+  ],
   events: [],
-  chat_outcome: {
-    decisionEvidence: [
-      "local_install_requested",
-      "desktop_app_install_requested",
-      "software_install_capability_required",
-      "software_install_target_text:example app",
-    ],
-  },
 } as any);
 
-assert.ok(failedTerminalTranscript);
-assert.equal(failedTerminalTranscript?.status, "failed");
-assert.match(failedTerminalTranscript?.content ?? "", /# install example app: failed/);
-assert.match(failedTerminalTranscript?.content ?? "", /source: manual_installer via apt-get/);
-assert.match(failedTerminalTranscript?.content ?? "", /discover: https:\/\/example.test/);
-assert.match(failedTerminalTranscript?.content ?? "", /error_class: InstallerResolutionRequired/);
+assert.equal(
+  legacyStringOnlyTranscript,
+  null,
+  "legacy string receipts must not drive install process UI",
+);
 
 const alreadyInstalledTranscript = buildInstallExecutionTranscript({
   id: "task-install-already",
   intent: "install example app",
   phase: "Complete",
-  current_step:
-    "Already installed: 'Example App' is present before host mutation; verification passed. SOFTWARE_INSTALL stage='already_installed' display_name='Example App' canonical_id='example-app' target_kind='desktop_app' source_kind='manual_installer' manager='apt-get' package_id='example-app' verification='example-app --version' command='skipped_already_installed'",
+  current_step: "Task completed",
   history: [
     {
-      role: "system",
-      text: receiptSummary,
-      timestamp: 1,
-    },
-    {
       role: "tool",
-      text:
-        "Tool Output (software_install__execute_plan): Already installed: 'Example App' is present before host mutation; verification passed. SOFTWARE_INSTALL stage='already_installed' display_name='Example App' canonical_id='example-app' target_kind='desktop_app' source_kind='manual_installer' manager='apt-get' package_id='example-app' verification='example-app --version' command='skipped_already_installed'",
+      text: `Tool Output (software_install__execute_plan): ${JSON.stringify({
+        kind: "install_final_receipt",
+        summary: "Example App is already installed.",
+        install_final_receipt: {
+          status: "already_installed_verified",
+          display_name: "Example App",
+          plan_ref: "software-install-plan:v2:test",
+          verification: {
+            summary: "example-app --version completed successfully",
+          },
+        },
+      })}`,
       timestamp: 2,
     },
   ],
-  events: [],
-  chat_outcome: {
-    decisionEvidence: [
-      "local_install_requested",
-      "desktop_app_install_requested",
-      "software_install_capability_required",
-      "software_install_target_text:example app",
-    ],
-  },
+  events: [
+    event({
+      details: {
+        install_final_receipt: {
+          status: "already_installed_verified",
+          display_name: "Example App",
+          plan_ref: "software-install-plan:v2:test",
+          verification: {
+            summary: "example-app --version completed successfully",
+          },
+        },
+      },
+    }),
+  ],
 } as any);
 
 assert.ok(alreadyInstalledTranscript);
 assert.equal(alreadyInstalledTranscript?.status, "complete");
 assert.match(alreadyInstalledTranscript?.content ?? "", /# install example app: complete/);
-assert.match(alreadyInstalledTranscript?.content ?? "", /command: skipped_already_installed/);
-assert.doesNotMatch(
+assert.match(
   alreadyInstalledTranscript?.content ?? "",
-  /blocker:/,
-  "already installed verifier receipts should not retain stale resolver blockers",
+  /verify: example-app --version completed successfully/,
 );
+assert.doesNotMatch(alreadyInstalledTranscript?.content ?? "", /blocker:/);
 
 const runningTranscript = buildInstallExecutionTranscript({
   id: "task-install-running",
   intent: "install media tool",
   phase: "Running",
-  current_step: "Streaming software_install__execute_plan (stdout) . unpacking media tool",
-  history: [
-    {
-      role: "system",
-      text: receiptSummary.split("Example App").join("Media Tool"),
-      timestamp: 1,
-    },
-  ],
+  current_step: "Streaming command",
+  history: [],
   events: [
+    event({
+      details: {
+        install_event: {
+          ...installResolution,
+          display_name: "Media Tool",
+        },
+      },
+    }),
     {
       event_id: "evt-stream",
       timestamp: "now",
@@ -226,6 +222,39 @@ assert.match(runningTranscript?.content ?? "", /\$ software_install__execute_pla
 assert.match(runningTranscript?.content ?? "", /\[stdout\] Reading package lists/);
 assert.match(runningTranscript?.content ?? "", /\[stdout\] Unpacking media tool/);
 assert.doesNotMatch(runningTranscript?.content ?? "", /state:/);
+
+const resolverReceiptTranscript = buildInstallExecutionTranscript({
+  id: "task-install-resolver-receipt",
+  intent: "install snorflepaint",
+  phase: "Failed",
+  current_step: "Install blocked: No verified install candidate",
+  history: [],
+  events: [
+    event({
+      status: "FAILED",
+      details: {
+        output: `ERROR_CLASS=InstallerResolutionRequired ${JSON.stringify({
+          summary: "No verified install candidate passed resolver policy.",
+          install_event: {
+            stage: "unresolved",
+            display_name: "snorflepaint",
+            blocker: "No verified install candidate passed resolver policy.",
+          },
+        })}`,
+        install_event: {
+          stage: "unresolved",
+          display_name: "snorflepaint",
+          blocker: "No verified install candidate passed resolver policy.",
+        },
+      },
+    }),
+  ],
+} as any);
+
+assert.ok(resolverReceiptTranscript);
+assert.match(resolverReceiptTranscript?.content ?? "", /blocker: No verified install candidate/);
+assert.doesNotMatch(resolverReceiptTranscript?.content ?? "", /ERROR_CLASS=/);
+assert.doesNotMatch(resolverReceiptTranscript?.content ?? "", /"install_event"/);
 
 const gateCopyOnlyTranscript = buildInstallExecutionTranscript({
   id: "task-copy-only",

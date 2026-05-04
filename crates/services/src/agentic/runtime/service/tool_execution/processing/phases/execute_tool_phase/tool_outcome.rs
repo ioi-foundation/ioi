@@ -13,7 +13,7 @@ use crate::agentic::runtime::service::queue::handle_web_search_result;
 use crate::agentic::runtime::service::tool_execution::command_contract::{
     install_operator_completion_summary, WEB_PIPELINE_TERMINAL_EVIDENCE,
 };
-use ioi_types::app::agentic::ChatMessage;
+use ioi_types::app::agentic::{BrowserObservationReceipt, ChatMessage};
 
 pub(super) struct ToolOutcomeContext<'a, 's> {
     pub service: &'a RuntimeAgentService,
@@ -99,6 +99,38 @@ fn blocked_terminalization_error(summary: &str) -> String {
 
 fn completion_gate_needs_pending_browser_check(resolved_intent_id: &str) -> bool {
     resolved_intent_id != "conversation.reply"
+}
+
+fn browser_observation_receipt_from_navigation_output(
+    output: &str,
+) -> Option<BrowserObservationReceipt> {
+    serde_json::from_str::<serde_json::Value>(output)
+        .ok()?
+        .get("browser_observation_receipt")
+        .cloned()
+        .and_then(|value| serde_json::from_value(value).ok())
+}
+
+fn browser_page_title_completion_from_history(
+    agent_state: &AgentState,
+    tool: &AgentTool,
+    history_entry: Option<&str>,
+) -> Option<String> {
+    if !matches!(tool, AgentTool::BrowserNavigate { .. }) {
+        return None;
+    }
+    let route_frame = agent_state.runtime_route_frame.as_ref()?;
+    if route_frame.intent_id != "browser.interact"
+        || route_frame.target_kind.as_deref() != Some("browser_page_title")
+    {
+        return None;
+    }
+    let receipt = browser_observation_receipt_from_navigation_output(history_entry?)?;
+    let title = receipt.title?.trim().to_string();
+    if title.is_empty() {
+        return None;
+    }
+    Some(format!("The page title is {}.", title))
 }
 
 #[cfg(test)]
@@ -488,6 +520,71 @@ pub(super) async fn apply_tool_outcome_and_followups(
                     true,
                     "chat_reply_contract_gate_passed",
                 );
+            }
+        }
+        AgentTool::BrowserNavigate { .. } => {
+            if *success {
+                if let Some(summary) = browser_page_title_completion_from_history(
+                    agent_state,
+                    tool,
+                    history_entry.as_deref(),
+                ) {
+                    let missing_completion_evidence = evaluate_completion_requirements(
+                        agent_state,
+                        resolved_intent_id,
+                        verification_checks,
+                        rules,
+                    );
+                    if !missing_completion_evidence.is_empty() {
+                        let missing = missing_completion_evidence.join(",");
+                        let contract_error = execution_contract_violation_error(&missing);
+                        *success = false;
+                        *error_msg = Some(contract_error.clone());
+                        *history_entry = Some(contract_error.clone());
+                        *action_output = Some(contract_error);
+                        agent_state.status = AgentStatus::Running;
+                        verification_checks
+                            .push("execution_contract_gate_blocked=true".to_string());
+                        verification_checks
+                            .push(format!("execution_contract_missing_keys={}", missing));
+                        emit_completion_gate_violation_events(
+                            service,
+                            session_id,
+                            step_index,
+                            resolved_intent_id,
+                            &missing,
+                        );
+                    } else {
+                        agent_state.status = AgentStatus::Completed(Some(summary.clone()));
+                        agent_state
+                            .execution_ledger
+                            .record_terminal_success(Some(resolved_intent_id.to_string()));
+                        agent_state.execution_queue.clear();
+                        agent_state.pending_search_completion = None;
+                        *is_lifecycle_action = true;
+                        *action_output = Some(summary.clone());
+                        *terminal_chat_reply_output = Some(summary.clone());
+                        verification_checks
+                            .push("browser_page_title_terminalized=true".to_string());
+                        verification_checks.push("terminal_chat_reply_ready=true".to_string());
+                        crystallize_successful_session(
+                            service,
+                            state,
+                            agent_state,
+                            session_id,
+                            block_height,
+                        )
+                        .await;
+                        emit_completion_gate_status_event(
+                            service,
+                            session_id,
+                            step_index,
+                            resolved_intent_id,
+                            true,
+                            "browser_page_title_contract_gate_passed",
+                        );
+                    }
+                }
             }
         }
         AgentTool::OsLaunchApp { app_name } => {

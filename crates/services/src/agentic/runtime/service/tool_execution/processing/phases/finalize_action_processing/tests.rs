@@ -1,16 +1,17 @@
 use super::{
-    duplicate_prior_success_noop, install_already_satisfied_operator_reply,
-    install_already_satisfied_terminal_reason, install_resolution_terminal_block_reason,
-    maybe_enqueue_workspace_package_manifest_recovery,
+    browser_route_owns_dedicated_surface, duplicate_prior_success_noop,
+    install_already_satisfied_operator_reply, install_already_satisfied_terminal_reason,
+    install_resolution_terminal_block_reason, maybe_enqueue_workspace_package_manifest_recovery,
     maybe_terminalize_workspace_package_manifest_read, observe_terminal_chat_reply_shape,
-    select_manifest_script_recovery_candidate, terminal_chat_reply_layout_profile,
-    workspace_goal_prefers_package_manifest_recovery, FailureClass,
-    ManifestScriptRecoveryCandidate, TerminalChatReplyLayoutProfile,
+    select_manifest_script_recovery_candidate, should_release_browser_after_terminal_reply,
+    terminal_chat_reply_layout_profile, workspace_goal_prefers_package_manifest_recovery,
+    FailureClass, ManifestScriptRecoveryCandidate, TerminalChatReplyLayoutProfile,
 };
 use crate::agentic::runtime::service::queue::queue_action_request_to_tool;
 use crate::agentic::runtime::types::{AgentMode, AgentState, AgentStatus, ExecutionTier};
 use ioi_types::app::agentic::{
     AgentTool, CapabilityId, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
+    RuntimeRouteFrame,
 };
 use ioi_types::app::ActionRequest;
 use std::collections::{BTreeMap, VecDeque};
@@ -43,10 +44,39 @@ fn workspace_ops_intent() -> ResolvedIntentState {
     }
 }
 
+fn browser_interact_intent() -> ResolvedIntentState {
+    ResolvedIntentState {
+        intent_id: "browser.interact".to_string(),
+        scope: IntentScopeProfile::WebResearch,
+        band: IntentConfidenceBand::High,
+        score: 0.98,
+        top_k: vec![],
+        required_capabilities: vec![CapabilityId::from("browser.navigate")],
+        required_evidence: vec![],
+        success_conditions: vec![],
+        risk_class: "low".to_string(),
+        preferred_tier: "tool_first".to_string(),
+        intent_catalog_version: "v1".to_string(),
+        embedding_model_id: "test".to_string(),
+        embedding_model_version: "test".to_string(),
+        similarity_function_id: "cosine".to_string(),
+        intent_set_hash: [0u8; 32],
+        tool_registry_hash: [0u8; 32],
+        capability_ontology_hash: [0u8; 32],
+        query_normalization_version: "v1".to_string(),
+        intent_catalog_source_hash: [0u8; 32],
+        evidence_requirements_hash: [0u8; 32],
+        provider_selection: None,
+        instruction_contract: None,
+        constrained: false,
+    }
+}
+
 fn test_agent_state() -> AgentState {
     AgentState {
         session_id: [7u8; 32],
         goal: "test".to_string(),
+        runtime_route_frame: None,
         transcript_root: [0u8; 32],
         status: AgentStatus::Running,
         step_count: 0,
@@ -83,6 +113,63 @@ fn test_agent_state() -> AgentState {
         command_history: VecDeque::new(),
         active_lens: None,
     }
+}
+
+#[test]
+fn browser_terminal_reply_completion_releases_dedicated_browser_surface() {
+    let mut agent_state = test_agent_state();
+    agent_state.status = AgentStatus::Completed(Some("The page title is Example Domain.".into()));
+    agent_state.resolved_intent = Some(browser_interact_intent());
+
+    assert!(browser_route_owns_dedicated_surface(&agent_state));
+    assert!(should_release_browser_after_terminal_reply(
+        &agent_state,
+        "browser__navigate",
+        Some("The page title is Example Domain."),
+    ));
+}
+
+#[test]
+fn browser_release_predicate_uses_typed_route_frame_fallback() {
+    let mut agent_state = test_agent_state();
+    agent_state.status = AgentStatus::Completed(Some("done".into()));
+    agent_state.runtime_route_frame = Some(RuntimeRouteFrame {
+        intent_id: "browser.interact".to_string(),
+        route_family: "tool_first".to_string(),
+        output_intent: "browser__navigate".to_string(),
+        direct_answer_allowed: false,
+        target: "https://example.com".to_string(),
+        target_kind: Some("url".to_string()),
+        host_mutation: false,
+        required_capabilities: vec!["browser.navigate".to_string()],
+        typed_evidence: vec![],
+        typed_required_capabilities: vec![],
+        host_mutation_scope: None,
+        runtime_action: None,
+        install_request: None,
+        provenance: Some("test".to_string()),
+    });
+
+    assert!(browser_route_owns_dedicated_surface(&agent_state));
+    assert!(should_release_browser_after_terminal_reply(
+        &agent_state,
+        "browser__navigate",
+        Some("done"),
+    ));
+}
+
+#[test]
+fn non_browser_terminal_reply_does_not_release_browser_surface() {
+    let mut agent_state = test_agent_state();
+    agent_state.status = AgentStatus::Completed(Some("done".into()));
+    agent_state.resolved_intent = Some(workspace_ops_intent());
+
+    assert!(!browser_route_owns_dedicated_surface(&agent_state));
+    assert!(!should_release_browser_after_terminal_reply(
+        &agent_state,
+        "file__read",
+        Some("done"),
+    ));
 }
 
 #[test]
@@ -195,12 +282,12 @@ fn already_satisfied_install_is_terminalized_as_completion() {
 #[test]
 fn already_satisfied_install_reply_hides_raw_receipt_tokens() {
     let reply = install_already_satisfied_operator_reply(
-        "Already installed: 'LM Studio' is present. SOFTWARE_INSTALL stage='already_installed' display_name='LM Studio' verification='lms --version'",
+        r#"{"kind":"install_final_receipt","install_final_receipt":{"status":"already_installed_verified","display_name":"LM Studio","verification":{"passed":true,"command":"lms --version","observed_version":null,"evidence":[]}}}"#,
     );
 
     assert!(reply.contains("LM Studio is already installed"));
     assert!(reply.contains("`lms --version`"));
-    assert!(!reply.contains("SOFTWARE_INSTALL"));
+    assert!(!reply.contains("install_final_receipt"));
 }
 
 #[test]

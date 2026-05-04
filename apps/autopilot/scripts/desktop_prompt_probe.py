@@ -13,6 +13,7 @@ The script is designed for parity validation, not pixel-perfect UI automation.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -41,8 +42,8 @@ DEFAULT_OUTPUT_ROOT = PROJECT_ROOT / "docs/evidence/route-hierarchy/live-desktop
 
 WINDOW_SEARCH_PATTERN = "Autopilot Chat"
 BROWSER_CAPTURE_URL = "http://127.0.0.1:1433/"
-NEW_OUTCOME_X = 120
-NEW_OUTCOME_Y = 150
+NEW_OUTCOME_X = 115
+NEW_OUTCOME_Y = 137
 COMPOSER_X_RATIO = 0.38
 COMPOSER_MIN_X = 240
 COMPOSER_MIN_Y = 180
@@ -141,17 +142,22 @@ def focus_window(window: WindowGeometry) -> None:
     time.sleep(0.2)
 
 
+def active_window_diagnostics() -> dict[str, Any]:
+    try:
+        active = run(["xdotool", "getactivewindow"]).stdout.strip()
+        title = (
+            run(["xdotool", "getwindowname", active]).stdout.strip()
+            if active
+            else ""
+        )
+        return {"active_window_id": active, "active_window_title": title}
+    except Exception as error:
+        return {"error": str(error)}
+
+
 def click(window: WindowGeometry, rel_x: int, rel_y: int) -> None:
-    run(
-        [
-            "xdotool",
-            "mousemove",
-            "--window",
-            str(window.window_id),
-            str(rel_x),
-            str(rel_y),
-        ]
-    )
+    abs_x, abs_y = window.abs_point(rel_x, rel_y)
+    run(["xdotool", "mousemove", str(abs_x), str(abs_y)])
     run(["xdotool", "click", "1"])
     time.sleep(0.2)
 
@@ -174,6 +180,7 @@ def type_text(window: WindowGeometry, text_value: str) -> None:
         [
             "xdotool",
             "type",
+            "--clearmodifiers",
             "--delay",
             "8",
             text_value,
@@ -217,6 +224,22 @@ def load_checkpoint(db_path: Path, checkpoint_name: str) -> dict[str, Any] | Non
     if isinstance(payload, bytes):
         payload = payload.decode("utf-8")
     return json.loads(payload)
+
+
+def normalize_text(value: str) -> str:
+    return " ".join(value.strip().lower().split())
+
+
+def text_matches_prompt(text: str | None, prompt: str) -> bool:
+    normalized_text = normalize_text(text or "")
+    normalized_prompt = normalize_text(prompt)
+    if not normalized_text or not normalized_prompt:
+        return False
+    return (
+        normalized_text == normalized_prompt
+        or normalized_prompt in normalized_text
+        or normalized_text in normalized_prompt
+    )
 
 
 def profile_root_for_db_path(db_path: Path) -> Path:
@@ -272,9 +295,32 @@ def checkpoint_names(db_path: Path) -> list[str]:
     return [str(row[0]) for row in rows]
 
 
+def load_checkpoint_from_candidates(
+    db_paths: list[Path],
+    checkpoint_name: str,
+) -> Any | None:
+    for path in db_paths:
+        checkpoint = load_checkpoint(path, checkpoint_name)
+        if checkpoint:
+            return checkpoint
+    return None
+
+
+def local_sessions(db_paths: list[Path]) -> list[dict[str, Any]]:
+    payload = load_checkpoint_from_candidates(db_paths, "autopilot.local_sessions.v1")
+    if isinstance(payload, list):
+        return [item for item in payload if isinstance(item, dict)]
+    if isinstance(payload, dict):
+        sessions = payload.get("sessions")
+        if isinstance(sessions, list):
+            return [item for item in sessions if isinstance(item, dict)]
+    return []
+
+
 def db_diagnostics(db_paths: list[Path]) -> dict[str, Any]:
     selected: str | None = None
     candidates: list[dict[str, Any]] = []
+    session_payload = local_sessions(db_paths)
     for path in db_paths:
         exists = path.exists()
         names = checkpoint_names(path)
@@ -291,45 +337,261 @@ def db_diagnostics(db_paths: list[Path]) -> dict[str, Any]:
     return {
         "selected_db_path": selected or (str(db_paths[0]) if db_paths else None),
         "candidates": candidates,
+        "local_session_count": len(session_payload),
+        "latest_sessions": [
+            {
+                "session_id": str(session.get("session_id") or ""),
+                "title": session.get("title"),
+                "timestamp": session.get("timestamp"),
+                "phase": session.get("phase"),
+                "current_step": session.get("current_step"),
+            }
+            for session in sorted(
+                session_payload,
+                key=lambda item: int(item.get("timestamp") or 0),
+                reverse=True,
+            )[:5]
+            if isinstance(session, dict)
+        ],
     }
-
-
-def load_checkpoint_from_candidates(
-    db_paths: list[Path],
-    checkpoint_name: str,
-) -> dict[str, Any] | None:
-    for path in db_paths:
-        checkpoint = load_checkpoint(path, checkpoint_name)
-        if checkpoint:
-            return checkpoint
-    return None
 
 
 def latest_task(db_paths: list[Path]) -> dict[str, Any] | None:
     return load_checkpoint_from_candidates(db_paths, "autopilot.local_task.v1")
 
 
+def compact_task_summary(task: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not task:
+        return None
+    return {
+        "id": task.get("id"),
+        "session_id": task.get("session_id") or task.get("sessionId"),
+        "intent": task.get("intent"),
+        "phase": task.get("phase"),
+        "current_step": task.get("current_step"),
+        "history_count": len(task.get("history") or []),
+        "probe_source": task.get("_probe_source") or "local_task",
+    }
+
+
+def observation_summary(db_paths: list[Path]) -> dict[str, Any]:
+    sessions = sorted(
+        local_sessions(db_paths),
+        key=lambda item: int(item.get("timestamp") or 0),
+        reverse=True,
+    )
+    return {
+        "latest_task": compact_task_summary(latest_task(db_paths)),
+        "latest_sessions": [
+            {
+                "session_id": session.get("session_id"),
+                "title": session.get("title"),
+                "timestamp": session.get("timestamp"),
+                "phase": session.get("phase"),
+                "current_step": session.get("current_step"),
+            }
+            for session in sessions[:3]
+        ],
+    }
+
+
 def task_matches_prompt(task: dict[str, Any], prompt: str) -> bool:
-    intent = (task.get("intent") or "").strip()
-    normalized_prompt = prompt.strip()
-    if intent == normalized_prompt:
+    return text_matches_prompt(task.get("intent"), prompt)
+
+
+def thread_key_for_session_id(session_id: str) -> bytes:
+    return hashlib.sha256(f"autopilot::thread::{session_id}".encode("utf-8")).digest()
+
+
+def transcript_messages_for_session(
+    db_paths: list[Path],
+    session_id: str,
+) -> list[dict[str, Any]]:
+    if not session_id:
+        return []
+    thread_key = thread_key_for_session_id(session_id)
+    for path in db_paths:
+        if not path.exists() or path.stat().st_size == 0:
+            continue
+        conn = sqlite3.connect(path)
+        conn.row_factory = sqlite3.Row
+        try:
+            table_row = conn.execute(
+                """
+                SELECT 1
+                FROM sqlite_master
+                WHERE type = 'table' AND name = 'checkpoint_transcript_messages'
+                LIMIT 1
+                """
+            ).fetchone()
+            if table_row is None:
+                continue
+            rows = conn.execute(
+                """
+                SELECT role, timestamp_ms, raw_content, model_content, store_content, raw_reference
+                FROM checkpoint_transcript_messages
+                WHERE thread_id = ?
+                ORDER BY id ASC
+                """,
+                (thread_key,),
+            ).fetchall()
+        except sqlite3.OperationalError:
+            continue
+        finally:
+            conn.close()
+
+        return [
+            {
+                "role": str(row["role"] or ""),
+                "timestamp_ms": int(row["timestamp_ms"] or 0),
+                "raw_content": row["raw_content"],
+                "model_content": row["model_content"],
+                "store_content": row["store_content"],
+                "raw_reference": row["raw_reference"],
+            }
+            for row in rows
+        ]
+    return []
+
+
+def history_from_transcript_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    history: list[dict[str, Any]] = []
+    for row in rows:
+        role = str(row.get("role") or "").strip()
+        if role == "assistant":
+            role = "agent"
+        text = (
+            row.get("store_content")
+            or row.get("model_content")
+            or row.get("raw_content")
+            or ""
+        )
+        text = str(text).strip()
+        if not role or not text:
+            continue
+        history.append({
+            "role": role,
+            "text": text,
+            "timestamp": int(row.get("timestamp_ms") or 0),
+        })
+    return history
+
+
+def transcript_contains_prompt(rows: list[dict[str, Any]], prompt: str) -> bool:
+    for row in rows:
+        if str(row.get("role") or "") != "user":
+            continue
+        if text_matches_prompt(
+            str(row.get("store_content") or row.get("raw_content") or ""),
+            prompt,
+        ):
+            return True
+    return False
+
+
+def latest_user_from_history(history: list[dict[str, Any]]) -> str | None:
+    for item in reversed(history):
+        if item.get("role") != "user":
+            continue
+        text = str(item.get("text") or "").strip()
+        if text:
+            return text
+    return None
+
+
+def task_from_session_summary(
+    db_paths: list[Path],
+    session: dict[str, Any],
+) -> dict[str, Any]:
+    session_id = str(session.get("session_id") or "")
+    rows = transcript_messages_for_session(db_paths, session_id)
+    history = history_from_transcript_rows(rows)
+    phase = session.get("phase")
+    return {
+        "id": session_id,
+        "session_id": session_id,
+        "intent": latest_user_from_history(history) or session.get("title") or "",
+        "phase": phase,
+        "current_step": session.get("current_step"),
+        "progress": None,
+        "total_steps": None,
+        "history": history,
+        "events": [],
+        "artifacts": [],
+        "chat_session": {
+            "sessionId": session_id,
+            "status": phase,
+            "lifecycleState": phase,
+        },
+        "chat_outcome": None,
+        "_probe_source": "local_session_transcript",
+    }
+
+
+def session_index_signature(db_paths: list[Path]) -> dict[str, tuple[int, str, str, str]]:
+    signature: dict[str, tuple[int, str, str, str]] = {}
+    for session in local_sessions(db_paths):
+        session_id = str(session.get("session_id") or "")
+        if not session_id:
+            continue
+        signature[session_id] = (
+            int(session.get("timestamp") or 0),
+            str(session.get("title") or ""),
+            str(session.get("phase") or ""),
+            str(session.get("current_step") or ""),
+        )
+    return signature
+
+
+def session_changed_since(
+    session: dict[str, Any],
+    baseline_sessions: dict[str, tuple[int, str, str, str]] | None,
+) -> bool:
+    if baseline_sessions is None:
         return True
-    if not intent or not normalized_prompt:
-        return False
-    return normalized_prompt in intent
+    session_id = str(session.get("session_id") or "")
+    current = (
+        int(session.get("timestamp") or 0),
+        str(session.get("title") or ""),
+        str(session.get("phase") or ""),
+        str(session.get("current_step") or ""),
+    )
+    return baseline_sessions.get(session_id) != current
+
+
+def latest_session_task_for_prompt(
+    db_paths: list[Path],
+    prompt: str,
+    *,
+    baseline_sessions: dict[str, tuple[int, str, str, str]] | None = None,
+) -> dict[str, Any] | None:
+    sessions = sorted(
+        local_sessions(db_paths),
+        key=lambda item: int(item.get("timestamp") or 0),
+        reverse=True,
+    )
+    for session in sessions:
+        if not session_changed_since(session, baseline_sessions):
+            continue
+        session_id = str(session.get("session_id") or "")
+        rows = transcript_messages_for_session(db_paths, session_id)
+        if transcript_contains_prompt(rows, prompt) or text_matches_prompt(
+            session.get("title"),
+            prompt,
+        ):
+            return task_from_session_summary(db_paths, session)
+    return None
 
 
 def task_history_contains_prompt(task: dict[str, Any] | None, prompt: str) -> bool:
     if not task:
         return False
-    normalized_prompt = prompt.strip()
-    if not normalized_prompt:
+    if not normalize_text(prompt):
         return False
     for item in reversed(task.get("history", [])):
         if item.get("role") != "user":
             continue
-        text = (item.get("text") or "").strip()
-        if text == normalized_prompt or normalized_prompt in text:
+        if text_matches_prompt(item.get("text"), prompt):
             return True
     return False
 
@@ -337,14 +599,13 @@ def task_history_contains_prompt(task: dict[str, Any] | None, prompt: str) -> bo
 def prompt_has_agent_reply(task: dict[str, Any] | None, prompt: str) -> bool:
     if not task:
         return False
-    normalized_prompt = prompt.strip()
-    if not normalized_prompt:
+    if not normalize_text(prompt):
         return False
     seen_prompt = False
     for item in task.get("history", []):
         role = item.get("role")
         text = (item.get("text") or "").strip()
-        if role == "user" and (text == normalized_prompt or normalized_prompt in text):
+        if role == "user" and text_matches_prompt(text, prompt):
             seen_prompt = True
             continue
         if seen_prompt and role == "agent" and text:
@@ -352,13 +613,20 @@ def prompt_has_agent_reply(task: dict[str, Any] | None, prompt: str) -> bool:
     return False
 
 
-def latest_task_for_prompt(db_paths: list[Path], prompt: str) -> dict[str, Any] | None:
+def latest_task_for_prompt(
+    db_paths: list[Path],
+    prompt: str,
+    *,
+    baseline_sessions: dict[str, tuple[int, str, str, str]] | None = None,
+) -> dict[str, Any] | None:
     task = latest_task(db_paths)
-    if not task:
-        return None
-    if not task_matches_prompt(task, prompt):
-        return None
-    return task
+    if task and task_matches_prompt(task, prompt):
+        return task
+    return latest_session_task_for_prompt(
+        db_paths,
+        prompt,
+        baseline_sessions=baseline_sessions,
+    )
 
 
 def has_local_task_checkpoint(db_paths: list[Path]) -> bool:
@@ -505,12 +773,17 @@ def wait_for_prompt_start(
     *,
     timeout_secs: float,
     baseline_task: dict[str, Any] | None = None,
+    baseline_sessions: dict[str, tuple[int, str, str, str]] | None = None,
     reuse_session: bool = False,
 ) -> dict[str, Any] | None:
     deadline = time.time() + timeout_secs
 
     while time.time() < deadline:
-        task = latest_task_for_prompt(db_paths, prompt)
+        task = latest_task_for_prompt(
+            db_paths,
+            prompt,
+            baseline_sessions=baseline_sessions,
+        )
         if task:
             return task
         if reuse_session:
@@ -529,9 +802,14 @@ def latest_task_for_wait(
     prompt: str,
     *,
     baseline_task: dict[str, Any] | None = None,
+    baseline_sessions: dict[str, tuple[int, str, str, str]] | None = None,
     reuse_session: bool = False,
 ) -> dict[str, Any] | None:
-    task = latest_task_for_prompt(db_paths, prompt)
+    task = latest_task_for_prompt(
+        db_paths,
+        prompt,
+        baseline_sessions=baseline_sessions,
+    )
     if task:
         return task
     if reuse_session:
@@ -638,6 +916,7 @@ def wait_for_prompt_result(
     *,
     timeout_secs: float,
     baseline_task: dict[str, Any] | None = None,
+    baseline_sessions: dict[str, tuple[int, str, str, str]] | None = None,
     reuse_session: bool = False,
 ) -> dict[str, Any]:
     deadline = time.time() + timeout_secs
@@ -648,6 +927,7 @@ def wait_for_prompt_result(
             db_paths,
             prompt,
             baseline_task=baseline_task,
+            baseline_sessions=baseline_sessions,
             reuse_session=reuse_session,
         )
         if task:
@@ -689,15 +969,18 @@ def submit_prompt(
     prompt: str,
     *,
     fresh_outcome: bool,
+    prefer_retained_composer: bool = False,
 ) -> None:
     focus_window(window)
     has_existing_task = has_local_task_checkpoint(db_paths)
-    if fresh_outcome and has_existing_task:
-        key(window, "ctrl+n")
-        time.sleep(1.6)
+    has_existing_context = has_existing_task or bool(local_sessions(db_paths))
+    if fresh_outcome and has_existing_context:
+        click(window, NEW_OUTCOME_X, NEW_OUTCOME_Y)
+        time.sleep(1.2)
         focus_window(window)
         time.sleep(0.3)
-    click(window, *composer_point(window, zero_state=fresh_outcome and not has_existing_task))
+    zero_state = fresh_outcome and not (has_existing_context and prefer_retained_composer)
+    click(window, *composer_point(window, zero_state=zero_state))
     key(window, "ctrl+a")
     key(window, "BackSpace")
     type_text(window, prompt)
@@ -823,6 +1106,7 @@ def result_bundle(
     session = task.get("chat_session") if task else None
     return {
         "task_id": task.get("id") if task else None,
+        "probe_source": task.get("_probe_source") if task else None,
         "intent": task.get("intent") if task else None,
         "phase": task.get("phase") if task else None,
         "current_step": task.get("current_step") if task else None,
@@ -945,14 +1229,22 @@ def main() -> int:
         prompt_dir.mkdir(parents=True, exist_ok=True)
 
         baseline_task = latest_task(db_paths) if args.reuse_session else None
+        baseline_sessions = session_index_signature(db_paths)
         started_task: dict[str, Any] | None = None
+        submission_attempts: list[dict[str, Any]] = []
         for attempt in range(1, max(1, args.submit_attempts) + 1):
+            attempt_record: dict[str, Any] = {
+                "attempt": attempt,
+                "before": observation_summary(db_paths),
+            }
             submit_prompt(
                 window,
                 db_paths,
                 prompt,
                 fresh_outcome=not args.reuse_session,
+                prefer_retained_composer=attempt > 1,
             )
+            attempt_record["window_after_submit"] = active_window_diagnostics()
             if attempt == 1:
                 print(f"[{index}/{len(prompts)}] submitted :: {prompt}", flush=True)
             else:
@@ -965,8 +1257,12 @@ def main() -> int:
                 prompt,
                 timeout_secs=args.start_timeout_secs,
                 baseline_task=baseline_task,
+                baseline_sessions=baseline_sessions,
                 reuse_session=args.reuse_session,
             )
+            attempt_record["after_wait"] = observation_summary(db_paths)
+            attempt_record["started_task"] = compact_task_summary(started_task)
+            submission_attempts.append(attempt_record)
             if started_task is not None:
                 break
 
@@ -975,6 +1271,7 @@ def main() -> int:
                 db_paths,
                 prompt,
                 baseline_task=baseline_task,
+                baseline_sessions=baseline_sessions,
                 reuse_session=args.reuse_session,
             )
             probe_error = (
@@ -991,6 +1288,7 @@ def main() -> int:
                     prompt,
                     timeout_secs=args.timeout_secs,
                     baseline_task=baseline_task,
+                    baseline_sessions=baseline_sessions,
                     reuse_session=args.reuse_session,
                 )
             except Exception as error:
@@ -1000,6 +1298,7 @@ def main() -> int:
                         db_paths,
                         prompt,
                         baseline_task=baseline_task,
+                        baseline_sessions=baseline_sessions,
                         reuse_session=args.reuse_session,
                     )
                     or task
@@ -1010,6 +1309,7 @@ def main() -> int:
             db_paths,
             prompt,
             baseline_task=baseline_task,
+            baseline_sessions=baseline_sessions,
             reuse_session=args.reuse_session,
         )
         if settled_task is not None:
@@ -1035,6 +1335,7 @@ def main() -> int:
                 artifact_records=artifact_records_summary(db_paths),
             ),
             "probe_error": probe_error,
+            "submission_attempts": submission_attempts,
         }
         (prompt_dir / "result.json").write_text(
             json.dumps(bundle, indent=2),

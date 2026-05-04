@@ -2867,6 +2867,7 @@ mod tests {
         AgentState {
             session_id: [4; 32],
             goal: "Validate runtime substrate".to_string(),
+            runtime_route_frame: None,
             transcript_root: [0; 32],
             status,
             step_count: 3,

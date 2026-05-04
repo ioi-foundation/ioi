@@ -111,9 +111,16 @@ fn browser_synthetic_click_surfaces_in_dom_headless_tier() {
     assert!(
         synthetic_click
             .parameters
-            .contains("Prefer this instead of guessing raw coordinates"),
+            .contains("Required with explicit x/y coordinates"),
         "{}",
         synthetic_click.parameters
+    );
+    assert!(
+        synthetic_click
+            .description
+            .contains("guessed raw coordinates are invalid"),
+        "{}",
+        synthetic_click.description
     );
     assert!(
         synthetic_click
@@ -143,6 +150,20 @@ fn browser_synthetic_click_surfaces_in_dom_headless_tier() {
         move_mouse.description.contains("normalized 0-1 fractions"),
         "{}",
         move_mouse.description
+    );
+    assert!(
+        move_mouse
+            .description
+            .contains("guessed raw coordinates are invalid"),
+        "{}",
+        move_mouse.description
+    );
+    assert!(
+        move_mouse.parameters.contains(
+            r#""required":["observation_ref","coordinate_space_id","semantic_id","x","y"]"#
+        ),
+        "{}",
+        move_mouse.parameters
     );
 }
 

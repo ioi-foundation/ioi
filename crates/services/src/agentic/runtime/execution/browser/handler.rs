@@ -15,7 +15,7 @@ use image::ImageFormat;
 use ioi_drivers::gui::accessibility::AccessibilityNode;
 use ioi_drivers::gui::geometry::{CoordinateSpace, DisplayTransform, Point};
 use ioi_drivers::gui::som::draw_som_overlay;
-use ioi_types::app::agentic::{AgentTool, AgentToolCall};
+use ioi_types::app::agentic::{AgentTool, AgentToolCall, BrowserObservationReceipt};
 use serde_json::json;
 use std::collections::BTreeMap;
 use std::env;
@@ -1199,11 +1199,28 @@ pub async fn handle(
                     ));
                 }
 
-                ToolExecutionResult::success(format!(
-                    "Navigated to {}. Content len: {}",
-                    url,
-                    content.len()
-                ))
+                let page_title = exec
+                    .browser
+                    .active_page_title()
+                    .await
+                    .ok()
+                    .flatten()
+                    .map(|title| title.trim().to_string())
+                    .filter(|title| !title.is_empty());
+                let receipt = BrowserObservationReceipt {
+                    observation_ref: format!("browser.observation:{}", content.len()),
+                    url: url.clone(),
+                    title: page_title,
+                    status: None,
+                    content_len: content.len(),
+                };
+                ToolExecutionResult::success(
+                    json!({
+                        "browser_observation_receipt": receipt,
+                        "summary": format!("Navigated to {}.", url),
+                    })
+                    .to_string(),
+                )
             }
             Err(e) => ToolExecutionResult::failure(format!("Navigation failed: {}", e)),
         },
@@ -1460,20 +1477,40 @@ pub async fn handle(
                 }
             }
         }
-        AgentTool::BrowserMoveMouse { x, y } => match exec.browser.move_mouse(x as f64, y as f64).await {
-            Ok(()) => {
-                let state = exec.browser.pointer_state().await;
-                let payload = json!({
-                    "pointer": {
-                        "action": "move",
-                        "x": state.x,
-                        "y": state.y,
-                        "buttons": state.buttons,
-                    }
-                });
-                ToolExecutionResult::success(payload.to_string())
+        AgentTool::BrowserMoveMouse {
+            observation_ref,
+            coordinate_space_id,
+            semantic_id,
+            x,
+            y,
+        } => {
+            if observation_ref.trim().is_empty()
+                || coordinate_space_id.trim().is_empty()
+                || semantic_id.trim().is_empty()
+            {
+                return ToolExecutionResult::failure(
+                    "Schema Validation Error: browser__move_pointer requires observation_ref, coordinate_space_id, and semantic_id grounding."
+                        .to_string(),
+                );
             }
-            Err(e) => ToolExecutionResult::failure(format!("Browser mouse move failed: {}", e)),
+            match exec.browser.move_mouse(x as f64, y as f64).await {
+                Ok(()) => {
+                    let state = exec.browser.pointer_state().await;
+                    let payload = json!({
+                        "pointer": {
+                            "action": "move",
+                            "observation_ref": observation_ref,
+                            "coordinate_space_id": coordinate_space_id,
+                            "semantic_id": semantic_id,
+                            "x": state.x,
+                            "y": state.y,
+                            "buttons": state.buttons,
+                        }
+                    });
+                    ToolExecutionResult::success(payload.to_string())
+                }
+                Err(e) => ToolExecutionResult::failure(format!("Browser mouse move failed: {}", e)),
+            }
         },
         AgentTool::BrowserMouseDown { button } => {
             let button = normalized_browser_button(button.as_deref());
@@ -1517,6 +1554,9 @@ pub async fn handle(
         }
         AgentTool::BrowserSyntheticClick {
             id,
+            observation_ref,
+            coordinate_space_id,
+            semantic_id,
             x,
             y,
             continue_with,
@@ -1527,6 +1567,16 @@ pub async fn handle(
             };
             let pre_tree_xml = pre_tree.as_ref().map(render_browser_tree_xml);
             let explicit_coordinates = x.zip(y);
+            if explicit_coordinates.is_some()
+                && (observation_ref.as_deref().unwrap_or_default().trim().is_empty()
+                    || coordinate_space_id.as_deref().unwrap_or_default().trim().is_empty()
+                    || semantic_id.as_deref().unwrap_or_default().trim().is_empty())
+            {
+                return ToolExecutionResult::failure(
+                    "Schema Validation Error: browser__click_at raw coordinates require observation_ref, coordinate_space_id, and semantic_id grounding."
+                        .to_string(),
+                );
+            }
             let (click_x, click_y, requested_target, pre_target) =
                 if let Some(requested_id) = id.as_deref() {
                     let Some(tree) = pre_tree.as_ref() else {
@@ -1548,16 +1598,10 @@ pub async fn handle(
                     let (click_x, click_y) = explicit_coordinates.unwrap_or((x, y));
                     (click_x, click_y, Some(target), pre_target)
                 } else {
-                    let Some((x, y)) = explicit_coordinates else {
-                        return ToolExecutionResult::failure(
-                            "Schema Validation Error: browser__click_at requires either a grounded `id` or both `x` and `y`."
-                                .to_string(),
-                        );
-                    };
-                    let pre_target = pre_tree
-                        .as_ref()
-                        .and_then(|tree| find_nearest_semantic_target_by_point(tree, x, y));
-                    (x, y, None, pre_target)
+                    return ToolExecutionResult::failure(
+                        "Schema Validation Error: browser__click_at raw coordinates require a grounded `id` from the latest browser observation."
+                            .to_string(),
+                    );
                 };
             let pre_url = exec.browser.active_url().await.ok();
             match exec.browser.synthetic_click(click_x, click_y).await {
@@ -1592,6 +1636,9 @@ pub async fn handle(
                     let click_payload = json!({
                         "synthetic_click": {
                             "id": id,
+                            "observation_ref": observation_ref,
+                            "coordinate_space_id": coordinate_space_id,
+                            "semantic_id": semantic_id,
                             "x": click_x,
                             "y": click_y,
                         },

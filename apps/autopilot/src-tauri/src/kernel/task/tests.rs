@@ -20,6 +20,98 @@ fn local_gpu_profile_dir() -> PathBuf {
 }
 
 #[test]
+fn install_failure_step_hides_raw_error_class_receipt() {
+    let reason = r#"ERROR_CLASS=InstallerResolutionRequired {"summary":"No verified install candidate passed resolver policy for 'snorflepaint'.","install_event":{"stage":"unresolved"}}
+install_resolution_stage=unresolved install_display_name=snorflepaint"#;
+
+    let step = task_failure_step(reason);
+
+    assert_eq!(
+        step,
+        "Install blocked: No verified install candidate passed resolver policy for 'snorflepaint'."
+    );
+    assert!(!step.contains("ERROR_CLASS"));
+}
+
+#[test]
+fn install_failure_history_message_hides_raw_error_class_receipt() {
+    let reason = r#"ERROR_CLASS=InstallerResolutionRequired {"summary":"No verified install candidate passed resolver policy for 'snorflepaint'.","install_event":{"stage":"unresolved"}}
+install_resolution_stage=unresolved install_display_name=snorflepaint"#;
+
+    let message = task_failure_history_message(reason);
+
+    assert_eq!(
+        message,
+        "Install blocked: No verified install candidate passed resolver policy for 'snorflepaint'."
+    );
+    assert!(!message.contains("ERROR_CLASS"));
+    assert!(!message.contains("install_resolution_stage"));
+}
+
+#[test]
+fn chat_primary_completion_uses_transcript_reply_not_status_projection() {
+    assert_eq!(
+        completed_terminal_reply_for_task(
+            true,
+            false,
+            Some("Status-projected answer"),
+            Some("Transcript-backed answer")
+        ),
+        Some("Transcript-backed answer")
+    );
+    assert_eq!(
+        completed_terminal_reply_for_task(true, false, Some("Status-projected answer"), None),
+        None
+    );
+    assert_eq!(
+        completed_terminal_reply_for_task(false, false, Some("Status-projected answer"), None),
+        Some("Status-projected answer")
+    );
+    assert_eq!(
+        completed_terminal_reply_for_task(
+            false,
+            true,
+            Some("Status-projected answer"),
+            Some("Transcript-backed answer")
+        ),
+        None
+    );
+}
+
+#[test]
+fn terminal_reply_dedupe_scans_current_turn_past_receipts_only() {
+    let first_turn_answer = ChatMessage {
+        role: "agent".to_string(),
+        text: "The page title is Example Domain.".to_string(),
+        timestamp: crate::kernel::state::now(),
+    };
+    let latest_prompt = ChatMessage {
+        role: "user".to_string(),
+        text: "Use the browser to open https://example.com and tell me the page title.".to_string(),
+        timestamp: crate::kernel::state::now(),
+    };
+    let latest_answer = ChatMessage {
+        role: "agent".to_string(),
+        text: "The page title is Example Domain.".to_string(),
+        timestamp: crate::kernel::state::now(),
+    };
+    let receipt = ChatMessage {
+        role: "system".to_string(),
+        text: "terminal_chat_reply_postcondition".to_string(),
+        timestamp: crate::kernel::state::now(),
+    };
+
+    assert!(!terminal_reply_exists_after_latest_user(
+        &[first_turn_answer.clone(), latest_prompt.clone()],
+        "The page title is Example Domain."
+    ));
+    assert!(terminal_reply_exists_after_latest_user(
+        &[latest_prompt, latest_answer, receipt],
+        "The page title is Example Domain."
+    ));
+}
+
+#[test]
 fn task_submitter_decodes_wrapped_account_nonce_state() {
     let wrapped = StateEntry {
         value: codec::to_bytes_canonical(&11u64).expect("encode nonce"),
@@ -395,9 +487,12 @@ fn seeded_install_bootstrap_uses_route_contract_without_chat_session() {
     let handoff = apply_chat_route_handoff_to_runtime_input(&task, "install lmstudio");
     assert!(handoff.starts_with("CHAT ARTIFACT ROUTE CONTRACT:"));
     assert!(handoff.contains("selected_route: install lmstudio"));
-    assert!(handoff.contains("software_install_target_text: lmstudio"));
+    assert!(handoff.contains("software_install__resolve"));
     assert!(handoff.contains("software_install__execute_plan"));
     assert!(handoff.contains("USER REQUEST:\ninstall lmstudio"));
+    let frame =
+        crate::kernel::chat::runtime_route_frame_for_task(&task).expect("runtime route frame");
+    assert_eq!(frame.target, "lmstudio");
 }
 
 #[test]
@@ -705,7 +800,7 @@ async fn authenticated_desktop_agent_session_bootstrap_commits_against_local_ker
         .await
         .expect("local kernel should be reachable");
     let start_params =
-        encode_start_agent_params(session_id, goal).expect("start params should encode");
+        encode_start_agent_params(session_id, goal, None).expect("start params should encode");
     let (start_nonce, start_tx_hash) = submit_start_agent_with_nonce_retry(
         &mut client,
         &keypair,

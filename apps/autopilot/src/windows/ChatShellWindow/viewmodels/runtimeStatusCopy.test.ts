@@ -6,6 +6,7 @@ import {
   operatorFacingCurrentStep,
   runtimeExecutionFailureDetail,
   operatorFacingRunTitle,
+  userFacingRuntimeStep,
 } from "./runtimeStatusCopy.ts";
 
 const researchSummary = {
@@ -140,24 +141,37 @@ assert.equal(
 
 assert.equal(
   operatorFacingRunTitle(installSummary as any, {
-    chat_outcome: {
-      decisionEvidence: [
-        "local_install_requested",
-        "software_install_target_text:example app",
-      ],
+    gate_info: {
+      title: "Approve software install",
+      scope_label: "Software install",
+      target_label: "example app",
     },
   } as any),
   "Install example app",
 );
 
+assert.notEqual(
+  operatorFacingRunTitle(installSummary as any, null as any),
+  "Install workflow",
+  "projected install tools alone must not fabricate an install workflow label",
+);
+
+assert.notEqual(
+  operatorFacingCurrentStep(
+    { current_step: "Scheduling first step..." } as any,
+    installSummary as any,
+  ),
+  "Resolving install route before host mutation.",
+  "install current-step copy must come from typed install events or gate state, not projected tools",
+);
+
 assert.equal(
   operatorFacingCurrentStep(
     {
-      chat_outcome: {
-        decisionEvidence: [
-          "local_install_requested",
-          "software_install_target_text:example app",
-        ],
+      gate_info: {
+        title: "Approve software install",
+        scope_label: "Software install",
+        target_label: "example app",
       },
       current_step:
         "Session start commit is delayed, but bootstrap is continuing in the background: Tx abc did not commit within 15000ms (last tx status: InMempool).",
@@ -178,11 +192,25 @@ assert.equal(
 );
 
 assert.equal(
+  userFacingRuntimeStep(
+    `Task failed: ERROR_CLASS=InstallerResolutionRequired ${JSON.stringify({
+      summary:
+        "No verified install candidate passed resolver policy for 'snorflepaint'.",
+      install_event: { stage: "unresolved" },
+    })}
+install_resolution_stage=unresolved install_display_name=snorflepaint`,
+    "Failed",
+  ),
+  "Failed",
+);
+
+assert.equal(
   runtimeExecutionFailureDetail({
+    phase: "Failed",
     current_step:
       "Executed system::invalid_tool_call: ERROR_CLASS=UnexpectedState Failed to parse tool call",
   } as any),
-  "Executed system::invalid_tool_call: ERROR_CLASS=UnexpectedState Failed to parse tool call",
+  null,
 );
 
 console.log("runtimeStatusCopy.test.ts: ok");

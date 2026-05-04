@@ -59,15 +59,13 @@ impl ToolContractProfile {
             "file__read" | "file__view" | "file__list" | "file__search" | "file__info" => {
                 Self::read_only("filesystem", "fs::read", &["path"], "deterministic")
             }
-            "file__write" | "file__replace_line" | "file__edit" | "file__multi_edit" => {
-                Self::write(
-                    "filesystem",
-                    "fs::write",
-                    &["path"],
-                    &["path_scope", "before_hash", "after_hash", "diff_summary"],
-                    "deterministic_mutation",
-                )
-            }
+            "file__write" | "file__edit" | "file__multi_edit" => Self::write(
+                "filesystem",
+                "fs::write",
+                &["path"],
+                &["path_scope", "before_hash", "after_hash", "diff_summary"],
+                "deterministic_mutation",
+            ),
             "file__copy" | "file__move" | "file__create_dir" | "file__zip" => Self::write(
                 "filesystem",
                 name,

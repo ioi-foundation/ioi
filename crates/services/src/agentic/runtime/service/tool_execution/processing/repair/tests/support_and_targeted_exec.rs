@@ -117,9 +117,6 @@ async fn patch_build_verify_invalid_tool_repair_uses_recovery_filtered_tools() {
         .any(|name| repair_tool_names_match(name, "filesystem__write_file")));
     assert!(repair_tools
         .iter()
-        .any(|name| repair_tool_names_match(name, "filesystem__edit_line")));
-    assert!(repair_tools
-        .iter()
         .any(|name| repair_tool_names_match(name, "filesystem__patch")));
     assert!(repair_tools
         .iter()
@@ -159,7 +156,8 @@ async fn patch_build_verify_invalid_tool_repair_uses_recovery_filtered_tools() {
 }
 
 #[test]
-fn patch_build_verify_deterministic_allowed_tool_names_rehydrates_edit_tools_from_assignment() {
+fn patch_build_verify_deterministic_allowed_tool_names_rehydrates_canonical_write_tool_from_assignment(
+) {
     let mut worker_state = build_worker_state([0x23; 32]);
     record_targeted_check_failure(&mut worker_state);
     let assignment = patch_assignment_with_path_parity_goal();
@@ -181,11 +179,10 @@ fn patch_build_verify_deterministic_allowed_tool_names_rehydrates_edit_tools_fro
     );
 
     assert!(hydrated.contains("filesystem__write_file"));
-    assert!(hydrated.contains("filesystem__edit_line"));
     assert!(hydrated.contains("filesystem__read_file"));
     assert!(verification_checks.iter().any(|check| {
         check
-            == "invalid_tool_call_repair_deterministic_assignment_tool_hints=filesystem__write_file|filesystem__edit_line"
+            == "invalid_tool_call_repair_deterministic_assignment_tool_hints=filesystem__write_file"
     }));
 }
 

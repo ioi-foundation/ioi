@@ -77,6 +77,7 @@ fn build_parent_state(goal: &str) -> AgentState {
     AgentState {
         session_id: [0x91; 32],
         goal: goal.to_string(),
+        runtime_route_frame: None,
         transcript_root: [0u8; 32],
         status: AgentStatus::Running,
         step_count: 0,

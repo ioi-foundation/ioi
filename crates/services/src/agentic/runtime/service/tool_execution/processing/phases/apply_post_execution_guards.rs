@@ -118,6 +118,17 @@ fn maybe_normalize_unchanged_browser_snapshot(
     verification_checks.push("browser_snapshot_immediate_replay_unchanged=true".to_string());
 }
 
+fn resolved_install_plan_ref_from_output(output: Option<&str>) -> Option<String> {
+    let text = output?.trim();
+    let json_start = text.find('{')?;
+    let value: serde_json::Value = serde_json::from_str(&text[json_start..]).ok()?;
+    value
+        .get("install_event")
+        .and_then(|event| event.get("plan_ref"))
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_string)
+}
+
 pub(crate) async fn apply_post_execution_guards(
     ctx: ApplyPostExecutionGuardsContext<'_, '_>,
     state_in: ActionProcessingState,
@@ -161,7 +172,7 @@ pub(crate) async fn apply_post_execution_guards(
         invalid_tool_call_fail_fast_mailbox,
         mut terminal_chat_reply_output,
     } = state_in;
-    let is_install_package_tool = current_tool_name == "software_install__execute_plan";
+    let is_software_install_tool = current_tool_name == "software_install__execute_plan";
     let clarification_required = !success
         && error_msg
             .as_deref()
@@ -169,7 +180,7 @@ pub(crate) async fn apply_post_execution_guards(
             .unwrap_or(false);
 
     if !success
-        && is_install_package_tool
+        && is_software_install_tool
         && error_msg
             .as_deref()
             .map(is_sudo_password_required_install_error)
@@ -287,6 +298,38 @@ pub(crate) async fn apply_post_execution_guards(
             .append_chat_to_scs(session_id, &sys_msg, block_height)
             .await?;
         verification_checks.push("awaiting_clarification=true".to_string());
+    }
+
+    if success
+        && current_tool_name == "software_install__resolve"
+        && !is_gated
+        && !awaiting_sudo_password
+        && !awaiting_clarification
+    {
+        if let Some(plan_ref) = resolved_install_plan_ref_from_output(
+            history_entry.as_deref().or(action_output.as_deref()),
+        ) {
+            let params = serde_json::to_vec(&serde_json::json!({ "plan_ref": plan_ref }))
+                .map_err(|error| TransactionError::Serialization(error.to_string()))?;
+            agent_state.execution_queue.insert(
+                0,
+                ioi_types::app::ActionRequest {
+                    target: ioi_types::app::ActionTarget::SoftwareInstallExecute,
+                    params,
+                    context: ioi_types::app::ActionContext {
+                        agent_id: "desktop_agent".to_string(),
+                        session_id: Some(session_id),
+                        window_id: None,
+                    },
+                    nonce: agent_state.step_count as u64
+                        + agent_state.execution_queue.len() as u64
+                        + 1,
+                },
+            );
+            is_lifecycle_action = true;
+            agent_state.status = AgentStatus::Running;
+            verification_checks.push("install_execute_queued_from_resolved_plan=true".to_string());
+        }
     }
 
     if invalid_tool_call_fail_fast

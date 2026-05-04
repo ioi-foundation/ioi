@@ -47,6 +47,7 @@ async fn timer_query_live_openai_e2e_with_model_arbiter() -> Result<()> {
                 parent_session_id: None,
                 initial_budget: 1600,
                 mode: AgentMode::Agent,
+                runtime_route_frame: None,
             })
             .map_err(anyhow::Error::msg)?,
             &mut ctx,

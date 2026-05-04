@@ -7,11 +7,7 @@ import type {
   SetStateAction,
 } from "react";
 import { flushSync } from "react-dom";
-import {
-  getSessionId,
-  isWaitingForClarificationStep,
-  isWaitingForSudoStep,
-} from "./session-status";
+import { getSessionId } from "./session-status";
 
 const UI_PAINT_FALLBACK_MS = 48;
 
@@ -56,13 +52,7 @@ export function isSessionComposerSubmissionBlocked<
   if ((task.credentialRequest ?? task.credential_request)?.kind === "sudo_password") {
     return true;
   }
-  if (
-    (task.clarificationRequest ?? task.clarification_request) &&
-    isWaitingForClarificationStep(task.currentStep ?? task.current_step)
-  ) {
-    return true;
-  }
-  if (isWaitingForSudoStep(task.currentStep ?? task.current_step)) {
+  if (task.clarificationRequest ?? task.clarification_request) {
     return true;
   }
   return task.phase === "Running";
@@ -223,6 +213,14 @@ export function useSessionComposer<
             inputRef.current.style.height = "auto";
           }
           setIntent("");
+          setLocalHistory((current) => [
+            ...current,
+            (createLocalHistoryMessage ??
+              defaultLocalHistoryMessage)({
+              text,
+              timestamp: Date.now(),
+            }) as TLocalHistoryMessage,
+          ]);
           setSubmissionError(null);
           setSubmissionInFlight(true);
         });
@@ -287,6 +285,7 @@ export function useSessionComposer<
   const handleNewSession = useCallback(() => {
     const activeSessionId = task ? getSessionId(task) : null;
     resetSession();
+    setIntent("");
     setLocalHistory([]);
     setSubmissionInFlight(false);
     setSubmissionError(null);
@@ -297,13 +296,23 @@ export function useSessionComposer<
         console.error("Failed to dismiss task while starting a new session:", error);
       });
     }
-    window.setTimeout(() => inputRef.current?.focus(), newSessionFocusDelayMs);
+    const focusComposer = () => {
+      if (inputRef.current) {
+        inputRef.current.style.height = "auto";
+        inputRef.current.focus();
+      }
+    };
+    if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(focusComposer);
+    }
+    window.setTimeout(focusComposer, newSessionFocusDelayMs);
   }, [
     dismissTask,
     inputRef,
     newSessionFocusDelayMs,
     resetInspectionSurface,
     resetSession,
+    setIntent,
     setChatEvents,
     setLocalHistory,
     setSubmissionError,
@@ -348,4 +357,4 @@ export function useSessionComposer<
 }
 
 export const useSessionInputComposer = useSessionComposer;
-export { isWaitingForClarificationStep, isWaitingForSudoStep };
+export { isWaitingForClarificationStep, isWaitingForSudoStep } from "./session-status";

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getSessionId, isWaitingForClarificationStep, isWaitingForSudoStep } from "./session-status";
+import { getSessionId } from "./session-status";
 import { respondToAssistantSessionGate } from "./session-runtime";
 
 export interface SessionGateChatEvent {
@@ -97,13 +97,7 @@ export function useSessionGateState<TTask extends SessionGateTaskLike>({
     task?.clarificationRequest ?? task?.clarification_request ?? undefined;
   const activeSessionId = task ? getSessionId(task) : null;
 
-  const currentStep = task?.currentStep ?? task?.current_step;
-  const waitingForSudoByStep = isWaitingForSudoStep(currentStep);
-  const waitingForClarificationByStep =
-    isWaitingForClarificationStep(currentStep);
-
-  const waitingForSudoPrompt =
-    credentialRequest?.kind === "sudo_password" || waitingForSudoByStep;
+  const waitingForSudoPrompt = credentialRequest?.kind === "sudo_password";
   const suppressPasswordPrompt =
     runtimePasswordPending &&
     !!runtimePasswordSessionId &&
@@ -115,9 +109,9 @@ export function useSessionGateState<TTask extends SessionGateTaskLike>({
   const showClarificationPrompt =
     !!clarificationRequest &&
     !!activeSessionId &&
-    (waitingForClarificationByStep ||
-      task?.phase === "Complete" ||
-      task?.phase === "Running");
+    (task?.phase === "Complete" ||
+      task?.phase === "Running" ||
+      task?.phase === "Gate");
   const inputLockedByCredential = showPasswordPrompt || showClarificationPrompt;
 
   const gateInfo: SessionGateInfo | undefined = useMemo(() => {

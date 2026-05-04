@@ -260,12 +260,10 @@ fn assignment_authorizes_completion_tool(assignment: &WorkerAssignment) -> bool 
 }
 
 fn assignment_requires_workspace_edit_evidence(assignment: &WorkerAssignment) -> bool {
-    assignment.allowed_tools.iter().any(|tool_name| {
-        matches!(
-            tool_name.trim(),
-            "file__edit" | "file__replace_line" | "file__write"
-        )
-    })
+    assignment
+        .allowed_tools
+        .iter()
+        .any(|tool_name| matches!(tool_name.trim(), "file__edit" | "file__write"))
 }
 
 pub(crate) fn awaited_worker_handoff_completion_allowed(

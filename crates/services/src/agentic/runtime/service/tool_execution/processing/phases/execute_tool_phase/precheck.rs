@@ -283,7 +283,7 @@ fn install_resolution_preapproval_blocker(tool: &AgentTool) -> Option<String> {
         "ERROR_CLASS=InstallerResolutionRequired Install target is not executable.".to_string()
     });
     Some(format!(
-        "{} SOFTWARE_INSTALL stage='{}' display_name='{}' manager='{}' source_kind='{}'",
+        "{} install_resolution_stage={} install_display_name={} install_manager={} install_source_kind={}",
         blocker, summary.stage, display_name, manager, source_kind
     ))
 }
@@ -310,26 +310,41 @@ mod tests {
         }
     }
 
+    fn software_install_resolve_tool(
+        target_text: &str,
+        manager_preference: Option<&str>,
+    ) -> AgentTool {
+        AgentTool::SoftwareInstallResolve {
+            request: SoftwareInstallRequestFrame {
+                target_text: target_text.to_string(),
+                target_kind: None,
+                manager_preference: manager_preference.map(str::to_string),
+                launch_after_install: None,
+                provenance: Some("test".to_string()),
+            },
+        }
+    }
+
     #[test]
     fn unresolved_auto_install_blocks_before_approval() {
-        let tool = software_install_execute_plan_tool("snorflepaint", Some("auto"));
+        let tool = software_install_resolve_tool("snorflepaint", Some("auto"));
         let blocker = install_resolution_preapproval_blocker(&tool)
             .expect("unknown auto target should block before approval");
 
         assert!(blocker.contains("InstallerResolutionRequired"));
-        assert!(blocker.contains("stage='unresolved'"));
-        assert!(blocker.contains("source_kind='unknown_target'"));
+        assert!(blocker.contains("install_resolution_stage=unresolved"));
+        assert!(blocker.contains("install_source_kind=unresolved"));
     }
 
     #[test]
     fn unsupported_manual_install_blocks_before_approval() {
-        let tool = software_install_execute_plan_tool("snorflepaint", Some("auto"));
+        let tool = software_install_resolve_tool("snorflepaint", Some("auto"));
         let blocker = install_resolution_preapproval_blocker(&tool)
             .expect("manual installer target without executable plan should block");
 
         assert!(blocker.contains("InstallerResolutionRequired"));
-        assert!(blocker.contains("stage='unresolved'"));
-        assert!(blocker.contains("source_kind='unknown_target'"));
+        assert!(blocker.contains("install_resolution_stage=unresolved"));
+        assert!(blocker.contains("install_source_kind=unresolved"));
     }
 
     #[test]

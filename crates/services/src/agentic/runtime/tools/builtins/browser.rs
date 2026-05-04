@@ -65,9 +65,12 @@
         let synthetic_click_params = json!({
             "type": "object",
             "properties": {
-                "id": { "type": "string", "description": "Optional semantic ID from browser__inspect for a grounded coordinate target. This may also be a numeric `som_id` from the tagged screenshot. Prefer this instead of guessing raw coordinates when the target is already named in the observation." },
-                "x": { "type": "number", "description": "Optional absolute viewport x coordinate in CSS pixels. Fractional pixel values are allowed. Do not use normalized 0-1 fractions. Provide this together with y when no grounded target id is available." },
-                "y": { "type": "number", "description": "Optional absolute viewport y coordinate in CSS pixels. Fractional pixel values are allowed. Do not use normalized 0-1 fractions. Provide this together with x when no grounded target id is available." },
+                "id": { "type": "string", "description": "Optional semantic ID from browser__inspect for a grounded coordinate target. This may also be a numeric `som_id` from the tagged screenshot. Required when explicit x/y coordinates are supplied." },
+                "observation_ref": { "type": "string", "description": "Browser observation reference that grounded this coordinate action. Required with explicit x/y coordinates." },
+                "coordinate_space_id": { "type": "string", "description": "Coordinate-space identifier for the grounding observation, for example viewport_css_px. Required with explicit x/y coordinates." },
+                "semantic_id": { "type": "string", "description": "Stable semantic target id from the grounding observation. Required with explicit x/y coordinates." },
+                "x": { "type": "number", "description": "Optional absolute viewport x coordinate in CSS pixels. Fractional pixel values are allowed. Do not use normalized 0-1 fractions. When supplied, also supply y plus id, observation_ref, coordinate_space_id, and semantic_id from the browser observation." },
+                "y": { "type": "number", "description": "Optional absolute viewport y coordinate in CSS pixels. Fractional pixel values are allowed. Do not use normalized 0-1 fractions. When supplied, also supply x plus id, observation_ref, coordinate_space_id, and semantic_id from the browser observation." },
                 "continue_with": {
                     "type": "object",
                     "description": "Optional immediate follow-up browser action to execute after the coordinate click succeeds, without another inference turn. Use only when the next browser action is already grounded, timing matters, and the coordinate click has an observable browser reaction. If the coordinate click is exploratory or only changes visual geometry, re-evaluate before any visible-control follow-up. Do not use this for drag setup or pointer button state changes.",
@@ -99,7 +102,7 @@
 
         tools.push(LlmToolDefinition {
             name: "browser__click_at".to_string(),
-            description: "Activate a page coordinate directly without moving the user's mouse cursor. Prefer `id` when browser__inspect already names the grounded target; otherwise provide raw `x` and `y` viewport CSS pixels. Coordinates are absolute viewport CSS pixels, not normalized 0-1 fractions. Preferred for grounded coordinate-style actions on canvases, SVG surfaces, and blank regions that do not expose a DOM-clickable control. When the next browser action is already grounded, timing matters, and the coordinate click has an observable browser reaction, pair it with `continue_with` for an immediate follow-up. If the coordinate click is exploratory or only changes visual geometry, re-evaluate before any visible-control follow-up. Do not use `continue_with` for drag setup or pointer button state changes.".to_string(),
+            description: "Activate a page coordinate directly without moving the user's mouse cursor. Prefer semantic `id` when browser__inspect already names the grounded target. If explicit x/y coordinates are supplied, they must be bound to id, observation_ref, coordinate_space_id, and semantic_id from the browser observation; guessed raw coordinates are invalid. Coordinates are absolute viewport CSS pixels, not normalized 0-1 fractions. Preferred for grounded coordinate-style actions on canvases, SVG surfaces, and blank regions that do not expose a DOM-clickable control. When the next browser action is already grounded, timing matters, and the coordinate click has an observable browser reaction, pair it with `continue_with` for an immediate follow-up. If the coordinate click is exploratory or only changes visual geometry, re-evaluate before any visible-control follow-up. Do not use `continue_with` for drag setup or pointer button state changes.".to_string(),
             parameters: synthetic_click_params.to_string(),
         });
     }
@@ -132,14 +135,17 @@
             let browser_move_mouse_params = json!({
                 "type": "object",
                 "properties": {
+                    "observation_ref": { "type": "string", "description": "Browser observation reference that grounded this pointer coordinate." },
+                    "coordinate_space_id": { "type": "string", "description": "Coordinate-space identifier for the grounding observation, for example viewport_css_px." },
+                    "semantic_id": { "type": "string", "description": "Stable semantic target id from the grounding observation." },
                     "x": { "type": "number", "description": "Absolute viewport x coordinate in CSS pixels. Fractional pixel values are allowed. Do not use normalized 0-1 fractions." },
                     "y": { "type": "number", "description": "Absolute viewport y coordinate in CSS pixels. Fractional pixel values are allowed. Do not use normalized 0-1 fractions." }
                 },
-                "required": ["x", "y"]
+                "required": ["observation_ref", "coordinate_space_id", "semantic_id", "x", "y"]
             });
             tools.push(LlmToolDefinition {
                 name: "browser__move_pointer".to_string(),
-                description: "Reposition the browser pointer to absolute viewport CSS pixels without clicking. Do not use normalized 0-1 fractions. This alone does NOT activate page content; use `browser__click_at` for coordinate-only activation, or pair it with `browser__pointer_down` and `browser__pointer_up` for drag flows. Works in headless mode.".to_string(),
+                description: "Reposition the browser pointer to observation-grounded absolute viewport CSS pixels without clicking. Requires observation_ref, coordinate_space_id, and semantic_id from the browser observation; guessed raw coordinates are invalid. Do not use normalized 0-1 fractions. This alone does NOT activate page content; use `browser__click_at` for coordinate-only activation, or pair it with `browser__pointer_down` and `browser__pointer_up` for drag flows. Works in headless mode.".to_string(),
                 parameters: browser_move_mouse_params.to_string(),
             });
         }

@@ -72,6 +72,6 @@ export function collectScreenshotReceipts(
   }
 
   return Array.from(receiptsByStep.values()).sort((a, b) =>
-    b.timestamp.localeCompare(a.timestamp),
+    String(b.timestamp || "").localeCompare(String(a.timestamp || "")),
   );
 }

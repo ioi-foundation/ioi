@@ -141,7 +141,11 @@ mod tests {
             );
         }
 
-        for method in ["package__install", "shell__run", "browser__click"] {
+        for method in [
+            "software_install__execute_plan",
+            "shell__run",
+            "browser__click",
+        ] {
             assert!(
                 !is_desktop_agent_lifecycle_control(method),
                 "{method} is a runtime tool and must remain receipt/policy evaluated"

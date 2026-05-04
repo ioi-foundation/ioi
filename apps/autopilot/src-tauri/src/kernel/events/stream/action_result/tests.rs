@@ -1,8 +1,12 @@
 use super::{
-    automation_artifact_path_from_output, completion_message_for_history, is_chat_reply_tool,
-    is_planner_execute_tool, should_preserve_existing_operator_gate, truncate_message_chars,
+    agent_message_exists_after_latest_user, automation_artifact_path_from_output,
+    completion_message_for_history, failure_message_for_history, install_failure_summary,
+    is_chat_reply_tool, is_planner_execute_tool,
+    should_append_completed_tool_message_from_action_result,
+    should_preserve_existing_operator_gate, should_refocus_chat_after_action_result,
+    should_release_browser_after_action_result, truncate_message_chars,
 };
-use crate::models::{AgentPhase, AgentTask, GateInfo};
+use crate::models::{AgentPhase, AgentTask, ChatMessage, GateInfo};
 use std::collections::HashSet;
 
 #[test]
@@ -46,6 +50,152 @@ fn completion_message_is_truncated_for_very_long_output() {
 #[test]
 fn empty_completion_output_yields_none() {
     assert!(completion_message_for_history("planner::execute", "   ").is_none());
+}
+
+#[test]
+fn chat_primary_tool_completion_waits_for_chat_reply_event() {
+    assert!(!should_append_completed_tool_message_from_action_result(
+        true,
+        true,
+        "browser__navigate"
+    ));
+    assert!(!should_append_completed_tool_message_from_action_result(
+        true,
+        true,
+        "chat__reply"
+    ));
+    assert!(!should_append_completed_tool_message_from_action_result(
+        false,
+        true,
+        "browser__navigate"
+    ));
+    assert!(should_append_completed_tool_message_from_action_result(
+        false,
+        false,
+        "browser__navigate"
+    ));
+}
+
+#[test]
+fn terminal_browser_actions_refocus_chat_surface() {
+    assert!(should_refocus_chat_after_action_result(
+        "browser__navigate",
+        "Completed"
+    ));
+    assert!(should_refocus_chat_after_action_result(
+        "browser::inspect",
+        "Failed"
+    ));
+    assert!(!should_refocus_chat_after_action_result(
+        "browser__navigate",
+        "Running"
+    ));
+    assert!(!should_refocus_chat_after_action_result(
+        "shell__run",
+        "Completed"
+    ));
+}
+
+#[test]
+fn browser_completion_refocus_does_not_open_legacy_chat_session_surface() {
+    let source = include_str!("../action_result.rs");
+    assert!(
+        !source.contains("windows::show_chat_session"),
+        "browser completion refocus must target the already-open chat surface, not open another chat window",
+    );
+    assert!(source.contains("get_webview_window(\"chat\")"));
+}
+
+#[test]
+fn completed_browser_actions_release_dedicated_browser_session() {
+    assert!(should_release_browser_after_action_result(
+        "browser__navigate",
+        "Completed",
+        false
+    ));
+    assert!(should_release_browser_after_action_result(
+        "browser::inspect",
+        "Completed",
+        false
+    ));
+    assert!(should_release_browser_after_action_result(
+        "chat__reply",
+        "Completed",
+        true
+    ));
+    assert!(!should_release_browser_after_action_result(
+        "browser__navigate",
+        "Failed",
+        false
+    ));
+    assert!(!should_release_browser_after_action_result(
+        "shell__run",
+        "Completed",
+        false
+    ));
+}
+
+#[test]
+fn action_result_dedupe_scans_current_turn_past_receipts_only() {
+    let first_turn_answer = ChatMessage {
+        role: "agent".to_string(),
+        text: "The page title is Example Domain.".to_string(),
+        timestamp: crate::kernel::state::now(),
+    };
+    let latest_prompt = ChatMessage {
+        role: "user".to_string(),
+        text: "Use the browser to open https://example.com and tell me the page title.".to_string(),
+        timestamp: crate::kernel::state::now(),
+    };
+    let latest_answer = ChatMessage {
+        role: "agent".to_string(),
+        text: "The page title is Example Domain.".to_string(),
+        timestamp: crate::kernel::state::now(),
+    };
+    let receipt = ChatMessage {
+        role: "system".to_string(),
+        text: "terminal_chat_reply_postcondition".to_string(),
+        timestamp: crate::kernel::state::now(),
+    };
+
+    assert!(!agent_message_exists_after_latest_user(
+        &[first_turn_answer, latest_prompt.clone()],
+        "The page title is Example Domain."
+    ));
+    assert!(agent_message_exists_after_latest_user(
+        &[latest_prompt, latest_answer, receipt],
+        "The page title is Example Domain."
+    ));
+}
+
+#[test]
+fn install_failure_summary_hides_raw_error_class_receipt() {
+    let output = r#"ERROR_CLASS=InstallerResolutionRequired {"summary":"No verified install candidate passed resolver policy for 'snorflepaint'.","install_event":{"stage":"unresolved"}}
+install_resolution_stage=unresolved install_display_name=snorflepaint"#;
+
+    let summary =
+        install_failure_summary("software_install__resolve", output).expect("install summary");
+
+    assert_eq!(
+        summary,
+        "Install blocked: No verified install candidate passed resolver policy for 'snorflepaint'."
+    );
+    assert!(!summary.contains("ERROR_CLASS"));
+}
+
+#[test]
+fn failure_history_message_hides_raw_install_receipt() {
+    let output = r#"ERROR_CLASS=InstallerResolutionRequired {"summary":"No verified install candidate passed resolver policy for 'snorflepaint'.","install_event":{"stage":"unresolved"}}
+install_resolution_stage=unresolved install_display_name=snorflepaint"#;
+
+    let message = failure_message_for_history("software_install__resolve", output);
+
+    assert_eq!(
+        message,
+        "Install blocked: No verified install candidate passed resolver policy for 'snorflepaint'."
+    );
+    assert!(!message.contains("ERROR_CLASS"));
+    assert!(!message.contains("install_resolution_stage"));
 }
 
 #[test]

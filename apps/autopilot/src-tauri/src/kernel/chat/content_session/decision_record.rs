@@ -2,7 +2,9 @@ use super::*;
 use ioi_api::runtime_harness::{
     build_chat_decision_record_payload, build_chat_runtime_handoff_prompt_prefix,
     inline_answer_status_message as shared_inline_answer_status_message,
+    runtime_route_frame_for_outcome_request,
 };
+use ioi_types::app::agentic::RuntimeRouteFrame;
 
 pub(super) fn decision_evidence_item_flag(
     outcome_request: &ChatOutcomeRequest,
@@ -51,6 +53,15 @@ pub(crate) fn runtime_handoff_prompt_prefix_for_task(task: &AgentTask) -> Option
         outcome_request,
         workspace_root_from_task(task).as_deref(),
     ))
+}
+
+pub(crate) fn runtime_route_frame_for_task(task: &AgentTask) -> Option<RuntimeRouteFrame> {
+    if super::task_state::task_requires_chat_primary_execution(task) {
+        return None;
+    }
+
+    let outcome_request = task.chat_outcome.as_ref()?;
+    runtime_route_frame_for_outcome_request(outcome_request)
 }
 
 fn build_decision_record_payload_with_widget_state(

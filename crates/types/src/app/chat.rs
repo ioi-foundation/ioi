@@ -5,6 +5,7 @@
 //! verification-backed replies so that Chat surfaces and CLI tooling can
 //! operate on the same typed work product language.
 
+use crate::app::agentic::{RuntimeActionFrame, SoftwareInstallRequestFrame};
 use serde::{Deserialize, Serialize};
 
 /// The top-level outcome class selected by Chat's router.
@@ -373,6 +374,8 @@ pub enum ChatNormalizedRequest {
     Recipe(ChatRecipeRequestFrame),
     MessageCompose(ChatMessageComposeRequestFrame),
     UserInput(ChatUserInputRequestFrame),
+    SoftwareInstall(SoftwareInstallRequestFrame),
+    RuntimeAction(RuntimeActionFrame),
 }
 
 /// Retained lane state used to carry route-relevant context across follow-up

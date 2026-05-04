@@ -144,6 +144,7 @@ fn agent_state() -> AgentState {
     AgentState {
         session_id: [0x11; 32],
         goal: "test".to_string(),
+        runtime_route_frame: None,
         transcript_root: [0u8; 32],
         status: AgentStatus::Running,
         step_count: 0,

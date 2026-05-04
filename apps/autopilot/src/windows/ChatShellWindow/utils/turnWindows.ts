@@ -16,12 +16,15 @@ export type EventTurnWindow = {
 export function buildEventTurnWindows(events: AgentEvent[]): EventTurnWindow[] {
   const ordered = events
     .slice()
-    .sort(
-      (a, b) =>
-        a.timestamp.localeCompare(b.timestamp) ||
-        a.step_index - b.step_index ||
-        a.event_id.localeCompare(b.event_id),
-    );
+    .sort((a, b) => {
+      const aTimestamp = a.timestamp || "";
+      const bTimestamp = b.timestamp || "";
+      return (
+        aTimestamp.localeCompare(bTimestamp) ||
+        (a.step_index ?? 0) - (b.step_index ?? 0) ||
+        (a.event_id || "").localeCompare(b.event_id || "")
+      );
+    });
   const userEvents = ordered.filter((event) => isUserRequestEvent(event));
 
   return userEvents.map((event, idx) => {

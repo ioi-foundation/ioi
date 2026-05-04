@@ -129,6 +129,7 @@ impl IntentResolver {
             let params = StartAgentParams {
                 session_id,
                 goal,
+                runtime_route_frame: None,
                 max_steps: 20,
                 parent_session_id: None,
                 initial_budget: 10_000_000,
@@ -303,6 +304,7 @@ impl IntentResolver {
                 let params = StartAgentParams {
                     session_id,
                     goal: goal.to_string(),
+                    runtime_route_frame: None,
                     max_steps: 20,
                     parent_session_id: None,
                     initial_budget: 10_000_000,

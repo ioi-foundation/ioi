@@ -3,8 +3,15 @@ import {
   type ConnectorSummary,
   type RuntimeCatalogEntry,
 } from "@ioi/agent-ide";
+import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ChangeEvent, KeyboardEvent, RefObject, SyntheticEvent } from "react";
+import type {
+  ChangeEvent,
+  KeyboardEvent,
+  MouseEvent,
+  RefObject,
+  SyntheticEvent,
+} from "react";
 import {
   openCompanionCapabilityActions,
   openCompanionCatalog,
@@ -14,6 +21,7 @@ import {
   openReviewPolicyCenter,
 } from "../../../services/reviewNavigation";
 import { getSessionWorkbenchRuntime } from "../../../services/sessionRuntime";
+import { safelyDisposeTauriListener } from "../../../services/tauriListeners";
 import type {
   AgentTask,
   ArtifactHubViewKey,
@@ -105,6 +113,8 @@ type ChatInputSectionProps = {
 };
 
 type LoadStatus = "idle" | "loading" | "ready" | "error";
+
+const CHAT_COMPOSER_FOCUS_REQUESTED_EVENT = "chat-composer-focus-requested";
 
 type LiveToolRecord = {
   connector: ConnectorSummary;
@@ -281,6 +291,7 @@ export function ChatInputSection({
 
   const focusComposer = useCallback(
     (cursor?: number) => {
+      enterInsertMode();
       window.requestAnimationFrame(() => {
         const textarea = inputRef.current;
         adjustTextareaHeight(textarea);
@@ -290,8 +301,38 @@ export function ChatInputSection({
         }
       });
     },
-    [inputRef],
+    [enterInsertMode, inputRef],
   );
+
+  const handleComposerWrapperMouseDown = useCallback(
+    (event: MouseEvent<HTMLDivElement>) => {
+      const target = event.target as HTMLElement | null;
+      if (
+        target?.closest(
+          "button,a,input,select,[role='button'],[data-composer-control='true']",
+        )
+      ) {
+        return;
+      }
+      enterInsertMode();
+      focusComposer();
+    },
+    [enterInsertMode, focusComposer],
+  );
+
+  const handleTextareaFocus = useCallback(() => {
+    setInputFocused(true);
+    enterInsertMode();
+  }, [enterInsertMode, setInputFocused]);
+
+  useEffect(() => {
+    const unlistenPromise = listen(CHAT_COMPOSER_FOCUS_REQUESTED_EVENT, () => {
+      focusComposer();
+    });
+    return () => {
+      safelyDisposeTauriListener(unlistenPromise);
+    };
+  }, [focusComposer]);
 
   useEffect(() => {
     if (!commandsMenuOpen || runtimeCatalogStatus !== "idle") {
@@ -1577,7 +1618,7 @@ export function ChatInputSection({
         isDraggingFile ? "drag-active" : ""
       }`}
     >
-      <div className="spot-input-wrapper">
+      <div className="spot-input-wrapper" onMouseDown={handleComposerWrapperMouseDown}>
         {planMode ? (
           <div className="spot-plan-mode-banner">
             <div className="spot-plan-mode-banner__copy">
@@ -1662,7 +1703,7 @@ export function ChatInputSection({
               onClick={handleTextareaSelection}
               onKeyUp={handleTextareaSelection}
               onSelect={handleTextareaSelection}
-              onFocus={() => setInputFocused(true)}
+              onFocus={handleTextareaFocus}
               onBlur={() => setInputFocused(false)}
               rows={1}
             />

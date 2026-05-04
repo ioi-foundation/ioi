@@ -193,6 +193,10 @@ fn builtin_worker_catalog_contains_workload_specialists() {
     assert!(coder_workflow
         .allowed_tools
         .iter()
+        .any(|tool| tool == "file__write"));
+    assert!(!coder_workflow
+        .allowed_tools
+        .iter()
         .any(|tool| tool == "file__replace_line"));
     assert!(coder_workflow
         .allowed_tools

@@ -11,6 +11,7 @@ fn test_state() -> AgentState {
     AgentState {
         session_id: [0u8; 32],
         goal: "old".to_string(),
+        runtime_route_frame: None,
         transcript_root: [0u8; 32],
         status: AgentStatus::Running,
         step_count: 7,
@@ -86,7 +87,7 @@ fn reset_for_new_user_goal_refreshes_target_and_intent_state() {
     state.pending_visual_hash = Some([9u8; 32]);
     state
         .recent_actions
-        .push("route_contract_tool_call:software_install__execute_plan:lm studio".to_string());
+        .push("runtime_route_frame:software_install__execute_plan".to_string());
     state.tool_execution_log.insert(
         "software_install__execute_plan".to_string(),
         ToolCallStatus::Pending,

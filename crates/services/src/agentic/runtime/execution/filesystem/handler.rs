@@ -40,7 +40,7 @@ fn patch_apply_failure_message(path: &Path, error: &str) -> String {
 
     if deterministic_search_miss {
         return format!(
-            "ERROR_CLASS=NoEffectAfterAction Patch failed for {}: {}. Use the exact latest `file__read` block for `search`, or prefer `file__replace_line` / `file__write` for one-line fixes.",
+            "ERROR_CLASS=NoEffectAfterAction Patch failed for {}: {}. Use the exact latest `file__read` block for `search`, or prefer `file__write` with line_number for one-line fixes.",
             path.display(),
             normalized
         );

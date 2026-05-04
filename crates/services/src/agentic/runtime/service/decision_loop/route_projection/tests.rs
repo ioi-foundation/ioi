@@ -163,7 +163,7 @@ fn resolved_install_intent_blocks_direct_inline_output() {
     ))));
 
     let blockers = direct_answer_blockers(false, true, false, false, false, false, false);
-    assert!(blockers.contains(&"local_install_requested".to_string()));
+    assert!(blockers.contains(&"host_mutation_requested".to_string()));
     assert_eq!(
         output_intent("chat__reply", false, false, false, false),
         "tool_execution"

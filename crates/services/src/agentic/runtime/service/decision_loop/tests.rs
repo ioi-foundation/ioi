@@ -1,8 +1,9 @@
 use super::{
     ensure_agent_running_or_resume_retry_pause, handle_step, maybe_direct_inline_author_tool_call,
-    maybe_route_contract_local_install_tool_call, maybe_run_optimizer_recovery,
+    maybe_run_optimizer_recovery, maybe_typed_runtime_browser_navigate_tool_call,
+    maybe_typed_runtime_install_resolve_tool_call, maybe_typed_runtime_shell_run_tool_call,
     queue_parent_playbook_await_request, queue_root_playbook_delegate_request,
-    should_clear_stale_canonical_pending,
+    should_clear_stale_canonical_pending, typed_runtime_route_resolved_intent,
 };
 use crate::agentic::runtime::keys::{get_parent_playbook_run_key, get_state_key};
 use crate::agentic::runtime::service::RuntimeAgentService;
@@ -21,8 +22,10 @@ use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_memory::MemoryRuntime;
 use ioi_types::app::agentic::{
-    ArgumentOrigin, CapabilityId, InferenceOptions, InstructionBindingKind, InstructionContract,
-    InstructionSlotBinding, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
+    ArgumentOrigin, BrowserActionPlanRef, CapabilityId, CommandExecutionPlanRef, InferenceOptions,
+    InstructionBindingKind, InstructionContract, InstructionSlotBinding, IntentConfidenceBand,
+    IntentScopeProfile, RequiredCapability, ResolvedIntentState, RuntimeActionFrame,
+    RuntimeIntentEvidence, RuntimeRouteFrame, SoftwareInstallRequestFrame,
 };
 use ioi_types::app::{
     AccountId, ActionContext, ActionRequest, ActionTarget, ChainId, ContextSlice,
@@ -38,6 +41,7 @@ fn test_agent_state() -> AgentState {
     AgentState {
         session_id: [0u8; 32],
         goal: "test".to_string(),
+        runtime_route_frame: None,
         transcript_root: [0u8; 32],
         status: AgentStatus::Running,
         step_count: 0,
@@ -76,28 +80,282 @@ fn test_agent_state() -> AgentState {
     }
 }
 
-#[test]
-fn route_contract_install_tool_emits_software_install_plan_from_structured_contract() {
-    let mut state = test_agent_state();
-    state.goal = "CHAT ARTIFACT ROUTE CONTRACT:\n- selected_route: install lmstudio\n- route_family: command_execution\n- output_intent: tool_execution\n- direct_answer_allowed: false\n- primary_tools: host_discovery, software_install_resolver, software_install__execute_plan, app__launch\n- software_install_target_text: lmstudio\nUSER REQUEST:\n[Codebase context]\nWorkspace: .\n\n[User request]\ninstall lmstudio".to_string();
+fn typed_install_frame(target: &str) -> RuntimeRouteFrame {
+    RuntimeRouteFrame {
+        intent_id: "software.install".to_string(),
+        route_family: "command_execution".to_string(),
+        output_intent: "tool_execution".to_string(),
+        direct_answer_allowed: false,
+        target: target.to_string(),
+        target_kind: Some("desktop_app".to_string()),
+        host_mutation: true,
+        required_capabilities: vec!["software.install.resolve".to_string()],
+        typed_evidence: vec![],
+        typed_required_capabilities: vec![],
+        host_mutation_scope: None,
+        runtime_action: None,
+        install_request: Some(SoftwareInstallRequestFrame {
+            target_text: target.to_string(),
+            target_kind: Some("desktop_app".to_string()),
+            manager_preference: Some("apt".to_string()),
+            launch_after_install: None,
+            provenance: Some("test".to_string()),
+        }),
+        provenance: Some("test".to_string()),
+    }
+}
 
-    let tool_call =
-        maybe_route_contract_local_install_tool_call(&mut state).expect("tool call should route");
-    assert!(tool_call.contains("\"name\":\"software_install__execute_plan\""));
-    assert!(tool_call.contains("\"plan_ref\""));
-    assert!(state.recent_actions.iter().any(
-        |action| action.starts_with("route_contract_tool_call:software_install__execute_plan")
-    ));
-
-    assert!(maybe_route_contract_local_install_tool_call(&mut state).is_none());
+fn typed_runtime_action_frame(intent_id: &str, target_kind: &str) -> RuntimeRouteFrame {
+    let runtime_action = match intent_id {
+        "browser.interact" => Some(RuntimeActionFrame {
+            intent_class: "local_runtime_action".to_string(),
+            action_family: "browser".to_string(),
+            target_text: "test runtime action".to_string(),
+            target_kind: target_kind.to_string(),
+            host_mutation: false,
+            required_capabilities: vec![RequiredCapability {
+                capability_id: "browser.interact".to_string(),
+                reason: Some("test".to_string()),
+            }],
+            browser_plan: Some(BrowserActionPlanRef {
+                plan_ref: "browser.navigate:https://example.com".to_string(),
+                action: "navigate".to_string(),
+                url: "https://example.com".to_string(),
+                observation_required: true,
+                observation_ref: None,
+                coordinate_space_id: None,
+                semantic_id: None,
+            }),
+            command_plan: None,
+            file_plan: None,
+            provenance: Some("test".to_string()),
+        }),
+        "command.exec" => Some(RuntimeActionFrame {
+            intent_class: "local_runtime_action".to_string(),
+            action_family: "shell".to_string(),
+            target_text: "Run `echo typed-shell` in the terminal.".to_string(),
+            target_kind: target_kind.to_string(),
+            host_mutation: false,
+            required_capabilities: vec![RequiredCapability {
+                capability_id: "command.exec".to_string(),
+                reason: Some("test".to_string()),
+            }],
+            browser_plan: None,
+            command_plan: Some(CommandExecutionPlanRef {
+                plan_ref: "command.exec:test".to_string(),
+                argv: vec![
+                    "bash".to_string(),
+                    "-lc".to_string(),
+                    "echo typed-shell".to_string(),
+                ],
+                shell_policy: "bounded".to_string(),
+                cwd: Some(".".to_string()),
+                env: Vec::new(),
+                approval_scope: None,
+                expected_receipt: Some("command_receipt".to_string()),
+            }),
+            file_plan: None,
+            provenance: Some("test".to_string()),
+        }),
+        _ => None,
+    };
+    RuntimeRouteFrame {
+        intent_id: intent_id.to_string(),
+        route_family: if intent_id == "command.exec" {
+            "command_execution".to_string()
+        } else {
+            "browser".to_string()
+        },
+        output_intent: "tool_execution".to_string(),
+        direct_answer_allowed: false,
+        target: "test runtime action".to_string(),
+        target_kind: Some(target_kind.to_string()),
+        host_mutation: false,
+        required_capabilities: Vec::new(),
+        typed_evidence: vec![RuntimeIntentEvidence {
+            evidence_kind: "normalized_request".to_string(),
+            value: "runtime_action".to_string(),
+            source: "test".to_string(),
+            confidence: Some(95),
+        }],
+        typed_required_capabilities: Vec::new(),
+        host_mutation_scope: None,
+        runtime_action,
+        install_request: None,
+        provenance: Some("test".to_string()),
+    }
 }
 
 #[test]
-fn route_contract_install_tool_does_not_parse_user_text_without_contract_target() {
+fn typed_runtime_install_route_dispatches_resolver_from_structured_frame() {
     let mut state = test_agent_state();
-    state.goal = "CHAT ARTIFACT ROUTE CONTRACT:\n- selected_route: install lmstudio\n- route_family: command_execution\n- output_intent: tool_execution\n- direct_answer_allowed: false\n- primary_tools: host_discovery, software_install_resolver, software_install__execute_plan, app__launch\nUSER REQUEST:\ninstall lmstudio".to_string();
+    state.runtime_route_frame = Some(typed_install_frame("lmstudio"));
 
-    assert!(maybe_route_contract_local_install_tool_call(&mut state).is_none());
+    let tool_call =
+        maybe_typed_runtime_install_resolve_tool_call(&mut state).expect("tool call should route");
+    assert!(tool_call.contains("\"name\":\"software_install__resolve\""));
+    assert!(tool_call.contains("\"request\""));
+    assert!(state.recent_actions.iter().any(|action| {
+        action.starts_with("runtime_route_frame_dispatch:software_install__resolve")
+    }));
+
+    assert!(maybe_typed_runtime_install_resolve_tool_call(&mut state).is_none());
+}
+
+#[test]
+fn typed_runtime_action_frames_seed_tool_scoped_intents() {
+    let browser = typed_runtime_route_resolved_intent(&typed_runtime_action_frame(
+        "browser.interact",
+        "browser_action",
+    ))
+    .expect("browser route frame should seed intent");
+    assert_eq!(browser.intent_id, "browser.interact");
+    assert_eq!(browser.scope, IntentScopeProfile::UiInteraction);
+    assert!(browser
+        .required_capabilities
+        .contains(&CapabilityId::from("browser.interact")));
+
+    let shell = typed_runtime_route_resolved_intent(&typed_runtime_action_frame(
+        "command.exec",
+        "shell_command",
+    ))
+    .expect("shell route frame should seed intent");
+    assert_eq!(shell.intent_id, "command.exec");
+    assert_eq!(shell.scope, IntentScopeProfile::CommandExecution);
+    assert!(shell
+        .required_capabilities
+        .contains(&CapabilityId::from("command.exec")));
+}
+
+#[test]
+fn typed_runtime_browser_frame_dispatches_explicit_url_navigation() {
+    let mut state = test_agent_state();
+    state.runtime_route_frame = Some(typed_runtime_action_frame(
+        "browser.interact",
+        "browser_action",
+    ));
+
+    let tool_call = maybe_typed_runtime_browser_navigate_tool_call(&mut state)
+        .expect("browser route frame with url should dispatch navigation");
+    assert!(tool_call.contains("\"name\":\"browser__navigate\""));
+    assert!(tool_call.contains("https://example.com"));
+    assert!(state
+        .recent_actions
+        .iter()
+        .any(|action| { action.starts_with("runtime_route_frame_dispatch:browser__navigate") }));
+
+    assert!(maybe_typed_runtime_browser_navigate_tool_call(&mut state).is_none());
+}
+
+#[test]
+fn typed_runtime_shell_frame_dispatches_explicit_command_plan() {
+    let mut state = test_agent_state();
+    state.runtime_route_frame = Some(typed_runtime_action_frame("command.exec", "shell_command"));
+
+    let tool_call = maybe_typed_runtime_shell_run_tool_call(&mut state)
+        .expect("shell route frame with command plan should dispatch shell__run");
+    assert!(tool_call.contains("\"name\":\"shell__run\""));
+    assert!(tool_call.contains("\"command\":\"bash\""));
+    assert!(tool_call.contains("echo typed-shell"));
+    assert!(state
+        .recent_actions
+        .iter()
+        .any(|action| { action.starts_with("runtime_route_frame_dispatch:shell__run") }));
+
+    assert!(maybe_typed_runtime_shell_run_tool_call(&mut state).is_none());
+}
+
+#[test]
+fn typed_runtime_install_route_does_not_parse_user_text_without_frame() {
+    let mut state = test_agent_state();
+    state.goal = "CHAT ARTIFACT ROUTE CONTRACT:\n- selected_route: install lmstudio\n- route_family: command_execution\n- output_intent: tool_execution\n- direct_answer_allowed: false\n- primary_tools: host_discovery, software_install_resolver, software_install__execute_plan, app__launch\nRUNTIME_ROUTE_FRAME_JSON:{\"intent_id\":\"software.install\"}\nUSER REQUEST:\ninstall lmstudio".to_string();
+
+    assert!(maybe_typed_runtime_install_resolve_tool_call(&mut state).is_none());
+}
+
+#[test]
+fn source_invariant_runtime_route_frames_are_not_prompt_dispatched() {
+    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(Path::parent)
+        .expect("repo root");
+    let production_files = [
+        repo_root.join("crates/api/src/chat/domain_topology/projection.rs"),
+        repo_root.join("crates/services/src/agentic/runtime/service/decision_loop/mod.rs"),
+    ];
+    for path in production_files {
+        let source = std::fs::read_to_string(&path).expect("source file readable");
+        assert!(
+            !source.contains("RUNTIME_ROUTE_FRAME_JSON"),
+            "{} must not embed route frames in prompts",
+            path.display()
+        );
+        assert!(
+            !source.contains("typed_runtime_route_tool_call"),
+            "{} must not use legacy route-frame tool-call markers",
+            path.display()
+        );
+        assert!(
+            !source.contains("typed_runtime_route_frame_from_goal"),
+            "{} must not parse route frames from goal text",
+            path.display()
+        );
+        assert!(
+            !source.contains("first_http_url"),
+            "{} must not extract executable browser targets from prompt text",
+            path.display()
+        );
+    }
+}
+
+#[test]
+fn source_invariant_browser_completion_uses_observation_receipts_not_title_strings() {
+    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(Path::parent)
+        .expect("repo root");
+    let production_files = [
+        repo_root.join("crates/services/src/agentic/runtime/execution/browser/handler.rs"),
+        repo_root.join("crates/services/src/agentic/runtime/service/tool_execution/processing/phases/execute_tool_phase/tool_outcome.rs"),
+    ];
+    for path in production_files {
+        let source = std::fs::read_to_string(&path).expect("source file readable");
+        assert!(
+            !source.contains("Page title:"),
+            "{} must not use browser title prose as an executable receipt",
+            path.display()
+        );
+        assert!(
+            !source.contains("split_once(\"Page title"),
+            "{} must not parse browser title from arbitrary output strings",
+            path.display()
+        );
+    }
+}
+
+#[test]
+fn source_invariant_legacy_file_line_alias_is_not_advertised_or_executable() {
+    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(Path::parent)
+        .expect("repo root");
+    let production_files = [
+        repo_root.join("crates/services/src/agentic/runtime/tools/contracts.rs"),
+        repo_root.join("crates/services/src/agentic/runtime/tools/builtins/filesystem_chat.rs"),
+        repo_root.join("crates/services/src/agentic/runtime/worker_templates.rs"),
+        repo_root
+            .join("crates/services/src/agentic/runtime/service/decision_loop/cognition/mod.rs"),
+        repo_root.join("crates/services/src/agentic/runtime/service/decision_loop/worker.rs"),
+        repo_root.join("crates/services/src/agentic/runtime/execution/filesystem/handler.rs"),
+    ];
+    for path in production_files {
+        let source = std::fs::read_to_string(&path).expect("source file readable");
+        assert!(
+            !source.contains("file__replace_line"),
+            "{} must not advertise or execute the legacy line-edit alias",
+            path.display()
+        );
+    }
 }
 
 #[derive(Default)]
@@ -236,30 +494,13 @@ fn build_test_service_hybrid(
     )
 }
 
-fn install_route_contract_goal(target: &str) -> String {
-    format!(
-        "CHAT ARTIFACT ROUTE CONTRACT:\n\
-         - selected_route: install {target}\n\
-         - route_family: command_execution\n\
-         - output_intent: tool_execution\n\
-         - direct_answer_allowed: false\n\
-         - primary_tools: host_discovery, software_install_resolver, software_install__execute_plan, app__launch\n\
-         - software_install_target_text: {target}\n\
-         USER REQUEST:\n\
-         [Codebase context]\n\
-         Workspace: .\n\n\
-         [User request]\n\
-         install {target}"
-    )
-}
-
 #[tokio::test(flavor = "current_thread")]
-async fn route_contract_install_bypasses_intent_inference_before_approval() {
+async fn typed_runtime_install_bypasses_intent_inference_before_resolution() {
     let runtime = Arc::new(RecordingInferenceRuntime::with_outputs([
         "This inference output should never be consumed.",
     ]));
     let memory_path = std::env::temp_dir().join(format!(
-        "ioi_route_contract_install_bypass_{}.db",
+        "ioi_typed_runtime_install_bypass_{}.db",
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map_or(0, |time| time.as_nanos())
@@ -272,7 +513,7 @@ async fn route_contract_install_bypasses_intent_inference_before_approval() {
     let session_id = [0x64; 32];
     let mut agent_state = test_agent_state();
     agent_state.session_id = session_id;
-    agent_state.goal = install_route_contract_goal("ffmpeg");
+    agent_state.runtime_route_frame = Some(typed_install_frame("ffmpeg"));
     let key = get_state_key(&session_id);
     state
         .insert(
@@ -299,13 +540,23 @@ async fn route_contract_install_bypasses_intent_inference_before_approval() {
         &mut ctx,
     )
     .await
-    .expect("route contract install step should process");
+    .expect("typed install resolver step should process");
 
-    assert!(runtime
-        .seen_inputs
-        .lock()
-        .expect("seen_inputs mutex poisoned")
-        .is_empty());
+    let second_step = handle_step(
+        &service,
+        &mut state,
+        StepAgentParams { session_id },
+        &mut ctx,
+    )
+    .await;
+    if let Err(error) = &second_step {
+        assert!(
+            error
+                .to_string()
+                .contains("Awaiting install approval: ffmpeg"),
+            "unexpected second-step error: {error}"
+        );
+    }
 
     let updated: AgentState = codec::from_bytes_canonical(
         &state
@@ -320,16 +571,12 @@ async fn route_contract_install_bypasses_intent_inference_before_approval() {
         AgentStatus::Paused(ref reason)
             if reason.contains("Awaiting install approval: ffmpeg")
         ),
-        "unexpected status after route-contract install handoff: status={:?} pending_tool_call={:?} queue_len={} log={:?}",
+        "unexpected status after typed install handoff: status={:?} pending_tool_call={:?} queue_len={} log={:?}",
         updated.status,
         updated.pending_tool_call,
         updated.execution_queue.len(),
         updated.tool_execution_log
     );
-    assert!(updated
-        .pending_tool_call
-        .as_deref()
-        .is_some_and(|tool_call| tool_call.contains("\"plan_ref\"")));
     let _ = std::fs::remove_file(memory_path);
 }
 

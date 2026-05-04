@@ -10,10 +10,9 @@ import "./services/sessionRuntime";
 import { markAutopilotMetric } from "./services/workspacePerf";
 
 import { GateWindow } from "./windows/GateWindow/index";
-import { PillWindow } from "./windows/PillWindow";
 import { AutopilotShellWindow } from "./windows/AutopilotShellWindow";
-import { ChatShellWindow } from "./windows/ChatShellWindow";
 import { WorkspaceWorkbenchPreview } from "./dev/WorkspaceWorkbenchPreview";
+import { hideChatSessionShell, hidePillShell, showChatShell } from "@ioi/agent-ide";
 
 function AppMetricsBeacon() {
   useEffect(() => {
@@ -27,14 +26,34 @@ function AppMetricsBeacon() {
   return null;
 }
 
+function LegacyChatSessionRedirect() {
+  useEffect(() => {
+    void showChatShell()
+      .catch(() => undefined)
+      .finally(() => {
+        void hideChatSessionShell().catch(() => undefined);
+      });
+  }, []);
+
+  return null;
+}
+
+function DisabledPillRoute() {
+  useEffect(() => {
+    void hidePillShell().catch(() => undefined);
+  }, []);
+
+  return null;
+}
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <BrowserRouter>
       <AppMetricsBeacon />
       <Routes>
-        <Route path="/pill" element={<PillWindow />} />
+        <Route path="/pill" element={<DisabledPillRoute />} />
         <Route path="/workspace-preview" element={<WorkspaceWorkbenchPreview />} />
-        <Route path="/chat-session" element={<ChatShellWindow />} />
+        <Route path="/chat-session" element={<LegacyChatSessionRedirect />} />
         <Route path="/gate" element={<GateWindow />} />
         <Route path="/chat" element={<AutopilotShellWindow />} />
         <Route path="/" element={<AutopilotShellWindow />} />

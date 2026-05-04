@@ -39,6 +39,7 @@ fn test_agent_state() -> AgentState {
     AgentState {
         session_id: [0u8; 32],
         goal: "Run a command".to_string(),
+        runtime_route_frame: None,
         transcript_root: [0u8; 32],
         status: AgentStatus::Running,
         step_count: 0,
@@ -186,7 +187,24 @@ fn desktop_app_install_contract_accepts_receipt_backed_verified_app() {
 
 #[test]
 fn install_completion_summary_hides_raw_resolution_receipt() {
-    let raw = "Installed 'LM Studio' as 'LM-Studio.AppImage' via 'appimage' (source_kind=appimage, mode=bash); verification passed: unknown error. SOFTWARE_INSTALL stage='installed' display_name='LM Studio' canonical_id='lm-studio' target_kind='desktop_app' platform='linux' architecture='x86_64' source_kind='appimage' manager='appimage' package_id='LM-Studio.AppImage' requires_elevation='false' verification='sh -lc test -x \"$HOME/.local/bin/LM-Studio.AppImage\" || test -x \"$HOME/.local/bin/lm-studio\"' command='bash /tmp/install-lm-studio.sh' source_discovery_url='https://lmstudio.ai'";
+    let raw = r#"{
+        "kind": "install_final_receipt",
+        "summary": "Installed LM Studio.",
+        "install_event": {
+            "source": {
+                "manager": "appimage",
+                "package_id": "LM-Studio.AppImage",
+                "source_discovery_url": "https://lmstudio.ai"
+            }
+        },
+        "install_final_receipt": {
+            "status": "installed_verified",
+            "display_name": "LM Studio",
+            "verification": {
+                "summary": "sh -lc test -x \"$HOME/.local/bin/LM-Studio.AppImage\" || test -x \"$HOME/.local/bin/lm-studio\""
+            }
+        }
+    }"#;
 
     let summary = install_operator_completion_summary(raw)
         .expect("install receipt should produce an operator-facing completion summary");
@@ -194,7 +212,7 @@ fn install_completion_summary_hides_raw_resolution_receipt() {
     assert!(summary.contains("Installed LM Studio as `LM-Studio.AppImage` via appimage."));
     assert!(summary.contains("Verification passed with `sh -lc test -x"));
     assert!(summary.contains("Source: https://lmstudio.ai."));
-    assert!(!summary.contains("SOFTWARE_INSTALL"));
+    assert!(!summary.contains("install_final_receipt"));
     assert!(!summary.contains("unknown error"));
 }
 

@@ -105,6 +105,7 @@ pub async fn handle_start(
     let agent_state = AgentState {
         session_id: p.session_id,
         goal: actual_goal,
+        runtime_route_frame: p.runtime_route_frame,
         transcript_root: root_hash,
         status: AgentStatus::Running,
         step_count: 0,

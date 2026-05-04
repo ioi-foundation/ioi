@@ -1,3 +1,15 @@
+fn install_normalized_request(target: &str) -> Option<ioi_types::app::ChatNormalizedRequest> {
+    Some(ioi_types::app::ChatNormalizedRequest::SoftwareInstall(
+        ioi_types::app::agentic::SoftwareInstallRequestFrame {
+            target_text: target.to_string(),
+            target_kind: Some("desktop_app".to_string()),
+            manager_preference: None,
+            launch_after_install: None,
+            provenance: Some("circ_intent_context".to_string()),
+        },
+    ))
+}
+
 #[test]
 fn decision_record_payload_maps_weather_widget_to_research_surface() {
     let outcome_request = ChatOutcomeRequest {
@@ -589,14 +601,12 @@ fn install_route_emits_runtime_handoff_prefix_with_install_tools() {
         needs_clarification: false,
         clarification_questions: Vec::new(),
         decision_evidence: vec![
-            "local_install_requested".to_string(),
-            "desktop_app_install_requested".to_string(),
             "tool_first_execution".to_string(),
             "approval_required".to_string(),
-            "software_install_target_text:lmstudio".to_string(),
+            "software_install_capability_required".to_string(),
         ],
         lane_request: None,
-        normalized_request: None,
+        normalized_request: install_normalized_request("lmstudio"),
         source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
@@ -618,10 +628,14 @@ fn install_route_emits_runtime_handoff_prefix_with_install_tools() {
 
     assert!(!task_requires_chat_primary_execution(&task));
     let prefix = runtime_handoff_prompt_prefix_for_task(&task).expect("runtime handoff prefix");
+    assert!(prefix.contains("software_install__resolve"));
     assert!(prefix.contains("software_install__execute_plan"));
     assert!(prefix.contains("selected_route: install lmstudio"));
-    assert!(prefix.contains("software_install_target_text: lmstudio"));
     assert!(prefix.contains("approval-gated"));
+    let frame = crate::kernel::chat::runtime_route_frame_for_task(&task)
+        .expect("runtime route frame");
+    assert_eq!(frame.target, "lmstudio");
+    assert_eq!(frame.intent_id, "software.install");
     assert!(!prefix.contains("unqualified Autopilot means IOI Autopilot"));
     assert!(!prefix.contains("GitHub Copilot"));
 }
@@ -673,14 +687,12 @@ fn install_followup_detaches_stale_direct_inline_surface_for_runtime_handoff() {
         needs_clarification: false,
         clarification_questions: Vec::new(),
         decision_evidence: vec![
-            "local_install_requested".to_string(),
-            "desktop_app_install_requested".to_string(),
             "tool_first_execution".to_string(),
             "approval_required".to_string(),
-            "software_install_target_text:lmstudio".to_string(),
+            "software_install_capability_required".to_string(),
         ],
         lane_request: None,
-        normalized_request: None,
+        normalized_request: install_normalized_request("lmstudio"),
         source_decision: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
@@ -694,6 +706,9 @@ fn install_followup_detaches_stale_direct_inline_surface_for_runtime_handoff() {
     ));
     assert!(!task_requires_chat_primary_execution(&task));
     let prefix = runtime_handoff_prompt_prefix_for_task(&task).expect("runtime handoff prefix");
+    assert!(prefix.contains("software_install__resolve"));
     assert!(prefix.contains("software_install__execute_plan"));
-    assert!(prefix.contains("software_install_target_text: lmstudio"));
+    let frame = crate::kernel::chat::runtime_route_frame_for_task(&task)
+        .expect("runtime route frame");
+    assert_eq!(frame.target, "lmstudio");
 }

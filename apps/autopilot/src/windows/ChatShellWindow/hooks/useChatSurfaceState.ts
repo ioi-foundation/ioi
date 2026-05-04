@@ -376,16 +376,8 @@ export function selectRetainableDrawerSession(
   const sorted = [...sessions].sort((left, right) => right.timestamp - left.timestamp);
   const candidate = sorted.find((session) => {
     const phase = (session.phase || "").trim().toLowerCase();
-    const currentStep = (session.current_step || "").trim().toLowerCase();
 
-    return (
-      phase === "running" ||
-      phase === "gate" ||
-      currentStep.includes("waiting for") ||
-      currentStep.includes("initializing") ||
-      currentStep.includes("routing the request") ||
-      currentStep.includes("sending message")
-    );
+    return phase === "running" || phase === "gate";
   });
 
   return candidate || null;

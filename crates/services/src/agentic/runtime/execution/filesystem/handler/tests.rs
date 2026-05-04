@@ -30,8 +30,8 @@ fn patch_search_miss_maps_to_no_effect_after_action() {
         "search block not found in file",
     );
     assert!(message.starts_with("ERROR_CLASS=NoEffectAfterAction"));
-    assert!(message.contains("file__replace_line"));
     assert!(message.contains("file__write"));
+    assert!(message.contains("line_number"));
 }
 
 #[test]

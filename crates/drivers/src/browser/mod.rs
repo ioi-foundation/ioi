@@ -258,6 +258,11 @@ pub struct BrowserDriver {
     // Tracks if the background websocket handler loop is running
     handler_alive: Arc<AtomicBool>,
 
+    // Process id for the chromium child launched by this driver. This lets a
+    // reset tear down the owned headed browser even when chromiumoxide still
+    // has page/handler references alive.
+    browser_process_id: Arc<Mutex<Option<u32>>>,
+
     // Lease for demand-driven activation.
     lease_active: Arc<AtomicBool>,
 

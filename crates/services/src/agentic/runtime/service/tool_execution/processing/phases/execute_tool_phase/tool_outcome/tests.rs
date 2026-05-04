@@ -1,6 +1,7 @@
 use super::{
     blocked_terminalization_error, blocked_terminalization_summary_from_history,
     blocked_terminalization_summary_from_history_and_snapshot,
+    browser_observation_receipt_from_navigation_output,
     completion_gate_needs_pending_browser_check,
 };
 use ioi_types::app::agentic::ChatMessage;
@@ -161,4 +162,18 @@ fn conversation_reply_completion_gate_skips_pending_browser_checks() {
     assert!(completion_gate_needs_pending_browser_check(
         "browser.navigate"
     ));
+}
+
+#[test]
+fn browser_navigation_receipt_extracts_page_title_for_typed_completion() {
+    let receipt = browser_observation_receipt_from_navigation_output(
+        r#"{"browser_observation_receipt":{"observation_ref":"browser.observation:528","url":"https://example.com","title":"Example Domain","content_len":528},"summary":"Navigated to https://example.com."}"#,
+    )
+    .expect("navigation receipt should expose page title");
+
+    assert_eq!(receipt.title.as_deref(), Some("Example Domain"));
+    assert!(browser_observation_receipt_from_navigation_output(
+        "Navigated to https://example.com. Page title: Example Domain. Content len: 528",
+    )
+    .is_none());
 }

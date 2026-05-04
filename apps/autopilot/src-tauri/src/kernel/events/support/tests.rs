@@ -1,9 +1,8 @@
 use super::{
     detect_clarification_preset, duplicate_noop_loop_requires_intent_clarification_from_events,
-    duplicate_noop_loop_requires_intent_clarification_from_history,
     explicit_clarification_preset_for_tool, ClarificationPreset,
 };
-use crate::models::{AgentEvent, ChatMessage, EventStatus, EventType};
+use crate::models::{AgentEvent, EventStatus, EventType};
 use serde_json::json;
 
 #[test]
@@ -36,29 +35,47 @@ fn maps_explicit_intent_clarification_tools() {
     ));
 }
 
-fn system_message(text: &str) -> ChatMessage {
-    ChatMessage {
-        role: "system".to_string(),
-        text: text.to_string(),
-        timestamp: 0,
+fn duplicate_noop_checks() -> Vec<String> {
+    vec![
+        "invalid_tool_call_repair_attempted=true".to_string(),
+        "duplicate_action_fingerprint_prior_success_noop=true".to_string(),
+        "duplicate_action_fingerprint_non_command_skipped=true".to_string(),
+    ]
+}
+
+fn receipt_event(step_index: u32, tool_name: &str) -> AgentEvent {
+    AgentEvent {
+        event_id: format!("evt-receipt-{}", step_index),
+        timestamp: "2026-04-04T00:00:00Z".to_string(),
+        thread_id: "thread".to_string(),
+        step_index,
+        event_type: EventType::Receipt,
+        title: format!("Receipt: {} (allowed)", tool_name),
+        digest: json!({
+            "tool_name": tool_name,
+        }),
+        details: json!({
+            "verification_checks": duplicate_noop_checks(),
+        }),
+        artifact_refs: Vec::new(),
+        receipt_ref: None,
+        input_refs: Vec::new(),
+        status: EventStatus::Success,
+        duration_ms: None,
     }
 }
 
 #[test]
 fn duplicate_noop_loop_promotes_intent_clarification_after_threshold() {
-    let history = vec![
-        system_message("RoutingReceipt(step=14, tier=ToolFirst, tool=math__eval, decision=allowed, verify=[invalid_tool_call_repair_attempted=true, duplicate_action_fingerprint_prior_success_noop=true, duplicate_action_fingerprint_non_command_skipped=true])"),
-        system_message("RoutingReceipt(step=15, tier=ToolFirst, tool=math__eval, decision=allowed, verify=[invalid_tool_call_repair_attempted=true, duplicate_action_fingerprint_prior_success_noop=true, duplicate_action_fingerprint_non_command_skipped=true])"),
+    let events = vec![
+        receipt_event(14, "math__eval"),
+        receipt_event(15, "math__eval"),
     ];
-    let checks = vec![
-        "invalid_tool_call_repair_attempted=true".to_string(),
-        "duplicate_action_fingerprint_prior_success_noop=true".to_string(),
-        "duplicate_action_fingerprint_non_command_skipped=true".to_string(),
-    ];
+    let checks = duplicate_noop_checks();
 
     assert!(
-        duplicate_noop_loop_requires_intent_clarification_from_history(
-            &history,
+        duplicate_noop_loop_requires_intent_clarification_from_events(
+            &events,
             "math__eval",
             &checks,
         )
@@ -66,25 +83,19 @@ fn duplicate_noop_loop_promotes_intent_clarification_after_threshold() {
 }
 
 #[test]
-fn duplicate_noop_loop_still_promotes_after_operator_turn_when_signature_repeats() {
-    let history = vec![
-        system_message("RoutingReceipt(step=14, tier=ToolFirst, tool=math__eval, decision=allowed, verify=[invalid_tool_call_repair_attempted=true, duplicate_action_fingerprint_prior_success_noop=true, duplicate_action_fingerprint_non_command_skipped=true])"),
-        ChatMessage {
-            role: "user".to_string(),
-            text: "Please keep going.".to_string(),
-            timestamp: 1,
-        },
-        system_message("RoutingReceipt(step=15, tier=ToolFirst, tool=math__eval, decision=allowed, verify=[invalid_tool_call_repair_attempted=true, duplicate_action_fingerprint_prior_success_noop=true, duplicate_action_fingerprint_non_command_skipped=true])"),
+fn duplicate_noop_loop_requires_current_typed_checks() {
+    let events = vec![
+        receipt_event(14, "file__read"),
+        receipt_event(15, "math__eval"),
     ];
     let checks = vec![
         "invalid_tool_call_repair_attempted=true".to_string(),
         "duplicate_action_fingerprint_prior_success_noop=true".to_string(),
-        "duplicate_action_fingerprint_non_command_skipped=true".to_string(),
     ];
 
     assert!(
-        duplicate_noop_loop_requires_intent_clarification_from_history(
-            &history,
+        !duplicate_noop_loop_requires_intent_clarification_from_events(
+            &events,
             "math__eval",
             &checks,
         )
@@ -93,29 +104,30 @@ fn duplicate_noop_loop_still_promotes_after_operator_turn_when_signature_repeats
 
 #[test]
 fn duplicate_noop_loop_counts_across_interleaved_agent_and_tool_events() {
-    let history = vec![
-        system_message("RoutingReceipt(step=14, tier=ToolFirst, tool=math__eval, decision=allowed, verify=[invalid_tool_call_repair_attempted=true, duplicate_action_fingerprint_prior_success_noop=true, duplicate_action_fingerprint_non_command_skipped=true])"),
-        ChatMessage {
-            role: "agent".to_string(),
-            text: "Could you share more context?".to_string(),
-            timestamp: 1,
+    let events = vec![
+        receipt_event(14, "math__eval"),
+        AgentEvent {
+            event_id: "evt-tool".to_string(),
+            timestamp: "2026-04-04T00:00:02Z".to_string(),
+            thread_id: "thread".to_string(),
+            step_index: 15,
+            event_type: EventType::CommandRun,
+            title: "Ran math__eval".to_string(),
+            digest: json!({}),
+            details: json!({}),
+            artifact_refs: Vec::new(),
+            receipt_ref: None,
+            input_refs: Vec::new(),
+            status: EventStatus::Success,
+            duration_ms: None,
         },
-        ChatMessage {
-            role: "tool".to_string(),
-            text: "Skipped immediate replay of 'math__eval'.".to_string(),
-            timestamp: 2,
-        },
-        system_message("RoutingReceipt(step=15, tier=ToolFirst, tool=math__eval, decision=allowed, verify=[invalid_tool_call_repair_attempted=true, duplicate_action_fingerprint_prior_success_noop=true, duplicate_action_fingerprint_non_command_skipped=true])"),
+        receipt_event(15, "math__eval"),
     ];
-    let checks = vec![
-        "invalid_tool_call_repair_attempted=true".to_string(),
-        "duplicate_action_fingerprint_prior_success_noop=true".to_string(),
-        "duplicate_action_fingerprint_non_command_skipped=true".to_string(),
-    ];
+    let checks = duplicate_noop_checks();
 
     assert!(
-        duplicate_noop_loop_requires_intent_clarification_from_history(
-            &history,
+        duplicate_noop_loop_requires_intent_clarification_from_events(
+            &events,
             "math__eval",
             &checks,
         )
@@ -147,9 +159,11 @@ fn duplicate_noop_loop_counts_receipts_from_persisted_events() {
             step_index: 14,
             event_type: EventType::Receipt,
             title: "Receipt: math__eval (allowed)".to_string(),
-            digest: json!({}),
+            digest: json!({
+                "tool_name": "math__eval",
+            }),
             details: json!({
-                "receipt_summary": "RoutingReceipt(step=14, tier=ToolFirst, tool=math__eval, decision=allowed, verify=[invalid_tool_call_repair_attempted=true, duplicate_action_fingerprint_prior_success_noop=true, duplicate_action_fingerprint_non_command_skipped=true])"
+                "verification_checks": duplicate_noop_checks(),
             }),
             artifact_refs: Vec::new(),
             receipt_ref: None,
@@ -179,9 +193,11 @@ fn duplicate_noop_loop_counts_receipts_from_persisted_events() {
             step_index: 15,
             event_type: EventType::Receipt,
             title: "Receipt: math__eval (allowed)".to_string(),
-            digest: json!({}),
+            digest: json!({
+                "tool_name": "math__eval",
+            }),
             details: json!({
-                "receipt_summary": "RoutingReceipt(step=15, tier=ToolFirst, tool=math__eval, decision=allowed, verify=[invalid_tool_call_repair_attempted=true, duplicate_action_fingerprint_prior_success_noop=true, duplicate_action_fingerprint_non_command_skipped=true])"
+                "verification_checks": duplicate_noop_checks(),
             }),
             artifact_refs: Vec::new(),
             receipt_ref: None,
@@ -190,11 +206,7 @@ fn duplicate_noop_loop_counts_receipts_from_persisted_events() {
             duration_ms: None,
         },
     ];
-    let checks = vec![
-        "invalid_tool_call_repair_attempted=true".to_string(),
-        "duplicate_action_fingerprint_prior_success_noop=true".to_string(),
-        "duplicate_action_fingerprint_non_command_skipped=true".to_string(),
-    ];
+    let checks = duplicate_noop_checks();
 
     assert!(
         duplicate_noop_loop_requires_intent_clarification_from_events(
