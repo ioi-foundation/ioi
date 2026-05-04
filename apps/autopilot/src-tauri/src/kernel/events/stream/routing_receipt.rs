@@ -5,7 +5,7 @@ use crate::kernel::events::support::{
     bind_task_session, clarification_preset_for_tool, clarification_wait_step_for_preset,
     duplicate_noop_loop_requires_intent_clarification,
     duplicate_noop_loop_requires_intent_clarification_from_events, is_hard_terminal_task,
-    is_identity_resolution_kind, is_install_package_tool,
+    is_identity_resolution_kind, is_software_install_tool,
     is_waiting_for_identity_clarification_step, thread_id_from_session, ClarificationPreset,
 };
 use crate::kernel::notifications;
@@ -158,7 +158,7 @@ fn route_progress_label(receipt: &RoutingReceipt) -> String {
     if tool_name.starts_with("chat__reply") || tool_name.starts_with("model__responses") {
         return "Preparing the reply".to_string();
     }
-    if is_install_package_tool(&tool_name) {
+    if is_software_install_tool(&tool_name) {
         return "Resolving install source".to_string();
     }
 
@@ -176,6 +176,28 @@ fn route_progress_label(receipt: &RoutingReceipt) -> String {
     }
 
     "Continuing the request".to_string()
+}
+
+fn routing_receipt_history_message(
+    step_index: impl std::fmt::Display,
+    tool_name: &str,
+    progress_label: &str,
+) -> String {
+    let tool = tool_name.trim();
+    let label = progress_label.trim();
+    if tool.is_empty() {
+        return format!("Runtime receipt recorded for step {}.", step_index);
+    }
+    if label.is_empty() {
+        return format!(
+            "Runtime receipt recorded for step {} using {}.",
+            step_index, tool
+        );
+    }
+    format!(
+        "Runtime receipt recorded for step {} using {}: {}.",
+        step_index, tool, label
+    )
 }
 
 fn install_resolution_map(verification_checks: &[String]) -> BTreeMap<String, String> {
@@ -203,6 +225,35 @@ fn install_resolution_value<'a>(
         .get(key)
         .map(|value| value.trim())
         .filter(|value| !value.is_empty())
+}
+
+fn install_resolution_json(resolution: &BTreeMap<String, String>) -> Option<serde_json::Value> {
+    if resolution.is_empty() {
+        return None;
+    }
+    Some(json!({
+        "stage": install_resolution_value(resolution, "stage").unwrap_or("unknown"),
+        "display_name": install_resolution_value(resolution, "display_name").unwrap_or("software"),
+        "canonical_id": install_resolution_value(resolution, "canonical_id").unwrap_or(""),
+        "target_kind": install_resolution_value(resolution, "target_kind").unwrap_or("unknown"),
+        "host": {
+            "platform": install_resolution_value(resolution, "platform").unwrap_or("unknown"),
+            "architecture": install_resolution_value(resolution, "architecture").unwrap_or("unknown"),
+        },
+        "source": {
+            "source_kind": install_resolution_value(resolution, "source_kind").unwrap_or("unknown"),
+            "manager": install_resolution_value(resolution, "manager").unwrap_or("unknown"),
+            "package_id": install_resolution_value(resolution, "package_id").unwrap_or(""),
+            "installer_url": install_resolution_value(resolution, "installer_url"),
+            "source_discovery_url": install_resolution_value(resolution, "source_discovery_url"),
+        },
+        "requires_elevation": install_resolution_value(resolution, "requires_elevation")
+            .map(|value| value.eq_ignore_ascii_case("true"))
+            .unwrap_or(false),
+        "command": install_resolution_value(resolution, "command"),
+        "verification": install_resolution_value(resolution, "verification"),
+        "blocker": install_resolution_value(resolution, "blocker"),
+    }))
 }
 
 fn install_approval_step_from_resolution(resolution: &BTreeMap<String, String>) -> String {
@@ -261,7 +312,7 @@ fn install_gate_info_from_resolution(resolution: &BTreeMap<String, String>) -> O
 
 pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: RoutingReceipt) {
     let thread_id = thread_id_from_session(&app, &receipt.session_id);
-    let receipt_is_install_tool = is_install_package_tool(&receipt.tool_name);
+    let receipt_is_install_tool = is_software_install_tool(&receipt.tool_name);
     let receipt_is_identity_lookup_tool =
         clarification_preset_for_tool(&receipt.tool_name).is_some();
     let verification_checks = receipt
@@ -274,6 +325,7 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
     } else {
         BTreeMap::new()
     };
+    let install_resolution_payload = install_resolution_json(&install_resolution);
     let receipt_waiting_for_sudo = receipt
         .post_state
         .as_ref()
@@ -472,6 +524,8 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
         .map(|surface| surface.projected_tools.len())
         .unwrap_or_default();
     let progress_label = route_progress_label(&receipt);
+    let history_message =
+        routing_receipt_history_message(receipt.step_index, &receipt.tool_name, &progress_label);
 
     let mut summary = format!(
         "RoutingReceipt(step={}, tier={}, tool={}, decision={}, stop={}, policy_hash={})",
@@ -673,7 +727,7 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
         }
         t.history.push(ChatMessage {
             role: "system".to_string(),
-            text: summary.clone(),
+            text: history_message.clone(),
             timestamp: crate::kernel::state::now(),
         });
     });
@@ -759,6 +813,7 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
                 "artifacts": receipt.artifacts,
                 "policy_binding_hash": receipt.policy_binding_hash,
                 "route_decision": route_decision_payload.clone(),
+                "install_resolution": install_resolution_payload.clone(),
                 "verification": receipt
                     .post_state
                     .as_ref()
@@ -819,11 +874,11 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
             "direct_answer_blockers": decision.direct_answer_blockers,
         })
     });
-    let extra_details = route_decision_payload.clone().map(|route_decision| {
-        json!({
-            "route_decision": route_decision,
-        })
-    });
+    let extra_details = Some(json!({
+        "route_decision": route_decision_payload,
+        "install_resolution": install_resolution_payload,
+        "verification_checks": verification_checks,
+    }));
 
     let event = emit_receipt_digest(
         &thread_id,
@@ -884,5 +939,20 @@ mod tests {
         assert!(gate.description.contains("manual_installer"));
         assert!(gate.description.contains("example-app --version"));
         assert!(gate.description.contains("InstallerResolutionRequired"));
+    }
+
+    #[test]
+    fn routing_receipt_history_message_does_not_embed_contract_payloads() {
+        let message =
+            routing_receipt_history_message(7, "browser__navigate", "Working in the browser");
+
+        assert_eq!(
+            message,
+            "Runtime receipt recorded for step 7 using browser__navigate: Working in the browser."
+        );
+        assert!(!message.contains("RoutingReceipt("));
+        assert!(!message.contains("verify=["));
+        assert!(!message.contains("ERROR_CLASS"));
+        assert!(!message.contains("SOFTWARE_INSTALL"));
     }
 }

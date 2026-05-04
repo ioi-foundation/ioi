@@ -284,6 +284,21 @@ mod tests {
         }
     }
 
+    fn software_install_resolve_tool(
+        target_text: &str,
+        manager_preference: Option<&str>,
+    ) -> AgentTool {
+        AgentTool::SoftwareInstallResolve {
+            request: SoftwareInstallRequestFrame {
+                target_text: target_text.to_string(),
+                target_kind: None,
+                manager_preference: manager_preference.map(str::to_string),
+                launch_after_install: None,
+                provenance: Some("test".to_string()),
+            },
+        }
+    }
+
     #[test]
     fn pending_install_approval_status_uses_resolution_summary() {
         let tool = software_install_execute_plan_tool("generic tool", Some("apt"));
@@ -296,11 +311,11 @@ mod tests {
 
     #[test]
     fn pending_unknown_install_status_is_resolution_blocker() {
-        let tool = software_install_execute_plan_tool("snorflepaint", Some("auto"));
+        let tool = software_install_resolve_tool("snorflepaint", Some("auto"));
 
         assert_eq!(
             install_approval_pause_message(&tool).as_deref(),
-            Some("Install source unresolved: snorflepaint (unknown_target)")
+            Some("Install source unresolved: snorflepaint (unresolved)")
         );
     }
 }

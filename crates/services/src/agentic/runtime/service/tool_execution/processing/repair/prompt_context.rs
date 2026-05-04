@@ -30,7 +30,7 @@ Rules:\n\
         prompt.push_str(
             "Patch/build/verify worker rules:\n\
 6. Do not reread files or search again after a no-effect recovery boundary unless the focused verification command already ran and the latest failure was a malformed edit/tool-call recovery.\n\
-7. Prefer `file__edit`, `file__replace_line`, or `file__write` when the malformed response already contains the intended code change.\n\
+7. Prefer `file__edit` or `file__write` when the malformed response already contains the intended code change.\n\
 8. Use `shell__start` only after the edit is ready for the focused verification command.\n\
 9. If the focused verification command already ran and failed, produce an edit tool call next instead of rerunning tests.\n\
 10. If you use `file__write` for a code edit, omit `line_number` and provide the full updated file contents grounded in the current file snapshot.\n",
@@ -131,7 +131,7 @@ Rules:\n\
     {
         prompt.push_str(
             "Patch/build/verify worker rules:\n\
-6. After a failing focused verifier result, produce `file__edit`, `file__replace_line`, or `file__write` next.\n\
+6. After a failing focused verifier result, produce `file__edit` or `file__write` next.\n\
 7. Do not emit `shell__start` again until a workspace edit has landed.\n\
 8. Ground any edit tool call in the current likely patch file snapshot.\n\
 9. If you use `file__write` for a code edit, omit `line_number` and provide the full updated file contents.\n",

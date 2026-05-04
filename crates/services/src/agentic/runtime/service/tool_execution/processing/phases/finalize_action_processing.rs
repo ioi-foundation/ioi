@@ -84,6 +84,28 @@ fn duplicate_prior_success_noop(verification_checks: &[String]) -> bool {
         .any(|check| check == "duplicate_action_fingerprint_prior_success_noop=true")
 }
 
+fn browser_route_owns_dedicated_surface(agent_state: &AgentState) -> bool {
+    if resolved_intent_id(agent_state).eq_ignore_ascii_case("browser.interact") {
+        return true;
+    }
+
+    agent_state
+        .runtime_route_frame
+        .as_ref()
+        .is_some_and(|frame| frame.intent_id.eq_ignore_ascii_case("browser.interact"))
+}
+
+fn should_release_browser_after_terminal_reply(
+    agent_state: &AgentState,
+    current_tool_name: &str,
+    terminal_chat_reply_output: Option<&str>,
+) -> bool {
+    matches!(agent_state.status, AgentStatus::Completed(_))
+        && current_tool_name != "chat__reply"
+        && terminal_chat_reply_output.is_some_and(|output| !output.trim().is_empty())
+        && browser_route_owns_dedicated_surface(agent_state)
+}
+
 fn terminal_chat_reply_layout_profile(
     facts: &TerminalChatReplyShapeFacts,
 ) -> TerminalChatReplyLayoutProfile {
@@ -1013,6 +1035,16 @@ pub(crate) async fn finalize_action_processing(
         let composed_terminal_chat = terminal_chat_reply_output
             .as_deref()
             .map(compose_terminal_chat_reply);
+        let release_browser_after_terminal_reply = should_release_browser_after_terminal_reply(
+            agent_state,
+            &current_tool_name,
+            terminal_chat_reply_output.as_deref(),
+        );
+        if release_browser_after_terminal_reply {
+            service.browser.release_session().await;
+            verification_checks
+                .push("browser_session_released_before_terminal_reply_event=true".to_string());
+        }
         if let Some(tx) = &service.event_sender {
             let mut output_str = action_output
                 .or_else(|| if success { history_entry.clone() } else { None })
@@ -1248,26 +1280,30 @@ fn install_already_satisfied_terminal_reason(
         })
 }
 
-fn single_quoted_field(value: &str, field: &str) -> Option<String> {
-    let needle = format!("{field}='");
-    let (_, tail) = value.split_once(&needle)?;
-    let (field_value, _) = tail.split_once('\'')?;
-    let trimmed = field_value.trim();
-    if trimmed.is_empty() {
-        None
-    } else {
-        Some(trimmed.to_string())
-    }
-}
-
 fn install_already_satisfied_operator_reply(receipt: &str) -> String {
-    let display_name = single_quoted_field(receipt, "display_name")
-        .unwrap_or_else(|| "The requested software".to_string());
-    let stage = single_quoted_field(receipt, "stage").unwrap_or_default();
-    let verification = single_quoted_field(receipt, "verification")
+    let parsed = serde_json::from_str::<serde_json::Value>(receipt).ok();
+    let receipt_value = parsed
+        .as_ref()
+        .and_then(|value| value.get("install_final_receipt").or(Some(value)));
+    let display_name = receipt_value
+        .and_then(|value| value.get("display_name"))
+        .and_then(|value| value.as_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("The requested software");
+    let status = receipt_value
+        .and_then(|value| value.get("status"))
+        .and_then(|value| value.as_str())
+        .unwrap_or_default();
+    let verification = receipt_value
+        .and_then(|value| value.get("verification"))
+        .and_then(|value| value.get("command"))
+        .and_then(|value| value.as_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
         .filter(|value| !value.eq_ignore_ascii_case("current_exe_exists"));
 
-    if stage == "already_available" {
+    if status == "already_available" {
         return format!(
             "{} is already available as the running IOI product. Verification passed before host mutation, so no installer command or approval was needed.",
             display_name

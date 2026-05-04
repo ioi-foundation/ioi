@@ -45,6 +45,10 @@ static BROWSER_DRIVER: Lazy<BrowserDriver> = Lazy::new(BrowserDriver::new);
 static MCP_MANAGER: Lazy<Arc<McpManager>> = Lazy::new(|| Arc::new(McpManager::new()));
 static OS_DRIVER: Lazy<Arc<dyn OsDriver>> = Lazy::new(|| Arc::new(NativeOsDriver::new()));
 
+pub(crate) async fn release_browser_session() {
+    BROWSER_DRIVER.release_session().await;
+}
+
 pub async fn get_active_mcp_tools() -> Vec<ioi_types::app::agentic::LlmToolDefinition> {
     MCP_MANAGER.get_all_tools().await
 }

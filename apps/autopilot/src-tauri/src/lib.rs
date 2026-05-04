@@ -829,18 +829,10 @@ pub fn run() {
                 true,
                 None::<&str>,
             )?;
-            let show_pill_item = MenuItem::with_id(app, "pill", "Show Pill", true, None::<&str>)?;
             let show_chat_item = MenuItem::with_id(app, "chat", "Open Chat", true, None::<&str>)?;
             let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-            let menu = Menu::with_items(
-                app,
-                &[
-                    &show_chat_session_item,
-                    &show_pill_item,
-                    &show_chat_item,
-                    &quit_item,
-                ],
-            )?;
+            let menu =
+                Menu::with_items(app, &[&show_chat_session_item, &show_chat_item, &quit_item])?;
 
             if let Some(icon) = app.default_window_icon().cloned() {
                 let _ = TrayIconBuilder::new()
@@ -849,7 +841,6 @@ pub fn run() {
                     .icon_as_template(true)
                     .on_menu_event(|app, event| match event.id.as_ref() {
                         "chat-session" => windows::show_chat_session(app.clone()),
-                        "pill" => windows::show_pill(app.clone()),
                         "chat" => windows::show_chat(app.clone()),
                         "quit" => std::process::exit(0),
                         _ => {}
@@ -873,11 +864,11 @@ pub fn run() {
                 .global_shortcut()
                 .on_shortcut(shortcut, move |_app, _shortcut, event| {
                     if event.state == ShortcutState::Pressed {
-                        if let Some(window) = app_handle.get_webview_window("chat-session") {
+                        if let Some(window) = app_handle.get_webview_window("chat") {
                             if window.is_visible().unwrap_or(false) {
-                                windows::hide_chat_session(app_handle.clone());
+                                windows::hide_chat(app_handle.clone());
                             } else {
-                                windows::show_chat_session(app_handle.clone());
+                                windows::show_chat(app_handle.clone());
                             }
                         }
                     }
@@ -925,16 +916,8 @@ pub fn run() {
                                 windows::show_chat(handle);
                             }
                         }
-                        Some("chat-session") => {
-                            if let Some(window) = handle.get_webview_window("chat-session") {
-                                if let Ok(visible) = window.is_visible() {
-                                    if !visible {
-                                        windows::show_chat_session(handle);
-                                    }
-                                }
-                            }
-                        }
-                        Some("pill") => windows::show_pill(handle),
+                        Some("chat-session") => windows::show_chat(handle),
+                        Some("pill") => windows::show_chat(handle),
                         Some("gate") => windows::show_gate(handle),
                         _ => {
                             if let Some(intent) = start_intent.as_deref() {

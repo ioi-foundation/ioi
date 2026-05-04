@@ -1,6 +1,6 @@
 use super::*;
 use async_trait::async_trait;
-use ioi_types::app::agentic::InferenceOptions;
+use ioi_types::app::agentic::{BrowserActionPlanRef, InferenceOptions, RuntimeActionFrame};
 use ioi_types::app::{
     ChatLaneFamily, ChatNormalizedRequest, ChatOutcomeRequest, ChatRetainedWidgetState,
     ChatSourceFamily, ChatWidgetStateBinding,
@@ -117,6 +117,13 @@ fn using_repo_docs_request_requires_workspace_grounding() {
         ChatIntentContext::new("Using repo docs, summarize the chat UX contract and cite sources.");
 
     assert!(context.source_citation_grounding_required());
+    assert!(context.workspace_grounding_required());
+}
+
+#[test]
+fn explicit_workspace_file_read_requires_workspace_grounding() {
+    let context = ChatIntentContext::new("Read package.json and tell me the package name.");
+
     assert!(context.workspace_grounding_required());
 }
 
@@ -1376,10 +1383,7 @@ fn explicit_install_projection_blocks_direct_answer_and_projects_install_tools()
         0.98,
         false,
         &[],
-        &[
-            "local_install_requested".to_string(),
-            "desktop_app_install_requested".to_string(),
-        ],
+        &[],
         None,
     );
     let mut outcome = ChatOutcomeRequest {
@@ -1392,11 +1396,7 @@ fn explicit_install_projection_blocks_direct_answer_and_projects_install_tools()
         confidence: 0.98,
         needs_clarification: false,
         clarification_questions: Vec::new(),
-        decision_evidence: vec![
-            "local_install_requested".to_string(),
-            "desktop_app_install_requested".to_string(),
-            "software_install_target_text:ffmpeg".to_string(),
-        ],
+        decision_evidence: Vec::new(),
         lane_request: projection.lane_request,
         normalized_request: projection.normalized_request,
         source_decision: projection.source_decision,
@@ -1417,6 +1417,10 @@ fn explicit_install_projection_blocks_direct_answer_and_projects_install_tools()
         .effective_tool_surface
         .primary_tools
         .contains(&"software_install__execute_plan".to_string()));
+    assert!(matches!(
+        outcome.normalized_request.as_ref(),
+        Some(ChatNormalizedRequest::SoftwareInstall(frame)) if frame.target_text == "ffmpeg"
+    ));
     assert_eq!(
         outcome
             .source_decision
@@ -1459,11 +1463,91 @@ fn projection_does_not_reclassify_install_from_raw_prompt_without_evidence() {
     assert!(route_decision.direct_answer_allowed);
     assert!(!route_decision
         .direct_answer_blockers
-        .contains(&"local_install_requested".to_string()));
+        .contains(&"host_mutation_requested".to_string()));
     assert!(!route_decision
         .effective_tool_surface
         .primary_tools
         .contains(&"software_install__execute_plan".to_string()));
+}
+
+#[test]
+fn local_runtime_action_frame_blocks_direct_answer_and_projects_tools() {
+    for (route_family, action_family, target_kind, expected_tool) in [
+        (
+            "browser",
+            "browser",
+            "browser_page_title",
+            "browser__navigate",
+        ),
+        ("command_execution", "shell", "shell_command", "shell__run"),
+    ] {
+        let browser_plan = if action_family == "browser" {
+            Some(BrowserActionPlanRef {
+                plan_ref: "browser.navigate:https://example.com".to_string(),
+                action: "navigate".to_string(),
+                url: "https://example.com".to_string(),
+                observation_required: true,
+                observation_ref: None,
+                coordinate_space_id: None,
+                semantic_id: None,
+            })
+        } else {
+            None
+        };
+        let outcome = ChatOutcomeRequest {
+            request_id: format!("{route_family}-runtime-action"),
+            raw_prompt: "explicit local runtime action".to_string(),
+            active_artifact_id: None,
+            outcome_kind: ChatOutcomeKind::Conversation,
+            execution_strategy: ChatExecutionStrategy::PlanExecute,
+            execution_mode_decision: None,
+            confidence: 0.95,
+            needs_clarification: false,
+            clarification_questions: Vec::new(),
+            decision_evidence: vec!["tool_first_execution".to_string()],
+            lane_request: None,
+            normalized_request: Some(ChatNormalizedRequest::RuntimeAction(RuntimeActionFrame {
+                intent_class: "local_runtime_action".to_string(),
+                action_family: action_family.to_string(),
+                target_text: "explicit local runtime action".to_string(),
+                target_kind: target_kind.to_string(),
+                host_mutation: false,
+                required_capabilities: Vec::new(),
+                browser_plan,
+                command_plan: None,
+                file_plan: None,
+                provenance: Some("test".to_string()),
+            })),
+            source_decision: None,
+            retained_lane_state: None,
+            lane_transitions: Vec::new(),
+            orchestration_state: None,
+            artifact: None,
+        };
+        let route_decision = route_decision_for_outcome_request(&outcome);
+
+        assert_eq!(route_family_for_outcome_request(&outcome), route_family);
+        assert!(!route_decision.direct_answer_allowed);
+        assert_eq!(route_decision.output_intent, "tool_execution");
+        assert!(route_decision
+            .direct_answer_blockers
+            .contains(&"local_runtime_action_required".to_string()));
+        assert!(route_decision
+            .effective_tool_surface
+            .primary_tools
+            .contains(&expected_tool.to_string()));
+        if route_family == "browser" {
+            let frame = runtime_route_frame_for_outcome_request(&outcome)
+                .expect("browser action should produce a typed route frame");
+            assert_eq!(frame.intent_id, "browser.interact");
+            assert_eq!(frame.target_kind.as_deref(), Some("browser_page_title"));
+            assert!(frame
+                .runtime_action
+                .as_ref()
+                .and_then(|action| action.browser_plan.as_ref())
+                .is_some());
+        }
+    }
 }
 
 #[test]

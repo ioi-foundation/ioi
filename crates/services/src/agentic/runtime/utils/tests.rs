@@ -80,6 +80,7 @@ fn test_agent_state(session_id: [u8; 32]) -> AgentState {
     AgentState {
         session_id,
         goal: "checkpoint me".to_string(),
+        runtime_route_frame: None,
         transcript_root: [7u8; 32],
         status: AgentStatus::Running,
         step_count: 3,

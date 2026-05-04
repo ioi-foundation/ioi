@@ -393,8 +393,8 @@ fn workspace_edit_receipt_details_distinguish_write_edit_and_patch_tools() {
         8,
     )
     .expect("edit receipt details should exist");
-    assert_eq!(edit.0, "file__replace_line");
-    assert_eq!(edit.1, "step=8;tool=file__replace_line;path=path_utils.py");
+    assert_eq!(edit.0, "file__write");
+    assert_eq!(edit.1, "step=8;tool=file__write;path=path_utils.py");
 
     let patch = workspace_edit_receipt_details(
         &AgentTool::FsPatch {

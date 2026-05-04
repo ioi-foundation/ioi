@@ -122,9 +122,9 @@ pub use domain_topology::{
     inline_answer_verified_reply_evidence, inline_answer_work_graph_plan,
     inline_answer_worker_receipts, route_decision_for_outcome_request,
     route_family_for_outcome_request, route_topology_for_outcome_request,
-    selected_route_label_for_outcome_request, verification_status_for_lifecycle,
-    verified_reply_evidence_for_manifest, verifier_state_for_outcome_event, ChatTopologyProjection,
-    TopologyProjection,
+    runtime_route_frame_for_outcome_request, selected_route_label_for_outcome_request,
+    verification_status_for_lifecycle, verified_reply_evidence_for_manifest,
+    verifier_state_for_outcome_event, ChatTopologyProjection, TopologyProjection,
 };
 use html::*;
 use html_registry::*;

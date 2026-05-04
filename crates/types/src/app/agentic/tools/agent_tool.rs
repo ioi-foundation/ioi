@@ -1,5 +1,6 @@
 use crate::app::agentic::WebRetrievalContract;
 use crate::app::ActionTarget;
+use parity_scale_codec::{Decode, Encode};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -28,7 +29,7 @@ pub struct AgentToolCall {
 }
 
 /// Structured install intent produced by CIRC before resolver execution.
-#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct SoftwareInstallRequestFrame {
     /// User-visible target text, preserved as query content for resolver providers.
     pub target_text: String,
@@ -44,6 +45,349 @@ pub struct SoftwareInstallRequestFrame {
     /// Source of the frame, such as circ_route_contract or model_intent_frame.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub provenance: Option<String>,
+}
+
+/// Typed route frame emitted by CIRC for runtime execution.
+#[allow(missing_docs)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq, Encode, Decode)]
+pub struct RuntimeRouteFrame {
+    pub intent_id: String,
+    pub route_family: String,
+    pub output_intent: String,
+    pub direct_answer_allowed: bool,
+    pub target: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_kind: Option<String>,
+    pub host_mutation: bool,
+    #[serde(default)]
+    pub required_capabilities: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub typed_evidence: Vec<RuntimeIntentEvidence>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub typed_required_capabilities: Vec<RequiredCapability>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub host_mutation_scope: Option<HostMutationScope>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runtime_action: Option<RuntimeActionFrame>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub install_request: Option<SoftwareInstallRequestFrame>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provenance: Option<String>,
+}
+
+/// Typed evidence item used by CIRC as route authority. String evidence remains
+/// debug-only during migration.
+#[allow(missing_docs)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq, Encode, Decode)]
+pub struct RuntimeIntentEvidence {
+    pub evidence_kind: String,
+    pub value: String,
+    pub source: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub confidence: Option<u8>,
+}
+
+/// Capability required by a typed runtime route or action.
+#[allow(missing_docs)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq, Encode, Decode)]
+pub struct RequiredCapability {
+    pub capability_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+/// Host mutation scope bound to approval and verification.
+#[allow(missing_docs)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq, Encode, Decode)]
+pub struct HostMutationScope {
+    pub scope_kind: String,
+    pub requires_approval: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+}
+
+/// Typed browser action plan reference produced before CEC execution.
+#[allow(missing_docs)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq, Encode, Decode)]
+pub struct BrowserActionPlanRef {
+    pub plan_ref: String,
+    pub action: String,
+    pub url: String,
+    pub observation_required: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub observation_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub coordinate_space_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub semantic_id: Option<String>,
+}
+
+/// Environment binding for command execution plans.
+#[allow(missing_docs)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq, Encode, Decode)]
+pub struct CommandEnvironmentBinding {
+    pub key: String,
+    pub value: String,
+}
+
+/// Typed command execution plan reference produced before CEC execution.
+#[allow(missing_docs)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq, Encode, Decode)]
+pub struct CommandExecutionPlanRef {
+    pub plan_ref: String,
+    pub argv: Vec<String>,
+    pub shell_policy: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cwd: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub env: Vec<CommandEnvironmentBinding>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub approval_scope: Option<HostMutationScope>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expected_receipt: Option<String>,
+}
+
+/// Typed file mutation plan reference produced from observed file state.
+#[allow(missing_docs)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq, Encode, Decode)]
+pub struct FileMutationPlanRef {
+    pub plan_ref: String,
+    pub path: String,
+    pub observed_hash: String,
+    pub mutation_kind: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verification_command: Option<Vec<String>>,
+}
+
+/// Typed local runtime action frame emitted by CIRC before planner/CEC handling.
+#[allow(missing_docs)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq, Encode, Decode)]
+pub struct RuntimeActionFrame {
+    pub intent_class: String,
+    pub action_family: String,
+    pub target_text: String,
+    pub target_kind: String,
+    pub host_mutation: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub required_capabilities: Vec<RequiredCapability>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub browser_plan: Option<BrowserActionPlanRef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub command_plan: Option<CommandExecutionPlanRef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file_plan: Option<FileMutationPlanRef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provenance: Option<String>,
+}
+
+/// Generic progress event for receipt-backed chat process rendering.
+#[allow(missing_docs)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq)]
+pub struct RuntimeProgressEvent {
+    pub event_id: String,
+    pub route_family: String,
+    pub stage: String,
+    pub status: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+}
+
+/// Typed approval gate event for one pending operation.
+#[allow(missing_docs)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq)]
+pub struct ApprovalGateEvent {
+    pub gate_id: String,
+    pub plan_ref_hash: String,
+    pub action_hash: String,
+    pub approval_scope: HostMutationScope,
+    pub status: String,
+    pub chat_origin: bool,
+}
+
+/// Typed execution stream event for command/tool output chunks.
+#[allow(missing_docs)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq)]
+pub struct ExecutionStreamEvent {
+    pub stream_ref: String,
+    pub stream: String,
+    pub chunk: String,
+    pub seq: u64,
+    pub is_final: bool,
+}
+
+/// Typed verification receipt for a runtime action.
+#[allow(missing_docs)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq)]
+pub struct VerificationReceipt {
+    pub receipt_ref: String,
+    pub status: String,
+    pub summary: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verifier: Option<String>,
+}
+
+/// Browser observation receipt produced by browser CEC.
+#[allow(missing_docs)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq)]
+pub struct BrowserObservationReceipt {
+    pub observation_ref: String,
+    pub url: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status: Option<u16>,
+    pub content_len: usize,
+}
+
+/// Command execution receipt produced by shell CEC.
+#[allow(missing_docs)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq)]
+pub struct CommandReceipt {
+    pub command_ref: String,
+    pub argv: Vec<String>,
+    pub exit_code: i32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stdout_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stderr_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verification: Option<VerificationReceipt>,
+}
+
+/// File mutation receipt produced by filesystem CEC.
+#[allow(missing_docs)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq)]
+pub struct FileMutationReceipt {
+    pub mutation_ref: String,
+    pub path: String,
+    pub before_hash: String,
+    pub after_hash: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub diff_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verification: Option<VerificationReceipt>,
+}
+
+/// Final typed receipt for a completed tool/action.
+#[allow(missing_docs)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq)]
+pub struct ToolFinalReceipt {
+    pub receipt_ref: String,
+    pub route_family: String,
+    pub status: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verification: Option<VerificationReceipt>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failure_class: Option<String>,
+}
+
+/// Runtime host facts used by software install resolver providers.
+#[allow(missing_docs)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq)]
+pub struct HostDiscoverySnapshot {
+    pub platform: String,
+    pub architecture: String,
+    #[serde(default)]
+    pub available_managers: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub elevation: Option<String>,
+}
+
+/// A provenance-backed install source candidate discovered by resolver providers.
+#[allow(missing_docs)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq)]
+pub struct InstallSourceCandidate {
+    pub source_kind: String,
+    pub manager: String,
+    pub package_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub installer_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_discovery_url: Option<String>,
+    pub provenance: String,
+}
+
+/// Canonical resolved install plan. Execution consumes this plan by hash/ref.
+#[allow(missing_docs)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq)]
+pub struct ResolvedInstallPlan {
+    pub request: SoftwareInstallRequestFrame,
+    pub display_name: String,
+    pub canonical_id: String,
+    pub target_kind: String,
+    pub host: HostDiscoverySnapshot,
+    pub source: InstallSourceCandidate,
+    pub requires_elevation: bool,
+    pub command: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verification_command: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub launch_target: Option<String>,
+    pub approval_scope: String,
+    pub failure_policy: String,
+}
+
+/// Typed resolver event surfaced to runtime UI.
+#[allow(missing_docs)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq)]
+pub struct InstallResolutionEvent {
+    pub stage: String,
+    pub display_name: String,
+    pub canonical_id: String,
+    pub target_kind: String,
+    pub host: HostDiscoverySnapshot,
+    pub source: InstallSourceCandidate,
+    pub requires_elevation: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plan_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub blocker: Option<String>,
+}
+
+/// Typed approval event for an install plan.
+#[allow(missing_docs)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq)]
+pub struct InstallApprovalEvent {
+    pub gate_id: String,
+    pub plan_ref: String,
+    pub display_name: String,
+    pub approval_scope: String,
+    pub requires_elevation: bool,
+    pub command: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verification_command: Option<Vec<String>>,
+}
+
+/// Typed execution stream event for install command output.
+#[allow(missing_docs)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq)]
+pub struct InstallExecutionStreamEvent {
+    pub plan_ref: String,
+    pub stream: String,
+    pub chunk: String,
+    pub seq: u64,
+    pub is_final: bool,
+}
+
+/// Typed verification result for an install plan.
+#[allow(missing_docs)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq)]
+pub struct InstallVerificationEvent {
+    pub plan_ref: String,
+    pub status: String,
+    pub command: Vec<String>,
+    pub summary: String,
+}
+
+/// Typed final receipt for a software install workflow.
+#[allow(missing_docs)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq)]
+pub struct InstallFinalReceipt {
+    pub plan_ref: String,
+    pub status: String,
+    pub display_name: String,
+    pub failure_class: Option<String>,
+    pub verification: Option<InstallVerificationEvent>,
 }
 
 /// The single source of truth for all Agent Capabilities.
@@ -347,6 +691,12 @@ pub enum AgentTool {
     /// Move the browser pointer to raw viewport coordinates.
     #[serde(rename = "browser__move_pointer")]
     BrowserMoveMouse {
+        /// Browser observation that grounded this coordinate action.
+        observation_ref: String,
+        /// Coordinate-space identifier for the observation that produced the coordinates.
+        coordinate_space_id: String,
+        /// Stable semantic target identifier from the grounding observation.
+        semantic_id: String,
         /// Absolute X coordinate in viewport CSS pixels.
         x: f64,
         /// Absolute Y coordinate in viewport CSS pixels.
@@ -380,6 +730,24 @@ pub enum AgentTool {
         /// anchor while the runtime preserves the supplied coordinates.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         id: Option<String>,
+        /// Browser observation that grounded this coordinate action.
+        ///
+        /// Required when explicit coordinates are supplied. This binds the click to the page
+        /// snapshot/observation whose coordinate space was used to choose the point.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        observation_ref: Option<String>,
+        /// Coordinate-space identifier for the observation that produced the coordinates.
+        ///
+        /// Required when explicit coordinates are supplied so viewport/page/screenshot
+        /// coordinate systems cannot be mixed silently.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        coordinate_space_id: Option<String>,
+        /// Stable semantic target identifier from the grounding observation.
+        ///
+        /// Required when explicit coordinates are supplied; usually this matches `id`, but it is
+        /// kept separate so receipts can distinguish the runtime target from compatibility input.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        semantic_id: Option<String>,
         /// Optional absolute X coordinate in viewport CSS pixels.
         ///
         /// Use this together with `y` when no grounded target id is available.

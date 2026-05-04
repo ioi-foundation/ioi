@@ -53,16 +53,38 @@ assert.match(withTool.items[0]?.detail ?? "", /redacted/);
 const invalidToolCall = buildAssistantTurnProcess({
   task: {
     id: "task-invalid-tool",
-    phase: "Running",
+    phase: "Failed",
     current_step:
       "Executed system::invalid_tool_call: ERROR_CLASS=UnexpectedState Failed to parse tool call",
   } as any,
   runtimeModelLabel: "Local: qwen3.5:9b",
-  isRunning: true,
+  isRunning: false,
 });
 
 assert.equal(invalidToolCall.status, "failed");
-assert.equal(invalidToolCall.items[0]?.label, "Tool call rejected");
+assert.equal(invalidToolCall.items[0]?.label, "Run failed");
+
+const failedInstallReceipt = buildAssistantTurnProcess({
+  task: {
+    id: "task-install-failed",
+    phase: "Failed",
+    current_step: `Task failed: ERROR_CLASS=InstallerResolutionRequired ${JSON.stringify({
+      summary: "No verified install candidate passed resolver policy.",
+      install_event: {
+        stage: "unresolved",
+        display_name: "snorflepaint",
+        blocker: "No verified install candidate passed resolver policy.",
+      },
+    })}`,
+  } as any,
+  runtimeModelLabel: "Local: qwen3.5:9b",
+});
+
+assert.equal(failedInstallReceipt.status, "failed");
+assert.equal(failedInstallReceipt.items[0]?.label, "Run failed");
+assert.equal(failedInstallReceipt.items[0]?.detail ?? "", "");
+assert.doesNotMatch(failedInstallReceipt.items[0]?.detail ?? "", /ERROR_CLASS=/);
+assert.doesNotMatch(failedInstallReceipt.items[0]?.detail ?? "", /"install_event"/);
 
 const sourceSummary: SourceSummary = {
   totalSources: 1,

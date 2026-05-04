@@ -100,14 +100,8 @@ fn read_tool_path(tool: &AgentTool) -> Option<(&'static str, &str)> {
 
 fn mutation_tool_path(tool: &AgentTool) -> Option<(&'static str, &str)> {
     match tool {
-        AgentTool::FsWrite {
-            path, line_number, ..
-        } => {
-            let tool_name = if line_number.is_some() {
-                "file__replace_line"
-            } else {
-                "file__write"
-            };
+        AgentTool::FsWrite { path, .. } => {
+            let tool_name = "file__write";
             Some((tool_name, path.as_str()))
         }
         AgentTool::FsPatch { path, .. } => Some(("file__edit", path.as_str())),

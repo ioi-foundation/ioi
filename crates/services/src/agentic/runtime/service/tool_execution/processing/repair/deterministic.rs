@@ -283,7 +283,7 @@ pub(crate) fn patch_build_verify_deterministic_allowed_tool_names(
 
     let mut deterministic_allowed_tool_names = allowed_tool_names.clone();
     let mut inserted = Vec::new();
-    for tool_name in ["filesystem__write_file", "filesystem__edit_line"] {
+    for tool_name in ["filesystem__write_file"] {
         if assignment
             .allowed_tools
             .iter()
@@ -662,29 +662,6 @@ pub(crate) fn canonicalize_legacy_filesystem_edit_tool(repaired_tool: AgentTool)
             path: path.to_string(),
             content: content.to_string(),
             line_number: None,
-        };
-    }
-
-    if repair_tool_names_match(name, "filesystem__edit_line") {
-        let Some(path) = arguments.get("path").and_then(|path| path.as_str()) else {
-            return AgentTool::Dynamic(value);
-        };
-        let line_number = arguments
-            .get("line_number")
-            .or_else(|| arguments.get("line"))
-            .and_then(|line| line.as_u64())
-            .and_then(|line| u32::try_from(line).ok());
-        let Some(content) = arguments
-            .get("content")
-            .or_else(|| arguments.get("text"))
-            .and_then(|content| content.as_str())
-        else {
-            return AgentTool::Dynamic(value);
-        };
-        return AgentTool::FsWrite {
-            path: path.to_string(),
-            content: content.to_string(),
-            line_number,
         };
     }
 

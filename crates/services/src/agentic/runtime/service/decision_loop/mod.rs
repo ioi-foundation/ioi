@@ -17,7 +17,6 @@ mod tests;
 use super::{RuntimeAgentService, ServiceCallContext};
 // [FIX] Import actions module from parent service directory
 use crate::agentic::rules::ActionRules;
-use crate::agentic::runtime::execution::system::software_install_plan_ref_for_request;
 use crate::agentic::runtime::service::recovery::anti_loop::choose_routing_tier;
 use crate::agentic::runtime::service::tool_execution;
 use crate::agentic::runtime::service::visual_loop::perception;
@@ -26,8 +25,7 @@ use crate::agentic::runtime::utils::persist_agent_state;
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
 use ioi_types::app::agentic::{
-    CapabilityId, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
-    SoftwareInstallRequestFrame,
+    CapabilityId, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState, RuntimeRouteFrame,
 };
 use ioi_types::error::TransactionError;
 use serde_json::json;
@@ -53,85 +51,155 @@ async fn maybe_direct_inline_author_tool_call(
     .await
 }
 
-const ROUTE_CONTRACT_INSTALL_TOOL_MARKER: &str =
-    "route_contract_tool_call:software_install__execute_plan";
+const RUNTIME_ROUTE_INSTALL_RESOLVE_MARKER: &str =
+    "runtime_route_frame_dispatch:software_install__resolve";
+const RUNTIME_ROUTE_BROWSER_NAVIGATE_MARKER: &str =
+    "runtime_route_frame_dispatch:browser__navigate";
+const RUNTIME_ROUTE_SHELL_RUN_MARKER: &str = "runtime_route_frame_dispatch:shell__run";
 
-fn route_contract_value(goal: &str, key: &str) -> Option<String> {
-    let needle = format!("{key}:");
-    goal.lines().find_map(|line| {
-        let trimmed = line.trim().strip_prefix("- ").unwrap_or(line.trim());
-        trimmed
-            .strip_prefix(&needle)
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .map(str::to_string)
-    })
-}
-
-fn route_contract_primary_tool(goal: &str, tool_name: &str) -> bool {
-    route_contract_value(goal, "primary_tools")
-        .map(|tools| {
-            tools
-                .split(',')
-                .any(|tool| tool.trim().eq_ignore_ascii_case(tool_name))
-        })
-        .unwrap_or(false)
-}
-
-fn maybe_route_contract_local_install_tool_call(agent_state: &mut AgentState) -> Option<String> {
+fn maybe_typed_runtime_install_resolve_tool_call(agent_state: &mut AgentState) -> Option<String> {
     if agent_state
         .pending_tool_call
         .as_deref()
-        .is_some_and(|raw| raw.contains("software_install__execute_plan"))
+        .is_some_and(|raw| raw.contains("software_install__"))
     {
         return None;
     }
     if agent_state
         .recent_actions
         .iter()
-        .any(|action| action.starts_with(ROUTE_CONTRACT_INSTALL_TOOL_MARKER))
+        .any(|action| action.starts_with(RUNTIME_ROUTE_INSTALL_RESOLVE_MARKER))
     {
         return None;
     }
 
-    let route_family = route_contract_value(&agent_state.goal, "route_family")?;
-    let output_intent = route_contract_value(&agent_state.goal, "output_intent")?;
-    let direct_answer_allowed = route_contract_value(&agent_state.goal, "direct_answer_allowed")?;
-    if !route_family.eq_ignore_ascii_case("command_execution")
-        || !output_intent.eq_ignore_ascii_case("tool_execution")
-        || !direct_answer_allowed.eq_ignore_ascii_case("false")
-        || !route_contract_primary_tool(&agent_state.goal, "software_install__execute_plan")
+    let frame = agent_state.runtime_route_frame.clone()?;
+    if !frame.route_family.eq_ignore_ascii_case("command_execution")
+        || !frame.output_intent.eq_ignore_ascii_case("tool_execution")
+        || frame.direct_answer_allowed
+        || !frame.host_mutation
     {
         return None;
     }
-    let target = route_contract_value(&agent_state.goal, "software_install_target_text")?;
-    let request = SoftwareInstallRequestFrame {
-        target_text: target.clone(),
-        target_kind: route_contract_value(&agent_state.goal, "software_install_target_kind"),
-        manager_preference: route_contract_value(&agent_state.goal, "software_install_manager"),
-        launch_after_install: None,
-        provenance: Some("circ_route_contract".to_string()),
-    };
-    let plan_ref = software_install_plan_ref_for_request(&request);
+    let request = frame.install_request?;
+    let target = request.target_text.clone();
     log::info!(
-        "RouteContractInstallTool dispatching software install plan target={} session={}",
+        "TypedRuntimeInstallResolve dispatching software install resolver target={} session={}",
         target,
         hex::encode(&agent_state.session_id[..4])
     );
     agent_state
         .recent_actions
-        .push(format!("{ROUTE_CONTRACT_INSTALL_TOOL_MARKER}:{target}"));
+        .push(format!("{RUNTIME_ROUTE_INSTALL_RESOLVE_MARKER}:{target}"));
 
     serde_json::to_string(&json!({
-        "name": "software_install__execute_plan",
+        "name": "software_install__resolve",
         "arguments": {
-            "plan_ref": plan_ref,
+            "request": request,
         }
     }))
     .ok()
 }
 
-fn route_contract_local_install_resolved_intent() -> ResolvedIntentState {
+fn maybe_typed_runtime_browser_navigate_tool_call(agent_state: &mut AgentState) -> Option<String> {
+    if agent_state
+        .pending_tool_call
+        .as_deref()
+        .is_some_and(|raw| raw.contains("browser__"))
+    {
+        return None;
+    }
+    if agent_state
+        .recent_actions
+        .iter()
+        .any(|action| action.starts_with(RUNTIME_ROUTE_BROWSER_NAVIGATE_MARKER))
+    {
+        return None;
+    }
+
+    let frame = agent_state.runtime_route_frame.clone()?;
+    if frame.direct_answer_allowed
+        || !frame.output_intent.eq_ignore_ascii_case("tool_execution")
+        || !frame.intent_id.eq_ignore_ascii_case("browser.interact")
+    {
+        return None;
+    }
+    let runtime_action = frame.runtime_action.as_ref()?;
+    let browser_plan = runtime_action.browser_plan.as_ref()?;
+    if !browser_plan.action.eq_ignore_ascii_case("navigate") {
+        return None;
+    }
+    let url = browser_plan.url.clone();
+    log::info!(
+        "TypedRuntimeBrowserNavigate dispatching browser navigation url={} session={}",
+        url,
+        hex::encode(&agent_state.session_id[..4])
+    );
+    agent_state
+        .recent_actions
+        .push(format!("{RUNTIME_ROUTE_BROWSER_NAVIGATE_MARKER}:{url}"));
+
+    serde_json::to_string(&json!({
+        "name": "browser__navigate",
+        "arguments": {
+            "url": url,
+        }
+    }))
+    .ok()
+}
+
+fn maybe_typed_runtime_shell_run_tool_call(agent_state: &mut AgentState) -> Option<String> {
+    if agent_state
+        .pending_tool_call
+        .as_deref()
+        .is_some_and(|raw| raw.contains("shell__run") || raw.contains("shell__start"))
+    {
+        return None;
+    }
+    if agent_state
+        .recent_actions
+        .iter()
+        .any(|action| action.starts_with(RUNTIME_ROUTE_SHELL_RUN_MARKER))
+    {
+        return None;
+    }
+
+    let frame = agent_state.runtime_route_frame.clone()?;
+    if frame.direct_answer_allowed
+        || !frame.output_intent.eq_ignore_ascii_case("tool_execution")
+        || !frame.intent_id.eq_ignore_ascii_case("command.exec")
+    {
+        return None;
+    }
+    let runtime_action = frame.runtime_action.as_ref()?;
+    let command_plan = runtime_action.command_plan.as_ref()?;
+    let (command, args) = command_plan.argv.split_first()?;
+    if command.trim().is_empty() {
+        return None;
+    }
+    log::info!(
+        "TypedRuntimeShellRun dispatching shell command plan_ref={} session={}",
+        command_plan.plan_ref,
+        hex::encode(&agent_state.session_id[..4])
+    );
+    agent_state.recent_actions.push(format!(
+        "{RUNTIME_ROUTE_SHELL_RUN_MARKER}:{}",
+        command_plan.plan_ref
+    ));
+
+    serde_json::to_string(&json!({
+        "name": "shell__run",
+        "arguments": {
+            "command": command,
+            "args": args,
+            "wait_ms_before_async": 30000u64,
+            "detach": false,
+        }
+    }))
+    .ok()
+}
+
+fn typed_runtime_local_install_resolved_intent() -> ResolvedIntentState {
     ResolvedIntentState {
         intent_id: "software.install.desktop_app".to_string(),
         scope: IntentScopeProfile::CommandExecution,
@@ -143,14 +211,14 @@ fn route_contract_local_install_resolved_intent() -> ResolvedIntentState {
         success_conditions: vec![],
         risk_class: "host_mutation".to_string(),
         preferred_tier: "tool_first".to_string(),
-        intent_catalog_version: "route-contract".to_string(),
-        embedding_model_id: "route-contract".to_string(),
+        intent_catalog_version: "typed-runtime-route-frame".to_string(),
+        embedding_model_id: "typed-runtime-route-frame".to_string(),
         embedding_model_version: "v1".to_string(),
-        similarity_function_id: "route_contract".to_string(),
+        similarity_function_id: "typed_runtime_route_frame".to_string(),
         intent_set_hash: [0u8; 32],
         tool_registry_hash: [0u8; 32],
         capability_ontology_hash: [0u8; 32],
-        query_normalization_version: "route-contract-v1".to_string(),
+        query_normalization_version: "typed-runtime-route-frame-v1".to_string(),
         intent_catalog_source_hash: [0u8; 32],
         evidence_requirements_hash: [0u8; 32],
         provider_selection: None,
@@ -159,14 +227,100 @@ fn route_contract_local_install_resolved_intent() -> ResolvedIntentState {
     }
 }
 
-fn ensure_route_contract_local_install_intent(agent_state: &mut AgentState) {
+fn typed_runtime_browser_action_resolved_intent() -> ResolvedIntentState {
+    ResolvedIntentState {
+        intent_id: "browser.interact".to_string(),
+        scope: IntentScopeProfile::UiInteraction,
+        band: IntentConfidenceBand::High,
+        score: 1.0,
+        top_k: vec![],
+        required_capabilities: vec![
+            CapabilityId::from("agent.lifecycle"),
+            CapabilityId::from("conversation.reply"),
+            CapabilityId::from("browser.interact"),
+            CapabilityId::from("browser.inspect"),
+            CapabilityId::from("ui.interact"),
+        ],
+        required_evidence: vec!["execution".to_string(), "verification".to_string()],
+        success_conditions: vec![],
+        risk_class: "medium".to_string(),
+        preferred_tier: "tool_first".to_string(),
+        intent_catalog_version: "typed-runtime-route-frame".to_string(),
+        embedding_model_id: "typed-runtime-route-frame".to_string(),
+        embedding_model_version: "v1".to_string(),
+        similarity_function_id: "typed_runtime_route_frame".to_string(),
+        intent_set_hash: [0u8; 32],
+        tool_registry_hash: [0u8; 32],
+        capability_ontology_hash: [0u8; 32],
+        query_normalization_version: "typed-runtime-route-frame-v1".to_string(),
+        intent_catalog_source_hash: [0u8; 32],
+        evidence_requirements_hash: [0u8; 32],
+        provider_selection: None,
+        instruction_contract: None,
+        constrained: true,
+    }
+}
+
+fn typed_runtime_shell_command_resolved_intent() -> ResolvedIntentState {
+    ResolvedIntentState {
+        intent_id: "command.exec".to_string(),
+        scope: IntentScopeProfile::CommandExecution,
+        band: IntentConfidenceBand::High,
+        score: 1.0,
+        top_k: vec![],
+        required_capabilities: vec![
+            CapabilityId::from("agent.lifecycle"),
+            CapabilityId::from("conversation.reply"),
+            CapabilityId::from("command.exec"),
+        ],
+        required_evidence: vec!["execution".to_string(), "verification".to_string()],
+        success_conditions: vec!["execution_artifact".to_string()],
+        risk_class: "high".to_string(),
+        preferred_tier: "tool_first".to_string(),
+        intent_catalog_version: "typed-runtime-route-frame".to_string(),
+        embedding_model_id: "typed-runtime-route-frame".to_string(),
+        embedding_model_version: "v1".to_string(),
+        similarity_function_id: "typed_runtime_route_frame".to_string(),
+        intent_set_hash: [0u8; 32],
+        tool_registry_hash: [0u8; 32],
+        capability_ontology_hash: [0u8; 32],
+        query_normalization_version: "typed-runtime-route-frame-v1".to_string(),
+        intent_catalog_source_hash: [0u8; 32],
+        evidence_requirements_hash: [0u8; 32],
+        provider_selection: None,
+        instruction_contract: None,
+        constrained: true,
+    }
+}
+
+fn typed_runtime_route_resolved_intent(frame: &RuntimeRouteFrame) -> Option<ResolvedIntentState> {
+    if frame.direct_answer_allowed || !frame.output_intent.eq_ignore_ascii_case("tool_execution") {
+        return None;
+    }
+    match frame.intent_id.trim().to_ascii_lowercase().as_str() {
+        "software.install" | "software.install.desktop_app" => {
+            Some(typed_runtime_local_install_resolved_intent())
+        }
+        "browser.interact" => Some(typed_runtime_browser_action_resolved_intent()),
+        "command.exec" => Some(typed_runtime_shell_command_resolved_intent()),
+        _ => None,
+    }
+}
+
+fn ensure_typed_runtime_route_intent(agent_state: &mut AgentState) {
     let should_seed = agent_state
         .resolved_intent
         .as_ref()
         .map(|intent| intent.intent_id == "resolver.unclassified")
         .unwrap_or(true);
     if should_seed {
-        agent_state.resolved_intent = Some(route_contract_local_install_resolved_intent());
+        let Some(frame) = agent_state.runtime_route_frame.as_ref() else {
+            return;
+        };
+        let Some(resolved) = typed_runtime_route_resolved_intent(frame) else {
+            return;
+        };
+        agent_state.resolved_intent = Some(resolved);
         agent_state.awaiting_intent_clarification = false;
     }
 }
@@ -384,7 +538,7 @@ async fn run_step_cognitive_loop(
 
     agent_state.current_tier = target_tier;
 
-    if let Some(install_tool_call) = maybe_route_contract_local_install_tool_call(agent_state) {
+    if let Some(install_tool_call) = maybe_typed_runtime_install_resolve_tool_call(agent_state) {
         let final_visual_phash = agent_state.last_screen_phash.unwrap_or([0u8; 32]);
         Box::pin(
             crate::agentic::runtime::service::tool_execution::process_tool_output(
@@ -393,7 +547,7 @@ async fn run_step_cognitive_loop(
                 agent_state,
                 install_tool_call,
                 final_visual_phash,
-                "RouteContractInstallTool".to_string(),
+                "TypedRuntimeInstallResolve".to_string(),
                 p.session_id,
                 ctx.block_height,
                 ctx.block_timestamp,
@@ -459,7 +613,7 @@ async fn run_step_cognitive_loop(
     Ok(())
 }
 
-async fn maybe_process_route_contract_tool_call(
+async fn maybe_process_runtime_route_frame_dispatch(
     service: &RuntimeAgentService,
     state: &mut dyn StateAccess,
     agent_state: &mut AgentState,
@@ -467,10 +621,13 @@ async fn maybe_process_route_contract_tool_call(
     ctx: &TxContext<'_>,
     call_context: ServiceCallContext<'_>,
 ) -> Result<bool, TransactionError> {
-    let Some(tool_call) = maybe_route_contract_local_install_tool_call(agent_state) else {
+    let Some(tool_call) = maybe_typed_runtime_install_resolve_tool_call(agent_state)
+        .or_else(|| maybe_typed_runtime_browser_navigate_tool_call(agent_state))
+        .or_else(|| maybe_typed_runtime_shell_run_tool_call(agent_state))
+    else {
         return Ok(false);
     };
-    ensure_route_contract_local_install_intent(agent_state);
+    ensure_typed_runtime_route_intent(agent_state);
 
     let final_visual_phash = agent_state.last_screen_phash.unwrap_or([0u8; 32]);
     Box::pin(
@@ -480,7 +637,7 @@ async fn maybe_process_route_contract_tool_call(
             agent_state,
             tool_call,
             final_visual_phash,
-            "RouteContractInstallTool".to_string(),
+            "TypedRuntimeRouteFrameDispatch".to_string(),
             p.session_id,
             ctx.block_height,
             ctx.block_timestamp,
@@ -501,6 +658,20 @@ pub async fn handle_step(
     let (key, mut agent_state) = hydrate_step_state(state, p.session_id)?;
 
     ensure_agent_running_or_resume_retry_pause(&mut agent_state)?;
+    ensure_typed_runtime_route_intent(&mut agent_state);
+    if Box::pin(maybe_process_runtime_route_frame_dispatch(
+        service,
+        state,
+        &mut agent_state,
+        &p,
+        ctx,
+        call_context,
+    ))
+    .await?
+    {
+        persist_agent_state(state, &key, &agent_state, service.memory_runtime.as_ref())?;
+        return Ok(());
+    }
     if Box::pin(maybe_run_optimizer_recovery(
         service,
         state,
@@ -517,7 +688,7 @@ pub async fn handle_step(
         return Ok(());
     }
 
-    if Box::pin(maybe_process_route_contract_tool_call(
+    if Box::pin(maybe_process_runtime_route_frame_dispatch(
         service,
         state,
         &mut agent_state,
@@ -532,6 +703,21 @@ pub async fn handle_step(
     }
 
     let rules = load_action_rules(state, p.session_id)?;
+    if !agent_state.execution_queue.is_empty()
+        && Box::pin(maybe_bootstrap_execution_queue(
+            service,
+            state,
+            &mut agent_state,
+            &p,
+            ctx.block_height,
+            ctx.block_timestamp,
+            call_context,
+            false,
+        ))
+        .await?
+    {
+        return Ok(());
+    }
     if Box::pin(resolve_step_intent_and_maybe_pause(
         service,
         state,

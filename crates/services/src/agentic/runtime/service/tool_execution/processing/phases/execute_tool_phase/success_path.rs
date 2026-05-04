@@ -1101,14 +1101,8 @@ fn record_browser_marker_postcondition(
 
 fn workspace_edit_receipt_details(tool: &AgentTool, step_index: u32) -> Option<(String, String)> {
     match tool {
-        AgentTool::FsWrite {
-            path, line_number, ..
-        } => {
-            let tool_name = if line_number.is_some() {
-                "file__replace_line"
-            } else {
-                "file__write"
-            };
+        AgentTool::FsWrite { path, .. } => {
+            let tool_name = "file__write";
             let path = path.trim();
             if path.is_empty() {
                 return None;

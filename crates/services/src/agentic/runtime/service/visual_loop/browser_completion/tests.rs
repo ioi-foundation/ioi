@@ -47,6 +47,7 @@ fn agent_state_with_resolved_intent(resolved_intent: ResolvedIntentState) -> Age
     AgentState {
         session_id: [9u8; 32],
         goal: "Click Mark complete so the status becomes done.".to_string(),
+        runtime_route_frame: None,
         transcript_root: [0u8; 32],
         status: crate::agentic::runtime::types::AgentStatus::Running,
         step_count: 0,

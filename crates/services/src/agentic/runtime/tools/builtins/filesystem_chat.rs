@@ -104,25 +104,6 @@
         parameters: fs_write_params.to_string(),
     });
 
-    let fs_edit_line_params = json!({
-        "type": "object",
-        "properties": {
-            "path": { "type": "string", "description": "Absolute path to the file to edit" },
-            "line_number": {
-                "type": "integer",
-                "minimum": 1,
-                "description": "1-based line index to replace."
-            },
-            "content": { "type": "string", "description": "Replacement content for the target line." }
-        },
-        "required": ["path", "line_number", "content"]
-    });
-    tools.push(LlmToolDefinition {
-        name: "file__replace_line".to_string(),
-        description: "Deterministically replace exactly one line in a file (alias of file__write with line_number). Prefer this for single-line code fixes instead of a brittle file__edit block.".to_string(),
-        parameters: fs_edit_line_params.to_string(),
-    });
-
     let fs_patch_params = json!({
         "type": "object",
         "properties": {
@@ -138,7 +119,7 @@
     tools.push(LlmToolDefinition {
         name: "file__edit".to_string(),
         description:
-            "Replace a unique text block in a file. Copy the search block exactly from the latest read, including newlines and indentation; this fails if the search block is missing or ambiguous. For one-line or escape-heavy edits, prefer file__replace_line or file__write."
+            "Replace a unique text block in a file. Copy the search block exactly from the latest read, including newlines and indentation; this fails if the search block is missing or ambiguous. For one-line or escape-heavy edits, prefer file__write with line_number."
                 .to_string(),
         parameters: fs_patch_params.to_string(),
     });

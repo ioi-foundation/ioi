@@ -300,7 +300,9 @@ export function useLiveValidationSummary({
     const hasSessionReply =
       hasTool(latestSessionEvidence.events, "chat__reply") ||
       hasTool(latestSessionEvidence.events, "agent__complete");
-    const hasInstallTool = hasTool(latestSessionEvidence.events, "package__install");
+    const hasInstallTool =
+      hasTool(latestSessionEvidence.events, "software_install__resolve") ||
+      hasTool(latestSessionEvidence.events, "software_install__execute_plan");
     const waitingForSudo =
       (latestSessionThreadMatchesCurrent &&
         task?.credential_request?.kind === "sudo_password") ||

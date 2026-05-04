@@ -146,10 +146,10 @@ fn policy_blocked_route_stays_chat_primary(outcome_request: &ChatOutcomeRequest)
 }
 
 fn outcome_request_is_local_install_runtime_route(outcome_request: &ChatOutcomeRequest) -> bool {
-    outcome_request
-        .decision_evidence
-        .iter()
-        .any(|hint| hint == "local_install_requested")
+    matches!(
+        outcome_request.normalized_request.as_ref(),
+        Some(ioi_types::app::ChatNormalizedRequest::SoftwareInstall(_))
+    )
 }
 
 fn workspace_grounding_root() -> Option<PathBuf> {
@@ -216,6 +216,48 @@ fn workspace_grounding_terms(intent: &str) -> Vec<String> {
     terms.dedup();
     terms.truncate(10);
     terms
+}
+
+fn requested_workspace_file_paths(intent: &str) -> Vec<String> {
+    let request = workspace_grounding_user_request(intent);
+    let mut paths = request
+        .split_whitespace()
+        .filter_map(normalize_requested_workspace_file_token)
+        .collect::<Vec<_>>();
+    paths.sort();
+    paths.dedup();
+    paths
+}
+
+fn normalize_requested_workspace_file_token(token: &str) -> Option<String> {
+    let token = token
+        .trim_matches(|character: char| {
+            matches!(
+                character,
+                '"' | '\'' | '`' | '(' | ')' | '[' | ']' | '{' | '}' | '<' | '>' | ','
+            )
+        })
+        .trim_end_matches(|character: char| matches!(character, '.' | '?' | '!' | ':'));
+    if token.is_empty()
+        || token.starts_with('/')
+        || token.starts_with("http://")
+        || token.starts_with("https://")
+        || token.starts_with("www.")
+        || token.split('/').any(|segment| segment == "..")
+    {
+        return None;
+    }
+    let file_name = token.rsplit('/').next().unwrap_or(token);
+    let (stem, extension) = file_name.rsplit_once('.')?;
+    if stem.is_empty()
+        || extension.len() < 2
+        || !extension
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || character == '-')
+    {
+        return None;
+    }
+    Some(token.replace('\\', "/"))
 }
 
 fn workspace_grounding_skip_dir(name: &str) -> bool {
@@ -446,6 +488,30 @@ fn score_workspace_source(
     })
 }
 
+fn explicit_workspace_file_sources(
+    root: &Path,
+    intent: &str,
+    terms: &[String],
+) -> Vec<WorkspaceGroundingSource> {
+    requested_workspace_file_paths(intent)
+        .into_iter()
+        .filter_map(|relative_path| {
+            let path = root.join(&relative_path);
+            if !path.is_file() || !workspace_grounding_allowed_file(&path) {
+                return None;
+            }
+            let content = bounded_text_file(&path)?;
+            let (line, excerpt, line_score) = best_source_line(&content, terms);
+            Some(WorkspaceGroundingSource {
+                relative_path,
+                line,
+                excerpt,
+                score: 10_000 + line_score,
+            })
+        })
+        .collect()
+}
+
 fn select_workspace_grounding_sources(root: &Path, intent: &str) -> Vec<WorkspaceGroundingSource> {
     let mut terms = workspace_grounding_terms(intent);
     let request = workspace_grounding_user_request(intent).to_ascii_lowercase();
@@ -480,6 +546,11 @@ fn select_workspace_grounding_sources(root: &Path, intent: &str) -> Vec<Workspac
     }
     terms.sort();
     terms.dedup();
+
+    let exact_sources = explicit_workspace_file_sources(root, intent, &terms);
+    if !exact_sources.is_empty() {
+        return exact_sources.into_iter().take(5).collect();
+    }
 
     let mut sources = collect_workspace_grounding_paths(root)
         .into_iter()
@@ -594,6 +665,19 @@ fn first_source_path_containing<'a>(
         .map(|source| source.relative_path.as_str())
 }
 
+fn extract_json_string_field_from_excerpt(excerpt: &str, field: &str) -> Option<String> {
+    let value = excerpt.trim().strip_prefix('"')?;
+    let (key, rest) = value.split_once('"')?;
+    if key != field {
+        return None;
+    }
+    let rest = rest.trim_start();
+    let rest = rest.strip_prefix(':')?.trim_start();
+    let rest = rest.strip_prefix('"')?;
+    let (value, _) = rest.split_once('"')?;
+    Some(value.to_string())
+}
+
 fn render_workspace_grounded_reply(intent: &str, sources: &[WorkspaceGroundingSource]) -> String {
     let request = workspace_grounding_user_request(intent);
     let lower = request.to_ascii_lowercase();
@@ -628,6 +712,20 @@ fn render_workspace_grounded_reply(intent: &str, sources: &[WorkspaceGroundingSo
     };
     let cite_files = compact_source_bullets(&citation_sources, 5);
     let cite_excerpts = evidence_excerpt_bullets(&citation_sources, 5);
+
+    if lower.contains("package name") {
+        if let Some(source) = citation_sources
+            .iter()
+            .find(|source| source.relative_path == "package.json")
+        {
+            if let Some(name) = extract_json_string_field_from_excerpt(&source.excerpt, "name") {
+                return format!(
+                    "The package name is `{}`.\n\nSource: `{}` line {}.",
+                    name, source.relative_path, source.line
+                );
+            }
+        }
+    }
 
     if lower.contains("where ") || lower.contains("defined") {
         return format!(

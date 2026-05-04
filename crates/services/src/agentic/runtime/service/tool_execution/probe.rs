@@ -1,4 +1,7 @@
-use crate::agentic::runtime::service::tool_execution::command_contract::format_utc_rfc3339;
+use crate::agentic::runtime::service::tool_execution::command_contract::{
+    command_history_entry, format_utc_rfc3339,
+};
+use crate::agentic::runtime::types::CommandExecution;
 use ioi_types::app::agentic::{AgentTool, ResolvedIntentState};
 use std::collections::HashMap;
 use std::path::Path;
@@ -202,18 +205,66 @@ fn parse_memory_probe_rows(text: &str) -> Vec<(u32, String, String, String)> {
     rows
 }
 
+fn trim_command_stream(value: &str) -> Option<&str> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed)
+    }
+}
+
+fn truncate_command_stream(value: &str) -> String {
+    const MAX_CHARS: usize = 4_000;
+    if value.chars().count() <= MAX_CHARS {
+        return value.to_string();
+    }
+
+    let mut truncated: String = value.chars().take(MAX_CHARS).collect();
+    truncated.push_str("\n... output truncated ...");
+    truncated
+}
+
+fn summarize_command_execution_receipt(entry: &CommandExecution) -> Option<String> {
+    let command = entry.command.trim();
+    if command.is_empty() {
+        return None;
+    }
+
+    let mut summary = format!(
+        "Command `{}` exited with code {}.",
+        command, entry.exit_code
+    );
+    if let Some(stdout) = trim_command_stream(&entry.stdout) {
+        summary.push_str("\n\nstdout:\n");
+        summary.push_str(&truncate_command_stream(stdout));
+    }
+    if let Some(stderr) = trim_command_stream(&entry.stderr) {
+        summary.push_str("\n\nstderr:\n");
+        summary.push_str(&truncate_command_stream(stderr));
+    }
+    Some(summary)
+}
+
 pub fn summarize_structured_command_receipt_output(
     output: &str,
     run_timestamp_ms: Option<u64>,
 ) -> Option<String> {
+    let command_receipt = command_history_entry(output);
     let body = extract_command_history_stdout(output).unwrap_or_else(|| output.to_string());
     let trimmed = body.trim();
     if trimmed.is_empty() {
-        return None;
+        return command_receipt
+            .as_ref()
+            .and_then(summarize_command_execution_receipt);
     }
 
     let values = parse_key_value_lines(trimmed);
-    let provider = values.get("provider")?;
+    let Some(provider) = values.get("provider") else {
+        return command_receipt
+            .as_ref()
+            .and_then(summarize_command_execution_receipt);
+    };
     let memory_rows = parse_memory_probe_rows(trimmed);
     if !memory_rows.is_empty() {
         let mut summary = format!("Top memory apps by rss_kb via provider '{}':", provider);

@@ -14,6 +14,14 @@ function stringField(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }
 
+function timestampField(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function compareTimestampFields(left: unknown, right: unknown): number {
+  return timestampField(left).localeCompare(timestampField(right));
+}
+
 function artifactSessionCandidate(value: unknown): ChatArtifactSession | null {
   if (!isRecord(value)) {
     return null;
@@ -134,7 +142,7 @@ export function collectConversationArtifacts(
   const seenSessionIds = new Set<string>();
   const ordered = [...events].sort(
     (left, right) =>
-      left.timestamp.localeCompare(right.timestamp) ||
+      compareTimestampFields(left.timestamp, right.timestamp) ||
       left.step_index - right.step_index ||
       left.event_id.localeCompare(right.event_id),
   );
@@ -154,7 +162,7 @@ export function collectConversationArtifacts(
     entries.push(
       buildConversationArtifactEntry(chatSession, {
         sourceEventId: event.event_id,
-        timestamp: event.timestamp,
+        timestamp: timestampField(event.timestamp),
       }),
     );
   }
@@ -176,7 +184,7 @@ export function collectConversationArtifactsForTurn(
   const windowEventIds = new Set(windowEvents.map((event) => event.event_id));
   const ordered = [...allEvents].sort(
     (left, right) =>
-      left.timestamp.localeCompare(right.timestamp) ||
+      compareTimestampFields(left.timestamp, right.timestamp) ||
       left.step_index - right.step_index ||
       left.event_id.localeCompare(right.event_id),
   );
@@ -203,7 +211,7 @@ export function collectConversationArtifactsForTurn(
       chatSession.sessionId,
       buildConversationArtifactEntry(chatSession, {
         sourceEventId: event.event_id,
-        timestamp: event.timestamp,
+        timestamp: timestampField(event.timestamp),
       }),
     );
   }
@@ -227,7 +235,7 @@ export function collectConversationArtifactsForTurn(
 
   return Array.from(bySessionId.values()).sort(
     (left, right) =>
-      left.timestamp.localeCompare(right.timestamp) ||
+      compareTimestampFields(left.timestamp, right.timestamp) ||
       left.sessionId.localeCompare(right.sessionId),
   );
 }
@@ -257,8 +265,8 @@ export function collectAvailableArtifacts(
 
   return Array.from(bySessionId.values()).sort(
     (left, right) =>
-      right.timestamp.localeCompare(left.timestamp) ||
-      right.chatSession.updatedAt.localeCompare(left.chatSession.updatedAt) ||
+      compareTimestampFields(right.timestamp, left.timestamp) ||
+      compareTimestampFields(right.chatSession.updatedAt, left.chatSession.updatedAt) ||
       right.sessionId.localeCompare(left.sessionId),
   );
 }

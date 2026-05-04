@@ -48,24 +48,26 @@ function normalizedLookup(value: string | null | undefined): string {
   return (value || "").trim().toLowerCase();
 }
 
+function looksLikeRawRuntimeReceipt(value: string): boolean {
+  const normalized = normalizedLookup(value);
+  return (
+    normalized.includes("error_class=") ||
+    normalized.includes("\"install_event\"") ||
+    normalized.includes("install_resolution_stage=")
+  );
+}
+
 export function runtimeExecutionFailureDetail(
   task: AgentTask | null | undefined,
 ): string | null {
+  if (task?.phase !== "Failed") {
+    return null;
+  }
   const currentStep = normalizedText(task?.current_step);
   if (!currentStep) {
     return null;
   }
-
-  const normalized = normalizedLookup(currentStep);
-  if (
-    normalized.includes("error_class=") ||
-    normalized.includes("failed to parse tool call") ||
-    normalized.includes("invalid_tool_call")
-  ) {
-    return currentStep;
-  }
-
-  return null;
+  return userFacingRuntimeStep(currentStep);
 }
 
 function projectedToolSet(summary: PlanSummary | null | undefined): Set<string> {
@@ -98,58 +100,36 @@ function routeDecision(
   return summary?.routeDecision ?? null;
 }
 
-function installDecisionEvidence(task: AgentTask | null | undefined): string[] {
-  return [
-    ...(task?.chat_outcome?.decisionEvidence ?? []),
-    ...(task?.chat_session?.outcomeRequest?.decisionEvidence ?? []),
-  ]
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-}
-
-function evidenceFlag(task: AgentTask | null | undefined, flag: string): boolean {
-  return installDecisionEvidence(task).some(
-    (entry) => entry === flag || entry.startsWith(`${flag}:`),
-  );
-}
-
-function evidenceValue(
-  task: AgentTask | null | undefined,
-  prefix: string,
-): string | null {
-  for (const entry of installDecisionEvidence(task)) {
-    if (!entry.startsWith(prefix)) {
-      continue;
-    }
-    const value = entry.slice(prefix.length).trim();
-    if (value) {
-      return value;
-    }
-  }
-  return null;
-}
-
 function installTargetLabel(task: AgentTask | null | undefined): string | null {
-  return (
-    normalizedText(task?.gate_info?.target_label) ||
-    evidenceValue(task, "software_install_target_text:")
-  );
+  return normalizedText(task?.gate_info?.target_label);
+}
+
+function hasInstallRuntimeEvent(task: AgentTask | null | undefined): boolean {
+  return (task?.events ?? []).some((event) => {
+    const details = event.details || {};
+    const digest = event.digest || {};
+    const toolName = normalizedLookup(
+      String(digest.tool_name || details.tool_name || ""),
+    );
+    return (
+      Boolean(details.install_payload) ||
+      Boolean(details.install_event) ||
+      Boolean(details.install_final_receipt) ||
+      Boolean(details.install_resolution) ||
+      INSTALL_WORKFLOW_TOOL_IDS.has(toolName)
+    );
+  });
 }
 
 function isInstallWorkflow(
   summary: PlanSummary | null | undefined,
   task: AgentTask | null | undefined = null,
 ): boolean {
-  if (
-    evidenceFlag(task, "local_install_requested") ||
-    evidenceFlag(task, "desktop_app_install_requested") ||
-    evidenceFlag(task, "software_install_capability_required")
-  ) {
-    return true;
-  }
-  const tools = projectedToolSet(summary);
-  return [...tools].some(
-    (tool) => INSTALL_WORKFLOW_TOOL_IDS.has(tool),
+  void summary;
+  return (
+    task?.gate_info?.title === "Approve software install" ||
+    task?.gate_info?.scope_label === "Software install" ||
+    hasInstallRuntimeEvent(task)
   );
 }
 
@@ -172,6 +152,9 @@ export function userFacingRuntimeStep(
 ): string | null {
   const normalized = normalizedText(value);
   if (!normalized || isInfrastructureCurrentStep(normalized)) {
+    return fallback;
+  }
+  if (looksLikeRawRuntimeReceipt(normalized)) {
     return fallback;
   }
   return normalized;
@@ -332,6 +315,13 @@ export function operatorFacingCurrentStep(
   task: AgentTask | null | undefined,
   summary: PlanSummary | null | undefined,
 ): string | null {
+  if (isInstallWorkflow(summary, task)) {
+    const target = installTargetLabel(task);
+    return target
+      ? `Resolving ${target} install route before host mutation.`
+      : "Resolving install route before host mutation.";
+  }
+
   const candidates = [
     normalizedText(task?.current_step),
     normalizedText(summary?.progressSummary),
@@ -343,13 +333,6 @@ export function operatorFacingCurrentStep(
       continue;
     }
     return candidate;
-  }
-
-  if (isInstallWorkflow(summary, task)) {
-    const target = installTargetLabel(task);
-    return target
-      ? `Resolving ${target} install route before host mutation.`
-      : "Resolving install route before host mutation.";
   }
 
   return defaultRunActivityDetail(summary, task);

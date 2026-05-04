@@ -10,6 +10,7 @@ pub mod kernel;
 pub mod keys;
 pub(crate) mod legacy;
 pub mod middleware;
+pub(crate) mod resolver;
 pub mod runtime_secret;
 pub mod service;
 pub mod substrate;

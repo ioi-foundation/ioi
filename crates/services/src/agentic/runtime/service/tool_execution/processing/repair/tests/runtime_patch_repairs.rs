@@ -1,7 +1,7 @@
 use super::*;
 
 #[tokio::test(flavor = "multi_thread")]
-async fn patch_build_verify_invalid_tool_repair_upconverts_runtime_line_edit_to_full_write() {
+async fn patch_build_verify_invalid_tool_repair_rejects_legacy_line_edit_shape() {
     let runtime = Arc::new(RepairRecordingRuntime::default());
     runtime
         .outputs
@@ -66,34 +66,25 @@ async fn patch_build_verify_invalid_tool_repair_upconverts_runtime_line_edit_to_
     .await
     .expect("repair attempt should succeed");
 
-    match repair.repaired_tool.expect("expected repaired tool") {
-        AgentTool::FsWrite {
-            path,
-            content,
-            line_number,
-        } => {
-            assert_eq!(path, "path_utils.py");
-            assert_eq!(line_number, None);
-            assert!(content.contains("return raw_path.replace(\"\\\\\", \"/\").strip()"));
-            assert!(!content.contains("return raw_path.strip().replace(\"\\\\\", \"/\")"));
-        }
-        other => panic!("expected filesystem__write_file, got {:?}", other),
-    }
-    assert!(repair
+    assert!(
+        repair.repaired_tool.is_none(),
+        "legacy line-edit shapes must not be converted into executable writes"
+    );
+    assert!(!repair
         .verification_checks
         .iter()
-        .any(|check| { check == "invalid_tool_call_repair_runtime_line_edit_upconverted=true" }));
-    assert!(repair
-        .verification_checks
-        .iter()
-        .any(|check| check == "invalid_tool_call_repair_runtime=fast"));
+        .any(|check| check == "invalid_tool_call_repair_succeeded=true"));
     assert_eq!(
         runtime
-            .seen_inputs
+            .seen_tools
             .lock()
-            .expect("seen_inputs mutex poisoned")
-            .len(),
-        1
+            .expect("seen_tools mutex poisoned")
+            .iter()
+            .flatten()
+            .filter(|tool| repair_tool_names_match(tool, "filesystem__edit_line"))
+            .count(),
+        0,
+        "legacy line-edit tools must not be offered during repair"
     );
 }
 

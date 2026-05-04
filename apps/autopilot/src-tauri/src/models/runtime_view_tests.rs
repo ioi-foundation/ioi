@@ -78,6 +78,28 @@ fn sync_runtime_views_exposes_latest_output_for_completed_tasks() {
 }
 
 #[test]
+fn sync_runtime_views_hides_raw_install_receipt_in_latest_output() {
+    let mut task = sample_task(AgentPhase::Failed);
+    task.current_step = r#"Task failed: ERROR_CLASS=InstallerResolutionRequired {"summary":"No verified install candidate passed resolver policy for 'snorflepaint'.","install_event":{"stage":"unresolved"}}
+install_resolution_stage=unresolved install_display_name=snorflepaint"#.to_string();
+    task.history = vec![ChatMessage {
+        role: "system".to_string(),
+        text: r#"Task Failed: ERROR_CLASS=InstallerResolutionRequired {"summary":"No verified install candidate passed resolver policy for 'snorflepaint'.","install_event":{"stage":"unresolved"}}
+install_resolution_stage=unresolved install_display_name=snorflepaint"#.to_string(),
+        timestamp: 0,
+    }];
+
+    task.sync_runtime_views();
+
+    let output = task.background_tasks[0]
+        .latest_output
+        .as_deref()
+        .expect("latest output");
+    assert!(output.starts_with("Install blocked: No verified install candidate"));
+    assert!(!output.contains("ERROR_CLASS"));
+}
+
+#[test]
 fn agent_task_accepts_legacy_swarm_tree_payloads() {
     let mut payload = serde_json::to_value(sample_task(AgentPhase::Running)).unwrap();
     let object = payload.as_object_mut().unwrap();

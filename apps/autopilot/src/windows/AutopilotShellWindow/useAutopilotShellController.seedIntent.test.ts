@@ -8,6 +8,14 @@ const source = readFileSync(
   resolve(__dirname, "useAutopilotShellController.ts"),
   "utf8",
 );
+const mainSource = readFileSync(
+  resolve(__dirname, "../../main.tsx"),
+  "utf8",
+);
+const tauriLibSource = readFileSync(
+  resolve(__dirname, "../../../src-tauri/src/lib.rs"),
+  "utf8",
+);
 
 assert.match(
   source,
@@ -49,6 +57,30 @@ assert.match(
   source,
   /candidate\.source\?\.serviceName === "Autopilot" &&[\s\S]*candidate\.source\.workflowName === "workflow" &&[\s\S]*\(candidate\.sessionId \|\| candidate\.threadId\)[\s\S]*return;/,
   "chat-bound Autopilot workflow notifications should stay in the Chat UX instead of opening separate pill/native notification surfaces",
+);
+
+assert.match(
+  mainSource,
+  /<Route path="\/chat-session" element=\{<LegacyChatSessionRedirect \/>\} \/>/,
+  "the legacy /chat-session route should redirect to the primary /chat surface instead of rendering a second composer",
+);
+
+assert.match(
+  mainSource,
+  /<Route path="\/pill" element=\{<DisabledPillRoute \/>\} \/>/,
+  "the pill route should be disabled so the ready-card window cannot become an operator surface",
+);
+
+assert.doesNotMatch(
+  mainSource,
+  /import \{ PillWindow \}|<PillWindow/,
+  "the pill React component must not be routed as an active window",
+);
+
+assert.doesNotMatch(
+  tauriLibSource,
+  /Show Pill|\"pill\" => windows::show_pill/,
+  "native tray/menu routing should not expose the deprecated pill surface",
 );
 
 console.log("useAutopilotShellController.seedIntent.test.ts: ok");

@@ -359,7 +359,13 @@ fn browser_pointer_primitives_target_map_to_browser_interact_scope() {
         duration_ms: None,
         resample_interval_ms: None,
     };
-    let move_tool = AgentTool::BrowserMoveMouse { x: 120.0, y: 80.0 };
+    let move_tool = AgentTool::BrowserMoveMouse {
+        observation_ref: "obs_browser_1".to_string(),
+        coordinate_space_id: "viewport_css_px".to_string(),
+        semantic_id: "grp_slider".to_string(),
+        x: 120.0,
+        y: 80.0,
+    };
     let down_tool = AgentTool::BrowserMouseDown {
         button: Some("left".to_string()),
     };
@@ -550,7 +556,10 @@ fn browser_wait_serializes_follow_up_browser_action() {
 #[test]
 fn browser_synthetic_click_serializes_follow_up_browser_action() {
     let tool = AgentTool::BrowserSyntheticClick {
-        id: None,
+        id: Some("grp_click_canvas".to_string()),
+        observation_ref: Some("obs_123".to_string()),
+        coordinate_space_id: Some("viewport_css_px".to_string()),
+        semantic_id: Some("grp_click_canvas".to_string()),
         x: Some(85.012),
         y: Some(105.824),
         continue_with: Some(AgentToolCall {
@@ -569,12 +578,21 @@ fn browser_synthetic_click_serializes_follow_up_browser_action() {
         payload["arguments"]["continue_with"]["arguments"]["id"],
         "btn_submit"
     );
+    assert_eq!(payload["arguments"]["observation_ref"], "obs_123");
+    assert_eq!(
+        payload["arguments"]["coordinate_space_id"],
+        "viewport_css_px"
+    );
+    assert_eq!(payload["arguments"]["semantic_id"], "grp_click_canvas");
 }
 
 #[test]
 fn browser_synthetic_click_serializes_grounded_target_id() {
     let tool = AgentTool::BrowserSyntheticClick {
         id: Some("grp_blue_circle".to_string()),
+        observation_ref: None,
+        coordinate_space_id: None,
+        semantic_id: None,
         x: None,
         y: None,
         continue_with: None,

@@ -118,7 +118,7 @@ pub async fn process_queue_item(
     let tool_hash_bytes = sha256(&tool_jcs)
         .map_err(|e| TransactionError::Invalid(format!("Failed to hash queued tool JCS: {}", e)))?;
     let (tool_name, intent_args) = canonical_tool_identity(&tool_wrapper);
-    let is_install_package_tool = tool_name == "software_install__execute_plan";
+    let is_software_install_tool = tool_name == "software_install__execute_plan";
     let action_json = serde_json::to_string(&tool_wrapper).unwrap_or_else(|_| "{}".to_string());
     let intent_hash = canonical_intent_hash(
         &tool_name,
@@ -139,7 +139,7 @@ pub async fn process_queue_item(
         .map(|resolved| resolved.scope == IntentScopeProfile::CommandExecution)
         .unwrap_or(false);
     let mut verification_checks = Vec::new();
-    if is_install_package_tool {
+    if is_software_install_tool {
         verification_checks.extend(install_resolution_checks_for_tool(&tool_wrapper));
     }
     let action_request_hash_hex = hex::encode(action_request.hash());
@@ -309,7 +309,7 @@ pub async fn process_queue_item(
                 hash_arr,
                 pending_visual_hash,
             );
-            if is_install_package_tool {
+            if is_software_install_tool {
                 if let Some(status) = install_approval_status_from_tool(&tool_wrapper) {
                     agent_state.status = AgentStatus::Paused(status);
                 }
@@ -361,7 +361,7 @@ pub async fn process_queue_item(
         &err,
         &mut verification_checks,
     );
-    if success && !is_gated && is_install_package_tool {
+    if success && !is_gated && is_software_install_tool {
         let intent_id = resolved_intent_id(agent_state);
         record_queue_install_success_receipts(
             service,
@@ -401,7 +401,7 @@ pub async fn process_queue_item(
 
     if !is_gated
         && !success
-        && is_install_package_tool
+        && is_software_install_tool
         && err
             .as_deref()
             .map(is_sudo_password_required_install_error)

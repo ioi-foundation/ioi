@@ -82,6 +82,18 @@ pub struct LocalInstallIntent {
     pub requires_host_mutation: bool,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LocalRuntimeActionIntent {
+    pub intent_class: &'static str,
+    pub action_family: &'static str,
+    pub target_text: String,
+    pub target_kind: &'static str,
+    pub target_url: Option<String>,
+    pub target_command: Option<String>,
+    pub confidence: u8,
+    pub requires_host_mutation: bool,
+}
+
 impl ChatIntentContext {
     pub fn new(intent: &str) -> Self {
         let semantic_intent = normalize_inline_whitespace(&user_request_segment(intent));
@@ -170,6 +182,153 @@ impl ChatIntentContext {
 
     pub fn local_install_target(&self) -> Option<String> {
         self.local_install_intent().map(|intent| intent.target_text)
+    }
+
+    pub fn local_runtime_action_intent(&self) -> Option<LocalRuntimeActionIntent> {
+        if self.local_install_intent().is_some() {
+            return None;
+        }
+
+        if self.explicit_browser_action_request() {
+            return Some(LocalRuntimeActionIntent {
+                intent_class: "local_runtime_action",
+                action_family: "browser",
+                target_text: self.surface.clone(),
+                target_kind: self.browser_runtime_target_kind(),
+                target_url: self.first_http_url(),
+                target_command: None,
+                confidence: 95,
+                requires_host_mutation: false,
+            });
+        }
+
+        if self.explicit_shell_command_request() {
+            return Some(LocalRuntimeActionIntent {
+                intent_class: "local_runtime_action",
+                action_family: "shell",
+                target_text: self.surface.clone(),
+                target_kind: "shell_command",
+                target_url: None,
+                target_command: self.shell_command_literal(),
+                confidence: 95,
+                requires_host_mutation: false,
+            });
+        }
+
+        None
+    }
+
+    pub fn explicit_local_runtime_action_request(&self) -> bool {
+        self.local_runtime_action_intent().is_some()
+    }
+
+    fn explicit_browser_action_request(&self) -> bool {
+        let mentions_url = self.normalized.contains("http://")
+            || self.normalized.contains("https://")
+            || self.normalized.contains("www.");
+        self.contains_any_phrase(&[
+            "use the browser",
+            "using the browser",
+            "in the browser",
+            "with the browser",
+            "open the browser",
+            "open a browser",
+            "browse to",
+            "navigate to",
+            "go to http://",
+            "go to https://",
+            "visit http://",
+            "visit https://",
+        ]) || (mentions_url
+            && self.contains_any_term(&["browser", "browse", "navigate", "open", "visit"]))
+    }
+
+    fn first_http_url(&self) -> Option<String> {
+        self.surface
+            .split_whitespace()
+            .map(|token| {
+                token
+                    .trim_matches(|character: char| {
+                        matches!(
+                            character,
+                            '"' | '\'' | '(' | ')' | '[' | ']' | '{' | '}' | '<' | '>' | ',' | ';'
+                        )
+                    })
+                    .trim_end_matches(|character: char| matches!(character, '.' | '?' | '!' | ':'))
+            })
+            .find(|token| token.starts_with("https://") || token.starts_with("http://"))
+            .map(str::to_string)
+    }
+
+    fn browser_runtime_target_kind(&self) -> &'static str {
+        if self.contains_any_phrase(&["page title", "document title", "browser title"])
+            || (self.contains_any_term(&["title"])
+                && self.contains_any_phrase(&["tell me", "what is", "what's", "show me"]))
+        {
+            "browser_page_title"
+        } else {
+            "browser_action"
+        }
+    }
+
+    fn explicit_shell_command_request(&self) -> bool {
+        if self.contains_any_phrase(&[
+            "in a terminal",
+            "in the terminal",
+            "using terminal",
+            "use terminal",
+            "from terminal",
+            "from the terminal",
+            "in a shell",
+            "in the shell",
+            "using shell",
+            "use shell",
+            "shell command",
+            "terminal command",
+            "command line",
+            "from bash",
+            "using bash",
+        ]) {
+            return true;
+        }
+
+        self.contains_any_term(&["terminal", "shell", "bash"])
+            && self.contains_any_term(&["run", "execute", "start", "launch"])
+    }
+
+    fn shell_command_literal(&self) -> Option<String> {
+        let surface = self.surface.trim();
+        if let Some(start) = surface.find('`') {
+            let rest = &surface[start + 1..];
+            if let Some(end) = rest.find('`') {
+                let command = rest[..end].trim();
+                if !command.is_empty() {
+                    return Some(command.to_string());
+                }
+            }
+        }
+
+        let lower = surface.to_ascii_lowercase();
+        for marker in [
+            "run ",
+            "execute ",
+            "start ",
+            "launch ",
+            "use terminal to run ",
+            "use the terminal to run ",
+        ] {
+            if let Some(index) = lower.find(marker) {
+                let command = surface[index + marker.len()..]
+                    .trim()
+                    .trim_end_matches(|ch| matches!(ch, '.' | '?' | '!'))
+                    .trim();
+                if !command.is_empty() {
+                    return Some(command.to_string());
+                }
+            }
+        }
+
+        None
     }
 
     pub fn requests_runtime_locality(&self) -> bool {
@@ -398,6 +557,7 @@ impl ChatIntentContext {
             return false;
         }
 
+        let explicit_file_grounding = self.explicit_workspace_file_grounding_required();
         let repo_context = self.contains_any_phrase(&[
             "this repo",
             "in this repo",
@@ -422,11 +582,13 @@ impl ChatIntentContext {
             && !coding_plan_grounding
             && !runtime_lifecycle_grounding
             && !agent_validation_grounding
+            && !explicit_file_grounding
         {
             return false;
         }
 
-        self.normalized.ends_with('?')
+        explicit_file_grounding
+            || self.normalized.ends_with('?')
             || self.normalized.starts_with("plan ")
             || self.normalized.starts_with("what ")
             || self.normalized.starts_with("which ")
@@ -443,6 +605,39 @@ impl ChatIntentContext {
             || self.normalized.starts_with("using ")
             || self.normalized.starts_with("validate ")
             || self.normalized.starts_with("does ")
+    }
+
+    fn explicit_workspace_file_grounding_required(&self) -> bool {
+        if !self.contains_workspace_file_reference() {
+            return false;
+        }
+
+        self.normalized.starts_with("read ")
+            || self.normalized.starts_with("show ")
+            || self.normalized.starts_with("inspect ")
+            || self.normalized.starts_with("summarize ")
+            || self.normalized.starts_with("explain ")
+            || self.normalized.starts_with("find ")
+            || self.normalized.starts_with("look in ")
+            || self.normalized.starts_with("tell me ")
+            || self.normalized.starts_with("what ")
+            || self.normalized.starts_with("which ")
+    }
+
+    fn contains_workspace_file_reference(&self) -> bool {
+        self.surface
+            .split_whitespace()
+            .map(|token| {
+                token
+                    .trim_matches(|character: char| {
+                        matches!(
+                            character,
+                            '"' | '\'' | '`' | '(' | ')' | '[' | ']' | '{' | '}' | '<' | '>' | ','
+                        )
+                    })
+                    .trim_end_matches(|character: char| matches!(character, '.' | '?' | '!' | ':'))
+            })
+            .any(looks_like_workspace_file_reference)
     }
 
     pub fn runtime_lifecycle_grounding_required(&self) -> bool {
@@ -1246,6 +1441,32 @@ fn cleaned_trailing_punctuation(value: &str) -> String {
         .trim_matches(|ch: char| matches!(ch, '?' | '.' | '!' | ','))
         .trim()
         .to_string()
+}
+
+fn looks_like_workspace_file_reference(token: &str) -> bool {
+    if token.is_empty()
+        || token.starts_with("http://")
+        || token.starts_with("https://")
+        || token.starts_with("www.")
+    {
+        return false;
+    }
+
+    if token.contains('/') {
+        return token
+            .rsplit('/')
+            .next()
+            .is_some_and(looks_like_workspace_file_reference);
+    }
+
+    let Some((stem, extension)) = token.rsplit_once('.') else {
+        return false;
+    };
+    !stem.is_empty()
+        && extension.len() >= 2
+        && extension
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || character == '-')
 }
 
 fn known_sports_target(normalized: &str) -> Option<KnownSportsTarget> {

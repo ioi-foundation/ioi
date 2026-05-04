@@ -70,6 +70,12 @@ pub(super) fn specialized_domain_clarification_question(
         ChatSpecializedDomainKind::UserInput => {
             "What options or decision shape should Chat present?".to_string()
         }
+        ChatSpecializedDomainKind::SoftwareInstall => {
+            "Which software should Chat resolve for installation?".to_string()
+        }
+        ChatSpecializedDomainKind::RuntimeAction => {
+            "Which local runtime action should Chat execute?".to_string()
+        }
     })
 }
 
@@ -333,6 +339,9 @@ fn specialized_domain_clarification_options(
                 recommended: false,
             },
         ],
+        ChatSpecializedDomainKind::SoftwareInstall | ChatSpecializedDomainKind::RuntimeAction => {
+            Vec::new()
+        }
     }
 }
 

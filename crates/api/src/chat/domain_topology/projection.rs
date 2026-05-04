@@ -209,12 +209,153 @@ fn decision_evidence_item_value(decision_evidence: &[String], prefix: &str) -> O
         .map(str::to_string)
 }
 
+fn install_request_frame_for_outcome_request(
+    outcome_request: &ChatOutcomeRequest,
+) -> Option<&SoftwareInstallRequestFrame> {
+    match outcome_request.normalized_request.as_ref() {
+        Some(ChatNormalizedRequest::SoftwareInstall(frame)) => Some(frame),
+        _ => None,
+    }
+}
+
+fn runtime_action_frame_for_outcome_request(
+    outcome_request: &ChatOutcomeRequest,
+) -> Option<&RuntimeActionFrame> {
+    match outcome_request.normalized_request.as_ref() {
+        Some(ChatNormalizedRequest::RuntimeAction(frame)) => Some(frame),
+        _ => None,
+    }
+}
+
 fn local_install_request_for_outcome_request(outcome_request: &ChatOutcomeRequest) -> bool {
-    decision_evidence_item_flag(&outcome_request.decision_evidence, "local_install_requested")
-        || decision_evidence_item_flag(
-            &outcome_request.decision_evidence,
-            "desktop_app_install_requested",
-        )
+    install_request_frame_for_outcome_request(outcome_request).is_some()
+}
+
+fn local_runtime_action_family_for_outcome_request(
+    outcome_request: &ChatOutcomeRequest,
+) -> Option<String> {
+    runtime_action_frame_for_outcome_request(outcome_request).map(|frame| frame.action_family.clone())
+}
+
+fn local_runtime_action_target_kind_for_outcome_request(
+    outcome_request: &ChatOutcomeRequest,
+) -> Option<String> {
+    runtime_action_frame_for_outcome_request(outcome_request).map(|frame| frame.target_kind.clone())
+}
+
+fn local_runtime_action_request_for_outcome_request(outcome_request: &ChatOutcomeRequest) -> bool {
+    runtime_action_frame_for_outcome_request(outcome_request).is_some()
+}
+
+fn browser_action_request_for_outcome_request(outcome_request: &ChatOutcomeRequest) -> bool {
+    local_runtime_action_family_for_outcome_request(outcome_request)
+        .as_deref()
+        .is_some_and(|family| family.eq_ignore_ascii_case("browser"))
+        || decision_evidence_item_flag(&outcome_request.decision_evidence, "browser_action_required")
+}
+
+fn shell_command_request_for_outcome_request(outcome_request: &ChatOutcomeRequest) -> bool {
+    local_runtime_action_family_for_outcome_request(outcome_request)
+        .as_deref()
+        .is_some_and(|family| family.eq_ignore_ascii_case("shell"))
+        || decision_evidence_item_flag(&outcome_request.decision_evidence, "shell_command_required")
+}
+
+pub fn runtime_route_frame_for_outcome_request(
+    outcome_request: &ChatOutcomeRequest,
+) -> Option<RuntimeRouteFrame> {
+    let route_decision = route_decision_for_outcome_request(outcome_request);
+    if let Some(mut install_request) = install_request_frame_for_outcome_request(outcome_request).cloned()
+    {
+        install_request.target_text = install_request.target_text.replace(['\r', '\n'], " ");
+        if install_request.target_text.trim().is_empty() {
+            return None;
+        }
+
+        return Some(RuntimeRouteFrame {
+            intent_id: "software.install".to_string(),
+            route_family: route_decision.route_family,
+            output_intent: route_decision.output_intent,
+            direct_answer_allowed: route_decision.direct_answer_allowed,
+            target: install_request.target_text.clone(),
+            target_kind: install_request.target_kind.clone(),
+            host_mutation: true,
+            required_capabilities: vec!["software.install.resolve".to_string()],
+            typed_evidence: vec![RuntimeIntentEvidence {
+                evidence_kind: "normalized_request".to_string(),
+                value: "software_install".to_string(),
+                source: "circ_domain_topology".to_string(),
+                confidence: Some(99),
+            }],
+            typed_required_capabilities: vec![RequiredCapability {
+                capability_id: "software.install.resolve".to_string(),
+                reason: Some("software install request must resolve through provider boundary".to_string()),
+            }],
+            host_mutation_scope: Some(HostMutationScope {
+                scope_kind: "software_install".to_string(),
+                requires_approval: true,
+                description: Some("install workflow may mutate the host after approval".to_string()),
+            }),
+            runtime_action: None,
+            install_request: Some(install_request),
+            provenance: Some("circ_domain_topology".to_string()),
+        });
+    }
+
+    if let Some(runtime_action) = runtime_action_frame_for_outcome_request(outcome_request).cloned() {
+        let (intent_id, default_target_kind, required_capabilities) =
+            if browser_action_request_for_outcome_request(outcome_request) {
+                (
+                    "browser.interact",
+                    "browser_action",
+                    vec![
+                        "browser.interact".to_string(),
+                        "browser.inspect".to_string(),
+                    ],
+                )
+            } else if shell_command_request_for_outcome_request(outcome_request) {
+                (
+                    "command.exec",
+                    "shell_command",
+                    vec!["command.exec".to_string()],
+                )
+            } else {
+                (
+                    "runtime.action",
+                    "local_runtime_action",
+                    vec!["agent.lifecycle".to_string()],
+                )
+            };
+        let target_kind = local_runtime_action_target_kind_for_outcome_request(outcome_request)
+            .unwrap_or_else(|| default_target_kind.to_string());
+        let target = outcome_request.raw_prompt.replace(['\r', '\n'], " ");
+        if target.trim().is_empty() {
+            return None;
+        }
+        let typed_required_capabilities = runtime_action.required_capabilities.clone();
+        return Some(RuntimeRouteFrame {
+            intent_id: intent_id.to_string(),
+            route_family: route_decision.route_family,
+            output_intent: route_decision.output_intent,
+            direct_answer_allowed: route_decision.direct_answer_allowed,
+            target,
+            target_kind: Some(target_kind),
+            host_mutation: runtime_action.host_mutation,
+            required_capabilities,
+            typed_evidence: vec![RuntimeIntentEvidence {
+                evidence_kind: "normalized_request".to_string(),
+                value: "runtime_action".to_string(),
+                source: "circ_domain_topology".to_string(),
+                confidence: Some(95),
+            }],
+            typed_required_capabilities,
+            host_mutation_scope: None,
+            runtime_action: Some(runtime_action),
+            install_request: None,
+            provenance: Some("circ_domain_topology".to_string()),
+        });
+    }
+    None
 }
 
 pub fn artifact_connector_grounding_for_outcome_request(
@@ -248,6 +389,12 @@ pub fn artifact_connector_grounding_for_outcome_request(
 pub fn route_family_for_outcome_request(outcome_request: &ChatOutcomeRequest) -> &'static str {
     if local_install_request_for_outcome_request(outcome_request) {
         return "command_execution";
+    }
+    if shell_command_request_for_outcome_request(outcome_request) {
+        return "command_execution";
+    }
+    if browser_action_request_for_outcome_request(outcome_request) {
+        return "browser";
     }
     if decision_evidence_item_flag(
         &outcome_request.decision_evidence,
@@ -321,10 +468,19 @@ fn route_family_for_lane(lane: ChatLaneFamily) -> &'static str {
 pub fn selected_route_label_for_outcome_request(outcome_request: &ChatOutcomeRequest) -> String {
     match outcome_request.outcome_kind {
         ChatOutcomeKind::Conversation => {
-            if local_install_request_for_outcome_request(outcome_request) {
-                decision_evidence_item_value(&outcome_request.decision_evidence, "software_install_target_text:")
-                    .map(|target| format!("install {}", target))
-                    .unwrap_or_else(|| "local software install".to_string())
+            if let Some(install_request) = install_request_frame_for_outcome_request(outcome_request)
+            {
+                format!("install {}", install_request.target_text)
+            } else if browser_action_request_for_outcome_request(outcome_request) {
+                format!(
+                    "browser_tool_{}",
+                    execution_strategy_id(outcome_request.execution_strategy)
+                )
+            } else if shell_command_request_for_outcome_request(outcome_request) {
+                format!(
+                    "shell_tool_{}",
+                    execution_strategy_id(outcome_request.execution_strategy)
+                )
             } else if matches!(
                 outcome_request.normalized_request.as_ref(),
                 Some(ChatNormalizedRequest::MessageCompose(_))
@@ -434,7 +590,10 @@ pub fn route_decision_for_outcome_request(
         direct_answer_blockers.push("planned_execution_selected".to_string());
     }
     if local_install_request_for_outcome_request(outcome_request) {
-        direct_answer_blockers.push("local_install_requested".to_string());
+        direct_answer_blockers.push("host_mutation_requested".to_string());
+    }
+    if local_runtime_action_request_for_outcome_request(outcome_request) {
+        direct_answer_blockers.push("local_runtime_action_required".to_string());
     }
     if decision_evidence_item_flag(&outcome_request.decision_evidence, "connector_missing") {
         direct_answer_blockers.push("connector_unavailable".to_string());
@@ -631,15 +790,6 @@ pub fn build_chat_runtime_handoff_prompt_prefix(
     } else {
         route_decision.direct_answer_blockers.join(", ")
     };
-    let install_target_line = decision_evidence_item_value(
-        &outcome_request.decision_evidence,
-        "software_install_target_text:",
-    )
-    .map(|target| target.replace(['\r', '\n'], " "))
-    .filter(|target| !target.trim().is_empty())
-    .map(|target| format!("- software_install_target_text: {target}\n"))
-    .unwrap_or_default();
-
     let mut execution_rules = vec![
         "Honor this Chat route contract unless the user explicitly changes the task.".to_string(),
     ];
@@ -693,6 +843,26 @@ pub fn build_chat_runtime_handoff_prompt_prefix(
                 .to_string(),
         );
     }
+    if browser_action_request_for_outcome_request(outcome_request) {
+        execution_rules.push(
+            "The user explicitly requested browser use; operate through browser tools and verify observed page state before answering."
+                .to_string(),
+        );
+        execution_rules.push(
+            "Do not claim browser access is unavailable unless the browser tool path fails with a runtime receipt."
+                .to_string(),
+        );
+    }
+    if shell_command_request_for_outcome_request(outcome_request) {
+        execution_rules.push(
+            "The user explicitly requested terminal execution; run or start the appropriate shell command and answer from the command receipt."
+                .to_string(),
+        );
+        execution_rules.push(
+            "Do not claim shell execution is unavailable unless the shell tool path fails with a runtime receipt."
+                .to_string(),
+        );
+    }
     if decision_evidence_item_flag(
         &outcome_request.decision_evidence,
         "connector_intent_detected",
@@ -715,7 +885,6 @@ pub fn build_chat_runtime_handoff_prompt_prefix(
          - direct_answer_blockers: {blockers}\n\
          - primary_tools: {primary_tools}\n\
          - broad_fallback_tools: {fallback_tools}\n\
-         {install_target_line}\
          - {workspace_line}\n\
          \n\
          EXECUTION RULES:\n\

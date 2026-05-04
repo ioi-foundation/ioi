@@ -1,4 +1,14 @@
 impl BrowserDriver {
+    pub async fn active_page_title(&self) -> std::result::Result<Option<String>, BrowserError> {
+        self.require_runtime()?;
+        self.ensure_page().await?;
+
+        let page = { self.active_page.lock().await.clone() }.ok_or(BrowserError::NoActivePage)?;
+        self.check_connection_error(page.get_title().await)
+            .await
+            .map_err(|e| BrowserError::Internal(format!("Failed to query active page title: {}", e)))
+    }
+
     pub async fn navigate(&self, url: &str) -> std::result::Result<String, BrowserError> {
         crate::authority::assert_raw_driver_allowed("browser", "navigate")
             .map_err(|error| BrowserError::Internal(error.to_string()))?;

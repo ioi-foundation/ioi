@@ -60,6 +60,8 @@ fn normalized_request_surface_hint(outcome_request: &ChatOutcomeRequest) -> Opti
     match outcome_request.normalized_request.as_ref() {
         Some(ChatNormalizedRequest::MessageCompose(_)) => Some("message_compose"),
         Some(ChatNormalizedRequest::UserInput(_)) => Some("user_input"),
+        Some(ChatNormalizedRequest::SoftwareInstall(_)) => Some("software_install"),
+        Some(ChatNormalizedRequest::RuntimeAction(_)) => Some("runtime_action"),
         _ => None,
     }
 }
@@ -117,6 +119,7 @@ fn narrow_tool_preference_for_outcome_request(outcome_request: &ChatOutcomeReque
     tool_widget_family_hint(&outcome_request.decision_evidence).is_some()
         || normalized_request_surface_hint(outcome_request).is_some()
         || local_install_request_for_outcome_request(outcome_request)
+        || local_runtime_action_request_for_outcome_request(outcome_request)
         || decision_evidence_item_flag(
             &outcome_request.decision_evidence,
             "narrow_surface_preferred",
@@ -136,10 +139,15 @@ fn output_intent_for_outcome_request(outcome_request: &ChatOutcomeRequest) -> &'
     if local_install_request_for_outcome_request(outcome_request) {
         return "tool_execution";
     }
+    if local_runtime_action_request_for_outcome_request(outcome_request) {
+        return "tool_execution";
+    }
 
     if matches!(
         outcome_request.normalized_request.as_ref(),
-        Some(ChatNormalizedRequest::MessageCompose(_)) | Some(ChatNormalizedRequest::UserInput(_))
+        Some(ChatNormalizedRequest::MessageCompose(_))
+            | Some(ChatNormalizedRequest::UserInput(_))
+            | Some(ChatNormalizedRequest::RuntimeAction(_))
     ) {
         return "tool_execution";
     }
@@ -149,6 +157,7 @@ fn output_intent_for_outcome_request(outcome_request: &ChatOutcomeRequest) -> &'
             if outcome_request.execution_strategy == ChatExecutionStrategy::SinglePass
                 && !outcome_request.needs_clarification
                 && tool_widget_family_hint(&outcome_request.decision_evidence).is_none()
+                && !local_runtime_action_request_for_outcome_request(outcome_request)
                 && !outcome_request
                     .decision_evidence
                     .iter()
@@ -195,6 +204,15 @@ fn effective_tool_surface_for_outcome_request(
                 primary_tools.push("software_install__resolve".to_string());
                 primary_tools.push("software_install__execute_plan".to_string());
                 primary_tools.push("app__launch".to_string());
+            } else if browser_action_request_for_outcome_request(outcome_request) {
+                primary_tools.push("browser__navigate".to_string());
+                primary_tools.push("browser__inspect".to_string());
+                primary_tools.push("browser__screenshot".to_string());
+                primary_tools.push("browser__find_text".to_string());
+            } else if shell_command_request_for_outcome_request(outcome_request) {
+                primary_tools.push("shell__run".to_string());
+                primary_tools.push("shell__start".to_string());
+                primary_tools.push("shell__status".to_string());
             } else if let Some(surface_hint) = normalized_request_surface_hint(outcome_request) {
                 match surface_hint {
                     "message_compose" => primary_tools.push("message_compose_v1".to_string()),
@@ -302,14 +320,6 @@ fn chat_route_hint_reason_fragments(outcome_request: &ChatOutcomeRequest) -> Vec
                 "The prompt explicitly named a provider, so Chat kept that connector route in front."
                     .to_string(),
             ),
-            "local_install_requested" => fragments.push(
-                "The prompt asks for a local install, so direct prose must yield to an approval-gated runtime workflow."
-                    .to_string(),
-            ),
-            "desktop_app_install_requested" => fragments.push(
-                "Desktop app installs need host discovery, source resolution, execution, and verification receipts."
-                    .to_string(),
-            ),
             "shared_answer_surface" => fragments.push(
                 "Chat can preserve route truth without stealing the main runtime reply."
                     .to_string(),
@@ -415,6 +425,78 @@ fn derive_normalized_request(
     decision_evidence: &[String],
     active_widget_state: Option<&ChatRetainedWidgetState>,
 ) -> Option<ChatNormalizedRequest> {
+    if let Some(install_intent) = context.local_install_intent() {
+        return Some(ChatNormalizedRequest::SoftwareInstall(
+            SoftwareInstallRequestFrame {
+                target_text: install_intent.target_text,
+                target_kind: Some(install_intent.target_kind.to_string()),
+                manager_preference: None,
+                launch_after_install: None,
+                provenance: Some("circ_intent_context".to_string()),
+            },
+        ));
+    }
+    if let Some(action_intent) = context.local_runtime_action_intent() {
+        let browser_plan = if action_intent.action_family == "browser" {
+            action_intent
+                .target_url
+                .as_ref()
+                .map(|url| BrowserActionPlanRef {
+                    plan_ref: format!("browser.navigate:{url}"),
+                    action: "navigate".to_string(),
+                    url: url.clone(),
+                    observation_required: true,
+                    observation_ref: None,
+                    coordinate_space_id: None,
+                    semantic_id: None,
+                })
+        } else {
+            None
+        };
+        let command_plan = if action_intent.action_family == "shell" {
+            action_intent
+                .target_command
+                .as_deref()
+                .map(command_plan_for_literal)
+        } else {
+            None
+        };
+        let required_capabilities = match action_intent.action_family {
+            "browser" => vec![
+                RequiredCapability {
+                    capability_id: "browser.interact".to_string(),
+                    reason: Some("explicit browser action request".to_string()),
+                },
+                RequiredCapability {
+                    capability_id: "browser.inspect".to_string(),
+                    reason: Some(
+                        "browser response must be based on observation receipt".to_string(),
+                    ),
+                },
+            ],
+            "shell" => vec![RequiredCapability {
+                capability_id: "command.exec".to_string(),
+                reason: Some("explicit shell action request".to_string()),
+            }],
+            _ => vec![RequiredCapability {
+                capability_id: "agent.lifecycle".to_string(),
+                reason: Some("explicit local runtime action request".to_string()),
+            }],
+        };
+        return Some(ChatNormalizedRequest::RuntimeAction(RuntimeActionFrame {
+            intent_class: action_intent.intent_class.to_string(),
+            action_family: action_intent.action_family.to_string(),
+            target_text: action_intent.target_text,
+            target_kind: action_intent.target_kind.to_string(),
+            host_mutation: action_intent.requires_host_mutation,
+            required_capabilities,
+            browser_plan,
+            command_plan,
+            file_plan: None,
+            provenance: Some("circ_intent_context".to_string()),
+        }));
+    }
+
     let widget_family = active_tool_widget_family(context, decision_evidence, active_widget_state);
 
     if matches!(widget_family, Some("weather")) {
@@ -648,6 +730,8 @@ fn normalized_request_kind(frame: &ChatNormalizedRequest) -> &'static str {
         ChatNormalizedRequest::Recipe(_) => "recipe",
         ChatNormalizedRequest::MessageCompose(_) => "message",
         ChatNormalizedRequest::UserInput(_) => "user_input",
+        ChatNormalizedRequest::SoftwareInstall(_) => "software_install",
+        ChatNormalizedRequest::RuntimeAction(_) => "runtime_action",
     }
 }
 
@@ -764,6 +848,25 @@ fn merge_retained_widget_state(
             upsert(
                 "user_input.interaction_kind",
                 frame.interaction_kind.clone(),
+                "normalized_request",
+            );
+        }
+        ChatNormalizedRequest::SoftwareInstall(frame) => {
+            upsert(
+                "software_install.target",
+                Some(frame.target_text.clone()),
+                "normalized_request",
+            );
+        }
+        ChatNormalizedRequest::RuntimeAction(frame) => {
+            upsert(
+                "runtime_action.family",
+                Some(frame.action_family.clone()),
+                "normalized_request",
+            );
+            upsert(
+                "runtime_action.target_kind",
+                Some(frame.target_kind.clone()),
                 "normalized_request",
             );
         }
@@ -1155,7 +1258,11 @@ fn primary_lane_family(
     if decision_evidence_item_flag(decision_evidence, "connector_intent_detected") {
         return ChatLaneFamily::Integrations;
     }
-    if decision_evidence_item_flag(decision_evidence, "local_install_requested") {
+    if matches!(
+        normalized_request,
+        Some(ChatNormalizedRequest::SoftwareInstall(_))
+            | Some(ChatNormalizedRequest::RuntimeAction(_))
+    ) {
         return ChatLaneFamily::General;
     }
     if decision_evidence_item_flag(decision_evidence, "workspace_grounding_required")
@@ -1191,6 +1298,8 @@ fn primary_lane_family(
             | Some(ChatNormalizedRequest::Places(_))
             | Some(ChatNormalizedRequest::Recipe(_)) => ChatLaneFamily::Research,
             Some(ChatNormalizedRequest::UserInput(_)) => ChatLaneFamily::UserInput,
+            Some(ChatNormalizedRequest::SoftwareInstall(_))
+            | Some(ChatNormalizedRequest::RuntimeAction(_)) => ChatLaneFamily::General,
             _ => ChatLaneFamily::ToolWidget,
         };
     }
@@ -1271,6 +1380,12 @@ fn secondary_lane_families(
                     push_unique(ChatLaneFamily::UserInput);
                     push_unique(ChatLaneFamily::ToolWidget);
                 }
+                Some(ChatNormalizedRequest::SoftwareInstall(_)) => {
+                    push_unique(ChatLaneFamily::General);
+                }
+                Some(ChatNormalizedRequest::RuntimeAction(_)) => {
+                    push_unique(ChatLaneFamily::General);
+                }
                 None => {}
             }
         }
@@ -1307,10 +1422,13 @@ fn primary_goal(
         Some(ChatNormalizedRequest::UserInput(_)) => {
             "Collect structured user input before continuing with the requested comparison or prioritization.".to_string()
         }
+        Some(ChatNormalizedRequest::SoftwareInstall(_)) => {
+            "Install the requested local software through an approval-gated, verified runtime workflow.".to_string()
+        }
+        Some(ChatNormalizedRequest::RuntimeAction(_)) => {
+            "Execute the requested local runtime action through a typed, receipt-backed workflow.".to_string()
+        }
         None => match primary_lane {
-            _ if decision_evidence_item_flag(_decision_evidence, "local_install_requested") => {
-                "Install the requested local software through an approval-gated, verified runtime workflow.".to_string()
-            }
             ChatLaneFamily::Research => {
                 "Gather fresh evidence before answering in the shared reply lane.".to_string()
             }
@@ -1420,6 +1538,14 @@ fn planned_transition_reason(
         Some(ChatNormalizedRequest::UserInput(_)) => {
             "The prompt benefits from a structured user-input lane before execution.".to_string()
         }
+        Some(ChatNormalizedRequest::SoftwareInstall(_)) => {
+            "The prompt maps to a typed software-install lane with host mutation obligations."
+                .to_string()
+        }
+        Some(ChatNormalizedRequest::RuntimeAction(_)) => {
+            "The prompt maps to a typed runtime-action lane that must execute through CEC receipts."
+                .to_string()
+        }
         None => {
             if decision_evidence_item_flag(decision_evidence, "connector_intent_detected") {
                 "A connector-capable route outranks a broad fallback here.".to_string()
@@ -1450,6 +1576,10 @@ fn planned_transition_evidence(
                 "normalized_request:message_compose".to_string()
             }
             ChatNormalizedRequest::UserInput(_) => "normalized_request:user_input".to_string(),
+            ChatNormalizedRequest::SoftwareInstall(_) => {
+                "normalized_request:software_install".to_string()
+            }
+            ChatNormalizedRequest::RuntimeAction(_) => "normalized_request:runtime_action".to_string(),
         });
     }
     evidence
@@ -1677,6 +1807,12 @@ fn orchestration_tasks(
                     ChatNormalizedRequest::UserInput(_) => {
                         "Resolve the required options".to_string()
                     }
+                    ChatNormalizedRequest::SoftwareInstall(_) => {
+                        "Resolve the software install request frame".to_string()
+                    }
+                    ChatNormalizedRequest::RuntimeAction(_) => {
+                        "Resolve the runtime action frame".to_string()
+                    }
                 }
             } else {
                 "Resolve the lane inputs".to_string()
@@ -1772,6 +1908,7 @@ fn outstanding_requirements(
             ChatNormalizedRequest::UserInput(frame) => {
                 requirements.extend(frame.missing_slots.clone());
             }
+            ChatNormalizedRequest::SoftwareInstall(_) | ChatNormalizedRequest::RuntimeAction(_) => {}
         }
     }
     if outcome_kind == ChatOutcomeKind::Artifact {

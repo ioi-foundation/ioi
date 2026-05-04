@@ -26,6 +26,10 @@ use crate::execution::{
     WorkGraphWorkItemStatus, WorkGraphWorkerReceipt, WorkGraphWorkerResultKind,
     WorkGraphWorkerRole,
 };
+use ioi_types::app::agentic::{
+    BrowserActionPlanRef, CommandExecutionPlanRef, HostMutationScope, RequiredCapability,
+    RuntimeActionFrame, RuntimeIntentEvidence, RuntimeRouteFrame, SoftwareInstallRequestFrame,
+};
 use ioi_types::app::{
     ChatArtifactClass, ChatArtifactLifecycleState, ChatArtifactManifest,
     ChatArtifactManifestVerification, ChatArtifactVerificationStatus, ChatCheckpointState,
@@ -43,6 +47,24 @@ use ioi_types::app::{
     RoutingEffectiveToolSurface, RoutingRouteDecision,
 };
 use serde_json::json;
+use sha2::Digest;
+
+fn command_plan_ref_for_literal(command: &str) -> String {
+    let digest = sha2::Sha256::digest(command.as_bytes());
+    format!("command.exec:{}", hex::encode(digest))
+}
+
+fn command_plan_for_literal(command: &str) -> CommandExecutionPlanRef {
+    CommandExecutionPlanRef {
+        plan_ref: command_plan_ref_for_literal(command),
+        argv: vec!["bash".to_string(), "-lc".to_string(), command.to_string()],
+        shell_policy: "bounded".to_string(),
+        cwd: Some(".".to_string()),
+        env: Vec::new(),
+        approval_scope: None,
+        expected_receipt: Some("command_receipt".to_string()),
+    }
+}
 
 include!("projection.rs");
 include!("decision_policy.rs");
@@ -96,7 +118,11 @@ fn derive_source_decision(
         ChatSourceFamily::SpecializedTool
     } else if active_artifact_id.is_some() {
         ChatSourceFamily::ArtifactContext
-    } else if decision_evidence_item_flag(decision_evidence, "local_install_requested") {
+    } else if matches!(
+        normalized_request,
+        Some(ChatNormalizedRequest::SoftwareInstall(_))
+            | Some(ChatNormalizedRequest::RuntimeAction(_))
+    ) {
         push_unique(ChatSourceFamily::UserDirected);
         ChatSourceFamily::UserDirected
     } else if decision_evidence_item_flag(decision_evidence, "connector_intent_detected") {
@@ -142,7 +168,11 @@ fn derive_source_decision(
     let explicit_user_source = active_artifact_id.is_some()
         || decision_evidence_item_flag(decision_evidence, "connector_intent_detected")
         || decision_evidence_item_flag(decision_evidence, "workspace_grounding_required")
-        || decision_evidence_item_flag(decision_evidence, "local_install_requested")
+        || matches!(
+            normalized_request,
+            Some(ChatNormalizedRequest::SoftwareInstall(_))
+                | Some(ChatNormalizedRequest::RuntimeAction(_))
+        )
         || decision_evidence_item_flag(decision_evidence, "currentness_override")
         || tool_widget_family_hint(decision_evidence).is_some()
         || context.references_previous_conversation()

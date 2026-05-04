@@ -169,7 +169,7 @@ fn filesystem_edit_line_inherits_filesystem_write_capability() {
         Some(&resolved),
         "file__write",
     ));
-    assert!(is_tool_allowed_for_resolution(
+    assert!(!is_tool_allowed_for_resolution(
         Some(&resolved),
         "file__replace_line",
     ));

@@ -46,7 +46,10 @@ export function eventOutputText(event: AgentEvent): string {
   return "";
 }
 
-export function parseTimestampMs(value: string): number | null {
+export function parseTimestampMs(value: string | null | undefined): number | null {
+  if (!value) {
+    return null;
+  }
   const ms = Date.parse(value);
   return Number.isNaN(ms) ? null : ms;
 }

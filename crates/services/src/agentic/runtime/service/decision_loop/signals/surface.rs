@@ -2,15 +2,8 @@ const BROWSER_SURFACE_MARKERS: [&str; 8] = [
     "chrome", "chromium", "brave", "firefox", "edge", "safari", "arc", "browser",
 ];
 
-const SYSTEM_SURFACE_MARKERS: [&str; 8] = [
-    "finder",
-    "explorer",
-    "dock",
-    "shell",
-    "launcher",
-    "desktop",
-    "taskbar",
-    "autopilot",
+const SYSTEM_SURFACE_MARKERS: [&str; 7] = [
+    "finder", "explorer", "dock", "shell", "launcher", "desktop", "taskbar",
 ];
 
 pub fn is_browser_surface(app_name: &str, title: &str) -> bool {

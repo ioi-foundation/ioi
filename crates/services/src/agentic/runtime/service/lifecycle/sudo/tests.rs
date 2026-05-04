@@ -94,6 +94,7 @@ fn test_agent_state(session_id: [u8; 32]) -> AgentState {
     AgentState {
         session_id,
         goal: "test".to_string(),
+        runtime_route_frame: None,
         transcript_root: [0u8; 32],
         status: AgentStatus::Paused("Waiting for sudo password".to_string()),
         step_count: 3,
@@ -212,7 +213,7 @@ fn sudo_retry_restores_install_from_incident_when_pending_tool_is_stale() {
     assert_eq!(restored_json["name"], "software_install__execute_plan");
     assert!(restored_json["arguments"]["plan_ref"]
         .as_str()
-        .is_some_and(|value| value.starts_with("software-install-plan:v1:")));
+        .is_some_and(|value| value.starts_with("software-install-plan:v2:")));
     assert_eq!(agent_state.pending_visual_hash, Some([4u8; 32]));
     assert!(agent_state.execution_queue.is_empty());
 }

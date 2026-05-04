@@ -240,19 +240,68 @@ fn runtime_view_now_ms() -> u64 {
         .as_millis() as u64
 }
 
+fn install_summary_from_runtime_detail(value: &str) -> Option<String> {
+    let parsed: serde_json::Value = serde_json::from_str(first_json_object_slice(value)?).ok()?;
+    if parsed.get("install_event").is_none() && parsed.get("install_final_receipt").is_none() {
+        return None;
+    }
+    parsed
+        .get("summary")
+        .and_then(|summary| summary.as_str())
+        .map(|summary| format!("Install blocked: {summary}"))
+}
+
+fn first_json_object_slice(value: &str) -> Option<&str> {
+    let start = value.find('{')?;
+    let mut depth = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+    for (offset, ch) in value[start..].char_indices() {
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if ch == '\\' {
+                escaped = true;
+            } else if ch == '"' {
+                in_string = false;
+            }
+            continue;
+        }
+        match ch {
+            '"' => in_string = true,
+            '{' => depth += 1,
+            '}' => {
+                depth = depth.saturating_sub(1);
+                if depth == 0 {
+                    let end = start + offset + ch.len_utf8();
+                    return Some(&value[start..end]);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn truncate_detail_value(value: &str, max_chars: usize) -> String {
+    let mut chars = value.chars();
+    let shortened: String = chars.by_ref().take(max_chars).collect();
+    if chars.next().is_some() {
+        format!("{}...", shortened)
+    } else {
+        value.to_string()
+    }
+}
+
 fn truncated_runtime_detail(value: &str, max_chars: usize) -> Option<String> {
     let trimmed = value.trim();
     if trimmed.is_empty() {
         return None;
     }
 
-    let mut chars = trimmed.chars();
-    let shortened: String = chars.by_ref().take(max_chars).collect();
-    if chars.next().is_some() {
-        Some(format!("{}...", shortened))
-    } else {
-        Some(trimmed.to_string())
-    }
+    let display_value =
+        install_summary_from_runtime_detail(trimmed).unwrap_or_else(|| trimmed.to_string());
+    Some(truncate_detail_value(&display_value, max_chars))
 }
 
 fn latest_task_output_excerpt(task: &AgentTask) -> Option<String> {

@@ -1143,6 +1143,7 @@ fn test_agent_state() -> AgentState {
     AgentState {
         session_id: [0u8; 32],
         goal: "check and see if we have gimp installed".to_string(),
+        runtime_route_frame: None,
         transcript_root: [0u8; 32],
         status: AgentStatus::Running,
         step_count: 0,

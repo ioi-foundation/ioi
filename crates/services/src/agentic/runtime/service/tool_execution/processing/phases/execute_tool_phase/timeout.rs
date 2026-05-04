@@ -15,7 +15,7 @@ fn web_tool_execution_timeout() -> Duration {
 }
 
 fn browser_tool_execution_timeout() -> Duration {
-    const DEFAULT_TIMEOUT_SECS: u64 = 12;
+    const DEFAULT_TIMEOUT_SECS: u64 = 30;
     std::env::var("IOI_BROWSER_QUEUE_TOOL_TIMEOUT_SECS")
         .ok()
         .and_then(|raw| raw.parse::<u64>().ok())

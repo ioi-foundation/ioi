@@ -28,6 +28,7 @@ fn test_agent_state() -> AgentState {
     AgentState {
         session_id: [0u8; 32],
         goal: "test".to_string(),
+        runtime_route_frame: None,
         transcript_root: [0u8; 32],
         status: AgentStatus::Running,
         step_count: 0,
@@ -393,7 +394,8 @@ fn patch_build_verify_duplicate_read_guidance_runs_focused_verifier_before_patch
     assert!(summary.contains("python3 -m unittest tests.test_path_utils -v"));
     assert!(summary.contains("file__edit"));
     assert!(summary.contains("file__edit"));
-    assert!(summary.contains("file__replace_line"));
+    assert!(summary.contains("file__write"));
+    assert!(!summary.contains("file__replace_line"));
 }
 
 #[test]

@@ -12,7 +12,13 @@ mod target;
 mod tests;
 
 pub use agent_tool::{
-    AgentFileEditOperation, AgentTool, AgentToolCall, SoftwareInstallRequestFrame,
+    AgentFileEditOperation, AgentTool, AgentToolCall, ApprovalGateEvent, BrowserActionPlanRef,
+    BrowserObservationReceipt, CommandEnvironmentBinding, CommandExecutionPlanRef, CommandReceipt,
+    ExecutionStreamEvent, FileMutationPlanRef, FileMutationReceipt, HostDiscoverySnapshot,
+    HostMutationScope, InstallApprovalEvent, InstallExecutionStreamEvent, InstallFinalReceipt,
+    InstallResolutionEvent, InstallSourceCandidate, InstallVerificationEvent, RequiredCapability,
+    ResolvedInstallPlan, RuntimeActionFrame, RuntimeIntentEvidence, RuntimeProgressEvent,
+    RuntimeRouteFrame, SoftwareInstallRequestFrame, ToolFinalReceipt, VerificationReceipt,
 };
 pub use commerce::CommerceItem;
 pub use pii::{PiiEgressField, PiiEgressRiskSurface, PiiEgressSpec};

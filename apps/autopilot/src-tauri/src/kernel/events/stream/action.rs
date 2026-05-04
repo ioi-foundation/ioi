@@ -2,7 +2,7 @@ use crate::kernel::events::emission::{build_event, register_event};
 use crate::kernel::events::stream::fetch_pii::fetch_pii_review_info;
 use crate::kernel::events::support::{
     bind_task_session, clarification_preset_for_tool, is_hard_terminal_task,
-    is_identity_resolution_kind, is_install_package_tool,
+    is_identity_resolution_kind, is_software_install_tool,
     is_waiting_for_identity_clarification_step, thread_id_from_session,
 };
 use crate::kernel::notifications;
@@ -205,7 +205,7 @@ pub(super) async fn handle_action(app: &tauri::AppHandle, action: ActionIntercep
 
     if action.verdict == "REQUIRE_APPROVAL" {
         let pii_info = fetch_pii_review_info(&app, &action.reason).await;
-        let (waiting_for_sudo, waiting_for_clarification, hard_terminal_task) = {
+        let (waiting_for_sudo, waiting_for_clarification, hard_terminal_task, chat_origin_gate) = {
             let state_handle = app.state::<std::sync::Mutex<crate::models::AppState>>();
             let out = match state_handle.lock() {
                 Ok(guard) => guard
@@ -230,15 +230,16 @@ pub(super) async fn handle_action(app: &tauri::AppHandle, action: ActionIntercep
                             waiting_for_sudo,
                             waiting_for_clarification,
                             is_hard_terminal_task(task),
+                            task.chat_session.is_some() || task.chat_outcome.is_some(),
                         )
                     })
-                    .unwrap_or((false, false, false)),
-                Err(_) => (false, false, false),
+                    .unwrap_or((false, false, false, false)),
+                Err(_) => (false, false, false, false),
             };
             out
         };
 
-        let action_is_install = is_install_package_tool(&action.target);
+        let action_is_install = is_software_install_tool(&action.target);
         let action_is_identity_lookup_tool =
             clarification_preset_for_tool(&action.target).is_some();
         let suppress_gate_for_wait = (waiting_for_sudo && action_is_install)
@@ -288,25 +289,27 @@ pub(super) async fn handle_action(app: &tauri::AppHandle, action: ActionIntercep
             } else {
                 summary
             };
-            notifications::record_approval_intervention(
-                app,
-                &thread_id,
-                &action.session_id,
-                &action.reason,
-                "Approval required",
-                &summary,
-                severity,
-                None,
-                native_control_presentation
-                    .as_ref()
-                    .and_then(|presentation| presentation.approval_scope.clone()),
-                native_control_presentation
-                    .as_ref()
-                    .and_then(|presentation| presentation.sensitive_action_type.clone()),
-                native_control_presentation
-                    .as_ref()
-                    .and_then(|presentation| presentation.recovery_hint.clone()),
-            );
+            if !chat_origin_gate {
+                notifications::record_approval_intervention(
+                    app,
+                    &thread_id,
+                    &action.session_id,
+                    &action.reason,
+                    "Approval required",
+                    &summary,
+                    severity,
+                    None,
+                    native_control_presentation
+                        .as_ref()
+                        .and_then(|presentation| presentation.approval_scope.clone()),
+                    native_control_presentation
+                        .as_ref()
+                        .and_then(|presentation| presentation.sensitive_action_type.clone()),
+                    native_control_presentation
+                        .as_ref()
+                        .and_then(|presentation| presentation.recovery_hint.clone()),
+                );
+            }
 
             update_task_state(app, |t| {
                 t.phase = AgentPhase::Gate;

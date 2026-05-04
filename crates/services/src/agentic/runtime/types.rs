@@ -1,7 +1,7 @@
 // Path: crates/services/src/agentic/runtime/types.rs
 
 use ioi_types::app::action::{ApprovalAuthority, ApprovalGrant};
-use ioi_types::app::agentic::{ResolvedIntentState, WebRetrievalContract};
+use ioi_types::app::agentic::{ResolvedIntentState, RuntimeRouteFrame, WebRetrievalContract};
 use ioi_types::app::ActionRequest;
 use ioi_types::app::{
     ArtifactGenerationSummary, ArtifactQualityScorecard, ArtifactRepairSummary,
@@ -920,6 +920,9 @@ pub struct AgentState {
     pub session_id: [u8; 32],
     pub goal: String,
 
+    #[serde(default)]
+    pub runtime_route_frame: Option<RuntimeRouteFrame>,
+
     // [REMOVED] pub history: Vec<ChatMessage>,
     pub transcript_root: [u8; 32],
 
@@ -1021,6 +1024,7 @@ fn default_working_directory() -> String {
 pub struct StartAgentParams {
     pub session_id: [u8; 32],
     pub goal: String,
+    pub runtime_route_frame: Option<RuntimeRouteFrame>,
     pub max_steps: u32,
     pub parent_session_id: Option<[u8; 32]>,
     pub initial_budget: u64,

@@ -586,12 +586,10 @@ fn worker_duplicate_noop_summary(
                     command
                 ));
                 summary.push_str(
-                    " After the command result lands, move to `file__edit`, `file__replace_line`, or `file__write`.",
+                    " After the command result lands, move to `file__edit` or `file__write`.",
                 );
             } else {
-                summary.push_str(
-                    " Your next action must be `file__edit`, `file__replace_line`, or `file__write`.",
-                );
+                summary.push_str(" Your next action must be `file__edit` or `file__write`.");
                 if let Some(command) = focused_command {
                     summary.push_str(&format!(
                         " The focused verification command `{}` already has command-history evidence; do not rerun it until after the edit is ready.",

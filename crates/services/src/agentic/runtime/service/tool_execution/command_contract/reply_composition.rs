@@ -1,14 +1,4 @@
-fn single_quoted_receipt_field(value: &str, field: &str) -> Option<String> {
-    let needle = format!("{field}='");
-    let (_, tail) = value.split_once(&needle)?;
-    let (field_value, _) = tail.split_once('\'')?;
-    let trimmed = field_value.trim();
-    if trimmed.is_empty() {
-        None
-    } else {
-        Some(trimmed.to_string())
-    }
-}
+use serde_json::Value;
 
 fn verification_phrase_for_install_summary(verification: Option<String>) -> String {
     match verification
@@ -26,37 +16,53 @@ fn verification_phrase_for_install_summary(verification: Option<String>) -> Stri
 }
 
 pub fn install_operator_completion_summary(raw_summary: &str) -> Option<String> {
-    if !raw_summary.contains("SOFTWARE_INSTALL") {
-        return None;
-    }
-
-    let stage = single_quoted_receipt_field(raw_summary, "stage")?;
-    let display_name = single_quoted_receipt_field(raw_summary, "display_name")
+    let json_start = raw_summary.find('{')?;
+    let payload: Value = serde_json::from_str(&raw_summary[json_start..]).ok()?;
+    let receipt = payload.get("install_final_receipt")?;
+    let stage = receipt.get("status").and_then(Value::as_str)?;
+    let display_name = receipt
+        .get("display_name")
+        .and_then(Value::as_str)
+        .map(str::to_string)
         .unwrap_or_else(|| "The requested software".to_string());
-    let manager = single_quoted_receipt_field(raw_summary, "manager")
-        .filter(|value| !value.is_empty())
+    let resolution = payload.get("install_event");
+    let manager = resolution
+        .and_then(|event| event.get("source"))
+        .and_then(|source| source.get("manager"))
+        .and_then(Value::as_str)
+        .map(str::to_string)
         .unwrap_or_else(|| "the resolved installer".to_string());
-    let package_id = single_quoted_receipt_field(raw_summary, "package_id")
-        .filter(|value| !value.is_empty());
-    let verification =
-        single_quoted_receipt_field(raw_summary, "verification").filter(|value| {
-            !value.eq_ignore_ascii_case("unknown error")
-                && !value.eq_ignore_ascii_case("current_exe_exists")
-        });
-    let source = single_quoted_receipt_field(raw_summary, "source_discovery_url")
-        .or_else(|| single_quoted_receipt_field(raw_summary, "installer_url"));
+    let package_id = resolution
+        .and_then(|event| event.get("source"))
+        .and_then(|source| source.get("package_id"))
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    let verification = receipt
+        .get("verification")
+        .and_then(|verification| verification.get("summary"))
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    let source = resolution
+        .and_then(|event| event.get("source"))
+        .and_then(|source| {
+            source
+                .get("source_discovery_url")
+                .or_else(|| source.get("installer_url"))
+        })
+        .and_then(Value::as_str)
+        .map(str::to_string);
     let verification_phrase = verification_phrase_for_install_summary(verification);
 
-    match stage.as_str() {
-        "already_available" => Some(format!(
+    match stage {
+        "already_available_verified" => Some(format!(
             "{} is already available as the running IOI product. Verification passed before host mutation, so no installer command or approval was needed.",
             display_name
         )),
-        "already_installed" => Some(format!(
+        "already_installed_verified" => Some(format!(
             "{} is already installed. {} No installer command or approval was needed.",
             display_name, verification_phrase
         )),
-        "installed" => {
+        "installed_verified" => {
             let installed_as = package_id
                 .as_deref()
                 .filter(|value| *value != display_name)

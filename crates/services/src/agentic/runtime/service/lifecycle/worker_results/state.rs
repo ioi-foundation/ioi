@@ -97,7 +97,6 @@ pub(crate) fn tool_name_allows_local_await_burst(tool_name: &str) -> bool {
             | "file__info"
             | "file__edit"
             | "file__multi_edit"
-            | "file__replace_line"
             | "file__write"
             | "memory__search"
             | "memory__read"

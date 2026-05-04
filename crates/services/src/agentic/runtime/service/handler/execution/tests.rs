@@ -60,6 +60,7 @@ fn test_agent_state() -> AgentState {
     AgentState {
         session_id: [0u8; 32],
         goal: "test".to_string(),
+        runtime_route_frame: None,
         transcript_root: [0u8; 32],
         status: AgentStatus::Running,
         step_count: 0,
@@ -135,7 +136,10 @@ fn browser_click_tools_do_not_require_native_focus_recovery() {
     }));
     assert!(!is_focus_sensitive_tool(
         &AgentTool::BrowserSyntheticClick {
-            id: None,
+            id: Some("grp_click_canvas".to_string()),
+            observation_ref: Some("obs_browser_1".to_string()),
+            coordinate_space_id: Some("viewport_css_px".to_string()),
+            semantic_id: Some("grp_click_canvas".to_string()),
             x: Some(20.0),
             y: Some(30.0),
             continue_with: None,

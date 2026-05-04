@@ -219,7 +219,7 @@ fn normalize_patch_build_verify_targeted_exec_tool(
 }
 
 fn browser_tool_execution_timeout() -> Duration {
-    const DEFAULT_TIMEOUT_SECS: u64 = 12;
+    const DEFAULT_TIMEOUT_SECS: u64 = 30;
     std::env::var("IOI_BROWSER_QUEUE_TOOL_TIMEOUT_SECS")
         .ok()
         .and_then(|raw| raw.parse::<u64>().ok())
@@ -277,6 +277,13 @@ fn browser_tool_name(tool: &AgentTool) -> Option<&'static str> {
         AgentTool::BrowserTabClose { .. } => Some("browser__close_tab"),
         _ => None,
     }
+}
+
+fn runtime_route_owns_browser_session(agent_state: &AgentState) -> bool {
+    agent_state
+        .runtime_route_frame
+        .as_ref()
+        .is_some_and(|frame| frame.intent_id.eq_ignore_ascii_case("browser.interact"))
 }
 
 pub async fn handle_action_execution(
@@ -667,9 +674,20 @@ pub async fn handle_action_execution(
         )),
         AgentTool::AgentAwait { .. } => Ok(handlers::handle_agent_await_tool()),
         AgentTool::AgentPause { .. } => Ok(handlers::handle_agent_pause_tool()),
-        AgentTool::AgentComplete { .. } => Ok(handlers::handle_agent_complete_tool()),
+        AgentTool::AgentComplete { .. } => {
+            if runtime_route_owns_browser_session(agent_state) {
+                service.browser.release_session().await;
+            }
+            Ok(handlers::handle_agent_complete_tool())
+        }
         AgentTool::CommerceCheckout { .. } => Ok(handlers::handle_commerce_checkout_tool()),
-        AgentTool::ChatReply { message } => Ok(handlers::handle_chat_reply_tool(message)),
+        AgentTool::ChatReply { message } => {
+            let result = handlers::handle_chat_reply_tool(message);
+            if runtime_route_owns_browser_session(agent_state) {
+                service.browser.release_session().await;
+            }
+            Ok(result)
+        }
         AgentTool::AutomationCreateMonitor {
             title,
             description,

@@ -26,6 +26,7 @@ async fn timer_query_routes_to_command_exec_without_planner_fast_path() -> Resul
         parent_session_id: None,
         initial_budget: 1000,
         mode: AgentMode::Agent,
+        runtime_route_frame: None,
     };
     service
         .handle_service_call(

@@ -279,11 +279,111 @@ fn explicit_install_request_routes_to_runtime_not_direct_inline() {
         assert!(!route_decision.direct_answer_allowed);
         assert!(route_decision
             .direct_answer_blockers
-            .contains(&"local_install_requested".to_string()));
+            .contains(&"host_mutation_requested".to_string()));
+        assert!(route_decision
+            .effective_tool_surface
+            .primary_tools
+            .contains(&"software_install__resolve".to_string()));
         assert!(route_decision
             .effective_tool_surface
             .primary_tools
             .contains(&"software_install__execute_plan".to_string()));
+    }
+}
+
+#[test]
+fn explicit_browser_and_terminal_requests_route_to_runtime_not_direct_inline() {
+    for (prompt, expected_family, expected_tool) in [
+        (
+            "Use the browser to open https://example.com and tell me the page title.",
+            "browser",
+            "browser__navigate",
+        ),
+        (
+            "Run date in a terminal and tell me the output.",
+            "command_execution",
+            "shell__run",
+        ),
+    ] {
+        let runtime: Arc<dyn InferenceRuntime> = Arc::new(SlowChatOutcomeTestRuntime {
+            payload: String::new(),
+            delay: Duration::from_secs(5),
+            provenance: None,
+        });
+
+        let outcome = chat_outcome_request_with_runtime_timeout(
+            runtime,
+            prompt,
+            None,
+            None,
+            None,
+            Duration::from_millis(1),
+        )
+        .expect("local runtime action request should route deterministically");
+        let route_decision = route_decision_for_outcome_request(&outcome);
+
+        assert_eq!(outcome.outcome_kind, ChatOutcomeKind::Conversation);
+        assert_eq!(route_decision.route_family, expected_family);
+        assert_eq!(route_decision.output_intent, "tool_execution");
+        assert!(!route_decision.direct_answer_allowed);
+        assert!(matches!(
+            outcome.normalized_request.as_ref(),
+            Some(ioi_types::app::ChatNormalizedRequest::RuntimeAction(_))
+        ));
+        assert!(route_decision
+            .direct_answer_blockers
+            .contains(&"local_runtime_action_required".to_string()));
+        assert!(route_decision
+            .effective_tool_surface
+            .primary_tools
+            .contains(&expected_tool.to_string()));
+        let mut task = empty_task(prompt);
+        task.chat_outcome = Some(outcome.clone());
+        let route_frame = crate::kernel::chat::runtime_route_frame_for_task(&task)
+            .expect("local runtime task should publish typed route frame");
+        if expected_family == "browser" {
+            assert_eq!(route_frame.intent_id, "browser.interact");
+            assert_eq!(
+                route_frame.target_kind.as_deref(),
+                Some("browser_page_title")
+            );
+        }
+    }
+}
+
+#[test]
+fn browser_request_inside_codebase_context_keeps_typed_runtime_action_frame() {
+    let prompt = "[Codebase context]\nWorkspace: .\n\n[User request]\nUse the browser to open https://example.com and tell me the page title.";
+    let runtime: Arc<dyn InferenceRuntime> = Arc::new(SlowChatOutcomeTestRuntime {
+        payload: String::new(),
+        delay: Duration::from_secs(5),
+        provenance: None,
+    });
+
+    let outcome = chat_outcome_request_with_runtime_timeout(
+        runtime,
+        prompt,
+        None,
+        None,
+        None,
+        Duration::from_millis(1),
+    )
+    .expect("browser request should route deterministically");
+    let route_decision = route_decision_for_outcome_request(&outcome);
+
+    assert_eq!(route_decision.route_family, "browser");
+    assert_eq!(route_decision.output_intent, "tool_execution");
+    assert!(!route_decision.direct_answer_allowed);
+    match outcome.normalized_request.as_ref() {
+        Some(ioi_types::app::ChatNormalizedRequest::RuntimeAction(frame)) => {
+            assert_eq!(frame.action_family, "browser");
+            assert_eq!(frame.target_kind, "browser_page_title");
+            assert_eq!(
+                frame.browser_plan.as_ref().map(|plan| plan.url.as_str()),
+                Some("https://example.com")
+            );
+        }
+        other => panic!("expected typed runtime action frame, got {other:?}"),
     }
 }
 
@@ -298,9 +398,12 @@ fn install_route_seed_publishes_structured_outcome_before_runtime_bootstrap() {
     let outcome = task.chat_outcome.as_ref().expect("seeded outcome");
     let route_decision = route_decision_for_outcome_request(outcome);
 
-    assert!(outcome
-        .decision_evidence
-        .contains(&"local_install_requested".to_string()));
+    assert!(matches!(
+        outcome.normalized_request.as_ref(),
+        Some(ioi_types::app::ChatNormalizedRequest::SoftwareInstall(frame))
+            if frame.target_text == "lmstudio"
+                && frame.provenance.as_deref() == Some("circ_intent_context")
+    ));
     assert_eq!(route_decision.output_intent, "tool_execution");
     assert!(!route_decision.direct_answer_allowed);
     assert!(task.events.iter().any(|event| {
@@ -331,12 +434,11 @@ fn install_routing_keeps_product_identity_out_of_route_selection() {
     )
     .expect("autopilot install request should route deterministically");
 
-    assert!(outcome
-        .decision_evidence
-        .contains(&"software_install_target_text:autopilot".to_string()));
-    assert!(outcome
-        .decision_evidence
-        .contains(&"install_intent_class:local_software_install".to_string()));
+    assert!(matches!(
+        outcome.normalized_request.as_ref(),
+        Some(ioi_types::app::ChatNormalizedRequest::SoftwareInstall(frame))
+            if frame.target_text == "autopilot"
+    ));
     assert!(!outcome
         .decision_evidence
         .iter()

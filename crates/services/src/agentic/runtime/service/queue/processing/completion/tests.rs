@@ -42,6 +42,7 @@ fn agent_state_with_mail_reply() -> AgentState {
     AgentState {
         session_id: [7u8; 32],
         goal: "send email".to_string(),
+        runtime_route_frame: None,
         transcript_root: [0u8; 32],
         status: AgentStatus::Running,
         step_count: 0,

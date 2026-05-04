@@ -1,7 +1,5 @@
 use crate::kernel::thresholds;
-use crate::models::{
-    AgentEvent, AgentPhase, AgentTask, AppState, ChatMessage, EventStatus, EventType,
-};
+use crate::models::{AgentEvent, AgentPhase, AgentTask, AppState, EventStatus, EventType};
 use std::sync::Mutex;
 use tauri::Manager;
 
@@ -121,13 +119,16 @@ pub(super) fn event_type_for_tool(tool_name: &str) -> EventType {
     }
 }
 
-pub(super) fn is_install_package_tool(tool_name: &str) -> bool {
+pub(super) fn is_software_install_tool(tool_name: &str) -> bool {
     let tool = tool_name.to_ascii_lowercase();
-    tool == "software_install__execute_plan"
+    matches!(
+        tool.as_str(),
+        "software_install__resolve" | "software_install__execute_plan"
+    )
 }
 
 pub(super) fn is_sudo_password_required_install(tool_name: &str, output: &str) -> bool {
-    if !is_install_package_tool(tool_name) {
+    if !is_software_install_tool(tool_name) {
         return false;
     }
     let text = output.to_ascii_lowercase();
@@ -146,8 +147,8 @@ pub(super) fn is_sudo_password_required_install(tool_name: &str, output: &str) -
         || (text.contains("error_class=permissionorapprovalrequired") && text.contains("sudo"))
 }
 
-pub(super) fn is_install_package_lookup_failure(tool_name: &str, output: &str) -> bool {
-    if !is_install_package_tool(tool_name) {
+pub(super) fn is_software_install_lookup_failure(tool_name: &str, output: &str) -> bool {
+    if !is_software_install_tool(tool_name) {
         return false;
     }
     let text = output.to_ascii_lowercase();
@@ -210,7 +211,7 @@ pub(super) fn clarification_preset_for_tool(tool_name: &str) -> Option<Clarifica
     if let Some(preset) = explicit_clarification_preset_for_tool(tool_name) {
         return Some(preset);
     }
-    if is_install_package_tool(tool_name) {
+    if is_software_install_tool(tool_name) {
         return Some(ClarificationPreset::InstallLookup);
     }
     let tool = tool_name.to_ascii_lowercase();
@@ -224,7 +225,7 @@ pub(super) fn detect_clarification_preset(
     tool_name: &str,
     output: &str,
 ) -> Option<ClarificationPreset> {
-    if is_install_package_lookup_failure(tool_name, output) {
+    if is_software_install_lookup_failure(tool_name, output) {
         return Some(ClarificationPreset::InstallLookup);
     }
     if is_launch_app_lookup_failure(tool_name, output) {
@@ -242,7 +243,7 @@ pub(super) fn detect_clarification_preset(
 pub(super) fn is_identity_resolution_kind(kind: &str) -> bool {
     kind.eq_ignore_ascii_case("identity_resolution")
         || kind.eq_ignore_ascii_case("tool_lookup")
-        || kind.eq_ignore_ascii_case("install_package_lookup")
+        || kind.eq_ignore_ascii_case("software_install_lookup")
         || kind.eq_ignore_ascii_case("intent_resolution")
         || kind.eq_ignore_ascii_case("locality_resolution")
 }
@@ -279,37 +280,6 @@ fn has_verification_check(verification_checks: &[String], expected: &str) -> boo
         .any(|check| check.eq_ignore_ascii_case(expected))
 }
 
-fn is_duplicate_non_command_noop_summary(summary: &str, tool_name: &str) -> bool {
-    let lowered = summary.to_ascii_lowercase();
-    lowered.starts_with("routingreceipt(")
-        && lowered.contains(&format!("tool={}", tool_name.to_ascii_lowercase()))
-        && lowered.contains("duplicate_action_fingerprint_non_command_skipped=true")
-        && lowered.contains("duplicate_action_fingerprint_prior_success_noop=true")
-        && lowered.contains("invalid_tool_call_repair_attempted=true")
-}
-
-fn recent_duplicate_non_command_noop_receipt_count(
-    history: &[ChatMessage],
-    tool_name: &str,
-) -> usize {
-    let mut count = 0;
-
-    for message in history.iter().rev() {
-        let role = message.role.to_ascii_lowercase();
-        if role == "user" {
-            break;
-        }
-        if role != "system" {
-            continue;
-        }
-        if is_duplicate_non_command_noop_summary(&message.text, tool_name) {
-            count += 1;
-        }
-    }
-
-    count
-}
-
 fn recent_duplicate_non_command_noop_receipt_count_from_events(
     events: &[AgentEvent],
     tool_name: &str,
@@ -321,14 +291,34 @@ fn recent_duplicate_non_command_noop_receipt_count_from_events(
             continue;
         }
 
-        let summary = event
-            .details
-            .get("receipt_summary")
+        let event_tool = event
+            .digest
+            .get("tool_name")
             .and_then(|value| value.as_str())
-            .or_else(|| event.digest.get("summary").and_then(|value| value.as_str()))
+            .unwrap_or_default();
+        let checks = event
+            .details
+            .get("verification_checks")
+            .and_then(|value| value.as_array())
+            .map(|values| {
+                values
+                    .iter()
+                    .filter_map(|value| value.as_str())
+                    .collect::<Vec<_>>()
+            })
             .unwrap_or_default();
 
-        if is_duplicate_non_command_noop_summary(summary, tool_name) {
+        if event_tool.eq_ignore_ascii_case(tool_name)
+            && checks.iter().any(|check| {
+                check.eq_ignore_ascii_case("duplicate_action_fingerprint_non_command_skipped=true")
+            })
+            && checks.iter().any(|check| {
+                check.eq_ignore_ascii_case("duplicate_action_fingerprint_prior_success_noop=true")
+            })
+            && checks
+                .iter()
+                .any(|check| check.eq_ignore_ascii_case("invalid_tool_call_repair_attempted=true"))
+        {
             count += 1;
             continue;
         }
@@ -339,35 +329,13 @@ fn recent_duplicate_non_command_noop_receipt_count_from_events(
     count
 }
 
-fn duplicate_noop_loop_requires_intent_clarification_from_history(
-    history: &[ChatMessage],
-    tool_name: &str,
-    verification_checks: &[String],
-) -> bool {
-    if !has_verification_check(
-        verification_checks,
-        "duplicate_action_fingerprint_non_command_skipped=true",
-    ) || !has_verification_check(
-        verification_checks,
-        "duplicate_action_fingerprint_prior_success_noop=true",
-    ) || !has_verification_check(
-        verification_checks,
-        "invalid_tool_call_repair_attempted=true",
-    ) {
-        return false;
-    }
-
-    recent_duplicate_non_command_noop_receipt_count(history, tool_name) + 1
-        >= DUPLICATE_NOOP_INTENT_CLARIFICATION_THRESHOLD
-}
-
 pub(super) fn duplicate_noop_loop_requires_intent_clarification(
     task: &AgentTask,
     tool_name: &str,
     verification_checks: &[String],
 ) -> bool {
-    duplicate_noop_loop_requires_intent_clarification_from_history(
-        &task.history,
+    duplicate_noop_loop_requires_intent_clarification_from_events(
+        &task.events,
         tool_name,
         verification_checks,
     )

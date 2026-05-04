@@ -273,11 +273,6 @@ pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
             capabilities: vec![capability("filesystem.write")],
         },
         ToolCapabilityBinding {
-            tool_name: "file__replace_line".to_string(),
-            action_target: ActionTarget::FsWrite,
-            capabilities: vec![capability("filesystem.write")],
-        },
-        ToolCapabilityBinding {
             tool_name: "file__edit".to_string(),
             action_target: ActionTarget::FsWrite,
             capabilities: vec![capability("filesystem.write")],
@@ -879,6 +874,11 @@ pub fn is_tool_allowed_for_resolution(
     if normalized == "browser__subagent" {
         return is_tool_allowed_for_resolution(Some(resolved), "browser__navigate")
             && is_tool_allowed_for_resolution(Some(resolved), "agent__delegate");
+    }
+    if (normalized == "software_install__resolve" || normalized == "software_install__execute_plan")
+        && resolved.intent_id.starts_with("software.install")
+    {
+        return true;
     }
     if is_unconditional_resolution_tool(&normalized) {
         return true;

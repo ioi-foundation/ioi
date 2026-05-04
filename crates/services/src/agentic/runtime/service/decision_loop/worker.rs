@@ -65,7 +65,6 @@ fn worker_assignment_tool_alias(name: &str) -> String {
     match name.trim().to_ascii_lowercase().as_str() {
         "filesystem__write_file" | "file__write" => "file__write".to_string(),
         "filesystem__patch" | "file__edit" => "file__edit".to_string(),
-        "filesystem__edit_line" | "file__replace_line" => "file__replace_line".to_string(),
         "filesystem__read_file" | "file__read" | "file__view" => "file__read".to_string(),
         "filesystem__search" | "file__search" => "file__search".to_string(),
         "filesystem__list_directory" | "filesystem__list_dir" | "file__list" => {

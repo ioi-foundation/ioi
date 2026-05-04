@@ -206,3 +206,29 @@ fn summarizes_structured_receipt_output_from_command_history_prefix() {
     assert!(summary.contains("Top memory apps"));
     assert!(summary.contains("firefox-bin"));
 }
+
+#[test]
+fn summarizes_generic_command_receipt_output_from_command_history_prefix() {
+    let output = concat!(
+        "COMMAND_HISTORY:{\"command\":\"bash -lc echo clean-runtime-gui-check\",",
+        "\"exit_code\":0,\"stdout\":\"clean-runtime-gui-check\\n\",",
+        "\"stderr\":\"\",\"timestamp_ms\":1772000000000,\"step_index\":2}\n"
+    );
+    let summary = summarize_structured_command_receipt_output(output, None)
+        .expect("generic command history stdout should be summarized");
+    assert!(summary.contains("Command `bash -lc echo clean-runtime-gui-check` exited with code 0"));
+    assert!(summary.contains("stdout:"));
+    assert!(summary.contains("clean-runtime-gui-check"));
+}
+
+#[test]
+fn summarizes_generic_command_receipt_output_when_stdout_is_empty() {
+    let output = concat!(
+        "COMMAND_HISTORY:{\"command\":\"bash -lc false\",",
+        "\"exit_code\":1,\"stdout\":\"\",",
+        "\"stderr\":\"\",\"timestamp_ms\":1772000000000,\"step_index\":2}\n"
+    );
+    let summary = summarize_structured_command_receipt_output(output, None)
+        .expect("generic command history exit should be summarized");
+    assert!(summary.contains("Command `bash -lc false` exited with code 1"));
+}

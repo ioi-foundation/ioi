@@ -128,7 +128,7 @@ fn build_local_interactive_policy(local_gpu_dev_mode: bool) -> ActionRules {
         rules: vec![
             Rule {
                 rule_id: Some("require-install-approval".into()),
-                target: "sys::install_package".into(),
+                target: "software::install_execute".into(),
                 conditions: Default::default(),
                 action: Verdict::RequireApproval,
             },
@@ -1016,7 +1016,7 @@ mod tests {
         let install_rule = policy
             .rules
             .iter()
-            .find(|rule| rule.target == "sys::install_package")
+            .find(|rule| rule.target == "software::install_execute")
             .expect("local interactive policy should gate install mutation");
 
         assert_eq!(

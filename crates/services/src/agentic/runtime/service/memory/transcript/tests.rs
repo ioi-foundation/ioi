@@ -40,6 +40,7 @@ fn sample_agent_state(session_id: [u8; 32], goal: &str) -> AgentState {
     AgentState {
         session_id,
         goal: goal.to_string(),
+        runtime_route_frame: None,
         transcript_root: [0u8; 32],
         status: crate::agentic::runtime::types::AgentStatus::Running,
         step_count: 3,

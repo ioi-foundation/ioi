@@ -66,6 +66,19 @@ assert.match(
   "chat surface state should suppress the separate status card when the unified operator-run transcript is active",
 );
 
+const retainableSelectorMatch = hookSource.match(
+  /export function selectRetainableDrawerSession\([\s\S]*?return candidate \|\| null;\n\}/,
+);
+assert.ok(
+  retainableSelectorMatch,
+  "retainable drawer session selection should be easy to audit",
+);
+assert.doesNotMatch(
+  retainableSelectorMatch?.[0] ?? "",
+  /current_step|waiting for|initializing|routing the request|sending message/,
+  "retained chat continuity must use typed phase, not current_step text, as operational truth",
+);
+
 assert.match(
   hookSource,
   /hasOperatorDecisionPrompt && installTranscript[\s\S]*livePreview: installPreview/,
