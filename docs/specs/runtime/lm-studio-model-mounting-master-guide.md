@@ -439,10 +439,11 @@ Live local provider evidence on 2026-05-05 UTC:
   health, `/v1/models`, native chat, OpenAI-compatible chat, Responses fallback,
   route receipts, and invocation receipts using the local `stories260K` GGUF.
   The run failed only at `/v1/embeddings` because that local model/server
-  combination returned provider HTTP 400 for embeddings; remaining live closeout
-  is validating a GGUF/server configuration with embeddings support or
-  downgrading the live gate to mark embeddings unsupported when the provider
-  rejects them cleanly.
+  combination returned provider HTTP 400 for embeddings; the live gate now
+  records this as `embeddingStatus: unsupported_or_failed` with a redacted error
+  hash so chat, Responses, streaming, unload, receipt replay, and redaction
+  parity remain valid even when the selected GGUF/server does not expose
+  embeddings.
 - wallet.network live gate passed in deterministic fake-remote mode, validating
   `WalletAuthorityPort` configuration, denied-scope fail-closed behavior, MCP
   plaintext-secret rejection, and secret scans.
@@ -653,8 +654,10 @@ gates:
    - an opt-in live `llama.cpp` gate is wired with
      `IOI_LIVE_LLAMA_CPP=1`, `IOI_LLAMA_CPP_SERVER_PATH`, and
      `IOI_LLAMA_CPP_MODEL_PATH`; it validates real spawn, `/v1/models`,
-     chat, Responses fallback, embeddings, unload, receipts, replay, and
-     token redaction when a local GGUF artifact is supplied;
+     chat, Responses fallback, stream receipts, unload, receipts, replay, and
+     token redaction when a local GGUF artifact is supplied; embeddings are
+     validated when supported and otherwise recorded as
+     `unsupported_or_failed` with a redacted error hash;
    - the latest local llama.cpp attempt proved real spawn, health, chat,
      OpenAI-compatible chat, Responses fallback, route receipts, and invocation
      receipts, but failed at embeddings with provider HTTP 400 for the available
@@ -672,8 +675,9 @@ gates:
      and `npm run test:model-backends:live` can exercise it when
      `IOI_VLLM_MODEL` and either a `vllm` binary on `PATH`,
      `IOI_VLLM_BINARY`, or `VLLM_BASE_URL` are configured;
-   - remaining work is validating llama.cpp embeddings with a compatible local
-     GGUF/server configuration, running vLLM against live hardware, extending
+   - remaining work is rerunning the updated llama.cpp live gate on an operator
+     machine, validating llama.cpp embeddings with a compatible local GGUF/server
+     configuration if available, running vLLM against live hardware, extending
      live stream parity beyond the passing Ollama gate, memory pressure
      eviction, and backend-specific schedulers.
 2. Live catalog/download production hardening:
@@ -2285,8 +2289,8 @@ parity closeout order from the matrix above:
    model detail drawer, route editor, token editor, benchmark/results panel,
    degraded/denied action readiness, and filtered observability stream.
 3. Live backend/provider parity: Ollama has passing local live evidence; next
-   execute the opt-in live `llama.cpp` and vLLM lifecycle/stream gates on an
-   operator machine, then add BYOK hosted adapters.
+   rerun the updated opt-in live `llama.cpp` gate, execute the vLLM
+   lifecycle/stream gate on an operator machine, then add BYOK hosted adapters.
 4. Raw live-log streaming parity for providers/backends with `lms log stream`
    style transports.
 5. Production IOI hardening beyond LM Studio.
