@@ -933,6 +933,106 @@ def exercise_token_mcp_actions(
     }
 
 
+def exercise_routing_workflow_actions(
+    window_id: int,
+    output_root: Path,
+    dev_url: str,
+    endpoint: str,
+) -> dict[str, Any]:
+    """Exercise route, workflow node, and Receipt Gate controls through the Mounts surface."""
+
+    action_screenshots: list[dict[str, Any]] = []
+    observed: dict[str, list[dict[str, Any]]] = {}
+
+    def receipts_before() -> int:
+        receipts = request_json(endpoint, "/api/v1/receipts")
+        return len(receipts) if isinstance(receipts, list) else 0
+
+    def run_receipted_action(shortcut: str, label: str, condition_label: str, predicate) -> None:
+        before_count = receipts_before()
+        run(["xdotool", "key", shortcut], check=False)
+        receipts = wait_for_new_receipt_condition(endpoint, condition_label, before_count, predicate)
+        observed[label] = receipts[before_count:]
+        action_screenshots.append(
+            capture_action_state(
+                window_id,
+                output_root,
+                dev_url,
+                endpoint,
+                tab="routing",
+                name=label,
+            )
+        )
+        time.sleep(1.5)
+
+    activate_tab(window_id, "F7")
+    run_receipted_action(
+        "F16",
+        "routing-after-route-test-action",
+        "route test receipt",
+        lambda receipts: receipt_has_detail(receipts, "model_route_selection", "routeId", "route.local-first"),
+    )
+    run_receipted_action(
+        "F17",
+        "routing-after-route-draft-test-action",
+        "route draft test receipt",
+        lambda receipts: receipt_has_detail(receipts, "model_route_selection", "routeId", "route.local-first"),
+    )
+    run_receipted_action(
+        "F18",
+        "routing-after-workflow-probe-action",
+        "workflow node receipts",
+        lambda receipts: any(receipt.get("kind") == "model_invocation" for receipt in receipts)
+        and any(receipt.get("kind") == "mcp_tool_invocation" for receipt in receipts),
+    )
+    run_receipted_action(
+        "F19",
+        "routing-after-receipt-gate-pass-action",
+        "Receipt Gate pass receipt",
+        lambda receipts: any(receipt.get("kind") == "workflow_receipt_gate" for receipt in receipts),
+    )
+    run_receipted_action(
+        "F20",
+        "routing-after-receipt-gate-block-action",
+        "Receipt Gate block receipt",
+        lambda receipts: any(receipt.get("kind") == "workflow_receipt_gate_blocked" for receipt in receipts),
+    )
+
+    snapshot = request_json(endpoint, "/api/v1/models")
+    receipts = request_json(endpoint, "/api/v1/receipts")
+    route = next((item for item in snapshot.get("routes", []) if item.get("id") == "route.local-first"), {})
+    route_receipt_id = route.get("receipt") or route.get("lastReceiptId")
+    workflow_nodes = {node.get("node") for node in snapshot.get("workflowNodes", [])}
+    workflow_new = observed.get("routing-after-workflow-probe-action", [])
+    gate_pass_receipts = [receipt for receipt in receipts if receipt.get("kind") == "workflow_receipt_gate"]
+    gate_block_receipts = [receipt for receipt in receipts if receipt.get("kind") == "workflow_receipt_gate_blocked"]
+    assertions = {
+        "routeTestReceiptRecorded": len(observed.get("routing-after-route-test-action", [])) > 0,
+        "routeDraftTestReceiptRecorded": len(observed.get("routing-after-route-draft-test-action", [])) > 0,
+        "workflowModelInvocationRecorded": any(receipt.get("kind") == "model_invocation" for receipt in workflow_new),
+        "workflowMcpToolReceiptRecorded": any(receipt.get("kind") == "mcp_tool_invocation" for receipt in workflow_new),
+        "receiptGatePassRecorded": len(observed.get("routing-after-receipt-gate-pass-action", [])) > 0
+        and any((receipt.get("details") or {}).get("requiredToolReceiptIds") for receipt in gate_pass_receipts),
+        "receiptGateBlockRecorded": len(observed.get("routing-after-receipt-gate-block-action", [])) > 0
+        and any((receipt.get("details") or {}).get("failures") for receipt in gate_block_receipts),
+        "workflowNodesProjected": {"Model Router", "Model Call", "Embedding", "Local Tool/MCP", "Receipt Gate"}.issubset(workflow_nodes),
+        "routeProjectionUpdated": route_receipt_id not in {None, "", "none"},
+        "actionScreenshotsCaptured": all(item.get("screenshot") and not item.get("capture_error") for item in action_screenshots),
+    }
+    return {
+        "passed": all(assertions.values()),
+        "assertions": assertions,
+        "observedReceiptIds": {
+            label: [receipt.get("id") for receipt in receipts_for_action]
+            for label, receipts_for_action in observed.items()
+        },
+        "routeReceipt": route_receipt_id,
+        "latestGateReceiptId": gate_pass_receipts[-1].get("id") if gate_pass_receipts else None,
+        "latestBlockedGateReceiptId": gate_block_receipts[-1].get("id") if gate_block_receipts else None,
+        "screenshots": action_screenshots,
+    }
+
+
 def exercise_provider_backend_actions(
     window_id: int,
     output_root: Path,
@@ -1121,6 +1221,7 @@ def main() -> int:
     seeded_assertions: dict[str, Any] | None = None
     download_action_assertions: dict[str, Any] | None = None
     token_mcp_action_assertions: dict[str, Any] | None = None
+    routing_workflow_action_assertions: dict[str, Any] | None = None
     provider_backend_action_assertions: dict[str, Any] | None = None
 
     close_matching_windows(args.window_name)
@@ -1171,6 +1272,13 @@ def main() -> int:
             seed,
         )
         print("[model-mounts-gui] exercised token, vault, and MCP controls", flush=True)
+        routing_workflow_action_assertions = exercise_routing_workflow_actions(
+            window_id,
+            output_root,
+            args.dev_url,
+            daemon_endpoint,
+        )
+        print("[model-mounts-gui] exercised routing and workflow controls", flush=True)
         provider_backend_action_assertions = exercise_provider_backend_actions(
             window_id,
             output_root,
@@ -1195,6 +1303,8 @@ def main() -> int:
             raise RuntimeError("Mounts GUI download row actions did not update daemon projection and receipts.")
         if not token_mcp_action_assertions["passed"]:
             raise RuntimeError("Mounts GUI token/MCP controls did not update daemon projection and receipts.")
+        if not routing_workflow_action_assertions["passed"]:
+            raise RuntimeError("Mounts GUI routing/workflow controls did not update daemon projection and receipts.")
         if not provider_backend_action_assertions["passed"]:
             raise RuntimeError("Mounts GUI provider/backend controls did not update daemon projection and receipts.")
     except Exception as error:
@@ -1219,6 +1329,7 @@ def main() -> int:
         "seededStateAssertions": seeded_assertions,
         "downloadActionAssertions": download_action_assertions,
         "tokenMcpActionAssertions": token_mcp_action_assertions,
+        "routingWorkflowActionAssertions": routing_workflow_action_assertions,
         "providerBackendActionAssertions": provider_backend_action_assertions,
         "passed": probe_error is None,
         "probeError": probe_error,
