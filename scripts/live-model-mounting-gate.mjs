@@ -11,7 +11,9 @@ import { fileURLToPath } from "node:url";
 import { startRuntimeDaemonService } from "../packages/runtime-daemon/src/index.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const evidenceRoot = path.join(repoRoot, "docs/evidence/model-mounting-live");
+const evidenceRoot = process.env.IOI_MODEL_MOUNTING_LIVE_EVIDENCE_ROOT
+  ? path.resolve(process.env.IOI_MODEL_MOUNTING_LIVE_EVIDENCE_ROOT)
+  : path.join(repoRoot, "docs/evidence/model-mounting-live");
 const schemaVersion = "ioi.model-mounting.live-gate.v1";
 
 const gates = {
