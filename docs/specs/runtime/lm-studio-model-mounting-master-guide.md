@@ -162,7 +162,7 @@ docs/evidence/model-mounting-e2e/2026-05-05T14-38-24Z/gui/2026-05-05T14-38-55Z/r
 The current standalone Mounts GUI evidence bundle is:
 
 ```text
-docs/evidence/model-mounts-gui-validation/2026-05-05T14-36-49Z/result.json
+docs/evidence/model-mounts-gui-validation/2026-05-05T18-14-53Z/result.json
 ```
 
 It captured all Mounts tabs as desktop window screenshots:
@@ -176,6 +176,20 @@ It captured all Mounts tabs as desktop window screenshots:
 - Routing Policies;
 - Benchmarks;
 - Logs / Receipts.
+
+That standalone GUI bundle also validates the product controls that were still
+being closed after the canonical E2E evidence:
+
+- provider and backend health/start/stop/model-list/loaded-list/log controls;
+- download open-receipt, cancel, retry, failure, and lifecycle receipt actions;
+- token create/revoke, vault health, persistent MCP import, and ephemeral MCP
+  model invocation linkage;
+- route test, route draft test, workflow probe, Receipt Gate pass, and Receipt
+  Gate block actions;
+- model import, mount, load, unload, detail drawer metadata, receipt lookup, and
+  receipt replay;
+- benchmark run, benchmark receipt replay, and benchmark receipt focus in the
+  Logs / Receipts surface.
 
 Treat the deterministic path as complete unless a future change breaks the
 canonical command above. Remaining items are live-provider activation,
@@ -352,7 +366,7 @@ Mounts GUI nested under canonical E2E:
 docs/evidence/model-mounting-e2e/2026-05-05T14-38-24Z/gui/2026-05-05T14-38-55Z/result.json
 
 Standalone Mounts GUI with live provider summary:
-docs/evidence/model-mounts-gui-validation/2026-05-05T14-36-49Z/result.json
+docs/evidence/model-mounts-gui-validation/2026-05-05T18-14-53Z/result.json
 
 Broad Autopilot GUI harness:
 docs/evidence/autopilot-gui-harness-validation/2026-05-05T01-40-43-545Z/result.json
@@ -592,22 +606,24 @@ gates:
 7. Product-complete Mounts UI:
    - runtime engine and hardware survey panel plus runtime profile editor are
      implemented for the deterministic path;
+   - provider/backend lifecycle controls, model lifecycle controls, token/MCP/
+     vault actions, route/workflow probes, benchmark replay, and receipt-focused
+     Logs navigation are validated by the standalone GUI harness;
    - remaining work is richer live-backend error/retry affordances and
      provider-specific scheduling hints;
    - existing server start/stop/restart/log-tail controls should stay compact;
-   - provider-specific controls;
    - download queue polish beyond the current progress/cancel/failure/storage
      controls;
-   - streaming logs and request/response log filters;
+   - raw streaming logs for live providers beyond the current server/event tail
+     plus filtered request/response receipt stream;
    - compact error details and retry affordances for failed actions.
 8. Provider expansion:
-   - Ollama;
-   - vLLM;
-   - OpenAI BYOK;
-   - Anthropic BYOK;
-   - Gemini BYOK;
-   - custom HTTP auth profiles;
-   - future DePIN/TEE attested runtime endpoints.
+   - Ollama and vLLM have deterministic supervised runner boundaries and live
+     gates;
+   - remaining work is production BYOK behavior for OpenAI, Anthropic, and
+     Gemini through vault refs;
+   - custom HTTP auth profile hardening;
+   - future DePIN/TEE attested runtime endpoint validation.
 
 ### Parity Gap Matrix: Autopilot Mounts vs LM Studio
 
@@ -623,7 +639,7 @@ implemented as a product surface.
 | Global model picker / loader | Top model picker invites select/load without exposing topology | Complete for deterministic Mounts path | Extend into app-wide header or keyboard model switching only if product direction wants it; keep governed load/unload path |
 | Installed models | `lms ls` shows model family, params, arch, size, device, loaded marker | Complete for deterministic Mounts detail path | Add live-provider family/params/arch/device precision and benchmark classification metadata |
 | Loaded models | `lms ps` shows identifier, model, status, size, context, parallel, device, TTL | Complete for deterministic Mounts path | Add live-provider TTL/device precision, unload confirmations, and app-wide loaded-instance status if needed |
-| Model search/download | `lms get`, direct Hugging Face URL, GGUF/MLX filters, variant select | Partial | Fixture catalog, URL import, variant metadata, and gated Hugging Face adapter boundary exist; add live search/download activation and richer GGUF/MLX filters |
+| Model search/download | `lms get`, direct Hugging Face URL, GGUF/MLX filters, variant select | Complete for deterministic/gated adapter path | Fixture catalog, URL import, variant metadata, gated Hugging Face adapter, checksum/download receipts, and GUI cancel/retry controls exist; add live hub breadth, benchmark metadata, and destructive storage UX polish |
 | Model import | `lms import` supports move/copy/hard-link/symlink/dry-run/user-repo | Complete for deterministic local path | Add live provider-specific import UX polish and benchmark/classification metadata |
 | Runtime engines | `lms runtime ls/select/get/update/remove` | Complete for deterministic/shared control path | Runtime engine list, survey, selected-runtime persistence, get/update/remove profiles, disable/enable, priority, default load options, deterministic process supervision, llama.cpp runner spawning, Ollama serve supervision, vLLM serve supervision, API, CLI, receipts, E2E, and Mounts Backends editor are implemented; remaining live work is hardware validation and scheduler hardening |
 | Hardware survey | `lms runtime survey` reports GPU/VRAM, CPU features, RAM | Complete for deterministic/public CLI path | Keep redacted survey receipts in projection/replay; add scheduling hints and live runtime preference recommendations |
@@ -640,7 +656,7 @@ implemented as a product surface.
 | Secret storage | LM Studio local config/API token ergonomics | Partial, stronger boundary | Wire production wallet.network/vault and cross-device revocation; keep plaintext rejected |
 | Headless/background mode | `lms server` and background service ergonomics | Partial | Package IOI daemon service/headless mode, health checks, logs, and restart policy |
 | Model cleanup/storage | LM Studio models folder and import management | Partial | Artifact delete and orphan scan receipts exist; add uninstall confirmations, storage quota, and destructive UX safeguards |
-| Benchmarks/evals | LM Studio exposes model metadata and developer feedback loops | Partial | Benchmark runner and receipt-backed results panel exist for deterministic Mounts path; add scheduled runs, route recommendation receipts, and comparative charts |
+| Benchmarks/evals | LM Studio exposes model metadata and developer feedback loops | Complete for deterministic Mounts path | GUI harness validates benchmark run, replay, Logs focus, chat/responses/embeddings receipts, and backend/grant/latency payloads; add scheduled runs, route recommendation receipts, and comparative charts |
 | Attested remote runtime | Outside current LM Studio local focus | Boundary only | Implement DePIN/TEE attestation verification, fail-closed routing, and attestation receipts |
 
 ### Priority Closeout Order For Parity
@@ -652,8 +668,8 @@ implemented as a product surface.
    - live external-hub validation on an operator machine.
 2. Product UI parity:
    - compact failed-action retry affordances;
-   - receipt drill-down and replay detail polish beyond the current filtered
-     stream.
+   - receipt drill-down detail polish beyond the current filtered stream and
+     replay controls.
 3. Live backend parity:
    - live hardware validation and scheduler hardening for the configured
      `llama.cpp` runner boundary;
@@ -697,7 +713,7 @@ docs/evidence/model-mounting-e2e/2026-05-05T14-38-24Z/gui/2026-05-05T14-38-55Z/r
 Standalone Mounts GUI bundle:
 
 ```text
-docs/evidence/model-mounts-gui-validation/2026-05-05T14-36-49Z/result.json
+docs/evidence/model-mounts-gui-validation/2026-05-05T18-14-53Z/result.json
 ```
 
 The GUI bundle captured nine desktop window screenshots for the Mounts tabs
@@ -706,8 +722,13 @@ and verified the seeded daemon projection exposed:
 - 7 backends;
 - 12 providers;
 - 6 artifacts;
-- 14 receipts;
+- 19 seeded receipts before action probes;
 - no plaintext token or vault-ref findings.
+
+The same bundle verifies action-level GUI parity for provider/backend controls,
+model import/mount/load/unload, download cancel/retry/open-receipt, token/MCP/
+vault controls, route/workflow/Receipt Gate probes, benchmark run/replay, and
+Logs focus for a benchmark invocation receipt.
 
 The screenshots are stored next to the nested GUI result:
 
