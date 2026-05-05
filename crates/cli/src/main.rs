@@ -65,6 +65,24 @@ enum Commands {
     /// Query a running node's state or status.
     Query(query::QueryArgs),
 
+    /// Manage model registry artifacts, mounts, loads, and loaded instances.
+    Models(models::ModelsArgs),
+
+    /// Manage local and provider-backed model backend runtimes.
+    Backends(backends::BackendsArgs),
+
+    /// Manage model routing policies.
+    Routes(routes::RoutesArgs),
+
+    /// Probe or control the local model server surface.
+    Server(server::ServerArgs),
+
+    /// Manage local capability tokens for model and MCP access.
+    Tokens(tokens::TokensArgs),
+
+    /// Inspect Agentgres model, route, tool, workflow, and token receipts.
+    Receipts(receipts::ReceiptsArgs),
+
     /// Interact with the local Desktop Agent (Jarvis Mode).
     Agent(agent::AgentArgs),
 
@@ -124,6 +142,14 @@ async fn main() -> Result<()> {
         // --- Query ---
         Commands::Query(args) => query::run(args).await,
 
+        // --- Model mounting ---
+        Commands::Models(args) => models::run(args).await,
+        Commands::Backends(args) => backends::run(args).await,
+        Commands::Routes(args) => routes::run(args).await,
+        Commands::Server(args) => server::run(args).await,
+        Commands::Tokens(args) => tokens::run(args).await,
+        Commands::Receipts(args) => receipts::run(args).await,
+
         // --- Agent ---
         Commands::Agent(args) => agent::run(args).await,
 
@@ -137,7 +163,7 @@ async fn main() -> Result<()> {
         Commands::Policy(args) => policy::run(args).await,
 
         // --- MCP ---
-        Commands::Mcp(args) => mcp::run(args),
+        Commands::Mcp(args) => mcp::run(args).await,
 
         // --- PII ---
         Commands::Pii(args) => pii::run(args).await,

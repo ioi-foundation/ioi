@@ -45,7 +45,14 @@ export interface NodeLogic {
   modelRef?: string;
   provider?: string;
   model?: string;
-  modelId?: string;
+  modelId?: string | null;
+  routeId?: string;
+  modelPolicy?: Record<string, unknown>;
+  capability?: "chat" | "responses" | "structured_output" | "embeddings" | "vision" | "rerank" | "mcp" | "receipt_gate";
+  receiptRequired?: boolean;
+  selectedEndpointId?: string;
+  receiptId?: string;
+  requiredToolReceiptIds?: string[];
   modelHash?: string;
   temperature?: number;
   systemPrompt?: string;
@@ -336,6 +343,14 @@ export interface WorkflowFunctionRef {
 
 export interface WorkflowModelBinding {
   modelRef: string;
+  modelId?: string | null;
+  routeId?: string;
+  modelPolicy?: Record<string, unknown>;
+  capability?: "chat" | "responses" | "structured_output" | "embeddings" | "vision" | "rerank";
+  receiptRequired?: boolean;
+  daemonApi?: string;
+  selectedEndpointId?: string | null;
+  lastReceiptId?: string | null;
   mockBinding: boolean;
   capabilityScope: string[];
   argumentSchema?: WorkflowJsonSchema;
