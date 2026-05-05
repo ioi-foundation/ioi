@@ -257,6 +257,20 @@ same evidence records vLLM as blocked on this operator machine because no
 `VLLM_BASE_URL`, no `vllm`/`IOI_VLLM_BINARY`, and no `IOI_VLLM_MODEL` are
 configured.
 
+Latest live catalog/download evidence:
+
+```text
+docs/evidence/model-mounting-live/model-catalog/2026-05-05T23-07-13Z/result.json
+```
+
+That run passed against the Hugging Face-compatible catalog path with
+`IOI_LIVE_MODEL_CATALOG=1`, `IOI_LIVE_MODEL_DOWNLOAD=1`,
+`IOI_MODEL_CATALOG_QUERY=tinyllamas`, an explicit tiny GGUF source URL, and a
+2 MB transfer cap. It validated live catalog search, hashed source metadata,
+resumable download materialization, completed download status, byte counts,
+lifecycle receipt replay, Agentgres-style projection visibility, and secret
+redaction without persisting the raw source URL.
+
 ### Completed In Repo
 
 The current implementation has moved beyond the original blank Mounts scaffold.
@@ -415,9 +429,8 @@ docs/evidence/model-mounting-live/model-backends/2026-05-05T23-00-25Z/result.jso
 llama.cpp live runner with completed/aborted provider-native stream receipts:
 docs/evidence/model-mounting-live/llama-cpp/2026-05-05T22-51-29Z/result.json
 
-Model catalog live gate command wiring, skipped because the live catalog env was
-not enabled:
-docs/evidence/model-mounting-live/model-catalog/2026-05-05T13-20-34Z/result.json
+Model catalog live search/download with explicit tiny GGUF source and byte cap:
+docs/evidence/model-mounting-live/model-catalog/2026-05-05T23-07-13Z/result.json
 
 wallet.network deterministic fake-remote:
 docs/evidence/model-mounting-live/wallet/2026-05-05T01-51-23Z/result.json
@@ -452,6 +465,10 @@ Live local provider evidence on 2026-05-05 UTC:
   downgrade path is covered by a deterministic fake `llama-server` live-gate
   fixture that forces `/v1/embeddings` to return provider HTTP 400 while keeping
   stream completion/cancellation receipts mandatory.
+- Model catalog live gate passed against the Hugging Face-compatible search and
+  explicit-download path, using a tiny GGUF source under a 2 MB cap. It
+  validated catalog result metadata, hashed source redaction, download
+  completion, receipt replay, projection visibility, and secret scans.
 - wallet.network live gate passed in deterministic fake-remote mode, validating
   `WalletAuthorityPort` configuration, denied-scope fail-closed behavior, MCP
   plaintext-secret rejection, and secret scans.
@@ -513,7 +530,8 @@ claim real third-party inference unless a configured provider is selected:
   of llama.cpp/vLLM/Ollama binaries when those binaries are unavailable.
 - Download/import lifecycle supports queued, running, completed, failed,
   canceled, progress, byte counts, checksum, cleanup, and receipts through a
-  deterministic local fixture path rather than live model hub downloads.
+  deterministic local fixture path, plus an opt-in live Hugging Face-compatible
+  catalog/download gate with explicit source and transfer bounds.
 - Hugging Face-compatible catalog search and live network download are
   implemented behind explicit gates. CI continues to use deterministic fixture
   catalog/download coverage; live download is opt-in and requires an explicit
@@ -698,10 +716,13 @@ gates:
    - the live catalog gate now validates import-url materialization, download
      status lookup, receipt replay, projection persistence, optional first
      result download, max-byte guards, and no plaintext token/source leakage;
+   - live search/download evidence passed with an explicit tiny GGUF source
+     under a 2 MB transfer cap:
+     `docs/evidence/model-mounting-live/model-catalog/2026-05-05T23-07-13Z/result.json`;
    - remaining work is production catalog breadth, richer benchmark and
      compatibility metadata, approval/retry affordances, bandwidth/storage
-     policy controls, and live validation against external hubs when explicitly
-     enabled.
+     policy controls, and broader live validation against external hubs when
+     explicitly enabled.
 3. Remote wallet.network and vault integration:
    - remote wallet.network grants;
    - provider-key vault resolution;
@@ -2308,13 +2329,16 @@ Current status:
 
 ## Immediate Backlog
 
-The deterministic target path is complete. The immediate backlog is now the
-parity closeout order from the matrix above:
+The deterministic target path is complete, and live catalog/download activation
+now has passing opt-in evidence. The immediate backlog is now the parity
+closeout order from the matrix above:
 
-1. Live catalog/download activation.
-2. Product UI parity beyond the validated picker, loaded-instance inspector,
+1. Product UI parity beyond the validated picker, loaded-instance inspector,
    model detail drawer, route editor, token editor, benchmark/results panel,
    degraded/denied action readiness, and filtered observability stream.
+2. Catalog/download product hardening beyond the passing live tiny-GGUF gate:
+   richer hub metadata, variant comparison, approval/retry flows, bandwidth and
+   storage policy controls, and broader external-hub validation.
 3. Live backend/provider parity: Ollama and llama.cpp have passing local live
    evidence; vLLM is blocked until an operator provides `VLLM_BASE_URL` or a
    `vllm`/`IOI_VLLM_BINARY` plus `IOI_VLLM_MODEL`, then the lifecycle/stream
