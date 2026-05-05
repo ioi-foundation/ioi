@@ -872,6 +872,12 @@ function useModelMountsDaemon() {
           const receiptId = stringValue(latest?.receipt?.id, "no receipt");
           return `${providerId} latest health is ${status}; receipt ${receiptId}.`;
         }),
+      replayReceipt: (receiptId: string) =>
+        runAction("receipt-replay", async () => {
+          const replay = await requestJson(`/api/v1/receipts/${encodeURIComponent(receiptId)}/replay`);
+          const kind = stringValue(replay?.receipt?.kind, "receipt");
+          return `Replayed ${kind} receipt ${receiptId}.`;
+        }),
       listProviderModels: (providerId: string) =>
         runAction("provider-models", async () => {
           const models = await requestJson(`/api/v1/providers/${encodeURIComponent(providerId)}/models`);
@@ -1977,7 +1983,53 @@ function RoutingPanel({
   );
 }
 
-function LogsPanel({ receipts }: { receipts: ReceiptPreview[] }) {
+function LogsPanel({
+  receipts,
+  onReplayReceipt,
+  busy,
+}: {
+  receipts: ReceiptPreview[];
+  onReplayReceipt: (receiptId: string) => void;
+  busy: boolean;
+}) {
+  const groups = [
+    {
+      title: "Provider health",
+      description: "Latest provider probes, policy blocks, and vault-bound auth evidence.",
+      kinds: ["provider_health"],
+      empty: "No provider health receipts in the current projection.",
+      replayLabel: "Replay latest provider health",
+    },
+    {
+      title: "Vault adapter health",
+      description: "Vault material adapter probes and fail-closed status evidence.",
+      kinds: ["vault_adapter_health"],
+      empty: "No vault adapter health receipts in the current projection.",
+      replayLabel: "Replay latest vault health",
+    },
+    {
+      title: "Model invocations",
+      description: "Routed native and OpenAI-compatible calls through policy and receipts.",
+      kinds: ["model_invocation", "model_route_selection"],
+      empty: "No model invocation receipts in the current projection.",
+    },
+    {
+      title: "Lifecycle",
+      description: "Mount, load, unload, import, download, and backend lifecycle records.",
+      kinds: ["model_lifecycle", "backend_health"],
+      empty: "No lifecycle receipts in the current projection.",
+    },
+    {
+      title: "MCP tools",
+      description: "Persistent and ephemeral governed tool calls linked to model receipts.",
+      kinds: ["mcp_tool_invocation", "mcp_server_import", "mcp_ephemeral_registration"],
+      empty: "No MCP tool receipts in the current projection.",
+    },
+  ].map((group) => ({
+    ...group,
+    items: receipts.filter((item) => group.kinds.includes(item.kind)),
+  }));
+
   return (
     <section className="model-mounts-panel" aria-labelledby="model-mounts-logs-title">
       <div className="model-mounts-panel-head">
@@ -1991,22 +2043,54 @@ function LogsPanel({ receipts }: { receipts: ReceiptPreview[] }) {
         </div>
       </div>
 
-      <div className="model-mounts-list model-mounts-list--receipts">
-        {receipts.map((item) => (
-          <article key={item.id} className="model-mounts-receipt">
-            <div>
-              <strong>{item.kind}</strong>
-              <span>{item.id}</span>
-            </div>
-            <p>{item.summary}</p>
-            <div className="model-mounts-receipt-foot">
-              <StatusPill tone="ready">{item.redaction}</StatusPill>
-              <TagList items={item.evidence} />
-            </div>
-          </article>
-        ))}
+      <div className="model-mounts-receipt-groups">
+        {groups.map((group) => {
+          const latest = group.items.at(-1);
+          const visibleItems = [...group.items].reverse();
+          return (
+            <section key={group.title} className="model-mounts-receipt-lane" aria-label={`${group.title} receipts`}>
+              <div className="model-mounts-receipt-lane-head">
+                <div>
+                  <h4>{group.title}</h4>
+                  <span>{group.description}</span>
+                </div>
+                <div className="model-mounts-actions">
+                  <StatusPill tone={group.items.length > 0 ? "ready" : "muted"}>{String(group.items.length)}</StatusPill>
+                  {group.replayLabel && latest ? (
+                    <ActionButton onClick={() => onReplayReceipt(latest.id)} disabled={busy}>
+                      {group.replayLabel}
+                    </ActionButton>
+                  ) : null}
+                </div>
+              </div>
+              <div className="model-mounts-list model-mounts-list--receipts">
+                {visibleItems.length === 0 ? (
+                  <p className="model-mounts-empty">{group.empty}</p>
+                ) : (
+                  visibleItems.map((item) => <ReceiptCard key={item.id} item={item} />)
+                )}
+              </div>
+            </section>
+          );
+        })}
       </div>
     </section>
+  );
+}
+
+function ReceiptCard({ item }: { item: ReceiptPreview }) {
+  return (
+    <article className="model-mounts-receipt">
+      <div>
+        <strong>{item.kind}</strong>
+        <span>{item.id}</span>
+      </div>
+      <p>{item.summary}</p>
+      <div className="model-mounts-receipt-foot">
+        <StatusPill tone={item.redaction === "redacted" ? "ready" : "warn"}>{item.redaction}</StatusPill>
+        <TagList items={item.evidence} />
+      </div>
+    </article>
   );
 }
 
@@ -2139,7 +2223,9 @@ export function MissionControlMountsView() {
             busy={busy}
           />
         ) : null}
-        {activeTab === "logs" ? <LogsPanel receipts={visibleReceipts} /> : null}
+        {activeTab === "logs" ? (
+          <LogsPanel receipts={visibleReceipts} onReplayReceipt={daemon.actions.replayReceipt} busy={busy} />
+        ) : null}
       </main>
     </div>
   );
