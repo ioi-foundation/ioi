@@ -58,7 +58,9 @@ interface ModelArtifact {
   provider: string;
   state: string;
   context: string;
+  format: string;
   quantization: string;
+  source: string;
   capabilities: string[];
 }
 
@@ -96,6 +98,14 @@ interface ModelLoadDraft {
   ttlSeconds: string;
   identifier: string;
   estimateOnly: boolean;
+}
+
+interface MountsPickerSelection {
+  modelId: string;
+  providerId: string;
+  endpointId: string;
+  routeId: string;
+  instanceId: string;
 }
 
 interface PermissionTokenPreview {
@@ -373,7 +383,9 @@ const fallbackData: MountsWorkbenchData = {
       provider: "provider.local.folder",
       state: "installed",
       context: "8k",
+      format: "fixture",
       quantization: "fixture",
+      source: "operator_import",
       capabilities: ["chat", "responses", "embeddings", "structured_output", "rerank"],
     },
     {
@@ -382,7 +394,9 @@ const fallbackData: MountsWorkbenchData = {
       provider: "provider.local.folder",
       state: "installed",
       context: "2k",
+      format: "fixture",
       quantization: "fixture",
+      source: "operator_import",
       capabilities: ["embeddings"],
     },
     {
@@ -391,7 +405,9 @@ const fallbackData: MountsWorkbenchData = {
       provider: "provider.autopilot.local",
       state: "installed",
       context: "8192",
+      format: "gguf",
       quantization: "Q4_K_M",
+      source: "native_local_fixture",
       capabilities: ["chat", "responses", "embeddings", "structured_output", "rerank"],
     },
     {
@@ -400,7 +416,9 @@ const fallbackData: MountsWorkbenchData = {
       provider: "provider.lmstudio",
       state: "provider_stopped",
       context: "unknown",
+      format: "lm_studio",
       quantization: "observed",
+      source: "lm_studio_public_lms",
       capabilities: ["chat", "responses", "embeddings"],
     },
   ],
@@ -650,6 +668,59 @@ function healthSummaryFromReceipts(receipts: ReceiptPreview[]): HealthSummaryPre
     latestReceiptId: latestHealthReceipt?.id ?? "none",
     latestStatus: latestHealthReceipt?.healthStatus && latestHealthReceipt.healthStatus !== "unknown" ? latestHealthReceipt.healthStatus : "unknown",
   };
+}
+
+const emptyPickerSelection: MountsPickerSelection = {
+  modelId: "",
+  providerId: "",
+  endpointId: "",
+  routeId: "",
+  instanceId: "",
+};
+
+function isLoadedInstance(instance: ModelInstance) {
+  return instance.status === "loaded";
+}
+
+function normalizePickerSelection(data: MountsWorkbenchData, current: MountsPickerSelection): MountsPickerSelection {
+  const selectedModelId = data.artifacts.some((artifact) => artifact.name === current.modelId)
+    ? current.modelId
+    : data.artifacts[0]?.name ?? "";
+  const modelEndpoints = data.endpoints.filter((endpoint) => !selectedModelId || endpoint.modelId === selectedModelId);
+  const endpointOptions = modelEndpoints.length > 0 ? modelEndpoints : data.endpoints;
+  const selectedEndpointId = endpointOptions.some((endpoint) => endpoint.id === current.endpointId)
+    ? current.endpointId
+    : endpointOptions[0]?.id ?? "";
+  const selectedEndpoint = data.endpoints.find((endpoint) => endpoint.id === selectedEndpointId);
+  const selectedArtifact = data.artifacts.find((artifact) => artifact.name === selectedModelId);
+  const selectedProviderId = data.providers.some((provider) => provider.id === current.providerId)
+    ? current.providerId
+    : selectedEndpoint?.provider ?? selectedArtifact?.provider ?? data.providers[0]?.id ?? "";
+  const selectedRouteId = data.routes.some((routeItem) => routeItem.id === current.routeId)
+    ? current.routeId
+    : data.routes[0]?.id ?? "";
+  const loadedInstances = data.instances.filter(isLoadedInstance);
+  const instanceOptions = loadedInstances.length > 0 ? loadedInstances : data.instances;
+  const selectedInstanceId = instanceOptions.some((instance) => instance.id === current.instanceId)
+    ? current.instanceId
+    : instanceOptions[0]?.id ?? "";
+  return {
+    modelId: selectedModelId,
+    providerId: selectedProviderId,
+    endpointId: selectedEndpointId,
+    routeId: selectedRouteId,
+    instanceId: selectedInstanceId,
+  };
+}
+
+function pickerSelectionChanged(left: MountsPickerSelection, right: MountsPickerSelection) {
+  return (
+    left.modelId !== right.modelId ||
+    left.providerId !== right.providerId ||
+    left.endpointId !== right.endpointId ||
+    left.routeId !== right.routeId ||
+    left.instanceId !== right.instanceId
+  );
 }
 
 function readInitialEndpoint() {
@@ -1090,6 +1161,32 @@ function useModelMountsDaemon() {
           }
           return `${draft.modelId} loaded as ${stringValue(result?.identifier, "default")} with context ${stringValue(result?.contextLength, "auto")}.`;
         }),
+      loadPickerSelection: (selection: MountsPickerSelection) =>
+        runAction("picker-load", async () => {
+          const token = await ensureToken();
+          const result = await requestJson("/api/v1/models/load", {
+            method: "POST",
+            token,
+            body: {
+              model_id: selection.modelId,
+              endpoint_id: selection.endpointId || undefined,
+              route_id: selection.routeId || undefined,
+              load_policy: { mode: "on_demand", idleTtlSeconds: 900, autoEvict: true },
+              load_options: { identifier: selection.modelId ? `${selection.modelId}-picker` : "picker-load" },
+            },
+          });
+          return `${stringValue(result?.modelId, selection.modelId)} loaded from picker; receipt ${stringValue(result?.receiptId, "recorded")}.`;
+        }),
+      unloadInstance: (instanceId: string) =>
+        runAction("picker-unload", async () => {
+          const token = await ensureToken();
+          const result = await requestJson("/api/v1/models/unload", {
+            method: "POST",
+            token,
+            body: { instance_id: instanceId },
+          });
+          return `${stringValue(result?.modelId, "Selected model")} unloaded; instance ${instanceId}.`;
+        }),
       replayReceipt: (receiptId: string) =>
         runAction("receipt-replay", async () => {
           const replay = await requestJson(`/api/v1/receipts/${encodeURIComponent(receiptId)}/replay`);
@@ -1198,7 +1295,9 @@ function normalizeSnapshot(snapshot: any, endpoint: string): MountsWorkbenchData
     provider: stringValue(item.providerId, "provider.unknown"),
     state: stringValue(item.state, "unknown"),
     context: item.contextWindow ? `${item.contextWindow}` : "unknown",
+    format: stringValue(item.format, "unknown"),
     quantization: stringValue(item.quantization, "unknown"),
+    source: stringValue(item.source, "unknown"),
     capabilities: stringArray(item.capabilities),
   }));
   const instances = arrayOf(snapshot?.instances).map((item) => ({
@@ -1526,6 +1625,123 @@ function EndpointRow({ endpoint }: { endpoint: ModelEndpoint }) {
   );
 }
 
+function ModelPickerStrip({
+  data,
+  selection,
+  onSelectionChange,
+  onLoadSelection,
+  onUnloadInstance,
+  busy,
+}: {
+  data: MountsWorkbenchData;
+  selection: MountsPickerSelection;
+  onSelectionChange: (patch: Partial<MountsPickerSelection>) => void;
+  onLoadSelection: () => void;
+  onUnloadInstance: () => void;
+  busy: boolean;
+}) {
+  const endpointOptions = data.endpoints.filter((endpoint) => endpoint.modelId === selection.modelId);
+  const visibleEndpoints = endpointOptions.length > 0 ? endpointOptions : data.endpoints;
+  const loadedInstances = data.instances.filter(isLoadedInstance);
+  const selectedArtifact = data.artifacts.find((artifact) => artifact.name === selection.modelId);
+  const selectedEndpoint = data.endpoints.find((endpoint) => endpoint.id === selection.endpointId);
+  const selectedProvider = data.providers.find((provider) => provider.id === selection.providerId);
+  const selectedRoute = data.routes.find((routeItem) => routeItem.id === selection.routeId);
+  const selectedInstance = loadedInstances.find((instance) => instance.id === selection.instanceId);
+  const selectedReceipts = data.receipts
+    .filter((receiptItem) =>
+      [selection.modelId, selection.endpointId, selection.instanceId, selection.routeId].some((needle) =>
+        needle ? `${receiptItem.id} ${receiptItem.summary} ${receiptItem.evidence.join(" ")}`.includes(needle) : false,
+      ),
+    )
+    .slice(-3);
+
+  return (
+    <section className="model-mounts-picker" aria-label="Quick model picker">
+      <div className="model-mounts-picker-controls">
+        <label>
+          <span>Model</span>
+          <select value={selection.modelId} onChange={(event) => onSelectionChange({ modelId: event.target.value })}>
+            {data.artifacts.map((artifact) => (
+              <option key={artifact.id} value={artifact.name}>{artifact.name}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>Provider</span>
+          <select value={selection.providerId} onChange={(event) => onSelectionChange({ providerId: event.target.value })}>
+            {data.providers.map((providerItem) => (
+              <option key={providerItem.id} value={providerItem.id}>{providerItem.label}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>Endpoint</span>
+          <select value={selection.endpointId} onChange={(event) => onSelectionChange({ endpointId: event.target.value })}>
+            {visibleEndpoints.map((endpointItem) => (
+              <option key={endpointItem.id} value={endpointItem.id}>{endpointItem.id}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>Route</span>
+          <select value={selection.routeId} onChange={(event) => onSelectionChange({ routeId: event.target.value })}>
+            {data.routes.map((routeItem) => (
+              <option key={routeItem.id} value={routeItem.id}>{routeItem.id}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>Loaded instance</span>
+          <select value={selection.instanceId} onChange={(event) => onSelectionChange({ instanceId: event.target.value })}>
+            {loadedInstances.length === 0 ? <option value="">No loaded instances</option> : null}
+            {loadedInstances.map((instanceItem) => (
+              <option key={instanceItem.id} value={instanceItem.id}>{instanceItem.identifier} / {instanceItem.modelId}</option>
+            ))}
+          </select>
+        </label>
+        <div className="model-mounts-picker-actions">
+          <ActionButton onClick={onLoadSelection} disabled={busy || !selection.modelId}>Load selection</ActionButton>
+          <ActionButton onClick={onUnloadInstance} disabled={busy || !selectedInstance}>Unload instance</ActionButton>
+        </div>
+      </div>
+
+      <div className="model-mounts-picker-inspector" aria-label="Model selection inspector">
+        <div>
+          <span>Artifact</span>
+          <strong>{selectedArtifact?.name ?? "none"}</strong>
+          <small>{selectedArtifact ? `${selectedArtifact.format} / ${selectedArtifact.quantization} / ctx ${selectedArtifact.context}` : "No model selected"}</small>
+        </div>
+        <div>
+          <span>Endpoint</span>
+          <strong>{selectedEndpoint?.id ?? "none"}</strong>
+          <small>{selectedEndpoint ? `${selectedEndpoint.apiFormat} / ${selectedEndpoint.loadPolicy}` : "No endpoint selected"}</small>
+        </div>
+        <div>
+          <span>Provider</span>
+          <strong>{selectedProvider?.label ?? "none"}</strong>
+          <small>{selectedProvider ? `${selectedProvider.kind} / ${selectedProvider.status}` : "No provider selected"}</small>
+        </div>
+        <div>
+          <span>Route</span>
+          <strong>{selectedRoute?.id ?? "none"}</strong>
+          <small>{selectedRoute ? `${selectedRoute.privacy} / fallback ${selectedRoute.fallback}` : "No route selected"}</small>
+        </div>
+        <div>
+          <span>Instance</span>
+          <strong>{selectedInstance?.identifier ?? "none loaded"}</strong>
+          <small>{selectedInstance ? `${selectedInstance.backend} / ctx ${selectedInstance.context} / ${selectedInstance.ttl}` : "Load a model to inspect runtime state"}</small>
+        </div>
+        <div>
+          <span>Receipts</span>
+          <strong>{selectedReceipts.length > 0 ? selectedReceipts.at(-1)?.id : "none linked"}</strong>
+          <small>{selectedReceipts.length > 0 ? selectedReceipts.map((receiptItem) => receiptItem.kind).join(", ") : "Recent linked receipts appear here"}</small>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function ServerPanel({
   data,
   endpoint,
@@ -1664,6 +1880,7 @@ function ServerPanel({
           "GET /api/v1/backends/:id/logs",
           "GET /api/v1/models",
           "POST /api/v1/models/load",
+          "POST /api/v1/models/unload",
           "POST /api/v1/models/download",
           "GET /api/v1/models/catalog/search",
           "POST /api/v1/models/catalog/import-url",
@@ -1883,6 +2100,7 @@ function ModelsPanel({
   const updateLoadDraft = (field: keyof ModelLoadDraft, value: string | boolean) => {
     setLoadDraft((current) => ({ ...current, [field]: value }));
   };
+  const loadedInstances = data.instances.filter(isLoadedInstance);
   return (
     <section className="model-mounts-panel" aria-labelledby="model-mounts-models-title">
       <div className="model-mounts-panel-head">
@@ -1983,10 +2201,10 @@ function ModelsPanel({
         <section aria-label="Loaded and downloads">
           <h4>Loaded now</h4>
           <div className="model-mounts-list">
-            {data.instances.length === 0 ? (
+            {loadedInstances.length === 0 ? (
               <p className="model-mounts-empty">No loaded instances.</p>
             ) : (
-              data.instances.map((instance) => (
+              loadedInstances.map((instance) => (
                 <article key={instance.id} className="model-mounts-compact-row">
                   <div>
                     <strong>{instance.modelId}</strong>
@@ -2639,8 +2857,21 @@ function ReceiptCard({ item }: { item: ReceiptPreview }) {
 
 export function MissionControlMountsView() {
   const [activeTab, setActiveTab] = useState<MountsTab>(readInitialTab);
+  const [pickerSelection, setPickerSelection] = useState<MountsPickerSelection>(emptyPickerSelection);
   const daemon = useModelMountsDaemon();
   const busy = Boolean(daemon.busyAction);
+  useEffect(() => {
+    setPickerSelection((current) => {
+      const next = normalizePickerSelection(daemon.data, current);
+      return pickerSelectionChanged(current, next) ? next : current;
+    });
+  }, [daemon.data]);
+  const updatePickerSelection = useCallback(
+    (patch: Partial<MountsPickerSelection>) => {
+      setPickerSelection((current) => normalizePickerSelection(daemon.data, { ...current, ...patch }));
+    },
+    [daemon.data],
+  );
   const visibleReceipts = useMemo(
     () => (daemon.data.receipts.length > 0 ? daemon.data.receipts : fallbackData.receipts),
     [daemon.data.receipts],
@@ -2696,6 +2927,15 @@ export function MissionControlMountsView() {
           </div>
         </div>
       </header>
+
+      <ModelPickerStrip
+        data={daemon.data}
+        selection={pickerSelection}
+        onSelectionChange={updatePickerSelection}
+        onLoadSelection={() => daemon.actions.loadPickerSelection(pickerSelection)}
+        onUnloadInstance={() => daemon.actions.unloadInstance(pickerSelection.instanceId)}
+        busy={busy}
+      />
 
       <main className="model-mounts-stage">
         {activeTab === "server" ? (

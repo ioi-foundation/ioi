@@ -37,6 +37,7 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
     "/api/v1/backends/:id/logs",
     "/api/v1/tokens",
     "/api/v1/models/load",
+    "/api/v1/models/unload",
     "/api/v1/models/download",
     "/api/v1/models/download/cancel",
     "/api/v1/providers/:id/models",
@@ -119,6 +120,15 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   assert.match(source, /selectRuntimeEngine/);
   assert.match(source, /Load with options/);
   assert.match(source, /Estimate load/);
+  assert.match(source, /Quick model picker/);
+  assert.match(source, /ModelPickerStrip/);
+  assert.match(source, /Load selection/);
+  assert.match(source, /Unload instance/);
+  assert.match(source, /Loaded instance/);
+  assert.match(source, /Model selection inspector/);
+  assert.match(source, /loadPickerSelection/);
+  assert.match(source, /unloadInstance/);
+  assert.match(source, /model-mounts-picker/);
   assert.match(source, /loadModelWithOptions/);
   assert.match(source, /contextLength/);
   assert.match(source, /estimateOnly/);
