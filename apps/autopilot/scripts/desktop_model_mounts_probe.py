@@ -599,6 +599,32 @@ def receipt_has_operation(receipts: list[dict[str, Any]], operation: str, job_id
     return False
 
 
+def receipt_has_detail(receipts: list[dict[str, Any]], kind: str, detail_key: str, detail_value: str) -> bool:
+    for receipt in receipts:
+        details = receipt.get("details") if isinstance(receipt.get("details"), dict) else {}
+        if receipt.get("kind") == kind and details.get(detail_key) == detail_value:
+            return True
+    return False
+
+
+def receipt_has_operation_detail(
+    receipts: list[dict[str, Any]],
+    operation: str,
+    detail_key: str,
+    detail_value: str,
+) -> bool:
+    for receipt in receipts:
+        details = receipt.get("details") if isinstance(receipt.get("details"), dict) else {}
+        if receipt.get("kind") == "model_lifecycle" and details.get("operation") == operation and details.get(detail_key) == detail_value:
+            return True
+    return False
+
+
+def backend_logs_include(endpoint: str, backend_id: str, event: str) -> bool:
+    records = request_json(endpoint, f"/api/v1/backends/{urllib.parse.quote(backend_id)}/logs")
+    return any(record.get("event") == event for record in records if isinstance(record, dict))
+
+
 def wait_for_snapshot_condition(
     endpoint: str,
     label: str,
@@ -621,6 +647,30 @@ def wait_for_snapshot_condition(
             last_error = str(error)
         time.sleep(interval_secs)
     raise RuntimeError(f"Timed out waiting for {label}. Last error: {last_error}; last snapshot: {last_snapshot}")
+
+
+def wait_for_receipt_condition(
+    endpoint: str,
+    label: str,
+    predicate,
+    *,
+    timeout_secs: float = 25.0,
+    interval_secs: float = 0.5,
+) -> list[dict[str, Any]]:
+    deadline = time.time() + timeout_secs
+    last_receipts: list[dict[str, Any]] = []
+    last_error: str | None = None
+    while time.time() < deadline:
+        try:
+            receipts = request_json(endpoint, "/api/v1/receipts", timeout=6.0)
+            if isinstance(receipts, list):
+                last_receipts = receipts
+                if predicate(receipts):
+                    return receipts
+        except Exception as error:
+            last_error = str(error)
+        time.sleep(interval_secs)
+    raise RuntimeError(f"Timed out waiting for {label}. Last error: {last_error}; receipt count: {len(last_receipts)}")
 
 
 def exercise_download_row_actions(
@@ -732,6 +782,147 @@ def exercise_download_row_actions(
     }
 
 
+def exercise_provider_backend_actions(
+    window_id: int,
+    output_root: Path,
+    dev_url: str,
+    endpoint: str,
+) -> dict[str, Any]:
+    """Exercise backend and provider controls through the live Mounts desktop surface."""
+
+    backend_id = "backend.autopilot.native-local.fixture"
+    provider_id = "provider.autopilot.local"
+    action_screenshots: list[dict[str, Any]] = []
+
+    activate_tab(window_id, "F2")
+    for shortcut, label, tab, condition_label, predicate in [
+        (
+            "shift+F1",
+            "backends-after-health-action",
+            "backends",
+            "backend health receipt",
+            lambda receipts: receipt_has_operation_detail(receipts, "backend_health", "backendId", backend_id),
+        ),
+        (
+            "shift+F2",
+            "backends-after-start-action",
+            "backends",
+            "backend start receipt",
+            lambda receipts: receipt_has_operation_detail(receipts, "backend_start", "backendId", backend_id),
+        ),
+        (
+            "shift+F3",
+            "backends-after-logs-action",
+            "backends",
+            "backend logs receipt",
+            lambda receipts: receipt_has_operation_detail(receipts, "backend_logs_read", "backendId", backend_id),
+        ),
+        (
+            "shift+F4",
+            "backends-after-stop-action",
+            "backends",
+            "backend stop receipt",
+            lambda receipts: receipt_has_operation_detail(receipts, "backend_stop", "backendId", backend_id),
+        ),
+    ]:
+        run(["xdotool", "key", shortcut], check=False)
+        wait_for_receipt_condition(endpoint, condition_label, predicate)
+        action_screenshots.append(
+            capture_action_state(
+                window_id,
+                output_root,
+                dev_url,
+                endpoint,
+                tab=tab,
+                name=label,
+            )
+        )
+        time.sleep(1.5)
+
+    activate_tab(window_id, "F4")
+    for shortcut, label, condition_label, predicate in [
+        (
+            "shift+F5",
+            "providers-after-health-action",
+            "provider health receipt",
+            lambda receipts: receipt_has_detail(receipts, "provider_health", "providerId", provider_id),
+        ),
+        (
+            "shift+F6",
+            "providers-after-models-action",
+            "provider models receipt",
+            lambda receipts: receipt_has_operation_detail(receipts, "provider_models_list", "providerId", provider_id),
+        ),
+        (
+            "shift+F7",
+            "providers-after-loaded-action",
+            "provider loaded receipt",
+            lambda receipts: receipt_has_operation_detail(receipts, "provider_loaded_list", "providerId", provider_id),
+        ),
+        (
+            "shift+F8",
+            "providers-after-start-action",
+            "provider start receipt",
+            lambda receipts: receipt_has_operation_detail(receipts, "provider_start", "providerId", provider_id),
+        ),
+        (
+            "shift+F9",
+            "providers-after-stop-action",
+            "provider stop receipt",
+            lambda receipts: receipt_has_operation_detail(receipts, "provider_stop", "providerId", provider_id),
+        ),
+    ]:
+        run(["xdotool", "key", shortcut], check=False)
+        wait_for_receipt_condition(endpoint, condition_label, predicate)
+        action_screenshots.append(
+            capture_action_state(
+                window_id,
+                output_root,
+                dev_url,
+                endpoint,
+                tab="providers",
+                name=label,
+            )
+        )
+        time.sleep(1.5)
+
+    snapshot = request_json(endpoint, "/api/v1/models")
+    receipts = request_json(endpoint, "/api/v1/receipts")
+    backend = next((item for item in snapshot.get("backends", []) if item.get("id") == backend_id), None)
+    provider = next((item for item in snapshot.get("providers", []) if item.get("id") == provider_id), None)
+    provider_artifacts = [
+        item for item in snapshot.get("artifacts", [])
+        if item.get("providerId") == provider_id
+    ]
+    assertions = {
+        "backendHealthReceiptRecorded": receipt_has_operation_detail(receipts, "backend_health", "backendId", backend_id),
+        "backendStartReceiptRecorded": receipt_has_operation_detail(receipts, "backend_start", "backendId", backend_id),
+        "backendLogsReceiptRecorded": receipt_has_operation_detail(receipts, "backend_logs_read", "backendId", backend_id),
+        "backendStopReceiptRecorded": receipt_has_operation_detail(receipts, "backend_stop", "backendId", backend_id),
+        "backendStartLogRecorded": backend_logs_include(endpoint, backend_id, "backend_start"),
+        "backendStopLogRecorded": backend_logs_include(endpoint, backend_id, "backend_stop"),
+        "backendProjectionUpdated": bool(backend and backend.get("lastReceiptId")),
+        "providerHealthReceiptRecorded": receipt_has_detail(receipts, "provider_health", "providerId", provider_id),
+        "providerModelsReceiptRecorded": receipt_has_operation_detail(receipts, "provider_models_list", "providerId", provider_id),
+        "providerLoadedReceiptRecorded": receipt_has_operation_detail(receipts, "provider_loaded_list", "providerId", provider_id),
+        "providerStartReceiptRecorded": receipt_has_operation_detail(receipts, "provider_start", "providerId", provider_id),
+        "providerStopReceiptRecorded": receipt_has_operation_detail(receipts, "provider_stop", "providerId", provider_id),
+        "providerProjectionUpdated": bool(provider and provider.get("status")),
+        "providerArtifactsVisible": len(provider_artifacts) >= 1,
+        "actionScreenshotsCaptured": all(item.get("screenshot") and not item.get("capture_error") for item in action_screenshots),
+    }
+    return {
+        "passed": all(assertions.values()),
+        "assertions": assertions,
+        "backendId": backend_id,
+        "backendStatus": backend.get("status") if backend else None,
+        "providerId": provider_id,
+        "providerStatus": provider.get("status") if provider else None,
+        "providerArtifactCount": len(provider_artifacts),
+        "screenshots": action_screenshots,
+    }
+
+
 def scan_for_plaintext_secrets(state_dir: Path, token: str) -> dict[str, Any]:
     findings: list[str] = []
     needles = [token, "vault://mcp.huggingface/gui-validation"]
@@ -778,6 +969,7 @@ def main() -> int:
     secret_scan: dict[str, Any] | None = None
     seeded_assertions: dict[str, Any] | None = None
     download_action_assertions: dict[str, Any] | None = None
+    provider_backend_action_assertions: dict[str, Any] | None = None
 
     close_matching_windows(args.window_name)
     terminate_existing_desktop_instances()
@@ -819,6 +1011,13 @@ def main() -> int:
             seed,
         )
         print("[model-mounts-gui] exercised download row actions", flush=True)
+        provider_backend_action_assertions = exercise_provider_backend_actions(
+            window_id,
+            output_root,
+            args.dev_url,
+            daemon_endpoint,
+        )
+        print("[model-mounts-gui] exercised provider and backend controls", flush=True)
         secret_scan = scan_for_plaintext_secrets(state_dir, str(seed.get("token", "")))
         seeded_assertions = seeded_state_assertions(seed, screenshots)
         if any(item.get("capture_error") for item in screenshots):
@@ -834,6 +1033,8 @@ def main() -> int:
             raise RuntimeError("Seeded Mounts GUI state did not cover catalog, failed, canceled, and receipt surfaces.")
         if not download_action_assertions["passed"]:
             raise RuntimeError("Mounts GUI download row actions did not update daemon projection and receipts.")
+        if not provider_backend_action_assertions["passed"]:
+            raise RuntimeError("Mounts GUI provider/backend controls did not update daemon projection and receipts.")
     except Exception as error:
         probe_error = str(error)
         print(f"[model-mounts-gui] error: {probe_error}", file=sys.stderr, flush=True)
@@ -855,6 +1056,7 @@ def main() -> int:
         "secretScan": secret_scan,
         "seededStateAssertions": seeded_assertions,
         "downloadActionAssertions": download_action_assertions,
+        "providerBackendActionAssertions": provider_backend_action_assertions,
         "passed": probe_error is None,
         "probeError": probe_error,
         "desktopLogTail": read_log_tail(desktop_log),

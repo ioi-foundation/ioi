@@ -3582,17 +3582,33 @@ export class ModelMountingState {
       this.artifacts.set(artifact.id, artifact);
     }
     if (models.length > 0) this.writeMap("model-artifacts", this.artifacts);
-    return models.length > 0
+    const resolved = models.length > 0
       ? models
       : this.listArtifacts().filter((artifact) => artifact.providerId === providerId);
+    this.lifecycleReceipt("provider_models_list", {
+      providerId,
+      modelId: provider.label,
+      state: provider.status,
+      modelCount: resolved.length,
+      evidenceRefs: provider.discovery?.evidenceRefs ?? [],
+    });
+    return resolved;
   }
 
   async listProviderLoaded(providerId) {
     const provider = this.provider(providerId);
     const loaded = await this.driverForProvider(provider).listLoaded({ state: this, provider });
-    return loaded.length > 0
+    const resolved = loaded.length > 0
       ? loaded
       : this.listInstances().filter((instance) => instance.providerId === providerId && instance.status === "loaded");
+    this.lifecycleReceipt("provider_loaded_list", {
+      providerId,
+      modelId: provider.label,
+      state: provider.status,
+      loadedCount: resolved.length,
+      evidenceRefs: provider.discovery?.evidenceRefs ?? [],
+    });
+    return resolved;
   }
 
   async startProvider(providerId) {
@@ -5241,7 +5257,15 @@ export class ModelMountingState {
         }
       }
     }
-    return records.sort((left, right) => String(left.createdAt ?? "").localeCompare(String(right.createdAt ?? ""))).slice(-200);
+    const resolved = records.sort((left, right) => String(left.createdAt ?? "").localeCompare(String(right.createdAt ?? ""))).slice(-200);
+    this.lifecycleReceipt("backend_logs_read", {
+      backendId,
+      modelId: this.backend(backendId).label,
+      state: "read",
+      logCount: resolved.length,
+      evidenceRefs: ["backend_log_projection"],
+    });
+    return resolved;
   }
 
   writeBackendLog(endpointId, event) {
