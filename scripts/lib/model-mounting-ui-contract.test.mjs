@@ -126,6 +126,15 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   assert.match(source, /Unload instance/);
   assert.match(source, /Loaded instance/);
   assert.match(source, /Model selection inspector/);
+  assert.match(source, /Selected model detail drawer/);
+  assert.match(source, /ModelDetailDrawer/);
+  assert.match(source, /Artifact metadata/);
+  assert.match(source, /Runtime binding/);
+  assert.match(source, /Lifecycle history/);
+  assert.match(source, /Receipt trail/);
+  assert.match(source, /Close details/);
+  assert.match(source, /model-mounts-detail-drawer/);
+  assert.match(source, /modelSelectionDetails/);
   assert.match(source, /loadPickerSelection/);
   assert.match(source, /unloadInstance/);
   assert.match(source, /model-mounts-picker/);

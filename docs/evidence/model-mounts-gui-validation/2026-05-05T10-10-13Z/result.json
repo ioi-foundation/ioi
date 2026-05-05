@@ -1,0 +1,215 @@
+{
+  "schemaVersion": "ioi.model-mounts-gui-validation.v1",
+  "capturedAt": "2026-05-05T10:10:47.446263+00:00",
+  "windowId": 12582915,
+  "profile": "desktop-localgpu-model-mounts",
+  "daemonEndpoint": "http://127.0.0.1:50801",
+  "stateDir": "/tmp/ioi-model-mounts-gui-state-ml5vlvaq",
+  "seed": {
+    "grant_id": "grant_636be9dc-4c8c-4f86-9d57-009bd7bea241",
+    "backend_health_receipt": "receipt_model_lifecycle_137a0100-e833-429f-8040-f91614fc1123",
+    "download_id": "download_job_2ad917f8-411d-47b0-a863-4376a01ff710",
+    "download_receipt": "receipt_model_lifecycle_1ad5cdff-5cc5-47c4-a51b-5bf95f387100",
+    "mcp_count": 1,
+    "chat_receipt": "receipt_model_invocation_e6513a5c-52a3-4fd0-9e94-ab831cd4c05d",
+    "snapshot_counts": {
+      "backends": 7,
+      "providers": 12,
+      "artifacts": 6,
+      "receipts": 9
+    },
+    "projection_watermark": 14,
+    "live_provider_state": {
+      "backends": {
+        "backend.lmstudio": {
+          "kind": "lm_studio",
+          "status": "available",
+          "processStatus": "external_provider",
+          "baseUrl": "http://127.0.0.1:1234/v1",
+          "lastReceiptId": "receipt_model_lifecycle_93c810dd-fbd7-4527-adde-1d4bbedb774b"
+        },
+        "backend.ollama": {
+          "kind": "ollama",
+          "status": "blocked",
+          "processStatus": "binary_configured",
+          "baseUrl": "http://127.0.0.1:11434",
+          "lastReceiptId": "receipt_model_lifecycle_01e0c036-6788-493f-bbc1-6165b7771ec0"
+        }
+      },
+      "providers": {
+        "provider.lmstudio": {
+          "kind": "lm_studio",
+          "status": "running",
+          "baseUrl": "http://127.0.0.1:1234/v1",
+          "modelCount": 2,
+          "modelIds": [
+            "qwen/qwen3.5-9b",
+            "text-embedding-nomic-embed-text-v1.5"
+          ],
+          "loadedCount": 1,
+          "loadedModelIds": [
+            "qwen/qwen3.5-9b"
+          ]
+        },
+        "provider.ollama": {
+          "kind": "ollama",
+          "status": "available",
+          "baseUrl": "http://127.0.0.1:11434",
+          "modelCount": 6,
+          "modelIds": [
+            "qwen3.5:9b",
+            "qwen3:8b",
+            "qwen2.5:14b",
+            "qwen2.5:7b",
+            "nomic-embed-text:latest",
+            "llama3.2:3b"
+          ],
+          "loadedCount": 0,
+          "loadedModelIds": []
+        }
+      }
+    }
+  },
+  "screenshots": [
+    {
+      "tab": "server",
+      "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T10-10-13Z/mounts-server.png",
+      "capture_mode": "window",
+      "capture_error": null,
+      "capture_diagnostics": {
+        "window_id": 12582915,
+        "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=server&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A50801",
+        "window_analysis": {
+          "unique_colors": 611,
+          "mean": 0.914661,
+          "stddev": 0.0811514
+        }
+      }
+    },
+    {
+      "tab": "backends",
+      "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T10-10-13Z/mounts-backends.png",
+      "capture_mode": "window",
+      "capture_error": null,
+      "capture_diagnostics": {
+        "window_id": 12582915,
+        "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=backends&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A50801",
+        "window_analysis": {
+          "unique_colors": 611,
+          "mean": 0.914679,
+          "stddev": 0.0810645
+        }
+      },
+      "rmse_vs_previous": "789.435 (0.012046)"
+    },
+    {
+      "tab": "models",
+      "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T10-10-13Z/mounts-models.png",
+      "capture_mode": "window",
+      "capture_error": null,
+      "capture_diagnostics": {
+        "window_id": 12582915,
+        "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=models&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A50801",
+        "window_analysis": {
+          "unique_colors": 611,
+          "mean": 0.914696,
+          "stddev": 0.0809916
+        }
+      },
+      "rmse_vs_previous": "723.57 (0.011041)"
+    },
+    {
+      "tab": "providers",
+      "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T10-10-13Z/mounts-providers.png",
+      "capture_mode": "window",
+      "capture_error": null,
+      "capture_diagnostics": {
+        "window_id": 12582915,
+        "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=providers&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A50801",
+        "window_analysis": {
+          "unique_colors": 611,
+          "mean": 0.91468,
+          "stddev": 0.0810607
+        }
+      },
+      "rmse_vs_previous": "723.405 (0.0110385)"
+    },
+    {
+      "tab": "downloads",
+      "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T10-10-13Z/mounts-downloads.png",
+      "capture_mode": "window",
+      "capture_error": null,
+      "capture_diagnostics": {
+        "window_id": 12582915,
+        "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=downloads&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A50801",
+        "window_analysis": {
+          "unique_colors": 611,
+          "mean": 0.914666,
+          "stddev": 0.0811223
+        }
+      },
+      "rmse_vs_previous": "777.801 (0.0118685)"
+    },
+    {
+      "tab": "tokens",
+      "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T10-10-13Z/mounts-tokens.png",
+      "capture_mode": "window",
+      "capture_error": null,
+      "capture_diagnostics": {
+        "window_id": 12582915,
+        "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=tokens&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A50801",
+        "window_analysis": {
+          "unique_colors": 611,
+          "mean": 0.914645,
+          "stddev": 0.081219
+        }
+      },
+      "rmse_vs_previous": "837.52 (0.0127797)"
+    },
+    {
+      "tab": "routing",
+      "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T10-10-13Z/mounts-routing.png",
+      "capture_mode": "window",
+      "capture_error": null,
+      "capture_diagnostics": {
+        "window_id": 12582915,
+        "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=routing&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A50801",
+        "window_analysis": {
+          "unique_colors": 611,
+          "mean": 0.914632,
+          "stddev": 0.0812757
+        }
+      },
+      "rmse_vs_previous": "891.235 (0.0135994)"
+    },
+    {
+      "tab": "logs",
+      "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T10-10-13Z/mounts-logs.png",
+      "capture_mode": "window",
+      "capture_error": null,
+      "capture_diagnostics": {
+        "window_id": 12582915,
+        "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=logs&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A50801",
+        "window_analysis": {
+          "unique_colors": 611,
+          "mean": 0.914636,
+          "stddev": 0.0812622
+        }
+      },
+      "rmse_vs_previous": "903.23 (0.0137824)"
+    }
+  ],
+  "secretScan": {
+    "passed": true,
+    "findings": []
+  },
+  "passed": true,
+  "probeError": null,
+  "desktopLogTail": [
+    "",
+    "> dev:desktop",
+    "> bash apps/autopilot/scripts/dev-desktop.sh x11",
+    "",
+    "Starting isolated Vite dev server on port 1434..."
+  ]
+}
