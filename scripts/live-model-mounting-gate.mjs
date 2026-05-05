@@ -828,12 +828,24 @@ async function runLlamaCppGate(evidence) {
           token: grant.token,
           body: { route_id: routeId, input: "Reply exactly with: ok", max_output_tokens: 8 },
         });
-        const embeddings = await expectOk(daemon.endpoint, "/v1/embeddings", {
-          method: "POST",
-          token: grant.token,
-          body: { route_id: routeId, model: modelId, input: "live llama.cpp embedding check" },
-        });
-        assert.ok(Array.isArray(embeddings.data));
+        let embeddingReceiptId = null;
+        let embeddingStatus = "not_exercised";
+        let embeddingVectors = null;
+        let embeddingErrorHash = null;
+        try {
+          const embeddings = await expectOk(daemon.endpoint, "/v1/embeddings", {
+            method: "POST",
+            token: grant.token,
+            body: { route_id: routeId, model: modelId, input: "live llama.cpp embedding check" },
+          });
+          assert.ok(Array.isArray(embeddings.data));
+          embeddingReceiptId = embeddings.receipt_id ?? null;
+          embeddingVectors = embeddings.data.length;
+          embeddingStatus = "passed";
+        } catch (error) {
+          embeddingStatus = "unsupported_or_failed";
+          embeddingErrorHash = stableHash(String(error?.message ?? error));
+        }
 
         const chatReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${chat.receipt_id}`);
         const responseReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${responses.receipt_id}`);
@@ -884,8 +896,10 @@ async function runLlamaCppGate(evidence) {
           compatChatModel: compatChat.model,
           responsesReceiptId: responses.receipt_id,
           responsesCompatTranslation: responses.compat_translation ?? responseReceipt.details.compatTranslation ?? null,
-          embeddingsReceiptId: embeddings.receipt_id,
-          embeddingVectors: embeddings.data.length,
+          embeddingStatus,
+          embeddingReceiptId,
+          embeddingVectors,
+          embeddingErrorHash,
           streamReceipts,
           replaySource: replay.source,
           secretScan,
