@@ -45,7 +45,7 @@ from desktop_workspace_probe import (
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_OUTPUT_ROOT = PROJECT_ROOT / "docs/evidence/model-mounts-gui-validation"
-WINDOW_WAIT_TIMEOUT_SECS = 90.0
+WINDOW_WAIT_TIMEOUT_SECS = 240.0
 POST_WINDOW_SETTLE_SECS = 8.0
 TAB_SETTLE_SECS = 1.2
 CAPTURE_RETRY_INTERVAL_SECS = 1.5

@@ -49,7 +49,8 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   assert.match(source, /backend\.llama-cpp/);
   assert.match(source, /route\.native-local/);
   assert.match(source, /Probe native backend/);
-  assert.match(source, /Start fixture/);
+  assert.match(source, /Start native/);
+  assert.match(source, /Stop native/);
   assert.match(source, /Load native-local/);
   assert.match(source, /Download fixture/);
   assert.match(source, /Ephemeral MCP probe/);
