@@ -284,6 +284,27 @@ interface RuntimeEnginePreview {
   selected: boolean;
   modelFormat: string;
   source: string;
+  processStatus: string;
+  profileConfigured: boolean;
+  profileDisabled: boolean;
+  priority: string;
+  defaultLoadOptions: string;
+  defaultGpu: string;
+  defaultContext: string;
+  defaultParallel: string;
+  defaultTtl: string;
+  defaultIdentifier: string;
+  profileReceipt: string;
+}
+
+interface RuntimeEngineProfileDraft {
+  label: string;
+  priority: string;
+  gpu: string;
+  contextLength: string;
+  parallel: string;
+  ttlSeconds: string;
+  identifier: string;
 }
 
 interface RuntimeSurveyPreview {
@@ -872,8 +893,58 @@ function runtimeEngine(
   selected: boolean,
   modelFormat: string,
   source: string,
+  processStatus = "unknown",
+  operatorProfile: any = null,
 ): RuntimeEnginePreview {
-  return { id, label, kind, status, selected, modelFormat, source };
+  const defaults = operatorProfile?.defaultLoadOptions ?? {};
+  const defaultGpu = stringValue(defaults.gpu, "");
+  const defaultContext = defaults.contextLength === undefined || defaults.contextLength === null ? "" : String(defaults.contextLength);
+  const defaultParallel = defaults.parallel === undefined || defaults.parallel === null ? "" : String(defaults.parallel);
+  const defaultTtl = defaults.ttlSeconds === undefined || defaults.ttlSeconds === null ? "" : String(defaults.ttlSeconds);
+  const defaultIdentifier = stringValue(defaults.identifier, "");
+  return {
+    id,
+    label,
+    kind,
+    status,
+    selected,
+    modelFormat,
+    source,
+    processStatus,
+    profileConfigured: Boolean(operatorProfile?.configured),
+    profileDisabled: Boolean(operatorProfile?.disabled),
+    priority: operatorProfile?.priority === undefined || operatorProfile?.priority === null ? "default" : String(operatorProfile.priority),
+    defaultLoadOptions: runtimeDefaultSummary({ defaultGpu, defaultContext, defaultParallel, defaultTtl, defaultIdentifier }),
+    defaultGpu,
+    defaultContext,
+    defaultParallel,
+    defaultTtl,
+    defaultIdentifier,
+    profileReceipt: stringValue(operatorProfile?.receiptId, "none"),
+  };
+}
+
+function runtimeDefaultSummary({
+  defaultGpu,
+  defaultContext,
+  defaultParallel,
+  defaultTtl,
+  defaultIdentifier,
+}: {
+  defaultGpu: string;
+  defaultContext: string;
+  defaultParallel: string;
+  defaultTtl: string;
+  defaultIdentifier: string;
+}) {
+  const parts = [
+    defaultGpu ? `gpu ${defaultGpu}` : "",
+    defaultContext ? `ctx ${defaultContext}` : "",
+    defaultParallel ? `parallel ${defaultParallel}` : "",
+    defaultTtl ? `ttl ${defaultTtl}s` : "",
+    defaultIdentifier ? `id ${defaultIdentifier}` : "",
+  ].filter(Boolean);
+  return parts.join(" / ") || "runtime defaults";
 }
 
 function route(
@@ -1159,6 +1230,7 @@ function backendGuard(backend: BackendPreview | undefined, allowStart = false) {
 }
 
 function runtimeEngineGuard(engine: RuntimeEnginePreview) {
+  if (engine.profileDisabled) return guardBlocked("engine disabled", `${engine.label} is disabled by its runtime profile.`);
   if (engine.selected) return guardWarn("already selected", `${engine.label} is already selected.`, true);
   if (isBlockedStatus(engine.status)) return guardBlocked("engine blocked", `${engine.label} is ${engine.status}.`);
   if (isDegradedStatus(engine.status)) return guardWarn("engine degraded", `${engine.label} is ${engine.status}.`);
@@ -1917,6 +1989,33 @@ function useModelMountsDaemon() {
           });
           return `${stringValue(selection?.selectedEngineId, engineId)} selected for subsequent loads.`;
         }),
+      updateRuntimeEngine: (engineId: string, draft: RuntimeEngineProfileDraft & { disabled?: boolean }) =>
+        runAction("runtime-engine-update", async () => {
+          const body: any = {
+            label: draft.label || undefined,
+            priority: draft.priority || undefined,
+            disabled: draft.disabled,
+            defaultLoadOptions: {
+              gpu: draft.gpu || undefined,
+              contextLength: draft.contextLength || undefined,
+              parallel: draft.parallel || undefined,
+              ttlSeconds: draft.ttlSeconds || undefined,
+              identifier: draft.identifier || undefined,
+            },
+          };
+          const result = await requestJson(`/api/v1/runtime/engines/${encodeURIComponent(engineId)}`, {
+            method: "PATCH",
+            body,
+          });
+          return `${stringValue(result?.engine?.label, engineId)} runtime profile updated; receipt ${stringValue(result?.receiptId, "none")}.`;
+        }),
+      forgetRuntimeEngine: (engineId: string) =>
+        runAction("runtime-engine-remove", async () => {
+          const result = await requestJson(`/api/v1/runtime/engines/${encodeURIComponent(engineId)}`, {
+            method: "DELETE",
+          });
+          return `${engineId} runtime profile ${result?.removed ? "forgotten" : "was already clear"}; receipt ${stringValue(result?.receiptId, "none")}.`;
+        }),
       loadModelWithOptions: (draft: ModelLoadDraft) =>
         runAction(draft.estimateOnly ? "load-estimate" : "load-options", async () => {
           const token = await ensureToken();
@@ -2111,6 +2210,8 @@ function normalizeSnapshot(snapshot: any, endpoint: string): MountsWorkbenchData
       Boolean(item.selected),
       stringValue(item.modelFormat, "unknown"),
       stringValue(item.source, "runtime_engine_registry"),
+      stringValue(item.processStatus, "unknown"),
+      item.operatorProfile,
     ),
   );
   const endpoints = arrayOf(snapshot?.endpoints).map((item) => ({
@@ -3023,6 +3124,18 @@ function HealthSummaryStrip({ summary }: { summary: HealthSummaryPreview }) {
   );
 }
 
+function draftFromRuntimeEngine(engine?: RuntimeEnginePreview): RuntimeEngineProfileDraft {
+  return {
+    label: engine?.label ?? "",
+    priority: engine?.priority === "default" ? "" : engine?.priority ?? "",
+    gpu: engine?.defaultGpu ?? "",
+    contextLength: engine?.defaultContext ?? "",
+    parallel: engine?.defaultParallel ?? "",
+    ttlSeconds: engine?.defaultTtl ?? "",
+    identifier: engine?.defaultIdentifier ?? "",
+  };
+}
+
 function BackendsPanel({
   data,
   backends,
@@ -3035,6 +3148,8 @@ function BackendsPanel({
   onStopNativeBackend,
   onRunRuntimeSurvey,
   onSelectRuntimeEngine,
+  onUpdateRuntimeEngine,
+  onForgetRuntimeEngine,
   busy,
 }: {
   data: MountsWorkbenchData;
@@ -3048,9 +3163,19 @@ function BackendsPanel({
   onStopNativeBackend: () => void;
   onRunRuntimeSurvey: () => void;
   onSelectRuntimeEngine: (engineId: string) => void;
+  onUpdateRuntimeEngine: (engineId: string, draft: RuntimeEngineProfileDraft & { disabled?: boolean }) => void;
+  onForgetRuntimeEngine: (engineId: string) => void;
   busy: boolean;
 }) {
   const nativeBackend = backends.find((backendItem) => backendItem.id === "backend.autopilot.native-local.fixture") ?? backends[0];
+  const selectedEngine = runtimeEngines.find((engine) => engine.selected) ?? runtimeEngines[0];
+  const [engineDraft, setEngineDraft] = useState<RuntimeEngineProfileDraft>(() => draftFromRuntimeEngine(selectedEngine));
+  useEffect(() => {
+    setEngineDraft(draftFromRuntimeEngine(selectedEngine));
+  }, [selectedEngine?.id, selectedEngine?.profileReceipt]);
+  const updateEngineDraft = (field: keyof RuntimeEngineProfileDraft, value: string) => {
+    setEngineDraft((current) => ({ ...current, [field]: value }));
+  };
   const backendStartGuard = combineGuards(
     connectionActionGuard(connectionState, "backend start"),
     tokenScopeGuard(data, hasSessionToken, "backend.control:*"),
@@ -3062,6 +3187,7 @@ function BackendsPanel({
     nativeBackend ? guardReady("backend selected", `${nativeBackend.label} can receive stop.`) : guardBlocked("backend missing", "No native backend is selected."),
   );
   const runtimeSurveyGuard = connectionActionGuard(connectionState, "runtime survey");
+  const runtimeUpdateGuard = connectionActionGuard(connectionState, "runtime profile");
   return (
     <section className="model-mounts-panel" aria-labelledby="model-mounts-backends-title">
       <div className="model-mounts-panel-head">
@@ -3115,14 +3241,66 @@ function BackendsPanel({
             <strong>{runtimeSurvey.checkedAt}</strong>
           </div>
         </div>
+        {selectedEngine ? (
+          <form
+            className="model-mounts-provider-editor"
+            aria-label="Runtime engine profile editor"
+            onSubmit={(event) => {
+              event.preventDefault();
+              onUpdateRuntimeEngine(selectedEngine.id, engineDraft);
+            }}
+          >
+            <div className="model-mounts-provider-editor-grid">
+              <label>
+                <span>Engine label</span>
+                <input value={engineDraft.label} onChange={(event) => updateEngineDraft("label", event.target.value)} />
+              </label>
+              <label>
+                <span>Priority</span>
+                <input value={engineDraft.priority} onChange={(event) => updateEngineDraft("priority", event.target.value)} inputMode="numeric" />
+              </label>
+              <label>
+                <span>Default GPU</span>
+                <input value={engineDraft.gpu} onChange={(event) => updateEngineDraft("gpu", event.target.value)} placeholder="auto, off, cuda" />
+              </label>
+              <label>
+                <span>Context</span>
+                <input value={engineDraft.contextLength} onChange={(event) => updateEngineDraft("contextLength", event.target.value)} inputMode="numeric" />
+              </label>
+              <label>
+                <span>Parallel</span>
+                <input value={engineDraft.parallel} onChange={(event) => updateEngineDraft("parallel", event.target.value)} inputMode="numeric" />
+              </label>
+              <label>
+                <span>TTL seconds</span>
+                <input value={engineDraft.ttlSeconds} onChange={(event) => updateEngineDraft("ttlSeconds", event.target.value)} inputMode="numeric" />
+              </label>
+              <label>
+                <span>Identifier</span>
+                <input value={engineDraft.identifier} onChange={(event) => updateEngineDraft("identifier", event.target.value)} />
+              </label>
+            </div>
+            <div className="model-mounts-actions">
+              <StatusPill tone={selectedEngine.profileConfigured ? "ready" : "muted"}>{selectedEngine.profileConfigured ? "profile configured" : "default profile"}</StatusPill>
+              <StatusPill tone={selectedEngine.profileDisabled ? "blocked" : "ready"}>{selectedEngine.profileDisabled ? "disabled" : "enabled"}</StatusPill>
+              <ActionButton type="submit" disabled={busy} guard={runtimeUpdateGuard}>Save engine profile</ActionButton>
+              <ActionButton onClick={() => onUpdateRuntimeEngine(selectedEngine.id, { ...engineDraft, disabled: !selectedEngine.profileDisabled })} disabled={busy} guard={runtimeUpdateGuard}>
+                {selectedEngine.profileDisabled ? "Enable" : "Disable"}
+              </ActionButton>
+              <ActionButton onClick={() => onForgetRuntimeEngine(selectedEngine.id)} disabled={busy || !selectedEngine.profileConfigured} guard={runtimeUpdateGuard}>Forget profile</ActionButton>
+            </div>
+          </form>
+        ) : null}
         <div className="model-mounts-list">
           {runtimeEngines.map((engine) => (
             <article key={engine.id} className="model-mounts-compact-row">
               <div>
                 <strong>{engine.label}</strong>
                 <span>{engine.kind} / {engine.modelFormat} / {engine.source}</span>
+                <span>{engine.processStatus} / priority {engine.priority} / {engine.defaultLoadOptions}</span>
               </div>
               <StatusPill tone={engine.selected ? "ready" : toneForStatus(engine.status)}>{engine.selected ? "selected" : engine.status}</StatusPill>
+              {engine.profileConfigured ? <StatusPill tone={engine.profileDisabled ? "blocked" : "muted"}>profile</StatusPill> : null}
               <ActionButton onClick={() => onSelectRuntimeEngine(engine.id)} disabled={busy || engine.selected} guard={combineGuards(connectionActionGuard(connectionState, "runtime select"), runtimeEngineGuard(engine))}>Select</ActionButton>
             </article>
           ))}
@@ -4614,6 +4792,8 @@ export function MissionControlMountsView() {
             onStopNativeBackend={daemon.actions.stopNativeBackend}
             onRunRuntimeSurvey={daemon.actions.runRuntimeSurvey}
             onSelectRuntimeEngine={daemon.actions.selectRuntimeEngine}
+            onUpdateRuntimeEngine={daemon.actions.updateRuntimeEngine}
+            onForgetRuntimeEngine={daemon.actions.forgetRuntimeEngine}
             busy={busy}
           />
         ) : null}

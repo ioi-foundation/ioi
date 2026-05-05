@@ -29,6 +29,7 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
     "/api/v1/models/storage/cleanup",
     "/api/v1/models/:id",
     "/api/v1/runtime/engines",
+    "/api/v1/runtime/engines/",
     "/api/v1/runtime/survey",
     "/api/v1/runtime/select",
     "/api/v1/backends/:id/health",
@@ -137,6 +138,11 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   assert.match(source, /Run runtime survey/);
   assert.match(source, /runRuntimeSurvey/);
   assert.match(source, /selectRuntimeEngine/);
+  assert.match(source, /updateRuntimeEngine/);
+  assert.match(source, /forgetRuntimeEngine/);
+  assert.match(source, /Runtime engine profile editor/);
+  assert.match(source, /Save engine profile/);
+  assert.match(source, /Forget profile/);
   assert.match(source, /Load with options/);
   assert.match(source, /Estimate load/);
   assert.match(source, /Quick model picker/);
@@ -365,8 +371,13 @@ test("model mounting CLI exposes vault-backed provider configuration flags", () 
     "Health",
     "Survey",
     "Select",
+    "Engines",
+    "EngineGet",
+    "EngineUpdate",
+    "EngineRemove",
     "/api/v1/runtime/survey",
     "/api/v1/runtime/select",
+    "/api/v1/runtime/engines",
     "/api/v1/server/restart",
     "/api/v1/server/logs",
     "/api/v1/server/events",

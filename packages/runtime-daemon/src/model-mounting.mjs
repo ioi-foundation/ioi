@@ -23,6 +23,7 @@ class AgentgresModelMountingStore {
       "model-backends",
       "model-downloads",
       "runtime-preferences",
+      "runtime-engine-profiles",
       "provider-health",
       "models",
       "backend-logs",
@@ -1223,6 +1224,7 @@ export class ModelMountingState {
     this.routes = new Map();
     this.downloads = new Map();
     this.runtimeSelections = new Map();
+    this.runtimeEngineProfiles = new Map();
     this.tokens = new Map();
     this.vaultRefs = new Map();
     this.mcpServers = new Map();
@@ -1271,7 +1273,8 @@ export class ModelMountingState {
       ],
       providerHealth: ["id", "providerId", "status", "checkedAt", "receiptId", "failureCode", "evidenceRefs"],
       runtimeEngines: ["id", "kind", "label", "status", "selected", "modelFormat", "source"],
-      runtimePreferences: ["id", "selectedEngineId", "selectedAt", "receiptId"],
+      runtimeEngineProfiles: ["id", "engineId", "disabled", "priority", "defaultLoadOptions", "receiptId"],
+      runtimePreferences: ["id", "selectedEngineId", "selectedAt", "receiptId", "defaultLoadOptions"],
       modelCatalogEntries: ["id", "providerId", "modelId", "format", "quantization", "sourceUrlHash", "license"],
       modelDownloads: ["id", "artifactId", "status", "source", "progress", "bytesTotal", "bytesCompleted", "targetPath"],
       modelCatalogProviders: ["id", "status", "gate", "formats", "baseUrlHash", "evidenceRefs"],
@@ -1292,6 +1295,7 @@ export class ModelMountingState {
     this.loadMap("model-routes", this.routes);
     this.loadMap("model-downloads", this.downloads);
     this.loadMap("runtime-preferences", this.runtimeSelections);
+    this.loadMap("runtime-engine-profiles", this.runtimeEngineProfiles);
     this.loadMap("tokens", this.tokens);
     this.loadMap("vault-refs", this.vaultRefs);
     this.loadMap("mcp-servers", this.mcpServers);
@@ -1657,6 +1661,7 @@ export class ModelMountingState {
     this.writeMap("model-routes", this.routes);
     this.writeMap("model-downloads", this.downloads);
     this.writeMap("runtime-preferences", this.runtimeSelections);
+    this.writeMap("runtime-engine-profiles", this.runtimeEngineProfiles);
     this.writeMap("tokens", this.tokens);
     this.writeVaultRefs();
     this.writeMap("mcp-servers", this.mcpServers);
@@ -1940,6 +1945,7 @@ export class ModelMountingState {
       downloads: this.listDownloads(),
       providerHealth: this.listProviderHealth(),
       runtimeEngines: this.listRuntimeEngines(),
+      runtimeEngineProfiles: this.listRuntimeEngineProfiles(),
       runtimePreference: this.runtimePreference(),
       runtimeSurvey: this.latestRuntimeSurvey(),
       tokens: this.listTokens(),
@@ -1979,6 +1985,7 @@ export class ModelMountingState {
       downloads: this.listDownloads(),
       providerHealth: this.listProviderHealth(),
       runtimeEngines: this.listRuntimeEngines(),
+      runtimeEngineProfiles: this.listRuntimeEngineProfiles(),
       runtimePreference: this.runtimePreference(),
       runtimeSurvey: this.latestRuntimeSurvey(),
       grants: this.listTokens(),
@@ -2431,9 +2438,17 @@ export class ModelMountingState {
     const endpoint = this.resolveEndpoint(body.endpoint_id ?? body.endpointId, body.model_id ?? body.modelId);
     const provider = this.provider(endpoint.providerId);
     const loadPolicy = normalizeLoadPolicy(body.load_policy ?? body.loadPolicy ?? endpoint.loadPolicy);
-    const loadOptions = normalizeLoadOptions(body.load_options ?? body.loadOptions ?? body, loadPolicy);
-    if (loadOptions.ttlSeconds !== null) loadPolicy.idleTtlSeconds = loadOptions.ttlSeconds;
     const runtimePreference = this.runtimePreference();
+    const requestLoadOptions = body.load_options ?? body.loadOptions ?? {};
+    const runtimeDefaults = { ...this.runtimeDefaultLoadOptions(runtimePreference.selectedEngineId) };
+    if ((body.load_policy ?? body.loadPolicy) && !hasExplicitTtlOption(body) && !hasExplicitTtlOption(requestLoadOptions)) {
+      delete runtimeDefaults.ttlSeconds;
+    }
+    const loadOptions = normalizeLoadOptions(
+      { ...runtimeDefaults, ...body, ...requestLoadOptions },
+      loadPolicy,
+    );
+    if (loadOptions.ttlSeconds !== null) loadPolicy.idleTtlSeconds = loadOptions.ttlSeconds;
     const estimate = this.loadEstimate(endpoint, loadOptions, runtimePreference);
     if (loadOptions.estimateOnly) {
       const receipt = this.lifecycleReceipt("model_load_estimate", {
@@ -2442,6 +2457,7 @@ export class ModelMountingState {
         providerId: endpoint.providerId,
         backendId: endpoint.backendId ?? defaultBackendForProvider(provider),
         runtimeEngineId: runtimePreference.selectedEngineId,
+        runtimeEngineProfile: this.runtimeEngineProfile(runtimePreference.selectedEngineId) ?? null,
         loadPolicy,
         loadOptions,
         estimate,
@@ -2454,6 +2470,7 @@ export class ModelMountingState {
         providerId: endpoint.providerId,
         backendId: endpoint.backendId ?? defaultBackendForProvider(provider),
         runtimeEngineId: runtimePreference.selectedEngineId,
+        runtimeEngineProfile: this.runtimeEngineProfile(runtimePreference.selectedEngineId) ?? null,
         loadPolicy,
         loadOptions,
         estimate,
@@ -2479,6 +2496,7 @@ export class ModelMountingState {
       loadPolicy,
       loadOptions,
       runtimeEngineId: runtimePreference.selectedEngineId,
+      runtimeEngineProfile: this.runtimeEngineProfile(runtimePreference.selectedEngineId) ?? null,
       identifier: loadOptions.identifier ?? null,
       contextLength: loadOptions.contextLength ?? endpoint.contextWindow ?? null,
       parallelism: loadOptions.parallel ?? null,
@@ -3955,15 +3973,45 @@ export class ModelMountingState {
   }
 
   runtimePreference() {
-    return (
+    const preference =
       this.runtimeSelections.get("default") ?? {
         id: "default",
         selectedEngineId: "backend.autopilot.native-local.fixture",
         selectedAt: null,
         receiptId: "none",
         source: "default_native_local_runtime",
-      }
-    );
+      };
+    return {
+      ...preference,
+      defaultLoadOptions: this.runtimeDefaultLoadOptions(preference.selectedEngineId),
+    };
+  }
+
+  runtimeEngineProfile(engineId) {
+    return this.runtimeEngineProfiles.get(engineId) ?? null;
+  }
+
+  listRuntimeEngineProfiles() {
+    return [...this.runtimeEngineProfiles.values()].sort((left, right) => left.id.localeCompare(right.id));
+  }
+
+  runtimeDefaultLoadOptions(engineId) {
+    const profile = this.runtimeEngineProfile(engineId);
+    return profile?.defaultLoadOptions ?? {};
+  }
+
+  runtimeEngine(engineId) {
+    const engine = this.listRuntimeEngines().find((item) => item.id === engineId);
+    if (!engine) throw notFound(`Runtime engine not found: ${engineId}`, { engineId });
+    return {
+      ...engine,
+      profile: this.runtimeEngineProfile(engineId),
+      preference: this.runtimePreference().selectedEngineId === engineId ? this.runtimePreference() : null,
+      loadedInstances: this.listInstances().filter((instance) => instance.runtimeEngineId === engineId || instance.backendId === engineId),
+      latestReceipts: this.listReceipts()
+        .filter((receipt) => receipt.details?.runtimeEngineId === engineId || receipt.details?.engineId === engineId || receipt.details?.backendId === engineId)
+        .slice(-8),
+    };
   }
 
   selectRuntimeEngine(body = {}) {
@@ -3972,12 +4020,21 @@ export class ModelMountingState {
     const engines = this.listRuntimeEngines();
     const engine = engines.find((item) => item.id === engineId);
     if (!engine) throw notFound(`Runtime engine not found: ${engineId}`, { engineId });
+    if (engine.operatorProfile?.disabled) {
+      throw runtimeError({
+        status: 409,
+        code: "runtime_engine_disabled",
+        message: "Runtime engine is disabled by its operator profile.",
+        details: { engineId, receiptId: engine.operatorProfile.receiptId ?? null },
+      });
+    }
     const receipt = this.lifecycleReceipt("runtime_engine_select", {
       engineId,
       engineKind: engine.kind,
       engineStatus: engine.status,
       source: engine.source,
       modelFormat: engine.modelFormat,
+      defaultLoadOptions: engine.operatorProfile?.defaultLoadOptions ?? {},
       checkedAt,
     });
     const preference = {
@@ -3989,6 +4046,7 @@ export class ModelMountingState {
       engineKind: engine.kind,
       engineLabel: engine.label,
       modelFormat: engine.modelFormat,
+      defaultLoadOptions: engine.operatorProfile?.defaultLoadOptions ?? {},
     };
     this.runtimeSelections.set(preference.id, preference);
     this.writeMap("runtime-preferences", this.runtimeSelections);
@@ -3996,6 +4054,97 @@ export class ModelMountingState {
     return {
       schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
       ...preference,
+    };
+  }
+
+  updateRuntimeEngine(engineId, body = {}) {
+    const engine = this.runtimeEngine(engineId);
+    const now = this.nowIso();
+    const existing = this.runtimeEngineProfile(engineId) ?? {};
+    const disabledValue = body.disabled ?? body.disable ?? existing.disabled ?? false;
+    const defaultLoadOptions = normalizeRuntimeEngineDefaultLoadOptions(
+      body.default_load_options ?? body.defaultLoadOptions ?? body.load_options ?? body.loadOptions ?? existing.defaultLoadOptions ?? {},
+    );
+    const receipt = this.lifecycleReceipt("runtime_engine_update", {
+      engineId,
+      engineKind: engine.kind,
+      previousProfileHash: stableHash(existing),
+      disabled: Boolean(disabledValue),
+      priority: body.priority ?? existing.priority ?? null,
+      defaultLoadOptions,
+      evidenceRefs: ["operator_runtime_engine_profile", "runtime_engine_default_load_options"],
+    });
+    const profile = {
+      id: engineId,
+      engineId,
+      label: body.label ?? body.operator_label ?? body.operatorLabel ?? existing.label ?? null,
+      disabled: Boolean(disabledValue),
+      priority: body.priority === undefined || body.priority === null || body.priority === ""
+        ? existing.priority ?? null
+        : Number(body.priority),
+      defaultLoadOptions,
+      updatedAt: now,
+      receiptId: receipt.id,
+      source: "operator_runtime_engine_profile",
+    };
+    this.runtimeEngineProfiles.set(engineId, profile);
+    this.writeMap("runtime-engine-profiles", this.runtimeEngineProfiles);
+    if (profile.disabled && this.runtimePreference().selectedEngineId === engineId) {
+      this.runtimeSelections.set("default", {
+        id: "default",
+        selectedEngineId: "backend.autopilot.native-local.fixture",
+        selectedAt: now,
+        receiptId: receipt.id,
+        source: "operator_runtime_disable_reset",
+        engineKind: "native_local",
+        engineLabel: "Autopilot native-local fixture",
+        modelFormat: "gguf,fixture",
+        defaultLoadOptions: this.runtimeDefaultLoadOptions("backend.autopilot.native-local.fixture"),
+      });
+      this.writeMap("runtime-preferences", this.runtimeSelections);
+    }
+    this.writeProjection();
+    return {
+      schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
+      profile,
+      engine: this.runtimeEngine(engineId),
+      receiptId: receipt.id,
+    };
+  }
+
+  removeRuntimeEngineOverride(engineId) {
+    this.runtimeEngine(engineId);
+    const existing = this.runtimeEngineProfile(engineId);
+    const receipt = this.lifecycleReceipt("runtime_engine_profile_remove", {
+      engineId,
+      hadProfile: Boolean(existing),
+      previousProfileHash: stableHash(existing ?? {}),
+      evidenceRefs: ["operator_runtime_engine_profile_remove"],
+    });
+    this.runtimeEngineProfiles.delete(engineId);
+    fs.rmSync(path.join(this.stateDir, "runtime-engine-profiles", `${safeFileName(engineId)}.json`), { force: true });
+    this.writeMap("runtime-engine-profiles", this.runtimeEngineProfiles);
+    if (this.runtimePreference().selectedEngineId === engineId && existing?.disabled) {
+      this.runtimeSelections.set("default", {
+        id: "default",
+        selectedEngineId: "backend.autopilot.native-local.fixture",
+        selectedAt: this.nowIso(),
+        receiptId: receipt.id,
+        source: "operator_runtime_profile_remove_reset",
+        engineKind: "native_local",
+        engineLabel: "Autopilot native-local fixture",
+        modelFormat: "gguf,fixture",
+        defaultLoadOptions: this.runtimeDefaultLoadOptions("backend.autopilot.native-local.fixture"),
+      });
+      this.writeMap("runtime-preferences", this.runtimeSelections);
+    }
+    this.writeProjection();
+    return {
+      schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
+      engineId,
+      removed: Boolean(existing),
+      engine: this.runtimeEngine(engineId),
+      receiptId: receipt.id,
     };
   }
 
@@ -4019,12 +4168,49 @@ export class ModelMountingState {
       processStatus: backend.processStatus ?? "unknown",
       checkedAt,
       evidenceRefs: backend.evidenceRefs ?? [],
-    }));
+    })).map((engine) => this.applyRuntimeEngineProfile(engine));
     const lmStudioEngines = this.lmStudioRuntimeEngines(checkedAt).map((engine) => ({
       ...engine,
       selected: runtimePreference.selectedEngineId === engine.id || (!hasExplicitPreference && engine.selected),
-    }));
-    return [...backendEngines, ...lmStudioEngines].sort((left, right) => left.id.localeCompare(right.id));
+    })).map((engine) => this.applyRuntimeEngineProfile(engine));
+    return [...backendEngines, ...lmStudioEngines].sort((left, right) => {
+      const leftPriority = left.operatorProfile?.priority ?? 1000;
+      const rightPriority = right.operatorProfile?.priority ?? 1000;
+      if (leftPriority !== rightPriority) return leftPriority - rightPriority;
+      return left.id.localeCompare(right.id);
+    });
+  }
+
+  applyRuntimeEngineProfile(engine) {
+    const profile = this.runtimeEngineProfile(engine.id);
+    if (!profile) {
+      return {
+        ...engine,
+        operatorProfile: {
+          configured: false,
+          disabled: false,
+          priority: null,
+          defaultLoadOptions: {},
+          receiptId: null,
+        },
+      };
+    }
+    const disabled = Boolean(profile.disabled);
+    return {
+      ...engine,
+      label: profile.label || engine.label,
+      status: disabled ? "disabled" : engine.status,
+      selected: disabled ? false : engine.selected,
+      operatorProfile: {
+        configured: true,
+        disabled,
+        priority: profile.priority ?? null,
+        defaultLoadOptions: profile.defaultLoadOptions ?? {},
+        updatedAt: profile.updatedAt ?? null,
+        receiptId: profile.receiptId ?? null,
+        source: profile.source ?? "operator_runtime_engine_profile",
+      },
+    };
   }
 
   runtimeSurvey() {
@@ -4709,6 +4895,28 @@ function normalizeLoadOptions(value = {}, loadPolicy = {}) {
     ttlSeconds: ttl === null || ttl === undefined || ttl === "" ? null : Number(ttl),
     identifier: identifier === null || identifier === undefined || identifier === "" ? null : String(identifier),
   };
+}
+
+function normalizeRuntimeEngineDefaultLoadOptions(value = {}) {
+  const normalized = normalizeLoadOptions(value, {});
+  const defaults = {};
+  if (normalized.gpu !== null) defaults.gpu = normalized.gpu;
+  if (normalized.contextLength !== null) defaults.contextLength = normalized.contextLength;
+  if (normalized.parallel !== null) defaults.parallel = normalized.parallel;
+  if (normalized.ttlSeconds !== null) defaults.ttlSeconds = normalized.ttlSeconds;
+  if (normalized.identifier !== null) defaults.identifier = normalized.identifier;
+  return defaults;
+}
+
+function hasExplicitTtlOption(value = {}) {
+  if (!value || typeof value !== "object") return false;
+  return (
+    value.ttl_seconds !== undefined ||
+    value.ttlSeconds !== undefined ||
+    value.ttl !== undefined ||
+    value.idle_ttl_seconds !== undefined ||
+    value.idleTtlSeconds !== undefined
+  );
 }
 
 function lmStudioLoadOptionArgs(loadOptions = {}) {
