@@ -827,9 +827,26 @@ class NativeLocalModelProviderDriver {
       processId: processRecord?.id ?? null,
       pidHash: processRecord?.pidHash ?? null,
     });
+    const streamHandle = jsonLineReadableStream(nativeLocalStreamRecords(outputText, tokenCount), {
+      delayMs: providerStreamFrameDelayMs(),
+      onAbort: (reason) => {
+        state.writeBackendLog(endpoint.id, {
+          backendId,
+          event: "stream_abort",
+          modelId: endpoint.modelId,
+          kind,
+          reason,
+          inputHash: stableHash(input),
+          outputHash: stableHash(outputText),
+          backend: "autopilot.native_local.fixture",
+          processId: processRecord?.id ?? null,
+          pidHash: processRecord?.pidHash ?? null,
+        });
+      },
+    });
     return {
-      stream: jsonLineReadableStream(nativeLocalStreamRecords(outputText, tokenCount)),
-      abort: () => {},
+      stream: streamHandle.stream,
+      abort: () => streamHandle.abort("client_disconnect"),
       status: 200,
       streamFormat: "ioi_jsonl",
       streamKind: kind === "responses" ? "openai_responses_native_local" : "openai_chat_completions_native_local",
@@ -6534,16 +6551,82 @@ function nativeLocalStreamRecords(outputText, tokenCount) {
   ];
 }
 
-function jsonLineReadableStream(records) {
+function jsonLineReadableStream(records, { delayMs = 0, onAbort = null } = {}) {
   const encoder = new TextEncoder();
-  return new ReadableStream({
+  const chunks = records.map((record) => encoder.encode(`${JSON.stringify(record)}\n`));
+  let controllerRef = null;
+  let timer = null;
+  let closed = false;
+  let abortRecorded = false;
+  const clearTimer = () => {
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+  };
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    clearTimer();
+    try {
+      controllerRef?.close();
+    } catch {
+      // The consumer may already have canceled the stream.
+    }
+  };
+  const abort = (reason = "aborted") => {
+    if (closed) return;
+    if (!abortRecorded) {
+      abortRecorded = true;
+      onAbort?.(String(reason));
+    }
+    close();
+  };
+  const stream = new ReadableStream({
     start(controller) {
-      for (const record of records) {
-        controller.enqueue(encoder.encode(`${JSON.stringify(record)}\n`));
+      controllerRef = controller;
+      if (delayMs <= 0) {
+        for (const chunk of chunks) {
+          controller.enqueue(chunk);
+        }
+        close();
+        return;
       }
-      controller.close();
+      let index = 0;
+      const pump = () => {
+        if (closed) return;
+        if (index >= chunks.length) {
+          close();
+          return;
+        }
+        try {
+          controller.enqueue(chunks[index]);
+        } catch {
+          abort("enqueue_failed");
+          return;
+        }
+        index += 1;
+        if (index >= chunks.length) {
+          close();
+          return;
+        }
+        timer = setTimeout(pump, delayMs);
+      };
+      timer = setTimeout(pump, delayMs);
+    },
+    cancel(reason) {
+      abort(reason ?? "consumer_cancel");
     },
   });
+  return { stream, abort };
+}
+
+function providerStreamFrameDelayMs() {
+  const configured = Number(
+    process.env.IOI_DETERMINISTIC_PROVIDER_STREAM_DELAY_MS ?? process.env.IOI_DETERMINISTIC_SSE_FRAME_DELAY_MS ?? "",
+  );
+  if (Number.isFinite(configured) && configured >= 0) return Math.min(configured, 1000);
+  return 0;
 }
 
 function estimateTokens(input, output) {
