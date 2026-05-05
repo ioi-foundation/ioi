@@ -2444,6 +2444,15 @@ function writeJsonResponse(response, value, status = 200) {
 }
 
 function writeError(response, error) {
+  if (response.destroyed || response.writableEnded) return;
+  if (response.headersSent) {
+    try {
+      response.end();
+    } catch {
+      // Streaming clients may disconnect while the handler is unwinding.
+    }
+    return;
+  }
   const status = error?.status ?? 500;
   response.statusCode = status;
   response.setHeader("content-type", "application/json");
