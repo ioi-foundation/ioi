@@ -80,6 +80,12 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   assert.match(source, /Catalog variants/);
   assert.match(source, /Import selected/);
   assert.match(source, /Download selected/);
+  assert.match(source, /onCancelDownload/);
+  assert.match(source, /onRetryDownload/);
+  assert.match(source, /onOpenReceipt/);
+  assert.match(source, /retryDownloadPayload/);
+  assert.match(source, /Open receipt/);
+  assert.match(source, /focusReceiptId/);
   assert.match(source, /catalogVariantPayload/);
   assert.match(source, /max_bytes/);
   assert.match(source, /variant_id/);
@@ -290,6 +296,8 @@ test("Mounts GUI validation uses a dedicated desktop harness", () => {
   assert.match(probe, /capture_window_with_fallback/);
   assert.match(probe, /scan_for_plaintext_secrets/);
   assert.match(probe, /seeded_state_assertions/);
+  assert.match(probe, /prepare_tab_for_capture/);
+  assert.match(probe, /show_catalog_variants_download_rows_and_row_actions/);
   assert.match(probe, /catalog_variant_count/);
   assert.match(probe, /download_status_counts/);
   assert.match(probe, /gui_validation_fixture_failure/);
