@@ -1747,6 +1747,12 @@ export class ModelMountingState {
     return [...this.downloads.values()].sort((left, right) => left.createdAt.localeCompare(right.createdAt));
   }
 
+  listProviderHealth() {
+    return listJson(path.join(this.stateDir, "provider-health"))
+      .map((filePath) => readJson(filePath))
+      .sort((left, right) => String(left.checkedAt ?? "").localeCompare(String(right.checkedAt ?? "")));
+  }
+
   snapshot(baseUrl) {
     return {
       schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
@@ -1758,6 +1764,7 @@ export class ModelMountingState {
       providers: this.listProviders(),
       routes: this.listRoutes(),
       downloads: this.listDownloads(),
+      providerHealth: this.listProviderHealth(),
       tokens: this.listTokens(),
       vaultRefs: this.listVaultRefs(),
       mcpServers: this.listMcpServers(),
@@ -1792,6 +1799,7 @@ export class ModelMountingState {
       backends: this.listBackends(),
       providers: this.listProviders(),
       downloads: this.listDownloads(),
+      providerHealth: this.listProviderHealth(),
       grants: this.listTokens(),
       vaultRefs: this.listVaultRefs(),
       mcpServers: this.listMcpServers(),
@@ -1799,6 +1807,7 @@ export class ModelMountingState {
       adapterBoundaries: this.adapterBoundaries(),
       lifecycleEvents: this.listReceipts().filter((receipt) => receipt.kind === "model_lifecycle"),
       routeReceipts: this.listReceipts().filter((receipt) => receipt.kind === "model_route_selection"),
+      providerHealthReceipts: this.listReceipts().filter((receipt) => receipt.kind === "provider_health"),
       invocationReceipts: this.listReceipts().filter((receipt) => receipt.kind === "model_invocation"),
       toolReceipts: this.listReceipts().filter((receipt) => receipt.kind === "mcp_tool_invocation"),
       receipts: this.listReceipts(),
