@@ -1,0 +1,70 @@
+{
+  "schemaVersion": "ioi.model-mounting.live-gate.v1",
+  "gate": "model-backends",
+  "status": "passed",
+  "startedAt": "2026-05-05T23:00:25.418Z",
+  "outputDir": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounting-live/model-backends/2026-05-05T23-00-25Z",
+  "commands": [],
+  "details": {
+    "configured": {
+      "llamaCppBaseUrl": false,
+      "llamaCppServerPath": false,
+      "ollamaHost": true,
+      "ollamaBinary": true,
+      "vllmBaseUrl": false,
+      "vllmBinary": false,
+      "vllmModel": false
+    }
+  },
+  "result": {
+    "checked": [
+      {
+        "id": "backend.llama-cpp",
+        "kind": "llama_cpp",
+        "status": "blocked"
+      },
+      {
+        "id": "backend.ollama",
+        "kind": "ollama",
+        "status": "available"
+      },
+      {
+        "id": "backend.vllm",
+        "kind": "vllm",
+        "status": "blocked"
+      }
+    ],
+    "available": [
+      {
+        "id": "backend.ollama",
+        "kind": "ollama",
+        "status": "available"
+      }
+    ],
+    "ollama": {
+      "providerModels": 6,
+      "providerLoaded": 1,
+      "selectedChatModel": "llama3.2:3b",
+      "configuredChatModel": "llama3.2:3b",
+      "chatEndpointId": "endpoint.live.ollama.llama3.2.3b",
+      "chatRouteId": "route.live.ollama.llama3.2.3b",
+      "chatInstanceId": "instance.endpoint.live.ollama.llama3.2.3b.1778022030970",
+      "backendStartReceiptId": "receipt_model_lifecycle_908f534d-9d3e-4db5-bebf-06c90aab741e",
+      "backendStopReceiptId": "receipt_model_lifecycle_c7e2a265-d26b-402f-8b47-35b6838041f3",
+      "chatReceiptId": "receipt_model_invocation_3c9f09b5-4a21-49cd-b766-326be1d708ee",
+      "streamReceipts": {
+        "completedInvocationReceiptId": "receipt_model_invocation_981c058d-9d95-4dba-b528-5aa97cdb58aa",
+        "completedStreamReceiptId": "receipt_model_invocation_stream_completed_b7b64d8b-89b7-4bf2-9bff-13d5ae7456a3",
+        "abortedInvocationReceiptId": "receipt_model_invocation_6130264d-845e-4fc3-9f9a-3096bb5de990",
+        "abortedStreamReceiptId": "receipt_model_invocation_stream_canceled_7a471634-6b1e-4b58-ac17-0dd668019307",
+        "streamKind": "openai_chat_completions_ollama_native",
+        "providerResponseKind": "ollama.chat.stream"
+      },
+      "unloadStatus": "unloaded",
+      "selectedEmbeddingModel": "nomic-embed-text:latest",
+      "configuredEmbeddingModel": "nomic-embed-text:latest",
+      "embeddingReceiptId": "receipt_model_invocation_7abdc4b5-54e2-4518-83da-3db383be229c"
+    }
+  },
+  "completedAt": "2026-05-05T23:01:28.241Z"
+}
