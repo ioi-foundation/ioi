@@ -344,7 +344,9 @@
 
 .model-mounts-control-row input,
 .model-mounts-provider-editor input,
-.model-mounts-provider-editor select {
+.model-mounts-provider-editor select,
+.model-mounts-route-editor input,
+.model-mounts-route-editor select {
   min-width: 0;
   width: 100%;
   min-height: 34px;
@@ -360,7 +362,9 @@
 
 .model-mounts-control-row input:focus,
 .model-mounts-provider-editor input:focus,
-.model-mounts-provider-editor select:focus {
+.model-mounts-provider-editor select:focus,
+.model-mounts-route-editor input:focus,
+.model-mounts-route-editor select:focus {
   border-color: color-mix(in srgb, var(--chat-accent) 54%, var(--chat-border));
 }
 
@@ -650,31 +654,88 @@
   background: var(--surface-1);
 }
 
+.model-mounts-route-editor {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--chat-border);
+  background: var(--surface-1);
+}
+
+.model-mounts-route-editor-head {
+  min-width: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.model-mounts-route-editor-head > div:first-child {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.model-mounts-route-editor-head h4 {
+  margin: 0;
+  color: var(--chat-text);
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.model-mounts-route-editor-head span {
+  min-width: 0;
+  color: var(--chat-text-secondary);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
 .model-mounts-provider-editor-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 10px;
 }
 
-.model-mounts-provider-editor label {
+.model-mounts-route-editor-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.model-mounts-route-editor-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--chat-border);
+}
+
+.model-mounts-provider-editor label,
+.model-mounts-route-editor label {
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.model-mounts-provider-editor label span {
+.model-mounts-provider-editor label span,
+.model-mounts-route-editor label span {
   color: var(--chat-text-secondary);
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
 }
 
-.model-mounts-provider-editor .model-mounts-checkbox {
+.model-mounts-provider-editor .model-mounts-checkbox,
+.model-mounts-route-editor .model-mounts-checkbox {
   justify-content: end;
 }
 
-.model-mounts-provider-editor .model-mounts-checkbox input {
+.model-mounts-provider-editor .model-mounts-checkbox input,
+.model-mounts-route-editor .model-mounts-checkbox input {
   width: auto;
   min-height: auto;
 }
@@ -841,7 +902,8 @@
 
   .model-mounts-three-col,
   .model-mounts-provider-grid,
-  .model-mounts-provider-editor-grid {
+  .model-mounts-provider-editor-grid,
+  .model-mounts-route-editor-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -867,6 +929,8 @@
   .model-mounts-picker-controls,
   .model-mounts-picker-inspector,
   .model-mounts-detail-grid,
+  .model-mounts-route-editor-grid,
+  .model-mounts-route-editor-summary,
   .model-mounts-three-col,
   .model-mounts-route-list,
   .model-mounts-token-layout,
@@ -886,6 +950,10 @@
   }
 
   .model-mounts-detail-head {
+    flex-direction: column;
+  }
+
+  .model-mounts-route-editor-head {
     flex-direction: column;
   }
 
