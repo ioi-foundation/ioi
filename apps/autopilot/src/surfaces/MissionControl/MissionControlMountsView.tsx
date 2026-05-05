@@ -229,6 +229,14 @@ interface ReceiptPreview {
   policyHash: string;
   toolReceiptIds: string[];
   providerResponseKind: string;
+  streamStatus: string;
+  streamSource: string;
+  streamKind: string;
+  invocationReceiptId: string;
+  selectedBackend: string;
+  chunksForwarded: number;
+  finishReason: string;
+  reason: string;
 }
 
 interface BenchmarkDraft {
@@ -858,6 +866,39 @@ const fallbackData: MountsWorkbenchData = {
       policyHash: "fixture",
       toolReceiptIds: [],
       providerResponseKind: "chat",
+      streamStatus: "started",
+      streamSource: "provider_native",
+      streamKind: "openai_chat_completions_native_local",
+      selectedBackend: "backend.autopilot.native-local.fixture",
+    }),
+    receipt("receipt_model_stream_completed_fixture", "model_invocation_stream_completed", "openai_chat_completions_native_local stream completed for local:auto.", ["model_stream", "openai_chat_completions_native_local", "endpoint.local.auto"], "completed", {
+      routeId: "route.local-first",
+      endpointId: "endpoint.local.auto",
+      selectedModel: "local:auto",
+      providerId: "provider.autopilot.local",
+      backendId: "backend.autopilot.native-local.fixture",
+      selectedBackend: "backend.autopilot.native-local.fixture",
+      providerResponseKind: "native_local.chat.stream",
+      streamStatus: "completed",
+      streamSource: "provider_native",
+      streamKind: "openai_chat_completions_native_local",
+      invocationReceiptId: "receipt_model_invocation_*",
+      chunksForwarded: 4,
+      finishReason: "stop",
+    }),
+    receipt("receipt_model_stream_aborted_fixture", "model_invocation_stream_canceled", "openai_responses_native_local stream canceled for local:auto.", ["model_stream", "openai_responses_native_local", "endpoint.local.auto"], "aborted", {
+      routeId: "route.local-first",
+      endpointId: "endpoint.local.auto",
+      selectedModel: "local:auto",
+      providerId: "provider.autopilot.local",
+      backendId: "backend.autopilot.native-local.fixture",
+      selectedBackend: "backend.autopilot.native-local.fixture",
+      providerResponseKind: "native_local.responses.stream",
+      streamStatus: "aborted",
+      streamSource: "provider_native",
+      streamKind: "openai_responses_native_local",
+      invocationReceiptId: "receipt_model_invocation_*",
+      reason: "client_disconnect",
     }),
     receipt("receipt_mcp_tool_invocation_*", "mcp_tool_invocation", "allowed MCP tool execution through RuntimeToolContract", ["RuntimeToolContract", "mcp.huggingface", "tool:model_search"]),
     receipt("receipt_permission_token_*", "permission_token", "scoped, expiring, revocable token with denied connector/filesystem/shell scopes", ["wallet.network.capability_grant", "wallet.network.revocation"]),
@@ -1064,6 +1105,14 @@ function receipt(
     policyHash: details.policyHash ?? "none",
     toolReceiptIds: details.toolReceiptIds ?? [],
     providerResponseKind: details.providerResponseKind ?? "none",
+    streamStatus: details.streamStatus ?? "none",
+    streamSource: details.streamSource ?? "none",
+    streamKind: details.streamKind ?? "none",
+    invocationReceiptId: details.invocationReceiptId ?? "none",
+    selectedBackend: details.selectedBackend ?? "none",
+    chunksForwarded: details.chunksForwarded ?? 0,
+    finishReason: details.finishReason ?? "none",
+    reason: details.reason ?? "none",
   };
 }
 
@@ -1373,6 +1422,30 @@ function modelInvocationReceipts(receipts: ReceiptPreview[]) {
     .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
 }
 
+function isStreamLifecycleReceipt(item: ReceiptPreview) {
+  return (
+    item.kind === "model_invocation_stream_completed" ||
+    item.kind === "model_invocation_stream_canceled" ||
+    item.streamStatus === "started" ||
+    item.streamKind !== "none" ||
+    item.streamSource !== "none"
+  );
+}
+
+function streamLifecycleReceipts(receipts: ReceiptPreview[]) {
+  return receipts.filter(isStreamLifecycleReceipt).sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+}
+
+function streamLifecycleSummary(receipts: ReceiptPreview[]) {
+  const streams = streamLifecycleReceipts(receipts);
+  return {
+    streams,
+    started: streams.filter((item) => item.streamStatus === "started").length,
+    completed: streams.filter((item) => item.streamStatus === "completed" || item.kind === "model_invocation_stream_completed").length,
+    aborted: streams.filter((item) => item.streamStatus === "aborted" || item.kind === "model_invocation_stream_canceled").length,
+  };
+}
+
 function benchmarkSummary(receipts: ReceiptPreview[]) {
   const invocations = modelInvocationReceipts(receipts);
   const latencies = invocations.map((item) => item.latencyMs).filter((value) => value > 0);
@@ -1406,14 +1479,15 @@ function receiptCategory(item: ReceiptPreview): ObservabilityEvent["category"] {
 
 function receiptDirection(item: ReceiptPreview): ObservabilityEvent["direction"] {
   if (item.kind.includes("selection") || item.kind.includes("import") || item.kind.includes("lifecycle")) return "request";
+  if (isStreamLifecycleReceipt(item) && item.streamStatus === "started") return "request";
   return "response";
 }
 
 function receiptStatus(item: ReceiptPreview): ObservabilityEvent["status"] {
-  const text = `${item.healthStatus} ${item.summary} ${item.evidence.join(" ")}`.toLowerCase();
+  const text = `${item.healthStatus} ${item.streamStatus} ${item.reason} ${item.summary} ${item.evidence.join(" ")}`.toLowerCase();
   if (/denied|revoked|expired|permission|unauthorized|forbidden/.test(text)) return "denied";
   if (/failed|failure|error|blocked|unavailable|absent/.test(text)) return "failed";
-  if (/degraded|stopped|unknown|warn/.test(text)) return "degraded";
+  if (/degraded|stopped|unknown|warn|aborted|canceled|client_disconnect/.test(text)) return "degraded";
   return "ready";
 }
 
@@ -1435,6 +1509,15 @@ function redactedPayloadPreview(item: ReceiptPreview): ObservabilityEvent["paylo
     ["tokens", item.tokenCount ? String(item.tokenCount) : "redacted"],
     ["latency", formatLatency(item.latencyMs)],
     ["compat", item.compatTranslation],
+    ["stream status", item.streamStatus],
+    ["stream source", item.streamSource],
+    ["stream kind", item.streamKind],
+    ["provider response", item.providerResponseKind],
+    ["invocation receipt", item.invocationReceiptId],
+    ["selected backend", item.selectedBackend],
+    ["chunks", item.chunksForwarded ? String(item.chunksForwarded) : "none"],
+    ["finish", item.finishReason],
+    ["abort reason", item.reason],
     ["tools", item.toolReceiptIds.length > 0 ? item.toolReceiptIds.join(", ") : "none"],
   ];
   return rows
@@ -2623,6 +2706,14 @@ function normalizeSnapshot(snapshot: any, endpoint: string): MountsWorkbenchData
         policyHash: stringValue(item?.details?.policyHash, "none"),
         toolReceiptIds: stringArray(item?.details?.toolReceiptIds),
         providerResponseKind: stringValue(item?.details?.providerResponseKind, "none"),
+        streamStatus: stringValue(item?.details?.streamStatus, stringValue(item?.details?.status, "none")),
+        streamSource: stringValue(item?.details?.streamSource, "none"),
+        streamKind: stringValue(item?.details?.streamKind, "none"),
+        invocationReceiptId: stringValue(item?.details?.invocationReceiptId, "none"),
+        selectedBackend: stringValue(item?.details?.selectedBackend, "none"),
+        chunksForwarded: numberValue(item?.details?.chunksForwarded, 0),
+        finishReason: stringValue(item?.details?.finishReason, "none"),
+        reason: stringValue(item?.details?.reason, "none"),
       },
     ),
   );
@@ -5050,6 +5141,8 @@ function LogsPanel({
   const events = filteredObservabilityEvents(receipts, filters);
   const visibleEvents = [...events].reverse().slice(0, 60);
   const summary = observabilitySummary(events);
+  const streamSummary = streamLifecycleSummary(receipts);
+  const visibleStreamReceipts = [...streamSummary.streams].reverse().slice(0, 6);
   const updateFilter = (field: keyof ObservabilityFilters, value: string | boolean) => {
     setFilters((current) => ({ ...current, [field]: value }));
   };
@@ -5150,6 +5243,35 @@ function LogsPanel({
         <DetailFact label="Needs attention" value={`${summary.problemCount}`} note="degraded, denied, failed" />
       </div>
 
+      <div className="model-mounts-stream-lifecycle" aria-label="Stream lifecycle receipts">
+        <div className="model-mounts-stream-lifecycle-head">
+          <div>
+            <strong>Stream lifecycle receipts</strong>
+            <small>Started, completed, and aborted provider-native streams with linked invocation receipts.</small>
+          </div>
+          <div className="model-mounts-tags">
+            <StatusPill tone="neutral">{`${streamSummary.started} started`}</StatusPill>
+            <StatusPill tone="ready">{`${streamSummary.completed} completed`}</StatusPill>
+            <StatusPill tone={streamSummary.aborted > 0 ? "warn" : "muted"}>{`${streamSummary.aborted} aborted`}</StatusPill>
+          </div>
+        </div>
+        {visibleStreamReceipts.length === 0 ? (
+          <p className="model-mounts-empty">No stream lifecycle receipts in the current projection.</p>
+        ) : (
+          <div className="model-mounts-stream-lifecycle-list">
+            {visibleStreamReceipts.map((item) => (
+              <StreamLifecycleReceiptCard
+                key={item.id}
+                receipt={item}
+                onReplayReceipt={onReplayReceipt}
+                replayGuard={replayGuard}
+                busy={busy}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className="model-mounts-observability-stream" role="table" aria-label="Filtered observability stream">
         <div role="row" className="model-mounts-table-head">
           <span role="columnheader">Event</span>
@@ -5174,6 +5296,71 @@ function LogsPanel({
         )}
       </div>
     </section>
+  );
+}
+
+function StreamLifecycleReceiptCard({
+  receipt,
+  onReplayReceipt,
+  replayGuard,
+  busy,
+}: {
+  receipt: ReceiptPreview;
+  onReplayReceipt: (receiptId: string) => void;
+  replayGuard: ActionGuard;
+  busy: boolean;
+}) {
+  const status = receipt.streamStatus !== "none" ? receipt.streamStatus : receipt.kind === "model_invocation_stream_completed" ? "completed" : receipt.kind === "model_invocation_stream_canceled" ? "aborted" : "started";
+  const tone: StatusTone = status === "completed" ? "ready" : status === "aborted" || status === "canceled" ? "warn" : "neutral";
+  return (
+    <article className="model-mounts-stream-lifecycle-card">
+      <div className="model-mounts-stream-lifecycle-card-head">
+        <div>
+          <strong>{receipt.streamKind !== "none" ? receipt.streamKind : receipt.kind}</strong>
+          <small>{receipt.id}</small>
+        </div>
+        <StatusPill tone={tone}>{status}</StatusPill>
+      </div>
+      <dl className="model-mounts-stream-lifecycle-grid">
+        <div>
+          <dt>Source</dt>
+          <dd>{receipt.streamSource}</dd>
+        </div>
+        <div>
+          <dt>Provider response</dt>
+          <dd>{receipt.providerResponseKind}</dd>
+        </div>
+        <div>
+          <dt>Route</dt>
+          <dd>{receipt.routeId}</dd>
+        </div>
+        <div>
+          <dt>Endpoint</dt>
+          <dd>{receipt.endpointId}</dd>
+        </div>
+        <div>
+          <dt>Backend</dt>
+          <dd>{receipt.backendId !== "none" ? receipt.backendId : receipt.selectedBackend}</dd>
+        </div>
+        <div>
+          <dt>Model</dt>
+          <dd>{receipt.selectedModel}</dd>
+        </div>
+        <div>
+          <dt>Invocation receipt</dt>
+          <dd>{receipt.invocationReceiptId}</dd>
+        </div>
+        <div>
+          <dt>Completion</dt>
+          <dd>{receipt.finishReason !== "none" ? receipt.finishReason : receipt.reason}</dd>
+        </div>
+        <div>
+          <dt>Chunks</dt>
+          <dd>{receipt.chunksForwarded ? receipt.chunksForwarded : "none"}</dd>
+        </div>
+      </dl>
+      <ActionButton onClick={() => onReplayReceipt(receipt.id)} disabled={busy} guard={replayGuard}>Replay stream receipt</ActionButton>
+    </article>
   );
 }
 

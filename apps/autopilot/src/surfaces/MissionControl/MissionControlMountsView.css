@@ -939,6 +939,94 @@
   background: var(--surface-2);
 }
 
+.model-mounts-stream-lifecycle {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--chat-border);
+  background: var(--surface-1);
+}
+
+.model-mounts-stream-lifecycle-head,
+.model-mounts-stream-lifecycle-card-head {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.model-mounts-stream-lifecycle-head > div:first-child,
+.model-mounts-stream-lifecycle-card-head > div:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.model-mounts-stream-lifecycle strong,
+.model-mounts-stream-lifecycle-card strong {
+  min-width: 0;
+  color: var(--chat-text);
+  font-size: 13px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.model-mounts-stream-lifecycle small,
+.model-mounts-stream-lifecycle-card small {
+  color: var(--chat-text-secondary);
+  font-size: 11px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.model-mounts-stream-lifecycle-list {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.model-mounts-stream-lifecycle-card {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--chat-border);
+  background: var(--surface-2);
+}
+
+.model-mounts-stream-lifecycle-grid {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px 10px;
+  margin: 0;
+}
+
+.model-mounts-stream-lifecycle-grid div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.model-mounts-stream-lifecycle-grid dt {
+  color: var(--chat-text-secondary);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.model-mounts-stream-lifecycle-grid dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--chat-text);
+  font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
 .model-mounts-observability-stream {
   min-width: 0;
   display: grid;
@@ -1324,6 +1412,7 @@
   .model-mounts-provider-editor-grid,
   .model-mounts-observability-filters,
   .model-mounts-observability-summary,
+  .model-mounts-stream-lifecycle-list,
   .model-mounts-route-editor-summary,
   .model-mounts-token-editor-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1363,6 +1452,8 @@
   .model-mounts-benchmark-scoreboard,
   .model-mounts-observability-filters,
   .model-mounts-observability-summary,
+  .model-mounts-stream-lifecycle-list,
+  .model-mounts-stream-lifecycle-grid,
   .model-mounts-three-col,
   .model-mounts-route-list,
   .model-mounts-token-layout,
