@@ -1523,7 +1523,7 @@ class OllamaModelProviderDriver {
         quantization: null,
         sizeBytes: null,
         contextWindow: null,
-        capabilities: ["chat", "embeddings"],
+        capabilities: ["chat", "responses", "embeddings"],
         privacyClass: "local_private",
         source: "ollama_api_tags",
         state: "available",
@@ -1618,6 +1618,29 @@ class OllamaModelProviderDriver {
       backendId,
       providerStatus: result.ok ? "evicted" : "unload_probe_degraded",
       evidenceRefs: ["ollama_generate_keep_alive_zero_unload"],
+    };
+  }
+
+  supportsStream(kind) {
+    return kind === "chat.completions" || kind === "chat" || kind === "responses";
+  }
+
+  async streamInvoke({ state, provider, endpoint, kind, body }) {
+    if (!this.supportsStream(kind)) return null;
+    const result = await fetchProviderStream(provider, "/api/chat", {
+      method: "POST",
+      body: chatCompletionRequestBody({ ...body, stream: true }, endpoint.modelId),
+      state,
+    });
+    return {
+      stream: result.stream,
+      abort: result.abort,
+      status: result.status,
+      streamFormat: "ollama_jsonl",
+      providerResponseKind: kind === "responses" ? "ollama.responses.stream" : "ollama.chat.stream",
+      backend: "ollama",
+      backendId: endpoint.backendId ?? "backend.ollama",
+      backendEvidenceRefs: ["ollama_api_chat_native_stream"],
     };
   }
 
@@ -1851,7 +1874,7 @@ export class ModelMountingState {
         baseUrl: process.env.OLLAMA_HOST ?? "http://127.0.0.1:11434",
         status: process.env.OLLAMA_HOST ? "configured" : "blocked",
         privacyClass: "local_private",
-        capabilities: ["chat", "embeddings"],
+        capabilities: ["chat", "responses", "embeddings"],
         discovery: { checkedAt, evidenceRefs: ["OLLAMA_HOST"] },
       },
       {
