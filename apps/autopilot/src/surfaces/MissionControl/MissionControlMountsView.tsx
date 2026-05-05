@@ -1518,6 +1518,15 @@ function readInitialTab(): MountsTab {
   return "server";
 }
 
+function readValidationActionsEnabled() {
+  try {
+    if (new URLSearchParams(window.location.search).get("mountsValidationActions") === "1") return true;
+  } catch {
+    // Query parsing is optional; the desktop harness also enables this through Vite env.
+  }
+  return import.meta.env.VITE_AUTOPILOT_MOUNTS_VALIDATION_ACTIONS === "1";
+}
+
 function useModelMountsDaemon() {
   const [endpoint, setEndpointState] = useState(readInitialEndpoint);
   const [data, setData] = useState<MountsWorkbenchData>(fallbackData);
@@ -3765,7 +3774,12 @@ function DownloadsPanel({
       );
       const receiptGuard = download.receipt !== "none" ? guardReady("receipt ready", "Open this lifecycle receipt in the Logs view.") : guardBlocked("no receipt", "This download has no receipt id.");
       return (
-        <article key={download.id} className="model-mounts-compact-row">
+        <article
+          key={download.id}
+          className="model-mounts-compact-row"
+          data-download-id={download.id}
+          data-download-status={download.status}
+        >
           <div>
             <strong>{download.model}</strong>
             <span>{download.id}</span>
@@ -3775,7 +3789,11 @@ function DownloadsPanel({
           <span className="model-mounts-row-note">{download.progress} / {download.bytes} / cap {download.maxBytes} / {download.receipt}</span>
           <span className="model-mounts-row-note">{download.providerId} / {download.format} / {download.quantization} / source {download.sourceHash}</span>
           {download.failureReason !== "none" ? <span className="model-mounts-row-note">Failure: {download.failureReason}</span> : null}
-          <div className="model-mounts-row-actions" aria-label={`Download actions for ${download.id}`}>
+          <div
+            className="model-mounts-row-actions"
+            aria-label={`Download actions for ${download.id}`}
+            data-download-action-row={download.id}
+          >
             <ActionButton onClick={() => onCancelDownload(download)} disabled={busy} guard={cancelGuard}>Cancel</ActionButton>
             <ActionButton onClick={() => onRetryDownload(download)} disabled={busy} guard={retryGuard}>Retry</ActionButton>
             <ActionButton onClick={() => onOpenReceipt(download.receipt)} disabled={busy} guard={receiptGuard}>Open receipt</ActionButton>
@@ -4947,6 +4965,7 @@ export function MissionControlMountsView() {
   const [pickerSelection, setPickerSelection] = useState<MountsPickerSelection>(emptyPickerSelection);
   const [detailDrawerOpen, setDetailDrawerOpen] = useState(true);
   const [focusedReceiptId, setFocusedReceiptId] = useState("");
+  const validationActionsEnabled = useMemo(readValidationActionsEnabled, []);
   const daemon = useModelMountsDaemon();
   const busy = Boolean(daemon.busyAction);
   useEffect(() => {
@@ -4978,10 +4997,46 @@ export function MissionControlMountsView() {
     setFocusedReceiptId(receiptId);
     setActiveTab("logs");
   }, []);
+  const runDownloadValidationAction = useCallback(
+    (action: "cancel" | "retry" | "open-receipt") => {
+      if (!validationActionsEnabled || busy) return;
+      if (action === "open-receipt") {
+        const candidate =
+          daemon.data.downloads.find((download) => download.status === "completed" && download.receipt !== "none") ??
+          daemon.data.downloads.find((download) => download.receipt !== "none");
+        if (candidate) openReceiptInLogs(candidate.receipt);
+        return;
+      }
+
+      setActiveTab("downloads");
+      if (action === "cancel") {
+        const candidate = daemon.data.downloads.find((download) => ["queued", "running"].includes(download.status));
+        if (candidate) daemon.actions.cancelDownload(candidate);
+        return;
+      }
+
+      const failedCandidate = daemon.data.downloads.find(
+        (download) => download.status === "failed" && canRetryDownload(download),
+      );
+      const canceledCandidate = daemon.data.downloads.find(
+        (download) => download.status === "canceled" && canRetryDownload(download),
+      );
+      const candidate = failedCandidate ?? canceledCandidate;
+      if (candidate) daemon.actions.retryDownload(candidate);
+    },
+    [busy, daemon.actions, daemon.data.downloads, openReceiptInLogs, validationActionsEnabled],
+  );
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if (event.ctrlKey || event.metaKey) return;
+      if (validationActionsEnabled && ["F10", "F11", "F12"].includes(event.key)) {
+        event.preventDefault();
+        if (event.key === "F10") runDownloadValidationAction("cancel");
+        if (event.key === "F11") runDownloadValidationAction("retry");
+        if (event.key === "F12") runDownloadValidationAction("open-receipt");
+        return;
+      }
       const index = event.altKey
         ? Number.parseInt(event.key, 10) - 1
         : /^F[1-9]$/.test(event.key)
@@ -4994,7 +5049,7 @@ export function MissionControlMountsView() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, []);
+  }, [runDownloadValidationAction, validationActionsEnabled]);
 
   return (
     <div className="mission-control-view mission-control-view--mounts">

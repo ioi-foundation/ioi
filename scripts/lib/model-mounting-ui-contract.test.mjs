@@ -83,6 +83,11 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   assert.match(source, /onCancelDownload/);
   assert.match(source, /onRetryDownload/);
   assert.match(source, /onOpenReceipt/);
+  assert.match(source, /readValidationActionsEnabled/);
+  assert.match(source, /mountsValidationActions/);
+  assert.match(source, /runDownloadValidationAction/);
+  assert.match(source, /data-download-id/);
+  assert.match(source, /data-download-action-row/);
   assert.match(source, /retryDownloadPayload/);
   assert.match(source, /Open receipt/);
   assert.match(source, /focusReceiptId/);
@@ -298,9 +303,15 @@ test("Mounts GUI validation uses a dedicated desktop harness", () => {
   assert.match(probe, /seeded_state_assertions/);
   assert.match(probe, /prepare_tab_for_capture/);
   assert.match(probe, /show_catalog_variants_download_rows_and_row_actions/);
+  assert.match(probe, /exercise_download_row_actions/);
+  assert.match(probe, /downloads-open-receipt-logs/);
+  assert.match(probe, /queuedDownloadCanceledThroughGuiAction/);
+  assert.match(probe, /failedDownloadRetriedThroughGuiAction/);
+  assert.match(probe, /VITE_AUTOPILOT_MOUNTS_VALIDATION_ACTIONS/);
   assert.match(probe, /catalog_variant_count/);
   assert.match(probe, /download_status_counts/);
   assert.match(probe, /gui_validation_fixture_failure/);
+  assert.match(probe, /queuedDownloadSeeded/);
 });
 
 test("model mounting end-to-end validation is wired as the acceptance gate", () => {
