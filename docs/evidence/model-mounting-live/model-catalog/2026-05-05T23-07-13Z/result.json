@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "ioi.model-mounting.live-gate.v1",
+  "gate": "model-catalog",
+  "status": "passed",
+  "startedAt": "2026-05-05T23:07:13.497Z",
+  "outputDir": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounting-live/model-catalog/2026-05-05T23-07-13Z",
+  "commands": [],
+  "details": {
+    "catalog": {
+      "query": "tinyllamas",
+      "format": "gguf",
+      "quantization": null,
+      "limit": 5,
+      "baseUrlHash": "03a89053f2f115c3c0b82840f14b35a19e4f5fbf48bc08344223b0b8b6069e37",
+      "downloadGateEnabled": true,
+      "explicitDownloadSourceConfigured": true,
+      "downloadFirstResult": false,
+      "downloadMaxBytes": 2000000
+    },
+    "daemonEndpoint": "http://127.0.0.1:34713",
+    "stateDir": "/tmp/ioi-live-model-gate-state-04Omtq"
+  },
+  "result": {
+    "providerStatus": "available",
+    "resultCount": 5,
+    "firstModelId": "karpathy/tinyllamas",
+    "firstSourceHash": "464c9b8ec6f0714359486768a69a3dfffb36f31f973e4413acb1d95821ea9508",
+    "formats": [
+      "gguf"
+    ],
+    "quantizations": [],
+    "download": {
+      "mode": "explicit_source_url",
+      "jobId": "download_job_0b0dde35-d9a6-4b02-89c8-d8fe88b8e683",
+      "artifactId": "download.native.live.catalog.stories260k",
+      "status": "completed",
+      "bytesCompleted": 1185376,
+      "bytesTotal": 1185376,
+      "maxBytes": 2000000,
+      "receiptId": "receipt_model_lifecycle_dc7ddbda-08fc-479a-9eef-783721ebcdfd",
+      "statusReceiptId": "receipt_model_lifecycle_dc7ddbda-08fc-479a-9eef-783721ebcdfd",
+      "replaySource": "agentgres_model_mounting_projection_replay",
+      "sourceHash": "e58f33740a77f507c4cc0955f33d11ee84c9d392ac36a98ecbefc0c6b0813701",
+      "projectionDownloadCount": 1
+    },
+    "secretScan": {
+      "passed": true,
+      "findings": []
+    }
+  },
+  "completedAt": "2026-05-05T23:07:18.204Z"
+}
