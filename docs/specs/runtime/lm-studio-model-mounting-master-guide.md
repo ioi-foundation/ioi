@@ -1,7 +1,7 @@
 # LM Studio Model Mounting Master Guide
 
-Status: reference crawl, implementation guide, and current completion ledger
-Audit date: 2026-05-04
+Status: reference crawl, implementation guide, current completion ledger, and parity gap audit
+Audit date: 2026-05-05
 Reference app: locally installed LM Studio AppImage, observed as `0.4.12+1`
 Reference scope: UX ergonomics, local server contract, model lifecycle, MCP, API tokens, TTL/auto-evict, CLI, and local runtime state
 
@@ -230,6 +230,12 @@ These areas are implemented and covered by focused tests:
   no token storage, native-local provider controls, download controls,
   ephemeral MCP probe, workflow probe, MCP fixture import, route test, and
   receipt visibility.
+- Mounts health operations for provider/vault/backend probes:
+  - latest provider and vault health receipt lookup;
+  - grouped provider/vault health lanes in Logs / Receipts;
+  - Local Server health summary strip derived from receipts;
+  - `Run health sweep` action that fans out across vault, providers, and
+    backends before refreshing the projection.
 - Dedicated Mounts desktop GUI validation harness with real window screenshot
   capture and secret scan.
 - Canonical deterministic end-to-end validation harness covering API, CLI, GUI,
@@ -376,6 +382,60 @@ claim real third-party inference unless a configured provider is selected:
   endpoints, but BYOK OpenAI/Anthropic/Gemini native adapters and secret
   resolution are not production-complete.
 
+### Local LM Studio Trace, 2026-05-05
+
+The local LM Studio instance was traced through public `lms` and `/v1`
+surfaces. This trace updates the parity target and supersedes the older
+appendix snapshot where the server was stopped.
+
+Observed public CLI/API state:
+
+- `$HOME/.local/bin/lm-studio.AppImage`, `$HOME/.local/bin/lm-studio`, and
+  `$HOME/.lmstudio/bin/lms` are executable.
+- `lms server status` reports the local server is running on port `1234`.
+- `lms ls` reports two installed models:
+  - `qwen/qwen3.5-9b`, 9B, `qwen35`, 6.55 GB, local, loaded;
+  - `text-embedding-nomic-embed-text-v1.5`, Nomic BERT, 84.11 MB, local.
+- `lms ps` reports `qwen/qwen3.5-9b` loaded with:
+  - status `IDLE`;
+  - context `4096`;
+  - parallel `4`;
+  - device `Local`;
+  - no TTL value currently shown.
+- `lms runtime ls` reports installed llama.cpp runtime packs for AVX2, CUDA,
+  CUDA12, and Vulkan, with
+  `llama.cpp-linux-x86_64-nvidia-cuda12-avx2@2.13.0` selected.
+- `lms runtime survey` reports:
+  - NVIDIA GeForce RTX 5070 Laptop GPU, CUDA, discrete, 7.53 GiB VRAM;
+  - CPU `x86_64` with AVX2/AVX;
+  - RAM `93.73 GiB`.
+- `GET /v1/models` returns both installed model identifiers.
+- `POST /v1/chat/completions` succeeds against `qwen/qwen3.5-9b`.
+- `POST /v1/responses` succeeds against `qwen/qwen3.5-9b`; the older
+  fallback-to-chat behavior remains necessary for compatible providers that do
+  not expose Responses, but this local LM Studio instance does expose it.
+- `POST /v1/embeddings` succeeds against
+  `text-embedding-nomic-embed-text-v1.5`.
+- LM Studio server management remains exposed through `lms server
+  start|stop|status`, not through an observed `/api/v1/server/status` HTTP
+  endpoint.
+
+This trace identifies concrete parity gaps that are more specific than the
+generic hardening list:
+
+- Autopilot needs a user-facing runtime engine inventory and hardware survey
+  comparable to `lms runtime ls` and `lms runtime survey`.
+- Autopilot load controls need visible parity with `lms load` options:
+  `--gpu`, `--context-length`, `--parallel`, `--ttl`, `--identifier`, and
+  `--estimate-only`.
+- Autopilot model catalog/download UX needs parity with `lms get`, including
+  search, direct Hugging Face URL handling, GGUF/MLX filtering where relevant,
+  variant selection, and scripted approval.
+- Autopilot import UX needs parity with `lms import`, including move/copy,
+  hard-link, symbolic-link, dry-run, and explicit `user/repo` classification.
+- Autopilot Logs needs streaming request/response logs comparable to
+  `lms log stream`, while preserving IOI redaction and receipts.
+
 ### Remaining Production / Live-Only Gaps
 
 The target end state is now validated for the deterministic Autopilot-native
@@ -388,10 +448,12 @@ gates:
    - replace deterministic native-local fixture inference with llama.cpp,
      Ollama, vLLM, or another configured local backend;
    - add hardware probes, memory pressure eviction, GPU/context scheduling,
-     and real process supervision.
+     selected runtime engine management, and real process supervision.
 2. Live catalog/download integrations:
    - Hugging Face or other model hub catalog search;
    - resumable network downloads behind an explicit non-CI gate;
+   - GGUF/MLX-compatible variant filtering where relevant;
+   - direct model URL import/download;
    - richer benchmark and compatibility metadata.
 3. Remote wallet.network and vault integration:
    - remote wallet.network grants;
@@ -411,10 +473,15 @@ gates:
    - remote OAuth-capable MCP;
    - tool schema discovery and model tool exposure.
 7. Product-complete Mounts UI:
+   - always-reachable model picker / loader control;
+   - runtime engine and hardware survey panel;
+   - load option editor for GPU offload, context, parallelism, TTL,
+     identifier, and estimate-only;
+   - server start/stop/restart controls in the Local Server tab;
    - provider-specific controls;
    - download queue;
    - model detail drawers;
-   - logs;
+   - streaming logs and request/response log filters;
    - benchmark/results view;
    - token scope editor;
    - route editor;
@@ -427,6 +494,74 @@ gates:
    - Gemini BYOK;
    - custom HTTP auth profiles;
    - future DePIN/TEE attested runtime endpoints.
+
+### Parity Gap Matrix: Autopilot Mounts vs LM Studio
+
+This table is the current source of truth for remaining model-integration
+parity. "Complete" means covered by deterministic CI and focused validation.
+"Partial" means the shared Autopilot architecture exists but lacks one or more
+LM Studio-class live/product affordances. "Gap" means the capability is not yet
+implemented as a product surface.
+
+| Area | LM Studio observed primitive | Autopilot status | Remaining closeout |
+| --- | --- | --- | --- |
+| Dedicated model surface | Left rail app surface with compact model controls | Complete | Keep Mounts separate from Capabilities while improving product polish |
+| Global model picker / loader | Top model picker invites select/load without exposing topology | Partial | Add always-reachable Mounts-aware picker that can choose artifact, endpoint, route, provider, and loaded instance |
+| Installed models | `lms ls` shows model family, params, arch, size, device, loaded marker | Partial | Add richer model detail panel with family/params/arch/device/source/variant and linked receipts |
+| Loaded models | `lms ps` shows identifier, model, status, size, context, parallel, device, TTL | Partial | Expand Loaded Now UI/API/CLI with context, parallelism, device/backend, TTL remaining, identifier, unload action, and receipt links |
+| Model search/download | `lms get`, direct Hugging Face URL, GGUF/MLX filters, variant select | Gap | Add live catalog/search/download adapter with gated network access, variant selection, scripted approval, checksum, resume, and receipts |
+| Model import | `lms import` supports move/copy/hard-link/symlink/dry-run/user-repo | Partial | Add import mode options, dry-run, classification, duplicate handling, and model storage cleanup |
+| Runtime engines | `lms runtime ls/select/get/update/remove` | Gap | Add runtime engine registry UI/CLI/API for installed engines, selected engine, updates/removal, and receipts |
+| Hardware survey | `lms runtime survey` reports GPU/VRAM, CPU features, RAM | Partial | Promote backend hardware probes into a user-facing runtime survey with redacted raw output, scheduling hints, and receipts |
+| Load options | `lms load --gpu --context-length --parallel --ttl --identifier --estimate-only` | Partial | Add load option editor and CLI/API fields for GPU offload, context, parallelism, identifier, estimate-only, and load receipts |
+| Local server | `lms server start|stop|status` and local port `1234` | Partial | Add Local Server start/stop/restart controls in Mounts and CLI parity where safe |
+| OpenAI-compatible API | `/v1/models`, chat completions, Responses, embeddings | Complete for daemon path | Add streaming parity, richer OpenAI error shape, tool-output submission, and advanced Responses state |
+| Native model API | LM Studio has public local primitives plus OpenAI-compatible surface | Complete, Autopilot-specific | Keep IOI-native routes authoritative and prevent `/v1/*` policy bypass |
+| Request/response logs | `lms log stream` | Partial | Add redacted streaming log panes and CLI tailing across server, provider, backend, route, MCP, and receipts |
+| API tokens | LM Studio local API tokens/auth toggle | Complete plus stronger IOI policy | Add product-grade token scope editor and session/expiry/revocation affordances |
+| MCP config | Cursor/LM Studio-style `mcp.json` plus API integrations | Partial | Complete stdio lifecycle, OAuth, schema discovery, and model tool exposure through governed receipts |
+| Provider support | LM Studio owns local GGUF runtime; external providers are not core | Partial | Keep LM Studio first-class while adding real Ollama/vLLM/llama.cpp/BYOK/custom HTTP adapters behind the same router |
+| Workflow integration | Not a core LM Studio primitive | Autopilot ahead, partial product UX | Build visual node forms, Receipt Gate configuration, replay, and harness run inspection |
+| Receipts/audit | Not an LM Studio primitive | Autopilot ahead | Finish production Agentgres sync, settlement/audit packs, and remote replay |
+| Secret storage | LM Studio local config/API token ergonomics | Partial, stronger boundary | Wire production wallet.network/vault and cross-device revocation; keep plaintext rejected |
+| Headless/background mode | `lms server` and background service ergonomics | Partial | Package IOI daemon service/headless mode, health checks, logs, and restart policy |
+| Model cleanup/storage | LM Studio models folder and import management | Gap | Add artifact delete/uninstall, orphan cleanup, storage quota, and receipt-backed destructive confirmations |
+| Benchmarks/evals | LM Studio exposes model metadata and developer feedback loops | Gap | Add benchmark runs, route-quality telemetry, latency/cost feedback, and route recommendation receipts |
+| Attested remote runtime | Outside current LM Studio local focus | Boundary only | Implement DePIN/TEE attestation verification, fail-closed routing, and attestation receipts |
+
+### Priority Closeout Order For Parity
+
+1. Runtime survey and load-option parity:
+   - expose runtime engines and selected backend;
+   - surface hardware survey;
+   - add `estimate-only`, GPU offload, context, parallelism, TTL, and
+     identifier fields to API, CLI, and Mounts.
+2. Catalog/import/download parity:
+   - live model catalog/search;
+   - Hugging Face URL download;
+   - GGUF/MLX filters where applicable;
+   - import mode controls and dry-run;
+   - artifact delete/uninstall and cleanup receipts.
+3. Server/log parity:
+   - Local Server start/stop/restart controls;
+   - redacted streaming logs equivalent to `lms log stream`;
+   - per-provider/backend/request filters.
+4. Product UI parity:
+   - global model picker/loader;
+   - model detail drawer;
+   - loaded-model inspector;
+   - route editor, token editor, benchmark panel, and degraded/denied states.
+5. Live backend parity:
+   - real llama.cpp runner;
+   - live Ollama lifecycle;
+   - live vLLM/OpenAI-compatible lifecycle;
+   - native BYOK OpenAI/Anthropic/Gemini adapters through vault refs.
+6. Production IOI hardening beyond LM Studio:
+   - production wallet.network grants/vaults;
+   - production Agentgres projection sync and settlement packs;
+   - stdio/OAuth MCP lifecycle;
+   - visual workflow run replay and Receipt Gate configuration;
+   - DePIN/TEE attested remote runtimes.
 
 ## Screenshot Evidence
 
@@ -1722,6 +1857,9 @@ Current status:
   loaded instances, routes, MCP, tokens, receipts, and receipt replay.
 - Complete: Mounts desktop GUI is validated by screenshots through the
   canonical E2E gate and dedicated GUI harness.
+- Complete: provider, vault, and backend health receipts are visible through
+  health lookup APIs, grouped Logs / Receipts lanes, the Local Server health
+  summary strip, and the Mounts `Run health sweep` action.
 - Complete: receipts show route, selected endpoint, selected instance, backend,
   policy hash, grant id, token counts, latency, and tool receipt IDs where
   applicable.
@@ -1738,30 +1876,19 @@ Current status:
 
 ## Immediate Backlog
 
-The deterministic target path is complete. The immediate backlog is now
-live-provider and product-hardening work behind the validated ports:
+The deterministic target path is complete. The immediate backlog is now the
+parity closeout order from the matrix above:
 
-1. Add gated live llama.cpp/Ollama/vLLM backend implementations behind the
-   native-local backend manager. The deterministic fixture remains the CI
-   baseline.
-2. Add gated live model hub catalog/search/download adapters behind the
-   deterministic download lifecycle.
-3. Wire production wallet.network grants and vault resolution for provider
-   keys, MCP headers, token audit, and revocation. The local Agentgres-backed
-   authority plus deterministic fake-remote gate remains the default evidence
-   path.
-4. Sync the local Agentgres projection/replay adapter to production Agentgres
-   and settlement/audit packs. The local operation-log projection plus
-   deterministic fake-remote gate remains the default evidence path.
-5. Expand visual workflow canvas forms around the model mounting fields already
-   present in Agent IDE contracts.
-6. Complete stdio/OAuth MCP lifecycle support behind the governed MCP receipt
-   path.
-7. Add richer Mounts UI drawers for benchmark telemetry, route editing,
-   provider configuration, and log streaming.
-8. Add provider-native adapters for OpenAI BYOK, Anthropic BYOK, Gemini BYOK,
-   custom authenticated HTTP, and future DePIN/TEE providers. These must remain
-   fail-closed without configured vault refs or attestation.
+1. Runtime survey and load-option parity.
+2. Catalog/import/download parity.
+3. Server/log parity.
+4. Product UI parity.
+5. Live backend/provider parity.
+6. Production IOI hardening beyond LM Studio.
+
+Keep each backlog item behind the validated daemon/router/capability/receipt
+path. The deterministic fixture remains the CI baseline, and live provider
+activation remains opt-in until explicitly configured.
 
 ## Appendix: Local Command Evidence
 
@@ -1780,13 +1907,59 @@ text-embedding-nomic-embed-text-v1.5              Nomic BERT    84.11 MB    Loca
 Loaded model list:
 
 ```text
-No models are currently loaded.
+IDENTIFIER         MODEL              STATUS    SIZE       CONTEXT    PARALLEL    DEVICE    TTL
+qwen/qwen3.5-9b    qwen/qwen3.5-9b    IDLE      6.55 GB    4096       4           Local
 ```
 
 Server status:
 
 ```text
-The server is not running.
+The server is running on port 1234.
+```
+
+Runtime engine list:
+
+```text
+LLM ENGINE                                          SELECTED    MODEL FORMAT
+llama.cpp-linux-x86_64-avx2@2.13.0                                  GGUF
+llama.cpp-linux-x86_64-avx2@2.10.0                                  GGUF
+llama.cpp-linux-x86_64-nvidia-cuda-avx2@2.13.0                      GGUF
+llama.cpp-linux-x86_64-nvidia-cuda-avx2@2.10.0                      GGUF
+llama.cpp-linux-x86_64-nvidia-cuda12-avx2@2.13.0       yes          GGUF
+llama.cpp-linux-x86_64-nvidia-cuda12-avx2@2.12.0                    GGUF
+llama.cpp-linux-x86_64-vulkan-avx2@2.13.0                           GGUF
+llama.cpp-linux-x86_64-vulkan-avx2@2.10.0                           GGUF
+```
+
+Runtime survey:
+
+```text
+Survey by llama.cpp-linux-x86_64-nvidia-cuda12-avx2 (2.13.0)
+GPU/ACCELERATORS                                      VRAM
+NVIDIA GeForce RTX 5070 Laptop GPU (CUDA, Discrete)   7.53 GiB
+
+CPU: x86_64 (AVX2, AVX)
+RAM: 93.73 GiB
+```
+
+OpenAI-compatible model list:
+
+```json
+{
+  "data": [
+    {
+      "id": "qwen/qwen3.5-9b",
+      "object": "model",
+      "owned_by": "organization_owner"
+    },
+    {
+      "id": "text-embedding-nomic-embed-text-v1.5",
+      "object": "model",
+      "owned_by": "organization_owner"
+    }
+  ],
+  "object": "list"
+}
 ```
 
 Redacted MCP config:
@@ -1808,3 +1981,6 @@ Relevant local files:
 ~/.lmstudio/.internal/backend-preferences-v1.json
 ~/.lmstudio/server-logs/2026-05/2026-05-04.1.log
 ```
+
+The `.internal` files above are observational evidence only. Autopilot must not
+depend on private LM Studio state formats as stable contracts.
