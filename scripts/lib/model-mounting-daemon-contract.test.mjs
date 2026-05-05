@@ -167,6 +167,9 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(catalog.providers.find((provider) => provider.id === "catalog.fixture")?.status, "available");
     assert.ok(catalog.results.some((entry) => entry.sourceUrl === "fixture://catalog/autopilot-native-3b-q4"));
     assert.equal(JSON.stringify(catalog).includes("sk-"), false);
+    const snapshotAfterCatalogSearch = await expectOk(daemon.endpoint, "/api/v1/models");
+    assert.equal(snapshotAfterCatalogSearch.catalog.lastSearch.query, "autopilot");
+    assert.ok(snapshotAfterCatalogSearch.catalog.results.some((entry) => entry.sourceUrl === "fixture://catalog/autopilot-native-3b-q4"));
 
     const backends = await expectOk(daemon.endpoint, "/api/v1/backends");
     assert.ok(backends.some((backend) => backend.id === "backend.autopilot.native-local.fixture"));

@@ -1578,6 +1578,7 @@ export class ModelMountingState {
     this.instances = new Map();
     this.routes = new Map();
     this.downloads = new Map();
+    this.lastCatalogSearch = null;
     this.runtimeSelections = new Map();
     this.runtimeEngineProfiles = new Map();
     this.tokens = new Map();
@@ -2496,6 +2497,7 @@ export class ModelMountingState {
 
   catalogStatus() {
     const hfBaseUrl = huggingFaceCatalogBaseUrl();
+    const lastSearch = this.lastCatalogSearch;
     return {
       schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
       checkedAt: this.nowIso(),
@@ -2526,6 +2528,15 @@ export class ModelMountingState {
         compatibility: ["native_local_fixture", "llama_cpp", "vllm", "mlx"],
       },
       storage: this.storageSummary(),
+      lastSearch: lastSearch
+        ? {
+            searchedAt: lastSearch.searchedAt,
+            query: lastSearch.query,
+            filters: lastSearch.filters,
+            resultCount: lastSearch.results.length,
+          }
+        : null,
+      results: lastSearch?.results ?? [],
     };
   }
 
@@ -2562,7 +2573,7 @@ export class ModelMountingState {
       return true;
     });
     const live = await this.searchHuggingFaceCatalog({ query: text, format: requestedFormat, quantization: requestedQuantization, limit, searchedAt });
-    return {
+    const search = {
       schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
       searchedAt,
       query: text,
@@ -2584,6 +2595,8 @@ export class ModelMountingState {
       ],
       results: [...results, ...live.results].slice(0, limit),
     };
+    this.lastCatalogSearch = search;
+    return search;
   }
 
   async searchHuggingFaceCatalog({ query, format, quantization, limit, searchedAt }) {

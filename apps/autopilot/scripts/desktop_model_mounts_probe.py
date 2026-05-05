@@ -208,6 +208,7 @@ def seed_model_mounting_state(endpoint: str) -> dict[str, Any]:
         "/api/v1/backends/backend.autopilot.native-local.fixture/health",
         method="POST",
     )
+    catalog_search = request_json(endpoint, "/api/v1/models/catalog/search?q=autopilot&format=gguf&limit=10")
     download = request_json(
         endpoint,
         "/api/v1/models/download",
@@ -218,6 +219,42 @@ def seed_model_mounting_state(endpoint: str) -> dict[str, Any]:
             "provider_id": "provider.autopilot.local",
             "source_url": "fixture://gui/model-mounts",
             "fixture_content": "family=gui-download\\ncontext=2048\\nquantization=Q4_K_M\\n",
+            "max_bytes": 262144,
+        },
+    )
+    queued_download = request_json(
+        endpoint,
+        "/api/v1/models/download",
+        method="POST",
+        token=token,
+        body={
+            "model_id": "autopilot:gui-canceled-download",
+            "provider_id": "provider.autopilot.local",
+            "source_url": "fixture://gui/model-mounts-canceled",
+            "source_label": "Fixture catalog / canceled GUI validation",
+            "queued_only": True,
+            "max_bytes": 131072,
+        },
+    )
+    canceled_download = request_json(
+        endpoint,
+        f"/api/v1/models/download/cancel/{queued_download['id']}",
+        method="POST",
+        token=token,
+    )
+    failed_download = request_json(
+        endpoint,
+        "/api/v1/models/download",
+        method="POST",
+        token=token,
+        body={
+            "model_id": "autopilot:gui-failed-download",
+            "provider_id": "provider.autopilot.local",
+            "source_url": "fixture://gui/model-mounts-failed",
+            "source_label": "Fixture catalog / failed GUI validation",
+            "simulate_failure": True,
+            "failure_reason": "gui_validation_fixture_failure",
+            "max_bytes": 131072,
         },
     )
     mcp_import = request_json(
@@ -279,12 +316,24 @@ def seed_model_mounting_state(endpoint: str) -> dict[str, Any]:
     )
     snapshot = request_json(endpoint, "/api/v1/models")
     projection = request_json(endpoint, "/api/v1/projections/model-mounting")
+    downloads = snapshot.get("downloads", [])
+    catalog_results = snapshot.get("catalog", {}).get("results", [])
     return {
         "grant_id": grant["id"],
         "token": token,
         "backend_health_receipt": backend_health.get("lastReceiptId"),
+        "catalog_variant_count": len(catalog_results),
+        "catalog_search_result_count": len(catalog_search.get("results", [])),
         "download_id": download["id"],
         "download_receipt": download.get("receiptId"),
+        "canceled_download_id": canceled_download["id"],
+        "failed_download_id": failed_download["id"],
+        "download_status_counts": {
+            "completed": len([item for item in downloads if item.get("status") == "completed"]),
+            "failed": len([item for item in downloads if item.get("status") == "failed"]),
+            "canceled": len([item for item in downloads if item.get("status") == "canceled"]),
+            "queued": len([item for item in downloads if item.get("status") == "queued"]),
+        },
         "mcp_count": mcp_import["count"],
         "chat_receipt": chat["receipt_id"],
         "benchmark_route_receipt": route_test.get("receipt", {}).get("id"),
@@ -298,6 +347,24 @@ def seed_model_mounting_state(endpoint: str) -> dict[str, Any]:
         },
         "projection_watermark": projection.get("watermark"),
         "live_provider_state": collect_live_provider_state(endpoint),
+    }
+
+
+def seeded_state_assertions(seed: dict[str, Any] | None, screenshots: list[dict[str, Any]]) -> dict[str, Any]:
+    counts = (seed or {}).get("download_status_counts") or {}
+    screenshot_tabs = {item.get("tab") for item in screenshots}
+    assertions = {
+        "catalogVariantsSeeded": int((seed or {}).get("catalog_variant_count") or 0) >= 1,
+        "completedDownloadSeeded": int(counts.get("completed") or 0) >= 1,
+        "failedDownloadSeeded": int(counts.get("failed") or 0) >= 1,
+        "canceledDownloadSeeded": int(counts.get("canceled") or 0) >= 1,
+        "downloadsScreenshotCaptured": "downloads" in screenshot_tabs,
+        "logsScreenshotCaptured": "logs" in screenshot_tabs,
+        "tokensScreenshotCaptured": "tokens" in screenshot_tabs,
+    }
+    return {
+        "passed": all(assertions.values()),
+        "assertions": assertions,
     }
 
 
@@ -486,6 +553,7 @@ def main() -> int:
     screenshots: list[dict[str, Any]] = []
     probe_error: str | None = None
     secret_scan: dict[str, Any] | None = None
+    seeded_assertions: dict[str, Any] | None = None
 
     close_matching_windows(args.window_name)
     terminate_existing_desktop_instances()
@@ -518,6 +586,7 @@ def main() -> int:
             print(f"[model-mounts-gui] captured {tab} -> {path.name if path else 'missing'}", flush=True)
 
         secret_scan = scan_for_plaintext_secrets(state_dir, str(seed.get("token", "")))
+        seeded_assertions = seeded_state_assertions(seed, screenshots)
         if any(item.get("capture_error") for item in screenshots):
             raise RuntimeError("One or more Mounts tab screenshots failed.")
         if distinct_transitions < MIN_DISTINCT_TAB_TRANSITIONS:
@@ -527,6 +596,8 @@ def main() -> int:
             )
         if not secret_scan["passed"]:
             raise RuntimeError("Plaintext secret scan failed for model mounting GUI state.")
+        if not seeded_assertions["passed"]:
+            raise RuntimeError("Seeded Mounts GUI state did not cover catalog, failed, canceled, and receipt surfaces.")
     except Exception as error:
         probe_error = str(error)
         print(f"[model-mounts-gui] error: {probe_error}", file=sys.stderr, flush=True)
@@ -546,6 +617,7 @@ def main() -> int:
         "seed": {key: value for key, value in (seed or {}).items() if key != "token"},
         "screenshots": screenshots,
         "secretScan": secret_scan,
+        "seededStateAssertions": seeded_assertions,
         "passed": probe_error is None,
         "probeError": probe_error,
         "desktopLogTail": read_log_tail(desktop_log),

@@ -289,6 +289,10 @@ test("Mounts GUI validation uses a dedicated desktop harness", () => {
   assert.match(probe, /MIN_DISTINCT_TAB_TRANSITIONS/);
   assert.match(probe, /capture_window_with_fallback/);
   assert.match(probe, /scan_for_plaintext_secrets/);
+  assert.match(probe, /seeded_state_assertions/);
+  assert.match(probe, /catalog_variant_count/);
+  assert.match(probe, /download_status_counts/);
+  assert.match(probe, /gui_validation_fixture_failure/);
 });
 
 test("model mounting end-to-end validation is wired as the acceptance gate", () => {
