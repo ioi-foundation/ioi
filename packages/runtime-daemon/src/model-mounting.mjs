@@ -1721,6 +1721,7 @@ export class ModelMountingState {
       workflowNodes: this.workflowNodeBindings(),
       receipts: this.listReceipts().slice(-25),
       projection: this.projectionSummary(),
+      adapterBoundaries: this.adapterBoundaries(),
     };
   }
 
@@ -1752,16 +1753,20 @@ export class ModelMountingState {
       vaultRefs: this.listVaultRefs(),
       mcpServers: this.listMcpServers(),
       workflowBindings: this.workflowNodeBindings(),
-      adapterBoundaries: {
-        wallet: this.walletAuthority.adapterStatus(),
-        vault: this.vault.adapterStatus(),
-        agentgres: this.store.adapterStatus(),
-      },
+      adapterBoundaries: this.adapterBoundaries(),
       lifecycleEvents: this.listReceipts().filter((receipt) => receipt.kind === "model_lifecycle"),
       routeReceipts: this.listReceipts().filter((receipt) => receipt.kind === "model_route_selection"),
       invocationReceipts: this.listReceipts().filter((receipt) => receipt.kind === "model_invocation"),
       toolReceipts: this.listReceipts().filter((receipt) => receipt.kind === "mcp_tool_invocation"),
       receipts: this.listReceipts(),
+    };
+  }
+
+  adapterBoundaries() {
+    return {
+      wallet: this.walletAuthority.adapterStatus(),
+      vault: this.vault.adapterStatus(),
+      agentgres: this.store.adapterStatus(),
     };
   }
 

@@ -2,7 +2,7 @@ use super::model_mount_http::{daemon_request, print_value};
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser, Subcommand};
 use reqwest::Method;
-use serde_json::json;
+use serde_json::{json, Value};
 use std::io::Read;
 
 #[derive(Parser, Debug)]
@@ -42,6 +42,8 @@ pub enum VaultCommands {
     },
     /// List redacted local vault binding metadata.
     Ls,
+    /// Show the active vault material adapter mode.
+    Status,
     /// Inspect one vault ref's redacted metadata.
     GetMeta {
         #[clap(long)]
@@ -84,6 +86,17 @@ pub async fn run(args: VaultArgs) -> Result<()> {
         VaultCommands::Ls => {
             daemon_request(endpoint, token, Method::GET, "/api/v1/vault/refs", None).await?
         }
+        VaultCommands::Status => {
+            let projection = daemon_request(
+                endpoint,
+                token,
+                Method::GET,
+                "/api/v1/projections/model-mounting",
+                None,
+            )
+            .await?;
+            vault_status_from_projection(&projection)
+        }
         VaultCommands::GetMeta { vault_ref } => {
             daemon_request(
                 endpoint,
@@ -106,6 +119,25 @@ pub async fn run(args: VaultArgs) -> Result<()> {
         }
     };
     print_value(&value, args.json)
+}
+
+fn vault_status_from_projection(projection: &Value) -> Value {
+    let vault = projection
+        .pointer("/adapterBoundaries/vault")
+        .cloned()
+        .unwrap_or(Value::Null);
+    let material_adapter = vault
+        .pointer("/materialAdapter")
+        .cloned()
+        .unwrap_or(Value::Null);
+    json!({
+        "port": vault.pointer("/port").cloned().unwrap_or(Value::Null),
+        "implementation": vault.pointer("/implementation").cloned().unwrap_or(Value::Null),
+        "materialAdapter": material_adapter,
+        "materialSources": vault.pointer("/materialSources").cloned().unwrap_or(Value::Null),
+        "remoteAdapter": vault.pointer("/remoteAdapter").cloned().unwrap_or(Value::Null),
+        "evidenceRefs": vault.pointer("/evidenceRefs").cloned().unwrap_or(Value::Null)
+    })
 }
 
 fn resolve_material(

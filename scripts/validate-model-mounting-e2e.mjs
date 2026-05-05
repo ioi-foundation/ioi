@@ -103,6 +103,7 @@ function cliTargetNeedsRebuild(targetBinary) {
     path.join(repoRoot, "crates/cli/src/main.rs"),
     path.join(repoRoot, "crates/cli/src/commands/models.rs"),
     path.join(repoRoot, "crates/cli/src/commands/model_mount_http.rs"),
+    path.join(repoRoot, "crates/cli/src/commands/vault.rs"),
   ];
   return cliSources.some((source) => fs.existsSync(source) && fs.statSync(source).mtimeMs > targetMtime);
 }
@@ -742,6 +743,12 @@ async function main() {
       assert.equal(vaultMeta.configured, true);
       assert.equal(vaultMeta.vaultRefHash, vaultSet.vaultRefHash);
       assert.equal(JSON.stringify(vaultMeta).includes(cliVaultRef), false);
+      const vaultStatus = await runCli(cli, ["vault", "--json", "status"], common);
+      assert.equal(vaultStatus.port, "VaultPort");
+      assert.equal(typeof vaultStatus.materialAdapter.implementation, "string");
+      assert.equal(vaultStatus.materialAdapter.plaintextPersistence, false);
+      assert.equal(JSON.stringify(vaultStatus).includes(cliVaultRef), false);
+      assert.equal(JSON.stringify(vaultStatus).includes(cliVaultMaterial), false);
       const configuredProvider = await runCli(
         cli,
         [
