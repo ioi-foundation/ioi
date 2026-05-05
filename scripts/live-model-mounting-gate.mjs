@@ -807,7 +807,7 @@ async function runLlamaCppGate(evidence) {
         assert.match(loaded.backendProcess?.pidHash ?? "", /^[a-f0-9]{16}$/);
 
         const providerModels = await waitForProviderModels(daemon.endpoint, "provider.llama-cpp", liveTimeoutMs);
-        const health = await expectOk(daemon.endpoint, "/api/v1/providers/provider.llama-cpp/health", { method: "POST" });
+        const health = await waitForProviderHealth(daemon.endpoint, "provider.llama-cpp", liveTimeoutMs);
         assert.equal(health.status, "available");
 
         const chat = await expectOk(daemon.endpoint, "/api/v1/chat", {
@@ -924,6 +924,23 @@ async function waitForProviderModels(endpoint, providerId, timeoutMs) {
     await new Promise((resolve) => setTimeout(resolve, 2000));
   }
   throw lastError ?? new Error(`Timed out waiting for ${providerId} models.`);
+}
+
+async function waitForProviderHealth(endpoint, providerId, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  let lastHealth = null;
+  let lastError = null;
+  while (Date.now() < deadline) {
+    try {
+      const health = await expectOk(endpoint, `/api/v1/providers/${providerId}/health`, { method: "POST" });
+      lastHealth = health;
+      if (health.status === "available") return health;
+    } catch (error) {
+      lastError = error;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+  }
+  throw lastError ?? new Error(`Timed out waiting for ${providerId} health to become available: ${JSON.stringify(lastHealth)}`);
 }
 
 async function runModelBackendsGate(evidence) {

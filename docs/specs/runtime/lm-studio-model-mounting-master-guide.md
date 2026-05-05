@@ -409,8 +409,8 @@ docs/evidence/model-mounting-live/lm-studio/2026-05-05T18-24-08Z/result.json
 Ollama live backend with completed/aborted provider-native stream receipts:
 docs/evidence/model-mounting-live/model-backends/2026-05-05T22-09-26Z/result.json
 
-llama.cpp live runner attempt:
-docs/evidence/model-mounting-live/llama-cpp/2026-05-05T18-27-43Z/result.json
+llama.cpp live runner with completed/aborted provider-native stream receipts:
+docs/evidence/model-mounting-live/llama-cpp/2026-05-05T22-51-29Z/result.json
 
 Model catalog live gate command wiring, skipped because the live catalog env was
 not enabled:
@@ -435,18 +435,17 @@ Live local provider evidence on 2026-05-05 UTC:
   replay, backend, and route receipts. The live gate now accepts
   `IOI_OLLAMA_CHAT_MODEL` and `IOI_OLLAMA_EMBEDDING_MODEL` so operators can
   select a responsive installed model instead of relying on provider list order.
-- llama.cpp live runner gate reached real `llama-server` spawn, provider
-  health, `/v1/models`, native chat, OpenAI-compatible chat, Responses fallback,
-  route receipts, and invocation receipts using the local `stories260K` GGUF.
-  The run failed only at `/v1/embeddings` because that local model/server
-  combination returned provider HTTP 400 for embeddings; the live gate now
-  records this as `embeddingStatus: unsupported_or_failed` with a redacted error
-  hash so chat, Responses, streaming, unload, receipt replay, and redaction
-  parity remain valid even when the selected GGUF/server does not expose
-  embeddings. This downgrade path is covered by a deterministic fake
-  `llama-server` live-gate fixture that forces `/v1/embeddings` to return
-  provider HTTP 400 while keeping stream completion/cancellation receipts
-  mandatory.
+- llama.cpp live runner gate passed with a standalone `llama-server` b9037
+  binary and the local `Qwen3.5-9B-Q4_K_M.gguf` artifact. It validated real
+  spawn, provider health, `/v1/models`, native chat, OpenAI-compatible chat,
+  Responses, completed provider-native streamed chat-completions, intentionally
+  aborted provider-native streamed chat-completions, unload, receipt replay,
+  and secret redaction. `/v1/embeddings` returned provider HTTP 400 for this
+  GGUF/server combination and was recorded as
+  `embeddingStatus: unsupported_or_failed` with a redacted error hash. The same
+  downgrade path is covered by a deterministic fake `llama-server` live-gate
+  fixture that forces `/v1/embeddings` to return provider HTTP 400 while keeping
+  stream completion/cancellation receipts mandatory.
 - wallet.network live gate passed in deterministic fake-remote mode, validating
   `WalletAuthorityPort` configuration, denied-scope fail-closed behavior, MCP
   plaintext-secret rejection, and secret scans.
@@ -661,10 +660,12 @@ gates:
      token redaction when a local GGUF artifact is supplied; embeddings are
      validated when supported and otherwise recorded as
      `unsupported_or_failed` with a redacted error hash;
-   - the latest local llama.cpp attempt proved real spawn, health, chat,
-     OpenAI-compatible chat, Responses fallback, route receipts, and invocation
-     receipts, but failed at embeddings with provider HTTP 400 for the available
-     `stories260K` GGUF;
+   - the latest local llama.cpp gate passed with standalone `llama-server`
+     b9037 and `Qwen3.5-9B-Q4_K_M.gguf`, proving real spawn, health, chat,
+     OpenAI-compatible chat, Responses, completed and client-aborted
+     provider-native stream receipts, route receipts, invocation receipts,
+     unload, replay, and redaction; embeddings were recorded as
+     `unsupported_or_failed` for that GGUF/server combination;
    - Ollama has deterministic process-lifecycle parity: configured
      `ollama serve` binaries are supervised with redacted argv and bounded
      logs, model load/unload uses the public `/api/generate` keep-alive path,
@@ -678,11 +679,10 @@ gates:
      and `npm run test:model-backends:live` can exercise it when
      `IOI_VLLM_MODEL` and either a `vllm` binary on `PATH`,
      `IOI_VLLM_BINARY`, or `VLLM_BASE_URL` are configured;
-   - remaining work is rerunning the updated llama.cpp live gate on an operator
-     machine, validating llama.cpp embeddings with a compatible local GGUF/server
-     configuration if available, running vLLM against live hardware, extending
-     live stream parity beyond the passing Ollama gate, memory pressure
-     eviction, and backend-specific schedulers.
+   - remaining work is validating llama.cpp embeddings with a compatible local
+     GGUF/server configuration if available, running vLLM against live hardware,
+     extending live stream parity beyond the passing Ollama and llama.cpp
+     gates, memory pressure eviction, and backend-specific schedulers.
 2. Live catalog/download production hardening:
    - the gated Hugging Face-compatible adapter, format/quantization filters,
      resumable `.part` downloads, checksum verification, source hashing, and
@@ -783,7 +783,7 @@ implemented as a product surface.
 | Hardware survey | `lms runtime survey` reports GPU/VRAM, CPU features, RAM | Complete for deterministic/public CLI path | Keep redacted survey receipts in projection/replay; add scheduling hints and live runtime preference recommendations |
 | Load options | `lms load --gpu --context-length --parallel --ttl --identifier --estimate-only` | Complete for deterministic/public driver path | Runtime defaults now flow into redacted process argv for deterministic native-local, configured llama.cpp, Ollama serve, and vLLM serve runners; live tuning recommendations remain future scheduler work |
 | Local server | `lms server start|stop|status` and local port `1234` | Complete for deterministic daemon path | Keep start/stop/restart governed by `server.control:*`; package production headless/service supervision |
-| OpenAI-compatible API | `/v1/models`, chat completions, Responses, embeddings | Complete for daemon path | Chat-completion and Responses deterministic SSE plus cancellation receipts now exist; GUI/API/CLI/replay parity is validated, and Ollama has passing live provider-native completed/aborted stream receipts; remaining closeout is llama.cpp/vLLM live stream parity, richer OpenAI error shape, tool-output submission, and advanced Responses state |
+| OpenAI-compatible API | `/v1/models`, chat completions, Responses, embeddings | Complete for daemon path | Chat-completion and Responses deterministic SSE plus cancellation receipts now exist; GUI/API/CLI/replay parity is validated, and Ollama plus llama.cpp have passing live provider-native completed/aborted stream receipts; remaining closeout is vLLM live stream parity, richer OpenAI error shape, tool-output submission, and advanced Responses state |
 | Anthropic-compatible API | `/v1/messages` with `x-api-key`/Bearer auth and SSE events | Partial | Message calls, deterministic SSE, and cancellation receipts route through router/capability/MCP/receipt path; add provider-native token streaming, upstream cancellation, richer content blocks, and advanced tool-use compatibility |
 | Native model API | LM Studio has public local primitives plus OpenAI-compatible surface | Complete, Autopilot-specific | Keep IOI-native routes authoritative and prevent `/v1/*` policy bypass |
 | Stateful/streaming native chat | `/api/v1/chat` supports stateful chat, token streams, model-load events, prompt-processing events, context length in request, and MCP integrations | Partial | Current deterministic observability is receipt/event based; add true streaming transport, stateful continuation, cancel/interrupt, and per-request context-length handling |
@@ -792,7 +792,7 @@ implemented as a product surface.
 | Inference stats | v0-style TTFT, tokens/sec, generation time, stop reason, runtime/model info | Partial | Receipts contain latency/token counts; add TTFT/tokens-per-second/runtime/model-info fields for streaming and non-streaming invocations |
 | API tokens | LM Studio local API tokens/auth toggle | Complete plus stronger IOI policy | Add production wallet.network account linking, cross-device revocation, and richer audit export UX |
 | MCP config | Cursor/LM Studio-style `mcp.json` plus API integrations | Partial | Complete stdio lifecycle, OAuth, schema discovery, and model tool exposure through governed receipts |
-| Provider support | LM Studio owns local GGUF runtime; external providers are not core | Partial | Keep LM Studio first-class; llama.cpp, Ollama, and vLLM have supervised runner boundaries; Ollama has passing live stream/invocation evidence, while llama.cpp/vLLM live stream parity and BYOK/custom HTTP hardening remain behind the same router |
+| Provider support | LM Studio owns local GGUF runtime; external providers are not core | Partial | Keep LM Studio first-class; llama.cpp, Ollama, and vLLM have supervised runner boundaries; Ollama and llama.cpp have passing live stream/invocation evidence, while vLLM live stream parity and BYOK/custom HTTP hardening remain behind the same router |
 | Workflow integration | Not a core LM Studio primitive | Autopilot ahead, partial product UX | Build visual node forms, Receipt Gate configuration, replay, and harness run inspection |
 | Receipts/audit | Not an LM Studio primitive | Autopilot ahead | Finish production Agentgres sync, settlement/audit packs, and remote replay |
 | Secret storage | LM Studio local config/API token ergonomics | Partial, stronger boundary | Wire production wallet.network/vault and cross-device revocation; keep plaintext rejected |
@@ -2214,6 +2214,13 @@ Current status:
 - Complete: local Ollama live backend stream parity passed with completed and
   client-aborted provider-native chat-completion stream receipts, linked
   invocation receipts, route/backend evidence, replay, and redaction evidence.
+- Complete: local llama.cpp live backend stream parity passed with standalone
+  `llama-server` b9037 and `Qwen3.5-9B-Q4_K_M.gguf`, including real spawn,
+  provider health, `/v1/models`, native chat, OpenAI-compatible chat, Responses,
+  completed and client-aborted provider-native chat-completion stream receipts,
+  unload, receipt replay, and secret redaction; embeddings were recorded as
+  `unsupported_or_failed` with a redacted error hash for this GGUF/server
+  combination.
 - Complete: deterministic llama.cpp live-gate fixture proves unsupported
   embeddings are recorded as `unsupported_or_failed` with a redacted error hash
   while chat, Responses, stream completion/cancellation receipts, unload,
@@ -2295,9 +2302,9 @@ parity closeout order from the matrix above:
 2. Product UI parity beyond the validated picker, loaded-instance inspector,
    model detail drawer, route editor, token editor, benchmark/results panel,
    degraded/denied action readiness, and filtered observability stream.
-3. Live backend/provider parity: Ollama has passing local live evidence; next
-   rerun the updated opt-in live `llama.cpp` gate, execute the vLLM
-   lifecycle/stream gate on an operator machine, then add BYOK hosted adapters.
+3. Live backend/provider parity: Ollama and llama.cpp have passing local live
+   evidence; next execute the vLLM lifecycle/stream gate on an operator machine,
+   then add BYOK hosted adapters.
 4. Raw live-log streaming parity for providers/backends with `lms log stream`
    style transports.
 5. Production IOI hardening beyond LM Studio.
