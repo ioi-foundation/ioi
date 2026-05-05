@@ -29,4 +29,4 @@ jobs:
           key: ${{ runner.os }}-cargo-convergent-adversarial-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Run adversarial convergent harness
-        run: bash ops/convergent/adversarial_testnet.sh
+        run: bash ops/aft/adversarial_testnet.sh
