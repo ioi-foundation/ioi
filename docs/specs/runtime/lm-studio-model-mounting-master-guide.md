@@ -187,6 +187,10 @@ unless the corresponding environment flag is explicitly set:
 
 ```text
 IOI_LIVE_LM_STUDIO=1 npm run test:lm-studio-live
+IOI_LIVE_LLAMA_CPP=1 \
+  IOI_LLAMA_CPP_SERVER_PATH=/path/to/llama-server \
+  IOI_LLAMA_CPP_MODEL_PATH=/path/to/model.gguf \
+  npm run test:llama-cpp-live
 IOI_LIVE_MODEL_BACKENDS=1 npm run test:model-backends:live
 IOI_LIVE_MODEL_CATALOG=1 npm run test:model-catalog-live
 IOI_REMOTE_WALLET=1 npm run test:wallet-live
@@ -322,6 +326,7 @@ npm run test:model-mounting-gui
 npm run validate:model-mounts-gui:run
 AUTOPILOT_LOCAL_GPU_DEV=1 npm run validate:autopilot-gui-harness:run -- --window-timeout-ms 300000
 IOI_LIVE_LM_STUDIO=1 npm run test:lm-studio-live
+IOI_LIVE_LLAMA_CPP=1 IOI_LLAMA_CPP_SERVER_PATH=/path/to/llama-server IOI_LLAMA_CPP_MODEL_PATH=/path/to/model.gguf npm run test:llama-cpp-live
 OLLAMA_HOST=http://127.0.0.1:11434 IOI_LIVE_MODEL_BACKENDS=1 npm run test:model-backends:live
 npm run test:model-catalog-live
 IOI_REMOTE_WALLET=1 npm run test:wallet-live
@@ -535,8 +540,13 @@ gates:
      runtime defaults become redacted `llama-server` args, invocation routes
      through its OpenAI-compatible `/v1`, unload stops the child process, and a
      fake `llama-server` fixture validates the path in CI;
-   - remaining work is live hardware validation for real `llama-server`
-     binaries, Ollama/vLLM process spawning, memory pressure eviction, and
+   - an opt-in live `llama.cpp` gate is wired with
+     `IOI_LIVE_LLAMA_CPP=1`, `IOI_LLAMA_CPP_SERVER_PATH`, and
+     `IOI_LLAMA_CPP_MODEL_PATH`; it validates real spawn, `/v1/models`,
+     chat, Responses fallback, embeddings, unload, receipts, replay, and
+     token redaction when a local GGUF artifact is supplied;
+   - remaining work is running that gate against the operator's live hardware,
+     Ollama/vLLM process spawning, memory pressure eviction, and
      backend-specific schedulers.
 2. Live catalog/download production hardening:
    - the gated Hugging Face-compatible adapter, format/quantization filters,
@@ -1915,6 +1925,8 @@ Implemented:
 - configured `llama.cpp` runner boundary using `IOI_LLAMA_CPP_SERVER_PATH` and
   OpenAI-compatible `/v1`, with fake `llama-server` fixture coverage for spawn,
   load, invoke, unload, redacted argv, logs, and receipts;
+- opt-in live `llama.cpp` gate (`npm run test:llama-cpp-live`) for real
+  binary/GGUF validation when `IOI_LIVE_LLAMA_CPP=1`;
 - resource estimate fixture and backend logs;
 - OpenAI-compatible serving from Autopilot without LM Studio;
 - lifecycle and invocation receipts with native backend evidence.
@@ -2049,8 +2061,9 @@ parity closeout order from the matrix above:
 2. Product UI parity beyond the validated picker, loaded-instance inspector,
    model detail drawer, route editor, token editor, benchmark/results panel,
    degraded/denied action readiness, and filtered observability stream.
-3. Live backend/provider parity: live `llama.cpp` hardware validation,
-   Ollama/vLLM process lifecycle, and BYOK hosted adapters.
+3. Live backend/provider parity: execute the opt-in live `llama.cpp` hardware
+   gate on an operator machine, then add Ollama/vLLM process lifecycle and BYOK
+   hosted adapters.
 4. Raw live-log streaming parity for providers/backends with `lms log stream`
    style transports.
 5. Production IOI hardening beyond LM Studio.

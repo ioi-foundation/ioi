@@ -49,6 +49,7 @@
     "validate:model-mounting:e2e": "node scripts/validate-model-mounting-e2e.mjs",
     "validate:model-mounts-gui:run": "node scripts/run-model-mounts-gui-validation.mjs",
     "test:lm-studio-live": "node scripts/live-model-mounting-gate.mjs lm-studio",
+    "test:llama-cpp-live": "node scripts/live-model-mounting-gate.mjs llama-cpp",
     "test:model-backends:live": "node scripts/live-model-mounting-gate.mjs model-backends",
     "test:model-catalog-live": "node scripts/live-model-mounting-gate.mjs model-catalog",
     "test:wallet-live": "node scripts/live-model-mounting-gate.mjs wallet",
