@@ -125,8 +125,8 @@ jobs:
 
       - name: Convergent Fault Tolerance Gates
         run: |
-          cargo test --locked -p ioi-consensus --features convergent guardian_majority_safety_holds_below_quorum_intersection_budget -- --nocapture
-          cargo test --locked -p ioi-consensus --features convergent experimental_nested_guardian_accepts_deterministically_assigned_witness_certificate -- --nocapture
+          cargo test --locked -p ioi-consensus --features aft guardian_majority_safety_holds_below_quorum_intersection_budget -- --nocapture
+          cargo test --locked -p ioi-consensus --features aft experimental_nested_guardian_accepts_deterministically_assigned_witness_certificate -- --nocapture
           cargo test --locked -p ioi-services rejects_unsafe_odd_sized_guardian_committee_under_production_policy -- --nocapture
 
   benchmarks_verification:
