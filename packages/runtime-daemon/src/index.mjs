@@ -680,6 +680,26 @@ async function handleModelMountingNativeRoute({ request, response, store, url, s
     writeJsonResponse(response, mounts.listProviders());
     return;
   }
+  if (request.method === "GET" && url.pathname === "/api/v1/vault/refs") {
+    mounts.authorize(authorization, "vault.read:*");
+    writeJsonResponse(response, mounts.listVaultRefs());
+    return;
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/vault/refs") {
+    mounts.authorize(authorization, "vault.write:*");
+    writeJsonResponse(response, mounts.bindVaultRef(await readBody(request)), 201);
+    return;
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/vault/refs/meta") {
+    mounts.authorize(authorization, "vault.read:*");
+    writeJsonResponse(response, mounts.vaultRefMetadata(await readBody(request)));
+    return;
+  }
+  if (request.method === "DELETE" && url.pathname === "/api/v1/vault/refs") {
+    mounts.authorize(authorization, "vault.delete:*");
+    writeJsonResponse(response, mounts.removeVaultRef(await readBody(request)));
+    return;
+  }
   if (request.method === "POST" && url.pathname === "/api/v1/providers") {
     mounts.authorize(authorization, "provider.write:*");
     writeJsonResponse(response, mounts.upsertProvider(await readBody(request)), 201);

@@ -22,4 +22,5 @@ pub mod server;
 pub mod test_cmd;
 pub mod tokens;
 pub mod trace; // [NEW]
+pub mod vault;
 pub mod verify;

@@ -888,7 +888,6 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
   const daemon = await startRuntimeDaemonService({
     cwd,
     stateDir,
-    vaultSecrets: { [vaultRef]: vaultMaterial },
   });
   try {
     const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
@@ -896,6 +895,9 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
       body: {
         allowed: [
           "provider.write:*",
+          "vault.write:*",
+          "vault.read:*",
+          "vault.delete:*",
           "model.import:*",
           "model.mount:*",
           "model.load:*",
@@ -1037,6 +1039,45 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
     assert.equal(configured.authHeaderName, "x-api-key");
     assert.equal(JSON.stringify(configured).includes(vaultRef), false);
 
+    const unresolvedHealth = await requestJson(daemon.endpoint, "/api/v1/providers/provider.test.custom-vault/health", { method: "POST" });
+    assert.equal(unresolvedHealth.response.status, 403);
+    assert.equal(unresolvedHealth.json.error.details.resolvedMaterial, false);
+    assert.equal(JSON.stringify(unresolvedHealth.json).includes(vaultRef), false);
+    assert.equal(JSON.stringify(unresolvedHealth.json).includes(vaultMaterial), false);
+
+    const bound = await expectOk(daemon.endpoint, "/api/v1/vault/refs", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        vault_ref: vaultRef,
+        material: vaultMaterial,
+        purpose: "provider.auth:provider.test.custom-vault",
+        label: "Vault Custom HTTP",
+      },
+    });
+    assert.equal(bound.configured, true);
+    assert.equal(bound.vaultRef.redacted, true);
+    assert.equal(typeof bound.vaultRefHash, "string");
+    assert.equal(typeof bound.receiptId, "string");
+    assert.equal(JSON.stringify(bound).includes(vaultRef), false);
+    assert.equal(JSON.stringify(bound).includes(vaultMaterial), false);
+
+    const vaultRefs = await expectOk(daemon.endpoint, "/api/v1/vault/refs", { token: grant.token });
+    assert.ok(vaultRefs.some((ref) => ref.vaultRefHash === bound.vaultRefHash));
+    assert.equal(JSON.stringify(vaultRefs).includes(vaultRef), false);
+    assert.equal(JSON.stringify(vaultRefs).includes(vaultMaterial), false);
+
+    const vaultMeta = await expectOk(daemon.endpoint, "/api/v1/vault/refs/meta", {
+      method: "POST",
+      token: grant.token,
+      body: { vault_ref: vaultRef },
+    });
+    assert.equal(vaultMeta.configured, true);
+    assert.equal(vaultMeta.vaultRefHash, bound.vaultRefHash);
+    assert.equal(JSON.stringify(vaultMeta).includes(vaultRef), false);
+    assert.equal(JSON.stringify(vaultMeta).includes(vaultMaterial), false);
+    assert.equal(directoryContainsNeedle(stateDir, vaultMaterial), false);
+
     const providers = await expectOk(daemon.endpoint, "/api/v1/providers");
     assert.equal(JSON.stringify(providers).includes(vaultRef), false);
     const publicProvider = providers.find((provider) => provider.id === "provider.test.custom-vault");
@@ -1097,6 +1138,19 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
     const projectionAfterAuth = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
     assert.equal(projectionAfterAuth.adapterBoundaries.vault.port, "VaultPort");
     assert.equal(JSON.stringify(projectionAfterAuth).includes(vaultMaterial), false);
+    assert.equal(directoryContainsNeedle(stateDir, vaultMaterial), false);
+
+    const removed = await expectOk(daemon.endpoint, "/api/v1/vault/refs", {
+      method: "DELETE",
+      token: grant.token,
+      body: { vault_ref: vaultRef },
+    });
+    assert.equal(removed.configured, false);
+    assert.equal(JSON.stringify(removed).includes(vaultRef), false);
+    assert.equal(JSON.stringify(removed).includes(vaultMaterial), false);
+    const removedHealth = await requestJson(daemon.endpoint, "/api/v1/providers/provider.test.custom-vault/health", { method: "POST" });
+    assert.equal(removedHealth.response.status, 403);
+    assert.equal(removedHealth.json.error.details.resolvedMaterial, false);
   } finally {
     await daemon.close();
     await providerServer.close();
@@ -1471,6 +1525,27 @@ async function listen(server) {
       resolve();
     });
   });
+}
+
+function directoryContainsNeedle(root, needle) {
+  const pending = [root];
+  while (pending.length > 0) {
+    const current = pending.pop();
+    const stat = fs.statSync(current);
+    if (stat.isDirectory()) {
+      for (const entry of fs.readdirSync(current)) {
+        pending.push(path.join(current, entry));
+      }
+      continue;
+    }
+    if (!stat.isFile() || stat.size > 5 * 1024 * 1024) continue;
+    try {
+      if (fs.readFileSync(current, "utf8").includes(needle)) return true;
+    } catch {
+      // Binary files are ignored for this redaction scan.
+    }
+  }
+  return false;
 }
 
 test("LM Studio provider discovery uses guarded public lms commands for installed models", async () => {

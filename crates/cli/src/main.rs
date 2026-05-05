@@ -80,6 +80,9 @@ enum Commands {
     /// Manage local capability tokens for model and MCP access.
     Tokens(tokens::TokensArgs),
 
+    /// Bind and inspect local wallet.network vault refs for provider auth.
+    Vault(vault::VaultArgs),
+
     /// Inspect Agentgres model, route, tool, workflow, and token receipts.
     Receipts(receipts::ReceiptsArgs),
 
@@ -148,6 +151,7 @@ async fn main() -> Result<()> {
         Commands::Routes(args) => routes::run(args).await,
         Commands::Server(args) => server::run(args).await,
         Commands::Tokens(args) => tokens::run(args).await,
+        Commands::Vault(args) => vault::run(args).await,
         Commands::Receipts(args) => receipts::run(args).await,
 
         // --- Agent ---
