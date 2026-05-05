@@ -3,6 +3,14 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 
+import {
+  ModelMountingState,
+  openAiChatCompletion,
+  openAiCompletion,
+  openAiEmbedding,
+  openAiResponse,
+} from "./model-mounting.mjs";
+
 const TERMINAL_EVENT_TYPES = new Set(["completed", "canceled", "failed", "error"]);
 
 export async function startRuntimeDaemonService(options = {}) {
@@ -11,6 +19,7 @@ export async function startRuntimeDaemonService(options = {}) {
   const port = options.port ?? 0;
   const store = new AgentgresRuntimeStateStore(stateDir, {
     cwd: options.cwd ?? process.cwd(),
+    homeDir: options.homeDir,
   });
   const server = http.createServer((request, response) => {
     handleRequest({ request, response, store }).catch((error) => {
@@ -52,6 +61,12 @@ export class AgentgresRuntimeStateStore {
     this.runs = new Map();
     this.schemaVersion = "ioi.agentgres.runtime.v0";
     this.ensureDirs();
+    this.modelMounting = new ModelMountingState({
+      stateDir: this.stateDir,
+      cwd: this.defaultCwd,
+      homeDir: options.homeDir,
+      appendOperation: (kind, payload) => this.appendOperation(kind, payload),
+    });
     this.writeSchema();
     this.load();
   }
@@ -224,11 +239,7 @@ export class AgentgresRuntimeStateStore {
   }
 
   listModels() {
-    return [
-      { id: "local:auto", provider: "ioi-daemon-local", cost: "local", quality: "adaptive" },
-      { id: "gpt-5.5", provider: "configured-provider", cost: "high", quality: "frontier" },
-      { id: "gpt-5.4-mini", provider: "configured-provider", cost: "low", quality: "fast" },
-    ];
+    return this.modelMounting.legacyModelList();
   }
 
   listRepositories() {
@@ -326,6 +337,14 @@ export class AgentgresRuntimeStateStore {
       "scorecards",
       "ledgers",
       "projections",
+      "model-artifacts",
+      "model-endpoints",
+      "model-instances",
+      "model-routes",
+      "model-providers",
+      "model-downloads",
+      "tokens",
+      "mcp-servers",
     ]) {
       fs.mkdirSync(path.join(this.stateDir, dir), { recursive: true });
     }
@@ -341,6 +360,7 @@ export class AgentgresRuntimeStateStore {
         receipts: ["id", "runId", "kind", "summary", "redaction", "evidenceRefs"],
         quality: ["runId", "scorecard", "qualityLedger", "stopCondition"],
         operationLog: ["sequence", "operationId", "kind", "objectId", "createdAt", "digest"],
+        ...this.modelMounting.writeSchemaRelationSchemas(),
       },
       canonicalOwner: "Agentgres",
       sdkCheckpointAuthority: "cache_only",
@@ -462,7 +482,7 @@ async function handleRequest({ request, response, store }) {
   response.setHeader("x-request-id", requestId);
   response.setHeader("access-control-allow-origin", "*");
   response.setHeader("access-control-allow-headers", "authorization,content-type,last-event-id");
-  response.setHeader("access-control-allow-methods", "GET,POST,DELETE,OPTIONS");
+  response.setHeader("access-control-allow-methods", "GET,POST,PATCH,DELETE,OPTIONS");
   if (request.method === "OPTIONS") {
     response.statusCode = 204;
     response.end();
@@ -472,6 +492,14 @@ async function handleRequest({ request, response, store }) {
   const url = new URL(request.url ?? "/", "http://127.0.0.1");
   const segments = url.pathname.split("/").filter(Boolean);
   try {
+    if (segments[0] === "api" && segments[1] === "v1") {
+      await handleModelMountingNativeRoute({ request, response, store, url, segments });
+      return;
+    }
+    if (segments[0] === "v1" && isOpenAiCompatibilityRoute(request, url)) {
+      await handleOpenAiCompatibilityRoute({ request, response, store, url });
+      return;
+    }
     if (request.method === "POST" && url.pathname === "/v1/agents") {
       writeJsonResponse(response, store.createAgent((await readBody(request)).options ?? {}));
       return;
@@ -519,6 +547,372 @@ async function handleRequest({ request, response, store }) {
   } catch (error) {
     writeError(response, error);
   }
+}
+
+async function handleModelMountingNativeRoute({ request, response, store, url, segments }) {
+  const mounts = store.modelMounting;
+  const authorization = request.headers.authorization;
+  const baseUrl = baseUrlForRequest(request);
+  if (request.method === "GET" && url.pathname === "/api/v1/server/status") {
+    writeJsonResponse(response, mounts.serverStatus(baseUrl));
+    return;
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/server/start") {
+    writeJsonResponse(response, {
+      ...mounts.serverStatus(baseUrl),
+      status: "running",
+      startedAt: new Date().toISOString(),
+    });
+    return;
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/server/stop") {
+    writeJsonResponse(response, {
+      ...mounts.serverStatus(baseUrl),
+      status: "stopped",
+      stoppedAt: new Date().toISOString(),
+    });
+    return;
+  }
+  if (request.method === "GET" && url.pathname === "/api/v1/backends") {
+    writeJsonResponse(response, mounts.listBackends());
+    return;
+  }
+  if (request.method === "POST" && segments[2] === "backends" && segments[3] && segments[4] === "health") {
+    writeJsonResponse(response, mounts.backendHealth(decodeURIComponent(segments[3])));
+    return;
+  }
+  if (request.method === "POST" && segments[2] === "backends" && segments[3] && segments[4] === "start") {
+    mounts.authorize(authorization, `backend.control:${decodeURIComponent(segments[3])}`);
+    writeJsonResponse(response, mounts.startBackend(decodeURIComponent(segments[3])));
+    return;
+  }
+  if (request.method === "POST" && segments[2] === "backends" && segments[3] && segments[4] === "stop") {
+    mounts.authorize(authorization, `backend.control:${decodeURIComponent(segments[3])}`);
+    writeJsonResponse(response, mounts.stopBackend(decodeURIComponent(segments[3])));
+    return;
+  }
+  if (request.method === "GET" && segments[2] === "backends" && segments[3] && segments[4] === "logs") {
+    writeJsonResponse(response, mounts.backendLogs(decodeURIComponent(segments[3])));
+    return;
+  }
+  if (request.method === "GET" && url.pathname === "/api/v1/models") {
+    writeJsonResponse(response, mounts.snapshot(baseUrl));
+    return;
+  }
+  if (
+    request.method === "GET" &&
+    segments[2] === "models" &&
+    segments[3] &&
+    !["download", "loaded"].includes(segments[3])
+  ) {
+    writeJsonResponse(response, mounts.getModel(decodeURIComponent(segments[3])));
+    return;
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/models/download") {
+    mounts.authorize(authorization, "model.download:*");
+    writeJsonResponse(response, mounts.downloadModel(await readBody(request)), 202);
+    return;
+  }
+  if (
+    request.method === "GET" &&
+    segments[2] === "models" &&
+    segments[3] === "download" &&
+    segments[4] === "status" &&
+    segments[5]
+  ) {
+    writeJsonResponse(response, mounts.downloadStatus(decodeURIComponent(segments[5])));
+    return;
+  }
+  if (
+    request.method === "POST" &&
+    segments[2] === "models" &&
+    segments[3] === "download" &&
+    segments[4] === "cancel" &&
+    segments[5]
+  ) {
+    mounts.authorize(authorization, "model.download:*");
+    writeJsonResponse(response, mounts.cancelDownload(decodeURIComponent(segments[5])));
+    return;
+  }
+  if (
+    request.method === "POST" &&
+    segments[2] === "models" &&
+    segments[3] === "download" &&
+    segments[4] &&
+    segments[5] === "cancel"
+  ) {
+    mounts.authorize(authorization, "model.download:*");
+    writeJsonResponse(response, mounts.cancelDownload(decodeURIComponent(segments[4])));
+    return;
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/models/import") {
+    mounts.authorize(authorization, "model.import:*");
+    writeJsonResponse(response, mounts.importModel(await readBody(request)), 201);
+    return;
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/models/mount") {
+    mounts.authorize(authorization, "model.mount:*");
+    writeJsonResponse(response, mounts.mountEndpoint(await readBody(request)), 201);
+    return;
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/models/unmount") {
+    mounts.authorize(authorization, "model.unmount:*");
+    writeJsonResponse(response, mounts.unmountEndpoint(await readBody(request)));
+    return;
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/models/load") {
+    mounts.authorize(authorization, "model.load:*");
+    writeJsonResponse(response, await mounts.loadModel(await readBody(request)), 201);
+    return;
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/models/unload") {
+    mounts.authorize(authorization, "model.unload:*");
+    writeJsonResponse(response, await mounts.unloadModel(await readBody(request)));
+    return;
+  }
+  if (request.method === "GET" && url.pathname === "/api/v1/models/loaded") {
+    writeJsonResponse(response, mounts.listInstances().filter((instance) => instance.status === "loaded"));
+    return;
+  }
+  if (request.method === "GET" && url.pathname === "/api/v1/providers") {
+    writeJsonResponse(response, mounts.listProviders());
+    return;
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/providers") {
+    mounts.authorize(authorization, "provider.write:*");
+    writeJsonResponse(response, mounts.upsertProvider(await readBody(request)), 201);
+    return;
+  }
+  if (request.method === "PATCH" && segments[2] === "providers" && segments[3]) {
+    mounts.authorize(authorization, `provider.write:${decodeURIComponent(segments[3])}`);
+    writeJsonResponse(response, mounts.upsertProvider({ ...(await readBody(request)), id: decodeURIComponent(segments[3]) }));
+    return;
+  }
+  if (request.method === "POST" && segments[2] === "providers" && segments[3] && segments[4] === "health") {
+    writeJsonResponse(response, await mounts.providerHealth(decodeURIComponent(segments[3])));
+    return;
+  }
+  if (request.method === "GET" && segments[2] === "providers" && segments[3] && segments[4] === "models") {
+    writeJsonResponse(response, await mounts.listProviderModels(decodeURIComponent(segments[3])));
+    return;
+  }
+  if (request.method === "GET" && segments[2] === "providers" && segments[3] && segments[4] === "loaded") {
+    writeJsonResponse(response, await mounts.listProviderLoaded(decodeURIComponent(segments[3])));
+    return;
+  }
+  if (request.method === "POST" && segments[2] === "providers" && segments[3] && segments[4] === "start") {
+    mounts.authorize(authorization, `provider.control:${decodeURIComponent(segments[3])}`);
+    writeJsonResponse(response, await mounts.startProvider(decodeURIComponent(segments[3])));
+    return;
+  }
+  if (request.method === "POST" && segments[2] === "providers" && segments[3] && segments[4] === "stop") {
+    mounts.authorize(authorization, `provider.control:${decodeURIComponent(segments[3])}`);
+    writeJsonResponse(response, await mounts.stopProvider(decodeURIComponent(segments[3])));
+    return;
+  }
+  if (request.method === "GET" && url.pathname === "/api/v1/routes") {
+    writeJsonResponse(response, mounts.listRoutes());
+    return;
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/routes") {
+    mounts.authorize(authorization, "route.write:*");
+    writeJsonResponse(response, mounts.upsertRoute(await readBody(request)), 201);
+    return;
+  }
+  if (request.method === "POST" && segments[2] === "routes" && segments[3] && segments[4] === "test") {
+    mounts.authorize(authorization, `route.use:${decodeURIComponent(segments[3])}`);
+    writeJsonResponse(response, mounts.testRoute(decodeURIComponent(segments[3]), await readBody(request)));
+    return;
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/chat") {
+    const invocation = await mounts.invokeModel({
+      authorization,
+      requiredScope: "model.chat:*",
+      kind: "chat",
+      body: await readBody(request),
+    });
+    writeJsonResponse(response, nativeInvocationResponse(invocation));
+    return;
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/responses") {
+    const invocation = await mounts.invokeModel({
+      authorization,
+      requiredScope: "model.responses:*",
+      kind: "responses",
+      body: await readBody(request),
+    });
+    writeJsonResponse(response, nativeInvocationResponse(invocation));
+    return;
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/embeddings") {
+    const body = await readBody(request);
+    const invocation = await mounts.invokeModel({
+      authorization,
+      requiredScope: "model.embeddings:*",
+      kind: "embeddings",
+      body,
+    });
+    writeJsonResponse(response, {
+      ...nativeInvocationResponse(invocation),
+      embeddings: openAiEmbedding(invocation, body).data,
+    });
+    return;
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/rerank") {
+    const invocation = await mounts.invokeModel({
+      authorization,
+      requiredScope: "model.rerank:*",
+      kind: "rerank",
+      body: await readBody(request),
+    });
+    writeJsonResponse(response, nativeInvocationResponse(invocation));
+    return;
+  }
+  if (request.method === "GET" && url.pathname === "/api/v1/tokens") {
+    writeJsonResponse(response, mounts.listTokens());
+    return;
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/tokens") {
+    writeJsonResponse(response, mounts.createToken(await readBody(request)), 201);
+    return;
+  }
+  if (request.method === "DELETE" && segments[2] === "tokens" && segments[3]) {
+    writeJsonResponse(response, mounts.revokeToken(decodeURIComponent(segments[3])));
+    return;
+  }
+  if (request.method === "GET" && url.pathname === "/api/v1/receipts") {
+    writeJsonResponse(response, mounts.listReceipts());
+    return;
+  }
+  if (request.method === "GET" && segments[2] === "receipts" && segments[3] && segments[4] === "replay") {
+    writeJsonResponse(response, mounts.receiptReplay(decodeURIComponent(segments[3])));
+    return;
+  }
+  if (request.method === "GET" && segments[2] === "receipts" && segments[3]) {
+    writeJsonResponse(response, mounts.getReceipt(decodeURIComponent(segments[3])));
+    return;
+  }
+  if (request.method === "GET" && url.pathname === "/api/v1/projections/model-mounting") {
+    writeJsonResponse(response, mounts.projection());
+    return;
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/workflows/nodes/execute") {
+    writeJsonResponse(response, await mounts.executeWorkflowNode({ authorization, body: await readBody(request) }));
+    return;
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/workflows/receipt-gate") {
+    writeJsonResponse(response, mounts.validateReceiptGate(await readBody(request)));
+    return;
+  }
+  if (request.method === "GET" && url.pathname === "/api/v1/mcp") {
+    writeJsonResponse(response, mounts.listMcpServers());
+    return;
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/mcp/import") {
+    mounts.authorize(authorization, "mcp.import:*");
+    writeJsonResponse(response, mounts.importMcpJson(await readBody(request)), 201);
+    return;
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/mcp/invoke") {
+    writeJsonResponse(response, mounts.invokeMcpTool({ authorization, body: await readBody(request) }));
+    return;
+  }
+  throw notFound("Model mounting route not found.", {
+    method: request.method,
+    path: url.pathname,
+  });
+}
+
+async function handleOpenAiCompatibilityRoute({ request, response, store, url }) {
+  const mounts = store.modelMounting;
+  const authorization = request.headers.authorization;
+  if (request.method === "GET" && url.pathname === "/v1/models") {
+    writeJsonResponse(response, mounts.openAiModelList());
+    return;
+  }
+  if (request.method === "POST" && url.pathname === "/v1/chat/completions") {
+    const body = await readBody(request);
+    const invocation = await mounts.invokeModel({
+      authorization,
+      requiredScope: "model.chat:*",
+      kind: "chat.completions",
+      body,
+    });
+    writeJsonResponse(response, openAiChatCompletion(invocation, body));
+    return;
+  }
+  if (request.method === "POST" && url.pathname === "/v1/responses") {
+    const body = await readBody(request);
+    const invocation = await mounts.invokeModel({
+      authorization,
+      requiredScope: "model.responses:*",
+      kind: "responses",
+      body,
+    });
+    writeJsonResponse(response, openAiResponse(invocation));
+    return;
+  }
+  if (request.method === "POST" && url.pathname === "/v1/embeddings") {
+    const body = await readBody(request);
+    const invocation = await mounts.invokeModel({
+      authorization,
+      requiredScope: "model.embeddings:*",
+      kind: "embeddings",
+      body,
+    });
+    writeJsonResponse(response, openAiEmbedding(invocation, body));
+    return;
+  }
+  if (request.method === "POST" && url.pathname === "/v1/completions") {
+    const body = await readBody(request);
+    const invocation = await mounts.invokeModel({
+      authorization,
+      requiredScope: "model.chat:*",
+      kind: "completions",
+      body,
+    });
+    writeJsonResponse(response, openAiCompletion(invocation));
+    return;
+  }
+  throw notFound("OpenAI-compatible route not found.", {
+    method: request.method,
+    path: url.pathname,
+  });
+}
+
+function isOpenAiCompatibilityRoute(request, url) {
+  if (request.method === "GET" && url.pathname === "/v1/models") {
+    return Boolean(request.headers.authorization);
+  }
+  return [
+    "/v1/chat/completions",
+    "/v1/responses",
+    "/v1/embeddings",
+    "/v1/completions",
+  ].includes(url.pathname);
+}
+
+function nativeInvocationResponse(invocation) {
+  return {
+    id: `model_invocation_${crypto.randomUUID()}`,
+    object: "ioi.model_invocation",
+    model: invocation.model,
+    route_id: invocation.route.id,
+    endpoint_id: invocation.endpoint.id,
+    instance_id: invocation.instance.id,
+    backend_id: invocation.instance.backendId ?? invocation.receipt.details?.backendId ?? null,
+    receipt_id: invocation.receipt.id,
+    route_receipt_id: invocation.routeReceipt?.id ?? null,
+    compat_translation: invocation.compatTranslation ?? null,
+    tool_receipt_ids: invocation.toolReceiptIds ?? [],
+    output_text: invocation.outputText,
+    usage: invocation.tokenCount,
+  };
+}
+
+function baseUrlForRequest(request) {
+  const host = request.headers.host;
+  return host ? `http://${host}` : null;
 }
 
 async function handleAgentRoute({ request, response, store, segments }) {
