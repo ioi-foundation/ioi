@@ -66,6 +66,18 @@ pub enum ModelsCommands {
         mode: String,
         #[clap(long, default_value_t = 900)]
         idle_ttl_seconds: u64,
+        #[clap(long)]
+        estimate_only: bool,
+        #[clap(long)]
+        gpu: Option<String>,
+        #[clap(long)]
+        context_length: Option<u64>,
+        #[clap(long)]
+        parallel: Option<u64>,
+        #[clap(long)]
+        ttl_seconds: Option<u64>,
+        #[clap(long)]
+        identifier: Option<String>,
     },
     /// Unload a model instance or endpoint.
     Unload {
@@ -198,7 +210,14 @@ pub async fn run(args: ModelsArgs) -> Result<()> {
             model_id,
             mode,
             idle_ttl_seconds,
+            estimate_only,
+            gpu,
+            context_length,
+            parallel,
+            ttl_seconds,
+            identifier,
         } => {
+            let ttl = ttl_seconds.unwrap_or(idle_ttl_seconds);
             daemon_request(
                 endpoint,
                 token,
@@ -209,8 +228,16 @@ pub async fn run(args: ModelsArgs) -> Result<()> {
                     "model_id": model_id,
                     "load_policy": {
                         "mode": mode,
-                        "idleTtlSeconds": idle_ttl_seconds,
+                        "idleTtlSeconds": ttl,
                         "autoEvict": true
+                    },
+                    "load_options": {
+                        "estimateOnly": estimate_only,
+                        "gpu": gpu,
+                        "contextLength": context_length,
+                        "parallel": parallel,
+                        "ttlSeconds": ttl,
+                        "identifier": identifier
                     }
                 })),
             )

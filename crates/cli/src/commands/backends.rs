@@ -2,6 +2,7 @@ use super::model_mount_http::{daemon_request, print_value};
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use reqwest::Method;
+use serde_json::json;
 
 #[derive(Parser, Debug)]
 pub struct BackendsArgs {
@@ -35,6 +36,8 @@ pub enum BackendsCommands {
     Logs { id: String },
     /// Capture a runtime engine and hardware survey through the daemon.
     Survey,
+    /// Select the preferred runtime engine for subsequent loads.
+    Select { engine_id: String },
 }
 
 pub async fn run(args: BackendsArgs) -> Result<()> {
@@ -86,6 +89,16 @@ pub async fn run(args: BackendsArgs) -> Result<()> {
         }
         BackendsCommands::Survey => {
             daemon_request(endpoint, token, Method::POST, "/api/v1/runtime/survey", None).await?
+        }
+        BackendsCommands::Select { engine_id } => {
+            daemon_request(
+                endpoint,
+                token,
+                Method::POST,
+                "/api/v1/runtime/select",
+                Some(json!({ "engine_id": engine_id })),
+            )
+            .await?
         }
     };
     print_value(&value, args.json)
