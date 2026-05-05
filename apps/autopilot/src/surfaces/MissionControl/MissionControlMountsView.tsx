@@ -723,6 +723,43 @@ function pickerSelectionChanged(left: MountsPickerSelection, right: MountsPicker
   );
 }
 
+function selectionReceiptText(receiptItem: ReceiptPreview) {
+  return `${receiptItem.id} ${receiptItem.summary} ${receiptItem.evidence.join(" ")}`;
+}
+
+function modelSelectionDetails(data: MountsWorkbenchData, selection: MountsPickerSelection) {
+  const artifact = data.artifacts.find((item) => item.name === selection.modelId);
+  const endpoint = data.endpoints.find((item) => item.id === selection.endpointId);
+  const provider = data.providers.find((item) => item.id === selection.providerId);
+  const routeItem = data.routes.find((item) => item.id === selection.routeId);
+  const loadedInstances = data.instances.filter(isLoadedInstance);
+  const instance = loadedInstances.find((item) => item.id === selection.instanceId);
+  const backend = data.backends.find((item) =>
+    item.id === instance?.runtimeEngine || item.id === instance?.backend || item.kind === instance?.backend,
+  );
+  const runtimeEngine = data.runtimeEngines.find((item) => item.id === instance?.runtimeEngine);
+  const relatedEndpoints = data.endpoints.filter((item) => item.modelId === selection.modelId);
+  const relatedInstances = data.instances.filter((item) => item.modelId === selection.modelId || item.endpointId === selection.endpointId);
+  const relatedDownloads = data.downloads.filter((item) => item.model === selection.modelId || item.model === artifact?.id);
+  const needles = [selection.modelId, selection.endpointId, selection.instanceId, selection.routeId, provider?.id, backend?.id].filter(Boolean);
+  const relatedReceipts = data.receipts
+    .filter((receiptItem) => needles.some((needle) => selectionReceiptText(receiptItem).includes(String(needle))))
+    .slice(-6);
+  return {
+    artifact,
+    endpoint,
+    provider,
+    route: routeItem,
+    instance,
+    backend,
+    runtimeEngine,
+    relatedEndpoints,
+    relatedInstances,
+    relatedDownloads,
+    relatedReceipts,
+  };
+}
+
 function readInitialEndpoint() {
   try {
     const requested = new URLSearchParams(window.location.search).get("mountsEndpoint");
@@ -1631,6 +1668,8 @@ function ModelPickerStrip({
   onSelectionChange,
   onLoadSelection,
   onUnloadInstance,
+  onToggleDetails,
+  detailsOpen,
   busy,
 }: {
   data: MountsWorkbenchData;
@@ -1638,23 +1677,20 @@ function ModelPickerStrip({
   onSelectionChange: (patch: Partial<MountsPickerSelection>) => void;
   onLoadSelection: () => void;
   onUnloadInstance: () => void;
+  onToggleDetails: () => void;
+  detailsOpen: boolean;
   busy: boolean;
 }) {
   const endpointOptions = data.endpoints.filter((endpoint) => endpoint.modelId === selection.modelId);
   const visibleEndpoints = endpointOptions.length > 0 ? endpointOptions : data.endpoints;
   const loadedInstances = data.instances.filter(isLoadedInstance);
-  const selectedArtifact = data.artifacts.find((artifact) => artifact.name === selection.modelId);
-  const selectedEndpoint = data.endpoints.find((endpoint) => endpoint.id === selection.endpointId);
-  const selectedProvider = data.providers.find((provider) => provider.id === selection.providerId);
-  const selectedRoute = data.routes.find((routeItem) => routeItem.id === selection.routeId);
-  const selectedInstance = loadedInstances.find((instance) => instance.id === selection.instanceId);
-  const selectedReceipts = data.receipts
-    .filter((receiptItem) =>
-      [selection.modelId, selection.endpointId, selection.instanceId, selection.routeId].some((needle) =>
-        needle ? `${receiptItem.id} ${receiptItem.summary} ${receiptItem.evidence.join(" ")}`.includes(needle) : false,
-      ),
-    )
-    .slice(-3);
+  const details = modelSelectionDetails(data, selection);
+  const selectedArtifact = details.artifact;
+  const selectedEndpoint = details.endpoint;
+  const selectedProvider = details.provider;
+  const selectedRoute = details.route;
+  const selectedInstance = details.instance;
+  const selectedReceipts = details.relatedReceipts.slice(-3);
 
   return (
     <section className="model-mounts-picker" aria-label="Quick model picker">
@@ -1703,6 +1739,7 @@ function ModelPickerStrip({
         <div className="model-mounts-picker-actions">
           <ActionButton onClick={onLoadSelection} disabled={busy || !selection.modelId}>Load selection</ActionButton>
           <ActionButton onClick={onUnloadInstance} disabled={busy || !selectedInstance}>Unload instance</ActionButton>
+          <ActionButton onClick={onToggleDetails}>{detailsOpen ? "Hide details" : "Open details"}</ActionButton>
         </div>
       </div>
 
@@ -1739,6 +1776,122 @@ function ModelPickerStrip({
         </div>
       </div>
     </section>
+  );
+}
+
+function DetailFact({ label, value, note }: { label: string; value: string; note?: string }) {
+  return (
+    <div className="model-mounts-detail-fact">
+      <span>{label}</span>
+      <strong>{value}</strong>
+      {note ? <small>{note}</small> : null}
+    </div>
+  );
+}
+
+function ModelDetailDrawer({
+  data,
+  selection,
+  open,
+  onClose,
+}: {
+  data: MountsWorkbenchData;
+  selection: MountsPickerSelection;
+  open: boolean;
+  onClose: () => void;
+}) {
+  if (!open) return null;
+  const details = modelSelectionDetails(data, selection);
+  const artifact = details.artifact;
+  const endpoint = details.endpoint;
+  const provider = details.provider;
+  const instance = details.instance;
+  const backend = details.backend;
+  const runtimeEngine = details.runtimeEngine;
+  const routeItem = details.route;
+  const receiptTrail = details.relatedReceipts.length > 0 ? details.relatedReceipts : data.receipts.slice(-4);
+  const downloadTrail = details.relatedDownloads.length > 0 ? details.relatedDownloads : data.downloads.slice(0, 3);
+  return (
+    <aside className="model-mounts-detail-drawer" aria-label="Selected model detail drawer">
+      <div className="model-mounts-detail-head">
+        <div>
+          <span className="model-mounts-kicker">Selected model detail</span>
+          <h3>{artifact?.name ?? (selection.modelId || "No model selected")}</h3>
+          <div className="model-mounts-tags">
+            <span>{artifact?.format ?? "format unknown"}</span>
+            <span>{artifact?.quantization ?? "quantization unknown"}</span>
+            <span>{endpoint?.privacy ?? "privacy unknown"}</span>
+          </div>
+        </div>
+        <div className="model-mounts-actions">
+          <StatusPill tone={toneForStatus(artifact?.state ?? "unknown")}>{artifact?.state ?? "unknown"}</StatusPill>
+          <StatusPill tone={toneForStatus(instance?.status ?? "empty")}>{instance?.status ?? "not loaded"}</StatusPill>
+          <ActionButton onClick={onClose}>Close details</ActionButton>
+        </div>
+      </div>
+
+      <div className="model-mounts-detail-grid">
+        <section className="model-mounts-detail-section" aria-label="Artifact metadata">
+          <h4>Artifact metadata</h4>
+          <div className="model-mounts-detail-facts">
+            <DetailFact label="Artifact id" value={artifact?.id ?? "unknown"} />
+            <DetailFact label="Provider" value={artifact?.provider ?? provider?.id ?? "unknown"} note={provider?.label} />
+            <DetailFact label="Source" value={artifact?.source ?? "unknown"} />
+            <DetailFact label="Context" value={artifact?.context ?? "unknown"} />
+          </div>
+          <TagList items={artifact?.capabilities ?? []} />
+        </section>
+
+        <section className="model-mounts-detail-section" aria-label="Runtime binding">
+          <h4>Runtime binding</h4>
+          <div className="model-mounts-detail-facts">
+            <DetailFact label="Endpoint" value={endpoint?.id ?? "none"} note={endpoint?.apiFormat} />
+            <DetailFact label="Base URL" value={endpoint?.baseUrl ?? "not mounted"} />
+            <DetailFact label="Backend" value={backend?.label ?? instance?.backend ?? "not loaded"} note={backend?.processStatus} />
+            <DetailFact label="Runtime" value={runtimeEngine?.label ?? instance?.runtimeEngine ?? "not selected"} note={runtimeEngine?.status} />
+            <DetailFact label="Instance" value={instance?.identifier ?? "not loaded"} note={instance ? `ctx ${instance.context} / p${instance.parallel} / ${instance.ttl}` : undefined} />
+            <DetailFact label="Route" value={routeItem?.id ?? "none"} note={routeItem ? `${routeItem.privacy} / ${routeItem.quality}` : undefined} />
+          </div>
+        </section>
+
+        <section className="model-mounts-detail-section" aria-label="Lifecycle history">
+          <h4>Lifecycle history</h4>
+          <div className="model-mounts-detail-list">
+            {details.relatedEndpoints.map((item) => (
+              <div key={item.id}>
+                <strong>{item.id}</strong>
+                <span>{item.status} / {item.loadPolicy}</span>
+              </div>
+            ))}
+            {details.relatedInstances.map((item) => (
+              <div key={item.id}>
+                <strong>{item.identifier}</strong>
+                <span>{item.status} / {item.backend} / {item.ttl}</span>
+              </div>
+            ))}
+            {downloadTrail.map((item) => (
+              <div key={item.id}>
+                <strong>{item.model}</strong>
+                <span>{item.status} / {item.progress}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="model-mounts-detail-section" aria-label="Receipt trail">
+          <h4>Receipt trail</h4>
+          <div className="model-mounts-detail-list">
+            {receiptTrail.map((item) => (
+              <div key={item.id}>
+                <strong>{item.kind}</strong>
+                <span>{item.id}</span>
+                <small>{item.summary}</small>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+    </aside>
   );
 }
 
@@ -2858,6 +3011,7 @@ function ReceiptCard({ item }: { item: ReceiptPreview }) {
 export function MissionControlMountsView() {
   const [activeTab, setActiveTab] = useState<MountsTab>(readInitialTab);
   const [pickerSelection, setPickerSelection] = useState<MountsPickerSelection>(emptyPickerSelection);
+  const [detailDrawerOpen, setDetailDrawerOpen] = useState(true);
   const daemon = useModelMountsDaemon();
   const busy = Boolean(daemon.busyAction);
   useEffect(() => {
@@ -2934,7 +3088,16 @@ export function MissionControlMountsView() {
         onSelectionChange={updatePickerSelection}
         onLoadSelection={() => daemon.actions.loadPickerSelection(pickerSelection)}
         onUnloadInstance={() => daemon.actions.unloadInstance(pickerSelection.instanceId)}
+        onToggleDetails={() => setDetailDrawerOpen((current) => !current)}
+        detailsOpen={detailDrawerOpen}
         busy={busy}
+      />
+
+      <ModelDetailDrawer
+        data={daemon.data}
+        selection={pickerSelection}
+        open={detailDrawerOpen}
+        onClose={() => setDetailDrawerOpen(false)}
       />
 
       <main className="model-mounts-stage">

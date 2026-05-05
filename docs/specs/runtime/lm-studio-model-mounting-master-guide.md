@@ -90,7 +90,7 @@ npm run validate:model-mounting:e2e
 Latest deterministic evidence bundle:
 
 ```text
-docs/evidence/model-mounting-e2e/2026-05-05T09-49-12Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T10-11-11Z/result.json
 ```
 
 That bundle passed the following acceptance steps:
@@ -109,6 +109,8 @@ That bundle passed the following acceptance steps:
   endpoint, route, and loaded instance through governed load/unload APIs;
 - loaded-instance inspector with backend, context, TTL, route, and linked
   receipt evidence in the Mounts desktop GUI;
+- selected model detail drawer with artifact metadata, runtime binding,
+  lifecycle history, and linked receipt trail in the Mounts desktop GUI;
 - deterministic native-local artifact import, mount, load, and invocation;
 - native `/api/v1/chat` and `/api/v1/responses`;
 - OpenAI-compatible `/v1/chat/completions` and `/v1/embeddings`;
@@ -130,13 +132,13 @@ That bundle passed the following acceptance steps:
 The current GUI evidence nested under that E2E bundle is:
 
 ```text
-docs/evidence/model-mounting-e2e/2026-05-05T09-49-12Z/gui/2026-05-05T09-49-43Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T10-11-11Z/gui/2026-05-05T10-11-41Z/result.json
 ```
 
 The current standalone Mounts GUI evidence bundle is:
 
 ```text
-docs/evidence/model-mounts-gui-validation/2026-05-05T09-50-55Z/result.json
+docs/evidence/model-mounts-gui-validation/2026-05-05T10-10-13Z/result.json
 ```
 
 It captured all Mounts tabs as desktop window screenshots:
@@ -295,13 +297,13 @@ Latest evidence paths:
 
 ```text
 Canonical E2E:
-docs/evidence/model-mounting-e2e/2026-05-05T09-49-12Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T10-11-11Z/result.json
 
 Mounts GUI nested under canonical E2E:
-docs/evidence/model-mounting-e2e/2026-05-05T09-49-12Z/gui/2026-05-05T09-49-43Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T10-11-11Z/gui/2026-05-05T10-11-41Z/result.json
 
 Standalone Mounts GUI with live provider summary:
-docs/evidence/model-mounts-gui-validation/2026-05-05T09-50-55Z/result.json
+docs/evidence/model-mounts-gui-validation/2026-05-05T10-10-13Z/result.json
 
 Broad Autopilot GUI harness:
 docs/evidence/autopilot-gui-harness-validation/2026-05-05T01-40-43-545Z/result.json
@@ -500,7 +502,6 @@ gates:
    - existing server start/stop/restart/log-tail controls should stay compact;
    - provider-specific controls;
    - download queue;
-   - model detail drawers;
    - streaming logs and request/response log filters;
    - benchmark/results view;
    - token scope editor;
@@ -527,7 +528,7 @@ implemented as a product surface.
 | --- | --- | --- | --- |
 | Dedicated model surface | Left rail app surface with compact model controls | Complete | Keep Mounts separate from Capabilities while improving product polish |
 | Global model picker / loader | Top model picker invites select/load without exposing topology | Complete for deterministic Mounts path | Extend into app-wide header or keyboard model switching only if product direction wants it; keep governed load/unload path |
-| Installed models | `lms ls` shows model family, params, arch, size, device, loaded marker | Partial | Add richer model detail panel with family/params/arch/device/source/variant and linked receipts |
+| Installed models | `lms ls` shows model family, params, arch, size, device, loaded marker | Complete for deterministic Mounts detail path | Add live-provider family/params/arch/device precision and benchmark classification metadata |
 | Loaded models | `lms ps` shows identifier, model, status, size, context, parallel, device, TTL | Complete for deterministic Mounts path | Add live-provider TTL/device precision, unload confirmations, and app-wide loaded-instance status if needed |
 | Model search/download | `lms get`, direct Hugging Face URL, GGUF/MLX filters, variant select | Partial | Fixture catalog, URL import, variant metadata, and gated Hugging Face adapter boundary exist; add live search/download activation and richer GGUF/MLX filters |
 | Model import | `lms import` supports move/copy/hard-link/symlink/dry-run/user-repo | Complete for deterministic local path | Add live provider-specific import UX polish and benchmark/classification metadata |
@@ -556,7 +557,6 @@ implemented as a product surface.
    - GGUF/MLX filters and variant selection polish;
    - storage quota and uninstall confirmation UX.
 2. Product UI parity:
-   - model detail drawer;
    - route editor, token editor, benchmark panel, and degraded/denied states.
 3. Live backend parity:
    - real llama.cpp runner;
@@ -588,19 +588,19 @@ npm run validate:model-mounting:e2e
 Latest passing bundle:
 
 ```text
-docs/evidence/model-mounting-e2e/2026-05-05T09-49-12Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T10-11-11Z/result.json
 ```
 
 Nested GUI bundle:
 
 ```text
-docs/evidence/model-mounting-e2e/2026-05-05T09-49-12Z/gui/2026-05-05T09-49-43Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T10-11-11Z/gui/2026-05-05T10-11-41Z/result.json
 ```
 
 Standalone Mounts GUI bundle:
 
 ```text
-docs/evidence/model-mounts-gui-validation/2026-05-05T09-50-55Z/result.json
+docs/evidence/model-mounts-gui-validation/2026-05-05T10-10-13Z/result.json
 ```
 
 The GUI bundle captured eight desktop window screenshots for the Mounts tabs
@@ -1936,7 +1936,8 @@ The deterministic target path is complete. The immediate backlog is now the
 parity closeout order from the matrix above:
 
 1. Live catalog/download activation.
-2. Product UI parity beyond the validated picker and loaded-instance inspector.
+2. Product UI parity beyond the validated picker, loaded-instance inspector,
+   and model detail drawer.
 3. Live backend/provider parity.
 4. Streaming observability parity.
 5. Production IOI hardening beyond LM Studio.
