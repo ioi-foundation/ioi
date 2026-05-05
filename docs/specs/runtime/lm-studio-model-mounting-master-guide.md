@@ -243,7 +243,7 @@ fail-closed, replay, and redaction contracts can still be validated locally.
 Latest live backend stream parity evidence:
 
 ```text
-docs/evidence/model-mounting-live/model-backends/2026-05-05T22-09-26Z/result.json
+docs/evidence/model-mounting-live/model-backends/2026-05-05T23-00-25Z/result.json
 ```
 
 That run passed against local Ollama with
@@ -252,7 +252,10 @@ That run passed against local Ollama with
 `IOI_OLLAMA_EMBEDDING_MODEL=nomic-embed-text:latest`. It validated provider
 discovery, mount/load/unload, chat, embeddings, completed provider-native
 stream receipts, client-aborted provider-native stream receipts, receipt replay,
-and secret redaction against a real local backend rather than a fixture.
+and secret redaction against a real local backend rather than a fixture. The
+same evidence records vLLM as blocked on this operator machine because no
+`VLLM_BASE_URL`, no `vllm`/`IOI_VLLM_BINARY`, and no `IOI_VLLM_MODEL` are
+configured.
 
 ### Completed In Repo
 
@@ -407,7 +410,7 @@ LM Studio live:
 docs/evidence/model-mounting-live/lm-studio/2026-05-05T18-24-08Z/result.json
 
 Ollama live backend with completed/aborted provider-native stream receipts:
-docs/evidence/model-mounting-live/model-backends/2026-05-05T22-09-26Z/result.json
+docs/evidence/model-mounting-live/model-backends/2026-05-05T23-00-25Z/result.json
 
 llama.cpp live runner with completed/aborted provider-native stream receipts:
 docs/evidence/model-mounting-live/llama-cpp/2026-05-05T22-51-29Z/result.json
@@ -435,6 +438,9 @@ Live local provider evidence on 2026-05-05 UTC:
   replay, backend, and route receipts. The live gate now accepts
   `IOI_OLLAMA_CHAT_MODEL` and `IOI_OLLAMA_EMBEDDING_MODEL` so operators can
   select a responsive installed model instead of relying on provider list order.
+- The refreshed backend live gate also records vLLM as blocked on this machine:
+  no `VLLM_BASE_URL`, no `vllm`/`IOI_VLLM_BINARY`, and no `IOI_VLLM_MODEL` are
+  configured.
 - llama.cpp live runner gate passed with a standalone `llama-server` b9037
   binary and the local `Qwen3.5-9B-Q4_K_M.gguf` artifact. It validated real
   spawn, provider health, `/v1/models`, native chat, OpenAI-compatible chat,
@@ -678,7 +684,9 @@ gates:
      unload, receipts, and replay all share the OpenAI-compatible daemon path,
      and `npm run test:model-backends:live` can exercise it when
      `IOI_VLLM_MODEL` and either a `vllm` binary on `PATH`,
-     `IOI_VLLM_BINARY`, or `VLLM_BASE_URL` are configured;
+     `IOI_VLLM_BINARY`, or `VLLM_BASE_URL` are configured; the latest local
+     backend gate records all three as absent, so vLLM live parity is an
+     explicit environment/setup blocker rather than an implementation blocker;
    - remaining work is validating llama.cpp embeddings with a compatible local
      GGUF/server configuration if available, running vLLM against live hardware,
      extending live stream parity beyond the passing Ollama and llama.cpp
@@ -757,7 +765,9 @@ gates:
    - Ollama and vLLM have deterministic supervised runner boundaries;
    - Ollama has a passing live backend gate with chat, embeddings, and
      completed/aborted provider-native stream receipts;
-   - vLLM has an opt-in live gate that remains config/hardware dependent;
+   - vLLM has an opt-in live gate that remains config/hardware dependent; the
+     latest operator-machine evidence records no `VLLM_BASE_URL`, no
+     `vllm`/`IOI_VLLM_BINARY`, and no `IOI_VLLM_MODEL`;
    - remaining work is production BYOK behavior for OpenAI, Anthropic, and
      Gemini through vault refs;
    - custom HTTP auth profile hardening;
@@ -2221,6 +2231,9 @@ Current status:
   unload, receipt replay, and secret redaction; embeddings were recorded as
   `unsupported_or_failed` with a redacted error hash for this GGUF/server
   combination.
+- Complete: vLLM live gate wiring records a truthful blocked state on this
+  operator machine because no `VLLM_BASE_URL`, `vllm`/`IOI_VLLM_BINARY`, or
+  `IOI_VLLM_MODEL` is configured.
 - Complete: deterministic llama.cpp live-gate fixture proves unsupported
   embeddings are recorded as `unsupported_or_failed` with a redacted error hash
   while chat, Responses, stream completion/cancellation receipts, unload,
@@ -2303,8 +2316,9 @@ parity closeout order from the matrix above:
    model detail drawer, route editor, token editor, benchmark/results panel,
    degraded/denied action readiness, and filtered observability stream.
 3. Live backend/provider parity: Ollama and llama.cpp have passing local live
-   evidence; next execute the vLLM lifecycle/stream gate on an operator machine,
-   then add BYOK hosted adapters.
+   evidence; vLLM is blocked until an operator provides `VLLM_BASE_URL` or a
+   `vllm`/`IOI_VLLM_BINARY` plus `IOI_VLLM_MODEL`, then the lifecycle/stream
+   gate should be rerun before BYOK hosted adapters.
 4. Raw live-log streaming parity for providers/backends with `lms log stream`
    style transports.
 5. Production IOI hardening beyond LM Studio.
