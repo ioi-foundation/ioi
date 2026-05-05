@@ -1220,7 +1220,7 @@ async function writeOpenAiChatCompletionStream(response, invocation, mounts) {
 }
 
 async function writeOpenAiProviderChatCompletionStream(response, streamInvocation, mounts) {
-  if (streamInvocation.providerResult?.streamFormat === "ollama_jsonl") {
+  if (["ollama_jsonl", "ioi_jsonl"].includes(streamInvocation.providerResult?.streamFormat)) {
     await writeOllamaChatCompletionStream(response, streamInvocation, mounts);
     return;
   }
@@ -1335,7 +1335,7 @@ async function writeOpenAiProviderChatCompletionStream(response, streamInvocatio
 
 async function writeOllamaChatCompletionStream(response, streamInvocation, mounts) {
   const invocation = streamInvocation.invocation;
-  const streamKind = "openai_chat_completions_ollama_native";
+  const streamKind = streamInvocation.providerResult?.streamKind ?? "openai_chat_completions_ollama_native";
   const reader = streamInvocation.providerStream.getReader();
   const decoder = new TextDecoder();
   const id = `chatcmpl_${crypto.randomUUID()}`;
@@ -1442,7 +1442,7 @@ async function writeOllamaChatCompletionStream(response, streamInvocation, mount
 }
 
 async function writeOpenAiProviderResponseStream(response, streamInvocation, mounts) {
-  if (streamInvocation.providerResult?.streamFormat === "ollama_jsonl") {
+  if (["ollama_jsonl", "ioi_jsonl"].includes(streamInvocation.providerResult?.streamFormat)) {
     await writeOllamaResponseStream(response, streamInvocation, mounts);
     return;
   }
@@ -1552,7 +1552,7 @@ async function writeOpenAiProviderResponseStream(response, streamInvocation, mou
 
 async function writeOllamaResponseStream(response, streamInvocation, mounts) {
   const invocation = streamInvocation.invocation;
-  const streamKind = "openai_responses_ollama_native";
+  const streamKind = streamInvocation.providerResult?.streamKind ?? "openai_responses_ollama_native";
   const reader = streamInvocation.providerStream.getReader();
   const decoder = new TextDecoder();
   const responseId = `resp_${crypto.randomUUID()}`;
@@ -1883,7 +1883,7 @@ function responseStreamPayloads(block) {
 
 function ollamaStreamDelta(payload) {
   if (!payload || typeof payload !== "object") return "";
-  return String(payload.message?.content ?? payload.response ?? "");
+  return String(payload.delta ?? payload.message?.content ?? payload.response ?? "");
 }
 
 function ollamaUsage(payload) {

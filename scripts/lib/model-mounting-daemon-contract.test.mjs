@@ -471,6 +471,75 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(nativeCompat.model, "native:imported");
     assert.match(nativeCompat.choices[0].message.content, /Autopilot native local model response/);
 
+    const nativeCompatStream = await requestSse(daemon.endpoint, "/v1/chat/completions", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        route_id: "route.native-local",
+        model: "native:imported",
+        stream: true,
+        messages: [{ role: "user", content: "stream native local compat" }],
+      },
+    });
+    assert.equal(nativeCompatStream.response.status, 200);
+    assert.equal(nativeCompatStream.response.headers.get("x-ioi-stream-source"), "provider_native");
+    const nativeCompatStreamChunks = parseOpenAiSseChunks(nativeCompatStream.text);
+    const nativeCompatStreamText = nativeCompatStreamChunks
+      .filter((chunk) => chunk !== "[DONE]")
+      .map((chunk) => chunk.choices?.[0]?.delta?.content ?? "")
+      .join("");
+    assert.match(nativeCompatStreamText, /Autopilot native local model response/);
+    const nativeCompatStreamMetadata = nativeCompatStreamChunks.find((chunk) => chunk !== "[DONE]" && chunk.stream_receipt_id);
+    assert.equal(nativeCompatStreamMetadata.route_id, "route.native-local");
+    assert.equal(nativeCompatStreamMetadata.provider_stream, "native");
+    const nativeCompatStreamReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${nativeCompatStreamMetadata.receipt_id}`);
+    assert.equal(nativeCompatStreamReceipt.details.providerId, "provider.autopilot.local");
+    assert.equal(nativeCompatStreamReceipt.details.backend, "autopilot.native_local.fixture");
+    assert.equal(nativeCompatStreamReceipt.details.backendId, "backend.autopilot.native-local.fixture");
+    assert.equal(nativeCompatStreamReceipt.details.backendProcessPidHash, nativeLoaded.backendProcess.pidHash);
+    assert.equal(nativeCompatStreamReceipt.details.providerResponseKind, "native_local.chat.stream");
+    assert.ok(nativeCompatStreamReceipt.details.backendEvidenceRefs.includes("autopilot_native_local_provider_native_stream"));
+    const nativeCompatStreamCompleteReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${nativeCompatStreamMetadata.stream_receipt_id}`);
+    assert.equal(nativeCompatStreamCompleteReceipt.details.invocationReceiptId, nativeCompatStreamMetadata.receipt_id);
+    assert.equal(
+      nativeCompatStreamCompleteReceipt.details.outputHash,
+      crypto.createHash("sha256").update(nativeCompatStreamText).digest("hex"),
+    );
+
+    const nativeResponseStream = await requestSse(daemon.endpoint, "/v1/responses", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        route_id: "route.native-local",
+        model: "native:imported",
+        stream: true,
+        input: "stream native local response",
+      },
+    });
+    assert.equal(nativeResponseStream.response.status, 200);
+    assert.equal(nativeResponseStream.response.headers.get("x-ioi-stream-source"), "provider_native");
+    const nativeResponseStreamText = nativeResponseStream.events
+      .filter((event) => event.event === "response.output_text.delta")
+      .map((event) => event.data.delta)
+      .join("");
+    assert.match(nativeResponseStreamText, /Autopilot native local model response/);
+    const nativeResponseCompleted = nativeResponseStream.events.find((event) => event.event === "response.completed")?.data.response;
+    assert.equal(nativeResponseCompleted.route_id, "route.native-local");
+    assert.equal(nativeResponseCompleted.provider_stream, "native");
+    const nativeResponseStreamReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${nativeResponseCompleted.receipt_id}`);
+    assert.equal(nativeResponseStreamReceipt.details.providerId, "provider.autopilot.local");
+    assert.equal(nativeResponseStreamReceipt.details.backend, "autopilot.native_local.fixture");
+    assert.equal(nativeResponseStreamReceipt.details.backendId, "backend.autopilot.native-local.fixture");
+    assert.equal(nativeResponseStreamReceipt.details.backendProcessPidHash, nativeLoaded.backendProcess.pidHash);
+    assert.equal(nativeResponseStreamReceipt.details.providerResponseKind, "native_local.responses.stream");
+    assert.ok(nativeResponseStreamReceipt.details.backendEvidenceRefs.includes("autopilot_native_local_provider_native_stream"));
+    const nativeResponseStreamCompleteReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${nativeResponseCompleted.stream_receipt_id}`);
+    assert.equal(nativeResponseStreamCompleteReceipt.details.invocationReceiptId, nativeResponseCompleted.receipt_id);
+    assert.equal(
+      nativeResponseStreamCompleteReceipt.details.outputHash,
+      crypto.createHash("sha256").update(nativeResponseStreamText).digest("hex"),
+    );
+
     const nativeBackendStart = await expectOk(daemon.endpoint, "/api/v1/backends/backend.autopilot.native-local.fixture/start", {
       method: "POST",
       token: grant.token,

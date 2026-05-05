@@ -801,6 +801,51 @@ class NativeLocalModelProviderDriver {
     };
   }
 
+  supportsStream(kind) {
+    return kind === "chat.completions" || kind === "chat" || kind === "responses";
+  }
+
+  async streamInvoke({ kind, input, endpoint, state }) {
+    if (!this.supportsStream(kind)) return null;
+    const backendId = endpoint.backendId ?? "backend.autopilot.native-local.fixture";
+    const processRecord = state.ensureBackendProcess(backendId, {
+      endpoint,
+      loadOptions: state.loadedInstanceForEndpoint(endpoint.id, false)?.loadOptions ?? {},
+      reason: "model_stream",
+    });
+    const processSnapshot = state.backendProcessSnapshot(processRecord);
+    const outputText = nativeLocalOutput({ kind, input, modelId: endpoint.modelId });
+    const tokenCount = estimateTokens(input, outputText);
+    state.writeBackendLog(endpoint.id, {
+      backendId,
+      event: "stream",
+      modelId: endpoint.modelId,
+      kind,
+      inputHash: stableHash(input),
+      outputHash: stableHash(outputText),
+      backend: "autopilot.native_local.fixture",
+      processId: processRecord?.id ?? null,
+      pidHash: processRecord?.pidHash ?? null,
+    });
+    return {
+      stream: jsonLineReadableStream(nativeLocalStreamRecords(outputText, tokenCount)),
+      abort: () => {},
+      status: 200,
+      streamFormat: "ioi_jsonl",
+      streamKind: kind === "responses" ? "openai_responses_native_local" : "openai_chat_completions_native_local",
+      providerResponseKind: kind === "responses" ? "native_local.responses.stream" : "native_local.chat.stream",
+      backend: "autopilot.native_local.fixture",
+      backendId,
+      backendProcess: processSnapshot,
+      backendEvidenceRefs: [
+        "autopilot_native_local_provider_native_stream",
+        "autopilot_native_local_openai_compatible_serving",
+        "deterministic_native_local_fixture",
+        ...normalizeScopes(processSnapshot.evidenceRefs, []),
+      ],
+    };
+  }
+
   async invoke({ kind, input, endpoint, state }) {
     const backendId = endpoint.backendId ?? "backend.autopilot.native-local.fixture";
     const processRecord = state.ensureBackendProcess(backendId, {
@@ -809,11 +854,7 @@ class NativeLocalModelProviderDriver {
       reason: "model_invoke",
     });
     const processSnapshot = state.backendProcessSnapshot(processRecord);
-    const digest = stableHash(input).slice(0, 12);
-    const outputText =
-      kind === "embeddings"
-        ? `native-local-embedding:${endpoint.modelId}:${digest}`
-        : `Autopilot native local model response from ${endpoint.modelId}. input_hash=${digest}`;
+    const outputText = nativeLocalOutput({ kind, input, modelId: endpoint.modelId });
     state.writeBackendLog(endpoint.id, {
       backendId,
       event: "invoke",
@@ -6471,6 +6512,38 @@ function deterministicOutput({ kind, input, modelId }) {
   if (kind === "embeddings") return `embedding:${modelId}:${digest}`;
   if (kind === "rerank") return `rerank:${modelId}:${digest}`;
   return `IOI model router fixture response from ${modelId}. input_hash=${digest}`;
+}
+
+function nativeLocalOutput({ kind, input, modelId }) {
+  const digest = stableHash(input).slice(0, 12);
+  if (kind === "embeddings") return `native-local-embedding:${modelId}:${digest}`;
+  return `Autopilot native local model response from ${modelId}. input_hash=${digest}`;
+}
+
+function nativeLocalStreamRecords(outputText, tokenCount) {
+  const chunks = String(outputText).match(/.{1,64}(?:\s+|$)/gs) ?? [String(outputText)];
+  return [
+    ...chunks.map((chunk) => ({ delta: chunk, done: false })),
+    {
+      delta: "",
+      done: true,
+      done_reason: "stop",
+      prompt_eval_count: tokenCount.prompt_tokens,
+      eval_count: tokenCount.completion_tokens,
+    },
+  ];
+}
+
+function jsonLineReadableStream(records) {
+  const encoder = new TextEncoder();
+  return new ReadableStream({
+    start(controller) {
+      for (const record of records) {
+        controller.enqueue(encoder.encode(`${JSON.stringify(record)}\n`));
+      }
+      controller.close();
+    },
+  });
 }
 
 function estimateTokens(input, output) {
