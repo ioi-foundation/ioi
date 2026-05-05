@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -106,7 +107,7 @@ function cliTargetNeedsRebuild(targetBinary) {
   return cliSources.some((source) => fs.existsSync(source) && fs.statSync(source).mtimeMs > targetMtime);
 }
 
-function runCli(cli, args, { endpoint, token, secretNeedles, evidence }) {
+function runCli(cli, args, { endpoint, token, secretNeedles, evidence, env = {} }) {
   const commandArgs = [args[0], "--endpoint", endpoint, ...args.slice(1)];
   const command = [cli.command, ...cli.prefix, ...commandArgs];
   return new Promise((resolve, reject) => {
@@ -116,6 +117,7 @@ function runCli(cli, args, { endpoint, token, secretNeedles, evidence }) {
         ...process.env,
         IOI_DAEMON_ENDPOINT: endpoint,
         IOI_DAEMON_TOKEN: token,
+        ...env,
       },
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -388,6 +390,9 @@ async function main() {
             "model.import:*",
             "backend.control:*",
             "provider.write:*",
+            "vault.write:*",
+            "vault.read:*",
+            "vault.delete:*",
             "route.write:*",
             "route.use:*",
             "mcp.import:*",
@@ -708,6 +713,33 @@ async function main() {
       const providerModels = await runCli(cli, ["models", "--json", "provider-models", "provider.autopilot.local"], common);
       assert.ok(providerModels.some((model) => model.modelId === "autopilot:native-fixture"));
       const cliVaultRef = "vault://provider/e2e-cli/api-key";
+      const cliVaultMaterial = `cli-e2e-${crypto.randomUUID()}`;
+      secretNeedles.push(cliVaultMaterial);
+      const vaultSet = await runCli(
+        cli,
+        [
+          "vault",
+          "--json",
+          "set",
+          "--vault-ref",
+          cliVaultRef,
+          "--material-env",
+          "IOI_E2E_CLI_VAULT_SECRET",
+          "--purpose",
+          "provider.auth:provider.e2e.cli-auth",
+          "--label",
+          "CLI Auth Provider",
+        ],
+        { ...common, env: { IOI_E2E_CLI_VAULT_SECRET: cliVaultMaterial } },
+      );
+      assert.equal(vaultSet.configured, true);
+      assert.equal(vaultSet.vaultRef.redacted, true);
+      assert.equal(JSON.stringify(vaultSet).includes(cliVaultRef), false);
+      assert.equal(JSON.stringify(vaultSet).includes(cliVaultMaterial), false);
+      const vaultMeta = await runCli(cli, ["vault", "--json", "get-meta", "--vault-ref", cliVaultRef], common);
+      assert.equal(vaultMeta.configured, true);
+      assert.equal(vaultMeta.vaultRefHash, vaultSet.vaultRefHash);
+      assert.equal(JSON.stringify(vaultMeta).includes(cliVaultRef), false);
       const configuredProvider = await runCli(
         cli,
         [
@@ -742,6 +774,7 @@ async function main() {
       assert.equal(configuredProvider.authScheme, "api_key");
       assert.equal(configuredProvider.authHeaderName, "x-api-key");
       assert.equal(JSON.stringify(configuredProvider).includes(cliVaultRef), false);
+      assert.equal(JSON.stringify(configuredProvider).includes(cliVaultMaterial), false);
       const loaded = await runCli(cli, ["models", "--json", "ps"], common);
       assert.ok(loaded.some((instance) => instance.modelId === "native:e2e"));
       const routes = await runCli(cli, ["routes", "--json", "ls"], common);

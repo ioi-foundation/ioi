@@ -29,6 +29,7 @@ interface ProviderDraft {
   privacyClass: string;
   capabilities: string;
   secretRef: string;
+  vaultMaterial: string;
   authScheme: "bearer" | "api_key" | "raw";
   authHeaderName: string;
 }
@@ -160,6 +161,7 @@ const defaultProviderDraft: ProviderDraft = {
   privacyClass: "workspace",
   capabilities: "chat,responses,embeddings",
   secretRef: "",
+  vaultMaterial: "",
   authScheme: "bearer",
   authHeaderName: "authorization",
 };
@@ -583,6 +585,9 @@ function useModelMountsDaemon() {
           "model.import:*",
           "backend.control:*",
           "provider.write:*",
+          "vault.write:*",
+          "vault.read:*",
+          "vault.delete:*",
           "route.use:*",
           "mcp.import:*",
           "mcp.call:huggingface.model_search",
@@ -760,6 +765,21 @@ function useModelMountsDaemon() {
             body: providerDraftPayload(draft),
           });
           return `${draft.id} configured with vault-backed auth metadata.`;
+        }),
+      bindVaultSecret: (draft: ProviderDraft) =>
+        runAction("vault-bind", async () => {
+          const token = await ensureToken();
+          await requestJson("/api/v1/vault/refs", {
+            method: "POST",
+            token,
+            body: {
+              vault_ref: draft.secretRef.trim(),
+              material: draft.vaultMaterial,
+              purpose: `provider.auth:${draft.id.trim()}`,
+              label: draft.label.trim() || draft.id.trim(),
+            },
+          });
+          return `${draft.id} vault material bound in the local runtime vault.`;
         }),
       testProviderHealth: (providerId: string) =>
         runAction("provider-health", async () => {
@@ -1155,6 +1175,8 @@ function ServerPanel({
           "POST /api/v1/models/download",
           "POST /api/v1/models/download/cancel/:job_id",
           "POST /api/v1/models/download/:job_id/cancel",
+          "GET /api/v1/vault/refs",
+          "POST /api/v1/vault/refs",
           "GET /api/v1/providers/:id/models",
           "GET /api/v1/providers/:id/loaded",
           "POST /api/v1/chat",
@@ -1378,12 +1400,14 @@ function DownloadsPanel({
 function ProvidersPanel({
   providers,
   onConfigureProvider,
+  onBindVaultSecret,
   onProviderHealth,
   onProviderModels,
   busy,
 }: {
   providers: ProviderProfile[];
   onConfigureProvider: (draft: ProviderDraft) => void;
+  onBindVaultSecret: (draft: ProviderDraft) => void;
   onProviderHealth: (providerId: string) => void;
   onProviderModels: (providerId: string) => void;
   busy: string | null;
@@ -1392,7 +1416,7 @@ function ProvidersPanel({
   const updateDraft = (field: keyof ProviderDraft, value: string) => {
     setDraft((current) => ({ ...current, [field]: value }));
   };
-  const providerBusy = busy === "provider-configure" || busy === "provider-health" || busy === "provider-models";
+  const providerBusy = busy === "provider-configure" || busy === "vault-bind" || busy === "provider-health" || busy === "provider-models";
   return (
     <section className="model-mounts-panel" aria-labelledby="model-mounts-providers-title">
       <div className="model-mounts-panel-head">
@@ -1455,6 +1479,15 @@ function ProvidersPanel({
             />
           </label>
           <label>
+            <span>Vault material</span>
+            <input
+              type="password"
+              value={draft.vaultMaterial}
+              onChange={(event) => updateDraft("vaultMaterial", event.target.value)}
+              placeholder="session only"
+            />
+          </label>
+          <label>
             <span>Auth scheme</span>
             <select value={draft.authScheme} onChange={(event) => updateDraft("authScheme", event.target.value)}>
               <option value="bearer">Bearer</option>
@@ -1483,6 +1516,17 @@ function ProvidersPanel({
         <div className="model-mounts-actions">
           <button className="model-mounts-action-button" type="submit" disabled={providerBusy}>
             Save provider
+          </button>
+          <button
+            className="model-mounts-action-button"
+            type="button"
+            onClick={() => {
+              onBindVaultSecret(draft);
+              setDraft((current) => ({ ...current, vaultMaterial: "" }));
+            }}
+            disabled={providerBusy || !draft.secretRef.trim() || !draft.vaultMaterial}
+          >
+            Bind vault secret
           </button>
           <button className="model-mounts-action-button" type="button" onClick={() => onProviderHealth(draft.id)} disabled={providerBusy}>
             Test health
@@ -1551,6 +1595,7 @@ function providerDraftFromProfile(item: ProviderProfile): ProviderDraft {
     authScheme: item.authScheme,
     authHeaderName: item.authHeaderName,
     secretRef: "",
+    vaultMaterial: "",
   };
 }
 
@@ -1844,6 +1889,7 @@ export function MissionControlMountsView() {
           <ProvidersPanel
             providers={daemon.data.providers}
             onConfigureProvider={daemon.actions.configureProvider}
+            onBindVaultSecret={daemon.actions.bindVaultSecret}
             onProviderHealth={daemon.actions.testProviderHealth}
             onProviderModels={daemon.actions.listProviderModels}
             busy={daemon.busyAction}

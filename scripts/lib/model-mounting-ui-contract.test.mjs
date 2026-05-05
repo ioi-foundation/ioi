@@ -30,6 +30,7 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
     "/api/v1/providers/:id/models",
     "/api/v1/providers/:id/loaded",
     "/api/v1/providers",
+    "/api/v1/vault/refs",
     "/api/v1/chat",
     "/api/v1/responses",
     "/api/v1/mcp/import",
@@ -55,6 +56,9 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   assert.match(source, /Load native-local/);
   assert.match(source, /Download fixture/);
   assert.match(source, /Save provider/);
+  assert.match(source, /Bind vault secret/);
+  assert.match(source, /vault\.write:\*/);
+  assert.match(source, /vault\.read:\*/);
   assert.match(source, /Test health/);
   assert.match(source, /List models/);
   assert.match(source, /provider\.write:\*/);
@@ -155,15 +159,20 @@ test("model mounting live-provider gates are explicit and opt-in", () => {
 
 test("model mounting CLI exposes vault-backed provider configuration flags", () => {
   const source = fs.readFileSync(path.join(root, "crates", "cli", "src", "commands", "models.rs"), "utf8");
+  const vaultSource = fs.readFileSync(path.join(root, "crates", "cli", "src", "commands", "vault.rs"), "utf8");
+  const combinedSource = `${source}\n${vaultSource}`;
   for (const token of [
     "ProviderSet",
+    "VaultCommands",
     "/api/v1/providers",
+    "/api/v1/vault/refs",
     "secret_ref",
     "auth_scheme",
     "auth_header_name",
+    "material_env",
     "Raw keys are rejected by the daemon",
   ]) {
-    assert.match(source, new RegExp(token.replaceAll("/", "\\/")));
+    assert.match(combinedSource, new RegExp(token.replaceAll("/", "\\/")));
   }
 });
 
