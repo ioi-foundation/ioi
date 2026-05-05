@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "ioi.model-mounting.live-gate.v1",
+  "gate": "llama-cpp",
+  "status": "passed",
+  "startedAt": "2026-05-05T22:51:29.366Z",
+  "outputDir": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounting-live/llama-cpp/2026-05-05T22-51-29Z",
+  "commands": [
+    {
+      "command": "llama-server --version",
+      "status": 0,
+      "signal": null,
+      "stdout": "",
+      "stderr": "version: 9037 (bbeb89d76)\nbuilt with GNU 11.4.0 for Linux x86_64\n"
+    }
+  ],
+  "details": {
+    "llamaCpp": {
+      "binaryPathHash": "813a1ef835276955bdfb3c6fb2e914a9e8048a2d5fd3774b512d5332d55fe17c",
+      "modelPathHash": "2fda6d2bd5ea409a6431da7c0e40b8daf84f63473e8b5e103fb6a0601ea4ec39",
+      "baseUrlHash": "036b2b213a5c1c60084f255756981a5e2c9801aafed4b7b74be2cb6925493044",
+      "modelId": "qwen3.5-9b-q4-k-m"
+    },
+    "daemonEndpoint": "http://127.0.0.1:39129",
+    "stateDir": "/tmp/ioi-live-model-gate-state-VhLmLG"
+  },
+  "result": {
+    "modelId": "qwen3.5-9b-q4-k-m",
+    "artifactId": "import.qwen3.5.9b.q4.k.m",
+    "endpointId": "endpoint.live.llama-cpp.qwen3.5.9b.q4.k.m",
+    "routeId": "route.live.llama-cpp.qwen3.5.9b.q4.k.m",
+    "instanceId": "instance.endpoint.live.llama.cpp.qwen3.5.9b.q4.k.m.1778021495481",
+    "providerModels": 1,
+    "healthStatus": "available",
+    "backendProcessId": "backend_process_backend.llama.cpp_1778021495480",
+    "backendProcessPidHash": "92de8dfb5429a651",
+    "chatReceiptId": "receipt_model_invocation_7eb57986-7be5-4d88-8471-db372d905d22",
+    "compatChatModel": "Qwen3.5-9B-Q4_K_M.gguf",
+    "responsesReceiptId": "receipt_model_invocation_95abbe0f-6f76-4fa8-b676-d301c5ece72e",
+    "responsesCompatTranslation": null,
+    "embeddingStatus": "unsupported_or_failed",
+    "embeddingReceiptId": null,
+    "embeddingVectors": null,
+    "embeddingErrorHash": "784874e9a1c94676e7a981374740181c9228665d1c2a25be710af10a808036b2",
+    "streamReceipts": {
+      "completedInvocationReceiptId": "receipt_model_invocation_76662cdc-c7e8-4594-b111-82ed353554f2",
+      "completedStreamReceiptId": "receipt_model_invocation_stream_completed_8c409205-f758-4ad3-84c0-ff767d43fe3a",
+      "abortedInvocationReceiptId": "receipt_model_invocation_98b503ec-18bd-4f3d-be85-3613f66c2acf",
+      "abortedStreamReceiptId": "receipt_model_invocation_stream_canceled_570301a1-376c-4848-bd25-af202f0bead7",
+      "streamKind": "openai_chat_completions_provider_native",
+      "providerResponseKind": "chat.completions.stream"
+    },
+    "replaySource": "agentgres_model_mounting_projection_replay",
+    "secretScan": {
+      "passed": true,
+      "findings": []
+    }
+  },
+  "completedAt": "2026-05-05T22:52:10.315Z"
+}
