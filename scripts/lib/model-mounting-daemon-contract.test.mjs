@@ -1843,6 +1843,38 @@ setInterval(() => {}, 1000);
     assert.equal(receipt.details.backendProcessPidHash, loaded.backendProcess.pidHash);
     assert.ok(receipt.details.backendEvidenceRefs.includes("vllm_process_supervisor"));
 
+    const streamedChat = await requestSse(daemon.endpoint, "/v1/chat/completions", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        route_id: "route.test.vllm.supervised",
+        model: "vllm-qwen",
+        stream: true,
+        messages: [{ role: "user", content: "stream supervised vllm" }],
+      },
+    });
+    assert.equal(streamedChat.response.status, 200);
+    assert.equal(streamedChat.response.headers.get("x-ioi-stream-source"), "provider_native");
+    const streamedChatChunks = parseOpenAiSseChunks(streamedChat.text);
+    const streamedChatText = streamedChatChunks
+      .filter((chunk) => chunk !== "[DONE]")
+      .map((chunk) => chunk.choices?.[0]?.delta?.content ?? "")
+      .join("");
+    assert.equal(streamedChatText, "fake vllm streamed chat");
+    const streamedChatMetadata = streamedChatChunks.find((chunk) => chunk !== "[DONE]" && chunk.provider_stream === "native");
+    assert.equal(streamedChatMetadata.route_id, "route.test.vllm.supervised");
+    const streamedChatReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${streamedChatMetadata.receipt_id}`);
+    assert.equal(streamedChatReceipt.details.backend, "vllm");
+    assert.equal(streamedChatReceipt.details.backendId, "backend.vllm");
+    assert.equal(streamedChatReceipt.details.backendProcessPidHash, loaded.backendProcess.pidHash);
+    assert.equal(streamedChatReceipt.details.providerResponseKind, "chat.completions.stream");
+    assert.ok(streamedChatReceipt.details.backendEvidenceRefs.includes("vllm_openai_compatible_server"));
+    assert.ok(streamedChatReceipt.details.backendEvidenceRefs.includes("vllm_process_supervisor"));
+    assert.ok(streamedChatReceipt.details.backendEvidenceRefs.includes("vllm_provider_native_stream"));
+    const streamedChatCompleteReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${streamedChatMetadata.stream_receipt_id}`);
+    assert.equal(streamedChatCompleteReceipt.details.invocationReceiptId, streamedChatMetadata.receipt_id);
+    assert.equal(streamedChatCompleteReceipt.details.outputHash, crypto.createHash("sha256").update(streamedChatText).digest("hex"));
+
     const providerLoaded = await expectOk(daemon.endpoint, "/api/v1/providers/provider.vllm/loaded");
     assert.ok(providerLoaded.some((model) => model.modelId === "vllm-qwen"));
     const unloaded = await expectOk(daemon.endpoint, "/api/v1/models/unload", {
@@ -1977,6 +2009,38 @@ setInterval(() => {}, 1000);
     assert.equal(receipt.details.backendId, "backend.llama-cpp");
     assert.equal(receipt.details.backendProcessPidHash, loaded.backendProcess.pidHash);
     assert.ok(receipt.details.backendEvidenceRefs.includes("llama_cpp_process_supervisor"));
+
+    const streamedResponse = await requestSse(daemon.endpoint, "/v1/responses", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        route_id: "route.test.llama-cpp",
+        model: "llama-cpp:fixture",
+        stream: true,
+        input: "stream llama cpp response",
+      },
+    });
+    assert.equal(streamedResponse.response.status, 200);
+    assert.equal(streamedResponse.response.headers.get("x-ioi-stream-source"), "provider_native");
+    const streamedResponseText = streamedResponse.events
+      .filter((event) => event.event === "response.output_text.delta")
+      .map((event) => event.data.delta)
+      .join("");
+    assert.equal(streamedResponseText, "fake llama.cpp streamed response");
+    const responseMetadata = streamedResponse.events.find((event) => event.event === "response.ioi.receipt")?.data;
+    assert.equal(responseMetadata.route_id, "route.test.llama-cpp");
+    assert.equal(responseMetadata.provider_stream, "native");
+    const responseStreamReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${responseMetadata.receipt_id}`);
+    assert.equal(responseStreamReceipt.details.backend, "llama_cpp");
+    assert.equal(responseStreamReceipt.details.backendId, "backend.llama-cpp");
+    assert.equal(responseStreamReceipt.details.backendProcessPidHash, loaded.backendProcess.pidHash);
+    assert.equal(responseStreamReceipt.details.providerResponseKind, "responses.stream");
+    assert.ok(responseStreamReceipt.details.backendEvidenceRefs.includes("llama_cpp_openai_compatible_server"));
+    assert.ok(responseStreamReceipt.details.backendEvidenceRefs.includes("llama_cpp_process_supervisor"));
+    assert.ok(responseStreamReceipt.details.backendEvidenceRefs.includes("llama_cpp_responses_provider_native_stream"));
+    const responseStreamCompleteReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${responseMetadata.stream_receipt_id}`);
+    assert.equal(responseStreamCompleteReceipt.details.invocationReceiptId, responseMetadata.receipt_id);
+    assert.equal(responseStreamCompleteReceipt.details.outputHash, crypto.createHash("sha256").update(streamedResponseText).digest("hex"));
 
     const unloaded = await expectOk(daemon.endpoint, "/api/v1/models/unload", {
       method: "POST",
@@ -2924,7 +2988,7 @@ async function startFakeOllamaServer({ chatStatus = 200, secret = null } = {}) {
 
 async function startFakeVllmServer({ responsesStatus = 200, chatStatus = 200, secret = null, requiredAuthorization = null, requiredHeaders = null } = {}) {
   const observedHeaders = [];
-  const server = http.createServer((request, response) => {
+  const server = http.createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
     response.setHeader("content-type", "application/json");
     if (requiredAuthorization || requiredHeaders) {
@@ -2943,9 +3007,20 @@ async function startFakeVllmServer({ responsesStatus = 200, chatStatus = 200, se
       return;
     }
     if (request.method === "POST" && url.pathname === "/v1/responses") {
+      const body = JSON.parse((await readRequestText(request)) || "{}");
       if (responsesStatus !== 200) {
         response.statusCode = responsesStatus;
         response.end(JSON.stringify({ error: { message: `responses unavailable ${secret ?? ""}` } }));
+        return;
+      }
+      if (body.stream === true) {
+        writeFakeOpenAiResponseSse(response, {
+          responseId: "resp_fake_vllm_stream",
+          itemId: "msg_fake_vllm_stream",
+          model: body.model ?? "vllm-qwen",
+          chunks: ["fake vllm ", "streamed response"],
+          usage: { prompt_tokens: 3, completion_tokens: 5, total_tokens: 8 },
+        });
         return;
       }
       response.end(
@@ -2960,9 +3035,19 @@ async function startFakeVllmServer({ responsesStatus = 200, chatStatus = 200, se
       return;
     }
     if (request.method === "POST" && url.pathname === "/v1/chat/completions") {
+      const body = JSON.parse((await readRequestText(request)) || "{}");
       if (chatStatus !== 200) {
         response.statusCode = chatStatus;
         response.end(JSON.stringify({ error: { message: `chat failed ${secret}` } }));
+        return;
+      }
+      if (body.stream === true) {
+        writeFakeOpenAiChatCompletionSse(response, {
+          id: "chatcmpl_fake_vllm_stream",
+          model: body.model ?? "vllm-qwen",
+          chunks: ["fake vllm ", "streamed chat"],
+          usage: { prompt_tokens: 4, completion_tokens: 6, total_tokens: 10 },
+        });
         return;
       }
       response.end(
@@ -2999,7 +3084,7 @@ async function startFakeVllmServer({ responsesStatus = 200, chatStatus = 200, se
 }
 
 async function startFakeLlamaCppServer() {
-  const server = http.createServer((request, response) => {
+  const server = http.createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
     response.setHeader("content-type", "application/json");
     if (request.method === "GET" && url.pathname === "/v1/models") {
@@ -3007,6 +3092,17 @@ async function startFakeLlamaCppServer() {
       return;
     }
     if (request.method === "POST" && url.pathname === "/v1/responses") {
+      const body = JSON.parse((await readRequestText(request)) || "{}");
+      if (body.stream === true) {
+        writeFakeOpenAiResponseSse(response, {
+          responseId: "resp_fake_llama_cpp_stream",
+          itemId: "msg_fake_llama_cpp_stream",
+          model: body.model ?? "llama-cpp-qwen",
+          chunks: ["fake llama.cpp ", "streamed response"],
+          usage: { prompt_tokens: 3, completion_tokens: 5, total_tokens: 8 },
+        });
+        return;
+      }
       response.end(
         JSON.stringify({
           id: "resp_fake_llama_cpp",
@@ -3019,6 +3115,16 @@ async function startFakeLlamaCppServer() {
       return;
     }
     if (request.method === "POST" && url.pathname === "/v1/chat/completions") {
+      const body = JSON.parse((await readRequestText(request)) || "{}");
+      if (body.stream === true) {
+        writeFakeOpenAiChatCompletionSse(response, {
+          id: "chatcmpl_fake_llama_cpp_stream",
+          model: body.model ?? "llama-cpp-qwen",
+          chunks: ["fake llama.cpp ", "streamed chat"],
+          usage: { prompt_tokens: 4, completion_tokens: 6, total_tokens: 10 },
+        });
+        return;
+      }
       response.end(
         JSON.stringify({
           id: "chatcmpl_fake_llama_cpp",
@@ -3049,6 +3155,77 @@ async function startFakeLlamaCppServer() {
     endpoint: `http://${address.address}:${address.port}`,
     close: () => new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve()))),
   };
+}
+
+function writeFakeOpenAiChatCompletionSse(response, { id, model, chunks, usage }) {
+  const created = Math.floor(Date.now() / 1000);
+  const base = {
+    id,
+    object: "chat.completion.chunk",
+    created,
+    model,
+  };
+  response.setHeader("content-type", "text/event-stream");
+  response.write(`data: ${JSON.stringify({ ...base, choices: [{ index: 0, delta: { role: "assistant" }, finish_reason: null }] })}\n\n`);
+  for (const chunk of chunks) {
+    response.write(`data: ${JSON.stringify({ ...base, choices: [{ index: 0, delta: { content: chunk }, finish_reason: null }] })}\n\n`);
+  }
+  response.write(
+    `data: ${JSON.stringify({
+      ...base,
+      choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+      usage,
+    })}\n\n`,
+  );
+  response.end("data: [DONE]\n\n");
+}
+
+function writeFakeOpenAiResponseSse(response, { responseId, itemId, model, chunks, usage }) {
+  const outputText = chunks.join("");
+  response.setHeader("content-type", "text/event-stream");
+  response.write(
+    `event: response.created\ndata: ${JSON.stringify({
+      type: "response.created",
+      response: {
+        id: responseId,
+        object: "response",
+        status: "in_progress",
+        model,
+        output: [],
+      },
+    })}\n\n`,
+  );
+  response.write(
+    `event: response.output_item.added\ndata: ${JSON.stringify({
+      type: "response.output_item.added",
+      output_index: 0,
+      item: { id: itemId, type: "message", status: "in_progress", role: "assistant", content: [] },
+    })}\n\n`,
+  );
+  for (const chunk of chunks) {
+    response.write(
+      `event: response.output_text.delta\ndata: ${JSON.stringify({
+        type: "response.output_text.delta",
+        item_id: itemId,
+        output_index: 0,
+        content_index: 0,
+        delta: chunk,
+      })}\n\n`,
+    );
+  }
+  response.end(
+    `event: response.completed\ndata: ${JSON.stringify({
+      type: "response.completed",
+      response: {
+        id: responseId,
+        object: "response",
+        status: "completed",
+        model,
+        output_text: outputText,
+        usage,
+      },
+    })}\n\n`,
+  );
 }
 
 async function readRequestText(request) {
