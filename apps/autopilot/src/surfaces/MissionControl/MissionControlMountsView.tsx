@@ -99,6 +99,17 @@ interface VaultRefPreview {
   lastResolved: string;
 }
 
+interface VaultAdapterPreview {
+  implementation: string;
+  mode: string;
+  configured: boolean;
+  failClosed: boolean;
+  keyConfigured: boolean;
+  pathHash: string;
+  plaintextPersistence: boolean;
+  evidence: string[];
+}
+
 interface McpServerPreview {
   id: string;
   transport: string;
@@ -152,6 +163,7 @@ interface MountsWorkbenchData {
   backends: BackendPreview[];
   providers: ProviderProfile[];
   tokens: PermissionTokenPreview[];
+  vaultAdapter: VaultAdapterPreview;
   vaultRefs: VaultRefPreview[];
   mcpServers: McpServerPreview[];
   routes: RoutePolicyPreview[];
@@ -386,6 +398,16 @@ const fallbackData: MountsWorkbenchData = {
       state: "revoked",
     },
   ],
+  vaultAdapter: {
+    implementation: "runtime_memory",
+    mode: "session-only runtime memory",
+    configured: false,
+    failClosed: false,
+    keyConfigured: false,
+    pathHash: "none",
+    plaintextPersistence: false,
+    evidence: ["VaultMaterialAdapter.runtimeMemory"],
+  },
   vaultRefs: [
     {
       hash: "fixture",
@@ -949,6 +971,7 @@ function normalizeSnapshot(snapshot: any, endpoint: string): MountsWorkbenchData
       lastUsed: stringValue(item.lastUsedAt, "not used"),
       state: item.revokedAt ? "revoked" : "active",
     })),
+    vaultAdapter: normalizeVaultAdapter(snapshot?.adapterBoundaries?.vault?.materialAdapter),
     vaultRefs: arrayOf(snapshot?.vaultRefs).map((item) => ({
       hash: stringValue(item.vaultRefHash, "unknown").slice(0, 12),
       label: stringValue(item.label, "Vault ref"),
@@ -1001,6 +1024,29 @@ function vaultRefState(item: any) {
   if (Boolean(item?.resolvedMaterial || item?.runtimeBound || item?.materialBound)) return "material bound in runtime session";
   if (Boolean(item?.configured)) return "metadata configured, needs runtime bind";
   return "removed";
+}
+
+function normalizeVaultAdapter(item: any): VaultAdapterPreview {
+  const implementation = stringValue(item?.implementation, "runtime_memory");
+  const configured = Boolean(item?.configured);
+  const failClosed = Boolean(item?.failClosed);
+  return {
+    implementation,
+    mode:
+      implementation === "encrypted_keychain_vault_adapter"
+        ? configured
+          ? "restart-durable encrypted keychain"
+          : failClosed
+            ? "keychain configured but unavailable"
+            : "keychain adapter inactive"
+        : "session-only runtime memory",
+    configured,
+    failClosed,
+    keyConfigured: Boolean(item?.keyConfigured),
+    pathHash: stringValue(item?.pathHash, "none"),
+    plaintextPersistence: Boolean(item?.plaintextPersistence ?? false),
+    evidence: stringArray(item?.evidenceRefs),
+  };
 }
 
 function providerAuthSchemeForUi(value: unknown): ProviderDraft["authScheme"] {
@@ -1699,6 +1745,31 @@ function TokensPanel({
         </section>
 
         <section>
+          <h4>Vault adapter</h4>
+          <article className="model-mounts-token">
+            <div className="model-mounts-token-head">
+              <div>
+                <strong>{data.vaultAdapter.mode}</strong>
+                <span>
+                  {data.vaultAdapter.implementation} / path hash {data.vaultAdapter.pathHash} / key {data.vaultAdapter.keyConfigured ? "configured" : "not configured"}
+                </span>
+              </div>
+              <StatusPill tone={data.vaultAdapter.failClosed ? "blocked" : data.vaultAdapter.configured ? "ready" : "warn"}>
+                {data.vaultAdapter.failClosed ? "fail closed" : data.vaultAdapter.configured ? "restart durable" : "session only"}
+              </StatusPill>
+            </div>
+            <dl>
+              <div>
+                <dt>Plaintext persistence</dt>
+                <dd>{data.vaultAdapter.plaintextPersistence ? "blocked" : "disabled"}</dd>
+              </div>
+              <div>
+                <dt>Evidence</dt>
+                <dd>{data.vaultAdapter.evidence.join(", ") || "VaultMaterialAdapter.runtimeMemory"}</dd>
+              </div>
+            </dl>
+          </article>
+
           <h4>MCP imports</h4>
           <div className="model-mounts-list">
             {data.mcpServers.map((server) => (

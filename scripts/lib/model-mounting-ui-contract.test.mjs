@@ -57,6 +57,9 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   assert.match(source, /Download fixture/);
   assert.match(source, /Save provider/);
   assert.match(source, /Bind vault secret/);
+  assert.match(source, /Vault adapter/);
+  assert.match(source, /restart-durable encrypted keychain/);
+  assert.match(source, /session-only runtime memory/);
   assert.match(source, /metadata configured, needs runtime bind/);
   assert.match(source, /material bound in runtime session/);
   assert.match(source, /vault\.write:\*/);
@@ -168,10 +171,12 @@ test("model mounting CLI exposes vault-backed provider configuration flags", () 
     "VaultCommands",
     "/api/v1/providers",
     "/api/v1/vault/refs",
+    "/api/v1/projections/model-mounting",
     "secret_ref",
     "auth_scheme",
     "auth_header_name",
     "material_env",
+    "materialAdapter",
     "Raw keys are rejected by the daemon",
   ]) {
     assert.match(combinedSource, new RegExp(token.replaceAll("/", "\\/")));
