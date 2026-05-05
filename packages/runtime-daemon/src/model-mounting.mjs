@@ -4074,11 +4074,25 @@ export class ModelMountingState {
       }
     }
     if (failures.length > 0) {
+      const blockedReceipt = this.receipt("workflow_receipt_gate_blocked", {
+        summary: `Receipt Gate blocked ${receiptId}.`,
+        redaction: "redacted",
+        evidenceRefs: ["workflow_canvas", "Receipt Gate", receiptId, ...requiredToolReceiptIds],
+        details: {
+          receiptId,
+          failures,
+          routeId: receipt.details?.routeId ?? null,
+          selectedModel: receipt.details?.selectedModel ?? null,
+          endpointId: receipt.details?.endpointId ?? null,
+          backendId: receipt.details?.backendId ?? receipt.details?.selectedBackend ?? null,
+          requiredToolReceiptIds,
+        },
+      });
       throw runtimeError({
         status: 412,
         code: "policy",
         message: "Receipt Gate blocked downstream workflow execution.",
-        details: { receiptId, failures },
+        details: { receiptId, failures, gateReceiptId: blockedReceipt.id },
       });
     }
     const gateReceipt = this.receipt("workflow_receipt_gate", {

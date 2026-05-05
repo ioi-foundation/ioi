@@ -89,9 +89,12 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   assert.match(source, /runDownloadValidationAction/);
   assert.match(source, /runProviderBackendValidationAction/);
   assert.match(source, /runTokenMcpValidationAction/);
+  assert.match(source, /runRoutingWorkflowValidationAction/);
   assert.match(source, /VALIDATION_TOKEN_GRANT_ID/);
   assert.match(source, /createValidationToken/);
   assert.match(source, /revokeValidationToken/);
+  assert.match(source, /receiptGatePassProbe/);
+  assert.match(source, /receiptGateBlockProbe/);
   assert.match(source, /data-download-id/);
   assert.match(source, /data-download-action-row/);
   assert.match(source, /retryDownloadPayload/);
@@ -333,6 +336,12 @@ test("Mounts GUI validation uses a dedicated desktop harness", () => {
   assert.match(probe, /ephemeralMcpLinkedToModelReceipt/);
   assert.match(probe, /latestVaultHealthLookupSucceeded/);
   assert.match(probe, /tokenMcpActionAssertions/);
+  assert.match(probe, /exercise_routing_workflow_actions/);
+  assert.match(probe, /routing-after-route-test-action/);
+  assert.match(probe, /routing-after-workflow-probe-action/);
+  assert.match(probe, /routing-after-receipt-gate-pass-action/);
+  assert.match(probe, /receiptGateBlockRecorded/);
+  assert.match(probe, /routingWorkflowActionAssertions/);
   assert.match(probe, /VITE_AUTOPILOT_MOUNTS_VALIDATION_ACTIONS/);
   assert.match(probe, /catalog_variant_count/);
   assert.match(probe, /download_status_counts/);

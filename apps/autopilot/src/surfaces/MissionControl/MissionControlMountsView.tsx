@@ -1548,7 +1548,10 @@ function useModelMountsDaemon() {
   }, []);
 
   const requestJson = useCallback(
-    async (routePath: string, options: { method?: string; body?: unknown; token?: string | null } = {}) => {
+    async (
+      routePath: string,
+      options: { method?: string; body?: unknown; token?: string | null; allowStatuses?: number[] } = {},
+    ) => {
       const url = `${endpoint.replace(/\/+$/, "")}${routePath}`;
       const response = await fetch(url, {
         method: options.method ?? "GET",
@@ -1561,7 +1564,7 @@ function useModelMountsDaemon() {
       });
       const text = await response.text();
       const value = text ? JSON.parse(text) : null;
-      if (!response.ok) {
+      if (!response.ok && !options.allowStatuses?.includes(response.status)) {
         const error = new Error(errorMessage(value, routePath));
         (error as Error & { status?: number }).status = response.status;
         throw error;
@@ -2019,6 +2022,19 @@ function useModelMountsDaemon() {
       workflowProbe: () =>
         runAction("workflow-probe", async () => {
           const token = await ensureToken();
+          await requestJson("/api/v1/mcp/import", {
+            method: "POST",
+            token,
+            body: {
+              mcpServers: {
+                huggingface: {
+                  url: "https://example.invalid/mcp",
+                  allowed_tools: ["model_search"],
+                  headers: { authorization: "vault://mcp.huggingface/authorization" },
+                },
+              },
+            },
+          });
           await requestJson("/api/v1/workflows/nodes/execute", {
             method: "POST",
             token,
@@ -2027,9 +2043,82 @@ function useModelMountsDaemon() {
           await requestJson("/api/v1/workflows/nodes/execute", {
             method: "POST",
             token,
+            body: { node: "Model Call", input: "workflow model call probe", model_policy: { privacy: "local_only" } },
+          });
+          await requestJson("/api/v1/workflows/nodes/execute", {
+            method: "POST",
+            token,
             body: { node: "Embedding", input: "workflow embedding probe", model_policy: { privacy: "local_only" } },
           });
-          return "Workflow model router and embedding nodes executed through the daemon contract.";
+          await requestJson("/api/v1/workflows/nodes/execute", {
+            method: "POST",
+            token,
+            body: {
+              node: "Local Tool/MCP",
+              server_id: "mcp.huggingface",
+              tool: "model_search",
+              input: { query: "workflow model mount probe" },
+            },
+          });
+          return "Workflow router, model call, embedding, and MCP nodes executed through the daemon contract.";
+        }),
+      receiptGatePassProbe: () =>
+        runAction("receipt-gate-pass", async () => {
+          const token = await ensureToken();
+          const invocation = await requestJson("/api/v1/responses", {
+            method: "POST",
+            token,
+            body: {
+              route_id: "route.local-first",
+              input: "Run a Receipt Gate pass probe.",
+              integrations: [
+                {
+                  type: "ephemeral_mcp",
+                  server_label: "huggingface",
+                  server_url: "https://example.invalid/mcp",
+                  allowed_tools: ["model_search"],
+                  headers: { authorization: "vault://mcp.huggingface/authorization" },
+                },
+              ],
+            },
+          });
+          const gate = await requestJson("/api/v1/workflows/receipt-gate", {
+            method: "POST",
+            body: {
+              receipt_id: invocation?.receipt_id,
+              redaction: "redacted",
+              route_id: invocation?.route_id,
+              selected_model: invocation?.model,
+              selected_endpoint: invocation?.endpoint_id,
+              selected_backend: invocation?.backend_id,
+              required_tool_receipt_ids: invocation?.tool_receipt_ids ?? [],
+            },
+          });
+          return `Receipt Gate accepted ${stringValue(gate?.gateReceipt?.id, "workflow receipt")}.`;
+        }),
+      receiptGateBlockProbe: () =>
+        runAction("receipt-gate-block", async () => {
+          const token = await ensureToken();
+          const invocation = await requestJson("/api/v1/chat", {
+            method: "POST",
+            token,
+            body: {
+              route_id: "route.local-first",
+              messages: [{ role: "user", content: "Run a Receipt Gate block probe." }],
+            },
+          });
+          const blocked = await requestJson("/api/v1/workflows/receipt-gate", {
+            method: "POST",
+            allowStatuses: [412],
+            body: {
+              receipt_id: invocation?.receipt_id,
+              route_id: "route.mismatch",
+            },
+          });
+          if (blocked?.error?.code !== "policy") {
+            throw new Error("Receipt Gate mismatch did not fail closed.");
+          }
+          return `Receipt Gate blocked mismatch with receipt ${stringValue(blocked?.error?.details?.gateReceiptId, "recorded")}.`;
         }),
       configureProvider: (draft: ProviderDraft) =>
         runAction("provider-configure", async () => {
@@ -5171,10 +5260,41 @@ export function MissionControlMountsView() {
     },
     [busy, daemon.actions, validationActionsEnabled],
   );
+  const runRoutingWorkflowValidationAction = useCallback(
+    (
+      action:
+        | "route-test"
+        | "route-draft-test"
+        | "workflow-probe"
+        | "receipt-gate-pass"
+        | "receipt-gate-block",
+    ) => {
+      if (!validationActionsEnabled || busy) return;
+      setActiveTab("routing");
+      if (action === "route-test") daemon.actions.testRoute();
+      if (action === "route-draft-test") {
+        const selectedRoute = daemon.data.routes.find((route) => route.id === pickerSelection.routeId) ?? daemon.data.routes[0];
+        daemon.actions.testRouteDraft(routeDraftFromPolicy(selectedRoute, pickerSelection), pickerSelection);
+      }
+      if (action === "workflow-probe") daemon.actions.workflowProbe();
+      if (action === "receipt-gate-pass") daemon.actions.receiptGatePassProbe();
+      if (action === "receipt-gate-block") daemon.actions.receiptGateBlockProbe();
+    },
+    [busy, daemon.actions, daemon.data.routes, pickerSelection, validationActionsEnabled],
+  );
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if (event.ctrlKey || event.metaKey) return;
+      if (validationActionsEnabled && ["F16", "F17", "F18", "F19", "F20"].includes(event.key)) {
+        event.preventDefault();
+        if (event.key === "F16") runRoutingWorkflowValidationAction("route-test");
+        if (event.key === "F17") runRoutingWorkflowValidationAction("route-draft-test");
+        if (event.key === "F18") runRoutingWorkflowValidationAction("workflow-probe");
+        if (event.key === "F19") runRoutingWorkflowValidationAction("receipt-gate-pass");
+        if (event.key === "F20") runRoutingWorkflowValidationAction("receipt-gate-block");
+        return;
+      }
       if (validationActionsEnabled && event.shiftKey && /^F[1-9]$/.test(event.key)) {
         const actionByKey: Partial<Record<string, Parameters<typeof runProviderBackendValidationAction>[0]>> = {
           F1: "backend-health",
@@ -5227,7 +5347,13 @@ export function MissionControlMountsView() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [runDownloadValidationAction, runProviderBackendValidationAction, runTokenMcpValidationAction, validationActionsEnabled]);
+  }, [
+    runDownloadValidationAction,
+    runProviderBackendValidationAction,
+    runRoutingWorkflowValidationAction,
+    runTokenMcpValidationAction,
+    validationActionsEnabled,
+  ]);
 
   return (
     <div className="mission-control-view mission-control-view--mounts">
