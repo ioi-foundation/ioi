@@ -169,6 +169,7 @@ jobs:
       - name: Run browser reliability suite test (ignored lane)
         env:
           IOI_RELIABILITY_REQUIRE_DISPLAY: "1"
+          RUST_MIN_STACK: "16777216"
         run: |
           set -o pipefail
           ARTIFACT_DIR=".artifacts/reliability_browser"

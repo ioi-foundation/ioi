@@ -20,6 +20,7 @@ use ioi_pii::{
     route_pii_decision_for_target, validate_review_request_v3_cim, RiskSurface,
     REVIEW_REQUEST_VERSION,
 };
+use ioi_services::agentic::policy::augment_workspace_filesystem_policy;
 use ioi_services::agentic::rules::{ActionRules, DefaultPolicy};
 use ioi_services::agentic::runtime::keys::{
     get_approval_authority_key, get_incident_key, get_state_key, pii,
@@ -369,7 +370,8 @@ async fn run_golden_pii_review_determinism_desktop_validator_desktop() -> Result
         SignatureSuite::ED25519,
         &signer_pub_bytes,
     )?);
-    let policy_canonical = serde_jcs::to_vec(&permissive_rules).map_err(anyhow::Error::msg)?;
+    let effective_rules = augment_workspace_filesystem_policy(&permissive_rules, Some("."));
+    let policy_canonical = serde_jcs::to_vec(&effective_rules).map_err(anyhow::Error::msg)?;
     let policy_digest = sha256(&policy_canonical).map_err(anyhow::Error::msg)?;
     let mut policy_hash = [0u8; 32];
     policy_hash.copy_from_slice(policy_digest.as_ref());

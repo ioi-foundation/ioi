@@ -44,6 +44,7 @@ run_browser_reliability() {
     env \
       IOI_RELIABILITY_REQUIRE_DISPLAY=1 \
       IOI_RELIABILITY_ARTIFACT_DIR="${PWD}/${ARTIFACT_ROOT}/browser" \
+      RUST_MIN_STACK=16777216 \
       cargo test --locked -p ioi-cli --test reliability_suite_e2e --features "${FEATURES}" \
       "reliability_suite::browser_snapshot_click::browser_snapshot_then_click_element_updates_fixture" \
       -- --ignored --exact --nocapture
