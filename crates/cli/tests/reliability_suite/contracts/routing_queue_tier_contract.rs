@@ -59,7 +59,8 @@ fn queue_failure_state() -> AgentState {
         execution_ledger: Default::default(),
         visual_som_map: None,
         visual_semantic_map: None,
-        swarm_context: None,
+        runtime_route_frame: None,
+        work_graph_context: None,
         target: Some(InteractionTarget {
             app_hint: Some("calculator".to_string()),
             title_pattern: None,

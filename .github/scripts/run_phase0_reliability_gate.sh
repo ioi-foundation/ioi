@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
-FEATURES="${IOI_RELIABILITY_FEATURES:-consensus-convergent vm-wasm state-iavl}"
+FEATURES="${IOI_RELIABILITY_FEATURES:-consensus-aft vm-wasm state-iavl}"
 ARTIFACT_ROOT="${IOI_RELIABILITY_ARTIFACT_ROOT:-.artifacts/reliability_phase0}"
 
 mkdir -p "${ARTIFACT_ROOT}"

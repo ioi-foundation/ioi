@@ -53,7 +53,7 @@ jobs:
         run: cargo test --locked -p ioi-services --test pii_metrics
 
       - name: Hard Gate - Review Determinism E2E
-        run: cargo test --locked -p ioi-cli --test pii_review_determinism_e2e --features "consensus-convergent vm-wasm state-iavl" -- --nocapture
+        run: cargo test --locked -p ioi-cli --test pii_review_determinism_e2e --features "consensus-aft vm-wasm state-iavl" -- --nocapture
 
   build_and_test:
     name: Build and Test
@@ -173,7 +173,7 @@ jobs:
           ARTIFACT_DIR=".artifacts/reliability_browser"
           mkdir -p "${ARTIFACT_DIR}"
           export IOI_RELIABILITY_ARTIFACT_DIR="${GITHUB_WORKSPACE}/${ARTIFACT_DIR}/test_artifacts"
-          xvfb-run -a cargo test --locked -p ioi-cli --test reliability_suite_e2e --features "consensus-convergent vm-wasm state-iavl" reliability_suite::browser_snapshot_click::browser_snapshot_then_click_element_updates_fixture -- --ignored --exact --nocapture 2>&1 | tee "${ARTIFACT_DIR}/test.log"
+          xvfb-run -a cargo test --locked -p ioi-cli --test reliability_suite_e2e --features "consensus-aft vm-wasm state-iavl" reliability_suite::browser_snapshot_click::browser_snapshot_then_click_element_updates_fixture -- --ignored --exact --nocapture 2>&1 | tee "${ARTIFACT_DIR}/test.log"
 
       - name: Upload browser reliability artifacts
         if: always()
@@ -225,7 +225,7 @@ jobs:
           ARTIFACT_DIR=".artifacts/reliability_gui"
           mkdir -p "${ARTIFACT_DIR}"
           export IOI_RELIABILITY_ARTIFACT_DIR="${GITHUB_WORKSPACE}/${ARTIFACT_DIR}/test_artifacts"
-          dbus-run-session -- xvfb-run -a cargo test --locked -p ioi-cli --test reliability_suite_e2e --features "consensus-convergent vm-wasm state-iavl" reliability_suite::gui_snapshot_click::gui_snapshot_then_click_element_emits_click_input -- --ignored --exact --nocapture 2>&1 | tee "${ARTIFACT_DIR}/test.log"
+          dbus-run-session -- xvfb-run -a cargo test --locked -p ioi-cli --test reliability_suite_e2e --features "consensus-aft vm-wasm state-iavl" reliability_suite::gui_snapshot_click::gui_snapshot_then_click_element_emits_click_input -- --ignored --exact --nocapture 2>&1 | tee "${ARTIFACT_DIR}/test.log"
 
       - name: Upload GUI reliability artifacts
         if: always()
@@ -272,8 +272,8 @@ jobs:
           ARTIFACT_DIR=".artifacts/reliability_shell_web"
           mkdir -p "${ARTIFACT_DIR}"
           export IOI_RELIABILITY_ARTIFACT_DIR="${GITHUB_WORKSPACE}/${ARTIFACT_DIR}/test_artifacts"
-          cargo test --locked -p ioi-cli --test reliability_suite_e2e --features "consensus-convergent vm-wasm state-iavl" reliability_suite::sys_exec_session::sys_exec_session_continuity_reset_failure_receipts_and_anti_loop -- --ignored --exact --nocapture 2>&1 | tee "${ARTIFACT_DIR}/sys_exec_session.log"
-          cargo test --locked -p ioi-cli --test reliability_suite_e2e --features "consensus-convergent vm-wasm state-iavl" reliability_suite::web_retrieval::web_retrieval_and_net_fetch_emit_deterministic_receipts_and_anti_loop -- --ignored --exact --nocapture 2>&1 | tee "${ARTIFACT_DIR}/web_retrieval.log"
+          cargo test --locked -p ioi-cli --test reliability_suite_e2e --features "consensus-aft vm-wasm state-iavl" reliability_suite::sys_exec_session::sys_exec_session_continuity_reset_failure_receipts_and_anti_loop -- --ignored --exact --nocapture 2>&1 | tee "${ARTIFACT_DIR}/sys_exec_session.log"
+          cargo test --locked -p ioi-cli --test reliability_suite_e2e --features "consensus-aft vm-wasm state-iavl" reliability_suite::web_retrieval::web_retrieval_and_net_fetch_emit_deterministic_receipts_and_anti_loop -- --ignored --exact --nocapture 2>&1 | tee "${ARTIFACT_DIR}/web_retrieval.log"
 
       - name: Upload shell/web reliability artifacts
         if: always()

@@ -70,13 +70,13 @@ run_model() {
   popd >/dev/null
 }
 
-run_proof "docs/architecture/consensus/aft/formal/guardian_majority" "GuardianMajorityProof.tla"
-run_proof "docs/architecture/consensus/aft/formal/nested_guardian" "NestedGuardianProof.tla"
-run_proof "docs/architecture/consensus/aft/formal" "AsymptoteProof.tla"
-run_proof "docs/architecture/consensus/aft/formal/canonical_ordering" "CanonicalOrderingProof.tla"
-run_model "docs/architecture/consensus/aft/formal/guardian_majority" "GuardianMajority.cfg" "GuardianMajority.tla"
-run_model "docs/architecture/consensus/aft/formal/nested_guardian" "NestedGuardian.cfg" "NestedGuardian.tla"
-run_model "docs/architecture/consensus/aft/formal" "Asymptote.cfg" "Asymptote.tla"
-run_model "docs/architecture/consensus/aft/formal/canonical_ordering" "CanonicalOrdering.cfg" "CanonicalOrdering.tla"
-run_model "docs/architecture/consensus/aft/formal/canonical_ordering" "CanonicalOrderingRetrievability.cfg" "CanonicalOrderingRetrievability.tla"
-run_model "docs/architecture/consensus/aft/formal/canonical_ordering" "CanonicalCollapseRecursiveContinuity.cfg" "CanonicalCollapseRecursiveContinuity.tla"
+run_proof "docs/architecture/protocols/aft/formal/guardian_majority" "GuardianMajorityProof.tla"
+run_proof "docs/architecture/protocols/aft/formal/nested_guardian" "NestedGuardianProof.tla"
+run_proof "docs/architecture/protocols/aft/formal" "AsymptoteProof.tla"
+run_proof "docs/architecture/protocols/aft/formal/canonical_ordering" "CanonicalOrderingProof.tla"
+run_model "docs/architecture/protocols/aft/formal/guardian_majority" "GuardianMajority.cfg" "GuardianMajority.tla"
+run_model "docs/architecture/protocols/aft/formal/nested_guardian" "NestedGuardian.cfg" "NestedGuardian.tla"
+run_model "docs/architecture/protocols/aft/formal" "Asymptote.cfg" "Asymptote.tla"
+run_model "docs/architecture/protocols/aft/formal/canonical_ordering" "CanonicalOrdering.cfg" "CanonicalOrdering.tla"
+run_model "docs/architecture/protocols/aft/formal/canonical_ordering" "CanonicalOrderingRetrievability.cfg" "CanonicalOrderingRetrievability.tla"
+run_model "docs/architecture/protocols/aft/formal/canonical_ordering" "CanonicalCollapseRecursiveContinuity.cfg" "CanonicalCollapseRecursiveContinuity.tla"
