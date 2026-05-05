@@ -86,6 +86,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
           "model.mount:*",
           "model.download:*",
           "model.import:*",
+          "model.delete:*",
           "backend.control:*",
           "route.write:*",
           "route.use:*",
@@ -135,6 +136,10 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
 
     const nativeProviderModels = await expectOk(daemon.endpoint, "/api/v1/providers/provider.autopilot.local/models");
     assert.ok(nativeProviderModels.some((model) => model.modelId === "autopilot:native-fixture"));
+    const catalog = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=autopilot");
+    assert.equal(catalog.providers.find((provider) => provider.id === "catalog.fixture")?.status, "available");
+    assert.ok(catalog.results.some((entry) => entry.sourceUrl === "fixture://catalog/autopilot-native-3b-q4"));
+    assert.equal(JSON.stringify(catalog).includes("sk-"), false);
 
     const backends = await expectOk(daemon.endpoint, "/api/v1/backends");
     assert.ok(backends.some((backend) => backend.id === "backend.autopilot.native-local.fixture"));
@@ -495,8 +500,19 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
   try {
     const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
       method: "POST",
-      body: { allowed: ["model.download:*", "model.import:*", "model.chat:*", "route.use:*"] },
+      body: { allowed: ["model.download:*", "model.import:*", "model.delete:*", "model.chat:*", "route.use:*"] },
     });
+
+    const catalog = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=native");
+    assert.ok(catalog.results.some((entry) => entry.modelId === "autopilot/native-fixture-3b"));
+    const catalogImport = await expectOk(daemon.endpoint, "/api/v1/models/catalog/import-url", {
+      method: "POST",
+      token: grant.token,
+      body: { source_url: "fixture://catalog/autopilot-native-3b-q4", model_id: "native:catalog-imported" },
+    });
+    assert.equal(catalogImport.status, "completed");
+    assert.match(catalogImport.catalogReceiptId, /^receipt_model_lifecycle_/);
+    assert.equal(catalogImport.download.variant.quantization, "Q4_K_M");
 
     const completed = await expectOk(daemon.endpoint, "/api/v1/models/download", {
       method: "POST",
@@ -531,6 +547,24 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
     assert.equal(failed.status, "failed");
     assert.equal(failed.failureReason, "deterministic_fixture_failure");
 
+    const importSource = path.join(cwd, "dry-run-source.Q4_K_M.gguf");
+    fs.writeFileSync(importSource, "family=dry-run-source\ncontext=1024\nquantization=Q4_K_M\n");
+    const dryRun = await expectOk(daemon.endpoint, "/api/v1/models/import", {
+      method: "POST",
+      token: grant.token,
+      body: { model_id: "native:dry-run", path: importSource, import_mode: "dry_run" },
+    });
+    assert.equal(dryRun.status, "dry_run");
+    assert.equal(dryRun.importMode, "dry_run");
+    const copied = await expectOk(daemon.endpoint, "/api/v1/models/import", {
+      method: "POST",
+      token: grant.token,
+      body: { model_id: "native:copied-import", path: importSource, import_mode: "copy" },
+    });
+    assert.equal(copied.importMode, "copy");
+    assert.equal(copied.artifactPath.startsWith(stateDir), true);
+    assert.equal(fs.existsSync(copied.artifactPath), true);
+
     const queued = await expectOk(daemon.endpoint, "/api/v1/models/download", {
       method: "POST",
       token: grant.token,
@@ -549,7 +583,25 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
     assert.equal(canceled.status, "canceled");
     assert.equal(fs.existsSync(canceled.targetPath), false);
 
+    const cleanup = await expectOk(daemon.endpoint, "/api/v1/models/storage/cleanup", {
+      method: "POST",
+      token: grant.token,
+    });
+    assert.equal(cleanup.status, "scanned");
+    assert.match(cleanup.receiptId, /^receipt_model_lifecycle_/);
+
+    const deleted = await expectOk(daemon.endpoint, `/api/v1/models/${encodeURIComponent(copied.id)}`, {
+      method: "DELETE",
+      token: grant.token,
+    });
+    assert.equal(deleted.status, "deleted");
+    assert.equal(fs.existsSync(copied.artifactPath), false);
+
     const receipts = await expectOk(daemon.endpoint, "/api/v1/receipts");
+    assert.ok(receipts.some((receipt) => receipt.details?.operation === "model_catalog_import_url"));
+    assert.ok(receipts.some((receipt) => receipt.details?.operation === "model_import_dry_run"));
+    assert.ok(receipts.some((receipt) => receipt.details?.operation === "model_artifact_delete"));
+    assert.ok(receipts.some((receipt) => receipt.details?.operation === "model_storage_cleanup"));
     assert.ok(receipts.some((receipt) => receipt.details?.operation === "model_download_completed"));
     assert.ok(receipts.some((receipt) => receipt.details?.operation === "model_download_failed"));
     assert.ok(receipts.some((receipt) => receipt.details?.operation === "model_download_canceled"));

@@ -1271,6 +1271,7 @@ export class ModelMountingState {
       providerHealth: ["id", "providerId", "status", "checkedAt", "receiptId", "failureCode", "evidenceRefs"],
       runtimeEngines: ["id", "kind", "label", "status", "selected", "modelFormat", "source"],
       runtimePreferences: ["id", "selectedEngineId", "selectedAt", "receiptId"],
+      modelCatalogEntries: ["id", "providerId", "modelId", "format", "quantization", "sourceUrlHash", "license"],
       modelDownloads: ["id", "artifactId", "status", "source", "progress", "bytesTotal", "bytesCompleted", "targetPath"],
       permissionTokens: ["id", "audience", "allowed", "denied", "expiresAt", "revokedAt", "grantId", "lastUsedAt"],
       walletGrants: ["grantId", "revocationEpoch", "allowed", "denied", "expiry", "vaultRefs", "auditReceiptIds"],
@@ -1942,12 +1943,112 @@ export class ModelMountingState {
     return artifact;
   }
 
+  catalogSearch(query = {}) {
+    const searchedAt = this.nowIso();
+    const text = String(query.q ?? query.query ?? "autopilot").trim().toLowerCase();
+    const catalog = fixtureModelCatalog(searchedAt);
+    const results = catalog.filter((entry) => {
+      const haystack = [entry.modelId, entry.family, entry.format, entry.quantization, ...(entry.tags ?? [])].join(" ").toLowerCase();
+      return !text || haystack.includes(text);
+    });
+    return {
+      schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
+      searchedAt,
+      query: text,
+      providers: [
+        { id: "catalog.fixture", status: "available", evidenceRefs: ["fixture_model_catalog"] },
+        {
+          id: "catalog.huggingface",
+          status: process.env.IOI_LIVE_MODEL_CATALOG === "1" ? "configured" : "gated",
+          evidenceRefs: ["huggingface_catalog_adapter_boundary", "network_access_opt_in"],
+        },
+      ],
+      results,
+    };
+  }
+
+  catalogImportUrl(body = {}) {
+    const sourceUrl = requiredString(body.source_url ?? body.sourceUrl ?? body.url, "source_url");
+    const isFixture = sourceUrl.startsWith("fixture://");
+    if (!isFixture && process.env.IOI_LIVE_MODEL_CATALOG !== "1") {
+      throw runtimeError({
+        status: 424,
+        code: "external_blocker",
+        message: "Live catalog imports are gated. Use fixture:// URLs or set IOI_LIVE_MODEL_CATALOG=1.",
+        details: { sourceUrlHash: stableHash(sourceUrl), evidenceRefs: ["network_access_opt_in"] },
+      });
+    }
+    const modelId = body.model_id ?? body.modelId ?? modelIdFromSourceUrl(sourceUrl);
+    const variant = catalogVariantForSource(sourceUrl, body);
+    const receipt = this.lifecycleReceipt("model_catalog_import_url", {
+      modelId,
+      providerId: body.provider_id ?? body.providerId ?? "provider.autopilot.local",
+      sourceUrlHash: stableHash(sourceUrl),
+      sourceLabel: variant.sourceLabel,
+      format: variant.format,
+      quantization: variant.quantization,
+      license: variant.license,
+      compatibility: variant.compatibility,
+    });
+    const download = this.downloadModel({
+      ...body,
+      model_id: modelId,
+      provider_id: body.provider_id ?? body.providerId ?? "provider.autopilot.local",
+      source_url: sourceUrl,
+      source_label: variant.sourceLabel,
+      file_name: body.file_name ?? body.fileName ?? `${safeFileName(modelId)}.${variant.format}`,
+      fixture_content:
+        body.fixture_content ??
+        body.fixtureContent ??
+        [`family=${variant.family}`, `quantization=${variant.quantization}`, `context=${variant.contextWindow}`, ""].join("\n"),
+      format: variant.format,
+      quantization: variant.quantization,
+      family: variant.family,
+      context_window: variant.contextWindow,
+      license: variant.license,
+      compatibility: variant.compatibility,
+      variant_id: variant.id,
+      catalog_receipt_id: receipt.id,
+    });
+    return {
+      schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
+      status: download.status,
+      catalogReceiptId: receipt.id,
+      download,
+    };
+  }
+
   importModel(body = {}) {
     const now = this.nowIso();
     const modelId = requiredString(body.model_id ?? body.modelId, "model_id");
     const sourcePath = body.path ?? body.source_path ?? body.sourcePath ?? body.local_path ?? body.localPath ?? null;
     const sourceInfo = sourcePath ? inspectLocalArtifact(sourcePath) : null;
-    const metadata = sourceInfo ? parseLocalModelMetadata(sourceInfo.path) : {};
+    const importMode = normalizeImportMode(body.import_mode ?? body.importMode ?? body.mode ?? (sourceInfo ? "reference" : "operator"));
+    if (importMode === "dry_run") {
+      const targetPreview = sourceInfo ? importTargetPath(this.modelRoot, modelId, sourceInfo.path) : null;
+      const metadata = sourceInfo ? parseLocalModelMetadata(sourceInfo.path) : {};
+      const receipt = this.lifecycleReceipt("model_import_dry_run", {
+        modelId,
+        providerId: body.provider_id ?? body.providerId ?? (sourceInfo ? "provider.autopilot.local" : "provider.local.folder"),
+        sourcePathHash: sourceInfo?.path ? stableHash(sourceInfo.path) : null,
+        targetPathHash: targetPreview ? stableHash(targetPreview) : null,
+        importMode,
+      });
+      return {
+        schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
+        status: "dry_run",
+        modelId,
+        importMode,
+        sourcePathHash: sourceInfo?.path ? stableHash(sourceInfo.path) : null,
+        targetPathHash: targetPreview ? stableHash(targetPreview) : null,
+        metadata,
+        receiptId: receipt.id,
+      };
+    }
+    const importedPath = sourceInfo ? materializeImportArtifact(this.modelRoot, modelId, sourceInfo.path, importMode) : null;
+    const inspectedPath = importedPath ?? sourceInfo?.path ?? null;
+    const importedInfo = inspectedPath ? inspectLocalArtifact(inspectedPath) : sourceInfo;
+    const metadata = inspectedPath ? parseLocalModelMetadata(inspectedPath) : {};
     const artifact = {
       id: body.id ?? `import.${safeId(modelId)}`,
       providerId: body.provider_id ?? body.providerId ?? (sourceInfo ? "provider.autopilot.local" : "provider.local.folder"),
@@ -1956,13 +2057,14 @@ export class ModelMountingState {
       family: body.family ?? metadata.family ?? "imported",
       format: body.format ?? metadata.format ?? null,
       quantization: body.quantization ?? metadata.quantization ?? null,
-      sizeBytes: body.size_bytes ?? body.sizeBytes ?? sourceInfo?.sizeBytes ?? null,
-      checksum: body.checksum ?? sourceInfo?.checksum ?? null,
+      sizeBytes: body.size_bytes ?? body.sizeBytes ?? importedInfo?.sizeBytes ?? null,
+      checksum: body.checksum ?? importedInfo?.checksum ?? null,
       contextWindow: body.context_window ?? body.contextWindow ?? metadata.contextWindow ?? null,
       capabilities: normalizeScopes(body.capabilities, ["chat"]),
       privacyClass: body.privacy_class ?? body.privacyClass ?? "local_private",
       source: body.source ?? (sourceInfo ? "local_path_import" : "operator_import"),
-      artifactPath: sourceInfo?.path ?? null,
+      importMode,
+      artifactPath: inspectedPath,
       metadata,
       backendRegistry: this.backendRegistry(),
       state: "installed",
@@ -1976,6 +2078,8 @@ export class ModelMountingState {
       providerId: artifact.providerId,
       state: artifact.state,
       artifactPathHash: artifact.artifactPath ? stableHash(artifact.artifactPath) : null,
+      sourcePathHash: sourceInfo?.path ? stableHash(sourceInfo.path) : null,
+      importMode,
       checksum: artifact.checksum,
     });
     this.writeProjection();
@@ -2170,6 +2274,8 @@ export class ModelMountingState {
     const modelId = requiredString(body.model_id ?? body.modelId, "model_id");
     const providerId = body.provider_id ?? body.providerId ?? "provider.autopilot.local";
     const source = body.source_url ?? body.sourceUrl ?? body.source ?? "deterministic_fixture_download";
+    const sourceLabel = body.source_label ?? body.sourceLabel ?? sourceLabelForUrl(source);
+    const variantMetadata = catalogVariantForSource(source, body);
     const targetDir = path.join(this.modelRoot, "downloads", safeFileName(modelId));
     const targetPath = path.join(targetDir, body.file_name ?? body.fileName ?? `${safeFileName(modelId)}.gguf`);
     const fixtureContent = String(body.fixture_content ?? body.fixtureContent ?? `deterministic model bytes for ${modelId}\n`);
@@ -2179,7 +2285,11 @@ export class ModelMountingState {
       modelId,
       providerId,
       source,
+      sourceHash: stableHash(source),
+      sourceLabel,
+      variant: variantMetadata,
       targetPath,
+      targetPathHash: stableHash(targetPath),
       bytesTotal,
       bytesCompleted: 0,
       progress: 0,
@@ -2193,6 +2303,8 @@ export class ModelMountingState {
       modelId,
       providerId,
       sourceHash: stableHash(source),
+      sourceLabel,
+      variant: variantMetadata,
       targetPathHash: stableHash(targetPath),
     });
     if (truthy(body.fail ?? body.simulate_failure ?? body.simulateFailure)) {
@@ -2247,14 +2359,17 @@ export class ModelMountingState {
       modelId,
       displayName: body.display_name ?? body.displayName ?? modelId,
       family: body.family ?? metadata.family ?? "download",
-      format: body.format ?? metadata.format ?? "gguf",
-      quantization: body.quantization ?? metadata.quantization ?? null,
+      format: body.format ?? variantMetadata.format ?? metadata.format ?? "gguf",
+      quantization: body.quantization ?? variantMetadata.quantization ?? metadata.quantization ?? null,
       sizeBytes: bytesTotal,
       checksum,
       contextWindow: body.context_window ?? body.contextWindow ?? metadata.contextWindow ?? null,
       capabilities: normalizeScopes(body.capabilities, ["chat"]),
       privacyClass: body.privacy_class ?? body.privacyClass ?? "local_private",
       source,
+      sourceLabel,
+      license: body.license ?? variantMetadata.license ?? null,
+      compatibility: body.compatibility ?? variantMetadata.compatibility ?? [],
       artifactPath: targetPath,
       metadata,
       state: "installed",
@@ -2280,6 +2395,9 @@ export class ModelMountingState {
       providerId: artifact.providerId,
       bytesTotal,
       checksum,
+      sourceHash: stableHash(source),
+      sourceLabel,
+      variant: variantMetadata,
     });
     const completed = { ...job, receiptId: receipt.id, receiptIds: [...job.receiptIds, receipt.id] };
     this.downloads.set(completed.id, completed);
@@ -2325,6 +2443,76 @@ export class ModelMountingState {
     const job = this.downloads.get(jobId);
     if (!job) throw notFound(`Download job not found: ${jobId}`, { jobId });
     return job;
+  }
+
+  deleteModelArtifact(id) {
+    const artifact = this.getModel(id);
+    const endpointIds = [...this.endpoints.values()].filter((endpoint) => endpoint.artifactId === artifact.id).map((endpoint) => endpoint.id);
+    const instanceIds = [...this.instances.values()]
+      .filter((instance) => endpointIds.includes(instance.endpointId) && instance.status === "loaded")
+      .map((instance) => instance.id);
+    if (instanceIds.length > 0) {
+      throw runtimeError({
+        status: 409,
+        code: "conflict",
+        message: "Model artifact is loaded. Unload linked instances before deleting it.",
+        details: { artifactId: artifact.id, instanceIds },
+      });
+    }
+    for (const endpointId of endpointIds) {
+      const endpoint = this.endpoints.get(endpointId);
+      this.endpoints.set(endpointId, { ...endpoint, status: "deleted_with_artifact", deletedAt: this.nowIso() });
+    }
+    this.artifacts.delete(artifact.id);
+    fs.rmSync(path.join(this.stateDir, "model-artifacts", `${safeFileName(artifact.id)}.json`), { force: true });
+    let cleanupState = "not_applicable";
+    if (artifact.artifactPath && artifact.artifactPath.startsWith(this.modelRoot)) {
+      try {
+        fs.rmSync(artifact.artifactPath, { force: true });
+        cleanupState = "removed";
+      } catch {
+        cleanupState = "failed";
+      }
+    }
+    const receipt = this.lifecycleReceipt("model_artifact_delete", {
+      artifactId: artifact.id,
+      modelId: artifact.modelId,
+      providerId: artifact.providerId,
+      artifactPathHash: artifact.artifactPath ? stableHash(artifact.artifactPath) : null,
+      endpointIds,
+      cleanupState,
+    });
+    this.writeMap("model-artifacts", this.artifacts);
+    this.writeMap("model-endpoints", this.endpoints);
+    this.writeProjection();
+    return {
+      schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
+      status: "deleted",
+      artifactId: artifact.id,
+      modelId: artifact.modelId,
+      cleanupState,
+      receiptId: receipt.id,
+    };
+  }
+
+  cleanupModelStorage() {
+    const knownPaths = new Set([...this.artifacts.values()].map((artifact) => artifact.artifactPath).filter(Boolean));
+    const files = listModelFiles(this.modelRoot);
+    const orphans = files.filter((filePath) => !knownPaths.has(filePath));
+    const receipt = this.lifecycleReceipt("model_storage_cleanup", {
+      modelId: "model-storage",
+      scannedFileCount: files.length,
+      orphanCount: orphans.length,
+      orphanPathHashes: orphans.map((filePath) => stableHash(filePath)),
+      cleanupState: "scan_only",
+    });
+    return {
+      schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
+      status: "scanned",
+      scannedFileCount: files.length,
+      orphanCount: orphans.length,
+      receiptId: receipt.id,
+    };
   }
 
   bindVaultRef(body = {}) {
@@ -4627,6 +4815,113 @@ function estimateNativeLocalResources(artifact) {
     backend: "autopilot.native_local.fixture",
     realInference: false,
   };
+}
+
+function fixtureModelCatalog(searchedAt) {
+  return [
+    {
+      id: "catalog.fixture.autopilot-native-3b-q4",
+      providerId: "provider.autopilot.local",
+      modelId: "autopilot/native-fixture-3b",
+      family: "autopilot-native-fixture",
+      format: "gguf",
+      quantization: "Q4_K_M",
+      sizeBytes: 96 * 1024 * 1024,
+      contextWindow: 4096,
+      sourceUrl: "fixture://catalog/autopilot-native-3b-q4",
+      sourceUrlHash: stableHash("fixture://catalog/autopilot-native-3b-q4"),
+      sourceLabel: "Fixture catalog / native local 3B Q4",
+      license: "fixture-local-dev",
+      compatibility: ["native_local_fixture", "llama_cpp"],
+      tags: ["chat", "code", "local"],
+      discoveredAt: searchedAt,
+    },
+    {
+      id: "catalog.fixture.embedding-nomic-q8",
+      providerId: "provider.autopilot.local",
+      modelId: "autopilot/nomic-embed-fixture",
+      family: "nomic-embed-fixture",
+      format: "gguf",
+      quantization: "Q8_0",
+      sizeBytes: 32 * 1024 * 1024,
+      contextWindow: 2048,
+      sourceUrl: "fixture://catalog/nomic-embed-q8",
+      sourceUrlHash: stableHash("fixture://catalog/nomic-embed-q8"),
+      sourceLabel: "Fixture catalog / embedding Q8",
+      license: "fixture-local-dev",
+      compatibility: ["native_local_fixture", "embeddings"],
+      tags: ["embedding", "local"],
+      discoveredAt: searchedAt,
+    },
+  ];
+}
+
+function catalogVariantForSource(source, body = {}) {
+  const catalogEntry = fixtureModelCatalog(new Date(0).toISOString()).find((entry) => entry.sourceUrl === source);
+  return {
+    id: body.variant_id ?? body.variantId ?? catalogEntry?.id ?? `variant.${safeId(source)}`,
+    family: body.family ?? catalogEntry?.family ?? modelIdFromSourceUrl(source),
+    format: body.format ?? catalogEntry?.format ?? "gguf",
+    quantization: body.quantization ?? catalogEntry?.quantization ?? "Q4_K_M",
+    sizeBytes: Number(body.size_bytes ?? body.sizeBytes ?? catalogEntry?.sizeBytes ?? 0),
+    contextWindow: Number(body.context_window ?? body.contextWindow ?? catalogEntry?.contextWindow ?? 4096),
+    sourceLabel: body.source_label ?? body.sourceLabel ?? catalogEntry?.sourceLabel ?? sourceLabelForUrl(source),
+    license: body.license ?? catalogEntry?.license ?? null,
+    compatibility: normalizeScopes(body.compatibility, catalogEntry?.compatibility ?? ["native_local_fixture"]),
+  };
+}
+
+function modelIdFromSourceUrl(sourceUrl) {
+  return safeId(String(sourceUrl).split(/[/?#]/).filter(Boolean).at(-1) ?? "catalog-model").replaceAll(".", "-");
+}
+
+function sourceLabelForUrl(source) {
+  if (String(source).startsWith("fixture://")) return "Fixture catalog";
+  if (String(source).includes("huggingface.co")) return "Hugging Face";
+  return "Model catalog";
+}
+
+function normalizeImportMode(value) {
+  const mode = String(value ?? "reference").toLowerCase().replaceAll("-", "_");
+  if (["reference", "operator"].includes(mode)) return mode;
+  if (["copy", "move", "hardlink", "symlink", "dry_run"].includes(mode)) return mode;
+  throw runtimeError({
+    status: 400,
+    code: "bad_request",
+    message: "Import mode must be copy, move, hardlink, symlink, dry_run, or reference.",
+    details: { importMode: mode },
+  });
+}
+
+function importTargetPath(modelRoot, modelId, sourcePath) {
+  const extension = path.extname(sourcePath) || ".gguf";
+  return path.join(modelRoot, "imports", safeFileName(modelId), `${safeFileName(modelId)}${extension}`);
+}
+
+function materializeImportArtifact(modelRoot, modelId, sourcePath, importMode) {
+  if (["reference", "operator"].includes(importMode)) return sourcePath;
+  const targetPath = importTargetPath(modelRoot, modelId, sourcePath);
+  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+  fs.rmSync(targetPath, { force: true });
+  if (importMode === "copy") fs.copyFileSync(sourcePath, targetPath);
+  if (importMode === "move") fs.renameSync(sourcePath, targetPath);
+  if (importMode === "hardlink") fs.linkSync(sourcePath, targetPath);
+  if (importMode === "symlink") fs.symlinkSync(sourcePath, targetPath);
+  return targetPath;
+}
+
+function listModelFiles(root) {
+  if (!fs.existsSync(root)) return [];
+  const results = [];
+  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+    const entryPath = path.join(root, entry.name);
+    if (entry.isDirectory()) {
+      results.push(...listModelFiles(entryPath));
+    } else if (entry.isFile() && modelFileScore(entryPath) > 0) {
+      results.push(entryPath);
+    }
+  }
+  return results.sort();
 }
 
 function fileSha256(filePath) {

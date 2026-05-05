@@ -393,6 +393,7 @@ async function main() {
             "model.mount:*",
             "model.download:*",
             "model.import:*",
+            "model.delete:*",
             "backend.control:*",
             "provider.write:*",
             "vault.write:*",
@@ -592,7 +593,30 @@ async function main() {
       };
     });
 
-    await runStep(evidence, "download lifecycle cancellation and completion", async () => {
+    await runStep(evidence, "catalog search, import modes, cleanup, and download lifecycle", async () => {
+      const catalog = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=autopilot");
+      assert.ok(catalog.results.some((entry) => entry.sourceUrl === "fixture://catalog/autopilot-native-3b-q4"));
+      const catalogImport = await expectOk(daemon.endpoint, "/api/v1/models/catalog/import-url", {
+        method: "POST",
+        token,
+        body: { source_url: "fixture://catalog/autopilot-native-3b-q4", model_id: "native:e2e-catalog" },
+      });
+      assert.equal(catalogImport.status, "completed");
+      assert.equal(catalogImport.download.variant.quantization, "Q4_K_M");
+      const dryRunPath = path.join(workspaceDir, "autopilot-e2e-dry-run.Q4_K_M.gguf");
+      fs.writeFileSync(dryRunPath, "family=e2e-dry-run\ncontext=1024\nquantization=Q4_K_M\n");
+      const dryRun = await expectOk(daemon.endpoint, "/api/v1/models/import", {
+        method: "POST",
+        token,
+        body: { model_id: "native:e2e-dry-run", path: dryRunPath, import_mode: "dry_run" },
+      });
+      assert.equal(dryRun.status, "dry_run");
+      const copied = await expectOk(daemon.endpoint, "/api/v1/models/import", {
+        method: "POST",
+        token,
+        body: { model_id: "native:e2e-copied", path: dryRunPath, import_mode: "copy" },
+      });
+      assert.equal(copied.importMode, "copy");
       const queued = await expectOk(daemon.endpoint, "/api/v1/models/download", {
         method: "POST",
         token,
@@ -620,10 +644,22 @@ async function main() {
       });
       assert.equal(completed.status, "completed");
       assert.equal(completed.progress, 1);
+      const cleanup = await expectOk(daemon.endpoint, "/api/v1/models/storage/cleanup", { method: "POST", token });
+      assert.equal(cleanup.status, "scanned");
+      const deleted = await expectOk(daemon.endpoint, `/api/v1/models/${encodeURIComponent(copied.id)}`, {
+        method: "DELETE",
+        token,
+      });
+      assert.equal(deleted.status, "deleted");
       return {
+        catalogResults: catalog.results.length,
+        catalogDownloadJobId: catalogImport.download.id,
+        dryRunReceiptId: dryRun.receiptId,
         canceledJobId: canceled.id,
         completedJobId: completed.id,
         completedReceiptId: completed.receiptId,
+        cleanupReceiptId: cleanup.receiptId,
+        deletedArtifactId: deleted.artifactId,
       };
     });
 
@@ -870,6 +906,16 @@ async function main() {
       assert.match(runtimeSurvey.receiptId, /^receipt_runtime_survey_/);
       const runtimeSelect = await runCli(cli, ["backends", "--json", "select", "backend.autopilot.native-local.fixture"], common);
       assert.equal(runtimeSelect.selectedEngineId, "backend.autopilot.native-local.fixture");
+      const catalogSearch = await runCli(cli, ["models", "--json", "catalog-search", "--query", "autopilot"], common);
+      assert.ok(catalogSearch.results.length > 0);
+      const catalogImport = await runCli(
+        cli,
+        ["models", "--json", "catalog-import-url", "fixture://catalog/autopilot-native-3b-q4", "--model-id", "native:e2e-cli-catalog"],
+        common,
+      );
+      assert.equal(catalogImport.status, "completed");
+      const cleanup = await runCli(cli, ["models", "--json", "cleanup"], common);
+      assert.equal(cleanup.status, "scanned");
       const loadEstimate = await runCli(
         cli,
         [
