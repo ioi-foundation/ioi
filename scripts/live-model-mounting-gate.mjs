@@ -96,10 +96,220 @@ async function requestJson(endpoint, route, { method = "GET", body, token } = {}
   return { response, json };
 }
 
+async function requestSse(endpoint, route, { method = "POST", body, token } = {}) {
+  const response = await fetch(`${endpoint}${route}`, {
+    method,
+    headers: {
+      accept: "text/event-stream",
+      ...(body === undefined ? {} : { "content-type": "application/json" }),
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const text = await response.text();
+  return { response, text };
+}
+
+async function requestSseAndAbortAfterFirstChunk(endpoint, route, { method = "POST", body, token } = {}) {
+  const controller = new AbortController();
+  const response = await fetch(`${endpoint}${route}`, {
+    method,
+    signal: controller.signal,
+    headers: {
+      accept: "text/event-stream",
+      ...(body === undefined ? {} : { "content-type": "application/json" }),
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const reader = response.body.getReader();
+  const first = await reader.read();
+  const text = new TextDecoder().decode(first.value ?? new Uint8Array());
+  controller.abort();
+  try {
+    await reader.read();
+  } catch {
+    // Aborting a live provider stream rejects the reader on some Node versions.
+  }
+  return { response, text };
+}
+
+function parseOpenAiSseChunks(text) {
+  return String(text)
+    .trim()
+    .split(/\n\n+/)
+    .filter(Boolean)
+    .map((block) => {
+      const dataText = block
+        .split(/\n/)
+        .filter((line) => line.startsWith("data: "))
+        .map((line) => line.slice("data: ".length))
+        .join("\n");
+      return dataText === "[DONE]" ? "[DONE]" : JSON.parse(dataText);
+    });
+}
+
 async function expectOk(endpoint, route, options) {
   const result = await requestJson(endpoint, route, options);
   assert.equal(result.response.ok, true, `${route} -> ${result.response.status} ${JSON.stringify(result.json)}`);
   return result.json;
+}
+
+async function waitForReceipt(endpoint, predicate, { timeoutMs = 5000 } = {}) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const receipts = await expectOk(endpoint, "/api/v1/receipts");
+    const receipt = receipts.find(predicate);
+    if (receipt) return receipt;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  assert.fail("Expected live stream receipt was not recorded before timeout.");
+}
+
+async function exerciseLiveChatStreamReceipts({
+  daemon,
+  token,
+  routeId,
+  modelId,
+  endpointId,
+  providerId,
+  backend,
+  backendId,
+  streamKind,
+  providerResponseKind,
+  requestOptions = {},
+  abortTimeoutMs = 10000,
+}) {
+  const completed = await requestSse(daemon.endpoint, "/v1/chat/completions", {
+    method: "POST",
+    token,
+    body: {
+      route_id: routeId,
+      model: modelId,
+      stream: true,
+      messages: [{ role: "user", content: "Reply with a short live stream receipt parity check." }],
+      max_tokens: 64,
+      ...requestOptions,
+    },
+  });
+  assert.equal(completed.response.status, 200);
+  assert.equal(completed.response.headers.get("x-ioi-stream-source"), "provider_native");
+  const chunks = parseOpenAiSseChunks(completed.text);
+  assert.equal(chunks.at(-1), "[DONE]");
+  const metadata = chunks.find((chunk) => chunk !== "[DONE]" && chunk.stream_receipt_id);
+  assert.ok(metadata?.receipt_id, "completed live stream did not expose invocation receipt metadata");
+  assert.ok(metadata?.stream_receipt_id, "completed live stream did not expose stream receipt metadata");
+  assert.equal(metadata.route_id, routeId);
+  assert.equal(metadata.provider_stream, "native");
+  const completedInvocation = await expectOk(daemon.endpoint, `/api/v1/receipts/${metadata.receipt_id}`);
+  assert.equal(completedInvocation.kind, "model_invocation");
+  assert.equal(completedInvocation.details.routeId, routeId);
+  assert.equal(completedInvocation.details.selectedModel, modelId);
+  assert.equal(completedInvocation.details.endpointId, endpointId);
+  assert.equal(completedInvocation.details.providerId, providerId);
+  assert.equal(completedInvocation.details.backend, backend);
+  assert.equal(completedInvocation.details.backendId, backendId);
+  assert.equal(completedInvocation.details.streamSource, "provider_native");
+  assert.equal(completedInvocation.details.providerResponseKind, providerResponseKind);
+  const completedReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${metadata.stream_receipt_id}`);
+  assertLiveStreamReceipt(completedReceipt, {
+    kind: "model_invocation_stream_completed",
+    routeId,
+    modelId,
+    endpointId,
+    providerId,
+    backendId,
+    streamKind,
+    providerResponseKind,
+    invocationReceiptId: metadata.receipt_id,
+  });
+  assert.equal(typeof completedReceipt.details.outputHash, "string");
+  assert.equal(typeof completedReceipt.details.finishReason, "string");
+  const completedReplay = await expectOk(daemon.endpoint, `/api/v1/receipts/${metadata.stream_receipt_id}/replay`);
+  assert.equal(completedReplay.receipt.id, metadata.stream_receipt_id);
+  assert.equal(completedReplay.route.id, routeId);
+  assert.equal(completedReplay.endpoint.id, endpointId);
+
+  const aborted = await requestSseAndAbortAfterFirstChunk(daemon.endpoint, "/v1/chat/completions", {
+    method: "POST",
+    token,
+    body: {
+      route_id: routeId,
+      model: modelId,
+      stream: true,
+      messages: [
+        {
+          role: "user",
+          content:
+            "Write a deliberately long numbered list for live stream abort validation. Continue until stopped.",
+        },
+      ],
+      max_tokens: 192,
+      ...requestOptions,
+    },
+  });
+  assert.equal(aborted.response.status, 200);
+  assert.match(aborted.text, /chat\.completion\.chunk/);
+  const abortedReceipt = await waitForReceipt(
+    daemon.endpoint,
+    (receipt) =>
+      receipt.kind === "model_invocation_stream_canceled" &&
+      receipt.details?.streamKind === streamKind &&
+      receipt.details?.routeId === routeId &&
+      receipt.details?.selectedModel === modelId,
+    { timeoutMs: abortTimeoutMs },
+  );
+  assertLiveStreamReceipt(abortedReceipt, {
+    kind: "model_invocation_stream_canceled",
+    routeId,
+    modelId,
+    endpointId,
+    providerId,
+    backendId,
+    streamKind,
+    providerResponseKind,
+    status: "aborted",
+    reason: "client_disconnect",
+  });
+  const abortedInvocation = await expectOk(daemon.endpoint, `/api/v1/receipts/${abortedReceipt.details.invocationReceiptId}`);
+  assert.equal(abortedInvocation.kind, "model_invocation");
+  assert.equal(abortedInvocation.details.streamSource, "provider_native");
+  assert.equal(abortedInvocation.details.providerResponseKind, providerResponseKind);
+  const abortedReplay = await expectOk(daemon.endpoint, `/api/v1/receipts/${abortedReceipt.id}/replay`);
+  assert.equal(abortedReplay.receipt.id, abortedReceipt.id);
+  assert.equal(abortedReplay.route.id, routeId);
+  assert.equal(abortedReplay.endpoint.id, endpointId);
+
+  return {
+    completedInvocationReceiptId: metadata.receipt_id,
+    completedStreamReceiptId: metadata.stream_receipt_id,
+    abortedInvocationReceiptId: abortedReceipt.details.invocationReceiptId,
+    abortedStreamReceiptId: abortedReceipt.id,
+    streamKind,
+    providerResponseKind,
+  };
+}
+
+function assertLiveStreamReceipt(
+  receipt,
+  { kind, routeId, modelId, endpointId, providerId, backendId, streamKind, providerResponseKind, invocationReceiptId, status, reason },
+) {
+  assert.equal(receipt.kind, kind);
+  assert.equal(receipt.redaction, "redacted");
+  assert.equal(receipt.details.streamKind, streamKind);
+  assert.equal(receipt.details.streamSource, "provider_native");
+  assert.equal(receipt.details.routeId, routeId);
+  assert.equal(receipt.details.selectedModel, modelId);
+  assert.equal(receipt.details.endpointId, endpointId);
+  assert.equal(receipt.details.providerId, providerId);
+  assert.equal(receipt.details.backendId, backendId);
+  assert.equal(receipt.details.selectedBackend, backendId);
+  assert.equal(receipt.details.providerResponseKind, providerResponseKind);
+  assert.ok(Array.isArray(receipt.details.backendEvidenceRefs));
+  assert.equal(typeof receipt.details.invocationReceiptId, "string");
+  if (invocationReceiptId) assert.equal(receipt.details.invocationReceiptId, invocationReceiptId);
+  if (status) assert.equal(receipt.details.status, status);
+  if (reason) assert.equal(receipt.details.reason, reason);
 }
 
 function resolveLmsPath() {
@@ -632,6 +842,20 @@ async function runLlamaCppGate(evidence) {
         assert.equal(chatReceipt.details.backend, "llama_cpp");
         assert.equal(chatReceipt.details.backendProcessPidHash, loaded.backendProcess.pidHash);
         assert.equal(replay.receipt.id, chat.receipt_id);
+        const streamReceipts = await exerciseLiveChatStreamReceipts({
+          daemon,
+          token: grant.token,
+          routeId,
+          modelId,
+          endpointId: mounted.id,
+          providerId: "provider.llama-cpp",
+          backend: "llama_cpp",
+          backendId: "backend.llama-cpp",
+          streamKind: "openai_chat_completions_provider_native",
+          providerResponseKind: "chat.completions.stream",
+          requestOptions: { max_tokens: 64 },
+          abortTimeoutMs: liveTimeoutMs,
+        });
 
         const unloaded = await expectOk(daemon.endpoint, "/api/v1/models/unload", {
           method: "POST",
@@ -662,6 +886,7 @@ async function runLlamaCppGate(evidence) {
           responsesCompatTranslation: responses.compat_translation ?? responseReceipt.details.compatTranslation ?? null,
           embeddingsReceiptId: embeddings.receipt_id,
           embeddingVectors: embeddings.data.length,
+          streamReceipts,
           replaySource: replay.source,
           secretScan,
         };
@@ -704,7 +929,7 @@ async function runModelBackendsGate(evidence) {
     };
     return;
   }
-  await withDaemon(async ({ daemon }) => {
+  await withDaemon(async ({ daemon, stateDir }) => {
     const backends = await expectOk(daemon.endpoint, "/api/v1/backends");
     const checked = [];
     for (const backend of backends.filter((item) => ["llama_cpp", "ollama", "vllm"].includes(item.kind))) {
@@ -726,7 +951,16 @@ async function runModelBackendsGate(evidence) {
       const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
         method: "POST",
         body: {
-          allowed: ["model.chat:*", "model.embeddings:*", "model.load:*", "model.unload:*", "model.mount:*", "route.use:*", "backend.control:*"],
+          allowed: [
+            "model.chat:*",
+            "model.embeddings:*",
+            "model.load:*",
+            "model.unload:*",
+            "model.mount:*",
+            "route.write:*",
+            "route.use:*",
+            "backend.control:*",
+          ],
           denied: ["filesystem.write", "shell.exec"],
         },
       });
@@ -753,6 +987,20 @@ async function runModelBackendsGate(evidence) {
           provider_id: "provider.ollama",
         },
       });
+      const chatRouteId = `route.live.ollama.${safeLiveId(chatModel)}`;
+      await expectOk(daemon.endpoint, "/api/v1/routes", {
+        method: "POST",
+        token: grant.token,
+        body: {
+          id: chatRouteId,
+          role: "ollama-live",
+          privacy: "local_only",
+          fallback: [chatEndpoint.id],
+          provider_eligibility: ["ollama"],
+          denied_providers: [],
+          max_cost_usd: 0,
+        },
+      });
       const chatLoaded = await expectOk(daemon.endpoint, "/api/v1/models/load", {
         method: "POST",
         token: grant.token,
@@ -774,6 +1022,19 @@ async function runModelBackendsGate(evidence) {
       const chatReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${chat.receipt_id}`);
       assert.equal(chatReceipt.details.providerId, "provider.ollama");
       assert.equal(chatReceipt.details.backend, "ollama");
+      const streamReceipts = await exerciseLiveChatStreamReceipts({
+        daemon,
+        token: grant.token,
+        routeId: chatRouteId,
+        modelId: chatModel,
+        endpointId: chatEndpoint.id,
+        providerId: "provider.ollama",
+        backend: "ollama",
+        backendId: "backend.ollama",
+        streamKind: "openai_chat_completions_ollama_native",
+        providerResponseKind: "ollama.chat.stream",
+        requestOptions: { options: { num_predict: 64 } },
+      });
 
       const configuredEmbeddingModel = process.env.IOI_OLLAMA_EMBEDDING_MODEL;
       const embeddingModel =
@@ -823,10 +1084,12 @@ async function runModelBackendsGate(evidence) {
         selectedChatModel: chatModel,
         configuredChatModel: configuredChatModel ?? null,
         chatEndpointId: chatEndpoint.id,
+        chatRouteId,
         chatInstanceId: chatLoaded.id,
         backendStartReceiptId: ollamaBackendStart?.lastReceiptId ?? null,
         backendStopReceiptId: ollamaBackendStop?.lastReceiptId ?? null,
         chatReceiptId: chat.receipt_id,
+        streamReceipts,
         unloadStatus: chatUnloaded.status,
         selectedEmbeddingModel: embeddingModel ?? null,
         configuredEmbeddingModel: configuredEmbeddingModel ?? null,
@@ -974,6 +1237,20 @@ async function runModelBackendsGate(evidence) {
         const responseReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${responses.receipt_id}`);
         assert.equal(responseReceipt.details.providerId, "provider.vllm");
         assert.equal(responseReceipt.details.backend, "vllm");
+        const streamReceipts = await exerciseLiveChatStreamReceipts({
+          daemon,
+          token: grant.token,
+          routeId,
+          modelId: selectedModel,
+          endpointId: mounted.id,
+          providerId: "provider.vllm",
+          backend: "vllm",
+          backendId: "backend.vllm",
+          streamKind: "openai_chat_completions_provider_native",
+          providerResponseKind: "chat.completions.stream",
+          requestOptions: { max_tokens: 64 },
+          abortTimeoutMs: liveTimeoutMs,
+        });
         let embeddingReceiptId = null;
         let embeddingStatus = "not_exercised";
         let embeddingErrorHash = null;
@@ -1015,6 +1292,7 @@ async function runModelBackendsGate(evidence) {
           responsesReceiptId: responses.receipt_id,
           responsesCompatTranslation: responses.compat_translation ?? responseReceipt.details.compatTranslation ?? null,
           compatChatModel: compatChat.model,
+          streamReceipts,
           embeddingStatus,
           embeddingReceiptId,
           embeddingErrorHash,
