@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "ioi.model-mounting.live-gate.v1",
+  "gate": "wallet",
+  "status": "passed",
+  "startedAt": "2026-05-05T01:51:23.758Z",
+  "outputDir": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounting-live/wallet/2026-05-05T01-51-23Z",
+  "commands": [],
+  "details": {
+    "remoteMode": "deterministic_fake_remote",
+    "fallbackReason": "remote_wallet_network_not_configured",
+    "daemonEndpoint": "http://127.0.0.1:46643",
+    "stateDir": "/tmp/ioi-live-model-gate-state-xip2WX"
+  },
+  "result": {
+    "remoteMode": "deterministic_fake_remote",
+    "remoteHealth": {
+      "ok": true,
+      "status": 200,
+      "service": "fake-wallet-network",
+      "port": "WalletAuthorityPort",
+      "methodCount": 6,
+      "urlHash": "17c249303d22a707f0745b1d7cd64a71b6d3cb0bea146c9464a7060a9e32e670"
+    },
+    "port": "WalletAuthorityPort",
+    "implementation": "agentgres_wallet_authority",
+    "remoteAdapter": {
+      "configured": true,
+      "urlHash": "17c249303d22a707f0745b1d7cd64a71b6d3cb0bea146c9464a7060a9e32e670"
+    },
+    "grantId": "grant_0869cf5c-3fb1-4ce7-bed4-0c9e9ec98374",
+    "deniedStatus": 403,
+    "badMcpStatus": 403,
+    "tokenCount": 1,
+    "secretScan": {
+      "passed": true,
+      "findings": []
+    },
+    "fakeRemoteRequests": [
+      {
+        "method": "GET",
+        "pathname": "/health"
+      }
+    ]
+  },
+  "completedAt": "2026-05-05T01:51:24.270Z"
+}

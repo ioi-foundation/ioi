@@ -1,0 +1,57 @@
+
+> dev:desktop
+> bash apps/autopilot/scripts/dev-desktop.sh x11
+
+Starting isolated Vite dev server on port 1433...
+
+> autopilot@0.1.0 tauri
+> tauri dev --config {"build":{"beforeDevCommand":"","devUrl":"http://127.0.0.1:1433"}} --no-watch
+
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m autopilot v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/apps/autopilot/src-tauri)
+[1m[96m    Building[0m [=====================> ] 1274/1277: autopilot(build)            [1m[96m    Building[0m [=====================> ] 1275/1277: autopilot                   [1m[96m    Building[0m [=====================> ] 1276/1277: autopilot(bin)              [K[1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 15.49s
+[1m[92m     Running[0m `/home/heathledger/Documents/ioi/repos/ioi/target/debug/autopilot`
+[Autopilot] X11 threading initialized
+[Autopilot] Display env: XDG_SESSION_TYPE='x11' WAYLAND_DISPLAY='' GDK_BACKEND='x11' WINIT_UNIX_BACKEND='x11'
+[Autopilot] Initializing...
+[Chat] Reset Autopilot data directory on boot: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu-model-mounts
+[Chat] Using Autopilot data profile 'desktop-localgpu-model-mounts' at /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu-model-mounts
+--- Encrypting New Secure Key ---
+[Chat] Initialized memory runtime.
+[Autopilot] Failed to bootstrap wallet-backed Shield policy state: Failed to connect to Kernel: transport error
+[Autopilot] Failed to bootstrap wallet-backed Google auth state: Failed to parse Google auth state '/home/heathledger/.config/ioi/google_workspace_oauth.json': trailing characters at line 15 column 2
+[Chat] MCP disabled by default. Native filesystem drivers remain available; optional MCP filesystem server is off for safety.
+[Chat] Set IOI_CHAT_MCP_PROFILE=dev_filesystem to opt in.
+[Autopilot] Setup complete.
+[Autopilot][ChatLaunch] stage=show_requested detail={"maximizedBefore":false,"minimizedBefore":false,"visibleBefore":false,"windowExistedBefore":true,"windowLabel":"chat"}
+[Autopilot] Surfacing 'chat' (task_switcher=true, visible=Ok(true), minimized=Ok(false))
+[Autopilot][ChatLaunch] stage=show_surfaced detail={"maximizedAfter":false,"minimizedAfter":false,"recreatedWindow":false,"visibleAfter":true,"windowLabel":"chat"}
+[Autopilot][ChatLaunch] stage=runtime_show_chat_requested detail={}
+[Autopilot][ChatLaunch] stage=runtime_show_chat_requested detail={}
+[Autopilot][ChatLaunch] stage=show_requested detail={"maximizedBefore":false,"minimizedBefore":false,"visibleBefore":true,"windowExistedBefore":true,"windowLabel":"chat"}
+[Autopilot] Surfacing 'chat' (task_switcher=true, visible=Ok(true), minimized=Ok(false))
+[Autopilot][ChatLaunch] stage=show_surfaced detail={"maximizedAfter":false,"minimizedAfter":false,"recreatedWindow":false,"visibleAfter":true,"windowLabel":"chat"}
+[Autopilot][ChatLaunch] stage=show_requested detail={"maximizedBefore":false,"minimizedBefore":false,"visibleBefore":true,"windowExistedBefore":true,"windowLabel":"chat"}
+[Autopilot] Surfacing 'chat' (task_switcher=true, visible=Ok(true), minimized=Ok(false))
+[Autopilot][ChatLaunch] stage=show_surfaced detail={"maximizedAfter":false,"minimizedAfter":false,"recreatedWindow":false,"visibleAfter":true,"windowLabel":"chat"}
+[Autopilot][ChatLaunch] stage=runtime_show_chat_completed detail={}
+[Autopilot][ChatLaunch] stage=runtime_show_chat_completed detail={}
+[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error
+[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error
+[Autopilot][ChatLaunch] stage=peeked detail={"foundPendingRequest":false,"launch":null}
+[Autopilot][ChatLaunch] stage=chat_pending_launch_empty detail={"source":"mount"}
+[Autopilot][ChatLaunch] stage=peeked detail={"foundPendingRequest":false,"launch":null}
+[Autopilot][ChatLaunch] stage=chat_pending_launch_empty detail={"source":"mount"}
+[Autopilot][ChatLaunch] stage=show_requested detail={"maximizedBefore":false,"minimizedBefore":false,"visibleBefore":true,"windowExistedBefore":true,"windowLabel":"chat"}
+[Autopilot] Surfacing 'chat' (task_switcher=true, visible=Ok(true), minimized=Ok(false))
+[Autopilot][ChatLaunch] stage=show_surfaced detail={"maximizedAfter":false,"minimizedAfter":false,"recreatedWindow":false,"visibleAfter":true,"windowLabel":"chat"}
+[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error
+[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error
+[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error
+[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error
+[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error
+[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error
+[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error
+[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error
+[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error
+[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error
