@@ -38,6 +38,90 @@
   border-radius: 0;
 }
 
+.model-mounts-picker {
+  display: grid;
+  gap: 1px;
+  border-bottom: 1px solid var(--chat-border);
+  background: var(--chat-border);
+}
+
+.model-mounts-picker-controls,
+.model-mounts-picker-inspector {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--surface-1);
+}
+
+.model-mounts-picker-controls {
+  grid-template-columns: minmax(150px, 1.1fr) minmax(150px, 1fr) minmax(180px, 1.35fr) minmax(140px, 0.85fr) minmax(170px, 1.2fr) auto;
+  align-items: end;
+}
+
+.model-mounts-picker-inspector {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  background: var(--surface-2);
+}
+
+.model-mounts-picker label,
+.model-mounts-picker-inspector > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.model-mounts-picker label span,
+.model-mounts-picker-inspector span {
+  color: var(--chat-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.model-mounts-picker select {
+  min-width: 0;
+  width: 100%;
+  min-height: 32px;
+  border: 1px solid var(--chat-border);
+  border-radius: 0;
+  background: var(--chat-bg);
+  color: var(--chat-text);
+  font: inherit;
+  font-size: 12px;
+  padding: 0 8px;
+  outline: none;
+}
+
+.model-mounts-picker select:focus {
+  border-color: color-mix(in srgb, var(--chat-accent) 54%, var(--chat-border));
+}
+
+.model-mounts-picker-actions {
+  min-width: max-content;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.model-mounts-picker-inspector strong {
+  min-width: 0;
+  color: var(--chat-text);
+  font-size: 12px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.model-mounts-picker-inspector small {
+  min-width: 0;
+  color: var(--chat-text-secondary);
+  font-size: 11px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
 .model-mounts-stage {
   flex: 1;
   min-width: 0;
@@ -628,6 +712,18 @@
 }
 
 @media (max-width: 1280px) {
+  .model-mounts-picker-controls {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .model-mounts-picker-actions {
+    justify-content: flex-start;
+  }
+
+  .model-mounts-picker-inspector {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .model-mounts-three-col,
   .model-mounts-provider-grid,
   .model-mounts-provider-editor-grid {
@@ -653,6 +749,8 @@
   .model-mounts-server-grid,
   .model-mounts-health-strip,
   .model-mounts-control-row,
+  .model-mounts-picker-controls,
+  .model-mounts-picker-inspector,
   .model-mounts-three-col,
   .model-mounts-route-list,
   .model-mounts-token-layout,
