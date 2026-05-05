@@ -19,6 +19,8 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   for (const route of [
     "/api/v1/models",
     "/api/v1/backends",
+    "/api/v1/runtime/engines",
+    "/api/v1/runtime/survey",
     "/api/v1/backends/:id/health",
     "/api/v1/backends/:id/start",
     "/api/v1/backends/:id/stop",
@@ -88,6 +90,11 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   assert.match(source, /model-mounts-health-strip/);
   assert.match(source, /Run health sweep/);
   assert.match(source, /runHealthSweep/);
+  assert.match(source, /Run runtime survey/);
+  assert.match(source, /runRuntimeSurvey/);
+  assert.match(source, /Runtime survey/);
+  assert.match(source, /runtimeEngines/);
+  assert.match(source, /runtimeSurvey/);
   assert.match(source, /healthSweepProviderTargets/);
   assert.match(source, /healthSweepBackendTargets/);
   assert.match(source, /health-sweep/);
@@ -192,8 +199,9 @@ test("model mounting live-provider gates are explicit and opt-in", () => {
 
 test("model mounting CLI exposes vault-backed provider configuration flags", () => {
   const source = fs.readFileSync(path.join(root, "crates", "cli", "src", "commands", "models.rs"), "utf8");
+  const backendsSource = fs.readFileSync(path.join(root, "crates", "cli", "src", "commands", "backends.rs"), "utf8");
   const vaultSource = fs.readFileSync(path.join(root, "crates", "cli", "src", "commands", "vault.rs"), "utf8");
-  const combinedSource = `${source}\n${vaultSource}`;
+  const combinedSource = `${source}\n${backendsSource}\n${vaultSource}`;
   for (const token of [
     "ProviderSet",
     "VaultCommands",
@@ -209,6 +217,8 @@ test("model mounting CLI exposes vault-backed provider configuration flags", () 
     "material_env",
     "ProviderHealth",
     "Health",
+    "Survey",
+    "/api/v1/runtime/survey",
     "Raw keys are rejected by the daemon",
   ]) {
     assert.match(combinedSource, new RegExp(token.replaceAll("/", "\\/")));

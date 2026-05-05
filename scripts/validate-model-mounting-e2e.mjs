@@ -102,6 +102,7 @@ function cliTargetNeedsRebuild(targetBinary) {
   const cliSources = [
     path.join(repoRoot, "crates/cli/src/main.rs"),
     path.join(repoRoot, "crates/cli/src/commands/models.rs"),
+    path.join(repoRoot, "crates/cli/src/commands/backends.rs"),
     path.join(repoRoot, "crates/cli/src/commands/model_mount_http.rs"),
     path.join(repoRoot, "crates/cli/src/commands/vault.rs"),
   ];
@@ -313,6 +314,7 @@ async function main() {
   let daemon = null;
   let mainGrant = null;
   let nativeReceiptId = null;
+  let runtimeSurveyReceiptId = null;
   let ephemeralReceiptId = null;
   let ephemeralToolReceiptIds = [];
   const cliVaultRef = "vault://provider/e2e-cli/api-key";
@@ -442,6 +444,34 @@ async function main() {
         backends: snapshot.backends.length,
         artifacts: snapshot.artifacts.length,
         routes: snapshot.routes.length,
+      };
+    });
+
+    await runStep(evidence, "runtime engines and hardware survey", async () => {
+      const engines = await expectOk(daemon.endpoint, "/api/v1/runtime/engines");
+      assert.ok(
+        engines.some((engine) => engine.id === "backend.autopilot.native-local.fixture"),
+        "missing native-local runtime engine",
+      );
+      const survey = await expectOk(daemon.endpoint, "/api/v1/runtime/survey", { method: "POST" });
+      runtimeSurveyReceiptId = survey.receiptId;
+      assert.equal(survey.schemaVersion, "ioi.model-mounting.runtime.v1");
+      assert.match(runtimeSurveyReceiptId, /^receipt_runtime_survey_/);
+      assert.equal(typeof survey.hardware.totalMemoryBytes, "number");
+      assert.ok(Array.isArray(survey.engines));
+      assert.ok(survey.engines.length >= engines.length);
+      const receipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${runtimeSurveyReceiptId}`);
+      assert.equal(receipt.kind, "runtime_survey");
+      assert.equal(receipt.details.engineCount, survey.engines.length);
+      const receiptText = JSON.stringify(receipt);
+      assert.equal(receiptText.includes(path.join(os.homedir(), ".lmstudio/bin/lms")), false);
+      assert.equal(receiptText.includes(path.join(os.homedir(), ".local/bin/lm-studio")), false);
+      assert.equal(receiptText.includes(path.join(os.homedir(), ".local/bin/lm-studio.AppImage")), false);
+      return {
+        engineCount: survey.engines.length,
+        memoryPressure: survey.hardware.memoryPressure,
+        lmStudioStatus: survey.lmStudio.status,
+        receiptId: runtimeSurveyReceiptId,
       };
     });
 
@@ -799,6 +829,8 @@ async function main() {
       assert.ok(loaded.some((instance) => instance.modelId === "native:e2e"));
       const providerHealth = await runCli(cli, ["models", "--json", "provider-health", "provider.autopilot.local"], common);
       assert.equal(providerHealth.status, "available");
+      const runtimeSurvey = await runCli(cli, ["backends", "--json", "survey"], common);
+      assert.match(runtimeSurvey.receiptId, /^receipt_runtime_survey_/);
       const providerHealthLatest = await runCli(
         cli,
         ["models", "--json", "provider-health", "provider.autopilot.local", "--latest"],
@@ -831,6 +863,7 @@ async function main() {
         models: models.artifacts.length,
         loaded: loaded.length,
         receipts: receipts.length,
+        runtimeSurveyReceiptId: runtimeSurvey.receiptId,
       };
     });
 
@@ -846,7 +879,10 @@ async function main() {
       const projection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
       assert.ok(projection.artifacts.some((artifact) => artifact.modelId === "native:e2e"));
       assert.ok(projection.invocationReceipts.some((item) => item.id === nativeReceiptId));
+      assert.ok(projection.runtimeSurveyReceipts.some((item) => item.id === runtimeSurveyReceiptId));
       assert.ok(projection.toolReceipts.some((item) => ephemeralToolReceiptIds.includes(item.id)));
+      const runtimeSurveyReplay = await expectOk(daemon.endpoint, `/api/v1/receipts/${runtimeSurveyReceiptId}/replay`);
+      assert.equal(runtimeSurveyReplay.receipt.id, runtimeSurveyReceiptId);
       const vaultMeta = await expectOk(daemon.endpoint, "/api/v1/vault/refs/meta", {
         method: "POST",
         token,
@@ -860,6 +896,7 @@ async function main() {
       return {
         projectionWatermark: projection.watermark,
         invocationReceipts: projection.invocationReceipts.length,
+        runtimeSurveyReceipts: projection.runtimeSurveyReceipts.length,
         toolReceipts: projection.toolReceipts.length,
         vaultMetadataRequiresRebind: vaultMeta.requiresRebind,
       };

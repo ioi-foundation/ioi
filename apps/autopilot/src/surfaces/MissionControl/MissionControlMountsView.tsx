@@ -154,6 +154,27 @@ interface WorkflowNodePreview {
   receiptRequired: boolean;
 }
 
+interface RuntimeEnginePreview {
+  id: string;
+  label: string;
+  kind: string;
+  status: string;
+  selected: boolean;
+  modelFormat: string;
+  source: string;
+}
+
+interface RuntimeSurveyPreview {
+  status: string;
+  checkedAt: string;
+  cpu: string;
+  ram: string;
+  vram: string;
+  memoryPressure: string;
+  selectedEngine: string;
+  receipt: string;
+}
+
 interface ServerPreview {
   status: string;
   nativeBaseUrl: string;
@@ -172,6 +193,8 @@ interface MountsWorkbenchData {
   instances: ModelInstance[];
   downloads: Array<{ id: string; model: string; status: string; progress: string }>;
   backends: BackendPreview[];
+  runtimeEngines: RuntimeEnginePreview[];
+  runtimeSurvey: RuntimeSurveyPreview;
   providers: ProviderProfile[];
   tokens: PermissionTokenPreview[];
   vaultAdapter: VaultAdapterPreview;
@@ -303,6 +326,21 @@ const fallbackData: MountsWorkbenchData = {
       "lm_studio_catalog",
     ], ["chat", "responses", "embeddings"], "lm_studio_public_cli_or_server_probe", "normal", "none"),
   ],
+  runtimeEngines: [
+    runtimeEngine("backend.autopilot.native-local.fixture", "Autopilot native-local fixture", "native_local", "available", true, "gguf,fixture", "autopilot_backend_registry"),
+    runtimeEngine("backend.llama-cpp", "llama.cpp native GGUF server", "llama_cpp", "blocked", false, "gguf", "autopilot_backend_registry"),
+    runtimeEngine("lmstudio.runtime.cuda12", "LM Studio CUDA12 llama.cpp runtime", "lm_studio_runtime", "installed", true, "GGUF", "lm_studio_public_lms_runtime_ls"),
+  ],
+  runtimeSurvey: {
+    status: "not_checked",
+    checkedAt: "not checked",
+    cpu: "x86_64 / probed on demand",
+    ram: "available after survey",
+    vram: "available after survey",
+    memoryPressure: "normal",
+    selectedEngine: "backend.autopilot.native-local.fixture",
+    receipt: "none",
+  },
   artifacts: [
     {
       id: "local.auto",
@@ -537,6 +575,18 @@ function backend(
   receipt: string,
 ): BackendPreview {
   return { id, label, kind, status, processStatus, baseUrl, binaryPath, formats, capabilities, evidence, memoryPressure, receipt };
+}
+
+function runtimeEngine(
+  id: string,
+  label: string,
+  kind: string,
+  status: string,
+  selected: boolean,
+  modelFormat: string,
+  source: string,
+): RuntimeEnginePreview {
+  return { id, label, kind, status, selected, modelFormat, source };
 }
 
 function route(
@@ -933,6 +983,13 @@ function useModelMountsDaemon() {
           const failed = results.length - succeeded;
           return `Health sweep recorded ${succeeded}/${results.length} probe${results.length === 1 ? "" : "s"}${failed > 0 ? `; ${failed} failed before projection.` : "."}`;
         }),
+      runRuntimeSurvey: () =>
+        runAction("runtime-survey", async () => {
+          const survey = await requestJson("/api/v1/runtime/survey", { method: "POST" });
+          const count = Array.isArray(survey?.engines) ? survey.engines.length : 0;
+          const receiptId = stringValue(survey?.receiptId, "no receipt");
+          return `Runtime survey captured ${count} engine profile${count === 1 ? "" : "s"}; receipt ${receiptId}.`;
+        }),
       replayReceipt: (receiptId: string) =>
         runAction("receipt-replay", async () => {
           const replay = await requestJson(`/api/v1/receipts/${encodeURIComponent(receiptId)}/replay`);
@@ -1013,6 +1070,17 @@ function normalizeSnapshot(snapshot: any, endpoint: string): MountsWorkbenchData
       stringValue(item.lastReceiptId, "none"),
     ),
   );
+  const runtimeEngines = arrayOf(snapshot?.runtimeEngines).map((item) =>
+    runtimeEngine(
+      stringValue(item.id, "runtime.unknown"),
+      stringValue(item.label, stringValue(item.id, "Runtime engine")),
+      stringValue(item.kind, "runtime"),
+      stringValue(item.status, "unknown"),
+      Boolean(item.selected),
+      stringValue(item.modelFormat, "unknown"),
+      stringValue(item.source, "runtime_engine_registry"),
+    ),
+  );
   const endpoints = arrayOf(snapshot?.endpoints).map((item) => ({
     id: stringValue(item.id, "endpoint.unknown"),
     provider: stringValue(item.providerId, "provider.unknown"),
@@ -1083,6 +1151,8 @@ function normalizeSnapshot(snapshot: any, endpoint: string): MountsWorkbenchData
       progress: item.progress === undefined ? "unknown" : `${Math.round(Number(item.progress) * 100)}%`,
     })),
     backends,
+    runtimeEngines,
+    runtimeSurvey: normalizeRuntimeSurvey(snapshot?.runtimeSurvey),
     providers,
     tokens: arrayOf(snapshot?.tokens).map((item) => ({
       id: stringValue(item.id, "grant.unknown"),
@@ -1181,6 +1251,30 @@ function normalizeVaultAdapter(item: any): VaultAdapterPreview {
   };
 }
 
+function normalizeRuntimeSurvey(item: any): RuntimeSurveyPreview {
+  const hardware = item?.hardware ?? {};
+  const lmStudio = item?.lmStudio ?? {};
+  const accelerator = Array.isArray(lmStudio.accelerators) ? lmStudio.accelerators[0] : null;
+  const selectedEngine = Array.isArray(item?.selectedEngines) && item.selectedEngines.length > 0
+    ? String(item.selectedEngines[0])
+    : stringValue(lmStudio.selectedRuntime, "not selected");
+  return {
+    status: stringValue(item?.status, item?.receiptId && item.receiptId !== "none" ? "checked" : "not_checked"),
+    checkedAt: stringValue(item?.checkedAt, "not checked"),
+    cpu: stringValue(lmStudio.cpu, `${stringValue(hardware.platform, "platform")} / ${stringValue(hardware.arch, "arch")} / ${numberValue(hardware.cpuCount, 0)} cores`),
+    ram: stringValue(lmStudio.ram, formatBytes(numberValue(hardware.totalMemoryBytes, 0))),
+    vram: accelerator ? `${stringValue(accelerator.label, "accelerator")} / ${stringValue(accelerator.vram, "unknown VRAM")}` : runtimeProbeState(hardware.nvidiaSmi),
+    memoryPressure: stringValue(hardware.memoryPressure, "unknown"),
+    selectedEngine,
+    receipt: stringValue(item?.receiptId, "none"),
+  };
+}
+
+function runtimeProbeState(value: any) {
+  if (!value || typeof value !== "object") return "not probed";
+  return value.available ? "available / output redacted" : "not available";
+}
+
 function providerAuthSchemeForUi(value: unknown): ProviderDraft["authScheme"] {
   if (value === "api_key" || value === "raw") return value;
   return "bearer";
@@ -1196,6 +1290,12 @@ function stringValue(value: unknown, fallback: string) {
 
 function numberValue(value: unknown, fallback: number) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function formatBytes(value: number) {
+  if (!value) return "unknown";
+  const gib = value / 1024 / 1024 / 1024;
+  return `${gib.toFixed(gib >= 10 ? 1 : 2)} GiB`;
 }
 
 function stringArray(value: unknown) {
@@ -1389,6 +1489,8 @@ function ServerPanel({
       <div className="model-mounts-route-list" aria-label="Server routes">
         {[
           "GET /api/v1/server/status",
+          "GET /api/v1/runtime/engines",
+          "POST /api/v1/runtime/survey",
           "GET /api/v1/backends",
           "POST /api/v1/backends/:id/health",
           "POST /api/v1/backends/:id/start",
@@ -1459,15 +1561,21 @@ function HealthSummaryStrip({ summary }: { summary: HealthSummaryPreview }) {
 
 function BackendsPanel({
   backends,
+  runtimeEngines,
+  runtimeSurvey,
   onProbeNativeBackend,
   onStartNativeBackend,
   onStopNativeBackend,
+  onRunRuntimeSurvey,
   busy,
 }: {
   backends: BackendPreview[];
+  runtimeEngines: RuntimeEnginePreview[];
+  runtimeSurvey: RuntimeSurveyPreview;
   onProbeNativeBackend: () => void;
   onStartNativeBackend: () => void;
   onStopNativeBackend: () => void;
+  onRunRuntimeSurvey: () => void;
   busy: boolean;
 }) {
   return (
@@ -1483,8 +1591,48 @@ function BackendsPanel({
           <ActionButton onClick={onProbeNativeBackend} disabled={busy}>Probe native backend</ActionButton>
           <ActionButton onClick={onStartNativeBackend} disabled={busy}>Start native</ActionButton>
           <ActionButton onClick={onStopNativeBackend} disabled={busy}>Stop native</ActionButton>
+          <ActionButton onClick={onRunRuntimeSurvey} disabled={busy}>Run runtime survey</ActionButton>
         </div>
       </div>
+
+      <section className="model-mounts-workflow" aria-label="Runtime survey">
+        <h4>Runtime survey</h4>
+        <div className="model-mounts-server-grid">
+          <div>
+            <span>Status</span>
+            <strong>{runtimeSurvey.status}</strong>
+          </div>
+          <div>
+            <span>Selected engine</span>
+            <strong>{runtimeSurvey.selectedEngine}</strong>
+          </div>
+          <div>
+            <span>CPU</span>
+            <strong>{runtimeSurvey.cpu}</strong>
+          </div>
+          <div>
+            <span>RAM</span>
+            <strong>{runtimeSurvey.ram}</strong>
+          </div>
+          <div>
+            <span>GPU / VRAM</span>
+            <strong>{runtimeSurvey.vram}</strong>
+          </div>
+          <div>
+            <span>Memory pressure</span>
+            <strong>{runtimeSurvey.memoryPressure}</strong>
+          </div>
+          <div>
+            <span>Survey receipt</span>
+            <strong>{runtimeSurvey.receipt}</strong>
+          </div>
+          <div>
+            <span>Checked</span>
+            <strong>{runtimeSurvey.checkedAt}</strong>
+          </div>
+        </div>
+        <TagList items={runtimeEngines.map((engine) => `${engine.selected ? "selected:" : "engine:"}${engine.label} / ${engine.modelFormat}`)} />
+      </section>
 
       <div className="model-mounts-provider-grid">
         {backends.map((item) => (
@@ -2283,9 +2431,12 @@ export function MissionControlMountsView() {
         {activeTab === "backends" ? (
           <BackendsPanel
             backends={daemon.data.backends}
+            runtimeEngines={daemon.data.runtimeEngines}
+            runtimeSurvey={daemon.data.runtimeSurvey}
             onProbeNativeBackend={daemon.actions.probeNativeBackend}
             onStartNativeBackend={daemon.actions.startNativeBackend}
             onStopNativeBackend={daemon.actions.stopNativeBackend}
+            onRunRuntimeSurvey={daemon.actions.runRuntimeSurvey}
             busy={busy}
           />
         ) : null}

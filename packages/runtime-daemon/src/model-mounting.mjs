@@ -1261,6 +1261,7 @@ export class ModelMountingState {
         "lastReceiptId",
       ],
       providerHealth: ["id", "providerId", "status", "checkedAt", "receiptId", "failureCode", "evidenceRefs"],
+      runtimeEngines: ["id", "kind", "label", "status", "selected", "modelFormat", "source"],
       modelDownloads: ["id", "artifactId", "status", "source", "progress", "bytesTotal", "bytesCompleted", "targetPath"],
       permissionTokens: ["id", "audience", "allowed", "denied", "expiresAt", "revokedAt", "grantId", "lastUsedAt"],
       walletGrants: ["grantId", "revocationEpoch", "allowed", "denied", "expiry", "vaultRefs", "auditReceiptIds"],
@@ -1765,6 +1766,8 @@ export class ModelMountingState {
       routes: this.listRoutes(),
       downloads: this.listDownloads(),
       providerHealth: this.listProviderHealth(),
+      runtimeEngines: this.listRuntimeEngines(),
+      runtimeSurvey: this.latestRuntimeSurvey(),
       tokens: this.listTokens(),
       vaultRefs: this.listVaultRefs(),
       mcpServers: this.listMcpServers(),
@@ -1800,6 +1803,8 @@ export class ModelMountingState {
       providers: this.listProviders(),
       downloads: this.listDownloads(),
       providerHealth: this.listProviderHealth(),
+      runtimeEngines: this.listRuntimeEngines(),
+      runtimeSurvey: this.latestRuntimeSurvey(),
       grants: this.listTokens(),
       vaultRefs: this.listVaultRefs(),
       mcpServers: this.listMcpServers(),
@@ -1808,6 +1813,7 @@ export class ModelMountingState {
       lifecycleEvents: this.listReceipts().filter((receipt) => receipt.kind === "model_lifecycle"),
       routeReceipts: this.listReceipts().filter((receipt) => receipt.kind === "model_route_selection"),
       providerHealthReceipts: this.listReceipts().filter((receipt) => receipt.kind === "provider_health"),
+      runtimeSurveyReceipts: this.listReceipts().filter((receipt) => receipt.kind === "runtime_survey"),
       invocationReceipts: this.listReceipts().filter((receipt) => receipt.kind === "model_invocation"),
       toolReceipts: this.listReceipts().filter((receipt) => receipt.kind === "mcp_tool_invocation"),
       receipts: this.listReceipts(),
@@ -3330,6 +3336,126 @@ export class ModelMountingState {
     return this.backendRegistry();
   }
 
+  listRuntimeEngines() {
+    const checkedAt = this.nowIso();
+    const activeBackendIds = new Set(this.listInstances().map((instance) => instance.backendId).filter(Boolean));
+    const backendEngines = this.backendRegistry().map((backend) => ({
+      id: backend.id,
+      kind: backend.kind,
+      label: backend.label,
+      status: backend.status,
+      selected:
+        activeBackendIds.has(backend.id) ||
+        (activeBackendIds.size === 0 && backend.id === "backend.autopilot.native-local.fixture"),
+      modelFormat: (backend.supportedFormats ?? []).join(",") || "unknown",
+      source: "autopilot_backend_registry",
+      processStatus: backend.processStatus ?? "unknown",
+      checkedAt,
+      evidenceRefs: backend.evidenceRefs ?? [],
+    }));
+    return [...backendEngines, ...this.lmStudioRuntimeEngines(checkedAt)].sort((left, right) => left.id.localeCompare(right.id));
+  }
+
+  runtimeSurvey() {
+    const checkedAt = this.nowIso();
+    const hardware = hardwareSnapshot();
+    const engines = this.listRuntimeEngines();
+    const lmStudio = this.lmStudioRuntimeSurvey(checkedAt);
+    const selectedEngines = engines.filter((engine) => engine.selected).map((engine) => engine.id);
+    const receipt = this.receipt("runtime_survey", {
+      summary: `Runtime survey captured ${engines.length} engine profile${engines.length === 1 ? "" : "s"}.`,
+      redaction: "redacted",
+      evidenceRefs: [
+        "runtime_engine_registry",
+        "hardware_snapshot",
+        ...(lmStudio.status === "available" ? ["lm_studio_public_lms_runtime_survey"] : []),
+      ],
+      details: {
+        checkedAt,
+        engineCount: engines.length,
+        selectedEngines,
+        hardware,
+        lmStudio,
+      },
+    });
+    return {
+      schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
+      checkedAt,
+      engines,
+      hardware,
+      lmStudio,
+      receiptId: receipt.id,
+    };
+  }
+
+  latestRuntimeSurvey() {
+    const receipt = [...this.listReceipts()].reverse().find((item) => item.kind === "runtime_survey");
+    if (!receipt) {
+      return {
+        status: "not_checked",
+        receiptId: "none",
+        checkedAt: null,
+        engineCount: this.listRuntimeEngines().length,
+        selectedEngines: [],
+        hardware: hardwareSnapshot(),
+        lmStudio: { status: "not_checked", evidenceRefs: ["runtime_survey_not_checked"] },
+      };
+    }
+    return {
+      status: "checked",
+      receiptId: receipt.id,
+      checkedAt: receipt.details?.checkedAt ?? receipt.createdAt,
+      engineCount: receipt.details?.engineCount ?? 0,
+      selectedEngines: receipt.details?.selectedEngines ?? [],
+      hardware: receipt.details?.hardware ?? hardwareSnapshot(),
+      lmStudio: receipt.details?.lmStudio ?? { status: "unknown" },
+    };
+  }
+
+  lmStudioRuntimeEngines(checkedAt) {
+    const provider = this.providers.get("provider.lmstudio");
+    const lmsPath =
+      provider?.discovery?.publicCli?.path ??
+      process.env.IOI_LMS_PATH ??
+      path.join(this.homeDir, ".lmstudio/bin/lms");
+    if (!lmsPath || !isExecutable(lmsPath)) return [];
+    const result = runPublicCommand(lmsPath, ["runtime", "ls"], { timeout: 2500 });
+    if (result.status !== 0) return [];
+    return parseLmStudioRuntimeEngines(result.stdout).map((engine) => ({
+      ...engine,
+      checkedAt,
+      lmsPathHash: stableHash(lmsPath).slice(0, 16),
+      outputHash: stableHash(result.stdout),
+      evidenceRefs: ["lm_studio_public_lms_runtime_ls"],
+    }));
+  }
+
+  lmStudioRuntimeSurvey(checkedAt) {
+    const provider = this.providers.get("provider.lmstudio");
+    const lmsPath =
+      provider?.discovery?.publicCli?.path ??
+      process.env.IOI_LMS_PATH ??
+      path.join(this.homeDir, ".lmstudio/bin/lms");
+    if (!lmsPath || !isExecutable(lmsPath)) {
+      return { status: "absent", checkedAt, evidenceRefs: ["lm_studio_public_lms_absent"] };
+    }
+    const result = runPublicCommand(lmsPath, ["runtime", "survey"], { timeout: 3000 });
+    const parsed = parseLmStudioRuntimeSurvey(result.stdout);
+    return {
+      status: result.status === 0 ? "available" : "blocked",
+      checkedAt,
+      selectedRuntime: parsed.selectedRuntime,
+      accelerators: parsed.accelerators,
+      cpu: parsed.cpu,
+      ram: parsed.ram,
+      outputHash: stableHash(`${result.stdout}\n${result.stderr}`),
+      exitCode: result.status,
+      lmsPathHash: stableHash(lmsPath).slice(0, 16),
+      evidenceRefs: ["lm_studio_public_lms_runtime_survey"],
+      errorHash: result.status === 0 ? null : stableHash(result.stderr || result.error || "runtime survey failed"),
+    };
+  }
+
   backend(backendId) {
     const backend = this.backendRegistry().find((item) => item.id === backendId);
     if (!backend) throw notFound(`Model backend not found: ${backendId}`, { backendId });
@@ -4240,6 +4366,50 @@ function hardwareSnapshot() {
     vulkanInfo: commandProbe("vulkaninfo", ["--summary"]),
     memoryPressure: os.freemem() / Math.max(1, os.totalmem()) < 0.15 ? "high" : "normal",
   };
+}
+
+function parseLmStudioRuntimeEngines(text) {
+  return String(text ?? "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith("LLM ENGINE"))
+    .map((line) => {
+      const columns = line.split(/\s{2,}/).filter(Boolean);
+      const name = columns[0] ?? "";
+      if (!name) return null;
+      const selected = columns.some((column) => column === "yes" || column === "selected" || column.includes("\u2713"));
+      const modelFormat = columns.at(-1) ?? "unknown";
+      return {
+        id: `lmstudio.runtime.${safeId(name)}`,
+        kind: "lm_studio_runtime",
+        label: name,
+        status: "installed",
+        selected,
+        modelFormat,
+        source: "lm_studio_public_lms_runtime_ls",
+        processStatus: selected ? "selected" : "installed",
+      };
+    })
+    .filter(Boolean);
+}
+
+function parseLmStudioRuntimeSurvey(text) {
+  const lines = String(text ?? "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const selectedRuntime = lines.find((line) => line.startsWith("Survey by "))?.replace(/^Survey by\s+/, "") ?? null;
+  const cpu = lines.find((line) => line.startsWith("CPU:"))?.replace(/^CPU:\s*/, "") ?? null;
+  const ram = lines.find((line) => line.startsWith("RAM:"))?.replace(/^RAM:\s*/, "") ?? null;
+  const accelerators = lines
+    .filter((line) => !line.startsWith("Survey by ") && !line.startsWith("GPU/") && !line.startsWith("CPU:") && !line.startsWith("RAM:"))
+    .map((line) => {
+      const match = line.match(/^(.+?)\s{2,}([0-9.]+\s+[A-Za-z]+)$/);
+      if (!match) return null;
+      return {
+        label: match[1].trim(),
+        vram: match[2].trim(),
+      };
+    })
+    .filter(Boolean);
+  return { selectedRuntime, cpu, ram, accelerators };
 }
 
 function commandProbe(command, args) {
