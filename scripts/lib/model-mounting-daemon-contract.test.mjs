@@ -1195,7 +1195,7 @@ test("vLLM and OpenAI-compatible adapters support responses fallback, embeddings
         receipt.details?.providerId === "provider.test.vllm" &&
         receipt.details?.compatTranslation === "chat_completions",
     );
-    assert.equal(invocation.details.backend, "openai_compatible");
+    assert.equal(invocation.details.backend, "vllm");
     assert.equal(invocation.details.backendId, "backend.vllm");
     assert.equal(invocation.details.providerResponseKind, "chat.completions");
 
@@ -1258,6 +1258,142 @@ test("vLLM and OpenAI-compatible adapters support responses fallback, embeddings
     await providerServer.close();
     await optionalAuthServer.close();
     await errorServer.close();
+  }
+});
+
+test("vLLM provider can supervise serve process and invoke through OpenAI-compatible server", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-vllm-supervisor-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-vllm-supervisor-state-"));
+  const providerServer = await startFakeVllmServer({ responsesStatus: 404 });
+  const callsPath = path.join(cwd, "fake-vllm-calls.jsonl");
+  const fakeBinary = path.join(cwd, "vllm");
+  fs.writeFileSync(
+    fakeBinary,
+    `#!/usr/bin/env node
+const fs = require("fs");
+const callsPath = process.env.IOI_FAKE_VLLM_CALLS;
+if (callsPath) fs.appendFileSync(callsPath, JSON.stringify({ argv: process.argv.slice(2), baseUrl: process.env.IOI_MODEL_BACKEND_BASE_URL }) + "\\n");
+process.stdout.write("fake vllm serve ready\\n");
+process.on("SIGTERM", () => process.exit(0));
+setInterval(() => {}, 1000);
+`,
+  );
+  fs.chmodSync(fakeBinary, 0o755);
+  const priorBaseUrl = process.env.VLLM_BASE_URL;
+  const priorBinary = process.env.IOI_VLLM_BINARY;
+  const priorCalls = process.env.IOI_FAKE_VLLM_CALLS;
+  process.env.VLLM_BASE_URL = `${providerServer.endpoint}/v1`;
+  process.env.IOI_VLLM_BINARY = fakeBinary;
+  process.env.IOI_FAKE_VLLM_CALLS = callsPath;
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+      method: "POST",
+      body: {
+        allowed: [
+          "model.import:*",
+          "model.mount:*",
+          "model.load:*",
+          "model.unload:*",
+          "model.chat:*",
+          "model.responses:*",
+          "model.embeddings:*",
+          "route.write:*",
+          "route.use:*",
+          "backend.control:*",
+        ],
+      },
+    });
+    const backendStart = await expectOk(daemon.endpoint, "/api/v1/backends/backend.vllm/start", {
+      method: "POST",
+      token: grant.token,
+      body: { load_options: { model: "vllm-qwen", contextLength: 4096, parallel: 2, dtype: "auto", gpuMemoryUtilization: 0.42 } },
+    });
+    assert.equal(backendStart.process.spawned, true);
+    assert.equal(backendStart.process.spawnStatus, "spawned");
+    assert.match(backendStart.process.pidHash, /^[a-f0-9]{16}$/);
+    const calls = fs.readFileSync(callsPath, "utf8");
+    assert.equal(calls.includes('"serve"'), true);
+    assert.equal(calls.includes("vllm-qwen"), true);
+    assert.equal(calls.includes("--tensor-parallel-size"), true);
+    assert.equal(calls.includes("--gpu-memory-utilization"), true);
+
+    const providerModels = await expectOk(daemon.endpoint, "/api/v1/providers/provider.vllm/models");
+    assert.ok(providerModels.some((model) => model.modelId === "vllm-qwen"));
+    await expectOk(daemon.endpoint, "/api/v1/models/import", {
+      method: "POST",
+      token: grant.token,
+      body: { model_id: "vllm-qwen", provider_id: "provider.vllm", capabilities: ["chat", "responses", "embeddings"], privacy_class: "workspace" },
+    });
+    const mounted = await expectOk(daemon.endpoint, "/api/v1/models/mount", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        model_id: "vllm-qwen",
+        provider_id: "provider.vllm",
+        id: "endpoint.test.vllm.supervised",
+      },
+    });
+    const loaded = await expectOk(daemon.endpoint, "/api/v1/models/load", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        endpoint_id: mounted.id,
+        load_options: { contextLength: 4096, parallel: 2, dtype: "auto", gpuMemoryUtilization: 0.42, identifier: "vllm-load-test" },
+      },
+    });
+    assert.equal(loaded.backend, "vllm");
+    assert.equal(loaded.backendId, "backend.vllm");
+    assert.equal(loaded.backendProcess.spawned, true);
+    assert.equal(loaded.providerEvidenceRefs.includes("vllm_process_supervisor"), true);
+
+    await expectOk(daemon.endpoint, "/api/v1/routes", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        id: "route.test.vllm.supervised",
+        role: "vllm-supervised-test",
+        privacy: "local_or_enterprise",
+        fallback: [mounted.id],
+        provider_eligibility: ["vllm"],
+      },
+    });
+    const response = await expectOk(daemon.endpoint, "/api/v1/responses", {
+      method: "POST",
+      token: grant.token,
+      body: { route_id: "route.test.vllm.supervised", input: "hello supervised vllm" },
+    });
+    assert.equal(response.compat_translation, "chat_completions");
+    const embeddings = await expectOk(daemon.endpoint, "/v1/embeddings", {
+      method: "POST",
+      token: grant.token,
+      body: { route_id: "route.test.vllm.supervised", input: "embed supervised vllm" },
+    });
+    assert.deepEqual(embeddings.data[0].embedding, [0.91, 0.82, 0.73]);
+    const receipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${response.receipt_id}`);
+    assert.equal(receipt.details.backend, "vllm");
+    assert.equal(receipt.details.backendId, "backend.vllm");
+    assert.equal(receipt.details.backendProcessPidHash, loaded.backendProcess.pidHash);
+    assert.ok(receipt.details.backendEvidenceRefs.includes("vllm_process_supervisor"));
+
+    const providerLoaded = await expectOk(daemon.endpoint, "/api/v1/providers/provider.vllm/loaded");
+    assert.ok(providerLoaded.some((model) => model.modelId === "vllm-qwen"));
+    const unloaded = await expectOk(daemon.endpoint, "/api/v1/models/unload", {
+      method: "POST",
+      token: grant.token,
+      body: { instance_id: loaded.id },
+    });
+    assert.equal(unloaded.status, "unloaded");
+    assert.equal(unloaded.providerEvidenceRefs.includes("clean_backend_stop"), true);
+    const logs = await expectOk(daemon.endpoint, "/api/v1/backends/backend.vllm/logs");
+    assert.ok(logs.some((record) => record.event === "backend_process_start"));
+    assert.ok(logs.some((record) => record.event === "backend_process_stop"));
+  } finally {
+    await daemon.close();
+    await providerServer.close();
+    restoreEnv("VLLM_BASE_URL", priorBaseUrl);
+    restoreEnv("IOI_VLLM_BINARY", priorBinary);
+    restoreEnv("IOI_FAKE_VLLM_CALLS", priorCalls);
   }
 });
 

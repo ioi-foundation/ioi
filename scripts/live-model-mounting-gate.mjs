@@ -160,6 +160,9 @@ function redactLiveEvidence(value) {
     process.env.IOI_MODEL_CATALOG_DOWNLOAD_SOURCE_URL,
     process.env.IOI_LLAMA_CPP_MODEL_PATH,
     process.env.IOI_LLAMA_CPP_SERVER_PATH,
+    process.env.IOI_VLLM_BINARY,
+    process.env.IOI_VLLM_MODEL,
+    process.env.VLLM_BASE_URL,
   ].filter(Boolean);
   let text = JSON.stringify(value, null, 2);
   for (const needle of secretNeedles) {
@@ -689,7 +692,8 @@ async function runModelBackendsGate(evidence) {
     ollamaHost: Boolean(process.env.OLLAMA_HOST),
     ollamaBinary: Boolean(resolveBinary("ollama")),
     vllmBaseUrl: Boolean(process.env.VLLM_BASE_URL),
-    vllmBinary: Boolean(resolveBinary("vllm")),
+    vllmBinary: Boolean(process.env.IOI_VLLM_BINARY || resolveBinary("vllm")),
+    vllmModel: Boolean(process.env.IOI_VLLM_MODEL),
   };
   evidence.details.configured = configured;
   if (!Object.values(configured).some(Boolean)) {
@@ -820,6 +824,207 @@ async function runModelBackendsGate(evidence) {
         selectedEmbeddingModel: embeddingModel ?? null,
         embeddingReceiptId,
       };
+    }
+    if (available.some((backend) => backend.kind === "vllm")) {
+      const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+        method: "POST",
+        body: {
+          allowed: [
+            "model.chat:*",
+            "model.responses:*",
+            "model.embeddings:*",
+            "model.import:*",
+            "model.mount:*",
+            "model.load:*",
+            "model.unload:*",
+            "route.write:*",
+            "route.use:*",
+            "backend.control:*",
+          ],
+          denied: ["filesystem.write", "shell.exec"],
+        },
+      });
+      const liveTimeoutMs = Number(process.env.IOI_VLLM_LIVE_TIMEOUT_MS ?? 180000);
+      const configuredModel = process.env.IOI_VLLM_MODEL ?? null;
+      const vllmBackendStart =
+        configured.vllmBinary && configuredModel
+          ? await expectOk(daemon.endpoint, "/api/v1/backends/backend.vllm/start", {
+              method: "POST",
+              token: grant.token,
+              body: {
+                load_options: {
+                  model: configuredModel,
+                  identifier: "vllm-live-backend-gate",
+                  ...(process.env.IOI_VLLM_CONTEXT_LENGTH
+                    ? { contextLength: Number(process.env.IOI_VLLM_CONTEXT_LENGTH) }
+                    : {}),
+                  ...(process.env.IOI_VLLM_TENSOR_PARALLEL_SIZE
+                    ? { tensorParallelSize: Number(process.env.IOI_VLLM_TENSOR_PARALLEL_SIZE) }
+                    : {}),
+                  ...(process.env.IOI_VLLM_DTYPE ? { dtype: process.env.IOI_VLLM_DTYPE } : {}),
+                  ...(process.env.IOI_VLLM_GPU_MEMORY_UTILIZATION
+                    ? { gpuMemoryUtilization: Number(process.env.IOI_VLLM_GPU_MEMORY_UTILIZATION) }
+                    : {}),
+                },
+              },
+            })
+          : null;
+      let providerModels = [];
+      let providerModelErrorHash = null;
+      try {
+        providerModels = configuredModel
+          ? await waitForProviderModels(daemon.endpoint, "provider.vllm", liveTimeoutMs)
+          : await expectOk(daemon.endpoint, "/api/v1/providers/provider.vllm/models");
+      } catch (error) {
+        providerModelErrorHash = stableHash(String(error?.message ?? error));
+      }
+      const selectedModel = configuredModel ?? providerModels[0]?.modelId ?? null;
+      if (!selectedModel) {
+        result.vllm = {
+          status: "blocked",
+          reason: "vllm_model_not_available",
+          providerModelErrorHash,
+          nextLiveStep:
+            "Set IOI_VLLM_MODEL to a model that vllm serve can load, or start a VLLM_BASE_URL server that exposes /v1/models.",
+        };
+      } else {
+        const endpointId = `endpoint.live.vllm.${safeLiveId(selectedModel)}`;
+        const routeId = `route.live.vllm.${safeLiveId(selectedModel)}`;
+        const imported = await expectOk(daemon.endpoint, "/api/v1/models/import", {
+          method: "POST",
+          token: grant.token,
+          body: {
+            model_id: selectedModel,
+            provider_id: "provider.vllm",
+            capabilities: ["chat", "responses", "embeddings"],
+            privacy_class: "workspace",
+          },
+        });
+        const mounted = await expectOk(daemon.endpoint, "/api/v1/models/mount", {
+          method: "POST",
+          token: grant.token,
+          body: {
+            model_id: selectedModel,
+            provider_id: "provider.vllm",
+            id: endpointId,
+            backend_id: "backend.vllm",
+          },
+        });
+        await expectOk(daemon.endpoint, "/api/v1/routes", {
+          method: "POST",
+          token: grant.token,
+          body: {
+            id: routeId,
+            role: "vllm-live",
+            privacy: "local_or_enterprise",
+            fallback: [mounted.id],
+            provider_eligibility: ["vllm"],
+            denied_providers: [],
+            max_cost_usd: 0,
+          },
+        });
+        const loaded = await expectOk(daemon.endpoint, "/api/v1/models/load", {
+          method: "POST",
+          token: grant.token,
+          body: {
+            endpoint_id: mounted.id,
+            load_policy: { mode: "manual", autoEvict: false },
+            load_options: {
+              identifier: "vllm-live-load",
+              ...(process.env.IOI_VLLM_CONTEXT_LENGTH
+                ? { contextLength: Number(process.env.IOI_VLLM_CONTEXT_LENGTH) }
+                : {}),
+              ...(process.env.IOI_VLLM_TENSOR_PARALLEL_SIZE
+                ? { tensorParallelSize: Number(process.env.IOI_VLLM_TENSOR_PARALLEL_SIZE) }
+                : {}),
+              ...(process.env.IOI_VLLM_DTYPE ? { dtype: process.env.IOI_VLLM_DTYPE } : {}),
+              ...(process.env.IOI_VLLM_GPU_MEMORY_UTILIZATION
+                ? { gpuMemoryUtilization: Number(process.env.IOI_VLLM_GPU_MEMORY_UTILIZATION) }
+                : {}),
+            },
+          },
+        });
+        assert.equal(loaded.backend, "vllm");
+        assert.equal(loaded.backendId, "backend.vllm");
+        const health = await expectOk(daemon.endpoint, "/api/v1/providers/provider.vllm/health", { method: "POST" });
+        assert.equal(health.status, "available");
+        const responses = await expectOk(daemon.endpoint, "/api/v1/responses", {
+          method: "POST",
+          token: grant.token,
+          body: { route_id: routeId, input: "Reply exactly with: ok", max_output_tokens: 8 },
+        });
+        const compatChat = await expectOk(daemon.endpoint, "/v1/chat/completions", {
+          method: "POST",
+          token: grant.token,
+          body: {
+            route_id: routeId,
+            model: selectedModel,
+            messages: [{ role: "user", content: "Reply exactly with: ok" }],
+            max_tokens: 8,
+          },
+        });
+        const responseReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${responses.receipt_id}`);
+        assert.equal(responseReceipt.details.providerId, "provider.vllm");
+        assert.equal(responseReceipt.details.backend, "vllm");
+        let embeddingReceiptId = null;
+        let embeddingStatus = "not_exercised";
+        let embeddingErrorHash = null;
+        try {
+          const embeddings = await expectOk(daemon.endpoint, "/v1/embeddings", {
+            method: "POST",
+            token: grant.token,
+            body: { route_id: routeId, model: process.env.IOI_VLLM_EMBEDDING_MODEL ?? selectedModel, input: "live vllm embedding check" },
+          });
+          embeddingReceiptId = embeddings.receipt_id ?? null;
+          embeddingStatus = "passed";
+        } catch (error) {
+          embeddingStatus = "unsupported_or_failed";
+          embeddingErrorHash = stableHash(String(error?.message ?? error));
+        }
+        const providerLoaded = await expectOk(daemon.endpoint, "/api/v1/providers/provider.vllm/loaded");
+        assert.ok(providerLoaded.some((model) => model.modelId === selectedModel));
+        const unloaded = await expectOk(daemon.endpoint, "/api/v1/models/unload", {
+          method: "POST",
+          token: grant.token,
+          body: { instance_id: loaded.id },
+        });
+        assert.equal(unloaded.status, "unloaded");
+        const logs = await expectOk(daemon.endpoint, "/api/v1/backends/backend.vllm/logs");
+        const secretScan = scanFilesForNeedles(stateDir, [grant.token]);
+        assert.equal(secretScan.passed, true);
+        result.vllm = {
+          status: "passed",
+          selectedModel,
+          artifactId: imported.id,
+          endpointId: mounted.id,
+          routeId,
+          instanceId: loaded.id,
+          providerModels: providerModels.length,
+          backendStartReceiptId: vllmBackendStart?.lastReceiptId ?? null,
+          backendProcessId: loaded.backendProcess?.id ?? null,
+          backendProcessPidHash: loaded.backendProcess?.pidHash ?? null,
+          healthStatus: health.status,
+          responsesReceiptId: responses.receipt_id,
+          responsesCompatTranslation: responses.compat_translation ?? responseReceipt.details.compatTranslation ?? null,
+          compatChatModel: compatChat.model,
+          embeddingStatus,
+          embeddingReceiptId,
+          embeddingErrorHash,
+          unloadStatus: unloaded.status,
+          backendLogEvents: logs.length,
+          secretScan,
+        };
+      }
+    }
+    if (!result.ollama && result.vllm?.status !== "passed") {
+      evidence.status = "blocked";
+      evidence.result = {
+        ...result,
+        reason: "no_live_model_backend_scenario_exercised",
+        nextLiveStep:
+          "Configure Ollama with at least one model, or configure vLLM with IOI_VLLM_MODEL plus a PATH vllm binary, IOI_VLLM_BINARY, or VLLM_BASE_URL, then rerun IOI_LIVE_MODEL_BACKENDS=1 npm run test:model-backends:live.",
+      };
+      return;
     }
     evidence.status = "passed";
     evidence.result = result;
