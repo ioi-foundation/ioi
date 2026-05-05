@@ -852,10 +852,25 @@ function useModelMountsDaemon() {
           });
           return `Vault adapter health probe returned ${stringValue(health?.status, "unknown")}.`;
         }),
+      latestVaultHealth: () =>
+        runAction("vault-health-latest", async () => {
+          const token = await ensureToken();
+          const latest = await requestJson("/api/v1/vault/health/latest", { token });
+          const status = stringValue(latest?.health?.status, "unknown");
+          const receiptId = stringValue(latest?.receipt?.id, "no receipt");
+          return `Latest vault adapter health is ${status}; receipt ${receiptId}.`;
+        }),
       testProviderHealth: (providerId: string) =>
         runAction("provider-health", async () => {
           await requestJson(`/api/v1/providers/${encodeURIComponent(providerId)}/health`, { method: "POST" });
           return `${providerId} health probe completed.`;
+        }),
+      latestProviderHealth: (providerId: string) =>
+        runAction("provider-health-latest", async () => {
+          const latest = await requestJson(`/api/v1/providers/${encodeURIComponent(providerId)}/health/latest`);
+          const status = stringValue(latest?.health?.status, "unknown");
+          const receiptId = stringValue(latest?.receipt?.id, "no receipt");
+          return `${providerId} latest health is ${status}; receipt ${receiptId}.`;
         }),
       listProviderModels: (providerId: string) =>
         runAction("provider-models", async () => {
@@ -1533,6 +1548,7 @@ function ProvidersPanel({
   onConfigureProvider,
   onBindVaultSecret,
   onProviderHealth,
+  onLatestProviderHealth,
   onProviderModels,
   busy,
 }: {
@@ -1540,6 +1556,7 @@ function ProvidersPanel({
   onConfigureProvider: (draft: ProviderDraft) => void;
   onBindVaultSecret: (draft: ProviderDraft) => void;
   onProviderHealth: (providerId: string) => void;
+  onLatestProviderHealth: (providerId: string) => void;
   onProviderModels: (providerId: string) => void;
   busy: string | null;
 }) {
@@ -1547,7 +1564,12 @@ function ProvidersPanel({
   const updateDraft = (field: keyof ProviderDraft, value: string) => {
     setDraft((current) => ({ ...current, [field]: value }));
   };
-  const providerBusy = busy === "provider-configure" || busy === "vault-bind" || busy === "provider-health" || busy === "provider-models";
+  const providerBusy =
+    busy === "provider-configure" ||
+    busy === "vault-bind" ||
+    busy === "provider-health" ||
+    busy === "provider-health-latest" ||
+    busy === "provider-models";
   return (
     <section className="model-mounts-panel" aria-labelledby="model-mounts-providers-title">
       <div className="model-mounts-panel-head">
@@ -1662,6 +1684,9 @@ function ProvidersPanel({
           <button className="model-mounts-action-button" type="button" onClick={() => onProviderHealth(draft.id)} disabled={providerBusy}>
             Test health
           </button>
+          <button className="model-mounts-action-button" type="button" onClick={() => onLatestProviderHealth(draft.id)} disabled={providerBusy}>
+            Latest health
+          </button>
           <button className="model-mounts-action-button" type="button" onClick={() => onProviderModels(draft.id)} disabled={providerBusy}>
             List models
           </button>
@@ -1710,6 +1735,9 @@ function ProvidersPanel({
               <button className="model-mounts-action-button" type="button" onClick={() => onProviderHealth(item.id)} disabled={providerBusy}>
                 Health
               </button>
+              <button className="model-mounts-action-button" type="button" onClick={() => onLatestProviderHealth(item.id)} disabled={providerBusy}>
+                Latest health
+              </button>
               <button className="model-mounts-action-button" type="button" onClick={() => onProviderModels(item.id)} disabled={providerBusy}>
                 Models
               </button>
@@ -1743,12 +1771,14 @@ function TokensPanel({
   onImportMcpFixture,
   onEphemeralMcpProbe,
   onCheckVaultAdapter,
+  onLatestVaultHealth,
   busy,
 }: {
   data: MountsWorkbenchData;
   onImportMcpFixture: () => void;
   onEphemeralMcpProbe: () => void;
   onCheckVaultAdapter: () => void;
+  onLatestVaultHealth: () => void;
   busy: boolean;
 }) {
   return (
@@ -1764,6 +1794,7 @@ function TokensPanel({
           <ActionButton onClick={onImportMcpFixture} disabled={busy}>Import MCP fixture</ActionButton>
           <ActionButton onClick={onEphemeralMcpProbe} disabled={busy}>Ephemeral MCP probe</ActionButton>
           <ActionButton onClick={onCheckVaultAdapter} disabled={busy}>Check adapter</ActionButton>
+          <ActionButton onClick={onLatestVaultHealth} disabled={busy}>Latest vault health</ActionButton>
         </div>
       </div>
 
@@ -2078,6 +2109,7 @@ export function MissionControlMountsView() {
             onConfigureProvider={daemon.actions.configureProvider}
             onBindVaultSecret={daemon.actions.bindVaultSecret}
             onProviderHealth={daemon.actions.testProviderHealth}
+            onLatestProviderHealth={daemon.actions.latestProviderHealth}
             onProviderModels={daemon.actions.listProviderModels}
             busy={daemon.busyAction}
           />
@@ -2095,6 +2127,7 @@ export function MissionControlMountsView() {
             onImportMcpFixture={daemon.actions.importMcpFixture}
             onEphemeralMcpProbe={daemon.actions.ephemeralMcpProbe}
             onCheckVaultAdapter={daemon.actions.checkVaultAdapter}
+            onLatestVaultHealth={daemon.actions.latestVaultHealth}
             busy={busy}
           />
         ) : null}
