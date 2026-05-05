@@ -6,6 +6,9 @@ type StatusTone = "neutral" | "ready" | "muted" | "warn" | "blocked";
 type ConnectionState = "offline" | "loading" | "connected" | "degraded";
 
 const VALIDATION_TOKEN_GRANT_ID = "wallet.grant.mounts.gui.validation";
+const VALIDATION_LIFECYCLE_MODEL_ID = "autopilot:gui-lifecycle";
+const VALIDATION_LIFECYCLE_ENDPOINT_ID = "endpoint.autopilot.gui-lifecycle";
+const VALIDATION_LIFECYCLE_IDENTIFIER = "gui-lifecycle-validation";
 
 interface ActionGuard {
   tone: StatusTone;
@@ -1111,7 +1114,10 @@ function normalizePickerSelection(data: MountsWorkbenchData, current: MountsPick
     ? current.routeId
     : data.routes[0]?.id ?? "";
   const loadedInstances = data.instances.filter(isLoadedInstance);
-  const instanceOptions = loadedInstances.length > 0 ? loadedInstances : data.instances;
+  const relatedLoadedInstances = loadedInstances.filter(
+    (instance) => instance.modelId === selectedModelId || instance.endpointId === selectedEndpointId,
+  );
+  const instanceOptions = relatedLoadedInstances.length > 0 ? relatedLoadedInstances : loadedInstances.length > 0 ? loadedInstances : data.instances;
   const selectedInstanceId = instanceOptions.some((instance) => instance.id === current.instanceId)
     ? current.instanceId
     : instanceOptions[0]?.id ?? "";
@@ -1864,6 +1870,81 @@ function useModelMountsDaemon() {
           const token = await ensureToken();
           const result = await requestJson("/api/v1/models/storage/cleanup", { method: "POST", token });
           return `Storage cleanup scanned ${numberValue(result?.scannedFileCount, 0)} model file${numberValue(result?.scannedFileCount, 0) === 1 ? "" : "s"}; ${numberValue(result?.orphanCount, 0)} orphan${numberValue(result?.orphanCount, 0) === 1 ? "" : "s"}.`;
+        }),
+      importValidationModel: () =>
+        runAction("model-import-validation", async () => {
+          const token = await ensureToken();
+          const artifact = await requestJson("/api/v1/models/import", {
+            method: "POST",
+            token,
+            body: {
+              model_id: VALIDATION_LIFECYCLE_MODEL_ID,
+              provider_id: "provider.autopilot.local",
+              display_name: "GUI lifecycle validation model",
+              family: "autopilot-validation",
+              format: "gguf",
+              quantization: "Q4_K_M",
+              context_window: 4096,
+              capabilities: ["chat", "embeddings"],
+              privacy_class: "local_private",
+              source: "gui_validation_import",
+            },
+          });
+          return `${stringValue(artifact?.modelId, VALIDATION_LIFECYCLE_MODEL_ID)} imported for model lifecycle validation.`;
+        }),
+      mountValidationModel: () =>
+        runAction("model-mount-validation", async () => {
+          const token = await ensureToken();
+          const endpointResult = await requestJson("/api/v1/models/mount", {
+            method: "POST",
+            token,
+            body: {
+              id: VALIDATION_LIFECYCLE_ENDPOINT_ID,
+              model_id: VALIDATION_LIFECYCLE_MODEL_ID,
+              provider_id: "provider.autopilot.local",
+              backend_id: "backend.autopilot.native-local.fixture",
+              base_url: "local://ioi-daemon/gui-lifecycle-validation",
+              capabilities: ["chat", "embeddings"],
+              load_policy: { mode: "on_demand", idleTtlSeconds: 900, autoEvict: true },
+            },
+          });
+          return `${stringValue(endpointResult?.id, VALIDATION_LIFECYCLE_ENDPOINT_ID)} mounted for model lifecycle validation.`;
+        }),
+      loadValidationModel: () =>
+        runAction("model-load-validation", async () => {
+          const token = await ensureToken();
+          const instanceResult = await requestJson("/api/v1/models/load", {
+            method: "POST",
+            token,
+            body: {
+              model_id: VALIDATION_LIFECYCLE_MODEL_ID,
+              endpoint_id: VALIDATION_LIFECYCLE_ENDPOINT_ID,
+              route_id: "route.native-local",
+              load_policy: { mode: "on_demand", idleTtlSeconds: 900, autoEvict: true },
+              load_options: {
+                identifier: VALIDATION_LIFECYCLE_IDENTIFIER,
+                contextLength: 4096,
+                parallel: 1,
+                ttlSeconds: 900,
+              },
+            },
+          });
+          return `${stringValue(instanceResult?.id, "instance")} loaded for model lifecycle validation.`;
+        }),
+      unloadValidationModel: () =>
+        runAction("model-unload-validation", async () => {
+          const token = await ensureToken();
+          const snapshot = normalizeSnapshot(await requestJson("/api/v1/models"), endpoint);
+          const instance = snapshot.instances
+            .filter((candidate) => candidate.modelId === VALIDATION_LIFECYCLE_MODEL_ID && candidate.status === "loaded")
+            .at(-1);
+          if (!instance) throw new Error("No loaded GUI lifecycle validation instance is projected yet.");
+          const result = await requestJson("/api/v1/models/unload", {
+            method: "POST",
+            token,
+            body: { instance_id: instance.id },
+          });
+          return `${stringValue(result?.modelId, VALIDATION_LIFECYCLE_MODEL_ID)} unloaded from ${instance.id}.`;
         }),
       nativeChatProbe: () =>
         runAction("native-chat", async () => {
@@ -5282,11 +5363,66 @@ export function MissionControlMountsView() {
     },
     [busy, daemon.actions, daemon.data.routes, pickerSelection, validationActionsEnabled],
   );
+  const selectValidationLifecycleModel = useCallback(
+    (instanceId?: string) => {
+      setPickerSelection((current) => ({
+        ...current,
+        modelId: VALIDATION_LIFECYCLE_MODEL_ID,
+        providerId: "provider.autopilot.local",
+        endpointId: VALIDATION_LIFECYCLE_ENDPOINT_ID,
+        routeId: "route.native-local",
+        instanceId: instanceId ?? current.instanceId,
+      }));
+    },
+    [],
+  );
+  const runModelLifecycleValidationAction = useCallback(
+    (action: "import" | "mount" | "load" | "unload" | "open-receipt") => {
+      if (!validationActionsEnabled || busy) return;
+      setActiveTab("models");
+      setDetailDrawerOpen(true);
+      if (action === "import") {
+        selectValidationLifecycleModel("");
+        daemon.actions.importValidationModel();
+      }
+      if (action === "mount") {
+        selectValidationLifecycleModel("");
+        daemon.actions.mountValidationModel();
+      }
+      if (action === "load") {
+        selectValidationLifecycleModel("");
+        daemon.actions.loadValidationModel();
+      }
+      if (action === "unload") {
+        const instance = daemon.data.instances
+          .filter((candidate) => candidate.modelId === VALIDATION_LIFECYCLE_MODEL_ID && candidate.status === "loaded")
+          .at(-1);
+        selectValidationLifecycleModel(instance?.id ?? "");
+        daemon.actions.unloadValidationModel();
+      }
+      if (action === "open-receipt") {
+        const receipt = [...daemon.data.receipts]
+          .reverse()
+          .find((receiptItem) => selectionReceiptText(receiptItem).includes(VALIDATION_LIFECYCLE_MODEL_ID));
+        if (receipt) openReceiptInLogs(receipt.id);
+      }
+    },
+    [busy, daemon.actions, daemon.data.instances, daemon.data.receipts, openReceiptInLogs, selectValidationLifecycleModel, validationActionsEnabled],
+  );
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if (event.ctrlKey || event.metaKey) return;
-      if (validationActionsEnabled && ["F16", "F17", "F18", "F19", "F20"].includes(event.key)) {
+      if (validationActionsEnabled && event.shiftKey && ["F16", "F17", "F18", "F19", "F20"].includes(event.key)) {
+        event.preventDefault();
+        if (event.key === "F16") runModelLifecycleValidationAction("import");
+        if (event.key === "F17") runModelLifecycleValidationAction("mount");
+        if (event.key === "F18") runModelLifecycleValidationAction("load");
+        if (event.key === "F19") runModelLifecycleValidationAction("unload");
+        if (event.key === "F20") runModelLifecycleValidationAction("open-receipt");
+        return;
+      }
+      if (validationActionsEnabled && !event.shiftKey && ["F16", "F17", "F18", "F19", "F20"].includes(event.key)) {
         event.preventDefault();
         if (event.key === "F16") runRoutingWorkflowValidationAction("route-test");
         if (event.key === "F17") runRoutingWorkflowValidationAction("route-draft-test");
@@ -5349,6 +5485,7 @@ export function MissionControlMountsView() {
     return () => window.removeEventListener("keydown", handler);
   }, [
     runDownloadValidationAction,
+    runModelLifecycleValidationAction,
     runProviderBackendValidationAction,
     runRoutingWorkflowValidationAction,
     runTokenMcpValidationAction,

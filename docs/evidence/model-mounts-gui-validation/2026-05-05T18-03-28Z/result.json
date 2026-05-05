@@ -1,0 +1,997 @@
+{
+  "schemaVersion": "ioi.model-mounts-gui-validation.v1",
+  "capturedAt": "2026-05-05T18:06:15.435625+00:00",
+  "windowId": 8388611,
+  "profile": "desktop-localgpu-model-mounts",
+  "daemonEndpoint": "http://127.0.0.1:34757",
+  "stateDir": "/tmp/ioi-model-mounts-gui-state-gsri0vp5",
+  "seed": {
+    "grant_id": "grant_57f4627f-5afa-4a28-ab72-739e35fd2793",
+    "backend_health_receipt": "receipt_model_lifecycle_4efa05a5-9713-4ec7-b3e3-d8c1e8819c7d",
+    "catalog_variant_count": 2,
+    "catalog_search_result_count": 2,
+    "download_id": "download_job_889e150b-2fac-4530-8049-6c9cb9724b3c",
+    "download_receipt": "receipt_model_lifecycle_dae8b0ed-bb81-44fe-8548-8a05f26ed2c2",
+    "queued_download_id": "download_job_1e8af155-e99d-4048-af73-2dd85b8d8f9c",
+    "canceled_download_id": "download_job_821634b6-0556-4f63-907a-d46cc58ed46b",
+    "failed_download_id": "download_job_92ccad6f-c8f4-41b5-bf23-8791fdc3b636",
+    "download_status_counts": {
+      "completed": 1,
+      "failed": 1,
+      "canceled": 1,
+      "queued": 1
+    },
+    "mcp_count": 1,
+    "chat_receipt": "receipt_model_invocation_be8b6d4a-2ad2-4268-8124-bb57f9aa888b",
+    "benchmark_route_receipt": "receipt_model_route_selection_355fbee3-bf2f-4125-a796-036029b0cfc2",
+    "benchmark_response_receipt": "receipt_model_invocation_7f683e1c-ff18-46fe-a66c-7ec9e386b106",
+    "benchmark_embedding_receipt": "receipt_model_invocation_fd726c5e-3cee-4fe5-b4af-ddeef3f6f4dc",
+    "snapshot_counts": {
+      "backends": 7,
+      "providers": 12,
+      "artifacts": 6,
+      "receipts": 19
+    },
+    "projection_watermark": 31,
+    "live_provider_state": {
+      "backends": {
+        "backend.lmstudio": {
+          "kind": "lm_studio",
+          "status": "available",
+          "processStatus": "not_started",
+          "baseUrl": "http://127.0.0.1:1234/v1",
+          "lastReceiptId": "receipt_model_lifecycle_987a0a10-e66e-4976-8646-6c637e19b2a0"
+        },
+        "backend.ollama": {
+          "kind": "ollama",
+          "status": "blocked",
+          "processStatus": "not_started",
+          "baseUrl": "http://127.0.0.1:11434",
+          "lastReceiptId": "receipt_model_lifecycle_137d2700-9c80-4e8f-8f7b-c2f0ad848864"
+        }
+      },
+      "providers": {
+        "provider.lmstudio": {
+          "kind": "lm_studio",
+          "status": "running",
+          "baseUrl": "http://127.0.0.1:1234/v1",
+          "modelCount": 2,
+          "modelIds": [
+            "qwen/qwen3.5-9b",
+            "text-embedding-nomic-embed-text-v1.5"
+          ],
+          "loadedCount": 1,
+          "loadedModelIds": [
+            "qwen/qwen3.5-9b"
+          ]
+        },
+        "provider.ollama": {
+          "kind": "ollama",
+          "status": "available",
+          "baseUrl": "http://127.0.0.1:11434",
+          "modelCount": 6,
+          "modelIds": [
+            "qwen3.5:9b",
+            "qwen3:8b",
+            "qwen2.5:14b",
+            "qwen2.5:7b",
+            "nomic-embed-text:latest",
+            "llama3.2:3b"
+          ],
+          "loadedCount": 0,
+          "loadedModelIds": []
+        }
+      }
+    }
+  },
+  "screenshots": [
+    {
+      "tab": "server",
+      "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T18-03-28Z/mounts-server.png",
+      "capture_mode": "window",
+      "capture_error": null,
+      "capture_diagnostics": {
+        "window_id": 8388611,
+        "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=server&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A34757&mountsValidationActions=1",
+        "window_analysis": {
+          "unique_colors": 939,
+          "mean": 0.92727,
+          "stddev": 0.0784548
+        }
+      },
+      "preparation": {
+        "scroll": "Home"
+      }
+    },
+    {
+      "tab": "backends",
+      "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T18-03-28Z/mounts-backends.png",
+      "capture_mode": "window",
+      "capture_error": null,
+      "capture_diagnostics": {
+        "window_id": 8388611,
+        "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=backends&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A34757&mountsValidationActions=1",
+        "window_analysis": {
+          "unique_colors": 916,
+          "mean": 0.927162,
+          "stddev": 0.0797798
+        }
+      },
+      "preparation": {
+        "scroll": "Home"
+      },
+      "rmse_vs_previous": "4980.8 (0.0760021)"
+    },
+    {
+      "tab": "models",
+      "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T18-03-28Z/mounts-models.png",
+      "capture_mode": "window",
+      "capture_error": null,
+      "capture_diagnostics": {
+        "window_id": 8388611,
+        "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=models&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A34757&mountsValidationActions=1",
+        "window_analysis": {
+          "unique_colors": 856,
+          "mean": 0.910532,
+          "stddev": 0.0814483
+        }
+      },
+      "preparation": {
+        "scroll": "Home"
+      },
+      "rmse_vs_previous": "5505.54 (0.0840091)"
+    },
+    {
+      "tab": "providers",
+      "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T18-03-28Z/mounts-providers.png",
+      "capture_mode": "window",
+      "capture_error": null,
+      "capture_diagnostics": {
+        "window_id": 8388611,
+        "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=providers&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A34757&mountsValidationActions=1",
+        "window_analysis": {
+          "unique_colors": 852,
+          "mean": 0.927741,
+          "stddev": 0.0709483
+        }
+      },
+      "preparation": {
+        "scroll": "Home"
+      },
+      "rmse_vs_previous": "4992.9 (0.0761867)"
+    },
+    {
+      "tab": "downloads",
+      "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T18-03-28Z/mounts-downloads.png",
+      "capture_mode": "window",
+      "capture_error": null,
+      "capture_diagnostics": {
+        "window_id": 8388611,
+        "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=downloads&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A34757&mountsValidationActions=1",
+        "window_analysis": {
+          "unique_colors": 1167,
+          "mean": 0.926112,
+          "stddev": 0.07571
+        }
+      },
+      "preparation": {
+        "scroll": "wheel_down",
+        "reason": "show_catalog_variants_download_rows_and_row_actions"
+      },
+      "rmse_vs_previous": "3895.62 (0.0594433)"
+    },
+    {
+      "tab": "tokens",
+      "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T18-03-28Z/mounts-tokens.png",
+      "capture_mode": "window",
+      "capture_error": null,
+      "capture_diagnostics": {
+        "window_id": 8388611,
+        "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=tokens&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A34757&mountsValidationActions=1",
+        "window_analysis": {
+          "unique_colors": 1094,
+          "mean": 0.924423,
+          "stddev": 0.0837575
+        }
+      },
+      "preparation": {
+        "scroll": "Home"
+      },
+      "rmse_vs_previous": "4931.52 (0.0752502)"
+    },
+    {
+      "tab": "routing",
+      "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T18-03-28Z/mounts-routing.png",
+      "capture_mode": "window",
+      "capture_error": null,
+      "capture_diagnostics": {
+        "window_id": 8388611,
+        "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=routing&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A34757&mountsValidationActions=1",
+        "window_analysis": {
+          "unique_colors": 1146,
+          "mean": 0.92297,
+          "stddev": 0.085128
+        }
+      },
+      "preparation": {
+        "scroll": "Home"
+      },
+      "rmse_vs_previous": "5262.85 (0.0803059)"
+    },
+    {
+      "tab": "benchmarks",
+      "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T18-03-28Z/mounts-benchmarks.png",
+      "capture_mode": "window",
+      "capture_error": null,
+      "capture_diagnostics": {
+        "window_id": 8388611,
+        "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=benchmarks&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A34757&mountsValidationActions=1",
+        "window_analysis": {
+          "unique_colors": 893,
+          "mean": 0.925501,
+          "stddev": 0.0884715
+        }
+      },
+      "preparation": {
+        "scroll": "Home"
+      },
+      "rmse_vs_previous": "5583.41 (0.0851974)"
+    },
+    {
+      "tab": "logs",
+      "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T18-03-28Z/mounts-logs.png",
+      "capture_mode": "window",
+      "capture_error": null,
+      "capture_diagnostics": {
+        "window_id": 8388611,
+        "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=logs&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A34757&mountsValidationActions=1",
+        "window_analysis": {
+          "unique_colors": 785,
+          "mean": 0.925884,
+          "stddev": 0.0792125
+        }
+      },
+      "preparation": {
+        "scroll": "Home"
+      },
+      "rmse_vs_previous": "5390.25 (0.0822499)"
+    }
+  ],
+  "secretScan": {
+    "passed": true,
+    "findings": []
+  },
+  "seededStateAssertions": {
+    "passed": true,
+    "assertions": {
+      "catalogVariantsSeeded": true,
+      "completedDownloadSeeded": true,
+      "failedDownloadSeeded": true,
+      "canceledDownloadSeeded": true,
+      "queuedDownloadSeeded": true,
+      "downloadsScreenshotCaptured": true,
+      "logsScreenshotCaptured": true,
+      "tokensScreenshotCaptured": true
+    }
+  },
+  "modelLifecycleActionAssertions": {
+    "passed": true,
+    "assertions": {
+      "importLifecycleReceiptRecorded": true,
+      "mountLifecycleReceiptRecorded": true,
+      "loadLifecycleReceiptRecorded": true,
+      "unloadLifecycleReceiptRecorded": true,
+      "importedArtifactProjected": true,
+      "mountedEndpointProjected": true,
+      "loadedInstanceProjected": true,
+      "unloadedInstanceProjected": true,
+      "detailDrawerMetadataProjected": true,
+      "modelReceiptTrailAvailable": true,
+      "receiptLinkRoutedToLogs": true,
+      "openedReceiptLookupSucceeded": true,
+      "receiptReplaySucceeded": true,
+      "actionScreenshotsCaptured": true
+    },
+    "observedReceiptIds": {
+      "models-after-import-action": [
+        "receipt_permission_token_5ae4d481-3250-4ec8-9699-f5289641917b",
+        "receipt_model_lifecycle_1d4d8431-ad7e-4df4-bf5d-5fa26505ad28"
+      ],
+      "models-after-mount-action": [
+        "receipt_model_lifecycle_0068d101-cac1-439b-86ff-674b38470880"
+      ],
+      "models-after-load-action": [
+        "receipt_model_lifecycle_9108eb8d-fa23-455f-abde-29f77b2fa020"
+      ],
+      "models-after-unload-action": [
+        "receipt_model_lifecycle_c56d7639-4c46-4f24-b2e1-702685a642a9"
+      ]
+    },
+    "modelId": "autopilot:gui-lifecycle",
+    "endpointId": "endpoint.autopilot.gui-lifecycle",
+    "loadedInstanceId": "instance.endpoint.autopilot.gui.lifecycle.1778004290636",
+    "unloadedInstanceId": "instance.endpoint.autopilot.gui.lifecycle.1778004290636",
+    "openedReceiptId": "receipt_model_lifecycle_c56d7639-4c46-4f24-b2e1-702685a642a9",
+    "screenshots": [
+      {
+        "name": "models-after-import-action",
+        "tab": "models",
+        "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T18-03-28Z/mounts-models-after-import-action.png",
+        "capture_mode": "window",
+        "capture_error": null,
+        "capture_diagnostics": {
+          "window_id": 8388611,
+          "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=models&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A34757&mountsValidationActions=1",
+          "window_analysis": {
+            "unique_colors": 557,
+            "mean": 0.910054,
+            "stddev": 0.0838906
+          }
+        }
+      },
+      {
+        "name": "models-after-mount-action",
+        "tab": "models",
+        "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T18-03-28Z/mounts-models-after-mount-action.png",
+        "capture_mode": "window",
+        "capture_error": null,
+        "capture_diagnostics": {
+          "window_id": 8388611,
+          "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=models&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A34757&mountsValidationActions=1",
+          "window_analysis": {
+            "unique_colors": 806,
+            "mean": 0.909644,
+            "stddev": 0.0843946
+          }
+        }
+      },
+      {
+        "name": "models-after-load-action",
+        "tab": "models",
+        "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T18-03-28Z/mounts-models-after-load-action.png",
+        "capture_mode": "window",
+        "capture_error": null,
+        "capture_diagnostics": {
+          "window_id": 8388611,
+          "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=models&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A34757&mountsValidationActions=1",
+          "window_analysis": {
+            "unique_colors": 806,
+            "mean": 0.909259,
+            "stddev": 0.0856994
+          }
+        }
+      },
+      {
+        "name": "models-after-unload-action",
+        "tab": "models",
+        "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T18-03-28Z/mounts-models-after-unload-action.png",
+        "capture_mode": "window",
+        "capture_error": null,
+        "capture_diagnostics": {
+          "window_id": 8388611,
+          "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=models&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A34757&mountsValidationActions=1",
+          "window_analysis": {
+            "unique_colors": 806,
+            "mean": 0.909665,
+            "stddev": 0.0843878
+          }
+        }
+      },
+      {
+        "name": "models-open-receipt-logs",
+        "tab": "logs",
+        "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T18-03-28Z/mounts-models-open-receipt-logs.png",
+        "capture_mode": "window",
+        "capture_error": null,
+        "capture_diagnostics": {
+          "window_id": 8388611,
+          "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=logs&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A34757&mountsValidationActions=1",
+          "window_analysis": {
+            "unique_colors": 731,
+            "mean": 0.92529,
+            "stddev": 0.081341
+          }
+        }
+      }
+    ]
+  },
+  "downloadActionAssertions": {
+    "passed": true,
+    "assertions": {
+      "openReceiptKeyRoutedToLogs": true,
+      "openedReceiptLookupSucceeded": true,
+      "queuedDownloadCanceledThroughGuiAction": true,
+      "cancelLifecycleReceiptRecorded": true,
+      "failedDownloadRetriedThroughGuiAction": true,
+      "retryLifecycleReceiptRecorded": true,
+      "actionScreenshotsCaptured": true
+    },
+    "openedReceiptId": "receipt_model_lifecycle_dae8b0ed-bb81-44fe-8548-8a05f26ed2c2",
+    "queuedDownloadId": "download_job_1e8af155-e99d-4048-af73-2dd85b8d8f9c",
+    "canceledDownloadReceipt": "receipt_model_lifecycle_9db165a3-db22-47cf-a392-82496ebae9ef",
+    "failedDownloadId": "download_job_92ccad6f-c8f4-41b5-bf23-8791fdc3b636",
+    "retryDownloadId": "download_job_d6576f98-8c7d-4e40-9047-94d72a48b20c",
+    "retryDownloadReceipt": "receipt_model_lifecycle_8542e1eb-4624-42d5-aea3-55ea9aecf144",
+    "screenshots": [
+      {
+        "name": "downloads-open-receipt-logs",
+        "tab": "logs",
+        "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T18-03-28Z/mounts-downloads-open-receipt-logs.png",
+        "capture_mode": "window",
+        "capture_error": null,
+        "capture_diagnostics": {
+          "window_id": 8388611,
+          "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=logs&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A34757&mountsValidationActions=1",
+          "window_analysis": {
+            "unique_colors": 731,
+            "mean": 0.925261,
+            "stddev": 0.0814533
+          }
+        }
+      },
+      {
+        "name": "downloads-after-cancel-action",
+        "tab": "downloads",
+        "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T18-03-28Z/mounts-downloads-after-cancel-action.png",
+        "capture_mode": "window",
+        "capture_error": null,
+        "capture_diagnostics": {
+          "window_id": 8388611,
+          "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=downloads&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A34757&mountsValidationActions=1",
+          "window_analysis": {
+            "unique_colors": 1085,
+            "mean": 0.926665,
+            "stddev": 0.0742828
+          }
+        }
+      },
+      {
+        "name": "downloads-after-retry-action",
+        "tab": "downloads",
+        "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T18-03-28Z/mounts-downloads-after-retry-action.png",
+        "capture_mode": "window",
+        "capture_error": null,
+        "capture_diagnostics": {
+          "window_id": 8388611,
+          "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=downloads&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A34757&mountsValidationActions=1",
+          "window_analysis": {
+            "unique_colors": 1085,
+            "mean": 0.926665,
+            "stddev": 0.0742828
+          }
+        }
+      }
+    ]
+  },
+  "tokenMcpActionAssertions": {
+    "passed": true,
+    "assertions": {
+      "validationTokenCreated": true,
+      "validationTokenRevoked": true,
+      "mcpImportReceiptRecorded": true,
+      "mcpServerProjected": true,
+      "ephemeralMcpRegistrationRecorded": true,
+      "ephemeralMcpToolReceiptRecorded": true,
+      "ephemeralMcpLinkedToModelReceipt": true,
+      "vaultHealthReceiptRecorded": true,
+      "latestVaultHealthLookupSucceeded": true,
+      "rawTokenRedactedFromProjection": true,
+      "vaultRefsRedactedInMcpProjection": true,
+      "actionScreenshotsCaptured": true
+    },
+    "validationGrantId": "wallet.grant.mounts.gui.validation",
+    "validationTokenIds": [
+      "grant_daccb8f3-9ce1-4e52-9b36-aeca8b85dd67"
+    ],
+    "linkedToolReceiptIds": [
+      "receipt_mcp_tool_invocation_6a6d5f75-cc13-460e-b0bc-84c854b81db5"
+    ],
+    "latestVaultReceiptId": "receipt_vault_adapter_health_0f6cccb2-ac19-48fd-8fd4-d0d218ff27ee",
+    "screenshots": [
+      {
+        "name": "tokens-after-create-action",
+        "tab": "tokens",
+        "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T18-03-28Z/mounts-tokens-after-create-action.png",
+        "capture_mode": "window",
+        "capture_error": null,
+        "capture_diagnostics": {
+          "window_id": 8388611,
+          "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=tokens&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A34757&mountsValidationActions=1",
+          "window_analysis": {
+            "unique_colors": 941,
+            "mean": 0.924438,
+            "stddev": 0.0822907
+          }
+        }
+      },
+      {
+        "name": "tokens-after-revoke-action",
+        "tab": "tokens",
+        "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T18-03-28Z/mounts-tokens-after-revoke-action.png",
+        "capture_mode": "window",
+        "capture_error": null,
+        "capture_diagnostics": {
+          "window_id": 8388611,
+          "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=tokens&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A34757&mountsValidationActions=1",
+          "window_analysis": {
+            "unique_colors": 1128,
+            "mean": 0.925299,
+            "stddev": 0.0813306
+          }
+        }
+      },
+      {
+        "name": "tokens-after-mcp-import-action",
+        "tab": "tokens",
+        "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T18-03-28Z/mounts-tokens-after-mcp-import-action.png",
+        "capture_mode": "window",
+        "capture_error": null,
+        "capture_diagnostics": {
+          "window_id": 8388611,
+          "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=tokens&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A34757&mountsValidationActions=1",
+          "window_analysis": {
+            "unique_colors": 941,
+            "mean": 0.924439,
+            "stddev": 0.0822908
+          }
+        }
+      },
+      {
+        "name": "tokens-after-ephemeral-mcp-action",
+        "tab": "tokens",
+        "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T18-03-28Z/mounts-tokens-after-ephemeral-mcp-action.png",
+        "capture_mode": "window",
+        "capture_error": null,
+        "capture_diagnostics": {
+          "window_id": 8388611,
+          "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=tokens&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A34757&mountsValidationActions=1",
+          "window_analysis": {
+            "unique_colors": 941,
+            "mean": 0.924439,
+            "stddev": 0.0822908
+          }
+        }
+      },
+      {
+        "name": "tokens-after-vault-health-action",
+        "tab": "tokens",
+        "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T18-03-28Z/mounts-tokens-after-vault-health-action.png",
+        "capture_mode": "window",
+        "capture_error": null,
+        "capture_diagnostics": {
+          "window_id": 8388611,
+          "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=tokens&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A34757&mountsValidationActions=1",
+          "window_analysis": {
+            "unique_colors": 941,
+            "mean": 0.924439,
+            "stddev": 0.0822908
+          }
+        }
+      },
+      {
+        "name": "tokens-after-vault-latest-action",
+        "tab": "tokens",
+        "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T18-03-28Z/mounts-tokens-after-vault-latest-action.png",
+        "capture_mode": "window",
+        "capture_error": null,
+        "capture_diagnostics": {
+          "window_id": 8388611,
+          "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=tokens&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A34757&mountsValidationActions=1",
+          "window_analysis": {
+            "unique_colors": 940,
+            "mean": 0.923852,
+            "stddev": 0.0845575
+          }
+        }
+      }
+    ]
+  },
+  "routingWorkflowActionAssertions": {
+    "passed": true,
+    "assertions": {
+      "routeTestReceiptRecorded": true,
+      "routeDraftTestReceiptRecorded": true,
+      "workflowModelInvocationRecorded": true,
+      "workflowMcpToolReceiptRecorded": true,
+      "receiptGatePassRecorded": true,
+      "receiptGateBlockRecorded": true,
+      "workflowNodesProjected": true,
+      "routeProjectionUpdated": true,
+      "actionScreenshotsCaptured": true
+    },
+    "observedReceiptIds": {
+      "routing-after-route-test-action": [
+        "receipt_model_route_selection_213e60bc-ab36-4433-858a-5f06849cdb61"
+      ],
+      "routing-after-route-draft-test-action": [
+        "receipt_model_route_selection_086fd12c-0e78-4707-8227-198244743a25"
+      ],
+      "routing-after-workflow-probe-action": [
+        "receipt_mcp_server_import_6bde0c79-16e6-493c-b1c2-c1e84b4124ab",
+        "receipt_model_route_selection_415b0eb7-e557-4d2b-8b88-bc5f3db768a3",
+        "receipt_model_route_selection_feac3465-4cae-4f7f-8db5-81af1508a0ba",
+        "receipt_model_invocation_aab8f15d-0954-4d7b-a4cc-1041e949a9f5",
+        "receipt_model_route_selection_c5afbe39-33bd-4fdf-826c-bd42fe3e4605",
+        "receipt_model_invocation_5fc23913-7dc6-42fb-ba58-c7647c390e38",
+        "receipt_mcp_tool_invocation_c53c0dc8-c4d4-41b6-87fd-290029b8fb0f"
+      ],
+      "routing-after-receipt-gate-pass-action": [
+        "receipt_model_route_selection_d19a5b24-e6d1-4475-a847-e4a1c1e1ca3f",
+        "receipt_mcp_ephemeral_registration_6eae05e8-f1ca-47c1-abd0-7a227fe6e9fc",
+        "receipt_mcp_tool_invocation_bdeeb353-c7c5-4c94-ad2c-ee9ea3f8a813",
+        "receipt_model_invocation_6a6992f5-eac7-4c47-97af-6249f339195c",
+        "receipt_workflow_receipt_gate_753c7fc3-8013-4101-8d94-75cc653f39e4"
+      ],
+      "routing-after-receipt-gate-block-action": [
+        "receipt_model_route_selection_6d9109ca-647e-461d-abb8-07a541ad28ca",
+        "receipt_model_invocation_abedeb9d-7ddc-45ec-91bb-9c1d6a3f9c7d",
+        "receipt_workflow_receipt_gate_blocked_809be90a-4b2f-4f6b-be6f-8ac8664c3fd3"
+      ]
+    },
+    "routeReceipt": "receipt_model_invocation_abedeb9d-7ddc-45ec-91bb-9c1d6a3f9c7d",
+    "latestGateReceiptId": "receipt_workflow_receipt_gate_753c7fc3-8013-4101-8d94-75cc653f39e4",
+    "latestBlockedGateReceiptId": "receipt_workflow_receipt_gate_blocked_809be90a-4b2f-4f6b-be6f-8ac8664c3fd3",
+    "screenshots": [
+      {
+        "name": "routing-after-route-test-action",
+        "tab": "routing",
+        "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T18-03-28Z/mounts-routing-after-route-test-action.png",
+        "capture_mode": "window",
+        "capture_error": null,
+        "capture_diagnostics": {
+          "window_id": 8388611,
+          "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=routing&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A34757&mountsValidationActions=1",
+          "window_analysis": {
+            "unique_colors": 1169,
+            "mean": 0.923673,
+            "stddev": 0.0836075
+          }
+        }
+      },
+      {
+        "name": "routing-after-route-draft-test-action",
+        "tab": "routing",
+        "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T18-03-28Z/mounts-routing-after-route-draft-test-action.png",
+        "capture_mode": "window",
+        "capture_error": null,
+        "capture_diagnostics": {
+          "window_id": 8388611,
+          "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=routing&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A34757&mountsValidationActions=1",
+          "window_analysis": {
+            "unique_colors": 1169,
+            "mean": 0.923673,
+            "stddev": 0.0836075
+          }
+        }
+      },
+      {
+        "name": "routing-after-workflow-probe-action",
+        "tab": "routing",
+        "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T18-03-28Z/mounts-routing-after-workflow-probe-action.png",
+        "capture_mode": "window",
+        "capture_error": null,
+        "capture_diagnostics": {
+          "window_id": 8388611,
+          "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=routing&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A34757&mountsValidationActions=1",
+          "window_analysis": {
+            "unique_colors": 1166,
+            "mean": 0.923697,
+            "stddev": 0.0834097
+          }
+        }
+      },
+      {
+        "name": "routing-after-receipt-gate-pass-action",
+        "tab": "routing",
+        "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T18-03-28Z/mounts-routing-after-receipt-gate-pass-action.png",
+        "capture_mode": "window",
+        "capture_error": null,
+        "capture_diagnostics": {
+          "window_id": 8388611,
+          "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=routing&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A34757&mountsValidationActions=1",
+          "window_analysis": {
+            "unique_colors": 1166,
+            "mean": 0.923697,
+            "stddev": 0.0834097
+          }
+        }
+      },
+      {
+        "name": "routing-after-receipt-gate-block-action",
+        "tab": "routing",
+        "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T18-03-28Z/mounts-routing-after-receipt-gate-block-action.png",
+        "capture_mode": "window",
+        "capture_error": null,
+        "capture_diagnostics": {
+          "window_id": 8388611,
+          "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=routing&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A34757&mountsValidationActions=1",
+          "window_analysis": {
+            "unique_colors": 1166,
+            "mean": 0.923697,
+            "stddev": 0.0834097
+          }
+        }
+      }
+    ]
+  },
+  "providerBackendActionAssertions": {
+    "passed": true,
+    "assertions": {
+      "backendHealthReceiptRecorded": true,
+      "backendStartReceiptRecorded": true,
+      "backendLogsReceiptRecorded": true,
+      "backendStopReceiptRecorded": true,
+      "backendStartLogRecorded": true,
+      "backendStopLogRecorded": true,
+      "backendProjectionUpdated": true,
+      "providerHealthReceiptRecorded": true,
+      "providerModelsReceiptRecorded": true,
+      "providerLoadedReceiptRecorded": true,
+      "providerStartReceiptRecorded": true,
+      "providerStopReceiptRecorded": true,
+      "providerProjectionUpdated": true,
+      "providerArtifactsVisible": true,
+      "actionScreenshotsCaptured": true
+    },
+    "backendId": "backend.autopilot.native-local.fixture",
+    "backendStatus": "stopped",
+    "providerId": "provider.autopilot.local",
+    "providerStatus": "stopped",
+    "providerArtifactCount": 4,
+    "screenshots": [
+      {
+        "name": "backends-after-health-action",
+        "tab": "backends",
+        "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T18-03-28Z/mounts-backends-after-health-action.png",
+        "capture_mode": "window",
+        "capture_error": null,
+        "capture_diagnostics": {
+          "window_id": 8388611,
+          "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=backends&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A34757&mountsValidationActions=1",
+          "window_analysis": {
+            "unique_colors": 780,
+            "mean": 0.927002,
+            "stddev": 0.0780231
+          }
+        }
+      },
+      {
+        "name": "backends-after-start-action",
+        "tab": "backends",
+        "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T18-03-28Z/mounts-backends-after-start-action.png",
+        "capture_mode": "window",
+        "capture_error": null,
+        "capture_diagnostics": {
+          "window_id": 8388611,
+          "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=backends&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A34757&mountsValidationActions=1",
+          "window_analysis": {
+            "unique_colors": 780,
+            "mean": 0.927002,
+            "stddev": 0.0780231
+          }
+        }
+      },
+      {
+        "name": "backends-after-logs-action",
+        "tab": "backends",
+        "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T18-03-28Z/mounts-backends-after-logs-action.png",
+        "capture_mode": "window",
+        "capture_error": null,
+        "capture_diagnostics": {
+          "window_id": 8388611,
+          "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=backends&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A34757&mountsValidationActions=1",
+          "window_analysis": {
+            "unique_colors": 780,
+            "mean": 0.927002,
+            "stddev": 0.0780231
+          }
+        }
+      },
+      {
+        "name": "backends-after-stop-action",
+        "tab": "backends",
+        "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T18-03-28Z/mounts-backends-after-stop-action.png",
+        "capture_mode": "window",
+        "capture_error": null,
+        "capture_diagnostics": {
+          "window_id": 8388611,
+          "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=backends&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A34757&mountsValidationActions=1",
+          "window_analysis": {
+            "unique_colors": 780,
+            "mean": 0.927002,
+            "stddev": 0.0780231
+          }
+        }
+      },
+      {
+        "name": "providers-after-health-action",
+        "tab": "providers",
+        "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T18-03-28Z/mounts-providers-after-health-action.png",
+        "capture_mode": "window",
+        "capture_error": null,
+        "capture_diagnostics": {
+          "window_id": 8388611,
+          "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=providers&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A34757&mountsValidationActions=1",
+          "window_analysis": {
+            "unique_colors": 798,
+            "mean": 0.92771,
+            "stddev": 0.0709488
+          }
+        }
+      },
+      {
+        "name": "providers-after-models-action",
+        "tab": "providers",
+        "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T18-03-28Z/mounts-providers-after-models-action.png",
+        "capture_mode": "window",
+        "capture_error": null,
+        "capture_diagnostics": {
+          "window_id": 8388611,
+          "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=providers&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A34757&mountsValidationActions=1",
+          "window_analysis": {
+            "unique_colors": 798,
+            "mean": 0.92771,
+            "stddev": 0.0709488
+          }
+        }
+      },
+      {
+        "name": "providers-after-loaded-action",
+        "tab": "providers",
+        "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T18-03-28Z/mounts-providers-after-loaded-action.png",
+        "capture_mode": "window",
+        "capture_error": null,
+        "capture_diagnostics": {
+          "window_id": 8388611,
+          "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=providers&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A34757&mountsValidationActions=1",
+          "window_analysis": {
+            "unique_colors": 798,
+            "mean": 0.92771,
+            "stddev": 0.0709488
+          }
+        }
+      },
+      {
+        "name": "providers-after-start-action",
+        "tab": "providers",
+        "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T18-03-28Z/mounts-providers-after-start-action.png",
+        "capture_mode": "window",
+        "capture_error": null,
+        "capture_diagnostics": {
+          "window_id": 8388611,
+          "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=providers&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A34757&mountsValidationActions=1",
+          "window_analysis": {
+            "unique_colors": 798,
+            "mean": 0.92771,
+            "stddev": 0.0709488
+          }
+        }
+      },
+      {
+        "name": "providers-after-stop-action",
+        "tab": "providers",
+        "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounts-gui-validation/2026-05-05T18-03-28Z/mounts-providers-after-stop-action.png",
+        "capture_mode": "window",
+        "capture_error": null,
+        "capture_diagnostics": {
+          "window_id": 8388611,
+          "browser_fallback_url": "http://127.0.0.1:1433/?view=mounts&mountsTab=providers&mountsEndpoint=http%3A%2F%2F127.0.0.1%3A34757&mountsValidationActions=1",
+          "window_analysis": {
+            "unique_colors": 798,
+            "mean": 0.92771,
+            "stddev": 0.0709488
+          }
+        }
+      }
+    ]
+  },
+  "passed": true,
+  "probeError": null,
+  "desktopLogTail": [
+    "",
+    "> dev:desktop",
+    "> bash apps/autopilot/scripts/dev-desktop.sh x11",
+    "",
+    "Starting isolated Vite dev server on port 1433...",
+    "",
+    "> autopilot@0.1.0 tauri",
+    "> tauri dev --config {\"build\":{\"beforeDevCommand\":\"\",\"devUrl\":\"http://127.0.0.1:1433\"}} --no-watch",
+    "",
+    "     Running DevCommand (`cargo  run --no-default-features --color always --`)",
+    "\u001b[1m\u001b[92m    Finished\u001b[0m `dev` profile [unoptimized + debuginfo] target(s) in 0.46s",
+    "\u001b[1m\u001b[92m     Running\u001b[0m `/home/heathledger/Documents/ioi/repos/ioi/target/debug/autopilot`",
+    "[Autopilot] X11 threading initialized",
+    "[Autopilot] Display env: XDG_SESSION_TYPE='x11' WAYLAND_DISPLAY='' GDK_BACKEND='x11' WINIT_UNIX_BACKEND='x11'",
+    "[Autopilot] Initializing...",
+    "[Chat] Reset Autopilot data directory on boot: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu-model-mounts",
+    "[Chat] Using Autopilot data profile 'desktop-localgpu-model-mounts' at /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu-model-mounts",
+    "--- Encrypting New Secure Key ---",
+    "[Chat] Initialized memory runtime.",
+    "[Autopilot] Failed to bootstrap wallet-backed Shield policy state: Failed to connect to Kernel: transport error",
+    "[Autopilot] Failed to bootstrap wallet-backed Google auth state: Failed to parse Google auth state '/home/heathledger/.config/ioi/google_workspace_oauth.json': trailing characters at line 15 column 2",
+    "[Chat] MCP disabled by default. Native filesystem drivers remain available; optional MCP filesystem server is off for safety.",
+    "[Chat] Set IOI_CHAT_MCP_PROFILE=dev_filesystem to opt in.",
+    "[Autopilot] Setup complete.",
+    "[Autopilot][ChatLaunch] stage=show_requested detail={\"maximizedBefore\":false,\"minimizedBefore\":false,\"visibleBefore\":false,\"windowExistedBefore\":true,\"windowLabel\":\"chat\"}",
+    "[Autopilot] Surfacing 'chat' (task_switcher=true, visible=Ok(true), minimized=Ok(false))",
+    "[Autopilot][ChatLaunch] stage=show_surfaced detail={\"maximizedAfter\":false,\"minimizedAfter\":false,\"recreatedWindow\":false,\"visibleAfter\":true,\"windowLabel\":\"chat\"}",
+    "[Autopilot][ChatLaunch] stage=runtime_show_chat_requested detail={}",
+    "[Autopilot][ChatLaunch] stage=runtime_show_chat_requested detail={}",
+    "[Autopilot][ChatLaunch] stage=show_requested detail={\"maximizedBefore\":false,\"minimizedBefore\":false,\"visibleBefore\":true,\"windowExistedBefore\":true,\"windowLabel\":\"chat\"}",
+    "[Autopilot] Surfacing 'chat' (task_switcher=true, visible=Ok(true), minimized=Ok(false))",
+    "[Autopilot][ChatLaunch] stage=show_surfaced detail={\"maximizedAfter\":false,\"minimizedAfter\":false,\"recreatedWindow\":false,\"visibleAfter\":true,\"windowLabel\":\"chat\"}",
+    "[Autopilot][ChatLaunch] stage=show_requested detail={\"maximizedBefore\":false,\"minimizedBefore\":false,\"visibleBefore\":true,\"windowExistedBefore\":true,\"windowLabel\":\"chat\"}",
+    "[Autopilot] Surfacing 'chat' (task_switcher=true, visible=Ok(true), minimized=Ok(false))",
+    "[Autopilot][ChatLaunch] stage=show_surfaced detail={\"maximizedAfter\":false,\"minimizedAfter\":false,\"recreatedWindow\":false,\"visibleAfter\":true,\"windowLabel\":\"chat\"}",
+    "[Autopilot][ChatLaunch] stage=runtime_show_chat_completed detail={}",
+    "[Autopilot][ChatLaunch] stage=runtime_show_chat_completed detail={}",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Autopilot][ChatLaunch] stage=peeked detail={\"foundPendingRequest\":false,\"launch\":null}",
+    "[Autopilot][ChatLaunch] stage=chat_pending_launch_empty detail={\"source\":\"mount\"}",
+    "[Autopilot][ChatLaunch] stage=peeked detail={\"foundPendingRequest\":false,\"launch\":null}",
+    "[Autopilot][ChatLaunch] stage=chat_pending_launch_empty detail={\"source\":\"mount\"}",
+    "[Autopilot][ChatLaunch] stage=show_requested detail={\"maximizedBefore\":false,\"minimizedBefore\":false,\"visibleBefore\":true,\"windowExistedBefore\":true,\"windowLabel\":\"chat\"}",
+    "[Autopilot] Surfacing 'chat' (task_switcher=true, visible=Ok(true), minimized=Ok(false))",
+    "[Autopilot][ChatLaunch] stage=show_surfaced detail={\"maximizedAfter\":false,\"minimizedAfter\":false,\"recreatedWindow\":false,\"visibleAfter\":true,\"windowLabel\":\"chat\"}",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error",
+    "[Kernel] RPC client unavailable for history: Failed to connect to Kernel: transport error"
+  ]
+}
