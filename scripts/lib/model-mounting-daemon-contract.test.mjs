@@ -139,6 +139,18 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     const backends = await expectOk(daemon.endpoint, "/api/v1/backends");
     assert.ok(backends.some((backend) => backend.id === "backend.autopilot.native-local.fixture"));
     assert.ok(backends.some((backend) => backend.id === "backend.llama-cpp"));
+    const runtimeEngines = await expectOk(daemon.endpoint, "/api/v1/runtime/engines");
+    assert.ok(runtimeEngines.some((engine) => engine.id === "backend.autopilot.native-local.fixture"));
+    assert.ok(runtimeEngines.some((engine) => engine.source === "autopilot_backend_registry"));
+    const runtimeSurvey = await expectOk(daemon.endpoint, "/api/v1/runtime/survey", { method: "POST" });
+    assert.equal(runtimeSurvey.schemaVersion, "ioi.model-mounting.runtime.v1");
+    assert.ok(runtimeSurvey.engines.some((engine) => engine.id === "backend.autopilot.native-local.fixture"));
+    assert.equal(typeof runtimeSurvey.hardware.totalMemoryBytes, "number");
+    assert.ok(["absent", "available", "blocked"].includes(runtimeSurvey.lmStudio.status));
+    assert.match(runtimeSurvey.receiptId, /^receipt_runtime_survey_/);
+    const runtimeSurveyReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${runtimeSurvey.receiptId}`);
+    assert.equal(runtimeSurveyReceipt.kind, "runtime_survey");
+    assert.equal(runtimeSurveyReceipt.details.engineCount, runtimeSurvey.engines.length);
     const backendHealth = await expectOk(daemon.endpoint, "/api/v1/backends/backend.autopilot.native-local.fixture/health", {
       method: "POST",
     });
@@ -1413,6 +1425,25 @@ if [ "$1" = "ps" ]; then
   printf 'MODEL                         CONTEXT\\nqwen/qwen3.5-9b              32768\\n'
   exit 0
 fi
+if [ "$1" = "runtime" ] && [ "$2" = "ls" ]; then
+  cat <<'RUNTIMES'
+LLM ENGINE                                          SELECTED    MODEL FORMAT
+llama.cpp-linux-x86_64-avx2@2.13.0                                  GGUF
+llama.cpp-linux-x86_64-nvidia-cuda12-avx2@2.13.0       yes          GGUF
+RUNTIMES
+  exit 0
+fi
+if [ "$1" = "runtime" ] && [ "$2" = "survey" ]; then
+  cat <<'SURVEY'
+Survey by llama.cpp-linux-x86_64-nvidia-cuda12-avx2 (2.13.0)
+GPU/ACCELERATORS                                      VRAM
+NVIDIA Test GPU (CUDA, Discrete)                      8.00 GiB
+
+CPU: x86_64 (AVX2, AVX)
+RAM: 64.00 GiB
+SURVEY
+  exit 0
+fi
 if [ "$1" = "load" ] || [ "$1" = "unload" ]; then
   exit 0
 fi
@@ -1446,6 +1477,16 @@ exit 0
 
     const providerLoaded = await expectOk(daemon.endpoint, "/api/v1/providers/provider.lmstudio/loaded");
     assert.ok(providerLoaded.some((model) => model.modelId === "qwen/qwen3.5-9b"));
+
+    const runtimeEngines = await expectOk(daemon.endpoint, "/api/v1/runtime/engines");
+    assert.ok(runtimeEngines.some((engine) => engine.kind === "lm_studio_runtime" && engine.selected));
+    const runtimeSurvey = await expectOk(daemon.endpoint, "/api/v1/runtime/survey", { method: "POST" });
+    assert.equal(runtimeSurvey.lmStudio.status, "available");
+    assert.equal(runtimeSurvey.lmStudio.cpu, "x86_64 (AVX2, AVX)");
+    assert.equal(runtimeSurvey.lmStudio.ram, "64.00 GiB");
+    assert.equal(runtimeSurvey.lmStudio.accelerators[0].vram, "8.00 GiB");
+    assert.equal(JSON.stringify(runtimeSurvey).includes("NVIDIA Test GPU"), true);
+    assert.equal(JSON.stringify(runtimeSurvey).includes(lmsPath), false);
 
     const mounted = await expectOk(daemon.endpoint, "/api/v1/models/mount", {
       method: "POST",

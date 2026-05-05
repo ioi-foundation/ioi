@@ -579,6 +579,14 @@ async function handleModelMountingNativeRoute({ request, response, store, url, s
     writeJsonResponse(response, mounts.listBackends());
     return;
   }
+  if (request.method === "GET" && url.pathname === "/api/v1/runtime/engines") {
+    writeJsonResponse(response, mounts.listRuntimeEngines());
+    return;
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/runtime/survey") {
+    writeJsonResponse(response, mounts.runtimeSurvey());
+    return;
+  }
   if (request.method === "POST" && segments[2] === "backends" && segments[3] && segments[4] === "health") {
     writeJsonResponse(response, mounts.backendHealth(decodeURIComponent(segments[3])));
     return;

@@ -33,6 +33,8 @@ pub enum BackendsCommands {
     Stop { id: String },
     /// Show recent backend logs.
     Logs { id: String },
+    /// Capture a runtime engine and hardware survey through the daemon.
+    Survey,
 }
 
 pub async fn run(args: BackendsArgs) -> Result<()> {
@@ -81,6 +83,9 @@ pub async fn run(args: BackendsArgs) -> Result<()> {
                 None,
             )
             .await?
+        }
+        BackendsCommands::Survey => {
+            daemon_request(endpoint, token, Method::POST, "/api/v1/runtime/survey", None).await?
         }
     };
     print_value(&value, args.json)
