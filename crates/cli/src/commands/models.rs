@@ -82,6 +82,12 @@ pub enum ModelsCommands {
     ProviderModels { provider_id: String },
     /// List loaded models observed by a provider driver.
     ProviderLoaded { provider_id: String },
+    /// Probe provider health or inspect the latest provider health receipt.
+    ProviderHealth {
+        provider_id: String,
+        #[clap(long)]
+        latest: bool,
+    },
     /// Create or update a provider profile.
     ProviderSet {
         #[clap(long)]
@@ -250,6 +256,30 @@ pub async fn run(args: ModelsArgs) -> Result<()> {
                 None,
             )
             .await?
+        }
+        ModelsCommands::ProviderHealth {
+            provider_id,
+            latest,
+        } => {
+            if latest {
+                daemon_request(
+                    endpoint,
+                    token,
+                    Method::GET,
+                    &format!("/api/v1/providers/{provider_id}/health/latest"),
+                    None,
+                )
+                .await?
+            } else {
+                daemon_request(
+                    endpoint,
+                    token,
+                    Method::POST,
+                    &format!("/api/v1/providers/{provider_id}/health"),
+                    None,
+                )
+                .await?
+            }
         }
         ModelsCommands::ProviderSet {
             id,

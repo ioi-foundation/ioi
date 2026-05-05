@@ -1854,6 +1854,43 @@ export class ModelMountingState {
     };
   }
 
+  latestProviderHealth(providerId) {
+    this.provider(providerId);
+    const health = this.listProviderHealth()
+      .filter((record) => record.providerId === providerId)
+      .at(-1);
+    if (!health?.receiptId) {
+      throw notFound(`Provider health has not been checked: ${providerId}`, { providerId });
+    }
+    const receipt = this.getReceipt(health.receiptId);
+    return {
+      schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
+      source: "agentgres_provider_health_latest",
+      providerId,
+      health,
+      receipt,
+      replay: this.receiptReplay(receipt.id),
+      projectionWatermark: operationCount(this.stateDir),
+    };
+  }
+
+  latestVaultHealth() {
+    const receipt = this.listReceipts()
+      .filter((item) => item.kind === "vault_adapter_health")
+      .at(-1);
+    if (!receipt) {
+      throw notFound("Vault adapter health has not been checked.", { receiptKind: "vault_adapter_health" });
+    }
+    return {
+      schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
+      source: "agentgres_vault_health_latest",
+      health: receipt.details,
+      receipt,
+      replay: this.receiptReplay(receipt.id),
+      projectionWatermark: operationCount(this.stateDir),
+    };
+  }
+
   workflowNodeBindings() {
     return [
       "Model Call",
