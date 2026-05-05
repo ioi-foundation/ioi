@@ -14,8 +14,23 @@ interface ProviderProfile {
   apiFormat: string;
   baseUrl: string;
   auth: string;
+  authScheme: ProviderDraft["authScheme"];
+  authHeaderName: string;
   capabilities: string[];
   evidence: string;
+}
+
+interface ProviderDraft {
+  id: string;
+  label: string;
+  kind: string;
+  apiFormat: string;
+  baseUrl: string;
+  privacyClass: string;
+  capabilities: string;
+  secretRef: string;
+  authScheme: "bearer" | "api_key" | "raw";
+  authHeaderName: string;
 }
 
 interface BackendPreview {
@@ -135,6 +150,19 @@ interface MountsWorkbenchData {
 
 const DEFAULT_DAEMON_ENDPOINT = "http://127.0.0.1:8765";
 const ENDPOINT_STORAGE_KEY = "ioi.modelMounts.daemonEndpoint";
+
+const defaultProviderDraft: ProviderDraft = {
+  id: "provider.custom-http",
+  label: "Custom HTTP",
+  kind: "custom_http",
+  apiFormat: "openai_compatible",
+  baseUrl: "http://127.0.0.1:1234/v1",
+  privacyClass: "workspace",
+  capabilities: "chat,responses,embeddings",
+  secretRef: "",
+  authScheme: "bearer",
+  authHeaderName: "authorization",
+};
 
 const tabs: Array<{ id: MountsTab; label: string }> = [
   { id: "server", label: "Local Server" },
@@ -399,8 +427,10 @@ function provider(
   auth: string,
   capabilities: string[],
   evidence: string,
+  authScheme: ProviderDraft["authScheme"] = "bearer",
+  authHeaderName = "authorization",
 ): ProviderProfile {
-  return { id, label, kind, status, privacy, apiFormat, baseUrl, auth, capabilities, evidence };
+  return { id, label, kind, status, privacy, apiFormat, baseUrl, auth, authScheme, authHeaderName, capabilities, evidence };
 }
 
 function backend(
@@ -552,6 +582,7 @@ function useModelMountsDaemon() {
           "model.download:*",
           "model.import:*",
           "backend.control:*",
+          "provider.write:*",
           "route.use:*",
           "mcp.import:*",
           "mcp.call:huggingface.model_search",
@@ -720,7 +751,48 @@ function useModelMountsDaemon() {
           });
           return "Workflow model router and embedding nodes executed through the daemon contract.";
         }),
+      configureProvider: (draft: ProviderDraft) =>
+        runAction("provider-configure", async () => {
+          const token = await ensureToken();
+          await requestJson("/api/v1/providers", {
+            method: "POST",
+            token,
+            body: providerDraftPayload(draft),
+          });
+          return `${draft.id} configured with vault-backed auth metadata.`;
+        }),
+      testProviderHealth: (providerId: string) =>
+        runAction("provider-health", async () => {
+          await requestJson(`/api/v1/providers/${encodeURIComponent(providerId)}/health`, { method: "POST" });
+          return `${providerId} health probe completed.`;
+        }),
+      listProviderModels: (providerId: string) =>
+        runAction("provider-models", async () => {
+          const models = await requestJson(`/api/v1/providers/${encodeURIComponent(providerId)}/models`);
+          const count = Array.isArray(models) ? models.length : 0;
+          return `${providerId} returned ${count} provider model${count === 1 ? "" : "s"}.`;
+        }),
     },
+  };
+}
+
+function providerDraftPayload(draft: ProviderDraft) {
+  const capabilities = draft.capabilities
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  return {
+    id: draft.id.trim(),
+    label: draft.label.trim() || draft.id.trim(),
+    kind: draft.kind,
+    api_format: draft.apiFormat,
+    base_url: draft.baseUrl.trim() || null,
+    status: "configured",
+    privacy_class: draft.privacyClass,
+    capabilities,
+    secret_ref: draft.secretRef.trim() || null,
+    auth_scheme: draft.authScheme,
+    auth_header_name: draft.authHeaderName.trim() || "authorization",
   };
 }
 
@@ -737,6 +809,8 @@ function normalizeSnapshot(snapshot: any, endpoint: string): MountsWorkbenchData
       providerAuthPreview(item),
       stringArray(item.capabilities),
       stringArray(item.discovery?.evidenceRefs).join(", ") || "daemon provider profile",
+      providerAuthSchemeForUi(item?.authScheme),
+      stringValue(item?.authHeaderName, "authorization"),
     ),
   );
   const backends = arrayOf(snapshot?.backends).map((item) =>
@@ -866,6 +940,11 @@ function providerAuthPreview(item: any) {
   const required = Boolean(item?.vaultBoundary?.required);
   if (!required && !configured) return "no auth";
   return `${headerName} / ${scheme} / ${configured ? "vault ref" : "vault required"}`;
+}
+
+function providerAuthSchemeForUi(value: unknown): ProviderDraft["authScheme"] {
+  if (value === "api_key" || value === "raw") return value;
+  return "bearer";
 }
 
 function arrayOf(value: unknown): any[] {
@@ -1296,7 +1375,24 @@ function DownloadsPanel({
   );
 }
 
-function ProvidersPanel({ providers }: { providers: ProviderProfile[] }) {
+function ProvidersPanel({
+  providers,
+  onConfigureProvider,
+  onProviderHealth,
+  onProviderModels,
+  busy,
+}: {
+  providers: ProviderProfile[];
+  onConfigureProvider: (draft: ProviderDraft) => void;
+  onProviderHealth: (providerId: string) => void;
+  onProviderModels: (providerId: string) => void;
+  busy: string | null;
+}) {
+  const [draft, setDraft] = useState<ProviderDraft>(defaultProviderDraft);
+  const updateDraft = (field: keyof ProviderDraft, value: string) => {
+    setDraft((current) => ({ ...current, [field]: value }));
+  };
+  const providerBusy = busy === "provider-configure" || busy === "provider-health" || busy === "provider-models";
   return (
     <section className="model-mounts-panel" aria-labelledby="model-mounts-providers-title">
       <div className="model-mounts-panel-head">
@@ -1309,6 +1405,93 @@ function ProvidersPanel({ providers }: { providers: ProviderProfile[] }) {
           <StatusPill tone="muted">TEE later</StatusPill>
         </div>
       </div>
+
+      <form
+        className="model-mounts-provider-editor"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onConfigureProvider(draft);
+        }}
+      >
+        <div className="model-mounts-provider-editor-grid">
+          <label>
+            <span>Provider id</span>
+            <input value={draft.id} onChange={(event) => updateDraft("id", event.target.value)} />
+          </label>
+          <label>
+            <span>Label</span>
+            <input value={draft.label} onChange={(event) => updateDraft("label", event.target.value)} />
+          </label>
+          <label>
+            <span>Kind</span>
+            <select value={draft.kind} onChange={(event) => updateDraft("kind", event.target.value)}>
+              <option value="custom_http">Custom HTTP</option>
+              <option value="openai_compatible">OpenAI-compatible</option>
+              <option value="openai">OpenAI BYOK</option>
+              <option value="anthropic">Anthropic BYOK</option>
+              <option value="gemini">Gemini BYOK</option>
+            </select>
+          </label>
+          <label>
+            <span>API format</span>
+            <select value={draft.apiFormat} onChange={(event) => updateDraft("apiFormat", event.target.value)}>
+              <option value="openai_compatible">OpenAI-compatible</option>
+              <option value="openai">OpenAI</option>
+              <option value="anthropic">Anthropic</option>
+              <option value="gemini">Gemini</option>
+              <option value="custom">Custom</option>
+            </select>
+          </label>
+          <label>
+            <span>Base URL</span>
+            <input value={draft.baseUrl} onChange={(event) => updateDraft("baseUrl", event.target.value)} />
+          </label>
+          <label>
+            <span>Vault ref</span>
+            <input
+              value={draft.secretRef}
+              onChange={(event) => updateDraft("secretRef", event.target.value)}
+              placeholder="vault://provider/custom-http/api-key"
+            />
+          </label>
+          <label>
+            <span>Auth scheme</span>
+            <select value={draft.authScheme} onChange={(event) => updateDraft("authScheme", event.target.value)}>
+              <option value="bearer">Bearer</option>
+              <option value="api_key">API key</option>
+              <option value="raw">Raw</option>
+            </select>
+          </label>
+          <label>
+            <span>Auth header</span>
+            <input value={draft.authHeaderName} onChange={(event) => updateDraft("authHeaderName", event.target.value)} />
+          </label>
+          <label>
+            <span>Privacy</span>
+            <select value={draft.privacyClass} onChange={(event) => updateDraft("privacyClass", event.target.value)}>
+              <option value="workspace">Workspace</option>
+              <option value="local_private">Local private</option>
+              <option value="hosted">Hosted</option>
+              <option value="remote_confidential">Remote confidential</option>
+            </select>
+          </label>
+          <label>
+            <span>Capabilities</span>
+            <input value={draft.capabilities} onChange={(event) => updateDraft("capabilities", event.target.value)} />
+          </label>
+        </div>
+        <div className="model-mounts-actions">
+          <button className="model-mounts-action-button" type="submit" disabled={providerBusy}>
+            Save provider
+          </button>
+          <button className="model-mounts-action-button" type="button" onClick={() => onProviderHealth(draft.id)} disabled={providerBusy}>
+            Test health
+          </button>
+          <button className="model-mounts-action-button" type="button" onClick={() => onProviderModels(draft.id)} disabled={providerBusy}>
+            List models
+          </button>
+        </div>
+      </form>
 
       <div className="model-mounts-provider-grid">
         {providers.map((item) => (
@@ -1337,11 +1520,38 @@ function ProvidersPanel({ providers }: { providers: ProviderProfile[] }) {
               </div>
             </dl>
             <TagList items={item.capabilities} />
+            <div className="model-mounts-card-actions">
+              <button className="model-mounts-action-button" type="button" onClick={() => setDraft(providerDraftFromProfile(item))}>
+                Edit
+              </button>
+              <button className="model-mounts-action-button" type="button" onClick={() => onProviderHealth(item.id)} disabled={providerBusy}>
+                Health
+              </button>
+              <button className="model-mounts-action-button" type="button" onClick={() => onProviderModels(item.id)} disabled={providerBusy}>
+                Models
+              </button>
+            </div>
           </article>
         ))}
       </div>
     </section>
   );
+}
+
+function providerDraftFromProfile(item: ProviderProfile): ProviderDraft {
+  return {
+    ...defaultProviderDraft,
+    id: item.id,
+    label: item.label,
+    kind: item.kind,
+    apiFormat: item.apiFormat,
+    baseUrl: item.baseUrl === "not configured" || item.baseUrl === "vault reference required" ? "" : item.baseUrl,
+    privacyClass: item.privacy,
+    capabilities: item.capabilities.join(","),
+    authScheme: item.authScheme,
+    authHeaderName: item.authHeaderName,
+    secretRef: "",
+  };
 }
 
 function TokensPanel({
@@ -1630,7 +1840,15 @@ export function MissionControlMountsView() {
             busy={busy}
           />
         ) : null}
-        {activeTab === "providers" ? <ProvidersPanel providers={daemon.data.providers} /> : null}
+        {activeTab === "providers" ? (
+          <ProvidersPanel
+            providers={daemon.data.providers}
+            onConfigureProvider={daemon.actions.configureProvider}
+            onProviderHealth={daemon.actions.testProviderHealth}
+            onProviderModels={daemon.actions.listProviderModels}
+            busy={daemon.busyAction}
+          />
+        ) : null}
         {activeTab === "downloads" ? (
           <DownloadsPanel
             downloads={daemon.data.downloads}

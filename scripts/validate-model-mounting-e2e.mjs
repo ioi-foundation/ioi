@@ -79,7 +79,7 @@ function resolveCliCommand(evidence) {
   }
   const binaryName = process.platform === "win32" ? "cli.exe" : "cli";
   const targetBinary = path.join(repoRoot, "target", "debug", binaryName);
-  if (fs.existsSync(targetBinary)) {
+  if (fs.existsSync(targetBinary) && !cliTargetNeedsRebuild(targetBinary)) {
     return { command: targetBinary, prefix: [] };
   }
   const build = spawnSync("cargo", ["build", "-p", "ioi-cli", "--bin", "cli"], {
@@ -94,6 +94,16 @@ function resolveCliCommand(evidence) {
     throw new Error(`Failed to build CLI:\n${build.stdout}\n${build.stderr}`);
   }
   return { command: targetBinary, prefix: [] };
+}
+
+function cliTargetNeedsRebuild(targetBinary) {
+  const targetMtime = fs.statSync(targetBinary).mtimeMs;
+  const cliSources = [
+    path.join(repoRoot, "crates/cli/src/main.rs"),
+    path.join(repoRoot, "crates/cli/src/commands/models.rs"),
+    path.join(repoRoot, "crates/cli/src/commands/model_mount_http.rs"),
+  ];
+  return cliSources.some((source) => fs.existsSync(source) && fs.statSync(source).mtimeMs > targetMtime);
 }
 
 function runCli(cli, args, { endpoint, token, secretNeedles, evidence }) {
@@ -377,6 +387,7 @@ async function main() {
             "model.download:*",
             "model.import:*",
             "backend.control:*",
+            "provider.write:*",
             "route.write:*",
             "route.use:*",
             "mcp.import:*",
@@ -696,6 +707,41 @@ async function main() {
       assert.ok(models.artifacts.some((artifact) => artifact.modelId === "native:e2e"));
       const providerModels = await runCli(cli, ["models", "--json", "provider-models", "provider.autopilot.local"], common);
       assert.ok(providerModels.some((model) => model.modelId === "autopilot:native-fixture"));
+      const cliVaultRef = "vault://provider/e2e-cli/api-key";
+      const configuredProvider = await runCli(
+        cli,
+        [
+          "models",
+          "--json",
+          "provider-set",
+          "--id",
+          "provider.e2e.cli-auth",
+          "--kind",
+          "openai_compatible",
+          "--label",
+          "CLI Auth Provider",
+          "--api-format",
+          "openai_compatible",
+          "--base-url",
+          "http://127.0.0.1:65535/v1",
+          "--privacy-class",
+          "workspace",
+          "--capabilities",
+          "chat,responses",
+          "--secret-ref",
+          cliVaultRef,
+          "--auth-scheme",
+          "api_key",
+          "--auth-header-name",
+          "x-api-key",
+        ],
+        common,
+      );
+      assert.equal(configuredProvider.secretConfigured, true);
+      assert.equal(configuredProvider.secretRef.redacted, true);
+      assert.equal(configuredProvider.authScheme, "api_key");
+      assert.equal(configuredProvider.authHeaderName, "x-api-key");
+      assert.equal(JSON.stringify(configuredProvider).includes(cliVaultRef), false);
       const loaded = await runCli(cli, ["models", "--json", "ps"], common);
       assert.ok(loaded.some((instance) => instance.modelId === "native:e2e"));
       const routes = await runCli(cli, ["routes", "--json", "ls"], common);

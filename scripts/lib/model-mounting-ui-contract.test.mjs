@@ -29,6 +29,7 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
     "/api/v1/models/download/cancel",
     "/api/v1/providers/:id/models",
     "/api/v1/providers/:id/loaded",
+    "/api/v1/providers",
     "/api/v1/chat",
     "/api/v1/responses",
     "/api/v1/mcp/import",
@@ -53,10 +54,19 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   assert.match(source, /Stop native/);
   assert.match(source, /Load native-local/);
   assert.match(source, /Download fixture/);
+  assert.match(source, /Save provider/);
+  assert.match(source, /Test health/);
+  assert.match(source, /List models/);
+  assert.match(source, /provider\.write:\*/);
+  assert.match(source, /providerDraftPayload/);
+  assert.match(source, /auth_scheme/);
+  assert.match(source, /auth_header_name/);
   assert.match(source, /Ephemeral MCP probe/);
   assert.match(source, /Run workflow probe/);
   assert.doesNotMatch(source, /localStorage\.setItem\([^,\n]*token/i);
   assert.doesNotMatch(source, /sessionStorage\.setItem\([^,\n]*token/i);
+  assert.doesNotMatch(source, /localStorage\.setItem\([^,\n]*(secret|vault|auth)/i);
+  assert.doesNotMatch(source, /sessionStorage\.setItem\([^,\n]*(secret|vault|auth)/i);
   assert.match(source, /vault:\/\/mcp\.huggingface\/authorization/);
   assert.doesNotMatch(source, /vault:\/\/provider\.(openai|anthropic|gemini)\/api-key/);
   assert.match(source, /offline fixture projection/);
@@ -138,6 +148,20 @@ test("model mounting live-provider gates are explicit and opt-in", () => {
     "lm_studio_server_stopped",
     "remote_wallet_network_not_configured",
     "remote_agentgres_not_configured",
+  ]) {
+    assert.match(source, new RegExp(token.replaceAll("/", "\\/")));
+  }
+});
+
+test("model mounting CLI exposes vault-backed provider configuration flags", () => {
+  const source = fs.readFileSync(path.join(root, "crates", "cli", "src", "commands", "models.rs"), "utf8");
+  for (const token of [
+    "ProviderSet",
+    "/api/v1/providers",
+    "secret_ref",
+    "auth_scheme",
+    "auth_header_name",
+    "Raw keys are rejected by the daemon",
   ]) {
     assert.match(source, new RegExp(token.replaceAll("/", "\\/")));
   }
