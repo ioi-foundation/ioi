@@ -13,6 +13,7 @@ import argparse
 import contextlib
 import json
 import os
+import re
 import shlex
 import signal
 import socket
@@ -222,6 +223,20 @@ def seed_model_mounting_state(endpoint: str) -> dict[str, Any]:
             "max_bytes": 262144,
         },
     )
+    action_queued_download = request_json(
+        endpoint,
+        "/api/v1/models/download",
+        method="POST",
+        token=token,
+        body={
+            "model_id": "autopilot:gui-queued-download",
+            "provider_id": "provider.autopilot.local",
+            "source_url": "fixture://gui/model-mounts-queued",
+            "source_label": "Fixture catalog / queued GUI validation",
+            "queued_only": True,
+            "max_bytes": 131072,
+        },
+    )
     queued_download = request_json(
         endpoint,
         "/api/v1/models/download",
@@ -326,6 +341,7 @@ def seed_model_mounting_state(endpoint: str) -> dict[str, Any]:
         "catalog_search_result_count": len(catalog_search.get("results", [])),
         "download_id": download["id"],
         "download_receipt": download.get("receiptId"),
+        "queued_download_id": action_queued_download["id"],
         "canceled_download_id": canceled_download["id"],
         "failed_download_id": failed_download["id"],
         "download_status_counts": {
@@ -358,6 +374,7 @@ def seeded_state_assertions(seed: dict[str, Any] | None, screenshots: list[dict[
         "completedDownloadSeeded": int(counts.get("completed") or 0) >= 1,
         "failedDownloadSeeded": int(counts.get("failed") or 0) >= 1,
         "canceledDownloadSeeded": int(counts.get("canceled") or 0) >= 1,
+        "queuedDownloadSeeded": int(counts.get("queued") or 0) >= 1,
         "downloadsScreenshotCaptured": "downloads" in screenshot_tabs,
         "logsScreenshotCaptured": "logs" in screenshot_tabs,
         "tokensScreenshotCaptured": "tokens" in screenshot_tabs,
@@ -429,6 +446,7 @@ def launch_mounts_desktop(profile: str, log_path: Path, dev_url: str, daemon_end
             "VITE_AUTOPILOT_INITIAL_VIEW": "mounts",
             "VITE_AUTOPILOT_MOUNTS_INITIAL_TAB": "server",
             "VITE_AUTOPILOT_MOUNTS_DAEMON_ENDPOINT": daemon_endpoint,
+            "VITE_AUTOPILOT_MOUNTS_VALIDATION_ACTIONS": "1",
             "DEV_URL": dev_url,
             "AUTOPILOT_REUSE_DEV_SERVER": "0",
             "AUTO_START_DEV_SERVER": "1",
@@ -490,12 +508,17 @@ def prepare_tab_for_capture(window_id: int, tab: str) -> dict[str, Any]:
     return {"scroll": "Home"}
 
 
-def capture_tab(window_id: int, output_root: Path, dev_url: str, daemon_endpoint: str, tab: str) -> dict[str, Any]:
-    screenshot_path = output_root / f"mounts-{tab}.png"
-    browser_url = (
+def mounts_browser_url(dev_url: str, daemon_endpoint: str, tab: str) -> str:
+    return (
         f"{dev_url.rstrip('/')}/?view=mounts&mountsTab={urllib.parse.quote(tab)}"
         f"&mountsEndpoint={urllib.parse.quote(daemon_endpoint, safe='')}"
+        "&mountsValidationActions=1"
     )
+
+
+def capture_tab(window_id: int, output_root: Path, dev_url: str, daemon_endpoint: str, tab: str) -> dict[str, Any]:
+    screenshot_path = output_root / f"mounts-{tab}.png"
+    browser_url = mounts_browser_url(dev_url, daemon_endpoint, tab)
     deadline = time.time() + CAPTURE_READY_TIMEOUT_SECS
     latest = None
     while True:
@@ -519,6 +542,32 @@ def capture_tab(window_id: int, output_root: Path, dev_url: str, daemon_endpoint
     }
 
 
+def capture_action_state(
+    window_id: int,
+    output_root: Path,
+    dev_url: str,
+    daemon_endpoint: str,
+    *,
+    tab: str,
+    name: str,
+) -> dict[str, Any]:
+    screenshot_path = output_root / f"mounts-{name}.png"
+    latest = capture_window_with_fallback(
+        window_id,
+        screenshot_path,
+        browser_url=mounts_browser_url(dev_url, daemon_endpoint, tab),
+        timeout_secs=8.0,
+    )
+    return {
+        "name": name,
+        "tab": tab,
+        "screenshot": str(screenshot_path) if screenshot_path.exists() else None,
+        "capture_mode": latest.mode,
+        "capture_error": latest.error,
+        "capture_diagnostics": latest.diagnostics,
+    }
+
+
 def screenshot_metric_is_distinct(metric: str | None) -> bool:
     if not metric:
         return False
@@ -526,6 +575,161 @@ def screenshot_metric_is_distinct(metric: str | None) -> bool:
         return float(metric.split()[0]) > 0.0
     except (IndexError, ValueError):
         return False
+
+
+def find_download(snapshot: dict[str, Any], job_id: str | None) -> dict[str, Any] | None:
+    if not job_id:
+        return None
+    for item in snapshot.get("downloads", []):
+        if item.get("id") == job_id:
+            return item
+    return None
+
+
+def receipt_has_operation(receipts: list[dict[str, Any]], operation: str, job_id: str | None = None) -> bool:
+    for receipt in receipts:
+        details = receipt.get("details") if isinstance(receipt.get("details"), dict) else {}
+        if receipt.get("kind") != "model_lifecycle":
+            continue
+        if details.get("operation") != operation:
+            continue
+        if job_id and details.get("jobId") != job_id:
+            continue
+        return True
+    return False
+
+
+def wait_for_snapshot_condition(
+    endpoint: str,
+    label: str,
+    predicate,
+    *,
+    timeout_secs: float = 25.0,
+    interval_secs: float = 0.5,
+) -> tuple[dict[str, Any], Any]:
+    deadline = time.time() + timeout_secs
+    last_snapshot: dict[str, Any] | None = None
+    last_error: str | None = None
+    while time.time() < deadline:
+        try:
+            snapshot = request_json(endpoint, "/api/v1/models", timeout=6.0)
+            last_snapshot = snapshot
+            result = predicate(snapshot)
+            if result is not None:
+                return snapshot, result
+        except Exception as error:
+            last_error = str(error)
+        time.sleep(interval_secs)
+    raise RuntimeError(f"Timed out waiting for {label}. Last error: {last_error}; last snapshot: {last_snapshot}")
+
+
+def exercise_download_row_actions(
+    window_id: int,
+    output_root: Path,
+    dev_url: str,
+    endpoint: str,
+    seed: dict[str, Any],
+) -> dict[str, Any]:
+    """Exercise the Downloads row action handlers through the live Mounts desktop surface."""
+
+    action_screenshots: list[dict[str, Any]] = []
+    opened_receipt_id = str(seed.get("download_receipt") or "")
+    queued_download_id = str(seed.get("queued_download_id") or "")
+    failed_download_id = str(seed.get("failed_download_id") or "")
+
+    activate_tab(window_id, "F5")
+    run(["xdotool", "key", "F12"], check=False)
+    time.sleep(1.0)
+    action_screenshots.append(
+        capture_action_state(
+            window_id,
+            output_root,
+            dev_url,
+            endpoint,
+            tab="logs",
+            name="downloads-open-receipt-logs",
+        )
+    )
+    opened_receipt = request_json(endpoint, f"/api/v1/receipts/{urllib.parse.quote(opened_receipt_id)}")
+
+    activate_tab(window_id, "F5")
+    run(["xdotool", "key", "F10"], check=False)
+    _, canceled_download = wait_for_snapshot_condition(
+        endpoint,
+        "queued download to become canceled through Mounts row action",
+        lambda snapshot: (
+            item
+            if (item := find_download(snapshot, queued_download_id)) is not None and item.get("status") == "canceled"
+            else None
+        ),
+    )
+    action_screenshots.append(
+        capture_action_state(
+            window_id,
+            output_root,
+            dev_url,
+            endpoint,
+            tab="downloads",
+            name="downloads-after-cancel-action",
+        )
+    )
+
+    activate_tab(window_id, "F5")
+    before_retry = request_json(endpoint, "/api/v1/models")
+    before_retry_ids = {item.get("id") for item in before_retry.get("downloads", [])}
+    run(["xdotool", "key", "F11"], check=False)
+
+    def retry_completed(snapshot: dict[str, Any]) -> dict[str, Any] | None:
+        for item in snapshot.get("downloads", []):
+            if item.get("id") in before_retry_ids:
+                continue
+            if item.get("modelId") == "autopilot:gui-failed-download" and item.get("status") == "completed":
+                return item
+        return None
+
+    _, retried_download = wait_for_snapshot_condition(
+        endpoint,
+        "failed download retry to create a completed replacement through Mounts row action",
+        retry_completed,
+    )
+    action_screenshots.append(
+        capture_action_state(
+            window_id,
+            output_root,
+            dev_url,
+            endpoint,
+            tab="downloads",
+            name="downloads-after-retry-action",
+        )
+    )
+
+    receipts = request_json(endpoint, "/api/v1/receipts")
+    assertions = {
+        "openReceiptKeyRoutedToLogs": action_screenshots[0].get("tab") == "logs" and not action_screenshots[0].get("capture_error"),
+        "openedReceiptLookupSucceeded": opened_receipt.get("id") == opened_receipt_id,
+        "queuedDownloadCanceledThroughGuiAction": canceled_download.get("id") == queued_download_id
+        and canceled_download.get("status") == "canceled",
+        "cancelLifecycleReceiptRecorded": receipt_has_operation(receipts, "model_download_canceled", queued_download_id),
+        "failedDownloadRetriedThroughGuiAction": retried_download.get("id") != failed_download_id
+        and retried_download.get("status") == "completed",
+        "retryLifecycleReceiptRecorded": receipt_has_operation(
+            receipts,
+            "model_download_completed",
+            str(retried_download.get("id") or ""),
+        ),
+        "actionScreenshotsCaptured": all(item.get("screenshot") and not item.get("capture_error") for item in action_screenshots),
+    }
+    return {
+        "passed": all(assertions.values()),
+        "assertions": assertions,
+        "openedReceiptId": opened_receipt_id,
+        "queuedDownloadId": queued_download_id,
+        "canceledDownloadReceipt": canceled_download.get("receiptId"),
+        "failedDownloadId": failed_download_id,
+        "retryDownloadId": retried_download.get("id"),
+        "retryDownloadReceipt": retried_download.get("receiptId"),
+        "screenshots": action_screenshots,
+    }
 
 
 def scan_for_plaintext_secrets(state_dir: Path, token: str) -> dict[str, Any]:
@@ -539,6 +743,8 @@ def scan_for_plaintext_secrets(state_dir: Path, token: str) -> dict[str, Any]:
             for needle in needles:
                 if needle and needle in text:
                     findings.append(str(file_path))
+            if re.search(r"ioi_mnt_[A-Za-z0-9_-]+", text):
+                findings.append(str(file_path))
     return {
         "passed": len(findings) == 0,
         "findings": findings,
@@ -571,6 +777,7 @@ def main() -> int:
     probe_error: str | None = None
     secret_scan: dict[str, Any] | None = None
     seeded_assertions: dict[str, Any] | None = None
+    download_action_assertions: dict[str, Any] | None = None
 
     close_matching_windows(args.window_name)
     terminate_existing_desktop_instances()
@@ -604,6 +811,14 @@ def main() -> int:
             screenshots.append(result)
             print(f"[model-mounts-gui] captured {tab} -> {path.name if path else 'missing'}", flush=True)
 
+        download_action_assertions = exercise_download_row_actions(
+            window_id,
+            output_root,
+            args.dev_url,
+            daemon_endpoint,
+            seed,
+        )
+        print("[model-mounts-gui] exercised download row actions", flush=True)
         secret_scan = scan_for_plaintext_secrets(state_dir, str(seed.get("token", "")))
         seeded_assertions = seeded_state_assertions(seed, screenshots)
         if any(item.get("capture_error") for item in screenshots):
@@ -617,6 +832,8 @@ def main() -> int:
             raise RuntimeError("Plaintext secret scan failed for model mounting GUI state.")
         if not seeded_assertions["passed"]:
             raise RuntimeError("Seeded Mounts GUI state did not cover catalog, failed, canceled, and receipt surfaces.")
+        if not download_action_assertions["passed"]:
+            raise RuntimeError("Mounts GUI download row actions did not update daemon projection and receipts.")
     except Exception as error:
         probe_error = str(error)
         print(f"[model-mounts-gui] error: {probe_error}", file=sys.stderr, flush=True)
@@ -637,6 +854,7 @@ def main() -> int:
         "screenshots": screenshots,
         "secretScan": secret_scan,
         "seededStateAssertions": seeded_assertions,
+        "downloadActionAssertions": download_action_assertions,
         "passed": probe_error is None,
         "probeError": probe_error,
         "desktopLogTail": read_log_tail(desktop_log),
