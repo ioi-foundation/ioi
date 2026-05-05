@@ -607,6 +607,7 @@ class OpenAICompatibleModelProviderDriver {
         backendId: endpoint.backendId ?? defaultBackendForProvider(provider),
         authVaultRefHash: result.authEvidence?.vaultRefHash ?? null,
         providerAuthEvidenceRefs: result.authEvidence?.evidenceRefs ?? [],
+        providerAuthHeaderNames: result.authEvidence?.headerNames ?? [],
       };
     }
 
@@ -629,6 +630,7 @@ class OpenAICompatibleModelProviderDriver {
           backendId: endpoint.backendId ?? defaultBackendForProvider(provider),
           authVaultRefHash: result.authEvidence?.vaultRefHash ?? null,
           providerAuthEvidenceRefs: result.authEvidence?.evidenceRefs ?? [],
+          providerAuthHeaderNames: result.authEvidence?.headerNames ?? [],
         };
       }
       if (!allowResponsesFallback || ![404, 405, 501].includes(result.status)) {
@@ -664,6 +666,7 @@ class OpenAICompatibleModelProviderDriver {
       backendId: endpoint.backendId ?? defaultBackendForProvider(provider),
       authVaultRefHash: result.authEvidence?.vaultRefHash ?? null,
       providerAuthEvidenceRefs: result.authEvidence?.evidenceRefs ?? [],
+      providerAuthHeaderNames: result.authEvidence?.headerNames ?? [],
     };
   }
 }
@@ -1821,6 +1824,10 @@ export class ModelMountingState {
     const existing = this.providers.get(id) ?? {};
     const kind = body.kind ?? existing.kind ?? "custom_http";
     const secretRef = this.normalizeProviderSecretRef(kind, body, existing.secretRef ?? null);
+    const authScheme = normalizeProviderAuthScheme(body.auth_scheme ?? body.authScheme ?? existing.authScheme);
+    const authHeaderName = normalizeProviderAuthHeaderName(
+      body.auth_header_name ?? body.authHeaderName ?? existing.authHeaderName,
+    );
     const requestedStatus = body.status ?? existing.status ?? "configured";
     const provider = {
       id,
@@ -1838,6 +1845,8 @@ export class ModelMountingState {
         evidenceRefs: normalizeScopes(body.evidence_refs ?? body.evidenceRefs, existing.discovery?.evidenceRefs ?? ["operator_provider_config"]),
       },
       secretRef,
+      authScheme,
+      authHeaderName,
     };
     this.providers.set(provider.id, provider);
     this.writeMap("model-providers", this.providers);
@@ -2094,6 +2103,7 @@ export class ModelMountingState {
         backendEvidenceRefs: providerResult.backendEvidenceRefs ?? [],
         authVaultRefHash: providerResult.authVaultRefHash ?? null,
         providerAuthEvidenceRefs: providerResult.providerAuthEvidenceRefs ?? [],
+        providerAuthHeaderNames: providerResult.providerAuthHeaderNames ?? [],
         toolReceiptIds: ephemeralMcp.toolReceiptIds,
         ephemeralMcpServerIds: ephemeralMcp.serverIds,
       },
@@ -3277,7 +3287,7 @@ function isPlaintextProviderSecretKey(key) {
 
 function assertProviderVaultBoundary(provider) {
   if (!providerRequiresVaultSecret(provider)) return;
-  if (typeof provider.secretRef === "string" && provider.secretRef.startsWith("vault://")) return;
+  if (providerHasVaultRef(provider)) return;
   throw runtimeError({
     status: 403,
     code: "policy",
@@ -3290,10 +3300,17 @@ function assertProviderVaultBoundary(provider) {
   });
 }
 
+function providerHasVaultRef(provider) {
+  return typeof provider.secretRef === "string" && provider.secretRef.startsWith("vault://");
+}
+
 function providerAuthHeaders(provider, state) {
-  if (!providerRequiresVaultSecret(provider)) return { headers: {}, evidence: null };
-  assertProviderVaultBoundary(provider);
+  const requiresVault = providerRequiresVaultSecret(provider);
+  const hasVaultRef = providerHasVaultRef(provider);
+  if (!requiresVault && !hasVaultRef) return { headers: {}, evidence: null };
+  if (requiresVault) assertProviderVaultBoundary(provider);
   const resolved = state?.vault?.resolveVaultRef(provider.secretRef, `provider.auth:${provider.id}`);
+  const headerName = normalizeProviderAuthHeaderName(provider.authHeaderName ?? provider.auth_header_name);
   if (!resolved?.material) {
     throw runtimeError({
       status: 403,
@@ -3309,32 +3326,78 @@ function providerAuthHeaders(provider, state) {
   }
   return {
     headers: {
-      authorization: providerAuthorizationHeaderValue(provider, resolved.material),
+      [headerName]: providerAuthorizationHeaderValue(provider, resolved.material),
     },
     evidence: {
       vaultRefHash: resolved.vaultRefHash,
       resolvedMaterial: true,
       evidenceRefs: resolved.evidenceRefs ?? ["VaultPort.resolveVaultRef"],
-      headerNames: ["authorization"],
+      headerNames: [headerName],
+      authScheme: normalizeProviderAuthScheme(provider.authScheme ?? provider.auth_scheme),
     },
   };
 }
 
 function providerAuthorizationHeaderValue(provider, material) {
-  const scheme = provider.authScheme ?? provider.auth_scheme ?? "bearer";
+  const scheme = normalizeProviderAuthScheme(provider.authScheme ?? provider.auth_scheme);
   if (scheme === "raw") return material;
   if (scheme === "api_key") return material;
   return `Bearer ${material}`;
 }
 
+function normalizeProviderAuthScheme(value) {
+  const scheme = String(value ?? "bearer").toLowerCase().replace(/[-\s]+/g, "_");
+  if (["bearer", "raw", "api_key"].includes(scheme)) return scheme;
+  throw runtimeError({
+    status: 400,
+    code: "validation",
+    message: "Provider auth scheme must be bearer, raw, or api_key.",
+    details: { authScheme: scheme },
+  });
+}
+
+function normalizeProviderAuthHeaderName(value) {
+  const headerName = String(value ?? "authorization").trim().toLowerCase();
+  if (!/^[a-z0-9!#$%&'*+.^_`|~-]+$/.test(headerName)) {
+    throw runtimeError({
+      status: 400,
+      code: "validation",
+      message: "Provider auth header name must be a valid HTTP header token.",
+      details: { authHeaderName: SECRET_REDACTION },
+    });
+  }
+  const forbidden = new Set([
+    "connection",
+    "content-length",
+    "cookie",
+    "host",
+    "proxy-authorization",
+    "te",
+    "trailer",
+    "transfer-encoding",
+    "upgrade",
+  ]);
+  if (forbidden.has(headerName)) {
+    throw runtimeError({
+      status: 400,
+      code: "validation",
+      message: "Provider auth header name is not allowed for vault-backed auth injection.",
+      details: { authHeaderName: headerName },
+    });
+  }
+  return headerName;
+}
+
 function publicProvider(provider) {
-  const hasVaultRef = typeof provider.secretRef === "string" && provider.secretRef.startsWith("vault://");
+  const hasVaultRef = providerHasVaultRef(provider);
   const requiresVault = providerRequiresVaultSecret(provider);
   return {
     ...provider,
     status: requiresVault && !hasVaultRef ? "blocked" : provider.status,
     secretRef: hasVaultRef ? { redacted: true, hash: stableHash(provider.secretRef) } : provider.secretRef ? SECRET_REDACTION : null,
     secretConfigured: hasVaultRef,
+    authScheme: provider.authScheme ?? "bearer",
+    authHeaderName: provider.authHeaderName ?? "authorization",
     vaultBoundary: {
       required: requiresVault,
       failClosed: requiresVault && !hasVaultRef,
@@ -3636,7 +3699,7 @@ function redact(value) {
 }
 
 function shouldRedactKey(key) {
-  if (["tokenCount", "toolReceiptIds", "input_tokens", "output_tokens", "total_tokens"].includes(key)) {
+  if (["tokenCount", "toolReceiptIds", "input_tokens", "output_tokens", "total_tokens", "providerAuthHeaderNames"].includes(key)) {
     return false;
   }
   return /tokenHash|tokenValue|secret|apiKey|authorization|header|privateKey|accessToken|refreshToken/i.test(key);

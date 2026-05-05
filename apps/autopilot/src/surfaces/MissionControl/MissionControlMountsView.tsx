@@ -13,6 +13,7 @@ interface ProviderProfile {
   privacy: string;
   apiFormat: string;
   baseUrl: string;
+  auth: string;
   capabilities: string[];
   evidence: string;
 }
@@ -164,50 +165,50 @@ const fallbackData: MountsWorkbenchData = {
     providerSummary: "fixture projection",
   },
   providers: [
-    provider("provider.local.folder", "Local model folder", "local_folder", "available", "local_private", "fixture", "local://models", [
+    provider("provider.local.folder", "Local model folder", "local_folder", "available", "local_private", "fixture", "local://models", "no auth", [
       "chat",
       "embeddings",
       "structured_output",
       "rerank",
     ], "agentgres_model_registry_fixture"),
-    provider("provider.autopilot.local", "Autopilot native local", "ioi_native_local", "available", "local_private", "ioi_native", "local://ioi-native/model-server", [
+    provider("provider.autopilot.local", "Autopilot native local", "ioi_native_local", "available", "local_private", "ioi_native", "local://ioi-native/model-server", "no auth", [
       "chat",
       "responses",
       "embeddings",
       "structured_output",
       "rerank",
     ], "autopilot_native_local_backend_registry"),
-    provider("provider.lmstudio", "LM Studio", "lm_studio", "stopped", "local_private", "openai_compatible", "http://127.0.0.1:1234/v1", [
+    provider("provider.lmstudio", "LM Studio", "lm_studio", "stopped", "local_private", "openai_compatible", "http://127.0.0.1:1234/v1", "no auth", [
       "chat",
       "responses",
       "embeddings",
     ], "~/.local/bin/lm-studio.AppImage or ~/.lmstudio/bin/lms"),
-    provider("provider.ollama", "Ollama", "ollama", "blocked", "local_private", "ollama", "http://127.0.0.1:11434", [
+    provider("provider.ollama", "Ollama", "ollama", "blocked", "local_private", "ollama", "http://127.0.0.1:11434", "no auth", [
       "chat",
       "embeddings",
     ], "OLLAMA_HOST"),
-    provider("provider.openai-compatible", "OpenAI-compatible", "openai_compatible", "configured", "workspace", "openai_compatible", "http://127.0.0.1:1234/v1", [
+    provider("provider.openai-compatible", "OpenAI-compatible", "openai_compatible", "configured", "workspace", "openai_compatible", "http://127.0.0.1:1234/v1", "optional vault auth", [
       "chat",
       "responses",
       "embeddings",
     ], "OPENAI_COMPATIBLE_BASE_URL"),
-    provider("provider.openai", "OpenAI BYOK", "openai", "blocked", "hosted", "openai", "vault reference required", [
+    provider("provider.openai", "OpenAI BYOK", "openai", "blocked", "hosted", "openai", "vault reference required", "authorization / bearer / vault", [
       "chat",
       "responses",
       "embeddings",
     ], "vault secret reference required"),
-    provider("provider.anthropic", "Anthropic BYOK", "anthropic", "blocked", "hosted", "anthropic", "vault reference required", [
+    provider("provider.anthropic", "Anthropic BYOK", "anthropic", "blocked", "hosted", "anthropic", "vault reference required", "authorization / bearer / vault", [
       "chat",
       "code",
       "reasoning",
     ], "vault secret reference required"),
-    provider("provider.gemini", "Gemini BYOK", "gemini", "blocked", "hosted", "gemini", "vault reference required", [
+    provider("provider.gemini", "Gemini BYOK", "gemini", "blocked", "hosted", "gemini", "vault reference required", "authorization / bearer / vault", [
       "chat",
       "vision",
       "embeddings",
     ], "vault secret reference required"),
-    provider("provider.custom-http", "Custom HTTP", "custom_http", "blocked", "workspace", "custom", "not configured", ["chat"], "operator provider config"),
-    provider("provider.depin-tee", "DePIN / TEE", "depin_tee", "future", "remote_confidential", "runtime_contract", "future runtime profile", [
+    provider("provider.custom-http", "Custom HTTP", "custom_http", "blocked", "workspace", "custom", "not configured", "configurable vault header", ["chat"], "operator provider config"),
+    provider("provider.depin-tee", "DePIN / TEE", "depin_tee", "future", "remote_confidential", "runtime_contract", "future runtime profile", "attestation required", [
       "chat",
       "code",
       "receipts",
@@ -395,10 +396,11 @@ function provider(
   privacy: string,
   apiFormat: string,
   baseUrl: string,
+  auth: string,
   capabilities: string[],
   evidence: string,
 ): ProviderProfile {
-  return { id, label, kind, status, privacy, apiFormat, baseUrl, capabilities, evidence };
+  return { id, label, kind, status, privacy, apiFormat, baseUrl, auth, capabilities, evidence };
 }
 
 function backend(
@@ -732,6 +734,7 @@ function normalizeSnapshot(snapshot: any, endpoint: string): MountsWorkbenchData
       stringValue(item.privacyClass, stringValue(item.privacy, "workspace")),
       stringValue(item.apiFormat, "unknown"),
       stringValue(item.baseUrl, "not configured"),
+      providerAuthPreview(item),
       stringArray(item.capabilities),
       stringArray(item.discovery?.evidenceRefs).join(", ") || "daemon provider profile",
     ),
@@ -854,6 +857,15 @@ function errorMessage(value: unknown, routePath: string) {
     if (typeof error?.message === "string") return error.message;
   }
   return `Daemon request failed for ${routePath}.`;
+}
+
+function providerAuthPreview(item: any) {
+  const headerName = stringValue(item?.authHeaderName, "authorization");
+  const scheme = stringValue(item?.authScheme, "bearer");
+  const configured = Boolean(item?.secretConfigured);
+  const required = Boolean(item?.vaultBoundary?.required);
+  if (!required && !configured) return "no auth";
+  return `${headerName} / ${scheme} / ${configured ? "vault ref" : "vault required"}`;
 }
 
 function arrayOf(value: unknown): any[] {
@@ -1314,6 +1326,10 @@ function ProvidersPanel({ providers }: { providers: ProviderProfile[] }) {
               <div>
                 <dt>Endpoint</dt>
                 <dd>{item.baseUrl}</dd>
+              </div>
+              <div>
+                <dt>Auth</dt>
+                <dd>{item.auth}</dd>
               </div>
               <div>
                 <dt>Evidence</dt>
