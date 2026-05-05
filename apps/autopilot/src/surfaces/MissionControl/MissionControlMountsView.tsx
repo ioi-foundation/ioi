@@ -137,6 +137,15 @@ interface ReceiptPreview {
   summary: string;
   redaction: string;
   evidence: string[];
+  healthStatus: string;
+}
+
+interface HealthSummaryPreview {
+  providerHealthCount: number;
+  vaultHealthCount: number;
+  blockedProviderHealthCount: number;
+  latestReceiptId: string;
+  latestStatus: string;
 }
 
 interface WorkflowNodePreview {
@@ -171,6 +180,7 @@ interface MountsWorkbenchData {
   routes: RoutePolicyPreview[];
   workflowNodes: WorkflowNodePreview[];
   receipts: ReceiptPreview[];
+  healthSummary: HealthSummaryPreview;
 }
 
 const DEFAULT_DAEMON_ENDPOINT = "http://127.0.0.1:8765";
@@ -454,11 +464,26 @@ const fallbackData: MountsWorkbenchData = {
     "Receipt Gate",
   ].map((node) => ({ node, routeId: "route.local-first", receiptRequired: true })),
   receipts: [
+    receipt("receipt_provider_health_fixture", "provider_health", "Provider provider.ollama health failed closed as blocked.", [
+      "provider_health_vault_secret_required",
+      "provider.ollama",
+    ], "blocked"),
+    receipt("receipt_vault_adapter_health_fixture", "vault_adapter_health", "Vault adapter health is ready.", [
+      "VaultMaterialAdapter.runtimeMemory",
+      "wallet.network_adapter_boundary",
+    ], "ready"),
     receipt("receipt_model_lifecycle_*", "model_lifecycle", "mount, load, unload, download, import, and idle eviction state transitions", ["model_registry", "agentgres_canonical_operation_log"]),
     receipt("receipt_model_invocation_*", "model_invocation", "route, endpoint, instance, backend, policy hash, grant id, token counts, latency", ["model_router", "endpoint.local.auto", "wallet.network.capability_grant"]),
     receipt("receipt_mcp_tool_invocation_*", "mcp_tool_invocation", "allowed MCP tool execution through RuntimeToolContract", ["RuntimeToolContract", "mcp.huggingface", "tool:model_search"]),
     receipt("receipt_permission_token_*", "permission_token", "scoped, expiring, revocable token with denied connector/filesystem/shell scopes", ["wallet.network.capability_grant", "wallet.network.revocation"]),
   ],
+  healthSummary: {
+    providerHealthCount: 1,
+    vaultHealthCount: 1,
+    blockedProviderHealthCount: 1,
+    latestReceiptId: "receipt_vault_adapter_health_fixture",
+    latestStatus: "ready",
+  },
 };
 
 function provider(
@@ -527,8 +552,25 @@ function route(
   return { id, role, privacy, quality, maxCost, fallback, lastSelection, receipt: receiptId };
 }
 
-function receipt(id: string, kind: string, summary: string, evidence: string[]): ReceiptPreview {
-  return { id, kind, summary, redaction: "redacted", evidence };
+function receipt(id: string, kind: string, summary: string, evidence: string[], healthStatus = "unknown"): ReceiptPreview {
+  return { id, kind, summary, redaction: "redacted", evidence, healthStatus };
+}
+
+function healthSummaryFromReceipts(receipts: ReceiptPreview[]): HealthSummaryPreview {
+  const providerHealthReceipts = receipts.filter((item) => item.kind === "provider_health");
+  const vaultHealthReceipts = receipts.filter((item) => item.kind === "vault_adapter_health");
+  const healthReceipts = receipts.filter((item) => item.kind === "provider_health" || item.kind === "vault_adapter_health");
+  const blockedProviderHealthCount = providerHealthReceipts.filter((item) =>
+    /^(blocked|degraded|failed|stopped|unavailable)$/i.test(item.healthStatus) || /blocked|degraded|failed closed/i.test(item.summary),
+  ).length;
+  const latestHealthReceipt = healthReceipts.at(-1);
+  return {
+    providerHealthCount: providerHealthReceipts.length,
+    vaultHealthCount: vaultHealthReceipts.length,
+    blockedProviderHealthCount,
+    latestReceiptId: latestHealthReceipt?.id ?? "none",
+    latestStatus: latestHealthReceipt?.healthStatus && latestHealthReceipt.healthStatus !== "unknown" ? latestHealthReceipt.healthStatus : "unknown",
+  };
 }
 
 function readInitialEndpoint() {
@@ -990,6 +1032,7 @@ function normalizeSnapshot(snapshot: any, endpoint: string): MountsWorkbenchData
       stringValue(item.kind, "receipt"),
       stringValue(item.summary, "Receipt recorded."),
       stringArray(item.evidenceRefs),
+      stringValue(item?.details?.status, "unknown"),
     ),
   );
   return {
@@ -1045,6 +1088,7 @@ function normalizeSnapshot(snapshot: any, endpoint: string): MountsWorkbenchData
       receiptRequired: Boolean(item.receiptRequired ?? true),
     })),
     receipts,
+    healthSummary: healthSummaryFromReceipts(receipts),
   };
 }
 
@@ -1308,6 +1352,8 @@ function ServerPanel({
         </div>
       </div>
 
+      <HealthSummaryStrip summary={data.healthSummary} />
+
       <div className="model-mounts-notice">{message}</div>
 
       <div className="model-mounts-route-list" aria-label="Server routes">
@@ -1344,6 +1390,40 @@ function ServerPanel({
         ))}
       </div>
     </section>
+  );
+}
+
+function HealthSummaryStrip({ summary }: { summary: HealthSummaryPreview }) {
+  return (
+    <div className="model-mounts-health-strip" aria-label="Health summary">
+      <div>
+        <span>Health summary</span>
+        <strong>Receipts projection</strong>
+      </div>
+      <div>
+        <span>Provider health receipts</span>
+        <strong>{summary.providerHealthCount}</strong>
+      </div>
+      <div>
+        <span>Vault health receipts</span>
+        <strong>{summary.vaultHealthCount}</strong>
+      </div>
+      <div>
+        <span>Blocked/degraded</span>
+        <strong>
+          <StatusPill tone={summary.blockedProviderHealthCount > 0 ? "blocked" : "ready"}>
+            {String(summary.blockedProviderHealthCount)}
+          </StatusPill>
+        </strong>
+      </div>
+      <div>
+        <span>Latest health receipt</span>
+        <strong>
+          <StatusPill tone={toneForStatus(summary.latestStatus)}>{summary.latestStatus}</StatusPill>
+          <small>{summary.latestReceiptId}</small>
+        </strong>
+      </div>
+    </div>
   );
 }
 
