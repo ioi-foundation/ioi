@@ -722,10 +722,17 @@ async function runModelBackendsGate(evidence) {
       const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
         method: "POST",
         body: {
-          allowed: ["model.chat:*", "model.embeddings:*", "model.load:*", "model.mount:*", "route.use:*"],
+          allowed: ["model.chat:*", "model.embeddings:*", "model.load:*", "model.unload:*", "model.mount:*", "route.use:*", "backend.control:*"],
           denied: ["filesystem.write", "shell.exec"],
         },
       });
+      const ollamaBackendStart = configured.ollamaBinary
+        ? await expectOk(daemon.endpoint, "/api/v1/backends/backend.ollama/start", {
+            method: "POST",
+            token: grant.token,
+            body: { load_options: { identifier: "ollama-live-backend-gate" } },
+          })
+        : null;
       const providerModels = await expectOk(daemon.endpoint, "/api/v1/providers/provider.ollama/models");
       const chatModel =
         providerModels.find((model) => !String(model.modelId).match(/embed/i))?.modelId ?? providerModels[0]?.modelId;
@@ -745,6 +752,8 @@ async function runModelBackendsGate(evidence) {
         body: { endpoint_id: chatEndpoint.id, load_policy: { mode: "manual", autoEvict: false } },
       });
       assert.equal(chatLoaded.backend, "ollama");
+      const providerLoaded = await expectOk(daemon.endpoint, "/api/v1/providers/provider.ollama/loaded");
+      assert.ok(providerLoaded.some((model) => model.modelId === chatModel));
       const chat = await expectOk(daemon.endpoint, "/api/v1/chat", {
         method: "POST",
         token: grant.token,
@@ -786,12 +795,28 @@ async function runModelBackendsGate(evidence) {
         assert.equal(embeddingReceipt.details.providerId, "provider.ollama");
         assert.equal(embeddingReceipt.details.backend, "ollama");
       }
+      const chatUnloaded = await expectOk(daemon.endpoint, "/api/v1/models/unload", {
+        method: "POST",
+        token: grant.token,
+        body: { instance_id: chatLoaded.id },
+      });
+      assert.equal(chatUnloaded.status, "unloaded");
+      const ollamaBackendStop = configured.ollamaBinary
+        ? await expectOk(daemon.endpoint, "/api/v1/backends/backend.ollama/stop", {
+            method: "POST",
+            token: grant.token,
+          })
+        : null;
       result.ollama = {
         providerModels: providerModels.length,
+        providerLoaded: providerLoaded.length,
         selectedChatModel: chatModel,
         chatEndpointId: chatEndpoint.id,
         chatInstanceId: chatLoaded.id,
+        backendStartReceiptId: ollamaBackendStart?.lastReceiptId ?? null,
+        backendStopReceiptId: ollamaBackendStop?.lastReceiptId ?? null,
         chatReceiptId: chat.receipt_id,
+        unloadStatus: chatUnloaded.status,
         selectedEmbeddingModel: embeddingModel ?? null,
         embeddingReceiptId,
       };
