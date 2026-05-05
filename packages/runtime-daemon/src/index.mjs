@@ -957,6 +957,10 @@ async function handleOpenAiCompatibilityRoute({ request, response, store, url })
       kind: "responses",
       body,
     });
+    if (body.stream === true) {
+      writeOpenAiResponseStream(response, invocation);
+      return;
+    }
     writeJsonResponse(response, openAiResponse(invocation));
     return;
   }
@@ -1189,6 +1193,91 @@ function writeOpenAiChatCompletionStream(response, invocation) {
   response.setHeader("cache-control", "no-cache");
   response.setHeader("x-ioi-receipt-id", invocation.receipt.id);
   response.end(payloads.map((payload) => `data: ${JSON.stringify(payload)}\n\n`).join("") + "data: [DONE]\n\n");
+}
+
+function writeOpenAiResponseStream(response, invocation) {
+  const responseId = `resp_${crypto.randomUUID()}`;
+  const outputItemId = `msg_${crypto.randomUUID()}`;
+  const createdAt = Math.floor(Date.now() / 1000);
+  const chunks = textChunksForSse(invocation.outputText);
+  const baseResponse = {
+    id: responseId,
+    object: "response",
+    created_at: createdAt,
+    model: invocation.model,
+    status: "in_progress",
+    output: [],
+    usage: null,
+    receipt_id: invocation.receipt.id,
+    route_id: invocation.route.id,
+    tool_receipt_ids: invocation.toolReceiptIds ?? [],
+  };
+  const outputItem = {
+    id: outputItemId,
+    type: "message",
+    status: "in_progress",
+    role: "assistant",
+    content: [],
+  };
+  const completedOutputItem = {
+    ...outputItem,
+    status: "completed",
+    content: [{ type: "output_text", text: invocation.outputText }],
+  };
+  const completedResponse = {
+    ...baseResponse,
+    status: "completed",
+    output: [completedOutputItem],
+    output_text: invocation.outputText,
+    usage: invocation.tokenCount,
+  };
+  const events = [
+    { event: "response.created", data: { type: "response.created", response: baseResponse } },
+    {
+      event: "response.output_item.added",
+      data: { type: "response.output_item.added", output_index: 0, item: outputItem },
+    },
+    {
+      event: "response.content_part.added",
+      data: {
+        type: "response.content_part.added",
+        item_id: outputItemId,
+        output_index: 0,
+        content_index: 0,
+        part: { type: "output_text", text: "" },
+      },
+    },
+    ...chunks.map((chunk) => ({
+      event: "response.output_text.delta",
+      data: {
+        type: "response.output_text.delta",
+        item_id: outputItemId,
+        output_index: 0,
+        content_index: 0,
+        delta: chunk,
+      },
+    })),
+    {
+      event: "response.content_part.done",
+      data: {
+        type: "response.content_part.done",
+        item_id: outputItemId,
+        output_index: 0,
+        content_index: 0,
+        part: { type: "output_text", text: invocation.outputText },
+      },
+    },
+    {
+      event: "response.output_item.done",
+      data: { type: "response.output_item.done", output_index: 0, item: completedOutputItem },
+    },
+    { event: "response.completed", data: { type: "response.completed", response: completedResponse } },
+  ];
+  response.statusCode = 200;
+  response.setHeader("content-type", "text/event-stream");
+  response.setHeader("cache-control", "no-cache");
+  response.setHeader("x-ioi-receipt-id", invocation.receipt.id);
+  response.end(events.map((event) => `event: ${event.event}\ndata: ${JSON.stringify(event.data)}\n\n`).join(""));
 }
 
 function nativeInvocationResponse(invocation) {
