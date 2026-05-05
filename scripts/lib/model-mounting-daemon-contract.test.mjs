@@ -1190,6 +1190,144 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
   }
 });
 
+test("encrypted keychain vault adapter persists material across daemon restart without Agentgres plaintext", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-keychain-vault-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-keychain-vault-state-"));
+  const keychainDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-keychain-vault-material-"));
+  const keychainPath = path.join(keychainDir, "vault-material.json");
+  const vaultRef = "vault://provider/custom-http/keychain-api-key";
+  const vaultMaterial = crypto.randomBytes(18).toString("base64url");
+  const providerServer = await startFakeVllmServer({
+    responsesStatus: 404,
+    requiredHeaders: { "x-api-key": vaultMaterial },
+  });
+  const priorPath = process.env.IOI_KEYCHAIN_VAULT_PATH;
+  const priorKey = process.env.IOI_KEYCHAIN_VAULT_KEY;
+  process.env.IOI_KEYCHAIN_VAULT_PATH = keychainPath;
+  process.env.IOI_KEYCHAIN_VAULT_KEY = crypto.randomBytes(32).toString("base64url");
+  let daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+      method: "POST",
+      body: {
+        allowed: [
+          "provider.write:*",
+          "vault.write:*",
+          "vault.read:*",
+          "vault.delete:*",
+          "model.import:*",
+          "model.mount:*",
+          "model.chat:*",
+          "route.write:*",
+          "route.use:*",
+        ],
+      },
+    });
+    await expectOk(daemon.endpoint, "/api/v1/providers", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        id: "provider.test.keychain-vault",
+        kind: "custom_http",
+        label: "Keychain Vault Custom HTTP",
+        api_format: "openai_compatible",
+        base_url: `${providerServer.endpoint}/v1`,
+        status: "configured",
+        privacy_class: "workspace",
+        capabilities: ["chat"],
+        secret_ref: vaultRef,
+        auth_scheme: "api_key",
+        auth_header_name: "x-api-key",
+      },
+    });
+    const bound = await expectOk(daemon.endpoint, "/api/v1/vault/refs", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        vault_ref: vaultRef,
+        material: vaultMaterial,
+        purpose: "provider.auth:provider.test.keychain-vault",
+        label: "Keychain Vault Custom HTTP",
+      },
+    });
+    assert.equal(bound.configured, true);
+    assert.equal(bound.materialSource, "encrypted_keychain_vault_adapter");
+    assert.equal(JSON.stringify(bound).includes(vaultMaterial), false);
+    assert.equal(directoryContainsNeedle(stateDir, vaultMaterial), false);
+    assert.equal(directoryContainsNeedle(keychainDir, vaultMaterial), false);
+    const health = await expectOk(daemon.endpoint, "/api/v1/providers/provider.test.keychain-vault/health", { method: "POST" });
+    assert.equal(health.status, "available");
+    const projection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
+    assert.equal(projection.adapterBoundaries.vault.materialAdapter.implementation, "encrypted_keychain_vault_adapter");
+    assert.equal(projection.adapterBoundaries.vault.materialAdapter.configured, true);
+    assert.equal(JSON.stringify(projection).includes(vaultMaterial), false);
+
+    await daemon.close();
+    daemon = await startRuntimeDaemonService({ cwd, stateDir });
+    const restartedHealth = await expectOk(daemon.endpoint, "/api/v1/providers/provider.test.keychain-vault/health", { method: "POST" });
+    assert.equal(restartedHealth.status, "available");
+    assert.ok(providerServer.observedHeaders().some((headers) => headers["x-api-key"] === vaultMaterial));
+    const restartedMeta = await expectOk(daemon.endpoint, "/api/v1/vault/refs/meta", {
+      method: "POST",
+      token: grant.token,
+      body: { vault_ref: vaultRef },
+    });
+    assert.equal(restartedMeta.configured, true);
+    assert.equal(restartedMeta.resolvedMaterial, true);
+    assert.equal(restartedMeta.materialSource, "encrypted_keychain_vault_adapter");
+    assert.equal(JSON.stringify(restartedMeta).includes(vaultRef), false);
+    assert.equal(JSON.stringify(restartedMeta).includes(vaultMaterial), false);
+    assert.equal(directoryContainsNeedle(stateDir, vaultMaterial), false);
+    assert.equal(directoryContainsNeedle(keychainDir, vaultMaterial), false);
+  } finally {
+    await daemon.close();
+    await providerServer.close();
+    restoreEnv("IOI_KEYCHAIN_VAULT_PATH", priorPath);
+    restoreEnv("IOI_KEYCHAIN_VAULT_KEY", priorKey);
+  }
+});
+
+test("configured keychain vault adapter fails closed when unavailable", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-keychain-vault-unavailable-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-keychain-vault-unavailable-state-"));
+  const unavailablePath = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-keychain-vault-unavailable-dir-"));
+  const vaultRef = "vault://provider/custom-http/unavailable-api-key";
+  const priorPath = process.env.IOI_KEYCHAIN_VAULT_PATH;
+  const priorKey = process.env.IOI_KEYCHAIN_VAULT_KEY;
+  process.env.IOI_KEYCHAIN_VAULT_PATH = unavailablePath;
+  process.env.IOI_KEYCHAIN_VAULT_KEY = crypto.randomBytes(32).toString("base64url");
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+      method: "POST",
+      body: { allowed: ["provider.write:*"] },
+    });
+    await expectOk(daemon.endpoint, "/api/v1/providers", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        id: "provider.test.keychain-unavailable",
+        kind: "custom_http",
+        label: "Unavailable Keychain Provider",
+        api_format: "openai_compatible",
+        base_url: "http://127.0.0.1:9/v1",
+        status: "configured",
+        privacy_class: "workspace",
+        capabilities: ["chat"],
+        secret_ref: vaultRef,
+      },
+    });
+    const health = await requestJson(daemon.endpoint, "/api/v1/providers/provider.test.keychain-unavailable/health", { method: "POST" });
+    assert.equal(health.response.status, 424);
+    assert.equal(health.json.error.details.adapter, "encrypted_keychain_vault_adapter");
+    assert.equal(JSON.stringify(health.json).includes(vaultRef), false);
+  } finally {
+    await daemon.close();
+    restoreEnv("IOI_KEYCHAIN_VAULT_PATH", priorPath);
+    restoreEnv("IOI_KEYCHAIN_VAULT_KEY", priorKey);
+  }
+});
+
 test("LM Studio driver delegates load, responses fallback, embeddings, provider models, and receipts through public seams", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-lms-driver-workspace-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-lms-driver-state-"));
@@ -1579,6 +1717,14 @@ function directoryContainsNeedle(root, needle) {
     }
   }
   return false;
+}
+
+function restoreEnv(name, priorValue) {
+  if (priorValue === undefined) {
+    delete process.env[name];
+  } else {
+    process.env[name] = priorValue;
+  }
 }
 
 test("LM Studio provider discovery uses guarded public lms commands for installed models", async () => {

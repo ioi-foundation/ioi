@@ -216,10 +216,171 @@ class AgentgresWalletAuthority {
   }
 }
 
+class EncryptedKeychainVaultMaterialAdapter {
+  constructor({ filePath, keyMaterial, now }) {
+    this.filePath = filePath ? path.resolve(filePath) : null;
+    this.keyMaterial = keyMaterial ?? "";
+    this.now = now;
+  }
+
+  get configured() {
+    return Boolean(this.filePath && this.keyMaterial);
+  }
+
+  get requested() {
+    return Boolean(this.filePath || this.keyMaterial);
+  }
+
+  bind(vaultRef, material, { purpose = "provider.auth", label = null } = {}) {
+    this.assertConfigured();
+    const store = this.readStore();
+    const vaultRefHash = stableHash(vaultRef);
+    const encrypted = this.encrypt(material);
+    store.refs[vaultRefHash] = {
+      schemaVersion: "ioi.keychain-vault.adapter.v1",
+      vaultRefHash,
+      label,
+      purpose,
+      updatedAt: this.now().toISOString(),
+      material: encrypted,
+    };
+    this.writeStore(store);
+    return {
+      materialSource: "encrypted_keychain_vault_adapter",
+      evidenceRefs: ["VaultMaterialAdapter.encryptedKeychain.bind", `vault_ref_${vaultRefHash.slice(0, 16)}`],
+    };
+  }
+
+  resolve(vaultRef) {
+    this.assertConfigured();
+    const store = this.readStore();
+    const vaultRefHash = stableHash(vaultRef);
+    const record = store.refs[vaultRefHash];
+    if (!record?.material) {
+      return {
+        material: null,
+        materialSource: "encrypted_keychain_vault_adapter",
+        evidenceRefs: ["VaultMaterialAdapter.encryptedKeychain.resolve_missing", `vault_ref_${vaultRefHash.slice(0, 16)}`],
+      };
+    }
+    return {
+      material: this.decrypt(record.material),
+      materialSource: "encrypted_keychain_vault_adapter",
+      evidenceRefs: ["VaultMaterialAdapter.encryptedKeychain.resolve", `vault_ref_${vaultRefHash.slice(0, 16)}`],
+    };
+  }
+
+  remove(vaultRef) {
+    this.assertConfigured();
+    const store = this.readStore();
+    const vaultRefHash = stableHash(vaultRef);
+    const removed = Boolean(store.refs[vaultRefHash]);
+    delete store.refs[vaultRefHash];
+    this.writeStore(store);
+    return {
+      removed,
+      materialSource: "encrypted_keychain_vault_adapter",
+      evidenceRefs: ["VaultMaterialAdapter.encryptedKeychain.remove", `vault_ref_${vaultRefHash.slice(0, 16)}`],
+    };
+  }
+
+  status() {
+    return {
+      implementation: "encrypted_keychain_vault_adapter",
+      configured: this.configured,
+      requested: this.requested,
+      failClosed: this.requested && !this.configured,
+      pathHash: this.filePath ? stableHash(this.filePath) : null,
+      keyConfigured: Boolean(this.keyMaterial),
+      plaintextPersistence: false,
+      evidenceRefs: ["VaultMaterialAdapter.encryptedKeychain", "wallet.network.remote_adapter_boundary"],
+    };
+  }
+
+  readStore() {
+    this.assertConfigured();
+    if (!fs.existsSync(this.filePath)) return { schemaVersion: "ioi.keychain-vault.adapter.v1", refs: {} };
+    try {
+      const parsed = readJson(this.filePath);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("invalid keychain document");
+      return { schemaVersion: parsed.schemaVersion ?? "ioi.keychain-vault.adapter.v1", refs: parsed.refs && typeof parsed.refs === "object" ? parsed.refs : {} };
+    } catch (error) {
+      throw runtimeError({
+        status: 424,
+        code: "external_blocker",
+        message: "Vault material adapter is configured but unavailable.",
+        details: { adapter: "encrypted_keychain_vault_adapter", pathHash: stableHash(this.filePath), error: String(error?.message ?? error) },
+      });
+    }
+  }
+
+  writeStore(store) {
+    this.assertConfigured();
+    try {
+      writeJson(this.filePath, store);
+    } catch (error) {
+      throw runtimeError({
+        status: 424,
+        code: "external_blocker",
+        message: "Vault material adapter is configured but unavailable.",
+        details: { adapter: "encrypted_keychain_vault_adapter", pathHash: stableHash(this.filePath), error: String(error?.message ?? error) },
+      });
+    }
+  }
+
+  assertConfigured() {
+    if (!this.configured) {
+      throw runtimeError({
+        status: 424,
+        code: "external_blocker",
+        message: "Vault material adapter is configured but unavailable.",
+        details: {
+          adapter: "encrypted_keychain_vault_adapter",
+          pathConfigured: Boolean(this.filePath),
+          keyConfigured: Boolean(this.keyMaterial),
+        },
+      });
+    }
+  }
+
+  encrypt(material) {
+    const iv = crypto.randomBytes(12);
+    const cipher = crypto.createCipheriv("aes-256-gcm", this.key(), iv);
+    const ciphertext = Buffer.concat([cipher.update(String(material), "utf8"), cipher.final()]);
+    const tag = cipher.getAuthTag();
+    return {
+      algorithm: "aes-256-gcm",
+      iv: iv.toString("base64url"),
+      ciphertext: ciphertext.toString("base64url"),
+      tag: tag.toString("base64url"),
+    };
+  }
+
+  decrypt(payload) {
+    try {
+      const decipher = crypto.createDecipheriv("aes-256-gcm", this.key(), Buffer.from(payload.iv, "base64url"));
+      decipher.setAuthTag(Buffer.from(payload.tag, "base64url"));
+      return Buffer.concat([decipher.update(Buffer.from(payload.ciphertext, "base64url")), decipher.final()]).toString("utf8");
+    } catch (error) {
+      throw runtimeError({
+        status: 424,
+        code: "external_blocker",
+        message: "Vault material adapter could not decrypt the configured secret.",
+        details: { adapter: "encrypted_keychain_vault_adapter", error: String(error?.message ?? error) },
+      });
+    }
+  }
+
+  key() {
+    return crypto.createHash("sha256").update(String(this.keyMaterial)).digest();
+  }
+}
+
 class AgentgresVaultPort {
-  constructor({ now, appendOperation, secrets = {}, metadata = [] }) {
+  constructor({ now, appendOperation, secrets = {}, metadata = [], materialAdapter = null }) {
     this.now = now;
     this.appendOperation = appendOperation;
+    this.materialAdapter = materialAdapter;
     this.secrets = new Map(Object.entries(secrets ?? {}).map(([vaultRef, material]) => [vaultRef, String(material)]));
     this.metadata = new Map();
     this.loadMetadata(metadata);
@@ -248,12 +409,14 @@ class AgentgresVaultPort {
         details: { vaultRef: SECRET_REDACTION, purpose },
       });
     }
-    const material = this.materialFor(vaultRef);
+    const materialResult = this.materialFor(vaultRef);
+    const material = materialResult.material;
     const result = {
       vaultRefHash: stableHash(vaultRef),
       resolvedMaterial: typeof material === "string" && material.length > 0,
       purpose,
-      evidenceRefs: ["VaultPort.resolveVaultRef", `vault_ref_${stableHash(vaultRef).slice(0, 16)}`],
+      materialSource: materialResult.materialSource,
+      evidenceRefs: ["VaultPort.resolveVaultRef", `vault_ref_${stableHash(vaultRef).slice(0, 16)}`, ...normalizeScopes(materialResult.evidenceRefs, [])],
     };
     const existing = this.metadataForVaultRef(vaultRef);
     if (existing) {
@@ -262,6 +425,7 @@ class AgentgresVaultPort {
         lastResolvedAt: this.now().toISOString(),
         resolvedMaterial: result.resolvedMaterial,
         runtimeBound: result.resolvedMaterial,
+        materialSource: result.materialSource,
         requiresRebind: Boolean(existing.configured) && !result.resolvedMaterial,
       });
     }
@@ -270,15 +434,35 @@ class AgentgresVaultPort {
       purpose,
       vaultRefHash: result.vaultRefHash,
       resolvedMaterial: result.resolvedMaterial,
+      materialSource: result.materialSource,
     });
     return { ...result, material: result.resolvedMaterial ? material : null };
   }
 
   materialFor(vaultRef) {
-    if (this.secrets.has(vaultRef)) return this.secrets.get(vaultRef);
+    const vaultRefHash = stableHash(vaultRef);
+    if (this.secrets.has(vaultRef)) {
+      return {
+        material: this.secrets.get(vaultRef),
+        materialSource: "runtime_memory",
+        evidenceRefs: ["VaultMaterialAdapter.runtimeMemory", `vault_ref_${vaultRefHash.slice(0, 16)}`],
+      };
+    }
     const envName = vaultRefEnvironmentAlias(vaultRef);
-    if (envName && process.env[envName]) return process.env[envName];
-    return null;
+    if (envName && process.env[envName]) {
+      return {
+        material: process.env[envName],
+        materialSource: "environment_alias",
+        evidenceRefs: ["VaultMaterialAdapter.environmentAlias", envName, `vault_ref_${vaultRefHash.slice(0, 16)}`],
+      };
+    }
+    const adapterResult = this.materialAdapter?.resolve(vaultRef);
+    if (adapterResult) return adapterResult;
+    return {
+      material: null,
+      materialSource: "unbound",
+      evidenceRefs: ["VaultMaterialAdapter.unbound", `vault_ref_${vaultRefHash.slice(0, 16)}`],
+    };
   }
 
   bindVaultRef({ vaultRef, material, purpose = "operator_binding", label = null }) {
@@ -292,18 +476,22 @@ class AgentgresVaultPort {
       });
     }
     const now = this.now().toISOString();
-    this.secrets.set(vaultRef, material);
+    const adapterBind = this.materialAdapter?.bind(vaultRef, material, { purpose, label });
+    if (!adapterBind) {
+      this.secrets.set(vaultRef, material);
+    }
     const existing = this.metadataForVaultRef(vaultRef);
     const metadata = this.metadataRecord(vaultRef, {
       purpose,
       label,
       source: existing?.source ?? "agentgres_local_vault_metadata",
-      materialSource: "runtime_memory",
+      materialSource: adapterBind?.materialSource ?? "runtime_memory",
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
       lastResolvedAt: existing?.lastResolvedAt ?? null,
       configured: true,
       resolvedMaterial: true,
+      evidenceRefs: adapterBind?.evidenceRefs,
     });
     this.metadata.set(metadata.vaultRefHash, metadata);
     this.auditEvent("vault.bind", {
@@ -319,13 +507,14 @@ class AgentgresVaultPort {
   removeVaultRef(vaultRef, purpose = "operator_remove") {
     this.assertVaultRef(vaultRef);
     const existed = this.secrets.delete(vaultRef);
+    const adapterRemove = this.materialAdapter?.remove(vaultRef);
     const existing = this.metadataForVaultRef(vaultRef);
     const now = this.now().toISOString();
     const metadata = this.metadataRecord(vaultRef, {
       purpose: existing?.purpose ?? purpose,
       label: existing?.label ?? null,
       source: existing?.source ?? "agentgres_local_vault_metadata",
-      materialSource: "unbound",
+      materialSource: adapterRemove?.materialSource ?? "unbound",
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
       lastResolvedAt: existing?.lastResolvedAt ?? null,
@@ -339,7 +528,7 @@ class AgentgresVaultPort {
       purpose,
       vaultRefHash: metadata.vaultRefHash,
       materialBound: false,
-      existed,
+      existed: existed || Boolean(adapterRemove?.removed),
     });
     return publicVaultRefMetadata(metadata);
   }
@@ -427,7 +616,7 @@ class AgentgresVaultPort {
       updatedAt: fields.updatedAt ?? null,
       removedAt: fields.removedAt ?? null,
       lastResolvedAt: fields.lastResolvedAt ?? null,
-      evidenceRefs: ["VaultPort.localBinding", "agentgres_local_vault_metadata", `vault_ref_${vaultRefHash.slice(0, 16)}`],
+      evidenceRefs: normalizeScopes(fields.evidenceRefs, ["VaultPort.localBinding", "agentgres_local_vault_metadata", `vault_ref_${vaultRefHash.slice(0, 16)}`]),
     };
   }
 
@@ -472,6 +661,12 @@ class AgentgresVaultPort {
         durableMetadataCount: this.metadata.size,
         environmentAliases: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY", "IOI_CUSTOM_MODEL_API_KEY"],
         plaintextPersistence: false,
+      },
+      materialAdapter: this.materialAdapter?.status() ?? {
+        implementation: "runtime_memory",
+        configured: false,
+        plaintextPersistence: false,
+        evidenceRefs: ["VaultMaterialAdapter.runtimeMemory"],
       },
       evidenceRefs: ["wallet.network.vault_ref_boundary", "provider_request_time_secret_resolution"],
     };
@@ -967,6 +1162,7 @@ export class ModelMountingState {
       now: this.now,
       appendOperation: (kind, payload) => this.appendOperation?.(kind, payload),
       secrets: vaultSecrets,
+      materialAdapter: configuredVaultMaterialAdapter({ now: this.now }),
     });
     this.providers = new Map();
     this.backends = new Map();
@@ -3344,6 +3540,17 @@ function providerRequestTimeoutMs() {
   const configured = Number(process.env.IOI_PROVIDER_HTTP_TIMEOUT_MS ?? "");
   if (Number.isFinite(configured) && configured >= 1000) return configured;
   return 30000;
+}
+
+function configuredVaultMaterialAdapter({ now }) {
+  if (process.env.IOI_KEYCHAIN_VAULT_PATH || process.env.IOI_KEYCHAIN_VAULT_KEY) {
+    return new EncryptedKeychainVaultMaterialAdapter({
+      filePath: process.env.IOI_KEYCHAIN_VAULT_PATH,
+      keyMaterial: process.env.IOI_KEYCHAIN_VAULT_KEY,
+      now,
+    });
+  }
+  return null;
 }
 
 function providerHttpError(provider, message, result) {
