@@ -39,6 +39,31 @@ async function requestSse(endpoint, route, { method = "POST", body, token, heade
   return { response, text, events: parseSseEvents(text) };
 }
 
+async function requestSseAndAbortAfterFirstChunk(endpoint, route, { method = "POST", body, token, headers = {} } = {}) {
+  const controller = new AbortController();
+  const response = await fetch(`${endpoint}${route}`, {
+    method,
+    signal: controller.signal,
+    headers: {
+      accept: "text/event-stream",
+      ...(body === undefined ? {} : { "content-type": "application/json" }),
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+      ...headers,
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const reader = response.body.getReader();
+  const first = await reader.read();
+  const text = new TextDecoder().decode(first.value ?? new Uint8Array());
+  controller.abort();
+  try {
+    await reader.read();
+  } catch {
+    // Aborting the stream should reject the reader on some Node versions.
+  }
+  return { response, text };
+}
+
 function parseSseEvents(text) {
   return String(text)
     .trim()
@@ -74,6 +99,17 @@ async function expectOk(endpoint, route, options) {
   const result = await requestJson(endpoint, route, options);
   assert.equal(result.response.ok, true, `${route} -> ${result.response.status}`);
   return result.json;
+}
+
+async function waitForReceipt(endpoint, predicate, { timeoutMs = 2000 } = {}) {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    const receipts = await expectOk(endpoint, "/api/v1/receipts");
+    const receipt = receipts.find(predicate);
+    if (receipt) return receipt;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  assert.fail("Expected receipt was not recorded before timeout.");
 }
 
 test("model mounting daemon exercises registry, router, tokens, MCP, receipts, and OpenAI compatibility", async () => {
@@ -499,6 +535,39 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     });
     assert.equal(deniedCompatStream.response.status, 403);
 
+    const priorStreamDelay = process.env.IOI_DETERMINISTIC_SSE_FRAME_DELAY_MS;
+    process.env.IOI_DETERMINISTIC_SSE_FRAME_DELAY_MS = "25";
+    try {
+      const abortedCompatStream = await requestSseAndAbortAfterFirstChunk(daemon.endpoint, "/v1/chat/completions", {
+        method: "POST",
+        token: grant.token,
+        body: { model: "local:auto", stream: true, messages: [{ role: "user", content: "abort this compat stream" }] },
+      });
+      assert.equal(abortedCompatStream.response.status, 200);
+      assert.match(abortedCompatStream.text, /chat\.completion\.chunk/);
+    } finally {
+      if (priorStreamDelay === undefined) {
+        delete process.env.IOI_DETERMINISTIC_SSE_FRAME_DELAY_MS;
+      } else {
+        process.env.IOI_DETERMINISTIC_SSE_FRAME_DELAY_MS = priorStreamDelay;
+      }
+    }
+    const canceledCompatReceipt = await waitForReceipt(
+      daemon.endpoint,
+      (receipt) =>
+        receipt.kind === "model_invocation_stream_canceled" &&
+        receipt.details?.streamKind === "openai_chat_completions",
+    );
+    assert.equal(canceledCompatReceipt.details.routeId, "route.local-first");
+    assert.equal(canceledCompatReceipt.details.selectedModel, "local:auto");
+    assert.equal(canceledCompatReceipt.details.endpointId, "endpoint.local.auto");
+    assert.equal(typeof canceledCompatReceipt.details.invocationReceiptId, "string");
+    const canceledInvocationReceipt = await expectOk(
+      daemon.endpoint,
+      `/api/v1/receipts/${canceledCompatReceipt.details.invocationReceiptId}`,
+    );
+    assert.equal(canceledInvocationReceipt.kind, "model_invocation");
+
     const responsesStreaming = await requestSse(daemon.endpoint, "/v1/responses", {
       method: "POST",
       token: grant.token,
@@ -536,6 +605,33 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
       body: { model: "local:auto", stream: true, input: "blocked responses stream" },
     });
     assert.equal(deniedResponsesStream.response.status, 403);
+
+    const priorResponsesStreamDelay = process.env.IOI_DETERMINISTIC_SSE_FRAME_DELAY_MS;
+    process.env.IOI_DETERMINISTIC_SSE_FRAME_DELAY_MS = "25";
+    try {
+      const abortedResponsesStream = await requestSseAndAbortAfterFirstChunk(daemon.endpoint, "/v1/responses", {
+        method: "POST",
+        token: grant.token,
+        body: { model: "local:auto", stream: true, input: "abort this responses stream" },
+      });
+      assert.equal(abortedResponsesStream.response.status, 200);
+      assert.match(abortedResponsesStream.text, /response\.created/);
+    } finally {
+      if (priorResponsesStreamDelay === undefined) {
+        delete process.env.IOI_DETERMINISTIC_SSE_FRAME_DELAY_MS;
+      } else {
+        process.env.IOI_DETERMINISTIC_SSE_FRAME_DELAY_MS = priorResponsesStreamDelay;
+      }
+    }
+    const canceledResponsesReceipt = await waitForReceipt(
+      daemon.endpoint,
+      (receipt) =>
+        receipt.kind === "model_invocation_stream_canceled" &&
+        receipt.details?.streamKind === "openai_responses",
+    );
+    assert.equal(canceledResponsesReceipt.details.routeId, "route.local-first");
+    assert.equal(canceledResponsesReceipt.details.selectedModel, "local:auto");
+    assert.equal(canceledResponsesReceipt.details.endpointId, "endpoint.local.auto");
 
     const anthropic = await expectOk(daemon.endpoint, "/v1/messages", {
       method: "POST",
@@ -595,6 +691,33 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
       `/api/v1/receipts/${anthropicStreaming.events.at(-1).data.receipt_id}`,
     );
     assert.equal(streamedReceipt.kind, "model_invocation");
+
+    const priorAnthropicStreamDelay = process.env.IOI_DETERMINISTIC_SSE_FRAME_DELAY_MS;
+    process.env.IOI_DETERMINISTIC_SSE_FRAME_DELAY_MS = "25";
+    try {
+      const abortedAnthropicStream = await requestSseAndAbortAfterFirstChunk(daemon.endpoint, "/v1/messages", {
+        method: "POST",
+        token: grant.token,
+        body: { model: "local:auto", max_tokens: 16, stream: true, messages: [{ role: "user", content: "abort messages stream" }] },
+      });
+      assert.equal(abortedAnthropicStream.response.status, 200);
+      assert.match(abortedAnthropicStream.text, /message_start/);
+    } finally {
+      if (priorAnthropicStreamDelay === undefined) {
+        delete process.env.IOI_DETERMINISTIC_SSE_FRAME_DELAY_MS;
+      } else {
+        process.env.IOI_DETERMINISTIC_SSE_FRAME_DELAY_MS = priorAnthropicStreamDelay;
+      }
+    }
+    const canceledAnthropicReceipt = await waitForReceipt(
+      daemon.endpoint,
+      (receipt) =>
+        receipt.kind === "model_invocation_stream_canceled" &&
+        receipt.details?.streamKind === "anthropic_messages",
+    );
+    assert.equal(canceledAnthropicReceipt.details.routeId, "route.local-first");
+    assert.equal(canceledAnthropicReceipt.details.selectedModel, "local:auto");
+    assert.equal(canceledAnthropicReceipt.details.endpointId, "endpoint.local.auto");
 
     const deniedMessagesStream = await requestJson(daemon.endpoint, "/v1/messages", {
       method: "POST",
