@@ -1623,6 +1623,7 @@ function useModelMountsDaemon() {
           "server.control:*",
           "server.logs:*",
           "backend.control:*",
+          "provider.control:*",
           "provider.write:*",
           "vault.write:*",
           "vault.read:*",
@@ -1728,6 +1729,12 @@ function useModelMountsDaemon() {
             token,
           });
           return "Native-local backend stop event recorded through the backend control path.";
+        }),
+      tailNativeBackendLogs: () =>
+        runAction("backend-logs", async () => {
+          const logs = await requestJson("/api/v1/backends/backend.autopilot.native-local.fixture/logs");
+          const count = Array.isArray(logs) ? logs.length : 0;
+          return `Native-local backend returned ${count} bounded log record${count === 1 ? "" : "s"}.`;
         }),
       loadLocalModel: () =>
         runAction("load-local", async () => {
@@ -2165,6 +2172,30 @@ function useModelMountsDaemon() {
           const models = await requestJson(`/api/v1/providers/${encodeURIComponent(providerId)}/models`);
           const count = Array.isArray(models) ? models.length : 0;
           return `${providerId} returned ${count} provider model${count === 1 ? "" : "s"}.`;
+        }),
+      listProviderLoaded: (providerId: string) =>
+        runAction("provider-loaded", async () => {
+          const loaded = await requestJson(`/api/v1/providers/${encodeURIComponent(providerId)}/loaded`);
+          const count = Array.isArray(loaded) ? loaded.length : 0;
+          return `${providerId} returned ${count} loaded provider model${count === 1 ? "" : "s"}.`;
+        }),
+      startProvider: (providerId: string) =>
+        runAction("provider-start", async () => {
+          const token = await ensureToken();
+          const result = await requestJson(`/api/v1/providers/${encodeURIComponent(providerId)}/start`, {
+            method: "POST",
+            token,
+          });
+          return `${providerId} start returned ${stringValue(result?.status, "available")}.`;
+        }),
+      stopProvider: (providerId: string) =>
+        runAction("provider-stop", async () => {
+          const token = await ensureToken();
+          const result = await requestJson(`/api/v1/providers/${encodeURIComponent(providerId)}/stop`, {
+            method: "POST",
+            token,
+          });
+          return `${providerId} stop returned ${stringValue(result?.status, "stopped")}.`;
         }),
     },
   };
@@ -3309,6 +3340,7 @@ function BackendsPanel({
   onProbeNativeBackend,
   onStartNativeBackend,
   onStopNativeBackend,
+  onTailNativeBackendLogs,
   onRunRuntimeSurvey,
   onSelectRuntimeEngine,
   onUpdateRuntimeEngine,
@@ -3324,6 +3356,7 @@ function BackendsPanel({
   onProbeNativeBackend: () => void;
   onStartNativeBackend: () => void;
   onStopNativeBackend: () => void;
+  onTailNativeBackendLogs: () => void;
   onRunRuntimeSurvey: () => void;
   onSelectRuntimeEngine: (engineId: string) => void;
   onUpdateRuntimeEngine: (engineId: string, draft: RuntimeEngineProfileDraft & { disabled?: boolean }) => void;
@@ -3349,6 +3382,10 @@ function BackendsPanel({
     tokenScopeGuard(data, hasSessionToken, "backend.control:*"),
     nativeBackend ? guardReady("backend selected", `${nativeBackend.label} can receive stop.`) : guardBlocked("backend missing", "No native backend is selected."),
   );
+  const backendLogsGuard = combineGuards(
+    connectionActionGuard(connectionState, "backend logs"),
+    nativeBackend ? guardReady("backend selected", `${nativeBackend.label} logs can be read through the daemon.`) : guardBlocked("backend missing", "No native backend is selected."),
+  );
   const runtimeSurveyGuard = connectionActionGuard(connectionState, "runtime survey");
   const runtimeUpdateGuard = connectionActionGuard(connectionState, "runtime profile");
   return (
@@ -3364,6 +3401,7 @@ function BackendsPanel({
           <ActionButton onClick={onProbeNativeBackend} disabled={busy} guard={combineGuards(connectionActionGuard(connectionState, "backend health"), backendGuard(nativeBackend, true))}>Probe native backend</ActionButton>
           <ActionButton onClick={onStartNativeBackend} disabled={busy} guard={backendStartGuard}>Start native</ActionButton>
           <ActionButton onClick={onStopNativeBackend} disabled={busy} guard={backendStopGuard}>Stop native</ActionButton>
+          <ActionButton onClick={onTailNativeBackendLogs} disabled={busy} guard={backendLogsGuard}>Backend logs</ActionButton>
           <ActionButton onClick={onRunRuntimeSurvey} disabled={busy} guard={runtimeSurveyGuard}>Run runtime survey</ActionButton>
         </div>
       </div>
@@ -3953,6 +3991,9 @@ function ProvidersPanel({
   onProviderHealth,
   onLatestProviderHealth,
   onProviderModels,
+  onProviderLoaded,
+  onProviderStart,
+  onProviderStop,
   busy,
 }: {
   data: MountsWorkbenchData;
@@ -3964,6 +4005,9 @@ function ProvidersPanel({
   onProviderHealth: (providerId: string) => void;
   onLatestProviderHealth: (providerId: string) => void;
   onProviderModels: (providerId: string) => void;
+  onProviderLoaded: (providerId: string) => void;
+  onProviderStart: (providerId: string) => void;
+  onProviderStop: (providerId: string) => void;
   busy: string | null;
 }) {
   const [draft, setDraft] = useState<ProviderDraft>(defaultProviderDraft);
@@ -3975,7 +4019,10 @@ function ProvidersPanel({
     busy === "vault-bind" ||
     busy === "provider-health" ||
     busy === "provider-health-latest" ||
-    busy === "provider-models";
+    busy === "provider-models" ||
+    busy === "provider-loaded" ||
+    busy === "provider-start" ||
+    busy === "provider-stop";
   const configureGuard = combineGuards(
     connectionActionGuard(connectionState, "provider.write:*"),
     tokenScopeGuard(data, hasSessionToken, "provider.write:*"),
@@ -3989,6 +4036,11 @@ function ProvidersPanel({
   const draftProvider = providers.find((provider) => provider.id === draft.id);
   const providerProbeGuard = combineGuards(connectionActionGuard(connectionState, "provider health"), providerGuard(draftProvider, undefined, true));
   const providerModelsGuard = combineGuards(connectionActionGuard(connectionState, "provider models"), providerGuard(draftProvider, "chat", true));
+  const providerControlGuard = combineGuards(
+    connectionActionGuard(connectionState, "provider.control:*"),
+    tokenScopeGuard(data, hasSessionToken, "provider.control:*"),
+    providerGuard(draftProvider, undefined, true),
+  );
   return (
     <section className="model-mounts-panel" aria-labelledby="model-mounts-providers-title">
       <div className="model-mounts-panel-head">
@@ -4108,12 +4160,21 @@ function ProvidersPanel({
           <ActionButton onClick={() => onProviderModels(draft.id)} disabled={providerBusy} guard={providerModelsGuard}>
             List models
           </ActionButton>
+          <ActionButton onClick={() => onProviderLoaded(draft.id)} disabled={providerBusy} guard={providerModelsGuard}>
+            Loaded
+          </ActionButton>
+          <ActionButton onClick={() => onProviderStart(draft.id)} disabled={providerBusy} guard={providerControlGuard}>
+            Start provider
+          </ActionButton>
+          <ActionButton onClick={() => onProviderStop(draft.id)} disabled={providerBusy} guard={providerControlGuard}>
+            Stop provider
+          </ActionButton>
         </div>
       </form>
 
       <div className="model-mounts-provider-grid">
         {providers.map((item) => (
-          <article key={item.id} className="model-mounts-provider">
+          <article key={item.id} className="model-mounts-provider" data-provider-id={item.id}>
             <div>
               <strong>{item.label}</strong>
               <span>{item.kind} / {item.apiFormat}</span>
@@ -4158,6 +4219,15 @@ function ProvidersPanel({
               </ActionButton>
               <ActionButton onClick={() => onProviderModels(item.id)} disabled={providerBusy} guard={combineGuards(connectionActionGuard(connectionState, "provider models"), providerGuard(item, "chat", true))}>
                 Models
+              </ActionButton>
+              <ActionButton onClick={() => onProviderLoaded(item.id)} disabled={providerBusy} guard={combineGuards(connectionActionGuard(connectionState, "provider loaded"), providerGuard(item, undefined, true))}>
+                Loaded
+              </ActionButton>
+              <ActionButton onClick={() => onProviderStart(item.id)} disabled={providerBusy} guard={combineGuards(connectionActionGuard(connectionState, "provider start"), tokenScopeGuard(data, hasSessionToken, "provider.control:*"), providerGuard(item, undefined, true))}>
+                Start
+              </ActionButton>
+              <ActionButton onClick={() => onProviderStop(item.id)} disabled={providerBusy} guard={combineGuards(connectionActionGuard(connectionState, "provider stop"), tokenScopeGuard(data, hasSessionToken, "provider.control:*"), providerGuard(item, undefined, true))}>
+                Stop
               </ActionButton>
             </div>
           </article>
@@ -5026,10 +5096,59 @@ export function MissionControlMountsView() {
     },
     [busy, daemon.actions, daemon.data.downloads, openReceiptInLogs, validationActionsEnabled],
   );
+  const runProviderBackendValidationAction = useCallback(
+    (
+      action:
+        | "backend-health"
+        | "backend-start"
+        | "backend-stop"
+        | "backend-logs"
+        | "provider-health"
+        | "provider-models"
+        | "provider-loaded"
+        | "provider-start"
+        | "provider-stop",
+    ) => {
+      if (!validationActionsEnabled || busy) return;
+      const providerId = "provider.autopilot.local";
+      if (action.startsWith("backend-")) setActiveTab("backends");
+      if (action.startsWith("provider-")) setActiveTab("providers");
+
+      if (action === "backend-health") daemon.actions.probeNativeBackend();
+      if (action === "backend-start") daemon.actions.startNativeBackend();
+      if (action === "backend-stop") daemon.actions.stopNativeBackend();
+      if (action === "backend-logs") daemon.actions.tailNativeBackendLogs();
+      if (action === "provider-health") daemon.actions.testProviderHealth(providerId);
+      if (action === "provider-models") daemon.actions.listProviderModels(providerId);
+      if (action === "provider-loaded") daemon.actions.listProviderLoaded(providerId);
+      if (action === "provider-start") daemon.actions.startProvider(providerId);
+      if (action === "provider-stop") daemon.actions.stopProvider(providerId);
+    },
+    [busy, daemon.actions, validationActionsEnabled],
+  );
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if (event.ctrlKey || event.metaKey) return;
+      if (validationActionsEnabled && event.shiftKey && /^F[1-9]$/.test(event.key)) {
+        const actionByKey: Partial<Record<string, Parameters<typeof runProviderBackendValidationAction>[0]>> = {
+          F1: "backend-health",
+          F2: "backend-start",
+          F3: "backend-logs",
+          F4: "backend-stop",
+          F5: "provider-health",
+          F6: "provider-models",
+          F7: "provider-loaded",
+          F8: "provider-start",
+          F9: "provider-stop",
+        };
+        const action = actionByKey[event.key];
+        if (action) {
+          event.preventDefault();
+          runProviderBackendValidationAction(action);
+          return;
+        }
+      }
       if (validationActionsEnabled && ["F10", "F11", "F12"].includes(event.key)) {
         event.preventDefault();
         if (event.key === "F10") runDownloadValidationAction("cancel");
@@ -5049,7 +5168,7 @@ export function MissionControlMountsView() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [runDownloadValidationAction, validationActionsEnabled]);
+  }, [runDownloadValidationAction, runProviderBackendValidationAction, validationActionsEnabled]);
 
   return (
     <div className="mission-control-view mission-control-view--mounts">
@@ -5138,6 +5257,7 @@ export function MissionControlMountsView() {
             onProbeNativeBackend={daemon.actions.probeNativeBackend}
             onStartNativeBackend={daemon.actions.startNativeBackend}
             onStopNativeBackend={daemon.actions.stopNativeBackend}
+            onTailNativeBackendLogs={daemon.actions.tailNativeBackendLogs}
             onRunRuntimeSurvey={daemon.actions.runRuntimeSurvey}
             onSelectRuntimeEngine={daemon.actions.selectRuntimeEngine}
             onUpdateRuntimeEngine={daemon.actions.updateRuntimeEngine}
@@ -5168,6 +5288,9 @@ export function MissionControlMountsView() {
             onProviderHealth={daemon.actions.testProviderHealth}
             onLatestProviderHealth={daemon.actions.latestProviderHealth}
             onProviderModels={daemon.actions.listProviderModels}
+            onProviderLoaded={daemon.actions.listProviderLoaded}
+            onProviderStart={daemon.actions.startProvider}
+            onProviderStop={daemon.actions.stopProvider}
             busy={daemon.busyAction}
           />
         ) : null}

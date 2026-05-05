@@ -73,6 +73,7 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   assert.match(source, /Probe native backend/);
   assert.match(source, /Start native/);
   assert.match(source, /Stop native/);
+  assert.match(source, /Backend logs/);
   assert.match(source, /Load native-local/);
   assert.match(source, /Download fixture/);
   assert.match(source, /Search catalog/);
@@ -86,6 +87,7 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   assert.match(source, /readValidationActionsEnabled/);
   assert.match(source, /mountsValidationActions/);
   assert.match(source, /runDownloadValidationAction/);
+  assert.match(source, /runProviderBackendValidationAction/);
   assert.match(source, /data-download-id/);
   assert.match(source, /data-download-action-row/);
   assert.match(source, /retryDownloadPayload/);
@@ -132,6 +134,13 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   assert.match(source, /Revoke/);
   assert.match(source, /Test health/);
   assert.match(source, /Latest health/);
+  assert.match(source, /Loaded/);
+  assert.match(source, /Start provider/);
+  assert.match(source, /Stop provider/);
+  assert.match(source, /listProviderLoaded/);
+  assert.match(source, /startProvider/);
+  assert.match(source, /stopProvider/);
+  assert.match(source, /provider\.control:\*/);
   assert.match(source, /Latest vault health/);
   assert.match(source, /latestProviderHealth/);
   assert.match(source, /latestVaultHealth/);
@@ -307,6 +316,12 @@ test("Mounts GUI validation uses a dedicated desktop harness", () => {
   assert.match(probe, /downloads-open-receipt-logs/);
   assert.match(probe, /queuedDownloadCanceledThroughGuiAction/);
   assert.match(probe, /failedDownloadRetriedThroughGuiAction/);
+  assert.match(probe, /exercise_provider_backend_actions/);
+  assert.match(probe, /backends-after-health-action/);
+  assert.match(probe, /providers-after-models-action/);
+  assert.match(probe, /backendStartReceiptRecorded/);
+  assert.match(probe, /providerLoadedReceiptRecorded/);
+  assert.match(probe, /providerBackendActionAssertions/);
   assert.match(probe, /VITE_AUTOPILOT_MOUNTS_VALIDATION_ACTIONS/);
   assert.match(probe, /catalog_variant_count/);
   assert.match(probe, /download_status_counts/);
