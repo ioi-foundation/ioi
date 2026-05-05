@@ -194,6 +194,25 @@ export const FleetIcon = () => (
   </svg>
 );
 
+export const MountsIcon = () => (
+  <svg
+    width="22"
+    height="22"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M12 4.5 7.5 10h9L12 4.5Z" />
+    <path d="M7 13h10" />
+    <path d="M5 16.5h14" />
+    <path d="M6.5 19.5h11" />
+    <path d="M5 16.5 3.8 20.3a1 1 0 0 0 1 1.2h14.4a1 1 0 0 0 1-1.2L19 16.5" />
+  </svg>
+);
+
 export const WorkspaceIcon = () => (
   <svg
     width="22"

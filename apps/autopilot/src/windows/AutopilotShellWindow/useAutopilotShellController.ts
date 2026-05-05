@@ -73,29 +73,21 @@ type RuntimeCatalogStageEntry = {
 const appliedChatLaunchIds = new Set<string>();
 
 function resolveInitialPrimaryView(): PrimaryView {
+  const supportedRequestedViews: PrimaryView[] = [
+    "home",
+    "chat",
+    "workspace",
+    "workflows",
+    "runs",
+    "mounts",
+    "inbox",
+    "capabilities",
+    "policy",
+    "settings",
+  ];
+
   if (typeof window !== "undefined") {
-    const pathname = window.location.pathname.toLowerCase();
-    if (pathname === "/chat" || pathname.startsWith("/chat/")) {
-      return "chat";
-    }
     const requested = new URLSearchParams(window.location.search).get("view");
-    if (requested === "home") {
-      return "home";
-    }
-    if (requested === "chat") {
-      return "chat";
-    }
-    const supportedRequestedViews: PrimaryView[] = [
-      "home",
-      "chat",
-      "workspace",
-      "workflows",
-      "runs",
-      "inbox",
-      "capabilities",
-      "policy",
-      "settings",
-    ];
     if (supportedRequestedViews.includes(requested as PrimaryView)) {
       return requested as PrimaryView;
     }
@@ -105,18 +97,15 @@ function resolveInitialPrimaryView(): PrimaryView {
     .toString()
     .trim()
     .toLowerCase();
-  if (
-    envRequestedView === "home" ||
-    envRequestedView === "chat" ||
-    envRequestedView === "workspace" ||
-    envRequestedView === "workflows" ||
-    envRequestedView === "runs" ||
-    envRequestedView === "inbox" ||
-    envRequestedView === "capabilities" ||
-    envRequestedView === "policy" ||
-    envRequestedView === "settings"
-  ) {
+  if (supportedRequestedViews.includes(envRequestedView as PrimaryView)) {
     return envRequestedView as PrimaryView;
+  }
+
+  if (typeof window !== "undefined") {
+    const pathname = window.location.pathname.toLowerCase();
+    if (pathname === "/chat" || pathname.startsWith("/chat/")) {
+      return "chat";
+    }
   }
 
   return "home";
@@ -399,6 +388,11 @@ export function useAutopilotShellController() {
       case "fleet":
       case "atlas":
         setActiveView("runs");
+        return;
+      case "mounts":
+      case "model-mounts":
+      case "model_mounts":
+        setActiveView("mounts");
         return;
       case "inbox":
       case "notifications":
