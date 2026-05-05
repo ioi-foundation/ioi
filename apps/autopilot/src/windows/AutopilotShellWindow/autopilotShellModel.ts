@@ -6,6 +6,7 @@ export type PrimaryView =
   | "workspace"
   | "workflows"
   | "runs"
+  | "mounts"
   | "inbox"
   | "capabilities"
   | "policy"

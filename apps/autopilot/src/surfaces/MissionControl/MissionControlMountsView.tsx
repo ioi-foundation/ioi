@@ -1,0 +1,1645 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import "./MissionControlMountsView.css";
+
+type MountsTab = "server" | "backends" | "models" | "providers" | "downloads" | "tokens" | "routing" | "logs";
+type StatusTone = "neutral" | "ready" | "muted" | "warn" | "blocked";
+type ConnectionState = "offline" | "loading" | "connected" | "degraded";
+
+interface ProviderProfile {
+  id: string;
+  label: string;
+  kind: string;
+  status: string;
+  privacy: string;
+  apiFormat: string;
+  baseUrl: string;
+  capabilities: string[];
+  evidence: string;
+}
+
+interface BackendPreview {
+  id: string;
+  label: string;
+  kind: string;
+  status: string;
+  processStatus: string;
+  binaryPath: string;
+  baseUrl: string;
+  formats: string[];
+  capabilities: string[];
+  evidence: string;
+  memoryPressure: string;
+  receipt: string;
+}
+
+interface ModelArtifact {
+  id: string;
+  name: string;
+  provider: string;
+  state: string;
+  context: string;
+  quantization: string;
+  capabilities: string[];
+}
+
+interface ModelEndpoint {
+  id: string;
+  provider: string;
+  apiFormat: string;
+  baseUrl: string;
+  modelId: string;
+  privacy: string;
+  loadPolicy: string;
+  status: string;
+  capabilities: string[];
+}
+
+interface ModelInstance {
+  id: string;
+  endpointId: string;
+  modelId: string;
+  status: string;
+  backend: string;
+  ttl: string;
+}
+
+interface PermissionTokenPreview {
+  id: string;
+  audience: string;
+  allowed: string[];
+  denied: string[];
+  expires: string;
+  lastUsed: string;
+  state: string;
+}
+
+interface McpServerPreview {
+  id: string;
+  transport: string;
+  allowedTools: string[];
+  status: string;
+  secrets: string;
+}
+
+interface RoutePolicyPreview {
+  id: string;
+  role: string;
+  privacy: string;
+  quality: string;
+  maxCost: string;
+  fallback: string;
+  lastSelection: string;
+  receipt: string;
+}
+
+interface ReceiptPreview {
+  id: string;
+  kind: string;
+  summary: string;
+  redaction: string;
+  evidence: string[];
+}
+
+interface WorkflowNodePreview {
+  node: string;
+  routeId: string;
+  receiptRequired: boolean;
+}
+
+interface ServerPreview {
+  status: string;
+  nativeBaseUrl: string;
+  openAiCompatibleBaseUrl: string;
+  loadedInstances: number;
+  mountedEndpoints: number;
+  idleTtlSeconds: number;
+  autoEvict: boolean;
+  providerSummary: string;
+}
+
+interface MountsWorkbenchData {
+  server: ServerPreview;
+  artifacts: ModelArtifact[];
+  endpoints: ModelEndpoint[];
+  instances: ModelInstance[];
+  downloads: Array<{ id: string; model: string; status: string; progress: string }>;
+  backends: BackendPreview[];
+  providers: ProviderProfile[];
+  tokens: PermissionTokenPreview[];
+  mcpServers: McpServerPreview[];
+  routes: RoutePolicyPreview[];
+  workflowNodes: WorkflowNodePreview[];
+  receipts: ReceiptPreview[];
+}
+
+const DEFAULT_DAEMON_ENDPOINT = "http://127.0.0.1:8765";
+const ENDPOINT_STORAGE_KEY = "ioi.modelMounts.daemonEndpoint";
+
+const tabs: Array<{ id: MountsTab; label: string }> = [
+  { id: "server", label: "Local Server" },
+  { id: "backends", label: "Backends" },
+  { id: "models", label: "Models" },
+  { id: "providers", label: "Providers" },
+  { id: "downloads", label: "Downloads" },
+  { id: "tokens", label: "Tokens & MCP" },
+  { id: "routing", label: "Routing Policies" },
+  { id: "logs", label: "Logs / Receipts" },
+];
+
+const tabIds = tabs.map((tab) => tab.id);
+
+function isMountsTab(value: unknown): value is MountsTab {
+  return typeof value === "string" && tabIds.includes(value as MountsTab);
+}
+
+const fallbackData: MountsWorkbenchData = {
+  server: {
+    status: "offline fixture",
+    nativeBaseUrl: `${DEFAULT_DAEMON_ENDPOINT}/api/v1`,
+    openAiCompatibleBaseUrl: `${DEFAULT_DAEMON_ENDPOINT}/v1`,
+    loadedInstances: 1,
+    mountedEndpoints: 2,
+    idleTtlSeconds: 900,
+    autoEvict: true,
+    providerSummary: "fixture projection",
+  },
+  providers: [
+    provider("provider.local.folder", "Local model folder", "local_folder", "available", "local_private", "fixture", "local://models", [
+      "chat",
+      "embeddings",
+      "structured_output",
+      "rerank",
+    ], "agentgres_model_registry_fixture"),
+    provider("provider.autopilot.local", "Autopilot native local", "ioi_native_local", "available", "local_private", "ioi_native", "local://ioi-native/model-server", [
+      "chat",
+      "responses",
+      "embeddings",
+      "structured_output",
+      "rerank",
+    ], "autopilot_native_local_backend_registry"),
+    provider("provider.lmstudio", "LM Studio", "lm_studio", "stopped", "local_private", "openai_compatible", "http://127.0.0.1:1234/v1", [
+      "chat",
+      "responses",
+      "embeddings",
+    ], "~/.local/bin/lm-studio.AppImage or ~/.lmstudio/bin/lms"),
+    provider("provider.ollama", "Ollama", "ollama", "blocked", "local_private", "ollama", "http://127.0.0.1:11434", [
+      "chat",
+      "embeddings",
+    ], "OLLAMA_HOST"),
+    provider("provider.openai-compatible", "OpenAI-compatible", "openai_compatible", "configured", "workspace", "openai_compatible", "http://127.0.0.1:1234/v1", [
+      "chat",
+      "responses",
+      "embeddings",
+    ], "OPENAI_COMPATIBLE_BASE_URL"),
+    provider("provider.openai", "OpenAI BYOK", "openai", "blocked", "hosted", "openai", "vault reference required", [
+      "chat",
+      "responses",
+      "embeddings",
+    ], "vault secret reference required"),
+    provider("provider.anthropic", "Anthropic BYOK", "anthropic", "blocked", "hosted", "anthropic", "vault reference required", [
+      "chat",
+      "code",
+      "reasoning",
+    ], "vault secret reference required"),
+    provider("provider.gemini", "Gemini BYOK", "gemini", "blocked", "hosted", "gemini", "vault reference required", [
+      "chat",
+      "vision",
+      "embeddings",
+    ], "vault secret reference required"),
+    provider("provider.custom-http", "Custom HTTP", "custom_http", "blocked", "workspace", "custom", "not configured", ["chat"], "operator provider config"),
+    provider("provider.depin-tee", "DePIN / TEE", "depin_tee", "future", "remote_confidential", "runtime_contract", "future runtime profile", [
+      "chat",
+      "code",
+      "receipts",
+    ], "future_runtime_profile"),
+  ],
+  backends: [
+    backend("backend.fixture", "Deterministic fixture backend", "fixture", "available", "stateless", "local://ioi-daemon/model-fixture", "fixture", ["fixture"], [
+      "chat",
+      "responses",
+      "embeddings",
+      "rerank",
+    ], "deterministic_fixture", "normal", "none"),
+    backend("backend.autopilot.native-local.fixture", "Autopilot native-local fixture", "native_local", "available", "supervised_fixture", "local://ioi-native/model-server", "fixture", [
+      "gguf",
+      "fixture",
+    ], ["chat", "responses", "embeddings", "rerank"], "autopilot_native_local_backend_registry", "normal", "none"),
+    backend("backend.llama-cpp", "llama.cpp native GGUF server", "llama_cpp", "blocked", "binary_absent", "http://127.0.0.1:8080/v1", "not configured", [
+      "gguf",
+    ], ["chat", "responses", "embeddings"], "IOI_LLAMA_CPP_SERVER_PATH", "normal", "none"),
+    backend("backend.ollama", "Ollama local backend", "ollama", "blocked", "external_or_absent", "http://127.0.0.1:11434", "ollama", [
+      "ollama_manifest",
+    ], ["chat", "embeddings"], "OLLAMA_HOST", "normal", "none"),
+    backend("backend.vllm", "vLLM OpenAI-compatible backend", "vllm", "blocked", "external_or_absent", "http://127.0.0.1:8000/v1", "vllm", [
+      "safetensors",
+      "hf_repository",
+    ], ["chat", "responses", "embeddings"], "VLLM_BASE_URL", "normal", "none"),
+    backend("backend.lmstudio", "LM Studio public provider", "lm_studio", "stopped", "external_provider", "http://127.0.0.1:1234/v1", "~/.lmstudio/bin/lms", [
+      "lm_studio_catalog",
+    ], ["chat", "responses", "embeddings"], "lm_studio_public_cli_or_server_probe", "normal", "none"),
+  ],
+  artifacts: [
+    {
+      id: "local.auto",
+      name: "local:auto",
+      provider: "provider.local.folder",
+      state: "installed",
+      context: "8k",
+      quantization: "fixture",
+      capabilities: ["chat", "responses", "embeddings", "structured_output", "rerank"],
+    },
+    {
+      id: "local.embedding.fixture",
+      name: "local:embedding-fixture",
+      provider: "provider.local.folder",
+      state: "installed",
+      context: "2k",
+      quantization: "fixture",
+      capabilities: ["embeddings"],
+    },
+    {
+      id: "autopilot.native.fixture",
+      name: "autopilot:native-fixture",
+      provider: "provider.autopilot.local",
+      state: "installed",
+      context: "8192",
+      quantization: "Q4_K_M",
+      capabilities: ["chat", "responses", "embeddings", "structured_output", "rerank"],
+    },
+    {
+      id: "lmstudio.detected",
+      name: "lmstudio:detected",
+      provider: "provider.lmstudio",
+      state: "provider_stopped",
+      context: "unknown",
+      quantization: "observed",
+      capabilities: ["chat", "responses", "embeddings"],
+    },
+  ],
+  endpoints: [
+    {
+      id: "endpoint.local.auto",
+      provider: "provider.local.folder",
+      apiFormat: "ioi_fixture",
+      baseUrl: "local://ioi-daemon/model-fixture",
+      modelId: "local:auto",
+      privacy: "local_private",
+      loadPolicy: "on_demand / idle_evict 900s",
+      status: "mounted",
+      capabilities: ["chat", "responses", "embeddings", "structured_output", "rerank"],
+    },
+    {
+      id: "endpoint.autopilot.native-fixture",
+      provider: "provider.autopilot.local",
+      apiFormat: "ioi_native",
+      baseUrl: "local://ioi-native/model-server",
+      modelId: "autopilot:native-fixture",
+      privacy: "local_private",
+      loadPolicy: "on_demand / idle_evict 900s",
+      status: "mounted",
+      capabilities: ["chat", "responses", "embeddings", "structured_output", "rerank"],
+    },
+    {
+      id: "endpoint.lmstudio.detected",
+      provider: "provider.lmstudio",
+      apiFormat: "openai_compatible",
+      baseUrl: "http://127.0.0.1:1234/v1",
+      modelId: "lmstudio:detected",
+      privacy: "local_private",
+      loadPolicy: "manual when LM Studio is running",
+      status: "degraded",
+      capabilities: ["chat", "responses", "embeddings"],
+    },
+  ],
+  instances: [
+    {
+      id: "instance.endpoint.local.auto",
+      endpointId: "endpoint.local.auto",
+      modelId: "local:auto",
+      status: "loaded",
+      backend: "ioi_fixture",
+      ttl: "expires on idle after 900s",
+    },
+  ],
+  downloads: [
+    { id: "download_job_fixture", model: "local:auto", status: "completed", progress: "100%" },
+    { id: "download_queue_empty", model: "queue", status: "empty", progress: "0 active jobs" },
+  ],
+  tokens: [
+    {
+      id: "grant_local_dev",
+      audience: "autopilot-local-server",
+      allowed: ["model.chat:*", "model.responses:*", "model.embeddings:*", "route.use:*", "mcp.call:huggingface.model_search"],
+      denied: ["connector.gmail.send", "filesystem.write", "shell.exec"],
+      expires: "24h",
+      lastUsed: "not used",
+      state: "active",
+    },
+    {
+      id: "grant_revoked_fixture",
+      audience: "autopilot-local-server",
+      allowed: ["model.chat:*"],
+      denied: ["model.chat:*"],
+      expires: "revoked",
+      lastUsed: "revoked",
+      state: "revoked",
+    },
+  ],
+  mcpServers: [
+    {
+      id: "mcp.huggingface",
+      transport: "remote",
+      allowedTools: ["model_search"],
+      status: "registered",
+      secrets: "vault reference redacted",
+    },
+    {
+      id: "mcp.empty-json",
+      transport: "none",
+      allowedTools: [],
+      status: "empty import accepted",
+      secrets: "none",
+    },
+  ],
+  routes: [
+    route("route.local-first", "default", "local_or_enterprise", "adaptive", "$0.25", "endpoint.local.auto", "local:auto", "receipt_model_invocation_*"),
+    route("route.native-local", "default", "local_only", "deterministic", "$0.00", "endpoint.autopilot.native-fixture", "autopilot:native-fixture", "receipt_model_invocation_*"),
+    route("route.verifier.local", "verifier", "local_only", "deterministic", "$0.05", "endpoint.local.auto", "local:auto", "receipt_model_route_selection_*"),
+    route("route.hosted-fallback", "planner", "local_or_enterprise", "high", "$0.25", "endpoint.local.auto -> provider.openai-compatible", "blocked by provider policy", "policy blocked"),
+  ],
+  workflowNodes: [
+    "Model Call",
+    "Structured Output",
+    "Verifier",
+    "Planner",
+    "Embedding",
+    "Reranker",
+    "Vision",
+    "Local Tool / MCP",
+    "Model Router",
+    "Receipt Gate",
+  ].map((node) => ({ node, routeId: "route.local-first", receiptRequired: true })),
+  receipts: [
+    receipt("receipt_model_lifecycle_*", "model_lifecycle", "mount, load, unload, download, import, and idle eviction state transitions", ["model_registry", "agentgres_canonical_operation_log"]),
+    receipt("receipt_model_invocation_*", "model_invocation", "route, endpoint, instance, backend, policy hash, grant id, token counts, latency", ["model_router", "endpoint.local.auto", "wallet.network.capability_grant"]),
+    receipt("receipt_mcp_tool_invocation_*", "mcp_tool_invocation", "allowed MCP tool execution through RuntimeToolContract", ["RuntimeToolContract", "mcp.huggingface", "tool:model_search"]),
+    receipt("receipt_permission_token_*", "permission_token", "scoped, expiring, revocable token with denied connector/filesystem/shell scopes", ["wallet.network.capability_grant", "wallet.network.revocation"]),
+  ],
+};
+
+function provider(
+  id: string,
+  label: string,
+  kind: string,
+  status: string,
+  privacy: string,
+  apiFormat: string,
+  baseUrl: string,
+  capabilities: string[],
+  evidence: string,
+): ProviderProfile {
+  return { id, label, kind, status, privacy, apiFormat, baseUrl, capabilities, evidence };
+}
+
+function backend(
+  id: string,
+  label: string,
+  kind: string,
+  status: string,
+  processStatus: string,
+  baseUrl: string,
+  binaryPath: string,
+  formats: string[],
+  capabilities: string[],
+  evidence: string,
+  memoryPressure: string,
+  receipt: string,
+): BackendPreview {
+  return { id, label, kind, status, processStatus, baseUrl, binaryPath, formats, capabilities, evidence, memoryPressure, receipt };
+}
+
+function route(
+  id: string,
+  role: string,
+  privacy: string,
+  quality: string,
+  maxCost: string,
+  fallback: string,
+  lastSelection: string,
+  receiptId: string,
+): RoutePolicyPreview {
+  return { id, role, privacy, quality, maxCost, fallback, lastSelection, receipt: receiptId };
+}
+
+function receipt(id: string, kind: string, summary: string, evidence: string[]): ReceiptPreview {
+  return { id, kind, summary, redaction: "redacted", evidence };
+}
+
+function readInitialEndpoint() {
+  try {
+    const requested = new URLSearchParams(window.location.search).get("mountsEndpoint");
+    if (requested) return requested;
+    const envEndpoint = import.meta.env.VITE_AUTOPILOT_MOUNTS_DAEMON_ENDPOINT;
+    if (typeof envEndpoint === "string" && envEndpoint.trim()) return envEndpoint.trim();
+    return window.localStorage.getItem(ENDPOINT_STORAGE_KEY) ?? DEFAULT_DAEMON_ENDPOINT;
+  } catch {
+    return DEFAULT_DAEMON_ENDPOINT;
+  }
+}
+
+function readInitialTab(): MountsTab {
+  try {
+    const requested = new URLSearchParams(window.location.search).get("mountsTab");
+    if (isMountsTab(requested)) return requested;
+    const envTab = import.meta.env.VITE_AUTOPILOT_MOUNTS_INITIAL_TAB;
+    if (isMountsTab(envTab)) return envTab;
+  } catch {
+    // The default tab is enough if the URL cannot be inspected.
+  }
+  return "server";
+}
+
+function useModelMountsDaemon() {
+  const [endpoint, setEndpointState] = useState(readInitialEndpoint);
+  const [data, setData] = useState<MountsWorkbenchData>(fallbackData);
+  const [connectionState, setConnectionState] = useState<ConnectionState>("offline");
+  const [message, setMessage] = useState("Rendering offline fixture projection.");
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
+  const [busyAction, setBusyAction] = useState<string | null>(null);
+
+  const setEndpoint = useCallback((nextEndpoint: string) => {
+    setEndpointState(nextEndpoint);
+    try {
+      window.localStorage.setItem(ENDPOINT_STORAGE_KEY, nextEndpoint);
+    } catch {
+      // Endpoint persistence is optional; the workbench remains usable without it.
+    }
+  }, []);
+
+  const requestJson = useCallback(
+    async (routePath: string, options: { method?: string; body?: unknown; token?: string | null } = {}) => {
+      const url = `${endpoint.replace(/\/+$/, "")}${routePath}`;
+      const response = await fetch(url, {
+        method: options.method ?? "GET",
+        headers: {
+          accept: "application/json",
+          ...(options.body === undefined ? {} : { "content-type": "application/json" }),
+          ...(options.token ? { authorization: `Bearer ${options.token}` } : {}),
+        },
+        body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      });
+      const text = await response.text();
+      const value = text ? JSON.parse(text) : null;
+      if (!response.ok) {
+        const error = new Error(errorMessage(value, routePath));
+        (error as Error & { status?: number }).status = response.status;
+        throw error;
+      }
+      return value;
+    },
+    [endpoint],
+  );
+
+  const refresh = useCallback(async () => {
+    setConnectionState("loading");
+    try {
+      const snapshot = await requestJson("/api/v1/models");
+      setData(normalizeSnapshot(snapshot, endpoint));
+      setConnectionState("connected");
+      setMessage("Daemon snapshot loaded.");
+    } catch (error) {
+      setData(fallbackData);
+      setConnectionState("degraded");
+      setMessage(error instanceof Error ? error.message : "Daemon snapshot unavailable.");
+    }
+  }, [endpoint, requestJson]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  const runAction = useCallback(
+    async (label: string, action: () => Promise<string | null | undefined>) => {
+      setBusyAction(label);
+      try {
+        const nextMessage = await action();
+        await refresh();
+        if (nextMessage) setMessage(nextMessage);
+      } catch (error) {
+        setConnectionState("degraded");
+        setMessage(error instanceof Error ? error.message : `${label} failed.`);
+      } finally {
+        setBusyAction(null);
+      }
+    },
+    [refresh],
+  );
+
+  const issueToken = useCallback(async () => {
+    const grant = await requestJson("/api/v1/tokens", {
+      method: "POST",
+      body: {
+        audience: "autopilot-local-server",
+        allowed: [
+          "model.chat:*",
+          "model.responses:*",
+          "model.embeddings:*",
+          "model.load:*",
+          "model.unload:*",
+          "model.mount:*",
+          "model.download:*",
+          "model.import:*",
+          "backend.control:*",
+          "route.use:*",
+          "mcp.import:*",
+          "mcp.call:huggingface.model_search",
+        ],
+        denied: ["connector.gmail.send", "filesystem.write", "shell.exec"],
+      },
+    });
+    if (typeof grant?.token !== "string") {
+      throw new Error("Daemon did not return an ephemeral token.");
+    }
+    setSessionToken(grant.token);
+    return grant.token;
+  }, [requestJson]);
+
+  const ensureToken = useCallback(async () => sessionToken ?? (await issueToken()), [issueToken, sessionToken]);
+
+  return {
+    endpoint,
+    setEndpoint,
+    data,
+    connectionState,
+    message,
+    sessionTokenLabel: sessionToken ? `${sessionToken.slice(0, 10)}...session` : "none",
+    busyAction,
+    refresh,
+    actions: {
+      issueToken: () =>
+        runAction("issue-token", async () => {
+          await issueToken();
+          return "Session capability token issued in memory.";
+        }),
+      probeNativeBackend: () =>
+        runAction("backend-health", async () => {
+          await requestJson("/api/v1/backends/backend.autopilot.native-local.fixture/health", {
+            method: "POST",
+          });
+          return "Native-local backend health receipt recorded.";
+        }),
+      startFixtureBackend: () =>
+        runAction("backend-start", async () => {
+          const token = await ensureToken();
+          await requestJson("/api/v1/backends/backend.fixture/start", {
+            method: "POST",
+            token,
+          });
+          return "Fixture backend start event recorded through the backend control path.";
+        }),
+      stopFixtureBackend: () =>
+        runAction("backend-stop", async () => {
+          const token = await ensureToken();
+          await requestJson("/api/v1/backends/backend.fixture/stop", {
+            method: "POST",
+            token,
+          });
+          return "Fixture backend stop event recorded through the backend control path.";
+        }),
+      loadLocalModel: () =>
+        runAction("load-local", async () => {
+          const token = await ensureToken();
+          await requestJson("/api/v1/models/load", {
+            method: "POST",
+            token,
+            body: { model_id: "local:auto", load_policy: { mode: "on_demand", idleTtlSeconds: 900, autoEvict: true } },
+          });
+          return "local:auto loaded through the governed model path.";
+        }),
+      loadNativeLocalModel: () =>
+        runAction("load-native-local", async () => {
+          const token = await ensureToken();
+          await requestJson("/api/v1/models/load", {
+            method: "POST",
+            token,
+            body: {
+              model_id: "autopilot:native-fixture",
+              load_policy: { mode: "on_demand", idleTtlSeconds: 900, autoEvict: true },
+            },
+          });
+          return "Autopilot native-local fixture loaded without LM Studio.";
+        }),
+      downloadFixture: () =>
+        runAction("download-fixture", async () => {
+          const token = await ensureToken();
+          await requestJson("/api/v1/models/download", {
+            method: "POST",
+            token,
+            body: {
+              model_id: `autopilot:download-${Date.now()}`,
+              provider_id: "provider.autopilot.local",
+              source_url: "fixture://autopilot/native-local",
+            },
+          });
+          return "Download lifecycle completed through queued, running, and completed receipts.";
+        }),
+      nativeChatProbe: () =>
+        runAction("native-chat", async () => {
+          const token = await ensureToken();
+          await requestJson("/api/v1/chat", {
+            method: "POST",
+            token,
+            body: { model: "local:auto", input: "Autopilot Mounts workbench probe" },
+          });
+          return "Native chat probe produced a model invocation receipt.";
+        }),
+      ephemeralMcpProbe: () =>
+        runAction("ephemeral-mcp", async () => {
+          const token = await ensureToken();
+          await requestJson("/api/v1/responses", {
+            method: "POST",
+            token,
+            body: {
+              route_id: "route.local-first",
+              input: "Run an ephemeral MCP parity probe.",
+              integrations: [
+                {
+                  type: "ephemeral_mcp",
+                  server_label: "huggingface",
+                  server_url: "https://example.invalid/mcp",
+                  allowed_tools: ["model_search"],
+                  headers: { authorization: "vault://mcp.huggingface/authorization" },
+                },
+              ],
+            },
+          });
+          return "Ephemeral MCP integration produced linked tool and model receipts.";
+        }),
+      importMcpFixture: () =>
+        runAction("mcp-import", async () => {
+          const token = await ensureToken();
+          await requestJson("/api/v1/mcp/import", {
+            method: "POST",
+            token,
+            body: {
+              mcpServers: {
+                huggingface: {
+                  url: "https://example.invalid/mcp",
+                  allowed_tools: ["model_search"],
+                  headers: { authorization: "vault://mcp.huggingface/authorization" },
+                },
+              },
+            },
+          });
+          return "MCP fixture imported with allowed_tools narrowing.";
+        }),
+      testRoute: () =>
+        runAction("route-test", async () => {
+          const token = await ensureToken();
+          await requestJson("/api/v1/routes/route.local-first/test", {
+            method: "POST",
+            token,
+            body: { capability: "chat", model_policy: { privacy: "local_only" } },
+          });
+          return "Route test selected a local model and emitted a route receipt.";
+        }),
+      workflowProbe: () =>
+        runAction("workflow-probe", async () => {
+          const token = await ensureToken();
+          await requestJson("/api/v1/workflows/nodes/execute", {
+            method: "POST",
+            token,
+            body: { node: "Model Router", model_policy: { privacy: "local_only" } },
+          });
+          await requestJson("/api/v1/workflows/nodes/execute", {
+            method: "POST",
+            token,
+            body: { node: "Embedding", input: "workflow embedding probe", model_policy: { privacy: "local_only" } },
+          });
+          return "Workflow model router and embedding nodes executed through the daemon contract.";
+        }),
+    },
+  };
+}
+
+function normalizeSnapshot(snapshot: any, endpoint: string): MountsWorkbenchData {
+  const providers = arrayOf(snapshot?.providers).map((item) =>
+    provider(
+      stringValue(item.id, "provider.unknown"),
+      stringValue(item.label, stringValue(item.id, "Provider")),
+      stringValue(item.kind, "custom"),
+      stringValue(item.status, "unknown"),
+      stringValue(item.privacyClass, stringValue(item.privacy, "workspace")),
+      stringValue(item.apiFormat, "unknown"),
+      stringValue(item.baseUrl, "not configured"),
+      stringArray(item.capabilities),
+      stringArray(item.discovery?.evidenceRefs).join(", ") || "daemon provider profile",
+    ),
+  );
+  const backends = arrayOf(snapshot?.backends).map((item) =>
+    backend(
+      stringValue(item.id, "backend.unknown"),
+      stringValue(item.label, stringValue(item.id, "Backend")),
+      stringValue(item.kind, "custom"),
+      stringValue(item.status, "unknown"),
+      stringValue(item.processStatus, "unknown"),
+      stringValue(item.baseUrl, "not configured"),
+      stringValue(item.binaryPath, "not configured"),
+      stringArray(item.supportedFormats),
+      stringArray(item.capabilities),
+      stringArray(item.evidenceRefs).join(", ") || "backend registry",
+      stringValue(item.hardware?.memoryPressure, "unknown"),
+      stringValue(item.lastReceiptId, "none"),
+    ),
+  );
+  const endpoints = arrayOf(snapshot?.endpoints).map((item) => ({
+    id: stringValue(item.id, "endpoint.unknown"),
+    provider: stringValue(item.providerId, "provider.unknown"),
+    apiFormat: stringValue(item.apiFormat, "unknown"),
+    baseUrl: stringValue(item.baseUrl, "not configured"),
+    modelId: stringValue(item.modelId, "unknown"),
+    privacy: stringValue(item.privacyClass, "workspace"),
+    loadPolicy: loadPolicyLabel(item.loadPolicy),
+    status: stringValue(item.status, "unknown"),
+    capabilities: stringArray(item.capabilities),
+  }));
+  const artifacts = arrayOf(snapshot?.artifacts).map((item) => ({
+    id: stringValue(item.id, "model.unknown"),
+    name: stringValue(item.modelId, stringValue(item.displayName, "unknown")),
+    provider: stringValue(item.providerId, "provider.unknown"),
+    state: stringValue(item.state, "unknown"),
+    context: item.contextWindow ? `${item.contextWindow}` : "unknown",
+    quantization: stringValue(item.quantization, "unknown"),
+    capabilities: stringArray(item.capabilities),
+  }));
+  const instances = arrayOf(snapshot?.instances).map((item) => ({
+    id: stringValue(item.id, "instance.unknown"),
+    endpointId: stringValue(item.endpointId, "endpoint.unknown"),
+    modelId: stringValue(item.modelId, "unknown"),
+    status: stringValue(item.status, "unknown"),
+    backend: stringValue(item.backend, "unknown"),
+    ttl: item.expiresAt ? `expires ${new Date(item.expiresAt).toLocaleTimeString()}` : "no idle expiry",
+  }));
+  const routes = arrayOf(snapshot?.routes).map((item) =>
+    route(
+      stringValue(item.id, "route.unknown"),
+      stringValue(item.role, "default"),
+      stringValue(item.privacy, "local_or_enterprise"),
+      stringValue(item.quality, "adaptive"),
+      item.maxCostUsd === undefined ? "unset" : `$${item.maxCostUsd}`,
+      stringArray(item.fallback).join(" -> ") || "no fallback",
+      stringValue(item.lastSelectedModel, "not tested"),
+      stringValue(item.lastReceiptId, "none"),
+    ),
+  );
+  const receipts = arrayOf(snapshot?.receipts).map((item) =>
+    receipt(
+      stringValue(item.id, "receipt.unknown"),
+      stringValue(item.kind, "receipt"),
+      stringValue(item.summary, "Receipt recorded."),
+      stringArray(item.evidenceRefs),
+    ),
+  );
+  return {
+    server: {
+      status: stringValue(snapshot?.server?.status, "unknown"),
+      nativeBaseUrl: stringValue(snapshot?.server?.nativeBaseUrl, `${endpoint}/api/v1`),
+      openAiCompatibleBaseUrl: stringValue(snapshot?.server?.openAiCompatibleBaseUrl, `${endpoint}/v1`),
+      loadedInstances: numberValue(snapshot?.server?.loadedInstances, instances.filter((item) => item.status === "loaded").length),
+      mountedEndpoints: numberValue(snapshot?.server?.mountedEndpoints, endpoints.length),
+      idleTtlSeconds: numberValue(snapshot?.server?.idleTtlSeconds, 900),
+      autoEvict: Boolean(snapshot?.server?.autoEvict ?? true),
+      providerSummary: `${numberValue(snapshot?.server?.providerStates?.available, 0)} available / ${numberValue(snapshot?.server?.providerStates?.degraded, 0)} degraded`,
+    },
+    artifacts,
+    endpoints,
+    instances,
+    downloads: arrayOf(snapshot?.downloads).map((item) => ({
+      id: stringValue(item.id, "download.unknown"),
+      model: stringValue(item.modelId, "unknown"),
+      status: stringValue(item.status, "unknown"),
+      progress: item.progress === undefined ? "unknown" : `${Math.round(Number(item.progress) * 100)}%`,
+    })),
+    backends,
+    providers,
+    tokens: arrayOf(snapshot?.tokens).map((item) => ({
+      id: stringValue(item.id, "grant.unknown"),
+      audience: stringValue(item.audience, "autopilot-local-server"),
+      allowed: stringArray(item.allowed),
+      denied: stringArray(item.denied),
+      expires: stringValue(item.expiresAt, "unknown"),
+      lastUsed: stringValue(item.lastUsedAt, "not used"),
+      state: item.revokedAt ? "revoked" : "active",
+    })),
+    mcpServers: arrayOf(snapshot?.mcpServers).map((item) => ({
+      id: stringValue(item.id, "mcp.unknown"),
+      transport: stringValue(item.transport, "stdio"),
+      allowedTools: stringArray(item.allowedTools),
+      status: stringValue(item.status, "registered"),
+      secrets: Object.keys(item.secretRefs ?? {}).length > 0 ? "vault references" : "none",
+    })),
+    routes,
+    workflowNodes: arrayOf(snapshot?.workflowNodes).map((item) => ({
+      node: stringValue(item.node, "Workflow node"),
+      routeId: stringValue(item.routeId, "route.local-first"),
+      receiptRequired: Boolean(item.receiptRequired ?? true),
+    })),
+    receipts,
+  };
+}
+
+function errorMessage(value: unknown, routePath: string) {
+  if (value && typeof value === "object") {
+    const error = (value as { error?: { message?: unknown } }).error;
+    if (typeof error?.message === "string") return error.message;
+  }
+  return `Daemon request failed for ${routePath}.`;
+}
+
+function arrayOf(value: unknown): any[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function stringValue(value: unknown, fallback: string) {
+  return typeof value === "string" && value.trim() ? value : fallback;
+}
+
+function numberValue(value: unknown, fallback: number) {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function stringArray(value: unknown) {
+  return Array.isArray(value) ? value.map(String) : [];
+}
+
+function loadPolicyLabel(value: any) {
+  if (!value || typeof value !== "object") return "on_demand";
+  const mode = stringValue(value.mode, "on_demand");
+  const ttl = numberValue(value.idleTtlSeconds ?? value.idle_ttl_seconds, 900);
+  return `${mode} / idle_evict ${ttl}s`;
+}
+
+function toneForStatus(status: string): StatusTone {
+  if (["available", "configured", "mounted", "loaded", "active", "registered", "completed", "connected", "running"].includes(status)) {
+    return "ready";
+  }
+  if (["blocked", "revoked", "absent", "failed"].includes(status)) {
+    return "blocked";
+  }
+  if (["stopped", "degraded", "provider_stopped", "offline fixture"].includes(status)) {
+    return "warn";
+  }
+  if (["future", "empty import accepted", "empty", "unknown", "loading"].includes(status)) {
+    return "muted";
+  }
+  return "neutral";
+}
+
+function connectionTone(state: ConnectionState): StatusTone {
+  if (state === "connected") return "ready";
+  if (state === "loading") return "muted";
+  if (state === "degraded") return "warn";
+  return "blocked";
+}
+
+function StatusPill({ children, tone = "neutral" }: { children: string; tone?: StatusTone }) {
+  return <span className={`model-mounts-pill is-${tone}`}>{children}</span>;
+}
+
+function ActionButton({
+  children,
+  onClick,
+  disabled,
+}: {
+  children: string;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button type="button" className="model-mounts-action-button" onClick={onClick} disabled={disabled}>
+      {children}
+    </button>
+  );
+}
+
+function TagList({ items }: { items: string[] }) {
+  return (
+    <div className="model-mounts-tags">
+      {items.map((item) => (
+        <span key={item}>{item}</span>
+      ))}
+    </div>
+  );
+}
+
+function EndpointRow({ endpoint }: { endpoint: ModelEndpoint }) {
+  return (
+    <article className="model-mounts-endpoint">
+      <div className="model-mounts-endpoint-main">
+        <div>
+          <strong>{endpoint.id}</strong>
+          <span>{endpoint.provider} / {endpoint.apiFormat}</span>
+        </div>
+        <StatusPill tone={toneForStatus(endpoint.status)}>{endpoint.status}</StatusPill>
+      </div>
+      <dl>
+        <div>
+          <dt>Model</dt>
+          <dd>{endpoint.modelId}</dd>
+        </div>
+        <div>
+          <dt>Base URL</dt>
+          <dd>{endpoint.baseUrl}</dd>
+        </div>
+        <div>
+          <dt>Load policy</dt>
+          <dd>{endpoint.loadPolicy}</dd>
+        </div>
+        <div>
+          <dt>Privacy</dt>
+          <dd>{endpoint.privacy}</dd>
+        </div>
+      </dl>
+      <TagList items={endpoint.capabilities} />
+    </article>
+  );
+}
+
+function ServerPanel({
+  data,
+  endpoint,
+  setEndpoint,
+  connectionState,
+  sessionTokenLabel,
+  message,
+  onRefresh,
+  onIssueToken,
+  onNativeChatProbe,
+  busy,
+}: {
+  data: MountsWorkbenchData;
+  endpoint: string;
+  setEndpoint: (value: string) => void;
+  connectionState: ConnectionState;
+  sessionTokenLabel: string;
+  message: string;
+  onRefresh: () => void;
+  onIssueToken: () => void;
+  onNativeChatProbe: () => void;
+  busy: boolean;
+}) {
+  return (
+    <section className="model-mounts-panel" aria-labelledby="model-mounts-server-title">
+      <div className="model-mounts-panel-head">
+        <div>
+          <span className="model-mounts-kicker">Developer / Local Server</span>
+          <h3 id="model-mounts-server-title">Runtime gateway</h3>
+        </div>
+        <div className="model-mounts-actions" aria-label="Server state">
+          <StatusPill tone={connectionTone(connectionState)}>{connectionState}</StatusPill>
+          <StatusPill tone={toneForStatus(data.server.status)}>{data.server.status}</StatusPill>
+          <StatusPill tone="ready">policy enforced</StatusPill>
+        </div>
+      </div>
+
+      <div className="model-mounts-control-row">
+        <label>
+          <span>Daemon endpoint</span>
+          <input value={endpoint} onChange={(event) => setEndpoint(event.target.value)} spellCheck={false} />
+        </label>
+        <div className="model-mounts-actions">
+          <ActionButton onClick={onRefresh} disabled={busy}>Refresh</ActionButton>
+          <ActionButton onClick={onIssueToken} disabled={busy}>Issue token</ActionButton>
+          <ActionButton onClick={onNativeChatProbe} disabled={busy}>Native chat probe</ActionButton>
+        </div>
+      </div>
+
+      <div className="model-mounts-server-grid">
+        <div>
+          <span>Status</span>
+          <strong>{data.server.status}</strong>
+        </div>
+        <div>
+          <span>Native API</span>
+          <strong>{data.server.nativeBaseUrl}</strong>
+        </div>
+        <div>
+          <span>OpenAI compatible</span>
+          <strong>{data.server.openAiCompatibleBaseUrl}</strong>
+        </div>
+        <div>
+          <span>Session token</span>
+          <strong>{sessionTokenLabel}</strong>
+        </div>
+        <div>
+          <span>Loaded now</span>
+          <strong>{data.server.loadedInstances} instance(s)</strong>
+        </div>
+        <div>
+          <span>Mounted endpoints</span>
+          <strong>{data.server.mountedEndpoints} endpoint(s)</strong>
+        </div>
+        <div>
+          <span>Idle TTL</span>
+          <strong>{data.server.idleTtlSeconds}s / {data.server.autoEvict ? "auto-evict" : "manual"}</strong>
+        </div>
+        <div>
+          <span>Providers</span>
+          <strong>{data.server.providerSummary}</strong>
+        </div>
+      </div>
+
+      <div className="model-mounts-notice">{message}</div>
+
+      <div className="model-mounts-route-list" aria-label="Server routes">
+        {[
+          "GET /api/v1/server/status",
+          "GET /api/v1/backends",
+          "POST /api/v1/backends/:id/health",
+          "POST /api/v1/backends/:id/start",
+          "POST /api/v1/backends/:id/stop",
+          "GET /api/v1/backends/:id/logs",
+          "GET /api/v1/models",
+          "POST /api/v1/models/load",
+          "POST /api/v1/models/download",
+          "POST /api/v1/models/download/cancel/:job_id",
+          "POST /api/v1/models/download/:job_id/cancel",
+          "GET /api/v1/providers/:id/models",
+          "GET /api/v1/providers/:id/loaded",
+          "POST /api/v1/chat",
+          "GET /v1/models",
+          "POST /v1/chat/completions",
+          "POST /api/v1/mcp/import",
+          "POST /api/v1/workflows/nodes/execute",
+          "GET /api/v1/receipts",
+          "GET /api/v1/receipts/:id/replay",
+          "GET /api/v1/projections/model-mounting",
+        ].map((routePath) => (
+          <code key={routePath}>{routePath}</code>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function BackendsPanel({
+  backends,
+  onProbeNativeBackend,
+  onStartFixtureBackend,
+  onStopFixtureBackend,
+  busy,
+}: {
+  backends: BackendPreview[];
+  onProbeNativeBackend: () => void;
+  onStartFixtureBackend: () => void;
+  onStopFixtureBackend: () => void;
+  busy: boolean;
+}) {
+  return (
+    <section className="model-mounts-panel" aria-labelledby="model-mounts-backends-title">
+      <div className="model-mounts-panel-head">
+        <div>
+          <span className="model-mounts-kicker">Runtime engines</span>
+          <h3 id="model-mounts-backends-title">Backend manager</h3>
+        </div>
+        <div className="model-mounts-actions">
+          <StatusPill tone="ready">Autopilot owned</StatusPill>
+          <StatusPill tone="muted">live engines gated</StatusPill>
+          <ActionButton onClick={onProbeNativeBackend} disabled={busy}>Probe native backend</ActionButton>
+          <ActionButton onClick={onStartFixtureBackend} disabled={busy}>Start fixture</ActionButton>
+          <ActionButton onClick={onStopFixtureBackend} disabled={busy}>Stop fixture</ActionButton>
+        </div>
+      </div>
+
+      <div className="model-mounts-provider-grid">
+        {backends.map((item) => (
+          <article key={item.id} className="model-mounts-provider">
+            <div>
+              <strong>{item.label}</strong>
+              <span>{item.kind} / {item.processStatus}</span>
+            </div>
+            <StatusPill tone={toneForStatus(item.status)}>{item.status}</StatusPill>
+            <dl>
+              <div>
+                <dt>Base URL</dt>
+                <dd>{item.baseUrl}</dd>
+              </div>
+              <div>
+                <dt>Binary</dt>
+                <dd>{item.binaryPath}</dd>
+              </div>
+              <div>
+                <dt>Pressure</dt>
+                <dd>{item.memoryPressure}</dd>
+              </div>
+              <div>
+                <dt>Receipt</dt>
+                <dd>{item.receipt}</dd>
+              </div>
+              <div>
+                <dt>Evidence</dt>
+                <dd>{item.evidence}</dd>
+              </div>
+            </dl>
+            <TagList items={[...item.formats.map((format) => `format:${format}`), ...item.capabilities]} />
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ModelsPanel({
+  data,
+  onLoadLocalModel,
+  onLoadNativeLocalModel,
+  onDownloadFixture,
+  busy,
+}: {
+  data: MountsWorkbenchData;
+  onLoadLocalModel: () => void;
+  onLoadNativeLocalModel: () => void;
+  onDownloadFixture: () => void;
+  busy: boolean;
+}) {
+  return (
+    <section className="model-mounts-panel" aria-labelledby="model-mounts-models-title">
+      <div className="model-mounts-panel-head">
+        <div>
+          <span className="model-mounts-kicker">Registry / Endpoints / Instances</span>
+          <h3 id="model-mounts-models-title">Mounted model workbench</h3>
+        </div>
+        <div className="model-mounts-actions">
+          <StatusPill tone="ready">registry first</StatusPill>
+          <StatusPill tone="ready">router backed</StatusPill>
+          <ActionButton onClick={onLoadLocalModel} disabled={busy}>Load local:auto</ActionButton>
+          <ActionButton onClick={onLoadNativeLocalModel} disabled={busy}>Load native-local</ActionButton>
+          <ActionButton onClick={onDownloadFixture} disabled={busy}>Download fixture</ActionButton>
+        </div>
+      </div>
+
+      <div className="model-mounts-three-col">
+        <section aria-label="Installed models">
+          <h4>Installed</h4>
+          <div className="model-mounts-list">
+            {data.artifacts.map((artifact) => (
+              <article key={artifact.id} className="model-mounts-compact-row">
+                <div>
+                  <strong>{artifact.name}</strong>
+                  <span>{artifact.provider} / {artifact.quantization} / {artifact.context}</span>
+                </div>
+                <StatusPill tone={toneForStatus(artifact.state)}>{artifact.state}</StatusPill>
+                <TagList items={artifact.capabilities} />
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section aria-label="Mounted endpoints">
+          <h4>Mounted endpoints</h4>
+          <div className="model-mounts-endpoints">
+            {data.endpoints.map((endpoint) => (
+              <EndpointRow key={endpoint.id} endpoint={endpoint} />
+            ))}
+          </div>
+        </section>
+
+        <section aria-label="Loaded and downloads">
+          <h4>Loaded now</h4>
+          <div className="model-mounts-list">
+            {data.instances.length === 0 ? (
+              <p className="model-mounts-empty">No loaded instances.</p>
+            ) : (
+              data.instances.map((instance) => (
+                <article key={instance.id} className="model-mounts-compact-row">
+                  <div>
+                    <strong>{instance.modelId}</strong>
+                    <span>{instance.endpointId} / {instance.backend}</span>
+                  </div>
+                  <StatusPill tone={toneForStatus(instance.status)}>{instance.status}</StatusPill>
+                  <span className="model-mounts-row-note">{instance.ttl}</span>
+                </article>
+              ))
+            )}
+          </div>
+          <h4>Downloads</h4>
+          <div className="model-mounts-list">
+            {data.downloads.map((download) => (
+              <article key={download.id} className="model-mounts-compact-row">
+                <div>
+                  <strong>{download.model}</strong>
+                  <span>{download.id}</span>
+                </div>
+                <StatusPill tone={toneForStatus(download.status)}>{download.status}</StatusPill>
+                <span className="model-mounts-row-note">{download.progress}</span>
+              </article>
+            ))}
+          </div>
+        </section>
+      </div>
+    </section>
+  );
+}
+
+function DownloadsPanel({
+  downloads,
+  onDownloadFixture,
+  busy,
+}: {
+  downloads: MountsWorkbenchData["downloads"];
+  onDownloadFixture: () => void;
+  busy: boolean;
+}) {
+  return (
+    <section className="model-mounts-panel" aria-labelledby="model-mounts-downloads-title">
+      <div className="model-mounts-panel-head">
+        <div>
+          <span className="model-mounts-kicker">Artifact lifecycle</span>
+          <h3 id="model-mounts-downloads-title">Download queue</h3>
+        </div>
+        <div className="model-mounts-actions">
+          <StatusPill tone="ready">receipted lifecycle</StatusPill>
+          <StatusPill tone="ready">checksum tracked</StatusPill>
+          <ActionButton onClick={onDownloadFixture} disabled={busy}>Download fixture</ActionButton>
+        </div>
+      </div>
+
+      <div className="model-mounts-list">
+        {downloads.length === 0 ? (
+          <p className="model-mounts-empty">No download jobs in the current projection.</p>
+        ) : (
+          downloads.map((download) => (
+            <article key={download.id} className="model-mounts-compact-row">
+              <div>
+                <strong>{download.model}</strong>
+                <span>{download.id}</span>
+              </div>
+              <StatusPill tone={toneForStatus(download.status)}>{download.status}</StatusPill>
+              <span className="model-mounts-row-note">{download.progress}</span>
+            </article>
+          ))
+        )}
+      </div>
+    </section>
+  );
+}
+
+function ProvidersPanel({ providers }: { providers: ProviderProfile[] }) {
+  return (
+    <section className="model-mounts-panel" aria-labelledby="model-mounts-providers-title">
+      <div className="model-mounts-panel-head">
+        <div>
+          <span className="model-mounts-kicker">Provider-neutral mounting</span>
+          <h3 id="model-mounts-providers-title">Provider profiles</h3>
+        </div>
+        <div className="model-mounts-actions">
+          <StatusPill tone="ready">LM Studio is one profile</StatusPill>
+          <StatusPill tone="muted">TEE later</StatusPill>
+        </div>
+      </div>
+
+      <div className="model-mounts-provider-grid">
+        {providers.map((item) => (
+          <article key={item.id} className="model-mounts-provider">
+            <div>
+              <strong>{item.label}</strong>
+              <span>{item.kind} / {item.apiFormat}</span>
+            </div>
+            <StatusPill tone={toneForStatus(item.status)}>{item.status}</StatusPill>
+            <dl>
+              <div>
+                <dt>Privacy</dt>
+                <dd>{item.privacy}</dd>
+              </div>
+              <div>
+                <dt>Endpoint</dt>
+                <dd>{item.baseUrl}</dd>
+              </div>
+              <div>
+                <dt>Evidence</dt>
+                <dd>{item.evidence}</dd>
+              </div>
+            </dl>
+            <TagList items={item.capabilities} />
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function TokensPanel({
+  data,
+  onImportMcpFixture,
+  onEphemeralMcpProbe,
+  busy,
+}: {
+  data: MountsWorkbenchData;
+  onImportMcpFixture: () => void;
+  onEphemeralMcpProbe: () => void;
+  busy: boolean;
+}) {
+  return (
+    <section className="model-mounts-panel" aria-labelledby="model-mounts-tokens-title">
+      <div className="model-mounts-panel-head">
+        <div>
+          <span className="model-mounts-kicker">wallet.network capabilities</span>
+          <h3 id="model-mounts-tokens-title">Permission tokens and governed MCP</h3>
+        </div>
+        <div className="model-mounts-actions">
+          <StatusPill tone="ready">scoped</StatusPill>
+          <StatusPill tone="ready">revocable</StatusPill>
+          <ActionButton onClick={onImportMcpFixture} disabled={busy}>Import MCP fixture</ActionButton>
+          <ActionButton onClick={onEphemeralMcpProbe} disabled={busy}>Ephemeral MCP probe</ActionButton>
+        </div>
+      </div>
+
+      <div className="model-mounts-token-layout">
+        <section>
+          <h4>Capability tokens</h4>
+          <div className="model-mounts-list">
+            {data.tokens.length === 0 ? (
+              <p className="model-mounts-empty">No token grants returned by the daemon.</p>
+            ) : (
+              data.tokens.map((token) => (
+                <article key={token.id} className="model-mounts-token">
+                  <div className="model-mounts-token-head">
+                    <div>
+                      <strong>{token.id}</strong>
+                      <span>{token.audience} / expires {token.expires} / last used {token.lastUsed}</span>
+                    </div>
+                    <StatusPill tone={toneForStatus(token.state)}>{token.state}</StatusPill>
+                  </div>
+                  <div className="model-mounts-scope-columns">
+                    <div>
+                      <span>Allowed</span>
+                      <TagList items={token.allowed} />
+                    </div>
+                    <div>
+                      <span>Denied</span>
+                      <TagList items={token.denied} />
+                    </div>
+                  </div>
+                </article>
+              ))
+            )}
+          </div>
+        </section>
+
+        <section>
+          <h4>MCP imports</h4>
+          <div className="model-mounts-list">
+            {data.mcpServers.map((server) => (
+              <article key={server.id} className="model-mounts-token">
+                <div className="model-mounts-token-head">
+                  <div>
+                    <strong>{server.id}</strong>
+                    <span>{server.transport} / secrets {server.secrets}</span>
+                  </div>
+                  <StatusPill tone={toneForStatus(server.status)}>{server.status}</StatusPill>
+                </div>
+                {server.allowedTools.length > 0 ? (
+                  <TagList items={server.allowedTools.map((tool) => `allowed:${tool}`)} />
+                ) : (
+                  <p className="model-mounts-empty">No tools exposed until discovery receipts narrow the allowlist.</p>
+                )}
+              </article>
+            ))}
+          </div>
+          <pre>{`{
+  "mcpServers": {
+    "huggingface": {
+      "url": "https://example.invalid/mcp",
+      "allowed_tools": ["model_search"],
+      "headers": {
+        "authorization": "vault://mcp.huggingface/authorization"
+      }
+    }
+  }
+}`}</pre>
+        </section>
+      </div>
+    </section>
+  );
+}
+
+function RoutingPanel({
+  data,
+  onTestRoute,
+  onWorkflowProbe,
+  busy,
+}: {
+  data: MountsWorkbenchData;
+  onTestRoute: () => void;
+  onWorkflowProbe: () => void;
+  busy: boolean;
+}) {
+  return (
+    <section className="model-mounts-panel" aria-labelledby="model-mounts-routing-title">
+      <div className="model-mounts-panel-head">
+        <div>
+          <span className="model-mounts-kicker">Model Router / Workflow</span>
+          <h3 id="model-mounts-routing-title">Policies and node bindings</h3>
+        </div>
+        <div className="model-mounts-actions">
+          <StatusPill tone="ready">capability to route</StatusPill>
+          <StatusPill tone="ready">receipt gate</StatusPill>
+          <ActionButton onClick={onTestRoute} disabled={busy}>Test route</ActionButton>
+          <ActionButton onClick={onWorkflowProbe} disabled={busy}>Run workflow probe</ActionButton>
+        </div>
+      </div>
+
+      <div className="model-mounts-table" role="table" aria-label="Routing policies">
+        <div role="row" className="model-mounts-table-head">
+          <span role="columnheader">Route</span>
+          <span role="columnheader">Privacy</span>
+          <span role="columnheader">Quality</span>
+          <span role="columnheader">Max cost</span>
+          <span role="columnheader">Fallback</span>
+          <span role="columnheader">Last receipt</span>
+        </div>
+        {data.routes.map((policy) => (
+          <div role="row" key={policy.id}>
+            <span role="cell">
+              <strong>{policy.role}</strong>
+              <small>{policy.id}</small>
+            </span>
+            <span role="cell">{policy.privacy}</span>
+            <span role="cell">{policy.quality}</span>
+            <span role="cell">{policy.maxCost}</span>
+            <span role="cell">{policy.fallback}</span>
+            <span role="cell">
+              <strong>{policy.lastSelection}</strong>
+              <small>{policy.receipt}</small>
+            </span>
+          </div>
+        ))}
+      </div>
+
+      <section className="model-mounts-workflow" aria-label="Workflow node bindings">
+        <h4>Workflow nodes</h4>
+        <TagList
+          items={data.workflowNodes.map((node) =>
+            `${node.node} / ${node.routeId} / ${node.receiptRequired ? "receipt" : "no receipt"}`,
+          )}
+        />
+      </section>
+    </section>
+  );
+}
+
+function LogsPanel({ receipts }: { receipts: ReceiptPreview[] }) {
+  return (
+    <section className="model-mounts-panel" aria-labelledby="model-mounts-logs-title">
+      <div className="model-mounts-panel-head">
+        <div>
+          <span className="model-mounts-kicker">Agentgres receipts</span>
+          <h3 id="model-mounts-logs-title">Lifecycle, invocation, tool, and grant evidence</h3>
+        </div>
+        <div className="model-mounts-actions">
+          <StatusPill tone="ready">redacted</StatusPill>
+          <StatusPill tone="ready">replayable</StatusPill>
+        </div>
+      </div>
+
+      <div className="model-mounts-list model-mounts-list--receipts">
+        {receipts.map((item) => (
+          <article key={item.id} className="model-mounts-receipt">
+            <div>
+              <strong>{item.kind}</strong>
+              <span>{item.id}</span>
+            </div>
+            <p>{item.summary}</p>
+            <div className="model-mounts-receipt-foot">
+              <StatusPill tone="ready">{item.redaction}</StatusPill>
+              <TagList items={item.evidence} />
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+export function MissionControlMountsView() {
+  const [activeTab, setActiveTab] = useState<MountsTab>(readInitialTab);
+  const daemon = useModelMountsDaemon();
+  const busy = Boolean(daemon.busyAction);
+  const visibleReceipts = useMemo(
+    () => (daemon.data.receipts.length > 0 ? daemon.data.receipts : fallbackData.receipts),
+    [daemon.data.receipts],
+  );
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (event.ctrlKey || event.metaKey) return;
+      const index = event.altKey
+        ? Number.parseInt(event.key, 10) - 1
+        : /^F[1-8]$/.test(event.key)
+          ? Number.parseInt(event.key.slice(1), 10) - 1
+          : -1;
+      const nextTab = tabs[index]?.id;
+      if (!nextTab) return;
+      event.preventDefault();
+      setActiveTab(nextTab);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
+  return (
+    <div className="mission-control-view mission-control-view--mounts">
+      <header className="mission-control-header mission-control-header--mounts">
+        <div className="mission-control-header-copy mission-control-header-copy--mounts">
+          <span className="mission-control-kicker">Models</span>
+          <div className="mission-control-mounts-title-row">
+            <h2>Model mounts</h2>
+            <StatusPill tone="ready">router backed</StatusPill>
+            <StatusPill tone="ready">capability gated</StatusPill>
+            <StatusPill tone={connectionTone(daemon.connectionState)}>{daemon.connectionState}</StatusPill>
+          </div>
+        </div>
+        <div className="mission-control-header-actions">
+          <div
+            className="mission-control-tabs mission-control-tabs--mounts"
+            role="tablist"
+            aria-label="Model mount surfaces"
+          >
+            {tabs.map((tab) => (
+              <button
+                type="button"
+                key={tab.id}
+                className={activeTab === tab.id ? "is-active" : ""}
+                onClick={() => setActiveTab(tab.id)}
+                role="tab"
+                aria-selected={activeTab === tab.id}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </header>
+
+      <main className="model-mounts-stage">
+        {activeTab === "server" ? (
+          <ServerPanel
+            data={daemon.data}
+            endpoint={daemon.endpoint}
+            setEndpoint={daemon.setEndpoint}
+            connectionState={daemon.connectionState}
+            sessionTokenLabel={daemon.sessionTokenLabel}
+            message={daemon.message}
+            onRefresh={() => void daemon.refresh()}
+            onIssueToken={daemon.actions.issueToken}
+            onNativeChatProbe={daemon.actions.nativeChatProbe}
+            busy={busy}
+          />
+        ) : null}
+        {activeTab === "backends" ? (
+          <BackendsPanel
+            backends={daemon.data.backends}
+            onProbeNativeBackend={daemon.actions.probeNativeBackend}
+            onStartFixtureBackend={daemon.actions.startFixtureBackend}
+            onStopFixtureBackend={daemon.actions.stopFixtureBackend}
+            busy={busy}
+          />
+        ) : null}
+        {activeTab === "models" ? (
+          <ModelsPanel
+            data={daemon.data}
+            onLoadLocalModel={daemon.actions.loadLocalModel}
+            onLoadNativeLocalModel={daemon.actions.loadNativeLocalModel}
+            onDownloadFixture={daemon.actions.downloadFixture}
+            busy={busy}
+          />
+        ) : null}
+        {activeTab === "providers" ? <ProvidersPanel providers={daemon.data.providers} /> : null}
+        {activeTab === "downloads" ? (
+          <DownloadsPanel
+            downloads={daemon.data.downloads}
+            onDownloadFixture={daemon.actions.downloadFixture}
+            busy={busy}
+          />
+        ) : null}
+        {activeTab === "tokens" ? (
+          <TokensPanel
+            data={daemon.data}
+            onImportMcpFixture={daemon.actions.importMcpFixture}
+            onEphemeralMcpProbe={daemon.actions.ephemeralMcpProbe}
+            busy={busy}
+          />
+        ) : null}
+        {activeTab === "routing" ? (
+          <RoutingPanel
+            data={daemon.data}
+            onTestRoute={daemon.actions.testRoute}
+            onWorkflowProbe={daemon.actions.workflowProbe}
+            busy={busy}
+          />
+        ) : null}
+        {activeTab === "logs" ? <LogsPanel receipts={visibleReceipts} /> : null}
+      </main>
+    </div>
+  );
+}

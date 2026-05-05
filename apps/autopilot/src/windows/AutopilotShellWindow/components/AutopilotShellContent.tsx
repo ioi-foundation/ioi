@@ -9,6 +9,7 @@ import { CapabilitiesView } from "../../../surfaces/Capabilities";
 import { InboxView } from "../../../surfaces/Inbox";
 import {
   MissionControlControlView,
+  MissionControlMountsView,
   MissionControlRunsView,
   MissionControlWorkflowsView,
 } from "../../../surfaces/MissionControl";
@@ -34,15 +35,17 @@ export function AutopilotShellContent({
   const workspaceHost = getDefaultWorkspaceWorkbenchHost();
   const workspaceActive = activeView === "workspace";
   const workflowActive = activeView === "workflows";
+  const mountsActive = activeView === "mounts";
+  const dedicatedWorkbenchActive = workflowActive || mountsActive;
 
   const auxiliaryChatVisible =
     !workspaceActive &&
-    !workflowActive &&
+    !dedicatedWorkbenchActive &&
     activeView !== "chat" &&
     activeView !== "home" &&
     controller.chat.paneVisible;
   const utilityDrawerVisible =
-    activeView !== "chat" && activeView !== "home" && !workflowActive;
+    activeView !== "chat" && activeView !== "home" && !dedicatedWorkbenchActive;
   const auxiliaryChatFullscreen =
     auxiliaryChatVisible && controller.chat.paneMaximized;
 
@@ -154,6 +157,10 @@ export function AutopilotShellContent({
 
                 {activeView === "runs" ? (
                   <MissionControlRunsView runtime={runtime} />
+                ) : null}
+
+                {activeView === "mounts" ? (
+                  <MissionControlMountsView />
                 ) : null}
 
                 {activeView === "inbox" ? (

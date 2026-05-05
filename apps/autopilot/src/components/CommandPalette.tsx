@@ -469,6 +469,18 @@ export function CommandPalette({
           }),
       },
       {
+        id: "open-model-mounts",
+        title: "Open Model Mounts",
+        description: "Open the model mounting surface.",
+        meta: "Mounts",
+        icon: icons.cube,
+        active: activeView === "mounts",
+        onSelect: () =>
+          runAction(() => {
+            onOpenPrimaryView("mounts");
+          }),
+      },
+      {
         id: "open-inbox",
         title: "Open Inbox",
         description: "Review the shared operator queue and pending actions.",

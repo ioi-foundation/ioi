@@ -1,0 +1,533 @@
+.mission-control-view--mounts {
+  gap: 0;
+  padding: 0;
+  background: var(--chat-bg);
+}
+
+.mission-control-header--mounts {
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--chat-border);
+  background: var(--surface-2);
+}
+
+.mission-control-header-copy--mounts {
+  max-width: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mission-control-mounts-title-row {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.mission-control-mounts-title-row h2 {
+  margin: 0;
+  color: var(--chat-text);
+  font-size: 18px;
+  line-height: 1.15;
+}
+
+.mission-control-tabs--mounts {
+  padding: 0;
+  border-radius: 0;
+}
+
+.model-mounts-stage {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 18px;
+  background: var(--chat-bg);
+}
+
+.model-mounts-panel {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.model-mounts-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--chat-border);
+}
+
+.model-mounts-panel-head h3,
+.model-mounts-three-col h4,
+.model-mounts-token-layout h4,
+.model-mounts-workflow h4 {
+  margin: 0;
+  color: var(--chat-text);
+}
+
+.model-mounts-panel-head h3 {
+  margin-top: 4px;
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.model-mounts-three-col h4,
+.model-mounts-token-layout h4,
+.model-mounts-workflow h4 {
+  margin-bottom: 10px;
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.model-mounts-kicker {
+  color: var(--chat-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.model-mounts-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.model-mounts-action-button {
+  min-height: 30px;
+  border: 1px solid var(--chat-border);
+  border-radius: 0;
+  background: transparent;
+  color: var(--chat-text);
+  font: inherit;
+  font-size: 12px;
+  padding: 0 10px;
+}
+
+.model-mounts-action-button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--chat-accent) 48%, var(--chat-border));
+  color: var(--chat-accent);
+}
+
+.model-mounts-action-button:disabled {
+  color: var(--chat-text-muted);
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.model-mounts-control-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.model-mounts-control-row label {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.model-mounts-control-row label span {
+  color: var(--chat-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.model-mounts-control-row input {
+  min-width: 0;
+  width: 100%;
+  min-height: 34px;
+  border: 1px solid var(--chat-border);
+  border-radius: 0;
+  background: var(--surface-1);
+  color: var(--chat-text);
+  font: inherit;
+  font-size: 12px;
+  padding: 0 10px;
+  outline: none;
+}
+
+.model-mounts-control-row input:focus {
+  border-color: color-mix(in srgb, var(--chat-accent) 54%, var(--chat-border));
+}
+
+.model-mounts-notice {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--chat-border);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--chat-text-secondary);
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.model-mounts-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 7px;
+  border: 1px solid var(--chat-border);
+  border-radius: 0;
+  color: var(--chat-text-secondary);
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.model-mounts-pill.is-ready {
+  color: var(--chat-accent);
+  border-color: color-mix(in srgb, var(--chat-accent) 45%, transparent);
+}
+
+.model-mounts-pill.is-muted {
+  color: var(--chat-text-muted);
+}
+
+.model-mounts-pill.is-warn {
+  color: #d6a94f;
+  border-color: rgba(214, 169, 79, 0.42);
+}
+
+.model-mounts-pill.is-blocked {
+  color: #df7d7d;
+  border-color: rgba(223, 125, 125, 0.46);
+}
+
+.model-mounts-server-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  border: 1px solid var(--chat-border);
+  background: var(--chat-border);
+}
+
+.model-mounts-server-grid div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  background: var(--surface-1);
+}
+
+.model-mounts-server-grid span,
+.model-mounts-endpoint dt,
+.model-mounts-provider dt,
+.model-mounts-scope-columns span {
+  color: var(--chat-text-secondary);
+  font-size: 11px;
+}
+
+.model-mounts-server-grid strong {
+  min-width: 0;
+  color: var(--chat-text);
+  font-size: 13px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.model-mounts-route-list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.model-mounts-route-list code {
+  min-width: 0;
+  display: block;
+  padding: 10px;
+  border: 1px solid var(--chat-border);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--chat-text);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.model-mounts-three-col {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.25fr) minmax(0, 0.9fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.model-mounts-list {
+  display: grid;
+  gap: 10px;
+}
+
+.model-mounts-endpoints {
+  display: grid;
+  gap: 10px;
+}
+
+.model-mounts-endpoint,
+.model-mounts-compact-row,
+.model-mounts-provider,
+.model-mounts-token,
+.model-mounts-receipt {
+  min-width: 0;
+  border: 1px solid var(--chat-border);
+  background: var(--surface-1);
+}
+
+.model-mounts-endpoint,
+.model-mounts-provider,
+.model-mounts-token,
+.model-mounts-receipt {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+}
+
+.model-mounts-compact-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  padding: 12px;
+}
+
+.model-mounts-compact-row .model-mounts-tags,
+.model-mounts-row-note {
+  grid-column: 1 / -1;
+}
+
+.model-mounts-endpoint-main,
+.model-mounts-token-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.model-mounts-endpoint-main div,
+.model-mounts-compact-row div,
+.model-mounts-provider > div:first-child,
+.model-mounts-token-head div,
+.model-mounts-receipt > div:first-child {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.model-mounts-endpoint strong,
+.model-mounts-compact-row strong,
+.model-mounts-provider strong,
+.model-mounts-token strong,
+.model-mounts-receipt strong,
+.model-mounts-table strong {
+  min-width: 0;
+  color: var(--chat-text);
+  font-size: 13px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.model-mounts-endpoint-main span:not(.model-mounts-pill),
+.model-mounts-compact-row span,
+.model-mounts-provider span,
+.model-mounts-token span,
+.model-mounts-receipt span,
+.model-mounts-table small,
+.model-mounts-row-note,
+.model-mounts-empty {
+  color: var(--chat-text-secondary);
+  font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.model-mounts-endpoint dl,
+.model-mounts-provider dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.model-mounts-endpoint dl div,
+.model-mounts-provider dl div {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.model-mounts-endpoint dd,
+.model-mounts-provider dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--chat-text);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.model-mounts-tags {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.model-mounts-tags span {
+  min-width: 0;
+  padding: 3px 6px;
+  border: 1px solid var(--chat-border);
+  color: var(--chat-text-secondary);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.model-mounts-provider-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.model-mounts-token-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+}
+
+.model-mounts-scope-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.model-mounts-scope-columns > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.model-mounts-token-layout pre {
+  min-width: 0;
+  margin: 12px 0 0;
+  padding: 14px;
+  border: 1px solid var(--chat-border);
+  background: var(--surface-1);
+  color: var(--chat-text);
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.model-mounts-empty {
+  margin: 0;
+}
+
+.model-mounts-table {
+  display: grid;
+  border: 1px solid var(--chat-border);
+  overflow: hidden;
+}
+
+.model-mounts-table > div {
+  display: grid;
+  grid-template-columns: 0.95fr 0.9fr 0.8fr 0.65fr 1.55fr 1.35fr;
+  gap: 0;
+  border-top: 1px solid var(--chat-border);
+}
+
+.model-mounts-table > div:first-child {
+  border-top: none;
+}
+
+.model-mounts-table span {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 11px 12px;
+  color: var(--chat-text);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.model-mounts-table-head span {
+  color: var(--chat-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.model-mounts-workflow {
+  display: grid;
+  gap: 4px;
+}
+
+.model-mounts-list--receipts {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.model-mounts-receipt p {
+  margin: 0;
+  color: var(--chat-text);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.model-mounts-receipt-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+@media (max-width: 1280px) {
+  .model-mounts-three-col,
+  .model-mounts-provider-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .model-mounts-route-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 960px) {
+  .mission-control-header--mounts,
+  .model-mounts-panel-head {
+    flex-direction: column;
+  }
+
+  .model-mounts-stage {
+    padding: 14px;
+  }
+
+  .model-mounts-server-grid,
+  .model-mounts-control-row,
+  .model-mounts-three-col,
+  .model-mounts-route-list,
+  .model-mounts-token-layout,
+  .model-mounts-provider-grid,
+  .model-mounts-list--receipts,
+  .model-mounts-scope-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .model-mounts-table {
+    overflow-x: auto;
+  }
+
+  .model-mounts-table > div {
+    min-width: 840px;
+  }
+}

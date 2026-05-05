@@ -35,6 +35,7 @@ function windowSurfaceTitle(
   if (view === "home") return "Home";
   if (view === "policy") return "Governance";
   if (view === "runs") return "Runs";
+  if (view === "mounts") return "Model Mounts";
   if (view === "inbox") return "Inbox";
   if (view === "capabilities") return "Capabilities";
   if (view === "settings") return "Settings";
