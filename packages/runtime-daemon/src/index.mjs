@@ -20,6 +20,7 @@ export async function startRuntimeDaemonService(options = {}) {
   const store = new AgentgresRuntimeStateStore(stateDir, {
     cwd: options.cwd ?? process.cwd(),
     homeDir: options.homeDir,
+    vaultSecrets: options.vaultSecrets,
   });
   const server = http.createServer((request, response) => {
     handleRequest({ request, response, store }).catch((error) => {
@@ -65,6 +66,7 @@ export class AgentgresRuntimeStateStore {
       stateDir: this.stateDir,
       cwd: this.defaultCwd,
       homeDir: options.homeDir,
+      vaultSecrets: options.vaultSecrets,
       appendOperation: (kind, payload) => this.appendOperation(kind, payload),
     });
     this.writeSchema();
