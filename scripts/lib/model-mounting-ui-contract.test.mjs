@@ -51,6 +51,7 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
     "/api/v1/chat",
     "/api/v1/responses",
     "/api/v1/mcp/import",
+    "/api/v1/routes",
     "/api/v1/routes/route.local-first/test",
     "/api/v1/receipts",
     "/api/v1/receipts/:id/replay",
@@ -151,9 +152,21 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   assert.match(source, /providerLastHealth/);
   assert.match(source, /List models/);
   assert.match(source, /provider\.write:\*/);
+  assert.match(source, /route\.write:\*/);
   assert.match(source, /providerDraftPayload/);
   assert.match(source, /auth_scheme/);
   assert.match(source, /auth_header_name/);
+  assert.match(source, /Route policy editor/);
+  assert.match(source, /Route editor/);
+  assert.match(source, /Save route/);
+  assert.match(source, /Save and test route/);
+  assert.match(source, /Provider eligibility/);
+  assert.match(source, /Denied providers/);
+  assert.match(source, /Allow hosted fallback when testing/);
+  assert.match(source, /saveRouteDraft/);
+  assert.match(source, /testRouteDraft/);
+  assert.match(source, /routeDraftPayload/);
+  assert.match(source, /model-mounts-route-editor/);
   assert.match(source, /Ephemeral MCP probe/);
   assert.match(source, /Run workflow probe/);
   assert.doesNotMatch(source, /localStorage\.setItem\([^,\n]*token/i);

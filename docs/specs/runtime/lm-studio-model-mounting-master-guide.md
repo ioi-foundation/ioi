@@ -90,7 +90,7 @@ npm run validate:model-mounting:e2e
 Latest deterministic evidence bundle:
 
 ```text
-docs/evidence/model-mounting-e2e/2026-05-05T10-11-11Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T10-42-04Z/result.json
 ```
 
 That bundle passed the following acceptance steps:
@@ -111,6 +111,8 @@ That bundle passed the following acceptance steps:
   receipt evidence in the Mounts desktop GUI;
 - selected model detail drawer with artifact metadata, runtime binding,
   lifecycle history, and linked receipt trail in the Mounts desktop GUI;
+- route editor for privacy, quality, cost ceiling, latency target, fallback,
+  provider eligibility, denied providers, and governed save/test actions;
 - deterministic native-local artifact import, mount, load, and invocation;
 - native `/api/v1/chat` and `/api/v1/responses`;
 - OpenAI-compatible `/v1/chat/completions` and `/v1/embeddings`;
@@ -132,13 +134,13 @@ That bundle passed the following acceptance steps:
 The current GUI evidence nested under that E2E bundle is:
 
 ```text
-docs/evidence/model-mounting-e2e/2026-05-05T10-11-11Z/gui/2026-05-05T10-11-41Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T10-42-04Z/gui/2026-05-05T10-42-31Z/result.json
 ```
 
 The current standalone Mounts GUI evidence bundle is:
 
 ```text
-docs/evidence/model-mounts-gui-validation/2026-05-05T10-10-13Z/result.json
+docs/evidence/model-mounts-gui-validation/2026-05-05T10-40-53Z/result.json
 ```
 
 It captured all Mounts tabs as desktop window screenshots:
@@ -297,13 +299,13 @@ Latest evidence paths:
 
 ```text
 Canonical E2E:
-docs/evidence/model-mounting-e2e/2026-05-05T10-11-11Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T10-42-04Z/result.json
 
 Mounts GUI nested under canonical E2E:
-docs/evidence/model-mounting-e2e/2026-05-05T10-11-11Z/gui/2026-05-05T10-11-41Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T10-42-04Z/gui/2026-05-05T10-42-31Z/result.json
 
 Standalone Mounts GUI with live provider summary:
-docs/evidence/model-mounts-gui-validation/2026-05-05T10-10-13Z/result.json
+docs/evidence/model-mounts-gui-validation/2026-05-05T10-40-53Z/result.json
 
 Broad Autopilot GUI harness:
 docs/evidence/autopilot-gui-harness-validation/2026-05-05T01-40-43-545Z/result.json
@@ -505,7 +507,6 @@ gates:
    - streaming logs and request/response log filters;
    - benchmark/results view;
    - token scope editor;
-   - route editor;
    - degraded/error/denied states for every action.
 8. Provider expansion:
    - Ollama;
@@ -557,7 +558,7 @@ implemented as a product surface.
    - GGUF/MLX filters and variant selection polish;
    - storage quota and uninstall confirmation UX.
 2. Product UI parity:
-   - route editor, token editor, benchmark panel, and degraded/denied states.
+   - token editor, benchmark panel, and degraded/denied states.
 3. Live backend parity:
    - real llama.cpp runner;
    - live Ollama lifecycle;
@@ -588,19 +589,19 @@ npm run validate:model-mounting:e2e
 Latest passing bundle:
 
 ```text
-docs/evidence/model-mounting-e2e/2026-05-05T10-11-11Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T10-42-04Z/result.json
 ```
 
 Nested GUI bundle:
 
 ```text
-docs/evidence/model-mounting-e2e/2026-05-05T10-11-11Z/gui/2026-05-05T10-11-41Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T10-42-04Z/gui/2026-05-05T10-42-31Z/result.json
 ```
 
 Standalone Mounts GUI bundle:
 
 ```text
-docs/evidence/model-mounts-gui-validation/2026-05-05T10-10-13Z/result.json
+docs/evidence/model-mounts-gui-validation/2026-05-05T10-40-53Z/result.json
 ```
 
 The GUI bundle captured eight desktop window screenshots for the Mounts tabs
@@ -1937,7 +1938,7 @@ parity closeout order from the matrix above:
 
 1. Live catalog/download activation.
 2. Product UI parity beyond the validated picker, loaded-instance inspector,
-   and model detail drawer.
+   model detail drawer, and route editor.
 3. Live backend/provider parity.
 4. Streaming observability parity.
 5. Production IOI hardening beyond LM Studio.

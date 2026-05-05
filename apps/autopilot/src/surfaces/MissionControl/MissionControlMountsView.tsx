@@ -147,13 +147,33 @@ interface McpServerPreview {
 
 interface RoutePolicyPreview {
   id: string;
+  description: string;
   role: string;
   privacy: string;
   quality: string;
   maxCost: string;
+  maxLatency: string;
   fallback: string;
+  fallbackIds: string[];
+  providerEligibility: string[];
+  deniedProviders: string[];
+  status: string;
   lastSelection: string;
   receipt: string;
+}
+
+interface RouteDraft {
+  id: string;
+  description: string;
+  role: string;
+  privacy: string;
+  quality: string;
+  maxCostUsd: string;
+  maxLatencyMs: string;
+  fallback: string;
+  providerEligibility: string;
+  deniedProviders: string;
+  allowHostedFallback: boolean;
 }
 
 interface ReceiptPreview {
@@ -646,7 +666,22 @@ function route(
   lastSelection: string,
   receiptId: string,
 ): RoutePolicyPreview {
-  return { id, role, privacy, quality, maxCost, fallback, lastSelection, receipt: receiptId };
+  return {
+    id,
+    description: "Operator-defined model route.",
+    role,
+    privacy,
+    quality,
+    maxCost,
+    maxLatency: "30000ms",
+    fallback,
+    fallbackIds: fallback.split(" -> ").filter(Boolean),
+    providerEligibility: [],
+    deniedProviders: [],
+    status: "active",
+    lastSelection,
+    receipt: receiptId,
+  };
 }
 
 function receipt(id: string, kind: string, summary: string, evidence: string[], healthStatus = "unknown"): ReceiptPreview {
@@ -882,6 +917,7 @@ function useModelMountsDaemon() {
           "vault.write:*",
           "vault.read:*",
           "vault.delete:*",
+          "route.write:*",
           "route.use:*",
           "mcp.import:*",
           "mcp.call:huggingface.model_search",
@@ -1082,6 +1118,41 @@ function useModelMountsDaemon() {
           });
           return "Route test selected a local model and emitted a route receipt.";
         }),
+      saveRouteDraft: (draft: RouteDraft) =>
+        runAction("route-save", async () => {
+          const token = await ensureToken();
+          const routeResult = await requestJson("/api/v1/routes", {
+            method: "POST",
+            token,
+            body: routeDraftPayload(draft),
+          });
+          return `${stringValue(routeResult?.id, draft.id)} saved through the governed route write path.`;
+        }),
+      testRouteDraft: (draft: RouteDraft, selection: MountsPickerSelection) =>
+        runAction("route-editor-test", async () => {
+          const token = await ensureToken();
+          const routeId = draft.id.trim() || "route.local-first";
+          await requestJson("/api/v1/routes", {
+            method: "POST",
+            token,
+            body: routeDraftPayload(draft),
+          });
+          const result = await requestJson(`/api/v1/routes/${encodeURIComponent(routeId)}/test`, {
+            method: "POST",
+            token,
+            body: {
+              capability: "chat",
+              model: selection.modelId || undefined,
+              model_policy: {
+                privacy: draft.privacy,
+                allow_hosted_fallback: draft.allowHostedFallback,
+              },
+            },
+          });
+          const selected = stringValue(result?.selection?.endpoint?.modelId, "a model");
+          const receiptId = stringValue(result?.receipt?.id, "recorded");
+          return `${routeId} selected ${selected}; receipt ${receiptId}.`;
+        }),
       workflowProbe: () =>
         runAction("workflow-probe", async () => {
           const token = await ensureToken();
@@ -1260,6 +1331,46 @@ function providerDraftPayload(draft: ProviderDraft) {
   };
 }
 
+function csvList(value: string) {
+  return value
+    .split(/,|\n| -> /)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function routeDraftFromPolicy(policy: RoutePolicyPreview | undefined, selection: MountsPickerSelection): RouteDraft {
+  const fallbackIds = policy?.fallbackIds?.length ? policy.fallbackIds : selection.endpointId ? [selection.endpointId] : ["endpoint.local.auto"];
+  return {
+    id: policy?.id ?? selection.routeId ?? "route.local-first",
+    description: policy?.description ?? "Operator-defined model route.",
+    role: policy?.role ?? "default",
+    privacy: policy?.privacy ?? "local_or_enterprise",
+    quality: policy?.quality ?? "adaptive",
+    maxCostUsd: policy?.maxCost?.replace(/^\$/, "") ?? "0.25",
+    maxLatencyMs: policy?.maxLatency?.replace(/ms$/, "") ?? "30000",
+    fallback: fallbackIds.join(", "),
+    providerEligibility: policy?.providerEligibility?.join(", ") ?? "",
+    deniedProviders: policy?.deniedProviders?.join(", ") ?? "",
+    allowHostedFallback: false,
+  };
+}
+
+function routeDraftPayload(draft: RouteDraft) {
+  return {
+    id: draft.id.trim() || "route.local-first",
+    description: draft.description.trim() || "Operator-defined model route.",
+    role: draft.role.trim() || "default",
+    privacy: draft.privacy,
+    quality: draft.quality,
+    max_cost_usd: Number(draft.maxCostUsd || 0),
+    max_latency_ms: Number(draft.maxLatencyMs || 30000),
+    fallback: csvList(draft.fallback),
+    provider_eligibility: csvList(draft.providerEligibility),
+    denied_providers: csvList(draft.deniedProviders),
+    status: "active",
+  };
+}
+
 function healthSweepProviderTargets(providers: ProviderProfile[]) {
   return providers.filter((provider) => provider.status !== "future").map((provider) => provider.id);
 }
@@ -1361,6 +1472,18 @@ function normalizeSnapshot(snapshot: any, endpoint: string): MountsWorkbenchData
       stringValue(item.lastReceiptId, "none"),
     ),
   );
+  for (const [index, item] of arrayOf(snapshot?.routes).entries()) {
+    if (!routes[index]) continue;
+    routes[index] = {
+      ...routes[index],
+      description: stringValue(item.description, routes[index].description),
+      maxLatency: item.maxLatencyMs === undefined ? routes[index].maxLatency : `${item.maxLatencyMs}ms`,
+      fallbackIds: stringArray(item.fallback),
+      providerEligibility: stringArray(item.providerEligibility),
+      deniedProviders: stringArray(item.deniedProviders),
+      status: stringValue(item.status, routes[index].status),
+    };
+  }
   const receipts = arrayOf(snapshot?.receipts).map((item) =>
     receipt(
       stringValue(item.id, "receipt.unknown"),
@@ -1670,6 +1793,7 @@ function ModelPickerStrip({
   onUnloadInstance,
   onToggleDetails,
   detailsOpen,
+  compact,
   busy,
 }: {
   data: MountsWorkbenchData;
@@ -1679,6 +1803,7 @@ function ModelPickerStrip({
   onUnloadInstance: () => void;
   onToggleDetails: () => void;
   detailsOpen: boolean;
+  compact?: boolean;
   busy: boolean;
 }) {
   const endpointOptions = data.endpoints.filter((endpoint) => endpoint.modelId === selection.modelId);
@@ -1743,6 +1868,7 @@ function ModelPickerStrip({
         </div>
       </div>
 
+      {compact ? null : (
       <div className="model-mounts-picker-inspector" aria-label="Model selection inspector">
         <div>
           <span>Artifact</span>
@@ -1775,6 +1901,7 @@ function ModelPickerStrip({
           <small>{selectedReceipts.length > 0 ? selectedReceipts.map((receiptItem) => receiptItem.kind).join(", ") : "Recent linked receipts appear here"}</small>
         </div>
       </div>
+      )}
     </section>
   );
 }
@@ -2834,15 +2961,38 @@ function TokensPanel({
 
 function RoutingPanel({
   data,
+  selection,
   onTestRoute,
+  onSaveRoute,
+  onTestRouteDraft,
   onWorkflowProbe,
   busy,
 }: {
   data: MountsWorkbenchData;
+  selection: MountsPickerSelection;
   onTestRoute: () => void;
+  onSaveRoute: (draft: RouteDraft) => void;
+  onTestRouteDraft: (draft: RouteDraft, selection: MountsPickerSelection) => void;
   onWorkflowProbe: () => void;
   busy: boolean;
 }) {
+  const selectedPolicy = data.routes.find((policy) => policy.id === selection.routeId) ?? data.routes[0];
+  const [draft, setDraft] = useState<RouteDraft>(() => routeDraftFromPolicy(selectedPolicy, selection));
+  useEffect(() => {
+    setDraft(routeDraftFromPolicy(selectedPolicy, selection));
+  }, [selectedPolicy, selection]);
+  const updateDraft = (field: keyof RouteDraft, value: string | boolean) => {
+    setDraft((current) => ({ ...current, [field]: value }));
+  };
+  const fallbackIds = csvList(draft.fallback);
+  const fallbackEndpoints = fallbackIds
+    .map((endpointId) => data.endpoints.find((endpoint) => endpoint.id === endpointId))
+    .filter(Boolean);
+  const hasSelectedEndpoint = Boolean(selection.endpointId && fallbackIds.includes(selection.endpointId));
+  const hostedFallbackBlocked = fallbackEndpoints.some((endpoint) => {
+    const providerItem = data.providers.find((provider) => provider.id === endpoint?.provider);
+    return providerItem?.privacy === "hosted" && draft.privacy === "local_or_enterprise" && !draft.allowHostedFallback;
+  });
   return (
     <section className="model-mounts-panel" aria-labelledby="model-mounts-routing-title">
       <div className="model-mounts-panel-head">
@@ -2857,6 +3007,87 @@ function RoutingPanel({
           <ActionButton onClick={onWorkflowProbe} disabled={busy}>Run workflow probe</ActionButton>
         </div>
       </div>
+
+      <form
+        className="model-mounts-route-editor"
+        aria-label="Route policy editor"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSaveRoute(draft);
+        }}
+      >
+        <div className="model-mounts-route-editor-head">
+          <div>
+            <h4>Route editor</h4>
+            <span>{selection.modelId || "selected model"} / {selection.endpointId || "selected endpoint"}</span>
+          </div>
+          <div className="model-mounts-actions">
+            <StatusPill tone={hasSelectedEndpoint ? "ready" : "warn"}>{hasSelectedEndpoint ? "selected endpoint in fallback" : "fallback differs"}</StatusPill>
+            <StatusPill tone={hostedFallbackBlocked ? "blocked" : "ready"}>{hostedFallbackBlocked ? "hosted blocked" : "policy routable"}</StatusPill>
+            <ActionButton type="submit" disabled={busy}>Save route</ActionButton>
+            <ActionButton onClick={() => onTestRouteDraft(draft, selection)} disabled={busy}>Save and test route</ActionButton>
+          </div>
+        </div>
+
+        <div className="model-mounts-route-editor-grid">
+          <label>
+            <span>Route id</span>
+            <input value={draft.id} onChange={(event) => updateDraft("id", event.target.value)} />
+          </label>
+          <label>
+            <span>Role</span>
+            <input value={draft.role} onChange={(event) => updateDraft("role", event.target.value)} />
+          </label>
+          <label>
+            <span>Privacy</span>
+            <select value={draft.privacy} onChange={(event) => updateDraft("privacy", event.target.value)}>
+              <option value="local_only">Local only</option>
+              <option value="local_or_enterprise">Local or enterprise</option>
+              <option value="workspace">Workspace</option>
+              <option value="hosted_allowed">Hosted allowed</option>
+            </select>
+          </label>
+          <label>
+            <span>Quality</span>
+            <select value={draft.quality} onChange={(event) => updateDraft("quality", event.target.value)}>
+              <option value="deterministic">Deterministic</option>
+              <option value="adaptive">Adaptive</option>
+              <option value="high">High</option>
+              <option value="low_latency">Low latency</option>
+            </select>
+          </label>
+          <label>
+            <span>Max cost USD</span>
+            <input inputMode="decimal" value={draft.maxCostUsd} onChange={(event) => updateDraft("maxCostUsd", event.target.value)} />
+          </label>
+          <label>
+            <span>Max latency ms</span>
+            <input inputMode="numeric" value={draft.maxLatencyMs} onChange={(event) => updateDraft("maxLatencyMs", event.target.value)} />
+          </label>
+          <label>
+            <span>Fallback endpoints</span>
+            <input value={draft.fallback} onChange={(event) => updateDraft("fallback", event.target.value)} />
+          </label>
+          <label>
+            <span>Provider eligibility</span>
+            <input placeholder="fixture, native_local" value={draft.providerEligibility} onChange={(event) => updateDraft("providerEligibility", event.target.value)} />
+          </label>
+          <label>
+            <span>Denied providers</span>
+            <input placeholder="openai, anthropic" value={draft.deniedProviders} onChange={(event) => updateDraft("deniedProviders", event.target.value)} />
+          </label>
+          <label className="model-mounts-checkbox">
+            <input type="checkbox" checked={draft.allowHostedFallback} onChange={(event) => updateDraft("allowHostedFallback", event.target.checked)} />
+            <span>Allow hosted fallback when testing</span>
+          </label>
+        </div>
+
+        <div className="model-mounts-route-editor-summary">
+          <DetailFact label="Last selection" value={selectedPolicy?.lastSelection ?? "not tested"} note={selectedPolicy?.receipt} />
+          <DetailFact label="Fallback order" value={fallbackIds.join(" -> ") || "none"} note={`${fallbackEndpoints.length} mounted endpoint${fallbackEndpoints.length === 1 ? "" : "s"}`} />
+          <DetailFact label="Selected route" value={selectedPolicy?.id ?? "none"} note={selectedPolicy?.status} />
+        </div>
+      </form>
 
       <div className="model-mounts-table" role="table" aria-label="Routing policies">
         <div role="row" className="model-mounts-table-head">
@@ -3030,6 +3261,15 @@ export function MissionControlMountsView() {
     () => (daemon.data.receipts.length > 0 ? daemon.data.receipts : fallbackData.receipts),
     [daemon.data.receipts],
   );
+  const detailDrawerVisible = detailDrawerOpen && activeTab === "models";
+  const toggleModelDetails = useCallback(() => {
+    if (activeTab !== "models") {
+      setActiveTab("models");
+      setDetailDrawerOpen(true);
+      return;
+    }
+    setDetailDrawerOpen((current) => !current);
+  }, [activeTab]);
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -3088,15 +3328,16 @@ export function MissionControlMountsView() {
         onSelectionChange={updatePickerSelection}
         onLoadSelection={() => daemon.actions.loadPickerSelection(pickerSelection)}
         onUnloadInstance={() => daemon.actions.unloadInstance(pickerSelection.instanceId)}
-        onToggleDetails={() => setDetailDrawerOpen((current) => !current)}
-        detailsOpen={detailDrawerOpen}
+        onToggleDetails={toggleModelDetails}
+        detailsOpen={detailDrawerVisible}
+        compact={activeTab === "routing"}
         busy={busy}
       />
 
       <ModelDetailDrawer
         data={daemon.data}
         selection={pickerSelection}
-        open={detailDrawerOpen}
+        open={detailDrawerVisible}
         onClose={() => setDetailDrawerOpen(false)}
       />
 
@@ -3177,7 +3418,10 @@ export function MissionControlMountsView() {
         {activeTab === "routing" ? (
           <RoutingPanel
             data={daemon.data}
+            selection={pickerSelection}
             onTestRoute={daemon.actions.testRoute}
+            onSaveRoute={daemon.actions.saveRouteDraft}
+            onTestRouteDraft={daemon.actions.testRouteDraft}
             onWorkflowProbe={daemon.actions.workflowProbe}
             busy={busy}
           />
