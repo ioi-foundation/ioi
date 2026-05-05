@@ -297,6 +297,24 @@ class EncryptedKeychainVaultMaterialAdapter {
     };
   }
 
+  health() {
+    const status = this.status();
+    const result = {
+      ...status,
+      status: this.configured ? "healthy" : "unavailable",
+      readAvailable: false,
+      writeAvailable: false,
+      checkedAt: this.now().toISOString(),
+      evidenceRefs: [...status.evidenceRefs, "VaultMaterialAdapter.encryptedKeychain.health"],
+    };
+    this.assertConfigured();
+    const store = this.readStore();
+    result.readAvailable = true;
+    this.writeStore(store);
+    result.writeAvailable = true;
+    return result;
+  }
+
   readStore() {
     this.assertConfigured();
     if (!fs.existsSync(this.filePath)) return { schemaVersion: "ioi.keychain-vault.adapter.v1", refs: {} };
@@ -669,6 +687,31 @@ class AgentgresVaultPort {
         evidenceRefs: ["VaultMaterialAdapter.runtimeMemory"],
       },
       evidenceRefs: ["wallet.network.vault_ref_boundary", "provider_request_time_secret_resolution"],
+    };
+  }
+
+  health() {
+    const status = this.adapterStatus();
+    const adapterHealth = this.materialAdapter?.health() ?? {
+      implementation: "runtime_memory",
+      configured: false,
+      requested: false,
+      failClosed: false,
+      status: "session_only",
+      readAvailable: true,
+      writeAvailable: true,
+      plaintextPersistence: false,
+      checkedAt: this.now().toISOString(),
+      evidenceRefs: ["VaultMaterialAdapter.runtimeMemory.health"],
+    };
+    return {
+      port: "VaultPort",
+      implementation: status.implementation,
+      status: adapterHealth.status,
+      materialAdapter: adapterHealth,
+      materialSources: status.materialSources,
+      remoteAdapter: status.remoteAdapter,
+      evidenceRefs: ["VaultPort.health", ...normalizeScopes(adapterHealth.evidenceRefs, [])],
     };
   }
 }
@@ -2176,6 +2219,21 @@ export class ModelMountingState {
   vaultRefMetadata(body = {}) {
     const vaultRef = requiredString(body.vault_ref ?? body.vaultRef, "vault_ref");
     return this.vault.vaultRefMetadata(vaultRef);
+  }
+
+  vaultStatus() {
+    return this.vault.adapterStatus();
+  }
+
+  vaultHealth() {
+    const health = this.vault.health();
+    const receipt = this.receipt("vault_adapter_health", {
+      summary: `Vault adapter health is ${health.status}.`,
+      redaction: "redacted",
+      evidenceRefs: health.evidenceRefs,
+      details: health,
+    });
+    return { ...health, receiptId: receipt.id };
   }
 
   removeVaultRef(body = {}) {

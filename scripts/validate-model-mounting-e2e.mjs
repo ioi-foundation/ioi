@@ -749,6 +749,12 @@ async function main() {
       assert.equal(vaultStatus.materialAdapter.plaintextPersistence, false);
       assert.equal(JSON.stringify(vaultStatus).includes(cliVaultRef), false);
       assert.equal(JSON.stringify(vaultStatus).includes(cliVaultMaterial), false);
+      const vaultHealth = await runCli(cli, ["vault", "--json", "health"], common);
+      assert.equal(vaultHealth.port, "VaultPort");
+      assert.equal(vaultHealth.materialAdapter.plaintextPersistence, false);
+      assert.equal(typeof vaultHealth.receiptId, "string");
+      assert.equal(JSON.stringify(vaultHealth).includes(cliVaultRef), false);
+      assert.equal(JSON.stringify(vaultHealth).includes(cliVaultMaterial), false);
       const configuredProvider = await runCli(
         cli,
         [

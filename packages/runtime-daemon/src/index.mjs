@@ -685,6 +685,16 @@ async function handleModelMountingNativeRoute({ request, response, store, url, s
     writeJsonResponse(response, mounts.listVaultRefs());
     return;
   }
+  if (request.method === "GET" && url.pathname === "/api/v1/vault/status") {
+    mounts.authorize(authorization, "vault.read:*");
+    writeJsonResponse(response, mounts.vaultStatus());
+    return;
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/vault/health") {
+    mounts.authorize(authorization, "vault.read:*");
+    writeJsonResponse(response, mounts.vaultHealth());
+    return;
+  }
   if (request.method === "POST" && url.pathname === "/api/v1/vault/refs") {
     mounts.authorize(authorization, "vault.write:*");
     writeJsonResponse(response, mounts.bindVaultRef(await readBody(request)), 201);
