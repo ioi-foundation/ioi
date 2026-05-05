@@ -169,7 +169,7 @@ docs/evidence/model-mounting-e2e/2026-05-05T14-38-24Z/gui/2026-05-05T14-38-55Z/r
 The current standalone Mounts GUI evidence bundle is:
 
 ```text
-docs/evidence/model-mounts-gui-validation/2026-05-05T21-09-24Z/result.json
+docs/evidence/model-mounts-gui-validation/2026-05-05T23-20-24Z/result.json
 ```
 
 It captured all Mounts tabs as desktop window screenshots:
@@ -189,6 +189,11 @@ being closed after the canonical E2E evidence:
 
 - provider and backend health/start/stop/model-list/loaded-list/log controls;
 - download open-receipt, cancel, retry, failure, and lifecycle receipt actions;
+- acquisition review for catalog variants, including selected variant
+  comparison, external-transfer approval, storage budget guard, source hash,
+  byte cap, and failure class visibility;
+- model-workbench download receipt drilldown, so lifecycle receipts remain
+  reachable from both Models and Downloads surfaces;
 - token create/revoke, vault health, persistent MCP import, and ephemeral MCP
   model invocation linkage;
 - route test, route draft test, workflow probe, Receipt Gate pass, and Receipt
@@ -415,7 +420,7 @@ Mounts GUI nested under canonical E2E:
 docs/evidence/model-mounting-e2e/2026-05-05T14-38-24Z/gui/2026-05-05T14-38-55Z/result.json
 
 Standalone Mounts GUI with stream lifecycle probe:
-docs/evidence/model-mounts-gui-validation/2026-05-05T21-09-24Z/result.json
+docs/evidence/model-mounts-gui-validation/2026-05-05T23-20-24Z/result.json
 
 Broad Autopilot GUI harness:
 docs/evidence/autopilot-gui-harness-validation/2026-05-05T01-40-43-545Z/result.json
@@ -903,7 +908,7 @@ docs/evidence/model-mounting-e2e/2026-05-05T14-38-24Z/gui/2026-05-05T14-38-55Z/r
 Standalone Mounts GUI bundle with stream lifecycle probe:
 
 ```text
-docs/evidence/model-mounts-gui-validation/2026-05-05T21-09-24Z/result.json
+docs/evidence/model-mounts-gui-validation/2026-05-05T23-20-24Z/result.json
 ```
 
 The GUI bundle captured nine desktop window screenshots for the Mounts tabs
@@ -921,6 +926,12 @@ The same bundle verifies action-level GUI parity for provider/backend controls,
 model import/mount/load/unload, download cancel/retry/open-receipt, token/MCP/
 vault controls, route/workflow/Receipt Gate probes, benchmark run/replay, and
 Logs focus for a benchmark invocation receipt.
+
+The refreshed GUI bundle also verifies the product-facing acquisition flow:
+catalog variants are shown with comparison columns, live/external transfers
+surface explicit approval, storage budget state is visible before transfer,
+download failures include failure classes, and download receipts can be opened
+from both the Downloads queue and the Models workbench.
 
 The screenshots are stored next to the nested GUI result:
 
@@ -2320,6 +2331,10 @@ Current status:
 - Complete: deterministic catalog/import parity includes fixture catalog
   search, URL import, variant metadata, import dry-run/copy/move/hardlink/
   symlink modes, artifact delete, and storage cleanup scan receipts.
+- Complete: Mounts catalog/download acquisition UI includes variant comparison,
+  external transfer approval, storage budget guard, retry/cancel/open-receipt
+  actions, failure classes, and Models-panel receipt drilldown with desktop GUI
+  evidence.
 - Production hardening: replace deterministic native-local fixture with real
   local inference binaries when configured.
 - Production hardening: wire production wallet.network and Agentgres services;
@@ -2329,16 +2344,18 @@ Current status:
 
 ## Immediate Backlog
 
-The deterministic target path is complete, and live catalog/download activation
-now has passing opt-in evidence. The immediate backlog is now the parity
-closeout order from the matrix above:
+The deterministic target path is complete, live catalog/download activation has
+passing opt-in evidence, and the catalog/download acquisition UI has desktop
+GUI evidence. The immediate backlog is now the parity closeout order from the
+matrix above:
 
-1. Product UI parity beyond the validated picker, loaded-instance inspector,
-   model detail drawer, route editor, token editor, benchmark/results panel,
-   degraded/denied action readiness, and filtered observability stream.
-2. Catalog/download product hardening beyond the passing live tiny-GGUF gate:
-   richer hub metadata, variant comparison, approval/retry flows, bandwidth and
-   storage policy controls, and broader external-hub validation.
+1. Catalog/download product hardening beyond the passing live tiny-GGUF gate
+   and validated acquisition UI: richer production hub metadata, benchmark and
+   compatibility scoring, destructive storage UX, bandwidth policy controls,
+   and broader external-hub validation.
+2. Product UI parity beyond the validated operator controls: compact viewport
+   refinements, richer provider-specific error recovery, and live backend log
+   transport affordances.
 3. Live backend/provider parity: Ollama and llama.cpp have passing local live
    evidence; vLLM is blocked until an operator provides `VLLM_BASE_URL` or a
    `vllm`/`IOI_VLLM_BINARY` plus `IOI_VLLM_MODEL`, then the lifecycle/stream
