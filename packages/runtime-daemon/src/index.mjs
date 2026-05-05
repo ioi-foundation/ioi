@@ -560,19 +560,28 @@ async function handleModelMountingNativeRoute({ request, response, store, url, s
     return;
   }
   if (request.method === "POST" && url.pathname === "/api/v1/server/start") {
-    writeJsonResponse(response, {
-      ...mounts.serverStatus(baseUrl),
-      status: "running",
-      startedAt: new Date().toISOString(),
-    });
+    mounts.authorize(authorization, "server.control:*");
+    writeJsonResponse(response, mounts.serverStart(baseUrl));
     return;
   }
   if (request.method === "POST" && url.pathname === "/api/v1/server/stop") {
-    writeJsonResponse(response, {
-      ...mounts.serverStatus(baseUrl),
-      status: "stopped",
-      stoppedAt: new Date().toISOString(),
-    });
+    mounts.authorize(authorization, "server.control:*");
+    writeJsonResponse(response, mounts.serverStop(baseUrl));
+    return;
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/server/restart") {
+    mounts.authorize(authorization, "server.control:*");
+    writeJsonResponse(response, mounts.serverRestart(baseUrl));
+    return;
+  }
+  if (request.method === "GET" && url.pathname === "/api/v1/server/logs") {
+    mounts.authorize(authorization, "server.logs:*");
+    writeJsonResponse(response, mounts.serverLogs(Object.fromEntries(url.searchParams.entries())));
+    return;
+  }
+  if (request.method === "GET" && url.pathname === "/api/v1/server/events") {
+    mounts.authorize(authorization, "server.logs:*");
+    writeJsonResponse(response, mounts.serverEvents(Object.fromEntries(url.searchParams.entries())));
     return;
   }
   if (request.method === "GET" && url.pathname === "/api/v1/backends") {

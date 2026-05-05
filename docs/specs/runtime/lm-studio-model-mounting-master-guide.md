@@ -90,7 +90,7 @@ npm run validate:model-mounting:e2e
 Latest deterministic evidence bundle:
 
 ```text
-docs/evidence/model-mounting-e2e/2026-05-05T09-05-43Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T09-32-50Z/result.json
 ```
 
 That bundle passed the following acceptance steps:
@@ -108,6 +108,8 @@ That bundle passed the following acceptance steps:
 - deterministic native-local artifact import, mount, load, and invocation;
 - native `/api/v1/chat` and `/api/v1/responses`;
 - OpenAI-compatible `/v1/chat/completions` and `/v1/embeddings`;
+- local server stop/restart, redacted log tail, event tail, CLI parity, and
+  lifecycle receipts;
 - deterministic catalog search, URL import, import dry-run/copy modes, storage
   cleanup scan, artifact delete, and download cancel/completion lifecycle;
 - persistent `mcp.json` import and governed MCP tool invocation;
@@ -124,13 +126,13 @@ That bundle passed the following acceptance steps:
 The current GUI evidence nested under that E2E bundle is:
 
 ```text
-docs/evidence/model-mounting-e2e/2026-05-05T09-05-43Z/gui/2026-05-05T09-06-12Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T09-32-50Z/gui/2026-05-05T09-33-17Z/result.json
 ```
 
 The current standalone Mounts GUI evidence bundle is:
 
 ```text
-docs/evidence/model-mounts-gui-validation/2026-05-05T09-14-08Z/result.json
+docs/evidence/model-mounts-gui-validation/2026-05-05T09-34-31Z/result.json
 ```
 
 It captured all Mounts tabs as desktop window screenshots:
@@ -289,13 +291,13 @@ Latest evidence paths:
 
 ```text
 Canonical E2E:
-docs/evidence/model-mounting-e2e/2026-05-05T09-05-43Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T09-32-50Z/result.json
 
 Mounts GUI nested under canonical E2E:
-docs/evidence/model-mounting-e2e/2026-05-05T09-05-43Z/gui/2026-05-05T09-06-12Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T09-32-50Z/gui/2026-05-05T09-33-17Z/result.json
 
 Standalone Mounts GUI with live provider summary:
-docs/evidence/model-mounts-gui-validation/2026-05-05T09-14-08Z/result.json
+docs/evidence/model-mounts-gui-validation/2026-05-05T09-34-31Z/result.json
 
 Broad Autopilot GUI harness:
 docs/evidence/autopilot-gui-harness-validation/2026-05-05T01-40-43-545Z/result.json
@@ -492,7 +494,7 @@ gates:
    - runtime engine and hardware survey panel;
    - load option editor for GPU offload, context, parallelism, TTL,
      identifier, and estimate-only;
-   - server start/stop/restart controls in the Local Server tab;
+   - existing server start/stop/restart/log-tail controls should stay compact;
    - provider-specific controls;
    - download queue;
    - model detail drawers;
@@ -529,10 +531,10 @@ implemented as a product surface.
 | Runtime engines | `lms runtime ls/select/get/update/remove` | Partial | Runtime engine list and selected-runtime persistence are exposed through API, CLI, receipts, E2E, and Mounts Backends panel; add get/update/remove controls where backends support them |
 | Hardware survey | `lms runtime survey` reports GPU/VRAM, CPU features, RAM | Complete for deterministic/public CLI path | Keep redacted survey receipts in projection/replay; add scheduling hints and live runtime preference recommendations |
 | Load options | `lms load --gpu --context-length --parallel --ttl --identifier --estimate-only` | Complete for deterministic/public driver path | Extend from deterministic/native-local and LM Studio public load delegation into real llama.cpp/Ollama/vLLM process runners |
-| Local server | `lms server start|stop|status` and local port `1234` | Partial | Add Local Server start/stop/restart controls in Mounts and CLI parity where safe |
+| Local server | `lms server start|stop|status` and local port `1234` | Complete for deterministic daemon path | Keep start/stop/restart governed by `server.control:*`; package production headless/service supervision |
 | OpenAI-compatible API | `/v1/models`, chat completions, Responses, embeddings | Complete for daemon path | Add streaming parity, richer OpenAI error shape, tool-output submission, and advanced Responses state |
 | Native model API | LM Studio has public local primitives plus OpenAI-compatible surface | Complete, Autopilot-specific | Keep IOI-native routes authoritative and prevent `/v1/*` policy bypass |
-| Request/response logs | `lms log stream` | Partial | Add redacted streaming log panes and CLI tailing across server, provider, backend, route, MCP, and receipts |
+| Request/response logs | `lms log stream` | Partial | Server log/event tail is receipted through API/CLI/Mounts; add live streaming panes across provider, backend, route, MCP, and request/response filters |
 | API tokens | LM Studio local API tokens/auth toggle | Complete plus stronger IOI policy | Add product-grade token scope editor and session/expiry/revocation affordances |
 | MCP config | Cursor/LM Studio-style `mcp.json` plus API integrations | Partial | Complete stdio lifecycle, OAuth, schema discovery, and model tool exposure through governed receipts |
 | Provider support | LM Studio owns local GGUF runtime; external providers are not core | Partial | Keep LM Studio first-class while adding real Ollama/vLLM/llama.cpp/BYOK/custom HTTP adapters behind the same router |
@@ -550,20 +552,20 @@ implemented as a product surface.
    - Hugging Face-compatible live search/download behind explicit gate;
    - GGUF/MLX filters and variant selection polish;
    - storage quota and uninstall confirmation UX.
-2. Server/log parity:
-   - Local Server start/stop/restart controls;
-   - redacted streaming logs equivalent to `lms log stream`;
-   - per-provider/backend/request filters.
-3. Product UI parity:
+2. Product UI parity:
    - global model picker/loader;
    - model detail drawer;
    - loaded-model inspector;
    - route editor, token editor, benchmark panel, and degraded/denied states.
-4. Live backend parity:
+3. Live backend parity:
    - real llama.cpp runner;
    - live Ollama lifecycle;
    - live vLLM/OpenAI-compatible lifecycle;
    - native BYOK OpenAI/Anthropic/Gemini adapters through vault refs.
+4. Streaming observability parity:
+   - live log streaming equivalent to `lms log stream`;
+   - per-provider/backend/request filters;
+   - request/response log panes with receipt links.
 5. Production IOI hardening beyond LM Studio:
    - production wallet.network grants/vaults;
    - production Agentgres projection sync and settlement packs;
@@ -585,19 +587,19 @@ npm run validate:model-mounting:e2e
 Latest passing bundle:
 
 ```text
-docs/evidence/model-mounting-e2e/2026-05-05T09-05-43Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T09-32-50Z/result.json
 ```
 
 Nested GUI bundle:
 
 ```text
-docs/evidence/model-mounting-e2e/2026-05-05T09-05-43Z/gui/2026-05-05T09-06-12Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T09-32-50Z/gui/2026-05-05T09-33-17Z/result.json
 ```
 
 Standalone Mounts GUI bundle:
 
 ```text
-docs/evidence/model-mounts-gui-validation/2026-05-05T09-14-08Z/result.json
+docs/evidence/model-mounts-gui-validation/2026-05-05T09-34-31Z/result.json
 ```
 
 The GUI bundle captured eight desktop window screenshots for the Mounts tabs
@@ -854,7 +856,7 @@ ioi models unload <instance-id|--all>
 ioi models ps
 ioi routes ls
 ioi routes test <route-id>
-ioi server start|stop|status
+ioi server start|stop|restart|status|logs|events
 ioi mcp ls|import|validate
 ioi tokens create|revoke|ls
 ```
@@ -939,9 +941,10 @@ lms server start
 Autopilot should expose both:
 
 - GUI: Mounts > Local Server > Start/Stop/Restart;
-- CLI: `ioi server start|stop|status`;
+- CLI: `ioi server start|stop|restart|status|logs|events`;
 - API: `GET /api/v1/server/status`, `POST /api/v1/server/start`,
-  `POST /api/v1/server/stop`.
+  `POST /api/v1/server/stop`, `POST /api/v1/server/restart`,
+  `GET /api/v1/server/logs`, and `GET /api/v1/server/events`.
 
 ### Authentication And Tokens
 
@@ -1329,6 +1332,9 @@ Autopilot should implement both a native API and compatibility APIs.
 GET  /api/v1/server/status
 POST /api/v1/server/start
 POST /api/v1/server/stop
+POST /api/v1/server/restart
+GET  /api/v1/server/logs
+GET  /api/v1/server/events
 
 GET  /api/v1/models
 GET  /api/v1/models/:id
@@ -1618,21 +1624,28 @@ Remaining:
 
 ### Phase 2: Local Server Status And Logs
 
-Status: complete for daemon status and provider probes; streaming logs remain
-production work.
+Status: complete for deterministic server control and receipted log/event tail;
+live streaming logs remain production work.
 
 Completed:
 
 - `GET /api/v1/server/status`.
+- `POST /api/v1/server/start`, `POST /api/v1/server/stop`, and
+  `POST /api/v1/server/restart`, governed by `server.control:*`.
+- `GET /api/v1/server/logs` and `GET /api/v1/server/events`, governed by
+  `server.logs:*`.
 - Native and OpenAI-compatible base URL display.
-- CLI `ioi server status`.
+- CLI `ioi server status|start|stop|restart|logs|events`.
+- Mounts Local Server controls for start, stop, restart, and tail logs.
+- Receipted redacted server operation log ring buffer.
 - Provider health route and provider model/loaded routes.
 - Native-local backend logs are written to daemon state.
 
 Remaining:
 
-- Real server log streaming.
+- Real server log streaming / watch mode.
 - Per-provider log panes.
+- Request/response log filters.
 - Live process supervision for real llama.cpp/vLLM/Ollama binaries.
 
 ### Phase 3: Mount And Load Lifecycle
@@ -1896,6 +1909,9 @@ Current status:
   `/api/v1/runtime/select`, `ioi backends select`, estimate-only load receipts,
   LM Studio public load delegation argument hashing, `ioi models load` flags,
   and Mounts model load controls.
+- Complete: deterministic server/log parity includes governed start, stop,
+  restart, log tail, event tail, CLI parity, Mounts Local Server controls, and
+  redacted lifecycle receipts.
 - Complete: receipts show route, selected endpoint, selected instance, backend,
   policy hash, grant id, token counts, latency, and tool receipt IDs where
   applicable.
@@ -1919,9 +1935,9 @@ The deterministic target path is complete. The immediate backlog is now the
 parity closeout order from the matrix above:
 
 1. Live catalog/download activation.
-2. Server/log parity.
-3. Product UI parity.
-4. Live backend/provider parity.
+2. Product UI parity.
+3. Live backend/provider parity.
+4. Streaming observability parity.
 5. Production IOI hardening beyond LM Studio.
 
 Keep each backlog item behind the validated daemon/router/capability/receipt

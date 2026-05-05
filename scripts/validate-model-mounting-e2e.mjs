@@ -394,6 +394,8 @@ async function main() {
             "model.download:*",
             "model.import:*",
             "model.delete:*",
+            "server.control:*",
+            "server.logs:*",
             "backend.control:*",
             "provider.write:*",
             "vault.write:*",
@@ -411,6 +413,25 @@ async function main() {
       return grant;
     });
     const token = mainGrant.token;
+
+    const serverControlEvidence = await runStep(evidence, "server control and redacted log tail", async () => {
+      const stopped = await expectOk(daemon.endpoint, "/api/v1/server/stop", { method: "POST", token });
+      assert.equal(stopped.controlStatus, "stopped");
+      const restarted = await expectOk(daemon.endpoint, "/api/v1/server/restart", { method: "POST", token });
+      assert.equal(restarted.controlStatus, "running");
+      const logs = await expectOk(daemon.endpoint, "/api/v1/server/logs?limit=20", { token });
+      assert.equal(logs.redaction, "redacted");
+      assert.ok(logs.records.some((record) => record.event === "server_restart"));
+      const events = await expectOk(daemon.endpoint, "/api/v1/server/events?limit=20", { token });
+      assert.ok(events.events.some((event) => event.event === "server_events_read"));
+      return {
+        stopReceiptId: stopped.receiptId,
+        restartReceiptId: restarted.receiptId,
+        logReceiptId: logs.receiptId,
+        eventReceiptId: events.receiptId,
+        logCount: logs.records.length,
+      };
+    });
 
     await runStep(evidence, "discover providers and backends", async () => {
       const snapshot = await expectOk(daemon.endpoint, "/api/v1/models");
@@ -812,6 +833,11 @@ async function main() {
       const common = { endpoint: daemon.endpoint, token, secretNeedles, evidence };
       const status = await runCli(cli, ["server", "--json", "status"], common);
       assert.equal(status.schemaVersion, "ioi.model-mounting.runtime.v1");
+      const serverRestart = await runCli(cli, ["server", "--json", "restart"], common);
+      assert.equal(serverRestart.controlStatus, "running");
+      const serverLogs = await runCli(cli, ["server", "--json", "logs", "--limit", "20"], common);
+      assert.ok(serverLogs.records.some((record) => record.event === "server_restart"));
+      assert.equal(JSON.stringify(serverLogs).includes(token), false);
       const backends = await runCli(cli, ["backends", "--json", "ls"], common);
       assert.ok(backends.some((backend) => backend.id === "backend.autopilot.native-local.fixture"));
       const models = await runCli(cli, ["models", "--json", "ls"], common);
@@ -971,6 +997,7 @@ async function main() {
         models: models.artifacts.length,
         loaded: loaded.length,
         receipts: receipts.length,
+        serverRestartReceiptId: serverControlEvidence.restartReceiptId,
         runtimeSurveyReceiptId: runtimeSurvey.receiptId,
       };
     });
