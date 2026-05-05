@@ -1220,6 +1220,10 @@ async function writeOpenAiChatCompletionStream(response, invocation, mounts) {
 }
 
 async function writeOpenAiProviderChatCompletionStream(response, streamInvocation, mounts) {
+  if (streamInvocation.providerResult?.streamFormat === "ollama_jsonl") {
+    await writeOllamaChatCompletionStream(response, streamInvocation, mounts);
+    return;
+  }
   const invocation = streamInvocation.invocation;
   const streamKind = "openai_chat_completions_provider_native";
   const reader = streamInvocation.providerStream.getReader();
@@ -1329,7 +1333,119 @@ async function writeOpenAiProviderChatCompletionStream(response, streamInvocatio
   }
 }
 
+async function writeOllamaChatCompletionStream(response, streamInvocation, mounts) {
+  const invocation = streamInvocation.invocation;
+  const streamKind = "openai_chat_completions_ollama_native";
+  const reader = streamInvocation.providerStream.getReader();
+  const decoder = new TextDecoder();
+  const id = `chatcmpl_${crypto.randomUUID()}`;
+  const created = Math.floor(Date.now() / 1000);
+  const base = {
+    id,
+    object: "chat.completion.chunk",
+    created,
+    model: invocation.model,
+    receipt_id: invocation.receipt.id,
+    route_id: invocation.route.id,
+    tool_receipt_ids: invocation.toolReceiptIds ?? [],
+    provider_stream: "native",
+  };
+  let completed = false;
+  let canceled = false;
+  let written = 0;
+  let outputText = "";
+  let providerUsage = null;
+  let finishReason = "stop";
+  let buffer = "";
+  const markCanceled = () => {
+    if (completed || canceled) return;
+    canceled = true;
+    streamInvocation.abort?.();
+    recordModelStreamCanceled({ mounts, invocation, streamKind, framesWritten: written });
+  };
+  const onClose = () => markCanceled();
+  response.statusCode = 200;
+  response.setHeader("content-type", "text/event-stream");
+  response.setHeader("cache-control", "no-cache");
+  response.setHeader("x-ioi-receipt-id", invocation.receipt.id);
+  response.setHeader("x-ioi-stream-source", "provider_native");
+  response.on("close", onClose);
+  try {
+    response.write(`data: ${JSON.stringify({ ...base, choices: [{ index: 0, delta: { role: "assistant" }, finish_reason: null }] })}\n\n`);
+    written += 1;
+    while (!canceled) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value ?? new Uint8Array(), { stream: true });
+      const lines = takeLineBlocks(buffer);
+      buffer = lines.remainder;
+      for (const line of lines.blocks) {
+        if (canceled) break;
+        if (response.destroyed || response.writableEnded) {
+          markCanceled();
+          break;
+        }
+        const parsed = parseJsonMaybe(line);
+        const delta = ollamaStreamDelta(parsed);
+        if (delta) {
+          outputText += delta;
+          response.write(
+            `data: ${JSON.stringify({ ...base, choices: [{ index: 0, delta: { content: delta }, finish_reason: null }] })}\n\n`,
+          );
+          written += 1;
+        }
+        if (parsed?.done) {
+          providerUsage = ollamaUsage(parsed);
+          finishReason = parsed.done_reason ?? "stop";
+        }
+      }
+    }
+    if (canceled) return;
+    const tail = decoder.decode();
+    if (tail) buffer += tail;
+    for (const line of buffer.trim() ? [buffer.trim()] : []) {
+      const parsed = parseJsonMaybe(line);
+      const delta = ollamaStreamDelta(parsed);
+      if (delta) outputText += delta;
+      if (parsed?.done) {
+        providerUsage = ollamaUsage(parsed);
+        finishReason = parsed.done_reason ?? "stop";
+      }
+    }
+    const completionReceipt = mounts.recordModelStreamCompleted({
+      invocation,
+      streamKind,
+      outputText,
+      providerUsage,
+      chunksForwarded: written,
+      finishReason,
+      providerResult: streamInvocation.providerResult,
+    });
+    response.write(
+      `data: ${JSON.stringify({
+        ...base,
+        stream_receipt_id: completionReceipt.id,
+        choices: [{ index: 0, delta: {}, finish_reason: finishReason }],
+      })}\n\n`,
+    );
+    response.write("data: [DONE]\n\n");
+    completed = true;
+    response.end();
+  } finally {
+    response.off("close", onClose);
+    try {
+      reader.releaseLock();
+    } catch {
+      // Some runtime streams close the reader before release.
+    }
+  }
+}
+
 async function writeOpenAiProviderResponseStream(response, streamInvocation, mounts) {
+  if (streamInvocation.providerResult?.streamFormat === "ollama_jsonl") {
+    await writeOllamaResponseStream(response, streamInvocation, mounts);
+    return;
+  }
   const invocation = streamInvocation.invocation;
   const streamKind = "openai_responses_provider_native";
   const reader = streamInvocation.providerStream.getReader();
@@ -1424,6 +1540,157 @@ async function writeOpenAiProviderResponseStream(response, streamInvocation, mou
       completed = true;
       response.end();
     }
+  } finally {
+    response.off("close", onClose);
+    try {
+      reader.releaseLock();
+    } catch {
+      // Some runtime streams close the reader before release.
+    }
+  }
+}
+
+async function writeOllamaResponseStream(response, streamInvocation, mounts) {
+  const invocation = streamInvocation.invocation;
+  const streamKind = "openai_responses_ollama_native";
+  const reader = streamInvocation.providerStream.getReader();
+  const decoder = new TextDecoder();
+  const responseId = `resp_${crypto.randomUUID()}`;
+  const outputItemId = `msg_${crypto.randomUUID()}`;
+  const createdAt = Math.floor(Date.now() / 1000);
+  let completed = false;
+  let canceled = false;
+  let written = 0;
+  let outputText = "";
+  let providerUsage = null;
+  let finishReason = "stop";
+  let buffer = "";
+  const markCanceled = () => {
+    if (completed || canceled) return;
+    canceled = true;
+    streamInvocation.abort?.();
+    recordModelStreamCanceled({ mounts, invocation, streamKind, framesWritten: written });
+  };
+  const onClose = () => markCanceled();
+  const baseResponse = {
+    id: responseId,
+    object: "response",
+    created_at: createdAt,
+    model: invocation.model,
+    status: "in_progress",
+    output: [],
+    usage: null,
+    receipt_id: invocation.receipt.id,
+    route_id: invocation.route.id,
+    tool_receipt_ids: invocation.toolReceiptIds ?? [],
+    provider_stream: "native",
+  };
+  const outputItem = {
+    id: outputItemId,
+    type: "message",
+    status: "in_progress",
+    role: "assistant",
+    content: [],
+  };
+  response.statusCode = 200;
+  response.setHeader("content-type", "text/event-stream");
+  response.setHeader("cache-control", "no-cache");
+  response.setHeader("x-ioi-receipt-id", invocation.receipt.id);
+  response.setHeader("x-ioi-stream-source", "provider_native");
+  response.on("close", onClose);
+  try {
+    response.write(`event: response.created\ndata: ${JSON.stringify({ type: "response.created", response: baseResponse })}\n\n`);
+    response.write(`event: response.output_item.added\ndata: ${JSON.stringify({ type: "response.output_item.added", output_index: 0, item: outputItem })}\n\n`);
+    response.write(
+      `event: response.content_part.added\ndata: ${JSON.stringify({
+        type: "response.content_part.added",
+        item_id: outputItemId,
+        output_index: 0,
+        content_index: 0,
+        part: { type: "output_text", text: "" },
+      })}\n\n`,
+    );
+    written += 3;
+    while (!canceled) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value ?? new Uint8Array(), { stream: true });
+      const lines = takeLineBlocks(buffer);
+      buffer = lines.remainder;
+      for (const line of lines.blocks) {
+        if (canceled) break;
+        if (response.destroyed || response.writableEnded) {
+          markCanceled();
+          break;
+        }
+        const parsed = parseJsonMaybe(line);
+        const delta = ollamaStreamDelta(parsed);
+        if (delta) {
+          outputText += delta;
+          response.write(
+            `event: response.output_text.delta\ndata: ${JSON.stringify({
+              type: "response.output_text.delta",
+              item_id: outputItemId,
+              output_index: 0,
+              content_index: 0,
+              delta,
+            })}\n\n`,
+          );
+          written += 1;
+        }
+        if (parsed?.done) {
+          providerUsage = ollamaUsage(parsed);
+          finishReason = parsed.done_reason ?? "stop";
+        }
+      }
+    }
+    if (canceled) return;
+    const tail = decoder.decode();
+    if (tail) buffer += tail;
+    for (const line of buffer.trim() ? [buffer.trim()] : []) {
+      const parsed = parseJsonMaybe(line);
+      const delta = ollamaStreamDelta(parsed);
+      if (delta) outputText += delta;
+      if (parsed?.done) {
+        providerUsage = ollamaUsage(parsed);
+        finishReason = parsed.done_reason ?? "stop";
+      }
+    }
+    const completionReceipt = mounts.recordModelStreamCompleted({
+      invocation,
+      streamKind,
+      outputText,
+      providerUsage,
+      chunksForwarded: written,
+      finishReason,
+      providerResult: streamInvocation.providerResult,
+    });
+    const completedOutputItem = {
+      ...outputItem,
+      status: "completed",
+      content: [{ type: "output_text", text: outputText }],
+    };
+    const completedResponse = {
+      ...baseResponse,
+      status: "completed",
+      output: [completedOutputItem],
+      output_text: outputText,
+      usage: providerUsage,
+      stream_receipt_id: completionReceipt.id,
+    };
+    response.write(
+      `event: response.content_part.done\ndata: ${JSON.stringify({
+        type: "response.content_part.done",
+        item_id: outputItemId,
+        output_index: 0,
+        content_index: 0,
+        part: { type: "output_text", text: outputText },
+      })}\n\n`,
+    );
+    response.write(`event: response.output_item.done\ndata: ${JSON.stringify({ type: "response.output_item.done", output_index: 0, item: completedOutputItem })}\n\n`);
+    response.write(`event: response.completed\ndata: ${JSON.stringify({ type: "response.completed", response: completedResponse })}\n\n`);
+    completed = true;
+    response.end();
   } finally {
     response.off("close", onClose);
     try {
@@ -1584,6 +1851,12 @@ function takeSseFrameBlocks(buffer) {
   return { blocks: parts.filter(Boolean), remainder };
 }
 
+function takeLineBlocks(buffer) {
+  const parts = String(buffer).split(/\r?\n/);
+  const remainder = parts.pop() ?? "";
+  return { blocks: parts.map((part) => part.trim()).filter(Boolean), remainder };
+}
+
 function dataPayloadsFromSseBlock(block) {
   const payload = String(block)
     .split(/\r?\n/)
@@ -1606,6 +1879,21 @@ function responseStreamPayloads(block) {
       finishReason: parsed?.response?.status ?? parsed?.status ?? parsed?.type ?? null,
     };
   });
+}
+
+function ollamaStreamDelta(payload) {
+  if (!payload || typeof payload !== "object") return "";
+  return String(payload.message?.content ?? payload.response ?? "");
+}
+
+function ollamaUsage(payload) {
+  const promptTokens = Number(payload?.prompt_eval_count ?? 0) || 0;
+  const completionTokens = Number(payload?.eval_count ?? 0) || 0;
+  return {
+    prompt_tokens: promptTokens,
+    completion_tokens: completionTokens,
+    total_tokens: promptTokens + completionTokens,
+  };
 }
 
 function parseJsonMaybe(text) {

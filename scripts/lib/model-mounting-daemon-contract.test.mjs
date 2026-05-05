@@ -1169,6 +1169,7 @@ test("Ollama provider adapter lists models, invokes through policy, and redacts 
           "model.mount:*",
           "model.load:*",
           "model.chat:*",
+          "model.responses:*",
           "model.embeddings:*",
           "route.write:*",
           "route.use:*",
@@ -1187,7 +1188,7 @@ test("Ollama provider adapter lists models, invokes through policy, and redacts 
         base_url: providerServer.endpoint,
         status: "configured",
         privacy_class: "local_private",
-        capabilities: ["chat", "embeddings"],
+        capabilities: ["chat", "responses", "embeddings"],
       },
     });
     const health = await expectOk(daemon.endpoint, "/api/v1/providers/provider.test.ollama/health", { method: "POST" });
@@ -1229,6 +1230,65 @@ test("Ollama provider adapter lists models, invokes through policy, and redacts 
     assert.equal(chat.route_id, "route.test.ollama");
     assert.equal(chat.backend_id, "backend.ollama");
     assert.match(chat.output_text, /fake ollama chat/);
+
+    const streamedChat = await requestSse(daemon.endpoint, "/v1/chat/completions", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        route_id: "route.test.ollama",
+        model: "qwen3:8b",
+        stream: true,
+        messages: [{ role: "user", content: "stream ollama chat" }],
+      },
+    });
+    assert.equal(streamedChat.response.status, 200);
+    assert.equal(streamedChat.response.headers.get("x-ioi-stream-source"), "provider_native");
+    const streamedChatChunks = parseOpenAiSseChunks(streamedChat.text);
+    const streamedChatText = streamedChatChunks
+      .filter((chunk) => chunk !== "[DONE]")
+      .map((chunk) => chunk.choices?.[0]?.delta?.content ?? "")
+      .join("");
+    assert.equal(streamedChatText, "fake ollama streamed chat");
+    const streamedChatMetadata = streamedChatChunks.find((chunk) => chunk !== "[DONE]" && chunk.stream_receipt_id);
+    assert.equal(streamedChatMetadata.route_id, "route.test.ollama");
+    assert.equal(streamedChatMetadata.provider_stream, "native");
+    const streamedChatReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${streamedChatMetadata.receipt_id}`);
+    assert.equal(streamedChatReceipt.details.providerId, "provider.test.ollama");
+    assert.equal(streamedChatReceipt.details.providerResponseKind, "ollama.chat.stream");
+    assert.ok(streamedChatReceipt.details.backendEvidenceRefs.includes("ollama_api_chat_native_stream"));
+    const streamedChatCompleteReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${streamedChatMetadata.stream_receipt_id}`);
+    assert.equal(streamedChatCompleteReceipt.details.invocationReceiptId, streamedChatMetadata.receipt_id);
+    assert.equal(streamedChatCompleteReceipt.details.outputHash, crypto.createHash("sha256").update(streamedChatText).digest("hex"));
+
+    const streamedResponse = await requestSse(daemon.endpoint, "/v1/responses", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        route_id: "route.test.ollama",
+        model: "qwen3:8b",
+        stream: true,
+        input: "stream ollama response",
+      },
+    });
+    assert.equal(streamedResponse.response.status, 200);
+    assert.equal(streamedResponse.response.headers.get("x-ioi-stream-source"), "provider_native");
+    const streamedResponseText = streamedResponse.events
+      .filter((event) => event.event === "response.output_text.delta")
+      .map((event) => event.data.delta)
+      .join("");
+    assert.equal(streamedResponseText, "fake ollama streamed chat");
+    const streamedResponseCompleted = streamedResponse.events.find((event) => event.event === "response.completed")?.data.response;
+    assert.equal(streamedResponseCompleted.route_id, "route.test.ollama");
+    assert.equal(streamedResponseCompleted.provider_stream, "native");
+    assert.equal(typeof streamedResponseCompleted.receipt_id, "string");
+    assert.equal(typeof streamedResponseCompleted.stream_receipt_id, "string");
+    const streamedResponseReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${streamedResponseCompleted.receipt_id}`);
+    assert.equal(streamedResponseReceipt.details.providerId, "provider.test.ollama");
+    assert.equal(streamedResponseReceipt.details.providerResponseKind, "ollama.responses.stream");
+    assert.ok(streamedResponseReceipt.details.backendEvidenceRefs.includes("ollama_api_chat_native_stream"));
+    const streamedResponseCompleteReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${streamedResponseCompleted.stream_receipt_id}`);
+    assert.equal(streamedResponseCompleteReceipt.details.invocationReceiptId, streamedResponseCompleted.receipt_id);
+    assert.equal(streamedResponseCompleteReceipt.details.outputHash, crypto.createHash("sha256").update(streamedResponseText).digest("hex"));
 
     const embeddings = await expectOk(daemon.endpoint, "/api/v1/embeddings", {
       method: "POST",
@@ -2962,6 +3022,14 @@ async function startFakeOllamaServer({ chatStatus = 200, secret = null } = {}) {
         response.end(JSON.stringify({ error: `provider failed ${secret}` }));
         return;
       }
+      if (body.stream === true) {
+        writeFakeOllamaChatJsonl(response, {
+          model: body.model ?? "qwen3:8b",
+          chunks: ["fake ollama ", "streamed chat"],
+          usage: { prompt_eval_count: 3, eval_count: 5 },
+        });
+        return;
+      }
       response.end(
         JSON.stringify({
           model: "qwen3:8b",
@@ -3155,6 +3223,31 @@ async function startFakeLlamaCppServer() {
     endpoint: `http://${address.address}:${address.port}`,
     close: () => new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve()))),
   };
+}
+
+function writeFakeOllamaChatJsonl(response, { model, chunks, usage }) {
+  response.setHeader("content-type", "application/x-ndjson");
+  for (const chunk of chunks) {
+    response.write(
+      `${JSON.stringify({
+        model,
+        created_at: new Date().toISOString(),
+        message: { role: "assistant", content: chunk },
+        done: false,
+      })}\n`,
+    );
+  }
+  response.end(
+    `${JSON.stringify({
+      model,
+      created_at: new Date().toISOString(),
+      message: { role: "assistant", content: "" },
+      done: true,
+      done_reason: "stop",
+      prompt_eval_count: usage.prompt_eval_count,
+      eval_count: usage.eval_count,
+    })}\n`,
+  );
 }
 
 function writeFakeOpenAiChatCompletionSse(response, { id, model, chunks, usage }) {
