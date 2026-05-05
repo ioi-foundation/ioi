@@ -1137,6 +1137,139 @@ test("vLLM and OpenAI-compatible adapters support responses fallback, embeddings
   }
 });
 
+test("llama.cpp provider driver spawns through backend supervisor and invokes through OpenAI-compatible server", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-llama-cpp-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-llama-cpp-state-"));
+  const binDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-llama-cpp-bin-"));
+  const callsPath = path.join(binDir, "llama-calls.jsonl");
+  const fakeBinary = path.join(binDir, "llama-server");
+  fs.writeFileSync(
+    fakeBinary,
+    `#!/usr/bin/env node
+const fs = require("node:fs");
+fs.appendFileSync(process.env.IOI_FAKE_LLAMA_CALLS, JSON.stringify(process.argv.slice(2)) + "\\n");
+process.stdout.write("fake llama.cpp server ready\\n");
+process.on("SIGTERM", () => process.exit(0));
+setInterval(() => {}, 1000);
+`,
+  );
+  fs.chmodSync(fakeBinary, 0o755);
+  const providerServer = await startFakeLlamaCppServer();
+  const priorBinary = process.env.IOI_LLAMA_CPP_SERVER_PATH;
+  const priorBaseUrl = process.env.IOI_LLAMA_CPP_BASE_URL;
+  const priorCalls = process.env.IOI_FAKE_LLAMA_CALLS;
+  process.env.IOI_LLAMA_CPP_SERVER_PATH = fakeBinary;
+  process.env.IOI_LLAMA_CPP_BASE_URL = `${providerServer.endpoint}/v1`;
+  process.env.IOI_FAKE_LLAMA_CALLS = callsPath;
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+      method: "POST",
+      body: {
+        allowed: [
+          "provider.write:*",
+          "model.import:*",
+          "model.mount:*",
+          "model.load:*",
+          "model.unload:*",
+          "model.chat:*",
+          "model.responses:*",
+          "route.write:*",
+          "route.use:*",
+        ],
+      },
+    });
+    const providerHealth = await expectOk(daemon.endpoint, "/api/v1/providers/provider.llama-cpp/health", { method: "POST" });
+    assert.equal(providerHealth.status, "available");
+    const providerModels = await expectOk(daemon.endpoint, "/api/v1/providers/provider.llama-cpp/models");
+    assert.ok(providerModels.some((model) => model.modelId === "llama-cpp-qwen"));
+
+    const modelPath = path.join(cwd, "llama-cpp-fixture.Q4_K_M.gguf");
+    fs.writeFileSync(modelPath, "family=llama-cpp-fixture\nquantization=Q4_K_M\ncontext=8192\n");
+    const imported = await expectOk(daemon.endpoint, "/api/v1/models/import", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        model_id: "llama-cpp:fixture",
+        provider_id: "provider.llama-cpp",
+        path: modelPath,
+        capabilities: ["chat", "responses", "embeddings"],
+      },
+    });
+    assert.equal(imported.providerId, "provider.llama-cpp");
+    const mounted = await expectOk(daemon.endpoint, "/api/v1/models/mount", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        model_id: "llama-cpp:fixture",
+        provider_id: "provider.llama-cpp",
+        id: "endpoint.test.llama-cpp",
+        backend_id: "backend.llama-cpp",
+      },
+    });
+    await expectOk(daemon.endpoint, "/api/v1/routes", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        id: "route.test.llama-cpp",
+        role: "llama-cpp-test",
+        privacy: "local_only",
+        fallback: [mounted.id],
+        provider_eligibility: ["llama_cpp"],
+        denied_providers: [],
+      },
+    });
+    const loaded = await expectOk(daemon.endpoint, "/api/v1/models/load", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        endpoint_id: mounted.id,
+        load_policy: { mode: "on_demand", idleTtlSeconds: 600, autoEvict: true },
+        load_options: { contextLength: 4096, parallel: 2, gpu: "off", identifier: "llama-cpp-test" },
+      },
+    });
+    assert.equal(loaded.backend, "llama_cpp");
+    assert.equal(loaded.backendId, "backend.llama-cpp");
+    assert.equal(loaded.backendProcess.spawned, true);
+    assert.equal(loaded.backendProcess.spawnStatus, "spawned");
+    assert.match(loaded.backendProcess.pidHash, /^[a-f0-9]{16}$/);
+    assert.equal(loaded.backendProcess.argsRedacted.some((arg) => String(arg).startsWith("artifact:")), true);
+    assert.equal(JSON.stringify(loaded.backendProcess.argsRedacted).includes(modelPath), false);
+    const llamaCalls = fs.readFileSync(callsPath, "utf8");
+    assert.equal(llamaCalls.includes(modelPath), true);
+    assert.equal(llamaCalls.includes("--ctx-size"), true);
+
+    const chat = await expectOk(daemon.endpoint, "/api/v1/chat", {
+      method: "POST",
+      token: grant.token,
+      body: { route_id: "route.test.llama-cpp", input: "hello llama cpp" },
+    });
+    assert.match(chat.output_text, /fake llama.cpp chat/);
+    const receipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${chat.receipt_id}`);
+    assert.equal(receipt.details.backend, "llama_cpp");
+    assert.equal(receipt.details.backendId, "backend.llama-cpp");
+    assert.equal(receipt.details.backendProcessPidHash, loaded.backendProcess.pidHash);
+    assert.ok(receipt.details.backendEvidenceRefs.includes("llama_cpp_process_supervisor"));
+
+    const unloaded = await expectOk(daemon.endpoint, "/api/v1/models/unload", {
+      method: "POST",
+      token: grant.token,
+      body: { instance_id: loaded.id },
+    });
+    assert.equal(unloaded.status, "unloaded");
+    assert.equal(unloaded.providerEvidenceRefs.includes("clean_backend_stop"), true);
+    const logs = await expectOk(daemon.endpoint, "/api/v1/backends/backend.llama-cpp/logs");
+    assert.ok(logs.some((record) => record.event === "backend_process_start"));
+    assert.ok(logs.some((record) => record.event === "backend_process_stop"));
+  } finally {
+    await daemon.close();
+    await providerServer.close();
+    restoreEnv("IOI_LLAMA_CPP_SERVER_PATH", priorBinary);
+    restoreEnv("IOI_LLAMA_CPP_BASE_URL", priorBaseUrl);
+    restoreEnv("IOI_FAKE_LLAMA_CALLS", priorCalls);
+  }
+});
+
 test("hosted and custom HTTP provider auth fails closed behind wallet vault refs", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-provider-vault-workspace-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-provider-vault-state-"));
@@ -2027,6 +2160,59 @@ async function startFakeVllmServer({ responsesStatus = 200, chatStatus = 200, se
   return {
     endpoint: `http://${address.address}:${address.port}`,
     observedHeaders: () => observedHeaders.map((headers) => ({ ...headers })),
+    close: () => new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve()))),
+  };
+}
+
+async function startFakeLlamaCppServer() {
+  const server = http.createServer((request, response) => {
+    const url = new URL(request.url ?? "/", "http://127.0.0.1");
+    response.setHeader("content-type", "application/json");
+    if (request.method === "GET" && url.pathname === "/v1/models") {
+      response.end(JSON.stringify({ object: "list", data: [{ id: "llama-cpp-qwen" }] }));
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/v1/responses") {
+      response.end(
+        JSON.stringify({
+          id: "resp_fake_llama_cpp",
+          object: "response",
+          model: "llama-cpp-qwen",
+          output_text: "fake llama.cpp response",
+          usage: { prompt_tokens: 3, completion_tokens: 5, total_tokens: 8 },
+        }),
+      );
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/v1/chat/completions") {
+      response.end(
+        JSON.stringify({
+          id: "chatcmpl_fake_llama_cpp",
+          object: "chat.completion",
+          model: "llama-cpp-qwen",
+          choices: [{ index: 0, message: { role: "assistant", content: "fake llama.cpp chat" }, finish_reason: "stop" }],
+          usage: { prompt_tokens: 4, completion_tokens: 6, total_tokens: 10 },
+        }),
+      );
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/v1/embeddings") {
+      response.end(
+        JSON.stringify({
+          object: "list",
+          data: [{ object: "embedding", index: 0, embedding: [0.44, 0.55, 0.66] }],
+          usage: { prompt_tokens: 2, completion_tokens: 0, total_tokens: 2 },
+        }),
+      );
+      return;
+    }
+    response.statusCode = 404;
+    response.end(JSON.stringify({ error: "not found" }));
+  });
+  await listen(server);
+  const address = server.address();
+  return {
+    endpoint: `http://${address.address}:${address.port}`,
     close: () => new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve()))),
   };
 }
