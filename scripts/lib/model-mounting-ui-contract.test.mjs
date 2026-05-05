@@ -89,6 +89,18 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   assert.match(source, /material bound in runtime session/);
   assert.match(source, /vault\.write:\*/);
   assert.match(source, /vault\.read:\*/);
+  assert.match(source, /Token scope editor/);
+  assert.match(source, /Create session token/);
+  assert.match(source, /Allowed scopes/);
+  assert.match(source, /Denied scopes/);
+  assert.match(source, /session-only raw token/);
+  assert.match(source, /grant hash only/);
+  assert.match(source, /createTokenFromDraft/);
+  assert.match(source, /revokeTokenGrant/);
+  assert.match(source, /\/api\/v1\/tokens\/\$\{encodeURIComponent\(tokenId\)\}/);
+  assert.match(source, /tokenDraftPayload/);
+  assert.match(source, /model-mounts-token-editor/);
+  assert.match(source, /Revoke/);
   assert.match(source, /Test health/);
   assert.match(source, /Latest health/);
   assert.match(source, /Latest vault health/);
