@@ -1260,7 +1260,7 @@ export class ModelMountingState {
         "processStatus",
         "lastReceiptId",
       ],
-      providerHealth: ["id", "providerId", "status", "checkedAt", "evidenceRefs"],
+      providerHealth: ["id", "providerId", "status", "checkedAt", "receiptId", "failureCode", "evidenceRefs"],
       modelDownloads: ["id", "artifactId", "status", "source", "progress", "bytesTotal", "bytesCompleted", "targetPath"],
       permissionTokens: ["id", "audience", "allowed", "denied", "expiresAt", "revokedAt", "grantId", "lastUsedAt"],
       walletGrants: ["grantId", "revocationEpoch", "allowed", "denied", "expiry", "vaultRefs", "auditReceiptIds"],
@@ -2375,33 +2375,110 @@ export class ModelMountingState {
   async providerHealth(providerId) {
     const provider = this.provider(providerId);
     const checkedAt = this.nowIso();
-    const driverResult = await this.driverForProvider(provider).health(provider, { state: this });
-    const status = driverResult.status ?? (provider.status === "configured" ? "available" : provider.status);
-    const updated = {
-      ...provider,
-      status,
-      discovery: {
-        ...provider.discovery,
-        checkedAt,
-        lastHealthCheck: {
+    try {
+      const driverResult = await this.driverForProvider(provider).health(provider, { state: this });
+      const status = driverResult.status ?? (provider.status === "configured" ? "available" : provider.status);
+      const receipt = this.receipt("provider_health", {
+        summary: `Provider ${providerId} health is ${status}.`,
+        redaction: "redacted",
+        evidenceRefs: driverResult.evidenceRefs ?? provider.discovery?.evidenceRefs ?? [],
+        details: {
+          providerId,
+          providerKind: provider.kind,
           status,
-          evidenceRefs: driverResult.evidenceRefs ?? provider.discovery?.evidenceRefs ?? [],
           httpStatus: driverResult.httpStatus ?? null,
           authVaultRefHash: driverResult.authEvidence?.vaultRefHash ?? null,
+          providerAuthEvidenceRefs: driverResult.authEvidence?.evidenceRefs ?? [],
+          providerAuthHeaderNames: driverResult.authEvidence?.headerNames ?? [],
         },
-        ...(driverResult.publicCli ? { publicCli: driverResult.publicCli } : {}),
-      },
-    };
-    this.providers.set(providerId, updated);
-    this.writeMap("model-providers", this.providers);
-    writeJson(path.join(this.stateDir, "provider-health", `${safeFileName(providerId)}.json`), {
-      id: `health.${safeId(providerId)}`,
-      providerId,
-      status,
-      checkedAt,
-      evidenceRefs: driverResult.evidenceRefs ?? [],
-    });
-    return publicProvider(updated);
+      });
+      const updated = {
+        ...provider,
+        status,
+        discovery: {
+          ...provider.discovery,
+          checkedAt,
+          lastHealthCheck: {
+            status,
+            evidenceRefs: driverResult.evidenceRefs ?? provider.discovery?.evidenceRefs ?? [],
+            httpStatus: driverResult.httpStatus ?? null,
+            authVaultRefHash: driverResult.authEvidence?.vaultRefHash ?? null,
+            receiptId: receipt.id,
+          },
+          ...(driverResult.publicCli ? { publicCli: driverResult.publicCli } : {}),
+        },
+      };
+      this.providers.set(providerId, updated);
+      this.writeMap("model-providers", this.providers);
+      writeJson(path.join(this.stateDir, "provider-health", `${safeFileName(providerId)}.json`), {
+        id: `health.${safeId(providerId)}`,
+        providerId,
+        status,
+        checkedAt,
+        receiptId: receipt.id,
+        evidenceRefs: driverResult.evidenceRefs ?? [],
+      });
+      this.writeProjection();
+      return publicProvider(updated, providerHasVaultRef(updated) ? this.vault.vaultRefMetadata(updated.secretRef) : null);
+    } catch (error) {
+      const status = providerHealthFailureStatus(error);
+      const failureDetails = error?.details && typeof error.details === "object" ? error.details : {};
+      const evidenceRefs = normalizeScopes(failureDetails.evidenceRefs, [`provider_health_${error?.code ?? "runtime_error"}`]);
+      const receipt = this.receipt("provider_health", {
+        summary: `Provider ${providerId} health failed closed as ${status}.`,
+        redaction: "redacted",
+        evidenceRefs,
+        details: {
+          providerId,
+          providerKind: provider.kind,
+          status,
+          failureCode: error?.code ?? "runtime",
+          failureStatus: error?.status ?? 500,
+          httpStatus: failureDetails.httpStatus ?? null,
+          providerErrorHash: failureDetails.providerErrorHash ?? null,
+          vaultRefConfigured: failureDetails.vaultRefConfigured ?? providerHasVaultRef(provider),
+          authVaultRefHash: failureDetails.vaultRefHash ?? null,
+          resolvedMaterial: failureDetails.resolvedMaterial ?? null,
+        },
+      });
+      const updated = {
+        ...provider,
+        status,
+        discovery: {
+          ...provider.discovery,
+          checkedAt,
+          lastHealthCheck: {
+            status,
+            evidenceRefs,
+            httpStatus: failureDetails.httpStatus ?? null,
+            authVaultRefHash: failureDetails.vaultRefHash ?? null,
+            failureCode: error?.code ?? "runtime",
+            failureStatus: error?.status ?? 500,
+            resolvedMaterial: failureDetails.resolvedMaterial ?? null,
+            receiptId: receipt.id,
+          },
+        },
+      };
+      this.providers.set(providerId, updated);
+      this.writeMap("model-providers", this.providers);
+      writeJson(path.join(this.stateDir, "provider-health", `${safeFileName(providerId)}.json`), {
+        id: `health.${safeId(providerId)}`,
+        providerId,
+        status,
+        checkedAt,
+        receiptId: receipt.id,
+        failureCode: error?.code ?? "runtime",
+        failureStatus: error?.status ?? 500,
+        evidenceRefs,
+      });
+      this.writeProjection();
+      error.details = {
+        ...failureDetails,
+        providerHealthStatus: status,
+        providerHealthReceiptId: receipt.id,
+      };
+      throw error;
+    }
   }
 
   async listProviderModels(providerId) {
@@ -3603,6 +3680,12 @@ function providerRequestTimeoutMs() {
   const configured = Number(process.env.IOI_PROVIDER_HTTP_TIMEOUT_MS ?? "");
   if (Number.isFinite(configured) && configured >= 1000) return configured;
   return 30000;
+}
+
+function providerHealthFailureStatus(error) {
+  if (error?.status === 403 || error?.code === "policy") return "blocked";
+  if (error?.status === 404) return "absent";
+  return "degraded";
 }
 
 function configuredVaultMaterialAdapter({ now }) {

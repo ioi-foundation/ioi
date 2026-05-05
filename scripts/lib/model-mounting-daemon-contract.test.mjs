@@ -1051,8 +1051,23 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
     const unresolvedHealth = await requestJson(daemon.endpoint, "/api/v1/providers/provider.test.custom-vault/health", { method: "POST" });
     assert.equal(unresolvedHealth.response.status, 403);
     assert.equal(unresolvedHealth.json.error.details.resolvedMaterial, false);
+    assert.equal(unresolvedHealth.json.error.details.providerHealthStatus, "blocked");
+    assert.equal(typeof unresolvedHealth.json.error.details.providerHealthReceiptId, "string");
     assert.equal(JSON.stringify(unresolvedHealth.json).includes(vaultRef), false);
     assert.equal(JSON.stringify(unresolvedHealth.json).includes(vaultMaterial), false);
+    const unresolvedHealthReceipt = await expectOk(
+      daemon.endpoint,
+      `/api/v1/receipts/${unresolvedHealth.json.error.details.providerHealthReceiptId}`,
+    );
+    assert.equal(unresolvedHealthReceipt.kind, "provider_health");
+    assert.equal(unresolvedHealthReceipt.details.status, "blocked");
+    assert.equal(JSON.stringify(unresolvedHealthReceipt).includes(vaultRef), false);
+    const providerAfterBlockedHealth = (await expectOk(daemon.endpoint, "/api/v1/providers")).find(
+      (provider) => provider.id === "provider.test.custom-vault",
+    );
+    assert.equal(providerAfterBlockedHealth.status, "blocked");
+    assert.equal(providerAfterBlockedHealth.discovery.lastHealthCheck.status, "blocked");
+    assert.equal(providerAfterBlockedHealth.discovery.lastHealthCheck.receiptId, unresolvedHealthReceipt.id);
 
     const bound = await expectOk(daemon.endpoint, "/api/v1/vault/refs", {
       method: "POST",
@@ -1102,9 +1117,15 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
 
     const health = await expectOk(daemon.endpoint, "/api/v1/providers/provider.test.custom-vault/health", { method: "POST" });
     assert.equal(health.status, "available");
+    assert.equal(health.vaultBoundary.runtimeBound, true);
     assert.equal(typeof health.discovery.lastHealthCheck.authVaultRefHash, "string");
+    assert.equal(typeof health.discovery.lastHealthCheck.receiptId, "string");
+    const providerHealthReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${health.discovery.lastHealthCheck.receiptId}`);
+    assert.equal(providerHealthReceipt.kind, "provider_health");
+    assert.equal(providerHealthReceipt.details.status, "available");
     assert.equal(JSON.stringify(health).includes(vaultRef), false);
     assert.equal(JSON.stringify(health).includes(vaultMaterial), false);
+    assert.equal(JSON.stringify(providerHealthReceipt).includes(vaultMaterial), false);
 
     const providerModels = await expectOk(daemon.endpoint, "/api/v1/providers/provider.test.custom-vault/models");
     assert.ok(providerModels.some((model) => model.modelId === "vllm-qwen"));
