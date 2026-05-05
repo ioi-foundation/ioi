@@ -1187,6 +1187,148 @@ def exercise_routing_workflow_actions(
     }
 
 
+def exercise_benchmark_observability_actions(
+    window_id: int,
+    output_root: Path,
+    dev_url: str,
+    endpoint: str,
+) -> dict[str, Any]:
+    """Exercise benchmark run, receipt replay, and Logs focus from the Mounts surface."""
+
+    action_screenshots: list[dict[str, Any]] = []
+    observed: dict[str, list[dict[str, Any]]] = {}
+
+    def receipts_before() -> int:
+        receipts = request_json(endpoint, "/api/v1/receipts")
+        return len(receipts) if isinstance(receipts, list) else 0
+
+    def native_benchmark_invocation(receipt: dict[str, Any], summary_prefix: str | None = None) -> bool:
+        details = receipt.get("details") if isinstance(receipt.get("details"), dict) else {}
+        summary = str(receipt.get("summary") or "")
+        if receipt.get("kind") != "model_invocation":
+            return False
+        if details.get("routeId") != "route.native-local":
+            return False
+        if details.get("endpointId") != "endpoint.autopilot.native-fixture":
+            return False
+        if details.get("selectedModel") != "autopilot:native-fixture":
+            return False
+        return summary.startswith(summary_prefix) if summary_prefix else True
+
+    def benchmark_receipts_ready(receipts: list[dict[str, Any]]) -> bool:
+        return (
+            receipt_has_detail(receipts, "model_route_selection", "routeId", "route.native-local")
+            and len([receipt for receipt in receipts if native_benchmark_invocation(receipt, "chat invocation")]) >= 2
+            and any(native_benchmark_invocation(receipt, "responses invocation") for receipt in receipts)
+            and any(native_benchmark_invocation(receipt, "embeddings invocation") for receipt in receipts)
+        )
+
+    activate_tab(window_id, "F8")
+    before_count = receipts_before()
+    run(["xdotool", "key", "shift+F13"], check=False)
+    receipts = wait_for_new_receipt_condition(
+        endpoint,
+        "benchmark route, chat, responses, and embeddings receipts",
+        before_count,
+        benchmark_receipts_ready,
+        timeout_secs=35.0,
+    )
+    observed["benchmarks-after-run-action"] = receipts[before_count:]
+    time.sleep(1.5)
+    action_screenshots.append(
+        capture_action_state(
+            window_id,
+            output_root,
+            dev_url,
+            endpoint,
+            tab="benchmarks",
+            name="benchmarks-after-run-action",
+        )
+    )
+
+    benchmark_receipts = [receipt for receipt in request_json(endpoint, "/api/v1/receipts") if native_benchmark_invocation(receipt)]
+    latest_benchmark = benchmark_receipts[-1] if benchmark_receipts else {}
+    latest_benchmark_id = str(latest_benchmark.get("id") or "")
+
+    run(["xdotool", "key", "shift+F14"], check=False)
+    time.sleep(1.5)
+    replay = request_json(endpoint, f"/api/v1/receipts/{urllib.parse.quote(latest_benchmark_id)}/replay") if latest_benchmark_id else {}
+    action_screenshots.append(
+        capture_action_state(
+            window_id,
+            output_root,
+            dev_url,
+            endpoint,
+            tab="benchmarks",
+            name="benchmarks-after-replay-action",
+        )
+    )
+
+    run(["xdotool", "key", "shift+F15"], check=False)
+    time.sleep(1.5)
+    action_screenshots.append(
+        capture_action_state(
+            window_id,
+            output_root,
+            dev_url,
+            endpoint,
+            tab="logs",
+            name="benchmarks-open-receipt-logs",
+        )
+    )
+    opened_receipt = request_json(endpoint, f"/api/v1/receipts/{urllib.parse.quote(latest_benchmark_id)}") if latest_benchmark_id else {}
+
+    snapshot = request_json(endpoint, "/api/v1/models")
+    receipts = request_json(endpoint, "/api/v1/receipts")
+    native_invocations = [receipt for receipt in receipts if native_benchmark_invocation(receipt)]
+    chat_receipts = [receipt for receipt in native_invocations if str(receipt.get("summary") or "").startswith("chat invocation")]
+    response_receipts = [receipt for receipt in native_invocations if str(receipt.get("summary") or "").startswith("responses invocation")]
+    embedding_receipts = [receipt for receipt in native_invocations if str(receipt.get("summary") or "").startswith("embeddings invocation")]
+    benchmark_route_receipts = [
+        receipt for receipt in receipts
+        if receipt.get("kind") == "model_route_selection"
+        and (receipt.get("details") or {}).get("routeId") == "route.native-local"
+    ]
+    route = next((item for item in snapshot.get("routes", []) if item.get("id") == "route.native-local"), {})
+    observability_ready = all(
+        (receipt.get("details") or {}).get("backendId") == "backend.autopilot.native-local.fixture"
+        and (receipt.get("details") or {}).get("grantId")
+        and (receipt.get("details") or {}).get("latencyMs")
+        for receipt in native_invocations[-4:]
+    )
+    assertions = {
+        "benchmarkRouteReceiptRecorded": len(benchmark_route_receipts) > 0,
+        "benchmarkChatReceiptRecorded": len(chat_receipts) >= 2,
+        "benchmarkResponsesReceiptRecorded": len(response_receipts) >= 1,
+        "benchmarkEmbeddingsReceiptRecorded": len(embedding_receipts) >= 1,
+        "benchmarkResultProjectionUpdated": route.get("receipt") not in {None, "", "none"}
+        or route.get("lastReceiptId") not in {None, "", "none"},
+        "benchmarkReceiptReplaySucceeded": replay.get("receipt", {}).get("id") == latest_benchmark_id,
+        "openedBenchmarkReceiptLookupSucceeded": opened_receipt.get("id") == latest_benchmark_id
+        and opened_receipt.get("kind") == "model_invocation",
+        "benchmarkLogsFocused": action_screenshots[-1].get("tab") == "logs"
+        and not action_screenshots[-1].get("capture_error"),
+        "benchmarkObservabilityPayloadAvailable": observability_ready,
+        "actionScreenshotsCaptured": all(item.get("screenshot") and not item.get("capture_error") for item in action_screenshots),
+    }
+    return {
+        "passed": all(assertions.values()),
+        "assertions": assertions,
+        "observedReceiptIds": {
+            label: [receipt.get("id") for receipt in receipts_for_action]
+            for label, receipts_for_action in observed.items()
+        },
+        "latestBenchmarkReceiptId": latest_benchmark_id,
+        "benchmarkRouteReceiptIds": [receipt.get("id") for receipt in benchmark_route_receipts[-3:]],
+        "benchmarkInvocationCounts": {
+            "chat": len(chat_receipts),
+            "responses": len(response_receipts),
+            "embeddings": len(embedding_receipts),
+        },
+        "screenshots": action_screenshots,
+    }
+
+
 def exercise_provider_backend_actions(
     window_id: int,
     output_root: Path,
@@ -1377,6 +1519,7 @@ def main() -> int:
     download_action_assertions: dict[str, Any] | None = None
     token_mcp_action_assertions: dict[str, Any] | None = None
     routing_workflow_action_assertions: dict[str, Any] | None = None
+    benchmark_observability_action_assertions: dict[str, Any] | None = None
     provider_backend_action_assertions: dict[str, Any] | None = None
 
     close_matching_windows(args.window_name)
@@ -1441,6 +1584,13 @@ def main() -> int:
             daemon_endpoint,
         )
         print("[model-mounts-gui] exercised routing and workflow controls", flush=True)
+        benchmark_observability_action_assertions = exercise_benchmark_observability_actions(
+            window_id,
+            output_root,
+            args.dev_url,
+            daemon_endpoint,
+        )
+        print("[model-mounts-gui] exercised benchmark and observability controls", flush=True)
         provider_backend_action_assertions = exercise_provider_backend_actions(
             window_id,
             output_root,
@@ -1469,6 +1619,8 @@ def main() -> int:
             raise RuntimeError("Mounts GUI token/MCP controls did not update daemon projection and receipts.")
         if not routing_workflow_action_assertions["passed"]:
             raise RuntimeError("Mounts GUI routing/workflow controls did not update daemon projection and receipts.")
+        if not benchmark_observability_action_assertions["passed"]:
+            raise RuntimeError("Mounts GUI benchmark/observability controls did not update daemon projection and receipts.")
         if not provider_backend_action_assertions["passed"]:
             raise RuntimeError("Mounts GUI provider/backend controls did not update daemon projection and receipts.")
     except Exception as error:
@@ -1495,6 +1647,7 @@ def main() -> int:
         "downloadActionAssertions": download_action_assertions,
         "tokenMcpActionAssertions": token_mcp_action_assertions,
         "routingWorkflowActionAssertions": routing_workflow_action_assertions,
+        "benchmarkObservabilityActionAssertions": benchmark_observability_action_assertions,
         "providerBackendActionAssertions": provider_backend_action_assertions,
         "passed": probe_error is None,
         "probeError": probe_error,

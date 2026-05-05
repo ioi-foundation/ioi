@@ -5409,10 +5409,53 @@ export function MissionControlMountsView() {
     },
     [busy, daemon.actions, daemon.data.instances, daemon.data.receipts, openReceiptInLogs, selectValidationLifecycleModel, validationActionsEnabled],
   );
+  const runBenchmarkObservabilityValidationAction = useCallback(
+    (action: "run-benchmark" | "replay-latest" | "open-latest") => {
+      if (!validationActionsEnabled || busy) return;
+      const latestBenchmarkReceipt = [...daemon.data.receipts].reverse().find((receipt) => receipt.kind === "model_invocation");
+      if (action === "run-benchmark") {
+        const selection = normalizePickerSelection(daemon.data, {
+          ...emptyPickerSelection,
+          modelId: "autopilot:native-fixture",
+          providerId: "provider.autopilot.local",
+          endpointId: "endpoint.autopilot.native-fixture",
+          routeId: "route.native-local",
+        });
+        setPickerSelection(selection);
+        setActiveTab("benchmarks");
+        daemon.actions.runBenchmark(selection, {
+          ...defaultBenchmarkDraft,
+          prompt: "Validate benchmark telemetry, receipt replay, and observability focus from the Mounts GUI.",
+          samples: "2",
+          includeResponses: true,
+          includeEmbeddings: true,
+          privacy: "local_only",
+          maxCostUsd: "0.00",
+        });
+        return;
+      }
+
+      if (action === "replay-latest") {
+        setActiveTab("benchmarks");
+        if (latestBenchmarkReceipt) daemon.actions.replayReceipt(latestBenchmarkReceipt.id);
+        return;
+      }
+
+      if (latestBenchmarkReceipt) openReceiptInLogs(latestBenchmarkReceipt.id);
+    },
+    [busy, daemon.actions, daemon.data, openReceiptInLogs, validationActionsEnabled],
+  );
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if (event.ctrlKey || event.metaKey) return;
+      if (validationActionsEnabled && event.shiftKey && ["F13", "F14", "F15"].includes(event.key)) {
+        event.preventDefault();
+        if (event.key === "F13") runBenchmarkObservabilityValidationAction("run-benchmark");
+        if (event.key === "F14") runBenchmarkObservabilityValidationAction("replay-latest");
+        if (event.key === "F15") runBenchmarkObservabilityValidationAction("open-latest");
+        return;
+      }
       if (validationActionsEnabled && event.shiftKey && ["F16", "F17", "F18", "F19", "F20"].includes(event.key)) {
         event.preventDefault();
         if (event.key === "F16") runModelLifecycleValidationAction("import");
@@ -5457,7 +5500,7 @@ export function MissionControlMountsView() {
         if (event.key === "F12") runTokenMcpValidationAction("mcp-import");
         return;
       }
-      if (validationActionsEnabled && ["F13", "F14", "F15"].includes(event.key)) {
+      if (validationActionsEnabled && !event.shiftKey && ["F13", "F14", "F15"].includes(event.key)) {
         event.preventDefault();
         if (event.key === "F13") runTokenMcpValidationAction("ephemeral-mcp");
         if (event.key === "F14") runTokenMcpValidationAction("vault-health");
@@ -5485,6 +5528,7 @@ export function MissionControlMountsView() {
     return () => window.removeEventListener("keydown", handler);
   }, [
     runDownloadValidationAction,
+    runBenchmarkObservabilityValidationAction,
     runModelLifecycleValidationAction,
     runProviderBackendValidationAction,
     runRoutingWorkflowValidationAction,

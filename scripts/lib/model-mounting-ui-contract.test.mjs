@@ -98,6 +98,7 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   assert.match(source, /loadValidationModel/);
   assert.match(source, /unloadValidationModel/);
   assert.match(source, /runModelLifecycleValidationAction/);
+  assert.match(source, /runBenchmarkObservabilityValidationAction/);
   assert.match(source, /receiptGatePassProbe/);
   assert.match(source, /receiptGateBlockProbe/);
   assert.match(source, /data-download-id/);
@@ -353,6 +354,14 @@ test("Mounts GUI validation uses a dedicated desktop harness", () => {
   assert.match(probe, /routing-after-receipt-gate-pass-action/);
   assert.match(probe, /receiptGateBlockRecorded/);
   assert.match(probe, /routingWorkflowActionAssertions/);
+  assert.match(probe, /exercise_benchmark_observability_actions/);
+  assert.match(probe, /benchmarks-after-run-action/);
+  assert.match(probe, /benchmarks-after-replay-action/);
+  assert.match(probe, /benchmarks-open-receipt-logs/);
+  assert.match(probe, /benchmarkChatReceiptRecorded/);
+  assert.match(probe, /benchmarkResponsesReceiptRecorded/);
+  assert.match(probe, /benchmarkEmbeddingsReceiptRecorded/);
+  assert.match(probe, /benchmarkObservabilityActionAssertions/);
   assert.match(probe, /VITE_AUTOPILOT_MOUNTS_VALIDATION_ACTIONS/);
   assert.match(probe, /catalog_variant_count/);
   assert.match(probe, /download_status_counts/);
