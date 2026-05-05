@@ -44,6 +44,10 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
       body: { input: "blocked" },
     });
     assert.equal(unauthenticated.response.status, 401);
+    const unauthenticatedServerStart = await requestJson(daemon.endpoint, "/api/v1/server/start", {
+      method: "POST",
+    });
+    assert.equal(unauthenticatedServerStart.response.status, 401);
 
     const blockedGrant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
       method: "POST",
@@ -87,6 +91,8 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
           "model.download:*",
           "model.import:*",
           "model.delete:*",
+          "server.control:*",
+          "server.logs:*",
           "backend.control:*",
           "route.write:*",
           "route.use:*",
@@ -109,7 +115,28 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(vaultScopedGrant.vaultRefs.openai.redacted, true);
     assert.equal(JSON.stringify(vaultScopedGrant).includes("vault://fixture/provider/openai-api-key"), false);
 
+    const serverStop = await expectOk(daemon.endpoint, "/api/v1/server/stop", {
+      method: "POST",
+      token: grant.token,
+    });
+    assert.equal(serverStop.controlStatus, "stopped");
+    assert.match(serverStop.receiptId, /^receipt_model_lifecycle_/);
+    const serverRestart = await expectOk(daemon.endpoint, "/api/v1/server/restart", {
+      method: "POST",
+      token: grant.token,
+    });
+    assert.equal(serverRestart.controlStatus, "running");
+    assert.match(serverRestart.receiptId, /^receipt_model_lifecycle_/);
+    const serverLogs = await expectOk(daemon.endpoint, "/api/v1/server/logs?limit=20", { token: grant.token });
+    assert.equal(serverLogs.redaction, "redacted");
+    assert.ok(serverLogs.records.some((record) => record.event === "server_restart"));
+    assert.equal(JSON.stringify(serverLogs).includes(grant.token), false);
+    const serverEvents = await expectOk(daemon.endpoint, "/api/v1/server/events?limit=20", { token: grant.token });
+    assert.ok(serverEvents.events.some((event) => event.event === "server_events_read"));
+
     const snapshot = await expectOk(daemon.endpoint, "/api/v1/models");
+    assert.equal(snapshot.server.controlStatus, "running");
+    assert.equal(snapshot.server.lastServerOperation, "server_restart");
     assert.ok(snapshot.artifacts.some((model) => model.modelId === "local:auto"));
     assert.ok(snapshot.providers.some((provider) => provider.kind === "lm_studio"));
     assert.ok(snapshot.providers.some((provider) => provider.kind === "ioi_native_local"));

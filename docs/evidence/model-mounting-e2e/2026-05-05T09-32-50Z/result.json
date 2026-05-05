@@ -1,0 +1,430 @@
+{
+  "schemaVersion": "ioi.model-mounting.e2e.v1",
+  "startedAt": "2026-05-05T09:32:50.628Z",
+  "outputRoot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounting-e2e/2026-05-05T09-32-50Z",
+  "workspaceDir": "/tmp/ioi-model-mounting-e2e-workspace-oV2kDW",
+  "stateDir": "/tmp/ioi-model-mounting-e2e-state-SoE6YR",
+  "daemonEndpoint": "http://127.0.0.1:41319",
+  "steps": [
+    {
+      "name": "server status and fail-closed token probes",
+      "status": "passed",
+      "startedAt": "2026-05-05T09:32:51.499Z",
+      "completedAt": "2026-05-05T09:32:53.315Z",
+      "summary": {
+        "nativeBaseUrl": "http://127.0.0.1:41319/api/v1",
+        "openAiCompatibleBaseUrl": "http://127.0.0.1:41319/v1",
+        "failClosedStatuses": [
+          401,
+          403,
+          403,
+          403
+        ]
+      }
+    },
+    {
+      "name": "create scoped capability token",
+      "status": "passed",
+      "startedAt": "2026-05-05T09:32:53.315Z",
+      "completedAt": "2026-05-05T09:32:53.754Z",
+      "summary": {
+        "id": "grant_d8b85c0a-ff3d-4999-b2ea-c7292bd3f723",
+        "audience": "autopilot-local-server",
+        "allowed": [
+          "model.chat:*",
+          "model.responses:*",
+          "model.embeddings:*",
+          "model.rerank:*",
+          "model.load:*",
+          "model.unload:*",
+          "model.mount:*",
+          "model.download:*",
+          "model.import:*",
+          "model.delete:*",
+          "server.control:*",
+          "server.logs:*",
+          "backend.control:*",
+          "provider.write:*",
+          "vault.write:*",
+          "vault.read:*",
+          "vault.delete:*",
+          "route.write:*",
+          "route.use:*",
+          "mcp.import:*",
+          "mcp.call:huggingface.model_search"
+        ],
+        "denied": [
+          "connector.gmail.send",
+          "filesystem.write",
+          "shell.exec"
+        ],
+        "expiresAt": "2026-05-06T09:32:53.316Z",
+        "revocationEpoch": 0,
+        "grantId": "wallet.grant.c5cbce9f-fcbd-43a3-b9b5-fe570c46e86d",
+        "createdAt": "2026-05-05T09:32:53.316Z",
+        "revokedAt": null,
+        "lastUsedAt": null,
+        "lastUsedScope": null,
+        "vaultRefs": {},
+        "auditReceiptIds": [],
+        "receiptId": "receipt_permission_token_00783dbb-e6bb-482a-9943-f50145f6db2d",
+        "token": "[REDACTED]"
+      }
+    },
+    {
+      "name": "server control and redacted log tail",
+      "status": "passed",
+      "startedAt": "2026-05-05T09:32:53.754Z",
+      "completedAt": "2026-05-05T09:32:55.580Z",
+      "summary": {
+        "stopReceiptId": "receipt_model_lifecycle_e5ccd92f-c712-48e9-b4d1-399bc0b368c5",
+        "restartReceiptId": "receipt_model_lifecycle_d4d8d645-871e-4fa3-ac83-5d9fb54d32d0",
+        "logReceiptId": "receipt_model_lifecycle_d2d0407b-30dd-4e60-8b42-399e27a3f4d8",
+        "eventReceiptId": "receipt_model_lifecycle_5210711c-176b-4dce-a4f4-f0c367fa072c",
+        "logCount": 3
+      }
+    },
+    {
+      "name": "discover providers and backends",
+      "status": "passed",
+      "startedAt": "2026-05-05T09:32:55.580Z",
+      "completedAt": "2026-05-05T09:32:56.502Z",
+      "summary": {
+        "providers": 12,
+        "backends": 7,
+        "artifacts": 5,
+        "routes": 2
+      }
+    },
+    {
+      "name": "runtime engines and hardware survey",
+      "status": "passed",
+      "startedAt": "2026-05-05T09:32:56.502Z",
+      "completedAt": "2026-05-05T09:32:58.158Z",
+      "summary": {
+        "engineCount": 15,
+        "memoryPressure": "normal",
+        "lmStudioStatus": "available",
+        "receiptId": "receipt_runtime_survey_2b415ec2-73c0-4a31-84c6-ed20fb449235",
+        "selectedEngineId": "backend.autopilot.native-local.fixture"
+      }
+    },
+    {
+      "name": "import, mount, and load deterministic native-local artifact",
+      "status": "passed",
+      "startedAt": "2026-05-05T09:32:58.158Z",
+      "completedAt": "2026-05-05T09:32:59.277Z",
+      "summary": {
+        "artifactId": "import.native.e2e",
+        "endpointId": "endpoint.e2e.native-local",
+        "instanceId": "instance.endpoint.e2e.native.local.1777973579068",
+        "estimateReceiptId": "receipt_model_lifecycle_7dc8c9b7-5d09-46f4-b13e-9a16e0c14df0",
+        "checksum": "sha256:39d622102604e2ac863ff0b4c841ce1593dab1c575eee8a708335c1d57cc102e"
+      }
+    },
+    {
+      "name": "exercise native and OpenAI-compatible inference APIs",
+      "status": "passed",
+      "startedAt": "2026-05-05T09:32:59.277Z",
+      "completedAt": "2026-05-05T09:33:01.070Z",
+      "summary": {
+        "nativeReceiptId": "receipt_model_invocation_f468480e-0387-4228-972b-020fdff5d0dc",
+        "compatModel": "native:e2e",
+        "responsesReceiptId": "receipt_model_invocation_7d395c0f-1d43-4c51-a1c3-590f669f87a8",
+        "embeddingVectors": 2
+      }
+    },
+    {
+      "name": "catalog search, import modes, cleanup, and download lifecycle",
+      "status": "passed",
+      "startedAt": "2026-05-05T09:33:01.070Z",
+      "completedAt": "2026-05-05T09:33:05.363Z",
+      "summary": {
+        "catalogResults": 2,
+        "catalogDownloadJobId": "download_job_25b5b5fa-ffd0-450b-bead-df78786f5c6f",
+        "dryRunReceiptId": "receipt_model_lifecycle_1f80f679-d964-4b93-910d-f19bf6b479ac",
+        "canceledJobId": "download_job_4f1284a6-5b2c-42e4-90c2-184184d86799",
+        "completedJobId": "download_job_2c96eb20-d869-4c7c-a9fe-6d86d512b2c1",
+        "completedReceiptId": "receipt_model_lifecycle_79f37257-edb2-49ad-975b-dcde62bdbe6e",
+        "cleanupReceiptId": "receipt_model_lifecycle_5b972833-4466-4087-a0bd-04b5af184bee",
+        "deletedArtifactId": "import.native.e2e.copied"
+      }
+    },
+    {
+      "name": "persistent and ephemeral MCP through governed receipts",
+      "status": "passed",
+      "startedAt": "2026-05-05T09:33:05.363Z",
+      "completedAt": "2026-05-05T09:33:06.946Z",
+      "summary": {
+        "persistentToolReceiptId": "receipt_mcp_tool_invocation_cc390531-cf01-4d44-9e6d-e02b297cd58e",
+        "ephemeralReceiptId": "receipt_model_invocation_8ad407dd-044f-459e-add9-0c1919333824",
+        "linkedToolReceipts": 1
+      }
+    },
+    {
+      "name": "route policy and workflow node execution",
+      "status": "passed",
+      "startedAt": "2026-05-05T09:33:06.946Z",
+      "completedAt": "2026-05-05T09:33:08.743Z",
+      "summary": {
+        "routerSelectedEndpoint": "endpoint.e2e.native-local",
+        "modelCallReceiptId": "receipt_model_invocation_9cea6660-59e5-4cb3-a141-86a0863aedf2",
+        "embeddingReceiptId": "receipt_model_invocation_82f9847e-aea2-4aab-afae-415321aae9ee",
+        "localToolReceiptId": "receipt_mcp_tool_invocation_28b53bf2-f81a-4a9b-8ddd-d89f2f755c57",
+        "receiptGateReceiptId": "receipt_workflow_receipt_gate_0247f1d4-4e2d-4cc3-ab97-5e11eebe63a4"
+      }
+    },
+    {
+      "name": "CLI sees same daemon state",
+      "status": "passed",
+      "startedAt": "2026-05-05T09:33:08.743Z",
+      "completedAt": "2026-05-05T09:33:16.252Z",
+      "summary": {
+        "cli": "cli",
+        "models": 8,
+        "loaded": 2,
+        "receipts": 66,
+        "serverRestartReceiptId": "receipt_model_lifecycle_d4d8d645-871e-4fa3-ac83-5d9fb54d32d0",
+        "runtimeSurveyReceiptId": "receipt_runtime_survey_0d9fb281-7339-49cb-a5d2-a606a5609bdd"
+      }
+    },
+    {
+      "name": "receipt replay and projection continuity after daemon restart",
+      "status": "passed",
+      "startedAt": "2026-05-05T09:33:16.252Z",
+      "completedAt": "2026-05-05T09:33:17.570Z",
+      "summary": {
+        "projectionWatermark": 118,
+        "invocationReceipts": 7,
+        "runtimeSurveyReceipts": 2,
+        "toolReceipts": 4,
+        "vaultMetadataRequiresRebind": true
+      }
+    },
+    {
+      "name": "Mounts desktop GUI validation bundle",
+      "status": "passed",
+      "startedAt": "2026-05-05T09:33:17.570Z",
+      "completedAt": "2026-05-05T09:34:20.781Z",
+      "summary": {
+        "resultPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounting-e2e/2026-05-05T09-32-50Z/gui/2026-05-05T09-33-17Z/result.json",
+        "screenshotCount": 8,
+        "captureModes": [
+          "window"
+        ],
+        "snapshotCounts": {
+          "backends": 7,
+          "providers": 12,
+          "artifacts": 6,
+          "receipts": 9
+        }
+      }
+    },
+    {
+      "name": "secret redaction scan",
+      "status": "passed",
+      "startedAt": "2026-05-05T09:34:20.781Z",
+      "completedAt": "2026-05-05T09:34:20.789Z",
+      "summary": {
+        "passed": true,
+        "findings": []
+      }
+    }
+  ],
+  "commands": [
+    {
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli server --endpoint http://127.0.0.1:41319 --json status",
+      "status": "passed",
+      "stdoutBytes": 702,
+      "stderrBytes": 0
+    },
+    {
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli server --endpoint http://127.0.0.1:41319 --json restart",
+      "status": "passed",
+      "stdoutBytes": 843,
+      "stderrBytes": 0
+    },
+    {
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli server --endpoint http://127.0.0.1:41319 --json logs --limit 20",
+      "status": "passed",
+      "stdoutBytes": 2904,
+      "stderrBytes": 0
+    },
+    {
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli backends --endpoint http://127.0.0.1:41319 --json ls",
+      "status": "passed",
+      "stdoutBytes": 7185,
+      "stderrBytes": 0
+    },
+    {
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli models --endpoint http://127.0.0.1:41319 --json ls",
+      "status": "passed",
+      "stdoutBytes": 112614,
+      "stderrBytes": 0
+    },
+    {
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli models --endpoint http://127.0.0.1:41319 --json provider-models provider.autopilot.local",
+      "status": "passed",
+      "stdoutBytes": 20458,
+      "stderrBytes": 0
+    },
+    {
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli vault --endpoint http://127.0.0.1:41319 --json set --vault-ref vault://provider/e2e-cli/api-key --material-env IOI_E2E_CLI_VAULT_SECRET --purpose provider.auth:provider.e2e.cli-auth --label CLI Auth Provider",
+      "status": "passed",
+      "stdoutBytes": 845,
+      "stderrBytes": 0
+    },
+    {
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli vault --endpoint http://127.0.0.1:41319 --json get-meta --vault-ref vault://provider/e2e-cli/api-key",
+      "status": "passed",
+      "stdoutBytes": 764,
+      "stderrBytes": 0
+    },
+    {
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli vault --endpoint http://127.0.0.1:41319 --json status",
+      "status": "passed",
+      "stdoutBytes": 854,
+      "stderrBytes": 0
+    },
+    {
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli vault --endpoint http://127.0.0.1:41319 --json health",
+      "status": "passed",
+      "stdoutBytes": 1008,
+      "stderrBytes": 0
+    },
+    {
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli vault --endpoint http://127.0.0.1:41319 --json health --latest",
+      "status": "passed",
+      "stdoutBytes": 2563,
+      "stderrBytes": 0
+    },
+    {
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli models --endpoint http://127.0.0.1:41319 --json provider-set --id provider.e2e.cli-auth --kind openai_compatible --label CLI Auth Provider --api-format openai_compatible --base-url http://127.0.0.1:65535/v1 --privacy-class workspace --capabilities chat,responses --secret-ref vault://provider/e2e-cli/api-key --auth-scheme api_key --auth-header-name x-api-key",
+      "status": "passed",
+      "stdoutBytes": 938,
+      "stderrBytes": 0
+    },
+    {
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli models --endpoint http://127.0.0.1:41319 --json ps",
+      "status": "passed",
+      "stdoutBytes": 2982,
+      "stderrBytes": 0
+    },
+    {
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli models --endpoint http://127.0.0.1:41319 --json provider-health provider.autopilot.local",
+      "status": "passed",
+      "stdoutBytes": 1230,
+      "stderrBytes": 0
+    },
+    {
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli backends --endpoint http://127.0.0.1:41319 --json survey",
+      "status": "passed",
+      "stdoutBytes": 9500,
+      "stderrBytes": 0
+    },
+    {
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli backends --endpoint http://127.0.0.1:41319 --json select backend.autopilot.native-local.fixture",
+      "status": "passed",
+      "stdoutBytes": 416,
+      "stderrBytes": 0
+    },
+    {
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli models --endpoint http://127.0.0.1:41319 --json catalog-search --query autopilot",
+      "status": "passed",
+      "stdoutBytes": 2017,
+      "stderrBytes": 0
+    },
+    {
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli models --endpoint http://127.0.0.1:41319 --json catalog-import-url fixture://catalog/autopilot-native-3b-q4 --model-id native:e2e-cli-catalog",
+      "status": "passed",
+      "stdoutBytes": 1825,
+      "stderrBytes": 0
+    },
+    {
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli models --endpoint http://127.0.0.1:41319 --json cleanup",
+      "status": "passed",
+      "stdoutBytes": 202,
+      "stderrBytes": 0
+    },
+    {
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli models --endpoint http://127.0.0.1:41319 --json load --model-id native:e2e --estimate-only --context-length 4096 --parallel 2 --gpu auto --ttl-seconds 600 --identifier cli-estimate",
+      "status": "passed",
+      "stdoutBytes": 1268,
+      "stderrBytes": 0
+    },
+    {
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli models --endpoint http://127.0.0.1:41319 --json provider-health provider.autopilot.local --latest",
+      "status": "passed",
+      "stdoutBytes": 3766,
+      "stderrBytes": 0
+    },
+    {
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli routes --endpoint http://127.0.0.1:41319 --json ls",
+      "status": "passed",
+      "stdoutBytes": 1922,
+      "stderrBytes": 0
+    },
+    {
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli routes --endpoint http://127.0.0.1:41319 --json test route.e2e.native --privacy local_only",
+      "status": "passed",
+      "stdoutBytes": 3869,
+      "stderrBytes": 0
+    },
+    {
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli mcp --endpoint http://127.0.0.1:41319 --json ls",
+      "status": "passed",
+      "stdoutBytes": 1167,
+      "stderrBytes": 0
+    },
+    {
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli mcp --endpoint http://127.0.0.1:41319 --json invoke --server-label huggingface --tool model_search --input-json {\"q\":\"qwen\"}",
+      "status": "passed",
+      "stdoutBytes": 896,
+      "stderrBytes": 0
+    },
+    {
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli tokens --endpoint http://127.0.0.1:41319 --json ls",
+      "status": "passed",
+      "stdoutBytes": 3074,
+      "stderrBytes": 0
+    },
+    {
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli receipts --endpoint http://127.0.0.1:41319 --json ls",
+      "status": "passed",
+      "stdoutBytes": 75220,
+      "stderrBytes": 0
+    },
+    {
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli receipts --endpoint http://127.0.0.1:41319 --json get receipt_model_invocation_f468480e-0387-4228-972b-020fdff5d0dc",
+      "status": "passed",
+      "stdoutBytes": 1963,
+      "stderrBytes": 0
+    },
+    {
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli receipts --endpoint http://127.0.0.1:41319 --json replay receipt_model_invocation_f468480e-0387-4228-972b-020fdff5d0dc",
+      "status": "passed",
+      "stdoutBytes": 6420,
+      "stderrBytes": 0
+    },
+    {
+      "command": "node scripts/run-model-mounts-gui-validation.mjs --output-root <evidence>/gui",
+      "status": "passed",
+      "stdoutBytes": 672,
+      "stderrBytes": 0
+    }
+  ],
+  "artifacts": {},
+  "passed": true,
+  "error": null,
+  "restartedDaemonEndpoint": "http://127.0.0.1:38883",
+  "secretNeedleHashes": [
+    "sha256:612e41525e0fa6551b72ce7faf496933a38861eb1c58c264e7d451c89655f049",
+    "sha256:4096b9c0ae78b5d1af2ddf352cbff0eebe9ce2021213841d86ca468bf75b9eb8",
+    "sha256:06b68b48106a1099371418eb02e552a0c1c71aba095a80aa6743abad1a27087d",
+    "sha256:6097526882ab8b4762c1309b4377260fb79ddad3ed4c9d95be7a4d7537a44ca3",
+    "sha256:97f6f85d8a069e47d34ed49ddc174f55cdc4d7959f7357217f3ecfd970e08e4e",
+    "sha256:8a856d6bb6f71a285bebd9a11ea199e428a0712ad17e5a2953b58ca82c42a9de",
+    "sha256:e4af0948927b7c523b2aba52a36d3f44dafe59a726fe7322c5dfaea289384ed6"
+  ],
+  "completedAt": "2026-05-05T09:34:20.790Z"
+}

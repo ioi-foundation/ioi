@@ -18,6 +18,11 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   const source = fs.readFileSync(viewPath, "utf8");
   for (const route of [
     "/api/v1/models",
+    "/api/v1/server/start",
+    "/api/v1/server/stop",
+    "/api/v1/server/restart",
+    "/api/v1/server/logs",
+    "/api/v1/server/events",
     "/api/v1/backends",
     "/api/v1/models/catalog/search",
     "/api/v1/models/catalog/import-url",
@@ -100,6 +105,14 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   assert.match(source, /healthSummaryFromReceipts/);
   assert.match(source, /model-mounts-health-strip/);
   assert.match(source, /Run health sweep/);
+  assert.match(source, /Restart/);
+  assert.match(source, /Tail logs/);
+  assert.match(source, /startServer/);
+  assert.match(source, /stopServer/);
+  assert.match(source, /restartServer/);
+  assert.match(source, /tailServerLogs/);
+  assert.match(source, /server\.control:\*/);
+  assert.match(source, /server\.logs:\*/);
   assert.match(source, /runHealthSweep/);
   assert.match(source, /Run runtime survey/);
   assert.match(source, /runRuntimeSurvey/);
@@ -217,8 +230,9 @@ test("model mounting live-provider gates are explicit and opt-in", () => {
 test("model mounting CLI exposes vault-backed provider configuration flags", () => {
   const source = fs.readFileSync(path.join(root, "crates", "cli", "src", "commands", "models.rs"), "utf8");
   const backendsSource = fs.readFileSync(path.join(root, "crates", "cli", "src", "commands", "backends.rs"), "utf8");
+  const serverSource = fs.readFileSync(path.join(root, "crates", "cli", "src", "commands", "server.rs"), "utf8");
   const vaultSource = fs.readFileSync(path.join(root, "crates", "cli", "src", "commands", "vault.rs"), "utf8");
-  const combinedSource = `${source}\n${backendsSource}\n${vaultSource}`;
+  const combinedSource = `${source}\n${backendsSource}\n${serverSource}\n${vaultSource}`;
   for (const token of [
     "ProviderSet",
     "VaultCommands",
@@ -241,6 +255,9 @@ test("model mounting CLI exposes vault-backed provider configuration flags", () 
     "Select",
     "/api/v1/runtime/survey",
     "/api/v1/runtime/select",
+    "/api/v1/server/restart",
+    "/api/v1/server/logs",
+    "/api/v1/server/events",
     "estimate_only",
     "context_length",
     "ttl_seconds",
@@ -250,6 +267,9 @@ test("model mounting CLI exposes vault-backed provider configuration flags", () 
     "Delete",
     "Cleanup",
     "import_mode",
+    "Restart",
+    "Logs",
+    "Events",
     "Raw keys are rejected by the daemon",
   ]) {
     assert.match(combinedSource, new RegExp(token.replaceAll("/", "\\/")));

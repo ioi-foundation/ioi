@@ -192,6 +192,11 @@ interface RuntimeSurveyPreview {
 
 interface ServerPreview {
   status: string;
+  gatewayStatus: string;
+  controlStatus: string;
+  lastServerOperation: string;
+  lastServerOperationAt: string;
+  lastServerReceiptId: string;
   nativeBaseUrl: string;
   openAiCompatibleBaseUrl: string;
   loadedInstances: number;
@@ -258,6 +263,11 @@ function isMountsTab(value: unknown): value is MountsTab {
 const fallbackData: MountsWorkbenchData = {
   server: {
     status: "offline fixture",
+    gatewayStatus: "offline",
+    controlStatus: "fixture",
+    lastServerOperation: "fixture_projection",
+    lastServerOperationAt: "not connected",
+    lastServerReceiptId: "none",
     nativeBaseUrl: `${DEFAULT_DAEMON_ENDPOINT}/api/v1`,
     openAiCompatibleBaseUrl: `${DEFAULT_DAEMON_ENDPOINT}/v1`,
     loadedInstances: 1,
@@ -757,6 +767,8 @@ function useModelMountsDaemon() {
           "model.download:*",
           "model.import:*",
           "model.delete:*",
+          "server.control:*",
+          "server.logs:*",
           "backend.control:*",
           "provider.write:*",
           "vault.write:*",
@@ -792,6 +804,31 @@ function useModelMountsDaemon() {
         runAction("issue-token", async () => {
           await issueToken();
           return "Session capability token issued in memory.";
+        }),
+      startServer: () =>
+        runAction("server-start", async () => {
+          const token = await ensureToken();
+          const result = await requestJson("/api/v1/server/start", { method: "POST", token });
+          return `Local server control is ${stringValue(result?.controlStatus, "running")}; receipt ${stringValue(result?.receiptId, "none")}.`;
+        }),
+      stopServer: () =>
+        runAction("server-stop", async () => {
+          const token = await ensureToken();
+          const result = await requestJson("/api/v1/server/stop", { method: "POST", token });
+          return `Local server control is ${stringValue(result?.controlStatus, "stopped")}; receipt ${stringValue(result?.receiptId, "none")}.`;
+        }),
+      restartServer: () =>
+        runAction("server-restart", async () => {
+          const token = await ensureToken();
+          const result = await requestJson("/api/v1/server/restart", { method: "POST", token });
+          return `Local server restart recorded; receipt ${stringValue(result?.receiptId, "none")}.`;
+        }),
+      tailServerLogs: () =>
+        runAction("server-logs", async () => {
+          const token = await ensureToken();
+          const result = await requestJson("/api/v1/server/logs?limit=20", { token });
+          const count = Array.isArray(result?.records) ? result.records.length : 0;
+          return `Read ${count} redacted server log record${count === 1 ? "" : "s"}; receipt ${stringValue(result?.receiptId, "none")}.`;
         }),
       probeNativeBackend: () =>
         runAction("backend-health", async () => {
@@ -1200,6 +1237,11 @@ function normalizeSnapshot(snapshot: any, endpoint: string): MountsWorkbenchData
   return {
     server: {
       status: stringValue(snapshot?.server?.status, "unknown"),
+      gatewayStatus: stringValue(snapshot?.server?.gatewayStatus, "unknown"),
+      controlStatus: stringValue(snapshot?.server?.controlStatus, stringValue(snapshot?.server?.status, "unknown")),
+      lastServerOperation: stringValue(snapshot?.server?.lastServerOperation, "none"),
+      lastServerOperationAt: stringValue(snapshot?.server?.lastServerOperationAt, "not recorded"),
+      lastServerReceiptId: stringValue(snapshot?.server?.lastServerReceiptId, "none"),
       nativeBaseUrl: stringValue(snapshot?.server?.nativeBaseUrl, `${endpoint}/api/v1`),
       openAiCompatibleBaseUrl: stringValue(snapshot?.server?.openAiCompatibleBaseUrl, `${endpoint}/v1`),
       loadedInstances: numberValue(snapshot?.server?.loadedInstances, instances.filter((item) => item.status === "loaded").length),
@@ -1493,6 +1535,10 @@ function ServerPanel({
   message,
   onRefresh,
   onIssueToken,
+  onStartServer,
+  onStopServer,
+  onRestartServer,
+  onTailServerLogs,
   onNativeChatProbe,
   onRunHealthSweep,
   busy,
@@ -1505,6 +1551,10 @@ function ServerPanel({
   message: string;
   onRefresh: () => void;
   onIssueToken: () => void;
+  onStartServer: () => void;
+  onStopServer: () => void;
+  onRestartServer: () => void;
+  onTailServerLogs: () => void;
   onNativeChatProbe: () => void;
   onRunHealthSweep: () => void;
   busy: boolean;
@@ -1519,6 +1569,7 @@ function ServerPanel({
         <div className="model-mounts-actions" aria-label="Server state">
           <StatusPill tone={connectionTone(connectionState)}>{connectionState}</StatusPill>
           <StatusPill tone={toneForStatus(data.server.status)}>{data.server.status}</StatusPill>
+          <StatusPill tone={toneForStatus(data.server.controlStatus)}>{data.server.controlStatus}</StatusPill>
           <StatusPill tone="ready">policy enforced</StatusPill>
         </div>
       </div>
@@ -1531,6 +1582,10 @@ function ServerPanel({
         <div className="model-mounts-actions">
           <ActionButton onClick={onRefresh} disabled={busy}>Refresh</ActionButton>
           <ActionButton onClick={onIssueToken} disabled={busy}>Issue token</ActionButton>
+          <ActionButton onClick={onStartServer} disabled={busy}>Start</ActionButton>
+          <ActionButton onClick={onStopServer} disabled={busy}>Stop</ActionButton>
+          <ActionButton onClick={onRestartServer} disabled={busy}>Restart</ActionButton>
+          <ActionButton onClick={onTailServerLogs} disabled={busy}>Tail logs</ActionButton>
           <ActionButton onClick={onNativeChatProbe} disabled={busy}>Native chat probe</ActionButton>
           <ActionButton onClick={onRunHealthSweep} disabled={busy}>Run health sweep</ActionButton>
         </div>
@@ -1540,6 +1595,14 @@ function ServerPanel({
         <div>
           <span>Status</span>
           <strong>{data.server.status}</strong>
+        </div>
+        <div>
+          <span>Gateway</span>
+          <strong>{data.server.gatewayStatus}</strong>
+        </div>
+        <div>
+          <span>Control</span>
+          <strong>{data.server.controlStatus}</strong>
         </div>
         <div>
           <span>Native API</span>
@@ -1569,6 +1632,14 @@ function ServerPanel({
           <span>Providers</span>
           <strong>{data.server.providerSummary}</strong>
         </div>
+        <div>
+          <span>Last server op</span>
+          <strong>{data.server.lastServerOperation}</strong>
+        </div>
+        <div>
+          <span>Server receipt</span>
+          <strong>{data.server.lastServerReceiptId}</strong>
+        </div>
       </div>
 
       <HealthSummaryStrip summary={data.healthSummary} />
@@ -1578,6 +1649,11 @@ function ServerPanel({
       <div className="model-mounts-route-list" aria-label="Server routes">
         {[
           "GET /api/v1/server/status",
+          "POST /api/v1/server/start",
+          "POST /api/v1/server/stop",
+          "POST /api/v1/server/restart",
+          "GET /api/v1/server/logs",
+          "GET /api/v1/server/events",
           "GET /api/v1/runtime/engines",
           "POST /api/v1/runtime/survey",
           "POST /api/v1/runtime/select",
@@ -2632,6 +2708,10 @@ export function MissionControlMountsView() {
             message={daemon.message}
             onRefresh={() => void daemon.refresh()}
             onIssueToken={daemon.actions.issueToken}
+            onStartServer={daemon.actions.startServer}
+            onStopServer={daemon.actions.stopServer}
+            onRestartServer={daemon.actions.restartServer}
+            onTailServerLogs={daemon.actions.tailServerLogs}
             onNativeChatProbe={daemon.actions.nativeChatProbe}
             onRunHealthSweep={daemon.actions.runHealthSweep}
             busy={busy}
