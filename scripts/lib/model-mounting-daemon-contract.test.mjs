@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import childProcess from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import http from "node:http";
@@ -2280,6 +2281,72 @@ setInterval(() => {}, 1000);
   }
 });
 
+test("llama.cpp live gate records unsupported embeddings without failing stream parity", async () => {
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-llama-cpp-live-gate-workspace-"));
+  const evidenceRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-llama-cpp-live-gate-evidence-"));
+  const binDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-llama-cpp-live-gate-bin-"));
+  const callsPath = path.join(binDir, "llama-live-gate-calls.jsonl");
+  const fakeBinary = path.join(binDir, "llama-server");
+  const modelPath = path.join(workspace, "llama-cpp-live-fixture.Q4_K_M.gguf");
+  fs.writeFileSync(modelPath, "family=llama-cpp-live-fixture\nquantization=Q4_K_M\ncontext=4096\n");
+  fs.writeFileSync(
+    fakeBinary,
+    `#!/usr/bin/env node
+const fs = require("node:fs");
+if (process.argv.includes("--version")) {
+  process.stdout.write("fake llama-server 0.0.0\\n");
+  process.exit(0);
+}
+fs.appendFileSync(process.env.IOI_FAKE_LLAMA_CALLS, JSON.stringify(process.argv.slice(2)) + "\\n");
+process.stdout.write("fake llama.cpp live gate server ready\\n");
+process.on("SIGTERM", () => process.exit(0));
+setInterval(() => {}, 1000);
+`,
+  );
+  fs.chmodSync(fakeBinary, 0o755);
+  const providerServer = await startFakeLlamaCppServer({ embeddingStatus: 400, chatStreamDelayMs: 500 });
+  try {
+    const result = await runChildProcess("node", ["scripts/live-model-mounting-gate.mjs", "llama-cpp"], {
+      cwd: process.cwd(),
+      timeoutMs: 120000,
+      env: {
+        ...process.env,
+        IOI_LIVE_LLAMA_CPP: "1",
+        IOI_MODEL_MOUNTING_LIVE_EVIDENCE_ROOT: evidenceRoot,
+        IOI_LLAMA_CPP_SERVER_PATH: fakeBinary,
+        IOI_LLAMA_CPP_MODEL_PATH: modelPath,
+        IOI_LLAMA_CPP_BASE_URL: `${providerServer.endpoint}/v1`,
+        IOI_LLAMA_CPP_MODEL_ID: "llama-cpp-live-fixture",
+        IOI_LLAMA_CPP_LIVE_TIMEOUT_MS: "20000",
+        IOI_PROVIDER_HTTP_TIMEOUT_MS: "5000",
+        IOI_FAKE_LLAMA_CALLS: callsPath,
+      },
+    });
+    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    const gateDir = path.join(evidenceRoot, "llama-cpp");
+    const evidenceDirs = fs.readdirSync(gateDir).sort();
+    assert.equal(evidenceDirs.length, 1);
+    const evidence = JSON.parse(fs.readFileSync(path.join(gateDir, evidenceDirs[0], "result.json"), "utf8"));
+    assert.equal(evidence.status, "passed");
+    assert.equal(evidence.result.embeddingStatus, "unsupported_or_failed");
+    assert.match(evidence.result.embeddingErrorHash, /^[a-f0-9]{64}$/);
+    assert.equal(evidence.result.embeddingReceiptId, null);
+    assert.equal(evidence.result.embeddingVectors, null);
+    assert.ok(evidence.result.chatReceiptId);
+    assert.ok(evidence.result.responsesReceiptId);
+    assert.ok(evidence.result.streamReceipts.completedInvocationReceiptId);
+    assert.ok(evidence.result.streamReceipts.completedStreamReceiptId);
+    assert.ok(evidence.result.streamReceipts.abortedInvocationReceiptId);
+    assert.ok(evidence.result.streamReceipts.abortedStreamReceiptId);
+    assert.equal(evidence.result.streamReceipts.streamKind, "openai_chat_completions_provider_native");
+    assert.equal(evidence.result.secretScan.passed, true);
+    const calls = fs.readFileSync(callsPath, "utf8");
+    assert.equal(calls.includes(modelPath), true);
+  } finally {
+    await providerServer.close();
+  }
+});
+
 test("hosted and custom HTTP provider auth fails closed behind wallet vault refs", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-provider-vault-workspace-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-provider-vault-state-"));
@@ -3310,7 +3377,7 @@ async function startFakeVllmServer({ responsesStatus = 200, chatStatus = 200, se
   };
 }
 
-async function startFakeLlamaCppServer() {
+async function startFakeLlamaCppServer({ embeddingStatus = 200, chatStreamDelayMs = 0 } = {}) {
   const server = http.createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
     response.setHeader("content-type", "application/json");
@@ -3344,12 +3411,20 @@ async function startFakeLlamaCppServer() {
     if (request.method === "POST" && url.pathname === "/v1/chat/completions") {
       const body = JSON.parse((await readRequestText(request)) || "{}");
       if (body.stream === true) {
-        writeFakeOpenAiChatCompletionSse(response, {
+        const isAbortProbe = JSON.stringify(body.messages ?? []).includes("deliberately long numbered list");
+        const payload = {
           id: "chatcmpl_fake_llama_cpp_stream",
           model: body.model ?? "llama-cpp-qwen",
-          chunks: ["fake llama.cpp ", "streamed chat"],
+          chunks: isAbortProbe
+            ? Array.from({ length: 12 }, (_, index) => `fake llama.cpp abort chunk ${index}. `)
+            : ["fake llama.cpp ", "streamed chat"],
           usage: { prompt_tokens: 4, completion_tokens: 6, total_tokens: 10 },
-        });
+        };
+        if (isAbortProbe && chatStreamDelayMs > 0) {
+          await writeFakeOpenAiChatCompletionSseSlow(response, payload, chatStreamDelayMs);
+        } else {
+          writeFakeOpenAiChatCompletionSse(response, payload);
+        }
         return;
       }
       response.end(
@@ -3364,6 +3439,11 @@ async function startFakeLlamaCppServer() {
       return;
     }
     if (request.method === "POST" && url.pathname === "/v1/embeddings") {
+      if (embeddingStatus !== 200) {
+        response.statusCode = embeddingStatus;
+        response.end(JSON.stringify({ error: { message: "embeddings unsupported by fake llama.cpp fixture" } }));
+        return;
+      }
       response.end(
         JSON.stringify({
           object: "list",
@@ -3430,6 +3510,28 @@ function writeFakeOpenAiChatCompletionSse(response, { id, model, chunks, usage }
     })}\n\n`,
   );
   response.end("data: [DONE]\n\n");
+}
+
+async function writeFakeOpenAiChatCompletionSseSlow(response, { id, model, chunks, usage }, delayMs) {
+  const created = Math.floor(Date.now() / 1000);
+  const base = {
+    id,
+    object: "chat.completion.chunk",
+    created,
+    model,
+  };
+  const frames = [
+    { ...base, choices: [{ index: 0, delta: { role: "assistant" }, finish_reason: null }] },
+    ...chunks.map((chunk) => ({ ...base, choices: [{ index: 0, delta: { content: chunk }, finish_reason: null }] })),
+    { ...base, choices: [{ index: 0, delta: {}, finish_reason: "stop" }], usage },
+  ];
+  response.setHeader("content-type", "text/event-stream");
+  for (const frame of frames) {
+    if (response.destroyed || response.writableEnded) return;
+    response.write(`data: ${JSON.stringify(frame)}\n\n`);
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+  if (!response.destroyed && !response.writableEnded) response.end("data: [DONE]\n\n");
 }
 
 function writeFakeOpenAiResponseSse(response, { responseId, itemId, model, chunks, usage }) {
@@ -3543,6 +3645,37 @@ async function listen(server) {
     server.listen(0, "127.0.0.1", () => {
       server.off("error", reject);
       resolve();
+    });
+  });
+}
+
+function runChildProcess(command, args, { cwd, env, timeoutMs }) {
+  return new Promise((resolve, reject) => {
+    let stdout = "";
+    let stderr = "";
+    let timedOut = false;
+    const child = childProcess.spawn(command, args, {
+      cwd,
+      env,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      child.kill("SIGTERM");
+    }, timeoutMs);
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk;
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk;
+    });
+    child.once("error", (error) => {
+      clearTimeout(timeout);
+      reject(error);
+    });
+    child.once("close", (status, signal) => {
+      clearTimeout(timeout);
+      resolve({ status, signal, stdout, stderr, timedOut });
     });
   });
 }

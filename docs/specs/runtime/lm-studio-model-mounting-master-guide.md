@@ -443,7 +443,10 @@ Live local provider evidence on 2026-05-05 UTC:
   records this as `embeddingStatus: unsupported_or_failed` with a redacted error
   hash so chat, Responses, streaming, unload, receipt replay, and redaction
   parity remain valid even when the selected GGUF/server does not expose
-  embeddings.
+  embeddings. This downgrade path is covered by a deterministic fake
+  `llama-server` live-gate fixture that forces `/v1/embeddings` to return
+  provider HTTP 400 while keeping stream completion/cancellation receipts
+  mandatory.
 - wallet.network live gate passed in deterministic fake-remote mode, validating
   `WalletAuthorityPort` configuration, denied-scope fail-closed behavior, MCP
   plaintext-secret rejection, and secret scans.
@@ -2211,6 +2214,10 @@ Current status:
 - Complete: local Ollama live backend stream parity passed with completed and
   client-aborted provider-native chat-completion stream receipts, linked
   invocation receipts, route/backend evidence, replay, and redaction evidence.
+- Complete: deterministic llama.cpp live-gate fixture proves unsupported
+  embeddings are recorded as `unsupported_or_failed` with a redacted error hash
+  while chat, Responses, stream completion/cancellation receipts, unload,
+  receipt replay, and secret redaction remain mandatory.
 - Complete: native endpoints return provider-neutral objects.
 - Complete: tokens enforce model/tool/MCP capability scopes.
 - Complete: Mounts token scope editor creates session-only raw tokens,
