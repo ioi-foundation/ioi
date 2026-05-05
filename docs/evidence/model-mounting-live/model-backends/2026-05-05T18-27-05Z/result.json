@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "ioi.model-mounting.live-gate.v1",
+  "gate": "model-backends",
+  "status": "passed",
+  "startedAt": "2026-05-05T18:27:05.698Z",
+  "outputDir": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounting-live/model-backends/2026-05-05T18-27-05Z",
+  "commands": [],
+  "details": {
+    "configured": {
+      "llamaCppBaseUrl": false,
+      "llamaCppServerPath": false,
+      "ollamaHost": true,
+      "ollamaBinary": true,
+      "vllmBaseUrl": false,
+      "vllmBinary": false,
+      "vllmModel": false
+    }
+  },
+  "result": {
+    "checked": [
+      {
+        "id": "backend.llama-cpp",
+        "kind": "llama_cpp",
+        "status": "blocked"
+      },
+      {
+        "id": "backend.ollama",
+        "kind": "ollama",
+        "status": "available"
+      },
+      {
+        "id": "backend.vllm",
+        "kind": "vllm",
+        "status": "blocked"
+      }
+    ],
+    "available": [
+      {
+        "id": "backend.ollama",
+        "kind": "ollama",
+        "status": "available"
+      }
+    ],
+    "ollama": {
+      "providerModels": 6,
+      "providerLoaded": 1,
+      "selectedChatModel": "llama3.2:3b",
+      "configuredChatModel": "llama3.2:3b",
+      "chatEndpointId": "endpoint.live.ollama.llama3.2.3b",
+      "chatInstanceId": "instance.endpoint.live.ollama.llama3.2.3b.1778005630041",
+      "backendStartReceiptId": "receipt_model_lifecycle_58557e82-ab8e-4938-9487-e3b2bda32787",
+      "backendStopReceiptId": "receipt_model_lifecycle_aaa7e959-003e-4780-bb15-61f13e68b01a",
+      "chatReceiptId": "receipt_model_invocation_b026bf39-f255-4338-ada1-b221add26b12",
+      "unloadStatus": "unloaded",
+      "selectedEmbeddingModel": "nomic-embed-text:latest",
+      "configuredEmbeddingModel": "nomic-embed-text:latest",
+      "embeddingReceiptId": "receipt_model_invocation_cbbf5197-4f1c-438e-9529-9b34a6074a64"
+    }
+  },
+  "completedAt": "2026-05-05T18:27:22.071Z"
+}
