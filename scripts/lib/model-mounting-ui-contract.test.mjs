@@ -50,6 +50,7 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
     "/api/v1/vault/health/latest",
     "/api/v1/chat",
     "/api/v1/responses",
+    "/api/v1/embeddings",
     "/api/v1/mcp/import",
     "/api/v1/routes",
     "/api/v1/routes/route.local-first/test",
@@ -192,7 +193,16 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   assert.match(source, /mountsEndpoint/);
   assert.match(source, /mountsTab/);
   assert.match(source, /Number\.parseInt\(event\.key/);
-  assert.match(source, /\^F\[1-8\]\$/);
+  assert.match(source, /\^F\[1-9\]\$/);
+  assert.match(source, /Benchmarks and results/);
+  assert.match(source, /Benchmark runner/);
+  assert.match(source, /Run benchmark/);
+  assert.match(source, /Benchmark results/);
+  assert.match(source, /runBenchmark/);
+  assert.match(source, /benchmarkSummary/);
+  assert.match(source, /model-mounts-benchmark-editor/);
+  assert.match(source, /model-mounts-benchmark-results/);
+  assert.match(source, /Route quality telemetry/);
 });
 
 test("Mounts GUI validation uses a dedicated desktop harness", () => {
