@@ -86,6 +86,11 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   assert.match(source, /Latest health receipt/);
   assert.match(source, /healthSummaryFromReceipts/);
   assert.match(source, /model-mounts-health-strip/);
+  assert.match(source, /Run health sweep/);
+  assert.match(source, /runHealthSweep/);
+  assert.match(source, /healthSweepProviderTargets/);
+  assert.match(source, /healthSweepBackendTargets/);
+  assert.match(source, /health-sweep/);
   assert.match(source, /model-mounts-receipt-groups/);
   assert.match(source, /providerLastHealth/);
   assert.match(source, /List models/);

@@ -914,6 +914,25 @@ function useModelMountsDaemon() {
           const receiptId = stringValue(latest?.receipt?.id, "no receipt");
           return `${providerId} latest health is ${status}; receipt ${receiptId}.`;
         }),
+      runHealthSweep: () =>
+        runAction("health-sweep", async () => {
+          const token = await ensureToken();
+          const providerIds = healthSweepProviderTargets(data.providers);
+          const backendIds = healthSweepBackendTargets(data.backends);
+          const probes = [
+            requestJson("/api/v1/vault/health", { method: "POST", token }),
+            ...providerIds.map((providerId) =>
+              requestJson(`/api/v1/providers/${encodeURIComponent(providerId)}/health`, { method: "POST" }),
+            ),
+            ...backendIds.map((backendId) =>
+              requestJson(`/api/v1/backends/${encodeURIComponent(backendId)}/health`, { method: "POST" }),
+            ),
+          ];
+          const results = await Promise.allSettled(probes);
+          const succeeded = results.filter((result) => result.status === "fulfilled").length;
+          const failed = results.length - succeeded;
+          return `Health sweep recorded ${succeeded}/${results.length} probe${results.length === 1 ? "" : "s"}${failed > 0 ? `; ${failed} failed before projection.` : "."}`;
+        }),
       replayReceipt: (receiptId: string) =>
         runAction("receipt-replay", async () => {
           const replay = await requestJson(`/api/v1/receipts/${encodeURIComponent(receiptId)}/replay`);
@@ -948,6 +967,14 @@ function providerDraftPayload(draft: ProviderDraft) {
     auth_scheme: draft.authScheme,
     auth_header_name: draft.authHeaderName.trim() || "authorization",
   };
+}
+
+function healthSweepProviderTargets(providers: ProviderProfile[]) {
+  return providers.filter((provider) => provider.status !== "future").map((provider) => provider.id);
+}
+
+function healthSweepBackendTargets(backends: BackendPreview[]) {
+  return backends.filter((backend) => backend.kind !== "future").map((backend) => backend.id);
 }
 
 function normalizeSnapshot(snapshot: any, endpoint: string): MountsWorkbenchData {
@@ -1278,6 +1305,7 @@ function ServerPanel({
   onRefresh,
   onIssueToken,
   onNativeChatProbe,
+  onRunHealthSweep,
   busy,
 }: {
   data: MountsWorkbenchData;
@@ -1289,6 +1317,7 @@ function ServerPanel({
   onRefresh: () => void;
   onIssueToken: () => void;
   onNativeChatProbe: () => void;
+  onRunHealthSweep: () => void;
   busy: boolean;
 }) {
   return (
@@ -1314,6 +1343,7 @@ function ServerPanel({
           <ActionButton onClick={onRefresh} disabled={busy}>Refresh</ActionButton>
           <ActionButton onClick={onIssueToken} disabled={busy}>Issue token</ActionButton>
           <ActionButton onClick={onNativeChatProbe} disabled={busy}>Native chat probe</ActionButton>
+          <ActionButton onClick={onRunHealthSweep} disabled={busy}>Run health sweep</ActionButton>
         </div>
       </div>
 
@@ -2246,6 +2276,7 @@ export function MissionControlMountsView() {
             onRefresh={() => void daemon.refresh()}
             onIssueToken={daemon.actions.issueToken}
             onNativeChatProbe={daemon.actions.nativeChatProbe}
+            onRunHealthSweep={daemon.actions.runHealthSweep}
             busy={busy}
           />
         ) : null}
