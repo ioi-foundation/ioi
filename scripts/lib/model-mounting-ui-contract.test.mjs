@@ -203,6 +203,32 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   assert.match(source, /model-mounts-benchmark-editor/);
   assert.match(source, /model-mounts-benchmark-results/);
   assert.match(source, /Route quality telemetry/);
+  assert.match(source, /ActionGuard/);
+  assert.match(source, /Action readiness states/);
+  assert.match(source, /GuardFact/);
+  assert.match(source, /model-mounts-action-readiness/);
+  assert.match(source, /model-mounts-action-guard/);
+  assert.match(source, /data-guard-tone/);
+  assert.match(source, /connectionActionGuard/);
+  assert.match(source, /tokenScopeGuard/);
+  assert.match(source, /providerGuard/);
+  assert.match(source, /endpointGuard/);
+  assert.match(source, /backendGuard/);
+  assert.match(source, /routePolicyGuard/);
+  assert.match(source, /selectedActionGuard/);
+  assert.match(source, /providerDraftGuard/);
+  assert.match(source, /vaultBindGuard/);
+  assert.match(source, /daemon offline/);
+  assert.match(source, /token on demand/);
+  assert.match(source, /denied scope/);
+  assert.match(source, /token expired/);
+  assert.match(source, /scope missing/);
+  assert.match(source, /provider blocked/);
+  assert.match(source, /backend degraded/);
+  assert.match(source, /vault ref missing/);
+  assert.match(source, /unsupported/);
+  assert.match(source, /privacy blocked/);
+  assert.match(source, /policy blocked/);
 });
 
 test("Mounts GUI validation uses a dedicated desktop harness", () => {

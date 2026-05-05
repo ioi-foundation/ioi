@@ -46,6 +46,7 @@
 }
 
 .model-mounts-picker-controls,
+.model-mounts-action-readiness,
 .model-mounts-picker-inspector {
   min-width: 0;
   display: grid;
@@ -64,7 +65,13 @@
   background: var(--surface-2);
 }
 
+.model-mounts-action-readiness {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  background: var(--surface-2);
+}
+
 .model-mounts-picker label,
+.model-mounts-action-readiness > div,
 .model-mounts-picker-inspector > div {
   min-width: 0;
   display: flex;
@@ -73,6 +80,7 @@
 }
 
 .model-mounts-picker label span,
+.model-mounts-action-readiness span,
 .model-mounts-picker-inspector span {
   color: var(--chat-text-secondary);
   font-size: 11px;
@@ -111,6 +119,18 @@
   color: var(--chat-text);
   font-size: 12px;
   font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.model-mounts-action-readiness strong {
+  min-width: 0;
+}
+
+.model-mounts-action-readiness small {
+  min-width: 0;
+  color: var(--chat-text-secondary);
+  font-size: 11px;
+  line-height: 1.35;
   overflow-wrap: anywhere;
 }
 
@@ -300,6 +320,11 @@
 
 .model-mounts-action-button {
   min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
   border: 1px solid var(--chat-border);
   border-radius: 0;
   background: transparent;
@@ -316,8 +341,40 @@
 
 .model-mounts-action-button:disabled {
   color: var(--chat-text-muted);
-  cursor: wait;
+  cursor: not-allowed;
   opacity: 0.72;
+}
+
+.model-mounts-action-button[data-guard-tone="blocked"] {
+  border-color: rgba(223, 125, 125, 0.36);
+}
+
+.model-mounts-action-button[data-guard-tone="warn"] {
+  border-color: rgba(214, 169, 79, 0.34);
+}
+
+.model-mounts-action-guard {
+  max-width: 140px;
+  padding: 2px 5px;
+  border: 1px solid var(--chat-border);
+  color: var(--chat-text-secondary);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.1;
+  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-mounts-action-guard.is-warn {
+  color: #d6a94f;
+  border-color: rgba(214, 169, 79, 0.42);
+}
+
+.model-mounts-action-guard.is-blocked {
+  color: #df7d7d;
+  border-color: rgba(223, 125, 125, 0.46);
 }
 
 .model-mounts-control-row {
@@ -1024,6 +1081,10 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .model-mounts-action-readiness {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .model-mounts-detail-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1055,6 +1116,7 @@
   .model-mounts-server-grid,
   .model-mounts-health-strip,
   .model-mounts-control-row,
+  .model-mounts-action-readiness,
   .model-mounts-picker-controls,
   .model-mounts-picker-inspector,
   .model-mounts-detail-grid,

@@ -90,7 +90,7 @@ npm run validate:model-mounting:e2e
 Latest deterministic evidence bundle:
 
 ```text
-docs/evidence/model-mounting-e2e/2026-05-05T11-16-51Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T12-32-31Z/result.json
 ```
 
 That bundle passed the following acceptance steps:
@@ -134,18 +134,21 @@ That bundle passed the following acceptance steps:
 - Mounts desktop GUI screenshot bundle with nine real window captures;
 - benchmark/results panel with routed benchmark runner, route-quality
   telemetry, latency, token count, backend, endpoint, grant, and receipt rows;
+- action readiness and degraded/denied affordances for daemon connectivity,
+  token scope, provider/backend health, endpoint capability, route policy, and
+  vault-ref requirements;
 - secret/token/vault-ref redaction scan across persisted state and evidence.
 
 The current GUI evidence nested under that E2E bundle is:
 
 ```text
-docs/evidence/model-mounting-e2e/2026-05-05T11-16-51Z/gui/2026-05-05T11-17-18Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T12-32-31Z/gui/2026-05-05T12-32-58Z/result.json
 ```
 
 The current standalone Mounts GUI evidence bundle is:
 
 ```text
-docs/evidence/model-mounts-gui-validation/2026-05-05T11-15-26Z/result.json
+docs/evidence/model-mounts-gui-validation/2026-05-05T12-30-04Z/result.json
 ```
 
 It captured all Mounts tabs as desktop window screenshots:
@@ -157,6 +160,7 @@ It captured all Mounts tabs as desktop window screenshots:
 - Downloads;
 - Tokens & MCP;
 - Routing Policies;
+- Benchmarks;
 - Logs / Receipts.
 
 Treat the deterministic path as complete unless a future change breaks the
@@ -304,13 +308,13 @@ Latest evidence paths:
 
 ```text
 Canonical E2E:
-docs/evidence/model-mounting-e2e/2026-05-05T11-16-51Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T12-32-31Z/result.json
 
 Mounts GUI nested under canonical E2E:
-docs/evidence/model-mounting-e2e/2026-05-05T11-16-51Z/gui/2026-05-05T11-17-18Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T12-32-31Z/gui/2026-05-05T12-32-58Z/result.json
 
 Standalone Mounts GUI with live provider summary:
-docs/evidence/model-mounts-gui-validation/2026-05-05T11-15-26Z/result.json
+docs/evidence/model-mounts-gui-validation/2026-05-05T12-30-04Z/result.json
 
 Broad Autopilot GUI harness:
 docs/evidence/autopilot-gui-harness-validation/2026-05-05T01-40-43-545Z/result.json
@@ -510,7 +514,7 @@ gates:
    - provider-specific controls;
    - download queue;
    - streaming logs and request/response log filters;
-   - degraded/error/denied states for every action.
+   - compact error details and retry affordances for failed actions.
 8. Provider expansion:
    - Ollama;
    - vLLM;
@@ -561,7 +565,7 @@ implemented as a product surface.
    - GGUF/MLX filters and variant selection polish;
    - storage quota and uninstall confirmation UX.
 2. Product UI parity:
-   - degraded/denied states and streaming request/response filters.
+   - streaming request/response filters and compact failed-action retry affordances.
 3. Live backend parity:
    - real llama.cpp runner;
    - live Ollama lifecycle;
@@ -592,19 +596,19 @@ npm run validate:model-mounting:e2e
 Latest passing bundle:
 
 ```text
-docs/evidence/model-mounting-e2e/2026-05-05T11-16-51Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T12-32-31Z/result.json
 ```
 
 Nested GUI bundle:
 
 ```text
-docs/evidence/model-mounting-e2e/2026-05-05T11-16-51Z/gui/2026-05-05T11-17-18Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T12-32-31Z/gui/2026-05-05T12-32-58Z/result.json
 ```
 
 Standalone Mounts GUI bundle:
 
 ```text
-docs/evidence/model-mounts-gui-validation/2026-05-05T11-15-26Z/result.json
+docs/evidence/model-mounts-gui-validation/2026-05-05T12-30-04Z/result.json
 ```
 
 The GUI bundle captured nine desktop window screenshots for the Mounts tabs
@@ -613,7 +617,7 @@ and verified the seeded daemon projection exposed:
 - 7 backends;
 - 12 providers;
 - 6 artifacts;
-- 9 receipts;
+- 14 receipts;
 - no plaintext token or vault-ref findings.
 
 The screenshots are stored next to the nested GUI result:
@@ -1929,6 +1933,10 @@ Current status:
   through governed chat/responses/embeddings calls and displays invocation
   receipt telemetry for latency, tokens, backend, route, endpoint, grant, and
   replay.
+- Complete: Mounts action readiness states show degraded/denied reasons for
+  daemon connectivity, missing/on-demand tokens, denied or expired scopes,
+  provider/backend health, endpoint capability, route privacy/policy blocks,
+  and vault-ref requirements before action dispatch.
 - Complete: deterministic Autopilot-native local serving path operates without
   LM Studio.
 - Complete: deterministic download/import lifecycle includes progress, failure,
@@ -1950,8 +1958,8 @@ parity closeout order from the matrix above:
 
 1. Live catalog/download activation.
 2. Product UI parity beyond the validated picker, loaded-instance inspector,
-   model detail drawer, route editor, token editor, and benchmark/results
-   panel.
+   model detail drawer, route editor, token editor, benchmark/results panel,
+   and degraded/denied action readiness.
 3. Live backend/provider parity.
 4. Streaming observability parity.
 5. Production IOI hardening beyond LM Studio.

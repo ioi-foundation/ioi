@@ -5,6 +5,13 @@ type MountsTab = "server" | "backends" | "models" | "providers" | "downloads" | 
 type StatusTone = "neutral" | "ready" | "muted" | "warn" | "blocked";
 type ConnectionState = "offline" | "loading" | "connected" | "degraded";
 
+interface ActionGuard {
+  tone: StatusTone;
+  label: string;
+  reason: string;
+  disabled: boolean;
+}
+
 interface ProviderProfile {
   id: string;
   label: string;
@@ -295,6 +302,13 @@ interface MountsWorkbenchData {
   receipts: ReceiptPreview[];
   healthSummary: HealthSummaryPreview;
 }
+
+const READY_GUARD: ActionGuard = {
+  tone: "ready",
+  label: "ready",
+  reason: "Action is available through the governed daemon path.",
+  disabled: false,
+};
 
 const DEFAULT_DAEMON_ENDPOINT = "http://127.0.0.1:8765";
 const ENDPOINT_STORAGE_KEY = "ioi.modelMounts.daemonEndpoint";
@@ -922,6 +936,195 @@ function modelSelectionDetails(data: MountsWorkbenchData, selection: MountsPicke
   };
 }
 
+function isBlockedStatus(status: string) {
+  return /^(blocked|revoked|absent|failed|unavailable|denied|unauthorized|future)$/i.test(status);
+}
+
+function isDegradedStatus(status: string) {
+  return /^(stopped|degraded|provider_stopped|offline fixture|unknown|not_checked)$/i.test(status);
+}
+
+function guardReady(label = "ready", reason = READY_GUARD.reason): ActionGuard {
+  return { tone: "ready", label, reason, disabled: false };
+}
+
+function guardWarn(label: string, reason: string, disabled = false): ActionGuard {
+  return { tone: "warn", label, reason, disabled };
+}
+
+function guardBlocked(label: string, reason: string): ActionGuard {
+  return { tone: "blocked", label, reason, disabled: true };
+}
+
+function combineGuards(...guards: Array<ActionGuard | null | undefined>) {
+  const active = guards.filter(Boolean) as ActionGuard[];
+  return active.find((guard) => guard.disabled || guard.tone === "blocked") ?? active.find((guard) => guard.tone === "warn") ?? READY_GUARD;
+}
+
+function connectionActionGuard(state: ConnectionState, action = "action") {
+  if (state === "connected") return guardReady("daemon ready", `${action} can reach the runtime daemon.`);
+  if (state === "loading") return guardWarn("loading", "Daemon snapshot is loading; wait for the current refresh before running this action.", true);
+  if (state === "degraded") return guardWarn("degraded", "Daemon snapshot is degraded; this action may fail until the endpoint refreshes.");
+  return guardBlocked("daemon offline", "Daemon is disconnected, so governed action calls are blocked.");
+}
+
+function scopeMatches(pattern: string, scope: string) {
+  if (pattern === "*" || pattern === scope) return true;
+  if (pattern.endsWith(":*")) return scope.startsWith(pattern.slice(0, -1));
+  return false;
+}
+
+function tokenExpired(token: PermissionTokenPreview) {
+  if (/revoked|expired/i.test(`${token.state} ${token.expires}`)) return true;
+  const timestamp = Date.parse(token.expires);
+  return Number.isFinite(timestamp) && timestamp <= Date.now();
+}
+
+function tokenScopeGuard(data: MountsWorkbenchData, hasSessionToken: boolean, scope: string) {
+  const activeTokens = data.tokens.filter((token) => token.state === "active" && !tokenExpired(token));
+  const expiredOrRevoked = data.tokens.length > 0 && activeTokens.length === 0 && data.tokens.some((token) => tokenExpired(token) || token.state === "revoked");
+  const denied = activeTokens.find((token) => token.denied.some((pattern) => scopeMatches(pattern, scope)));
+  if (denied) {
+    return guardBlocked("denied scope", `${denied.id} denies ${scope}; the daemon will reject this action.`);
+  }
+  const allowed = activeTokens.find((token) => token.allowed.some((pattern) => scopeMatches(pattern, scope)));
+  if (hasSessionToken && allowed) return guardReady("token ready", `${scope} is allowed by ${allowed.id}.`);
+  if (hasSessionToken && expiredOrRevoked) return guardBlocked("token expired", `Projected grants are expired or revoked before ${scope}.`);
+  if (!hasSessionToken) {
+    return guardWarn("token on demand", `No raw session token is held; the action will mint an in-memory grant before requesting ${scope}.`);
+  }
+  return guardBlocked("scope missing", `No active capability grant in the projection allows ${scope}.`);
+}
+
+function capabilityGuard(capabilities: string[], capability: string, subject = "selection") {
+  if (capabilities.includes(capability)) return guardReady("capability ready", `${subject} supports ${capability}.`);
+  return guardBlocked("unsupported", `${subject} does not advertise ${capability}.`);
+}
+
+function providerGuard(provider: ProviderProfile | undefined, capability?: string, allowProbe = false) {
+  if (!provider) return guardBlocked("provider missing", "No provider profile is selected.");
+  const vaultBackedKinds = ["openai", "anthropic", "gemini", "custom_http", "depin_tee"];
+  const requiresVault = vaultBackedKinds.includes(provider.kind) && /vault required|vault reference required/i.test(`${provider.authState} ${provider.baseUrl} ${provider.auth}`);
+  if (requiresVault) {
+    return allowProbe
+      ? guardWarn("vault ref missing", `${provider.label} needs a vault ref before live provider calls are allowed.`)
+      : guardBlocked("vault ref missing", `${provider.label} needs a vault ref before live provider calls are allowed.`);
+  }
+  if (isBlockedStatus(provider.status)) {
+    return allowProbe
+      ? guardWarn("provider blocked", `${provider.label} is ${provider.status}; health probes remain available.`)
+      : guardBlocked("provider blocked", `${provider.label} is ${provider.status}.`);
+  }
+  if (isDegradedStatus(provider.status)) {
+    return guardWarn("provider degraded", `${provider.label} is ${provider.status}; action may require provider start or reconfiguration.`);
+  }
+  if (capability) return capabilityGuard(provider.capabilities, capability, provider.label);
+  return guardReady("provider ready", `${provider.label} is available.`);
+}
+
+function endpointGuard(data: MountsWorkbenchData, endpoint: ModelEndpoint | undefined, capability?: string) {
+  if (!endpoint) return guardBlocked("endpoint missing", "No mounted endpoint is selected.");
+  const providerItem = data.providers.find((provider) => provider.id === endpoint.provider);
+  return combineGuards(
+    providerGuard(providerItem, capability),
+    isBlockedStatus(endpoint.status)
+      ? guardBlocked("endpoint blocked", `${endpoint.id} is ${endpoint.status}.`)
+      : isDegradedStatus(endpoint.status)
+        ? guardWarn("endpoint degraded", `${endpoint.id} is ${endpoint.status}.`)
+        : guardReady("endpoint ready", `${endpoint.id} is mounted.`),
+    capability ? capabilityGuard(endpoint.capabilities, capability, endpoint.id) : null,
+  );
+}
+
+function backendGuard(backend: BackendPreview | undefined, allowStart = false) {
+  if (!backend) return guardBlocked("backend missing", "No backend is selected for this action.");
+  if (isBlockedStatus(backend.status)) {
+    return allowStart
+      ? guardWarn("backend blocked", `${backend.label} is ${backend.status}; start/probe can attempt recovery.`)
+      : guardBlocked("backend blocked", `${backend.label} is ${backend.status}.`);
+  }
+  if (isDegradedStatus(backend.status) || /absent|external_or_absent|binary_absent/i.test(backend.processStatus)) {
+    return guardWarn("backend degraded", `${backend.label} is ${backend.status} / ${backend.processStatus}.`);
+  }
+  return guardReady("backend ready", `${backend.label} is available.`);
+}
+
+function runtimeEngineGuard(engine: RuntimeEnginePreview) {
+  if (engine.selected) return guardWarn("already selected", `${engine.label} is already selected.`, true);
+  if (isBlockedStatus(engine.status)) return guardBlocked("engine blocked", `${engine.label} is ${engine.status}.`);
+  if (isDegradedStatus(engine.status)) return guardWarn("engine degraded", `${engine.label} is ${engine.status}.`);
+  return guardReady("engine ready", `${engine.label} can be selected.`);
+}
+
+function modelArtifactGuard(data: MountsWorkbenchData, modelId: string) {
+  const artifact = data.artifacts.find((item) => item.name === modelId || item.id === modelId);
+  if (!modelId.trim()) return guardBlocked("model missing", "Choose a model before running this action.");
+  if (!artifact) return guardWarn("unregistered", `${modelId} is not in the current artifact projection.`);
+  if (isBlockedStatus(artifact.state)) return guardBlocked("artifact blocked", `${artifact.name} is ${artifact.state}.`);
+  if (isDegradedStatus(artifact.state)) return guardWarn("artifact degraded", `${artifact.name} is ${artifact.state}.`);
+  return guardReady("model ready", `${artifact.name} is installed.`);
+}
+
+function routePolicyGuard(data: MountsWorkbenchData, routeId: string, endpointId?: string, privacyOverride?: string) {
+  const routeItem = data.routes.find((item) => item.id === routeId);
+  if (!routeItem) return guardBlocked("route missing", "Choose a route before running this action.");
+  const routeText = `${routeItem.status} ${routeItem.lastSelection} ${routeItem.receipt}`;
+  if (/blocked|policy blocked/i.test(routeText)) return guardBlocked("policy blocked", `${routeItem.id} is currently policy blocked.`);
+  const privacy = privacyOverride || routeItem.privacy;
+  const fallbackIds = routeItem.fallbackIds.length > 0 ? routeItem.fallbackIds : csvList(routeItem.fallback);
+  const endpointIds = endpointId ? [endpointId, ...fallbackIds] : fallbackIds;
+  const hostedEndpoint = endpointIds
+    .map((id) => data.endpoints.find((endpoint) => endpoint.id === id))
+    .find((endpoint) => {
+      const providerItem = data.providers.find((provider) => provider.id === endpoint?.provider);
+      return providerItem?.privacy === "hosted";
+    });
+  if (hostedEndpoint && privacy === "local_only") {
+    return guardBlocked("privacy blocked", `${routeItem.id} cannot use hosted endpoint ${hostedEndpoint.id} under local_only policy.`);
+  }
+  if (endpointId && fallbackIds.length > 0 && !fallbackIds.includes(endpointId)) {
+    return guardWarn("fallback differs", `${endpointId} is not in ${routeItem.id}'s fallback order.`);
+  }
+  return guardReady("route ready", `${routeItem.id} is routable.`);
+}
+
+function selectedActionGuard(
+  data: MountsWorkbenchData,
+  selection: MountsPickerSelection,
+  connectionState: ConnectionState,
+  hasSessionToken: boolean,
+  scope: string,
+  capability?: string,
+) {
+  const details = modelSelectionDetails(data, selection);
+  return combineGuards(
+    connectionActionGuard(connectionState, scope),
+    tokenScopeGuard(data, hasSessionToken, scope),
+    modelArtifactGuard(data, selection.modelId),
+    endpointGuard(data, details.endpoint, capability),
+    routePolicyGuard(data, selection.routeId, selection.endpointId),
+  );
+}
+
+function providerDraftGuard(draft: ProviderDraft) {
+  if (!draft.id.trim()) return guardBlocked("id required", "Provider id is required.");
+  if (["openai", "anthropic", "gemini", "custom_http"].includes(draft.kind) && !draft.secretRef.trim()) {
+    return guardWarn("vault ref missing", `${draft.kind} should use a vault ref before live calls are allowed.`);
+  }
+  return guardReady("config ready", "Provider metadata can be saved without plaintext secrets.");
+}
+
+function vaultBindGuard(draft: ProviderDraft) {
+  if (!draft.secretRef.trim()) return guardBlocked("vault ref missing", "Enter a vault ref before binding secret material.");
+  if (!draft.vaultMaterial) return guardBlocked("material missing", "Enter session-only vault material to bind.");
+  return guardReady("vault ready", "Vault material will be sent once and not persisted in UI state.");
+}
+
+function actionGuardLabel(guard: ActionGuard | undefined) {
+  if (!guard || guard.tone === "ready") return null;
+  return guard.label;
+}
+
 function modelInvocationReceipts(receipts: ReceiptPreview[]) {
   return receipts
     .filter((item) => item.kind === "model_invocation")
@@ -1091,6 +1294,7 @@ function useModelMountsDaemon() {
     data,
     connectionState,
     message,
+    hasSessionToken: Boolean(sessionToken),
     sessionTokenLabel: sessionToken ? `${sessionToken.slice(0, 10)}...session` : "none",
     busyAction,
     refresh,
@@ -2007,17 +2211,42 @@ function ActionButton({
   children,
   onClick,
   disabled,
+  guard,
   type = "button",
 }: {
   children: string;
   onClick?: () => void;
   disabled?: boolean;
+  guard?: ActionGuard;
   type?: "button" | "submit";
 }) {
+  const guardLabel = actionGuardLabel(guard);
+  const isDisabled = disabled || guard?.disabled;
   return (
-    <button type={type} className="model-mounts-action-button" onClick={onClick} disabled={disabled}>
-      {children}
+    <button
+      type={type}
+      className="model-mounts-action-button"
+      onClick={onClick}
+      disabled={isDisabled}
+      title={guard?.reason}
+      aria-label={guard ? `${children}: ${guard.reason}` : children}
+      data-guard-tone={guard?.tone}
+    >
+      <span>{children}</span>
+      {guardLabel ? <small className={`model-mounts-action-guard is-${guard?.tone}`}>{guardLabel}</small> : null}
     </button>
+  );
+}
+
+function GuardFact({ label, guard }: { label: string; guard: ActionGuard }) {
+  return (
+    <div>
+      <span>{label}</span>
+      <strong>
+        <StatusPill tone={guard.tone}>{guard.label}</StatusPill>
+      </strong>
+      <small>{guard.reason}</small>
+    </div>
   );
 }
 
@@ -2067,6 +2296,8 @@ function EndpointRow({ endpoint }: { endpoint: ModelEndpoint }) {
 function ModelPickerStrip({
   data,
   selection,
+  connectionState,
+  hasSessionToken,
   onSelectionChange,
   onLoadSelection,
   onUnloadInstance,
@@ -2077,6 +2308,8 @@ function ModelPickerStrip({
 }: {
   data: MountsWorkbenchData;
   selection: MountsPickerSelection;
+  connectionState: ConnectionState;
+  hasSessionToken: boolean;
   onSelectionChange: (patch: Partial<MountsPickerSelection>) => void;
   onLoadSelection: () => void;
   onUnloadInstance: () => void;
@@ -2095,6 +2328,15 @@ function ModelPickerStrip({
   const selectedRoute = details.route;
   const selectedInstance = details.instance;
   const selectedReceipts = details.relatedReceipts.slice(-3);
+  const loadGuard = selectedActionGuard(data, selection, connectionState, hasSessionToken, "model.load:*", "chat");
+  const unloadGuard = combineGuards(
+    connectionActionGuard(connectionState, "model.unload:*"),
+    tokenScopeGuard(data, hasSessionToken, "model.unload:*"),
+    selectedInstance ? guardReady("instance ready", `${selectedInstance.identifier} can be unloaded.`) : guardBlocked("instance missing", "No loaded instance is selected."),
+  );
+  const tokenGuard = tokenScopeGuard(data, hasSessionToken, "model.chat:*");
+  const endpointReadiness = endpointGuard(data, selectedEndpoint, "chat");
+  const routeReadiness = routePolicyGuard(data, selection.routeId, selection.endpointId);
 
   return (
     <section className="model-mounts-picker" aria-label="Quick model picker">
@@ -2141,10 +2383,17 @@ function ModelPickerStrip({
           </select>
         </label>
         <div className="model-mounts-picker-actions">
-          <ActionButton onClick={onLoadSelection} disabled={busy || !selection.modelId}>Load selection</ActionButton>
-          <ActionButton onClick={onUnloadInstance} disabled={busy || !selectedInstance}>Unload instance</ActionButton>
+          <ActionButton onClick={onLoadSelection} disabled={busy || !selection.modelId} guard={loadGuard}>Load selection</ActionButton>
+          <ActionButton onClick={onUnloadInstance} disabled={busy || !selectedInstance} guard={unloadGuard}>Unload instance</ActionButton>
           <ActionButton onClick={onToggleDetails}>{detailsOpen ? "Hide details" : "Open details"}</ActionButton>
         </div>
+      </div>
+
+      <div className="model-mounts-action-readiness" aria-label="Action readiness states">
+        <GuardFact label="Daemon" guard={connectionActionGuard(connectionState, "Mounts action")} />
+        <GuardFact label="Token" guard={tokenGuard} />
+        <GuardFact label="Endpoint" guard={endpointReadiness} />
+        <GuardFact label="Route policy" guard={routeReadiness} />
       </div>
 
       {compact ? null : (
@@ -2306,6 +2555,7 @@ function ServerPanel({
   endpoint,
   setEndpoint,
   connectionState,
+  hasSessionToken,
   sessionTokenLabel,
   message,
   onRefresh,
@@ -2322,6 +2572,7 @@ function ServerPanel({
   endpoint: string;
   setEndpoint: (value: string) => void;
   connectionState: ConnectionState;
+  hasSessionToken: boolean;
   sessionTokenLabel: string;
   message: string;
   onRefresh: () => void;
@@ -2334,6 +2585,17 @@ function ServerPanel({
   onRunHealthSweep: () => void;
   busy: boolean;
 }) {
+  const serverConnectionGuard = connectionActionGuard(connectionState, "server control");
+  const serverControlGuard = combineGuards(serverConnectionGuard, tokenScopeGuard(data, hasSessionToken, "server.control:*"));
+  const serverLogsGuard = combineGuards(serverConnectionGuard, tokenScopeGuard(data, hasSessionToken, "server.logs:*"));
+  const chatGuard = combineGuards(
+    serverConnectionGuard,
+    tokenScopeGuard(data, hasSessionToken, "model.chat:*"),
+    data.endpoints.some((endpointItem) => endpointItem.capabilities.includes("chat"))
+      ? guardReady("chat ready", "At least one mounted endpoint advertises chat.")
+      : guardBlocked("chat missing", "No mounted endpoint advertises chat."),
+  );
+  const healthGuard = combineGuards(serverConnectionGuard, tokenScopeGuard(data, hasSessionToken, "vault.read:*"));
   return (
     <section className="model-mounts-panel" aria-labelledby="model-mounts-server-title">
       <div className="model-mounts-panel-head">
@@ -2356,13 +2618,13 @@ function ServerPanel({
         </label>
         <div className="model-mounts-actions">
           <ActionButton onClick={onRefresh} disabled={busy}>Refresh</ActionButton>
-          <ActionButton onClick={onIssueToken} disabled={busy}>Issue token</ActionButton>
-          <ActionButton onClick={onStartServer} disabled={busy}>Start</ActionButton>
-          <ActionButton onClick={onStopServer} disabled={busy}>Stop</ActionButton>
-          <ActionButton onClick={onRestartServer} disabled={busy}>Restart</ActionButton>
-          <ActionButton onClick={onTailServerLogs} disabled={busy}>Tail logs</ActionButton>
-          <ActionButton onClick={onNativeChatProbe} disabled={busy}>Native chat probe</ActionButton>
-          <ActionButton onClick={onRunHealthSweep} disabled={busy}>Run health sweep</ActionButton>
+          <ActionButton onClick={onIssueToken} disabled={busy} guard={serverConnectionGuard}>Issue token</ActionButton>
+          <ActionButton onClick={onStartServer} disabled={busy} guard={serverControlGuard}>Start</ActionButton>
+          <ActionButton onClick={onStopServer} disabled={busy} guard={serverControlGuard}>Stop</ActionButton>
+          <ActionButton onClick={onRestartServer} disabled={busy} guard={serverControlGuard}>Restart</ActionButton>
+          <ActionButton onClick={onTailServerLogs} disabled={busy} guard={serverLogsGuard}>Tail logs</ActionButton>
+          <ActionButton onClick={onNativeChatProbe} disabled={busy} guard={chatGuard}>Native chat probe</ActionButton>
+          <ActionButton onClick={onRunHealthSweep} disabled={busy} guard={healthGuard}>Run health sweep</ActionButton>
         </div>
       </div>
 
@@ -2506,9 +2768,12 @@ function HealthSummaryStrip({ summary }: { summary: HealthSummaryPreview }) {
 }
 
 function BackendsPanel({
+  data,
   backends,
   runtimeEngines,
   runtimeSurvey,
+  connectionState,
+  hasSessionToken,
   onProbeNativeBackend,
   onStartNativeBackend,
   onStopNativeBackend,
@@ -2516,9 +2781,12 @@ function BackendsPanel({
   onSelectRuntimeEngine,
   busy,
 }: {
+  data: MountsWorkbenchData;
   backends: BackendPreview[];
   runtimeEngines: RuntimeEnginePreview[];
   runtimeSurvey: RuntimeSurveyPreview;
+  connectionState: ConnectionState;
+  hasSessionToken: boolean;
   onProbeNativeBackend: () => void;
   onStartNativeBackend: () => void;
   onStopNativeBackend: () => void;
@@ -2526,6 +2794,18 @@ function BackendsPanel({
   onSelectRuntimeEngine: (engineId: string) => void;
   busy: boolean;
 }) {
+  const nativeBackend = backends.find((backendItem) => backendItem.id === "backend.autopilot.native-local.fixture") ?? backends[0];
+  const backendStartGuard = combineGuards(
+    connectionActionGuard(connectionState, "backend start"),
+    tokenScopeGuard(data, hasSessionToken, "backend.control:*"),
+    backendGuard(nativeBackend, true),
+  );
+  const backendStopGuard = combineGuards(
+    connectionActionGuard(connectionState, "backend stop"),
+    tokenScopeGuard(data, hasSessionToken, "backend.control:*"),
+    nativeBackend ? guardReady("backend selected", `${nativeBackend.label} can receive stop.`) : guardBlocked("backend missing", "No native backend is selected."),
+  );
+  const runtimeSurveyGuard = connectionActionGuard(connectionState, "runtime survey");
   return (
     <section className="model-mounts-panel" aria-labelledby="model-mounts-backends-title">
       <div className="model-mounts-panel-head">
@@ -2536,10 +2816,10 @@ function BackendsPanel({
         <div className="model-mounts-actions">
           <StatusPill tone="ready">Autopilot owned</StatusPill>
           <StatusPill tone="muted">live engines gated</StatusPill>
-          <ActionButton onClick={onProbeNativeBackend} disabled={busy}>Probe native backend</ActionButton>
-          <ActionButton onClick={onStartNativeBackend} disabled={busy}>Start native</ActionButton>
-          <ActionButton onClick={onStopNativeBackend} disabled={busy}>Stop native</ActionButton>
-          <ActionButton onClick={onRunRuntimeSurvey} disabled={busy}>Run runtime survey</ActionButton>
+          <ActionButton onClick={onProbeNativeBackend} disabled={busy} guard={combineGuards(connectionActionGuard(connectionState, "backend health"), backendGuard(nativeBackend, true))}>Probe native backend</ActionButton>
+          <ActionButton onClick={onStartNativeBackend} disabled={busy} guard={backendStartGuard}>Start native</ActionButton>
+          <ActionButton onClick={onStopNativeBackend} disabled={busy} guard={backendStopGuard}>Stop native</ActionButton>
+          <ActionButton onClick={onRunRuntimeSurvey} disabled={busy} guard={runtimeSurveyGuard}>Run runtime survey</ActionButton>
         </div>
       </div>
 
@@ -2587,7 +2867,7 @@ function BackendsPanel({
                 <span>{engine.kind} / {engine.modelFormat} / {engine.source}</span>
               </div>
               <StatusPill tone={engine.selected ? "ready" : toneForStatus(engine.status)}>{engine.selected ? "selected" : engine.status}</StatusPill>
-              <ActionButton onClick={() => onSelectRuntimeEngine(engine.id)} disabled={busy || engine.selected}>Select</ActionButton>
+              <ActionButton onClick={() => onSelectRuntimeEngine(engine.id)} disabled={busy || engine.selected} guard={combineGuards(connectionActionGuard(connectionState, "runtime select"), runtimeEngineGuard(engine))}>Select</ActionButton>
             </article>
           ))}
         </div>
@@ -2633,6 +2913,8 @@ function BackendsPanel({
 
 function ModelsPanel({
   data,
+  connectionState,
+  hasSessionToken,
   onLoadLocalModel,
   onLoadNativeLocalModel,
   onLoadModelWithOptions,
@@ -2640,6 +2922,8 @@ function ModelsPanel({
   busy,
 }: {
   data: MountsWorkbenchData;
+  connectionState: ConnectionState;
+  hasSessionToken: boolean;
   onLoadLocalModel: () => void;
   onLoadNativeLocalModel: () => void;
   onLoadModelWithOptions: (draft: ModelLoadDraft) => void;
@@ -2660,6 +2944,17 @@ function ModelsPanel({
     setLoadDraft((current) => ({ ...current, [field]: value }));
   };
   const loadedInstances = data.instances.filter(isLoadedInstance);
+  const localAutoSelection = normalizePickerSelection(data, { ...emptyPickerSelection, modelId: "local:auto", endpointId: "endpoint.local.auto", routeId: "route.local-first" });
+  const nativeSelection = normalizePickerSelection(data, { ...emptyPickerSelection, modelId: "autopilot:native-fixture", endpointId: "endpoint.autopilot.native-fixture", routeId: "route.native-local" });
+  const draftLoadGuard = combineGuards(
+    connectionActionGuard(connectionState, "model.load:*"),
+    tokenScopeGuard(data, hasSessionToken, "model.load:*"),
+    modelArtifactGuard(data, loadDraft.modelId),
+  );
+  const downloadGuard = combineGuards(
+    connectionActionGuard(connectionState, "model.download:*"),
+    tokenScopeGuard(data, hasSessionToken, "model.download:*"),
+  );
   return (
     <section className="model-mounts-panel" aria-labelledby="model-mounts-models-title">
       <div className="model-mounts-panel-head">
@@ -2670,9 +2965,9 @@ function ModelsPanel({
         <div className="model-mounts-actions">
           <StatusPill tone="ready">registry first</StatusPill>
           <StatusPill tone="ready">router backed</StatusPill>
-          <ActionButton onClick={onLoadLocalModel} disabled={busy}>Load local:auto</ActionButton>
-          <ActionButton onClick={onLoadNativeLocalModel} disabled={busy}>Load native-local</ActionButton>
-          <ActionButton onClick={onDownloadFixture} disabled={busy}>Download fixture</ActionButton>
+          <ActionButton onClick={onLoadLocalModel} disabled={busy} guard={selectedActionGuard(data, localAutoSelection, connectionState, hasSessionToken, "model.load:*", "chat")}>Load local:auto</ActionButton>
+          <ActionButton onClick={onLoadNativeLocalModel} disabled={busy} guard={selectedActionGuard(data, nativeSelection, connectionState, hasSessionToken, "model.load:*", "chat")}>Load native-local</ActionButton>
+          <ActionButton onClick={onDownloadFixture} disabled={busy} guard={downloadGuard}>Download fixture</ActionButton>
         </div>
       </div>
 
@@ -2727,7 +3022,7 @@ function ModelsPanel({
           </label>
         </div>
         <div className="model-mounts-form-actions">
-          <ActionButton type="submit" disabled={busy}>{loadDraft.estimateOnly ? "Estimate load" : "Load with options"}</ActionButton>
+          <ActionButton type="submit" disabled={busy} guard={draftLoadGuard}>{loadDraft.estimateOnly ? "Estimate load" : "Load with options"}</ActionButton>
         </div>
       </form>
 
@@ -2795,14 +3090,20 @@ function ModelsPanel({
 }
 
 function DownloadsPanel({
+  data,
   downloads,
+  connectionState,
+  hasSessionToken,
   onDownloadFixture,
   onSearchCatalog,
   onImportCatalogUrl,
   onCleanupStorage,
   busy,
 }: {
+  data: MountsWorkbenchData;
   downloads: MountsWorkbenchData["downloads"];
+  connectionState: ConnectionState;
+  hasSessionToken: boolean;
   onDownloadFixture: () => void;
   onSearchCatalog: (query: string) => void;
   onImportCatalogUrl: (sourceUrl: string) => void;
@@ -2811,6 +3112,13 @@ function DownloadsPanel({
 }) {
   const [query, setQuery] = useState("autopilot");
   const [sourceUrl, setSourceUrl] = useState("fixture://catalog/autopilot-native-3b-q4");
+  const downloadGuard = combineGuards(connectionActionGuard(connectionState, "model.download:*"), tokenScopeGuard(data, hasSessionToken, "model.download:*"));
+  const importGuard = combineGuards(
+    connectionActionGuard(connectionState, "model.import:*"),
+    tokenScopeGuard(data, hasSessionToken, "model.import:*"),
+    sourceUrl.trim() ? guardReady("source ready", "Catalog URL is ready for governed import.") : guardBlocked("source missing", "Enter a source URL before importing."),
+  );
+  const cleanupGuard = combineGuards(connectionActionGuard(connectionState, "model.delete:*"), tokenScopeGuard(data, hasSessionToken, "model.delete:*"));
   return (
     <section className="model-mounts-panel" aria-labelledby="model-mounts-downloads-title">
       <div className="model-mounts-panel-head">
@@ -2821,8 +3129,8 @@ function DownloadsPanel({
         <div className="model-mounts-actions">
           <StatusPill tone="ready">receipted lifecycle</StatusPill>
           <StatusPill tone="ready">checksum tracked</StatusPill>
-          <ActionButton onClick={onDownloadFixture} disabled={busy}>Download fixture</ActionButton>
-          <ActionButton onClick={onCleanupStorage} disabled={busy}>Scan cleanup</ActionButton>
+          <ActionButton onClick={onDownloadFixture} disabled={busy} guard={downloadGuard}>Download fixture</ActionButton>
+          <ActionButton onClick={onCleanupStorage} disabled={busy} guard={cleanupGuard}>Scan cleanup</ActionButton>
         </div>
       </div>
 
@@ -2844,8 +3152,8 @@ function DownloadsPanel({
           </label>
         </div>
         <div className="model-mounts-form-actions">
-          <ActionButton type="submit" disabled={busy}>Search catalog</ActionButton>
-          <ActionButton onClick={() => onImportCatalogUrl(sourceUrl)} disabled={busy}>Import URL</ActionButton>
+          <ActionButton type="submit" disabled={busy} guard={connectionActionGuard(connectionState, "catalog search")}>Search catalog</ActionButton>
+          <ActionButton onClick={() => onImportCatalogUrl(sourceUrl)} disabled={busy} guard={importGuard}>Import URL</ActionButton>
         </div>
       </form>
 
@@ -2870,7 +3178,10 @@ function DownloadsPanel({
 }
 
 function ProvidersPanel({
+  data,
   providers,
+  connectionState,
+  hasSessionToken,
   onConfigureProvider,
   onBindVaultSecret,
   onProviderHealth,
@@ -2878,7 +3189,10 @@ function ProvidersPanel({
   onProviderModels,
   busy,
 }: {
+  data: MountsWorkbenchData;
   providers: ProviderProfile[];
+  connectionState: ConnectionState;
+  hasSessionToken: boolean;
   onConfigureProvider: (draft: ProviderDraft) => void;
   onBindVaultSecret: (draft: ProviderDraft) => void;
   onProviderHealth: (providerId: string) => void;
@@ -2896,6 +3210,19 @@ function ProvidersPanel({
     busy === "provider-health" ||
     busy === "provider-health-latest" ||
     busy === "provider-models";
+  const configureGuard = combineGuards(
+    connectionActionGuard(connectionState, "provider.write:*"),
+    tokenScopeGuard(data, hasSessionToken, "provider.write:*"),
+    providerDraftGuard(draft),
+  );
+  const bindGuard = combineGuards(
+    connectionActionGuard(connectionState, "vault.write:*"),
+    tokenScopeGuard(data, hasSessionToken, "vault.write:*"),
+    vaultBindGuard(draft),
+  );
+  const draftProvider = providers.find((provider) => provider.id === draft.id);
+  const providerProbeGuard = combineGuards(connectionActionGuard(connectionState, "provider health"), providerGuard(draftProvider, undefined, true));
+  const providerModelsGuard = combineGuards(connectionActionGuard(connectionState, "provider models"), providerGuard(draftProvider, "chat", true));
   return (
     <section className="model-mounts-panel" aria-labelledby="model-mounts-providers-title">
       <div className="model-mounts-panel-head">
@@ -2993,29 +3320,28 @@ function ProvidersPanel({
           </label>
         </div>
         <div className="model-mounts-actions">
-          <button className="model-mounts-action-button" type="submit" disabled={providerBusy}>
+          <ActionButton type="submit" disabled={providerBusy} guard={configureGuard}>
             Save provider
-          </button>
-          <button
-            className="model-mounts-action-button"
-            type="button"
+          </ActionButton>
+          <ActionButton
             onClick={() => {
               onBindVaultSecret(draft);
               setDraft((current) => ({ ...current, vaultMaterial: "" }));
             }}
             disabled={providerBusy || !draft.secretRef.trim() || !draft.vaultMaterial}
+            guard={bindGuard}
           >
             Bind vault secret
-          </button>
-          <button className="model-mounts-action-button" type="button" onClick={() => onProviderHealth(draft.id)} disabled={providerBusy}>
+          </ActionButton>
+          <ActionButton onClick={() => onProviderHealth(draft.id)} disabled={providerBusy} guard={providerProbeGuard}>
             Test health
-          </button>
-          <button className="model-mounts-action-button" type="button" onClick={() => onLatestProviderHealth(draft.id)} disabled={providerBusy}>
+          </ActionButton>
+          <ActionButton onClick={() => onLatestProviderHealth(draft.id)} disabled={providerBusy} guard={providerProbeGuard}>
             Latest health
-          </button>
-          <button className="model-mounts-action-button" type="button" onClick={() => onProviderModels(draft.id)} disabled={providerBusy}>
+          </ActionButton>
+          <ActionButton onClick={() => onProviderModels(draft.id)} disabled={providerBusy} guard={providerModelsGuard}>
             List models
-          </button>
+          </ActionButton>
         </div>
       </form>
 
@@ -3055,18 +3381,18 @@ function ProvidersPanel({
             </dl>
             <TagList items={item.capabilities} />
             <div className="model-mounts-card-actions">
-              <button className="model-mounts-action-button" type="button" onClick={() => setDraft(providerDraftFromProfile(item))}>
+              <ActionButton onClick={() => setDraft(providerDraftFromProfile(item))}>
                 Edit
-              </button>
-              <button className="model-mounts-action-button" type="button" onClick={() => onProviderHealth(item.id)} disabled={providerBusy}>
+              </ActionButton>
+              <ActionButton onClick={() => onProviderHealth(item.id)} disabled={providerBusy} guard={combineGuards(connectionActionGuard(connectionState, "provider health"), providerGuard(item, undefined, true))}>
                 Health
-              </button>
-              <button className="model-mounts-action-button" type="button" onClick={() => onLatestProviderHealth(item.id)} disabled={providerBusy}>
+              </ActionButton>
+              <ActionButton onClick={() => onLatestProviderHealth(item.id)} disabled={providerBusy} guard={combineGuards(connectionActionGuard(connectionState, "provider latest health"), providerGuard(item, undefined, true))}>
                 Latest health
-              </button>
-              <button className="model-mounts-action-button" type="button" onClick={() => onProviderModels(item.id)} disabled={providerBusy}>
+              </ActionButton>
+              <ActionButton onClick={() => onProviderModels(item.id)} disabled={providerBusy} guard={combineGuards(connectionActionGuard(connectionState, "provider models"), providerGuard(item, "chat", true))}>
                 Models
-              </button>
+              </ActionButton>
             </div>
           </article>
         ))}
@@ -3094,6 +3420,8 @@ function providerDraftFromProfile(item: ProviderProfile): ProviderDraft {
 
 function TokensPanel({
   data,
+  connectionState,
+  hasSessionToken,
   onCreateToken,
   onRevokeToken,
   onImportMcpFixture,
@@ -3103,6 +3431,8 @@ function TokensPanel({
   busy,
 }: {
   data: MountsWorkbenchData;
+  connectionState: ConnectionState;
+  hasSessionToken: boolean;
   onCreateToken: (draft: TokenDraft) => void;
   onRevokeToken: (tokenId: string) => void;
   onImportMcpFixture: () => void;
@@ -3119,6 +3449,16 @@ function TokensPanel({
     event.preventDefault();
     onCreateToken(draft);
   };
+  const connectionGuard = connectionActionGuard(connectionState, "capability token action");
+  const mcpImportGuard = combineGuards(connectionGuard, tokenScopeGuard(data, hasSessionToken, "mcp.import:*"));
+  const mcpCallGuard = combineGuards(
+    connectionGuard,
+    tokenScopeGuard(data, hasSessionToken, "mcp.call:huggingface.model_search"),
+    data.mcpServers.some((server) => server.allowedTools.includes("model_search"))
+      ? guardReady("tool allowed", "model_search is allowed by the current MCP projection.")
+      : guardBlocked("tool denied", "No MCP server currently allows model_search."),
+  );
+  const vaultReadGuard = combineGuards(connectionGuard, tokenScopeGuard(data, hasSessionToken, "vault.read:*"));
 
   return (
     <section className="model-mounts-panel" aria-labelledby="model-mounts-tokens-title">
@@ -3130,10 +3470,10 @@ function TokensPanel({
         <div className="model-mounts-actions">
           <StatusPill tone="ready">scoped</StatusPill>
           <StatusPill tone="ready">revocable</StatusPill>
-          <ActionButton onClick={onImportMcpFixture} disabled={busy}>Import MCP fixture</ActionButton>
-          <ActionButton onClick={onEphemeralMcpProbe} disabled={busy}>Ephemeral MCP probe</ActionButton>
-          <ActionButton onClick={onCheckVaultAdapter} disabled={busy}>Check adapter</ActionButton>
-          <ActionButton onClick={onLatestVaultHealth} disabled={busy}>Latest vault health</ActionButton>
+          <ActionButton onClick={onImportMcpFixture} disabled={busy} guard={mcpImportGuard}>Import MCP fixture</ActionButton>
+          <ActionButton onClick={onEphemeralMcpProbe} disabled={busy} guard={mcpCallGuard}>Ephemeral MCP probe</ActionButton>
+          <ActionButton onClick={onCheckVaultAdapter} disabled={busy} guard={vaultReadGuard}>Check adapter</ActionButton>
+          <ActionButton onClick={onLatestVaultHealth} disabled={busy} guard={vaultReadGuard}>Latest vault health</ActionButton>
         </div>
       </div>
 
@@ -3145,7 +3485,7 @@ function TokensPanel({
           </div>
           <div className="model-mounts-card-actions">
             <StatusPill tone="ready">session-only raw token</StatusPill>
-            <ActionButton type="submit" disabled={busy}>Create session token</ActionButton>
+            <ActionButton type="submit" disabled={busy} guard={connectionGuard}>Create session token</ActionButton>
           </div>
         </div>
         <div className="model-mounts-token-editor-grid">
@@ -3196,7 +3536,13 @@ function TokensPanel({
                     </div>
                     <div className="model-mounts-card-actions">
                       <StatusPill tone={toneForStatus(token.state)}>{token.state}</StatusPill>
-                      <ActionButton onClick={() => onRevokeToken(token.id)} disabled={busy || token.state === "revoked"}>Revoke</ActionButton>
+                      <ActionButton
+                        onClick={() => onRevokeToken(token.id)}
+                        disabled={busy || token.state === "revoked"}
+                        guard={combineGuards(connectionGuard, token.state === "revoked" ? guardWarn("already revoked", `${token.id} is already revoked.`, true) : guardReady("revocable", `${token.id} can be revoked.`))}
+                      >
+                        Revoke
+                      </ActionButton>
                     </div>
                   </div>
                   <div className="model-mounts-scope-columns">
@@ -3318,6 +3664,8 @@ function TokensPanel({
 function RoutingPanel({
   data,
   selection,
+  connectionState,
+  hasSessionToken,
   onTestRoute,
   onSaveRoute,
   onTestRouteDraft,
@@ -3326,6 +3674,8 @@ function RoutingPanel({
 }: {
   data: MountsWorkbenchData;
   selection: MountsPickerSelection;
+  connectionState: ConnectionState;
+  hasSessionToken: boolean;
   onTestRoute: () => void;
   onSaveRoute: (draft: RouteDraft) => void;
   onTestRouteDraft: (draft: RouteDraft, selection: MountsPickerSelection) => void;
@@ -3349,6 +3699,27 @@ function RoutingPanel({
     const providerItem = data.providers.find((provider) => provider.id === endpoint?.provider);
     return providerItem?.privacy === "hosted" && draft.privacy === "local_or_enterprise" && !draft.allowHostedFallback;
   });
+  const routeUseGuard = combineGuards(
+    connectionActionGuard(connectionState, "route.use:*"),
+    tokenScopeGuard(data, hasSessionToken, "route.use:*"),
+    routePolicyGuard(data, selection.routeId, selection.endpointId),
+  );
+  const routeWriteGuard = combineGuards(
+    connectionActionGuard(connectionState, "route.write:*"),
+    tokenScopeGuard(data, hasSessionToken, "route.write:*"),
+    hostedFallbackBlocked ? guardBlocked("policy blocked", "Hosted fallback is blocked until explicitly allowed for this draft.") : guardReady("policy ready", "Draft policy can be saved."),
+  );
+  const routeDraftTestGuard = combineGuards(
+    routeWriteGuard,
+    tokenScopeGuard(data, hasSessionToken, "route.use:*"),
+    hostedFallbackBlocked ? guardBlocked("privacy blocked", "Testing would use hosted fallback under a local/enterprise policy.") : guardReady("test ready", "Draft can be saved and route-tested."),
+  );
+  const workflowGuard = combineGuards(
+    connectionActionGuard(connectionState, "workflow execution"),
+    tokenScopeGuard(data, hasSessionToken, "route.use:*"),
+    tokenScopeGuard(data, hasSessionToken, "model.embeddings:*"),
+    routePolicyGuard(data, selection.routeId, selection.endpointId),
+  );
   return (
     <section className="model-mounts-panel" aria-labelledby="model-mounts-routing-title">
       <div className="model-mounts-panel-head">
@@ -3359,8 +3730,8 @@ function RoutingPanel({
         <div className="model-mounts-actions">
           <StatusPill tone="ready">capability to route</StatusPill>
           <StatusPill tone="ready">receipt gate</StatusPill>
-          <ActionButton onClick={onTestRoute} disabled={busy}>Test route</ActionButton>
-          <ActionButton onClick={onWorkflowProbe} disabled={busy}>Run workflow probe</ActionButton>
+          <ActionButton onClick={onTestRoute} disabled={busy} guard={routeUseGuard}>Test route</ActionButton>
+          <ActionButton onClick={onWorkflowProbe} disabled={busy} guard={workflowGuard}>Run workflow probe</ActionButton>
         </div>
       </div>
 
@@ -3380,8 +3751,8 @@ function RoutingPanel({
           <div className="model-mounts-actions">
             <StatusPill tone={hasSelectedEndpoint ? "ready" : "warn"}>{hasSelectedEndpoint ? "selected endpoint in fallback" : "fallback differs"}</StatusPill>
             <StatusPill tone={hostedFallbackBlocked ? "blocked" : "ready"}>{hostedFallbackBlocked ? "hosted blocked" : "policy routable"}</StatusPill>
-            <ActionButton type="submit" disabled={busy}>Save route</ActionButton>
-            <ActionButton onClick={() => onTestRouteDraft(draft, selection)} disabled={busy}>Save and test route</ActionButton>
+            <ActionButton type="submit" disabled={busy} guard={routeWriteGuard}>Save route</ActionButton>
+            <ActionButton onClick={() => onTestRouteDraft(draft, selection)} disabled={busy} guard={routeDraftTestGuard}>Save and test route</ActionButton>
           </div>
         </div>
 
@@ -3487,12 +3858,16 @@ function RoutingPanel({
 function BenchmarksPanel({
   data,
   selection,
+  connectionState,
+  hasSessionToken,
   onRunBenchmark,
   onReplayReceipt,
   busy,
 }: {
   data: MountsWorkbenchData;
   selection: MountsPickerSelection;
+  connectionState: ConnectionState;
+  hasSessionToken: boolean;
   onRunBenchmark: (selection: MountsPickerSelection, draft: BenchmarkDraft) => void;
   onReplayReceipt: (receiptId: string) => void;
   busy: boolean;
@@ -3505,6 +3880,13 @@ function BenchmarksPanel({
     event.preventDefault();
     onRunBenchmark(selection, draft);
   };
+  const benchmarkGuard = combineGuards(
+    selectedActionGuard(data, selection, connectionState, hasSessionToken, "model.chat:*", "chat"),
+    tokenScopeGuard(data, hasSessionToken, "model.responses:*"),
+    draft.includeEmbeddings ? tokenScopeGuard(data, hasSessionToken, "model.embeddings:*") : null,
+    routePolicyGuard(data, selection.routeId, selection.endpointId, draft.privacy),
+  );
+  const replayGuard = connectionActionGuard(connectionState, "receipt replay");
 
   return (
     <section className="model-mounts-panel" aria-labelledby="model-mounts-benchmarks-title">
@@ -3516,7 +3898,7 @@ function BenchmarksPanel({
         <div className="model-mounts-actions">
           <StatusPill tone="ready">receipt backed</StatusPill>
           <StatusPill tone={latest ? "ready" : "muted"}>{latest ? "results available" : "no runs"}</StatusPill>
-          {latest ? <ActionButton onClick={() => onReplayReceipt(latest.id)} disabled={busy}>Replay latest result</ActionButton> : null}
+          {latest ? <ActionButton onClick={() => onReplayReceipt(latest.id)} disabled={busy} guard={replayGuard}>Replay latest result</ActionButton> : null}
         </div>
       </div>
 
@@ -3528,8 +3910,8 @@ function BenchmarksPanel({
               <span>{selection.modelId || "selected model"} / {selection.routeId || "selected route"} / {selection.endpointId || "selected endpoint"}</span>
             </div>
             <div className="model-mounts-card-actions">
-              <StatusPill tone="ready">router gated</StatusPill>
-              <ActionButton type="submit" disabled={busy || !selection.routeId}>Run benchmark</ActionButton>
+              <StatusPill tone={benchmarkGuard.tone}>{benchmarkGuard.label}</StatusPill>
+              <ActionButton type="submit" disabled={busy || !selection.routeId} guard={benchmarkGuard}>Run benchmark</ActionButton>
             </div>
           </div>
           <div className="model-mounts-benchmark-grid">
@@ -3616,13 +3998,16 @@ function BenchmarksPanel({
 
 function LogsPanel({
   receipts,
+  connectionState,
   onReplayReceipt,
   busy,
 }: {
   receipts: ReceiptPreview[];
+  connectionState: ConnectionState;
   onReplayReceipt: (receiptId: string) => void;
   busy: boolean;
 }) {
+  const replayGuard = connectionActionGuard(connectionState, "receipt replay");
   const groups = [
     {
       title: "Provider health",
@@ -3688,7 +4073,7 @@ function LogsPanel({
                 <div className="model-mounts-actions">
                   <StatusPill tone={group.items.length > 0 ? "ready" : "muted"}>{String(group.items.length)}</StatusPill>
                   {group.replayLabel && latest ? (
-                    <ActionButton onClick={() => onReplayReceipt(latest.id)} disabled={busy}>
+                    <ActionButton onClick={() => onReplayReceipt(latest.id)} disabled={busy} guard={replayGuard}>
                       {group.replayLabel}
                     </ActionButton>
                   ) : null}
@@ -3811,12 +4196,14 @@ export function MissionControlMountsView() {
       <ModelPickerStrip
         data={daemon.data}
         selection={pickerSelection}
+        connectionState={daemon.connectionState}
+        hasSessionToken={daemon.hasSessionToken}
         onSelectionChange={updatePickerSelection}
         onLoadSelection={() => daemon.actions.loadPickerSelection(pickerSelection)}
         onUnloadInstance={() => daemon.actions.unloadInstance(pickerSelection.instanceId)}
         onToggleDetails={toggleModelDetails}
         detailsOpen={detailDrawerVisible}
-        compact={activeTab === "routing" || activeTab === "tokens" || activeTab === "benchmarks"}
+        compact={activeTab !== "models"}
         busy={busy}
       />
 
@@ -3834,6 +4221,7 @@ export function MissionControlMountsView() {
             endpoint={daemon.endpoint}
             setEndpoint={daemon.setEndpoint}
             connectionState={daemon.connectionState}
+            hasSessionToken={daemon.hasSessionToken}
             sessionTokenLabel={daemon.sessionTokenLabel}
             message={daemon.message}
             onRefresh={() => void daemon.refresh()}
@@ -3849,9 +4237,12 @@ export function MissionControlMountsView() {
         ) : null}
         {activeTab === "backends" ? (
           <BackendsPanel
+            data={daemon.data}
             backends={daemon.data.backends}
             runtimeEngines={daemon.data.runtimeEngines}
             runtimeSurvey={daemon.data.runtimeSurvey}
+            connectionState={daemon.connectionState}
+            hasSessionToken={daemon.hasSessionToken}
             onProbeNativeBackend={daemon.actions.probeNativeBackend}
             onStartNativeBackend={daemon.actions.startNativeBackend}
             onStopNativeBackend={daemon.actions.stopNativeBackend}
@@ -3863,6 +4254,8 @@ export function MissionControlMountsView() {
         {activeTab === "models" ? (
           <ModelsPanel
             data={daemon.data}
+            connectionState={daemon.connectionState}
+            hasSessionToken={daemon.hasSessionToken}
             onLoadLocalModel={daemon.actions.loadLocalModel}
             onLoadNativeLocalModel={daemon.actions.loadNativeLocalModel}
             onLoadModelWithOptions={daemon.actions.loadModelWithOptions}
@@ -3872,7 +4265,10 @@ export function MissionControlMountsView() {
         ) : null}
         {activeTab === "providers" ? (
           <ProvidersPanel
+            data={daemon.data}
             providers={daemon.data.providers}
+            connectionState={daemon.connectionState}
+            hasSessionToken={daemon.hasSessionToken}
             onConfigureProvider={daemon.actions.configureProvider}
             onBindVaultSecret={daemon.actions.bindVaultSecret}
             onProviderHealth={daemon.actions.testProviderHealth}
@@ -3883,7 +4279,10 @@ export function MissionControlMountsView() {
         ) : null}
         {activeTab === "downloads" ? (
           <DownloadsPanel
+            data={daemon.data}
             downloads={daemon.data.downloads}
+            connectionState={daemon.connectionState}
+            hasSessionToken={daemon.hasSessionToken}
             onDownloadFixture={daemon.actions.downloadFixture}
             onSearchCatalog={daemon.actions.searchCatalog}
             onImportCatalogUrl={daemon.actions.importCatalogUrl}
@@ -3894,6 +4293,8 @@ export function MissionControlMountsView() {
         {activeTab === "tokens" ? (
           <TokensPanel
             data={daemon.data}
+            connectionState={daemon.connectionState}
+            hasSessionToken={daemon.hasSessionToken}
             onCreateToken={daemon.actions.createTokenFromDraft}
             onRevokeToken={daemon.actions.revokeTokenGrant}
             onImportMcpFixture={daemon.actions.importMcpFixture}
@@ -3907,6 +4308,8 @@ export function MissionControlMountsView() {
           <RoutingPanel
             data={daemon.data}
             selection={pickerSelection}
+            connectionState={daemon.connectionState}
+            hasSessionToken={daemon.hasSessionToken}
             onTestRoute={daemon.actions.testRoute}
             onSaveRoute={daemon.actions.saveRouteDraft}
             onTestRouteDraft={daemon.actions.testRouteDraft}
@@ -3918,13 +4321,15 @@ export function MissionControlMountsView() {
           <BenchmarksPanel
             data={daemon.data}
             selection={pickerSelection}
+            connectionState={daemon.connectionState}
+            hasSessionToken={daemon.hasSessionToken}
             onRunBenchmark={daemon.actions.runBenchmark}
             onReplayReceipt={daemon.actions.replayReceipt}
             busy={busy}
           />
         ) : null}
         {activeTab === "logs" ? (
-          <LogsPanel receipts={visibleReceipts} onReplayReceipt={daemon.actions.replayReceipt} busy={busy} />
+          <LogsPanel receipts={visibleReceipts} connectionState={daemon.connectionState} onReplayReceipt={daemon.actions.replayReceipt} busy={busy} />
         ) : null}
       </main>
     </div>
