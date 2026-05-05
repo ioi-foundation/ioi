@@ -427,6 +427,8 @@ test("model mounting live-provider gates are explicit and opt-in", () => {
     "IOI_LLAMA_CPP_MODEL_ID",
     "IOI_LLAMA_CPP_LIVE_TIMEOUT_MS",
     "IOI_LIVE_MODEL_BACKENDS",
+    "IOI_OLLAMA_CHAT_MODEL",
+    "IOI_OLLAMA_EMBEDDING_MODEL",
     "IOI_LIVE_MODEL_CATALOG",
     "IOI_LIVE_MODEL_DOWNLOAD",
     "IOI_MODEL_CATALOG_HF_BASE_URL",

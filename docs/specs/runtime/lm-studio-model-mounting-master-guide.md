@@ -205,7 +205,11 @@ IOI_LIVE_LLAMA_CPP=1 \
   IOI_LLAMA_CPP_SERVER_PATH=/path/to/llama-server \
   IOI_LLAMA_CPP_MODEL_PATH=/path/to/model.gguf \
   npm run test:llama-cpp-live
-IOI_LIVE_MODEL_BACKENDS=1 npm run test:model-backends:live
+IOI_LIVE_MODEL_BACKENDS=1 \
+  OLLAMA_HOST=http://127.0.0.1:11434 \
+  IOI_OLLAMA_CHAT_MODEL=llama3.2:3b \
+  IOI_OLLAMA_EMBEDDING_MODEL=nomic-embed-text:latest \
+  npm run test:model-backends:live
 IOI_LIVE_MODEL_CATALOG=1 npm run test:model-catalog-live
 IOI_REMOTE_WALLET=1 npm run test:wallet-live
 IOI_REMOTE_AGENTGRES=1 npm run test:agentgres-live
@@ -343,7 +347,7 @@ npm run validate:model-mounts-gui:run
 AUTOPILOT_LOCAL_GPU_DEV=1 npm run validate:autopilot-gui-harness:run -- --window-timeout-ms 300000
 IOI_LIVE_LM_STUDIO=1 npm run test:lm-studio-live
 IOI_LIVE_LLAMA_CPP=1 IOI_LLAMA_CPP_SERVER_PATH=/path/to/llama-server IOI_LLAMA_CPP_MODEL_PATH=/path/to/model.gguf npm run test:llama-cpp-live
-OLLAMA_HOST=http://127.0.0.1:11434 IOI_LIVE_MODEL_BACKENDS=1 npm run test:model-backends:live
+OLLAMA_HOST=http://127.0.0.1:11434 IOI_LIVE_MODEL_BACKENDS=1 IOI_OLLAMA_CHAT_MODEL=llama3.2:3b IOI_OLLAMA_EMBEDDING_MODEL=nomic-embed-text:latest npm run test:model-backends:live
 npm run test:model-catalog-live
 IOI_REMOTE_WALLET=1 npm run test:wallet-live
 IOI_REMOTE_AGENTGRES=1 npm run test:agentgres-live
@@ -372,10 +376,13 @@ Broad Autopilot GUI harness:
 docs/evidence/autopilot-gui-harness-validation/2026-05-05T01-40-43-545Z/result.json
 
 LM Studio live:
-docs/evidence/model-mounting-live/lm-studio/2026-05-05T01-18-17Z/result.json
+docs/evidence/model-mounting-live/lm-studio/2026-05-05T18-24-08Z/result.json
 
 Ollama live backend:
-docs/evidence/model-mounting-live/model-backends/2026-05-05T01-26-51Z/result.json
+docs/evidence/model-mounting-live/model-backends/2026-05-05T18-27-05Z/result.json
+
+llama.cpp live runner attempt:
+docs/evidence/model-mounting-live/llama-cpp/2026-05-05T18-27-43Z/result.json
 
 Model catalog live gate command wiring, skipped because the live catalog env was
 not enabled:
@@ -393,8 +400,19 @@ Live local provider evidence on 2026-05-05 UTC:
 - LM Studio live gate passed through public `lms` plus `/v1` using
   `qwen/qwen3.5-9b`, with a model invocation receipt.
 - Ollama live backend gate passed with `OLLAMA_HOST=http://127.0.0.1:11434`,
-  listing six provider models, mounting/loading `qwen3.5:9b`, invoking chat,
-  invoking `nomic-embed-text:latest` embeddings, and verifying receipts.
+  listing six provider models, mounting/loading `llama3.2:3b`, invoking chat,
+  invoking `nomic-embed-text:latest` embeddings, and verifying receipts. The
+  live gate now accepts `IOI_OLLAMA_CHAT_MODEL` and
+  `IOI_OLLAMA_EMBEDDING_MODEL` so operators can select a responsive installed
+  model instead of relying on provider list order.
+- llama.cpp live runner gate reached real `llama-server` spawn, provider
+  health, `/v1/models`, native chat, OpenAI-compatible chat, Responses fallback,
+  route receipts, and invocation receipts using the local `stories260K` GGUF.
+  The run failed only at `/v1/embeddings` because that local model/server
+  combination returned provider HTTP 400 for embeddings; remaining live closeout
+  is validating a GGUF/server configuration with embeddings support or
+  downgrading the live gate to mark embeddings unsupported when the provider
+  rejects them cleanly.
 - wallet.network live gate passed in deterministic fake-remote mode, validating
   `WalletAuthorityPort` configuration, denied-scope fail-closed behavior, MCP
   plaintext-secret rejection, and secret scans.
@@ -562,6 +580,10 @@ gates:
      `IOI_LLAMA_CPP_MODEL_PATH`; it validates real spawn, `/v1/models`,
      chat, Responses fallback, embeddings, unload, receipts, replay, and
      token redaction when a local GGUF artifact is supplied;
+   - the latest local llama.cpp attempt proved real spawn, health, chat,
+     OpenAI-compatible chat, Responses fallback, route receipts, and invocation
+     receipts, but failed at embeddings with provider HTTP 400 for the available
+     `stories260K` GGUF;
    - Ollama has deterministic process-lifecycle parity: configured
      `ollama serve` binaries are supervised with redacted argv and bounded
      logs, model load/unload uses the public `/api/generate` keep-alive path,
@@ -573,8 +595,9 @@ gates:
      and `npm run test:model-backends:live` can exercise it when
      `IOI_VLLM_MODEL` and either a `vllm` binary on `PATH`,
      `IOI_VLLM_BINARY`, or `VLLM_BASE_URL` are configured;
-   - remaining work is running those gates against the operator's live
-     hardware, memory pressure eviction, and backend-specific schedulers.
+   - remaining work is validating llama.cpp embeddings with a compatible local
+     GGUF/server configuration, running vLLM against live hardware, memory
+     pressure eviction, and backend-specific schedulers.
 2. Live catalog/download production hardening:
    - the gated Hugging Face-compatible adapter, format/quantization filters,
      resumable `.part` downloads, checksum verification, source hashing, and

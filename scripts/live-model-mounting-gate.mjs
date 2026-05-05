@@ -738,8 +738,11 @@ async function runModelBackendsGate(evidence) {
           })
         : null;
       const providerModels = await expectOk(daemon.endpoint, "/api/v1/providers/provider.ollama/models");
+      const configuredChatModel = process.env.IOI_OLLAMA_CHAT_MODEL;
       const chatModel =
-        providerModels.find((model) => !String(model.modelId).match(/embed/i))?.modelId ?? providerModels[0]?.modelId;
+        providerModels.find((model) => configuredChatModel && model.modelId === configuredChatModel)?.modelId ??
+        providerModels.find((model) => !String(model.modelId).match(/embed/i))?.modelId ??
+        providerModels[0]?.modelId;
       assert.ok(chatModel, "Ollama live gate could not select a chat model.");
       const chatEndpoint = await expectOk(daemon.endpoint, "/api/v1/models/mount", {
         method: "POST",
@@ -772,7 +775,10 @@ async function runModelBackendsGate(evidence) {
       assert.equal(chatReceipt.details.providerId, "provider.ollama");
       assert.equal(chatReceipt.details.backend, "ollama");
 
-      const embeddingModel = providerModels.find((model) => String(model.modelId).match(/embed/i))?.modelId;
+      const configuredEmbeddingModel = process.env.IOI_OLLAMA_EMBEDDING_MODEL;
+      const embeddingModel =
+        providerModels.find((model) => configuredEmbeddingModel && model.modelId === configuredEmbeddingModel)?.modelId ??
+        providerModels.find((model) => String(model.modelId).match(/embed/i))?.modelId;
       let embeddingReceiptId = null;
       if (embeddingModel) {
         const embeddingEndpoint = await expectOk(daemon.endpoint, "/api/v1/models/mount", {
@@ -815,6 +821,7 @@ async function runModelBackendsGate(evidence) {
         providerModels: providerModels.length,
         providerLoaded: providerLoaded.length,
         selectedChatModel: chatModel,
+        configuredChatModel: configuredChatModel ?? null,
         chatEndpointId: chatEndpoint.id,
         chatInstanceId: chatLoaded.id,
         backendStartReceiptId: ollamaBackendStart?.lastReceiptId ?? null,
@@ -822,6 +829,7 @@ async function runModelBackendsGate(evidence) {
         chatReceiptId: chat.receipt_id,
         unloadStatus: chatUnloaded.status,
         selectedEmbeddingModel: embeddingModel ?? null,
+        configuredEmbeddingModel: configuredEmbeddingModel ?? null,
         embeddingReceiptId,
       };
     }
