@@ -592,6 +592,22 @@ async function handleModelMountingNativeRoute({ request, response, store, url, s
     writeJsonResponse(response, mounts.listRuntimeEngines());
     return;
   }
+  if (request.method === "GET" && segments[2] === "runtime" && segments[3] === "engines" && segments[4]) {
+    writeJsonResponse(response, mounts.runtimeEngine(decodeURIComponent(segments[4])));
+    return;
+  }
+  if (request.method === "POST" && segments[2] === "runtime" && segments[3] === "engines" && segments[4] && segments[5] === "select") {
+    writeJsonResponse(response, mounts.selectRuntimeEngine({ engine_id: decodeURIComponent(segments[4]), ...(await readBody(request)) }));
+    return;
+  }
+  if (request.method === "PATCH" && segments[2] === "runtime" && segments[3] === "engines" && segments[4]) {
+    writeJsonResponse(response, mounts.updateRuntimeEngine(decodeURIComponent(segments[4]), await readBody(request)));
+    return;
+  }
+  if (request.method === "DELETE" && segments[2] === "runtime" && segments[3] === "engines" && segments[4]) {
+    writeJsonResponse(response, mounts.removeRuntimeEngineOverride(decodeURIComponent(segments[4])));
+    return;
+  }
   if (request.method === "POST" && url.pathname === "/api/v1/runtime/survey") {
     writeJsonResponse(response, mounts.runtimeSurvey());
     return;

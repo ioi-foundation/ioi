@@ -71,6 +71,48 @@ export interface ModelBackend {
   lastReceiptId?: string | null;
 }
 
+export interface ModelRuntimeEngineDefaultLoadOptions {
+  gpu?: string;
+  contextLength?: number;
+  parallel?: number;
+  ttlSeconds?: number;
+  identifier?: string;
+}
+
+export interface ModelRuntimeEngineProfile {
+  id: string;
+  engineId: string;
+  label?: string | null;
+  disabled: boolean;
+  priority?: number | null;
+  defaultLoadOptions: ModelRuntimeEngineDefaultLoadOptions;
+  updatedAt: string;
+  receiptId: string;
+  source: string;
+}
+
+export interface ModelRuntimeEngine {
+  id: string;
+  kind: string;
+  label: string;
+  status: string;
+  selected: boolean;
+  modelFormat: string;
+  source: string;
+  processStatus?: string;
+  checkedAt?: string;
+  evidenceRefs?: string[];
+  operatorProfile?: {
+    configured: boolean;
+    disabled: boolean;
+    priority?: number | null;
+    defaultLoadOptions: ModelRuntimeEngineDefaultLoadOptions;
+    updatedAt?: string | null;
+    receiptId?: string | null;
+    source?: string;
+  };
+}
+
 export interface ModelArtifact {
   id: string;
   providerId: string;
@@ -169,6 +211,9 @@ export interface ModelLifecycleEvent {
     | "model_unload"
     | "model_download"
     | "model_idle_evict"
+    | "runtime_engine_select"
+    | "runtime_engine_update"
+    | "runtime_engine_profile_remove"
     | "provider_start"
     | "provider_stop";
   artifactId?: string;

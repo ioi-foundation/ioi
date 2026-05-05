@@ -2,7 +2,7 @@ use super::model_mount_http::{daemon_request, print_value};
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use reqwest::Method;
-use serde_json::json;
+use serde_json::{json, Map, Value};
 
 #[derive(Parser, Debug)]
 pub struct BackendsArgs {
@@ -36,8 +36,36 @@ pub enum BackendsCommands {
     Logs { id: String },
     /// Capture a runtime engine and hardware survey through the daemon.
     Survey,
+    /// List runtime engines discovered from backend drivers and provider CLIs.
+    Engines,
+    /// Inspect a runtime engine, its operator profile, and linked receipts.
+    EngineGet { engine_id: String },
     /// Select the preferred runtime engine for subsequent loads.
     Select { engine_id: String },
+    /// Update a runtime engine operator profile and default load options.
+    EngineUpdate {
+        engine_id: String,
+        #[clap(long)]
+        label: Option<String>,
+        #[clap(long)]
+        priority: Option<i64>,
+        #[clap(long)]
+        disable: bool,
+        #[clap(long)]
+        enable: bool,
+        #[clap(long)]
+        gpu: Option<String>,
+        #[clap(long)]
+        context_length: Option<u64>,
+        #[clap(long)]
+        parallel: Option<u64>,
+        #[clap(long)]
+        ttl_seconds: Option<u64>,
+        #[clap(long)]
+        identifier: Option<String>,
+    },
+    /// Forget the operator profile for a runtime engine.
+    EngineRemove { engine_id: String },
 }
 
 pub async fn run(args: BackendsArgs) -> Result<()> {
@@ -97,6 +125,19 @@ pub async fn run(args: BackendsArgs) -> Result<()> {
             )
             .await?
         }
+        BackendsCommands::Engines => {
+            daemon_request(endpoint, token, Method::GET, "/api/v1/runtime/engines", None).await?
+        }
+        BackendsCommands::EngineGet { engine_id } => {
+            daemon_request(
+                endpoint,
+                token,
+                Method::GET,
+                &format!("/api/v1/runtime/engines/{engine_id}"),
+                None,
+            )
+            .await?
+        }
         BackendsCommands::Select { engine_id } => {
             daemon_request(
                 endpoint,
@@ -104,6 +145,68 @@ pub async fn run(args: BackendsArgs) -> Result<()> {
                 Method::POST,
                 "/api/v1/runtime/select",
                 Some(json!({ "engine_id": engine_id })),
+            )
+            .await?
+        }
+        BackendsCommands::EngineUpdate {
+            engine_id,
+            label,
+            priority,
+            disable,
+            enable,
+            gpu,
+            context_length,
+            parallel,
+            ttl_seconds,
+            identifier,
+        } => {
+            let mut body = Map::new();
+            if let Some(label) = label {
+                body.insert("label".to_string(), Value::String(label));
+            }
+            if let Some(priority) = priority {
+                body.insert("priority".to_string(), Value::Number(priority.into()));
+            }
+            if disable {
+                body.insert("disabled".to_string(), Value::Bool(true));
+            } else if enable {
+                body.insert("disabled".to_string(), Value::Bool(false));
+            }
+            let mut defaults = Map::new();
+            if let Some(gpu) = gpu {
+                defaults.insert("gpu".to_string(), Value::String(gpu));
+            }
+            if let Some(context_length) = context_length {
+                defaults.insert("contextLength".to_string(), Value::Number(context_length.into()));
+            }
+            if let Some(parallel) = parallel {
+                defaults.insert("parallel".to_string(), Value::Number(parallel.into()));
+            }
+            if let Some(ttl_seconds) = ttl_seconds {
+                defaults.insert("ttlSeconds".to_string(), Value::Number(ttl_seconds.into()));
+            }
+            if let Some(identifier) = identifier {
+                defaults.insert("identifier".to_string(), Value::String(identifier));
+            }
+            if !defaults.is_empty() {
+                body.insert("defaultLoadOptions".to_string(), Value::Object(defaults));
+            }
+            daemon_request(
+                endpoint,
+                token,
+                Method::PATCH,
+                &format!("/api/v1/runtime/engines/{engine_id}"),
+                Some(Value::Object(body)),
+            )
+            .await?
+        }
+        BackendsCommands::EngineRemove { engine_id } => {
+            daemon_request(
+                endpoint,
+                token,
+                Method::DELETE,
+                &format!("/api/v1/runtime/engines/{engine_id}"),
+                None,
             )
             .await?
         }

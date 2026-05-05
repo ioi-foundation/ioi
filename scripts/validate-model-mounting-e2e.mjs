@@ -494,6 +494,17 @@ async function main() {
         body: { engine_id: "backend.autopilot.native-local.fixture" },
       });
       assert.equal(selection.selectedEngineId, "backend.autopilot.native-local.fixture");
+      const profile = await expectOk(daemon.endpoint, "/api/v1/runtime/engines/backend.autopilot.native-local.fixture", {
+        method: "PATCH",
+        body: {
+          label: "Autopilot native fixture e2e",
+          priority: 1,
+          defaultLoadOptions: { gpu: "auto", contextLength: 3584, parallel: 3, ttlSeconds: 540, identifier: "e2e-runtime-profile" },
+        },
+      });
+      assert.equal(profile.engine.operatorProfile.defaultLoadOptions.contextLength, 3584);
+      const detail = await expectOk(daemon.endpoint, "/api/v1/runtime/engines/backend.autopilot.native-local.fixture");
+      assert.equal(detail.profile.defaultLoadOptions.parallel, 3);
       const selectedEngines = await expectOk(daemon.endpoint, "/api/v1/runtime/engines");
       assert.equal(selectedEngines.find((engine) => engine.id === selection.selectedEngineId)?.selected, true);
       return {
@@ -502,6 +513,7 @@ async function main() {
         lmStudioStatus: survey.lmStudio.status,
         receiptId: runtimeSurveyReceiptId,
         selectedEngineId: selection.selectedEngineId,
+        profileReceiptId: profile.receiptId,
       };
     });
 
@@ -527,6 +539,16 @@ async function main() {
         token,
         body: { model_id: "native:e2e", id: "endpoint.e2e.native-local", provider_id: "provider.autopilot.local" },
       });
+      const defaultEstimate = await expectOk(daemon.endpoint, "/api/v1/models/load", {
+        method: "POST",
+        token,
+        body: {
+          endpoint_id: mounted.id,
+          estimate_only: true,
+        },
+      });
+      assert.equal(defaultEstimate.loadOptions.contextLength, 3584);
+      assert.equal(defaultEstimate.loadOptions.parallel, 3);
       const estimate = await expectOk(daemon.endpoint, "/api/v1/models/load", {
         method: "POST",
         token,
@@ -930,8 +952,37 @@ async function main() {
       assert.equal(providerHealth.status, "available");
       const runtimeSurvey = await runCli(cli, ["backends", "--json", "survey"], common);
       assert.match(runtimeSurvey.receiptId, /^receipt_runtime_survey_/);
+      const runtimeEngines = await runCli(cli, ["backends", "--json", "engines"], common);
+      assert.ok(runtimeEngines.some((engine) => engine.id === "backend.autopilot.native-local.fixture"));
+      const runtimeEngineUpdate = await runCli(
+        cli,
+        [
+          "backends",
+          "--json",
+          "engine-update",
+          "backend.autopilot.native-local.fixture",
+          "--priority",
+          "2",
+          "--gpu",
+          "auto",
+          "--context-length",
+          "4096",
+          "--parallel",
+          "2",
+          "--ttl-seconds",
+          "600",
+          "--identifier",
+          "cli-runtime-profile",
+        ],
+        common,
+      );
+      assert.equal(runtimeEngineUpdate.engine.operatorProfile.defaultLoadOptions.contextLength, 4096);
+      const runtimeEngineGet = await runCli(cli, ["backends", "--json", "engine-get", "backend.autopilot.native-local.fixture"], common);
+      assert.equal(runtimeEngineGet.profile.defaultLoadOptions.identifier, "cli-runtime-profile");
       const runtimeSelect = await runCli(cli, ["backends", "--json", "select", "backend.autopilot.native-local.fixture"], common);
       assert.equal(runtimeSelect.selectedEngineId, "backend.autopilot.native-local.fixture");
+      const runtimeEngineRemove = await runCli(cli, ["backends", "--json", "engine-remove", "backend.autopilot.native-local.fixture"], common);
+      assert.equal(runtimeEngineRemove.removed, true);
       const catalogSearch = await runCli(cli, ["models", "--json", "catalog-search", "--query", "autopilot"], common);
       assert.ok(catalogSearch.results.length > 0);
       const catalogImport = await runCli(

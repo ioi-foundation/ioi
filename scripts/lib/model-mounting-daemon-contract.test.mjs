@@ -191,6 +191,35 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.match(runtimeSelection.receiptId, /^receipt_model_lifecycle_/);
     const selectedRuntimeEngines = await expectOk(daemon.endpoint, "/api/v1/runtime/engines");
     assert.equal(selectedRuntimeEngines.find((engine) => engine.id === "backend.autopilot.native-local.fixture")?.selected, true);
+    const llamaProfile = await expectOk(daemon.endpoint, "/api/v1/runtime/engines/backend.llama-cpp", {
+      method: "PATCH",
+      body: {
+        disabled: true,
+        priority: 90,
+        defaultLoadOptions: { gpu: "off", contextLength: 2048, parallel: 1, ttlSeconds: 120 },
+      },
+    });
+    assert.equal(llamaProfile.engine.operatorProfile.disabled, true);
+    assert.equal(llamaProfile.engine.operatorProfile.defaultLoadOptions.contextLength, 2048);
+    const disabledRuntimeSelect = await requestJson(daemon.endpoint, "/api/v1/runtime/engines/backend.llama-cpp/select", {
+      method: "POST",
+    });
+    assert.equal(disabledRuntimeSelect.response.status, 409);
+    const removedRuntimeProfile = await expectOk(daemon.endpoint, "/api/v1/runtime/engines/backend.llama-cpp", {
+      method: "DELETE",
+    });
+    assert.equal(removedRuntimeProfile.removed, true);
+    const selectedRuntimeProfile = await expectOk(daemon.endpoint, "/api/v1/runtime/engines/backend.autopilot.native-local.fixture", {
+      method: "PATCH",
+      body: {
+        label: "Autopilot native fixture tuned",
+        priority: 1,
+        defaultLoadOptions: { gpu: "auto", contextLength: 3072, parallel: 3, ttlSeconds: 600, identifier: "runtime-profile-default" },
+      },
+    });
+    assert.equal(selectedRuntimeProfile.engine.operatorProfile.defaultLoadOptions.parallel, 3);
+    const runtimeEngineDetail = await expectOk(daemon.endpoint, "/api/v1/runtime/engines/backend.autopilot.native-local.fixture");
+    assert.equal(runtimeEngineDetail.profile.defaultLoadOptions.contextLength, 3072);
     const backendHealth = await expectOk(daemon.endpoint, "/api/v1/backends/backend.autopilot.native-local.fixture/health", {
       method: "POST",
     });
@@ -258,6 +287,17 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
       body: { model_id: "native:imported", id: "endpoint.test.native-imported" },
     });
     assert.equal(nativeMounted.providerId, "provider.autopilot.local");
+    const defaultedLoadEstimate = await expectOk(daemon.endpoint, "/api/v1/models/load", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        endpoint_id: nativeMounted.id,
+        estimate_only: true,
+      },
+    });
+    assert.equal(defaultedLoadEstimate.loadOptions.contextLength, 3072);
+    assert.equal(defaultedLoadEstimate.loadOptions.parallel, 3);
+    assert.equal(defaultedLoadEstimate.loadOptions.identifier, "runtime-profile-default");
     const nativeLoadEstimate = await expectOk(daemon.endpoint, "/api/v1/models/load", {
       method: "POST",
       token: grant.token,

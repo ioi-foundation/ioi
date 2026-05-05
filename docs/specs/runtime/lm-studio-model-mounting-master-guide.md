@@ -90,7 +90,7 @@ npm run validate:model-mounting:e2e
 Latest deterministic evidence bundle:
 
 ```text
-docs/evidence/model-mounting-e2e/2026-05-05T13-12-44Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T14-11-21Z/result.json
 ```
 
 That bundle passed the following acceptance steps:
@@ -105,6 +105,9 @@ That bundle passed the following acceptance steps:
 - selected runtime preference and load-option parity for estimate-only, GPU,
   context length, parallelism, TTL, and identifier across API, CLI, receipts,
   and Mounts controls;
+- runtime engine profile parity for get/update/remove, disable/enable,
+  operator labels, priority, and default GPU/context/parallel/TTL/identifier
+  load options flowing into later model load estimates;
 - always-reachable Mounts model picker/loader for choosing artifact, provider,
   endpoint, route, and loaded instance through governed load/unload APIs;
 - loaded-instance inspector with backend, context, TTL, route, and linked
@@ -149,13 +152,13 @@ That bundle passed the following acceptance steps:
 The current GUI evidence nested under that E2E bundle is:
 
 ```text
-docs/evidence/model-mounting-e2e/2026-05-05T13-12-44Z/gui/2026-05-05T13-13-15Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T14-11-21Z/gui/2026-05-05T14-11-56Z/result.json
 ```
 
 The current standalone Mounts GUI evidence bundle is:
 
 ```text
-docs/evidence/model-mounts-gui-validation/2026-05-05T13-08-34Z/result.json
+docs/evidence/model-mounts-gui-validation/2026-05-05T14-09-16Z/result.json
 ```
 
 It captured all Mounts tabs as desktop window screenshots:
@@ -282,6 +285,14 @@ These areas are implemented and covered by focused tests:
   - Local Server health summary strip derived from receipts;
   - `Run health sweep` action that fans out across vault, providers, and
     backends before refreshing the projection.
+- Runtime engine profile management:
+  - `GET /api/v1/runtime/engines/:id`;
+  - `PATCH /api/v1/runtime/engines/:id`;
+  - `DELETE /api/v1/runtime/engines/:id`;
+  - `POST /api/v1/runtime/engines/:id/select`;
+  - `ioi backends engines|get|engine-update|engine-remove`;
+  - Mounts Backends runtime profile editor for label, priority, enable/disable,
+    and default load options.
 - Dedicated Mounts desktop GUI validation harness with real window screenshot
   capture and secret scan.
 - Canonical deterministic end-to-end validation harness covering API, CLI, GUI,
@@ -324,13 +335,13 @@ Latest evidence paths:
 
 ```text
 Canonical E2E:
-docs/evidence/model-mounting-e2e/2026-05-05T13-12-44Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T14-11-21Z/result.json
 
 Mounts GUI nested under canonical E2E:
-docs/evidence/model-mounting-e2e/2026-05-05T13-12-44Z/gui/2026-05-05T13-13-15Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T14-11-21Z/gui/2026-05-05T14-11-56Z/result.json
 
 Standalone Mounts GUI with live provider summary:
-docs/evidence/model-mounts-gui-validation/2026-05-05T13-08-34Z/result.json
+docs/evidence/model-mounts-gui-validation/2026-05-05T14-09-16Z/result.json
 
 Broad Autopilot GUI harness:
 docs/evidence/autopilot-gui-harness-validation/2026-05-05T01-40-43-545Z/result.json
@@ -479,10 +490,12 @@ Observed public CLI/API state:
 This trace identifies concrete parity gaps that are more specific than the
 generic hardening list:
 
-- Autopilot now has a user-facing runtime engine inventory and hardware survey
-  comparable to `lms runtime ls` and `lms runtime survey` for deterministic
-  backends and public LM Studio CLI discovery. Remaining parity is runtime
-  selection/update/removal plus richer load scheduling controls.
+- Autopilot now has a user-facing runtime engine inventory, hardware survey,
+  selection, get/update/remove profile controls, disable/enable, priority, and
+  default load-option scheduling comparable to `lms runtime ls`,
+  `lms runtime survey`, and the runtime profile management ergonomics around
+  `lms runtime select/get/update/remove`. Remaining parity is applying those
+  profiles to real process runners beyond the deterministic/native-local path.
 - Autopilot load controls need visible parity with `lms load` options:
   `--gpu`, `--context-length`, `--parallel`, `--ttl`, `--identifier`, and
   `--estimate-only`.
@@ -507,8 +520,10 @@ gates:
 1. Real local inference engines:
    - replace deterministic native-local fixture inference with llama.cpp,
      Ollama, vLLM, or another configured local backend;
-   - add hardware probes, memory pressure eviction, GPU/context scheduling,
-     selected runtime engine management, and real process supervision.
+   - runtime engine profile management and default GPU/context/parallel/TTL
+     scheduling are implemented for the shared path;
+   - remaining work is applying those profiles to real process supervision,
+     memory pressure eviction, and backend-specific schedulers.
 2. Live catalog/download production hardening:
    - the gated Hugging Face-compatible adapter, format/quantization filters,
      resumable `.part` downloads, checksum verification, source hashing, and
@@ -535,9 +550,10 @@ gates:
    - remote OAuth-capable MCP;
    - tool schema discovery and model tool exposure.
 7. Product-complete Mounts UI:
-   - runtime engine and hardware survey panel;
-   - load option editor for GPU offload, context, parallelism, TTL,
-     identifier, and estimate-only;
+   - runtime engine and hardware survey panel plus runtime profile editor are
+     implemented for the deterministic path;
+   - remaining work is richer live-backend error/retry affordances and
+     provider-specific scheduling hints;
    - existing server start/stop/restart/log-tail controls should stay compact;
    - provider-specific controls;
    - download queue polish beyond the current progress/cancel/failure/storage
@@ -569,7 +585,7 @@ implemented as a product surface.
 | Loaded models | `lms ps` shows identifier, model, status, size, context, parallel, device, TTL | Complete for deterministic Mounts path | Add live-provider TTL/device precision, unload confirmations, and app-wide loaded-instance status if needed |
 | Model search/download | `lms get`, direct Hugging Face URL, GGUF/MLX filters, variant select | Partial | Fixture catalog, URL import, variant metadata, and gated Hugging Face adapter boundary exist; add live search/download activation and richer GGUF/MLX filters |
 | Model import | `lms import` supports move/copy/hard-link/symlink/dry-run/user-repo | Complete for deterministic local path | Add live provider-specific import UX polish and benchmark/classification metadata |
-| Runtime engines | `lms runtime ls/select/get/update/remove` | Partial | Runtime engine list and selected-runtime persistence are exposed through API, CLI, receipts, E2E, and Mounts Backends panel; add get/update/remove controls where backends support them |
+| Runtime engines | `lms runtime ls/select/get/update/remove` | Complete for deterministic/shared control path | Runtime engine list, survey, selected-runtime persistence, get/update/remove profiles, disable/enable, priority, default load options, API, CLI, receipts, E2E, and Mounts Backends editor are implemented; remaining live work is backend-specific runner application |
 | Hardware survey | `lms runtime survey` reports GPU/VRAM, CPU features, RAM | Complete for deterministic/public CLI path | Keep redacted survey receipts in projection/replay; add scheduling hints and live runtime preference recommendations |
 | Load options | `lms load --gpu --context-length --parallel --ttl --identifier --estimate-only` | Complete for deterministic/public driver path | Extend from deterministic/native-local and LM Studio public load delegation into real llama.cpp/Ollama/vLLM process runners |
 | Local server | `lms server start|stop|status` and local port `1234` | Complete for deterministic daemon path | Keep start/stop/restart governed by `server.control:*`; package production headless/service supervision |
@@ -627,19 +643,19 @@ npm run validate:model-mounting:e2e
 Latest passing bundle:
 
 ```text
-docs/evidence/model-mounting-e2e/2026-05-05T12-44-29Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T14-11-21Z/result.json
 ```
 
 Nested GUI bundle:
 
 ```text
-docs/evidence/model-mounting-e2e/2026-05-05T12-44-29Z/gui/2026-05-05T12-44-56Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T14-11-21Z/gui/2026-05-05T14-11-56Z/result.json
 ```
 
 Standalone Mounts GUI bundle:
 
 ```text
-docs/evidence/model-mounts-gui-validation/2026-05-05T12-43-07Z/result.json
+docs/evidence/model-mounts-gui-validation/2026-05-05T14-09-16Z/result.json
 ```
 
 The GUI bundle captured nine desktop window screenshots for the Mounts tabs
@@ -895,6 +911,7 @@ ioi models mount <artifact-or-endpoint>
 ioi models load <model-or-route> --ttl 3600 --context-length 8192
 ioi models unload <instance-id|--all>
 ioi models ps
+ioi backends engines|engine-get|engine-update|engine-remove|survey|select
 ioi routes ls
 ioi routes test <route-id>
 ioi server start|stop|restart|status|logs|events
@@ -1393,6 +1410,10 @@ POST /api/v1/models/unload
 GET  /api/v1/models/loaded
 
 GET  /api/v1/runtime/engines
+GET  /api/v1/runtime/engines/:id
+POST /api/v1/runtime/engines/:id/select
+PATCH /api/v1/runtime/engines/:id
+DELETE /api/v1/runtime/engines/:id
 POST /api/v1/runtime/survey
 POST /api/v1/runtime/select
 
@@ -1954,6 +1975,10 @@ Current status:
   `/api/v1/runtime/select`, `ioi backends select`, estimate-only load receipts,
   LM Studio public load delegation argument hashing, `ioi models load` flags,
   and Mounts model load controls.
+- Complete: runtime engine profile management supports get/update/remove,
+  disable/enable, priority, operator label, and default GPU/context/parallel/
+  TTL/identifier options through API, CLI, receipts, projection/replay, E2E,
+  and the Mounts Backends profile editor.
 - Complete: deterministic server/log parity includes governed start, stop,
   restart, log tail, event tail, CLI parity, Mounts Local Server controls, and
   redacted lifecycle receipts.
