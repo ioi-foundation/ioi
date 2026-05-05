@@ -199,6 +199,7 @@ def seed_model_mounting_state(endpoint: str) -> dict[str, Any]:
                 "route.write:*",
                 "mcp.import:*",
                 "mcp.call:huggingface.model_search",
+                "vault.read:*",
             ],
             "denied": ["connector.gmail.send", "filesystem.write", "shell.exec"],
         },
@@ -673,6 +674,24 @@ def wait_for_receipt_condition(
     raise RuntimeError(f"Timed out waiting for {label}. Last error: {last_error}; receipt count: {len(last_receipts)}")
 
 
+def wait_for_new_receipt_condition(
+    endpoint: str,
+    label: str,
+    before_count: int,
+    predicate,
+    *,
+    timeout_secs: float = 25.0,
+    interval_secs: float = 0.5,
+) -> list[dict[str, Any]]:
+    return wait_for_receipt_condition(
+        endpoint,
+        label,
+        lambda receipts: len(receipts) > before_count and predicate(receipts[before_count:]),
+        timeout_secs=timeout_secs,
+        interval_secs=interval_secs,
+    )
+
+
 def exercise_download_row_actions(
     window_id: int,
     output_root: Path,
@@ -778,6 +797,138 @@ def exercise_download_row_actions(
         "failedDownloadId": failed_download_id,
         "retryDownloadId": retried_download.get("id"),
         "retryDownloadReceipt": retried_download.get("receiptId"),
+        "screenshots": action_screenshots,
+    }
+
+
+def exercise_token_mcp_actions(
+    window_id: int,
+    output_root: Path,
+    dev_url: str,
+    endpoint: str,
+    seed: dict[str, Any],
+) -> dict[str, Any]:
+    """Exercise token, vault, and MCP controls through the live Mounts desktop surface."""
+
+    validation_grant_id = "wallet.grant.mounts.gui.validation"
+    action_screenshots: list[dict[str, Any]] = []
+
+    def receipts_before() -> int:
+        receipts = request_json(endpoint, "/api/v1/receipts")
+        return len(receipts) if isinstance(receipts, list) else 0
+
+    activate_tab(window_id, "F6")
+    for shortcut, label, condition_label, predicate in [
+        (
+            "shift+F10",
+            "tokens-after-create-action",
+            "validation token create receipt",
+            lambda receipts: receipt_has_detail(receipts, "permission_token", "grantId", validation_grant_id),
+        ),
+        (
+            "shift+F11",
+            "tokens-after-revoke-action",
+            "validation token revoke receipt",
+            lambda receipts: receipt_has_detail(receipts, "permission_token_revocation", "grantId", validation_grant_id),
+        ),
+        (
+            "shift+F12",
+            "tokens-after-mcp-import-action",
+            "MCP import receipt",
+            lambda receipts: receipt_has_detail(receipts, "mcp_server_import", "id", "mcp.huggingface"),
+        ),
+        (
+            "F13",
+            "tokens-after-ephemeral-mcp-action",
+            "ephemeral MCP linked model receipt",
+            lambda receipts: any(
+                receipt.get("kind") == "model_invocation"
+                and isinstance(receipt.get("details"), dict)
+                and len(receipt["details"].get("toolReceiptIds") or []) > 0
+                and len(receipt["details"].get("ephemeralMcpServerIds") or []) > 0
+                for receipt in receipts
+            ),
+        ),
+        (
+            "F14",
+            "tokens-after-vault-health-action",
+            "vault health receipt",
+            lambda receipts: any(receipt.get("kind") == "vault_adapter_health" for receipt in receipts),
+        ),
+    ]:
+        before_count = receipts_before()
+        run(["xdotool", "key", shortcut], check=False)
+        wait_for_new_receipt_condition(endpoint, condition_label, before_count, predicate)
+        action_screenshots.append(
+            capture_action_state(
+                window_id,
+                output_root,
+                dev_url,
+                endpoint,
+                tab="tokens",
+                name=label,
+            )
+        )
+        time.sleep(1.5)
+
+    run(["xdotool", "key", "F15"], check=False)
+    time.sleep(1.5)
+    latest_vault = request_json(endpoint, "/api/v1/vault/health/latest", token=str(seed.get("token") or ""))
+    action_screenshots.append(
+        capture_action_state(
+            window_id,
+            output_root,
+            dev_url,
+            endpoint,
+            tab="tokens",
+            name="tokens-after-vault-latest-action",
+        )
+    )
+
+    snapshot = request_json(endpoint, "/api/v1/models")
+    receipts = request_json(endpoint, "/api/v1/receipts")
+    validation_tokens = [
+        token for token in snapshot.get("tokens", [])
+        if token.get("grantId") == validation_grant_id
+    ]
+    latest_validation_token = validation_tokens[-1] if validation_tokens else {}
+    linked_invocations = [
+        receipt for receipt in receipts
+        if receipt.get("kind") == "model_invocation"
+        and isinstance(receipt.get("details"), dict)
+        and len(receipt["details"].get("toolReceiptIds") or []) > 0
+        and len(receipt["details"].get("ephemeralMcpServerIds") or []) > 0
+    ]
+    tool_receipt_ids = linked_invocations[-1].get("details", {}).get("toolReceiptIds", []) if linked_invocations else []
+    assertions = {
+        "validationTokenCreated": receipt_has_detail(receipts, "permission_token", "grantId", validation_grant_id),
+        "validationTokenRevoked": receipt_has_detail(receipts, "permission_token_revocation", "grantId", validation_grant_id)
+        and (
+            latest_validation_token.get("state") == "revoked"
+            or bool(latest_validation_token.get("revokedAt"))
+            or int(latest_validation_token.get("revocationEpoch") or 0) > 0
+        ),
+        "mcpImportReceiptRecorded": receipt_has_detail(receipts, "mcp_server_import", "id", "mcp.huggingface"),
+        "mcpServerProjected": any(server.get("id") == "mcp.huggingface" for server in snapshot.get("mcpServers", [])),
+        "ephemeralMcpRegistrationRecorded": any(receipt.get("kind") == "mcp_ephemeral_registration" for receipt in receipts),
+        "ephemeralMcpToolReceiptRecorded": any(receipt.get("kind") == "mcp_tool_invocation" for receipt in receipts),
+        "ephemeralMcpLinkedToModelReceipt": len(tool_receipt_ids) > 0,
+        "vaultHealthReceiptRecorded": any(receipt.get("kind") == "vault_adapter_health" for receipt in receipts),
+        "latestVaultHealthLookupSucceeded": latest_vault.get("receipt", {}).get("kind") == "vault_adapter_health",
+        "rawTokenRedactedFromProjection": all("token" not in token for token in snapshot.get("tokens", [])),
+        "vaultRefsRedactedInMcpProjection": all(
+            not any(str(value).startswith("vault://") for value in (server.get("secretRefs") or {}).values())
+            for server in snapshot.get("mcpServers", [])
+        ),
+        "actionScreenshotsCaptured": all(item.get("screenshot") and not item.get("capture_error") for item in action_screenshots),
+    }
+    return {
+        "passed": all(assertions.values()),
+        "assertions": assertions,
+        "validationGrantId": validation_grant_id,
+        "validationTokenIds": [token.get("id") for token in validation_tokens],
+        "linkedToolReceiptIds": tool_receipt_ids,
+        "latestVaultReceiptId": latest_vault.get("receipt", {}).get("id"),
         "screenshots": action_screenshots,
     }
 
@@ -969,6 +1120,7 @@ def main() -> int:
     secret_scan: dict[str, Any] | None = None
     seeded_assertions: dict[str, Any] | None = None
     download_action_assertions: dict[str, Any] | None = None
+    token_mcp_action_assertions: dict[str, Any] | None = None
     provider_backend_action_assertions: dict[str, Any] | None = None
 
     close_matching_windows(args.window_name)
@@ -1011,6 +1163,14 @@ def main() -> int:
             seed,
         )
         print("[model-mounts-gui] exercised download row actions", flush=True)
+        token_mcp_action_assertions = exercise_token_mcp_actions(
+            window_id,
+            output_root,
+            args.dev_url,
+            daemon_endpoint,
+            seed,
+        )
+        print("[model-mounts-gui] exercised token, vault, and MCP controls", flush=True)
         provider_backend_action_assertions = exercise_provider_backend_actions(
             window_id,
             output_root,
@@ -1033,6 +1193,8 @@ def main() -> int:
             raise RuntimeError("Seeded Mounts GUI state did not cover catalog, failed, canceled, and receipt surfaces.")
         if not download_action_assertions["passed"]:
             raise RuntimeError("Mounts GUI download row actions did not update daemon projection and receipts.")
+        if not token_mcp_action_assertions["passed"]:
+            raise RuntimeError("Mounts GUI token/MCP controls did not update daemon projection and receipts.")
         if not provider_backend_action_assertions["passed"]:
             raise RuntimeError("Mounts GUI provider/backend controls did not update daemon projection and receipts.")
     except Exception as error:
@@ -1056,6 +1218,7 @@ def main() -> int:
         "secretScan": secret_scan,
         "seededStateAssertions": seeded_assertions,
         "downloadActionAssertions": download_action_assertions,
+        "tokenMcpActionAssertions": token_mcp_action_assertions,
         "providerBackendActionAssertions": provider_backend_action_assertions,
         "passed": probe_error is None,
         "probeError": probe_error,

@@ -5,6 +5,8 @@ type MountsTab = "server" | "backends" | "models" | "providers" | "downloads" | 
 type StatusTone = "neutral" | "ready" | "muted" | "warn" | "blocked";
 type ConnectionState = "offline" | "loading" | "connected" | "degraded";
 
+const VALIDATION_TOKEN_GRANT_ID = "wallet.grant.mounts.gui.validation";
+
 interface ActionGuard {
   tone: StatusTone;
   label: string;
@@ -1679,6 +1681,28 @@ function useModelMountsDaemon() {
         runAction("token-revoke", async () => {
           await requestJson(`/api/v1/tokens/${encodeURIComponent(tokenId)}`, { method: "DELETE" });
           return `${tokenId} revoked through the wallet authority boundary.`;
+        }),
+      createValidationToken: () =>
+        runAction("token-create-validation", async () => {
+          const grant = await requestJson("/api/v1/tokens", {
+            method: "POST",
+            body: tokenDraftPayload({
+              ...defaultTokenDraft,
+              grantId: VALIDATION_TOKEN_GRANT_ID,
+              expiresHours: "1",
+            }),
+          });
+          return `${stringValue(grant?.id, "validation grant")} created for GUI validation.`;
+        }),
+      revokeValidationToken: () =>
+        runAction("token-revoke-validation", async () => {
+          const snapshot = normalizeSnapshot(await requestJson("/api/v1/models"), endpoint);
+          const token = snapshot.tokens
+            .filter((candidate) => candidate.grantId === VALIDATION_TOKEN_GRANT_ID && candidate.state !== "revoked")
+            .at(-1);
+          if (!token) throw new Error("No active validation token grant is projected yet.");
+          await requestJson(`/api/v1/tokens/${encodeURIComponent(token.id)}`, { method: "DELETE" });
+          return `${token.id} validation grant revoked.`;
         }),
       startServer: () =>
         runAction("server-start", async () => {
@@ -5126,6 +5150,27 @@ export function MissionControlMountsView() {
     },
     [busy, daemon.actions, validationActionsEnabled],
   );
+  const runTokenMcpValidationAction = useCallback(
+    (
+      action:
+        | "token-create"
+        | "token-revoke"
+        | "mcp-import"
+        | "ephemeral-mcp"
+        | "vault-health"
+        | "vault-health-latest",
+    ) => {
+      if (!validationActionsEnabled || busy) return;
+      setActiveTab("tokens");
+      if (action === "token-create") daemon.actions.createValidationToken();
+      if (action === "token-revoke") daemon.actions.revokeValidationToken();
+      if (action === "mcp-import") daemon.actions.importMcpFixture();
+      if (action === "ephemeral-mcp") daemon.actions.ephemeralMcpProbe();
+      if (action === "vault-health") daemon.actions.checkVaultAdapter();
+      if (action === "vault-health-latest") daemon.actions.latestVaultHealth();
+    },
+    [busy, daemon.actions, validationActionsEnabled],
+  );
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -5149,7 +5194,21 @@ export function MissionControlMountsView() {
           return;
         }
       }
-      if (validationActionsEnabled && ["F10", "F11", "F12"].includes(event.key)) {
+      if (validationActionsEnabled && event.shiftKey && ["F10", "F11", "F12"].includes(event.key)) {
+        event.preventDefault();
+        if (event.key === "F10") runTokenMcpValidationAction("token-create");
+        if (event.key === "F11") runTokenMcpValidationAction("token-revoke");
+        if (event.key === "F12") runTokenMcpValidationAction("mcp-import");
+        return;
+      }
+      if (validationActionsEnabled && ["F13", "F14", "F15"].includes(event.key)) {
+        event.preventDefault();
+        if (event.key === "F13") runTokenMcpValidationAction("ephemeral-mcp");
+        if (event.key === "F14") runTokenMcpValidationAction("vault-health");
+        if (event.key === "F15") runTokenMcpValidationAction("vault-health-latest");
+        return;
+      }
+      if (validationActionsEnabled && !event.shiftKey && ["F10", "F11", "F12"].includes(event.key)) {
         event.preventDefault();
         if (event.key === "F10") runDownloadValidationAction("cancel");
         if (event.key === "F11") runDownloadValidationAction("retry");
@@ -5168,7 +5227,7 @@ export function MissionControlMountsView() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [runDownloadValidationAction, runProviderBackendValidationAction, validationActionsEnabled]);
+  }, [runDownloadValidationAction, runProviderBackendValidationAction, runTokenMcpValidationAction, validationActionsEnabled]);
 
   return (
     <div className="mission-control-view mission-control-view--mounts">
