@@ -314,6 +314,8 @@ async function main() {
   let nativeReceiptId = null;
   let ephemeralReceiptId = null;
   let ephemeralToolReceiptIds = [];
+  const cliVaultRef = "vault://provider/e2e-cli/api-key";
+  let cliVaultHash = null;
 
   try {
     daemon = await startRuntimeDaemonService({ cwd: workspaceDir, stateDir });
@@ -712,7 +714,6 @@ async function main() {
       assert.ok(models.artifacts.some((artifact) => artifact.modelId === "native:e2e"));
       const providerModels = await runCli(cli, ["models", "--json", "provider-models", "provider.autopilot.local"], common);
       assert.ok(providerModels.some((model) => model.modelId === "autopilot:native-fixture"));
-      const cliVaultRef = "vault://provider/e2e-cli/api-key";
       const cliVaultMaterial = `cli-e2e-${crypto.randomUUID()}`;
       secretNeedles.push(cliVaultMaterial);
       const vaultSet = await runCli(
@@ -733,6 +734,7 @@ async function main() {
         { ...common, env: { IOI_E2E_CLI_VAULT_SECRET: cliVaultMaterial } },
       );
       assert.equal(vaultSet.configured, true);
+      cliVaultHash = vaultSet.vaultRefHash;
       assert.equal(vaultSet.vaultRef.redacted, true);
       assert.equal(JSON.stringify(vaultSet).includes(cliVaultRef), false);
       assert.equal(JSON.stringify(vaultSet).includes(cliVaultMaterial), false);
@@ -818,10 +820,21 @@ async function main() {
       assert.ok(projection.artifacts.some((artifact) => artifact.modelId === "native:e2e"));
       assert.ok(projection.invocationReceipts.some((item) => item.id === nativeReceiptId));
       assert.ok(projection.toolReceipts.some((item) => ephemeralToolReceiptIds.includes(item.id)));
+      const vaultMeta = await expectOk(daemon.endpoint, "/api/v1/vault/refs/meta", {
+        method: "POST",
+        token,
+        body: { vault_ref: cliVaultRef },
+      });
+      assert.equal(vaultMeta.configured, true);
+      assert.equal(vaultMeta.vaultRefHash, cliVaultHash);
+      assert.equal(vaultMeta.resolvedMaterial, false);
+      assert.equal(vaultMeta.requiresRebind, true);
+      assert.equal(JSON.stringify(vaultMeta).includes(cliVaultRef), false);
       return {
         projectionWatermark: projection.watermark,
         invocationReceipts: projection.invocationReceipts.length,
         toolReceipts: projection.toolReceipts.length,
+        vaultMetadataRequiresRebind: vaultMeta.requiresRebind,
       };
     });
 
