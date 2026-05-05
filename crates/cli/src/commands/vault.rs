@@ -44,8 +44,11 @@ pub enum VaultCommands {
     Ls,
     /// Show the active vault material adapter mode.
     Status,
-    /// Probe the active vault material adapter without exposing material.
-    Health,
+    /// Probe the active vault material adapter or inspect the latest health receipt.
+    Health {
+        #[clap(long)]
+        latest: bool,
+    },
     /// Inspect one vault ref's redacted metadata.
     GetMeta {
         #[clap(long)]
@@ -91,8 +94,19 @@ pub async fn run(args: VaultArgs) -> Result<()> {
         VaultCommands::Status => {
             daemon_request(endpoint, token, Method::GET, "/api/v1/vault/status", None).await?
         }
-        VaultCommands::Health => {
-            daemon_request(endpoint, token, Method::POST, "/api/v1/vault/health", None).await?
+        VaultCommands::Health { latest } => {
+            if latest {
+                daemon_request(
+                    endpoint,
+                    token,
+                    Method::GET,
+                    "/api/v1/vault/health/latest",
+                    None,
+                )
+                .await?
+            } else {
+                daemon_request(endpoint, token, Method::POST, "/api/v1/vault/health", None).await?
+            }
         }
         VaultCommands::GetMeta { vault_ref } => {
             daemon_request(

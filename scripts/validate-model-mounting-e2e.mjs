@@ -755,6 +755,11 @@ async function main() {
       assert.equal(typeof vaultHealth.receiptId, "string");
       assert.equal(JSON.stringify(vaultHealth).includes(cliVaultRef), false);
       assert.equal(JSON.stringify(vaultHealth).includes(cliVaultMaterial), false);
+      const vaultHealthLatest = await runCli(cli, ["vault", "--json", "health", "--latest"], common);
+      assert.equal(vaultHealthLatest.receipt.id, vaultHealth.receiptId);
+      assert.equal(vaultHealthLatest.replay.receipt.id, vaultHealth.receiptId);
+      assert.equal(JSON.stringify(vaultHealthLatest).includes(cliVaultRef), false);
+      assert.equal(JSON.stringify(vaultHealthLatest).includes(cliVaultMaterial), false);
       const configuredProvider = await runCli(
         cli,
         [
@@ -792,6 +797,15 @@ async function main() {
       assert.equal(JSON.stringify(configuredProvider).includes(cliVaultMaterial), false);
       const loaded = await runCli(cli, ["models", "--json", "ps"], common);
       assert.ok(loaded.some((instance) => instance.modelId === "native:e2e"));
+      const providerHealth = await runCli(cli, ["models", "--json", "provider-health", "provider.autopilot.local"], common);
+      assert.equal(providerHealth.status, "available");
+      const providerHealthLatest = await runCli(
+        cli,
+        ["models", "--json", "provider-health", "provider.autopilot.local", "--latest"],
+        common,
+      );
+      assert.equal(providerHealthLatest.receipt.id, providerHealth.discovery.lastHealthCheck.receiptId);
+      assert.equal(providerHealthLatest.replay.receipt.id, providerHealth.discovery.lastHealthCheck.receiptId);
       const routes = await runCli(cli, ["routes", "--json", "ls"], common);
       assert.ok(routes.some((route) => route.id === "route.e2e.native"));
       const routeTest = await runCli(cli, ["routes", "--json", "test", "route.e2e.native", "--privacy", "local_only"], common);

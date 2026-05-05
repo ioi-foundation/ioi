@@ -128,6 +128,10 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(vaultHealth.status, "session_only");
     assert.equal(vaultHealth.materialAdapter.writeAvailable, true);
     assert.equal(vaultHealth.materialAdapter.plaintextPersistence, false);
+    const latestVaultHealth = await expectOk(daemon.endpoint, "/api/v1/vault/health/latest", { token: grant.token });
+    assert.equal(latestVaultHealth.receipt.id, vaultHealth.receiptId);
+    assert.equal(latestVaultHealth.health.status, "session_only");
+    assert.equal(latestVaultHealth.replay.receipt.id, vaultHealth.receiptId);
 
     const nativeProviderModels = await expectOk(daemon.endpoint, "/api/v1/providers/provider.autopilot.local/models");
     assert.ok(nativeProviderModels.some((model) => model.modelId === "autopilot:native-fixture"));
@@ -1130,6 +1134,11 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
     assert.ok(projectionAfterHealth.providerHealth.some((record) => record.receiptId === providerHealthReceipt.id));
     assert.ok(projectionAfterHealth.providerHealthReceipts.some((receipt) => receipt.id === providerHealthReceipt.id));
     assert.equal(JSON.stringify(projectionAfterHealth.providerHealth).includes(vaultRef), false);
+    const latestProviderHealth = await expectOk(daemon.endpoint, "/api/v1/providers/provider.test.custom-vault/health/latest");
+    assert.equal(latestProviderHealth.receipt.id, providerHealthReceipt.id);
+    assert.equal(latestProviderHealth.health.status, "available");
+    assert.equal(latestProviderHealth.replay.receipt.id, providerHealthReceipt.id);
+    assert.equal(JSON.stringify(latestProviderHealth).includes(vaultMaterial), false);
 
     const providerModels = await expectOk(daemon.endpoint, "/api/v1/providers/provider.test.custom-vault/models");
     assert.ok(providerModels.some((model) => model.modelId === "vllm-qwen"));

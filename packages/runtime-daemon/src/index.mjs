@@ -690,6 +690,11 @@ async function handleModelMountingNativeRoute({ request, response, store, url, s
     writeJsonResponse(response, mounts.vaultStatus());
     return;
   }
+  if (request.method === "GET" && url.pathname === "/api/v1/vault/health/latest") {
+    mounts.authorize(authorization, "vault.read:*");
+    writeJsonResponse(response, mounts.latestVaultHealth());
+    return;
+  }
   if (request.method === "POST" && url.pathname === "/api/v1/vault/health") {
     mounts.authorize(authorization, "vault.read:*");
     writeJsonResponse(response, mounts.vaultHealth());
@@ -718,6 +723,10 @@ async function handleModelMountingNativeRoute({ request, response, store, url, s
   if (request.method === "PATCH" && segments[2] === "providers" && segments[3]) {
     mounts.authorize(authorization, `provider.write:${decodeURIComponent(segments[3])}`);
     writeJsonResponse(response, mounts.upsertProvider({ ...(await readBody(request)), id: decodeURIComponent(segments[3]) }));
+    return;
+  }
+  if (request.method === "GET" && segments[2] === "providers" && segments[3] && segments[4] === "health" && segments[5] === "latest") {
+    writeJsonResponse(response, mounts.latestProviderHealth(decodeURIComponent(segments[3])));
     return;
   }
   if (request.method === "POST" && segments[2] === "providers" && segments[3] && segments[4] === "health") {
