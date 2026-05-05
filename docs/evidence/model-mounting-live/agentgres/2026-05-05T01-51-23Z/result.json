@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "ioi.model-mounting.live-gate.v1",
+  "gate": "agentgres",
+  "status": "passed",
+  "startedAt": "2026-05-05T01:51:23.783Z",
+  "outputDir": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounting-live/agentgres/2026-05-05T01-51-23Z",
+  "commands": [],
+  "details": {
+    "remoteMode": "deterministic_fake_remote",
+    "fallbackReason": "remote_agentgres_not_configured",
+    "daemonEndpoint": "http://127.0.0.1:34689",
+    "stateDir": "/tmp/ioi-live-model-gate-state-XpeXD0"
+  },
+  "result": {
+    "remoteMode": "deterministic_fake_remote",
+    "remoteHealth": {
+      "ok": true,
+      "status": 200,
+      "service": "fake-agentgres",
+      "port": "AgentgresModelMountingStorePort",
+      "methodCount": 3,
+      "urlHash": "7dac67fe8b5c44b90e76ff5845f7cb9b742445d70f1fc7b1c67ccc8486050243"
+    },
+    "port": "AgentgresModelMountingStorePort",
+    "implementation": "local_operation_log",
+    "remoteAdapter": {
+      "configured": true,
+      "urlHash": "7dac67fe8b5c44b90e76ff5845f7cb9b742445d70f1fc7b1c67ccc8486050243"
+    },
+    "projectionWatermark": 10,
+    "downloadId": "download_job_2375469e-8366-42b2-87c7-2340c7b8386e",
+    "chatReceiptId": "receipt_model_invocation_44730626-5e9b-4cf7-a352-611bd3bda68b",
+    "replaySource": "agentgres_model_mounting_projection_replay",
+    "secretScan": {
+      "passed": true,
+      "findings": []
+    },
+    "fakeRemoteRequests": [
+      {
+        "method": "GET",
+        "pathname": "/health"
+      }
+    ]
+  },
+  "completedAt": "2026-05-05T01:51:24.449Z"
+}
