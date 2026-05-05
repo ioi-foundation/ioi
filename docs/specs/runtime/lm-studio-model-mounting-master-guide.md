@@ -578,8 +578,12 @@ generic hardening list:
 - Autopilot now has deterministic OpenAI-compatible Responses SSE for
   `/v1/responses` with `response.created`, output item/content part, text
   delta, and `response.completed` events that carry receipt/route/tool receipt
-  metadata. Remaining parity is provider-native token streaming, cancellation,
-  and advanced Responses state/tool-output submission.
+  metadata.
+- Deterministic SSE streams for `/v1/chat/completions`, `/v1/responses`, and
+  `/v1/messages` now record `model_invocation_stream_canceled` receipts when
+  the client disconnects before the final frame. Remaining parity is
+  provider-native token streaming, transport-level upstream cancellation, and
+  advanced Responses state/tool-output submission.
 - Autopilot streaming needs to move from filtered receipt/event observability
   to true response streaming where supported: native `/api/v1/chat` token
   streams, OpenAI-compatible SSE streams, Anthropic-compatible SSE events,
@@ -690,6 +694,8 @@ gates:
      with final `[DONE]` and governed receipt metadata;
    - OpenAI-compatible `/v1/responses` deterministic SSE is implemented with
      Responses-style events and governed receipt metadata;
+   - deterministic stream cancellation receipts are implemented for
+     `/v1/chat/completions`, `/v1/responses`, and `/v1/messages`;
    - true token streaming for `/api/v1/chat`, `/v1/responses`,
      `/v1/chat/completions`, and `/v1/messages`, including model-load and
      prompt-processing events where the native API can express them;
@@ -735,8 +741,8 @@ implemented as a product surface.
 | Hardware survey | `lms runtime survey` reports GPU/VRAM, CPU features, RAM | Complete for deterministic/public CLI path | Keep redacted survey receipts in projection/replay; add scheduling hints and live runtime preference recommendations |
 | Load options | `lms load --gpu --context-length --parallel --ttl --identifier --estimate-only` | Complete for deterministic/public driver path | Runtime defaults now flow into redacted process argv for deterministic native-local, configured llama.cpp, Ollama serve, and vLLM serve runners; live tuning recommendations remain future scheduler work |
 | Local server | `lms server start|stop|status` and local port `1234` | Complete for deterministic daemon path | Keep start/stop/restart governed by `server.control:*`; package production headless/service supervision |
-| OpenAI-compatible API | `/v1/models`, chat completions, Responses, embeddings | Complete for daemon path | Chat-completion and Responses deterministic SSE now exist; add provider-native token streaming, cancellation, richer OpenAI error shape, tool-output submission, and advanced Responses state |
-| Anthropic-compatible API | `/v1/messages` with `x-api-key`/Bearer auth and SSE events | Partial | Message calls and deterministic SSE route through router/capability/MCP/receipt path; add provider-native token streaming, cancellation, richer content blocks, and advanced tool-use compatibility |
+| OpenAI-compatible API | `/v1/models`, chat completions, Responses, embeddings | Complete for daemon path | Chat-completion and Responses deterministic SSE plus cancellation receipts now exist; add provider-native token streaming, upstream cancellation, richer OpenAI error shape, tool-output submission, and advanced Responses state |
+| Anthropic-compatible API | `/v1/messages` with `x-api-key`/Bearer auth and SSE events | Partial | Message calls, deterministic SSE, and cancellation receipts route through router/capability/MCP/receipt path; add provider-native token streaming, upstream cancellation, richer content blocks, and advanced tool-use compatibility |
 | Native model API | LM Studio has public local primitives plus OpenAI-compatible surface | Complete, Autopilot-specific | Keep IOI-native routes authoritative and prevent `/v1/*` policy bypass |
 | Stateful/streaming native chat | `/api/v1/chat` supports stateful chat, token streams, model-load events, prompt-processing events, context length in request, and MCP integrations | Partial | Current deterministic observability is receipt/event based; add true streaming transport, stateful continuation, cancel/interrupt, and per-request context-length handling |
 | Request/response logs | `lms log stream` | Complete for deterministic Mounts path | Server log/event tail and filtered request/response receipt observability are visible through API/CLI/Mounts; add raw streaming transport parity for live provider/backend logs where supported |
@@ -2153,6 +2159,9 @@ Current status:
   receipts, accepts Bearer or `x-api-key` capability tokens, records invocation
   receipts, supports deterministic Anthropic SSE events with final receipt
   metadata, and fails closed for missing, denied, and revoked tokens.
+- Complete: deterministic stream cancellation receipts are emitted when clients
+  disconnect before the final SSE frame on `/v1/chat/completions`,
+  `/v1/responses`, and `/v1/messages`.
 - Complete: native endpoints return provider-neutral objects.
 - Complete: tokens enforce model/tool/MCP capability scopes.
 - Complete: Mounts token scope editor creates session-only raw tokens,

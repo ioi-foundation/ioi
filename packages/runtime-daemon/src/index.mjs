@@ -943,7 +943,7 @@ async function handleOpenAiCompatibilityRoute({ request, response, store, url })
       body,
     });
     if (body.stream === true) {
-      writeOpenAiChatCompletionStream(response, invocation);
+      await writeOpenAiChatCompletionStream(response, invocation, mounts);
       return;
     }
     writeJsonResponse(response, openAiChatCompletion(invocation, body));
@@ -958,7 +958,7 @@ async function handleOpenAiCompatibilityRoute({ request, response, store, url })
       body,
     });
     if (body.stream === true) {
-      writeOpenAiResponseStream(response, invocation);
+      await writeOpenAiResponseStream(response, invocation, mounts);
       return;
     }
     writeJsonResponse(response, openAiResponse(invocation));
@@ -995,7 +995,7 @@ async function handleOpenAiCompatibilityRoute({ request, response, store, url })
       body: anthropicMessagesToCanonicalBody(body),
     });
     if (body.stream === true) {
-      writeAnthropicMessageStream(response, invocation);
+      await writeAnthropicMessageStream(response, invocation, mounts);
       return;
     }
     writeJsonResponse(response, anthropicMessage(invocation));
@@ -1076,7 +1076,7 @@ function anthropicContentToText(content) {
   return String(content ?? "");
 }
 
-function writeAnthropicMessageStream(response, invocation) {
+async function writeAnthropicMessageStream(response, invocation, mounts) {
   const message = anthropicMessage(invocation);
   const text = String(message.content?.[0]?.text ?? "");
   const chunks = textChunksForSse(text);
@@ -1148,11 +1148,13 @@ function writeAnthropicMessageStream(response, invocation) {
       },
     },
   ];
-  response.statusCode = 200;
-  response.setHeader("content-type", "text/event-stream");
-  response.setHeader("cache-control", "no-cache");
-  response.setHeader("x-ioi-receipt-id", message.receipt_id);
-  response.end(events.map((event) => `event: ${event.event}\ndata: ${JSON.stringify(event.data)}\n\n`).join(""));
+  await writeModelSseFrames({
+    response,
+    invocation,
+    mounts,
+    streamKind: "anthropic_messages",
+    frames: events.map((event) => `event: ${event.event}\ndata: ${JSON.stringify(event.data)}\n\n`),
+  });
 }
 
 function textChunksForSse(text) {
@@ -1161,7 +1163,7 @@ function textChunksForSse(text) {
   return chunks?.length ? chunks : [text];
 }
 
-function writeOpenAiChatCompletionStream(response, invocation) {
+async function writeOpenAiChatCompletionStream(response, invocation, mounts) {
   const id = `chatcmpl_${crypto.randomUUID()}`;
   const created = Math.floor(Date.now() / 1000);
   const chunks = textChunksForSse(invocation.outputText);
@@ -1188,14 +1190,16 @@ function writeOpenAiChatCompletionStream(response, invocation) {
       choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
     },
   ];
-  response.statusCode = 200;
-  response.setHeader("content-type", "text/event-stream");
-  response.setHeader("cache-control", "no-cache");
-  response.setHeader("x-ioi-receipt-id", invocation.receipt.id);
-  response.end(payloads.map((payload) => `data: ${JSON.stringify(payload)}\n\n`).join("") + "data: [DONE]\n\n");
+  await writeModelSseFrames({
+    response,
+    invocation,
+    mounts,
+    streamKind: "openai_chat_completions",
+    frames: [...payloads.map((payload) => `data: ${JSON.stringify(payload)}\n\n`), "data: [DONE]\n\n"],
+  });
 }
 
-function writeOpenAiResponseStream(response, invocation) {
+async function writeOpenAiResponseStream(response, invocation, mounts) {
   const responseId = `resp_${crypto.randomUUID()}`;
   const outputItemId = `msg_${crypto.randomUUID()}`;
   const createdAt = Math.floor(Date.now() / 1000);
@@ -1273,11 +1277,74 @@ function writeOpenAiResponseStream(response, invocation) {
     },
     { event: "response.completed", data: { type: "response.completed", response: completedResponse } },
   ];
+  await writeModelSseFrames({
+    response,
+    invocation,
+    mounts,
+    streamKind: "openai_responses",
+    frames: events.map((event) => `event: ${event.event}\ndata: ${JSON.stringify(event.data)}\n\n`),
+  });
+}
+
+async function writeModelSseFrames({ response, invocation, mounts, streamKind, frames }) {
+  let completed = false;
+  let canceled = false;
+  const onClose = () => {
+    if (completed || canceled) return;
+    canceled = true;
+    recordModelStreamCanceled({ mounts, invocation, streamKind, framesWritten: written });
+  };
+  let written = 0;
   response.statusCode = 200;
   response.setHeader("content-type", "text/event-stream");
   response.setHeader("cache-control", "no-cache");
   response.setHeader("x-ioi-receipt-id", invocation.receipt.id);
-  response.end(events.map((event) => `event: ${event.event}\ndata: ${JSON.stringify(event.data)}\n\n`).join(""));
+  response.on("close", onClose);
+  try {
+    for (const frame of frames) {
+      if (canceled || response.destroyed || response.writableEnded) break;
+      response.write(frame);
+      written += 1;
+      await delay(streamFrameDelayMs());
+    }
+    if (!canceled && !response.destroyed && !response.writableEnded) {
+      completed = true;
+      response.end();
+    }
+  } finally {
+    response.off("close", onClose);
+  }
+}
+
+function recordModelStreamCanceled({ mounts, invocation, streamKind, framesWritten }) {
+  mounts.receipt("model_invocation_stream_canceled", {
+    summary: `${streamKind} stream canceled for ${invocation.model}.`,
+    redaction: "redacted",
+    evidenceRefs: ["model_stream", streamKind, invocation.receipt.id, invocation.route.id, invocation.endpoint.id],
+    details: {
+      streamKind,
+      invocationReceiptId: invocation.receipt.id,
+      routeId: invocation.route.id,
+      selectedModel: invocation.model,
+      endpointId: invocation.endpoint.id,
+      providerId: invocation.endpoint.providerId,
+      instanceId: invocation.instance.id,
+      backendId: invocation.instance.backendId ?? invocation.receipt.details?.backendId ?? null,
+      toolReceiptIds: invocation.toolReceiptIds ?? [],
+      framesWritten,
+      reason: "client_disconnect",
+    },
+  });
+}
+
+function streamFrameDelayMs() {
+  const configured = Number(process.env.IOI_DETERMINISTIC_SSE_FRAME_DELAY_MS ?? "");
+  if (Number.isFinite(configured) && configured >= 0) return Math.min(configured, 1000);
+  return 5;
+}
+
+function delay(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 function nativeInvocationResponse(invocation) {
