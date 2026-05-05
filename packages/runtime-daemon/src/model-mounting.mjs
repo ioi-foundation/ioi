@@ -4642,6 +4642,8 @@ export class ModelMountingState {
     if (contextLength) args.push("--ctx-size", String(contextLength));
     if (parallel) args.push("--parallel", String(parallel));
     if (gpu) args.push("--n-gpu-layers", gpu === "max" ? "999" : gpu === "off" ? "0" : String(gpu));
+    const embeddingEnabled = loadOptions.embeddings ?? endpoint?.capabilities?.includes?.("embeddings") ?? true;
+    if (embeddingEnabled) args.push("--embedding");
     const bind = backendBindAddress(backend.baseUrl);
     if (bind.host) args.push("--host", bind.host);
     if (bind.port) args.push("--port", String(bind.port));

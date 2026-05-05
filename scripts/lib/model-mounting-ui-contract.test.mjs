@@ -314,6 +314,10 @@ test("model mounting live-provider gates are explicit and opt-in", () => {
     "node scripts/live-model-mounting-gate.mjs lm-studio",
   );
   assert.equal(
+    packageJson.scripts["test:llama-cpp-live"],
+    "node scripts/live-model-mounting-gate.mjs llama-cpp",
+  );
+  assert.equal(
     packageJson.scripts["test:model-backends:live"],
     "node scripts/live-model-mounting-gate.mjs model-backends",
   );
@@ -331,6 +335,10 @@ test("model mounting live-provider gates are explicit and opt-in", () => {
   );
   for (const token of [
     "IOI_LIVE_LM_STUDIO",
+    "IOI_LIVE_LLAMA_CPP",
+    "IOI_LLAMA_CPP_MODEL_PATH",
+    "IOI_LLAMA_CPP_MODEL_ID",
+    "IOI_LLAMA_CPP_LIVE_TIMEOUT_MS",
     "IOI_LIVE_MODEL_BACKENDS",
     "IOI_LIVE_MODEL_CATALOG",
     "IOI_LIVE_MODEL_DOWNLOAD",
