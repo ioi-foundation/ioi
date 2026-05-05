@@ -374,15 +374,18 @@ interface CatalogPreview {
 interface CatalogVariantPreview {
   id: string;
   modelId: string;
+  family: string;
   catalogProviderId: string;
   format: string;
   quantization: string;
+  context: string;
   size: string;
   sizeBytes: number;
   sourceLabel: string;
   sourceUrl: string;
   sourceHash: string;
   compatibility: string[];
+  tags: string[];
   license: string;
   gate: string;
 }
@@ -402,6 +405,7 @@ interface DownloadPreview {
   checksum: string;
   receipt: string;
   failureReason: string;
+  failureClass: string;
   format: string;
   quantization: string;
   sizeBytes: number;
@@ -750,8 +754,9 @@ const fallbackData: MountsWorkbenchData = {
     },
   ],
   downloads: [
-    { id: "download_job_fixture", model: "local:auto", providerId: "provider.autopilot.local", status: "completed", progress: "100%", source: "fixture://catalog/autopilot-native-3b-q4", sourceLabel: "Fixture catalog", sourceHash: "fixture", bytes: "unknown", maxBytes: "not bounded", maxBytesValue: 0, checksum: "sha256 redacted", receipt: "receipt_model_lifecycle_*", failureReason: "none", format: "gguf", quantization: "Q4_K_M", sizeBytes: 0 },
-    { id: "download_queue_empty", model: "queue", providerId: "provider.autopilot.local", status: "empty", progress: "0 active jobs", source: "", sourceLabel: "No queued downloads", sourceHash: "none", bytes: "0", maxBytes: "not bounded", maxBytesValue: 0, checksum: "none", receipt: "none", failureReason: "none", format: "unknown", quantization: "unknown", sizeBytes: 0 },
+    { id: "download_job_fixture", model: "local:auto", providerId: "provider.autopilot.local", status: "completed", progress: "100%", source: "fixture://catalog/autopilot-native-3b-q4", sourceLabel: "Fixture catalog", sourceHash: "fixture", bytes: "1.2 GB / 1.2 GB", maxBytes: "not bounded", maxBytesValue: 0, checksum: "sha256 redacted", receipt: "receipt_model_lifecycle_*", failureReason: "none", failureClass: "none", format: "gguf", quantization: "Q4_K_M", sizeBytes: 1288490188 },
+    { id: "download_job_retry_fixture", model: "autopilot:native-fixture", providerId: "provider.autopilot.local", status: "failed", progress: "42%", source: "fixture://catalog/autopilot-native-3b-q4", sourceLabel: "Fixture catalog", sourceHash: "fixture", bytes: "512 MB / 1.2 GB", maxBytes: "2 GB", maxBytesValue: 2147483648, checksum: "pending", receipt: "receipt_model_lifecycle_failed_*", failureReason: "checksum_mismatch", failureClass: "integrity", format: "gguf", quantization: "Q4_K_M", sizeBytes: 1288490188 },
+    { id: "download_queue_empty", model: "queue", providerId: "provider.autopilot.local", status: "empty", progress: "0 active jobs", source: "", sourceLabel: "No queued downloads", sourceHash: "none", bytes: "0", maxBytes: "not bounded", maxBytesValue: 0, checksum: "none", receipt: "none", failureReason: "none", failureClass: "none", format: "unknown", quantization: "unknown", sizeBytes: 0 },
   ],
   tokens: [
     {
@@ -911,6 +916,45 @@ const fallbackData: MountsWorkbenchData = {
     latestStatus: "ready",
   },
 };
+
+const fallbackCatalogVariants: CatalogVariantPreview[] = [
+  {
+    id: "catalog.fixture.autopilot-native-3b-q4",
+    modelId: "autopilot:native-fixture",
+    family: "autopilot-native",
+    catalogProviderId: "catalog.fixture",
+    format: "gguf",
+    quantization: "Q4_K_M",
+    context: "8192",
+    size: "1.2 GB",
+    sizeBytes: 1288490188,
+    sourceLabel: "Fixture catalog",
+    sourceUrl: "fixture://catalog/autopilot-native-3b-q4",
+    sourceHash: "fixture",
+    compatibility: ["native_local_fixture", "llama_cpp"],
+    tags: ["chat", "responses", "embeddings"],
+    license: "fixture",
+    gate: "fixture",
+  },
+  {
+    id: "catalog.huggingface.tinyllamas-stories260k",
+    modelId: "native:live-catalog-stories260k",
+    family: "tinyllamas",
+    catalogProviderId: "catalog.huggingface",
+    format: "gguf",
+    quantization: "F32",
+    context: "small fixture",
+    size: "1.1 MB",
+    sizeBytes: 1185376,
+    sourceLabel: "Hugging Face-compatible tiny GGUF",
+    sourceUrl: "https://redacted.example/hf/tinyllamas/stories260K.gguf",
+    sourceHash: "e58f33740a7",
+    compatibility: ["native_local_fixture", "llama_cpp"],
+    tags: ["live-gated", "byte-cap-safe"],
+    license: "unknown",
+    gate: "IOI_LIVE_MODEL_CATALOG + IOI_LIVE_MODEL_DOWNLOAD",
+  },
+];
 
 function provider(
   id: string,
@@ -1668,11 +1712,13 @@ function useModelMountsDaemon() {
     try {
       const snapshot = await requestJson("/api/v1/models");
       setData(normalizeSnapshot(snapshot, endpoint));
-      setCatalogVariants((current) => (current.length > 0 ? current : normalizeCatalogVariants(snapshot?.catalog?.results)));
+      const nextCatalogVariants = normalizeCatalogVariants(snapshot?.catalog?.results);
+      setCatalogVariants((current) => (nextCatalogVariants.length > 0 ? nextCatalogVariants : current));
       setConnectionState("connected");
       setMessage("Daemon snapshot loaded.");
     } catch (error) {
       setData(fallbackData);
+      setCatalogVariants((current) => (current.length > 0 ? current : fallbackCatalogVariants));
       setConnectionState("degraded");
       setMessage(error instanceof Error ? error.message : "Daemon snapshot unavailable.");
     }
@@ -2831,6 +2877,7 @@ function normalizeSnapshot(snapshot: any, endpoint: string): MountsWorkbenchData
       checksum: stringValue(item.checksum, "pending"),
       receipt: stringValue(item.receiptId, "none"),
       failureReason: stringValue(item.failureReason, "none"),
+      failureClass: stringValue(item.failureClass ?? item.failureReasonClass, downloadFailureClassFromReason(stringValue(item.failureReason, "none"))),
       format: stringValue(item.variant?.format ?? item.format, "unknown"),
       quantization: stringValue(item.variant?.quantization ?? item.quantization, "unknown"),
       sizeBytes: numberValue(item.variant?.sizeBytes ?? item.sizeBytes, 0),
@@ -2988,15 +3035,18 @@ function normalizeCatalogVariants(value: any): CatalogVariantPreview[] {
   return arrayOf(value).map((item) => ({
     id: stringValue(item.id, "catalog.variant.unknown"),
     modelId: stringValue(item.modelId, "unknown"),
+    family: stringValue(item.family, "unknown family"),
     catalogProviderId: stringValue(item.catalogProviderId, "catalog.fixture"),
     format: stringValue(item.format, "unknown"),
     quantization: stringValue(item.quantization, "unknown"),
+    context: item.contextWindow ? `${numberValue(item.contextWindow, 0)}` : stringValue(item.context, "unknown"),
     size: formatBytes(numberValue(item.sizeBytes, 0)),
     sizeBytes: numberValue(item.sizeBytes, 0),
     sourceLabel: stringValue(item.sourceLabel, "Catalog variant"),
     sourceUrl: stringValue(item.sourceUrl, ""),
     sourceHash: stringValue(item.sourceUrlHash, "unknown").slice(0, 12),
     compatibility: stringArray(item.compatibility),
+    tags: stringArray(item.tags),
     license: stringValue(item.license, "unknown"),
     gate: stringArray(item.gatedBy).join(" + ") || "fixture",
   }));
@@ -3030,8 +3080,65 @@ function retryDownloadPayload(download: DownloadPreview) {
   };
 }
 
+function downloadFailureClassFromReason(reason: string) {
+  const normalized = reason.toLowerCase();
+  if (!normalized || normalized === "none") return "none";
+  if (/checksum|hash|integrity/.test(normalized)) return "integrity";
+  if (/quota|space|storage|disk/.test(normalized)) return "storage";
+  if (/timeout|network|fetch|http|download/.test(normalized)) return "network";
+  if (/denied|unauthorized|forbidden|token|vault|capability/.test(normalized)) return "policy";
+  return "provider";
+}
+
 function canRetryDownload(download: DownloadPreview) {
   return Boolean(download.source && !/^(none|unknown|redacted)$/i.test(download.source));
+}
+
+function requiresExternalTransferApproval(sourceUrl: string, catalogProviderId?: string) {
+  const source = sourceUrl.trim();
+  if (!source) return false;
+  if (source.startsWith("fixture://") || source.startsWith("local://")) return false;
+  if (catalogProviderId === "catalog.fixture") return false;
+  return /^https?:\/\//i.test(source) || Boolean(catalogProviderId && catalogProviderId !== "catalog.fixture");
+}
+
+function parseByteLimit(value: string) {
+  const parsed = Number(value.replace(/_/g, "").trim());
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 0;
+}
+
+function acquisitionBudgetGuard(variant: CatalogVariantPreview | null, maxBytes: string, catalog: CatalogPreview): ActionGuard {
+  if (!variant) return guardBlocked("no variant", "Select a catalog variant before reviewing transfer budget.");
+  const byteLimit = parseByteLimit(maxBytes);
+  if (byteLimit > 0 && variant.sizeBytes > byteLimit) {
+    return guardBlocked("over byte cap", "Selected variant exceeds the configured max_bytes guard.");
+  }
+  if (/over_quota|blocked/i.test(catalog.storageStatus)) {
+    return guardBlocked("storage blocked", "Storage projection reports quota pressure before acquisition.");
+  }
+  if (/warn|near/i.test(catalog.storageStatus)) {
+    return guardWarn("storage warning", "Storage projection should be reviewed before starting this transfer.");
+  }
+  return guardReady("budget ok", "Variant size, byte cap, and storage projection are acceptable.");
+}
+
+function transferApprovalGuard(required: boolean, approved: boolean): ActionGuard {
+  if (!required) return guardReady("approval not needed", "Fixture and local sources do not require external transfer approval.");
+  return approved
+    ? guardReady("approved", "Operator approved the external model transfer for this request.")
+    : guardBlocked("approval required", "Approve the external model transfer before starting a live download or import.");
+}
+
+function variantCompatibilityText(variant: CatalogVariantPreview | null) {
+  if (!variant) return "No variant selected.";
+  const parts = [
+    variant.family,
+    variant.format,
+    variant.quantization,
+    `ctx ${variant.context}`,
+    variant.compatibility.join(", ") || "compatibility unknown",
+  ].filter(Boolean);
+  return parts.join(" / ");
 }
 
 function loadDraftBody(draft: ModelLoadDraft) {
@@ -3930,6 +4037,7 @@ function ModelsPanel({
   onLoadNativeLocalModel,
   onLoadModelWithOptions,
   onDownloadFixture,
+  onOpenReceipt,
   busy,
 }: {
   data: MountsWorkbenchData;
@@ -3939,6 +4047,7 @@ function ModelsPanel({
   onLoadNativeLocalModel: () => void;
   onLoadModelWithOptions: (draft: ModelLoadDraft) => void;
   onDownloadFixture: () => void;
+  onOpenReceipt: (receiptId: string) => void;
   busy: boolean;
 }) {
   const [loadDraft, setLoadDraft] = useState<ModelLoadDraft>({
@@ -4082,6 +4191,7 @@ function ModelsPanel({
             )}
           </div>
           <h4>Downloads</h4>
+          <span className="model-mounts-row-note">Receipt drilldown stays available from the model workbench.</span>
           <div className="model-mounts-list">
             {data.downloads.map((download) => (
               <article key={download.id} className="model-mounts-compact-row">
@@ -4091,6 +4201,16 @@ function ModelsPanel({
                 </div>
                 <StatusPill tone={toneForStatus(download.status)}>{download.status}</StatusPill>
                 <span className="model-mounts-row-note">{download.progress}</span>
+                <span className="model-mounts-row-note">{download.sourceLabel} / {download.format} / {download.quantization} / failure class {download.failureClass}</span>
+                <div className="model-mounts-row-actions">
+                  <ActionButton
+                    onClick={() => onOpenReceipt(download.receipt)}
+                    disabled={busy}
+                    guard={download.receipt !== "none" ? guardReady("receipt ready", "Open download receipt from the Models panel.") : guardBlocked("no receipt", "This download has no receipt id.")}
+                  >
+                    Open download receipt
+                  </ActionButton>
+                </div>
               </article>
             ))}
           </div>
@@ -4135,30 +4255,45 @@ function DownloadsPanel({
   const [sourceUrl, setSourceUrl] = useState("fixture://catalog/autopilot-native-3b-q4");
   const [selectedVariantId, setSelectedVariantId] = useState("");
   const [maxBytes, setMaxBytes] = useState("");
+  const [transferApproved, setTransferApproved] = useState(false);
   const updateDraft = (field: keyof CatalogSearchDraft, value: string) => setDraft((current) => ({ ...current, [field]: value }));
   const selectedVariant = catalogVariants.find((variant) => variant.id === selectedVariantId) ?? catalogVariants[0] ?? null;
   useEffect(() => {
     if (selectedVariantId && catalogVariants.some((variant) => variant.id === selectedVariantId)) return;
     setSelectedVariantId(catalogVariants[0]?.id ?? "");
   }, [catalogVariants, selectedVariantId]);
+  const selectedApprovalRequired = selectedVariant ? requiresExternalTransferApproval(selectedVariant.sourceUrl, selectedVariant.catalogProviderId) : false;
+  const sourceApprovalRequired = requiresExternalTransferApproval(sourceUrl);
+  useEffect(() => {
+    setTransferApproved(false);
+  }, [selectedVariant?.id, sourceUrl]);
   const downloadGuard = combineGuards(connectionActionGuard(connectionState, "model.download:*"), tokenScopeGuard(data, hasSessionToken, "model.download:*"));
   const importGuard = combineGuards(
     downloadGuard,
     connectionActionGuard(connectionState, "model.import:*"),
     tokenScopeGuard(data, hasSessionToken, "model.import:*"),
     sourceUrl.trim() ? guardReady("source ready", "Catalog URL is ready for governed import.") : guardBlocked("source missing", "Enter a source URL before importing."),
+    transferApprovalGuard(sourceApprovalRequired, transferApproved),
   );
   const selectedVariantGuard = combineGuards(
     downloadGuard,
     selectedVariant ? guardReady("variant selected", "Selected catalog variant will be sent with format, quantization, size, and source metadata.") : guardBlocked("no variant", "Search the catalog and select a variant first."),
+    acquisitionBudgetGuard(selectedVariant, maxBytes, data.catalog),
   );
   const selectedImportGuard = combineGuards(
     selectedVariantGuard,
     connectionActionGuard(connectionState, "model.import:*"),
     tokenScopeGuard(data, hasSessionToken, "model.import:*"),
+    transferApprovalGuard(selectedApprovalRequired, transferApproved),
+  );
+  const selectedDownloadGuard = combineGuards(
+    selectedVariantGuard,
+    transferApprovalGuard(selectedApprovalRequired, transferApproved),
   );
   const cleanupGuard = combineGuards(connectionActionGuard(connectionState, "model.delete:*"), tokenScopeGuard(data, hasSessionToken, "model.delete:*"));
   const failedDownloads = downloads.filter((download) => ["failed", "canceled"].includes(download.status));
+  const acquisitionGuard = acquisitionBudgetGuard(selectedVariant, maxBytes, data.catalog);
+  const approvalGuard = transferApprovalGuard(selectedApprovalRequired || sourceApprovalRequired, transferApproved);
   const downloadRows = downloads.length === 0 ? (
     <p className="model-mounts-empty">No download jobs in the current projection.</p>
   ) : (
@@ -4190,7 +4325,7 @@ function DownloadsPanel({
           <StatusPill tone={toneForStatus(download.status)}>{download.status}</StatusPill>
           <span className="model-mounts-row-note">{download.progress} / {download.bytes} / cap {download.maxBytes} / {download.receipt}</span>
           <span className="model-mounts-row-note">{download.providerId} / {download.format} / {download.quantization} / source {download.sourceHash}</span>
-          {download.failureReason !== "none" ? <span className="model-mounts-row-note">Failure: {download.failureReason}</span> : null}
+          {download.failureReason !== "none" ? <span className="model-mounts-row-note">Failure class: {download.failureClass} / {download.failureReason}</span> : null}
           <div
             className="model-mounts-row-actions"
             aria-label={`Download actions for ${download.id}`}
@@ -4236,6 +4371,27 @@ function DownloadsPanel({
         <DetailFact label="Download gate" value={data.catalog.providers.find((provider) => provider.id === "catalog.huggingface")?.liveDownloadStatus ?? "unknown"} note="IOI_LIVE_MODEL_DOWNLOAD" />
         <DetailFact label="Storage" value={data.catalog.storageTotal} note={`${data.catalog.fileCount} files / ${data.catalog.orphanCount} orphan`} />
         <DetailFact label="Quota" value={data.catalog.storageStatus} note={data.catalog.storageQuota} />
+      </div>
+
+      <div className="model-mounts-acquisition-review" aria-label="Acquisition review">
+        <div>
+          <span className="model-mounts-kicker">Variant comparison</span>
+          <strong>{selectedVariant?.modelId ?? "No variant selected"}</strong>
+          <small>{variantCompatibilityText(selectedVariant)}</small>
+        </div>
+        <DetailFact label="Source" value={selectedVariant?.sourceLabel ?? "none"} note={selectedVariant?.sourceHash ?? "no source hash"} />
+        <DetailFact label="Transfer size" value={selectedVariant?.size ?? "unknown"} note={maxBytes ? `max_bytes ${maxBytes}` : "no byte cap set"} />
+        <GuardFact label="Storage budget" guard={acquisitionGuard} />
+        <GuardFact label="Download approval" guard={approvalGuard} />
+        <label className="model-mounts-approval-toggle">
+          <input
+            type="checkbox"
+            checked={transferApproved}
+            onChange={(event) => setTransferApproved(event.target.checked)}
+          />
+          <span>Approve external transfer</span>
+          <small>Required before live network import or download. Fixture and local sources remain approval-free.</small>
+        </label>
       </div>
 
       <form
@@ -4287,12 +4443,25 @@ function DownloadsPanel({
             <input value={maxBytes} onChange={(event) => setMaxBytes(event.target.value)} inputMode="numeric" placeholder="optional byte cap" />
           </label>
           <ActionButton onClick={() => selectedVariant && onImportCatalogUrl({ sourceUrl: selectedVariant.sourceUrl, variant: selectedVariant, maxBytes })} disabled={busy} guard={selectedImportGuard}>Import selected</ActionButton>
-          <ActionButton onClick={() => selectedVariant && onDownloadCatalogVariant(selectedVariant, maxBytes)} disabled={busy} guard={selectedVariantGuard}>Download selected</ActionButton>
+          <ActionButton onClick={() => selectedVariant && onDownloadCatalogVariant(selectedVariant, maxBytes)} disabled={busy} guard={selectedDownloadGuard}>Download selected</ActionButton>
         </div>
         {catalogVariants.length === 0 ? (
           <p className="model-mounts-empty">Run a catalog search to inspect variants before importing or downloading.</p>
         ) : (
           <div className="model-mounts-catalog-variants" role="listbox" aria-label="Selectable catalog variants">
+            <div className="model-mounts-catalog-variant-header" aria-hidden="true">
+              <span>Model</span>
+              <span>Catalog</span>
+              <span>Family</span>
+              <span>Format</span>
+              <span>Quant</span>
+              <span>Context</span>
+              <span>Size</span>
+              <span>Compatibility</span>
+              <span>License</span>
+              <span>Source hash</span>
+              <span>Gate</span>
+            </div>
             {catalogVariants.map((variant) => {
               const selected = variant.id === selectedVariant?.id;
               return (
@@ -4309,8 +4478,10 @@ function DownloadsPanel({
                     <span>{variant.sourceLabel}</span>
                   </div>
                   <StatusPill tone={variant.catalogProviderId === "catalog.fixture" ? "ready" : "muted"}>{variant.catalogProviderId}</StatusPill>
+                  <span>{variant.family}</span>
                   <span>{variant.format}</span>
                   <span>{variant.quantization}</span>
+                  <span>{variant.context}</span>
                   <span>{variant.size}</span>
                   <span>{variant.compatibility.join(", ") || "compatibility unknown"}</span>
                   <span>{variant.license}</span>
@@ -5922,6 +6093,7 @@ export function MissionControlMountsView() {
             onLoadNativeLocalModel={daemon.actions.loadNativeLocalModel}
             onLoadModelWithOptions={daemon.actions.loadModelWithOptions}
             onDownloadFixture={daemon.actions.downloadFixture}
+            onOpenReceipt={openReceiptInLogs}
             busy={busy}
           />
         ) : null}

@@ -750,6 +750,59 @@
   border-bottom: 1px solid var(--chat-border);
 }
 
+.model-mounts-acquisition-review {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(190px, 1.1fr) repeat(4, minmax(0, 0.8fr)) minmax(220px, 1fr);
+  gap: 1px;
+  border: 1px solid var(--chat-border);
+  background: var(--chat-border);
+}
+
+.model-mounts-acquisition-review > div,
+.model-mounts-approval-toggle {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 12px;
+  background: var(--surface-2);
+}
+
+.model-mounts-acquisition-review strong {
+  min-width: 0;
+  color: var(--chat-text);
+  font-size: 13px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.model-mounts-acquisition-review small,
+.model-mounts-approval-toggle small {
+  min-width: 0;
+  color: var(--chat-text-secondary);
+  font-size: 11px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.model-mounts-approval-toggle {
+  cursor: pointer;
+}
+
+.model-mounts-approval-toggle input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--chat-accent);
+}
+
+.model-mounts-approval-toggle span {
+  color: var(--chat-text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .model-mounts-catalog-toolbar {
   min-width: 0;
   display: grid;
@@ -787,11 +840,28 @@
   gap: 6px;
 }
 
+.model-mounts-catalog-variant-header {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(88px, 0.48fr) repeat(9, minmax(72px, 0.42fr));
+  gap: 8px;
+  padding: 0 10px 2px;
+  color: var(--chat-text-secondary);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.model-mounts-catalog-variant-header span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .model-mounts-catalog-variant {
   min-width: 0;
   width: 100%;
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) auto repeat(7, minmax(72px, 0.42fr));
+  grid-template-columns: minmax(180px, 1fr) minmax(88px, 0.48fr) repeat(9, minmax(72px, 0.42fr));
   gap: 8px;
   align-items: center;
   border: 1px solid var(--chat-border);
@@ -1408,6 +1478,7 @@
 
   .model-mounts-three-col,
   .model-mounts-provider-grid,
+  .model-mounts-acquisition-review,
   .model-mounts-catalog-toolbar,
   .model-mounts-provider-editor-grid,
   .model-mounts-observability-filters,
@@ -1458,6 +1529,7 @@
   .model-mounts-route-list,
   .model-mounts-token-layout,
   .model-mounts-provider-grid,
+  .model-mounts-acquisition-review,
   .model-mounts-catalog-toolbar,
   .model-mounts-provider-editor-grid,
   .model-mounts-list--receipts,
@@ -1485,7 +1557,8 @@
     overflow-x: auto;
   }
 
-  .model-mounts-catalog-variant {
+  .model-mounts-catalog-variant,
+  .model-mounts-catalog-variant-header {
     min-width: 980px;
   }
 
