@@ -16,6 +16,7 @@ interface ProviderProfile {
   auth: string;
   authScheme: ProviderDraft["authScheme"];
   authHeaderName: string;
+  authState: string;
   capabilities: string[];
   evidence: string;
 }
@@ -90,6 +91,14 @@ interface PermissionTokenPreview {
   state: string;
 }
 
+interface VaultRefPreview {
+  hash: string;
+  label: string;
+  purpose: string;
+  state: string;
+  lastResolved: string;
+}
+
 interface McpServerPreview {
   id: string;
   transport: string;
@@ -143,6 +152,7 @@ interface MountsWorkbenchData {
   backends: BackendPreview[];
   providers: ProviderProfile[];
   tokens: PermissionTokenPreview[];
+  vaultRefs: VaultRefPreview[];
   mcpServers: McpServerPreview[];
   routes: RoutePolicyPreview[];
   workflowNodes: WorkflowNodePreview[];
@@ -376,6 +386,15 @@ const fallbackData: MountsWorkbenchData = {
       state: "revoked",
     },
   ],
+  vaultRefs: [
+    {
+      hash: "fixture",
+      label: "Provider API key",
+      purpose: "provider.auth:fixture",
+      state: "metadata configured, needs runtime bind",
+      lastResolved: "not resolved",
+    },
+  ],
   mcpServers: [
     {
       id: "mcp.huggingface",
@@ -431,8 +450,9 @@ function provider(
   evidence: string,
   authScheme: ProviderDraft["authScheme"] = "bearer",
   authHeaderName = "authorization",
+  authState = "not required",
 ): ProviderProfile {
-  return { id, label, kind, status, privacy, apiFormat, baseUrl, auth, authScheme, authHeaderName, capabilities, evidence };
+  return { id, label, kind, status, privacy, apiFormat, baseUrl, auth, authScheme, authHeaderName, authState, capabilities, evidence };
 }
 
 function backend(
@@ -831,6 +851,7 @@ function normalizeSnapshot(snapshot: any, endpoint: string): MountsWorkbenchData
       stringArray(item.discovery?.evidenceRefs).join(", ") || "daemon provider profile",
       providerAuthSchemeForUi(item?.authScheme),
       stringValue(item?.authHeaderName, "authorization"),
+      providerVaultState(item),
     ),
   );
   const backends = arrayOf(snapshot?.backends).map((item) =>
@@ -928,6 +949,13 @@ function normalizeSnapshot(snapshot: any, endpoint: string): MountsWorkbenchData
       lastUsed: stringValue(item.lastUsedAt, "not used"),
       state: item.revokedAt ? "revoked" : "active",
     })),
+    vaultRefs: arrayOf(snapshot?.vaultRefs).map((item) => ({
+      hash: stringValue(item.vaultRefHash, "unknown").slice(0, 12),
+      label: stringValue(item.label, "Vault ref"),
+      purpose: stringValue(item.purpose, "provider.auth"),
+      state: vaultRefState(item),
+      lastResolved: stringValue(item.lastResolvedAt, "not resolved"),
+    })),
     mcpServers: arrayOf(snapshot?.mcpServers).map((item) => ({
       id: stringValue(item.id, "mcp.unknown"),
       transport: stringValue(item.transport, "stdio"),
@@ -959,7 +987,20 @@ function providerAuthPreview(item: any) {
   const configured = Boolean(item?.secretConfigured);
   const required = Boolean(item?.vaultBoundary?.required);
   if (!required && !configured) return "no auth";
-  return `${headerName} / ${scheme} / ${configured ? "vault ref" : "vault required"}`;
+  return `${headerName} / ${scheme} / ${providerVaultState(item)}`;
+}
+
+function providerVaultState(item: any) {
+  const configured = Boolean(item?.secretConfigured || item?.vaultBoundary?.configured);
+  if (!configured) return "vault required";
+  if (Boolean(item?.vaultBoundary?.resolvedMaterial || item?.vaultBoundary?.runtimeBound)) return "material bound";
+  return "vault ref configured, material unbound";
+}
+
+function vaultRefState(item: any) {
+  if (Boolean(item?.resolvedMaterial || item?.runtimeBound || item?.materialBound)) return "material bound in runtime session";
+  if (Boolean(item?.configured)) return "metadata configured, needs runtime bind";
+  return "removed";
 }
 
 function providerAuthSchemeForUi(value: unknown): ProviderDraft["authScheme"] {
@@ -1676,6 +1717,26 @@ function TokensPanel({
                 )}
               </article>
             ))}
+          </div>
+          <h4>Vault refs</h4>
+          <div className="model-mounts-list">
+            {data.vaultRefs.length === 0 ? (
+              <p className="model-mounts-empty">No vault ref metadata returned by the daemon.</p>
+            ) : (
+              data.vaultRefs.map((vaultRef) => (
+                <article key={vaultRef.hash} className="model-mounts-token">
+                  <div className="model-mounts-token-head">
+                    <div>
+                      <strong>{vaultRef.label}</strong>
+                      <span>{vaultRef.purpose} / hash {vaultRef.hash} / last resolved {vaultRef.lastResolved}</span>
+                    </div>
+                    <StatusPill tone={vaultRef.state.startsWith("material bound") ? "ready" : vaultRef.state.includes("removed") ? "blocked" : "warn"}>
+                      {vaultRef.state}
+                    </StatusPill>
+                  </div>
+                </article>
+              ))
+            )}
           </div>
           <pre>{`{
   "mcpServers": {

@@ -28,6 +28,7 @@ class AgentgresModelMountingStore {
       "projections",
       "lifecycle-events",
       "tokens",
+      "vault-refs",
       "mcp-servers",
       "workflow-bindings",
       "receipts",
@@ -216,21 +217,26 @@ class AgentgresWalletAuthority {
 }
 
 class AgentgresVaultPort {
-  constructor({ now, appendOperation, secrets = {} }) {
+  constructor({ now, appendOperation, secrets = {}, metadata = [] }) {
     this.now = now;
     this.appendOperation = appendOperation;
     this.secrets = new Map(Object.entries(secrets ?? {}).map(([vaultRef, material]) => [vaultRef, String(material)]));
-    this.metadata = new Map(
-      [...this.secrets.keys()].map((vaultRef) => [
-        vaultRef,
+    this.metadata = new Map();
+    this.loadMetadata(metadata);
+    for (const vaultRef of this.secrets.keys()) {
+      const hash = this.vaultRefHash(vaultRef);
+      if (this.metadata.has(hash)) continue;
+      this.metadata.set(
+        hash,
         this.metadataRecord(vaultRef, {
           purpose: "bootstrap",
           source: "in_memory_fixture",
           createdAt: this.now().toISOString(),
           updatedAt: this.now().toISOString(),
+          configured: true,
         }),
-      ]),
-    );
+      );
+    }
   }
 
   resolveVaultRef(vaultRef, purpose = "provider.auth") {
@@ -249,9 +255,15 @@ class AgentgresVaultPort {
       purpose,
       evidenceRefs: ["VaultPort.resolveVaultRef", `vault_ref_${stableHash(vaultRef).slice(0, 16)}`],
     };
-    const existing = this.metadata.get(vaultRef);
+    const existing = this.metadataForVaultRef(vaultRef);
     if (existing) {
-      this.metadata.set(vaultRef, { ...existing, lastResolvedAt: this.now().toISOString(), resolvedMaterial: result.resolvedMaterial });
+      this.metadata.set(result.vaultRefHash, {
+        ...existing,
+        lastResolvedAt: this.now().toISOString(),
+        resolvedMaterial: result.resolvedMaterial,
+        runtimeBound: result.resolvedMaterial,
+        requiresRebind: Boolean(existing.configured) && !result.resolvedMaterial,
+      });
     }
     this.auditEvent("vault.resolve", {
       objectId: vaultRef,
@@ -281,16 +293,19 @@ class AgentgresVaultPort {
     }
     const now = this.now().toISOString();
     this.secrets.set(vaultRef, material);
-    const existing = this.metadata.get(vaultRef);
+    const existing = this.metadataForVaultRef(vaultRef);
     const metadata = this.metadataRecord(vaultRef, {
       purpose,
       label,
-      source: "in_memory_local_vault",
+      source: existing?.source ?? "agentgres_local_vault_metadata",
+      materialSource: "runtime_memory",
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
       lastResolvedAt: existing?.lastResolvedAt ?? null,
+      configured: true,
+      resolvedMaterial: true,
     });
-    this.metadata.set(vaultRef, metadata);
+    this.metadata.set(metadata.vaultRefHash, metadata);
     this.auditEvent("vault.bind", {
       objectId: vaultRef,
       purpose,
@@ -304,19 +319,21 @@ class AgentgresVaultPort {
   removeVaultRef(vaultRef, purpose = "operator_remove") {
     this.assertVaultRef(vaultRef);
     const existed = this.secrets.delete(vaultRef);
-    const existing = this.metadata.get(vaultRef);
+    const existing = this.metadataForVaultRef(vaultRef);
     const now = this.now().toISOString();
     const metadata = this.metadataRecord(vaultRef, {
       purpose: existing?.purpose ?? purpose,
       label: existing?.label ?? null,
-      source: existing?.source ?? "in_memory_local_vault",
+      source: existing?.source ?? "agentgres_local_vault_metadata",
+      materialSource: "unbound",
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
       lastResolvedAt: existing?.lastResolvedAt ?? null,
       removedAt: now,
       configured: false,
+      resolvedMaterial: false,
     });
-    this.metadata.set(vaultRef, metadata);
+    this.metadata.set(metadata.vaultRefHash, metadata);
     this.auditEvent("vault.remove", {
       objectId: vaultRef,
       purpose,
@@ -333,7 +350,7 @@ class AgentgresVaultPort {
 
   vaultRefMetadata(vaultRef) {
     this.assertVaultRef(vaultRef);
-    const existing = this.metadata.get(vaultRef);
+    const existing = this.metadataForVaultRef(vaultRef);
     if (existing) return publicVaultRefMetadata(existing);
     return publicVaultRefMetadata(
       this.metadataRecord(vaultRef, {
@@ -346,20 +363,77 @@ class AgentgresVaultPort {
     );
   }
 
+  loadMetadata(records = []) {
+    for (const record of records) {
+      const vaultRefHash = record?.vaultRefHash ?? record?.id?.replace(/^vault_ref\./, "");
+      if (!vaultRefHash || typeof vaultRefHash !== "string") continue;
+      const sanitized = this.metadataRecord(vaultRefHash, {
+        ...record,
+        vaultRefHash,
+        source: record.source ?? "agentgres_local_vault_metadata",
+        resolvedMaterial: false,
+        runtimeBound: false,
+        materialBound: false,
+        requiresRebind: Boolean(record.configured),
+      });
+      this.metadata.set(vaultRefHash, sanitized);
+    }
+  }
+
+  metadataRecords() {
+    return [...this.metadata.values()].map((record) => {
+      const publicRecord = publicVaultRefMetadata(record);
+      return {
+        id: `vault_ref.${record.vaultRefHash}`,
+        vaultRefHash: record.vaultRefHash,
+        label: publicRecord.label,
+        purpose: publicRecord.purpose,
+        source: "agentgres_local_vault_metadata",
+        materialSource: record.materialSource === "runtime_memory" ? "runtime_memory_not_persisted" : (record.materialSource ?? "unbound"),
+        configured: publicRecord.configured,
+        resolvedMaterial: false,
+        runtimeBound: false,
+        materialBound: false,
+        requiresRebind: publicRecord.configured,
+        createdAt: publicRecord.createdAt,
+        updatedAt: publicRecord.updatedAt,
+        removedAt: publicRecord.removedAt,
+        lastResolvedAt: publicRecord.lastResolvedAt,
+        evidenceRefs: publicRecord.evidenceRefs,
+      };
+    });
+  }
+
+  metadataForVaultRef(vaultRef) {
+    return this.metadata.get(this.vaultRefHash(vaultRef));
+  }
+
   metadataRecord(vaultRef, fields = {}) {
+    const vaultRefHash = fields.vaultRefHash ?? (String(vaultRef).startsWith("vault://") ? stableHash(vaultRef) : String(vaultRef));
+    const resolvedMaterial = Boolean(fields.resolvedMaterial ?? (String(vaultRef).startsWith("vault://") && this.secrets.has(vaultRef)));
+    const configured = Boolean(fields.configured ?? resolvedMaterial);
     return {
-      vaultRefHash: stableHash(vaultRef),
+      vaultRefHash,
       label: fields.label ?? null,
       purpose: fields.purpose ?? "provider.auth",
-      source: fields.source ?? "in_memory_local_vault",
-      configured: fields.configured ?? this.secrets.has(vaultRef),
-      resolvedMaterial: fields.resolvedMaterial ?? this.secrets.has(vaultRef),
+      source: fields.source ?? "agentgres_local_vault_metadata",
+      materialSource: fields.materialSource ?? (resolvedMaterial ? "runtime_memory" : "unbound"),
+      configured,
+      resolvedMaterial,
+      runtimeBound: Boolean(fields.runtimeBound ?? resolvedMaterial),
+      materialBound: Boolean(fields.materialBound ?? resolvedMaterial),
+      requiresRebind: Boolean(fields.requiresRebind ?? (configured && !resolvedMaterial)),
       createdAt: fields.createdAt ?? null,
       updatedAt: fields.updatedAt ?? null,
       removedAt: fields.removedAt ?? null,
       lastResolvedAt: fields.lastResolvedAt ?? null,
-      evidenceRefs: ["VaultPort.localBinding", `vault_ref_${stableHash(vaultRef).slice(0, 16)}`],
+      evidenceRefs: ["VaultPort.localBinding", "agentgres_local_vault_metadata", `vault_ref_${vaultRefHash.slice(0, 16)}`],
     };
+  }
+
+  vaultRefHash(vaultRef) {
+    this.assertVaultRef(vaultRef);
+    return stableHash(vaultRef);
   }
 
   assertVaultRef(vaultRef) {
@@ -394,8 +468,10 @@ class AgentgresVaultPort {
         ? { configured: true, urlHash: stableHash(process.env.IOI_WALLET_NETWORK_URL) }
         : { configured: false, failClosed: true },
       materialSources: {
-        inMemoryFixtureCount: this.secrets.size,
+        runtimeBoundCount: this.secrets.size,
+        durableMetadataCount: this.metadata.size,
         environmentAliases: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY", "IOI_CUSTOM_MODEL_API_KEY"],
+        plaintextPersistence: false,
       },
       evidenceRefs: ["wallet.network.vault_ref_boundary", "provider_request_time_secret_resolution"],
     };
@@ -900,9 +976,11 @@ export class ModelMountingState {
     this.routes = new Map();
     this.downloads = new Map();
     this.tokens = new Map();
+    this.vaultRefs = new Map();
     this.mcpServers = new Map();
     this.ensureDirs();
     this.load();
+    this.vault.loadMetadata([...this.vaultRefs.values()]);
     this.seedDefaults();
     this.writeAll();
   }
@@ -962,6 +1040,7 @@ export class ModelMountingState {
     this.loadMap("model-routes", this.routes);
     this.loadMap("model-downloads", this.downloads);
     this.loadMap("tokens", this.tokens);
+    this.loadMap("vault-refs", this.vaultRefs);
     this.loadMap("mcp-servers", this.mcpServers);
   }
 
@@ -1325,12 +1404,18 @@ export class ModelMountingState {
     this.writeMap("model-routes", this.routes);
     this.writeMap("model-downloads", this.downloads);
     this.writeMap("tokens", this.tokens);
+    this.writeVaultRefs();
     this.writeMap("mcp-servers", this.mcpServers);
     this.writeProjection();
   }
 
   writeMap(dir, map) {
     this.store.writeMap(dir, map);
+  }
+
+  writeVaultRefs() {
+    this.vaultRefs = new Map(this.vault.metadataRecords().map((record) => [record.id, record]));
+    this.writeMap("vault-refs", this.vaultRefs);
   }
 
   serverStatus(baseUrl) {
@@ -1401,7 +1486,9 @@ export class ModelMountingState {
   }
 
   listProviders() {
-    return [...this.providers.values()].map(publicProvider).sort((left, right) => left.id.localeCompare(right.id));
+    return [...this.providers.values()]
+      .map((provider) => publicProvider(provider, providerHasVaultRef(provider) ? this.vault.vaultRefMetadata(provider.secretRef) : null))
+      .sort((left, right) => left.id.localeCompare(right.id));
   }
 
   listEndpoints() {
@@ -1870,12 +1957,14 @@ export class ModelMountingState {
       purpose: body.purpose ?? "operator_provider_auth_binding",
       label: body.label ?? null,
     });
+    this.writeVaultRefs();
     const receipt = this.receipt("vault_ref_binding", {
       summary: `Vault material bound for ${metadata.vaultRefHash}.`,
       redaction: "redacted",
       evidenceRefs: ["VaultPort.bindVaultRef", metadata.vaultRefHash],
       details: metadata,
     });
+    this.writeProjection();
     return { ...metadata, receiptId: receipt.id };
   }
 
@@ -1891,12 +1980,14 @@ export class ModelMountingState {
   removeVaultRef(body = {}) {
     const vaultRef = requiredString(body.vault_ref ?? body.vaultRef, "vault_ref");
     const metadata = this.vault.removeVaultRef(vaultRef, body.purpose ?? "operator_provider_auth_remove");
+    this.writeVaultRefs();
     const receipt = this.receipt("vault_ref_removal", {
       summary: `Vault material removed for ${metadata.vaultRefHash}.`,
       redaction: "redacted",
       evidenceRefs: ["VaultPort.removeVaultRef", metadata.vaultRefHash],
       details: metadata,
     });
+    this.writeProjection();
     return { ...metadata, receiptId: receipt.id };
   }
 
@@ -3548,20 +3639,26 @@ function normalizeProviderAuthHeaderName(value) {
   return headerName;
 }
 
-function publicProvider(provider) {
+function publicProvider(provider, vaultMetadata = null) {
   const hasVaultRef = providerHasVaultRef(provider);
   const requiresVault = providerRequiresVaultSecret(provider);
+  const runtimeBound = Boolean(vaultMetadata?.resolvedMaterial);
+  const configured = hasVaultRef || Boolean(vaultMetadata?.configured);
   return {
     ...provider,
     status: requiresVault && !hasVaultRef ? "blocked" : provider.status,
     secretRef: hasVaultRef ? { redacted: true, hash: stableHash(provider.secretRef) } : provider.secretRef ? SECRET_REDACTION : null,
-    secretConfigured: hasVaultRef,
+    secretConfigured: configured,
     authScheme: provider.authScheme ?? "bearer",
     authHeaderName: provider.authHeaderName ?? "authorization",
     vaultBoundary: {
       required: requiresVault,
       failClosed: requiresVault && !hasVaultRef,
-      resolvedMaterial: false,
+      configured,
+      resolvedMaterial: runtimeBound,
+      runtimeBound,
+      requiresRuntimeBinding: configured && !runtimeBound,
+      vaultRefHash: hasVaultRef ? stableHash(provider.secretRef) : vaultMetadata?.vaultRefHash ?? null,
     },
   };
 }
@@ -3594,9 +3691,13 @@ function publicVaultRefMetadata(metadata) {
     vaultRefHash: metadata.vaultRefHash,
     label: metadata.label ?? null,
     purpose: metadata.purpose ?? "provider.auth",
-    source: metadata.source ?? "in_memory_local_vault",
+    source: metadata.source ?? "agentgres_local_vault_metadata",
+    materialSource: metadata.materialSource ?? (metadata.resolvedMaterial ? "runtime_memory" : "unbound"),
     configured: Boolean(metadata.configured),
     resolvedMaterial: Boolean(metadata.resolvedMaterial),
+    runtimeBound: Boolean(metadata.runtimeBound ?? metadata.resolvedMaterial),
+    materialBound: Boolean(metadata.materialBound ?? metadata.resolvedMaterial),
+    requiresRebind: Boolean(metadata.requiresRebind ?? (metadata.configured && !metadata.resolvedMaterial)),
     createdAt: metadata.createdAt ?? null,
     updatedAt: metadata.updatedAt ?? null,
     removedAt: metadata.removedAt ?? null,
@@ -3877,7 +3978,18 @@ function redact(value) {
 
 function shouldRedactKey(key) {
   if (
-    ["tokenCount", "toolReceiptIds", "input_tokens", "output_tokens", "total_tokens", "providerAuthHeaderNames", "resolvedMaterial", "materialBound"].includes(key)
+    [
+      "tokenCount",
+      "toolReceiptIds",
+      "input_tokens",
+      "output_tokens",
+      "total_tokens",
+      "providerAuthHeaderNames",
+      "resolvedMaterial",
+      "runtimeBound",
+      "materialBound",
+      "materialSource",
+    ].includes(key)
   ) {
     return false;
   }

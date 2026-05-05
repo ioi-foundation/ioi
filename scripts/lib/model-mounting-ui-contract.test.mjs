@@ -57,6 +57,8 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   assert.match(source, /Download fixture/);
   assert.match(source, /Save provider/);
   assert.match(source, /Bind vault secret/);
+  assert.match(source, /metadata configured, needs runtime bind/);
+  assert.match(source, /material bound in runtime session/);
   assert.match(source, /vault\.write:\*/);
   assert.match(source, /vault\.read:\*/);
   assert.match(source, /Test health/);

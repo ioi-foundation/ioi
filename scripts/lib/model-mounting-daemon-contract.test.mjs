@@ -885,7 +885,7 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
     responsesStatus: 404,
     requiredHeaders: { "x-api-key": vaultMaterial },
   });
-  const daemon = await startRuntimeDaemonService({
+  let daemon = await startRuntimeDaemonService({
     cwd,
     stateDir,
   });
@@ -1139,6 +1139,39 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
     assert.equal(projectionAfterAuth.adapterBoundaries.vault.port, "VaultPort");
     assert.equal(JSON.stringify(projectionAfterAuth).includes(vaultMaterial), false);
     assert.equal(directoryContainsNeedle(stateDir, vaultMaterial), false);
+
+    await daemon.close();
+    daemon = await startRuntimeDaemonService({ cwd, stateDir });
+    const restartedVaultRefs = await expectOk(daemon.endpoint, "/api/v1/vault/refs", { token: grant.token });
+    const restartedMeta = restartedVaultRefs.find((ref) => ref.vaultRefHash === bound.vaultRefHash);
+    assert.equal(restartedMeta.configured, true);
+    assert.equal(restartedMeta.resolvedMaterial, false);
+    assert.equal(restartedMeta.requiresRebind, true);
+    assert.equal(JSON.stringify(restartedVaultRefs).includes(vaultRef), false);
+    assert.equal(JSON.stringify(restartedVaultRefs).includes(vaultMaterial), false);
+    assert.equal(directoryContainsNeedle(stateDir, vaultMaterial), false);
+    const restartedProviders = await expectOk(daemon.endpoint, "/api/v1/providers");
+    const restartedProvider = restartedProviders.find((provider) => provider.id === "provider.test.custom-vault");
+    assert.equal(restartedProvider.secretConfigured, true);
+    assert.equal(restartedProvider.vaultBoundary.requiresRuntimeBinding, true);
+    const restartedHealth = await requestJson(daemon.endpoint, "/api/v1/providers/provider.test.custom-vault/health", { method: "POST" });
+    assert.equal(restartedHealth.response.status, 403);
+    assert.equal(restartedHealth.json.error.details.resolvedMaterial, false);
+    assert.equal(JSON.stringify(restartedHealth.json).includes(vaultMaterial), false);
+    const rebound = await expectOk(daemon.endpoint, "/api/v1/vault/refs", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        vault_ref: vaultRef,
+        material: vaultMaterial,
+        purpose: "provider.auth:provider.test.custom-vault",
+        label: "Vault Custom HTTP",
+      },
+    });
+    assert.equal(rebound.configured, true);
+    assert.equal(rebound.resolvedMaterial, true);
+    const reboundHealth = await expectOk(daemon.endpoint, "/api/v1/providers/provider.test.custom-vault/health", { method: "POST" });
+    assert.equal(reboundHealth.status, "available");
 
     const removed = await expectOk(daemon.endpoint, "/api/v1/vault/refs", {
       method: "DELETE",
