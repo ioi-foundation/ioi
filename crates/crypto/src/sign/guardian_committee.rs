@@ -87,7 +87,12 @@ pub fn encode_signers_bitfield(
                 signer_index
             )));
         }
-        bitfield[*signer_index / 8] |= 1u8 << (*signer_index % 8);
+        let Some(byte) = bitfield.get_mut(*signer_index / 8) else {
+            return Err(CryptoError::InvalidInput(
+                "signer bitfield index escaped validated committee bounds".into(),
+            ));
+        };
+        *byte |= 1u8 << (*signer_index % 8);
     }
 
     Ok(bitfield)
@@ -109,15 +114,23 @@ pub fn decode_signers_bitfield(
 
     let mut indexes = Vec::new();
     for index in 0..committee_len {
-        let byte = signers_bitfield[index / 8];
-        if ((byte >> (index % 8)) & 1u8) == 1 {
+        let Some(byte) = signers_bitfield.get(index / 8) else {
+            return Err(CryptoError::InvalidInput(
+                "signer bitfield index escaped validated length".into(),
+            ));
+        };
+        if ((*byte >> (index % 8)) & 1u8) == 1 {
             indexes.push(index);
         }
     }
 
     for padding_index in committee_len..(expected_len * 8) {
-        let byte = signers_bitfield[padding_index / 8];
-        if ((byte >> (padding_index % 8)) & 1u8) == 1 {
+        let Some(byte) = signers_bitfield.get(padding_index / 8) else {
+            return Err(CryptoError::InvalidInput(
+                "signer bitfield padding index escaped validated length".into(),
+            ));
+        };
+        if ((*byte >> (padding_index % 8)) & 1u8) == 1 {
             return Err(CryptoError::InvalidInput(
                 "signer bitfield has non-zero padding bits".into(),
             ));

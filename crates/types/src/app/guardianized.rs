@@ -337,6 +337,7 @@ pub fn derive_guardian_witness_assignments(
 }
 
 /// Deterministically derives exactly one witness committee per required certification stratum.
+#[allow(clippy::too_many_arguments)]
 pub fn derive_guardian_witness_assignments_for_strata(
     seed: &GuardianWitnessEpochSeed,
     witness_set: &GuardianWitnessSet,
@@ -626,6 +627,7 @@ fn observe_budget_record_labels(
 
 /// Deterministically derives equal-authority observer plan entries with correlation-budgeted
 /// sampling over the active validator set.
+#[allow(clippy::too_many_arguments)]
 pub fn derive_asymptote_observer_plan_entries(
     seed: &GuardianWitnessEpochSeed,
     validator_set: &ValidatorSetV1,
@@ -652,7 +654,7 @@ pub fn derive_asymptote_observer_plan_entries(
         let manifest = observer_manifests
             .get(&validator.account_id)
             .ok_or_else(|| {
-                format!("active validator is missing a registered guardian committee manifest")
+                "active validator is missing a registered guardian committee manifest".to_string()
             })?
             .clone();
         eligible.push((validator.account_id, manifest));
@@ -1601,10 +1603,11 @@ pub struct AsymptoteVetoProof {
 }
 
 /// Witness-fault classification for research-only nested guardian mode.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
 #[serde(rename_all = "snake_case")]
 pub enum GuardianWitnessFaultKind {
     /// Conflicting witness certificates were issued for the same slot.
+    #[default]
     ConflictingCertificate,
     /// An assigned witness failed to issue a certificate before reassignment.
     Omission,
@@ -1612,12 +1615,6 @@ pub enum GuardianWitnessFaultKind {
     StaleRegistryParticipation,
     /// The witness certificate or checkpoint is inconsistent with the assigned checkpoint policy.
     CheckpointInconsistency,
-}
-
-impl Default for GuardianWitnessFaultKind {
-    fn default() -> Self {
-        Self::ConflictingCertificate
-    }
 }
 
 /// Evidence envelope for witness-specific slashing and operator response.

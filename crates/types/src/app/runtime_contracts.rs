@@ -1878,24 +1878,13 @@ pub fn master_guide_required_evidence_classes() -> Vec<String> {
     .collect()
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
 #[serde(default)]
 pub struct AutopilotRetainedQuery {
     pub scenario: String,
     pub query: String,
     pub expected_evidence: Vec<String>,
     pub expected_chat_ux: Vec<String>,
-}
-
-impl Default for AutopilotRetainedQuery {
-    fn default() -> Self {
-        Self {
-            scenario: String::new(),
-            query: String::new(),
-            expected_evidence: Vec::new(),
-            expected_chat_ux: Vec::new(),
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]

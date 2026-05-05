@@ -168,7 +168,7 @@ pub(super) fn target_for_tool(tool: &AgentTool) -> ActionTarget {
                             .and_then(|query| query.as_str())
                             .unwrap_or_default()
                             .trim_start()
-                            .trim_start_matches(|ch: char| ch == '(')
+                            .trim_start_matches('(')
                             .trim_start()
                             .to_ascii_lowercase();
                         let label = if query.starts_with("select")
