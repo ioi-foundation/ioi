@@ -408,7 +408,9 @@
 .model-mounts-benchmark-editor select,
 .model-mounts-benchmark-editor textarea,
 .model-mounts-route-editor input,
-.model-mounts-route-editor select {
+.model-mounts-route-editor select,
+.model-mounts-observability-filters input,
+.model-mounts-observability-filters select {
   min-width: 0;
   width: 100%;
   min-height: 34px;
@@ -439,7 +441,9 @@
 .model-mounts-benchmark-editor select:focus,
 .model-mounts-benchmark-editor textarea:focus,
 .model-mounts-route-editor input:focus,
-.model-mounts-route-editor select:focus {
+.model-mounts-route-editor select:focus,
+.model-mounts-observability-filters input:focus,
+.model-mounts-observability-filters select:focus {
   border-color: color-mix(in srgb, var(--chat-accent) 54%, var(--chat-border));
 }
 
@@ -757,6 +761,103 @@
   padding: 14px;
   border: 1px solid var(--chat-border);
   background: var(--surface-1);
+}
+
+.model-mounts-observability-filters {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(120px, 0.7fr) minmax(130px, 0.8fr) minmax(120px, 0.7fr) minmax(160px, 0.95fr) minmax(220px, 1.45fr) minmax(92px, 0.45fr) minmax(138px, 0.55fr);
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--chat-border);
+  background: var(--surface-1);
+  align-items: end;
+}
+
+.model-mounts-observability-filters label {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.model-mounts-observability-filters label span {
+  color: var(--chat-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.model-mounts-observability-filters .model-mounts-checkbox {
+  justify-content: end;
+}
+
+.model-mounts-observability-filters .model-mounts-checkbox input {
+  width: auto;
+  min-height: auto;
+}
+
+.model-mounts-observability-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  border: 1px solid var(--chat-border);
+  background: var(--chat-border);
+}
+
+.model-mounts-observability-summary > div {
+  min-width: 0;
+  padding: 12px 14px;
+  background: var(--surface-2);
+}
+
+.model-mounts-observability-stream {
+  min-width: 0;
+  display: grid;
+  border: 1px solid var(--chat-border);
+  overflow: hidden;
+}
+
+.model-mounts-observability-stream > div {
+  display: grid;
+  grid-template-columns: minmax(170px, 1fr) minmax(230px, 1.35fr) minmax(104px, 0.52fr) minmax(240px, 1.2fr) minmax(86px, 0.4fr);
+  border-top: 1px solid var(--chat-border);
+}
+
+.model-mounts-observability-stream > div:first-child {
+  border-top: none;
+}
+
+.model-mounts-observability-stream > p {
+  padding: 14px;
+}
+
+.model-mounts-observability-stream span {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 11px 12px;
+  color: var(--chat-text);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.model-mounts-observability-row {
+  background: var(--surface-1);
+}
+
+.model-mounts-observability-row small {
+  color: var(--chat-text-secondary);
+  font-size: 11px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.model-mounts-observability-payload {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
 }
 
 .model-mounts-benchmark-workbench {
@@ -1092,6 +1193,8 @@
   .model-mounts-three-col,
   .model-mounts-provider-grid,
   .model-mounts-provider-editor-grid,
+  .model-mounts-observability-filters,
+  .model-mounts-observability-summary,
   .model-mounts-route-editor-summary,
   .model-mounts-token-editor-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1129,6 +1232,8 @@
   .model-mounts-benchmark-workbench,
   .model-mounts-benchmark-options,
   .model-mounts-benchmark-scoreboard,
+  .model-mounts-observability-filters,
+  .model-mounts-observability-summary,
   .model-mounts-three-col,
   .model-mounts-route-list,
   .model-mounts-token-layout,
@@ -1145,6 +1250,14 @@
 
   .model-mounts-table > div {
     min-width: 840px;
+  }
+
+  .model-mounts-observability-stream {
+    overflow-x: auto;
+  }
+
+  .model-mounts-observability-stream > div {
+    min-width: 900px;
   }
 
   .model-mounts-detail-head {

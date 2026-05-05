@@ -232,6 +232,36 @@ interface BenchmarkDraft {
   privacy: string;
 }
 
+type ObservabilityDirection = "all" | "request" | "response";
+type ObservabilityCategory = "all" | "server" | "provider" | "backend" | "model" | "route" | "mcp" | "vault" | "token" | "workflow";
+type ObservabilityStatus = "all" | "ready" | "degraded" | "denied" | "failed";
+
+interface ObservabilityFilters {
+  direction: ObservabilityDirection;
+  category: ObservabilityCategory;
+  status: ObservabilityStatus;
+  kind: string;
+  entity: string;
+  liveTail: boolean;
+  payloadPreview: boolean;
+}
+
+interface ObservabilityEvent {
+  id: string;
+  direction: Exclude<ObservabilityDirection, "all">;
+  category: Exclude<ObservabilityCategory, "all">;
+  status: Exclude<ObservabilityStatus, "all">;
+  kind: string;
+  summary: string;
+  entity: string;
+  routeId: string;
+  endpointId: string;
+  providerId: string;
+  backendId: string;
+  receipt: ReceiptPreview;
+  payload: Array<{ label: string; value: string }>;
+}
+
 interface HealthSummaryPreview {
   providerHealthCount: number;
   vaultHealthCount: number;
@@ -351,6 +381,16 @@ const defaultBenchmarkDraft: BenchmarkDraft = {
   includeEmbeddings: true,
   maxCostUsd: "0.05",
   privacy: "local_only",
+};
+
+const defaultObservabilityFilters: ObservabilityFilters = {
+  direction: "all",
+  category: "all",
+  status: "all",
+  kind: "all",
+  entity: "",
+  liveTail: false,
+  payloadPreview: true,
 };
 
 const tabs: Array<{ id: MountsTab; label: string }> = [
@@ -1147,6 +1187,117 @@ function benchmarkSummary(receipts: ReceiptPreview[]) {
 function formatLatency(value: number) {
   if (!value) return "unknown";
   return value >= 1000 ? `${(value / 1000).toFixed(2)}s` : `${value}ms`;
+}
+
+function receiptCategory(item: ReceiptPreview): ObservabilityEvent["category"] {
+  const text = `${item.kind} ${item.summary} ${item.evidence.join(" ")}`.toLowerCase();
+  if (text.includes("server")) return "server";
+  if (text.includes("provider")) return "provider";
+  if (text.includes("backend") || text.includes("runtime")) return "backend";
+  if (text.includes("route")) return "route";
+  if (text.includes("mcp") || text.includes("tool")) return "mcp";
+  if (text.includes("vault")) return "vault";
+  if (text.includes("permission") || text.includes("token") || text.includes("grant")) return "token";
+  if (text.includes("workflow") || text.includes("receipt gate")) return "workflow";
+  return "model";
+}
+
+function receiptDirection(item: ReceiptPreview): ObservabilityEvent["direction"] {
+  if (item.kind.includes("selection") || item.kind.includes("import") || item.kind.includes("lifecycle")) return "request";
+  return "response";
+}
+
+function receiptStatus(item: ReceiptPreview): ObservabilityEvent["status"] {
+  const text = `${item.healthStatus} ${item.summary} ${item.evidence.join(" ")}`.toLowerCase();
+  if (/denied|revoked|expired|permission|unauthorized|forbidden/.test(text)) return "denied";
+  if (/failed|failure|error|blocked|unavailable|absent/.test(text)) return "failed";
+  if (/degraded|stopped|unknown|warn/.test(text)) return "degraded";
+  return "ready";
+}
+
+function receiptEntity(item: ReceiptPreview) {
+  return [item.routeId, item.endpointId, item.providerId, item.backendId, item.selectedModel, item.instanceId]
+    .filter((value) => value && value !== "none")
+    .join(" / ") || item.evidence[0] || item.kind;
+}
+
+function redactedPayloadPreview(item: ReceiptPreview): ObservabilityEvent["payload"] {
+  const rows = [
+    ["route", item.routeId],
+    ["endpoint", item.endpointId],
+    ["provider", item.providerId],
+    ["backend", item.backendId],
+    ["model", item.selectedModel],
+    ["grant", item.grantId],
+    ["policy", item.policyHash],
+    ["tokens", item.tokenCount ? String(item.tokenCount) : "redacted"],
+    ["latency", formatLatency(item.latencyMs)],
+    ["compat", item.compatTranslation],
+    ["tools", item.toolReceiptIds.length > 0 ? item.toolReceiptIds.join(", ") : "none"],
+  ];
+  return rows
+    .filter(([, value]) => value && value !== "none")
+    .map(([label, value]) => ({ label, value }));
+}
+
+function observabilityEventsFromReceipts(receipts: ReceiptPreview[]): ObservabilityEvent[] {
+  return receipts.map((item) => {
+    const category = receiptCategory(item);
+    const direction = receiptDirection(item);
+    const status = receiptStatus(item);
+    return {
+      id: item.id,
+      direction,
+      category,
+      status,
+      kind: item.kind,
+      summary: item.summary,
+      entity: receiptEntity(item),
+      routeId: item.routeId,
+      endpointId: item.endpointId,
+      providerId: item.providerId,
+      backendId: item.backendId,
+      receipt: item,
+      payload: redactedPayloadPreview(item),
+    };
+  });
+}
+
+function filteredObservabilityEvents(receipts: ReceiptPreview[], filters: ObservabilityFilters) {
+  const entityNeedle = filters.entity.trim().toLowerCase();
+  return observabilityEventsFromReceipts(receipts).filter((event) => {
+    if (filters.direction !== "all" && event.direction !== filters.direction) return false;
+    if (filters.category !== "all" && event.category !== filters.category) return false;
+    if (filters.status !== "all" && event.status !== filters.status) return false;
+    if (filters.kind !== "all" && event.kind !== filters.kind) return false;
+    if (entityNeedle) {
+      const haystack = [
+        event.id,
+        event.summary,
+        event.entity,
+        event.routeId,
+        event.endpointId,
+        event.providerId,
+        event.backendId,
+        event.receipt.selectedModel,
+      ].join(" ").toLowerCase();
+      if (!haystack.includes(entityNeedle)) return false;
+    }
+    return true;
+  });
+}
+
+function uniqueReceiptKinds(receipts: ReceiptPreview[]) {
+  return Array.from(new Set(receipts.map((item) => item.kind))).sort();
+}
+
+function observabilitySummary(events: ObservabilityEvent[]) {
+  return {
+    total: events.length,
+    requests: events.filter((event) => event.direction === "request").length,
+    responses: events.filter((event) => event.direction === "response").length,
+    problemCount: events.filter((event) => event.status === "degraded" || event.status === "denied" || event.status === "failed").length,
+  };
 }
 
 function readInitialEndpoint() {
@@ -3999,114 +4150,183 @@ function BenchmarksPanel({
 function LogsPanel({
   receipts,
   connectionState,
+  onRefresh,
+  onTailServerLogs,
   onReplayReceipt,
   busy,
 }: {
   receipts: ReceiptPreview[];
   connectionState: ConnectionState;
+  onRefresh: () => void;
+  onTailServerLogs: () => void;
   onReplayReceipt: (receiptId: string) => void;
   busy: boolean;
 }) {
+  const [filters, setFilters] = useState<ObservabilityFilters>(defaultObservabilityFilters);
   const replayGuard = connectionActionGuard(connectionState, "receipt replay");
-  const groups = [
-    {
-      title: "Provider health",
-      description: "Latest provider probes, policy blocks, and vault-bound auth evidence.",
-      kinds: ["provider_health"],
-      empty: "No provider health receipts in the current projection.",
-      replayLabel: "Replay latest provider health",
-    },
-    {
-      title: "Vault adapter health",
-      description: "Vault material adapter probes and fail-closed status evidence.",
-      kinds: ["vault_adapter_health"],
-      empty: "No vault adapter health receipts in the current projection.",
-      replayLabel: "Replay latest vault health",
-    },
-    {
-      title: "Model invocations",
-      description: "Routed native and OpenAI-compatible calls through policy and receipts.",
-      kinds: ["model_invocation", "model_route_selection"],
-      empty: "No model invocation receipts in the current projection.",
-    },
-    {
-      title: "Lifecycle",
-      description: "Mount, load, unload, import, download, and backend lifecycle records.",
-      kinds: ["model_lifecycle", "backend_health"],
-      empty: "No lifecycle receipts in the current projection.",
-    },
-    {
-      title: "MCP tools",
-      description: "Persistent and ephemeral governed tool calls linked to model receipts.",
-      kinds: ["mcp_tool_invocation", "mcp_server_import", "mcp_ephemeral_registration"],
-      empty: "No MCP tool receipts in the current projection.",
-    },
-  ].map((group) => ({
-    ...group,
-    items: receipts.filter((item) => group.kinds.includes(item.kind)),
-  }));
+  const serverLogsGuard = connectionActionGuard(connectionState, "server log tail");
+  const kinds = uniqueReceiptKinds(receipts);
+  const events = filteredObservabilityEvents(receipts, filters);
+  const visibleEvents = [...events].reverse().slice(0, 60);
+  const summary = observabilitySummary(events);
+  const updateFilter = (field: keyof ObservabilityFilters, value: string | boolean) => {
+    setFilters((current) => ({ ...current, [field]: value }));
+  };
+
+  useEffect(() => {
+    if (!filters.liveTail) return undefined;
+    const timer = window.setInterval(onRefresh, 5000);
+    return () => window.clearInterval(timer);
+  }, [filters.liveTail, onRefresh]);
 
   return (
     <section className="model-mounts-panel" aria-labelledby="model-mounts-logs-title">
       <div className="model-mounts-panel-head">
         <div>
-          <span className="model-mounts-kicker">Agentgres receipts</span>
-          <h3 id="model-mounts-logs-title">Lifecycle, invocation, tool, and grant evidence</h3>
+          <span className="model-mounts-kicker">Streaming observability</span>
+          <h3 id="model-mounts-logs-title">Filtered logs, receipts, and redacted payloads</h3>
         </div>
         <div className="model-mounts-actions">
           <StatusPill tone="ready">redacted</StatusPill>
-          <StatusPill tone="ready">replayable</StatusPill>
+          <StatusPill tone={filters.liveTail ? "ready" : "muted"}>{filters.liveTail ? "live tail" : "manual refresh"}</StatusPill>
+          <ActionButton onClick={onRefresh} disabled={busy} guard={connectionActionGuard(connectionState, "snapshot refresh")}>Refresh</ActionButton>
+          <ActionButton onClick={onTailServerLogs} disabled={busy} guard={serverLogsGuard}>Tail server logs</ActionButton>
         </div>
       </div>
 
-      <div className="model-mounts-receipt-groups">
-        {groups.map((group) => {
-          const latest = group.items.at(-1);
-          const visibleItems = [...group.items].reverse();
-          return (
-            <section key={group.title} className="model-mounts-receipt-lane" aria-label={`${group.title} receipts`}>
-              <div className="model-mounts-receipt-lane-head">
-                <div>
-                  <h4>{group.title}</h4>
-                  <span>{group.description}</span>
-                </div>
-                <div className="model-mounts-actions">
-                  <StatusPill tone={group.items.length > 0 ? "ready" : "muted"}>{String(group.items.length)}</StatusPill>
-                  {group.replayLabel && latest ? (
-                    <ActionButton onClick={() => onReplayReceipt(latest.id)} disabled={busy} guard={replayGuard}>
-                      {group.replayLabel}
-                    </ActionButton>
-                  ) : null}
-                </div>
-              </div>
-              <div className="model-mounts-list model-mounts-list--receipts">
-                {visibleItems.length === 0 ? (
-                  <p className="model-mounts-empty">{group.empty}</p>
-                ) : (
-                  visibleItems.map((item) => <ReceiptCard key={item.id} item={item} />)
-                )}
-              </div>
-            </section>
-          );
-        })}
+      <form className="model-mounts-observability-filters" aria-label="Observability filters" onSubmit={(event) => event.preventDefault()}>
+        <label>
+          <span>Direction</span>
+          <select value={filters.direction} onChange={(event) => updateFilter("direction", event.target.value)}>
+            <option value="all">All traffic</option>
+            <option value="request">Requests</option>
+            <option value="response">Responses</option>
+          </select>
+        </label>
+        <label>
+          <span>Category</span>
+          <select value={filters.category} onChange={(event) => updateFilter("category", event.target.value)}>
+            <option value="all">All categories</option>
+            <option value="server">Server</option>
+            <option value="provider">Provider</option>
+            <option value="backend">Backend</option>
+            <option value="model">Model</option>
+            <option value="route">Route</option>
+            <option value="mcp">MCP</option>
+            <option value="vault">Vault</option>
+            <option value="token">Token</option>
+            <option value="workflow">Workflow</option>
+          </select>
+        </label>
+        <label>
+          <span>Status</span>
+          <select value={filters.status} onChange={(event) => updateFilter("status", event.target.value)}>
+            <option value="all">All states</option>
+            <option value="ready">Ready</option>
+            <option value="degraded">Degraded</option>
+            <option value="denied">Denied</option>
+            <option value="failed">Failed</option>
+          </select>
+        </label>
+        <label>
+          <span>Receipt kind</span>
+          <select value={filters.kind} onChange={(event) => updateFilter("kind", event.target.value)}>
+            <option value="all">All kinds</option>
+            {kinds.map((kind) => <option key={kind} value={kind}>{kind}</option>)}
+          </select>
+        </label>
+        <label>
+          <span>Route / endpoint / provider</span>
+          <input value={filters.entity} onChange={(event) => updateFilter("entity", event.target.value)} placeholder="route.native-local, endpoint.local.auto, provider.lmstudio" />
+        </label>
+        <label className="model-mounts-checkbox">
+          <input type="checkbox" checked={filters.liveTail} onChange={(event) => updateFilter("liveTail", event.target.checked)} />
+          <span>Live tail</span>
+        </label>
+        <label className="model-mounts-checkbox">
+          <input type="checkbox" checked={filters.payloadPreview} onChange={(event) => updateFilter("payloadPreview", event.target.checked)} />
+          <span>Redacted payload preview</span>
+        </label>
+      </form>
+
+      <div className="model-mounts-observability-summary" aria-label="Filtered observability summary">
+        <DetailFact label="Visible events" value={`${summary.total}`} note="after filters" />
+        <DetailFact label="Requests" value={`${summary.requests}`} note="route, lifecycle, import, selection" />
+        <DetailFact label="Responses" value={`${summary.responses}`} note="model, MCP, provider, vault" />
+        <DetailFact label="Needs attention" value={`${summary.problemCount}`} note="degraded, denied, failed" />
+      </div>
+
+      <div className="model-mounts-observability-stream" role="table" aria-label="Filtered observability stream">
+        <div role="row" className="model-mounts-table-head">
+          <span role="columnheader">Event</span>
+          <span role="columnheader">Route / endpoint / provider</span>
+          <span role="columnheader">Status</span>
+          <span role="columnheader">Redacted payload</span>
+          <span role="columnheader">Replay</span>
+        </div>
+        {visibleEvents.length === 0 ? (
+          <p className="model-mounts-empty">No receipts match the current observability filters.</p>
+        ) : (
+          visibleEvents.map((event) => (
+            <ObservabilityEventRow
+              key={event.id}
+              event={event}
+              showPayload={filters.payloadPreview}
+              onReplayReceipt={onReplayReceipt}
+              replayGuard={replayGuard}
+              busy={busy}
+            />
+          ))
+        )}
       </div>
     </section>
   );
 }
 
-function ReceiptCard({ item }: { item: ReceiptPreview }) {
+function ObservabilityEventRow({
+  event,
+  showPayload,
+  onReplayReceipt,
+  replayGuard,
+  busy,
+}: {
+  event: ObservabilityEvent;
+  showPayload: boolean;
+  onReplayReceipt: (receiptId: string) => void;
+  replayGuard: ActionGuard;
+  busy: boolean;
+}) {
   return (
-    <article className="model-mounts-receipt">
-      <div>
-        <strong>{item.kind}</strong>
-        <span>{item.id}</span>
-      </div>
-      <p>{item.summary}</p>
-      <div className="model-mounts-receipt-foot">
-        <StatusPill tone={item.redaction === "redacted" ? "ready" : "warn"}>{item.redaction}</StatusPill>
-        <TagList items={item.evidence} />
-      </div>
-    </article>
+    <div role="row" className="model-mounts-observability-row">
+      <span role="cell">
+        <strong>{event.kind}</strong>
+        <small>{event.direction} / {event.category}</small>
+        <small>{event.id}</small>
+      </span>
+      <span role="cell">
+        <strong>{event.entity}</strong>
+        <small>{event.summary}</small>
+      </span>
+      <span role="cell">
+        <StatusPill tone={event.status === "ready" ? "ready" : event.status === "degraded" ? "warn" : "blocked"}>
+          {event.status}
+        </StatusPill>
+      </span>
+      <span role="cell">
+        {showPayload && event.payload.length > 0 ? (
+          <div className="model-mounts-observability-payload">
+            {event.payload.slice(0, 6).map((item) => (
+              <small key={item.label}>{item.label}: {item.value}</small>
+            ))}
+          </div>
+        ) : (
+          <small>payload hidden</small>
+        )}
+      </span>
+      <span role="cell">
+        <ActionButton onClick={() => onReplayReceipt(event.id)} disabled={busy} guard={replayGuard}>Replay</ActionButton>
+      </span>
+    </div>
   );
 }
 
@@ -4329,7 +4549,14 @@ export function MissionControlMountsView() {
           />
         ) : null}
         {activeTab === "logs" ? (
-          <LogsPanel receipts={visibleReceipts} connectionState={daemon.connectionState} onReplayReceipt={daemon.actions.replayReceipt} busy={busy} />
+          <LogsPanel
+            receipts={visibleReceipts}
+            connectionState={daemon.connectionState}
+            onRefresh={() => void daemon.refresh()}
+            onTailServerLogs={daemon.actions.tailServerLogs}
+            onReplayReceipt={daemon.actions.replayReceipt}
+            busy={busy}
+          />
         ) : null}
       </main>
     </div>

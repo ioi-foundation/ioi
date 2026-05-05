@@ -90,7 +90,7 @@ npm run validate:model-mounting:e2e
 Latest deterministic evidence bundle:
 
 ```text
-docs/evidence/model-mounting-e2e/2026-05-05T12-32-31Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T12-44-29Z/result.json
 ```
 
 That bundle passed the following acceptance steps:
@@ -121,6 +121,9 @@ That bundle passed the following acceptance steps:
 - OpenAI-compatible `/v1/chat/completions` and `/v1/embeddings`;
 - local server stop/restart, redacted log tail, event tail, CLI parity, and
   lifecycle receipts;
+- Mounts streaming observability filters for request/response direction,
+  category, status, receipt kind, route/endpoint/provider search, live refresh,
+  redacted payload preview, server log tail, and replay links;
 - deterministic catalog search, URL import, import dry-run/copy modes, storage
   cleanup scan, artifact delete, and download cancel/completion lifecycle;
 - persistent `mcp.json` import and governed MCP tool invocation;
@@ -142,13 +145,13 @@ That bundle passed the following acceptance steps:
 The current GUI evidence nested under that E2E bundle is:
 
 ```text
-docs/evidence/model-mounting-e2e/2026-05-05T12-32-31Z/gui/2026-05-05T12-32-58Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T12-44-29Z/gui/2026-05-05T12-44-56Z/result.json
 ```
 
 The current standalone Mounts GUI evidence bundle is:
 
 ```text
-docs/evidence/model-mounts-gui-validation/2026-05-05T12-30-04Z/result.json
+docs/evidence/model-mounts-gui-validation/2026-05-05T12-43-07Z/result.json
 ```
 
 It captured all Mounts tabs as desktop window screenshots:
@@ -308,13 +311,13 @@ Latest evidence paths:
 
 ```text
 Canonical E2E:
-docs/evidence/model-mounting-e2e/2026-05-05T12-32-31Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T12-44-29Z/result.json
 
 Mounts GUI nested under canonical E2E:
-docs/evidence/model-mounting-e2e/2026-05-05T12-32-31Z/gui/2026-05-05T12-32-58Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T12-44-29Z/gui/2026-05-05T12-44-56Z/result.json
 
 Standalone Mounts GUI with live provider summary:
-docs/evidence/model-mounts-gui-validation/2026-05-05T12-30-04Z/result.json
+docs/evidence/model-mounts-gui-validation/2026-05-05T12-43-07Z/result.json
 
 Broad Autopilot GUI harness:
 docs/evidence/autopilot-gui-harness-validation/2026-05-05T01-40-43-545Z/result.json
@@ -546,7 +549,7 @@ implemented as a product surface.
 | Local server | `lms server start|stop|status` and local port `1234` | Complete for deterministic daemon path | Keep start/stop/restart governed by `server.control:*`; package production headless/service supervision |
 | OpenAI-compatible API | `/v1/models`, chat completions, Responses, embeddings | Complete for daemon path | Add streaming parity, richer OpenAI error shape, tool-output submission, and advanced Responses state |
 | Native model API | LM Studio has public local primitives plus OpenAI-compatible surface | Complete, Autopilot-specific | Keep IOI-native routes authoritative and prevent `/v1/*` policy bypass |
-| Request/response logs | `lms log stream` | Partial | Server log/event tail is receipted through API/CLI/Mounts; add live streaming panes across provider, backend, route, MCP, and request/response filters |
+| Request/response logs | `lms log stream` | Complete for deterministic Mounts path | Server log/event tail and filtered request/response receipt observability are visible through API/CLI/Mounts; add raw streaming transport parity for live provider/backend logs where supported |
 | API tokens | LM Studio local API tokens/auth toggle | Complete plus stronger IOI policy | Add production wallet.network account linking, cross-device revocation, and richer audit export UX |
 | MCP config | Cursor/LM Studio-style `mcp.json` plus API integrations | Partial | Complete stdio lifecycle, OAuth, schema discovery, and model tool exposure through governed receipts |
 | Provider support | LM Studio owns local GGUF runtime; external providers are not core | Partial | Keep LM Studio first-class while adding real Ollama/vLLM/llama.cpp/BYOK/custom HTTP adapters behind the same router |
@@ -565,16 +568,18 @@ implemented as a product surface.
    - GGUF/MLX filters and variant selection polish;
    - storage quota and uninstall confirmation UX.
 2. Product UI parity:
-   - streaming request/response filters and compact failed-action retry affordances.
+   - compact failed-action retry affordances;
+   - receipt drill-down and replay detail polish beyond the current filtered
+     stream.
 3. Live backend parity:
    - real llama.cpp runner;
    - live Ollama lifecycle;
    - live vLLM/OpenAI-compatible lifecycle;
    - native BYOK OpenAI/Anthropic/Gemini adapters through vault refs.
-4. Streaming observability parity:
-   - live log streaming equivalent to `lms log stream`;
-   - per-provider/backend/request filters;
-   - request/response log panes with receipt links.
+4. Raw live-log streaming parity:
+   - live transport equivalent to `lms log stream` for providers/backends that
+     support raw streams;
+   - provider/backend log panes beside the current filtered receipt stream.
 5. Production IOI hardening beyond LM Studio:
    - production wallet.network grants/vaults;
    - production Agentgres projection sync and settlement packs;
@@ -596,19 +601,19 @@ npm run validate:model-mounting:e2e
 Latest passing bundle:
 
 ```text
-docs/evidence/model-mounting-e2e/2026-05-05T12-32-31Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T12-44-29Z/result.json
 ```
 
 Nested GUI bundle:
 
 ```text
-docs/evidence/model-mounting-e2e/2026-05-05T12-32-31Z/gui/2026-05-05T12-32-58Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T12-44-29Z/gui/2026-05-05T12-44-56Z/result.json
 ```
 
 Standalone Mounts GUI bundle:
 
 ```text
-docs/evidence/model-mounts-gui-validation/2026-05-05T12-30-04Z/result.json
+docs/evidence/model-mounts-gui-validation/2026-05-05T12-43-07Z/result.json
 ```
 
 The GUI bundle captured nine desktop window screenshots for the Mounts tabs
@@ -1914,8 +1919,8 @@ Current status:
 - Complete: Mounts desktop GUI is validated by screenshots through the
   canonical E2E gate and dedicated GUI harness.
 - Complete: provider, vault, and backend health receipts are visible through
-  health lookup APIs, grouped Logs / Receipts lanes, the Local Server health
-  summary strip, and the Mounts `Run health sweep` action.
+  health lookup APIs, the filtered Logs / Receipts observability stream, the
+  Local Server health summary strip, and the Mounts `Run health sweep` action.
 - Complete: runtime engine inventory and hardware survey are visible through
   `/api/v1/runtime/engines`, `/api/v1/runtime/survey`, `ioi backends survey`,
   runtime survey receipts, projection/replay, and the Mounts Backends panel.
@@ -1926,6 +1931,10 @@ Current status:
 - Complete: deterministic server/log parity includes governed start, stop,
   restart, log tail, event tail, CLI parity, Mounts Local Server controls, and
   redacted lifecycle receipts.
+- Complete: Mounts Logs / Receipts includes streaming observability filters
+  for request/response direction, category, status, receipt kind,
+  route/endpoint/provider search, live refresh, redacted payload preview,
+  server log tail, and replay links.
 - Complete: receipts show route, selected endpoint, selected instance, backend,
   policy hash, grant id, token counts, latency, and tool receipt IDs where
   applicable.
@@ -1959,9 +1968,10 @@ parity closeout order from the matrix above:
 1. Live catalog/download activation.
 2. Product UI parity beyond the validated picker, loaded-instance inspector,
    model detail drawer, route editor, token editor, benchmark/results panel,
-   and degraded/denied action readiness.
+   degraded/denied action readiness, and filtered observability stream.
 3. Live backend/provider parity.
-4. Streaming observability parity.
+4. Raw live-log streaming parity for providers/backends with `lms log stream`
+   style transports.
 5. Production IOI hardening beyond LM Studio.
 
 Keep each backlog item behind the validated daemon/router/capability/receipt
