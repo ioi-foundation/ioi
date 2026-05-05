@@ -588,23 +588,23 @@ function useModelMountsDaemon() {
           });
           return "Native-local backend health receipt recorded.";
         }),
-      startFixtureBackend: () =>
+      startNativeBackend: () =>
         runAction("backend-start", async () => {
           const token = await ensureToken();
-          await requestJson("/api/v1/backends/backend.fixture/start", {
+          await requestJson("/api/v1/backends/backend.autopilot.native-local.fixture/start", {
             method: "POST",
             token,
           });
-          return "Fixture backend start event recorded through the backend control path.";
+          return "Native-local backend start event recorded through the backend control path.";
         }),
-      stopFixtureBackend: () =>
+      stopNativeBackend: () =>
         runAction("backend-stop", async () => {
           const token = await ensureToken();
-          await requestJson("/api/v1/backends/backend.fixture/stop", {
+          await requestJson("/api/v1/backends/backend.autopilot.native-local.fixture/stop", {
             method: "POST",
             token,
           });
-          return "Fixture backend stop event recorded through the backend control path.";
+          return "Native-local backend stop event recorded through the backend control path.";
         }),
       loadLocalModel: () =>
         runAction("load-local", async () => {
@@ -1085,14 +1085,14 @@ function ServerPanel({
 function BackendsPanel({
   backends,
   onProbeNativeBackend,
-  onStartFixtureBackend,
-  onStopFixtureBackend,
+  onStartNativeBackend,
+  onStopNativeBackend,
   busy,
 }: {
   backends: BackendPreview[];
   onProbeNativeBackend: () => void;
-  onStartFixtureBackend: () => void;
-  onStopFixtureBackend: () => void;
+  onStartNativeBackend: () => void;
+  onStopNativeBackend: () => void;
   busy: boolean;
 }) {
   return (
@@ -1106,8 +1106,8 @@ function BackendsPanel({
           <StatusPill tone="ready">Autopilot owned</StatusPill>
           <StatusPill tone="muted">live engines gated</StatusPill>
           <ActionButton onClick={onProbeNativeBackend} disabled={busy}>Probe native backend</ActionButton>
-          <ActionButton onClick={onStartFixtureBackend} disabled={busy}>Start fixture</ActionButton>
-          <ActionButton onClick={onStopFixtureBackend} disabled={busy}>Stop fixture</ActionButton>
+          <ActionButton onClick={onStartNativeBackend} disabled={busy}>Start native</ActionButton>
+          <ActionButton onClick={onStopNativeBackend} disabled={busy}>Stop native</ActionButton>
         </div>
       </div>
 
@@ -1600,8 +1600,8 @@ export function MissionControlMountsView() {
           <BackendsPanel
             backends={daemon.data.backends}
             onProbeNativeBackend={daemon.actions.probeNativeBackend}
-            onStartFixtureBackend={daemon.actions.startFixtureBackend}
-            onStopFixtureBackend={daemon.actions.stopFixtureBackend}
+            onStartNativeBackend={daemon.actions.startNativeBackend}
+            onStopNativeBackend={daemon.actions.stopNativeBackend}
             busy={busy}
           />
         ) : null}

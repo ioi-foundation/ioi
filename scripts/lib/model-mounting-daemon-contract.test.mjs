@@ -220,6 +220,22 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(nativeCompat.model, "native:imported");
     assert.match(nativeCompat.choices[0].message.content, /Autopilot native local model response/);
 
+    const nativeBackendStart = await expectOk(daemon.endpoint, "/api/v1/backends/backend.autopilot.native-local.fixture/start", {
+      method: "POST",
+      token: grant.token,
+    });
+    assert.equal(nativeBackendStart.status, "available");
+    assert.equal(nativeBackendStart.processStatus, "started");
+    const nativeBackendStop = await expectOk(daemon.endpoint, "/api/v1/backends/backend.autopilot.native-local.fixture/stop", {
+      method: "POST",
+      token: grant.token,
+    });
+    assert.equal(nativeBackendStop.status, "stopped");
+    assert.equal(nativeBackendStop.processStatus, "stopped");
+    const nativeBackendLifecycleLogs = await expectOk(daemon.endpoint, "/api/v1/backends/backend.autopilot.native-local.fixture/logs");
+    assert.ok(nativeBackendLifecycleLogs.some((record) => record.event === "backend_start"));
+    assert.ok(nativeBackendLifecycleLogs.some((record) => record.event === "backend_stop"));
+
     const openAiModels = await expectOk(daemon.endpoint, "/v1/models", {
       token: grant.token,
     });
@@ -371,6 +387,20 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
 
     const receipts = await expectOk(daemon.endpoint, "/api/v1/receipts");
     assert.ok(receipts.some((receipt) => receipt.kind === "model_lifecycle"));
+    assert.ok(
+      receipts.some(
+        (receipt) =>
+          receipt.details?.operation === "backend_start" &&
+          receipt.details?.backendId === "backend.autopilot.native-local.fixture",
+      ),
+    );
+    assert.ok(
+      receipts.some(
+        (receipt) =>
+          receipt.details?.operation === "backend_stop" &&
+          receipt.details?.backendId === "backend.autopilot.native-local.fixture",
+      ),
+    );
     assert.ok(receipts.some((receipt) => receipt.kind === "model_route_selection"));
     assert.ok(receipts.some((receipt) => receipt.kind === "model_invocation"));
     assert.ok(receipts.some((receipt) => receipt.kind === "mcp_tool_invocation"));
