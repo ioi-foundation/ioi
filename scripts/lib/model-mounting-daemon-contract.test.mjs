@@ -690,9 +690,18 @@ test("Ollama provider adapter lists models, invokes through policy, and redacts 
 test("vLLM and OpenAI-compatible adapters support responses fallback, embeddings, and redacted provider errors", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-vllm-provider-workspace-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-vllm-provider-state-"));
+  const optionalAuthVaultRef = "vault://provider/openai-compatible/api-key";
+  const optionalAuthMaterial = crypto.randomBytes(18).toString("base64url");
   const providerServer = await startFakeVllmServer({ responsesStatus: 404 });
+  const optionalAuthServer = await startFakeVllmServer({
+    requiredHeaders: { authorization: `Bearer ${optionalAuthMaterial}` },
+  });
   const errorServer = await startFakeVllmServer({ chatStatus: 500, secret: "vllm-provider-secret-token" });
-  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  const daemon = await startRuntimeDaemonService({
+    cwd,
+    stateDir,
+    vaultSecrets: { [optionalAuthVaultRef]: optionalAuthMaterial },
+  });
   try {
     const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
       method: "POST",
@@ -730,6 +739,28 @@ test("vLLM and OpenAI-compatible adapters support responses fallback, embeddings
 
     const providerModels = await expectOk(daemon.endpoint, "/api/v1/providers/provider.test.vllm/models");
     assert.ok(providerModels.some((model) => model.modelId === "vllm-qwen"));
+
+    await expectOk(daemon.endpoint, "/api/v1/providers", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        id: "provider.test.openai-compatible-auth",
+        kind: "openai_compatible",
+        label: "Authenticated OpenAI-compatible",
+        api_format: "openai_compatible",
+        base_url: `${optionalAuthServer.endpoint}/v1`,
+        status: "configured",
+        privacy_class: "workspace",
+        capabilities: ["chat"],
+        secret_ref: optionalAuthVaultRef,
+      },
+    });
+    const optionalAuthModels = await expectOk(daemon.endpoint, "/api/v1/providers/provider.test.openai-compatible-auth/models");
+    assert.ok(optionalAuthModels.some((model) => model.modelId === "vllm-qwen"));
+    assert.ok(optionalAuthServer.observedHeaders().some((headers) => headers.authorization === `Bearer ${optionalAuthMaterial}`));
+    assert.equal(JSON.stringify(optionalAuthModels).includes(optionalAuthVaultRef), false);
+    assert.equal(JSON.stringify(optionalAuthModels).includes(optionalAuthMaterial), false);
+
     const mounted = await expectOk(daemon.endpoint, "/api/v1/models/mount", {
       method: "POST",
       token: grant.token,
@@ -840,6 +871,7 @@ test("vLLM and OpenAI-compatible adapters support responses fallback, embeddings
   } finally {
     await daemon.close();
     await providerServer.close();
+    await optionalAuthServer.close();
     await errorServer.close();
   }
 });
@@ -851,7 +883,7 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
   const vaultMaterial = crypto.randomBytes(18).toString("base64url");
   const providerServer = await startFakeVllmServer({
     responsesStatus: 404,
-    requiredAuthorization: `Bearer ${vaultMaterial}`,
+    requiredHeaders: { "x-api-key": vaultMaterial },
   });
   const daemon = await startRuntimeDaemonService({
     cwd,
@@ -926,6 +958,22 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
     });
     assert.equal(blockedHealth.response.status, 403);
 
+    const rejectedForbiddenAuthHeader = await requestJson(daemon.endpoint, "/api/v1/providers", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        id: "provider.test.custom-forbidden-auth-header",
+        kind: "custom_http",
+        label: "Forbidden Auth Header",
+        api_format: "openai_compatible",
+        base_url: `${providerServer.endpoint}/v1`,
+        secret_ref: vaultRef,
+        auth_header_name: "content-length",
+      },
+    });
+    assert.equal(rejectedForbiddenAuthHeader.response.status, 400);
+    assert.equal(JSON.stringify(rejectedForbiddenAuthHeader.json).includes(vaultRef), false);
+
     await expectOk(daemon.endpoint, "/api/v1/models/import", {
       method: "POST",
       token: grant.token,
@@ -978,11 +1026,15 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
         privacy_class: "workspace",
         capabilities: ["chat", "responses", "embeddings"],
         secret_ref: vaultRef,
+        auth_scheme: "api_key",
+        auth_header_name: "x-api-key",
       },
     });
     assert.equal(configured.status, "configured");
     assert.equal(configured.secretConfigured, true);
     assert.equal(configured.secretRef.redacted, true);
+    assert.equal(configured.authScheme, "api_key");
+    assert.equal(configured.authHeaderName, "x-api-key");
     assert.equal(JSON.stringify(configured).includes(vaultRef), false);
 
     const providers = await expectOk(daemon.endpoint, "/api/v1/providers");
@@ -990,6 +1042,8 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
     const publicProvider = providers.find((provider) => provider.id === "provider.test.custom-vault");
     assert.equal(publicProvider.secretConfigured, true);
     assert.equal(publicProvider.secretRef.redacted, true);
+    assert.equal(publicProvider.authScheme, "api_key");
+    assert.equal(publicProvider.authHeaderName, "x-api-key");
 
     const snapshot = await expectOk(daemon.endpoint, "/api/v1/models");
     assert.equal(JSON.stringify(snapshot.providers).includes(vaultRef), false);
@@ -1004,7 +1058,7 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
 
     const providerModels = await expectOk(daemon.endpoint, "/api/v1/providers/provider.test.custom-vault/models");
     assert.ok(providerModels.some((model) => model.modelId === "vllm-qwen"));
-    assert.ok(providerServer.observedAuthorizations().includes(`Bearer ${vaultMaterial}`));
+    assert.ok(providerServer.observedHeaders().some((headers) => headers["x-api-key"] === vaultMaterial));
     await expectOk(daemon.endpoint, "/api/v1/models/mount", {
       method: "POST",
       token: grant.token,
@@ -1036,9 +1090,10 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
     assert.equal(receipt.details.providerId, "provider.test.custom-vault");
     assert.equal(typeof receipt.details.authVaultRefHash, "string");
     assert.ok(receipt.details.providerAuthEvidenceRefs.includes("VaultPort.resolveVaultRef"));
+    assert.deepEqual(receipt.details.providerAuthHeaderNames, ["x-api-key"]);
     assert.equal(JSON.stringify(receipt).includes(vaultRef), false);
     assert.equal(JSON.stringify(receipt).includes(vaultMaterial), false);
-    assert.ok(providerServer.observedAuthorizations().includes(`Bearer ${vaultMaterial}`));
+    assert.ok(providerServer.observedHeaders().some((headers) => headers["x-api-key"] === vaultMaterial));
     const projectionAfterAuth = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
     assert.equal(projectionAfterAuth.adapterBoundaries.vault.port, "VaultPort");
     assert.equal(JSON.stringify(projectionAfterAuth).includes(vaultMaterial), false);
@@ -1332,14 +1387,17 @@ async function startFakeOllamaServer({ chatStatus = 200, secret = null } = {}) {
   };
 }
 
-async function startFakeVllmServer({ responsesStatus = 200, chatStatus = 200, secret = null, requiredAuthorization = null } = {}) {
-  const observedAuthorizations = [];
+async function startFakeVllmServer({ responsesStatus = 200, chatStatus = 200, secret = null, requiredAuthorization = null, requiredHeaders = null } = {}) {
+  const observedHeaders = [];
   const server = http.createServer((request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
     response.setHeader("content-type", "application/json");
-    if (requiredAuthorization) {
-      observedAuthorizations.push(String(request.headers.authorization ?? ""));
-      if (request.headers.authorization !== requiredAuthorization) {
+    if (requiredAuthorization || requiredHeaders) {
+      observedHeaders.push({ ...request.headers });
+      const missingRequiredHeader = requiredHeaders
+        ? Object.entries(requiredHeaders).find(([name, value]) => request.headers[String(name).toLowerCase()] !== value)
+        : null;
+      if ((requiredAuthorization && request.headers.authorization !== requiredAuthorization) || missingRequiredHeader) {
         response.statusCode = 401;
         response.end(JSON.stringify({ error: { message: "provider auth failed" } }));
         return;
@@ -1400,7 +1458,7 @@ async function startFakeVllmServer({ responsesStatus = 200, chatStatus = 200, se
   const address = server.address();
   return {
     endpoint: `http://${address.address}:${address.port}`,
-    observedAuthorizations: () => [...observedAuthorizations],
+    observedHeaders: () => observedHeaders.map((headers) => ({ ...headers })),
     close: () => new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve()))),
   };
 }

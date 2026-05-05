@@ -136,7 +136,10 @@ export interface ModelProviderProfile {
   status: "available" | "configured" | "running" | "stopped" | "blocked" | "absent" | "future";
   privacyClass: string;
   capabilities: ModelCapability[];
-  secretRef?: string | null;
+  secretRef?: string | { redacted: true; hash: string } | null;
+  secretConfigured?: boolean;
+  authScheme?: "bearer" | "raw" | "api_key" | string;
+  authHeaderName?: string;
   discovery?: Record<string, unknown>;
 }
 
