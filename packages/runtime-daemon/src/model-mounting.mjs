@@ -1064,6 +1064,32 @@ class OpenAICompatibleModelProviderDriver {
     return { status: "unloaded", backend: endpoint.apiFormat, evidenceRefs: [`${this.label}_stateless_unload`] };
   }
 
+  supportsStream(kind) {
+    return kind === "chat.completions" || kind === "chat";
+  }
+
+  async streamInvoke({ state, provider, endpoint, kind, body, input }) {
+    if (!this.supportsStream(kind)) return null;
+    const requestBody = chatCompletionRequestBody({ ...body, stream: true }, endpoint.modelId);
+    const result = await fetchProviderStream(provider, "/chat/completions", {
+      method: "POST",
+      body: requestBody,
+      state,
+    });
+    return {
+      stream: result.stream,
+      abort: result.abort,
+      status: result.status,
+      providerResponseKind: "chat.completions.stream",
+      backend: endpoint.apiFormat,
+      backendId: endpoint.backendId ?? defaultBackendForProvider(provider),
+      authVaultRefHash: result.authEvidence?.vaultRefHash ?? null,
+      providerAuthEvidenceRefs: result.authEvidence?.evidenceRefs ?? [],
+      providerAuthHeaderNames: result.authEvidence?.headerNames ?? [],
+      backendEvidenceRefs: [`${this.label}_provider_native_stream`],
+    };
+  }
+
   async invoke({ state, provider, endpoint, kind, body, input, allowResponsesFallback = true }) {
     if (kind === "embeddings") {
       const requestBody = { ...body, model: body.model ?? endpoint.modelId };
@@ -3832,6 +3858,169 @@ export class ModelMountingState {
     };
   }
 
+  async startModelStream({ authorization, requiredScope, kind, body = {} }) {
+    const token = this.authorize(authorization, requiredScope);
+    const started = this.now().getTime();
+    const input = inputText(body);
+    const capability =
+      kind === "embeddings"
+        ? "embeddings"
+        : kind === "rerank"
+          ? "rerank"
+          : kind === "responses"
+            ? "responses"
+            : "chat";
+    const selection = this.selectRoute({
+      modelId: body.model,
+      routeId: body.route_id ?? body.routeId,
+      capability,
+      policy: body.model_policy ?? body.modelPolicy ?? {},
+    });
+    const driver = this.driverForProvider(selection.provider);
+    if (typeof driver.streamInvoke !== "function" || (typeof driver.supportsStream === "function" && !driver.supportsStream(kind))) {
+      return {
+        native: false,
+        invocation: await this.invokeModel({ authorization, requiredScope, kind, body }),
+      };
+    }
+    const routeReceipt = this.receipt("model_route_selection", {
+      summary: `Route ${selection.route.id} selected ${selection.endpoint.modelId}.`,
+      redaction: "none",
+      evidenceRefs: ["model_router", selection.route.id, selection.endpoint.id],
+      details: {
+        routeId: selection.route.id,
+        selectedModel: selection.endpoint.modelId,
+        endpointId: selection.endpoint.id,
+        providerId: selection.endpoint.providerId,
+        policyHash: stableHash(body.model_policy ?? body.modelPolicy ?? {}),
+      },
+    });
+    const instance = await this.ensureLoaded(selection.endpoint);
+    const ephemeralMcp = this.compileEphemeralMcpIntegrations({ authorization, body, input });
+    const providerResult = await driver.streamInvoke({
+      state: this,
+      provider: selection.provider,
+      endpoint: selection.endpoint,
+      instance,
+      kind,
+      body,
+      input,
+      token,
+    });
+    if (!providerResult?.stream) {
+      return {
+        native: false,
+        invocation: await this.invokeModel({ authorization, requiredScope, kind, body }),
+      };
+    }
+    const outputText = "";
+    const latencyMs = Math.max(1, this.now().getTime() - started);
+    const tokenCount = providerResult.tokenCount ?? estimateTokens(input, outputText);
+    const receipt = this.receipt("model_invocation", {
+      summary: `${kind} invocation stream started through ${selection.route.id} to ${selection.endpoint.modelId}.`,
+      redaction: "redacted",
+      evidenceRefs: [
+        "model_router",
+        "provider_native_stream",
+        routeReceipt.id,
+        selection.route.id,
+        selection.endpoint.id,
+        instance.id,
+        token.grantId,
+        ...ephemeralMcp.evidenceRefs,
+        ...(providerResult.providerAuthEvidenceRefs ?? []),
+      ],
+      details: {
+        routeId: selection.route.id,
+        routeReceiptId: routeReceipt.id,
+        selectedModel: selection.endpoint.modelId,
+        endpointId: selection.endpoint.id,
+        providerId: selection.endpoint.providerId,
+        instanceId: instance.id,
+        backend: providerResult.backend ?? selection.endpoint.apiFormat,
+        backendId: providerResult.backendId ?? instance.backendId ?? selection.endpoint.backendId ?? null,
+        selectedBackend: providerResult.backendId ?? instance.backendId ?? selection.endpoint.backendId ?? null,
+        policyHash: stableHash(body.model_policy ?? body.modelPolicy ?? {}),
+        grantId: token.grantId,
+        tokenCount,
+        latencyMs,
+        inputHash: stableHash(input),
+        outputHash: stableHash(outputText),
+        compatTranslation: providerResult.compatTranslation ?? null,
+        providerResponseKind: providerResult.providerResponseKind ?? null,
+        streamStatus: "started",
+        streamSource: "provider_native",
+        backendProcess: providerResult.backendProcess ?? instance.backendProcess ?? null,
+        backendProcessId: providerResult.backendProcess?.id ?? instance.backendProcessId ?? null,
+        backendProcessPidHash: providerResult.backendProcess?.pidHash ?? instance.backendProcessPidHash ?? null,
+        backendEvidenceRefs: providerResult.backendEvidenceRefs ?? [],
+        authVaultRefHash: providerResult.authVaultRefHash ?? null,
+        providerAuthEvidenceRefs: providerResult.providerAuthEvidenceRefs ?? [],
+        providerAuthHeaderNames: providerResult.providerAuthHeaderNames ?? [],
+        toolReceiptIds: ephemeralMcp.toolReceiptIds,
+        ephemeralMcpServerIds: ephemeralMcp.serverIds,
+      },
+    });
+    const route = {
+      ...selection.route,
+      lastSelectedModel: selection.endpoint.modelId,
+      lastReceiptId: receipt.id,
+    };
+    this.routes.set(route.id, route);
+    this.writeMap("model-routes", this.routes);
+    const invocation = {
+      kind,
+      input,
+      outputText,
+      model: selection.endpoint.modelId,
+      route,
+      endpoint: selection.endpoint,
+      instance,
+      receipt,
+      routeReceipt,
+      tokenCount,
+      providerResponse: null,
+      providerResponseKind: providerResult.providerResponseKind ?? null,
+      compatTranslation: providerResult.compatTranslation ?? null,
+      toolReceiptIds: ephemeralMcp.toolReceiptIds,
+    };
+    return {
+      native: true,
+      invocation,
+      providerStream: providerResult.stream,
+      abort: providerResult.abort,
+      providerResult,
+    };
+  }
+
+  recordModelStreamCompleted({ invocation, streamKind, outputText = "", providerUsage = null, chunksForwarded = 0, finishReason = null, providerResult = {} }) {
+    const tokenCount = normalizeUsage(providerUsage, estimateTokens(invocation.input ?? "", outputText));
+    return this.receipt("model_invocation_stream_completed", {
+      summary: `${streamKind} stream completed for ${invocation.model}.`,
+      redaction: "redacted",
+      evidenceRefs: ["model_stream", streamKind, invocation.receipt.id, invocation.route.id, invocation.endpoint.id],
+      details: {
+        streamKind,
+        streamSource: "provider_native",
+        invocationReceiptId: invocation.receipt.id,
+        routeId: invocation.route.id,
+        selectedModel: invocation.model,
+        endpointId: invocation.endpoint.id,
+        providerId: invocation.endpoint.providerId,
+        instanceId: invocation.instance.id,
+        backendId: invocation.instance.backendId ?? invocation.receipt.details?.backendId ?? null,
+        selectedBackend: invocation.receipt.details?.selectedBackend ?? null,
+        providerResponseKind: providerResult.providerResponseKind ?? invocation.providerResponseKind ?? null,
+        backendEvidenceRefs: providerResult.backendEvidenceRefs ?? [],
+        toolReceiptIds: invocation.toolReceiptIds ?? [],
+        tokenCount,
+        outputHash: stableHash(outputText),
+        chunksForwarded,
+        finishReason,
+      },
+    });
+  }
+
   compileEphemeralMcpIntegrations({ authorization, body = {}, input }) {
     const integrations = Array.isArray(body.integrations) ? body.integrations : [];
     const ephemeral = integrations.filter((integration) => integration?.type === "ephemeral_mcp");
@@ -5582,6 +5771,75 @@ async function fetchProviderJson(provider, route, { method = "GET", body, tolera
       status: 424,
       code: "external_blocker",
       message: "OpenAI-compatible provider request failed.",
+      details: {
+        providerId: provider.id,
+        providerKind: provider.kind,
+        error: String(error?.name ?? error?.message ?? error),
+      },
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function fetchProviderStream(provider, route, { method = "GET", body, state } = {}) {
+  assertProviderVaultBoundary(provider);
+  if (!provider.baseUrl || String(provider.baseUrl).startsWith("local://")) {
+    throw runtimeError({
+      status: 424,
+      code: "external_blocker",
+      message: "Provider does not expose an HTTP model endpoint.",
+      details: { providerId: provider.id, providerKind: provider.kind },
+    });
+  }
+  const controller = new AbortController();
+  const timeoutMs = providerRequestTimeoutMs();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const url = `${String(provider.baseUrl).replace(/\/+$/, "")}/${route.replace(/^\/+/, "")}`;
+  const auth = providerAuthHeaders(provider, state);
+  try {
+    const response = await fetch(url, {
+      method,
+      signal: controller.signal,
+      headers: {
+        accept: "text/event-stream",
+        ...auth.headers,
+        ...(body === undefined ? {} : { "content-type": "application/json" }),
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    clearTimeout(timeout);
+    if (!response.ok) {
+      const text = await response.text();
+      const parsed = text.trim() ? parseJsonMaybe(text) : null;
+      throw providerHttpError(provider, "OpenAI-compatible provider stream failed.", {
+        ok: false,
+        status: response.status,
+        body: parsed,
+        authEvidence: auth.evidence,
+      });
+    }
+    if (!response.body) {
+      throw runtimeError({
+        status: 424,
+        code: "external_blocker",
+        message: "OpenAI-compatible provider did not return a stream body.",
+        details: { providerId: provider.id, providerKind: provider.kind },
+      });
+    }
+    return {
+      ok: true,
+      status: response.status,
+      stream: response.body,
+      abort: () => controller.abort(),
+      authEvidence: auth.evidence,
+    };
+  } catch (error) {
+    if (error?.status || error?.code === "external_blocker") throw error;
+    throw runtimeError({
+      status: 424,
+      code: "external_blocker",
+      message: "OpenAI-compatible provider stream failed.",
       details: {
         providerId: provider.id,
         providerKind: provider.kind,

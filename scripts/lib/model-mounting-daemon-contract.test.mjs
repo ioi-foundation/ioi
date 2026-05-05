@@ -1433,6 +1433,7 @@ test("vLLM and OpenAI-compatible adapters support responses fallback, embeddings
   const optionalAuthVaultRef = "vault://provider/openai-compatible/api-key";
   const optionalAuthMaterial = crypto.randomBytes(18).toString("base64url");
   const providerServer = await startFakeVllmServer({ responsesStatus: 404 });
+  const streamServer = await startFakeOpenAiCompatibleServer();
   const optionalAuthServer = await startFakeVllmServer({
     requiredHeaders: { authorization: `Bearer ${optionalAuthMaterial}` },
   });
@@ -1500,6 +1501,78 @@ test("vLLM and OpenAI-compatible adapters support responses fallback, embeddings
     assert.ok(optionalAuthServer.observedHeaders().some((headers) => headers.authorization === `Bearer ${optionalAuthMaterial}`));
     assert.equal(JSON.stringify(optionalAuthModels).includes(optionalAuthVaultRef), false);
     assert.equal(JSON.stringify(optionalAuthModels).includes(optionalAuthMaterial), false);
+
+    await expectOk(daemon.endpoint, "/api/v1/providers", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        id: "provider.test.openai-compatible-stream",
+        kind: "openai_compatible",
+        label: "Streaming OpenAI-compatible",
+        api_format: "openai_compatible",
+        base_url: `${streamServer.endpoint}/v1`,
+        status: "configured",
+        privacy_class: "workspace",
+        capabilities: ["chat"],
+      },
+    });
+    await expectOk(daemon.endpoint, "/api/v1/models/mount", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        model_id: "qwen/qwen3.5-9b",
+        provider_id: "provider.test.openai-compatible-stream",
+        id: "endpoint.test.openai-compatible-stream",
+      },
+    });
+    await expectOk(daemon.endpoint, "/api/v1/routes", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        id: "route.test.openai-compatible-stream",
+        role: "openai-compatible-stream-test",
+        privacy: "local_or_enterprise",
+        fallback: ["endpoint.test.openai-compatible-stream"],
+        provider_eligibility: ["openai_compatible"],
+        denied_providers: [],
+      },
+    });
+    const streamed = await requestSse(daemon.endpoint, "/v1/chat/completions", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        route_id: "route.test.openai-compatible-stream",
+        model: "qwen/qwen3.5-9b",
+        stream: true,
+        messages: [{ role: "user", content: "stream through provider" }],
+      },
+    });
+    assert.equal(streamed.response.status, 200);
+    assert.equal(streamed.response.headers.get("x-ioi-stream-source"), "provider_native");
+    const streamedChunks = parseOpenAiSseChunks(streamed.text);
+    assert.equal(streamedChunks.at(-1), "[DONE]");
+    const streamedText = streamedChunks
+      .filter((chunk) => chunk !== "[DONE]")
+      .map((chunk) => chunk.choices?.[0]?.delta?.content ?? "")
+      .join("");
+    assert.equal(streamedText, "fake openai-compatible streamed chat");
+    const metadataChunk = streamedChunks.find((chunk) => chunk !== "[DONE]" && chunk.provider_stream === "native");
+    assert.equal(metadataChunk.route_id, "route.test.openai-compatible-stream");
+    assert.equal(typeof metadataChunk.receipt_id, "string");
+    assert.equal(typeof metadataChunk.stream_receipt_id, "string");
+    assert.equal(streamed.response.headers.get("x-ioi-receipt-id"), metadataChunk.receipt_id);
+    const streamStartReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${metadataChunk.receipt_id}`);
+    assert.equal(streamStartReceipt.kind, "model_invocation");
+    assert.equal(streamStartReceipt.details.providerId, "provider.test.openai-compatible-stream");
+    assert.equal(streamStartReceipt.details.streamSource, "provider_native");
+    assert.equal(streamStartReceipt.details.streamStatus, "started");
+    assert.equal(streamStartReceipt.details.providerResponseKind, "chat.completions.stream");
+    assert.ok(streamStartReceipt.details.backendEvidenceRefs.includes("openai_compatible_provider_native_stream"));
+    const streamCompleteReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${metadataChunk.stream_receipt_id}`);
+    assert.equal(streamCompleteReceipt.kind, "model_invocation_stream_completed");
+    assert.equal(streamCompleteReceipt.details.invocationReceiptId, metadataChunk.receipt_id);
+    assert.equal(streamCompleteReceipt.details.outputHash, crypto.createHash("sha256").update(streamedText).digest("hex"));
+    assert.equal(streamCompleteReceipt.details.providerResponseKind, "chat.completions.stream");
 
     const mounted = await expectOk(daemon.endpoint, "/api/v1/models/mount", {
       method: "POST",
@@ -1611,6 +1684,7 @@ test("vLLM and OpenAI-compatible adapters support responses fallback, embeddings
   } finally {
     await daemon.close();
     await providerServer.close();
+    await streamServer.close();
     await optionalAuthServer.close();
     await errorServer.close();
   }
@@ -2607,7 +2681,7 @@ exit 0
 });
 
 async function startFakeOpenAiCompatibleServer() {
-  const server = http.createServer((request, response) => {
+  const server = http.createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
     response.setHeader("content-type", "application/json");
     if (request.method === "GET" && url.pathname === "/v1/models") {
@@ -2620,6 +2694,29 @@ async function startFakeOpenAiCompatibleServer() {
       return;
     }
     if (request.method === "POST" && url.pathname === "/v1/chat/completions") {
+      const body = JSON.parse((await readRequestText(request)) || "{}");
+      if (body.stream === true) {
+        response.setHeader("content-type", "text/event-stream");
+        const created = Math.floor(Date.now() / 1000);
+        const base = {
+          id: "chatcmpl_fake_openai_compatible_stream",
+          object: "chat.completion.chunk",
+          created,
+          model: body.model ?? "qwen/qwen3.5-9b",
+        };
+        response.write(`data: ${JSON.stringify({ ...base, choices: [{ index: 0, delta: { role: "assistant" }, finish_reason: null }] })}\n\n`);
+        response.write(`data: ${JSON.stringify({ ...base, choices: [{ index: 0, delta: { content: "fake openai-compatible " }, finish_reason: null }] })}\n\n`);
+        response.write(`data: ${JSON.stringify({ ...base, choices: [{ index: 0, delta: { content: "streamed chat" }, finish_reason: null }] })}\n\n`);
+        response.write(
+          `data: ${JSON.stringify({
+            ...base,
+            choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+            usage: { prompt_tokens: 3, completion_tokens: 5, total_tokens: 8 },
+          })}\n\n`,
+        );
+        response.end("data: [DONE]\n\n");
+        return;
+      }
       response.end(
         JSON.stringify({
           id: "chatcmpl_fake_lmstudio",

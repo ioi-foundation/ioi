@@ -936,16 +936,26 @@ async function handleOpenAiCompatibilityRoute({ request, response, store, url })
   }
   if (request.method === "POST" && url.pathname === "/v1/chat/completions") {
     const body = await readBody(request);
+    if (body.stream === true) {
+      const stream = await mounts.startModelStream({
+        authorization,
+        requiredScope: "model.chat:*",
+        kind: "chat.completions",
+        body,
+      });
+      if (stream.native) {
+        await writeOpenAiProviderChatCompletionStream(response, stream, mounts);
+        return;
+      }
+      await writeOpenAiChatCompletionStream(response, stream.invocation, mounts);
+      return;
+    }
     const invocation = await mounts.invokeModel({
       authorization,
       requiredScope: "model.chat:*",
       kind: "chat.completions",
       body,
     });
-    if (body.stream === true) {
-      await writeOpenAiChatCompletionStream(response, invocation, mounts);
-      return;
-    }
     writeJsonResponse(response, openAiChatCompletion(invocation, body));
     return;
   }
@@ -1199,6 +1209,116 @@ async function writeOpenAiChatCompletionStream(response, invocation, mounts) {
   });
 }
 
+async function writeOpenAiProviderChatCompletionStream(response, streamInvocation, mounts) {
+  const invocation = streamInvocation.invocation;
+  const streamKind = "openai_chat_completions_provider_native";
+  const reader = streamInvocation.providerStream.getReader();
+  const decoder = new TextDecoder();
+  let completed = false;
+  let canceled = false;
+  let written = 0;
+  let outputText = "";
+  let providerUsage = null;
+  let finishReason = null;
+  let buffer = "";
+  const markCanceled = () => {
+    if (completed || canceled) return;
+    canceled = true;
+    streamInvocation.abort?.();
+    recordModelStreamCanceled({ mounts, invocation, streamKind, framesWritten: written });
+  };
+  const onClose = () => markCanceled();
+  response.statusCode = 200;
+  response.setHeader("content-type", "text/event-stream");
+  response.setHeader("cache-control", "no-cache");
+  response.setHeader("x-ioi-receipt-id", invocation.receipt.id);
+  response.setHeader("x-ioi-stream-source", "provider_native");
+  response.on("close", onClose);
+  try {
+    while (!canceled) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value ?? new Uint8Array(), { stream: true });
+      const frames = takeSseFrameBlocks(buffer);
+      buffer = frames.remainder;
+      for (const frame of frames.blocks) {
+        if (canceled) break;
+        if (response.destroyed || response.writableEnded) {
+          markCanceled();
+          break;
+        }
+        for (const payload of dataPayloadsFromSseBlock(frame)) {
+          if (payload === "[DONE]") continue;
+          const parsed = parseJsonMaybe(payload);
+          const delta = parsed?.choices?.[0]?.delta?.content;
+          if (typeof delta === "string") outputText += delta;
+          if (parsed?.usage) providerUsage = parsed.usage;
+          const nextFinishReason = parsed?.choices?.[0]?.finish_reason;
+          if (nextFinishReason) finishReason = nextFinishReason;
+          try {
+            response.write(`data: ${payload}\n\n`);
+          } catch {
+            markCanceled();
+            break;
+          }
+          written += 1;
+        }
+      }
+    }
+    if (canceled) return;
+    const tail = decoder.decode();
+    if (tail) buffer += tail;
+    const trailingBlocks = buffer.trim() ? [buffer] : [];
+    for (const frame of trailingBlocks) {
+      for (const payload of dataPayloadsFromSseBlock(frame)) {
+        if (payload === "[DONE]") continue;
+        const parsed = parseJsonMaybe(payload);
+        const delta = parsed?.choices?.[0]?.delta?.content;
+        if (typeof delta === "string") outputText += delta;
+        if (parsed?.usage) providerUsage = parsed.usage;
+        const nextFinishReason = parsed?.choices?.[0]?.finish_reason;
+        if (nextFinishReason) finishReason = nextFinishReason;
+        response.write(`data: ${payload}\n\n`);
+        written += 1;
+      }
+    }
+    const completionReceipt = mounts.recordModelStreamCompleted({
+      invocation,
+      streamKind,
+      outputText,
+      providerUsage,
+      chunksForwarded: written,
+      finishReason,
+      providerResult: streamInvocation.providerResult,
+    });
+    const metadata = {
+      id: `chatcmpl_${crypto.randomUUID()}`,
+      object: "chat.completion.chunk",
+      created: Math.floor(Date.now() / 1000),
+      model: invocation.model,
+      receipt_id: invocation.receipt.id,
+      stream_receipt_id: completionReceipt.id,
+      route_id: invocation.route.id,
+      tool_receipt_ids: invocation.toolReceiptIds ?? [],
+      provider_stream: "native",
+      choices: [{ index: 0, delta: {}, finish_reason: null }],
+    };
+    if (!response.destroyed && !response.writableEnded) {
+      response.write(`data: ${JSON.stringify(metadata)}\n\n`);
+      response.write("data: [DONE]\n\n");
+      completed = true;
+      response.end();
+    }
+  } finally {
+    response.off("close", onClose);
+    try {
+      reader.releaseLock();
+    } catch {
+      // Some runtime streams close the reader before release.
+    }
+  }
+}
+
 async function writeOpenAiResponseStream(response, invocation, mounts) {
   const responseId = `resp_${crypto.randomUUID()}`;
   const outputItemId = `msg_${crypto.randomUUID()}`;
@@ -1341,6 +1461,29 @@ function streamFrameDelayMs() {
   const configured = Number(process.env.IOI_DETERMINISTIC_SSE_FRAME_DELAY_MS ?? "");
   if (Number.isFinite(configured) && configured >= 0) return Math.min(configured, 1000);
   return 5;
+}
+
+function takeSseFrameBlocks(buffer) {
+  const parts = String(buffer).split(/\r?\n\r?\n/);
+  const remainder = parts.pop() ?? "";
+  return { blocks: parts.filter(Boolean), remainder };
+}
+
+function dataPayloadsFromSseBlock(block) {
+  const payload = String(block)
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith("data:"))
+    .map((line) => line.replace(/^data:\s?/, ""))
+    .join("\n");
+  return payload ? [payload] : [];
+}
+
+function parseJsonMaybe(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
 }
 
 function delay(milliseconds) {
