@@ -499,6 +499,44 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     });
     assert.equal(deniedCompatStream.response.status, 403);
 
+    const responsesStreaming = await requestSse(daemon.endpoint, "/v1/responses", {
+      method: "POST",
+      token: grant.token,
+      body: { model: "local:auto", stream: true, input: "hello streamed responses" },
+    });
+    assert.equal(responsesStreaming.response.status, 200);
+    assert.match(responsesStreaming.response.headers.get("content-type") ?? "", /text\/event-stream/);
+    assert.equal(responsesStreaming.events[0].event, "response.created");
+    assert.equal(responsesStreaming.events[1].event, "response.output_item.added");
+    assert.equal(responsesStreaming.events[2].event, "response.content_part.added");
+    assert.ok(responsesStreaming.events.some((event) => event.event === "response.output_text.delta"));
+    assert.equal(responsesStreaming.events.at(-3).event, "response.content_part.done");
+    assert.equal(responsesStreaming.events.at(-2).event, "response.output_item.done");
+    assert.equal(responsesStreaming.events.at(-1).event, "response.completed");
+    assert.equal(responsesStreaming.events.at(-1).data.response.route_id, "route.local-first");
+    assert.equal(typeof responsesStreaming.events.at(-1).data.response.receipt_id, "string");
+    assert.equal(
+      responsesStreaming.response.headers.get("x-ioi-receipt-id"),
+      responsesStreaming.events.at(-1).data.response.receipt_id,
+    );
+    const responsesStreamedText = responsesStreaming.events
+      .filter((event) => event.event === "response.output_text.delta")
+      .map((event) => event.data.delta)
+      .join("");
+    assert.match(responsesStreamedText, /IOI model router fixture response/);
+    const responsesStreamReceipt = await expectOk(
+      daemon.endpoint,
+      `/api/v1/receipts/${responsesStreaming.events.at(-1).data.response.receipt_id}`,
+    );
+    assert.equal(responsesStreamReceipt.kind, "model_invocation");
+
+    const deniedResponsesStream = await requestJson(daemon.endpoint, "/v1/responses", {
+      method: "POST",
+      token: blockedGrant.token,
+      body: { model: "local:auto", stream: true, input: "blocked responses stream" },
+    });
+    assert.equal(deniedResponsesStream.response.status, 403);
+
     const anthropic = await expectOk(daemon.endpoint, "/v1/messages", {
       method: "POST",
       headers: { "x-api-key": grant.token },
