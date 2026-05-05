@@ -567,10 +567,11 @@ generic hardening list:
   hard-link, symbolic-link, dry-run, and explicit `user/repo` classification.
 - Autopilot Logs needs streaming request/response logs comparable to
   `lms log stream`, while preserving IOI redaction and receipts.
-- Autopilot compatibility APIs need explicit Anthropic-compatible
-  `/v1/messages` support. The guide already lists it as a lower-priority
-  compatibility endpoint, but the local trace and current LM Studio docs make
-  it part of practical parity for Claude-code-style local clients.
+- Autopilot now has governed, non-streaming Anthropic-compatible
+  `/v1/messages` support through the same router/capability/receipt path,
+  including `x-api-key` compatibility for local clients. Remaining parity is
+  Anthropic SSE streaming, richer content blocks, and advanced tool-use event
+  shapes.
 - Autopilot streaming needs to move from filtered receipt/event observability
   to true response streaming where supported: native `/api/v1/chat` token
   streams, OpenAI-compatible SSE streams, Anthropic-compatible SSE events,
@@ -673,8 +674,9 @@ gates:
      plus filtered request/response receipt stream;
    - compact error details and retry affordances for failed actions.
 8. Compatibility and SDK surface parity:
-   - Anthropic-compatible `/v1/messages`, including SSE events, `x-api-key`
-     auth header compatibility, and receipt-linked tool-use metadata;
+   - Anthropic-compatible `/v1/messages` is implemented for non-streaming
+     message calls with `x-api-key`/Bearer auth and governed receipts;
+     remaining parity is SSE events and advanced tool-use metadata;
    - true token streaming for `/api/v1/chat`, `/v1/responses`,
      `/v1/chat/completions`, and `/v1/messages`, including model-load and
      prompt-processing events where the native API can express them;
@@ -721,7 +723,7 @@ implemented as a product surface.
 | Load options | `lms load --gpu --context-length --parallel --ttl --identifier --estimate-only` | Complete for deterministic/public driver path | Runtime defaults now flow into redacted process argv for deterministic native-local, configured llama.cpp, Ollama serve, and vLLM serve runners; live tuning recommendations remain future scheduler work |
 | Local server | `lms server start|stop|status` and local port `1234` | Complete for deterministic daemon path | Keep start/stop/restart governed by `server.control:*`; package production headless/service supervision |
 | OpenAI-compatible API | `/v1/models`, chat completions, Responses, embeddings | Complete for daemon path | Add streaming parity, richer OpenAI error shape, tool-output submission, and advanced Responses state |
-| Anthropic-compatible API | `/v1/messages` with `x-api-key`/Bearer auth and SSE events | Gap | Add governed `/v1/messages` route through router/capability/MCP/receipt path and validate Claude-code-style local client compatibility |
+| Anthropic-compatible API | `/v1/messages` with `x-api-key`/Bearer auth and SSE events | Partial | Non-streaming `/v1/messages` now routes through router/capability/MCP/receipt path; add SSE events, richer content blocks, and advanced tool-use compatibility |
 | Native model API | LM Studio has public local primitives plus OpenAI-compatible surface | Complete, Autopilot-specific | Keep IOI-native routes authoritative and prevent `/v1/*` policy bypass |
 | Stateful/streaming native chat | `/api/v1/chat` supports stateful chat, token streams, model-load events, prompt-processing events, context length in request, and MCP integrations | Partial | Current deterministic observability is receipt/event based; add true streaming transport, stateful continuation, cancel/interrupt, and per-request context-length handling |
 | Request/response logs | `lms log stream` | Complete for deterministic Mounts path | Server log/event tail and filtered request/response receipt observability are visible through API/CLI/Mounts; add raw streaming transport parity for live provider/backend logs where supported |
@@ -745,7 +747,6 @@ implemented as a product surface.
 ### Priority Closeout Order For Parity
 
 1. Compatibility surface parity:
-   - governed Anthropic-compatible `/v1/messages`;
    - true native/OpenAI/Anthropic streaming with cancellation and event
      receipts;
    - stateful chat/Responses continuation;
@@ -1634,14 +1635,15 @@ Compatibility endpoints should:
 
 ### Anthropic-Compatible API
 
-Autopilot can add this after OpenAI compatibility:
+Autopilot supports the non-streaming form through the governed
+router/capability/receipt path:
 
 ```http
 POST /v1/messages
 ```
 
-This should be lower priority than native and OpenAI-compatible APIs unless a
-workflow/provider requires it.
+Remaining work is Anthropic-compatible SSE streaming, richer multimodal content
+blocks, and advanced tool-use events.
 
 ## Permission And Secret Model
 
@@ -2131,6 +2133,9 @@ Current status:
   receipts.
 - Complete: TTL and auto-evict behavior are testable.
 - Complete: OpenAI-compatible endpoints route through policy and receipts.
+- Complete: non-streaming Anthropic-compatible `/v1/messages` routes through
+  policy and receipts, accepts Bearer or `x-api-key` capability tokens, records
+  invocation receipts, and fails closed for missing, denied, and revoked tokens.
 - Complete: native endpoints return provider-neutral objects.
 - Complete: tokens enforce model/tool/MCP capability scopes.
 - Complete: Mounts token scope editor creates session-only raw tokens,

@@ -8,13 +8,14 @@ import test from "node:test";
 
 import { startRuntimeDaemonService } from "../../packages/runtime-daemon/src/index.mjs";
 
-async function requestJson(endpoint, route, { method = "GET", body, token } = {}) {
+async function requestJson(endpoint, route, { method = "GET", body, token, headers = {} } = {}) {
   const response = await fetch(`${endpoint}${route}`, {
     method,
     headers: {
       accept: "application/json",
       ...(body === undefined ? {} : { "content-type": "application/json" }),
       ...(token ? { authorization: `Bearer ${token}` } : {}),
+      ...headers,
     },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
@@ -62,6 +63,12 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
       body: { input: "blocked by deny scope" },
     });
     assert.equal(denied.response.status, 403);
+    const deniedMessages = await requestJson(daemon.endpoint, "/v1/messages", {
+      method: "POST",
+      token: blockedGrant.token,
+      body: { model: "local:auto", max_tokens: 16, messages: [{ role: "user", content: "blocked by deny scope" }] },
+    });
+    assert.equal(deniedMessages.response.status, 403);
 
     const expiredGrant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
       method: "POST",
@@ -76,6 +83,11 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
       body: { input: "expired token" },
     });
     assert.equal(expired.response.status, 403);
+    const unauthenticatedMessages = await requestJson(daemon.endpoint, "/v1/messages", {
+      method: "POST",
+      body: { model: "local:auto", max_tokens: 16, messages: [{ role: "user", content: "missing token" }] },
+    });
+    assert.equal(unauthenticatedMessages.response.status, 401);
 
     const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
       method: "POST",
@@ -398,6 +410,10 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     });
     assert.equal(openAiModels.object, "list");
     assert.ok(openAiModels.data.some((model) => model.id === "local:auto"));
+    const openAiModelsWithXApiKey = await expectOk(daemon.endpoint, "/v1/models", {
+      headers: { "x-api-key": grant.token },
+    });
+    assert.equal(openAiModelsWithXApiKey.object, "list");
 
     const compat = await expectOk(daemon.endpoint, "/v1/chat/completions", {
       method: "POST",
@@ -406,6 +422,43 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     });
     assert.equal(compat.choices[0].message.role, "assistant");
     assert.equal(compat.route_id, "route.local-first");
+
+    const anthropic = await expectOk(daemon.endpoint, "/v1/messages", {
+      method: "POST",
+      headers: { "x-api-key": grant.token },
+      body: {
+        model: "local:auto",
+        max_tokens: 32,
+        system: "Answer through the governed Autopilot model mounting path.",
+        messages: [{ role: "user", content: [{ type: "text", text: "hello anthropic compat" }] }],
+      },
+    });
+    assert.equal(anthropic.type, "message");
+    assert.equal(anthropic.role, "assistant");
+    assert.equal(anthropic.model, "local:auto");
+    assert.equal(anthropic.route_id, "route.local-first");
+    assert.equal(anthropic.content[0].type, "text");
+    assert.match(anthropic.content[0].text, /IOI model router fixture response/);
+    assert.equal(typeof anthropic.receipt_id, "string");
+    assert.equal(Array.isArray(anthropic.tool_receipt_ids), true);
+    assert.equal(typeof anthropic.usage.input_tokens, "number");
+    const anthropicReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${anthropic.receipt_id}`);
+    assert.equal(anthropicReceipt.kind, "model_invocation");
+    assert.equal(anthropicReceipt.details.routeId, "route.local-first");
+    assert.equal(anthropicReceipt.details.selectedModel, "local:auto");
+    assert.equal(anthropicReceipt.details.endpointId, "endpoint.local.auto");
+
+    const anthropicStreaming = await requestJson(daemon.endpoint, "/v1/messages", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        model: "local:auto",
+        max_tokens: 16,
+        stream: true,
+        messages: [{ role: "user", content: "stream later" }],
+      },
+    });
+    assert.equal(anthropicStreaming.response.status, 501);
 
     const embeddings = await expectOk(daemon.endpoint, "/v1/embeddings", {
       method: "POST",
@@ -541,6 +594,12 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
       body: { input: "after revoke" },
     });
     assert.equal(revokedUse.response.status, 403);
+    const revokedMessagesUse = await requestJson(daemon.endpoint, "/v1/messages", {
+      method: "POST",
+      token: grant.token,
+      body: { model: "local:auto", max_tokens: 16, messages: [{ role: "user", content: "after revoke" }] },
+    });
+    assert.equal(revokedMessagesUse.response.status, 403);
 
     const receipts = await expectOk(daemon.endpoint, "/api/v1/receipts");
     assert.ok(receipts.some((receipt) => receipt.kind === "model_lifecycle"));
