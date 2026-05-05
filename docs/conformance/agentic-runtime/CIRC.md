@@ -1,11 +1,11 @@
 # Capability-Intent Resolution Contract (CIRC)
 
-Status: hidden conformance invariant; Draft v0.6
+Status: hidden conformance invariant; v1.0
 Owners: Agentic Platform
 Canonical owner: this file for intent-resolution ontology, primitive capability admission, and anti-heuristic routing invariants.
 Supersedes: overlapping CIRC descriptions outside `docs/conformance/agentic-runtime/` when invariant wording conflicts.
 Superseded by: none.
-Last alignment pass: 2026-05-01.
+Last alignment pass: 2026-05-04.
 Scope: Intent resolution and capability ontology for desktop agent execution
 
 ## 1. Purpose
@@ -17,7 +17,37 @@ Primary goals:
 - Prevent layer mixing between domain semantics and system primitives.
 - Eliminate ad hoc "heuristic routing" (guessing via regexes, aliases, or topic-specific patches).
 - Enforce structural retrieval modeling so ontology symbols do not collapse into provider or content vertical shortcuts.
+- Define the semantic half of canonical collapse: probabilistic intent inference becomes one deterministic, replayable route decision or an explicit abstention.
 - Enable safe **probabilistic payload synthesis** at infinite scale by grounding generative actions in strict primitive capability boundaries.
+
+### 1.1 Canonical Collapse Semantics
+CIRC is the semantic collapse contract for the agent runtime.
+
+Before CIRC resolves, user intent may be uncertain: the runtime may use model
+embeddings, probabilistic inference, semantic descriptors, and policy-scoped
+signals to evaluate possible meanings. That uncertainty is allowed only inside
+the resolver.
+
+CIRC collapse occurs when the resolver emits exactly one of:
+- a selected intent with primitive capability requirements, feasibility result,
+  policy result, deterministic selection material, and resolver receipt fields;
+- an explicit ambiguity or abstention state;
+- a typed resolver failure.
+
+After CIRC collapse:
+- semantic ranking MUST NOT be reopened by CEC execution failure, adapter
+  failure, provider absence, or tool-output text;
+- downstream planning MUST consume only typed, provider-agnostic route evidence,
+  typed retrieval requirements, typed capability requirements, and policy
+  outputs;
+- any implementation carrier, such as a route frame, decision record, or
+  context envelope, is an implementation detail. The invariant is the collapse
+  from probabilistic semantic inference to deterministic, replayable intent
+  state.
+
+CIRC therefore does not make probabilistic inference disappear. It contains it,
+settles it under versioned ontology and policy, and hands CEC a deterministic
+execution contract surface.
 
 ## 2. Normative Terms
 The key words MUST, MUST NOT, SHOULD, SHOULD NOT, and MAY are to be interpreted as described in RFC 2119.
@@ -272,7 +302,7 @@ Required classes:
 - `ERROR_CLASS=OntologyViolation`
 
 ## 11. Migration Guidance
-To migrate a heuristic resolver to Draft v0.6:
+To migrate a heuristic resolver to CIRC v1.0:
 1. Extract routing fields into typed schema.
 2. Separate semantic ranking from feasibility and policy checks.
 3. Replace domain-specific capability bindings with primitive capability mappings.
