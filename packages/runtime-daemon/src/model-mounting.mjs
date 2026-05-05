@@ -215,6 +215,74 @@ class AgentgresWalletAuthority {
   }
 }
 
+class AgentgresVaultPort {
+  constructor({ now, appendOperation, secrets = {} }) {
+    this.now = now;
+    this.appendOperation = appendOperation;
+    this.secrets = new Map(Object.entries(secrets ?? {}).map(([vaultRef, material]) => [vaultRef, String(material)]));
+  }
+
+  resolveVaultRef(vaultRef, purpose = "provider.auth") {
+    if (typeof vaultRef !== "string" || !vaultRef.startsWith("vault://")) {
+      throw runtimeError({
+        status: 403,
+        code: "policy",
+        message: "Vault material must be referenced through wallet.network vault refs.",
+        details: { vaultRef: SECRET_REDACTION, purpose },
+      });
+    }
+    const material = this.materialFor(vaultRef);
+    const result = {
+      vaultRefHash: stableHash(vaultRef),
+      resolvedMaterial: typeof material === "string" && material.length > 0,
+      purpose,
+      evidenceRefs: ["VaultPort.resolveVaultRef", `vault_ref_${stableHash(vaultRef).slice(0, 16)}`],
+    };
+    this.auditEvent("vault.resolve", {
+      objectId: vaultRef,
+      purpose,
+      vaultRefHash: result.vaultRefHash,
+      resolvedMaterial: result.resolvedMaterial,
+    });
+    return { ...result, material: result.resolvedMaterial ? material : null };
+  }
+
+  materialFor(vaultRef) {
+    if (this.secrets.has(vaultRef)) return this.secrets.get(vaultRef);
+    const envName = vaultRefEnvironmentAlias(vaultRef);
+    if (envName && process.env[envName]) return process.env[envName];
+    return null;
+  }
+
+  auditEvent(kind, payload) {
+    const objectId = String(payload.objectId ?? kind);
+    const safeObjectId = objectId.startsWith("vault://")
+      ? `vault_ref_${stableHash(objectId).slice(0, 16)}`
+      : objectId;
+    const safePayload = redact({ ...payload, objectId: safeObjectId });
+    this.appendOperation?.(`vault.${kind}`, {
+      ...safePayload,
+      details: safePayload,
+    });
+  }
+
+  adapterStatus() {
+    return {
+      port: "VaultPort",
+      implementation: "agentgres_local_vault_port",
+      methods: ["resolveVaultRef"],
+      remoteAdapter: process.env.IOI_WALLET_NETWORK_URL
+        ? { configured: true, urlHash: stableHash(process.env.IOI_WALLET_NETWORK_URL) }
+        : { configured: false, failClosed: true },
+      materialSources: {
+        inMemoryFixtureCount: this.secrets.size,
+        environmentAliases: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY", "IOI_CUSTOM_MODEL_API_KEY"],
+      },
+      evidenceRefs: ["wallet.network.vault_ref_boundary", "provider_request_time_secret_resolution"],
+    };
+  }
+}
+
 class NativeLocalModelProviderDriver {
   async health(provider) {
     return {
@@ -479,17 +547,18 @@ class OpenAICompatibleModelProviderDriver {
     this.label = label;
   }
 
-  async health(provider) {
-    const result = await fetchProviderJson(provider, "/models", { method: "GET", tolerateHttpError: true });
+  async health(provider, { state } = {}) {
+    const result = await fetchProviderJson(provider, "/models", { method: "GET", tolerateHttpError: true, state });
     return {
       status: result.ok ? "available" : "degraded",
       evidenceRefs: [`${this.label}_models_probe`],
       httpStatus: result.status,
+      authEvidence: result.authEvidence ?? null,
     };
   }
 
-  async listModels({ provider }) {
-    const result = await fetchProviderJson(provider, "/models", { method: "GET", tolerateHttpError: true });
+  async listModels({ state, provider }) {
+    const result = await fetchProviderJson(provider, "/models", { method: "GET", tolerateHttpError: true, state });
     if (!result.ok) return [];
     const models = Array.isArray(result.body?.data) ? result.body.data : Array.isArray(result.body) ? result.body : [];
     return models
@@ -524,10 +593,10 @@ class OpenAICompatibleModelProviderDriver {
     return { status: "unloaded", backend: endpoint.apiFormat, evidenceRefs: [`${this.label}_stateless_unload`] };
   }
 
-  async invoke({ provider, endpoint, kind, body, input, allowResponsesFallback = true }) {
+  async invoke({ state, provider, endpoint, kind, body, input, allowResponsesFallback = true }) {
     if (kind === "embeddings") {
       const requestBody = { ...body, model: body.model ?? endpoint.modelId };
-      const result = await fetchProviderJson(provider, "/embeddings", { method: "POST", body: requestBody });
+      const result = await fetchProviderJson(provider, "/embeddings", { method: "POST", body: requestBody, state });
       const outputText = `embedding:${endpoint.modelId}:${stableHash(result.body?.data ?? input).slice(0, 12)}`;
       return {
         outputText,
@@ -536,6 +605,8 @@ class OpenAICompatibleModelProviderDriver {
         providerResponseKind: "embeddings",
         backend: endpoint.apiFormat,
         backendId: endpoint.backendId ?? defaultBackendForProvider(provider),
+        authVaultRefHash: result.authEvidence?.vaultRefHash ?? null,
+        providerAuthEvidenceRefs: result.authEvidence?.evidenceRefs ?? [],
       };
     }
 
@@ -545,6 +616,7 @@ class OpenAICompatibleModelProviderDriver {
         method: "POST",
         body: responseBody,
         tolerateHttpError: allowResponsesFallback,
+        state,
       });
       if (result.ok) {
         const outputText = outputTextFromResponse(result.body);
@@ -555,6 +627,8 @@ class OpenAICompatibleModelProviderDriver {
           providerResponseKind: "responses",
           backend: endpoint.apiFormat,
           backendId: endpoint.backendId ?? defaultBackendForProvider(provider),
+          authVaultRefHash: result.authEvidence?.vaultRefHash ?? null,
+          providerAuthEvidenceRefs: result.authEvidence?.evidenceRefs ?? [],
         };
       }
       if (!allowResponsesFallback || ![404, 405, 501].includes(result.status)) {
@@ -566,6 +640,7 @@ class OpenAICompatibleModelProviderDriver {
         kind: "chat.completions",
         body: responseBody,
         input,
+        state,
       });
       return {
         ...fallback,
@@ -577,6 +652,7 @@ class OpenAICompatibleModelProviderDriver {
     const result = await fetchProviderJson(provider, "/chat/completions", {
       method: "POST",
       body: requestBody,
+      state,
     });
     const outputText = outputTextFromChat(result.body);
     return {
@@ -586,6 +662,8 @@ class OpenAICompatibleModelProviderDriver {
       providerResponseKind: "chat.completions",
       backend: endpoint.apiFormat,
       backendId: endpoint.backendId ?? defaultBackendForProvider(provider),
+      authVaultRefHash: result.authEvidence?.vaultRefHash ?? null,
+      providerAuthEvidenceRefs: result.authEvidence?.evidenceRefs ?? [],
     };
   }
 }
@@ -672,7 +750,7 @@ class OllamaModelProviderDriver {
 }
 
 export class ModelMountingState {
-  constructor({ stateDir, cwd, appendOperation, homeDir, now = () => new Date() }) {
+  constructor({ stateDir, cwd, appendOperation, homeDir, now = () => new Date(), vaultSecrets = {} }) {
     this.stateDir = path.resolve(stateDir);
     this.cwd = path.resolve(cwd ?? process.cwd());
     this.homeDir = path.resolve(homeDir ?? process.env.HOME ?? this.cwd);
@@ -686,6 +764,11 @@ export class ModelMountingState {
     this.walletAuthority = new AgentgresWalletAuthority({
       now: this.now,
       appendOperation: (kind, payload) => this.appendOperation?.(kind, payload),
+    });
+    this.vault = new AgentgresVaultPort({
+      now: this.now,
+      appendOperation: (kind, payload) => this.appendOperation?.(kind, payload),
+      secrets: vaultSecrets,
     });
     this.providers = new Map();
     this.backends = new Map();
@@ -1264,6 +1347,7 @@ export class ModelMountingState {
       workflowBindings: this.workflowNodeBindings(),
       adapterBoundaries: {
         wallet: this.walletAuthority.adapterStatus(),
+        vault: this.vault.adapterStatus(),
         agentgres: this.store.adapterStatus(),
       },
       lifecycleEvents: this.listReceipts().filter((receipt) => receipt.kind === "model_lifecycle"),
@@ -1772,7 +1856,7 @@ export class ModelMountingState {
   async providerHealth(providerId) {
     const provider = this.provider(providerId);
     const checkedAt = this.nowIso();
-    const driverResult = await this.driverForProvider(provider).health(provider);
+    const driverResult = await this.driverForProvider(provider).health(provider, { state: this });
     const status = driverResult.status ?? (provider.status === "configured" ? "available" : provider.status);
     const updated = {
       ...provider,
@@ -1784,6 +1868,7 @@ export class ModelMountingState {
           status,
           evidenceRefs: driverResult.evidenceRefs ?? provider.discovery?.evidenceRefs ?? [],
           httpStatus: driverResult.httpStatus ?? null,
+          authVaultRefHash: driverResult.authEvidence?.vaultRefHash ?? null,
         },
         ...(driverResult.publicCli ? { publicCli: driverResult.publicCli } : {}),
       },
@@ -1986,6 +2071,7 @@ export class ModelMountingState {
         instance.id,
         token.grantId,
         ...ephemeralMcp.evidenceRefs,
+        ...(providerResult.providerAuthEvidenceRefs ?? []),
       ],
       details: {
         routeId: selection.route.id,
@@ -2006,6 +2092,8 @@ export class ModelMountingState {
         compatTranslation: providerResult.compatTranslation ?? null,
         providerResponseKind: providerResult.providerResponseKind ?? null,
         backendEvidenceRefs: providerResult.backendEvidenceRefs ?? [],
+        authVaultRefHash: providerResult.authVaultRefHash ?? null,
+        providerAuthEvidenceRefs: providerResult.providerAuthEvidenceRefs ?? [],
         toolReceiptIds: ephemeralMcp.toolReceiptIds,
         ephemeralMcpServerIds: ephemeralMcp.serverIds,
       },
@@ -2941,7 +3029,7 @@ function defaultBackendForProvider(provider) {
   return "backend.fixture";
 }
 
-async function fetchProviderJson(provider, route, { method = "GET", body, tolerateHttpError = false } = {}) {
+async function fetchProviderJson(provider, route, { method = "GET", body, tolerateHttpError = false, state } = {}) {
   assertProviderVaultBoundary(provider);
   if (!provider.baseUrl || String(provider.baseUrl).startsWith("local://")) {
     throw runtimeError({
@@ -2955,25 +3043,27 @@ async function fetchProviderJson(provider, route, { method = "GET", body, tolera
   const timeoutMs = providerRequestTimeoutMs();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const url = `${String(provider.baseUrl).replace(/\/+$/, "")}/${route.replace(/^\/+/, "")}`;
+  const auth = providerAuthHeaders(provider, state);
   try {
     const response = await fetch(url, {
       method,
       signal: controller.signal,
       headers: {
         accept: "application/json",
+        ...auth.headers,
         ...(body === undefined ? {} : { "content-type": "application/json" }),
       },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     const text = await response.text();
     const parsed = text.trim() ? parseJsonMaybe(text) : null;
-    const result = { ok: response.ok, status: response.status, body: parsed };
+    const result = { ok: response.ok, status: response.status, body: parsed, authEvidence: auth.evidence };
     if (!response.ok && !tolerateHttpError) {
       throw providerHttpError(provider, "OpenAI-compatible provider request failed.", result);
     }
     return result;
   } catch (error) {
-    if (error?.code === "external_blocker") throw error;
+    if (error?.status || error?.code === "external_blocker") throw error;
     throw runtimeError({
       status: 424,
       code: "external_blocker",
@@ -3200,6 +3290,43 @@ function assertProviderVaultBoundary(provider) {
   });
 }
 
+function providerAuthHeaders(provider, state) {
+  if (!providerRequiresVaultSecret(provider)) return { headers: {}, evidence: null };
+  assertProviderVaultBoundary(provider);
+  const resolved = state?.vault?.resolveVaultRef(provider.secretRef, `provider.auth:${provider.id}`);
+  if (!resolved?.material) {
+    throw runtimeError({
+      status: 403,
+      code: "policy",
+      message: "Provider vault ref is configured, but no runtime vault material is available.",
+      details: {
+        providerId: provider.id,
+        providerKind: provider.kind,
+        vaultRefHash: stableHash(provider.secretRef),
+        resolvedMaterial: false,
+      },
+    });
+  }
+  return {
+    headers: {
+      authorization: providerAuthorizationHeaderValue(provider, resolved.material),
+    },
+    evidence: {
+      vaultRefHash: resolved.vaultRefHash,
+      resolvedMaterial: true,
+      evidenceRefs: resolved.evidenceRefs ?? ["VaultPort.resolveVaultRef"],
+      headerNames: ["authorization"],
+    },
+  };
+}
+
+function providerAuthorizationHeaderValue(provider, material) {
+  const scheme = provider.authScheme ?? provider.auth_scheme ?? "bearer";
+  if (scheme === "raw") return material;
+  if (scheme === "api_key") return material;
+  return `Bearer ${material}`;
+}
+
 function publicProvider(provider) {
   const hasVaultRef = typeof provider.secretRef === "string" && provider.secretRef.startsWith("vault://");
   const requiresVault = providerRequiresVaultSecret(provider);
@@ -3214,6 +3341,16 @@ function publicProvider(provider) {
       resolvedMaterial: false,
     },
   };
+}
+
+function vaultRefEnvironmentAlias(vaultRef) {
+  const aliases = new Map([
+    ["vault://provider.openai/api-key", "OPENAI_API_KEY"],
+    ["vault://provider.anthropic/api-key", "ANTHROPIC_API_KEY"],
+    ["vault://provider.gemini/api-key", "GEMINI_API_KEY"],
+    ["vault://provider.custom-http/api-key", "IOI_CUSTOM_MODEL_API_KEY"],
+  ]);
+  return aliases.get(vaultRef) ?? null;
 }
 
 function publicVaultRefs(value) {
