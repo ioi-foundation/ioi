@@ -948,6 +948,130 @@ test("Ollama provider adapter lists models, invokes through policy, and redacts 
   }
 });
 
+test("Ollama provider can supervise serve process, project loaded models, and unload through keep-alive", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-ollama-supervisor-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-ollama-supervisor-state-"));
+  const providerServer = await startFakeOllamaServer();
+  const callsPath = path.join(cwd, "fake-ollama-calls.jsonl");
+  const fakeBinary = path.join(cwd, "ollama");
+  fs.writeFileSync(
+    fakeBinary,
+    `#!/usr/bin/env node
+const fs = require("fs");
+const callsPath = process.env.IOI_FAKE_OLLAMA_CALLS;
+if (callsPath) fs.appendFileSync(callsPath, JSON.stringify({ argv: process.argv.slice(2), host: process.env.OLLAMA_HOST }) + "\\n");
+process.stdout.write("fake ollama serve ready\\n");
+process.on("SIGTERM", () => process.exit(0));
+setInterval(() => {}, 1000);
+`,
+  );
+  fs.chmodSync(fakeBinary, 0o755);
+  const priorOllamaHost = process.env.OLLAMA_HOST;
+  const priorOllamaBinary = process.env.IOI_OLLAMA_BINARY;
+  const priorCalls = process.env.IOI_FAKE_OLLAMA_CALLS;
+  process.env.OLLAMA_HOST = providerServer.endpoint;
+  process.env.IOI_OLLAMA_BINARY = fakeBinary;
+  process.env.IOI_FAKE_OLLAMA_CALLS = callsPath;
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+      method: "POST",
+      body: {
+        allowed: [
+          "model.mount:*",
+          "model.load:*",
+          "model.unload:*",
+          "model.chat:*",
+          "route.write:*",
+          "route.use:*",
+          "backend.control:*",
+        ],
+      },
+    });
+    const backendStart = await expectOk(daemon.endpoint, "/api/v1/backends/backend.ollama/start", {
+      method: "POST",
+      token: grant.token,
+      body: { load_options: { identifier: "ollama-supervisor-test" } },
+    });
+    assert.equal(backendStart.process.spawned, true);
+    assert.equal(backendStart.process.spawnStatus, "spawned");
+    const calls = fs.readFileSync(callsPath, "utf8");
+    assert.equal(calls.includes('"serve"'), true);
+    assert.equal(calls.includes(providerServer.endpoint), true);
+
+    const providerModels = await expectOk(daemon.endpoint, "/api/v1/providers/provider.ollama/models");
+    assert.ok(providerModels.some((model) => model.modelId === "qwen3:8b"));
+    const mounted = await expectOk(daemon.endpoint, "/api/v1/models/mount", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        model_id: "qwen3:8b",
+        provider_id: "provider.ollama",
+        id: "endpoint.test.ollama.supervised",
+      },
+    });
+    const loaded = await expectOk(daemon.endpoint, "/api/v1/models/load", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        endpoint_id: mounted.id,
+        load_options: { ttlSeconds: 600, identifier: "ollama-load-test" },
+      },
+    });
+    assert.equal(loaded.backend, "ollama");
+    assert.equal(loaded.backendId, "backend.ollama");
+    assert.equal(loaded.backendProcess.spawned, true);
+    assert.equal(loaded.providerEvidenceRefs.includes("ollama_generate_keep_alive_load"), true);
+
+    const providerLoaded = await expectOk(daemon.endpoint, "/api/v1/providers/provider.ollama/loaded");
+    assert.ok(providerLoaded.some((model) => model.modelId === "qwen3:8b"));
+    assert.equal(providerLoaded.find((model) => model.modelId === "qwen3:8b")?.backendProcess?.spawnStatus, "spawned");
+
+    await expectOk(daemon.endpoint, "/api/v1/routes", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        id: "route.test.ollama.supervised",
+        role: "ollama-supervised-test",
+        privacy: "local_only",
+        fallback: [mounted.id],
+        provider_eligibility: ["ollama"],
+      },
+    });
+    const chat = await expectOk(daemon.endpoint, "/api/v1/chat", {
+      method: "POST",
+      token: grant.token,
+      body: { route_id: "route.test.ollama.supervised", input: "hello supervised ollama" },
+    });
+    const receipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${chat.receipt_id}`);
+    assert.equal(receipt.details.backend, "ollama");
+    assert.equal(receipt.details.backendId, "backend.ollama");
+
+    const unloaded = await expectOk(daemon.endpoint, "/api/v1/models/unload", {
+      method: "POST",
+      token: grant.token,
+      body: { instance_id: loaded.id },
+    });
+    assert.equal(unloaded.status, "unloaded");
+    const loadedAfterUnload = await expectOk(daemon.endpoint, "/api/v1/providers/provider.ollama/loaded");
+    assert.equal(loadedAfterUnload.some((model) => model.modelId === "qwen3:8b"), false);
+    const backendStop = await expectOk(daemon.endpoint, "/api/v1/backends/backend.ollama/stop", {
+      method: "POST",
+      token: grant.token,
+    });
+    assert.equal(backendStop.process.processStatus, "stopped");
+    const logs = await expectOk(daemon.endpoint, "/api/v1/backends/backend.ollama/logs");
+    assert.ok(logs.some((record) => record.event === "backend_process_start"));
+    assert.ok(logs.some((record) => record.event === "backend_process_stop"));
+  } finally {
+    await daemon.close();
+    await providerServer.close();
+    restoreEnv("OLLAMA_HOST", priorOllamaHost);
+    restoreEnv("IOI_OLLAMA_BINARY", priorOllamaBinary);
+    restoreEnv("IOI_FAKE_OLLAMA_CALLS", priorCalls);
+  }
+});
+
 test("vLLM and OpenAI-compatible adapters support responses fallback, embeddings, and redacted provider errors", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-vllm-provider-workspace-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-vllm-provider-state-"));
@@ -2044,7 +2168,8 @@ async function startFakeOpenAiCompatibleServer() {
 }
 
 async function startFakeOllamaServer({ chatStatus = 200, secret = null } = {}) {
-  const server = http.createServer((request, response) => {
+  const loaded = new Set();
+  const server = http.createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
     response.setHeader("content-type", "application/json");
     if (request.method === "GET" && url.pathname === "/api/tags") {
@@ -2058,7 +2183,33 @@ async function startFakeOllamaServer({ chatStatus = 200, secret = null } = {}) {
       );
       return;
     }
+    if (request.method === "GET" && url.pathname === "/api/ps") {
+      response.end(
+        JSON.stringify({
+          models: [...loaded].map((name) => ({
+            name,
+            model: name,
+            size: name.includes("embed") ? 274_000_000 : 4_900_000_000,
+            processor: "100% CPU",
+            expires_at: new Date(Date.now() + 300000).toISOString(),
+          })),
+        }),
+      );
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/api/generate") {
+      const body = JSON.parse((await readRequestText(request)) || "{}");
+      if (body.keep_alive === 0 || body.keep_alive === "0" || body.keep_alive === "0s") {
+        loaded.delete(String(body.model));
+      } else if (body.model) {
+        loaded.add(String(body.model));
+      }
+      response.end(JSON.stringify({ model: body.model, response: "", done: true }));
+      return;
+    }
     if (request.method === "POST" && url.pathname === "/api/chat") {
+      const body = JSON.parse((await readRequestText(request)) || "{}");
+      if (body.model) loaded.add(String(body.model));
       if (chatStatus !== 200) {
         response.statusCode = chatStatus;
         response.end(JSON.stringify({ error: `provider failed ${secret}` }));
@@ -2215,6 +2366,12 @@ async function startFakeLlamaCppServer() {
     endpoint: `http://${address.address}:${address.port}`,
     close: () => new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve()))),
   };
+}
+
+async function readRequestText(request) {
+  let text = "";
+  for await (const chunk of request) text += chunk;
+  return text;
 }
 
 async function startFakeHuggingFaceCatalogServer() {

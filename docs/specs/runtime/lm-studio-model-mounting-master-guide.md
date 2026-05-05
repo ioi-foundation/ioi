@@ -545,9 +545,13 @@ gates:
      `IOI_LLAMA_CPP_MODEL_PATH`; it validates real spawn, `/v1/models`,
      chat, Responses fallback, embeddings, unload, receipts, replay, and
      token redaction when a local GGUF artifact is supplied;
+   - Ollama has deterministic process-lifecycle parity: configured
+     `ollama serve` binaries are supervised with redacted argv and bounded
+     logs, model load/unload uses the public `/api/generate` keep-alive path,
+     and loaded-state projection uses public `/api/ps`;
    - remaining work is running that gate against the operator's live hardware,
-     Ollama/vLLM process spawning, memory pressure eviction, and
-     backend-specific schedulers.
+     vLLM process spawning, memory pressure eviction, and backend-specific
+     schedulers.
 2. Live catalog/download production hardening:
    - the gated Hugging Face-compatible adapter, format/quantization filters,
      resumable `.part` downloads, checksum verification, source hashing, and
@@ -609,16 +613,16 @@ implemented as a product surface.
 | Loaded models | `lms ps` shows identifier, model, status, size, context, parallel, device, TTL | Complete for deterministic Mounts path | Add live-provider TTL/device precision, unload confirmations, and app-wide loaded-instance status if needed |
 | Model search/download | `lms get`, direct Hugging Face URL, GGUF/MLX filters, variant select | Partial | Fixture catalog, URL import, variant metadata, and gated Hugging Face adapter boundary exist; add live search/download activation and richer GGUF/MLX filters |
 | Model import | `lms import` supports move/copy/hard-link/symlink/dry-run/user-repo | Complete for deterministic local path | Add live provider-specific import UX polish and benchmark/classification metadata |
-| Runtime engines | `lms runtime ls/select/get/update/remove` | Complete for deterministic/shared control path | Runtime engine list, survey, selected-runtime persistence, get/update/remove profiles, disable/enable, priority, default load options, deterministic process supervision, llama.cpp runner spawning, API, CLI, receipts, E2E, and Mounts Backends editor are implemented; remaining live work is broader backend-specific runner spawning and hardware validation |
+| Runtime engines | `lms runtime ls/select/get/update/remove` | Complete for deterministic/shared control path | Runtime engine list, survey, selected-runtime persistence, get/update/remove profiles, disable/enable, priority, default load options, deterministic process supervision, llama.cpp runner spawning, Ollama serve supervision, API, CLI, receipts, E2E, and Mounts Backends editor are implemented; remaining live work is vLLM runner spawning and hardware validation |
 | Hardware survey | `lms runtime survey` reports GPU/VRAM, CPU features, RAM | Complete for deterministic/public CLI path | Keep redacted survey receipts in projection/replay; add scheduling hints and live runtime preference recommendations |
-| Load options | `lms load --gpu --context-length --parallel --ttl --identifier --estimate-only` | Complete for deterministic/public driver path | Runtime defaults now flow into redacted process argv for deterministic native-local and configured llama.cpp runners; extend the same runner args into Ollama/vLLM processes |
+| Load options | `lms load --gpu --context-length --parallel --ttl --identifier --estimate-only` | Complete for deterministic/public driver path | Runtime defaults now flow into redacted process argv for deterministic native-local, configured llama.cpp, and Ollama serve runners; extend equivalent runner args into vLLM processes |
 | Local server | `lms server start|stop|status` and local port `1234` | Complete for deterministic daemon path | Keep start/stop/restart governed by `server.control:*`; package production headless/service supervision |
 | OpenAI-compatible API | `/v1/models`, chat completions, Responses, embeddings | Complete for daemon path | Add streaming parity, richer OpenAI error shape, tool-output submission, and advanced Responses state |
 | Native model API | LM Studio has public local primitives plus OpenAI-compatible surface | Complete, Autopilot-specific | Keep IOI-native routes authoritative and prevent `/v1/*` policy bypass |
 | Request/response logs | `lms log stream` | Complete for deterministic Mounts path | Server log/event tail and filtered request/response receipt observability are visible through API/CLI/Mounts; add raw streaming transport parity for live provider/backend logs where supported |
 | API tokens | LM Studio local API tokens/auth toggle | Complete plus stronger IOI policy | Add production wallet.network account linking, cross-device revocation, and richer audit export UX |
 | MCP config | Cursor/LM Studio-style `mcp.json` plus API integrations | Partial | Complete stdio lifecycle, OAuth, schema discovery, and model tool exposure through governed receipts |
-| Provider support | LM Studio owns local GGUF runtime; external providers are not core | Partial | Keep LM Studio first-class; llama.cpp has a supervised runner boundary, while Ollama/vLLM/BYOK/custom HTTP live hardening remains behind the same router |
+| Provider support | LM Studio owns local GGUF runtime; external providers are not core | Partial | Keep LM Studio first-class; llama.cpp and Ollama have supervised runner boundaries, while vLLM/BYOK/custom HTTP live hardening remains behind the same router |
 | Workflow integration | Not a core LM Studio primitive | Autopilot ahead, partial product UX | Build visual node forms, Receipt Gate configuration, replay, and harness run inspection |
 | Receipts/audit | Not an LM Studio primitive | Autopilot ahead | Finish production Agentgres sync, settlement/audit packs, and remote replay |
 | Secret storage | LM Studio local config/API token ergonomics | Partial, stronger boundary | Wire production wallet.network/vault and cross-device revocation; keep plaintext rejected |
@@ -1927,6 +1931,10 @@ Implemented:
   load, invoke, unload, redacted argv, logs, and receipts;
 - opt-in live `llama.cpp` gate (`npm run test:llama-cpp-live`) for real
   binary/GGUF validation when `IOI_LIVE_LLAMA_CPP=1`;
+- configured Ollama runner boundary using public `ollama serve`, `/api/tags`,
+  `/api/ps`, `/api/generate`, `/api/chat`, and `/api/embeddings`, with fake
+  Ollama fixture coverage for serve supervision, loaded projection, load,
+  invoke, unload, redacted argv, logs, and receipts;
 - resource estimate fixture and backend logs;
 - OpenAI-compatible serving from Autopilot without LM Studio;
 - lifecycle and invocation receipts with native backend evidence.
@@ -2062,8 +2070,8 @@ parity closeout order from the matrix above:
    model detail drawer, route editor, token editor, benchmark/results panel,
    degraded/denied action readiness, and filtered observability stream.
 3. Live backend/provider parity: execute the opt-in live `llama.cpp` hardware
-   gate on an operator machine, then add Ollama/vLLM process lifecycle and BYOK
-   hosted adapters.
+   gate and Ollama live lifecycle on an operator machine, then add vLLM process
+   lifecycle and BYOK hosted adapters.
 4. Raw live-log streaming parity for providers/backends with `lms log stream`
    style transports.
 5. Production IOI hardening beyond LM Studio.

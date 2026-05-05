@@ -1266,8 +1266,8 @@ class LlamaCppModelProviderDriver {
 }
 
 class OllamaModelProviderDriver {
-  async health(provider) {
-    const result = await fetchProviderJson(provider, "/api/tags", { method: "GET", tolerateHttpError: true });
+  async health(provider, { state } = {}) {
+    const result = await fetchProviderJson(provider, "/api/tags", { method: "GET", tolerateHttpError: true, state });
     return {
       status: result.ok ? "available" : "degraded",
       evidenceRefs: ["ollama_api_tags_probe"],
@@ -1275,8 +1275,8 @@ class OllamaModelProviderDriver {
     };
   }
 
-  async listModels({ provider }) {
-    const result = await fetchProviderJson(provider, "/api/tags", { method: "GET", tolerateHttpError: true });
+  async listModels({ provider, state }) {
+    const result = await fetchProviderJson(provider, "/api/tags", { method: "GET", tolerateHttpError: true, state });
     if (!result.ok) return [];
     const models = Array.isArray(result.body?.models) ? result.body.models : [];
     return models
@@ -1299,23 +1299,102 @@ class OllamaModelProviderDriver {
       }));
   }
 
-  async listLoaded() {
-    return [];
+  async listLoaded({ provider, state }) {
+    const result = await fetchProviderJson(provider, "/api/ps", { method: "GET", tolerateHttpError: true, state });
+    const backendId = defaultBackendForProvider(provider);
+    if (result.ok) {
+      const models = Array.isArray(result.body?.models) ? result.body.models : [];
+      return models
+        .map((model) => ({
+          modelId: String(model.name ?? model.model ?? ""),
+          sizeBytes: Number(model.size ?? 0) || null,
+          processor: model.processor ?? null,
+          until: model.expires_at ?? null,
+        }))
+        .filter((model) => model.modelId)
+        .map((model) => ({
+          id: `ollama.loaded.${safeId(model.modelId)}`,
+          providerId: provider.id,
+          modelId: model.modelId,
+          displayName: model.modelId,
+          backend: "ollama",
+          backendId,
+          sizeBytes: model.sizeBytes,
+          processor: model.processor,
+          until: model.until,
+          backendProcess: state.backendProcessSnapshot(state.backendProcessForBackend(backendId)),
+          evidenceRefs: ["ollama_api_ps_loaded_projection"],
+        }));
+    }
+    return state
+      .listInstances()
+      .filter((instance) => instance.providerId === provider.id && instance.status === "loaded")
+      .map((instance) => ({
+        ...instance,
+        backend: "ollama",
+        backendId,
+        backendProcess: state.backendProcessSnapshot(state.backendProcessForBackend(backendId)),
+        evidenceRefs: ["ollama_agentgres_loaded_instance_projection"],
+      }));
   }
 
-  async load({ endpoint }) {
-    return { status: "loaded", backend: "ollama", backendId: endpoint.backendId ?? "backend.ollama", evidenceRefs: ["ollama_lazy_model_load"] };
+  async load({ state, provider, endpoint, body = {} }) {
+    const loadOptions = normalizeLoadOptions(body.load_options ?? body.loadOptions ?? body, endpoint.loadPolicy);
+    const backendId = endpoint.backendId ?? defaultBackendForProvider(provider);
+    const backend = state.backend(backendId);
+    const processRecord =
+      provider.id === "provider.ollama" && backend.binaryPath
+        ? state.ensureBackendProcess(backendId, { endpoint, loadOptions, reason: "ollama_model_load" })
+        : null;
+    const generate = await fetchProviderJson(provider, "/api/generate", {
+      method: "POST",
+      body: {
+        model: endpoint.modelId,
+        prompt: "",
+        stream: false,
+        keep_alive: loadOptions.ttlSeconds ? `${loadOptions.ttlSeconds}s` : "5m",
+      },
+      tolerateHttpError: true,
+      state,
+    });
+    return {
+      status: "loaded",
+      backend: "ollama",
+      backendId,
+      process: state.backendProcessSnapshot(processRecord),
+      providerStatus: generate.ok ? "warmed" : "load_probe_degraded",
+      evidenceRefs: [
+        "ollama_generate_keep_alive_load",
+        ...(processRecord ? ["ollama_process_supervisor"] : ["ollama_http_provider_load"]),
+      ],
+    };
   }
 
-  async unload() {
-    return { status: "unloaded", backend: "ollama", backendId: "backend.ollama", evidenceRefs: ["ollama_stateless_unload"] };
+  async unload({ state, provider, endpoint }) {
+    const backendId = endpoint?.backendId ?? defaultBackendForProvider(provider);
+    const result = endpoint
+      ? await fetchProviderJson(provider, "/api/generate", {
+          method: "POST",
+          body: { model: endpoint.modelId, prompt: "", stream: false, keep_alive: 0 },
+          tolerateHttpError: true,
+          state,
+        })
+      : { ok: false };
+    return {
+      status: "unloaded",
+      backend: "ollama",
+      backendId,
+      providerStatus: result.ok ? "evicted" : "unload_probe_degraded",
+      evidenceRefs: ["ollama_generate_keep_alive_zero_unload"],
+    };
   }
 
-  async invoke({ provider, endpoint, kind, body, input }) {
+  async invoke({ state, provider, endpoint, kind, body, input }) {
     if (kind === "embeddings") {
       const result = await fetchProviderJson(provider, "/api/embeddings", {
         method: "POST",
         body: { model: endpoint.modelId, prompt: Array.isArray(body.input) ? body.input.join("\n") : String(body.input ?? "") },
+        state,
       });
       const outputText = `embedding:${endpoint.modelId}:${stableHash(result.body?.embedding ?? input).slice(0, 12)}`;
       return {
@@ -1333,6 +1412,7 @@ class OllamaModelProviderDriver {
     const result = await fetchProviderJson(provider, "/api/chat", {
       method: "POST",
       body: chatCompletionRequestBody({ ...body, stream: false }, endpoint.modelId),
+      state,
     });
     const outputText = String(result.body?.message?.content ?? result.body?.response ?? "");
     return {
@@ -4619,6 +4699,8 @@ export class ModelMountingState {
       if (contextLength) args.push("--ctx-size", String(contextLength));
       if (parallel) args.push("--parallel", String(parallel));
       if (gpu) args.push("--gpu-layers", gpu === "max" ? "999" : String(gpu));
+    } else if (backend.kind === "ollama") {
+      args.push("ollama", "serve");
     } else if (backend.kind === "native_local") {
       args.push("ioi-native-local-fixture", "--model", modelArg);
       if (contextLength) args.push("--context", String(contextLength));
@@ -4632,6 +4714,7 @@ export class ModelMountingState {
   }
 
   backendProcessSpawnArgs(backend, { endpoint = null, loadOptions = {} } = {}) {
+    if (backend.kind === "ollama") return ["serve"];
     if (backend.kind !== "llama_cpp") return this.backendProcessArgs(backend, { endpoint, loadOptions }).slice(1);
     const args = [];
     const modelPath = endpoint?.artifactPath ?? loadOptions.modelPath ?? loadOptions.model_path ?? null;
@@ -4749,13 +4832,13 @@ export class ModelMountingState {
   }
 
   spawnBackendChildProcess(backend, { endpoint = null, loadOptions = {}, reason = "runtime_control", processRef, argsRedacted = [] } = {}) {
-    if (backend.kind !== "llama_cpp") {
+    if (!["llama_cpp", "ollama"].includes(backend.kind)) {
       return { spawned: false, status: "not_required", evidenceRefs: [] };
     }
     if (!backend.binaryPath) {
-      return { spawned: false, status: "binary_absent", evidenceRefs: ["llama_cpp_binary_absent"] };
+      return { spawned: false, status: "binary_absent", evidenceRefs: [`${backend.kind}_binary_absent`] };
     }
-    if (!endpoint?.artifactPath && !loadOptions.modelPath && !loadOptions.model_path) {
+    if (backend.kind === "llama_cpp" && !endpoint?.artifactPath && !loadOptions.modelPath && !loadOptions.model_path) {
       return {
         spawned: false,
         status: "waiting_for_model",
@@ -4770,6 +4853,7 @@ export class ModelMountingState {
           ...process.env,
           IOI_MODEL_BACKEND_BASE_URL: backend.baseUrl ?? "",
           IOI_MODEL_BACKEND_REASON: reason,
+          ...(backend.kind === "ollama" ? { OLLAMA_HOST: backend.baseUrl ?? "http://127.0.0.1:11434" } : {}),
         },
         stdio: ["ignore", "pipe", "pipe"],
       });
@@ -4801,7 +4885,7 @@ export class ModelMountingState {
           signal,
           stoppedAt: this.nowIso(),
           updatedAt: this.nowIso(),
-          evidenceRefs: [...normalizeScopes(existing.evidenceRefs, []), "llama_cpp_process_exit_observed"],
+          evidenceRefs: [...normalizeScopes(existing.evidenceRefs, []), `${backend.kind}_process_exit_observed`],
         };
         this.backendProcesses.set(updated.id, updated);
         this.writeMap("backend-processes", this.backendProcesses);
@@ -4828,14 +4912,14 @@ export class ModelMountingState {
         status: "spawned",
         pidHash,
         childProcessKey: processKey,
-        evidenceRefs: ["llama_cpp_binary_spawn", "llama_cpp_spawn_args_redacted"],
+        evidenceRefs: [`${backend.kind}_binary_spawn`, `${backend.kind}_spawn_args_redacted`],
       };
     } catch (error) {
       return {
         spawned: false,
         status: "spawn_failed",
         errorHash: stableHash(error?.message ?? "spawn failed"),
-        evidenceRefs: ["llama_cpp_binary_spawn_failed"],
+        evidenceRefs: [`${backend.kind}_binary_spawn_failed`],
       };
     }
   }
