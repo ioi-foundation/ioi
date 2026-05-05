@@ -49,6 +49,7 @@ export async function startRuntimeDaemonService(options = {}) {
     store,
     close: () =>
       new Promise((resolve, reject) => {
+        store.close();
         server.close((error) => (error ? reject(error) : resolve()));
       }),
   };
@@ -71,6 +72,10 @@ export class AgentgresRuntimeStateStore {
     });
     this.writeSchema();
     this.load();
+  }
+
+  close() {
+    this.modelMounting.close();
   }
 
   createAgent(options = {}) {

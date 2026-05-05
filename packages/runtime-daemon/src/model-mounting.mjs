@@ -1142,6 +1142,129 @@ class OpenAICompatibleModelProviderDriver {
   }
 }
 
+class LlamaCppModelProviderDriver {
+  constructor({ state }) {
+    this.state = state;
+    this.openAi = new OpenAICompatibleModelProviderDriver({ label: "llama_cpp" });
+  }
+
+  providerWithBackendBaseUrl(provider) {
+    const backend = this.state.backend(defaultBackendForProvider(provider));
+    return {
+      ...provider,
+      baseUrl: provider.baseUrl ?? backend.baseUrl,
+      status: provider.status === "blocked" && (backend.binaryPath || backend.baseUrl) ? "configured" : provider.status,
+    };
+  }
+
+  async health(provider, { state } = {}) {
+    const effectiveProvider = this.providerWithBackendBaseUrl(provider);
+    const backend = state.backend(defaultBackendForProvider(provider));
+    if (!effectiveProvider.baseUrl) {
+      return {
+        status: backend.binaryPath ? "configured" : "blocked",
+        evidenceRefs: ["llama_cpp_binary_configured_without_server_probe"],
+      };
+    }
+    const result = await this.openAi.health(effectiveProvider, { state });
+    return {
+      ...result,
+      status: result.status === "available" ? "available" : backend.binaryPath ? "degraded" : result.status,
+      evidenceRefs: [
+        "llama_cpp_openai_compatible_models_probe",
+        ...(result.evidenceRefs ?? []),
+        ...(backend.binaryPath ? ["llama_cpp_binary_configured"] : []),
+      ],
+      binaryPathHash: backend.binaryPath ? stableHash(backend.binaryPath) : null,
+    };
+  }
+
+  async listModels({ state, provider }) {
+    const effectiveProvider = this.providerWithBackendBaseUrl(provider);
+    const models = await this.openAi.listModels({ state, provider: effectiveProvider });
+    return models.map((model) => ({
+      ...model,
+      providerId: provider.id,
+      family: "llama_cpp",
+      source: "llama_cpp_openai_compatible_models_endpoint",
+      compatibility: ["llama_cpp", "gguf"],
+    }));
+  }
+
+  async listLoaded({ state, provider }) {
+    const backendId = defaultBackendForProvider(provider);
+    return state
+      .listInstances()
+      .filter((instance) => instance.providerId === provider.id && instance.status === "loaded")
+      .map((instance) => ({
+        ...instance,
+        backend: "llama_cpp",
+        backendId,
+        backendProcess: state.backendProcessSnapshot(state.backendProcessForBackend(backendId)),
+        evidenceRefs: ["llama_cpp_agentgres_loaded_instance_projection"],
+      }));
+  }
+
+  async load({ state, provider, endpoint, body = {} }) {
+    const loadOptions = normalizeLoadOptions(body.load_options ?? body.loadOptions ?? body, endpoint.loadPolicy);
+    const backendId = endpoint.backendId ?? defaultBackendForProvider(provider);
+    const processRecord = state.ensureBackendProcess(backendId, {
+      endpoint,
+      loadOptions,
+      reason: "llama_cpp_model_load",
+    });
+    const processSnapshot = state.backendProcessSnapshot(processRecord);
+    return {
+      status: "loaded",
+      backend: "llama_cpp",
+      backendId,
+      process: processSnapshot,
+      evidenceRefs: [
+        "llama_cpp_process_supervisor",
+        "llama_cpp_openai_compatible_server",
+        ...normalizeScopes(processSnapshot.evidenceRefs, []),
+      ],
+    };
+  }
+
+  async unload({ state, provider, endpoint }) {
+    const backend = state.backend(endpoint?.backendId ?? defaultBackendForProvider(provider));
+    const stopped = state.stopBackendProcess(backend, { reason: "llama_cpp_model_unload" });
+    const processSnapshot = state.backendProcessSnapshot(stopped);
+    return {
+      status: "unloaded",
+      backend: "llama_cpp",
+      backendId: backend.id,
+      process: processSnapshot,
+      evidenceRefs: ["llama_cpp_process_supervisor", "clean_backend_stop", ...normalizeScopes(processSnapshot.evidenceRefs, [])],
+    };
+  }
+
+  async invoke(args) {
+    const provider = this.providerWithBackendBaseUrl(args.provider);
+    const backendId = args.endpoint?.backendId ?? defaultBackendForProvider(provider);
+    const processRecord = args.state.ensureBackendProcess(backendId, {
+      endpoint: args.endpoint,
+      loadOptions: args.instance?.loadOptions ?? {},
+      reason: "llama_cpp_model_invoke",
+    });
+    const processSnapshot = args.state.backendProcessSnapshot(processRecord);
+    const result = await this.openAi.invoke({ ...args, provider, allowResponsesFallback: true });
+    return {
+      ...result,
+      backend: "llama_cpp",
+      backendId,
+      backendProcess: processSnapshot,
+      backendEvidenceRefs: [
+        "llama_cpp_openai_compatible_server",
+        "llama_cpp_process_supervisor",
+        ...normalizeScopes(processSnapshot.evidenceRefs, []),
+        ...(result.backendEvidenceRefs ?? []),
+      ],
+    };
+  }
+}
+
 class OllamaModelProviderDriver {
   async health(provider) {
     const result = await fetchProviderJson(provider, "/api/tags", { method: "GET", tolerateHttpError: true });
@@ -1248,6 +1371,7 @@ export class ModelMountingState {
     });
     this.providers = new Map();
     this.backends = new Map();
+    this.backendChildProcesses = new Map();
     this.backendProcesses = new Map();
     this.artifacts = new Map();
     this.endpoints = new Map();
@@ -1264,6 +1388,17 @@ export class ModelMountingState {
     this.vault.loadMetadata([...this.vaultRefs.values()]);
     this.seedDefaults();
     this.writeAll();
+  }
+
+  close() {
+    for (const [processId, child] of this.backendChildProcesses.entries()) {
+      try {
+        if (!child.killed) child.kill("SIGTERM");
+      } catch {
+        // Best-effort cleanup for subprocesses owned by this daemon boot.
+      }
+      this.backendChildProcesses.delete(processId);
+    }
   }
 
   ensureDirs() {
@@ -1410,9 +1545,9 @@ export class ModelMountingState {
         kind: "llama_cpp",
         label: "llama.cpp",
         apiFormat: "openai_compatible",
-        driver: "openai_compatible",
-        baseUrl: process.env.IOI_LLAMA_CPP_BASE_URL ?? null,
-        status: process.env.IOI_LLAMA_CPP_BASE_URL ? "configured" : "blocked",
+        driver: "llama_cpp",
+        baseUrl: process.env.IOI_LLAMA_CPP_BASE_URL ?? "http://127.0.0.1:8080/v1",
+        status: process.env.IOI_LLAMA_CPP_BASE_URL || process.env.IOI_LLAMA_CPP_SERVER_PATH ? "configured" : "blocked",
         privacyClass: "local_private",
         capabilities: ["chat", "responses", "embeddings"],
         discovery: { checkedAt, evidenceRefs: ["IOI_LLAMA_CPP_BASE_URL", "IOI_LLAMA_CPP_SERVER_PATH"] },
@@ -3923,6 +4058,8 @@ export class ModelMountingState {
                 processStatus: processRecord.processStatus ?? processRecord.status,
                 pidHash: processRecord.pidHash ?? null,
                 supervisorKind: processRecord.supervisorKind ?? null,
+                spawned: Boolean(processRecord.spawned),
+                spawnStatus: processRecord.spawnStatus ?? null,
                 startedAt: processRecord.startedAt ?? null,
                 stoppedAt: processRecord.stoppedAt ?? null,
                 lastHealthAt: processRecord.lastHealthAt ?? null,
@@ -4454,6 +4591,8 @@ export class ModelMountingState {
       pidHash: processRecord.pidHash ?? null,
       pidTracked: processRecord.pidTracked ?? "process_ref_hash",
       supervisorKind: processRecord.supervisorKind ?? null,
+      spawned: Boolean(processRecord.spawned),
+      spawnStatus: processRecord.spawnStatus ?? null,
       startedAt: processRecord.startedAt ?? null,
       stoppedAt: processRecord.stoppedAt ?? null,
       lastHealthAt: processRecord.lastHealthAt ?? null,
@@ -4489,6 +4628,23 @@ export class ModelMountingState {
       args.push(String(backend.kind ?? "backend"), "--model", modelArg);
     }
     if (identifier) args.push("--identifier", stableHash(identifier).slice(0, 12));
+    return args;
+  }
+
+  backendProcessSpawnArgs(backend, { endpoint = null, loadOptions = {} } = {}) {
+    if (backend.kind !== "llama_cpp") return this.backendProcessArgs(backend, { endpoint, loadOptions }).slice(1);
+    const args = [];
+    const modelPath = endpoint?.artifactPath ?? loadOptions.modelPath ?? loadOptions.model_path ?? null;
+    if (modelPath) args.push("--model", modelPath);
+    const contextLength = loadOptions.contextLength ?? this.runtimeDefaultLoadOptions(backend.id).contextLength ?? null;
+    const parallel = loadOptions.parallel ?? this.runtimeDefaultLoadOptions(backend.id).parallel ?? null;
+    const gpu = loadOptions.gpu ?? this.runtimeDefaultLoadOptions(backend.id).gpu ?? null;
+    if (contextLength) args.push("--ctx-size", String(contextLength));
+    if (parallel) args.push("--parallel", String(parallel));
+    if (gpu) args.push("--n-gpu-layers", gpu === "max" ? "999" : gpu === "off" ? "0" : String(gpu));
+    const bind = backendBindAddress(backend.baseUrl);
+    if (bind.host) args.push("--host", bind.host);
+    if (bind.port) args.push("--port", String(bind.port));
     return args;
   }
 
@@ -4530,6 +4686,13 @@ export class ModelMountingState {
     const now = this.nowIso();
     const argsRedacted = this.backendProcessArgs(backend, { endpoint, loadOptions });
     const processRef = `supervised://${safeId(backend.id)}/${crypto.randomUUID()}`;
+    const childProcessInfo = this.spawnBackendChildProcess(backend, {
+      endpoint,
+      loadOptions,
+      reason,
+      processRef,
+      argsRedacted,
+    });
     const startupTimeoutMs = Number(loadOptions.startupTimeoutMs ?? process.env.IOI_MODEL_BACKEND_STARTUP_TIMEOUT_MS ?? 15000);
     const processRecord = {
       id: `backend_process_${safeId(backend.id)}_${Date.now()}`,
@@ -4540,8 +4703,12 @@ export class ModelMountingState {
       supervisorKind: backend.kind === "native_local" ? "deterministic_fixture_process" : "external_process",
       bootId: this.bootId,
       processRefHash: stableHash(processRef),
-      pidHash: stableHash(processRef).slice(0, 16),
+      pidHash: childProcessInfo.pidHash ?? stableHash(processRef).slice(0, 16),
       pidTracked: backend.kind === "native_local" ? "deterministic_fixture_process_ref" : "process_ref_hash",
+      spawned: childProcessInfo.spawned,
+      spawnStatus: childProcessInfo.status,
+      spawnErrorHash: childProcessInfo.errorHash ?? null,
+      childProcessKey: childProcessInfo.childProcessKey ?? null,
       baseUrl: backend.baseUrl ?? null,
       binaryPathHash: backend.binaryPath ? stableHash(backend.binaryPath) : null,
       argsRedacted,
@@ -4562,6 +4729,7 @@ export class ModelMountingState {
         backend.kind === "native_local" ? "deterministic_native_local_fixture_process" : `${backend.kind}_process_supervisor`,
         "bounded_backend_log_capture",
         "startup_timeout_guard",
+        ...childProcessInfo.evidenceRefs,
       ],
     };
     this.backendProcesses.set(processRecord.id, processRecord);
@@ -4578,9 +4746,109 @@ export class ModelMountingState {
     return processRecord;
   }
 
+  spawnBackendChildProcess(backend, { endpoint = null, loadOptions = {}, reason = "runtime_control", processRef, argsRedacted = [] } = {}) {
+    if (backend.kind !== "llama_cpp") {
+      return { spawned: false, status: "not_required", evidenceRefs: [] };
+    }
+    if (!backend.binaryPath) {
+      return { spawned: false, status: "binary_absent", evidenceRefs: ["llama_cpp_binary_absent"] };
+    }
+    if (!endpoint?.artifactPath && !loadOptions.modelPath && !loadOptions.model_path) {
+      return {
+        spawned: false,
+        status: "waiting_for_model",
+        evidenceRefs: ["llama_cpp_start_requires_model_artifact"],
+      };
+    }
+    const spawnArgs = this.backendProcessSpawnArgs(backend, { endpoint, loadOptions });
+    try {
+      const child = childProcess.spawn(backend.binaryPath, spawnArgs, {
+        cwd: this.cwd,
+        env: {
+          ...process.env,
+          IOI_MODEL_BACKEND_BASE_URL: backend.baseUrl ?? "",
+          IOI_MODEL_BACKEND_REASON: reason,
+        },
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      const pidHash = stableHash(`${processRef}:${child.pid ?? "unknown"}`).slice(0, 16);
+      const processKey = stableHash(`${backend.id}:${pidHash}:${Date.now()}`).slice(0, 16);
+      this.backendChildProcesses.set(processKey, child);
+      const recordOutput = (stream, chunk) => {
+        this.writeBackendLog(backend.id, {
+          backendId: backend.id,
+          event: `backend_process_${stream}`,
+          backendKind: backend.kind,
+          pidHash,
+          bytes: Buffer.byteLength(chunk),
+          outputHash: stableHash(String(chunk)),
+          argsHash: stableHash(argsRedacted.join("\0")),
+        });
+      };
+      child.stdout?.on("data", (chunk) => recordOutput("stdout", chunk));
+      child.stderr?.on("data", (chunk) => recordOutput("stderr", chunk));
+      child.once("exit", (code, signal) => {
+        this.backendChildProcesses.delete(processKey);
+        const existing = this.backendProcessForBackend(backend.id);
+        if (existing?.pidHash !== pidHash || existing.status === "stopped") return;
+        const updated = {
+          ...existing,
+          status: code === 0 ? "exited" : "degraded",
+          processStatus: code === 0 ? "exited" : "degraded",
+          exitCode: code,
+          signal,
+          stoppedAt: this.nowIso(),
+          updatedAt: this.nowIso(),
+          evidenceRefs: [...normalizeScopes(existing.evidenceRefs, []), "llama_cpp_process_exit_observed"],
+        };
+        this.backendProcesses.set(updated.id, updated);
+        this.writeMap("backend-processes", this.backendProcesses);
+        this.writeBackendLog(backend.id, {
+          backendId: backend.id,
+          event: "backend_process_exit",
+          backendKind: backend.kind,
+          pidHash,
+          exitCode: code,
+          signal,
+        });
+      });
+      child.once("error", (error) => {
+        this.writeBackendLog(backend.id, {
+          backendId: backend.id,
+          event: "backend_process_spawn_error",
+          backendKind: backend.kind,
+          pidHash,
+          errorHash: stableHash(error?.message ?? "spawn error"),
+        });
+      });
+      return {
+        spawned: true,
+        status: "spawned",
+        pidHash,
+        childProcessKey: processKey,
+        evidenceRefs: ["llama_cpp_binary_spawn", "llama_cpp_spawn_args_redacted"],
+      };
+    } catch (error) {
+      return {
+        spawned: false,
+        status: "spawn_failed",
+        errorHash: stableHash(error?.message ?? "spawn failed"),
+        evidenceRefs: ["llama_cpp_binary_spawn_failed"],
+      };
+    }
+  }
+
   stopBackendProcess(backend, { reason = "runtime_control" } = {}) {
     const existing = this.backendProcessForBackend(backend.id);
     if (!existing) return null;
+    const child = existing.childProcessKey ? this.backendChildProcesses.get(existing.childProcessKey) : null;
+    if (child && !child.killed) {
+      try {
+        child.kill("SIGTERM");
+      } catch {
+        // Stop receipts record intent even if the subprocess has already exited.
+      }
+    }
     const updated = {
       ...existing,
       status: "stopped",
@@ -4753,6 +5021,7 @@ export class ModelMountingState {
     const driver = driverNameForProvider(provider);
     if (driver === "native_local") return new NativeLocalModelProviderDriver();
     if (driver === "lm_studio") return new LmStudioModelProviderDriver({ state: this });
+    if (driver === "llama_cpp") return new LlamaCppModelProviderDriver({ state: this });
     if (driver === "ollama") return new OllamaModelProviderDriver();
     if (driver === "openai_compatible") return new OpenAICompatibleModelProviderDriver({ label: provider.kind });
     return new FixtureModelProviderDriver();
@@ -4945,8 +5214,9 @@ function lmStudioArtifact(provider, model, checkedAt) {
 function driverForProviderKind(kind) {
   if (kind === "ioi_native_local") return "native_local";
   if (kind === "lm_studio") return "lm_studio";
+  if (kind === "llama_cpp") return "llama_cpp";
   if (kind === "ollama") return "ollama";
-  if (["openai_compatible", "vllm", "llama_cpp", "custom_http", "openai", "anthropic", "gemini"].includes(kind)) {
+  if (["openai_compatible", "vllm", "custom_http", "openai", "anthropic", "gemini"].includes(kind)) {
     return "openai_compatible";
   }
   return "fixture";
@@ -5022,6 +5292,18 @@ function providerRequestTimeoutMs() {
   const configured = Number(process.env.IOI_PROVIDER_HTTP_TIMEOUT_MS ?? "");
   if (Number.isFinite(configured) && configured >= 1000) return configured;
   return 30000;
+}
+
+function backendBindAddress(baseUrl) {
+  try {
+    const parsed = new URL(baseUrl ?? "http://127.0.0.1:8080/v1");
+    return {
+      host: parsed.hostname || "127.0.0.1",
+      port: parsed.port ? Number(parsed.port) : parsed.protocol === "https:" ? 443 : 80,
+    };
+  } catch {
+    return { host: null, port: null };
+  }
 }
 
 function providerHealthFailureStatus(error) {
