@@ -5410,6 +5410,26 @@ export function openAiCompletion(invocation) {
   };
 }
 
+export function anthropicMessage(invocation) {
+  return {
+    id: `msg_${crypto.randomUUID().replace(/-/g, "").slice(0, 24)}`,
+    type: "message",
+    role: "assistant",
+    content: [{ type: "text", text: invocation.outputText }],
+    model: invocation.model,
+    stop_reason: "end_turn",
+    stop_sequence: null,
+    usage: {
+      input_tokens: Number(invocation.tokenCount?.prompt_tokens ?? 0),
+      output_tokens: Number(invocation.tokenCount?.completion_tokens ?? 0),
+      cache_read_input_tokens: 0,
+    },
+    receipt_id: invocation.receipt.id,
+    route_id: invocation.route.id,
+    tool_receipt_ids: invocation.toolReceiptIds ?? [],
+  };
+}
+
 function runPublicCommand(command, args, options = {}) {
   try {
     const result = childProcess.spawnSync(command, args, {

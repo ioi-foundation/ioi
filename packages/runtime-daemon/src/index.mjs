@@ -5,6 +5,7 @@ import path from "node:path";
 
 import {
   ModelMountingState,
+  anthropicMessage,
   openAiChatCompletion,
   openAiCompletion,
   openAiEmbedding,
@@ -488,7 +489,7 @@ async function handleRequest({ request, response, store }) {
   const requestId = `req_${crypto.randomUUID()}`;
   response.setHeader("x-request-id", requestId);
   response.setHeader("access-control-allow-origin", "*");
-  response.setHeader("access-control-allow-headers", "authorization,content-type,last-event-id");
+  response.setHeader("access-control-allow-headers", "authorization,content-type,last-event-id,x-api-key");
   response.setHeader("access-control-allow-methods", "GET,POST,PATCH,DELETE,OPTIONS");
   if (request.method === "OPTIONS") {
     response.statusCode = 204;
@@ -928,7 +929,7 @@ async function handleModelMountingNativeRoute({ request, response, store, url, s
 
 async function handleOpenAiCompatibilityRoute({ request, response, store, url }) {
   const mounts = store.modelMounting;
-  const authorization = request.headers.authorization;
+  const authorization = compatibilityAuthorization(request);
   if (request.method === "GET" && url.pathname === "/v1/models") {
     writeJsonResponse(response, mounts.openAiModelList());
     return;
@@ -977,6 +978,25 @@ async function handleOpenAiCompatibilityRoute({ request, response, store, url })
     writeJsonResponse(response, openAiCompletion(invocation));
     return;
   }
+  if (request.method === "POST" && url.pathname === "/v1/messages") {
+    const body = await readBody(request);
+    if (body.stream === true) {
+      throw runtimeError({
+        status: 501,
+        code: "not_implemented",
+        message: "Anthropic-compatible message streaming is not implemented yet.",
+        details: { route: "/v1/messages", streaming: true },
+      });
+    }
+    const invocation = await mounts.invokeModel({
+      authorization,
+      requiredScope: "model.chat:*",
+      kind: "messages",
+      body: anthropicMessagesToCanonicalBody(body),
+    });
+    writeJsonResponse(response, anthropicMessage(invocation));
+    return;
+  }
   throw notFound("OpenAI-compatible route not found.", {
     method: request.method,
     path: url.pathname,
@@ -985,14 +1005,71 @@ async function handleOpenAiCompatibilityRoute({ request, response, store, url })
 
 function isOpenAiCompatibilityRoute(request, url) {
   if (request.method === "GET" && url.pathname === "/v1/models") {
-    return Boolean(request.headers.authorization);
+    return Boolean(compatibilityAuthorization(request));
   }
   return [
     "/v1/chat/completions",
     "/v1/responses",
     "/v1/embeddings",
     "/v1/completions",
+    "/v1/messages",
   ].includes(url.pathname);
+}
+
+function compatibilityAuthorization(request) {
+  const authorization = firstHeader(request.headers.authorization);
+  if (authorization) return authorization;
+  const apiKey = firstHeader(request.headers["x-api-key"]);
+  if (!apiKey) return undefined;
+  return apiKey.startsWith("Bearer ") ? apiKey : `Bearer ${apiKey}`;
+}
+
+function firstHeader(value) {
+  if (Array.isArray(value)) return value[0];
+  return value;
+}
+
+function anthropicMessagesToCanonicalBody(body = {}) {
+  return {
+    ...body,
+    messages: canonicalAnthropicMessages(body),
+    max_tokens: body.max_tokens ?? body.maxTokens,
+    stream: false,
+  };
+}
+
+function canonicalAnthropicMessages(body = {}) {
+  const messages = [];
+  if (body.system !== undefined) {
+    messages.push({ role: "system", content: anthropicContentToText(body.system) });
+  }
+  for (const message of Array.isArray(body.messages) ? body.messages : []) {
+    messages.push({
+      role: message?.role ?? "user",
+      content: anthropicContentToText(message?.content ?? ""),
+    });
+  }
+  return messages.length > 0 ? messages : [{ role: "user", content: anthropicContentToText(body.input ?? "") }];
+}
+
+function anthropicContentToText(content) {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content
+      .map((item) => {
+        if (typeof item === "string") return item;
+        if (typeof item?.text === "string") return item.text;
+        if (typeof item?.content === "string") return item.content;
+        if (item?.type === "image" || item?.type === "image_url") return "[image]";
+        return JSON.stringify(redact(item ?? {}));
+      })
+      .join("\n");
+  }
+  if (content && typeof content === "object") {
+    if (typeof content.text === "string") return content.text;
+    return JSON.stringify(redact(content));
+  }
+  return String(content ?? "");
 }
 
 function nativeInvocationResponse(invocation) {
