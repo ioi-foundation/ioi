@@ -51,7 +51,22 @@ function parseSseEvents(text) {
         .filter((line) => line.startsWith("data: "))
         .map((line) => line.slice("data: ".length))
         .join("\n");
-      return { event, data: dataText ? JSON.parse(dataText) : null };
+      return { event, data: dataText === "[DONE]" ? "[DONE]" : dataText ? JSON.parse(dataText) : null };
+    });
+}
+
+function parseOpenAiSseChunks(text) {
+  return String(text)
+    .trim()
+    .split(/\n\n+/)
+    .filter(Boolean)
+    .map((block) => {
+      const dataText = block
+        .split(/\n/)
+        .filter((line) => line.startsWith("data: "))
+        .map((line) => line.slice("data: ".length))
+        .join("\n");
+      return dataText === "[DONE]" ? "[DONE]" : JSON.parse(dataText);
     });
 }
 
@@ -453,6 +468,36 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     });
     assert.equal(compat.choices[0].message.role, "assistant");
     assert.equal(compat.route_id, "route.local-first");
+
+    const compatStreaming = await requestSse(daemon.endpoint, "/v1/chat/completions", {
+      method: "POST",
+      token: grant.token,
+      body: { model: "local:auto", stream: true, messages: [{ role: "user", content: "hello streamed compat" }] },
+    });
+    assert.equal(compatStreaming.response.status, 200);
+    assert.match(compatStreaming.response.headers.get("content-type") ?? "", /text\/event-stream/);
+    const compatChunks = parseOpenAiSseChunks(compatStreaming.text);
+    assert.equal(compatChunks.at(-1), "[DONE]");
+    assert.equal(compatChunks[0].object, "chat.completion.chunk");
+    assert.equal(compatChunks[0].choices[0].delta.role, "assistant");
+    assert.equal(compatChunks.at(-2).choices[0].finish_reason, "stop");
+    assert.equal(compatChunks[0].route_id, "route.local-first");
+    assert.equal(typeof compatChunks[0].receipt_id, "string");
+    assert.equal(compatStreaming.response.headers.get("x-ioi-receipt-id"), compatChunks[0].receipt_id);
+    const compatStreamedText = compatChunks
+      .filter((chunk) => chunk !== "[DONE]")
+      .map((chunk) => chunk.choices[0].delta.content ?? "")
+      .join("");
+    assert.match(compatStreamedText, /IOI model router fixture response/);
+    const compatStreamReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${compatChunks[0].receipt_id}`);
+    assert.equal(compatStreamReceipt.kind, "model_invocation");
+
+    const deniedCompatStream = await requestJson(daemon.endpoint, "/v1/chat/completions", {
+      method: "POST",
+      token: blockedGrant.token,
+      body: { model: "local:auto", stream: true, messages: [{ role: "user", content: "blocked compat stream" }] },
+    });
+    assert.equal(deniedCompatStream.response.status, 403);
 
     const anthropic = await expectOk(daemon.endpoint, "/v1/messages", {
       method: "POST",

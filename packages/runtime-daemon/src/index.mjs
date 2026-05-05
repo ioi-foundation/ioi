@@ -942,6 +942,10 @@ async function handleOpenAiCompatibilityRoute({ request, response, store, url })
       kind: "chat.completions",
       body,
     });
+    if (body.stream === true) {
+      writeOpenAiChatCompletionStream(response, invocation);
+      return;
+    }
     writeJsonResponse(response, openAiChatCompletion(invocation, body));
     return;
   }
@@ -1151,6 +1155,40 @@ function textChunksForSse(text) {
   if (!text) return [""];
   const chunks = text.match(/.{1,96}(?:\s+|$)/gs);
   return chunks?.length ? chunks : [text];
+}
+
+function writeOpenAiChatCompletionStream(response, invocation) {
+  const id = `chatcmpl_${crypto.randomUUID()}`;
+  const created = Math.floor(Date.now() / 1000);
+  const chunks = textChunksForSse(invocation.outputText);
+  const base = {
+    id,
+    object: "chat.completion.chunk",
+    created,
+    model: invocation.model,
+    receipt_id: invocation.receipt.id,
+    route_id: invocation.route.id,
+    tool_receipt_ids: invocation.toolReceiptIds ?? [],
+  };
+  const payloads = [
+    {
+      ...base,
+      choices: [{ index: 0, delta: { role: "assistant" }, finish_reason: null }],
+    },
+    ...chunks.map((chunk) => ({
+      ...base,
+      choices: [{ index: 0, delta: { content: chunk }, finish_reason: null }],
+    })),
+    {
+      ...base,
+      choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+    },
+  ];
+  response.statusCode = 200;
+  response.setHeader("content-type", "text/event-stream");
+  response.setHeader("cache-control", "no-cache");
+  response.setHeader("x-ioi-receipt-id", invocation.receipt.id);
+  response.end(payloads.map((payload) => `data: ${JSON.stringify(payload)}\n\n`).join("") + "data: [DONE]\n\n");
 }
 
 function nativeInvocationResponse(invocation) {
