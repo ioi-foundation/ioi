@@ -572,6 +572,11 @@ generic hardening list:
   compatibility for local clients and deterministic Anthropic SSE events for
   `stream: true`. Remaining parity is provider-native token streaming, richer
   content blocks, cancellation, and advanced tool-use event shapes.
+- Autopilot now has deterministic OpenAI-compatible chat-completion SSE for
+  `/v1/chat/completions` with `stream: true`, final `[DONE]`, and
+  receipt/route/tool receipt metadata linked to the governed invocation.
+  Remaining parity is provider-native token streaming, cancellation, and
+  streaming for `/v1/responses`.
 - Autopilot streaming needs to move from filtered receipt/event observability
   to true response streaming where supported: native `/api/v1/chat` token
   streams, OpenAI-compatible SSE streams, Anthropic-compatible SSE events,
@@ -678,6 +683,8 @@ gates:
      deterministic SSE with `x-api-key`/Bearer auth and governed receipts;
      remaining parity is provider-native token streaming, cancellation, and
      advanced tool-use metadata;
+   - OpenAI-compatible `/v1/chat/completions` deterministic SSE is implemented
+     with final `[DONE]` and governed receipt metadata;
    - true token streaming for `/api/v1/chat`, `/v1/responses`,
      `/v1/chat/completions`, and `/v1/messages`, including model-load and
      prompt-processing events where the native API can express them;
@@ -723,7 +730,7 @@ implemented as a product surface.
 | Hardware survey | `lms runtime survey` reports GPU/VRAM, CPU features, RAM | Complete for deterministic/public CLI path | Keep redacted survey receipts in projection/replay; add scheduling hints and live runtime preference recommendations |
 | Load options | `lms load --gpu --context-length --parallel --ttl --identifier --estimate-only` | Complete for deterministic/public driver path | Runtime defaults now flow into redacted process argv for deterministic native-local, configured llama.cpp, Ollama serve, and vLLM serve runners; live tuning recommendations remain future scheduler work |
 | Local server | `lms server start|stop|status` and local port `1234` | Complete for deterministic daemon path | Keep start/stop/restart governed by `server.control:*`; package production headless/service supervision |
-| OpenAI-compatible API | `/v1/models`, chat completions, Responses, embeddings | Complete for daemon path | Add streaming parity, richer OpenAI error shape, tool-output submission, and advanced Responses state |
+| OpenAI-compatible API | `/v1/models`, chat completions, Responses, embeddings | Complete for daemon path | Chat-completion deterministic SSE now exists; add Responses streaming, provider-native token streaming, richer OpenAI error shape, tool-output submission, and advanced Responses state |
 | Anthropic-compatible API | `/v1/messages` with `x-api-key`/Bearer auth and SSE events | Partial | Message calls and deterministic SSE route through router/capability/MCP/receipt path; add provider-native token streaming, cancellation, richer content blocks, and advanced tool-use compatibility |
 | Native model API | LM Studio has public local primitives plus OpenAI-compatible surface | Complete, Autopilot-specific | Keep IOI-native routes authoritative and prevent `/v1/*` policy bypass |
 | Stateful/streaming native chat | `/api/v1/chat` supports stateful chat, token streams, model-load events, prompt-processing events, context length in request, and MCP integrations | Partial | Current deterministic observability is receipt/event based; add true streaming transport, stateful continuation, cancel/interrupt, and per-request context-length handling |
@@ -2133,7 +2140,9 @@ Current status:
 - Complete: load/unload/import/download fixture actions produce lifecycle
   receipts.
 - Complete: TTL and auto-evict behavior are testable.
-- Complete: OpenAI-compatible endpoints route through policy and receipts.
+- Complete: OpenAI-compatible endpoints route through policy and receipts;
+  `/v1/chat/completions` supports deterministic SSE with final `[DONE]` and
+  linked receipt metadata for `stream: true`.
 - Complete: Anthropic-compatible `/v1/messages` routes through policy and
   receipts, accepts Bearer or `x-api-key` capability tokens, records invocation
   receipts, supports deterministic Anthropic SSE events with final receipt
