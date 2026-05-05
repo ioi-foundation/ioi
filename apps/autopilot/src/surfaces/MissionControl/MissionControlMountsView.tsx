@@ -375,6 +375,8 @@ interface CatalogVariantPreview {
   id: string;
   modelId: string;
   family: string;
+  architecture: string;
+  parameterCount: string;
   catalogProviderId: string;
   format: string;
   quantization: string;
@@ -388,6 +390,35 @@ interface CatalogVariantPreview {
   tags: string[];
   license: string;
   gate: string;
+  recommendation: {
+    score: number;
+    label: string;
+    primaryBackend: string;
+    reasons: string[];
+  };
+  backendCompatibility: Array<{
+    backendKind: string;
+    score: number;
+    status: string;
+    reason: string;
+  }>;
+  downloadRisk: {
+    score: number;
+    status: string;
+    reasons: string[];
+    byteCapStatus: string;
+    storageStatus: string;
+    existingArtifactCollision: boolean;
+  };
+  benchmarkReadiness: {
+    chat: boolean;
+    embeddings: boolean;
+    rerank: boolean;
+    vision: boolean;
+    structuredOutput: boolean;
+    hints: string[];
+  };
+  selectionReceiptFields: string[];
 }
 
 interface DownloadPreview {
@@ -422,6 +453,7 @@ interface CatalogImportPayload {
   sourceUrl: string;
   variant?: CatalogVariantPreview | null;
   maxBytes?: string;
+  transferApproved?: boolean;
 }
 
 interface MountsWorkbenchData {
@@ -922,6 +954,8 @@ const fallbackCatalogVariants: CatalogVariantPreview[] = [
     id: "catalog.fixture.autopilot-native-3b-q4",
     modelId: "autopilot:native-fixture",
     family: "autopilot-native",
+    architecture: "llama",
+    parameterCount: "3B",
     catalogProviderId: "catalog.fixture",
     format: "gguf",
     quantization: "Q4_K_M",
@@ -935,11 +969,42 @@ const fallbackCatalogVariants: CatalogVariantPreview[] = [
     tags: ["chat", "responses", "embeddings"],
     license: "fixture",
     gate: "fixture",
+    recommendation: {
+      score: 100,
+      label: "recommended",
+      primaryBackend: "native_local_fixture",
+      reasons: ["native_local_fixture ready", "size and storage projection are acceptable", "chat-ready"],
+    },
+    backendCompatibility: [
+      { backendKind: "native_local_fixture", score: 92, status: "ready", reason: "Autopilot native-local can import deterministic local artifacts." },
+      { backendKind: "llama_cpp", score: 90, status: "ready", reason: "llama.cpp expects GGUF artifacts." },
+      { backendKind: "ollama", score: 62, status: "compatible", reason: "Ollama can run local GGUF through import/create workflows when configured." },
+      { backendKind: "vllm", score: 18, status: "unsupported", reason: "vLLM expects Hugging Face/safetensors-style artifacts." },
+    ],
+    downloadRisk: {
+      score: 10,
+      status: "low",
+      reasons: ["size and storage projection are acceptable"],
+      byteCapStatus: "not_set",
+      storageStatus: "ok",
+      existingArtifactCollision: false,
+    },
+    benchmarkReadiness: {
+      chat: true,
+      embeddings: false,
+      rerank: false,
+      vision: false,
+      structuredOutput: true,
+      hints: ["chat-ready", "local-gguf-benchmark"],
+    },
+    selectionReceiptFields: ["variant_id", "source_url_hash", "backend_compatibility", "download_risk", "benchmark_readiness", "approval_decision"],
   },
   {
     id: "catalog.huggingface.tinyllamas-stories260k",
     modelId: "native:live-catalog-stories260k",
     family: "tinyllamas",
+    architecture: "llama",
+    parameterCount: "260K",
     catalogProviderId: "catalog.huggingface",
     format: "gguf",
     quantization: "F32",
@@ -953,6 +1018,35 @@ const fallbackCatalogVariants: CatalogVariantPreview[] = [
     tags: ["live-gated", "byte-cap-safe"],
     license: "unknown",
     gate: "IOI_LIVE_MODEL_CATALOG + IOI_LIVE_MODEL_DOWNLOAD",
+    recommendation: {
+      score: 98,
+      label: "recommended",
+      primaryBackend: "native_local_fixture",
+      reasons: ["native_local_fixture ready", "size and storage projection are acceptable", "chat-ready"],
+    },
+    backendCompatibility: [
+      { backendKind: "native_local_fixture", score: 92, status: "ready", reason: "Autopilot native-local can import deterministic local artifacts." },
+      { backendKind: "llama_cpp", score: 90, status: "ready", reason: "llama.cpp expects GGUF artifacts." },
+      { backendKind: "ollama", score: 62, status: "compatible", reason: "Ollama can run local GGUF through import/create workflows when configured." },
+      { backendKind: "vllm", score: 18, status: "unsupported", reason: "vLLM expects Hugging Face/safetensors-style artifacts." },
+    ],
+    downloadRisk: {
+      score: 10,
+      status: "low",
+      reasons: ["size and storage projection are acceptable"],
+      byteCapStatus: "within_cap",
+      storageStatus: "ok",
+      existingArtifactCollision: false,
+    },
+    benchmarkReadiness: {
+      chat: true,
+      embeddings: false,
+      rerank: false,
+      vision: false,
+      structuredOutput: true,
+      hints: ["chat-ready", "local-gguf-benchmark"],
+    },
+    selectionReceiptFields: ["variant_id", "source_url_hash", "backend_compatibility", "download_risk", "benchmark_readiness", "approval_decision"],
   },
 ];
 
@@ -2011,8 +2105,8 @@ function useModelMountsDaemon() {
         runAction("catalog-import-url", async () => {
           const token = await ensureToken();
           const body = payload.variant
-            ? catalogVariantPayload(payload.variant, payload.maxBytes)
-            : { source_url: payload.sourceUrl || "fixture://catalog/autopilot-native-3b-q4" };
+            ? catalogVariantPayload(payload.variant, payload.maxBytes, { transferApproved: Boolean(payload.transferApproved) })
+            : { source_url: payload.sourceUrl || "fixture://catalog/autopilot-native-3b-q4", transfer_approved: Boolean(payload.transferApproved) };
           const result = await requestJson("/api/v1/models/catalog/import-url", {
             method: "POST",
             token,
@@ -2020,13 +2114,13 @@ function useModelMountsDaemon() {
           });
           return `Catalog URL import created ${stringValue(result?.download?.id, "a download job")}.`;
         }),
-      downloadCatalogVariant: (variant: CatalogVariantPreview, maxBytes?: string) =>
+      downloadCatalogVariant: (variant: CatalogVariantPreview, maxBytes?: string, transferApproved = false) =>
         runAction("catalog-download-selected", async () => {
           const token = await ensureToken();
           const result = await requestJson("/api/v1/models/download", {
             method: "POST",
             token,
-            body: catalogVariantPayload(variant, maxBytes),
+            body: catalogVariantPayload(variant, maxBytes, { transferApproved }),
           });
           return `Selected variant download ${stringValue(result?.id, "job")} is ${stringValue(result?.status, "recorded")}.`;
         }),
@@ -3036,6 +3130,8 @@ function normalizeCatalogVariants(value: any): CatalogVariantPreview[] {
     id: stringValue(item.id, "catalog.variant.unknown"),
     modelId: stringValue(item.modelId, "unknown"),
     family: stringValue(item.family, "unknown family"),
+    architecture: stringValue(item.architecture, "unknown"),
+    parameterCount: stringValue(item.parameterCount, "unknown"),
     catalogProviderId: stringValue(item.catalogProviderId, "catalog.fixture"),
     format: stringValue(item.format, "unknown"),
     quantization: stringValue(item.quantization, "unknown"),
@@ -3049,20 +3145,71 @@ function normalizeCatalogVariants(value: any): CatalogVariantPreview[] {
     tags: stringArray(item.tags),
     license: stringValue(item.license, "unknown"),
     gate: stringArray(item.gatedBy).join(" + ") || "fixture",
+    recommendation: normalizeCatalogRecommendation(item.recommendation),
+    backendCompatibility: arrayOf(item.backendCompatibility).map((row) => ({
+      backendKind: stringValue(row.backendKind, "unknown"),
+      score: numberValue(row.score, 0),
+      status: stringValue(row.status, "unknown"),
+      reason: stringValue(row.reason, "No compatibility reason recorded."),
+    })),
+    downloadRisk: normalizeCatalogDownloadRisk(item.downloadRisk),
+    benchmarkReadiness: normalizeCatalogBenchmarkReadiness(item.benchmarkReadiness),
+    selectionReceiptFields: stringArray(item.selectionReceiptFields),
   }));
 }
 
-function catalogVariantPayload(variant: CatalogVariantPreview, maxBytes?: string) {
+function normalizeCatalogRecommendation(value: any): CatalogVariantPreview["recommendation"] {
+  return {
+    score: numberValue(value?.score, 0),
+    label: stringValue(value?.label, "review"),
+    primaryBackend: stringValue(value?.primaryBackend, "unknown"),
+    reasons: stringArray(value?.reasons),
+  };
+}
+
+function normalizeCatalogDownloadRisk(value: any): CatalogVariantPreview["downloadRisk"] {
+  return {
+    score: numberValue(value?.score, 0),
+    status: stringValue(value?.status, "unknown"),
+    reasons: stringArray(value?.reasons),
+    byteCapStatus: stringValue(value?.byteCapStatus, "not_set"),
+    storageStatus: stringValue(value?.storageStatus, "unknown"),
+    existingArtifactCollision: Boolean(value?.existingArtifactCollision ?? false),
+  };
+}
+
+function normalizeCatalogBenchmarkReadiness(value: any): CatalogVariantPreview["benchmarkReadiness"] {
+  return {
+    chat: Boolean(value?.chat ?? false),
+    embeddings: Boolean(value?.embeddings ?? false),
+    rerank: Boolean(value?.rerank ?? false),
+    vision: Boolean(value?.vision ?? false),
+    structuredOutput: Boolean(value?.structuredOutput ?? false),
+    hints: stringArray(value?.hints),
+  };
+}
+
+function catalogVariantPayload(variant: CatalogVariantPreview, maxBytes?: string, options: { transferApproved?: boolean } = {}) {
   const parsedMaxBytes = Number(maxBytes ?? "");
   return {
     source_url: variant.sourceUrl,
     model_id: variant.modelId,
     provider_id: "provider.autopilot.local",
+    family: variant.family,
+    architecture: variant.architecture,
+    parameter_count: variant.parameterCount,
     format: variant.format,
     quantization: variant.quantization,
     source_label: variant.sourceLabel,
     variant_id: variant.id,
     size_bytes: variant.sizeBytes || undefined,
+    context_window: Number.parseInt(variant.context, 10) || undefined,
+    compatibility: variant.compatibility,
+    recommendation_score: variant.recommendation.score,
+    download_risk_status: variant.downloadRisk.status,
+    backend_compatibility: variant.backendCompatibility,
+    benchmark_readiness: variant.benchmarkReadiness,
+    transfer_approved: Boolean(options.transferApproved),
     max_bytes: Number.isFinite(parsedMaxBytes) && parsedMaxBytes > 0 ? Math.floor(parsedMaxBytes) : undefined,
   };
 }
@@ -3133,12 +3280,25 @@ function variantCompatibilityText(variant: CatalogVariantPreview | null) {
   if (!variant) return "No variant selected.";
   const parts = [
     variant.family,
+    variant.architecture,
+    variant.parameterCount,
     variant.format,
     variant.quantization,
     `ctx ${variant.context}`,
     variant.compatibility.join(", ") || "compatibility unknown",
   ].filter(Boolean);
   return parts.join(" / ");
+}
+
+function catalogBenchmarkSummary(variant: CatalogVariantPreview) {
+  const ready = [
+    variant.benchmarkReadiness.chat ? "chat" : null,
+    variant.benchmarkReadiness.embeddings ? "embed" : null,
+    variant.benchmarkReadiness.rerank ? "rerank" : null,
+    variant.benchmarkReadiness.vision ? "vision" : null,
+    variant.benchmarkReadiness.structuredOutput ? "structured" : null,
+  ].filter(Boolean);
+  return ready.join(", ") || "not classified";
 }
 
 function loadDraftBody(draft: ModelLoadDraft) {
@@ -4244,7 +4404,7 @@ function DownloadsPanel({
   onDownloadFixture: () => void;
   onSearchCatalog: (draft: CatalogSearchDraft) => void;
   onImportCatalogUrl: (payload: CatalogImportPayload) => void;
-  onDownloadCatalogVariant: (variant: CatalogVariantPreview, maxBytes?: string) => void;
+  onDownloadCatalogVariant: (variant: CatalogVariantPreview, maxBytes?: string, transferApproved?: boolean) => void;
   onCancelDownload: (download: DownloadPreview) => void;
   onRetryDownload: (download: DownloadPreview) => void;
   onOpenReceipt: (receiptId: string) => void;
@@ -4381,6 +4541,16 @@ function DownloadsPanel({
         </div>
         <DetailFact label="Source" value={selectedVariant?.sourceLabel ?? "none"} note={selectedVariant?.sourceHash ?? "no source hash"} />
         <DetailFact label="Transfer size" value={selectedVariant?.size ?? "unknown"} note={maxBytes ? `max_bytes ${maxBytes}` : "no byte cap set"} />
+        <DetailFact
+          label="Recommendation"
+          value={selectedVariant ? `${selectedVariant.recommendation.label} / ${selectedVariant.recommendation.score}` : "none"}
+          note={selectedVariant?.recommendation.primaryBackend}
+        />
+        <DetailFact
+          label="Benchmark ready"
+          value={selectedVariant ? catalogBenchmarkSummary(selectedVariant) : "unknown"}
+          note={selectedVariant?.benchmarkReadiness.hints.join(", ") || "no readiness hints"}
+        />
         <GuardFact label="Storage budget" guard={acquisitionGuard} />
         <GuardFact label="Download approval" guard={approvalGuard} />
         <label className="model-mounts-approval-toggle">
@@ -4428,7 +4598,7 @@ function DownloadsPanel({
         </div>
         <div className="model-mounts-form-actions">
           <ActionButton type="submit" disabled={busy} guard={connectionActionGuard(connectionState, "catalog search")}>Search catalog</ActionButton>
-          <ActionButton onClick={() => onImportCatalogUrl({ sourceUrl })} disabled={busy} guard={importGuard}>Import URL</ActionButton>
+          <ActionButton onClick={() => onImportCatalogUrl({ sourceUrl, transferApproved })} disabled={busy} guard={importGuard}>Import URL</ActionButton>
         </div>
       </form>
 
@@ -4442,8 +4612,8 @@ function DownloadsPanel({
             <span>Max bytes</span>
             <input value={maxBytes} onChange={(event) => setMaxBytes(event.target.value)} inputMode="numeric" placeholder="optional byte cap" />
           </label>
-          <ActionButton onClick={() => selectedVariant && onImportCatalogUrl({ sourceUrl: selectedVariant.sourceUrl, variant: selectedVariant, maxBytes })} disabled={busy} guard={selectedImportGuard}>Import selected</ActionButton>
-          <ActionButton onClick={() => selectedVariant && onDownloadCatalogVariant(selectedVariant, maxBytes)} disabled={busy} guard={selectedDownloadGuard}>Download selected</ActionButton>
+          <ActionButton onClick={() => selectedVariant && onImportCatalogUrl({ sourceUrl: selectedVariant.sourceUrl, variant: selectedVariant, maxBytes, transferApproved })} disabled={busy} guard={selectedImportGuard}>Import selected</ActionButton>
+          <ActionButton onClick={() => selectedVariant && onDownloadCatalogVariant(selectedVariant, maxBytes, transferApproved)} disabled={busy} guard={selectedDownloadGuard}>Download selected</ActionButton>
         </div>
         {catalogVariants.length === 0 ? (
           <p className="model-mounts-empty">Run a catalog search to inspect variants before importing or downloading.</p>
@@ -4451,14 +4621,16 @@ function DownloadsPanel({
           <div className="model-mounts-catalog-variants" role="listbox" aria-label="Selectable catalog variants">
             <div className="model-mounts-catalog-variant-header" aria-hidden="true">
               <span>Model</span>
+              <span>Recommendation</span>
+              <span>Risk</span>
+              <span>Benchmark</span>
               <span>Catalog</span>
               <span>Family</span>
+              <span>Arch</span>
               <span>Format</span>
               <span>Quant</span>
               <span>Context</span>
               <span>Size</span>
-              <span>Compatibility</span>
-              <span>License</span>
               <span>Source hash</span>
               <span>Gate</span>
             </div>
@@ -4477,14 +4649,16 @@ function DownloadsPanel({
                     <strong>{variant.modelId}</strong>
                     <span>{variant.sourceLabel}</span>
                   </div>
+                  <span>{variant.recommendation.label} / {variant.recommendation.score} / {variant.recommendation.primaryBackend}</span>
+                  <span>{variant.downloadRisk.status} / {variant.downloadRisk.score} / {variant.downloadRisk.byteCapStatus}</span>
+                  <span>{catalogBenchmarkSummary(variant)}</span>
                   <StatusPill tone={variant.catalogProviderId === "catalog.fixture" ? "ready" : "muted"}>{variant.catalogProviderId}</StatusPill>
                   <span>{variant.family}</span>
+                  <span>{variant.architecture} / {variant.parameterCount}</span>
                   <span>{variant.format}</span>
                   <span>{variant.quantization}</span>
                   <span>{variant.context}</span>
                   <span>{variant.size}</span>
-                  <span>{variant.compatibility.join(", ") || "compatibility unknown"}</span>
-                  <span>{variant.license}</span>
                   <span>{variant.sourceHash}</span>
                   <span>{variant.gate}</span>
                 </button>

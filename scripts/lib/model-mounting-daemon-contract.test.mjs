@@ -260,11 +260,19 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.ok(nativeProviderModels.some((model) => model.modelId === "autopilot:native-fixture"));
     const catalog = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=autopilot");
     assert.equal(catalog.providers.find((provider) => provider.id === "catalog.fixture")?.status, "available");
-    assert.ok(catalog.results.some((entry) => entry.sourceUrl === "fixture://catalog/autopilot-native-3b-q4"));
+    const fixtureCatalogEntry = catalog.results.find((entry) => entry.sourceUrl === "fixture://catalog/autopilot-native-3b-q4");
+    assert.ok(fixtureCatalogEntry);
+    assert.equal(fixtureCatalogEntry.architecture, "llama");
+    assert.equal(fixtureCatalogEntry.parameterCount, "3B");
+    assert.equal(fixtureCatalogEntry.recommendation.label, "recommended");
+    assert.ok(fixtureCatalogEntry.backendCompatibility.some((backend) => backend.backendKind === "llama_cpp" && backend.status === "ready"));
+    assert.equal(fixtureCatalogEntry.downloadRisk.status, "low");
+    assert.equal(fixtureCatalogEntry.benchmarkReadiness.chat, true);
+    assert.ok(fixtureCatalogEntry.selectionReceiptFields.includes("approval_decision"));
     assert.equal(JSON.stringify(catalog).includes("sk-"), false);
     const snapshotAfterCatalogSearch = await expectOk(daemon.endpoint, "/api/v1/models");
     assert.equal(snapshotAfterCatalogSearch.catalog.lastSearch.query, "autopilot");
-    assert.ok(snapshotAfterCatalogSearch.catalog.results.some((entry) => entry.sourceUrl === "fixture://catalog/autopilot-native-3b-q4"));
+    assert.ok(snapshotAfterCatalogSearch.catalog.results.some((entry) => entry.sourceUrl === "fixture://catalog/autopilot-native-3b-q4" && entry.recommendation?.primaryBackend));
 
     const backends = await expectOk(daemon.endpoint, "/api/v1/backends");
     assert.ok(backends.some((backend) => backend.id === "backend.autopilot.native-local.fixture"));
@@ -1085,17 +1093,29 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
     const liveEntry = liveCatalog.results.find((entry) => entry.catalogProviderId === "catalog.huggingface");
     assert.equal(liveEntry.format, "gguf");
     assert.equal(liveEntry.quantization, "Q4_K_M");
+    assert.equal(liveEntry.architecture, "qwen");
+    assert.equal(liveEntry.parameterCount, "3B");
+    assert.ok(liveEntry.backendCompatibility.some((backend) => backend.backendKind === "llama_cpp" && backend.score >= 80));
+    assert.equal(liveEntry.downloadRisk.status, "low");
+    assert.ok(liveEntry.recommendation.score >= 80);
+    assert.equal(liveEntry.benchmarkReadiness.chat, true);
     assert.match(liveEntry.sourceUrl, /\/resolve\/main\/qwen-3b-Q4_K_M\.gguf$/);
     const liveImport = await expectOk(daemon.endpoint, "/api/v1/models/catalog/import-url", {
       method: "POST",
       token: grant.token,
-      body: { source_url: liveEntry.sourceUrl, model_id: "native:hf-live", format: "gguf", quantization: "Q4_K_M", max_bytes: liveEntry.sizeBytes },
+      body: { source_url: liveEntry.sourceUrl, model_id: "native:hf-live", format: "gguf", quantization: "Q4_K_M", max_bytes: liveEntry.sizeBytes, transfer_approved: true },
     });
     assert.equal(liveImport.status, "completed");
     assert.equal(liveImport.download.variant.format, "gguf");
+    assert.equal(liveImport.download.variant.recommendation.label, "recommended");
+    assert.equal(liveImport.download.variant.downloadRisk.status, "low");
     assert.equal(liveImport.download.maxBytes, liveEntry.sizeBytes);
     assert.equal(liveImport.download.bytesCompleted > 0, true);
     assert.equal(fs.existsSync(liveImport.download.targetPath), true);
+    const liveImportReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${liveImport.catalogReceiptId}`);
+    assert.equal(liveImportReceipt.details.approvalDecision.required, true);
+    assert.equal(liveImportReceipt.details.approvalDecision.approved, true);
+    assert.ok(liveImportReceipt.details.selectionReceiptFields.includes("download_risk"));
 
     const downloadOnlyGrant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
       method: "POST",

@@ -753,7 +753,7 @@
 .model-mounts-acquisition-review {
   min-width: 0;
   display: grid;
-  grid-template-columns: minmax(190px, 1.1fr) repeat(4, minmax(0, 0.8fr)) minmax(220px, 1fr);
+  grid-template-columns: minmax(190px, 1.1fr) repeat(6, minmax(0, 0.8fr)) minmax(220px, 1fr);
   gap: 1px;
   border: 1px solid var(--chat-border);
   background: var(--chat-border);
@@ -843,7 +843,7 @@
 .model-mounts-catalog-variant-header {
   min-width: 0;
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(88px, 0.48fr) repeat(9, minmax(72px, 0.42fr));
+  grid-template-columns: minmax(180px, 1fr) minmax(126px, 0.62fr) minmax(106px, 0.52fr) minmax(110px, 0.52fr) minmax(88px, 0.42fr) repeat(8, minmax(72px, 0.38fr));
   gap: 8px;
   padding: 0 10px 2px;
   color: var(--chat-text-secondary);
@@ -861,7 +861,7 @@
   min-width: 0;
   width: 100%;
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(88px, 0.48fr) repeat(9, minmax(72px, 0.42fr));
+  grid-template-columns: minmax(180px, 1fr) minmax(126px, 0.62fr) minmax(106px, 0.52fr) minmax(110px, 0.52fr) minmax(88px, 0.42fr) repeat(8, minmax(72px, 0.38fr));
   gap: 8px;
   align-items: center;
   border: 1px solid var(--chat-border);
@@ -1559,7 +1559,7 @@
 
   .model-mounts-catalog-variant,
   .model-mounts-catalog-variant-header {
-    min-width: 980px;
+    min-width: 1180px;
   }
 
   .model-mounts-detail-head {

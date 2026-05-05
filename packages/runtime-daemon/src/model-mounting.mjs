@@ -2757,7 +2757,7 @@ export class ModelMountingState {
     const requestedFormat = query.format === undefined || query.format === "" ? null : String(query.format).toLowerCase();
     const requestedQuantization = query.quantization === undefined || query.quantization === "" ? null : String(query.quantization).toLowerCase();
     const limit = normalizeLimit(query.limit, 20, 100);
-    const catalog = fixtureModelCatalog(searchedAt);
+    const catalog = fixtureModelCatalog(searchedAt).map((entry) => this.enrichCatalogEntry(entry));
     const results = catalog.filter((entry) => {
       const haystack = [entry.modelId, entry.family, entry.format, entry.quantization, ...(entry.tags ?? [])].join(" ").toLowerCase();
       if (text && !haystack.includes(text)) return false;
@@ -2786,10 +2786,20 @@ export class ModelMountingState {
           evidenceRefs: live.evidenceRefs,
         },
       ],
-      results: [...results, ...live.results].slice(0, limit),
+      results: [...results, ...live.results.map((entry) => this.enrichCatalogEntry(entry))].slice(0, limit),
     };
     this.lastCatalogSearch = search;
     return search;
+  }
+
+  enrichCatalogEntry(entry, options = {}) {
+    const storage = this.storageSummary();
+    const artifacts = [...this.artifacts.values()];
+    return enrichCatalogEntry(entry, {
+      storage,
+      artifacts,
+      maxBytes: options.maxBytes ?? null,
+    });
   }
 
   async searchHuggingFaceCatalog({ query, format, quantization, limit, searchedAt }) {
@@ -2869,6 +2879,14 @@ export class ModelMountingState {
       quantization: variant.quantization,
       license: variant.license,
       compatibility: variant.compatibility,
+      architecture: variant.architecture,
+      parameterCount: variant.parameterCount,
+      recommendation: variant.recommendation,
+      backendCompatibility: variant.backendCompatibility,
+      downloadRisk: variant.downloadRisk,
+      benchmarkReadiness: variant.benchmarkReadiness,
+      selectionReceiptFields: variant.selectionReceiptFields,
+      approvalDecision: catalogApprovalDecision({ isFixture, body }),
       liveDownloadGate: isFixture ? "fixture" : "IOI_LIVE_MODEL_DOWNLOAD",
     });
     const download = await this.downloadModel({
@@ -2892,6 +2910,14 @@ export class ModelMountingState {
       context_window: variant.contextWindow,
       license: variant.license,
       compatibility: variant.compatibility,
+      architecture: variant.architecture,
+      parameter_count: variant.parameterCount,
+      recommendation_score: variant.recommendation?.score,
+      download_risk_status: variant.downloadRisk?.status,
+      backend_compatibility: variant.backendCompatibility,
+      benchmark_readiness: variant.benchmarkReadiness,
+      selection_receipt_fields: variant.selectionReceiptFields,
+      transfer_approved: Boolean(body.transfer_approved ?? body.transferApproved ?? isFixture),
       variant_id: variant.id,
       catalog_receipt_id: receipt.id,
     });
@@ -3218,6 +3244,12 @@ export class ModelMountingState {
       sourceHash: stableHash(source),
       sourceLabel,
       variant: variantMetadata,
+      recommendation: variantMetadata.recommendation,
+      backendCompatibility: variantMetadata.backendCompatibility,
+      downloadRisk: variantMetadata.downloadRisk,
+      benchmarkReadiness: variantMetadata.benchmarkReadiness,
+      selectionReceiptFields: variantMetadata.selectionReceiptFields,
+      approvalDecision: catalogApprovalDecision({ isFixture, body }),
       targetPathHash: stableHash(targetPath),
       maxBytes,
       downloadMode: isFixture ? "fixture" : "live_network",
@@ -3360,6 +3392,12 @@ export class ModelMountingState {
       sourceHash: stableHash(source),
       sourceLabel,
       variant: variantMetadata,
+      recommendation: variantMetadata.recommendation,
+      backendCompatibility: variantMetadata.backendCompatibility,
+      downloadRisk: variantMetadata.downloadRisk,
+      benchmarkReadiness: variantMetadata.benchmarkReadiness,
+      selectionReceiptFields: variantMetadata.selectionReceiptFields,
+      approvalDecision: catalogApprovalDecision({ isFixture, body }),
       resumeOffset: materialized.resumeOffset ?? 0,
       downloadMode: isFixture ? "fixture" : "live_network",
     });
@@ -6833,6 +6871,8 @@ function fixtureModelCatalog(searchedAt) {
       providerId: "provider.autopilot.local",
       modelId: "autopilot/native-fixture-3b",
       family: "autopilot-native-fixture",
+      architecture: "llama",
+      parameterCount: "3B",
       format: "gguf",
       quantization: "Q4_K_M",
       sizeBytes: 96 * 1024 * 1024,
@@ -6850,6 +6890,8 @@ function fixtureModelCatalog(searchedAt) {
       providerId: "provider.autopilot.local",
       modelId: "autopilot/nomic-embed-fixture",
       family: "nomic-embed-fixture",
+      architecture: "nomic",
+      parameterCount: "fixture",
       format: "gguf",
       quantization: "Q8_0",
       sizeBytes: 32 * 1024 * 1024,
@@ -6933,6 +6975,8 @@ function huggingFaceCatalogEntry(record, file, { baseUrl, repoId, searchedAt }) 
     catalogProviderId: "catalog.huggingface",
     modelId: repoId,
     family: String(record.pipeline_tag ?? record.pipelineTag ?? record.library_name ?? "huggingface"),
+    architecture: record.config?.architectures?.[0] ?? record.architecture ?? inferModelArchitecture([repoId, filePath, ...(tags ?? [])].join(" ")),
+    parameterCount: inferParameterCount([repoId, filePath].join(" ")),
     format,
     quantization,
     sizeBytes: file.sizeBytes,
@@ -6976,9 +7020,11 @@ function huggingFaceResolveUrl(baseUrl, repoId, filePath) {
 function catalogVariantForSource(source, body = {}) {
   const catalogEntry = fixtureModelCatalog(new Date(0).toISOString()).find((entry) => entry.sourceUrl === source);
   const publicSource = publicDownloadSource(source);
-  return {
+  const variant = {
     id: body.variant_id ?? body.variantId ?? catalogEntry?.id ?? `variant.${safeId(publicSource)}`,
     family: body.family ?? catalogEntry?.family ?? modelIdFromSourceUrl(publicSource),
+    architecture: body.architecture ?? catalogEntry?.architecture ?? inferModelArchitecture(publicSource),
+    parameterCount: body.parameter_count ?? body.parameterCount ?? catalogEntry?.parameterCount ?? inferParameterCount(publicSource),
     format: body.format ?? catalogEntry?.format ?? modelCatalogFileFormat(publicSource) ?? "gguf",
     quantization: body.quantization ?? catalogEntry?.quantization ?? parseModelQuantization(publicSource) ?? "Q4_K_M",
     sizeBytes: Number(body.size_bytes ?? body.sizeBytes ?? catalogEntry?.sizeBytes ?? 0),
@@ -6987,6 +7033,173 @@ function catalogVariantForSource(source, body = {}) {
     license: body.license ?? catalogEntry?.license ?? null,
     compatibility: normalizeScopes(body.compatibility, catalogEntry?.compatibility ?? ["native_local_fixture"]),
   };
+  return enrichCatalogEntry(variant, { maxBytes: body.max_bytes ?? body.maxBytes ?? null });
+}
+
+function enrichCatalogEntry(entry, { storage = {}, artifacts = [], maxBytes = null } = {}) {
+  const architecture = entry.architecture ?? inferModelArchitecture([entry.modelId, entry.family, entry.variantPath, ...(entry.tags ?? [])].join(" "));
+  const parameterCount = entry.parameterCount ?? inferParameterCount([entry.modelId, entry.variantPath, entry.sourceLabel].join(" "));
+  const compatibility = normalizeScopes(entry.compatibility, catalogCompatibilityForFormat(entry.format));
+  const backendCompatibility = catalogBackendCompatibility({ ...entry, architecture, parameterCount, compatibility });
+  const benchmarkReadiness = catalogBenchmarkReadiness({ ...entry, compatibility });
+  const downloadRisk = catalogDownloadRisk(entry, { storage, artifacts, maxBytes });
+  const recommendation = catalogRecommendation({ backendCompatibility, benchmarkReadiness, downloadRisk });
+  return {
+    ...entry,
+    architecture,
+    parameterCount,
+    compatibility,
+    backendCompatibility,
+    downloadRisk,
+    benchmarkReadiness,
+    recommendation,
+    selectionReceiptFields: [
+      "variant_id",
+      "source_url_hash",
+      "source_label",
+      "format",
+      "quantization",
+      "architecture",
+      "parameter_count",
+      "backend_compatibility",
+      "download_risk",
+      "benchmark_readiness",
+      "approval_decision",
+    ],
+  };
+}
+
+function catalogBackendCompatibility(entry) {
+  const format = String(entry.format ?? "").toLowerCase();
+  const compatibility = new Set(normalizeScopes(entry.compatibility, []));
+  const rows = [
+    backendCompatibilityRow("native_local_fixture", compatibility.has("native_local_fixture") || format === "gguf", format === "gguf" ? 92 : 70, "Autopilot native-local can import deterministic local artifacts."),
+    backendCompatibilityRow("llama_cpp", compatibility.has("llama_cpp") || format === "gguf", format === "gguf" ? 90 : 25, "llama.cpp expects GGUF artifacts."),
+    backendCompatibilityRow("ollama", compatibility.has("ollama") || format === "gguf", format === "gguf" ? 62 : 20, "Ollama can run local GGUF through import/create workflows when configured."),
+    backendCompatibilityRow("vllm", compatibility.has("vllm") || format === "safetensors", format === "safetensors" ? 88 : 18, "vLLM expects Hugging Face/safetensors-style artifacts."),
+  ];
+  return rows;
+}
+
+function backendCompatibilityRow(backendKind, compatible, score, reason) {
+  return {
+    backendKind,
+    score: compatible ? score : Math.min(score, 20),
+    status: compatible ? (score >= 80 ? "ready" : "compatible") : "unsupported",
+    reason,
+  };
+}
+
+function catalogBenchmarkReadiness(entry) {
+  const text = [entry.modelId, entry.family, entry.sourceLabel, ...(entry.tags ?? []), ...(entry.compatibility ?? [])].join(" ").toLowerCase();
+  const embeddings = /embed|embedding|nomic|bge|e5/.test(text);
+  const rerank = /rerank|cross-encoder/.test(text);
+  const vision = /vision|llava|vlm|multimodal|image/.test(text);
+  const chat = !embeddings && !rerank;
+  return {
+    chat,
+    embeddings,
+    rerank,
+    vision,
+    structuredOutput: chat,
+    hints: [
+      chat ? "chat-ready" : null,
+      embeddings ? "embedding-ready" : null,
+      rerank ? "rerank-ready" : null,
+      vision ? "vision-ready" : null,
+      entry.format === "gguf" ? "local-gguf-benchmark" : null,
+      entry.format === "safetensors" ? "vllm-benchmark" : null,
+    ].filter(Boolean),
+  };
+}
+
+function catalogDownloadRisk(entry, { storage = {}, artifacts = [], maxBytes = null } = {}) {
+  const reasons = [];
+  const sizeBytes = Number(entry.sizeBytes ?? 0);
+  const byteCap = normalizeOptionalBytes(maxBytes);
+  const existingArtifactCollision = artifacts.some((artifact) => artifact.modelId === entry.modelId || artifact.displayName === entry.modelId || artifact.id === entry.id);
+  const quotaBytes = Number(storage.quotaBytes ?? 0) || null;
+  const totalBytes = Number(storage.totalBytes ?? 0) || 0;
+  let score = 10;
+  let byteCapStatus = "not_set";
+  if (byteCap) {
+    byteCapStatus = sizeBytes && sizeBytes > byteCap ? "over_cap" : "within_cap";
+    if (byteCapStatus === "over_cap") {
+      score += 80;
+      reasons.push("variant exceeds configured byte cap");
+    }
+  }
+  if (quotaBytes && sizeBytes && totalBytes + sizeBytes > quotaBytes) {
+    score += 55;
+    reasons.push("download would exceed storage quota");
+  }
+  if (existingArtifactCollision) {
+    score += 20;
+    reasons.push("model id collides with an existing artifact");
+  }
+  if (!sizeBytes) {
+    score += 15;
+    reasons.push("variant size is unknown");
+  }
+  if (String(storage.quotaStatus ?? "") === "over_quota") {
+    score += 40;
+    reasons.push("storage is already over quota");
+  }
+  if (reasons.length === 0) reasons.push("size and storage projection are acceptable");
+  const bounded = Math.min(100, score);
+  return {
+    score: bounded,
+    status: bounded >= 85 ? "blocked" : bounded >= 55 ? "high" : bounded >= 30 ? "medium" : "low",
+    reasons,
+    existingArtifactCollision,
+    byteCapStatus,
+    storageStatus: String(storage.quotaStatus ?? "unknown"),
+  };
+}
+
+function catalogRecommendation({ backendCompatibility, benchmarkReadiness, downloadRisk }) {
+  const primary = [...backendCompatibility].sort((left, right) => right.score - left.score)[0] ?? null;
+  const readinessBoost = benchmarkReadiness.chat || benchmarkReadiness.embeddings ? 8 : 0;
+  const riskPenalty = downloadRisk.status === "blocked" ? 80 : downloadRisk.status === "high" ? 35 : downloadRisk.status === "medium" ? 15 : 0;
+  const score = Math.max(0, Math.min(100, (primary?.score ?? 0) + readinessBoost - riskPenalty));
+  const label = downloadRisk.status === "blocked" ? "blocked" : score >= 80 ? "recommended" : "review";
+  return {
+    score,
+    label,
+    primaryBackend: primary?.backendKind ?? null,
+    reasons: [
+      primary ? `${primary.backendKind} ${primary.status}` : "no compatible backend",
+      ...downloadRisk.reasons.slice(0, 2),
+      ...benchmarkReadiness.hints.slice(0, 2),
+    ],
+  };
+}
+
+function catalogApprovalDecision({ isFixture, body = {} }) {
+  const approved = Boolean(body.transfer_approved ?? body.transferApproved ?? isFixture);
+  return {
+    required: !isFixture,
+    approved,
+    source: approved ? "operator_or_fixture" : "not_provided",
+  };
+}
+
+function inferModelArchitecture(value) {
+  const text = String(value ?? "").toLowerCase();
+  if (/qwen/.test(text)) return "qwen";
+  if (/llama|mistral|mixtral|vicuna|alpaca/.test(text)) return "llama";
+  if (/nomic/.test(text)) return "nomic";
+  if (/bge/.test(text)) return "bge";
+  if (/gemma/.test(text)) return "gemma";
+  if (/phi/.test(text)) return "phi";
+  if (/bert|e5/.test(text)) return "bert";
+  return "unknown";
+}
+
+function inferParameterCount(value) {
+  const match = String(value ?? "").match(/(?:^|[^a-z0-9])(\d+(?:\.\d+)?)\s?([bBmMkK])(?:[^a-z0-9]|$)/);
+  if (!match) return null;
+  return `${match[1]}${match[2].toUpperCase()}`;
 }
 
 function modelIdFromSourceUrl(sourceUrl) {
