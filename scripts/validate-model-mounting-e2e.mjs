@@ -67,10 +67,111 @@ async function requestJson(endpoint, route, { method = "GET", body, token } = {}
   return { response, json };
 }
 
+async function requestSse(endpoint, route, { method = "POST", body, token } = {}) {
+  const response = await fetch(`${endpoint}${route}`, {
+    method,
+    headers: {
+      accept: "text/event-stream",
+      ...(body === undefined ? {} : { "content-type": "application/json" }),
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const text = await response.text();
+  return { response, text, events: parseSseEvents(text) };
+}
+
+async function requestSseAndAbortAfterFirstChunk(endpoint, route, { method = "POST", body, token } = {}) {
+  const controller = new AbortController();
+  const response = await fetch(`${endpoint}${route}`, {
+    method,
+    signal: controller.signal,
+    headers: {
+      accept: "text/event-stream",
+      ...(body === undefined ? {} : { "content-type": "application/json" }),
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const reader = response.body.getReader();
+  const first = await reader.read();
+  const text = new TextDecoder().decode(first.value ?? new Uint8Array());
+  controller.abort();
+  try {
+    await reader.read();
+  } catch {
+    // Aborting an SSE response rejects the reader on some Node versions.
+  }
+  return { response, text };
+}
+
+function parseSseEvents(text) {
+  return String(text)
+    .trim()
+    .split(/\n\n+/)
+    .filter(Boolean)
+    .map((block) => {
+      const lines = block.split(/\n/);
+      const event = lines.find((line) => line.startsWith("event: "))?.slice("event: ".length) ?? "message";
+      const dataText = lines
+        .filter((line) => line.startsWith("data: "))
+        .map((line) => line.slice("data: ".length))
+        .join("\n");
+      return { event, data: dataText === "[DONE]" ? "[DONE]" : dataText ? JSON.parse(dataText) : null };
+    });
+}
+
+function parseOpenAiSseChunks(text) {
+  return String(text)
+    .trim()
+    .split(/\n\n+/)
+    .filter(Boolean)
+    .map((block) => {
+      const dataText = block
+        .split(/\n/)
+        .filter((line) => line.startsWith("data: "))
+        .map((line) => line.slice("data: ".length))
+        .join("\n");
+      return dataText === "[DONE]" ? "[DONE]" : JSON.parse(dataText);
+    });
+}
+
 async function expectOk(endpoint, route, options) {
   const result = await requestJson(endpoint, route, options);
   assert.equal(result.response.ok, true, `${route} -> ${result.response.status} ${JSON.stringify(result.json)}`);
   return result.json;
+}
+
+async function waitForReceipt(endpoint, predicate, { timeoutMs = 3000 } = {}) {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    const receipts = await expectOk(endpoint, "/api/v1/receipts");
+    const receipt = receipts.find(predicate);
+    if (receipt) return receipt;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  assert.fail("Expected receipt was not recorded before timeout.");
+}
+
+function assertNativeLocalStreamReceipt(receipt, { kind, streamKind, selectedModel, endpointId, status, reason } = {}) {
+  assert.equal(receipt.kind, kind);
+  assert.equal(receipt.redaction, "redacted");
+  assert.equal(receipt.details.streamKind, streamKind);
+  assert.equal(receipt.details.routeId, "route.native-local");
+  assert.equal(receipt.details.selectedModel, selectedModel);
+  assert.equal(receipt.details.endpointId, endpointId);
+  assert.equal(receipt.details.providerId, "provider.autopilot.local");
+  assert.equal(receipt.details.backendId, "backend.autopilot.native-local.fixture");
+  assert.equal(receipt.details.selectedBackend, "backend.autopilot.native-local.fixture");
+  assert.equal(receipt.details.streamSource, "provider_native");
+  assert.equal(typeof receipt.details.invocationReceiptId, "string");
+  assert.ok(receipt.details.backendEvidenceRefs.includes("autopilot_native_local_provider_native_stream"));
+  if (status) {
+    assert.equal(receipt.details.status, status);
+  }
+  if (reason) {
+    assert.equal(receipt.details.reason, reason);
+  }
 }
 
 function resolveCliCommand(evidence) {
@@ -314,6 +415,10 @@ async function main() {
   let daemon = null;
   let mainGrant = null;
   let nativeReceiptId = null;
+  let nativeStreamCompletionReceiptId = null;
+  let nativeStreamCompletionInvocationReceiptId = null;
+  let nativeStreamAbortReceiptId = null;
+  let nativeStreamAbortInvocationReceiptId = null;
   let runtimeSurveyReceiptId = null;
   let ephemeralReceiptId = null;
   let ephemeralToolReceiptIds = [];
@@ -636,11 +741,107 @@ async function main() {
         body: { route_id: "route.native-local", model: "native:e2e", input: ["alpha", "beta"] },
       });
       assert.equal(embeddings.data.length, 2);
+
+      const streamedChat = await requestSse(daemon.endpoint, "/v1/chat/completions", {
+        method: "POST",
+        token,
+        body: {
+          route_id: "route.native-local",
+          model: "native:e2e",
+          stream: true,
+          messages: [{ role: "user", content: "stream native local e2e" }],
+        },
+      });
+      assert.equal(streamedChat.response.status, 200);
+      assert.equal(streamedChat.response.headers.get("x-ioi-stream-source"), "provider_native");
+      const streamedChatChunks = parseOpenAiSseChunks(streamedChat.text);
+      assert.equal(streamedChatChunks.at(-1), "[DONE]");
+      const streamedChatText = streamedChatChunks
+        .filter((chunk) => chunk !== "[DONE]")
+        .map((chunk) => chunk.choices?.[0]?.delta?.content ?? "")
+        .join("");
+      assert.match(streamedChatText, /Autopilot native local model response/);
+      const streamedChatMetadata = streamedChatChunks.find((chunk) => chunk !== "[DONE]" && chunk.stream_receipt_id);
+      assert.equal(streamedChatMetadata.route_id, "route.native-local");
+      assert.equal(streamedChatMetadata.provider_stream, "native");
+      nativeStreamCompletionInvocationReceiptId = streamedChatMetadata.receipt_id;
+      nativeStreamCompletionReceiptId = streamedChatMetadata.stream_receipt_id;
+      const streamInvocationReceipt = await expectOk(
+        daemon.endpoint,
+        `/api/v1/receipts/${nativeStreamCompletionInvocationReceiptId}`,
+      );
+      assert.equal(streamInvocationReceipt.kind, "model_invocation");
+      assert.equal(streamInvocationReceipt.details.streamStatus, "started");
+      assert.equal(streamInvocationReceipt.details.streamSource, "provider_native");
+      assert.equal(streamInvocationReceipt.details.providerResponseKind, "native_local.chat.stream");
+      const streamCompletionReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${nativeStreamCompletionReceiptId}`);
+      assertNativeLocalStreamReceipt(streamCompletionReceipt, {
+        kind: "model_invocation_stream_completed",
+        streamKind: "openai_chat_completions_native_local",
+        selectedModel: "native:e2e",
+        endpointId: "endpoint.e2e.native-local",
+      });
+      assert.equal(streamCompletionReceipt.details.providerResponseKind, "native_local.chat.stream");
+      assert.equal(streamCompletionReceipt.details.invocationReceiptId, nativeStreamCompletionInvocationReceiptId);
+      assert.equal(
+        streamCompletionReceipt.details.outputHash,
+        crypto.createHash("sha256").update(streamedChatText).digest("hex"),
+      );
+
+      const priorStreamDelay = process.env.IOI_DETERMINISTIC_PROVIDER_STREAM_DELAY_MS;
+      process.env.IOI_DETERMINISTIC_PROVIDER_STREAM_DELAY_MS = "25";
+      try {
+        const abortedResponseStream = await requestSseAndAbortAfterFirstChunk(daemon.endpoint, "/v1/responses", {
+          method: "POST",
+          token,
+          body: {
+            route_id: "route.native-local",
+            model: "native:e2e",
+            stream: true,
+            input: "abort native local e2e response stream",
+          },
+        });
+        assert.equal(abortedResponseStream.response.status, 200);
+        assert.match(abortedResponseStream.text, /response\.created/);
+      } finally {
+        if (priorStreamDelay === undefined) {
+          delete process.env.IOI_DETERMINISTIC_PROVIDER_STREAM_DELAY_MS;
+        } else {
+          process.env.IOI_DETERMINISTIC_PROVIDER_STREAM_DELAY_MS = priorStreamDelay;
+        }
+      }
+      const streamAbortReceipt = await waitForReceipt(
+        daemon.endpoint,
+        (receipt) =>
+          receipt.kind === "model_invocation_stream_canceled" &&
+          receipt.details?.streamKind === "openai_responses_native_local" &&
+          receipt.details?.routeId === "route.native-local" &&
+          receipt.details?.selectedModel === "native:e2e",
+      );
+      nativeStreamAbortReceiptId = streamAbortReceipt.id;
+      nativeStreamAbortInvocationReceiptId = streamAbortReceipt.details.invocationReceiptId;
+      assertNativeLocalStreamReceipt(streamAbortReceipt, {
+        kind: "model_invocation_stream_canceled",
+        streamKind: "openai_responses_native_local",
+        selectedModel: "native:e2e",
+        endpointId: "endpoint.e2e.native-local",
+        status: "aborted",
+        reason: "client_disconnect",
+      });
+      assert.equal(streamAbortReceipt.details.providerResponseKind, "native_local.responses.stream");
+      const streamAbortInvocation = await expectOk(daemon.endpoint, `/api/v1/receipts/${nativeStreamAbortInvocationReceiptId}`);
+      assert.equal(streamAbortInvocation.kind, "model_invocation");
+      assert.equal(streamAbortInvocation.details.streamStatus, "started");
+      assert.equal(streamAbortInvocation.details.streamSource, "provider_native");
+      assert.equal(streamAbortInvocation.details.providerResponseKind, "native_local.responses.stream");
+
       return {
         nativeReceiptId,
         compatModel: compatChat.model,
         responsesReceiptId: responses.receipt_id,
         embeddingVectors: embeddings.data.length,
+        streamCompletionReceiptId: nativeStreamCompletionReceiptId,
+        streamAbortReceiptId: nativeStreamAbortReceiptId,
       };
     });
 
@@ -1047,15 +1248,49 @@ async function main() {
       assert.equal(JSON.stringify(tokens).includes(token), false);
       const receipts = await runCli(cli, ["receipts", "--json", "ls"], common);
       assert.ok(receipts.some((receipt) => receipt.id === nativeReceiptId));
+      assert.ok(receipts.some((receipt) => receipt.id === nativeStreamCompletionReceiptId));
+      assert.ok(receipts.some((receipt) => receipt.id === nativeStreamAbortReceiptId));
       const receipt = await runCli(cli, ["receipts", "--json", "get", nativeReceiptId], common);
       assert.equal(receipt.id, nativeReceiptId);
       const replay = await runCli(cli, ["receipts", "--json", "replay", nativeReceiptId], common);
       assert.equal(replay.receipt.id, nativeReceiptId);
+      const streamCompletionReceipt = await runCli(cli, ["receipts", "--json", "get", nativeStreamCompletionReceiptId], common);
+      assertNativeLocalStreamReceipt(streamCompletionReceipt, {
+        kind: "model_invocation_stream_completed",
+        streamKind: "openai_chat_completions_native_local",
+        selectedModel: "native:e2e",
+        endpointId: "endpoint.e2e.native-local",
+      });
+      assert.equal(streamCompletionReceipt.details.invocationReceiptId, nativeStreamCompletionInvocationReceiptId);
+      const streamCompletionReplay = await runCli(
+        cli,
+        ["receipts", "--json", "replay", nativeStreamCompletionReceiptId],
+        common,
+      );
+      assert.equal(streamCompletionReplay.receipt.id, nativeStreamCompletionReceiptId);
+      assert.equal(streamCompletionReplay.route.id, "route.native-local");
+      assert.equal(streamCompletionReplay.endpoint.id, "endpoint.e2e.native-local");
+      const streamAbortReceipt = await runCli(cli, ["receipts", "--json", "get", nativeStreamAbortReceiptId], common);
+      assertNativeLocalStreamReceipt(streamAbortReceipt, {
+        kind: "model_invocation_stream_canceled",
+        streamKind: "openai_responses_native_local",
+        selectedModel: "native:e2e",
+        endpointId: "endpoint.e2e.native-local",
+        status: "aborted",
+        reason: "client_disconnect",
+      });
+      assert.equal(streamAbortReceipt.details.invocationReceiptId, nativeStreamAbortInvocationReceiptId);
+      const streamAbortReplay = await runCli(cli, ["receipts", "--json", "replay", nativeStreamAbortReceiptId], common);
+      assert.equal(streamAbortReplay.receipt.id, nativeStreamAbortReceiptId);
+      assert.equal(streamAbortReplay.route.id, "route.native-local");
+      assert.equal(streamAbortReplay.endpoint.id, "endpoint.e2e.native-local");
       return {
         cli: path.basename(cli.command),
         models: models.artifacts.length,
         loaded: loaded.length,
         receipts: receipts.length,
+        streamCompletionReceiptId: nativeStreamCompletionReceiptId,
+        streamAbortReceiptId: nativeStreamAbortReceiptId,
         serverRestartReceiptId: serverControlEvidence.restartReceiptId,
         runtimeSurveyReceiptId: runtimeSurvey.receiptId,
       };
@@ -1073,8 +1308,34 @@ async function main() {
       const projection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
       assert.ok(projection.artifacts.some((artifact) => artifact.modelId === "native:e2e"));
       assert.ok(projection.invocationReceipts.some((item) => item.id === nativeReceiptId));
+      assert.ok(projection.receipts.some((item) => item.id === nativeStreamCompletionReceiptId));
+      assert.ok(projection.receipts.some((item) => item.id === nativeStreamAbortReceiptId));
       assert.ok(projection.runtimeSurveyReceipts.some((item) => item.id === runtimeSurveyReceiptId));
       assert.ok(projection.toolReceipts.some((item) => ephemeralToolReceiptIds.includes(item.id)));
+      const streamCompletionReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${nativeStreamCompletionReceiptId}`);
+      assertNativeLocalStreamReceipt(streamCompletionReceipt, {
+        kind: "model_invocation_stream_completed",
+        streamKind: "openai_chat_completions_native_local",
+        selectedModel: "native:e2e",
+        endpointId: "endpoint.e2e.native-local",
+      });
+      const streamCompletionReplay = await expectOk(daemon.endpoint, `/api/v1/receipts/${nativeStreamCompletionReceiptId}/replay`);
+      assert.equal(streamCompletionReplay.receipt.id, nativeStreamCompletionReceiptId);
+      assert.equal(streamCompletionReplay.route.id, "route.native-local");
+      assert.equal(streamCompletionReplay.endpoint.id, "endpoint.e2e.native-local");
+      const streamAbortReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${nativeStreamAbortReceiptId}`);
+      assertNativeLocalStreamReceipt(streamAbortReceipt, {
+        kind: "model_invocation_stream_canceled",
+        streamKind: "openai_responses_native_local",
+        selectedModel: "native:e2e",
+        endpointId: "endpoint.e2e.native-local",
+        status: "aborted",
+        reason: "client_disconnect",
+      });
+      const streamAbortReplay = await expectOk(daemon.endpoint, `/api/v1/receipts/${nativeStreamAbortReceiptId}/replay`);
+      assert.equal(streamAbortReplay.receipt.id, nativeStreamAbortReceiptId);
+      assert.equal(streamAbortReplay.route.id, "route.native-local");
+      assert.equal(streamAbortReplay.endpoint.id, "endpoint.e2e.native-local");
       const restartedProcess = projection.backendProcesses.find((process) => process.backendId === "backend.autopilot.native-local.fixture");
       assert.equal(restartedProcess.status, "stale_recovered");
       assert.equal(restartedProcess.staleReason, "daemon_boot_mismatch");
@@ -1093,6 +1354,8 @@ async function main() {
       return {
         projectionWatermark: projection.watermark,
         invocationReceipts: projection.invocationReceipts.length,
+        streamCompletionReceiptId: nativeStreamCompletionReceiptId,
+        streamAbortReceiptId: nativeStreamAbortReceiptId,
         runtimeSurveyReceipts: projection.runtimeSurveyReceipts.length,
         toolReceipts: projection.toolReceipts.length,
         vaultMetadataRequiresRebind: vaultMeta.requiresRebind,
