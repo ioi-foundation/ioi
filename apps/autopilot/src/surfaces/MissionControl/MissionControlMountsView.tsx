@@ -1738,6 +1738,61 @@ function useModelMountsDaemon() {
   }, [requestJson]);
 
   const ensureToken = useCallback(async () => sessionToken ?? (await issueToken()), [issueToken, sessionToken]);
+  const requestSse = useCallback(
+    async (
+      routePath: string,
+      {
+        body,
+        token,
+        abortAfterFirstChunk = false,
+      }: {
+        body: unknown;
+        token: string;
+        abortAfterFirstChunk?: boolean;
+      },
+    ) => {
+      const controller = new AbortController();
+      const response = await fetch(`${endpoint.replace(/\/+$/, "")}${routePath}`, {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          accept: "text/event-stream",
+          "content-type": "application/json",
+          authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `${routePath} stream failed with ${response.status}`);
+      }
+      if (!abortAfterFirstChunk) {
+        await response.text();
+        return;
+      }
+      const reader = response.body?.getReader();
+      if (!reader) {
+        controller.abort();
+        return;
+      }
+      try {
+        await reader.read();
+        controller.abort();
+        try {
+          await reader.read();
+        } catch {
+          // Browser streams commonly reject after an intentional AbortController cancellation.
+        }
+      } finally {
+        try {
+          reader.releaseLock();
+        } catch {
+          // Some engines release the reader as part of abort propagation.
+        }
+      }
+    },
+    [endpoint],
+  );
 
   return {
     endpoint,
@@ -2038,6 +2093,30 @@ function useModelMountsDaemon() {
             body: { model: "local:auto", input: "Autopilot Mounts workbench probe" },
           });
           return "Native chat probe produced a model invocation receipt.";
+        }),
+      streamLifecycleProbe: () =>
+        runAction("stream-lifecycle", async () => {
+          const token = await ensureToken();
+          await requestSse("/v1/chat/completions", {
+            token,
+            body: {
+              route_id: "route.native-local",
+              model: "autopilot:native-fixture",
+              stream: true,
+              messages: [{ role: "user", content: "Mounts GUI completed native-local stream probe." }],
+            },
+          });
+          await requestSse("/v1/responses", {
+            token,
+            abortAfterFirstChunk: true,
+            body: {
+              route_id: "route.native-local",
+              model: "autopilot:native-fixture",
+              stream: true,
+              input: "Mounts GUI aborted native-local stream probe.",
+            },
+          });
+          return "Stream lifecycle probe recorded completed and aborted provider-native stream receipts.";
         }),
       runBenchmark: (selection: MountsPickerSelection, draft: BenchmarkDraft) =>
         runAction("benchmark-run", async () => {
@@ -5632,10 +5711,25 @@ export function MissionControlMountsView() {
     },
     [busy, daemon.actions, daemon.data, openReceiptInLogs, validationActionsEnabled],
   );
+  const runStreamLifecycleValidationAction = useCallback(() => {
+    if (!validationActionsEnabled || busy) return;
+    setActiveTab("logs");
+    daemon.actions.streamLifecycleProbe();
+  }, [busy, daemon.actions, validationActionsEnabled]);
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if (event.ctrlKey || event.metaKey) return;
+      if (validationActionsEnabled && event.altKey && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        runStreamLifecycleValidationAction();
+        return;
+      }
+      if (validationActionsEnabled && event.shiftKey && event.key === "F21") {
+        event.preventDefault();
+        runStreamLifecycleValidationAction();
+        return;
+      }
       if (validationActionsEnabled && event.shiftKey && ["F13", "F14", "F15"].includes(event.key)) {
         event.preventDefault();
         if (event.key === "F13") runBenchmarkObservabilityValidationAction("run-benchmark");
@@ -5719,6 +5813,7 @@ export function MissionControlMountsView() {
     runModelLifecycleValidationAction,
     runProviderBackendValidationAction,
     runRoutingWorkflowValidationAction,
+    runStreamLifecycleValidationAction,
     runTokenMcpValidationAction,
     validationActionsEnabled,
   ]);
