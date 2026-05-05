@@ -3,7 +3,7 @@
 Status: reference crawl, implementation guide, current completion ledger, and parity gap audit
 Audit date: 2026-05-05
 Reference app: locally installed LM Studio AppImage, observed as `0.4.12+1`
-Reference scope: UX ergonomics, local server contract, model lifecycle, MCP, API tokens, TTL/auto-evict, CLI, and local runtime state
+Reference scope: UX ergonomics, local server contract, model lifecycle, MCP, API tokens, TTL/auto-evict, CLI, Anthropic/OpenAI compatibility, tokenization/stats, LM Link, hub/plugin workflows, and local runtime state
 
 ## Executive Verdict
 
@@ -503,6 +503,13 @@ Observed public CLI/API state:
 
 - `$HOME/.local/bin/lm-studio.AppImage`, `$HOME/.local/bin/lm-studio`, and
   `$HOME/.lmstudio/bin/lms` are executable.
+- `lms --help` exposes the current public command groups:
+  - local models: `chat`, `get`, `load`, `unload`, `ls`, `ps`, `import`;
+  - serve: `server`, `log`;
+  - remote instances: `link`;
+  - runtime: `runtime`;
+  - develop/publish beta: `clone`, `push`, `dev`, `login`, `logout`,
+    `whoami`.
 - `lms server status` reports the local server is running on port `1234`.
 - `lms ls` reports two installed models:
   - `qwen/qwen3.5-9b`, 9B, `qwen35`, 6.55 GB, local, loaded;
@@ -520,11 +527,19 @@ Observed public CLI/API state:
   - NVIDIA GeForce RTX 5070 Laptop GPU, CUDA, discrete, 7.53 GiB VRAM;
   - CPU `x86_64` with AVX2/AVX;
   - RAM `93.73 GiB`.
+- `GET /api/v1/models` returns rich local catalog entries with publisher,
+  display name, format, quantization, loaded instances, context length, vision
+  capability, reasoning options, and trained-for-tool-use metadata.
+- `GET /api/v0/models` still returns useful developer stats/model detail shape
+  for loaded vs unloaded state, max context, compatibility type, quantization,
+  and legacy runtime fields.
 - `GET /v1/models` returns both installed model identifiers.
 - `POST /v1/chat/completions` succeeds against `qwen/qwen3.5-9b`.
 - `POST /v1/responses` succeeds against `qwen/qwen3.5-9b`; the older
   fallback-to-chat behavior remains necessary for compatible providers that do
   not expose Responses, but this local LM Studio instance does expose it.
+- `POST /v1/messages` succeeds against `qwen/qwen3.5-9b` with an
+  Anthropic-compatible response envelope.
 - `POST /v1/embeddings` succeeds against
   `text-embedding-nomic-embed-text-v1.5`.
 - LM Studio server management remains exposed through `lms server
@@ -552,6 +567,23 @@ generic hardening list:
   hard-link, symbolic-link, dry-run, and explicit `user/repo` classification.
 - Autopilot Logs needs streaming request/response logs comparable to
   `lms log stream`, while preserving IOI redaction and receipts.
+- Autopilot compatibility APIs need explicit Anthropic-compatible
+  `/v1/messages` support. The guide already lists it as a lower-priority
+  compatibility endpoint, but the local trace and current LM Studio docs make
+  it part of practical parity for Claude-code-style local clients.
+- Autopilot streaming needs to move from filtered receipt/event observability
+  to true response streaming where supported: native `/api/v1/chat` token
+  streams, OpenAI-compatible SSE streams, Anthropic-compatible SSE events,
+  model-load events, prompt-processing events, and interrupt/cancel semantics.
+- Autopilot should add a tokenizer/count-tokens/context-fit utility surface.
+  LM Studio exposes tokenization through SDKs rather than the core REST table,
+  but it is a practical model-integration primitive for route planning,
+  context budgeting, RAG, and workflow harness validation.
+- Autopilot should decide which LM Studio beta/developer workflows are
+  in-scope for Mounts: LM Link remote instance preference, hub artifact
+  clone/push, plugin dev server, and login/whoami identity flows. These should
+  map to IOI provider registry, Agentgres artifacts, workflow/tool registries,
+  and wallet/network identity rather than copying LM Studio account state.
 
 ### Remaining Production / Live-Only Gaps
 
@@ -640,7 +672,27 @@ gates:
    - raw streaming logs for live providers beyond the current server/event tail
      plus filtered request/response receipt stream;
    - compact error details and retry affordances for failed actions.
-8. Provider expansion:
+8. Compatibility and SDK surface parity:
+   - Anthropic-compatible `/v1/messages`, including SSE events, `x-api-key`
+     auth header compatibility, and receipt-linked tool-use metadata;
+   - true token streaming for `/api/v1/chat`, `/v1/responses`,
+     `/v1/chat/completions`, and `/v1/messages`, including model-load and
+     prompt-processing events where the native API can express them;
+   - stateful chat continuation parity for native chat and Responses
+     (`response_id` / `previous_response_id`) through governed receipts;
+   - tokenizer/count-tokens/context-fit APIs and SDK helpers;
+   - TTFT, tokens-per-second, generation-time, stop-reason, runtime, and model
+     info telemetry in invocation receipts and Mounts benchmark/detail views.
+9. Remote instance and developer workflow parity:
+   - LM Link-style remote instance preference mapped to provider/backend
+     routing, with wallet/network grants and receipts;
+   - artifact clone/push/publish mapped to IOI artifact registry or
+     marketplace flows;
+   - plugin dev-server workflows mapped to Tool Registry/MCP/workflow harness
+     contracts;
+   - identity flows (`login`, `logout`, `whoami`) mapped to wallet.network
+     identity rather than LM Studio account files.
+10. Provider expansion:
    - Ollama and vLLM have deterministic supervised runner boundaries and live
      gates;
    - remaining work is production BYOK behavior for OpenAI, Anthropic, and
@@ -669,8 +721,12 @@ implemented as a product surface.
 | Load options | `lms load --gpu --context-length --parallel --ttl --identifier --estimate-only` | Complete for deterministic/public driver path | Runtime defaults now flow into redacted process argv for deterministic native-local, configured llama.cpp, Ollama serve, and vLLM serve runners; live tuning recommendations remain future scheduler work |
 | Local server | `lms server start|stop|status` and local port `1234` | Complete for deterministic daemon path | Keep start/stop/restart governed by `server.control:*`; package production headless/service supervision |
 | OpenAI-compatible API | `/v1/models`, chat completions, Responses, embeddings | Complete for daemon path | Add streaming parity, richer OpenAI error shape, tool-output submission, and advanced Responses state |
+| Anthropic-compatible API | `/v1/messages` with `x-api-key`/Bearer auth and SSE events | Gap | Add governed `/v1/messages` route through router/capability/MCP/receipt path and validate Claude-code-style local client compatibility |
 | Native model API | LM Studio has public local primitives plus OpenAI-compatible surface | Complete, Autopilot-specific | Keep IOI-native routes authoritative and prevent `/v1/*` policy bypass |
+| Stateful/streaming native chat | `/api/v1/chat` supports stateful chat, token streams, model-load events, prompt-processing events, context length in request, and MCP integrations | Partial | Current deterministic observability is receipt/event based; add true streaming transport, stateful continuation, cancel/interrupt, and per-request context-length handling |
 | Request/response logs | `lms log stream` | Complete for deterministic Mounts path | Server log/event tail and filtered request/response receipt observability are visible through API/CLI/Mounts; add raw streaming transport parity for live provider/backend logs where supported |
+| Tokenization/context utilities | SDK tokenization and count-tokens helpers for loaded LLM/embedding models | Gap | Add tokenizer/count-tokens/context-fit API/SDK/CLI helpers backed by selected backend where available and deterministic estimates where unavailable |
+| Inference stats | v0-style TTFT, tokens/sec, generation time, stop reason, runtime/model info | Partial | Receipts contain latency/token counts; add TTFT/tokens-per-second/runtime/model-info fields for streaming and non-streaming invocations |
 | API tokens | LM Studio local API tokens/auth toggle | Complete plus stronger IOI policy | Add production wallet.network account linking, cross-device revocation, and richer audit export UX |
 | MCP config | Cursor/LM Studio-style `mcp.json` plus API integrations | Partial | Complete stdio lifecycle, OAuth, schema discovery, and model tool exposure through governed receipts |
 | Provider support | LM Studio owns local GGUF runtime; external providers are not core | Partial | Keep LM Studio first-class; llama.cpp, Ollama, and vLLM have supervised runner boundaries, while BYOK/custom HTTP live hardening remains behind the same router |
@@ -678,32 +734,48 @@ implemented as a product surface.
 | Receipts/audit | Not an LM Studio primitive | Autopilot ahead | Finish production Agentgres sync, settlement/audit packs, and remote replay |
 | Secret storage | LM Studio local config/API token ergonomics | Partial, stronger boundary | Wire production wallet.network/vault and cross-device revocation; keep plaintext rejected |
 | Headless/background mode | `lms server` and background service ergonomics | Partial | Package IOI daemon service/headless mode, health checks, logs, and restart policy |
+| Remote instances | `lms link` manages preferred remote devices/instances | Gap | Add provider/backend remote-instance preference, trust, health, wallet/network grants, and receipts; do not copy LM Studio private link state |
+| Hub artifact workflows | `lms clone`, `lms push`, `login/logout/whoami` | Gap | Map clone/push/publish and identity to IOI artifact registry, Agentgres provenance, and wallet.network identity |
+| Plugin dev workflows | `lms dev` starts plugin development server | Gap | Map plugin dev ergonomics to IOI Tool Registry/MCP/workflow harness developer mode |
 | Model cleanup/storage | LM Studio models folder and import management | Partial | Artifact delete and orphan scan receipts exist; add uninstall confirmations, storage quota, and destructive UX safeguards |
+| Document/RAG integration | LM Studio can chat with documents offline and ships retrieval/vector workers | Adjacent gap | Decide whether Mounts owns local RAG index/model bindings or delegates to workflow/tool surfaces; preserve receipts for embedding/index/query steps |
 | Benchmarks/evals | LM Studio exposes model metadata and developer feedback loops | Complete for deterministic Mounts path | GUI harness validates benchmark run, replay, Logs focus, chat/responses/embeddings receipts, and backend/grant/latency payloads; add scheduled runs, route recommendation receipts, and comparative charts |
 | Attested remote runtime | Outside current LM Studio local focus | Boundary only | Implement DePIN/TEE attestation verification, fail-closed routing, and attestation receipts |
 
 ### Priority Closeout Order For Parity
 
-1. Catalog/download product hardening:
+1. Compatibility surface parity:
+   - governed Anthropic-compatible `/v1/messages`;
+   - true native/OpenAI/Anthropic streaming with cancellation and event
+     receipts;
+   - stateful chat/Responses continuation;
+   - tokenizer/count-tokens/context-fit utilities;
+   - TTFT/tokens-per-second/runtime/model-info telemetry.
+2. Catalog/download product hardening:
    - richer GGUF/MLX variant selection polish;
    - hub metadata breadth and benchmark/classification metadata;
    - storage quota and uninstall confirmation UX;
    - live external-hub validation on an operator machine.
-2. Product UI parity:
+3. Product UI parity:
    - compact failed-action retry affordances;
    - receipt drill-down detail polish beyond the current filtered stream and
      replay controls.
-3. Live backend parity:
+4. Remote/developer workflow parity:
+   - LM Link-style remote instance preference through IOI providers;
+   - clone/push/publish through IOI artifact registry/marketplace;
+   - plugin dev-server ergonomics through Tool Registry/MCP/workflow harness;
+   - wallet.network identity for login/whoami semantics.
+5. Live backend parity:
    - live hardware validation and scheduler hardening for the configured
      `llama.cpp` runner boundary;
    - live Ollama lifecycle;
    - live vLLM/OpenAI-compatible hardware validation;
    - native BYOK OpenAI/Anthropic/Gemini adapters through vault refs.
-4. Raw live-log streaming parity:
+6. Raw live-log streaming parity:
    - live transport equivalent to `lms log stream` for providers/backends that
      support raw streams;
    - provider/backend log panes beside the current filtered receipt stream.
-5. Production IOI hardening beyond LM Studio:
+7. Production IOI hardening beyond LM Studio:
    - production wallet.network grants/vaults;
    - production Agentgres projection sync and settlement packs;
    - stdio/OAuth MCP lifecycle;
@@ -811,9 +883,9 @@ workbench-style view with status, tables, logs, and controls.
 | Wrapper | `$HOME/.local/bin/lm-studio` execs `$HOME/.local/bin/lm-studio.AppImage` |
 | Running app | AppImage mounted at `/tmp/.mount_lm-stu*/`; process metadata shows LM Studio `0.4.12+1` |
 | App data root | `$HOME/.lmstudio` |
-| Local server status | `lms server status` reported the server was not running |
+| Local server status | Initial 2026-05-04 crawl found the server stopped; fresh 2026-05-05 trace found `lms server status --json` running on port `1234` |
 | Local models | `lms ls` reported Qwen3.5 9B and Nomic Embed Text v1.5, 6.63 GB total |
-| Loaded models | `lms ps` reported no models currently loaded |
+| Loaded models | Initial 2026-05-04 crawl found none loaded; fresh 2026-05-05 trace found `qwen/qwen3.5-9b` loaded with context `4096`, parallel `4`, and local device |
 | MCP config | `$HOME/.lmstudio/mcp.json` contains `{ "mcpServers": {} }` |
 | Settings | local service enabled; JIT TTL enabled for 3600 seconds; auto-evict previous JIT model enabled |
 | Runtime engines | llama.cpp CPU, Vulkan, and CUDA extension packs installed; preferred GGUF backend is CUDA 12 llama.cpp `2.13.0` |
@@ -826,11 +898,14 @@ workbench-style view with status, tables, logs, and controls.
 | REST API overview | https://lmstudio.ai/docs/developer/rest |
 | Local server | https://lmstudio.ai/docs/developer/core/server |
 | OpenAI-compatible endpoints | https://lmstudio.ai/docs/developer/openai-compat |
+| Anthropic-compatible endpoint | https://lmstudio.ai/docs/developer/anthropic-compat |
+| Anthropic Messages endpoint | https://lmstudio.ai/docs/developer/anthropic-compat/messages |
 | CLI | https://lmstudio.ai/docs/cli |
 | CLI load/unload | https://lmstudio.ai/docs/cli/local-models/load |
 | Authentication/API tokens | https://lmstudio.ai/docs/developer/core/authentication |
 | Stateful chats | https://lmstudio.ai/docs/developer/rest/stateful-chats |
 | Chat endpoint and MCP request shape | https://lmstudio.ai/docs/developer/rest/chat |
+| Native streaming events | https://lmstudio.ai/docs/developer/rest/streaming |
 | MCP app configuration | https://lmstudio.ai/docs/app/mcp |
 | MCP via API | https://lmstudio.ai/docs/developer/core/mcp |
 | TTL and auto-evict | https://lmstudio.ai/docs/developer/core/ttl-and-auto-evict |
@@ -840,6 +915,8 @@ workbench-style view with status, tables, logs, and controls.
 | Model download endpoint | https://lmstudio.ai/docs/developer/rest/download |
 | Model unload endpoint | https://lmstudio.ai/docs/developer/rest/unload |
 | Download status endpoint | https://lmstudio.ai/docs/developer/rest/download-status |
+| Tokenization/count tokens | https://lmstudio.ai/docs/typescript/tokenization |
+| API changelog / parity deltas | https://lmstudio.ai/docs/developer/api-changelog |
 
 ## LM Studio Crawl Findings
 
@@ -2211,6 +2288,70 @@ OpenAI-compatible model list:
     }
   ],
   "object": "list"
+}
+```
+
+Fresh native catalog probe:
+
+```json
+{
+  "models": [
+    {
+      "type": "llm",
+      "key": "qwen/qwen3.5-9b",
+      "loaded_instances": [
+        {
+          "id": "qwen/qwen3.5-9b",
+          "config": {
+            "context_length": 4096,
+            "eval_batch_size": 512,
+            "parallel": 4,
+            "flash_attention": true,
+            "offload_kv_cache_to_gpu": true
+          }
+        }
+      ],
+      "capabilities": {
+        "vision": true,
+        "trained_for_tool_use": true,
+        "reasoning": {
+          "allowed_options": ["off", "on"],
+          "default": "on"
+        }
+      }
+    }
+  ]
+}
+```
+
+Fresh legacy stats/model-shape probe:
+
+```json
+{
+  "id": "qwen/qwen3.5-9b",
+  "type": "vlm",
+  "compatibility_type": "gguf",
+  "quantization": "Q4_K_M",
+  "state": "loaded",
+  "max_context_length": 262144,
+  "loaded_context_length": 4096,
+  "capabilities": ["tool_use"]
+}
+```
+
+Fresh Anthropic-compatible messages probe:
+
+```json
+{
+  "type": "message",
+  "role": "assistant",
+  "content": [{ "type": "text", "text": "OK!" }],
+  "model": "qwen/qwen3.5-9b",
+  "stop_reason": "end_turn",
+  "usage": {
+    "input_tokens": 15,
+    "output_tokens": 3
+  }
 }
 ```
 
