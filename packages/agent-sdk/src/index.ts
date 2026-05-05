@@ -45,6 +45,7 @@ export type {
 export type {
   ModelArtifact,
   ModelBackend,
+  ModelBackendProcess,
   ModelCatalogEntry,
   ModelCatalogProviderStatus,
   ModelCatalogStatus,

@@ -586,11 +586,19 @@ async function main() {
       assert.equal(loaded.runtimeEngineId, "backend.autopilot.native-local.fixture");
       assert.equal(loaded.identifier, "e2e-native-load");
       assert.equal(loaded.contextLength, 4096);
+      assert.equal(loaded.backendProcess.status, "started");
+      assert.match(loaded.backendProcess.pidHash, /^[a-f0-9]{16}$/);
+      assert.equal(loaded.backendProcess.argsRedacted.includes("--context"), true);
+      const processBackends = await expectOk(daemon.endpoint, "/api/v1/backends");
+      const nativeProcessBackend = processBackends.find((backend) => backend.id === "backend.autopilot.native-local.fixture");
+      assert.equal(nativeProcessBackend.process.status, "started");
+      assert.equal(nativeProcessBackend.process.argsRedacted.includes("4096"), true);
       return {
         artifactId: imported.id,
         endpointId: mounted.id,
         instanceId: loaded.id,
         estimateReceiptId: estimate.receiptId,
+        backendProcessId: loaded.backendProcess.id,
         checksum: imported.checksum,
       };
     });
@@ -1067,6 +1075,9 @@ async function main() {
       assert.ok(projection.invocationReceipts.some((item) => item.id === nativeReceiptId));
       assert.ok(projection.runtimeSurveyReceipts.some((item) => item.id === runtimeSurveyReceiptId));
       assert.ok(projection.toolReceipts.some((item) => ephemeralToolReceiptIds.includes(item.id)));
+      const restartedProcess = projection.backendProcesses.find((process) => process.backendId === "backend.autopilot.native-local.fixture");
+      assert.equal(restartedProcess.status, "stale_recovered");
+      assert.equal(restartedProcess.staleReason, "daemon_boot_mismatch");
       const runtimeSurveyReplay = await expectOk(daemon.endpoint, `/api/v1/receipts/${runtimeSurveyReceiptId}/replay`);
       assert.equal(runtimeSurveyReplay.receipt.id, runtimeSurveyReceiptId);
       const vaultMeta = await expectOk(daemon.endpoint, "/api/v1/vault/refs/meta", {

@@ -21,6 +21,7 @@ class AgentgresModelMountingStore {
       "model-routes",
       "model-providers",
       "model-backends",
+      "backend-processes",
       "model-downloads",
       "runtime-preferences",
       "runtime-engine-profiles",
@@ -746,6 +747,12 @@ class NativeLocalModelProviderDriver {
     const estimate = estimateNativeLocalResources(artifact);
     const backendId = endpoint.backendId ?? "backend.autopilot.native-local.fixture";
     const loadOptions = normalizeLoadOptions(body.load_options ?? body.loadOptions ?? body, endpoint.loadPolicy);
+    const processRecord = state.ensureBackendProcess(backendId, {
+      endpoint,
+      loadOptions,
+      reason: "model_load",
+    });
+    const processSnapshot = state.backendProcessSnapshot(processRecord);
     state.writeBackendLog(endpoint.id, {
       backendId,
       event: "load",
@@ -753,6 +760,9 @@ class NativeLocalModelProviderDriver {
       estimate,
       loadOptions,
       backend: "autopilot.native_local.fixture",
+      processId: processRecord?.id ?? null,
+      pidHash: processRecord?.pidHash ?? null,
+      argsHash: processRecord?.argsHash ?? null,
     });
     return {
       backend: "autopilot.native_local.fixture",
@@ -760,33 +770,45 @@ class NativeLocalModelProviderDriver {
       driver: "native_local",
       status: "loaded",
       estimate,
+      process: processSnapshot,
       evidenceRefs: [
         "autopilot_native_local_backend_registry",
         "autopilot_native_local_process_supervisor",
         "deterministic_native_local_fixture",
+        ...normalizeScopes(processSnapshot.evidenceRefs, []),
       ],
     };
   }
 
   async unload({ state, endpoint }) {
     const backendId = endpoint.backendId ?? "backend.autopilot.native-local.fixture";
+    const processRecord = state.backendProcessForBackend(backendId);
     state.writeBackendLog(endpoint.id, {
       backendId,
       event: "unload",
       modelId: endpoint.modelId,
       backend: "autopilot.native_local.fixture",
+      processId: processRecord?.id ?? null,
+      pidHash: processRecord?.pidHash ?? null,
     });
     return {
       driver: "native_local",
       status: "unloaded",
       backend: "autopilot.native_local.fixture",
       backendId,
+      process: state.backendProcessSnapshot(processRecord),
       evidenceRefs: ["autopilot_native_local_process_supervisor", "deterministic_native_local_fixture"],
     };
   }
 
   async invoke({ kind, input, endpoint, state }) {
     const backendId = endpoint.backendId ?? "backend.autopilot.native-local.fixture";
+    const processRecord = state.ensureBackendProcess(backendId, {
+      endpoint,
+      loadOptions: state.loadedInstanceForEndpoint(endpoint.id, false)?.loadOptions ?? {},
+      reason: "model_invoke",
+    });
+    const processSnapshot = state.backendProcessSnapshot(processRecord);
     const digest = stableHash(input).slice(0, 12);
     const outputText =
       kind === "embeddings"
@@ -800,6 +822,8 @@ class NativeLocalModelProviderDriver {
       inputHash: stableHash(input),
       outputHash: stableHash(outputText),
       backend: "autopilot.native_local.fixture",
+      processId: processRecord?.id ?? null,
+      pidHash: processRecord?.pidHash ?? null,
     });
     return {
       outputText,
@@ -808,7 +832,12 @@ class NativeLocalModelProviderDriver {
       providerResponseKind: "native_local",
       backend: "autopilot.native_local.fixture",
       backendId,
-      backendEvidenceRefs: ["autopilot_native_local_openai_compatible_serving", "deterministic_native_local_fixture"],
+      backendProcess: processSnapshot,
+      backendEvidenceRefs: [
+        "autopilot_native_local_openai_compatible_serving",
+        "deterministic_native_local_fixture",
+        ...normalizeScopes(processSnapshot.evidenceRefs, []),
+      ],
     };
   }
 }
@@ -1200,6 +1229,7 @@ export class ModelMountingState {
     this.cwd = path.resolve(cwd ?? process.cwd());
     this.homeDir = path.resolve(homeDir ?? process.env.HOME ?? this.cwd);
     this.modelRoot = path.join(this.stateDir, "models");
+    this.bootId = `daemon_boot_${crypto.randomUUID()}`;
     this.appendOperation = appendOperation;
     this.now = now;
     this.store = new AgentgresModelMountingStore({
@@ -1218,6 +1248,7 @@ export class ModelMountingState {
     });
     this.providers = new Map();
     this.backends = new Map();
+    this.backendProcesses = new Map();
     this.artifacts = new Map();
     this.endpoints = new Map();
     this.instances = new Map();
@@ -1271,6 +1302,17 @@ export class ModelMountingState {
         "processStatus",
         "lastReceiptId",
       ],
+      modelBackendProcesses: [
+        "id",
+        "backendId",
+        "backendKind",
+        "status",
+        "pidHash",
+        "startedAt",
+        "stoppedAt",
+        "argsHash",
+        "lastReceiptId",
+      ],
       providerHealth: ["id", "providerId", "status", "checkedAt", "receiptId", "failureCode", "evidenceRefs"],
       runtimeEngines: ["id", "kind", "label", "status", "selected", "modelFormat", "source"],
       runtimeEngineProfiles: ["id", "engineId", "disabled", "priority", "defaultLoadOptions", "receiptId"],
@@ -1289,6 +1331,7 @@ export class ModelMountingState {
   load() {
     this.loadMap("model-providers", this.providers);
     this.loadMap("model-backends", this.backends);
+    this.loadMap("backend-processes", this.backendProcesses);
     this.loadMap("model-artifacts", this.artifacts);
     this.loadMap("model-endpoints", this.endpoints);
     this.loadMap("model-instances", this.instances);
@@ -1655,6 +1698,7 @@ export class ModelMountingState {
   writeAll() {
     this.writeMap("model-providers", this.providers);
     this.writeMap("model-backends", this.backends);
+    this.writeMap("backend-processes", this.backendProcesses);
     this.writeMap("model-artifacts", this.artifacts);
     this.writeMap("model-endpoints", this.endpoints);
     this.writeMap("model-instances", this.instances);
@@ -1938,6 +1982,7 @@ export class ModelMountingState {
       catalog: this.catalogStatus(),
       artifacts: this.listArtifacts(),
       backends: this.listBackends(),
+      backendProcesses: this.listBackendProcesses(),
       endpoints: this.listEndpoints(),
       instances: this.listInstances(),
       providers: this.listProviders(),
@@ -1980,6 +2025,7 @@ export class ModelMountingState {
       instances: this.listInstances(),
       routes: this.listRoutes(),
       backends: this.listBackends(),
+      backendProcesses: this.listBackendProcesses(),
       providers: this.listProviders(),
       catalog: this.catalogStatus(),
       downloads: this.listDownloads(),
@@ -2502,6 +2548,9 @@ export class ModelMountingState {
       parallelism: loadOptions.parallel ?? null,
       gpuOffload: loadOptions.gpu ?? null,
       estimate: driverResult.estimate ?? estimate,
+      backendProcess: driverResult.process ?? null,
+      backendProcessId: driverResult.process?.id ?? null,
+      backendProcessPidHash: driverResult.process?.pidHash ?? null,
       loadedAt: now,
       lastUsedAt: now,
       expiresAt: expiresAt(now, loadPolicy),
@@ -2522,6 +2571,7 @@ export class ModelMountingState {
       loadOptions,
       estimate: instance.estimate,
       providerEvidenceRefs: driverResult.evidenceRefs ?? [],
+      backendProcess: driverResult.process ?? null,
       commandArgsHash: driverResult.commandArgsHash ?? null,
     });
     return instance;
@@ -2573,6 +2623,7 @@ export class ModelMountingState {
       modelId: instance.modelId,
       providerId: instance.providerId,
       providerEvidenceRefs: driverResult.evidenceRefs ?? [],
+      backendProcess: driverResult.process ?? null,
     });
     return updated;
   }
@@ -3375,6 +3426,9 @@ export class ModelMountingState {
         outputHash: stableHash(outputText),
         compatTranslation: providerResult.compatTranslation ?? null,
         providerResponseKind: providerResult.providerResponseKind ?? null,
+        backendProcess: providerResult.backendProcess ?? instance.backendProcess ?? null,
+        backendProcessId: providerResult.backendProcess?.id ?? instance.backendProcessId ?? null,
+        backendProcessPidHash: providerResult.backendProcess?.pidHash ?? instance.backendProcessPidHash ?? null,
         backendEvidenceRefs: providerResult.backendEvidenceRefs ?? [],
         authVaultRefHash: providerResult.authVaultRefHash ?? null,
         providerAuthEvidenceRefs: providerResult.providerAuthEvidenceRefs ?? [],
@@ -3856,7 +3910,33 @@ export class ModelMountingState {
         evidenceRefs: backend.evidenceRefs ?? derived.get(id)?.evidenceRefs ?? [],
       });
     }
-    return [...derived.values()].sort((left, right) => left.id.localeCompare(right.id));
+    return [...derived.values()]
+      .map((backend) => {
+        const processRecord = this.backendProcessForBackend(backend.id);
+        return {
+          ...backend,
+          processStatus: processRecord?.processStatus ?? processRecord?.status ?? backend.processStatus,
+          process: processRecord
+            ? {
+                id: processRecord.id,
+                status: processRecord.status,
+                processStatus: processRecord.processStatus ?? processRecord.status,
+                pidHash: processRecord.pidHash ?? null,
+                supervisorKind: processRecord.supervisorKind ?? null,
+                startedAt: processRecord.startedAt ?? null,
+                stoppedAt: processRecord.stoppedAt ?? null,
+                lastHealthAt: processRecord.lastHealthAt ?? null,
+                argsHash: processRecord.argsHash ?? null,
+                argsRedacted: processRecord.argsRedacted ?? [],
+                startupTimeoutMs: processRecord.startupTimeoutMs ?? null,
+                stale: Boolean(processRecord.stale),
+                staleReason: processRecord.staleReason ?? null,
+                receiptId: processRecord.lastReceiptId ?? null,
+              }
+            : null,
+        };
+      })
+      .sort((left, right) => left.id.localeCompare(right.id));
   }
 
   deriveBackendRegistry(checkedAt) {
@@ -3970,6 +4050,39 @@ export class ModelMountingState {
 
   listBackends() {
     return this.backendRegistry();
+  }
+
+  listBackendProcesses() {
+    return [...this.backendProcesses.values()]
+      .map((processRecord) => this.reconciledBackendProcess(processRecord))
+      .sort((left, right) => String(left.startedAt ?? "").localeCompare(String(right.startedAt ?? "")));
+  }
+
+  backendProcessForBackend(backendId) {
+    const processes = this.listBackendProcesses().filter((processRecord) => processRecord.backendId === backendId);
+    return processes.at(-1) ?? null;
+  }
+
+  reconciledBackendProcess(processRecord) {
+    if (!processRecord) return null;
+    if (processRecord.status === "started" && processRecord.bootId && processRecord.bootId !== this.bootId) {
+      return {
+        ...processRecord,
+        status: "stale_recovered",
+        processStatus: "stale_recovered",
+        stale: true,
+        staleReason: "daemon_boot_mismatch",
+        evidenceRefs: [
+          ...normalizeScopes(processRecord.evidenceRefs, []),
+          "supervisor_stale_process_detection",
+          "agentgres_process_projection_replay",
+        ],
+      };
+    }
+    return {
+      stale: false,
+      ...processRecord,
+    };
   }
 
   runtimePreference() {
@@ -4324,17 +4437,191 @@ export class ModelMountingState {
     return backend;
   }
 
+  backendProcessSnapshot(processRecord) {
+    if (!processRecord) {
+      return {
+        status: "not_started",
+        processStatus: "not_started",
+        evidenceRefs: ["supervisor_process_not_started"],
+      };
+    }
+    return {
+      id: processRecord.id,
+      backendId: processRecord.backendId,
+      backendKind: processRecord.backendKind,
+      status: processRecord.status,
+      processStatus: processRecord.processStatus ?? processRecord.status,
+      pidHash: processRecord.pidHash ?? null,
+      pidTracked: processRecord.pidTracked ?? "process_ref_hash",
+      supervisorKind: processRecord.supervisorKind ?? null,
+      startedAt: processRecord.startedAt ?? null,
+      stoppedAt: processRecord.stoppedAt ?? null,
+      lastHealthAt: processRecord.lastHealthAt ?? null,
+      argsHash: processRecord.argsHash ?? null,
+      argsRedacted: processRecord.argsRedacted ?? [],
+      startupTimeoutMs: processRecord.startupTimeoutMs ?? null,
+      healthProbe: processRecord.healthProbe ?? null,
+      stale: Boolean(processRecord.stale),
+      staleReason: processRecord.staleReason ?? null,
+      evidenceRefs: processRecord.evidenceRefs ?? [],
+    };
+  }
+
+  backendProcessArgs(backend, { endpoint = null, loadOptions = {} } = {}) {
+    const artifactPathHash = endpoint?.artifactPath ? stableHash(endpoint.artifactPath).slice(0, 16) : null;
+    const modelArg = endpoint?.modelId ?? "runtime-engine-profile";
+    const contextLength = loadOptions.contextLength ?? this.runtimeDefaultLoadOptions(backend.id).contextLength ?? null;
+    const parallel = loadOptions.parallel ?? this.runtimeDefaultLoadOptions(backend.id).parallel ?? null;
+    const gpu = loadOptions.gpu ?? this.runtimeDefaultLoadOptions(backend.id).gpu ?? null;
+    const identifier = loadOptions.identifier ?? this.runtimeDefaultLoadOptions(backend.id).identifier ?? null;
+    const args = [];
+    if (backend.kind === "llama_cpp") {
+      args.push("llama-server", "--model", artifactPathHash ? `artifact:${artifactPathHash}` : modelArg);
+      if (contextLength) args.push("--ctx-size", String(contextLength));
+      if (parallel) args.push("--parallel", String(parallel));
+      if (gpu) args.push("--gpu-layers", gpu === "max" ? "999" : String(gpu));
+    } else if (backend.kind === "native_local") {
+      args.push("ioi-native-local-fixture", "--model", modelArg);
+      if (contextLength) args.push("--context", String(contextLength));
+      if (parallel) args.push("--parallel", String(parallel));
+      if (gpu) args.push("--gpu", String(gpu));
+    } else {
+      args.push(String(backend.kind ?? "backend"), "--model", modelArg);
+    }
+    if (identifier) args.push("--identifier", stableHash(identifier).slice(0, 12));
+    return args;
+  }
+
+  ensureBackendProcess(backendId, { endpoint = null, loadOptions = {}, reason = "runtime_control" } = {}) {
+    const backend = this.backend(backendId);
+    if (!this.backendSupportsSupervision(backend)) {
+      return null;
+    }
+    const existing = this.backendProcessForBackend(backendId);
+    if (existing?.status === "started") {
+      return this.touchBackendProcess(existing, { endpoint, loadOptions, reason });
+    }
+    return this.startBackendProcess(backend, { endpoint, loadOptions, reason });
+  }
+
+  backendSupportsSupervision(backend) {
+    return ["native_local", "llama_cpp", "ollama", "vllm"].includes(backend.kind);
+  }
+
+  touchBackendProcess(processRecord, { endpoint = null, loadOptions = {}, reason = "health_probe" } = {}) {
+    const backend = this.backend(processRecord.backendId);
+    const argsRedacted = this.backendProcessArgs(backend, { endpoint, loadOptions });
+    const updated = {
+      ...processRecord,
+      status: processRecord.stale ? "stale_recovered" : processRecord.status,
+      processStatus: processRecord.stale ? "stale_recovered" : processRecord.processStatus ?? processRecord.status,
+      lastHealthAt: this.nowIso(),
+      updatedAt: this.nowIso(),
+      argsHash: stableHash(argsRedacted.join("\0")),
+      argsRedacted,
+      reason,
+    };
+    this.backendProcesses.set(updated.id, updated);
+    this.writeMap("backend-processes", this.backendProcesses);
+    return this.reconciledBackendProcess(updated);
+  }
+
+  startBackendProcess(backend, { endpoint = null, loadOptions = {}, reason = "runtime_control" } = {}) {
+    const now = this.nowIso();
+    const argsRedacted = this.backendProcessArgs(backend, { endpoint, loadOptions });
+    const processRef = `supervised://${safeId(backend.id)}/${crypto.randomUUID()}`;
+    const startupTimeoutMs = Number(loadOptions.startupTimeoutMs ?? process.env.IOI_MODEL_BACKEND_STARTUP_TIMEOUT_MS ?? 15000);
+    const processRecord = {
+      id: `backend_process_${safeId(backend.id)}_${Date.now()}`,
+      backendId: backend.id,
+      backendKind: backend.kind,
+      status: "started",
+      processStatus: "started",
+      supervisorKind: backend.kind === "native_local" ? "deterministic_fixture_process" : "external_process",
+      bootId: this.bootId,
+      processRefHash: stableHash(processRef),
+      pidHash: stableHash(processRef).slice(0, 16),
+      pidTracked: backend.kind === "native_local" ? "deterministic_fixture_process_ref" : "process_ref_hash",
+      baseUrl: backend.baseUrl ?? null,
+      binaryPathHash: backend.binaryPath ? stableHash(backend.binaryPath) : null,
+      argsRedacted,
+      argsHash: stableHash(argsRedacted.join("\0")),
+      loadOptions: redact(loadOptions),
+      endpointId: endpoint?.id ?? null,
+      modelId: endpoint?.modelId ?? null,
+      startupTimeoutMs,
+      healthProbe: backend.baseUrl ? `${backend.baseUrl}/health`.replace(/\/v1\/health$/, "/health") : "local://health",
+      startedAt: now,
+      updatedAt: now,
+      lastHealthAt: now,
+      stoppedAt: null,
+      stale: false,
+      reason,
+      evidenceRefs: [
+        "ModelBackendDriver.process_supervision",
+        backend.kind === "native_local" ? "deterministic_native_local_fixture_process" : `${backend.kind}_process_supervisor`,
+        "bounded_backend_log_capture",
+        "startup_timeout_guard",
+      ],
+    };
+    this.backendProcesses.set(processRecord.id, processRecord);
+    this.writeMap("backend-processes", this.backendProcesses);
+    this.writeBackendLog(backend.id, {
+      backendId: backend.id,
+      event: "backend_process_start",
+      backendKind: backend.kind,
+      processId: processRecord.id,
+      pidHash: processRecord.pidHash,
+      argsHash: processRecord.argsHash,
+      reason,
+    });
+    return processRecord;
+  }
+
+  stopBackendProcess(backend, { reason = "runtime_control" } = {}) {
+    const existing = this.backendProcessForBackend(backend.id);
+    if (!existing) return null;
+    const updated = {
+      ...existing,
+      status: "stopped",
+      processStatus: "stopped",
+      stoppedAt: this.nowIso(),
+      updatedAt: this.nowIso(),
+      reason,
+      evidenceRefs: [...normalizeScopes(existing.evidenceRefs, []), "clean_backend_stop"],
+    };
+    this.backendProcesses.set(updated.id, updated);
+    this.writeMap("backend-processes", this.backendProcesses);
+    this.writeBackendLog(backend.id, {
+      backendId: backend.id,
+      event: "backend_process_stop",
+      backendKind: backend.kind,
+      processId: updated.id,
+      pidHash: updated.pidHash,
+      reason,
+    });
+    return updated;
+  }
+
   backendHealth(backendId) {
     const backend = this.backend(backendId);
     const checkedAt = this.nowIso();
-    const status = backend.status === "blocked" || backend.status === "absent" ? backend.status : "available";
+    const processRecord = this.backendProcessForBackend(backendId);
+    const status =
+      backend.status === "blocked" || backend.status === "absent"
+        ? backend.status
+        : processRecord?.status === "stale_recovered"
+          ? "degraded"
+          : "available";
     const hardware = hardwareSnapshot();
+    const processSnapshot = this.backendProcessSnapshot(processRecord);
     const receipt = this.lifecycleReceipt("backend_health", {
       backendId,
       modelId: backend.label,
       state: status,
       evidenceRefs: backend.evidenceRefs ?? [],
       hardware,
+      process: processSnapshot,
     });
     const updated = {
       ...backend,
@@ -4342,13 +4629,15 @@ export class ModelMountingState {
       checkedAt,
       lastReceiptId: receipt.id,
       lastHealthReceiptId: receipt.id,
+      processStatus: processSnapshot.processStatus,
+      process: { ...backend.process, ...processSnapshot, receiptId: receipt.id },
     };
     this.backends.set(backendId, updated);
     this.writeMap("model-backends", this.backends);
     return updated;
   }
 
-  startBackend(backendId) {
+  startBackend(backendId, body = {}) {
     const backend = this.backend(backendId);
     if (backend.status === "blocked" && !backend.binaryPath && !String(backend.baseUrl ?? "").startsWith("local://")) {
       throw runtimeError({
@@ -4358,19 +4647,28 @@ export class ModelMountingState {
         details: { backendId, backendKind: backend.kind, evidenceRefs: backend.evidenceRefs ?? [] },
       });
     }
+    const loadOptions = normalizeLoadOptions(body.load_options ?? body.loadOptions ?? this.runtimeDefaultLoadOptions(backendId) ?? {});
+    const processRecord = this.ensureBackendProcess(backendId, { loadOptions, reason: "backend_start" });
+    const processSnapshot = this.backendProcessSnapshot(processRecord);
     const receipt = this.lifecycleReceipt("backend_start", {
       backendId,
       modelId: backend.label,
       state: "available",
       evidenceRefs: backend.evidenceRefs ?? [],
+      process: processSnapshot,
     });
     const updated = {
       ...backend,
       status: "available",
-      processStatus: backend.processStatus === "stateless_http" ? "stateless_http" : "started",
+      processStatus: processSnapshot.processStatus ?? (backend.processStatus === "stateless_http" ? "stateless_http" : "started"),
+      process: { ...backend.process, ...processSnapshot, receiptId: receipt.id },
       startedAt: this.nowIso(),
       lastReceiptId: receipt.id,
     };
+    if (processRecord?.id) {
+      this.backendProcesses.set(processRecord.id, { ...processRecord, lastReceiptId: receipt.id });
+      this.writeMap("backend-processes", this.backendProcesses);
+    }
     this.backends.set(backendId, updated);
     this.writeMap("model-backends", this.backends);
     this.writeBackendLog(backendId, {
@@ -4378,25 +4676,35 @@ export class ModelMountingState {
       event: "backend_start",
       backendKind: backend.kind,
       receiptId: receipt.id,
+      processId: processRecord?.id ?? null,
+      pidHash: processRecord?.pidHash ?? null,
     });
     return updated;
   }
 
   stopBackend(backendId) {
     const backend = this.backend(backendId);
+    const processRecord = this.stopBackendProcess(backend, { reason: "backend_stop" });
+    const processSnapshot = this.backendProcessSnapshot(processRecord);
     const receipt = this.lifecycleReceipt("backend_stop", {
       backendId,
       modelId: backend.label,
       state: "stopped",
       evidenceRefs: backend.evidenceRefs ?? [],
+      process: processSnapshot,
     });
     const updated = {
       ...backend,
       status: backend.kind === "fixture" ? "available" : "stopped",
-      processStatus: backend.kind === "fixture" ? "stateless" : "stopped",
+      processStatus: backend.kind === "fixture" ? "stateless" : processSnapshot.processStatus ?? "stopped",
+      process: { ...backend.process, ...processSnapshot, receiptId: receipt.id },
       stoppedAt: this.nowIso(),
       lastReceiptId: receipt.id,
     };
+    if (processRecord?.id) {
+      this.backendProcesses.set(processRecord.id, { ...processRecord, lastReceiptId: receipt.id });
+      this.writeMap("backend-processes", this.backendProcesses);
+    }
     this.backends.set(backendId, updated);
     this.writeMap("model-backends", this.backends);
     this.writeBackendLog(backendId, {

@@ -622,7 +622,7 @@ async function handleModelMountingNativeRoute({ request, response, store, url, s
   }
   if (request.method === "POST" && segments[2] === "backends" && segments[3] && segments[4] === "start") {
     mounts.authorize(authorization, `backend.control:${decodeURIComponent(segments[3])}`);
-    writeJsonResponse(response, mounts.startBackend(decodeURIComponent(segments[3])));
+    writeJsonResponse(response, mounts.startBackend(decodeURIComponent(segments[3]), await readBody(request)));
     return;
   }
   if (request.method === "POST" && segments[2] === "backends" && segments[3] && segments[4] === "stop") {

@@ -341,6 +341,15 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(nativeLoaded.identifier, "native-imported-dev");
     assert.equal(nativeLoaded.contextLength, 4096);
     assert.equal(nativeLoaded.parallelism, 2);
+    assert.equal(nativeLoaded.backendProcess.status, "started");
+    assert.match(nativeLoaded.backendProcess.pidHash, /^[a-f0-9]{16}$/);
+    assert.ok(nativeLoaded.backendProcess.argsHash);
+    assert.ok(nativeLoaded.backendProcess.evidenceRefs.includes("ModelBackendDriver.process_supervision"));
+    const processBackends = await expectOk(daemon.endpoint, "/api/v1/backends");
+    const nativeProcessBackend = processBackends.find((backend) => backend.id === "backend.autopilot.native-local.fixture");
+    assert.equal(nativeProcessBackend.process.status, "started");
+    assert.equal(nativeProcessBackend.process.argsRedacted.includes("--context"), true);
+    assert.equal(nativeProcessBackend.process.argsRedacted.includes("4096"), true);
     const nativeChat = await expectOk(daemon.endpoint, "/api/v1/chat", {
       method: "POST",
       token: grant.token,
@@ -351,6 +360,8 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(nativeReceipt.details.providerId, "provider.autopilot.local");
     assert.equal(nativeReceipt.details.backend, "autopilot.native_local.fixture");
     assert.equal(nativeReceipt.details.backendId, "backend.autopilot.native-local.fixture");
+    assert.equal(nativeReceipt.details.backendProcess.status, "started");
+    assert.equal(nativeReceipt.details.backendProcessPidHash, nativeLoaded.backendProcess.pidHash);
     assert.ok(nativeReceipt.details.backendEvidenceRefs.includes("autopilot_native_local_openai_compatible_serving"));
     const nativeBackendLogs = await expectOk(daemon.endpoint, "/api/v1/backends/backend.autopilot.native-local.fixture/logs");
     assert.ok(nativeBackendLogs.some((record) => record.event === "invoke"));
@@ -764,6 +775,7 @@ test("Agentgres model mounting projection and receipt lookup survive daemon rest
     receiptId = chat.receipt_id;
     const projection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
     assert.ok(projection.invocationReceipts.some((receipt) => receipt.id === receiptId));
+    assert.ok(projection.backendProcesses.some((process) => process.backendId === "backend.autopilot.native-local.fixture"));
   } finally {
     await daemon.close();
   }
@@ -777,6 +789,10 @@ test("Agentgres model mounting projection and receipt lookup survive daemon rest
     assert.equal(replay.receipt.id, receiptId);
     assert.equal(replay.route.id, "route.native-local");
     assert.equal(replay.endpoint.modelId, "autopilot:native-fixture");
+    const restartedProjection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
+    const restartedProcess = restartedProjection.backendProcesses.find((process) => process.backendId === "backend.autopilot.native-local.fixture");
+    assert.equal(restartedProcess.status, "stale_recovered");
+    assert.equal(restartedProcess.staleReason, "daemon_boot_mismatch");
   } finally {
     await daemon.close();
   }

@@ -69,6 +69,27 @@ export interface ModelBackend {
   evidenceRefs: string[];
   checkedAt?: string;
   lastReceiptId?: string | null;
+  process?: ModelBackendProcess | null;
+}
+
+export interface ModelBackendProcess {
+  id: string;
+  backendId: string;
+  backendKind: string;
+  status: "started" | "stopped" | "stale_recovered" | "degraded" | string;
+  processStatus?: string;
+  pidHash?: string | null;
+  pidTracked?: string | null;
+  startedAt?: string | null;
+  stoppedAt?: string | null;
+  lastHealthAt?: string | null;
+  argsHash?: string | null;
+  argsRedacted?: string[];
+  startupTimeoutMs?: number | null;
+  stale?: boolean;
+  staleReason?: string | null;
+  receiptId?: string | null;
+  evidenceRefs?: string[];
 }
 
 export interface ModelRuntimeEngineDefaultLoadOptions {
