@@ -26,9 +26,10 @@ else
 fi
 
 required_files=(
-  "docs/CIRC.md"
-  "docs/CEC.md"
-  "docs/CONTRACT_GLOSSARY.md"
+  "docs/conformance/agentic-runtime/CIRC.md"
+  "docs/conformance/agentic-runtime/CEC.md"
+  "docs/architecture/_meta/vocabulary.md"
+  "docs/architecture/foundations/common-objects-and-envelopes.md"
 )
 
 for file in "${required_files[@]}"; do
@@ -47,38 +48,35 @@ for path in "${required_paths[@]}"; do
   [[ -f "$path" ]] || fail "canonical contract path not found: $path"
 done
 
-# Ensure glossary path anchors are present and frozen.
-for anchor in \
-  "crates/types/src/app/agentic/security/intent.rs" \
-  "crates/types/src/app/agentic/tools/agent_tool.rs" \
-  "crates/types/src/app/events.rs" \
-  "crates/ipc/proto/public/v1/public.proto" \
-  "crates/ipc/proto/control/v1/control.proto"; do
-  search_fixed "$anchor" docs/CONTRACT_GLOSSARY.md \
-    || fail "glossary missing canonical path reference: ${anchor}"
-done
-
 # Block known stale path references that caused drift.
 for stale in \
   "crates/types/src/workloads/spec.rs" \
   "crates/services/src/search/mod.rs"; do
-  if search_fixed "$stale" docs/CIRC.md docs/CEC.md docs/CONTRACT_GLOSSARY.md; then
+  if search_fixed "$stale" \
+    docs/conformance/agentic-runtime/CIRC.md \
+    docs/conformance/agentic-runtime/CEC.md \
+    docs/architecture/_meta/vocabulary.md \
+    docs/architecture/foundations/common-objects-and-envelopes.md; then
     fail "stale path reference detected in docs: $stale"
   fi
 done
 
-# Freeze glossary terms.
-for term in Intent Capability Tool Workload Lease; do
-  search_regex "^- \\*\\*${term}\\*\\*:" docs/CONTRACT_GLOSSARY.md \
-    || fail "glossary term missing or malformed: ${term}"
+# Freeze current vocabulary and ontology anchors.
+for term in intent policy evidence receipt; do
+  search_regex "^- \`${term}\`:" docs/architecture/_meta/vocabulary.md \
+    || fail "runtime vocabulary term missing or malformed: ${term}"
 done
+for term in Intent Capability Tool; do
+  search_regex "^- \`${term}\`:" docs/conformance/agentic-runtime/CIRC.md \
+    || fail "CIRC ontology term missing or malformed: ${term}"
+done
+search_fixed "TaskEnvelope" docs/architecture/foundations/common-objects-and-envelopes.md \
+  || fail "common object envelope missing TaskEnvelope"
+search_fixed "lease ref" docs/architecture/foundations/common-objects-and-envelopes.md \
+  || fail "common object envelope missing lease reference"
 
 # Optional local guard when CODEX.txt is present (file is gitignored in this repo).
 if [[ -f "CODEX.txt" ]]; then
-  search_fixed "docs/CIRC.md" CODEX.txt || fail "CODEX.txt missing docs/CIRC.md invariant reference"
-  search_fixed "docs/CEC.md" CODEX.txt || fail "CODEX.txt missing docs/CEC.md invariant reference"
-  search_fixed "docs/CONTRACT_GLOSSARY.md" CODEX.txt || fail "CODEX.txt missing docs/CONTRACT_GLOSSARY.md reference"
-  search_fixed "crates/types/src/app/events.rs" CODEX.txt || fail "CODEX.txt missing canonical workload type path reference"
   for stale in \
     "crates/types/src/workloads/spec.rs" \
     "crates/services/src/search/mod.rs"; do
