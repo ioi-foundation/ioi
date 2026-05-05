@@ -601,12 +601,24 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
     const liveImport = await expectOk(daemon.endpoint, "/api/v1/models/catalog/import-url", {
       method: "POST",
       token: grant.token,
-      body: { source_url: liveEntry.sourceUrl, model_id: "native:hf-live", format: "gguf", quantization: "Q4_K_M" },
+      body: { source_url: liveEntry.sourceUrl, model_id: "native:hf-live", format: "gguf", quantization: "Q4_K_M", max_bytes: liveEntry.sizeBytes },
     });
     assert.equal(liveImport.status, "completed");
     assert.equal(liveImport.download.variant.format, "gguf");
+    assert.equal(liveImport.download.maxBytes, liveEntry.sizeBytes);
     assert.equal(liveImport.download.bytesCompleted > 0, true);
     assert.equal(fs.existsSync(liveImport.download.targetPath), true);
+
+    const downloadOnlyGrant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+      method: "POST",
+      body: { allowed: ["model.download:*"] },
+    });
+    const deniedCatalogImport = await requestJson(daemon.endpoint, "/api/v1/models/catalog/import-url", {
+      method: "POST",
+      token: downloadOnlyGrant.token,
+      body: { source_url: "fixture://catalog/autopilot-native-3b-q4", model_id: "native:catalog-denied-import-scope" },
+    });
+    assert.equal(deniedCatalogImport.response.status, 403);
 
     delete process.env.IOI_LIVE_MODEL_DOWNLOAD;
     const gatedLiveImport = await requestJson(daemon.endpoint, "/api/v1/models/catalog/import-url", {
@@ -631,6 +643,21 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
     });
     assert.equal(liveSecretDownload.status, "completed");
     assert.equal(JSON.stringify(liveSecretDownload).includes("hf-live-secret-token"), false);
+
+    const oversizedLiveDownload = await expectOk(daemon.endpoint, "/api/v1/models/download", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        model_id: "native:hf-oversized",
+        provider_id: "provider.autopilot.local",
+        source_url: liveEntry.sourceUrl,
+        format: "gguf",
+        quantization: "Q4_K_M",
+        max_bytes: 1,
+      },
+    });
+    assert.equal(oversizedLiveDownload.status, "failed");
+    assert.equal(oversizedLiveDownload.failureReason, "size_limit_exceeded");
 
     const catalogImport = await expectOk(daemon.endpoint, "/api/v1/models/catalog/import-url", {
       method: "POST",
