@@ -24,6 +24,37 @@ async function requestJson(endpoint, route, { method = "GET", body, token, heade
   return { response, json };
 }
 
+async function requestSse(endpoint, route, { method = "POST", body, token, headers = {} } = {}) {
+  const response = await fetch(`${endpoint}${route}`, {
+    method,
+    headers: {
+      accept: "text/event-stream",
+      ...(body === undefined ? {} : { "content-type": "application/json" }),
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+      ...headers,
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const text = await response.text();
+  return { response, text, events: parseSseEvents(text) };
+}
+
+function parseSseEvents(text) {
+  return String(text)
+    .trim()
+    .split(/\n\n+/)
+    .filter(Boolean)
+    .map((block) => {
+      const lines = block.split(/\n/);
+      const event = lines.find((line) => line.startsWith("event: "))?.slice("event: ".length) ?? "message";
+      const dataText = lines
+        .filter((line) => line.startsWith("data: "))
+        .map((line) => line.slice("data: ".length))
+        .join("\n");
+      return { event, data: dataText ? JSON.parse(dataText) : null };
+    });
+}
+
 async function expectOk(endpoint, route, options) {
   const result = await requestJson(endpoint, route, options);
   assert.equal(result.response.ok, true, `${route} -> ${result.response.status}`);
@@ -448,7 +479,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(anthropicReceipt.details.selectedModel, "local:auto");
     assert.equal(anthropicReceipt.details.endpointId, "endpoint.local.auto");
 
-    const anthropicStreaming = await requestJson(daemon.endpoint, "/v1/messages", {
+    const anthropicStreaming = await requestSse(daemon.endpoint, "/v1/messages", {
       method: "POST",
       token: grant.token,
       body: {
@@ -458,7 +489,36 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
         messages: [{ role: "user", content: "stream later" }],
       },
     });
-    assert.equal(anthropicStreaming.response.status, 501);
+    assert.equal(anthropicStreaming.response.status, 200);
+    assert.match(anthropicStreaming.response.headers.get("content-type") ?? "", /text\/event-stream/);
+    assert.equal(anthropicStreaming.events[0].event, "message_start");
+    assert.equal(anthropicStreaming.events[1].event, "content_block_start");
+    assert.ok(anthropicStreaming.events.some((event) => event.event === "content_block_delta"));
+    assert.equal(anthropicStreaming.events.at(-2).event, "message_delta");
+    assert.equal(anthropicStreaming.events.at(-1).event, "message_stop");
+    assert.equal(typeof anthropicStreaming.events.at(-1).data.receipt_id, "string");
+    assert.equal(anthropicStreaming.events.at(-1).data.route_id, "route.local-first");
+    assert.equal(
+      anthropicStreaming.response.headers.get("x-ioi-receipt-id"),
+      anthropicStreaming.events.at(-1).data.receipt_id,
+    );
+    const streamedText = anthropicStreaming.events
+      .filter((event) => event.event === "content_block_delta")
+      .map((event) => event.data.delta.text)
+      .join("");
+    assert.match(streamedText, /IOI model router fixture response/);
+    const streamedReceipt = await expectOk(
+      daemon.endpoint,
+      `/api/v1/receipts/${anthropicStreaming.events.at(-1).data.receipt_id}`,
+    );
+    assert.equal(streamedReceipt.kind, "model_invocation");
+
+    const deniedMessagesStream = await requestJson(daemon.endpoint, "/v1/messages", {
+      method: "POST",
+      token: blockedGrant.token,
+      body: { model: "local:auto", stream: true, max_tokens: 16, messages: [{ role: "user", content: "blocked stream" }] },
+    });
+    assert.equal(deniedMessagesStream.response.status, 403);
 
     const embeddings = await expectOk(daemon.endpoint, "/v1/embeddings", {
       method: "POST",

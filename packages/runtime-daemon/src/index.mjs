@@ -980,20 +980,16 @@ async function handleOpenAiCompatibilityRoute({ request, response, store, url })
   }
   if (request.method === "POST" && url.pathname === "/v1/messages") {
     const body = await readBody(request);
-    if (body.stream === true) {
-      throw runtimeError({
-        status: 501,
-        code: "not_implemented",
-        message: "Anthropic-compatible message streaming is not implemented yet.",
-        details: { route: "/v1/messages", streaming: true },
-      });
-    }
     const invocation = await mounts.invokeModel({
       authorization,
       requiredScope: "model.chat:*",
       kind: "messages",
       body: anthropicMessagesToCanonicalBody(body),
     });
+    if (body.stream === true) {
+      writeAnthropicMessageStream(response, invocation);
+      return;
+    }
     writeJsonResponse(response, anthropicMessage(invocation));
     return;
   }
@@ -1070,6 +1066,91 @@ function anthropicContentToText(content) {
     return JSON.stringify(redact(content));
   }
   return String(content ?? "");
+}
+
+function writeAnthropicMessageStream(response, invocation) {
+  const message = anthropicMessage(invocation);
+  const text = String(message.content?.[0]?.text ?? "");
+  const chunks = textChunksForSse(text);
+  const usage = message.usage ?? { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0 };
+  const events = [
+    {
+      event: "message_start",
+      data: {
+        type: "message_start",
+        message: {
+          id: message.id,
+          type: "message",
+          role: "assistant",
+          content: [],
+          model: message.model,
+          stop_reason: null,
+          stop_sequence: null,
+          usage: {
+            input_tokens: usage.input_tokens,
+            output_tokens: 0,
+            cache_read_input_tokens: usage.cache_read_input_tokens ?? 0,
+          },
+        },
+      },
+    },
+    {
+      event: "content_block_start",
+      data: {
+        type: "content_block_start",
+        index: 0,
+        content_block: { type: "text", text: "" },
+      },
+    },
+    ...chunks.map((chunk) => ({
+      event: "content_block_delta",
+      data: {
+        type: "content_block_delta",
+        index: 0,
+        delta: { type: "text_delta", text: chunk },
+      },
+    })),
+    {
+      event: "content_block_stop",
+      data: {
+        type: "content_block_stop",
+        index: 0,
+      },
+    },
+    {
+      event: "message_delta",
+      data: {
+        type: "message_delta",
+        delta: {
+          stop_reason: message.stop_reason,
+          stop_sequence: message.stop_sequence,
+        },
+        usage: {
+          output_tokens: usage.output_tokens,
+        },
+      },
+    },
+    {
+      event: "message_stop",
+      data: {
+        type: "message_stop",
+        receipt_id: message.receipt_id,
+        route_id: message.route_id,
+        tool_receipt_ids: message.tool_receipt_ids,
+      },
+    },
+  ];
+  response.statusCode = 200;
+  response.setHeader("content-type", "text/event-stream");
+  response.setHeader("cache-control", "no-cache");
+  response.setHeader("x-ioi-receipt-id", message.receipt_id);
+  response.end(events.map((event) => `event: ${event.event}\ndata: ${JSON.stringify(event.data)}\n\n`).join(""));
+}
+
+function textChunksForSse(text) {
+  if (!text) return [""];
+  const chunks = text.match(/.{1,96}(?:\s+|$)/gs);
+  return chunks?.length ? chunks : [text];
 }
 
 function nativeInvocationResponse(invocation) {
