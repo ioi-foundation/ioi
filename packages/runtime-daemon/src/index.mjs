@@ -961,16 +961,26 @@ async function handleOpenAiCompatibilityRoute({ request, response, store, url })
   }
   if (request.method === "POST" && url.pathname === "/v1/responses") {
     const body = await readBody(request);
+    if (body.stream === true) {
+      const stream = await mounts.startModelStream({
+        authorization,
+        requiredScope: "model.responses:*",
+        kind: "responses",
+        body,
+      });
+      if (stream.native) {
+        await writeOpenAiProviderResponseStream(response, stream, mounts);
+        return;
+      }
+      await writeOpenAiResponseStream(response, stream.invocation, mounts);
+      return;
+    }
     const invocation = await mounts.invokeModel({
       authorization,
       requiredScope: "model.responses:*",
       kind: "responses",
       body,
     });
-    if (body.stream === true) {
-      await writeOpenAiResponseStream(response, invocation, mounts);
-      return;
-    }
     writeJsonResponse(response, openAiResponse(invocation));
     return;
   }
@@ -1319,6 +1329,111 @@ async function writeOpenAiProviderChatCompletionStream(response, streamInvocatio
   }
 }
 
+async function writeOpenAiProviderResponseStream(response, streamInvocation, mounts) {
+  const invocation = streamInvocation.invocation;
+  const streamKind = "openai_responses_provider_native";
+  const reader = streamInvocation.providerStream.getReader();
+  const decoder = new TextDecoder();
+  let completed = false;
+  let canceled = false;
+  let written = 0;
+  let outputText = "";
+  let providerUsage = null;
+  let finishReason = null;
+  let buffer = "";
+  const markCanceled = () => {
+    if (completed || canceled) return;
+    canceled = true;
+    streamInvocation.abort?.();
+    recordModelStreamCanceled({ mounts, invocation, streamKind, framesWritten: written });
+  };
+  const onClose = () => markCanceled();
+  response.statusCode = 200;
+  response.setHeader("content-type", "text/event-stream");
+  response.setHeader("cache-control", "no-cache");
+  response.setHeader("x-ioi-receipt-id", invocation.receipt.id);
+  response.setHeader("x-ioi-stream-source", "provider_native");
+  response.on("close", onClose);
+  try {
+    while (!canceled) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value ?? new Uint8Array(), { stream: true });
+      const frames = takeSseFrameBlocks(buffer);
+      buffer = frames.remainder;
+      for (const frame of frames.blocks) {
+        if (canceled) break;
+        if (response.destroyed || response.writableEnded) {
+          markCanceled();
+          break;
+        }
+        const parsedPayloads = responseStreamPayloads(frame);
+        for (const payload of parsedPayloads) {
+          if (payload.raw === "[DONE]") continue;
+          if (payload.delta) outputText += payload.delta;
+          if (!outputText && payload.completionText) outputText = payload.completionText;
+          if (payload.usage) providerUsage = payload.usage;
+          if (payload.finishReason) finishReason = payload.finishReason;
+        }
+        try {
+          response.write(`${frame}\n\n`);
+        } catch {
+          markCanceled();
+          break;
+        }
+        written += 1;
+      }
+    }
+    if (canceled) return;
+    const tail = decoder.decode();
+    if (tail) buffer += tail;
+    const trailingBlocks = buffer.trim() ? [buffer] : [];
+    for (const frame of trailingBlocks) {
+      const parsedPayloads = responseStreamPayloads(frame);
+      if (parsedPayloads.every((payload) => payload.raw === "[DONE]")) continue;
+      for (const payload of parsedPayloads) {
+        if (payload.raw === "[DONE]") continue;
+        if (payload.delta) outputText += payload.delta;
+        if (!outputText && payload.completionText) outputText = payload.completionText;
+        if (payload.usage) providerUsage = payload.usage;
+        if (payload.finishReason) finishReason = payload.finishReason;
+      }
+      response.write(`${frame}\n\n`);
+      written += 1;
+    }
+    const completionReceipt = mounts.recordModelStreamCompleted({
+      invocation,
+      streamKind,
+      outputText,
+      providerUsage,
+      chunksForwarded: written,
+      finishReason,
+      providerResult: streamInvocation.providerResult,
+    });
+    const metadata = {
+      type: "response.ioi.receipt",
+      receipt_id: invocation.receipt.id,
+      stream_receipt_id: completionReceipt.id,
+      route_id: invocation.route.id,
+      model: invocation.model,
+      tool_receipt_ids: invocation.toolReceiptIds ?? [],
+      provider_stream: "native",
+    };
+    if (!response.destroyed && !response.writableEnded) {
+      response.write(`event: response.ioi.receipt\ndata: ${JSON.stringify(metadata)}\n\n`);
+      completed = true;
+      response.end();
+    }
+  } finally {
+    response.off("close", onClose);
+    try {
+      reader.releaseLock();
+    } catch {
+      // Some runtime streams close the reader before release.
+    }
+  }
+}
+
 async function writeOpenAiResponseStream(response, invocation, mounts) {
   const responseId = `resp_${crypto.randomUUID()}`;
   const outputItemId = `msg_${crypto.randomUUID()}`;
@@ -1476,6 +1591,21 @@ function dataPayloadsFromSseBlock(block) {
     .map((line) => line.replace(/^data:\s?/, ""))
     .join("\n");
   return payload ? [payload] : [];
+}
+
+function responseStreamPayloads(block) {
+  return dataPayloadsFromSseBlock(block).map((raw) => {
+    if (raw === "[DONE]") return { raw };
+    const parsed = parseJsonMaybe(raw);
+    return {
+      raw,
+      parsed,
+      delta: typeof parsed?.delta === "string" && parsed?.type === "response.output_text.delta" ? parsed.delta : "",
+      completionText: typeof parsed?.response?.output_text === "string" ? parsed.response.output_text : "",
+      usage: parsed?.response?.usage ?? parsed?.usage ?? null,
+      finishReason: parsed?.response?.status ?? parsed?.status ?? parsed?.type ?? null,
+    };
+  });
 }
 
 function parseJsonMaybe(text) {

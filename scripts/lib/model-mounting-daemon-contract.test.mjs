@@ -1433,7 +1433,7 @@ test("vLLM and OpenAI-compatible adapters support responses fallback, embeddings
   const optionalAuthVaultRef = "vault://provider/openai-compatible/api-key";
   const optionalAuthMaterial = crypto.randomBytes(18).toString("base64url");
   const providerServer = await startFakeVllmServer({ responsesStatus: 404 });
-  const streamServer = await startFakeOpenAiCompatibleServer();
+  const streamServer = await startFakeOpenAiCompatibleServer({ responsesStream: true });
   const optionalAuthServer = await startFakeVllmServer({
     requiredHeaders: { authorization: `Bearer ${optionalAuthMaterial}` },
   });
@@ -1513,7 +1513,7 @@ test("vLLM and OpenAI-compatible adapters support responses fallback, embeddings
         base_url: `${streamServer.endpoint}/v1`,
         status: "configured",
         privacy_class: "workspace",
-        capabilities: ["chat"],
+        capabilities: ["chat", "responses"],
       },
     });
     await expectOk(daemon.endpoint, "/api/v1/models/mount", {
@@ -1573,6 +1573,44 @@ test("vLLM and OpenAI-compatible adapters support responses fallback, embeddings
     assert.equal(streamCompleteReceipt.details.invocationReceiptId, metadataChunk.receipt_id);
     assert.equal(streamCompleteReceipt.details.outputHash, crypto.createHash("sha256").update(streamedText).digest("hex"));
     assert.equal(streamCompleteReceipt.details.providerResponseKind, "chat.completions.stream");
+
+    const streamedResponse = await requestSse(daemon.endpoint, "/v1/responses", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        route_id: "route.test.openai-compatible-stream",
+        model: "qwen/qwen3.5-9b",
+        stream: true,
+        input: "stream response through provider",
+      },
+    });
+    assert.equal(streamedResponse.response.status, 200);
+    assert.equal(streamedResponse.response.headers.get("x-ioi-stream-source"), "provider_native");
+    assert.equal(streamedResponse.events[0].event, "response.created");
+    assert.ok(streamedResponse.events.some((event) => event.event === "response.output_text.delta"));
+    const streamedResponseText = streamedResponse.events
+      .filter((event) => event.event === "response.output_text.delta")
+      .map((event) => event.data.delta)
+      .join("");
+    assert.equal(streamedResponseText, "fake openai-compatible streamed response");
+    const responseMetadata = streamedResponse.events.find((event) => event.event === "response.ioi.receipt")?.data;
+    assert.equal(responseMetadata.route_id, "route.test.openai-compatible-stream");
+    assert.equal(responseMetadata.provider_stream, "native");
+    assert.equal(typeof responseMetadata.receipt_id, "string");
+    assert.equal(typeof responseMetadata.stream_receipt_id, "string");
+    assert.equal(streamedResponse.response.headers.get("x-ioi-receipt-id"), responseMetadata.receipt_id);
+    const responseStreamStartReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${responseMetadata.receipt_id}`);
+    assert.equal(responseStreamStartReceipt.kind, "model_invocation");
+    assert.equal(responseStreamStartReceipt.details.providerId, "provider.test.openai-compatible-stream");
+    assert.equal(responseStreamStartReceipt.details.streamSource, "provider_native");
+    assert.equal(responseStreamStartReceipt.details.streamStatus, "started");
+    assert.equal(responseStreamStartReceipt.details.providerResponseKind, "responses.stream");
+    assert.ok(responseStreamStartReceipt.details.backendEvidenceRefs.includes("openai_compatible_responses_provider_native_stream"));
+    const responseStreamCompleteReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${responseMetadata.stream_receipt_id}`);
+    assert.equal(responseStreamCompleteReceipt.kind, "model_invocation_stream_completed");
+    assert.equal(responseStreamCompleteReceipt.details.invocationReceiptId, responseMetadata.receipt_id);
+    assert.equal(responseStreamCompleteReceipt.details.outputHash, crypto.createHash("sha256").update(streamedResponseText).digest("hex"));
+    assert.equal(responseStreamCompleteReceipt.details.providerResponseKind, "responses.stream");
 
     const mounted = await expectOk(daemon.endpoint, "/api/v1/models/mount", {
       method: "POST",
@@ -2680,7 +2718,7 @@ exit 0
   }
 });
 
-async function startFakeOpenAiCompatibleServer() {
+async function startFakeOpenAiCompatibleServer({ responsesStream = false } = {}) {
   const server = http.createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
     response.setHeader("content-type", "application/json");
@@ -2689,6 +2727,63 @@ async function startFakeOpenAiCompatibleServer() {
       return;
     }
     if (request.method === "POST" && url.pathname === "/v1/responses") {
+      const body = JSON.parse((await readRequestText(request)) || "{}");
+      if (responsesStream && body.stream === true) {
+        response.setHeader("content-type", "text/event-stream");
+        const responseId = "resp_fake_openai_compatible_stream";
+        const itemId = "msg_fake_openai_compatible_stream";
+        response.write(
+          `event: response.created\ndata: ${JSON.stringify({
+            type: "response.created",
+            response: {
+              id: responseId,
+              object: "response",
+              status: "in_progress",
+              model: body.model ?? "qwen/qwen3.5-9b",
+              output: [],
+            },
+          })}\n\n`,
+        );
+        response.write(
+          `event: response.output_item.added\ndata: ${JSON.stringify({
+            type: "response.output_item.added",
+            output_index: 0,
+            item: { id: itemId, type: "message", status: "in_progress", role: "assistant", content: [] },
+          })}\n\n`,
+        );
+        response.write(
+          `event: response.output_text.delta\ndata: ${JSON.stringify({
+            type: "response.output_text.delta",
+            item_id: itemId,
+            output_index: 0,
+            content_index: 0,
+            delta: "fake openai-compatible ",
+          })}\n\n`,
+        );
+        response.write(
+          `event: response.output_text.delta\ndata: ${JSON.stringify({
+            type: "response.output_text.delta",
+            item_id: itemId,
+            output_index: 0,
+            content_index: 0,
+            delta: "streamed response",
+          })}\n\n`,
+        );
+        response.end(
+          `event: response.completed\ndata: ${JSON.stringify({
+            type: "response.completed",
+            response: {
+              id: responseId,
+              object: "response",
+              status: "completed",
+              model: body.model ?? "qwen/qwen3.5-9b",
+              output_text: "fake openai-compatible streamed response",
+              usage: { prompt_tokens: 3, completion_tokens: 5, total_tokens: 8 },
+            },
+          })}\n\n`,
+        );
+        return;
+      }
       response.statusCode = 404;
       response.end(JSON.stringify({ error: { message: "responses unavailable" } }));
       return;
