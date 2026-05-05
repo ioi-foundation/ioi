@@ -19,6 +19,10 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   for (const route of [
     "/api/v1/models",
     "/api/v1/backends",
+    "/api/v1/models/catalog/search",
+    "/api/v1/models/catalog/import-url",
+    "/api/v1/models/storage/cleanup",
+    "/api/v1/models/:id",
     "/api/v1/runtime/engines",
     "/api/v1/runtime/survey",
     "/api/v1/runtime/select",
@@ -62,6 +66,12 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   assert.match(source, /Stop native/);
   assert.match(source, /Load native-local/);
   assert.match(source, /Download fixture/);
+  assert.match(source, /Search catalog/);
+  assert.match(source, /Import URL/);
+  assert.match(source, /Scan cleanup/);
+  assert.match(source, /searchCatalog/);
+  assert.match(source, /importCatalogUrl/);
+  assert.match(source, /cleanupStorage/);
   assert.match(source, /Save provider/);
   assert.match(source, /Bind vault secret/);
   assert.match(source, /Vault adapter/);
@@ -213,6 +223,9 @@ test("model mounting CLI exposes vault-backed provider configuration flags", () 
     "ProviderSet",
     "VaultCommands",
     "/api/v1/providers",
+    "/api/v1/models/catalog/search",
+    "/api/v1/models/catalog/import-url",
+    "/api/v1/models/storage/cleanup",
     "/api/v1/vault/refs",
     "/api/v1/vault/status",
     "/api/v1/vault/health",
@@ -232,6 +245,11 @@ test("model mounting CLI exposes vault-backed provider configuration flags", () 
     "context_length",
     "ttl_seconds",
     "identifier",
+    "CatalogSearch",
+    "CatalogImportUrl",
+    "Delete",
+    "Cleanup",
+    "import_mode",
     "Raw keys are rejected by the daemon",
   ]) {
     assert.match(combinedSource, new RegExp(token.replaceAll("/", "\\/")));

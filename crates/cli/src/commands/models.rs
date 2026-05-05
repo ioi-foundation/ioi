@@ -28,6 +28,19 @@ pub enum ModelsCommands {
     Ls,
     /// Inspect one model artifact by artifact id or model id.
     Get { id: String },
+    /// Search the model catalog through deterministic fixtures or gated live adapters.
+    CatalogSearch {
+        #[clap(long, default_value = "autopilot")]
+        query: String,
+    },
+    /// Import or download a model from a catalog/source URL.
+    CatalogImportUrl {
+        source_url: String,
+        #[clap(long)]
+        model_id: Option<String>,
+        #[clap(long)]
+        provider_id: Option<String>,
+    },
     /// Import a model artifact into the registry.
     Import {
         model_id: String,
@@ -35,6 +48,8 @@ pub enum ModelsCommands {
         provider_id: Option<String>,
         #[clap(long)]
         path: Option<String>,
+        #[clap(long)]
+        import_mode: Option<String>,
     },
     /// Create a model download job through the daemon lifecycle path.
     Download {
@@ -48,6 +63,10 @@ pub enum ModelsCommands {
     },
     /// Cancel a queued or running model download job.
     CancelDownload { job_id: String },
+    /// Delete an installed model artifact and record cleanup state.
+    Delete { id: String },
+    /// Scan model storage for orphan artifacts and record a cleanup receipt.
+    Cleanup,
     /// Mount a model endpoint.
     Mount {
         model_id: String,
@@ -147,17 +166,52 @@ pub async fn run(args: ModelsArgs) -> Result<()> {
             )
             .await?
         }
+        ModelsCommands::CatalogSearch { query } => {
+            let encoded_query = query.replace(' ', "%20");
+            daemon_request(
+                endpoint,
+                token,
+                Method::GET,
+                &format!("/api/v1/models/catalog/search?q={encoded_query}"),
+                None,
+            )
+            .await?
+        }
+        ModelsCommands::CatalogImportUrl {
+            source_url,
+            model_id,
+            provider_id,
+        } => {
+            daemon_request(
+                endpoint,
+                token,
+                Method::POST,
+                "/api/v1/models/catalog/import-url",
+                Some(json!({
+                    "source_url": source_url,
+                    "model_id": model_id,
+                    "provider_id": provider_id
+                })),
+            )
+            .await?
+        }
         ModelsCommands::Import {
             model_id,
             provider_id,
             path,
+            import_mode,
         } => {
             daemon_request(
                 endpoint,
                 token,
                 Method::POST,
                 "/api/v1/models/import",
-                Some(json!({ "model_id": model_id, "provider_id": provider_id, "path": path })),
+                Some(json!({
+                    "model_id": model_id,
+                    "provider_id": provider_id,
+                    "path": path,
+                    "import_mode": import_mode
+                })),
             )
             .await?
         }
@@ -187,6 +241,26 @@ pub async fn run(args: ModelsArgs) -> Result<()> {
                 token,
                 Method::POST,
                 &format!("/api/v1/models/download/{job_id}/cancel"),
+                None,
+            )
+            .await?
+        }
+        ModelsCommands::Delete { id } => {
+            daemon_request(
+                endpoint,
+                token,
+                Method::DELETE,
+                &format!("/api/v1/models/{id}"),
+                None,
+            )
+            .await?
+        }
+        ModelsCommands::Cleanup => {
+            daemon_request(
+                endpoint,
+                token,
+                Method::POST,
+                "/api/v1/models/storage/cleanup",
                 None,
             )
             .await?

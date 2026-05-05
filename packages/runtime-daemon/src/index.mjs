@@ -613,6 +613,20 @@ async function handleModelMountingNativeRoute({ request, response, store, url, s
     writeJsonResponse(response, mounts.snapshot(baseUrl));
     return;
   }
+  if (request.method === "GET" && url.pathname === "/api/v1/models/catalog/search") {
+    writeJsonResponse(response, mounts.catalogSearch(Object.fromEntries(url.searchParams.entries())));
+    return;
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/models/catalog/import-url") {
+    mounts.authorize(authorization, "model.download:*");
+    writeJsonResponse(response, mounts.catalogImportUrl(await readBody(request)), 202);
+    return;
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/models/storage/cleanup") {
+    mounts.authorize(authorization, "model.delete:*");
+    writeJsonResponse(response, mounts.cleanupModelStorage());
+    return;
+  }
   if (
     request.method === "GET" &&
     segments[2] === "models" &&
@@ -620,6 +634,11 @@ async function handleModelMountingNativeRoute({ request, response, store, url, s
     !["download", "loaded"].includes(segments[3])
   ) {
     writeJsonResponse(response, mounts.getModel(decodeURIComponent(segments[3])));
+    return;
+  }
+  if (request.method === "DELETE" && segments[2] === "models" && segments[3]) {
+    mounts.authorize(authorization, "model.delete:*");
+    writeJsonResponse(response, mounts.deleteModelArtifact(decodeURIComponent(segments[3])));
     return;
   }
   if (request.method === "POST" && url.pathname === "/api/v1/models/download") {

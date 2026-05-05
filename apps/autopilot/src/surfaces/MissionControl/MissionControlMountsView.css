@@ -487,6 +487,7 @@
 .model-mounts-form-actions {
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
 }
 
 .model-mounts-card-actions {

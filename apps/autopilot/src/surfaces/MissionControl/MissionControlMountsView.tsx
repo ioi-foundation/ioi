@@ -756,6 +756,7 @@ function useModelMountsDaemon() {
           "model.mount:*",
           "model.download:*",
           "model.import:*",
+          "model.delete:*",
           "backend.control:*",
           "provider.write:*",
           "vault.write:*",
@@ -853,6 +854,28 @@ function useModelMountsDaemon() {
             },
           });
           return "Download lifecycle completed through queued, running, and completed receipts.";
+        }),
+      searchCatalog: (query: string) =>
+        runAction("catalog-search", async () => {
+          const result = await requestJson(`/api/v1/models/catalog/search?q=${encodeURIComponent(query || "autopilot")}`);
+          const count = Array.isArray(result?.results) ? result.results.length : 0;
+          return `Catalog search found ${count} fixture-compatible variant${count === 1 ? "" : "s"}.`;
+        }),
+      importCatalogUrl: (sourceUrl: string) =>
+        runAction("catalog-import-url", async () => {
+          const token = await ensureToken();
+          const result = await requestJson("/api/v1/models/catalog/import-url", {
+            method: "POST",
+            token,
+            body: { source_url: sourceUrl || "fixture://catalog/autopilot-native-3b-q4" },
+          });
+          return `Catalog URL import created ${stringValue(result?.download?.id, "a download job")}.`;
+        }),
+      cleanupStorage: () =>
+        runAction("storage-cleanup", async () => {
+          const token = await ensureToken();
+          const result = await requestJson("/api/v1/models/storage/cleanup", { method: "POST", token });
+          return `Storage cleanup scanned ${numberValue(result?.scannedFileCount, 0)} model file${numberValue(result?.scannedFileCount, 0) === 1 ? "" : "s"}; ${numberValue(result?.orphanCount, 0)} orphan${numberValue(result?.orphanCount, 0) === 1 ? "" : "s"}.`;
         }),
       nativeChatProbe: () =>
         runAction("native-chat", async () => {
@@ -1566,6 +1589,10 @@ function ServerPanel({
           "GET /api/v1/models",
           "POST /api/v1/models/load",
           "POST /api/v1/models/download",
+          "GET /api/v1/models/catalog/search",
+          "POST /api/v1/models/catalog/import-url",
+          "POST /api/v1/models/storage/cleanup",
+          "DELETE /api/v1/models/:id",
           "POST /api/v1/models/download/cancel/:job_id",
           "POST /api/v1/models/download/:job_id/cancel",
           "GET /api/v1/vault/refs",
@@ -1917,12 +1944,20 @@ function ModelsPanel({
 function DownloadsPanel({
   downloads,
   onDownloadFixture,
+  onSearchCatalog,
+  onImportCatalogUrl,
+  onCleanupStorage,
   busy,
 }: {
   downloads: MountsWorkbenchData["downloads"];
   onDownloadFixture: () => void;
+  onSearchCatalog: (query: string) => void;
+  onImportCatalogUrl: (sourceUrl: string) => void;
+  onCleanupStorage: () => void;
   busy: boolean;
 }) {
+  const [query, setQuery] = useState("autopilot");
+  const [sourceUrl, setSourceUrl] = useState("fixture://catalog/autopilot-native-3b-q4");
   return (
     <section className="model-mounts-panel" aria-labelledby="model-mounts-downloads-title">
       <div className="model-mounts-panel-head">
@@ -1934,8 +1969,32 @@ function DownloadsPanel({
           <StatusPill tone="ready">receipted lifecycle</StatusPill>
           <StatusPill tone="ready">checksum tracked</StatusPill>
           <ActionButton onClick={onDownloadFixture} disabled={busy}>Download fixture</ActionButton>
+          <ActionButton onClick={onCleanupStorage} disabled={busy}>Scan cleanup</ActionButton>
         </div>
       </div>
+
+      <form
+        className="model-mounts-provider-editor"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSearchCatalog(query);
+        }}
+      >
+        <div className="model-mounts-provider-editor-grid">
+          <label>
+            <span>Catalog query</span>
+            <input value={query} onChange={(event) => setQuery(event.target.value)} />
+          </label>
+          <label>
+            <span>Source URL</span>
+            <input value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} />
+          </label>
+        </div>
+        <div className="model-mounts-form-actions">
+          <ActionButton type="submit" disabled={busy}>Search catalog</ActionButton>
+          <ActionButton onClick={() => onImportCatalogUrl(sourceUrl)} disabled={busy}>Import URL</ActionButton>
+        </div>
+      </form>
 
       <div className="model-mounts-list">
         {downloads.length === 0 ? (
@@ -2616,6 +2675,9 @@ export function MissionControlMountsView() {
           <DownloadsPanel
             downloads={daemon.data.downloads}
             onDownloadFixture={daemon.actions.downloadFixture}
+            onSearchCatalog={daemon.actions.searchCatalog}
+            onImportCatalogUrl={daemon.actions.importCatalogUrl}
+            onCleanupStorage={daemon.actions.cleanupStorage}
             busy={busy}
           />
         ) : null}

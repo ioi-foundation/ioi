@@ -90,7 +90,7 @@ npm run validate:model-mounting:e2e
 Latest deterministic evidence bundle:
 
 ```text
-docs/evidence/model-mounting-e2e/2026-05-05T08-52-22Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T09-05-43Z/result.json
 ```
 
 That bundle passed the following acceptance steps:
@@ -108,7 +108,8 @@ That bundle passed the following acceptance steps:
 - deterministic native-local artifact import, mount, load, and invocation;
 - native `/api/v1/chat` and `/api/v1/responses`;
 - OpenAI-compatible `/v1/chat/completions` and `/v1/embeddings`;
-- deterministic download cancel and completion lifecycle;
+- deterministic catalog search, URL import, import dry-run/copy modes, storage
+  cleanup scan, artifact delete, and download cancel/completion lifecycle;
 - persistent `mcp.json` import and governed MCP tool invocation;
 - per-request ephemeral MCP integration linked into model invocation receipts;
 - route policy creation/test and workflow node execution;
@@ -123,7 +124,13 @@ That bundle passed the following acceptance steps:
 The current GUI evidence nested under that E2E bundle is:
 
 ```text
-docs/evidence/model-mounting-e2e/2026-05-05T08-52-22Z/gui/2026-05-05T08-52-48Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T09-05-43Z/gui/2026-05-05T09-06-12Z/result.json
+```
+
+The current standalone Mounts GUI evidence bundle is:
+
+```text
+docs/evidence/model-mounts-gui-validation/2026-05-05T09-14-08Z/result.json
 ```
 
 It captured all Mounts tabs as desktop window screenshots:
@@ -282,13 +289,13 @@ Latest evidence paths:
 
 ```text
 Canonical E2E:
-docs/evidence/model-mounting-e2e/2026-05-05T01-52-16Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T09-05-43Z/result.json
 
 Mounts GUI nested under canonical E2E:
-docs/evidence/model-mounting-e2e/2026-05-05T01-52-16Z/gui/2026-05-05T01-52-18Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T09-05-43Z/gui/2026-05-05T09-06-12Z/result.json
 
 Standalone Mounts GUI with live provider summary:
-docs/evidence/model-mounts-gui-validation/2026-05-05T01-30-54Z/result.json
+docs/evidence/model-mounts-gui-validation/2026-05-05T09-14-08Z/result.json
 
 Broad Autopilot GUI harness:
 docs/evidence/autopilot-gui-harness-validation/2026-05-05T01-40-43-545Z/result.json
@@ -517,8 +524,8 @@ implemented as a product surface.
 | Global model picker / loader | Top model picker invites select/load without exposing topology | Partial | Add always-reachable Mounts-aware picker that can choose artifact, endpoint, route, provider, and loaded instance |
 | Installed models | `lms ls` shows model family, params, arch, size, device, loaded marker | Partial | Add richer model detail panel with family/params/arch/device/source/variant and linked receipts |
 | Loaded models | `lms ps` shows identifier, model, status, size, context, parallel, device, TTL | Partial | Expand Loaded Now UI/API/CLI with context, parallelism, device/backend, TTL remaining, identifier, unload action, and receipt links |
-| Model search/download | `lms get`, direct Hugging Face URL, GGUF/MLX filters, variant select | Gap | Add live catalog/search/download adapter with gated network access, variant selection, scripted approval, checksum, resume, and receipts |
-| Model import | `lms import` supports move/copy/hard-link/symlink/dry-run/user-repo | Partial | Add import mode options, dry-run, classification, duplicate handling, and model storage cleanup |
+| Model search/download | `lms get`, direct Hugging Face URL, GGUF/MLX filters, variant select | Partial | Fixture catalog, URL import, variant metadata, and gated Hugging Face adapter boundary exist; add live search/download activation and richer GGUF/MLX filters |
+| Model import | `lms import` supports move/copy/hard-link/symlink/dry-run/user-repo | Complete for deterministic local path | Add live provider-specific import UX polish and benchmark/classification metadata |
 | Runtime engines | `lms runtime ls/select/get/update/remove` | Partial | Runtime engine list and selected-runtime persistence are exposed through API, CLI, receipts, E2E, and Mounts Backends panel; add get/update/remove controls where backends support them |
 | Hardware survey | `lms runtime survey` reports GPU/VRAM, CPU features, RAM | Complete for deterministic/public CLI path | Keep redacted survey receipts in projection/replay; add scheduling hints and live runtime preference recommendations |
 | Load options | `lms load --gpu --context-length --parallel --ttl --identifier --estimate-only` | Complete for deterministic/public driver path | Extend from deterministic/native-local and LM Studio public load delegation into real llama.cpp/Ollama/vLLM process runners |
@@ -533,18 +540,16 @@ implemented as a product surface.
 | Receipts/audit | Not an LM Studio primitive | Autopilot ahead | Finish production Agentgres sync, settlement/audit packs, and remote replay |
 | Secret storage | LM Studio local config/API token ergonomics | Partial, stronger boundary | Wire production wallet.network/vault and cross-device revocation; keep plaintext rejected |
 | Headless/background mode | `lms server` and background service ergonomics | Partial | Package IOI daemon service/headless mode, health checks, logs, and restart policy |
-| Model cleanup/storage | LM Studio models folder and import management | Gap | Add artifact delete/uninstall, orphan cleanup, storage quota, and receipt-backed destructive confirmations |
+| Model cleanup/storage | LM Studio models folder and import management | Partial | Artifact delete and orphan scan receipts exist; add uninstall confirmations, storage quota, and destructive UX safeguards |
 | Benchmarks/evals | LM Studio exposes model metadata and developer feedback loops | Gap | Add benchmark runs, route-quality telemetry, latency/cost feedback, and route recommendation receipts |
 | Attested remote runtime | Outside current LM Studio local focus | Boundary only | Implement DePIN/TEE attestation verification, fail-closed routing, and attestation receipts |
 
 ### Priority Closeout Order For Parity
 
-1. Catalog/import/download parity:
-   - live model catalog/search;
-   - Hugging Face URL download;
-   - GGUF/MLX filters where applicable;
-   - import mode controls and dry-run;
-   - artifact delete/uninstall and cleanup receipts.
+1. Live catalog/download activation:
+   - Hugging Face-compatible live search/download behind explicit gate;
+   - GGUF/MLX filters and variant selection polish;
+   - storage quota and uninstall confirmation UX.
 2. Server/log parity:
    - Local Server start/stop/restart controls;
    - redacted streaming logs equivalent to `lms log stream`;
@@ -580,13 +585,19 @@ npm run validate:model-mounting:e2e
 Latest passing bundle:
 
 ```text
-docs/evidence/model-mounting-e2e/2026-05-05T01-52-16Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T09-05-43Z/result.json
 ```
 
 Nested GUI bundle:
 
 ```text
-docs/evidence/model-mounting-e2e/2026-05-05T01-52-16Z/gui/2026-05-05T01-52-18Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T09-05-43Z/gui/2026-05-05T09-06-12Z/result.json
+```
+
+Standalone Mounts GUI bundle:
+
+```text
+docs/evidence/model-mounts-gui-validation/2026-05-05T09-14-08Z/result.json
 ```
 
 The GUI bundle captured eight desktop window screenshots for the Mounts tabs
@@ -1321,9 +1332,13 @@ POST /api/v1/server/stop
 
 GET  /api/v1/models
 GET  /api/v1/models/:id
+GET  /api/v1/models/catalog/search
+POST /api/v1/models/catalog/import-url
 POST /api/v1/models/download
 GET  /api/v1/models/download/status/:job_id
 POST /api/v1/models/import
+POST /api/v1/models/storage/cleanup
+DELETE /api/v1/models/:id
 POST /api/v1/models/mount
 POST /api/v1/models/unmount
 POST /api/v1/models/load
@@ -1629,8 +1644,11 @@ Completed:
 
 - mount/unmount;
 - load/unload;
+- fixture catalog search and URL import with variant metadata;
+- local import modes: copy, move, hardlink, symlink, and dry-run;
 - deterministic download/import jobs with queued/running/completed/failed/
   canceled states;
+- artifact delete and storage cleanup scan receipts;
 - progress, byte counts, checksum, target path, cancellation, cleanup, and
   lifecycle receipts;
 - idle TTL/auto-evict tests;
@@ -1644,10 +1662,10 @@ Completed:
 
 Remaining:
 
-- live network download jobs;
+- live network catalog/download jobs;
 - memory pressure eviction;
 - hardware-backed GPU/context/backend guardrails for real local runners;
-- model delete/cleanup lifecycle.
+- storage quota and destructive confirmation UX.
 
 ### Phase 4: OpenAI-Compatible API
 
@@ -1885,6 +1903,9 @@ Current status:
   LM Studio.
 - Complete: deterministic download/import lifecycle includes progress, failure,
   cancel, cleanup, and receipts.
+- Complete: deterministic catalog/import parity includes fixture catalog
+  search, URL import, variant metadata, import dry-run/copy/move/hardlink/
+  symlink modes, artifact delete, and storage cleanup scan receipts.
 - Production hardening: replace deterministic native-local fixture with real
   local inference binaries when configured.
 - Production hardening: wire production wallet.network and Agentgres services;
@@ -1897,7 +1918,7 @@ Current status:
 The deterministic target path is complete. The immediate backlog is now the
 parity closeout order from the matrix above:
 
-1. Catalog/import/download parity.
+1. Live catalog/download activation.
 2. Server/log parity.
 3. Product UI parity.
 4. Live backend/provider parity.
