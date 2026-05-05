@@ -473,6 +473,23 @@ def activate_tab(window_id: int, shortcut: str) -> None:
     time.sleep(TAB_SETTLE_SECS)
 
 
+def prepare_tab_for_capture(window_id: int, tab: str) -> dict[str, Any]:
+    run(["xdotool", "windowactivate", str(window_id)], check=False)
+    time.sleep(0.1)
+    run(["xdotool", "key", "Home"], check=False)
+    time.sleep(0.1)
+    if tab == "downloads":
+        run(["xdotool", "mousemove", "--window", str(window_id), "920", "640"], check=False)
+        time.sleep(0.1)
+        run(["xdotool", "click", "1"], check=False)
+        time.sleep(0.1)
+        for _ in range(6):
+            run(["xdotool", "click", "5"], check=False)
+            time.sleep(0.04)
+        return {"scroll": "wheel_down", "reason": "show_catalog_variants_download_rows_and_row_actions"}
+    return {"scroll": "Home"}
+
+
 def capture_tab(window_id: int, output_root: Path, dev_url: str, daemon_endpoint: str, tab: str) -> dict[str, Any]:
     screenshot_path = output_root / f"mounts-{tab}.png"
     browser_url = (
@@ -574,7 +591,9 @@ def main() -> int:
         distinct_transitions = 0
         for tab, shortcut in MOUNT_TABS:
             activate_tab(window_id, shortcut)
+            preparation = prepare_tab_for_capture(window_id, tab)
             result = capture_tab(window_id, output_root, args.dev_url, daemon_endpoint, tab)
+            result["preparation"] = preparation
             path = Path(result["screenshot"]) if result.get("screenshot") else None
             if previous_path is not None and path is not None:
                 result["rmse_vs_previous"] = image_difference_metric(previous_path, path)

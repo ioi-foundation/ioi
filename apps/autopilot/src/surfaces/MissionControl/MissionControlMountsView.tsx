@@ -377,14 +377,21 @@ interface CatalogVariantPreview {
 interface DownloadPreview {
   id: string;
   model: string;
+  providerId: string;
   status: string;
   progress: string;
+  source: string;
   sourceLabel: string;
+  sourceHash: string;
   bytes: string;
   maxBytes: string;
+  maxBytesValue: number;
   checksum: string;
   receipt: string;
   failureReason: string;
+  format: string;
+  quantization: string;
+  sizeBytes: number;
 }
 
 interface CatalogSearchDraft {
@@ -730,8 +737,8 @@ const fallbackData: MountsWorkbenchData = {
     },
   ],
   downloads: [
-    { id: "download_job_fixture", model: "local:auto", status: "completed", progress: "100%", sourceLabel: "Fixture catalog", bytes: "unknown", maxBytes: "not bounded", checksum: "sha256 redacted", receipt: "receipt_model_lifecycle_*", failureReason: "none" },
-    { id: "download_queue_empty", model: "queue", status: "empty", progress: "0 active jobs", sourceLabel: "No queued downloads", bytes: "0", maxBytes: "not bounded", checksum: "none", receipt: "none", failureReason: "none" },
+    { id: "download_job_fixture", model: "local:auto", providerId: "provider.autopilot.local", status: "completed", progress: "100%", source: "fixture://catalog/autopilot-native-3b-q4", sourceLabel: "Fixture catalog", sourceHash: "fixture", bytes: "unknown", maxBytes: "not bounded", maxBytesValue: 0, checksum: "sha256 redacted", receipt: "receipt_model_lifecycle_*", failureReason: "none", format: "gguf", quantization: "Q4_K_M", sizeBytes: 0 },
+    { id: "download_queue_empty", model: "queue", providerId: "provider.autopilot.local", status: "empty", progress: "0 active jobs", source: "", sourceLabel: "No queued downloads", sourceHash: "none", bytes: "0", maxBytes: "not bounded", maxBytesValue: 0, checksum: "none", receipt: "none", failureReason: "none", format: "unknown", quantization: "unknown", sizeBytes: 0 },
   ],
   tokens: [
     {
@@ -1790,6 +1797,25 @@ function useModelMountsDaemon() {
           });
           return `Selected variant download ${stringValue(result?.id, "job")} is ${stringValue(result?.status, "recorded")}.`;
         }),
+      cancelDownload: (download: DownloadPreview) =>
+        runAction("download-cancel", async () => {
+          const token = await ensureToken();
+          const result = await requestJson(`/api/v1/models/download/${encodeURIComponent(download.id)}/cancel`, {
+            method: "POST",
+            token,
+          });
+          return `${download.id} is ${stringValue(result?.status, "canceled")}; receipt ${stringValue(result?.receiptId, "recorded")}.`;
+        }),
+      retryDownload: (download: DownloadPreview) =>
+        runAction("download-retry", async () => {
+          const token = await ensureToken();
+          const result = await requestJson("/api/v1/models/download", {
+            method: "POST",
+            token,
+            body: retryDownloadPayload(download),
+          });
+          return `Retry download ${stringValue(result?.id, "job")} is ${stringValue(result?.status, "recorded")}.`;
+        }),
       cleanupStorage: () =>
         runAction("storage-cleanup", async () => {
           const token = await ensureToken();
@@ -2389,14 +2415,21 @@ function normalizeSnapshot(snapshot: any, endpoint: string): MountsWorkbenchData
     downloads: arrayOf(snapshot?.downloads).map((item) => ({
       id: stringValue(item.id, "download.unknown"),
       model: stringValue(item.modelId, "unknown"),
+      providerId: stringValue(item.providerId, "provider.autopilot.local"),
       status: stringValue(item.status, "unknown"),
       progress: item.progress === undefined ? "unknown" : `${Math.round(Number(item.progress) * 100)}%`,
+      source: stringValue(item.source, ""),
       sourceLabel: stringValue(item.sourceLabel, stringValue(item.source, "unknown source")),
+      sourceHash: stringValue(item.sourceHash ?? item.sourceUrlHash, "unknown").slice(0, 12),
       bytes: `${formatBytes(numberValue(item.bytesCompleted, 0))} / ${formatBytes(numberValue(item.bytesTotal, 0))}`,
       maxBytes: item.maxBytes ? formatBytes(numberValue(item.maxBytes, 0)) : "not bounded",
+      maxBytesValue: numberValue(item.maxBytes, 0),
       checksum: stringValue(item.checksum, "pending"),
       receipt: stringValue(item.receiptId, "none"),
       failureReason: stringValue(item.failureReason, "none"),
+      format: stringValue(item.variant?.format ?? item.format, "unknown"),
+      quantization: stringValue(item.variant?.quantization ?? item.quantization, "unknown"),
+      sizeBytes: numberValue(item.variant?.sizeBytes ?? item.sizeBytes, 0),
     })),
     backends,
     runtimeEngines,
@@ -2578,6 +2611,23 @@ function catalogVariantPayload(variant: CatalogVariantPreview, maxBytes?: string
     size_bytes: variant.sizeBytes || undefined,
     max_bytes: Number.isFinite(parsedMaxBytes) && parsedMaxBytes > 0 ? Math.floor(parsedMaxBytes) : undefined,
   };
+}
+
+function retryDownloadPayload(download: DownloadPreview) {
+  return {
+    model_id: download.model,
+    provider_id: download.providerId,
+    source_url: download.source,
+    source_label: download.sourceLabel,
+    format: download.format === "unknown" ? undefined : download.format,
+    quantization: download.quantization === "unknown" ? undefined : download.quantization,
+    size_bytes: download.sizeBytes || undefined,
+    max_bytes: download.maxBytesValue || undefined,
+  };
+}
+
+function canRetryDownload(download: DownloadPreview) {
+  return Boolean(download.source && !/^(none|unknown|redacted)$/i.test(download.source));
 }
 
 function loadDraftBody(draft: ModelLoadDraft) {
@@ -2848,12 +2898,14 @@ function ModelPickerStrip({
         </div>
       </div>
 
-      <div className="model-mounts-action-readiness" aria-label="Action readiness states">
-        <GuardFact label="Daemon" guard={connectionActionGuard(connectionState, "Mounts action")} />
-        <GuardFact label="Token" guard={tokenGuard} />
-        <GuardFact label="Endpoint" guard={endpointReadiness} />
-        <GuardFact label="Route policy" guard={routeReadiness} />
-      </div>
+      {compact ? null : (
+        <div className="model-mounts-action-readiness" aria-label="Action readiness states">
+          <GuardFact label="Daemon" guard={connectionActionGuard(connectionState, "Mounts action")} />
+          <GuardFact label="Token" guard={tokenGuard} />
+          <GuardFact label="Endpoint" guard={endpointReadiness} />
+          <GuardFact label="Route policy" guard={routeReadiness} />
+        </div>
+      )}
 
       {compact ? null : (
       <div className="model-mounts-picker-inspector" aria-label="Model selection inspector">
@@ -3647,6 +3699,9 @@ function DownloadsPanel({
   onSearchCatalog,
   onImportCatalogUrl,
   onDownloadCatalogVariant,
+  onCancelDownload,
+  onRetryDownload,
+  onOpenReceipt,
   onCleanupStorage,
   busy,
 }: {
@@ -3659,6 +3714,9 @@ function DownloadsPanel({
   onSearchCatalog: (draft: CatalogSearchDraft) => void;
   onImportCatalogUrl: (payload: CatalogImportPayload) => void;
   onDownloadCatalogVariant: (variant: CatalogVariantPreview, maxBytes?: string) => void;
+  onCancelDownload: (download: DownloadPreview) => void;
+  onRetryDownload: (download: DownloadPreview) => void;
+  onOpenReceipt: (receiptId: string) => void;
   onCleanupStorage: () => void;
   busy: boolean;
 }) {
@@ -3690,6 +3748,48 @@ function DownloadsPanel({
   );
   const cleanupGuard = combineGuards(connectionActionGuard(connectionState, "model.delete:*"), tokenScopeGuard(data, hasSessionToken, "model.delete:*"));
   const failedDownloads = downloads.filter((download) => ["failed", "canceled"].includes(download.status));
+  const downloadRows = downloads.length === 0 ? (
+    <p className="model-mounts-empty">No download jobs in the current projection.</p>
+  ) : (
+    downloads.map((download) => {
+      const canCancel = ["queued", "running"].includes(download.status);
+      const canRetry = ["failed", "canceled"].includes(download.status);
+      const cancelGuard = combineGuards(
+        downloadGuard,
+        canCancel ? guardReady("cancelable", "Queued and running jobs can be canceled through the daemon lifecycle endpoint.") : guardBlocked("not cancelable", "Only queued or running jobs can be canceled."),
+      );
+      const retryGuard = combineGuards(
+        downloadGuard,
+        canRetry ? guardReady("retryable", "Failed and canceled jobs can be retried using their redacted source and variant metadata.") : guardBlocked("not retryable", "Only failed or canceled jobs can be retried."),
+        canRetryDownload(download) ? guardReady("source ready", "Retry payload has a public source reference.") : guardBlocked("source missing", "This job has no retryable public source reference."),
+      );
+      const receiptGuard = download.receipt !== "none" ? guardReady("receipt ready", "Open this lifecycle receipt in the Logs view.") : guardBlocked("no receipt", "This download has no receipt id.");
+      return (
+        <article key={download.id} className="model-mounts-compact-row">
+          <div>
+            <strong>{download.model}</strong>
+            <span>{download.id}</span>
+            <span>{download.sourceLabel}</span>
+          </div>
+          <StatusPill tone={toneForStatus(download.status)}>{download.status}</StatusPill>
+          <span className="model-mounts-row-note">{download.progress} / {download.bytes} / cap {download.maxBytes} / {download.receipt}</span>
+          <span className="model-mounts-row-note">{download.providerId} / {download.format} / {download.quantization} / source {download.sourceHash}</span>
+          {download.failureReason !== "none" ? <span className="model-mounts-row-note">Failure: {download.failureReason}</span> : null}
+          <div className="model-mounts-row-actions" aria-label={`Download actions for ${download.id}`}>
+            <ActionButton onClick={() => onCancelDownload(download)} disabled={busy} guard={cancelGuard}>Cancel</ActionButton>
+            <ActionButton onClick={() => onRetryDownload(download)} disabled={busy} guard={retryGuard}>Retry</ActionButton>
+            <ActionButton onClick={() => onOpenReceipt(download.receipt)} disabled={busy} guard={receiptGuard}>Open receipt</ActionButton>
+          </div>
+        </article>
+      );
+    })
+  );
+  const failedDownloadSummary = failedDownloads.length > 0 ? (
+    <div className="model-mounts-download-failures" aria-label="Failed download actions">
+      <strong>Failed or canceled jobs</strong>
+      <span>{failedDownloads.length} job{failedDownloads.length === 1 ? "" : "s"} need review. Retry with the selected catalog variant or run storage cleanup after cancellation.</span>
+    </div>
+  ) : null;
   return (
     <section className="model-mounts-panel" aria-labelledby="model-mounts-downloads-title">
       <div className="model-mounts-panel-head">
@@ -3704,6 +3804,11 @@ function DownloadsPanel({
           <ActionButton onClick={onDownloadFixture} disabled={busy} guard={downloadGuard}>Download fixture</ActionButton>
           <ActionButton onClick={onCleanupStorage} disabled={busy} guard={cleanupGuard}>Scan cleanup</ActionButton>
         </div>
+      </div>
+
+      <div className="model-mounts-list" aria-label="Download jobs">
+        {downloadRows}
+        {failedDownloadSummary}
       </div>
 
       <div className="model-mounts-observability-summary" aria-label="Catalog and storage summary">
@@ -3815,28 +3920,6 @@ function DownloadsPanel({
             </article>
           ))}
         </div>
-        {downloads.length === 0 ? (
-          <p className="model-mounts-empty">No download jobs in the current projection.</p>
-        ) : (
-          downloads.map((download) => (
-            <article key={download.id} className="model-mounts-compact-row">
-              <div>
-                <strong>{download.model}</strong>
-                <span>{download.id}</span>
-                <span>{download.sourceLabel}</span>
-              </div>
-              <StatusPill tone={toneForStatus(download.status)}>{download.status}</StatusPill>
-              <span className="model-mounts-row-note">{download.progress} / {download.bytes} / cap {download.maxBytes} / {download.receipt}</span>
-              {download.failureReason !== "none" ? <span className="model-mounts-row-note">Failure: {download.failureReason}</span> : null}
-            </article>
-          ))
-        )}
-        {failedDownloads.length > 0 ? (
-          <div className="model-mounts-download-failures" aria-label="Failed download actions">
-            <strong>Failed or canceled jobs</strong>
-            <span>{failedDownloads.length} job{failedDownloads.length === 1 ? "" : "s"} need review. Retry with the selected catalog variant or run storage cleanup after cancellation.</span>
-          </div>
-        ) : null}
       </div>
     </section>
   );
@@ -4664,6 +4747,7 @@ function BenchmarksPanel({
 function LogsPanel({
   receipts,
   connectionState,
+  focusReceiptId,
   onRefresh,
   onTailServerLogs,
   onReplayReceipt,
@@ -4671,6 +4755,7 @@ function LogsPanel({
 }: {
   receipts: ReceiptPreview[];
   connectionState: ConnectionState;
+  focusReceiptId?: string;
   onRefresh: () => void;
   onTailServerLogs: () => void;
   onReplayReceipt: (receiptId: string) => void;
@@ -4692,6 +4777,19 @@ function LogsPanel({
     const timer = window.setInterval(onRefresh, 5000);
     return () => window.clearInterval(timer);
   }, [filters.liveTail, onRefresh]);
+
+  useEffect(() => {
+    if (!focusReceiptId) return;
+    setFilters((current) => ({
+      ...current,
+      direction: "all",
+      category: "all",
+      status: "all",
+      kind: "all",
+      entity: focusReceiptId,
+      payloadPreview: true,
+    }));
+  }, [focusReceiptId]);
 
   return (
     <section className="model-mounts-panel" aria-labelledby="model-mounts-logs-title">
@@ -4848,6 +4946,7 @@ export function MissionControlMountsView() {
   const [activeTab, setActiveTab] = useState<MountsTab>(readInitialTab);
   const [pickerSelection, setPickerSelection] = useState<MountsPickerSelection>(emptyPickerSelection);
   const [detailDrawerOpen, setDetailDrawerOpen] = useState(true);
+  const [focusedReceiptId, setFocusedReceiptId] = useState("");
   const daemon = useModelMountsDaemon();
   const busy = Boolean(daemon.busyAction);
   useEffect(() => {
@@ -4875,6 +4974,10 @@ export function MissionControlMountsView() {
     }
     setDetailDrawerOpen((current) => !current);
   }, [activeTab]);
+  const openReceiptInLogs = useCallback((receiptId: string) => {
+    setFocusedReceiptId(receiptId);
+    setActiveTab("logs");
+  }, []);
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -5024,6 +5127,9 @@ export function MissionControlMountsView() {
             onSearchCatalog={daemon.actions.searchCatalog}
             onImportCatalogUrl={daemon.actions.importCatalogUrl}
             onDownloadCatalogVariant={daemon.actions.downloadCatalogVariant}
+            onCancelDownload={daemon.actions.cancelDownload}
+            onRetryDownload={daemon.actions.retryDownload}
+            onOpenReceipt={openReceiptInLogs}
             onCleanupStorage={daemon.actions.cleanupStorage}
             busy={busy}
           />
@@ -5070,6 +5176,7 @@ export function MissionControlMountsView() {
           <LogsPanel
             receipts={visibleReceipts}
             connectionState={daemon.connectionState}
+            focusReceiptId={focusedReceiptId}
             onRefresh={() => void daemon.refresh()}
             onTailServerLogs={daemon.actions.tailServerLogs}
             onReplayReceipt={daemon.actions.replayReceipt}

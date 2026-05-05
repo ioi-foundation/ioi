@@ -629,8 +629,17 @@
 }
 
 .model-mounts-compact-row .model-mounts-tags,
+.model-mounts-row-actions,
 .model-mounts-row-note {
   grid-column: 1 / -1;
+}
+
+.model-mounts-row-actions {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-start;
 }
 
 .model-mounts-endpoint-main,
@@ -650,6 +659,13 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+.model-mounts-compact-row .model-mounts-row-actions {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .model-mounts-endpoint strong,
