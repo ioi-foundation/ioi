@@ -93,6 +93,11 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   assert.match(source, /VALIDATION_TOKEN_GRANT_ID/);
   assert.match(source, /createValidationToken/);
   assert.match(source, /revokeValidationToken/);
+  assert.match(source, /importValidationModel/);
+  assert.match(source, /mountValidationModel/);
+  assert.match(source, /loadValidationModel/);
+  assert.match(source, /unloadValidationModel/);
+  assert.match(source, /runModelLifecycleValidationAction/);
   assert.match(source, /receiptGatePassProbe/);
   assert.match(source, /receiptGateBlockProbe/);
   assert.match(source, /data-download-id/);
@@ -329,6 +334,12 @@ test("Mounts GUI validation uses a dedicated desktop harness", () => {
   assert.match(probe, /backendStartReceiptRecorded/);
   assert.match(probe, /providerLoadedReceiptRecorded/);
   assert.match(probe, /providerBackendActionAssertions/);
+  assert.match(probe, /exercise_model_lifecycle_actions/);
+  assert.match(probe, /models-after-import-action/);
+  assert.match(probe, /models-after-load-action/);
+  assert.match(probe, /models-open-receipt-logs/);
+  assert.match(probe, /detailDrawerMetadataProjected/);
+  assert.match(probe, /modelLifecycleActionAssertions/);
   assert.match(probe, /exercise_token_mcp_actions/);
   assert.match(probe, /tokens-after-create-action/);
   assert.match(probe, /tokens-after-ephemeral-mcp-action/);

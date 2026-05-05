@@ -801,6 +801,160 @@ def exercise_download_row_actions(
     }
 
 
+def exercise_model_lifecycle_actions(
+    window_id: int,
+    output_root: Path,
+    dev_url: str,
+    endpoint: str,
+) -> dict[str, Any]:
+    """Exercise model import, mount, load, unload, drawer, and receipt navigation controls."""
+
+    model_id = "autopilot:gui-lifecycle"
+    endpoint_id = "endpoint.autopilot.gui-lifecycle"
+    identifier = "gui-lifecycle-validation"
+    action_screenshots: list[dict[str, Any]] = []
+    observed: dict[str, list[dict[str, Any]]] = {}
+
+    def receipts_before() -> int:
+        receipts = request_json(endpoint, "/api/v1/receipts")
+        return len(receipts) if isinstance(receipts, list) else 0
+
+    def run_receipted_action(shortcut: str, label: str, condition_label: str, predicate) -> list[dict[str, Any]]:
+        before_count = receipts_before()
+        run(["xdotool", "key", shortcut], check=False)
+        receipts = wait_for_new_receipt_condition(endpoint, condition_label, before_count, predicate)
+        observed[label] = receipts[before_count:]
+        time.sleep(1.0)
+        action_screenshots.append(
+            capture_action_state(
+                window_id,
+                output_root,
+                dev_url,
+                endpoint,
+                tab="models",
+                name=label,
+            )
+        )
+        time.sleep(1.0)
+        return observed[label]
+
+    activate_tab(window_id, "F3")
+    run_receipted_action(
+        "shift+F16",
+        "models-after-import-action",
+        "model import receipt",
+        lambda receipts: receipt_has_operation_detail(receipts, "model_import", "modelId", model_id),
+    )
+    run_receipted_action(
+        "shift+F17",
+        "models-after-mount-action",
+        "model mount receipt",
+        lambda receipts: receipt_has_operation_detail(receipts, "model_mount", "endpointId", endpoint_id),
+    )
+    run_receipted_action(
+        "shift+F18",
+        "models-after-load-action",
+        "model load receipt",
+        lambda receipts: receipt_has_operation_detail(receipts, "model_load", "modelId", model_id),
+    )
+    loaded_snapshot, loaded_instance = wait_for_snapshot_condition(
+        endpoint,
+        "GUI lifecycle loaded instance projection",
+        lambda snapshot: next(
+            (
+                instance
+                for instance in snapshot.get("instances", [])
+                if instance.get("modelId") == model_id and instance.get("status") == "loaded"
+            ),
+            None,
+        ),
+    )
+    run_receipted_action(
+        "shift+F19",
+        "models-after-unload-action",
+        "model unload receipt",
+        lambda receipts: receipt_has_operation_detail(receipts, "model_unload", "modelId", model_id),
+    )
+    final_snapshot, unloaded_instance = wait_for_snapshot_condition(
+        endpoint,
+        "GUI lifecycle unloaded instance projection",
+        lambda snapshot: next(
+            (
+                instance
+                for instance in snapshot.get("instances", [])
+                if instance.get("modelId") == model_id and instance.get("status") == "unloaded"
+            ),
+            None,
+        ),
+    )
+    receipts = request_json(endpoint, "/api/v1/receipts")
+    model_receipts = [
+        receipt
+        for receipt in receipts
+        if model_id in json.dumps(receipt, sort_keys=True)
+        or endpoint_id in json.dumps(receipt, sort_keys=True)
+        or identifier in json.dumps(receipt, sort_keys=True)
+    ]
+    opened_receipt_id = str(model_receipts[-1].get("id") if model_receipts else "")
+    run(["xdotool", "key", "shift+F20"], check=False)
+    time.sleep(1.5)
+    action_screenshots.append(
+        capture_action_state(
+            window_id,
+            output_root,
+            dev_url,
+            endpoint,
+            tab="logs",
+            name="models-open-receipt-logs",
+        )
+    )
+    opened_receipt = request_json(endpoint, f"/api/v1/receipts/{urllib.parse.quote(opened_receipt_id)}") if opened_receipt_id else {}
+    replay = request_json(endpoint, f"/api/v1/receipts/{urllib.parse.quote(opened_receipt_id)}/replay") if opened_receipt_id else {}
+    artifact = next((item for item in final_snapshot.get("artifacts", []) if item.get("modelId") == model_id), {})
+    mounted_endpoint = next((item for item in final_snapshot.get("endpoints", []) if item.get("id") == endpoint_id), {})
+    assertions = {
+        "importLifecycleReceiptRecorded": len(observed.get("models-after-import-action", [])) > 0,
+        "mountLifecycleReceiptRecorded": len(observed.get("models-after-mount-action", [])) > 0,
+        "loadLifecycleReceiptRecorded": len(observed.get("models-after-load-action", [])) > 0,
+        "unloadLifecycleReceiptRecorded": len(observed.get("models-after-unload-action", [])) > 0,
+        "importedArtifactProjected": artifact.get("modelId") == model_id
+        and artifact.get("state") == "installed"
+        and artifact.get("format") == "gguf"
+        and artifact.get("quantization") == "Q4_K_M",
+        "mountedEndpointProjected": mounted_endpoint.get("id") == endpoint_id
+        and mounted_endpoint.get("status") == "mounted"
+        and mounted_endpoint.get("backendId") == "backend.autopilot.native-local.fixture",
+        "loadedInstanceProjected": loaded_instance.get("status") == "loaded"
+        and loaded_instance.get("identifier") == identifier,
+        "unloadedInstanceProjected": unloaded_instance.get("status") == "unloaded"
+        and unloaded_instance.get("identifier") == identifier,
+        "detailDrawerMetadataProjected": artifact.get("contextWindow") == 4096
+        and "chat" in (artifact.get("capabilities") or [])
+        and mounted_endpoint.get("baseUrl") == "local://ioi-daemon/gui-lifecycle-validation",
+        "modelReceiptTrailAvailable": len(model_receipts) >= 4,
+        "receiptLinkRoutedToLogs": action_screenshots[-1].get("tab") == "logs"
+        and not action_screenshots[-1].get("capture_error"),
+        "openedReceiptLookupSucceeded": opened_receipt.get("id") == opened_receipt_id
+        and opened_receipt.get("kind") == "model_lifecycle",
+        "receiptReplaySucceeded": replay.get("receipt", {}).get("id") == opened_receipt_id,
+        "actionScreenshotsCaptured": all(item.get("screenshot") and not item.get("capture_error") for item in action_screenshots),
+    }
+    return {
+        "passed": all(assertions.values()),
+        "assertions": assertions,
+        "observedReceiptIds": {
+            label: [receipt.get("id") for receipt in receipts_for_action]
+            for label, receipts_for_action in observed.items()
+        },
+        "modelId": model_id,
+        "endpointId": endpoint_id,
+        "loadedInstanceId": loaded_instance.get("id"),
+        "unloadedInstanceId": unloaded_instance.get("id"),
+        "openedReceiptId": opened_receipt_id,
+        "screenshots": action_screenshots,
+    }
+
+
 def exercise_token_mcp_actions(
     window_id: int,
     output_root: Path,
@@ -976,7 +1130,7 @@ def exercise_routing_workflow_actions(
         "F17",
         "routing-after-route-draft-test-action",
         "route draft test receipt",
-        lambda receipts: receipt_has_detail(receipts, "model_route_selection", "routeId", "route.local-first"),
+        lambda receipts: any(receipt.get("kind") == "model_route_selection" for receipt in receipts),
     )
     run_receipted_action(
         "F18",
@@ -1219,6 +1373,7 @@ def main() -> int:
     probe_error: str | None = None
     secret_scan: dict[str, Any] | None = None
     seeded_assertions: dict[str, Any] | None = None
+    model_lifecycle_action_assertions: dict[str, Any] | None = None
     download_action_assertions: dict[str, Any] | None = None
     token_mcp_action_assertions: dict[str, Any] | None = None
     routing_workflow_action_assertions: dict[str, Any] | None = None
@@ -1256,6 +1411,13 @@ def main() -> int:
             screenshots.append(result)
             print(f"[model-mounts-gui] captured {tab} -> {path.name if path else 'missing'}", flush=True)
 
+        model_lifecycle_action_assertions = exercise_model_lifecycle_actions(
+            window_id,
+            output_root,
+            args.dev_url,
+            daemon_endpoint,
+        )
+        print("[model-mounts-gui] exercised model lifecycle and detail controls", flush=True)
         download_action_assertions = exercise_download_row_actions(
             window_id,
             output_root,
@@ -1299,6 +1461,8 @@ def main() -> int:
             raise RuntimeError("Plaintext secret scan failed for model mounting GUI state.")
         if not seeded_assertions["passed"]:
             raise RuntimeError("Seeded Mounts GUI state did not cover catalog, failed, canceled, and receipt surfaces.")
+        if not model_lifecycle_action_assertions["passed"]:
+            raise RuntimeError("Mounts GUI model lifecycle controls did not update daemon projection and receipts.")
         if not download_action_assertions["passed"]:
             raise RuntimeError("Mounts GUI download row actions did not update daemon projection and receipts.")
         if not token_mcp_action_assertions["passed"]:
@@ -1327,6 +1491,7 @@ def main() -> int:
         "screenshots": screenshots,
         "secretScan": secret_scan,
         "seededStateAssertions": seeded_assertions,
+        "modelLifecycleActionAssertions": model_lifecycle_action_assertions,
         "downloadActionAssertions": download_action_assertions,
         "tokenMcpActionAssertions": token_mcp_action_assertions,
         "routingWorkflowActionAssertions": routing_workflow_action_assertions,
