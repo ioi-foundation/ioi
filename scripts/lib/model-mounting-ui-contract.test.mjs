@@ -81,6 +81,8 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   assert.match(source, /Catalog variants/);
   assert.match(source, /Acquisition review/);
   assert.match(source, /Variant comparison/);
+  assert.match(source, /Recommendation/);
+  assert.match(source, /Benchmark ready/);
   assert.match(source, /Storage budget/);
   assert.match(source, /Download approval/);
   assert.match(source, /Approve external transfer/);
@@ -116,9 +118,19 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   assert.match(source, /focusReceiptId/);
   assert.match(source, /catalogVariantPayload/);
   assert.match(source, /max_bytes/);
+  assert.match(source, /recommendation_score/);
+  assert.match(source, /download_risk_status/);
+  assert.match(source, /backend_compatibility/);
+  assert.match(source, /benchmark_readiness/);
+  assert.match(source, /transfer_approved/);
   assert.match(source, /variant_id/);
   assert.match(source, /size_bytes/);
   assert.match(source, /source_label/);
+  assert.match(source, /catalogBenchmarkSummary/);
+  assert.match(source, /backendCompatibility/);
+  assert.match(source, /downloadRisk/);
+  assert.match(source, /benchmarkReadiness/);
+  assert.match(source, /selectionReceiptFields/);
   assert.match(source, /Failed or canceled jobs/);
   assert.match(source, /Failure class/);
   assert.match(source, /failureClass/);
@@ -540,6 +552,10 @@ test("model mounting CLI exposes vault-backed provider configuration flags", () 
     "Raw keys are rejected by the daemon",
   ]) {
     assert.match(combinedSource, new RegExp(token.replaceAll("/", "\\/")));
+  }
+  const sdkSource = fs.readFileSync(path.join(root, "packages", "agent-sdk", "src", "model-mounts.ts"), "utf8");
+  for (const token of ["backendCompatibility", "downloadRisk", "benchmarkReadiness", "recommendation", "selectionReceiptFields"]) {
+    assert.match(sdkSource, new RegExp(token));
   }
 });
 

@@ -362,6 +362,8 @@ export interface ModelCatalogEntry {
   catalogProviderId?: string;
   modelId: string;
   family: string;
+  architecture?: string | null;
+  parameterCount?: string | null;
   format: string;
   quantization?: string | null;
   sizeBytes?: number | null;
@@ -374,6 +376,35 @@ export interface ModelCatalogEntry {
   tags?: string[];
   variantPath?: string;
   gatedBy?: string[];
+  backendCompatibility?: Array<{
+    backendKind: "native_local_fixture" | "llama_cpp" | "ollama" | "vllm" | string;
+    score: number;
+    status: "ready" | "compatible" | "degraded" | "unsupported" | string;
+    reason: string;
+  }>;
+  downloadRisk?: {
+    score: number;
+    status: "low" | "medium" | "high" | "blocked" | string;
+    reasons: string[];
+    existingArtifactCollision: boolean;
+    byteCapStatus?: "not_set" | "within_cap" | "over_cap" | string;
+    storageStatus?: string;
+  };
+  benchmarkReadiness?: {
+    chat: boolean;
+    embeddings: boolean;
+    rerank: boolean;
+    vision: boolean;
+    structuredOutput: boolean;
+    hints: string[];
+  };
+  recommendation?: {
+    score: number;
+    label: "recommended" | "review" | "blocked" | string;
+    reasons: string[];
+    primaryBackend?: string | null;
+  };
+  selectionReceiptFields?: string[];
   discoveredAt: string;
 }
 
