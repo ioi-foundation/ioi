@@ -1126,6 +1126,10 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
     assert.equal(JSON.stringify(health).includes(vaultRef), false);
     assert.equal(JSON.stringify(health).includes(vaultMaterial), false);
     assert.equal(JSON.stringify(providerHealthReceipt).includes(vaultMaterial), false);
+    const projectionAfterHealth = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
+    assert.ok(projectionAfterHealth.providerHealth.some((record) => record.receiptId === providerHealthReceipt.id));
+    assert.ok(projectionAfterHealth.providerHealthReceipts.some((receipt) => receipt.id === providerHealthReceipt.id));
+    assert.equal(JSON.stringify(projectionAfterHealth.providerHealth).includes(vaultRef), false);
 
     const providerModels = await expectOk(daemon.endpoint, "/api/v1/providers/provider.test.custom-vault/models");
     assert.ok(providerModels.some((model) => model.modelId === "vllm-qwen"));
@@ -1172,6 +1176,9 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
 
     await daemon.close();
     daemon = await startRuntimeDaemonService({ cwd, stateDir });
+    const restartedProjectionBeforeHealth = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
+    assert.ok(restartedProjectionBeforeHealth.providerHealth.some((record) => record.receiptId === providerHealthReceipt.id));
+    assert.ok(restartedProjectionBeforeHealth.providerHealthReceipts.some((receipt) => receipt.id === providerHealthReceipt.id));
     const restartedVaultRefs = await expectOk(daemon.endpoint, "/api/v1/vault/refs", { token: grant.token });
     const restartedMeta = restartedVaultRefs.find((ref) => ref.vaultRefHash === bound.vaultRefHash);
     assert.equal(restartedMeta.configured, true);
