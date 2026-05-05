@@ -3,7 +3,7 @@ git-fetch-with-cli = true
 retry = 3
 
 [env]
-CMAKE = { value = "tools/managed_cmake.sh", relative = true }
+CMAKE = "cmake"
 WHISPER_DONT_GENERATE_BINDINGS = "1"
 TS_RS_EXPORT_DIR = { value = "apps/autopilot/src/generated/autopilot-contracts", relative = true }
 TS_RS_LARGE_INT = "number"
