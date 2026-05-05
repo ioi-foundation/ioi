@@ -1,11 +1,11 @@
 # Capability Execution Contract (CEC)
 
-Status: hidden conformance invariant; Draft v0.5
+Status: hidden conformance invariant; v1.0
 Owners: Agentic Platform
 Canonical owner: this file for completion, evidence, and terminal-state invariants.
 Supersedes: overlapping CEC descriptions outside `docs/conformance/agentic-runtime/` when invariant wording conflicts.
 Superseded by: none.
-Last alignment pass: 2026-05-01.
+Last alignment pass: 2026-05-04.
 Scope: Post-resolution execution discipline for inference-driven tasks
 
 ## 1. Purpose
@@ -20,6 +20,42 @@ Normative clarification:
 - It does NOT forbid scalable deterministic heuristics that are generic, feature-based, task-class-aware, and policy-controlled.
 
 CEC prevents topology shortcuts (hardcoded app assumptions, static provider shortcuts, exit-code-only success claims). It enables safe **probabilistic synthesis** (e.g., dynamically writing scripts to handle infinite topology variance) by permitting quality adjustment loops *prior* to execution, while strictly enforcing a single-shot deterministic boundary *during* execution.
+
+### 1.1 Canonical Collapse Semantics
+CEC is the effect-collapse contract for the agent runtime.
+
+CIRC collapses semantic uncertainty into a deterministic intent state. CEC takes
+that already-resolved intent and governs the remaining uncertainty around
+topology, provider discovery, payload synthesis, policy admission, approval, and
+verification.
+
+Before CEC execution, probabilistic synthesis is allowed in bounded pre-effect
+phases. The runtime may discover host or provider topology, synthesize candidate
+payloads, lint them, dry-run them in non-mutating contexts, and improve them
+while the real environment has not yet been mutated.
+
+CEC collapse occurs at the single-shot execution boundary:
+- the runtime has a loaded contract;
+- required discovery and provider-selection evidence exists;
+- the payload or action plan is committed;
+- policy and authority gates have passed;
+- any required approval is bound to the exact pending operation;
+- execution begins as one deterministic effect attempt.
+
+After CEC collapse:
+- the runtime MUST NOT route execution failure back into semantic ranking or
+  heuristic payload retries;
+- terminal success MUST be derived from typed receipts, observations,
+  postconditions, and verification evidence;
+- missing verification MUST produce an explicit partial, unverified, blocked, or
+  failed state rather than success;
+- UI text, model replies, debug strings, and shorthand markers MAY summarize
+  receipts but MUST NOT become the authority for completion.
+
+CEC therefore allows probabilistic generation where it is useful, but only
+before the point of effect. Once the runtime crosses that boundary, the outcome
+is deterministic: verified success, denied, blocked, failed, partial, or
+unverified, all backed by receipts.
 
 ## 2. Applicability Classes (Normative)
 Each intent execution contract MUST declare `applicability_class`:
@@ -73,7 +109,7 @@ Normative constraints:
 - **Discovery-Backed Provider Selection:** For remote retrieval, State 3 MUST choose providers only from candidates evidenced in State 2 discovery. Hardcoded provider ladders keyed by content class are forbidden.
 - **Scalable Heuristic Admission:** Within State 2 and State 3, implementations MAY use generic, deterministic, policy-scoped scoring heuristics to rank already admitted candidates. Those heuristics MUST be feature-based and cross-domain; they MUST NOT introduce topic-specific special casing or post-execution fallback behavior.
 - For `deterministic_local`, states `discovery` and `provider_selection` MAY be skipped by contract.
-- Verification MUST always execute unless the contract explicitly defines a `no_verify` class, which is forbidden in v0.5.
+- Verification MUST always execute unless the contract explicitly defines a `no_verify` class, which is forbidden in v1.0.
 
 ## 4. Contract Fields (Intent-Scoped)
 Each applicable intent MUST define:
@@ -86,7 +122,7 @@ Each applicable intent MAY additionally define:
 - `success_conditions: [string]`
 - `verification_mode: dynamic_synthesis | deterministic_check`
 
-*(Note: `fallback_chain` is explicitly deprecated in v0.5. Infinite topology variance MUST be handled by robust `discovery` and `dynamic_synthesis` loops prior to execution, not via execution retries).*
+*(Note: `fallback_chain` is explicitly deprecated in v1.0. Infinite topology variance MUST be handled by robust `discovery` and `dynamic_synthesis` loops prior to execution, not via execution retries).*
 
 ## 5. Receipt and Postcondition Schema
 Execution MUST emit machine-readable evidence records.
@@ -224,11 +260,12 @@ CEC does not define semantic ranking, capability ontology design, or ambiguity w
 
 ## 12. Relationship to CIRC
 CIRC + CEC define the full contract:
-- CIRC: intent resolution correctness (what should happen, bound by primitives).
-- CEC: execution correctness (how it is dynamically synthesized safely and verifiably executed).
+- CIRC: semantic collapse correctness (what should happen, bound by primitives).
+- CEC: effect collapse correctness (how a resolved intent becomes one safe,
+  approved, verifiable terminal outcome).
 
 ## 13. Migration Guidance
-To migrate a heuristic executor to Draft v0.5:
+To migrate a heuristic executor to CEC v1.0:
 1. Inventory all query-conditioned provider ladders, domain allowlists, subject-slug URL builders, and reply-text/debug-string success checks.
 2. Replace provider/domain outputs from query interpretation with typed retrieval requirements only.
 3. Introduce a provider registry whose entries advertise structural affordances and admissibility predicates rather than domain semantics.
@@ -243,7 +280,7 @@ To migrate a heuristic executor to Draft v0.5:
 ## 14. Change Control and Versioning
 CEC changes MUST be versioned.
 Breaking changes MUST include:
-- migration notes (e.g., deprecation of `fallback_chain` in v0.5)
+- migration notes (e.g., deprecation of `fallback_chain` in v1.0)
 - conformance profile updates
 - receipt schema delta notes
 - judge-integrity and provider-discovery migration notes
