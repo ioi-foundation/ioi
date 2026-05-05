@@ -475,6 +475,20 @@
   text-transform: uppercase;
 }
 
+.model-mounts-provider-editor .model-mounts-checkbox {
+  justify-content: end;
+}
+
+.model-mounts-provider-editor .model-mounts-checkbox input {
+  width: auto;
+  min-height: auto;
+}
+
+.model-mounts-form-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .model-mounts-card-actions {
   display: flex;
   flex-wrap: wrap;

@@ -80,7 +80,22 @@ interface ModelInstance {
   modelId: string;
   status: string;
   backend: string;
+  runtimeEngine: string;
+  context: string;
+  parallel: string;
+  identifier: string;
   ttl: string;
+}
+
+interface ModelLoadDraft {
+  modelId: string;
+  mode: string;
+  gpu: string;
+  contextLength: string;
+  parallel: string;
+  ttlSeconds: string;
+  identifier: string;
+  estimateOnly: boolean;
 }
 
 interface PermissionTokenPreview {
@@ -421,6 +436,10 @@ const fallbackData: MountsWorkbenchData = {
       modelId: "local:auto",
       status: "loaded",
       backend: "ioi_fixture",
+      runtimeEngine: "backend.fixture",
+      context: "4096",
+      parallel: "1",
+      identifier: "local:auto",
       ttl: "expires on idle after 900s",
     },
   ],
@@ -990,6 +1009,27 @@ function useModelMountsDaemon() {
           const receiptId = stringValue(survey?.receiptId, "no receipt");
           return `Runtime survey captured ${count} engine profile${count === 1 ? "" : "s"}; receipt ${receiptId}.`;
         }),
+      selectRuntimeEngine: (engineId: string) =>
+        runAction("runtime-select", async () => {
+          const selection = await requestJson("/api/v1/runtime/select", {
+            method: "POST",
+            body: { engine_id: engineId },
+          });
+          return `${stringValue(selection?.selectedEngineId, engineId)} selected for subsequent loads.`;
+        }),
+      loadModelWithOptions: (draft: ModelLoadDraft) =>
+        runAction(draft.estimateOnly ? "load-estimate" : "load-options", async () => {
+          const token = await ensureToken();
+          const result = await requestJson("/api/v1/models/load", {
+            method: "POST",
+            token,
+            body: loadDraftBody(draft),
+          });
+          if (draft.estimateOnly) {
+            return `${draft.modelId} estimate recorded; receipt ${stringValue(result?.receiptId, "none")}.`;
+          }
+          return `${draft.modelId} loaded as ${stringValue(result?.identifier, "default")} with context ${stringValue(result?.contextLength, "auto")}.`;
+        }),
       replayReceipt: (receiptId: string) =>
         runAction("receipt-replay", async () => {
           const replay = await requestJson(`/api/v1/receipts/${encodeURIComponent(receiptId)}/replay`);
@@ -1107,6 +1147,10 @@ function normalizeSnapshot(snapshot: any, endpoint: string): MountsWorkbenchData
     modelId: stringValue(item.modelId, "unknown"),
     status: stringValue(item.status, "unknown"),
     backend: stringValue(item.backend, "unknown"),
+    runtimeEngine: stringValue(item.runtimeEngineId, stringValue(item.backendId, "unknown")),
+    context: item.contextLength ? `${item.contextLength}` : stringValue(item.loadOptions?.contextLength, "auto"),
+    parallel: item.parallelism ? `${item.parallelism}` : stringValue(item.loadOptions?.parallel, "auto"),
+    identifier: stringValue(item.identifier, "default"),
     ttl: item.expiresAt ? `expires ${new Date(item.expiresAt).toLocaleTimeString()}` : "no idle expiry",
   }));
   const routes = arrayOf(snapshot?.routes).map((item) =>
@@ -1270,6 +1314,26 @@ function normalizeRuntimeSurvey(item: any): RuntimeSurveyPreview {
   };
 }
 
+function loadDraftBody(draft: ModelLoadDraft) {
+  const ttlSeconds = Number(draft.ttlSeconds || 900);
+  return {
+    model_id: draft.modelId || "autopilot:native-fixture",
+    load_policy: {
+      mode: draft.mode || "on_demand",
+      idleTtlSeconds: ttlSeconds,
+      autoEvict: true,
+    },
+    load_options: {
+      estimateOnly: draft.estimateOnly,
+      gpu: draft.gpu || null,
+      contextLength: draft.contextLength ? Number(draft.contextLength) : null,
+      parallel: draft.parallel ? Number(draft.parallel) : null,
+      ttlSeconds,
+      identifier: draft.identifier || null,
+    },
+  };
+}
+
 function runtimeProbeState(value: any) {
   if (!value || typeof value !== "object") return "not probed";
   return value.available ? "available / output redacted" : "not available";
@@ -1340,13 +1404,15 @@ function ActionButton({
   children,
   onClick,
   disabled,
+  type = "button",
 }: {
   children: string;
-  onClick: () => void;
+  onClick?: () => void;
   disabled?: boolean;
+  type?: "button" | "submit";
 }) {
   return (
-    <button type="button" className="model-mounts-action-button" onClick={onClick} disabled={disabled}>
+    <button type={type} className="model-mounts-action-button" onClick={onClick} disabled={disabled}>
       {children}
     </button>
   );
@@ -1491,6 +1557,7 @@ function ServerPanel({
           "GET /api/v1/server/status",
           "GET /api/v1/runtime/engines",
           "POST /api/v1/runtime/survey",
+          "POST /api/v1/runtime/select",
           "GET /api/v1/backends",
           "POST /api/v1/backends/:id/health",
           "POST /api/v1/backends/:id/start",
@@ -1567,6 +1634,7 @@ function BackendsPanel({
   onStartNativeBackend,
   onStopNativeBackend,
   onRunRuntimeSurvey,
+  onSelectRuntimeEngine,
   busy,
 }: {
   backends: BackendPreview[];
@@ -1576,6 +1644,7 @@ function BackendsPanel({
   onStartNativeBackend: () => void;
   onStopNativeBackend: () => void;
   onRunRuntimeSurvey: () => void;
+  onSelectRuntimeEngine: (engineId: string) => void;
   busy: boolean;
 }) {
   return (
@@ -1631,7 +1700,18 @@ function BackendsPanel({
             <strong>{runtimeSurvey.checkedAt}</strong>
           </div>
         </div>
-        <TagList items={runtimeEngines.map((engine) => `${engine.selected ? "selected:" : "engine:"}${engine.label} / ${engine.modelFormat}`)} />
+        <div className="model-mounts-list">
+          {runtimeEngines.map((engine) => (
+            <article key={engine.id} className="model-mounts-compact-row">
+              <div>
+                <strong>{engine.label}</strong>
+                <span>{engine.kind} / {engine.modelFormat} / {engine.source}</span>
+              </div>
+              <StatusPill tone={engine.selected ? "ready" : toneForStatus(engine.status)}>{engine.selected ? "selected" : engine.status}</StatusPill>
+              <ActionButton onClick={() => onSelectRuntimeEngine(engine.id)} disabled={busy || engine.selected}>Select</ActionButton>
+            </article>
+          ))}
+        </div>
       </section>
 
       <div className="model-mounts-provider-grid">
@@ -1676,15 +1756,30 @@ function ModelsPanel({
   data,
   onLoadLocalModel,
   onLoadNativeLocalModel,
+  onLoadModelWithOptions,
   onDownloadFixture,
   busy,
 }: {
   data: MountsWorkbenchData;
   onLoadLocalModel: () => void;
   onLoadNativeLocalModel: () => void;
+  onLoadModelWithOptions: (draft: ModelLoadDraft) => void;
   onDownloadFixture: () => void;
   busy: boolean;
 }) {
+  const [loadDraft, setLoadDraft] = useState<ModelLoadDraft>({
+    modelId: "autopilot:native-fixture",
+    mode: "on_demand",
+    gpu: "auto",
+    contextLength: "4096",
+    parallel: "1",
+    ttlSeconds: "900",
+    identifier: "native-fixture-dev",
+    estimateOnly: false,
+  });
+  const updateLoadDraft = (field: keyof ModelLoadDraft, value: string | boolean) => {
+    setLoadDraft((current) => ({ ...current, [field]: value }));
+  };
   return (
     <section className="model-mounts-panel" aria-labelledby="model-mounts-models-title">
       <div className="model-mounts-panel-head">
@@ -1700,6 +1795,61 @@ function ModelsPanel({
           <ActionButton onClick={onDownloadFixture} disabled={busy}>Download fixture</ActionButton>
         </div>
       </div>
+
+      <form
+        className="model-mounts-provider-editor"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onLoadModelWithOptions(loadDraft);
+        }}
+      >
+        <div className="model-mounts-provider-editor-grid">
+          <label>
+            <span>Model id</span>
+            <input value={loadDraft.modelId} onChange={(event) => updateLoadDraft("modelId", event.target.value)} />
+          </label>
+          <label>
+            <span>Mode</span>
+            <select value={loadDraft.mode} onChange={(event) => updateLoadDraft("mode", event.target.value)}>
+              <option value="on_demand">On demand</option>
+              <option value="manual">Manual</option>
+              <option value="keep_warm">Keep warm</option>
+              <option value="idle_evict">Idle evict</option>
+            </select>
+          </label>
+          <label>
+            <span>GPU</span>
+            <select value={loadDraft.gpu} onChange={(event) => updateLoadDraft("gpu", event.target.value)}>
+              <option value="auto">Auto</option>
+              <option value="max">Max</option>
+              <option value="0">CPU</option>
+            </select>
+          </label>
+          <label>
+            <span>Context</span>
+            <input inputMode="numeric" value={loadDraft.contextLength} onChange={(event) => updateLoadDraft("contextLength", event.target.value)} />
+          </label>
+          <label>
+            <span>Parallel</span>
+            <input inputMode="numeric" value={loadDraft.parallel} onChange={(event) => updateLoadDraft("parallel", event.target.value)} />
+          </label>
+          <label>
+            <span>TTL seconds</span>
+            <input inputMode="numeric" value={loadDraft.ttlSeconds} onChange={(event) => updateLoadDraft("ttlSeconds", event.target.value)} />
+          </label>
+          <label>
+            <span>Identifier</span>
+            <input value={loadDraft.identifier} onChange={(event) => updateLoadDraft("identifier", event.target.value)} />
+          </label>
+          <label className="model-mounts-checkbox">
+            <input type="checkbox" checked={loadDraft.estimateOnly} onChange={(event) => updateLoadDraft("estimateOnly", event.target.checked)} />
+            <span>Estimate only</span>
+          </label>
+        </div>
+        <div className="model-mounts-form-actions">
+          <ActionButton type="submit" disabled={busy}>{loadDraft.estimateOnly ? "Estimate load" : "Load with options"}</ActionButton>
+        </div>
+      </form>
 
       <div className="model-mounts-three-col">
         <section aria-label="Installed models">
@@ -1737,10 +1887,10 @@ function ModelsPanel({
                 <article key={instance.id} className="model-mounts-compact-row">
                   <div>
                     <strong>{instance.modelId}</strong>
-                    <span>{instance.endpointId} / {instance.backend}</span>
+                    <span>{instance.endpointId} / {instance.backend} / {instance.runtimeEngine}</span>
                   </div>
                   <StatusPill tone={toneForStatus(instance.status)}>{instance.status}</StatusPill>
-                  <span className="model-mounts-row-note">{instance.ttl}</span>
+                  <span className="model-mounts-row-note">{instance.identifier} / ctx {instance.context} / p{instance.parallel} / {instance.ttl}</span>
                 </article>
               ))
             )}
@@ -2437,6 +2587,7 @@ export function MissionControlMountsView() {
             onStartNativeBackend={daemon.actions.startNativeBackend}
             onStopNativeBackend={daemon.actions.stopNativeBackend}
             onRunRuntimeSurvey={daemon.actions.runRuntimeSurvey}
+            onSelectRuntimeEngine={daemon.actions.selectRuntimeEngine}
             busy={busy}
           />
         ) : null}
@@ -2445,6 +2596,7 @@ export function MissionControlMountsView() {
             data={daemon.data}
             onLoadLocalModel={daemon.actions.loadLocalModel}
             onLoadNativeLocalModel={daemon.actions.loadNativeLocalModel}
+            onLoadModelWithOptions={daemon.actions.loadModelWithOptions}
             onDownloadFixture={daemon.actions.downloadFixture}
             busy={busy}
           />

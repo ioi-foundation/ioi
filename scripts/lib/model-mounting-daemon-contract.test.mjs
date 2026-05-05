@@ -151,6 +151,14 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     const runtimeSurveyReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${runtimeSurvey.receiptId}`);
     assert.equal(runtimeSurveyReceipt.kind, "runtime_survey");
     assert.equal(runtimeSurveyReceipt.details.engineCount, runtimeSurvey.engines.length);
+    const runtimeSelection = await expectOk(daemon.endpoint, "/api/v1/runtime/select", {
+      method: "POST",
+      body: { engine_id: "backend.autopilot.native-local.fixture" },
+    });
+    assert.equal(runtimeSelection.selectedEngineId, "backend.autopilot.native-local.fixture");
+    assert.match(runtimeSelection.receiptId, /^receipt_model_lifecycle_/);
+    const selectedRuntimeEngines = await expectOk(daemon.endpoint, "/api/v1/runtime/engines");
+    assert.equal(selectedRuntimeEngines.find((engine) => engine.id === "backend.autopilot.native-local.fixture")?.selected, true);
     const backendHealth = await expectOk(daemon.endpoint, "/api/v1/backends/backend.autopilot.native-local.fixture/health", {
       method: "POST",
     });
@@ -218,12 +226,49 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
       body: { model_id: "native:imported", id: "endpoint.test.native-imported" },
     });
     assert.equal(nativeMounted.providerId, "provider.autopilot.local");
+    const nativeLoadEstimate = await expectOk(daemon.endpoint, "/api/v1/models/load", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        endpoint_id: nativeMounted.id,
+        load_policy: { mode: "on_demand", idleTtlSeconds: 450, autoEvict: true },
+        load_options: {
+          estimateOnly: true,
+          gpu: "auto",
+          contextLength: 4096,
+          parallel: 2,
+          ttlSeconds: 450,
+          identifier: "native-imported-estimate",
+        },
+      },
+    });
+    assert.equal(nativeLoadEstimate.status, "estimate_only");
+    assert.equal(nativeLoadEstimate.runtimeEngineId, "backend.autopilot.native-local.fixture");
+    assert.equal(nativeLoadEstimate.loadOptions.contextLength, 4096);
+    assert.match(nativeLoadEstimate.receiptId, /^receipt_model_lifecycle_/);
+    const nativeLoadEstimateReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${nativeLoadEstimate.receiptId}`);
+    assert.equal(nativeLoadEstimateReceipt.details.operation, "model_load_estimate");
+    assert.equal(nativeLoadEstimateReceipt.details.loadOptions.estimateOnly, true);
     const nativeLoaded = await expectOk(daemon.endpoint, "/api/v1/models/load", {
       method: "POST",
       token: grant.token,
-      body: { endpoint_id: nativeMounted.id, load_policy: { mode: "on_demand", idleTtlSeconds: 900, autoEvict: true } },
+      body: {
+        endpoint_id: nativeMounted.id,
+        load_policy: { mode: "on_demand", idleTtlSeconds: 900, autoEvict: true },
+        load_options: {
+          gpu: "max",
+          contextLength: 4096,
+          parallel: 2,
+          ttlSeconds: 900,
+          identifier: "native-imported-dev",
+        },
+      },
     });
     assert.equal(nativeLoaded.backend, "autopilot.native_local.fixture");
+    assert.equal(nativeLoaded.runtimeEngineId, "backend.autopilot.native-local.fixture");
+    assert.equal(nativeLoaded.identifier, "native-imported-dev");
+    assert.equal(nativeLoaded.contextLength, 4096);
+    assert.equal(nativeLoaded.parallelism, 2);
     const nativeChat = await expectOk(daemon.endpoint, "/api/v1/chat", {
       method: "POST",
       token: grant.token,
@@ -1498,9 +1543,20 @@ exit 0
     const loaded = await expectOk(daemon.endpoint, "/api/v1/models/load", {
       method: "POST",
       token: grant.token,
-      body: { endpoint_id: mounted.id, load_policy: { mode: "manual", autoEvict: false } },
+      body: {
+        endpoint_id: mounted.id,
+        load_policy: { mode: "manual", autoEvict: false },
+        load_options: { gpu: "max", contextLength: 8192, parallel: 2, ttlSeconds: 600, identifier: "qwen-dev" },
+      },
     });
     assert.equal(loaded.backend, "lm_studio");
+    assert.equal(loaded.loadOptions.contextLength, 8192);
+    assert.equal(loaded.identifier, "qwen-dev");
+    const loadReceipt = (await expectOk(daemon.endpoint, "/api/v1/receipts")).find(
+      (receipt) => receipt.details?.operation === "model_load" && receipt.details?.endpointId === mounted.id,
+    );
+    assert.equal(loadReceipt.details.commandArgsHash.length > 0, true);
+    assert.equal(loadReceipt.details.loadOptions.identifier, "qwen-dev");
 
     const response = await expectOk(daemon.endpoint, "/api/v1/responses", {
       method: "POST",

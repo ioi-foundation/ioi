@@ -21,6 +21,7 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
     "/api/v1/backends",
     "/api/v1/runtime/engines",
     "/api/v1/runtime/survey",
+    "/api/v1/runtime/select",
     "/api/v1/backends/:id/health",
     "/api/v1/backends/:id/start",
     "/api/v1/backends/:id/stop",
@@ -92,6 +93,12 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   assert.match(source, /runHealthSweep/);
   assert.match(source, /Run runtime survey/);
   assert.match(source, /runRuntimeSurvey/);
+  assert.match(source, /selectRuntimeEngine/);
+  assert.match(source, /Load with options/);
+  assert.match(source, /Estimate load/);
+  assert.match(source, /loadModelWithOptions/);
+  assert.match(source, /contextLength/);
+  assert.match(source, /estimateOnly/);
   assert.match(source, /Runtime survey/);
   assert.match(source, /runtimeEngines/);
   assert.match(source, /runtimeSurvey/);
@@ -218,7 +225,13 @@ test("model mounting CLI exposes vault-backed provider configuration flags", () 
     "ProviderHealth",
     "Health",
     "Survey",
+    "Select",
     "/api/v1/runtime/survey",
+    "/api/v1/runtime/select",
+    "estimate_only",
+    "context_length",
+    "ttl_seconds",
+    "identifier",
     "Raw keys are rejected by the daemon",
   ]) {
     assert.match(combinedSource, new RegExp(token.replaceAll("/", "\\/")));

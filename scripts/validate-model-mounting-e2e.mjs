@@ -467,11 +467,19 @@ async function main() {
       assert.equal(receiptText.includes(path.join(os.homedir(), ".lmstudio/bin/lms")), false);
       assert.equal(receiptText.includes(path.join(os.homedir(), ".local/bin/lm-studio")), false);
       assert.equal(receiptText.includes(path.join(os.homedir(), ".local/bin/lm-studio.AppImage")), false);
+      const selection = await expectOk(daemon.endpoint, "/api/v1/runtime/select", {
+        method: "POST",
+        body: { engine_id: "backend.autopilot.native-local.fixture" },
+      });
+      assert.equal(selection.selectedEngineId, "backend.autopilot.native-local.fixture");
+      const selectedEngines = await expectOk(daemon.endpoint, "/api/v1/runtime/engines");
+      assert.equal(selectedEngines.find((engine) => engine.id === selection.selectedEngineId)?.selected, true);
       return {
         engineCount: survey.engines.length,
         memoryPressure: survey.hardware.memoryPressure,
         lmStudioStatus: survey.lmStudio.status,
         receiptId: runtimeSurveyReceiptId,
+        selectedEngineId: selection.selectedEngineId,
       };
     });
 
@@ -497,19 +505,48 @@ async function main() {
         token,
         body: { model_id: "native:e2e", id: "endpoint.e2e.native-local", provider_id: "provider.autopilot.local" },
       });
+      const estimate = await expectOk(daemon.endpoint, "/api/v1/models/load", {
+        method: "POST",
+        token,
+        body: {
+          endpoint_id: mounted.id,
+          load_policy: { mode: "on_demand", idleTtlSeconds: 600, autoEvict: true },
+          load_options: {
+            estimateOnly: true,
+            gpu: "auto",
+            contextLength: 4096,
+            parallel: 2,
+            ttlSeconds: 600,
+            identifier: "e2e-estimate",
+          },
+        },
+      });
+      assert.equal(estimate.status, "estimate_only");
+      assert.equal(estimate.runtimeEngineId, "backend.autopilot.native-local.fixture");
       const loaded = await expectOk(daemon.endpoint, "/api/v1/models/load", {
         method: "POST",
         token,
         body: {
           endpoint_id: mounted.id,
           load_policy: { mode: "on_demand", idleTtlSeconds: 900, autoEvict: true },
+          load_options: {
+            gpu: "max",
+            contextLength: 4096,
+            parallel: 2,
+            ttlSeconds: 900,
+            identifier: "e2e-native-load",
+          },
         },
       });
       assert.equal(loaded.backendId, "backend.autopilot.native-local.fixture");
+      assert.equal(loaded.runtimeEngineId, "backend.autopilot.native-local.fixture");
+      assert.equal(loaded.identifier, "e2e-native-load");
+      assert.equal(loaded.contextLength, 4096);
       return {
         artifactId: imported.id,
         endpointId: mounted.id,
         instanceId: loaded.id,
+        estimateReceiptId: estimate.receiptId,
         checksum: imported.checksum,
       };
     });
@@ -831,6 +868,31 @@ async function main() {
       assert.equal(providerHealth.status, "available");
       const runtimeSurvey = await runCli(cli, ["backends", "--json", "survey"], common);
       assert.match(runtimeSurvey.receiptId, /^receipt_runtime_survey_/);
+      const runtimeSelect = await runCli(cli, ["backends", "--json", "select", "backend.autopilot.native-local.fixture"], common);
+      assert.equal(runtimeSelect.selectedEngineId, "backend.autopilot.native-local.fixture");
+      const loadEstimate = await runCli(
+        cli,
+        [
+          "models",
+          "--json",
+          "load",
+          "--model-id",
+          "native:e2e",
+          "--estimate-only",
+          "--context-length",
+          "4096",
+          "--parallel",
+          "2",
+          "--gpu",
+          "auto",
+          "--ttl-seconds",
+          "600",
+          "--identifier",
+          "cli-estimate",
+        ],
+        common,
+      );
+      assert.equal(loadEstimate.status, "estimate_only");
       const providerHealthLatest = await runCli(
         cli,
         ["models", "--json", "provider-health", "provider.autopilot.local", "--latest"],

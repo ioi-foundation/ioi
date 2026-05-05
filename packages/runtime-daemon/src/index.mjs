@@ -587,6 +587,10 @@ async function handleModelMountingNativeRoute({ request, response, store, url, s
     writeJsonResponse(response, mounts.runtimeSurvey());
     return;
   }
+  if (request.method === "POST" && url.pathname === "/api/v1/runtime/select") {
+    writeJsonResponse(response, mounts.selectRuntimeEngine(await readBody(request)));
+    return;
+  }
   if (request.method === "POST" && segments[2] === "backends" && segments[3] && segments[4] === "health") {
     writeJsonResponse(response, mounts.backendHealth(decodeURIComponent(segments[3])));
     return;

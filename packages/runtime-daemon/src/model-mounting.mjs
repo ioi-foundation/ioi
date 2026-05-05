@@ -22,6 +22,7 @@ class AgentgresModelMountingStore {
       "model-providers",
       "model-backends",
       "model-downloads",
+      "runtime-preferences",
       "provider-health",
       "models",
       "backend-logs",
@@ -738,15 +739,17 @@ class NativeLocalModelProviderDriver {
       }));
   }
 
-  async load({ state, endpoint }) {
+  async load({ state, endpoint, body = {} }) {
     const artifact = state.getModel(endpoint.modelId);
     const estimate = estimateNativeLocalResources(artifact);
     const backendId = endpoint.backendId ?? "backend.autopilot.native-local.fixture";
+    const loadOptions = normalizeLoadOptions(body.load_options ?? body.loadOptions ?? body, endpoint.loadPolicy);
     state.writeBackendLog(endpoint.id, {
       backendId,
       event: "load",
       modelId: endpoint.modelId,
       estimate,
+      loadOptions,
       backend: "autopilot.native_local.fixture",
     });
     return {
@@ -906,9 +909,11 @@ class LmStudioModelProviderDriver {
     return { status: "stopped", evidenceRefs: ["lm_studio_public_lms_server_stop"] };
   }
 
-  async load({ provider, endpoint }) {
+  async load({ provider, endpoint, body = {} }) {
     const lmsPath = this.requireLmsPath(provider);
-    const result = runPublicCommand(lmsPath, ["load", endpoint.modelId], { timeout: 20000 });
+    const loadOptions = normalizeLoadOptions(body.load_options ?? body.loadOptions ?? body, endpoint.loadPolicy);
+    const args = ["load", endpoint.modelId, ...lmStudioLoadOptionArgs(loadOptions)];
+    const result = runPublicCommand(lmsPath, args, { timeout: 20000 });
     if (result.status !== 0) {
       const alreadyLoaded = await this.listLoaded({ provider });
       if (alreadyLoaded.some((model) => model.modelId === endpoint.modelId)) {
@@ -918,6 +923,7 @@ class LmStudioModelProviderDriver {
           backendId: endpoint.backendId ?? "backend.lmstudio",
           evidenceRefs: ["lm_studio_public_lms_load_already_loaded", "lm_studio_public_lms_ps"],
           commandExitCode: result.status,
+          commandArgsHash: stableHash(args.join("\0")),
         };
       }
       throw providerCommandError(provider, "LM Studio model load failed.", result);
@@ -928,6 +934,7 @@ class LmStudioModelProviderDriver {
       backendId: endpoint.backendId ?? "backend.lmstudio",
       evidenceRefs: ["lm_studio_public_lms_load"],
       commandExitCode: result.status,
+      commandArgsHash: stableHash(args.join("\0")),
     };
   }
 
@@ -1214,6 +1221,7 @@ export class ModelMountingState {
     this.instances = new Map();
     this.routes = new Map();
     this.downloads = new Map();
+    this.runtimeSelections = new Map();
     this.tokens = new Map();
     this.vaultRefs = new Map();
     this.mcpServers = new Map();
@@ -1262,6 +1270,7 @@ export class ModelMountingState {
       ],
       providerHealth: ["id", "providerId", "status", "checkedAt", "receiptId", "failureCode", "evidenceRefs"],
       runtimeEngines: ["id", "kind", "label", "status", "selected", "modelFormat", "source"],
+      runtimePreferences: ["id", "selectedEngineId", "selectedAt", "receiptId"],
       modelDownloads: ["id", "artifactId", "status", "source", "progress", "bytesTotal", "bytesCompleted", "targetPath"],
       permissionTokens: ["id", "audience", "allowed", "denied", "expiresAt", "revokedAt", "grantId", "lastUsedAt"],
       walletGrants: ["grantId", "revocationEpoch", "allowed", "denied", "expiry", "vaultRefs", "auditReceiptIds"],
@@ -1279,6 +1288,7 @@ export class ModelMountingState {
     this.loadMap("model-instances", this.instances);
     this.loadMap("model-routes", this.routes);
     this.loadMap("model-downloads", this.downloads);
+    this.loadMap("runtime-preferences", this.runtimeSelections);
     this.loadMap("tokens", this.tokens);
     this.loadMap("vault-refs", this.vaultRefs);
     this.loadMap("mcp-servers", this.mcpServers);
@@ -1643,6 +1653,7 @@ export class ModelMountingState {
     this.writeMap("model-instances", this.instances);
     this.writeMap("model-routes", this.routes);
     this.writeMap("model-downloads", this.downloads);
+    this.writeMap("runtime-preferences", this.runtimeSelections);
     this.writeMap("tokens", this.tokens);
     this.writeVaultRefs();
     this.writeMap("mcp-servers", this.mcpServers);
@@ -1767,6 +1778,7 @@ export class ModelMountingState {
       downloads: this.listDownloads(),
       providerHealth: this.listProviderHealth(),
       runtimeEngines: this.listRuntimeEngines(),
+      runtimePreference: this.runtimePreference(),
       runtimeSurvey: this.latestRuntimeSurvey(),
       tokens: this.listTokens(),
       vaultRefs: this.listVaultRefs(),
@@ -1804,6 +1816,7 @@ export class ModelMountingState {
       downloads: this.listDownloads(),
       providerHealth: this.listProviderHealth(),
       runtimeEngines: this.listRuntimeEngines(),
+      runtimePreference: this.runtimePreference(),
       runtimeSurvey: this.latestRuntimeSurvey(),
       grants: this.listTokens(),
       vaultRefs: this.listVaultRefs(),
@@ -2023,9 +2036,43 @@ export class ModelMountingState {
   async loadModel(body = {}) {
     const endpoint = this.resolveEndpoint(body.endpoint_id ?? body.endpointId, body.model_id ?? body.modelId);
     const provider = this.provider(endpoint.providerId);
-    const driverResult = await this.driverForProvider(provider).load({ state: this, provider, endpoint, body });
-    const now = this.nowIso();
     const loadPolicy = normalizeLoadPolicy(body.load_policy ?? body.loadPolicy ?? endpoint.loadPolicy);
+    const loadOptions = normalizeLoadOptions(body.load_options ?? body.loadOptions ?? body, loadPolicy);
+    if (loadOptions.ttlSeconds !== null) loadPolicy.idleTtlSeconds = loadOptions.ttlSeconds;
+    const runtimePreference = this.runtimePreference();
+    const estimate = this.loadEstimate(endpoint, loadOptions, runtimePreference);
+    if (loadOptions.estimateOnly) {
+      const receipt = this.lifecycleReceipt("model_load_estimate", {
+        endpointId: endpoint.id,
+        modelId: endpoint.modelId,
+        providerId: endpoint.providerId,
+        backendId: endpoint.backendId ?? defaultBackendForProvider(provider),
+        runtimeEngineId: runtimePreference.selectedEngineId,
+        loadPolicy,
+        loadOptions,
+        estimate,
+      });
+      return {
+        schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
+        status: "estimate_only",
+        endpointId: endpoint.id,
+        modelId: endpoint.modelId,
+        providerId: endpoint.providerId,
+        backendId: endpoint.backendId ?? defaultBackendForProvider(provider),
+        runtimeEngineId: runtimePreference.selectedEngineId,
+        loadPolicy,
+        loadOptions,
+        estimate,
+        receiptId: receipt.id,
+      };
+    }
+    const driverResult = await this.driverForProvider(provider).load({
+      state: this,
+      provider,
+      endpoint,
+      body: { ...body, loadOptions, load_policy: loadPolicy },
+    });
+    const now = this.nowIso();
     const instance = {
       id: body.id ?? `instance.${safeId(endpoint.id)}.${Date.now()}`,
       endpointId: endpoint.id,
@@ -2036,6 +2083,13 @@ export class ModelMountingState {
       backendId: driverResult.backendId ?? endpoint.backendId ?? defaultBackendForProvider(provider),
       driver: driverNameForProvider(provider),
       loadPolicy,
+      loadOptions,
+      runtimeEngineId: runtimePreference.selectedEngineId,
+      identifier: loadOptions.identifier ?? null,
+      contextLength: loadOptions.contextLength ?? endpoint.contextWindow ?? null,
+      parallelism: loadOptions.parallel ?? null,
+      gpuOffload: loadOptions.gpu ?? null,
+      estimate: driverResult.estimate ?? estimate,
       loadedAt: now,
       lastUsedAt: now,
       expiresAt: expiresAt(now, loadPolicy),
@@ -2050,10 +2104,39 @@ export class ModelMountingState {
       endpointId: endpoint.id,
       modelId: endpoint.modelId,
       providerId: endpoint.providerId,
+      backendId: instance.backendId,
+      runtimeEngineId: runtimePreference.selectedEngineId,
       loadPolicy,
+      loadOptions,
+      estimate: instance.estimate,
       providerEvidenceRefs: driverResult.evidenceRefs ?? [],
+      commandArgsHash: driverResult.commandArgsHash ?? null,
     });
     return instance;
+  }
+
+  loadEstimate(endpoint, loadOptions = {}, runtimePreference = this.runtimePreference()) {
+    const provider = this.provider(endpoint.providerId);
+    const artifact = this.getModel(endpoint.modelId);
+    const nativeEstimate = estimateNativeLocalResources({
+      ...artifact,
+      contextWindow: loadOptions.contextLength ?? artifact.contextWindow,
+    });
+    return {
+      endpointId: endpoint.id,
+      modelId: endpoint.modelId,
+      providerId: endpoint.providerId,
+      backendId: endpoint.backendId ?? defaultBackendForProvider(provider),
+      runtimeEngineId: runtimePreference.selectedEngineId,
+      contextLength: loadOptions.contextLength ?? nativeEstimate.contextWindow,
+      parallelism: loadOptions.parallel ?? 1,
+      gpuOffload: loadOptions.gpu ?? "auto",
+      identifier: loadOptions.identifier ?? null,
+      estimatedVramBytes: nativeEstimate.estimatedVramBytes,
+      estimatedSizeBytes: nativeEstimate.sizeBytes,
+      realInference: provider.kind !== "ioi_native_local" ? null : nativeEstimate.realInference,
+      evidenceRefs: ["model_load_option_estimate", "runtime_engine_preference"],
+    };
   }
 
   async unloadModel(body = {}) {
@@ -3336,24 +3419,77 @@ export class ModelMountingState {
     return this.backendRegistry();
   }
 
+  runtimePreference() {
+    return (
+      this.runtimeSelections.get("default") ?? {
+        id: "default",
+        selectedEngineId: "backend.autopilot.native-local.fixture",
+        selectedAt: null,
+        receiptId: "none",
+        source: "default_native_local_runtime",
+      }
+    );
+  }
+
+  selectRuntimeEngine(body = {}) {
+    const engineId = requiredString(body.engine_id ?? body.engineId ?? body.id, "engine_id");
+    const checkedAt = this.nowIso();
+    const engines = this.listRuntimeEngines();
+    const engine = engines.find((item) => item.id === engineId);
+    if (!engine) throw notFound(`Runtime engine not found: ${engineId}`, { engineId });
+    const receipt = this.lifecycleReceipt("runtime_engine_select", {
+      engineId,
+      engineKind: engine.kind,
+      engineStatus: engine.status,
+      source: engine.source,
+      modelFormat: engine.modelFormat,
+      checkedAt,
+    });
+    const preference = {
+      id: "default",
+      selectedEngineId: engineId,
+      selectedAt: checkedAt,
+      receiptId: receipt.id,
+      source: "operator_runtime_select",
+      engineKind: engine.kind,
+      engineLabel: engine.label,
+      modelFormat: engine.modelFormat,
+    };
+    this.runtimeSelections.set(preference.id, preference);
+    this.writeMap("runtime-preferences", this.runtimeSelections);
+    this.writeProjection();
+    return {
+      schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
+      ...preference,
+    };
+  }
+
   listRuntimeEngines() {
     const checkedAt = this.nowIso();
     const activeBackendIds = new Set(this.listInstances().map((instance) => instance.backendId).filter(Boolean));
+    const runtimePreference = this.runtimePreference();
+    const hasExplicitPreference = runtimePreference.receiptId !== "none";
     const backendEngines = this.backendRegistry().map((backend) => ({
       id: backend.id,
       kind: backend.kind,
       label: backend.label,
       status: backend.status,
       selected:
-        activeBackendIds.has(backend.id) ||
-        (activeBackendIds.size === 0 && backend.id === "backend.autopilot.native-local.fixture"),
+        runtimePreference.selectedEngineId === backend.id ||
+        (!hasExplicitPreference &&
+          (activeBackendIds.has(backend.id) ||
+            (activeBackendIds.size === 0 && backend.id === "backend.autopilot.native-local.fixture"))),
       modelFormat: (backend.supportedFormats ?? []).join(",") || "unknown",
       source: "autopilot_backend_registry",
       processStatus: backend.processStatus ?? "unknown",
       checkedAt,
       evidenceRefs: backend.evidenceRefs ?? [],
     }));
-    return [...backendEngines, ...this.lmStudioRuntimeEngines(checkedAt)].sort((left, right) => left.id.localeCompare(right.id));
+    const lmStudioEngines = this.lmStudioRuntimeEngines(checkedAt).map((engine) => ({
+      ...engine,
+      selected: runtimePreference.selectedEngineId === engine.id || (!hasExplicitPreference && engine.selected),
+    }));
+    return [...backendEngines, ...lmStudioEngines].sort((left, right) => left.id.localeCompare(right.id));
   }
 
   runtimeSurvey() {
@@ -3361,6 +3497,7 @@ export class ModelMountingState {
     const hardware = hardwareSnapshot();
     const engines = this.listRuntimeEngines();
     const lmStudio = this.lmStudioRuntimeSurvey(checkedAt);
+    const runtimePreference = this.runtimePreference();
     const selectedEngines = engines.filter((engine) => engine.selected).map((engine) => engine.id);
     const receipt = this.receipt("runtime_survey", {
       summary: `Runtime survey captured ${engines.length} engine profile${engines.length === 1 ? "" : "s"}.`,
@@ -3374,6 +3511,7 @@ export class ModelMountingState {
         checkedAt,
         engineCount: engines.length,
         selectedEngines,
+        runtimePreference,
         hardware,
         lmStudio,
       },
@@ -3384,6 +3522,7 @@ export class ModelMountingState {
       engines,
       hardware,
       lmStudio,
+      runtimePreference,
       receiptId: receipt.id,
     };
   }
@@ -3397,6 +3536,7 @@ export class ModelMountingState {
         checkedAt: null,
         engineCount: this.listRuntimeEngines().length,
         selectedEngines: [],
+        runtimePreference: this.runtimePreference(),
         hardware: hardwareSnapshot(),
         lmStudio: { status: "not_checked", evidenceRefs: ["runtime_survey_not_checked"] },
       };
@@ -3407,6 +3547,7 @@ export class ModelMountingState {
       checkedAt: receipt.details?.checkedAt ?? receipt.createdAt,
       engineCount: receipt.details?.engineCount ?? 0,
       selectedEngines: receipt.details?.selectedEngines ?? [],
+      runtimePreference: receipt.details?.runtimePreference ?? this.runtimePreference(),
       hardware: receipt.details?.hardware ?? hardwareSnapshot(),
       lmStudio: receipt.details?.lmStudio ?? { status: "unknown" },
     };
@@ -4003,12 +4144,40 @@ function normalizeLoadPolicy(value = {}) {
   if (typeof value === "string") {
     return { mode: value, idleTtlSeconds: 900, autoEvict: value === "idle_evict" };
   }
+  const ttlSeconds = value.ttl_seconds ?? value.ttlSeconds ?? value.ttl ?? value.idle_ttl_seconds ?? value.idleTtlSeconds ?? 900;
   return {
     mode: value.mode ?? "on_demand",
-    idleTtlSeconds: Number(value.idle_ttl_seconds ?? value.idleTtlSeconds ?? 900),
+    idleTtlSeconds: Number(ttlSeconds),
     autoEvict: value.auto_evict ?? value.autoEvict ?? true,
     memoryPressureEvict: value.memory_pressure_evict ?? value.memoryPressureEvict ?? true,
   };
+}
+
+function normalizeLoadOptions(value = {}, loadPolicy = {}) {
+  const source = typeof value === "object" && value ? value : {};
+  const ttl = source.ttl_seconds ?? source.ttlSeconds ?? source.ttl ?? loadPolicy.idleTtlSeconds ?? null;
+  const gpu = source.gpu_offload ?? source.gpuOffload ?? source.gpu ?? null;
+  const contextLength = source.context_length ?? source.contextLength ?? null;
+  const parallel = source.parallelism ?? source.parallel ?? null;
+  const identifier = source.identifier ?? source.instance_identifier ?? source.instanceIdentifier ?? null;
+  return {
+    estimateOnly: truthy(source.estimate_only ?? source.estimateOnly ?? false),
+    gpu: gpu === null || gpu === undefined || gpu === "" ? null : String(gpu),
+    contextLength: contextLength === null || contextLength === undefined || contextLength === "" ? null : Number(contextLength),
+    parallel: parallel === null || parallel === undefined || parallel === "" ? null : Number(parallel),
+    ttlSeconds: ttl === null || ttl === undefined || ttl === "" ? null : Number(ttl),
+    identifier: identifier === null || identifier === undefined || identifier === "" ? null : String(identifier),
+  };
+}
+
+function lmStudioLoadOptionArgs(loadOptions = {}) {
+  const args = [];
+  if (loadOptions.gpu !== null && loadOptions.gpu !== undefined) args.push("--gpu", String(loadOptions.gpu));
+  if (loadOptions.contextLength) args.push("--context-length", String(loadOptions.contextLength));
+  if (loadOptions.parallel) args.push("--parallel", String(loadOptions.parallel));
+  if (loadOptions.ttlSeconds) args.push("--ttl", String(loadOptions.ttlSeconds));
+  if (loadOptions.identifier) args.push("--identifier", String(loadOptions.identifier));
+  return args;
 }
 
 function expiresAt(nowIso, loadPolicy) {
