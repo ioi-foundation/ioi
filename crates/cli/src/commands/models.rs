@@ -32,6 +32,12 @@ pub enum ModelsCommands {
     CatalogSearch {
         #[clap(long, default_value = "autopilot")]
         query: String,
+        #[clap(long)]
+        format: Option<String>,
+        #[clap(long)]
+        quantization: Option<String>,
+        #[clap(long)]
+        limit: Option<u64>,
     },
     /// Import or download a model from a catalog/source URL.
     CatalogImportUrl {
@@ -166,13 +172,27 @@ pub async fn run(args: ModelsArgs) -> Result<()> {
             )
             .await?
         }
-        ModelsCommands::CatalogSearch { query } => {
-            let encoded_query = query.replace(' ', "%20");
+        ModelsCommands::CatalogSearch {
+            query,
+            format,
+            quantization,
+            limit,
+        } => {
+            let mut params = vec![format!("q={}", query.replace(' ', "%20"))];
+            if let Some(format) = format {
+                params.push(format!("format={}", format.replace(' ', "%20")));
+            }
+            if let Some(quantization) = quantization {
+                params.push(format!("quantization={}", quantization.replace(' ', "%20")));
+            }
+            if let Some(limit) = limit {
+                params.push(format!("limit={limit}"));
+            }
             daemon_request(
                 endpoint,
                 token,
                 Method::GET,
-                &format!("/api/v1/models/catalog/search?q={encoded_query}"),
+                &format!("/api/v1/models/catalog/search?{}", params.join("&")),
                 None,
             )
             .await?

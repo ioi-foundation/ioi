@@ -45,6 +45,9 @@ export type {
 export type {
   ModelArtifact,
   ModelBackend,
+  ModelCatalogEntry,
+  ModelCatalogProviderStatus,
+  ModelCatalogStatus,
   ModelCapability,
   ModelDownloadJob,
   ModelEndpoint,

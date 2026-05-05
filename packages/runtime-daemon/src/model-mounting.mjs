@@ -1274,6 +1274,7 @@ export class ModelMountingState {
       runtimePreferences: ["id", "selectedEngineId", "selectedAt", "receiptId"],
       modelCatalogEntries: ["id", "providerId", "modelId", "format", "quantization", "sourceUrlHash", "license"],
       modelDownloads: ["id", "artifactId", "status", "source", "progress", "bytesTotal", "bytesCompleted", "targetPath"],
+      modelCatalogProviders: ["id", "status", "gate", "formats", "baseUrlHash", "evidenceRefs"],
       permissionTokens: ["id", "audience", "allowed", "denied", "expiresAt", "revokedAt", "grantId", "lastUsedAt"],
       walletGrants: ["grantId", "revocationEpoch", "allowed", "denied", "expiry", "vaultRefs", "auditReceiptIds"],
       mcpServers: ["id", "transport", "allowedTools", "secretRefs", "status"],
@@ -1929,6 +1930,7 @@ export class ModelMountingState {
     return {
       schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
       server: this.serverStatus(baseUrl),
+      catalog: this.catalogStatus(),
       artifacts: this.listArtifacts(),
       backends: this.listBackends(),
       endpoints: this.listEndpoints(),
@@ -1973,6 +1975,7 @@ export class ModelMountingState {
       routes: this.listRoutes(),
       backends: this.listBackends(),
       providers: this.listProviders(),
+      catalog: this.catalogStatus(),
       downloads: this.listDownloads(),
       providerHealth: this.listProviderHealth(),
       runtimeEngines: this.listRuntimeEngines(),
@@ -2102,39 +2105,162 @@ export class ModelMountingState {
     return artifact;
   }
 
-  catalogSearch(query = {}) {
+  catalogStatus() {
+    const hfBaseUrl = huggingFaceCatalogBaseUrl();
+    return {
+      schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
+      checkedAt: this.nowIso(),
+      providers: [
+        {
+          id: "catalog.fixture",
+          label: "Fixture catalog",
+          status: "available",
+          gate: "always_on",
+          formats: ["gguf"],
+          evidenceRefs: ["fixture_model_catalog"],
+        },
+        {
+          id: "catalog.huggingface",
+          label: "Hugging Face-compatible catalog",
+          status: liveModelCatalogEnabled() ? "configured" : "gated",
+          gate: "IOI_LIVE_MODEL_CATALOG",
+          formats: ["gguf", "mlx", "safetensors"],
+          baseUrlHash: stableHash(hfBaseUrl),
+          liveDownloadStatus: liveModelDownloadEnabled() ? "configured" : "gated",
+          downloadGate: "IOI_LIVE_MODEL_DOWNLOAD",
+          evidenceRefs: ["huggingface_catalog_adapter_boundary", "network_access_opt_in"],
+        },
+      ],
+      filters: {
+        formats: ["gguf", "mlx", "safetensors"],
+        quantization: ["Q2", "Q3", "Q4", "Q5", "Q6", "Q8", "F16", "BF16", "IQ"],
+        compatibility: ["native_local_fixture", "llama_cpp", "vllm", "mlx"],
+      },
+      storage: this.storageSummary(),
+    };
+  }
+
+  storageSummary() {
+    const files = listModelFiles(this.modelRoot);
+    const totalBytes = files.reduce((total, filePath) => total + fs.statSync(filePath).size, 0);
+    const knownPaths = new Set([...this.artifacts.values()].map((artifact) => artifact.artifactPath).filter(Boolean));
+    const orphanCount = files.filter((filePath) => !knownPaths.has(filePath)).length;
+    const quotaBytes = Number(process.env.IOI_MODEL_STORAGE_QUOTA_BYTES ?? 0) || null;
+    return {
+      rootHash: stableHash(this.modelRoot),
+      totalBytes,
+      quotaBytes,
+      quotaStatus: quotaBytes && totalBytes > quotaBytes ? "over_quota" : "ok",
+      fileCount: files.length,
+      orphanCount,
+      destructiveActionsRequireUnload: true,
+      evidenceRefs: ["model_storage_quota_boundary", "artifact_delete_unload_guard"],
+    };
+  }
+
+  async catalogSearch(query = {}) {
     const searchedAt = this.nowIso();
     const text = String(query.q ?? query.query ?? "autopilot").trim().toLowerCase();
+    const requestedFormat = query.format === undefined || query.format === "" ? null : String(query.format).toLowerCase();
+    const requestedQuantization = query.quantization === undefined || query.quantization === "" ? null : String(query.quantization).toLowerCase();
+    const limit = normalizeLimit(query.limit, 20, 100);
     const catalog = fixtureModelCatalog(searchedAt);
     const results = catalog.filter((entry) => {
       const haystack = [entry.modelId, entry.family, entry.format, entry.quantization, ...(entry.tags ?? [])].join(" ").toLowerCase();
-      return !text || haystack.includes(text);
+      if (text && !haystack.includes(text)) return false;
+      if (requestedFormat && entry.format !== requestedFormat) return false;
+      if (requestedQuantization && !String(entry.quantization ?? "").toLowerCase().includes(requestedQuantization)) return false;
+      return true;
     });
+    const live = await this.searchHuggingFaceCatalog({ query: text, format: requestedFormat, quantization: requestedQuantization, limit, searchedAt });
     return {
       schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
       searchedAt,
       query: text,
+      filters: {
+        format: requestedFormat,
+        quantization: requestedQuantization,
+        limit,
+      },
       providers: [
         { id: "catalog.fixture", status: "available", evidenceRefs: ["fixture_model_catalog"] },
         {
           id: "catalog.huggingface",
-          status: process.env.IOI_LIVE_MODEL_CATALOG === "1" ? "configured" : "gated",
-          evidenceRefs: ["huggingface_catalog_adapter_boundary", "network_access_opt_in"],
+          status: live.status,
+          gate: "IOI_LIVE_MODEL_CATALOG",
+          baseUrlHash: live.baseUrlHash,
+          errorHash: live.errorHash ?? null,
+          evidenceRefs: live.evidenceRefs,
         },
       ],
-      results,
+      results: [...results, ...live.results].slice(0, limit),
     };
   }
 
-  catalogImportUrl(body = {}) {
+  async searchHuggingFaceCatalog({ query, format, quantization, limit, searchedAt }) {
+    const baseUrl = huggingFaceCatalogBaseUrl();
+    const evidenceRefs = ["huggingface_catalog_adapter_boundary", "network_access_opt_in"];
+    if (!liveModelCatalogEnabled()) {
+      return { status: "gated", baseUrlHash: stableHash(baseUrl), evidenceRefs, results: [] };
+    }
+    try {
+      const url = new URL("/api/models", baseUrl);
+      if (query) url.searchParams.set("search", query);
+      url.searchParams.set("limit", String(limit));
+      const response = await fetchWithTimeout(url, { timeoutMs: modelCatalogTimeoutMs() });
+      if (!response.ok) {
+        return {
+          status: "degraded",
+          baseUrlHash: stableHash(baseUrl),
+          evidenceRefs,
+          errorHash: stableHash(`http:${response.status}`),
+          results: [],
+        };
+      }
+      const payload = await response.json();
+      const records = Array.isArray(payload) ? payload : Array.isArray(payload?.models) ? payload.models : Array.isArray(payload?.results) ? payload.results : [];
+      const results = records
+        .flatMap((record) => huggingFaceCatalogEntries(record, { baseUrl, searchedAt }))
+        .filter((entry) => {
+          if (format && entry.format !== format) return false;
+          if (quantization && !String(entry.quantization ?? "").toLowerCase().includes(quantization)) return false;
+          return true;
+        })
+        .slice(0, limit);
+      return {
+        status: "available",
+        baseUrlHash: stableHash(baseUrl),
+        evidenceRefs: [...evidenceRefs, "huggingface_catalog_search"],
+        results,
+      };
+    } catch (error) {
+      return {
+        status: "degraded",
+        baseUrlHash: stableHash(baseUrl),
+        evidenceRefs,
+        errorHash: stableHash(error?.message ?? "catalog search failed"),
+        results: [],
+      };
+    }
+  }
+
+  async catalogImportUrl(body = {}) {
     const sourceUrl = requiredString(body.source_url ?? body.sourceUrl ?? body.url, "source_url");
     const isFixture = sourceUrl.startsWith("fixture://");
-    if (!isFixture && process.env.IOI_LIVE_MODEL_CATALOG !== "1") {
+    if (!isFixture && !liveModelCatalogEnabled()) {
       throw runtimeError({
         status: 424,
         code: "external_blocker",
         message: "Live catalog imports are gated. Use fixture:// URLs or set IOI_LIVE_MODEL_CATALOG=1.",
         details: { sourceUrlHash: stableHash(sourceUrl), evidenceRefs: ["network_access_opt_in"] },
+      });
+    }
+    if (!isFixture && !liveModelDownloadEnabled()) {
+      throw runtimeError({
+        status: 424,
+        code: "external_blocker",
+        message: "Live catalog downloads are gated. Set IOI_LIVE_MODEL_DOWNLOAD=1 to materialize remote artifacts.",
+        details: { sourceUrlHash: stableHash(sourceUrl), evidenceRefs: ["network_download_opt_in"] },
       });
     }
     const modelId = body.model_id ?? body.modelId ?? modelIdFromSourceUrl(sourceUrl);
@@ -2148,18 +2274,23 @@ export class ModelMountingState {
       quantization: variant.quantization,
       license: variant.license,
       compatibility: variant.compatibility,
+      liveDownloadGate: isFixture ? "fixture" : "IOI_LIVE_MODEL_DOWNLOAD",
     });
-    const download = this.downloadModel({
+    const download = await this.downloadModel({
       ...body,
       model_id: modelId,
       provider_id: body.provider_id ?? body.providerId ?? "provider.autopilot.local",
       source_url: sourceUrl,
       source_label: variant.sourceLabel,
       file_name: body.file_name ?? body.fileName ?? `${safeFileName(modelId)}.${variant.format}`,
-      fixture_content:
-        body.fixture_content ??
-        body.fixtureContent ??
-        [`family=${variant.family}`, `quantization=${variant.quantization}`, `context=${variant.contextWindow}`, ""].join("\n"),
+      ...(isFixture
+        ? {
+            fixture_content:
+              body.fixture_content ??
+              body.fixtureContent ??
+              [`family=${variant.family}`, `quantization=${variant.quantization}`, `context=${variant.contextWindow}`, ""].join("\n"),
+          }
+        : {}),
       format: variant.format,
       quantization: variant.quantization,
       family: variant.family,
@@ -2428,23 +2559,33 @@ export class ModelMountingState {
     return updated;
   }
 
-  downloadModel(body = {}) {
+  async downloadModel(body = {}) {
     const now = this.nowIso();
     const modelId = requiredString(body.model_id ?? body.modelId, "model_id");
     const providerId = body.provider_id ?? body.providerId ?? "provider.autopilot.local";
     const source = body.source_url ?? body.sourceUrl ?? body.source ?? "deterministic_fixture_download";
+    const isFixture = String(source).startsWith("fixture://") || source === "deterministic_fixture_download";
+    if (!isFixture && !liveModelDownloadEnabled()) {
+      throw runtimeError({
+        status: 424,
+        code: "external_blocker",
+        message: "Live model downloads are gated. Set IOI_LIVE_MODEL_DOWNLOAD=1.",
+        details: { sourceUrlHash: stableHash(source), evidenceRefs: ["network_download_opt_in"] },
+      });
+    }
     const sourceLabel = body.source_label ?? body.sourceLabel ?? sourceLabelForUrl(source);
     const variantMetadata = catalogVariantForSource(source, body);
     const targetDir = path.join(this.modelRoot, "downloads", safeFileName(modelId));
     const targetPath = path.join(targetDir, body.file_name ?? body.fileName ?? `${safeFileName(modelId)}.gguf`);
     const fixtureContent = String(body.fixture_content ?? body.fixtureContent ?? `deterministic model bytes for ${modelId}\n`);
-    const bytesTotal = Number(body.bytes_total ?? body.bytesTotal ?? Buffer.byteLength(fixtureContent));
+    const bytesTotal = Number(body.bytes_total ?? body.bytesTotal ?? (isFixture ? Buffer.byteLength(fixtureContent) : 0));
     const jobBase = {
       id: `download_job_${crypto.randomUUID()}`,
       modelId,
       providerId,
-      source,
+      source: publicDownloadSource(source),
       sourceHash: stableHash(source),
+      sourceUrlHash: stableHash(source),
       sourceLabel,
       variant: variantMetadata,
       targetPath,
@@ -2465,6 +2606,7 @@ export class ModelMountingState {
       sourceLabel,
       variant: variantMetadata,
       targetPathHash: stableHash(targetPath),
+      downloadMode: isFixture ? "fixture" : "live_network",
     });
     if (truthy(body.fail ?? body.simulate_failure ?? body.simulateFailure)) {
       const failed = {
@@ -2502,15 +2644,55 @@ export class ModelMountingState {
       return queued;
     }
     fs.mkdirSync(targetDir, { recursive: true });
-    fs.writeFileSync(targetPath, fixtureContent);
     const runningReceipt = this.lifecycleReceipt("model_download_running", {
       jobId: jobBase.id,
       modelId,
       providerId,
       bytesTotal,
-      bytesCompleted: bytesTotal,
+      bytesCompleted: 0,
+      sourceHash: stableHash(source),
+      sourceLabel,
+      downloadMode: isFixture ? "fixture" : "live_network",
     });
-    const checksum = fileSha256(targetPath);
+    let materialized;
+    try {
+      materialized = isFixture
+        ? materializeFixtureDownload({ targetPath, fixtureContent })
+        : await materializeLiveDownload({
+            source,
+            targetPath,
+            expectedChecksum: body.checksum ?? body.expected_checksum ?? body.expectedChecksum ?? null,
+            resume: truthy(body.resume ?? body.resume_download ?? body.resumeDownload ?? true),
+            timeoutMs: modelDownloadTimeoutMs(),
+          });
+    } catch (error) {
+      const failureReason = downloadFailureReason(error);
+      const failedReceipt = this.lifecycleReceipt("model_download_failed", {
+        jobId: jobBase.id,
+        modelId,
+        providerId,
+        failureReason,
+        sourceHash: stableHash(source),
+        sourceLabel,
+        errorHash: stableHash(error?.message ?? "download failed"),
+        cleanupState: cleanupPartialDownload(targetPath),
+      });
+      const failed = {
+        ...jobBase,
+        artifactId: null,
+        status: "failed",
+        failureReason,
+        updatedAt: this.nowIso(),
+        receiptIds: [queuedReceipt.id, runningReceipt.id, failedReceipt.id],
+        receiptId: failedReceipt.id,
+      };
+      this.downloads.set(failed.id, failed);
+      this.writeMap("model-downloads", this.downloads);
+      this.writeProjection();
+      return failed;
+    }
+    const checksum = materialized.checksum;
+    const completedBytes = materialized.bytesCompleted;
     const metadata = parseLocalModelMetadata(targetPath);
     const artifact = this.artifacts.get(`download.${safeId(modelId)}`) ?? {
       id: `download.${safeId(modelId)}`,
@@ -2520,13 +2702,14 @@ export class ModelMountingState {
       family: body.family ?? metadata.family ?? "download",
       format: body.format ?? variantMetadata.format ?? metadata.format ?? "gguf",
       quantization: body.quantization ?? variantMetadata.quantization ?? metadata.quantization ?? null,
-      sizeBytes: bytesTotal,
+      sizeBytes: completedBytes,
       checksum,
       contextWindow: body.context_window ?? body.contextWindow ?? metadata.contextWindow ?? null,
       capabilities: normalizeScopes(body.capabilities, ["chat"]),
       privacyClass: body.privacy_class ?? body.privacyClass ?? "local_private",
-      source,
+      source: publicDownloadSource(source),
       sourceLabel,
+      sourceUrlHash: stableHash(source),
       license: body.license ?? variantMetadata.license ?? null,
       compatibility: body.compatibility ?? variantMetadata.compatibility ?? [],
       artifactPath: targetPath,
@@ -2540,7 +2723,9 @@ export class ModelMountingState {
       status: "completed",
       checksum,
       progress: 1,
-      bytesCompleted: bytesTotal,
+      bytesTotal: materialized.bytesTotal || completedBytes,
+      bytesCompleted: completedBytes,
+      resumeOffset: materialized.resumeOffset ?? 0,
       updatedAt: this.nowIso(),
       receiptIds: [queuedReceipt.id, runningReceipt.id],
       receiptId: runningReceipt.id,
@@ -2552,11 +2737,14 @@ export class ModelMountingState {
       artifactId: artifact.id,
       modelId,
       providerId: artifact.providerId,
-      bytesTotal,
+      bytesTotal: materialized.bytesTotal || completedBytes,
+      bytesCompleted: completedBytes,
       checksum,
       sourceHash: stableHash(source),
       sourceLabel,
       variant: variantMetadata,
+      resumeOffset: materialized.resumeOffset ?? 0,
+      downloadMode: isFixture ? "fixture" : "live_network",
     });
     const completed = { ...job, receiptId: receipt.id, receiptIds: [...job.receiptIds, receipt.id] };
     this.downloads.set(completed.id, completed);
@@ -4853,8 +5041,7 @@ function parseLocalModelMetadata(filePath) {
       : lower.endsWith(".onnx")
         ? "onnx"
         : null;
-  const quantization =
-    name.match(/\b(Q[0-9]_[A-Za-z0-9_]+|Q[0-9]+|F16|BF16|IQ[0-9]_[A-Za-z0-9_]+)\b/)?.[1] ?? null;
+  const quantization = parseModelQuantization(name);
   let text = "";
   try {
     const fd = fs.openSync(filePath, "r");
@@ -4875,6 +5062,10 @@ function parseLocalModelMetadata(filePath) {
     quantization,
     contextWindow,
   };
+}
+
+function parseModelQuantization(value) {
+  return String(value ?? "").match(/\b(Q[0-9]_[A-Za-z0-9_]+|Q[0-9]+|F16|BF16|IQ[0-9]_[A-Za-z0-9_]+)\b/i)?.[1] ?? null;
 }
 
 function hardwareSnapshot() {
@@ -5021,13 +5212,122 @@ function fixtureModelCatalog(searchedAt) {
   ];
 }
 
+function liveModelCatalogEnabled() {
+  return process.env.IOI_LIVE_MODEL_CATALOG === "1";
+}
+
+function liveModelDownloadEnabled() {
+  return process.env.IOI_LIVE_MODEL_DOWNLOAD === "1";
+}
+
+function huggingFaceCatalogBaseUrl() {
+  return process.env.IOI_MODEL_CATALOG_HF_BASE_URL ?? "https://huggingface.co";
+}
+
+function modelCatalogTimeoutMs() {
+  return Number(process.env.IOI_MODEL_CATALOG_TIMEOUT_MS ?? 5000) || 5000;
+}
+
+function modelDownloadTimeoutMs() {
+  return Number(process.env.IOI_MODEL_DOWNLOAD_TIMEOUT_MS ?? 30000) || 30000;
+}
+
+async function fetchWithTimeout(url, { timeoutMs, headers = {} } = {}) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs ?? 5000);
+  try {
+    return await fetch(url, { headers, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function huggingFaceCatalogEntries(record, { baseUrl, searchedAt }) {
+  const repoId = String(record.modelId ?? record.id ?? record.repo_id ?? record.repoId ?? "").trim();
+  if (!repoId) return [];
+  const files = huggingFaceFileCandidates(record);
+  const candidates = files.length > 0 ? files : [{ path: null, sizeBytes: Number(record.size ?? record.downloadsSize ?? 0) || null }];
+  return candidates
+    .map((file) => huggingFaceCatalogEntry(record, file, { baseUrl, repoId, searchedAt }))
+    .filter(Boolean);
+}
+
+function huggingFaceFileCandidates(record) {
+  const rawFiles = [
+    ...(Array.isArray(record.siblings) ? record.siblings : []),
+    ...(Array.isArray(record.files) ? record.files : []),
+    ...(Array.isArray(record.downloads) ? record.downloads : []),
+  ];
+  return rawFiles
+    .map((file) => ({
+      path: file.rfilename ?? file.path ?? file.name ?? file.file ?? file.filename ?? null,
+      sizeBytes: Number(file.size ?? file.sizeBytes ?? file.lfs?.size ?? 0) || null,
+      downloadUrl: file.downloadUrl ?? file.download_url ?? file.url ?? null,
+    }))
+    .filter((file) => file.path && modelCatalogFileFormat(file.path));
+}
+
+function huggingFaceCatalogEntry(record, file, { baseUrl, repoId, searchedAt }) {
+  const filePath = file.path ?? `${safeId(repoId)}.gguf`;
+  const format = modelCatalogFileFormat(filePath);
+  if (!format) return null;
+  const quantization = parseModelQuantization(filePath) ?? parseModelQuantization(record.modelId ?? record.id ?? "") ?? null;
+  const sourceUrl = file.downloadUrl ?? huggingFaceResolveUrl(baseUrl, repoId, filePath);
+  const tags = normalizeScopes(record.tags, []);
+  return {
+    id: `catalog.huggingface.${safeId(repoId)}.${safeId(filePath)}`,
+    providerId: "provider.autopilot.local",
+    catalogProviderId: "catalog.huggingface",
+    modelId: repoId,
+    family: String(record.pipeline_tag ?? record.pipelineTag ?? record.library_name ?? "huggingface"),
+    format,
+    quantization,
+    sizeBytes: file.sizeBytes,
+    contextWindow: Number(record.contextWindow ?? record.context_window ?? 0) || null,
+    sourceUrl,
+    sourceUrlHash: stableHash(sourceUrl),
+    sourceLabel: `Hugging Face / ${repoId}${filePath ? ` / ${filePath}` : ""}`,
+    license: record.cardData?.license ?? record.license ?? null,
+    compatibility: catalogCompatibilityForFormat(format),
+    tags: [...new Set([...tags, format, quantization].filter(Boolean))],
+    variantPath: filePath,
+    gatedBy: ["IOI_LIVE_MODEL_CATALOG", "IOI_LIVE_MODEL_DOWNLOAD"],
+    discoveredAt: searchedAt,
+  };
+}
+
+function modelCatalogFileFormat(filePath) {
+  const lower = String(filePath ?? "").toLowerCase();
+  if (lower.endsWith(".gguf")) return "gguf";
+  if (lower.includes("mlx")) return "mlx";
+  if (lower.endsWith(".safetensors")) return "safetensors";
+  return null;
+}
+
+function catalogCompatibilityForFormat(format) {
+  if (format === "gguf") return ["native_local_fixture", "llama_cpp"];
+  if (format === "mlx") return ["mlx", "local_import"];
+  if (format === "safetensors") return ["vllm", "openai_compatible"];
+  return ["local_import"];
+}
+
+function huggingFaceResolveUrl(baseUrl, repoId, filePath) {
+  const base = String(baseUrl).replace(/\/+$/, "");
+  const pathPart = String(filePath)
+    .split("/")
+    .map((part) => encodeURIComponent(part))
+    .join("/");
+  return `${base}/${repoId}/resolve/main/${pathPart}`;
+}
+
 function catalogVariantForSource(source, body = {}) {
   const catalogEntry = fixtureModelCatalog(new Date(0).toISOString()).find((entry) => entry.sourceUrl === source);
+  const publicSource = publicDownloadSource(source);
   return {
-    id: body.variant_id ?? body.variantId ?? catalogEntry?.id ?? `variant.${safeId(source)}`,
-    family: body.family ?? catalogEntry?.family ?? modelIdFromSourceUrl(source),
-    format: body.format ?? catalogEntry?.format ?? "gguf",
-    quantization: body.quantization ?? catalogEntry?.quantization ?? "Q4_K_M",
+    id: body.variant_id ?? body.variantId ?? catalogEntry?.id ?? `variant.${safeId(publicSource)}`,
+    family: body.family ?? catalogEntry?.family ?? modelIdFromSourceUrl(publicSource),
+    format: body.format ?? catalogEntry?.format ?? modelCatalogFileFormat(publicSource) ?? "gguf",
+    quantization: body.quantization ?? catalogEntry?.quantization ?? parseModelQuantization(publicSource) ?? "Q4_K_M",
     sizeBytes: Number(body.size_bytes ?? body.sizeBytes ?? catalogEntry?.sizeBytes ?? 0),
     contextWindow: Number(body.context_window ?? body.contextWindow ?? catalogEntry?.contextWindow ?? 4096),
     sourceLabel: body.source_label ?? body.sourceLabel ?? catalogEntry?.sourceLabel ?? sourceLabelForUrl(source),
@@ -5093,6 +5393,94 @@ function fileSha256(filePath) {
   const hash = crypto.createHash("sha256");
   hash.update(fs.readFileSync(filePath));
   return `sha256:${hash.digest("hex")}`;
+}
+
+function materializeFixtureDownload({ targetPath, fixtureContent }) {
+  fs.writeFileSync(targetPath, fixtureContent);
+  const bytesCompleted = fs.statSync(targetPath).size;
+  return {
+    bytesTotal: bytesCompleted,
+    bytesCompleted,
+    checksum: fileSha256(targetPath),
+    resumeOffset: 0,
+  };
+}
+
+async function materializeLiveDownload({ source, targetPath, expectedChecksum, resume, timeoutMs }) {
+  const partialPath = `${targetPath}.part`;
+  const resumeOffset = resume && fs.existsSync(partialPath) ? fs.statSync(partialPath).size : 0;
+  const headers = resumeOffset > 0 ? { range: `bytes=${resumeOffset}-` } : {};
+  const response = await fetchWithTimeout(source, { timeoutMs, headers });
+  if (!response.ok) {
+    throw new Error(`live_download_http_${response.status}`);
+  }
+  const appending = resumeOffset > 0 && response.status === 206;
+  const writePath = appending ? partialPath : partialPath;
+  if (!appending) fs.rmSync(partialPath, { force: true });
+  const stream = fs.createWriteStream(writePath, { flags: appending ? "a" : "w" });
+  let bytesCompleted = appending ? resumeOffset : 0;
+  try {
+    for await (const chunk of response.body) {
+      const buffer = Buffer.from(chunk);
+      bytesCompleted += buffer.length;
+      if (!stream.write(buffer)) {
+        await new Promise((resolve) => stream.once("drain", resolve));
+      }
+    }
+  } finally {
+    await new Promise((resolve, reject) => stream.end((error) => (error ? reject(error) : resolve())));
+  }
+  const contentLength = Number(response.headers.get("content-length") ?? 0) || 0;
+  const bytesTotal = response.status === 206 ? resumeOffset + contentLength : contentLength || bytesCompleted;
+  fs.renameSync(partialPath, targetPath);
+  const checksum = fileSha256(targetPath);
+  if (expectedChecksum && checksum !== expectedChecksum) {
+    throw new Error("live_download_checksum_mismatch");
+  }
+  return {
+    bytesTotal,
+    bytesCompleted,
+    checksum,
+    resumeOffset: appending ? resumeOffset : 0,
+  };
+}
+
+function cleanupPartialDownload(targetPath) {
+  let cleanupState = "not_needed";
+  for (const filePath of [targetPath, `${targetPath}.part`]) {
+    if (!fs.existsSync(filePath)) continue;
+    try {
+      fs.rmSync(filePath, { force: true });
+      cleanupState = "removed_partial";
+    } catch {
+      cleanupState = "cleanup_failed";
+    }
+  }
+  return cleanupState;
+}
+
+function downloadFailureReason(error) {
+  const message = String(error?.message ?? error ?? "download_failed");
+  if (message.includes("checksum")) return "checksum_mismatch";
+  if (message.includes("AbortError") || message.includes("aborted")) return "network_timeout";
+  const http = message.match(/live_download_http_([0-9]+)/)?.[1];
+  if (http) return `http_${http}`;
+  return "network_download_failed";
+}
+
+function publicDownloadSource(source) {
+  const text = String(source ?? "");
+  if (text.startsWith("fixture://")) return text.split("?")[0];
+  try {
+    const url = new URL(text);
+    url.username = "";
+    url.password = "";
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return text;
+  }
 }
 
 function matchesAny(scope, patterns) {
