@@ -1142,6 +1142,126 @@ class OpenAICompatibleModelProviderDriver {
   }
 }
 
+class VllmModelProviderDriver {
+  constructor({ state }) {
+    this.state = state;
+    this.openAi = new OpenAICompatibleModelProviderDriver({ label: "vllm" });
+  }
+
+  providerWithBackendBaseUrl(provider) {
+    const backend = this.state.backend(defaultBackendForProvider(provider));
+    return {
+      ...provider,
+      baseUrl: provider.baseUrl ?? backend.baseUrl,
+      status: provider.status === "blocked" && (backend.binaryPath || backend.baseUrl) ? "configured" : provider.status,
+    };
+  }
+
+  async health(provider, { state } = {}) {
+    const effectiveProvider = this.providerWithBackendBaseUrl(provider);
+    const result = await this.openAi.health(effectiveProvider, { state });
+    const backend = state.backend(defaultBackendForProvider(provider));
+    return {
+      ...result,
+      status: result.status === "available" ? "available" : backend.binaryPath ? "degraded" : result.status,
+      evidenceRefs: [
+        "vllm_openai_compatible_models_probe",
+        ...(result.evidenceRefs ?? []),
+        ...(backend.binaryPath ? ["vllm_binary_configured"] : []),
+      ],
+      binaryPathHash: backend.binaryPath ? stableHash(backend.binaryPath) : null,
+    };
+  }
+
+  async listModels({ state, provider }) {
+    const effectiveProvider = this.providerWithBackendBaseUrl(provider);
+    const models = await this.openAi.listModels({ state, provider: effectiveProvider });
+    return models.map((model) => ({
+      ...model,
+      providerId: provider.id,
+      family: "vllm",
+      source: "vllm_openai_compatible_models_endpoint",
+      compatibility: ["vllm", "safetensors", "hf_repository"],
+    }));
+  }
+
+  async listLoaded({ state, provider }) {
+    const backendId = defaultBackendForProvider(provider);
+    return state
+      .listInstances()
+      .filter((instance) => instance.providerId === provider.id && instance.status === "loaded")
+      .map((instance) => ({
+        ...instance,
+        backend: "vllm",
+        backendId,
+        backendProcess: state.backendProcessSnapshot(state.backendProcessForBackend(backendId)),
+        evidenceRefs: ["vllm_agentgres_loaded_instance_projection"],
+      }));
+  }
+
+  async load({ state, provider, endpoint, body = {} }) {
+    const loadOptions = normalizeLoadOptions(body.load_options ?? body.loadOptions ?? body, endpoint.loadPolicy);
+    const backendId = endpoint.backendId ?? defaultBackendForProvider(provider);
+    const backend = state.backend(backendId);
+    const processRecord =
+      provider.id === "provider.vllm" && backend.binaryPath
+        ? state.ensureBackendProcess(backendId, { endpoint, loadOptions, reason: "vllm_model_load" })
+        : null;
+    return {
+      status: "loaded",
+      backend: "vllm",
+      backendId,
+      process: state.backendProcessSnapshot(processRecord),
+      evidenceRefs: [
+        ...(processRecord ? ["vllm_process_supervisor", "vllm_openai_compatible_server"] : ["vllm_stateless_http_load"]),
+      ],
+    };
+  }
+
+  async unload({ state, provider, endpoint }) {
+    const backendId = endpoint?.backendId ?? defaultBackendForProvider(provider);
+    const backend = state.backend(backendId);
+    const stopped = provider.id === "provider.vllm" && backend.binaryPath ? state.stopBackendProcess(backend, { reason: "vllm_model_unload" }) : null;
+    const processSnapshot = state.backendProcessSnapshot(stopped);
+    return {
+      status: "unloaded",
+      backend: "vllm",
+      backendId,
+      process: processSnapshot,
+      evidenceRefs: [
+        ...(stopped ? ["vllm_process_supervisor", "clean_backend_stop", ...normalizeScopes(processSnapshot.evidenceRefs, [])] : ["vllm_stateless_http_unload"]),
+      ],
+    };
+  }
+
+  async invoke(args) {
+    const provider = this.providerWithBackendBaseUrl(args.provider);
+    const backendId = args.endpoint?.backendId ?? defaultBackendForProvider(provider);
+    const backend = args.state.backend(backendId);
+    const processRecord =
+      provider.id === "provider.vllm" && backend.binaryPath
+        ? args.state.ensureBackendProcess(backendId, {
+            endpoint: args.endpoint,
+            loadOptions: args.instance?.loadOptions ?? {},
+            reason: "vllm_model_invoke",
+          })
+        : null;
+    const processSnapshot = args.state.backendProcessSnapshot(processRecord);
+    const result = await this.openAi.invoke({ ...args, provider, allowResponsesFallback: true });
+    return {
+      ...result,
+      backend: "vllm",
+      backendId,
+      backendProcess: processSnapshot,
+      backendEvidenceRefs: [
+        "vllm_openai_compatible_server",
+        ...(processRecord ? ["vllm_process_supervisor", ...normalizeScopes(processSnapshot.evidenceRefs, [])] : []),
+        ...(result.backendEvidenceRefs ?? []),
+      ],
+    };
+  }
+}
+
 class LlamaCppModelProviderDriver {
   constructor({ state }) {
     this.state = state;
@@ -1607,6 +1727,7 @@ export class ModelMountingState {
     const lmStudioProvider = this.discoverLmStudioProvider(checkedAt);
     this.upsertDefault(this.providers, lmStudioProvider);
 
+    const vllmBinary = process.env.IOI_VLLM_BINARY ?? findExecutable("vllm");
     for (const provider of [
       {
         id: "provider.ollama",
@@ -1637,12 +1758,12 @@ export class ModelMountingState {
         kind: "vllm",
         label: "vLLM",
         apiFormat: "openai_compatible",
-        driver: "openai_compatible",
+        driver: "vllm",
         baseUrl: process.env.VLLM_BASE_URL ?? "http://127.0.0.1:8000/v1",
-        status: process.env.VLLM_BASE_URL ? "configured" : "blocked",
+        status: process.env.VLLM_BASE_URL || vllmBinary ? "configured" : "blocked",
         privacyClass: "workspace",
-        capabilities: ["chat", "embeddings"],
-        discovery: { checkedAt, evidenceRefs: ["VLLM_BASE_URL"] },
+        capabilities: ["chat", "responses", "embeddings"],
+        discovery: { checkedAt, evidenceRefs: ["VLLM_BASE_URL", vllmBinary ? "vllm_binary_detected" : "IOI_VLLM_BINARY"] },
       },
       {
         id: "provider.openai-compatible",
@@ -4699,6 +4820,12 @@ export class ModelMountingState {
       if (contextLength) args.push("--ctx-size", String(contextLength));
       if (parallel) args.push("--parallel", String(parallel));
       if (gpu) args.push("--gpu-layers", gpu === "max" ? "999" : String(gpu));
+    } else if (backend.kind === "vllm") {
+      args.push("vllm", "serve", artifactPathHash ? `artifact:${artifactPathHash}` : modelArg);
+      if (contextLength) args.push("--max-model-len", String(contextLength));
+      if (parallel) args.push("--tensor-parallel-size", String(parallel));
+      if (loadOptions.dtype) args.push("--dtype", String(loadOptions.dtype));
+      if (loadOptions.gpuMemoryUtilization) args.push("--gpu-memory-utilization", String(loadOptions.gpuMemoryUtilization));
     } else if (backend.kind === "ollama") {
       args.push("ollama", "serve");
     } else if (backend.kind === "native_local") {
@@ -4715,6 +4842,19 @@ export class ModelMountingState {
 
   backendProcessSpawnArgs(backend, { endpoint = null, loadOptions = {} } = {}) {
     if (backend.kind === "ollama") return ["serve"];
+    if (backend.kind === "vllm") {
+      const args = ["serve", endpoint?.artifactPath ?? loadOptions.modelPath ?? loadOptions.model_path ?? endpoint?.modelId ?? loadOptions.model ?? "runtime-engine-profile"];
+      const bind = backendBindAddress(backend.baseUrl);
+      if (bind.host) args.push("--host", bind.host);
+      if (bind.port) args.push("--port", String(bind.port));
+      const contextLength = loadOptions.contextLength ?? loadOptions.maxModelLen ?? this.runtimeDefaultLoadOptions(backend.id).contextLength ?? null;
+      const parallel = loadOptions.parallel ?? loadOptions.tensorParallelSize ?? this.runtimeDefaultLoadOptions(backend.id).parallel ?? null;
+      if (contextLength) args.push("--max-model-len", String(contextLength));
+      if (parallel) args.push("--tensor-parallel-size", String(parallel));
+      if (loadOptions.dtype) args.push("--dtype", String(loadOptions.dtype));
+      if (loadOptions.gpuMemoryUtilization) args.push("--gpu-memory-utilization", String(loadOptions.gpuMemoryUtilization));
+      return args;
+    }
     if (backend.kind !== "llama_cpp") return this.backendProcessArgs(backend, { endpoint, loadOptions }).slice(1);
     const args = [];
     const modelPath = endpoint?.artifactPath ?? loadOptions.modelPath ?? loadOptions.model_path ?? null;
@@ -4832,7 +4972,7 @@ export class ModelMountingState {
   }
 
   spawnBackendChildProcess(backend, { endpoint = null, loadOptions = {}, reason = "runtime_control", processRef, argsRedacted = [] } = {}) {
-    if (!["llama_cpp", "ollama"].includes(backend.kind)) {
+    if (!["llama_cpp", "ollama", "vllm"].includes(backend.kind)) {
       return { spawned: false, status: "not_required", evidenceRefs: [] };
     }
     if (!backend.binaryPath) {
@@ -5109,6 +5249,7 @@ export class ModelMountingState {
     if (driver === "lm_studio") return new LmStudioModelProviderDriver({ state: this });
     if (driver === "llama_cpp") return new LlamaCppModelProviderDriver({ state: this });
     if (driver === "ollama") return new OllamaModelProviderDriver();
+    if (driver === "vllm") return new VllmModelProviderDriver({ state: this });
     if (driver === "openai_compatible") return new OpenAICompatibleModelProviderDriver({ label: provider.kind });
     return new FixtureModelProviderDriver();
   }
@@ -5302,7 +5443,8 @@ function driverForProviderKind(kind) {
   if (kind === "lm_studio") return "lm_studio";
   if (kind === "llama_cpp") return "llama_cpp";
   if (kind === "ollama") return "ollama";
-  if (["openai_compatible", "vllm", "custom_http", "openai", "anthropic", "gemini"].includes(kind)) {
+  if (kind === "vllm") return "vllm";
+  if (["openai_compatible", "custom_http", "openai", "anthropic", "gemini"].includes(kind)) {
     return "openai_compatible";
   }
   return "fixture";
@@ -5570,6 +5712,27 @@ function normalizeLoadOptions(value = {}, loadPolicy = {}) {
     parallel: parallel === null || parallel === undefined || parallel === "" ? null : Number(parallel),
     ttlSeconds: ttl === null || ttl === undefined || ttl === "" ? null : Number(ttl),
     identifier: identifier === null || identifier === undefined || identifier === "" ? null : String(identifier),
+    modelPath: source.model_path ?? source.modelPath ?? null,
+    model: source.model ?? null,
+    dtype: source.dtype ?? null,
+    tensorParallelSize:
+      source.tensor_parallel_size === null || source.tensor_parallel_size === undefined || source.tensor_parallel_size === ""
+        ? source.tensorParallelSize === null || source.tensorParallelSize === undefined || source.tensorParallelSize === ""
+          ? null
+          : Number(source.tensorParallelSize)
+        : Number(source.tensor_parallel_size),
+    gpuMemoryUtilization:
+      source.gpu_memory_utilization === null || source.gpu_memory_utilization === undefined || source.gpu_memory_utilization === ""
+        ? source.gpuMemoryUtilization === null || source.gpuMemoryUtilization === undefined || source.gpuMemoryUtilization === ""
+          ? null
+          : Number(source.gpuMemoryUtilization)
+        : Number(source.gpu_memory_utilization),
+    maxModelLen:
+      source.max_model_len === null || source.max_model_len === undefined || source.max_model_len === ""
+        ? source.maxModelLen === null || source.maxModelLen === undefined || source.maxModelLen === ""
+          ? null
+          : Number(source.maxModelLen)
+        : Number(source.max_model_len),
   };
 }
 
