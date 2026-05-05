@@ -143,6 +143,9 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   assert.match(source, /Runtime engine profile editor/);
   assert.match(source, /Save engine profile/);
   assert.match(source, /Forget profile/);
+  assert.match(source, /Supervisor/);
+  assert.match(source, /PID hash/);
+  assert.match(source, /processPidHash/);
   assert.match(source, /Load with options/);
   assert.match(source, /Estimate load/);
   assert.match(source, /Quick model picker/);

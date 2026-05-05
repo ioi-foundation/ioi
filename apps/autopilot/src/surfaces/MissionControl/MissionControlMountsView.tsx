@@ -57,6 +57,9 @@ interface BackendPreview {
   evidence: string;
   memoryPressure: string;
   receipt: string;
+  processSupervisor: string;
+  processPidHash: string;
+  processArgs: string;
 }
 
 interface ModelArtifact {
@@ -881,8 +884,27 @@ function backend(
   evidence: string,
   memoryPressure: string,
   receipt: string,
+  processSupervisor = "not started",
+  processPidHash = "none",
+  processArgs = "none",
 ): BackendPreview {
-  return { id, label, kind, status, processStatus, baseUrl, binaryPath, formats, capabilities, evidence, memoryPressure, receipt };
+  return {
+    id,
+    label,
+    kind,
+    status,
+    processStatus,
+    baseUrl,
+    binaryPath,
+    formats,
+    capabilities,
+    evidence,
+    memoryPressure,
+    receipt,
+    processSupervisor,
+    processPidHash,
+    processArgs,
+  };
 }
 
 function runtimeEngine(
@@ -2199,6 +2221,9 @@ function normalizeSnapshot(snapshot: any, endpoint: string): MountsWorkbenchData
       stringArray(item.evidenceRefs).join(", ") || "backend registry",
       stringValue(item.hardware?.memoryPressure, "unknown"),
       stringValue(item.lastReceiptId, "none"),
+      stringValue(item.process?.status, "not started"),
+      stringValue(item.process?.pidHash, "none"),
+      stringArray(item.process?.argsRedacted).join(" ") || "none",
     ),
   );
   const runtimeEngines = arrayOf(snapshot?.runtimeEngines).map((item) =>
@@ -3327,6 +3352,18 @@ function BackendsPanel({
               <div>
                 <dt>Pressure</dt>
                 <dd>{item.memoryPressure}</dd>
+              </div>
+              <div>
+                <dt>Supervisor</dt>
+                <dd>{item.processSupervisor}</dd>
+              </div>
+              <div>
+                <dt>PID hash</dt>
+                <dd>{item.processPidHash}</dd>
+              </div>
+              <div>
+                <dt>Args</dt>
+                <dd>{item.processArgs}</dd>
               </div>
               <div>
                 <dt>Receipt</dt>

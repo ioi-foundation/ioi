@@ -126,7 +126,14 @@ pub async fn run(args: BackendsArgs) -> Result<()> {
             .await?
         }
         BackendsCommands::Engines => {
-            daemon_request(endpoint, token, Method::GET, "/api/v1/runtime/engines", None).await?
+            daemon_request(
+                endpoint,
+                token,
+                Method::GET,
+                "/api/v1/runtime/engines",
+                None,
+            )
+            .await?
         }
         BackendsCommands::EngineGet { engine_id } => {
             daemon_request(
@@ -177,7 +184,10 @@ pub async fn run(args: BackendsArgs) -> Result<()> {
                 defaults.insert("gpu".to_string(), Value::String(gpu));
             }
             if let Some(context_length) = context_length {
-                defaults.insert("contextLength".to_string(), Value::Number(context_length.into()));
+                defaults.insert(
+                    "contextLength".to_string(),
+                    Value::Number(context_length.into()),
+                );
             }
             if let Some(parallel) = parallel {
                 defaults.insert("parallel".to_string(), Value::Number(parallel.into()));
