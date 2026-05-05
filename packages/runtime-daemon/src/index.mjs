@@ -623,12 +623,12 @@ async function handleModelMountingNativeRoute({ request, response, store, url, s
     return;
   }
   if (request.method === "GET" && url.pathname === "/api/v1/models/catalog/search") {
-    writeJsonResponse(response, mounts.catalogSearch(Object.fromEntries(url.searchParams.entries())));
+    writeJsonResponse(response, await mounts.catalogSearch(Object.fromEntries(url.searchParams.entries())));
     return;
   }
   if (request.method === "POST" && url.pathname === "/api/v1/models/catalog/import-url") {
     mounts.authorize(authorization, "model.download:*");
-    writeJsonResponse(response, mounts.catalogImportUrl(await readBody(request)), 202);
+    writeJsonResponse(response, await mounts.catalogImportUrl(await readBody(request)), 202);
     return;
   }
   if (request.method === "POST" && url.pathname === "/api/v1/models/storage/cleanup") {
@@ -652,7 +652,7 @@ async function handleModelMountingNativeRoute({ request, response, store, url, s
   }
   if (request.method === "POST" && url.pathname === "/api/v1/models/download") {
     mounts.authorize(authorization, "model.download:*");
-    writeJsonResponse(response, mounts.downloadModel(await readBody(request)), 202);
+    writeJsonResponse(response, await mounts.downloadModel(await readBody(request)), 202);
     return;
   }
   if (

@@ -77,6 +77,13 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   assert.match(source, /Search catalog/);
   assert.match(source, /Import URL/);
   assert.match(source, /Scan cleanup/);
+  assert.match(source, /Catalog gate/);
+  assert.match(source, /Download gate/);
+  assert.match(source, /IOI_LIVE_MODEL_CATALOG/);
+  assert.match(source, /IOI_LIVE_MODEL_DOWNLOAD/);
+  assert.match(source, /Hugging Face-compatible catalog/);
+  assert.match(source, /Result limit/);
+  assert.match(source, /Quantization/);
   assert.match(source, /searchCatalog/);
   assert.match(source, /importCatalogUrl/);
   assert.match(source, /cleanupStorage/);
@@ -302,6 +309,10 @@ test("model mounting live-provider gates are explicit and opt-in", () => {
     "node scripts/live-model-mounting-gate.mjs model-backends",
   );
   assert.equal(
+    packageJson.scripts["test:model-catalog-live"],
+    "node scripts/live-model-mounting-gate.mjs model-catalog",
+  );
+  assert.equal(
     packageJson.scripts["test:wallet-live"],
     "node scripts/live-model-mounting-gate.mjs wallet",
   );
@@ -312,10 +323,15 @@ test("model mounting live-provider gates are explicit and opt-in", () => {
   for (const token of [
     "IOI_LIVE_LM_STUDIO",
     "IOI_LIVE_MODEL_BACKENDS",
+    "IOI_LIVE_MODEL_CATALOG",
+    "IOI_LIVE_MODEL_DOWNLOAD",
+    "IOI_MODEL_CATALOG_HF_BASE_URL",
+    "IOI_MODEL_CATALOG_DOWNLOAD_SOURCE_URL",
     "IOI_REMOTE_WALLET",
     "IOI_REMOTE_AGENTGRES",
     "docs/evidence/model-mounting-live",
     "lm_studio_server_stopped",
+    "model_catalog_live_provider_unavailable",
     "remote_wallet_network_not_configured",
     "remote_agentgres_not_configured",
   ]) {
@@ -360,6 +376,9 @@ test("model mounting CLI exposes vault-backed provider configuration flags", () 
     "identifier",
     "CatalogSearch",
     "CatalogImportUrl",
+    "quantization",
+    "format",
+    "limit",
     "Delete",
     "Cleanup",
     "import_mode",

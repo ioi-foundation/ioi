@@ -313,12 +313,52 @@ interface ServerPreview {
   providerSummary: string;
 }
 
+interface CatalogProviderPreview {
+  id: string;
+  label: string;
+  status: string;
+  gate: string;
+  liveDownloadStatus: string;
+  downloadGate: string;
+  formats: string[];
+}
+
+interface CatalogPreview {
+  providers: CatalogProviderPreview[];
+  formats: string[];
+  quantization: string[];
+  storageTotal: string;
+  storageQuota: string;
+  storageStatus: string;
+  orphanCount: number;
+  fileCount: number;
+}
+
+interface DownloadPreview {
+  id: string;
+  model: string;
+  status: string;
+  progress: string;
+  sourceLabel: string;
+  bytes: string;
+  checksum: string;
+  receipt: string;
+}
+
+interface CatalogSearchDraft {
+  query: string;
+  format: string;
+  quantization: string;
+  limit: string;
+}
+
 interface MountsWorkbenchData {
   server: ServerPreview;
+  catalog: CatalogPreview;
   artifacts: ModelArtifact[];
   endpoints: ModelEndpoint[];
   instances: ModelInstance[];
-  downloads: Array<{ id: string; model: string; status: string; progress: string }>;
+  downloads: DownloadPreview[];
   backends: BackendPreview[];
   runtimeEngines: RuntimeEnginePreview[];
   runtimeSurvey: RuntimeSurveyPreview;
@@ -426,6 +466,35 @@ const fallbackData: MountsWorkbenchData = {
     idleTtlSeconds: 900,
     autoEvict: true,
     providerSummary: "fixture projection",
+  },
+  catalog: {
+    providers: [
+      {
+        id: "catalog.fixture",
+        label: "Fixture catalog",
+        status: "available",
+        gate: "always_on",
+        liveDownloadStatus: "available",
+        downloadGate: "fixture",
+        formats: ["gguf"],
+      },
+      {
+        id: "catalog.huggingface",
+        label: "Hugging Face-compatible catalog",
+        status: "gated",
+        gate: "IOI_LIVE_MODEL_CATALOG",
+        liveDownloadStatus: "gated",
+        downloadGate: "IOI_LIVE_MODEL_DOWNLOAD",
+        formats: ["gguf", "mlx", "safetensors"],
+      },
+    ],
+    formats: ["gguf", "mlx", "safetensors"],
+    quantization: ["Q4", "Q5", "Q8", "F16"],
+    storageTotal: "unknown",
+    storageQuota: "not configured",
+    storageStatus: "ok",
+    orphanCount: 0,
+    fileCount: 0,
   },
   providers: [
     provider("provider.local.folder", "Local model folder", "local_folder", "available", "local_private", "fixture", "local://models", "no auth", [
@@ -613,8 +682,8 @@ const fallbackData: MountsWorkbenchData = {
     },
   ],
   downloads: [
-    { id: "download_job_fixture", model: "local:auto", status: "completed", progress: "100%" },
-    { id: "download_queue_empty", model: "queue", status: "empty", progress: "0 active jobs" },
+    { id: "download_job_fixture", model: "local:auto", status: "completed", progress: "100%", sourceLabel: "Fixture catalog", bytes: "unknown", checksum: "sha256 redacted", receipt: "receipt_model_lifecycle_*" },
+    { id: "download_queue_empty", model: "queue", status: "empty", progress: "0 active jobs", sourceLabel: "No queued downloads", bytes: "0", checksum: "none", receipt: "none" },
   ],
   tokens: [
     {
@@ -1560,11 +1629,20 @@ function useModelMountsDaemon() {
           });
           return "Download lifecycle completed through queued, running, and completed receipts.";
         }),
-      searchCatalog: (query: string) =>
+      searchCatalog: (draft: CatalogSearchDraft) =>
         runAction("catalog-search", async () => {
-          const result = await requestJson(`/api/v1/models/catalog/search?q=${encodeURIComponent(query || "autopilot")}`);
+          const params = new URLSearchParams({
+            q: draft.query || "autopilot",
+            format: draft.format,
+            quantization: draft.quantization,
+            limit: draft.limit || "20",
+          });
+          const result = await requestJson(`/api/v1/models/catalog/search?${params.toString()}`);
           const count = Array.isArray(result?.results) ? result.results.length : 0;
-          return `Catalog search found ${count} fixture-compatible variant${count === 1 ? "" : "s"}.`;
+          const live = Array.isArray(result?.providers)
+            ? result.providers.find((provider: any) => provider.id === "catalog.huggingface")
+            : null;
+          return `Catalog search found ${count} variant${count === 1 ? "" : "s"}; Hugging Face-compatible catalog is ${stringValue(live?.status, "unknown")}.`;
         }),
       importCatalogUrl: (sourceUrl: string) =>
         runAction("catalog-import-url", async () => {
@@ -2136,6 +2214,7 @@ function normalizeSnapshot(snapshot: any, endpoint: string): MountsWorkbenchData
       autoEvict: Boolean(snapshot?.server?.autoEvict ?? true),
       providerSummary: `${numberValue(snapshot?.server?.providerStates?.available, 0)} available / ${numberValue(snapshot?.server?.providerStates?.degraded, 0)} degraded`,
     },
+    catalog: normalizeCatalog(snapshot?.catalog),
     artifacts,
     endpoints,
     instances,
@@ -2144,6 +2223,10 @@ function normalizeSnapshot(snapshot: any, endpoint: string): MountsWorkbenchData
       model: stringValue(item.modelId, "unknown"),
       status: stringValue(item.status, "unknown"),
       progress: item.progress === undefined ? "unknown" : `${Math.round(Number(item.progress) * 100)}%`,
+      sourceLabel: stringValue(item.sourceLabel, stringValue(item.source, "unknown source")),
+      bytes: `${formatBytes(numberValue(item.bytesCompleted, 0))} / ${formatBytes(numberValue(item.bytesTotal, 0))}`,
+      checksum: stringValue(item.checksum, "pending"),
+      receipt: stringValue(item.receiptId, "none"),
     })),
     backends,
     runtimeEngines,
@@ -2269,6 +2352,28 @@ function normalizeRuntimeSurvey(item: any): RuntimeSurveyPreview {
     memoryPressure: stringValue(hardware.memoryPressure, "unknown"),
     selectedEngine,
     receipt: stringValue(item?.receiptId, "none"),
+  };
+}
+
+function normalizeCatalog(value: any): CatalogPreview {
+  const storage = value?.storage ?? {};
+  return {
+    providers: arrayOf(value?.providers).map((item) => ({
+      id: stringValue(item.id, "catalog.unknown"),
+      label: stringValue(item.label, stringValue(item.id, "Catalog provider")),
+      status: stringValue(item.status, "unknown"),
+      gate: stringValue(item.gate, "not gated"),
+      liveDownloadStatus: stringValue(item.liveDownloadStatus, "unknown"),
+      downloadGate: stringValue(item.downloadGate, "not gated"),
+      formats: stringArray(item.formats),
+    })),
+    formats: stringArray(value?.filters?.formats),
+    quantization: stringArray(value?.filters?.quantization),
+    storageTotal: formatBytes(numberValue(storage.totalBytes, 0)),
+    storageQuota: storage.quotaBytes ? formatBytes(numberValue(storage.quotaBytes, 0)) : "not configured",
+    storageStatus: stringValue(storage.quotaStatus, "unknown"),
+    orphanCount: numberValue(storage.orphanCount, 0),
+    fileCount: numberValue(storage.fileCount, 0),
   };
 }
 
@@ -3256,13 +3361,14 @@ function DownloadsPanel({
   connectionState: ConnectionState;
   hasSessionToken: boolean;
   onDownloadFixture: () => void;
-  onSearchCatalog: (query: string) => void;
+  onSearchCatalog: (draft: CatalogSearchDraft) => void;
   onImportCatalogUrl: (sourceUrl: string) => void;
   onCleanupStorage: () => void;
   busy: boolean;
 }) {
-  const [query, setQuery] = useState("autopilot");
+  const [draft, setDraft] = useState<CatalogSearchDraft>({ query: "autopilot", format: "gguf", quantization: "", limit: "20" });
   const [sourceUrl, setSourceUrl] = useState("fixture://catalog/autopilot-native-3b-q4");
+  const updateDraft = (field: keyof CatalogSearchDraft, value: string) => setDraft((current) => ({ ...current, [field]: value }));
   const downloadGuard = combineGuards(connectionActionGuard(connectionState, "model.download:*"), tokenScopeGuard(data, hasSessionToken, "model.download:*"));
   const importGuard = combineGuards(
     connectionActionGuard(connectionState, "model.import:*"),
@@ -3280,22 +3386,45 @@ function DownloadsPanel({
         <div className="model-mounts-actions">
           <StatusPill tone="ready">receipted lifecycle</StatusPill>
           <StatusPill tone="ready">checksum tracked</StatusPill>
+          <StatusPill tone={data.catalog.providers.some((provider) => provider.id === "catalog.huggingface" && provider.status !== "gated") ? "ready" : "muted"}>live catalog gated</StatusPill>
           <ActionButton onClick={onDownloadFixture} disabled={busy} guard={downloadGuard}>Download fixture</ActionButton>
           <ActionButton onClick={onCleanupStorage} disabled={busy} guard={cleanupGuard}>Scan cleanup</ActionButton>
         </div>
+      </div>
+
+      <div className="model-mounts-observability-summary" aria-label="Catalog and storage summary">
+        <DetailFact label="Catalog gate" value={data.catalog.providers.find((provider) => provider.id === "catalog.huggingface")?.status ?? "unknown"} note="IOI_LIVE_MODEL_CATALOG" />
+        <DetailFact label="Download gate" value={data.catalog.providers.find((provider) => provider.id === "catalog.huggingface")?.liveDownloadStatus ?? "unknown"} note="IOI_LIVE_MODEL_DOWNLOAD" />
+        <DetailFact label="Storage" value={data.catalog.storageTotal} note={`${data.catalog.fileCount} files / ${data.catalog.orphanCount} orphan`} />
+        <DetailFact label="Quota" value={data.catalog.storageStatus} note={data.catalog.storageQuota} />
       </div>
 
       <form
         className="model-mounts-provider-editor"
         onSubmit={(event) => {
           event.preventDefault();
-          onSearchCatalog(query);
+          onSearchCatalog(draft);
         }}
       >
         <div className="model-mounts-provider-editor-grid">
           <label>
             <span>Catalog query</span>
-            <input value={query} onChange={(event) => setQuery(event.target.value)} />
+            <input value={draft.query} onChange={(event) => updateDraft("query", event.target.value)} />
+          </label>
+          <label>
+            <span>Format</span>
+            <select value={draft.format} onChange={(event) => updateDraft("format", event.target.value)}>
+              <option value="">Any format</option>
+              {data.catalog.formats.map((format) => <option key={format} value={format}>{format}</option>)}
+            </select>
+          </label>
+          <label>
+            <span>Quantization</span>
+            <input value={draft.quantization} onChange={(event) => updateDraft("quantization", event.target.value)} placeholder="Q4, Q8, F16" />
+          </label>
+          <label>
+            <span>Result limit</span>
+            <input value={draft.limit} onChange={(event) => updateDraft("limit", event.target.value)} inputMode="numeric" />
           </label>
           <label>
             <span>Source URL</span>
@@ -3309,6 +3438,22 @@ function DownloadsPanel({
       </form>
 
       <div className="model-mounts-list">
+        <div className="model-mounts-provider-grid" aria-label="Catalog providers">
+          {data.catalog.providers.map((provider) => (
+            <article key={provider.id} className="model-mounts-provider">
+              <div>
+                <strong>{provider.label}</strong>
+                <span>{provider.id}</span>
+              </div>
+              <div className="model-mounts-tags">
+                <StatusPill tone={toneForStatus(provider.status)}>{provider.status}</StatusPill>
+                <span>{provider.gate}</span>
+                <span>{provider.downloadGate}</span>
+              </div>
+              <span>{provider.formats.join(", ") || "formats unknown"}</span>
+            </article>
+          ))}
+        </div>
         {downloads.length === 0 ? (
           <p className="model-mounts-empty">No download jobs in the current projection.</p>
         ) : (
@@ -3317,9 +3462,10 @@ function DownloadsPanel({
               <div>
                 <strong>{download.model}</strong>
                 <span>{download.id}</span>
+                <span>{download.sourceLabel}</span>
               </div>
               <StatusPill tone={toneForStatus(download.status)}>{download.status}</StatusPill>
-              <span className="model-mounts-row-note">{download.progress}</span>
+              <span className="model-mounts-row-note">{download.progress} / {download.bytes} / {download.receipt}</span>
             </article>
           ))
         )}

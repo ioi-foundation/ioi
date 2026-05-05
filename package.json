@@ -50,6 +50,7 @@
     "validate:model-mounts-gui:run": "node scripts/run-model-mounts-gui-validation.mjs",
     "test:lm-studio-live": "node scripts/live-model-mounting-gate.mjs lm-studio",
     "test:model-backends:live": "node scripts/live-model-mounting-gate.mjs model-backends",
+    "test:model-catalog-live": "node scripts/live-model-mounting-gate.mjs model-catalog",
     "test:wallet-live": "node scripts/live-model-mounting-gate.mjs wallet",
     "test:agentgres-live": "node scripts/live-model-mounting-gate.mjs agentgres",
     "evidence:runtime-complete-plus": "node scripts/evidence/runtime-complete-plus.mjs",

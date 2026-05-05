@@ -239,16 +239,76 @@ export interface ModelDownloadJob {
   providerId: string;
   status: "queued" | "running" | "completed" | "failed" | "canceled";
   source: string;
+  sourceHash?: string;
+  sourceUrlHash?: string;
+  sourceLabel?: string;
   progress: number;
   bytesTotal?: number;
   bytesCompleted?: number;
   checksum?: string | null;
   targetPath?: string | null;
+  targetPathHash?: string | null;
+  variant?: ModelCatalogEntry | Record<string, unknown>;
+  resumeOffset?: number;
   failureReason?: string | null;
   receiptIds?: string[];
   createdAt: string;
   updatedAt: string;
   receiptId: string | null;
+}
+
+export interface ModelCatalogProviderStatus {
+  id: string;
+  label?: string;
+  status: "available" | "configured" | "gated" | "degraded" | string;
+  gate?: string;
+  downloadGate?: string;
+  liveDownloadStatus?: "configured" | "gated" | string;
+  formats?: string[];
+  baseUrlHash?: string;
+  evidenceRefs?: string[];
+}
+
+export interface ModelCatalogStatus {
+  schemaVersion: string;
+  checkedAt: string;
+  providers: ModelCatalogProviderStatus[];
+  filters: {
+    formats: string[];
+    quantization: string[];
+    compatibility: string[];
+  };
+  storage: {
+    rootHash: string;
+    totalBytes: number;
+    quotaBytes: number | null;
+    quotaStatus: "ok" | "over_quota" | string;
+    fileCount: number;
+    orphanCount: number;
+    destructiveActionsRequireUnload: boolean;
+    evidenceRefs: string[];
+  };
+}
+
+export interface ModelCatalogEntry {
+  id: string;
+  providerId: string;
+  catalogProviderId?: string;
+  modelId: string;
+  family: string;
+  format: string;
+  quantization?: string | null;
+  sizeBytes?: number | null;
+  contextWindow?: number | null;
+  sourceUrl: string;
+  sourceUrlHash: string;
+  sourceLabel: string;
+  license?: string | null;
+  compatibility: string[];
+  tags?: string[];
+  variantPath?: string;
+  gatedBy?: string[];
+  discoveredAt: string;
 }
 
 export interface RuntimeModelCatalogEntry {

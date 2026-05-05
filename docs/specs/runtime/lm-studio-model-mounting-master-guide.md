@@ -90,7 +90,7 @@ npm run validate:model-mounting:e2e
 Latest deterministic evidence bundle:
 
 ```text
-docs/evidence/model-mounting-e2e/2026-05-05T12-44-29Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T13-12-44Z/result.json
 ```
 
 That bundle passed the following acceptance steps:
@@ -126,6 +126,10 @@ That bundle passed the following acceptance steps:
   redacted payload preview, server log tail, and replay links;
 - deterministic catalog search, URL import, import dry-run/copy modes, storage
   cleanup scan, artifact delete, and download cancel/completion lifecycle;
+- gated Hugging Face-compatible catalog search/download activation with
+  GGUF/MLX/safetensors format filters, quantization filters, source URL
+  hashing, resumable `.part` materialization, checksum verification, storage
+  quota summary, and secret redaction;
 - persistent `mcp.json` import and governed MCP tool invocation;
 - per-request ephemeral MCP integration linked into model invocation receipts;
 - route policy creation/test and workflow node execution;
@@ -145,13 +149,13 @@ That bundle passed the following acceptance steps:
 The current GUI evidence nested under that E2E bundle is:
 
 ```text
-docs/evidence/model-mounting-e2e/2026-05-05T12-44-29Z/gui/2026-05-05T12-44-56Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T13-12-44Z/gui/2026-05-05T13-13-15Z/result.json
 ```
 
 The current standalone Mounts GUI evidence bundle is:
 
 ```text
-docs/evidence/model-mounts-gui-validation/2026-05-05T12-43-07Z/result.json
+docs/evidence/model-mounts-gui-validation/2026-05-05T13-08-34Z/result.json
 ```
 
 It captured all Mounts tabs as desktop window screenshots:
@@ -177,9 +181,16 @@ unless the corresponding environment flag is explicitly set:
 ```text
 IOI_LIVE_LM_STUDIO=1 npm run test:lm-studio-live
 IOI_LIVE_MODEL_BACKENDS=1 npm run test:model-backends:live
+IOI_LIVE_MODEL_CATALOG=1 npm run test:model-catalog-live
 IOI_REMOTE_WALLET=1 npm run test:wallet-live
 IOI_REMOTE_AGENTGRES=1 npm run test:agentgres-live
 ```
+
+The model catalog live gate performs safe live catalog search by default. It
+only attempts a network model download when both
+`IOI_LIVE_MODEL_DOWNLOAD=1` and
+`IOI_MODEL_CATALOG_DOWNLOAD_SOURCE_URL=<explicit URL>` are supplied, so a live
+validation run cannot accidentally fetch a large model artifact.
 
 If a live dependency is not configured or is stopped, provider gates record a
 truthful `skipped` or `blocked` result instead of pretending live validation
@@ -277,9 +288,10 @@ These areas are implemented and covered by focused tests:
   workflow, MCP, tokens, receipts, replay, and redaction in one command:
   `npm run validate:model-mounting:e2e`.
 - Opt-in live-provider validation gate entrypoints for LM Studio, model
-  backends, remote wallet.network, and remote Agentgres. Wallet and Agentgres
-  gates now have deterministic fake-remote coverage when real URLs are absent.
-  These are evidence gates, not deterministic CI prerequisites.
+  backends, model catalog/download activation, remote wallet.network, and
+  remote Agentgres. Wallet and Agentgres gates now have deterministic
+  fake-remote coverage when real URLs are absent. These are evidence gates,
+  not deterministic CI prerequisites.
 
 Validation that passed during the implementation pass:
 
@@ -296,6 +308,7 @@ npm run validate:model-mounts-gui:run
 AUTOPILOT_LOCAL_GPU_DEV=1 npm run validate:autopilot-gui-harness:run -- --window-timeout-ms 300000
 IOI_LIVE_LM_STUDIO=1 npm run test:lm-studio-live
 OLLAMA_HOST=http://127.0.0.1:11434 IOI_LIVE_MODEL_BACKENDS=1 npm run test:model-backends:live
+npm run test:model-catalog-live
 IOI_REMOTE_WALLET=1 npm run test:wallet-live
 IOI_REMOTE_AGENTGRES=1 npm run test:agentgres-live
 npx tsc -p apps/autopilot/tsconfig.json --noEmit
@@ -311,13 +324,13 @@ Latest evidence paths:
 
 ```text
 Canonical E2E:
-docs/evidence/model-mounting-e2e/2026-05-05T12-44-29Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T13-12-44Z/result.json
 
 Mounts GUI nested under canonical E2E:
-docs/evidence/model-mounting-e2e/2026-05-05T12-44-29Z/gui/2026-05-05T12-44-56Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T13-12-44Z/gui/2026-05-05T13-13-15Z/result.json
 
 Standalone Mounts GUI with live provider summary:
-docs/evidence/model-mounts-gui-validation/2026-05-05T12-43-07Z/result.json
+docs/evidence/model-mounts-gui-validation/2026-05-05T13-08-34Z/result.json
 
 Broad Autopilot GUI harness:
 docs/evidence/autopilot-gui-harness-validation/2026-05-05T01-40-43-545Z/result.json
@@ -327,6 +340,10 @@ docs/evidence/model-mounting-live/lm-studio/2026-05-05T01-18-17Z/result.json
 
 Ollama live backend:
 docs/evidence/model-mounting-live/model-backends/2026-05-05T01-26-51Z/result.json
+
+Model catalog live gate command wiring, skipped because the live catalog env was
+not enabled:
+docs/evidence/model-mounting-live/model-catalog/2026-05-05T13-20-34Z/result.json
 
 wallet.network deterministic fake-remote:
 docs/evidence/model-mounting-live/wallet/2026-05-05T01-51-23Z/result.json
@@ -404,6 +421,10 @@ claim real third-party inference unless a configured provider is selected:
 - Download/import lifecycle supports queued, running, completed, failed,
   canceled, progress, byte counts, checksum, cleanup, and receipts through a
   deterministic local fixture path rather than live model hub downloads.
+- Hugging Face-compatible catalog search and live network download are
+  implemented behind explicit gates. CI continues to use deterministic fixture
+  catalog/download coverage; live download is opt-in and requires an explicit
+  source URL for the live gate.
 - Agentgres persistence is an IOI daemon adapter with canonical projections
   and replay APIs, not a remote production Agentgres deployment.
 - wallet.network is represented by an Agentgres-backed authority adapter, not a
@@ -465,9 +486,11 @@ generic hardening list:
 - Autopilot load controls need visible parity with `lms load` options:
   `--gpu`, `--context-length`, `--parallel`, `--ttl`, `--identifier`, and
   `--estimate-only`.
-- Autopilot model catalog/download UX needs parity with `lms get`, including
-  search, direct Hugging Face URL handling, GGUF/MLX filtering where relevant,
-  variant selection, and scripted approval.
+- Autopilot model catalog/download UX now has deterministic catalog search,
+  direct URL import, GGUF/MLX/safetensors filters, quantization filtering,
+  storage/quota summary, and gated Hugging Face-compatible activation.
+  Remaining parity with `lms get` is richer variant-selection polish, scripted
+  approval flows, production hub metadata, and live-download retry UX.
 - Autopilot import UX needs parity with `lms import`, including move/copy,
   hard-link, symbolic-link, dry-run, and explicit `user/repo` classification.
 - Autopilot Logs needs streaming request/response logs comparable to
@@ -486,12 +509,14 @@ gates:
      Ollama, vLLM, or another configured local backend;
    - add hardware probes, memory pressure eviction, GPU/context scheduling,
      selected runtime engine management, and real process supervision.
-2. Live catalog/download integrations:
-   - Hugging Face or other model hub catalog search;
-   - resumable network downloads behind an explicit non-CI gate;
-   - GGUF/MLX-compatible variant filtering where relevant;
-   - direct model URL import/download;
-   - richer benchmark and compatibility metadata.
+2. Live catalog/download production hardening:
+   - the gated Hugging Face-compatible adapter, format/quantization filters,
+     resumable `.part` downloads, checksum verification, source hashing, and
+     redaction are implemented;
+   - remaining work is production catalog breadth, richer benchmark and
+     compatibility metadata, approval/retry affordances, bandwidth/storage
+     policy controls, and live validation against external hubs when explicitly
+     enabled.
 3. Remote wallet.network and vault integration:
    - remote wallet.network grants;
    - provider-key vault resolution;
@@ -515,7 +540,8 @@ gates:
      identifier, and estimate-only;
    - existing server start/stop/restart/log-tail controls should stay compact;
    - provider-specific controls;
-   - download queue;
+   - download queue polish beyond the current progress/cancel/failure/storage
+     controls;
    - streaming logs and request/response log filters;
    - compact error details and retry affordances for failed actions.
 8. Provider expansion:

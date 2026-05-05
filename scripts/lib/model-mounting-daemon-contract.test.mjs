@@ -524,6 +524,10 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-model-download-workspace-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-model-download-state-"));
   const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  const liveCatalogServer = await startFakeHuggingFaceCatalogServer();
+  const priorLiveCatalog = process.env.IOI_LIVE_MODEL_CATALOG;
+  const priorLiveDownload = process.env.IOI_LIVE_MODEL_DOWNLOAD;
+  const priorCatalogBase = process.env.IOI_MODEL_CATALOG_HF_BASE_URL;
   try {
     const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
       method: "POST",
@@ -532,6 +536,51 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
 
     const catalog = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=native");
     assert.ok(catalog.results.some((entry) => entry.modelId === "autopilot/native-fixture-3b"));
+    assert.equal(catalog.providers.find((provider) => provider.id === "catalog.huggingface")?.status, "gated");
+
+    process.env.IOI_LIVE_MODEL_CATALOG = "1";
+    process.env.IOI_LIVE_MODEL_DOWNLOAD = "1";
+    process.env.IOI_MODEL_CATALOG_HF_BASE_URL = liveCatalogServer.endpoint;
+    const liveCatalog = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=qwen&format=gguf&quantization=Q4&limit=5");
+    assert.equal(liveCatalog.providers.find((provider) => provider.id === "catalog.huggingface")?.status, "available");
+    const liveEntry = liveCatalog.results.find((entry) => entry.catalogProviderId === "catalog.huggingface");
+    assert.equal(liveEntry.format, "gguf");
+    assert.equal(liveEntry.quantization, "Q4_K_M");
+    assert.match(liveEntry.sourceUrl, /\/resolve\/main\/qwen-3b-Q4_K_M\.gguf$/);
+    const liveImport = await expectOk(daemon.endpoint, "/api/v1/models/catalog/import-url", {
+      method: "POST",
+      token: grant.token,
+      body: { source_url: liveEntry.sourceUrl, model_id: "native:hf-live", format: "gguf", quantization: "Q4_K_M" },
+    });
+    assert.equal(liveImport.status, "completed");
+    assert.equal(liveImport.download.variant.format, "gguf");
+    assert.equal(liveImport.download.bytesCompleted > 0, true);
+    assert.equal(fs.existsSync(liveImport.download.targetPath), true);
+
+    delete process.env.IOI_LIVE_MODEL_DOWNLOAD;
+    const gatedLiveImport = await requestJson(daemon.endpoint, "/api/v1/models/catalog/import-url", {
+      method: "POST",
+      token: grant.token,
+      body: { source_url: liveEntry.sourceUrl, model_id: "native:hf-gated" },
+    });
+    assert.equal(gatedLiveImport.response.status, 424);
+    process.env.IOI_LIVE_MODEL_DOWNLOAD = "1";
+
+    const secretSource = `${liveEntry.sourceUrl}?api_key=hf-live-secret-token`;
+    const liveSecretDownload = await expectOk(daemon.endpoint, "/api/v1/models/download", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        model_id: "native:hf-secret-redacted",
+        provider_id: "provider.autopilot.local",
+        source_url: secretSource,
+        format: "gguf",
+        quantization: "Q4_K_M",
+      },
+    });
+    assert.equal(liveSecretDownload.status, "completed");
+    assert.equal(JSON.stringify(liveSecretDownload).includes("hf-live-secret-token"), false);
+
     const catalogImport = await expectOk(daemon.endpoint, "/api/v1/models/catalog/import-url", {
       method: "POST",
       token: grant.token,
@@ -632,6 +681,7 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
     assert.ok(receipts.some((receipt) => receipt.details?.operation === "model_download_completed"));
     assert.ok(receipts.some((receipt) => receipt.details?.operation === "model_download_failed"));
     assert.ok(receipts.some((receipt) => receipt.details?.operation === "model_download_canceled"));
+    assert.ok(receipts.some((receipt) => receipt.details?.downloadMode === "live_network"));
 
     const replay = await expectOk(daemon.endpoint, `/api/v1/receipts/${completed.receiptId}/replay`);
     assert.equal(replay.receipt.id, completed.receiptId);
@@ -645,7 +695,13 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
     assert.equal(projection.adapterBoundaries.agentgres.port, "AgentgresModelMountingStorePort");
     assert.equal(projection.adapterBoundaries.wallet.remoteAdapter.failClosed, true);
     assert.equal(JSON.stringify(projection).includes("fixture://model/queued?api_key"), false);
+    assert.equal(JSON.stringify(projection).includes("hf-live-secret-token"), false);
+    assert.equal(projection.catalog.providers.find((provider) => provider.id === "catalog.huggingface")?.status, "configured");
   } finally {
+    restoreEnv("IOI_LIVE_MODEL_CATALOG", priorLiveCatalog);
+    restoreEnv("IOI_LIVE_MODEL_DOWNLOAD", priorLiveDownload);
+    restoreEnv("IOI_MODEL_CATALOG_HF_BASE_URL", priorCatalogBase);
+    await liveCatalogServer.close();
     await daemon.close();
   }
 });
@@ -1915,6 +1971,57 @@ async function startFakeVllmServer({ responsesStatus = 200, chatStatus = 200, se
   return {
     endpoint: `http://${address.address}:${address.port}`,
     observedHeaders: () => observedHeaders.map((headers) => ({ ...headers })),
+    close: () => new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve()))),
+  };
+}
+
+async function startFakeHuggingFaceCatalogServer() {
+  const modelBytes = Buffer.from("family=qwen-hf-live\ncontext=4096\nquantization=Q4_K_M\n");
+  const server = http.createServer((request, response) => {
+    const url = new URL(request.url ?? "/", "http://127.0.0.1");
+    if (request.method === "GET" && url.pathname === "/api/models") {
+      response.setHeader("content-type", "application/json");
+      response.end(
+        JSON.stringify([
+          {
+            id: "Qwen/Qwen3-GGUF",
+            modelId: "Qwen/Qwen3-GGUF",
+            pipeline_tag: "text-generation",
+            tags: ["gguf", "qwen", "Q4_K_M"],
+            cardData: { license: "apache-2.0" },
+            siblings: [
+              { rfilename: "qwen-3b-Q4_K_M.gguf", size: modelBytes.length },
+              { rfilename: "mlx/qwen-3b-4bit.safetensors", size: 12 },
+            ],
+          },
+        ]),
+      );
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/Qwen/Qwen3-GGUF/resolve/main/qwen-3b-Q4_K_M.gguf") {
+      const range = request.headers.range;
+      if (range) {
+        const offset = Number(String(range).match(/bytes=([0-9]+)-/)?.[1] ?? 0);
+        const chunk = modelBytes.subarray(offset);
+        response.statusCode = 206;
+        response.setHeader("content-range", `bytes ${offset}-${modelBytes.length - 1}/${modelBytes.length}`);
+        response.setHeader("content-length", String(chunk.length));
+        response.end(chunk);
+        return;
+      }
+      response.setHeader("content-type", "application/octet-stream");
+      response.setHeader("content-length", String(modelBytes.length));
+      response.end(modelBytes);
+      return;
+    }
+    response.statusCode = 404;
+    response.setHeader("content-type", "application/json");
+    response.end(JSON.stringify({ error: "not found" }));
+  });
+  await listen(server);
+  const address = server.address();
+  return {
+    endpoint: `http://${address.address}:${address.port}`,
     close: () => new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve()))),
   };
 }

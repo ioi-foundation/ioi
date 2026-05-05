@@ -23,6 +23,10 @@ const gates = {
     env: "IOI_LIVE_MODEL_BACKENDS",
     evidenceDir: "model-backends",
   },
+  "model-catalog": {
+    env: "IOI_LIVE_MODEL_CATALOG",
+    evidenceDir: "model-catalog",
+  },
   wallet: {
     env: "IOI_REMOTE_WALLET",
     evidenceDir: "wallet",
@@ -122,6 +126,7 @@ function redactLiveEvidence(value) {
     process.env.IOI_CUSTOM_MODEL_AUTH,
     process.env.IOI_WALLET_NETWORK_TOKEN,
     process.env.IOI_AGENTGRES_TOKEN,
+    process.env.IOI_MODEL_CATALOG_DOWNLOAD_SOURCE_URL,
   ].filter(Boolean);
   let text = JSON.stringify(value, null, 2);
   for (const needle of secretNeedles) {
@@ -510,6 +515,115 @@ async function runModelBackendsGate(evidence) {
   });
 }
 
+async function runModelCatalogGate(evidence) {
+  const query = process.env.IOI_MODEL_CATALOG_QUERY ?? "qwen";
+  const format = process.env.IOI_MODEL_CATALOG_FORMAT ?? "gguf";
+  const quantization = process.env.IOI_MODEL_CATALOG_QUANTIZATION ?? "";
+  const limit = Number(process.env.IOI_MODEL_CATALOG_LIMIT ?? 5);
+  const downloadSource = process.env.IOI_MODEL_CATALOG_DOWNLOAD_SOURCE_URL ?? "";
+  evidence.details.catalog = {
+    query,
+    format,
+    quantization: quantization || null,
+    limit,
+    baseUrlHash: stableHash(process.env.IOI_MODEL_CATALOG_HF_BASE_URL ?? "https://huggingface.co"),
+    downloadGateEnabled: process.env.IOI_LIVE_MODEL_DOWNLOAD === "1",
+    explicitDownloadSourceConfigured: Boolean(downloadSource),
+  };
+  await withDaemon(async ({ daemon, stateDir }) => {
+    evidence.details.daemonEndpoint = daemon.endpoint;
+    evidence.details.stateDir = stateDir;
+    const params = new URLSearchParams();
+    params.set("q", query);
+    if (format) params.set("format", format);
+    if (quantization) params.set("quantization", quantization);
+    params.set("limit", String(limit));
+    const catalog = await expectOk(daemon.endpoint, `/api/v1/models/catalog/search?${params.toString()}`);
+    const liveProvider = catalog.providers?.find?.((provider) => provider.id === "catalog.huggingface");
+    if (liveProvider?.status !== "available") {
+      evidence.status = "blocked";
+      evidence.result = {
+        reason: "model_catalog_live_provider_unavailable",
+        providerStatus: liveProvider?.status ?? "unknown",
+        errorHash: liveProvider?.errorHash ?? null,
+        nextLiveStep:
+          "Confirm network access or set IOI_MODEL_CATALOG_HF_BASE_URL to a Hugging Face-compatible catalog, then rerun IOI_LIVE_MODEL_CATALOG=1 npm run test:model-catalog-live.",
+      };
+      return;
+    }
+    const liveResults = catalog.results.filter((entry) => entry.catalogProviderId === "catalog.huggingface");
+    if (liveResults.length === 0) {
+      evidence.status = "blocked";
+      evidence.result = {
+        reason: "model_catalog_live_search_returned_no_variants",
+        query,
+        format,
+        quantization: quantization || null,
+        nextLiveStep: "Adjust IOI_MODEL_CATALOG_QUERY, IOI_MODEL_CATALOG_FORMAT, or IOI_MODEL_CATALOG_QUANTIZATION.",
+      };
+      return;
+    }
+    const result = {
+      providerStatus: liveProvider.status,
+      resultCount: liveResults.length,
+      firstModelId: liveResults[0].modelId,
+      firstSourceHash: stableHash(liveResults[0].sourceUrl),
+      formats: [...new Set(liveResults.map((entry) => entry.format).filter(Boolean))],
+      quantizations: [...new Set(liveResults.map((entry) => entry.quantization).filter(Boolean))],
+      download: null,
+    };
+    if (downloadSource) {
+      if (process.env.IOI_LIVE_MODEL_DOWNLOAD !== "1") {
+        evidence.status = "blocked";
+        evidence.result = {
+          ...result,
+          reason: "model_catalog_download_source_requires_download_gate",
+          requiredEnv: "IOI_LIVE_MODEL_DOWNLOAD=1",
+        };
+        return;
+      }
+      const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+        method: "POST",
+        body: {
+          allowed: ["model.download:*", "model.import:*"],
+          denied: ["filesystem.write", "shell.exec"],
+        },
+      });
+      const imported = await expectOk(daemon.endpoint, "/api/v1/models/catalog/import-url", {
+        method: "POST",
+        token: grant.token,
+        body: {
+          source_url: downloadSource,
+          model_id: process.env.IOI_MODEL_CATALOG_DOWNLOAD_MODEL_ID ?? "native:live-catalog-gate",
+          format,
+          quantization: quantization || undefined,
+        },
+      });
+      assert.equal(imported.status, "completed");
+      result.download = {
+        jobId: imported.id,
+        bytesCompleted: imported.bytesCompleted,
+        receiptId: imported.receiptId,
+        sourceHash: imported.sourceHash ?? imported.sourceUrlHash ?? stableHash(downloadSource),
+      };
+      const secretScan = scanFilesForNeedles(stateDir, [sensitiveSourceUrlNeedle(downloadSource), grant.token]);
+      assert.equal(secretScan.passed, true);
+      result.secretScan = secretScan;
+    }
+    evidence.status = "passed";
+    evidence.result = result;
+  });
+}
+
+function sensitiveSourceUrlNeedle(source) {
+  try {
+    const url = new URL(source);
+    return url.search || url.username || url.password ? source : null;
+  } catch {
+    return null;
+  }
+}
+
 async function runWalletGate(evidence) {
   let fakeRemote = null;
   const remoteUrl = process.env.IOI_WALLET_NETWORK_URL ?? (fakeRemote = await startFakeRemoteBoundaryServer("wallet")).url;
@@ -731,6 +845,8 @@ async function main() {
       await runLmStudioGate(evidence);
     } else if (gateName === "model-backends") {
       await runModelBackendsGate(evidence);
+    } else if (gateName === "model-catalog") {
+      await runModelCatalogGate(evidence);
     } else if (gateName === "wallet") {
       await runWalletGate(evidence);
     } else if (gateName === "agentgres") {
