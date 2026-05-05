@@ -286,6 +286,7 @@ async fn run_agent_goal(goal: String, rpc: String, steps: u32) -> Result<()> {
 
     let params = StartAgentParams {
         session_id,
+        runtime_route_frame: None,
         goal,
         max_steps: steps,
         parent_session_id: None,

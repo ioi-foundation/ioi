@@ -32,6 +32,7 @@ import type {
   TaskStateProjection,
   UncertaintyProjection,
 } from "./messages.js";
+import type { RuntimeModelCatalogEntry } from "./model-mounts.js";
 
 export interface RuntimeArtifact {
   id: string;
@@ -108,7 +109,7 @@ export interface RuntimeSubstrateClient {
   replayTrace(runId: string): AsyncIterable<IOISDKMessage>;
   inspectRun(runId: string): Promise<RuntimeTraceBundle>;
   scorecard(runId: string): Promise<RuntimeScorecard>;
-  listModels(): Promise<Array<{ id: string; provider: string; cost: string; quality: string }>>;
+  listModels(): Promise<RuntimeModelCatalogEntry[]>;
   listRepositories(): Promise<Array<{ url: string; source: string; status: string }>>;
   getAccount(): Promise<RuntimeAccountProfile>;
   listRuntimeNodes(): Promise<RuntimeNodeProfile[]>;
@@ -265,7 +266,7 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
     return this.request("scorecard", "GET", `/v1/runs/${encodePath(runId)}/scorecard`);
   }
 
-  async listModels(): Promise<Array<{ id: string; provider: string; cost: string; quality: string }>> {
+  async listModels(): Promise<RuntimeModelCatalogEntry[]> {
     return this.request("listModels", "GET", "/v1/models");
   }
 
@@ -775,7 +776,7 @@ export class MockRuntimeSubstrateClient implements RuntimeSubstrateClient {
     return (await this.getRun(runId)).trace.scorecard;
   }
 
-  async listModels(): Promise<Array<{ id: string; provider: string; cost: string; quality: string }>> {
+  async listModels(): Promise<RuntimeModelCatalogEntry[]> {
     return [
       { id: "local:auto", provider: "ioi-local", cost: "local", quality: "adaptive" },
       { id: "gpt-5.5", provider: "configured-provider", cost: "high", quality: "frontier" },

@@ -42,6 +42,23 @@ export type {
   TaskStateProjection,
   UncertaintyProjection,
 } from "./messages.js";
+export type {
+  ModelArtifact,
+  ModelBackend,
+  ModelCapability,
+  ModelDownloadJob,
+  ModelEndpoint,
+  ModelInstance,
+  ModelInvocationReceipt,
+  ModelLifecycleEvent,
+  ModelLoadPolicy,
+  ModelHardwareEstimate,
+  ModelProviderKind,
+  ModelProviderProfile,
+  ModelRoute,
+  PermissionToken,
+  RuntimeModelCatalogEntry,
+} from "./model-mounts.js";
 
 export interface RuntimeToolContract {
   stableToolId: string;
