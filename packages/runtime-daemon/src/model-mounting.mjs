@@ -524,7 +524,7 @@ class OpenAICompatibleModelProviderDriver {
     return { status: "unloaded", backend: endpoint.apiFormat, evidenceRefs: [`${this.label}_stateless_unload`] };
   }
 
-  async invoke({ provider, endpoint, kind, body, input, allowResponsesFallback = false }) {
+  async invoke({ provider, endpoint, kind, body, input, allowResponsesFallback = true }) {
     if (kind === "embeddings") {
       const requestBody = { ...body, model: body.model ?? endpoint.modelId };
       const result = await fetchProviderJson(provider, "/embeddings", { method: "POST", body: requestBody });

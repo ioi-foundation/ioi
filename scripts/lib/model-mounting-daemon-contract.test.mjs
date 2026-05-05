@@ -536,6 +536,313 @@ test("Agentgres model mounting projection and receipt lookup survive daemon rest
   }
 });
 
+test("Ollama provider adapter lists models, invokes through policy, and redacts provider errors", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-ollama-provider-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-ollama-provider-state-"));
+  const providerServer = await startFakeOllamaServer();
+  const errorServer = await startFakeOllamaServer({ chatStatus: 500, secret: "ollama-provider-secret-token" });
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+      method: "POST",
+      body: {
+        allowed: [
+          "provider.write:*",
+          "model.import:*",
+          "model.mount:*",
+          "model.load:*",
+          "model.chat:*",
+          "model.embeddings:*",
+          "route.write:*",
+          "route.use:*",
+        ],
+      },
+    });
+
+    await expectOk(daemon.endpoint, "/api/v1/providers", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        id: "provider.test.ollama",
+        kind: "ollama",
+        label: "Fake Ollama",
+        api_format: "ollama",
+        base_url: providerServer.endpoint,
+        status: "configured",
+        privacy_class: "local_private",
+        capabilities: ["chat", "embeddings"],
+      },
+    });
+    const health = await expectOk(daemon.endpoint, "/api/v1/providers/provider.test.ollama/health", { method: "POST" });
+    assert.equal(health.status, "available");
+    assert.equal(health.discovery.lastHealthCheck.httpStatus, 200);
+
+    const providerModels = await expectOk(daemon.endpoint, "/api/v1/providers/provider.test.ollama/models");
+    assert.ok(providerModels.some((model) => model.modelId === "qwen3:8b"));
+    const mounted = await expectOk(daemon.endpoint, "/api/v1/models/mount", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        model_id: "qwen3:8b",
+        provider_id: "provider.test.ollama",
+        id: "endpoint.test.ollama",
+      },
+    });
+    assert.equal(mounted.backendId, "backend.ollama");
+
+    await expectOk(daemon.endpoint, "/api/v1/routes", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        id: "route.test.ollama",
+        role: "ollama-test",
+        privacy: "local_only",
+        fallback: ["endpoint.test.ollama"],
+        provider_eligibility: ["ollama"],
+        denied_providers: [],
+        max_cost_usd: 0,
+      },
+    });
+
+    const chat = await expectOk(daemon.endpoint, "/api/v1/chat", {
+      method: "POST",
+      token: grant.token,
+      body: { route_id: "route.test.ollama", input: "hello ollama" },
+    });
+    assert.equal(chat.route_id, "route.test.ollama");
+    assert.equal(chat.backend_id, "backend.ollama");
+    assert.match(chat.output_text, /fake ollama chat/);
+
+    const embeddings = await expectOk(daemon.endpoint, "/api/v1/embeddings", {
+      method: "POST",
+      token: grant.token,
+      body: { route_id: "route.test.ollama", input: "embed ollama" },
+    });
+    assert.deepEqual(embeddings.embeddings[0].embedding, [0.12, 0.34, 0.56]);
+
+    const receipts = await expectOk(daemon.endpoint, "/api/v1/receipts");
+    const invocation = receipts.find(
+      (receipt) =>
+        receipt.kind === "model_invocation" &&
+        receipt.details?.providerId === "provider.test.ollama" &&
+        receipt.details?.providerResponseKind === "ollama.chat",
+    );
+    assert.equal(invocation.details.backend, "ollama");
+    assert.equal(invocation.details.backendId, "backend.ollama");
+
+    await expectOk(daemon.endpoint, "/api/v1/providers", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        id: "provider.test.ollama-error",
+        kind: "ollama",
+        label: "Fake Ollama Error",
+        api_format: "ollama",
+        base_url: errorServer.endpoint,
+        status: "configured",
+        privacy_class: "local_private",
+        capabilities: ["chat"],
+      },
+    });
+    await expectOk(daemon.endpoint, "/api/v1/models/import", {
+      method: "POST",
+      token: grant.token,
+      body: { model_id: "ollama:error", provider_id: "provider.test.ollama-error", capabilities: ["chat"] },
+    });
+    await expectOk(daemon.endpoint, "/api/v1/models/mount", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        model_id: "ollama:error",
+        provider_id: "provider.test.ollama-error",
+        id: "endpoint.test.ollama-error",
+      },
+    });
+    await expectOk(daemon.endpoint, "/api/v1/routes", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        id: "route.test.ollama-error",
+        role: "ollama-error-test",
+        privacy: "local_only",
+        fallback: ["endpoint.test.ollama-error"],
+        provider_eligibility: ["ollama"],
+        denied_providers: [],
+      },
+    });
+    const failed = await requestJson(daemon.endpoint, "/api/v1/chat", {
+      method: "POST",
+      token: grant.token,
+      body: { route_id: "route.test.ollama-error", input: "trigger provider failure" },
+    });
+    assert.equal(failed.response.status, 424);
+    assert.equal(failed.json.error.details.providerKind, "ollama");
+    assert.equal(typeof failed.json.error.details.providerErrorHash, "string");
+    assert.equal(JSON.stringify(failed.json).includes("ollama-provider-secret-token"), false);
+  } finally {
+    await daemon.close();
+    await providerServer.close();
+    await errorServer.close();
+  }
+});
+
+test("vLLM and OpenAI-compatible adapters support responses fallback, embeddings, and redacted provider errors", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-vllm-provider-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-vllm-provider-state-"));
+  const providerServer = await startFakeVllmServer({ responsesStatus: 404 });
+  const errorServer = await startFakeVllmServer({ chatStatus: 500, secret: "vllm-provider-secret-token" });
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+      method: "POST",
+      body: {
+        allowed: [
+          "provider.write:*",
+          "model.import:*",
+          "model.mount:*",
+          "model.load:*",
+          "model.chat:*",
+          "model.responses:*",
+          "model.embeddings:*",
+          "route.write:*",
+          "route.use:*",
+        ],
+      },
+    });
+
+    await expectOk(daemon.endpoint, "/api/v1/providers", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        id: "provider.test.vllm",
+        kind: "vllm",
+        label: "Fake vLLM",
+        api_format: "openai_compatible",
+        base_url: `${providerServer.endpoint}/v1`,
+        status: "configured",
+        privacy_class: "workspace",
+        capabilities: ["chat", "responses", "embeddings"],
+      },
+    });
+    const health = await expectOk(daemon.endpoint, "/api/v1/providers/provider.test.vllm/health", { method: "POST" });
+    assert.equal(health.status, "available");
+
+    const providerModels = await expectOk(daemon.endpoint, "/api/v1/providers/provider.test.vllm/models");
+    assert.ok(providerModels.some((model) => model.modelId === "vllm-qwen"));
+    const mounted = await expectOk(daemon.endpoint, "/api/v1/models/mount", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        model_id: "vllm-qwen",
+        provider_id: "provider.test.vllm",
+        id: "endpoint.test.vllm",
+      },
+    });
+    assert.equal(mounted.backendId, "backend.vllm");
+
+    await expectOk(daemon.endpoint, "/api/v1/routes", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        id: "route.test.vllm",
+        role: "vllm-test",
+        privacy: "local_or_enterprise",
+        fallback: ["endpoint.test.vllm"],
+        provider_eligibility: ["vllm"],
+        denied_providers: [],
+        max_cost_usd: 0.25,
+      },
+    });
+
+    const response = await expectOk(daemon.endpoint, "/api/v1/responses", {
+      method: "POST",
+      token: grant.token,
+      body: { route_id: "route.test.vllm", input: "fallback from responses" },
+    });
+    assert.equal(response.route_id, "route.test.vllm");
+    assert.equal(response.backend_id, "backend.vllm");
+    assert.equal(response.compat_translation, "chat_completions");
+    assert.match(response.output_text, /fake vllm chat/);
+
+    const embeddings = await expectOk(daemon.endpoint, "/v1/embeddings", {
+      method: "POST",
+      token: grant.token,
+      body: { route_id: "route.test.vllm", input: ["alpha", "beta"] },
+    });
+    assert.deepEqual(embeddings.data[0].embedding, [0.91, 0.82, 0.73]);
+
+    const receipts = await expectOk(daemon.endpoint, "/api/v1/receipts");
+    const invocation = receipts.find(
+      (receipt) =>
+        receipt.kind === "model_invocation" &&
+        receipt.details?.providerId === "provider.test.vllm" &&
+        receipt.details?.compatTranslation === "chat_completions",
+    );
+    assert.equal(invocation.details.backend, "openai_compatible");
+    assert.equal(invocation.details.backendId, "backend.vllm");
+    assert.equal(invocation.details.providerResponseKind, "chat.completions");
+
+    await expectOk(daemon.endpoint, "/api/v1/providers", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        id: "provider.test.openai-compatible-error",
+        kind: "openai_compatible",
+        label: "Fake OpenAI-compatible Error",
+        api_format: "openai_compatible",
+        base_url: `${errorServer.endpoint}/v1`,
+        status: "configured",
+        privacy_class: "workspace",
+        capabilities: ["chat"],
+      },
+    });
+    await expectOk(daemon.endpoint, "/api/v1/models/import", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        model_id: "openai-compatible:error",
+        provider_id: "provider.test.openai-compatible-error",
+        capabilities: ["chat"],
+        privacy_class: "workspace",
+      },
+    });
+    await expectOk(daemon.endpoint, "/api/v1/models/mount", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        model_id: "openai-compatible:error",
+        provider_id: "provider.test.openai-compatible-error",
+        id: "endpoint.test.openai-compatible-error",
+      },
+    });
+    await expectOk(daemon.endpoint, "/api/v1/routes", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        id: "route.test.openai-compatible-error",
+        role: "openai-compatible-error-test",
+        privacy: "local_or_enterprise",
+        fallback: ["endpoint.test.openai-compatible-error"],
+        provider_eligibility: ["openai_compatible"],
+        denied_providers: [],
+      },
+    });
+    const failed = await requestJson(daemon.endpoint, "/api/v1/chat", {
+      method: "POST",
+      token: grant.token,
+      body: { route_id: "route.test.openai-compatible-error", input: "trigger provider failure" },
+    });
+    assert.equal(failed.response.status, 424);
+    assert.equal(failed.json.error.details.providerKind, "openai_compatible");
+    assert.equal(typeof failed.json.error.details.providerErrorHash, "string");
+    assert.equal(JSON.stringify(failed.json).includes("vllm-provider-secret-token"), false);
+  } finally {
+    await daemon.close();
+    await providerServer.close();
+    await errorServer.close();
+  }
+});
+
 test("LM Studio driver delegates load, responses fallback, embeddings, provider models, and receipts through public seams", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-lms-driver-workspace-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-lms-driver-state-"));
@@ -773,6 +1080,124 @@ async function startFakeOpenAiCompatibleServer() {
     endpoint: `http://${address.address}:${address.port}`,
     close: () => new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve()))),
   };
+}
+
+async function startFakeOllamaServer({ chatStatus = 200, secret = null } = {}) {
+  const server = http.createServer((request, response) => {
+    const url = new URL(request.url ?? "/", "http://127.0.0.1");
+    response.setHeader("content-type", "application/json");
+    if (request.method === "GET" && url.pathname === "/api/tags") {
+      response.end(
+        JSON.stringify({
+          models: [
+            { name: "qwen3:8b", size: 4_900_000_000, digest: "sha256:fixture-qwen" },
+            { name: "nomic-embed-text:latest", size: 274_000_000, digest: "sha256:fixture-embed" },
+          ],
+        }),
+      );
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/api/chat") {
+      if (chatStatus !== 200) {
+        response.statusCode = chatStatus;
+        response.end(JSON.stringify({ error: `provider failed ${secret}` }));
+        return;
+      }
+      response.end(
+        JSON.stringify({
+          model: "qwen3:8b",
+          message: { role: "assistant", content: "fake ollama chat" },
+          done: true,
+        }),
+      );
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/api/embeddings") {
+      response.end(JSON.stringify({ embedding: [0.12, 0.34, 0.56] }));
+      return;
+    }
+    response.statusCode = 404;
+    response.end(JSON.stringify({ error: "not found" }));
+  });
+  await listen(server);
+  const address = server.address();
+  return {
+    endpoint: `http://${address.address}:${address.port}`,
+    close: () => new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve()))),
+  };
+}
+
+async function startFakeVllmServer({ responsesStatus = 200, chatStatus = 200, secret = null } = {}) {
+  const server = http.createServer((request, response) => {
+    const url = new URL(request.url ?? "/", "http://127.0.0.1");
+    response.setHeader("content-type", "application/json");
+    if (request.method === "GET" && url.pathname === "/v1/models") {
+      response.end(JSON.stringify({ object: "list", data: [{ id: "vllm-qwen" }] }));
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/v1/responses") {
+      if (responsesStatus !== 200) {
+        response.statusCode = responsesStatus;
+        response.end(JSON.stringify({ error: { message: `responses unavailable ${secret ?? ""}` } }));
+        return;
+      }
+      response.end(
+        JSON.stringify({
+          id: "resp_fake_vllm",
+          object: "response",
+          model: "vllm-qwen",
+          output_text: "fake vllm response",
+          usage: { prompt_tokens: 3, completion_tokens: 5, total_tokens: 8 },
+        }),
+      );
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/v1/chat/completions") {
+      if (chatStatus !== 200) {
+        response.statusCode = chatStatus;
+        response.end(JSON.stringify({ error: { message: `chat failed ${secret}` } }));
+        return;
+      }
+      response.end(
+        JSON.stringify({
+          id: "chatcmpl_fake_vllm",
+          object: "chat.completion",
+          model: "vllm-qwen",
+          choices: [{ index: 0, message: { role: "assistant", content: "fake vllm chat" }, finish_reason: "stop" }],
+          usage: { prompt_tokens: 4, completion_tokens: 6, total_tokens: 10 },
+        }),
+      );
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/v1/embeddings") {
+      response.end(
+        JSON.stringify({
+          object: "list",
+          data: [{ object: "embedding", index: 0, embedding: [0.91, 0.82, 0.73] }],
+          usage: { prompt_tokens: 2, completion_tokens: 0, total_tokens: 2 },
+        }),
+      );
+      return;
+    }
+    response.statusCode = 404;
+    response.end(JSON.stringify({ error: "not found" }));
+  });
+  await listen(server);
+  const address = server.address();
+  return {
+    endpoint: `http://${address.address}:${address.port}`,
+    close: () => new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve()))),
+  };
+}
+
+async function listen(server) {
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      server.off("error", reject);
+      resolve();
+    });
+  });
 }
 
 test("LM Studio provider discovery uses guarded public lms commands for installed models", async () => {
