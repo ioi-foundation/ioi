@@ -145,7 +145,9 @@
   text-transform: uppercase;
 }
 
-.model-mounts-control-row input {
+.model-mounts-control-row input,
+.model-mounts-provider-editor input,
+.model-mounts-provider-editor select {
   min-width: 0;
   width: 100%;
   min-height: 34px;
@@ -159,7 +161,9 @@
   outline: none;
 }
 
-.model-mounts-control-row input:focus {
+.model-mounts-control-row input:focus,
+.model-mounts-provider-editor input:focus,
+.model-mounts-provider-editor select:focus {
   border-color: color-mix(in srgb, var(--chat-accent) 54%, var(--chat-border));
 }
 
@@ -398,6 +402,42 @@
   gap: 10px;
 }
 
+.model-mounts-provider-editor {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--chat-border);
+  background: var(--surface-1);
+}
+
+.model-mounts-provider-editor-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.model-mounts-provider-editor label {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.model-mounts-provider-editor label span {
+  color: var(--chat-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.model-mounts-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .model-mounts-token-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -493,7 +533,8 @@
 
 @media (max-width: 1280px) {
   .model-mounts-three-col,
-  .model-mounts-provider-grid {
+  .model-mounts-provider-grid,
+  .model-mounts-provider-editor-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -518,6 +559,7 @@
   .model-mounts-route-list,
   .model-mounts-token-layout,
   .model-mounts-provider-grid,
+  .model-mounts-provider-editor-grid,
   .model-mounts-list--receipts,
   .model-mounts-scope-columns {
     grid-template-columns: minmax(0, 1fr);
