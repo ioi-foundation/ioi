@@ -88,7 +88,14 @@ pub async fn run(args: BackendsArgs) -> Result<()> {
             .await?
         }
         BackendsCommands::Survey => {
-            daemon_request(endpoint, token, Method::POST, "/api/v1/runtime/survey", None).await?
+            daemon_request(
+                endpoint,
+                token,
+                Method::POST,
+                "/api/v1/runtime/survey",
+                None,
+            )
+            .await?
         }
         BackendsCommands::Select { engine_id } => {
             daemon_request(
