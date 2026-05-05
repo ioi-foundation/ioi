@@ -156,6 +156,7 @@ await new Promise(() => {});
             "IOI_MODEL_MOUNTS_GUI_CWD": str(PROJECT_ROOT),
             "IOI_MODEL_MOUNTS_GUI_STATE_DIR": str(state_dir),
             "IOI_MODEL_MOUNTS_GUI_PORT": str(port),
+            "IOI_DETERMINISTIC_PROVIDER_STREAM_DELAY_MS": "25",
         }
     )
     log_handle = daemon_log.open("w", encoding="utf-8")
@@ -618,6 +619,41 @@ def receipt_has_operation_detail(
         details = receipt.get("details") if isinstance(receipt.get("details"), dict) else {}
         if receipt.get("kind") == "model_lifecycle" and details.get("operation") == operation and details.get(detail_key) == detail_value:
             return True
+    return False
+
+
+def stream_receipt_has_details(
+    receipt: dict[str, Any],
+    *,
+    kind: str,
+    stream_kind: str,
+    status: str,
+) -> bool:
+    details = receipt.get("details") if isinstance(receipt.get("details"), dict) else {}
+    if receipt.get("kind") != kind:
+        return False
+    if details.get("streamKind") != stream_kind:
+        return False
+    if details.get("routeId") != "route.native-local":
+        return False
+    if details.get("selectedModel") != "autopilot:native-fixture":
+        return False
+    if details.get("endpointId") != "endpoint.autopilot.native-fixture":
+        return False
+    if details.get("streamSource") != "provider_native":
+        return False
+    if details.get("backendId") != "backend.autopilot.native-local.fixture":
+        return False
+    if details.get("providerResponseKind") not in {"native_local.chat.stream", "native_local.responses.stream"}:
+        return False
+    if status == "completed":
+        return bool(details.get("invocationReceiptId")) and details.get("finishReason") == "stop"
+    if status == "aborted":
+        return (
+            bool(details.get("invocationReceiptId"))
+            and details.get("status") == "aborted"
+            and details.get("reason") == "client_disconnect"
+        )
     return False
 
 
@@ -1329,6 +1365,115 @@ def exercise_benchmark_observability_actions(
     }
 
 
+def exercise_stream_lifecycle_observability_action(
+    window_id: int,
+    output_root: Path,
+    dev_url: str,
+    endpoint: str,
+) -> dict[str, Any]:
+    """Exercise the Logs stream lifecycle panel with live provider-native stream receipts."""
+
+    action_screenshots: list[dict[str, Any]] = []
+    before_receipts = request_json(endpoint, "/api/v1/receipts")
+    before_count = len(before_receipts) if isinstance(before_receipts, list) else 0
+
+    activate_tab(window_id, "F9")
+    run(["xdotool", "key", "alt+s"], check=False)
+    receipts = wait_for_new_receipt_condition(
+        endpoint,
+        "GUI stream lifecycle completed and aborted receipts",
+        before_count,
+        lambda new_receipts: (
+            any(
+                stream_receipt_has_details(
+                    receipt,
+                    kind="model_invocation_stream_completed",
+                    stream_kind="openai_chat_completions_native_local",
+                    status="completed",
+                )
+                for receipt in new_receipts
+            )
+            and any(
+                stream_receipt_has_details(
+                    receipt,
+                    kind="model_invocation_stream_canceled",
+                    stream_kind="openai_responses_native_local",
+                    status="aborted",
+                )
+                for receipt in new_receipts
+            )
+        ),
+        timeout_secs=35.0,
+    )
+    time.sleep(1.5)
+    action_screenshots.append(
+        capture_action_state(
+            window_id,
+            output_root,
+            dev_url,
+            endpoint,
+            tab="logs",
+            name="logs-after-stream-lifecycle-action",
+        )
+    )
+
+    all_receipts = request_json(endpoint, "/api/v1/receipts")
+    completed_receipts = [
+        receipt
+        for receipt in all_receipts
+        if stream_receipt_has_details(
+            receipt,
+            kind="model_invocation_stream_completed",
+            stream_kind="openai_chat_completions_native_local",
+            status="completed",
+        )
+    ]
+    aborted_receipts = [
+        receipt
+        for receipt in all_receipts
+        if stream_receipt_has_details(
+            receipt,
+            kind="model_invocation_stream_canceled",
+            stream_kind="openai_responses_native_local",
+            status="aborted",
+        )
+    ]
+    latest_completed = completed_receipts[-1] if completed_receipts else {}
+    latest_aborted = aborted_receipts[-1] if aborted_receipts else {}
+    completed_invocation_id = str((latest_completed.get("details") or {}).get("invocationReceiptId") or "")
+    aborted_invocation_id = str((latest_aborted.get("details") or {}).get("invocationReceiptId") or "")
+    invocation_ids = {completed_invocation_id, aborted_invocation_id} - {""}
+    linked_invocations = [
+        receipt
+        for receipt in all_receipts
+        if receipt.get("kind") == "model_invocation"
+        and receipt.get("id") in invocation_ids
+        and (receipt.get("details") or {}).get("streamSource") == "provider_native"
+    ]
+    snapshot = request_json(endpoint, "/api/v1/models")
+    snapshot_text = json.dumps(snapshot, sort_keys=True)
+    assertions = {
+        "streamLifecycleGuiActionRecordedCompletion": len(completed_receipts) > 0,
+        "streamLifecycleGuiActionRecordedAbort": len(aborted_receipts) > 0,
+        "streamLifecycleCompletionLinkedInvocation": completed_invocation_id in {receipt.get("id") for receipt in linked_invocations},
+        "streamLifecycleAbortLinkedInvocation": aborted_invocation_id in {receipt.get("id") for receipt in linked_invocations},
+        "streamLifecycleProjectionVisibleToGui": "openai_chat_completions_native_local" in snapshot_text
+        and "openai_responses_native_local" in snapshot_text
+        and "client_disconnect" in snapshot_text,
+        "streamLifecycleLogsScreenshotCaptured": all(item.get("screenshot") and not item.get("capture_error") for item in action_screenshots),
+    }
+    return {
+        "passed": all(assertions.values()),
+        "assertions": assertions,
+        "completedStreamReceiptId": latest_completed.get("id"),
+        "abortedStreamReceiptId": latest_aborted.get("id"),
+        "completedInvocationReceiptId": completed_invocation_id,
+        "abortedInvocationReceiptId": aborted_invocation_id,
+        "observedReceiptIds": [receipt.get("id") for receipt in receipts[before_count:]],
+        "screenshots": action_screenshots,
+    }
+
+
 def exercise_provider_backend_actions(
     window_id: int,
     output_root: Path,
@@ -1520,6 +1665,7 @@ def main() -> int:
     token_mcp_action_assertions: dict[str, Any] | None = None
     routing_workflow_action_assertions: dict[str, Any] | None = None
     benchmark_observability_action_assertions: dict[str, Any] | None = None
+    stream_lifecycle_action_assertions: dict[str, Any] | None = None
     provider_backend_action_assertions: dict[str, Any] | None = None
 
     close_matching_windows(args.window_name)
@@ -1591,6 +1737,13 @@ def main() -> int:
             daemon_endpoint,
         )
         print("[model-mounts-gui] exercised benchmark and observability controls", flush=True)
+        stream_lifecycle_action_assertions = exercise_stream_lifecycle_observability_action(
+            window_id,
+            output_root,
+            args.dev_url,
+            daemon_endpoint,
+        )
+        print("[model-mounts-gui] exercised stream lifecycle observability controls", flush=True)
         provider_backend_action_assertions = exercise_provider_backend_actions(
             window_id,
             output_root,
@@ -1621,6 +1774,8 @@ def main() -> int:
             raise RuntimeError("Mounts GUI routing/workflow controls did not update daemon projection and receipts.")
         if not benchmark_observability_action_assertions["passed"]:
             raise RuntimeError("Mounts GUI benchmark/observability controls did not update daemon projection and receipts.")
+        if not stream_lifecycle_action_assertions["passed"]:
+            raise RuntimeError("Mounts GUI stream lifecycle observability did not show completed and aborted receipts.")
         if not provider_backend_action_assertions["passed"]:
             raise RuntimeError("Mounts GUI provider/backend controls did not update daemon projection and receipts.")
     except Exception as error:
@@ -1648,6 +1803,7 @@ def main() -> int:
         "tokenMcpActionAssertions": token_mcp_action_assertions,
         "routingWorkflowActionAssertions": routing_workflow_action_assertions,
         "benchmarkObservabilityActionAssertions": benchmark_observability_action_assertions,
+        "streamLifecycleActionAssertions": stream_lifecycle_action_assertions,
         "providerBackendActionAssertions": provider_backend_action_assertions,
         "passed": probe_error is None,
         "probeError": probe_error,

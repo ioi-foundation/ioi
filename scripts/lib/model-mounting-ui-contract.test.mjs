@@ -219,6 +219,12 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   assert.match(source, /health-sweep/);
   assert.match(source, /Streaming observability/);
   assert.match(source, /Stream lifecycle receipts/);
+  assert.match(source, /streamLifecycleProbe/);
+  assert.match(source, /stream-lifecycle/);
+  assert.match(source, /event\.altKey/);
+  assert.match(source, /F21/);
+  assert.match(source, /\/v1\/chat\/completions/);
+  assert.match(source, /AbortController/);
   assert.match(source, /StreamLifecycleReceiptCard/);
   assert.match(source, /streamLifecycleReceipts/);
   assert.match(source, /streamLifecycleSummary/);
