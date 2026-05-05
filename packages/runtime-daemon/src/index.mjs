@@ -1832,8 +1832,13 @@ function recordModelStreamCanceled({ mounts, invocation, streamKind, framesWritt
       providerId: invocation.endpoint.providerId,
       instanceId: invocation.instance.id,
       backendId: invocation.instance.backendId ?? invocation.receipt.details?.backendId ?? null,
+      selectedBackend: invocation.receipt.details?.selectedBackend ?? null,
+      streamSource: invocation.receipt.details?.streamSource ?? null,
+      providerResponseKind: invocation.providerResponseKind ?? invocation.receipt.details?.providerResponseKind ?? null,
+      backendEvidenceRefs: invocation.receipt.details?.backendEvidenceRefs ?? [],
       toolReceiptIds: invocation.toolReceiptIds ?? [],
       framesWritten,
+      status: "aborted",
       reason: "client_disconnect",
     },
   });

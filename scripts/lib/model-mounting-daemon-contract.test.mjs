@@ -540,6 +540,96 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
       crypto.createHash("sha256").update(nativeResponseStreamText).digest("hex"),
     );
 
+    const priorNativeProviderStreamDelay = process.env.IOI_DETERMINISTIC_PROVIDER_STREAM_DELAY_MS;
+    process.env.IOI_DETERMINISTIC_PROVIDER_STREAM_DELAY_MS = "25";
+    try {
+      const abortedNativeCompatStream = await requestSseAndAbortAfterFirstChunk(daemon.endpoint, "/v1/chat/completions", {
+        method: "POST",
+        token: grant.token,
+        body: {
+          route_id: "route.native-local",
+          model: "native:imported",
+          stream: true,
+          messages: [{ role: "user", content: "abort native local compat stream" }],
+        },
+      });
+      assert.equal(abortedNativeCompatStream.response.status, 200);
+      assert.match(abortedNativeCompatStream.text, /chat\.completion\.chunk/);
+    } finally {
+      if (priorNativeProviderStreamDelay === undefined) {
+        delete process.env.IOI_DETERMINISTIC_PROVIDER_STREAM_DELAY_MS;
+      } else {
+        process.env.IOI_DETERMINISTIC_PROVIDER_STREAM_DELAY_MS = priorNativeProviderStreamDelay;
+      }
+    }
+    const canceledNativeCompatReceipt = await waitForReceipt(
+      daemon.endpoint,
+      (receipt) =>
+        receipt.kind === "model_invocation_stream_canceled" &&
+        receipt.details?.streamKind === "openai_chat_completions_native_local" &&
+        receipt.details?.routeId === "route.native-local",
+    );
+    assert.equal(canceledNativeCompatReceipt.details.selectedModel, "native:imported");
+    assert.equal(canceledNativeCompatReceipt.details.endpointId, nativeMounted.id);
+    assert.equal(canceledNativeCompatReceipt.details.status, "aborted");
+    assert.equal(canceledNativeCompatReceipt.details.streamSource, "provider_native");
+    assert.equal(canceledNativeCompatReceipt.details.providerResponseKind, "native_local.chat.stream");
+    assert.ok(canceledNativeCompatReceipt.details.backendEvidenceRefs.includes("autopilot_native_local_provider_native_stream"));
+    const canceledNativeCompatInvocation = await expectOk(
+      daemon.endpoint,
+      `/api/v1/receipts/${canceledNativeCompatReceipt.details.invocationReceiptId}`,
+    );
+    assert.equal(canceledNativeCompatInvocation.kind, "model_invocation");
+    assert.equal(canceledNativeCompatInvocation.details.backendProcessPidHash, nativeLoaded.backendProcess.pidHash);
+
+    const priorNativeResponsesProviderStreamDelay = process.env.IOI_DETERMINISTIC_PROVIDER_STREAM_DELAY_MS;
+    process.env.IOI_DETERMINISTIC_PROVIDER_STREAM_DELAY_MS = "25";
+    try {
+      const abortedNativeResponsesStream = await requestSseAndAbortAfterFirstChunk(daemon.endpoint, "/v1/responses", {
+        method: "POST",
+        token: grant.token,
+        body: {
+          route_id: "route.native-local",
+          model: "native:imported",
+          stream: true,
+          input: "abort native local responses stream",
+        },
+      });
+      assert.equal(abortedNativeResponsesStream.response.status, 200);
+      assert.match(abortedNativeResponsesStream.text, /response\.created/);
+    } finally {
+      if (priorNativeResponsesProviderStreamDelay === undefined) {
+        delete process.env.IOI_DETERMINISTIC_PROVIDER_STREAM_DELAY_MS;
+      } else {
+        process.env.IOI_DETERMINISTIC_PROVIDER_STREAM_DELAY_MS = priorNativeResponsesProviderStreamDelay;
+      }
+    }
+    const canceledNativeResponsesReceipt = await waitForReceipt(
+      daemon.endpoint,
+      (receipt) =>
+        receipt.kind === "model_invocation_stream_canceled" &&
+        receipt.details?.streamKind === "openai_responses_native_local" &&
+        receipt.details?.routeId === "route.native-local",
+    );
+    assert.equal(canceledNativeResponsesReceipt.details.selectedModel, "native:imported");
+    assert.equal(canceledNativeResponsesReceipt.details.endpointId, nativeMounted.id);
+    assert.equal(canceledNativeResponsesReceipt.details.status, "aborted");
+    assert.equal(canceledNativeResponsesReceipt.details.streamSource, "provider_native");
+    assert.equal(canceledNativeResponsesReceipt.details.providerResponseKind, "native_local.responses.stream");
+    assert.ok(canceledNativeResponsesReceipt.details.backendEvidenceRefs.includes("autopilot_native_local_provider_native_stream"));
+
+    const nativeProviderAbortLogs = await expectOk(daemon.endpoint, "/api/v1/backends/backend.autopilot.native-local.fixture/logs");
+    assert.ok(
+      nativeProviderAbortLogs.some(
+        (record) => record.event === "stream_abort" && record.kind === "chat.completions" && record.reason === "client_disconnect",
+      ),
+    );
+    assert.ok(
+      nativeProviderAbortLogs.some(
+        (record) => record.event === "stream_abort" && record.kind === "responses" && record.reason === "client_disconnect",
+      ),
+    );
+
     const nativeBackendStart = await expectOk(daemon.endpoint, "/api/v1/backends/backend.autopilot.native-local.fixture/start", {
       method: "POST",
       token: grant.token,
