@@ -347,6 +347,9 @@
 .model-mounts-provider-editor select,
 .model-mounts-token-editor input,
 .model-mounts-token-editor textarea,
+.model-mounts-benchmark-editor input,
+.model-mounts-benchmark-editor select,
+.model-mounts-benchmark-editor textarea,
 .model-mounts-route-editor input,
 .model-mounts-route-editor select {
   min-width: 0;
@@ -362,7 +365,8 @@
   outline: none;
 }
 
-.model-mounts-token-editor textarea {
+.model-mounts-token-editor textarea,
+.model-mounts-benchmark-editor textarea {
   min-height: 118px;
   padding: 10px;
   line-height: 1.45;
@@ -374,6 +378,9 @@
 .model-mounts-provider-editor select:focus,
 .model-mounts-token-editor input:focus,
 .model-mounts-token-editor textarea:focus,
+.model-mounts-benchmark-editor input:focus,
+.model-mounts-benchmark-editor select:focus,
+.model-mounts-benchmark-editor textarea:focus,
 .model-mounts-route-editor input:focus,
 .model-mounts-route-editor select:focus {
   border-color: color-mix(in srgb, var(--chat-accent) 54%, var(--chat-border));
@@ -685,6 +692,29 @@
   background: var(--surface-1);
 }
 
+.model-mounts-benchmark-editor {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--chat-border);
+  background: var(--surface-1);
+}
+
+.model-mounts-benchmark-workbench {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(360px, 1.05fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.model-mounts-benchmark-output {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+}
+
 .model-mounts-route-editor-head {
   min-width: 0;
   display: flex;
@@ -738,6 +768,20 @@
   gap: 10px;
 }
 
+.model-mounts-benchmark-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+
+.model-mounts-benchmark-options {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  align-content: start;
+}
+
 .model-mounts-route-editor-summary {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -754,8 +798,15 @@
   border-top: 1px solid var(--chat-border);
 }
 
+.model-mounts-benchmark-scoreboard {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
 .model-mounts-provider-editor label,
 .model-mounts-token-editor label,
+.model-mounts-benchmark-editor label,
 .model-mounts-route-editor label {
   min-width: 0;
   display: flex;
@@ -765,6 +816,7 @@
 
 .model-mounts-provider-editor label span,
 .model-mounts-token-editor label span,
+.model-mounts-benchmark-editor label span,
 .model-mounts-route-editor label span {
   color: var(--chat-text-secondary);
   font-size: 11px;
@@ -773,11 +825,13 @@
 }
 
 .model-mounts-provider-editor .model-mounts-checkbox,
+.model-mounts-benchmark-editor .model-mounts-checkbox,
 .model-mounts-route-editor .model-mounts-checkbox {
   justify-content: end;
 }
 
 .model-mounts-provider-editor .model-mounts-checkbox input,
+.model-mounts-benchmark-editor .model-mounts-checkbox input,
 .model-mounts-route-editor .model-mounts-checkbox input {
   width: auto;
   min-height: auto;
@@ -842,6 +896,37 @@
   grid-template-columns: 0.95fr 0.9fr 0.8fr 0.65fr 1.55fr 1.35fr;
   gap: 0;
   border-top: 1px solid var(--chat-border);
+}
+
+.model-mounts-benchmark-results {
+  display: grid;
+  border: 1px solid var(--chat-border);
+  overflow: hidden;
+}
+
+.model-mounts-benchmark-results > div {
+  display: grid;
+  grid-template-columns: minmax(150px, 1.15fr) minmax(115px, 0.85fr) minmax(115px, 0.8fr) minmax(72px, 0.45fr) minmax(72px, 0.45fr);
+  border-top: 1px solid var(--chat-border);
+}
+
+.model-mounts-benchmark-results > div:first-child {
+  border-top: none;
+}
+
+.model-mounts-benchmark-results span {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 11px 12px;
+  color: var(--chat-text);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.model-mounts-benchmark-results p {
+  padding: 14px;
 }
 
 .model-mounts-table > div:first-child {
@@ -978,6 +1063,10 @@
   .model-mounts-token-editor-grid,
   .model-mounts-token-editor-scopes,
   .model-mounts-token-editor-summary,
+  .model-mounts-benchmark-grid,
+  .model-mounts-benchmark-workbench,
+  .model-mounts-benchmark-options,
+  .model-mounts-benchmark-scoreboard,
   .model-mounts-three-col,
   .model-mounts-route-list,
   .model-mounts-token-layout,

@@ -59,7 +59,8 @@ MOUNT_TABS = [
     ("downloads", "F5"),
     ("tokens", "F6"),
     ("routing", "F7"),
-    ("logs", "F8"),
+    ("benchmarks", "F8"),
+    ("logs", "F9"),
 ]
 MIN_DISTINCT_TAB_TRANSITIONS = 4
 
@@ -241,6 +242,41 @@ def seed_model_mounting_state(endpoint: str) -> dict[str, Any]:
         token=token,
         body={"route_id": "route.native-local", "model": "autopilot:native-fixture", "input": "GUI validation probe"},
     )
+    route_test = request_json(
+        endpoint,
+        "/api/v1/routes/route.native-local/test",
+        method="POST",
+        token=token,
+        body={
+            "capability": "chat",
+            "model": "autopilot:native-fixture",
+            "model_policy": {"privacy": "local_only", "max_cost_usd": 0.05},
+        },
+    )
+    response = request_json(
+        endpoint,
+        "/api/v1/responses",
+        method="POST",
+        token=token,
+        body={
+            "route_id": "route.native-local",
+            "model": "autopilot:native-fixture",
+            "input": "GUI benchmark responses probe",
+            "model_policy": {"privacy": "local_only", "max_cost_usd": 0.05},
+        },
+    )
+    embedding = request_json(
+        endpoint,
+        "/api/v1/embeddings",
+        method="POST",
+        token=token,
+        body={
+            "route_id": "route.native-local",
+            "model": "autopilot:native-fixture",
+            "input": ["GUI benchmark embedding probe", "model mounts"],
+            "model_policy": {"privacy": "local_only", "max_cost_usd": 0.05},
+        },
+    )
     snapshot = request_json(endpoint, "/api/v1/models")
     projection = request_json(endpoint, "/api/v1/projections/model-mounting")
     return {
@@ -251,6 +287,9 @@ def seed_model_mounting_state(endpoint: str) -> dict[str, Any]:
         "download_receipt": download.get("receiptId"),
         "mcp_count": mcp_import["count"],
         "chat_receipt": chat["receipt_id"],
+        "benchmark_route_receipt": route_test.get("receipt", {}).get("id"),
+        "benchmark_response_receipt": response.get("receipt_id"),
+        "benchmark_embedding_receipt": embedding.get("receipt_id"),
         "snapshot_counts": {
             "backends": len(snapshot.get("backends", [])),
             "providers": len(snapshot.get("providers", [])),

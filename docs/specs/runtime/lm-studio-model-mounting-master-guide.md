@@ -90,7 +90,7 @@ npm run validate:model-mounting:e2e
 Latest deterministic evidence bundle:
 
 ```text
-docs/evidence/model-mounting-e2e/2026-05-05T10-56-01Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T11-16-51Z/result.json
 ```
 
 That bundle passed the following acceptance steps:
@@ -131,19 +131,21 @@ That bundle passed the following acceptance steps:
   survey/selection, model load options, routes, MCP, tokens, receipts, and
   replay;
 - daemon restart with Agentgres-style projection/replay continuity;
-- Mounts desktop GUI screenshot bundle with eight real window captures;
+- Mounts desktop GUI screenshot bundle with nine real window captures;
+- benchmark/results panel with routed benchmark runner, route-quality
+  telemetry, latency, token count, backend, endpoint, grant, and receipt rows;
 - secret/token/vault-ref redaction scan across persisted state and evidence.
 
 The current GUI evidence nested under that E2E bundle is:
 
 ```text
-docs/evidence/model-mounting-e2e/2026-05-05T10-56-01Z/gui/2026-05-05T10-56-29Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T11-16-51Z/gui/2026-05-05T11-17-18Z/result.json
 ```
 
 The current standalone Mounts GUI evidence bundle is:
 
 ```text
-docs/evidence/model-mounts-gui-validation/2026-05-05T10-54-48Z/result.json
+docs/evidence/model-mounts-gui-validation/2026-05-05T11-15-26Z/result.json
 ```
 
 It captured all Mounts tabs as desktop window screenshots:
@@ -302,13 +304,13 @@ Latest evidence paths:
 
 ```text
 Canonical E2E:
-docs/evidence/model-mounting-e2e/2026-05-05T10-56-01Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T11-16-51Z/result.json
 
 Mounts GUI nested under canonical E2E:
-docs/evidence/model-mounting-e2e/2026-05-05T10-56-01Z/gui/2026-05-05T10-56-29Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T11-16-51Z/gui/2026-05-05T11-17-18Z/result.json
 
 Standalone Mounts GUI with live provider summary:
-docs/evidence/model-mounts-gui-validation/2026-05-05T10-54-48Z/result.json
+docs/evidence/model-mounts-gui-validation/2026-05-05T11-15-26Z/result.json
 
 Broad Autopilot GUI harness:
 docs/evidence/autopilot-gui-harness-validation/2026-05-05T01-40-43-545Z/result.json
@@ -508,7 +510,6 @@ gates:
    - provider-specific controls;
    - download queue;
    - streaming logs and request/response log filters;
-   - benchmark/results view;
    - degraded/error/denied states for every action.
 8. Provider expansion:
    - Ollama;
@@ -550,7 +551,7 @@ implemented as a product surface.
 | Secret storage | LM Studio local config/API token ergonomics | Partial, stronger boundary | Wire production wallet.network/vault and cross-device revocation; keep plaintext rejected |
 | Headless/background mode | `lms server` and background service ergonomics | Partial | Package IOI daemon service/headless mode, health checks, logs, and restart policy |
 | Model cleanup/storage | LM Studio models folder and import management | Partial | Artifact delete and orphan scan receipts exist; add uninstall confirmations, storage quota, and destructive UX safeguards |
-| Benchmarks/evals | LM Studio exposes model metadata and developer feedback loops | Gap | Add benchmark runs, route-quality telemetry, latency/cost feedback, and route recommendation receipts |
+| Benchmarks/evals | LM Studio exposes model metadata and developer feedback loops | Partial | Benchmark runner and receipt-backed results panel exist for deterministic Mounts path; add scheduled runs, route recommendation receipts, and comparative charts |
 | Attested remote runtime | Outside current LM Studio local focus | Boundary only | Implement DePIN/TEE attestation verification, fail-closed routing, and attestation receipts |
 
 ### Priority Closeout Order For Parity
@@ -560,7 +561,7 @@ implemented as a product surface.
    - GGUF/MLX filters and variant selection polish;
    - storage quota and uninstall confirmation UX.
 2. Product UI parity:
-   - benchmark panel, degraded/denied states, and streaming request/response filters.
+   - degraded/denied states and streaming request/response filters.
 3. Live backend parity:
    - real llama.cpp runner;
    - live Ollama lifecycle;
@@ -591,22 +592,22 @@ npm run validate:model-mounting:e2e
 Latest passing bundle:
 
 ```text
-docs/evidence/model-mounting-e2e/2026-05-05T10-56-01Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T11-16-51Z/result.json
 ```
 
 Nested GUI bundle:
 
 ```text
-docs/evidence/model-mounting-e2e/2026-05-05T10-56-01Z/gui/2026-05-05T10-56-29Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T11-16-51Z/gui/2026-05-05T11-17-18Z/result.json
 ```
 
 Standalone Mounts GUI bundle:
 
 ```text
-docs/evidence/model-mounts-gui-validation/2026-05-05T10-54-48Z/result.json
+docs/evidence/model-mounts-gui-validation/2026-05-05T11-15-26Z/result.json
 ```
 
-The GUI bundle captured eight desktop window screenshots for the Mounts tabs
+The GUI bundle captured nine desktop window screenshots for the Mounts tabs
 and verified the seeded daemon projection exposed:
 
 - 7 backends;
@@ -624,6 +625,7 @@ The screenshots are stored next to the nested GUI result:
 - `mounts-downloads.png`;
 - `mounts-tokens.png`;
 - `mounts-routing.png`;
+- `mounts-benchmarks.png`;
 - `mounts-logs.png`.
 
 ### LM Studio Reference Screenshots
@@ -1923,6 +1925,10 @@ Current status:
 - Complete: receipts show route, selected endpoint, selected instance, backend,
   policy hash, grant id, token counts, latency, and tool receipt IDs where
   applicable.
+- Complete: Mounts benchmark/results panel runs selected route benchmarks
+  through governed chat/responses/embeddings calls and displays invocation
+  receipt telemetry for latency, tokens, backend, route, endpoint, grant, and
+  replay.
 - Complete: deterministic Autopilot-native local serving path operates without
   LM Studio.
 - Complete: deterministic download/import lifecycle includes progress, failure,
@@ -1944,7 +1950,8 @@ parity closeout order from the matrix above:
 
 1. Live catalog/download activation.
 2. Product UI parity beyond the validated picker, loaded-instance inspector,
-   model detail drawer, route editor, and token editor.
+   model detail drawer, route editor, token editor, and benchmark/results
+   panel.
 3. Live backend/provider parity.
 4. Streaming observability parity.
 5. Production IOI hardening beyond LM Studio.

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import "./MissionControlMountsView.css";
 
-type MountsTab = "server" | "backends" | "models" | "providers" | "downloads" | "tokens" | "routing" | "logs";
+type MountsTab = "server" | "backends" | "models" | "providers" | "downloads" | "tokens" | "routing" | "benchmarks" | "logs";
 type StatusTone = "neutral" | "ready" | "muted" | "warn" | "blocked";
 type ConnectionState = "offline" | "loading" | "connected" | "degraded";
 
@@ -198,6 +198,31 @@ interface ReceiptPreview {
   redaction: string;
   evidence: string[];
   healthStatus: string;
+  createdAt: string;
+  routeId: string;
+  endpointId: string;
+  selectedModel: string;
+  providerId: string;
+  instanceId: string;
+  backend: string;
+  backendId: string;
+  grantId: string;
+  tokenCount: number;
+  latencyMs: number;
+  routeReceiptId: string;
+  compatTranslation: string;
+  policyHash: string;
+  toolReceiptIds: string[];
+  providerResponseKind: string;
+}
+
+interface BenchmarkDraft {
+  prompt: string;
+  samples: string;
+  includeResponses: boolean;
+  includeEmbeddings: boolean;
+  maxCostUsd: string;
+  privacy: string;
 }
 
 interface HealthSummaryPreview {
@@ -305,6 +330,15 @@ const defaultTokenDraft: TokenDraft = {
   grantId: "",
 };
 
+const defaultBenchmarkDraft: BenchmarkDraft = {
+  prompt: "Compare this mounted model path with a short deterministic routing benchmark.",
+  samples: "2",
+  includeResponses: true,
+  includeEmbeddings: true,
+  maxCostUsd: "0.05",
+  privacy: "local_only",
+};
+
 const tabs: Array<{ id: MountsTab; label: string }> = [
   { id: "server", label: "Local Server" },
   { id: "backends", label: "Backends" },
@@ -313,6 +347,7 @@ const tabs: Array<{ id: MountsTab; label: string }> = [
   { id: "downloads", label: "Downloads" },
   { id: "tokens", label: "Tokens & MCP" },
   { id: "routing", label: "Routing Policies" },
+  { id: "benchmarks", label: "Benchmarks" },
   { id: "logs", label: "Logs / Receipts" },
 ];
 
@@ -624,7 +659,23 @@ const fallbackData: MountsWorkbenchData = {
       "wallet.network_adapter_boundary",
     ], "ready"),
     receipt("receipt_model_lifecycle_*", "model_lifecycle", "mount, load, unload, download, import, and idle eviction state transitions", ["model_registry", "agentgres_canonical_operation_log"]),
-    receipt("receipt_model_invocation_*", "model_invocation", "route, endpoint, instance, backend, policy hash, grant id, token counts, latency", ["model_router", "endpoint.local.auto", "wallet.network.capability_grant"]),
+    receipt("receipt_model_invocation_*", "model_invocation", "route, endpoint, instance, backend, policy hash, grant id, token counts, latency", ["model_router", "endpoint.local.auto", "wallet.network.capability_grant"], "unknown", {
+      routeId: "route.local-first",
+      endpointId: "endpoint.local.auto",
+      selectedModel: "local:auto",
+      providerId: "provider.local-folder",
+      instanceId: "instance.local.auto.default",
+      backend: "native_local_fixture",
+      backendId: "backend.autopilot.native-local.fixture",
+      grantId: "wallet.grant.fixture",
+      tokenCount: 42,
+      latencyMs: 24,
+      routeReceiptId: "receipt_model_route_selection_*",
+      compatTranslation: "none",
+      policyHash: "fixture",
+      toolReceiptIds: [],
+      providerResponseKind: "chat",
+    }),
     receipt("receipt_mcp_tool_invocation_*", "mcp_tool_invocation", "allowed MCP tool execution through RuntimeToolContract", ["RuntimeToolContract", "mcp.huggingface", "tool:model_search"]),
     receipt("receipt_permission_token_*", "permission_token", "scoped, expiring, revocable token with denied connector/filesystem/shell scopes", ["wallet.network.capability_grant", "wallet.network.revocation"]),
   ],
@@ -730,8 +781,38 @@ function route(
   };
 }
 
-function receipt(id: string, kind: string, summary: string, evidence: string[], healthStatus = "unknown"): ReceiptPreview {
-  return { id, kind, summary, redaction: "redacted", evidence, healthStatus };
+function receipt(
+  id: string,
+  kind: string,
+  summary: string,
+  evidence: string[],
+  healthStatus = "unknown",
+  details: Partial<ReceiptPreview> = {},
+): ReceiptPreview {
+  return {
+    id,
+    kind,
+    summary,
+    redaction: "redacted",
+    evidence,
+    healthStatus,
+    createdAt: details.createdAt ?? "fixture",
+    routeId: details.routeId ?? "none",
+    endpointId: details.endpointId ?? "none",
+    selectedModel: details.selectedModel ?? "none",
+    providerId: details.providerId ?? "none",
+    instanceId: details.instanceId ?? "none",
+    backend: details.backend ?? "none",
+    backendId: details.backendId ?? "none",
+    grantId: details.grantId ?? "none",
+    tokenCount: details.tokenCount ?? 0,
+    latencyMs: details.latencyMs ?? 0,
+    routeReceiptId: details.routeReceiptId ?? "none",
+    compatTranslation: details.compatTranslation ?? "none",
+    policyHash: details.policyHash ?? "none",
+    toolReceiptIds: details.toolReceiptIds ?? [],
+    providerResponseKind: details.providerResponseKind ?? "none",
+  };
 }
 
 function healthSummaryFromReceipts(receipts: ReceiptPreview[]): HealthSummaryPreview {
@@ -839,6 +920,30 @@ function modelSelectionDetails(data: MountsWorkbenchData, selection: MountsPicke
     relatedDownloads,
     relatedReceipts,
   };
+}
+
+function modelInvocationReceipts(receipts: ReceiptPreview[]) {
+  return receipts
+    .filter((item) => item.kind === "model_invocation")
+    .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+}
+
+function benchmarkSummary(receipts: ReceiptPreview[]) {
+  const invocations = modelInvocationReceipts(receipts);
+  const latencies = invocations.map((item) => item.latencyMs).filter((value) => value > 0);
+  const totalLatency = latencies.reduce((total, value) => total + value, 0);
+  const totalTokens = invocations.reduce((total, item) => total + item.tokenCount, 0);
+  return {
+    invocations,
+    latest: invocations.at(-1),
+    totalTokens,
+    averageLatencyMs: latencies.length > 0 ? Math.round(totalLatency / latencies.length) : 0,
+  };
+}
+
+function formatLatency(value: number) {
+  if (!value) return "unknown";
+  return value >= 1000 ? `${(value / 1000).toFixed(2)}s` : `${value}ms`;
 }
 
 function readInitialEndpoint() {
@@ -1131,6 +1236,65 @@ function useModelMountsDaemon() {
             body: { model: "local:auto", input: "Autopilot Mounts workbench probe" },
           });
           return "Native chat probe produced a model invocation receipt.";
+        }),
+      runBenchmark: (selection: MountsPickerSelection, draft: BenchmarkDraft) =>
+        runAction("benchmark-run", async () => {
+          const token = await ensureToken();
+          const routeId = selection.routeId || "route.local-first";
+          const modelId = selection.modelId || undefined;
+          const prompt = draft.prompt.trim() || defaultBenchmarkDraft.prompt;
+          const samples = Math.min(5, Math.max(1, Number.parseInt(draft.samples, 10) || 1));
+          const modelPolicy = {
+            privacy: draft.privacy,
+            max_cost_usd: Number(draft.maxCostUsd || 0.05),
+          };
+          const receiptIds: string[] = [];
+          const routeTest = await requestJson(`/api/v1/routes/${encodeURIComponent(routeId)}/test`, {
+            method: "POST",
+            token,
+            body: { capability: "chat", model: modelId, model_policy: modelPolicy },
+          });
+          receiptIds.push(stringValue(routeTest?.receipt?.id, "route receipt"));
+          for (let index = 0; index < samples; index += 1) {
+            const chat = await requestJson("/api/v1/chat", {
+              method: "POST",
+              token,
+              body: {
+                route_id: routeId,
+                model: modelId,
+                input: `${prompt}\n\nBenchmark sample ${index + 1}/${samples}.`,
+                model_policy: modelPolicy,
+              },
+            });
+            receiptIds.push(stringValue(chat?.receipt_id, "chat receipt"));
+          }
+          if (draft.includeResponses) {
+            const response = await requestJson("/api/v1/responses", {
+              method: "POST",
+              token,
+              body: {
+                route_id: routeId,
+                model: modelId,
+                input: `${prompt}\n\nBenchmark responses pass.`,
+                model_policy: modelPolicy,
+              },
+            });
+            receiptIds.push(stringValue(response?.receipt_id, "responses receipt"));
+          }
+          if (draft.includeEmbeddings) {
+            const embedding = await requestJson("/api/v1/embeddings", {
+              method: "POST",
+              token,
+              body: {
+                route_id: routeId,
+                model: modelId,
+                input: [prompt, selection.endpointId || routeId],
+                model_policy: modelPolicy,
+              },
+            });
+            receiptIds.push(stringValue(embedding?.receipt_id, "embedding receipt"));
+          }
+          return `Benchmark completed for ${routeId}; ${receiptIds.length} receipt${receiptIds.length === 1 ? "" : "s"} recorded.`;
         }),
       ephemeralMcpProbe: () =>
         runAction("ephemeral-mcp", async () => {
@@ -1581,6 +1745,24 @@ function normalizeSnapshot(snapshot: any, endpoint: string): MountsWorkbenchData
       stringValue(item.summary, "Receipt recorded."),
       stringArray(item.evidenceRefs),
       stringValue(item?.details?.status, "unknown"),
+      {
+        createdAt: stringValue(item.createdAt, "unknown"),
+        routeId: stringValue(item?.details?.routeId, "none"),
+        endpointId: stringValue(item?.details?.endpointId, "none"),
+        selectedModel: stringValue(item?.details?.selectedModel, "none"),
+        providerId: stringValue(item?.details?.providerId, "none"),
+        instanceId: stringValue(item?.details?.instanceId, "none"),
+        backend: stringValue(item?.details?.backend, "none"),
+        backendId: stringValue(item?.details?.backendId, stringValue(item?.details?.selectedBackend, "none")),
+        grantId: stringValue(item?.details?.grantId, "none"),
+        tokenCount: numberValue(item?.details?.tokenCount, 0),
+        latencyMs: numberValue(item?.details?.latencyMs, 0),
+        routeReceiptId: stringValue(item?.details?.routeReceiptId, "none"),
+        compatTranslation: stringValue(item?.details?.compatTranslation, "none"),
+        policyHash: stringValue(item?.details?.policyHash, "none"),
+        toolReceiptIds: stringArray(item?.details?.toolReceiptIds),
+        providerResponseKind: stringValue(item?.details?.providerResponseKind, "none"),
+      },
     ),
   );
   return {
@@ -3302,6 +3484,136 @@ function RoutingPanel({
   );
 }
 
+function BenchmarksPanel({
+  data,
+  selection,
+  onRunBenchmark,
+  onReplayReceipt,
+  busy,
+}: {
+  data: MountsWorkbenchData;
+  selection: MountsPickerSelection;
+  onRunBenchmark: (selection: MountsPickerSelection, draft: BenchmarkDraft) => void;
+  onReplayReceipt: (receiptId: string) => void;
+  busy: boolean;
+}) {
+  const [draft, setDraft] = useState<BenchmarkDraft>(defaultBenchmarkDraft);
+  const { invocations, latest, totalTokens, averageLatencyMs } = benchmarkSummary(data.receipts);
+  const visibleInvocations = [...invocations].reverse().slice(0, 8);
+  const updateDraft = (field: keyof BenchmarkDraft, value: string | boolean) => setDraft((current) => ({ ...current, [field]: value }));
+  const submitBenchmark = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    onRunBenchmark(selection, draft);
+  };
+
+  return (
+    <section className="model-mounts-panel" aria-labelledby="model-mounts-benchmarks-title">
+      <div className="model-mounts-panel-head">
+        <div>
+          <span className="model-mounts-kicker">Route quality telemetry</span>
+          <h3 id="model-mounts-benchmarks-title">Benchmarks and results</h3>
+        </div>
+        <div className="model-mounts-actions">
+          <StatusPill tone="ready">receipt backed</StatusPill>
+          <StatusPill tone={latest ? "ready" : "muted"}>{latest ? "results available" : "no runs"}</StatusPill>
+          {latest ? <ActionButton onClick={() => onReplayReceipt(latest.id)} disabled={busy}>Replay latest result</ActionButton> : null}
+        </div>
+      </div>
+
+      <div className="model-mounts-benchmark-workbench">
+        <form className="model-mounts-benchmark-editor" onSubmit={submitBenchmark}>
+          <div className="model-mounts-route-editor-head">
+            <div>
+              <h4>Benchmark runner</h4>
+              <span>{selection.modelId || "selected model"} / {selection.routeId || "selected route"} / {selection.endpointId || "selected endpoint"}</span>
+            </div>
+            <div className="model-mounts-card-actions">
+              <StatusPill tone="ready">router gated</StatusPill>
+              <ActionButton type="submit" disabled={busy || !selection.routeId}>Run benchmark</ActionButton>
+            </div>
+          </div>
+          <div className="model-mounts-benchmark-grid">
+            <label>
+              <span>Prompt</span>
+              <textarea value={draft.prompt} onChange={(event) => updateDraft("prompt", event.target.value)} rows={4} />
+            </label>
+            <div className="model-mounts-benchmark-options">
+              <label>
+                <span>Samples</span>
+                <input type="number" min="1" max="5" value={draft.samples} onChange={(event) => updateDraft("samples", event.target.value)} />
+              </label>
+              <label>
+                <span>Max cost USD</span>
+                <input inputMode="decimal" value={draft.maxCostUsd} onChange={(event) => updateDraft("maxCostUsd", event.target.value)} />
+              </label>
+              <label>
+                <span>Privacy</span>
+                <select value={draft.privacy} onChange={(event) => updateDraft("privacy", event.target.value)}>
+                  <option value="local_only">Local only</option>
+                  <option value="local_or_enterprise">Local or enterprise</option>
+                  <option value="workspace">Workspace</option>
+                </select>
+              </label>
+              <label className="model-mounts-checkbox">
+                <input type="checkbox" checked={draft.includeResponses} onChange={(event) => updateDraft("includeResponses", event.target.checked)} />
+                <span>Include Responses pass</span>
+              </label>
+              <label className="model-mounts-checkbox">
+                <input type="checkbox" checked={draft.includeEmbeddings} onChange={(event) => updateDraft("includeEmbeddings", event.target.checked)} />
+                <span>Include embeddings pass</span>
+              </label>
+            </div>
+          </div>
+        </form>
+
+        <section className="model-mounts-benchmark-output" aria-label="Benchmark result summary">
+          <div className="model-mounts-benchmark-scoreboard">
+            <DetailFact label="Runs" value={`${invocations.length}`} note="model invocation receipts" />
+            <DetailFact label="Avg latency" value={formatLatency(averageLatencyMs)} note={latest?.routeId ?? "no route yet"} />
+            <DetailFact label="Tokens" value={`${totalTokens}`} note={latest?.grantId ?? "no grant yet"} />
+            <DetailFact label="Backend" value={latest?.backendId ?? "none"} note={latest?.endpointId ?? "no endpoint yet"} />
+          </div>
+
+          <div className="model-mounts-benchmark-results" role="table" aria-label="Benchmark results">
+            <div role="row" className="model-mounts-table-head">
+              <span role="columnheader">Receipt</span>
+              <span role="columnheader">Model</span>
+              <span role="columnheader">Route</span>
+              <span role="columnheader">Latency</span>
+              <span role="columnheader">Tokens</span>
+            </div>
+            {visibleInvocations.length === 0 ? (
+              <p className="model-mounts-empty">No benchmarkable model invocation receipts in the current projection.</p>
+            ) : (
+              visibleInvocations.map((item) => (
+                <div role="row" key={item.id}>
+                  <span role="cell">
+                    <strong>{item.id}</strong>
+                    <small>{item.createdAt}</small>
+                  </span>
+                  <span role="cell">
+                    <strong>{item.selectedModel}</strong>
+                    <small>{item.backendId}</small>
+                  </span>
+                  <span role="cell">
+                    <strong>{item.routeId}</strong>
+                    <small>{item.endpointId}</small>
+                  </span>
+                  <span role="cell">{formatLatency(item.latencyMs)}</span>
+                  <span role="cell">
+                    <strong>{String(item.tokenCount)}</strong>
+                    <small>{item.toolReceiptIds.length} tools</small>
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+      </div>
+    </section>
+  );
+}
+
 function LogsPanel({
   receipts,
   onReplayReceipt,
@@ -3450,7 +3762,7 @@ export function MissionControlMountsView() {
       if (event.ctrlKey || event.metaKey) return;
       const index = event.altKey
         ? Number.parseInt(event.key, 10) - 1
-        : /^F[1-8]$/.test(event.key)
+        : /^F[1-9]$/.test(event.key)
           ? Number.parseInt(event.key.slice(1), 10) - 1
           : -1;
       const nextTab = tabs[index]?.id;
@@ -3504,7 +3816,7 @@ export function MissionControlMountsView() {
         onUnloadInstance={() => daemon.actions.unloadInstance(pickerSelection.instanceId)}
         onToggleDetails={toggleModelDetails}
         detailsOpen={detailDrawerVisible}
-        compact={activeTab === "routing" || activeTab === "tokens"}
+        compact={activeTab === "routing" || activeTab === "tokens" || activeTab === "benchmarks"}
         busy={busy}
       />
 
@@ -3599,6 +3911,15 @@ export function MissionControlMountsView() {
             onSaveRoute={daemon.actions.saveRouteDraft}
             onTestRouteDraft={daemon.actions.testRouteDraft}
             onWorkflowProbe={daemon.actions.workflowProbe}
+            busy={busy}
+          />
+        ) : null}
+        {activeTab === "benchmarks" ? (
+          <BenchmarksPanel
+            data={daemon.data}
+            selection={pickerSelection}
+            onRunBenchmark={daemon.actions.runBenchmark}
+            onReplayReceipt={daemon.actions.replayReceipt}
             busy={busy}
           />
         ) : null}
