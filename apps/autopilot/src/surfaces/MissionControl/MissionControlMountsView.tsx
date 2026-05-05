@@ -19,6 +19,8 @@ interface ProviderProfile {
   authState: string;
   capabilities: string[];
   evidence: string;
+  lastHealth: string;
+  healthReceipt: string;
 }
 
 interface ProviderDraft {
@@ -473,8 +475,26 @@ function provider(
   authScheme: ProviderDraft["authScheme"] = "bearer",
   authHeaderName = "authorization",
   authState = "not required",
+  lastHealth = "not checked",
+  healthReceipt = "none",
 ): ProviderProfile {
-  return { id, label, kind, status, privacy, apiFormat, baseUrl, auth, authScheme, authHeaderName, authState, capabilities, evidence };
+  return {
+    id,
+    label,
+    kind,
+    status,
+    privacy,
+    apiFormat,
+    baseUrl,
+    auth,
+    authScheme,
+    authHeaderName,
+    authState,
+    capabilities,
+    evidence,
+    lastHealth,
+    healthReceipt,
+  };
 }
 
 function backend(
@@ -883,6 +903,8 @@ function normalizeSnapshot(snapshot: any, endpoint: string): MountsWorkbenchData
       providerAuthSchemeForUi(item?.authScheme),
       stringValue(item?.authHeaderName, "authorization"),
       providerVaultState(item),
+      providerLastHealth(item),
+      stringValue(item?.discovery?.lastHealthCheck?.receiptId, "none"),
     ),
   );
   const backends = arrayOf(snapshot?.backends).map((item) =>
@@ -1027,6 +1049,15 @@ function providerVaultState(item: any) {
   if (!configured) return "vault required";
   if (Boolean(item?.vaultBoundary?.resolvedMaterial || item?.vaultBoundary?.runtimeBound)) return "material bound";
   return "vault ref configured, material unbound";
+}
+
+function providerLastHealth(item: any) {
+  const check = item?.discovery?.lastHealthCheck;
+  if (!check) return "not checked";
+  const status = stringValue(check.status, "unknown");
+  const httpStatus = check.httpStatus ? ` / HTTP ${check.httpStatus}` : "";
+  const failure = check.failureCode ? ` / ${check.failureCode}` : "";
+  return `${status}${httpStatus}${failure}`;
 }
 
 function vaultRefState(item: any) {
@@ -1659,6 +1690,14 @@ function ProvidersPanel({
               <div>
                 <dt>Evidence</dt>
                 <dd>{item.evidence}</dd>
+              </div>
+              <div>
+                <dt>Last health</dt>
+                <dd>{item.lastHealth}</dd>
+              </div>
+              <div>
+                <dt>Health receipt</dt>
+                <dd>{item.healthReceipt}</dd>
               </div>
             </dl>
             <TagList items={item.capabilities} />
