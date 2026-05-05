@@ -90,10 +90,11 @@ npm run validate:model-mounting:e2e
 Latest deterministic evidence bundle:
 
 ```text
-docs/evidence/model-mounting-e2e/2026-05-05T14-38-24Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T21-29-49Z/result.json
 ```
 
-That bundle passed the following acceptance steps:
+That bundle passed the following acceptance steps in a GUI-skipped deterministic
+acceptance run:
 
 - fresh daemon startup with isolated model mounting state;
 - fail-closed missing, denied, expired, and revoked token behavior;
@@ -126,6 +127,8 @@ That bundle passed the following acceptance steps:
 - deterministic native-local artifact import, mount, load, and invocation;
 - native `/api/v1/chat` and `/api/v1/responses`;
 - OpenAI-compatible `/v1/chat/completions` and `/v1/embeddings`;
+- completed and client-aborted provider-native streams through the
+  OpenAI-compatible API, with stream receipts linked to invocation receipts;
 - local server stop/restart, redacted log tail, event tail, CLI parity, and
   lifecycle receipts;
 - Mounts streaming observability filters for request/response direction,
@@ -144,7 +147,11 @@ That bundle passed the following acceptance steps:
 - CLI agreement with the same daemon state for server, backends, runtime
   survey/selection, model load options, routes, MCP, tokens, receipts, and
   replay;
+- CLI receipt lookup and replay parity for completed and canceled provider-native
+  stream receipts;
 - daemon restart with Agentgres-style projection/replay continuity;
+- restart projection/replay continuity for completed and canceled stream
+  receipts;
 - Mounts desktop GUI screenshot bundle with nine real window captures;
 - benchmark/results panel with routed benchmark runner, route-quality
   telemetry, latency, token count, backend, endpoint, grant, and receipt rows;
@@ -162,7 +169,7 @@ docs/evidence/model-mounting-e2e/2026-05-05T14-38-24Z/gui/2026-05-05T14-38-55Z/r
 The current standalone Mounts GUI evidence bundle is:
 
 ```text
-docs/evidence/model-mounts-gui-validation/2026-05-05T18-14-53Z/result.json
+docs/evidence/model-mounts-gui-validation/2026-05-05T21-09-24Z/result.json
 ```
 
 It captured all Mounts tabs as desktop window screenshots:
@@ -190,6 +197,10 @@ being closed after the canonical E2E evidence:
   receipt replay;
 - benchmark run, benchmark receipt replay, and benchmark receipt focus in the
   Logs / Receipts surface.
+- Mounts-triggered provider-native stream lifecycle probe, including a completed
+  chat-completions stream, an intentionally aborted Responses stream, linked
+  invocation receipts, projection visibility, and Logs / Receipts screenshot
+  evidence.
 
 Treat the deterministic path as complete unless a future change breaks the
 canonical command above. Remaining items are live-provider activation,
@@ -228,6 +239,20 @@ truthful `skipped` or `blocked` result instead of pretending live validation
 occurred. The wallet.network and Agentgres gates also include deterministic
 fake-remote mode when real URLs are absent, so the adapter-boundary,
 fail-closed, replay, and redaction contracts can still be validated locally.
+
+Latest live backend stream parity evidence:
+
+```text
+docs/evidence/model-mounting-live/model-backends/2026-05-05T22-09-26Z/result.json
+```
+
+That run passed against local Ollama with
+`OLLAMA_HOST=http://127.0.0.1:11434`,
+`IOI_OLLAMA_CHAT_MODEL=llama3.2:3b`, and
+`IOI_OLLAMA_EMBEDDING_MODEL=nomic-embed-text:latest`. It validated provider
+discovery, mount/load/unload, chat, embeddings, completed provider-native
+stream receipts, client-aborted provider-native stream receipts, receipt replay,
+and secret redaction against a real local backend rather than a fixture.
 
 ### Completed In Repo
 
@@ -364,13 +389,16 @@ Latest evidence paths:
 
 ```text
 Canonical E2E:
+docs/evidence/model-mounting-e2e/2026-05-05T21-29-49Z/result.json
+
+Canonical E2E with nested GUI screenshots:
 docs/evidence/model-mounting-e2e/2026-05-05T14-38-24Z/result.json
 
 Mounts GUI nested under canonical E2E:
 docs/evidence/model-mounting-e2e/2026-05-05T14-38-24Z/gui/2026-05-05T14-38-55Z/result.json
 
-Standalone Mounts GUI with live provider summary:
-docs/evidence/model-mounts-gui-validation/2026-05-05T18-14-53Z/result.json
+Standalone Mounts GUI with stream lifecycle probe:
+docs/evidence/model-mounts-gui-validation/2026-05-05T21-09-24Z/result.json
 
 Broad Autopilot GUI harness:
 docs/evidence/autopilot-gui-harness-validation/2026-05-05T01-40-43-545Z/result.json
@@ -378,8 +406,8 @@ docs/evidence/autopilot-gui-harness-validation/2026-05-05T01-40-43-545Z/result.j
 LM Studio live:
 docs/evidence/model-mounting-live/lm-studio/2026-05-05T18-24-08Z/result.json
 
-Ollama live backend:
-docs/evidence/model-mounting-live/model-backends/2026-05-05T18-27-05Z/result.json
+Ollama live backend with completed/aborted provider-native stream receipts:
+docs/evidence/model-mounting-live/model-backends/2026-05-05T22-09-26Z/result.json
 
 llama.cpp live runner attempt:
 docs/evidence/model-mounting-live/llama-cpp/2026-05-05T18-27-43Z/result.json
@@ -401,10 +429,12 @@ Live local provider evidence on 2026-05-05 UTC:
   `qwen/qwen3.5-9b`, with a model invocation receipt.
 - Ollama live backend gate passed with `OLLAMA_HOST=http://127.0.0.1:11434`,
   listing six provider models, mounting/loading `llama3.2:3b`, invoking chat,
-  invoking `nomic-embed-text:latest` embeddings, and verifying receipts. The
-  live gate now accepts `IOI_OLLAMA_CHAT_MODEL` and
-  `IOI_OLLAMA_EMBEDDING_MODEL` so operators can select a responsive installed
-  model instead of relying on provider list order.
+  invoking `nomic-embed-text:latest` embeddings, completing a provider-native
+  streamed chat-completions call, intentionally aborting a provider-native
+  streamed chat-completions call, and verifying linked invocation, stream,
+  replay, backend, and route receipts. The live gate now accepts
+  `IOI_OLLAMA_CHAT_MODEL` and `IOI_OLLAMA_EMBEDDING_MODEL` so operators can
+  select a responsive installed model instead of relying on provider list order.
 - llama.cpp live runner gate reached real `llama-server` spawn, provider
   health, `/v1/models`, native chat, OpenAI-compatible chat, Responses fallback,
   route receipts, and invocation receipts using the local `stories260K` GGUF.
@@ -632,7 +662,9 @@ gates:
    - Ollama has deterministic process-lifecycle parity: configured
      `ollama serve` binaries are supervised with redacted argv and bounded
      logs, model load/unload uses the public `/api/generate` keep-alive path,
-     and loaded-state projection uses public `/api/ps`;
+     loaded-state projection uses public `/api/ps`, and the local live gate
+     passed with completed and client-aborted provider-native stream receipts
+     against `llama3.2:3b`;
    - vLLM has deterministic process-lifecycle parity: configured `vllm serve`
      binaries are supervised with redacted argv and bounded logs, `/v1`
      provider models, chat, Responses fallback, embeddings, loaded projection,
@@ -641,8 +673,9 @@ gates:
      `IOI_VLLM_MODEL` and either a `vllm` binary on `PATH`,
      `IOI_VLLM_BINARY`, or `VLLM_BASE_URL` are configured;
    - remaining work is validating llama.cpp embeddings with a compatible local
-     GGUF/server configuration, running vLLM against live hardware, memory
-     pressure eviction, and backend-specific schedulers.
+     GGUF/server configuration, running vLLM against live hardware, extending
+     live stream parity beyond the passing Ollama gate, memory pressure
+     eviction, and backend-specific schedulers.
 2. Live catalog/download production hardening:
    - the gated Hugging Face-compatible adapter, format/quantization filters,
      resumable `.part` downloads, checksum verification, source hashing, and
@@ -714,8 +747,10 @@ gates:
    - identity flows (`login`, `logout`, `whoami`) mapped to wallet.network
      identity rather than LM Studio account files.
 10. Provider expansion:
-   - Ollama and vLLM have deterministic supervised runner boundaries and live
-     gates;
+   - Ollama and vLLM have deterministic supervised runner boundaries;
+   - Ollama has a passing live backend gate with chat, embeddings, and
+     completed/aborted provider-native stream receipts;
+   - vLLM has an opt-in live gate that remains config/hardware dependent;
    - remaining work is production BYOK behavior for OpenAI, Anthropic, and
      Gemini through vault refs;
    - custom HTTP auth profile hardening;
@@ -741,7 +776,7 @@ implemented as a product surface.
 | Hardware survey | `lms runtime survey` reports GPU/VRAM, CPU features, RAM | Complete for deterministic/public CLI path | Keep redacted survey receipts in projection/replay; add scheduling hints and live runtime preference recommendations |
 | Load options | `lms load --gpu --context-length --parallel --ttl --identifier --estimate-only` | Complete for deterministic/public driver path | Runtime defaults now flow into redacted process argv for deterministic native-local, configured llama.cpp, Ollama serve, and vLLM serve runners; live tuning recommendations remain future scheduler work |
 | Local server | `lms server start|stop|status` and local port `1234` | Complete for deterministic daemon path | Keep start/stop/restart governed by `server.control:*`; package production headless/service supervision |
-| OpenAI-compatible API | `/v1/models`, chat completions, Responses, embeddings | Complete for daemon path | Chat-completion and Responses deterministic SSE plus cancellation receipts now exist; add provider-native token streaming, upstream cancellation, richer OpenAI error shape, tool-output submission, and advanced Responses state |
+| OpenAI-compatible API | `/v1/models`, chat completions, Responses, embeddings | Complete for daemon path | Chat-completion and Responses deterministic SSE plus cancellation receipts now exist; GUI/API/CLI/replay parity is validated, and Ollama has passing live provider-native completed/aborted stream receipts; remaining closeout is llama.cpp/vLLM live stream parity, richer OpenAI error shape, tool-output submission, and advanced Responses state |
 | Anthropic-compatible API | `/v1/messages` with `x-api-key`/Bearer auth and SSE events | Partial | Message calls, deterministic SSE, and cancellation receipts route through router/capability/MCP/receipt path; add provider-native token streaming, upstream cancellation, richer content blocks, and advanced tool-use compatibility |
 | Native model API | LM Studio has public local primitives plus OpenAI-compatible surface | Complete, Autopilot-specific | Keep IOI-native routes authoritative and prevent `/v1/*` policy bypass |
 | Stateful/streaming native chat | `/api/v1/chat` supports stateful chat, token streams, model-load events, prompt-processing events, context length in request, and MCP integrations | Partial | Current deterministic observability is receipt/event based; add true streaming transport, stateful continuation, cancel/interrupt, and per-request context-length handling |
@@ -750,7 +785,7 @@ implemented as a product surface.
 | Inference stats | v0-style TTFT, tokens/sec, generation time, stop reason, runtime/model info | Partial | Receipts contain latency/token counts; add TTFT/tokens-per-second/runtime/model-info fields for streaming and non-streaming invocations |
 | API tokens | LM Studio local API tokens/auth toggle | Complete plus stronger IOI policy | Add production wallet.network account linking, cross-device revocation, and richer audit export UX |
 | MCP config | Cursor/LM Studio-style `mcp.json` plus API integrations | Partial | Complete stdio lifecycle, OAuth, schema discovery, and model tool exposure through governed receipts |
-| Provider support | LM Studio owns local GGUF runtime; external providers are not core | Partial | Keep LM Studio first-class; llama.cpp, Ollama, and vLLM have supervised runner boundaries, while BYOK/custom HTTP live hardening remains behind the same router |
+| Provider support | LM Studio owns local GGUF runtime; external providers are not core | Partial | Keep LM Studio first-class; llama.cpp, Ollama, and vLLM have supervised runner boundaries; Ollama has passing live stream/invocation evidence, while llama.cpp/vLLM live stream parity and BYOK/custom HTTP hardening remain behind the same router |
 | Workflow integration | Not a core LM Studio primitive | Autopilot ahead, partial product UX | Build visual node forms, Receipt Gate configuration, replay, and harness run inspection |
 | Receipts/audit | Not an LM Studio primitive | Autopilot ahead | Finish production Agentgres sync, settlement/audit packs, and remote replay |
 | Secret storage | LM Studio local config/API token ergonomics | Partial, stronger boundary | Wire production wallet.network/vault and cross-device revocation; keep plaintext rejected |
@@ -788,7 +823,9 @@ implemented as a product surface.
 5. Live backend parity:
    - live hardware validation and scheduler hardening for the configured
      `llama.cpp` runner boundary;
-   - live Ollama lifecycle;
+   - live Ollama lifecycle is validated for the local `llama3.2:3b` chat model
+     and `nomic-embed-text:latest` embedding model, including completed and
+     client-aborted provider-native stream receipts;
    - live vLLM/OpenAI-compatible hardware validation;
    - native BYOK OpenAI/Anthropic/Gemini adapters through vault refs.
 6. Raw live-log streaming parity:
@@ -825,10 +862,10 @@ Nested GUI bundle:
 docs/evidence/model-mounting-e2e/2026-05-05T14-38-24Z/gui/2026-05-05T14-38-55Z/result.json
 ```
 
-Standalone Mounts GUI bundle:
+Standalone Mounts GUI bundle with stream lifecycle probe:
 
 ```text
-docs/evidence/model-mounts-gui-validation/2026-05-05T18-14-53Z/result.json
+docs/evidence/model-mounts-gui-validation/2026-05-05T21-09-24Z/result.json
 ```
 
 The GUI bundle captured nine desktop window screenshots for the Mounts tabs
@@ -838,6 +875,8 @@ and verified the seeded daemon projection exposed:
 - 12 providers;
 - 6 artifacts;
 - 19 seeded receipts before action probes;
+- completed and client-aborted provider-native stream receipts created from the
+  Mounts Logs / Receipts surface;
 - no plaintext token or vault-ref findings.
 
 The same bundle verifies action-level GUI parity for provider/backend controls,
@@ -2162,6 +2201,12 @@ Current status:
 - Complete: deterministic stream cancellation receipts are emitted when clients
   disconnect before the final SSE frame on `/v1/chat/completions`,
   `/v1/responses`, and `/v1/messages`.
+- Complete: provider-native stream lifecycle receipts are validated across
+  GUI, API, CLI, receipt replay, and daemon restart projection for the
+  deterministic native-local path.
+- Complete: local Ollama live backend stream parity passed with completed and
+  client-aborted provider-native chat-completion stream receipts, linked
+  invocation receipts, route/backend evidence, replay, and redaction evidence.
 - Complete: native endpoints return provider-neutral objects.
 - Complete: tokens enforce model/tool/MCP capability scopes.
 - Complete: Mounts token scope editor creates session-only raw tokens,
@@ -2239,9 +2284,9 @@ parity closeout order from the matrix above:
 2. Product UI parity beyond the validated picker, loaded-instance inspector,
    model detail drawer, route editor, token editor, benchmark/results panel,
    degraded/denied action readiness, and filtered observability stream.
-3. Live backend/provider parity: execute the opt-in live `llama.cpp`, Ollama,
-   and vLLM lifecycle gates on an operator machine, then add BYOK hosted
-   adapters.
+3. Live backend/provider parity: Ollama has passing local live evidence; next
+   execute the opt-in live `llama.cpp` and vLLM lifecycle/stream gates on an
+   operator machine, then add BYOK hosted adapters.
 4. Raw live-log streaming parity for providers/backends with `lms log stream`
    style transports.
 5. Production IOI hardening beyond LM Studio.
