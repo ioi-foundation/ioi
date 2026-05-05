@@ -1037,6 +1037,8 @@ async function runModelCatalogGate(evidence) {
   const quantization = process.env.IOI_MODEL_CATALOG_QUANTIZATION ?? "";
   const limit = Number(process.env.IOI_MODEL_CATALOG_LIMIT ?? 5);
   const downloadSource = process.env.IOI_MODEL_CATALOG_DOWNLOAD_SOURCE_URL ?? "";
+  const downloadFirstResult = process.env.IOI_MODEL_CATALOG_DOWNLOAD_FIRST_RESULT === "1";
+  const downloadMaxBytes = process.env.IOI_MODEL_CATALOG_DOWNLOAD_MAX_BYTES ?? process.env.IOI_MODEL_DOWNLOAD_MAX_BYTES ?? "";
   evidence.details.catalog = {
     query,
     format,
@@ -1045,6 +1047,8 @@ async function runModelCatalogGate(evidence) {
     baseUrlHash: stableHash(process.env.IOI_MODEL_CATALOG_HF_BASE_URL ?? "https://huggingface.co"),
     downloadGateEnabled: process.env.IOI_LIVE_MODEL_DOWNLOAD === "1",
     explicitDownloadSourceConfigured: Boolean(downloadSource),
+    downloadFirstResult,
+    downloadMaxBytes: downloadMaxBytes ? Number(downloadMaxBytes) : null,
   };
   await withDaemon(async ({ daemon, stateDir }) => {
     evidence.details.daemonEndpoint = daemon.endpoint;
@@ -1088,7 +1092,9 @@ async function runModelCatalogGate(evidence) {
       quantizations: [...new Set(liveResults.map((entry) => entry.quantization).filter(Boolean))],
       download: null,
     };
-    if (downloadSource) {
+    const selectedDownloadEntry = liveResults[0];
+    const effectiveDownloadSource = downloadSource || (downloadFirstResult ? selectedDownloadEntry.sourceUrl : "");
+    if (effectiveDownloadSource) {
       if (process.env.IOI_LIVE_MODEL_DOWNLOAD !== "1") {
         evidence.status = "blocked";
         evidence.result = {
@@ -1109,20 +1115,46 @@ async function runModelCatalogGate(evidence) {
         method: "POST",
         token: grant.token,
         body: {
-          source_url: downloadSource,
+          source_url: effectiveDownloadSource,
           model_id: process.env.IOI_MODEL_CATALOG_DOWNLOAD_MODEL_ID ?? "native:live-catalog-gate",
-          format,
-          quantization: quantization || undefined,
+          format: downloadSource ? format : selectedDownloadEntry.format ?? format,
+          quantization: downloadSource ? quantization || undefined : selectedDownloadEntry.quantization ?? (quantization || undefined),
+          ...(downloadSource
+            ? {}
+            : {
+                source_label: selectedDownloadEntry.sourceLabel,
+                variant_id: selectedDownloadEntry.id,
+                size_bytes: selectedDownloadEntry.sizeBytes,
+              }),
+          max_bytes: downloadMaxBytes ? Number(downloadMaxBytes) : undefined,
         },
       });
       assert.equal(imported.status, "completed");
+      const download = imported.download;
+      assert.equal(download.status, "completed");
+      const status = await expectOk(daemon.endpoint, `/api/v1/models/download/status/${download.id}`);
+      assert.equal(status.status, "completed");
+      assert.equal(status.id, download.id);
+      const replay = await expectOk(daemon.endpoint, `/api/v1/receipts/${download.receiptId}/replay`);
+      assert.equal(replay.receipt.id, download.receiptId);
+      const projection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
+      assert.ok(projection.downloads.some((job) => job.id === download.id));
+      assert.ok(projection.artifacts.some((artifact) => artifact.id === download.artifactId));
       result.download = {
-        jobId: imported.id,
-        bytesCompleted: imported.bytesCompleted,
-        receiptId: imported.receiptId,
-        sourceHash: imported.sourceHash ?? imported.sourceUrlHash ?? stableHash(downloadSource),
+        mode: downloadSource ? "explicit_source_url" : "first_catalog_result",
+        jobId: download.id,
+        artifactId: download.artifactId,
+        status: download.status,
+        bytesCompleted: download.bytesCompleted,
+        bytesTotal: download.bytesTotal,
+        maxBytes: download.maxBytes ?? null,
+        receiptId: download.receiptId,
+        statusReceiptId: status.receiptId,
+        replaySource: replay.source,
+        sourceHash: download.sourceHash ?? download.sourceUrlHash ?? stableHash(effectiveDownloadSource),
+        projectionDownloadCount: projection.downloads.length,
       };
-      const secretScan = scanFilesForNeedles(stateDir, [sensitiveSourceUrlNeedle(downloadSource), grant.token]);
+      const secretScan = scanFilesForNeedles(stateDir, [sensitiveSourceUrlNeedle(effectiveDownloadSource), grant.token]);
       assert.equal(secretScan.passed, true);
       result.secretScan = secretScan;
     }

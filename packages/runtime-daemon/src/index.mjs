@@ -649,6 +649,7 @@ async function handleModelMountingNativeRoute({ request, response, store, url, s
   }
   if (request.method === "POST" && url.pathname === "/api/v1/models/catalog/import-url") {
     mounts.authorize(authorization, "model.download:*");
+    mounts.authorize(authorization, "model.import:*");
     writeJsonResponse(response, await mounts.catalogImportUrl(await readBody(request)), 202);
     return;
   }

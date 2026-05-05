@@ -2984,6 +2984,7 @@ export class ModelMountingState {
     const targetPath = path.join(targetDir, body.file_name ?? body.fileName ?? `${safeFileName(modelId)}.gguf`);
     const fixtureContent = String(body.fixture_content ?? body.fixtureContent ?? `deterministic model bytes for ${modelId}\n`);
     const bytesTotal = Number(body.bytes_total ?? body.bytesTotal ?? (isFixture ? Buffer.byteLength(fixtureContent) : 0));
+    const maxBytes = normalizeOptionalBytes(body.max_bytes ?? body.maxBytes ?? process.env.IOI_MODEL_DOWNLOAD_MAX_BYTES);
     const jobBase = {
       id: `download_job_${crypto.randomUUID()}`,
       modelId,
@@ -2998,6 +2999,7 @@ export class ModelMountingState {
       bytesTotal,
       bytesCompleted: 0,
       progress: 0,
+      maxBytes,
       createdAt: now,
       updatedAt: now,
       receiptIds: [],
@@ -3011,6 +3013,7 @@ export class ModelMountingState {
       sourceLabel,
       variant: variantMetadata,
       targetPathHash: stableHash(targetPath),
+      maxBytes,
       downloadMode: isFixture ? "fixture" : "live_network",
     });
     if (truthy(body.fail ?? body.simulate_failure ?? body.simulateFailure)) {
@@ -3055,6 +3058,7 @@ export class ModelMountingState {
       providerId,
       bytesTotal,
       bytesCompleted: 0,
+      maxBytes,
       sourceHash: stableHash(source),
       sourceLabel,
       downloadMode: isFixture ? "fixture" : "live_network",
@@ -3067,6 +3071,7 @@ export class ModelMountingState {
             source,
             targetPath,
             expectedChecksum: body.checksum ?? body.expected_checksum ?? body.expectedChecksum ?? null,
+            maxBytes,
             resume: truthy(body.resume ?? body.resume_download ?? body.resumeDownload ?? true),
             timeoutMs: modelDownloadTimeoutMs(),
           });
@@ -3144,6 +3149,7 @@ export class ModelMountingState {
       providerId: artifact.providerId,
       bytesTotal: materialized.bytesTotal || completedBytes,
       bytesCompleted: completedBytes,
+      maxBytes,
       checksum,
       sourceHash: stableHash(source),
       sourceLabel,
@@ -5665,6 +5671,12 @@ function normalizeLimit(value, fallback = 80, maximum = 200) {
   return Math.min(Math.floor(parsed), maximum);
 }
 
+function normalizeOptionalBytes(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return Math.floor(parsed);
+}
+
 function hostedProvider(id, label, apiFormat, secret) {
   return {
     id,
@@ -6453,13 +6465,18 @@ function materializeFixtureDownload({ targetPath, fixtureContent }) {
   };
 }
 
-async function materializeLiveDownload({ source, targetPath, expectedChecksum, resume, timeoutMs }) {
+async function materializeLiveDownload({ source, targetPath, expectedChecksum, maxBytes, resume, timeoutMs }) {
   const partialPath = `${targetPath}.part`;
   const resumeOffset = resume && fs.existsSync(partialPath) ? fs.statSync(partialPath).size : 0;
   const headers = resumeOffset > 0 ? { range: `bytes=${resumeOffset}-` } : {};
   const response = await fetchWithTimeout(source, { timeoutMs, headers });
   if (!response.ok) {
     throw new Error(`live_download_http_${response.status}`);
+  }
+  const contentLength = Number(response.headers.get("content-length") ?? 0) || 0;
+  const bytesTotal = response.status === 206 ? resumeOffset + contentLength : contentLength || 0;
+  if (maxBytes && bytesTotal && bytesTotal > maxBytes) {
+    throw new Error("live_download_size_limit_exceeded");
   }
   const appending = resumeOffset > 0 && response.status === 206;
   const writePath = appending ? partialPath : partialPath;
@@ -6470,6 +6487,9 @@ async function materializeLiveDownload({ source, targetPath, expectedChecksum, r
     for await (const chunk of response.body) {
       const buffer = Buffer.from(chunk);
       bytesCompleted += buffer.length;
+      if (maxBytes && bytesCompleted > maxBytes) {
+        throw new Error("live_download_size_limit_exceeded");
+      }
       if (!stream.write(buffer)) {
         await new Promise((resolve) => stream.once("drain", resolve));
       }
@@ -6477,15 +6497,13 @@ async function materializeLiveDownload({ source, targetPath, expectedChecksum, r
   } finally {
     await new Promise((resolve, reject) => stream.end((error) => (error ? reject(error) : resolve())));
   }
-  const contentLength = Number(response.headers.get("content-length") ?? 0) || 0;
-  const bytesTotal = response.status === 206 ? resumeOffset + contentLength : contentLength || bytesCompleted;
   fs.renameSync(partialPath, targetPath);
   const checksum = fileSha256(targetPath);
   if (expectedChecksum && checksum !== expectedChecksum) {
     throw new Error("live_download_checksum_mismatch");
   }
   return {
-    bytesTotal,
+    bytesTotal: bytesTotal || bytesCompleted,
     bytesCompleted,
     checksum,
     resumeOffset: appending ? resumeOffset : 0,
@@ -6509,6 +6527,7 @@ function cleanupPartialDownload(targetPath) {
 function downloadFailureReason(error) {
   const message = String(error?.message ?? error ?? "download_failed");
   if (message.includes("checksum")) return "checksum_mismatch";
+  if (message.includes("size_limit_exceeded")) return "size_limit_exceeded";
   if (message.includes("AbortError") || message.includes("aborted")) return "network_timeout";
   const http = message.match(/live_download_http_([0-9]+)/)?.[1];
   if (http) return `http_${http}`;

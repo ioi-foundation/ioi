@@ -198,10 +198,12 @@ IOI_REMOTE_AGENTGRES=1 npm run test:agentgres-live
 ```
 
 The model catalog live gate performs safe live catalog search by default. It
-only attempts a network model download when both
-`IOI_LIVE_MODEL_DOWNLOAD=1` and
-`IOI_MODEL_CATALOG_DOWNLOAD_SOURCE_URL=<explicit URL>` are supplied, so a live
-validation run cannot accidentally fetch a large model artifact.
+only attempts a network model download when `IOI_LIVE_MODEL_DOWNLOAD=1` plus
+either `IOI_MODEL_CATALOG_DOWNLOAD_SOURCE_URL=<explicit URL>` or
+`IOI_MODEL_CATALOG_DOWNLOAD_FIRST_RESULT=1` are supplied. Operators can bound
+the transfer with `IOI_MODEL_CATALOG_DOWNLOAD_MAX_BYTES` or
+`IOI_MODEL_DOWNLOAD_MAX_BYTES`; the gate validates download status, receipt
+replay, projection persistence, and secret redaction.
 
 If a live dependency is not configured or is stopped, provider gates record a
 truthful `skipped` or `blocked` result instead of pretending live validation
@@ -444,7 +446,8 @@ claim real third-party inference unless a configured provider is selected:
 - Hugging Face-compatible catalog search and live network download are
   implemented behind explicit gates. CI continues to use deterministic fixture
   catalog/download coverage; live download is opt-in and requires an explicit
-  source URL for the live gate.
+  source URL or explicit first-result opt-in for the live gate, with optional
+  max-byte enforcement.
 - Agentgres persistence is an IOI daemon adapter with canonical projections
   and replay APIs, not a remote production Agentgres deployment.
 - wallet.network is represented by an Agentgres-backed authority adapter, not a
@@ -562,6 +565,9 @@ gates:
    - the gated Hugging Face-compatible adapter, format/quantization filters,
      resumable `.part` downloads, checksum verification, source hashing, and
      redaction are implemented;
+   - the live catalog gate now validates import-url materialization, download
+     status lookup, receipt replay, projection persistence, optional first
+     result download, max-byte guards, and no plaintext token/source leakage;
    - remaining work is production catalog breadth, richer benchmark and
      compatibility metadata, approval/retry affordances, bandwidth/storage
      policy controls, and live validation against external hubs when explicitly
@@ -639,10 +645,11 @@ implemented as a product surface.
 
 ### Priority Closeout Order For Parity
 
-1. Live catalog/download activation:
-   - Hugging Face-compatible live search/download behind explicit gate;
-   - GGUF/MLX filters and variant selection polish;
-   - storage quota and uninstall confirmation UX.
+1. Catalog/download product hardening:
+   - richer GGUF/MLX variant selection polish;
+   - hub metadata breadth and benchmark/classification metadata;
+   - storage quota and uninstall confirmation UX;
+   - live external-hub validation on an operator machine.
 2. Product UI parity:
    - compact failed-action retry affordances;
    - receipt drill-down and replay detail polish beyond the current filtered
