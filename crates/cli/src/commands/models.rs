@@ -47,9 +47,7 @@ pub enum ModelsCommands {
         queued_only: bool,
     },
     /// Cancel a queued or running model download job.
-    CancelDownload {
-        job_id: String,
-    },
+    CancelDownload { job_id: String },
     /// Mount a model endpoint.
     Mount {
         model_id: String,
