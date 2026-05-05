@@ -1196,7 +1196,7 @@ export class ModelMountingState {
   }
 
   listProviders() {
-    return [...this.providers.values()].sort((left, right) => left.id.localeCompare(right.id));
+    return [...this.providers.values()].map(publicProvider).sort((left, right) => left.id.localeCompare(right.id));
   }
 
   listEndpoints() {
@@ -1734,25 +1734,39 @@ export class ModelMountingState {
   upsertProvider(body = {}) {
     const checkedAt = this.nowIso();
     const id = body.id ?? `provider.${safeId(body.kind ?? body.label ?? "custom")}`;
+    const existing = this.providers.get(id) ?? {};
+    const kind = body.kind ?? existing.kind ?? "custom_http";
+    const secretRef = this.normalizeProviderSecretRef(kind, body, existing.secretRef ?? null);
+    const requestedStatus = body.status ?? existing.status ?? "configured";
     const provider = {
       id,
-      kind: body.kind ?? "custom_http",
-      label: body.label ?? id,
-      apiFormat: body.api_format ?? body.apiFormat ?? "custom",
-      driver: body.driver ?? driverForProviderKind(body.kind ?? "custom_http"),
-      baseUrl: body.base_url ?? body.baseUrl ?? null,
-      status: body.status ?? "configured",
-      privacyClass: body.privacy_class ?? body.privacyClass ?? "workspace",
-      capabilities: normalizeScopes(body.capabilities, ["chat"]),
+      kind,
+      label: body.label ?? existing.label ?? id,
+      apiFormat: body.api_format ?? body.apiFormat ?? existing.apiFormat ?? "custom",
+      driver: body.driver ?? existing.driver ?? driverForProviderKind(kind),
+      baseUrl: body.base_url ?? body.baseUrl ?? existing.baseUrl ?? null,
+      status: providerRequiresVaultSecret(kind) && !secretRef ? "blocked" : requestedStatus,
+      privacyClass: body.privacy_class ?? body.privacyClass ?? existing.privacyClass ?? "workspace",
+      capabilities: normalizeScopes(body.capabilities, existing.capabilities ?? ["chat"]),
       discovery: {
+        ...existing.discovery,
         checkedAt,
-        evidenceRefs: normalizeScopes(body.evidence_refs ?? body.evidenceRefs, ["operator_provider_config"]),
+        evidenceRefs: normalizeScopes(body.evidence_refs ?? body.evidenceRefs, existing.discovery?.evidenceRefs ?? ["operator_provider_config"]),
       },
-      secretRef: body.secret_ref ?? body.secretRef ?? null,
+      secretRef,
     };
     this.providers.set(provider.id, provider);
     this.writeMap("model-providers", this.providers);
-    return provider;
+    return publicProvider(provider);
+  }
+
+  normalizeProviderSecretRef(kind, body = {}, existingSecretRef = null) {
+    assertNoPlaintextProviderSecret(body);
+    const secretRef = providerSecretInput(body);
+    const normalized = secretRef === undefined ? existingSecretRef : secretRef || null;
+    if (normalized) this.walletAuthority.resolveVaultRef(normalized);
+    if (providerRequiresVaultSecret(kind) && !normalized) return null;
+    return normalized;
   }
 
   async providerHealth(providerId) {
@@ -1783,7 +1797,7 @@ export class ModelMountingState {
       checkedAt,
       evidenceRefs: driverResult.evidenceRefs ?? [],
     });
-    return updated;
+    return publicProvider(updated);
   }
 
   async listProviderModels(providerId) {
@@ -1832,7 +1846,7 @@ export class ModelMountingState {
       state: updated.status,
       evidenceRefs: result.evidenceRefs ?? [],
     });
-    return updated;
+    return publicProvider(updated);
   }
 
   async stopProvider(providerId) {
@@ -1861,7 +1875,7 @@ export class ModelMountingState {
       state: updated.status,
       evidenceRefs: result.evidenceRefs ?? [],
     });
-    return updated;
+    return publicProvider(updated);
   }
 
   upsertRoute(body = {}) {
@@ -2905,7 +2919,7 @@ function driverForProviderKind(kind) {
   if (kind === "ioi_native_local") return "native_local";
   if (kind === "lm_studio") return "lm_studio";
   if (kind === "ollama") return "ollama";
-  if (["openai_compatible", "vllm", "llama_cpp", "custom_http", "openai"].includes(kind)) {
+  if (["openai_compatible", "vllm", "llama_cpp", "custom_http", "openai", "anthropic", "gemini"].includes(kind)) {
     return "openai_compatible";
   }
   return "fixture";
@@ -2928,6 +2942,7 @@ function defaultBackendForProvider(provider) {
 }
 
 async function fetchProviderJson(provider, route, { method = "GET", body, tolerateHttpError = false } = {}) {
+  assertProviderVaultBoundary(provider);
   if (!provider.baseUrl || String(provider.baseUrl).startsWith("local://")) {
     throw runtimeError({
       status: 424,
@@ -3139,6 +3154,66 @@ function sanitizeVaultRefs(value) {
       typeof vaultRef === "string" && vaultRef.startsWith("vault://") ? vaultRef : SECRET_REDACTION,
     ]),
   );
+}
+
+function providerSecretInput(body = {}) {
+  for (const key of ["secret_ref", "secretRef", "auth_vault_ref", "authVaultRef", "api_key_vault_ref", "apiKeyVaultRef"]) {
+    if (Object.prototype.hasOwnProperty.call(body, key)) return body[key];
+  }
+  return undefined;
+}
+
+function providerRequiresVaultSecret(providerOrKind) {
+  const kind = typeof providerOrKind === "string" ? providerOrKind : providerOrKind?.kind;
+  return ["openai", "anthropic", "gemini", "custom_http"].includes(kind);
+}
+
+function assertNoPlaintextProviderSecret(body = {}) {
+  for (const key of Object.keys(body)) {
+    if (isPlaintextProviderSecretKey(key)) {
+      throw runtimeError({
+        status: 403,
+        code: "policy",
+        message: "Provider secrets and auth headers must be configured through wallet.network vault refs.",
+        details: { field: key, secret: SECRET_REDACTION },
+      });
+    }
+  }
+}
+
+function isPlaintextProviderSecretKey(key) {
+  return /^(api_?key|authorization|auth|headers?|bearer_?token|access_?token|provider_?key)$/i.test(String(key));
+}
+
+function assertProviderVaultBoundary(provider) {
+  if (!providerRequiresVaultSecret(provider)) return;
+  if (typeof provider.secretRef === "string" && provider.secretRef.startsWith("vault://")) return;
+  throw runtimeError({
+    status: 403,
+    code: "policy",
+    message: "Hosted and custom HTTP providers fail closed until auth is bound to a wallet.network vault ref.",
+    details: {
+      providerId: provider.id,
+      providerKind: provider.kind,
+      vaultRefConfigured: false,
+    },
+  });
+}
+
+function publicProvider(provider) {
+  const hasVaultRef = typeof provider.secretRef === "string" && provider.secretRef.startsWith("vault://");
+  const requiresVault = providerRequiresVaultSecret(provider);
+  return {
+    ...provider,
+    status: requiresVault && !hasVaultRef ? "blocked" : provider.status,
+    secretRef: hasVaultRef ? { redacted: true, hash: stableHash(provider.secretRef) } : provider.secretRef ? SECRET_REDACTION : null,
+    secretConfigured: hasVaultRef,
+    vaultBoundary: {
+      required: requiresVault,
+      failClosed: requiresVault && !hasVaultRef,
+      resolvedMaterial: false,
+    },
+  };
 }
 
 function publicVaultRefs(value) {

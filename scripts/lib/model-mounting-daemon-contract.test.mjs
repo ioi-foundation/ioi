@@ -843,6 +843,192 @@ test("vLLM and OpenAI-compatible adapters support responses fallback, embeddings
   }
 });
 
+test("hosted and custom HTTP provider auth fails closed behind wallet vault refs", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-provider-vault-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-provider-vault-state-"));
+  const providerServer = await startFakeVllmServer({ responsesStatus: 404 });
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+      method: "POST",
+      body: {
+        allowed: [
+          "provider.write:*",
+          "model.import:*",
+          "model.mount:*",
+          "model.load:*",
+          "model.chat:*",
+          "route.write:*",
+          "route.use:*",
+        ],
+      },
+    });
+
+    const plaintextSecret = "sk-provider-plaintext-secret";
+    const rejectedPlaintext = await requestJson(daemon.endpoint, "/api/v1/providers", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        id: "provider.test.custom-plaintext",
+        kind: "custom_http",
+        label: "Plaintext Custom HTTP",
+        base_url: `${providerServer.endpoint}/v1`,
+        api_key: plaintextSecret,
+      },
+    });
+    assert.equal(rejectedPlaintext.response.status, 403);
+    assert.equal(JSON.stringify(rejectedPlaintext.json).includes(plaintextSecret), false);
+
+    const rejectedMalformedVault = await requestJson(daemon.endpoint, "/api/v1/providers", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        id: "provider.test.custom-malformed-vault",
+        kind: "custom_http",
+        label: "Malformed Custom HTTP",
+        base_url: `${providerServer.endpoint}/v1`,
+        secret_ref: "plain-secret-value",
+      },
+    });
+    assert.equal(rejectedMalformedVault.response.status, 403);
+    assert.equal(JSON.stringify(rejectedMalformedVault.json).includes("plain-secret-value"), false);
+
+    const blocked = await expectOk(daemon.endpoint, "/api/v1/providers", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        id: "provider.test.custom-blocked",
+        kind: "custom_http",
+        label: "Blocked Custom HTTP",
+        api_format: "openai_compatible",
+        base_url: `${providerServer.endpoint}/v1`,
+        status: "configured",
+        privacy_class: "workspace",
+        capabilities: ["chat"],
+      },
+    });
+    assert.equal(blocked.status, "blocked");
+    assert.equal(blocked.secretConfigured, false);
+    assert.equal(blocked.vaultBoundary.failClosed, true);
+
+    const blockedHealth = await requestJson(daemon.endpoint, "/api/v1/providers/provider.test.custom-blocked/health", {
+      method: "POST",
+    });
+    assert.equal(blockedHealth.response.status, 403);
+
+    await expectOk(daemon.endpoint, "/api/v1/models/import", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        model_id: "custom-http:blocked",
+        provider_id: "provider.test.custom-blocked",
+        capabilities: ["chat"],
+        privacy_class: "workspace",
+      },
+    });
+    await expectOk(daemon.endpoint, "/api/v1/models/mount", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        model_id: "custom-http:blocked",
+        provider_id: "provider.test.custom-blocked",
+        id: "endpoint.test.custom-blocked",
+      },
+    });
+    await expectOk(daemon.endpoint, "/api/v1/routes", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        id: "route.test.custom-blocked",
+        role: "custom-blocked-test",
+        privacy: "local_or_enterprise",
+        fallback: ["endpoint.test.custom-blocked"],
+        provider_eligibility: ["custom_http"],
+        denied_providers: [],
+      },
+    });
+    const blockedChat = await requestJson(daemon.endpoint, "/api/v1/chat", {
+      method: "POST",
+      token: grant.token,
+      body: { route_id: "route.test.custom-blocked", input: "must fail closed" },
+    });
+    assert.equal(blockedChat.response.status, 403);
+    assert.equal(blockedChat.json.error.details.vaultRefConfigured, false);
+
+    const vaultRef = "vault://provider/custom-http/api-key";
+    const configured = await expectOk(daemon.endpoint, "/api/v1/providers", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        id: "provider.test.custom-vault",
+        kind: "custom_http",
+        label: "Vault Custom HTTP",
+        api_format: "openai_compatible",
+        base_url: `${providerServer.endpoint}/v1`,
+        status: "configured",
+        privacy_class: "workspace",
+        capabilities: ["chat", "responses", "embeddings"],
+        secret_ref: vaultRef,
+      },
+    });
+    assert.equal(configured.status, "configured");
+    assert.equal(configured.secretConfigured, true);
+    assert.equal(configured.secretRef.redacted, true);
+    assert.equal(JSON.stringify(configured).includes(vaultRef), false);
+
+    const providers = await expectOk(daemon.endpoint, "/api/v1/providers");
+    assert.equal(JSON.stringify(providers).includes(vaultRef), false);
+    const publicProvider = providers.find((provider) => provider.id === "provider.test.custom-vault");
+    assert.equal(publicProvider.secretConfigured, true);
+    assert.equal(publicProvider.secretRef.redacted, true);
+
+    const snapshot = await expectOk(daemon.endpoint, "/api/v1/models");
+    assert.equal(JSON.stringify(snapshot.providers).includes(vaultRef), false);
+    const projection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
+    assert.equal(JSON.stringify(projection.providers).includes(vaultRef), false);
+
+    const health = await expectOk(daemon.endpoint, "/api/v1/providers/provider.test.custom-vault/health", { method: "POST" });
+    assert.equal(health.status, "available");
+    assert.equal(JSON.stringify(health).includes(vaultRef), false);
+
+    const providerModels = await expectOk(daemon.endpoint, "/api/v1/providers/provider.test.custom-vault/models");
+    assert.ok(providerModels.some((model) => model.modelId === "vllm-qwen"));
+    await expectOk(daemon.endpoint, "/api/v1/models/mount", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        model_id: "vllm-qwen",
+        provider_id: "provider.test.custom-vault",
+        id: "endpoint.test.custom-vault",
+      },
+    });
+    await expectOk(daemon.endpoint, "/api/v1/routes", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        id: "route.test.custom-vault",
+        role: "custom-vault-test",
+        privacy: "local_or_enterprise",
+        fallback: ["endpoint.test.custom-vault"],
+        provider_eligibility: ["custom_http"],
+        denied_providers: [],
+      },
+    });
+    const chat = await expectOk(daemon.endpoint, "/api/v1/chat", {
+      method: "POST",
+      token: grant.token,
+      body: { route_id: "route.test.custom-vault", input: "vault backed custom provider" },
+    });
+    assert.equal(chat.route_id, "route.test.custom-vault");
+    const receipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${chat.receipt_id}`);
+    assert.equal(receipt.details.providerId, "provider.test.custom-vault");
+    assert.equal(JSON.stringify(receipt).includes(vaultRef), false);
+  } finally {
+    await daemon.close();
+    await providerServer.close();
+  }
+});
+
 test("LM Studio driver delegates load, responses fallback, embeddings, provider models, and receipts through public seams", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-lms-driver-workspace-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-lms-driver-state-"));
