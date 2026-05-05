@@ -127,10 +127,22 @@ pub struct AgentMacro {
 
 /// Lifecycle state for an executable skill record.
 #[derive(
-    Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Encode, Decode,
+    Serialize,
+    Deserialize,
+    Debug,
+    Clone,
+    Copy,
+    Default,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Encode,
+    Decode,
 )]
 pub enum SkillLifecycleState {
     /// Newly synthesized skill that has not yet cleared validation thresholds.
+    #[default]
     Candidate,
     /// Skill that has demonstrated enough successful usage to be eligible at runtime.
     Validated,
@@ -140,14 +152,8 @@ pub enum SkillLifecycleState {
     Deprecated,
 }
 
-impl Default for SkillLifecycleState {
-    fn default() -> Self {
-        Self::Candidate
-    }
-}
-
 /// Provenance class for how a skill entered the system.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq, Eq, Encode, Decode)]
 pub enum SkillSourceType {
     /// Skill synthesized from an observed successful agent trace.
     Trace,
@@ -160,15 +166,10 @@ pub enum SkillSourceType {
     /// Skill synthesized from a structured web procedure.
     WebProcedure,
     /// Skill imported directly by a human or market package.
+    #[default]
     Imported,
     /// Skill synthesized from an explicitly labeled human demonstration.
     HumanDemonstration,
-}
-
-impl Default for SkillSourceType {
-    fn default() -> Self {
-        Self::Imported
-    }
 }
 
 /// Mutable benchmark snapshot used to decide whether a skill can be promoted.

@@ -433,6 +433,7 @@ pub struct WorkloadReceiptEvent {
 
 /// Typed workload receipt payloads.
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+#[allow(clippy::large_enum_variant)]
 pub enum WorkloadReceipt {
     /// A command execution receipt.
     Exec(WorkloadExecReceipt),
@@ -895,6 +896,7 @@ pub struct WorkloadParentPlaybookReceipt {
 /// These events are streamed to the UI (Autopilot) to provide visual feedback
 /// and "Visual Sovereignty".
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
+#[allow(clippy::large_enum_variant)]
 pub enum KernelEvent {
     /// The agent "thought" or took a step (Thought -> Action -> Output).
     AgentStep(StepTrace),

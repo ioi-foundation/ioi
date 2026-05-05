@@ -175,9 +175,13 @@ pub fn verify_checkpoint_proof(
                     "checkpoint proof does not cover anchored tree size".into(),
                 ));
             }
-            let anchored_root = checkpoint_root_from_leaf_hashes(
-                &proof.extension_leaf_hashes[..anchored_prefix_len],
-            )?;
+            let Some(anchored_prefix) = proof.extension_leaf_hashes.get(..anchored_prefix_len)
+            else {
+                return Err(CryptoError::InvalidInput(
+                    "checkpoint proof does not cover anchored tree size".into(),
+                ));
+            };
+            let anchored_root = checkpoint_root_from_leaf_hashes(anchored_prefix)?;
             if anchored_root != anchored.root_hash {
                 return Err(CryptoError::InvalidInput(
                     "checkpoint proof is inconsistent with anchored checkpoint".into(),

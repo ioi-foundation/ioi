@@ -43,7 +43,7 @@ pub fn canonical_order_tx_hashes(
     for tx_hash in tx_hashes {
         ranked.push((canonical_order_score(randomness_beacon, tx_hash)?, *tx_hash));
     }
-    ranked.sort_unstable_by(|left, right| left.cmp(right));
+    ranked.sort_unstable();
     Ok(ranked.into_iter().map(|(_, tx_hash)| tx_hash).collect())
 }
 
@@ -418,7 +418,7 @@ pub fn extract_canonical_bulletin_surface(
         bulletin_availability_certificate,
     )?;
     let mut canonical_entries = entries.to_vec();
-    canonical_entries.sort_unstable_by(|left, right| left.tx_hash.cmp(&right.tx_hash));
+    canonical_entries.sort_unstable_by_key(|entry| entry.tx_hash);
     verify_bulletin_surface_entries(close.height, bulletin_commitment, &canonical_entries)?;
     let expected_entry_count = usize::try_from(close.entry_count)
         .map_err(|_| "canonical bulletin close entry count does not fit into usize".to_string())?;
@@ -432,6 +432,7 @@ pub fn extract_canonical_bulletin_surface(
 }
 
 /// Deterministically extracts one closed bulletin surface from endogenous protocol objects only.
+#[allow(clippy::too_many_arguments)]
 pub fn extract_endogenous_canonical_bulletin_surface(
     close: &CanonicalBulletinClose,
     bulletin_commitment: &BulletinCommitment,
@@ -635,6 +636,7 @@ pub fn build_bulletin_reconstruction_abort(
 }
 
 /// Builds the protocol-visible positive reconstruction outcome for one closed bulletin surface.
+#[allow(clippy::too_many_arguments)]
 pub fn build_bulletin_reconstruction_certificate(
     close: &CanonicalBulletinClose,
     bulletin_commitment: &BulletinCommitment,
@@ -730,6 +732,7 @@ fn classify_canonical_order_certificate_error(error: &str) -> CanonicalOrderAbor
 /// Deterministically derives the canonical public execution object for a committed ordering slot.
 /// If the slot's proof-carried public surface is missing or invalid, returns the canonical abort
 /// object that dominates the positive close path.
+#[allow(clippy::result_large_err)]
 pub fn derive_canonical_order_execution_object(
     header: &BlockHeader,
     transactions: &[ChainTransaction],
@@ -1000,7 +1003,7 @@ pub fn derive_canonical_sealing_collapse(
                 height: close.height,
                 view: close.view,
                 kind: CanonicalCollapseKind::Close,
-                finality_tier: proof.finality_tier.clone(),
+                finality_tier: proof.finality_tier,
                 collapse_state: proof.collapse_state,
                 transcripts_root,
                 challenges_root,
@@ -1049,7 +1052,7 @@ pub fn derive_canonical_sealing_collapse(
                 height: abort.height,
                 view: abort.view,
                 kind: CanonicalCollapseKind::Abort,
-                finality_tier: proof.finality_tier.clone(),
+                finality_tier: proof.finality_tier,
                 collapse_state: proof.collapse_state,
                 transcripts_root,
                 challenges_root,

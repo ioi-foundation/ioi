@@ -61,6 +61,7 @@ pub fn aft_historical_continuation_anchor(
 
 /// Returns the archived recovered-history anchor named by a canonical collapse object when one is
 /// present.
+#[allow(clippy::type_complexity)]
 pub fn canonical_collapse_archived_recovered_history_anchor(
     collapse: &CanonicalCollapseObject,
 ) -> Result<Option<([u8; 32], [u8; 32], [u8; 32])>, String> {
@@ -538,7 +539,7 @@ pub fn recovered_restart_block_header_entry(
             timestamp_ms: cutoff_timestamp_ms,
             gas_used: 0,
             validator_set: Vec::new(),
-            producer_account_id: full_surface.producer_account_id.clone(),
+            producer_account_id: full_surface.producer_account_id,
             producer_key_suite: SignatureSuite::ED25519,
             producer_pubkey_hash: [0u8; 32],
             producer_pubkey: Vec::new(),

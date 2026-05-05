@@ -101,10 +101,7 @@ pub fn normalize_recovered_publication_bundle_supporting_witnesses(
             "recovered publication bundle requires at least one supporting witness manifest".into(),
         );
     }
-    if supporting_witness_manifest_hashes
-        .iter()
-        .any(|manifest_hash| *manifest_hash == [0u8; 32])
-    {
+    if supporting_witness_manifest_hashes.contains(&[0u8; 32]) {
         return Err(
             "recovered publication bundle supporting witness manifests must be non-zero".into(),
         );
@@ -780,7 +777,7 @@ pub fn lift_recoverable_slot_payload_v4_to_v5(
     let payload_v5 = RecoverableSlotPayloadV5 {
         height: payload.height,
         view: payload.view,
-        producer_account_id: payload.producer_account_id.clone(),
+        producer_account_id: payload.producer_account_id,
         block_commitment_hash: payload.block_commitment_hash,
         parent_block_hash: payload.parent_block_hash,
         canonical_order_certificate: payload.canonical_order_certificate.clone(),
@@ -832,4 +829,3 @@ pub fn recover_full_canonical_order_surface_from_share_materials(
         recover_canonical_order_artifact_surface_from_share_materials(materials)?;
     lift_recoverable_slot_payload_v4_to_v5(&payload_v4)
 }
-

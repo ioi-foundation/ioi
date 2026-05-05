@@ -1,4 +1,5 @@
 /// Validates objective fail-closed evidence over the endogenous bulletin retrievability surface.
+#[allow(clippy::too_many_arguments)]
 pub fn validate_bulletin_retrievability_challenge(
     challenge: &BulletinRetrievabilityChallenge,
     bulletin_commitment: &BulletinCommitment,
@@ -614,6 +615,7 @@ pub fn validate_bulletin_retrievability_challenge(
 
 /// Returns the deterministic retrievability anchor named by a canonical bulletin close, when one
 /// is present.
+#[allow(clippy::type_complexity)]
 pub fn canonical_bulletin_close_retrievability_anchor(
     close: &CanonicalBulletinClose,
 ) -> Result<Option<([u8; 32], [u8; 32], [u8; 32])>, String> {

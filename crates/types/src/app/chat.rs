@@ -366,6 +366,7 @@ pub struct ChatUserInputRequestFrame {
 
 /// Tagged normalized request frame for high-value first-party lanes.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[allow(clippy::large_enum_variant)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ChatNormalizedRequest {
     Weather(ChatWeatherRequestFrame),

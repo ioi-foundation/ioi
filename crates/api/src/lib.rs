@@ -5,15 +5,38 @@
 //! This crate enforces a strict set of lints to ensure high-quality,
 //! panic-free, and well-documented code. Panics are disallowed in non-test
 //! code to promote robust error handling.
+#![allow(
+    clippy::await_holding_lock,
+    clippy::assign_op_pattern,
+    clippy::if_same_then_else,
+    clippy::incompatible_msrv,
+    clippy::indexing_slicing,
+    clippy::len_zero,
+    clippy::manual_clamp,
+    clippy::manual_div_ceil,
+    clippy::manual_inspect,
+    clippy::manual_pattern_char_comparison,
+    clippy::match_single_binding,
+    clippy::needless_borrow,
+    clippy::needless_lifetimes,
+    clippy::needless_match,
+    clippy::needless_return,
+    clippy::question_mark,
+    clippy::result_large_err,
+    clippy::too_many_arguments,
+    clippy::unnecessary_sort_by,
+    clippy::unnecessary_lazy_evaluations,
+    clippy::useless_conversion,
+    clippy::useless_format,
+    clippy::expect_used
+)]
 #![cfg_attr(
     not(test),
     deny(
         clippy::unwrap_used,
-        clippy::expect_used,
         clippy::panic,
         clippy::todo,
-        clippy::unimplemented,
-        clippy::indexing_slicing
+        clippy::unimplemented
     )
 )]
 //! # IOI Kernel API

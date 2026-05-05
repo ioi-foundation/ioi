@@ -979,6 +979,7 @@ pub struct ExecutionObservationReceipt {
 
 impl ExecutionObservationReceipt {
     /// Builds a canonical execution observation receipt and computes its receipt hash.
+    #[allow(clippy::too_many_arguments)]
     pub fn build(
         request_hash: [u8; 32],
         target: String,
@@ -1041,6 +1042,7 @@ impl ExecutionObservationReceipt {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn compute_hash(
         request_hash: [u8; 32],
         target: &str,
@@ -1328,6 +1330,7 @@ pub struct SettlementReceiptBundle {
 
 impl SettlementReceiptBundle {
     /// Builds a canonical settlement receipt bundle and computes its artifact root hash.
+    #[allow(clippy::too_many_arguments)]
     pub fn build(
         request_hash: [u8; 32],
         committed_action_hash: [u8; 32],
@@ -1386,6 +1389,7 @@ impl SettlementReceiptBundle {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn compute_hash(
         request_hash: [u8; 32],
         committed_action_hash: [u8; 32],
