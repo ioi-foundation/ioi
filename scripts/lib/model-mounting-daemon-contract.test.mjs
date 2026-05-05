@@ -89,6 +89,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
           "backend.control:*",
           "route.write:*",
           "route.use:*",
+          "vault.read:*",
           "mcp.import:*",
           "mcp.call:huggingface.model_search",
         ],
@@ -119,6 +120,14 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.ok(snapshot.routes.some((route) => route.id === "route.native-local"));
     assert.ok(snapshot.workflowNodes.some((node) => node.node === "Model Router"));
     assert.ok(snapshot.workflowNodes.every((node) => node.receiptRequired));
+    assert.equal(snapshot.adapterBoundaries.vault.materialAdapter.implementation, "runtime_memory");
+
+    const vaultStatus = await expectOk(daemon.endpoint, "/api/v1/vault/status", { token: grant.token });
+    assert.equal(vaultStatus.materialAdapter.implementation, "runtime_memory");
+    const vaultHealth = await expectOk(daemon.endpoint, "/api/v1/vault/health", { method: "POST", token: grant.token });
+    assert.equal(vaultHealth.status, "session_only");
+    assert.equal(vaultHealth.materialAdapter.writeAvailable, true);
+    assert.equal(vaultHealth.materialAdapter.plaintextPersistence, false);
 
     const nativeProviderModels = await expectOk(daemon.endpoint, "/api/v1/providers/provider.autopilot.local/models");
     assert.ok(nativeProviderModels.some((model) => model.modelId === "autopilot:native-fixture"));
@@ -1261,6 +1270,12 @@ test("encrypted keychain vault adapter persists material across daemon restart w
     assert.equal(projection.adapterBoundaries.vault.materialAdapter.implementation, "encrypted_keychain_vault_adapter");
     assert.equal(projection.adapterBoundaries.vault.materialAdapter.configured, true);
     assert.equal(JSON.stringify(projection).includes(vaultMaterial), false);
+    const adapterHealth = await expectOk(daemon.endpoint, "/api/v1/vault/health", { method: "POST", token: grant.token });
+    assert.equal(adapterHealth.status, "healthy");
+    assert.equal(adapterHealth.materialAdapter.readAvailable, true);
+    assert.equal(adapterHealth.materialAdapter.writeAvailable, true);
+    assert.equal(adapterHealth.materialAdapter.pathHash, projection.adapterBoundaries.vault.materialAdapter.pathHash);
+    assert.equal(JSON.stringify(adapterHealth).includes(vaultMaterial), false);
 
     await daemon.close();
     daemon = await startRuntimeDaemonService({ cwd, stateDir });
@@ -1300,7 +1315,7 @@ test("configured keychain vault adapter fails closed when unavailable", async ()
   try {
     const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
       method: "POST",
-      body: { allowed: ["provider.write:*"] },
+      body: { allowed: ["provider.write:*", "vault.read:*"] },
     });
     await expectOk(daemon.endpoint, "/api/v1/providers", {
       method: "POST",
@@ -1321,6 +1336,9 @@ test("configured keychain vault adapter fails closed when unavailable", async ()
     assert.equal(health.response.status, 424);
     assert.equal(health.json.error.details.adapter, "encrypted_keychain_vault_adapter");
     assert.equal(JSON.stringify(health.json).includes(vaultRef), false);
+    const adapterHealth = await requestJson(daemon.endpoint, "/api/v1/vault/health", { method: "POST", token: grant.token });
+    assert.equal(adapterHealth.response.status, 424);
+    assert.equal(adapterHealth.json.error.details.adapter, "encrypted_keychain_vault_adapter");
   } finally {
     await daemon.close();
     restoreEnv("IOI_KEYCHAIN_VAULT_PATH", priorPath);

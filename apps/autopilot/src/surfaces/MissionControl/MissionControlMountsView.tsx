@@ -823,6 +823,15 @@ function useModelMountsDaemon() {
           });
           return `${draft.id} vault material bound in the local runtime vault.`;
         }),
+      checkVaultAdapter: () =>
+        runAction("vault-health", async () => {
+          const token = await ensureToken();
+          const health = await requestJson("/api/v1/vault/health", {
+            method: "POST",
+            token,
+          });
+          return `Vault adapter health probe returned ${stringValue(health?.status, "unknown")}.`;
+        }),
       testProviderHealth: (providerId: string) =>
         runAction("provider-health", async () => {
           await requestJson(`/api/v1/providers/${encodeURIComponent(providerId)}/health`, { method: "POST" });
@@ -1263,6 +1272,8 @@ function ServerPanel({
           "POST /api/v1/models/download/cancel/:job_id",
           "POST /api/v1/models/download/:job_id/cancel",
           "GET /api/v1/vault/refs",
+          "GET /api/v1/vault/status",
+          "POST /api/v1/vault/health",
           "POST /api/v1/vault/refs",
           "GET /api/v1/providers/:id/models",
           "GET /api/v1/providers/:id/loaded",
@@ -1690,11 +1701,13 @@ function TokensPanel({
   data,
   onImportMcpFixture,
   onEphemeralMcpProbe,
+  onCheckVaultAdapter,
   busy,
 }: {
   data: MountsWorkbenchData;
   onImportMcpFixture: () => void;
   onEphemeralMcpProbe: () => void;
+  onCheckVaultAdapter: () => void;
   busy: boolean;
 }) {
   return (
@@ -1709,6 +1722,7 @@ function TokensPanel({
           <StatusPill tone="ready">revocable</StatusPill>
           <ActionButton onClick={onImportMcpFixture} disabled={busy}>Import MCP fixture</ActionButton>
           <ActionButton onClick={onEphemeralMcpProbe} disabled={busy}>Ephemeral MCP probe</ActionButton>
+          <ActionButton onClick={onCheckVaultAdapter} disabled={busy}>Check adapter</ActionButton>
         </div>
       </div>
 
@@ -2039,6 +2053,7 @@ export function MissionControlMountsView() {
             data={daemon.data}
             onImportMcpFixture={daemon.actions.importMcpFixture}
             onEphemeralMcpProbe={daemon.actions.ephemeralMcpProbe}
+            onCheckVaultAdapter={daemon.actions.checkVaultAdapter}
             busy={busy}
           />
         ) : null}
