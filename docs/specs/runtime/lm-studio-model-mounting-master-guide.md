@@ -90,7 +90,7 @@ npm run validate:model-mounting:e2e
 Latest deterministic evidence bundle:
 
 ```text
-docs/evidence/model-mounting-e2e/2026-05-05T10-42-04Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T10-56-01Z/result.json
 ```
 
 That bundle passed the following acceptance steps:
@@ -113,6 +113,9 @@ That bundle passed the following acceptance steps:
   lifecycle history, and linked receipt trail in the Mounts desktop GUI;
 - route editor for privacy, quality, cost ceiling, latency target, fallback,
   provider eligibility, denied providers, and governed save/test actions;
+- token scope editor for audience, expiry, allowed scopes, denied scopes,
+  grant metadata, revocation, last-used scope, audit receipts, vault refs, and
+  session-only raw token handling;
 - deterministic native-local artifact import, mount, load, and invocation;
 - native `/api/v1/chat` and `/api/v1/responses`;
 - OpenAI-compatible `/v1/chat/completions` and `/v1/embeddings`;
@@ -134,13 +137,13 @@ That bundle passed the following acceptance steps:
 The current GUI evidence nested under that E2E bundle is:
 
 ```text
-docs/evidence/model-mounting-e2e/2026-05-05T10-42-04Z/gui/2026-05-05T10-42-31Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T10-56-01Z/gui/2026-05-05T10-56-29Z/result.json
 ```
 
 The current standalone Mounts GUI evidence bundle is:
 
 ```text
-docs/evidence/model-mounts-gui-validation/2026-05-05T10-40-53Z/result.json
+docs/evidence/model-mounts-gui-validation/2026-05-05T10-54-48Z/result.json
 ```
 
 It captured all Mounts tabs as desktop window screenshots:
@@ -299,13 +302,13 @@ Latest evidence paths:
 
 ```text
 Canonical E2E:
-docs/evidence/model-mounting-e2e/2026-05-05T10-42-04Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T10-56-01Z/result.json
 
 Mounts GUI nested under canonical E2E:
-docs/evidence/model-mounting-e2e/2026-05-05T10-42-04Z/gui/2026-05-05T10-42-31Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T10-56-01Z/gui/2026-05-05T10-56-29Z/result.json
 
 Standalone Mounts GUI with live provider summary:
-docs/evidence/model-mounts-gui-validation/2026-05-05T10-40-53Z/result.json
+docs/evidence/model-mounts-gui-validation/2026-05-05T10-54-48Z/result.json
 
 Broad Autopilot GUI harness:
 docs/evidence/autopilot-gui-harness-validation/2026-05-05T01-40-43-545Z/result.json
@@ -506,7 +509,6 @@ gates:
    - download queue;
    - streaming logs and request/response log filters;
    - benchmark/results view;
-   - token scope editor;
    - degraded/error/denied states for every action.
 8. Provider expansion:
    - Ollama;
@@ -540,7 +542,7 @@ implemented as a product surface.
 | OpenAI-compatible API | `/v1/models`, chat completions, Responses, embeddings | Complete for daemon path | Add streaming parity, richer OpenAI error shape, tool-output submission, and advanced Responses state |
 | Native model API | LM Studio has public local primitives plus OpenAI-compatible surface | Complete, Autopilot-specific | Keep IOI-native routes authoritative and prevent `/v1/*` policy bypass |
 | Request/response logs | `lms log stream` | Partial | Server log/event tail is receipted through API/CLI/Mounts; add live streaming panes across provider, backend, route, MCP, and request/response filters |
-| API tokens | LM Studio local API tokens/auth toggle | Complete plus stronger IOI policy | Add product-grade token scope editor and session/expiry/revocation affordances |
+| API tokens | LM Studio local API tokens/auth toggle | Complete plus stronger IOI policy | Add production wallet.network account linking, cross-device revocation, and richer audit export UX |
 | MCP config | Cursor/LM Studio-style `mcp.json` plus API integrations | Partial | Complete stdio lifecycle, OAuth, schema discovery, and model tool exposure through governed receipts |
 | Provider support | LM Studio owns local GGUF runtime; external providers are not core | Partial | Keep LM Studio first-class while adding real Ollama/vLLM/llama.cpp/BYOK/custom HTTP adapters behind the same router |
 | Workflow integration | Not a core LM Studio primitive | Autopilot ahead, partial product UX | Build visual node forms, Receipt Gate configuration, replay, and harness run inspection |
@@ -558,7 +560,7 @@ implemented as a product surface.
    - GGUF/MLX filters and variant selection polish;
    - storage quota and uninstall confirmation UX.
 2. Product UI parity:
-   - token editor, benchmark panel, and degraded/denied states.
+   - benchmark panel, degraded/denied states, and streaming request/response filters.
 3. Live backend parity:
    - real llama.cpp runner;
    - live Ollama lifecycle;
@@ -589,19 +591,19 @@ npm run validate:model-mounting:e2e
 Latest passing bundle:
 
 ```text
-docs/evidence/model-mounting-e2e/2026-05-05T10-42-04Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T10-56-01Z/result.json
 ```
 
 Nested GUI bundle:
 
 ```text
-docs/evidence/model-mounting-e2e/2026-05-05T10-42-04Z/gui/2026-05-05T10-42-31Z/result.json
+docs/evidence/model-mounting-e2e/2026-05-05T10-56-01Z/gui/2026-05-05T10-56-29Z/result.json
 ```
 
 Standalone Mounts GUI bundle:
 
 ```text
-docs/evidence/model-mounts-gui-validation/2026-05-05T10-40-53Z/result.json
+docs/evidence/model-mounts-gui-validation/2026-05-05T10-54-48Z/result.json
 ```
 
 The GUI bundle captured eight desktop window screenshots for the Mounts tabs
@@ -1889,6 +1891,10 @@ Current status:
 - Complete: OpenAI-compatible endpoints route through policy and receipts.
 - Complete: native endpoints return provider-neutral objects.
 - Complete: tokens enforce model/tool/MCP capability scopes.
+- Complete: Mounts token scope editor creates session-only raw tokens,
+  exposes allowed/denied scopes, expiry, grant/audit metadata, last-used
+  scope, vault-ref projections, and revocation controls without persisting
+  token material.
 - Complete: `mcp.json` import does not expose secrets.
 - Complete: per-request ephemeral MCP in chat/responses links governed tool
   receipts to model invocation receipts.
@@ -1938,7 +1944,7 @@ parity closeout order from the matrix above:
 
 1. Live catalog/download activation.
 2. Product UI parity beyond the validated picker, loaded-instance inspector,
-   model detail drawer, and route editor.
+   model detail drawer, route editor, and token editor.
 3. Live backend/provider parity.
 4. Streaming observability parity.
 5. Production IOI hardening beyond LM Studio.

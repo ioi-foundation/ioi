@@ -345,6 +345,8 @@
 .model-mounts-control-row input,
 .model-mounts-provider-editor input,
 .model-mounts-provider-editor select,
+.model-mounts-token-editor input,
+.model-mounts-token-editor textarea,
 .model-mounts-route-editor input,
 .model-mounts-route-editor select {
   min-width: 0;
@@ -360,9 +362,18 @@
   outline: none;
 }
 
+.model-mounts-token-editor textarea {
+  min-height: 118px;
+  padding: 10px;
+  line-height: 1.45;
+  resize: vertical;
+}
+
 .model-mounts-control-row input:focus,
 .model-mounts-provider-editor input:focus,
 .model-mounts-provider-editor select:focus,
+.model-mounts-token-editor input:focus,
+.model-mounts-token-editor textarea:focus,
 .model-mounts-route-editor input:focus,
 .model-mounts-route-editor select:focus {
   border-color: color-mix(in srgb, var(--chat-accent) 54%, var(--chat-border));
@@ -664,6 +675,16 @@
   background: var(--surface-1);
 }
 
+.model-mounts-token-editor {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--chat-border);
+  background: var(--surface-1);
+}
+
 .model-mounts-route-editor-head {
   min-width: 0;
   display: flex;
@@ -705,6 +726,18 @@
   gap: 10px;
 }
 
+.model-mounts-token-editor-grid {
+  display: grid;
+  grid-template-columns: minmax(190px, 1.2fr) minmax(130px, 0.45fr) minmax(220px, 1fr);
+  gap: 10px;
+}
+
+.model-mounts-token-editor-scopes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr);
+  gap: 10px;
+}
+
 .model-mounts-route-editor-summary {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -713,7 +746,16 @@
   border-top: 1px solid var(--chat-border);
 }
 
+.model-mounts-token-editor-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--chat-border);
+}
+
 .model-mounts-provider-editor label,
+.model-mounts-token-editor label,
 .model-mounts-route-editor label {
   min-width: 0;
   display: flex;
@@ -722,6 +764,7 @@
 }
 
 .model-mounts-provider-editor label span,
+.model-mounts-token-editor label span,
 .model-mounts-route-editor label span {
   color: var(--chat-text-secondary);
   font-size: 11px;
@@ -903,7 +946,8 @@
   .model-mounts-three-col,
   .model-mounts-provider-grid,
   .model-mounts-provider-editor-grid,
-  .model-mounts-route-editor-summary {
+  .model-mounts-route-editor-summary,
+  .model-mounts-token-editor-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -931,6 +975,9 @@
   .model-mounts-detail-grid,
   .model-mounts-route-editor-grid,
   .model-mounts-route-editor-summary,
+  .model-mounts-token-editor-grid,
+  .model-mounts-token-editor-scopes,
+  .model-mounts-token-editor-summary,
   .model-mounts-three-col,
   .model-mounts-route-list,
   .model-mounts-token-layout,

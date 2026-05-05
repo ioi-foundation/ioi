@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import "./MissionControlMountsView.css";
 
 type MountsTab = "server" | "backends" | "models" | "providers" | "downloads" | "tokens" | "routing" | "logs";
@@ -114,8 +114,23 @@ interface PermissionTokenPreview {
   allowed: string[];
   denied: string[];
   expires: string;
+  created: string;
+  revoked: string;
   lastUsed: string;
+  lastScope: string;
   state: string;
+  grantId: string;
+  receipt: string;
+  vaultRefs: string[];
+  auditReceipts: string[];
+}
+
+interface TokenDraft {
+  audience: string;
+  expiresHours: string;
+  allowed: string;
+  denied: string;
+  grantId: string;
 }
 
 interface VaultRefPreview {
@@ -271,6 +286,23 @@ const defaultProviderDraft: ProviderDraft = {
   vaultMaterial: "",
   authScheme: "bearer",
   authHeaderName: "authorization",
+};
+
+const defaultTokenDraft: TokenDraft = {
+  audience: "autopilot-local-server",
+  expiresHours: "24",
+  allowed: [
+    "model.chat:*",
+    "model.responses:*",
+    "model.embeddings:*",
+    "model.load:*",
+    "model.unload:*",
+    "route.use:*",
+    "mcp.import:*",
+    "mcp.call:huggingface.model_search",
+  ].join("\n"),
+  denied: ["connector.gmail.send", "filesystem.write", "shell.exec"].join("\n"),
+  grantId: "",
 };
 
 const tabs: Array<{ id: MountsTab; label: string }> = [
@@ -502,8 +534,15 @@ const fallbackData: MountsWorkbenchData = {
       allowed: ["model.chat:*", "model.responses:*", "model.embeddings:*", "route.use:*", "mcp.call:huggingface.model_search"],
       denied: ["connector.gmail.send", "filesystem.write", "shell.exec"],
       expires: "24h",
+      created: "fixture",
+      revoked: "not revoked",
       lastUsed: "not used",
+      lastScope: "none",
       state: "active",
+      grantId: "grant_local_dev",
+      receipt: "receipt_permission_token_*",
+      vaultRefs: ["provider.openai-compatible.api-key"],
+      auditReceipts: ["receipt_permission_token_*"],
     },
     {
       id: "grant_revoked_fixture",
@@ -511,8 +550,15 @@ const fallbackData: MountsWorkbenchData = {
       allowed: ["model.chat:*"],
       denied: ["model.chat:*"],
       expires: "revoked",
+      created: "fixture",
+      revoked: "fixture revocation",
       lastUsed: "revoked",
+      lastScope: "model.chat:*",
       state: "revoked",
+      grantId: "grant_revoked_fixture",
+      receipt: "receipt_permission_token_revocation_*",
+      vaultRefs: [],
+      auditReceipts: ["receipt_permission_token_revocation_*"],
     },
   ],
   vaultAdapter: {
@@ -949,6 +995,24 @@ function useModelMountsDaemon() {
           await issueToken();
           return "Session capability token issued in memory.";
         }),
+      createTokenFromDraft: (draft: TokenDraft) =>
+        runAction("token-create", async () => {
+          const grant = await requestJson("/api/v1/tokens", {
+            method: "POST",
+            body: tokenDraftPayload(draft),
+          });
+          if (typeof grant?.token !== "string") {
+            throw new Error("Daemon did not return an ephemeral token.");
+          }
+          setSessionToken(grant.token);
+          const tokenId = stringValue(grant?.id, stringValue(grant?.public?.id, "capability grant"));
+          return `${tokenId} created; raw token retained in memory for this session only.`;
+        }),
+      revokeTokenGrant: (tokenId: string) =>
+        runAction("token-revoke", async () => {
+          await requestJson(`/api/v1/tokens/${encodeURIComponent(tokenId)}`, { method: "DELETE" });
+          return `${tokenId} revoked through the wallet authority boundary.`;
+        }),
       startServer: () =>
         runAction("server-start", async () => {
           const token = await ensureToken();
@@ -1338,6 +1402,32 @@ function csvList(value: string) {
     .filter(Boolean);
 }
 
+function tokenScopeList(value: string) {
+  return value
+    .split(/,|\n/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function tokenDraftPayload(draft: TokenDraft) {
+  const expiresHours = Math.max(1, Number(draft.expiresHours || 24));
+  return {
+    audience: draft.audience.trim() || "autopilot-local-server",
+    allowed: tokenScopeList(draft.allowed),
+    denied: tokenScopeList(draft.denied),
+    expires_at: new Date(Date.now() + expiresHours * 60 * 60 * 1000).toISOString(),
+    grant_id: draft.grantId.trim() || undefined,
+  };
+}
+
+function tokenVaultRefLabels(value: unknown) {
+  if (!value || typeof value !== "object") return [];
+  return Object.entries(value as Record<string, unknown>).map(([purpose, refValue]) => {
+    const refText = typeof refValue === "string" ? refValue : "vault reference";
+    return `${purpose}:${refText}`;
+  });
+}
+
 function routeDraftFromPolicy(policy: RoutePolicyPreview | undefined, selection: MountsPickerSelection): RouteDraft {
   const fallbackIds = policy?.fallbackIds?.length ? policy.fallbackIds : selection.endpointId ? [selection.endpointId] : ["endpoint.local.auto"];
   return {
@@ -1528,8 +1618,15 @@ function normalizeSnapshot(snapshot: any, endpoint: string): MountsWorkbenchData
       allowed: stringArray(item.allowed),
       denied: stringArray(item.denied),
       expires: stringValue(item.expiresAt, "unknown"),
+      created: stringValue(item.createdAt, "unknown"),
+      revoked: stringValue(item.revokedAt, "not revoked"),
       lastUsed: stringValue(item.lastUsedAt, "not used"),
+      lastScope: stringValue(item.lastUsedScope, "none"),
       state: item.revokedAt ? "revoked" : "active",
+      grantId: stringValue(item.grantId, "wallet.grant.unknown"),
+      receipt: stringValue(item.receiptId, "none"),
+      vaultRefs: tokenVaultRefLabels(item.vaultRefs),
+      auditReceipts: stringArray(item.auditReceiptIds),
     })),
     vaultAdapter: normalizeVaultAdapter(snapshot?.adapterBoundaries?.vault?.materialAdapter),
     vaultRefs: arrayOf(snapshot?.vaultRefs).map((item) => ({
@@ -2815,6 +2912,8 @@ function providerDraftFromProfile(item: ProviderProfile): ProviderDraft {
 
 function TokensPanel({
   data,
+  onCreateToken,
+  onRevokeToken,
   onImportMcpFixture,
   onEphemeralMcpProbe,
   onCheckVaultAdapter,
@@ -2822,12 +2921,23 @@ function TokensPanel({
   busy,
 }: {
   data: MountsWorkbenchData;
+  onCreateToken: (draft: TokenDraft) => void;
+  onRevokeToken: (tokenId: string) => void;
   onImportMcpFixture: () => void;
   onEphemeralMcpProbe: () => void;
   onCheckVaultAdapter: () => void;
   onLatestVaultHealth: () => void;
   busy: boolean;
 }) {
+  const [draft, setDraft] = useState<TokenDraft>(defaultTokenDraft);
+  const allowedScopes = tokenScopeList(draft.allowed);
+  const deniedScopes = tokenScopeList(draft.denied);
+  const updateDraft = (field: keyof TokenDraft, value: string) => setDraft((current) => ({ ...current, [field]: value }));
+  const submitTokenDraft = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    onCreateToken(draft);
+  };
+
   return (
     <section className="model-mounts-panel" aria-labelledby="model-mounts-tokens-title">
       <div className="model-mounts-panel-head">
@@ -2845,6 +2955,48 @@ function TokensPanel({
         </div>
       </div>
 
+      <form className="model-mounts-token-editor" onSubmit={submitTokenDraft}>
+        <div className="model-mounts-route-editor-head">
+          <div>
+            <h4>Token scope editor</h4>
+            <span>Issue scoped, expiring grants for model, route, MCP, and vault calls. Raw token material stays in memory only.</span>
+          </div>
+          <div className="model-mounts-card-actions">
+            <StatusPill tone="ready">session-only raw token</StatusPill>
+            <ActionButton type="submit" disabled={busy}>Create session token</ActionButton>
+          </div>
+        </div>
+        <div className="model-mounts-token-editor-grid">
+          <label>
+            <span>Audience</span>
+            <input value={draft.audience} onChange={(event) => updateDraft("audience", event.target.value)} />
+          </label>
+          <label>
+            <span>Expiry hours</span>
+            <input type="number" min="1" max="720" value={draft.expiresHours} onChange={(event) => updateDraft("expiresHours", event.target.value)} />
+          </label>
+          <label>
+            <span>Grant id override</span>
+            <input value={draft.grantId} placeholder="wallet.grant.* generated by default" onChange={(event) => updateDraft("grantId", event.target.value)} />
+          </label>
+        </div>
+        <div className="model-mounts-token-editor-scopes">
+          <label>
+            <span>Allowed scopes</span>
+            <textarea value={draft.allowed} onChange={(event) => updateDraft("allowed", event.target.value)} rows={8} />
+          </label>
+          <label>
+            <span>Denied scopes</span>
+            <textarea value={draft.denied} onChange={(event) => updateDraft("denied", event.target.value)} rows={8} />
+          </label>
+        </div>
+        <div className="model-mounts-token-editor-summary">
+          <DetailFact label="Allowed" value={`${allowedScopes.length} scopes`} note={allowedScopes.slice(0, 2).join(", ") || "none"} />
+          <DetailFact label="Denied" value={`${deniedScopes.length} scopes`} note={deniedScopes.slice(0, 2).join(", ") || "none"} />
+          <DetailFact label="Persistence" value="grant hash only" note="Token values are not written to local or session storage." />
+        </div>
+      </form>
+
       <div className="model-mounts-token-layout">
         <section>
           <h4>Capability tokens</h4>
@@ -2857,9 +3009,13 @@ function TokensPanel({
                   <div className="model-mounts-token-head">
                     <div>
                       <strong>{token.id}</strong>
-                      <span>{token.audience} / expires {token.expires} / last used {token.lastUsed}</span>
+                      <span>{token.audience} / grant {token.grantId} / expires {token.expires}</span>
+                      <span>created {token.created} / last used {token.lastUsed} / scope {token.lastScope}</span>
                     </div>
-                    <StatusPill tone={toneForStatus(token.state)}>{token.state}</StatusPill>
+                    <div className="model-mounts-card-actions">
+                      <StatusPill tone={toneForStatus(token.state)}>{token.state}</StatusPill>
+                      <ActionButton onClick={() => onRevokeToken(token.id)} disabled={busy || token.state === "revoked"}>Revoke</ActionButton>
+                    </div>
                   </div>
                   <div className="model-mounts-scope-columns">
                     <div>
@@ -2871,6 +3027,24 @@ function TokensPanel({
                       <TagList items={token.denied} />
                     </div>
                   </div>
+                  <dl>
+                    <div>
+                      <dt>Receipt</dt>
+                      <dd>{token.receipt}</dd>
+                    </div>
+                    <div>
+                      <dt>Revoked</dt>
+                      <dd>{token.revoked}</dd>
+                    </div>
+                    <div>
+                      <dt>Vault refs</dt>
+                      <dd>{token.vaultRefs.join(", ") || "none"}</dd>
+                    </div>
+                    <div>
+                      <dt>Audit receipts</dt>
+                      <dd>{token.auditReceipts.join(", ") || "none"}</dd>
+                    </div>
+                  </dl>
                 </article>
               ))
             )}
@@ -3330,7 +3504,7 @@ export function MissionControlMountsView() {
         onUnloadInstance={() => daemon.actions.unloadInstance(pickerSelection.instanceId)}
         onToggleDetails={toggleModelDetails}
         detailsOpen={detailDrawerVisible}
-        compact={activeTab === "routing"}
+        compact={activeTab === "routing" || activeTab === "tokens"}
         busy={busy}
       />
 
@@ -3408,6 +3582,8 @@ export function MissionControlMountsView() {
         {activeTab === "tokens" ? (
           <TokensPanel
             data={daemon.data}
+            onCreateToken={daemon.actions.createTokenFromDraft}
+            onRevokeToken={daemon.actions.revokeTokenGrant}
             onImportMcpFixture={daemon.actions.importMcpFixture}
             onEphemeralMcpProbe={daemon.actions.ephemeralMcpProbe}
             onCheckVaultAdapter={daemon.actions.checkVaultAdapter}
