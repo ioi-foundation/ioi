@@ -2914,18 +2914,27 @@ export class ModelMountingState {
     const baseUrl = huggingFaceCatalogBaseUrl();
     const evidenceRefs = ["huggingface_catalog_adapter_boundary", "network_access_opt_in"];
     if (!liveModelCatalogEnabled()) {
-      return { status: "gated", baseUrlHash: stableHash(baseUrl), evidenceRefs, results: [] };
+      const config = this.catalogProviderConfig("catalog.huggingface");
+      return {
+        ...catalogProviderConfigHealthFields("catalog.huggingface", config, null),
+        status: "gated",
+        baseUrlHash: stableHash(baseUrl),
+        evidenceRefs,
+        results: [],
+      };
     }
     try {
+      const auth = catalogProviderAuthHeaders("catalog.huggingface", this);
       const url = new URL("/api/models", baseUrl);
       if (query) url.searchParams.set("search", query);
       url.searchParams.set("limit", String(limit));
-      const response = await fetchWithTimeout(url, { timeoutMs: modelCatalogTimeoutMs() });
+      const response = await fetchWithTimeout(url, { timeoutMs: modelCatalogTimeoutMs(), headers: auth.headers });
       if (!response.ok) {
         return {
           status: "degraded",
           baseUrlHash: stableHash(baseUrl),
-          evidenceRefs,
+          ...catalogAuthProviderFields(auth.evidence),
+          evidenceRefs: [...evidenceRefs, ...normalizeScopes(auth.evidence?.evidenceRefs, [])],
           errorHash: stableHash(`http:${response.status}`),
           results: [],
         };
@@ -2943,14 +2952,16 @@ export class ModelMountingState {
       return {
         status: "available",
         baseUrlHash: stableHash(baseUrl),
-        evidenceRefs: [...evidenceRefs, "huggingface_catalog_search"],
-        results,
+        ...catalogAuthProviderFields(auth.evidence),
+        evidenceRefs: [...evidenceRefs, "huggingface_catalog_search", ...normalizeScopes(auth.evidence?.evidenceRefs, [])],
+        results: results.map((entry) => catalogEntryWithAuth(entry, auth.evidence)),
       };
     } catch (error) {
       return {
-        status: "degraded",
+        status: catalogAuthFailureStatus(error),
         baseUrlHash: stableHash(baseUrl),
         evidenceRefs,
+        ...catalogAuthFailureFields(error),
         errorHash: stableHash(error?.message ?? "catalog search failed"),
         results: [],
       };
@@ -2995,6 +3006,8 @@ export class ModelMountingState {
       downloadRisk: variant.downloadRisk,
       benchmarkReadiness: variant.benchmarkReadiness,
       selectionReceiptFields: variant.selectionReceiptFields,
+      catalogProviderId: variant.catalogProviderId,
+      catalogAuth: publicCatalogAuthEvidence(variant.catalogAuth),
       approvalDecision: catalogApprovalDecision({ isFixture, body }),
       liveDownloadGate: isFixture ? "fixture" : "IOI_LIVE_MODEL_DOWNLOAD",
     });
@@ -3322,6 +3335,11 @@ export class ModelMountingState {
     }
     const sourceLabel = body.source_label ?? body.sourceLabel ?? sourceLabelForUrl(source);
     const variantMetadata = catalogVariantForSource(source, body);
+    const catalogProviderId = body.catalog_provider_id ?? body.catalogProviderId ?? variantMetadata.catalogProviderId ?? null;
+    const catalogAuth = !isFixture && catalogProviderId
+      ? catalogProviderAuthHeaders(catalogProviderId, this)
+      : { headers: {}, evidence: null };
+    const catalogAuthReceipt = publicCatalogAuthEvidence(catalogAuth.evidence);
     const targetDir = path.join(this.modelRoot, "downloads", safeFileName(modelId));
     const targetPath = path.join(targetDir, body.file_name ?? body.fileName ?? `${safeFileName(modelId)}.gguf`);
     const fixtureContent = String(body.fixture_content ?? body.fixtureContent ?? `deterministic model bytes for ${modelId}\n`);
@@ -3360,6 +3378,8 @@ export class ModelMountingState {
       sourceHash: stableHash(source),
       sourceLabel,
       variant: variantMetadata,
+      catalogProviderId,
+      catalogAuth: catalogAuthReceipt,
       recommendation: variantMetadata.recommendation,
       backendCompatibility: variantMetadata.backendCompatibility,
       downloadRisk: variantMetadata.downloadRisk,
@@ -3419,6 +3439,8 @@ export class ModelMountingState {
       sourceLabel,
       downloadMode: isFixture ? "fixture" : "live_network",
       downloadPolicy,
+      catalogProviderId,
+      catalogAuth: catalogAuthReceipt,
     });
     const transferReceiptIds = [];
     const recordTransferEvent = (operation, details = {}) => {
@@ -3431,6 +3453,8 @@ export class ModelMountingState {
         targetPathHash: stableHash(targetPath),
         downloadMode: isFixture ? "fixture" : "live_network",
         downloadPolicy,
+        catalogProviderId,
+        catalogAuth: catalogAuthReceipt,
         ...details,
       });
       transferReceiptIds.push(receipt.id);
@@ -3449,6 +3473,7 @@ export class ModelMountingState {
             bandwidthLimitBps: downloadPolicy.bandwidthLimitBps,
             retryLimit: downloadPolicy.retryLimit,
             timeoutMs: modelDownloadTimeoutMs(),
+            headers: catalogAuth.headers,
             onTransferEvent: recordTransferEvent,
           });
     } catch (error) {
@@ -3467,6 +3492,8 @@ export class ModelMountingState {
         errorHash: stableHash(error?.message ?? "download failed"),
         cleanupState,
         transfer,
+        catalogProviderId,
+        catalogAuth: catalogAuthReceipt,
         attemptCount: transfer?.attemptCount ?? null,
         retryCount: transfer?.retryCount ?? null,
         resumeMetadataPathHash: transfer?.resumeMetadataPathHash ?? stableHash(`${targetPath}.part.json`),
@@ -3561,6 +3588,8 @@ export class ModelMountingState {
       resumeMetadataPathHash: materialized.resumeMetadataPathHash ?? stableHash(`${targetPath}.part.json`),
       transfer: materialized.transfer ?? null,
       downloadMode: isFixture ? "fixture" : "live_network",
+      catalogProviderId,
+      catalogAuth: catalogAuthReceipt,
     });
     const completed = { ...job, receiptId: receipt.id, receiptIds: [...job.receiptIds, receipt.id] };
     this.downloads.set(completed.id, completed);
@@ -7168,7 +7197,7 @@ function fixtureModelCatalog(searchedAt) {
   ];
 }
 
-const MODEL_CATALOG_CONFIGURABLE_PROVIDER_IDS = ["catalog.local_manifest", "catalog.custom_http"];
+const MODEL_CATALOG_CONFIGURABLE_PROVIDER_IDS = ["catalog.local_manifest", "catalog.custom_http", "catalog.huggingface"];
 
 function assertConfigurableCatalogProvider(providerId) {
   if (!MODEL_CATALOG_CONFIGURABLE_PROVIDER_IDS.includes(providerId)) {
@@ -7232,15 +7261,14 @@ function catalogProviderConfigUpdate(providerId, body, existing = null, updatedA
       ? material.manifestPath
         ? stableHash(path.resolve(material.manifestPath))
         : existing?.manifestPathHash ?? null
-      : material.baseUrl
+      : providerId === "catalog.custom_http" && material.baseUrl
         ? stableHash(material.baseUrl)
-        : existing?.baseUrlHash ?? null;
-  const authVaultRef = body.auth_vault_ref ?? body.authVaultRef ?? body.vault_ref ?? body.vaultRef ?? null;
-  const authVaultRefHash =
-    typeof authVaultRef === "string" && authVaultRef.trim()
-      ? state.walletAuthority.resolveVaultRef(authVaultRef.trim()).vaultRefHash
-      : existing?.authVaultRefHash ?? null;
-  if (authVaultRefHash) evidenceRefs.push("wallet.network.vault_ref_boundary");
+        : providerId === "catalog.custom_http"
+          ? existing?.baseUrlHash ?? null
+          : null;
+  const authConfig = catalogProviderAuthConfig(providerId, body, existing, state);
+  const authVaultRefHash = authConfig.authVaultRefHash;
+  if (authVaultRefHash) evidenceRefs.push("wallet.network.vault_ref_boundary", "catalog_provider_auth_vault_ref");
   if (!materialVaultRefHash && (materialHash || existing?.materialConfigured)) {
     materialVaultRefHash = stableHash(catalogProviderMaterialVaultRef(providerId));
   }
@@ -7254,10 +7282,18 @@ function catalogProviderConfigUpdate(providerId, body, existing = null, updatedA
       materialHash,
       materialVaultRefHash,
       authVaultRefHash,
+      catalogAuthScheme: authConfig.catalogAuthScheme,
+      catalogAuthHeaderNameHash: authConfig.catalogAuthHeaderNameHash,
     }),
     manifestPathHash: providerId === "catalog.local_manifest" ? materialHash : null,
     baseUrlHash: providerId === "catalog.custom_http" ? materialHash : null,
+    authVaultRef: authConfig.authVaultRef,
     authVaultRefHash,
+    catalogAuthConfigured: authConfig.catalogAuthConfigured,
+    catalogAuthScheme: authConfig.catalogAuthScheme,
+    catalogAuthHeaderName: authConfig.catalogAuthHeaderName,
+    catalogAuthHeaderNameHash: authConfig.catalogAuthHeaderNameHash,
+    oauthBoundary: authConfig.oauthBoundary,
     materialVaultRefHash,
     materialConfigured: Boolean(materialHash),
     materialPersistence: materialHash ? materialPersistence : "metadata_only",
@@ -7283,6 +7319,66 @@ function catalogProviderRuntimeMaterialFromBody(providerId, body) {
     return catalogProviderRuntimeMaterialFromValue(providerId, baseUrl);
   }
   return {};
+}
+
+function catalogProviderAuthConfig(providerId, body, existing = null, state) {
+  const authVaultInput = firstOwn(body, ["auth_vault_ref", "authVaultRef", "vault_ref", "vaultRef", "api_key_vault_ref", "apiKeyVaultRef"]);
+  const authVaultRef =
+    authVaultInput.has
+      ? typeof authVaultInput.value === "string" && authVaultInput.value.trim()
+        ? authVaultInput.value.trim()
+        : null
+      : existing?.authVaultRef ?? null;
+  const authVaultRefHash = authVaultRef
+    ? state.walletAuthority.resolveVaultRef(authVaultRef).vaultRefHash
+    : authVaultInput.has
+      ? null
+      : existing?.authVaultRefHash ?? null;
+  const rawScheme = body.auth_scheme ?? body.authScheme ?? existing?.catalogAuthScheme ?? existing?.authScheme ?? "bearer";
+  const catalogAuthScheme = normalizeCatalogAuthScheme(rawScheme);
+  const rawHeaderName = body.auth_header_name ?? body.authHeaderName ?? existing?.catalogAuthHeaderName ?? existing?.authHeaderName ?? "authorization";
+  const catalogAuthHeaderName = normalizeProviderAuthHeaderName(rawHeaderName);
+  const catalogAuthHeaderNameHash = stableHash(catalogAuthHeaderName);
+  const catalogAuthConfigured = Boolean(authVaultRefHash);
+  const oauthBoundary =
+    catalogAuthScheme === "oauth2"
+      ? {
+          configured: catalogAuthConfigured,
+          status: catalogAuthConfigured ? "vault_token_passthrough" : "requires_vault_ref",
+          tokenExchange: "not_local",
+          evidenceRefs: ["catalog_oauth_boundary", "vault_ref_oauth_token_material"],
+        }
+      : null;
+  return {
+    authVaultRef,
+    authVaultRefHash,
+    catalogAuthConfigured,
+    catalogAuthScheme,
+    catalogAuthHeaderName,
+    catalogAuthHeaderNameHash,
+    oauthBoundary,
+  };
+}
+
+function firstOwn(value, keys) {
+  if (!value || typeof value !== "object") return { has: false, value: undefined };
+  for (const key of keys) {
+    if (Object.prototype.hasOwnProperty.call(value, key)) {
+      return { has: true, value: value[key] };
+    }
+  }
+  return { has: false, value: undefined };
+}
+
+function normalizeCatalogAuthScheme(value) {
+  const scheme = String(value ?? "bearer").toLowerCase().replace(/[-\s]+/g, "_");
+  if (["bearer", "raw", "api_key", "oauth2"].includes(scheme)) return scheme;
+  throw runtimeError({
+    status: 400,
+    code: "validation",
+    message: "Catalog auth scheme must be bearer, raw, api_key, or oauth2.",
+    details: { authScheme: scheme },
+  });
 }
 
 function catalogProviderRuntimeMaterialFromValue(providerId, value) {
@@ -7321,6 +7417,122 @@ function catalogProviderMaterialLabel(providerId) {
   return providerId === "catalog.local_manifest" ? "Local manifest catalog source" : "Custom HTTP catalog source";
 }
 
+function catalogProviderAuthHeaders(providerId, state) {
+  const config = state?.catalogProviderConfig?.(providerId) ?? null;
+  if (!config?.authVaultRef && !config?.authVaultRefHash) return { headers: {}, evidence: null };
+  if (!config.authVaultRef) {
+    throw runtimeError({
+      status: 403,
+      code: "policy",
+      message: "Catalog auth is configured by hash only; request-time vault ref resolution requires a vault ref.",
+      details: {
+        catalogProviderId: providerId,
+        authVaultRefHash: config.authVaultRefHash ?? null,
+        resolvedMaterial: false,
+        evidenceRefs: ["catalog_auth_fail_closed", "vault_ref_required"],
+      },
+    });
+  }
+  const resolved = state?.vault?.resolveVaultRef(config.authVaultRef, `catalog.auth:${providerId}`);
+  state?.writeVaultRefs?.();
+  const headerName = normalizeProviderAuthHeaderName(config.catalogAuthHeaderName ?? "authorization");
+  const authScheme = normalizeCatalogAuthScheme(config.catalogAuthScheme ?? "bearer");
+  if (!resolved?.material) {
+    throw runtimeError({
+      status: 403,
+      code: "policy",
+      message: "Catalog auth vault ref is configured, but no runtime vault material is available.",
+      details: {
+        catalogProviderId: providerId,
+        authVaultRefHash: resolved?.vaultRefHash ?? config.authVaultRefHash ?? stableHash(config.authVaultRef),
+        resolvedMaterial: false,
+        catalogAuthScheme: authScheme,
+        catalogAuthHeaderNameHash: stableHash(headerName),
+        evidenceRefs: normalizeScopes(resolved?.evidenceRefs, ["VaultPort.resolveVaultRef", "catalog_auth_fail_closed"]),
+      },
+    });
+  }
+  return {
+    headers: {
+      [headerName]: catalogAuthorizationHeaderValue(authScheme, resolved.material),
+    },
+    evidence: {
+      authVaultRefHash: resolved.vaultRefHash,
+      resolvedMaterial: true,
+      catalogAuthResolved: true,
+      catalogAuthScheme: authScheme,
+      catalogAuthHeaderNameHash: stableHash(headerName),
+      headerNames: [headerName],
+      oauthBoundary:
+        authScheme === "oauth2"
+          ? {
+              configured: true,
+              status: "vault_token_passthrough",
+              tokenExchange: "not_local",
+              evidenceRefs: ["catalog_oauth_boundary", "vault_ref_oauth_token_material"],
+            }
+          : null,
+      evidenceRefs: normalizeScopes(resolved.evidenceRefs, ["VaultPort.resolveVaultRef", "catalog_auth_resolved"]),
+    },
+  };
+}
+
+function catalogAuthorizationHeaderValue(authScheme, material) {
+  if (authScheme === "raw" || authScheme === "api_key") return material;
+  return `Bearer ${material}`;
+}
+
+function catalogAuthProviderFields(evidence = null) {
+  if (!evidence) return {};
+  return {
+    authVaultRefHash: evidence.authVaultRefHash ?? null,
+    catalogAuthConfigured: true,
+    catalogAuthResolved: Boolean(evidence.resolvedMaterial ?? evidence.catalogAuthResolved),
+    catalogAuthScheme: evidence.catalogAuthScheme ?? "bearer",
+    catalogAuthHeaderNameHash: evidence.catalogAuthHeaderNameHash ?? null,
+    catalogAuthEvidenceRefs: normalizeScopes(evidence.evidenceRefs, []),
+    oauthBoundary: evidence.oauthBoundary ?? null,
+  };
+}
+
+function publicCatalogAuthEvidence(evidence = null) {
+  if (!evidence) return null;
+  return {
+    authVaultRefHash: evidence.authVaultRefHash ?? null,
+    resolvedMaterial: Boolean(evidence.resolvedMaterial ?? evidence.catalogAuthResolved),
+    catalogAuthScheme: evidence.catalogAuthScheme ?? "bearer",
+    catalogAuthHeaderNameHash: evidence.catalogAuthHeaderNameHash ?? null,
+    evidenceRefs: normalizeScopes(evidence.evidenceRefs, []),
+    oauthBoundary: evidence.oauthBoundary ?? null,
+  };
+}
+
+function catalogEntryWithAuth(entry, evidence = null) {
+  if (!evidence) return entry;
+  return {
+    ...entry,
+    catalogAuth: publicCatalogAuthEvidence(evidence),
+  };
+}
+
+function catalogAuthFailureStatus(error) {
+  if (error?.status === 403 || error?.code === "policy") return "blocked";
+  return "degraded";
+}
+
+function catalogAuthFailureFields(error) {
+  const details = error?.details && typeof error.details === "object" ? error.details : {};
+  if (!details.authVaultRefHash && !details.catalogAuthHeaderNameHash && !details.catalogAuthScheme) return {};
+  return {
+    authVaultRefHash: details.authVaultRefHash ?? null,
+    catalogAuthConfigured: true,
+    catalogAuthResolved: false,
+    catalogAuthScheme: details.catalogAuthScheme ?? "bearer",
+    catalogAuthHeaderNameHash: details.catalogAuthHeaderNameHash ?? null,
+    catalogAuthEvidenceRefs: normalizeScopes(details.evidenceRefs, ["catalog_auth_fail_closed"]),
+  };
+}
+
 function publicCatalogProviderConfig(providerId, record = null, material = null) {
   const materialConfigured = Boolean(record?.materialConfigured ?? material?.manifestPath ?? material?.baseUrl);
   return {
@@ -7330,6 +7542,10 @@ function publicCatalogProviderConfig(providerId, record = null, material = null)
     manifestPathHash: record?.manifestPathHash ?? (material?.manifestPath ? stableHash(path.resolve(material.manifestPath)) : null),
     baseUrlHash: record?.baseUrlHash ?? (material?.baseUrl ? stableHash(material.baseUrl) : null),
     authVaultRefHash: record?.authVaultRefHash ?? material?.authVaultRefHash ?? null,
+    catalogAuthConfigured: Boolean(record?.catalogAuthConfigured ?? record?.authVaultRefHash ?? false),
+    catalogAuthScheme: record?.catalogAuthScheme ?? "bearer",
+    catalogAuthHeaderNameHash: record?.catalogAuthHeaderNameHash ?? null,
+    oauthBoundary: record?.oauthBoundary ?? null,
     materialVaultRefHash: record?.materialVaultRefHash ?? material?.materialVaultRefHash ?? null,
     materialConfigured,
     materialPersistence: record?.materialPersistence ?? "metadata_only",
@@ -7358,6 +7574,10 @@ function catalogProviderConfigHealthFields(providerId, config = null, material =
     manifestPathHash: publicConfig.manifestPathHash,
     baseUrlHash: publicConfig.baseUrlHash,
     authVaultRefHash: publicConfig.authVaultRefHash,
+    catalogAuthConfigured: publicConfig.catalogAuthConfigured,
+    catalogAuthScheme: publicConfig.catalogAuthScheme,
+    catalogAuthHeaderNameHash: publicConfig.catalogAuthHeaderNameHash,
+    oauthBoundary: publicConfig.oauthBoundary,
     materialVaultRefHash: publicConfig.materialVaultRefHash,
     materialConfigured: publicConfig.materialConfigured,
     materialPersistence: publicConfig.materialPersistence,
@@ -7392,6 +7612,12 @@ function catalogProviderStatus(port, result = null) {
     baseUrlHash: result?.baseUrlHash ?? health.baseUrlHash ?? null,
     manifestPathHash: result?.manifestPathHash ?? health.manifestPathHash ?? null,
     authVaultRefHash: result?.authVaultRefHash ?? health.authVaultRefHash ?? null,
+    catalogAuthConfigured: result?.catalogAuthConfigured ?? health.catalogAuthConfigured ?? null,
+    catalogAuthResolved: result?.catalogAuthResolved ?? health.catalogAuthResolved ?? null,
+    catalogAuthScheme: result?.catalogAuthScheme ?? health.catalogAuthScheme ?? null,
+    catalogAuthHeaderNameHash: result?.catalogAuthHeaderNameHash ?? health.catalogAuthHeaderNameHash ?? null,
+    catalogAuthEvidenceRefs: result?.catalogAuthEvidenceRefs ?? health.catalogAuthEvidenceRefs ?? [],
+    oauthBoundary: result?.oauthBoundary ?? health.oauthBoundary ?? null,
     materialVaultRefHash: result?.materialVaultRefHash ?? health.materialVaultRefHash ?? null,
     materialConfigured: result?.materialConfigured ?? health.materialConfigured ?? null,
     materialPersistence: result?.materialPersistence ?? health.materialPersistence ?? null,
@@ -7494,6 +7720,8 @@ function ollamaCatalogProviderPort(state) {
 function huggingFaceCatalogProviderPort(state) {
   const baseUrl = huggingFaceCatalogBaseUrl();
   const evidenceRefs = ["huggingface_catalog_adapter_boundary", "network_access_opt_in", "model_catalog_provider_port"];
+  const config = state?.catalogProviderConfig?.("catalog.huggingface") ?? null;
+  const configFields = catalogProviderConfigHealthFields("catalog.huggingface", config, null);
   return {
     id: "catalog.huggingface",
     label: "Hugging Face-compatible catalog",
@@ -7502,6 +7730,7 @@ function huggingFaceCatalogProviderPort(state) {
     formats: ["gguf", "mlx", "safetensors"],
     evidenceRefs,
     health: () => ({
+      ...configFields,
       status: liveModelCatalogEnabled() ? "configured" : "gated",
       baseUrlHash: stableHash(baseUrl),
       liveDownloadStatus: liveModelDownloadEnabled() ? "configured" : "gated",
@@ -7525,14 +7754,23 @@ function customHttpCatalogProviderPort(state) {
       const baseUrl = customHttpCatalogBaseUrl(state);
       if (!baseUrl) return { ...health, results: [] };
       try {
+        const auth = catalogProviderAuthHeaders("catalog.custom_http", state);
         const url = new URL("/catalog/search", baseUrl);
         if (query) url.searchParams.set("q", query);
         if (format) url.searchParams.set("format", format);
         if (quantization) url.searchParams.set("quantization", quantization);
         url.searchParams.set("limit", String(limit));
-        const response = await fetchWithTimeout(url, { timeoutMs: modelCatalogTimeoutMs() });
+        const response = await fetchWithTimeout(url, { timeoutMs: modelCatalogTimeoutMs(), headers: auth.headers });
         if (!response.ok) {
-          return { ...health, status: "degraded", baseUrlHash: stableHash(baseUrl), errorHash: stableHash(`http:${response.status}`), evidenceRefs, results: [] };
+          return {
+            ...health,
+            ...catalogAuthProviderFields(auth.evidence),
+            status: "degraded",
+            baseUrlHash: stableHash(baseUrl),
+            errorHash: stableHash(`http:${response.status}`),
+            evidenceRefs: [...evidenceRefs, ...normalizeScopes(auth.evidence?.evidenceRefs, [])],
+            results: [],
+          };
         }
         const payload = await response.json();
         const records = catalogRecordsFromPayload(payload);
@@ -7545,13 +7783,22 @@ function customHttpCatalogProviderPort(state) {
             }),
           )
           .filter(Boolean)
+          .map((entry) => catalogEntryWithAuth(entry, auth.evidence))
           .filter((entry) => catalogEntryMatches(entry, { query, format, quantization }))
           .slice(0, limit);
-        return { ...health, status: "available", baseUrlHash: stableHash(baseUrl), evidenceRefs: [...evidenceRefs, "custom_http_catalog_search"], results };
+        return {
+          ...health,
+          ...catalogAuthProviderFields(auth.evidence),
+          status: "available",
+          baseUrlHash: stableHash(baseUrl),
+          evidenceRefs: [...evidenceRefs, "custom_http_catalog_search", ...normalizeScopes(auth.evidence?.evidenceRefs, [])],
+          results,
+        };
       } catch (error) {
         return {
           ...health,
-          status: "degraded",
+          ...catalogAuthFailureFields(error),
+          status: catalogAuthFailureStatus(error),
           baseUrlHash: stableHash(baseUrl),
           errorHash: stableHash(error?.message ?? "custom catalog failed"),
           evidenceRefs,
@@ -7846,6 +8093,7 @@ function catalogVariantForSource(source, body = {}) {
     sourceUrlHash: stableHash(source),
     license: body.license ?? catalogEntry?.license ?? null,
     compatibility: normalizeScopes(body.compatibility, catalogEntry?.compatibility ?? ["native_local_fixture"]),
+    catalogAuth: publicCatalogAuthEvidence(body.catalogAuth ?? catalogEntry?.catalogAuth ?? null),
   };
   return enrichCatalogEntry(variant, { maxBytes: body.max_bytes ?? body.maxBytes ?? null });
 }
@@ -8156,6 +8404,7 @@ async function materializeLiveDownload({
   bandwidthLimitBps,
   retryLimit = 0,
   timeoutMs,
+  headers = {},
   onTransferEvent,
 }) {
   const partialPath = `${targetPath}.part`;
@@ -8183,6 +8432,7 @@ async function materializeLiveDownload({
         resume,
         bandwidthLimitBps,
         timeoutMs,
+        headers,
         attemptIndex,
         maxAttempts,
         transferBase,
@@ -8248,13 +8498,14 @@ async function materializeLiveDownloadAttempt({
   resume,
   bandwidthLimitBps,
   timeoutMs,
+  headers = {},
   attemptIndex,
   maxAttempts,
   transferBase,
   onTransferEvent,
 }) {
   const resumeOffset = resume && fs.existsSync(partialPath) ? fs.statSync(partialPath).size : 0;
-  const headers = resumeOffset > 0 ? { Range: `bytes=${resumeOffset}-` } : {};
+  const requestHeaders = { ...headers, ...(resumeOffset > 0 ? { Range: `bytes=${resumeOffset}-` } : {}) };
   writeDownloadResumeMetadata(metadataPath, {
     ...transferBase,
     status: "running",
@@ -8272,7 +8523,7 @@ async function materializeLiveDownloadAttempt({
       resumeMetadataPathHash: transferBase.resumeMetadataPathHash,
     });
   }
-  const response = await fetchWithTimeout(source, { timeoutMs, headers });
+  const response = await fetchWithTimeout(source, { timeoutMs, headers: requestHeaders });
   if (!response.ok) {
     throw new Error(`live_download_http_${response.status}`);
   }
@@ -8529,6 +8780,13 @@ function shouldRedactKey(key) {
       "output_tokens",
       "total_tokens",
       "providerAuthHeaderNames",
+      "catalogAuth",
+      "catalogAuthConfigured",
+      "catalogAuthResolved",
+      "catalogAuthScheme",
+      "catalogAuthHeaderNameHash",
+      "catalogAuthEvidenceRefs",
+      "oauthBoundary",
       "resolvedMaterial",
       "runtimeBound",
       "materialBound",

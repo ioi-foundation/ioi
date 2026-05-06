@@ -177,6 +177,10 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   assert.match(source, /vaultMaterialSource/);
   assert.match(source, /Source vault/);
   assert.match(source, /auth_vault_ref/);
+  assert.match(source, /auth_scheme/);
+  assert.match(source, /auth_header_name/);
+  assert.match(source, /catalogAuthConfigured/);
+  assert.match(source, /catalogAuthHeaderNameHash/);
   assert.match(source, /manifest_path/);
   assert.match(source, /base_url/);
   assert.match(source, /catalog\.local_manifest/);
