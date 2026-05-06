@@ -3217,6 +3217,8 @@ export class ModelMountingState {
     const fixtureContent = String(body.fixture_content ?? body.fixtureContent ?? `deterministic model bytes for ${modelId}\n`);
     const bytesTotal = Number(body.bytes_total ?? body.bytesTotal ?? (isFixture ? Buffer.byteLength(fixtureContent) : 0));
     const maxBytes = normalizeOptionalBytes(body.max_bytes ?? body.maxBytes ?? process.env.IOI_MODEL_DOWNLOAD_MAX_BYTES);
+    const downloadPolicy = normalizeDownloadPolicy(body, { isFixture, maxBytes, source });
+    assertDownloadPolicyAllowed(downloadPolicy, source);
     const jobBase = {
       id: `download_job_${crypto.randomUUID()}`,
       modelId,
@@ -3232,6 +3234,10 @@ export class ModelMountingState {
       bytesCompleted: 0,
       progress: 0,
       maxBytes,
+      downloadPolicy,
+      bandwidthLimitBps: downloadPolicy.bandwidthLimitBps,
+      retryLimit: downloadPolicy.retryLimit,
+      resumeDownload: downloadPolicy.resume,
       createdAt: now,
       updatedAt: now,
       receiptIds: [],
@@ -3249,7 +3255,8 @@ export class ModelMountingState {
       downloadRisk: variantMetadata.downloadRisk,
       benchmarkReadiness: variantMetadata.benchmarkReadiness,
       selectionReceiptFields: variantMetadata.selectionReceiptFields,
-      approvalDecision: catalogApprovalDecision({ isFixture, body }),
+      approvalDecision: downloadPolicy.approvalDecision,
+      downloadPolicy,
       targetPathHash: stableHash(targetPath),
       maxBytes,
       downloadMode: isFixture ? "fixture" : "live_network",
@@ -3269,6 +3276,7 @@ export class ModelMountingState {
         modelId,
         providerId,
         failureReason: failed.failureReason,
+        downloadPolicy,
       });
       const storedFailed = { ...failed, receiptIds: [...failed.receiptIds, failedReceipt.id], receiptId: failedReceipt.id };
       this.downloads.set(storedFailed.id, storedFailed);
@@ -3300,6 +3308,7 @@ export class ModelMountingState {
       sourceHash: stableHash(source),
       sourceLabel,
       downloadMode: isFixture ? "fixture" : "live_network",
+      downloadPolicy,
     });
     let materialized;
     try {
@@ -3310,7 +3319,8 @@ export class ModelMountingState {
             targetPath,
             expectedChecksum: body.checksum ?? body.expected_checksum ?? body.expectedChecksum ?? null,
             maxBytes,
-            resume: truthy(body.resume ?? body.resume_download ?? body.resumeDownload ?? true),
+            resume: downloadPolicy.resume,
+            bandwidthLimitBps: downloadPolicy.bandwidthLimitBps,
             timeoutMs: modelDownloadTimeoutMs(),
           });
     } catch (error) {
@@ -3324,6 +3334,7 @@ export class ModelMountingState {
         sourceLabel,
         errorHash: stableHash(error?.message ?? "download failed"),
         cleanupState: cleanupPartialDownload(targetPath),
+        downloadPolicy,
       });
       const failed = {
         ...jobBase,
@@ -3397,7 +3408,8 @@ export class ModelMountingState {
       downloadRisk: variantMetadata.downloadRisk,
       benchmarkReadiness: variantMetadata.benchmarkReadiness,
       selectionReceiptFields: variantMetadata.selectionReceiptFields,
-      approvalDecision: catalogApprovalDecision({ isFixture, body }),
+      approvalDecision: downloadPolicy.approvalDecision,
+      downloadPolicy,
       resumeOffset: materialized.resumeOffset ?? 0,
       downloadMode: isFixture ? "fixture" : "live_network",
     });
@@ -3409,10 +3421,18 @@ export class ModelMountingState {
     return completed;
   }
 
-  cancelDownload(jobId) {
+  cancelDownload(jobId, body = {}) {
     const job = this.downloadStatus(jobId);
     if (["completed", "failed", "canceled"].includes(job.status)) {
       return job;
+    }
+    const cleanupPartial = truthy(body.cleanup_partial ?? body.cleanupPartial ?? true);
+    const destructiveConfirmation = destructiveConfirmationState(body, { required: cleanupPartial, action: "download_cancel_cleanup" });
+    const partialPath = job.targetPath ? `${job.targetPath}.part` : null;
+    const projectedFreedBytes = cleanupPartial ? fileSizeIfExists(job.targetPath) + fileSizeIfExists(partialPath) : 0;
+    let cleanupState = cleanupPartial ? "not_needed" : "retained_partial";
+    if (cleanupPartial && job.targetPath) {
+      cleanupState = cleanupPartialDownload(job.targetPath);
     }
     const receipt = this.lifecycleReceipt("model_download_canceled", {
       jobId,
@@ -3420,21 +3440,22 @@ export class ModelMountingState {
       providerId: job.providerId,
       bytesCompleted: job.bytesCompleted,
       bytesTotal: job.bytesTotal,
+      cleanupPartial,
+      cleanupState,
+      projectedFreedBytes,
+      destructiveConfirmation,
+      downloadPolicy: job.downloadPolicy ?? null,
     });
     const canceled = {
       ...job,
       status: "canceled",
+      cleanupState,
+      projectedFreedBytes,
+      destructiveConfirmation,
       updatedAt: this.nowIso(),
       receiptId: receipt.id,
       receiptIds: [...(job.receiptIds ?? []), receipt.id],
     };
-    if (job.targetPath) {
-      try {
-        fs.rmSync(job.targetPath, { force: true });
-      } catch {
-        // Cleanup is best-effort; the cancellation receipt records the state transition.
-      }
-    }
     this.downloads.set(jobId, canceled);
     this.writeMap("model-downloads", this.downloads);
     this.writeProjection();
@@ -3447,12 +3468,37 @@ export class ModelMountingState {
     return job;
   }
 
-  deleteModelArtifact(id) {
+  deleteModelArtifact(id, body = {}) {
     const artifact = this.getModel(id);
     const endpointIds = [...this.endpoints.values()].filter((endpoint) => endpoint.artifactId === artifact.id).map((endpoint) => endpoint.id);
     const instanceIds = [...this.instances.values()]
       .filter((instance) => endpointIds.includes(instance.endpointId) && instance.status === "loaded")
       .map((instance) => instance.id);
+    const projectedFreedBytes = fileSizeIfExists(artifact.artifactPath);
+    const destructiveConfirmation = destructiveConfirmationState(body, { required: projectedFreedBytes > 0 || endpointIds.length > 0, action: "model_artifact_delete" });
+    if (truthy(body.dry_run ?? body.dryRun)) {
+      const receipt = this.lifecycleReceipt("model_artifact_delete_dry_run", {
+        artifactId: artifact.id,
+        modelId: artifact.modelId,
+        providerId: artifact.providerId,
+        artifactPathHash: artifact.artifactPath ? stableHash(artifact.artifactPath) : null,
+        affectedEndpointIds: endpointIds,
+        affectedInstanceIds: instanceIds,
+        projectedFreedBytes,
+        destructiveConfirmation,
+      });
+      return {
+        schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
+        status: "dry_run",
+        artifactId: artifact.id,
+        modelId: artifact.modelId,
+        affectedEndpointIds: endpointIds,
+        affectedInstanceIds: instanceIds,
+        projectedFreedBytes,
+        destructiveConfirmation,
+        receiptId: receipt.id,
+      };
+    }
     if (instanceIds.length > 0) {
       throw runtimeError({
         status: 409,
@@ -3482,7 +3528,11 @@ export class ModelMountingState {
       providerId: artifact.providerId,
       artifactPathHash: artifact.artifactPath ? stableHash(artifact.artifactPath) : null,
       endpointIds,
+      affectedEndpointIds: endpointIds,
+      affectedInstanceIds: instanceIds,
+      projectedFreedBytes,
       cleanupState,
+      destructiveConfirmation,
     });
     this.writeMap("model-artifacts", this.artifacts);
     this.writeMap("model-endpoints", this.endpoints);
@@ -3493,26 +3543,70 @@ export class ModelMountingState {
       artifactId: artifact.id,
       modelId: artifact.modelId,
       cleanupState,
+      affectedEndpointIds: endpointIds,
+      affectedInstanceIds: instanceIds,
+      projectedFreedBytes,
+      destructiveConfirmation,
       receiptId: receipt.id,
     };
   }
 
-  cleanupModelStorage() {
+  cleanupModelStorage(body = {}) {
     const knownPaths = new Set([...this.artifacts.values()].map((artifact) => artifact.artifactPath).filter(Boolean));
     const files = listModelFiles(this.modelRoot);
     const orphans = files.filter((filePath) => !knownPaths.has(filePath));
+    const orphanBytes = orphans.reduce((total, filePath) => total + fileSizeIfExists(filePath), 0);
+    const removeOrphans = truthy(body.remove_orphans ?? body.removeOrphans ?? false);
+    const destructiveConfirmation = destructiveConfirmationState(body, { required: removeOrphans && orphans.length > 0, action: "model_storage_cleanup" });
+    if (removeOrphans && destructiveConfirmation.required && !destructiveConfirmation.confirmed) {
+      throw runtimeError({
+        status: 409,
+        code: "destructive_confirmation_required",
+        message: "Confirm destructive cleanup before removing orphan model files.",
+        details: { orphanCount: orphans.length, projectedFreedBytes: orphanBytes },
+      });
+    }
+    let cleanupState = "scan_only";
+    let cleanedBytes = 0;
+    let removedOrphanCount = 0;
+    if (removeOrphans) {
+      cleanupState = "removed_orphans";
+      for (const orphan of orphans) {
+        const size = fileSizeIfExists(orphan);
+        try {
+          fs.rmSync(orphan, { force: true });
+          cleanedBytes += size;
+          removedOrphanCount += 1;
+        } catch {
+          cleanupState = "partial_cleanup_failed";
+        }
+      }
+    }
     const receipt = this.lifecycleReceipt("model_storage_cleanup", {
       modelId: "model-storage",
       scannedFileCount: files.length,
       orphanCount: orphans.length,
       orphanPathHashes: orphans.map((filePath) => stableHash(filePath)),
-      cleanupState: "scan_only",
+      orphanBytes,
+      removeOrphans,
+      cleanedBytes,
+      removedOrphanCount,
+      projectedFreedBytes: orphanBytes,
+      cleanupState,
+      destructiveConfirmation,
     });
     return {
       schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
-      status: "scanned",
+      status: removeOrphans ? "cleaned" : "scanned",
       scannedFileCount: files.length,
       orphanCount: orphans.length,
+      orphanBytes,
+      removeOrphans,
+      cleanedBytes,
+      removedOrphanCount,
+      projectedFreedBytes: orphanBytes,
+      cleanupState,
+      destructiveConfirmation,
       receiptId: receipt.id,
     };
   }
@@ -6211,6 +6305,21 @@ function normalizeOptionalBytes(value) {
   return Math.floor(parsed);
 }
 
+function normalizeNonNegativeInteger(value, fallback = 0) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) return fallback;
+  return Math.floor(parsed);
+}
+
+function fileSizeIfExists(filePath) {
+  if (!filePath || !fs.existsSync(filePath)) return 0;
+  try {
+    return fs.statSync(filePath).size;
+  } catch {
+    return 0;
+  }
+}
+
 function hostedProvider(id, label, apiFormat, secret) {
   return {
     id,
@@ -7184,6 +7293,57 @@ function catalogApprovalDecision({ isFixture, body = {} }) {
   };
 }
 
+function normalizeDownloadPolicy(body = {}, { isFixture, maxBytes, source } = {}) {
+  const bandwidthLimitBps = normalizeOptionalBytes(
+    body.bandwidth_bps ??
+      body.bandwidthBps ??
+      body.bandwidth_limit_bps ??
+      body.bandwidthLimitBps ??
+      process.env.IOI_MODEL_DOWNLOAD_BANDWIDTH_BPS,
+  );
+  const retryLimit = normalizeNonNegativeInteger(body.retry_limit ?? body.retryLimit ?? body.retries ?? 0, 0);
+  const resume = truthy(body.resume ?? body.resume_download ?? body.resumeDownload ?? true);
+  const cleanupPartialOnCancel = truthy(body.cleanup_partial ?? body.cleanupPartial ?? true);
+  const approvalDecision = catalogApprovalDecision({ isFixture, body });
+  return {
+    maxBytes,
+    bandwidthLimitBps,
+    retryLimit,
+    resume,
+    cleanupPartialOnCancel,
+    externalTransferRequired: approvalDecision.required,
+    externalTransferApproved: approvalDecision.approved,
+    approvalDecision,
+    sourceHash: stableHash(source),
+    status: approvalDecision.required && !approvalDecision.approved ? "blocked_approval_required" : "ready",
+    evidenceRefs: ["model_download_transfer_policy", "external_transfer_approval_receipt"],
+  };
+}
+
+function assertDownloadPolicyAllowed(policy, source) {
+  if (!policy.externalTransferRequired || policy.externalTransferApproved) return;
+  throw runtimeError({
+    status: 403,
+    code: "external_transfer_approval_required",
+    message: "External model transfers require explicit operator approval.",
+    details: {
+      sourceHash: stableHash(source),
+      approvalDecision: policy.approvalDecision,
+      evidenceRefs: policy.evidenceRefs,
+    },
+  });
+}
+
+function destructiveConfirmationState(body = {}, { required = true, action = "destructive_action" } = {}) {
+  const confirmed = Boolean(body.confirm_destructive ?? body.confirmDestructive ?? body.destructive_confirmed ?? body.destructiveConfirmed ?? false);
+  return {
+    required,
+    confirmed: required ? confirmed : true,
+    action,
+    source: confirmed ? "operator_confirmation" : required ? "not_provided" : "not_required",
+  };
+}
+
 function inferModelArchitecture(value) {
   const text = String(value ?? "").toLowerCase();
   if (/qwen/.test(text)) return "qwen";
@@ -7282,7 +7442,7 @@ function materializeFixtureDownload({ targetPath, fixtureContent }) {
   };
 }
 
-async function materializeLiveDownload({ source, targetPath, expectedChecksum, maxBytes, resume, timeoutMs }) {
+async function materializeLiveDownload({ source, targetPath, expectedChecksum, maxBytes, resume, bandwidthLimitBps, timeoutMs }) {
   const partialPath = `${targetPath}.part`;
   const resumeOffset = resume && fs.existsSync(partialPath) ? fs.statSync(partialPath).size : 0;
   const headers = resumeOffset > 0 ? { range: `bytes=${resumeOffset}-` } : {};
@@ -7300,6 +7460,7 @@ async function materializeLiveDownload({ source, targetPath, expectedChecksum, m
   if (!appending) fs.rmSync(partialPath, { force: true });
   const stream = fs.createWriteStream(writePath, { flags: appending ? "a" : "w" });
   let bytesCompleted = appending ? resumeOffset : 0;
+  const startedAt = Date.now();
   try {
     for await (const chunk of response.body) {
       const buffer = Buffer.from(chunk);
@@ -7309,6 +7470,13 @@ async function materializeLiveDownload({ source, targetPath, expectedChecksum, m
       }
       if (!stream.write(buffer)) {
         await new Promise((resolve) => stream.once("drain", resolve));
+      }
+      if (bandwidthLimitBps) {
+        const elapsedMs = Math.max(1, Date.now() - startedAt);
+        const expectedElapsedMs = ((bytesCompleted - resumeOffset) / bandwidthLimitBps) * 1000;
+        if (expectedElapsedMs > elapsedMs) {
+          await sleep(Math.min(250, expectedElapsedMs - elapsedMs));
+        }
       }
     }
   } finally {
@@ -7325,6 +7493,10 @@ async function materializeLiveDownload({ source, targetPath, expectedChecksum, m
     checksum,
     resumeOffset: appending ? resumeOffset : 0,
   };
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, Math.max(0, ms)));
 }
 
 function cleanupPartialDownload(targetPath) {

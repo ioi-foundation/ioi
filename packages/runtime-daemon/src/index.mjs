@@ -656,7 +656,7 @@ async function handleModelMountingNativeRoute({ request, response, store, url, s
   }
   if (request.method === "POST" && url.pathname === "/api/v1/models/storage/cleanup") {
     mounts.authorize(authorization, "model.delete:*");
-    writeJsonResponse(response, mounts.cleanupModelStorage());
+    writeJsonResponse(response, mounts.cleanupModelStorage(await readBody(request)));
     return;
   }
   if (
@@ -670,7 +670,7 @@ async function handleModelMountingNativeRoute({ request, response, store, url, s
   }
   if (request.method === "DELETE" && segments[2] === "models" && segments[3]) {
     mounts.authorize(authorization, "model.delete:*");
-    writeJsonResponse(response, mounts.deleteModelArtifact(decodeURIComponent(segments[3])));
+    writeJsonResponse(response, mounts.deleteModelArtifact(decodeURIComponent(segments[3]), await readBody(request)));
     return;
   }
   if (request.method === "POST" && url.pathname === "/api/v1/models/download") {
@@ -696,7 +696,7 @@ async function handleModelMountingNativeRoute({ request, response, store, url, s
     segments[5]
   ) {
     mounts.authorize(authorization, "model.download:*");
-    writeJsonResponse(response, mounts.cancelDownload(decodeURIComponent(segments[5])));
+    writeJsonResponse(response, mounts.cancelDownload(decodeURIComponent(segments[5]), await readBody(request)));
     return;
   }
   if (
@@ -707,7 +707,7 @@ async function handleModelMountingNativeRoute({ request, response, store, url, s
     segments[5] === "cancel"
   ) {
     mounts.authorize(authorization, "model.download:*");
-    writeJsonResponse(response, mounts.cancelDownload(decodeURIComponent(segments[4])));
+    writeJsonResponse(response, mounts.cancelDownload(decodeURIComponent(segments[4]), await readBody(request)));
     return;
   }
   if (request.method === "POST" && url.pathname === "/api/v1/models/import") {

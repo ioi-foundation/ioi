@@ -1116,6 +1116,8 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
     assert.equal(liveImportReceipt.details.approvalDecision.required, true);
     assert.equal(liveImportReceipt.details.approvalDecision.approved, true);
     assert.ok(liveImportReceipt.details.selectionReceiptFields.includes("download_risk"));
+    assert.equal(liveImport.download.downloadPolicy.externalTransferApproved, true);
+    assert.equal(liveImport.download.downloadPolicy.status, "ready");
 
     const downloadOnlyGrant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
       method: "POST",
@@ -1137,6 +1139,20 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
     assert.equal(gatedLiveImport.response.status, 424);
     process.env.IOI_LIVE_MODEL_DOWNLOAD = "1";
 
+    const unapprovedLiveDownload = await requestJson(daemon.endpoint, "/api/v1/models/download", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        model_id: "native:hf-unapproved",
+        provider_id: "provider.autopilot.local",
+        source_url: liveEntry.sourceUrl,
+        format: "gguf",
+        quantization: "Q4_K_M",
+      },
+    });
+    assert.equal(unapprovedLiveDownload.response.status, 403);
+    assert.equal(unapprovedLiveDownload.json.error.code, "external_transfer_approval_required");
+
     const secretSource = `${liveEntry.sourceUrl}?api_key=hf-live-secret-token`;
     const liveSecretDownload = await expectOk(daemon.endpoint, "/api/v1/models/download", {
       method: "POST",
@@ -1147,9 +1163,15 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
         source_url: secretSource,
         format: "gguf",
         quantization: "Q4_K_M",
+        transfer_approved: true,
+        bandwidth_bps: 1024 * 1024,
+        retry_limit: 2,
+        resume_download: true,
       },
     });
     assert.equal(liveSecretDownload.status, "completed");
+    assert.equal(liveSecretDownload.downloadPolicy.bandwidthLimitBps, 1024 * 1024);
+    assert.equal(liveSecretDownload.downloadPolicy.retryLimit, 2);
     assert.equal(JSON.stringify(liveSecretDownload).includes("hf-live-secret-token"), false);
 
     const oversizedLiveDownload = await expectOk(daemon.endpoint, "/api/v1/models/download", {
@@ -1162,6 +1184,7 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
         format: "gguf",
         quantization: "Q4_K_M",
         max_bytes: 1,
+        transfer_approved: true,
       },
     });
     assert.equal(oversizedLiveDownload.status, "failed");
@@ -1241,22 +1264,51 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
     const canceled = await expectOk(daemon.endpoint, `/api/v1/models/download/cancel/${queued.id}`, {
       method: "POST",
       token: grant.token,
+      body: { cleanup_partial: true, confirm_destructive: true },
     });
     assert.equal(canceled.status, "canceled");
+    assert.equal(canceled.destructiveConfirmation.confirmed, true);
     assert.equal(fs.existsSync(canceled.targetPath), false);
+
+    const orphanDir = path.join(stateDir, "models", "orphan-fixtures");
+    fs.mkdirSync(orphanDir, { recursive: true });
+    const orphanPath = path.join(orphanDir, "unused.Q4_K_M.gguf");
+    fs.writeFileSync(orphanPath, "orphan bytes");
 
     const cleanup = await expectOk(daemon.endpoint, "/api/v1/models/storage/cleanup", {
       method: "POST",
       token: grant.token,
     });
     assert.equal(cleanup.status, "scanned");
+    assert.equal(cleanup.orphanCount >= 1, true);
+    assert.equal(cleanup.cleanupState, "scan_only");
     assert.match(cleanup.receiptId, /^receipt_model_lifecycle_/);
+
+    const cleanupDenied = await requestJson(daemon.endpoint, "/api/v1/models/storage/cleanup", {
+      method: "POST",
+      token: grant.token,
+      body: { remove_orphans: true },
+    });
+    assert.equal(cleanupDenied.response.status, 409);
+
+    const cleanupRemoved = await expectOk(daemon.endpoint, "/api/v1/models/storage/cleanup", {
+      method: "POST",
+      token: grant.token,
+      body: { remove_orphans: true, confirm_destructive: true },
+    });
+    assert.equal(cleanupRemoved.status, "cleaned");
+    assert.equal(cleanupRemoved.destructiveConfirmation.confirmed, true);
+    assert.equal(cleanupRemoved.cleanedBytes > 0, true);
+    assert.equal(fs.existsSync(orphanPath), false);
 
     const deleted = await expectOk(daemon.endpoint, `/api/v1/models/${encodeURIComponent(copied.id)}`, {
       method: "DELETE",
       token: grant.token,
+      body: { confirm_destructive: true },
     });
     assert.equal(deleted.status, "deleted");
+    assert.equal(deleted.destructiveConfirmation.confirmed, true);
+    assert.equal(deleted.projectedFreedBytes > 0, true);
     assert.equal(fs.existsSync(copied.artifactPath), false);
 
     const receipts = await expectOk(daemon.endpoint, "/api/v1/receipts");
@@ -1267,6 +1319,8 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
     assert.ok(receipts.some((receipt) => receipt.details?.operation === "model_download_completed"));
     assert.ok(receipts.some((receipt) => receipt.details?.operation === "model_download_failed"));
     assert.ok(receipts.some((receipt) => receipt.details?.operation === "model_download_canceled"));
+    assert.ok(receipts.some((receipt) => receipt.details?.downloadPolicy?.bandwidthLimitBps === 1024 * 1024));
+    assert.ok(receipts.some((receipt) => receipt.details?.destructiveConfirmation?.confirmed === true));
     assert.ok(receipts.some((receipt) => receipt.details?.downloadMode === "live_network"));
 
     const replay = await expectOk(daemon.endpoint, `/api/v1/receipts/${completed.receiptId}/replay`);

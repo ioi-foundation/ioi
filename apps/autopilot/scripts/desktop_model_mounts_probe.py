@@ -489,8 +489,14 @@ def capture_looks_ready(diagnostics: dict[str, Any] | None) -> bool:
 def activate_tab(window_id: int, shortcut: str) -> None:
     run(["xdotool", "windowactivate", str(window_id)], check=False)
     time.sleep(0.15)
-    run(["xdotool", "key", shortcut], check=False)
+    press_action_shortcut(window_id, shortcut)
     time.sleep(TAB_SETTLE_SECS)
+
+
+def press_action_shortcut(window_id: int, shortcut: str) -> None:
+    run(["xdotool", "windowactivate", str(window_id)], check=False)
+    time.sleep(0.12)
+    run(["xdotool", "key", shortcut], check=False)
 
 
 def prepare_tab_for_capture(window_id: int, tab: str) -> dict[str, Any]:
@@ -743,7 +749,7 @@ def exercise_download_row_actions(
     failed_download_id = str(seed.get("failed_download_id") or "")
 
     activate_tab(window_id, "F5")
-    run(["xdotool", "key", "F12"], check=False)
+    press_action_shortcut(window_id, "F12")
     time.sleep(1.0)
     action_screenshots.append(
         capture_action_state(
@@ -758,7 +764,7 @@ def exercise_download_row_actions(
     opened_receipt = request_json(endpoint, f"/api/v1/receipts/{urllib.parse.quote(opened_receipt_id)}")
 
     activate_tab(window_id, "F5")
-    run(["xdotool", "key", "F10"], check=False)
+    press_action_shortcut(window_id, "F10")
     _, canceled_download = wait_for_snapshot_condition(
         endpoint,
         "queued download to become canceled through Mounts row action",
@@ -782,7 +788,7 @@ def exercise_download_row_actions(
     activate_tab(window_id, "F5")
     before_retry = request_json(endpoint, "/api/v1/models")
     before_retry_ids = {item.get("id") for item in before_retry.get("downloads", [])}
-    run(["xdotool", "key", "F11"], check=False)
+    press_action_shortcut(window_id, "F11")
 
     def retry_completed(snapshot: dict[str, Any]) -> dict[str, Any] | None:
         for item in snapshot.get("downloads", []):
@@ -857,7 +863,7 @@ def exercise_model_lifecycle_actions(
 
     def run_receipted_action(shortcut: str, label: str, condition_label: str, predicate) -> list[dict[str, Any]]:
         before_count = receipts_before()
-        run(["xdotool", "key", shortcut], check=False)
+        press_action_shortcut(window_id, shortcut)
         receipts = wait_for_new_receipt_condition(endpoint, condition_label, before_count, predicate)
         observed[label] = receipts[before_count:]
         time.sleep(1.0)
@@ -932,7 +938,7 @@ def exercise_model_lifecycle_actions(
         or identifier in json.dumps(receipt, sort_keys=True)
     ]
     opened_receipt_id = str(model_receipts[-1].get("id") if model_receipts else "")
-    run(["xdotool", "key", "shift+F20"], check=False)
+    press_action_shortcut(window_id, "shift+F20")
     time.sleep(1.5)
     action_screenshots.append(
         capture_action_state(
@@ -1047,7 +1053,7 @@ def exercise_token_mcp_actions(
         ),
     ]:
         before_count = receipts_before()
-        run(["xdotool", "key", shortcut], check=False)
+        press_action_shortcut(window_id, shortcut)
         wait_for_new_receipt_condition(endpoint, condition_label, before_count, predicate)
         action_screenshots.append(
             capture_action_state(
@@ -1061,7 +1067,7 @@ def exercise_token_mcp_actions(
         )
         time.sleep(1.5)
 
-    run(["xdotool", "key", "F15"], check=False)
+    press_action_shortcut(window_id, "F15")
     time.sleep(1.5)
     latest_vault = request_json(endpoint, "/api/v1/vault/health/latest", token=str(seed.get("token") or ""))
     action_screenshots.append(
@@ -1140,7 +1146,7 @@ def exercise_routing_workflow_actions(
 
     def run_receipted_action(shortcut: str, label: str, condition_label: str, predicate) -> None:
         before_count = receipts_before()
-        run(["xdotool", "key", shortcut], check=False)
+        press_action_shortcut(window_id, shortcut)
         receipts = wait_for_new_receipt_condition(endpoint, condition_label, before_count, predicate)
         observed[label] = receipts[before_count:]
         action_screenshots.append(
@@ -1261,7 +1267,7 @@ def exercise_benchmark_observability_actions(
 
     activate_tab(window_id, "F8")
     before_count = receipts_before()
-    run(["xdotool", "key", "shift+F13"], check=False)
+    press_action_shortcut(window_id, "shift+F13")
     receipts = wait_for_new_receipt_condition(
         endpoint,
         "benchmark route, chat, responses, and embeddings receipts",
@@ -1286,7 +1292,7 @@ def exercise_benchmark_observability_actions(
     latest_benchmark = benchmark_receipts[-1] if benchmark_receipts else {}
     latest_benchmark_id = str(latest_benchmark.get("id") or "")
 
-    run(["xdotool", "key", "shift+F14"], check=False)
+    press_action_shortcut(window_id, "shift+F14")
     time.sleep(1.5)
     replay = request_json(endpoint, f"/api/v1/receipts/{urllib.parse.quote(latest_benchmark_id)}/replay") if latest_benchmark_id else {}
     action_screenshots.append(
@@ -1300,7 +1306,7 @@ def exercise_benchmark_observability_actions(
         )
     )
 
-    run(["xdotool", "key", "shift+F15"], check=False)
+    press_action_shortcut(window_id, "shift+F15")
     time.sleep(1.5)
     action_screenshots.append(
         capture_action_state(
@@ -1378,7 +1384,7 @@ def exercise_stream_lifecycle_observability_action(
     before_count = len(before_receipts) if isinstance(before_receipts, list) else 0
 
     activate_tab(window_id, "F9")
-    run(["xdotool", "key", "alt+s"], check=False)
+    press_action_shortcut(window_id, "alt+s")
     receipts = wait_for_new_receipt_condition(
         endpoint,
         "GUI stream lifecycle completed and aborted receipts",
@@ -1517,7 +1523,7 @@ def exercise_provider_backend_actions(
             lambda receipts: receipt_has_operation_detail(receipts, "backend_stop", "backendId", backend_id),
         ),
     ]:
-        run(["xdotool", "key", shortcut], check=False)
+        press_action_shortcut(window_id, shortcut)
         wait_for_receipt_condition(endpoint, condition_label, predicate)
         action_screenshots.append(
             capture_action_state(
@@ -1564,7 +1570,7 @@ def exercise_provider_backend_actions(
             lambda receipts: receipt_has_operation_detail(receipts, "provider_stop", "providerId", provider_id),
         ),
     ]:
-        run(["xdotool", "key", shortcut], check=False)
+        press_action_shortcut(window_id, shortcut)
         wait_for_receipt_condition(endpoint, condition_label, predicate)
         action_screenshots.append(
             capture_action_state(
