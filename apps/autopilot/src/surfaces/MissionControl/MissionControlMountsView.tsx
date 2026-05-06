@@ -372,6 +372,9 @@ interface CatalogProviderPreview {
   catalogAuthResolved: boolean;
   catalogAuthScheme: string;
   catalogAuthHeaderNameHash: string;
+  oauthSessionHash: string;
+  oauthBoundaryStatus: string;
+  oauthBoundaryExpiresAt: string;
   materialVaultRefHash: string;
   configHash: string;
   enabled: boolean;
@@ -641,6 +644,9 @@ const fallbackData: MountsWorkbenchData = {
 	        catalogAuthResolved: false,
 	        catalogAuthScheme: "none",
 	        catalogAuthHeaderNameHash: "none",
+	        oauthSessionHash: "none",
+	        oauthBoundaryStatus: "none",
+	        oauthBoundaryExpiresAt: "none",
 	        materialVaultRefHash: "none",
 	        configHash: "none",
         enabled: true,
@@ -668,6 +674,9 @@ const fallbackData: MountsWorkbenchData = {
 	        catalogAuthResolved: false,
 	        catalogAuthScheme: "none",
 	        catalogAuthHeaderNameHash: "none",
+	        oauthSessionHash: "none",
+	        oauthBoundaryStatus: "none",
+	        oauthBoundaryExpiresAt: "none",
 	        materialVaultRefHash: "none",
 	        configHash: "none",
         enabled: true,
@@ -695,6 +704,9 @@ const fallbackData: MountsWorkbenchData = {
 	        catalogAuthResolved: false,
 	        catalogAuthScheme: "none",
 	        catalogAuthHeaderNameHash: "none",
+	        oauthSessionHash: "none",
+	        oauthBoundaryStatus: "none",
+	        oauthBoundaryExpiresAt: "none",
 	        materialVaultRefHash: "none",
 	        configHash: "none",
         enabled: true,
@@ -722,6 +734,9 @@ const fallbackData: MountsWorkbenchData = {
 	        catalogAuthResolved: false,
 	        catalogAuthScheme: "bearer",
 	        catalogAuthHeaderNameHash: "none",
+	        oauthSessionHash: "none",
+	        oauthBoundaryStatus: "none",
+	        oauthBoundaryExpiresAt: "none",
 	        materialVaultRefHash: "none",
 	        configHash: "none",
         enabled: true,
@@ -749,6 +764,9 @@ const fallbackData: MountsWorkbenchData = {
 	        catalogAuthResolved: false,
 	        catalogAuthScheme: "bearer",
 	        catalogAuthHeaderNameHash: "none",
+	        oauthSessionHash: "none",
+	        oauthBoundaryStatus: "none",
+	        oauthBoundaryExpiresAt: "none",
 	        materialVaultRefHash: "none",
 	        configHash: "none",
         enabled: true,
@@ -3385,6 +3403,9 @@ function normalizeCatalog(value: any): CatalogPreview {
       catalogAuthResolved: Boolean(item.catalogAuthResolved ?? false),
       catalogAuthScheme: stringValue(item.catalogAuthScheme, "none"),
       catalogAuthHeaderNameHash: stringValue(item.catalogAuthHeaderNameHash, "none"),
+      oauthSessionHash: stringValue(item.oauthSessionHash ?? item.oauthBoundary?.oauthSessionHash, "none"),
+      oauthBoundaryStatus: stringValue(item.oauthBoundary?.status, "none"),
+      oauthBoundaryExpiresAt: stringValue(item.oauthBoundary?.expiresAt, "none"),
       materialVaultRefHash: stringValue(item.materialVaultRefHash, "none"),
       configHash: stringValue(item.configHash, "none"),
       enabled: item.enabled === undefined ? true : Boolean(item.enabled),
@@ -3615,9 +3636,10 @@ function catalogProviderEvidence(provider: CatalogProviderPreview) {
   const configHash = provider.configHash !== "none" ? `config ${provider.configHash}` : null;
   const authHash = provider.authVaultRefHash !== "none" ? `vault ${provider.authVaultRefHash}` : null;
   const authHeaderHash = provider.catalogAuthHeaderNameHash !== "none" ? `auth header ${provider.catalogAuthHeaderNameHash}` : null;
+  const oauthHash = provider.oauthSessionHash !== "none" ? `oauth ${provider.oauthSessionHash}` : null;
   const sourceVaultHash = provider.materialVaultRefHash !== "none" ? `source vault ${provider.materialVaultRefHash}` : null;
   const errorHash = provider.errorHash !== "none" ? `error ${provider.errorHash}` : null;
-  return [provider.adapterPort, configHash, endpointHash, manifestHash, authHash, authHeaderHash, sourceVaultHash, provider.runtimeMaterialStatus, provider.vaultMaterialSource, provider.catalogAuthConfigured ? provider.catalogAuthScheme : null, errorHash].filter(Boolean).join(" / ");
+  return [provider.adapterPort, configHash, endpointHash, manifestHash, authHash, authHeaderHash, oauthHash, sourceVaultHash, provider.runtimeMaterialStatus, provider.vaultMaterialSource, provider.catalogAuthConfigured ? provider.catalogAuthScheme : null, errorHash].filter(Boolean).join(" / ");
 }
 
 function loadDraftBody(draft: ModelLoadDraft) {
@@ -5064,6 +5086,7 @@ function DownloadsPanel({
 	          <DetailFact label="Endpoint hash" value={selectedConfigProvider?.baseUrlHash ?? "none"} note="raw URLs are not projected" />
 	          <DetailFact label="Vault ref hash" value={selectedConfigProvider?.authVaultRefHash ?? "none"} note="secrets stay vault-referenced" />
 	          <DetailFact label="Catalog auth" value={selectedConfigProvider?.catalogAuthConfigured ? selectedConfigProvider.catalogAuthScheme : "none"} note={`${selectedConfigProvider?.catalogAuthResolved ? "resolved" : "request-time"} / header ${selectedConfigProvider?.catalogAuthHeaderNameHash ?? "none"}`} />
+	          <DetailFact label="OAuth session" value={selectedConfigProvider?.oauthSessionHash ?? "none"} note={`${selectedConfigProvider?.oauthBoundaryStatus ?? "none"} / expires ${selectedConfigProvider?.oauthBoundaryExpiresAt ?? "none"}`} />
 	        </div>
 	        <div className="model-mounts-form-actions">
 	          <ActionButton type="submit" disabled={busy} guard={catalogConfigGuard}>Save catalog provider</ActionButton>
@@ -5211,6 +5234,7 @@ function DownloadsPanel({
 	              <span>Config {provider.configHash} / material {provider.runtimeMaterialStatus} / {provider.materialPersistence}</span>
 	              <span>Source vault {provider.materialVaultRefHash} / source {provider.vaultMaterialSource}</span>
 	              <span>Catalog auth {provider.catalogAuthConfigured ? provider.catalogAuthScheme : "none"} / header {provider.catalogAuthHeaderNameHash} / {provider.catalogAuthResolved ? "resolved" : "request-time"}</span>
+	              <span>OAuth {provider.oauthSessionHash} / {provider.oauthBoundaryStatus} / expires {provider.oauthBoundaryExpiresAt}</span>
 	              <span>Auth vault {provider.authVaultRefHash} / enabled {provider.enabled ? "yes" : "no"}</span>
 	              <span>{provider.formats.join(", ") || "formats unknown"}</span>
             </article>

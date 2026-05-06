@@ -746,12 +746,18 @@ gates:
 	     header names are hashed in public projections, secrets resolve only at
 	     request time through `VaultPort`, and receipts retain redacted
 	     auth-evidence rather than plaintext material;
+	   - catalog OAuth now has a deterministic `OAuthCredentialProvider` /
+	     `VaultOAuthSession` path for authorization-code exchange, access-token
+	     refresh, revoke, and request-time access-header resolution. Access and
+	     refresh tokens are bound into `VaultPort`; persisted OAuth sessions and
+	     projections contain only vault refs/hashes, token hashes, expiry,
+	     scopes, refresh counts, and redacted evidence;
    - live search/download evidence passed with an explicit tiny GGUF source
      under a 2 MB transfer cap:
      `docs/evidence/model-mounting-live/model-catalog/2026-05-05T23-07-13Z/result.json`;
 	   - remaining work is production catalog breadth, richer benchmark and
-	     compatibility metadata for external hubs, full OAuth token
-	     exchange/refresh flows beyond the current vault-ref boundary, and
+	     compatibility metadata for external hubs, provider-specific live OAuth
+	     apps/PKCE/consent UX beyond the deterministic OAuth fixture path, and
 	     broader live validation against external hubs when explicitly enabled.
 3. Remote wallet.network and vault integration:
    - remote wallet.network grants;
@@ -838,7 +844,7 @@ implemented as a product surface.
 | Global model picker / loader | Top model picker invites select/load without exposing topology | Complete for deterministic Mounts path | Extend into app-wide header or keyboard model switching only if product direction wants it; keep governed load/unload path |
 | Installed models | `lms ls` shows model family, params, arch, size, device, loaded marker | Complete for deterministic Mounts detail path | Add live-provider family/params/arch/device precision and benchmark classification metadata |
 | Loaded models | `lms ps` shows identifier, model, status, size, context, parallel, device, TTL | Complete for deterministic Mounts path | Add live-provider TTL/device precision, unload confirmations, and app-wide loaded-instance status if needed |
-| Model search/download | `lms get`, direct Hugging Face URL, GGUF/MLX filters, variant select | Complete for deterministic/gated adapter path | Fixture catalog, manifest catalog, custom HTTP catalog, Ollama list bridge, URL import, variant metadata, gated Hugging Face adapter, checksum/download receipts, provider-aware GUI filtering/setup state, API/UI catalog source setup for manifest/custom HTTP with vault-backed source material and redacted hashes, vault-backed catalog request auth for custom/Hugging Face-compatible search/import/download, GUI cancel/retry controls, backend compatibility scoring, download risk scoring, benchmark readiness, recommendation/approval receipt fields, bandwidth/retry/resume policy, confirmed cancel cleanup, and confirmed orphan removal exist; add live hub breadth, full OAuth exchange/refresh flows, and external catalog validation |
+| Model search/download | `lms get`, direct Hugging Face URL, GGUF/MLX filters, variant select | Complete for deterministic/gated adapter path | Fixture catalog, manifest catalog, custom HTTP catalog, Ollama list bridge, URL import, variant metadata, gated Hugging Face adapter, checksum/download receipts, provider-aware GUI filtering/setup state, API/UI catalog source setup for manifest/custom HTTP with vault-backed source material and redacted hashes, vault-backed catalog request auth for custom/Hugging Face-compatible search/import/download, deterministic OAuth exchange/refresh/revoke sessions, GUI cancel/retry controls, backend compatibility scoring, download risk scoring, benchmark readiness, recommendation/approval receipt fields, bandwidth/retry/resume policy, confirmed cancel cleanup, and confirmed orphan removal exist; add live hub breadth, provider-specific OAuth app/PKCE/consent UX, and external catalog validation |
 | Model import | `lms import` supports move/copy/hard-link/symlink/dry-run/user-repo | Complete for deterministic local path | Add live provider-specific import UX polish after broader hub coverage |
 | Runtime engines | `lms runtime ls/select/get/update/remove` | Complete for deterministic/shared control path | Runtime engine list, survey, selected-runtime persistence, get/update/remove profiles, disable/enable, priority, default load options, deterministic process supervision, llama.cpp runner spawning, Ollama serve supervision, vLLM serve supervision, API, CLI, receipts, E2E, and Mounts Backends editor are implemented; remaining live work is hardware validation and scheduler hardening |
 | Hardware survey | `lms runtime survey` reports GPU/VRAM, CPU features, RAM | Complete for deterministic/public CLI path | Keep redacted survey receipts in projection/replay; add scheduling hints and live runtime preference recommendations |
@@ -2396,6 +2402,11 @@ Current status:
   secrets resolve only through `VaultPort` at request time; header names and
   source material are projected as hashes/redacted evidence; and daemon/UI
   contract tests verify fail-closed behavior plus no plaintext leakage.
+- Complete: catalog OAuth has deterministic exchange/refresh/revoke coverage.
+  `OAuthCredentialProvider` and `VaultOAuthSession` bind access/refresh tokens
+  into `VaultPort`, persist only vault refs/hashes, token hashes, expiry,
+  scopes, refresh metadata, and redacted evidence, and route catalog requests
+  through the same request-auth path as bearer/API-key/raw-header auth.
 - Production hardening: replace deterministic native-local fixture with real
   local inference binaries when configured.
 - Production hardening: wire production wallet.network and Agentgres services;
@@ -2412,9 +2423,9 @@ matrix above:
 
 	1. Catalog/download product hardening beyond the passing live tiny-GGUF gate
 	   and validated acquisition UI: broader production hub coverage, stronger
-	   live-download retry/resume UX, full OAuth token exchange/refresh flows
-	   beyond the current vault-ref request-auth boundary, and broader
-	   external-hub validation.
+	   live-download retry/resume UX, provider-specific OAuth app/PKCE/consent
+	   UX beyond the deterministic OAuth fixture path, and broader external-hub
+	   validation.
 2. Product UI parity beyond the validated operator controls: compact viewport
    refinements, richer provider-specific error recovery, and live backend log
    transport affordances.

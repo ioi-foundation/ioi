@@ -664,6 +664,51 @@ async function handleModelMountingNativeRoute({ request, response, store, url, s
     writeJsonResponse(response, mounts.configureCatalogProvider(providerId, await readBody(request)));
     return;
   }
+  if (
+    request.method === "POST" &&
+    segments[2] === "models" &&
+    segments[3] === "catalog" &&
+    segments[4] === "providers" &&
+    segments[5] &&
+    segments[6] === "oauth" &&
+    segments[7] === "exchange"
+  ) {
+    const providerId = decodeURIComponent(segments[5]);
+    mounts.authorize(authorization, `provider.write:${providerId}`);
+    mounts.authorize(authorization, "vault.write:*");
+    writeJsonResponse(response, await mounts.exchangeCatalogProviderOAuth(providerId, await readBody(request)), 201);
+    return;
+  }
+  if (
+    request.method === "POST" &&
+    segments[2] === "models" &&
+    segments[3] === "catalog" &&
+    segments[4] === "providers" &&
+    segments[5] &&
+    segments[6] === "oauth" &&
+    segments[7] === "refresh"
+  ) {
+    const providerId = decodeURIComponent(segments[5]);
+    mounts.authorize(authorization, `provider.write:${providerId}`);
+    mounts.authorize(authorization, "vault.write:*");
+    writeJsonResponse(response, await mounts.refreshCatalogProviderOAuth(providerId));
+    return;
+  }
+  if (
+    request.method === "POST" &&
+    segments[2] === "models" &&
+    segments[3] === "catalog" &&
+    segments[4] === "providers" &&
+    segments[5] &&
+    segments[6] === "oauth" &&
+    segments[7] === "revoke"
+  ) {
+    const providerId = decodeURIComponent(segments[5]);
+    mounts.authorize(authorization, `provider.write:${providerId}`);
+    mounts.authorize(authorization, "vault.delete:*");
+    writeJsonResponse(response, mounts.revokeCatalogProviderOAuth(providerId));
+    return;
+  }
   if (request.method === "POST" && url.pathname === "/api/v1/models/storage/cleanup") {
     mounts.authorize(authorization, "model.delete:*");
     writeJsonResponse(response, mounts.cleanupModelStorage(await readBody(request)));

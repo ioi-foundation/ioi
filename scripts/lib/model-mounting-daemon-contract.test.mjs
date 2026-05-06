@@ -1512,6 +1512,97 @@ test("catalog provider auth resolves vault-backed headers for custom and live ca
   }
 });
 
+test("catalog provider OAuth sessions exchange, refresh, revoke, and keep tokens redacted", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-catalog-oauth-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-catalog-oauth-state-"));
+  const oauth = await startFakeOAuthServer();
+  const customCatalogServer = await startFakeCustomCatalogServer({
+    requiredHeaders: () => ({ authorization: `Bearer ${oauth.currentAccessToken()}` }),
+  });
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+      method: "POST",
+      body: { allowed: ["provider.write:*", "vault.write:*", "vault.read:*", "vault.delete:*"] },
+    });
+    const configuredCustom = await expectOk(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.custom_http", {
+      method: "PATCH",
+      token: grant.token,
+      body: {
+        enabled: true,
+        base_url: customCatalogServer.endpoint,
+        auth_scheme: "oauth2",
+        auth_header_name: "authorization",
+      },
+    });
+    assert.equal(configuredCustom.catalogAuthScheme, "oauth2");
+    assert.equal(configuredCustom.oauthBoundary.status, "requires_oauth_exchange");
+
+    const exchanged = await expectOk(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.custom_http/oauth/exchange", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        token_endpoint: oauth.endpoint,
+        authorization_code: "valid-oauth-code",
+        client_id: "catalog-test-client",
+        scopes: ["catalog.read"],
+      },
+    });
+    assert.equal(exchanged.catalogAuthScheme, "oauth2");
+    assert.equal(exchanged.oauthBoundary.status, "active");
+    assert.equal(exchanged.oauthSession.status, "active");
+    assert.equal(JSON.stringify(exchanged).includes(oauth.tokens.access), false);
+    assert.equal(JSON.stringify(exchanged).includes(oauth.tokens.refresh), false);
+    assert.equal(JSON.stringify(exchanged).includes(oauth.endpoint), false);
+
+    const searched = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=custom&limit=5");
+    const customProvider = searched.providers.find((provider) => provider.id === "catalog.custom_http");
+    assert.equal(customProvider.status, "available");
+    assert.equal(customProvider.catalogAuthResolved, true);
+    assert.equal(customProvider.oauthBoundary.status, "active");
+    assert.ok(customCatalogServer.observedHeaders().some((headers) => headers.authorization === `Bearer ${oauth.tokens.access}`));
+    assert.equal(JSON.stringify(searched).includes(oauth.tokens.access), false);
+
+    const refreshed = await expectOk(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.custom_http/oauth/refresh", {
+      method: "POST",
+      token: grant.token,
+      body: {},
+    });
+    assert.equal(refreshed.oauthSession.status, "active");
+    assert.equal(refreshed.oauthSession.refreshCount, 1);
+    assert.equal(JSON.stringify(refreshed).includes(oauth.tokens.refreshedAccess), false);
+    assert.equal(JSON.stringify(refreshed).includes(oauth.tokens.refreshedRefresh), false);
+    const searchedAfterRefresh = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=custom&limit=5");
+    assert.ok(customCatalogServer.observedHeaders().some((headers) => headers.authorization === `Bearer ${oauth.tokens.refreshedAccess}`));
+    assert.equal(searchedAfterRefresh.providers.find((provider) => provider.id === "catalog.custom_http").oauthBoundary.refreshCount, 1);
+
+    const revoked = await expectOk(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.custom_http/oauth/revoke", {
+      method: "POST",
+      token: grant.token,
+      body: {},
+    });
+    assert.equal(revoked.oauthSession.status, "revoked");
+    const blocked = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=custom&limit=5");
+    const blockedProvider = blocked.providers.find((provider) => provider.id === "catalog.custom_http");
+    assert.equal(blockedProvider.status, "blocked");
+    assert.equal(blockedProvider.catalogAuthResolved, false);
+    assert.equal(blockedProvider.oauthBoundary.status, "revoked");
+
+    const projection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
+    assert.ok(projection.oauthSessions.some((session) => session.status === "revoked"));
+    for (const secret of [oauth.tokens.access, oauth.tokens.refresh, oauth.tokens.refreshedAccess, oauth.tokens.refreshedRefresh, oauth.endpoint, "valid-oauth-code"]) {
+      assert.equal(JSON.stringify(projection).includes(secret), false);
+      assert.equal(directoryContainsNeedle(stateDir, secret), false);
+    }
+    assert.ok(oauth.observed().some((entry) => entry.grantType === "authorization_code"));
+    assert.ok(oauth.observed().some((entry) => entry.grantType === "refresh_token"));
+  } finally {
+    await oauth.close();
+    await customCatalogServer.close();
+    await daemon.close();
+  }
+});
+
 test("model download lifecycle supports progress, failure, cancel, cleanup, and projection replay", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-model-download-workspace-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-model-download-state-"));
@@ -4301,7 +4392,8 @@ async function startFakeCustomCatalogServer({ requiredHeaders = {} } = {}) {
   const observed = [];
   const assertHeaders = (request, response) => {
     observed.push({ ...request.headers });
-    for (const [header, expected] of Object.entries(requiredHeaders)) {
+    const headers = typeof requiredHeaders === "function" ? requiredHeaders() : requiredHeaders;
+    for (const [header, expected] of Object.entries(headers ?? {})) {
       if (request.headers[String(header).toLowerCase()] !== expected) {
         response.statusCode = 401;
         response.setHeader("content-type", "application/json");
@@ -4347,6 +4439,57 @@ async function startFakeCustomCatalogServer({ requiredHeaders = {} } = {}) {
   return {
     endpoint: `http://${address.address}:${address.port}`,
     observedHeaders: () => observed,
+    close: () => new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve()))),
+  };
+}
+
+async function startFakeOAuthServer({ accessToken, refreshToken, refreshedAccessToken, refreshedRefreshToken, expiresIn = 90 } = {}) {
+  const observed = [];
+  const tokens = {
+    access: accessToken ?? `oauth-access-${crypto.randomBytes(6).toString("hex")}`,
+    refresh: refreshToken ?? `oauth-refresh-${crypto.randomBytes(6).toString("hex")}`,
+    refreshedAccess: refreshedAccessToken ?? `oauth-access-refreshed-${crypto.randomBytes(6).toString("hex")}`,
+    refreshedRefresh: refreshedRefreshToken ?? `oauth-refresh-refreshed-${crypto.randomBytes(6).toString("hex")}`,
+  };
+  let currentAccess = tokens.access;
+  const server = http.createServer(async (request, response) => {
+    const url = new URL(request.url ?? "/", "http://127.0.0.1");
+    response.setHeader("content-type", "application/json");
+    if (request.method === "POST" && url.pathname === "/oauth/token") {
+      const text = await readRequestText(request);
+      const params = new URLSearchParams(text);
+      const grantType = params.get("grant_type");
+      observed.push({
+        grantType,
+        codeHash: params.get("code") ? crypto.createHash("sha256").update(params.get("code")).digest("hex") : null,
+        refreshTokenHash: params.get("refresh_token") ? crypto.createHash("sha256").update(params.get("refresh_token")).digest("hex") : null,
+        clientIdHash: params.get("client_id") ? crypto.createHash("sha256").update(params.get("client_id")).digest("hex") : null,
+        scope: params.get("scope"),
+      });
+      if (grantType === "authorization_code" && params.get("code") === "valid-oauth-code") {
+        currentAccess = tokens.access;
+        response.end(JSON.stringify({ access_token: tokens.access, refresh_token: tokens.refresh, expires_in: expiresIn, scope: "catalog.read" }));
+        return;
+      }
+      if (grantType === "refresh_token" && params.get("refresh_token") === tokens.refresh) {
+        currentAccess = tokens.refreshedAccess;
+        response.end(JSON.stringify({ access_token: tokens.refreshedAccess, refresh_token: tokens.refreshedRefresh, expires_in: expiresIn, scope: "catalog.read" }));
+        return;
+      }
+      response.statusCode = 401;
+      response.end(JSON.stringify({ error: "invalid_grant" }));
+      return;
+    }
+    response.statusCode = 404;
+    response.end(JSON.stringify({ error: "not found" }));
+  });
+  await listen(server);
+  const address = server.address();
+  return {
+    endpoint: `http://${address.address}:${address.port}/oauth/token`,
+    currentAccessToken: () => currentAccess,
+    tokens,
+    observed: () => observed,
     close: () => new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve()))),
   };
 }
