@@ -625,9 +625,9 @@ generic hardening list:
   storage/quota summary, gated Hugging Face-compatible activation, model
   architecture/parameter metadata, backend compatibility scoring, download
   risk scoring, benchmark readiness, recommendation labels, and approval
-  receipt fields. Remaining parity with `lms get` is production hub breadth,
-  broader external-hub validation, and richer multi-provider acquisition
-  catalogs.
+  receipt fields, plus provider-neutral fixture, manifest, Ollama, custom
+  HTTP, and Hugging Face-compatible catalog adapters. Remaining parity with
+  `lms get` is production hub breadth and broader external-hub validation.
 - Autopilot import UX needs parity with `lms import`, including move/copy,
   hard-link, symbolic-link, dry-run, and explicit `user/repo` classification.
 - Autopilot Logs needs streaming request/response logs comparable to
@@ -718,6 +718,9 @@ gates:
      extending live stream parity beyond the passing Ollama and llama.cpp
      gates, memory pressure eviction, and backend-specific schedulers.
 2. Live catalog/download production hardening:
+   - `ModelCatalogProviderPort` now unifies fixture, local manifest,
+     Hugging Face-compatible, Ollama list bridge, and custom HTTP catalog
+     adapters behind the same search/import/download/receipt path;
    - the gated Hugging Face-compatible adapter, format/quantization filters,
      resumable `.part` downloads, checksum verification, source hashing, and
      redaction are implemented;
@@ -2342,6 +2345,11 @@ Current status:
   parameter count, backend compatibility scoring, download/storage risk
   scoring, benchmark readiness, recommendation labels, approval decisions, and
   selection receipt fields across SDK, daemon API, receipts, and Mounts UI.
+- Complete: catalog acquisition now uses a provider-neutral
+  `ModelCatalogProviderPort` boundary for fixture, local manifest,
+  Hugging Face-compatible, Ollama list bridge, and custom HTTP catalog
+  providers; all adapters feed the same catalog search, import-url, download,
+  projection, and receipt path.
 - Complete: catalog/download product hardening now includes explicit
   bandwidth, retry, and resume policy fields; external-transfer approval
   enforcement; confirmed download-cancel partial cleanup; confirmed orphan

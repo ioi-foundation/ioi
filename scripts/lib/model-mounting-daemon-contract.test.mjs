@@ -1067,6 +1067,97 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
   }
 });
 
+test("model catalog provider ports unify fixture, manifest, custom HTTP, and Ollama entries", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-model-catalog-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-model-catalog-state-"));
+  const manifestPath = path.join(cwd, "model-catalog.json");
+  fs.writeFileSync(
+    manifestPath,
+    JSON.stringify({
+      models: [
+        {
+          model_id: "manifest/local-qwen-3b",
+          family: "manifest-local",
+          architecture: "qwen",
+          parameter_count: "3B",
+          format: "gguf",
+          quantization: "Q4_K_M",
+          size_bytes: 4096,
+          context_window: 8192,
+          source_url: "fixture://manifest/local-qwen-3b-q4",
+          source_label: "Manifest / local qwen",
+          compatibility: ["native_local_fixture", "llama_cpp"],
+          tags: ["manifest", "chat"],
+        },
+      ],
+    }),
+  );
+  const ollamaServer = await startFakeOllamaServer();
+  const customCatalogServer = await startFakeCustomCatalogServer();
+  const priorManifest = process.env.IOI_MODEL_CATALOG_MANIFEST_PATH;
+  const priorCustomCatalog = process.env.IOI_MODEL_CATALOG_CUSTOM_BASE_URL;
+  const priorOllamaHost = process.env.OLLAMA_HOST;
+  process.env.IOI_MODEL_CATALOG_MANIFEST_PATH = manifestPath;
+  process.env.IOI_MODEL_CATALOG_CUSTOM_BASE_URL = customCatalogServer.endpoint;
+  process.env.OLLAMA_HOST = ollamaServer.endpoint;
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+      method: "POST",
+      body: { allowed: ["model.download:*", "model.import:*"] },
+    });
+    const catalog = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=&limit=20");
+    assert.equal(catalog.adapterBoundary.port, "ModelCatalogProviderPort");
+    for (const providerId of ["catalog.fixture", "catalog.local_manifest", "catalog.custom_http", "catalog.ollama", "catalog.huggingface"]) {
+      assert.equal(catalog.providers.find((provider) => provider.id === providerId)?.adapterPort, "ModelCatalogProviderPort");
+    }
+    assert.equal(catalog.providers.find((provider) => provider.id === "catalog.local_manifest")?.status, "available");
+    assert.equal(catalog.providers.find((provider) => provider.id === "catalog.custom_http")?.status, "available");
+    assert.equal(catalog.providers.find((provider) => provider.id === "catalog.ollama")?.status, "available");
+    assert.equal(catalog.providers.find((provider) => provider.id === "catalog.huggingface")?.status, "gated");
+
+    const manifestEntry = catalog.results.find((entry) => entry.catalogProviderId === "catalog.local_manifest");
+    const customEntry = catalog.results.find((entry) => entry.catalogProviderId === "catalog.custom_http");
+    const ollamaEntry = catalog.results.find((entry) => entry.catalogProviderId === "catalog.ollama" && entry.modelId === "qwen3:8b");
+    assert.equal(manifestEntry?.architecture, "qwen");
+    assert.equal(manifestEntry?.recommendation.label, "recommended");
+    assert.equal(customEntry?.format, "safetensors");
+    assert.equal(customEntry?.recommendation.primaryBackend, "vllm");
+    assert.equal(ollamaEntry?.format, "ollama");
+    assert.ok(ollamaEntry?.backendCompatibility.some((backend) => backend.backendKind === "ollama" && backend.status === "ready"));
+
+    const manifestImport = await expectOk(daemon.endpoint, "/api/v1/models/catalog/import-url", {
+      method: "POST",
+      token: grant.token,
+      body: { source_url: manifestEntry.sourceUrl, model_id: "native:manifest-catalog-import" },
+    });
+    assert.equal(manifestImport.status, "completed");
+    assert.equal(manifestImport.download.variant.catalogProviderId, "catalog.local_manifest");
+    assert.equal(manifestImport.download.variant.architecture, "qwen");
+
+    const customImport = await expectOk(daemon.endpoint, "/api/v1/models/catalog/import-url", {
+      method: "POST",
+      token: grant.token,
+      body: { source_url: customEntry.sourceUrl, model_id: "native:custom-catalog-import" },
+    });
+    assert.equal(customImport.status, "completed");
+    assert.equal(customImport.download.variant.catalogProviderId, "catalog.custom_http");
+    assert.equal(customImport.download.variant.format, "safetensors");
+
+    const projection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
+    assert.equal(projection.catalog.providers.find((provider) => provider.id === "catalog.local_manifest")?.adapterPort, "ModelCatalogProviderPort");
+    assert.equal(JSON.stringify(projection).includes(manifestPath), false);
+    assert.equal(JSON.stringify(projection).includes(customCatalogServer.endpoint), false);
+  } finally {
+    restoreEnv("IOI_MODEL_CATALOG_MANIFEST_PATH", priorManifest);
+    restoreEnv("IOI_MODEL_CATALOG_CUSTOM_BASE_URL", priorCustomCatalog);
+    restoreEnv("OLLAMA_HOST", priorOllamaHost);
+    await customCatalogServer.close();
+    await ollamaServer.close();
+    await daemon.close();
+  }
+});
+
 test("model download lifecycle supports progress, failure, cancel, cleanup, and projection replay", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-model-download-workspace-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-model-download-state-"));
@@ -3826,6 +3917,45 @@ async function startFakeHuggingFaceCatalogServer() {
     }
     response.statusCode = 404;
     response.setHeader("content-type", "application/json");
+    response.end(JSON.stringify({ error: "not found" }));
+  });
+  await listen(server);
+  const address = server.address();
+  return {
+    endpoint: `http://${address.address}:${address.port}`,
+    close: () => new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve()))),
+  };
+}
+
+async function startFakeCustomCatalogServer() {
+  const server = http.createServer((request, response) => {
+    const url = new URL(request.url ?? "/", "http://127.0.0.1");
+    response.setHeader("content-type", "application/json");
+    if (request.method === "GET" && url.pathname === "/catalog/search") {
+      response.end(
+        JSON.stringify({
+          results: [
+            {
+              model_id: "custom/http-vllm-fixture",
+              family: "custom-http",
+              architecture: "mistral",
+              parameter_count: "7B",
+              format: "safetensors",
+              quantization: "F16",
+              size_bytes: 8192,
+              context_window: 16384,
+              source_url: "fixture://custom-http/vllm-safetensors-f16",
+              source_label: "Custom HTTP / vLLM safetensors",
+              compatibility: ["vllm", "openai_compatible"],
+              tags: ["custom", "vllm"],
+              license: "fixture-custom",
+            },
+          ],
+        }),
+      );
+      return;
+    }
+    response.statusCode = 404;
     response.end(JSON.stringify({ error: "not found" }));
   });
   await listen(server);
