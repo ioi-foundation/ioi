@@ -362,10 +362,18 @@ interface CatalogProviderPreview {
   liveDownloadStatus: string;
   downloadGate: string;
   formats: string[];
+  adapterPort: string;
+  operations: string[];
+  providerId: string;
+  baseUrlHash: string;
+  manifestPathHash: string;
+  errorHash: string;
 }
 
 interface CatalogPreview {
   providers: CatalogProviderPreview[];
+  adapterPort: string;
+  adapterOperations: string[];
   formats: string[];
   quantization: string[];
   storageTotal: string;
@@ -457,6 +465,7 @@ interface CatalogSearchDraft {
   format: string;
   quantization: string;
   limit: string;
+  catalogProviderId: string;
 }
 
 interface CatalogImportPayload {
@@ -600,6 +609,42 @@ const fallbackData: MountsWorkbenchData = {
         liveDownloadStatus: "available",
         downloadGate: "fixture",
         formats: ["gguf"],
+        adapterPort: "ModelCatalogProviderPort",
+        operations: ["search", "resolveVariant", "importUrl", "download", "health"],
+        providerId: "provider.autopilot.local",
+        baseUrlHash: "local",
+        manifestPathHash: "none",
+        errorHash: "none",
+      },
+      {
+        id: "catalog.local_manifest",
+        label: "Local manifest catalog",
+        status: "unconfigured",
+        gate: "IOI_MODEL_CATALOG_MANIFEST_PATH",
+        liveDownloadStatus: "available",
+        downloadGate: "fixture_or_download_policy",
+        formats: ["gguf", "mlx", "safetensors"],
+        adapterPort: "ModelCatalogProviderPort",
+        operations: ["search", "resolveVariant", "importUrl", "download", "health"],
+        providerId: "provider.autopilot.local",
+        baseUrlHash: "none",
+        manifestPathHash: "not configured",
+        errorHash: "none",
+      },
+      {
+        id: "catalog.ollama",
+        label: "Ollama catalog bridge",
+        status: "gated",
+        gate: "OLLAMA_HOST",
+        liveDownloadStatus: "n/a",
+        downloadGate: "ollama_provider_policy",
+        formats: ["ollama"],
+        adapterPort: "ModelCatalogProviderPort",
+        operations: ["search", "resolveVariant", "importUrl", "download", "health"],
+        providerId: "provider.ollama",
+        baseUrlHash: "not configured",
+        manifestPathHash: "none",
+        errorHash: "none",
       },
       {
         id: "catalog.huggingface",
@@ -609,8 +654,31 @@ const fallbackData: MountsWorkbenchData = {
         liveDownloadStatus: "gated",
         downloadGate: "IOI_LIVE_MODEL_DOWNLOAD",
         formats: ["gguf", "mlx", "safetensors"],
+        adapterPort: "ModelCatalogProviderPort",
+        operations: ["search", "resolveVariant", "importUrl", "download", "health"],
+        providerId: "provider.autopilot.local",
+        baseUrlHash: "redacted",
+        manifestPathHash: "none",
+        errorHash: "none",
+      },
+      {
+        id: "catalog.custom_http",
+        label: "Custom HTTP catalog",
+        status: "unconfigured",
+        gate: "IOI_MODEL_CATALOG_CUSTOM_BASE_URL",
+        liveDownloadStatus: "policy gated",
+        downloadGate: "IOI_LIVE_MODEL_DOWNLOAD",
+        formats: ["gguf", "mlx", "safetensors"],
+        adapterPort: "ModelCatalogProviderPort",
+        operations: ["search", "resolveVariant", "importUrl", "download", "health"],
+        providerId: "provider.autopilot.local",
+        baseUrlHash: "not configured",
+        manifestPathHash: "none",
+        errorHash: "none",
       },
     ],
+    adapterPort: "ModelCatalogProviderPort",
+    adapterOperations: ["search", "resolveVariant", "importUrl", "download", "health"],
     formats: ["gguf", "mlx", "safetensors"],
     quantization: ["Q4", "Q5", "Q8", "F16"],
     storageTotal: "unknown",
@@ -3192,7 +3260,15 @@ function normalizeCatalog(value: any): CatalogPreview {
       liveDownloadStatus: stringValue(item.liveDownloadStatus, "unknown"),
       downloadGate: stringValue(item.downloadGate, "not gated"),
       formats: stringArray(item.formats),
+      adapterPort: stringValue(item.adapterPort, "ModelCatalogProviderPort"),
+      operations: stringArray(item.operations),
+      providerId: stringValue(item.providerId, "none"),
+      baseUrlHash: stringValue(item.baseUrlHash, "none"),
+      manifestPathHash: stringValue(item.manifestPathHash, "none"),
+      errorHash: stringValue(item.errorHash, "none"),
     })),
+    adapterPort: stringValue(value?.adapterBoundary?.port, "ModelCatalogProviderPort"),
+    adapterOperations: stringArray(value?.adapterBoundary?.operations),
     formats: stringArray(value?.filters?.formats),
     quantization: stringArray(value?.filters?.quantization),
     storageTotal: formatBytes(numberValue(storage.totalBytes, 0)),
@@ -3290,6 +3366,7 @@ function catalogVariantPayload(variant: CatalogVariantPreview, maxBytes?: string
     backend_compatibility: variant.backendCompatibility,
     benchmark_readiness: variant.benchmarkReadiness,
     transfer_approved: Boolean(options.transferApproved),
+    catalog_provider_id: variant.catalogProviderId,
     bandwidth_bps: Number.isFinite(parsedBandwidthBps) && parsedBandwidthBps > 0 ? Math.floor(parsedBandwidthBps) : undefined,
     retry_limit: Number.isFinite(parsedRetryLimit) && parsedRetryLimit >= 0 ? Math.floor(parsedRetryLimit) : undefined,
     resume_download: options.resumeDownload ?? true,
@@ -3394,6 +3471,22 @@ function catalogBenchmarkSummary(variant: CatalogVariantPreview) {
     variant.benchmarkReadiness.structuredOutput ? "structured" : null,
   ].filter(Boolean);
   return ready.join(", ") || "not classified";
+}
+
+function catalogProviderSetupHint(provider: CatalogProviderPreview) {
+  if (provider.id === "catalog.fixture") return "Always available for CI, demos, and offline acquisition checks.";
+  if (provider.id === "catalog.local_manifest") return provider.status === "available" || provider.status === "configured" ? "Manifest path is configured; entries are imported through governed download receipts." : "Set IOI_MODEL_CATALOG_MANIFEST_PATH to expose a local JSON model manifest.";
+  if (provider.id === "catalog.custom_http") return provider.status === "available" || provider.status === "configured" ? "Custom catalog endpoint is configured; only hashed endpoint evidence is shown." : "Set IOI_MODEL_CATALOG_CUSTOM_BASE_URL to attach a governed custom catalog.";
+  if (provider.id === "catalog.ollama") return provider.status === "available" || provider.status === "configured" ? "Ollama list bridge is reachable through the provider model path." : "Configure OLLAMA_HOST or start the local Ollama provider before searching this catalog.";
+  if (provider.id === "catalog.huggingface") return provider.status === "available" || provider.status === "configured" ? "Live catalog is enabled; downloads still require transfer policy approval." : "Set IOI_LIVE_MODEL_CATALOG and IOI_LIVE_MODEL_DOWNLOAD to enable live hub acquisition.";
+  return provider.status === "available" || provider.status === "configured" ? "Catalog adapter is configured." : "Catalog adapter is waiting for provider setup.";
+}
+
+function catalogProviderEvidence(provider: CatalogProviderPreview) {
+  const endpointHash = provider.baseUrlHash !== "none" ? `endpoint ${provider.baseUrlHash}` : null;
+  const manifestHash = provider.manifestPathHash !== "none" ? `manifest ${provider.manifestPathHash}` : null;
+  const errorHash = provider.errorHash !== "none" ? `error ${provider.errorHash}` : null;
+  return [provider.adapterPort, endpointHash, manifestHash, errorHash].filter(Boolean).join(" / ");
 }
 
 function loadDraftBody(draft: ModelLoadDraft) {
@@ -4541,7 +4634,7 @@ function DownloadsPanel({
   onCleanupStorage: (options?: { removeOrphans?: boolean; confirmDestructive?: boolean }) => void;
   busy: boolean;
 }) {
-  const [draft, setDraft] = useState<CatalogSearchDraft>({ query: "autopilot", format: "gguf", quantization: "", limit: "20" });
+  const [draft, setDraft] = useState<CatalogSearchDraft>({ query: "autopilot", format: "gguf", quantization: "", limit: "20", catalogProviderId: "all" });
   const [sourceUrl, setSourceUrl] = useState("fixture://catalog/autopilot-native-3b-q4");
   const [selectedVariantId, setSelectedVariantId] = useState("");
   const [maxBytes, setMaxBytes] = useState("");
@@ -4554,11 +4647,17 @@ function DownloadsPanel({
   const [cleanupConfirmed, setCleanupConfirmed] = useState(false);
   const transferPolicy = { bandwidthBps, retryLimit, resumeDownload };
   const updateDraft = (field: keyof CatalogSearchDraft, value: string) => setDraft((current) => ({ ...current, [field]: value }));
-  const selectedVariant = catalogVariants.find((variant) => variant.id === selectedVariantId) ?? catalogVariants[0] ?? null;
+  const catalogProviderOptions = data.catalog.providers;
+  const filteredCatalogVariants = useMemo(
+    () => (draft.catalogProviderId === "all" ? catalogVariants : catalogVariants.filter((variant) => variant.catalogProviderId === draft.catalogProviderId)),
+    [catalogVariants, draft.catalogProviderId],
+  );
+  const selectedCatalogProvider = draft.catalogProviderId === "all" ? null : catalogProviderOptions.find((provider) => provider.id === draft.catalogProviderId) ?? null;
+  const selectedVariant = filteredCatalogVariants.find((variant) => variant.id === selectedVariantId) ?? filteredCatalogVariants[0] ?? null;
   useEffect(() => {
-    if (selectedVariantId && catalogVariants.some((variant) => variant.id === selectedVariantId)) return;
-    setSelectedVariantId(catalogVariants[0]?.id ?? "");
-  }, [catalogVariants, selectedVariantId]);
+    if (selectedVariantId && filteredCatalogVariants.some((variant) => variant.id === selectedVariantId)) return;
+    setSelectedVariantId(filteredCatalogVariants[0]?.id ?? "");
+  }, [filteredCatalogVariants, selectedVariantId]);
   const selectedApprovalRequired = selectedVariant ? requiresExternalTransferApproval(selectedVariant.sourceUrl, selectedVariant.catalogProviderId) : false;
   const sourceApprovalRequired = requiresExternalTransferApproval(sourceUrl);
   useEffect(() => {
@@ -4681,6 +4780,8 @@ function DownloadsPanel({
       </div>
 
       <div className="model-mounts-observability-summary" aria-label="Catalog and storage summary">
+        <DetailFact label="Catalog adapter" value={data.catalog.adapterPort} note={data.catalog.adapterOperations.join(", ") || "search/import/download/health"} />
+        <DetailFact label="Provider filter" value={selectedCatalogProvider?.label ?? "All catalog providers"} note={`${filteredCatalogVariants.length} of ${catalogVariants.length} variants visible`} />
         <DetailFact label="Catalog gate" value={data.catalog.providers.find((provider) => provider.id === "catalog.huggingface")?.status ?? "unknown"} note="IOI_LIVE_MODEL_CATALOG" />
         <DetailFact label="Download gate" value={data.catalog.providers.find((provider) => provider.id === "catalog.huggingface")?.liveDownloadStatus ?? "unknown"} note="IOI_LIVE_MODEL_DOWNLOAD" />
         <DetailFact label="Storage" value={data.catalog.storageTotal} note={`${data.catalog.fileCount} files / ${data.catalog.orphanCount} orphan`} />
@@ -4753,6 +4854,13 @@ function DownloadsPanel({
             <input value={draft.query} onChange={(event) => updateDraft("query", event.target.value)} />
           </label>
           <label>
+            <span>Catalog provider</span>
+            <select value={draft.catalogProviderId} onChange={(event) => updateDraft("catalogProviderId", event.target.value)}>
+              <option value="all">All catalog providers</option>
+              {catalogProviderOptions.map((provider) => <option key={provider.id} value={provider.id}>{provider.label}</option>)}
+            </select>
+          </label>
+          <label>
             <span>Format</span>
             <select value={draft.format} onChange={(event) => updateDraft("format", event.target.value)}>
               <option value="">Any format</option>
@@ -4794,7 +4902,7 @@ function DownloadsPanel({
         <div className="model-mounts-catalog-toolbar">
           <div>
             <strong>Catalog variants</strong>
-            <span>{catalogVariants.length} result{catalogVariants.length === 1 ? "" : "s"} retained from the last search.</span>
+            <span>{filteredCatalogVariants.length} visible of {catalogVariants.length} result{catalogVariants.length === 1 ? "" : "s"} retained from the last search.</span>
           </div>
           <label>
             <span>Max bytes</span>
@@ -4803,7 +4911,7 @@ function DownloadsPanel({
           <ActionButton onClick={() => selectedVariant && onImportCatalogUrl({ sourceUrl: selectedVariant.sourceUrl, variant: selectedVariant, maxBytes, transferApproved, bandwidthBps, retryLimit, resumeDownload })} disabled={busy} guard={selectedImportGuard}>Import selected</ActionButton>
           <ActionButton onClick={() => selectedVariant && onDownloadCatalogVariant(selectedVariant, maxBytes, transferApproved, transferPolicy)} disabled={busy} guard={selectedDownloadGuard}>Download selected</ActionButton>
         </div>
-        {catalogVariants.length === 0 ? (
+        {filteredCatalogVariants.length === 0 ? (
           <p className="model-mounts-empty">Run a catalog search to inspect variants before importing or downloading.</p>
         ) : (
           <div className="model-mounts-catalog-variants" role="listbox" aria-label="Selectable catalog variants">
@@ -4822,7 +4930,7 @@ function DownloadsPanel({
               <span>Source hash</span>
               <span>Gate</span>
             </div>
-            {catalogVariants.map((variant) => {
+            {filteredCatalogVariants.map((variant) => {
               const selected = variant.id === selectedVariant?.id;
               return (
                 <button
@@ -4869,6 +4977,8 @@ function DownloadsPanel({
                 <span>{provider.gate}</span>
                 <span>{provider.downloadGate}</span>
               </div>
+              <span>{catalogProviderSetupHint(provider)}</span>
+              <span>{catalogProviderEvidence(provider)}</span>
               <span>{provider.formats.join(", ") || "formats unknown"}</span>
             </article>
           ))}

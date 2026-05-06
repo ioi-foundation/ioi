@@ -823,7 +823,7 @@ implemented as a product surface.
 | Global model picker / loader | Top model picker invites select/load without exposing topology | Complete for deterministic Mounts path | Extend into app-wide header or keyboard model switching only if product direction wants it; keep governed load/unload path |
 | Installed models | `lms ls` shows model family, params, arch, size, device, loaded marker | Complete for deterministic Mounts detail path | Add live-provider family/params/arch/device precision and benchmark classification metadata |
 | Loaded models | `lms ps` shows identifier, model, status, size, context, parallel, device, TTL | Complete for deterministic Mounts path | Add live-provider TTL/device precision, unload confirmations, and app-wide loaded-instance status if needed |
-| Model search/download | `lms get`, direct Hugging Face URL, GGUF/MLX filters, variant select | Complete for deterministic/gated adapter path | Fixture catalog, URL import, variant metadata, gated Hugging Face adapter, checksum/download receipts, GUI cancel/retry controls, backend compatibility scoring, download risk scoring, benchmark readiness, recommendation/approval receipt fields, bandwidth/retry/resume policy, confirmed cancel cleanup, and confirmed orphan removal exist; add live hub breadth and live-download retry controls |
+| Model search/download | `lms get`, direct Hugging Face URL, GGUF/MLX filters, variant select | Complete for deterministic/gated adapter path | Fixture catalog, manifest catalog, custom HTTP catalog, Ollama list bridge, URL import, variant metadata, gated Hugging Face adapter, checksum/download receipts, provider-aware GUI filtering/setup state, GUI cancel/retry controls, backend compatibility scoring, download risk scoring, benchmark readiness, recommendation/approval receipt fields, bandwidth/retry/resume policy, confirmed cancel cleanup, and confirmed orphan removal exist; add live hub breadth and external catalog validation |
 | Model import | `lms import` supports move/copy/hard-link/symlink/dry-run/user-repo | Complete for deterministic local path | Add live provider-specific import UX polish after broader hub coverage |
 | Runtime engines | `lms runtime ls/select/get/update/remove` | Complete for deterministic/shared control path | Runtime engine list, survey, selected-runtime persistence, get/update/remove profiles, disable/enable, priority, default load options, deterministic process supervision, llama.cpp runner spawning, Ollama serve supervision, vLLM serve supervision, API, CLI, receipts, E2E, and Mounts Backends editor are implemented; remaining live work is hardware validation and scheduler hardening |
 | Hardware survey | `lms runtime survey` reports GPU/VRAM, CPU features, RAM | Complete for deterministic/public CLI path | Keep redacted survey receipts in projection/replay; add scheduling hints and live runtime preference recommendations |
@@ -2361,8 +2361,10 @@ Current status:
   deterministic fake-server coverage for interrupted transfers.
 - Complete: Mounts catalog/download acquisition UI includes variant comparison,
   external transfer approval, storage budget guard, retry/cancel/open-receipt
-  actions, failure classes, and Models-panel receipt drilldown with desktop GUI
-  evidence.
+  actions, failure classes, provider-aware catalog filtering, catalog adapter
+  boundary/setup state for fixture, manifest, custom HTTP, Ollama, and
+  Hugging Face-compatible providers, and Models-panel receipt drilldown with
+  desktop GUI evidence.
 - Production hardening: replace deterministic native-local fixture with real
   local inference binaries when configured.
 - Production hardening: wire production wallet.network and Agentgres services;
