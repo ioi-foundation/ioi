@@ -1174,6 +1174,105 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
     assert.equal(liveSecretDownload.downloadPolicy.retryLimit, 2);
     assert.equal(JSON.stringify(liveSecretDownload).includes("hf-live-secret-token"), false);
 
+    const retriedSource = `${liveEntry.sourceUrl}?drop_once_after=12&attempt_key=retry-in-job`;
+    const retriedDownload = await expectOk(daemon.endpoint, "/api/v1/models/download", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        model_id: "native:hf-retry-resume",
+        provider_id: "provider.autopilot.local",
+        source_url: retriedSource,
+        format: "gguf",
+        quantization: "Q4_K_M",
+        transfer_approved: true,
+        retry_limit: 1,
+        resume_download: true,
+      },
+    });
+    assert.equal(retriedDownload.status, "completed");
+    assert.equal(retriedDownload.attemptCount, 2);
+    assert.equal(retriedDownload.retryCount, 1);
+    assert.equal(retriedDownload.resumeOffset > 0, true);
+    assert.equal(retriedDownload.transfer.resumed, true);
+
+    const interruptedSecretSource = `${liveEntry.sourceUrl}?drop_once_after=13&attempt_key=resume-later&api_key=hf-partial-secret-token`;
+    const interruptedDownload = await expectOk(daemon.endpoint, "/api/v1/models/download", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        model_id: "native:hf-interrupted-resume",
+        provider_id: "provider.autopilot.local",
+        source_url: interruptedSecretSource,
+        format: "gguf",
+        quantization: "Q4_K_M",
+        transfer_approved: true,
+        retry_limit: 0,
+        resume_download: true,
+      },
+    });
+    assert.equal(interruptedDownload.status, "failed");
+    assert.equal(interruptedDownload.cleanupState, "retained_partial");
+    assert.equal(interruptedDownload.attemptCount, 1);
+    assert.equal(fs.existsSync(`${interruptedDownload.targetPath}.part`), true);
+    assert.equal(fs.existsSync(`${interruptedDownload.targetPath}.part.json`), true);
+    assert.equal(fs.readFileSync(`${interruptedDownload.targetPath}.part.json`, "utf8").includes("hf-partial-secret-token"), false);
+    const resumedDownload = await expectOk(daemon.endpoint, "/api/v1/models/download", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        model_id: "native:hf-interrupted-resume",
+        provider_id: "provider.autopilot.local",
+        source_url: interruptedSecretSource,
+        format: "gguf",
+        quantization: "Q4_K_M",
+        transfer_approved: true,
+        retry_limit: 1,
+        resume_download: true,
+      },
+    });
+    assert.equal(resumedDownload.status, "completed");
+    assert.equal(resumedDownload.resumeOffset > 0, true);
+    assert.equal(fs.existsSync(`${resumedDownload.targetPath}.part`), false);
+    assert.equal(fs.existsSync(`${resumedDownload.targetPath}.part.json`), false);
+
+    const retryExhausted = await expectOk(daemon.endpoint, "/api/v1/models/download", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        model_id: "native:hf-retry-exhausted",
+        provider_id: "provider.autopilot.local",
+        source_url: `${liveEntry.sourceUrl}?status=503&attempt_key=retry-exhausted`,
+        format: "gguf",
+        quantization: "Q4_K_M",
+        transfer_approved: true,
+        retry_limit: 1,
+        resume_download: true,
+      },
+    });
+    assert.equal(retryExhausted.status, "failed");
+    assert.equal(retryExhausted.failureReason, "http_503");
+    assert.equal(retryExhausted.attemptCount, 2);
+    assert.equal(retryExhausted.retryCount, 1);
+
+    const checksumMismatch = await expectOk(daemon.endpoint, "/api/v1/models/download", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        model_id: "native:hf-checksum-mismatch",
+        provider_id: "provider.autopilot.local",
+        source_url: liveEntry.sourceUrl,
+        format: "gguf",
+        quantization: "Q4_K_M",
+        transfer_approved: true,
+        checksum: "sha256:not-the-real-checksum",
+        retry_limit: 1,
+      },
+    });
+    assert.equal(checksumMismatch.status, "failed");
+    assert.equal(checksumMismatch.failureReason, "checksum_mismatch");
+    assert.equal(checksumMismatch.attemptCount, 1);
+    assert.equal(fs.existsSync(checksumMismatch.targetPath), false);
+
     const oversizedLiveDownload = await expectOk(daemon.endpoint, "/api/v1/models/download", {
       method: "POST",
       token: grant.token,
@@ -1322,6 +1421,10 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
     assert.ok(receipts.some((receipt) => receipt.details?.downloadPolicy?.bandwidthLimitBps === 1024 * 1024));
     assert.ok(receipts.some((receipt) => receipt.details?.destructiveConfirmation?.confirmed === true));
     assert.ok(receipts.some((receipt) => receipt.details?.downloadMode === "live_network"));
+    assert.ok(receipts.some((receipt) => receipt.details?.operation === "model_download_retry"));
+    assert.ok(receipts.some((receipt) => receipt.details?.operation === "model_download_resume"));
+    assert.ok(receipts.some((receipt) => receipt.details?.transfer?.retryCount === 1));
+    assert.equal(JSON.stringify(receipts).includes("hf-partial-secret-token"), false);
 
     const replay = await expectOk(daemon.endpoint, `/api/v1/receipts/${completed.receiptId}/replay`);
     assert.equal(replay.receipt.id, completed.receiptId);
@@ -1336,6 +1439,7 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
     assert.equal(projection.adapterBoundaries.wallet.remoteAdapter.failClosed, true);
     assert.equal(JSON.stringify(projection).includes("fixture://model/queued?api_key"), false);
     assert.equal(JSON.stringify(projection).includes("hf-live-secret-token"), false);
+    assert.equal(JSON.stringify(projection).includes("hf-partial-secret-token"), false);
     assert.equal(projection.catalog.providers.find((provider) => provider.id === "catalog.huggingface")?.status, "configured");
   } finally {
     restoreEnv("IOI_LIVE_MODEL_CATALOG", priorLiveCatalog);
@@ -3664,6 +3768,7 @@ async function readRequestText(request) {
 
 async function startFakeHuggingFaceCatalogServer() {
   const modelBytes = Buffer.from("family=qwen-hf-live\ncontext=4096\nquantization=Q4_K_M\n");
+  const downloadAttempts = new Map();
   const server = http.createServer((request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
     if (request.method === "GET" && url.pathname === "/api/models") {
@@ -3686,7 +3791,25 @@ async function startFakeHuggingFaceCatalogServer() {
       return;
     }
     if (request.method === "GET" && url.pathname === "/Qwen/Qwen3-GGUF/resolve/main/qwen-3b-Q4_K_M.gguf") {
+      const status = Number(url.searchParams.get("status") ?? 0);
+      if (status >= 400) {
+        response.statusCode = status;
+        response.setHeader("content-type", "application/json");
+        response.end(JSON.stringify({ error: "download failed" }));
+        return;
+      }
+      const attemptKey = url.searchParams.get("attempt_key") ?? `${url.pathname}?${url.searchParams.toString()}`;
+      const attempt = (downloadAttempts.get(attemptKey) ?? 0) + 1;
+      downloadAttempts.set(attemptKey, attempt);
       const range = request.headers.range;
+      const dropOnceAfter = Number(url.searchParams.get("drop_once_after") ?? 0);
+      if (dropOnceAfter > 0 && attempt === 1 && !range) {
+        const chunk = modelBytes.subarray(0, Math.min(dropOnceAfter, modelBytes.length));
+        response.setHeader("content-type", "application/octet-stream");
+        response.setHeader("content-length", String(modelBytes.length));
+        response.write(chunk, () => response.destroy(new Error("deterministic dropped download")));
+        return;
+      }
       if (range) {
         const offset = Number(String(range).match(/bytes=([0-9]+)-/)?.[1] ?? 0);
         const chunk = modelBytes.subarray(offset);

@@ -319,6 +319,25 @@ export interface ModelDownloadJob {
   bandwidthLimitBps?: number | null;
   retryLimit?: number;
   resumeDownload?: boolean;
+  attemptCount?: number | null;
+  retryCount?: number | null;
+  resumeMetadataPathHash?: string | null;
+  transfer?: {
+    status?: string;
+    sourceHash?: string;
+    partialPathHash?: string;
+    targetPathHash?: string;
+    resumeMetadataPathHash?: string;
+    attemptCount?: number | null;
+    retryCount?: number | null;
+    retryLimit?: number | null;
+    resume?: boolean;
+    resumed?: boolean;
+    bytesCompleted?: number;
+    bytesTotal?: number;
+    bandwidthLimitBps?: number | null;
+    failureReason?: string | null;
+  } | null;
   cleanupState?: string | null;
   projectedFreedBytes?: number;
   destructiveConfirmation?: {

@@ -626,7 +626,8 @@ generic hardening list:
   architecture/parameter metadata, backend compatibility scoring, download
   risk scoring, benchmark readiness, recommendation labels, and approval
   receipt fields. Remaining parity with `lms get` is production hub breadth,
-  broader external-hub validation, and live-download retry UX.
+  broader external-hub validation, and richer multi-provider acquisition
+  catalogs.
 - Autopilot import UX needs parity with `lms import`, including move/copy,
   hard-link, symbolic-link, dry-run, and explicit `user/repo` classification.
 - Autopilot Logs needs streaming request/response logs comparable to
@@ -720,6 +721,10 @@ gates:
    - the gated Hugging Face-compatible adapter, format/quantization filters,
      resumable `.part` downloads, checksum verification, source hashing, and
      redaction are implemented;
+   - live network transfer execution now persists redacted resume metadata,
+     retries retriable HTTP/network failures, resumes interrupted transfers
+     with `Range`, removes poisoned checksum failures, and emits retry/resume
+     receipts;
    - the live catalog gate now validates import-url materialization, download
      status lookup, receipt replay, projection persistence, optional first
      result download, max-byte guards, and no plaintext token/source leakage;
@@ -2342,6 +2347,10 @@ Current status:
   enforcement; confirmed download-cancel partial cleanup; confirmed orphan
   removal; artifact delete confirmation metadata; projected freed-space
   receipts; and Mounts UI controls for those decisions.
+- Complete: live network model downloads now execute those policy fields with
+  bounded retry, HTTP `Range` resume from redacted `.part` metadata, bandwidth
+  throttling, checksum mismatch cleanup, retry/resume lifecycle receipts, and
+  deterministic fake-server coverage for interrupted transfers.
 - Complete: Mounts catalog/download acquisition UI includes variant comparison,
   external transfer approval, storage budget guard, retry/cancel/open-receipt
   actions, failure classes, and Models-panel receipt drilldown with desktop GUI
