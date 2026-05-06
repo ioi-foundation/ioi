@@ -33,6 +33,10 @@ const gates = {
     env: "IOI_LIVE_MODEL_CATALOG",
     evidenceDir: "model-catalog",
   },
+  "model-catalog-oauth": {
+    env: "IOI_LIVE_MODEL_CATALOG_OAUTH",
+    evidenceDir: "model-catalog-oauth",
+  },
   wallet: {
     env: "IOI_REMOTE_WALLET",
     evidenceDir: "wallet",
@@ -370,6 +374,11 @@ function redactLiveEvidence(value) {
     process.env.IOI_WALLET_NETWORK_TOKEN,
     process.env.IOI_AGENTGRES_TOKEN,
     process.env.IOI_MODEL_CATALOG_DOWNLOAD_SOURCE_URL,
+    process.env.IOI_MODEL_CATALOG_OAUTH_CALLBACK_URL,
+    process.env.IOI_MODEL_CATALOG_OAUTH_AUTHORIZATION_CODE,
+    process.env.IOI_MODEL_CATALOG_OAUTH_STATE,
+    process.env.IOI_MODEL_CATALOG_OAUTH_CLIENT_ID,
+    process.env.IOI_MODEL_CATALOG_OAUTH_CLIENT_SECRET,
     process.env.IOI_LLAMA_CPP_MODEL_PATH,
     process.env.IOI_LLAMA_CPP_SERVER_PATH,
     process.env.IOI_VLLM_BINARY,
@@ -519,6 +528,174 @@ async function withDaemon(fn) {
     return await fn({ daemon, cwd, stateDir });
   } finally {
     await daemon.close();
+  }
+}
+
+async function startCatalogOAuthLoopbackServer({ timeoutMs = 120000 } = {}) {
+  let capturedCallback = null;
+  let resolveCallback;
+  const callbackPromise = new Promise((resolve) => {
+    resolveCallback = resolve;
+  });
+  const server = http.createServer((request, response) => {
+    const base = `http://${request.headers.host ?? "127.0.0.1"}`;
+    const callbackUrl = new URL(request.url ?? "/", base);
+    if (callbackUrl.pathname !== "/oauth/callback") {
+      response.statusCode = 404;
+      response.end("Not found");
+      return;
+    }
+    capturedCallback = {
+      url: callbackUrl.toString(),
+      state: callbackUrl.searchParams.get("state") ?? "",
+      code: callbackUrl.searchParams.get("code") ?? "",
+      error: callbackUrl.searchParams.get("error") ?? "",
+      providerId: callbackUrl.searchParams.get("mountsOAuthProvider") ?? callbackUrl.searchParams.get("oauthProvider") ?? "",
+    };
+    response.statusCode = 200;
+    response.setHeader("content-type", "text/plain; charset=utf-8");
+    response.end("Autopilot received the catalog OAuth callback. You can close this browser tab.");
+    resolveCallback(capturedCallback);
+  });
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      server.off("error", reject);
+      resolve();
+    });
+  });
+  const address = server.address();
+  const redirectUri = `http://127.0.0.1:${address.port}/oauth/callback`;
+  return {
+    redirectUri,
+    wait: () =>
+      new Promise((resolve) => {
+        const timeout = setTimeout(() => resolve(null), timeoutMs);
+        callbackPromise.then((callback) => {
+          clearTimeout(timeout);
+          resolve(callback);
+        });
+      }),
+    captured: () => capturedCallback,
+    close: () => new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve()))),
+  };
+}
+
+async function startCatalogOAuthFixtureServer({
+  providerId = "catalog.huggingface",
+  authorizationCode = "fixture-catalog-oauth-code",
+  accessToken = "fixture-catalog-oauth-access-token",
+  refreshToken = "fixture-catalog-oauth-refresh-token",
+} = {}) {
+  const observed = [];
+  const server = http.createServer(async (request, response) => {
+    const base = `http://${request.headers.host ?? "127.0.0.1"}`;
+    const url = new URL(request.url ?? "/", base);
+    if (request.method === "GET" && url.pathname === "/oauth/authorize") {
+      const redirectUri = url.searchParams.get("redirect_uri") ?? "";
+      const state = url.searchParams.get("state") ?? "";
+      const codeChallenge = url.searchParams.get("code_challenge") ?? "";
+      observed.push({
+        kind: "authorization",
+        clientIdHash: stableHash(url.searchParams.get("client_id") ?? ""),
+        redirectUriHash: stableHash(redirectUri),
+        stateHash: stableHash(state),
+        codeChallengeHash: codeChallenge ? stableHash(codeChallenge) : null,
+        scopes: splitOAuthScopes(url.searchParams.get("scope") ?? ""),
+        method: url.searchParams.get("code_challenge_method") ?? null,
+      });
+      if (!redirectUri || !state) {
+        response.statusCode = 400;
+        response.end("missing redirect_uri or state");
+        return;
+      }
+      const callback = new URL(redirectUri);
+      callback.searchParams.set("code", authorizationCode);
+      callback.searchParams.set("state", state);
+      callback.searchParams.set("mountsOAuthProvider", providerId);
+      response.statusCode = 302;
+      response.setHeader("location", callback.toString());
+      response.end();
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/oauth/token") {
+      const body = new URLSearchParams(await readRequestText(request));
+      observed.push({
+        kind: "token",
+        grantType: body.get("grant_type") ?? null,
+        codeHash: stableHash(body.get("code") ?? ""),
+        clientIdHash: stableHash(body.get("client_id") ?? ""),
+        redirectUriHash: stableHash(body.get("redirect_uri") ?? ""),
+        codeVerifierHash: body.get("code_verifier") ? stableHash(body.get("code_verifier")) : null,
+        scopes: splitOAuthScopes(body.get("scope") ?? ""),
+      });
+      if (body.get("code") !== authorizationCode || body.get("grant_type") !== "authorization_code") {
+        response.statusCode = 403;
+        response.setHeader("content-type", "application/json");
+        response.end(JSON.stringify({ error: "invalid_grant" }));
+        return;
+      }
+      response.statusCode = 200;
+      response.setHeader("content-type", "application/json");
+      response.end(
+        JSON.stringify({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+          token_type: "Bearer",
+          expires_in: 3600,
+          scope: body.get("scope") ?? "catalog.read model.read",
+        }),
+      );
+      return;
+    }
+    response.statusCode = 404;
+    response.end("not found");
+  });
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      server.off("error", reject);
+      resolve();
+    });
+  });
+  const address = server.address();
+  const endpoint = `http://127.0.0.1:${address.port}`;
+  return {
+    endpoint,
+    authorizationEndpoint: `${endpoint}/oauth/authorize`,
+    tokenEndpoint: `${endpoint}/oauth/token`,
+    observed: () => [...observed],
+    secrets: {
+      authorizationCode,
+      accessToken,
+      refreshToken,
+    },
+    close: () => new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve()))),
+  };
+}
+
+function openCatalogOAuthAuthorizationUrl(url) {
+  const configured = process.env.IOI_MODEL_CATALOG_OAUTH_BROWSER_COMMAND;
+  const command = configured || (process.platform === "darwin" ? "open" : process.platform === "win32" ? "cmd" : "xdg-open");
+  const args = configured ? [url] : process.platform === "win32" ? ["/c", "start", "", url] : [url];
+  try {
+    const child = childProcess.spawn(command, args, {
+      cwd: repoRoot,
+      detached: true,
+      stdio: "ignore",
+    });
+    child.unref();
+    return {
+      launched: true,
+      command: configured ? "custom browser command" : command,
+      errorHash: null,
+    };
+  } catch (error) {
+    return {
+      launched: false,
+      command: configured ? "custom browser command" : command,
+      errorHash: stableHash(error instanceof Error ? error.message : String(error)),
+    };
   }
 }
 
@@ -1482,6 +1659,385 @@ async function runModelCatalogGate(evidence) {
   });
 }
 
+function defaultCatalogOAuthRedirectUri(providerId) {
+  const url = new URL("ioi://mounts/oauth/callback");
+  url.searchParams.set("mountsOAuthCallback", "1");
+  url.searchParams.set("mountsOAuthProvider", providerId);
+  return url.toString();
+}
+
+function splitOAuthScopes(value) {
+  return String(value ?? "")
+    .split(/,|\n|\s+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function parseCatalogOAuthCallbackInput(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return { code: "", state: "", error: "", providerId: "" };
+  let params;
+  try {
+    params = new URL(raw).searchParams;
+  } catch {
+    params = new URLSearchParams(raw.replace(/^[?#]/, ""));
+  }
+  return {
+    code: params.get("code") ?? "",
+    state: params.get("state") ?? "",
+    error: params.get("error") ?? "",
+    providerId: params.get("mountsOAuthProvider") ?? params.get("oauthProvider") ?? "",
+  };
+}
+
+function catalogOAuthEndpointDefaults(providerId) {
+  if (providerId === "catalog.huggingface") {
+    return {
+      authorizationEndpoint: "https://huggingface.co/oauth/authorize",
+      tokenEndpoint: "https://huggingface.co/oauth/token",
+      scopes: "catalog.read model.read",
+    };
+  }
+  return {
+    authorizationEndpoint: "",
+    tokenEndpoint: "",
+    scopes: "catalog.read",
+  };
+}
+
+async function runModelCatalogOAuthGate(evidence) {
+  const providerId = process.env.IOI_MODEL_CATALOG_OAUTH_PROVIDER_ID ?? "catalog.huggingface";
+  const fixtureOAuthEnabled = process.env.IOI_MODEL_CATALOG_OAUTH_FIXTURE === "1";
+  const defaults = catalogOAuthEndpointDefaults(providerId);
+  let fixtureOAuthServer = null;
+  let authorizationEndpoint = process.env.IOI_MODEL_CATALOG_OAUTH_AUTHORIZATION_URL ?? defaults.authorizationEndpoint;
+  let tokenEndpoint = process.env.IOI_MODEL_CATALOG_OAUTH_TOKEN_URL ?? defaults.tokenEndpoint;
+  let redirectUri = process.env.IOI_MODEL_CATALOG_OAUTH_REDIRECT_URI ?? defaultCatalogOAuthRedirectUri(providerId);
+  const clientId = process.env.IOI_MODEL_CATALOG_OAUTH_CLIENT_ID ?? (fixtureOAuthEnabled ? "fixture-catalog-oauth-client" : "");
+  const scopes = splitOAuthScopes(process.env.IOI_MODEL_CATALOG_OAUTH_SCOPES ?? defaults.scopes);
+  const callbackUrl = process.env.IOI_MODEL_CATALOG_OAUTH_CALLBACK_URL ?? "";
+  const callbackFromUrl = parseCatalogOAuthCallbackInput(callbackUrl);
+  let callbackState = process.env.IOI_MODEL_CATALOG_OAUTH_STATE ?? callbackFromUrl.state;
+  let authorizationCode = process.env.IOI_MODEL_CATALOG_OAUTH_AUTHORIZATION_CODE ?? callbackFromUrl.code;
+  const customBaseUrl = process.env.IOI_MODEL_CATALOG_OAUTH_CUSTOM_BASE_URL ?? process.env.IOI_MODEL_CATALOG_CUSTOM_BASE_URL ?? "";
+  const pkceRequired = process.env.IOI_MODEL_CATALOG_OAUTH_PKCE_REQUIRED === "0" ? false : true;
+  const loopbackCallbackEnabled = process.env.IOI_MODEL_CATALOG_OAUTH_LOCAL_CALLBACK === "1" || fixtureOAuthEnabled;
+  const loopbackTimeoutMs = Number(process.env.IOI_MODEL_CATALOG_OAUTH_CALLBACK_TIMEOUT_MS ?? 120000);
+  let loopbackServer = null;
+
+  if (fixtureOAuthEnabled) {
+    fixtureOAuthServer = await startCatalogOAuthFixtureServer({ providerId });
+    authorizationEndpoint = fixtureOAuthServer.authorizationEndpoint;
+    tokenEndpoint = fixtureOAuthServer.tokenEndpoint;
+  }
+
+  evidence.details.oauth = {
+    providerId,
+    fixtureOAuthEnabled,
+    fixtureOAuthEndpointHash: fixtureOAuthServer ? stableHash(fixtureOAuthServer.endpoint) : null,
+    authorizationEndpointHash: authorizationEndpoint ? stableHash(authorizationEndpoint) : null,
+    tokenEndpointHash: tokenEndpoint ? stableHash(tokenEndpoint) : null,
+    redirectUriHash: stableHash(redirectUri),
+    redirectUriScheme: (() => {
+      try {
+        return new URL(redirectUri).protocol.replace(/:$/, "");
+      } catch {
+        return "invalid";
+      }
+    })(),
+    clientIdConfigured: Boolean(clientId),
+    clientIdHash: clientId ? stableHash(clientId) : null,
+    scopes,
+    pkceRequired,
+    loopbackCallbackEnabled,
+    loopbackTimeoutMs,
+    callbackConfigured: Boolean(callbackUrl || callbackState || authorizationCode),
+    callbackUrlHash: callbackUrl ? stableHash(callbackUrl) : null,
+    customBaseUrlHash: customBaseUrl ? stableHash(customBaseUrl) : null,
+  };
+
+  if (!clientId) {
+    evidence.status = "blocked";
+    evidence.result = {
+      reason: "model_catalog_oauth_client_id_not_configured",
+      requiredEnv: "IOI_MODEL_CATALOG_OAUTH_CLIENT_ID",
+      nextLiveStep:
+        "Register a provider OAuth app with the Mounts deep-link redirect URI, then rerun with IOI_LIVE_MODEL_CATALOG_OAUTH=1 and IOI_MODEL_CATALOG_OAUTH_CLIENT_ID set.",
+    };
+    return;
+  }
+  if (!authorizationEndpoint || !tokenEndpoint) {
+    evidence.status = "blocked";
+    evidence.result = {
+      reason: "model_catalog_oauth_endpoints_not_configured",
+      requiredEnv: "IOI_MODEL_CATALOG_OAUTH_AUTHORIZATION_URL and IOI_MODEL_CATALOG_OAUTH_TOKEN_URL",
+    };
+    return;
+  }
+  if (process.env.IOI_MODEL_CATALOG_OAUTH_CLIENT_SECRET) {
+    if (fixtureOAuthServer) await fixtureOAuthServer.close();
+    evidence.status = "blocked";
+    evidence.result = {
+      reason: "model_catalog_oauth_client_secret_must_use_vault_ref",
+      nextLiveStep:
+        "Use a public PKCE client for this callback gate, or bind confidential-client material through the vault-backed exchange path instead of plaintext environment values.",
+    };
+    return;
+  }
+
+  if (loopbackCallbackEnabled) {
+    loopbackServer = await startCatalogOAuthLoopbackServer({ timeoutMs: loopbackTimeoutMs });
+    redirectUri = loopbackServer.redirectUri;
+    evidence.details.oauth.redirectUriHash = stableHash(redirectUri);
+    evidence.details.oauth.redirectUriScheme = "http";
+  }
+
+  try {
+    await withDaemon(async ({ daemon, stateDir }) => {
+    evidence.details.daemonEndpoint = daemon.endpoint;
+    evidence.details.stateDir = stateDir;
+    const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+      method: "POST",
+      body: {
+        audience: "autopilot-local-server",
+        allowed: [`provider.write:${providerId}`, "vault.write:*", "vault.read:*"],
+        denied: ["filesystem.write", "shell.exec"],
+      },
+    });
+
+    if (providerId === "catalog.custom_http" && customBaseUrl) {
+      await expectOk(daemon.endpoint, `/api/v1/models/catalog/providers/${encodeURIComponent(providerId)}`, {
+        method: "PATCH",
+        token: grant.token,
+        body: {
+          enabled: true,
+          base_url: customBaseUrl,
+          auth_scheme: "oauth2",
+          auth_header_name: "authorization",
+        },
+      });
+    }
+
+    const started = await expectOk(daemon.endpoint, `/api/v1/models/catalog/providers/${encodeURIComponent(providerId)}/oauth/start`, {
+      method: "POST",
+      token: grant.token,
+      body: {
+        authorization_endpoint: authorizationEndpoint,
+        token_endpoint: tokenEndpoint,
+        redirect_uri: redirectUri,
+        client_id: clientId,
+        scopes,
+        pkce_required: pkceRequired,
+      },
+    });
+    assert.equal(started.oauthState.status, "pending");
+    assert.equal(started.oauthState.pkceRequired, pkceRequired);
+    assert.ok(started.authorizationUrlHash);
+    assert.ok(started.authorizationUrlRedacted);
+    assert.equal(started.authorizationUrlRedacted.includes(clientId), false);
+    const authorizationUrl = new URL(started.authorizationUrl);
+    const oauthState = authorizationUrl.searchParams.get("state") ?? "";
+    const codeChallenge = authorizationUrl.searchParams.get("code_challenge") ?? "";
+    assert.ok(oauthState);
+    assert.equal(started.authorizationUrlRedacted.includes(oauthState), false);
+    if (codeChallenge) assert.equal(started.authorizationUrlRedacted.includes(codeChallenge), false);
+
+    const startedReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${started.receiptId}`);
+    assert.equal(startedReceipt.kind, "catalog_oauth_start");
+    const startSecretScan = scanFilesForNeedles(stateDir, [grant.token, clientId, started.authorizationUrl, oauthState, codeChallenge]);
+    assert.equal(startSecretScan.passed, true);
+
+    if (callbackFromUrl.error) {
+      evidence.status = "blocked";
+      evidence.result = {
+        reason: "model_catalog_oauth_provider_returned_error",
+        errorHash: stableHash(callbackFromUrl.error),
+        authorizationUrlHash: started.authorizationUrlHash,
+        authorizationUrlRedacted: started.authorizationUrlRedacted,
+        receiptId: started.receiptId,
+        secretScan: startSecretScan,
+      };
+      return;
+    }
+    if (callbackFromUrl.providerId && callbackFromUrl.providerId !== providerId) {
+      evidence.status = "blocked";
+      evidence.result = {
+        reason: "model_catalog_oauth_callback_provider_mismatch",
+        callbackProviderHash: stableHash(callbackFromUrl.providerId),
+        providerId,
+        authorizationUrlHash: started.authorizationUrlHash,
+        receiptId: started.receiptId,
+        secretScan: startSecretScan,
+      };
+      return;
+    }
+    let effectiveCallbackUrl = callbackUrl;
+    let effectiveCallbackProviderId = callbackFromUrl.providerId;
+    if ((!callbackState || !authorizationCode) && loopbackServer) {
+      if (fixtureOAuthServer) {
+        const response = await fetch(started.authorizationUrl, { redirect: "follow" });
+        await response.text();
+        evidence.commands.push({
+          command: "fixture oauth authorization redirect",
+          status: response.ok ? 0 : 1,
+          stdout: response.ok ? "Fixture OAuth provider redirected through loopback without logging raw URL." : "",
+          stderr: response.ok ? "" : `status:${response.status}`,
+        });
+        if (!response.ok) {
+          evidence.status = "blocked";
+          evidence.result = {
+            reason: "model_catalog_oauth_fixture_authorization_failed",
+            authorizationUrlHash: started.authorizationUrlHash,
+            receiptId: started.receiptId,
+            secretScan: startSecretScan,
+          };
+          return;
+        }
+      } else {
+        const opener = openCatalogOAuthAuthorizationUrl(started.authorizationUrl);
+        evidence.commands.push({
+          command: opener.command,
+          status: opener.launched ? 0 : 1,
+          stdout: opener.launched ? "OAuth authorization URL opened without logging raw URL." : "",
+          stderr: opener.errorHash ? `errorHash:${opener.errorHash}` : "",
+        });
+        if (!opener.launched) {
+          evidence.status = "blocked";
+          evidence.result = {
+            reason: "model_catalog_oauth_browser_open_failed",
+            authorizationUrlHash: started.authorizationUrlHash,
+            authorizationUrlRedacted: started.authorizationUrlRedacted,
+            receiptId: started.receiptId,
+            secretScan: startSecretScan,
+          nextLiveStep:
+              "Set IOI_MODEL_CATALOG_OAUTH_BROWSER_COMMAND to a browser opener command, or rerun without loopback mode and complete through the Mounts desktop UI.",
+          };
+          return;
+        }
+      }
+      const loopbackCallback = await loopbackServer.wait();
+      if (!loopbackCallback) {
+        evidence.status = "blocked";
+        evidence.result = {
+          reason: "model_catalog_oauth_loopback_callback_timeout",
+          authorizationUrlHash: started.authorizationUrlHash,
+          authorizationUrlRedacted: started.authorizationUrlRedacted,
+          timeoutMs: loopbackTimeoutMs,
+          receiptId: started.receiptId,
+          secretScan: startSecretScan,
+          nextLiveStep:
+            "Rerun with a longer IOI_MODEL_CATALOG_OAUTH_CALLBACK_TIMEOUT_MS and complete provider consent in the same invocation.",
+        };
+        return;
+      }
+      effectiveCallbackUrl = loopbackCallback.url;
+      callbackState = loopbackCallback.state;
+      authorizationCode = loopbackCallback.code;
+      effectiveCallbackProviderId = loopbackCallback.providerId;
+      if (loopbackCallback.error) {
+        evidence.status = "blocked";
+        evidence.result = {
+          reason: "model_catalog_oauth_provider_returned_error",
+          errorHash: stableHash(loopbackCallback.error),
+          authorizationUrlHash: started.authorizationUrlHash,
+          receiptId: started.receiptId,
+          loopbackCallbackUrlHash: stableHash(loopbackCallback.url),
+          secretScan: startSecretScan,
+        };
+        return;
+      }
+    }
+    if (effectiveCallbackProviderId && effectiveCallbackProviderId !== providerId) {
+      evidence.status = "blocked";
+      evidence.result = {
+        reason: "model_catalog_oauth_callback_provider_mismatch",
+        callbackProviderHash: stableHash(effectiveCallbackProviderId),
+        providerId,
+        authorizationUrlHash: started.authorizationUrlHash,
+        receiptId: started.receiptId,
+        secretScan: startSecretScan,
+      };
+      return;
+    }
+    if (!callbackState || !authorizationCode) {
+      evidence.status = "blocked";
+      evidence.result = {
+        reason: "model_catalog_oauth_callback_not_supplied",
+        authorizationUrlHash: started.authorizationUrlHash,
+        authorizationUrlRedacted: started.authorizationUrlRedacted,
+        oauthStateHash: started.oauthState.stateHash,
+        stateId: started.oauthState.id,
+        pkceRequired,
+        receiptId: started.receiptId,
+        secretScan: startSecretScan,
+        nextLiveStep:
+          "Rerun with IOI_MODEL_CATALOG_OAUTH_LOCAL_CALLBACK=1 to keep this process alive for the browser callback, or complete the provider OAuth flow from the Mounts desktop UI.",
+      };
+      return;
+    }
+
+    const completed = await expectOk(daemon.endpoint, `/api/v1/models/catalog/providers/${encodeURIComponent(providerId)}/oauth/callback`, {
+      method: "POST",
+      token: grant.token,
+      body: {
+        state_id: started.oauthState.id,
+        state: callbackState,
+        code: authorizationCode,
+      },
+    });
+    assert.equal(completed.oauthBoundary.status, "active");
+    assert.equal(completed.oauthState.status, "completed");
+    assert.equal(completed.oauthSession.status, "active");
+    assert.equal(JSON.stringify(completed).includes(callbackState), false);
+    assert.equal(JSON.stringify(completed).includes(authorizationCode), false);
+    assert.equal(JSON.stringify(completed).includes(clientId), false);
+    const completedReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${completed.receiptId}`);
+    assert.equal(completedReceipt.kind, "catalog_oauth_callback");
+    const projection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
+    assert.ok(projection.oauthStates.some((state) => state.status === "completed" && state.id === completed.oauthState.id));
+    assert.ok(projection.oauthSessions.some((session) => session.status === "active" && session.id === completed.oauthSession.id));
+    const secretScan = scanFilesForNeedles(stateDir, [
+      grant.token,
+      clientId,
+      effectiveCallbackUrl,
+      callbackState,
+      authorizationCode,
+      started.authorizationUrl,
+      oauthState,
+      codeChallenge,
+      fixtureOAuthServer?.secrets.accessToken,
+      fixtureOAuthServer?.secrets.refreshToken,
+      fixtureOAuthServer?.secrets.authorizationCode,
+    ]);
+    assert.equal(secretScan.passed, true);
+    const fixtureObserved = fixtureOAuthServer?.observed() ?? [];
+    if (fixtureOAuthServer) {
+      assert.ok(fixtureObserved.some((entry) => entry.kind === "authorization"));
+      assert.ok(fixtureObserved.some((entry) => entry.kind === "token" && entry.codeVerifierHash));
+    }
+    evidence.status = "passed";
+    evidence.result = {
+      providerId,
+      reason: fixtureOAuthServer ? "model_catalog_oauth_fixture_completed" : "model_catalog_oauth_completed",
+      status: completed.oauthBoundary.status,
+      stateId: completed.oauthState.id,
+      sessionId: completed.oauthSession.id,
+      authorizationUrlHash: started.authorizationUrlHash,
+      startReceiptId: started.receiptId,
+      callbackReceiptId: completed.receiptId,
+      loopbackCallbackUrlHash: effectiveCallbackUrl ? stableHash(effectiveCallbackUrl) : null,
+      fixtureObserved,
+      projectionOAuthStateCount: projection.oauthStates.length,
+      projectionOAuthSessionCount: projection.oauthSessions.length,
+      secretScan,
+    };
+    });
+  } finally {
+    if (loopbackServer) await loopbackServer.close();
+    if (fixtureOAuthServer) await fixtureOAuthServer.close();
+  }
+}
+
 function sensitiveSourceUrlNeedle(source) {
   try {
     const url = new URL(source);
@@ -1716,6 +2272,8 @@ async function main() {
       await runModelBackendsGate(evidence);
     } else if (gateName === "model-catalog") {
       await runModelCatalogGate(evidence);
+    } else if (gateName === "model-catalog-oauth") {
+      await runModelCatalogOAuthGate(evidence);
     } else if (gateName === "wallet") {
       await runWalletGate(evidence);
     } else if (gateName === "agentgres") {

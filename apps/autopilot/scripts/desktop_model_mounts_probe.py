@@ -843,6 +843,40 @@ def exercise_download_row_actions(
     }
 
 
+def capture_catalog_oauth_controls(
+    window_id: int,
+    output_root: Path,
+    dev_url: str,
+    endpoint: str,
+) -> dict[str, Any]:
+    """Capture the lower Downloads area where catalog source and OAuth consent controls live."""
+
+    activate_tab(window_id, "F5")
+    press_action_shortcut(window_id, "alt+o")
+    time.sleep(1.0)
+    screenshot = capture_action_state(
+        window_id,
+        output_root,
+        dev_url,
+        endpoint,
+        tab="downloads",
+        name="downloads-oauth-controls",
+    )
+    assertions = {
+        "oauthControlsScreenshotCaptured": bool(screenshot.get("screenshot")) and not screenshot.get("capture_error"),
+        "downloadsTabFocused": screenshot.get("tab") == "downloads",
+    }
+    return {
+        "passed": all(assertions.values()),
+        "assertions": assertions,
+        "screenshots": [screenshot],
+        "preparation": {
+            "scroll": "alt_o_scroll_into_view",
+            "reason": "validation_shortcut_show_catalog_source_configuration_and_oauth_consent_controls",
+        },
+    }
+
+
 def exercise_model_lifecycle_actions(
     window_id: int,
     output_root: Path,
@@ -1668,6 +1702,7 @@ def main() -> int:
     seeded_assertions: dict[str, Any] | None = None
     model_lifecycle_action_assertions: dict[str, Any] | None = None
     download_action_assertions: dict[str, Any] | None = None
+    catalog_oauth_gui_assertions: dict[str, Any] | None = None
     token_mcp_action_assertions: dict[str, Any] | None = None
     routing_workflow_action_assertions: dict[str, Any] | None = None
     benchmark_observability_action_assertions: dict[str, Any] | None = None
@@ -1757,6 +1792,13 @@ def main() -> int:
             daemon_endpoint,
         )
         print("[model-mounts-gui] exercised provider and backend controls", flush=True)
+        catalog_oauth_gui_assertions = capture_catalog_oauth_controls(
+            window_id,
+            output_root,
+            args.dev_url,
+            daemon_endpoint,
+        )
+        print("[model-mounts-gui] captured catalog OAuth controls", flush=True)
         secret_scan = scan_for_plaintext_secrets(state_dir, str(seed.get("token", "")))
         seeded_assertions = seeded_state_assertions(seed, screenshots)
         if any(item.get("capture_error") for item in screenshots):
@@ -1774,6 +1816,8 @@ def main() -> int:
             raise RuntimeError("Mounts GUI model lifecycle controls did not update daemon projection and receipts.")
         if not download_action_assertions["passed"]:
             raise RuntimeError("Mounts GUI download row actions did not update daemon projection and receipts.")
+        if not catalog_oauth_gui_assertions["passed"]:
+            raise RuntimeError("Mounts GUI catalog OAuth controls were not captured.")
         if not token_mcp_action_assertions["passed"]:
             raise RuntimeError("Mounts GUI token/MCP controls did not update daemon projection and receipts.")
         if not routing_workflow_action_assertions["passed"]:
@@ -1806,6 +1850,7 @@ def main() -> int:
         "seededStateAssertions": seeded_assertions,
         "modelLifecycleActionAssertions": model_lifecycle_action_assertions,
         "downloadActionAssertions": download_action_assertions,
+        "catalogOAuthGuiAssertions": catalog_oauth_gui_assertions,
         "tokenMcpActionAssertions": token_mcp_action_assertions,
         "routingWorkflowActionAssertions": routing_workflow_action_assertions,
         "benchmarkObservabilityActionAssertions": benchmark_observability_action_assertions,

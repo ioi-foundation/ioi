@@ -86,6 +86,13 @@
       "csp": null
     }
   },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["ioi"]
+      }
+    }
+  },
   "bundle": {
     "active": true,
     "targets": "all",

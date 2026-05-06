@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "ioi.model-mounting.live-gate.v1",
+  "gate": "llama-cpp",
+  "status": "skipped",
+  "startedAt": "2026-05-05T22:32:03.955Z",
+  "outputDir": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounting-live/llama-cpp/2026-05-05T22-32-03Z",
+  "commands": [],
+  "details": {},
+  "result": {
+    "reason": "live_gate_not_enabled",
+    "requiredEnv": "IOI_LIVE_LLAMA_CPP=1"
+  },
+  "completedAt": "2026-05-05T22:32:03.955Z"
+}

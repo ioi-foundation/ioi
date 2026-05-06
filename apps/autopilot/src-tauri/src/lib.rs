@@ -650,6 +650,7 @@ pub fn run() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_deep_link::init())
         .manage(Mutex::new(models::AppState::default()))
         .manage(workspace_ide::WorkspaceIdeManager::default())
         .manage(workspace_direct_webview::WorkspaceDirectWebviewManager::default())
@@ -669,6 +670,16 @@ pub fn run() {
                 );
             }
             let app_handle = app.handle();
+            #[cfg(any(target_os = "linux", target_os = "windows"))]
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                if let Err(error) = app.deep_link().register_all() {
+                    eprintln!(
+                        "[Autopilot] Failed to register model-mount OAuth deep link scheme: {}",
+                        error
+                    );
+                }
+            }
             let data_dir = autopilot_data_dir_for(&app_handle);
             if let Err(error) = reset_data_dir_on_boot_if_requested(&data_dir) {
                 eprintln!("[Chat] Failed to reset data directory on boot: {}", error);

@@ -52,6 +52,7 @@
     "test:llama-cpp-live": "node scripts/live-model-mounting-gate.mjs llama-cpp",
     "test:model-backends:live": "node scripts/live-model-mounting-gate.mjs model-backends",
     "test:model-catalog-live": "node scripts/live-model-mounting-gate.mjs model-catalog",
+    "test:model-catalog-oauth-live": "node scripts/live-model-mounting-gate.mjs model-catalog-oauth",
     "test:wallet-live": "node scripts/live-model-mounting-gate.mjs wallet",
     "test:agentgres-live": "node scripts/live-model-mounting-gate.mjs agentgres",
     "evidence:runtime-complete-plus": "node scripts/evidence/runtime-complete-plus.mjs",

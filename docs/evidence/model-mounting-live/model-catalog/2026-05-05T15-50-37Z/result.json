@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "ioi.model-mounting.live-gate.v1",
+  "gate": "model-catalog",
+  "status": "skipped",
+  "startedAt": "2026-05-05T15:50:37.553Z",
+  "outputDir": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounting-live/model-catalog/2026-05-05T15-50-37Z",
+  "commands": [],
+  "details": {},
+  "result": {
+    "reason": "live_gate_not_enabled",
+    "requiredEnv": "IOI_LIVE_MODEL_CATALOG=1"
+  },
+  "completedAt": "2026-05-05T15:50:37.554Z"
+}

@@ -1188,6 +1188,34 @@
   overflow-wrap: anywhere;
 }
 
+.model-mounts-provider-editor-head {
+  min-width: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+}
+
+.model-mounts-provider-editor-head div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.model-mounts-provider-editor-head strong {
+  min-width: 0;
+  color: var(--chat-text);
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.model-mounts-provider-editor-head span {
+  min-width: 0;
+  color: var(--chat-text-secondary);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
 .model-mounts-provider-editor-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
