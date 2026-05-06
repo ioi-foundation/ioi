@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "ioi.model-mounting.live-gate.v1",
+  "gate": "model-catalog-oauth",
+  "status": "blocked",
+  "startedAt": "2026-05-06T18:05:28.468Z",
+  "outputDir": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounting-live/model-catalog-oauth/2026-05-06T18-05-28Z",
+  "commands": [],
+  "details": {
+    "oauth": {
+      "providerId": "catalog.huggingface",
+      "authorizationEndpointHash": "96fe345e3e52e1d659907cf2d0f3ef5dfa1be4e47c5616bf693cf76dc2167681",
+      "tokenEndpointHash": "426a04cd7197d790001eddeb8988f92e084b4d578630aea8f74634d2773c2dd6",
+      "redirectUriHash": "45567fe0f2fb249db5fa03cf9d4d903683beef1bae23142f0830f82fc12c5d46",
+      "redirectUriScheme": "ioi",
+      "clientIdConfigured": true,
+      "clientIdHash": "bb8259a845d279b5cae22ff748c2e9ce6cc1db38fd05cec9649452e3ca920574",
+      "scopes": [
+        "catalog.read",
+        "model.read"
+      ],
+      "pkceRequired": true,
+      "loopbackCallbackEnabled": false,
+      "loopbackTimeoutMs": 120000,
+      "callbackConfigured": false,
+      "callbackUrlHash": null,
+      "customBaseUrlHash": null
+    },
+    "daemonEndpoint": "http://127.0.0.1:38391",
+    "stateDir": "/tmp/ioi-live-model-gate-state-cPiYM8"
+  },
+  "result": {
+    "reason": "model_catalog_oauth_callback_not_supplied",
+    "authorizationUrlHash": "fa484b89e77627905884c159fd34eacdaabf0491a1d2805a4012837c4fe4546c",
+    "authorizationUrlRedacted": "https://huggingface.co/oauth/authorize?response_type=code&client_id=%5BREDACTED%5D&redirect_uri=ioi%3A%2F%2Fmounts%2Foauth%2Fcallback%3FmountsOAuthCallback%3D1%26mountsOAuthProvider%3Dcatalog.huggingface&state=%5BREDACTED%5D&scope=catalog.read+model.read&code_challenge=%5BREDACTED%5D&code_challenge_method=S256",
+    "oauthStateHash": "481c59c843eb85436769c277d97aeb2bd7444c7324d316b23844e538ac7cd61d",
+    "stateId": "oauth_state.catalog.huggingface.7d846de6-dc69-4242-97d8-eec2b2fd3758",
+    "pkceRequired": true,
+    "receiptId": "receipt_catalog_oauth_start_60c602b6-50e4-461a-9fca-64b2bd3d07d6",
+    "secretScan": {
+      "passed": true,
+      "findings": []
+    },
+    "nextLiveStep": "Rerun with IOI_MODEL_CATALOG_OAUTH_LOCAL_CALLBACK=1 to keep this process alive for the browser callback, or complete the provider OAuth flow from the Mounts desktop UI."
+  },
+  "completedAt": "2026-05-06T18:05:31.052Z"
+}

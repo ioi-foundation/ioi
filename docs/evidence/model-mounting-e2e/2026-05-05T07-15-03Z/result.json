@@ -1,0 +1,198 @@
+{
+  "schemaVersion": "ioi.model-mounting.e2e.v1",
+  "startedAt": "2026-05-05T07:15:03.533Z",
+  "outputRoot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounting-e2e/2026-05-05T07-15-03Z",
+  "workspaceDir": "/tmp/ioi-model-mounting-e2e-workspace-7hHhF8",
+  "stateDir": "/tmp/ioi-model-mounting-e2e-state-0kxnBd",
+  "daemonEndpoint": "http://127.0.0.1:45185",
+  "steps": [
+    {
+      "name": "server status and fail-closed token probes",
+      "status": "passed",
+      "startedAt": "2026-05-05T07:15:03.984Z",
+      "completedAt": "2026-05-05T07:15:04.148Z",
+      "summary": {
+        "nativeBaseUrl": "http://127.0.0.1:45185/api/v1",
+        "openAiCompatibleBaseUrl": "http://127.0.0.1:45185/v1",
+        "failClosedStatuses": [
+          401,
+          403,
+          403,
+          403
+        ]
+      }
+    },
+    {
+      "name": "create scoped capability token",
+      "status": "passed",
+      "startedAt": "2026-05-05T07:15:04.148Z",
+      "completedAt": "2026-05-05T07:15:04.178Z",
+      "summary": {
+        "id": "grant_fb1162f2-90d0-4159-8b59-c0315d170913",
+        "audience": "autopilot-local-server",
+        "allowed": [
+          "model.chat:*",
+          "model.responses:*",
+          "model.embeddings:*",
+          "model.rerank:*",
+          "model.load:*",
+          "model.unload:*",
+          "model.mount:*",
+          "model.download:*",
+          "model.import:*",
+          "backend.control:*",
+          "provider.write:*",
+          "vault.write:*",
+          "vault.read:*",
+          "vault.delete:*",
+          "route.write:*",
+          "route.use:*",
+          "mcp.import:*",
+          "mcp.call:huggingface.model_search"
+        ],
+        "denied": [
+          "connector.gmail.send",
+          "filesystem.write",
+          "shell.exec"
+        ],
+        "expiresAt": "2026-05-06T07:15:04.149Z",
+        "revocationEpoch": 0,
+        "grantId": "wallet.grant.bf2fc56c-87d5-4592-998e-812bc7e900fb",
+        "createdAt": "2026-05-05T07:15:04.149Z",
+        "revokedAt": null,
+        "lastUsedAt": null,
+        "lastUsedScope": null,
+        "vaultRefs": {},
+        "auditReceiptIds": [],
+        "receiptId": "receipt_permission_token_95fb33c2-bdb6-43f9-be33-965de94dc854",
+        "token": "[REDACTED]"
+      }
+    },
+    {
+      "name": "discover providers and backends",
+      "status": "passed",
+      "startedAt": "2026-05-05T07:15:04.178Z",
+      "completedAt": "2026-05-05T07:15:04.265Z",
+      "summary": {
+        "providers": 12,
+        "backends": 7,
+        "artifacts": 5,
+        "routes": 2
+      }
+    },
+    {
+      "name": "import, mount, and load deterministic native-local artifact",
+      "status": "passed",
+      "startedAt": "2026-05-05T07:15:04.265Z",
+      "completedAt": "2026-05-05T07:15:04.417Z",
+      "summary": {
+        "artifactId": "import.native.e2e",
+        "endpointId": "endpoint.e2e.native-local",
+        "instanceId": "instance.endpoint.e2e.native.local.1777965304388",
+        "checksum": "sha256:39d622102604e2ac863ff0b4c841ce1593dab1c575eee8a708335c1d57cc102e"
+      }
+    },
+    {
+      "name": "exercise native and OpenAI-compatible inference APIs",
+      "status": "passed",
+      "startedAt": "2026-05-05T07:15:04.417Z",
+      "completedAt": "2026-05-05T07:15:04.654Z",
+      "summary": {
+        "nativeReceiptId": "receipt_model_invocation_460d04ee-88d2-4003-896c-bfabf415f3ed",
+        "compatModel": "native:e2e",
+        "responsesReceiptId": "receipt_model_invocation_bb3655f7-a3a8-4784-87c1-9537f7052445",
+        "embeddingVectors": 2
+      }
+    },
+    {
+      "name": "download lifecycle cancellation and completion",
+      "status": "passed",
+      "startedAt": "2026-05-05T07:15:04.654Z",
+      "completedAt": "2026-05-05T07:15:04.883Z",
+      "summary": {
+        "canceledJobId": "download_job_43fe59ea-15e5-4f72-928f-15d5aa0e4601",
+        "completedJobId": "download_job_a0b11171-0f2c-44ee-a3f2-4410c2ce87ca",
+        "completedReceiptId": "receipt_model_lifecycle_d44f3eb9-349c-4ba5-a309-8eb13dc90618"
+      }
+    },
+    {
+      "name": "persistent and ephemeral MCP through governed receipts",
+      "status": "passed",
+      "startedAt": "2026-05-05T07:15:04.883Z",
+      "completedAt": "2026-05-05T07:15:05.087Z",
+      "summary": {
+        "persistentToolReceiptId": "receipt_mcp_tool_invocation_9a55ba2e-8883-44ee-bead-1c45e4075b90",
+        "ephemeralReceiptId": "receipt_model_invocation_5ce439d0-fa25-43d0-800e-8cbbdcdafc8c",
+        "linkedToolReceipts": 1
+      }
+    },
+    {
+      "name": "route policy and workflow node execution",
+      "status": "passed",
+      "startedAt": "2026-05-05T07:15:05.087Z",
+      "completedAt": "2026-05-05T07:15:05.336Z",
+      "summary": {
+        "routerSelectedEndpoint": "endpoint.e2e.native-local",
+        "modelCallReceiptId": "receipt_model_invocation_20098067-80af-4881-a7a1-930f73e8fde5",
+        "embeddingReceiptId": "receipt_model_invocation_c2a9c3dd-cc1c-4062-8df8-f39335014187",
+        "localToolReceiptId": "receipt_mcp_tool_invocation_be0c7cdf-dd8f-4f60-b135-b400d644b218",
+        "receiptGateReceiptId": "receipt_workflow_receipt_gate_87cee883-89c7-4f83-996b-616c74808244"
+      }
+    },
+    {
+      "name": "CLI sees same daemon state",
+      "status": "failed",
+      "startedAt": "2026-05-05T07:15:05.336Z",
+      "completedAt": "2026-05-05T07:15:05.790Z",
+      "error": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli vault --endpoint http://127.0.0.1:45185 --json status exited with 2\n\nerror: unrecognized subcommand 'status'\n\nUsage: cli vault [OPTIONS] <COMMAND>\n\nFor more information, try '--help'.\n"
+    }
+  ],
+  "commands": [
+    {
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli server --endpoint http://127.0.0.1:45185 --json status",
+      "status": "passed",
+      "stdoutBytes": 455,
+      "stderrBytes": 0
+    },
+    {
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli backends --endpoint http://127.0.0.1:45185 --json ls",
+      "status": "passed",
+      "stdoutBytes": 7185,
+      "stderrBytes": 0
+    },
+    {
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli models --endpoint http://127.0.0.1:45185 --json ls",
+      "status": "passed",
+      "stdoutBytes": 97759,
+      "stderrBytes": 0
+    },
+    {
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli models --endpoint http://127.0.0.1:45185 --json provider-models provider.autopilot.local",
+      "status": "passed",
+      "stdoutBytes": 19242,
+      "stderrBytes": 0
+    },
+    {
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli vault --endpoint http://127.0.0.1:45185 --json set --vault-ref vault://provider/e2e-cli/api-key --material-env IOI_E2E_CLI_VAULT_SECRET --purpose provider.auth:provider.e2e.cli-auth --label CLI Auth Provider",
+      "status": "passed",
+      "stdoutBytes": 845,
+      "stderrBytes": 0
+    },
+    {
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli vault --endpoint http://127.0.0.1:45185 --json get-meta --vault-ref vault://provider/e2e-cli/api-key",
+      "status": "passed",
+      "stdoutBytes": 764,
+      "stderrBytes": 0
+    },
+    {
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli vault --endpoint http://127.0.0.1:45185 --json status",
+      "status": "failed",
+      "stdoutBytes": 0,
+      "stderrBytes": 115
+    }
+  ],
+  "artifacts": {},
+  "passed": false,
+  "error": "Error: /home/heathledger/Documents/ioi/repos/ioi/target/debug/cli vault --endpoint http://127.0.0.1:45185 --json status exited with 2\n\nerror: unrecognized subcommand 'status'\n\nUsage: cli vault [OPTIONS] <COMMAND>\n\nFor more information, try '--help'.\n\n    at ChildProcess.<anonymous> (file:///home/heathledger/Documents/ioi/repos/ioi/scripts/validate-model-mounting-e2e.mjs:173:16)\n    at ChildProcess.emit (node:events:519:28)\n    at maybeClose (node:internal/child_process:1101:16)\n    at ChildProcess._handle.onexit (node:internal/child_process:304:5)",
+  "completedAt": "2026-05-05T07:15:05.791Z"
+}

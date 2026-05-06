@@ -150,6 +150,49 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   assert.match(source, /selectionReceiptFields/);
   assert.match(source, /oauthSessionHash/);
   assert.match(source, /OAuth session/);
+  assert.match(source, /OAuth consent/);
+  assert.match(source, /catalogOAuthProviderPresets/);
+  assert.match(source, /Custom HTTP OAuth template/);
+  assert.match(source, /Hugging Face-compatible OAuth/);
+  assert.match(source, /Apply OAuth preset/);
+  assert.match(source, /catalogOAuthDefaultRedirectUri/);
+  assert.match(source, /CATALOG_OAUTH_DEEP_LINK_SCHEME/);
+  assert.match(source, /CATALOG_OAUTH_DEEP_LINK_HOST/);
+  assert.match(source, /CATALOG_OAUTH_DEEP_LINK_PATH/);
+  assert.match(source, /catalogOAuthDeepLinkRedirectUri/);
+  assert.match(source, /mountsOAuthCallback/);
+  assert.match(source, /mountsOAuthProvider/);
+  assert.match(source, /readCatalogOAuthCallbackFromLocation/);
+  assert.match(source, /readCatalogOAuthCallbackFromDeepLink/);
+  assert.match(source, /firstCatalogOAuthCallbackFromDeepLinks/);
+  assert.match(source, /sanitizeCatalogOAuthCallbackUrl/);
+  assert.match(source, /getCurrentDeepLinks/);
+  assert.match(source, /onOpenUrl/);
+  assert.match(source, /completeCatalogProviderOAuthCallback/);
+  assert.match(source, /catalog-oauth-deeplink-callback/);
+  assert.match(source, /\/api\/v1\/models\/catalog\/providers\/\$\{encodeURIComponent\(draft\.providerId\)\}\/oauth\/start/);
+  assert.match(source, /\/api\/v1\/models\/catalog\/providers\/\$\{encodeURIComponent\(draft\.providerId\)\}\/oauth\/callback/);
+  assert.match(source, /Start OAuth/);
+  assert.match(source, /Open authorization URL/);
+  assert.match(source, /Copy authorization URL/);
+  assert.match(source, /Complete OAuth callback/);
+  assert.match(source, /data-mounts-oauth-panel="true"/);
+  assert.match(source, /scrollCatalogOAuthValidationControls/);
+  assert.match(source, /event\.altKey && event\.key\.toLowerCase\(\) === "o"/);
+  assert.match(source, /event\.key === "F22"/);
+  assert.match(source, /catalogOAuthAuthorization/);
+  assert.match(source, /authorizationUrlRedacted/);
+  assert.match(source, /authorizationUrlHash/);
+  assert.match(source, /oauthStateHash/);
+  assert.match(source, /pkce_required/);
+  assert.match(source, /Callback state/);
+  assert.match(source, /Authorization code/);
+  assert.match(source, /type="password" value=\{oauthDraft\.callbackUrl\}/);
+  assert.match(source, /type="password" value=\{oauthDraft\.callbackState\}/);
+  assert.match(source, /type="password" value=\{oauthDraft\.authorizationCode\}/);
+  assert.match(source, /window\.navigator\.clipboard\?\.writeText\(activeOAuthAuthorization\.authorizationUrl\)/);
+  assert.doesNotMatch(source, /localStorage\.setItem\([^,\n]*(oauth|state|verifier|authorizationUrl|code)/i);
+  assert.doesNotMatch(source, /sessionStorage\.setItem\([^,\n]*(oauth|state|verifier|authorizationUrl|code)/i);
   assert.match(source, /Failed or canceled jobs/);
   assert.match(source, /Failure class/);
   assert.match(source, /failureClass/);
@@ -404,6 +447,20 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   assert.match(source, /policy blocked/);
 });
 
+test("Mounts OAuth callback is packaged as a Tauri desktop deep link", () => {
+  const tauriConfig = JSON.parse(fs.readFileSync(path.join(root, "apps", "autopilot", "src-tauri", "tauri.conf.json"), "utf8"));
+  const capability = JSON.parse(fs.readFileSync(path.join(root, "apps", "autopilot", "src-tauri", "capabilities", "default.json"), "utf8"));
+  const cargoToml = fs.readFileSync(path.join(root, "apps", "autopilot", "src-tauri", "Cargo.toml"), "utf8");
+  const tauriLib = fs.readFileSync(path.join(root, "apps", "autopilot", "src-tauri", "src", "lib.rs"), "utf8");
+  const autopilotPackage = JSON.parse(fs.readFileSync(path.join(root, "apps", "autopilot", "package.json"), "utf8"));
+  assert.deepEqual(tauriConfig.plugins?.["deep-link"]?.desktop?.schemes, ["ioi"]);
+  assert.ok(capability.permissions.includes("deep-link:default"));
+  assert.match(cargoToml, /tauri-plugin-deep-link = "2\.4\.9"/);
+  assert.match(tauriLib, /tauri_plugin_deep_link::init\(\)/);
+  assert.match(tauriLib, /app\.deep_link\(\)\.register_all\(\)/);
+  assert.equal(autopilotPackage.dependencies["@tauri-apps/plugin-deep-link"], "^2.4.9");
+});
+
 test("Mounts GUI validation uses a dedicated desktop harness", () => {
   const packageJson = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
   const runnerPath = path.join(root, "scripts", "run-model-mounts-gui-validation.mjs");
@@ -512,6 +569,10 @@ test("model mounting live-provider gates are explicit and opt-in", () => {
     "node scripts/live-model-mounting-gate.mjs model-catalog",
   );
   assert.equal(
+    packageJson.scripts["test:model-catalog-oauth-live"],
+    "node scripts/live-model-mounting-gate.mjs model-catalog-oauth",
+  );
+  assert.equal(
     packageJson.scripts["test:wallet-live"],
     "node scripts/live-model-mounting-gate.mjs wallet",
   );
@@ -535,6 +596,16 @@ test("model mounting live-provider gates are explicit and opt-in", () => {
     "IOI_MODEL_CATALOG_DOWNLOAD_FIRST_RESULT",
     "IOI_MODEL_CATALOG_DOWNLOAD_MAX_BYTES",
     "IOI_MODEL_DOWNLOAD_MAX_BYTES",
+    "IOI_LIVE_MODEL_CATALOG_OAUTH",
+    "IOI_MODEL_CATALOG_OAUTH_CLIENT_ID",
+    "IOI_MODEL_CATALOG_OAUTH_CALLBACK_URL",
+    "IOI_MODEL_CATALOG_OAUTH_FIXTURE",
+    "IOI_MODEL_CATALOG_OAUTH_LOCAL_CALLBACK",
+    "IOI_MODEL_CATALOG_OAUTH_BROWSER_COMMAND",
+    "model_catalog_oauth_fixture_completed",
+    "model_catalog_oauth_callback_not_supplied",
+    "model_catalog_oauth_client_id_not_configured",
+    "model-catalog-oauth",
     "exerciseLiveChatStreamReceipts",
     "model_invocation_stream_completed",
     "model_invocation_stream_canceled",

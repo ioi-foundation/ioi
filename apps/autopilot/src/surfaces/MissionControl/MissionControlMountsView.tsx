@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { getCurrent as getCurrentDeepLinks, onOpenUrl } from "@tauri-apps/plugin-deep-link";
 import "./MissionControlMountsView.css";
 
 type MountsTab = "server" | "backends" | "models" | "providers" | "downloads" | "tokens" | "routing" | "benchmarks" | "logs";
@@ -9,6 +10,9 @@ const VALIDATION_TOKEN_GRANT_ID = "wallet.grant.mounts.gui.validation";
 const VALIDATION_LIFECYCLE_MODEL_ID = "autopilot:gui-lifecycle";
 const VALIDATION_LIFECYCLE_ENDPOINT_ID = "endpoint.autopilot.gui-lifecycle";
 const VALIDATION_LIFECYCLE_IDENTIFIER = "gui-lifecycle-validation";
+const CATALOG_OAUTH_DEEP_LINK_SCHEME = "ioi";
+const CATALOG_OAUTH_DEEP_LINK_HOST = "mounts";
+const CATALOG_OAUTH_DEEP_LINK_PATH = "/oauth/callback";
 
 interface ActionGuard {
   tone: StatusTone;
@@ -373,8 +377,11 @@ interface CatalogProviderPreview {
   catalogAuthScheme: string;
   catalogAuthHeaderNameHash: string;
   oauthSessionHash: string;
+  oauthStateHash: string;
   oauthBoundaryStatus: string;
   oauthBoundaryExpiresAt: string;
+  oauthBoundaryScopes: string[];
+  oauthPkceRequired: boolean;
   materialVaultRefHash: string;
   configHash: string;
   enabled: boolean;
@@ -384,6 +391,51 @@ interface CatalogProviderPreview {
   vaultMaterialSource: string;
   errorHash: string;
 }
+
+interface CatalogOAuthStartPreview {
+  providerId: string;
+  stateId: string;
+  stateHash: string;
+  status: string;
+  authorizationUrl: string;
+  authorizationUrlRedacted: string;
+  authorizationUrlHash: string;
+  expiresAt: string;
+  pkceRequired: boolean;
+  scopes: string[];
+}
+
+interface CatalogOAuthDraft {
+  providerId: string;
+  authorizationEndpoint: string;
+  tokenEndpoint: string;
+  redirectUri: string;
+  clientId: string;
+  scopes: string;
+  pkceRequired: boolean;
+  callbackUrl: string;
+  callbackState: string;
+  authorizationCode: string;
+}
+
+interface CatalogOAuthProviderPreset {
+  id: string;
+  label: string;
+  providerId: string;
+  authorizationEndpoint: string;
+  tokenEndpoint: string;
+  scopes: string;
+  pkceRequired: boolean;
+  evidence: string;
+}
+
+interface CatalogOAuthCallbackDeepLink {
+  providerId: string;
+  state: string;
+  code: string;
+}
+
+type CatalogOAuthCallbackAction = (providerId: string, callback: CatalogOAuthCallbackDeepLink) => void | Promise<void>;
 
 interface CatalogPreview {
   providers: CatalogProviderPreview[];
@@ -512,6 +564,7 @@ interface CatalogTransferPolicyDraft {
 interface MountsWorkbenchData {
   server: ServerPreview;
   catalog: CatalogPreview;
+  catalogOAuthAuthorization: CatalogOAuthStartPreview | null;
   artifacts: ModelArtifact[];
   endpoints: ModelEndpoint[];
   instances: ModelInstance[];
@@ -590,6 +643,42 @@ const defaultObservabilityFilters: ObservabilityFilters = {
   payloadPreview: true,
 };
 
+const defaultCatalogOAuthDraft: CatalogOAuthDraft = {
+  providerId: "catalog.custom_http",
+  authorizationEndpoint: "",
+  tokenEndpoint: "",
+  redirectUri: catalogOAuthDefaultRedirectUri("catalog.custom_http"),
+  clientId: "",
+  scopes: "catalog.read",
+  pkceRequired: true,
+  callbackUrl: "",
+  callbackState: "",
+  authorizationCode: "",
+};
+
+const catalogOAuthProviderPresets: CatalogOAuthProviderPreset[] = [
+  {
+    id: "custom-http-template",
+    label: "Custom HTTP OAuth template",
+    providerId: "catalog.custom_http",
+    authorizationEndpoint: "https://catalog.example.test/oauth/authorize",
+    tokenEndpoint: "https://catalog.example.test/oauth/token",
+    scopes: "catalog.read",
+    pkceRequired: true,
+    evidence: "Use for private catalog providers that expose OAuth2 authorization-code plus PKCE.",
+  },
+  {
+    id: "huggingface-compatible",
+    label: "Hugging Face-compatible OAuth",
+    providerId: "catalog.huggingface",
+    authorizationEndpoint: "https://huggingface.co/oauth/authorize",
+    tokenEndpoint: "https://huggingface.co/oauth/token",
+    scopes: "catalog.read model.read",
+    pkceRequired: true,
+    evidence: "Use as a public-surface template; live app registration still owns exact scopes and redirect allow-listing.",
+  },
+];
+
 const tabs: Array<{ id: MountsTab; label: string }> = [
   { id: "server", label: "Local Server" },
   { id: "backends", label: "Backends" },
@@ -647,6 +736,9 @@ const fallbackData: MountsWorkbenchData = {
 	        oauthSessionHash: "none",
 	        oauthBoundaryStatus: "none",
 	        oauthBoundaryExpiresAt: "none",
+	        oauthStateHash: "none",
+	        oauthBoundaryScopes: [],
+	        oauthPkceRequired: false,
 	        materialVaultRefHash: "none",
 	        configHash: "none",
         enabled: true,
@@ -677,6 +769,9 @@ const fallbackData: MountsWorkbenchData = {
 	        oauthSessionHash: "none",
 	        oauthBoundaryStatus: "none",
 	        oauthBoundaryExpiresAt: "none",
+	        oauthStateHash: "none",
+	        oauthBoundaryScopes: [],
+	        oauthPkceRequired: false,
 	        materialVaultRefHash: "none",
 	        configHash: "none",
         enabled: true,
@@ -707,6 +802,9 @@ const fallbackData: MountsWorkbenchData = {
 	        oauthSessionHash: "none",
 	        oauthBoundaryStatus: "none",
 	        oauthBoundaryExpiresAt: "none",
+	        oauthStateHash: "none",
+	        oauthBoundaryScopes: [],
+	        oauthPkceRequired: false,
 	        materialVaultRefHash: "none",
 	        configHash: "none",
         enabled: true,
@@ -737,6 +835,9 @@ const fallbackData: MountsWorkbenchData = {
 	        oauthSessionHash: "none",
 	        oauthBoundaryStatus: "none",
 	        oauthBoundaryExpiresAt: "none",
+	        oauthStateHash: "none",
+	        oauthBoundaryScopes: [],
+	        oauthPkceRequired: false,
 	        materialVaultRefHash: "none",
 	        configHash: "none",
         enabled: true,
@@ -767,6 +868,9 @@ const fallbackData: MountsWorkbenchData = {
 	        oauthSessionHash: "none",
 	        oauthBoundaryStatus: "none",
 	        oauthBoundaryExpiresAt: "none",
+	        oauthStateHash: "none",
+	        oauthBoundaryScopes: [],
+	        oauthPkceRequired: false,
 	        materialVaultRefHash: "none",
 	        configHash: "none",
         enabled: true,
@@ -787,6 +891,7 @@ const fallbackData: MountsWorkbenchData = {
     orphanCount: 0,
     fileCount: 0,
   },
+  catalogOAuthAuthorization: null,
   providers: [
     provider("provider.local.folder", "Local model folder", "local_folder", "available", "local_private", "fixture", "local://models", "no auth", [
       "chat",
@@ -1950,6 +2055,10 @@ function readInitialTab(): MountsTab {
   return "server";
 }
 
+function isTauriRuntime() {
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+}
+
 function readValidationActionsEnabled() {
   try {
     if (new URLSearchParams(window.location.search).get("mountsValidationActions") === "1") return true;
@@ -1967,6 +2076,7 @@ function useModelMountsDaemon() {
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [catalogVariants, setCatalogVariants] = useState<CatalogVariantPreview[]>([]);
+  const [catalogOAuthAuthorization, setCatalogOAuthAuthorization] = useState<CatalogOAuthStartPreview | null>(null);
 
   const setEndpoint = useCallback((nextEndpoint: string) => {
     setEndpointState(nextEndpoint);
@@ -2141,6 +2251,7 @@ function useModelMountsDaemon() {
     endpoint,
     setEndpoint,
     data,
+    catalogOAuthAuthorization,
     catalogVariants,
     connectionState,
     message,
@@ -2360,6 +2471,44 @@ function useModelMountsDaemon() {
             body,
           });
           return `Catalog URL import created ${stringValue(result?.download?.id, "a download job")}.`;
+        }),
+      startCatalogProviderOAuth: (draft: CatalogOAuthDraft) =>
+        runAction("catalog-oauth-start", async () => {
+          const token = await ensureToken();
+          const result = await requestJson(`/api/v1/models/catalog/providers/${encodeURIComponent(draft.providerId)}/oauth/start`, {
+            method: "POST",
+            token,
+            body: catalogOAuthStartPayload(draft),
+          });
+          const authorization = normalizeCatalogOAuthStart(result, draft.providerId);
+          setCatalogOAuthAuthorization(authorization);
+          return `${draft.providerId} OAuth authorization started; transient URL hash ${authorization.authorizationUrlHash}.`;
+        }),
+      completeCatalogProviderOAuth: (draft: CatalogOAuthDraft) =>
+        runAction("catalog-oauth-callback", async () => {
+          const token = await ensureToken();
+          const callback = catalogOAuthCallbackPayload(draft, catalogOAuthAuthorization);
+          const result = await requestJson(`/api/v1/models/catalog/providers/${encodeURIComponent(draft.providerId)}/oauth/callback`, {
+            method: "POST",
+            token,
+            body: callback,
+          });
+          setCatalogOAuthAuthorization(null);
+          return `${draft.providerId} OAuth callback ${stringValue(result?.oauthState?.status, "completed")}; session ${stringValue(result?.oauthSession?.oauthSessionHash, "redacted")}.`;
+        }),
+      completeCatalogProviderOAuthCallback: (providerId: string, callback: CatalogOAuthCallbackDeepLink) =>
+        runAction("catalog-oauth-deeplink-callback", async () => {
+          const token = await ensureToken();
+          const result = await requestJson(`/api/v1/models/catalog/providers/${encodeURIComponent(providerId)}/oauth/callback`, {
+            method: "POST",
+            token,
+            body: {
+              state: callback.state,
+              code: callback.code,
+            },
+          });
+          setCatalogOAuthAuthorization(null);
+          return `${providerId} OAuth callback ${stringValue(result?.oauthState?.status, "completed")}; session ${stringValue(result?.oauthSession?.oauthSessionHash, "redacted")}.`;
         }),
       downloadCatalogVariant: (variant: CatalogVariantPreview, maxBytes?: string, transferApproved = false, policy: CatalogTransferPolicyDraft = { bandwidthBps: "", retryLimit: "0", resumeDownload: true }) =>
         runAction("catalog-download-selected", async () => {
@@ -2984,6 +3133,156 @@ function providerDraftPayload(draft: ProviderDraft) {
   };
 }
 
+function catalogOAuthStartPayload(draft: CatalogOAuthDraft) {
+  return {
+    authorization_endpoint: draft.authorizationEndpoint.trim(),
+    token_endpoint: draft.tokenEndpoint.trim(),
+    redirect_uri: draft.redirectUri.trim(),
+    client_id: draft.clientId.trim(),
+    scopes: tokenScopeList(draft.scopes),
+    pkce_required: draft.pkceRequired,
+  };
+}
+
+function catalogOAuthDeepLinkRedirectUri(providerId: string) {
+  const url = new URL(`${CATALOG_OAUTH_DEEP_LINK_SCHEME}://${CATALOG_OAUTH_DEEP_LINK_HOST}${CATALOG_OAUTH_DEEP_LINK_PATH}`);
+  url.searchParams.set("mountsOAuthCallback", "1");
+  url.searchParams.set("mountsOAuthProvider", providerId);
+  return url.toString();
+}
+
+function catalogOAuthDefaultRedirectUri(providerId: string) {
+  if (isTauriRuntime()) return catalogOAuthDeepLinkRedirectUri(providerId);
+  if (typeof window === "undefined") return "http://127.0.0.1/oauth/callback";
+  const current = new URL(window.location.href);
+  current.hash = "";
+  current.searchParams.set("view", "mounts");
+  current.searchParams.set("mountsTab", "downloads");
+  current.searchParams.set("mountsOAuthCallback", "1");
+  current.searchParams.set("mountsOAuthProvider", providerId);
+  current.searchParams.delete("code");
+  current.searchParams.delete("state");
+  current.searchParams.delete("error");
+  return current.toString();
+}
+
+function catalogOAuthDraftFromPreset(preset: CatalogOAuthProviderPreset): CatalogOAuthDraft {
+  return {
+    ...defaultCatalogOAuthDraft,
+    providerId: preset.providerId,
+    authorizationEndpoint: preset.authorizationEndpoint,
+    tokenEndpoint: preset.tokenEndpoint,
+    redirectUri: catalogOAuthDefaultRedirectUri(preset.providerId),
+    scopes: preset.scopes,
+    pkceRequired: preset.pkceRequired,
+  };
+}
+
+function catalogOAuthCallbackPayload(draft: CatalogOAuthDraft, authorization: CatalogOAuthStartPreview | null) {
+  const parsed = parseOAuthCallbackDraft(draft);
+  return {
+    state_id: authorization?.providerId === draft.providerId ? authorization.stateId : undefined,
+    state: parsed.state,
+    code: parsed.code,
+  };
+}
+
+function readCatalogOAuthCallbackFromLocation(): CatalogOAuthCallbackDeepLink | null {
+  if (typeof window === "undefined") return null;
+  const params = new URLSearchParams(window.location.search);
+  const isMountsCallback = params.get("mountsOAuthCallback") === "1";
+  const code = params.get("code") ?? "";
+  const state = params.get("state") ?? "";
+  if (!isMountsCallback || !code || !state) return null;
+  return {
+    providerId: params.get("mountsOAuthProvider") || params.get("oauthProvider") || "catalog.huggingface",
+    code,
+    state,
+  };
+}
+
+function readCatalogOAuthCallbackFromDeepLink(rawUrl: string): CatalogOAuthCallbackDeepLink | null {
+  let url: URL;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    return null;
+  }
+
+  const scheme = url.protocol.replace(/:$/, "");
+  const isMountsCallback =
+    scheme === CATALOG_OAUTH_DEEP_LINK_SCHEME &&
+    url.hostname === CATALOG_OAUTH_DEEP_LINK_HOST &&
+    url.pathname === CATALOG_OAUTH_DEEP_LINK_PATH;
+  if (!isMountsCallback) return null;
+
+  const code = url.searchParams.get("code") ?? "";
+  const state = url.searchParams.get("state") ?? "";
+  if (!code || !state) return null;
+
+  return {
+    providerId: url.searchParams.get("mountsOAuthProvider") || url.searchParams.get("oauthProvider") || "catalog.huggingface",
+    code,
+    state,
+  };
+}
+
+function firstCatalogOAuthCallbackFromDeepLinks(urls: string[]): CatalogOAuthCallbackDeepLink | null {
+  for (const url of urls) {
+    const callback = readCatalogOAuthCallbackFromDeepLink(url);
+    if (callback) return callback;
+  }
+  return null;
+}
+
+function sanitizeCatalogOAuthCallbackUrl() {
+  if (typeof window === "undefined") return;
+  const current = new URL(window.location.href);
+  if (!current.searchParams.has("mountsOAuthCallback") && !current.searchParams.has("code") && !current.searchParams.has("state")) return;
+  ["mountsOAuthCallback", "mountsOAuthProvider", "oauthProvider", "code", "state", "error"].forEach((key) => current.searchParams.delete(key));
+  window.history.replaceState(window.history.state, document.title, `${current.pathname}${current.search}${current.hash}`);
+}
+
+const daemonSafeNoopCatalogOAuthCallback: CatalogOAuthCallbackAction = (_providerId, _callback) => {
+  return undefined;
+};
+
+function normalizeCatalogOAuthStart(value: any, providerId: string): CatalogOAuthStartPreview {
+  return {
+    providerId,
+    stateId: stringValue(value?.oauthState?.id, "oauth_state.redacted"),
+    stateHash: stringValue(value?.oauthState?.stateHash, stringValue(value?.oauthState?.oauthStateHash, "none")),
+    status: stringValue(value?.oauthState?.status, "pending"),
+    authorizationUrl: stringValue(value?.authorizationUrl, ""),
+    authorizationUrlRedacted: stringValue(value?.authorizationUrlRedacted, "redacted authorization URL"),
+    authorizationUrlHash: stringValue(value?.authorizationUrlHash, "none"),
+    expiresAt: stringValue(value?.oauthState?.expiresAt, "none"),
+    pkceRequired: Boolean(value?.oauthState?.pkceRequired ?? true),
+    scopes: stringArray(value?.oauthState?.scopes),
+  };
+}
+
+function parseOAuthCallbackDraft(draft: CatalogOAuthDraft) {
+  const pasted = draft.callbackUrl.trim();
+  let parsedState = "";
+  let parsedCode = "";
+  if (pasted) {
+    try {
+      const url = new URL(pasted);
+      parsedState = url.searchParams.get("state") ?? "";
+      parsedCode = url.searchParams.get("code") ?? "";
+    } catch {
+      const params = new URLSearchParams(pasted.replace(/^[?#]/, ""));
+      parsedState = params.get("state") ?? "";
+      parsedCode = params.get("code") ?? "";
+    }
+  }
+  return {
+    state: draft.callbackState.trim() || parsedState,
+    code: draft.authorizationCode.trim() || parsedCode,
+  };
+}
+
 function csvList(value: string) {
   return value
     .split(/,|\n| -> /)
@@ -3226,6 +3525,7 @@ function normalizeSnapshot(snapshot: any, endpoint: string): MountsWorkbenchData
       providerSummary: `${numberValue(snapshot?.server?.providerStates?.available, 0)} available / ${numberValue(snapshot?.server?.providerStates?.degraded, 0)} degraded`,
     },
     catalog: normalizeCatalog(snapshot?.catalog),
+    catalogOAuthAuthorization: null,
     artifacts,
     endpoints,
     instances,
@@ -3404,8 +3704,11 @@ function normalizeCatalog(value: any): CatalogPreview {
       catalogAuthScheme: stringValue(item.catalogAuthScheme, "none"),
       catalogAuthHeaderNameHash: stringValue(item.catalogAuthHeaderNameHash, "none"),
       oauthSessionHash: stringValue(item.oauthSessionHash ?? item.oauthBoundary?.oauthSessionHash, "none"),
+      oauthStateHash: stringValue(item.oauthBoundary?.oauthStateHash, "none"),
       oauthBoundaryStatus: stringValue(item.oauthBoundary?.status, "none"),
       oauthBoundaryExpiresAt: stringValue(item.oauthBoundary?.expiresAt, "none"),
+      oauthBoundaryScopes: stringArray(item.oauthBoundary?.scopes),
+      oauthPkceRequired: Boolean(item.oauthBoundary?.pkceRequired ?? false),
       materialVaultRefHash: stringValue(item.materialVaultRefHash, "none"),
       configHash: stringValue(item.configHash, "none"),
       enabled: item.enabled === undefined ? true : Boolean(item.enabled),
@@ -4760,11 +5063,14 @@ function DownloadsPanel({
   data,
   downloads,
   catalogVariants,
+  catalogOAuthAuthorization,
   connectionState,
   hasSessionToken,
   onDownloadFixture,
   onSearchCatalog,
   onConfigureCatalogProvider,
+  onStartCatalogProviderOAuth,
+  onCompleteCatalogProviderOAuth,
   onImportCatalogUrl,
   onDownloadCatalogVariant,
   onCancelDownload,
@@ -4776,11 +5082,14 @@ function DownloadsPanel({
   data: MountsWorkbenchData;
   downloads: MountsWorkbenchData["downloads"];
   catalogVariants: CatalogVariantPreview[];
+  catalogOAuthAuthorization: CatalogOAuthStartPreview | null;
   connectionState: ConnectionState;
   hasSessionToken: boolean;
   onDownloadFixture: () => void;
   onSearchCatalog: (draft: CatalogSearchDraft) => void;
   onConfigureCatalogProvider: (draft: CatalogProviderConfigDraft) => void;
+  onStartCatalogProviderOAuth: (draft: CatalogOAuthDraft) => void;
+  onCompleteCatalogProviderOAuth: (draft: CatalogOAuthDraft) => void;
   onImportCatalogUrl: (payload: CatalogImportPayload) => void;
   onDownloadCatalogVariant: (variant: CatalogVariantPreview, maxBytes?: string, transferApproved?: boolean, policy?: CatalogTransferPolicyDraft) => void;
   onCancelDownload: (download: DownloadPreview, confirmed?: boolean) => void;
@@ -4799,6 +5108,9 @@ function DownloadsPanel({
 	    authScheme: "bearer",
 	    authHeaderName: "authorization",
 	  });
+  const [oauthDraft, setOauthDraft] = useState<CatalogOAuthDraft>(defaultCatalogOAuthDraft);
+  const [selectedOAuthPresetId, setSelectedOAuthPresetId] = useState(catalogOAuthProviderPresets[0]?.id ?? "");
+  const [oauthCopyState, setOauthCopyState] = useState("not copied");
   const [sourceUrl, setSourceUrl] = useState("fixture://catalog/autopilot-native-3b-q4");
   const [selectedVariantId, setSelectedVariantId] = useState("");
   const [maxBytes, setMaxBytes] = useState("");
@@ -4812,6 +5124,13 @@ function DownloadsPanel({
   const transferPolicy = { bandwidthBps, retryLimit, resumeDownload };
   const updateDraft = (field: keyof CatalogSearchDraft, value: string) => setDraft((current) => ({ ...current, [field]: value }));
   const updateConfigDraft = (field: keyof CatalogProviderConfigDraft, value: string | boolean) => setConfigDraft((current) => ({ ...current, [field]: value }));
+  const updateOAuthDraft = (field: keyof CatalogOAuthDraft, value: string | boolean) => setOauthDraft((current) => ({ ...current, [field]: value }));
+  const applyOAuthPreset = () => {
+    const preset = catalogOAuthProviderPresets.find((candidate) => candidate.id === selectedOAuthPresetId) ?? catalogOAuthProviderPresets[0];
+    if (!preset) return;
+    setOauthDraft(catalogOAuthDraftFromPreset(preset));
+    setOauthCopyState(`preset ${preset.label}`);
+  };
   const catalogProviderOptions = data.catalog.providers;
 	  const configurableCatalogProviders = catalogProviderOptions.filter((provider) => ["catalog.local_manifest", "catalog.custom_http", "catalog.huggingface"].includes(provider.id));
   const filteredCatalogVariants = useMemo(
@@ -4820,6 +5139,8 @@ function DownloadsPanel({
   );
   const selectedCatalogProvider = draft.catalogProviderId === "all" ? null : catalogProviderOptions.find((provider) => provider.id === draft.catalogProviderId) ?? null;
   const selectedConfigProvider = configurableCatalogProviders.find((provider) => provider.id === configDraft.providerId) ?? configurableCatalogProviders[0] ?? null;
+  const selectedOAuthPreset = catalogOAuthProviderPresets.find((preset) => preset.id === selectedOAuthPresetId) ?? catalogOAuthProviderPresets[0] ?? null;
+  const selectedOAuthProvider = configurableCatalogProviders.find((provider) => provider.id === oauthDraft.providerId) ?? null;
   const selectedVariant = filteredCatalogVariants.find((variant) => variant.id === selectedVariantId) ?? filteredCatalogVariants[0] ?? null;
   useEffect(() => {
     if (selectedVariantId && filteredCatalogVariants.some((variant) => variant.id === selectedVariantId)) return;
@@ -4871,6 +5192,26 @@ function DownloadsPanel({
 	          : guardBlocked("base URL missing", "Enter a base URL for the custom HTTP catalog.")
 	        : guardReady("live catalog auth ready", "Live catalog auth can be saved with a vault ref and hashed header metadata."),
 	  );
+  const activeOAuthAuthorization = catalogOAuthAuthorization?.providerId === oauthDraft.providerId ? catalogOAuthAuthorization : null;
+  const parsedOAuthCallback = parseOAuthCallbackDraft(oauthDraft);
+  const oauthStartGuard = combineGuards(
+    connectionActionGuard(connectionState, "catalog OAuth start"),
+    tokenScopeGuard(data, hasSessionToken, "provider.write:*"),
+    tokenScopeGuard(data, hasSessionToken, "vault.write:*"),
+    oauthDraft.providerId.trim() ? guardReady("provider selected", "OAuth authorization state will be bound to the selected catalog provider.") : guardBlocked("provider missing", "Select an OAuth-capable catalog provider."),
+    oauthDraft.authorizationEndpoint.trim() ? guardReady("auth endpoint ready", "Authorization endpoint is used only to build a transient browser URL.") : guardBlocked("auth endpoint missing", "Enter an authorization endpoint."),
+    oauthDraft.tokenEndpoint.trim() ? guardReady("token endpoint ready", "Token endpoint is stored through vault-bound hashed state.") : guardBlocked("token endpoint missing", "Enter a token endpoint."),
+    oauthDraft.redirectUri.trim() ? guardReady("redirect ready", "Redirect URI will be hashed and vault-bound in OAuth authorization state.") : guardBlocked("redirect missing", "Enter the redirect URI registered with the provider."),
+    oauthDraft.clientId.trim() ? guardReady("client id ready", "Client id is hashed and vault-bound; client secrets must remain vault refs.") : guardBlocked("client id missing", "Enter the OAuth client id."),
+  );
+  const oauthCallbackGuard = combineGuards(
+    connectionActionGuard(connectionState, "catalog OAuth callback"),
+    tokenScopeGuard(data, hasSessionToken, "provider.write:*"),
+    tokenScopeGuard(data, hasSessionToken, "vault.write:*"),
+    activeOAuthAuthorization ? guardReady("state pending", "The pending authorization state id will be sent with the callback.") : guardWarn("state by hash", "No transient state id is active; daemon will match by provider and callback state hash."),
+    parsedOAuthCallback.code ? guardReady("code ready", "Authorization code will be exchanged through the vault-backed OAuth provider.") : guardBlocked("code missing", "Paste a callback URL or authorization code."),
+    parsedOAuthCallback.state ? guardReady("state ready", "Callback state will be validated against the vault-bound state material.") : guardBlocked("state missing", "Paste a callback URL or callback state."),
+  );
   const cleanupGuard = combineGuards(
     connectionActionGuard(connectionState, "model.delete:*"),
     tokenScopeGuard(data, hasSessionToken, "model.delete:*"),
@@ -4878,6 +5219,15 @@ function DownloadsPanel({
       ? guardBlocked("confirm cleanup", "Confirm orphan removal before deleting model files.")
       : guardReady(cleanupRemovesOrphans ? "cleanup confirmed" : "scan only", cleanupRemovesOrphans ? `Projected freed space is based on ${data.catalog.orphanCount} orphan file${data.catalog.orphanCount === 1 ? "" : "s"}.` : "Scan-only cleanup records orphan state without deleting files."),
   );
+  const openOAuthAuthorizationUrl = () => {
+    if (!activeOAuthAuthorization?.authorizationUrl) return;
+    window.open(activeOAuthAuthorization.authorizationUrl, "_blank", "noopener,noreferrer");
+  };
+  const copyOAuthAuthorizationUrl = () => {
+    if (!activeOAuthAuthorization?.authorizationUrl) return;
+    void window.navigator.clipboard?.writeText(activeOAuthAuthorization.authorizationUrl);
+    setOauthCopyState("copied transient URL");
+  };
   const failedDownloads = downloads.filter((download) => ["failed", "canceled"].includes(download.status));
   const acquisitionGuard = acquisitionBudgetGuard(selectedVariant, maxBytes, data.catalog);
   const approvalGuard = transferApprovalGuard(selectedApprovalRequired || sourceApprovalRequired, transferApproved);
@@ -5092,6 +5442,96 @@ function DownloadsPanel({
 	          <ActionButton type="submit" disabled={busy} guard={catalogConfigGuard}>Save catalog provider</ActionButton>
 	        </div>
 	      </form>
+
+      <form
+        className="model-mounts-provider-editor model-mounts-oauth-panel"
+        aria-label="Catalog OAuth consent"
+        data-mounts-oauth-panel="true"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onStartCatalogProviderOAuth(oauthDraft);
+        }}
+      >
+        <div className="model-mounts-provider-editor-head">
+          <div>
+            <strong>OAuth consent</strong>
+            <span>Start a PKCE authorization, then complete the callback without persisting raw state, verifier, token, or secret material.</span>
+          </div>
+          <StatusPill tone={toneForStatus(activeOAuthAuthorization?.status ?? selectedConfigProvider?.oauthBoundaryStatus ?? "none")}>
+            {activeOAuthAuthorization?.status ?? selectedConfigProvider?.oauthBoundaryStatus ?? "not started"}
+          </StatusPill>
+        </div>
+        <div className="model-mounts-provider-editor-grid">
+          <label>
+            <span>OAuth preset</span>
+            <select value={selectedOAuthPresetId} onChange={(event) => setSelectedOAuthPresetId(event.target.value)}>
+              {catalogOAuthProviderPresets.map((preset) => <option key={preset.id} value={preset.id}>{preset.label}</option>)}
+            </select>
+          </label>
+          <label>
+            <span>Preset evidence</span>
+            <input value={selectedOAuthPreset?.evidence ?? "no preset selected"} readOnly aria-readonly="true" />
+          </label>
+          <label>
+            <span>OAuth catalog provider</span>
+            <select value={oauthDraft.providerId} onChange={(event) => updateOAuthDraft("providerId", event.target.value)}>
+              {configurableCatalogProviders.map((provider) => <option key={provider.id} value={provider.id}>{provider.label}</option>)}
+            </select>
+          </label>
+          <label>
+            <span>authorization_endpoint</span>
+            <input value={oauthDraft.authorizationEndpoint} onChange={(event) => updateOAuthDraft("authorizationEndpoint", event.target.value)} placeholder="https://provider.example/oauth/authorize" />
+          </label>
+          <label>
+            <span>token_endpoint</span>
+            <input value={oauthDraft.tokenEndpoint} onChange={(event) => updateOAuthDraft("tokenEndpoint", event.target.value)} placeholder="https://provider.example/oauth/token" />
+          </label>
+          <label>
+            <span>redirect_uri</span>
+            <input value={oauthDraft.redirectUri} onChange={(event) => updateOAuthDraft("redirectUri", event.target.value)} />
+          </label>
+          <label>
+            <span>client_id</span>
+            <input value={oauthDraft.clientId} onChange={(event) => updateOAuthDraft("clientId", event.target.value)} placeholder="provider client id" />
+          </label>
+          <label>
+            <span>Scopes</span>
+            <input value={oauthDraft.scopes} onChange={(event) => updateOAuthDraft("scopes", event.target.value)} placeholder="catalog.read model.read" />
+          </label>
+          <label className="model-mounts-checkbox">
+            <input type="checkbox" checked={oauthDraft.pkceRequired} onChange={(event) => updateOAuthDraft("pkceRequired", event.target.checked)} />
+            <span>PKCE S256</span>
+          </label>
+          <label>
+            <span>Callback URL</span>
+            <input type="password" value={oauthDraft.callbackUrl} onChange={(event) => updateOAuthDraft("callbackUrl", event.target.value)} placeholder="Paste redirected callback URL" />
+          </label>
+          <label>
+            <span>Callback state</span>
+            <input type="password" value={oauthDraft.callbackState} onChange={(event) => updateOAuthDraft("callbackState", event.target.value)} placeholder="optional if callback URL is pasted" />
+          </label>
+          <label>
+            <span>Authorization code</span>
+            <input type="password" value={oauthDraft.authorizationCode} onChange={(event) => updateOAuthDraft("authorizationCode", event.target.value)} placeholder="optional if callback URL is pasted" />
+          </label>
+        </div>
+        <div className="model-mounts-observability-summary" aria-label="Catalog OAuth state">
+          <DetailFact label="OAuth preset" value={selectedOAuthPreset?.label ?? "none"} note={selectedOAuthPreset?.id ?? "custom-http-template"} />
+          <DetailFact label="OAuth provider" value={selectedOAuthProvider?.label ?? oauthDraft.providerId} note={selectedOAuthProvider?.status ?? "draft"} />
+          <DetailFact label="Transient URL" value={activeOAuthAuthorization?.authorizationUrlRedacted ?? "not started"} note={`hash ${activeOAuthAuthorization?.authorizationUrlHash ?? "none"}`} />
+          <DetailFact label="OAuth state" value={activeOAuthAuthorization?.stateHash ?? selectedConfigProvider?.oauthStateHash ?? "none"} note={`expires ${activeOAuthAuthorization?.expiresAt ?? selectedConfigProvider?.oauthBoundaryExpiresAt ?? "none"}`} />
+          <DetailFact label="OAuth session" value={selectedConfigProvider?.oauthSessionHash ?? "none"} note={selectedConfigProvider?.oauthBoundaryStatus ?? "none"} />
+          <DetailFact label="PKCE" value={activeOAuthAuthorization?.pkceRequired || selectedConfigProvider?.oauthPkceRequired ? "S256" : "not required"} note={(activeOAuthAuthorization?.scopes ?? selectedConfigProvider?.oauthBoundaryScopes ?? []).join(", ") || "no scopes"} />
+          <DetailFact label="Clipboard" value={oauthCopyState} note="full URL is copied or opened only as a transient operator action" />
+        </div>
+        <div className="model-mounts-form-actions">
+          <ActionButton onClick={applyOAuthPreset} disabled={busy} guard={selectedOAuthPreset ? guardReady("preset ready", "Apply a provider-specific OAuth app registration template with callback deep-link parameters.") : guardBlocked("preset missing", "Select an OAuth preset before applying.")}>Apply OAuth preset</ActionButton>
+          <ActionButton type="submit" disabled={busy} guard={oauthStartGuard}>Start OAuth</ActionButton>
+          <ActionButton onClick={openOAuthAuthorizationUrl} disabled={busy || !activeOAuthAuthorization?.authorizationUrl} guard={activeOAuthAuthorization ? guardReady("open transient URL", "Open authorization URL without rendering raw state in the workbench.") : guardBlocked("not started", "Start OAuth before opening the authorization URL.")}>Open authorization URL</ActionButton>
+          <ActionButton onClick={copyOAuthAuthorizationUrl} disabled={busy || !activeOAuthAuthorization?.authorizationUrl} guard={activeOAuthAuthorization ? guardReady("copy transient URL", "Copy authorization URL without persisting it.") : guardBlocked("not started", "Start OAuth before copying the authorization URL.")}>Copy authorization URL</ActionButton>
+          <ActionButton onClick={() => onCompleteCatalogProviderOAuth(oauthDraft)} disabled={busy} guard={oauthCallbackGuard}>Complete OAuth callback</ActionButton>
+        </div>
+      </form>
 
 	      <form
 	        className="model-mounts-provider-editor"
@@ -6395,9 +6835,52 @@ export function MissionControlMountsView() {
   const [pickerSelection, setPickerSelection] = useState<MountsPickerSelection>(emptyPickerSelection);
   const [detailDrawerOpen, setDetailDrawerOpen] = useState(true);
   const [focusedReceiptId, setFocusedReceiptId] = useState("");
+  const [catalogOAuthCallbackConsumed, setCatalogOAuthCallbackConsumed] = useState(false);
+  const completedCatalogOAuthCallbackRef = useRef<CatalogOAuthCallbackAction>(daemonSafeNoopCatalogOAuthCallback);
+  const consumedCatalogOAuthCallbacksRef = useRef<Set<string>>(new Set());
   const validationActionsEnabled = useMemo(readValidationActionsEnabled, []);
   const daemon = useModelMountsDaemon();
   const busy = Boolean(daemon.busyAction);
+  useEffect(() => {
+    completedCatalogOAuthCallbackRef.current = daemon.actions.completeCatalogProviderOAuthCallback;
+  }, [daemon.actions]);
+  const consumeCatalogOAuthCallback = useCallback((callback: CatalogOAuthCallbackDeepLink, source: string) => {
+    const fingerprint = `${source}:${callback.providerId}:${callback.state}:${callback.code}`;
+    if (consumedCatalogOAuthCallbacksRef.current.has(fingerprint)) return;
+    consumedCatalogOAuthCallbacksRef.current.add(fingerprint);
+    setActiveTab("downloads");
+    void completedCatalogOAuthCallbackRef.current(callback.providerId, callback);
+  }, []);
+  useEffect(() => {
+    if (catalogOAuthCallbackConsumed) return;
+    const callback = readCatalogOAuthCallbackFromLocation();
+    if (!callback) return;
+    setCatalogOAuthCallbackConsumed(true);
+    sanitizeCatalogOAuthCallbackUrl();
+    consumeCatalogOAuthCallback(callback, "browser-query");
+  }, [catalogOAuthCallbackConsumed, consumeCatalogOAuthCallback]);
+  useEffect(() => {
+    if (!isTauriRuntime()) return undefined;
+    let active = true;
+    let unlisten: (() => void) | null = null;
+    const consumeUrls = (urls: string[]) => {
+      if (!active) return;
+      const callback = firstCatalogOAuthCallbackFromDeepLinks(urls);
+      if (callback) consumeCatalogOAuthCallback(callback, "tauri-deep-link");
+    };
+    void getCurrentDeepLinks()
+      .then((urls) => consumeUrls(urls ?? []))
+      .catch(() => undefined);
+    void onOpenUrl(consumeUrls)
+      .then((nextUnlisten) => {
+        unlisten = nextUnlisten;
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+      if (unlisten) unlisten();
+    };
+  }, [consumeCatalogOAuthCallback]);
   useEffect(() => {
     setPickerSelection((current) => {
       const next = normalizePickerSelection(daemon.data, current);
@@ -6616,6 +7099,13 @@ export function MissionControlMountsView() {
     setActiveTab("logs");
     daemon.actions.streamLifecycleProbe();
   }, [busy, daemon.actions, validationActionsEnabled]);
+  const scrollCatalogOAuthValidationControls = useCallback(() => {
+    if (!validationActionsEnabled) return;
+    setActiveTab("downloads");
+    window.setTimeout(() => {
+      document.querySelector('[data-mounts-oauth-panel="true"]')?.scrollIntoView({ block: "start", behavior: "auto" });
+    }, 80);
+  }, [validationActionsEnabled]);
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -6625,9 +7115,19 @@ export function MissionControlMountsView() {
         runStreamLifecycleValidationAction();
         return;
       }
+      if (validationActionsEnabled && event.altKey && event.key.toLowerCase() === "o") {
+        event.preventDefault();
+        scrollCatalogOAuthValidationControls();
+        return;
+      }
       if (validationActionsEnabled && event.shiftKey && event.key === "F21") {
         event.preventDefault();
         runStreamLifecycleValidationAction();
+        return;
+      }
+      if (validationActionsEnabled && event.shiftKey && event.key === "F22") {
+        event.preventDefault();
+        scrollCatalogOAuthValidationControls();
         return;
       }
       if (validationActionsEnabled && event.shiftKey && ["F13", "F14", "F15"].includes(event.key)) {
@@ -6713,6 +7213,7 @@ export function MissionControlMountsView() {
     runModelLifecycleValidationAction,
     runProviderBackendValidationAction,
     runRoutingWorkflowValidationAction,
+    scrollCatalogOAuthValidationControls,
     runStreamLifecycleValidationAction,
     runTokenMcpValidationAction,
     validationActionsEnabled,
@@ -6849,11 +7350,14 @@ export function MissionControlMountsView() {
             data={daemon.data}
             downloads={daemon.data.downloads}
             catalogVariants={daemon.catalogVariants}
+            catalogOAuthAuthorization={daemon.catalogOAuthAuthorization}
             connectionState={daemon.connectionState}
             hasSessionToken={daemon.hasSessionToken}
             onDownloadFixture={daemon.actions.downloadFixture}
             onSearchCatalog={daemon.actions.searchCatalog}
             onConfigureCatalogProvider={daemon.actions.configureCatalogProvider}
+            onStartCatalogProviderOAuth={daemon.actions.startCatalogProviderOAuth}
+            onCompleteCatalogProviderOAuth={daemon.actions.completeCatalogProviderOAuth}
             onImportCatalogUrl={daemon.actions.importCatalogUrl}
             onDownloadCatalogVariant={daemon.actions.downloadCatalogVariant}
             onCancelDownload={daemon.actions.cancelDownload}

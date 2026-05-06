@@ -1603,6 +1603,146 @@ test("catalog provider OAuth sessions exchange, refresh, revoke, and keep tokens
   }
 });
 
+test("catalog provider OAuth start and callback use PKCE state without persisting verifier material", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-catalog-oauth-pkce-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-catalog-oauth-pkce-state-"));
+  const oauth = await startFakeOAuthServer({ requirePkce: true });
+  const customCatalogServer = await startFakeCustomCatalogServer({
+    requiredHeaders: () => ({ authorization: `Bearer ${oauth.currentAccessToken()}` }),
+  });
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+      method: "POST",
+      body: { allowed: ["provider.write:*", "vault.write:*", "vault.read:*"] },
+    });
+    await expectOk(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.custom_http", {
+      method: "PATCH",
+      token: grant.token,
+      body: {
+        enabled: true,
+        base_url: customCatalogServer.endpoint,
+        auth_scheme: "oauth2",
+        auth_header_name: "authorization",
+      },
+    });
+
+    const started = await expectOk(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.custom_http/oauth/start", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        authorization_endpoint: oauth.authorizationEndpoint,
+        token_endpoint: oauth.endpoint,
+        redirect_uri: "http://127.0.0.1/oauth/callback",
+        client_id: "catalog-browser-client",
+        scopes: ["catalog.read"],
+      },
+    });
+    assert.equal(started.oauthBoundary.status, "pending_authorization");
+    assert.equal(started.oauthState.status, "pending");
+    assert.equal(started.oauthState.pkceRequired, true);
+    assert.ok(started.authorizationUrlHash);
+    assert.equal(started.authorizationUrlRedacted.includes("REDACTED"), true);
+    const authorizationUrl = new URL(started.authorizationUrl);
+    const oauthState = authorizationUrl.searchParams.get("state");
+    assert.ok(oauthState);
+    assert.ok(authorizationUrl.searchParams.get("code_challenge"));
+    assert.equal(authorizationUrl.searchParams.get("code_challenge_method"), "S256");
+    assert.equal(started.authorizationUrlRedacted.includes(oauthState), false);
+    assert.equal(started.authorizationUrlRedacted.includes(authorizationUrl.searchParams.get("code_challenge")), false);
+    await fetch(started.authorizationUrl);
+
+    const mismatch = await requestJson(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.custom_http/oauth/callback", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        state_id: started.oauthState.id,
+        state: "wrong-oauth-state",
+        code: "valid-oauth-code",
+      },
+    });
+    assert.equal(mismatch.response.status, 403);
+    assert.equal(JSON.stringify(mismatch.json).includes("wrong-oauth-state"), false);
+
+    const expired = await expectOk(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.custom_http/oauth/start", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        authorization_endpoint: oauth.authorizationEndpoint,
+        token_endpoint: oauth.endpoint,
+        redirect_uri: "http://127.0.0.1/oauth/callback",
+        client_id: "catalog-browser-client",
+        scopes: ["catalog.read"],
+        state_ttl_seconds: 0,
+      },
+    });
+    const expiredUrl = new URL(expired.authorizationUrl);
+    const expiredCallback = await requestJson(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.custom_http/oauth/callback", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        state_id: expired.oauthState.id,
+        state: expiredUrl.searchParams.get("state"),
+        code: "valid-oauth-code",
+      },
+    });
+    assert.equal(expiredCallback.response.status, 403);
+    assert.equal(JSON.stringify(expiredCallback.json).includes(expiredUrl.searchParams.get("state")), false);
+
+    const noVerifier = await requestJson(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.custom_http/oauth/exchange", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        token_endpoint: oauth.endpoint,
+        authorization_code: "valid-oauth-code",
+        client_id: "catalog-browser-client",
+        scopes: ["catalog.read"],
+      },
+    });
+    assert.equal(noVerifier.response.status, 403);
+
+    const callback = await expectOk(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.custom_http/oauth/callback", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        state_id: started.oauthState.id,
+        state: oauthState,
+        code: "valid-oauth-code",
+      },
+    });
+    assert.equal(callback.oauthBoundary.status, "active");
+    assert.equal(callback.oauthState.status, "completed");
+    assert.equal(callback.oauthSession.status, "active");
+    assert.equal(JSON.stringify(callback).includes(oauth.tokens.access), false);
+    assert.equal(JSON.stringify(callback).includes(oauth.tokens.refresh), false);
+    assert.equal(JSON.stringify(callback).includes(oauthState), false);
+
+    const searched = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=custom&limit=5");
+    assert.equal(searched.providers.find((provider) => provider.id === "catalog.custom_http").oauthBoundary.status, "active");
+    assert.ok(customCatalogServer.observedHeaders().some((headers) => headers.authorization === `Bearer ${oauth.tokens.access}`));
+    assert.ok(oauth.observed().some((entry) => entry.grantType === "authorization_start" && entry.method === "S256"));
+    assert.ok(oauth.observed().some((entry) => entry.grantType === "authorization_code" && entry.codeVerifierHash));
+
+    const projection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
+    assert.ok(projection.oauthStates.some((state) => state.status === "completed" && state.pkceRequired));
+    for (const secret of [
+      oauth.tokens.access,
+      oauth.tokens.refresh,
+      oauthState,
+      authorizationUrl.searchParams.get("code_challenge"),
+      "valid-oauth-code",
+      "catalog-browser-client",
+    ]) {
+      assert.equal(JSON.stringify(projection).includes(secret), false);
+      assert.equal(directoryContainsNeedle(stateDir, secret), false);
+    }
+  } finally {
+    await oauth.close();
+    await customCatalogServer.close();
+    await daemon.close();
+  }
+});
+
 test("model download lifecycle supports progress, failure, cancel, cleanup, and projection replay", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-model-download-workspace-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-model-download-state-"));
@@ -4443,7 +4583,7 @@ async function startFakeCustomCatalogServer({ requiredHeaders = {} } = {}) {
   };
 }
 
-async function startFakeOAuthServer({ accessToken, refreshToken, refreshedAccessToken, refreshedRefreshToken, expiresIn = 90 } = {}) {
+async function startFakeOAuthServer({ accessToken, refreshToken, refreshedAccessToken, refreshedRefreshToken, expiresIn = 90, requirePkce = false } = {}) {
   const observed = [];
   const tokens = {
     access: accessToken ?? `oauth-access-${crypto.randomBytes(6).toString("hex")}`,
@@ -4455,17 +4595,37 @@ async function startFakeOAuthServer({ accessToken, refreshToken, refreshedAccess
   const server = http.createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
     response.setHeader("content-type", "application/json");
+    if (request.method === "GET" && url.pathname === "/oauth/authorize") {
+      observed.push({
+        grantType: "authorization_start",
+        stateHash: url.searchParams.get("state") ? crypto.createHash("sha256").update(url.searchParams.get("state")).digest("hex") : null,
+        codeChallengeHash: url.searchParams.get("code_challenge")
+          ? crypto.createHash("sha256").update(url.searchParams.get("code_challenge")).digest("hex")
+          : null,
+        method: url.searchParams.get("code_challenge_method"),
+        scope: url.searchParams.get("scope"),
+      });
+      response.end(JSON.stringify({ ok: true }));
+      return;
+    }
     if (request.method === "POST" && url.pathname === "/oauth/token") {
       const text = await readRequestText(request);
       const params = new URLSearchParams(text);
       const grantType = params.get("grant_type");
+      const codeVerifier = params.get("code_verifier");
       observed.push({
         grantType,
         codeHash: params.get("code") ? crypto.createHash("sha256").update(params.get("code")).digest("hex") : null,
         refreshTokenHash: params.get("refresh_token") ? crypto.createHash("sha256").update(params.get("refresh_token")).digest("hex") : null,
         clientIdHash: params.get("client_id") ? crypto.createHash("sha256").update(params.get("client_id")).digest("hex") : null,
+        codeVerifierHash: codeVerifier ? crypto.createHash("sha256").update(codeVerifier).digest("hex") : null,
         scope: params.get("scope"),
       });
+      if (grantType === "authorization_code" && requirePkce && !codeVerifier) {
+        response.statusCode = 401;
+        response.end(JSON.stringify({ error: "pkce_required" }));
+        return;
+      }
       if (grantType === "authorization_code" && params.get("code") === "valid-oauth-code") {
         currentAccess = tokens.access;
         response.end(JSON.stringify({ access_token: tokens.access, refresh_token: tokens.refresh, expires_in: expiresIn, scope: "catalog.read" }));
@@ -4487,6 +4647,7 @@ async function startFakeOAuthServer({ accessToken, refreshToken, refreshedAccess
   const address = server.address();
   return {
     endpoint: `http://${address.address}:${address.port}/oauth/token`,
+    authorizationEndpoint: `http://${address.address}:${address.port}/oauth/authorize`,
     currentAccessToken: () => currentAccess,
     tokens,
     observed: () => observed,

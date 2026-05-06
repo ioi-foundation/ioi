@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "ioi.model-mounting.live-gate.v1",
+  "gate": "model-backends",
+  "status": "skipped",
+  "startedAt": "2026-05-05T15:34:56.590Z",
+  "outputDir": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounting-live/model-backends/2026-05-05T15-34-56Z",
+  "commands": [],
+  "details": {},
+  "result": {
+    "reason": "live_gate_not_enabled",
+    "requiredEnv": "IOI_LIVE_MODEL_BACKENDS=1"
+  },
+  "completedAt": "2026-05-05T15:34:56.590Z"
+}

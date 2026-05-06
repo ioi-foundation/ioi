@@ -1,0 +1,203 @@
+{
+  "schemaVersion": "ioi.model-mounting.e2e.v1",
+  "startedAt": "2026-05-05T09:32:15.419Z",
+  "outputRoot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounting-e2e/2026-05-05T09-32-15Z",
+  "workspaceDir": "/tmp/ioi-model-mounting-e2e-workspace-3dYAVx",
+  "stateDir": "/tmp/ioi-model-mounting-e2e-state-9jUWVR",
+  "daemonEndpoint": "http://127.0.0.1:44819",
+  "steps": [
+    {
+      "name": "server status and fail-closed token probes",
+      "status": "passed",
+      "startedAt": "2026-05-05T09:32:16.290Z",
+      "completedAt": "2026-05-05T09:32:18.126Z",
+      "summary": {
+        "nativeBaseUrl": "http://127.0.0.1:44819/api/v1",
+        "openAiCompatibleBaseUrl": "http://127.0.0.1:44819/v1",
+        "failClosedStatuses": [
+          401,
+          403,
+          403,
+          403
+        ]
+      }
+    },
+    {
+      "name": "create scoped capability token",
+      "status": "passed",
+      "startedAt": "2026-05-05T09:32:18.126Z",
+      "completedAt": "2026-05-05T09:32:18.576Z",
+      "summary": {
+        "id": "grant_808810d9-c500-4453-b2fe-7f56be387b7c",
+        "audience": "autopilot-local-server",
+        "allowed": [
+          "model.chat:*",
+          "model.responses:*",
+          "model.embeddings:*",
+          "model.rerank:*",
+          "model.load:*",
+          "model.unload:*",
+          "model.mount:*",
+          "model.download:*",
+          "model.import:*",
+          "model.delete:*",
+          "server.control:*",
+          "server.logs:*",
+          "backend.control:*",
+          "provider.write:*",
+          "vault.write:*",
+          "vault.read:*",
+          "vault.delete:*",
+          "route.write:*",
+          "route.use:*",
+          "mcp.import:*",
+          "mcp.call:huggingface.model_search"
+        ],
+        "denied": [
+          "connector.gmail.send",
+          "filesystem.write",
+          "shell.exec"
+        ],
+        "expiresAt": "2026-05-06T09:32:18.127Z",
+        "revocationEpoch": 0,
+        "grantId": "wallet.grant.32740720-31b0-472f-999e-3c349144c7d7",
+        "createdAt": "2026-05-05T09:32:18.127Z",
+        "revokedAt": null,
+        "lastUsedAt": null,
+        "lastUsedScope": null,
+        "vaultRefs": {},
+        "auditReceiptIds": [],
+        "receiptId": "receipt_permission_token_5958b5c5-9f00-483f-aa7a-1b6d979aad81",
+        "token": "[REDACTED]"
+      }
+    },
+    {
+      "name": "server control and redacted log tail",
+      "status": "passed",
+      "startedAt": "2026-05-05T09:32:18.576Z",
+      "completedAt": "2026-05-05T09:32:20.394Z",
+      "summary": {
+        "stopReceiptId": "receipt_model_lifecycle_17c211da-c4da-4a03-ace1-da208f734798",
+        "restartReceiptId": "receipt_model_lifecycle_2b66e7de-a9ce-4b46-9007-0e1b6e1d338a",
+        "logReceiptId": "receipt_model_lifecycle_f265fb42-3665-4092-a859-02f7b0614f24",
+        "eventReceiptId": "receipt_model_lifecycle_cd9759ad-ea5a-4152-9afc-176fdd0c74f3",
+        "logCount": 3
+      }
+    },
+    {
+      "name": "discover providers and backends",
+      "status": "passed",
+      "startedAt": "2026-05-05T09:32:20.394Z",
+      "completedAt": "2026-05-05T09:32:21.348Z",
+      "summary": {
+        "providers": 12,
+        "backends": 7,
+        "artifacts": 5,
+        "routes": 2
+      }
+    },
+    {
+      "name": "runtime engines and hardware survey",
+      "status": "passed",
+      "startedAt": "2026-05-05T09:32:21.348Z",
+      "completedAt": "2026-05-05T09:32:22.981Z",
+      "summary": {
+        "engineCount": 15,
+        "memoryPressure": "normal",
+        "lmStudioStatus": "available",
+        "receiptId": "receipt_runtime_survey_22ca92d9-687d-4541-a641-adbd6f69d8d7",
+        "selectedEngineId": "backend.autopilot.native-local.fixture"
+      }
+    },
+    {
+      "name": "import, mount, and load deterministic native-local artifact",
+      "status": "passed",
+      "startedAt": "2026-05-05T09:32:22.981Z",
+      "completedAt": "2026-05-05T09:32:24.130Z",
+      "summary": {
+        "artifactId": "import.native.e2e",
+        "endpointId": "endpoint.e2e.native-local",
+        "instanceId": "instance.endpoint.e2e.native.local.1777973543905",
+        "estimateReceiptId": "receipt_model_lifecycle_94ef9622-7e4d-40a0-a18c-2831d6b30410",
+        "checksum": "sha256:39d622102604e2ac863ff0b4c841ce1593dab1c575eee8a708335c1d57cc102e"
+      }
+    },
+    {
+      "name": "exercise native and OpenAI-compatible inference APIs",
+      "status": "passed",
+      "startedAt": "2026-05-05T09:32:24.130Z",
+      "completedAt": "2026-05-05T09:32:25.931Z",
+      "summary": {
+        "nativeReceiptId": "receipt_model_invocation_11dc0960-afe7-4c4f-b24c-bda2c507c497",
+        "compatModel": "native:e2e",
+        "responsesReceiptId": "receipt_model_invocation_7e36ec79-cd6c-490c-883e-2fad15e6cdfa",
+        "embeddingVectors": 2
+      }
+    },
+    {
+      "name": "catalog search, import modes, cleanup, and download lifecycle",
+      "status": "passed",
+      "startedAt": "2026-05-05T09:32:25.931Z",
+      "completedAt": "2026-05-05T09:32:30.195Z",
+      "summary": {
+        "catalogResults": 2,
+        "catalogDownloadJobId": "download_job_1b8d4a77-cdf2-419e-aa70-949e22d243d5",
+        "dryRunReceiptId": "receipt_model_lifecycle_03a96987-e932-4de2-8b58-59c112f98c7d",
+        "canceledJobId": "download_job_f81507ef-09ff-479e-ad15-17c4ba55e70a",
+        "completedJobId": "download_job_f8254468-e47c-422b-b9b3-872c4ed6a2aa",
+        "completedReceiptId": "receipt_model_lifecycle_59c0222c-f408-43e3-bcd7-da5d7f13d2bc",
+        "cleanupReceiptId": "receipt_model_lifecycle_c39a0fbe-c61b-4096-b253-9ae1e52af62d",
+        "deletedArtifactId": "import.native.e2e.copied"
+      }
+    },
+    {
+      "name": "persistent and ephemeral MCP through governed receipts",
+      "status": "passed",
+      "startedAt": "2026-05-05T09:32:30.195Z",
+      "completedAt": "2026-05-05T09:32:31.776Z",
+      "summary": {
+        "persistentToolReceiptId": "receipt_mcp_tool_invocation_fcf74b8a-9d9b-453d-9556-c539cea0ece4",
+        "ephemeralReceiptId": "receipt_model_invocation_6f2a1942-434f-4f02-b441-0f9d85f4a816",
+        "linkedToolReceipts": 1
+      }
+    },
+    {
+      "name": "route policy and workflow node execution",
+      "status": "passed",
+      "startedAt": "2026-05-05T09:32:31.776Z",
+      "completedAt": "2026-05-05T09:32:33.590Z",
+      "summary": {
+        "routerSelectedEndpoint": "endpoint.e2e.native-local",
+        "modelCallReceiptId": "receipt_model_invocation_d022ff74-429b-4205-be09-a99269773236",
+        "embeddingReceiptId": "receipt_model_invocation_0619a846-4d46-47a0-ae44-f255f8073bb9",
+        "localToolReceiptId": "receipt_mcp_tool_invocation_ec226acd-91ac-498a-8cd4-34bc7d1ac596",
+        "receiptGateReceiptId": "receipt_workflow_receipt_gate_e42bf86d-1dc8-4afe-a8e0-0d385d58cef1"
+      }
+    },
+    {
+      "name": "CLI sees same daemon state",
+      "status": "failed",
+      "startedAt": "2026-05-05T09:32:33.590Z",
+      "completedAt": "2026-05-05T09:32:33.668Z",
+      "error": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli server --endpoint http://127.0.0.1:44819 --json restart exited with 2\n\nerror: unrecognized subcommand 'restart'\n\n  tip: a similar subcommand exists: 'start'\n\nUsage: cli server [OPTIONS] <COMMAND>\n\nFor more information, try '--help'.\n"
+    }
+  ],
+  "commands": [
+    {
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli server --endpoint http://127.0.0.1:44819 --json status",
+      "status": "passed",
+      "stdoutBytes": 702,
+      "stderrBytes": 0
+    },
+    {
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli server --endpoint http://127.0.0.1:44819 --json restart",
+      "status": "failed",
+      "stdoutBytes": 0,
+      "stderrBytes": 162
+    }
+  ],
+  "artifacts": {},
+  "passed": false,
+  "error": "Error: /home/heathledger/Documents/ioi/repos/ioi/target/debug/cli server --endpoint http://127.0.0.1:44819 --json restart exited with 2\n\nerror: unrecognized subcommand 'restart'\n\n  tip: a similar subcommand exists: 'start'\n\nUsage: cli server [OPTIONS] <COMMAND>\n\nFor more information, try '--help'.\n\n    at ChildProcess.<anonymous> (file:///home/heathledger/Documents/ioi/repos/ioi/scripts/validate-model-mounting-e2e.mjs:175:16)\n    at ChildProcess.emit (node:events:519:28)\n    at maybeClose (node:internal/child_process:1101:16)\n    at ChildProcess._handle.onexit (node:internal/child_process:304:5)",
+  "completedAt": "2026-05-05T09:32:33.669Z"
+}

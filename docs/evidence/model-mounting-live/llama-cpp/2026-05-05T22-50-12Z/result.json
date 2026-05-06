@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "ioi.model-mounting.live-gate.v1",
+  "gate": "llama-cpp",
+  "status": "failed",
+  "startedAt": "2026-05-05T22:50:12.084Z",
+  "outputDir": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounting-live/llama-cpp/2026-05-05T22-50-12Z",
+  "commands": [
+    {
+      "command": "llama-server --version",
+      "status": 0,
+      "signal": null,
+      "stdout": "",
+      "stderr": "version: 9037 (bbeb89d76)\nbuilt with GNU 11.4.0 for Linux x86_64\n"
+    }
+  ],
+  "details": {
+    "llamaCpp": {
+      "binaryPathHash": "813a1ef835276955bdfb3c6fb2e914a9e8048a2d5fd3774b512d5332d55fe17c",
+      "modelPathHash": "2fda6d2bd5ea409a6431da7c0e40b8daf84f63473e8b5e103fb6a0601ea4ec39",
+      "baseUrlHash": "fe6fd964c6e24bd52e446ef97d3691f2f404d3306b66764c6b5b395f6663f673",
+      "modelId": "qwen3.5-9b-q4-k-m"
+    },
+    "daemonEndpoint": "http://127.0.0.1:33927",
+    "stateDir": "/tmp/ioi-live-model-gate-state-fxOUY5"
+  },
+  "result": {
+    "reason": "live_gate_failed",
+    "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n+ actual - expected\n\n+ 'degraded'\n- 'available'\n\n    at file:///home/heathledger/Documents/ioi/repos/ioi/scripts/live-model-mounting-gate.mjs:811:16\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async withDaemon (file:///home/heathledger/Documents/ioi/repos/ioi/scripts/live-model-mounting-gate.mjs:519:12)\n    at async file:///home/heathledger/Documents/ioi/repos/ioi/scripts/live-model-mounting-gate.mjs:728:7\n    at async withTemporaryEnv (file:///home/heathledger/Documents/ioi/repos/ioi/scripts/live-model-mounting-gate.mjs:419:12)\n    at async runLlamaCppGate (file:///home/heathledger/Documents/ioi/repos/ioi/scripts/live-model-mounting-gate.mjs:721:3)\n    at async main (file:///home/heathledger/Documents/ioi/repos/ioi/scripts/live-model-mounting-gate.mjs:1697:7)"
+  },
+  "completedAt": "2026-05-05T22:50:22.742Z"
+}

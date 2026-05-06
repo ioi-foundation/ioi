@@ -671,6 +671,36 @@ async function handleModelMountingNativeRoute({ request, response, store, url, s
     segments[4] === "providers" &&
     segments[5] &&
     segments[6] === "oauth" &&
+    segments[7] === "start"
+  ) {
+    const providerId = decodeURIComponent(segments[5]);
+    mounts.authorize(authorization, `provider.write:${providerId}`);
+    mounts.authorize(authorization, "vault.write:*");
+    writeJsonResponse(response, mounts.startCatalogProviderOAuth(providerId, await readBody(request)), 201);
+    return;
+  }
+  if (
+    request.method === "POST" &&
+    segments[2] === "models" &&
+    segments[3] === "catalog" &&
+    segments[4] === "providers" &&
+    segments[5] &&
+    segments[6] === "oauth" &&
+    segments[7] === "callback"
+  ) {
+    const providerId = decodeURIComponent(segments[5]);
+    mounts.authorize(authorization, `provider.write:${providerId}`);
+    mounts.authorize(authorization, "vault.write:*");
+    writeJsonResponse(response, await mounts.completeCatalogProviderOAuth(providerId, await readBody(request)), 201);
+    return;
+  }
+  if (
+    request.method === "POST" &&
+    segments[2] === "models" &&
+    segments[3] === "catalog" &&
+    segments[4] === "providers" &&
+    segments[5] &&
+    segments[6] === "oauth" &&
     segments[7] === "exchange"
   ) {
     const providerId = decodeURIComponent(segments[5]);
