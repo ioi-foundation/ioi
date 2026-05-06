@@ -1,0 +1,86 @@
+{
+  "schemaVersion": "ioi.model-mounting.live-gate.v1",
+  "gate": "model-catalog-oauth",
+  "status": "passed",
+  "startedAt": "2026-05-06T23:34:02.910Z",
+  "outputDir": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounting-live/model-catalog-oauth/2026-05-06T23-34-02Z",
+  "commands": [
+    {
+      "command": "fixture oauth authorization redirect",
+      "status": 0,
+      "stdout": "OAuth provider redirected through loopback without logging raw URL.",
+      "stderr": ""
+    }
+  ],
+  "details": {
+    "oauth": {
+      "providerId": "catalog.huggingface",
+      "fixtureOAuthEnabled": true,
+      "localOAuthBoundaryEnabled": false,
+      "fixtureOAuthEndpointHash": "d127d23c749d7bc351ee8a72735e37401694725c11d38e4456ea075182682394",
+      "localOAuthEndpointHash": null,
+      "authorizationEndpointHash": "e3fbbb9e8fd8a7188521287563dfe50f446905dfdd920bf590b5774fc49d9d25",
+      "tokenEndpointHash": "9469a948db06ea5058664b309afb70428c8196927da0b16237bde63c1a5fddce",
+      "redirectUriHash": "b45f8010fc344134df21f07fd8d08f74731e456ebdf1d505571c70b74d830663",
+      "redirectUriScheme": "http",
+      "clientIdConfigured": true,
+      "clientIdHash": "63e9936936247de636dbb99e38ca7d1452441984646fbc068bf39158381f34b4",
+      "scopes": [
+        "catalog.read",
+        "model.read"
+      ],
+      "pkceRequired": true,
+      "loopbackCallbackEnabled": true,
+      "loopbackTimeoutMs": 120000,
+      "callbackConfigured": false,
+      "callbackUrlHash": null,
+      "customBaseUrlHash": null
+    },
+    "daemonEndpoint": "http://127.0.0.1:39855",
+    "stateDir": "/tmp/ioi-live-model-gate-state-9lItO0"
+  },
+  "result": {
+    "providerId": "catalog.huggingface",
+    "reason": "model_catalog_oauth_fixture_completed",
+    "status": "active",
+    "stateId": "oauth_state.catalog.huggingface.769ad73a-0753-406b-be91-4f84eeb6f645",
+    "sessionId": "oauth_session.catalog.huggingface.71de76ea-f071-402a-af61-6f1aa3e35370",
+    "authorizationUrlHash": "285f7777b80a8bb6955e24c2b14201efbe16ddf1cd49d665b7b49ca78a31e877",
+    "startReceiptId": "receipt_catalog_oauth_start_3e72d00a-bfd9-4630-8c74-6d81e2d3e1f8",
+    "callbackReceiptId": "receipt_catalog_oauth_callback_9c8f1303-4d86-43b8-b807-b8908d275e5e",
+    "loopbackCallbackUrlHash": "daf85b37f5c586b9ca408c40d219905a7c0d64a02a7091644851824510a26f62",
+    "providerObserved": [
+      {
+        "kind": "authorization",
+        "clientIdHash": "63e9936936247de636dbb99e38ca7d1452441984646fbc068bf39158381f34b4",
+        "redirectUriHash": "b45f8010fc344134df21f07fd8d08f74731e456ebdf1d505571c70b74d830663",
+        "stateHash": "622b6adf0bf41c3d0af75c6bb70c7003b56e6a069923306f119242e07f7a7db2",
+        "codeChallengeHash": "ddbe55ebfacaf6846f4a1f8b961bf74e468234a61c05d9ca4b8fdde4ff30aad4",
+        "scopes": [
+          "catalog.read",
+          "model.read"
+        ],
+        "method": "S256"
+      },
+      {
+        "kind": "token",
+        "grantType": "authorization_code",
+        "codeHash": "ee00f79d051d0511f0927a714aa606834e4b1f2b63135cfa2d1826548b49d315",
+        "clientIdHash": "63e9936936247de636dbb99e38ca7d1452441984646fbc068bf39158381f34b4",
+        "redirectUriHash": "b45f8010fc344134df21f07fd8d08f74731e456ebdf1d505571c70b74d830663",
+        "codeVerifierHash": "36833faeec844db4dd98eb50613f2e1a072c2abb4ceaa578f8a103793d8a4bfe",
+        "scopes": [
+          "catalog.read",
+          "model.read"
+        ]
+      }
+    ],
+    "projectionOAuthStateCount": 1,
+    "projectionOAuthSessionCount": 1,
+    "secretScan": {
+      "passed": true,
+      "findings": []
+    }
+  },
+  "completedAt": "2026-05-06T23:34:06.143Z"
+}

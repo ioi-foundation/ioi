@@ -1,0 +1,98 @@
+{
+  "schemaVersion": "ioi.model-mounting.live-gate.v1",
+  "gate": "agentgres",
+  "status": "passed",
+  "startedAt": "2026-05-06T23:33:55.006Z",
+  "outputDir": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounting-live/agentgres/2026-05-06T23-33-55Z",
+  "commands": [],
+  "details": {
+    "remoteMode": "local_remote_boundary",
+    "fallbackReason": "remote_agentgres_not_configured_local_boundary_started",
+    "daemonEndpoint": "http://127.0.0.1:35849",
+    "stateDir": "/tmp/ioi-live-model-gate-state-spCwXx"
+  },
+  "result": {
+    "remoteMode": "local_remote_boundary",
+    "remoteHealth": {
+      "ok": true,
+      "status": 200,
+      "service": "local-agentgres-boundary",
+      "port": "AgentgresModelMountingStorePort",
+      "methodCount": 3,
+      "urlHash": "cb4d64500d3ab75fc06e4e274e49ecd10035b895f25c48b57143ac9bf0a6abb1"
+    },
+    "port": "AgentgresModelMountingStorePort",
+    "implementation": "local_operation_log",
+    "remoteAdapter": {
+      "configured": true,
+      "urlHash": "cb4d64500d3ab75fc06e4e274e49ecd10035b895f25c48b57143ac9bf0a6abb1"
+    },
+    "projectionWatermark": 10,
+    "downloadId": "download_job_585943ef-2555-4c55-b737-26673bc1e548",
+    "chatReceiptId": "receipt_model_invocation_85631312-77b2-4582-93e5-5cf8bae408be",
+    "replaySource": "agentgres_model_mounting_projection_replay",
+    "secretScan": {
+      "passed": true,
+      "findings": []
+    },
+    "remoteRequests": [
+      {
+        "method": "GET",
+        "pathname": "/health"
+      },
+      {
+        "method": "POST",
+        "pathname": "/operations"
+      },
+      {
+        "method": "POST",
+        "pathname": "/operations"
+      },
+      {
+        "method": "POST",
+        "pathname": "/operations"
+      },
+      {
+        "method": "POST",
+        "pathname": "/operations"
+      },
+      {
+        "method": "POST",
+        "pathname": "/operations"
+      },
+      {
+        "method": "POST",
+        "pathname": "/operations"
+      },
+      {
+        "method": "POST",
+        "pathname": "/operations"
+      },
+      {
+        "method": "POST",
+        "pathname": "/operations"
+      },
+      {
+        "method": "POST",
+        "pathname": "/operations"
+      },
+      {
+        "method": "POST",
+        "pathname": "/operations"
+      },
+      {
+        "method": "POST",
+        "pathname": "/operations"
+      },
+      {
+        "method": "POST",
+        "pathname": "/operations"
+      },
+      {
+        "method": "POST",
+        "pathname": "/operations"
+      }
+    ]
+  },
+  "completedAt": "2026-05-06T23:34:02.790Z"
+}

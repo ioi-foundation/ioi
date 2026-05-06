@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "ioi.model-mounting.live-gate.v1",
+  "gate": "llama-cpp",
+  "status": "passed",
+  "startedAt": "2026-05-06T23:33:02.854Z",
+  "outputDir": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounting-live/llama-cpp/2026-05-06T23-33-02Z",
+  "commands": [
+    {
+      "command": "llama-server --version",
+      "status": 0,
+      "signal": null,
+      "stdout": "",
+      "stderr": "load_backend: loaded CPU backend from /home/heathledger/.unsloth/llama.cpp/build/bin/libggml-cpu-alderlake.so\nversion: 1 (82677a6)\nbuilt with GNU 11.4.0 for Linux x86_64\n"
+    }
+  ],
+  "details": {
+    "llamaCpp": {
+      "binaryPathHash": "7f2b60bca9f2c3983ee6bc5a9f5c4c24444ffc89b1d0ec7db9493a02938359d1",
+      "modelPathHash": "672223b0c16ca5fb65f5eb87c3cc3317269716064677d9c5d9142aa7267e6d55",
+      "baseUrlHash": "3188b4c5503b85d83bab64458a0da93ff1810cd3f477e25785c7fdc4a1eb3d3e",
+      "modelId": "stories260K"
+    },
+    "daemonEndpoint": "http://127.0.0.1:34655",
+    "stateDir": "/tmp/ioi-live-model-gate-state-uwcLnW"
+  },
+  "result": {
+    "modelId": "stories260K",
+    "artifactId": "import.stories260k",
+    "endpointId": "endpoint.live.llama-cpp.stories260k",
+    "routeId": "route.live.llama-cpp.stories260k",
+    "instanceId": "instance.endpoint.live.llama.cpp.stories260k.1778110385249",
+    "providerModels": 1,
+    "healthStatus": "available",
+    "backendProcessId": "backend_process_backend.llama.cpp_1778110385248",
+    "backendProcessPidHash": "1a986fc3980c0acc",
+    "chatReceiptId": "receipt_model_invocation_35d670bc-8f5a-4bff-940d-d5656dafe0c3",
+    "compatChatModel": "stories260K.gguf",
+    "responsesReceiptId": "receipt_model_invocation_df2aa6e1-6120-4b67-a287-b14aa2bc5ae5",
+    "responsesCompatTranslation": null,
+    "embeddingStatus": "unsupported_or_failed",
+    "embeddingReceiptId": null,
+    "embeddingVectors": null,
+    "embeddingErrorHash": "856e711be1f0c36e42ea584facd1758d3727964f14ef5633a55a3c33c820e1cc",
+    "streamReceipts": {
+      "completedInvocationReceiptId": "receipt_model_invocation_9c3b586c-fb44-43a8-b12f-227ad5ad9fe8",
+      "completedStreamReceiptId": "receipt_model_invocation_stream_completed_589aaa00-0778-4ae2-98ba-147a99d08470",
+      "abortedInvocationReceiptId": "receipt_model_invocation_2c8b10ab-8b3b-4da2-9260-43f27f3b22df",
+      "abortedStreamReceiptId": "receipt_model_invocation_stream_canceled_e99e6a07-5403-45dc-a113-1022bb30dd15",
+      "streamKind": "openai_chat_completions_provider_native",
+      "providerResponseKind": "chat.completions.stream"
+    },
+    "replaySource": "agentgres_model_mounting_projection_replay",
+    "secretScan": {
+      "passed": true,
+      "findings": []
+    }
+  },
+  "completedAt": "2026-05-06T23:33:15.981Z"
+}
