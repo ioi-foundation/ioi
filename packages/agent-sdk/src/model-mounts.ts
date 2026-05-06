@@ -374,8 +374,13 @@ export interface ModelCatalogProviderStatus {
     configured?: boolean;
     status?: string;
     tokenExchange?: string;
+    oauthSessionHash?: string | null;
+    expiresAt?: string | null;
+    scopes?: string[];
+    refreshCount?: number;
     evidenceRefs?: string[];
   } | null;
+  oauthSessionHash?: string | null;
   materialVaultRefHash?: string;
   configHash?: string;
   enabled?: boolean;

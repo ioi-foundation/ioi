@@ -24,6 +24,7 @@ class AgentgresModelMountingStore {
       "backend-processes",
       "model-downloads",
       "model-catalog-providers",
+      "oauth-sessions",
       "runtime-preferences",
       "runtime-engine-profiles",
       "provider-health",
@@ -717,6 +718,297 @@ class AgentgresVaultPort {
       materialSources: status.materialSources,
       remoteAdapter: status.remoteAdapter,
       evidenceRefs: ["VaultPort.health", ...normalizeScopes(adapterHealth.evidenceRefs, [])],
+    };
+  }
+}
+
+class OAuthCredentialProvider {
+  constructor({ now, vault }) {
+    this.now = now;
+    this.vault = vault;
+  }
+
+  async exchangeAuthorizationCode({ providerId, body = {} }) {
+    const sessionId = body.session_id ?? body.sessionId ?? `oauth_session.${safeId(providerId)}.${crypto.randomUUID()}`;
+    const tokenEndpointInput = requiredString(body.token_endpoint ?? body.tokenEndpoint, "token_endpoint");
+    const authorizationCode = requiredString(body.authorization_code ?? body.authorizationCode ?? body.code, "authorization_code");
+    const scopes = normalizeOAuthScopes(body.scopes ?? body.scope, []);
+    const redirectUri = body.redirect_uri ?? body.redirectUri ?? null;
+    const clientIdInput = body.client_id ?? body.clientId ?? null;
+    const clientSecretVaultRef = body.client_secret_vault_ref ?? body.clientSecretVaultRef ?? null;
+    if (body.client_secret || body.clientSecret) {
+      throw runtimeError({
+        status: 403,
+        code: "policy",
+        message: "OAuth client secrets must be provided through vault refs.",
+        details: { clientSecret: SECRET_REDACTION },
+      });
+    }
+    const tokenEndpointVaultRef = body.token_endpoint_vault_ref ?? body.tokenEndpointVaultRef ?? oauthSessionVaultRef(providerId, sessionId, "token-endpoint");
+    const tokenEndpointBinding = this.vault.bindVaultRef({
+      vaultRef: tokenEndpointVaultRef,
+      material: tokenEndpointInput,
+      purpose: `oauth.token_endpoint:${providerId}`,
+      label: `OAuth token endpoint for ${providerId}`,
+    });
+    let clientIdVaultRef = body.client_id_vault_ref ?? body.clientIdVaultRef ?? null;
+    let clientIdBinding = null;
+    if (typeof clientIdInput === "string" && clientIdInput.trim()) {
+      clientIdVaultRef = clientIdVaultRef ?? oauthSessionVaultRef(providerId, sessionId, "client-id");
+      clientIdBinding = this.vault.bindVaultRef({
+        vaultRef: clientIdVaultRef,
+        material: clientIdInput.trim(),
+        purpose: `oauth.client_id:${providerId}`,
+        label: `OAuth client id for ${providerId}`,
+      });
+    }
+    const clientSecret = clientSecretVaultRef
+      ? this.vault.resolveVaultRef(clientSecretVaultRef, `oauth.client_secret:${providerId}`)
+      : null;
+    if (clientSecretVaultRef && !clientSecret?.material) {
+      throw runtimeError({
+        status: 403,
+        code: "policy",
+        message: "OAuth client secret vault ref is configured, but no runtime vault material is available.",
+        details: {
+          clientSecretVaultRefHash: clientSecret?.vaultRefHash ?? stableHash(clientSecretVaultRef),
+          evidenceRefs: normalizeScopes(clientSecret?.evidenceRefs, ["VaultPort.resolveVaultRef", "oauth_client_secret_fail_closed"]),
+        },
+      });
+    }
+    const payload = {
+      grant_type: "authorization_code",
+      code: authorizationCode,
+      ...(redirectUri ? { redirect_uri: String(redirectUri) } : {}),
+      ...(clientIdInput ? { client_id: String(clientIdInput) } : {}),
+      ...(clientSecret?.material ? { client_secret: clientSecret.material } : {}),
+      ...(scopes.length > 0 ? { scope: scopes.join(" ") } : {}),
+    };
+    const response = await fetchOAuthToken(tokenEndpointInput, payload);
+    const tokenPayload = await parseOAuthTokenResponse(response);
+    const now = this.now().toISOString();
+    const expiresAt = oauthExpiresAt(this.now(), tokenPayload.expires_in ?? tokenPayload.expiresIn);
+    const accessVaultRef = body.access_vault_ref ?? body.accessVaultRef ?? oauthSessionVaultRef(providerId, sessionId, "access-token");
+    const accessBinding = this.vault.bindVaultRef({
+      vaultRef: accessVaultRef,
+      material: requiredString(tokenPayload.access_token ?? tokenPayload.accessToken, "access_token"),
+      purpose: `oauth.access_token:${providerId}`,
+      label: `OAuth access token for ${providerId}`,
+    });
+    const refreshToken = tokenPayload.refresh_token ?? tokenPayload.refreshToken ?? null;
+    const refreshVaultRef = refreshToken
+      ? body.refresh_vault_ref ?? body.refreshVaultRef ?? oauthSessionVaultRef(providerId, sessionId, "refresh-token")
+      : null;
+    const refreshBinding = refreshToken
+      ? this.vault.bindVaultRef({
+          vaultRef: refreshVaultRef,
+          material: String(refreshToken),
+          purpose: `oauth.refresh_token:${providerId}`,
+          label: `OAuth refresh token for ${providerId}`,
+        })
+      : null;
+    const session = {
+      id: sessionId,
+      schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
+      providerId,
+      status: "active",
+      accessVaultRef,
+      accessVaultRefHash: accessBinding.vaultRefHash,
+      accessTokenHash: stableHash(String(tokenPayload.access_token ?? tokenPayload.accessToken)),
+      refreshVaultRef,
+      refreshVaultRefHash: refreshBinding?.vaultRefHash ?? null,
+      refreshTokenHash: refreshToken ? stableHash(String(refreshToken)) : null,
+      tokenEndpointVaultRef,
+      tokenEndpointVaultRefHash: tokenEndpointBinding.vaultRefHash,
+      tokenEndpointHash: stableHash(tokenEndpointInput),
+      clientIdVaultRef,
+      clientIdVaultRefHash: clientIdBinding?.vaultRefHash ?? (clientIdVaultRef ? stableHash(clientIdVaultRef) : null),
+      clientIdHash: clientIdInput ? stableHash(String(clientIdInput)) : null,
+      clientSecretVaultRef: clientSecretVaultRef ?? null,
+      clientSecretVaultRefHash: clientSecret?.vaultRefHash ?? (clientSecretVaultRef ? stableHash(clientSecretVaultRef) : null),
+      scopes: normalizeOAuthScopes(tokenPayload.scope, scopes),
+      expiresAt,
+      issuedAt: now,
+      lastRefreshedAt: null,
+      refreshCount: 0,
+      revokedAt: null,
+      evidenceRefs: [
+        "OAuthCredentialProvider.exchangeAuthorizationCode",
+        "VaultOAuthSession",
+        "VaultPort.bindVaultRef",
+        "oauth_tokens_not_persisted",
+      ],
+    };
+    return { session, evidence: publicOAuthSession(session), tokenResponseKind: "authorization_code" };
+  }
+
+  async refreshAccessToken(session) {
+    if (!session || session.status !== "active") {
+      throw runtimeError({
+        status: 403,
+        code: "policy",
+        message: "OAuth session is not active.",
+        details: { oauthSessionHash: session?.id ? stableHash(session.id) : null, status: session?.status ?? "missing" },
+      });
+    }
+    if (!session.refreshVaultRef) {
+      throw runtimeError({
+        status: 403,
+        code: "policy",
+        message: "OAuth session has no refresh token vault ref.",
+        details: { oauthSessionHash: stableHash(session.id), evidenceRefs: ["oauth_refresh_fail_closed", "refresh_vault_ref_required"] },
+      });
+    }
+    const refresh = this.vault.resolveVaultRef(session.refreshVaultRef, `oauth.refresh_token:${session.providerId}`);
+    const tokenEndpoint = this.vault.resolveVaultRef(session.tokenEndpointVaultRef, `oauth.token_endpoint:${session.providerId}`);
+    const clientId = session.clientIdVaultRef
+      ? this.vault.resolveVaultRef(session.clientIdVaultRef, `oauth.client_id:${session.providerId}`)
+      : null;
+    const clientSecret = session.clientSecretVaultRef
+      ? this.vault.resolveVaultRef(session.clientSecretVaultRef, `oauth.client_secret:${session.providerId}`)
+      : null;
+    const missing = [
+      !refresh?.material ? "refresh_token" : null,
+      !tokenEndpoint?.material ? "token_endpoint" : null,
+      session.clientIdVaultRef && !clientId?.material ? "client_id" : null,
+      session.clientSecretVaultRef && !clientSecret?.material ? "client_secret" : null,
+    ].filter(Boolean);
+    if (missing.length > 0) {
+      throw runtimeError({
+        status: 403,
+        code: "policy",
+        message: "OAuth refresh requires vault material that is not currently available.",
+        details: {
+          oauthSessionHash: stableHash(session.id),
+          missing,
+          evidenceRefs: ["oauth_refresh_fail_closed", "VaultPort.resolveVaultRef"],
+        },
+      });
+    }
+    const payload = {
+      grant_type: "refresh_token",
+      refresh_token: refresh.material,
+      ...(clientId?.material ? { client_id: clientId.material } : {}),
+      ...(clientSecret?.material ? { client_secret: clientSecret.material } : {}),
+        ...(session.scopes?.length ? { scope: session.scopes.join(" ") } : {}),
+    };
+    const response = await fetchOAuthToken(tokenEndpoint.material, payload);
+    const tokenPayload = await parseOAuthTokenResponse(response);
+    const accessToken = requiredString(tokenPayload.access_token ?? tokenPayload.accessToken, "access_token");
+    const accessBinding = this.vault.bindVaultRef({
+      vaultRef: session.accessVaultRef,
+      material: accessToken,
+      purpose: `oauth.access_token:${session.providerId}`,
+      label: `OAuth access token for ${session.providerId}`,
+    });
+    const nextRefreshToken = tokenPayload.refresh_token ?? tokenPayload.refreshToken ?? null;
+    let refreshBinding = null;
+    if (nextRefreshToken) {
+      refreshBinding = this.vault.bindVaultRef({
+        vaultRef: session.refreshVaultRef,
+        material: String(nextRefreshToken),
+        purpose: `oauth.refresh_token:${session.providerId}`,
+        label: `OAuth refresh token for ${session.providerId}`,
+      });
+    }
+    return {
+      ...session,
+      status: "active",
+      accessVaultRefHash: accessBinding.vaultRefHash,
+      accessTokenHash: stableHash(accessToken),
+      refreshVaultRefHash: refreshBinding?.vaultRefHash ?? session.refreshVaultRefHash ?? null,
+      refreshTokenHash: nextRefreshToken ? stableHash(String(nextRefreshToken)) : session.refreshTokenHash ?? null,
+      scopes: normalizeOAuthScopes(tokenPayload.scope, session.scopes ?? []),
+      expiresAt: oauthExpiresAt(this.now(), tokenPayload.expires_in ?? tokenPayload.expiresIn),
+      lastRefreshedAt: this.now().toISOString(),
+      refreshCount: Number(session.refreshCount ?? 0) + 1,
+      evidenceRefs: normalizeScopes(
+        [
+          ...normalizeScopes(session.evidenceRefs, []),
+          "OAuthCredentialProvider.refreshAccessToken",
+          "VaultOAuthSession",
+          "oauth_refresh_tokens_not_persisted",
+        ],
+        [],
+      ),
+    };
+  }
+
+  revokeSession(session) {
+    if (!session) {
+      throw runtimeError({ status: 404, code: "not_found", message: "OAuth session not found.", details: {} });
+    }
+    for (const vaultRef of [session.accessVaultRef, session.refreshVaultRef].filter(Boolean)) {
+      this.vault.removeVaultRef(vaultRef, `oauth.revoke:${session.providerId}`);
+    }
+    return {
+      ...session,
+      status: "revoked",
+      revokedAt: this.now().toISOString(),
+      evidenceRefs: normalizeScopes([...normalizeScopes(session.evidenceRefs, []), "OAuthCredentialProvider.revokeSession"], []),
+    };
+  }
+
+  async resolveAccessHeader(session, { headerName = "authorization" } = {}) {
+    let current = session;
+    let refreshed = false;
+    if (!current || current.status !== "active") {
+      throw runtimeError({
+        status: 403,
+        code: "policy",
+        message: "OAuth session is not active.",
+        details: {
+          oauthSessionHash: current?.id ? stableHash(current.id) : null,
+          status: current?.status ?? "missing",
+          catalogAuthScheme: "oauth2",
+          catalogAuthHeaderNameHash: stableHash(headerName),
+          oauthBoundary: oauthBoundaryForSession(current),
+          evidenceRefs: ["OAuthCredentialProvider.resolveAccessHeader", "oauth_session_inactive"],
+        },
+      });
+    }
+    if (oauthSessionNeedsRefresh(current, this.now())) {
+      current = await this.refreshAccessToken(current);
+      refreshed = true;
+    }
+    const access = this.vault.resolveVaultRef(current.accessVaultRef, `oauth.access_token:${current.providerId}`);
+    if (!access?.material) {
+      throw runtimeError({
+        status: 403,
+        code: "policy",
+        message: "OAuth access token vault ref is configured, but no runtime vault material is available.",
+        details: {
+          oauthSessionHash: stableHash(current.id),
+          authVaultRefHash: access?.vaultRefHash ?? current.accessVaultRefHash ?? null,
+          resolvedMaterial: false,
+          catalogAuthScheme: "oauth2",
+          catalogAuthHeaderNameHash: stableHash(headerName),
+          oauthBoundary: oauthBoundaryForSession(current),
+          evidenceRefs: normalizeScopes(access?.evidenceRefs, ["OAuthCredentialProvider.resolveAccessHeader", "oauth_access_fail_closed"]),
+        },
+      });
+    }
+    return {
+      session: current,
+      refreshed,
+      headerValue: `Bearer ${access.material}`,
+      evidence: {
+        authVaultRefHash: access.vaultRefHash,
+        oauthSessionHash: stableHash(current.id),
+        resolvedMaterial: true,
+        catalogAuthResolved: true,
+        catalogAuthScheme: "oauth2",
+        catalogAuthHeaderNameHash: stableHash(headerName),
+        oauthBoundary: oauthBoundaryForSession(current, { refreshed }),
+        evidenceRefs: normalizeScopes(
+          [
+            ...normalizeScopes(access.evidenceRefs, []),
+            "OAuthCredentialProvider.resolveAccessHeader",
+            refreshed ? "OAuthCredentialProvider.refreshAccessToken" : "oauth_access_token_active",
+          ],
+          [],
+        ),
+      },
     };
   }
 }
@@ -1763,6 +2055,10 @@ export class ModelMountingState {
       secrets: vaultSecrets,
       materialAdapter: configuredVaultMaterialAdapter({ now: this.now }),
     });
+    this.oauthCredentialProvider = new OAuthCredentialProvider({
+      now: this.now,
+      vault: this.vault,
+    });
     this.providers = new Map();
     this.backends = new Map();
     this.backendChildProcesses = new Map();
@@ -1774,6 +2070,7 @@ export class ModelMountingState {
     this.downloads = new Map();
     this.catalogProviderConfigs = new Map();
     this.catalogProviderRuntimeMaterials = new Map();
+    this.oauthSessions = new Map();
     this.lastCatalogSearch = null;
     this.runtimeSelections = new Map();
     this.runtimeEngineProfiles = new Map();
@@ -1884,6 +2181,7 @@ export class ModelMountingState {
     this.loadMap("model-routes", this.routes);
     this.loadMap("model-downloads", this.downloads);
     this.loadMap("model-catalog-providers", this.catalogProviderConfigs);
+    this.loadMap("oauth-sessions", this.oauthSessions);
     this.loadMap("runtime-preferences", this.runtimeSelections);
     this.loadMap("runtime-engine-profiles", this.runtimeEngineProfiles);
     this.loadMap("tokens", this.tokens);
@@ -2253,6 +2551,7 @@ export class ModelMountingState {
     this.writeMap("model-routes", this.routes);
     this.writeMap("model-downloads", this.downloads);
     this.writeMap("model-catalog-providers", this.catalogProviderConfigs);
+    this.writeMap("oauth-sessions", this.oauthSessions);
     this.writeMap("runtime-preferences", this.runtimeSelections);
     this.writeMap("runtime-engine-profiles", this.runtimeEngineProfiles);
     this.writeMap("tokens", this.tokens);
@@ -2518,6 +2817,12 @@ export class ModelMountingState {
     return [...this.downloads.values()].sort((left, right) => left.createdAt.localeCompare(right.createdAt));
   }
 
+  listOAuthSessions() {
+    return [...this.oauthSessions.values()]
+      .map(publicOAuthSession)
+      .sort((left, right) => left.id.localeCompare(right.id));
+  }
+
   listProviderHealth() {
     return listJson(path.join(this.stateDir, "provider-health"))
       .map((filePath) => readJson(filePath))
@@ -2530,6 +2835,7 @@ export class ModelMountingState {
       server: this.serverStatus(baseUrl),
       catalog: this.catalogStatus(),
       catalogProviderConfigs: this.listCatalogProviderConfigs(),
+      oauthSessions: this.listOAuthSessions(),
       artifacts: this.listArtifacts(),
       backends: this.listBackends(),
       backendProcesses: this.listBackendProcesses(),
@@ -2579,6 +2885,7 @@ export class ModelMountingState {
       providers: this.listProviders(),
       catalog: this.catalogStatus(),
       catalogProviderConfigs: this.listCatalogProviderConfigs(),
+      oauthSessions: this.listOAuthSessions(),
       downloads: this.listDownloads(),
       providerHealth: this.listProviderHealth(),
       runtimeEngines: this.listRuntimeEngines(),
@@ -2604,6 +2911,13 @@ export class ModelMountingState {
     return {
       wallet: this.walletAuthority.adapterStatus(),
       vault: this.vault.adapterStatus(),
+      oauth: {
+        port: "OAuthCredentialProvider",
+        implementation: "agentgres_vault_oauth_session",
+        methods: ["exchangeAuthorizationCode", "refreshAccessToken", "revokeSession", "resolveAccessHeader"],
+        plaintextPersistence: false,
+        evidenceRefs: ["OAuthCredentialProvider", "VaultOAuthSession", "oauth_tokens_not_persisted"],
+      },
       agentgres: this.store.adapterStatus(),
     };
   }
@@ -2790,6 +3104,119 @@ export class ModelMountingState {
     };
   }
 
+  async exchangeCatalogProviderOAuth(providerId, body = {}) {
+    assertConfigurableCatalogProvider(providerId);
+    const { session, evidence } = await this.oauthCredentialProvider.exchangeAuthorizationCode({ providerId, body });
+    this.oauthSessions.set(session.id, session);
+    const existing = this.catalogProviderConfigs.get(providerId);
+    const update = catalogProviderConfigUpdate(
+      providerId,
+      {
+        enabled: body.enabled ?? existing?.enabled ?? true,
+        auth_scheme: "oauth2",
+        auth_header_name: body.auth_header_name ?? body.authHeaderName ?? existing?.catalogAuthHeaderName ?? "authorization",
+        auth_vault_ref: session.accessVaultRef,
+        oauth_session_id: session.id,
+      },
+      existing,
+      this.nowIso(),
+      this,
+    );
+    this.catalogProviderConfigs.set(providerId, update.record);
+    if (update.runtimeMaterial) this.catalogProviderRuntimeMaterials.set(providerId, update.runtimeMaterial);
+    this.writeMap("oauth-sessions", this.oauthSessions);
+    this.writeMap("model-catalog-providers", this.catalogProviderConfigs);
+    this.writeVaultRefs();
+    const publicRecord = publicCatalogProviderConfig(providerId, update.record, this.catalogProviderRuntimeMaterial(providerId));
+    const receipt = this.receipt("catalog_oauth_exchange", {
+      summary: `${providerId} OAuth session exchanged and bound through vault refs.`,
+      redaction: "redacted",
+      evidenceRefs: ["OAuthCredentialProvider.exchangeAuthorizationCode", "VaultOAuthSession", providerId],
+      details: {
+        providerId,
+        oauthSession: evidence,
+        catalogProvider: publicRecord,
+      },
+    });
+    this.writeProjection();
+    return {
+      ...publicRecord,
+      oauthSession: evidence,
+      receiptId: receipt.id,
+      provider: catalogProviderStatus(this.catalogProviderPorts().find((port) => port.id === providerId)),
+    };
+  }
+
+  async refreshCatalogProviderOAuth(providerId) {
+    assertConfigurableCatalogProvider(providerId);
+    const config = this.catalogProviderConfigs.get(providerId);
+    const session = config?.oauthSessionId ? this.oauthSessions.get(config.oauthSessionId) : null;
+    if (!session) {
+      throw runtimeError({
+        status: 404,
+        code: "not_found",
+        message: `OAuth session not found for catalog provider: ${providerId}`,
+        details: { providerId, oauthSessionHash: config?.oauthSessionId ? stableHash(config.oauthSessionId) : null },
+      });
+    }
+    const refreshed = await this.oauthCredentialProvider.refreshAccessToken(session);
+    this.oauthSessions.set(refreshed.id, refreshed);
+    this.catalogProviderConfigs.set(providerId, {
+      ...config,
+      oauthBoundary: oauthBoundaryForSession(refreshed, { refreshed: true }),
+      updatedAt: this.nowIso(),
+    });
+    this.writeMap("oauth-sessions", this.oauthSessions);
+    this.writeMap("model-catalog-providers", this.catalogProviderConfigs);
+    this.writeVaultRefs();
+    const receipt = this.receipt("catalog_oauth_refresh", {
+      summary: `${providerId} OAuth session refreshed through vault refs.`,
+      redaction: "redacted",
+      evidenceRefs: ["OAuthCredentialProvider.refreshAccessToken", "VaultOAuthSession", providerId],
+      details: {
+        providerId,
+        oauthSession: publicOAuthSession(refreshed),
+      },
+    });
+    this.writeProjection();
+    return { oauthSession: publicOAuthSession(refreshed), receiptId: receipt.id };
+  }
+
+  revokeCatalogProviderOAuth(providerId) {
+    assertConfigurableCatalogProvider(providerId);
+    const config = this.catalogProviderConfigs.get(providerId);
+    const session = config?.oauthSessionId ? this.oauthSessions.get(config.oauthSessionId) : null;
+    if (!session) {
+      throw runtimeError({
+        status: 404,
+        code: "not_found",
+        message: `OAuth session not found for catalog provider: ${providerId}`,
+        details: { providerId, oauthSessionHash: config?.oauthSessionId ? stableHash(config.oauthSessionId) : null },
+      });
+    }
+    const revoked = this.oauthCredentialProvider.revokeSession(session);
+    this.oauthSessions.set(revoked.id, revoked);
+    this.catalogProviderConfigs.set(providerId, {
+      ...config,
+      oauthBoundary: oauthBoundaryForSession(revoked),
+      updatedAt: this.nowIso(),
+    });
+    this.writeMap("oauth-sessions", this.oauthSessions);
+    this.writeMap("model-catalog-providers", this.catalogProviderConfigs);
+    this.writeVaultRefs();
+    const receipt = this.receipt("catalog_oauth_revoke", {
+      summary: `${providerId} OAuth session revoked through vault refs.`,
+      redaction: "redacted",
+      evidenceRefs: ["OAuthCredentialProvider.revokeSession", "VaultOAuthSession", providerId],
+      details: {
+        providerId,
+        oauthSession: publicOAuthSession(revoked),
+      },
+    });
+    this.writeProjection();
+    return { oauthSession: publicOAuthSession(revoked), receiptId: receipt.id };
+  }
+
   catalogProviderConfig(providerId) {
     return this.catalogProviderConfigs.get(providerId) ?? null;
   }
@@ -2924,7 +3351,7 @@ export class ModelMountingState {
       };
     }
     try {
-      const auth = catalogProviderAuthHeaders("catalog.huggingface", this);
+      const auth = await catalogProviderAuthHeaders("catalog.huggingface", this);
       const url = new URL("/api/models", baseUrl);
       if (query) url.searchParams.set("search", query);
       url.searchParams.set("limit", String(limit));
@@ -3337,7 +3764,7 @@ export class ModelMountingState {
     const variantMetadata = catalogVariantForSource(source, body);
     const catalogProviderId = body.catalog_provider_id ?? body.catalogProviderId ?? variantMetadata.catalogProviderId ?? null;
     const catalogAuth = !isFixture && catalogProviderId
-      ? catalogProviderAuthHeaders(catalogProviderId, this)
+      ? await catalogProviderAuthHeaders(catalogProviderId, this)
       : { headers: {}, evidence: null };
     const catalogAuthReceipt = publicCatalogAuthEvidence(catalogAuth.evidence);
     const targetDir = path.join(this.modelRoot, "downloads", safeFileName(modelId));
@@ -6615,6 +7042,12 @@ function normalizeScopes(value, fallback) {
   return [String(value)];
 }
 
+function normalizeOAuthScopes(value, fallback = []) {
+  if (!value) return [...fallback];
+  if (Array.isArray(value)) return value.map(String).filter(Boolean);
+  return String(value).split(/\s+/).map((scope) => scope.trim()).filter(Boolean);
+}
+
 function sanitizeVaultRefs(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   return Object.fromEntries(
@@ -7284,6 +7717,7 @@ function catalogProviderConfigUpdate(providerId, body, existing = null, updatedA
       authVaultRefHash,
       catalogAuthScheme: authConfig.catalogAuthScheme,
       catalogAuthHeaderNameHash: authConfig.catalogAuthHeaderNameHash,
+      oauthSessionHash: authConfig.oauthSessionHash,
     }),
     manifestPathHash: providerId === "catalog.local_manifest" ? materialHash : null,
     baseUrlHash: providerId === "catalog.custom_http" ? materialHash : null,
@@ -7293,6 +7727,8 @@ function catalogProviderConfigUpdate(providerId, body, existing = null, updatedA
     catalogAuthScheme: authConfig.catalogAuthScheme,
     catalogAuthHeaderName: authConfig.catalogAuthHeaderName,
     catalogAuthHeaderNameHash: authConfig.catalogAuthHeaderNameHash,
+    oauthSessionId: authConfig.oauthSessionId,
+    oauthSessionHash: authConfig.oauthSessionHash,
     oauthBoundary: authConfig.oauthBoundary,
     materialVaultRefHash,
     materialConfigured: Boolean(materialHash),
@@ -7339,15 +7775,27 @@ function catalogProviderAuthConfig(providerId, body, existing = null, state) {
   const rawHeaderName = body.auth_header_name ?? body.authHeaderName ?? existing?.catalogAuthHeaderName ?? existing?.authHeaderName ?? "authorization";
   const catalogAuthHeaderName = normalizeProviderAuthHeaderName(rawHeaderName);
   const catalogAuthHeaderNameHash = stableHash(catalogAuthHeaderName);
-  const catalogAuthConfigured = Boolean(authVaultRefHash);
+  const oauthSessionInput = firstOwn(body, ["oauth_session_id", "oauthSessionId"]);
+  const oauthSessionId =
+    oauthSessionInput.has
+      ? typeof oauthSessionInput.value === "string" && oauthSessionInput.value.trim()
+        ? oauthSessionInput.value.trim()
+        : null
+      : existing?.oauthSessionId ?? null;
+  const oauthSessionHash = oauthSessionId ? stableHash(oauthSessionId) : oauthSessionInput.has ? null : existing?.oauthSessionHash ?? null;
+  const oauthSession = oauthSessionId ? state?.oauthSessions?.get(oauthSessionId) ?? null : null;
+  const catalogAuthConfigured = Boolean(authVaultRefHash || oauthSessionHash);
   const oauthBoundary =
     catalogAuthScheme === "oauth2"
-      ? {
-          configured: catalogAuthConfigured,
-          status: catalogAuthConfigured ? "vault_token_passthrough" : "requires_vault_ref",
-          tokenExchange: "not_local",
-          evidenceRefs: ["catalog_oauth_boundary", "vault_ref_oauth_token_material"],
-        }
+      ? oauthSession
+        ? oauthBoundaryForSession(oauthSession)
+        : {
+            configured: catalogAuthConfigured,
+            status: catalogAuthConfigured ? "vault_token_passthrough" : "requires_oauth_exchange",
+            tokenExchange: catalogAuthConfigured ? "vault_token_passthrough" : "OAuthCredentialProvider.exchangeAuthorizationCode",
+            oauthSessionHash,
+            evidenceRefs: ["catalog_oauth_boundary", "vault_ref_oauth_token_material"],
+          }
       : null;
   return {
     authVaultRef,
@@ -7356,6 +7804,8 @@ function catalogProviderAuthConfig(providerId, body, existing = null, state) {
     catalogAuthScheme,
     catalogAuthHeaderName,
     catalogAuthHeaderNameHash,
+    oauthSessionId,
+    oauthSessionHash,
     oauthBoundary,
   };
 }
@@ -7417,9 +7867,32 @@ function catalogProviderMaterialLabel(providerId) {
   return providerId === "catalog.local_manifest" ? "Local manifest catalog source" : "Custom HTTP catalog source";
 }
 
-function catalogProviderAuthHeaders(providerId, state) {
+async function catalogProviderAuthHeaders(providerId, state) {
   const config = state?.catalogProviderConfig?.(providerId) ?? null;
-  if (!config?.authVaultRef && !config?.authVaultRefHash) return { headers: {}, evidence: null };
+  if (!config?.authVaultRef && !config?.authVaultRefHash && !config?.oauthSessionId) return { headers: {}, evidence: null };
+  const headerName = normalizeProviderAuthHeaderName(config.catalogAuthHeaderName ?? "authorization");
+  const authScheme = normalizeCatalogAuthScheme(config.catalogAuthScheme ?? "bearer");
+  if (authScheme === "oauth2" && config.oauthSessionId) {
+    const session = state?.oauthSessions?.get(config.oauthSessionId) ?? null;
+    const resolved = await state.oauthCredentialProvider.resolveAccessHeader(session, { providerId, headerName });
+    if (resolved.refreshed) {
+      state.oauthSessions.set(resolved.session.id, resolved.session);
+      state.writeMap?.("oauth-sessions", state.oauthSessions);
+      if (config?.id && state.catalogProviderConfigs?.has(config.id)) {
+        state.catalogProviderConfigs.set(config.id, {
+          ...config,
+          oauthBoundary: oauthBoundaryForSession(resolved.session, { refreshed: true }),
+          updatedAt: state.nowIso?.() ?? config.updatedAt,
+        });
+        state.writeMap?.("model-catalog-providers", state.catalogProviderConfigs);
+      }
+    }
+    state?.writeVaultRefs?.();
+    return {
+      headers: { [headerName]: resolved.headerValue },
+      evidence: resolved.evidence,
+    };
+  }
   if (!config.authVaultRef) {
     throw runtimeError({
       status: 403,
@@ -7435,8 +7908,6 @@ function catalogProviderAuthHeaders(providerId, state) {
   }
   const resolved = state?.vault?.resolveVaultRef(config.authVaultRef, `catalog.auth:${providerId}`);
   state?.writeVaultRefs?.();
-  const headerName = normalizeProviderAuthHeaderName(config.catalogAuthHeaderName ?? "authorization");
-  const authScheme = normalizeCatalogAuthScheme(config.catalogAuthScheme ?? "bearer");
   if (!resolved?.material) {
     throw runtimeError({
       status: 403,
@@ -7482,6 +7953,104 @@ function catalogAuthorizationHeaderValue(authScheme, material) {
   return `Bearer ${material}`;
 }
 
+function oauthSessionVaultRef(providerId, sessionId, kind) {
+  return `vault://ioi/oauth/${safeId(providerId)}/${safeId(sessionId)}/${safeId(kind)}`;
+}
+
+function oauthExpiresAt(now, expiresIn) {
+  const seconds = Number(expiresIn);
+  const ttlMs = Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : 3600 * 1000;
+  return new Date(now.getTime() + ttlMs).toISOString();
+}
+
+function oauthSessionNeedsRefresh(session, now) {
+  if (!session?.expiresAt) return false;
+  const expiresAt = Date.parse(session.expiresAt);
+  if (!Number.isFinite(expiresAt)) return true;
+  return expiresAt <= now.getTime() + 30_000;
+}
+
+function oauthBoundaryForSession(session, options = {}) {
+  if (!session) {
+    return {
+      configured: false,
+      status: "requires_oauth_exchange",
+      tokenExchange: "OAuthCredentialProvider.exchangeAuthorizationCode",
+      evidenceRefs: ["catalog_oauth_boundary"],
+    };
+  }
+  return {
+    configured: session.status === "active",
+    status: session.status === "active" ? (options.refreshed ? "refreshed" : "active") : session.status ?? "unknown",
+    tokenExchange: "OAuthCredentialProvider",
+    oauthSessionHash: stableHash(session.id),
+    expiresAt: session.expiresAt ?? null,
+    scopes: normalizeOAuthScopes(session.scopes, []),
+    refreshCount: Number(session.refreshCount ?? 0),
+    evidenceRefs: normalizeScopes(session.evidenceRefs, ["catalog_oauth_boundary", "VaultOAuthSession"]),
+  };
+}
+
+function publicOAuthSession(session) {
+  return {
+    id: session.id,
+    providerId: session.providerId,
+    status: session.status,
+    oauthSessionHash: stableHash(session.id),
+    accessVaultRefHash: session.accessVaultRefHash ?? (session.accessVaultRef ? stableHash(session.accessVaultRef) : null),
+    refreshVaultRefHash: session.refreshVaultRefHash ?? (session.refreshVaultRef ? stableHash(session.refreshVaultRef) : null),
+    tokenEndpointVaultRefHash: session.tokenEndpointVaultRefHash ?? (session.tokenEndpointVaultRef ? stableHash(session.tokenEndpointVaultRef) : null),
+    tokenEndpointHash: session.tokenEndpointHash ?? null,
+    clientIdVaultRefHash: session.clientIdVaultRefHash ?? (session.clientIdVaultRef ? stableHash(session.clientIdVaultRef) : null),
+    clientIdHash: session.clientIdHash ?? null,
+    clientSecretVaultRefHash: session.clientSecretVaultRefHash ?? (session.clientSecretVaultRef ? stableHash(session.clientSecretVaultRef) : null),
+    accessTokenHash: session.accessTokenHash ?? null,
+    refreshTokenHash: session.refreshTokenHash ?? null,
+    scopes: normalizeOAuthScopes(session.scopes, []),
+    expiresAt: session.expiresAt ?? null,
+    issuedAt: session.issuedAt ?? null,
+    lastRefreshedAt: session.lastRefreshedAt ?? null,
+    refreshCount: Number(session.refreshCount ?? 0),
+    revokedAt: session.revokedAt ?? null,
+    evidenceRefs: normalizeScopes(session.evidenceRefs, ["VaultOAuthSession"]),
+  };
+}
+
+async function fetchOAuthToken(tokenEndpoint, payload) {
+  const response = await fetchWithTimeout(tokenEndpoint, {
+    method: "POST",
+    timeoutMs: modelCatalogTimeoutMs(),
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams(payload),
+  });
+  if (!response.ok) {
+    throw runtimeError({
+      status: 403,
+      code: "policy",
+      message: "OAuth token endpoint rejected the credential exchange.",
+      details: {
+        tokenEndpointHash: stableHash(tokenEndpoint),
+        errorHash: stableHash(`oauth:${response.status}`),
+        evidenceRefs: ["OAuthCredentialProvider.tokenEndpoint", "oauth_exchange_fail_closed"],
+      },
+    });
+  }
+  return response;
+}
+
+async function parseOAuthTokenResponse(response) {
+  const payload = await response.json();
+  if (!payload || typeof payload !== "object" || !payload.access_token) {
+    throw runtimeError({
+      status: 502,
+      code: "provider_error",
+      message: "OAuth token endpoint did not return an access token.",
+      details: { evidenceRefs: ["OAuthCredentialProvider.tokenEndpoint", "oauth_access_token_required"] },
+    });
+  }
+  return payload;
+}
+
 function catalogAuthProviderFields(evidence = null) {
   if (!evidence) return {};
   return {
@@ -7522,7 +8091,7 @@ function catalogAuthFailureStatus(error) {
 
 function catalogAuthFailureFields(error) {
   const details = error?.details && typeof error.details === "object" ? error.details : {};
-  if (!details.authVaultRefHash && !details.catalogAuthHeaderNameHash && !details.catalogAuthScheme) return {};
+  if (!details.authVaultRefHash && !details.catalogAuthHeaderNameHash && !details.catalogAuthScheme && !details.oauthSessionHash) return {};
   return {
     authVaultRefHash: details.authVaultRefHash ?? null,
     catalogAuthConfigured: true,
@@ -7530,6 +8099,8 @@ function catalogAuthFailureFields(error) {
     catalogAuthScheme: details.catalogAuthScheme ?? "bearer",
     catalogAuthHeaderNameHash: details.catalogAuthHeaderNameHash ?? null,
     catalogAuthEvidenceRefs: normalizeScopes(details.evidenceRefs, ["catalog_auth_fail_closed"]),
+    oauthSessionHash: details.oauthSessionHash ?? details.oauthBoundary?.oauthSessionHash ?? null,
+    oauthBoundary: details.oauthBoundary ?? null,
   };
 }
 
@@ -7545,6 +8116,7 @@ function publicCatalogProviderConfig(providerId, record = null, material = null)
     catalogAuthConfigured: Boolean(record?.catalogAuthConfigured ?? record?.authVaultRefHash ?? false),
     catalogAuthScheme: record?.catalogAuthScheme ?? "bearer",
     catalogAuthHeaderNameHash: record?.catalogAuthHeaderNameHash ?? null,
+    oauthSessionHash: record?.oauthSessionHash ?? (record?.oauthSessionId ? stableHash(record.oauthSessionId) : null),
     oauthBoundary: record?.oauthBoundary ?? null,
     materialVaultRefHash: record?.materialVaultRefHash ?? material?.materialVaultRefHash ?? null,
     materialConfigured,
@@ -7577,6 +8149,7 @@ function catalogProviderConfigHealthFields(providerId, config = null, material =
     catalogAuthConfigured: publicConfig.catalogAuthConfigured,
     catalogAuthScheme: publicConfig.catalogAuthScheme,
     catalogAuthHeaderNameHash: publicConfig.catalogAuthHeaderNameHash,
+    oauthSessionHash: publicConfig.oauthSessionHash,
     oauthBoundary: publicConfig.oauthBoundary,
     materialVaultRefHash: publicConfig.materialVaultRefHash,
     materialConfigured: publicConfig.materialConfigured,
@@ -7618,6 +8191,7 @@ function catalogProviderStatus(port, result = null) {
     catalogAuthHeaderNameHash: result?.catalogAuthHeaderNameHash ?? health.catalogAuthHeaderNameHash ?? null,
     catalogAuthEvidenceRefs: result?.catalogAuthEvidenceRefs ?? health.catalogAuthEvidenceRefs ?? [],
     oauthBoundary: result?.oauthBoundary ?? health.oauthBoundary ?? null,
+    oauthSessionHash: result?.oauthSessionHash ?? health.oauthSessionHash ?? result?.oauthBoundary?.oauthSessionHash ?? health.oauthBoundary?.oauthSessionHash ?? null,
     materialVaultRefHash: result?.materialVaultRefHash ?? health.materialVaultRefHash ?? null,
     materialConfigured: result?.materialConfigured ?? health.materialConfigured ?? null,
     materialPersistence: result?.materialPersistence ?? health.materialPersistence ?? null,
@@ -7754,7 +8328,7 @@ function customHttpCatalogProviderPort(state) {
       const baseUrl = customHttpCatalogBaseUrl(state);
       if (!baseUrl) return { ...health, results: [] };
       try {
-        const auth = catalogProviderAuthHeaders("catalog.custom_http", state);
+        const auth = await catalogProviderAuthHeaders("catalog.custom_http", state);
         const url = new URL("/catalog/search", baseUrl);
         if (query) url.searchParams.set("q", query);
         if (format) url.searchParams.set("format", format);
@@ -7922,11 +8496,11 @@ function modelDownloadTimeoutMs() {
   return Number(process.env.IOI_MODEL_DOWNLOAD_TIMEOUT_MS ?? 30000) || 30000;
 }
 
-async function fetchWithTimeout(url, { timeoutMs, headers = {} } = {}) {
+async function fetchWithTimeout(url, { timeoutMs, headers = {}, method = "GET", body = undefined } = {}) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs ?? 5000);
   try {
-    return await fetch(url, { headers, signal: controller.signal });
+    return await fetch(url, { method, headers, body, signal: controller.signal });
   } finally {
     clearTimeout(timeout);
   }
