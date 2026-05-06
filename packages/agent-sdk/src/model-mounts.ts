@@ -364,6 +364,12 @@ export interface ModelCatalogProviderStatus {
   formats?: string[];
   baseUrlHash?: string;
   manifestPathHash?: string;
+  authVaultRefHash?: string;
+  configHash?: string;
+  enabled?: boolean;
+  materialConfigured?: boolean;
+  materialPersistence?: string;
+  runtimeMaterialStatus?: string;
   providerId?: string | null;
   adapterPort?: string;
   operations?: string[];
