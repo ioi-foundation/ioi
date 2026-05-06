@@ -2689,36 +2689,21 @@ export class ModelMountingState {
   }
 
   catalogStatus() {
-    const hfBaseUrl = huggingFaceCatalogBaseUrl();
     const lastSearch = this.lastCatalogSearch;
+    const providers = this.catalogProviderPorts().map((port) => catalogProviderStatus(port));
     return {
       schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
       checkedAt: this.nowIso(),
-      providers: [
-        {
-          id: "catalog.fixture",
-          label: "Fixture catalog",
-          status: "available",
-          gate: "always_on",
-          formats: ["gguf"],
-          evidenceRefs: ["fixture_model_catalog"],
-        },
-        {
-          id: "catalog.huggingface",
-          label: "Hugging Face-compatible catalog",
-          status: liveModelCatalogEnabled() ? "configured" : "gated",
-          gate: "IOI_LIVE_MODEL_CATALOG",
-          formats: ["gguf", "mlx", "safetensors"],
-          baseUrlHash: stableHash(hfBaseUrl),
-          liveDownloadStatus: liveModelDownloadEnabled() ? "configured" : "gated",
-          downloadGate: "IOI_LIVE_MODEL_DOWNLOAD",
-          evidenceRefs: ["huggingface_catalog_adapter_boundary", "network_access_opt_in"],
-        },
-      ],
+      providers,
+      adapterBoundary: {
+        port: "ModelCatalogProviderPort",
+        operations: ["search", "resolveVariant", "importUrl", "download", "health"],
+        evidenceRefs: ["provider_neutral_model_catalog_adapter_boundary"],
+      },
       filters: {
         formats: ["gguf", "mlx", "safetensors"],
         quantization: ["Q2", "Q3", "Q4", "Q5", "Q6", "Q8", "F16", "BF16", "IQ"],
-        compatibility: ["native_local_fixture", "llama_cpp", "vllm", "mlx"],
+        compatibility: ["native_local_fixture", "llama_cpp", "ollama", "vllm", "mlx"],
       },
       storage: this.storageSummary(),
       lastSearch: lastSearch
@@ -2731,6 +2716,10 @@ export class ModelMountingState {
         : null,
       results: lastSearch?.results ?? [],
     };
+  }
+
+  catalogProviderPorts() {
+    return modelCatalogProviderPorts(this);
   }
 
   storageSummary() {
@@ -2757,15 +2746,22 @@ export class ModelMountingState {
     const requestedFormat = query.format === undefined || query.format === "" ? null : String(query.format).toLowerCase();
     const requestedQuantization = query.quantization === undefined || query.quantization === "" ? null : String(query.quantization).toLowerCase();
     const limit = normalizeLimit(query.limit, 20, 100);
-    const catalog = fixtureModelCatalog(searchedAt).map((entry) => this.enrichCatalogEntry(entry));
-    const results = catalog.filter((entry) => {
-      const haystack = [entry.modelId, entry.family, entry.format, entry.quantization, ...(entry.tags ?? [])].join(" ").toLowerCase();
-      if (text && !haystack.includes(text)) return false;
-      if (requestedFormat && entry.format !== requestedFormat) return false;
-      if (requestedQuantization && !String(entry.quantization ?? "").toLowerCase().includes(requestedQuantization)) return false;
-      return true;
-    });
-    const live = await this.searchHuggingFaceCatalog({ query: text, format: requestedFormat, quantization: requestedQuantization, limit, searchedAt });
+    const providerResults = [];
+    for (const port of this.catalogProviderPorts()) {
+      const result = await port.search({
+        state: this,
+        query: text,
+        format: requestedFormat,
+        quantization: requestedQuantization,
+        limit,
+        searchedAt,
+      });
+      providerResults.push({
+        ...catalogProviderStatus(port, result),
+        results: (Array.isArray(result.results) ? result.results : []).map((entry) => this.enrichCatalogEntry(entry)),
+      });
+    }
+    const results = providerResults.flatMap((provider) => provider.results).slice(0, limit);
     const search = {
       schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
       searchedAt,
@@ -2775,18 +2771,13 @@ export class ModelMountingState {
         quantization: requestedQuantization,
         limit,
       },
-      providers: [
-        { id: "catalog.fixture", status: "available", evidenceRefs: ["fixture_model_catalog"] },
-        {
-          id: "catalog.huggingface",
-          status: live.status,
-          gate: "IOI_LIVE_MODEL_CATALOG",
-          baseUrlHash: live.baseUrlHash,
-          errorHash: live.errorHash ?? null,
-          evidenceRefs: live.evidenceRefs,
-        },
-      ],
-      results: [...results, ...live.results.map((entry) => this.enrichCatalogEntry(entry))].slice(0, limit),
+      adapterBoundary: {
+        port: "ModelCatalogProviderPort",
+        operations: ["search", "resolveVariant", "importUrl", "download", "health"],
+        evidenceRefs: ["provider_neutral_model_catalog_adapter_boundary"],
+      },
+      providers: providerResults.map(({ results: _results, ...provider }) => provider),
+      results,
     };
     this.lastCatalogSearch = search;
     return search;
@@ -2869,7 +2860,8 @@ export class ModelMountingState {
       });
     }
     const modelId = body.model_id ?? body.modelId ?? modelIdFromSourceUrl(sourceUrl);
-    const variant = catalogVariantForSource(sourceUrl, body);
+    const lastCatalogEntry = this.lastCatalogSearch?.results?.find((entry) => entry.sourceUrl === sourceUrl || entry.sourceUrlHash === stableHash(sourceUrl));
+    const variant = catalogVariantForSource(sourceUrl, { ...(lastCatalogEntry ?? {}), ...body });
     const receipt = this.lifecycleReceipt("model_catalog_import_url", {
       modelId,
       providerId: body.provider_id ?? body.providerId ?? "provider.autopilot.local",
@@ -2919,6 +2911,7 @@ export class ModelMountingState {
       selection_receipt_fields: variant.selectionReceiptFields,
       transfer_approved: Boolean(body.transfer_approved ?? body.transferApproved ?? isFixture),
       variant_id: variant.id,
+      catalog_provider_id: variant.catalogProviderId,
       catalog_receipt_id: receipt.id,
     });
     return {
@@ -7058,6 +7051,195 @@ function fixtureModelCatalog(searchedAt) {
   ];
 }
 
+function modelCatalogProviderPorts(state) {
+  return [
+    fixtureCatalogProviderPort(),
+    localManifestCatalogProviderPort(),
+    ollamaCatalogProviderPort(state),
+    huggingFaceCatalogProviderPort(state),
+    customHttpCatalogProviderPort(),
+  ];
+}
+
+function catalogProviderStatus(port, result = null) {
+  const health = typeof port.health === "function" ? port.health() : {};
+  return {
+    id: port.id,
+    label: port.label,
+    status: result?.status ?? health.status ?? port.status ?? "unknown",
+    gate: port.gate ?? health.gate ?? null,
+    downloadGate: port.downloadGate ?? health.downloadGate ?? null,
+    liveDownloadStatus: result?.liveDownloadStatus ?? health.liveDownloadStatus ?? null,
+    formats: port.formats ?? [],
+    baseUrlHash: result?.baseUrlHash ?? health.baseUrlHash ?? null,
+    manifestPathHash: result?.manifestPathHash ?? health.manifestPathHash ?? null,
+    providerId: port.providerId ?? null,
+    errorHash: result?.errorHash ?? health.errorHash ?? null,
+    adapterPort: "ModelCatalogProviderPort",
+    operations: ["search", "resolveVariant", "importUrl", "download", "health"],
+    evidenceRefs: result?.evidenceRefs ?? health.evidenceRefs ?? port.evidenceRefs ?? [],
+  };
+}
+
+function fixtureCatalogProviderPort() {
+  const evidenceRefs = ["fixture_model_catalog", "model_catalog_provider_port"];
+  return {
+    id: "catalog.fixture",
+    label: "Fixture catalog",
+    gate: "always_on",
+    formats: ["gguf"],
+    evidenceRefs,
+    health: () => ({ status: "available", evidenceRefs }),
+    search: async ({ query, format, quantization, searchedAt }) => ({
+      status: "available",
+      evidenceRefs,
+      results: fixtureModelCatalog(searchedAt).filter((entry) => catalogEntryMatches(entry, { query, format, quantization })),
+    }),
+  };
+}
+
+function localManifestCatalogProviderPort() {
+  const manifestPath = localManifestCatalogPath();
+  const evidenceRefs = ["local_manifest_catalog_adapter", "model_catalog_provider_port"];
+  return {
+    id: "catalog.local_manifest",
+    label: "Local manifest catalog",
+    gate: "IOI_MODEL_CATALOG_MANIFEST_PATH",
+    formats: ["gguf", "mlx", "safetensors"],
+    evidenceRefs,
+    health: () => localManifestCatalogHealth(manifestPath, evidenceRefs),
+    search: async ({ query, format, quantization, searchedAt }) => {
+      const health = localManifestCatalogHealth(manifestPath, evidenceRefs);
+      if (health.status !== "configured" && health.status !== "available") {
+        return { ...health, results: [] };
+      }
+      try {
+        const results = localManifestCatalogEntries(manifestPath, searchedAt).filter((entry) => catalogEntryMatches(entry, { query, format, quantization }));
+        return { ...health, status: "available", results };
+      } catch (error) {
+        return {
+          ...health,
+          status: "degraded",
+          errorHash: stableHash(error?.message ?? "manifest catalog failed"),
+          results: [],
+        };
+      }
+    },
+  };
+}
+
+function ollamaCatalogProviderPort(state) {
+  const evidenceRefs = ["ollama_catalog_list_bridge", "model_catalog_provider_port"];
+  const provider = state.providers.get("provider.ollama");
+  return {
+    id: "catalog.ollama",
+    label: "Ollama catalog bridge",
+    providerId: "provider.ollama",
+    gate: "OLLAMA_HOST",
+    formats: ["ollama"],
+    evidenceRefs,
+    health: () => ({
+      status: provider && provider.status !== "blocked" ? "configured" : "gated",
+      baseUrlHash: provider?.baseUrl ? stableHash(provider.baseUrl) : null,
+      evidenceRefs,
+    }),
+    search: async ({ query, format, quantization, searchedAt }) => {
+      if (format && format !== "ollama") return { ...catalogProviderStatus({ id: "catalog.ollama", label: "Ollama catalog bridge", evidenceRefs }), status: "configured", results: [] };
+      if (!provider || provider.status === "blocked") {
+        return { status: "gated", baseUrlHash: provider?.baseUrl ? stableHash(provider.baseUrl) : null, evidenceRefs, results: [] };
+      }
+      try {
+        const artifacts = await state.driverForProvider(provider).listModels({ state, provider });
+        const results = artifacts
+          .map((artifact) => ollamaArtifactCatalogEntry(artifact, searchedAt))
+          .filter((entry) => catalogEntryMatches(entry, { query, format, quantization }));
+        return { status: "available", baseUrlHash: stableHash(provider.baseUrl), evidenceRefs, results };
+      } catch (error) {
+        return {
+          status: "degraded",
+          baseUrlHash: provider?.baseUrl ? stableHash(provider.baseUrl) : null,
+          errorHash: stableHash(error?.message ?? "ollama catalog failed"),
+          evidenceRefs,
+          results: [],
+        };
+      }
+    },
+  };
+}
+
+function huggingFaceCatalogProviderPort(state) {
+  const baseUrl = huggingFaceCatalogBaseUrl();
+  const evidenceRefs = ["huggingface_catalog_adapter_boundary", "network_access_opt_in", "model_catalog_provider_port"];
+  return {
+    id: "catalog.huggingface",
+    label: "Hugging Face-compatible catalog",
+    gate: "IOI_LIVE_MODEL_CATALOG",
+    downloadGate: "IOI_LIVE_MODEL_DOWNLOAD",
+    formats: ["gguf", "mlx", "safetensors"],
+    evidenceRefs,
+    health: () => ({
+      status: liveModelCatalogEnabled() ? "configured" : "gated",
+      baseUrlHash: stableHash(baseUrl),
+      liveDownloadStatus: liveModelDownloadEnabled() ? "configured" : "gated",
+      evidenceRefs,
+    }),
+    search: async ({ query, format, quantization, limit, searchedAt }) => state.searchHuggingFaceCatalog({ query, format, quantization, limit, searchedAt }),
+  };
+}
+
+function customHttpCatalogProviderPort() {
+  const baseUrl = customHttpCatalogBaseUrl();
+  const evidenceRefs = ["custom_http_catalog_adapter", "model_catalog_provider_port"];
+  return {
+    id: "catalog.custom_http",
+    label: "Custom HTTP catalog",
+    gate: "IOI_MODEL_CATALOG_CUSTOM_BASE_URL",
+    formats: ["gguf", "mlx", "safetensors"],
+    evidenceRefs,
+    health: () => ({
+      status: baseUrl ? "configured" : "unconfigured",
+      baseUrlHash: baseUrl ? stableHash(baseUrl) : null,
+      evidenceRefs,
+    }),
+    search: async ({ query, format, quantization, limit, searchedAt }) => {
+      if (!baseUrl) return { status: "unconfigured", evidenceRefs, results: [] };
+      try {
+        const url = new URL("/catalog/search", baseUrl);
+        if (query) url.searchParams.set("q", query);
+        if (format) url.searchParams.set("format", format);
+        if (quantization) url.searchParams.set("quantization", quantization);
+        url.searchParams.set("limit", String(limit));
+        const response = await fetchWithTimeout(url, { timeoutMs: modelCatalogTimeoutMs() });
+        if (!response.ok) {
+          return { status: "degraded", baseUrlHash: stableHash(baseUrl), errorHash: stableHash(`http:${response.status}`), evidenceRefs, results: [] };
+        }
+        const payload = await response.json();
+        const records = catalogRecordsFromPayload(payload);
+        const results = records
+          .map((record) =>
+            genericCatalogEntry(record, {
+              catalogProviderId: "catalog.custom_http",
+              sourceLabelPrefix: "Custom catalog",
+              searchedAt,
+            }),
+          )
+          .filter(Boolean)
+          .filter((entry) => catalogEntryMatches(entry, { query, format, quantization }))
+          .slice(0, limit);
+        return { status: "available", baseUrlHash: stableHash(baseUrl), evidenceRefs: [...evidenceRefs, "custom_http_catalog_search"], results };
+      } catch (error) {
+        return {
+          status: "degraded",
+          baseUrlHash: stableHash(baseUrl),
+          errorHash: stableHash(error?.message ?? "custom catalog failed"),
+          evidenceRefs,
+          results: [],
+        };
+      }
+    },
+  };
+}
+
 function liveModelCatalogEnabled() {
   return process.env.IOI_LIVE_MODEL_CATALOG === "1";
 }
@@ -7068,6 +7250,47 @@ function liveModelDownloadEnabled() {
 
 function huggingFaceCatalogBaseUrl() {
   return process.env.IOI_MODEL_CATALOG_HF_BASE_URL ?? "https://huggingface.co";
+}
+
+function localManifestCatalogPath() {
+  return process.env.IOI_MODEL_CATALOG_MANIFEST_PATH ?? "";
+}
+
+function customHttpCatalogBaseUrl() {
+  return process.env.IOI_MODEL_CATALOG_CUSTOM_BASE_URL ?? "";
+}
+
+function localManifestCatalogHealth(manifestPath, evidenceRefs) {
+  if (!manifestPath) return { status: "unconfigured", gate: "IOI_MODEL_CATALOG_MANIFEST_PATH", evidenceRefs };
+  const resolved = path.resolve(manifestPath);
+  return {
+    status: fs.existsSync(resolved) ? "configured" : "degraded",
+    gate: "IOI_MODEL_CATALOG_MANIFEST_PATH",
+    manifestPathHash: stableHash(resolved),
+    evidenceRefs,
+  };
+}
+
+function localManifestCatalogEntries(manifestPath, searchedAt) {
+  const payload = readJson(path.resolve(manifestPath));
+  return catalogRecordsFromPayload(payload)
+    .map((record) =>
+      genericCatalogEntry(record, {
+        catalogProviderId: "catalog.local_manifest",
+        sourceLabelPrefix: "Local manifest",
+        searchedAt,
+      }),
+    )
+    .filter(Boolean);
+}
+
+function catalogRecordsFromPayload(payload) {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.models)) return payload.models;
+  if (Array.isArray(payload?.results)) return payload.results;
+  if (Array.isArray(payload?.entries)) return payload.entries;
+  if (Array.isArray(payload?.catalog)) return payload.catalog;
+  return [];
 }
 
 function modelCatalogTimeoutMs() {
@@ -7144,6 +7367,68 @@ function huggingFaceCatalogEntry(record, file, { baseUrl, repoId, searchedAt }) 
   };
 }
 
+function genericCatalogEntry(record, { catalogProviderId, sourceLabelPrefix, searchedAt }) {
+  const modelId = String(record.model_id ?? record.modelId ?? record.id ?? record.name ?? "").trim();
+  const sourceUrl = String(record.source_url ?? record.sourceUrl ?? record.download_url ?? record.downloadUrl ?? record.url ?? "").trim();
+  if (!modelId || !sourceUrl) return null;
+  const format = String(record.format ?? modelCatalogFileFormat(sourceUrl) ?? "").toLowerCase() || "gguf";
+  const quantization = record.quantization ?? parseModelQuantization([sourceUrl, modelId].join(" ")) ?? null;
+  const tags = normalizeScopes(record.tags, []);
+  return {
+    id: String(record.catalog_id ?? record.catalogId ?? `catalog.${safeId(catalogProviderId)}.${safeId(modelId)}.${safeId(sourceUrl)}`),
+    providerId: String(record.provider_id ?? record.providerId ?? "provider.autopilot.local"),
+    catalogProviderId,
+    modelId,
+    family: String(record.family ?? record.pipeline_tag ?? record.pipelineTag ?? sourceLabelPrefix.toLowerCase().replace(/\s+/g, "_")),
+    architecture: record.architecture ?? inferModelArchitecture([modelId, sourceUrl, ...tags].join(" ")),
+    parameterCount: record.parameter_count ?? record.parameterCount ?? inferParameterCount([modelId, sourceUrl].join(" ")),
+    format,
+    quantization,
+    sizeBytes: Number(record.size_bytes ?? record.sizeBytes ?? record.size ?? 0) || null,
+    contextWindow: Number(record.context_window ?? record.contextWindow ?? 0) || null,
+    sourceUrl,
+    sourceUrlHash: stableHash(sourceUrl),
+    sourceLabel: String(record.source_label ?? record.sourceLabel ?? `${sourceLabelPrefix} / ${modelId}`),
+    license: record.license ?? null,
+    compatibility: normalizeScopes(record.compatibility, catalogCompatibilityForFormat(format)),
+    tags: [...new Set([...tags, format, quantization].filter(Boolean))],
+    variantPath: record.variant_path ?? record.variantPath ?? null,
+    discoveredAt: searchedAt,
+  };
+}
+
+function ollamaArtifactCatalogEntry(artifact, searchedAt) {
+  const sourceUrl = `ollama://models/${encodeURIComponent(artifact.modelId)}`;
+  return {
+    id: `catalog.ollama.${safeId(artifact.modelId)}`,
+    providerId: artifact.providerId ?? "provider.ollama",
+    catalogProviderId: "catalog.ollama",
+    modelId: artifact.modelId,
+    family: artifact.family ?? "ollama",
+    architecture: inferModelArchitecture(artifact.modelId),
+    parameterCount: inferParameterCount(artifact.modelId),
+    format: "ollama",
+    quantization: artifact.quantization ?? null,
+    sizeBytes: artifact.sizeBytes ?? null,
+    contextWindow: artifact.contextWindow ?? null,
+    sourceUrl,
+    sourceUrlHash: stableHash(sourceUrl),
+    sourceLabel: `Ollama / ${artifact.modelId}`,
+    license: null,
+    compatibility: ["ollama"],
+    tags: ["ollama", ...(artifact.capabilities ?? [])],
+    discoveredAt: searchedAt,
+  };
+}
+
+function catalogEntryMatches(entry, { query, format, quantization }) {
+  const haystack = [entry.modelId, entry.family, entry.format, entry.quantization, entry.sourceLabel, ...(entry.tags ?? [])].join(" ").toLowerCase();
+  if (query && !haystack.includes(query)) return false;
+  if (format && entry.format !== format) return false;
+  if (quantization && !String(entry.quantization ?? "").toLowerCase().includes(quantization)) return false;
+  return true;
+}
+
 function modelCatalogFileFormat(filePath) {
   const lower = String(filePath ?? "").toLowerCase();
   if (lower.endsWith(".gguf")) return "gguf";
@@ -7156,6 +7441,7 @@ function catalogCompatibilityForFormat(format) {
   if (format === "gguf") return ["native_local_fixture", "llama_cpp"];
   if (format === "mlx") return ["mlx", "local_import"];
   if (format === "safetensors") return ["vllm", "openai_compatible"];
+  if (format === "ollama") return ["ollama"];
   return ["local_import"];
 }
 
@@ -7173,6 +7459,7 @@ function catalogVariantForSource(source, body = {}) {
   const publicSource = publicDownloadSource(source);
   const variant = {
     id: body.variant_id ?? body.variantId ?? catalogEntry?.id ?? `variant.${safeId(publicSource)}`,
+    catalogProviderId: body.catalog_provider_id ?? body.catalogProviderId ?? catalogEntry?.catalogProviderId ?? null,
     family: body.family ?? catalogEntry?.family ?? modelIdFromSourceUrl(publicSource),
     architecture: body.architecture ?? catalogEntry?.architecture ?? inferModelArchitecture(publicSource),
     parameterCount: body.parameter_count ?? body.parameterCount ?? catalogEntry?.parameterCount ?? inferParameterCount(publicSource),
@@ -7181,6 +7468,8 @@ function catalogVariantForSource(source, body = {}) {
     sizeBytes: Number(body.size_bytes ?? body.sizeBytes ?? catalogEntry?.sizeBytes ?? 0),
     contextWindow: Number(body.context_window ?? body.contextWindow ?? catalogEntry?.contextWindow ?? 4096),
     sourceLabel: body.source_label ?? body.sourceLabel ?? catalogEntry?.sourceLabel ?? sourceLabelForUrl(source),
+    sourceUrl: publicSource,
+    sourceUrlHash: stableHash(source),
     license: body.license ?? catalogEntry?.license ?? null,
     compatibility: normalizeScopes(body.compatibility, catalogEntry?.compatibility ?? ["native_local_fixture"]),
   };
@@ -7226,7 +7515,7 @@ function catalogBackendCompatibility(entry) {
   const rows = [
     backendCompatibilityRow("native_local_fixture", compatibility.has("native_local_fixture") || format === "gguf", format === "gguf" ? 92 : 70, "Autopilot native-local can import deterministic local artifacts."),
     backendCompatibilityRow("llama_cpp", compatibility.has("llama_cpp") || format === "gguf", format === "gguf" ? 90 : 25, "llama.cpp expects GGUF artifacts."),
-    backendCompatibilityRow("ollama", compatibility.has("ollama") || format === "gguf", format === "gguf" ? 62 : 20, "Ollama can run local GGUF through import/create workflows when configured."),
+    backendCompatibilityRow("ollama", compatibility.has("ollama") || format === "gguf", format === "ollama" ? 88 : format === "gguf" ? 62 : 20, "Ollama can run catalog-listed Ollama models and local GGUF through import/create workflows when configured."),
     backendCompatibilityRow("vllm", compatibility.has("vllm") || format === "safetensors", format === "safetensors" ? 88 : 18, "vLLM expects Hugging Face/safetensors-style artifacts."),
   ];
   return rows;

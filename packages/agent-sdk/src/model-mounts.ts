@@ -363,6 +363,11 @@ export interface ModelCatalogProviderStatus {
   liveDownloadStatus?: "configured" | "gated" | string;
   formats?: string[];
   baseUrlHash?: string;
+  manifestPathHash?: string;
+  providerId?: string | null;
+  adapterPort?: string;
+  operations?: string[];
+  errorHash?: string | null;
   evidenceRefs?: string[];
 }
 
@@ -370,6 +375,11 @@ export interface ModelCatalogStatus {
   schemaVersion: string;
   checkedAt: string;
   providers: ModelCatalogProviderStatus[];
+  adapterBoundary?: {
+    port: string;
+    operations: string[];
+    evidenceRefs: string[];
+  };
   filters: {
     formats: string[];
     quantization: string[];
