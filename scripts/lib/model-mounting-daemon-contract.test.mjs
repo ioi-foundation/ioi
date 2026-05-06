@@ -180,6 +180,8 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
           "model.chat:*",
           "model.responses:*",
           "model.embeddings:*",
+          "model.tokenize:*",
+          "model.context:*",
           "model.load:*",
           "model.unload:*",
           "model.mount:*",
@@ -472,6 +474,65 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     const nativeBackendLogs = await expectOk(daemon.endpoint, "/api/v1/backends/backend.autopilot.native-local.fixture/logs");
     assert.ok(nativeBackendLogs.some((record) => record.event === "invoke"));
 
+    const tokenized = await expectOk(daemon.endpoint, "/api/v1/tokenize", {
+      method: "POST",
+      token: grant.token,
+      body: { route_id: "route.native-local", model: "native:imported", input: "tokenize this native context" },
+    });
+    assert.equal(tokenized.route_id, "route.native-local");
+    assert.equal(tokenized.model, "native:imported");
+    assert.equal(tokenized.tokenizer, "deterministic_context_estimator");
+    assert.ok(tokenized.tokens.length >= 3);
+    assert.equal(tokenized.usage.prompt_tokens, tokenized.token_count);
+    const tokenizedReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${tokenized.receipt_id}`);
+    assert.equal(tokenizedReceipt.kind, "model_tokenization");
+    assert.equal(tokenizedReceipt.details.operation, "tokenize");
+    assert.equal(tokenizedReceipt.details.grantId, grant.grantId);
+    assert.equal(tokenizedReceipt.details.selectedModel, "native:imported");
+
+    const counted = await expectOk(daemon.endpoint, "/api/v1/tokens/count", {
+      method: "POST",
+      token: grant.token,
+      body: { route_id: "route.native-local", model: "native:imported", input: "count this native context" },
+    });
+    assert.equal(counted.route_id, "route.native-local");
+    assert.equal(counted.token_count, counted.usage.total_tokens);
+    assert.match(counted.input_hash, /^[a-f0-9]{64}$/);
+
+    const fitted = await expectOk(daemon.endpoint, "/api/v1/context/fit", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        route_id: "route.native-local",
+        model: "native:imported",
+        context_length: 4,
+        max_output_tokens: 1,
+        input: "one two three four five six seven eight",
+      },
+    });
+    assert.equal(fitted.route_id, "route.native-local");
+    assert.equal(fitted.context_window, 4);
+    assert.equal(fitted.available_input_tokens, 3);
+    assert.equal(fitted.fits, false);
+    assert.equal(fitted.truncation.applied, true);
+    assert.match(fitted.fitted_input_hash, /^[a-f0-9]{64}$/);
+    const fittedReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${fitted.receipt_id}`);
+    assert.equal(fittedReceipt.kind, "model_context_fit");
+    assert.equal(fittedReceipt.details.operation, "context_fit");
+
+    const deniedTokenizerGrant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+      method: "POST",
+      body: {
+        allowed: ["model.chat:*"],
+      },
+    });
+    const deniedTokenize = await requestJson(daemon.endpoint, "/api/v1/tokenize", {
+      method: "POST",
+      token: deniedTokenizerGrant.token,
+      body: { input: "tokenize denied" },
+    });
+    assert.equal(deniedTokenize.response.status, 403);
+
     const nativeCompat = await expectOk(daemon.endpoint, "/v1/chat/completions", {
       method: "POST",
       token: grant.token,
@@ -547,6 +608,48 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(
       nativeResponseStreamCompleteReceipt.details.outputHash,
       crypto.createHash("sha256").update(nativeResponseStreamText).digest("hex"),
+    );
+
+    const nativeAnthropicStream = await requestSse(daemon.endpoint, "/v1/messages", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        route_id: "route.native-local",
+        model: "native:imported",
+        max_tokens: 64,
+        stream: true,
+        messages: [{ role: "user", content: "stream native local anthropic messages" }],
+      },
+    });
+    assert.equal(nativeAnthropicStream.response.status, 200);
+    assert.equal(nativeAnthropicStream.response.headers.get("x-ioi-stream-source"), "provider_native");
+    assert.equal(nativeAnthropicStream.events[0].event, "message_start");
+    assert.equal(nativeAnthropicStream.events[1].event, "content_block_start");
+    const nativeAnthropicStreamText = nativeAnthropicStream.events
+      .filter((event) => event.event === "content_block_delta")
+      .map((event) => event.data.delta.text)
+      .join("");
+    assert.match(nativeAnthropicStreamText, /Autopilot native local model response/);
+    const nativeAnthropicStop = nativeAnthropicStream.events.at(-1);
+    assert.equal(nativeAnthropicStop.event, "message_stop");
+    assert.equal(nativeAnthropicStop.data.route_id, "route.native-local");
+    assert.equal(nativeAnthropicStop.data.provider_stream, "native");
+    const nativeAnthropicStreamReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${nativeAnthropicStop.data.receipt_id}`);
+    assert.equal(nativeAnthropicStreamReceipt.details.providerId, "provider.autopilot.local");
+    assert.equal(nativeAnthropicStreamReceipt.details.backend, "autopilot.native_local.fixture");
+    assert.equal(nativeAnthropicStreamReceipt.details.backendId, "backend.autopilot.native-local.fixture");
+    assert.equal(nativeAnthropicStreamReceipt.details.backendProcessPidHash, nativeLoaded.backendProcess.pidHash);
+    assert.equal(nativeAnthropicStreamReceipt.details.providerResponseKind, "native_local.chat.stream");
+    assert.ok(nativeAnthropicStreamReceipt.details.backendEvidenceRefs.includes("autopilot_native_local_provider_native_stream"));
+    const nativeAnthropicStreamCompleteReceipt = await expectOk(
+      daemon.endpoint,
+      `/api/v1/receipts/${nativeAnthropicStop.data.stream_receipt_id}`,
+    );
+    assert.equal(nativeAnthropicStreamCompleteReceipt.details.streamKind, "anthropic_messages_provider_native");
+    assert.equal(nativeAnthropicStreamCompleteReceipt.details.invocationReceiptId, nativeAnthropicStop.data.receipt_id);
+    assert.equal(
+      nativeAnthropicStreamCompleteReceipt.details.outputHash,
+      crypto.createHash("sha256").update(nativeAnthropicStreamText).digest("hex"),
     );
 
     const priorNativeProviderStreamDelay = process.env.IOI_DETERMINISTIC_PROVIDER_STREAM_DELAY_MS;
@@ -626,6 +729,43 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(canceledNativeResponsesReceipt.details.streamSource, "provider_native");
     assert.equal(canceledNativeResponsesReceipt.details.providerResponseKind, "native_local.responses.stream");
     assert.ok(canceledNativeResponsesReceipt.details.backendEvidenceRefs.includes("autopilot_native_local_provider_native_stream"));
+
+    const priorNativeAnthropicProviderStreamDelay = process.env.IOI_DETERMINISTIC_PROVIDER_STREAM_DELAY_MS;
+    process.env.IOI_DETERMINISTIC_PROVIDER_STREAM_DELAY_MS = "25";
+    try {
+      const abortedNativeAnthropicStream = await requestSseAndAbortAfterFirstChunk(daemon.endpoint, "/v1/messages", {
+        method: "POST",
+        token: grant.token,
+        body: {
+          route_id: "route.native-local",
+          model: "native:imported",
+          max_tokens: 64,
+          stream: true,
+          messages: [{ role: "user", content: "abort native local anthropic stream" }],
+        },
+      });
+      assert.equal(abortedNativeAnthropicStream.response.status, 200);
+      assert.match(abortedNativeAnthropicStream.text, /message_start/);
+    } finally {
+      if (priorNativeAnthropicProviderStreamDelay === undefined) {
+        delete process.env.IOI_DETERMINISTIC_PROVIDER_STREAM_DELAY_MS;
+      } else {
+        process.env.IOI_DETERMINISTIC_PROVIDER_STREAM_DELAY_MS = priorNativeAnthropicProviderStreamDelay;
+      }
+    }
+    const canceledNativeAnthropicReceipt = await waitForReceipt(
+      daemon.endpoint,
+      (receipt) =>
+        receipt.kind === "model_invocation_stream_canceled" &&
+        receipt.details?.streamKind === "anthropic_messages_provider_native" &&
+        receipt.details?.routeId === "route.native-local",
+    );
+    assert.equal(canceledNativeAnthropicReceipt.details.selectedModel, "native:imported");
+    assert.equal(canceledNativeAnthropicReceipt.details.endpointId, nativeMounted.id);
+    assert.equal(canceledNativeAnthropicReceipt.details.status, "aborted");
+    assert.equal(canceledNativeAnthropicReceipt.details.streamSource, "provider_native");
+    assert.equal(canceledNativeAnthropicReceipt.details.providerResponseKind, "native_local.chat.stream");
+    assert.ok(canceledNativeAnthropicReceipt.details.backendEvidenceRefs.includes("autopilot_native_local_provider_native_stream"));
 
     const nativeProviderAbortLogs = await expectOk(daemon.endpoint, "/api/v1/backends/backend.autopilot.native-local.fixture/logs");
     assert.ok(
@@ -766,6 +906,61 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
       `/api/v1/receipts/${responsesStreaming.events.at(-1).data.response.receipt_id}`,
     );
     assert.equal(responsesStreamReceipt.kind, "model_invocation");
+
+    const firstStatefulResponse = await expectOk(daemon.endpoint, "/v1/responses", {
+      method: "POST",
+      token: grant.token,
+      body: { model: "local:auto", input: "stateful response root" },
+    });
+    assert.match(firstStatefulResponse.id, /^resp_/);
+    assert.equal(firstStatefulResponse.previous_response_id, null);
+    const continuedStatefulResponse = await expectOk(daemon.endpoint, "/v1/responses", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        model: "local:auto",
+        previous_response_id: firstStatefulResponse.id,
+        input: "stateful response continuation",
+      },
+    });
+    assert.match(continuedStatefulResponse.id, /^resp_/);
+    assert.equal(continuedStatefulResponse.previous_response_id, firstStatefulResponse.id);
+    const continuedReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${continuedStatefulResponse.receipt_id}`);
+    assert.equal(continuedReceipt.details.previousResponseId, firstStatefulResponse.id);
+    assert.equal(continuedReceipt.details.continuation.mode, "matched");
+    const statefulProjection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
+    assert.ok(statefulProjection.conversationStates.some((state) => state.id === firstStatefulResponse.id));
+    assert.ok(statefulProjection.conversationStates.some((state) => state.id === continuedStatefulResponse.id));
+    const continuedState = statefulProjection.conversationStates.find((state) => state.id === continuedStatefulResponse.id);
+    assert.equal(continuedState.previousResponseId, firstStatefulResponse.id);
+    assert.equal(continuedState.redaction, "redacted");
+    assert.equal(JSON.stringify(continuedState).includes("stateful response root"), false);
+    assert.equal(JSON.stringify(continuedState).includes("stateful response continuation"), false);
+    const mismatchedContinuation = await requestJson(daemon.endpoint, "/v1/responses", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        route_id: "route.native-local",
+        model: "native:imported",
+        previous_response_id: firstStatefulResponse.id,
+        input: "stateful response unsafe route switch",
+      },
+    });
+    assert.equal(mismatchedContinuation.response.status, 409);
+    const consentedContinuation = await expectOk(daemon.endpoint, "/v1/responses", {
+      method: "POST",
+      token: grant.token,
+      body: {
+        route_id: "route.native-local",
+        model: "native:imported",
+        previous_response_id: firstStatefulResponse.id,
+        allow_continuation_fallback: true,
+        input: "stateful response explicit route switch",
+      },
+    });
+    const consentedReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${consentedContinuation.receipt_id}`);
+    assert.equal(consentedReceipt.details.continuation.mode, "fallback_allowed");
+    assert.ok(consentedReceipt.details.continuation.mismatchFields.includes("route_id"));
 
     const deniedResponsesStream = await requestJson(daemon.endpoint, "/v1/responses", {
       method: "POST",

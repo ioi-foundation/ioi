@@ -733,6 +733,7 @@ AttestationReceipt
 Deterministic gates:
 
 ```bash
+npm run check:model-mounting-guide
 npm run test:model-mounting
 npm run test:daemon-runtime-api
 npm test --workspace=@ioi/agent-sdk
@@ -755,7 +756,7 @@ Live gates:
 ```bash
 IOI_LIVE_LM_STUDIO=1 npm run test:lm-studio-live
 IOI_LIVE_LLAMA_CPP=1 npm run test:llama-cpp-live
-IOI_LIVE_MODEL_BACKENDS=1 npm run test:model-backends:live
+OLLAMA_HOST=${OLLAMA_HOST:-http://127.0.0.1:11434} IOI_PROVIDER_HTTP_TIMEOUT_MS=${IOI_PROVIDER_HTTP_TIMEOUT_MS:-120000} IOI_LIVE_MODEL_BACKENDS=1 npm run test:model-backends:live
 IOI_LIVE_MODEL_CATALOG=1 npm run test:model-catalog-live
 IOI_LIVE_MODEL_CATALOG_OAUTH=1 npm run test:model-catalog-oauth-live
 IOI_REMOTE_WALLET=1 npm run test:wallet-live
@@ -766,6 +767,18 @@ Fixture fallback gates that must remain green:
 
 ```bash
 IOI_LIVE_MODEL_CATALOG_OAUTH=1 IOI_MODEL_CATALOG_OAUTH_FIXTURE=1 npm run test:model-catalog-oauth-live
+```
+
+Canonical closeout gate:
+
+```bash
+npm run validate:model-mounting:closeout
+```
+
+For local non-closing diagnostics only:
+
+```bash
+npm run validate:model-mounting:closeout:local
 ```
 
 Closure requires passing live gates, not just skipped evidence, unless product

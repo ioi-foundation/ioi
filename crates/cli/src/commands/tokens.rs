@@ -37,6 +37,14 @@ pub enum TokensCommands {
     },
     /// Revoke a capability token by grant id.
     Revoke { id: String },
+    /// Count model input tokens through the daemon tokenizer/context path.
+    Count {
+        #[clap(long)]
+        model: Option<String>,
+        #[clap(long)]
+        route_id: Option<String>,
+        input: String,
+    },
 }
 
 pub async fn run(args: TokensArgs) -> Result<()> {
@@ -75,6 +83,24 @@ pub async fn run(args: TokensArgs) -> Result<()> {
                 Method::DELETE,
                 &format!("/api/v1/tokens/{id}"),
                 None,
+            )
+            .await?
+        }
+        TokensCommands::Count {
+            model,
+            route_id,
+            input,
+        } => {
+            daemon_request(
+                endpoint,
+                token,
+                Method::POST,
+                "/api/v1/tokens/count",
+                Some(json!({
+                    "model": model,
+                    "route_id": route_id,
+                    "input": input
+                })),
             )
             .await?
         }

@@ -19,7 +19,9 @@ export type ModelCapability =
   | "structured_output"
   | "embeddings"
   | "vision"
-  | "rerank";
+  | "rerank"
+  | "tokenize"
+  | "context_fit";
 
 export interface ModelLoadPolicy {
   mode:
@@ -295,7 +297,125 @@ export interface ModelInvocationReceipt {
     backendEvidenceRefs?: string[];
     toolReceiptIds?: string[];
     ephemeralMcpServerIds?: string[];
+    responseId?: string | null;
+    previousResponseId?: string | null;
+    continuation?: {
+      mode: "new" | "matched" | "fallback_allowed" | string;
+      previousResponseId?: string | null;
+      fallbackAllowed?: boolean;
+      mismatchFields?: string[];
+    } | null;
   };
+}
+
+export interface ModelConversationState {
+  id: string;
+  object: "ioi.model_response_state";
+  status: "completed" | "canceled" | "failed" | string;
+  redaction: "redacted";
+  createdAt: string;
+  previousResponseId: string | null;
+  rootResponseId: string;
+  kind: string;
+  routeId: string;
+  endpointId: string;
+  selectedModel: string;
+  providerId: string;
+  backendId?: string | null;
+  instanceId?: string | null;
+  receiptId: string;
+  routeReceiptId?: string | null;
+  streamReceiptId?: string | null;
+  inputHash: string;
+  outputHash: string;
+  tokenCount: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
+  messageCount: number;
+  continuation?: {
+    mode: "new" | "matched" | "fallback_allowed" | string;
+    previousResponseId?: string | null;
+    fallbackAllowed?: boolean;
+    mismatchFields?: string[];
+  } | null;
+  replay: {
+    source: "redacted_conversation_state" | string;
+    plaintextPersisted: false;
+    previousResponseId: string | null;
+  };
+}
+
+export interface TokenizerToken {
+  index: number;
+  text: string;
+  token_id: number;
+  byte_start: number;
+  byte_end: number;
+}
+
+export interface TokenizerResult {
+  schemaVersion: string;
+  model: string;
+  route_id: string;
+  endpoint_id: string;
+  provider_id: string;
+  backend_id?: string | null;
+  tokenizer: string;
+  tokens: TokenizerToken[];
+  token_count: number;
+  usage: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
+  receipt_id: string;
+  route_receipt_id: string;
+}
+
+export interface TokenCountResult {
+  schemaVersion: string;
+  model: string;
+  route_id: string;
+  endpoint_id: string;
+  provider_id: string;
+  backend_id?: string | null;
+  tokenizer: string;
+  input_hash: string;
+  token_count: number;
+  usage: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
+  receipt_id: string;
+  route_receipt_id: string;
+}
+
+export interface ContextFitResult {
+  schemaVersion: string;
+  model: string;
+  route_id: string;
+  endpoint_id: string;
+  provider_id: string;
+  backend_id?: string | null;
+  tokenizer: string;
+  context_window: number;
+  reserved_output_tokens: number;
+  available_input_tokens: number;
+  prompt_tokens: number;
+  fits: boolean;
+  overflow_tokens: number;
+  truncation: {
+    applied: boolean;
+    strategy: "keep_tail" | string;
+    omitted_token_estimate: number;
+  };
+  fitted_input: string;
+  fitted_input_hash: string;
+  receipt_id: string;
+  route_receipt_id: string;
 }
 
 export interface ModelDownloadJob {

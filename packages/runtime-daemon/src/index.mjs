@@ -957,6 +957,39 @@ async function handleModelMountingNativeRoute({ request, response, store, url, s
     writeJsonResponse(response, nativeInvocationResponse(invocation));
     return;
   }
+  if (request.method === "POST" && url.pathname === "/api/v1/tokenize") {
+    writeJsonResponse(
+      response,
+      mounts.tokenizeModel({
+        authorization,
+        requiredScope: "model.tokenize:*",
+        body: await readBody(request),
+      }),
+    );
+    return;
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/tokens/count") {
+    writeJsonResponse(
+      response,
+      mounts.countModelTokens({
+        authorization,
+        requiredScope: "model.tokenize:*",
+        body: await readBody(request),
+      }),
+    );
+    return;
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/context/fit") {
+    writeJsonResponse(
+      response,
+      mounts.fitModelContext({
+        authorization,
+        requiredScope: "model.context:*",
+        body: await readBody(request),
+      }),
+    );
+    return;
+  }
   if (request.method === "GET" && url.pathname === "/api/v1/tokens") {
     writeJsonResponse(response, mounts.listTokens());
     return;
@@ -1029,7 +1062,7 @@ async function handleOpenAiCompatibilityRoute({ request, response, store, url })
         body,
       });
       if (stream.native) {
-        await writeOpenAiProviderChatCompletionStream(response, stream, mounts);
+        await writeOpenAiProviderChatCompletionStream(request, response, stream, mounts);
         return;
       }
       await writeOpenAiChatCompletionStream(response, stream.invocation, mounts);
@@ -1093,16 +1126,27 @@ async function handleOpenAiCompatibilityRoute({ request, response, store, url })
   }
   if (request.method === "POST" && url.pathname === "/v1/messages") {
     const body = await readBody(request);
+    const canonicalBody = anthropicMessagesToCanonicalBody(body);
+    if (body.stream === true) {
+      const stream = await mounts.startModelStream({
+        authorization,
+        requiredScope: "model.chat:*",
+        kind: "chat.completions",
+        body: canonicalBody,
+      });
+      if (stream.native) {
+        await writeAnthropicProviderMessageStream(response, stream, mounts);
+        return;
+      }
+      await writeAnthropicMessageStream(response, stream.invocation, mounts);
+      return;
+    }
     const invocation = await mounts.invokeModel({
       authorization,
       requiredScope: "model.chat:*",
       kind: "messages",
-      body: anthropicMessagesToCanonicalBody(body),
+      body: canonicalBody,
     });
-    if (body.stream === true) {
-      await writeAnthropicMessageStream(response, invocation, mounts);
-      return;
-    }
     writeJsonResponse(response, anthropicMessage(invocation));
     return;
   }
@@ -1248,6 +1292,8 @@ async function writeAnthropicMessageStream(response, invocation, mounts) {
       data: {
         type: "message_stop",
         receipt_id: message.receipt_id,
+        response_id: message.response_id,
+        previous_response_id: message.previous_response_id,
         route_id: message.route_id,
         tool_receipt_ids: message.tool_receipt_ids,
       },
@@ -1260,6 +1306,188 @@ async function writeAnthropicMessageStream(response, invocation, mounts) {
     streamKind: "anthropic_messages",
     frames: events.map((event) => `event: ${event.event}\ndata: ${JSON.stringify(event.data)}\n\n`),
   });
+}
+
+async function writeAnthropicProviderMessageStream(response, streamInvocation, mounts) {
+  const invocation = streamInvocation.invocation;
+  const streamKind = "anthropic_messages_provider_native";
+  const reader = streamInvocation.providerStream.getReader();
+  const decoder = new TextDecoder();
+  const messageId = invocation.responseId?.startsWith("msg_") ? invocation.responseId : `msg_${crypto.randomUUID()}`;
+  const startUsage = invocation.tokenCount ?? { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
+  let completed = false;
+  let canceled = false;
+  let written = 0;
+  let outputText = "";
+  let providerUsage = null;
+  let finishReason = "end_turn";
+  let buffer = "";
+  const writeEvent = (event, data) => {
+    response.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    written += 1;
+  };
+  const markCanceled = () => {
+    if (completed || canceled) return;
+    canceled = true;
+    streamInvocation.abort?.();
+    recordModelStreamCanceled({ mounts, invocation, streamKind, framesWritten: written });
+  };
+  const onClose = () => markCanceled();
+  response.statusCode = 200;
+  response.setHeader("content-type", "text/event-stream");
+  response.setHeader("cache-control", "no-cache");
+  response.setHeader("x-ioi-receipt-id", invocation.receipt.id);
+  response.setHeader("x-ioi-stream-source", "provider_native");
+  response.on("close", onClose);
+  try {
+    writeEvent("message_start", {
+      type: "message_start",
+      message: {
+        id: messageId,
+        type: "message",
+        role: "assistant",
+        content: [],
+        model: invocation.model,
+        stop_reason: null,
+        stop_sequence: null,
+        usage: {
+          input_tokens: startUsage.prompt_tokens ?? startUsage.input_tokens ?? 0,
+          output_tokens: 0,
+          cache_read_input_tokens: 0,
+        },
+      },
+    });
+    writeEvent("content_block_start", {
+      type: "content_block_start",
+      index: 0,
+      content_block: { type: "text", text: "" },
+    });
+    while (!canceled) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value ?? new Uint8Array(), { stream: true });
+      if (["ollama_jsonl", "ioi_jsonl"].includes(streamInvocation.providerResult?.streamFormat)) {
+        const lines = takeLineBlocks(buffer);
+        buffer = lines.remainder;
+        for (const line of lines.blocks) {
+          if (canceled) break;
+          if (response.destroyed || response.writableEnded) {
+            markCanceled();
+            break;
+          }
+          const parsed = parseJsonMaybe(line);
+          const delta = ollamaStreamDelta(parsed);
+          if (delta) {
+            outputText += delta;
+            writeEvent("content_block_delta", {
+              type: "content_block_delta",
+              index: 0,
+              delta: { type: "text_delta", text: delta },
+            });
+          }
+          if (parsed?.done) {
+            providerUsage = ollamaUsage(parsed);
+            finishReason = parsed.done_reason ?? "end_turn";
+          }
+        }
+      } else {
+        const frames = takeSseFrameBlocks(buffer);
+        buffer = frames.remainder;
+        for (const frame of frames.blocks) {
+          if (canceled) break;
+          if (response.destroyed || response.writableEnded) {
+            markCanceled();
+            break;
+          }
+          for (const payload of dataPayloadsFromSseBlock(frame)) {
+            if (payload === "[DONE]") continue;
+            const parsed = parseJsonMaybe(payload);
+            const delta = parsed?.choices?.[0]?.delta?.content;
+            if (typeof delta === "string" && delta) {
+              outputText += delta;
+              writeEvent("content_block_delta", {
+                type: "content_block_delta",
+                index: 0,
+                delta: { type: "text_delta", text: delta },
+              });
+            }
+            if (parsed?.usage) providerUsage = parsed.usage;
+            const nextFinishReason = parsed?.choices?.[0]?.finish_reason;
+            if (nextFinishReason) finishReason = nextFinishReason;
+          }
+        }
+      }
+    }
+    if (canceled) return;
+    const tail = decoder.decode();
+    if (tail) buffer += tail;
+    if (buffer.trim()) {
+      const tailLines = ["ollama_jsonl", "ioi_jsonl"].includes(streamInvocation.providerResult?.streamFormat)
+        ? takeLineBlocks(`${buffer}\n`).blocks
+        : takeSseFrameBlocks(`${buffer}\n\n`).blocks.flatMap((block) => dataPayloadsFromSseBlock(block));
+      for (const item of tailLines) {
+        const parsed = parseJsonMaybe(item);
+        const delta =
+          ["ollama_jsonl", "ioi_jsonl"].includes(streamInvocation.providerResult?.streamFormat)
+            ? ollamaStreamDelta(parsed)
+            : parsed?.choices?.[0]?.delta?.content;
+        if (typeof delta === "string" && delta) {
+          outputText += delta;
+          writeEvent("content_block_delta", {
+            type: "content_block_delta",
+            index: 0,
+            delta: { type: "text_delta", text: delta },
+          });
+        }
+        if (parsed?.usage) providerUsage = parsed.usage;
+        if (parsed?.done) providerUsage = ollamaUsage(parsed);
+        const nextFinishReason = parsed?.choices?.[0]?.finish_reason ?? parsed?.done_reason;
+        if (nextFinishReason) finishReason = nextFinishReason;
+      }
+    }
+    const completionReceipt = mounts.recordModelStreamCompleted({
+      invocation,
+      streamKind,
+      outputText,
+      providerUsage,
+      chunksForwarded: written,
+      finishReason,
+      providerResult: streamInvocation.providerResult,
+    });
+    const usage = providerUsage ?? invocation.tokenCount ?? { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
+    if (!response.destroyed && !response.writableEnded) {
+      writeEvent("content_block_stop", { type: "content_block_stop", index: 0 });
+      writeEvent("message_delta", {
+        type: "message_delta",
+        delta: {
+          stop_reason: finishReason || "end_turn",
+          stop_sequence: null,
+        },
+        usage: {
+          output_tokens: usage.completion_tokens ?? usage.output_tokens ?? 0,
+        },
+      });
+      writeEvent("message_stop", {
+        type: "message_stop",
+        receipt_id: invocation.receipt.id,
+        stream_receipt_id: completionReceipt.id,
+        response_id: invocation.responseId ?? null,
+        previous_response_id: invocation.previousResponseId ?? null,
+        route_id: invocation.route.id,
+        tool_receipt_ids: invocation.toolReceiptIds ?? [],
+        provider_stream: "native",
+      });
+      completed = true;
+      response.end();
+    }
+  } finally {
+    response.off("close", onClose);
+    try {
+      reader.releaseLock();
+    } catch {
+      // Some runtime streams close the reader before release.
+    }
+  }
 }
 
 function textChunksForSse(text) {
@@ -1304,15 +1532,16 @@ async function writeOpenAiChatCompletionStream(response, invocation, mounts) {
   });
 }
 
-async function writeOpenAiProviderChatCompletionStream(response, streamInvocation, mounts) {
+async function writeOpenAiProviderChatCompletionStream(request, response, streamInvocation, mounts) {
   if (["ollama_jsonl", "ioi_jsonl"].includes(streamInvocation.providerResult?.streamFormat)) {
-    await writeOllamaChatCompletionStream(response, streamInvocation, mounts);
+    await writeOllamaChatCompletionStream(request, response, streamInvocation, mounts);
     return;
   }
   const invocation = streamInvocation.invocation;
   const streamKind = "openai_chat_completions_provider_native";
   const reader = streamInvocation.providerStream.getReader();
   const decoder = new TextDecoder();
+  const forwardDelayMs = providerStreamForwardDelayMs();
   let completed = false;
   let canceled = false;
   let written = 0;
@@ -1333,6 +1562,8 @@ async function writeOpenAiProviderChatCompletionStream(response, streamInvocatio
   response.setHeader("x-ioi-receipt-id", invocation.receipt.id);
   response.setHeader("x-ioi-stream-source", "provider_native");
   response.on("close", onClose);
+  request.on("aborted", onClose);
+  request.on("close", onClose);
   try {
     while (!canceled) {
       const { done, value } = await reader.read();
@@ -1361,6 +1592,7 @@ async function writeOpenAiProviderChatCompletionStream(response, streamInvocatio
             break;
           }
           written += 1;
+          if (forwardDelayMs > 0) await delay(forwardDelayMs);
         }
       }
     }
@@ -1379,6 +1611,7 @@ async function writeOpenAiProviderChatCompletionStream(response, streamInvocatio
         if (nextFinishReason) finishReason = nextFinishReason;
         response.write(`data: ${payload}\n\n`);
         written += 1;
+        if (forwardDelayMs > 0) await delay(forwardDelayMs);
       }
     }
     const completionReceipt = mounts.recordModelStreamCompleted({
@@ -1397,6 +1630,8 @@ async function writeOpenAiProviderChatCompletionStream(response, streamInvocatio
       model: invocation.model,
       receipt_id: invocation.receipt.id,
       stream_receipt_id: completionReceipt.id,
+      response_id: invocation.responseId ?? null,
+      previous_response_id: invocation.previousResponseId ?? null,
       route_id: invocation.route.id,
       tool_receipt_ids: invocation.toolReceiptIds ?? [],
       provider_stream: "native",
@@ -1410,6 +1645,8 @@ async function writeOpenAiProviderChatCompletionStream(response, streamInvocatio
     }
   } finally {
     response.off("close", onClose);
+    request.off("aborted", onClose);
+    request.off("close", onClose);
     try {
       reader.releaseLock();
     } catch {
@@ -1418,11 +1655,12 @@ async function writeOpenAiProviderChatCompletionStream(response, streamInvocatio
   }
 }
 
-async function writeOllamaChatCompletionStream(response, streamInvocation, mounts) {
+async function writeOllamaChatCompletionStream(request, response, streamInvocation, mounts) {
   const invocation = streamInvocation.invocation;
   const streamKind = streamInvocation.providerResult?.streamKind ?? "openai_chat_completions_ollama_native";
   const reader = streamInvocation.providerStream.getReader();
   const decoder = new TextDecoder();
+  const forwardDelayMs = providerStreamForwardDelayMs();
   const id = `chatcmpl_${crypto.randomUUID()}`;
   const created = Math.floor(Date.now() / 1000);
   const base = {
@@ -1433,6 +1671,8 @@ async function writeOllamaChatCompletionStream(response, streamInvocation, mount
     receipt_id: invocation.receipt.id,
     route_id: invocation.route.id,
     tool_receipt_ids: invocation.toolReceiptIds ?? [],
+    response_id: invocation.responseId ?? null,
+    previous_response_id: invocation.previousResponseId ?? null,
     provider_stream: "native",
   };
   let completed = false;
@@ -1455,9 +1695,12 @@ async function writeOllamaChatCompletionStream(response, streamInvocation, mount
   response.setHeader("x-ioi-receipt-id", invocation.receipt.id);
   response.setHeader("x-ioi-stream-source", "provider_native");
   response.on("close", onClose);
+  request.on("aborted", onClose);
+  request.on("close", onClose);
   try {
     response.write(`data: ${JSON.stringify({ ...base, choices: [{ index: 0, delta: { role: "assistant" }, finish_reason: null }] })}\n\n`);
     written += 1;
+    if (forwardDelayMs > 0) await delay(forwardDelayMs);
     while (!canceled) {
       const { done, value } = await reader.read();
       if (done) break;
@@ -1478,6 +1721,7 @@ async function writeOllamaChatCompletionStream(response, streamInvocation, mount
             `data: ${JSON.stringify({ ...base, choices: [{ index: 0, delta: { content: delta }, finish_reason: null }] })}\n\n`,
           );
           written += 1;
+          if (forwardDelayMs > 0) await delay(forwardDelayMs);
         }
         if (parsed?.done) {
           providerUsage = ollamaUsage(parsed);
@@ -1518,6 +1762,8 @@ async function writeOllamaChatCompletionStream(response, streamInvocation, mount
     response.end();
   } finally {
     response.off("close", onClose);
+    request.off("aborted", onClose);
+    request.off("close", onClose);
     try {
       reader.releaseLock();
     } catch {
@@ -1615,6 +1861,8 @@ async function writeOpenAiProviderResponseStream(response, streamInvocation, mou
       type: "response.ioi.receipt",
       receipt_id: invocation.receipt.id,
       stream_receipt_id: completionReceipt.id,
+      response_id: invocation.responseId ?? null,
+      previous_response_id: invocation.previousResponseId ?? null,
       route_id: invocation.route.id,
       model: invocation.model,
       tool_receipt_ids: invocation.toolReceiptIds ?? [],
@@ -1640,7 +1888,7 @@ async function writeOllamaResponseStream(response, streamInvocation, mounts) {
   const streamKind = streamInvocation.providerResult?.streamKind ?? "openai_responses_ollama_native";
   const reader = streamInvocation.providerStream.getReader();
   const decoder = new TextDecoder();
-  const responseId = `resp_${crypto.randomUUID()}`;
+  const responseId = invocation.responseId ?? `resp_${crypto.randomUUID()}`;
   const outputItemId = `msg_${crypto.randomUUID()}`;
   const createdAt = Math.floor(Date.now() / 1000);
   let completed = false;
@@ -1668,6 +1916,7 @@ async function writeOllamaResponseStream(response, streamInvocation, mounts) {
     receipt_id: invocation.receipt.id,
     route_id: invocation.route.id,
     tool_receipt_ids: invocation.toolReceiptIds ?? [],
+    previous_response_id: invocation.previousResponseId ?? null,
     provider_stream: "native",
   };
   const outputItem = {
@@ -1787,7 +2036,7 @@ async function writeOllamaResponseStream(response, streamInvocation, mounts) {
 }
 
 async function writeOpenAiResponseStream(response, invocation, mounts) {
-  const responseId = `resp_${crypto.randomUUID()}`;
+  const responseId = invocation.responseId ?? `resp_${crypto.randomUUID()}`;
   const outputItemId = `msg_${crypto.randomUUID()}`;
   const createdAt = Math.floor(Date.now() / 1000);
   const chunks = textChunksForSse(invocation.outputText);
@@ -1802,6 +2051,7 @@ async function writeOpenAiResponseStream(response, invocation, mounts) {
     receipt_id: invocation.receipt.id,
     route_id: invocation.route.id,
     tool_receipt_ids: invocation.toolReceiptIds ?? [],
+    previous_response_id: invocation.previousResponseId ?? null,
   };
   const outputItem = {
     id: outputItemId,
@@ -1935,6 +2185,12 @@ function streamFrameDelayMs() {
   return 5;
 }
 
+function providerStreamForwardDelayMs() {
+  const configured = Number(process.env.IOI_PROVIDER_SSE_FRAME_DELAY_MS ?? "");
+  if (Number.isFinite(configured) && configured >= 0) return Math.min(configured, 1000);
+  return 0;
+}
+
 function takeSseFrameBlocks(buffer) {
   const parts = String(buffer).split(/\r?\n\r?\n/);
   const remainder = parts.pop() ?? "";
@@ -2009,6 +2265,8 @@ function nativeInvocationResponse(invocation) {
     backend_id: invocation.instance.backendId ?? invocation.receipt.details?.backendId ?? null,
     receipt_id: invocation.receipt.id,
     route_receipt_id: invocation.routeReceipt?.id ?? null,
+    response_id: invocation.responseId ?? null,
+    previous_response_id: invocation.previousResponseId ?? null,
     compat_translation: invocation.compatTranslation ?? null,
     tool_receipt_ids: invocation.toolReceiptIds ?? [],
     output_text: invocation.outputText,

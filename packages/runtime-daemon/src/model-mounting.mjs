@@ -52,6 +52,15 @@ class AgentgresModelMountingStore {
 
   writeReceipt(receipt) {
     writeJson(path.join(this.stateDir, "receipts", `${receipt.id}.json`), receipt);
+    emitRemoteBoundaryEvent(process.env.IOI_AGENTGRES_URL, "/operations", {
+      port: "AgentgresModelMountingStorePort",
+      kind: "receipt.write",
+      objectId: receipt.id,
+      receiptId: receipt.id,
+      receiptKind: receipt.kind,
+      redaction: receipt.redaction,
+      evidenceRefs: receipt.evidenceRefs,
+    });
     this.appendOperation?.(receipt.kind, {
       objectId: receipt.id,
       receiptId: receipt.id,
@@ -76,6 +85,14 @@ class AgentgresModelMountingStore {
 
   writeProjection(name, projection) {
     writeJson(path.join(this.stateDir, "projections", `${safeFileName(name)}.json`), projection);
+    emitRemoteBoundaryEvent(process.env.IOI_AGENTGRES_URL, "/operations", {
+      port: "AgentgresModelMountingStorePort",
+      kind: "projection.write",
+      objectId: name,
+      projection: name,
+      watermark: projection?.watermark ?? null,
+      source: projection?.source ?? null,
+    });
   }
 
   readProjection(name) {
@@ -156,6 +173,13 @@ class AgentgresWalletAuthority {
       requiredScope,
       revocationEpoch: token.revocationEpoch,
     });
+    emitRemoteBoundaryEvent(process.env.IOI_WALLET_NETWORK_URL, "/grants/authorize", {
+      port: "WalletAuthorityPort",
+      grantId: token.grantId,
+      requiredScope,
+      revocationEpoch: token.revocationEpoch,
+      tokenIdHash: stableHash(token.id),
+    });
     return this.recordLastUsed(token, requiredScope);
   }
 
@@ -204,6 +228,11 @@ class AgentgresWalletAuthority {
       ? `vault_ref_${stableHash(objectId).slice(0, 16)}`
       : objectId;
     const safePayload = redact({ ...payload, objectId: safeObjectId });
+    emitRemoteBoundaryEvent(process.env.IOI_WALLET_NETWORK_URL, "/audit", {
+      port: "WalletAuthorityPort",
+      kind,
+      ...safePayload,
+    });
     this.appendOperation?.(`wallet.${kind}`, {
       ...safePayload,
       details: safePayload,
@@ -667,6 +696,11 @@ class AgentgresVaultPort {
       ? `vault_ref_${stableHash(objectId).slice(0, 16)}`
       : objectId;
     const safePayload = redact({ ...payload, objectId: safeObjectId });
+    emitRemoteBoundaryEvent(process.env.IOI_WALLET_NETWORK_URL, "/audit", {
+      port: "VaultPort",
+      kind,
+      ...safePayload,
+    });
     this.appendOperation?.(`vault.${kind}`, {
       ...safePayload,
       details: safePayload,
@@ -1512,6 +1546,8 @@ class LmStudioModelProviderDriver {
       modelId: model.modelId,
       backend: "lm_studio",
       status: "loaded",
+      capabilities: String(model.modelId).match(/embed/i) ? ["embeddings"] : ["chat", "responses"],
+      privacyClass: "local_private",
       evidenceRefs: ["lm_studio_public_lms_ps"],
     }));
   }
@@ -1681,7 +1717,7 @@ class OpenAICompatibleModelProviderDriver {
           backendEvidenceRefs: [`${this.label}_responses_provider_native_stream`],
         };
       } catch (error) {
-        if ([404, 405, 501].includes(error?.details?.httpStatus)) return null;
+        if (responsesFallbackStatus(error?.details?.httpStatus)) return null;
         throw error;
       }
     }
@@ -1745,7 +1781,7 @@ class OpenAICompatibleModelProviderDriver {
           providerAuthHeaderNames: result.authEvidence?.headerNames ?? [],
         };
       }
-      if (!allowResponsesFallback || ![404, 405, 501].includes(result.status)) {
+      if (!allowResponsesFallback || !responsesFallbackStatus(result.status)) {
         throw providerHttpError(provider, "OpenAI-compatible responses call failed.", result);
       }
       const fallback = await this.invoke({
@@ -2317,6 +2353,7 @@ export class ModelMountingState {
     this.tokens = new Map();
     this.vaultRefs = new Map();
     this.mcpServers = new Map();
+    this.conversations = new Map();
     this.ensureDirs();
     this.load();
     this.vault.loadMetadata([...this.vaultRefs.values()]);
@@ -2416,6 +2453,17 @@ export class ModelMountingState {
       permissionTokens: ["id", "audience", "allowed", "denied", "expiresAt", "revokedAt", "grantId", "lastUsedAt"],
       walletGrants: ["grantId", "revocationEpoch", "allowed", "denied", "expiry", "vaultRefs", "auditReceiptIds"],
       mcpServers: ["id", "transport", "allowedTools", "secretRefs", "status"],
+      modelConversationStates: [
+        "id",
+        "previousResponseId",
+        "routeId",
+        "endpointId",
+        "selectedModel",
+        "receiptId",
+        "redaction",
+        "inputHash",
+        "outputHash",
+      ],
       workflowModelBindings: ["node", "modelId", "routeId", "modelPolicy", "capability", "receiptRequired"],
       modelMountingProjection: ["artifacts", "backends", "endpoints", "instances", "routes", "providers", "receipts", "watermark"],
     };
@@ -2438,6 +2486,7 @@ export class ModelMountingState {
     this.loadMap("tokens", this.tokens);
     this.loadMap("vault-refs", this.vaultRefs);
     this.loadMap("mcp-servers", this.mcpServers);
+    this.loadMap("model-conversations", this.conversations);
   }
 
   loadMap(dir, map) {
@@ -2809,6 +2858,7 @@ export class ModelMountingState {
     this.writeMap("tokens", this.tokens);
     this.writeVaultRefs();
     this.writeMap("mcp-servers", this.mcpServers);
+    this.writeMap("model-conversations", this.conversations);
     this.writeProjection();
   }
 
@@ -3111,6 +3161,7 @@ export class ModelMountingState {
       tokens: this.listTokens(),
       vaultRefs: this.listVaultRefs(),
       mcpServers: this.listMcpServers(),
+      conversationStates: this.listConversations(),
       workflowNodes: this.workflowNodeBindings(),
       receipts: this.listReceipts().slice(-25),
       projection: this.projectionSummary(),
@@ -3155,6 +3206,7 @@ export class ModelMountingState {
       grants: this.listTokens(),
       vaultRefs: this.listVaultRefs(),
       mcpServers: this.listMcpServers(),
+      conversationStates: this.listConversations(),
       workflowBindings: this.workflowNodeBindings(),
       adapterBoundaries: this.adapterBoundaries(),
       lifecycleEvents: this.listReceipts().filter((receipt) => receipt.kind === "model_lifecycle"),
@@ -4670,7 +4722,14 @@ export class ModelMountingState {
     const token = this.walletAuthority.createGrant({
       id: `grant_${crypto.randomUUID()}`,
       audience: body.audience ?? "autopilot-local-server",
-      allowed: normalizeScopes(body.allowed, ["model.chat:*", "model.responses:*", "model.embeddings:*", "route.use:*"]),
+      allowed: normalizeScopes(body.allowed, [
+        "model.chat:*",
+        "model.responses:*",
+        "model.embeddings:*",
+        "model.tokenize:*",
+        "model.context:*",
+        "route.use:*",
+      ]),
       denied: normalizeScopes(body.denied, ["connector.gmail.send", "filesystem.write", "shell.exec"]),
       expiresAt: body.expires_at ?? body.expiresAt ?? new Date(this.now().getTime() + 24 * 60 * 60 * 1000).toISOString(),
       revocationEpoch: Number(body.revocation_epoch ?? body.revocationEpoch ?? 0),
@@ -5045,6 +5104,10 @@ export class ModelMountingState {
     const token = this.authorize(authorization, requiredScope);
     const started = this.now().getTime();
     const input = inputText(body);
+    const statefulInvocation = supportsResponseState(kind);
+    const previousResponseId = statefulInvocation ? optionalString(body.previous_response_id ?? body.previousResponseId) : null;
+    const previousState = previousResponseId ? this.conversationState(previousResponseId) : null;
+    const responseId = statefulInvocation ? this.nextResponseId(body.response_id ?? body.responseId) : null;
     const capability =
       kind === "embeddings"
         ? "embeddings"
@@ -5059,6 +5122,7 @@ export class ModelMountingState {
       capability,
       policy: body.model_policy ?? body.modelPolicy ?? {},
     });
+    const continuationSafety = this.validateContinuationSafety({ previousState, selection, body });
     const routeReceipt = this.receipt("model_route_selection", {
       summary: `Route ${selection.route.id} selected ${selection.endpoint.modelId}.`,
       redaction: "none",
@@ -5069,6 +5133,8 @@ export class ModelMountingState {
         endpointId: selection.endpoint.id,
         providerId: selection.endpoint.providerId,
         policyHash: stableHash(body.model_policy ?? body.modelPolicy ?? {}),
+        responseId,
+        previousResponseId,
       },
     });
     const instance = await this.ensureLoaded(selection.endpoint);
@@ -5126,8 +5192,28 @@ export class ModelMountingState {
         providerAuthHeaderNames: providerResult.providerAuthHeaderNames ?? [],
         toolReceiptIds: ephemeralMcp.toolReceiptIds,
         ephemeralMcpServerIds: ephemeralMcp.serverIds,
+        responseId,
+        previousResponseId,
+        continuation: continuationSafety,
       },
     });
+    const conversationState = statefulInvocation
+      ? this.recordConversationState({
+          responseId,
+          previousState,
+          kind,
+          input,
+          outputText: providerResult.outputText ?? "",
+          selection,
+          instance,
+          receipt,
+          routeReceipt,
+          tokenCount,
+          streamReceiptId: null,
+          status: "completed",
+          continuationSafety,
+        })
+      : null;
     const route = {
       ...selection.route,
       lastSelectedModel: selection.endpoint.modelId,
@@ -5149,13 +5235,282 @@ export class ModelMountingState {
       providerResponseKind: providerResult.providerResponseKind ?? null,
       compatTranslation: providerResult.compatTranslation ?? null,
       toolReceiptIds: ephemeralMcp.toolReceiptIds,
+      responseId,
+      previousResponseId,
+      conversationState,
     };
+  }
+
+  modelTokenizerUtility({ authorization, requiredScope, body = {}, operation }) {
+    const token = this.authorize(authorization, requiredScope);
+    const input = inputText(body);
+    const selection = this.selectRoute({
+      modelId: body.model,
+      routeId: body.route_id ?? body.routeId,
+      capability: "chat",
+      policy: body.model_policy ?? body.modelPolicy ?? {},
+    });
+    const routeReceipt = this.receipt("model_route_selection", {
+      summary: `Route ${selection.route.id} selected ${selection.endpoint.modelId} for ${operation}.`,
+      redaction: "none",
+      evidenceRefs: ["model_router", "tokenizer_utility", selection.route.id, selection.endpoint.id],
+      details: {
+        routeId: selection.route.id,
+        selectedModel: selection.endpoint.modelId,
+        endpointId: selection.endpoint.id,
+        providerId: selection.endpoint.providerId,
+        capability: "tokenize",
+        policyHash: stableHash(body.model_policy ?? body.modelPolicy ?? {}),
+      },
+    });
+    const tokens = deterministicTokenizeText(input);
+    const promptTokens = Math.max(1, tokens.length);
+    const contextWindow = this.contextWindowForEndpoint(selection.endpoint, body);
+    const receipt = this.receipt(operation === "context_fit" ? "model_context_fit" : "model_tokenization", {
+      summary: `${operation} evaluated ${promptTokens} prompt tokens for ${selection.endpoint.modelId}.`,
+      redaction: "redacted",
+      evidenceRefs: ["tokenizer_estimator", routeReceipt.id, selection.route.id, selection.endpoint.id, token.grantId],
+      details: {
+        operation,
+        routeId: selection.route.id,
+        routeReceiptId: routeReceipt.id,
+        selectedModel: selection.endpoint.modelId,
+        endpointId: selection.endpoint.id,
+        providerId: selection.endpoint.providerId,
+        backendId: selection.endpoint.backendId ?? null,
+        selectedBackend: selection.endpoint.backendId ?? null,
+        grantId: token.grantId,
+        estimator: "deterministic_context_estimator",
+        tokenizerSource: "deterministic_estimator",
+        inputHash: stableHash(input),
+        tokenCount: {
+          prompt_tokens: promptTokens,
+          completion_tokens: 0,
+          total_tokens: promptTokens,
+        },
+        contextWindow,
+      },
+    });
+    const route = {
+      ...selection.route,
+      lastSelectedModel: selection.endpoint.modelId,
+      lastReceiptId: receipt.id,
+    };
+    this.routes.set(route.id, route);
+    this.writeMap("model-routes", this.routes);
+    return { token, input, tokens, promptTokens, contextWindow, selection: { ...selection, route }, routeReceipt, receipt };
+  }
+
+  tokenizeModel({ authorization, requiredScope = "model.tokenize:*", body = {} }) {
+    const utility = this.modelTokenizerUtility({ authorization, requiredScope, body, operation: "tokenize" });
+    return {
+      schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
+      model: utility.selection.endpoint.modelId,
+      route_id: utility.selection.route.id,
+      endpoint_id: utility.selection.endpoint.id,
+      provider_id: utility.selection.endpoint.providerId,
+      backend_id: utility.selection.endpoint.backendId ?? null,
+      tokenizer: "deterministic_context_estimator",
+      tokens: utility.tokens,
+      token_count: utility.promptTokens,
+      usage: {
+        prompt_tokens: utility.promptTokens,
+        completion_tokens: 0,
+        total_tokens: utility.promptTokens,
+      },
+      receipt_id: utility.receipt.id,
+      route_receipt_id: utility.routeReceipt.id,
+    };
+  }
+
+  countModelTokens({ authorization, requiredScope = "model.tokenize:*", body = {} }) {
+    const utility = this.modelTokenizerUtility({ authorization, requiredScope, body, operation: "count_tokens" });
+    return {
+      schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
+      model: utility.selection.endpoint.modelId,
+      route_id: utility.selection.route.id,
+      endpoint_id: utility.selection.endpoint.id,
+      provider_id: utility.selection.endpoint.providerId,
+      backend_id: utility.selection.endpoint.backendId ?? null,
+      tokenizer: "deterministic_context_estimator",
+      input_hash: stableHash(utility.input),
+      token_count: utility.promptTokens,
+      usage: {
+        prompt_tokens: utility.promptTokens,
+        completion_tokens: 0,
+        total_tokens: utility.promptTokens,
+      },
+      receipt_id: utility.receipt.id,
+      route_receipt_id: utility.routeReceipt.id,
+    };
+  }
+
+  fitModelContext({ authorization, requiredScope = "model.context:*", body = {} }) {
+    const utility = this.modelTokenizerUtility({ authorization, requiredScope, body, operation: "context_fit" });
+    const reservedOutputTokens = normalizeNonNegativeInteger(
+      body.max_output_tokens ?? body.maxOutputTokens ?? body.reserve_output_tokens ?? body.reserveOutputTokens,
+      0,
+    );
+    const contextWindow = utility.contextWindow;
+    const availableInputTokens = Math.max(0, contextWindow - reservedOutputTokens);
+    const fits = utility.promptTokens <= availableInputTokens;
+    const omittedTokenEstimate = fits ? 0 : utility.promptTokens - availableInputTokens;
+    const fittedInput = fits ? utility.input : truncateToEstimatedTokens(utility.input, availableInputTokens);
+    return {
+      schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
+      model: utility.selection.endpoint.modelId,
+      route_id: utility.selection.route.id,
+      endpoint_id: utility.selection.endpoint.id,
+      provider_id: utility.selection.endpoint.providerId,
+      backend_id: utility.selection.endpoint.backendId ?? null,
+      tokenizer: "deterministic_context_estimator",
+      context_window: contextWindow,
+      reserved_output_tokens: reservedOutputTokens,
+      available_input_tokens: availableInputTokens,
+      prompt_tokens: utility.promptTokens,
+      fits,
+      overflow_tokens: omittedTokenEstimate,
+      truncation: {
+        applied: !fits,
+        strategy: "keep_tail",
+        omitted_token_estimate: omittedTokenEstimate,
+      },
+      fitted_input: fittedInput,
+      fitted_input_hash: stableHash(fittedInput),
+      receipt_id: utility.receipt.id,
+      route_receipt_id: utility.routeReceipt.id,
+    };
+  }
+
+  contextWindowForEndpoint(endpoint, body = {}) {
+    const explicit = Number(body.context_length ?? body.contextLength ?? body.context_window ?? body.contextWindow);
+    if (Number.isFinite(explicit) && explicit > 0) return Math.floor(explicit);
+    const artifact =
+      (endpoint.artifactId ? this.artifacts.get(endpoint.artifactId) : null) ??
+      [...this.artifacts.values()].find((candidate) => candidate.modelId === endpoint.modelId);
+    const artifactContext = Number(artifact?.contextWindow ?? artifact?.metadata?.contextWindow ?? artifact?.metadata?.context);
+    if (Number.isFinite(artifactContext) && artifactContext > 0) return Math.floor(artifactContext);
+    return 4096;
+  }
+
+  nextResponseId(requested) {
+    const responseId = optionalString(requested) ?? `resp_${crypto.randomUUID()}`;
+    if (this.conversations.has(responseId)) {
+      throw runtimeError({
+        status: 409,
+        code: "continuation",
+        message: "response_id already exists.",
+        details: { response_id: responseId },
+      });
+    }
+    return responseId;
+  }
+
+  conversationState(responseId) {
+    const state = this.conversations.get(responseId);
+    if (!state) {
+      throw runtimeError({
+        status: 404,
+        code: "continuation",
+        message: "previous_response_id was not found.",
+        details: { previous_response_id: responseId },
+      });
+    }
+    return state;
+  }
+
+  validateContinuationSafety({ previousState, selection, body = {} }) {
+    if (!previousState) {
+      return { mode: "new", previousResponseId: null, fallbackAllowed: false, mismatchFields: [] };
+    }
+    const allowFallback = truthy(
+      body.allow_continuation_fallback ??
+        body.allowContinuationFallback ??
+        body.allow_route_fallback ??
+        body.allowRouteFallback,
+    );
+    const mismatchFields = [];
+    if (previousState.routeId !== selection.route.id) mismatchFields.push("route_id");
+    if (previousState.endpointId !== selection.endpoint.id) mismatchFields.push("endpoint_id");
+    if (previousState.selectedModel !== selection.endpoint.modelId) mismatchFields.push("model");
+    if (mismatchFields.length > 0 && !allowFallback) {
+      throw runtimeError({
+        status: 409,
+        code: "continuation_route_mismatch",
+        message: "Continuation would change the selected route, endpoint, or model without explicit fallback consent.",
+        details: {
+          previous_response_id: previousState.id,
+          mismatch_fields: mismatchFields,
+          required: "allow_continuation_fallback",
+        },
+      });
+    }
+    return {
+      mode: mismatchFields.length > 0 ? "fallback_allowed" : "matched",
+      previousResponseId: previousState.id,
+      fallbackAllowed: allowFallback,
+      mismatchFields,
+    };
+  }
+
+  recordConversationState({
+    responseId,
+    previousState,
+    kind,
+    input,
+    outputText,
+    selection,
+    instance,
+    receipt,
+    routeReceipt,
+    tokenCount,
+    streamReceiptId = null,
+    status = "completed",
+    continuationSafety = null,
+  }) {
+    const now = this.nowIso();
+    const record = {
+      id: responseId,
+      object: "ioi.model_response_state",
+      status,
+      redaction: "redacted",
+      createdAt: now,
+      previousResponseId: previousState?.id ?? null,
+      rootResponseId: previousState?.rootResponseId ?? previousState?.id ?? responseId,
+      kind,
+      routeId: selection.route.id,
+      endpointId: selection.endpoint.id,
+      selectedModel: selection.endpoint.modelId,
+      providerId: selection.endpoint.providerId,
+      backendId: instance?.backendId ?? selection.endpoint.backendId ?? null,
+      instanceId: instance?.id ?? null,
+      receiptId: receipt.id,
+      routeReceiptId: routeReceipt?.id ?? null,
+      streamReceiptId,
+      inputHash: stableHash(input),
+      outputHash: stableHash(outputText),
+      tokenCount,
+      messageCount: Number(previousState?.messageCount ?? 0) + 2,
+      continuation: continuationSafety,
+      replay: {
+        source: "redacted_conversation_state",
+        plaintextPersisted: false,
+        previousResponseId: previousState?.id ?? null,
+      },
+    };
+    this.conversations.set(record.id, record);
+    this.writeMap("model-conversations", this.conversations);
+    return record;
   }
 
   async startModelStream({ authorization, requiredScope, kind, body = {} }) {
     const token = this.authorize(authorization, requiredScope);
     const started = this.now().getTime();
     const input = inputText(body);
+    const statefulInvocation = supportsResponseState(kind);
+    const previousResponseId = statefulInvocation ? optionalString(body.previous_response_id ?? body.previousResponseId) : null;
+    const previousState = previousResponseId ? this.conversationState(previousResponseId) : null;
+    const responseId = statefulInvocation ? this.nextResponseId(body.response_id ?? body.responseId) : null;
     const capability =
       kind === "embeddings"
         ? "embeddings"
@@ -5170,6 +5525,7 @@ export class ModelMountingState {
       capability,
       policy: body.model_policy ?? body.modelPolicy ?? {},
     });
+    const continuationSafety = this.validateContinuationSafety({ previousState, selection, body });
     const driver = this.driverForProvider(selection.provider);
     if (typeof driver.streamInvoke !== "function" || (typeof driver.supportsStream === "function" && !driver.supportsStream(kind))) {
       return {
@@ -5187,6 +5543,8 @@ export class ModelMountingState {
         endpointId: selection.endpoint.id,
         providerId: selection.endpoint.providerId,
         policyHash: stableHash(body.model_policy ?? body.modelPolicy ?? {}),
+        responseId,
+        previousResponseId,
       },
     });
     const instance = await this.ensureLoaded(selection.endpoint);
@@ -5253,6 +5611,9 @@ export class ModelMountingState {
         providerAuthHeaderNames: providerResult.providerAuthHeaderNames ?? [],
         toolReceiptIds: ephemeralMcp.toolReceiptIds,
         ephemeralMcpServerIds: ephemeralMcp.serverIds,
+        responseId,
+        previousResponseId,
+        continuation: continuationSafety,
       },
     });
     const route = {
@@ -5277,6 +5638,10 @@ export class ModelMountingState {
       providerResponseKind: providerResult.providerResponseKind ?? null,
       compatTranslation: providerResult.compatTranslation ?? null,
       toolReceiptIds: ephemeralMcp.toolReceiptIds,
+      responseId,
+      previousResponseId,
+      previousConversationState: previousState,
+      continuationSafety,
     };
     return {
       native: true,
@@ -5289,7 +5654,7 @@ export class ModelMountingState {
 
   recordModelStreamCompleted({ invocation, streamKind, outputText = "", providerUsage = null, chunksForwarded = 0, finishReason = null, providerResult = {} }) {
     const tokenCount = normalizeUsage(providerUsage, estimateTokens(invocation.input ?? "", outputText));
-    return this.receipt("model_invocation_stream_completed", {
+    const receipt = this.receipt("model_invocation_stream_completed", {
       summary: `${streamKind} stream completed for ${invocation.model}.`,
       redaction: "redacted",
       evidenceRefs: ["model_stream", streamKind, invocation.receipt.id, invocation.route.id, invocation.endpoint.id],
@@ -5311,8 +5676,32 @@ export class ModelMountingState {
         outputHash: stableHash(outputText),
         chunksForwarded,
         finishReason,
+        responseId: invocation.responseId ?? null,
+        previousResponseId: invocation.previousResponseId ?? null,
       },
     });
+    if (invocation.responseId) {
+      invocation.conversationState = this.recordConversationState({
+        responseId: invocation.responseId,
+        previousState: invocation.previousConversationState ?? null,
+        kind: invocation.kind,
+        input: invocation.input ?? "",
+        outputText,
+        selection: {
+          route: invocation.route,
+          endpoint: invocation.endpoint,
+          provider: null,
+        },
+        instance: invocation.instance,
+        receipt: invocation.receipt,
+        routeReceipt: invocation.routeReceipt,
+        tokenCount,
+        streamReceiptId: receipt.id,
+        status: "completed",
+        continuationSafety: invocation.continuationSafety ?? null,
+      });
+    }
+    return receipt;
   }
 
   compileEphemeralMcpIntegrations({ authorization, body = {}, input }) {
@@ -5429,6 +5818,10 @@ export class ModelMountingState {
     return [...this.mcpServers.values()]
       .map(publicMcpServer)
       .sort((left, right) => left.id.localeCompare(right.id));
+  }
+
+  listConversations() {
+    return [...this.conversations.values()].sort((left, right) => String(left.createdAt ?? "").localeCompare(String(right.createdAt ?? "")));
   }
 
   invokeMcpTool({ authorization, body = {} }) {
@@ -6802,6 +7195,8 @@ export function openAiChatCompletion(invocation, body = {}) {
       receipt_id: invocation.receipt.id,
       route_id: invocation.route.id,
       tool_receipt_ids: invocation.toolReceiptIds ?? [],
+      response_id: invocation.responseId ?? null,
+      previous_response_id: invocation.previousResponseId ?? null,
       request_model: body.model ?? null,
     };
   }
@@ -6821,6 +7216,8 @@ export function openAiChatCompletion(invocation, body = {}) {
     receipt_id: invocation.receipt.id,
     route_id: invocation.route.id,
     tool_receipt_ids: invocation.toolReceiptIds ?? [],
+    response_id: invocation.responseId ?? null,
+    previous_response_id: invocation.previousResponseId ?? null,
     request_model: body.model ?? null,
   };
 }
@@ -6829,13 +7226,15 @@ export function openAiResponse(invocation) {
   if (invocation.providerResponseKind === "responses" && invocation.providerResponse) {
     return {
       ...invocation.providerResponse,
+      id: invocation.responseId ?? invocation.providerResponse.id,
       receipt_id: invocation.receipt.id,
       route_id: invocation.route.id,
       tool_receipt_ids: invocation.toolReceiptIds ?? [],
+      previous_response_id: invocation.previousResponseId ?? null,
     };
   }
   return {
-    id: `resp_${crypto.randomUUID()}`,
+    id: invocation.responseId ?? `resp_${crypto.randomUUID()}`,
     object: "response",
     created_at: Math.floor(Date.now() / 1000),
     model: invocation.model,
@@ -6852,6 +7251,7 @@ export function openAiResponse(invocation) {
     receipt_id: invocation.receipt.id,
     route_id: invocation.route.id,
     tool_receipt_ids: invocation.toolReceiptIds ?? [],
+    previous_response_id: invocation.previousResponseId ?? null,
   };
 }
 
@@ -6862,6 +7262,8 @@ export function openAiEmbedding(invocation, body = {}) {
       receipt_id: invocation.receipt.id,
       route_id: invocation.route.id,
       tool_receipt_ids: invocation.toolReceiptIds ?? [],
+      response_id: invocation.responseId ?? null,
+      previous_response_id: invocation.previousResponseId ?? null,
     };
   }
   const inputs = Array.isArray(body.input) ? body.input : [body.input ?? ""];
@@ -6877,6 +7279,8 @@ export function openAiEmbedding(invocation, body = {}) {
     receipt_id: invocation.receipt.id,
     route_id: invocation.route.id,
     tool_receipt_ids: invocation.toolReceiptIds ?? [],
+    response_id: invocation.responseId ?? null,
+    previous_response_id: invocation.previousResponseId ?? null,
   };
 }
 
@@ -6890,6 +7294,8 @@ export function openAiCompletion(invocation) {
     usage: invocation.tokenCount,
     receipt_id: invocation.receipt.id,
     route_id: invocation.route.id,
+    response_id: invocation.responseId ?? null,
+    previous_response_id: invocation.previousResponseId ?? null,
   };
 }
 
@@ -6910,6 +7316,8 @@ export function anthropicMessage(invocation) {
     receipt_id: invocation.receipt.id,
     route_id: invocation.route.id,
     tool_receipt_ids: invocation.toolReceiptIds ?? [],
+    response_id: invocation.responseId ?? null,
+    previous_response_id: invocation.previousResponseId ?? null,
   };
 }
 
@@ -7151,6 +7559,10 @@ function providerRequestTimeoutMs() {
   return 30000;
 }
 
+function responsesFallbackStatus(status) {
+  return [400, 404, 405, 501].includes(Number(status));
+}
+
 function backendBindAddress(baseUrl) {
   try {
     const parsed = new URL(baseUrl ?? "http://127.0.0.1:8080/v1");
@@ -7277,6 +7689,8 @@ function nativeInvocationResponseShape(invocation) {
     backend_id: invocation.instance.backendId ?? invocation.receipt.details?.backendId ?? null,
     receipt_id: invocation.receipt.id,
     route_receipt_id: invocation.routeReceipt.id,
+    response_id: invocation.responseId ?? null,
+    previous_response_id: invocation.previousResponseId ?? null,
     tool_receipt_ids: invocation.toolReceiptIds ?? [],
     output_text: invocation.outputText,
     usage: invocation.tokenCount,
@@ -7660,6 +8074,16 @@ function requiredString(value, field) {
   return value;
 }
 
+function optionalString(value) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function supportsResponseState(kind) {
+  return ["chat", "chat.completions", "responses", "messages", "completions"].includes(kind);
+}
+
 function inputText(body) {
   if (typeof body.input === "string") return body.input;
   if (Array.isArray(body.input)) return body.input.map((item) => String(item)).join("\n");
@@ -7785,6 +8209,39 @@ function estimateTokens(input, output) {
     completion_tokens: outputTokens,
     total_tokens: inputTokens + outputTokens,
   };
+}
+
+function deterministicTokenizeText(input) {
+  const text = String(input ?? "");
+  if (!text) {
+    return [{ index: 0, text: "", token_id: deterministicTokenId(""), byte_start: 0, byte_end: 0 }];
+  }
+  const matches = [...text.matchAll(/\S+|\s+/g)];
+  return matches.map((match, index) => {
+    const tokenText = match[0];
+    const byteStart = Buffer.byteLength(text.slice(0, match.index), "utf8");
+    const byteEnd = byteStart + Buffer.byteLength(tokenText, "utf8");
+    return {
+      index,
+      text: tokenText,
+      token_id: deterministicTokenId(tokenText),
+      byte_start: byteStart,
+      byte_end: byteEnd,
+    };
+  });
+}
+
+function deterministicTokenId(tokenText) {
+  return Number.parseInt(stableHash(tokenText).slice(0, 8), 16);
+}
+
+function truncateToEstimatedTokens(input, tokenBudget) {
+  const text = String(input ?? "");
+  const budget = Math.max(0, Math.floor(Number(tokenBudget) || 0));
+  if (budget <= 0) return "";
+  const maxChars = Math.max(1, budget * 4);
+  if (text.length <= maxChars) return text;
+  return text.slice(text.length - maxChars);
 }
 
 function deterministicVector(input) {
@@ -9743,6 +10200,25 @@ function hashToken(tokenValue) {
 
 function stableHash(value) {
   return crypto.createHash("sha256").update(stableStringify(value)).digest("hex");
+}
+
+function emitRemoteBoundaryEvent(baseUrl, route, payload) {
+  if (!baseUrl || typeof fetch !== "function") return;
+  const url = `${String(baseUrl).replace(/\/+$/, "")}/${String(route).replace(/^\/+/, "")}`;
+  const body = JSON.stringify(redact(payload));
+  setTimeout(() => {
+    fetch(url, {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "content-type": "application/json",
+      },
+      body,
+    }).catch(() => {
+      // Remote wallet/Agentgres boundaries are fail-closed at authorization time;
+      // audit mirroring is best-effort so local runtime progress is not blocked.
+    });
+  }, 0);
 }
 
 function stableStringify(value) {

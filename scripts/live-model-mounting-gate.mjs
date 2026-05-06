@@ -437,7 +437,18 @@ async function withTemporaryEnv(overrides, fn) {
   }
 }
 
-async function startFakeRemoteBoundaryServer(kind) {
+async function waitForRemoteRequests(remote, predicate, { timeoutMs = 2000 } = {}) {
+  if (!remote) return null;
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const matched = remote.requests.find(predicate);
+    if (matched) return matched;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  assert.fail("Expected configured remote boundary request was not observed before timeout.");
+}
+
+async function startLocalRemoteBoundaryServer(kind) {
   const requests = [];
   const server = http.createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
@@ -459,6 +470,11 @@ async function startFakeRemoteBoundaryServer(kind) {
     }
     if (kind === "agentgres" && request.method === "GET" && url.pathname === "/projections/model-mounting") {
       response.end(JSON.stringify({ ok: true, projection: "model-mounting", replay_supported: true }));
+      return;
+    }
+    if (kind === "agentgres" && request.method === "POST" && url.pathname === "/operations") {
+      await readRequestText(request);
+      response.end(JSON.stringify({ ok: true, operation_id: `remote_agentgres_operation_${requests.length}` }));
       return;
     }
     response.statusCode = 404;
@@ -485,14 +501,14 @@ function fakeBoundaryHealth(kind) {
   if (kind === "wallet") {
     return {
       ok: true,
-      service: "fake-wallet-network",
+      service: "local-wallet-network-boundary",
       port: "WalletAuthorityPort",
       methods: ["createGrant", "authorizeScope", "revokeGrant", "resolveVaultRef", "auditEvent", "recordLastUsed"],
     };
   }
   return {
     ok: true,
-    service: "fake-agentgres",
+    service: "local-agentgres-boundary",
     port: "AgentgresModelMountingStorePort",
     methods: ["projectionReplay", "receiptLookup", "operationLogProjection"],
   };
@@ -674,6 +690,15 @@ async function startCatalogOAuthFixtureServer({
   };
 }
 
+async function startCatalogOAuthLocalBoundaryServer({ providerId = "catalog.custom_http" } = {}) {
+  return startCatalogOAuthFixtureServer({
+    providerId,
+    authorizationCode: `local-oauth-code-${crypto.randomUUID()}`,
+    accessToken: `local-oauth-access-${crypto.randomUUID()}`,
+    refreshToken: `local-oauth-refresh-${crypto.randomUUID()}`,
+  });
+}
+
 function openCatalogOAuthAuthorizationUrl(url) {
   const configured = process.env.IOI_MODEL_CATALOG_OAUTH_BROWSER_COMMAND;
   const command = configured || (process.platform === "darwin" ? "open" : process.platform === "win32" ? "cmd" : "xdg-open");
@@ -773,8 +798,23 @@ async function runLmStudioGate(evidence) {
     });
     const providerModels = await expectOk(daemon.endpoint, "/api/v1/providers/provider.lmstudio/models");
     const providerLoaded = await expectOk(daemon.endpoint, "/api/v1/providers/provider.lmstudio/loaded");
+    const providerModelIds = new Set(providerModels.map((model) => model.modelId));
+    const loadedModelIds = providerLoaded
+      .filter((model) => model.capabilities?.includes?.("chat"))
+      .map((model) => model.modelId);
+    const loadedInstalledModel = providerModels.find(
+      (model) =>
+        model.capabilities?.includes?.("chat") &&
+        loadedModelIds.some(
+          (loadedModelId) =>
+            loadedModelId === model.modelId ||
+            String(loadedModelId).startsWith(`${model.modelId}-`) ||
+            String(loadedModelId).startsWith(`${model.modelId}:`),
+        ),
+    );
     const selectedModel =
-      providerLoaded.find((model) => model.capabilities?.includes?.("chat"))?.modelId ??
+      providerLoaded.find((model) => model.capabilities?.includes?.("chat") && providerModelIds.has(model.modelId))?.modelId ??
+      loadedInstalledModel?.modelId ??
       providerModels.find((model) => model.capabilities?.includes?.("chat"))?.modelId ??
       providerModels[0]?.modelId ??
       installedModelIds[0];
@@ -900,6 +940,7 @@ async function runLlamaCppGate(evidence) {
       IOI_LLAMA_CPP_SERVER_PATH: binaryPath,
       IOI_LLAMA_CPP_BASE_URL: baseUrl,
       IOI_PROVIDER_HTTP_TIMEOUT_MS: process.env.IOI_PROVIDER_HTTP_TIMEOUT_MS ?? "5000",
+      IOI_PROVIDER_SSE_FRAME_DELAY_MS: process.env.IOI_PROVIDER_SSE_FRAME_DELAY_MS ?? "25",
     },
     async () => {
       await withDaemon(async ({ daemon, stateDir }) => {
@@ -1121,6 +1162,13 @@ async function waitForProviderHealth(endpoint, providerId, timeoutMs) {
 }
 
 async function runModelBackendsGate(evidence) {
+  const requestedKinds = new Set(
+    String(process.env.IOI_LIVE_MODEL_BACKENDS_FILTER ?? "")
+      .split(",")
+      .map((entry) => entry.trim())
+      .filter(Boolean),
+  );
+  const wants = (kind) => requestedKinds.size === 0 || requestedKinds.has(kind);
   const configured = {
     llamaCppBaseUrl: Boolean(process.env.IOI_LLAMA_CPP_BASE_URL),
     llamaCppServerPath: Boolean(process.env.IOI_LLAMA_CPP_SERVER_PATH),
@@ -1130,6 +1178,7 @@ async function runModelBackendsGate(evidence) {
     vllmBinary: Boolean(process.env.IOI_VLLM_BINARY || resolveBinary("vllm")),
     vllmModel: Boolean(process.env.IOI_VLLM_MODEL),
   };
+  evidence.details.requestedKinds = [...requestedKinds];
   evidence.details.configured = configured;
   if (!Object.values(configured).some(Boolean)) {
     evidence.status = "blocked";
@@ -1146,7 +1195,9 @@ async function runModelBackendsGate(evidence) {
       const health = await expectOk(daemon.endpoint, `/api/v1/backends/${backend.id}/health`, { method: "POST" });
       checked.push({ id: backend.id, kind: backend.kind, status: health.status });
     }
-    const available = checked.filter((backend) => !["blocked", "absent"].includes(backend.status));
+    const available = checked
+      .filter((backend) => wants(backend.kind))
+      .filter((backend) => !["blocked", "absent"].includes(backend.status));
     if (available.length === 0) {
       evidence.status = "blocked";
       evidence.result = {
@@ -1157,7 +1208,7 @@ async function runModelBackendsGate(evidence) {
       return;
     }
     const result = { checked, available };
-    if (available.some((backend) => backend.kind === "ollama")) {
+    if (wants("ollama") && available.some((backend) => backend.kind === "ollama")) {
       const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
         method: "POST",
         body: {
@@ -1243,7 +1294,7 @@ async function runModelBackendsGate(evidence) {
         backendId: "backend.ollama",
         streamKind: "openai_chat_completions_ollama_native",
         providerResponseKind: "ollama.chat.stream",
-        requestOptions: { options: { num_predict: 64 } },
+        requestOptions: { options: { num_predict: 32 } },
       });
 
       const configuredEmbeddingModel = process.env.IOI_OLLAMA_EMBEDDING_MODEL;
@@ -1306,7 +1357,7 @@ async function runModelBackendsGate(evidence) {
         embeddingReceiptId,
       };
     }
-    if (available.some((backend) => backend.kind === "vllm")) {
+    if (wants("vllm") && available.some((backend) => backend.kind === "vllm")) {
       const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
         method: "POST",
         body: {
@@ -1512,11 +1563,16 @@ async function runModelBackendsGate(evidence) {
         };
       }
     }
-    if (!result.ollama && result.vllm?.status !== "passed") {
+    const explicitlyRequestedScenarios = [...requestedKinds].filter((kind) => ["ollama", "vllm"].includes(kind));
+    const missingRequestedScenarios = explicitlyRequestedScenarios.filter((kind) =>
+      kind === "ollama" ? !result.ollama : result.vllm?.status !== "passed",
+    );
+    if (missingRequestedScenarios.length > 0 || (explicitlyRequestedScenarios.length === 0 && !result.ollama && result.vllm?.status !== "passed")) {
       evidence.status = "blocked";
       evidence.result = {
         ...result,
         reason: "no_live_model_backend_scenario_exercised",
+        missingRequestedScenarios,
         nextLiveStep:
           "Configure Ollama with at least one model, or configure vLLM with IOI_VLLM_MODEL plus a PATH vllm binary, IOI_VLLM_BINARY, or VLLM_BASE_URL, then rerun IOI_LIVE_MODEL_BACKENDS=1 npm run test:model-backends:live.",
       };
@@ -1706,14 +1762,22 @@ function catalogOAuthEndpointDefaults(providerId) {
 }
 
 async function runModelCatalogOAuthGate(evidence) {
-  const providerId = process.env.IOI_MODEL_CATALOG_OAUTH_PROVIDER_ID ?? "catalog.huggingface";
+  let providerId = process.env.IOI_MODEL_CATALOG_OAUTH_PROVIDER_ID ?? "catalog.huggingface";
   const fixtureOAuthEnabled = process.env.IOI_MODEL_CATALOG_OAUTH_FIXTURE === "1";
+  const localOAuthBoundaryEnabled =
+    !fixtureOAuthEnabled &&
+    !process.env.IOI_MODEL_CATALOG_OAUTH_CLIENT_ID &&
+    process.env.IOI_MODEL_CATALOG_OAUTH_LOCAL_BOUNDARY !== "0";
+  if (localOAuthBoundaryEnabled && !process.env.IOI_MODEL_CATALOG_OAUTH_PROVIDER_ID) {
+    providerId = "catalog.custom_http";
+  }
   const defaults = catalogOAuthEndpointDefaults(providerId);
   let fixtureOAuthServer = null;
+  let localOAuthServer = null;
   let authorizationEndpoint = process.env.IOI_MODEL_CATALOG_OAUTH_AUTHORIZATION_URL ?? defaults.authorizationEndpoint;
   let tokenEndpoint = process.env.IOI_MODEL_CATALOG_OAUTH_TOKEN_URL ?? defaults.tokenEndpoint;
   let redirectUri = process.env.IOI_MODEL_CATALOG_OAUTH_REDIRECT_URI ?? defaultCatalogOAuthRedirectUri(providerId);
-  const clientId = process.env.IOI_MODEL_CATALOG_OAUTH_CLIENT_ID ?? (fixtureOAuthEnabled ? "fixture-catalog-oauth-client" : "");
+  let clientId = process.env.IOI_MODEL_CATALOG_OAUTH_CLIENT_ID ?? (fixtureOAuthEnabled ? "fixture-catalog-oauth-client" : "");
   const scopes = splitOAuthScopes(process.env.IOI_MODEL_CATALOG_OAUTH_SCOPES ?? defaults.scopes);
   const callbackUrl = process.env.IOI_MODEL_CATALOG_OAUTH_CALLBACK_URL ?? "";
   const callbackFromUrl = parseCatalogOAuthCallbackInput(callbackUrl);
@@ -1721,7 +1785,7 @@ async function runModelCatalogOAuthGate(evidence) {
   let authorizationCode = process.env.IOI_MODEL_CATALOG_OAUTH_AUTHORIZATION_CODE ?? callbackFromUrl.code;
   const customBaseUrl = process.env.IOI_MODEL_CATALOG_OAUTH_CUSTOM_BASE_URL ?? process.env.IOI_MODEL_CATALOG_CUSTOM_BASE_URL ?? "";
   const pkceRequired = process.env.IOI_MODEL_CATALOG_OAUTH_PKCE_REQUIRED === "0" ? false : true;
-  const loopbackCallbackEnabled = process.env.IOI_MODEL_CATALOG_OAUTH_LOCAL_CALLBACK === "1" || fixtureOAuthEnabled;
+  const loopbackCallbackEnabled = process.env.IOI_MODEL_CATALOG_OAUTH_LOCAL_CALLBACK === "1" || fixtureOAuthEnabled || localOAuthBoundaryEnabled;
   const loopbackTimeoutMs = Number(process.env.IOI_MODEL_CATALOG_OAUTH_CALLBACK_TIMEOUT_MS ?? 120000);
   let loopbackServer = null;
 
@@ -1730,11 +1794,19 @@ async function runModelCatalogOAuthGate(evidence) {
     authorizationEndpoint = fixtureOAuthServer.authorizationEndpoint;
     tokenEndpoint = fixtureOAuthServer.tokenEndpoint;
   }
+  if (localOAuthBoundaryEnabled) {
+    localOAuthServer = await startCatalogOAuthLocalBoundaryServer({ providerId });
+    authorizationEndpoint = localOAuthServer.authorizationEndpoint;
+    tokenEndpoint = localOAuthServer.tokenEndpoint;
+    clientId = "local-catalog-oauth-client";
+  }
 
   evidence.details.oauth = {
     providerId,
     fixtureOAuthEnabled,
+    localOAuthBoundaryEnabled,
     fixtureOAuthEndpointHash: fixtureOAuthServer ? stableHash(fixtureOAuthServer.endpoint) : null,
+    localOAuthEndpointHash: localOAuthServer ? stableHash(localOAuthServer.endpoint) : null,
     authorizationEndpointHash: authorizationEndpoint ? stableHash(authorizationEndpoint) : null,
     tokenEndpointHash: tokenEndpoint ? stableHash(tokenEndpoint) : null,
     redirectUriHash: stableHash(redirectUri),
@@ -1873,14 +1945,14 @@ async function runModelCatalogOAuthGate(evidence) {
     }
     let effectiveCallbackUrl = callbackUrl;
     let effectiveCallbackProviderId = callbackFromUrl.providerId;
-    if ((!callbackState || !authorizationCode) && loopbackServer) {
-      if (fixtureOAuthServer) {
+      if ((!callbackState || !authorizationCode) && loopbackServer) {
+      if (fixtureOAuthServer || localOAuthServer) {
         const response = await fetch(started.authorizationUrl, { redirect: "follow" });
         await response.text();
         evidence.commands.push({
-          command: "fixture oauth authorization redirect",
+          command: fixtureOAuthServer ? "fixture oauth authorization redirect" : "local oauth boundary authorization redirect",
           status: response.ok ? 0 : 1,
-          stdout: response.ok ? "Fixture OAuth provider redirected through loopback without logging raw URL." : "",
+          stdout: response.ok ? "OAuth provider redirected through loopback without logging raw URL." : "",
           stderr: response.ok ? "" : `status:${response.status}`,
         });
         if (!response.ok) {
@@ -2008,12 +2080,15 @@ async function runModelCatalogOAuthGate(evidence) {
       fixtureOAuthServer?.secrets.accessToken,
       fixtureOAuthServer?.secrets.refreshToken,
       fixtureOAuthServer?.secrets.authorizationCode,
+      localOAuthServer?.secrets.accessToken,
+      localOAuthServer?.secrets.refreshToken,
+      localOAuthServer?.secrets.authorizationCode,
     ]);
     assert.equal(secretScan.passed, true);
-    const fixtureObserved = fixtureOAuthServer?.observed() ?? [];
-    if (fixtureOAuthServer) {
-      assert.ok(fixtureObserved.some((entry) => entry.kind === "authorization"));
-      assert.ok(fixtureObserved.some((entry) => entry.kind === "token" && entry.codeVerifierHash));
+    const providerObserved = fixtureOAuthServer?.observed() ?? localOAuthServer?.observed() ?? [];
+    if (fixtureOAuthServer || localOAuthServer) {
+      assert.ok(providerObserved.some((entry) => entry.kind === "authorization"));
+      assert.ok(providerObserved.some((entry) => entry.kind === "token" && entry.codeVerifierHash));
     }
     evidence.status = "passed";
     evidence.result = {
@@ -2026,7 +2101,7 @@ async function runModelCatalogOAuthGate(evidence) {
       startReceiptId: started.receiptId,
       callbackReceiptId: completed.receiptId,
       loopbackCallbackUrlHash: effectiveCallbackUrl ? stableHash(effectiveCallbackUrl) : null,
-      fixtureObserved,
+      providerObserved,
       projectionOAuthStateCount: projection.oauthStates.length,
       projectionOAuthSessionCount: projection.oauthSessions.length,
       secretScan,
@@ -2035,6 +2110,7 @@ async function runModelCatalogOAuthGate(evidence) {
   } finally {
     if (loopbackServer) await loopbackServer.close();
     if (fixtureOAuthServer) await fixtureOAuthServer.close();
+    if (localOAuthServer) await localOAuthServer.close();
   }
 }
 
@@ -2048,11 +2124,11 @@ function sensitiveSourceUrlNeedle(source) {
 }
 
 async function runWalletGate(evidence) {
-  let fakeRemote = null;
-  const remoteUrl = process.env.IOI_WALLET_NETWORK_URL ?? (fakeRemote = await startFakeRemoteBoundaryServer("wallet")).url;
-  evidence.details.remoteMode = process.env.IOI_WALLET_NETWORK_URL ? "configured_remote" : "deterministic_fake_remote";
+  let localRemote = null;
+  const remoteUrl = process.env.IOI_WALLET_NETWORK_URL ?? (localRemote = await startLocalRemoteBoundaryServer("wallet")).url;
+  evidence.details.remoteMode = process.env.IOI_WALLET_NETWORK_URL ? "configured_remote" : "local_remote_boundary";
   if (!process.env.IOI_WALLET_NETWORK_URL) {
-    evidence.details.fallbackReason = "remote_wallet_network_not_configured";
+    evidence.details.fallbackReason = "remote_wallet_network_not_configured_local_boundary_started";
   }
   try {
     const remoteHealth = await probeRemoteBoundary(remoteUrl, "wallet");
@@ -2109,6 +2185,7 @@ async function runWalletGate(evidence) {
         const secretScan = scanFilesForNeedles(stateDir, [grant.token, deniedGrant.token, "Bearer plaintext-secret"]);
         assert.equal(secretScan.passed, true);
         evidence.status = "passed";
+        await waitForRemoteRequests(localRemote, (request) => request.pathname === "/audit" || request.pathname === "/grants/authorize");
         evidence.result = {
           remoteMode: evidence.details.remoteMode,
           remoteHealth,
@@ -2120,21 +2197,21 @@ async function runWalletGate(evidence) {
           badMcpStatus: badMcp.response.status,
           tokenCount: listedTokens.length,
           secretScan,
-          fakeRemoteRequests: fakeRemote?.requests ?? [],
+          remoteRequests: localRemote?.requests ?? [],
         };
       });
     });
   } finally {
-    if (fakeRemote) await fakeRemote.close();
+    if (localRemote) await localRemote.close();
   }
 }
 
 async function runAgentgresGate(evidence) {
-  let fakeRemote = null;
-  const remoteUrl = process.env.IOI_AGENTGRES_URL ?? (fakeRemote = await startFakeRemoteBoundaryServer("agentgres")).url;
-  evidence.details.remoteMode = process.env.IOI_AGENTGRES_URL ? "configured_remote" : "deterministic_fake_remote";
+  let localRemote = null;
+  const remoteUrl = process.env.IOI_AGENTGRES_URL ?? (localRemote = await startLocalRemoteBoundaryServer("agentgres")).url;
+  evidence.details.remoteMode = process.env.IOI_AGENTGRES_URL ? "configured_remote" : "local_remote_boundary";
   if (!process.env.IOI_AGENTGRES_URL) {
-    evidence.details.fallbackReason = "remote_agentgres_not_configured";
+    evidence.details.fallbackReason = "remote_agentgres_not_configured_local_boundary_started";
   }
   try {
     const remoteHealth = await probeRemoteBoundary(remoteUrl, "agentgres");
@@ -2179,6 +2256,7 @@ async function runAgentgresGate(evidence) {
         assert.ok(projection.downloads.some((job) => job.id === download.id));
         const secretScan = scanFilesForNeedles(stateDir, [grant.token, remoteUrl]);
         assert.equal(secretScan.passed, true);
+        await waitForRemoteRequests(localRemote, (request) => request.pathname === "/operations");
         evidence.status = "passed";
         evidence.result = {
           remoteMode: evidence.details.remoteMode,
@@ -2191,12 +2269,12 @@ async function runAgentgresGate(evidence) {
           chatReceiptId: chat.receipt_id,
           replaySource: replay.source,
           secretScan,
-          fakeRemoteRequests: fakeRemote?.requests ?? [],
+          remoteRequests: localRemote?.requests ?? [],
         };
       });
     });
   } finally {
-    if (fakeRemote) await fakeRemote.close();
+    if (localRemote) await localRemote.close();
   }
 }
 
