@@ -419,6 +419,13 @@ async function main() {
   let nativeStreamCompletionInvocationReceiptId = null;
   let nativeStreamAbortReceiptId = null;
   let nativeStreamAbortInvocationReceiptId = null;
+  let anthropicReceiptId = null;
+  let anthropicStreamReceiptId = null;
+  let anthropicStreamInvocationReceiptId = null;
+  let continuedResponseId = null;
+  let continuedResponseReceiptId = null;
+  let tokenizerReceiptId = null;
+  let contextFitReceiptId = null;
   let runtimeSurveyReceiptId = null;
   let ephemeralReceiptId = null;
   let ephemeralToolReceiptIds = [];
@@ -493,6 +500,8 @@ async function main() {
             "model.responses:*",
             "model.embeddings:*",
             "model.rerank:*",
+            "model.tokenize:*",
+            "model.context:*",
             "model.load:*",
             "model.unload:*",
             "model.mount:*",
@@ -734,6 +743,44 @@ async function main() {
         body: { route_id: "route.native-local", model: "native:e2e", input: "responses e2e" },
       });
       assert.match(responses.output_text, /Autopilot native local model response/);
+      assert.match(responses.response_id, /^resp_/);
+
+      const continuedResponse = await expectOk(daemon.endpoint, "/v1/responses", {
+        method: "POST",
+        token,
+        body: {
+          route_id: "route.native-local",
+          model: "native:e2e",
+          previous_response_id: responses.response_id,
+          input: "continued responses e2e",
+        },
+      });
+      continuedResponseId = continuedResponse.id;
+      continuedResponseReceiptId = continuedResponse.receipt_id;
+      assert.equal(continuedResponse.previous_response_id, responses.response_id);
+      assert.match(continuedResponse.output_text, /Autopilot native local model response/);
+      const continuedResponseReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${continuedResponseReceiptId}`);
+      assert.equal(continuedResponseReceipt.details.previousResponseId, responses.response_id);
+      assert.equal(continuedResponseReceipt.details.continuation.mode, "matched");
+
+      const anthropic = await expectOk(daemon.endpoint, "/v1/messages", {
+        method: "POST",
+        token,
+        body: {
+          route_id: "route.native-local",
+          model: "native:e2e",
+          max_tokens: 64,
+          messages: [{ role: "user", content: [{ type: "text", text: "anthropic compat e2e" }] }],
+        },
+      });
+      anthropicReceiptId = anthropic.receipt_id;
+      assert.equal(anthropic.type, "message");
+      assert.equal(anthropic.route_id, "route.native-local");
+      assert.equal(anthropic.model, "native:e2e");
+      assert.match(anthropic.content[0].text, /Autopilot native local model response/);
+      const anthropicReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${anthropicReceiptId}`);
+      assert.equal(anthropicReceipt.kind, "model_invocation");
+      assert.equal(anthropicReceipt.details.routeId, "route.native-local");
 
       const embeddings = await expectOk(daemon.endpoint, "/v1/embeddings", {
         method: "POST",
@@ -741,6 +788,92 @@ async function main() {
         body: { route_id: "route.native-local", model: "native:e2e", input: ["alpha", "beta"] },
       });
       assert.equal(embeddings.data.length, 2);
+
+      const tokenized = await expectOk(daemon.endpoint, "/api/v1/tokenize", {
+        method: "POST",
+        token,
+        body: { route_id: "route.native-local", model: "native:e2e", input: "tokenizer e2e controls" },
+      });
+      tokenizerReceiptId = tokenized.receipt_id;
+      assert.equal(tokenized.route_id, "route.native-local");
+      assert.equal(tokenized.model, "native:e2e");
+      assert.ok(tokenized.tokens.length >= 3);
+      assert.equal(tokenized.usage.prompt_tokens, tokenized.token_count);
+      const tokenizationReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${tokenizerReceiptId}`);
+      assert.equal(tokenizationReceipt.kind, "model_tokenization");
+      assert.equal(tokenizationReceipt.details.operation, "tokenize");
+      assert.equal(tokenizationReceipt.details.selectedModel, "native:e2e");
+
+      const counted = await expectOk(daemon.endpoint, "/api/v1/tokens/count", {
+        method: "POST",
+        token,
+        body: { route_id: "route.native-local", model: "native:e2e", input: "count these e2e tokens" },
+      });
+      assert.equal(counted.route_id, "route.native-local");
+      assert.equal(counted.model, "native:e2e");
+      assert.ok(counted.token_count >= 4);
+      assert.match(counted.input_hash, /^[a-f0-9]{64}$/);
+
+      const contextFit = await expectOk(daemon.endpoint, "/api/v1/context/fit", {
+        method: "POST",
+        token,
+        body: {
+          route_id: "route.native-local",
+          model: "native:e2e",
+          context_length: 5,
+          max_output_tokens: 2,
+          input: "one two three four five six",
+        },
+      });
+      contextFitReceiptId = contextFit.receipt_id;
+      assert.equal(contextFit.route_id, "route.native-local");
+      assert.equal(contextFit.model, "native:e2e");
+      assert.equal(contextFit.context_window, 5);
+      assert.equal(contextFit.fits, false);
+      assert.equal(contextFit.truncation.applied, true);
+      const contextFitReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${contextFitReceiptId}`);
+      assert.equal(contextFitReceipt.kind, "model_context_fit");
+      assert.equal(contextFitReceipt.details.operation, "context_fit");
+      assert.equal(contextFitReceipt.details.selectedModel, "native:e2e");
+
+      const anthropicStream = await requestSse(daemon.endpoint, "/v1/messages", {
+        method: "POST",
+        token,
+        body: {
+          route_id: "route.native-local",
+          model: "native:e2e",
+          max_tokens: 64,
+          stream: true,
+          messages: [{ role: "user", content: "stream anthropic compat e2e" }],
+        },
+      });
+      assert.equal(anthropicStream.response.status, 200);
+      assert.equal(anthropicStream.response.headers.get("x-ioi-stream-source"), "provider_native");
+      assert.equal(anthropicStream.events[0].event, "message_start");
+      assert.equal(anthropicStream.events[1].event, "content_block_start");
+      const anthropicStreamText = anthropicStream.events
+        .filter((event) => event.event === "content_block_delta")
+        .map((event) => event.data.delta.text)
+        .join("");
+      assert.match(anthropicStreamText, /Autopilot native local model response/);
+      const anthropicStop = anthropicStream.events.at(-1);
+      assert.equal(anthropicStop.event, "message_stop");
+      assert.equal(anthropicStop.data.route_id, "route.native-local");
+      assert.equal(anthropicStop.data.provider_stream, "native");
+      anthropicStreamInvocationReceiptId = anthropicStop.data.receipt_id;
+      anthropicStreamReceiptId = anthropicStop.data.stream_receipt_id;
+      const anthropicStreamInvocation = await expectOk(daemon.endpoint, `/api/v1/receipts/${anthropicStreamInvocationReceiptId}`);
+      assert.equal(anthropicStreamInvocation.kind, "model_invocation");
+      assert.equal(anthropicStreamInvocation.details.streamSource, "provider_native");
+      assert.equal(anthropicStreamInvocation.details.providerResponseKind, "native_local.chat.stream");
+      const anthropicStreamReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${anthropicStreamReceiptId}`);
+      assert.equal(anthropicStreamReceipt.kind, "model_invocation_stream_completed");
+      assert.equal(anthropicStreamReceipt.details.streamKind, "anthropic_messages_provider_native");
+      assert.equal(anthropicStreamReceipt.details.invocationReceiptId, anthropicStreamInvocationReceiptId);
+      assert.equal(
+        anthropicStreamReceipt.details.outputHash,
+        crypto.createHash("sha256").update(anthropicStreamText).digest("hex"),
+      );
 
       const streamedChat = await requestSse(daemon.endpoint, "/v1/chat/completions", {
         method: "POST",
@@ -839,7 +972,14 @@ async function main() {
         nativeReceiptId,
         compatModel: compatChat.model,
         responsesReceiptId: responses.receipt_id,
+        responseId: responses.response_id,
+        continuedResponseId,
+        continuedResponseReceiptId,
+        anthropicReceiptId,
+        anthropicStreamReceiptId,
         embeddingVectors: embeddings.data.length,
+        tokenizerReceiptId,
+        contextFitReceiptId,
         streamCompletionReceiptId: nativeStreamCompletionReceiptId,
         streamAbortReceiptId: nativeStreamAbortReceiptId,
       };
@@ -1232,6 +1372,44 @@ async function main() {
       );
       assert.equal(providerHealthLatest.receipt.id, providerHealth.discovery.lastHealthCheck.receiptId);
       assert.equal(providerHealthLatest.replay.receipt.id, providerHealth.discovery.lastHealthCheck.receiptId);
+      const cliTokenized = await runCli(
+        cli,
+        ["models", "--json", "tokenize", "--model", "native:e2e", "--route-id", "route.native-local", "cli tokenize e2e controls"],
+        common,
+      );
+      assert.equal(cliTokenized.route_id, "route.native-local");
+      assert.equal(cliTokenized.model, "native:e2e");
+      assert.ok(cliTokenized.tokens.length >= 4);
+      const cliContextFit = await runCli(
+        cli,
+        [
+          "models",
+          "--json",
+          "context-fit",
+          "--model",
+          "native:e2e",
+          "--route-id",
+          "route.native-local",
+          "--context-length",
+          "4",
+          "--max-output-tokens",
+          "1",
+          "one two three four five",
+        ],
+        common,
+      );
+      assert.equal(cliContextFit.route_id, "route.native-local");
+      assert.equal(cliContextFit.model, "native:e2e");
+      assert.equal(cliContextFit.fits, false);
+      assert.equal(cliContextFit.truncation.applied, true);
+      const cliTokenCount = await runCli(
+        cli,
+        ["tokens", "--json", "count", "--model", "native:e2e", "--route-id", "route.native-local", "cli token count e2e"],
+        common,
+      );
+      assert.equal(cliTokenCount.route_id, "route.native-local");
+      assert.equal(cliTokenCount.model, "native:e2e");
+      assert.ok(cliTokenCount.token_count >= 4);
       const routes = await runCli(cli, ["routes", "--json", "ls"], common);
       assert.ok(routes.some((route) => route.id === "route.e2e.native"));
       const routeTest = await runCli(cli, ["routes", "--json", "test", "route.e2e.native", "--privacy", "local_only"], common);
@@ -1250,6 +1428,11 @@ async function main() {
       assert.ok(receipts.some((receipt) => receipt.id === nativeReceiptId));
       assert.ok(receipts.some((receipt) => receipt.id === nativeStreamCompletionReceiptId));
       assert.ok(receipts.some((receipt) => receipt.id === nativeStreamAbortReceiptId));
+      assert.ok(receipts.some((receipt) => receipt.id === anthropicReceiptId));
+      assert.ok(receipts.some((receipt) => receipt.id === anthropicStreamReceiptId));
+      assert.ok(receipts.some((receipt) => receipt.id === continuedResponseReceiptId));
+      assert.ok(receipts.some((receipt) => receipt.id === tokenizerReceiptId));
+      assert.ok(receipts.some((receipt) => receipt.id === contextFitReceiptId));
       const receipt = await runCli(cli, ["receipts", "--json", "get", nativeReceiptId], common);
       assert.equal(receipt.id, nativeReceiptId);
       const replay = await runCli(cli, ["receipts", "--json", "replay", nativeReceiptId], common);
@@ -1284,11 +1467,32 @@ async function main() {
       assert.equal(streamAbortReplay.receipt.id, nativeStreamAbortReceiptId);
       assert.equal(streamAbortReplay.route.id, "route.native-local");
       assert.equal(streamAbortReplay.endpoint.id, "endpoint.e2e.native-local");
+      const tokenizerReceipt = await runCli(cli, ["receipts", "--json", "get", tokenizerReceiptId], common);
+      assert.equal(tokenizerReceipt.kind, "model_tokenization");
+      assert.equal(tokenizerReceipt.details.operation, "tokenize");
+      const contextReceipt = await runCli(cli, ["receipts", "--json", "get", contextFitReceiptId], common);
+      assert.equal(contextReceipt.kind, "model_context_fit");
+      assert.equal(contextReceipt.details.operation, "context_fit");
+      const anthropicReceipt = await runCli(cli, ["receipts", "--json", "get", anthropicReceiptId], common);
+      assert.equal(anthropicReceipt.kind, "model_invocation");
+      assert.equal(anthropicReceipt.details.routeId, "route.native-local");
+      const anthropicStreamReceipt = await runCli(cli, ["receipts", "--json", "get", anthropicStreamReceiptId], common);
+      assert.equal(anthropicStreamReceipt.kind, "model_invocation_stream_completed");
+      assert.equal(anthropicStreamReceipt.details.streamKind, "anthropic_messages_provider_native");
+      const continuedReceipt = await runCli(cli, ["receipts", "--json", "get", continuedResponseReceiptId], common);
+      assert.equal(continuedReceipt.details.continuation.mode, "matched");
+      assert.equal(continuedReceipt.details.responseId, continuedResponseId);
       return {
         cli: path.basename(cli.command),
         models: models.artifacts.length,
         loaded: loaded.length,
         receipts: receipts.length,
+        anthropicReceiptId,
+        anthropicStreamReceiptId,
+        continuedResponseId,
+        continuedResponseReceiptId,
+        tokenizerReceiptId,
+        contextFitReceiptId,
         streamCompletionReceiptId: nativeStreamCompletionReceiptId,
         streamAbortReceiptId: nativeStreamAbortReceiptId,
         serverRestartReceiptId: serverControlEvidence.restartReceiptId,
@@ -1310,6 +1514,12 @@ async function main() {
       assert.ok(projection.invocationReceipts.some((item) => item.id === nativeReceiptId));
       assert.ok(projection.receipts.some((item) => item.id === nativeStreamCompletionReceiptId));
       assert.ok(projection.receipts.some((item) => item.id === nativeStreamAbortReceiptId));
+      assert.ok(projection.invocationReceipts.some((item) => item.id === anthropicReceiptId));
+      assert.ok(projection.receipts.some((item) => item.id === anthropicStreamReceiptId));
+      assert.ok(projection.invocationReceipts.some((item) => item.id === continuedResponseReceiptId));
+      assert.ok(projection.conversationStates.some((item) => item.id === continuedResponseId));
+      assert.ok(projection.receipts.some((item) => item.id === tokenizerReceiptId));
+      assert.ok(projection.receipts.some((item) => item.id === contextFitReceiptId));
       assert.ok(projection.runtimeSurveyReceipts.some((item) => item.id === runtimeSurveyReceiptId));
       assert.ok(projection.toolReceipts.some((item) => ephemeralToolReceiptIds.includes(item.id)));
       const streamCompletionReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${nativeStreamCompletionReceiptId}`);
@@ -1336,6 +1546,26 @@ async function main() {
       assert.equal(streamAbortReplay.receipt.id, nativeStreamAbortReceiptId);
       assert.equal(streamAbortReplay.route.id, "route.native-local");
       assert.equal(streamAbortReplay.endpoint.id, "endpoint.e2e.native-local");
+      const tokenizerReplay = await expectOk(daemon.endpoint, `/api/v1/receipts/${tokenizerReceiptId}/replay`);
+      assert.equal(tokenizerReplay.receipt.id, tokenizerReceiptId);
+      assert.equal(tokenizerReplay.route.id, "route.native-local");
+      assert.equal(tokenizerReplay.endpoint.id, "endpoint.e2e.native-local");
+      const contextReplay = await expectOk(daemon.endpoint, `/api/v1/receipts/${contextFitReceiptId}/replay`);
+      assert.equal(contextReplay.receipt.id, contextFitReceiptId);
+      assert.equal(contextReplay.route.id, "route.native-local");
+      assert.equal(contextReplay.endpoint.id, "endpoint.e2e.native-local");
+      const anthropicReplay = await expectOk(daemon.endpoint, `/api/v1/receipts/${anthropicReceiptId}/replay`);
+      assert.equal(anthropicReplay.receipt.id, anthropicReceiptId);
+      assert.equal(anthropicReplay.route.id, "route.native-local");
+      assert.equal(anthropicReplay.endpoint.id, "endpoint.e2e.native-local");
+      const anthropicStreamReplay = await expectOk(daemon.endpoint, `/api/v1/receipts/${anthropicStreamReceiptId}/replay`);
+      assert.equal(anthropicStreamReplay.receipt.id, anthropicStreamReceiptId);
+      assert.equal(anthropicStreamReplay.route.id, "route.native-local");
+      assert.equal(anthropicStreamReplay.endpoint.id, "endpoint.e2e.native-local");
+      const continuedReplay = await expectOk(daemon.endpoint, `/api/v1/receipts/${continuedResponseReceiptId}/replay`);
+      assert.equal(continuedReplay.receipt.id, continuedResponseReceiptId);
+      assert.equal(continuedReplay.route.id, "route.native-local");
+      assert.equal(continuedReplay.endpoint.id, "endpoint.e2e.native-local");
       const restartedProcess = projection.backendProcesses.find((process) => process.backendId === "backend.autopilot.native-local.fixture");
       assert.equal(restartedProcess.status, "stale_recovered");
       assert.equal(restartedProcess.staleReason, "daemon_boot_mismatch");
@@ -1356,6 +1586,12 @@ async function main() {
         invocationReceipts: projection.invocationReceipts.length,
         streamCompletionReceiptId: nativeStreamCompletionReceiptId,
         streamAbortReceiptId: nativeStreamAbortReceiptId,
+        anthropicReceiptId,
+        anthropicStreamReceiptId,
+        continuedResponseId,
+        continuedResponseReceiptId,
+        tokenizerReceiptId,
+        contextFitReceiptId,
         runtimeSurveyReceipts: projection.runtimeSurveyReceipts.length,
         toolReceipts: projection.toolReceipts.length,
         vaultMetadataRequiresRebind: vaultMeta.requiresRebind,

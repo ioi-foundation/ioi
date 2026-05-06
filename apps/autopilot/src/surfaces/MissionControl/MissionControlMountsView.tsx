@@ -300,6 +300,20 @@ interface WorkflowNodePreview {
   receiptRequired: boolean;
 }
 
+interface ConversationStatePreview {
+  id: string;
+  previousResponseId: string;
+  routeId: string;
+  endpointId: string;
+  selectedModel: string;
+  receiptId: string;
+  streamReceiptId: string;
+  redaction: string;
+  messageCount: number;
+  continuationMode: string;
+  fallbackAllowed: boolean;
+}
+
 interface RuntimeEnginePreview {
   id: string;
   label: string;
@@ -579,6 +593,7 @@ interface MountsWorkbenchData {
   mcpServers: McpServerPreview[];
   routes: RoutePolicyPreview[];
   workflowNodes: WorkflowNodePreview[];
+  conversationStates: ConversationStatePreview[];
   receipts: ReceiptPreview[];
   healthSummary: HealthSummaryPreview;
 }
@@ -1185,6 +1200,21 @@ const fallbackData: MountsWorkbenchData = {
     "Model Router",
     "Receipt Gate",
   ].map((node) => ({ node, routeId: "route.local-first", receiptRequired: true })),
+  conversationStates: [
+    {
+      id: "resp_fixture_root",
+      previousResponseId: "none",
+      routeId: "route.local-first",
+      endpointId: "endpoint.local.auto",
+      selectedModel: "local:auto",
+      receiptId: "receipt_model_invocation_*",
+      streamReceiptId: "none",
+      redaction: "redacted",
+      messageCount: 2,
+      continuationMode: "new",
+      fallbackAllowed: false,
+    },
+  ],
   receipts: [
     receipt("receipt_provider_health_fixture", "provider_health", "Provider provider.ollama health failed closed as blocked.", [
       "provider_health_vault_secret_required",
@@ -3595,6 +3625,19 @@ function normalizeSnapshot(snapshot: any, endpoint: string): MountsWorkbenchData
       node: stringValue(item.node, "Workflow node"),
       routeId: stringValue(item.routeId, "route.local-first"),
       receiptRequired: Boolean(item.receiptRequired ?? true),
+    })),
+    conversationStates: arrayOf(snapshot?.conversationStates).map((item) => ({
+      id: stringValue(item.id, "resp_unknown"),
+      previousResponseId: stringValue(item.previousResponseId, "none"),
+      routeId: stringValue(item.routeId, "route.unknown"),
+      endpointId: stringValue(item.endpointId, "endpoint.unknown"),
+      selectedModel: stringValue(item.selectedModel, "model.unknown"),
+      receiptId: stringValue(item.receiptId, "none"),
+      streamReceiptId: stringValue(item.streamReceiptId, "none"),
+      redaction: stringValue(item.redaction, "redacted"),
+      messageCount: numberValue(item.messageCount, 0),
+      continuationMode: stringValue(item.continuation?.mode, "new"),
+      fallbackAllowed: Boolean(item.continuation?.fallbackAllowed),
     })),
     receipts,
     healthSummary: healthSummaryFromReceipts(receipts),
@@ -6538,6 +6581,7 @@ function BenchmarksPanel({
 
 function LogsPanel({
   receipts,
+  conversationStates,
   connectionState,
   focusReceiptId,
   onRefresh,
@@ -6546,6 +6590,7 @@ function LogsPanel({
   busy,
 }: {
   receipts: ReceiptPreview[];
+  conversationStates: ConversationStatePreview[];
   connectionState: ConnectionState;
   focusReceiptId?: string;
   onRefresh: () => void;
@@ -6562,6 +6607,7 @@ function LogsPanel({
   const summary = observabilitySummary(events);
   const streamSummary = streamLifecycleSummary(receipts);
   const visibleStreamReceipts = [...streamSummary.streams].reverse().slice(0, 6);
+  const visibleConversationStates = [...conversationStates].reverse().slice(0, 6);
   const updateFilter = (field: keyof ObservabilityFilters, value: string | boolean) => {
     setFilters((current) => ({ ...current, [field]: value }));
   };
@@ -6660,6 +6706,50 @@ function LogsPanel({
         <DetailFact label="Requests" value={`${summary.requests}`} note="route, lifecycle, import, selection" />
         <DetailFact label="Responses" value={`${summary.responses}`} note="model, MCP, provider, vault" />
         <DetailFact label="Needs attention" value={`${summary.problemCount}`} note="degraded, denied, failed" />
+      </div>
+
+      <div className="model-mounts-stream-lifecycle" aria-label="Stateful continuation states">
+        <div className="model-mounts-stream-lifecycle-head">
+          <div>
+            <strong>Stateful continuation</strong>
+            <small>Redacted response state for previous_response_id replay and route-fallback safety.</small>
+          </div>
+          <div className="model-mounts-tags">
+            <StatusPill tone={visibleConversationStates.length > 0 ? "ready" : "muted"}>{`${conversationStates.length} states`}</StatusPill>
+            <StatusPill tone="ready">redacted</StatusPill>
+          </div>
+        </div>
+        {visibleConversationStates.length === 0 ? (
+          <p className="model-mounts-empty">No continuation state in the current projection.</p>
+        ) : (
+          <div className="model-mounts-stream-lifecycle-list">
+            {visibleConversationStates.map((state) => (
+              <article key={state.id} className="model-mounts-stream-lifecycle-card">
+                <div className="model-mounts-stream-lifecycle-card-head">
+                  <div>
+                    <strong>{state.id}</strong>
+                    <small>{state.previousResponseId !== "none" ? `previous ${state.previousResponseId}` : "root response"}</small>
+                  </div>
+                  <StatusPill tone={state.fallbackAllowed ? "warn" : "ready"}>{state.continuationMode}</StatusPill>
+                </div>
+                <dl className="model-mounts-stream-lifecycle-grid">
+                  <dt>Route</dt>
+                  <dd>{state.routeId}</dd>
+                  <dt>Endpoint</dt>
+                  <dd>{state.endpointId}</dd>
+                  <dt>Model</dt>
+                  <dd>{state.selectedModel}</dd>
+                  <dt>Redaction</dt>
+                  <dd>{state.redaction}</dd>
+                  <dt>Messages</dt>
+                  <dd>{state.messageCount}</dd>
+                  <dt>Receipt</dt>
+                  <dd>{state.streamReceiptId !== "none" ? state.streamReceiptId : state.receiptId}</dd>
+                </dl>
+              </article>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="model-mounts-stream-lifecycle" aria-label="Stream lifecycle receipts">
@@ -7408,6 +7498,7 @@ export function MissionControlMountsView() {
         {activeTab === "logs" ? (
           <LogsPanel
             receipts={visibleReceipts}
+            conversationStates={daemon.data.conversationStates}
             connectionState={daemon.connectionState}
             focusReceiptId={focusedReceiptId}
             onRefresh={() => void daemon.refresh()}

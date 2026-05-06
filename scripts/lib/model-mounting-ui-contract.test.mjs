@@ -341,6 +341,11 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   assert.match(source, /health-sweep/);
   assert.match(source, /Streaming observability/);
   assert.match(source, /Stream lifecycle receipts/);
+  assert.match(source, /Stateful continuation/);
+  assert.match(source, /previous_response_id replay/);
+  assert.match(source, /conversationStates/);
+  assert.match(source, /ConversationStatePreview/);
+  assert.match(source, /continuationMode/);
   assert.match(source, /streamLifecycleProbe/);
   assert.match(source, /stream-lifecycle/);
   assert.match(source, /event\.altKey/);
@@ -528,10 +533,26 @@ test("Mounts GUI validation uses a dedicated desktop harness", () => {
 test("model mounting end-to-end validation is wired as the acceptance gate", () => {
   const packageJson = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
   const e2ePath = path.join(root, "scripts", "validate-model-mounting-e2e.mjs");
+  const closeoutPath = path.join(root, "scripts", "validate-model-mounting-closeout.mjs");
+  const guideCheckPath = path.join(root, "scripts", "check-model-mounting-master-guide.mjs");
   const source = fs.readFileSync(e2ePath, "utf8");
+  const closeout = fs.readFileSync(closeoutPath, "utf8");
+  const guideCheck = fs.readFileSync(guideCheckPath, "utf8");
   assert.equal(
     packageJson.scripts["validate:model-mounting:e2e"],
     "node scripts/validate-model-mounting-e2e.mjs",
+  );
+  assert.equal(
+    packageJson.scripts["check:model-mounting-guide"],
+    "node scripts/check-model-mounting-master-guide.mjs",
+  );
+  assert.equal(
+    packageJson.scripts["validate:model-mounting:closeout"],
+    "node scripts/validate-model-mounting-closeout.mjs",
+  );
+  assert.equal(
+    packageJson.scripts["validate:model-mounting:closeout:local"],
+    "node scripts/validate-model-mounting-closeout.mjs --allow-live-skips",
   );
   for (const token of [
     "startRuntimeDaemonService",
@@ -545,6 +566,31 @@ test("model mounting end-to-end validation is wired as the acceptance gate", () 
     "receipt replay and projection continuity after daemon restart",
   ]) {
     assert.match(source, new RegExp(token.replaceAll("/", "\\/")));
+  }
+  for (const token of [
+    "ioi.model-mounting.closeout.v1",
+    "docs/evidence/model-mounting-closeout",
+    "deterministicFixtureParityIsEnough: false",
+    "requiredLiveProductParity: true",
+    "IOI_LIVE_LM_STUDIO=1 npm run test:lm-studio-live",
+    "IOI_LIVE_MODEL_CATALOG_OAUTH=1 npm run test:model-catalog-oauth-live",
+    "IOI_REMOTE_WALLET=1 npm run test:wallet-live",
+    "IOI_REMOTE_AGENTGRES=1 npm run test:agentgres-live",
+    "npm run check:model-mounting-guide",
+    "scanFilesForSecretShapes",
+    "allowLiveSkips",
+    "not_closing",
+  ]) {
+    assert.match(closeout, new RegExp(token.replaceAll("/", "\\/")));
+  }
+  for (const token of [
+    "Status: remaining-work closeout contract",
+    "LM Studio-class live/product parity: not closed.",
+    "Immediate Backlog",
+    "Commit Ledger",
+    "Completed In Repo",
+  ]) {
+    assert.match(guideCheck, new RegExp(token.replaceAll("/", "\\/")));
   }
 });
 
@@ -628,7 +674,8 @@ test("model mounting CLI exposes vault-backed provider configuration flags", () 
   const backendsSource = fs.readFileSync(path.join(root, "crates", "cli", "src", "commands", "backends.rs"), "utf8");
   const serverSource = fs.readFileSync(path.join(root, "crates", "cli", "src", "commands", "server.rs"), "utf8");
   const vaultSource = fs.readFileSync(path.join(root, "crates", "cli", "src", "commands", "vault.rs"), "utf8");
-  const combinedSource = `${source}\n${backendsSource}\n${serverSource}\n${vaultSource}`;
+  const tokensSource = fs.readFileSync(path.join(root, "crates", "cli", "src", "commands", "tokens.rs"), "utf8");
+  const combinedSource = `${source}\n${backendsSource}\n${serverSource}\n${vaultSource}\n${tokensSource}`;
   for (const token of [
     "ProviderSet",
     "VaultCommands",
@@ -665,6 +712,8 @@ test("model mounting CLI exposes vault-backed provider configuration flags", () 
     "identifier",
     "CatalogSearch",
     "CatalogImportUrl",
+    "Tokenize",
+    "ContextFit",
     "quantization",
     "format",
     "limit",
@@ -675,6 +724,9 @@ test("model mounting CLI exposes vault-backed provider configuration flags", () 
     "Logs",
     "Events",
     "Raw keys are rejected by the daemon",
+    "/api/v1/tokenize",
+    "/api/v1/tokens/count",
+    "/api/v1/context/fit",
   ]) {
     assert.match(combinedSource, new RegExp(token.replaceAll("/", "\\/")));
   }

@@ -119,6 +119,26 @@ pub enum ModelsCommands {
     ProviderModels { provider_id: String },
     /// List loaded models observed by a provider driver.
     ProviderLoaded { provider_id: String },
+    /// Tokenize text through the selected model route or deterministic estimator.
+    Tokenize {
+        #[clap(long)]
+        model: Option<String>,
+        #[clap(long)]
+        route_id: Option<String>,
+        input: String,
+    },
+    /// Fit text into a model context window.
+    ContextFit {
+        #[clap(long)]
+        model: Option<String>,
+        #[clap(long)]
+        route_id: Option<String>,
+        #[clap(long)]
+        context_length: Option<u64>,
+        #[clap(long)]
+        max_output_tokens: Option<u64>,
+        input: String,
+    },
     /// Probe provider health or inspect the latest provider health receipt.
     ProviderHealth {
         provider_id: String,
@@ -375,6 +395,46 @@ pub async fn run(args: ModelsArgs) -> Result<()> {
                 Method::GET,
                 &format!("/api/v1/providers/{provider_id}/loaded"),
                 None,
+            )
+            .await?
+        }
+        ModelsCommands::Tokenize {
+            model,
+            route_id,
+            input,
+        } => {
+            daemon_request(
+                endpoint,
+                token,
+                Method::POST,
+                "/api/v1/tokenize",
+                Some(json!({
+                    "model": model,
+                    "route_id": route_id,
+                    "input": input
+                })),
+            )
+            .await?
+        }
+        ModelsCommands::ContextFit {
+            model,
+            route_id,
+            context_length,
+            max_output_tokens,
+            input,
+        } => {
+            daemon_request(
+                endpoint,
+                token,
+                Method::POST,
+                "/api/v1/context/fit",
+                Some(json!({
+                    "model": model,
+                    "route_id": route_id,
+                    "context_length": context_length,
+                    "max_output_tokens": max_output_tokens,
+                    "input": input
+                })),
             )
             .await?
         }

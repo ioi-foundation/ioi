@@ -239,6 +239,18 @@ function extractUserRequest(storeContent) {
   return content.slice(markerIndex + marker.length).trim();
 }
 
+async function openReadonlySqliteDatabase(filePath) {
+  try {
+    const { default: Database } = await import("better-sqlite3");
+    return new Database(filePath, { readonly: true, fileMustExist: true });
+  } catch (error) {
+    const { DatabaseSync } = await import("node:sqlite");
+    const db = new DatabaseSync(filePath, { readOnly: true });
+    db.__fallbackReason = String(error?.message || error);
+    return db;
+  }
+}
+
 async function retainedQueryRuntimeEvidence(query, startedAtMs) {
   const profileRoot = autopilotProfileRoot();
   const chatDbPath = join(profileRoot, "chat-memory.db");
@@ -253,8 +265,7 @@ async function retainedQueryRuntimeEvidence(query, startedAtMs) {
 
   let db;
   try {
-    const { default: Database } = await import("better-sqlite3");
-    db = new Database(chatDbPath, { readonly: true, fileMustExist: true });
+    db = await openReadonlySqliteDatabase(chatDbPath);
     const rows = db
       .prepare(
         "select id, hex(thread_id) as thread_hex, role, timestamp_ms, store_content from checkpoint_transcript_messages where timestamp_ms >= ? order by id asc",
@@ -426,8 +437,7 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
 
   if (existsSync(chatDbPath)) {
     try {
-      const { default: Database } = await import("better-sqlite3");
-      const db = new Database(chatDbPath, { readonly: true, fileMustExist: true });
+      const db = await openReadonlySqliteDatabase(chatDbPath);
       const noteProjection = (projection) => {
         if (!projection || typeof projection !== "object") return;
         if (projection.schemaVersion === "ioi.agent-runtime.substrate.v1") {
