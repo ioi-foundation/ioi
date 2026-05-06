@@ -365,6 +365,17 @@ export interface ModelCatalogProviderStatus {
   baseUrlHash?: string;
   manifestPathHash?: string;
   authVaultRefHash?: string;
+  catalogAuthConfigured?: boolean;
+  catalogAuthResolved?: boolean;
+  catalogAuthScheme?: string;
+  catalogAuthHeaderNameHash?: string | null;
+  catalogAuthEvidenceRefs?: string[];
+  oauthBoundary?: {
+    configured?: boolean;
+    status?: string;
+    tokenExchange?: string;
+    evidenceRefs?: string[];
+  } | null;
   materialVaultRefHash?: string;
   configHash?: string;
   enabled?: boolean;

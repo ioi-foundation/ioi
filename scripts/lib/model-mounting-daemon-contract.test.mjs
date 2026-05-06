@@ -1402,6 +1402,116 @@ test("catalog source material fails closed after restart when only session-bound
   }
 });
 
+test("catalog provider auth resolves vault-backed headers for custom and live catalog requests", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-catalog-auth-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-catalog-auth-state-"));
+  const customVaultRef = "vault://catalog/custom-http/auth-token";
+  const customSecret = crypto.randomBytes(14).toString("base64url");
+  const liveVaultRef = "vault://catalog/huggingface/auth-token";
+  const liveSecret = crypto.randomBytes(14).toString("base64url");
+  const customCatalogServer = await startFakeCustomCatalogServer({ requiredHeaders: { "x-catalog-key": customSecret } });
+  const liveCatalogServer = await startFakeHuggingFaceCatalogServer({ requiredHeaders: { authorization: `Bearer ${liveSecret}` } });
+  const priorLiveCatalog = process.env.IOI_LIVE_MODEL_CATALOG;
+  const priorLiveDownload = process.env.IOI_LIVE_MODEL_DOWNLOAD;
+  const priorCatalogBase = process.env.IOI_MODEL_CATALOG_HF_BASE_URL;
+  process.env.IOI_LIVE_MODEL_CATALOG = "1";
+  process.env.IOI_LIVE_MODEL_DOWNLOAD = "1";
+  process.env.IOI_MODEL_CATALOG_HF_BASE_URL = liveCatalogServer.endpoint;
+  const daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+      method: "POST",
+      body: { allowed: ["provider.write:*", "vault.write:*", "vault.read:*", "model.download:*", "model.import:*"] },
+    });
+    const configuredCustom = await expectOk(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.custom_http", {
+      method: "PATCH",
+      token: grant.token,
+      body: {
+        enabled: true,
+        base_url: customCatalogServer.endpoint,
+        auth_vault_ref: customVaultRef,
+        auth_scheme: "api_key",
+        auth_header_name: "x-catalog-key",
+      },
+    });
+    assert.equal(configuredCustom.catalogAuthConfigured, true);
+    assert.equal(configuredCustom.catalogAuthScheme, "api_key");
+    assert.equal(typeof configuredCustom.catalogAuthHeaderNameHash, "string");
+    assert.equal(JSON.stringify(configuredCustom).includes("x-catalog-key"), false);
+    assert.equal(JSON.stringify(configuredCustom).includes(customVaultRef), false);
+
+    const blockedCustom = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=custom&limit=5");
+    const blockedCustomProvider = blockedCustom.providers.find((provider) => provider.id === "catalog.custom_http");
+    assert.equal(blockedCustomProvider.status, "blocked");
+    assert.equal(blockedCustomProvider.catalogAuthResolved, false);
+    assert.equal(blockedCustom.results.some((entry) => entry.catalogProviderId === "catalog.custom_http"), false);
+
+    await expectOk(daemon.endpoint, "/api/v1/vault/refs", {
+      method: "POST",
+      token: grant.token,
+      body: { vault_ref: customVaultRef, material: customSecret, purpose: "catalog.auth:catalog.custom_http", label: "Custom catalog auth" },
+    });
+    const customCatalog = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=custom&limit=5");
+    const customProvider = customCatalog.providers.find((provider) => provider.id === "catalog.custom_http");
+    assert.equal(customProvider.status, "available");
+    assert.equal(customProvider.catalogAuthResolved, true);
+    assert.equal(customProvider.catalogAuthScheme, "api_key");
+    assert.equal(customCatalog.results.find((entry) => entry.catalogProviderId === "catalog.custom_http")?.catalogAuth.resolvedMaterial, true);
+    assert.ok(customCatalogServer.observedHeaders().some((headers) => headers["x-catalog-key"] === customSecret));
+    assert.equal(JSON.stringify(customCatalog).includes(customSecret), false);
+    assert.equal(JSON.stringify(customCatalog).includes(customVaultRef), false);
+
+    const configuredLive = await expectOk(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.huggingface", {
+      method: "PATCH",
+      token: grant.token,
+      body: {
+        enabled: true,
+        auth_vault_ref: liveVaultRef,
+        auth_scheme: "bearer",
+        auth_header_name: "authorization",
+      },
+    });
+    assert.equal(configuredLive.catalogAuthConfigured, true);
+    assert.equal(configuredLive.catalogAuthScheme, "bearer");
+    assert.equal(JSON.stringify(configuredLive).includes(liveVaultRef), false);
+    await expectOk(daemon.endpoint, "/api/v1/vault/refs", {
+      method: "POST",
+      token: grant.token,
+      body: { vault_ref: liveVaultRef, material: liveSecret, purpose: "catalog.auth:catalog.huggingface", label: "Live catalog auth" },
+    });
+    const liveCatalog = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=qwen&format=gguf&limit=5");
+    const liveProvider = liveCatalog.providers.find((provider) => provider.id === "catalog.huggingface");
+    assert.equal(liveProvider.status, "available");
+    assert.equal(liveProvider.catalogAuthResolved, true);
+    const liveEntry = liveCatalog.results.find((entry) => entry.catalogProviderId === "catalog.huggingface");
+    assert.equal(liveEntry?.catalogAuth.resolvedMaterial, true);
+    assert.ok(liveCatalogServer.observedHeaders().some((headers) => headers.authorization === `Bearer ${liveSecret}`));
+    const liveImport = await expectOk(daemon.endpoint, "/api/v1/models/catalog/import-url", {
+      method: "POST",
+      token: grant.token,
+      body: { source_url: liveEntry.sourceUrl, model_id: "native:auth-live-catalog", max_bytes: liveEntry.sizeBytes, transfer_approved: true },
+    });
+    assert.equal(liveImport.status, "completed");
+    assert.ok(liveCatalogServer.observedHeaders().some((headers) => headers.authorization === `Bearer ${liveSecret}`));
+    const importReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${liveImport.catalogReceiptId}`);
+    assert.equal(importReceipt.details.catalogAuth.resolvedMaterial, true);
+    const downloadReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${liveImport.download.receiptId}`);
+    assert.equal(downloadReceipt.details.catalogAuth.resolvedMaterial, true);
+    const projection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
+    assert.equal(JSON.stringify(projection).includes(customSecret), false);
+    assert.equal(JSON.stringify(projection).includes(liveSecret), false);
+    assert.equal(directoryContainsNeedle(stateDir, customSecret), false);
+    assert.equal(directoryContainsNeedle(stateDir, liveSecret), false);
+  } finally {
+    restoreEnv("IOI_LIVE_MODEL_CATALOG", priorLiveCatalog);
+    restoreEnv("IOI_LIVE_MODEL_DOWNLOAD", priorLiveDownload);
+    restoreEnv("IOI_MODEL_CATALOG_HF_BASE_URL", priorCatalogBase);
+    await customCatalogServer.close();
+    await liveCatalogServer.close();
+    await daemon.close();
+  }
+});
+
 test("model download lifecycle supports progress, failure, cancel, cleanup, and projection replay", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-model-download-workspace-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-model-download-state-"));
@@ -4101,12 +4211,26 @@ async function readRequestText(request) {
   return text;
 }
 
-async function startFakeHuggingFaceCatalogServer() {
+async function startFakeHuggingFaceCatalogServer({ requiredHeaders = {} } = {}) {
   const modelBytes = Buffer.from("family=qwen-hf-live\ncontext=4096\nquantization=Q4_K_M\n");
   const downloadAttempts = new Map();
+  const observed = [];
+  const assertHeaders = (request, response) => {
+    observed.push({ ...request.headers });
+    for (const [header, expected] of Object.entries(requiredHeaders)) {
+      if (request.headers[String(header).toLowerCase()] !== expected) {
+        response.statusCode = 401;
+        response.setHeader("content-type", "application/json");
+        response.end(JSON.stringify({ error: "unauthorized" }));
+        return false;
+      }
+    }
+    return true;
+  };
   const server = http.createServer((request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
     if (request.method === "GET" && url.pathname === "/api/models") {
+      if (!assertHeaders(request, response)) return;
       response.setHeader("content-type", "application/json");
       response.end(
         JSON.stringify([
@@ -4126,6 +4250,7 @@ async function startFakeHuggingFaceCatalogServer() {
       return;
     }
     if (request.method === "GET" && url.pathname === "/Qwen/Qwen3-GGUF/resolve/main/qwen-3b-Q4_K_M.gguf") {
+      if (!assertHeaders(request, response)) return;
       const status = Number(url.searchParams.get("status") ?? 0);
       if (status >= 400) {
         response.statusCode = status;
@@ -4167,15 +4292,30 @@ async function startFakeHuggingFaceCatalogServer() {
   const address = server.address();
   return {
     endpoint: `http://${address.address}:${address.port}`,
+    observedHeaders: () => observed,
     close: () => new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve()))),
   };
 }
 
-async function startFakeCustomCatalogServer() {
+async function startFakeCustomCatalogServer({ requiredHeaders = {} } = {}) {
+  const observed = [];
+  const assertHeaders = (request, response) => {
+    observed.push({ ...request.headers });
+    for (const [header, expected] of Object.entries(requiredHeaders)) {
+      if (request.headers[String(header).toLowerCase()] !== expected) {
+        response.statusCode = 401;
+        response.setHeader("content-type", "application/json");
+        response.end(JSON.stringify({ error: "unauthorized" }));
+        return false;
+      }
+    }
+    return true;
+  };
   const server = http.createServer((request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
     response.setHeader("content-type", "application/json");
     if (request.method === "GET" && url.pathname === "/catalog/search") {
+      if (!assertHeaders(request, response)) return;
       response.end(
         JSON.stringify({
           results: [
@@ -4206,6 +4346,7 @@ async function startFakeCustomCatalogServer() {
   const address = server.address();
   return {
     endpoint: `http://${address.address}:${address.port}`,
+    observedHeaders: () => observed,
     close: () => new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve()))),
   };
 }

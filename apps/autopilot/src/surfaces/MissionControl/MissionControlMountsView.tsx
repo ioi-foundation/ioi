@@ -368,6 +368,10 @@ interface CatalogProviderPreview {
   baseUrlHash: string;
   manifestPathHash: string;
   authVaultRefHash: string;
+  catalogAuthConfigured: boolean;
+  catalogAuthResolved: boolean;
+  catalogAuthScheme: string;
+  catalogAuthHeaderNameHash: string;
   materialVaultRefHash: string;
   configHash: string;
   enabled: boolean;
@@ -482,6 +486,8 @@ interface CatalogProviderConfigDraft {
   manifestPath: string;
   baseUrl: string;
   authVaultRef: string;
+  authScheme: string;
+  authHeaderName: string;
 }
 
 interface CatalogImportPayload {
@@ -631,6 +637,10 @@ const fallbackData: MountsWorkbenchData = {
         baseUrlHash: "local",
 	        manifestPathHash: "none",
 	        authVaultRefHash: "none",
+	        catalogAuthConfigured: false,
+	        catalogAuthResolved: false,
+	        catalogAuthScheme: "none",
+	        catalogAuthHeaderNameHash: "none",
 	        materialVaultRefHash: "none",
 	        configHash: "none",
         enabled: true,
@@ -654,6 +664,10 @@ const fallbackData: MountsWorkbenchData = {
         baseUrlHash: "none",
 	        manifestPathHash: "not configured",
 	        authVaultRefHash: "none",
+	        catalogAuthConfigured: false,
+	        catalogAuthResolved: false,
+	        catalogAuthScheme: "none",
+	        catalogAuthHeaderNameHash: "none",
 	        materialVaultRefHash: "none",
 	        configHash: "none",
         enabled: true,
@@ -677,6 +691,10 @@ const fallbackData: MountsWorkbenchData = {
         baseUrlHash: "not configured",
 	        manifestPathHash: "none",
 	        authVaultRefHash: "none",
+	        catalogAuthConfigured: false,
+	        catalogAuthResolved: false,
+	        catalogAuthScheme: "none",
+	        catalogAuthHeaderNameHash: "none",
 	        materialVaultRefHash: "none",
 	        configHash: "none",
         enabled: true,
@@ -700,6 +718,10 @@ const fallbackData: MountsWorkbenchData = {
         baseUrlHash: "redacted",
 	        manifestPathHash: "none",
 	        authVaultRefHash: "none",
+	        catalogAuthConfigured: false,
+	        catalogAuthResolved: false,
+	        catalogAuthScheme: "bearer",
+	        catalogAuthHeaderNameHash: "none",
 	        materialVaultRefHash: "none",
 	        configHash: "none",
         enabled: true,
@@ -723,6 +745,10 @@ const fallbackData: MountsWorkbenchData = {
         baseUrlHash: "not configured",
 	        manifestPathHash: "none",
 	        authVaultRefHash: "none",
+	        catalogAuthConfigured: false,
+	        catalogAuthResolved: false,
+	        catalogAuthScheme: "bearer",
+	        catalogAuthHeaderNameHash: "none",
 	        materialVaultRefHash: "none",
 	        configHash: "none",
         enabled: true,
@@ -2263,18 +2289,29 @@ function useModelMountsDaemon() {
 	      configureCatalogProvider: (draft: CatalogProviderConfigDraft) =>
 	        runAction("catalog-provider-configure", async () => {
 	          const token = await ensureToken();
-	          const body =
-	            draft.providerId === "catalog.local_manifest"
-	              ? {
-	                  enabled: draft.enabled,
-	                  manifest_path: draft.manifestPath,
-	                  auth_vault_ref: draft.authVaultRef || undefined,
-	                }
-	              : {
-	                  enabled: draft.enabled,
-	                  base_url: draft.baseUrl,
-	                  auth_vault_ref: draft.authVaultRef || undefined,
-	                };
+		          const body =
+		            draft.providerId === "catalog.local_manifest"
+		              ? {
+		                  enabled: draft.enabled,
+		                  manifest_path: draft.manifestPath,
+		                  auth_vault_ref: draft.authVaultRef || undefined,
+		                  auth_scheme: draft.authScheme,
+		                  auth_header_name: draft.authHeaderName,
+		                }
+		              : draft.providerId === "catalog.custom_http"
+		                ? {
+		                  enabled: draft.enabled,
+		                  base_url: draft.baseUrl,
+		                  auth_vault_ref: draft.authVaultRef || undefined,
+		                  auth_scheme: draft.authScheme,
+		                  auth_header_name: draft.authHeaderName,
+		                }
+		                : {
+		                  enabled: draft.enabled,
+		                  auth_vault_ref: draft.authVaultRef || undefined,
+		                  auth_scheme: draft.authScheme,
+		                  auth_header_name: draft.authHeaderName,
+		                };
 	          const result = await requestJson(`/api/v1/models/catalog/providers/${encodeURIComponent(draft.providerId)}`, {
 	            method: "PATCH",
 	            token,
@@ -3344,6 +3381,10 @@ function normalizeCatalog(value: any): CatalogPreview {
       baseUrlHash: stringValue(item.baseUrlHash, "none"),
       manifestPathHash: stringValue(item.manifestPathHash, "none"),
       authVaultRefHash: stringValue(item.authVaultRefHash, "none"),
+      catalogAuthConfigured: Boolean(item.catalogAuthConfigured ?? item.authVaultRefHash ?? false),
+      catalogAuthResolved: Boolean(item.catalogAuthResolved ?? false),
+      catalogAuthScheme: stringValue(item.catalogAuthScheme, "none"),
+      catalogAuthHeaderNameHash: stringValue(item.catalogAuthHeaderNameHash, "none"),
       materialVaultRefHash: stringValue(item.materialVaultRefHash, "none"),
       configHash: stringValue(item.configHash, "none"),
       enabled: item.enabled === undefined ? true : Boolean(item.enabled),
@@ -3573,9 +3614,10 @@ function catalogProviderEvidence(provider: CatalogProviderPreview) {
   const manifestHash = provider.manifestPathHash !== "none" ? `manifest ${provider.manifestPathHash}` : null;
   const configHash = provider.configHash !== "none" ? `config ${provider.configHash}` : null;
   const authHash = provider.authVaultRefHash !== "none" ? `vault ${provider.authVaultRefHash}` : null;
+  const authHeaderHash = provider.catalogAuthHeaderNameHash !== "none" ? `auth header ${provider.catalogAuthHeaderNameHash}` : null;
   const sourceVaultHash = provider.materialVaultRefHash !== "none" ? `source vault ${provider.materialVaultRefHash}` : null;
   const errorHash = provider.errorHash !== "none" ? `error ${provider.errorHash}` : null;
-  return [provider.adapterPort, configHash, endpointHash, manifestHash, authHash, sourceVaultHash, provider.runtimeMaterialStatus, provider.vaultMaterialSource, errorHash].filter(Boolean).join(" / ");
+  return [provider.adapterPort, configHash, endpointHash, manifestHash, authHash, authHeaderHash, sourceVaultHash, provider.runtimeMaterialStatus, provider.vaultMaterialSource, provider.catalogAuthConfigured ? provider.catalogAuthScheme : null, errorHash].filter(Boolean).join(" / ");
 }
 
 function loadDraftBody(draft: ModelLoadDraft) {
@@ -4729,10 +4771,12 @@ function DownloadsPanel({
   const [configDraft, setConfigDraft] = useState<CatalogProviderConfigDraft>({
     providerId: "catalog.local_manifest",
     enabled: true,
-    manifestPath: "",
-    baseUrl: "",
-    authVaultRef: "",
-  });
+	    manifestPath: "",
+	    baseUrl: "",
+	    authVaultRef: "",
+	    authScheme: "bearer",
+	    authHeaderName: "authorization",
+	  });
   const [sourceUrl, setSourceUrl] = useState("fixture://catalog/autopilot-native-3b-q4");
   const [selectedVariantId, setSelectedVariantId] = useState("");
   const [maxBytes, setMaxBytes] = useState("");
@@ -4747,7 +4791,7 @@ function DownloadsPanel({
   const updateDraft = (field: keyof CatalogSearchDraft, value: string) => setDraft((current) => ({ ...current, [field]: value }));
   const updateConfigDraft = (field: keyof CatalogProviderConfigDraft, value: string | boolean) => setConfigDraft((current) => ({ ...current, [field]: value }));
   const catalogProviderOptions = data.catalog.providers;
-  const configurableCatalogProviders = catalogProviderOptions.filter((provider) => ["catalog.local_manifest", "catalog.custom_http"].includes(provider.id));
+	  const configurableCatalogProviders = catalogProviderOptions.filter((provider) => ["catalog.local_manifest", "catalog.custom_http", "catalog.huggingface"].includes(provider.id));
   const filteredCatalogVariants = useMemo(
     () => (draft.catalogProviderId === "all" ? catalogVariants : catalogVariants.filter((variant) => variant.catalogProviderId === draft.catalogProviderId)),
     [catalogVariants, draft.catalogProviderId],
@@ -4789,20 +4833,22 @@ function DownloadsPanel({
     selectedVariantGuard,
     transferApprovalGuard(selectedApprovalRequired, transferApproved),
   );
-  const catalogConfigGuard = combineGuards(
+	  const catalogConfigGuard = combineGuards(
     connectionActionGuard(connectionState, "provider.write:*"),
     tokenScopeGuard(data, hasSessionToken, "provider.write:*"),
     selectedConfigProvider ? guardReady("provider selected", "Catalog provider setup can be saved through the daemon.") : guardBlocked("provider missing", "Select a configurable catalog provider."),
-    !configDraft.enabled
-      ? guardReady("disabled", "Provider disablement can be saved without binding runtime material.")
-      : configDraft.providerId === "catalog.local_manifest"
-        ? configDraft.manifestPath.trim()
-          ? guardReady("manifest path ready", "Manifest path stays in daemon runtime material; projections show only hashes.")
-          : guardBlocked("manifest path missing", "Enter a manifest path for the local manifest catalog.")
-      : configDraft.baseUrl.trim()
-        ? guardReady("base URL ready", "Custom catalog base URL stays in daemon runtime material; projections show only hashes.")
-        : guardBlocked("base URL missing", "Enter a base URL for the custom HTTP catalog."),
-  );
+	    !configDraft.enabled
+	      ? guardReady("disabled", "Provider disablement can be saved without binding runtime material.")
+	      : configDraft.providerId === "catalog.local_manifest"
+	        ? configDraft.manifestPath.trim()
+	          ? guardReady("manifest path ready", "Manifest path is vault-backed through daemon source material; projections show only hashes.")
+	          : guardBlocked("manifest path missing", "Enter a manifest path for the local manifest catalog.")
+	      : configDraft.providerId === "catalog.custom_http"
+	        ? configDraft.baseUrl.trim()
+	          ? guardReady("base URL ready", "Custom catalog base URL is vault-backed through daemon source material; projections show only hashes.")
+	          : guardBlocked("base URL missing", "Enter a base URL for the custom HTTP catalog.")
+	        : guardReady("live catalog auth ready", "Live catalog auth can be saved with a vault ref and hashed header metadata."),
+	  );
   const cleanupGuard = combineGuards(
     connectionActionGuard(connectionState, "model.delete:*"),
     tokenScopeGuard(data, hasSessionToken, "model.delete:*"),
@@ -4971,22 +5017,40 @@ function DownloadsPanel({
 	              {configurableCatalogProviders.map((provider) => <option key={provider.id} value={provider.id}>{provider.label}</option>)}
 	            </select>
 	          </label>
-	          {configDraft.providerId === "catalog.local_manifest" ? (
-	            <label>
-	              <span>manifest_path</span>
-	              <input value={configDraft.manifestPath} onChange={(event) => updateConfigDraft("manifestPath", event.target.value)} placeholder="Local JSON manifest path" />
-	            </label>
-	          ) : (
-	            <label>
-	              <span>base_url</span>
-	              <input value={configDraft.baseUrl} onChange={(event) => updateConfigDraft("baseUrl", event.target.value)} placeholder="https://catalog.example.test" />
-	            </label>
-	          )}
-	          <label>
-	            <span>auth_vault_ref</span>
-	            <input value={configDraft.authVaultRef} onChange={(event) => updateConfigDraft("authVaultRef", event.target.value)} placeholder="vault://optional/catalog/header" />
-	          </label>
-	          <label className="model-mounts-checkbox">
+		          {configDraft.providerId === "catalog.local_manifest" ? (
+		            <label>
+		              <span>manifest_path</span>
+		              <input value={configDraft.manifestPath} onChange={(event) => updateConfigDraft("manifestPath", event.target.value)} placeholder="Local JSON manifest path" />
+		            </label>
+		          ) : configDraft.providerId === "catalog.custom_http" ? (
+		            <label>
+		              <span>base_url</span>
+		              <input value={configDraft.baseUrl} onChange={(event) => updateConfigDraft("baseUrl", event.target.value)} placeholder="https://catalog.example.test" />
+		            </label>
+		          ) : (
+		            <label>
+		              <span>live_catalog_base</span>
+		              <input value="IOI_MODEL_CATALOG_HF_BASE_URL" readOnly aria-readonly="true" />
+		            </label>
+		          )}
+		          <label>
+		            <span>auth_vault_ref</span>
+		            <input value={configDraft.authVaultRef} onChange={(event) => updateConfigDraft("authVaultRef", event.target.value)} placeholder="vault://optional/catalog/header" />
+		          </label>
+		          <label>
+		            <span>auth_scheme</span>
+		            <select value={configDraft.authScheme} onChange={(event) => updateConfigDraft("authScheme", event.target.value)}>
+		              <option value="bearer">bearer</option>
+		              <option value="api_key">api_key</option>
+		              <option value="raw">raw</option>
+		              <option value="oauth2">oauth2</option>
+		            </select>
+		          </label>
+		          <label>
+		            <span>auth_header_name</span>
+		            <input value={configDraft.authHeaderName} onChange={(event) => updateConfigDraft("authHeaderName", event.target.value)} placeholder="authorization" />
+		          </label>
+		          <label className="model-mounts-checkbox">
 	            <input type="checkbox" checked={configDraft.enabled} onChange={(event) => updateConfigDraft("enabled", event.target.checked)} />
 	            <span>Enabled</span>
 	          </label>
@@ -4999,6 +5063,7 @@ function DownloadsPanel({
 	          <DetailFact label="Manifest hash" value={selectedConfigProvider?.manifestPathHash ?? "none"} note="raw paths are not projected" />
 	          <DetailFact label="Endpoint hash" value={selectedConfigProvider?.baseUrlHash ?? "none"} note="raw URLs are not projected" />
 	          <DetailFact label="Vault ref hash" value={selectedConfigProvider?.authVaultRefHash ?? "none"} note="secrets stay vault-referenced" />
+	          <DetailFact label="Catalog auth" value={selectedConfigProvider?.catalogAuthConfigured ? selectedConfigProvider.catalogAuthScheme : "none"} note={`${selectedConfigProvider?.catalogAuthResolved ? "resolved" : "request-time"} / header ${selectedConfigProvider?.catalogAuthHeaderNameHash ?? "none"}`} />
 	        </div>
 	        <div className="model-mounts-form-actions">
 	          <ActionButton type="submit" disabled={busy} guard={catalogConfigGuard}>Save catalog provider</ActionButton>
@@ -5145,6 +5210,7 @@ function DownloadsPanel({
 	              <span>{catalogProviderEvidence(provider)}</span>
 	              <span>Config {provider.configHash} / material {provider.runtimeMaterialStatus} / {provider.materialPersistence}</span>
 	              <span>Source vault {provider.materialVaultRefHash} / source {provider.vaultMaterialSource}</span>
+	              <span>Catalog auth {provider.catalogAuthConfigured ? provider.catalogAuthScheme : "none"} / header {provider.catalogAuthHeaderNameHash} / {provider.catalogAuthResolved ? "resolved" : "request-time"}</span>
 	              <span>Auth vault {provider.authVaultRefHash} / enabled {provider.enabled ? "yes" : "no"}</span>
 	              <span>{provider.formats.join(", ") || "formats unknown"}</span>
             </article>
