@@ -5,31 +5,37 @@
 ![Consensus](https://img.shields.io/badge/consensus-AFT-purple)
 ![Runtime](https://img.shields.io/badge/runtime-Web4-black)
 
-**The runtime substrate for Web4: sovereign action bounded by cryptographic determinism.**
+**Canonical infrastructure for the Internet of Intelligence.**
+
+IOI is the Web4 execution substrate for autonomous software: cybersecurity,
+bounded authority, operational memory, cryptographic receipts, replayable proof,
+and settlement-grade recourse.
+
+Autonomous software is beginning to operate browsers, files, APIs, wallets,
+credentials, models, tools, and other agents. Traditional cybersecurity protects
+systems from malicious software. IOI protects systems from
+**authorized-but-unbounded autonomous software**.
+
+Most agent frameworks give a model tools. IOI gives autonomous work a
+deterministic execution boundary: every consequential action is canonicalized,
+policy-checked, authority-scoped, approval-gated when necessary, receipted,
+replayable, and settleable.
 
 Web1 made information readable. Web2 made it writable. Web3 made it ownable.
 IOI is building the next layer: **sovereign action that can be delegated,
 governed, verified, replayed, and settled.**
 
-Most agent systems give a model tools. IOI gives autonomous work a deterministic
-execution boundary. Alignment is infrastructure here: recursive improvement,
-model choice, tool use, spending, signing, data egress, and real-world effects
-stay inside capability bounds, policy gates, approvals, receipts, replay, and
-stop conditions. IOI lets intelligence remain probabilistic in thought while
-collapsing consequential action into canonical, policy-checked, receipted
-execution before it can touch the world.
-
 ```text
 probabilistic reasoning
   -> bounded authority
-  -> receipted execution
+  -> policy-gated execution
+  -> cryptographic receipts
   -> canonical operational memory
   -> replayable proof
   -> settlement-grade recourse
 ```
 
-That is the breakthrough: IOI does not force AI models to be deterministic; it
-makes the economic consequences of their actions deterministic.
+The model can be fuzzy. The consequences cannot.
 
 ## What IOI Is
 
@@ -41,8 +47,11 @@ IOI is the reference implementation of canonical Web4:
   <img src="docs/assets/readme-web4-equation.svg" alt="Web4 equals read plus write plus own plus act with cryptographic determinism." width="100%">
 </p>
 
-It is not a chatbot, a workflow toy, a wallet wrapper, or a chain with AI bolted
-on. It is one substrate for intelligent applications where:
+It is also the runtime boundary for autonomous software workers.
+
+It is not a chatbot, workflow toy, wallet wrapper, antivirus product, or chain
+with AI bolted on. It is one substrate for intelligent applications where
+autonomous actors can work across systems without receiving ambient authority:
 
 - the **daemon** executes workflows, tools, models, agents, connectors, and artifacts;
 - **wallet.network** authorizes identity, secrets, authority scopes, approvals, and payments;
@@ -56,11 +65,14 @@ on. It is one substrate for intelligent applications where:
 
 ## The Rules That Make It Different
 
+- **Cybersecurity for agency.** Traditional security assumes software follows deterministic code paths. IOI assumes autonomous software will plan, retry, delegate, mutate, and use tools, so the security boundary must sit at the point of action.
 - **One runtime substrate.** No separate SDK, GUI, CLI, benchmark, harness, or workflow runtime.
 - **Authority is portable and explicit.** `prim:*` and `scope:*` turn ambient permission into delegated capabilities: what the runtime may execute, what the wallet/provider may authorize, and what evidence must exist before power crosses a trust boundary.
 - **Tool calls are requests, not grants.** Raw model output is never the authority for consequential action.
+- **Credentials are never cognition.** Models request effects; wallet.network brokers secrets, approvals, payments, and scoped authority without handing raw keys to the agent.
 - **Logs become receipts.** Runs emit externally legible events, receipts, traces, scorecards, stop reasons, and replayable evidence.
 - **Memory is operational.** Agentgres is not prompt stuffing; it is canonical state for autonomous work.
+- **Autopilot is the local security shell.** Autopilot wraps browser, desktop, API, filesystem, model, and workflow actions in IOI's policy and receipt boundary.
 - **AFT breaks the 40-year BFT ceiling.** IOI's Asymptote Fault Tolerance line uses omission-dominant ordering, deterministic collapse, and proof-carrying continuation to break the classical lower-bound shape that has constrained Byzantine agreement since the 1980s.
 
 ## Repository Map

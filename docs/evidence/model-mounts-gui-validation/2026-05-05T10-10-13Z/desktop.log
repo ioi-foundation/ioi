@@ -1,5 +1,0 @@
-
-> dev:desktop
-> bash apps/autopilot/scripts/dev-desktop.sh x11
-
-Starting isolated Vite dev server on port 1434...

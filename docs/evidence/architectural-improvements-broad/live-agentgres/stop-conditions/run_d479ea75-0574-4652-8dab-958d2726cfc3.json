@@ -1,5 +1,0 @@
-{
-  "reason": "marginal_improvement_too_low",
-  "evidenceSufficient": true,
-  "rationale": "Cancellation became the single terminal event and replay cursor continuity was preserved."
-}
