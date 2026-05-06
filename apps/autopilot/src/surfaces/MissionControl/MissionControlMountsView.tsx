@@ -368,11 +368,13 @@ interface CatalogProviderPreview {
   baseUrlHash: string;
   manifestPathHash: string;
   authVaultRefHash: string;
+  materialVaultRefHash: string;
   configHash: string;
   enabled: boolean;
   materialConfigured: boolean;
   materialPersistence: string;
   runtimeMaterialStatus: string;
+  vaultMaterialSource: string;
   errorHash: string;
 }
 
@@ -627,14 +629,16 @@ const fallbackData: MountsWorkbenchData = {
         operations: ["search", "resolveVariant", "importUrl", "download", "health"],
         providerId: "provider.autopilot.local",
         baseUrlHash: "local",
-        manifestPathHash: "none",
-        authVaultRefHash: "none",
-        configHash: "none",
+	        manifestPathHash: "none",
+	        authVaultRefHash: "none",
+	        materialVaultRefHash: "none",
+	        configHash: "none",
         enabled: true,
         materialConfigured: true,
-        materialPersistence: "fixture",
-        runtimeMaterialStatus: "always_on",
-        errorHash: "none",
+	        materialPersistence: "fixture",
+	        runtimeMaterialStatus: "always_on",
+	        vaultMaterialSource: "fixture",
+	        errorHash: "none",
       },
       {
         id: "catalog.local_manifest",
@@ -648,14 +652,16 @@ const fallbackData: MountsWorkbenchData = {
         operations: ["search", "resolveVariant", "importUrl", "download", "health"],
         providerId: "provider.autopilot.local",
         baseUrlHash: "none",
-        manifestPathHash: "not configured",
-        authVaultRefHash: "none",
-        configHash: "none",
+	        manifestPathHash: "not configured",
+	        authVaultRefHash: "none",
+	        materialVaultRefHash: "none",
+	        configHash: "none",
         enabled: true,
         materialConfigured: false,
-        materialPersistence: "metadata_only",
-        runtimeMaterialStatus: "unconfigured",
-        errorHash: "none",
+	        materialPersistence: "metadata_only",
+	        runtimeMaterialStatus: "unconfigured",
+	        vaultMaterialSource: "none",
+	        errorHash: "none",
       },
       {
         id: "catalog.ollama",
@@ -669,14 +675,16 @@ const fallbackData: MountsWorkbenchData = {
         operations: ["search", "resolveVariant", "importUrl", "download", "health"],
         providerId: "provider.ollama",
         baseUrlHash: "not configured",
-        manifestPathHash: "none",
-        authVaultRefHash: "none",
-        configHash: "none",
+	        manifestPathHash: "none",
+	        authVaultRefHash: "none",
+	        materialVaultRefHash: "none",
+	        configHash: "none",
         enabled: true,
         materialConfigured: false,
-        materialPersistence: "provider_bridge",
-        runtimeMaterialStatus: "provider_state",
-        errorHash: "none",
+	        materialPersistence: "provider_bridge",
+	        runtimeMaterialStatus: "provider_state",
+	        vaultMaterialSource: "provider_bridge",
+	        errorHash: "none",
       },
       {
         id: "catalog.huggingface",
@@ -690,14 +698,16 @@ const fallbackData: MountsWorkbenchData = {
         operations: ["search", "resolveVariant", "importUrl", "download", "health"],
         providerId: "provider.autopilot.local",
         baseUrlHash: "redacted",
-        manifestPathHash: "none",
-        authVaultRefHash: "none",
-        configHash: "none",
+	        manifestPathHash: "none",
+	        authVaultRefHash: "none",
+	        materialVaultRefHash: "none",
+	        configHash: "none",
         enabled: true,
         materialConfigured: false,
-        materialPersistence: "env_gate",
-        runtimeMaterialStatus: "gated",
-        errorHash: "none",
+	        materialPersistence: "env_gate",
+	        runtimeMaterialStatus: "gated",
+	        vaultMaterialSource: "env_gate",
+	        errorHash: "none",
       },
       {
         id: "catalog.custom_http",
@@ -711,14 +721,16 @@ const fallbackData: MountsWorkbenchData = {
         operations: ["search", "resolveVariant", "importUrl", "download", "health"],
         providerId: "provider.autopilot.local",
         baseUrlHash: "not configured",
-        manifestPathHash: "none",
-        authVaultRefHash: "none",
-        configHash: "none",
+	        manifestPathHash: "none",
+	        authVaultRefHash: "none",
+	        materialVaultRefHash: "none",
+	        configHash: "none",
         enabled: true,
         materialConfigured: false,
-        materialPersistence: "metadata_only",
-        runtimeMaterialStatus: "unconfigured",
-        errorHash: "none",
+	        materialPersistence: "metadata_only",
+	        runtimeMaterialStatus: "unconfigured",
+	        vaultMaterialSource: "none",
+	        errorHash: "none",
       },
     ],
     adapterPort: "ModelCatalogProviderPort",
@@ -3332,11 +3344,13 @@ function normalizeCatalog(value: any): CatalogPreview {
       baseUrlHash: stringValue(item.baseUrlHash, "none"),
       manifestPathHash: stringValue(item.manifestPathHash, "none"),
       authVaultRefHash: stringValue(item.authVaultRefHash, "none"),
+      materialVaultRefHash: stringValue(item.materialVaultRefHash, "none"),
       configHash: stringValue(item.configHash, "none"),
       enabled: item.enabled === undefined ? true : Boolean(item.enabled),
       materialConfigured: Boolean(item.materialConfigured ?? false),
       materialPersistence: stringValue(item.materialPersistence, "metadata_only"),
       runtimeMaterialStatus: stringValue(item.runtimeMaterialStatus, "unknown"),
+      vaultMaterialSource: stringValue(item.vaultMaterialSource, "none"),
       errorHash: stringValue(item.errorHash, "none"),
     })),
     adapterPort: stringValue(value?.adapterBoundary?.port, "ModelCatalogProviderPort"),
@@ -3547,8 +3561,8 @@ function catalogBenchmarkSummary(variant: CatalogVariantPreview) {
 
 function catalogProviderSetupHint(provider: CatalogProviderPreview) {
   if (provider.id === "catalog.fixture") return "Always available for CI, demos, and offline acquisition checks.";
-  if (provider.id === "catalog.local_manifest") return provider.status === "available" || provider.status === "configured" ? "Manifest path is configured through catalog provider setup or IOI_MODEL_CATALOG_MANIFEST_PATH; entries are imported through governed download receipts." : "Configure catalog provider setup or set IOI_MODEL_CATALOG_MANIFEST_PATH to expose a local JSON model manifest.";
-  if (provider.id === "catalog.custom_http") return provider.status === "available" || provider.status === "configured" ? "Custom catalog endpoint is configured; only hashed endpoint evidence is shown." : "Configure catalog provider setup or set IOI_MODEL_CATALOG_CUSTOM_BASE_URL to attach a governed custom catalog.";
+  if (provider.id === "catalog.local_manifest") return provider.status === "available" || provider.status === "configured" ? "Manifest source is vault-backed through catalog provider setup or gated by IOI_MODEL_CATALOG_MANIFEST_PATH; entries are imported through governed download receipts." : "Configure catalog provider setup or set IOI_MODEL_CATALOG_MANIFEST_PATH to expose a local JSON model manifest.";
+  if (provider.id === "catalog.custom_http") return provider.status === "available" || provider.status === "configured" ? "Custom catalog endpoint is vault-backed or environment-gated; only hashed endpoint evidence is shown." : "Configure catalog provider setup or set IOI_MODEL_CATALOG_CUSTOM_BASE_URL to attach a governed custom catalog.";
   if (provider.id === "catalog.ollama") return provider.status === "available" || provider.status === "configured" ? "Ollama list bridge is reachable through the provider model path." : "Configure OLLAMA_HOST or start the local Ollama provider before searching this catalog.";
   if (provider.id === "catalog.huggingface") return provider.status === "available" || provider.status === "configured" ? "Live catalog is enabled; downloads still require transfer policy approval." : "Set IOI_LIVE_MODEL_CATALOG and IOI_LIVE_MODEL_DOWNLOAD to enable live hub acquisition.";
   return provider.status === "available" || provider.status === "configured" ? "Catalog adapter is configured." : "Catalog adapter is waiting for provider setup.";
@@ -3559,8 +3573,9 @@ function catalogProviderEvidence(provider: CatalogProviderPreview) {
   const manifestHash = provider.manifestPathHash !== "none" ? `manifest ${provider.manifestPathHash}` : null;
   const configHash = provider.configHash !== "none" ? `config ${provider.configHash}` : null;
   const authHash = provider.authVaultRefHash !== "none" ? `vault ${provider.authVaultRefHash}` : null;
+  const sourceVaultHash = provider.materialVaultRefHash !== "none" ? `source vault ${provider.materialVaultRefHash}` : null;
   const errorHash = provider.errorHash !== "none" ? `error ${provider.errorHash}` : null;
-  return [provider.adapterPort, configHash, endpointHash, manifestHash, authHash, provider.runtimeMaterialStatus, errorHash].filter(Boolean).join(" / ");
+  return [provider.adapterPort, configHash, endpointHash, manifestHash, authHash, sourceVaultHash, provider.runtimeMaterialStatus, provider.vaultMaterialSource, errorHash].filter(Boolean).join(" / ");
 }
 
 function loadDraftBody(draft: ModelLoadDraft) {
@@ -4980,6 +4995,7 @@ function DownloadsPanel({
 	          <DetailFact label="Selected provider" value={selectedConfigProvider?.label ?? "none"} note={selectedConfigProvider?.id ?? "no provider selected"} />
 	          <DetailFact label="Config hash" value={selectedConfigProvider?.configHash ?? "none"} note={selectedConfigProvider?.enabled ? "enabled" : "disabled"} />
 	          <DetailFact label="Material" value={selectedConfigProvider?.runtimeMaterialStatus ?? "unknown"} note={`${selectedConfigProvider?.materialPersistence ?? "metadata_only"} / configured ${selectedConfigProvider?.materialConfigured ? "yes" : "no"}`} />
+	          <DetailFact label="Source vault" value={selectedConfigProvider?.materialVaultRefHash ?? "none"} note={selectedConfigProvider?.vaultMaterialSource ?? "vault-backed source material"} />
 	          <DetailFact label="Manifest hash" value={selectedConfigProvider?.manifestPathHash ?? "none"} note="raw paths are not projected" />
 	          <DetailFact label="Endpoint hash" value={selectedConfigProvider?.baseUrlHash ?? "none"} note="raw URLs are not projected" />
 	          <DetailFact label="Vault ref hash" value={selectedConfigProvider?.authVaultRefHash ?? "none"} note="secrets stay vault-referenced" />
@@ -5128,7 +5144,8 @@ function DownloadsPanel({
 	              <span>{catalogProviderSetupHint(provider)}</span>
 	              <span>{catalogProviderEvidence(provider)}</span>
 	              <span>Config {provider.configHash} / material {provider.runtimeMaterialStatus} / {provider.materialPersistence}</span>
-	              <span>Vault {provider.authVaultRefHash} / enabled {provider.enabled ? "yes" : "no"}</span>
+	              <span>Source vault {provider.materialVaultRefHash} / source {provider.vaultMaterialSource}</span>
+	              <span>Auth vault {provider.authVaultRefHash} / enabled {provider.enabled ? "yes" : "no"}</span>
 	              <span>{provider.formats.join(", ") || "formats unknown"}</span>
             </article>
           ))}
