@@ -1172,10 +1172,12 @@ test("model catalog provider ports unify fixture, manifest, custom HTTP, and Oll
       body: { enabled: true, manifest_path: operatorManifestPath },
     });
     assert.equal(configuredManifest.id, "catalog.local_manifest");
-    assert.equal(configuredManifest.materialPersistence, "metadata_only");
+    assert.equal(configuredManifest.materialPersistence, "runtime_vault_binding");
     assert.equal(configuredManifest.runtimeMaterialStatus, "bound_runtime_session");
     assert.equal(Boolean(configuredManifest.manifestPathHash), true);
+    assert.equal(Boolean(configuredManifest.materialVaultRefHash), true);
     assert.equal(JSON.stringify(configuredManifest).includes(operatorManifestPath), false);
+    assert.equal(directoryContainsNeedle(stateDir, operatorManifestPath), false);
 
     const catalogVaultRef = "vault://catalog/custom-http/header";
     const configuredCustom = await expectOk(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.custom_http", {
@@ -1184,12 +1186,14 @@ test("model catalog provider ports unify fixture, manifest, custom HTTP, and Oll
       body: { enabled: true, base_url: customCatalogServer.endpoint, auth_vault_ref: catalogVaultRef },
     });
     assert.equal(configuredCustom.id, "catalog.custom_http");
-    assert.equal(configuredCustom.materialPersistence, "metadata_only");
+    assert.equal(configuredCustom.materialPersistence, "runtime_vault_binding");
     assert.equal(configuredCustom.runtimeMaterialStatus, "bound_runtime_session");
     assert.equal(Boolean(configuredCustom.baseUrlHash), true);
     assert.equal(Boolean(configuredCustom.authVaultRefHash), true);
+    assert.equal(Boolean(configuredCustom.materialVaultRefHash), true);
     assert.equal(JSON.stringify(configuredCustom).includes(customCatalogServer.endpoint), false);
     assert.equal(JSON.stringify(configuredCustom).includes(catalogVaultRef), false);
+    assert.equal(directoryContainsNeedle(stateDir, customCatalogServer.endpoint), false);
 
     const configuredCustomGet = await expectOk(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.custom_http");
     assert.equal(configuredCustomGet.id, "catalog.custom_http");
@@ -1216,6 +1220,185 @@ test("model catalog provider ports unify fixture, manifest, custom HTTP, and Oll
     await customCatalogServer.close();
     await ollamaServer.close();
     await daemon.close();
+  }
+});
+
+test("catalog source material persists through the encrypted vault adapter without plaintext state", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-catalog-keychain-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-catalog-keychain-state-"));
+  const keychainDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-catalog-keychain-material-"));
+  const keychainPath = path.join(keychainDir, "catalog-vault-material.json");
+  const manifestPath = path.join(cwd, "catalog-source.json");
+  fs.writeFileSync(
+    manifestPath,
+    JSON.stringify({
+      models: [
+        {
+          model_id: "keychain/local-catalog-2b",
+          family: "keychain-manifest",
+          architecture: "llama",
+          parameter_count: "2B",
+          format: "gguf",
+          quantization: "Q4_K_M",
+          size_bytes: 3072,
+          context_window: 4096,
+          source_url: "fixture://keychain/local-catalog-2b-q4",
+          source_label: "Keychain manifest / local catalog",
+          compatibility: ["native_local_fixture", "llama_cpp"],
+          tags: ["keychain", "catalog"],
+        },
+      ],
+    }),
+  );
+  const customCatalogServer = await startFakeCustomCatalogServer();
+  const priorPath = process.env.IOI_KEYCHAIN_VAULT_PATH;
+  const priorKey = process.env.IOI_KEYCHAIN_VAULT_KEY;
+  const priorManifest = process.env.IOI_MODEL_CATALOG_MANIFEST_PATH;
+  const priorCustomCatalog = process.env.IOI_MODEL_CATALOG_CUSTOM_BASE_URL;
+  process.env.IOI_KEYCHAIN_VAULT_PATH = keychainPath;
+  process.env.IOI_KEYCHAIN_VAULT_KEY = crypto.randomBytes(32).toString("base64url");
+  delete process.env.IOI_MODEL_CATALOG_MANIFEST_PATH;
+  delete process.env.IOI_MODEL_CATALOG_CUSTOM_BASE_URL;
+  let daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+      method: "POST",
+      body: { allowed: ["model.download:*", "model.import:*", "provider.write:*", "vault.read:*"] },
+    });
+    const configuredManifest = await expectOk(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.local_manifest", {
+      method: "PATCH",
+      token: grant.token,
+      body: { enabled: true, manifest_path: manifestPath },
+    });
+    assert.equal(configuredManifest.materialPersistence, "vault_material_adapter");
+    assert.equal(configuredManifest.runtimeMaterialStatus, "bound_runtime_session");
+    assert.equal(configuredManifest.vaultMaterialSource, "encrypted_keychain_vault_adapter");
+    assert.equal(Boolean(configuredManifest.materialVaultRefHash), true);
+    assert.equal(JSON.stringify(configuredManifest).includes(manifestPath), false);
+    assert.equal(directoryContainsNeedle(stateDir, manifestPath), false);
+    assert.equal(directoryContainsNeedle(keychainDir, manifestPath), false);
+
+    const configuredCustom = await expectOk(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.custom_http", {
+      method: "PATCH",
+      token: grant.token,
+      body: { enabled: true, base_url: customCatalogServer.endpoint },
+    });
+    assert.equal(configuredCustom.materialPersistence, "vault_material_adapter");
+    assert.equal(configuredCustom.runtimeMaterialStatus, "bound_runtime_session");
+    assert.equal(configuredCustom.vaultMaterialSource, "encrypted_keychain_vault_adapter");
+    assert.equal(Boolean(configuredCustom.materialVaultRefHash), true);
+    assert.equal(JSON.stringify(configuredCustom).includes(customCatalogServer.endpoint), false);
+    assert.equal(directoryContainsNeedle(stateDir, customCatalogServer.endpoint), false);
+    assert.equal(directoryContainsNeedle(keychainDir, customCatalogServer.endpoint), false);
+
+    const firstCatalog = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=keychain&limit=5");
+    assert.equal(firstCatalog.results.find((entry) => entry.catalogProviderId === "catalog.local_manifest")?.modelId, "keychain/local-catalog-2b");
+    assert.equal(firstCatalog.providers.find((provider) => provider.id === "catalog.local_manifest")?.runtimeMaterialStatus, "bound_runtime_session");
+    const firstCustomCatalog = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=custom&limit=5");
+    assert.equal(firstCustomCatalog.results.find((entry) => entry.catalogProviderId === "catalog.custom_http")?.modelId, "custom/http-vllm-fixture");
+    const projection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
+    assert.equal(JSON.stringify(projection).includes(manifestPath), false);
+    assert.equal(JSON.stringify(projection).includes(customCatalogServer.endpoint), false);
+
+    await daemon.close();
+    daemon = await startRuntimeDaemonService({ cwd, stateDir });
+    const restartedManifest = await expectOk(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.local_manifest");
+    assert.equal(restartedManifest.materialPersistence, "vault_material_adapter");
+    assert.equal(restartedManifest.runtimeMaterialStatus, "resolved_from_vault");
+    assert.equal(restartedManifest.vaultMaterialSource, "encrypted_keychain_vault_adapter");
+    assert.equal(restartedManifest.materialVaultRefHash, configuredManifest.materialVaultRefHash);
+    const restartedCustom = await expectOk(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.custom_http");
+    assert.equal(restartedCustom.materialPersistence, "vault_material_adapter");
+    assert.equal(restartedCustom.runtimeMaterialStatus, "resolved_from_vault");
+    assert.equal(restartedCustom.vaultMaterialSource, "encrypted_keychain_vault_adapter");
+    assert.equal(restartedCustom.materialVaultRefHash, configuredCustom.materialVaultRefHash);
+    const restartedCatalog = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=keychain&limit=5");
+    assert.equal(restartedCatalog.results.find((entry) => entry.catalogProviderId === "catalog.local_manifest")?.modelId, "keychain/local-catalog-2b");
+    const restartedCustomCatalog = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=custom&limit=5");
+    assert.equal(restartedCustomCatalog.results.find((entry) => entry.catalogProviderId === "catalog.custom_http")?.modelId, "custom/http-vllm-fixture");
+    const restartedVaultRefs = await expectOk(daemon.endpoint, "/api/v1/vault/refs", { token: grant.token });
+    assert.ok(restartedVaultRefs.some((ref) => ref.vaultRefHash === configuredManifest.materialVaultRefHash && ref.resolvedMaterial === true));
+    assert.ok(restartedVaultRefs.some((ref) => ref.vaultRefHash === configuredCustom.materialVaultRefHash && ref.resolvedMaterial === true));
+    assert.equal(JSON.stringify(restartedVaultRefs).includes(manifestPath), false);
+    assert.equal(JSON.stringify(restartedVaultRefs).includes(customCatalogServer.endpoint), false);
+    assert.equal(directoryContainsNeedle(stateDir, manifestPath), false);
+    assert.equal(directoryContainsNeedle(stateDir, customCatalogServer.endpoint), false);
+    assert.equal(directoryContainsNeedle(keychainDir, manifestPath), false);
+    assert.equal(directoryContainsNeedle(keychainDir, customCatalogServer.endpoint), false);
+  } finally {
+    await daemon.close();
+    await customCatalogServer.close();
+    restoreEnv("IOI_KEYCHAIN_VAULT_PATH", priorPath);
+    restoreEnv("IOI_KEYCHAIN_VAULT_KEY", priorKey);
+    restoreEnv("IOI_MODEL_CATALOG_MANIFEST_PATH", priorManifest);
+    restoreEnv("IOI_MODEL_CATALOG_CUSTOM_BASE_URL", priorCustomCatalog);
+  }
+});
+
+test("catalog source material fails closed after restart when only session-bound vault material exists", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-catalog-session-workspace-"));
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-catalog-session-state-"));
+  const manifestPath = path.join(cwd, "session-catalog-source.json");
+  fs.writeFileSync(
+    manifestPath,
+    JSON.stringify({
+      models: [
+        {
+          model_id: "session/local-catalog-1b",
+          family: "session-manifest",
+          architecture: "llama",
+          parameter_count: "1B",
+          format: "gguf",
+          quantization: "Q4_K_M",
+          size_bytes: 2048,
+          context_window: 4096,
+          source_url: "fixture://session/local-catalog-1b-q4",
+          source_label: "Session manifest / local catalog",
+          compatibility: ["native_local_fixture", "llama_cpp"],
+          tags: ["session", "catalog"],
+        },
+      ],
+    }),
+  );
+  const priorPath = process.env.IOI_KEYCHAIN_VAULT_PATH;
+  const priorKey = process.env.IOI_KEYCHAIN_VAULT_KEY;
+  const priorManifest = process.env.IOI_MODEL_CATALOG_MANIFEST_PATH;
+  delete process.env.IOI_KEYCHAIN_VAULT_PATH;
+  delete process.env.IOI_KEYCHAIN_VAULT_KEY;
+  delete process.env.IOI_MODEL_CATALOG_MANIFEST_PATH;
+  let daemon = await startRuntimeDaemonService({ cwd, stateDir });
+  try {
+    const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+      method: "POST",
+      body: { allowed: ["provider.write:*"] },
+    });
+    const configured = await expectOk(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.local_manifest", {
+      method: "PATCH",
+      token: grant.token,
+      body: { enabled: true, manifest_path: manifestPath },
+    });
+    assert.equal(configured.materialPersistence, "runtime_vault_binding");
+    assert.equal(configured.runtimeMaterialStatus, "bound_runtime_session");
+    assert.equal(configured.vaultMaterialSource, "runtime_memory");
+    assert.equal(directoryContainsNeedle(stateDir, manifestPath), false);
+    const catalog = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=session&limit=5");
+    assert.equal(catalog.results.find((entry) => entry.catalogProviderId === "catalog.local_manifest")?.modelId, "session/local-catalog-1b");
+
+    await daemon.close();
+    daemon = await startRuntimeDaemonService({ cwd, stateDir });
+    const restarted = await expectOk(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.local_manifest");
+    assert.equal(restarted.materialPersistence, "runtime_vault_binding");
+    assert.equal(restarted.runtimeMaterialStatus, "missing_runtime_material");
+    assert.equal(restarted.vaultMaterialSource, "unbound");
+    assert.equal(restarted.provider.status, "metadata_only");
+    const restartedCatalog = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=session&limit=5");
+    assert.equal(restartedCatalog.results.some((entry) => entry.catalogProviderId === "catalog.local_manifest"), false);
+    assert.equal(directoryContainsNeedle(stateDir, manifestPath), false);
+  } finally {
+    await daemon.close();
+    restoreEnv("IOI_KEYCHAIN_VAULT_PATH", priorPath);
+    restoreEnv("IOI_KEYCHAIN_VAULT_KEY", priorKey);
+    restoreEnv("IOI_MODEL_CATALOG_MANIFEST_PATH", priorManifest);
   }
 });
 

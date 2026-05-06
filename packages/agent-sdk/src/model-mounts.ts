@@ -365,11 +365,13 @@ export interface ModelCatalogProviderStatus {
   baseUrlHash?: string;
   manifestPathHash?: string;
   authVaultRefHash?: string;
+  materialVaultRefHash?: string;
   configHash?: string;
   enabled?: boolean;
   materialConfigured?: boolean;
   materialPersistence?: string;
   runtimeMaterialStatus?: string;
+  vaultMaterialSource?: string | null;
   providerId?: string | null;
   adapterPort?: string;
   operations?: string[];
