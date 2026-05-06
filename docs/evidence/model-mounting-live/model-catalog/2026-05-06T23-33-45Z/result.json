@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "ioi.model-mounting.live-gate.v1",
+  "gate": "model-catalog",
+  "status": "passed",
+  "startedAt": "2026-05-06T23:33:45.663Z",
+  "outputDir": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/model-mounting-live/model-catalog/2026-05-06T23-33-45Z",
+  "commands": [],
+  "details": {
+    "catalog": {
+      "query": "qwen",
+      "format": "gguf",
+      "quantization": null,
+      "limit": 5,
+      "baseUrlHash": "03a89053f2f115c3c0b82840f14b35a19e4f5fbf48bc08344223b0b8b6069e37",
+      "downloadGateEnabled": false,
+      "explicitDownloadSourceConfigured": false,
+      "downloadFirstResult": false,
+      "downloadMaxBytes": null
+    },
+    "daemonEndpoint": "http://127.0.0.1:39885",
+    "stateDir": "/tmp/ioi-live-model-gate-state-0reTDY"
+  },
+  "result": {
+    "providerStatus": "available",
+    "resultCount": 5,
+    "firstModelId": "Qwen/Qwen3.6-27B",
+    "firstSourceHash": "106d20b10485b5b6c3472f5d09868f17e7ae48d0cdde53bc8ae51b360d6a17a6",
+    "formats": [
+      "gguf"
+    ],
+    "quantizations": [],
+    "download": null
+  },
+  "completedAt": "2026-05-06T23:33:46.531Z"
+}
