@@ -1,9 +1,0 @@
-{
-  "id": "artifact_run_d479ea75-0574-4652-8dab-958d2726cfc3_scorecard_json",
-  "runId": "run_d479ea75-0574-4652-8dab-958d2726cfc3",
-  "name": "scorecard.json",
-  "mediaType": "application/json",
-  "redaction": "none",
-  "receiptId": "receipt_run_d479ea75-0574-4652-8dab-958d2726cfc3_trace",
-  "content": "{\n  \"taskPassRate\": 1,\n  \"recoverySuccess\": 1,\n  \"memoryRelevance\": 0.92,\n  \"toolQuality\": 0.96,\n  \"strategyRoi\": 0.93,\n  \"operatorInterventionRate\": 0,\n  \"verifierIndependence\": 1\n}"
-}
