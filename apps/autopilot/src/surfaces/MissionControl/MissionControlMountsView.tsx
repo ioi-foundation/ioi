@@ -367,6 +367,12 @@ interface CatalogProviderPreview {
   providerId: string;
   baseUrlHash: string;
   manifestPathHash: string;
+  authVaultRefHash: string;
+  configHash: string;
+  enabled: boolean;
+  materialConfigured: boolean;
+  materialPersistence: string;
+  runtimeMaterialStatus: string;
   errorHash: string;
 }
 
@@ -466,6 +472,14 @@ interface CatalogSearchDraft {
   quantization: string;
   limit: string;
   catalogProviderId: string;
+}
+
+interface CatalogProviderConfigDraft {
+  providerId: string;
+  enabled: boolean;
+  manifestPath: string;
+  baseUrl: string;
+  authVaultRef: string;
 }
 
 interface CatalogImportPayload {
@@ -614,6 +628,12 @@ const fallbackData: MountsWorkbenchData = {
         providerId: "provider.autopilot.local",
         baseUrlHash: "local",
         manifestPathHash: "none",
+        authVaultRefHash: "none",
+        configHash: "none",
+        enabled: true,
+        materialConfigured: true,
+        materialPersistence: "fixture",
+        runtimeMaterialStatus: "always_on",
         errorHash: "none",
       },
       {
@@ -629,6 +649,12 @@ const fallbackData: MountsWorkbenchData = {
         providerId: "provider.autopilot.local",
         baseUrlHash: "none",
         manifestPathHash: "not configured",
+        authVaultRefHash: "none",
+        configHash: "none",
+        enabled: true,
+        materialConfigured: false,
+        materialPersistence: "metadata_only",
+        runtimeMaterialStatus: "unconfigured",
         errorHash: "none",
       },
       {
@@ -644,6 +670,12 @@ const fallbackData: MountsWorkbenchData = {
         providerId: "provider.ollama",
         baseUrlHash: "not configured",
         manifestPathHash: "none",
+        authVaultRefHash: "none",
+        configHash: "none",
+        enabled: true,
+        materialConfigured: false,
+        materialPersistence: "provider_bridge",
+        runtimeMaterialStatus: "provider_state",
         errorHash: "none",
       },
       {
@@ -659,6 +691,12 @@ const fallbackData: MountsWorkbenchData = {
         providerId: "provider.autopilot.local",
         baseUrlHash: "redacted",
         manifestPathHash: "none",
+        authVaultRefHash: "none",
+        configHash: "none",
+        enabled: true,
+        materialConfigured: false,
+        materialPersistence: "env_gate",
+        runtimeMaterialStatus: "gated",
         errorHash: "none",
       },
       {
@@ -674,6 +712,12 @@ const fallbackData: MountsWorkbenchData = {
         providerId: "provider.autopilot.local",
         baseUrlHash: "not configured",
         manifestPathHash: "none",
+        authVaultRefHash: "none",
+        configHash: "none",
+        enabled: true,
+        materialConfigured: false,
+        materialPersistence: "metadata_only",
+        runtimeMaterialStatus: "unconfigured",
         errorHash: "none",
       },
     ],
@@ -2187,8 +2231,8 @@ function useModelMountsDaemon() {
           });
           return "Download lifecycle completed through queued, running, and completed receipts.";
         }),
-      searchCatalog: (draft: CatalogSearchDraft) =>
-        runAction("catalog-search", async () => {
+	      searchCatalog: (draft: CatalogSearchDraft) =>
+	        runAction("catalog-search", async () => {
           const params = new URLSearchParams({
             q: draft.query || "autopilot",
             format: draft.format,
@@ -2202,9 +2246,31 @@ function useModelMountsDaemon() {
           const live = Array.isArray(result?.providers)
             ? result.providers.find((provider: any) => provider.id === "catalog.huggingface")
             : null;
-          return `Catalog search found ${count} variant${count === 1 ? "" : "s"}; Hugging Face-compatible catalog is ${stringValue(live?.status, "unknown")}.`;
-        }),
-      importCatalogUrl: (payload: CatalogImportPayload) =>
+	          return `Catalog search found ${count} variant${count === 1 ? "" : "s"}; Hugging Face-compatible catalog is ${stringValue(live?.status, "unknown")}.`;
+	        }),
+	      configureCatalogProvider: (draft: CatalogProviderConfigDraft) =>
+	        runAction("catalog-provider-configure", async () => {
+	          const token = await ensureToken();
+	          const body =
+	            draft.providerId === "catalog.local_manifest"
+	              ? {
+	                  enabled: draft.enabled,
+	                  manifest_path: draft.manifestPath,
+	                  auth_vault_ref: draft.authVaultRef || undefined,
+	                }
+	              : {
+	                  enabled: draft.enabled,
+	                  base_url: draft.baseUrl,
+	                  auth_vault_ref: draft.authVaultRef || undefined,
+	                };
+	          const result = await requestJson(`/api/v1/models/catalog/providers/${encodeURIComponent(draft.providerId)}`, {
+	            method: "PATCH",
+	            token,
+	            body,
+	          });
+	          return `${draft.providerId} catalog provider setup saved with ${stringValue(result?.runtimeMaterialStatus, "runtime metadata")} material state.`;
+	        }),
+	      importCatalogUrl: (payload: CatalogImportPayload) =>
         runAction("catalog-import-url", async () => {
           const token = await ensureToken();
           const body = payload.variant
@@ -3265,6 +3331,12 @@ function normalizeCatalog(value: any): CatalogPreview {
       providerId: stringValue(item.providerId, "none"),
       baseUrlHash: stringValue(item.baseUrlHash, "none"),
       manifestPathHash: stringValue(item.manifestPathHash, "none"),
+      authVaultRefHash: stringValue(item.authVaultRefHash, "none"),
+      configHash: stringValue(item.configHash, "none"),
+      enabled: item.enabled === undefined ? true : Boolean(item.enabled),
+      materialConfigured: Boolean(item.materialConfigured ?? false),
+      materialPersistence: stringValue(item.materialPersistence, "metadata_only"),
+      runtimeMaterialStatus: stringValue(item.runtimeMaterialStatus, "unknown"),
       errorHash: stringValue(item.errorHash, "none"),
     })),
     adapterPort: stringValue(value?.adapterBoundary?.port, "ModelCatalogProviderPort"),
@@ -3475,8 +3547,8 @@ function catalogBenchmarkSummary(variant: CatalogVariantPreview) {
 
 function catalogProviderSetupHint(provider: CatalogProviderPreview) {
   if (provider.id === "catalog.fixture") return "Always available for CI, demos, and offline acquisition checks.";
-  if (provider.id === "catalog.local_manifest") return provider.status === "available" || provider.status === "configured" ? "Manifest path is configured; entries are imported through governed download receipts." : "Set IOI_MODEL_CATALOG_MANIFEST_PATH to expose a local JSON model manifest.";
-  if (provider.id === "catalog.custom_http") return provider.status === "available" || provider.status === "configured" ? "Custom catalog endpoint is configured; only hashed endpoint evidence is shown." : "Set IOI_MODEL_CATALOG_CUSTOM_BASE_URL to attach a governed custom catalog.";
+  if (provider.id === "catalog.local_manifest") return provider.status === "available" || provider.status === "configured" ? "Manifest path is configured through catalog provider setup or IOI_MODEL_CATALOG_MANIFEST_PATH; entries are imported through governed download receipts." : "Configure catalog provider setup or set IOI_MODEL_CATALOG_MANIFEST_PATH to expose a local JSON model manifest.";
+  if (provider.id === "catalog.custom_http") return provider.status === "available" || provider.status === "configured" ? "Custom catalog endpoint is configured; only hashed endpoint evidence is shown." : "Configure catalog provider setup or set IOI_MODEL_CATALOG_CUSTOM_BASE_URL to attach a governed custom catalog.";
   if (provider.id === "catalog.ollama") return provider.status === "available" || provider.status === "configured" ? "Ollama list bridge is reachable through the provider model path." : "Configure OLLAMA_HOST or start the local Ollama provider before searching this catalog.";
   if (provider.id === "catalog.huggingface") return provider.status === "available" || provider.status === "configured" ? "Live catalog is enabled; downloads still require transfer policy approval." : "Set IOI_LIVE_MODEL_CATALOG and IOI_LIVE_MODEL_DOWNLOAD to enable live hub acquisition.";
   return provider.status === "available" || provider.status === "configured" ? "Catalog adapter is configured." : "Catalog adapter is waiting for provider setup.";
@@ -3485,8 +3557,10 @@ function catalogProviderSetupHint(provider: CatalogProviderPreview) {
 function catalogProviderEvidence(provider: CatalogProviderPreview) {
   const endpointHash = provider.baseUrlHash !== "none" ? `endpoint ${provider.baseUrlHash}` : null;
   const manifestHash = provider.manifestPathHash !== "none" ? `manifest ${provider.manifestPathHash}` : null;
+  const configHash = provider.configHash !== "none" ? `config ${provider.configHash}` : null;
+  const authHash = provider.authVaultRefHash !== "none" ? `vault ${provider.authVaultRefHash}` : null;
   const errorHash = provider.errorHash !== "none" ? `error ${provider.errorHash}` : null;
-  return [provider.adapterPort, endpointHash, manifestHash, errorHash].filter(Boolean).join(" / ");
+  return [provider.adapterPort, configHash, endpointHash, manifestHash, authHash, provider.runtimeMaterialStatus, errorHash].filter(Boolean).join(" / ");
 }
 
 function loadDraftBody(draft: ModelLoadDraft) {
@@ -4440,10 +4514,10 @@ function ModelsPanel({
           <ActionButton onClick={onLoadNativeLocalModel} disabled={busy} guard={selectedActionGuard(data, nativeSelection, connectionState, hasSessionToken, "model.load:*", "chat")}>Load native-local</ActionButton>
           <ActionButton onClick={onDownloadFixture} disabled={busy} guard={downloadGuard}>Download fixture</ActionButton>
         </div>
-      </div>
+	      </div>
 
-      <form
-        className="model-mounts-provider-editor"
+	      <form
+	        className="model-mounts-provider-editor"
         onSubmit={(event) => {
           event.preventDefault();
           onLoadModelWithOptions(loadDraft);
@@ -4611,6 +4685,7 @@ function DownloadsPanel({
   hasSessionToken,
   onDownloadFixture,
   onSearchCatalog,
+  onConfigureCatalogProvider,
   onImportCatalogUrl,
   onDownloadCatalogVariant,
   onCancelDownload,
@@ -4626,6 +4701,7 @@ function DownloadsPanel({
   hasSessionToken: boolean;
   onDownloadFixture: () => void;
   onSearchCatalog: (draft: CatalogSearchDraft) => void;
+  onConfigureCatalogProvider: (draft: CatalogProviderConfigDraft) => void;
   onImportCatalogUrl: (payload: CatalogImportPayload) => void;
   onDownloadCatalogVariant: (variant: CatalogVariantPreview, maxBytes?: string, transferApproved?: boolean, policy?: CatalogTransferPolicyDraft) => void;
   onCancelDownload: (download: DownloadPreview, confirmed?: boolean) => void;
@@ -4635,6 +4711,13 @@ function DownloadsPanel({
   busy: boolean;
 }) {
   const [draft, setDraft] = useState<CatalogSearchDraft>({ query: "autopilot", format: "gguf", quantization: "", limit: "20", catalogProviderId: "all" });
+  const [configDraft, setConfigDraft] = useState<CatalogProviderConfigDraft>({
+    providerId: "catalog.local_manifest",
+    enabled: true,
+    manifestPath: "",
+    baseUrl: "",
+    authVaultRef: "",
+  });
   const [sourceUrl, setSourceUrl] = useState("fixture://catalog/autopilot-native-3b-q4");
   const [selectedVariantId, setSelectedVariantId] = useState("");
   const [maxBytes, setMaxBytes] = useState("");
@@ -4647,12 +4730,15 @@ function DownloadsPanel({
   const [cleanupConfirmed, setCleanupConfirmed] = useState(false);
   const transferPolicy = { bandwidthBps, retryLimit, resumeDownload };
   const updateDraft = (field: keyof CatalogSearchDraft, value: string) => setDraft((current) => ({ ...current, [field]: value }));
+  const updateConfigDraft = (field: keyof CatalogProviderConfigDraft, value: string | boolean) => setConfigDraft((current) => ({ ...current, [field]: value }));
   const catalogProviderOptions = data.catalog.providers;
+  const configurableCatalogProviders = catalogProviderOptions.filter((provider) => ["catalog.local_manifest", "catalog.custom_http"].includes(provider.id));
   const filteredCatalogVariants = useMemo(
     () => (draft.catalogProviderId === "all" ? catalogVariants : catalogVariants.filter((variant) => variant.catalogProviderId === draft.catalogProviderId)),
     [catalogVariants, draft.catalogProviderId],
   );
   const selectedCatalogProvider = draft.catalogProviderId === "all" ? null : catalogProviderOptions.find((provider) => provider.id === draft.catalogProviderId) ?? null;
+  const selectedConfigProvider = configurableCatalogProviders.find((provider) => provider.id === configDraft.providerId) ?? configurableCatalogProviders[0] ?? null;
   const selectedVariant = filteredCatalogVariants.find((variant) => variant.id === selectedVariantId) ?? filteredCatalogVariants[0] ?? null;
   useEffect(() => {
     if (selectedVariantId && filteredCatalogVariants.some((variant) => variant.id === selectedVariantId)) return;
@@ -4687,6 +4773,20 @@ function DownloadsPanel({
   const selectedDownloadGuard = combineGuards(
     selectedVariantGuard,
     transferApprovalGuard(selectedApprovalRequired, transferApproved),
+  );
+  const catalogConfigGuard = combineGuards(
+    connectionActionGuard(connectionState, "provider.write:*"),
+    tokenScopeGuard(data, hasSessionToken, "provider.write:*"),
+    selectedConfigProvider ? guardReady("provider selected", "Catalog provider setup can be saved through the daemon.") : guardBlocked("provider missing", "Select a configurable catalog provider."),
+    !configDraft.enabled
+      ? guardReady("disabled", "Provider disablement can be saved without binding runtime material.")
+      : configDraft.providerId === "catalog.local_manifest"
+        ? configDraft.manifestPath.trim()
+          ? guardReady("manifest path ready", "Manifest path stays in daemon runtime material; projections show only hashes.")
+          : guardBlocked("manifest path missing", "Enter a manifest path for the local manifest catalog.")
+      : configDraft.baseUrl.trim()
+        ? guardReady("base URL ready", "Custom catalog base URL stays in daemon runtime material; projections show only hashes.")
+        : guardBlocked("base URL missing", "Enter a base URL for the custom HTTP catalog."),
   );
   const cleanupGuard = combineGuards(
     connectionActionGuard(connectionState, "model.delete:*"),
@@ -4841,13 +4941,61 @@ function DownloadsPanel({
         </label>
       </div>
 
-      <form
-        className="model-mounts-provider-editor"
-        onSubmit={(event) => {
-          event.preventDefault();
-          onSearchCatalog(draft);
-        }}
-      >
+	      <form
+	        className="model-mounts-provider-editor"
+	        aria-label="Catalog provider setup"
+	        onSubmit={(event) => {
+	          event.preventDefault();
+	          onConfigureCatalogProvider(configDraft);
+	        }}
+	      >
+	        <div className="model-mounts-provider-editor-grid">
+	          <label>
+	            <span>Catalog provider setup</span>
+	            <select value={configDraft.providerId} onChange={(event) => updateConfigDraft("providerId", event.target.value)}>
+	              {configurableCatalogProviders.map((provider) => <option key={provider.id} value={provider.id}>{provider.label}</option>)}
+	            </select>
+	          </label>
+	          {configDraft.providerId === "catalog.local_manifest" ? (
+	            <label>
+	              <span>manifest_path</span>
+	              <input value={configDraft.manifestPath} onChange={(event) => updateConfigDraft("manifestPath", event.target.value)} placeholder="Local JSON manifest path" />
+	            </label>
+	          ) : (
+	            <label>
+	              <span>base_url</span>
+	              <input value={configDraft.baseUrl} onChange={(event) => updateConfigDraft("baseUrl", event.target.value)} placeholder="https://catalog.example.test" />
+	            </label>
+	          )}
+	          <label>
+	            <span>auth_vault_ref</span>
+	            <input value={configDraft.authVaultRef} onChange={(event) => updateConfigDraft("authVaultRef", event.target.value)} placeholder="vault://optional/catalog/header" />
+	          </label>
+	          <label className="model-mounts-checkbox">
+	            <input type="checkbox" checked={configDraft.enabled} onChange={(event) => updateConfigDraft("enabled", event.target.checked)} />
+	            <span>Enabled</span>
+	          </label>
+	        </div>
+	        <div className="model-mounts-observability-summary" aria-label="Catalog provider setup evidence">
+	          <DetailFact label="Selected provider" value={selectedConfigProvider?.label ?? "none"} note={selectedConfigProvider?.id ?? "no provider selected"} />
+	          <DetailFact label="Config hash" value={selectedConfigProvider?.configHash ?? "none"} note={selectedConfigProvider?.enabled ? "enabled" : "disabled"} />
+	          <DetailFact label="Material" value={selectedConfigProvider?.runtimeMaterialStatus ?? "unknown"} note={`${selectedConfigProvider?.materialPersistence ?? "metadata_only"} / configured ${selectedConfigProvider?.materialConfigured ? "yes" : "no"}`} />
+	          <DetailFact label="Manifest hash" value={selectedConfigProvider?.manifestPathHash ?? "none"} note="raw paths are not projected" />
+	          <DetailFact label="Endpoint hash" value={selectedConfigProvider?.baseUrlHash ?? "none"} note="raw URLs are not projected" />
+	          <DetailFact label="Vault ref hash" value={selectedConfigProvider?.authVaultRefHash ?? "none"} note="secrets stay vault-referenced" />
+	        </div>
+	        <div className="model-mounts-form-actions">
+	          <ActionButton type="submit" disabled={busy} guard={catalogConfigGuard}>Save catalog provider</ActionButton>
+	        </div>
+	      </form>
+
+	      <form
+	        className="model-mounts-provider-editor"
+	        onSubmit={(event) => {
+	          event.preventDefault();
+	          onSearchCatalog(draft);
+	        }}
+	      >
         <div className="model-mounts-provider-editor-grid">
           <label>
             <span>Catalog query</span>
@@ -4977,9 +5125,11 @@ function DownloadsPanel({
                 <span>{provider.gate}</span>
                 <span>{provider.downloadGate}</span>
               </div>
-              <span>{catalogProviderSetupHint(provider)}</span>
-              <span>{catalogProviderEvidence(provider)}</span>
-              <span>{provider.formats.join(", ") || "formats unknown"}</span>
+	              <span>{catalogProviderSetupHint(provider)}</span>
+	              <span>{catalogProviderEvidence(provider)}</span>
+	              <span>Config {provider.configHash} / material {provider.runtimeMaterialStatus} / {provider.materialPersistence}</span>
+	              <span>Vault {provider.authVaultRefHash} / enabled {provider.enabled ? "yes" : "no"}</span>
+	              <span>{provider.formats.join(", ") || "formats unknown"}</span>
             </article>
           ))}
         </div>
@@ -6596,6 +6746,7 @@ export function MissionControlMountsView() {
             hasSessionToken={daemon.hasSessionToken}
             onDownloadFixture={daemon.actions.downloadFixture}
             onSearchCatalog={daemon.actions.searchCatalog}
+            onConfigureCatalogProvider={daemon.actions.configureCatalogProvider}
             onImportCatalogUrl={daemon.actions.importCatalogUrl}
             onDownloadCatalogVariant={daemon.actions.downloadCatalogVariant}
             onCancelDownload={daemon.actions.cancelDownload}

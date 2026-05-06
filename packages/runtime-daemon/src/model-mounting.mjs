@@ -23,6 +23,7 @@ class AgentgresModelMountingStore {
       "model-backends",
       "backend-processes",
       "model-downloads",
+      "model-catalog-providers",
       "runtime-preferences",
       "runtime-engine-profiles",
       "provider-health",
@@ -1771,6 +1772,8 @@ export class ModelMountingState {
     this.instances = new Map();
     this.routes = new Map();
     this.downloads = new Map();
+    this.catalogProviderConfigs = new Map();
+    this.catalogProviderRuntimeMaterials = new Map();
     this.lastCatalogSearch = null;
     this.runtimeSelections = new Map();
     this.runtimeEngineProfiles = new Map();
@@ -1848,7 +1851,21 @@ export class ModelMountingState {
       runtimePreferences: ["id", "selectedEngineId", "selectedAt", "receiptId", "defaultLoadOptions"],
       modelCatalogEntries: ["id", "providerId", "modelId", "format", "quantization", "sourceUrlHash", "license"],
       modelDownloads: ["id", "artifactId", "status", "source", "progress", "bytesTotal", "bytesCompleted", "targetPath"],
-      modelCatalogProviders: ["id", "status", "gate", "formats", "baseUrlHash", "evidenceRefs"],
+      modelCatalogProviders: [
+        "id",
+        "status",
+        "gate",
+        "formats",
+        "enabled",
+        "configHash",
+        "baseUrlHash",
+        "manifestPathHash",
+        "authVaultRefHash",
+        "materialConfigured",
+        "materialPersistence",
+        "runtimeMaterialStatus",
+        "evidenceRefs",
+      ],
       permissionTokens: ["id", "audience", "allowed", "denied", "expiresAt", "revokedAt", "grantId", "lastUsedAt"],
       walletGrants: ["grantId", "revocationEpoch", "allowed", "denied", "expiry", "vaultRefs", "auditReceiptIds"],
       mcpServers: ["id", "transport", "allowedTools", "secretRefs", "status"],
@@ -1866,6 +1883,7 @@ export class ModelMountingState {
     this.loadMap("model-instances", this.instances);
     this.loadMap("model-routes", this.routes);
     this.loadMap("model-downloads", this.downloads);
+    this.loadMap("model-catalog-providers", this.catalogProviderConfigs);
     this.loadMap("runtime-preferences", this.runtimeSelections);
     this.loadMap("runtime-engine-profiles", this.runtimeEngineProfiles);
     this.loadMap("tokens", this.tokens);
@@ -2234,6 +2252,7 @@ export class ModelMountingState {
     this.writeMap("model-instances", this.instances);
     this.writeMap("model-routes", this.routes);
     this.writeMap("model-downloads", this.downloads);
+    this.writeMap("model-catalog-providers", this.catalogProviderConfigs);
     this.writeMap("runtime-preferences", this.runtimeSelections);
     this.writeMap("runtime-engine-profiles", this.runtimeEngineProfiles);
     this.writeMap("tokens", this.tokens);
@@ -2510,6 +2529,7 @@ export class ModelMountingState {
       schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
       server: this.serverStatus(baseUrl),
       catalog: this.catalogStatus(),
+      catalogProviderConfigs: this.listCatalogProviderConfigs(),
       artifacts: this.listArtifacts(),
       backends: this.listBackends(),
       backendProcesses: this.listBackendProcesses(),
@@ -2558,6 +2578,7 @@ export class ModelMountingState {
       backendProcesses: this.listBackendProcesses(),
       providers: this.listProviders(),
       catalog: this.catalogStatus(),
+      catalogProviderConfigs: this.listCatalogProviderConfigs(),
       downloads: this.listDownloads(),
       providerHealth: this.listProviderHealth(),
       runtimeEngines: this.listRuntimeEngines(),
@@ -2720,6 +2741,59 @@ export class ModelMountingState {
 
   catalogProviderPorts() {
     return modelCatalogProviderPorts(this);
+  }
+
+  listCatalogProviderConfigs() {
+    return MODEL_CATALOG_CONFIGURABLE_PROVIDER_IDS.map((providerId) =>
+      publicCatalogProviderConfig(
+        providerId,
+        this.catalogProviderConfigs.get(providerId),
+        this.catalogProviderRuntimeMaterials.get(providerId),
+      ),
+    );
+  }
+
+  getCatalogProviderConfig(providerId) {
+    assertConfigurableCatalogProvider(providerId);
+    const port = this.catalogProviderPorts().find((candidate) => candidate.id === providerId) ?? null;
+    return {
+      ...publicCatalogProviderConfig(
+        providerId,
+        this.catalogProviderConfigs.get(providerId),
+        this.catalogProviderRuntimeMaterials.get(providerId),
+      ),
+      provider: port ? catalogProviderStatus(port) : null,
+    };
+  }
+
+  configureCatalogProvider(providerId, body = {}) {
+    assertConfigurableCatalogProvider(providerId);
+    const existing = this.catalogProviderConfigs.get(providerId);
+    const record = catalogProviderConfigRecord(providerId, body, existing, this.nowIso(), this);
+    this.catalogProviderConfigs.set(providerId, record);
+    this.catalogProviderRuntimeMaterials.set(providerId, catalogProviderRuntimeMaterial(providerId, body, record));
+    this.writeMap("model-catalog-providers", this.catalogProviderConfigs);
+    const publicRecord = publicCatalogProviderConfig(providerId, record, this.catalogProviderRuntimeMaterials.get(providerId));
+    const receipt = this.receipt("model_catalog_provider_configuration", {
+      summary: `${providerId} catalog configuration updated through the governed catalog provider path.`,
+      redaction: "redacted",
+      evidenceRefs: ["ModelCatalogProviderPort.configure", providerId, "catalog_provider_material_metadata_only"],
+      details: publicRecord,
+    });
+    this.writeProjection();
+    return {
+      ...publicRecord,
+      receiptId: receipt.id,
+      provider: catalogProviderStatus(this.catalogProviderPorts().find((port) => port.id === providerId)),
+    };
+  }
+
+  catalogProviderConfig(providerId) {
+    return this.catalogProviderConfigs.get(providerId) ?? null;
+  }
+
+  catalogProviderRuntimeMaterial(providerId) {
+    return this.catalogProviderRuntimeMaterials.get(providerId) ?? null;
   }
 
   storageSummary() {
@@ -7051,13 +7125,116 @@ function fixtureModelCatalog(searchedAt) {
   ];
 }
 
+const MODEL_CATALOG_CONFIGURABLE_PROVIDER_IDS = ["catalog.local_manifest", "catalog.custom_http"];
+
+function assertConfigurableCatalogProvider(providerId) {
+  if (!MODEL_CATALOG_CONFIGURABLE_PROVIDER_IDS.includes(providerId)) {
+    throw runtimeError({
+      status: 404,
+      code: "not_found",
+      message: `Catalog provider is not configurable: ${providerId}`,
+      details: { providerId },
+    });
+  }
+}
+
+function catalogProviderConfigRecord(providerId, body, existing = null, updatedAt, state) {
+  const enabled = body.enabled === undefined ? existing?.enabled ?? true : truthy(body.enabled);
+  const material = catalogProviderRuntimeMaterial(providerId, body, existing);
+  const materialHash =
+    providerId === "catalog.local_manifest"
+      ? material.manifestPath
+        ? stableHash(path.resolve(material.manifestPath))
+        : existing?.manifestPathHash ?? null
+      : material.baseUrl
+        ? stableHash(material.baseUrl)
+        : existing?.baseUrlHash ?? null;
+  const authVaultRef = body.auth_vault_ref ?? body.authVaultRef ?? body.vault_ref ?? body.vaultRef ?? null;
+  const authVaultRefHash =
+    typeof authVaultRef === "string" && authVaultRef.trim()
+      ? state.walletAuthority.resolveVaultRef(authVaultRef.trim()).vaultRefHash
+      : existing?.authVaultRefHash ?? null;
+  const record = {
+    id: providerId,
+    schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
+    enabled,
+    configHash: stableHash({
+      providerId,
+      enabled,
+      materialHash,
+      authVaultRefHash,
+    }),
+    manifestPathHash: providerId === "catalog.local_manifest" ? materialHash : null,
+    baseUrlHash: providerId === "catalog.custom_http" ? materialHash : null,
+    authVaultRefHash,
+    materialConfigured: Boolean(materialHash),
+    materialPersistence: "metadata_only",
+    runtimeMaterialStatus: materialHash ? "bound_runtime_session" : "missing_runtime_material",
+    updatedAt,
+    evidenceRefs: ["catalog_provider_config_metadata", "no_plaintext_catalog_material_persisted"],
+  };
+  return record;
+}
+
+function catalogProviderRuntimeMaterial(providerId, body, existing = null) {
+  if (providerId === "catalog.local_manifest") {
+    const manifestPath = body.manifest_path ?? body.manifestPath ?? body.path ?? null;
+    return {
+      manifestPath: typeof manifestPath === "string" && manifestPath.trim() ? path.resolve(manifestPath.trim()) : null,
+    };
+  }
+  if (providerId === "catalog.custom_http") {
+    const baseUrl = body.base_url ?? body.baseUrl ?? body.url ?? null;
+    return {
+      baseUrl: typeof baseUrl === "string" && baseUrl.trim() ? baseUrl.trim().replace(/\/+$/, "") : null,
+      authVaultRefHash: existing?.authVaultRefHash ?? null,
+    };
+  }
+  return {};
+}
+
+function publicCatalogProviderConfig(providerId, record = null, material = null) {
+  const materialConfigured = Boolean(record?.materialConfigured ?? material?.manifestPath ?? material?.baseUrl);
+  return {
+    id: providerId,
+    enabled: record?.enabled ?? true,
+    configHash: record?.configHash ?? null,
+    manifestPathHash: record?.manifestPathHash ?? (material?.manifestPath ? stableHash(path.resolve(material.manifestPath)) : null),
+    baseUrlHash: record?.baseUrlHash ?? (material?.baseUrl ? stableHash(material.baseUrl) : null),
+    authVaultRefHash: record?.authVaultRefHash ?? material?.authVaultRefHash ?? null,
+    materialConfigured,
+    materialPersistence: record?.materialPersistence ?? "metadata_only",
+    runtimeMaterialStatus: materialConfigured
+      ? material?.manifestPath || material?.baseUrl
+        ? "bound_runtime_session"
+        : "missing_runtime_material"
+      : "unconfigured",
+    updatedAt: record?.updatedAt ?? null,
+    evidenceRefs: record?.evidenceRefs ?? ["catalog_provider_config_metadata", "no_plaintext_catalog_material_persisted"],
+  };
+}
+
+function catalogProviderConfigHealthFields(providerId, config = null, material = null) {
+  const publicConfig = publicCatalogProviderConfig(providerId, config, material);
+  return {
+    enabled: publicConfig.enabled,
+    configHash: publicConfig.configHash,
+    manifestPathHash: publicConfig.manifestPathHash,
+    baseUrlHash: publicConfig.baseUrlHash,
+    authVaultRefHash: publicConfig.authVaultRefHash,
+    materialConfigured: publicConfig.materialConfigured,
+    materialPersistence: publicConfig.materialPersistence,
+    runtimeMaterialStatus: publicConfig.runtimeMaterialStatus,
+  };
+}
+
 function modelCatalogProviderPorts(state) {
   return [
     fixtureCatalogProviderPort(),
-    localManifestCatalogProviderPort(),
+    localManifestCatalogProviderPort(state),
     ollamaCatalogProviderPort(state),
     huggingFaceCatalogProviderPort(state),
-    customHttpCatalogProviderPort(),
+    customHttpCatalogProviderPort(state),
   ];
 }
 
@@ -7071,8 +7248,14 @@ function catalogProviderStatus(port, result = null) {
     downloadGate: port.downloadGate ?? health.downloadGate ?? null,
     liveDownloadStatus: result?.liveDownloadStatus ?? health.liveDownloadStatus ?? null,
     formats: port.formats ?? [],
+    enabled: result?.enabled ?? health.enabled ?? null,
+    configHash: result?.configHash ?? health.configHash ?? null,
     baseUrlHash: result?.baseUrlHash ?? health.baseUrlHash ?? null,
     manifestPathHash: result?.manifestPathHash ?? health.manifestPathHash ?? null,
+    authVaultRefHash: result?.authVaultRefHash ?? health.authVaultRefHash ?? null,
+    materialConfigured: result?.materialConfigured ?? health.materialConfigured ?? null,
+    materialPersistence: result?.materialPersistence ?? health.materialPersistence ?? null,
+    runtimeMaterialStatus: result?.runtimeMaterialStatus ?? health.runtimeMaterialStatus ?? null,
     providerId: port.providerId ?? null,
     errorHash: result?.errorHash ?? health.errorHash ?? null,
     adapterPort: "ModelCatalogProviderPort",
@@ -7098,22 +7281,22 @@ function fixtureCatalogProviderPort() {
   };
 }
 
-function localManifestCatalogProviderPort() {
-  const manifestPath = localManifestCatalogPath();
+function localManifestCatalogProviderPort(state) {
   const evidenceRefs = ["local_manifest_catalog_adapter", "model_catalog_provider_port"];
   return {
     id: "catalog.local_manifest",
     label: "Local manifest catalog",
-    gate: "IOI_MODEL_CATALOG_MANIFEST_PATH",
+    gate: "IOI_MODEL_CATALOG_MANIFEST_PATH or catalog provider setup",
     formats: ["gguf", "mlx", "safetensors"],
     evidenceRefs,
-    health: () => localManifestCatalogHealth(manifestPath, evidenceRefs),
+    health: () => localManifestCatalogHealth(state, evidenceRefs),
     search: async ({ query, format, quantization, searchedAt }) => {
-      const health = localManifestCatalogHealth(manifestPath, evidenceRefs);
+      const health = localManifestCatalogHealth(state, evidenceRefs);
       if (health.status !== "configured" && health.status !== "available") {
         return { ...health, results: [] };
       }
       try {
+        const manifestPath = localManifestCatalogPath(state);
         const results = localManifestCatalogEntries(manifestPath, searchedAt).filter((entry) => catalogEntryMatches(entry, { query, format, quantization }));
         return { ...health, status: "available", results };
       } catch (error) {
@@ -7187,22 +7370,19 @@ function huggingFaceCatalogProviderPort(state) {
   };
 }
 
-function customHttpCatalogProviderPort() {
-  const baseUrl = customHttpCatalogBaseUrl();
+function customHttpCatalogProviderPort(state) {
   const evidenceRefs = ["custom_http_catalog_adapter", "model_catalog_provider_port"];
   return {
     id: "catalog.custom_http",
     label: "Custom HTTP catalog",
-    gate: "IOI_MODEL_CATALOG_CUSTOM_BASE_URL",
+    gate: "IOI_MODEL_CATALOG_CUSTOM_BASE_URL or catalog provider setup",
     formats: ["gguf", "mlx", "safetensors"],
     evidenceRefs,
-    health: () => ({
-      status: baseUrl ? "configured" : "unconfigured",
-      baseUrlHash: baseUrl ? stableHash(baseUrl) : null,
-      evidenceRefs,
-    }),
+    health: () => customHttpCatalogHealth(state, evidenceRefs),
     search: async ({ query, format, quantization, limit, searchedAt }) => {
-      if (!baseUrl) return { status: "unconfigured", evidenceRefs, results: [] };
+      const health = customHttpCatalogHealth(state, evidenceRefs);
+      const baseUrl = customHttpCatalogBaseUrl(state);
+      if (!baseUrl) return { ...health, results: [] };
       try {
         const url = new URL("/catalog/search", baseUrl);
         if (query) url.searchParams.set("q", query);
@@ -7211,7 +7391,7 @@ function customHttpCatalogProviderPort() {
         url.searchParams.set("limit", String(limit));
         const response = await fetchWithTimeout(url, { timeoutMs: modelCatalogTimeoutMs() });
         if (!response.ok) {
-          return { status: "degraded", baseUrlHash: stableHash(baseUrl), errorHash: stableHash(`http:${response.status}`), evidenceRefs, results: [] };
+          return { ...health, status: "degraded", baseUrlHash: stableHash(baseUrl), errorHash: stableHash(`http:${response.status}`), evidenceRefs, results: [] };
         }
         const payload = await response.json();
         const records = catalogRecordsFromPayload(payload);
@@ -7226,9 +7406,10 @@ function customHttpCatalogProviderPort() {
           .filter(Boolean)
           .filter((entry) => catalogEntryMatches(entry, { query, format, quantization }))
           .slice(0, limit);
-        return { status: "available", baseUrlHash: stableHash(baseUrl), evidenceRefs: [...evidenceRefs, "custom_http_catalog_search"], results };
+        return { ...health, status: "available", baseUrlHash: stableHash(baseUrl), evidenceRefs: [...evidenceRefs, "custom_http_catalog_search"], results };
       } catch (error) {
         return {
+          ...health,
           status: "degraded",
           baseUrlHash: stableHash(baseUrl),
           errorHash: stableHash(error?.message ?? "custom catalog failed"),
@@ -7252,21 +7433,69 @@ function huggingFaceCatalogBaseUrl() {
   return process.env.IOI_MODEL_CATALOG_HF_BASE_URL ?? "https://huggingface.co";
 }
 
-function localManifestCatalogPath() {
-  return process.env.IOI_MODEL_CATALOG_MANIFEST_PATH ?? "";
+function localManifestCatalogPath(state) {
+  const config = state?.catalogProviderConfig?.("catalog.local_manifest") ?? null;
+  if (config && config.enabled === false) return "";
+  return state?.catalogProviderRuntimeMaterial?.("catalog.local_manifest")?.manifestPath ?? process.env.IOI_MODEL_CATALOG_MANIFEST_PATH ?? "";
 }
 
-function customHttpCatalogBaseUrl() {
-  return process.env.IOI_MODEL_CATALOG_CUSTOM_BASE_URL ?? "";
+function customHttpCatalogBaseUrl(state) {
+  const config = state?.catalogProviderConfig?.("catalog.custom_http") ?? null;
+  if (config && config.enabled === false) return "";
+  return state?.catalogProviderRuntimeMaterial?.("catalog.custom_http")?.baseUrl ?? process.env.IOI_MODEL_CATALOG_CUSTOM_BASE_URL ?? "";
 }
 
-function localManifestCatalogHealth(manifestPath, evidenceRefs) {
-  if (!manifestPath) return { status: "unconfigured", gate: "IOI_MODEL_CATALOG_MANIFEST_PATH", evidenceRefs };
+function localManifestCatalogHealth(state, evidenceRefs) {
+  const config = state?.catalogProviderConfig?.("catalog.local_manifest") ?? null;
+  const material = state?.catalogProviderRuntimeMaterial?.("catalog.local_manifest") ?? null;
+  const manifestPath = localManifestCatalogPath(state);
+  const configFields = catalogProviderConfigHealthFields("catalog.local_manifest", config, material);
+  if (config?.enabled === false) {
+    return { ...configFields, status: "disabled", gate: "catalog provider setup", evidenceRefs };
+  }
+  if (!manifestPath) {
+    return {
+      ...configFields,
+      status: config?.materialConfigured ? "metadata_only" : "unconfigured",
+      gate: "IOI_MODEL_CATALOG_MANIFEST_PATH or catalog provider setup",
+      evidenceRefs,
+    };
+  }
   const resolved = path.resolve(manifestPath);
   return {
+    ...configFields,
     status: fs.existsSync(resolved) ? "configured" : "degraded",
-    gate: "IOI_MODEL_CATALOG_MANIFEST_PATH",
+    gate: material?.manifestPath ? "catalog provider setup" : "IOI_MODEL_CATALOG_MANIFEST_PATH",
     manifestPathHash: stableHash(resolved),
+    materialConfigured: true,
+    runtimeMaterialStatus: material?.manifestPath ? "bound_runtime_session" : "env_gate",
+    evidenceRefs,
+  };
+}
+
+function customHttpCatalogHealth(state, evidenceRefs) {
+  const config = state?.catalogProviderConfig?.("catalog.custom_http") ?? null;
+  const material = state?.catalogProviderRuntimeMaterial?.("catalog.custom_http") ?? null;
+  const baseUrl = customHttpCatalogBaseUrl(state);
+  const configFields = catalogProviderConfigHealthFields("catalog.custom_http", config, material);
+  if (config?.enabled === false) {
+    return { ...configFields, status: "disabled", gate: "catalog provider setup", evidenceRefs };
+  }
+  if (!baseUrl) {
+    return {
+      ...configFields,
+      status: config?.materialConfigured ? "metadata_only" : "unconfigured",
+      gate: "IOI_MODEL_CATALOG_CUSTOM_BASE_URL or catalog provider setup",
+      evidenceRefs,
+    };
+  }
+  return {
+    ...configFields,
+    status: "configured",
+    gate: material?.baseUrl ? "catalog provider setup" : "IOI_MODEL_CATALOG_CUSTOM_BASE_URL",
+    baseUrlHash: stableHash(baseUrl),
+    materialConfigured: true,
+    runtimeMaterialStatus: material?.baseUrl ? "bound_runtime_session" : "env_gate",
     evidenceRefs,
   };
 }
@@ -8159,6 +8388,9 @@ function shouldRedactKey(key) {
       "runtimeBound",
       "materialBound",
       "materialSource",
+      "materialConfigured",
+      "materialPersistence",
+      "runtimeMaterialStatus",
     ].includes(key)
   ) {
     return false;

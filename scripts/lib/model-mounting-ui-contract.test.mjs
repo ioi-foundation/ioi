@@ -26,6 +26,7 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
     "/api/v1/backends",
     "/api/v1/models/catalog/search",
     "/api/v1/models/catalog/import-url",
+    "/api/v1/models/catalog/providers/",
     "/api/v1/models/storage/cleanup",
     "/api/v1/models/:id",
     "/api/v1/runtime/engines",
@@ -165,6 +166,16 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   assert.match(source, /ModelCatalogProviderPort/);
   assert.match(source, /catalogProviderSetupHint/);
   assert.match(source, /catalogProviderEvidence/);
+  assert.match(source, /Catalog provider setup/);
+  assert.match(source, /configureCatalogProvider/);
+  assert.match(source, /onConfigureCatalogProvider/);
+  assert.match(source, /Save catalog provider/);
+  assert.match(source, /runtimeMaterialStatus/);
+  assert.match(source, /materialPersistence/);
+  assert.match(source, /materialConfigured/);
+  assert.match(source, /auth_vault_ref/);
+  assert.match(source, /manifest_path/);
+  assert.match(source, /base_url/);
   assert.match(source, /catalog\.local_manifest/);
   assert.match(source, /Local manifest catalog/);
   assert.match(source, /catalog\.custom_http/);

@@ -654,6 +654,16 @@ async function handleModelMountingNativeRoute({ request, response, store, url, s
     writeJsonResponse(response, await mounts.catalogImportUrl(await readBody(request)), 202);
     return;
   }
+  if (request.method === "GET" && segments[2] === "models" && segments[3] === "catalog" && segments[4] === "providers" && segments[5]) {
+    writeJsonResponse(response, mounts.getCatalogProviderConfig(decodeURIComponent(segments[5])));
+    return;
+  }
+  if (request.method === "PATCH" && segments[2] === "models" && segments[3] === "catalog" && segments[4] === "providers" && segments[5]) {
+    const providerId = decodeURIComponent(segments[5]);
+    mounts.authorize(authorization, `provider.write:${providerId}`);
+    writeJsonResponse(response, mounts.configureCatalogProvider(providerId, await readBody(request)));
+    return;
+  }
   if (request.method === "POST" && url.pathname === "/api/v1/models/storage/cleanup") {
     mounts.authorize(authorization, "model.delete:*");
     writeJsonResponse(response, mounts.cleanupModelStorage(await readBody(request)));

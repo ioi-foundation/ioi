@@ -724,20 +724,27 @@ gates:
    - the gated Hugging Face-compatible adapter, format/quantization filters,
      resumable `.part` downloads, checksum verification, source hashing, and
      redaction are implemented;
-   - live network transfer execution now persists redacted resume metadata,
-     retries retriable HTTP/network failures, resumes interrupted transfers
-     with `Range`, removes poisoned checksum failures, and emits retry/resume
-     receipts;
-   - the live catalog gate now validates import-url materialization, download
-     status lookup, receipt replay, projection persistence, optional first
-     result download, max-byte guards, and no plaintext token/source leakage;
+	   - live network transfer execution now persists redacted resume metadata,
+	     retries retriable HTTP/network failures, resumes interrupted transfers
+	     with `Range`, removes poisoned checksum failures, and emits retry/resume
+	     receipts;
+	   - local manifest and custom HTTP catalog providers can now be configured
+	     from the Mounts Downloads surface and daemon API through
+	     `GET/PATCH /api/v1/models/catalog/providers/:id`; the daemon keeps raw
+	     manifest paths, base URLs, and optional vault refs in runtime-only
+	     material for the active session, persists only hashes/metadata, emits
+	     `model_catalog_provider_configuration` receipts, and projects
+	     `materialPersistence` / `runtimeMaterialStatus` evidence;
+	   - the live catalog gate now validates import-url materialization, download
+	     status lookup, receipt replay, projection persistence, optional first
+	     result download, max-byte guards, and no plaintext token/source leakage;
    - live search/download evidence passed with an explicit tiny GGUF source
      under a 2 MB transfer cap:
      `docs/evidence/model-mounting-live/model-catalog/2026-05-05T23-07-13Z/result.json`;
-   - remaining work is production catalog breadth, richer benchmark and
-     compatibility metadata, approval/retry affordances, bandwidth/storage
-     policy controls, and broader live validation against external hubs when
-     explicitly enabled.
+	   - remaining work is production catalog breadth, richer benchmark and
+	     compatibility metadata for external hubs, durable vault-material-backed
+	     catalog auth beyond runtime-only operator material, and broader live
+	     validation against external hubs when explicitly enabled.
 3. Remote wallet.network and vault integration:
    - remote wallet.network grants;
    - provider-key vault resolution;
@@ -823,7 +830,7 @@ implemented as a product surface.
 | Global model picker / loader | Top model picker invites select/load without exposing topology | Complete for deterministic Mounts path | Extend into app-wide header or keyboard model switching only if product direction wants it; keep governed load/unload path |
 | Installed models | `lms ls` shows model family, params, arch, size, device, loaded marker | Complete for deterministic Mounts detail path | Add live-provider family/params/arch/device precision and benchmark classification metadata |
 | Loaded models | `lms ps` shows identifier, model, status, size, context, parallel, device, TTL | Complete for deterministic Mounts path | Add live-provider TTL/device precision, unload confirmations, and app-wide loaded-instance status if needed |
-| Model search/download | `lms get`, direct Hugging Face URL, GGUF/MLX filters, variant select | Complete for deterministic/gated adapter path | Fixture catalog, manifest catalog, custom HTTP catalog, Ollama list bridge, URL import, variant metadata, gated Hugging Face adapter, checksum/download receipts, provider-aware GUI filtering/setup state, GUI cancel/retry controls, backend compatibility scoring, download risk scoring, benchmark readiness, recommendation/approval receipt fields, bandwidth/retry/resume policy, confirmed cancel cleanup, and confirmed orphan removal exist; add live hub breadth and external catalog validation |
+| Model search/download | `lms get`, direct Hugging Face URL, GGUF/MLX filters, variant select | Complete for deterministic/gated adapter path | Fixture catalog, manifest catalog, custom HTTP catalog, Ollama list bridge, URL import, variant metadata, gated Hugging Face adapter, checksum/download receipts, provider-aware GUI filtering/setup state, API/UI catalog source setup for manifest/custom HTTP with redacted hashes, GUI cancel/retry controls, backend compatibility scoring, download risk scoring, benchmark readiness, recommendation/approval receipt fields, bandwidth/retry/resume policy, confirmed cancel cleanup, and confirmed orphan removal exist; add live hub breadth, durable vault-backed catalog auth, and external catalog validation |
 | Model import | `lms import` supports move/copy/hard-link/symlink/dry-run/user-repo | Complete for deterministic local path | Add live provider-specific import UX polish after broader hub coverage |
 | Runtime engines | `lms runtime ls/select/get/update/remove` | Complete for deterministic/shared control path | Runtime engine list, survey, selected-runtime persistence, get/update/remove profiles, disable/enable, priority, default load options, deterministic process supervision, llama.cpp runner spawning, Ollama serve supervision, vLLM serve supervision, API, CLI, receipts, E2E, and Mounts Backends editor are implemented; remaining live work is hardware validation and scheduler hardening |
 | Hardware survey | `lms runtime survey` reports GPU/VRAM, CPU features, RAM | Complete for deterministic/public CLI path | Keep redacted survey receipts in projection/replay; add scheduling hints and live runtime preference recommendations |
@@ -1679,6 +1686,8 @@ GET  /api/v1/models
 GET  /api/v1/models/:id
 GET  /api/v1/models/catalog/search
 POST /api/v1/models/catalog/import-url
+GET  /api/v1/models/catalog/providers/:id
+PATCH /api/v1/models/catalog/providers/:id
 POST /api/v1/models/download
 GET  /api/v1/models/download/status/:job_id
 POST /api/v1/models/import
@@ -2365,6 +2374,12 @@ Current status:
   boundary/setup state for fixture, manifest, custom HTTP, Ollama, and
   Hugging Face-compatible providers, and Models-panel receipt drilldown with
   desktop GUI evidence.
+- Complete: local manifest and custom HTTP catalog source setup is no longer
+  environment-only. Mounts and the daemon expose governed
+  `/api/v1/models/catalog/providers/:id` configuration, keep raw manifest
+  paths/base URLs/vault refs in runtime-only material, persist/project only
+  hashes and metadata, and validate redaction through daemon contract tests
+  plus desktop GUI evidence.
 - Production hardening: replace deterministic native-local fixture with real
   local inference binaries when configured.
 - Production hardening: wire production wallet.network and Agentgres services;
@@ -2379,9 +2394,10 @@ passing opt-in evidence, and the catalog/download acquisition UI has desktop
 GUI evidence. The immediate backlog is now the parity closeout order from the
 matrix above:
 
-1. Catalog/download product hardening beyond the passing live tiny-GGUF gate
-   and validated acquisition UI: broader production hub coverage, stronger
-   live-download retry/resume UX, and broader external-hub validation.
+	1. Catalog/download product hardening beyond the passing live tiny-GGUF gate
+	   and validated acquisition UI: broader production hub coverage, stronger
+	   live-download retry/resume UX, durable vault-backed catalog auth beyond
+	   runtime-only operator material, and broader external-hub validation.
 2. Product UI parity beyond the validated operator controls: compact viewport
    refinements, richer provider-specific error recovery, and live backend log
    transport affordances.

@@ -1071,6 +1071,7 @@ test("model catalog provider ports unify fixture, manifest, custom HTTP, and Oll
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-model-catalog-workspace-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-model-catalog-state-"));
   const manifestPath = path.join(cwd, "model-catalog.json");
+  const operatorManifestPath = path.join(cwd, "operator-model-catalog.json");
   fs.writeFileSync(
     manifestPath,
     JSON.stringify({
@@ -1092,6 +1093,27 @@ test("model catalog provider ports unify fixture, manifest, custom HTTP, and Oll
       ],
     }),
   );
+  fs.writeFileSync(
+    operatorManifestPath,
+    JSON.stringify({
+      models: [
+        {
+          model_id: "operator/local-catalog-1b",
+          family: "operator-manifest",
+          architecture: "llama",
+          parameter_count: "1B",
+          format: "gguf",
+          quantization: "Q5_K_M",
+          size_bytes: 2048,
+          context_window: 4096,
+          source_url: "fixture://operator/local-catalog-1b-q5",
+          source_label: "Operator manifest / local catalog",
+          compatibility: ["native_local_fixture", "llama_cpp"],
+          tags: ["operator", "catalog"],
+        },
+      ],
+    }),
+  );
   const ollamaServer = await startFakeOllamaServer();
   const customCatalogServer = await startFakeCustomCatalogServer();
   const priorManifest = process.env.IOI_MODEL_CATALOG_MANIFEST_PATH;
@@ -1104,7 +1126,7 @@ test("model catalog provider ports unify fixture, manifest, custom HTTP, and Oll
   try {
     const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
       method: "POST",
-      body: { allowed: ["model.download:*", "model.import:*"] },
+      body: { allowed: ["model.download:*", "model.import:*", "provider.write:*"] },
     });
     const catalog = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=&limit=20");
     assert.equal(catalog.adapterBoundary.port, "ModelCatalogProviderPort");
@@ -1144,10 +1166,49 @@ test("model catalog provider ports unify fixture, manifest, custom HTTP, and Oll
     assert.equal(customImport.download.variant.catalogProviderId, "catalog.custom_http");
     assert.equal(customImport.download.variant.format, "safetensors");
 
+    const configuredManifest = await expectOk(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.local_manifest", {
+      method: "PATCH",
+      token: grant.token,
+      body: { enabled: true, manifest_path: operatorManifestPath },
+    });
+    assert.equal(configuredManifest.id, "catalog.local_manifest");
+    assert.equal(configuredManifest.materialPersistence, "metadata_only");
+    assert.equal(configuredManifest.runtimeMaterialStatus, "bound_runtime_session");
+    assert.equal(Boolean(configuredManifest.manifestPathHash), true);
+    assert.equal(JSON.stringify(configuredManifest).includes(operatorManifestPath), false);
+
+    const catalogVaultRef = "vault://catalog/custom-http/header";
+    const configuredCustom = await expectOk(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.custom_http", {
+      method: "PATCH",
+      token: grant.token,
+      body: { enabled: true, base_url: customCatalogServer.endpoint, auth_vault_ref: catalogVaultRef },
+    });
+    assert.equal(configuredCustom.id, "catalog.custom_http");
+    assert.equal(configuredCustom.materialPersistence, "metadata_only");
+    assert.equal(configuredCustom.runtimeMaterialStatus, "bound_runtime_session");
+    assert.equal(Boolean(configuredCustom.baseUrlHash), true);
+    assert.equal(Boolean(configuredCustom.authVaultRefHash), true);
+    assert.equal(JSON.stringify(configuredCustom).includes(customCatalogServer.endpoint), false);
+    assert.equal(JSON.stringify(configuredCustom).includes(catalogVaultRef), false);
+
+    const configuredCustomGet = await expectOk(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.custom_http");
+    assert.equal(configuredCustomGet.id, "catalog.custom_http");
+    assert.equal(configuredCustomGet.provider.status, "configured");
+    assert.equal(JSON.stringify(configuredCustomGet).includes(customCatalogServer.endpoint), false);
+    assert.equal(JSON.stringify(configuredCustomGet).includes(catalogVaultRef), false);
+
+    const operatorCatalog = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=operator&limit=5");
+    const operatorEntry = operatorCatalog.results.find((entry) => entry.catalogProviderId === "catalog.local_manifest");
+    assert.equal(operatorEntry?.modelId, "operator/local-catalog-1b");
+    assert.equal(operatorCatalog.providers.find((provider) => provider.id === "catalog.local_manifest")?.runtimeMaterialStatus, "bound_runtime_session");
+    assert.equal(JSON.stringify(operatorCatalog).includes(operatorManifestPath), false);
+
     const projection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
     assert.equal(projection.catalog.providers.find((provider) => provider.id === "catalog.local_manifest")?.adapterPort, "ModelCatalogProviderPort");
     assert.equal(JSON.stringify(projection).includes(manifestPath), false);
+    assert.equal(JSON.stringify(projection).includes(operatorManifestPath), false);
     assert.equal(JSON.stringify(projection).includes(customCatalogServer.endpoint), false);
+    assert.equal(JSON.stringify(projection).includes(catalogVaultRef), false);
   } finally {
     restoreEnv("IOI_MODEL_CATALOG_MANIFEST_PATH", priorManifest);
     restoreEnv("IOI_MODEL_CATALOG_CUSTOM_BASE_URL", priorCustomCatalog);
