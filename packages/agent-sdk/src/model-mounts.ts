@@ -315,6 +315,18 @@ export interface ModelDownloadJob {
   targetPath?: string | null;
   targetPathHash?: string | null;
   variant?: ModelCatalogEntry | Record<string, unknown>;
+  downloadPolicy?: ModelDownloadPolicy;
+  bandwidthLimitBps?: number | null;
+  retryLimit?: number;
+  resumeDownload?: boolean;
+  cleanupState?: string | null;
+  projectedFreedBytes?: number;
+  destructiveConfirmation?: {
+    required: boolean;
+    confirmed: boolean;
+    action: string;
+    source: string;
+  };
   resumeOffset?: number;
   failureReason?: string | null;
   receiptIds?: string[];
@@ -351,6 +363,8 @@ export interface ModelCatalogStatus {
     quotaStatus: "ok" | "over_quota" | string;
     fileCount: number;
     orphanCount: number;
+    orphanBytes?: number;
+    projectedFreedBytes?: number;
     destructiveActionsRequireUnload: boolean;
     evidenceRefs: string[];
   };
@@ -406,6 +420,23 @@ export interface ModelCatalogEntry {
   };
   selectionReceiptFields?: string[];
   discoveredAt: string;
+}
+
+export interface ModelDownloadPolicy {
+  maxBytes?: number | null;
+  bandwidthLimitBps?: number | null;
+  retryLimit?: number;
+  resume?: boolean;
+  cleanupPartialOnCancel?: boolean;
+  externalTransferRequired?: boolean;
+  externalTransferApproved?: boolean;
+  status?: "ready" | "blocked_approval_required" | string;
+  approvalDecision?: {
+    required: boolean;
+    approved: boolean;
+    source: string;
+  };
+  evidenceRefs?: string[];
 }
 
 export interface RuntimeModelCatalogEntry {

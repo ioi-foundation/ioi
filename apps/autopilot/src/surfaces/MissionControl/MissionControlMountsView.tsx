@@ -76,6 +76,10 @@ interface ModelArtifact {
   format: string;
   quantization: string;
   source: string;
+  size: string;
+  sizeBytes: number;
+  endpointCount: number;
+  loadedInstanceCount: number;
   capabilities: string[];
 }
 
@@ -433,6 +437,12 @@ interface DownloadPreview {
   bytes: string;
   maxBytes: string;
   maxBytesValue: number;
+  bandwidthLimit: string;
+  bandwidthLimitValue: number;
+  retryLimit: string;
+  resumePolicy: string;
+  cleanupState: string;
+  policyStatus: string;
   checksum: string;
   receipt: string;
   failureReason: string;
@@ -454,6 +464,15 @@ interface CatalogImportPayload {
   variant?: CatalogVariantPreview | null;
   maxBytes?: string;
   transferApproved?: boolean;
+  bandwidthBps?: string;
+  retryLimit?: string;
+  resumeDownload?: boolean;
+}
+
+interface CatalogTransferPolicyDraft {
+  bandwidthBps: string;
+  retryLimit: string;
+  resumeDownload: boolean;
 }
 
 interface MountsWorkbenchData {
@@ -700,6 +719,10 @@ const fallbackData: MountsWorkbenchData = {
       format: "fixture",
       quantization: "fixture",
       source: "operator_import",
+      size: "96 MB",
+      sizeBytes: 100663296,
+      endpointCount: 1,
+      loadedInstanceCount: 1,
       capabilities: ["chat", "responses", "embeddings", "structured_output", "rerank"],
     },
     {
@@ -711,6 +734,10 @@ const fallbackData: MountsWorkbenchData = {
       format: "fixture",
       quantization: "fixture",
       source: "operator_import",
+      size: "32 MB",
+      sizeBytes: 33554432,
+      endpointCount: 0,
+      loadedInstanceCount: 0,
       capabilities: ["embeddings"],
     },
     {
@@ -722,6 +749,10 @@ const fallbackData: MountsWorkbenchData = {
       format: "gguf",
       quantization: "Q4_K_M",
       source: "native_local_fixture",
+      size: "96 MB",
+      sizeBytes: 100663296,
+      endpointCount: 1,
+      loadedInstanceCount: 0,
       capabilities: ["chat", "responses", "embeddings", "structured_output", "rerank"],
     },
     {
@@ -733,6 +764,10 @@ const fallbackData: MountsWorkbenchData = {
       format: "lm_studio",
       quantization: "observed",
       source: "lm_studio_public_lms",
+      size: "unknown",
+      sizeBytes: 0,
+      endpointCount: 1,
+      loadedInstanceCount: 0,
       capabilities: ["chat", "responses", "embeddings"],
     },
   ],
@@ -786,9 +821,9 @@ const fallbackData: MountsWorkbenchData = {
     },
   ],
   downloads: [
-    { id: "download_job_fixture", model: "local:auto", providerId: "provider.autopilot.local", status: "completed", progress: "100%", source: "fixture://catalog/autopilot-native-3b-q4", sourceLabel: "Fixture catalog", sourceHash: "fixture", bytes: "1.2 GB / 1.2 GB", maxBytes: "not bounded", maxBytesValue: 0, checksum: "sha256 redacted", receipt: "receipt_model_lifecycle_*", failureReason: "none", failureClass: "none", format: "gguf", quantization: "Q4_K_M", sizeBytes: 1288490188 },
-    { id: "download_job_retry_fixture", model: "autopilot:native-fixture", providerId: "provider.autopilot.local", status: "failed", progress: "42%", source: "fixture://catalog/autopilot-native-3b-q4", sourceLabel: "Fixture catalog", sourceHash: "fixture", bytes: "512 MB / 1.2 GB", maxBytes: "2 GB", maxBytesValue: 2147483648, checksum: "pending", receipt: "receipt_model_lifecycle_failed_*", failureReason: "checksum_mismatch", failureClass: "integrity", format: "gguf", quantization: "Q4_K_M", sizeBytes: 1288490188 },
-    { id: "download_queue_empty", model: "queue", providerId: "provider.autopilot.local", status: "empty", progress: "0 active jobs", source: "", sourceLabel: "No queued downloads", sourceHash: "none", bytes: "0", maxBytes: "not bounded", maxBytesValue: 0, checksum: "none", receipt: "none", failureReason: "none", failureClass: "none", format: "unknown", quantization: "unknown", sizeBytes: 0 },
+    { id: "download_job_fixture", model: "local:auto", providerId: "provider.autopilot.local", status: "completed", progress: "100%", source: "fixture://catalog/autopilot-native-3b-q4", sourceLabel: "Fixture catalog", sourceHash: "fixture", bytes: "1.2 GB / 1.2 GB", maxBytes: "not bounded", maxBytesValue: 0, bandwidthLimit: "unlimited", bandwidthLimitValue: 0, retryLimit: "0", resumePolicy: "resume enabled", cleanupState: "not_needed", policyStatus: "ready", checksum: "sha256 redacted", receipt: "receipt_model_lifecycle_*", failureReason: "none", failureClass: "none", format: "gguf", quantization: "Q4_K_M", sizeBytes: 1288490188 },
+    { id: "download_job_retry_fixture", model: "autopilot:native-fixture", providerId: "provider.autopilot.local", status: "failed", progress: "42%", source: "fixture://catalog/autopilot-native-3b-q4", sourceLabel: "Fixture catalog", sourceHash: "fixture", bytes: "512 MB / 1.2 GB", maxBytes: "2 GB", maxBytesValue: 2147483648, bandwidthLimit: "unlimited", bandwidthLimitValue: 0, retryLimit: "1", resumePolicy: "resume enabled", cleanupState: "not_needed", policyStatus: "ready", checksum: "pending", receipt: "receipt_model_lifecycle_failed_*", failureReason: "checksum_mismatch", failureClass: "integrity", format: "gguf", quantization: "Q4_K_M", sizeBytes: 1288490188 },
+    { id: "download_queue_empty", model: "queue", providerId: "provider.autopilot.local", status: "empty", progress: "0 active jobs", source: "", sourceLabel: "No queued downloads", sourceHash: "none", bytes: "0", maxBytes: "not bounded", maxBytesValue: 0, bandwidthLimit: "unlimited", bandwidthLimitValue: 0, retryLimit: "0", resumePolicy: "resume enabled", cleanupState: "none", policyStatus: "ready", checksum: "none", receipt: "none", failureReason: "none", failureClass: "none", format: "unknown", quantization: "unknown", sizeBytes: 0 },
   ],
   tokens: [
     {
@@ -2105,8 +2140,19 @@ function useModelMountsDaemon() {
         runAction("catalog-import-url", async () => {
           const token = await ensureToken();
           const body = payload.variant
-            ? catalogVariantPayload(payload.variant, payload.maxBytes, { transferApproved: Boolean(payload.transferApproved) })
-            : { source_url: payload.sourceUrl || "fixture://catalog/autopilot-native-3b-q4", transfer_approved: Boolean(payload.transferApproved) };
+            ? catalogVariantPayload(payload.variant, payload.maxBytes, {
+                transferApproved: Boolean(payload.transferApproved),
+                bandwidthBps: payload.bandwidthBps,
+                retryLimit: payload.retryLimit,
+                resumeDownload: payload.resumeDownload,
+              })
+            : {
+                source_url: payload.sourceUrl || "fixture://catalog/autopilot-native-3b-q4",
+                transfer_approved: Boolean(payload.transferApproved),
+                bandwidth_bps: parseByteLimit(payload.bandwidthBps ?? "") || undefined,
+                retry_limit: parseByteLimit(payload.retryLimit ?? "") || undefined,
+                resume_download: payload.resumeDownload ?? true,
+              };
           const result = await requestJson("/api/v1/models/catalog/import-url", {
             method: "POST",
             token,
@@ -2114,22 +2160,28 @@ function useModelMountsDaemon() {
           });
           return `Catalog URL import created ${stringValue(result?.download?.id, "a download job")}.`;
         }),
-      downloadCatalogVariant: (variant: CatalogVariantPreview, maxBytes?: string, transferApproved = false) =>
+      downloadCatalogVariant: (variant: CatalogVariantPreview, maxBytes?: string, transferApproved = false, policy: CatalogTransferPolicyDraft = { bandwidthBps: "", retryLimit: "0", resumeDownload: true }) =>
         runAction("catalog-download-selected", async () => {
           const token = await ensureToken();
           const result = await requestJson("/api/v1/models/download", {
             method: "POST",
             token,
-            body: catalogVariantPayload(variant, maxBytes, { transferApproved }),
+            body: catalogVariantPayload(variant, maxBytes, {
+              transferApproved,
+              bandwidthBps: policy.bandwidthBps,
+              retryLimit: policy.retryLimit,
+              resumeDownload: policy.resumeDownload,
+            }),
           });
           return `Selected variant download ${stringValue(result?.id, "job")} is ${stringValue(result?.status, "recorded")}.`;
         }),
-      cancelDownload: (download: DownloadPreview) =>
+      cancelDownload: (download: DownloadPreview, confirmed = true) =>
         runAction("download-cancel", async () => {
           const token = await ensureToken();
           const result = await requestJson(`/api/v1/models/download/${encodeURIComponent(download.id)}/cancel`, {
             method: "POST",
             token,
+            body: { cleanup_partial: true, confirm_destructive: confirmed },
           });
           return `${download.id} is ${stringValue(result?.status, "canceled")}; receipt ${stringValue(result?.receiptId, "recorded")}.`;
         }),
@@ -2143,11 +2195,25 @@ function useModelMountsDaemon() {
           });
           return `Retry download ${stringValue(result?.id, "job")} is ${stringValue(result?.status, "recorded")}.`;
         }),
-      cleanupStorage: () =>
+      cleanupStorage: (options: { removeOrphans?: boolean; confirmDestructive?: boolean } = {}) =>
         runAction("storage-cleanup", async () => {
           const token = await ensureToken();
-          const result = await requestJson("/api/v1/models/storage/cleanup", { method: "POST", token });
-          return `Storage cleanup scanned ${numberValue(result?.scannedFileCount, 0)} model file${numberValue(result?.scannedFileCount, 0) === 1 ? "" : "s"}; ${numberValue(result?.orphanCount, 0)} orphan${numberValue(result?.orphanCount, 0) === 1 ? "" : "s"}.`;
+          const result = await requestJson("/api/v1/models/storage/cleanup", {
+            method: "POST",
+            token,
+            body: { remove_orphans: Boolean(options.removeOrphans), confirm_destructive: Boolean(options.confirmDestructive) },
+          });
+          return `Storage cleanup ${stringValue(result?.status, "scanned")} ${numberValue(result?.scannedFileCount, 0)} model file${numberValue(result?.scannedFileCount, 0) === 1 ? "" : "s"}; ${numberValue(result?.orphanCount, 0)} orphan${numberValue(result?.orphanCount, 0) === 1 ? "" : "s"}; freed ${formatBytes(numberValue(result?.cleanedBytes, 0))}.`;
+        }),
+      deleteArtifact: (artifact: ModelArtifact, confirmed = true) =>
+        runAction("model-artifact-delete", async () => {
+          const token = await ensureToken();
+          const result = await requestJson(`/api/v1/models/${encodeURIComponent(artifact.id)}`, {
+            method: "DELETE",
+            token,
+            body: { confirm_destructive: confirmed },
+          });
+          return `${stringValue(result?.modelId, artifact.name)} delete is ${stringValue(result?.status, "recorded")}; projected freed ${formatBytes(numberValue(result?.projectedFreedBytes, artifact.sizeBytes))}.`;
         }),
       importValidationModel: () =>
         runAction("model-import-validation", async () => {
@@ -2843,7 +2909,9 @@ function normalizeSnapshot(snapshot: any, endpoint: string): MountsWorkbenchData
       item.operatorProfile,
     ),
   );
-  const endpoints = arrayOf(snapshot?.endpoints).map((item) => ({
+  const rawEndpoints = arrayOf(snapshot?.endpoints);
+  const rawInstances = arrayOf(snapshot?.instances);
+  const endpoints = rawEndpoints.map((item) => ({
     id: stringValue(item.id, "endpoint.unknown"),
     provider: stringValue(item.providerId, "provider.unknown"),
     apiFormat: stringValue(item.apiFormat, "unknown"),
@@ -2863,9 +2931,13 @@ function normalizeSnapshot(snapshot: any, endpoint: string): MountsWorkbenchData
     format: stringValue(item.format, "unknown"),
     quantization: stringValue(item.quantization, "unknown"),
     source: stringValue(item.source, "unknown"),
+    size: formatBytes(numberValue(item.sizeBytes, 0)),
+    sizeBytes: numberValue(item.sizeBytes, 0),
+    endpointCount: rawEndpoints.filter((endpoint) => endpoint.artifactId === item.id || endpoint.modelId === item.modelId).length,
+    loadedInstanceCount: rawInstances.filter((instance) => instance.modelId === item.modelId && instance.status === "loaded").length,
     capabilities: stringArray(item.capabilities),
   }));
-  const instances = arrayOf(snapshot?.instances).map((item) => ({
+  const instances = rawInstances.map((item) => ({
     id: stringValue(item.id, "instance.unknown"),
     endpointId: stringValue(item.endpointId, "endpoint.unknown"),
     modelId: stringValue(item.modelId, "unknown"),
@@ -2968,6 +3040,12 @@ function normalizeSnapshot(snapshot: any, endpoint: string): MountsWorkbenchData
       bytes: `${formatBytes(numberValue(item.bytesCompleted, 0))} / ${formatBytes(numberValue(item.bytesTotal, 0))}`,
       maxBytes: item.maxBytes ? formatBytes(numberValue(item.maxBytes, 0)) : "not bounded",
       maxBytesValue: numberValue(item.maxBytes, 0),
+      bandwidthLimit: item.bandwidthLimitBps ? `${formatBytes(numberValue(item.bandwidthLimitBps, 0))}/s` : "unlimited",
+      bandwidthLimitValue: numberValue(item.bandwidthLimitBps, 0),
+      retryLimit: `${numberValue(item.retryLimit ?? item.downloadPolicy?.retryLimit, 0)}`,
+      resumePolicy: item.downloadPolicy?.resume === false || item.resumeDownload === false ? "resume disabled" : "resume enabled",
+      cleanupState: stringValue(item.cleanupState, "not recorded"),
+      policyStatus: stringValue(item.downloadPolicy?.status, "ready"),
       checksum: stringValue(item.checksum, "pending"),
       receipt: stringValue(item.receiptId, "none"),
       failureReason: stringValue(item.failureReason, "none"),
@@ -3189,8 +3267,10 @@ function normalizeCatalogBenchmarkReadiness(value: any): CatalogVariantPreview["
   };
 }
 
-function catalogVariantPayload(variant: CatalogVariantPreview, maxBytes?: string, options: { transferApproved?: boolean } = {}) {
+function catalogVariantPayload(variant: CatalogVariantPreview, maxBytes?: string, options: { transferApproved?: boolean; bandwidthBps?: string; retryLimit?: string; resumeDownload?: boolean } = {}) {
   const parsedMaxBytes = Number(maxBytes ?? "");
+  const parsedBandwidthBps = Number(options.bandwidthBps ?? "");
+  const parsedRetryLimit = Number(options.retryLimit ?? "");
   return {
     source_url: variant.sourceUrl,
     model_id: variant.modelId,
@@ -3210,6 +3290,9 @@ function catalogVariantPayload(variant: CatalogVariantPreview, maxBytes?: string
     backend_compatibility: variant.backendCompatibility,
     benchmark_readiness: variant.benchmarkReadiness,
     transfer_approved: Boolean(options.transferApproved),
+    bandwidth_bps: Number.isFinite(parsedBandwidthBps) && parsedBandwidthBps > 0 ? Math.floor(parsedBandwidthBps) : undefined,
+    retry_limit: Number.isFinite(parsedRetryLimit) && parsedRetryLimit >= 0 ? Math.floor(parsedRetryLimit) : undefined,
+    resume_download: options.resumeDownload ?? true,
     max_bytes: Number.isFinite(parsedMaxBytes) && parsedMaxBytes > 0 ? Math.floor(parsedMaxBytes) : undefined,
   };
 }
@@ -3224,6 +3307,10 @@ function retryDownloadPayload(download: DownloadPreview) {
     quantization: download.quantization === "unknown" ? undefined : download.quantization,
     size_bytes: download.sizeBytes || undefined,
     max_bytes: download.maxBytesValue || undefined,
+    bandwidth_bps: download.bandwidthLimitValue || undefined,
+    retry_limit: Number.parseInt(download.retryLimit, 10) || undefined,
+    resume_download: download.resumePolicy !== "resume disabled",
+    transfer_approved: requiresExternalTransferApproval(download.source),
   };
 }
 
@@ -3267,6 +3354,14 @@ function acquisitionBudgetGuard(variant: CatalogVariantPreview | null, maxBytes:
     return guardWarn("storage warning", "Storage projection should be reviewed before starting this transfer.");
   }
   return guardReady("budget ok", "Variant size, byte cap, and storage projection are acceptable.");
+}
+
+function bandwidthPolicyGuard(policy: CatalogTransferPolicyDraft): ActionGuard {
+  const bandwidth = policy.bandwidthBps.trim() ? Number(policy.bandwidthBps) : 0;
+  const retries = policy.retryLimit.trim() ? Number(policy.retryLimit) : 0;
+  if (!Number.isFinite(bandwidth) || bandwidth < 0) return guardBlocked("bad bandwidth", "Bandwidth cap must be a positive byte-per-second value or blank.");
+  if (!Number.isFinite(retries) || retries < 0) return guardBlocked("bad retries", "Retry attempts must be zero or greater.");
+  return guardReady("policy ready", bandwidth > 0 ? `Bandwidth capped at ${formatBytes(bandwidth)}/s; retries ${Math.floor(retries)}.` : `Bandwidth unlimited; retries ${Math.floor(retries)}.`);
 }
 
 function transferApprovalGuard(required: boolean, approved: boolean): ActionGuard {
@@ -4197,6 +4292,7 @@ function ModelsPanel({
   onLoadNativeLocalModel,
   onLoadModelWithOptions,
   onDownloadFixture,
+  onDeleteArtifact,
   onOpenReceipt,
   busy,
 }: {
@@ -4207,9 +4303,11 @@ function ModelsPanel({
   onLoadNativeLocalModel: () => void;
   onLoadModelWithOptions: (draft: ModelLoadDraft) => void;
   onDownloadFixture: () => void;
+  onDeleteArtifact: (artifact: ModelArtifact, confirmed?: boolean) => void;
   onOpenReceipt: (receiptId: string) => void;
   busy: boolean;
 }) {
+  const [deleteConfirmId, setDeleteConfirmId] = useState("");
   const [loadDraft, setLoadDraft] = useState<ModelLoadDraft>({
     modelId: "autopilot:native-fixture",
     mode: "on_demand",
@@ -4314,10 +4412,42 @@ function ModelsPanel({
               <article key={artifact.id} className="model-mounts-compact-row">
                 <div>
                   <strong>{artifact.name}</strong>
-                  <span>{artifact.provider} / {artifact.quantization} / {artifact.context}</span>
+                  <span>{artifact.provider} / {artifact.quantization} / {artifact.context} / {artifact.size}</span>
+                  <span>{artifact.endpointCount} endpoint{artifact.endpointCount === 1 ? "" : "s"} / {artifact.loadedInstanceCount} loaded / source {artifact.source}</span>
                 </div>
                 <StatusPill tone={toneForStatus(artifact.state)}>{artifact.state}</StatusPill>
                 <TagList items={artifact.capabilities} />
+                <div className="model-mounts-row-actions" aria-label={`Artifact actions for ${artifact.id}`}>
+                  <ActionButton
+                    onClick={() => setDeleteConfirmId(artifact.id)}
+                    disabled={busy || deleteConfirmId === artifact.id}
+                    guard={combineGuards(
+                      connectionActionGuard(connectionState, "model.delete:*"),
+                      tokenScopeGuard(data, hasSessionToken, "model.delete:*"),
+                      artifact.loadedInstanceCount > 0
+                        ? guardBlocked("loaded", "Unload linked instances before deleting this artifact.")
+                        : guardReady("deletion review", `Projected freed space ${artifact.size}; ${artifact.endpointCount} endpoint link${artifact.endpointCount === 1 ? "" : "s"} will be marked deleted.`),
+                    )}
+                  >
+                    Arm delete
+                  </ActionButton>
+                  <ActionButton
+                    onClick={() => onDeleteArtifact(artifact, true)}
+                    disabled={busy}
+                    guard={combineGuards(
+                      connectionActionGuard(connectionState, "model.delete:*"),
+                      tokenScopeGuard(data, hasSessionToken, "model.delete:*"),
+                      deleteConfirmId === artifact.id
+                        ? guardReady("confirmed", `Delete artifact after reviewing projected freed space ${artifact.size}.`)
+                        : guardBlocked("confirm first", "Arm delete before removing model files or endpoint links."),
+                      artifact.loadedInstanceCount > 0
+                        ? guardBlocked("loaded", "Unload linked instances before deleting this artifact.")
+                        : guardReady("unloaded", "No loaded instance is projected for this artifact."),
+                    )}
+                  >
+                    Delete artifact
+                  </ActionButton>
+                </div>
               </article>
             ))}
           </div>
@@ -4404,18 +4534,25 @@ function DownloadsPanel({
   onDownloadFixture: () => void;
   onSearchCatalog: (draft: CatalogSearchDraft) => void;
   onImportCatalogUrl: (payload: CatalogImportPayload) => void;
-  onDownloadCatalogVariant: (variant: CatalogVariantPreview, maxBytes?: string, transferApproved?: boolean) => void;
-  onCancelDownload: (download: DownloadPreview) => void;
+  onDownloadCatalogVariant: (variant: CatalogVariantPreview, maxBytes?: string, transferApproved?: boolean, policy?: CatalogTransferPolicyDraft) => void;
+  onCancelDownload: (download: DownloadPreview, confirmed?: boolean) => void;
   onRetryDownload: (download: DownloadPreview) => void;
   onOpenReceipt: (receiptId: string) => void;
-  onCleanupStorage: () => void;
+  onCleanupStorage: (options?: { removeOrphans?: boolean; confirmDestructive?: boolean }) => void;
   busy: boolean;
 }) {
   const [draft, setDraft] = useState<CatalogSearchDraft>({ query: "autopilot", format: "gguf", quantization: "", limit: "20" });
   const [sourceUrl, setSourceUrl] = useState("fixture://catalog/autopilot-native-3b-q4");
   const [selectedVariantId, setSelectedVariantId] = useState("");
   const [maxBytes, setMaxBytes] = useState("");
+  const [bandwidthBps, setBandwidthBps] = useState("");
+  const [retryLimit, setRetryLimit] = useState("0");
+  const [resumeDownload, setResumeDownload] = useState(true);
   const [transferApproved, setTransferApproved] = useState(false);
+  const [cancelConfirmId, setCancelConfirmId] = useState("");
+  const [cleanupRemovesOrphans, setCleanupRemovesOrphans] = useState(false);
+  const [cleanupConfirmed, setCleanupConfirmed] = useState(false);
+  const transferPolicy = { bandwidthBps, retryLimit, resumeDownload };
   const updateDraft = (field: keyof CatalogSearchDraft, value: string) => setDraft((current) => ({ ...current, [field]: value }));
   const selectedVariant = catalogVariants.find((variant) => variant.id === selectedVariantId) ?? catalogVariants[0] ?? null;
   useEffect(() => {
@@ -4434,11 +4571,13 @@ function DownloadsPanel({
     tokenScopeGuard(data, hasSessionToken, "model.import:*"),
     sourceUrl.trim() ? guardReady("source ready", "Catalog URL is ready for governed import.") : guardBlocked("source missing", "Enter a source URL before importing."),
     transferApprovalGuard(sourceApprovalRequired, transferApproved),
+    bandwidthPolicyGuard(transferPolicy),
   );
   const selectedVariantGuard = combineGuards(
     downloadGuard,
     selectedVariant ? guardReady("variant selected", "Selected catalog variant will be sent with format, quantization, size, and source metadata.") : guardBlocked("no variant", "Search the catalog and select a variant first."),
     acquisitionBudgetGuard(selectedVariant, maxBytes, data.catalog),
+    bandwidthPolicyGuard(transferPolicy),
   );
   const selectedImportGuard = combineGuards(
     selectedVariantGuard,
@@ -4450,7 +4589,13 @@ function DownloadsPanel({
     selectedVariantGuard,
     transferApprovalGuard(selectedApprovalRequired, transferApproved),
   );
-  const cleanupGuard = combineGuards(connectionActionGuard(connectionState, "model.delete:*"), tokenScopeGuard(data, hasSessionToken, "model.delete:*"));
+  const cleanupGuard = combineGuards(
+    connectionActionGuard(connectionState, "model.delete:*"),
+    tokenScopeGuard(data, hasSessionToken, "model.delete:*"),
+    cleanupRemovesOrphans && data.catalog.orphanCount > 0 && !cleanupConfirmed
+      ? guardBlocked("confirm cleanup", "Confirm orphan removal before deleting model files.")
+      : guardReady(cleanupRemovesOrphans ? "cleanup confirmed" : "scan only", cleanupRemovesOrphans ? `Projected freed space is based on ${data.catalog.orphanCount} orphan file${data.catalog.orphanCount === 1 ? "" : "s"}.` : "Scan-only cleanup records orphan state without deleting files."),
+  );
   const failedDownloads = downloads.filter((download) => ["failed", "canceled"].includes(download.status));
   const acquisitionGuard = acquisitionBudgetGuard(selectedVariant, maxBytes, data.catalog);
   const approvalGuard = transferApprovalGuard(selectedApprovalRequired || sourceApprovalRequired, transferApproved);
@@ -4460,9 +4605,11 @@ function DownloadsPanel({
     downloads.map((download) => {
       const canCancel = ["queued", "running"].includes(download.status);
       const canRetry = ["failed", "canceled"].includes(download.status);
+      const cancelArmed = cancelConfirmId === download.id;
       const cancelGuard = combineGuards(
         downloadGuard,
         canCancel ? guardReady("cancelable", "Queued and running jobs can be canceled through the daemon lifecycle endpoint.") : guardBlocked("not cancelable", "Only queued or running jobs can be canceled."),
+        cancelArmed ? guardReady("cleanup confirmed", "Partial download cleanup has been explicitly confirmed.") : guardWarn("arm cancel", "Arm cancel first to confirm partial download cleanup."),
       );
       const retryGuard = combineGuards(
         downloadGuard,
@@ -4485,13 +4632,20 @@ function DownloadsPanel({
           <StatusPill tone={toneForStatus(download.status)}>{download.status}</StatusPill>
           <span className="model-mounts-row-note">{download.progress} / {download.bytes} / cap {download.maxBytes} / {download.receipt}</span>
           <span className="model-mounts-row-note">{download.providerId} / {download.format} / {download.quantization} / source {download.sourceHash}</span>
+          <span className="model-mounts-row-note">Policy: {download.policyStatus} / bandwidth {download.bandwidthLimit} / retry {download.retryLimit} / {download.resumePolicy} / cleanup {download.cleanupState}</span>
           {download.failureReason !== "none" ? <span className="model-mounts-row-note">Failure class: {download.failureClass} / {download.failureReason}</span> : null}
           <div
             className="model-mounts-row-actions"
             aria-label={`Download actions for ${download.id}`}
             data-download-action-row={download.id}
           >
-            <ActionButton onClick={() => onCancelDownload(download)} disabled={busy} guard={cancelGuard}>Cancel</ActionButton>
+            <ActionButton
+              onClick={() => (cancelArmed ? onCancelDownload(download, true) : setCancelConfirmId(download.id))}
+              disabled={busy}
+              guard={canCancel ? cancelGuard : guardBlocked("not cancelable", "Only queued or running jobs can be canceled.")}
+            >
+              {cancelArmed ? "Cancel" : "Arm cancel"}
+            </ActionButton>
             <ActionButton onClick={() => onRetryDownload(download)} disabled={busy} guard={retryGuard}>Retry</ActionButton>
             <ActionButton onClick={() => onOpenReceipt(download.receipt)} disabled={busy} guard={receiptGuard}>Open receipt</ActionButton>
           </div>
@@ -4517,7 +4671,7 @@ function DownloadsPanel({
           <StatusPill tone="ready">checksum tracked</StatusPill>
           <StatusPill tone={data.catalog.providers.some((provider) => provider.id === "catalog.huggingface" && provider.status !== "gated") ? "ready" : "muted"}>live catalog gated</StatusPill>
           <ActionButton onClick={onDownloadFixture} disabled={busy} guard={downloadGuard}>Download fixture</ActionButton>
-          <ActionButton onClick={onCleanupStorage} disabled={busy} guard={cleanupGuard}>Scan cleanup</ActionButton>
+          <ActionButton onClick={() => onCleanupStorage({ removeOrphans: cleanupRemovesOrphans, confirmDestructive: cleanupConfirmed })} disabled={busy} guard={cleanupGuard}>{cleanupRemovesOrphans ? "Remove orphan files" : "Scan cleanup"}</ActionButton>
         </div>
       </div>
 
@@ -4531,6 +4685,7 @@ function DownloadsPanel({
         <DetailFact label="Download gate" value={data.catalog.providers.find((provider) => provider.id === "catalog.huggingface")?.liveDownloadStatus ?? "unknown"} note="IOI_LIVE_MODEL_DOWNLOAD" />
         <DetailFact label="Storage" value={data.catalog.storageTotal} note={`${data.catalog.fileCount} files / ${data.catalog.orphanCount} orphan`} />
         <DetailFact label="Quota" value={data.catalog.storageStatus} note={data.catalog.storageQuota} />
+        <DetailFact label="Bandwidth policy" value={bandwidthBps ? `${formatBytes(parseByteLimit(bandwidthBps))}/s` : "unlimited"} note={`retry ${retryLimit || "0"} / ${resumeDownload ? "resume" : "no resume"}`} />
       </div>
 
       <div className="model-mounts-acquisition-review" aria-label="Acquisition review">
@@ -4561,6 +4716,27 @@ function DownloadsPanel({
           />
           <span>Approve external transfer</span>
           <small>Required before live network import or download. Fixture and local sources remain approval-free.</small>
+        </label>
+        <label className="model-mounts-approval-toggle">
+          <input
+            type="checkbox"
+            checked={cleanupRemovesOrphans}
+            onChange={(event) => {
+              setCleanupRemovesOrphans(event.target.checked);
+              setCleanupConfirmed(false);
+            }}
+          />
+          <span>Remove orphan files on cleanup</span>
+          <small>When enabled, cleanup becomes destructive and requires confirmation.</small>
+        </label>
+        <label className="model-mounts-approval-toggle">
+          <input
+            type="checkbox"
+            checked={cleanupConfirmed}
+            onChange={(event) => setCleanupConfirmed(event.target.checked)}
+          />
+          <span>Confirm destructive cleanup</span>
+          <small>Records operator confirmation before orphan files are removed.</small>
         </label>
       </div>
 
@@ -4595,10 +4771,22 @@ function DownloadsPanel({
             <span>Source URL</span>
             <input value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} />
           </label>
+          <label>
+            <span>Bandwidth B/s</span>
+            <input value={bandwidthBps} onChange={(event) => setBandwidthBps(event.target.value)} inputMode="numeric" placeholder="blank for unlimited" />
+          </label>
+          <label>
+            <span>Retry attempts</span>
+            <input value={retryLimit} onChange={(event) => setRetryLimit(event.target.value)} inputMode="numeric" />
+          </label>
+          <label className="model-mounts-checkbox">
+            <input type="checkbox" checked={resumeDownload} onChange={(event) => setResumeDownload(event.target.checked)} />
+            <span>Resume partial downloads</span>
+          </label>
         </div>
         <div className="model-mounts-form-actions">
           <ActionButton type="submit" disabled={busy} guard={connectionActionGuard(connectionState, "catalog search")}>Search catalog</ActionButton>
-          <ActionButton onClick={() => onImportCatalogUrl({ sourceUrl, transferApproved })} disabled={busy} guard={importGuard}>Import URL</ActionButton>
+          <ActionButton onClick={() => onImportCatalogUrl({ sourceUrl, transferApproved, bandwidthBps, retryLimit, resumeDownload })} disabled={busy} guard={importGuard}>Import URL</ActionButton>
         </div>
       </form>
 
@@ -4612,8 +4800,8 @@ function DownloadsPanel({
             <span>Max bytes</span>
             <input value={maxBytes} onChange={(event) => setMaxBytes(event.target.value)} inputMode="numeric" placeholder="optional byte cap" />
           </label>
-          <ActionButton onClick={() => selectedVariant && onImportCatalogUrl({ sourceUrl: selectedVariant.sourceUrl, variant: selectedVariant, maxBytes, transferApproved })} disabled={busy} guard={selectedImportGuard}>Import selected</ActionButton>
-          <ActionButton onClick={() => selectedVariant && onDownloadCatalogVariant(selectedVariant, maxBytes, transferApproved)} disabled={busy} guard={selectedDownloadGuard}>Download selected</ActionButton>
+          <ActionButton onClick={() => selectedVariant && onImportCatalogUrl({ sourceUrl: selectedVariant.sourceUrl, variant: selectedVariant, maxBytes, transferApproved, bandwidthBps, retryLimit, resumeDownload })} disabled={busy} guard={selectedImportGuard}>Import selected</ActionButton>
+          <ActionButton onClick={() => selectedVariant && onDownloadCatalogVariant(selectedVariant, maxBytes, transferApproved, transferPolicy)} disabled={busy} guard={selectedDownloadGuard}>Download selected</ActionButton>
         </div>
         {catalogVariants.length === 0 ? (
           <p className="model-mounts-empty">Run a catalog search to inspect variants before importing or downloading.</p>
@@ -6267,6 +6455,7 @@ export function MissionControlMountsView() {
             onLoadNativeLocalModel={daemon.actions.loadNativeLocalModel}
             onLoadModelWithOptions={daemon.actions.loadModelWithOptions}
             onDownloadFixture={daemon.actions.downloadFixture}
+            onDeleteArtifact={daemon.actions.deleteArtifact}
             onOpenReceipt={openReceiptInLogs}
             busy={busy}
           />
