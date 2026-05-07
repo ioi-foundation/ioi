@@ -198,6 +198,24 @@ export function WorkflowRailPanel({
   const harnessCanaryExecutionBoundaries =
     workflow.metadata.harness?.canaryExecutionBoundaries ??
     (harnessCanaryExecutionBoundary ? [harnessCanaryExecutionBoundary] : []);
+  const harnessDefaultRuntimeDispatchProof = workflow.metadata.harness?.defaultRuntimeDispatchProof;
+  const harnessReadOnlyRoutingProof =
+    harnessDefaultRuntimeDispatchProof?.readOnlyCapabilityRoutingProof ?? null;
+  const harnessReadOnlyRoutingNodeKinds =
+    harnessDefaultRuntimeDispatchProof?.readOnlyCapabilityRoutingWorkflowOwnedNodeKinds ?? [];
+  const harnessReadOnlyRoutingRequiredScenarios =
+    harnessDefaultRuntimeDispatchProof?.readOnlyCapabilityRoutingRequiredScenarioSet ??
+    (Array.isArray(harnessReadOnlyRoutingProof?.requiredScenarioSet)
+      ? harnessReadOnlyRoutingProof.requiredScenarioSet.filter(
+          (scenario): scenario is string => typeof scenario === "string",
+        )
+      : []);
+  const harnessReadOnlyRoutingReady =
+    harnessDefaultRuntimeDispatchProof?.readOnlyCapabilityRoutingReady === true &&
+    harnessDefaultRuntimeDispatchProof?.readOnlyCapabilityRoutingSelected === true &&
+    harnessDefaultRuntimeDispatchProof?.readOnlyCapabilityRoutingNoMutationReady === true &&
+    harnessReadOnlyRoutingProof?.sideEffectsExecuted === false &&
+    harnessReadOnlyRoutingProof?.mutationExecuted === false;
   const harnessActivationReady =
     !harnessForkWorkflow ||
     Boolean(
@@ -1078,6 +1096,114 @@ export function WorkflowRailPanel({
                 <small>{harnessRuntimeSelectorDecision.policyDecision}</small>
               </article>
             ) : null}
+            {harnessDefaultRuntimeDispatchProof ? (
+              <article className="workflow-output-row" data-testid="workflow-harness-default-runtime-dispatch">
+                <strong>{harnessDefaultRuntimeDispatchProof.selectedSelector}</strong>
+                <span>
+                  {harnessDefaultRuntimeDispatchProof.executionMode} · {harnessDefaultRuntimeDispatchProof.outputWriterStatus}
+                </span>
+                <small>
+                  {harnessDefaultRuntimeDispatchProof.acceptedClusterIds.length} clusters · {harnessDefaultRuntimeDispatchProof.dispatchNodeAttemptIds.length} attempts
+                </small>
+              </article>
+            ) : null}
+            {harnessReadOnlyRoutingProof ? (
+              <section
+                className="workflow-rail-section"
+                data-testid="workflow-harness-read-only-routing-proof"
+              >
+                <h4>Read-only routing</h4>
+                <dl className="workflow-rail-stats" data-testid="workflow-harness-read-only-routing-summary">
+                  <div>
+                    <dt>Mode</dt>
+                    <dd>{harnessDefaultRuntimeDispatchProof?.readOnlyCapabilityRoutingMode ?? String(harnessReadOnlyRoutingProof.mode ?? "unknown")}</dd>
+                  </div>
+                  <div>
+                    <dt>Scenario</dt>
+                    <dd>{harnessDefaultRuntimeDispatchProof?.readOnlyCapabilityRoutingScenario ?? String(harnessReadOnlyRoutingProof.scenario ?? "pending")}</dd>
+                  </div>
+                  <div>
+                    <dt>Nodes</dt>
+                    <dd>{harnessReadOnlyRoutingNodeKinds.length}</dd>
+                  </div>
+                  <div>
+                    <dt>Mutation</dt>
+                    <dd>{harnessReadOnlyRoutingReady ? "blocked" : "review"}</dd>
+                  </div>
+                </dl>
+                <article className="workflow-output-row" data-testid="workflow-harness-read-only-routing-no-mutation">
+                  <strong>{harnessReadOnlyRoutingReady ? "No mutation proof ready" : "No mutation proof incomplete"}</strong>
+                  <span>
+                    side effects {harnessReadOnlyRoutingProof.sideEffectsExecuted === false ? "not executed" : "review"} · mutation {harnessReadOnlyRoutingProof.mutationExecuted === false ? "not executed" : "review"}
+                  </span>
+                  <small>
+                    source material {harnessDefaultRuntimeDispatchProof?.readOnlyCapabilityRoutingSourceMaterialReady ? "ready" : "pending"} · rollback {harnessReadOnlyRoutingProof.rollbackAvailable ? "ready" : "blocked"}
+                  </small>
+                </article>
+                <div className="workflow-rail-list" data-testid="workflow-harness-read-only-routing-node-kinds">
+                  {harnessReadOnlyRoutingNodeKinds.map((kind) => {
+                    const nodeItem = workflow.nodes.find(
+                      (candidate) => candidate.runtimeBinding?.componentKind === kind,
+                    );
+                    return (
+                      <button
+                        key={kind}
+                        type="button"
+                        className="workflow-search-result is-ready"
+                        data-testid={`workflow-harness-read-only-routing-node-${kind}`}
+                        disabled={!nodeItem}
+                        onClick={() => nodeItem && onInspectNode(nodeItem.id)}
+                      >
+                        <strong>{nodeItem?.name ?? kind}</strong>
+                        <span>{kind} · workflow-owned</span>
+                        <small>{nodeItem?.runtimeBinding?.readiness ?? "binding pending"}</small>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="workflow-rail-list" data-testid="workflow-harness-read-only-routing-receipts">
+                  <article className="workflow-output-row">
+                    <strong>Attempts</strong>
+                    <span>{harnessDefaultRuntimeDispatchProof?.readOnlyCapabilityRoutingAttemptIds.length ?? 0} node attempts</span>
+                    <small>{harnessDefaultRuntimeDispatchProof?.readOnlyCapabilityRoutingAttemptIds.slice(0, 2).join(", ") ?? "pending"}</small>
+                  </article>
+                  <article className="workflow-output-row">
+                    <strong>Receipts</strong>
+                    <span>{harnessDefaultRuntimeDispatchProof?.readOnlyCapabilityRoutingReceiptIds.length ?? 0} receipt refs</span>
+                    <small>{harnessDefaultRuntimeDispatchProof?.readOnlyCapabilityRoutingReceiptIds.slice(0, 2).join(", ") ?? "pending"}</small>
+                  </article>
+                  <article className="workflow-output-row">
+                    <strong>Replay fixtures</strong>
+                    <span>{harnessDefaultRuntimeDispatchProof?.readOnlyCapabilityRoutingReplayFixtureRefs.length ?? 0} fixture refs</span>
+                    <small>{harnessDefaultRuntimeDispatchProof?.readOnlyCapabilityRoutingReplayFixtureRefs.slice(0, 2).join(", ") ?? "pending"}</small>
+                  </article>
+                </div>
+                {harnessReadOnlyRoutingRequiredScenarios.length > 0 ? (
+                  <div
+                    className="workflow-rail-list"
+                    data-testid="workflow-harness-read-only-routing-scenarios"
+                  >
+                    {harnessReadOnlyRoutingRequiredScenarios.map((scenario) => (
+                      <article
+                        key={scenario}
+                        className={`workflow-test-row is-${
+                          scenario === harnessDefaultRuntimeDispatchProof?.readOnlyCapabilityRoutingScenarioCoverageKey
+                            ? "passed"
+                            : "idle"
+                        }`}
+                      >
+                        <strong>{scenario}</strong>
+                        <span>
+                          {scenario === harnessDefaultRuntimeDispatchProof?.readOnlyCapabilityRoutingScenarioCoverageKey
+                            ? "current coverage key"
+                            : "retained requirement"}
+                        </span>
+                      </article>
+                    ))}
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
             {harnessCanaryExecutionBoundaries.length > 0 ? (
               <div className="workflow-rail-list" data-testid="workflow-harness-canary-execution-boundaries">
                 {harnessCanaryExecutionBoundaries.map((boundary) => (
@@ -1490,6 +1616,30 @@ export function WorkflowRailPanel({
   const bindingSummary = selectedNode ? workflowSelectedNodeBindingSummary(selectedNode, selectedLogic) : [];
   const selectedHarnessEvidence = selectedNode ? harnessNodeEvidenceSummary(selectedNode) : [];
   const selectedHarnessAttempt = selectedNodeRun?.harnessAttempt ?? null;
+  const selectedReadOnlyRoutingNodeIndex =
+    selectedNode?.runtimeBinding && harnessDefaultRuntimeDispatchProof
+      ? harnessReadOnlyRoutingNodeKinds.findIndex(
+          (kind) => kind === selectedNode.runtimeBinding?.componentKind,
+        )
+      : -1;
+  const selectedReadOnlyRoutingAttemptId =
+    selectedReadOnlyRoutingNodeIndex >= 0
+      ? harnessDefaultRuntimeDispatchProof?.readOnlyCapabilityRoutingAttemptIds[
+          selectedReadOnlyRoutingNodeIndex
+        ] ?? null
+      : null;
+  const selectedReadOnlyRoutingReceiptId =
+    selectedReadOnlyRoutingNodeIndex >= 0
+      ? harnessDefaultRuntimeDispatchProof?.readOnlyCapabilityRoutingReceiptIds[
+          selectedReadOnlyRoutingNodeIndex
+        ] ?? null
+      : null;
+  const selectedReadOnlyRoutingReplayRef =
+    selectedReadOnlyRoutingNodeIndex >= 0
+      ? harnessDefaultRuntimeDispatchProof?.readOnlyCapabilityRoutingReplayFixtureRefs[
+          selectedReadOnlyRoutingNodeIndex
+        ] ?? null
+      : null;
   const selectedPinnedFixture =
     selectedNodeFixtures.find((fixture) => fixture.pinned) ??
     selectedNodeFixtures[0] ??
@@ -1684,6 +1834,56 @@ export function WorkflowRailPanel({
                     {selectedHarnessAttempt.outputHash ?? "output hash pending"}
                   </small>
                 </article>
+              ) : null}
+              {selectedReadOnlyRoutingNodeIndex >= 0 && harnessReadOnlyRoutingProof ? (
+                <section
+                  className="workflow-node-inspector-section"
+                  data-testid="workflow-selected-node-read-only-routing-proof"
+                >
+                  <h4>Read-only routing proof</h4>
+                  <dl className="workflow-node-inspector-stats">
+                    <div>
+                      <dt>Scenario</dt>
+                      <dd>{harnessDefaultRuntimeDispatchProof?.readOnlyCapabilityRoutingScenario ?? "pending"}</dd>
+                    </div>
+                    <div>
+                      <dt>Coverage</dt>
+                      <dd>{harnessDefaultRuntimeDispatchProof?.readOnlyCapabilityRoutingScenarioCoverageKey ?? "pending"}</dd>
+                    </div>
+                    <div>
+                      <dt>Mutation</dt>
+                      <dd>{harnessDefaultRuntimeDispatchProof?.readOnlyCapabilityRoutingNoMutationReady ? "blocked" : "review"}</dd>
+                    </div>
+                    <div>
+                      <dt>Source</dt>
+                      <dd>{harnessDefaultRuntimeDispatchProof?.readOnlyCapabilityRoutingSourceMaterialReady ? "ready" : "pending"}</dd>
+                    </div>
+                  </dl>
+                  <article
+                    className="workflow-output-row"
+                    data-testid="workflow-selected-node-read-only-routing-receipts"
+                  >
+                    <strong>{selectedNode.runtimeBinding?.componentKind}</strong>
+                    <span>
+                      {selectedReadOnlyRoutingAttemptId ?? "attempt pending"} · {selectedReadOnlyRoutingReceiptId ?? "receipt pending"}
+                    </span>
+                    <small>{selectedReadOnlyRoutingReplayRef ?? "replay fixture pending"}</small>
+                  </article>
+                  <article className="workflow-output-row" data-testid="workflow-selected-node-read-only-routing-no-mutation">
+                    <strong>
+                      {harnessReadOnlyRoutingProof.sideEffectsExecuted === false &&
+                      harnessReadOnlyRoutingProof.mutationExecuted === false
+                        ? "Side effects blocked"
+                        : "Side effects need review"}
+                    </strong>
+                    <span>
+                      mode {harnessDefaultRuntimeDispatchProof?.readOnlyCapabilityRoutingMode ?? String(harnessReadOnlyRoutingProof.mode ?? "unknown")}
+                    </span>
+                    <small>
+                      {harnessDefaultRuntimeDispatchProof?.readOnlyCapabilityRoutingWorkflowOwnedNodeKinds.join(", ") ?? "node kinds pending"}
+                    </small>
+                  </article>
+                </section>
               ) : null}
             </section>
           ) : null}

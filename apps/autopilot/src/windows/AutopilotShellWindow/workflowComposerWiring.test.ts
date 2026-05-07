@@ -1096,8 +1096,8 @@ assert.match(
 
 assert.match(
   workflowRailPanel,
-  /(?=[\s\S]*workflow-settings-harness-summary)(?=[\s\S]*Mode)(?=[\s\S]*Live-ready)(?=[\s\S]*Gated clusters)(?=[\s\S]*workflow-harness-slots)(?=[\s\S]*workflow-harness-promotion-clusters)(?=[\s\S]*workflow-run-harness-timeline)(?=[\s\S]*workflow-run-harness-shadow-comparison)(?=[\s\S]*workflow-selected-node-harness-component)(?=[\s\S]*workflow-selected-node-harness-receipts)(?=[\s\S]*workflow-selected-node-replay-binding)(?=[\s\S]*workflow-selected-node-harness-attempt)(?=[\s\S]*replayEnvelope)/,
-  "Workflow rail should render harness mode, readiness, slots, promotion clusters, component ids, receipt mappings, replay metadata, node attempts, and shadow comparison at node level",
+  /(?=[\s\S]*workflow-settings-harness-summary)(?=[\s\S]*Mode)(?=[\s\S]*Live-ready)(?=[\s\S]*Gated clusters)(?=[\s\S]*workflow-harness-slots)(?=[\s\S]*workflow-harness-promotion-clusters)(?=[\s\S]*workflow-harness-default-runtime-dispatch)(?=[\s\S]*workflow-harness-read-only-routing-proof)(?=[\s\S]*workflow-harness-read-only-routing-node-kinds)(?=[\s\S]*workflow-harness-read-only-routing-receipts)(?=[\s\S]*workflow-run-harness-timeline)(?=[\s\S]*workflow-run-harness-shadow-comparison)(?=[\s\S]*workflow-selected-node-harness-component)(?=[\s\S]*workflow-selected-node-harness-receipts)(?=[\s\S]*workflow-selected-node-replay-binding)(?=[\s\S]*workflow-selected-node-harness-attempt)(?=[\s\S]*workflow-selected-node-read-only-routing-proof)(?=[\s\S]*workflow-selected-node-read-only-routing-receipts)(?=[\s\S]*workflow-selected-node-read-only-routing-no-mutation)(?=[\s\S]*replayEnvelope)/,
+  "Workflow rail should render harness mode, readiness, slots, promotion clusters, default dispatch, read-only routing proof, component ids, receipt mappings, replay metadata, node attempts, no-mutation proof, and shadow comparison at node level",
 );
 
 assert.match(
