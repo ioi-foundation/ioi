@@ -1736,6 +1736,23 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       ) &&
       /receiptRef: selectedHarnessReceiptRef/.test(controller) &&
       /writeHarnessWorkbenchDeepLink/.test(controller),
+    receiptDetailInspector:
+      /workflowHarnessReceiptKind/.test(rail) &&
+      /workflowRedactedReceiptPayload/.test(rail) &&
+      /selectedHarnessReceiptInspection/.test(rail) &&
+      /sourceKind: "node_attempt"/.test(rail) &&
+      /sourceKind: "activation_audit"/.test(rail) &&
+      /sourceKind: "rollback_execution"/.test(rail) &&
+      /sourceKind: "default_runtime_dispatch"/.test(rail) &&
+      /workflow-harness-receipt-inspector/.test(rail) &&
+      /data-receipt-source-kind/.test(rail) &&
+      /data-producer-component/.test(rail) &&
+      /data-policy-decision/.test(rail) &&
+      /data-attempt-id/.test(rail) &&
+      /data-replay-fixture-ref/.test(rail) &&
+      /workflow-harness-receipt-inspector-metadata/.test(rail) &&
+      /workflow-harness-receipt-payload-preview/.test(rail) &&
+      /workflow-harness-receipt-evidence-refs/.test(rail),
     rollbackCanaryContract:
       /WorkflowHarnessRollbackRestoreCanary[\s\S]*hashVerified[\s\S]*receiptBindingRef[\s\S]*blockers/.test(
         graph,
@@ -1761,6 +1778,9 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       rollbackDrillReceipt: "workflow-harness-rollback-drill-receipt-${index}",
       rollbackExecutionReceipt: "workflow-harness-rollback-execution-receipt-${index}",
       selectedReceiptDeepLinkState: "workflow-harness-deep-link-state[data-selected-receipt-ref]",
+      receiptInspector: "workflow-harness-receipt-inspector",
+      receiptPayloadPreview: "workflow-harness-receipt-payload-preview",
+      receiptEvidenceRefs: "workflow-harness-receipt-evidence-refs",
     },
     sourceRefs: [
       railPath,
