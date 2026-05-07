@@ -699,6 +699,33 @@ The design goal is not to turn the workflow GUI into a raw code editor. The
 goal is to make workflow-as-code feel native: the generic authoring substrate
 handles files and diffs, while the workflow workbench handles runtime meaning.
 
+### UI Primitive Decision Gate
+
+When adding a new workflow GUI element for advanced harness orchestration, use a
+short design-context gate before choosing or inventing the component. The goal
+is a broad shared interaction vocabulary, not imitation of another product.
+
+Required decision sequence:
+
+1. Check existing IOI/Autopilot primitives first.
+2. Review the AIP reference evidence for comparable graph/workbench mechanics:
+   `docs/evidence/harness-as-workflow-aip-reference/2026-05-06/README.md`.
+3. Prefer the shared vocabulary when it fits: rails, mini maps, tabs, split
+   panes, bottom shelves, inspectors, workbench panels, tables, status chips,
+   cards, legends, expand/collapse groups, focused-node workbenches, and
+   branch/compare banners.
+4. State why the chosen primitive fits the operator task: inspection,
+   navigation, comparison, activation, rollback, receipt tracing, replay,
+   policy review, or output control.
+5. Avoid bespoke UI when a familiar primitive already covers the interaction.
+6. Preserve IOI semantics and visual language: receipts, activation state,
+   policy posture, slots, worker bindings, replay, rollback, runtime modes,
+   workflow revision binding, and proposal-only mutation.
+
+This gate should run before implementation decisions for right rails, mini
+maps, tabs, split panes, cards, expand/collapse controls, status chips, tables,
+workbench panels, activation surfaces, and rollback surfaces.
+
 ### Collapsible Harness Groups
 
 Complex harness workflows need a screen-real-estate model that lets users move
