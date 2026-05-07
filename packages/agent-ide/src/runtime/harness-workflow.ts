@@ -631,6 +631,15 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     authorityToolingMcpToolCatalogLiveReplayFixtureRefs: [
       "harness-default-dispatch:fixture-authority_tooling_mcp_tool_call_read_only",
     ],
+    authorityToolingConnectorCatalogLiveAttemptIds: [
+      "harness-default-dispatch:attempt-authority_tooling_connector_call_read_only",
+    ],
+    authorityToolingConnectorCatalogLiveReceiptIds: [
+      "harness-default-dispatch:receipt-authority_tooling_connector_call_read_only",
+    ],
+    authorityToolingConnectorCatalogLiveReplayFixtureRefs: [
+      "harness-default-dispatch:fixture-authority_tooling_connector_call_read_only",
+    ],
     authorityToolingReadOnlyComponentKinds,
     authorityToolingMutationDeferredComponentKinds,
     authorityToolingDenialReceiptIds: [
@@ -1012,6 +1021,8 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     authorityToolingProviderCatalogLiveComponentKind: "mcp_provider",
     authorityToolingMcpToolCatalogLiveReady: true,
     authorityToolingMcpToolCatalogLiveComponentKind: "mcp_tool_call",
+    authorityToolingConnectorCatalogLiveReady: true,
+    authorityToolingConnectorCatalogLiveComponentKind: "connector_call",
     authorityToolingReadOnlyRouteAccepted: true,
     authorityToolingDestructiveRouteDenied: true,
     authorityToolingMutatingToolCallsBlocked: true,
@@ -1051,6 +1062,17 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
       ],
       mcpToolCatalogLiveReplayFixtureRefs: [
         "harness-default-dispatch:fixture-authority_tooling_mcp_tool_call_read_only",
+      ],
+      connectorCatalogLiveReady: true,
+      connectorCatalogLiveComponentKind: "connector_call",
+      connectorCatalogLiveAttemptIds: [
+        "harness-default-dispatch:attempt-authority_tooling_connector_call_read_only",
+      ],
+      connectorCatalogLiveReceiptIds: [
+        "harness-default-dispatch:receipt-authority_tooling_connector_call_read_only",
+      ],
+      connectorCatalogLiveReplayFixtureRefs: [
+        "harness-default-dispatch:fixture-authority_tooling_connector_call_read_only",
       ],
       readOnlyComponentKinds: authorityToolingReadOnlyComponentKinds,
       readOnlyAttemptIds: [
@@ -2217,12 +2239,13 @@ function nodeLogicFor(component: WorkflowHarnessComponentSpec): Record<string, u
       return {
         ...base,
         connectorBinding: {
-          connectorRef: "agent.connector.invoke",
+          connectorRef: "agent.connector.catalog",
           mockBinding: false,
           credentialReady: true,
-          capabilityScope: component.requiredCapabilityScope,
-          sideEffectClass: "external_write",
-          requiresApproval: true,
+          capabilityScope: ["connector.catalog.read", "mcp.tool.catalog.read"],
+          sideEffectClass: "read",
+          requiresApproval: false,
+          operation: "describe",
         },
       };
     case "memory_read":
