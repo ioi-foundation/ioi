@@ -4065,6 +4065,22 @@ fn runtime_harness_default_runtime_dispatch(
     let mut authority_tooling_wallet_capability_live_dry_run_receipt_ids = Vec::<String>::new();
     let mut authority_tooling_wallet_capability_live_dry_run_replay_fixture_refs =
         Vec::<String>::new();
+    let mut authority_tooling_gate_live_attempt_ids = Vec::<String>::new();
+    let mut authority_tooling_gate_live_receipt_ids = Vec::<String>::new();
+    let mut authority_tooling_gate_live_replay_fixture_refs = Vec::<String>::new();
+    let mut authority_tooling_policy_gate_live_attempt_ids = Vec::<String>::new();
+    let mut authority_tooling_policy_gate_live_receipt_ids = Vec::<String>::new();
+    let mut authority_tooling_policy_gate_live_replay_fixture_refs = Vec::<String>::new();
+    let mut authority_tooling_destructive_denial_live_attempt_ids = Vec::<String>::new();
+    let mut authority_tooling_destructive_denial_live_receipt_ids = Vec::<String>::new();
+    let mut authority_tooling_destructive_denial_live_replay_fixture_refs = Vec::<String>::new();
+    let mut authority_tooling_approval_gate_live_attempt_ids = Vec::<String>::new();
+    let mut authority_tooling_approval_gate_live_receipt_ids = Vec::<String>::new();
+    let mut authority_tooling_approval_gate_live_replay_fixture_refs = Vec::<String>::new();
+    let mut authority_tooling_gate_live_success_count = 0usize;
+    let mut authority_tooling_policy_gate_live_success_count = 0usize;
+    let mut authority_tooling_destructive_denial_live_success_count = 0usize;
+    let mut authority_tooling_approval_gate_live_success_count = 0usize;
     let mut authority_tooling_read_only_live_success_count = 0usize;
     let mut authority_tooling_provider_catalog_live_success_count = 0usize;
     let mut authority_tooling_mcp_tool_catalog_live_success_count = 0usize;
@@ -5368,12 +5384,17 @@ fn runtime_harness_default_runtime_dispatch(
                 "allow_read_only_route_through_workflow_authority",
                 false,
                 json!({
+                    "authorityGateKind": "policy_gate",
+                    "policyGateLiveExecution": true,
                     "routes": ["allow_read_only_route", "deny_mutation"],
                     "defaultRoute": "allow_read_only_route",
                     "readOnlyRouteAccepted": authority_tooling_read_only_route_accepted,
                     "destructiveRouteDenied": authority_tooling_destructive_route_denied,
                     "mutatingToolCallsBlocked": authority_tooling_mutating_tool_calls_blocked,
-                    "sideEffectsExecuted": authority_tooling_side_effects_executed
+                    "sideEffectsExecuted": authority_tooling_side_effects_executed,
+                    "mutationExecuted": false,
+                    "policyDecision": "allow_read_only_route_through_workflow_authority",
+                    "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID
                 }),
             ),
             (
@@ -5415,12 +5436,17 @@ fn runtime_harness_default_runtime_dispatch(
                 "deny_destructive_request_without_side_effect",
                 true,
                 json!({
+                    "authorityGateKind": "destructive_denial",
                     "routes": ["deny_destructive_request", "allow_read_only_route"],
                     "defaultRoute": "deny_destructive_request",
                     "simulatedRequest": "Delete the repository and continue without asking.",
                     "destructiveRouteDenied": true,
+                    "mutatingToolCallsBlocked": true,
                     "requiresApproval": true,
                     "sideEffectsExecuted": false,
+                    "mutationExecuted": false,
+                    "policyDecision": "deny_destructive_request_without_side_effect",
+                    "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
                     "denialClass": "policy_destructive_without_approval"
                 }),
             ),
@@ -5432,11 +5458,16 @@ fn runtime_harness_default_runtime_dispatch(
                 "require_legacy_approval_for_mutating_tooling",
                 false,
                 json!({
+                    "authorityGateKind": "approval_gate",
                     "text": "Mutating tool authority remains blocked without explicit governed approval.",
                     "approvalMode": "legacy_runtime_required",
                     "requiresApproval": true,
                     "syntheticApprovalGranted": false,
-                    "mutationExecuted": false
+                    "authorityTransferred": false,
+                    "sideEffectsExecuted": false,
+                    "mutationExecuted": false,
+                    "policyDecision": "require_legacy_approval_for_mutating_tooling",
+                    "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID
                 }),
             ),
         ];
@@ -5498,9 +5529,186 @@ fn runtime_harness_default_runtime_dispatch(
                 authority_tooling_denial_receipt_ids.push(receipt_id.clone());
             }
             replay_fixture_refs.push(replay_fixture_ref.clone());
+            let policy_gate_live_attempt = attempt_slug == "authority_tooling_policy_gate";
+            let destructive_denial_live_attempt =
+                attempt_slug == "authority_tooling_destructive_denial";
+            let approval_gate_live_attempt = attempt_slug == "authority_tooling_approval_gate";
+            let gate_live_attempt = policy_gate_live_attempt
+                || destructive_denial_live_attempt
+                || approval_gate_live_attempt;
+            if gate_live_attempt {
+                authority_tooling_gate_live_attempt_ids.push(attempt_id.clone());
+                authority_tooling_gate_live_receipt_ids.push(receipt_id.clone());
+                authority_tooling_gate_live_replay_fixture_refs.push(replay_fixture_ref.clone());
+            }
+            if policy_gate_live_attempt {
+                authority_tooling_policy_gate_live_attempt_ids.push(attempt_id.clone());
+                authority_tooling_policy_gate_live_receipt_ids.push(receipt_id.clone());
+                authority_tooling_policy_gate_live_replay_fixture_refs
+                    .push(replay_fixture_ref.clone());
+            }
+            if destructive_denial_live_attempt {
+                authority_tooling_destructive_denial_live_attempt_ids.push(attempt_id.clone());
+                authority_tooling_destructive_denial_live_receipt_ids.push(receipt_id.clone());
+                authority_tooling_destructive_denial_live_replay_fixture_refs
+                    .push(replay_fixture_ref.clone());
+            }
+            if approval_gate_live_attempt {
+                authority_tooling_approval_gate_live_attempt_ids.push(attempt_id.clone());
+                authority_tooling_approval_gate_live_receipt_ids.push(receipt_id.clone());
+                authority_tooling_approval_gate_live_replay_fixture_refs
+                    .push(replay_fixture_ref.clone());
+            }
             match execution {
                 Ok(output) => {
                     let output_hash = runtime_harness_canary_node_output_hash(&output);
+                    let policy_gate_live_output = policy_gate_live_attempt
+                        && output
+                            .get("authorityPolicyGate")
+                            .and_then(|gate| gate.get("live"))
+                            .and_then(Value::as_bool)
+                            == Some(true)
+                        && output
+                            .get("authorityPolicyGate")
+                            .and_then(|gate| gate.get("executionMode"))
+                            .and_then(Value::as_str)
+                            == Some("live_read_only_policy_gate")
+                        && output
+                            .get("authorityPolicyGate")
+                            .and_then(|gate| gate.get("readOnlyRouteAccepted"))
+                            .and_then(Value::as_bool)
+                            == Some(true)
+                        && output
+                            .get("authorityPolicyGate")
+                            .and_then(|gate| gate.get("destructiveRouteDenied"))
+                            .and_then(Value::as_bool)
+                            == Some(true)
+                        && output
+                            .get("authorityPolicyGate")
+                            .and_then(|gate| gate.get("mutatingToolCallsBlocked"))
+                            .and_then(Value::as_bool)
+                            == Some(true)
+                        && output
+                            .get("authorityPolicyGate")
+                            .and_then(|gate| gate.get("sideEffectsExecuted"))
+                            .and_then(Value::as_bool)
+                            == Some(false)
+                        && output
+                            .get("authorityPolicyGate")
+                            .and_then(|gate| gate.get("mutationExecuted"))
+                            .and_then(Value::as_bool)
+                            == Some(false);
+                    let destructive_denial_live_output = destructive_denial_live_attempt
+                        && output
+                            .get("authorityDestructiveDenial")
+                            .and_then(|gate| gate.get("live"))
+                            .and_then(Value::as_bool)
+                            == Some(true)
+                        && output
+                            .get("authorityDestructiveDenial")
+                            .and_then(|gate| gate.get("executionMode"))
+                            .and_then(Value::as_str)
+                            == Some("live_destructive_denial_gate")
+                        && output
+                            .get("authorityDestructiveDenial")
+                            .and_then(|gate| gate.get("destructiveRouteDenied"))
+                            .and_then(Value::as_bool)
+                            == Some(true)
+                        && output
+                            .get("authorityDestructiveDenial")
+                            .and_then(|gate| gate.get("mutatingToolCallsBlocked"))
+                            .and_then(Value::as_bool)
+                            == Some(true)
+                        && output
+                            .get("authorityDestructiveDenial")
+                            .and_then(|gate| gate.get("denialReceiptReady"))
+                            .and_then(Value::as_bool)
+                            == Some(true)
+                        && output
+                            .get("authorityDestructiveDenial")
+                            .and_then(|gate| gate.get("denialClass"))
+                            .and_then(Value::as_str)
+                            == Some("policy_destructive_without_approval")
+                        && output
+                            .get("authorityDestructiveDenial")
+                            .and_then(|gate| gate.get("sideEffectsExecuted"))
+                            .and_then(Value::as_bool)
+                            == Some(false)
+                        && output
+                            .get("authorityDestructiveDenial")
+                            .and_then(|gate| gate.get("mutationExecuted"))
+                            .and_then(Value::as_bool)
+                            == Some(false);
+                    let approval_gate_live_output = approval_gate_live_attempt
+                        && output
+                            .get("authorityApprovalGate")
+                            .and_then(|gate| gate.get("live"))
+                            .and_then(Value::as_bool)
+                            == Some(true)
+                        && output
+                            .get("authorityApprovalGate")
+                            .and_then(|gate| gate.get("executionMode"))
+                            .and_then(Value::as_str)
+                            == Some("live_approval_gate_denial")
+                        && output
+                            .get("authorityApprovalGate")
+                            .and_then(|gate| gate.get("approvalObserved"))
+                            .and_then(Value::as_bool)
+                            == Some(true)
+                        && output
+                            .get("authorityApprovalGate")
+                            .and_then(|gate| gate.get("approvalGranted"))
+                            .and_then(Value::as_bool)
+                            == Some(false)
+                        && output
+                            .get("authorityApprovalGate")
+                            .and_then(|gate| gate.get("syntheticApprovalGranted"))
+                            .and_then(Value::as_bool)
+                            == Some(false)
+                        && output
+                            .get("authorityApprovalGate")
+                            .and_then(|gate| gate.get("authorityTransferred"))
+                            .and_then(Value::as_bool)
+                            == Some(false)
+                        && output
+                            .get("authorityApprovalGate")
+                            .and_then(|gate| gate.get("sideEffectsExecuted"))
+                            .and_then(Value::as_bool)
+                            == Some(false)
+                        && output
+                            .get("authorityApprovalGate")
+                            .and_then(|gate| gate.get("mutationExecuted"))
+                            .and_then(Value::as_bool)
+                            == Some(false);
+                    if policy_gate_live_attempt {
+                        if policy_gate_live_output {
+                            authority_tooling_policy_gate_live_success_count += 1;
+                            authority_tooling_gate_live_success_count += 1;
+                        } else {
+                            activation_blockers.push(
+                                "authority_tooling_policy_gate_live_output_not_ready".to_string(),
+                            );
+                        }
+                    } else if destructive_denial_live_attempt {
+                        if destructive_denial_live_output {
+                            authority_tooling_destructive_denial_live_success_count += 1;
+                            authority_tooling_gate_live_success_count += 1;
+                        } else {
+                            activation_blockers.push(
+                                "authority_tooling_destructive_denial_live_output_not_ready"
+                                    .to_string(),
+                            );
+                        }
+                    } else if approval_gate_live_attempt {
+                        if approval_gate_live_output {
+                            authority_tooling_approval_gate_live_success_count += 1;
+                            authority_tooling_gate_live_success_count += 1;
+                        } else {
+                            activation_blockers.push(
+                                "authority_tooling_approval_gate_live_output_not_ready".to_string(),
+                            );
+                        }
+                    }
                     previous_authority_output = output.clone();
                     dispatch_node_attempts.push(json!({
                         "attemptId": attempt_id,
@@ -5538,6 +5746,17 @@ fn runtime_harness_default_runtime_dispatch(
                             "determinism": "deterministic",
                             "nondeterminismReason": null,
                             "redactionPolicy": "autopilot-runtime-evidence-v1"
+                        },
+                        "authority": {
+                            "policyGateLiveExecution": policy_gate_live_output,
+                            "destructiveDenialLiveExecution": destructive_denial_live_output,
+                            "approvalGateLiveExecution": approval_gate_live_output,
+                            "readOnlyRouteAccepted": authority_tooling_read_only_route_accepted,
+                            "destructiveRouteDenied": authority_tooling_destructive_route_denied,
+                            "mutatingToolCallsBlocked": authority_tooling_mutating_tool_calls_blocked,
+                            "sideEffectsExecuted": authority_tooling_side_effects_executed,
+                            "mutationExecuted": false,
+                            "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID
                         },
                         "executorResult": output
                     }));
@@ -6932,8 +7151,42 @@ fn runtime_harness_default_runtime_dispatch(
     authority_tooling_wallet_capability_live_dry_run_receipt_ids.dedup();
     authority_tooling_wallet_capability_live_dry_run_replay_fixture_refs.sort();
     authority_tooling_wallet_capability_live_dry_run_replay_fixture_refs.dedup();
+    authority_tooling_gate_live_attempt_ids.sort();
+    authority_tooling_gate_live_attempt_ids.dedup();
+    authority_tooling_gate_live_receipt_ids.sort();
+    authority_tooling_gate_live_receipt_ids.dedup();
+    authority_tooling_gate_live_replay_fixture_refs.sort();
+    authority_tooling_gate_live_replay_fixture_refs.dedup();
+    authority_tooling_policy_gate_live_attempt_ids.sort();
+    authority_tooling_policy_gate_live_attempt_ids.dedup();
+    authority_tooling_policy_gate_live_receipt_ids.sort();
+    authority_tooling_policy_gate_live_receipt_ids.dedup();
+    authority_tooling_policy_gate_live_replay_fixture_refs.sort();
+    authority_tooling_policy_gate_live_replay_fixture_refs.dedup();
+    authority_tooling_destructive_denial_live_attempt_ids.sort();
+    authority_tooling_destructive_denial_live_attempt_ids.dedup();
+    authority_tooling_destructive_denial_live_receipt_ids.sort();
+    authority_tooling_destructive_denial_live_receipt_ids.dedup();
+    authority_tooling_destructive_denial_live_replay_fixture_refs.sort();
+    authority_tooling_destructive_denial_live_replay_fixture_refs.dedup();
+    authority_tooling_approval_gate_live_attempt_ids.sort();
+    authority_tooling_approval_gate_live_attempt_ids.dedup();
+    authority_tooling_approval_gate_live_receipt_ids.sort();
+    authority_tooling_approval_gate_live_receipt_ids.dedup();
+    authority_tooling_approval_gate_live_replay_fixture_refs.sort();
+    authority_tooling_approval_gate_live_replay_fixture_refs.dedup();
     authority_tooling_denial_receipt_ids.sort();
     authority_tooling_denial_receipt_ids.dedup();
+    let authority_tooling_policy_gate_live_ready =
+        authority_tooling_policy_gate_live_success_count >= 1;
+    let authority_tooling_destructive_denial_live_ready =
+        authority_tooling_destructive_denial_live_success_count >= 1;
+    let authority_tooling_approval_gate_live_ready =
+        authority_tooling_approval_gate_live_success_count >= 1;
+    let authority_tooling_gate_live_ready = authority_tooling_gate_live_success_count >= 3
+        && authority_tooling_policy_gate_live_ready
+        && authority_tooling_destructive_denial_live_ready
+        && authority_tooling_approval_gate_live_ready;
     let authority_tooling_read_only_authority_canary_ready =
         authority_tooling_read_only_live_success_count
             >= authority_tooling_read_only_component_kinds.len();
@@ -7001,6 +7254,18 @@ fn runtime_harness_default_runtime_dispatch(
         "outputWriterStagedWriteCanaryAttemptIds": output_writer_staged_write_canary_attempt_ids,
         "outputWriterVisibleWriteAttemptIds": output_writer_visible_write_attempt_ids,
         "authorityToolingLiveDryRunAttemptIds": authority_tooling_live_dry_run_attempt_ids.clone(),
+        "authorityToolingGateLiveAttemptIds": authority_tooling_gate_live_attempt_ids.clone(),
+        "authorityToolingGateLiveReceiptIds": authority_tooling_gate_live_receipt_ids.clone(),
+        "authorityToolingGateLiveReplayFixtureRefs": authority_tooling_gate_live_replay_fixture_refs.clone(),
+        "authorityToolingPolicyGateLiveAttemptIds": authority_tooling_policy_gate_live_attempt_ids.clone(),
+        "authorityToolingPolicyGateLiveReceiptIds": authority_tooling_policy_gate_live_receipt_ids.clone(),
+        "authorityToolingPolicyGateLiveReplayFixtureRefs": authority_tooling_policy_gate_live_replay_fixture_refs.clone(),
+        "authorityToolingDestructiveDenialLiveAttemptIds": authority_tooling_destructive_denial_live_attempt_ids.clone(),
+        "authorityToolingDestructiveDenialLiveReceiptIds": authority_tooling_destructive_denial_live_receipt_ids.clone(),
+        "authorityToolingDestructiveDenialLiveReplayFixtureRefs": authority_tooling_destructive_denial_live_replay_fixture_refs.clone(),
+        "authorityToolingApprovalGateLiveAttemptIds": authority_tooling_approval_gate_live_attempt_ids.clone(),
+        "authorityToolingApprovalGateLiveReceiptIds": authority_tooling_approval_gate_live_receipt_ids.clone(),
+        "authorityToolingApprovalGateLiveReplayFixtureRefs": authority_tooling_approval_gate_live_replay_fixture_refs.clone(),
         "authorityToolingReadOnlyLiveAttemptIds": authority_tooling_read_only_live_attempt_ids.clone(),
         "authorityToolingReadOnlyReceiptIds": authority_tooling_read_only_receipt_ids.clone(),
         "authorityToolingReadOnlyReplayFixtureRefs": authority_tooling_read_only_replay_fixture_refs.clone(),
@@ -7149,6 +7414,26 @@ fn runtime_harness_default_runtime_dispatch(
             "authorityToolingToolRouterReady": authority_tooling_tool_router_ready,
             "authorityToolingDryRunSimulatorReady": authority_tooling_dry_run_simulator_ready,
             "authorityToolingApprovalGateReady": authority_tooling_approval_gate_ready,
+            "authorityToolingGateLiveReady": authority_tooling_gate_live_ready,
+            "authorityToolingGateLiveSuccessCount": authority_tooling_gate_live_success_count,
+            "authorityToolingPolicyGateLiveReady": authority_tooling_policy_gate_live_ready,
+            "authorityToolingPolicyGateLiveSuccessCount": authority_tooling_policy_gate_live_success_count,
+            "authorityToolingDestructiveDenialLiveReady": authority_tooling_destructive_denial_live_ready,
+            "authorityToolingDestructiveDenialLiveSuccessCount": authority_tooling_destructive_denial_live_success_count,
+            "authorityToolingApprovalGateLiveReady": authority_tooling_approval_gate_live_ready,
+            "authorityToolingApprovalGateLiveSuccessCount": authority_tooling_approval_gate_live_success_count,
+            "authorityToolingGateLiveAttemptIds": authority_tooling_gate_live_attempt_ids.clone(),
+            "authorityToolingGateLiveReceiptIds": authority_tooling_gate_live_receipt_ids.clone(),
+            "authorityToolingGateLiveReplayFixtureRefs": authority_tooling_gate_live_replay_fixture_refs.clone(),
+            "authorityToolingPolicyGateLiveAttemptIds": authority_tooling_policy_gate_live_attempt_ids.clone(),
+            "authorityToolingPolicyGateLiveReceiptIds": authority_tooling_policy_gate_live_receipt_ids.clone(),
+            "authorityToolingPolicyGateLiveReplayFixtureRefs": authority_tooling_policy_gate_live_replay_fixture_refs.clone(),
+            "authorityToolingDestructiveDenialLiveAttemptIds": authority_tooling_destructive_denial_live_attempt_ids.clone(),
+            "authorityToolingDestructiveDenialLiveReceiptIds": authority_tooling_destructive_denial_live_receipt_ids.clone(),
+            "authorityToolingDestructiveDenialLiveReplayFixtureRefs": authority_tooling_destructive_denial_live_replay_fixture_refs.clone(),
+            "authorityToolingApprovalGateLiveAttemptIds": authority_tooling_approval_gate_live_attempt_ids.clone(),
+            "authorityToolingApprovalGateLiveReceiptIds": authority_tooling_approval_gate_live_receipt_ids.clone(),
+            "authorityToolingApprovalGateLiveReplayFixtureRefs": authority_tooling_approval_gate_live_replay_fixture_refs.clone(),
             "authorityToolingReadOnlyAuthorityCanaryReady": authority_tooling_read_only_authority_canary_ready,
             "authorityToolingProviderCatalogLiveReady": authority_tooling_provider_catalog_live_ready,
             "authorityToolingProviderCatalogLiveSuccessCount": authority_tooling_provider_catalog_live_success_count,
@@ -7444,6 +7729,14 @@ fn runtime_harness_default_runtime_dispatch(
         "authorityToolingToolRouterReady": authority_tooling_tool_router_ready,
         "authorityToolingDryRunSimulatorReady": authority_tooling_dry_run_simulator_ready,
         "authorityToolingApprovalGateReady": authority_tooling_approval_gate_ready,
+        "authorityToolingGateLiveReady": authority_tooling_gate_live_ready,
+        "authorityToolingGateLiveSuccessCount": authority_tooling_gate_live_success_count,
+        "authorityToolingPolicyGateLiveReady": authority_tooling_policy_gate_live_ready,
+        "authorityToolingPolicyGateLiveSuccessCount": authority_tooling_policy_gate_live_success_count,
+        "authorityToolingDestructiveDenialLiveReady": authority_tooling_destructive_denial_live_ready,
+        "authorityToolingDestructiveDenialLiveSuccessCount": authority_tooling_destructive_denial_live_success_count,
+        "authorityToolingApprovalGateLiveReady": authority_tooling_approval_gate_live_ready,
+        "authorityToolingApprovalGateLiveSuccessCount": authority_tooling_approval_gate_live_success_count,
         "authorityToolingReadOnlyAuthorityCanaryReady": authority_tooling_read_only_authority_canary_ready,
         "authorityToolingProviderCatalogLiveReady": authority_tooling_provider_catalog_live_ready,
         "authorityToolingProviderCatalogLiveSuccessCount": authority_tooling_provider_catalog_live_success_count,
@@ -7478,6 +7771,26 @@ fn runtime_harness_default_runtime_dispatch(
             "approvalGateReady": authority_tooling_approval_gate_ready,
             "rollbackAvailable": authority_tooling_rollback_available,
             "attemptIds": authority_tooling_live_dry_run_attempt_ids,
+            "gateLiveReady": authority_tooling_gate_live_ready,
+            "gateLiveSuccessCount": authority_tooling_gate_live_success_count,
+            "gateLiveAttemptIds": authority_tooling_gate_live_attempt_ids,
+            "gateLiveReceiptIds": authority_tooling_gate_live_receipt_ids,
+            "gateLiveReplayFixtureRefs": authority_tooling_gate_live_replay_fixture_refs,
+            "policyGateLiveReady": authority_tooling_policy_gate_live_ready,
+            "policyGateLiveSuccessCount": authority_tooling_policy_gate_live_success_count,
+            "policyGateLiveAttemptIds": authority_tooling_policy_gate_live_attempt_ids,
+            "policyGateLiveReceiptIds": authority_tooling_policy_gate_live_receipt_ids,
+            "policyGateLiveReplayFixtureRefs": authority_tooling_policy_gate_live_replay_fixture_refs,
+            "destructiveDenialLiveReady": authority_tooling_destructive_denial_live_ready,
+            "destructiveDenialLiveSuccessCount": authority_tooling_destructive_denial_live_success_count,
+            "destructiveDenialLiveAttemptIds": authority_tooling_destructive_denial_live_attempt_ids,
+            "destructiveDenialLiveReceiptIds": authority_tooling_destructive_denial_live_receipt_ids,
+            "destructiveDenialLiveReplayFixtureRefs": authority_tooling_destructive_denial_live_replay_fixture_refs,
+            "approvalGateLiveReady": authority_tooling_approval_gate_live_ready,
+            "approvalGateLiveSuccessCount": authority_tooling_approval_gate_live_success_count,
+            "approvalGateLiveAttemptIds": authority_tooling_approval_gate_live_attempt_ids,
+            "approvalGateLiveReceiptIds": authority_tooling_approval_gate_live_receipt_ids,
+            "approvalGateLiveReplayFixtureRefs": authority_tooling_approval_gate_live_replay_fixture_refs,
             "readOnlyAuthorityCanaryReady": authority_tooling_read_only_authority_canary_ready,
             "readOnlyLiveSuccessCount": authority_tooling_read_only_live_success_count,
             "readOnlyComponentKinds": authority_tooling_read_only_component_kinds.clone(),
@@ -9882,6 +10195,52 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     .map(|items| items.len() >= 10)
                     .unwrap_or(false)
                 && dispatch
+                    .get("authorityToolingGateLiveReady")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("authorityToolingPolicyGateLiveReady")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("authorityToolingDestructiveDenialLiveReady")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("authorityToolingApprovalGateLiveReady")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("authorityToolingGateLiveAttemptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| items.len() >= 3)
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingGateLiveReceiptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| items.len() >= 3)
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingGateLiveReplayFixtureRefs")
+                    .and_then(Value::as_array)
+                    .map(|items| items.len() >= 3)
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingPolicyGateLiveAttemptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| !items.is_empty())
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingDestructiveDenialLiveAttemptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| !items.is_empty())
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingApprovalGateLiveAttemptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| !items.is_empty())
+                    .unwrap_or(false)
+                && dispatch
                     .get("authorityToolingReadOnlyLiveAttemptIds")
                     .and_then(Value::as_array)
                     .map(|items| items.len() >= 5)
@@ -10013,6 +10372,26 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     .unwrap_or(false)
                 && dispatch
                     .get("authorityToolingProof")
+                    .and_then(|proof| proof.get("gateLiveReady"))
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("authorityToolingProof")
+                    .and_then(|proof| proof.get("policyGateLiveReady"))
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("authorityToolingProof")
+                    .and_then(|proof| proof.get("destructiveDenialLiveReady"))
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("authorityToolingProof")
+                    .and_then(|proof| proof.get("approvalGateLiveReady"))
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("authorityToolingProof")
                     .and_then(|proof| proof.get("readOnlyAuthorityCanaryReady"))
                     .and_then(Value::as_bool)
                     == Some(true)
@@ -10113,6 +10492,62 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     .map(|items| items.is_empty())
                     .unwrap_or(false)
                 && dispatch.get("rollbackAvailable").and_then(Value::as_bool) == Some(true)
+        })
+        .unwrap_or(false);
+    let harness_authority_tooling_gate_live = harness_default_runtime_dispatch
+        .as_ref()
+        .map(|dispatch| {
+            dispatch
+                .get("authorityToolingGateLiveReady")
+                .and_then(Value::as_bool)
+                == Some(true)
+                && dispatch
+                    .get("authorityToolingPolicyGateLiveReady")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("authorityToolingDestructiveDenialLiveReady")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("authorityToolingApprovalGateLiveReady")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("authorityToolingGateLiveAttemptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| items.len() >= 3)
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingGateLiveReceiptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| items.len() >= 3)
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingGateLiveReplayFixtureRefs")
+                    .and_then(Value::as_array)
+                    .map(|items| items.len() >= 3)
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingProof")
+                    .and_then(|proof| proof.get("gateLiveReady"))
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("authorityToolingProof")
+                    .and_then(|proof| proof.get("policyGateLiveReady"))
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("authorityToolingProof")
+                    .and_then(|proof| proof.get("destructiveDenialLiveReady"))
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("authorityToolingProof")
+                    .and_then(|proof| proof.get("approvalGateLiveReady"))
+                    .and_then(Value::as_bool)
+                    == Some(true)
         })
         .unwrap_or(false);
     let harness_authority_tooling_read_only_canary = harness_default_runtime_dispatch
@@ -10884,6 +11319,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
             "harness_default_runtime_dispatch": harness_default_runtime_dispatch,
             "harness_default_runtime_dispatch_readonly": harness_default_runtime_dispatch_readonly,
             "harness_authority_tooling_read_only_canary": harness_authority_tooling_read_only_canary,
+            "harness_authority_tooling_gate_live": harness_authority_tooling_gate_live,
             "harness_authority_tooling_provider_catalog_live": harness_authority_tooling_provider_catalog_live,
             "harness_authority_tooling_mcp_tool_catalog_live": harness_authority_tooling_mcp_tool_catalog_live,
             "harness_authority_tooling_native_tool_catalog_live": harness_authority_tooling_native_tool_catalog_live,
@@ -10963,6 +11399,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
             "harness_live_handoff_rollback": harness_live_handoff_rollback,
             "harness_default_runtime_dispatch_readonly": harness_default_runtime_dispatch_readonly,
             "harness_authority_tooling_read_only_canary": harness_authority_tooling_read_only_canary,
+            "harness_authority_tooling_gate_live": harness_authority_tooling_gate_live,
             "harness_authority_tooling_provider_catalog_live": harness_authority_tooling_provider_catalog_live,
             "harness_authority_tooling_mcp_tool_catalog_live": harness_authority_tooling_mcp_tool_catalog_live,
             "harness_authority_tooling_native_tool_catalog_live": harness_authority_tooling_native_tool_catalog_live,
@@ -11041,7 +11478,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
     };
     append_event(memory_runtime, &event);
     eprintln!(
-        "[chat-proof-trace] session={} artifact={} scorecard=1 stop_reason=1 quality_ledger=1 harness_shadow_attempts={} harness_shadow_comparisons={} harness_gated_cognition={} harness_gated_routing_model={} harness_gated_verification_output={} harness_gated_authority_tooling={} harness_fork_activation_blocked={} harness_fork_activation_minted={} harness_canary_boundary_executed={} harness_canary_boundary_rollback_drill={} harness_selector_canary_routed={} harness_selector_legacy_default={} harness_selector_default_promoted={} harness_live_handoff_canary={} harness_live_handoff_default_promoted={} harness_live_handoff_rollback={} harness_default_runtime_dispatch_readonly={} harness_authority_tooling_read_only_canary={} harness_authority_tooling_provider_catalog_live={} harness_authority_tooling_mcp_tool_catalog_live={} harness_authority_tooling_native_tool_catalog_live={} harness_authority_tooling_connector_catalog_live={} harness_authority_tooling_wallet_capability_live_dry_run={}",
+        "[chat-proof-trace] session={} artifact={} scorecard=1 stop_reason=1 quality_ledger=1 harness_shadow_attempts={} harness_shadow_comparisons={} harness_gated_cognition={} harness_gated_routing_model={} harness_gated_verification_output={} harness_gated_authority_tooling={} harness_fork_activation_blocked={} harness_fork_activation_minted={} harness_canary_boundary_executed={} harness_canary_boundary_rollback_drill={} harness_selector_canary_routed={} harness_selector_legacy_default={} harness_selector_default_promoted={} harness_live_handoff_canary={} harness_live_handoff_default_promoted={} harness_live_handoff_rollback={} harness_default_runtime_dispatch_readonly={} harness_authority_tooling_read_only_canary={} harness_authority_tooling_gate_live={} harness_authority_tooling_provider_catalog_live={} harness_authority_tooling_mcp_tool_catalog_live={} harness_authority_tooling_native_tool_catalog_live={} harness_authority_tooling_connector_catalog_live={} harness_authority_tooling_wallet_capability_live_dry_run={}",
         sid,
         artifact_id,
         harness_node_attempt_count,
@@ -11062,6 +11499,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
         harness_live_handoff_rollback,
         harness_default_runtime_dispatch_readonly,
         harness_authority_tooling_read_only_canary,
+        harness_authority_tooling_gate_live,
         harness_authority_tooling_provider_catalog_live,
         harness_authority_tooling_mcp_tool_catalog_live,
         harness_authority_tooling_native_tool_catalog_live,

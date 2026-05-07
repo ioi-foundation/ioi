@@ -592,6 +592,48 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
       "harness-default-dispatch:attempt-authority_tooling_connector_call_read_only",
       "harness-default-dispatch:attempt-authority_tooling_wallet_capability_read_only",
     ],
+    authorityToolingGateLiveAttemptIds: [
+      "harness-default-dispatch:attempt-authority_tooling_policy_gate",
+      "harness-default-dispatch:attempt-authority_tooling_destructive_denial",
+      "harness-default-dispatch:attempt-authority_tooling_approval_gate",
+    ],
+    authorityToolingGateLiveReceiptIds: [
+      "harness-default-dispatch:receipt-authority_tooling_policy_gate",
+      "harness-default-dispatch:receipt-authority_tooling_destructive_denial",
+      "harness-default-dispatch:receipt-authority_tooling_approval_gate",
+    ],
+    authorityToolingGateLiveReplayFixtureRefs: [
+      "harness-default-dispatch:fixture-authority_tooling_policy_gate",
+      "harness-default-dispatch:fixture-authority_tooling_destructive_denial",
+      "harness-default-dispatch:fixture-authority_tooling_approval_gate",
+    ],
+    authorityToolingPolicyGateLiveAttemptIds: [
+      "harness-default-dispatch:attempt-authority_tooling_policy_gate",
+    ],
+    authorityToolingPolicyGateLiveReceiptIds: [
+      "harness-default-dispatch:receipt-authority_tooling_policy_gate",
+    ],
+    authorityToolingPolicyGateLiveReplayFixtureRefs: [
+      "harness-default-dispatch:fixture-authority_tooling_policy_gate",
+    ],
+    authorityToolingDestructiveDenialLiveAttemptIds: [
+      "harness-default-dispatch:attempt-authority_tooling_destructive_denial",
+    ],
+    authorityToolingDestructiveDenialLiveReceiptIds: [
+      "harness-default-dispatch:receipt-authority_tooling_destructive_denial",
+    ],
+    authorityToolingDestructiveDenialLiveReplayFixtureRefs: [
+      "harness-default-dispatch:fixture-authority_tooling_destructive_denial",
+    ],
+    authorityToolingApprovalGateLiveAttemptIds: [
+      "harness-default-dispatch:attempt-authority_tooling_approval_gate",
+    ],
+    authorityToolingApprovalGateLiveReceiptIds: [
+      "harness-default-dispatch:receipt-authority_tooling_approval_gate",
+    ],
+    authorityToolingApprovalGateLiveReplayFixtureRefs: [
+      "harness-default-dispatch:fixture-authority_tooling_approval_gate",
+    ],
     authorityToolingReadOnlyLiveAttemptIds: [
       "harness-default-dispatch:attempt-authority_tooling_mcp_provider_read_only",
       "harness-default-dispatch:attempt-authority_tooling_mcp_tool_call_read_only",
@@ -1034,6 +1076,10 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     authorityToolingToolRouterReady: true,
     authorityToolingDryRunSimulatorReady: true,
     authorityToolingApprovalGateReady: true,
+    authorityToolingGateLiveReady: true,
+    authorityToolingPolicyGateLiveReady: true,
+    authorityToolingDestructiveDenialLiveReady: true,
+    authorityToolingApprovalGateLiveReady: true,
     authorityToolingReadOnlyAuthorityCanaryReady: true,
     authorityToolingProviderCatalogLiveReady: true,
     authorityToolingProviderCatalogLiveComponentKind: "mcp_provider",
@@ -1062,6 +1108,52 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
       dryRunSimulatorReady: true,
       approvalGateReady: true,
       rollbackAvailable: true,
+      gateLiveReady: true,
+      gateLiveAttemptIds: [
+        "harness-default-dispatch:attempt-authority_tooling_policy_gate",
+        "harness-default-dispatch:attempt-authority_tooling_destructive_denial",
+        "harness-default-dispatch:attempt-authority_tooling_approval_gate",
+      ],
+      gateLiveReceiptIds: [
+        "harness-default-dispatch:receipt-authority_tooling_policy_gate",
+        "harness-default-dispatch:receipt-authority_tooling_destructive_denial",
+        "harness-default-dispatch:receipt-authority_tooling_approval_gate",
+      ],
+      gateLiveReplayFixtureRefs: [
+        "harness-default-dispatch:fixture-authority_tooling_policy_gate",
+        "harness-default-dispatch:fixture-authority_tooling_destructive_denial",
+        "harness-default-dispatch:fixture-authority_tooling_approval_gate",
+      ],
+      policyGateLiveReady: true,
+      policyGateLiveAttemptIds: [
+        "harness-default-dispatch:attempt-authority_tooling_policy_gate",
+      ],
+      policyGateLiveReceiptIds: [
+        "harness-default-dispatch:receipt-authority_tooling_policy_gate",
+      ],
+      policyGateLiveReplayFixtureRefs: [
+        "harness-default-dispatch:fixture-authority_tooling_policy_gate",
+      ],
+      destructiveDenialLiveReady: true,
+      destructiveDenialLiveAttemptIds: [
+        "harness-default-dispatch:attempt-authority_tooling_destructive_denial",
+      ],
+      destructiveDenialLiveReceiptIds: [
+        "harness-default-dispatch:receipt-authority_tooling_destructive_denial",
+      ],
+      destructiveDenialLiveReplayFixtureRefs: [
+        "harness-default-dispatch:fixture-authority_tooling_destructive_denial",
+      ],
+      approvalGateLiveReady: true,
+      approvalGateLiveAttemptIds: [
+        "harness-default-dispatch:attempt-authority_tooling_approval_gate",
+      ],
+      approvalGateLiveReceiptIds: [
+        "harness-default-dispatch:receipt-authority_tooling_approval_gate",
+      ],
+      approvalGateLiveReplayFixtureRefs: [
+        "harness-default-dispatch:fixture-authority_tooling_approval_gate",
+      ],
       readOnlyAuthorityCanaryReady: true,
       providerCatalogLiveReady: true,
       providerCatalogLiveComponentKind: "mcp_provider",
@@ -2296,6 +2388,35 @@ function nodeLogicFor(component: WorkflowHarnessComponentSpec): Record<string, u
           requiresApproval: false,
           operation: "describe",
         },
+      };
+    case "policy_gate":
+      return {
+        ...base,
+        authorityGateKind: "policy_gate",
+        policyGateLiveExecution: true,
+        routes: ["allow_read_only_route", "deny_mutation"],
+        defaultRoute: "allow_read_only_route",
+        readOnlyRouteAccepted: true,
+        destructiveRouteDenied: true,
+        mutatingToolCallsBlocked: true,
+        sideEffectsExecuted: false,
+        mutationExecuted: false,
+        policyDecision: "allow_read_only_route_through_workflow_authority",
+        rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+      };
+    case "approval_gate":
+      return {
+        ...base,
+        authorityGateKind: "approval_gate",
+        text: "Mutating tool authority remains blocked without explicit governed approval.",
+        approvalMode: "legacy_runtime_required",
+        requiresApproval: true,
+        syntheticApprovalGranted: false,
+        authorityTransferred: false,
+        sideEffectsExecuted: false,
+        mutationExecuted: false,
+        policyDecision: "require_legacy_approval_for_mutating_tooling",
+        rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
       };
     case "wallet_capability":
       return {
