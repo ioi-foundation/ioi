@@ -1662,12 +1662,14 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
   const railPath = "packages/agent-ide/src/features/Workflows/WorkflowRailPanel.tsx";
   const validationPath = "packages/agent-ide/src/runtime/workflow-validation.ts";
   const harnessWorkflowPath = "packages/agent-ide/src/runtime/harness-workflow.ts";
+  const railModelPath = "packages/agent-ide/src/runtime/workflow-rail-model.ts";
   const controllerPath = "packages/agent-ide/src/WorkflowComposer/controller.tsx";
   const graphPath = "packages/agent-ide/src/types/graph.ts";
   const restoreCommandPath = "apps/autopilot/src-tauri/src/project/commands.rs";
   const rail = readFileSync(resolve(repoRoot, railPath), "utf8");
   const validation = readFileSync(resolve(repoRoot, validationPath), "utf8");
   const harnessWorkflow = readFileSync(resolve(repoRoot, harnessWorkflowPath), "utf8");
+  const railModel = readFileSync(resolve(repoRoot, railModelPath), "utf8");
   const controller = readFileSync(resolve(repoRoot, controllerPath), "utf8");
   const graph = readFileSync(resolve(repoRoot, graphPath), "utf8");
   const restoreCommand = readFileSync(resolve(repoRoot, restoreCommandPath), "utf8");
@@ -1737,13 +1739,15 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /receiptRef: selectedHarnessReceiptRef/.test(controller) &&
       /writeHarnessWorkbenchDeepLink/.test(controller),
     receiptDetailInspector:
-      /workflowHarnessReceiptKind/.test(rail) &&
-      /workflowRedactedReceiptPayload/.test(rail) &&
+      /resolveWorkflowHarnessReceiptInspection/.test(rail) &&
+      /export function resolveWorkflowHarnessReceiptInspection/.test(railModel) &&
+      /workflowHarnessReceiptKind/.test(railModel) &&
+      /workflowRedactedReceiptPayload/.test(railModel) &&
       /selectedHarnessReceiptInspection/.test(rail) &&
-      /sourceKind: "node_attempt"/.test(rail) &&
-      /sourceKind: "activation_audit"/.test(rail) &&
-      /sourceKind: "rollback_execution"/.test(rail) &&
-      /sourceKind: "default_runtime_dispatch"/.test(rail) &&
+      /sourceKind: "node_attempt"/.test(railModel) &&
+      /sourceKind: "activation_audit"/.test(railModel) &&
+      /sourceKind: "rollback_execution"/.test(railModel) &&
+      /sourceKind: "default_runtime_dispatch"/.test(railModel) &&
       /workflow-harness-receipt-inspector/.test(rail) &&
       /data-receipt-source-kind/.test(rail) &&
       /data-producer-component/.test(rail) &&
@@ -1786,6 +1790,7 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       railPath,
       validationPath,
       harnessWorkflowPath,
+      railModelPath,
       controllerPath,
       graphPath,
       restoreCommandPath,
