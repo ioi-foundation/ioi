@@ -70,6 +70,8 @@ const onlyActivationMissingReadiness = (
   });
 
   assert.equal(candidate.decision, "blocked");
+  assert.equal(candidate.revisionBindingPreview.revisionSource, "file_hash_only");
+  assert.match(candidate.revisionBindingPreview.workflowContentHash, /^stable-fnv1a32:/);
   const dryRunAudit = auditedWorkflow.metadata.harness?.activationAudit ?? [];
   assert.equal(dryRunAudit[dryRunAudit.length - 1]?.eventType, "dry_run_blocked");
   assert.equal(result.applied, false);
@@ -162,6 +164,20 @@ const onlyActivationMissingReadiness = (
     candidate.activationIdPreview,
   );
   assert.equal(result.workflow.metadata.harness?.activationRecord?.rollbackTarget, "legacy_runtime");
+  assert.equal(candidate.revisionBindingPreview.activationId, candidate.activationIdPreview);
+  assert.equal(
+    result.workflow.metadata.harness?.revisionBinding?.activationId,
+    candidate.activationIdPreview,
+  );
+  assert.equal(
+    result.workflow.metadata.harness?.activationRecord?.revisionBinding?.workflowContentHash,
+    candidate.revisionBindingPreview.workflowContentHash,
+  );
+  assert.equal(
+    result.workflow.metadata.harness?.activationRecord?.rollbackRevisionBinding
+      ?.workflowContentHash,
+    rollbackSelectedWorkflow.metadata.harness?.revisionBinding?.workflowContentHash,
+  );
   assert.deepEqual(
     result.workflow.metadata.harness?.activationAudit?.map((event) => event.eventType),
     [
@@ -185,6 +201,14 @@ const onlyActivationMissingReadiness = (
   assert.equal(
     rollbackDrill.workflow.metadata.harness?.activationRollbackProof?.drillStatus,
     "passed",
+  );
+  assert.equal(
+    rollbackDrill.proof?.activeRevisionBinding?.activationId,
+    candidate.activationIdPreview,
+  );
+  assert.equal(
+    rollbackDrill.proof?.restoredRevisionBinding?.workflowContentHash,
+    rollbackSelectedWorkflow.metadata.harness?.revisionBinding?.workflowContentHash,
   );
   const rollbackDrillAudit = rollbackDrill.workflow.metadata.harness?.activationAudit ?? [];
   assert.equal(rollbackDrillAudit[rollbackDrillAudit.length - 1]?.eventType, "rollback_drill_passed");

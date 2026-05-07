@@ -986,6 +986,27 @@ export type WorkflowHarnessActivationCanaryStatus =
   | "passed"
   | "failed";
 
+export type WorkflowRevisionSource =
+  | "git"
+  | "file_hash_only"
+  | string;
+
+export interface WorkflowRevisionBinding {
+  schemaVersion: "workflow.revision-binding.v1" | string;
+  workflowPath: string;
+  repoRoot?: string;
+  branch?: string;
+  baseRevision?: string;
+  activatedRevision?: string;
+  workflowContentHash: string;
+  proposalId?: string;
+  activationId?: string;
+  rollbackActivationId?: string;
+  rollbackRevision?: string;
+  revisionSource: WorkflowRevisionSource;
+  createdAtMs: number;
+}
+
 export interface WorkflowHarnessForkActivationRecord {
   schemaVersion: "workflow.harness.activation.v1" | string;
   workflowId: string;
@@ -1002,6 +1023,8 @@ export interface WorkflowHarnessForkActivationRecord {
   liveAuthorityTransferred: boolean;
   evidenceRefs: string[];
   workerBinding?: WorkflowHarnessWorkerBinding;
+  revisionBinding?: WorkflowRevisionBinding;
+  rollbackRevisionBinding?: WorkflowRevisionBinding;
   mintedAtMs?: number;
 }
 
@@ -1031,6 +1054,8 @@ export interface WorkflowHarnessActivationAuditEvent {
   nextActivationId?: string;
   previousWorkerBinding?: WorkflowHarnessWorkerBinding;
   nextWorkerBinding?: WorkflowHarnessWorkerBinding;
+  previousRevisionBinding?: WorkflowRevisionBinding;
+  nextRevisionBinding?: WorkflowRevisionBinding;
   rollbackTarget?: string;
   rollbackExecuted?: boolean;
   blockers: string[];
@@ -1049,6 +1074,8 @@ export interface WorkflowHarnessActivationRollbackProof {
   rollbackExecuted: boolean;
   activeWorkerBinding?: WorkflowHarnessWorkerBinding;
   restoredWorkerBinding?: WorkflowHarnessWorkerBinding;
+  activeRevisionBinding?: WorkflowRevisionBinding;
+  restoredRevisionBinding?: WorkflowRevisionBinding;
   drillStatus: "not_run" | "passed" | "blocked" | "failed" | string;
   policyDecision: string;
   blockers: string[];
@@ -1092,6 +1119,7 @@ export interface WorkflowHarnessForkActivationCandidate {
   rollbackTarget: string;
   rollbackAvailable: boolean;
   workerBindingPreview: WorkflowHarnessWorkerBinding;
+  revisionBindingPreview: WorkflowRevisionBinding;
   evidenceRefs: string[];
   createdAtMs: number;
 }
@@ -1698,6 +1726,7 @@ export interface WorkflowHarnessMetadata {
   activationRecord?: WorkflowHarnessForkActivationRecord;
   activationAudit?: WorkflowHarnessActivationAuditEvent[];
   activationRollbackProof?: WorkflowHarnessActivationRollbackProof;
+  revisionBinding?: WorkflowRevisionBinding;
   liveHandoffProof?: WorkflowHarnessLiveHandoffProof;
   runtimeSelectorDecision?: WorkflowHarnessRuntimeSelectorDecision;
   defaultRuntimeDispatchProof?: WorkflowHarnessDefaultRuntimeDispatchProof;

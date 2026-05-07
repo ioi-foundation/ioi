@@ -90,7 +90,8 @@ test("TS harness fork activation contract records blocked and canary-validated p
   assert.match(graph, /WorkflowHarnessActionFrame[\s\S]*workflowId[\s\S]*nodeId[\s\S]*componentKind[\s\S]*slotIds/);
   assert.match(graph, /WorkflowHarnessComponentInvocation[\s\S]*invocationId[\s\S]*componentKind[\s\S]*executionMode[\s\S]*receiptIds/);
   assert.match(graph, /WorkflowHarnessComponentAdapterResult[\s\S]*actionFrame[\s\S]*nodeAttempt[\s\S]*resultHash[\s\S]*replay/);
-  assert.match(graph, /WorkflowHarnessForkActivationCandidate[\s\S]*dryRunOnly: true/);
+  assert.match(graph, /WorkflowRevisionBinding[\s\S]*workflowPath[\s\S]*workflowContentHash[\s\S]*rollbackRevision/);
+  assert.match(graph, /WorkflowHarnessForkActivationCandidate[\s\S]*dryRunOnly: true[\s\S]*revisionBindingPreview: WorkflowRevisionBinding/);
   assert.match(graph, /WorkflowHarnessActivationCandidateGateResult[\s\S]*gateId[\s\S]*evidenceRefs/);
   assert.match(graph, /WorkflowHarnessLiveHandoffProof/);
   assert.match(graph, /WorkflowHarnessRuntimeSelectorDecision/);
@@ -109,9 +110,10 @@ test("TS harness fork activation contract records blocked and canary-validated p
   assert.match(workflow, /makeHarnessCanaryExecutionBoundary[\s\S]*workflow_node_executor[\s\S]*rollbackDrill/);
   assert.match(workflow, /makeHarnessCanaryExecutionBoundaries[\s\S]*clusterId: "cognition"[\s\S]*clusterId: "routing_model"[\s\S]*clusterId: "verification_output"[\s\S]*clusterId: "authority_tooling"/);
   assert.match(workflow, /DEFAULT_AGENT_HARNESS_FORK_ROLLBACK_TARGET/);
+  assert.match(workflow, /stableContentHash[\s\S]*workflowSourceProjection[\s\S]*workflowRevisionBindingFor/);
   assert.match(validation, /activationRecordValidated[\s\S]*canaryStatus === "passed"/);
   assert.match(validation, /workerBinding\?\.harnessActivationId === harness\?\.activationId/);
-  assert.match(validation, /createWorkflowHarnessActivationCandidate[\s\S]*activationIdPreview[\s\S]*decision[\s\S]*mintable[\s\S]*workerBindingPreview/);
+  assert.match(validation, /createWorkflowHarnessActivationCandidate[\s\S]*activationIdPreview[\s\S]*decision[\s\S]*mintable[\s\S]*workerBindingPreview[\s\S]*revisionBindingPreview/);
   assert.match(validation, /gateId: "slots"[\s\S]*gateId: "tests"[\s\S]*gateId: "replay-fixtures"[\s\S]*gateId: "policy-posture"[\s\S]*gateId: "receipt-coverage"[\s\S]*gateId: "canary"[\s\S]*gateId: "rollback"[\s\S]*gateId: "worker-binding"[\s\S]*gateId: "activation-id"/);
   assert.match(rust, /pub struct HarnessComponentInvocation[\s\S]*pub component_kind: HarnessComponentKind[\s\S]*pub execution_mode: HarnessExecutionMode[\s\S]*pub receipt_ids: Vec<String>/);
   assert.match(rust, /pub struct HarnessComponentAdapterResult[\s\S]*pub action_frame: HarnessActionFrame[\s\S]*pub node_attempt: HarnessNodeAttemptRecord/);
