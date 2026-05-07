@@ -4034,7 +4034,11 @@ fn runtime_harness_default_runtime_dispatch(
     let mut authority_tooling_read_only_live_attempt_ids = Vec::<String>::new();
     let mut authority_tooling_read_only_receipt_ids = Vec::<String>::new();
     let mut authority_tooling_read_only_replay_fixture_refs = Vec::<String>::new();
+    let mut authority_tooling_provider_catalog_live_attempt_ids = Vec::<String>::new();
+    let mut authority_tooling_provider_catalog_live_receipt_ids = Vec::<String>::new();
+    let mut authority_tooling_provider_catalog_live_replay_fixture_refs = Vec::<String>::new();
     let mut authority_tooling_read_only_live_success_count = 0usize;
+    let mut authority_tooling_provider_catalog_live_success_count = 0usize;
     let mut authority_tooling_denial_receipt_ids = Vec::<String>::new();
     if can_dispatch {
         for (index, cluster_id) in accepted_cluster_ids.iter().enumerate() {
@@ -5563,13 +5567,15 @@ fn runtime_harness_default_runtime_dispatch(
                 json!({
                     "connectorBinding": {
                         "connectorRef": "mcp.capability-provider",
-                        "mockBinding": true,
+                        "mockBinding": false,
                         "credentialReady": true,
-                        "capabilityScope": ["read"],
+                        "capabilityScope": ["mcp.provider.read", "mcp.catalog.read"],
                         "sideEffectClass": "read",
                         "requiresApproval": false,
                         "operation": "catalog"
                     },
+                    "providerCatalogLiveExecution": true,
+                    "toolExecutionEnabled": false,
                     "readOnlyAuthority": true,
                     "sideEffectsExecuted": false,
                     "mutationExecuted": false,
@@ -5735,10 +5741,56 @@ fn runtime_harness_default_runtime_dispatch(
             authority_tooling_read_only_receipt_ids.push(receipt_id.clone());
             replay_fixture_refs.push(replay_fixture_ref.clone());
             authority_tooling_read_only_replay_fixture_refs.push(replay_fixture_ref.clone());
+            let provider_catalog_live_attempt = component_kind == "mcp_provider";
+            if provider_catalog_live_attempt {
+                authority_tooling_provider_catalog_live_attempt_ids.push(attempt_id.clone());
+                authority_tooling_provider_catalog_live_receipt_ids.push(receipt_id.clone());
+                authority_tooling_provider_catalog_live_replay_fixture_refs
+                    .push(replay_fixture_ref.clone());
+            }
             match execution {
                 Ok(output) => {
-                    authority_tooling_read_only_live_success_count += 1;
                     let output_hash = runtime_harness_canary_node_output_hash(&output);
+                    let provider_catalog_live_output = provider_catalog_live_attempt
+                        && output.get("mockBinding").and_then(Value::as_bool) == Some(false)
+                        && output
+                            .get("providerCatalog")
+                            .and_then(|catalog| catalog.get("live"))
+                            .and_then(Value::as_bool)
+                            == Some(true)
+                        && output
+                            .get("providerCatalog")
+                            .and_then(|catalog| catalog.get("executionMode"))
+                            .and_then(Value::as_str)
+                            == Some("live_read_only_catalog")
+                        && output
+                            .get("providerCatalog")
+                            .and_then(|catalog| catalog.get("sideEffectsExecuted"))
+                            .and_then(Value::as_bool)
+                            == Some(false)
+                        && output
+                            .get("providerCatalog")
+                            .and_then(|catalog| catalog.get("mutationExecuted"))
+                            .and_then(Value::as_bool)
+                            == Some(false)
+                        && output
+                            .get("providerCatalog")
+                            .and_then(|catalog| catalog.get("toolExecutionEnabled"))
+                            .and_then(Value::as_bool)
+                            == Some(false);
+                    if provider_catalog_live_attempt {
+                        if provider_catalog_live_output {
+                            authority_tooling_provider_catalog_live_success_count += 1;
+                            authority_tooling_read_only_live_success_count += 1;
+                        } else {
+                            activation_blockers.push(
+                                "authority_tooling_provider_catalog_live_output_not_ready"
+                                    .to_string(),
+                            );
+                        }
+                    } else {
+                        authority_tooling_read_only_live_success_count += 1;
+                    }
                     previous_authority_output = output.clone();
                     dispatch_node_attempts.push(json!({
                         "attemptId": attempt_id,
@@ -5782,6 +5834,8 @@ fn runtime_harness_default_runtime_dispatch(
                             "readOnlyAuthority": true,
                             "sideEffectsExecuted": false,
                             "mutationExecuted": false,
+                            "providerCatalogLiveExecution": provider_catalog_live_output,
+                            "toolExecutionEnabled": false,
                             "mutationAuthorityDeferred": true,
                             "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID
                         },
@@ -5834,6 +5888,8 @@ fn runtime_harness_default_runtime_dispatch(
                             "readOnlyAuthority": false,
                             "sideEffectsExecuted": false,
                             "mutationExecuted": false,
+                            "providerCatalogLiveExecution": false,
+                            "toolExecutionEnabled": false,
                             "mutationAuthorityDeferred": true,
                             "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID
                         }
@@ -6549,11 +6605,19 @@ fn runtime_harness_default_runtime_dispatch(
     authority_tooling_read_only_receipt_ids.dedup();
     authority_tooling_read_only_replay_fixture_refs.sort();
     authority_tooling_read_only_replay_fixture_refs.dedup();
+    authority_tooling_provider_catalog_live_attempt_ids.sort();
+    authority_tooling_provider_catalog_live_attempt_ids.dedup();
+    authority_tooling_provider_catalog_live_receipt_ids.sort();
+    authority_tooling_provider_catalog_live_receipt_ids.dedup();
+    authority_tooling_provider_catalog_live_replay_fixture_refs.sort();
+    authority_tooling_provider_catalog_live_replay_fixture_refs.dedup();
     authority_tooling_denial_receipt_ids.sort();
     authority_tooling_denial_receipt_ids.dedup();
     let authority_tooling_read_only_authority_canary_ready =
         authority_tooling_read_only_live_success_count
             >= authority_tooling_read_only_component_kinds.len();
+    let authority_tooling_provider_catalog_live_ready =
+        authority_tooling_provider_catalog_live_success_count >= 1;
     let mut node_attempt_ids = accepted_node_attempt_ids.clone();
     node_attempt_ids.extend(dispatch_node_attempt_ids.clone());
     node_attempt_ids.sort();
@@ -6611,6 +6675,9 @@ fn runtime_harness_default_runtime_dispatch(
         "authorityToolingReadOnlyLiveAttemptIds": authority_tooling_read_only_live_attempt_ids.clone(),
         "authorityToolingReadOnlyReceiptIds": authority_tooling_read_only_receipt_ids.clone(),
         "authorityToolingReadOnlyReplayFixtureRefs": authority_tooling_read_only_replay_fixture_refs.clone(),
+        "authorityToolingProviderCatalogLiveAttemptIds": authority_tooling_provider_catalog_live_attempt_ids.clone(),
+        "authorityToolingProviderCatalogLiveReceiptIds": authority_tooling_provider_catalog_live_receipt_ids.clone(),
+        "authorityToolingProviderCatalogLiveReplayFixtureRefs": authority_tooling_provider_catalog_live_replay_fixture_refs.clone(),
         "authorityToolingReadOnlyComponentKinds": authority_tooling_read_only_component_kinds.clone(),
         "authorityToolingMutationDeferredComponentKinds": authority_tooling_mutation_deferred_component_kinds.clone(),
         "authorityToolingDenialReceiptIds": authority_tooling_denial_receipt_ids.clone(),
@@ -6742,6 +6809,12 @@ fn runtime_harness_default_runtime_dispatch(
             "authorityToolingDryRunSimulatorReady": authority_tooling_dry_run_simulator_ready,
             "authorityToolingApprovalGateReady": authority_tooling_approval_gate_ready,
             "authorityToolingReadOnlyAuthorityCanaryReady": authority_tooling_read_only_authority_canary_ready,
+            "authorityToolingProviderCatalogLiveReady": authority_tooling_provider_catalog_live_ready,
+            "authorityToolingProviderCatalogLiveSuccessCount": authority_tooling_provider_catalog_live_success_count,
+            "authorityToolingProviderCatalogLiveComponentKind": "mcp_provider",
+            "authorityToolingProviderCatalogLiveAttemptIds": authority_tooling_provider_catalog_live_attempt_ids.clone(),
+            "authorityToolingProviderCatalogLiveReceiptIds": authority_tooling_provider_catalog_live_receipt_ids.clone(),
+            "authorityToolingProviderCatalogLiveReplayFixtureRefs": authority_tooling_provider_catalog_live_replay_fixture_refs.clone(),
             "authorityToolingReadOnlyLiveAttemptCount": authority_tooling_read_only_live_attempt_ids.len(),
             "authorityToolingReadOnlyLiveSuccessCount": authority_tooling_read_only_live_success_count,
             "authorityToolingReadOnlyComponentKinds": authority_tooling_read_only_component_kinds.clone(),
@@ -7007,6 +7080,9 @@ fn runtime_harness_default_runtime_dispatch(
         "authorityToolingDryRunSimulatorReady": authority_tooling_dry_run_simulator_ready,
         "authorityToolingApprovalGateReady": authority_tooling_approval_gate_ready,
         "authorityToolingReadOnlyAuthorityCanaryReady": authority_tooling_read_only_authority_canary_ready,
+        "authorityToolingProviderCatalogLiveReady": authority_tooling_provider_catalog_live_ready,
+        "authorityToolingProviderCatalogLiveSuccessCount": authority_tooling_provider_catalog_live_success_count,
+        "authorityToolingProviderCatalogLiveComponentKind": "mcp_provider",
         "authorityToolingReadOnlyRouteAccepted": authority_tooling_read_only_route_accepted,
         "authorityToolingDestructiveRouteDenied": authority_tooling_destructive_route_denied,
         "authorityToolingMutatingToolCallsBlocked": authority_tooling_mutating_tool_calls_blocked,
@@ -7028,6 +7104,12 @@ fn runtime_harness_default_runtime_dispatch(
             "readOnlyAuthorityCanaryReady": authority_tooling_read_only_authority_canary_ready,
             "readOnlyLiveSuccessCount": authority_tooling_read_only_live_success_count,
             "readOnlyComponentKinds": authority_tooling_read_only_component_kinds.clone(),
+            "providerCatalogLiveReady": authority_tooling_provider_catalog_live_ready,
+            "providerCatalogLiveSuccessCount": authority_tooling_provider_catalog_live_success_count,
+            "providerCatalogLiveComponentKind": "mcp_provider",
+            "providerCatalogLiveAttemptIds": authority_tooling_provider_catalog_live_attempt_ids,
+            "providerCatalogLiveReceiptIds": authority_tooling_provider_catalog_live_receipt_ids,
+            "providerCatalogLiveReplayFixtureRefs": authority_tooling_provider_catalog_live_replay_fixture_refs,
             "readOnlyAttemptIds": authority_tooling_read_only_live_attempt_ids,
             "readOnlyReceiptIds": authority_tooling_read_only_receipt_ids,
             "readOnlyReplayFixtureRefs": authority_tooling_read_only_replay_fixture_refs,
@@ -9414,10 +9496,43 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     .map(|items| items.len() >= 5)
                     .unwrap_or(false)
                 && dispatch
+                    .get("authorityToolingProviderCatalogLiveReady")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("authorityToolingProviderCatalogLiveComponentKind")
+                    .and_then(Value::as_str)
+                    == Some("mcp_provider")
+                && dispatch
+                    .get("authorityToolingProviderCatalogLiveAttemptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| !items.is_empty())
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingProviderCatalogLiveReceiptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| !items.is_empty())
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingProviderCatalogLiveReplayFixtureRefs")
+                    .and_then(Value::as_array)
+                    .map(|items| !items.is_empty())
+                    .unwrap_or(false)
+                && dispatch
                     .get("authorityToolingProof")
                     .and_then(|proof| proof.get("readOnlyAuthorityCanaryReady"))
                     .and_then(Value::as_bool)
                     == Some(true)
+                && dispatch
+                    .get("authorityToolingProof")
+                    .and_then(|proof| proof.get("providerCatalogLiveReady"))
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("authorityToolingProof")
+                    .and_then(|proof| proof.get("providerCatalogLiveComponentKind"))
+                    .and_then(Value::as_str)
+                    == Some("mcp_provider")
                 && dispatch
                     .get("authorityToolingProof")
                     .and_then(|proof| proof.get("mutationDeferredComponentKinds"))
@@ -9490,6 +9605,25 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     .map(|items| items.len() >= 5)
                     .unwrap_or(false)
                 && dispatch
+                    .get("authorityToolingProviderCatalogLiveReady")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("authorityToolingProviderCatalogLiveAttemptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| !items.is_empty())
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingProviderCatalogLiveReceiptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| !items.is_empty())
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingProviderCatalogLiveReplayFixtureRefs")
+                    .and_then(Value::as_array)
+                    .map(|items| !items.is_empty())
+                    .unwrap_or(false)
+                && dispatch
                     .get("authorityToolingReadOnlyComponentKinds")
                     .and_then(Value::as_array)
                     .map(|items| {
@@ -9517,6 +9651,54 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     .and_then(|proof| proof.get("readOnlyAuthorityCanaryReady"))
                     .and_then(Value::as_bool)
                     == Some(true)
+                && dispatch
+                    .get("authorityToolingProof")
+                    .and_then(|proof| proof.get("providerCatalogLiveReady"))
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("authorityToolingProof")
+                    .and_then(|proof| proof.get("providerCatalogLiveComponentKind"))
+                    .and_then(Value::as_str)
+                    == Some("mcp_provider")
+        })
+        .unwrap_or(false);
+    let harness_authority_tooling_provider_catalog_live = harness_default_runtime_dispatch
+        .as_ref()
+        .map(|dispatch| {
+            dispatch
+                .get("authorityToolingProviderCatalogLiveReady")
+                .and_then(Value::as_bool)
+                == Some(true)
+                && dispatch
+                    .get("authorityToolingProviderCatalogLiveComponentKind")
+                    .and_then(Value::as_str)
+                    == Some("mcp_provider")
+                && dispatch
+                    .get("authorityToolingProviderCatalogLiveAttemptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| !items.is_empty())
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingProviderCatalogLiveReceiptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| !items.is_empty())
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingProviderCatalogLiveReplayFixtureRefs")
+                    .and_then(Value::as_array)
+                    .map(|items| !items.is_empty())
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingProof")
+                    .and_then(|proof| proof.get("providerCatalogLiveReady"))
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("authorityToolingProof")
+                    .and_then(|proof| proof.get("providerCatalogLiveComponentKind"))
+                    .and_then(Value::as_str)
+                    == Some("mcp_provider")
         })
         .unwrap_or(false);
     let harness_model_provider_gated_visible_output = projection
@@ -9901,6 +10083,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
             "harness_default_runtime_dispatch": harness_default_runtime_dispatch,
             "harness_default_runtime_dispatch_readonly": harness_default_runtime_dispatch_readonly,
             "harness_authority_tooling_read_only_canary": harness_authority_tooling_read_only_canary,
+            "harness_authority_tooling_provider_catalog_live": harness_authority_tooling_provider_catalog_live,
             "harness_model_provider_gated_visible_output": harness_model_provider_gated_visible_output,
             "harness_model_provider_gated_visible_output_scenario": harness_model_provider_gated_visible_output_scenario,
             "harness_model_provider_gated_visible_output_cohort": harness_model_provider_gated_visible_output_cohort,
@@ -9975,6 +10158,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
             "harness_live_handoff_rollback": harness_live_handoff_rollback,
             "harness_default_runtime_dispatch_readonly": harness_default_runtime_dispatch_readonly,
             "harness_authority_tooling_read_only_canary": harness_authority_tooling_read_only_canary,
+            "harness_authority_tooling_provider_catalog_live": harness_authority_tooling_provider_catalog_live,
             "harness_model_provider_gated_visible_output": harness_model_provider_gated_visible_output,
             "harness_model_provider_gated_visible_output_scenario": harness_model_provider_gated_visible_output_scenario,
             "harness_model_provider_gated_visible_output_cohort": harness_model_provider_gated_visible_output_cohort,
@@ -10048,7 +10232,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
     };
     append_event(memory_runtime, &event);
     eprintln!(
-        "[chat-proof-trace] session={} artifact={} scorecard=1 stop_reason=1 quality_ledger=1 harness_shadow_attempts={} harness_shadow_comparisons={} harness_gated_cognition={} harness_gated_routing_model={} harness_gated_verification_output={} harness_gated_authority_tooling={} harness_fork_activation_blocked={} harness_fork_activation_minted={} harness_canary_boundary_executed={} harness_canary_boundary_rollback_drill={} harness_selector_canary_routed={} harness_selector_legacy_default={} harness_selector_default_promoted={} harness_live_handoff_canary={} harness_live_handoff_default_promoted={} harness_live_handoff_rollback={} harness_default_runtime_dispatch_readonly={} harness_authority_tooling_read_only_canary={}",
+        "[chat-proof-trace] session={} artifact={} scorecard=1 stop_reason=1 quality_ledger=1 harness_shadow_attempts={} harness_shadow_comparisons={} harness_gated_cognition={} harness_gated_routing_model={} harness_gated_verification_output={} harness_gated_authority_tooling={} harness_fork_activation_blocked={} harness_fork_activation_minted={} harness_canary_boundary_executed={} harness_canary_boundary_rollback_drill={} harness_selector_canary_routed={} harness_selector_legacy_default={} harness_selector_default_promoted={} harness_live_handoff_canary={} harness_live_handoff_default_promoted={} harness_live_handoff_rollback={} harness_default_runtime_dispatch_readonly={} harness_authority_tooling_read_only_canary={} harness_authority_tooling_provider_catalog_live={}",
         sid,
         artifact_id,
         harness_node_attempt_count,
@@ -10068,7 +10252,8 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
         harness_live_handoff_default_promoted,
         harness_live_handoff_rollback,
         harness_default_runtime_dispatch_readonly,
-        harness_authority_tooling_read_only_canary
+        harness_authority_tooling_read_only_canary,
+        harness_authority_tooling_provider_catalog_live
     );
 }
 

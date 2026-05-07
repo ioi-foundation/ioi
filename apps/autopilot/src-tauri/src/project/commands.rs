@@ -1255,6 +1255,18 @@ pub fn list_workflow_connector_catalog(
 ) -> Result<Vec<WorkflowConnectorBinding>, String> {
     Ok(vec![
         WorkflowConnectorBinding {
+            connector_ref: "mcp.capability-provider".to_string(),
+            mock_binding: false,
+            credential_ready: Some(true),
+            capability_scope: vec![
+                "mcp.provider.read".to_string(),
+                "mcp.catalog.read".to_string(),
+            ],
+            side_effect_class: "read".to_string(),
+            requires_approval: false,
+            operation: Some("catalog".to_string()),
+        },
+        WorkflowConnectorBinding {
             connector_ref: "slack".to_string(),
             mock_binding: true,
             credential_ready: Some(false),

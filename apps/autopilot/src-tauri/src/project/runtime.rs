@@ -19,6 +19,64 @@ pub(super) fn workflow_side_effect_requires_live_runtime(side_effect_class: &str
     !matches!(side_effect_class, "none" | "read")
 }
 
+fn workflow_live_mcp_provider_catalog(
+    binding: &WorkflowConnectorBinding,
+    input: &Value,
+) -> Option<Value> {
+    let operation = binding.operation.as_deref().unwrap_or("catalog");
+    if binding.connector_ref != "mcp.capability-provider"
+        || binding.mock_binding
+        || binding.side_effect_class != "read"
+        || operation != "catalog"
+    {
+        return None;
+    }
+
+    Some(json!({
+        "schemaVersion": "workflow.mcp-provider.catalog.v1",
+        "providerId": binding.connector_ref.clone(),
+        "adapterPort": "McpCapabilityProviderCatalogPort",
+        "executionMode": "live_read_only_catalog",
+        "live": true,
+        "catalogVisibilityCredential": "runtime_catalog_visibility",
+        "credentialMaterialized": false,
+        "sideEffectsExecuted": false,
+        "mutationExecuted": false,
+        "toolExecutionEnabled": false,
+        "operation": operation,
+        "capabilityScope": binding.capability_scope.clone(),
+        "providers": [
+            {
+                "id": "mcp.capability-provider",
+                "status": "available",
+                "operations": ["catalog"],
+                "sideEffectClass": "read"
+            }
+        ],
+        "tools": [
+            {
+                "toolRef": "mcp.tool.catalog.read",
+                "bindingKind": "mcp_tool",
+                "capabilityScope": ["read"],
+                "sideEffectClass": "read",
+                "requiresApproval": false,
+                "executionEnabled": false
+            }
+        ],
+        "connectors": [
+            {
+                "connectorRef": "agent.connector.catalog",
+                "operation": "describe",
+                "capabilityScope": ["read"],
+                "sideEffectClass": "read",
+                "requiresApproval": false,
+                "mockBinding": true
+            }
+        ],
+        "input": input
+    }))
+}
+
 pub(super) fn workflow_has_incoming_connection_class(
     workflow: &WorkflowProject,
     node_id: &str,
@@ -2011,13 +2069,16 @@ pub(super) fn execute_workflow_node(
                         .to_string(),
                 );
             }
+            let provider_catalog = workflow_live_mcp_provider_catalog(&binding, &input);
             json!({
                 "nodeId": node_id,
                 "kind": evidence_kind,
                 "connector": binding.connector_ref,
                 "mockBinding": binding.mock_binding,
+                "credentialReady": binding.credential_ready.unwrap_or(false),
                 "sideEffectClass": binding.side_effect_class,
                 "operation": binding.operation,
+                "providerCatalog": provider_catalog,
                 "input": input
             })
         }
