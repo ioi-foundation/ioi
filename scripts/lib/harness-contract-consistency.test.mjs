@@ -97,7 +97,9 @@ test("TS harness fork activation contract records blocked and canary-validated p
   assert.match(graph, /WorkflowHarnessRollbackRestoreCanaryStatus[\s\S]*not_required/);
   assert.match(graph, /WorkflowHarnessRollbackRestoreCanary[\s\S]*status[\s\S]*restoreStrategy[\s\S]*file_hash_only_metadata_restore[\s\S]*expectedWorkflowContentHash[\s\S]*actualWorkflowContentHash[\s\S]*hashVerified[\s\S]*blockers/);
   assert.match(graph, /WorkflowHarnessRollbackRestoreCanary[\s\S]*receiptBindingRef\?: string[\s\S]*evidenceRefs/);
-  assert.match(graph, /WorkflowHarnessActivationRollbackExecution[\s\S]*restoreStrategy[\s\S]*git_show_file_restore[\s\S]*restoreRepoRoot[\s\S]*restoreRelativeWorkflowPath[\s\S]*restoredRevision[\s\S]*restoredFileSha256[\s\S]*restoreBlockers[\s\S]*hashVerified[\s\S]*executionStatus/);
+  assert.match(graph, /WorkflowHarnessActivationAuditEvent[\s\S]*evidenceRefs: string\[\][\s\S]*receiptRefs: string\[\]/);
+  assert.match(graph, /WorkflowHarnessActivationRollbackProof[\s\S]*evidenceRefs: string\[\][\s\S]*receiptRefs: string\[\]/);
+  assert.match(graph, /WorkflowHarnessActivationRollbackExecution[\s\S]*restoreStrategy[\s\S]*git_show_file_restore[\s\S]*restoreRepoRoot[\s\S]*restoreRelativeWorkflowPath[\s\S]*restoredRevision[\s\S]*restoredFileSha256[\s\S]*restoreBlockers[\s\S]*hashVerified[\s\S]*executionStatus[\s\S]*evidenceRefs: string\[\][\s\S]*receiptRefs: string\[\][\s\S]*restoreReceiptBindingRef\?: string/);
   assert.match(graph, /WorkflowHarnessForkActivationCandidate[\s\S]*dryRunOnly: true[\s\S]*rollbackRestoreCanary: WorkflowHarnessRollbackRestoreCanary[\s\S]*revisionBindingPreview: WorkflowRevisionBinding/);
   assert.match(graph, /WorkflowHarnessActivationCandidateGateResult[\s\S]*gateId[\s\S]*evidenceRefs/);
   assert.match(graph, /WorkflowHarnessLiveHandoffProof/);
@@ -119,6 +121,9 @@ test("TS harness fork activation contract records blocked and canary-validated p
   assert.match(workflow, /DEFAULT_AGENT_HARNESS_FORK_ROLLBACK_TARGET/);
   assert.match(workflow, /stableContentHash[\s\S]*workflowSourceProjection[\s\S]*workflowRevisionBindingFor/);
   assert.match(workflow, /executeWorkflowHarnessRevisionRollback[\s\S]*rollback_execution_restored_verified_workflow_revision[\s\S]*rollback_executed[\s\S]*activationRollbackExecution/);
+  assert.match(workflow, /activationCandidateReceiptRefs[\s\S]*recordWorkflowHarnessActivationDryRun[\s\S]*receiptRefs/);
+  assert.match(workflow, /workflowRollbackReceiptRefs[\s\S]*executeWorkflowHarnessRollbackDrill[\s\S]*receiptRefs/);
+  assert.match(workflow, /executeWorkflowHarnessRevisionRollback[\s\S]*restoreResult\?\.receiptBindingRef[\s\S]*restoreReceiptBindingRef[\s\S]*receiptRefs/);
   assert.match(validation, /activationRecordValidated[\s\S]*canaryStatus === "passed"/);
   assert.match(validation, /workerBinding\?\.harnessActivationId === harness\?\.activationId/);
   assert.match(validation, /createWorkflowHarnessActivationCandidate[\s\S]*activationIdPreview[\s\S]*decision[\s\S]*mintable[\s\S]*workerBindingPreview[\s\S]*revisionBindingPreview[\s\S]*rollbackRestoreCanary/);

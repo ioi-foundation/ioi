@@ -2789,6 +2789,44 @@ fn runtime_harness_fork_activation(sid: &str, gated_cluster_runs: &[Value]) -> V
         "evidenceRefs": [invalid_rollback_restore_receipt_ref, DEFAULT_AGENT_HARNESS_HASH],
         "createdAtMs": created_at_ms
     });
+    let invalid_activation_audit = json!([
+        {
+            "schemaVersion": "workflow.harness.activation-audit.v1",
+            "eventId": format!("harness-activation-audit:{sid}:dry-run-blocked"),
+            "eventType": "dry_run_blocked",
+            "status": "blocked",
+            "workflowId": "default-agent-harness-fork-invalid",
+            "candidateId": format!("harness-activation-candidate:{sid}:invalid"),
+            "activationId": null,
+            "previousActivationId": null,
+            "nextActivationId": null,
+            "rollbackTarget": rollback_target,
+            "rollbackExecuted": false,
+            "blockers": ["rollback_restore_canary_not_run"],
+            "evidenceRefs": [invalid_rollback_restore_receipt_ref, "rollback_restore_canary_not_run"],
+            "receiptRefs": [invalid_rollback_restore_receipt_ref],
+            "summary": "Activation dry run blocked by rollback restore canary receipt proof",
+            "createdAtMs": created_at_ms
+        },
+        {
+            "schemaVersion": "workflow.harness.activation-audit.v1",
+            "eventId": format!("harness-activation-audit:{sid}:activation-mint-blocked"),
+            "eventType": "activation_mint_blocked",
+            "status": "blocked",
+            "workflowId": "default-agent-harness-fork-invalid",
+            "candidateId": format!("harness-activation-candidate:{sid}:invalid"),
+            "activationId": null,
+            "previousActivationId": null,
+            "nextActivationId": null,
+            "rollbackTarget": rollback_target,
+            "rollbackExecuted": false,
+            "blockers": ["candidate_not_mintable", "rollback_restore_canary_not_run"],
+            "evidenceRefs": [invalid_rollback_restore_receipt_ref, "candidate_not_mintable"],
+            "receiptRefs": [invalid_rollback_restore_receipt_ref],
+            "summary": "Activation mint blocked with restore-canary receipt continuity",
+            "createdAtMs": created_at_ms
+        }
+    ]);
     let valid_rollback_restore_canary = json!({
         "schemaVersion": "workflow.harness.rollback-restore-canary.v1",
         "canaryId": format!("harness-rollback-restore-canary:{sid}:valid"),
@@ -2805,6 +2843,100 @@ fn runtime_harness_fork_activation(sid: &str, gated_cluster_runs: &[Value]) -> V
         "receiptBindingRef": valid_rollback_restore_receipt_ref,
         "blockers": [],
         "evidenceRefs": [valid_rollback_restore_receipt_ref, DEFAULT_AGENT_HARNESS_HASH],
+        "createdAtMs": created_at_ms
+    });
+    let valid_activation_audit = json!([
+        {
+            "schemaVersion": "workflow.harness.activation-audit.v1",
+            "eventId": format!("harness-activation-audit:{sid}:dry-run-mintable"),
+            "eventType": "dry_run_mintable",
+            "status": "passed",
+            "workflowId": harness_workflow_id,
+            "candidateId": format!("harness-activation-candidate:{sid}:valid"),
+            "activationId": activation_id,
+            "previousActivationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+            "nextActivationId": activation_id,
+            "rollbackTarget": rollback_target,
+            "rollbackExecuted": false,
+            "blockers": [],
+            "evidenceRefs": [valid_rollback_restore_receipt_ref, DEFAULT_AGENT_HARNESS_HASH],
+            "receiptRefs": [valid_rollback_restore_receipt_ref],
+            "summary": "Activation dry run mintable with restore-canary receipt proof",
+            "createdAtMs": created_at_ms
+        },
+        {
+            "schemaVersion": "workflow.harness.activation-audit.v1",
+            "eventId": format!("harness-activation-audit:{sid}:activation-minted"),
+            "eventType": "activation_minted",
+            "status": "applied",
+            "workflowId": harness_workflow_id,
+            "candidateId": format!("harness-activation-candidate:{sid}:valid"),
+            "activationId": activation_id,
+            "previousActivationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+            "nextActivationId": activation_id,
+            "rollbackTarget": rollback_target,
+            "rollbackExecuted": false,
+            "blockers": [],
+            "evidenceRefs": [valid_rollback_restore_receipt_ref, DEFAULT_AGENT_HARNESS_HASH],
+            "receiptRefs": [valid_rollback_restore_receipt_ref],
+            "summary": "Activation minted with restore-canary receipt continuity",
+            "createdAtMs": created_at_ms
+        },
+        {
+            "schemaVersion": "workflow.harness.activation-audit.v1",
+            "eventId": format!("harness-activation-audit:{sid}:rollback-drill-passed"),
+            "eventType": "rollback_drill_passed",
+            "status": "passed",
+            "workflowId": harness_workflow_id,
+            "activationId": activation_id,
+            "previousActivationId": activation_id,
+            "nextActivationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+            "rollbackTarget": rollback_target,
+            "rollbackExecuted": true,
+            "blockers": [],
+            "evidenceRefs": [valid_rollback_restore_receipt_ref, rollback_target],
+            "receiptRefs": [valid_rollback_restore_receipt_ref],
+            "summary": "Rollback drill preserved restore-canary receipt continuity",
+            "createdAtMs": created_at_ms
+        },
+        {
+            "schemaVersion": "workflow.harness.activation-audit.v1",
+            "eventId": format!("harness-activation-audit:{sid}:rollback-executed"),
+            "eventType": "rollback_executed",
+            "status": "applied",
+            "workflowId": harness_workflow_id,
+            "activationId": activation_id,
+            "previousActivationId": activation_id,
+            "nextActivationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+            "rollbackTarget": rollback_target,
+            "rollbackExecuted": true,
+            "blockers": [],
+            "evidenceRefs": [valid_rollback_restore_receipt_ref, rollback_target, DEFAULT_AGENT_HARNESS_HASH],
+            "receiptRefs": [valid_rollback_restore_receipt_ref],
+            "summary": "Rollback execution preserved restore-canary receipt continuity",
+            "createdAtMs": created_at_ms
+        }
+    ]);
+    let valid_activation_rollback_execution = json!({
+        "schemaVersion": "workflow.harness.activation-rollback-execution.v1",
+        "executionId": format!("harness-rollback-execution:{sid}:valid"),
+        "workflowId": harness_workflow_id,
+        "activationId": activation_id,
+        "rollbackTarget": rollback_target,
+        "rollbackAvailable": true,
+        "rollbackExecuted": true,
+        "restoreStrategy": "file_hash_only_metadata_restore",
+        "restoredRevision": DEFAULT_AGENT_HARNESS_HASH,
+        "workflowPath": ".agents/workflows/default-agent-harness-fork.workflow.json",
+        "expectedWorkflowContentHash": DEFAULT_AGENT_HARNESS_HASH,
+        "actualWorkflowContentHash": DEFAULT_AGENT_HARNESS_HASH,
+        "hashVerified": true,
+        "executionStatus": "applied",
+        "policyDecision": "rollback_execution_restored_verified_workflow_revision",
+        "blockers": [],
+        "evidenceRefs": [valid_rollback_restore_receipt_ref, rollback_target, DEFAULT_AGENT_HARNESS_HASH],
+        "receiptRefs": [valid_rollback_restore_receipt_ref],
+        "restoreReceiptBindingRef": valid_rollback_restore_receipt_ref,
         "createdAtMs": created_at_ms
     });
     json!({
@@ -2829,6 +2961,7 @@ fn runtime_harness_fork_activation(sid: &str, gated_cluster_runs: &[Value]) -> V
             "rollbackTarget": rollback_target,
             "rollbackAvailable": false,
             "rollbackRestoreCanary": invalid_rollback_restore_canary,
+            "activationAudit": invalid_activation_audit,
             "liveAuthorityTransferred": false,
             "activationMinted": false,
             "workerBinding": {
@@ -2856,6 +2989,8 @@ fn runtime_harness_fork_activation(sid: &str, gated_cluster_runs: &[Value]) -> V
             "rollbackTarget": rollback_target,
             "rollbackAvailable": true,
             "rollbackRestoreCanary": valid_rollback_restore_canary,
+            "activationAudit": valid_activation_audit,
+            "activationRollbackExecution": valid_activation_rollback_execution,
             "liveAuthorityTransferred": false,
             "activationMinted": true,
             "workerBinding": worker_binding,
@@ -9526,6 +9661,72 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
             invalid_receipt_present && valid_receipt_present
         })
         .unwrap_or(false);
+    let activation_audit_receipts_present = |activation_event: &Value| {
+        let Some(event_type) = activation_event.get("eventType").and_then(Value::as_str) else {
+            return false;
+        };
+        matches!(
+            event_type,
+            "dry_run_blocked"
+                | "dry_run_mintable"
+                | "activation_mint_blocked"
+                | "activation_minted"
+                | "rollback_drill_passed"
+                | "rollback_executed"
+        ) && activation_event
+            .get("receiptRefs")
+            .and_then(Value::as_array)
+            .map(|refs| {
+                refs.iter().any(|reference| {
+                    reference
+                        .as_str()
+                        .map(|value| value.starts_with("workflow_restore_canary:"))
+                        .unwrap_or(false)
+                })
+            })
+            .unwrap_or(false)
+    };
+    let harness_activation_audit_receipts_present = harness_fork_activation
+        .as_ref()
+        .map(|activation| {
+            ["invalidFork", "validFork"].iter().any(|fork_key| {
+                activation
+                    .get(*fork_key)
+                    .and_then(|fork| fork.get("activationAudit"))
+                    .and_then(Value::as_array)
+                    .map(|events| {
+                        events
+                            .iter()
+                            .any(|event| activation_audit_receipts_present(event))
+                    })
+                    .unwrap_or(false)
+            })
+        })
+        .unwrap_or(false);
+    let harness_rollback_execution_receipts_present = harness_fork_activation
+        .as_ref()
+        .and_then(|activation| activation.get("validFork"))
+        .and_then(|valid| valid.get("activationRollbackExecution"))
+        .map(|execution| {
+            execution
+                .get("receiptRefs")
+                .and_then(Value::as_array)
+                .map(|refs| {
+                    refs.iter().any(|reference| {
+                        reference
+                            .as_str()
+                            .map(|value| value.starts_with("workflow_restore_canary:"))
+                            .unwrap_or(false)
+                    })
+                })
+                .unwrap_or(false)
+                && execution
+                    .get("restoreReceiptBindingRef")
+                    .and_then(Value::as_str)
+                    .map(|value| value.starts_with("workflow_restore_canary:"))
+                    .unwrap_or(false)
+        })
+        .unwrap_or(false);
     let harness_canary_execution_boundary =
         projection.get("HarnessCanaryExecutionBoundary").cloned();
     let mut harness_canary_execution_boundaries = projection
@@ -11421,6 +11622,8 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
             "harness_rollback_restore_canary_blocked": harness_rollback_restore_canary_blocked,
             "harness_rollback_restore_canary_ready": harness_rollback_restore_canary_ready,
             "harness_rollback_restore_canary_receipts_present": harness_rollback_restore_canary_receipts_present,
+            "harness_activation_audit_receipts_present": harness_activation_audit_receipts_present,
+            "harness_rollback_execution_receipts_present": harness_rollback_execution_receipts_present,
             "harness_canary_execution_boundaries": projection.get("HarnessCanaryExecutionBoundaries"),
             "harness_canary_execution_boundary": harness_canary_execution_boundary,
             "harness_canary_boundary_executed": harness_canary_boundary_executed,
@@ -11505,6 +11708,8 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
             "harness_rollback_restore_canary_blocked": harness_rollback_restore_canary_blocked,
             "harness_rollback_restore_canary_ready": harness_rollback_restore_canary_ready,
             "harness_rollback_restore_canary_receipts_present": harness_rollback_restore_canary_receipts_present,
+            "harness_activation_audit_receipts_present": harness_activation_audit_receipts_present,
+            "harness_rollback_execution_receipts_present": harness_rollback_execution_receipts_present,
             "harness_canary_boundary_executed": harness_canary_boundary_executed,
             "harness_canary_boundary_rollback_drill": harness_canary_boundary_rollback_drill,
             "harness_selector_canary_routed": harness_selector_canary_routed,

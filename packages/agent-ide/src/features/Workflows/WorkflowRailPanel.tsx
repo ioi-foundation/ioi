@@ -1947,6 +1947,9 @@ export function WorkflowRailPanel({
                 className="workflow-rail-section"
                 data-testid="workflow-harness-rollback-drill-proof"
                 data-drill-status={harnessActivationRollbackProof?.drillStatus ?? "not_run"}
+                data-receipt-refs={
+                  harnessActivationRollbackProof?.receiptRefs?.join("|") ?? ""
+                }
               >
                 <h4>Rollback proof</h4>
                 <article
@@ -1955,6 +1958,9 @@ export function WorkflowRailPanel({
                       ? "ready"
                       : "blocked"
                   }`}
+                  data-receipt-refs={
+                    harnessActivationRollbackProof?.receiptRefs?.join("|") ?? ""
+                  }
                 >
                   <strong>
                     {harnessActivationRollbackProof?.rollbackTarget ??
@@ -1972,7 +1978,8 @@ export function WorkflowRailPanel({
                       "pending"}
                   </span>
                   <small>
-                    {harnessActivationRollbackProof?.policyDecision ??
+                    {harnessActivationRollbackProof?.receiptRefs?.[0] ??
+                      harnessActivationRollbackProof?.policyDecision ??
                       "rollback drill pending"}
                   </small>
                 </article>
@@ -1983,6 +1990,12 @@ export function WorkflowRailPanel({
                 data-execution-status={
                   harnessActivationRollbackExecution?.executionStatus ?? "not_run"
                 }
+                data-receipt-refs={
+                  harnessActivationRollbackExecution?.receiptRefs?.join("|") ?? ""
+                }
+                data-restore-receipt-binding-ref={
+                  harnessActivationRollbackExecution?.restoreReceiptBindingRef ?? ""
+                }
               >
                 <h4>Rollback execution</h4>
                 <article
@@ -1991,6 +2004,9 @@ export function WorkflowRailPanel({
                       ? "ready"
                       : "blocked"
                   }`}
+                  data-receipt-refs={
+                    harnessActivationRollbackExecution?.receiptRefs?.join("|") ?? ""
+                  }
                 >
                   <strong>
                     {harnessActivationRollbackExecution?.rollbackTarget ??
@@ -2008,7 +2024,9 @@ export function WorkflowRailPanel({
                       : "pending"}
                   </span>
                   <small>
-                    {harnessActivationRollbackExecution?.policyDecision ??
+                    {harnessActivationRollbackExecution?.restoreReceiptBindingRef ??
+                      harnessActivationRollbackExecution?.receiptRefs?.[0] ??
+                      harnessActivationRollbackExecution?.policyDecision ??
                       "rollback execution pending"}
                   </small>
                 </article>
@@ -2115,18 +2133,30 @@ export function WorkflowRailPanel({
                 className="workflow-rail-section"
                 data-testid="workflow-harness-activation-audit"
                 data-audit-count={harnessActivationAudit.length}
+                data-receipt-refs={
+                  harnessActivationAudit
+                    .flatMap((event) => event.receiptRefs ?? [])
+                    .join("|")
+                }
               >
                 <h4>Activation audit</h4>
                 <article
                   className="workflow-output-row"
                   data-testid="workflow-harness-activation-audit-summary"
+                  data-receipt-refs={
+                    latestHarnessActivationAudit?.receiptRefs?.join("|") ?? ""
+                  }
                 >
                   <strong>{latestHarnessActivationAudit?.eventType ?? "no audit events"}</strong>
                   <span>
                     {latestHarnessActivationAudit?.status ?? "pending"} ·{" "}
                     {latestHarnessActivationAudit?.rollbackTarget ?? "rollback not selected"}
                   </span>
-                  <small>{latestHarnessActivationAudit?.summary ?? "Run a dry run to create history."}</small>
+                  <small>
+                    {latestHarnessActivationAudit?.receiptRefs?.[0] ??
+                      latestHarnessActivationAudit?.summary ??
+                      "Run a dry run to create history."}
+                  </small>
                 </article>
                 <div
                   className="workflow-rail-list"
@@ -2140,12 +2170,13 @@ export function WorkflowRailPanel({
                       }`}
                       data-testid={`workflow-harness-activation-audit-event-${event.eventId}`}
                       data-audit-event-type={event.eventType}
+                      data-audit-receipt-refs={event.receiptRefs?.join("|") ?? ""}
                     >
                       <strong>{event.eventType}</strong>
                       <span>
                         {event.status} · {event.activationId ?? event.nextActivationId ?? "no activation"}
                       </span>
-                      <small>{event.summary}</small>
+                      <small>{event.receiptRefs?.[0] ?? event.summary}</small>
                     </article>
                   ))}
                 </div>

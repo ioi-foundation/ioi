@@ -124,6 +124,60 @@ function stableContentHash(value: unknown): string {
   return `stable-fnv1a32:${hash.toString(16).padStart(8, "0")}`;
 }
 
+function uniqueStrings(values: Array<string | null | undefined>): string[] {
+  return Array.from(
+    new Set(
+      values.filter((value): value is string => typeof value === "string" && value.length > 0),
+    ),
+  );
+}
+
+function receiptRefsFromEvidenceRefs(
+  evidenceRefs: Array<string | null | undefined> = [],
+): string[] {
+  return uniqueStrings(
+    evidenceRefs.filter((reference): reference is string =>
+      typeof reference === "string" && reference.startsWith("workflow_restore_canary:"),
+    ),
+  );
+}
+
+function rollbackRestoreCanaryReceiptRefs(
+  canary: WorkflowHarnessForkActivationRecord["rollbackRestoreCanary"] | null | undefined,
+): string[] {
+  if (!canary) return [];
+  return uniqueStrings([
+    canary.receiptBindingRef,
+    ...receiptRefsFromEvidenceRefs(canary.evidenceRefs),
+  ]);
+}
+
+function activationCandidateReceiptRefs(
+  candidate: WorkflowHarnessForkActivationCandidate | null | undefined,
+): string[] {
+  if (!candidate) return [];
+  return uniqueStrings([
+    ...rollbackRestoreCanaryReceiptRefs(candidate.rollbackRestoreCanary),
+    ...receiptRefsFromEvidenceRefs(candidate.evidenceRefs),
+  ]);
+}
+
+function workflowRollbackReceiptRefs(
+  workflow: WorkflowProject,
+  latestMintEvent?: WorkflowHarnessActivationAuditEvent,
+): string[] {
+  return uniqueStrings([
+    ...(latestMintEvent?.receiptRefs ?? []),
+    ...receiptRefsFromEvidenceRefs(latestMintEvent?.evidenceRefs ?? []),
+    ...rollbackRestoreCanaryReceiptRefs(
+      workflow.metadata.harness?.activationRecord?.rollbackRestoreCanary,
+    ),
+    ...receiptRefsFromEvidenceRefs(
+      workflow.metadata.harness?.activationRecord?.evidenceRefs ?? [],
+    ),
+  ]);
+}
+
 function workflowSourceProjection(workflow: WorkflowProject): unknown {
   const harness = workflow.metadata.harness;
   return {
@@ -295,10 +349,16 @@ function makeWorkflowHarnessActivationAuditEvent(options: {
   rollbackExecuted?: boolean;
   blockers?: string[];
   evidenceRefs?: string[];
+  receiptRefs?: string[];
   summary: string;
   createdAtMs: number;
 }): WorkflowHarnessActivationAuditEvent {
   const workflowId = options.workflow.metadata.id || options.workflow.metadata.slug;
+  const evidenceRefs = options.evidenceRefs ?? [];
+  const receiptRefs = uniqueStrings([
+    ...(options.receiptRefs ?? []),
+    ...receiptRefsFromEvidenceRefs(evidenceRefs),
+  ]);
   return {
     schemaVersion: "workflow.harness.activation-audit.v1",
     eventId: harnessActivationAuditEventId(workflowId, options.eventType, options.createdAtMs),
@@ -316,7 +376,8 @@ function makeWorkflowHarnessActivationAuditEvent(options: {
     rollbackTarget: options.rollbackTarget,
     rollbackExecuted: options.rollbackExecuted,
     blockers: options.blockers ?? [],
-    evidenceRefs: options.evidenceRefs ?? [],
+    evidenceRefs,
+    receiptRefs,
     summary: options.summary,
     createdAtMs: options.createdAtMs,
   };
@@ -353,6 +414,7 @@ export function recordWorkflowHarnessActivationDryRun(
 ): WorkflowProject {
   if (!workflowIsHarnessFork(workflow)) return workflow;
   const createdAtMs = options.nowMs ?? Date.now();
+  const receiptRefs = activationCandidateReceiptRefs(candidate);
   return appendWorkflowHarnessActivationAudit(
     workflow,
     makeWorkflowHarnessActivationAuditEvent({
@@ -371,6 +433,7 @@ export function recordWorkflowHarnessActivationDryRun(
       rollbackTarget: candidate.rollbackTarget,
       blockers: candidate.activationBlockers,
       evidenceRefs: candidate.evidenceRefs,
+      receiptRefs,
       summary:
         candidate.decision === "mintable"
           ? `Activation dry run mintable for ${candidate.activationIdPreview}`
@@ -604,6 +667,7 @@ export function executeWorkflowHarnessRollbackDrill(
     activeRevisionBinding,
     restoredRevisionBinding,
   } = harnessRollbackBindingsFor(workflow, rollbackTarget, createdAtMs);
+  const receiptRefs = workflowRollbackReceiptRefs(workflow, latestMintEvent);
   const proof: WorkflowHarnessActivationRollbackProof = {
     schemaVersion: "workflow.harness.activation-rollback-proof.v1",
     drillId: `harness-rollback-drill:${slugify(workflow.metadata.id || workflow.metadata.slug)}:${createdAtMs}`,
@@ -623,9 +687,11 @@ export function executeWorkflowHarnessRollbackDrill(
         : "rollback_drill_blocked",
     blockers,
     evidenceRefs: [
+      ...receiptRefs,
       rollbackTarget,
       ...(latestMintEvent ? [latestMintEvent.eventId] : []),
     ],
+    receiptRefs,
     createdAtMs,
   };
   const workflowWithAudit = appendWorkflowHarnessActivationAudit(
@@ -646,6 +712,7 @@ export function executeWorkflowHarnessRollbackDrill(
       rollbackExecuted: blockers.length === 0,
       blockers,
       evidenceRefs: proof.evidenceRefs,
+      receiptRefs: proof.receiptRefs,
       summary:
         blockers.length === 0
           ? `Rollback drill restored ${restoredWorkerBinding.harnessActivationId ?? restoredWorkerBinding.harnessWorkflowId}`
@@ -716,6 +783,11 @@ export function executeWorkflowHarnessRevisionRollback(
       ...(options.restoreBlockers ?? []),
     ].filter(Boolean)),
   );
+  const receiptRefs = uniqueStrings([
+    options.restoreResult?.receiptBindingRef,
+    ...workflowRollbackReceiptRefs(workflow, latestMintEvent),
+    ...receiptRefsFromEvidenceRefs(options.restoreResult?.blockers ?? []),
+  ]);
   const rollbackActivationRecord = makeHarnessForkActivationRecord({
     workflowId: workflow.metadata.id || workflow.metadata.slug,
     harnessWorkflowId: restoredWorkerBinding.harnessWorkflowId,
@@ -742,6 +814,7 @@ export function executeWorkflowHarnessRevisionRollback(
     rollbackAvailable: true,
     liveAuthorityTransferred: false,
     evidenceRefs: [
+      ...receiptRefs,
       rollbackTarget,
       restoredRevisionWithRollForward.workflowContentHash,
       ...(latestMintEvent ? [latestMintEvent.eventId] : []),
@@ -816,6 +889,7 @@ export function executeWorkflowHarnessRevisionRollback(
       restoredRevisionWithRollForward.activatedRevision,
     restoredFileSha256: options.restoreResult?.fileSha256,
     restoreBlockers,
+    restoreReceiptBindingRef: options.restoreResult?.receiptBindingRef,
     workflowPath:
       options.restoreResult?.workflowPath ?? restoredRevisionWithRollForward.workflowPath,
     expectedWorkflowContentHash,
@@ -828,10 +902,12 @@ export function executeWorkflowHarnessRevisionRollback(
         : "rollback_execution_blocked",
     blockers,
     evidenceRefs: [
+      ...receiptRefs,
       rollbackTarget,
       restoredRevisionWithRollForward.workflowContentHash,
       ...(latestMintEvent ? [latestMintEvent.eventId] : []),
     ],
+    receiptRefs,
     createdAtMs,
   };
   const workflowForAudit = blockers.length === 0 ? restoredWorkflowBase : workflow;
@@ -852,6 +928,7 @@ export function executeWorkflowHarnessRevisionRollback(
       rollbackExecuted: blockers.length === 0,
       blockers,
       evidenceRefs: execution.evidenceRefs,
+      receiptRefs: execution.receiptRefs,
       summary:
         blockers.length === 0
           ? `Rollback executed: restored ${restoredRevisionWithRollForward.workflowContentHash}`
@@ -895,6 +972,7 @@ export function applyWorkflowHarnessActivationCandidate(
   ];
   if (blockers.length > 0 || !candidate || !activationId) {
     const uniqueBlockers = Array.from(new Set(blockers));
+    const receiptRefs = activationCandidateReceiptRefs(candidate);
     return {
       applied: false,
       workflow: workflowIsHarnessFork(workflow)
@@ -915,6 +993,7 @@ export function applyWorkflowHarnessActivationCandidate(
               rollbackTarget: candidate?.rollbackTarget,
               blockers: uniqueBlockers,
               evidenceRefs: candidate?.evidenceRefs ?? [],
+              receiptRefs,
               summary: `Activation mint blocked by ${uniqueBlockers.length} blockers`,
               createdAtMs: options.nowMs ?? Date.now(),
             }),
@@ -961,6 +1040,7 @@ export function applyWorkflowHarnessActivationCandidate(
       previousRevisionBinding.activatedRevision ?? previousRevisionBinding.workflowContentHash,
     createdAtMs: nowMs,
   };
+  const receiptRefs = activationCandidateReceiptRefs(candidate);
   const activationRecord = makeHarnessForkActivationRecord({
     workflowId,
     harnessWorkflowId: workerBinding.harnessWorkflowId,
@@ -974,7 +1054,7 @@ export function applyWorkflowHarnessActivationCandidate(
     rollbackTarget,
     rollbackAvailable: candidate.rollbackAvailable || Boolean(rollbackTarget),
     liveAuthorityTransferred: false,
-    evidenceRefs: Array.from(new Set([candidate.candidateId, ...candidate.evidenceRefs])),
+    evidenceRefs: uniqueStrings([candidate.candidateId, ...receiptRefs, ...candidate.evidenceRefs]),
     workerBinding,
     revisionBinding,
     rollbackRevisionBinding: previousRevisionBinding,
@@ -1019,7 +1099,8 @@ export function applyWorkflowHarnessActivationCandidate(
         previousRevisionBinding,
         nextRevisionBinding: revisionBinding,
         rollbackTarget,
-        evidenceRefs: Array.from(new Set([candidate.candidateId, ...candidate.evidenceRefs])),
+        evidenceRefs: uniqueStrings([candidate.candidateId, ...receiptRefs, ...candidate.evidenceRefs]),
+        receiptRefs,
         summary: `Activation minted: ${activationId}`,
         createdAtMs: nowMs,
       }),

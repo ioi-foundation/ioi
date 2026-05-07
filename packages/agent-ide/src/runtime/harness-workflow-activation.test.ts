@@ -77,14 +77,17 @@ const onlyActivationMissingReadiness = (
   assert.match(candidate.revisionBindingPreview.workflowContentHash, /^stable-fnv1a32:/);
   assert.equal(candidate.rollbackRestoreCanary.status, "not_required");
   assert.match(candidate.rollbackRestoreCanary.receiptBindingRef ?? "", /^workflow_restore_canary:/);
+  const blockedReceiptRef = candidate.rollbackRestoreCanary.receiptBindingRef ?? "";
   const dryRunAudit = auditedWorkflow.metadata.harness?.activationAudit ?? [];
   assert.equal(dryRunAudit[dryRunAudit.length - 1]?.eventType, "dry_run_blocked");
+  assert.ok(dryRunAudit[dryRunAudit.length - 1]?.receiptRefs.includes(blockedReceiptRef));
   assert.equal(result.applied, false);
   assert.match(result.blockers.join(","), /candidate_not_mintable/);
   assert.equal(result.workflow.metadata.harness?.activationState, "blocked");
   assert.equal(result.workflow.metadata.workerHarnessBinding?.harnessActivationId, undefined);
   const blockedMintAudit = result.workflow.metadata.harness?.activationAudit ?? [];
   assert.equal(blockedMintAudit[blockedMintAudit.length - 1]?.eventType, "activation_mint_blocked");
+  assert.ok(blockedMintAudit[blockedMintAudit.length - 1]?.receiptRefs.includes(blockedReceiptRef));
 }
 
 {
@@ -157,6 +160,8 @@ const onlyActivationMissingReadiness = (
 
   assert.equal(candidate.decision, "mintable", candidate.activationBlockers.join("\n"));
   assert.equal(candidate.rollbackRestoreCanary.status, "not_required");
+  const mintableReceiptRef = candidate.rollbackRestoreCanary.receiptBindingRef ?? "";
+  assert.match(mintableReceiptRef, /^workflow_restore_canary:/);
   assert.equal(
     candidate.gateResults.find((gate) => gate.gateId === "rollback-restore")?.status,
     "passed",
@@ -200,6 +205,9 @@ const onlyActivationMissingReadiness = (
       "activation_minted",
     ],
   );
+  const activationAudit = result.workflow.metadata.harness?.activationAudit ?? [];
+  assert.ok(activationAudit[0]?.receiptRefs.includes(mintableReceiptRef));
+  assert.ok(activationAudit[2]?.receiptRefs.includes(mintableReceiptRef));
 
   const rollbackDrill = executeWorkflowHarnessRollbackDrill(result.workflow, {
     rollbackTarget: "legacy_runtime",
@@ -208,6 +216,7 @@ const onlyActivationMissingReadiness = (
   assert.equal(rollbackDrill.executed, true);
   assert.equal(rollbackDrill.proof?.drillStatus, "passed");
   assert.equal(rollbackDrill.proof?.rollbackExecuted, true);
+  assert.ok(rollbackDrill.proof?.receiptRefs.includes(mintableReceiptRef));
   assert.equal(
     rollbackDrill.proof?.restoredWorkerBinding?.harnessActivationId,
     workerBinding.harnessActivationId,
@@ -226,6 +235,7 @@ const onlyActivationMissingReadiness = (
   );
   const rollbackDrillAudit = rollbackDrill.workflow.metadata.harness?.activationAudit ?? [];
   assert.equal(rollbackDrillAudit[rollbackDrillAudit.length - 1]?.eventType, "rollback_drill_passed");
+  assert.ok(rollbackDrillAudit[rollbackDrillAudit.length - 1]?.receiptRefs.includes(mintableReceiptRef));
 
   const rollbackExecution = executeWorkflowHarnessRevisionRollback(result.workflow, {
     rollbackTarget: "legacy_runtime",
@@ -241,6 +251,7 @@ const onlyActivationMissingReadiness = (
       expectedWorkflowContentHash:
         rollbackSelectedWorkflow.metadata.harness?.revisionBinding
           ?.workflowContentHash,
+      receiptBindingRef: "workflow_restore_canary:rollback-execution",
       fileSha256: "sha256:restored-workflow-file",
     },
     nowMs: 2_400,
@@ -264,6 +275,16 @@ const onlyActivationMissingReadiness = (
     rollbackExecution.execution?.restoredFileSha256,
     "sha256:restored-workflow-file",
   );
+  assert.equal(
+    rollbackExecution.execution?.restoreReceiptBindingRef,
+    "workflow_restore_canary:rollback-execution",
+  );
+  assert.ok(
+    rollbackExecution.execution?.receiptRefs.includes(
+      "workflow_restore_canary:rollback-execution",
+    ),
+  );
+  assert.ok(rollbackExecution.execution?.receiptRefs.includes(mintableReceiptRef));
   assert.deepEqual(rollbackExecution.execution?.restoreBlockers, []);
   assert.equal(
     rollbackExecution.workflow.metadata.harness?.activationRollbackExecution
@@ -288,6 +309,11 @@ const onlyActivationMissingReadiness = (
   assert.equal(
     rollbackExecutionAudit[rollbackExecutionAudit.length - 1]?.eventType,
     "rollback_executed",
+  );
+  assert.ok(
+    rollbackExecutionAudit[rollbackExecutionAudit.length - 1]?.receiptRefs.includes(
+      "workflow_restore_canary:rollback-execution",
+    ),
   );
 
   const postValidation = validateWorkflowProject(result.workflow, fork.tests);

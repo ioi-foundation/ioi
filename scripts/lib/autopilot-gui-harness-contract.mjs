@@ -161,6 +161,8 @@ export const RUNTIME_CONSISTENCY_REQUIREMENTS = Object.freeze([
   "harness_fork_activation_present",
   "harness_rollback_restore_canary_present",
   "harness_rollback_restore_canary_receipts_present",
+  "harness_activation_audit_receipts_present",
+  "harness_rollback_execution_receipts_present",
   "harness_rollback_restore_canary_ui_present",
   "harness_canary_execution_boundary_present",
   "harness_live_handoff_present",

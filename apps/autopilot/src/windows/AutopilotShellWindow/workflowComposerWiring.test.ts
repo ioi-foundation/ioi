@@ -753,6 +753,12 @@ assert.match(
 );
 
 assert.match(
+  workflowRailPanel,
+  /(?=[\s\S]*workflow-harness-activation-audit[\s\S]*data-receipt-refs[\s\S]*data-audit-receipt-refs)(?=[\s\S]*workflow-harness-rollback-execution-proof[\s\S]*data-restore-receipt-binding-ref)/,
+  "Activation rail should surface audit and rollback execution receipt refs.",
+);
+
+assert.match(
   workflowComposerUi,
   /viewMacro[\s\S]*macroPeerNodes[\s\S]*workflow-node-macro-cluster[\s\S]*workflow-node-macro-peer-list[\s\S]*workflow-node-macro-peer/,
   "Node details should show the expanded agent-loop composition and peer roles without hiding runtime behavior inside a macro node",
@@ -1161,6 +1167,12 @@ assert.match(
 );
 
 assert.match(
+  graphTypes,
+  /WorkflowHarnessActivationAuditEvent[\s\S]*receiptRefs: string\[\][\s\S]*WorkflowHarnessActivationRollbackExecution[\s\S]*receiptRefs: string\[\][\s\S]*restoreReceiptBindingRef\?: string/,
+  "Harness activation contract should carry restore-canary receipt refs through audit and rollback execution evidence.",
+);
+
+assert.match(
   harnessWorkflow,
   /DEFAULT_HARNESS_EXECUTION_MODE[\s\S]*HARNESS_PROMOTION_CLUSTER_COMPONENTS[\s\S]*cognition[\s\S]*DEFAULT_AGENT_HARNESS_COMPONENTS[\s\S]*kind: "planner"[\s\S]*kind: "prompt_assembler"[\s\S]*kind: "mcp_provider"[\s\S]*kind: "mcp_tool_call"[\s\S]*kind: "receipt_writer"[\s\S]*defaultHarnessPromotionClusters[\s\S]*requiredExecutionMode: "gated"[\s\S]*makeDefaultAgentHarnessWorkflow[\s\S]*readOnly: true/,
   "Default Agent Harness projection should componentize planner, prompt assembly, MCP providers/tools, receipts, gated clusters, and expose a read-only workflow graph",
@@ -1170,6 +1182,12 @@ assert.match(
   harnessWorkflow,
   /(?=[\s\S]*forkDefaultAgentHarnessWorkflow[\s\S]*proposal-\$\{slug\}-activation-gates[\s\S]*forkedFrom[\s\S]*activationState: "blocked"[\s\S]*activationRecord)(?=[\s\S]*workflowRevisionBindingFor)(?=[\s\S]*workflowSourceProjection)(?=[\s\S]*stableContentHash)(?=[\s\S]*recordWorkflowHarnessActivationDryRun)(?=[\s\S]*recordWorkflowHarnessRollbackTargetSelection)(?=[\s\S]*executeWorkflowHarnessRollbackDrill)(?=[\s\S]*rollback_drill_restored_previous_worker_binding)(?=[\s\S]*executeWorkflowHarnessRevisionRollback)(?=[\s\S]*restoredWorkflow)(?=[\s\S]*git_show_file_restore)(?=[\s\S]*rollback_execution_restored_verified_workflow_revision)(?=[\s\S]*rollback_executed)(?=[\s\S]*activationRollbackExecution)(?=[\s\S]*activeRevisionBinding)(?=[\s\S]*restoredRevisionBinding)(?=[\s\S]*applyWorkflowHarnessActivationCandidate)(?=[\s\S]*activation_mint_blocked)(?=[\s\S]*activation_minted)(?=[\s\S]*candidate_not_mintable)(?=[\s\S]*activationState: "validated")(?=[\s\S]*workerHarnessBinding: workerBinding)(?=[\s\S]*revisionBinding)(?=[\s\S]*rollbackRevisionBinding)(?=[\s\S]*componentVersionSet: candidate\.componentVersionSet)/,
   "Forking the Default Agent Harness should create editable lineage metadata, package proposal sidecars, workflow revision bindings, audited dry runs, guarded candidate activation minting, and rollback drill proof",
+);
+
+assert.match(
+  harnessWorkflow,
+  /(?=[\s\S]*activationCandidateReceiptRefs)(?=[\s\S]*recordWorkflowHarnessActivationDryRun[\s\S]*receiptRefs)(?=[\s\S]*activation_mint_blocked[\s\S]*receiptRefs)(?=[\s\S]*activation_minted[\s\S]*receiptRefs)(?=[\s\S]*workflowRollbackReceiptRefs)(?=[\s\S]*executeWorkflowHarnessRollbackDrill[\s\S]*receiptRefs)(?=[\s\S]*executeWorkflowHarnessRevisionRollback[\s\S]*restoreReceiptBindingRef)/,
+  "Fork activation and rollback proof should preserve restore-canary receipt continuity.",
 );
 
 assert.match(
