@@ -25,6 +25,7 @@ import type {
 } from "../../types/graph";
 import { workflowInterruptPreview } from "../../runtime/workflow-bottom-panel-model";
 import {
+  DEFAULT_AGENT_HARNESS_COMPONENTS,
   harnessNodeEvidenceSummary,
   harnessSlotsForWorkflow,
   workflowHarnessWorkerBinding,
@@ -674,6 +675,62 @@ export function WorkflowRailPanel({
   const liveReadyHarnessComponents = harnessComponentReadiness.filter(
     (readiness) => readiness === "live_ready",
   ).length;
+  const harnessComponentBindingById = new Map(
+    workflow.nodes
+      .filter((node): node is Node & { runtimeBinding: NonNullable<Node["runtimeBinding"]> } =>
+        Boolean(node.runtimeBinding),
+      )
+      .map((node) => [node.runtimeBinding.componentId, { node, binding: node.runtimeBinding }]),
+  );
+  const blessedHarnessComponentById = new Map(
+    DEFAULT_AGENT_HARNESS_COMPONENTS.map((component) => [
+      component.componentId,
+      component,
+    ]),
+  );
+  const harnessForkComponentDiffRows = workflow.metadata.harness?.forkedFrom
+    ? Array.from(
+        new Set([
+          ...DEFAULT_AGENT_HARNESS_COMPONENTS.map((component) => component.componentId),
+          ...harnessComponentBindingById.keys(),
+        ]),
+      ).map((componentId) => {
+        const blessedComponent = blessedHarnessComponentById.get(componentId) ?? null;
+        const forkBinding = harnessComponentBindingById.get(componentId) ?? null;
+        const forkReadiness =
+          forkBinding?.binding.readiness ??
+          workflow.metadata.harness?.componentReadiness?.[componentId] ??
+          "missing";
+        const blessedVersion = blessedComponent?.version ?? "missing";
+        const forkVersion = forkBinding?.binding.componentVersion ?? "missing";
+        const status = !blessedComponent
+          ? "fork_only"
+          : !forkBinding
+            ? "missing_from_fork"
+            : blessedVersion !== forkVersion ||
+                blessedComponent.kind !== forkBinding.binding.componentKind
+              ? "changed"
+              : "unchanged";
+        return {
+          componentId,
+          nodeId: forkBinding?.node.id ?? null,
+          label: forkBinding?.node.name ?? blessedComponent?.label ?? componentId,
+          kind: forkBinding?.binding.componentKind ?? blessedComponent?.kind ?? "unknown",
+          blessedVersion,
+          forkVersion,
+          blessedReadiness: blessedComponent?.readiness ?? "missing",
+          forkReadiness,
+          status,
+        };
+      })
+    : [];
+  const harnessForkComponentDiffStats = harnessForkComponentDiffRows.reduce(
+    (stats, row) => {
+      stats[row.status] = (stats[row.status] ?? 0) + 1;
+      return stats;
+    },
+    {} as Record<string, number>,
+  );
   const environmentProfile = workflowEnvironmentProfile(workflow);
   const bindingRegistryRows = workflowBindingRegistryRows(workflow);
   const bindingRegistrySummary = workflowBindingRegistrySummary(bindingRegistryRows);
@@ -1978,6 +2035,62 @@ export function WorkflowRailPanel({
                 <span>{workflow.metadata.harness.forkedFrom.harnessWorkflowId}</span>
                 <small>{workflow.metadata.harness.forkedFrom.harnessHash}</small>
               </article>
+            ) : null}
+            {workflow.metadata.harness?.forkedFrom ? (
+              <section
+                className="workflow-rail-section"
+                data-testid="workflow-harness-fork-component-diff"
+              >
+                <h4>Blessed vs fork components</h4>
+                <dl
+                  className="workflow-rail-stats"
+                  data-testid="workflow-harness-fork-component-diff-summary"
+                >
+                  <div>
+                    <dt>Unchanged</dt>
+                    <dd>{harnessForkComponentDiffStats.unchanged ?? 0}</dd>
+                  </div>
+                  <div>
+                    <dt>Changed</dt>
+                    <dd>{harnessForkComponentDiffStats.changed ?? 0}</dd>
+                  </div>
+                  <div>
+                    <dt>Missing</dt>
+                    <dd>{harnessForkComponentDiffStats.missing_from_fork ?? 0}</dd>
+                  </div>
+                  <div>
+                    <dt>Fork-only</dt>
+                    <dd>{harnessForkComponentDiffStats.fork_only ?? 0}</dd>
+                  </div>
+                </dl>
+                <div
+                  className="workflow-rail-list"
+                  data-testid="workflow-harness-fork-component-diff-list"
+                >
+                  {harnessForkComponentDiffRows.map((row) => (
+                    <button
+                      key={row.componentId}
+                      type="button"
+                      className={`workflow-search-result is-${
+                        row.status === "unchanged" ? "ready" : "blocked"
+                      }`}
+                      data-testid={`workflow-harness-fork-component-diff-row-${row.componentId}`}
+                      data-component-diff-status={row.status}
+                      disabled={!row.nodeId}
+                      onClick={() => row.nodeId && onInspectNode(row.nodeId)}
+                    >
+                      <strong>{row.label}</strong>
+                      <span>
+                        {row.status} · {row.kind}
+                      </span>
+                      <small>
+                        blessed {row.blessedVersion} ({row.blessedReadiness}) · fork{" "}
+                        {row.forkVersion} ({row.forkReadiness})
+                      </small>
+                    </button>
+                  ))}
+                </div>
+              </section>
             ) : null}
             <div className="workflow-rail-list" data-testid="workflow-harness-slots">
               {harnessSlots.map((slot) => {
