@@ -8,6 +8,7 @@ import type {
 import {
   applyWorkflowHarnessActivationCandidate,
   executeWorkflowHarnessRollbackDrill,
+  executeWorkflowHarnessRevisionRollback,
   forkDefaultAgentHarnessWorkflow,
   makeHarnessForkActivationRecord,
   recordWorkflowHarnessActivationDryRun,
@@ -212,6 +213,43 @@ const onlyActivationMissingReadiness = (
   );
   const rollbackDrillAudit = rollbackDrill.workflow.metadata.harness?.activationAudit ?? [];
   assert.equal(rollbackDrillAudit[rollbackDrillAudit.length - 1]?.eventType, "rollback_drill_passed");
+
+  const rollbackExecution = executeWorkflowHarnessRevisionRollback(result.workflow, {
+    rollbackTarget: "legacy_runtime",
+    nowMs: 2_400,
+  });
+  assert.equal(rollbackExecution.executed, true);
+  assert.equal(rollbackExecution.execution?.executionStatus, "applied");
+  assert.equal(rollbackExecution.execution?.rollbackExecuted, true);
+  assert.equal(rollbackExecution.execution?.hashVerified, true);
+  assert.equal(
+    rollbackExecution.execution?.policyDecision,
+    "rollback_execution_restored_verified_workflow_revision",
+  );
+  assert.equal(
+    rollbackExecution.workflow.metadata.harness?.activationRollbackExecution
+      ?.executionStatus,
+    "applied",
+  );
+  assert.equal(
+    rollbackExecution.workflow.metadata.harness?.revisionBinding?.workflowContentHash,
+    rollbackSelectedWorkflow.metadata.harness?.revisionBinding?.workflowContentHash,
+  );
+  assert.equal(
+    rollbackExecution.workflow.metadata.harness?.activationRecord?.rollbackRevisionBinding
+      ?.workflowContentHash,
+    result.workflow.metadata.harness?.revisionBinding?.workflowContentHash,
+  );
+  assert.equal(
+    rollbackExecution.workflow.metadata.workerHarnessBinding?.harnessActivationId,
+    workerBinding.harnessActivationId,
+  );
+  const rollbackExecutionAudit =
+    rollbackExecution.workflow.metadata.harness?.activationAudit ?? [];
+  assert.equal(
+    rollbackExecutionAudit[rollbackExecutionAudit.length - 1]?.eventType,
+    "rollback_executed",
+  );
 
   const postValidation = validateWorkflowProject(result.workflow, fork.tests);
   const postReadiness = evaluateWorkflowActivationReadiness(
