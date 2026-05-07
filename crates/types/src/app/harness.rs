@@ -2701,6 +2701,8 @@ pub fn default_harness_gated_cluster_run_for_shadow_run(
         activation_blockers.push("unclassified_shadow_divergence".to_string());
     }
 
+    node_attempt_ids.sort();
+    node_attempt_ids.dedup();
     receipt_ids.sort();
     receipt_ids.dedup();
     replay_fixture_refs.sort();
@@ -2773,6 +2775,12 @@ pub fn compare_harness_live_shadow_attempts(
             HarnessDivergenceClass::PolicyDivergence,
             true,
             "live and shadow attempts disagreed on policy decision".to_string(),
+        )
+    } else if live.output_hash != shadow.output_hash {
+        (
+            HarnessDivergenceClass::OutputDivergence,
+            true,
+            "live and shadow attempts disagreed on output hash".to_string(),
         )
     } else {
         (
