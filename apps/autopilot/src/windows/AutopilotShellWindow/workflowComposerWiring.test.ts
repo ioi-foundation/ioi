@@ -777,6 +777,12 @@ assert.match(
 );
 
 assert.match(
+  `${workflowRailModel}\n${workflowRailPanel}`,
+  /(?=[\s\S]*export interface WorkflowHarnessReplayInspection)(?=[\s\S]*export function resolveWorkflowHarnessReplayInspection)(?=[\s\S]*workflowUniqueReplayFixtureRefs)(?=[\s\S]*selectedHarnessReplayInspection)(?=[\s\S]*sourceKind: "node_attempt")(?=[\s\S]*sourceKind: "gated_cluster")(?=[\s\S]*sourceKind: "runtime_binding")(?=[\s\S]*sourceKind: "default_runtime_dispatch")(?=[\s\S]*sourceKind: "read_only_routing_proof")(?=[\s\S]*sourceKind: "authority_gate_proof")(?=[\s\S]*sourceKind: "harness_group")(?=[\s\S]*workflow-harness-replay-inspector)(?=[\s\S]*data-replay-source-kind)(?=[\s\S]*data-determinism)(?=[\s\S]*workflow-harness-replay-inspector-metadata)(?=[\s\S]*workflow-harness-replay-capture-flags)(?=[\s\S]*workflow-harness-replay-payload-preview)(?=[\s\S]*workflow-harness-replay-evidence-refs)/,
+  "Replay fixture refs should resolve into a redacted detail inspector with source, policy, attempt, receipt, determinism, capture flags, and evidence refs.",
+);
+
+assert.match(
   workflowComposerUi,
   /viewMacro[\s\S]*macroPeerNodes[\s\S]*workflow-node-macro-cluster[\s\S]*workflow-node-macro-peer-list[\s\S]*workflow-node-macro-peer/,
   "Node details should show the expanded agent-loop composition and peer roles without hiding runtime behavior inside a macro node",

@@ -157,6 +157,12 @@ assert.match(
 );
 
 assert.match(
+  `${workflowRailModel}\n${workflowRailPanel}`,
+  /(?=[\s\S]*export interface WorkflowHarnessReplayInspection)(?=[\s\S]*export function resolveWorkflowHarnessReplayInspection)(?=[\s\S]*workflowUniqueReplayFixtureRefs)(?=[\s\S]*selectedHarnessReplayInspection)(?=[\s\S]*sourceKind: "node_attempt")(?=[\s\S]*sourceKind: "gated_cluster")(?=[\s\S]*sourceKind: "runtime_binding")(?=[\s\S]*sourceKind: "default_runtime_dispatch")(?=[\s\S]*sourceKind: "read_only_routing_proof")(?=[\s\S]*sourceKind: "authority_gate_proof")(?=[\s\S]*sourceKind: "harness_group")(?=[\s\S]*workflow-harness-replay-inspector)(?=[\s\S]*data-replay-source-kind)(?=[\s\S]*data-determinism)(?=[\s\S]*workflow-harness-replay-inspector-metadata)(?=[\s\S]*workflow-harness-replay-capture-flags)(?=[\s\S]*workflow-harness-replay-payload-preview)(?=[\s\S]*workflow-harness-replay-evidence-refs)/,
+  "Selected harness replay fixtures should resolve into a redacted fixture inspector with source, policy, attempt, receipt, determinism, capture flags, and evidence refs.",
+);
+
+assert.match(
   tauriProjectTypes,
   /(?=[\s\S]*WorkflowNodeRun[\s\S]*pub harness_attempt: Option<Value>)(?=[\s\S]*WorkflowRunResult[\s\S]*pub harness_attempts: Vec<Value>[\s\S]*pub harness_shadow_comparisons: Vec<Value>[\s\S]*pub harness_gated_cluster_runs: Vec<Value>)(?=[\s\S]*WorkflowPortablePackageManifest[\s\S]*pub harness: Option<Value>[\s\S]*pub worker_harness_binding: Option<Value>)/,
   "Portable packages and run records should preserve harness metadata, worker binding identity, node attempts, shadow comparisons, and gated cluster runs.",

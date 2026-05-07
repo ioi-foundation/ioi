@@ -6,6 +6,8 @@ import type {
   WorkflowDogfoodRun,
   WorkflowHarnessForkActivationCandidate,
   WorkflowHarnessGroupView,
+  WorkflowHarnessReplayDeterminism,
+  WorkflowHarnessReplayEnvelope,
   WorkflowPortablePackage,
   WorkflowProject,
   WorkflowProposal,
@@ -121,6 +123,12 @@ export function workflowUniqueReceiptRefs(
   );
 }
 
+export function workflowUniqueReplayFixtureRefs(
+  refs: Array<string | null | undefined> = [],
+): string[] {
+  return workflowUniqueReceiptRefs(refs);
+}
+
 const WORKFLOW_RECEIPT_SECRET_KEY_PATTERN =
   /api[_-]?key|authorization|bearer|credential|password|secret|token/i;
 
@@ -171,6 +179,21 @@ function workflowProofString(
   return typeof value === "string" ? value : fallback;
 }
 
+function workflowStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string");
+}
+
+function workflowProofStringArray(
+  proof: Record<string, unknown> | null | undefined,
+  key: string,
+  fallback: string[] = [],
+): string[] {
+  const value = proof?.[key];
+  if (!Array.isArray(value)) return fallback;
+  return workflowStringList(value);
+}
+
 export interface WorkflowHarnessReceiptInspection {
   receiptRef: string;
   sourceKind: string;
@@ -191,6 +214,33 @@ export interface WorkflowHarnessReceiptInspection {
   payloadPreview: WorkflowValuePreview;
 }
 
+export interface WorkflowHarnessReplayInspection {
+  replayFixtureRef: string;
+  sourceKind: string;
+  sourceLabel: string;
+  status: string;
+  producerComponent: string;
+  policyDecision: string;
+  attemptId: string;
+  receiptRef: string;
+  nodeId: string | null;
+  nodeLabel: string;
+  runId: string;
+  executionMode: string;
+  readiness: string;
+  inputHash: string;
+  outputHash: string;
+  deterministicEnvelope: boolean;
+  capturesInput: boolean;
+  capturesOutput: boolean;
+  capturesPolicyDecision: boolean;
+  determinism: WorkflowHarnessReplayDeterminism | string;
+  redactionPolicy: string;
+  nondeterminismReason: string;
+  evidenceRefs: string[];
+  payloadPreview: WorkflowValuePreview;
+}
+
 export interface ResolveWorkflowHarnessReceiptInspectionOptions {
   receiptRef?: string | null;
   workflow: WorkflowProject;
@@ -198,6 +248,16 @@ export interface ResolveWorkflowHarnessReceiptInspectionOptions {
   selectedRunId?: string | null;
   selectedHarnessGroup?: WorkflowHarnessGroupView | null;
   harnessActivationCandidate?: WorkflowHarnessForkActivationCandidate | null;
+  readOnlyRoutingReady?: boolean;
+  authorityToolingProof?: Record<string, unknown> | null;
+}
+
+export interface ResolveWorkflowHarnessReplayInspectionOptions {
+  replayFixtureRef?: string | null;
+  workflow: WorkflowProject;
+  lastRunResult?: WorkflowRunResult | null;
+  selectedRunId?: string | null;
+  selectedHarnessGroup?: WorkflowHarnessGroupView | null;
   readOnlyRoutingReady?: boolean;
   authorityToolingProof?: Record<string, unknown> | null;
 }
@@ -561,6 +621,511 @@ export function resolveWorkflowHarnessReceiptInspection({
     createdAtMs: null,
     evidenceRefs: [receiptRef],
     payload: { receiptRef, status: "unresolved" },
+  });
+}
+
+export function resolveWorkflowHarnessReplayInspection({
+  replayFixtureRef,
+  workflow,
+  lastRunResult = null,
+  selectedRunId = null,
+  selectedHarnessGroup = null,
+  readOnlyRoutingReady = false,
+  authorityToolingProof = null,
+}: ResolveWorkflowHarnessReplayInspectionOptions): WorkflowHarnessReplayInspection | null {
+  if (!replayFixtureRef) return null;
+
+  const harnessDefaultRuntimeDispatchProof =
+    workflow.metadata.harness?.defaultRuntimeDispatchProof;
+  const selectedHarnessGroupGatedRun = selectedHarnessGroup
+    ? (lastRunResult?.harnessGatedClusterRuns ?? []).find(
+        (run) => String(run.clusterId) === String(selectedHarnessGroup.groupId),
+      ) ?? null
+    : null;
+
+  const makeHarnessReplayInspection = (
+    details: Omit<
+      WorkflowHarnessReplayInspection,
+      "payloadPreview" | "replayFixtureRef"
+    > & {
+      payload: unknown;
+      replayFixtureRef?: string;
+    },
+  ): WorkflowHarnessReplayInspection => ({
+    replayFixtureRef: details.replayFixtureRef ?? replayFixtureRef,
+    sourceKind: details.sourceKind,
+    sourceLabel: details.sourceLabel,
+    status: details.status,
+    producerComponent: details.producerComponent,
+    policyDecision: details.policyDecision,
+    attemptId: details.attemptId,
+    receiptRef: details.receiptRef,
+    nodeId: details.nodeId,
+    nodeLabel: details.nodeLabel,
+    runId: details.runId,
+    executionMode: details.executionMode,
+    readiness: details.readiness,
+    inputHash: details.inputHash,
+    outputHash: details.outputHash,
+    deterministicEnvelope: details.deterministicEnvelope,
+    capturesInput: details.capturesInput,
+    capturesOutput: details.capturesOutput,
+    capturesPolicyDecision: details.capturesPolicyDecision,
+    determinism: details.determinism,
+    redactionPolicy: details.redactionPolicy,
+    nondeterminismReason: details.nondeterminismReason,
+    evidenceRefs: workflowUniqueReplayFixtureRefs(details.evidenceRefs),
+    payloadPreview: workflowValuePreview(
+      workflowRedactedReceiptPayload(details.payload),
+    ),
+  });
+
+  const makeReplayEnvelopeDetails = (
+    replay: WorkflowHarnessReplayEnvelope | null | undefined,
+  ) => ({
+    deterministicEnvelope: replay?.deterministicEnvelope ?? false,
+    capturesInput: replay?.capturesInput ?? false,
+    capturesOutput: replay?.capturesOutput ?? false,
+    capturesPolicyDecision: replay?.capturesPolicyDecision ?? false,
+    determinism: replay?.determinism ?? "disabled",
+    redactionPolicy: replay?.redactionPolicy ?? "not recorded",
+    nondeterminismReason: replay?.nondeterminismReason ?? "none",
+  });
+
+  const replayAttempt =
+    (lastRunResult?.harnessAttempts ?? []).find(
+      (attempt) => attempt.replay.fixtureRef === replayFixtureRef,
+    ) ??
+    (lastRunResult?.nodeRuns ?? [])
+      .map((nodeRun) => nodeRun.harnessAttempt ?? null)
+      .find((attempt) => attempt?.replay.fixtureRef === replayFixtureRef) ??
+    null;
+  if (replayAttempt) {
+    return makeHarnessReplayInspection({
+      replayFixtureRef,
+      sourceKind: "node_attempt",
+      sourceLabel: "Node attempt replay fixture",
+      status: replayAttempt.status,
+      producerComponent: replayAttempt.componentId,
+      policyDecision: replayAttempt.policyDecision ?? "not recorded",
+      attemptId: replayAttempt.attemptId,
+      receiptRef: replayAttempt.receiptIds[0] ?? "receipt pending",
+      nodeId: replayAttempt.workflowNodeId,
+      nodeLabel: workflowNodeName(workflow, replayAttempt.workflowNodeId),
+      runId: selectedRunId ?? lastRunResult?.summary.id ?? "run pending",
+      executionMode: replayAttempt.executionMode,
+      readiness: replayAttempt.readiness,
+      inputHash: replayAttempt.inputHash ?? "input hash pending",
+      outputHash: replayAttempt.outputHash ?? "output hash pending",
+      ...makeReplayEnvelopeDetails(replayAttempt.replay),
+      evidenceRefs: replayAttempt.evidenceRefs,
+      payload: replayAttempt,
+    });
+  }
+
+  const gatedRun = (lastRunResult?.harnessGatedClusterRuns ?? []).find(
+    (run) => run.replayFixtureRefs.includes(replayFixtureRef),
+  );
+  if (gatedRun) {
+    const replayIndex = gatedRun.replayFixtureRefs.indexOf(replayFixtureRef);
+    return makeHarnessReplayInspection({
+      replayFixtureRef,
+      sourceKind: "gated_cluster",
+      sourceLabel: `${gatedRun.clusterLabel} gated replay fixture`,
+      status: gatedRun.status,
+      producerComponent: gatedRun.componentKinds.join(", "),
+      policyDecision: gatedRun.gateDecision,
+      attemptId: gatedRun.nodeAttemptIds[replayIndex] ?? "attempt pending",
+      receiptRef: gatedRun.receiptIds[replayIndex] ?? "receipt pending",
+      nodeId: null,
+      nodeLabel: gatedRun.clusterId,
+      runId: gatedRun.runId,
+      executionMode: gatedRun.executionMode,
+      readiness: gatedRun.promotionBlocked ? "blocked" : "live_ready",
+      inputHash: "cluster input hash pending",
+      outputHash: "cluster output hash pending",
+      deterministicEnvelope: true,
+      capturesInput: true,
+      capturesOutput: true,
+      capturesPolicyDecision: true,
+      determinism: "redacted",
+      redactionPolicy: "gated_cluster_fixture_redacted",
+      nondeterminismReason: "gated cluster proof stores refs, not fixture payloads",
+      evidenceRefs: gatedRun.evidenceRefs,
+      payload: gatedRun,
+    });
+  }
+
+  const runtimeBindingNode = workflow.nodes.find(
+    (node) => node.runtimeBinding?.replayEnvelope?.fixtureRef === replayFixtureRef,
+  );
+  if (runtimeBindingNode?.runtimeBinding) {
+    return makeHarnessReplayInspection({
+      replayFixtureRef,
+      sourceKind: "runtime_binding",
+      sourceLabel: "Component replay binding",
+      status: runtimeBindingNode.runtimeBinding.executionMode,
+      producerComponent: runtimeBindingNode.runtimeBinding.componentId,
+      policyDecision: "component replay fixture bound",
+      attemptId: "not attempted",
+      receiptRef:
+        runtimeBindingNode.runtimeBinding.receiptKinds?.[0] ??
+        "receipt kind pending",
+      nodeId: runtimeBindingNode.id,
+      nodeLabel: workflowNodeName(workflow, runtimeBindingNode.id),
+      runId: selectedRunId ?? "run pending",
+      executionMode: runtimeBindingNode.runtimeBinding.executionMode,
+      readiness: runtimeBindingNode.runtimeBinding.readiness,
+      inputHash: "binding input hash pending",
+      outputHash: "binding output hash pending",
+      ...makeReplayEnvelopeDetails(
+        runtimeBindingNode.runtimeBinding.replayEnvelope ?? null,
+      ),
+      evidenceRefs: runtimeBindingNode.runtimeBinding.evidenceEventKinds ?? [],
+      payload: runtimeBindingNode.runtimeBinding,
+    });
+  }
+
+  const dispatchReplayDefaults = {
+    executionMode: harnessDefaultRuntimeDispatchProof?.executionMode ?? "projection",
+    readiness: harnessDefaultRuntimeDispatchProof?.drivesRuntimeDecision
+      ? "live_ready"
+      : "shadow_ready",
+    deterministicEnvelope: true,
+    capturesInput: true,
+    capturesOutput: true,
+    capturesPolicyDecision: true,
+    determinism: "redacted",
+    redactionPolicy: "default_runtime_dispatch_fixture_redacted",
+    nondeterminismReason: "dispatch proof stores replay refs, not fixture payloads",
+  } as const;
+  const dispatchReplayGroups = harnessDefaultRuntimeDispatchProof
+    ? [
+        {
+          sourceKind: "default_runtime_dispatch",
+          sourceLabel: "Cognition execution replay fixture",
+          producerComponent: "cognition",
+          receipts: harnessDefaultRuntimeDispatchProof.cognitionExecutionReceiptIds,
+          attempts: harnessDefaultRuntimeDispatchProof.cognitionExecutionAttemptIds,
+          replay: harnessDefaultRuntimeDispatchProof.cognitionExecutionReplayFixtureRefs,
+          policyDecision: workflowProofString(
+            workflowUnknownRecord(
+              harnessDefaultRuntimeDispatchProof.cognitionExecutionProof,
+            ),
+            "policyDecision",
+            "accept_workflow_prompt_assembly_hash_envelope",
+          ),
+        },
+        {
+          sourceKind: "default_runtime_dispatch",
+          sourceLabel: "Model execution replay fixture",
+          producerComponent: "routing_model",
+          receipts: harnessDefaultRuntimeDispatchProof.modelExecutionReceiptIds,
+          attempts: harnessDefaultRuntimeDispatchProof.modelExecutionAttemptIds,
+          replay: harnessDefaultRuntimeDispatchProof.modelExecutionReplayFixtureRefs,
+          policyDecision: "accept_workflow_model_execution_envelope",
+        },
+        {
+          sourceKind: "default_runtime_dispatch",
+          sourceLabel: "Model provider canary replay fixture",
+          producerComponent: "model_provider",
+          receipts: harnessDefaultRuntimeDispatchProof.modelProviderCanaryReceiptIds,
+          attempts: harnessDefaultRuntimeDispatchProof.modelProviderCanaryAttemptIds,
+          replay: harnessDefaultRuntimeDispatchProof.modelProviderCanaryReplayFixtureRefs,
+          policyDecision: "accept_workflow_provider_canary_envelope",
+        },
+        {
+          sourceKind: "default_runtime_dispatch",
+          sourceLabel: "Model provider visible output replay fixture",
+          producerComponent: "model_provider_visible_output",
+          receipts:
+            harnessDefaultRuntimeDispatchProof.modelProviderGatedVisibleOutputReceiptIds,
+          attempts:
+            harnessDefaultRuntimeDispatchProof.modelProviderGatedVisibleOutputAttemptIds,
+          replay:
+            harnessDefaultRuntimeDispatchProof.modelProviderGatedVisibleOutputReplayFixtureRefs,
+          policyDecision: "accept_workflow_provider_visible_output_envelope",
+        },
+        {
+          sourceKind: "default_runtime_dispatch",
+          sourceLabel: "Model provider rollback drill replay fixture",
+          producerComponent: "model_provider_rollback_drill",
+          receipts:
+            harnessDefaultRuntimeDispatchProof.modelProviderGatedVisibleOutputRollbackDrillReceiptIds,
+          attempts:
+            harnessDefaultRuntimeDispatchProof.modelProviderGatedVisibleOutputRollbackDrillAttemptIds,
+          replay:
+            harnessDefaultRuntimeDispatchProof.modelProviderGatedVisibleOutputRollbackDrillReplayFixtureRefs,
+          policyDecision: "accept_workflow_provider_rollback_drill_envelope",
+        },
+        {
+          sourceKind: "read_only_routing_proof",
+          sourceLabel: "Read-only routing replay fixture",
+          producerComponent: "read_only_capability_routing",
+          receipts:
+            harnessDefaultRuntimeDispatchProof.readOnlyCapabilityRoutingReceiptIds,
+          attempts:
+            harnessDefaultRuntimeDispatchProof.readOnlyCapabilityRoutingAttemptIds,
+          replay:
+            harnessDefaultRuntimeDispatchProof.readOnlyCapabilityRoutingReplayFixtureRefs,
+          policyDecision: readOnlyRoutingReady
+            ? "read_only_route_no_mutation"
+            : "read_only_route_pending",
+        },
+        {
+          sourceKind: "default_runtime_dispatch",
+          sourceLabel: "Authority read-only routing replay fixture",
+          producerComponent: "authority_tooling_read_only",
+          receipts:
+            harnessDefaultRuntimeDispatchProof.authorityToolingReadOnlyReceiptIds,
+          attempts:
+            harnessDefaultRuntimeDispatchProof.authorityToolingReadOnlyLiveAttemptIds,
+          replay:
+            harnessDefaultRuntimeDispatchProof.authorityToolingReadOnlyReplayFixtureRefs,
+          policyDecision: "allow_authority_read_only_route",
+        },
+        {
+          sourceKind: "default_runtime_dispatch",
+          sourceLabel: "Provider catalog replay fixture",
+          producerComponent: "authority_tooling_provider_catalog",
+          receipts:
+            harnessDefaultRuntimeDispatchProof.authorityToolingProviderCatalogLiveReceiptIds,
+          attempts:
+            harnessDefaultRuntimeDispatchProof.authorityToolingProviderCatalogLiveAttemptIds,
+          replay:
+            harnessDefaultRuntimeDispatchProof.authorityToolingProviderCatalogLiveReplayFixtureRefs,
+          policyDecision: "allow_provider_catalog_listing",
+        },
+        {
+          sourceKind: "default_runtime_dispatch",
+          sourceLabel: "MCP catalog replay fixture",
+          producerComponent: "authority_tooling_mcp_catalog",
+          receipts:
+            harnessDefaultRuntimeDispatchProof.authorityToolingMcpToolCatalogLiveReceiptIds,
+          attempts:
+            harnessDefaultRuntimeDispatchProof.authorityToolingMcpToolCatalogLiveAttemptIds,
+          replay:
+            harnessDefaultRuntimeDispatchProof.authorityToolingMcpToolCatalogLiveReplayFixtureRefs,
+          policyDecision: "allow_mcp_catalog_listing",
+        },
+        {
+          sourceKind: "default_runtime_dispatch",
+          sourceLabel: "Native tool catalog replay fixture",
+          producerComponent: "authority_tooling_native_catalog",
+          receipts:
+            harnessDefaultRuntimeDispatchProof.authorityToolingNativeToolCatalogLiveReceiptIds,
+          attempts:
+            harnessDefaultRuntimeDispatchProof.authorityToolingNativeToolCatalogLiveAttemptIds,
+          replay:
+            harnessDefaultRuntimeDispatchProof.authorityToolingNativeToolCatalogLiveReplayFixtureRefs,
+          policyDecision: "allow_native_tool_catalog_listing",
+        },
+        {
+          sourceKind: "default_runtime_dispatch",
+          sourceLabel: "Connector catalog replay fixture",
+          producerComponent: "authority_tooling_connector_catalog",
+          receipts:
+            harnessDefaultRuntimeDispatchProof.authorityToolingConnectorCatalogLiveReceiptIds,
+          attempts:
+            harnessDefaultRuntimeDispatchProof.authorityToolingConnectorCatalogLiveAttemptIds,
+          replay:
+            harnessDefaultRuntimeDispatchProof.authorityToolingConnectorCatalogLiveReplayFixtureRefs,
+          policyDecision: "allow_connector_catalog_listing",
+        },
+        {
+          sourceKind: "default_runtime_dispatch",
+          sourceLabel: "Wallet capability dry-run replay fixture",
+          producerComponent: "authority_tooling_wallet_capability",
+          receipts:
+            harnessDefaultRuntimeDispatchProof.authorityToolingWalletCapabilityLiveDryRunReceiptIds,
+          attempts:
+            harnessDefaultRuntimeDispatchProof.authorityToolingWalletCapabilityLiveDryRunAttemptIds,
+          replay:
+            harnessDefaultRuntimeDispatchProof.authorityToolingWalletCapabilityLiveDryRunReplayFixtureRefs,
+          policyDecision: "allow_wallet_capability_dry_run",
+        },
+        {
+          sourceKind: "authority_gate_proof",
+          sourceLabel: "Authority gate replay fixture",
+          producerComponent: "authority_tooling",
+          receipts:
+            harnessDefaultRuntimeDispatchProof.authorityToolingGateLiveReceiptIds,
+          attempts:
+            harnessDefaultRuntimeDispatchProof.authorityToolingGateLiveAttemptIds,
+          replay:
+            harnessDefaultRuntimeDispatchProof.authorityToolingGateLiveReplayFixtureRefs,
+          policyDecision: workflowProofString(
+            authorityToolingProof,
+            "policyDecision",
+            "allow_read_only_route_through_workflow_authority",
+          ),
+        },
+        {
+          sourceKind: "authority_gate_proof",
+          sourceLabel: "Policy gate replay fixture",
+          producerComponent: "policy_gate",
+          receipts: workflowProofStringArray(
+            authorityToolingProof,
+            "policyGateLiveReceiptIds",
+            harnessDefaultRuntimeDispatchProof.authorityToolingPolicyGateLiveReceiptIds,
+          ),
+          attempts: workflowProofStringArray(
+            authorityToolingProof,
+            "policyGateLiveAttemptIds",
+            harnessDefaultRuntimeDispatchProof.authorityToolingPolicyGateLiveAttemptIds,
+          ),
+          replay: workflowProofStringArray(
+            authorityToolingProof,
+            "policyGateLiveReplayFixtureRefs",
+            harnessDefaultRuntimeDispatchProof.authorityToolingPolicyGateLiveReplayFixtureRefs,
+          ),
+          policyDecision: workflowProofString(
+            authorityToolingProof,
+            "policyGateDecision",
+            "allow_read_only_route_through_workflow_authority",
+          ),
+        },
+        {
+          sourceKind: "authority_gate_proof",
+          sourceLabel: "Destructive denial replay fixture",
+          producerComponent: "policy_gate",
+          receipts: workflowProofStringArray(
+            authorityToolingProof,
+            "destructiveDenialLiveReceiptIds",
+            harnessDefaultRuntimeDispatchProof.authorityToolingDestructiveDenialLiveReceiptIds,
+          ),
+          attempts: workflowProofStringArray(
+            authorityToolingProof,
+            "destructiveDenialLiveAttemptIds",
+            harnessDefaultRuntimeDispatchProof.authorityToolingDestructiveDenialLiveAttemptIds,
+          ),
+          replay: workflowProofStringArray(
+            authorityToolingProof,
+            "destructiveDenialLiveReplayFixtureRefs",
+            harnessDefaultRuntimeDispatchProof.authorityToolingDestructiveDenialLiveReplayFixtureRefs,
+          ),
+          policyDecision: workflowProofString(
+            authorityToolingProof,
+            "destructiveDenialPolicyDecision",
+            "deny_destructive_request_without_side_effect",
+          ),
+        },
+        {
+          sourceKind: "authority_gate_proof",
+          sourceLabel: "Approval gate replay fixture",
+          producerComponent: "approval_gate",
+          receipts: workflowProofStringArray(
+            authorityToolingProof,
+            "approvalGateLiveReceiptIds",
+            harnessDefaultRuntimeDispatchProof.authorityToolingApprovalGateLiveReceiptIds,
+          ),
+          attempts: workflowProofStringArray(
+            authorityToolingProof,
+            "approvalGateLiveAttemptIds",
+            harnessDefaultRuntimeDispatchProof.authorityToolingApprovalGateLiveAttemptIds,
+          ),
+          replay: workflowProofStringArray(
+            authorityToolingProof,
+            "approvalGateLiveReplayFixtureRefs",
+            harnessDefaultRuntimeDispatchProof.authorityToolingApprovalGateLiveReplayFixtureRefs,
+          ),
+          policyDecision: workflowProofString(
+            authorityToolingProof,
+            "approvalGatePolicyDecision",
+            "require_legacy_approval_for_mutating_tooling",
+          ),
+        },
+      ]
+    : [];
+  const dispatchReplayGroup = dispatchReplayGroups.find((group) =>
+    workflowStringList(group.replay).includes(replayFixtureRef),
+  );
+  if (dispatchReplayGroup && harnessDefaultRuntimeDispatchProof) {
+    const dispatchReplayRefs = workflowStringList(dispatchReplayGroup.replay);
+    const dispatchAttemptRefs = workflowStringList(dispatchReplayGroup.attempts);
+    const dispatchReceiptRefs = workflowStringList(dispatchReplayGroup.receipts);
+    const replayIndex = dispatchReplayRefs.indexOf(replayFixtureRef);
+    return makeHarnessReplayInspection({
+      replayFixtureRef,
+      sourceKind: dispatchReplayGroup.sourceKind,
+      sourceLabel: dispatchReplayGroup.sourceLabel,
+      status: harnessDefaultRuntimeDispatchProof.executionMode,
+      producerComponent: dispatchReplayGroup.producerComponent,
+      policyDecision: dispatchReplayGroup.policyDecision,
+      attemptId: dispatchAttemptRefs[replayIndex] ?? "attempt pending",
+      receiptRef: dispatchReceiptRefs[replayIndex] ?? "receipt pending",
+      nodeId: null,
+      nodeLabel: harnessDefaultRuntimeDispatchProof.workflowId,
+      runId: harnessDefaultRuntimeDispatchProof.dispatchId,
+      inputHash:
+        harnessDefaultRuntimeDispatchProof.promptAssemblyPromptHash ??
+        "input hash pending",
+      outputHash:
+        harnessDefaultRuntimeDispatchProof.modelExecutionOutputHash ??
+        "output hash pending",
+      ...dispatchReplayDefaults,
+      evidenceRefs: harnessDefaultRuntimeDispatchProof.receiptIds,
+      payload: harnessDefaultRuntimeDispatchProof,
+    });
+  }
+
+  if (selectedHarnessGroup?.deepLinks.replayFixtureRefs.includes(replayFixtureRef)) {
+    return makeHarnessReplayInspection({
+      replayFixtureRef,
+      sourceKind: "harness_group",
+      sourceLabel: `${selectedHarnessGroup.label} group replay fixture`,
+      status: selectedHarnessGroup.statusRollup.executionMode,
+      producerComponent: selectedHarnessGroup.componentKinds.join(", "),
+      policyDecision:
+        selectedHarnessGroupGatedRun?.gateDecision ?? "group replay fixture selected",
+      attemptId: selectedHarnessGroupGatedRun?.nodeAttemptIds[0] ?? "attempt pending",
+      receiptRef:
+        selectedHarnessGroup.deepLinks.receiptRefs[0] ?? "receipt pending",
+      nodeId: null,
+      nodeLabel: String(selectedHarnessGroup.groupId),
+      runId:
+        selectedHarnessGroup.deepLinks.runId ?? selectedRunId ?? "run pending",
+      executionMode: selectedHarnessGroup.statusRollup.executionMode,
+      readiness: selectedHarnessGroup.statusRollup.readiness,
+      inputHash: "group input hash pending",
+      outputHash: "group output hash pending",
+      deterministicEnvelope: true,
+      capturesInput: true,
+      capturesOutput: true,
+      capturesPolicyDecision: true,
+      determinism: "redacted",
+      redactionPolicy: "group_fixture_refs_redacted",
+      nondeterminismReason: "group view stores fixture refs, not fixture payloads",
+      evidenceRefs: selectedHarnessGroup.deepLinks.replayFixtureRefs,
+      payload: selectedHarnessGroup,
+    });
+  }
+
+  return makeHarnessReplayInspection({
+    replayFixtureRef,
+    sourceKind: "unresolved",
+    sourceLabel: "Unresolved harness replay fixture",
+    status: "unresolved",
+    producerComponent: "unknown",
+    policyDecision: "replay fixture ref pinned without a matching local record",
+    attemptId: "not resolved",
+    receiptRef: "not resolved",
+    nodeId: null,
+    nodeLabel: "not resolved",
+    runId: selectedRunId ?? "run pending",
+    executionMode: "projection",
+    readiness: "projection_only",
+    inputHash: "not resolved",
+    outputHash: "not resolved",
+    deterministicEnvelope: false,
+    capturesInput: false,
+    capturesOutput: false,
+    capturesPolicyDecision: false,
+    determinism: "disabled",
+    redactionPolicy: "not resolved",
+    nondeterminismReason: "not resolved",
+    evidenceRefs: [replayFixtureRef],
+    payload: { replayFixtureRef, status: "unresolved" },
   });
 }
 

@@ -1757,6 +1757,30 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /workflow-harness-receipt-inspector-metadata/.test(rail) &&
       /workflow-harness-receipt-payload-preview/.test(rail) &&
       /workflow-harness-receipt-evidence-refs/.test(rail),
+    replayDetailInspector:
+      /resolveWorkflowHarnessReplayInspection/.test(rail) &&
+      /export interface WorkflowHarnessReplayInspection/.test(railModel) &&
+      /export function resolveWorkflowHarnessReplayInspection/.test(railModel) &&
+      /workflowUniqueReplayFixtureRefs/.test(railModel) &&
+      /selectedHarnessReplayInspection/.test(rail) &&
+      /sourceKind: "node_attempt"/.test(railModel) &&
+      /sourceKind: "gated_cluster"/.test(railModel) &&
+      /sourceKind: "runtime_binding"/.test(railModel) &&
+      /sourceKind: "default_runtime_dispatch"/.test(railModel) &&
+      /sourceKind: "read_only_routing_proof"/.test(railModel) &&
+      /sourceKind: "authority_gate_proof"/.test(railModel) &&
+      /sourceKind: "harness_group"/.test(railModel) &&
+      /workflow-harness-replay-inspector/.test(rail) &&
+      /data-replay-source-kind/.test(rail) &&
+      /data-determinism/.test(rail) &&
+      /data-redaction-policy/.test(rail) &&
+      /data-captures-input/.test(rail) &&
+      /data-captures-output/.test(rail) &&
+      /data-captures-policy-decision/.test(rail) &&
+      /workflow-harness-replay-inspector-metadata/.test(rail) &&
+      /workflow-harness-replay-capture-flags/.test(rail) &&
+      /workflow-harness-replay-payload-preview/.test(rail) &&
+      /workflow-harness-replay-evidence-refs/.test(rail),
     rollbackCanaryContract:
       /WorkflowHarnessRollbackRestoreCanary[\s\S]*hashVerified[\s\S]*receiptBindingRef[\s\S]*blockers/.test(
         graph,
@@ -1785,6 +1809,9 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       receiptInspector: "workflow-harness-receipt-inspector",
       receiptPayloadPreview: "workflow-harness-receipt-payload-preview",
       receiptEvidenceRefs: "workflow-harness-receipt-evidence-refs",
+      replayInspector: "workflow-harness-replay-inspector",
+      replayPayloadPreview: "workflow-harness-replay-payload-preview",
+      replayEvidenceRefs: "workflow-harness-replay-evidence-refs",
     },
     sourceRefs: [
       railPath,
