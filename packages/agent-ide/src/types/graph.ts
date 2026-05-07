@@ -1025,6 +1025,8 @@ export interface WorkflowRevisionRestoreResult {
   restoredRevision?: string;
   restoreStrategy: "git_show_file_restore" | "unsupported" | string;
   expectedWorkflowContentHash?: string;
+  actualWorkflowContentHash?: string;
+  hashVerified?: boolean;
   fileSha256?: string;
   bundle?: WorkflowWorkbenchBundle;
 }

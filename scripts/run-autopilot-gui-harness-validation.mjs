@@ -1601,11 +1601,13 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
   const harnessWorkflowPath = "packages/agent-ide/src/runtime/harness-workflow.ts";
   const controllerPath = "packages/agent-ide/src/WorkflowComposer/controller.tsx";
   const graphPath = "packages/agent-ide/src/types/graph.ts";
+  const restoreCommandPath = "apps/autopilot/src-tauri/src/project/commands.rs";
   const rail = readFileSync(resolve(repoRoot, railPath), "utf8");
   const validation = readFileSync(resolve(repoRoot, validationPath), "utf8");
   const harnessWorkflow = readFileSync(resolve(repoRoot, harnessWorkflowPath), "utf8");
   const controller = readFileSync(resolve(repoRoot, controllerPath), "utf8");
   const graph = readFileSync(resolve(repoRoot, graphPath), "utf8");
+  const restoreCommand = readFileSync(resolve(repoRoot, restoreCommandPath), "utf8");
   const checks = {
     canaryCardTestId: /data-testid="workflow-harness-rollback-restore-canary"/.test(rail),
     canaryStatusAttribute: /data-restore-canary-status/.test(rail),
@@ -1622,6 +1624,13 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
         harnessWorkflow,
       ),
     rollbackCanaryContract: /WorkflowHarnessRollbackRestoreCanary[\s\S]*hashVerified[\s\S]*blockers/.test(graph),
+    backendHashVerification:
+      /WorkflowRevisionRestoreResult[\s\S]*actualWorkflowContentHash[\s\S]*hashVerified/.test(
+        graph,
+      ) &&
+      /workflow_project_content_hash[\s\S]*actual_workflow_content_hash[\s\S]*hash_verified[\s\S]*workflow_content_hash_mismatch/.test(
+        restoreCommand,
+      ),
   };
   const passed = Object.values(checks).every(Boolean);
   const proof = {
@@ -1639,6 +1648,7 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       harnessWorkflowPath,
       controllerPath,
       graphPath,
+      restoreCommandPath,
     ],
   };
   const path = join(outputRoot, "rollback-restore-canary-ui-proof.json");

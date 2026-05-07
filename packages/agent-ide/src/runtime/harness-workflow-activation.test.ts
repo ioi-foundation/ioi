@@ -379,6 +379,8 @@ const onlyActivationMissingReadiness = (
         restoredRevision: "abc123",
         restoreStrategy: "git_show_file_restore",
         expectedWorkflowContentHash: rollbackRevisionBinding.workflowContentHash,
+        actualWorkflowContentHash: rollbackRevisionBinding.workflowContentHash,
+        hashVerified: true,
         fileSha256: "0123456789abcdef",
         bundle: {
           workflowPath: rollbackRevisionBinding.workflowPath,
@@ -422,6 +424,50 @@ const onlyActivationMissingReadiness = (
     blockedCandidate.rollbackRestoreCanary.blockers.join("\n"),
     /rollback_restore_canary_not_run/,
   );
+
+  const mismatchCandidate = createWorkflowHarnessActivationCandidate(
+    workflow,
+    fork.tests,
+    readiness,
+    [],
+    3_250,
+    {
+      rollbackRestoreResult: {
+        restored: false,
+        dryRun: true,
+        blockers: ["workflow_content_hash_mismatch"],
+        workflowPath: rollbackRevisionBinding.workflowPath,
+        repoRoot: rollbackRevisionBinding.repoRoot,
+        relativeWorkflowPath: ".agents/workflows/git-restore-canary.workflow.json",
+        revisionSource: "git",
+        restoredRevision: "abc123",
+        restoreStrategy: "git_show_file_restore",
+        expectedWorkflowContentHash: rollbackRevisionBinding.workflowContentHash,
+        actualWorkflowContentHash: "stable-fnv1a32:mismatch",
+        hashVerified: false,
+        fileSha256: "0123456789abcdef",
+        bundle: {
+          workflowPath: rollbackRevisionBinding.workflowPath,
+          testsPath: "/repo/.agents/workflows/git-restore-canary.tests.json",
+          proposalsDir: "/repo/.agents/workflows/git-restore-canary.proposals",
+          workflow: rollbackWorkflow,
+          tests: [],
+          proposals: [],
+          runs: [],
+        },
+      },
+    },
+  );
+  assert.equal(mismatchCandidate.decision, "blocked");
+  assert.equal(mismatchCandidate.rollbackRestoreCanary.hashVerified, false);
+  assert.match(
+    mismatchCandidate.rollbackRestoreCanary.blockers.join("\n"),
+    /workflow_content_hash_mismatch/,
+  );
+  assert.match(
+    mismatchCandidate.rollbackRestoreCanary.blockers.join("\n"),
+    /rollback_restore_canary_hash_mismatch/,
+  );
 }
 
 {
@@ -452,6 +498,8 @@ const onlyActivationMissingReadiness = (
           restoredRevision: request.revisionBinding.activatedRevision,
           restoreStrategy: "git_show_file_restore",
           expectedWorkflowContentHash: request.expectedWorkflowContentHash,
+          actualWorkflowContentHash: request.expectedWorkflowContentHash,
+          hashVerified: true,
           fileSha256: "sha256-from-git-show",
           bundle: {
             workflowPath: request.revisionBinding.workflowPath,

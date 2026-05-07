@@ -353,6 +353,133 @@ fn sha256_hex_for_bytes(content: &[u8]) -> String {
     hex::encode(hasher.finalize())
 }
 
+fn stable_stringify_value(value: &Value) -> String {
+    match value {
+        Value::Array(values) => format!(
+            "[{}]",
+            values
+                .iter()
+                .map(stable_stringify_value)
+                .collect::<Vec<_>>()
+                .join(",")
+        ),
+        Value::Object(object) => {
+            let mut entries = object.iter().collect::<Vec<_>>();
+            entries.sort_by(|(left, _), (right, _)| left.cmp(right));
+            format!(
+                "{{{}}}",
+                entries
+                    .into_iter()
+                    .map(|(key, value)| format!(
+                        "{}:{}",
+                        serde_json::to_string(key).unwrap_or_else(|_| "\"\"".to_string()),
+                        stable_stringify_value(value)
+                    ))
+                    .collect::<Vec<_>>()
+                    .join(",")
+            )
+        }
+        _ => serde_json::to_string(value).unwrap_or_else(|_| "null".to_string()),
+    }
+}
+
+fn insert_optional_string(
+    object: &mut serde_json::Map<String, Value>,
+    key: &str,
+    value: &Option<String>,
+) {
+    if let Some(value) = value {
+        object.insert(key.to_string(), json!(value));
+    }
+}
+
+fn insert_optional_bool(
+    object: &mut serde_json::Map<String, Value>,
+    key: &str,
+    value: &Option<bool>,
+) {
+    if let Some(value) = value {
+        object.insert(key.to_string(), json!(value));
+    }
+}
+
+fn insert_harness_projection_field(
+    output: &mut serde_json::Map<String, Value>,
+    harness: &serde_json::Map<String, Value>,
+    key: &str,
+) {
+    if let Some(value) = harness.get(key).filter(|value| !value.is_null()) {
+        output.insert(key.to_string(), value.clone());
+    }
+}
+
+fn workflow_source_projection_value(workflow: &WorkflowProject) -> Value {
+    let mut metadata = serde_json::Map::new();
+    metadata.insert("id".to_string(), json!(workflow.metadata.id));
+    metadata.insert("name".to_string(), json!(workflow.metadata.name));
+    metadata.insert("slug".to_string(), json!(workflow.metadata.slug));
+    metadata.insert(
+        "workflowKind".to_string(),
+        json!(workflow.metadata.workflow_kind),
+    );
+    metadata.insert(
+        "executionMode".to_string(),
+        json!(workflow.metadata.execution_mode),
+    );
+    insert_optional_string(
+        &mut metadata,
+        "gitLocation",
+        &workflow.metadata.git_location,
+    );
+    insert_optional_string(&mut metadata, "branch", &workflow.metadata.branch);
+    insert_optional_bool(&mut metadata, "readOnly", &workflow.metadata.read_only);
+    if let Some(harness) = workflow
+        .metadata
+        .harness
+        .as_ref()
+        .and_then(Value::as_object)
+    {
+        let mut projected_harness = serde_json::Map::new();
+        for key in [
+            "schemaVersion",
+            "harnessVersion",
+            "harnessHash",
+            "executionMode",
+            "templateName",
+            "blessed",
+            "forkable",
+            "forkedFrom",
+            "packageName",
+            "validationGates",
+            "aiMutationMode",
+            "componentIds",
+            "slotIds",
+            "componentReadiness",
+            "promotionClusters",
+        ] {
+            insert_harness_projection_field(&mut projected_harness, harness, key);
+        }
+        metadata.insert("harness".to_string(), Value::Object(projected_harness));
+    }
+    json!({
+        "version": workflow.version,
+        "metadata": metadata,
+        "nodes": workflow.nodes,
+        "edges": workflow.edges,
+        "global_config": workflow.global_config,
+    })
+}
+
+pub(crate) fn workflow_project_content_hash(workflow: &WorkflowProject) -> String {
+    let input = stable_stringify_value(&workflow_source_projection_value(workflow));
+    let mut hash = 0x811c9dc5_u32;
+    for unit in input.encode_utf16() {
+        hash ^= u32::from(unit);
+        hash = hash.wrapping_mul(0x0100_0193);
+    }
+    format!("stable-fnv1a32:{hash:08x}")
+}
+
 #[tauri::command]
 pub fn restore_workflow_revision(
     request: WorkflowRevisionRestoreRequest,
@@ -375,6 +502,8 @@ pub fn restore_workflow_revision(
             restored_revision: request.revision_binding.activated_revision.clone(),
             restore_strategy: "unsupported".to_string(),
             expected_workflow_content_hash,
+            actual_workflow_content_hash: None,
+            hash_verified: false,
             file_sha256: None,
             bundle: None,
         });
@@ -397,6 +526,8 @@ pub fn restore_workflow_revision(
             restored_revision: None,
             restore_strategy: "git_show_file_restore".to_string(),
             expected_workflow_content_hash,
+            actual_workflow_content_hash: None,
+            hash_verified: false,
             file_sha256: None,
             bundle: None,
         });
@@ -420,6 +551,8 @@ pub fn restore_workflow_revision(
                 restored_revision: Some(restored_revision),
                 restore_strategy: "git_show_file_restore".to_string(),
                 expected_workflow_content_hash,
+                actual_workflow_content_hash: None,
+                hash_verified: false,
                 file_sha256: None,
                 bundle: None,
             }
@@ -440,12 +573,48 @@ pub fn restore_workflow_revision(
                 restored_revision: Some(restored_revision),
                 restore_strategy: "git_show_file_restore".to_string(),
                 expected_workflow_content_hash,
+                actual_workflow_content_hash: None,
+                hash_verified: false,
                 file_sha256: None,
                 bundle: None,
             }
             .with_blocker_detail(error.to_string()));
         }
     };
+    let file_sha256 = sha256_hex_for_bytes(&content);
+    let actual_workflow_content_hash = workflow_project_content_hash(&restored_workflow);
+    let hash_verified = expected_workflow_content_hash
+        .as_deref()
+        .map(|expected| expected == actual_workflow_content_hash)
+        .unwrap_or(true);
+    if !hash_verified {
+        let tests_path = workflow_tests_path(&target_workflow_path);
+        let proposals_dir = workflow_proposals_dir(&target_workflow_path);
+        return Ok(WorkflowRevisionRestoreResult {
+            restored: false,
+            dry_run: request.dry_run,
+            blockers: vec!["workflow_content_hash_mismatch".to_string()],
+            workflow_path: target_workflow_path.display().to_string(),
+            repo_root: Some(repo_root.display().to_string()),
+            relative_workflow_path: Some(relative_workflow_path),
+            revision_source,
+            restored_revision: Some(restored_revision),
+            restore_strategy: "git_show_file_restore".to_string(),
+            expected_workflow_content_hash,
+            actual_workflow_content_hash: Some(actual_workflow_content_hash),
+            hash_verified,
+            file_sha256: Some(file_sha256),
+            bundle: Some(WorkflowWorkbenchBundle {
+                workflow_path: target_workflow_path.display().to_string(),
+                tests_path: tests_path.display().to_string(),
+                proposals_dir: proposals_dir.display().to_string(),
+                workflow: restored_workflow,
+                tests: Vec::new(),
+                proposals: Vec::new(),
+                runs: Vec::new(),
+            }),
+        });
+    }
     if request.dry_run {
         let tests_path = workflow_tests_path(&target_workflow_path);
         let proposals_dir = workflow_proposals_dir(&target_workflow_path);
@@ -460,7 +629,9 @@ pub fn restore_workflow_revision(
             restored_revision: Some(restored_revision),
             restore_strategy: "git_show_file_restore".to_string(),
             expected_workflow_content_hash,
-            file_sha256: Some(sha256_hex_for_bytes(&content)),
+            actual_workflow_content_hash: Some(actual_workflow_content_hash),
+            hash_verified,
+            file_sha256: Some(file_sha256),
             bundle: Some(WorkflowWorkbenchBundle {
                 workflow_path: target_workflow_path.display().to_string(),
                 tests_path: tests_path.display().to_string(),
@@ -501,6 +672,8 @@ pub fn restore_workflow_revision(
         restored_revision: Some(restored_revision),
         restore_strategy: "git_show_file_restore".to_string(),
         expected_workflow_content_hash,
+        actual_workflow_content_hash: Some(actual_workflow_content_hash),
+        hash_verified,
         file_sha256: Some(file_sha256),
         bundle: Some(bundle),
     })

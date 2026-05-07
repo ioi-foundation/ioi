@@ -264,6 +264,7 @@ fn restore_workflow_revision_restores_single_workflow_file_from_git() {
         .expect("workflow path should be inside root")
         .to_string_lossy()
         .replace('\\', "/");
+    let initial_workflow_content_hash = workflow_project_content_hash(&bundle.workflow);
 
     let mut mutated = bundle.workflow.clone();
     mutated.metadata.name = "Mutated Workflow".to_string();
@@ -278,7 +279,7 @@ fn restore_workflow_revision_restores_single_workflow_file_from_git() {
         branch: Some("master".to_string()),
         base_revision: None,
         activated_revision: Some(initial_revision.clone()),
-        workflow_content_hash: "stable-fnv1a32:original".to_string(),
+        workflow_content_hash: initial_workflow_content_hash.clone(),
         proposal_id: None,
         activation_id: Some("activation:git-backed".to_string()),
         rollback_activation_id: None,
@@ -289,12 +290,17 @@ fn restore_workflow_revision_restores_single_workflow_file_from_git() {
     let dry_run = restore_workflow_revision(WorkflowRevisionRestoreRequest {
         workflow_path: bundle.workflow_path.clone(),
         revision_binding: revision_binding.clone(),
-        expected_workflow_content_hash: Some("stable-fnv1a32:original".to_string()),
+        expected_workflow_content_hash: Some(initial_workflow_content_hash.clone()),
         dry_run: true,
     })
     .expect("dry-run restore command should return");
     assert!(dry_run.restored, "{:?}", dry_run.blockers);
     assert!(dry_run.dry_run);
+    assert!(dry_run.hash_verified);
+    assert_eq!(
+        dry_run.actual_workflow_content_hash.as_deref(),
+        Some(initial_workflow_content_hash.as_str())
+    );
     assert_eq!(
         dry_run.bundle.as_ref().unwrap().workflow.metadata.name,
         "Git Revision Restore"
@@ -303,16 +309,41 @@ fn restore_workflow_revision_restores_single_workflow_file_from_git() {
         load_workflow_bundle(bundle.workflow_path.clone()).expect("dry run load");
     assert_eq!(still_mutated.workflow.metadata.name, "Mutated Workflow");
 
+    let mismatch = restore_workflow_revision(WorkflowRevisionRestoreRequest {
+        workflow_path: bundle.workflow_path.clone(),
+        revision_binding: revision_binding.clone(),
+        expected_workflow_content_hash: Some("stable-fnv1a32:wrong".to_string()),
+        dry_run: false,
+    })
+    .expect("mismatched restore command should return");
+    assert!(!mismatch.restored);
+    assert!(!mismatch.hash_verified);
+    assert!(mismatch
+        .blockers
+        .contains(&"workflow_content_hash_mismatch".to_string()));
+    assert_eq!(
+        mismatch.actual_workflow_content_hash.as_deref(),
+        Some(initial_workflow_content_hash.as_str())
+    );
+    let still_mutated =
+        load_workflow_bundle(bundle.workflow_path.clone()).expect("mismatch load");
+    assert_eq!(still_mutated.workflow.metadata.name, "Mutated Workflow");
+
     let restore = restore_workflow_revision(WorkflowRevisionRestoreRequest {
         workflow_path: bundle.workflow_path.clone(),
         revision_binding,
-        expected_workflow_content_hash: Some("stable-fnv1a32:original".to_string()),
+        expected_workflow_content_hash: Some(initial_workflow_content_hash.clone()),
         dry_run: false,
     })
     .expect("restore command should return");
 
     assert!(restore.restored, "{:?}", restore.blockers);
+    assert!(restore.hash_verified);
     assert_eq!(restore.restore_strategy, "git_show_file_restore");
+    assert_eq!(
+        restore.actual_workflow_content_hash.as_deref(),
+        Some(initial_workflow_content_hash.as_str())
+    );
     assert_eq!(
         restore.relative_workflow_path.as_deref(),
         Some(relative_workflow_path.as_str())
