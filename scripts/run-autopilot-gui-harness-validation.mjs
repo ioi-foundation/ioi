@@ -431,6 +431,9 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
     harnessGatedAuthorityToolingCount: 0,
     harnessForkActivationBlockedCount: 0,
     harnessForkActivationMintedCount: 0,
+    harnessRollbackRestoreCanaryBlockedCount: 0,
+    harnessRollbackRestoreCanaryReadyCount: 0,
+    harnessRollbackRestoreCanaryStatuses: [],
     harnessCanaryBoundaryExecutedCount: 0,
     harnessCanaryBoundaryRollbackDrillCount: 0,
     harnessSelectorCanaryRoutedCount: 0,
@@ -499,6 +502,45 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
     if (Array.isArray(coverage.noMutationScenarios)) {
       for (const scenario of coverage.noMutationScenarios) {
         addScenario(summary.harnessReadOnlyCapabilityRoutingNoMutationScenarios, scenario);
+      }
+    }
+  };
+  const noteRollbackRestoreCanaryStatus = (status) => {
+    if (
+      typeof status === "string" &&
+      status.length > 0 &&
+      !summary.harnessRollbackRestoreCanaryStatuses.includes(status)
+    ) {
+      summary.harnessRollbackRestoreCanaryStatuses.push(status);
+      summary.harnessRollbackRestoreCanaryStatuses.sort();
+    }
+  };
+  const noteRollbackRestoreCanaryProof = (activation) => {
+    if (!activation || typeof activation !== "object") return;
+    const invalidCanary = activation.invalidFork?.rollbackRestoreCanary;
+    const validCanary = activation.validFork?.rollbackRestoreCanary;
+    if (invalidCanary && typeof invalidCanary === "object") {
+      noteRollbackRestoreCanaryStatus(invalidCanary.status);
+      if (
+        invalidCanary.schemaVersion === "workflow.harness.rollback-restore-canary.v1" &&
+        invalidCanary.status === "blocked" &&
+        invalidCanary.hashVerified === false &&
+        Array.isArray(invalidCanary.blockers) &&
+        invalidCanary.blockers.includes("rollback_restore_canary_not_run")
+      ) {
+        summary.harnessRollbackRestoreCanaryBlockedCount += 1;
+      }
+    }
+    if (validCanary && typeof validCanary === "object") {
+      noteRollbackRestoreCanaryStatus(validCanary.status);
+      if (
+        validCanary.schemaVersion === "workflow.harness.rollback-restore-canary.v1" &&
+        ["passed", "not_required"].includes(validCanary.status) &&
+        validCanary.hashVerified === true &&
+        Array.isArray(validCanary.blockers) &&
+        validCanary.blockers.length === 0
+      ) {
+        summary.harnessRollbackRestoreCanaryReadyCount += 1;
       }
     }
   };
@@ -651,6 +693,7 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
           ).length;
         }
         if (projection.HarnessForkActivation) {
+          noteRollbackRestoreCanaryProof(projection.HarnessForkActivation);
           const invalidFork = projection.HarnessForkActivation.invalidFork ?? {};
           const validFork = projection.HarnessForkActivation.validFork ?? {};
           if (
@@ -1216,6 +1259,14 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         if (digest.harness_fork_activation_minted === true) {
           summary.harnessForkActivationMintedCount += 1;
         }
+        if (digest.harness_rollback_restore_canary_blocked === true) {
+          summary.harnessRollbackRestoreCanaryBlockedCount += 1;
+          noteRollbackRestoreCanaryStatus("blocked");
+        }
+        if (digest.harness_rollback_restore_canary_ready === true) {
+          summary.harnessRollbackRestoreCanaryReadyCount += 1;
+          noteRollbackRestoreCanaryStatus("ready");
+        }
         if (digest.harness_canary_boundary_executed === true) {
           summary.harnessCanaryBoundaryExecutedCount += 1;
         }
@@ -1411,6 +1462,17 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
           if (metadata.harness_fork_activation_minted === true) {
             summary.harnessForkActivationMintedCount += 1;
           }
+          if (metadata.harness_fork_activation) {
+            noteRollbackRestoreCanaryProof(metadata.harness_fork_activation);
+          }
+          if (metadata.harness_rollback_restore_canary_blocked === true) {
+            summary.harnessRollbackRestoreCanaryBlockedCount += 1;
+            noteRollbackRestoreCanaryStatus("blocked");
+          }
+          if (metadata.harness_rollback_restore_canary_ready === true) {
+            summary.harnessRollbackRestoreCanaryReadyCount += 1;
+            noteRollbackRestoreCanaryStatus("ready");
+          }
           if (metadata.harness_canary_boundary_executed === true) {
             summary.harnessCanaryBoundaryExecutedCount += 1;
           }
@@ -1533,7 +1595,49 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
   };
 }
 
-function buildGuiEvidenceAssessment({ queryResults, runtimeArtifacts }) {
+function collectRollbackRestoreCanaryUiProof(outputRoot) {
+  const railPath = "packages/agent-ide/src/features/Workflows/WorkflowRailPanel.tsx";
+  const validationPath = "packages/agent-ide/src/runtime/workflow-validation.ts";
+  const controllerPath = "packages/agent-ide/src/WorkflowComposer/controller.tsx";
+  const graphPath = "packages/agent-ide/src/types/graph.ts";
+  const rail = readFileSync(resolve(repoRoot, railPath), "utf8");
+  const validation = readFileSync(resolve(repoRoot, validationPath), "utf8");
+  const controller = readFileSync(resolve(repoRoot, controllerPath), "utf8");
+  const graph = readFileSync(resolve(repoRoot, graphPath), "utf8");
+  const checks = {
+    canaryCardTestId: /data-testid="workflow-harness-rollback-restore-canary"/.test(rail),
+    canaryStatusAttribute: /data-restore-canary-status/.test(rail),
+    wizardStepGateId: /id: "rollback-restore"/.test(rail),
+    wizardStepTestId: /workflow-harness-activation-step-\$\{step\.id\}/.test(rail),
+    candidateGateTestId: /workflow-harness-activation-candidate-gate-\$\{gate\.gateId\}/.test(rail),
+    validationGate: /gateId: "rollback-restore"/.test(validation),
+    blockedGitCanary: /rollback_restore_canary_not_run/.test(validation),
+    dryRunRestoreProbe: /runtime\.restoreWorkflowRevision[\s\S]*dryRun: true/.test(controller),
+    rollbackCanaryContract: /WorkflowHarnessRollbackRestoreCanary[\s\S]*hashVerified[\s\S]*blockers/.test(graph),
+  };
+  const passed = Object.values(checks).every(Boolean);
+  const proof = {
+    schemaVersion: "ioi.autopilot.gui-harness.rollback-restore-canary-ui.v1",
+    passed,
+    checks,
+    uiSelectors: {
+      canaryCard: "workflow-harness-rollback-restore-canary",
+      wizardStep: "workflow-harness-activation-step-rollback-restore",
+      candidateGate: "workflow-harness-activation-candidate-gate-rollback-restore",
+    },
+    sourceRefs: [
+      railPath,
+      validationPath,
+      controllerPath,
+      graphPath,
+    ],
+  };
+  const path = join(outputRoot, "rollback-restore-canary-ui-proof.json");
+  writeFileSync(path, `${JSON.stringify(proof, null, 2)}\n`, "utf8");
+  return { path, proof };
+}
+
+function buildGuiEvidenceAssessment({ queryResults, runtimeArtifacts, rollbackRestoreCanaryUiProof }) {
   const allScreenshotsCaptured =
     queryResults.length === AUTOPILOT_RETAINED_QUERIES.length &&
     queryResults.every((result) => result.passed === true);
@@ -1578,8 +1682,15 @@ function buildGuiEvidenceAssessment({ queryResults, runtimeArtifacts }) {
     hasHarnessGatedAuthorityTooling &&
     summary.harnessForkActivationBlockedCount > 0 &&
     summary.harnessForkActivationMintedCount > 0;
-  const hasHarnessCanaryExecutionBoundary =
+  const hasHarnessRollbackRestoreCanary =
     hasHarnessForkActivation &&
+    summary.harnessRollbackRestoreCanaryBlockedCount > 0 &&
+    summary.harnessRollbackRestoreCanaryReadyCount > 0;
+  const hasHarnessRollbackRestoreCanaryUi =
+    hasHarnessRollbackRestoreCanary &&
+    rollbackRestoreCanaryUiProof?.proof?.passed === true;
+  const hasHarnessCanaryExecutionBoundary =
+    hasHarnessRollbackRestoreCanary &&
     summary.harnessCanaryBoundaryExecutedCount > 0 &&
     summary.harnessCanaryBoundaryRollbackDrillCount > 0;
   const hasHarnessLiveHandoff =
@@ -1675,6 +1786,8 @@ function buildGuiEvidenceAssessment({ queryResults, runtimeArtifacts }) {
       harness_gated_verification_output_present: hasHarnessGatedVerificationOutput,
       harness_gated_authority_tooling_present: hasHarnessGatedAuthorityTooling,
       harness_fork_activation_present: hasHarnessForkActivation,
+      harness_rollback_restore_canary_present: hasHarnessRollbackRestoreCanary,
+      harness_rollback_restore_canary_ui_present: hasHarnessRollbackRestoreCanaryUi,
       harness_canary_execution_boundary_present: hasHarnessCanaryExecutionBoundary,
       harness_live_handoff_present: hasHarnessLiveHandoff,
       harness_selector_default_promoted: hasHarnessSelectorRouting,
@@ -1725,6 +1838,8 @@ function buildGuiEvidenceAssessment({ queryResults, runtimeArtifacts }) {
       hasHarnessGatedVerificationOutput,
       hasHarnessGatedAuthorityTooling,
       hasHarnessForkActivation,
+      hasHarnessRollbackRestoreCanary,
+      hasHarnessRollbackRestoreCanaryUi,
       hasHarnessCanaryExecutionBoundary,
       hasHarnessLiveHandoff,
       hasHarnessSelectorRouting,
@@ -1767,6 +1882,13 @@ function buildGuiEvidenceAssessment({ queryResults, runtimeArtifacts }) {
       harnessGatedAuthorityToolingCount: summary.harnessGatedAuthorityToolingCount,
       harnessForkActivationBlockedCount: summary.harnessForkActivationBlockedCount,
       harnessForkActivationMintedCount: summary.harnessForkActivationMintedCount,
+      harnessRollbackRestoreCanaryBlockedCount:
+        summary.harnessRollbackRestoreCanaryBlockedCount,
+      harnessRollbackRestoreCanaryReadyCount:
+        summary.harnessRollbackRestoreCanaryReadyCount,
+      harnessRollbackRestoreCanaryStatuses:
+        summary.harnessRollbackRestoreCanaryStatuses,
+      harnessRollbackRestoreCanaryUiProof: rollbackRestoreCanaryUiProof?.proof ?? null,
       harnessCanaryBoundaryExecutedCount: summary.harnessCanaryBoundaryExecutedCount,
       harnessCanaryBoundaryRollbackDrillCount: summary.harnessCanaryBoundaryRollbackDrillCount,
       harnessSelectorCanaryRoutedCount: summary.harnessSelectorCanaryRoutedCount,
@@ -2020,7 +2142,12 @@ async function runGuiValidation(args, outputRoot) {
 
     writeFileSync(logPath, log.join(""), "utf8");
     const runtimeArtifacts = await collectRuntimeArtifacts(outputRoot, logPath);
-    const guiEvidence = buildGuiEvidenceAssessment({ queryResults, runtimeArtifacts });
+    const rollbackRestoreCanaryUiProof = collectRollbackRestoreCanaryUiProof(outputRoot);
+    const guiEvidence = buildGuiEvidenceAssessment({
+      queryResults,
+      runtimeArtifacts,
+      rollbackRestoreCanaryUiProof,
+    });
     return {
       schemaVersion: autopilotGuiHarnessContract().schemaVersion,
       launchCommand: AUTOPILOT_GUI_HARNESS_LAUNCH_COMMAND,
@@ -2077,6 +2204,15 @@ async function runGuiValidation(args, outputRoot) {
           runtimeArtifacts.summary.harnessForkActivationBlockedCount > 0 &&
           runtimeArtifacts.summary.harnessForkActivationMintedCount > 0
             ? runtimeArtifacts.path
+            : false,
+        harness_rollback_restore_canary:
+          runtimeArtifacts.summary.harnessRollbackRestoreCanaryBlockedCount > 0 &&
+          runtimeArtifacts.summary.harnessRollbackRestoreCanaryReadyCount > 0
+            ? runtimeArtifacts.path
+            : false,
+        harness_rollback_restore_canary_ui:
+          rollbackRestoreCanaryUiProof.proof.passed === true
+            ? rollbackRestoreCanaryUiProof.path
             : false,
         harness_canary_execution_boundary:
           runtimeArtifacts.summary.harnessCanaryBoundaryExecutedCount > 0 &&
@@ -2163,6 +2299,9 @@ async function runGuiValidation(args, outputRoot) {
       chatUx: guiEvidence.chatUx,
       runtimeConsistency: guiEvidence.runtimeConsistency,
       evidenceAssessment: guiEvidence.assessment,
+      uiAssertions: {
+        rollbackRestoreCanary: rollbackRestoreCanaryUiProof.proof,
+      },
       logPath,
     };
   } finally {

@@ -24,6 +24,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, HashSet};
 use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 const LOCAL_TASK_CHECKPOINT_NAME: &str = "autopilot.local_task.v1";
 const SESSION_FILE_CONTEXT_CHECKPOINT_NAME: &str = "autopilot.session_file_context.v1";
@@ -2745,6 +2746,10 @@ fn runtime_harness_fork_activation(sid: &str, gated_cluster_runs: &[Value]) -> V
     let activation_id = format!("activation:default-agent-harness-fork:{sid}:validated-canary");
     let harness_workflow_id = "default-agent-harness-fork";
     let rollback_target = DEFAULT_AGENT_HARNESS_ACTIVATION_ID;
+    let created_at_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis() as u64)
+        .unwrap_or(0);
     let component_version_set = json!({
         "ioi.agent-harness.planner.v1": "1.0.0",
         "ioi.agent-harness.task-state.v1": "1.0.0",
@@ -2763,6 +2768,40 @@ fn runtime_harness_fork_activation(sid: &str, gated_cluster_runs: &[Value]) -> V
         "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
         "executionMode": "gated",
         "source": "fork"
+    });
+    let invalid_rollback_restore_canary = json!({
+        "schemaVersion": "workflow.harness.rollback-restore-canary.v1",
+        "canaryId": format!("harness-rollback-restore-canary:{sid}:invalid"),
+        "status": "blocked",
+        "revisionSource": "git",
+        "restoreStrategy": "git_show_file_restore",
+        "workflowPath": ".agents/workflows/default-agent-harness-fork-invalid.workflow.json",
+        "relativeWorkflowPath": ".agents/workflows/default-agent-harness-fork-invalid.workflow.json",
+        "restoredRevision": null,
+        "restoredFileSha256": null,
+        "expectedWorkflowContentHash": DEFAULT_AGENT_HARNESS_HASH,
+        "actualWorkflowContentHash": null,
+        "hashVerified": false,
+        "blockers": ["rollback_restore_canary_not_run"],
+        "evidenceRefs": [DEFAULT_AGENT_HARNESS_HASH],
+        "createdAtMs": created_at_ms
+    });
+    let valid_rollback_restore_canary = json!({
+        "schemaVersion": "workflow.harness.rollback-restore-canary.v1",
+        "canaryId": format!("harness-rollback-restore-canary:{sid}:valid"),
+        "status": "not_required",
+        "revisionSource": "file_hash_only",
+        "restoreStrategy": "file_hash_only_metadata_restore",
+        "workflowPath": ".agents/workflows/default-agent-harness-fork.workflow.json",
+        "relativeWorkflowPath": ".agents/workflows/default-agent-harness-fork.workflow.json",
+        "restoredRevision": DEFAULT_AGENT_HARNESS_HASH,
+        "restoredFileSha256": null,
+        "expectedWorkflowContentHash": DEFAULT_AGENT_HARNESS_HASH,
+        "actualWorkflowContentHash": DEFAULT_AGENT_HARNESS_HASH,
+        "hashVerified": true,
+        "blockers": [],
+        "evidenceRefs": [DEFAULT_AGENT_HARNESS_HASH],
+        "createdAtMs": created_at_ms
     });
     json!({
         "schemaVersion": "workflow.harness.activation-proof.v1",
@@ -2785,6 +2824,7 @@ fn runtime_harness_fork_activation(sid: &str, gated_cluster_runs: &[Value]) -> V
             "canaryStatus": "not_run",
             "rollbackTarget": rollback_target,
             "rollbackAvailable": false,
+            "rollbackRestoreCanary": invalid_rollback_restore_canary,
             "liveAuthorityTransferred": false,
             "activationMinted": false,
             "workerBinding": {
@@ -2811,6 +2851,7 @@ fn runtime_harness_fork_activation(sid: &str, gated_cluster_runs: &[Value]) -> V
             "canaryStatus": "passed",
             "rollbackTarget": rollback_target,
             "rollbackAvailable": true,
+            "rollbackRestoreCanary": valid_rollback_restore_canary,
             "liveAuthorityTransferred": false,
             "activationMinted": true,
             "workerBinding": worker_binding,
@@ -9416,6 +9457,40 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     == activation_id
         })
         .unwrap_or(false);
+    let harness_rollback_restore_canary_blocked = harness_fork_activation
+        .as_ref()
+        .and_then(|activation| activation.get("invalidFork"))
+        .and_then(|invalid| invalid.get("rollbackRestoreCanary"))
+        .map(|canary| {
+            canary.get("status").and_then(Value::as_str) == Some("blocked")
+                && canary.get("hashVerified").and_then(Value::as_bool) == Some(false)
+                && canary
+                    .get("blockers")
+                    .and_then(Value::as_array)
+                    .map(|blockers| {
+                        blockers.iter().any(|blocker| {
+                            blocker.as_str() == Some("rollback_restore_canary_not_run")
+                        })
+                    })
+                    .unwrap_or(false)
+        })
+        .unwrap_or(false);
+    let harness_rollback_restore_canary_ready = harness_fork_activation
+        .as_ref()
+        .and_then(|activation| activation.get("validFork"))
+        .and_then(|valid| valid.get("rollbackRestoreCanary"))
+        .map(|canary| {
+            matches!(
+                canary.get("status").and_then(Value::as_str),
+                Some("passed") | Some("not_required")
+            ) && canary.get("hashVerified").and_then(Value::as_bool) == Some(true)
+                && canary
+                    .get("blockers")
+                    .and_then(Value::as_array)
+                    .map(|blockers| blockers.is_empty())
+                    .unwrap_or(false)
+        })
+        .unwrap_or(false);
     let harness_canary_execution_boundary =
         projection.get("HarnessCanaryExecutionBoundary").cloned();
     let mut harness_canary_execution_boundaries = projection
@@ -11308,6 +11383,8 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
             "harness_fork_activation": harness_fork_activation,
             "harness_fork_activation_blocked": harness_fork_activation_blocked,
             "harness_fork_activation_minted": harness_fork_activation_minted,
+            "harness_rollback_restore_canary_blocked": harness_rollback_restore_canary_blocked,
+            "harness_rollback_restore_canary_ready": harness_rollback_restore_canary_ready,
             "harness_canary_execution_boundaries": projection.get("HarnessCanaryExecutionBoundaries"),
             "harness_canary_execution_boundary": harness_canary_execution_boundary,
             "harness_canary_boundary_executed": harness_canary_boundary_executed,
@@ -11389,6 +11466,8 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
             "harness_gated_authority_tooling_passed": harness_gated_authority_tooling_passed,
             "harness_fork_activation_blocked": harness_fork_activation_blocked,
             "harness_fork_activation_minted": harness_fork_activation_minted,
+            "harness_rollback_restore_canary_blocked": harness_rollback_restore_canary_blocked,
+            "harness_rollback_restore_canary_ready": harness_rollback_restore_canary_ready,
             "harness_canary_boundary_executed": harness_canary_boundary_executed,
             "harness_canary_boundary_rollback_drill": harness_canary_boundary_rollback_drill,
             "harness_selector_canary_routed": harness_selector_canary_routed,
