@@ -445,6 +445,7 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
     harnessAuthorityToolingMcpToolCatalogLiveCount: 0,
     harnessAuthorityToolingNativeToolCatalogLiveCount: 0,
     harnessAuthorityToolingConnectorCatalogLiveCount: 0,
+    harnessAuthorityToolingWalletCapabilityLiveDryRunCount: 0,
     harnessModelProviderGatedVisibleOutputCount: 0,
     harnessModelProviderGatedVisibleOutputRollbackDrillCount: 0,
     harnessModelProviderGatedVisibleOutputScenarios: [],
@@ -932,6 +933,14 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             dispatch.authorityToolingConnectorCatalogLiveReceiptIds.length >= 1 &&
             Array.isArray(dispatch.authorityToolingConnectorCatalogLiveReplayFixtureRefs) &&
             dispatch.authorityToolingConnectorCatalogLiveReplayFixtureRefs.length >= 1 &&
+            dispatch.authorityToolingWalletCapabilityLiveDryRunReady === true &&
+            dispatch.authorityToolingWalletCapabilityLiveDryRunComponentKind === "wallet_capability" &&
+            Array.isArray(dispatch.authorityToolingWalletCapabilityLiveDryRunAttemptIds) &&
+            dispatch.authorityToolingWalletCapabilityLiveDryRunAttemptIds.length >= 1 &&
+            Array.isArray(dispatch.authorityToolingWalletCapabilityLiveDryRunReceiptIds) &&
+            dispatch.authorityToolingWalletCapabilityLiveDryRunReceiptIds.length >= 1 &&
+            Array.isArray(dispatch.authorityToolingWalletCapabilityLiveDryRunReplayFixtureRefs) &&
+            dispatch.authorityToolingWalletCapabilityLiveDryRunReplayFixtureRefs.length >= 1 &&
             Array.isArray(dispatch.authorityToolingReadOnlyComponentKinds) &&
             dispatch.authorityToolingReadOnlyComponentKinds.includes("mcp_provider") &&
             dispatch.authorityToolingReadOnlyComponentKinds.includes("mcp_tool_call") &&
@@ -1061,6 +1070,8 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             dispatch.authorityToolingProof?.nativeToolCatalogLiveComponentKind === "tool_call" &&
             dispatch.authorityToolingProof?.connectorCatalogLiveReady === true &&
             dispatch.authorityToolingProof?.connectorCatalogLiveComponentKind === "connector_call" &&
+            dispatch.authorityToolingProof?.walletCapabilityLiveDryRunReady === true &&
+            dispatch.authorityToolingProof?.walletCapabilityLiveDryRunComponentKind === "wallet_capability" &&
             Array.isArray(dispatch.authorityToolingProof?.mutationDeferredComponentKinds) &&
             dispatch.authorityToolingProof.mutationDeferredComponentKinds.includes("wallet_capability") &&
             Array.isArray(dispatch.authorityToolingDenialReceiptIds) &&
@@ -1077,6 +1088,7 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             summary.harnessAuthorityToolingMcpToolCatalogLiveCount += 1;
             summary.harnessAuthorityToolingNativeToolCatalogLiveCount += 1;
             summary.harnessAuthorityToolingConnectorCatalogLiveCount += 1;
+            summary.harnessAuthorityToolingWalletCapabilityLiveDryRunCount += 1;
             summary.harnessModelProviderGatedVisibleOutputCount += 1;
             summary.harnessModelProviderGatedVisibleOutputRollbackDrillCount += 1;
             addScenario(
@@ -1223,6 +1235,9 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         }
         if (digest.harness_authority_tooling_connector_catalog_live === true) {
           summary.harnessAuthorityToolingConnectorCatalogLiveCount += 1;
+        }
+        if (digest.harness_authority_tooling_wallet_capability_live_dry_run === true) {
+          summary.harnessAuthorityToolingWalletCapabilityLiveDryRunCount += 1;
         }
         if (digest.harness_model_provider_gated_visible_output === true) {
           summary.harnessModelProviderGatedVisibleOutputCount += 1;
@@ -1413,6 +1428,9 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
           if (metadata.harness_authority_tooling_connector_catalog_live === true) {
             summary.harnessAuthorityToolingConnectorCatalogLiveCount += 1;
           }
+          if (metadata.harness_authority_tooling_wallet_capability_live_dry_run === true) {
+            summary.harnessAuthorityToolingWalletCapabilityLiveDryRunCount += 1;
+          }
           if (metadata.harness_model_provider_gated_visible_output === true) {
             summary.harnessModelProviderGatedVisibleOutputCount += 1;
             noteProviderGatedVisibleOutputCoverage(
@@ -1550,7 +1568,8 @@ function buildGuiEvidenceAssessment({ queryResults, runtimeArtifacts }) {
     summary.harnessAuthorityToolingProviderCatalogLiveCount > 0 &&
     summary.harnessAuthorityToolingMcpToolCatalogLiveCount > 0 &&
     summary.harnessAuthorityToolingNativeToolCatalogLiveCount > 0 &&
-    summary.harnessAuthorityToolingConnectorCatalogLiveCount > 0;
+    summary.harnessAuthorityToolingConnectorCatalogLiveCount > 0 &&
+    summary.harnessAuthorityToolingWalletCapabilityLiveDryRunCount > 0;
   const hasHarnessAuthorityToolingProviderCatalogLive =
     hasHarnessDefaultRuntimeDispatch &&
     summary.harnessAuthorityToolingProviderCatalogLiveCount > 0;
@@ -1563,6 +1582,9 @@ function buildGuiEvidenceAssessment({ queryResults, runtimeArtifacts }) {
   const hasHarnessAuthorityToolingConnectorCatalogLive =
     hasHarnessDefaultRuntimeDispatch &&
     summary.harnessAuthorityToolingConnectorCatalogLiveCount > 0;
+  const hasHarnessAuthorityToolingWalletCapabilityLiveDryRun =
+    hasHarnessDefaultRuntimeDispatch &&
+    summary.harnessAuthorityToolingWalletCapabilityLiveDryRunCount > 0;
   const providerGatedVisibleOutputScenarioCoverage =
     AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS.every((scenario) =>
       summary.harnessModelProviderGatedVisibleOutputScenarios.includes(scenario),
@@ -1633,6 +1655,8 @@ function buildGuiEvidenceAssessment({ queryResults, runtimeArtifacts }) {
         hasHarnessAuthorityToolingNativeToolCatalogLive,
       harness_authority_tooling_connector_catalog_live_present:
         hasHarnessAuthorityToolingConnectorCatalogLive,
+      harness_authority_tooling_wallet_capability_live_dry_run_present:
+        hasHarnessAuthorityToolingWalletCapabilityLiveDryRun,
       harness_model_provider_gated_visible_output_present:
         hasHarnessModelProviderGatedVisibleOutput,
       harness_model_provider_gated_visible_output_rollback_drill_present:
@@ -1729,6 +1753,8 @@ function buildGuiEvidenceAssessment({ queryResults, runtimeArtifacts }) {
         summary.harnessAuthorityToolingNativeToolCatalogLiveCount,
       harnessAuthorityToolingConnectorCatalogLiveCount:
         summary.harnessAuthorityToolingConnectorCatalogLiveCount,
+      harnessAuthorityToolingWalletCapabilityLiveDryRunCount:
+        summary.harnessAuthorityToolingWalletCapabilityLiveDryRunCount,
       harnessModelProviderGatedVisibleOutputCount:
         summary.harnessModelProviderGatedVisibleOutputCount,
       harnessModelProviderGatedVisibleOutputRollbackDrillCount:
@@ -2036,7 +2062,8 @@ async function runGuiValidation(args, outputRoot) {
           runtimeArtifacts.summary.harnessAuthorityToolingProviderCatalogLiveCount > 0 &&
           runtimeArtifacts.summary.harnessAuthorityToolingMcpToolCatalogLiveCount > 0 &&
           runtimeArtifacts.summary.harnessAuthorityToolingNativeToolCatalogLiveCount > 0 &&
-          runtimeArtifacts.summary.harnessAuthorityToolingConnectorCatalogLiveCount > 0
+          runtimeArtifacts.summary.harnessAuthorityToolingConnectorCatalogLiveCount > 0 &&
+          runtimeArtifacts.summary.harnessAuthorityToolingWalletCapabilityLiveDryRunCount > 0
             ? runtimeArtifacts.path
             : false,
         harness_authority_tooling_provider_catalog_live:
@@ -2053,6 +2080,10 @@ async function runGuiValidation(args, outputRoot) {
             : false,
         harness_authority_tooling_connector_catalog_live:
           runtimeArtifacts.summary.harnessAuthorityToolingConnectorCatalogLiveCount > 0
+            ? runtimeArtifacts.path
+            : false,
+        harness_authority_tooling_wallet_capability_live_dry_run:
+          runtimeArtifacts.summary.harnessAuthorityToolingWalletCapabilityLiveDryRunCount > 0
             ? runtimeArtifacts.path
             : false,
         harness_model_provider_gated_visible_output:

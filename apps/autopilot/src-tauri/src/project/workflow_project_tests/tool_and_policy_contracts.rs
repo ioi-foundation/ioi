@@ -1303,3 +1303,87 @@ fn live_connector_catalog_describe_consumes_mcp_tool_catalog_without_connector_e
         .map(|value| value.starts_with("sha256:"))
         .unwrap_or(false));
 }
+
+#[test]
+fn live_wallet_capability_dry_run_never_materializes_grant() {
+    let wallet_node = json!({
+        "id": "wallet-capability-dry-run",
+        "type": "human_gate",
+        "name": "Wallet capability dry run",
+        "config": {
+            "logic": {
+                "text": "Wallet and spending authority remain unavailable during read-only default harness dispatch.",
+                "approvalMode": "wallet_capability_dry_run",
+                "capabilityScope": ["wallet.request", "capability.grant"],
+                "requiresApproval": true,
+                "policyDecision": "retain_wallet_capability_without_grant",
+                "syntheticApprovalGranted": false,
+                "capabilityGranted": false,
+                "grantMaterialized": false,
+                "authorityTransferred": false,
+                "sideEffectsExecuted": false,
+                "mutationExecuted": false,
+                "rollbackTarget": "default-agent-harness@v1"
+            },
+            "law": {
+                "requireHumanGate": true,
+                "sandboxPolicy": {
+                    "permissions": []
+                }
+            }
+        }
+    });
+    let output = execute_workflow_harness_live_default_node(
+        &wallet_node,
+        json!({
+            "mode": "test",
+            "mutation": false
+        }),
+        1,
+    )
+    .expect("live non-mutating wallet capability dry-run should execute");
+
+    let dry_run = output
+        .get("walletCapabilityDryRun")
+        .expect("wallet capability dry-run payload should be attached");
+    assert_eq!(
+        dry_run.get("schemaVersion").and_then(Value::as_str),
+        Some("workflow.wallet-capability.dry-run.v1")
+    );
+    assert_eq!(
+        dry_run.get("executionMode").and_then(Value::as_str),
+        Some("live_non_mutating_capability_dry_run")
+    );
+    assert_eq!(
+        dry_run.get("approvalObserved").and_then(Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        dry_run.get("capabilityRequested").and_then(Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        dry_run.get("capabilityGranted").and_then(Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        dry_run.get("grantMaterialized").and_then(Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        dry_run.get("authorityTransferred").and_then(Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        dry_run.get("sideEffectsExecuted").and_then(Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        dry_run.get("mutationExecuted").and_then(Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        dry_run.get("receiptKind").and_then(Value::as_str),
+        Some("wallet_capability_dry_run_receipt")
+    );
+}

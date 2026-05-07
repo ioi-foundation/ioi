@@ -265,6 +265,89 @@ fn workflow_live_native_tool_catalog(
     })))
 }
 
+fn workflow_live_wallet_capability_dry_run(
+    logic: &Value,
+    outcome: &Value,
+    input: &Value,
+) -> Result<Option<Value>, String> {
+    let approval_mode = logic
+        .get("approvalMode")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let capability_scope = logic
+        .get("capabilityScope")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let requests_wallet_capability = capability_scope.iter().any(|scope| {
+        scope
+            .as_str()
+            .map(|value| value == "wallet.request" || value == "capability.grant")
+            .unwrap_or(false)
+    });
+    let is_wallet_dry_run = requests_wallet_capability
+        && matches!(
+            approval_mode,
+            "wallet_capability_dry_run" | "read_only_capability_denial"
+        );
+    if !is_wallet_dry_run {
+        return Ok(None);
+    }
+
+    if logic.get("sideEffectsExecuted").and_then(Value::as_bool) == Some(true)
+        || logic.get("mutationExecuted").and_then(Value::as_bool) == Some(true)
+    {
+        return Err(
+            "Wallet capability dry-run cannot execute side effects or mutations.".to_string(),
+        );
+    }
+    if logic.get("capabilityGranted").and_then(Value::as_bool) == Some(true)
+        || logic.get("authorityTransferred").and_then(Value::as_bool) == Some(true)
+        || outcome.get("authorityTransferred").and_then(Value::as_bool) == Some(true)
+    {
+        return Err(
+            "Wallet capability dry-run cannot materialize a grant or transfer authority."
+                .to_string(),
+        );
+    }
+
+    Ok(Some(json!({
+        "schemaVersion": "workflow.wallet-capability.dry-run.v1",
+        "componentKind": "wallet_capability",
+        "adapterPort": "WalletCapabilityDryRunPort",
+        "executionMode": "live_non_mutating_capability_dry_run",
+        "live": true,
+        "approvalMode": approval_mode,
+        "approvalObserved": outcome.get("approved").and_then(Value::as_bool).unwrap_or(false),
+        "approvalDecision": outcome.get("decision").cloned().unwrap_or_else(|| json!("unknown")),
+        "dryRunApprovalGranted": logic
+            .get("syntheticApprovalGranted")
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
+        "capabilityRequested": true,
+        "capabilityScope": capability_scope,
+        "capabilityGranted": false,
+        "grantMaterialized": false,
+        "grantRef": Value::Null,
+        "authorityTransferred": false,
+        "credentialMaterialized": false,
+        "sideEffectsExecuted": false,
+        "mutationExecuted": false,
+        "requiresApproval": logic
+            .get("requiresApproval")
+            .and_then(Value::as_bool)
+            .unwrap_or(true),
+        "policyDecision": logic
+            .get("policyDecision")
+            .and_then(Value::as_str)
+            .unwrap_or("retain_wallet_capability_without_grant"),
+        "walletAuthority": "dry_run_only",
+        "receiptKind": "wallet_capability_dry_run_receipt",
+        "rollbackTarget": logic.get("rollbackTarget").cloned().unwrap_or(Value::Null),
+        "input": input
+    })))
+}
+
 fn workflow_live_connector_catalog_describe(
     binding: &WorkflowConnectorBinding,
     input: &Value,
@@ -2487,10 +2570,13 @@ pub(super) fn execute_workflow_node(
             let Some(outcome) = resume_outcome else {
                 return Err("Human gate requires an interrupt.".to_string());
             };
+            let wallet_capability_dry_run =
+                workflow_live_wallet_capability_dry_run(&logic, outcome, &input)?;
             json!({
                 "nodeId": node_id,
                 "kind": evidence_kind,
                 "outcome": outcome,
+                "walletCapabilityDryRun": wallet_capability_dry_run,
                 "input": input
             })
         }

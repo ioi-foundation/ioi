@@ -1178,6 +1178,9 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   authorityToolingConnectorCatalogLiveAttemptIds: string[];
   authorityToolingConnectorCatalogLiveReceiptIds: string[];
   authorityToolingConnectorCatalogLiveReplayFixtureRefs: string[];
+  authorityToolingWalletCapabilityLiveDryRunAttemptIds: string[];
+  authorityToolingWalletCapabilityLiveDryRunReceiptIds: string[];
+  authorityToolingWalletCapabilityLiveDryRunReplayFixtureRefs: string[];
   authorityToolingReadOnlyComponentKinds: WorkflowHarnessComponentKind[];
   authorityToolingMutationDeferredComponentKinds: WorkflowHarnessComponentKind[];
   authorityToolingDenialReceiptIds: string[];
@@ -1334,6 +1337,10 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   authorityToolingNativeToolCatalogLiveComponentKind: WorkflowHarnessComponentKind | string;
   authorityToolingConnectorCatalogLiveReady: boolean;
   authorityToolingConnectorCatalogLiveComponentKind: WorkflowHarnessComponentKind | string;
+  authorityToolingWalletCapabilityLiveDryRunReady: boolean;
+  authorityToolingWalletCapabilityLiveDryRunComponentKind:
+    | WorkflowHarnessComponentKind
+    | string;
   authorityToolingReadOnlyRouteAccepted: boolean;
   authorityToolingDestructiveRouteDenied: boolean;
   authorityToolingMutatingToolCallsBlocked: boolean;

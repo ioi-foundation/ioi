@@ -1062,6 +1062,33 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
         .and_then(|value| value.as_array())
         .map(|items| !items.is_empty())
         .unwrap_or(false));
+    assert_eq!(
+        dispatch
+            .get("authorityToolingWalletCapabilityLiveDryRunReady")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("authorityToolingWalletCapabilityLiveDryRunComponentKind")
+            .and_then(|value| value.as_str()),
+        Some("wallet_capability")
+    );
+    assert!(dispatch
+        .get("authorityToolingWalletCapabilityLiveDryRunAttemptIds")
+        .and_then(|value| value.as_array())
+        .map(|items| !items.is_empty())
+        .unwrap_or(false));
+    assert!(dispatch
+        .get("authorityToolingWalletCapabilityLiveDryRunReceiptIds")
+        .and_then(|value| value.as_array())
+        .map(|items| !items.is_empty())
+        .unwrap_or(false));
+    assert!(dispatch
+        .get("authorityToolingWalletCapabilityLiveDryRunReplayFixtureRefs")
+        .and_then(|value| value.as_array())
+        .map(|items| !items.is_empty())
+        .unwrap_or(false));
     assert!(
         dispatch
             .get("authorityToolingProof")
@@ -1124,6 +1151,20 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
             .and_then(|proof| proof.get("connectorCatalogLiveComponentKind"))
             .and_then(|value| value.as_str()),
         Some("connector_call")
+    );
+    assert!(
+        dispatch
+            .get("authorityToolingProof")
+            .and_then(|proof| proof.get("walletCapabilityLiveDryRunReady"))
+            .and_then(|value| value.as_bool())
+            == Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("authorityToolingProof")
+            .and_then(|proof| proof.get("walletCapabilityLiveDryRunComponentKind"))
+            .and_then(|value| value.as_str()),
+        Some("wallet_capability")
     );
     assert!(dispatch
         .get("authorityToolingProof")
