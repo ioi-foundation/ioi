@@ -2536,9 +2536,9 @@ export function useWorkflowComposerController({
     setReadinessResult(
       evaluateWorkflowActivationReadiness(fork.workflow, fork.tests, base, fork.proposals),
     );
-    setRightPanel("readiness");
+    setRightPanel("settings");
     setBottomPanel("selection");
-    setStatusMessage("Harness fork created with lineage and activation blockers");
+    setStatusMessage("Harness fork created with activation wizard and blockers");
   }, [clearRunState, currentProject?.rootPath, loadWorkflowProject]);
 
   const handleSave = async () => {

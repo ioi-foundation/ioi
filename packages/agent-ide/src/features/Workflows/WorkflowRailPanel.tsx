@@ -84,6 +84,7 @@ export function WorkflowRailPanel({
   onSelectHarnessReceiptRef,
   onSelectHarnessReplayFixtureRef,
   onCopyHarnessDeepLink,
+  onCheckActivationReadiness,
   onConfigureNode,
   onSelectProposal,
   onExportPackage,
@@ -131,6 +132,7 @@ export function WorkflowRailPanel({
   onSelectHarnessReceiptRef?: (receiptRef: string) => void;
   onSelectHarnessReplayFixtureRef?: (replayFixtureRef: string) => void;
   onCopyHarnessDeepLink?: () => void;
+  onCheckActivationReadiness?: () => void;
   onConfigureNode: () => void;
   onSelectProposal: (proposal: WorkflowProposal) => void;
   onExportPackage: () => void;
@@ -243,10 +245,138 @@ export function WorkflowRailPanel({
         harnessActivationRecord.rollbackAvailable === true &&
         harnessActivationRecord.liveAuthorityTransferred === false,
     );
+  const harnessActivationIssues = [
+    ...(readinessResult?.errors ?? []),
+    ...(readinessResult?.warnings ?? []),
+    ...(readinessResult?.executionReadinessIssues ?? []),
+    ...(validationResult?.errors ?? []),
+    ...(validationResult?.warnings ?? []),
+    ...(validationResult?.executionReadinessIssues ?? []),
+  ];
+  const harnessActivationBlockers = Array.from(
+    new Map(
+      harnessActivationIssues
+        .filter((issue) =>
+          [
+            "harness_required_slot_unbound",
+            "harness_activation_not_validated",
+            "harness_self_mutation_not_proposal_only",
+            "missing_replay_fixture",
+            "missing_unit_tests",
+            "mcp_access_not_reviewed",
+            "missing_ai_evaluation_coverage",
+            "unbound_model_ref",
+          ].includes(issue.code),
+        )
+        .map((issue) => [`${issue.code}:${issue.nodeId ?? ""}:${issue.message}`, issue]),
+    ).values(),
+  );
+  const firstHarnessActivationBlocker = harnessActivationBlockers[0] ?? null;
+  const activationGateProposal = proposals.find(
+    (proposal) =>
+      proposal.id.includes("activation") ||
+      proposal.sidecarDiff?.changedRoles?.includes("activation"),
+  );
   const gatedHarnessClusters = harnessPromotionClusters.filter(
     (cluster) => cluster.requiredExecutionMode === "gated",
   );
   const boundHarnessSlotIds = new Set(workflow.nodes.flatMap((node) => node.runtimeBinding?.slotIds ?? []));
+  const requiredHarnessSlots = harnessSlots.filter((slot) => slot.required);
+  const boundRequiredHarnessSlotCount = requiredHarnessSlots.filter((slot) =>
+    boundHarnessSlotIds.has(slot.slotId),
+  ).length;
+  const receiptReadyHarnessComponents = workflow.nodes.filter(
+    (node) => (node.runtimeBinding?.receiptKinds ?? []).length > 0,
+  ).length;
+  const replayFixtureBlockers = harnessActivationBlockers.filter(
+    (issue) => issue.code === "missing_replay_fixture",
+  );
+  const policyPostureReady =
+    workflow.metadata.harness?.aiMutationMode === "proposal_only" &&
+    (workflow.global_config.environmentProfile?.mockBindingPolicy ?? "block") === "block" &&
+    (workflow.global_config.production?.mcpAccessReviewed === true ||
+      !workflow.nodes.some((node) => node.type === "mcp_tool_call"));
+  const canaryReady =
+    harnessActivationRecord?.canaryStatus === "passed" ||
+    (harnessCanaryExecutionBoundaries.length > 0 &&
+      harnessCanaryExecutionBoundaries.every(
+        (boundary) =>
+          boundary.status === "passed" &&
+          boundary.canaryEligible === true &&
+          boundary.rollbackDrill.drillStatus === "passed",
+      ));
+  const rollbackReady =
+    harnessActivationRecord?.rollbackAvailable === true &&
+    Boolean(harnessActivationRecord.rollbackTarget);
+  const workerActivationBindingReady =
+    Boolean(harnessWorkerBinding?.harnessWorkflowId) &&
+    (!workflow.metadata.harness?.activationId ||
+      harnessWorkerBinding?.harnessActivationId === workflow.metadata.harness.activationId);
+  const harnessActivationWizardSteps = [
+    {
+      id: "slots",
+      label: "Slots",
+      ready: boundRequiredHarnessSlotCount === requiredHarnessSlots.length,
+      value: `${boundRequiredHarnessSlotCount}/${requiredHarnessSlots.length}`,
+      detail: "required component slots bound",
+    },
+    {
+      id: "tests",
+      label: "Tests",
+      ready: tests.length > 0,
+      value: `${tests.length}`,
+      detail: "activation test cases available",
+    },
+    {
+      id: "replay-fixtures",
+      label: "Replay fixtures",
+      ready: replayFixtureBlockers.length === 0,
+      value: replayFixtureBlockers.length === 0 ? "ready" : `${replayFixtureBlockers.length} missing`,
+      detail: "required expensive or external nodes replayable",
+    },
+    {
+      id: "policy-posture",
+      label: "Policy posture",
+      ready: policyPostureReady,
+      value: harnessActivationRecord?.policyPosture ?? "proposal_only",
+      detail: "proposal-only mutation, blocked mock policy, MCP review",
+    },
+    {
+      id: "receipt-coverage",
+      label: "Receipt coverage",
+      ready: receiptReadyHarnessComponents === workflow.nodes.length,
+      value: `${receiptReadyHarnessComponents}/${workflow.nodes.length}`,
+      detail: "components emit mapped receipt refs",
+    },
+    {
+      id: "canary",
+      label: "Canary",
+      ready: canaryReady,
+      value: harnessActivationRecord?.canaryStatus ?? "not_run",
+      detail: "workflow canary boundary and retained scenario proof",
+    },
+    {
+      id: "rollback",
+      label: "Rollback",
+      ready: rollbackReady,
+      value: harnessActivationRecord?.rollbackTarget ?? "not set",
+      detail: "rollback target and rollback drill available",
+    },
+    {
+      id: "activation-id",
+      label: "Activation id",
+      ready: harnessActivationReady,
+      value: workflow.metadata.harness?.activationId ?? "not minted",
+      detail: "minted only after validation gates pass",
+    },
+    {
+      id: "worker-binding",
+      label: "Worker binding",
+      ready: workerActivationBindingReady,
+      value: harnessWorkerBinding?.harnessActivationId ?? "blocked",
+      detail: "worker binding matches workflow, hash, and activation",
+    },
+  ];
   const harnessComponentReadiness = workflow.nodes
     .map((node) => node.runtimeBinding?.readiness)
     .filter((readiness): readiness is NonNullable<typeof readiness> => Boolean(readiness));
@@ -1092,6 +1222,135 @@ export function WorkflowRailPanel({
                   rollback {harnessActivationRecord.rollbackAvailable ? "ready" : "blocked"} · {harnessActivationRecord.rollbackTarget}
                 </small>
               </article>
+            ) : null}
+            {harnessForkWorkflow ? (
+              <section
+                className="workflow-rail-section workflow-harness-activation-wizard"
+                data-testid="workflow-harness-activation-wizard"
+                data-activation-state={
+                  workflow.metadata.harness?.activationState ?? "blocked"
+                }
+              >
+                <h4>Activation wizard</h4>
+                <dl
+                  className="workflow-rail-stats"
+                  data-testid="workflow-harness-activation-wizard-summary"
+                >
+                  <div>
+                    <dt>State</dt>
+                    <dd>{workflow.metadata.harness?.activationState ?? "blocked"}</dd>
+                  </div>
+                  <div>
+                    <dt>Policy</dt>
+                    <dd>{harnessActivationRecord?.policyPosture ?? "proposal_only"}</dd>
+                  </div>
+                  <div>
+                    <dt>Canary</dt>
+                    <dd>{harnessActivationRecord?.canaryStatus ?? "not_run"}</dd>
+                  </div>
+                  <div>
+                    <dt>Rollback</dt>
+                    <dd>{rollbackReady ? "ready" : "blocked"}</dd>
+                  </div>
+                </dl>
+                <article
+                  className={`workflow-output-row is-${harnessActivationReady ? "ready" : "blocked"}`}
+                  data-testid={
+                    harnessActivationReady
+                      ? "workflow-harness-activation-minted-proof"
+                      : "workflow-harness-activation-blocked-proof"
+                  }
+                >
+                  <strong>
+                    {harnessActivationReady
+                      ? workflow.metadata.harness?.activationId
+                      : "Activation blocked"}
+                  </strong>
+                  <span>
+                    {harnessActivationReady
+                      ? "activation id minted and worker binding validated"
+                      : `${harnessActivationBlockers.length} blocker${
+                          harnessActivationBlockers.length === 1 ? "" : "s"
+                        } remain`}
+                  </span>
+                  <small>
+                    rollback {harnessActivationRecord?.rollbackTarget ?? "not set"} · worker{" "}
+                    {harnessWorkerBinding?.harnessWorkflowId ?? "unbound"}
+                  </small>
+                </article>
+                <div
+                  className="workflow-harness-activation-steps"
+                  data-testid="workflow-harness-activation-steps"
+                >
+                  {harnessActivationWizardSteps.map((step) => (
+                    <article
+                      key={step.id}
+                      className={`workflow-test-row is-${step.ready ? "passed" : "blocked"}`}
+                      data-testid={`workflow-harness-activation-step-${step.id}`}
+                    >
+                      <strong>{step.label}</strong>
+                      <span>{step.value}</span>
+                      <small>{step.detail}</small>
+                    </article>
+                  ))}
+                </div>
+                {harnessActivationBlockers.length > 0 ? (
+                  <div
+                    className="workflow-rail-list"
+                    data-testid="workflow-harness-activation-wizard-blockers"
+                  >
+                    {harnessActivationBlockers.slice(0, 5).map((issue, index) => (
+                      <button
+                        key={`${issue.code}-${issue.nodeId ?? "workflow"}-${index}`}
+                        type="button"
+                        className="workflow-search-result is-blocked"
+                        data-testid={`workflow-harness-activation-blocker-${index}`}
+                        onClick={() => onResolveIssue(issue)}
+                      >
+                        <strong>{workflowIssueTitle(issue)}</strong>
+                        <span>{workflowNodeName(workflow, issue.nodeId)}</span>
+                        <small>{issue.message}</small>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+                <div
+                  className="workflow-harness-activation-actions"
+                  data-testid="workflow-harness-activation-actions"
+                >
+                  <button
+                    type="button"
+                    data-testid="workflow-harness-activation-run-readiness"
+                    onClick={onCheckActivationReadiness}
+                  >
+                    Check readiness
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="workflow-harness-activation-review-proposal"
+                    disabled={!activationGateProposal}
+                    onClick={() => {
+                      if (activationGateProposal) {
+                        onSelectProposal(activationGateProposal);
+                      }
+                    }}
+                  >
+                    Review proposal
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="workflow-harness-activation-first-blocker"
+                    disabled={!firstHarnessActivationBlocker}
+                    onClick={() => {
+                      if (firstHarnessActivationBlocker) {
+                        onResolveIssue(firstHarnessActivationBlocker);
+                      }
+                    }}
+                  >
+                    Inspect blocker
+                  </button>
+                </div>
+              </section>
             ) : null}
             {harnessLiveHandoffProof ? (
               <article className="workflow-output-row" data-testid="workflow-harness-live-handoff">
