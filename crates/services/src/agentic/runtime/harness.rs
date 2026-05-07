@@ -100,6 +100,18 @@ fn stable_adapter_output_hash(
     format!("sha256:{}", hex::encode(hasher.finalize()))
 }
 
+fn stable_receipt_binding_hash(prefix: &str, binding: &HarnessReceiptBinding) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(prefix.as_bytes());
+    hasher.update(binding.receipt_id.as_bytes());
+    hasher.update(binding.workflow_node_id.as_bytes());
+    hasher.update(binding.component_id.as_bytes());
+    for evidence_ref in &binding.evidence_refs {
+        hasher.update(evidence_ref.as_bytes());
+    }
+    format!("sha256:{}", hex::encode(hasher.finalize()))
+}
+
 pub fn invoke_default_harness_component(
     invocation: HarnessComponentInvocation,
 ) -> Result<HarnessComponentAdapterResult, HarnessComponentAdapterError> {
@@ -166,11 +178,9 @@ pub fn invoke_default_harness_component(
     })
 }
 
-pub fn default_harness_node_attempt_for_kernel_event(
+pub fn default_harness_receipt_binding_for_kernel_event(
     event: &KernelEvent,
-    execution_mode: HarnessExecutionMode,
-    attempt_index: u32,
-) -> Option<HarnessNodeAttemptRecord> {
+) -> Option<HarnessReceiptBinding> {
     let binding = match event {
         KernelEvent::PlanReceipt(receipt) => default_harness_receipt_binding_for_plan(receipt),
         KernelEvent::RoutingReceipt(receipt) => {
@@ -184,6 +194,51 @@ pub fn default_harness_node_attempt_for_kernel_event(
         }
         _ => return None,
     };
+    Some(binding)
+}
+
+pub fn default_harness_component_invocation_for_receipt_binding(
+    binding: &HarnessReceiptBinding,
+    execution_mode: HarnessExecutionMode,
+    attempt_index: u32,
+) -> HarnessComponentInvocation {
+    let policy_decision = binding
+        .evidence_refs
+        .iter()
+        .find_map(|entry| entry.strip_prefix("policy_decision:").map(str::to_string));
+    let mut evidence_refs = binding.evidence_refs.clone();
+    evidence_refs.push(format!("receipt_binding:{}", binding.receipt_id));
+    HarnessComponentInvocation {
+        invocation_id: format!(
+            "{}:{}:{}:{}",
+            execution_mode.as_str(),
+            binding.workflow_node_id,
+            attempt_index,
+            binding.receipt_id
+        ),
+        component_kind: binding.component_kind,
+        execution_mode,
+        attempt_index,
+        input_hash: Some(stable_receipt_binding_hash("input", binding)),
+        output_hash: Some(stable_receipt_binding_hash("output", binding)),
+        policy_decision,
+        receipt_ids: vec![binding.receipt_id.clone()],
+        evidence_refs,
+        replay_fixture_ref: Some(format!(
+            "fixture:{}:{}",
+            binding.workflow_node_id, binding.receipt_id
+        )),
+        started_at_ms: None,
+        duration_ms: Some(0),
+    }
+}
+
+pub fn default_harness_node_attempt_for_kernel_event(
+    event: &KernelEvent,
+    execution_mode: HarnessExecutionMode,
+    attempt_index: u32,
+) -> Option<HarnessNodeAttemptRecord> {
+    let binding = default_harness_receipt_binding_for_kernel_event(event)?;
     let status = match execution_mode {
         HarnessExecutionMode::Projection => HarnessNodeAttemptStatus::Projection,
         HarnessExecutionMode::Shadow => HarnessNodeAttemptStatus::Shadow,
@@ -205,13 +260,60 @@ pub fn default_harness_shadow_attempts_for_events(
         .iter()
         .enumerate()
         .filter_map(|(index, event)| {
-            default_harness_node_attempt_for_kernel_event(
-                event,
+            let attempt_index = (index + 1) as u32;
+            let binding = default_harness_receipt_binding_for_kernel_event(event)?;
+            let invocation = default_harness_component_invocation_for_receipt_binding(
+                &binding,
                 HarnessExecutionMode::Shadow,
-                (index + 1) as u32,
-            )
+                attempt_index,
+            );
+            invoke_default_harness_component(invocation)
+                .ok()
+                .map(|result| result.node_attempt)
         })
         .collect()
+}
+
+pub fn default_harness_shadow_run_with_comparisons_for_events(
+    run_id: impl Into<String>,
+    source_session_id: Option<String>,
+    live_turn_id: Option<String>,
+    events: &[KernelEvent],
+) -> HarnessShadowRun {
+    let mut shadow_attempts = Vec::new();
+    let mut comparisons = Vec::new();
+    for (index, event) in events.iter().enumerate() {
+        let attempt_index = (index + 1) as u32;
+        let Some(binding) = default_harness_receipt_binding_for_kernel_event(event) else {
+            continue;
+        };
+        let live = default_harness_node_attempt_for_receipt(
+            &binding,
+            HarnessExecutionMode::Live,
+            attempt_index,
+            HarnessNodeAttemptStatus::Live,
+        );
+        let invocation = default_harness_component_invocation_for_receipt_binding(
+            &binding,
+            HarnessExecutionMode::Shadow,
+            attempt_index,
+        );
+        let Ok(shadow) =
+            invoke_default_harness_component(invocation).map(|result| result.node_attempt)
+        else {
+            continue;
+        };
+        comparisons.push(compare_harness_live_shadow_attempts(&live, &shadow));
+        shadow_attempts.push(shadow);
+    }
+    default_harness_shadow_run_for_attempts(
+        run_id,
+        source_session_id,
+        live_turn_id,
+        shadow_attempts,
+        comparisons,
+        vec!["KernelEvent stream adapter shadow comparison".to_string()],
+    )
 }
 
 pub fn default_harness_shadow_run_for_events(
@@ -220,14 +322,11 @@ pub fn default_harness_shadow_run_for_events(
     live_turn_id: Option<String>,
     events: &[KernelEvent],
 ) -> HarnessShadowRun {
-    let attempts = default_harness_shadow_attempts_for_events(events);
-    default_harness_shadow_run_for_attempts(
+    default_harness_shadow_run_with_comparisons_for_events(
         run_id,
         source_session_id,
         live_turn_id,
-        attempts,
-        Vec::new(),
-        vec!["KernelEvent stream shadow projection".to_string()],
+        events,
     )
 }
 
@@ -477,6 +576,20 @@ mod tests {
         assert_eq!(attempts[0].workflow_node_id, "harness.mcp_tool_call");
         assert_eq!(attempts[0].execution_mode, HarnessExecutionMode::Shadow);
         assert_eq!(attempts[0].status, HarnessNodeAttemptStatus::Shadow);
+        assert!(attempts[0]
+            .input_hash
+            .as_deref()
+            .unwrap_or("")
+            .starts_with("sha256:"));
+        assert!(attempts[0]
+            .output_hash
+            .as_deref()
+            .unwrap_or("")
+            .starts_with("sha256:"));
+        assert_eq!(
+            attempts[0].replay.fixture_ref.as_deref(),
+            Some("fixture:harness.mcp_tool_call:workload:2:mcp-call-shadow")
+        );
         assert_eq!(
             attempts[0].replay.determinism,
             HarnessReplayDeterminism::Nondeterministic
@@ -515,10 +628,13 @@ mod tests {
         );
         assert_eq!(run.execution_mode, HarnessExecutionMode::Shadow);
         assert_eq!(run.node_attempts.len(), 1);
+        assert_eq!(run.comparisons.len(), 1);
         assert_eq!(
             run.node_attempts[0].component_kind,
             HarnessComponentKind::ConnectorCall
         );
+        assert_eq!(run.comparisons[0].divergence, HarnessDivergenceClass::None);
+        assert!(!run.comparisons[0].blocking);
         assert!(!run.promotion_blocked);
     }
 
