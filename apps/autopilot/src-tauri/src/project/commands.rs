@@ -1221,6 +1221,26 @@ pub fn list_workflow_tool_catalog(
             workflow_tool: None,
         },
         WorkflowToolBinding {
+            tool_ref: "agent.runtime.native-tool.catalog.read".to_string(),
+            binding_kind: Some("native_tool".to_string()),
+            mock_binding: false,
+            credential_ready: Some(true),
+            capability_scope: vec![
+                "native.tool.catalog.read".to_string(),
+                "mcp.tool.catalog.read".to_string(),
+            ],
+            side_effect_class: "read".to_string(),
+            requires_approval: false,
+            arguments: Some(json!({
+                "mode": "native_catalog_preview",
+                "mutation": false,
+                "mcpToolCatalogRef": "input.mcpToolCatalog"
+            })),
+            argument_schema: Some(json!({"type": "object", "required": ["mode", "mutation"]})),
+            result_schema: Some(json!({"type": "object"})),
+            workflow_tool: None,
+        },
+        WorkflowToolBinding {
             tool_ref: "web_search_mcp".to_string(),
             binding_kind: Some("mcp_tool".to_string()),
             mock_binding: true,
