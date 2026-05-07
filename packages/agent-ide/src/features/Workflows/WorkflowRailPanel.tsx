@@ -56,6 +56,9 @@ export function WorkflowRailPanel({
   panel,
   selectedNode,
   selectedHarnessGroup,
+  harnessWorkbenchDeepLink,
+  selectedHarnessReceiptRef,
+  selectedHarnessReplayFixtureRef,
   tests,
   proposals,
   runs,
@@ -78,6 +81,9 @@ export function WorkflowRailPanel({
   onOpenExecutions,
   onInspectNode,
   onInspectHarnessGroupNode,
+  onSelectHarnessReceiptRef,
+  onSelectHarnessReplayFixtureRef,
+  onCopyHarnessDeepLink,
   onConfigureNode,
   onSelectProposal,
   onExportPackage,
@@ -97,6 +103,9 @@ export function WorkflowRailPanel({
   panel: WorkflowRightPanel;
   selectedNode: Node | null;
   selectedHarnessGroup?: WorkflowHarnessGroupView | null;
+  harnessWorkbenchDeepLink?: string | null;
+  selectedHarnessReceiptRef?: string | null;
+  selectedHarnessReplayFixtureRef?: string | null;
   tests: WorkflowTestCase[];
   proposals: WorkflowProposal[];
   runs: WorkflowRunSummary[];
@@ -119,6 +128,9 @@ export function WorkflowRailPanel({
   onOpenExecutions?: () => void;
   onInspectNode: (nodeId: string) => void;
   onInspectHarnessGroupNode?: (groupId: string, nodeId: string) => void;
+  onSelectHarnessReceiptRef?: (receiptRef: string) => void;
+  onSelectHarnessReplayFixtureRef?: (replayFixtureRef: string) => void;
+  onCopyHarnessDeepLink?: () => void;
   onConfigureNode: () => void;
   onSelectProposal: (proposal: WorkflowProposal) => void;
   onExportPackage: () => void;
@@ -1727,6 +1739,32 @@ export function WorkflowRailPanel({
   return (
     <>
       <h3>Outputs</h3>
+      {harnessWorkbenchDeepLink ? (
+        <section
+          className="workflow-rail-section"
+          data-testid="workflow-harness-deep-link-state"
+        >
+          <h4>Deep link</h4>
+          <article className="workflow-output-row">
+            <strong>Workbench state</strong>
+            <span>
+              {selectedHarnessGroup
+                ? `group ${selectedHarnessGroup.groupId}`
+                : selectedNode?.runtimeBinding?.componentId ??
+                  selectedNode?.id ??
+                  "run"}
+            </span>
+            <small>{harnessWorkbenchDeepLink}</small>
+          </article>
+          <button
+            type="button"
+            data-testid="workflow-copy-harness-deep-link"
+            onClick={onCopyHarnessDeepLink}
+          >
+            Copy link
+          </button>
+        </section>
+      ) : null}
       {selectedHarnessGroup ? (
         <section
           className="workflow-node-inspector workflow-harness-group-inspector"
@@ -1839,7 +1877,17 @@ export function WorkflowRailPanel({
           >
             <h4>Receipts</h4>
             {selectedHarnessGroup.deepLinks.receiptRefs.slice(0, 8).map((receiptRef) => (
-              <code key={receiptRef}>{receiptRef}</code>
+              <button
+                key={receiptRef}
+                type="button"
+                className={`workflow-harness-ref-button ${
+                  selectedHarnessReceiptRef === receiptRef ? "is-active" : ""
+                }`}
+                data-testid={`workflow-harness-group-receipt-ref-${receiptRef}`}
+                onClick={() => onSelectHarnessReceiptRef?.(receiptRef)}
+              >
+                <code>{receiptRef}</code>
+              </button>
             ))}
             {selectedHarnessGroup.deepLinks.receiptRefs.length === 0 ? (
               <span>No receipt refs captured for this group yet.</span>
@@ -1851,7 +1899,17 @@ export function WorkflowRailPanel({
           >
             <h4>Replay</h4>
             {selectedHarnessGroup.deepLinks.replayFixtureRefs.slice(0, 8).map((fixtureRef) => (
-              <code key={fixtureRef}>{fixtureRef}</code>
+              <button
+                key={fixtureRef}
+                type="button"
+                className={`workflow-harness-ref-button ${
+                  selectedHarnessReplayFixtureRef === fixtureRef ? "is-active" : ""
+                }`}
+                data-testid={`workflow-harness-group-replay-ref-${fixtureRef}`}
+                onClick={() => onSelectHarnessReplayFixtureRef?.(fixtureRef)}
+              >
+                <code>{fixtureRef}</code>
+              </button>
             ))}
             {selectedHarnessGroup.deepLinks.replayFixtureRefs.length === 0 ? (
               <span>No replay fixture refs captured for this group yet.</span>
