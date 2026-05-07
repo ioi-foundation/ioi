@@ -91,6 +91,16 @@ function workflowProofString(
   return typeof value === "string" ? value : fallback;
 }
 
+function workflowUniqueReceiptRefs(
+  refs: Array<string | null | undefined> = [],
+): string[] {
+  return Array.from(
+    new Set(
+      refs.filter((ref): ref is string => typeof ref === "string" && ref.length > 0),
+    ),
+  );
+}
+
 function workflowProofBoolean(
   proof: Record<string, unknown> | null | undefined,
   key: string,
@@ -814,6 +824,19 @@ export function WorkflowRailPanel({
     harnessBindingRollbackTarget;
   const latestHarnessActivationAudit =
     harnessActivationAudit[harnessActivationAudit.length - 1] ?? null;
+  const latestHarnessActivationAuditReceiptRefs = workflowUniqueReceiptRefs(
+    latestHarnessActivationAudit?.receiptRefs ?? [],
+  );
+  const harnessActivationAuditReceiptRefs = workflowUniqueReceiptRefs(
+    harnessActivationAudit.flatMap((event) => event.receiptRefs ?? []),
+  );
+  const harnessRollbackDrillReceiptRefs = workflowUniqueReceiptRefs(
+    harnessActivationRollbackProof?.receiptRefs ?? [],
+  );
+  const harnessRollbackExecutionReceiptRefs = workflowUniqueReceiptRefs([
+    harnessActivationRollbackExecution?.restoreReceiptBindingRef,
+    ...(harnessActivationRollbackExecution?.receiptRefs ?? []),
+  ]);
   const harnessBindingInspectorStatus =
     harnessActivationCandidate?.decision ??
     harnessActivationRecord?.activationState ??
@@ -1947,9 +1970,7 @@ export function WorkflowRailPanel({
                 className="workflow-rail-section"
                 data-testid="workflow-harness-rollback-drill-proof"
                 data-drill-status={harnessActivationRollbackProof?.drillStatus ?? "not_run"}
-                data-receipt-refs={
-                  harnessActivationRollbackProof?.receiptRefs?.join("|") ?? ""
-                }
+                data-receipt-refs={harnessRollbackDrillReceiptRefs.join("|")}
               >
                 <h4>Rollback proof</h4>
                 <article
@@ -1958,9 +1979,7 @@ export function WorkflowRailPanel({
                       ? "ready"
                       : "blocked"
                   }`}
-                  data-receipt-refs={
-                    harnessActivationRollbackProof?.receiptRefs?.join("|") ?? ""
-                  }
+                  data-receipt-refs={harnessRollbackDrillReceiptRefs.join("|")}
                 >
                   <strong>
                     {harnessActivationRollbackProof?.rollbackTarget ??
@@ -1978,11 +1997,32 @@ export function WorkflowRailPanel({
                       "pending"}
                   </span>
                   <small>
-                    {harnessActivationRollbackProof?.receiptRefs?.[0] ??
+                    {harnessRollbackDrillReceiptRefs[0] ??
                       harnessActivationRollbackProof?.policyDecision ??
                       "rollback drill pending"}
                   </small>
                 </article>
+                {harnessRollbackDrillReceiptRefs.length > 0 ? (
+                  <div
+                    className="workflow-harness-authority-gate-actions"
+                    data-testid="workflow-harness-rollback-drill-receipt-refs"
+                  >
+                    {harnessRollbackDrillReceiptRefs.map((receiptRef, index) => (
+                      <button
+                        key={receiptRef}
+                        type="button"
+                        className={`workflow-harness-ref-button ${
+                          selectedHarnessReceiptRef === receiptRef ? "is-active" : ""
+                        }`}
+                        data-testid={`workflow-harness-rollback-drill-receipt-${index}`}
+                        data-receipt-ref={receiptRef}
+                        onClick={() => onSelectHarnessReceiptRef?.(receiptRef)}
+                      >
+                        <code>{receiptRef}</code>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
               </section>
               <section
                 className="workflow-rail-section"
@@ -1990,9 +2030,7 @@ export function WorkflowRailPanel({
                 data-execution-status={
                   harnessActivationRollbackExecution?.executionStatus ?? "not_run"
                 }
-                data-receipt-refs={
-                  harnessActivationRollbackExecution?.receiptRefs?.join("|") ?? ""
-                }
+                data-receipt-refs={harnessRollbackExecutionReceiptRefs.join("|")}
                 data-restore-receipt-binding-ref={
                   harnessActivationRollbackExecution?.restoreReceiptBindingRef ?? ""
                 }
@@ -2004,9 +2042,7 @@ export function WorkflowRailPanel({
                       ? "ready"
                       : "blocked"
                   }`}
-                  data-receipt-refs={
-                    harnessActivationRollbackExecution?.receiptRefs?.join("|") ?? ""
-                  }
+                  data-receipt-refs={harnessRollbackExecutionReceiptRefs.join("|")}
                 >
                   <strong>
                     {harnessActivationRollbackExecution?.rollbackTarget ??
@@ -2024,12 +2060,32 @@ export function WorkflowRailPanel({
                       : "pending"}
                   </span>
                   <small>
-                    {harnessActivationRollbackExecution?.restoreReceiptBindingRef ??
-                      harnessActivationRollbackExecution?.receiptRefs?.[0] ??
+                    {harnessRollbackExecutionReceiptRefs[0] ??
                       harnessActivationRollbackExecution?.policyDecision ??
                       "rollback execution pending"}
                   </small>
                 </article>
+                {harnessRollbackExecutionReceiptRefs.length > 0 ? (
+                  <div
+                    className="workflow-harness-authority-gate-actions"
+                    data-testid="workflow-harness-rollback-execution-receipt-refs"
+                  >
+                    {harnessRollbackExecutionReceiptRefs.map((receiptRef, index) => (
+                      <button
+                        key={receiptRef}
+                        type="button"
+                        className={`workflow-harness-ref-button ${
+                          selectedHarnessReceiptRef === receiptRef ? "is-active" : ""
+                        }`}
+                        data-testid={`workflow-harness-rollback-execution-receipt-${index}`}
+                        data-receipt-ref={receiptRef}
+                        onClick={() => onSelectHarnessReceiptRef?.(receiptRef)}
+                      >
+                        <code>{receiptRef}</code>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
                 {harnessActivationRollbackExecution ? (
                   <div className="workflow-inline-metadata">
                     <span>{harnessActivationRollbackExecution.restoreStrategy}</span>
@@ -2133,19 +2189,13 @@ export function WorkflowRailPanel({
                 className="workflow-rail-section"
                 data-testid="workflow-harness-activation-audit"
                 data-audit-count={harnessActivationAudit.length}
-                data-receipt-refs={
-                  harnessActivationAudit
-                    .flatMap((event) => event.receiptRefs ?? [])
-                    .join("|")
-                }
+                data-receipt-refs={harnessActivationAuditReceiptRefs.join("|")}
               >
                 <h4>Activation audit</h4>
                 <article
                   className="workflow-output-row"
                   data-testid="workflow-harness-activation-audit-summary"
-                  data-receipt-refs={
-                    latestHarnessActivationAudit?.receiptRefs?.join("|") ?? ""
-                  }
+                  data-receipt-refs={latestHarnessActivationAuditReceiptRefs.join("|")}
                 >
                   <strong>{latestHarnessActivationAudit?.eventType ?? "no audit events"}</strong>
                   <span>
@@ -2153,32 +2203,84 @@ export function WorkflowRailPanel({
                     {latestHarnessActivationAudit?.rollbackTarget ?? "rollback not selected"}
                   </span>
                   <small>
-                    {latestHarnessActivationAudit?.receiptRefs?.[0] ??
+                    {latestHarnessActivationAuditReceiptRefs[0] ??
                       latestHarnessActivationAudit?.summary ??
                       "Run a dry run to create history."}
                   </small>
                 </article>
+                {latestHarnessActivationAuditReceiptRefs.length > 0 ? (
+                  <div
+                    className="workflow-harness-authority-gate-actions"
+                    data-testid="workflow-harness-activation-audit-summary-receipts"
+                  >
+                    {latestHarnessActivationAuditReceiptRefs.map((receiptRef, index) => (
+                      <button
+                        key={receiptRef}
+                        type="button"
+                        className={`workflow-harness-ref-button ${
+                          selectedHarnessReceiptRef === receiptRef ? "is-active" : ""
+                        }`}
+                        data-testid={`workflow-harness-activation-audit-summary-receipt-${index}`}
+                        data-receipt-ref={receiptRef}
+                        onClick={() => onSelectHarnessReceiptRef?.(receiptRef)}
+                      >
+                        <code>{receiptRef}</code>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
                 <div
                   className="workflow-rail-list"
                   data-testid="workflow-harness-activation-audit-list"
                 >
-                  {harnessActivationAudit.slice(-6).map((event) => (
-                    <article
-                      key={event.eventId}
-                      className={`workflow-test-row is-${
-                        event.status === "blocked" ? "blocked" : "passed"
-                      }`}
-                      data-testid={`workflow-harness-activation-audit-event-${event.eventId}`}
-                      data-audit-event-type={event.eventType}
-                      data-audit-receipt-refs={event.receiptRefs?.join("|") ?? ""}
-                    >
-                      <strong>{event.eventType}</strong>
-                      <span>
-                        {event.status} · {event.activationId ?? event.nextActivationId ?? "no activation"}
-                      </span>
-                      <small>{event.receiptRefs?.[0] ?? event.summary}</small>
-                    </article>
-                  ))}
+                  {harnessActivationAudit.slice(-6).map((event) => {
+                    const eventReceiptRefs = workflowUniqueReceiptRefs(
+                      event.receiptRefs ?? [],
+                    );
+                    return (
+                      <article
+                        key={event.eventId}
+                        className={`workflow-test-row is-${
+                          event.status === "blocked" ? "blocked" : "passed"
+                        }`}
+                        data-testid={`workflow-harness-activation-audit-event-${event.eventId}`}
+                        data-audit-event-type={event.eventType}
+                        data-audit-receipt-refs={eventReceiptRefs.join("|")}
+                      >
+                        <strong>{event.eventType}</strong>
+                        <span>
+                          {event.status} ·{" "}
+                          {event.activationId ??
+                            event.nextActivationId ??
+                            "no activation"}
+                        </span>
+                        <small>{eventReceiptRefs[0] ?? event.summary}</small>
+                        {eventReceiptRefs.length > 0 ? (
+                          <div
+                            className="workflow-harness-authority-gate-actions"
+                            data-testid={`workflow-harness-activation-audit-receipts-${event.eventId}`}
+                          >
+                            {eventReceiptRefs.map((receiptRef, index) => (
+                              <button
+                                key={receiptRef}
+                                type="button"
+                                className={`workflow-harness-ref-button ${
+                                  selectedHarnessReceiptRef === receiptRef
+                                    ? "is-active"
+                                    : ""
+                                }`}
+                                data-testid={`workflow-harness-activation-audit-receipt-${event.eventId}-${index}`}
+                                data-receipt-ref={receiptRef}
+                                onClick={() => onSelectHarnessReceiptRef?.(receiptRef)}
+                              >
+                                <code>{receiptRef}</code>
+                              </button>
+                            ))}
+                          </div>
+                        ) : null}
+                      </article>
+                    );
+                  })}
                 </div>
               </section>
             </section>
@@ -3235,6 +3337,8 @@ export function WorkflowRailPanel({
         <section
           className="workflow-rail-section"
           data-testid="workflow-harness-deep-link-state"
+          data-selected-receipt-ref={selectedHarnessReceiptRef ?? ""}
+          data-selected-replay-fixture-ref={selectedHarnessReplayFixtureRef ?? ""}
         >
           <h4>Deep link</h4>
           <article className="workflow-output-row">
