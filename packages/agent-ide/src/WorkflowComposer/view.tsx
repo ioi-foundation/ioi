@@ -1235,6 +1235,9 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                     onSelectHarnessReceiptRef={handleSelectHarnessReceiptRef}
                     onSelectHarnessReplayFixtureRef={handleSelectHarnessReplayFixtureRef}
                     onCopyHarnessDeepLink={handleCopyHarnessDeepLink}
+                    onCheckActivationReadiness={() => {
+                      void handleCheckReadiness();
+                    }}
                     onConfigureNode={() => {
                       if (selectedNode) {
                         setNodeConfigInitialSection(

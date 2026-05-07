@@ -1285,6 +1285,27 @@ button.workflow-run-row.is-active {
   white-space: nowrap;
 }
 
+.workflow-harness-activation-wizard {
+  background: color-mix(in srgb, var(--workflow-panel-strong) 72%, transparent);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.workflow-harness-activation-steps,
+.workflow-harness-activation-actions {
+  display: grid;
+  gap: 7px;
+}
+
+.workflow-harness-activation-actions {
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+}
+
+.workflow-harness-activation-actions button {
+  min-width: 0;
+}
+
 .workflow-proposal-card {
   display: grid;
   gap: 5px;
