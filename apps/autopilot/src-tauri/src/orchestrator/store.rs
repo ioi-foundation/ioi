@@ -11,8 +11,13 @@ use ioi_api::runtime_harness::extract_user_request_from_contextualized_intent;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_memory::{MemoryRuntime, StoredTranscriptMessage, TranscriptPrivacyMetadata};
 use ioi_types::app::{
-    runtime_contracts::RUNTIME_CONTRACT_SCHEMA_VERSION_V1, DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
-    DEFAULT_AGENT_HARNESS_HASH, DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+    compare_harness_live_shadow_attempts, default_harness_gated_cluster_run_for_shadow_run,
+    default_harness_shadow_run_for_attempts, harness_gated_cluster_run_camel_value,
+    harness_node_attempt_record_from_camel_value, harness_shadow_comparison_camel_value,
+    runtime_contracts::RUNTIME_CONTRACT_SCHEMA_VERSION_V1, HarnessExecutionMode,
+    HarnessNodeAttemptRecord, HarnessNodeAttemptStatus, HarnessPromotionClusterId,
+    HarnessShadowComparison, DEFAULT_AGENT_HARNESS_ACTIVATION_ID, DEFAULT_AGENT_HARNESS_HASH,
+    DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
 };
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{json, Value};
@@ -1376,32 +1381,38 @@ fn runtime_harness_shadow_attempt(
     })
 }
 
-fn runtime_harness_shadow_comparison(attempt: &Value) -> Value {
-    let component_kind = attempt
-        .get("componentKind")
-        .and_then(Value::as_str)
-        .unwrap_or("unknown");
-    let workflow_node_id = attempt
-        .get("workflowNodeId")
-        .and_then(Value::as_str)
-        .unwrap_or("unknown");
-    let shadow_attempt_id = attempt
-        .get("attemptId")
-        .and_then(Value::as_str)
-        .unwrap_or("unknown");
-    json!({
-        "workflowNodeId": workflow_node_id,
-        "componentKind": component_kind,
-        "liveAttemptId": format!("live-checkpoint:{workflow_node_id}"),
-        "shadowAttemptId": shadow_attempt_id,
-        "divergence": "none",
-        "blocking": false,
-        "summary": "Shadow projection matched the live persisted turn checkpoint for this component.",
-        "evidenceRefs": [
-            shadow_attempt_id,
-            format!("live-checkpoint:{workflow_node_id}")
-        ]
-    })
+fn runtime_harness_attempt_records_from_values(
+    attempts: &[Value],
+) -> Vec<HarnessNodeAttemptRecord> {
+    attempts
+        .iter()
+        .filter_map(harness_node_attempt_record_from_camel_value)
+        .collect()
+}
+
+fn runtime_harness_shadow_attempt_records_from_run(
+    shadow_run: &Value,
+) -> Vec<HarnessNodeAttemptRecord> {
+    shadow_run
+        .get("nodeAttempts")
+        .and_then(Value::as_array)
+        .map(|attempts| runtime_harness_attempt_records_from_values(attempts))
+        .unwrap_or_default()
+}
+
+fn runtime_harness_shadow_comparison_records_for_attempt_records(
+    attempts: &[HarnessNodeAttemptRecord],
+) -> Vec<HarnessShadowComparison> {
+    attempts
+        .iter()
+        .map(|shadow| {
+            let mut live = shadow.clone();
+            live.attempt_id = format!("live-checkpoint:{}", shadow.workflow_node_id);
+            live.execution_mode = HarnessExecutionMode::Live;
+            live.status = HarnessNodeAttemptStatus::Live;
+            compare_harness_live_shadow_attempts(&live, shadow)
+        })
+        .collect()
 }
 
 fn runtime_harness_shadow_run(
@@ -1724,26 +1735,41 @@ fn runtime_harness_shadow_run(
         vec![format!("output:{sid}:{}", task.progress)],
     );
 
-    let comparisons = attempts
+    let attempt_records = runtime_harness_attempt_records_from_values(&attempts);
+    let comparison_records =
+        runtime_harness_shadow_comparison_records_for_attempt_records(&attempt_records);
+    let canonical_shadow_run = default_harness_shadow_run_for_attempts(
+        format!("harness-shadow-{sid}-{}", task.progress),
+        Some(sid.to_string()),
+        Some(turn_id.clone()),
+        attempt_records,
+        comparison_records.clone(),
+        vec![
+            format!("runtime-evidence:{sid}"),
+            format!("checkpoint_transcript_messages:{sid}"),
+            format!("thread_events:{sid}"),
+        ],
+    );
+    let comparisons = comparison_records
         .iter()
-        .map(runtime_harness_shadow_comparison)
+        .map(harness_shadow_comparison_camel_value)
         .collect::<Vec<_>>();
 
     json!({
         "schemaVersion": "ioi.agent-harness.shadow-run.v1",
-        "runId": format!("harness-shadow-{sid}-{}", task.progress),
-        "harnessWorkflowId": DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
-        "harnessActivationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
-        "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
-        "sourceSessionId": sid,
-        "liveTurnId": turn_id,
-        "executionMode": "shadow",
+        "runId": &canonical_shadow_run.run_id,
+        "harnessWorkflowId": &canonical_shadow_run.harness_workflow_id,
+        "harnessActivationId": &canonical_shadow_run.harness_activation_id,
+        "harnessHash": &canonical_shadow_run.harness_hash,
+        "sourceSessionId": &canonical_shadow_run.source_session_id,
+        "liveTurnId": &canonical_shadow_run.live_turn_id,
+        "executionMode": canonical_shadow_run.execution_mode.as_str(),
         "runner": "autopilot_gui_runtime_shadow_runner_v0",
         "nodeAttempts": attempts,
         "comparisons": comparisons,
-        "blockingDivergenceCount": 0,
-        "unclassifiedDivergenceCount": 0,
-        "promotionBlocked": false,
+        "blockingDivergenceCount": canonical_shadow_run.blocking_divergence_count,
+        "unclassifiedDivergenceCount": canonical_shadow_run.unclassified_divergence_count,
+        "promotionBlocked": canonical_shadow_run.promotion_blocked,
         "divergencePolicy": {
             "blockingClasses": [
                 "missing_receipt",
@@ -1755,210 +1781,85 @@ fn runtime_harness_shadow_run(
             ],
             "promotionRule": "P0 shadow projection must retain zero blocking or unclassified divergences before gated promotion."
         },
-        "evidenceRefs": [
-            format!("runtime-evidence:{sid}"),
-            format!("checkpoint_transcript_messages:{sid}"),
-            format!("thread_events:{sid}")
-        ]
+        "evidenceRefs": &canonical_shadow_run.evidence_refs
     })
 }
 
-fn runtime_harness_gated_cluster_run(
-    sid: &str,
-    shadow_run: &Value,
-    cluster_id: &str,
-    cluster_label: &str,
-    component_kinds: &[&str],
-) -> Value {
-    let attempts = shadow_run
-        .get("nodeAttempts")
+fn runtime_harness_string_array(value: Option<&Value>) -> Vec<String> {
+    value
         .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
-    let mut node_attempt_ids = Vec::<String>::new();
-    let mut receipt_ids = Vec::<String>::new();
-    let mut replay_fixture_refs = Vec::<String>::new();
-    let mut activation_blockers = Vec::<String>::new();
-
-    for component_kind in component_kinds {
-        let component_attempts = attempts
-            .iter()
-            .filter(|attempt| {
-                attempt.get("componentKind").and_then(Value::as_str) == Some(*component_kind)
-            })
-            .collect::<Vec<_>>();
-        if component_attempts.is_empty() {
-            activation_blockers.push(format!("missing_attempt:{component_kind}"));
-            continue;
-        }
-        for attempt in component_attempts {
-            if let Some(attempt_id) = attempt.get("attemptId").and_then(Value::as_str) {
-                node_attempt_ids.push(attempt_id.to_string());
-            }
-            let attempt_receipts = attempt
-                .get("receiptIds")
-                .and_then(Value::as_array)
-                .map(|items| {
-                    items
-                        .iter()
-                        .filter_map(Value::as_str)
-                        .map(str::to_string)
-                        .collect::<Vec<_>>()
-                })
-                .unwrap_or_default();
-            if attempt_receipts.is_empty() {
-                activation_blockers.push(format!("missing_receipt:{component_kind}"));
-            }
-            receipt_ids.extend(attempt_receipts);
-            if let Some(fixture_ref) = attempt
-                .get("replay")
-                .and_then(|replay| replay.get("fixtureRef"))
-                .and_then(Value::as_str)
-            {
-                replay_fixture_refs.push(fixture_ref.to_string());
-            } else {
-                activation_blockers.push(format!("missing_replay_fixture:{component_kind}"));
-            }
-            let readiness = attempt
-                .get("readiness")
-                .and_then(Value::as_str)
-                .unwrap_or("");
-            if readiness != "shadow_ready" && readiness != "live_ready" {
-                activation_blockers.push(format!("readiness_below_shadow:{component_kind}"));
-            }
-        }
-    }
-
-    if shadow_run
-        .get("blockingDivergenceCount")
-        .and_then(Value::as_u64)
-        .unwrap_or(0)
-        > 0
-    {
-        activation_blockers.push("blocking_shadow_divergence".to_string());
-    }
-    if shadow_run
-        .get("unclassifiedDivergenceCount")
-        .and_then(Value::as_u64)
-        .unwrap_or(0)
-        > 0
-    {
-        activation_blockers.push("unclassified_shadow_divergence".to_string());
-    }
-
-    node_attempt_ids.sort();
-    node_attempt_ids.dedup();
-    receipt_ids.sort();
-    receipt_ids.dedup();
-    replay_fixture_refs.sort();
-    replay_fixture_refs.dedup();
-    activation_blockers.sort();
-    activation_blockers.dedup();
-
-    let promotion_blocked = !activation_blockers.is_empty();
-    json!({
-        "schemaVersion": "ioi.agent-harness.gated-cluster-run.v1",
-        "runId": format!(
-            "{}:{cluster_id}:gated",
-            shadow_run
-                .get("runId")
-                .and_then(Value::as_str)
-                .unwrap_or("harness-shadow")
-        ),
-        "clusterId": cluster_id,
-        "clusterLabel": cluster_label,
-        "harnessWorkflowId": DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
-        "harnessActivationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
-        "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
-        "executionMode": "gated",
-        "status": if promotion_blocked { "blocked" } else { "gated" },
-        "runtimeAuthority": "existing_runtime_service",
-        "gatedAuthority": format!("{cluster_id}_cluster"),
-        "synchronousGate": true,
-        "enforcedBeforeVisibleOutput": true,
-        "componentKinds": component_kinds,
-        "shadowRunId": shadow_run.get("runId").and_then(Value::as_str).unwrap_or("harness-shadow"),
-        "nodeAttemptIds": node_attempt_ids,
-        "receiptIds": receipt_ids,
-        "replayFixtureRefs": replay_fixture_refs,
-        "activationBlockers": activation_blockers,
-        "gateDecision": if promotion_blocked {
-            "block_promotion"
-        } else {
-            "allow_live_runtime_passthrough"
-        },
-        "rollbackTarget": "shadow",
-        "rollbackAvailable": true,
-        "canaryStatus": if promotion_blocked { "not_started" } else { "passed" },
-        "promotionBlocked": promotion_blocked,
-        "promotionRule": format!("{cluster_label} cluster gates live turn finalization only when all cluster attempts retain receipt, replay, readiness, and zero-divergence proof."),
-        "evidenceRefs": [
-            format!("runtime-evidence:{sid}"),
-            format!("checkpoint_transcript_messages:{sid}"),
-            format!("thread_events:{sid}")
-        ]
-    })
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
-fn runtime_harness_gated_cluster_runs(sid: &str, shadow_run: &Value) -> Vec<Value> {
-    const COGNITION_COMPONENTS: &[&str] = &[
-        "planner",
-        "prompt_assembler",
-        "task_state",
-        "uncertainty_gate",
-        "budget_gate",
-        "capability_sequencer",
-    ];
-    const ROUTING_MODEL_COMPONENTS: &[&str] = &["model_router", "model_call", "tool_router"];
-    const VERIFICATION_OUTPUT_COMPONENTS: &[&str] = &[
-        "postcondition_synthesizer",
-        "verifier",
-        "completion_gate",
-        "receipt_writer",
-        "quality_ledger",
-        "output_writer",
-    ];
-    const AUTHORITY_TOOLING_COMPONENTS: &[&str] = &[
-        "policy_gate",
-        "approval_gate",
-        "dry_run_simulator",
-        "mcp_provider",
-        "mcp_tool_call",
-        "tool_call",
-        "connector_call",
-        "wallet_capability",
-    ];
+fn runtime_harness_canonical_shadow_run_from_value(
+    shadow_run: &Value,
+) -> ioi_types::app::HarnessShadowRun {
+    let attempts = runtime_harness_shadow_attempt_records_from_run(shadow_run);
+    let comparisons = runtime_harness_shadow_comparison_records_for_attempt_records(&attempts);
+    default_harness_shadow_run_for_attempts(
+        shadow_run
+            .get("runId")
+            .and_then(Value::as_str)
+            .unwrap_or("harness-shadow")
+            .to_string(),
+        shadow_run
+            .get("sourceSessionId")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        shadow_run
+            .get("liveTurnId")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        attempts,
+        comparisons,
+        runtime_harness_string_array(shadow_run.get("evidenceRefs")),
+    )
+}
 
-    vec![
-        runtime_harness_gated_cluster_run(
-            sid,
-            shadow_run,
-            "cognition",
-            "Cognition",
-            COGNITION_COMPONENTS,
-        ),
-        runtime_harness_gated_cluster_run(
-            sid,
-            shadow_run,
-            "routing_model",
-            "Routing and model",
-            ROUTING_MODEL_COMPONENTS,
-        ),
-        runtime_harness_gated_cluster_run(
-            sid,
-            shadow_run,
-            "verification_output",
-            "Verification and output",
-            VERIFICATION_OUTPUT_COMPONENTS,
-        ),
-        runtime_harness_gated_cluster_run(
-            sid,
-            shadow_run,
-            "authority_tooling",
-            "Authority and tooling",
-            AUTHORITY_TOOLING_COMPONENTS,
-        ),
+fn runtime_harness_gated_cluster_run_value(run: &ioi_types::app::HarnessGatedClusterRun) -> Value {
+    let mut value = harness_gated_cluster_run_camel_value(run);
+    if let Some(object) = value.as_object_mut() {
+        object.insert(
+            "runtimeAuthority".to_string(),
+            json!("existing_runtime_service"),
+        );
+        object.insert(
+            "gatedAuthority".to_string(),
+            json!(format!("{}_cluster", run.cluster_id.as_str())),
+        );
+        object.insert("synchronousGate".to_string(), json!(true));
+        object.insert("enforcedBeforeVisibleOutput".to_string(), json!(true));
+        object.insert(
+            "promotionRule".to_string(),
+            json!(format!("{} cluster gates live turn finalization only when all cluster attempts retain receipt, replay, readiness, and zero-divergence proof.", run.cluster_label)),
+        );
+    }
+    value
+}
+
+fn runtime_harness_gated_cluster_runs(_sid: &str, shadow_run: &Value) -> Vec<Value> {
+    let canonical_shadow_run = runtime_harness_canonical_shadow_run_from_value(shadow_run);
+    [
+        HarnessPromotionClusterId::Cognition,
+        HarnessPromotionClusterId::RoutingModel,
+        HarnessPromotionClusterId::VerificationOutput,
+        HarnessPromotionClusterId::AuthorityTooling,
     ]
+    .into_iter()
+    .map(|cluster_id| {
+        runtime_harness_gated_cluster_run_value(&default_harness_gated_cluster_run_for_shadow_run(
+            cluster_id,
+            &canonical_shadow_run,
+        ))
+    })
+    .collect()
 }
 
 fn runtime_harness_canary_workflow_node(

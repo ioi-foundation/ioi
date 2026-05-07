@@ -295,6 +295,13 @@ fn receipt_binding_can_be_projected_into_node_attempt_and_shadow_comparison() {
     let comparison = compare_harness_live_shadow_attempts(&live, &shadow);
     assert_eq!(comparison.divergence, HarnessDivergenceClass::None);
     assert!(!comparison.blocking);
+    let comparison_value = harness_shadow_comparison_camel_value(&comparison);
+    assert_eq!(
+        comparison_value
+            .get("componentKind")
+            .and_then(Value::as_str),
+        Some("approval_gate")
+    );
 
     let mut diverged_shadow = shadow.clone();
     diverged_shadow.output_hash = Some("sha256:changed-output".to_string());
@@ -304,6 +311,47 @@ fn receipt_binding_can_be_projected_into_node_attempt_and_shadow_comparison() {
         HarnessDivergenceClass::OutputDivergence
     );
     assert!(output_comparison.blocking);
+
+    let attempt_value = serde_json::json!({
+        "attemptId": live.attempt_id,
+        "harnessWorkflowId": live.harness_workflow_id,
+        "harnessActivationId": live.harness_activation_id,
+        "harnessHash": live.harness_hash,
+        "workflowNodeId": live.workflow_node_id,
+        "componentId": live.component_id,
+        "componentKind": live.component_kind.as_str(),
+        "executionMode": live.execution_mode.as_str(),
+        "readiness": live.readiness.as_str(),
+        "attemptIndex": live.attempt_index,
+        "status": "live",
+        "inputHash": live.input_hash,
+        "outputHash": live.output_hash,
+        "errorClass": live.error_class,
+        "policyDecision": live.policy_decision,
+        "startedAtMs": live.started_at_ms,
+        "durationMs": live.duration_ms,
+        "receiptIds": live.receipt_ids,
+        "evidenceRefs": live.evidence_refs,
+        "replay": {
+            "deterministicEnvelope": true,
+            "capturesInput": true,
+            "capturesOutput": true,
+            "capturesPolicyDecision": true,
+            "fixtureRef": "fixture:approval-gate",
+            "determinism": "deterministic",
+            "redactionPolicy": "runtime_redacted"
+        }
+    });
+    let parsed_attempt =
+        harness_node_attempt_record_from_camel_value(&attempt_value).expect("parse camel attempt");
+    assert_eq!(
+        parsed_attempt.component_kind,
+        HarnessComponentKind::ApprovalGate
+    );
+    assert_eq!(
+        parsed_attempt.replay.fixture_ref.as_deref(),
+        Some("fixture:approval-gate")
+    );
 
     let run = default_harness_shadow_run_for_attempts(
         "shadow-run-test",
@@ -316,6 +364,21 @@ fn receipt_binding_can_be_projected_into_node_attempt_and_shadow_comparison() {
     assert_eq!(run.execution_mode, HarnessExecutionMode::Shadow);
     assert_eq!(run.blocking_divergence_count, 0);
     assert!(!run.promotion_blocked);
+    let gated = default_harness_gated_cluster_run_for_shadow_run(
+        HarnessPromotionClusterId::AuthorityTooling,
+        &run,
+    );
+    let gated_value = harness_gated_cluster_run_camel_value(&gated);
+    assert_eq!(
+        gated_value.get("clusterId").and_then(Value::as_str),
+        Some("authority_tooling")
+    );
+    assert_eq!(
+        gated_value
+            .get("rollbackAvailable")
+            .and_then(Value::as_bool),
+        Some(true)
+    );
 }
 
 #[test]
