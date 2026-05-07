@@ -21,6 +21,8 @@ import type {
   WorkflowHarnessPromotionClusterId,
   WorkflowHarnessReplayEnvelope,
   WorkflowHarnessRuntimeSelectorDecision,
+  WorkflowHarnessReplayDrillDivergenceClass,
+  WorkflowHarnessReplayDrillResult,
   WorkflowHarnessSlotKind,
   WorkflowHarnessSlotSpec,
   WorkflowHarnessWorkerBinding,
@@ -944,6 +946,170 @@ export function executeWorkflowHarnessRevisionRollback(
     blockers,
     rollbackTarget,
     restoredWorkerBinding,
+  };
+}
+
+export interface WorkflowHarnessReplayDrillInput {
+  replayFixtureRef: string;
+  sourceKind: string;
+  sourceLabel: string;
+  producerComponent: string;
+  policyDecision: string;
+  attemptId: string;
+  receiptRef: string;
+  runId: string;
+  executionMode: string;
+  readiness: string;
+  inputHash: string;
+  outputHash: string;
+  deterministicEnvelope: boolean;
+  capturesInput: boolean;
+  capturesOutput: boolean;
+  capturesPolicyDecision: boolean;
+  determinism: string;
+  redactionPolicy: string;
+  evidenceRefs: string[];
+}
+
+function unresolvedHarnessReplayValue(value: string | null | undefined): boolean {
+  if (!value) return true;
+  return /pending|not resolved|not captured|unknown/i.test(value);
+}
+
+function harnessReplayDrillDivergenceClass(
+  blockers: string[],
+  replay: WorkflowHarnessReplayDrillInput,
+): WorkflowHarnessReplayDrillDivergenceClass {
+  if (blockers.includes("replay_fixture_unresolved")) return "fixture_unresolved";
+  if (blockers.includes("replay_receipt_missing")) return "missing_receipt";
+  if (blockers.includes("replay_policy_decision_not_captured")) {
+    return "policy_divergence";
+  }
+  if (blockers.includes("replay_output_not_captured")) return "output_divergence";
+  if (!replay.deterministicEnvelope || replay.determinism === "nondeterministic") {
+    return "harmless_metadata_drift";
+  }
+  return "none";
+}
+
+export function executeWorkflowHarnessReplayDrill(
+  workflow: WorkflowProject,
+  replay: WorkflowHarnessReplayDrillInput | null | undefined,
+  options: { nowMs?: number } = {},
+): {
+  executed: boolean;
+  workflow: WorkflowProject;
+  drill?: WorkflowHarnessReplayDrillResult;
+  blockers: string[];
+} {
+  const createdAtMs = options.nowMs ?? Date.now();
+  const workflowId = workflow.metadata.id || workflow.metadata.slug;
+  const replayFixtureRef = replay?.replayFixtureRef?.trim() ?? "";
+  const blockers = uniqueStrings([
+    ...(workflow.metadata.harness ? [] : ["not_harness_workflow"]),
+    ...(replay ? [] : ["replay_fixture_unresolved"]),
+    ...(replayFixtureRef ? [] : ["replay_fixture_missing"]),
+    ...(replay?.sourceKind === "unresolved" ? ["replay_fixture_unresolved"] : []),
+    ...(unresolvedHarnessReplayValue(replay?.receiptRef)
+      ? ["replay_receipt_missing"]
+      : []),
+    ...(replay?.capturesOutput ? [] : ["replay_output_not_captured"]),
+    ...(replay?.capturesPolicyDecision
+      ? []
+      : ["replay_policy_decision_not_captured"]),
+  ]);
+  const drillId = `harness-replay-drill:${slugify(workflowId)}:${slugify(
+    replayFixtureRef || "fixture",
+  )}:${createdAtMs}`;
+  const expectedInputHash =
+    replay?.inputHash && !unresolvedHarnessReplayValue(replay.inputHash)
+      ? replay.inputHash
+      : stableContentHash({ replayFixtureRef, phase: "input" });
+  const expectedOutputHash =
+    replay?.outputHash && !unresolvedHarnessReplayValue(replay.outputHash)
+      ? replay.outputHash
+      : stableContentHash({ replayFixtureRef, phase: "output" });
+  const actualInputHash = blockers.length === 0 ? expectedInputHash : "not_run";
+  const actualOutputHash =
+    blockers.length === 0
+      ? expectedOutputHash
+      : stableContentHash({ drillId, blockers, phase: "blocked_output" });
+  const divergenceClass = replay
+    ? harnessReplayDrillDivergenceClass(blockers, replay)
+    : "fixture_unresolved";
+  const receiptRefs = uniqueStrings([
+    unresolvedHarnessReplayValue(replay?.receiptRef) ? undefined : replay?.receiptRef,
+  ]);
+  const evidenceRefs = uniqueStrings([
+    drillId,
+    replayFixtureRef,
+    ...(replay?.evidenceRefs ?? []),
+    ...receiptRefs,
+  ]);
+  const drill: WorkflowHarnessReplayDrillResult = {
+    schemaVersion: "workflow.harness.replay-drill-result.v1",
+    drillId,
+    workflowId,
+    activationId: workflow.metadata.harness?.activationId,
+    replayFixtureRef: replayFixtureRef || "replay fixture missing",
+    sourceKind: replay?.sourceKind ?? "unresolved",
+    sourceLabel: replay?.sourceLabel ?? "Unresolved harness replay fixture",
+    drillStatus: blockers.length === 0 ? "passed" : "blocked",
+    divergenceClass,
+    componentId: replay?.producerComponent ?? "unknown",
+    producerComponent: replay?.producerComponent ?? "unknown",
+    attemptId: replay?.attemptId ?? "not resolved",
+    receiptRef: replay?.receiptRef ?? "not resolved",
+    runId: replay?.runId ?? "run pending",
+    executionMode: replay?.executionMode ?? "projection",
+    readiness: replay?.readiness ?? "projection_only",
+    policyDecision:
+      blockers.length === 0
+        ? replay?.policyDecision ?? "replay_policy_not_recorded"
+        : "replay_drill_blocked",
+    expectedInputHash,
+    actualInputHash,
+    expectedOutputHash,
+    actualOutputHash,
+    deterministicEnvelope: replay?.deterministicEnvelope ?? false,
+    capturesInput: replay?.capturesInput ?? false,
+    capturesOutput: replay?.capturesOutput ?? false,
+    capturesPolicyDecision: replay?.capturesPolicyDecision ?? false,
+    determinism: replay?.determinism ?? "disabled",
+    redactionPolicy: replay?.redactionPolicy ?? "not resolved",
+    blockers,
+    evidenceRefs,
+    receiptRefs,
+    createdAtMs,
+  };
+  return {
+    executed: blockers.length === 0,
+    workflow: appendWorkflowHarnessActivationAudit(
+      workflow,
+      makeWorkflowHarnessActivationAuditEvent({
+        workflow,
+        eventType:
+          blockers.length === 0 ? "replay_drill_passed" : "replay_drill_blocked",
+        status: blockers.length === 0 ? "passed" : "blocked",
+        activationId: workflow.metadata.harness?.activationId,
+        blockers,
+        evidenceRefs,
+        receiptRefs,
+        summary:
+          blockers.length === 0
+            ? `Replay drill passed: ${drill.replayFixtureRef}`
+            : `Replay drill blocked by ${blockers.length} blockers`,
+        createdAtMs,
+      }),
+      {
+        replayDrills: [
+          ...(workflow.metadata.harness?.replayDrills ?? []),
+          drill,
+        ],
+      },
+    ),
+    drill,
+    blockers,
   };
 }
 

@@ -8,6 +8,7 @@ import type {
 import {
   applyWorkflowHarnessActivationCandidate,
   executeWorkflowHarnessRollbackDrill,
+  executeWorkflowHarnessReplayDrill,
   executeWorkflowHarnessRevisionRollback,
   forkDefaultAgentHarnessWorkflow,
   makeHarnessForkActivationRecord,
@@ -327,6 +328,95 @@ const onlyActivationMissingReadiness = (
   assert.equal(
     activationIssueCodes(postReadiness).includes("harness_activation_not_validated"),
     false,
+  );
+}
+
+{
+  const fork = forkDefaultAgentHarnessWorkflow("Replay Drill Fork", 2_600);
+  const passedReplay = executeWorkflowHarnessReplayDrill(
+    fork.workflow,
+    {
+      replayFixtureRef: "runtime-evidence:default:fixture:planner",
+      sourceKind: "node_attempt",
+      sourceLabel: "Planner replay fixture",
+      producerComponent: "ioi.agent-harness.planner.v1",
+      policyDecision: "accept_replay",
+      attemptId: "attempt-planner",
+      receiptRef: "receipt-planner",
+      runId: "run-planner",
+      executionMode: "gated",
+      readiness: "live_ready",
+      inputHash: "input-planner",
+      outputHash: "output-planner",
+      deterministicEnvelope: true,
+      capturesInput: true,
+      capturesOutput: true,
+      capturesPolicyDecision: true,
+      determinism: "deterministic",
+      redactionPolicy: "runtime_redacted",
+      evidenceRefs: ["evidence-planner"],
+    },
+    { nowMs: 2_610 },
+  );
+  assert.equal(passedReplay.executed, true);
+  assert.equal(passedReplay.drill?.drillStatus, "passed");
+  assert.equal(passedReplay.drill?.divergenceClass, "none");
+  assert.equal(passedReplay.drill?.actualOutputHash, "output-planner");
+  assert.ok(passedReplay.drill?.receiptRefs.includes("receipt-planner"));
+  assert.equal(
+    passedReplay.workflow.metadata.harness?.replayDrills?.[0]?.replayFixtureRef,
+    "runtime-evidence:default:fixture:planner",
+  );
+  const replayAudit = passedReplay.workflow.metadata.harness?.activationAudit ?? [];
+  assert.equal(replayAudit[replayAudit.length - 1]?.eventType, "replay_drill_passed");
+  assert.ok(replayAudit[replayAudit.length - 1]?.receiptRefs.includes("receipt-planner"));
+
+  const blockedReplay = executeWorkflowHarnessReplayDrill(
+    passedReplay.workflow,
+    {
+      replayFixtureRef: "runtime-evidence:default:fixture:policy",
+      sourceKind: "authority_gate_proof",
+      sourceLabel: "Policy gate replay fixture",
+      producerComponent: "policy_gate",
+      policyDecision: "policy pending",
+      attemptId: "attempt-policy",
+      receiptRef: "receipt pending",
+      runId: "run-policy",
+      executionMode: "gated",
+      readiness: "shadow_ready",
+      inputHash: "input-policy",
+      outputHash: "output-policy",
+      deterministicEnvelope: true,
+      capturesInput: true,
+      capturesOutput: true,
+      capturesPolicyDecision: false,
+      determinism: "deterministic",
+      redactionPolicy: "runtime_redacted",
+      evidenceRefs: ["evidence-policy"],
+    },
+    { nowMs: 2_620 },
+  );
+  assert.equal(blockedReplay.executed, false);
+  assert.equal(blockedReplay.drill?.drillStatus, "blocked");
+  assert.equal(blockedReplay.drill?.divergenceClass, "missing_receipt");
+  const blockedAudit = blockedReplay.workflow.metadata.harness?.activationAudit ?? [];
+  assert.equal(blockedAudit[blockedAudit.length - 1]?.eventType, "replay_drill_blocked");
+  const base = validateWorkflowProject(blockedReplay.workflow, fork.tests);
+  const readiness = onlyActivationMissingReadiness(base);
+  const candidate = createWorkflowHarnessActivationCandidate(
+    blockedReplay.workflow,
+    fork.tests,
+    readiness,
+    [],
+    2_630,
+  );
+  assert.equal(
+    candidate.gateResults.find((gate) => gate.gateId === "replay-fixtures")?.status,
+    "blocked",
+  );
+  assert.match(
+    candidate.gateResults.find((gate) => gate.gateId === "replay-fixtures")?.value ?? "",
+    /drill blockers/,
   );
 }
 
