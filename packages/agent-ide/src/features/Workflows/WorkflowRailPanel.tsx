@@ -2010,6 +2010,95 @@ export function WorkflowRailPanel({
               </section>
               <section
                 className="workflow-rail-section"
+                data-testid="workflow-harness-git-restore-proof"
+                data-restore-strategy={
+                  harnessActivationRollbackExecution?.restoreStrategy ?? "not_run"
+                }
+                data-restore-blockers={
+                  harnessActivationRollbackExecution?.restoreBlockers?.length ?? 0
+                }
+              >
+                <h4>Git restore proof</h4>
+                <article
+                  className={`workflow-output-row is-${
+                    harnessActivationRollbackExecution?.restoreBlockers?.length
+                      ? "blocked"
+                      : harnessActivationRollbackExecution?.executionStatus === "applied"
+                        ? "ready"
+                        : "blocked"
+                  }`}
+                  data-testid="workflow-harness-git-restore-summary"
+                >
+                  <strong>
+                    {harnessActivationRollbackExecution?.restoredRevision ??
+                      harnessActivationRollbackExecution?.restoredRevisionBinding
+                        ?.activatedRevision ??
+                      "revision pending"}
+                  </strong>
+                  <span>
+                    {harnessActivationRollbackExecution?.restoreStrategy ??
+                      "git restore not run"}
+                    {" · "}
+                    {harnessActivationRollbackExecution?.restoredFileSha256 ??
+                      "file sha pending"}
+                  </span>
+                  <small>
+                    {harnessActivationRollbackExecution?.restoreRelativeWorkflowPath ??
+                      harnessActivationRollbackExecution?.workflowPath ??
+                      "workflow path pending"}
+                  </small>
+                </article>
+                <div
+                  className="workflow-inline-metadata"
+                  data-testid="workflow-harness-git-restore-paths"
+                >
+                  <span>
+                    {harnessActivationRollbackExecution?.restoreRepoRoot ??
+                      "repo root pending"}
+                  </span>
+                  <code>
+                    {harnessActivationRollbackExecution?.restoreRelativeWorkflowPath ??
+                      harnessActivationRollbackExecution?.workflowPath ??
+                      "relative path pending"}
+                  </code>
+                </div>
+                <div
+                  className="workflow-inline-metadata"
+                  data-testid="workflow-harness-git-restore-hashes"
+                >
+                  <span>
+                    expected{" "}
+                    {harnessActivationRollbackExecution?.expectedWorkflowContentHash ??
+                      "pending"}
+                  </span>
+                  <code>
+                    actual{" "}
+                    {harnessActivationRollbackExecution?.actualWorkflowContentHash ??
+                      "pending"}
+                  </code>
+                </div>
+                {harnessActivationRollbackExecution?.restoreBlockers?.length ? (
+                  <div
+                    className="workflow-rail-list"
+                    data-testid="workflow-harness-git-restore-blockers"
+                  >
+                    {harnessActivationRollbackExecution.restoreBlockers.map(
+                      (blocker, index) => (
+                        <article
+                          key={`${blocker}-${index}`}
+                          className="workflow-test-row is-blocked"
+                          data-testid={`workflow-harness-git-restore-blocker-${index}`}
+                        >
+                          <strong>{blocker}</strong>
+                          <span>restore blocker</span>
+                        </article>
+                      ),
+                    )}
+                  </div>
+                ) : null}
+              </section>
+              <section
+                className="workflow-rail-section"
                 data-testid="workflow-harness-activation-audit"
                 data-audit-count={harnessActivationAudit.length}
               >
