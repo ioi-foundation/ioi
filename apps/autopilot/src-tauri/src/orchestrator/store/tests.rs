@@ -216,6 +216,23 @@ fn runtime_harness_fork_activation_records_rollback_restore_canaries() {
     );
     assert_eq!(
         invalid_canary
+            .get("receiptBindingRef")
+            .and_then(|value| value.as_str())
+            .map(|value| value.starts_with("workflow_restore_canary:")),
+        Some(true)
+    );
+    let invalid_receipt_ref = invalid_canary
+        .get("receiptBindingRef")
+        .and_then(|value| value.as_str())
+        .expect("invalid canary receipt binding ref");
+    assert!(invalid_canary
+        .get("evidenceRefs")
+        .and_then(|value| value.as_array())
+        .expect("invalid canary evidence refs")
+        .iter()
+        .any(|value| value.as_str() == Some(invalid_receipt_ref)));
+    assert_eq!(
+        invalid_canary
             .get("blockers")
             .and_then(|value| value.as_array())
             .map(|blockers| blockers
@@ -250,6 +267,23 @@ fn runtime_harness_fork_activation_records_rollback_restore_canaries() {
             .and_then(|value| value.as_bool()),
         Some(true)
     );
+    assert_eq!(
+        valid_canary
+            .get("receiptBindingRef")
+            .and_then(|value| value.as_str())
+            .map(|value| value.starts_with("workflow_restore_canary:")),
+        Some(true)
+    );
+    let valid_receipt_ref = valid_canary
+        .get("receiptBindingRef")
+        .and_then(|value| value.as_str())
+        .expect("valid canary receipt binding ref");
+    assert!(valid_canary
+        .get("evidenceRefs")
+        .and_then(|value| value.as_array())
+        .expect("valid canary evidence refs")
+        .iter()
+        .any(|value| value.as_str() == Some(valid_receipt_ref)));
     assert_eq!(
         valid_canary
             .get("blockers")

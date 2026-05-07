@@ -76,6 +76,7 @@ const onlyActivationMissingReadiness = (
   assert.equal(candidate.revisionBindingPreview.revisionSource, "file_hash_only");
   assert.match(candidate.revisionBindingPreview.workflowContentHash, /^stable-fnv1a32:/);
   assert.equal(candidate.rollbackRestoreCanary.status, "not_required");
+  assert.match(candidate.rollbackRestoreCanary.receiptBindingRef ?? "", /^workflow_restore_canary:/);
   const dryRunAudit = auditedWorkflow.metadata.harness?.activationAudit ?? [];
   assert.equal(dryRunAudit[dryRunAudit.length - 1]?.eventType, "dry_run_blocked");
   assert.equal(result.applied, false);
@@ -381,6 +382,7 @@ const onlyActivationMissingReadiness = (
         expectedWorkflowContentHash: rollbackRevisionBinding.workflowContentHash,
         actualWorkflowContentHash: rollbackRevisionBinding.workflowContentHash,
         hashVerified: true,
+        receiptBindingRef: "workflow_restore_canary:git-verified",
         fileSha256: "0123456789abcdef",
         bundle: {
           workflowPath: rollbackRevisionBinding.workflowPath,
@@ -397,6 +399,8 @@ const onlyActivationMissingReadiness = (
   assert.equal(candidate.decision, "mintable", candidate.activationBlockers.join("\n"));
   assert.equal(candidate.rollbackRestoreCanary.status, "passed");
   assert.equal(candidate.rollbackRestoreCanary.hashVerified, true);
+  assert.equal(candidate.rollbackRestoreCanary.receiptBindingRef, "workflow_restore_canary:git-verified");
+  assert.ok(candidate.rollbackRestoreCanary.evidenceRefs.includes("workflow_restore_canary:git-verified"));
   assert.equal(candidate.rollbackRestoreCanary.restoredRevision, "abc123");
   assert.equal(
     candidate.gateResults.find((gate) => gate.gateId === "rollback-restore")?.status,
@@ -445,6 +449,7 @@ const onlyActivationMissingReadiness = (
         expectedWorkflowContentHash: rollbackRevisionBinding.workflowContentHash,
         actualWorkflowContentHash: "stable-fnv1a32:mismatch",
         hashVerified: false,
+        receiptBindingRef: "workflow_restore_canary:git-mismatch",
         fileSha256: "0123456789abcdef",
         bundle: {
           workflowPath: rollbackRevisionBinding.workflowPath,
@@ -460,6 +465,10 @@ const onlyActivationMissingReadiness = (
   );
   assert.equal(mismatchCandidate.decision, "blocked");
   assert.equal(mismatchCandidate.rollbackRestoreCanary.hashVerified, false);
+  assert.equal(
+    mismatchCandidate.rollbackRestoreCanary.receiptBindingRef,
+    "workflow_restore_canary:git-mismatch",
+  );
   assert.match(
     mismatchCandidate.rollbackRestoreCanary.blockers.join("\n"),
     /workflow_content_hash_mismatch/,
@@ -500,6 +509,7 @@ const onlyActivationMissingReadiness = (
           expectedWorkflowContentHash: request.expectedWorkflowContentHash,
           actualWorkflowContentHash: request.expectedWorkflowContentHash,
           hashVerified: true,
+          receiptBindingRef: "workflow_restore_canary:probe-helper",
           fileSha256: "sha256-from-git-show",
           bundle: {
             workflowPath: request.revisionBinding.workflowPath,

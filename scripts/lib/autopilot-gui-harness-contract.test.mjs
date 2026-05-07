@@ -120,6 +120,11 @@ test("runtime consistency contract requires harness shadow proof", () => {
   );
   assert.ok(
     contract.runtimeConsistencyRequirements.includes(
+      "harness_rollback_restore_canary_receipts_present",
+    ),
+  );
+  assert.ok(
+    contract.runtimeConsistencyRequirements.includes(
       "harness_rollback_restore_canary_ui_present",
     ),
   );
