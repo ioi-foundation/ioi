@@ -37,6 +37,7 @@ import { workflowValuePreview } from "../../runtime/workflow-value-preview";
 import {
   compareRunRecords,
   resolveWorkflowHarnessReceiptInspection,
+  resolveWorkflowHarnessReplayInspection,
   workflowBindingCheckResult,
   workflowBindingRegistryRows,
   workflowBindingRegistrySummary,
@@ -3332,6 +3333,15 @@ export function WorkflowRailPanel({
     readOnlyRoutingReady: harnessReadOnlyRoutingReady,
     authorityToolingProof: harnessAuthorityToolingProof,
   });
+  const selectedHarnessReplayInspection = resolveWorkflowHarnessReplayInspection({
+    replayFixtureRef: selectedHarnessReplayFixtureRef,
+    workflow,
+    lastRunResult,
+    selectedRunId,
+    selectedHarnessGroup,
+    readOnlyRoutingReady: harnessReadOnlyRoutingReady,
+    authorityToolingProof: harnessAuthorityToolingProof,
+  });
   return (
     <>
       <h3>Outputs</h3>
@@ -3450,6 +3460,115 @@ export function WorkflowRailPanel({
               {selectedHarnessReceiptInspection.evidenceRefs.slice(0, 4).join(" | ") ||
                 "evidence pending"}
             </code>
+          </div>
+        </section>
+      ) : null}
+      {selectedHarnessReplayInspection ? (
+        <section
+          className="workflow-rail-section workflow-harness-replay-inspector"
+          data-testid="workflow-harness-replay-inspector"
+          data-replay-fixture-ref={selectedHarnessReplayInspection.replayFixtureRef}
+          data-replay-source-kind={selectedHarnessReplayInspection.sourceKind}
+          data-producer-component={selectedHarnessReplayInspection.producerComponent}
+          data-policy-decision={selectedHarnessReplayInspection.policyDecision}
+          data-attempt-id={selectedHarnessReplayInspection.attemptId}
+          data-receipt-ref={selectedHarnessReplayInspection.receiptRef}
+          data-determinism={selectedHarnessReplayInspection.determinism}
+          data-redaction-policy={selectedHarnessReplayInspection.redactionPolicy}
+          data-captures-input={selectedHarnessReplayInspection.capturesInput}
+          data-captures-output={selectedHarnessReplayInspection.capturesOutput}
+          data-captures-policy-decision={
+            selectedHarnessReplayInspection.capturesPolicyDecision
+          }
+        >
+          <h4>Replay inspector</h4>
+          <article
+            className={`workflow-output-row is-${
+              selectedHarnessReplayInspection.sourceKind === "unresolved"
+                ? "blocked"
+                : "ready"
+            }`}
+            data-testid="workflow-harness-replay-inspector-summary"
+          >
+            <strong>{selectedHarnessReplayInspection.replayFixtureRef}</strong>
+            <span>
+              {selectedHarnessReplayInspection.sourceLabel}
+              {" · "}
+              {selectedHarnessReplayInspection.status}
+            </span>
+            <small>
+              {selectedHarnessReplayInspection.producerComponent}
+              {" · "}
+              {selectedHarnessReplayInspection.determinism}
+            </small>
+          </article>
+          <dl
+            className="workflow-rail-stats"
+            data-testid="workflow-harness-replay-inspector-metadata"
+          >
+            <div>
+              <dt>Mode</dt>
+              <dd>{selectedHarnessReplayInspection.executionMode}</dd>
+            </div>
+            <div>
+              <dt>Readiness</dt>
+              <dd>{selectedHarnessReplayInspection.readiness}</dd>
+            </div>
+            <div>
+              <dt>Attempt</dt>
+              <dd>{selectedHarnessReplayInspection.attemptId}</dd>
+            </div>
+            <div>
+              <dt>Receipt</dt>
+              <dd>{selectedHarnessReplayInspection.receiptRef}</dd>
+            </div>
+            <div>
+              <dt>Node</dt>
+              <dd>{selectedHarnessReplayInspection.nodeLabel}</dd>
+            </div>
+            <div>
+              <dt>Policy</dt>
+              <dd>{selectedHarnessReplayInspection.policyDecision}</dd>
+            </div>
+          </dl>
+          <div
+            className="workflow-inline-metadata"
+            data-testid="workflow-harness-replay-capture-flags"
+          >
+            <span>
+              envelope{" "}
+              {selectedHarnessReplayInspection.deterministicEnvelope
+                ? "deterministic"
+                : "not deterministic"}
+            </span>
+            <code>
+              input {String(selectedHarnessReplayInspection.capturesInput)} | output{" "}
+              {String(selectedHarnessReplayInspection.capturesOutput)} | policy{" "}
+              {String(selectedHarnessReplayInspection.capturesPolicyDecision)}
+            </code>
+          </div>
+          <article
+            className="workflow-output-row"
+            data-testid="workflow-harness-replay-payload-preview"
+            data-payload-preview-kind={
+              selectedHarnessReplayInspection.payloadPreview.kind
+            }
+          >
+            <strong>Redacted fixture context</strong>
+            <span>{selectedHarnessReplayInspection.payloadPreview.summary}</span>
+            <small>{selectedHarnessReplayInspection.payloadPreview.detail}</small>
+          </article>
+          <div
+            className="workflow-inline-metadata"
+            data-testid="workflow-harness-replay-evidence-refs"
+            data-evidence-ref-count={selectedHarnessReplayInspection.evidenceRefs.length}
+          >
+            <span>{selectedHarnessReplayInspection.redactionPolicy}</span>
+            <code>
+              {selectedHarnessReplayInspection.evidenceRefs.slice(0, 4).join(" | ") ||
+                "evidence pending"}
+            </code>
+            <small>{selectedHarnessReplayInspection.nondeterminismReason}</small>
           </div>
         </section>
       ) : null}
