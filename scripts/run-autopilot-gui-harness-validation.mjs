@@ -1598,10 +1598,12 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
 function collectRollbackRestoreCanaryUiProof(outputRoot) {
   const railPath = "packages/agent-ide/src/features/Workflows/WorkflowRailPanel.tsx";
   const validationPath = "packages/agent-ide/src/runtime/workflow-validation.ts";
+  const harnessWorkflowPath = "packages/agent-ide/src/runtime/harness-workflow.ts";
   const controllerPath = "packages/agent-ide/src/WorkflowComposer/controller.tsx";
   const graphPath = "packages/agent-ide/src/types/graph.ts";
   const rail = readFileSync(resolve(repoRoot, railPath), "utf8");
   const validation = readFileSync(resolve(repoRoot, validationPath), "utf8");
+  const harnessWorkflow = readFileSync(resolve(repoRoot, harnessWorkflowPath), "utf8");
   const controller = readFileSync(resolve(repoRoot, controllerPath), "utf8");
   const graph = readFileSync(resolve(repoRoot, graphPath), "utf8");
   const checks = {
@@ -1612,7 +1614,13 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
     candidateGateTestId: /workflow-harness-activation-candidate-gate-\$\{gate\.gateId\}/.test(rail),
     validationGate: /gateId: "rollback-restore"/.test(validation),
     blockedGitCanary: /rollback_restore_canary_not_run/.test(validation),
-    dryRunRestoreProbe: /runtime\.restoreWorkflowRevision[\s\S]*dryRun: true/.test(controller),
+    dryRunRestoreProbe:
+      /runWorkflowHarnessRollbackRestoreCanaryProbe[\s\S]*runtime[\s\S]*workflowPath[\s\S]*rollbackRevisionBinding/.test(
+        controller,
+      ) &&
+      /(?=[\s\S]*runWorkflowHarnessRollbackRestoreCanaryProbe)(?=[\s\S]*revisionSource !== "git")(?=[\s\S]*dryRun: true)(?=[\s\S]*rollback_restore_api_unavailable)(?=[\s\S]*runtime\.restoreWorkflowRevision\(restoreRequest\))(?=[\s\S]*rollback_restore_canary_failed)/.test(
+        harnessWorkflow,
+      ),
     rollbackCanaryContract: /WorkflowHarnessRollbackRestoreCanary[\s\S]*hashVerified[\s\S]*blockers/.test(graph),
   };
   const passed = Object.values(checks).every(Boolean);
@@ -1628,6 +1636,7 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
     sourceRefs: [
       railPath,
       validationPath,
+      harnessWorkflowPath,
       controllerPath,
       graphPath,
     ],

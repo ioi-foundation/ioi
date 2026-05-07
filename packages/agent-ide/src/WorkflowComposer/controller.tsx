@@ -117,6 +117,7 @@ import {
   makeDefaultAgentHarnessWorkflow,
   recordWorkflowHarnessActivationDryRun,
   recordWorkflowHarnessRollbackTargetSelection,
+  runWorkflowHarnessRollbackRestoreCanaryProbe,
   workflowHarnessWorkerBinding,
   workflowIsBlessedHarness,
   workflowIsHarness,
@@ -2659,27 +2660,12 @@ export function useWorkflowComposerController({
       currentProjectFile.metadata.harness?.activationRecord?.rollbackRevisionBinding ??
       currentProjectFile.metadata.harness?.activationRollbackProof?.restoredRevisionBinding ??
       null;
-    let rollbackRestoreResult: WorkflowRevisionRestoreResult | null = null;
-    let rollbackRestoreBlockers: string[] = [];
-    if (rollbackRevisionBinding?.revisionSource === "git") {
-      if (!runtime.restoreWorkflowRevision) {
-        rollbackRestoreBlockers = ["rollback_restore_api_unavailable"];
-      } else {
-        try {
-          rollbackRestoreResult = await runtime.restoreWorkflowRevision({
-            workflowPath,
-            revisionBinding: rollbackRevisionBinding,
-            expectedWorkflowContentHash: rollbackRevisionBinding.workflowContentHash,
-            dryRun: true,
-          });
-        } catch (error) {
-          rollbackRestoreBlockers = [
-            "rollback_restore_canary_failed",
-            errorMessage(error),
-          ];
-        }
-      }
-    }
+    const { rollbackRestoreResult, rollbackRestoreBlockers } =
+      await runWorkflowHarnessRollbackRestoreCanaryProbe({
+        runtime,
+        workflowPath,
+        rollbackRevisionBinding,
+      });
     const candidate = createWorkflowHarnessActivationCandidate(
       currentProjectFile,
       tests,
