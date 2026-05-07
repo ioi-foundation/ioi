@@ -25,6 +25,7 @@ import type {
   WorkflowHarnessSlotSpec,
   WorkflowHarnessWorkerBinding,
   WorkflowRevisionBinding,
+  WorkflowRevisionRestoreResult,
   WorkflowNode,
   WorkflowProject,
   WorkflowProposal,
@@ -616,6 +617,8 @@ export function executeWorkflowHarnessRevisionRollback(
   options: {
     rollbackTarget?: string | null;
     restoredWorkflow?: WorkflowProject | null;
+    restoreResult?: WorkflowRevisionRestoreResult | null;
+    restoreBlockers?: string[];
     nowMs?: number;
   } = {},
 ): {
@@ -648,6 +651,12 @@ export function executeWorkflowHarnessRevisionRollback(
   const restoredActivationState =
     activationStateForRestoredWorkerBinding(restoredWorkerBinding);
   const restoredWorkflowSource = options.restoredWorkflow ?? workflow;
+  const restoreBlockers = Array.from(
+    new Set([
+      ...(options.restoreResult?.blockers ?? []),
+      ...(options.restoreBlockers ?? []),
+    ].filter(Boolean)),
+  );
   const rollbackActivationRecord = makeHarnessForkActivationRecord({
     workflowId: workflow.metadata.id || workflow.metadata.slug,
     harnessWorkflowId: restoredWorkerBinding.harnessWorkflowId,
@@ -711,14 +720,18 @@ export function executeWorkflowHarnessRevisionRollback(
   const actualWorkflowContentHash = stableContentHash(
     workflowSourceProjection(restoredWorkflowBase),
   );
+  const expectedWorkflowContentHash =
+    options.restoreResult?.expectedWorkflowContentHash ??
+    restoredRevisionWithRollForward.workflowContentHash;
   const hashVerified =
-    actualWorkflowContentHash === restoredRevisionWithRollForward.workflowContentHash;
+    actualWorkflowContentHash === expectedWorkflowContentHash;
   const blockers = [
     ...(workflowIsHarnessFork(workflow) ? [] : ["not_harness_fork"]),
     ...(rollbackTarget ? [] : ["rollback_target_missing"]),
     ...(workflow.metadata.harness?.activationRecord?.rollbackAvailable === false
       ? ["rollback_unavailable"]
       : []),
+    ...restoreBlockers,
     ...(hashVerified ? [] : ["rollback_revision_hash_mismatch"]),
   ];
   const execution: WorkflowHarnessActivationRollbackExecution = {
@@ -733,9 +746,20 @@ export function executeWorkflowHarnessRevisionRollback(
     restoredWorkerBinding,
     activeRevisionBinding,
     restoredRevisionBinding: restoredRevisionWithRollForward,
-    restoreStrategy: rollbackRestoreStrategyFor(restoredRevisionWithRollForward),
-    workflowPath: restoredRevisionWithRollForward.workflowPath,
-    expectedWorkflowContentHash: restoredRevisionWithRollForward.workflowContentHash,
+    restoreStrategy:
+      options.restoreResult?.restoreStrategy ??
+      rollbackRestoreStrategyFor(restoredRevisionWithRollForward),
+    restoreRepoRoot:
+      options.restoreResult?.repoRoot ?? restoredRevisionWithRollForward.repoRoot,
+    restoreRelativeWorkflowPath: options.restoreResult?.relativeWorkflowPath,
+    restoredRevision:
+      options.restoreResult?.restoredRevision ??
+      restoredRevisionWithRollForward.activatedRevision,
+    restoredFileSha256: options.restoreResult?.fileSha256,
+    restoreBlockers,
+    workflowPath:
+      options.restoreResult?.workflowPath ?? restoredRevisionWithRollForward.workflowPath,
+    expectedWorkflowContentHash,
     actualWorkflowContentHash,
     hashVerified,
     executionStatus: blockers.length === 0 ? "applied" : "blocked",

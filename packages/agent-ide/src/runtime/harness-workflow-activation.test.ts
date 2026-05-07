@@ -216,6 +216,20 @@ const onlyActivationMissingReadiness = (
 
   const rollbackExecution = executeWorkflowHarnessRevisionRollback(result.workflow, {
     rollbackTarget: "legacy_runtime",
+    restoreResult: {
+      restored: true,
+      blockers: [],
+      workflowPath: "/repo/.agents/workflows/default-agent-harness.json",
+      repoRoot: "/repo",
+      relativeWorkflowPath: ".agents/workflows/default-agent-harness.json",
+      revisionSource: "git",
+      restoredRevision: "abc123",
+      restoreStrategy: "git_show_file_restore",
+      expectedWorkflowContentHash:
+        rollbackSelectedWorkflow.metadata.harness?.revisionBinding
+          ?.workflowContentHash,
+      fileSha256: "sha256:restored-workflow-file",
+    },
     nowMs: 2_400,
   });
   assert.equal(rollbackExecution.executed, true);
@@ -226,6 +240,18 @@ const onlyActivationMissingReadiness = (
     rollbackExecution.execution?.policyDecision,
     "rollback_execution_restored_verified_workflow_revision",
   );
+  assert.equal(rollbackExecution.execution?.restoreStrategy, "git_show_file_restore");
+  assert.equal(rollbackExecution.execution?.restoreRepoRoot, "/repo");
+  assert.equal(
+    rollbackExecution.execution?.restoreRelativeWorkflowPath,
+    ".agents/workflows/default-agent-harness.json",
+  );
+  assert.equal(rollbackExecution.execution?.restoredRevision, "abc123");
+  assert.equal(
+    rollbackExecution.execution?.restoredFileSha256,
+    "sha256:restored-workflow-file",
+  );
+  assert.deepEqual(rollbackExecution.execution?.restoreBlockers, []);
   assert.equal(
     rollbackExecution.workflow.metadata.harness?.activationRollbackExecution
       ?.executionStatus,

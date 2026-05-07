@@ -1122,6 +1122,11 @@ export interface WorkflowHarnessActivationRollbackExecution {
     | "git_show_file_restore"
     | "worker_binding_restore"
     | string;
+  restoreRepoRoot?: string;
+  restoreRelativeWorkflowPath?: string;
+  restoredRevision?: string;
+  restoredFileSha256?: string;
+  restoreBlockers?: string[];
   workflowPath: string;
   expectedWorkflowContentHash?: string;
   actualWorkflowContentHash?: string;
