@@ -1088,6 +1088,8 @@ export type WorkflowHarnessActivationAuditEventType =
   | "activation_minted"
   | "replay_drill_blocked"
   | "replay_drill_passed"
+  | "replay_gate_blocked"
+  | "replay_gate_passed"
   | "rollback_target_selected"
   | "rollback_drill_blocked"
   | "rollback_drill_passed"
@@ -1218,6 +1220,34 @@ export interface WorkflowHarnessReplayDrillResult {
   blockers: string[];
   evidenceRefs: string[];
   receiptRefs: string[];
+  createdAtMs: number;
+}
+
+export type WorkflowHarnessReplayGateScope =
+  | "harness_group"
+  | "activation_candidate"
+  | "workflow";
+
+export interface WorkflowHarnessReplayGateResult {
+  schemaVersion: "workflow.harness.replay-gate-result.v1" | string;
+  gateId: string;
+  workflowId: string;
+  activationId?: string;
+  scopeKind: WorkflowHarnessReplayGateScope;
+  targetId: string;
+  gateStatus: "passed" | "blocked" | "failed" | string;
+  totalFixtures: number;
+  passedCount: number;
+  blockedCount: number;
+  failedCount: number;
+  divergenceCounts: Record<string, number>;
+  replayFixtureRefs: string[];
+  blockingReplayFixtureRefs: string[];
+  drillIds: string[];
+  receiptRefs: string[];
+  evidenceRefs: string[];
+  activationGateImpact: "passed" | "blocked";
+  blockers: string[];
   createdAtMs: number;
 }
 
@@ -1867,6 +1897,7 @@ export interface WorkflowHarnessMetadata {
   activationRollbackProof?: WorkflowHarnessActivationRollbackProof;
   activationRollbackExecution?: WorkflowHarnessActivationRollbackExecution;
   replayDrills?: WorkflowHarnessReplayDrillResult[];
+  replayGates?: WorkflowHarnessReplayGateResult[];
   revisionBinding?: WorkflowRevisionBinding;
   liveHandoffProof?: WorkflowHarnessLiveHandoffProof;
   runtimeSelectorDecision?: WorkflowHarnessRuntimeSelectorDecision;

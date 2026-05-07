@@ -92,6 +92,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     handleRun,
     handleRunHarnessActivationDryRun,
     handleRunHarnessReplayDrill,
+    handleRunHarnessReplayGate,
     handleRunHarnessRollbackDrill,
     handleRunTests,
     handleRunWorkflowNode,
@@ -1281,6 +1282,9 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                     }}
                     onRunHarnessReplayDrill={() => {
                       handleRunHarnessReplayDrill();
+                    }}
+                    onRunHarnessReplayGate={() => {
+                      handleRunHarnessReplayGate();
                     }}
                     onApplyHarnessActivationCandidate={() => {
                       void handleApplyHarnessActivationCandidate();

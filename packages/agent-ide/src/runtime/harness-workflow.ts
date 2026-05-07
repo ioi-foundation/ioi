@@ -23,6 +23,7 @@ import type {
   WorkflowHarnessRuntimeSelectorDecision,
   WorkflowHarnessReplayDrillDivergenceClass,
   WorkflowHarnessReplayDrillResult,
+  WorkflowHarnessReplayGateResult,
   WorkflowHarnessSlotKind,
   WorkflowHarnessSlotSpec,
   WorkflowHarnessWorkerBinding,
@@ -992,17 +993,14 @@ function harnessReplayDrillDivergenceClass(
   return "none";
 }
 
-export function executeWorkflowHarnessReplayDrill(
+function workflowHarnessReplayDrillResultFor(
   workflow: WorkflowProject,
   replay: WorkflowHarnessReplayDrillInput | null | undefined,
-  options: { nowMs?: number } = {},
+  createdAtMs: number,
 ): {
-  executed: boolean;
-  workflow: WorkflowProject;
-  drill?: WorkflowHarnessReplayDrillResult;
+  drill: WorkflowHarnessReplayDrillResult;
   blockers: string[];
 } {
-  const createdAtMs = options.nowMs ?? Date.now();
   const workflowId = workflow.metadata.id || workflow.metadata.slug;
   const replayFixtureRef = replay?.replayFixtureRef?.trim() ?? "";
   const blockers = uniqueStrings([
@@ -1046,42 +1044,70 @@ export function executeWorkflowHarnessReplayDrill(
     ...(replay?.evidenceRefs ?? []),
     ...receiptRefs,
   ]);
-  const drill: WorkflowHarnessReplayDrillResult = {
-    schemaVersion: "workflow.harness.replay-drill-result.v1",
-    drillId,
-    workflowId,
-    activationId: workflow.metadata.harness?.activationId,
-    replayFixtureRef: replayFixtureRef || "replay fixture missing",
-    sourceKind: replay?.sourceKind ?? "unresolved",
-    sourceLabel: replay?.sourceLabel ?? "Unresolved harness replay fixture",
-    drillStatus: blockers.length === 0 ? "passed" : "blocked",
-    divergenceClass,
-    componentId: replay?.producerComponent ?? "unknown",
-    producerComponent: replay?.producerComponent ?? "unknown",
-    attemptId: replay?.attemptId ?? "not resolved",
-    receiptRef: replay?.receiptRef ?? "not resolved",
-    runId: replay?.runId ?? "run pending",
-    executionMode: replay?.executionMode ?? "projection",
-    readiness: replay?.readiness ?? "projection_only",
-    policyDecision:
-      blockers.length === 0
-        ? replay?.policyDecision ?? "replay_policy_not_recorded"
-        : "replay_drill_blocked",
-    expectedInputHash,
-    actualInputHash,
-    expectedOutputHash,
-    actualOutputHash,
-    deterministicEnvelope: replay?.deterministicEnvelope ?? false,
-    capturesInput: replay?.capturesInput ?? false,
-    capturesOutput: replay?.capturesOutput ?? false,
-    capturesPolicyDecision: replay?.capturesPolicyDecision ?? false,
-    determinism: replay?.determinism ?? "disabled",
-    redactionPolicy: replay?.redactionPolicy ?? "not resolved",
+  return {
     blockers,
-    evidenceRefs,
-    receiptRefs,
-    createdAtMs,
+    drill: {
+      schemaVersion: "workflow.harness.replay-drill-result.v1",
+      drillId,
+      workflowId,
+      activationId: workflow.metadata.harness?.activationId,
+      replayFixtureRef: replayFixtureRef || "replay fixture missing",
+      sourceKind: replay?.sourceKind ?? "unresolved",
+      sourceLabel: replay?.sourceLabel ?? "Unresolved harness replay fixture",
+      drillStatus: blockers.length === 0 ? "passed" : "blocked",
+      divergenceClass,
+      componentId: replay?.producerComponent ?? "unknown",
+      producerComponent: replay?.producerComponent ?? "unknown",
+      attemptId: replay?.attemptId ?? "not resolved",
+      receiptRef: replay?.receiptRef ?? "not resolved",
+      runId: replay?.runId ?? "run pending",
+      executionMode: replay?.executionMode ?? "projection",
+      readiness: replay?.readiness ?? "projection_only",
+      policyDecision:
+        blockers.length === 0
+          ? replay?.policyDecision ?? "replay_policy_not_recorded"
+          : "replay_drill_blocked",
+      expectedInputHash,
+      actualInputHash,
+      expectedOutputHash,
+      actualOutputHash,
+      deterministicEnvelope: replay?.deterministicEnvelope ?? false,
+      capturesInput: replay?.capturesInput ?? false,
+      capturesOutput: replay?.capturesOutput ?? false,
+      capturesPolicyDecision: replay?.capturesPolicyDecision ?? false,
+      determinism: replay?.determinism ?? "disabled",
+      redactionPolicy: replay?.redactionPolicy ?? "not resolved",
+      blockers,
+      evidenceRefs,
+      receiptRefs,
+      createdAtMs,
+    },
   };
+}
+
+function replayDrillBlocksPromotion(drill: WorkflowHarnessReplayDrillResult): boolean {
+  return (
+    drill.drillStatus !== "passed" ||
+    !["none", "harmless_metadata_drift"].includes(drill.divergenceClass)
+  );
+}
+
+export function executeWorkflowHarnessReplayDrill(
+  workflow: WorkflowProject,
+  replay: WorkflowHarnessReplayDrillInput | null | undefined,
+  options: { nowMs?: number } = {},
+): {
+  executed: boolean;
+  workflow: WorkflowProject;
+  drill?: WorkflowHarnessReplayDrillResult;
+  blockers: string[];
+} {
+  const createdAtMs = options.nowMs ?? Date.now();
+  const { drill, blockers } = workflowHarnessReplayDrillResultFor(
+    workflow,
+    replay,
+    createdAtMs,
+  );
   return {
     executed: blockers.length === 0,
     workflow: appendWorkflowHarnessActivationAudit(
@@ -1093,8 +1119,8 @@ export function executeWorkflowHarnessReplayDrill(
         status: blockers.length === 0 ? "passed" : "blocked",
         activationId: workflow.metadata.harness?.activationId,
         blockers,
-        evidenceRefs,
-        receiptRefs,
+        evidenceRefs: drill.evidenceRefs,
+        receiptRefs: drill.receiptRefs,
         summary:
           blockers.length === 0
             ? `Replay drill passed: ${drill.replayFixtureRef}`
@@ -1109,6 +1135,108 @@ export function executeWorkflowHarnessReplayDrill(
       },
     ),
     drill,
+    blockers,
+  };
+}
+
+export function executeWorkflowHarnessReplayGate(
+  workflow: WorkflowProject,
+  replays: Array<WorkflowHarnessReplayDrillInput | null | undefined>,
+  options: {
+    scopeKind?: WorkflowHarnessReplayGateResult["scopeKind"];
+    targetId?: string;
+    nowMs?: number;
+  } = {},
+): {
+  executed: boolean;
+  workflow: WorkflowProject;
+  gate: WorkflowHarnessReplayGateResult;
+  drills: WorkflowHarnessReplayDrillResult[];
+  blockers: string[];
+} {
+  const createdAtMs = options.nowMs ?? Date.now();
+  const workflowId = workflow.metadata.id || workflow.metadata.slug;
+  const scopeKind = options.scopeKind ?? "workflow";
+  const targetId = options.targetId ?? workflowId;
+  const drills = replays.map((replay, index) =>
+    workflowHarnessReplayDrillResultFor(workflow, replay, createdAtMs + index).drill,
+  );
+  const blockingDrills = drills.filter(replayDrillBlocksPromotion);
+  const divergenceCounts = drills.reduce<Record<string, number>>((counts, drill) => {
+    counts[drill.divergenceClass] = (counts[drill.divergenceClass] ?? 0) + 1;
+    return counts;
+  }, {});
+  const blockers = uniqueStrings([
+    ...(workflow.metadata.harness ? [] : ["not_harness_workflow"]),
+    ...(drills.length > 0 ? [] : ["replay_gate_no_fixtures"]),
+    ...blockingDrills.flatMap((drill) =>
+      drill.blockers.length > 0
+        ? drill.blockers
+        : [`replay_divergence:${drill.divergenceClass}`],
+    ),
+  ]);
+  const gateId = `harness-replay-gate:${slugify(workflowId)}:${slugify(
+    `${scopeKind}:${targetId}`,
+  )}:${createdAtMs}`;
+  const gate: WorkflowHarnessReplayGateResult = {
+    schemaVersion: "workflow.harness.replay-gate-result.v1",
+    gateId,
+    workflowId,
+    activationId: workflow.metadata.harness?.activationId,
+    scopeKind,
+    targetId,
+    gateStatus: blockers.length === 0 ? "passed" : "blocked",
+    totalFixtures: drills.length,
+    passedCount: drills.filter((drill) => drill.drillStatus === "passed").length,
+    blockedCount: drills.filter((drill) => drill.drillStatus === "blocked").length,
+    failedCount: drills.filter((drill) => drill.drillStatus === "failed").length,
+    divergenceCounts,
+    replayFixtureRefs: uniqueStrings(drills.map((drill) => drill.replayFixtureRef)),
+    blockingReplayFixtureRefs: uniqueStrings(
+      blockingDrills.map((drill) => drill.replayFixtureRef),
+    ),
+    drillIds: drills.map((drill) => drill.drillId),
+    receiptRefs: uniqueStrings(drills.flatMap((drill) => drill.receiptRefs)),
+    evidenceRefs: uniqueStrings([
+      gateId,
+      ...drills.flatMap((drill) => drill.evidenceRefs),
+    ]),
+    activationGateImpact: blockers.length === 0 ? "passed" : "blocked",
+    blockers,
+    createdAtMs,
+  };
+  return {
+    executed: blockers.length === 0,
+    workflow: appendWorkflowHarnessActivationAudit(
+      workflow,
+      makeWorkflowHarnessActivationAuditEvent({
+        workflow,
+        eventType:
+          blockers.length === 0 ? "replay_gate_passed" : "replay_gate_blocked",
+        status: blockers.length === 0 ? "passed" : "blocked",
+        activationId: workflow.metadata.harness?.activationId,
+        blockers,
+        evidenceRefs: gate.evidenceRefs,
+        receiptRefs: gate.receiptRefs,
+        summary:
+          blockers.length === 0
+            ? `Replay gate passed: ${gate.totalFixtures} fixtures`
+            : `Replay gate blocked by ${blockingDrills.length} fixtures`,
+        createdAtMs,
+      }),
+      {
+        replayDrills: [
+          ...(workflow.metadata.harness?.replayDrills ?? []),
+          ...drills,
+        ],
+        replayGates: [
+          ...(workflow.metadata.harness?.replayGates ?? []),
+          gate,
+        ],
+      },
+    ),
+    gate,
+    drills,
     blockers,
   };
 }

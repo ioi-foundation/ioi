@@ -9,6 +9,7 @@ import {
   applyWorkflowHarnessActivationCandidate,
   executeWorkflowHarnessRollbackDrill,
   executeWorkflowHarnessReplayDrill,
+  executeWorkflowHarnessReplayGate,
   executeWorkflowHarnessRevisionRollback,
   forkDefaultAgentHarnessWorkflow,
   makeHarnessForkActivationRecord,
@@ -417,6 +418,80 @@ const onlyActivationMissingReadiness = (
   assert.match(
     candidate.gateResults.find((gate) => gate.gateId === "replay-fixtures")?.value ?? "",
     /drill blockers/,
+  );
+
+  const gatePassed = executeWorkflowHarnessReplayGate(
+    fork.workflow,
+    [
+      {
+        replayFixtureRef: "runtime-evidence:default:fixture:planner",
+        sourceKind: "node_attempt",
+        sourceLabel: "Planner replay fixture",
+        producerComponent: "ioi.agent-harness.planner.v1",
+        policyDecision: "accept_replay",
+        attemptId: "attempt-planner",
+        receiptRef: "receipt-planner",
+        runId: "run-planner",
+        executionMode: "gated",
+        readiness: "live_ready",
+        inputHash: "input-planner",
+        outputHash: "output-planner",
+        deterministicEnvelope: true,
+        capturesInput: true,
+        capturesOutput: true,
+        capturesPolicyDecision: true,
+        determinism: "deterministic",
+        redactionPolicy: "runtime_redacted",
+        evidenceRefs: ["evidence-planner"],
+      },
+    ],
+    {
+      scopeKind: "harness_group",
+      targetId: "cognition",
+      nowMs: 2_640,
+    },
+  );
+  assert.equal(gatePassed.executed, true);
+  assert.equal(gatePassed.gate.gateStatus, "passed");
+  assert.equal(gatePassed.gate.totalFixtures, 1);
+  assert.equal(gatePassed.gate.activationGateImpact, "passed");
+  assert.deepEqual(gatePassed.gate.divergenceCounts, { none: 1 });
+  assert.ok(gatePassed.gate.receiptRefs.includes("receipt-planner"));
+  assert.equal(gatePassed.workflow.metadata.harness?.replayGates?.[0]?.targetId, "cognition");
+  const gatePassedAudit = gatePassed.workflow.metadata.harness?.activationAudit ?? [];
+  assert.equal(gatePassedAudit[gatePassedAudit.length - 1]?.eventType, "replay_gate_passed");
+
+  const gateBlocked = executeWorkflowHarnessReplayGate(
+    fork.workflow,
+    [],
+    {
+      scopeKind: "activation_candidate",
+      targetId: "activation-preview",
+      nowMs: 2_650,
+    },
+  );
+  assert.equal(gateBlocked.executed, false);
+  assert.equal(gateBlocked.gate.gateStatus, "blocked");
+  assert.equal(gateBlocked.gate.blockers[0], "replay_gate_no_fixtures");
+  assert.equal(gateBlocked.gate.activationGateImpact, "blocked");
+  const gateBlockedAudit = gateBlocked.workflow.metadata.harness?.activationAudit ?? [];
+  assert.equal(gateBlockedAudit[gateBlockedAudit.length - 1]?.eventType, "replay_gate_blocked");
+  const gateBlockedBase = validateWorkflowProject(gateBlocked.workflow, fork.tests);
+  const gateBlockedReadiness = onlyActivationMissingReadiness(gateBlockedBase);
+  const gateBlockedCandidate = createWorkflowHarnessActivationCandidate(
+    gateBlocked.workflow,
+    fork.tests,
+    gateBlockedReadiness,
+    [],
+    2_660,
+  );
+  assert.equal(
+    gateBlockedCandidate.gateResults.find((gate) => gate.gateId === "replay-fixtures")?.status,
+    "blocked",
+  );
+  assert.match(
+    gateBlockedCandidate.gateResults.find((gate) => gate.gateId === "replay-fixtures")?.value ?? "",
+    /gate blockers/,
   );
 }
 
