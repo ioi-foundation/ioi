@@ -841,6 +841,52 @@ export interface WorkflowHarnessNodeAttemptRecord {
   replay: WorkflowHarnessReplayEnvelope;
 }
 
+export interface WorkflowHarnessActionFrame {
+  workflowId: string;
+  workflowVersion: string;
+  workflowHash: string;
+  executionMode: WorkflowHarnessExecutionMode;
+  nodeId: string;
+  componentId: string;
+  componentVersion: string;
+  componentKind: WorkflowHarnessComponentKind;
+  readiness: WorkflowHarnessComponentReadiness;
+  kernelRef: string;
+  slotIds: string[];
+  deterministicEnvelope: boolean;
+  replay: WorkflowHarnessReplayEnvelope;
+  eventKinds: string[];
+  evidenceKeys: string[];
+}
+
+export interface WorkflowHarnessComponentInvocation {
+  invocationId: string;
+  componentKind: WorkflowHarnessComponentKind;
+  executionMode: WorkflowHarnessExecutionMode;
+  attemptIndex: number;
+  inputHash?: string;
+  outputHash?: string;
+  policyDecision?: string;
+  receiptIds: string[];
+  evidenceRefs: string[];
+  replayFixtureRef?: string;
+  startedAtMs?: number;
+  durationMs?: number;
+}
+
+export interface WorkflowHarnessComponentAdapterResult {
+  schemaVersion: "workflow.harness.component-adapter-result.v1" | string;
+  invocationId: string;
+  actionFrame: WorkflowHarnessActionFrame;
+  nodeAttempt: WorkflowHarnessNodeAttemptRecord;
+  slotIds: string[];
+  resultHash?: string;
+  errorClass?: string;
+  readiness: WorkflowHarnessComponentReadiness;
+  receiptIds: string[];
+  replay: WorkflowHarnessReplayEnvelope;
+}
+
 export type WorkflowHarnessDivergenceClass =
   | "none"
   | "harmless_metadata"

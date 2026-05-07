@@ -1078,8 +1078,8 @@ assert.match(
 
 assert.match(
   graphTypes,
-  /(?=[\s\S]*WorkflowHarnessExecutionMode)(?=[\s\S]*WorkflowHarnessComponentReadiness)(?=[\s\S]*WorkflowHarnessReplayEnvelope)(?=[\s\S]*WorkflowHarnessNodeAttemptRecord)(?=[\s\S]*WorkflowHarnessShadowComparison)(?=[\s\S]*WorkflowHarnessPromotionCluster)(?=[\s\S]*WorkflowHarnessGatedClusterRun)(?=[\s\S]*WorkflowHarnessLiveHandoffProof)(?=[\s\S]*WorkflowHarnessRuntimeSelectorDecision)(?=[\s\S]*WorkflowHarnessCanaryExecutionBoundary)(?=[\s\S]*canaryExecutionBoundaries)(?=[\s\S]*WorkflowHarnessComponentSpec[\s\S]*readiness[\s\S]*inputSchema[\s\S]*outputSchema[\s\S]*errorSchema)(?=[\s\S]*WorkflowHarnessWorkerBinding[\s\S]*harnessWorkflowId[\s\S]*harnessActivationId[\s\S]*harnessHash)/,
-  "Harness-as-workflow types should expose mode, readiness, replay, node attempts, shadow comparison, gated clusters, live handoff, selector routing, canary execution boundaries, durable component contracts, and worker harness identity fields",
+  /(?=[\s\S]*WorkflowHarnessExecutionMode)(?=[\s\S]*WorkflowHarnessComponentReadiness)(?=[\s\S]*WorkflowHarnessReplayEnvelope)(?=[\s\S]*WorkflowHarnessActionFrame)(?=[\s\S]*WorkflowHarnessComponentInvocation)(?=[\s\S]*WorkflowHarnessComponentAdapterResult)(?=[\s\S]*WorkflowHarnessNodeAttemptRecord)(?=[\s\S]*WorkflowHarnessShadowComparison)(?=[\s\S]*WorkflowHarnessPromotionCluster)(?=[\s\S]*WorkflowHarnessGatedClusterRun)(?=[\s\S]*WorkflowHarnessLiveHandoffProof)(?=[\s\S]*WorkflowHarnessRuntimeSelectorDecision)(?=[\s\S]*WorkflowHarnessCanaryExecutionBoundary)(?=[\s\S]*canaryExecutionBoundaries)(?=[\s\S]*WorkflowHarnessComponentSpec[\s\S]*readiness[\s\S]*inputSchema[\s\S]*outputSchema[\s\S]*errorSchema)(?=[\s\S]*WorkflowHarnessWorkerBinding[\s\S]*harnessWorkflowId[\s\S]*harnessActivationId[\s\S]*harnessHash)/,
+  "Harness-as-workflow types should expose mode, readiness, replay, callable adapter envelopes, node attempts, shadow comparison, gated clusters, live handoff, selector routing, canary execution boundaries, durable component contracts, and worker harness identity fields",
 );
 
 assert.match(

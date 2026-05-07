@@ -191,6 +191,80 @@ fn default_harness_action_frames_are_workflow_addressable() {
         .find(|frame| frame.component_kind == HarnessComponentKind::GuiHarnessValidator)
         .expect("gui validator frame");
     assert_eq!(gui_frame.slot_ids, vec!["slot.output-policy"]);
+
+    let gated_frame = default_harness_action_frame_for_component(
+        HarnessComponentKind::Planner,
+        HarnessExecutionMode::Gated,
+    );
+    assert_eq!(gated_frame.execution_mode, HarnessExecutionMode::Gated);
+    assert_eq!(gated_frame.node_id, "harness.planner");
+    assert_eq!(
+        gated_frame.component_id,
+        HarnessComponentKind::Planner.component_id()
+    );
+}
+
+#[test]
+fn component_adapter_contract_serializes_invocation_and_result_shape() {
+    let frame = default_harness_action_frame_for_component(
+        HarnessComponentKind::Planner,
+        HarnessExecutionMode::Shadow,
+    );
+    let invocation = HarnessComponentInvocation {
+        invocation_id: "invoke-planner-shadow".to_string(),
+        component_kind: HarnessComponentKind::Planner,
+        execution_mode: HarnessExecutionMode::Shadow,
+        attempt_index: 1,
+        input_hash: Some("input-hash".to_string()),
+        output_hash: Some("output-hash".to_string()),
+        policy_decision: Some("allow".to_string()),
+        receipt_ids: vec!["receipt:planner".to_string()],
+        evidence_refs: vec!["evidence:planner".to_string()],
+        replay_fixture_ref: Some("fixture:planner".to_string()),
+        started_at_ms: Some(100),
+        duration_ms: Some(3),
+    };
+    let result = HarnessComponentAdapterResult {
+        schema_version: "workflow.harness.component-adapter-result.v1".to_string(),
+        invocation_id: invocation.invocation_id.clone(),
+        action_frame: frame.clone(),
+        node_attempt: HarnessNodeAttemptRecord {
+            attempt_id: "harness.planner:invoke-planner-shadow".to_string(),
+            harness_workflow_id: DEFAULT_AGENT_HARNESS_WORKFLOW_ID.to_string(),
+            harness_activation_id: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+            harness_hash: DEFAULT_AGENT_HARNESS_HASH.to_string(),
+            workflow_node_id: frame.node_id.clone(),
+            component_id: frame.component_id.clone(),
+            component_kind: frame.component_kind,
+            execution_mode: invocation.execution_mode,
+            readiness: frame.readiness,
+            attempt_index: invocation.attempt_index,
+            status: HarnessNodeAttemptStatus::Shadow,
+            input_hash: invocation.input_hash.clone(),
+            output_hash: invocation.output_hash.clone(),
+            error_class: None,
+            policy_decision: invocation.policy_decision.clone(),
+            started_at_ms: invocation.started_at_ms,
+            duration_ms: invocation.duration_ms,
+            receipt_ids: invocation.receipt_ids.clone(),
+            evidence_refs: invocation.evidence_refs.clone(),
+            replay: frame.replay.clone(),
+        },
+        slot_ids: frame.slot_ids.clone(),
+        result_hash: invocation.output_hash.clone(),
+        error_class: None,
+        readiness: frame.readiness,
+        receipt_ids: invocation.receipt_ids.clone(),
+        replay: frame.replay.clone(),
+    };
+
+    assert_eq!(result.invocation_id, invocation.invocation_id);
+    assert_eq!(
+        result.action_frame.component_kind,
+        HarnessComponentKind::Planner
+    );
+    assert_eq!(result.node_attempt.status, HarnessNodeAttemptStatus::Shadow);
+    assert_eq!(result.receipt_ids, vec!["receipt:planner"]);
 }
 
 #[test]

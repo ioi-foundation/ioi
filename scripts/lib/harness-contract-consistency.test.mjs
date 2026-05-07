@@ -83,8 +83,13 @@ test("TS harness fork activation contract records blocked and canary-validated p
   const graph = read("packages/agent-ide/src/types/graph.ts");
   const workflow = read("packages/agent-ide/src/runtime/harness-workflow.ts");
   const validation = read("packages/agent-ide/src/runtime/workflow-validation.ts");
+  const rust = read("crates/types/src/app/harness.rs");
+  const serviceHarness = read("crates/services/src/agentic/runtime/harness.rs");
 
   assert.match(graph, /WorkflowHarnessForkActivationRecord/);
+  assert.match(graph, /WorkflowHarnessActionFrame[\s\S]*workflowId[\s\S]*nodeId[\s\S]*componentKind[\s\S]*slotIds/);
+  assert.match(graph, /WorkflowHarnessComponentInvocation[\s\S]*invocationId[\s\S]*componentKind[\s\S]*executionMode[\s\S]*receiptIds/);
+  assert.match(graph, /WorkflowHarnessComponentAdapterResult[\s\S]*actionFrame[\s\S]*nodeAttempt[\s\S]*resultHash[\s\S]*replay/);
   assert.match(graph, /WorkflowHarnessForkActivationCandidate[\s\S]*dryRunOnly: true/);
   assert.match(graph, /WorkflowHarnessActivationCandidateGateResult[\s\S]*gateId[\s\S]*evidenceRefs/);
   assert.match(graph, /WorkflowHarnessLiveHandoffProof/);
@@ -107,4 +112,8 @@ test("TS harness fork activation contract records blocked and canary-validated p
   assert.match(validation, /workerBinding\?\.harnessActivationId === harness\?\.activationId/);
   assert.match(validation, /createWorkflowHarnessActivationCandidate[\s\S]*activationIdPreview[\s\S]*decision[\s\S]*mintable[\s\S]*workerBindingPreview/);
   assert.match(validation, /gateId: "slots"[\s\S]*gateId: "tests"[\s\S]*gateId: "replay-fixtures"[\s\S]*gateId: "policy-posture"[\s\S]*gateId: "receipt-coverage"[\s\S]*gateId: "canary"[\s\S]*gateId: "rollback"[\s\S]*gateId: "worker-binding"[\s\S]*gateId: "activation-id"/);
+  assert.match(rust, /pub struct HarnessComponentInvocation[\s\S]*pub component_kind: HarnessComponentKind[\s\S]*pub execution_mode: HarnessExecutionMode[\s\S]*pub receipt_ids: Vec<String>/);
+  assert.match(rust, /pub struct HarnessComponentAdapterResult[\s\S]*pub action_frame: HarnessActionFrame[\s\S]*pub node_attempt: HarnessNodeAttemptRecord/);
+  assert.match(rust, /default_harness_action_frame_for_component[\s\S]*execution_mode/);
+  assert.match(serviceHarness, /readiness_allows_mode[\s\S]*invoke_default_harness_component[\s\S]*HarnessComponentAdapterResult[\s\S]*harness_component_not_ready_for_mode/);
 });

@@ -545,6 +545,36 @@ pub struct HarnessActionFrame {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct HarnessComponentInvocation {
+    pub invocation_id: String,
+    pub component_kind: HarnessComponentKind,
+    pub execution_mode: HarnessExecutionMode,
+    pub attempt_index: u32,
+    pub input_hash: Option<String>,
+    pub output_hash: Option<String>,
+    pub policy_decision: Option<String>,
+    pub receipt_ids: Vec<String>,
+    pub evidence_refs: Vec<String>,
+    pub replay_fixture_ref: Option<String>,
+    pub started_at_ms: Option<u64>,
+    pub duration_ms: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct HarnessComponentAdapterResult {
+    pub schema_version: String,
+    pub invocation_id: String,
+    pub action_frame: HarnessActionFrame,
+    pub node_attempt: HarnessNodeAttemptRecord,
+    pub slot_ids: Vec<String>,
+    pub result_hash: Option<String>,
+    pub error_class: Option<String>,
+    pub readiness: HarnessComponentReadiness,
+    pub receipt_ids: Vec<String>,
+    pub replay: HarnessReplayEnvelope,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
 pub struct HarnessWorkerBinding {
     pub harness_workflow_id: String,
     pub harness_activation_id: Option<String>,
@@ -1647,29 +1677,42 @@ pub fn default_agent_harness_slots() -> Vec<HarnessSlotSpec> {
 pub fn default_agent_harness_action_frames() -> Vec<HarnessActionFrame> {
     default_agent_harness_components()
         .into_iter()
-        .map(|component| HarnessActionFrame {
-            workflow_id: DEFAULT_AGENT_HARNESS_WORKFLOW_ID.to_string(),
-            workflow_version: DEFAULT_AGENT_HARNESS_VERSION.to_string(),
-            workflow_hash: DEFAULT_AGENT_HARNESS_HASH.to_string(),
-            execution_mode: HarnessExecutionMode::Projection,
-            node_id: component.kind.workflow_node_id(),
-            component_id: component.component_id,
-            component_version: component.version,
-            component_kind: component.kind,
-            readiness: component.readiness,
-            kernel_ref: component.kernel_ref,
-            slot_ids: slot_kinds_for_component(component.kind)
-                .into_iter()
-                .map(HarnessSlotKind::slot_id)
-                .map(str::to_string)
-                .collect(),
-            deterministic_envelope: default_harness_replay_envelope(component.kind)
-                .deterministic_envelope,
-            replay: default_harness_replay_envelope(component.kind),
-            event_kinds: component.emitted_events,
-            evidence_keys: component.evidence,
+        .map(|component| {
+            default_harness_action_frame_for_component(
+                component.kind,
+                HarnessExecutionMode::Projection,
+            )
         })
         .collect()
+}
+
+pub fn default_harness_action_frame_for_component(
+    component_kind: HarnessComponentKind,
+    execution_mode: HarnessExecutionMode,
+) -> HarnessActionFrame {
+    let component = default_harness_component_spec(component_kind);
+    HarnessActionFrame {
+        workflow_id: DEFAULT_AGENT_HARNESS_WORKFLOW_ID.to_string(),
+        workflow_version: DEFAULT_AGENT_HARNESS_VERSION.to_string(),
+        workflow_hash: DEFAULT_AGENT_HARNESS_HASH.to_string(),
+        execution_mode,
+        node_id: component.kind.workflow_node_id(),
+        component_id: component.component_id,
+        component_version: component.version,
+        component_kind: component.kind,
+        readiness: component.readiness,
+        kernel_ref: component.kernel_ref,
+        slot_ids: slot_kinds_for_component(component.kind)
+            .into_iter()
+            .map(HarnessSlotKind::slot_id)
+            .map(str::to_string)
+            .collect(),
+        deterministic_envelope: default_harness_replay_envelope(component.kind)
+            .deterministic_envelope,
+        replay: default_harness_replay_envelope(component.kind),
+        event_kinds: component.emitted_events,
+        evidence_keys: component.evidence,
+    }
 }
 
 pub fn default_harness_worker_binding() -> HarnessWorkerBinding {
