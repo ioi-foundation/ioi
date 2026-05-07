@@ -1287,6 +1287,18 @@ pub fn list_workflow_connector_catalog(
             operation: Some("catalog".to_string()),
         },
         WorkflowConnectorBinding {
+            connector_ref: "agent.connector.catalog".to_string(),
+            mock_binding: false,
+            credential_ready: Some(true),
+            capability_scope: vec![
+                "connector.catalog.read".to_string(),
+                "mcp.tool.catalog.read".to_string(),
+            ],
+            side_effect_class: "read".to_string(),
+            requires_approval: false,
+            operation: Some("describe".to_string()),
+        },
+        WorkflowConnectorBinding {
             connector_ref: "slack".to_string(),
             mock_binding: true,
             credential_ready: Some(false),

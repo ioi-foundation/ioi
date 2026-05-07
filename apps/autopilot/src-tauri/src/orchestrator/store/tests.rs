@@ -330,7 +330,12 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
 
     assert_eq!(
         dispatch.get("status").and_then(|value| value.as_str()),
-        Some("accepted")
+        Some("accepted"),
+        "activation blockers: {}",
+        dispatch
+            .get("activationBlockers")
+            .cloned()
+            .unwrap_or_else(|| json!([]))
     );
     assert_eq!(
         dispatch
@@ -1003,6 +1008,33 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
         .and_then(|value| value.as_array())
         .map(|items| !items.is_empty())
         .unwrap_or(false));
+    assert_eq!(
+        dispatch
+            .get("authorityToolingConnectorCatalogLiveReady")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("authorityToolingConnectorCatalogLiveComponentKind")
+            .and_then(|value| value.as_str()),
+        Some("connector_call")
+    );
+    assert!(dispatch
+        .get("authorityToolingConnectorCatalogLiveAttemptIds")
+        .and_then(|value| value.as_array())
+        .map(|items| !items.is_empty())
+        .unwrap_or(false));
+    assert!(dispatch
+        .get("authorityToolingConnectorCatalogLiveReceiptIds")
+        .and_then(|value| value.as_array())
+        .map(|items| !items.is_empty())
+        .unwrap_or(false));
+    assert!(dispatch
+        .get("authorityToolingConnectorCatalogLiveReplayFixtureRefs")
+        .and_then(|value| value.as_array())
+        .map(|items| !items.is_empty())
+        .unwrap_or(false));
     assert!(
         dispatch
             .get("authorityToolingProof")
@@ -1037,6 +1069,20 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
             .and_then(|proof| proof.get("mcpToolCatalogLiveComponentKind"))
             .and_then(|value| value.as_str()),
         Some("mcp_tool_call")
+    );
+    assert!(
+        dispatch
+            .get("authorityToolingProof")
+            .and_then(|proof| proof.get("connectorCatalogLiveReady"))
+            .and_then(|value| value.as_bool())
+            == Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("authorityToolingProof")
+            .and_then(|proof| proof.get("connectorCatalogLiveComponentKind"))
+            .and_then(|value| value.as_str()),
+        Some("connector_call")
     );
     assert!(dispatch
         .get("authorityToolingProof")

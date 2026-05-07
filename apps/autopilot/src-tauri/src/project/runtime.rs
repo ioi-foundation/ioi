@@ -70,7 +70,7 @@ fn workflow_live_mcp_provider_catalog(
                 "capabilityScope": ["read"],
                 "sideEffectClass": "read",
                 "requiresApproval": false,
-                "mockBinding": true
+                "mockBinding": false
             }
         ],
         "input": input
@@ -80,13 +80,45 @@ fn workflow_live_mcp_provider_catalog(
 fn workflow_provider_catalog_from_input(input: &Value) -> Option<&Value> {
     input
         .get("previousAuthorityOutput")
-        .and_then(|output| output.get("providerCatalog"))
+        .and_then(|output| {
+            output
+                .get("providerCatalog")
+                .filter(|value| value.is_object())
+        })
+        .or_else(|| {
+            input.get("previousOutput").and_then(|output| {
+                output
+                    .get("providerCatalog")
+                    .filter(|value| value.is_object())
+            })
+        })
         .or_else(|| {
             input
-                .get("previousOutput")
-                .and_then(|output| output.get("providerCatalog"))
+                .get("providerCatalog")
+                .filter(|value| value.is_object())
         })
-        .or_else(|| input.get("providerCatalog"))
+}
+
+fn workflow_mcp_tool_catalog_from_input(input: &Value) -> Option<&Value> {
+    input
+        .get("previousAuthorityOutput")
+        .and_then(|output| {
+            output
+                .get("mcpToolCatalog")
+                .filter(|value| value.is_object())
+        })
+        .or_else(|| {
+            input.get("previousOutput").and_then(|output| {
+                output
+                    .get("mcpToolCatalog")
+                    .filter(|value| value.is_object())
+            })
+        })
+        .or_else(|| {
+            input
+                .get("mcpToolCatalog")
+                .filter(|value| value.is_object())
+        })
 }
 
 fn workflow_live_mcp_tool_catalog(
@@ -142,6 +174,78 @@ fn workflow_live_mcp_tool_catalog(
             "schemaVersion": provider_catalog.get("schemaVersion").cloned().unwrap_or(Value::Null),
             "providerId": provider_catalog.get("providerId").cloned().unwrap_or(Value::Null),
             "toolRef": "mcp.tool.catalog.read"
+        },
+        "input": input
+    })))
+}
+
+fn workflow_live_connector_catalog_describe(
+    binding: &WorkflowConnectorBinding,
+    input: &Value,
+) -> Result<Option<Value>, String> {
+    let operation = binding.operation.as_deref().unwrap_or("describe");
+    let is_catalog_describe = binding.connector_ref == "agent.connector.catalog"
+        && !binding.mock_binding
+        && binding.side_effect_class == "read"
+        && operation == "describe";
+    if !is_catalog_describe {
+        return Ok(None);
+    }
+
+    let mcp_tool_catalog = workflow_mcp_tool_catalog_from_input(input).ok_or_else(|| {
+        "Connector catalog describe requires live MCP tool catalog input.".to_string()
+    })?;
+    if mcp_tool_catalog
+        .get("toolExecutionEnabled")
+        .and_then(Value::as_bool)
+        != Some(false)
+    {
+        return Err(
+            "Connector catalog describe requires a non-executing MCP tool catalog.".to_string(),
+        );
+    }
+
+    Ok(Some(json!({
+        "schemaVersion": "workflow.connector.catalog-describe.v1",
+        "connectorRef": binding.connector_ref.clone(),
+        "adapterPort": "ConnectorCatalogDescribePort",
+        "executionMode": "live_read_only_connector_describe",
+        "live": true,
+        "mcpToolCatalogLinked": true,
+        "mcpToolCatalogHash": workflow_hash_value(mcp_tool_catalog),
+        "catalogReadOnly": true,
+        "credentialMaterialized": false,
+        "sideEffectsExecuted": false,
+        "mutationExecuted": false,
+        "connectorExecutionEnabled": false,
+        "externalRequestEnabled": false,
+        "operation": operation,
+        "requiresApproval": false,
+        "capabilityScope": binding.capability_scope.clone(),
+        "connectors": [
+            {
+                "connectorRef": "agent.connector.catalog",
+                "operation": "describe",
+                "capabilityScope": ["connector.catalog.read"],
+                "sideEffectClass": "read",
+                "requiresApproval": false,
+                "mockBinding": false,
+                "executionEnabled": false
+            },
+            {
+                "connectorRef": "agent.connector.invoke",
+                "operation": "invoke",
+                "capabilityScope": ["connector.invoke"],
+                "sideEffectClass": "external_write",
+                "requiresApproval": true,
+                "mockBinding": true,
+                "executionEnabled": false
+            }
+        ],
+        "mcpToolCatalog": {
+            "schemaVersion": mcp_tool_catalog.get("schemaVersion").cloned().unwrap_or(Value::Null),
+            "toolRef": mcp_tool_catalog.get("toolRef").cloned().unwrap_or(Value::Null),
+            "providerId": mcp_tool_catalog.get("providerId").cloned().unwrap_or(Value::Null)
         },
         "input": input
     })))
@@ -2140,6 +2244,7 @@ pub(super) fn execute_workflow_node(
                 );
             }
             let provider_catalog = workflow_live_mcp_provider_catalog(&binding, &input);
+            let connector_catalog = workflow_live_connector_catalog_describe(&binding, &input)?;
             json!({
                 "nodeId": node_id,
                 "kind": evidence_kind,
@@ -2149,6 +2254,7 @@ pub(super) fn execute_workflow_node(
                 "sideEffectClass": binding.side_effect_class,
                 "operation": binding.operation,
                 "providerCatalog": provider_catalog,
+                "connectorCatalog": connector_catalog,
                 "input": input
             })
         }
