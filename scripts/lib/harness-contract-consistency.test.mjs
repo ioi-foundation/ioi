@@ -85,6 +85,8 @@ test("TS harness fork activation contract records blocked and canary-validated p
   const validation = read("packages/agent-ide/src/runtime/workflow-validation.ts");
 
   assert.match(graph, /WorkflowHarnessForkActivationRecord/);
+  assert.match(graph, /WorkflowHarnessForkActivationCandidate[\s\S]*dryRunOnly: true/);
+  assert.match(graph, /WorkflowHarnessActivationCandidateGateResult[\s\S]*gateId[\s\S]*evidenceRefs/);
   assert.match(graph, /WorkflowHarnessLiveHandoffProof/);
   assert.match(graph, /WorkflowHarnessRuntimeSelectorDecision/);
   assert.match(graph, /WorkflowHarnessDefaultRuntimeDispatchProof/);
@@ -103,4 +105,6 @@ test("TS harness fork activation contract records blocked and canary-validated p
   assert.match(workflow, /DEFAULT_AGENT_HARNESS_FORK_ROLLBACK_TARGET/);
   assert.match(validation, /activationRecordValidated[\s\S]*canaryStatus === "passed"/);
   assert.match(validation, /workerBinding\?\.harnessActivationId === harness\?\.activationId/);
+  assert.match(validation, /createWorkflowHarnessActivationCandidate[\s\S]*activationIdPreview[\s\S]*decision[\s\S]*mintable[\s\S]*workerBindingPreview/);
+  assert.match(validation, /gateId: "slots"[\s\S]*gateId: "tests"[\s\S]*gateId: "replay-fixtures"[\s\S]*gateId: "policy-posture"[\s\S]*gateId: "receipt-coverage"[\s\S]*gateId: "canary"[\s\S]*gateId: "rollback"[\s\S]*gateId: "worker-binding"[\s\S]*gateId: "activation-id"/);
 });

@@ -1293,6 +1293,7 @@ button.workflow-run-row.is-active {
 }
 
 .workflow-harness-activation-steps,
+.workflow-harness-activation-candidate-gates,
 .workflow-harness-activation-actions {
   display: grid;
   gap: 7px;

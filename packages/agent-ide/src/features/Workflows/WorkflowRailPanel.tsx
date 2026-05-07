@@ -7,6 +7,7 @@ import type {
   WorkflowCheckpoint,
   WorkflowConnectionClass,
   WorkflowDogfoodRun,
+  WorkflowHarnessForkActivationCandidate,
   WorkflowHarnessGroupView,
   WorkflowNodeFixture,
   WorkflowPortablePackage,
@@ -57,6 +58,7 @@ export function WorkflowRailPanel({
   selectedNode,
   selectedHarnessGroup,
   harnessWorkbenchDeepLink,
+  harnessActivationCandidate,
   selectedHarnessReceiptRef,
   selectedHarnessReplayFixtureRef,
   tests,
@@ -85,6 +87,7 @@ export function WorkflowRailPanel({
   onSelectHarnessReplayFixtureRef,
   onCopyHarnessDeepLink,
   onCheckActivationReadiness,
+  onRunHarnessActivationDryRun,
   onConfigureNode,
   onSelectProposal,
   onExportPackage,
@@ -105,6 +108,7 @@ export function WorkflowRailPanel({
   selectedNode: Node | null;
   selectedHarnessGroup?: WorkflowHarnessGroupView | null;
   harnessWorkbenchDeepLink?: string | null;
+  harnessActivationCandidate?: WorkflowHarnessForkActivationCandidate | null;
   selectedHarnessReceiptRef?: string | null;
   selectedHarnessReplayFixtureRef?: string | null;
   tests: WorkflowTestCase[];
@@ -133,6 +137,7 @@ export function WorkflowRailPanel({
   onSelectHarnessReplayFixtureRef?: (replayFixtureRef: string) => void;
   onCopyHarnessDeepLink?: () => void;
   onCheckActivationReadiness?: () => void;
+  onRunHarnessActivationDryRun?: () => void;
   onConfigureNode: () => void;
   onSelectProposal: (proposal: WorkflowProposal) => void;
   onExportPackage: () => void;
@@ -1278,6 +1283,96 @@ export function WorkflowRailPanel({
                     {harnessWorkerBinding?.harnessWorkflowId ?? "unbound"}
                   </small>
                 </article>
+                {harnessActivationCandidate ? (
+                  <section
+                    className="workflow-rail-section"
+                    data-testid="workflow-harness-activation-candidate"
+                    data-candidate-decision={harnessActivationCandidate.decision}
+                  >
+                    <h4>Dry run candidate</h4>
+                    <article
+                      className={`workflow-output-row is-${
+                        harnessActivationCandidate.decision === "mintable"
+                          ? "ready"
+                          : "blocked"
+                      }`}
+                      data-testid="workflow-harness-activation-candidate-decision"
+                    >
+                      <strong>{harnessActivationCandidate.candidateId}</strong>
+                      <span>
+                        {harnessActivationCandidate.decision}
+                        {" · "}
+                        {harnessActivationCandidate.activationIdPreview ??
+                          "activation id blocked"}
+                      </span>
+                      <small>
+                        canary {harnessActivationCandidate.canaryStatus} · rollback{" "}
+                        {harnessActivationCandidate.rollbackAvailable
+                          ? harnessActivationCandidate.rollbackTarget
+                          : "blocked"}
+                      </small>
+                    </article>
+                    <article
+                      className="workflow-output-row"
+                      data-testid="workflow-harness-activation-candidate-worker-binding"
+                    >
+                      <strong>
+                        {harnessActivationCandidate.workerBindingPreview.harnessWorkflowId}
+                      </strong>
+                      <span>
+                        {harnessActivationCandidate.workerBindingPreview.harnessActivationId ??
+                          "activation blocked"}
+                      </span>
+                      <small>
+                        {harnessActivationCandidate.workerBindingPreview.source} ·{" "}
+                        {harnessActivationCandidate.workerBindingPreview.harnessHash}
+                      </small>
+                    </article>
+                    <div
+                      className="workflow-harness-activation-candidate-gates"
+                      data-testid="workflow-harness-activation-candidate-gates"
+                    >
+                      {harnessActivationCandidate.gateResults.map((gate) => (
+                        <article
+                          key={gate.gateId}
+                          className={`workflow-test-row is-${gate.status}`}
+                          data-testid={`workflow-harness-activation-candidate-gate-${gate.gateId}`}
+                        >
+                          <strong>{gate.label}</strong>
+                          <span>{gate.value}</span>
+                          <small>{gate.detail}</small>
+                        </article>
+                      ))}
+                    </div>
+                    {harnessActivationCandidate.activationBlockers.length > 0 ? (
+                      <div
+                        className="workflow-rail-list"
+                        data-testid="workflow-harness-activation-candidate-blockers"
+                      >
+                        {harnessActivationCandidate.activationBlockers
+                          .slice(0, 5)
+                          .map((blocker) => (
+                            <article
+                              key={blocker}
+                              className="workflow-test-row is-blocked"
+                            >
+                              <strong>Blocked</strong>
+                              <span>{blocker}</span>
+                            </article>
+                          ))}
+                      </div>
+                    ) : null}
+                  </section>
+                ) : (
+                  <article
+                    className="workflow-output-row"
+                    data-testid="workflow-harness-activation-candidate-empty"
+                  >
+                    <strong>No activation candidate</strong>
+                    <span>Run a dry run to preview mintability without changing activation state.</span>
+                    <small>Dry-run candidates keep invalid forks blocked.</small>
+                  </article>
+                )}
                 <div
                   className="workflow-harness-activation-steps"
                   data-testid="workflow-harness-activation-steps"
@@ -1318,6 +1413,13 @@ export function WorkflowRailPanel({
                   className="workflow-harness-activation-actions"
                   data-testid="workflow-harness-activation-actions"
                 >
+                  <button
+                    type="button"
+                    data-testid="workflow-harness-activation-dry-run"
+                    onClick={onRunHarnessActivationDryRun}
+                  >
+                    Dry run
+                  </button>
                   <button
                     type="button"
                     data-testid="workflow-harness-activation-run-readiness"

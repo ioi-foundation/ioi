@@ -88,6 +88,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     handleResolveWorkflowIssue,
     handleResumeRun,
     handleRun,
+    handleRunHarnessActivationDryRun,
     handleRunTests,
     handleRunWorkflowNode,
     handleRunWorkflowUpstream,
@@ -99,6 +100,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     handleUpdateProductionProfile,
     handleValidate,
     handleWorkflowNodeSelect,
+    harnessActivationCandidate,
     harnessGroupSummary,
     harnessWorkbenchDeepLinkUrl,
     harnessWorkerBinding,
@@ -1208,6 +1210,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                     selectedNode={selectedNode}
                     selectedHarnessGroup={selectedHarnessGroup}
                     harnessWorkbenchDeepLink={harnessWorkbenchDeepLinkUrl}
+                    harnessActivationCandidate={harnessActivationCandidate}
                     selectedHarnessReceiptRef={selectedHarnessReceiptRef}
                     selectedHarnessReplayFixtureRef={selectedHarnessReplayFixtureRef}
                     tests={tests}
@@ -1237,6 +1240,9 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                     onCopyHarnessDeepLink={handleCopyHarnessDeepLink}
                     onCheckActivationReadiness={() => {
                       void handleCheckReadiness();
+                    }}
+                    onRunHarnessActivationDryRun={() => {
+                      void handleRunHarnessActivationDryRun();
                     }}
                     onConfigureNode={() => {
                       if (selectedNode) {
