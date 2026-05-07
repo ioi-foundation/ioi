@@ -722,6 +722,11 @@ pub struct HarnessDefaultRuntimeDispatchProof {
     pub output_writer_staged_write_canary_attempt_ids: Vec<String>,
     pub output_writer_visible_write_attempt_ids: Vec<String>,
     pub authority_tooling_live_dry_run_attempt_ids: Vec<String>,
+    pub authority_tooling_read_only_live_attempt_ids: Vec<String>,
+    pub authority_tooling_read_only_receipt_ids: Vec<String>,
+    pub authority_tooling_read_only_replay_fixture_refs: Vec<String>,
+    pub authority_tooling_read_only_component_kinds: Vec<HarnessComponentKind>,
+    pub authority_tooling_mutation_deferred_component_kinds: Vec<HarnessComponentKind>,
     pub authority_tooling_denial_receipt_ids: Vec<String>,
     pub accepted_node_attempt_ids: Vec<String>,
     pub node_attempt_ids: Vec<String>,
@@ -2034,6 +2039,50 @@ pub fn default_harness_default_runtime_dispatch_proof() -> HarnessDefaultRuntime
             "harness-default-dispatch:attempt-authority_tooling_dry_run_simulator".to_string(),
             "harness-default-dispatch:attempt-authority_tooling_destructive_denial".to_string(),
             "harness-default-dispatch:attempt-authority_tooling_approval_gate".to_string(),
+        ],
+        authority_tooling_read_only_live_attempt_ids: vec![
+            "harness-default-dispatch:attempt-authority_tooling_mcp_provider_read_only".to_string(),
+            "harness-default-dispatch:attempt-authority_tooling_mcp_tool_call_read_only"
+                .to_string(),
+            "harness-default-dispatch:attempt-authority_tooling_tool_call_read_only".to_string(),
+            "harness-default-dispatch:attempt-authority_tooling_connector_call_read_only"
+                .to_string(),
+            "harness-default-dispatch:attempt-authority_tooling_wallet_capability_read_only"
+                .to_string(),
+        ],
+        authority_tooling_read_only_receipt_ids: vec![
+            "harness-default-dispatch:receipt-authority_tooling_mcp_provider_read_only".to_string(),
+            "harness-default-dispatch:receipt-authority_tooling_mcp_tool_call_read_only"
+                .to_string(),
+            "harness-default-dispatch:receipt-authority_tooling_tool_call_read_only".to_string(),
+            "harness-default-dispatch:receipt-authority_tooling_connector_call_read_only"
+                .to_string(),
+            "harness-default-dispatch:receipt-authority_tooling_wallet_capability_read_only"
+                .to_string(),
+        ],
+        authority_tooling_read_only_replay_fixture_refs: vec![
+            "harness-default-dispatch:fixture-authority_tooling_mcp_provider_read_only".to_string(),
+            "harness-default-dispatch:fixture-authority_tooling_mcp_tool_call_read_only"
+                .to_string(),
+            "harness-default-dispatch:fixture-authority_tooling_tool_call_read_only".to_string(),
+            "harness-default-dispatch:fixture-authority_tooling_connector_call_read_only"
+                .to_string(),
+            "harness-default-dispatch:fixture-authority_tooling_wallet_capability_read_only"
+                .to_string(),
+        ],
+        authority_tooling_read_only_component_kinds: vec![
+            HarnessComponentKind::McpProvider,
+            HarnessComponentKind::McpToolCall,
+            HarnessComponentKind::ToolCall,
+            HarnessComponentKind::ConnectorCall,
+            HarnessComponentKind::WalletCapability,
+        ],
+        authority_tooling_mutation_deferred_component_kinds: vec![
+            HarnessComponentKind::McpProvider,
+            HarnessComponentKind::McpToolCall,
+            HarnessComponentKind::ToolCall,
+            HarnessComponentKind::ConnectorCall,
+            HarnessComponentKind::WalletCapability,
         ],
         authority_tooling_denial_receipt_ids: vec![
             "harness-default-dispatch:receipt-authority_tooling_destructive_denial".to_string(),

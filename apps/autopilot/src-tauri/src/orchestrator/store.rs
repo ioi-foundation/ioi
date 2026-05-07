@@ -3218,6 +3218,16 @@ fn runtime_harness_default_runtime_dispatch(
         .iter()
         .map(|component_kind| component_kind.as_str())
         .collect::<Vec<_>>();
+    let authority_tooling_read_only_component_kinds = default_dispatch_contract
+        .authority_tooling_read_only_component_kinds
+        .iter()
+        .map(|component_kind| component_kind.as_str())
+        .collect::<Vec<_>>();
+    let authority_tooling_mutation_deferred_component_kinds = default_dispatch_contract
+        .authority_tooling_mutation_deferred_component_kinds
+        .iter()
+        .map(|component_kind| component_kind.as_str())
+        .collect::<Vec<_>>();
     let required_clusters = default_dispatch_contract
         .accepted_cluster_ids
         .iter()
@@ -4021,6 +4031,10 @@ fn runtime_harness_default_runtime_dispatch(
     let mut read_only_capability_routing_receipt_ids = Vec::<String>::new();
     let mut read_only_capability_routing_replay_fixture_refs = Vec::<String>::new();
     let mut authority_tooling_live_dry_run_attempt_ids = Vec::<String>::new();
+    let mut authority_tooling_read_only_live_attempt_ids = Vec::<String>::new();
+    let mut authority_tooling_read_only_receipt_ids = Vec::<String>::new();
+    let mut authority_tooling_read_only_replay_fixture_refs = Vec::<String>::new();
+    let mut authority_tooling_read_only_live_success_count = 0usize;
     let mut authority_tooling_denial_receipt_ids = Vec::<String>::new();
     if can_dispatch {
         for (index, cluster_id) in accepted_cluster_ids.iter().enumerate() {
@@ -5538,6 +5552,296 @@ fn runtime_harness_default_runtime_dispatch(
             }
         }
 
+        let authority_tooling_read_only_specs = vec![
+            (
+                "mcp_provider",
+                "adapter",
+                "Authority MCP provider read-only catalog",
+                "authority_tooling_mcp_provider_read_only",
+                "accept_mcp_provider_catalog_read_only_authority",
+                false,
+                json!({
+                    "connectorBinding": {
+                        "connectorRef": "mcp.capability-provider",
+                        "mockBinding": true,
+                        "credentialReady": true,
+                        "capabilityScope": ["read"],
+                        "sideEffectClass": "read",
+                        "requiresApproval": false,
+                        "operation": "catalog"
+                    },
+                    "readOnlyAuthority": true,
+                    "sideEffectsExecuted": false,
+                    "mutationExecuted": false,
+                    "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+                }),
+            ),
+            (
+                "mcp_tool_call",
+                "plugin_tool",
+                "Authority MCP tool read-only catalog",
+                "authority_tooling_mcp_tool_call_read_only",
+                "accept_mcp_tool_read_only_dry_run_without_mutation",
+                false,
+                json!({
+                    "toolBinding": {
+                        "bindingKind": "mcp_tool",
+                        "toolRef": "mcp.tool.catalog.read",
+                        "mockBinding": true,
+                        "credentialReady": true,
+                        "capabilityScope": ["read"],
+                        "sideEffectClass": "read",
+                        "requiresApproval": false,
+                        "arguments": {
+                            "mode": "catalog_preview",
+                            "mutation": false
+                        }
+                    },
+                    "readOnlyAuthority": true,
+                    "sideEffectsExecuted": false,
+                    "mutationExecuted": false,
+                    "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+                }),
+            ),
+            (
+                "tool_call",
+                "plugin_tool",
+                "Authority native tool read-only noop",
+                "authority_tooling_tool_call_read_only",
+                "accept_native_tool_read_only_dry_run_without_mutation",
+                false,
+                json!({
+                    "toolBinding": {
+                        "bindingKind": "native_tool",
+                        "toolRef": "agent.runtime.noop.read",
+                        "mockBinding": true,
+                        "credentialReady": true,
+                        "capabilityScope": ["read"],
+                        "sideEffectClass": "read",
+                        "requiresApproval": false,
+                        "arguments": {
+                            "mode": "read_only_noop",
+                            "mutation": false
+                        }
+                    },
+                    "readOnlyAuthority": true,
+                    "sideEffectsExecuted": false,
+                    "mutationExecuted": false,
+                    "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+                }),
+            ),
+            (
+                "connector_call",
+                "adapter",
+                "Authority connector read-only describe",
+                "authority_tooling_connector_call_read_only",
+                "accept_connector_read_only_describe_without_mutation",
+                false,
+                json!({
+                    "connectorBinding": {
+                        "connectorRef": "agent.connector.catalog",
+                        "mockBinding": true,
+                        "credentialReady": true,
+                        "capabilityScope": ["read"],
+                        "sideEffectClass": "read",
+                        "requiresApproval": false,
+                        "operation": "describe"
+                    },
+                    "readOnlyAuthority": true,
+                    "sideEffectsExecuted": false,
+                    "mutationExecuted": false,
+                    "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+                }),
+            ),
+            (
+                "wallet_capability",
+                "human_gate",
+                "Authority wallet capability read-only denial",
+                "authority_tooling_wallet_capability_read_only",
+                "retain_wallet_capability_without_grant",
+                true,
+                json!({
+                    "text": "Wallet and spending authority remain unavailable during read-only default harness dispatch.",
+                    "approvalMode": "read_only_capability_denial",
+                    "readOnlyAuthority": true,
+                    "requiresApproval": true,
+                    "syntheticApprovalGranted": false,
+                    "capabilityGranted": false,
+                    "sideEffectsExecuted": false,
+                    "mutationExecuted": false,
+                    "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+                }),
+            ),
+        ];
+        for (
+            component_kind,
+            node_type,
+            node_name,
+            attempt_slug,
+            policy_decision,
+            require_human_gate,
+            logic,
+        ) in authority_tooling_read_only_specs
+        {
+            let attempt_index = (dispatch_node_attempts.len() + 1) as u32;
+            let attempt_id = format!(
+                "harness-default-dispatch:{sid}:{turn_id}:{attempt_slug}:attempt-{attempt_index}"
+            );
+            let workflow_node_id = format!("harness.default_dispatch.{attempt_slug}");
+            let receipt_id = format!("{sid}:{workflow_node_id}:{policy_decision}");
+            let replay_fixture_ref =
+                format!("runtime-evidence:{sid}:default-dispatch-fixture:{attempt_slug}");
+            let input = json!({
+                "sessionId": sid,
+                "turnId": turn_id,
+                "selectorDecisionId": selector_decision_id,
+                "sourceBoundaryIds": source_boundary_ids,
+                "componentKind": component_kind,
+                "previousAuthorityOutput": previous_authority_output,
+                "mode": "workflow_read_only_authority_canary",
+                "readOnlyAuthority": true,
+                "readOnlyComponentKinds": authority_tooling_read_only_component_kinds.clone(),
+                "mutationDeferredComponentKinds": authority_tooling_mutation_deferred_component_kinds.clone(),
+                "readOnlyRouteAccepted": authority_tooling_read_only_route_accepted,
+                "destructiveRouteDenied": authority_tooling_destructive_route_denied,
+                "mutatingToolCallsBlocked": authority_tooling_mutating_tool_calls_blocked,
+                "sideEffectsExecuted": false,
+                "mutationExecuted": false,
+                "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+            });
+            let input_hash = runtime_harness_canary_node_output_hash(&input);
+            let node = json!({
+                "id": workflow_node_id,
+                "type": node_type,
+                "name": node_name,
+                "config": {
+                    "logic": logic,
+                    "law": {
+                        "requireHumanGate": require_human_gate,
+                        "sandboxPolicy": {
+                            "permissions": []
+                        }
+                    }
+                }
+            });
+            let started_at_ms = crate::kernel::state::now();
+            let execution =
+                crate::project::execute_workflow_harness_live_default_node(&node, input.clone(), 1);
+            let finished_at_ms = crate::kernel::state::now();
+            dispatch_node_attempt_ids.push(attempt_id.clone());
+            authority_tooling_live_dry_run_attempt_ids.push(attempt_id.clone());
+            authority_tooling_read_only_live_attempt_ids.push(attempt_id.clone());
+            receipt_ids.push(receipt_id.clone());
+            authority_tooling_read_only_receipt_ids.push(receipt_id.clone());
+            replay_fixture_refs.push(replay_fixture_ref.clone());
+            authority_tooling_read_only_replay_fixture_refs.push(replay_fixture_ref.clone());
+            match execution {
+                Ok(output) => {
+                    authority_tooling_read_only_live_success_count += 1;
+                    let output_hash = runtime_harness_canary_node_output_hash(&output);
+                    previous_authority_output = output.clone();
+                    dispatch_node_attempts.push(json!({
+                        "attemptId": attempt_id,
+                        "harnessWorkflowId": DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+                        "harnessActivationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+                        "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
+                        "workflowNodeId": workflow_node_id,
+                        "workflowNodeType": node_type,
+                        "componentId": format!("ioi.agent-harness.default_runtime_dispatch.{attempt_slug}.v1"),
+                        "componentKind": component_kind,
+                        "executionMode": "live",
+                        "readiness": "live_ready",
+                        "attemptIndex": attempt_index,
+                        "status": "live",
+                        "executor": "workflow_node_executor",
+                        "executorRef": "crate::project::execute_workflow_harness_live_default_node",
+                        "inputHash": input_hash,
+                        "outputHash": output_hash,
+                        "errorClass": null,
+                        "policyDecision": policy_decision,
+                        "startedAtMs": started_at_ms,
+                        "durationMs": finished_at_ms.saturating_sub(started_at_ms),
+                        "receiptIds": [receipt_id],
+                        "evidenceRefs": [
+                            format!("runtime-evidence:{sid}"),
+                            selector_decision_id.clone(),
+                            format!("harness-read-only-authority:{sid}:{}", task.progress),
+                            format!("harness-live-handoff:{sid}:{}", task.progress)
+                        ],
+                        "replay": {
+                            "deterministicEnvelope": true,
+                            "capturesInput": true,
+                            "capturesOutput": true,
+                            "capturesPolicyDecision": true,
+                            "fixtureRef": replay_fixture_ref,
+                            "determinism": "deterministic",
+                            "nondeterminismReason": null,
+                            "redactionPolicy": "autopilot-runtime-evidence-v1"
+                        },
+                        "authority": {
+                            "readOnlyAuthority": true,
+                            "sideEffectsExecuted": false,
+                            "mutationExecuted": false,
+                            "mutationAuthorityDeferred": true,
+                            "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+                        },
+                        "executorResult": output
+                    }));
+                }
+                Err(error) => {
+                    activation_blockers.push(format!(
+                        "authority_tooling_read_only_authority_executor_error:{attempt_slug}"
+                    ));
+                    dispatch_node_attempts.push(json!({
+                        "attemptId": attempt_id,
+                        "harnessWorkflowId": DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+                        "harnessActivationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+                        "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
+                        "workflowNodeId": workflow_node_id,
+                        "workflowNodeType": node_type,
+                        "componentId": format!("ioi.agent-harness.default_runtime_dispatch.{attempt_slug}.v1"),
+                        "componentKind": component_kind,
+                        "executionMode": "live",
+                        "readiness": "live_ready",
+                        "attemptIndex": attempt_index,
+                        "status": "rolled_back",
+                        "executor": "workflow_node_executor",
+                        "executorRef": "crate::project::execute_workflow_harness_live_default_node",
+                        "inputHash": input_hash,
+                        "outputHash": null,
+                        "errorClass": "workflow_executor_error",
+                        "error": error,
+                        "policyDecision": "rollback_to_legacy_runtime",
+                        "startedAtMs": started_at_ms,
+                        "durationMs": finished_at_ms.saturating_sub(started_at_ms),
+                        "receiptIds": [receipt_id],
+                        "evidenceRefs": [
+                            format!("runtime-evidence:{sid}"),
+                            selector_decision_id.clone(),
+                            format!("rollback-target:{DEFAULT_AGENT_HARNESS_ACTIVATION_ID}")
+                        ],
+                        "replay": {
+                            "deterministicEnvelope": true,
+                            "capturesInput": true,
+                            "capturesOutput": true,
+                            "capturesPolicyDecision": true,
+                            "fixtureRef": replay_fixture_ref,
+                            "determinism": "deterministic",
+                            "nondeterminismReason": null,
+                            "redactionPolicy": "autopilot-runtime-evidence-v1"
+                        },
+                        "authority": {
+                            "readOnlyAuthority": false,
+                            "sideEffectsExecuted": false,
+                            "mutationExecuted": false,
+                            "mutationAuthorityDeferred": true,
+                            "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+                        }
+                    }));
+                }
+            }
+        }
+
         let attempt_index = (dispatch_node_attempts.len() + 1) as u32;
         let attempt_id =
             format!("harness-default-dispatch:{sid}:{turn_id}:output_writer_handoff:attempt-{attempt_index}");
@@ -6239,8 +6543,17 @@ fn runtime_harness_default_runtime_dispatch(
     read_only_capability_routing_replay_fixture_refs.dedup();
     authority_tooling_live_dry_run_attempt_ids.sort();
     authority_tooling_live_dry_run_attempt_ids.dedup();
+    authority_tooling_read_only_live_attempt_ids.sort();
+    authority_tooling_read_only_live_attempt_ids.dedup();
+    authority_tooling_read_only_receipt_ids.sort();
+    authority_tooling_read_only_receipt_ids.dedup();
+    authority_tooling_read_only_replay_fixture_refs.sort();
+    authority_tooling_read_only_replay_fixture_refs.dedup();
     authority_tooling_denial_receipt_ids.sort();
     authority_tooling_denial_receipt_ids.dedup();
+    let authority_tooling_read_only_authority_canary_ready =
+        authority_tooling_read_only_live_success_count
+            >= authority_tooling_read_only_component_kinds.len();
     let mut node_attempt_ids = accepted_node_attempt_ids.clone();
     node_attempt_ids.extend(dispatch_node_attempt_ids.clone());
     node_attempt_ids.sort();
@@ -6295,6 +6608,11 @@ fn runtime_harness_default_runtime_dispatch(
         "outputWriterStagedWriteCanaryAttemptIds": output_writer_staged_write_canary_attempt_ids,
         "outputWriterVisibleWriteAttemptIds": output_writer_visible_write_attempt_ids,
         "authorityToolingLiveDryRunAttemptIds": authority_tooling_live_dry_run_attempt_ids.clone(),
+        "authorityToolingReadOnlyLiveAttemptIds": authority_tooling_read_only_live_attempt_ids.clone(),
+        "authorityToolingReadOnlyReceiptIds": authority_tooling_read_only_receipt_ids.clone(),
+        "authorityToolingReadOnlyReplayFixtureRefs": authority_tooling_read_only_replay_fixture_refs.clone(),
+        "authorityToolingReadOnlyComponentKinds": authority_tooling_read_only_component_kinds.clone(),
+        "authorityToolingMutationDeferredComponentKinds": authority_tooling_mutation_deferred_component_kinds.clone(),
         "authorityToolingDenialReceiptIds": authority_tooling_denial_receipt_ids.clone(),
         "acceptedNodeAttemptIds": accepted_node_attempt_ids,
         "nodeAttemptIds": node_attempt_ids,
@@ -6336,6 +6654,11 @@ fn runtime_harness_default_runtime_dispatch(
             "authority_tooling_dry_run_simulator",
             "authority_tooling_destructive_denial",
             "authority_tooling_approval_gate",
+            "authority_tooling_mcp_provider_read_only",
+            "authority_tooling_mcp_tool_call_read_only",
+            "authority_tooling_tool_call_read_only",
+            "authority_tooling_connector_call_read_only",
+            "authority_tooling_wallet_capability_read_only",
             "visible_output_hash_handoff",
             "guarded_transcript_materialization_canary",
             "isolated_transcript_staging_write_canary",
@@ -6418,6 +6741,11 @@ fn runtime_harness_default_runtime_dispatch(
             "authorityToolingToolRouterReady": authority_tooling_tool_router_ready,
             "authorityToolingDryRunSimulatorReady": authority_tooling_dry_run_simulator_ready,
             "authorityToolingApprovalGateReady": authority_tooling_approval_gate_ready,
+            "authorityToolingReadOnlyAuthorityCanaryReady": authority_tooling_read_only_authority_canary_ready,
+            "authorityToolingReadOnlyLiveAttemptCount": authority_tooling_read_only_live_attempt_ids.len(),
+            "authorityToolingReadOnlyLiveSuccessCount": authority_tooling_read_only_live_success_count,
+            "authorityToolingReadOnlyComponentKinds": authority_tooling_read_only_component_kinds.clone(),
+            "authorityToolingMutationDeferredComponentKinds": authority_tooling_mutation_deferred_component_kinds.clone(),
             "authorityToolingReadOnlyRouteAccepted": authority_tooling_read_only_route_accepted,
             "authorityToolingDestructiveRouteDenied": authority_tooling_destructive_route_denied,
             "authorityToolingMutatingToolCallsBlocked": authority_tooling_mutating_tool_calls_blocked,
@@ -6678,6 +7006,7 @@ fn runtime_harness_default_runtime_dispatch(
         "authorityToolingToolRouterReady": authority_tooling_tool_router_ready,
         "authorityToolingDryRunSimulatorReady": authority_tooling_dry_run_simulator_ready,
         "authorityToolingApprovalGateReady": authority_tooling_approval_gate_ready,
+        "authorityToolingReadOnlyAuthorityCanaryReady": authority_tooling_read_only_authority_canary_ready,
         "authorityToolingReadOnlyRouteAccepted": authority_tooling_read_only_route_accepted,
         "authorityToolingDestructiveRouteDenied": authority_tooling_destructive_route_denied,
         "authorityToolingMutatingToolCallsBlocked": authority_tooling_mutating_tool_calls_blocked,
@@ -6696,8 +7025,15 @@ fn runtime_harness_default_runtime_dispatch(
             "approvalGateReady": authority_tooling_approval_gate_ready,
             "rollbackAvailable": authority_tooling_rollback_available,
             "attemptIds": authority_tooling_live_dry_run_attempt_ids,
+            "readOnlyAuthorityCanaryReady": authority_tooling_read_only_authority_canary_ready,
+            "readOnlyLiveSuccessCount": authority_tooling_read_only_live_success_count,
+            "readOnlyComponentKinds": authority_tooling_read_only_component_kinds.clone(),
+            "readOnlyAttemptIds": authority_tooling_read_only_live_attempt_ids,
+            "readOnlyReceiptIds": authority_tooling_read_only_receipt_ids,
+            "readOnlyReplayFixtureRefs": authority_tooling_read_only_replay_fixture_refs,
             "denialReceiptIds": authority_tooling_denial_receipt_ids,
-            "deferredMutationComponentKinds": &deferred_components,
+            "deferredMutationComponentKinds": &authority_tooling_mutation_deferred_component_kinds,
+            "mutationDeferredComponentKinds": &authority_tooling_mutation_deferred_component_kinds,
             "policyDecision": "allow_read_only_route_and_deny_destructive_tooling_without_side_effect"
         },
         "legacyTranscriptAuthorityRetained": false,
@@ -8947,6 +9283,32 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     })
                     .unwrap_or(false)
                 && dispatch
+                    .get("authorityToolingReadOnlyComponentKinds")
+                    .and_then(Value::as_array)
+                    .map(|items| {
+                        let component_kinds =
+                            items.iter().filter_map(Value::as_str).collect::<Vec<_>>();
+                        component_kinds.contains(&"mcp_provider")
+                            && component_kinds.contains(&"mcp_tool_call")
+                            && component_kinds.contains(&"tool_call")
+                            && component_kinds.contains(&"connector_call")
+                            && component_kinds.contains(&"wallet_capability")
+                    })
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingMutationDeferredComponentKinds")
+                    .and_then(Value::as_array)
+                    .map(|items| {
+                        let component_kinds =
+                            items.iter().filter_map(Value::as_str).collect::<Vec<_>>();
+                        component_kinds.contains(&"mcp_provider")
+                            && component_kinds.contains(&"mcp_tool_call")
+                            && component_kinds.contains(&"tool_call")
+                            && component_kinds.contains(&"connector_call")
+                            && component_kinds.contains(&"wallet_capability")
+                    })
+                    .unwrap_or(false)
+                && dispatch
                     .get("handoffValidatedComponentKinds")
                     .and_then(Value::as_array)
                     .map(|items| {
@@ -9034,7 +9396,38 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                 && dispatch
                     .get("authorityToolingLiveDryRunAttemptIds")
                     .and_then(Value::as_array)
+                    .map(|items| items.len() >= 10)
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingReadOnlyLiveAttemptIds")
+                    .and_then(Value::as_array)
                     .map(|items| items.len() >= 5)
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingReadOnlyReceiptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| items.len() >= 5)
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingReadOnlyReplayFixtureRefs")
+                    .and_then(Value::as_array)
+                    .map(|items| items.len() >= 5)
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingProof")
+                    .and_then(|proof| proof.get("readOnlyAuthorityCanaryReady"))
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("authorityToolingProof")
+                    .and_then(|proof| proof.get("mutationDeferredComponentKinds"))
+                    .and_then(Value::as_array)
+                    .map(|items| {
+                        items
+                            .iter()
+                            .filter_map(Value::as_str)
+                            .any(|value| value == "wallet_capability")
+                    })
                     .unwrap_or(false)
                 && dispatch
                     .get("authorityToolingDenialReceiptIds")
@@ -9072,6 +9465,58 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     .map(|items| items.is_empty())
                     .unwrap_or(false)
                 && dispatch.get("rollbackAvailable").and_then(Value::as_bool) == Some(true)
+        })
+        .unwrap_or(false);
+    let harness_authority_tooling_read_only_canary = harness_default_runtime_dispatch
+        .as_ref()
+        .map(|dispatch| {
+            dispatch
+                .get("authorityToolingReadOnlyAuthorityCanaryReady")
+                .and_then(Value::as_bool)
+                == Some(true)
+                && dispatch
+                    .get("authorityToolingReadOnlyLiveAttemptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| items.len() >= 5)
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingReadOnlyReceiptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| items.len() >= 5)
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingReadOnlyReplayFixtureRefs")
+                    .and_then(Value::as_array)
+                    .map(|items| items.len() >= 5)
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingReadOnlyComponentKinds")
+                    .and_then(Value::as_array)
+                    .map(|items| {
+                        let component_kinds =
+                            items.iter().filter_map(Value::as_str).collect::<Vec<_>>();
+                        component_kinds.contains(&"mcp_provider")
+                            && component_kinds.contains(&"mcp_tool_call")
+                            && component_kinds.contains(&"tool_call")
+                            && component_kinds.contains(&"connector_call")
+                            && component_kinds.contains(&"wallet_capability")
+                    })
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingMutationDeferredComponentKinds")
+                    .and_then(Value::as_array)
+                    .map(|items| {
+                        items
+                            .iter()
+                            .filter_map(Value::as_str)
+                            .any(|value| value == "wallet_capability")
+                    })
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingProof")
+                    .and_then(|proof| proof.get("readOnlyAuthorityCanaryReady"))
+                    .and_then(Value::as_bool)
+                    == Some(true)
         })
         .unwrap_or(false);
     let harness_model_provider_gated_visible_output = projection
@@ -9455,6 +9900,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
             "harness_live_handoff_rollback": harness_live_handoff_rollback,
             "harness_default_runtime_dispatch": harness_default_runtime_dispatch,
             "harness_default_runtime_dispatch_readonly": harness_default_runtime_dispatch_readonly,
+            "harness_authority_tooling_read_only_canary": harness_authority_tooling_read_only_canary,
             "harness_model_provider_gated_visible_output": harness_model_provider_gated_visible_output,
             "harness_model_provider_gated_visible_output_scenario": harness_model_provider_gated_visible_output_scenario,
             "harness_model_provider_gated_visible_output_cohort": harness_model_provider_gated_visible_output_cohort,
@@ -9528,6 +9974,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
             "harness_live_handoff_default_promoted": harness_live_handoff_default_promoted,
             "harness_live_handoff_rollback": harness_live_handoff_rollback,
             "harness_default_runtime_dispatch_readonly": harness_default_runtime_dispatch_readonly,
+            "harness_authority_tooling_read_only_canary": harness_authority_tooling_read_only_canary,
             "harness_model_provider_gated_visible_output": harness_model_provider_gated_visible_output,
             "harness_model_provider_gated_visible_output_scenario": harness_model_provider_gated_visible_output_scenario,
             "harness_model_provider_gated_visible_output_cohort": harness_model_provider_gated_visible_output_cohort,
@@ -9601,7 +10048,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
     };
     append_event(memory_runtime, &event);
     eprintln!(
-        "[chat-proof-trace] session={} artifact={} scorecard=1 stop_reason=1 quality_ledger=1 harness_shadow_attempts={} harness_shadow_comparisons={} harness_gated_cognition={} harness_gated_routing_model={} harness_gated_verification_output={} harness_gated_authority_tooling={} harness_fork_activation_blocked={} harness_fork_activation_minted={} harness_canary_boundary_executed={} harness_canary_boundary_rollback_drill={} harness_selector_canary_routed={} harness_selector_legacy_default={} harness_selector_default_promoted={} harness_live_handoff_canary={} harness_live_handoff_default_promoted={} harness_live_handoff_rollback={} harness_default_runtime_dispatch_readonly={}",
+        "[chat-proof-trace] session={} artifact={} scorecard=1 stop_reason=1 quality_ledger=1 harness_shadow_attempts={} harness_shadow_comparisons={} harness_gated_cognition={} harness_gated_routing_model={} harness_gated_verification_output={} harness_gated_authority_tooling={} harness_fork_activation_blocked={} harness_fork_activation_minted={} harness_canary_boundary_executed={} harness_canary_boundary_rollback_drill={} harness_selector_canary_routed={} harness_selector_legacy_default={} harness_selector_default_promoted={} harness_live_handoff_canary={} harness_live_handoff_default_promoted={} harness_live_handoff_rollback={} harness_default_runtime_dispatch_readonly={} harness_authority_tooling_read_only_canary={}",
         sid,
         artifact_id,
         harness_node_attempt_count,
@@ -9620,7 +10067,8 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
         harness_live_handoff_canary,
         harness_live_handoff_default_promoted,
         harness_live_handoff_rollback,
-        harness_default_runtime_dispatch_readonly
+        harness_default_runtime_dispatch_readonly,
+        harness_authority_tooling_read_only_canary
     );
 }
 

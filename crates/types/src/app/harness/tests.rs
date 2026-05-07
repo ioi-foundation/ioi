@@ -872,6 +872,23 @@ fn default_runtime_dispatch_proof_accepts_readonly_default_with_provider_visible
     assert!(!dispatch
         .authority_tooling_live_dry_run_attempt_ids
         .is_empty());
+    assert!(dispatch.authority_tooling_read_only_live_attempt_ids.len() >= 5);
+    assert!(dispatch.authority_tooling_read_only_receipt_ids.len() >= 5);
+    assert!(
+        dispatch
+            .authority_tooling_read_only_replay_fixture_refs
+            .len()
+            >= 5
+    );
+    assert!(dispatch
+        .authority_tooling_read_only_component_kinds
+        .contains(&HarnessComponentKind::McpToolCall));
+    assert!(dispatch
+        .authority_tooling_read_only_component_kinds
+        .contains(&HarnessComponentKind::ConnectorCall));
+    assert!(dispatch
+        .authority_tooling_mutation_deferred_component_kinds
+        .contains(&HarnessComponentKind::WalletCapability));
     assert!(!dispatch.authority_tooling_denial_receipt_ids.is_empty());
     assert!(dispatch.cognition_execution_attempt_ids.len() >= 3);
     assert!(dispatch.cognition_execution_receipt_ids.len() >= 3);

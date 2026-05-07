@@ -313,6 +313,20 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     "connector_call",
     "wallet_capability",
   ];
+  const authorityToolingReadOnlyComponentKinds: WorkflowHarnessComponentKind[] = [
+    "mcp_provider",
+    "mcp_tool_call",
+    "tool_call",
+    "connector_call",
+    "wallet_capability",
+  ];
+  const authorityToolingMutationDeferredComponentKinds: WorkflowHarnessComponentKind[] = [
+    "mcp_provider",
+    "mcp_tool_call",
+    "tool_call",
+    "connector_call",
+    "wallet_capability",
+  ];
   const proposedVisibleOutputHash = "sha256:visible-output";
   const actualVisibleOutputHash = "sha256:visible-output";
   const promptAssemblyPromptHash = "sha256:prompt-final";
@@ -466,6 +480,11 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
         "harness-default-dispatch:attempt-authority_tooling_dry_run_simulator",
         "harness-default-dispatch:attempt-authority_tooling_destructive_denial",
         "harness-default-dispatch:attempt-authority_tooling_approval_gate",
+        "harness-default-dispatch:attempt-authority_tooling_mcp_provider_read_only",
+        "harness-default-dispatch:attempt-authority_tooling_mcp_tool_call_read_only",
+        "harness-default-dispatch:attempt-authority_tooling_tool_call_read_only",
+        "harness-default-dispatch:attempt-authority_tooling_connector_call_read_only",
+        "harness-default-dispatch:attempt-authority_tooling_wallet_capability_read_only",
       ],
     cognitionExecutionAttemptIds: [
       "harness-default-dispatch:attempt-planner_envelope",
@@ -567,7 +586,35 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
       "harness-default-dispatch:attempt-authority_tooling_dry_run_simulator",
       "harness-default-dispatch:attempt-authority_tooling_destructive_denial",
       "harness-default-dispatch:attempt-authority_tooling_approval_gate",
+      "harness-default-dispatch:attempt-authority_tooling_mcp_provider_read_only",
+      "harness-default-dispatch:attempt-authority_tooling_mcp_tool_call_read_only",
+      "harness-default-dispatch:attempt-authority_tooling_tool_call_read_only",
+      "harness-default-dispatch:attempt-authority_tooling_connector_call_read_only",
+      "harness-default-dispatch:attempt-authority_tooling_wallet_capability_read_only",
     ],
+    authorityToolingReadOnlyLiveAttemptIds: [
+      "harness-default-dispatch:attempt-authority_tooling_mcp_provider_read_only",
+      "harness-default-dispatch:attempt-authority_tooling_mcp_tool_call_read_only",
+      "harness-default-dispatch:attempt-authority_tooling_tool_call_read_only",
+      "harness-default-dispatch:attempt-authority_tooling_connector_call_read_only",
+      "harness-default-dispatch:attempt-authority_tooling_wallet_capability_read_only",
+    ],
+    authorityToolingReadOnlyReceiptIds: [
+      "harness-default-dispatch:receipt-authority_tooling_mcp_provider_read_only",
+      "harness-default-dispatch:receipt-authority_tooling_mcp_tool_call_read_only",
+      "harness-default-dispatch:receipt-authority_tooling_tool_call_read_only",
+      "harness-default-dispatch:receipt-authority_tooling_connector_call_read_only",
+      "harness-default-dispatch:receipt-authority_tooling_wallet_capability_read_only",
+    ],
+    authorityToolingReadOnlyReplayFixtureRefs: [
+      "harness-default-dispatch:fixture-authority_tooling_mcp_provider_read_only",
+      "harness-default-dispatch:fixture-authority_tooling_mcp_tool_call_read_only",
+      "harness-default-dispatch:fixture-authority_tooling_tool_call_read_only",
+      "harness-default-dispatch:fixture-authority_tooling_connector_call_read_only",
+      "harness-default-dispatch:fixture-authority_tooling_wallet_capability_read_only",
+    ],
+    authorityToolingReadOnlyComponentKinds,
+    authorityToolingMutationDeferredComponentKinds,
     authorityToolingDenialReceiptIds: [
       "harness-default-dispatch:receipt-authority_tooling_destructive_denial",
     ],
@@ -942,6 +989,7 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     authorityToolingToolRouterReady: true,
     authorityToolingDryRunSimulatorReady: true,
     authorityToolingApprovalGateReady: true,
+    authorityToolingReadOnlyAuthorityCanaryReady: true,
     authorityToolingReadOnlyRouteAccepted: true,
     authorityToolingDestructiveRouteDenied: true,
     authorityToolingMutatingToolCallsBlocked: true,
@@ -959,10 +1007,34 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
       dryRunSimulatorReady: true,
       approvalGateReady: true,
       rollbackAvailable: true,
+      readOnlyAuthorityCanaryReady: true,
+      readOnlyComponentKinds: authorityToolingReadOnlyComponentKinds,
+      readOnlyAttemptIds: [
+        "harness-default-dispatch:attempt-authority_tooling_mcp_provider_read_only",
+        "harness-default-dispatch:attempt-authority_tooling_mcp_tool_call_read_only",
+        "harness-default-dispatch:attempt-authority_tooling_tool_call_read_only",
+        "harness-default-dispatch:attempt-authority_tooling_connector_call_read_only",
+        "harness-default-dispatch:attempt-authority_tooling_wallet_capability_read_only",
+      ],
+      readOnlyReceiptIds: [
+        "harness-default-dispatch:receipt-authority_tooling_mcp_provider_read_only",
+        "harness-default-dispatch:receipt-authority_tooling_mcp_tool_call_read_only",
+        "harness-default-dispatch:receipt-authority_tooling_tool_call_read_only",
+        "harness-default-dispatch:receipt-authority_tooling_connector_call_read_only",
+        "harness-default-dispatch:receipt-authority_tooling_wallet_capability_read_only",
+      ],
+      readOnlyReplayFixtureRefs: [
+        "harness-default-dispatch:fixture-authority_tooling_mcp_provider_read_only",
+        "harness-default-dispatch:fixture-authority_tooling_mcp_tool_call_read_only",
+        "harness-default-dispatch:fixture-authority_tooling_tool_call_read_only",
+        "harness-default-dispatch:fixture-authority_tooling_connector_call_read_only",
+        "harness-default-dispatch:fixture-authority_tooling_wallet_capability_read_only",
+      ],
       denialReceiptIds: [
         "harness-default-dispatch:receipt-authority_tooling_destructive_denial",
       ],
-      deferredMutationComponentKinds: deferredComponentKinds,
+      deferredMutationComponentKinds: authorityToolingMutationDeferredComponentKinds,
+      mutationDeferredComponentKinds: authorityToolingMutationDeferredComponentKinds,
       policyDecision:
         "allow_read_only_route_and_deny_destructive_tooling_without_side_effect",
     },
