@@ -154,6 +154,7 @@ export function WorkflowRailPanel({
   onCheckActivationReadiness,
   onRunHarnessActivationDryRun,
   onRunHarnessReplayDrill,
+  onRunHarnessReplayGate,
   onApplyHarnessActivationCandidate,
   onRunHarnessRollbackDrill,
   onExecuteHarnessRollback,
@@ -210,6 +211,7 @@ export function WorkflowRailPanel({
   onCheckActivationReadiness?: () => void;
   onRunHarnessActivationDryRun?: () => void;
   onRunHarnessReplayDrill?: () => void;
+  onRunHarnessReplayGate?: () => void;
   onApplyHarnessActivationCandidate?: () => void;
   onRunHarnessRollbackDrill?: () => void;
   onExecuteHarnessRollback?: () => void;
@@ -3353,6 +3355,16 @@ export function WorkflowRailPanel({
             selectedHarnessReplayInspection.replayFixtureRef,
         ) ?? null
     : null;
+  const selectedHarnessReplayGateTarget = selectedHarnessGroup
+    ? String(selectedHarnessGroup.groupId)
+    : workflow.metadata.harness?.activationId ?? workflow.metadata.id;
+  const selectedHarnessReplayGate = [...(workflow.metadata.harness?.replayGates ?? [])]
+    .reverse()
+    .find(
+      (gate) =>
+        gate.targetId === selectedHarnessReplayGateTarget ||
+        (!selectedHarnessGroup && gate.scopeKind === "activation_candidate"),
+    ) ?? null;
   return (
     <>
       <h3>Outputs</h3>
@@ -3645,6 +3657,112 @@ export function WorkflowRailPanel({
                     selectedHarnessReceiptRef === receiptRef ? "is-active" : ""
                   }`}
                   data-testid={`workflow-harness-replay-drill-receipt-${index}`}
+                  data-receipt-ref={receiptRef}
+                  onClick={() => onSelectHarnessReceiptRef?.(receiptRef)}
+                >
+                  <code>{receiptRef}</code>
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+      {workflow.metadata.harness ? (
+        <section
+          className="workflow-rail-section workflow-harness-replay-gate"
+          data-testid="workflow-harness-replay-gate"
+          data-replay-gate-status={selectedHarnessReplayGate?.gateStatus ?? "not_run"}
+          data-replay-gate-scope={
+            selectedHarnessReplayGate?.scopeKind ??
+            (selectedHarnessGroup ? "harness_group" : "activation_candidate")
+          }
+          data-replay-gate-target={selectedHarnessReplayGateTarget}
+          data-total-fixtures={selectedHarnessReplayGate?.totalFixtures ?? 0}
+          data-blocking-fixtures={
+            selectedHarnessReplayGate?.blockingReplayFixtureRefs.length ?? 0
+          }
+          data-activation-gate-impact={
+            selectedHarnessReplayGate?.activationGateImpact ?? "not_run"
+          }
+        >
+          <h4>Replay gate</h4>
+          <div
+            className="workflow-harness-activation-actions"
+            data-testid="workflow-harness-replay-gate-actions"
+          >
+            <button
+              type="button"
+              data-testid="workflow-harness-run-replay-gate"
+              disabled={!onRunHarnessReplayGate}
+              onClick={onRunHarnessReplayGate}
+            >
+              Run replay gate
+            </button>
+          </div>
+          <dl
+            className="workflow-rail-stats"
+            data-testid="workflow-harness-replay-gate-rollup"
+            data-divergence-counts={
+              selectedHarnessReplayGate
+                ? JSON.stringify(selectedHarnessReplayGate.divergenceCounts)
+                : "{}"
+            }
+          >
+            <div>
+              <dt>Total</dt>
+              <dd>{selectedHarnessReplayGate?.totalFixtures ?? 0}</dd>
+            </div>
+            <div>
+              <dt>Passed</dt>
+              <dd>{selectedHarnessReplayGate?.passedCount ?? 0}</dd>
+            </div>
+            <div>
+              <dt>Blocked</dt>
+              <dd>{selectedHarnessReplayGate?.blockedCount ?? 0}</dd>
+            </div>
+            <div>
+              <dt>Receipts</dt>
+              <dd>{selectedHarnessReplayGate?.receiptRefs.length ?? 0}</dd>
+            </div>
+          </dl>
+          <article
+            className={`workflow-output-row is-${
+              selectedHarnessReplayGate?.gateStatus === "passed"
+                ? "ready"
+                : "blocked"
+            }`}
+            data-testid="workflow-harness-replay-gate-result"
+            data-replay-gate-id={selectedHarnessReplayGate?.gateId ?? ""}
+            data-blocking-replay-fixture-refs={
+              selectedHarnessReplayGate?.blockingReplayFixtureRefs.join("|") ?? ""
+            }
+            data-receipt-refs={selectedHarnessReplayGate?.receiptRefs.join("|") ?? ""}
+          >
+            <strong>{selectedHarnessReplayGate?.gateStatus ?? "Replay gate not run"}</strong>
+            <span>
+              impact {selectedHarnessReplayGate?.activationGateImpact ?? "pending"}
+              {" · "}
+              target {selectedHarnessReplayGateTarget}
+            </span>
+            <small>
+              {selectedHarnessReplayGate?.blockers.join(" | ") ||
+                selectedHarnessReplayGate?.blockingReplayFixtureRefs.join(" | ") ||
+                "Run replay gate to prove the selected scope."}
+            </small>
+          </article>
+          {selectedHarnessReplayGate?.receiptRefs.length ? (
+            <div
+              className="workflow-harness-authority-gate-actions"
+              data-testid="workflow-harness-replay-gate-receipt-refs"
+            >
+              {selectedHarnessReplayGate.receiptRefs.slice(0, 8).map((receiptRef, index) => (
+                <button
+                  key={receiptRef}
+                  type="button"
+                  className={`workflow-harness-ref-button ${
+                    selectedHarnessReceiptRef === receiptRef ? "is-active" : ""
+                  }`}
+                  data-testid={`workflow-harness-replay-gate-receipt-${index}`}
                   data-receipt-ref={receiptRef}
                   onClick={() => onSelectHarnessReceiptRef?.(receiptRef)}
                 >

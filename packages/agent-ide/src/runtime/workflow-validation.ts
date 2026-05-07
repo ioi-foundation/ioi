@@ -1468,8 +1468,13 @@ export function createWorkflowHarnessActivationCandidate(
       drill.drillStatus !== "passed" ||
       !["none", "harmless_metadata_drift"].includes(drill.divergenceClass),
   );
+  const replayGateBlockers = (harness?.replayGates ?? []).filter(
+    (gate) => gate.activationGateImpact !== "passed" || gate.gateStatus !== "passed",
+  );
   const replayReady =
-    !issueCodes.has("missing_replay_fixture") && replayDrillBlockers.length === 0;
+    !issueCodes.has("missing_replay_fixture") &&
+    replayDrillBlockers.length === 0 &&
+    replayGateBlockers.length === 0;
   const workerBindingReady =
     Boolean(workerBindingPreview.harnessWorkflowId) &&
     workerBindingPreview.harnessActivationId === activationIdPreview &&
@@ -1499,6 +1504,8 @@ export function createWorkflowHarnessActivationCandidate(
         ? "ready"
         : replayDrillBlockers.length > 0
           ? `${replayDrillBlockers.length} drill blockers`
+          : replayGateBlockers.length > 0
+            ? `${replayGateBlockers.length} gate blockers`
           : "missing",
       detail:
         "Required replay fixtures must be present and any replay drills must pass without blocking divergence.",
@@ -1507,6 +1514,7 @@ export function createWorkflowHarnessActivationCandidate(
           .filter((issue) => issue.code === "missing_replay_fixture")
           .map((issue) => issue.nodeId ?? issue.code),
         ...replayDrillBlockers.map((drill) => drill.drillId),
+        ...replayGateBlockers.map((gate) => gate.gateId),
       ],
     },
     {

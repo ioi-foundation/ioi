@@ -164,8 +164,8 @@ assert.match(
 
 assert.match(
   `${graphTypes}\n${harnessWorkflow}\n${workflowComposer}\n${workflowRailPanel}\n${workflowValidation}`,
-  /(?=[\s\S]*WorkflowHarnessReplayDrillResult)(?=[\s\S]*WorkflowHarnessReplayDrillDivergenceClass)(?=[\s\S]*replayDrills\?: WorkflowHarnessReplayDrillResult\[\])(?=[\s\S]*executeWorkflowHarnessReplayDrill)(?=[\s\S]*replay_drill_passed)(?=[\s\S]*replay_drill_blocked)(?=[\s\S]*handleRunHarnessReplayDrill)(?=[\s\S]*onRunHarnessReplayDrill)(?=[\s\S]*workflow-harness-run-replay-drill)(?=[\s\S]*workflow-harness-replay-drill-result)(?=[\s\S]*data-replay-divergence-class)(?=[\s\S]*replayDrillBlockers)/,
-  "Selected harness replay fixtures should run replay drills, classify divergence, persist audit evidence, surface receipt refs, and feed activation readiness.",
+  /(?=[\s\S]*WorkflowHarnessReplayDrillResult)(?=[\s\S]*WorkflowHarnessReplayGateResult)(?=[\s\S]*WorkflowHarnessReplayDrillDivergenceClass)(?=[\s\S]*replayDrills\?: WorkflowHarnessReplayDrillResult\[\])(?=[\s\S]*replayGates\?: WorkflowHarnessReplayGateResult\[\])(?=[\s\S]*executeWorkflowHarnessReplayDrill)(?=[\s\S]*executeWorkflowHarnessReplayGate)(?=[\s\S]*replay_drill_passed)(?=[\s\S]*replay_gate_passed)(?=[\s\S]*replay_gate_blocked)(?=[\s\S]*handleRunHarnessReplayDrill)(?=[\s\S]*handleRunHarnessReplayGate)(?=[\s\S]*onRunHarnessReplayGate)(?=[\s\S]*workflow-harness-run-replay-drill)(?=[\s\S]*workflow-harness-run-replay-gate)(?=[\s\S]*workflow-harness-replay-gate-result)(?=[\s\S]*data-replay-divergence-class)(?=[\s\S]*data-activation-gate-impact)(?=[\s\S]*replayDrillBlockers)(?=[\s\S]*replayGateBlockers)/,
+  "Selected harness replay fixtures should run replay drills and batch replay gates, classify divergence, persist audit evidence, surface receipt refs, and feed activation readiness.",
 );
 
 assert.match(
