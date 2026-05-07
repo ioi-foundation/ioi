@@ -622,6 +622,15 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     authorityToolingProviderCatalogLiveReplayFixtureRefs: [
       "harness-default-dispatch:fixture-authority_tooling_mcp_provider_read_only",
     ],
+    authorityToolingMcpToolCatalogLiveAttemptIds: [
+      "harness-default-dispatch:attempt-authority_tooling_mcp_tool_call_read_only",
+    ],
+    authorityToolingMcpToolCatalogLiveReceiptIds: [
+      "harness-default-dispatch:receipt-authority_tooling_mcp_tool_call_read_only",
+    ],
+    authorityToolingMcpToolCatalogLiveReplayFixtureRefs: [
+      "harness-default-dispatch:fixture-authority_tooling_mcp_tool_call_read_only",
+    ],
     authorityToolingReadOnlyComponentKinds,
     authorityToolingMutationDeferredComponentKinds,
     authorityToolingDenialReceiptIds: [
@@ -1001,6 +1010,8 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     authorityToolingReadOnlyAuthorityCanaryReady: true,
     authorityToolingProviderCatalogLiveReady: true,
     authorityToolingProviderCatalogLiveComponentKind: "mcp_provider",
+    authorityToolingMcpToolCatalogLiveReady: true,
+    authorityToolingMcpToolCatalogLiveComponentKind: "mcp_tool_call",
     authorityToolingReadOnlyRouteAccepted: true,
     authorityToolingDestructiveRouteDenied: true,
     authorityToolingMutatingToolCallsBlocked: true,
@@ -1029,6 +1040,17 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
       ],
       providerCatalogLiveReplayFixtureRefs: [
         "harness-default-dispatch:fixture-authority_tooling_mcp_provider_read_only",
+      ],
+      mcpToolCatalogLiveReady: true,
+      mcpToolCatalogLiveComponentKind: "mcp_tool_call",
+      mcpToolCatalogLiveAttemptIds: [
+        "harness-default-dispatch:attempt-authority_tooling_mcp_tool_call_read_only",
+      ],
+      mcpToolCatalogLiveReceiptIds: [
+        "harness-default-dispatch:receipt-authority_tooling_mcp_tool_call_read_only",
+      ],
+      mcpToolCatalogLiveReplayFixtureRefs: [
+        "harness-default-dispatch:fixture-authority_tooling_mcp_tool_call_read_only",
       ],
       readOnlyComponentKinds: authorityToolingReadOnlyComponentKinds,
       readOnlyAttemptIds: [
@@ -2165,12 +2187,17 @@ function nodeLogicFor(component: WorkflowHarnessComponentSpec): Record<string, u
         ...base,
         toolBinding: {
           bindingKind: "mcp_tool",
-          toolRef: "mcp.tool.invoke",
+          toolRef: "mcp.tool.catalog.read",
           mockBinding: false,
           credentialReady: true,
-          capabilityScope: component.requiredCapabilityScope,
-          sideEffectClass: "external_write",
-          requiresApproval: true,
+          capabilityScope: ["mcp.tool.catalog.read", "mcp.provider.read"],
+          sideEffectClass: "read",
+          requiresApproval: false,
+          arguments: {
+            mode: "catalog_preview",
+            mutation: false,
+            providerCatalogRef: "previousAuthorityOutput.providerCatalog",
+          },
         },
       };
     case "mcp_provider":

@@ -1201,6 +1201,26 @@ pub fn list_workflow_tool_catalog(
 ) -> Result<Vec<WorkflowToolBinding>, String> {
     Ok(vec![
         WorkflowToolBinding {
+            tool_ref: "mcp.tool.catalog.read".to_string(),
+            binding_kind: Some("mcp_tool".to_string()),
+            mock_binding: false,
+            credential_ready: Some(true),
+            capability_scope: vec![
+                "mcp.tool.catalog.read".to_string(),
+                "mcp.provider.read".to_string(),
+            ],
+            side_effect_class: "read".to_string(),
+            requires_approval: false,
+            arguments: Some(json!({
+                "mode": "catalog_preview",
+                "mutation": false,
+                "providerCatalogRef": "previousAuthorityOutput.providerCatalog"
+            })),
+            argument_schema: Some(json!({"type": "object", "required": ["mode", "mutation"]})),
+            result_schema: Some(json!({"type": "object"})),
+            workflow_tool: None,
+        },
+        WorkflowToolBinding {
             tool_ref: "web_search_mcp".to_string(),
             binding_kind: Some("mcp_tool".to_string()),
             mock_binding: true,
