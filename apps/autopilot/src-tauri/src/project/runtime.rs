@@ -2,6 +2,11 @@
 
 use super::*;
 use ioi_types::app::{
+    compare_harness_live_shadow_attempts, default_harness_gated_cluster_run_for_shadow_run,
+    default_harness_shadow_run_for_attempts, HarnessClusterPromotionStatus, HarnessComponentKind,
+    HarnessComponentReadiness, HarnessExecutionMode, HarnessGatedClusterRun,
+    HarnessNodeAttemptRecord, HarnessNodeAttemptStatus, HarnessPromotionClusterId,
+    HarnessReplayDeterminism, HarnessReplayEnvelope, HarnessShadowComparison,
     DEFAULT_AGENT_HARNESS_ACTIVATION_ID, DEFAULT_AGENT_HARNESS_HASH,
     DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
 };
@@ -1349,20 +1354,126 @@ fn workflow_harness_attempt_for_node_run(
     }))
 }
 
-fn workflow_harness_shadow_comparisons_for_attempts(attempts: &[Value]) -> Vec<Value> {
+fn workflow_harness_enum_from_str<T>(value: &str) -> Option<T>
+where
+    T: serde::de::DeserializeOwned,
+{
+    serde_json::from_value(Value::String(value.to_string())).ok()
+}
+
+fn workflow_harness_optional_string(value: &Value, key: &str) -> Option<String> {
+    value.get(key).and_then(Value::as_str).map(str::to_string)
+}
+
+fn workflow_harness_replay_envelope_from_value(value: Option<&Value>) -> HarnessReplayEnvelope {
+    let replay = value.unwrap_or(&Value::Null);
+    let deterministic = replay
+        .get("deterministicEnvelope")
+        .and_then(Value::as_bool)
+        .unwrap_or(true);
+    let determinism = replay
+        .get("determinism")
+        .and_then(Value::as_str)
+        .and_then(workflow_harness_enum_from_str)
+        .unwrap_or(if deterministic {
+            HarnessReplayDeterminism::Deterministic
+        } else {
+            HarnessReplayDeterminism::Nondeterministic
+        });
+    HarnessReplayEnvelope {
+        deterministic_envelope: deterministic,
+        captures_input: replay
+            .get("capturesInput")
+            .and_then(Value::as_bool)
+            .unwrap_or(true),
+        captures_output: replay
+            .get("capturesOutput")
+            .and_then(Value::as_bool)
+            .unwrap_or(true),
+        captures_policy_decision: replay
+            .get("capturesPolicyDecision")
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
+        fixture_ref: workflow_harness_optional_string(replay, "fixtureRef"),
+        determinism,
+        nondeterminism_reason: workflow_harness_optional_string(replay, "nondeterminismReason"),
+        redaction_policy: workflow_harness_optional_string(replay, "redactionPolicy")
+            .unwrap_or_else(|| "runtime_redacted".to_string()),
+    }
+}
+
+fn workflow_harness_attempt_record_from_value(attempt: &Value) -> Option<HarnessNodeAttemptRecord> {
+    let component_kind: HarnessComponentKind = attempt
+        .get("componentKind")
+        .and_then(Value::as_str)
+        .and_then(workflow_harness_enum_from_str)?;
+    let execution_mode: HarnessExecutionMode = attempt
+        .get("executionMode")
+        .and_then(Value::as_str)
+        .and_then(workflow_harness_enum_from_str)?;
+    let readiness: HarnessComponentReadiness = attempt
+        .get("readiness")
+        .and_then(Value::as_str)
+        .and_then(workflow_harness_enum_from_str)?;
+    let status: HarnessNodeAttemptStatus = attempt
+        .get("status")
+        .and_then(Value::as_str)
+        .and_then(workflow_harness_enum_from_str)?;
+    let attempt_index = attempt
+        .get("attemptIndex")
+        .and_then(Value::as_u64)
+        .unwrap_or(0)
+        .min(u32::MAX as u64) as u32;
+    Some(HarnessNodeAttemptRecord {
+        attempt_id: workflow_harness_optional_string(attempt, "attemptId")?,
+        harness_workflow_id: workflow_harness_optional_string(attempt, "harnessWorkflowId")
+            .unwrap_or_else(|| DEFAULT_AGENT_HARNESS_WORKFLOW_ID.to_string()),
+        harness_activation_id: workflow_harness_optional_string(attempt, "harnessActivationId")
+            .unwrap_or_else(|| DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string()),
+        harness_hash: workflow_harness_optional_string(attempt, "harnessHash")
+            .unwrap_or_else(|| DEFAULT_AGENT_HARNESS_HASH.to_string()),
+        workflow_node_id: workflow_harness_optional_string(attempt, "workflowNodeId")?,
+        component_id: workflow_harness_optional_string(attempt, "componentId")
+            .unwrap_or_else(|| component_kind.component_id()),
+        component_kind,
+        execution_mode,
+        readiness,
+        attempt_index,
+        status,
+        input_hash: workflow_harness_optional_string(attempt, "inputHash"),
+        output_hash: workflow_harness_optional_string(attempt, "outputHash"),
+        error_class: workflow_harness_optional_string(attempt, "errorClass"),
+        policy_decision: workflow_harness_optional_string(attempt, "policyDecision"),
+        started_at_ms: attempt.get("startedAtMs").and_then(Value::as_u64),
+        duration_ms: attempt.get("durationMs").and_then(Value::as_u64),
+        receipt_ids: workflow_string_array(attempt.get("receiptIds")),
+        evidence_refs: workflow_string_array(attempt.get("evidenceRefs")),
+        replay: workflow_harness_replay_envelope_from_value(attempt.get("replay")),
+    })
+}
+
+fn workflow_harness_attempt_records_from_values(
+    attempts: &[Value],
+) -> Vec<HarnessNodeAttemptRecord> {
+    attempts
+        .iter()
+        .filter_map(workflow_harness_attempt_record_from_value)
+        .collect()
+}
+
+fn workflow_harness_shadow_comparison_records_for_attempt_records(
+    attempts: &[HarnessNodeAttemptRecord],
+) -> Vec<HarnessShadowComparison> {
     let mut comparisons = Vec::new();
     let mut live_by_component = std::collections::BTreeMap::new();
     let mut shadow_by_component = std::collections::BTreeMap::new();
     for attempt in attempts {
-        let Some(component_id) = attempt.get("componentId").and_then(Value::as_str) else {
-            continue;
-        };
-        match attempt.get("executionMode").and_then(Value::as_str) {
-            Some("live" | "gated") => {
-                live_by_component.insert(component_id.to_string(), attempt);
+        match attempt.execution_mode {
+            HarnessExecutionMode::Live | HarnessExecutionMode::Gated => {
+                live_by_component.insert(attempt.component_id.clone(), attempt);
             }
-            Some("shadow") => {
-                shadow_by_component.insert(component_id.to_string(), attempt);
+            HarnessExecutionMode::Shadow => {
+                shadow_by_component.insert(attempt.component_id.clone(), attempt);
             }
             _ => {}
         }
@@ -1371,194 +1482,93 @@ fn workflow_harness_shadow_comparisons_for_attempts(attempts: &[Value]) -> Vec<V
         let Some(shadow) = shadow_by_component.get(&component_id) else {
             continue;
         };
-        let output_matches = live.get("outputHash") == shadow.get("outputHash");
-        let policy_matches = live.get("policyDecision") == shadow.get("policyDecision");
-        let divergence = if output_matches && policy_matches {
-            "none"
-        } else if !policy_matches {
-            "policy_divergence"
-        } else {
-            "output_divergence"
-        };
-        comparisons.push(json!({
-            "workflowNodeId": live.get("workflowNodeId").and_then(Value::as_str).unwrap_or("unknown"),
-            "componentKind": live.get("componentKind").and_then(Value::as_str).unwrap_or("unknown"),
-            "liveAttemptId": live.get("attemptId").and_then(Value::as_str).unwrap_or("unknown"),
-            "shadowAttemptId": shadow.get("attemptId").and_then(Value::as_str).unwrap_or("unknown"),
-            "divergence": divergence,
-            "blocking": divergence != "none",
-            "summary": if divergence == "none" {
-                "Live and shadow attempts matched by policy and output hash."
-            } else {
-                "Live and shadow attempts diverged and require classification before promotion."
-            },
-            "evidenceRefs": [
-                live.get("attemptId").and_then(Value::as_str).unwrap_or("unknown"),
-                shadow.get("attemptId").and_then(Value::as_str).unwrap_or("unknown")
-            ],
-        }));
+        comparisons.push(compare_harness_live_shadow_attempts(live, shadow));
     }
     comparisons
 }
 
-fn workflow_harness_gated_cluster_runs_for_attempts(
-    run_id: &str,
-    attempts: &[Value],
-) -> Vec<Value> {
-    const COGNITION_COMPONENTS: &[&str] = &[
-        "planner",
-        "prompt_assembler",
-        "task_state",
-        "uncertainty_gate",
-        "budget_gate",
-        "capability_sequencer",
-    ];
-    const ROUTING_MODEL_COMPONENTS: &[&str] = &["model_router", "model_call", "tool_router"];
-    const VERIFICATION_OUTPUT_COMPONENTS: &[&str] = &[
-        "postcondition_synthesizer",
-        "verifier",
-        "completion_gate",
-        "receipt_writer",
-        "quality_ledger",
-        "output_writer",
-    ];
-    const AUTHORITY_TOOLING_COMPONENTS: &[&str] = &[
-        "policy_gate",
-        "approval_gate",
-        "dry_run_simulator",
-        "mcp_provider",
-        "mcp_tool_call",
-        "tool_call",
-        "connector_call",
-        "wallet_capability",
-    ];
-
-    [
-        ("cognition", "Cognition", COGNITION_COMPONENTS),
-        (
-            "routing_model",
-            "Routing and model",
-            ROUTING_MODEL_COMPONENTS,
-        ),
-        (
-            "verification_output",
-            "Verification and output",
-            VERIFICATION_OUTPUT_COMPONENTS,
-        ),
-        (
-            "authority_tooling",
-            "Authority and tooling",
-            AUTHORITY_TOOLING_COMPONENTS,
-        ),
-    ]
-    .into_iter()
-    .map(|(cluster_id, cluster_label, component_kinds)| {
-        workflow_harness_gated_cluster_run_for_components(
-            run_id,
-            cluster_id,
-            cluster_label,
-            component_kinds,
-            attempts,
-        )
+fn workflow_harness_shadow_comparison_value(comparison: &HarnessShadowComparison) -> Value {
+    json!({
+        "workflowNodeId": &comparison.workflow_node_id,
+        "componentKind": comparison.component_kind.as_str(),
+        "liveAttemptId": &comparison.live_attempt_id,
+        "shadowAttemptId": &comparison.shadow_attempt_id,
+        "divergence": comparison.divergence.as_str(),
+        "blocking": comparison.blocking,
+        "summary": &comparison.summary,
+        "evidenceRefs": &comparison.evidence_refs,
     })
-    .collect()
 }
 
-fn workflow_harness_gated_cluster_run_for_components(
-    run_id: &str,
-    cluster_id: &str,
-    cluster_label: &str,
-    component_kinds: &[&str],
-    attempts: &[Value],
-) -> Value {
-    let mut node_attempt_ids = Vec::new();
-    let mut receipt_ids = Vec::new();
-    let mut replay_fixture_refs = Vec::new();
-    let mut activation_blockers = Vec::new();
-    for component_kind in component_kinds {
-        let component_attempts = attempts
-            .iter()
-            .filter(|attempt| {
-                attempt.get("componentKind").and_then(Value::as_str) == Some(*component_kind)
-            })
-            .collect::<Vec<_>>();
-        if component_attempts.is_empty() {
-            activation_blockers.push(format!("missing_attempt:{component_kind}"));
-            continue;
-        }
-        for attempt in component_attempts {
-            if let Some(attempt_id) = attempt.get("attemptId").and_then(Value::as_str) {
-                node_attempt_ids.push(attempt_id.to_string());
-            }
-            let receipts = attempt
-                .get("receiptIds")
-                .and_then(Value::as_array)
-                .map(|items| {
-                    items
-                        .iter()
-                        .filter_map(Value::as_str)
-                        .map(str::to_string)
-                        .collect::<Vec<_>>()
-                })
-                .unwrap_or_default();
-            if receipts.is_empty() {
-                activation_blockers.push(format!("missing_receipt:{component_kind}"));
-            }
-            receipt_ids.extend(receipts);
-            if let Some(fixture_ref) = attempt
-                .get("replay")
-                .and_then(|replay| replay.get("fixtureRef"))
-                .and_then(Value::as_str)
-            {
-                replay_fixture_refs.push(fixture_ref.to_string());
-            } else {
-                activation_blockers.push(format!("missing_replay_fixture:{component_kind}"));
-            }
-            let readiness = attempt
-                .get("readiness")
-                .and_then(Value::as_str)
-                .unwrap_or("");
-            if readiness != "shadow_ready" && readiness != "live_ready" {
-                activation_blockers.push(format!("readiness_below_shadow:{component_kind}"));
-            }
-        }
+fn workflow_harness_gated_cluster_status_as_str(
+    status: HarnessClusterPromotionStatus,
+) -> &'static str {
+    match status {
+        HarnessClusterPromotionStatus::ShadowReady => "shadow_ready",
+        HarnessClusterPromotionStatus::Gated => "gated",
+        HarnessClusterPromotionStatus::Blocked => "blocked",
+        HarnessClusterPromotionStatus::Live => "live",
     }
-    node_attempt_ids.sort();
-    node_attempt_ids.dedup();
-    receipt_ids.sort();
-    receipt_ids.dedup();
-    replay_fixture_refs.sort();
-    replay_fixture_refs.dedup();
-    activation_blockers.sort();
-    activation_blockers.dedup();
-    let promotion_blocked = !activation_blockers.is_empty();
+}
+
+fn workflow_harness_gated_cluster_run_value(run: &HarnessGatedClusterRun) -> Value {
+    let component_kinds = run
+        .component_kinds
+        .iter()
+        .map(|component_kind| component_kind.as_str())
+        .collect::<Vec<_>>();
     json!({
-        "schemaVersion": "ioi.agent-harness.gated-cluster-run.v1",
-        "runId": format!("{run_id}:{cluster_id}:gated"),
-        "clusterId": cluster_id,
-        "clusterLabel": cluster_label,
-        "harnessWorkflowId": DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
-        "harnessActivationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
-        "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
-        "executionMode": "gated",
-        "status": if promotion_blocked { "blocked" } else { "gated" },
+        "schemaVersion": &run.schema_version,
+        "runId": &run.run_id,
+        "clusterId": run.cluster_id.as_str(),
+        "clusterLabel": &run.cluster_label,
+        "harnessWorkflowId": &run.harness_workflow_id,
+        "harnessActivationId": &run.harness_activation_id,
+        "harnessHash": &run.harness_hash,
+        "executionMode": run.execution_mode.as_str(),
+        "status": workflow_harness_gated_cluster_status_as_str(run.status),
         "componentKinds": component_kinds,
-        "shadowRunId": run_id,
-        "nodeAttemptIds": node_attempt_ids,
-        "receiptIds": receipt_ids,
-        "replayFixtureRefs": replay_fixture_refs,
-        "activationBlockers": activation_blockers,
-        "gateDecision": if promotion_blocked {
-            "block_promotion"
-        } else {
-            "allow_live_runtime_passthrough"
-        },
-        "rollbackTarget": "shadow",
+        "shadowRunId": &run.shadow_run_id,
+        "nodeAttemptIds": &run.node_attempt_ids,
+        "receiptIds": &run.receipt_ids,
+        "replayFixtureRefs": &run.replay_fixture_refs,
+        "activationBlockers": &run.activation_blockers,
+        "gateDecision": &run.gate_decision,
+        "rollbackTarget": &run.rollback_target,
         "rollbackAvailable": true,
-        "canaryStatus": if promotion_blocked { "not_started" } else { "passed" },
-        "promotionBlocked": promotion_blocked,
-        "evidenceRefs": [format!("workflow-run:{run_id}")]
+        "canaryStatus": &run.canary_status,
+        "promotionBlocked": run.promotion_blocked,
+        "evidenceRefs": &run.evidence_refs,
     })
+}
+
+fn workflow_harness_gated_cluster_runs_for_attempt_records(
+    run_id: &str,
+    attempts: Vec<HarnessNodeAttemptRecord>,
+    comparisons: Vec<HarnessShadowComparison>,
+) -> Vec<Value> {
+    let shadow_run = default_harness_shadow_run_for_attempts(
+        run_id.to_string(),
+        None,
+        None,
+        attempts,
+        comparisons,
+        vec![format!("workflow-run:{run_id}")],
+    );
+    [
+        HarnessPromotionClusterId::Cognition,
+        HarnessPromotionClusterId::RoutingModel,
+        HarnessPromotionClusterId::VerificationOutput,
+        HarnessPromotionClusterId::AuthorityTooling,
+    ]
+    .into_iter()
+    .map(|cluster_id| {
+        workflow_harness_gated_cluster_run_value(&default_harness_gated_cluster_run_for_shadow_run(
+            cluster_id,
+            &shadow_run,
+        ))
+    })
+    .collect()
 }
 
 fn workflow_attach_harness_run_artifacts(
@@ -1576,8 +1586,18 @@ fn workflow_attach_harness_run_artifacts(
             attempts.push(attempt);
         }
     }
-    let comparisons = workflow_harness_shadow_comparisons_for_attempts(&attempts);
-    let gated_cluster_runs = workflow_harness_gated_cluster_runs_for_attempts(run_id, &attempts);
+    let attempt_records = workflow_harness_attempt_records_from_values(&attempts);
+    let comparison_records =
+        workflow_harness_shadow_comparison_records_for_attempt_records(&attempt_records);
+    let comparisons = comparison_records
+        .iter()
+        .map(workflow_harness_shadow_comparison_value)
+        .collect();
+    let gated_cluster_runs = workflow_harness_gated_cluster_runs_for_attempt_records(
+        run_id,
+        attempt_records,
+        comparison_records,
+    );
     (attempts, comparisons, gated_cluster_runs)
 }
 

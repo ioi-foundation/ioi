@@ -273,18 +273,20 @@ fn receipt_binding_can_be_projected_into_node_attempt_and_shadow_comparison() {
         "REQUIRE_APPROVAL",
         "Pending",
     ));
-    let live = default_harness_node_attempt_for_receipt(
+    let mut live = default_harness_node_attempt_for_receipt(
         &binding,
         HarnessExecutionMode::Live,
         1,
         HarnessNodeAttemptStatus::Live,
     );
-    let shadow = default_harness_node_attempt_for_receipt(
+    let mut shadow = default_harness_node_attempt_for_receipt(
         &binding,
         HarnessExecutionMode::Shadow,
         1,
         HarnessNodeAttemptStatus::Shadow,
     );
+    live.output_hash = Some("sha256:matching-output".to_string());
+    shadow.output_hash = Some("sha256:matching-output".to_string());
 
     assert_eq!(live.workflow_node_id, "harness.approval_gate");
     assert_eq!(live.policy_decision.as_deref(), Some("REQUIRE_APPROVAL"));
@@ -293,6 +295,15 @@ fn receipt_binding_can_be_projected_into_node_attempt_and_shadow_comparison() {
     let comparison = compare_harness_live_shadow_attempts(&live, &shadow);
     assert_eq!(comparison.divergence, HarnessDivergenceClass::None);
     assert!(!comparison.blocking);
+
+    let mut diverged_shadow = shadow.clone();
+    diverged_shadow.output_hash = Some("sha256:changed-output".to_string());
+    let output_comparison = compare_harness_live_shadow_attempts(&live, &diverged_shadow);
+    assert_eq!(
+        output_comparison.divergence,
+        HarnessDivergenceClass::OutputDivergence
+    );
+    assert!(output_comparison.blocking);
 
     let run = default_harness_shadow_run_for_attempts(
         "shadow-run-test",
