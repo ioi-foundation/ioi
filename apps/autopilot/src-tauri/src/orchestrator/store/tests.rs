@@ -175,6 +175,91 @@ fn runtime_selector_promotes_default_only_for_enabled_non_mutating_turns() {
 }
 
 #[test]
+fn runtime_harness_fork_activation_records_rollback_restore_canaries() {
+    let activation = super::runtime_harness_fork_activation(
+        "rollback-canary-session",
+        &[
+            json!({"clusterId": "cognition", "clusterStatus": "passed"}),
+            json!({"clusterId": "routing_model", "clusterStatus": "passed"}),
+            json!({"clusterId": "verification_completion_output", "clusterStatus": "passed"}),
+            json!({"clusterId": "authority_tooling", "clusterStatus": "passed"}),
+        ],
+    );
+
+    let invalid_canary = activation
+        .get("invalidFork")
+        .and_then(|fork| fork.get("rollbackRestoreCanary"))
+        .expect("invalid fork rollback restore canary");
+    assert_eq!(
+        invalid_canary
+            .get("schemaVersion")
+            .and_then(|value| value.as_str()),
+        Some("workflow.harness.rollback-restore-canary.v1")
+    );
+    assert_eq!(
+        invalid_canary
+            .get("status")
+            .and_then(|value| value.as_str()),
+        Some("blocked")
+    );
+    assert_eq!(
+        invalid_canary
+            .get("revisionSource")
+            .and_then(|value| value.as_str()),
+        Some("git")
+    );
+    assert_eq!(
+        invalid_canary
+            .get("hashVerified")
+            .and_then(|value| value.as_bool()),
+        Some(false)
+    );
+    assert_eq!(
+        invalid_canary
+            .get("blockers")
+            .and_then(|value| value.as_array())
+            .map(|blockers| blockers
+                .iter()
+                .any(|blocker| { blocker.as_str() == Some("rollback_restore_canary_not_run") })),
+        Some(true)
+    );
+
+    let valid_canary = activation
+        .get("validFork")
+        .and_then(|fork| fork.get("rollbackRestoreCanary"))
+        .expect("valid fork rollback restore canary");
+    assert_eq!(
+        valid_canary
+            .get("schemaVersion")
+            .and_then(|value| value.as_str()),
+        Some("workflow.harness.rollback-restore-canary.v1")
+    );
+    assert_eq!(
+        valid_canary.get("status").and_then(|value| value.as_str()),
+        Some("not_required")
+    );
+    assert_eq!(
+        valid_canary
+            .get("revisionSource")
+            .and_then(|value| value.as_str()),
+        Some("file_hash_only")
+    );
+    assert_eq!(
+        valid_canary
+            .get("hashVerified")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        valid_canary
+            .get("blockers")
+            .and_then(|value| value.as_array())
+            .map(|blockers| blockers.is_empty()),
+        Some(true)
+    );
+}
+
+#[test]
 fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary() {
     let mut task = task_without_workspace_root();
     let sid = "default-dispatch-session";
