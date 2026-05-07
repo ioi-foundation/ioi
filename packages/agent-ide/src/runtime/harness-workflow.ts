@@ -23,6 +23,7 @@ import type {
   WorkflowHarnessSlotKind,
   WorkflowHarnessSlotSpec,
   WorkflowHarnessWorkerBinding,
+  WorkflowRevisionBinding,
   WorkflowNode,
   WorkflowProject,
   WorkflowProposal,
@@ -97,6 +98,115 @@ export function harnessForkActivationId(workflowId: string): string {
   ).slice(0, 12)}`;
 }
 
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableStringify(item)).join(",")}]`;
+  }
+  const record = value as Record<string, unknown>;
+  return `{${Object.keys(record)
+    .filter((key) => record[key] !== undefined)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${stableStringify(record[key])}`)
+    .join(",")}}`;
+}
+
+function stableContentHash(value: unknown): string {
+  const input = stableStringify(value);
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < input.length; index += 1) {
+    hash ^= input.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return `stable-fnv1a32:${hash.toString(16).padStart(8, "0")}`;
+}
+
+function workflowSourceProjection(workflow: WorkflowProject): unknown {
+  const harness = workflow.metadata.harness;
+  return {
+    version: workflow.version,
+    metadata: {
+      id: workflow.metadata.id,
+      name: workflow.metadata.name,
+      slug: workflow.metadata.slug,
+      workflowKind: workflow.metadata.workflowKind,
+      executionMode: workflow.metadata.executionMode,
+      gitLocation: workflow.metadata.gitLocation,
+      branch: workflow.metadata.branch,
+      readOnly: workflow.metadata.readOnly,
+      harness: harness
+        ? {
+            schemaVersion: harness.schemaVersion,
+            harnessWorkflowId: harness.harnessWorkflowId,
+            harnessVersion: harness.harnessVersion,
+            harnessHash: harness.harnessHash,
+            executionMode: harness.executionMode,
+            templateName: harness.templateName,
+            blessed: harness.blessed,
+            forkable: harness.forkable,
+            forkedFrom: harness.forkedFrom,
+            packageName: harness.packageName,
+            validationGates: harness.validationGates,
+            aiMutationMode: harness.aiMutationMode,
+            componentIds: harness.componentIds,
+            slotIds: harness.slotIds,
+            componentReadiness: harness.componentReadiness,
+            promotionClusters: harness.promotionClusters,
+          }
+        : undefined,
+    },
+    nodes: workflow.nodes,
+    edges: workflow.edges,
+    global_config: workflow.global_config,
+  };
+}
+
+function defaultWorkflowPath(workflow: WorkflowProject): string {
+  return workflow.metadata.gitLocation || `.agents/workflows/${workflow.metadata.slug}.workflow.json`;
+}
+
+export function workflowRevisionBindingFor(
+  workflow: WorkflowProject,
+  options: {
+    workflowPath?: string;
+    repoRoot?: string;
+    branch?: string;
+    baseRevision?: string;
+    activatedRevision?: string;
+    workflowContentHash?: string;
+    proposalId?: string;
+    activationId?: string;
+    rollbackActivationId?: string;
+    rollbackRevision?: string;
+    revisionSource?: WorkflowRevisionBinding["revisionSource"];
+    nowMs?: number;
+  } = {},
+): WorkflowRevisionBinding {
+  const workflowContentHash =
+    options.workflowContentHash ?? stableContentHash(workflowSourceProjection(workflow));
+  const revisionSource =
+    options.revisionSource ??
+    (options.baseRevision || options.activatedRevision ? "git" : "file_hash_only");
+  return {
+    schemaVersion: "workflow.revision-binding.v1",
+    workflowPath: options.workflowPath ?? defaultWorkflowPath(workflow),
+    repoRoot: options.repoRoot,
+    branch: options.branch ?? workflow.metadata.branch ?? "main",
+    baseRevision: options.baseRevision,
+    activatedRevision:
+      options.activatedRevision ??
+      (revisionSource === "file_hash_only" ? workflowContentHash : undefined),
+    workflowContentHash,
+    proposalId: options.proposalId,
+    activationId: options.activationId ?? workflow.metadata.harness?.activationId,
+    rollbackActivationId:
+      options.rollbackActivationId ?? workflow.metadata.harness?.activationRecord?.rollbackTarget,
+    rollbackRevision: options.rollbackRevision,
+    revisionSource,
+    createdAtMs: options.nowMs ?? Date.now(),
+  };
+}
+
 export function makeHarnessForkActivationRecord(options: {
   workflowId: string;
   harnessWorkflowId?: string;
@@ -112,6 +222,8 @@ export function makeHarnessForkActivationRecord(options: {
   liveAuthorityTransferred?: boolean;
   evidenceRefs?: string[];
   workerBinding?: WorkflowHarnessWorkerBinding;
+  revisionBinding?: WorkflowRevisionBinding;
+  rollbackRevisionBinding?: WorkflowRevisionBinding;
   mintedAtMs?: number;
 }): WorkflowHarnessForkActivationRecord {
   const activationId =
@@ -149,6 +261,8 @@ export function makeHarnessForkActivationRecord(options: {
     liveAuthorityTransferred: options.liveAuthorityTransferred ?? false,
     evidenceRefs: options.evidenceRefs ?? [],
     workerBinding: options.workerBinding,
+    revisionBinding: options.revisionBinding,
+    rollbackRevisionBinding: options.rollbackRevisionBinding,
     mintedAtMs: options.mintedAtMs,
   };
 }
@@ -171,6 +285,8 @@ function makeWorkflowHarnessActivationAuditEvent(options: {
   nextActivationId?: string;
   previousWorkerBinding?: WorkflowHarnessWorkerBinding;
   nextWorkerBinding?: WorkflowHarnessWorkerBinding;
+  previousRevisionBinding?: WorkflowRevisionBinding;
+  nextRevisionBinding?: WorkflowRevisionBinding;
   rollbackTarget?: string;
   rollbackExecuted?: boolean;
   blockers?: string[];
@@ -191,6 +307,8 @@ function makeWorkflowHarnessActivationAuditEvent(options: {
     nextActivationId: options.nextActivationId,
     previousWorkerBinding: options.previousWorkerBinding,
     nextWorkerBinding: options.nextWorkerBinding,
+    previousRevisionBinding: options.previousRevisionBinding,
+    nextRevisionBinding: options.nextRevisionBinding,
     rollbackTarget: options.rollbackTarget,
     rollbackExecuted: options.rollbackExecuted,
     blockers: options.blockers ?? [],
@@ -244,6 +362,8 @@ export function recordWorkflowHarnessActivationDryRun(
       nextActivationId: candidate.activationIdPreview,
       previousWorkerBinding: workflow.metadata.workerHarnessBinding,
       nextWorkerBinding: candidate.workerBindingPreview,
+      previousRevisionBinding: workflow.metadata.harness?.revisionBinding,
+      nextRevisionBinding: candidate.revisionBindingPreview,
       rollbackTarget: candidate.rollbackTarget,
       blockers: candidate.activationBlockers,
       evidenceRefs: candidate.evidenceRefs,
@@ -273,6 +393,8 @@ export function recordWorkflowHarnessRollbackTargetSelection(
       previousActivationId: workflow.metadata.harness?.activationId,
       previousWorkerBinding: workflow.metadata.workerHarnessBinding,
       nextWorkerBinding: workflow.metadata.workerHarnessBinding,
+      previousRevisionBinding: workflow.metadata.harness?.revisionBinding,
+      nextRevisionBinding: workflow.metadata.harness?.revisionBinding,
       rollbackTarget,
       evidenceRefs: [rollbackTarget],
       summary: `Rollback target selected: ${rollbackTarget}`,
@@ -351,6 +473,24 @@ export function executeWorkflowHarnessRollbackDrill(
   const restoredWorkerBinding =
     latestMintEvent?.previousWorkerBinding ??
     rollbackWorkerBindingForTarget(workflow, rollbackTarget);
+  const activeRevisionBinding =
+    workflow.metadata.harness?.revisionBinding ??
+    workflow.metadata.harness?.activationRecord?.revisionBinding ??
+    workflowRevisionBindingFor(workflow, {
+      activationId: workflow.metadata.harness?.activationId,
+      rollbackActivationId: rollbackTarget,
+      nowMs: createdAtMs,
+    });
+  const restoredRevisionBinding =
+    latestMintEvent?.previousRevisionBinding ??
+    workflow.metadata.harness?.activationRecord?.rollbackRevisionBinding ??
+    workflowRevisionBindingFor(workflow, {
+      activationId: restoredWorkerBinding.harnessActivationId,
+      rollbackActivationId: workflow.metadata.harness?.activationId,
+      rollbackRevision:
+        activeRevisionBinding.activatedRevision ?? activeRevisionBinding.workflowContentHash,
+      nowMs: createdAtMs,
+    });
   const proof: WorkflowHarnessActivationRollbackProof = {
     schemaVersion: "workflow.harness.activation-rollback-proof.v1",
     drillId: `harness-rollback-drill:${slugify(workflow.metadata.id || workflow.metadata.slug)}:${createdAtMs}`,
@@ -361,6 +501,8 @@ export function executeWorkflowHarnessRollbackDrill(
     rollbackExecuted: blockers.length === 0,
     activeWorkerBinding,
     restoredWorkerBinding,
+    activeRevisionBinding,
+    restoredRevisionBinding,
     drillStatus: blockers.length === 0 ? "passed" : "blocked",
     policyDecision:
       blockers.length === 0
@@ -385,6 +527,8 @@ export function executeWorkflowHarnessRollbackDrill(
       nextActivationId: restoredWorkerBinding.harnessActivationId,
       previousWorkerBinding: activeWorkerBinding,
       nextWorkerBinding: restoredWorkerBinding,
+      previousRevisionBinding: activeRevisionBinding,
+      nextRevisionBinding: restoredRevisionBinding,
       rollbackTarget,
       rollbackExecuted: blockers.length === 0,
       blockers,
@@ -447,6 +591,8 @@ export function applyWorkflowHarnessActivationCandidate(
               nextActivationId: activationId,
               previousWorkerBinding: workflow.metadata.workerHarnessBinding,
               nextWorkerBinding: candidate?.workerBindingPreview,
+              previousRevisionBinding: workflow.metadata.harness?.revisionBinding,
+              nextRevisionBinding: candidate?.revisionBindingPreview,
               rollbackTarget: candidate?.rollbackTarget,
               blockers: uniqueBlockers,
               evidenceRefs: candidate?.evidenceRefs ?? [],
@@ -465,6 +611,14 @@ export function applyWorkflowHarnessActivationCandidate(
     candidate.rollbackTarget ||
     workflow.metadata.harness?.activationRecord?.rollbackTarget ||
     DEFAULT_AGENT_HARNESS_FORK_ROLLBACK_TARGET;
+  const previousRevisionBinding =
+    workflow.metadata.harness?.revisionBinding ??
+    workflow.metadata.harness?.activationRecord?.revisionBinding ??
+    workflowRevisionBindingFor(workflow, {
+      activationId: workflow.metadata.harness?.activationId,
+      rollbackActivationId: rollbackTarget,
+      nowMs,
+    });
   const workerBinding: WorkflowHarnessWorkerBinding = {
     ...candidate.workerBindingPreview,
     harnessWorkflowId: candidate.workerBindingPreview.harnessWorkflowId || workflowId,
@@ -479,6 +633,14 @@ export function applyWorkflowHarnessActivationCandidate(
       workflow.metadata.harness?.executionMode ??
       DEFAULT_HARNESS_EXECUTION_MODE,
     source: "fork",
+  };
+  const revisionBinding: WorkflowRevisionBinding = {
+    ...candidate.revisionBindingPreview,
+    activationId,
+    rollbackActivationId: rollbackTarget,
+    rollbackRevision:
+      previousRevisionBinding.activatedRevision ?? previousRevisionBinding.workflowContentHash,
+    createdAtMs: nowMs,
   };
   const activationRecord = makeHarnessForkActivationRecord({
     workflowId,
@@ -495,6 +657,8 @@ export function applyWorkflowHarnessActivationCandidate(
     liveAuthorityTransferred: false,
     evidenceRefs: Array.from(new Set([candidate.candidateId, ...candidate.evidenceRefs])),
     workerBinding,
+    revisionBinding,
+    rollbackRevisionBinding: previousRevisionBinding,
     mintedAtMs: nowMs,
   });
   return {
@@ -515,6 +679,7 @@ export function applyWorkflowHarnessActivationCandidate(
                 activationId,
                 activationState: "validated",
                 activationRecord,
+                revisionBinding,
               }
             : workflow.metadata.harness,
           workerHarnessBinding: workerBinding,
@@ -531,6 +696,8 @@ export function applyWorkflowHarnessActivationCandidate(
         nextActivationId: activationId,
         previousWorkerBinding: workflow.metadata.workerHarnessBinding,
         nextWorkerBinding: workerBinding,
+        previousRevisionBinding,
+        nextRevisionBinding: revisionBinding,
         rollbackTarget,
         evidenceRefs: Array.from(new Set([candidate.candidateId, ...candidate.evidenceRefs])),
         summary: `Activation minted: ${activationId}`,
@@ -3009,7 +3176,7 @@ function harnessMetadata(options: {
 
 export function makeDefaultAgentHarnessWorkflow(nowMs = Date.now()): WorkflowProject {
   const nodes = HARNESS_FLOW.map(makeHarnessNode);
-  return {
+  const workflow: WorkflowProject = {
     version: "workflow.v1",
     metadata: {
       id: DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
@@ -3072,6 +3239,24 @@ export function makeDefaultAgentHarnessWorkflow(nowMs = Date.now()): WorkflowPro
         requireReplayFixtures: false,
       },
     }),
+  };
+  const revisionBinding = workflowRevisionBindingFor(workflow, {
+    activationId: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+    activatedRevision: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+    revisionSource: "file_hash_only",
+    nowMs,
+  });
+  return {
+    ...workflow,
+    metadata: {
+      ...workflow.metadata,
+      harness: workflow.metadata.harness
+        ? {
+            ...workflow.metadata.harness,
+            revisionBinding,
+          }
+        : workflow.metadata.harness,
+    },
   };
 }
 
@@ -3173,9 +3358,34 @@ export function forkDefaultAgentHarnessWorkflow(
       },
     }),
   };
+  const revisionBinding = workflowRevisionBindingFor(workflow, {
+    proposalId: activationGateProposalId,
+    rollbackActivationId: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+    rollbackRevision: base.metadata.harness?.revisionBinding?.activatedRevision,
+    nowMs,
+  });
+  const workflowWithRevisionBinding: WorkflowProject = {
+    ...workflow,
+    metadata: {
+      ...workflow.metadata,
+      harness: workflow.metadata.harness
+        ? {
+            ...workflow.metadata.harness,
+            revisionBinding,
+            activationRecord: workflow.metadata.harness.activationRecord
+              ? {
+                  ...workflow.metadata.harness.activationRecord,
+                  revisionBinding,
+                  rollbackRevisionBinding: base.metadata.harness?.revisionBinding,
+                }
+              : workflow.metadata.harness.activationRecord,
+          }
+        : workflow.metadata.harness,
+    },
+  };
   return {
-    workflow,
-    tests: defaultAgentHarnessTests(workflow),
+    workflow: workflowWithRevisionBinding,
+    tests: defaultAgentHarnessTests(workflowWithRevisionBinding),
     proposals: [
       {
         id: activationGateProposalId,

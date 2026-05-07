@@ -19,6 +19,7 @@ import {
   harnessComponentForNode,
   harnessForkActivationId,
   harnessSlotsForWorkflow,
+  workflowRevisionBindingFor,
   workflowHarnessWorkerBinding,
   workflowIsBlessedHarness,
   workflowIsHarness,
@@ -1293,6 +1294,21 @@ export function createWorkflowHarnessActivationCandidate(
     executionMode: harness?.executionMode ?? workerBinding.executionMode,
     source: "fork" as const,
   };
+  const activationGateProposal = proposals.find(
+    (proposal) =>
+      proposal.id.includes("activation") ||
+      proposal.sidecarDiff?.changedRoles?.includes("activation"),
+  );
+  const revisionBindingPreview = workflowRevisionBindingFor(workflow, {
+    proposalId: activationGateProposal?.id,
+    activationId: activationIdPreview,
+    rollbackActivationId: harness?.activationRecord?.rollbackTarget,
+    rollbackRevision:
+      harness?.activationRecord?.rollbackRevisionBinding?.activatedRevision ??
+      harness?.activationRecord?.rollbackRevisionBinding?.workflowContentHash ??
+      harness?.revisionBinding?.rollbackRevision,
+    nowMs: createdAtMs,
+  });
   const activationIssues = [
     ...readinessResult.errors,
     ...readinessResult.warnings,
@@ -1327,11 +1343,6 @@ export function createWorkflowHarnessActivationCandidate(
   const rollbackReady =
     activationRecord?.rollbackAvailable === true &&
     Boolean(activationRecord.rollbackTarget);
-  const activationGateProposal = proposals.find(
-    (proposal) =>
-      proposal.id.includes("activation") ||
-      proposal.sidecarDiff?.changedRoles?.includes("activation"),
-  );
   const policyPostureReady =
     harness?.aiMutationMode === "proposal_only" &&
     (workflow.global_config.environmentProfile?.mockBindingPolicy ?? "block") === "block" &&
@@ -1468,6 +1479,7 @@ export function createWorkflowHarnessActivationCandidate(
     rollbackTarget: activationRecord?.rollbackTarget ?? "",
     rollbackAvailable: rollbackReady,
     workerBindingPreview,
+    revisionBindingPreview,
     evidenceRefs: [
       ...gateResults.flatMap((gate) => gate.evidenceRefs),
       ...(activationGateProposal ? [activationGateProposal.id] : []),

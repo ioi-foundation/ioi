@@ -287,6 +287,16 @@ export function WorkflowRailPanel({
   const harnessActivationAudit = workflow.metadata.harness?.activationAudit ?? [];
   const harnessActivationRollbackProof =
     workflow.metadata.harness?.activationRollbackProof ?? null;
+  const harnessRevisionBinding =
+    workflow.metadata.harness?.revisionBinding ??
+    harnessActivationRecord?.revisionBinding ??
+    null;
+  const harnessCandidateRevisionBinding =
+    harnessActivationCandidate?.revisionBindingPreview ?? null;
+  const harnessRollbackRevisionBinding =
+    harnessActivationRollbackProof?.restoredRevisionBinding ??
+    harnessActivationRecord?.rollbackRevisionBinding ??
+    null;
   const harnessLiveHandoffProof = workflow.metadata.harness?.liveHandoffProof;
   const harnessRuntimeSelectorDecision = workflow.metadata.harness?.runtimeSelectorDecision;
   const harnessCanaryExecutionBoundary = workflow.metadata.harness?.canaryExecutionBoundary;
@@ -1685,6 +1695,10 @@ export function WorkflowRailPanel({
                   <dt>Drill</dt>
                   <dd>{harnessActivationRollbackProof?.drillStatus ?? "not_run"}</dd>
                 </div>
+                <div>
+                  <dt>Revision</dt>
+                  <dd>{harnessRevisionBinding?.revisionSource ?? "unbound"}</dd>
+                </div>
               </dl>
               <div
                 className="workflow-rail-list"
@@ -1806,6 +1820,63 @@ export function WorkflowRailPanel({
                   </article>
                 ) : null}
               </div>
+              <section
+                className="workflow-rail-section"
+                data-testid="workflow-harness-revision-binding"
+                data-revision-source={harnessRevisionBinding?.revisionSource ?? "unbound"}
+              >
+                <h4>Source control posture</h4>
+                <div className="workflow-rail-list">
+                  <article
+                    className={`workflow-output-row is-${
+                      harnessRevisionBinding ? "ready" : "blocked"
+                    }`}
+                    data-testid="workflow-harness-revision-binding-current"
+                  >
+                    <strong>{harnessRevisionBinding?.workflowPath ?? "workflow path pending"}</strong>
+                    <span>
+                      {harnessRevisionBinding?.branch ?? workflow.metadata.branch ?? "main"} ·{" "}
+                      {harnessRevisionBinding?.revisionSource ?? "unbound"}
+                    </span>
+                    <small>
+                      {harnessRevisionBinding?.activatedRevision ??
+                        harnessRevisionBinding?.workflowContentHash ??
+                        "content hash pending"}
+                    </small>
+                  </article>
+                  <article
+                    className={`workflow-output-row is-${
+                      harnessCandidateRevisionBinding ? "ready" : "blocked"
+                    }`}
+                    data-testid="workflow-harness-revision-binding-candidate"
+                  >
+                    <strong>{harnessCandidateRevisionBinding?.activationId ?? "candidate pending"}</strong>
+                    <span>
+                      proposal {harnessCandidateRevisionBinding?.proposalId ?? "none"} ·{" "}
+                      {harnessCandidateRevisionBinding?.workflowContentHash ?? "hash pending"}
+                    </span>
+                    <small>{harnessCandidateRevisionBinding?.workflowPath ?? "Run dry run binding"}</small>
+                  </article>
+                  <article
+                    className={`workflow-output-row is-${
+                      harnessRollbackRevisionBinding ? "ready" : "blocked"
+                    }`}
+                    data-testid="workflow-harness-revision-binding-rollback"
+                  >
+                    <strong>{harnessRollbackRevisionBinding?.activationId ?? harnessSelectedRollbackTarget}</strong>
+                    <span>
+                      rollback revision{" "}
+                      {harnessRevisionBinding?.rollbackRevision ??
+                        harnessRollbackRevisionBinding?.activatedRevision ??
+                        "pending"}
+                    </span>
+                    <small>
+                      {harnessRollbackRevisionBinding?.workflowPath ??
+                        "Rollback target revision will appear after drill."}
+                    </small>
+                  </article>
+                </div>
+              </section>
               {harnessForkWorkflow ? (
                 <div
                   className="workflow-harness-activation-actions"
