@@ -671,6 +671,42 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
     );
     assert_eq!(
         dispatch
+            .get("authorityToolingReadOnlyAuthorityCanaryReady")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert!(dispatch
+        .get("authorityToolingReadOnlyComponentKinds")
+        .and_then(|value| value.as_array())
+        .map(|items| {
+            let component_kinds = items
+                .iter()
+                .filter_map(|value| value.as_str())
+                .collect::<Vec<_>>();
+            component_kinds.contains(&"mcp_provider")
+                && component_kinds.contains(&"mcp_tool_call")
+                && component_kinds.contains(&"tool_call")
+                && component_kinds.contains(&"connector_call")
+                && component_kinds.contains(&"wallet_capability")
+        })
+        .unwrap_or(false));
+    assert!(dispatch
+        .get("authorityToolingMutationDeferredComponentKinds")
+        .and_then(|value| value.as_array())
+        .map(|items| {
+            let component_kinds = items
+                .iter()
+                .filter_map(|value| value.as_str())
+                .collect::<Vec<_>>();
+            component_kinds.contains(&"mcp_provider")
+                && component_kinds.contains(&"mcp_tool_call")
+                && component_kinds.contains(&"tool_call")
+                && component_kinds.contains(&"connector_call")
+                && component_kinds.contains(&"wallet_capability")
+        })
+        .unwrap_or(false));
+    assert_eq!(
+        dispatch
             .get("authorityToolingReadOnlyRouteAccepted")
             .and_then(|value| value.as_bool()),
         Some(true)
@@ -896,7 +932,40 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
     assert!(dispatch
         .get("authorityToolingLiveDryRunAttemptIds")
         .and_then(|value| value.as_array())
+        .map(|items| items.len() >= 10)
+        .unwrap_or(false));
+    assert!(dispatch
+        .get("authorityToolingReadOnlyLiveAttemptIds")
+        .and_then(|value| value.as_array())
         .map(|items| items.len() >= 5)
+        .unwrap_or(false));
+    assert!(dispatch
+        .get("authorityToolingReadOnlyReceiptIds")
+        .and_then(|value| value.as_array())
+        .map(|items| items.len() >= 5)
+        .unwrap_or(false));
+    assert!(dispatch
+        .get("authorityToolingReadOnlyReplayFixtureRefs")
+        .and_then(|value| value.as_array())
+        .map(|items| items.len() >= 5)
+        .unwrap_or(false));
+    assert!(
+        dispatch
+            .get("authorityToolingProof")
+            .and_then(|proof| proof.get("readOnlyAuthorityCanaryReady"))
+            .and_then(|value| value.as_bool())
+            == Some(true)
+    );
+    assert!(dispatch
+        .get("authorityToolingProof")
+        .and_then(|proof| proof.get("mutationDeferredComponentKinds"))
+        .and_then(|value| value.as_array())
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|value| value.as_str())
+                .any(|value| value == "wallet_capability")
+        })
         .unwrap_or(false));
     assert!(dispatch
         .get("authorityToolingDenialReceiptIds")

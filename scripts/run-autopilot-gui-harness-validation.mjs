@@ -440,6 +440,7 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
     harnessLiveHandoffDefaultPromotedCount: 0,
     harnessLiveHandoffRollbackCount: 0,
     harnessDefaultRuntimeDispatchReadonlyCount: 0,
+    harnessAuthorityToolingReadOnlyCanaryCount: 0,
     harnessModelProviderGatedVisibleOutputCount: 0,
     harnessModelProviderGatedVisibleOutputRollbackDrillCount: 0,
     harnessModelProviderGatedVisibleOutputScenarios: [],
@@ -894,6 +895,15 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             dispatch.authorityToolingToolRouterReady === true &&
             dispatch.authorityToolingDryRunSimulatorReady === true &&
             dispatch.authorityToolingApprovalGateReady === true &&
+            dispatch.authorityToolingReadOnlyAuthorityCanaryReady === true &&
+            Array.isArray(dispatch.authorityToolingReadOnlyComponentKinds) &&
+            dispatch.authorityToolingReadOnlyComponentKinds.includes("mcp_provider") &&
+            dispatch.authorityToolingReadOnlyComponentKinds.includes("mcp_tool_call") &&
+            dispatch.authorityToolingReadOnlyComponentKinds.includes("tool_call") &&
+            dispatch.authorityToolingReadOnlyComponentKinds.includes("connector_call") &&
+            dispatch.authorityToolingReadOnlyComponentKinds.includes("wallet_capability") &&
+            Array.isArray(dispatch.authorityToolingMutationDeferredComponentKinds) &&
+            dispatch.authorityToolingMutationDeferredComponentKinds.includes("wallet_capability") &&
             dispatch.authorityToolingReadOnlyRouteAccepted === true &&
             dispatch.authorityToolingDestructiveRouteDenied === true &&
             dispatch.authorityToolingMutatingToolCallsBlocked === true &&
@@ -999,7 +1009,16 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             Array.isArray(dispatch.outputWriterVisibleWriteAttemptIds) &&
             dispatch.outputWriterVisibleWriteAttemptIds.length >= 1 &&
             Array.isArray(dispatch.authorityToolingLiveDryRunAttemptIds) &&
-            dispatch.authorityToolingLiveDryRunAttemptIds.length >= 5 &&
+            dispatch.authorityToolingLiveDryRunAttemptIds.length >= 10 &&
+            Array.isArray(dispatch.authorityToolingReadOnlyLiveAttemptIds) &&
+            dispatch.authorityToolingReadOnlyLiveAttemptIds.length >= 5 &&
+            Array.isArray(dispatch.authorityToolingReadOnlyReceiptIds) &&
+            dispatch.authorityToolingReadOnlyReceiptIds.length >= 5 &&
+            Array.isArray(dispatch.authorityToolingReadOnlyReplayFixtureRefs) &&
+            dispatch.authorityToolingReadOnlyReplayFixtureRefs.length >= 5 &&
+            dispatch.authorityToolingProof?.readOnlyAuthorityCanaryReady === true &&
+            Array.isArray(dispatch.authorityToolingProof?.mutationDeferredComponentKinds) &&
+            dispatch.authorityToolingProof.mutationDeferredComponentKinds.includes("wallet_capability") &&
             Array.isArray(dispatch.authorityToolingDenialReceiptIds) &&
             dispatch.authorityToolingDenialReceiptIds.length >= 1 &&
             Array.isArray(dispatch.acceptedNodeAttemptIds) &&
@@ -1009,6 +1028,7 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             dispatch.rollbackAvailable === true
           ) {
             summary.harnessDefaultRuntimeDispatchReadonlyCount += 1;
+            summary.harnessAuthorityToolingReadOnlyCanaryCount += 1;
             summary.harnessModelProviderGatedVisibleOutputCount += 1;
             summary.harnessModelProviderGatedVisibleOutputRollbackDrillCount += 1;
             addScenario(
@@ -1140,6 +1160,9 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         }
         if (digest.harness_default_runtime_dispatch_readonly === true) {
           summary.harnessDefaultRuntimeDispatchReadonlyCount += 1;
+        }
+        if (digest.harness_authority_tooling_read_only_canary === true) {
+          summary.harnessAuthorityToolingReadOnlyCanaryCount += 1;
         }
         if (digest.harness_model_provider_gated_visible_output === true) {
           summary.harnessModelProviderGatedVisibleOutputCount += 1;
@@ -1314,6 +1337,9 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
           }
           if (metadata.harness_default_runtime_dispatch_readonly === true) {
             summary.harnessDefaultRuntimeDispatchReadonlyCount += 1;
+          }
+          if (metadata.harness_authority_tooling_read_only_canary === true) {
+            summary.harnessAuthorityToolingReadOnlyCanaryCount += 1;
           }
           if (metadata.harness_model_provider_gated_visible_output === true) {
             summary.harnessModelProviderGatedVisibleOutputCount += 1;
@@ -1597,6 +1623,8 @@ function buildGuiEvidenceAssessment({ queryResults, runtimeArtifacts }) {
       harnessLiveHandoffRollbackCount: summary.harnessLiveHandoffRollbackCount,
       harnessDefaultRuntimeDispatchReadonlyCount:
         summary.harnessDefaultRuntimeDispatchReadonlyCount,
+      harnessAuthorityToolingReadOnlyCanaryCount:
+        summary.harnessAuthorityToolingReadOnlyCanaryCount,
       harnessModelProviderGatedVisibleOutputCount:
         summary.harnessModelProviderGatedVisibleOutputCount,
       harnessModelProviderGatedVisibleOutputRollbackDrillCount:

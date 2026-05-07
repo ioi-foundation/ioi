@@ -1163,6 +1163,11 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   outputWriterStagedWriteCanaryAttemptIds: string[];
   outputWriterVisibleWriteAttemptIds: string[];
   authorityToolingLiveDryRunAttemptIds: string[];
+  authorityToolingReadOnlyLiveAttemptIds: string[];
+  authorityToolingReadOnlyReceiptIds: string[];
+  authorityToolingReadOnlyReplayFixtureRefs: string[];
+  authorityToolingReadOnlyComponentKinds: WorkflowHarnessComponentKind[];
+  authorityToolingMutationDeferredComponentKinds: WorkflowHarnessComponentKind[];
   authorityToolingDenialReceiptIds: string[];
   acceptedNodeAttemptIds: string[];
   nodeAttemptIds: string[];
@@ -1308,6 +1313,7 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   authorityToolingToolRouterReady: boolean;
   authorityToolingDryRunSimulatorReady: boolean;
   authorityToolingApprovalGateReady: boolean;
+  authorityToolingReadOnlyAuthorityCanaryReady: boolean;
   authorityToolingReadOnlyRouteAccepted: boolean;
   authorityToolingDestructiveRouteDenied: boolean;
   authorityToolingMutatingToolCallsBlocked: boolean;
