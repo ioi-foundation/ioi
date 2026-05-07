@@ -152,6 +152,7 @@ export function WorkflowRailPanel({
   onRunHarnessActivationDryRun,
   onApplyHarnessActivationCandidate,
   onRunHarnessRollbackDrill,
+  onExecuteHarnessRollback,
   onConfigureNode,
   onSelectProposal,
   onExportPackage,
@@ -206,6 +207,7 @@ export function WorkflowRailPanel({
   onRunHarnessActivationDryRun?: () => void;
   onApplyHarnessActivationCandidate?: () => void;
   onRunHarnessRollbackDrill?: () => void;
+  onExecuteHarnessRollback?: () => void;
   onConfigureNode: () => void;
   onSelectProposal: (proposal: WorkflowProposal) => void;
   onExportPackage: () => void;
@@ -287,6 +289,8 @@ export function WorkflowRailPanel({
   const harnessActivationAudit = workflow.metadata.harness?.activationAudit ?? [];
   const harnessActivationRollbackProof =
     workflow.metadata.harness?.activationRollbackProof ?? null;
+  const harnessActivationRollbackExecution =
+    workflow.metadata.harness?.activationRollbackExecution ?? null;
   const harnessRevisionBinding =
     workflow.metadata.harness?.revisionBinding ??
     harnessActivationRecord?.revisionBinding ??
@@ -1915,6 +1919,14 @@ export function WorkflowRailPanel({
                   >
                     Run rollback drill
                   </button>
+                  <button
+                    type="button"
+                    data-testid="workflow-harness-worker-binding-execute-rollback"
+                    disabled={!onExecuteHarnessRollback}
+                    onClick={onExecuteHarnessRollback}
+                  >
+                    Execute rollback
+                  </button>
                 </div>
               ) : null}
               <section
@@ -1950,6 +1962,51 @@ export function WorkflowRailPanel({
                       "rollback drill pending"}
                   </small>
                 </article>
+              </section>
+              <section
+                className="workflow-rail-section"
+                data-testid="workflow-harness-rollback-execution-proof"
+                data-execution-status={
+                  harnessActivationRollbackExecution?.executionStatus ?? "not_run"
+                }
+              >
+                <h4>Rollback execution</h4>
+                <article
+                  className={`workflow-output-row is-${
+                    harnessActivationRollbackExecution?.executionStatus === "applied"
+                      ? "ready"
+                      : "blocked"
+                  }`}
+                >
+                  <strong>
+                    {harnessActivationRollbackExecution?.rollbackTarget ??
+                      harnessSelectedRollbackTarget}
+                  </strong>
+                  <span>
+                    executed{" "}
+                    {harnessActivationRollbackExecution?.rollbackExecuted
+                      ? "yes"
+                      : "not yet"}
+                    {" · "}
+                    hash{" "}
+                    {harnessActivationRollbackExecution?.hashVerified
+                      ? "verified"
+                      : "pending"}
+                  </span>
+                  <small>
+                    {harnessActivationRollbackExecution?.policyDecision ??
+                      "rollback execution pending"}
+                  </small>
+                </article>
+                {harnessActivationRollbackExecution ? (
+                  <div className="workflow-inline-metadata">
+                    <span>{harnessActivationRollbackExecution.restoreStrategy}</span>
+                    <code>
+                      {harnessActivationRollbackExecution.actualWorkflowContentHash ??
+                        "hash pending"}
+                    </code>
+                  </div>
+                ) : null}
               </section>
               <section
                 className="workflow-rail-section"

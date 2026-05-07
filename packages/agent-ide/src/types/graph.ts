@@ -1035,7 +1035,9 @@ export type WorkflowHarnessActivationAuditEventType =
   | "activation_minted"
   | "rollback_target_selected"
   | "rollback_drill_blocked"
-  | "rollback_drill_passed";
+  | "rollback_drill_passed"
+  | "rollback_execution_blocked"
+  | "rollback_executed";
 
 export type WorkflowHarnessActivationAuditEventStatus =
   | "blocked"
@@ -1077,6 +1079,34 @@ export interface WorkflowHarnessActivationRollbackProof {
   activeRevisionBinding?: WorkflowRevisionBinding;
   restoredRevisionBinding?: WorkflowRevisionBinding;
   drillStatus: "not_run" | "passed" | "blocked" | "failed" | string;
+  policyDecision: string;
+  blockers: string[];
+  evidenceRefs: string[];
+  createdAtMs: number;
+}
+
+export interface WorkflowHarnessActivationRollbackExecution {
+  schemaVersion: "workflow.harness.activation-rollback-execution.v1" | string;
+  executionId: string;
+  workflowId: string;
+  activationId?: string;
+  rollbackTarget: string;
+  rollbackAvailable: boolean;
+  rollbackExecuted: boolean;
+  activeWorkerBinding?: WorkflowHarnessWorkerBinding;
+  restoredWorkerBinding?: WorkflowHarnessWorkerBinding;
+  activeRevisionBinding?: WorkflowRevisionBinding;
+  restoredRevisionBinding?: WorkflowRevisionBinding;
+  restoreStrategy:
+    | "file_hash_only_metadata_restore"
+    | "git_revision_checkout"
+    | "worker_binding_restore"
+    | string;
+  workflowPath: string;
+  expectedWorkflowContentHash?: string;
+  actualWorkflowContentHash?: string;
+  hashVerified: boolean;
+  executionStatus: "applied" | "blocked" | "failed" | string;
   policyDecision: string;
   blockers: string[];
   evidenceRefs: string[];
@@ -1726,6 +1756,7 @@ export interface WorkflowHarnessMetadata {
   activationRecord?: WorkflowHarnessForkActivationRecord;
   activationAudit?: WorkflowHarnessActivationAuditEvent[];
   activationRollbackProof?: WorkflowHarnessActivationRollbackProof;
+  activationRollbackExecution?: WorkflowHarnessActivationRollbackExecution;
   revisionBinding?: WorkflowRevisionBinding;
   liveHandoffProof?: WorkflowHarnessLiveHandoffProof;
   runtimeSelectorDecision?: WorkflowHarnessRuntimeSelectorDecision;

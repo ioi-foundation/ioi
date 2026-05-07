@@ -10,6 +10,7 @@ import type {
   WorkflowHarnessActivationAuditEvent,
   WorkflowHarnessActivationAuditEventStatus,
   WorkflowHarnessActivationAuditEventType,
+  WorkflowHarnessActivationRollbackExecution,
   WorkflowHarnessActivationRollbackProof,
   WorkflowHarnessForkActivationCandidate,
   WorkflowHarnessForkActivationRecord,
@@ -137,7 +138,6 @@ function workflowSourceProjection(workflow: WorkflowProject): unknown {
       harness: harness
         ? {
             schemaVersion: harness.schemaVersion,
-            harnessWorkflowId: harness.harnessWorkflowId,
             harnessVersion: harness.harnessVersion,
             harnessHash: harness.harnessHash,
             executionMode: harness.executionMode,
@@ -437,37 +437,39 @@ function rollbackWorkerBindingForTarget(
   };
 }
 
-export function executeWorkflowHarnessRollbackDrill(
+function latestHarnessActivationMintEvent(
   workflow: WorkflowProject,
-  options: {
-    rollbackTarget?: string | null;
-    nowMs?: number;
-  } = {},
-): {
-  executed: boolean;
-  workflow: WorkflowProject;
-  proof?: WorkflowHarnessActivationRollbackProof;
-  blockers: string[];
-  rollbackTarget?: string;
-  restoredWorkerBinding?: WorkflowHarnessWorkerBinding;
-} {
-  const createdAtMs = options.nowMs ?? Date.now();
-  const audit = workflow.metadata.harness?.activationAudit ?? [];
-  const latestMintEvent = [...audit]
+): WorkflowHarnessActivationAuditEvent | undefined {
+  return [...(workflow.metadata.harness?.activationAudit ?? [])]
     .reverse()
     .find((event) => event.eventType === "activation_minted");
-  const rollbackTarget =
-    options.rollbackTarget?.trim() ||
+}
+
+function harnessRollbackTargetFor(
+  workflow: WorkflowProject,
+  rollbackTarget?: string | null,
+): string {
+  const latestMintEvent = latestHarnessActivationMintEvent(workflow);
+  return (
+    rollbackTarget?.trim() ||
     workflow.metadata.harness?.activationRecord?.rollbackTarget ||
     latestMintEvent?.rollbackTarget ||
-    DEFAULT_AGENT_HARNESS_FORK_ROLLBACK_TARGET;
-  const blockers = [
-    ...(workflowIsHarnessFork(workflow) ? [] : ["not_harness_fork"]),
-    ...(rollbackTarget ? [] : ["rollback_target_missing"]),
-    ...(workflow.metadata.harness?.activationRecord?.rollbackAvailable === false
-      ? ["rollback_unavailable"]
-      : []),
-  ];
+    DEFAULT_AGENT_HARNESS_FORK_ROLLBACK_TARGET
+  );
+}
+
+function harnessRollbackBindingsFor(
+  workflow: WorkflowProject,
+  rollbackTarget: string,
+  createdAtMs: number,
+): {
+  latestMintEvent?: WorkflowHarnessActivationAuditEvent;
+  activeWorkerBinding: WorkflowHarnessWorkerBinding;
+  restoredWorkerBinding: WorkflowHarnessWorkerBinding;
+  activeRevisionBinding: WorkflowRevisionBinding;
+  restoredRevisionBinding: WorkflowRevisionBinding;
+} {
+  const latestMintEvent = latestHarnessActivationMintEvent(workflow);
   const activeWorkerBinding =
     workflow.metadata.workerHarnessBinding ?? workflowHarnessWorkerBinding(workflow);
   const restoredWorkerBinding =
@@ -491,6 +493,57 @@ export function executeWorkflowHarnessRollbackDrill(
         activeRevisionBinding.activatedRevision ?? activeRevisionBinding.workflowContentHash,
       nowMs: createdAtMs,
     });
+  return {
+    latestMintEvent,
+    activeWorkerBinding,
+    restoredWorkerBinding,
+    activeRevisionBinding,
+    restoredRevisionBinding,
+  };
+}
+
+function rollbackRestoreStrategyFor(
+  binding: WorkflowRevisionBinding,
+): WorkflowHarnessActivationRollbackExecution["restoreStrategy"] {
+  if (binding.revisionSource === "git" && binding.activatedRevision) {
+    return "git_revision_checkout";
+  }
+  if (binding.revisionSource === "file_hash_only") {
+    return "file_hash_only_metadata_restore";
+  }
+  return "worker_binding_restore";
+}
+
+export function executeWorkflowHarnessRollbackDrill(
+  workflow: WorkflowProject,
+  options: {
+    rollbackTarget?: string | null;
+    nowMs?: number;
+  } = {},
+): {
+  executed: boolean;
+  workflow: WorkflowProject;
+  proof?: WorkflowHarnessActivationRollbackProof;
+  blockers: string[];
+  rollbackTarget?: string;
+  restoredWorkerBinding?: WorkflowHarnessWorkerBinding;
+} {
+  const createdAtMs = options.nowMs ?? Date.now();
+  const rollbackTarget = harnessRollbackTargetFor(workflow, options.rollbackTarget);
+  const blockers = [
+    ...(workflowIsHarnessFork(workflow) ? [] : ["not_harness_fork"]),
+    ...(rollbackTarget ? [] : ["rollback_target_missing"]),
+    ...(workflow.metadata.harness?.activationRecord?.rollbackAvailable === false
+      ? ["rollback_unavailable"]
+      : []),
+  ];
+  const {
+    latestMintEvent,
+    activeWorkerBinding,
+    restoredWorkerBinding,
+    activeRevisionBinding,
+    restoredRevisionBinding,
+  } = harnessRollbackBindingsFor(workflow, rollbackTarget, createdAtMs);
   const proof: WorkflowHarnessActivationRollbackProof = {
     schemaVersion: "workflow.harness.activation-rollback-proof.v1",
     drillId: `harness-rollback-drill:${slugify(workflow.metadata.id || workflow.metadata.slug)}:${createdAtMs}`,
@@ -545,6 +598,185 @@ export function executeWorkflowHarnessRollbackDrill(
     executed: blockers.length === 0,
     workflow: workflowWithAudit,
     proof,
+    blockers,
+    rollbackTarget,
+    restoredWorkerBinding,
+  };
+}
+
+function activationStateForRestoredWorkerBinding(
+  restoredWorkerBinding: WorkflowHarnessWorkerBinding,
+): WorkflowHarnessForkActivationRecord["activationState"] {
+  if (restoredWorkerBinding.source === "legacy") return "blocked";
+  return restoredWorkerBinding.harnessActivationId ? "validated" : "blocked";
+}
+
+export function executeWorkflowHarnessRevisionRollback(
+  workflow: WorkflowProject,
+  options: {
+    rollbackTarget?: string | null;
+    nowMs?: number;
+  } = {},
+): {
+  executed: boolean;
+  workflow: WorkflowProject;
+  execution?: WorkflowHarnessActivationRollbackExecution;
+  blockers: string[];
+  rollbackTarget?: string;
+  restoredWorkerBinding?: WorkflowHarnessWorkerBinding;
+} {
+  const createdAtMs = options.nowMs ?? Date.now();
+  const rollbackTarget = harnessRollbackTargetFor(workflow, options.rollbackTarget);
+  const {
+    latestMintEvent,
+    activeWorkerBinding,
+    restoredWorkerBinding,
+    activeRevisionBinding,
+    restoredRevisionBinding,
+  } = harnessRollbackBindingsFor(workflow, rollbackTarget, createdAtMs);
+  const restoredRevisionWithRollForward: WorkflowRevisionBinding = {
+    ...restoredRevisionBinding,
+    rollbackActivationId:
+      activeWorkerBinding.harnessActivationId ??
+      workflow.metadata.harness?.activationId ??
+      activeWorkerBinding.harnessWorkflowId,
+    rollbackRevision:
+      activeRevisionBinding.activatedRevision ?? activeRevisionBinding.workflowContentHash,
+    createdAtMs,
+  };
+  const restoredActivationState =
+    activationStateForRestoredWorkerBinding(restoredWorkerBinding);
+  const rollbackActivationRecord = makeHarnessForkActivationRecord({
+    workflowId: workflow.metadata.id || workflow.metadata.slug,
+    harnessWorkflowId: restoredWorkerBinding.harnessWorkflowId,
+    activationId: restoredWorkerBinding.harnessActivationId,
+    activationState: restoredActivationState,
+    activationBlockers:
+      restoredActivationState === "validated"
+        ? []
+        : ["rollback_restored_non_fork_authority"],
+    componentVersionSet:
+      workflow.metadata.harness?.activationRecord?.componentVersionSet ??
+      defaultHarnessComponentVersionSet(),
+    harnessHash: restoredWorkerBinding.harnessHash,
+    policyPosture:
+      restoredActivationState === "validated"
+        ? workflow.metadata.harness?.activationRecord?.policyPosture ?? "canary"
+        : "proposal_only",
+    canaryStatus:
+      restoredActivationState === "validated"
+        ? workflow.metadata.harness?.activationRecord?.canaryStatus ?? "passed"
+        : "not_run",
+    rollbackTarget:
+      activeWorkerBinding.harnessActivationId ?? activeWorkerBinding.harnessWorkflowId,
+    rollbackAvailable: true,
+    liveAuthorityTransferred: false,
+    evidenceRefs: [
+      rollbackTarget,
+      restoredRevisionWithRollForward.workflowContentHash,
+      ...(latestMintEvent ? [latestMintEvent.eventId] : []),
+    ],
+    workerBinding: restoredWorkerBinding,
+    revisionBinding: restoredRevisionWithRollForward,
+    rollbackRevisionBinding: activeRevisionBinding,
+    mintedAtMs: createdAtMs,
+  });
+  const restoredWorkflowBase: WorkflowProject = {
+    ...workflow,
+    metadata: {
+      ...workflow.metadata,
+      dirty: true,
+      harness: workflow.metadata.harness
+        ? {
+            ...workflow.metadata.harness,
+            harnessWorkflowId: restoredWorkerBinding.harnessWorkflowId,
+            harnessHash: restoredWorkerBinding.harnessHash,
+            executionMode:
+              restoredWorkerBinding.executionMode ??
+              workflow.metadata.harness.executionMode,
+            activationId: restoredWorkerBinding.harnessActivationId,
+            activationState: restoredActivationState,
+            activationRecord: rollbackActivationRecord,
+            revisionBinding: restoredRevisionWithRollForward,
+          }
+        : workflow.metadata.harness,
+      workerHarnessBinding: restoredWorkerBinding,
+      updatedAtMs: createdAtMs,
+    },
+  };
+  const actualWorkflowContentHash = stableContentHash(
+    workflowSourceProjection(restoredWorkflowBase),
+  );
+  const hashVerified =
+    actualWorkflowContentHash === restoredRevisionWithRollForward.workflowContentHash;
+  const blockers = [
+    ...(workflowIsHarnessFork(workflow) ? [] : ["not_harness_fork"]),
+    ...(rollbackTarget ? [] : ["rollback_target_missing"]),
+    ...(workflow.metadata.harness?.activationRecord?.rollbackAvailable === false
+      ? ["rollback_unavailable"]
+      : []),
+    ...(hashVerified ? [] : ["rollback_revision_hash_mismatch"]),
+  ];
+  const execution: WorkflowHarnessActivationRollbackExecution = {
+    schemaVersion: "workflow.harness.activation-rollback-execution.v1",
+    executionId: `harness-rollback-execution:${slugify(workflow.metadata.id || workflow.metadata.slug)}:${createdAtMs}`,
+    workflowId: workflow.metadata.id || workflow.metadata.slug,
+    activationId: workflow.metadata.harness?.activationId,
+    rollbackTarget,
+    rollbackAvailable: blockers.length === 0,
+    rollbackExecuted: blockers.length === 0,
+    activeWorkerBinding,
+    restoredWorkerBinding,
+    activeRevisionBinding,
+    restoredRevisionBinding: restoredRevisionWithRollForward,
+    restoreStrategy: rollbackRestoreStrategyFor(restoredRevisionWithRollForward),
+    workflowPath: restoredRevisionWithRollForward.workflowPath,
+    expectedWorkflowContentHash: restoredRevisionWithRollForward.workflowContentHash,
+    actualWorkflowContentHash,
+    hashVerified,
+    executionStatus: blockers.length === 0 ? "applied" : "blocked",
+    policyDecision:
+      blockers.length === 0
+        ? "rollback_execution_restored_verified_workflow_revision"
+        : "rollback_execution_blocked",
+    blockers,
+    evidenceRefs: [
+      rollbackTarget,
+      restoredRevisionWithRollForward.workflowContentHash,
+      ...(latestMintEvent ? [latestMintEvent.eventId] : []),
+    ],
+    createdAtMs,
+  };
+  const workflowForAudit = blockers.length === 0 ? restoredWorkflowBase : workflow;
+  const workflowWithAudit = appendWorkflowHarnessActivationAudit(
+    workflowForAudit,
+    makeWorkflowHarnessActivationAuditEvent({
+      workflow,
+      eventType: blockers.length === 0 ? "rollback_executed" : "rollback_execution_blocked",
+      status: blockers.length === 0 ? "applied" : "blocked",
+      activationId: workflow.metadata.harness?.activationId,
+      previousActivationId: workflow.metadata.harness?.activationId,
+      nextActivationId: restoredWorkerBinding.harnessActivationId,
+      previousWorkerBinding: activeWorkerBinding,
+      nextWorkerBinding: restoredWorkerBinding,
+      previousRevisionBinding: activeRevisionBinding,
+      nextRevisionBinding: restoredRevisionWithRollForward,
+      rollbackTarget,
+      rollbackExecuted: blockers.length === 0,
+      blockers,
+      evidenceRefs: execution.evidenceRefs,
+      summary:
+        blockers.length === 0
+          ? `Rollback executed: restored ${restoredRevisionWithRollForward.workflowContentHash}`
+          : `Rollback execution blocked by ${blockers.length} blockers`,
+      createdAtMs,
+    }),
+    { activationRollbackExecution: execution },
+  );
+  return {
+    executed: blockers.length === 0,
+    workflow: workflowWithAudit,
+    execution,
     blockers,
     rollbackTarget,
     restoredWorkerBinding,

@@ -91,6 +91,7 @@ test("TS harness fork activation contract records blocked and canary-validated p
   assert.match(graph, /WorkflowHarnessComponentInvocation[\s\S]*invocationId[\s\S]*componentKind[\s\S]*executionMode[\s\S]*receiptIds/);
   assert.match(graph, /WorkflowHarnessComponentAdapterResult[\s\S]*actionFrame[\s\S]*nodeAttempt[\s\S]*resultHash[\s\S]*replay/);
   assert.match(graph, /WorkflowRevisionBinding[\s\S]*workflowPath[\s\S]*workflowContentHash[\s\S]*rollbackRevision/);
+  assert.match(graph, /WorkflowHarnessActivationRollbackExecution[\s\S]*restoreStrategy[\s\S]*hashVerified[\s\S]*executionStatus/);
   assert.match(graph, /WorkflowHarnessForkActivationCandidate[\s\S]*dryRunOnly: true[\s\S]*revisionBindingPreview: WorkflowRevisionBinding/);
   assert.match(graph, /WorkflowHarnessActivationCandidateGateResult[\s\S]*gateId[\s\S]*evidenceRefs/);
   assert.match(graph, /WorkflowHarnessLiveHandoffProof/);
@@ -111,6 +112,7 @@ test("TS harness fork activation contract records blocked and canary-validated p
   assert.match(workflow, /makeHarnessCanaryExecutionBoundaries[\s\S]*clusterId: "cognition"[\s\S]*clusterId: "routing_model"[\s\S]*clusterId: "verification_output"[\s\S]*clusterId: "authority_tooling"/);
   assert.match(workflow, /DEFAULT_AGENT_HARNESS_FORK_ROLLBACK_TARGET/);
   assert.match(workflow, /stableContentHash[\s\S]*workflowSourceProjection[\s\S]*workflowRevisionBindingFor/);
+  assert.match(workflow, /executeWorkflowHarnessRevisionRollback[\s\S]*rollback_execution_restored_verified_workflow_revision[\s\S]*rollback_executed[\s\S]*activationRollbackExecution/);
   assert.match(validation, /activationRecordValidated[\s\S]*canaryStatus === "passed"/);
   assert.match(validation, /workerBinding\?\.harnessActivationId === harness\?\.activationId/);
   assert.match(validation, /createWorkflowHarnessActivationCandidate[\s\S]*activationIdPreview[\s\S]*decision[\s\S]*mintable[\s\S]*workerBindingPreview[\s\S]*revisionBindingPreview/);
