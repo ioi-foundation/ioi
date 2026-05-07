@@ -11,13 +11,14 @@ use ioi_api::runtime_harness::extract_user_request_from_contextualized_intent;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_memory::{MemoryRuntime, StoredTranscriptMessage, TranscriptPrivacyMetadata};
 use ioi_types::app::{
-    compare_harness_live_shadow_attempts, default_harness_gated_cluster_run_for_shadow_run,
-    default_harness_shadow_run_for_attempts, harness_gated_cluster_run_camel_value,
-    harness_node_attempt_record_from_camel_value, harness_promotion_cluster_components,
-    harness_shadow_comparison_camel_value, runtime_contracts::RUNTIME_CONTRACT_SCHEMA_VERSION_V1,
-    HarnessExecutionMode, HarnessNodeAttemptRecord, HarnessNodeAttemptStatus,
-    HarnessPromotionClusterId, HarnessShadowComparison, DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
-    DEFAULT_AGENT_HARNESS_HASH, DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+    compare_harness_live_shadow_attempts, default_harness_default_runtime_dispatch_proof,
+    default_harness_gated_cluster_run_for_shadow_run, default_harness_shadow_run_for_attempts,
+    harness_gated_cluster_run_camel_value, harness_node_attempt_record_from_camel_value,
+    harness_promotion_cluster_components, harness_shadow_comparison_camel_value,
+    runtime_contracts::RUNTIME_CONTRACT_SCHEMA_VERSION_V1, HarnessExecutionMode,
+    HarnessNodeAttemptRecord, HarnessNodeAttemptStatus, HarnessPromotionClusterId,
+    HarnessShadowComparison, DEFAULT_AGENT_HARNESS_ACTIVATION_ID, DEFAULT_AGENT_HARNESS_HASH,
+    DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
 };
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{json, Value};
@@ -3196,49 +3197,39 @@ fn runtime_harness_default_runtime_dispatch(
         activation_blockers.push(format!("selected_action:{selected_action}"));
     }
 
-    const COGNITION_ACCEPTED_COMPONENTS: &[&str] = &[
-        "planner",
-        "prompt_assembler",
-        "task_state",
-        "uncertainty_gate",
-        "budget_gate",
-        "capability_sequencer",
-    ];
-    const ROUTING_MODEL_ACCEPTED_COMPONENTS: &[&str] =
-        &["model_router", "model_call", "tool_router"];
-    const VERIFICATION_COMPLETION_ACCEPTED_COMPONENTS: &[&str] = &[
-        "postcondition_synthesizer",
-        "verifier",
-        "completion_gate",
-        "receipt_writer",
-        "quality_ledger",
-        "output_writer",
-    ];
-    const AUTHORITY_TOOLING_ACCEPTED_COMPONENTS: &[&str] =
-        &["policy_gate", "approval_gate", "dry_run_simulator"];
-    const DEFERRED_COMPONENTS: &[&str] = &[
-        "mcp_provider",
-        "mcp_tool_call",
-        "tool_call",
-        "connector_call",
-        "wallet_capability",
-    ];
-    const HANDOFF_VALIDATED_COMPONENTS: &[&str] = &["output_writer"];
-    const MATERIALIZATION_CANARY_COMPONENTS: &[&str] = &["output_writer"];
-    let required_clusters = [
-        ("cognition", 6usize, COGNITION_ACCEPTED_COMPONENTS),
-        ("routing_model", 3usize, ROUTING_MODEL_ACCEPTED_COMPONENTS),
-        (
-            "verification_output",
-            6usize,
-            VERIFICATION_COMPLETION_ACCEPTED_COMPONENTS,
-        ),
-        (
-            "authority_tooling",
-            3usize,
-            AUTHORITY_TOOLING_ACCEPTED_COMPONENTS,
-        ),
-    ];
+    let default_dispatch_contract = default_harness_default_runtime_dispatch_proof();
+    let accepted_component_kinds = default_dispatch_contract
+        .component_kinds
+        .iter()
+        .map(|component_kind| component_kind.as_str())
+        .collect::<Vec<_>>();
+    let deferred_components = default_dispatch_contract
+        .deferred_component_kinds
+        .iter()
+        .map(|component_kind| component_kind.as_str())
+        .collect::<Vec<_>>();
+    let handoff_validated_components = default_dispatch_contract
+        .handoff_validated_component_kinds
+        .iter()
+        .map(|component_kind| component_kind.as_str())
+        .collect::<Vec<_>>();
+    let materialization_canary_components = default_dispatch_contract
+        .materialization_canary_component_kinds
+        .iter()
+        .map(|component_kind| component_kind.as_str())
+        .collect::<Vec<_>>();
+    let required_clusters = default_dispatch_contract
+        .accepted_cluster_ids
+        .iter()
+        .map(|cluster_id| {
+            let accepted_components = harness_promotion_cluster_components(*cluster_id)
+                .into_iter()
+                .map(|component_kind| component_kind.as_str())
+                .filter(|component_kind| accepted_component_kinds.contains(component_kind))
+                .collect::<Vec<_>>();
+            (*cluster_id, accepted_components)
+        })
+        .collect::<Vec<_>>();
     let mut accepted_cluster_ids = Vec::<String>::new();
     let mut component_kinds = Vec::<String>::new();
     let mut source_boundary_ids = Vec::<String>::new();
@@ -3246,12 +3237,13 @@ fn runtime_harness_default_runtime_dispatch(
     let mut receipt_ids = Vec::<String>::new();
     let mut replay_fixture_refs = Vec::<String>::new();
 
-    for (cluster_id, minimum_attempts, accepted_components) in required_clusters {
-        let Some(boundary) = canary_execution_boundaries
-            .iter()
-            .find(|boundary| boundary.get("clusterId").and_then(Value::as_str) == Some(cluster_id))
-        else {
-            activation_blockers.push(format!("missing_source_boundary:{cluster_id}"));
+    for (cluster_id, accepted_components) in &required_clusters {
+        let cluster_slug = cluster_id.as_str();
+        let minimum_attempts = accepted_components.len();
+        let Some(boundary) = canary_execution_boundaries.iter().find(|boundary| {
+            boundary.get("clusterId").and_then(Value::as_str) == Some(cluster_slug)
+        }) else {
+            activation_blockers.push(format!("missing_source_boundary:{cluster_slug}"));
             continue;
         };
         let accepted_components_present = accepted_components.iter().all(|component_kind| {
@@ -3294,10 +3286,10 @@ fn runtime_harness_default_runtime_dispatch(
                 .map(|items| items.is_empty())
                 .unwrap_or(false);
         if !boundary_passed {
-            activation_blockers.push(format!("source_boundary_not_accepted:{cluster_id}"));
+            activation_blockers.push(format!("source_boundary_not_accepted:{cluster_slug}"));
             continue;
         }
-        accepted_cluster_ids.push(cluster_id.to_string());
+        accepted_cluster_ids.push(cluster_slug.to_string());
         if let Some(boundary_id) = boundary.get("boundaryId").and_then(Value::as_str) {
             source_boundary_ids.push(boundary_id.to_string());
         }
@@ -6275,9 +6267,9 @@ fn runtime_harness_default_runtime_dispatch(
         "readOnlyDispatchAccepted": dispatch_accepted,
         "acceptedClusterIds": accepted_cluster_ids,
         "componentKinds": component_kinds,
-        "deferredComponentKinds": DEFERRED_COMPONENTS,
-        "handoffValidatedComponentKinds": if dispatch_accepted { HANDOFF_VALIDATED_COMPONENTS.to_vec() } else { Vec::<&str>::new() },
-        "materializationCanaryComponentKinds": if dispatch_accepted { MATERIALIZATION_CANARY_COMPONENTS.to_vec() } else { Vec::<&str>::new() },
+        "deferredComponentKinds": &deferred_components,
+        "handoffValidatedComponentKinds": if dispatch_accepted { handoff_validated_components.clone() } else { Vec::<&str>::new() },
+        "materializationCanaryComponentKinds": if dispatch_accepted { materialization_canary_components.clone() } else { Vec::<&str>::new() },
         "sourceBoundaryIds": source_boundary_ids,
         "dispatchNodeAttemptIds": dispatch_node_attempt_ids,
         "cognitionExecutionAttemptIds": cognition_execution_attempt_ids.clone(),
@@ -6705,7 +6697,7 @@ fn runtime_harness_default_runtime_dispatch(
             "rollbackAvailable": authority_tooling_rollback_available,
             "attemptIds": authority_tooling_live_dry_run_attempt_ids,
             "denialReceiptIds": authority_tooling_denial_receipt_ids,
-            "deferredMutationComponentKinds": DEFERRED_COMPONENTS,
+            "deferredMutationComponentKinds": &deferred_components,
             "policyDecision": "allow_read_only_route_and_deny_destructive_tooling_without_side_effect"
         },
         "legacyTranscriptAuthorityRetained": false,
