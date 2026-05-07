@@ -730,8 +730,14 @@ assert.match(
 
 assert.match(
   `${graphTypes}\n${composer}\n${canvasNode}\n${canvasNodeCss}`,
-  /(?=[\s\S]*interface WorkflowHarnessGroupView)(?=[\s\S]*harnessGroup\?: WorkflowHarnessGroupView)(?=[\s\S]*harnessGroupViews)(?=[\s\S]*collapsedHarnessGroupByNodeId)(?=[\s\S]*HARNESS_GROUP_BOUNDARY_PORTS)(?=[\s\S]*collapsedGroupEdge)(?=[\s\S]*workflow-harness-group-controls)(?=[\s\S]*workflow-harness-collapse-groups)(?=[\s\S]*workflow-harness-expand-groups)(?=[\s\S]*workflow-harness-group-node-\$\{harnessGroup\.groupId\})(?=[\s\S]*workflow-harness-group-toggle)(?=[\s\S]*workflow-harness-group-boundary-ports)(?=[\s\S]*workflow-harness-group-deep-link)(?=[\s\S]*canvas-node--harness-group)/,
-  "Harness promotion clusters should collapse into typed boundary nodes with rollups, deep links, and explicit expand controls.",
+  /(?=[\s\S]*interface WorkflowHarnessGroupView)(?=[\s\S]*harnessGroup\?: WorkflowHarnessGroupView)(?=[\s\S]*harnessGroupViews)(?=[\s\S]*selectedHarnessGroup)(?=[\s\S]*handleInspectHarnessGroupNode)(?=[\s\S]*collapsedHarnessGroupByNodeId)(?=[\s\S]*HARNESS_GROUP_BOUNDARY_PORTS)(?=[\s\S]*collapsedGroupEdge)(?=[\s\S]*workflow-harness-group-controls)(?=[\s\S]*workflow-harness-collapse-groups)(?=[\s\S]*workflow-harness-expand-groups)(?=[\s\S]*workflow-harness-group-node-\$\{harnessGroup\.groupId\})(?=[\s\S]*workflow-harness-group-toggle)(?=[\s\S]*workflow-harness-group-boundary-ports)(?=[\s\S]*workflow-harness-group-deep-link)(?=[\s\S]*canvas-node--harness-group)/,
+  "Harness promotion clusters should collapse into typed boundary nodes with selection state, rollups, deep links, and explicit expand controls.",
+);
+
+assert.match(
+  workflowRailPanel,
+  /(?=[\s\S]*selectedHarnessGroup)(?=[\s\S]*workflow-harness-group-inspector)(?=[\s\S]*workflow-harness-group-readiness-rollup)(?=[\s\S]*workflow-harness-group-components)(?=[\s\S]*workflow-harness-group-run-status)(?=[\s\S]*workflow-harness-group-gated-run)(?=[\s\S]*workflow-harness-group-receipt-refs)(?=[\s\S]*workflow-harness-group-replay-fixtures)(?=[\s\S]*workflow-harness-group-activation-blockers)(?=[\s\S]*workflow-harness-group-shadow-comparison)(?=[\s\S]*workflow-harness-group-attempts)(?=[\s\S]*onInspectHarnessGroupNode)/,
+  "Harness group rail inspection should expose readiness rollups, components, run/gate status, receipts, replay fixtures, blockers, shadow comparison, attempts, and member deep links.",
 );
 
 assert.match(

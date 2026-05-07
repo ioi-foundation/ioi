@@ -7,6 +7,7 @@ import type {
   WorkflowCheckpoint,
   WorkflowConnectionClass,
   WorkflowDogfoodRun,
+  WorkflowHarnessGroupView,
   WorkflowNodeFixture,
   WorkflowPortablePackage,
   WorkflowProject,
@@ -54,6 +55,7 @@ import {
 export function WorkflowRailPanel({
   panel,
   selectedNode,
+  selectedHarnessGroup,
   tests,
   proposals,
   runs,
@@ -75,6 +77,7 @@ export function WorkflowRailPanel({
   onCompareRun,
   onOpenExecutions,
   onInspectNode,
+  onInspectHarnessGroupNode,
   onConfigureNode,
   onSelectProposal,
   onExportPackage,
@@ -93,6 +96,7 @@ export function WorkflowRailPanel({
 }: {
   panel: WorkflowRightPanel;
   selectedNode: Node | null;
+  selectedHarnessGroup?: WorkflowHarnessGroupView | null;
   tests: WorkflowTestCase[];
   proposals: WorkflowProposal[];
   runs: WorkflowRunSummary[];
@@ -114,6 +118,7 @@ export function WorkflowRailPanel({
   onCompareRun: (run: WorkflowRunSummary) => void;
   onOpenExecutions?: () => void;
   onInspectNode: (nodeId: string) => void;
+  onInspectHarnessGroupNode?: (groupId: string, nodeId: string) => void;
   onConfigureNode: () => void;
   onSelectProposal: (proposal: WorkflowProposal) => void;
   onExportPackage: () => void;
@@ -1688,9 +1693,240 @@ export function WorkflowRailPanel({
   const toolRows = selectedAttachmentRows.filter((row) => row.edgeClass === "tool");
   const approvalRows = selectedAttachmentRows.filter((row) => row.edgeClass === "approval");
   const memoryReady = hasAttachmentClass("memory") || hasAttachmentClass("state");
+  const selectedHarnessGroupNodeIds = new Set(selectedHarnessGroup?.innerNodeIds ?? []);
+  const selectedHarnessGroupNodes = selectedHarnessGroup
+    ? selectedHarnessGroup.innerNodeIds
+        .map((nodeId) => workflow.nodes.find((nodeItem) => nodeItem.id === nodeId))
+        .filter((nodeItem): nodeItem is Node => Boolean(nodeItem))
+    : [];
+  const selectedHarnessGroupAttempts = selectedHarnessGroup
+    ? (lastRunResult?.harnessAttempts ?? []).filter((attempt) =>
+        selectedHarnessGroupNodeIds.has(attempt.workflowNodeId),
+      )
+    : [];
+  const selectedHarnessGroupComparisons = selectedHarnessGroup
+    ? (lastRunResult?.harnessShadowComparisons ?? []).filter((comparison) =>
+        selectedHarnessGroupNodeIds.has(comparison.workflowNodeId),
+      )
+    : [];
+  const selectedHarnessGroupGatedRun = selectedHarnessGroup
+    ? (lastRunResult?.harnessGatedClusterRuns ?? []).find(
+        (run) => String(run.clusterId) === String(selectedHarnessGroup.groupId),
+      ) ?? null
+    : null;
+  const selectedHarnessGroupIssues = selectedHarnessGroup
+    ? [
+        ...(validationResult?.errors ?? []),
+        ...(validationResult?.warnings ?? []),
+        ...(validationResult?.executionReadinessIssues ?? []),
+        ...(readinessResult?.errors ?? []),
+        ...(readinessResult?.warnings ?? []),
+        ...(readinessResult?.executionReadinessIssues ?? []),
+      ].filter((issue) => issue.nodeId && selectedHarnessGroupNodeIds.has(issue.nodeId))
+    : [];
   return (
     <>
       <h3>Outputs</h3>
+      {selectedHarnessGroup ? (
+        <section
+          className="workflow-node-inspector workflow-harness-group-inspector"
+          data-testid="workflow-harness-group-inspector"
+          data-harness-group-id={selectedHarnessGroup.groupId}
+        >
+          <header>
+            <div>
+              <strong>{selectedHarnessGroup.label}</strong>
+              <span>
+                {selectedHarnessGroup.collapsed ? "collapsed" : "expanded"} · {selectedHarnessGroup.innerNodeIds.length} nodes
+              </span>
+            </div>
+            <small>{selectedHarnessGroup.statusRollup.executionMode}</small>
+          </header>
+          <dl
+            className="workflow-rail-stats"
+            data-testid="workflow-harness-group-readiness-rollup"
+          >
+            <div>
+              <dt>Readiness</dt>
+              <dd>{selectedHarnessGroup.statusRollup.readiness}</dd>
+            </div>
+            <div>
+              <dt>Live-ready</dt>
+              <dd>{selectedHarnessGroup.statusRollup.liveReadyCount}/{selectedHarnessGroup.innerNodeIds.length}</dd>
+            </div>
+            <div>
+              <dt>Receipts</dt>
+              <dd>{selectedHarnessGroup.statusRollup.receiptKindCount}</dd>
+            </div>
+            <div>
+              <dt>Replay</dt>
+              <dd>{selectedHarnessGroup.statusRollup.replayFixtureCount}</dd>
+            </div>
+            <div>
+              <dt>Divergence</dt>
+              <dd>{selectedHarnessGroup.statusRollup.divergenceCount}</dd>
+            </div>
+            <div>
+              <dt>Activation</dt>
+              <dd>{selectedHarnessGroup.statusRollup.activationState ?? "unknown"}</dd>
+            </div>
+          </dl>
+          <section
+            className="workflow-rail-section"
+            data-testid="workflow-harness-group-components"
+          >
+            <h4>Components</h4>
+            {selectedHarnessGroupNodes.map((nodeItem) => (
+              <button
+                key={nodeItem.id}
+                type="button"
+                className="workflow-search-result"
+                data-testid={`workflow-harness-group-component-${nodeItem.id}`}
+                onClick={() => {
+                  if (onInspectHarnessGroupNode) {
+                    onInspectHarnessGroupNode(
+                      String(selectedHarnessGroup.groupId),
+                      nodeItem.id,
+                    );
+                    return;
+                  }
+                  onInspectNode(nodeItem.id);
+                }}
+              >
+                <strong>{nodeItem.name}</strong>
+                <span>
+                  {nodeItem.runtimeBinding?.componentKind ?? nodeItem.type}
+                  {" · "}
+                  {nodeItem.runtimeBinding?.readiness ?? "projection_only"}
+                </span>
+                <small>
+                  {nodeItem.runtimeBinding?.componentId ?? nodeItem.id}
+                </small>
+              </button>
+            ))}
+          </section>
+          <section
+            className="workflow-rail-section"
+            data-testid="workflow-harness-group-run-status"
+          >
+            <h4>Run and gates</h4>
+            <article className="workflow-output-row" data-testid="workflow-harness-group-run-link">
+              <strong>{selectedHarnessGroup.deepLinks.runId ?? "no selected run"}</strong>
+              <span>{selectedHarnessGroupGatedRun?.status ?? "gated run not selected"}</span>
+              <small>
+                {selectedHarnessGroupGatedRun?.gateDecision ??
+                  "Select a retained harness run to inspect gate policy decisions."}
+              </small>
+            </article>
+            {selectedHarnessGroupGatedRun ? (
+              <article
+                className={`workflow-test-row is-${selectedHarnessGroupGatedRun.promotionBlocked ? "blocked" : "passed"}`}
+                data-testid="workflow-harness-group-gated-run"
+              >
+                <strong>{selectedHarnessGroupGatedRun.clusterLabel}</strong>
+                <span>
+                  canary {selectedHarnessGroupGatedRun.canaryStatus} · rollback {selectedHarnessGroupGatedRun.rollbackTarget}
+                </span>
+                <small>
+                  {selectedHarnessGroupGatedRun.nodeAttemptIds.length} attempts · {selectedHarnessGroupGatedRun.receiptIds.length} receipts
+                </small>
+              </article>
+            ) : null}
+          </section>
+          <section
+            className="workflow-rail-section"
+            data-testid="workflow-harness-group-receipt-refs"
+          >
+            <h4>Receipts</h4>
+            {selectedHarnessGroup.deepLinks.receiptRefs.slice(0, 8).map((receiptRef) => (
+              <code key={receiptRef}>{receiptRef}</code>
+            ))}
+            {selectedHarnessGroup.deepLinks.receiptRefs.length === 0 ? (
+              <span>No receipt refs captured for this group yet.</span>
+            ) : null}
+          </section>
+          <section
+            className="workflow-rail-section"
+            data-testid="workflow-harness-group-replay-fixtures"
+          >
+            <h4>Replay</h4>
+            {selectedHarnessGroup.deepLinks.replayFixtureRefs.slice(0, 8).map((fixtureRef) => (
+              <code key={fixtureRef}>{fixtureRef}</code>
+            ))}
+            {selectedHarnessGroup.deepLinks.replayFixtureRefs.length === 0 ? (
+              <span>No replay fixture refs captured for this group yet.</span>
+            ) : null}
+          </section>
+          {(selectedHarnessGroupIssues.length > 0 ||
+            (selectedHarnessGroupGatedRun?.activationBlockers.length ?? 0) > 0) ? (
+            <section
+              className="workflow-rail-section"
+              data-testid="workflow-harness-group-activation-blockers"
+            >
+              <h4>Activation blockers</h4>
+              {(selectedHarnessGroupGatedRun?.activationBlockers ?? []).slice(0, 4).map((blocker) => (
+                <article key={blocker} className="workflow-test-row is-blocked">
+                  <strong>Gate blocker</strong>
+                  <span>{blocker}</span>
+                </article>
+              ))}
+              {selectedHarnessGroupIssues.slice(0, 4).map((issue, index) => (
+                <button
+                  key={`${issue.code}-${issue.nodeId}-${index}`}
+                  type="button"
+                  className="workflow-search-result is-warning"
+                  data-testid={`workflow-harness-group-issue-${index}`}
+                  onClick={() => onResolveIssue(issue)}
+                >
+                  <strong>{workflowIssueTitle(issue)}</strong>
+                  <span>{workflowNodeName(workflow, issue.nodeId)}</span>
+                  <small>{issue.message}</small>
+                </button>
+              ))}
+            </section>
+          ) : null}
+          {selectedHarnessGroupComparisons.length > 0 ? (
+            <section
+              className="workflow-rail-section"
+              data-testid="workflow-harness-group-shadow-comparison"
+            >
+              <h4>Live vs shadow</h4>
+              {selectedHarnessGroupComparisons.slice(-5).map((comparison) => (
+                <article
+                  key={`${comparison.liveAttemptId}-${comparison.shadowAttemptId}`}
+                  className={`workflow-test-row is-${comparison.blocking ? "blocked" : "passed"}`}
+                >
+                  <strong>{comparison.divergence}</strong>
+                  <span>{workflowNodeName(workflow, comparison.workflowNodeId)}</span>
+                  <small>{comparison.summary}</small>
+                </article>
+              ))}
+            </section>
+          ) : null}
+          {selectedHarnessGroupAttempts.length > 0 ? (
+            <section
+              className="workflow-rail-section"
+              data-testid="workflow-harness-group-attempts"
+            >
+              <h4>Attempts</h4>
+              {selectedHarnessGroupAttempts.slice(-6).map((attempt) => (
+                <article
+                  key={attempt.attemptId}
+                  className={`workflow-test-row is-${attempt.status}`}
+                >
+                  <strong>{workflowNodeName(workflow, attempt.workflowNodeId)}</strong>
+                  <span>
+                    {attempt.executionMode} · {attempt.readiness}
+                  </span>
+                  <small>
+                    {attempt.receiptIds.length} receipts · {attempt.replay.determinism}
+                  </small>
+                </article>
+              ))}
+            </section>
+          ) : null}
+        </section>
+      ) : null}
       {selectedNode ? (
         <section className="workflow-node-inspector" data-testid="workflow-selected-node-inspector">
           <header>
