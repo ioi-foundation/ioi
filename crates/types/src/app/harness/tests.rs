@@ -929,6 +929,18 @@ fn default_runtime_dispatch_proof_accepts_readonly_default_with_provider_visible
         .iter()
         .any(|id| id.contains("authority_tooling_connector_call_read_only")));
     assert!(dispatch
+        .authority_tooling_wallet_capability_live_dry_run_attempt_ids
+        .iter()
+        .any(|id| id.contains("authority_tooling_wallet_capability_read_only")));
+    assert!(dispatch
+        .authority_tooling_wallet_capability_live_dry_run_receipt_ids
+        .iter()
+        .any(|id| id.contains("authority_tooling_wallet_capability_read_only")));
+    assert!(dispatch
+        .authority_tooling_wallet_capability_live_dry_run_replay_fixture_refs
+        .iter()
+        .any(|id| id.contains("authority_tooling_wallet_capability_read_only")));
+    assert!(dispatch
         .authority_tooling_read_only_component_kinds
         .contains(&HarnessComponentKind::McpToolCall));
     assert!(dispatch

@@ -2711,10 +2711,16 @@ fn runtime_harness_authority_tooling_canary_execution_boundary(
             node_type: "human_gate",
             node_name: "Wallet capability request",
             logic: json!({
-                "text": "Approve synthetic non-mutating wallet capability canary proof.",
-                "approvalMode": "synthetic_canary",
+                "text": "Approve non-mutating wallet capability dry-run proof.",
+                "approvalMode": "wallet_capability_dry_run",
                 "capabilityScope": ["wallet.request", "capability.grant"],
                 "requiresApproval": true,
+                "policyDecision": "retain_wallet_capability_without_grant",
+                "syntheticApprovalGranted": false,
+                "capabilityGranted": false,
+                "grantMaterialized": false,
+                "sideEffectsExecuted": false,
+                "mutationExecuted": false,
                 "authorityTransferred": false
             }),
         },
@@ -4055,11 +4061,16 @@ fn runtime_harness_default_runtime_dispatch(
     let mut authority_tooling_connector_catalog_live_attempt_ids = Vec::<String>::new();
     let mut authority_tooling_connector_catalog_live_receipt_ids = Vec::<String>::new();
     let mut authority_tooling_connector_catalog_live_replay_fixture_refs = Vec::<String>::new();
+    let mut authority_tooling_wallet_capability_live_dry_run_attempt_ids = Vec::<String>::new();
+    let mut authority_tooling_wallet_capability_live_dry_run_receipt_ids = Vec::<String>::new();
+    let mut authority_tooling_wallet_capability_live_dry_run_replay_fixture_refs =
+        Vec::<String>::new();
     let mut authority_tooling_read_only_live_success_count = 0usize;
     let mut authority_tooling_provider_catalog_live_success_count = 0usize;
     let mut authority_tooling_mcp_tool_catalog_live_success_count = 0usize;
     let mut authority_tooling_native_tool_catalog_live_success_count = 0usize;
     let mut authority_tooling_connector_catalog_live_success_count = 0usize;
+    let mut authority_tooling_wallet_capability_live_dry_run_success_count = 0usize;
     let mut authority_tooling_denial_receipt_ids = Vec::<String>::new();
     if can_dispatch {
         for (index, cluster_id) in accepted_cluster_ids.iter().enumerate() {
@@ -5702,11 +5713,16 @@ fn runtime_harness_default_runtime_dispatch(
                 true,
                 json!({
                     "text": "Wallet and spending authority remain unavailable during read-only default harness dispatch.",
-                    "approvalMode": "read_only_capability_denial",
+                    "approvalMode": "wallet_capability_dry_run",
+                    "capabilityScope": ["wallet.request", "capability.grant"],
                     "readOnlyAuthority": true,
                     "requiresApproval": true,
+                    "policyDecision": "retain_wallet_capability_without_grant",
                     "syntheticApprovalGranted": false,
+                    "capabilityDryRunLiveExecution": true,
                     "capabilityGranted": false,
+                    "grantMaterialized": false,
+                    "authorityTransferred": false,
                     "sideEffectsExecuted": false,
                     "mutationExecuted": false,
                     "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID
@@ -5802,6 +5818,15 @@ fn runtime_harness_default_runtime_dispatch(
                 authority_tooling_connector_catalog_live_attempt_ids.push(attempt_id.clone());
                 authority_tooling_connector_catalog_live_receipt_ids.push(receipt_id.clone());
                 authority_tooling_connector_catalog_live_replay_fixture_refs
+                    .push(replay_fixture_ref.clone());
+            }
+            let wallet_capability_live_dry_run_attempt = component_kind == "wallet_capability";
+            if wallet_capability_live_dry_run_attempt {
+                authority_tooling_wallet_capability_live_dry_run_attempt_ids
+                    .push(attempt_id.clone());
+                authority_tooling_wallet_capability_live_dry_run_receipt_ids
+                    .push(receipt_id.clone());
+                authority_tooling_wallet_capability_live_dry_run_replay_fixture_refs
                     .push(replay_fixture_ref.clone());
             }
             match execution {
@@ -5940,6 +5965,53 @@ fn runtime_harness_default_runtime_dispatch(
                             .and_then(|catalog| catalog.get("externalRequestEnabled"))
                             .and_then(Value::as_bool)
                             == Some(false);
+                    let wallet_capability_live_dry_run_output =
+                        wallet_capability_live_dry_run_attempt
+                            && output
+                                .get("walletCapabilityDryRun")
+                                .and_then(|dry_run| dry_run.get("live"))
+                                .and_then(Value::as_bool)
+                                == Some(true)
+                            && output
+                                .get("walletCapabilityDryRun")
+                                .and_then(|dry_run| dry_run.get("executionMode"))
+                                .and_then(Value::as_str)
+                                == Some("live_non_mutating_capability_dry_run")
+                            && output
+                                .get("walletCapabilityDryRun")
+                                .and_then(|dry_run| dry_run.get("approvalObserved"))
+                                .and_then(Value::as_bool)
+                                == Some(true)
+                            && output
+                                .get("walletCapabilityDryRun")
+                                .and_then(|dry_run| dry_run.get("capabilityRequested"))
+                                .and_then(Value::as_bool)
+                                == Some(true)
+                            && output
+                                .get("walletCapabilityDryRun")
+                                .and_then(|dry_run| dry_run.get("capabilityGranted"))
+                                .and_then(Value::as_bool)
+                                == Some(false)
+                            && output
+                                .get("walletCapabilityDryRun")
+                                .and_then(|dry_run| dry_run.get("grantMaterialized"))
+                                .and_then(Value::as_bool)
+                                == Some(false)
+                            && output
+                                .get("walletCapabilityDryRun")
+                                .and_then(|dry_run| dry_run.get("authorityTransferred"))
+                                .and_then(Value::as_bool)
+                                == Some(false)
+                            && output
+                                .get("walletCapabilityDryRun")
+                                .and_then(|dry_run| dry_run.get("sideEffectsExecuted"))
+                                .and_then(Value::as_bool)
+                                == Some(false)
+                            && output
+                                .get("walletCapabilityDryRun")
+                                .and_then(|dry_run| dry_run.get("mutationExecuted"))
+                                .and_then(Value::as_bool)
+                                == Some(false);
                     if provider_catalog_live_attempt {
                         if provider_catalog_live_output {
                             authority_tooling_provider_catalog_live_success_count += 1;
@@ -5977,6 +6049,16 @@ fn runtime_harness_default_runtime_dispatch(
                         } else {
                             activation_blockers.push(
                                 "authority_tooling_connector_catalog_live_output_not_ready"
+                                    .to_string(),
+                            );
+                        }
+                    } else if wallet_capability_live_dry_run_attempt {
+                        if wallet_capability_live_dry_run_output {
+                            authority_tooling_wallet_capability_live_dry_run_success_count += 1;
+                            authority_tooling_read_only_live_success_count += 1;
+                        } else {
+                            activation_blockers.push(
+                                "authority_tooling_wallet_capability_live_dry_run_output_not_ready"
                                     .to_string(),
                             );
                         }
@@ -6035,9 +6117,13 @@ fn runtime_harness_default_runtime_dispatch(
                             "mcpToolCatalogLiveExecution": mcp_tool_catalog_live_output,
                             "nativeToolCatalogLiveExecution": native_tool_catalog_live_output,
                             "connectorCatalogLiveExecution": connector_catalog_live_output,
+                            "walletCapabilityLiveDryRunExecution": wallet_capability_live_dry_run_output,
                             "toolExecutionEnabled": false,
                             "nativeToolExecutionEnabled": false,
                             "connectorExecutionEnabled": false,
+                            "capabilityGranted": false,
+                            "grantMaterialized": false,
+                            "authorityTransferred": false,
                             "mutationAuthorityDeferred": true,
                             "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID
                         },
@@ -6094,9 +6180,13 @@ fn runtime_harness_default_runtime_dispatch(
                             "mcpToolCatalogLiveExecution": false,
                             "nativeToolCatalogLiveExecution": false,
                             "connectorCatalogLiveExecution": false,
+                            "walletCapabilityLiveDryRunExecution": false,
                             "toolExecutionEnabled": false,
                             "nativeToolExecutionEnabled": false,
                             "connectorExecutionEnabled": false,
+                            "capabilityGranted": false,
+                            "grantMaterialized": false,
+                            "authorityTransferred": false,
                             "mutationAuthorityDeferred": true,
                             "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID
                         }
@@ -6836,6 +6926,12 @@ fn runtime_harness_default_runtime_dispatch(
     authority_tooling_connector_catalog_live_receipt_ids.dedup();
     authority_tooling_connector_catalog_live_replay_fixture_refs.sort();
     authority_tooling_connector_catalog_live_replay_fixture_refs.dedup();
+    authority_tooling_wallet_capability_live_dry_run_attempt_ids.sort();
+    authority_tooling_wallet_capability_live_dry_run_attempt_ids.dedup();
+    authority_tooling_wallet_capability_live_dry_run_receipt_ids.sort();
+    authority_tooling_wallet_capability_live_dry_run_receipt_ids.dedup();
+    authority_tooling_wallet_capability_live_dry_run_replay_fixture_refs.sort();
+    authority_tooling_wallet_capability_live_dry_run_replay_fixture_refs.dedup();
     authority_tooling_denial_receipt_ids.sort();
     authority_tooling_denial_receipt_ids.dedup();
     let authority_tooling_read_only_authority_canary_ready =
@@ -6849,6 +6945,8 @@ fn runtime_harness_default_runtime_dispatch(
         authority_tooling_native_tool_catalog_live_success_count >= 1;
     let authority_tooling_connector_catalog_live_ready =
         authority_tooling_connector_catalog_live_success_count >= 1;
+    let authority_tooling_wallet_capability_live_dry_run_ready =
+        authority_tooling_wallet_capability_live_dry_run_success_count >= 1;
     let mut node_attempt_ids = accepted_node_attempt_ids.clone();
     node_attempt_ids.extend(dispatch_node_attempt_ids.clone());
     node_attempt_ids.sort();
@@ -6918,6 +7016,9 @@ fn runtime_harness_default_runtime_dispatch(
         "authorityToolingConnectorCatalogLiveAttemptIds": authority_tooling_connector_catalog_live_attempt_ids.clone(),
         "authorityToolingConnectorCatalogLiveReceiptIds": authority_tooling_connector_catalog_live_receipt_ids.clone(),
         "authorityToolingConnectorCatalogLiveReplayFixtureRefs": authority_tooling_connector_catalog_live_replay_fixture_refs.clone(),
+        "authorityToolingWalletCapabilityLiveDryRunAttemptIds": authority_tooling_wallet_capability_live_dry_run_attempt_ids.clone(),
+        "authorityToolingWalletCapabilityLiveDryRunReceiptIds": authority_tooling_wallet_capability_live_dry_run_receipt_ids.clone(),
+        "authorityToolingWalletCapabilityLiveDryRunReplayFixtureRefs": authority_tooling_wallet_capability_live_dry_run_replay_fixture_refs.clone(),
         "authorityToolingReadOnlyComponentKinds": authority_tooling_read_only_component_kinds.clone(),
         "authorityToolingMutationDeferredComponentKinds": authority_tooling_mutation_deferred_component_kinds.clone(),
         "authorityToolingDenialReceiptIds": authority_tooling_denial_receipt_ids.clone(),
@@ -7073,6 +7174,12 @@ fn runtime_harness_default_runtime_dispatch(
             "authorityToolingConnectorCatalogLiveAttemptIds": authority_tooling_connector_catalog_live_attempt_ids.clone(),
             "authorityToolingConnectorCatalogLiveReceiptIds": authority_tooling_connector_catalog_live_receipt_ids.clone(),
             "authorityToolingConnectorCatalogLiveReplayFixtureRefs": authority_tooling_connector_catalog_live_replay_fixture_refs.clone(),
+            "authorityToolingWalletCapabilityLiveDryRunReady": authority_tooling_wallet_capability_live_dry_run_ready,
+            "authorityToolingWalletCapabilityLiveDryRunSuccessCount": authority_tooling_wallet_capability_live_dry_run_success_count,
+            "authorityToolingWalletCapabilityLiveDryRunComponentKind": "wallet_capability",
+            "authorityToolingWalletCapabilityLiveDryRunAttemptIds": authority_tooling_wallet_capability_live_dry_run_attempt_ids.clone(),
+            "authorityToolingWalletCapabilityLiveDryRunReceiptIds": authority_tooling_wallet_capability_live_dry_run_receipt_ids.clone(),
+            "authorityToolingWalletCapabilityLiveDryRunReplayFixtureRefs": authority_tooling_wallet_capability_live_dry_run_replay_fixture_refs.clone(),
             "authorityToolingReadOnlyLiveAttemptCount": authority_tooling_read_only_live_attempt_ids.len(),
             "authorityToolingReadOnlyLiveSuccessCount": authority_tooling_read_only_live_success_count,
             "authorityToolingReadOnlyComponentKinds": authority_tooling_read_only_component_kinds.clone(),
@@ -7350,6 +7457,9 @@ fn runtime_harness_default_runtime_dispatch(
         "authorityToolingConnectorCatalogLiveReady": authority_tooling_connector_catalog_live_ready,
         "authorityToolingConnectorCatalogLiveSuccessCount": authority_tooling_connector_catalog_live_success_count,
         "authorityToolingConnectorCatalogLiveComponentKind": "connector_call",
+        "authorityToolingWalletCapabilityLiveDryRunReady": authority_tooling_wallet_capability_live_dry_run_ready,
+        "authorityToolingWalletCapabilityLiveDryRunSuccessCount": authority_tooling_wallet_capability_live_dry_run_success_count,
+        "authorityToolingWalletCapabilityLiveDryRunComponentKind": "wallet_capability",
         "authorityToolingReadOnlyRouteAccepted": authority_tooling_read_only_route_accepted,
         "authorityToolingDestructiveRouteDenied": authority_tooling_destructive_route_denied,
         "authorityToolingMutatingToolCallsBlocked": authority_tooling_mutating_tool_calls_blocked,
@@ -7395,6 +7505,12 @@ fn runtime_harness_default_runtime_dispatch(
             "connectorCatalogLiveAttemptIds": authority_tooling_connector_catalog_live_attempt_ids,
             "connectorCatalogLiveReceiptIds": authority_tooling_connector_catalog_live_receipt_ids,
             "connectorCatalogLiveReplayFixtureRefs": authority_tooling_connector_catalog_live_replay_fixture_refs,
+            "walletCapabilityLiveDryRunReady": authority_tooling_wallet_capability_live_dry_run_ready,
+            "walletCapabilityLiveDryRunSuccessCount": authority_tooling_wallet_capability_live_dry_run_success_count,
+            "walletCapabilityLiveDryRunComponentKind": "wallet_capability",
+            "walletCapabilityLiveDryRunAttemptIds": authority_tooling_wallet_capability_live_dry_run_attempt_ids,
+            "walletCapabilityLiveDryRunReceiptIds": authority_tooling_wallet_capability_live_dry_run_receipt_ids,
+            "walletCapabilityLiveDryRunReplayFixtureRefs": authority_tooling_wallet_capability_live_dry_run_replay_fixture_refs,
             "readOnlyAttemptIds": authority_tooling_read_only_live_attempt_ids,
             "readOnlyReceiptIds": authority_tooling_read_only_receipt_ids,
             "readOnlyReplayFixtureRefs": authority_tooling_read_only_replay_fixture_refs,
@@ -9873,6 +9989,29 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     .map(|items| !items.is_empty())
                     .unwrap_or(false)
                 && dispatch
+                    .get("authorityToolingWalletCapabilityLiveDryRunReady")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("authorityToolingWalletCapabilityLiveDryRunComponentKind")
+                    .and_then(Value::as_str)
+                    == Some("wallet_capability")
+                && dispatch
+                    .get("authorityToolingWalletCapabilityLiveDryRunAttemptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| !items.is_empty())
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingWalletCapabilityLiveDryRunReceiptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| !items.is_empty())
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingWalletCapabilityLiveDryRunReplayFixtureRefs")
+                    .and_then(Value::as_array)
+                    .map(|items| !items.is_empty())
+                    .unwrap_or(false)
+                && dispatch
                     .get("authorityToolingProof")
                     .and_then(|proof| proof.get("readOnlyAuthorityCanaryReady"))
                     .and_then(Value::as_bool)
@@ -9917,6 +10056,16 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     .and_then(|proof| proof.get("connectorCatalogLiveComponentKind"))
                     .and_then(Value::as_str)
                     == Some("connector_call")
+                && dispatch
+                    .get("authorityToolingProof")
+                    .and_then(|proof| proof.get("walletCapabilityLiveDryRunReady"))
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("authorityToolingProof")
+                    .and_then(|proof| proof.get("walletCapabilityLiveDryRunComponentKind"))
+                    .and_then(Value::as_str)
+                    == Some("wallet_capability")
                 && dispatch
                     .get("authorityToolingProof")
                     .and_then(|proof| proof.get("mutationDeferredComponentKinds"))
@@ -10065,6 +10214,25 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     .map(|items| !items.is_empty())
                     .unwrap_or(false)
                 && dispatch
+                    .get("authorityToolingWalletCapabilityLiveDryRunReady")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("authorityToolingWalletCapabilityLiveDryRunAttemptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| !items.is_empty())
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingWalletCapabilityLiveDryRunReceiptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| !items.is_empty())
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingWalletCapabilityLiveDryRunReplayFixtureRefs")
+                    .and_then(Value::as_array)
+                    .map(|items| !items.is_empty())
+                    .unwrap_or(false)
+                && dispatch
                     .get("authorityToolingReadOnlyComponentKinds")
                     .and_then(Value::as_array)
                     .map(|items| {
@@ -10132,6 +10300,16 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     .and_then(|proof| proof.get("connectorCatalogLiveComponentKind"))
                     .and_then(Value::as_str)
                     == Some("connector_call")
+                && dispatch
+                    .get("authorityToolingProof")
+                    .and_then(|proof| proof.get("walletCapabilityLiveDryRunReady"))
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("authorityToolingProof")
+                    .and_then(|proof| proof.get("walletCapabilityLiveDryRunComponentKind"))
+                    .and_then(Value::as_str)
+                    == Some("wallet_capability")
         })
         .unwrap_or(false);
     let harness_authority_tooling_provider_catalog_live = harness_default_runtime_dispatch
@@ -10284,6 +10462,44 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     .and_then(|proof| proof.get("connectorCatalogLiveComponentKind"))
                     .and_then(Value::as_str)
                     == Some("connector_call")
+        })
+        .unwrap_or(false);
+    let harness_authority_tooling_wallet_capability_live_dry_run = harness_default_runtime_dispatch
+        .as_ref()
+        .map(|dispatch| {
+            dispatch
+                .get("authorityToolingWalletCapabilityLiveDryRunReady")
+                .and_then(Value::as_bool)
+                == Some(true)
+                && dispatch
+                    .get("authorityToolingWalletCapabilityLiveDryRunComponentKind")
+                    .and_then(Value::as_str)
+                    == Some("wallet_capability")
+                && dispatch
+                    .get("authorityToolingWalletCapabilityLiveDryRunAttemptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| !items.is_empty())
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingWalletCapabilityLiveDryRunReceiptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| !items.is_empty())
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingWalletCapabilityLiveDryRunReplayFixtureRefs")
+                    .and_then(Value::as_array)
+                    .map(|items| !items.is_empty())
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingProof")
+                    .and_then(|proof| proof.get("walletCapabilityLiveDryRunReady"))
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("authorityToolingProof")
+                    .and_then(|proof| proof.get("walletCapabilityLiveDryRunComponentKind"))
+                    .and_then(Value::as_str)
+                    == Some("wallet_capability")
         })
         .unwrap_or(false);
     let harness_model_provider_gated_visible_output = projection
@@ -10672,6 +10888,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
             "harness_authority_tooling_mcp_tool_catalog_live": harness_authority_tooling_mcp_tool_catalog_live,
             "harness_authority_tooling_native_tool_catalog_live": harness_authority_tooling_native_tool_catalog_live,
             "harness_authority_tooling_connector_catalog_live": harness_authority_tooling_connector_catalog_live,
+            "harness_authority_tooling_wallet_capability_live_dry_run": harness_authority_tooling_wallet_capability_live_dry_run,
             "harness_model_provider_gated_visible_output": harness_model_provider_gated_visible_output,
             "harness_model_provider_gated_visible_output_scenario": harness_model_provider_gated_visible_output_scenario,
             "harness_model_provider_gated_visible_output_cohort": harness_model_provider_gated_visible_output_cohort,
@@ -10750,6 +10967,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
             "harness_authority_tooling_mcp_tool_catalog_live": harness_authority_tooling_mcp_tool_catalog_live,
             "harness_authority_tooling_native_tool_catalog_live": harness_authority_tooling_native_tool_catalog_live,
             "harness_authority_tooling_connector_catalog_live": harness_authority_tooling_connector_catalog_live,
+            "harness_authority_tooling_wallet_capability_live_dry_run": harness_authority_tooling_wallet_capability_live_dry_run,
             "harness_model_provider_gated_visible_output": harness_model_provider_gated_visible_output,
             "harness_model_provider_gated_visible_output_scenario": harness_model_provider_gated_visible_output_scenario,
             "harness_model_provider_gated_visible_output_cohort": harness_model_provider_gated_visible_output_cohort,
@@ -10823,7 +11041,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
     };
     append_event(memory_runtime, &event);
     eprintln!(
-        "[chat-proof-trace] session={} artifact={} scorecard=1 stop_reason=1 quality_ledger=1 harness_shadow_attempts={} harness_shadow_comparisons={} harness_gated_cognition={} harness_gated_routing_model={} harness_gated_verification_output={} harness_gated_authority_tooling={} harness_fork_activation_blocked={} harness_fork_activation_minted={} harness_canary_boundary_executed={} harness_canary_boundary_rollback_drill={} harness_selector_canary_routed={} harness_selector_legacy_default={} harness_selector_default_promoted={} harness_live_handoff_canary={} harness_live_handoff_default_promoted={} harness_live_handoff_rollback={} harness_default_runtime_dispatch_readonly={} harness_authority_tooling_read_only_canary={} harness_authority_tooling_provider_catalog_live={} harness_authority_tooling_mcp_tool_catalog_live={} harness_authority_tooling_native_tool_catalog_live={} harness_authority_tooling_connector_catalog_live={}",
+        "[chat-proof-trace] session={} artifact={} scorecard=1 stop_reason=1 quality_ledger=1 harness_shadow_attempts={} harness_shadow_comparisons={} harness_gated_cognition={} harness_gated_routing_model={} harness_gated_verification_output={} harness_gated_authority_tooling={} harness_fork_activation_blocked={} harness_fork_activation_minted={} harness_canary_boundary_executed={} harness_canary_boundary_rollback_drill={} harness_selector_canary_routed={} harness_selector_legacy_default={} harness_selector_default_promoted={} harness_live_handoff_canary={} harness_live_handoff_default_promoted={} harness_live_handoff_rollback={} harness_default_runtime_dispatch_readonly={} harness_authority_tooling_read_only_canary={} harness_authority_tooling_provider_catalog_live={} harness_authority_tooling_mcp_tool_catalog_live={} harness_authority_tooling_native_tool_catalog_live={} harness_authority_tooling_connector_catalog_live={} harness_authority_tooling_wallet_capability_live_dry_run={}",
         sid,
         artifact_id,
         harness_node_attempt_count,
@@ -10847,7 +11065,8 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
         harness_authority_tooling_provider_catalog_live,
         harness_authority_tooling_mcp_tool_catalog_live,
         harness_authority_tooling_native_tool_catalog_live,
-        harness_authority_tooling_connector_catalog_live
+        harness_authority_tooling_connector_catalog_live,
+        harness_authority_tooling_wallet_capability_live_dry_run
     );
 }
 

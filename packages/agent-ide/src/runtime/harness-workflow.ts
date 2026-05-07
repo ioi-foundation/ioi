@@ -649,6 +649,15 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     authorityToolingConnectorCatalogLiveReplayFixtureRefs: [
       "harness-default-dispatch:fixture-authority_tooling_connector_call_read_only",
     ],
+    authorityToolingWalletCapabilityLiveDryRunAttemptIds: [
+      "harness-default-dispatch:attempt-authority_tooling_wallet_capability_read_only",
+    ],
+    authorityToolingWalletCapabilityLiveDryRunReceiptIds: [
+      "harness-default-dispatch:receipt-authority_tooling_wallet_capability_read_only",
+    ],
+    authorityToolingWalletCapabilityLiveDryRunReplayFixtureRefs: [
+      "harness-default-dispatch:fixture-authority_tooling_wallet_capability_read_only",
+    ],
     authorityToolingReadOnlyComponentKinds,
     authorityToolingMutationDeferredComponentKinds,
     authorityToolingDenialReceiptIds: [
@@ -1034,6 +1043,8 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     authorityToolingNativeToolCatalogLiveComponentKind: "tool_call",
     authorityToolingConnectorCatalogLiveReady: true,
     authorityToolingConnectorCatalogLiveComponentKind: "connector_call",
+    authorityToolingWalletCapabilityLiveDryRunReady: true,
+    authorityToolingWalletCapabilityLiveDryRunComponentKind: "wallet_capability",
     authorityToolingReadOnlyRouteAccepted: true,
     authorityToolingDestructiveRouteDenied: true,
     authorityToolingMutatingToolCallsBlocked: true,
@@ -1095,6 +1106,17 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
       ],
       connectorCatalogLiveReplayFixtureRefs: [
         "harness-default-dispatch:fixture-authority_tooling_connector_call_read_only",
+      ],
+      walletCapabilityLiveDryRunReady: true,
+      walletCapabilityLiveDryRunComponentKind: "wallet_capability",
+      walletCapabilityLiveDryRunAttemptIds: [
+        "harness-default-dispatch:attempt-authority_tooling_wallet_capability_read_only",
+      ],
+      walletCapabilityLiveDryRunReceiptIds: [
+        "harness-default-dispatch:receipt-authority_tooling_wallet_capability_read_only",
+      ],
+      walletCapabilityLiveDryRunReplayFixtureRefs: [
+        "harness-default-dispatch:fixture-authority_tooling_wallet_capability_read_only",
       ],
       readOnlyComponentKinds: authorityToolingReadOnlyComponentKinds,
       readOnlyAttemptIds: [
@@ -2274,6 +2296,24 @@ function nodeLogicFor(component: WorkflowHarnessComponentSpec): Record<string, u
           requiresApproval: false,
           operation: "describe",
         },
+      };
+    case "wallet_capability":
+      return {
+        ...base,
+        text: "Wallet and spending authority remain unavailable during read-only default harness dispatch.",
+        approvalMode: "wallet_capability_dry_run",
+        capabilityScope: ["wallet.request", "capability.grant"],
+        readOnlyAuthority: true,
+        requiresApproval: true,
+        policyDecision: "retain_wallet_capability_without_grant",
+        syntheticApprovalGranted: false,
+        capabilityDryRunLiveExecution: true,
+        capabilityGranted: false,
+        grantMaterialized: false,
+        authorityTransferred: false,
+        sideEffectsExecuted: false,
+        mutationExecuted: false,
+        rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
       };
     case "memory_read":
     case "memory_write":
