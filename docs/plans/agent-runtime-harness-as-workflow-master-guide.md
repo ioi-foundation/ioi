@@ -171,6 +171,59 @@ This is the proof of unified substrate: the default agent runtime, user-created
 workflows, workflow-as-tool calls, worker package manifests, tests, proposals,
 receipts, and GUI inspection all speak one graph/action-frame language.
 
+### Workflow-As-Code Source Control End State
+
+The harness workflow should not grow a parallel fake source-control system. It
+should be a typed domain control plane over real workflow-as-code artifacts and
+the existing editor/source-control substrate.
+
+Right end state:
+
+- Workflow graphs, tests, fixtures, proposals, manifests, package metadata, and
+  harness metadata are versioned files.
+- Every activation is bound to a workflow path, repo root, branch, proposal id,
+  activation id, content hash, worker binding, and rollback target.
+- When the workflow is inside a Git repository, the activation also records the
+  base commit, activated commit or tree hash, and any branch or compare target.
+- Push/activation is a validated workflow-code promotion, not just a metadata
+  mutation.
+- Rollback restores a prior activation binding and can point back to the
+  corresponding workflow revision, commit, or tree.
+- VS Code/OpenVSCode-derived substrate owns generic authoring affordances:
+  explorer, file search, source control, branch compare, text editing, and
+  diff review.
+- Autopilot owns workflow-domain affordances: readiness gates, receipts,
+  canaries, policy posture, slots, activation ledger, worker binding, runtime
+  mode, rollback proof, and fork activation.
+
+This split matters. Git is the right substrate for versioning, diffs, branches,
+reviews, and file rollback. The workflow runtime still needs a typed activation
+ledger because policy gates, secret slots, worker bindings, receipts, canaries,
+and live runtime authority are domain objects that raw Git does not model
+safely by itself.
+
+The core binding object should be explicit:
+
+```text
+WorkflowRevisionBinding
+- workflow_path
+- repo_root
+- branch
+- base_revision
+- activated_revision
+- workflow_content_hash
+- proposal_id
+- activation_id
+- worker_binding
+- rollback_activation_id
+- rollback_revision
+```
+
+The GUI should make this feel like one coherent flow: edit workflow-as-code,
+review a typed proposal diff, validate gates, activate the worker binding, and
+retain a one-operation rollback target that is tied to the previous workflow
+revision.
+
 ## Non-Goals
 
 This leg should not become:
@@ -228,6 +281,13 @@ The graph exposes and parameterizes them; it does not bypass them.
 Replay fixtures need redaction posture, deterministic envelope flags, input and
 output capture semantics, and policy-decision capture semantics. The graph must
 not accidentally persist sensitive transcript or connector data.
+
+### 8. Workflow source control is substrate, not decoration
+
+Workflow save, proposal, push, activation, and rollback paths must be able to
+bind to workflow-as-code revision state. If a workflow lives in Git, the
+activation ledger should preserve the relevant revision identity instead of
+only storing a UI-local metadata mutation.
 
 ## Component Contract
 
@@ -342,6 +402,7 @@ A harness workflow activation compiles:
 - workflow id;
 - activation id;
 - harness hash;
+- workflow revision binding;
 - component versions;
 - slot bindings;
 - model/tool/approval/memory/output policy;
@@ -525,6 +586,8 @@ runtime control plane.
 Build:
 
 - default worker binding to harness workflow id, activation id, and hash;
+- workflow revision binding on the blessed activation, including workflow path,
+  content hash, and revision identity when Git is available;
 - live orchestration through the compiled harness graph;
 - node-level streaming events in the GUI;
 - durable run records linked to harness node attempts;
@@ -545,6 +608,8 @@ Goal: allow advanced users to fork the harness and activate forks safely.
 Build:
 
 - fork package export/import with component versions and slot manifests;
+- source-control-backed proposal diffs for workflow graph, tests, fixtures,
+  manifests, package metadata, and harness metadata;
 - activation wizard for tests, fixtures, live bindings, policy, wallet grants,
   replay samples, output contracts, and production profile;
 - proposal review for graph/config/metadata/sidecar diffs;
@@ -558,6 +623,8 @@ Exit criteria:
 - Activation is blocked until validation passes.
 - A persistent worker can point to a forked harness activation by id.
 - Rollback to the blessed default harness is one operation and fully receipted.
+- Rollback can identify the workflow revision, commit, or tree that produced
+  the prior activation.
 
 ## GUI Requirements
 
@@ -601,8 +668,36 @@ following operator affordances.
 - Canary, rollback, and fallback visibility.
 - Worker binding picker that shows workflow id, activation id, hash, mode, and
   validation age.
+- Source-control posture that shows workflow path, branch, dirty state,
+  proposal id, activation revision, compare target, and rollback revision.
 - Dogfood launcher for retained chat queries, workflow scratch probe, and
   harness shadow suites.
+
+### Workflow-As-Code UI Boundary
+
+Use the VS Code/OpenVSCode substrate for generic code-workflow mechanics:
+
+- file explorer for workflow bundle files and sidecars;
+- Monaco/source editor for workflow JSON, tests, fixtures, manifests, and
+  generated package files;
+- source-control view for dirty files, branch state, staging, commit posture,
+  and compare target;
+- diff editor for proposal review, fork comparison, activation changes, and
+  rollback preview;
+- search across workflow files, proposals, receipts, fixtures, and manifests.
+
+Keep Autopilot-specific workflow controls in the workflow GUI:
+
+- graph canvas and grouped harness topology;
+- activation wizard and readiness gates;
+- slot binding, policy posture, canary status, and receipt coverage;
+- worker binding picker and activation ledger;
+- rollback drill, rollback execution, and rollback proof;
+- live/shadow/gated runtime timeline and node-level receipt/replay inspectors.
+
+The design goal is not to turn the workflow GUI into a raw code editor. The
+goal is to make workflow-as-code feel native: the generic authoring substrate
+handles files and diffs, while the workflow workbench handles runtime meaning.
 
 ### Collapsible Harness Groups
 
