@@ -271,24 +271,43 @@ fn restore_workflow_revision_restores_single_workflow_file_from_git() {
     let changed = load_workflow_bundle(bundle.workflow_path.clone()).expect("changed load");
     assert_eq!(changed.workflow.metadata.name, "Mutated Workflow");
 
+    let revision_binding = WorkflowRevisionBinding {
+        schema_version: "workflow.revision-binding.v1".to_string(),
+        workflow_path: relative_workflow_path.clone(),
+        repo_root: Some(root.display().to_string()),
+        branch: Some("master".to_string()),
+        base_revision: None,
+        activated_revision: Some(initial_revision.clone()),
+        workflow_content_hash: "stable-fnv1a32:original".to_string(),
+        proposal_id: None,
+        activation_id: Some("activation:git-backed".to_string()),
+        rollback_activation_id: None,
+        rollback_revision: None,
+        revision_source: "git".to_string(),
+        created_at_ms: now_ms(),
+    };
+    let dry_run = restore_workflow_revision(WorkflowRevisionRestoreRequest {
+        workflow_path: bundle.workflow_path.clone(),
+        revision_binding: revision_binding.clone(),
+        expected_workflow_content_hash: Some("stable-fnv1a32:original".to_string()),
+        dry_run: true,
+    })
+    .expect("dry-run restore command should return");
+    assert!(dry_run.restored, "{:?}", dry_run.blockers);
+    assert!(dry_run.dry_run);
+    assert_eq!(
+        dry_run.bundle.as_ref().unwrap().workflow.metadata.name,
+        "Git Revision Restore"
+    );
+    let still_mutated =
+        load_workflow_bundle(bundle.workflow_path.clone()).expect("dry run load");
+    assert_eq!(still_mutated.workflow.metadata.name, "Mutated Workflow");
+
     let restore = restore_workflow_revision(WorkflowRevisionRestoreRequest {
         workflow_path: bundle.workflow_path.clone(),
-        revision_binding: WorkflowRevisionBinding {
-            schema_version: "workflow.revision-binding.v1".to_string(),
-            workflow_path: relative_workflow_path.clone(),
-            repo_root: Some(root.display().to_string()),
-            branch: Some("master".to_string()),
-            base_revision: None,
-            activated_revision: Some(initial_revision.clone()),
-            workflow_content_hash: "stable-fnv1a32:original".to_string(),
-            proposal_id: None,
-            activation_id: Some("activation:git-backed".to_string()),
-            rollback_activation_id: None,
-            rollback_revision: None,
-            revision_source: "git".to_string(),
-            created_at_ms: now_ms(),
-        },
+        revision_binding,
         expected_workflow_content_hash: Some("stable-fnv1a32:original".to_string()),
+        dry_run: false,
     })
     .expect("restore command should return");
 

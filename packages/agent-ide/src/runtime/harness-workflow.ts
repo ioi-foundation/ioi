@@ -225,6 +225,7 @@ export function makeHarnessForkActivationRecord(options: {
   workerBinding?: WorkflowHarnessWorkerBinding;
   revisionBinding?: WorkflowRevisionBinding;
   rollbackRevisionBinding?: WorkflowRevisionBinding;
+  rollbackRestoreCanary?: WorkflowHarnessForkActivationRecord["rollbackRestoreCanary"];
   mintedAtMs?: number;
 }): WorkflowHarnessForkActivationRecord {
   const activationId =
@@ -264,6 +265,7 @@ export function makeHarnessForkActivationRecord(options: {
     workerBinding: options.workerBinding,
     revisionBinding: options.revisionBinding,
     rollbackRevisionBinding: options.rollbackRevisionBinding,
+    rollbackRestoreCanary: options.rollbackRestoreCanary,
     mintedAtMs: options.mintedAtMs,
   };
 }
@@ -919,6 +921,7 @@ export function applyWorkflowHarnessActivationCandidate(
     workerBinding,
     revisionBinding,
     rollbackRevisionBinding: previousRevisionBinding,
+    rollbackRestoreCanary: candidate.rollbackRestoreCanary,
     mintedAtMs: nowMs,
   });
   return {

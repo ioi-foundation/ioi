@@ -91,10 +91,12 @@ test("TS harness fork activation contract records blocked and canary-validated p
   assert.match(graph, /WorkflowHarnessComponentInvocation[\s\S]*invocationId[\s\S]*componentKind[\s\S]*executionMode[\s\S]*receiptIds/);
   assert.match(graph, /WorkflowHarnessComponentAdapterResult[\s\S]*actionFrame[\s\S]*nodeAttempt[\s\S]*resultHash[\s\S]*replay/);
   assert.match(graph, /WorkflowRevisionBinding[\s\S]*workflowPath[\s\S]*workflowContentHash[\s\S]*rollbackRevision/);
-  assert.match(graph, /WorkflowRevisionRestoreRequest[\s\S]*revisionBinding: WorkflowRevisionBinding[\s\S]*expectedWorkflowContentHash/);
-  assert.match(graph, /WorkflowRevisionRestoreResult[\s\S]*git_show_file_restore[\s\S]*bundle\?: WorkflowWorkbenchBundle/);
+  assert.match(graph, /WorkflowRevisionRestoreRequest[\s\S]*revisionBinding: WorkflowRevisionBinding[\s\S]*expectedWorkflowContentHash[\s\S]*dryRun\?: boolean/);
+  assert.match(graph, /WorkflowRevisionRestoreResult[\s\S]*dryRun\?: boolean[\s\S]*git_show_file_restore[\s\S]*bundle\?: WorkflowWorkbenchBundle/);
+  assert.match(graph, /WorkflowHarnessRollbackRestoreCanaryStatus[\s\S]*not_required/);
+  assert.match(graph, /WorkflowHarnessRollbackRestoreCanary[\s\S]*status[\s\S]*restoreStrategy[\s\S]*file_hash_only_metadata_restore[\s\S]*expectedWorkflowContentHash[\s\S]*actualWorkflowContentHash[\s\S]*hashVerified[\s\S]*blockers/);
   assert.match(graph, /WorkflowHarnessActivationRollbackExecution[\s\S]*restoreStrategy[\s\S]*git_show_file_restore[\s\S]*restoreRepoRoot[\s\S]*restoreRelativeWorkflowPath[\s\S]*restoredRevision[\s\S]*restoredFileSha256[\s\S]*restoreBlockers[\s\S]*hashVerified[\s\S]*executionStatus/);
-  assert.match(graph, /WorkflowHarnessForkActivationCandidate[\s\S]*dryRunOnly: true[\s\S]*revisionBindingPreview: WorkflowRevisionBinding/);
+  assert.match(graph, /WorkflowHarnessForkActivationCandidate[\s\S]*dryRunOnly: true[\s\S]*rollbackRestoreCanary: WorkflowHarnessRollbackRestoreCanary[\s\S]*revisionBindingPreview: WorkflowRevisionBinding/);
   assert.match(graph, /WorkflowHarnessActivationCandidateGateResult[\s\S]*gateId[\s\S]*evidenceRefs/);
   assert.match(graph, /WorkflowHarnessLiveHandoffProof/);
   assert.match(graph, /WorkflowHarnessRuntimeSelectorDecision/);
@@ -117,8 +119,9 @@ test("TS harness fork activation contract records blocked and canary-validated p
   assert.match(workflow, /executeWorkflowHarnessRevisionRollback[\s\S]*rollback_execution_restored_verified_workflow_revision[\s\S]*rollback_executed[\s\S]*activationRollbackExecution/);
   assert.match(validation, /activationRecordValidated[\s\S]*canaryStatus === "passed"/);
   assert.match(validation, /workerBinding\?\.harnessActivationId === harness\?\.activationId/);
-  assert.match(validation, /createWorkflowHarnessActivationCandidate[\s\S]*activationIdPreview[\s\S]*decision[\s\S]*mintable[\s\S]*workerBindingPreview[\s\S]*revisionBindingPreview/);
-  assert.match(validation, /gateId: "slots"[\s\S]*gateId: "tests"[\s\S]*gateId: "replay-fixtures"[\s\S]*gateId: "policy-posture"[\s\S]*gateId: "receipt-coverage"[\s\S]*gateId: "canary"[\s\S]*gateId: "rollback"[\s\S]*gateId: "worker-binding"[\s\S]*gateId: "activation-id"/);
+  assert.match(validation, /createWorkflowHarnessActivationCandidate[\s\S]*activationIdPreview[\s\S]*decision[\s\S]*mintable[\s\S]*workerBindingPreview[\s\S]*revisionBindingPreview[\s\S]*rollbackRestoreCanary/);
+  assert.match(validation, /rollback_restore_canary_not_run[\s\S]*rollback_restore_canary_not_restored[\s\S]*rollback_restore_canary_bundle_missing[\s\S]*rollback_restore_canary_hash_mismatch/);
+  assert.match(validation, /gateId: "slots"[\s\S]*gateId: "tests"[\s\S]*gateId: "replay-fixtures"[\s\S]*gateId: "policy-posture"[\s\S]*gateId: "receipt-coverage"[\s\S]*gateId: "canary"[\s\S]*gateId: "rollback-restore"[\s\S]*gateId: "rollback"[\s\S]*gateId: "worker-binding"[\s\S]*gateId: "activation-id"/);
   assert.match(rust, /pub struct HarnessComponentInvocation[\s\S]*pub component_kind: HarnessComponentKind[\s\S]*pub execution_mode: HarnessExecutionMode[\s\S]*pub receipt_ids: Vec<String>/);
   assert.match(rust, /pub struct HarnessComponentAdapterResult[\s\S]*pub action_frame: HarnessActionFrame[\s\S]*pub node_attempt: HarnessNodeAttemptRecord/);
   assert.match(rust, /default_harness_action_frame_for_component[\s\S]*execution_mode/);

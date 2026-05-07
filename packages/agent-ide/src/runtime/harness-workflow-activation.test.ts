@@ -13,6 +13,7 @@ import {
   makeHarnessForkActivationRecord,
   recordWorkflowHarnessActivationDryRun,
   recordWorkflowHarnessRollbackTargetSelection,
+  workflowRevisionBindingFor,
 } from "./harness-workflow.ts";
 import {
   createWorkflowHarnessActivationCandidate,
@@ -73,6 +74,7 @@ const onlyActivationMissingReadiness = (
   assert.equal(candidate.decision, "blocked");
   assert.equal(candidate.revisionBindingPreview.revisionSource, "file_hash_only");
   assert.match(candidate.revisionBindingPreview.workflowContentHash, /^stable-fnv1a32:/);
+  assert.equal(candidate.rollbackRestoreCanary.status, "not_required");
   const dryRunAudit = auditedWorkflow.metadata.harness?.activationAudit ?? [];
   assert.equal(dryRunAudit[dryRunAudit.length - 1]?.eventType, "dry_run_blocked");
   assert.equal(result.applied, false);
@@ -152,6 +154,11 @@ const onlyActivationMissingReadiness = (
   });
 
   assert.equal(candidate.decision, "mintable", candidate.activationBlockers.join("\n"));
+  assert.equal(candidate.rollbackRestoreCanary.status, "not_required");
+  assert.equal(
+    candidate.gateResults.find((gate) => gate.gateId === "rollback-restore")?.status,
+    "passed",
+  );
   assert.equal(result.applied, true);
   assert.equal(result.activationId, candidate.activationIdPreview);
   assert.equal(result.workflow.metadata.harness?.activationState, "validated");
@@ -165,6 +172,10 @@ const onlyActivationMissingReadiness = (
     candidate.activationIdPreview,
   );
   assert.equal(result.workflow.metadata.harness?.activationRecord?.rollbackTarget, "legacy_runtime");
+  assert.equal(
+    result.workflow.metadata.harness?.activationRecord?.rollbackRestoreCanary?.status,
+    "not_required",
+  );
   assert.equal(candidate.revisionBindingPreview.activationId, candidate.activationIdPreview);
   assert.equal(
     result.workflow.metadata.harness?.revisionBinding?.activationId,
@@ -288,6 +299,127 @@ const onlyActivationMissingReadiness = (
   assert.equal(
     activationIssueCodes(postReadiness).includes("harness_activation_not_validated"),
     false,
+  );
+}
+
+{
+  const fork = forkDefaultAgentHarnessWorkflow("Git Restore Canary Fork", 3_000);
+  const workflowId = fork.workflow.metadata.id;
+  const rollbackWorkflow = fork.workflow;
+  const rollbackRevisionBinding = workflowRevisionBindingFor(rollbackWorkflow, {
+    workflowPath: "/repo/.agents/workflows/git-restore-canary.workflow.json",
+    repoRoot: "/repo",
+    branch: "main",
+    baseRevision: "base123",
+    activatedRevision: "abc123",
+    nowMs: 3_025,
+  });
+  const workerBinding: WorkflowHarnessWorkerBinding = {
+    ...fork.workflow.metadata.workerHarnessBinding,
+    harnessWorkflowId: workflowId,
+    harnessActivationId: undefined,
+    harnessHash:
+      fork.workflow.metadata.workerHarnessBinding?.harnessHash ??
+      fork.workflow.metadata.harness?.harnessHash ??
+      "sha256:default-agent-harness-component-projection-v1",
+    source: "fork" as const,
+  };
+  const activationRecord = makeHarnessForkActivationRecord({
+    workflowId,
+    harnessWorkflowId: workflowId,
+    activationState: "blocked",
+    activationBlockers: [],
+    canaryStatus: "passed",
+    rollbackTarget: "activation:default-agent-harness:blessed-readonly",
+    rollbackAvailable: true,
+    evidenceRefs: ["canary:passed", "rollback:drill"],
+    workerBinding,
+    rollbackRevisionBinding,
+    mintedAtMs: 3_000,
+  });
+  const workflow: WorkflowProject = {
+    ...fork.workflow,
+    global_config: {
+      ...fork.workflow.global_config,
+      environmentProfile: {
+        ...fork.workflow.global_config.environmentProfile,
+        target: fork.workflow.global_config.environmentProfile?.target ?? "local",
+        mockBindingPolicy: "block" as const,
+      },
+    },
+    metadata: {
+      ...fork.workflow.metadata,
+      harness: {
+        ...fork.workflow.metadata.harness!,
+        activationId: undefined,
+        activationState: "blocked" as const,
+        activationRecord,
+      },
+      workerHarnessBinding: workerBinding,
+    },
+  };
+  const base = validateWorkflowProject(workflow, fork.tests);
+  const readiness = onlyActivationMissingReadiness(base);
+  const candidate = createWorkflowHarnessActivationCandidate(
+    workflow,
+    fork.tests,
+    readiness,
+    [],
+    3_100,
+    {
+      rollbackRestoreResult: {
+        restored: true,
+        dryRun: true,
+        blockers: [],
+        workflowPath: rollbackRevisionBinding.workflowPath,
+        repoRoot: rollbackRevisionBinding.repoRoot,
+        relativeWorkflowPath: ".agents/workflows/git-restore-canary.workflow.json",
+        revisionSource: "git",
+        restoredRevision: "abc123",
+        restoreStrategy: "git_show_file_restore",
+        expectedWorkflowContentHash: rollbackRevisionBinding.workflowContentHash,
+        fileSha256: "0123456789abcdef",
+        bundle: {
+          workflowPath: rollbackRevisionBinding.workflowPath,
+          testsPath: "/repo/.agents/workflows/git-restore-canary.tests.json",
+          proposalsDir: "/repo/.agents/workflows/git-restore-canary.proposals",
+          workflow: rollbackWorkflow,
+          tests: [],
+          proposals: [],
+          runs: [],
+        },
+      },
+    },
+  );
+  assert.equal(candidate.decision, "mintable", candidate.activationBlockers.join("\n"));
+  assert.equal(candidate.rollbackRestoreCanary.status, "passed");
+  assert.equal(candidate.rollbackRestoreCanary.hashVerified, true);
+  assert.equal(candidate.rollbackRestoreCanary.restoredRevision, "abc123");
+  assert.equal(
+    candidate.gateResults.find((gate) => gate.gateId === "rollback-restore")?.status,
+    "passed",
+  );
+
+  const blockedCandidate = createWorkflowHarnessActivationCandidate(
+    workflow,
+    fork.tests,
+    readiness,
+    [],
+    3_200,
+  );
+  assert.equal(blockedCandidate.decision, "blocked");
+  assert.equal(blockedCandidate.rollbackRestoreCanary.status, "blocked");
+  assert.equal(
+    blockedCandidate.gateResults.find((gate) => gate.gateId === "rollback-restore")?.status,
+    "blocked",
+  );
+  assert.match(
+    blockedCandidate.activationBlockers.join("\n"),
+    /gate_blocked:rollback-restore/,
+  );
+  assert.match(
+    blockedCandidate.rollbackRestoreCanary.blockers.join("\n"),
+    /rollback_restore_canary_not_run/,
   );
 }
 

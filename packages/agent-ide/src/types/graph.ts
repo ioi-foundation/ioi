@@ -1011,10 +1011,12 @@ export interface WorkflowRevisionRestoreRequest {
   workflowPath: string;
   revisionBinding: WorkflowRevisionBinding;
   expectedWorkflowContentHash?: string;
+  dryRun?: boolean;
 }
 
 export interface WorkflowRevisionRestoreResult {
   restored: boolean;
+  dryRun?: boolean;
   blockers: string[];
   workflowPath: string;
   repoRoot?: string;
@@ -1025,6 +1027,32 @@ export interface WorkflowRevisionRestoreResult {
   expectedWorkflowContentHash?: string;
   fileSha256?: string;
   bundle?: WorkflowWorkbenchBundle;
+}
+
+export type WorkflowHarnessRollbackRestoreCanaryStatus =
+  | "passed"
+  | "blocked"
+  | "not_required"
+  | "not_run"
+  | string;
+
+export interface WorkflowHarnessRollbackRestoreCanary {
+  schemaVersion: "workflow.harness.rollback-restore-canary.v1" | string;
+  canaryId: string;
+  status: WorkflowHarnessRollbackRestoreCanaryStatus;
+  revisionSource: WorkflowRevisionSource;
+  restoreStrategy: "git_show_file_restore" | "file_hash_only_metadata_restore" | string;
+  workflowPath: string;
+  repoRoot?: string;
+  relativeWorkflowPath?: string;
+  restoredRevision?: string;
+  restoredFileSha256?: string;
+  expectedWorkflowContentHash?: string;
+  actualWorkflowContentHash?: string;
+  hashVerified: boolean;
+  blockers: string[];
+  evidenceRefs: string[];
+  createdAtMs: number;
 }
 
 export interface WorkflowHarnessForkActivationRecord {
@@ -1045,6 +1073,7 @@ export interface WorkflowHarnessForkActivationRecord {
   workerBinding?: WorkflowHarnessWorkerBinding;
   revisionBinding?: WorkflowRevisionBinding;
   rollbackRevisionBinding?: WorkflowRevisionBinding;
+  rollbackRestoreCanary?: WorkflowHarnessRollbackRestoreCanary;
   mintedAtMs?: number;
 }
 
@@ -1173,6 +1202,7 @@ export interface WorkflowHarnessForkActivationCandidate {
   canaryStatus: WorkflowHarnessActivationCanaryStatus;
   rollbackTarget: string;
   rollbackAvailable: boolean;
+  rollbackRestoreCanary: WorkflowHarnessRollbackRestoreCanary;
   workerBindingPreview: WorkflowHarnessWorkerBinding;
   revisionBindingPreview: WorkflowRevisionBinding;
   evidenceRefs: string[];
