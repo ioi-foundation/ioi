@@ -4,6 +4,8 @@ import type {
   WorkflowBindingCheckResult,
   WorkflowBindingManifest,
   WorkflowDogfoodRun,
+  WorkflowHarnessForkActivationCandidate,
+  WorkflowHarnessGroupView,
   WorkflowPortablePackage,
   WorkflowProject,
   WorkflowProposal,
@@ -14,6 +16,10 @@ import type {
   WorkflowValidationIssue,
   WorkflowValidationResult,
 } from "../types/graph";
+import {
+  workflowValuePreview,
+  type WorkflowValuePreview,
+} from "./workflow-value-preview";
 
 export interface WorkflowBindingSummaryItem {
   label: string;
@@ -103,6 +109,459 @@ function workflowUnknownRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {};
+}
+
+export function workflowUniqueReceiptRefs(
+  refs: Array<string | null | undefined> = [],
+): string[] {
+  return Array.from(
+    new Set(
+      refs.filter((ref): ref is string => typeof ref === "string" && ref.length > 0),
+    ),
+  );
+}
+
+const WORKFLOW_RECEIPT_SECRET_KEY_PATTERN =
+  /api[_-]?key|authorization|bearer|credential|password|secret|token/i;
+
+function workflowRedactedReceiptPayload(value: unknown, depth = 0): unknown {
+  if (value === null || value === undefined) return value;
+  if (typeof value === "string") {
+    return value.length > 180 ? `${value.slice(0, 177)}...` : value;
+  }
+  if (typeof value !== "object") return value;
+  if (Array.isArray(value)) {
+    if (depth >= 2) return `${value.length} item${value.length === 1 ? "" : "s"}`;
+    return value.slice(0, 6).map((item) => workflowRedactedReceiptPayload(item, depth + 1));
+  }
+  const entries = Object.entries(value as Record<string, unknown>).slice(0, 18);
+  return Object.fromEntries(
+    entries.map(([key, item]) => [
+      key,
+      WORKFLOW_RECEIPT_SECRET_KEY_PATTERN.test(key)
+        ? "[redacted]"
+        : depth >= 2 && item && typeof item === "object"
+          ? `${Object.keys(workflowUnknownRecord(item)).length} fields`
+          : workflowRedactedReceiptPayload(item, depth + 1),
+    ]),
+  );
+}
+
+export function workflowHarnessReceiptKind(receiptRef: string): string {
+  const receiptMarker = "receipt-";
+  const markerIndex = receiptRef.indexOf(receiptMarker);
+  if (markerIndex >= 0) {
+    return receiptRef
+      .slice(markerIndex + receiptMarker.length)
+      .replace(/[_:.-]+/g, " ");
+  }
+  if (receiptRef.startsWith("workflow_restore_canary:")) {
+    return "workflow restore canary";
+  }
+  const segments = receiptRef.split(":").filter(Boolean);
+  return (segments[segments.length - 1] ?? receiptRef).replace(/[_:.-]+/g, " ");
+}
+
+function workflowProofString(
+  proof: Record<string, unknown> | null | undefined,
+  key: string,
+  fallback: string,
+): string {
+  const value = proof?.[key];
+  return typeof value === "string" ? value : fallback;
+}
+
+export interface WorkflowHarnessReceiptInspection {
+  receiptRef: string;
+  sourceKind: string;
+  sourceLabel: string;
+  status: string;
+  producerComponent: string;
+  receiptKind: string;
+  policyDecision: string;
+  attemptId: string;
+  replayFixtureRef: string;
+  nodeId: string | null;
+  nodeLabel: string;
+  runId: string;
+  inputHash: string;
+  outputHash: string;
+  createdAtMs: number | null;
+  evidenceRefs: string[];
+  payloadPreview: WorkflowValuePreview;
+}
+
+export interface ResolveWorkflowHarnessReceiptInspectionOptions {
+  receiptRef?: string | null;
+  workflow: WorkflowProject;
+  lastRunResult?: WorkflowRunResult | null;
+  selectedRunId?: string | null;
+  selectedHarnessGroup?: WorkflowHarnessGroupView | null;
+  harnessActivationCandidate?: WorkflowHarnessForkActivationCandidate | null;
+  readOnlyRoutingReady?: boolean;
+  authorityToolingProof?: Record<string, unknown> | null;
+}
+
+export function resolveWorkflowHarnessReceiptInspection({
+  receiptRef,
+  workflow,
+  lastRunResult = null,
+  selectedRunId = null,
+  selectedHarnessGroup = null,
+  harnessActivationCandidate = null,
+  readOnlyRoutingReady = false,
+  authorityToolingProof = null,
+}: ResolveWorkflowHarnessReceiptInspectionOptions): WorkflowHarnessReceiptInspection | null {
+  if (!receiptRef) return null;
+
+  const harnessActivationRecord = workflow.metadata.harness?.activationRecord;
+  const harnessActivationAudit = workflow.metadata.harness?.activationAudit ?? [];
+  const harnessActivationRollbackProof =
+    workflow.metadata.harness?.activationRollbackProof ?? null;
+  const harnessActivationRollbackExecution =
+    workflow.metadata.harness?.activationRollbackExecution ?? null;
+  const harnessDefaultRuntimeDispatchProof =
+    workflow.metadata.harness?.defaultRuntimeDispatchProof;
+  const selectedHarnessGroupGatedRun = selectedHarnessGroup
+    ? (lastRunResult?.harnessGatedClusterRuns ?? []).find(
+        (run) => String(run.clusterId) === String(selectedHarnessGroup.groupId),
+      ) ?? null
+    : null;
+
+  const makeHarnessReceiptInspection = (
+    details: Omit<
+      WorkflowHarnessReceiptInspection,
+      "receiptKind" | "payloadPreview" | "receiptRef"
+    > & {
+      payload: unknown;
+      receiptRef?: string;
+    },
+  ): WorkflowHarnessReceiptInspection => ({
+    receiptRef: details.receiptRef ?? receiptRef,
+    sourceKind: details.sourceKind,
+    sourceLabel: details.sourceLabel,
+    status: details.status,
+    producerComponent: details.producerComponent,
+    receiptKind: workflowHarnessReceiptKind(details.receiptRef ?? receiptRef),
+    policyDecision: details.policyDecision,
+    attemptId: details.attemptId,
+    replayFixtureRef: details.replayFixtureRef,
+    nodeId: details.nodeId,
+    nodeLabel: details.nodeLabel,
+    runId: details.runId,
+    inputHash: details.inputHash,
+    outputHash: details.outputHash,
+    createdAtMs: details.createdAtMs,
+    evidenceRefs: workflowUniqueReceiptRefs(details.evidenceRefs),
+    payloadPreview: workflowValuePreview(
+      workflowRedactedReceiptPayload(details.payload),
+    ),
+  });
+
+  const receiptAttempt =
+    (lastRunResult?.harnessAttempts ?? []).find((attempt) =>
+      attempt.receiptIds.includes(receiptRef),
+    ) ??
+    (lastRunResult?.nodeRuns ?? [])
+      .map((nodeRun) => nodeRun.harnessAttempt ?? null)
+      .find((attempt) => attempt?.receiptIds.includes(receiptRef)) ??
+    null;
+  if (receiptAttempt) {
+    return makeHarnessReceiptInspection({
+      receiptRef,
+      sourceKind: "node_attempt",
+      sourceLabel: "Node attempt receipt",
+      status: receiptAttempt.status,
+      producerComponent: receiptAttempt.componentId,
+      policyDecision: receiptAttempt.policyDecision ?? "not recorded",
+      attemptId: receiptAttempt.attemptId,
+      replayFixtureRef: receiptAttempt.replay.fixtureRef ?? "not captured",
+      nodeId: receiptAttempt.workflowNodeId,
+      nodeLabel: workflowNodeName(workflow, receiptAttempt.workflowNodeId),
+      runId: selectedRunId ?? lastRunResult?.summary.id ?? "run pending",
+      inputHash: receiptAttempt.inputHash ?? "input hash pending",
+      outputHash: receiptAttempt.outputHash ?? "output hash pending",
+      createdAtMs: receiptAttempt.startedAtMs ?? null,
+      evidenceRefs: receiptAttempt.evidenceRefs,
+      payload: receiptAttempt,
+    });
+  }
+
+  const gatedRun = (lastRunResult?.harnessGatedClusterRuns ?? []).find(
+    (run) => run.receiptIds.includes(receiptRef),
+  );
+  if (gatedRun) {
+    const receiptIndex = gatedRun.receiptIds.indexOf(receiptRef);
+    return makeHarnessReceiptInspection({
+      receiptRef,
+      sourceKind: "gated_cluster",
+      sourceLabel: `${gatedRun.clusterLabel} gated receipt`,
+      status: gatedRun.status,
+      producerComponent: gatedRun.componentKinds.join(", "),
+      policyDecision: gatedRun.gateDecision,
+      attemptId: gatedRun.nodeAttemptIds[receiptIndex] ?? "attempt pending",
+      replayFixtureRef:
+        gatedRun.replayFixtureRefs[receiptIndex] ?? "replay fixture pending",
+      nodeId: null,
+      nodeLabel: gatedRun.clusterId,
+      runId: gatedRun.runId,
+      inputHash: "cluster input hash pending",
+      outputHash: "cluster output hash pending",
+      createdAtMs: null,
+      evidenceRefs: gatedRun.evidenceRefs,
+      payload: gatedRun,
+    });
+  }
+
+  const auditEvent = harnessActivationAudit.find((event) =>
+    event.receiptRefs.includes(receiptRef),
+  );
+  if (auditEvent) {
+    return makeHarnessReceiptInspection({
+      receiptRef,
+      sourceKind: "activation_audit",
+      sourceLabel: `${auditEvent.eventType} audit receipt`,
+      status: auditEvent.status,
+      producerComponent: "harness_activation_audit",
+      policyDecision: auditEvent.summary,
+      attemptId: auditEvent.eventId,
+      replayFixtureRef: "audit event is durable evidence",
+      nodeId: null,
+      nodeLabel: auditEvent.workflowId,
+      runId: selectedRunId ?? auditEvent.workflowId,
+      inputHash: auditEvent.candidateId ?? "candidate pending",
+      outputHash:
+        auditEvent.nextActivationId ??
+        auditEvent.activationId ??
+        "activation pending",
+      createdAtMs: auditEvent.createdAtMs,
+      evidenceRefs: auditEvent.evidenceRefs,
+      payload: auditEvent,
+    });
+  }
+
+  if (harnessActivationRollbackExecution) {
+    const executionReceiptRefs = workflowUniqueReceiptRefs([
+      harnessActivationRollbackExecution.restoreReceiptBindingRef,
+      ...harnessActivationRollbackExecution.receiptRefs,
+    ]);
+    if (executionReceiptRefs.includes(receiptRef)) {
+      return makeHarnessReceiptInspection({
+        receiptRef,
+        sourceKind: "rollback_execution",
+        sourceLabel: "Rollback execution receipt",
+        status: harnessActivationRollbackExecution.executionStatus,
+        producerComponent: "harness_rollback_execution",
+        policyDecision: harnessActivationRollbackExecution.policyDecision,
+        attemptId: harnessActivationRollbackExecution.executionId,
+        replayFixtureRef:
+          harnessActivationRollbackExecution.restoreReceiptBindingRef ??
+          "restore receipt pending",
+        nodeId: null,
+        nodeLabel: harnessActivationRollbackExecution.workflowPath,
+        runId:
+          harnessActivationRollbackExecution.activationId ??
+          selectedRunId ??
+          "activation pending",
+        inputHash:
+          harnessActivationRollbackExecution.expectedWorkflowContentHash ??
+          "expected hash pending",
+        outputHash:
+          harnessActivationRollbackExecution.actualWorkflowContentHash ??
+          "actual hash pending",
+        createdAtMs: harnessActivationRollbackExecution.createdAtMs,
+        evidenceRefs: harnessActivationRollbackExecution.evidenceRefs,
+        payload: harnessActivationRollbackExecution,
+      });
+    }
+  }
+
+  if (harnessActivationRollbackProof?.receiptRefs.includes(receiptRef)) {
+    return makeHarnessReceiptInspection({
+      receiptRef,
+      sourceKind: "rollback_drill",
+      sourceLabel: "Rollback drill receipt",
+      status: harnessActivationRollbackProof.drillStatus,
+      producerComponent: "harness_rollback_drill",
+      policyDecision: harnessActivationRollbackProof.policyDecision,
+      attemptId: harnessActivationRollbackProof.drillId,
+      replayFixtureRef: "rollback drill proof",
+      nodeId: null,
+      nodeLabel: harnessActivationRollbackProof.workflowId,
+      runId:
+        harnessActivationRollbackProof.activationId ??
+        selectedRunId ??
+        "activation pending",
+      inputHash: harnessActivationRollbackProof.rollbackTarget,
+      outputHash:
+        harnessActivationRollbackProof.restoredWorkerBinding?.harnessHash ??
+        "restored hash pending",
+      createdAtMs: harnessActivationRollbackProof.createdAtMs,
+      evidenceRefs: harnessActivationRollbackProof.evidenceRefs,
+      payload: harnessActivationRollbackProof,
+    });
+  }
+
+  const rollbackCanary =
+    harnessActivationCandidate?.rollbackRestoreCanary ??
+    harnessActivationRecord?.rollbackRestoreCanary ??
+    null;
+  if (
+    rollbackCanary &&
+    (rollbackCanary.receiptBindingRef === receiptRef ||
+      rollbackCanary.evidenceRefs.includes(receiptRef))
+  ) {
+    return makeHarnessReceiptInspection({
+      receiptRef,
+      sourceKind: "rollback_restore_canary",
+      sourceLabel: "Rollback restore canary receipt",
+      status: rollbackCanary.status,
+      producerComponent: "harness_restore_canary",
+      policyDecision: rollbackCanary.hashVerified
+        ? "hash_verified"
+        : "hash_pending_or_blocked",
+      attemptId: rollbackCanary.canaryId,
+      replayFixtureRef:
+        rollbackCanary.receiptBindingRef ?? "receipt binding pending",
+      nodeId: null,
+      nodeLabel: rollbackCanary.workflowPath,
+      runId: selectedRunId ?? rollbackCanary.canaryId,
+      inputHash:
+        rollbackCanary.expectedWorkflowContentHash ?? "expected hash pending",
+      outputHash: rollbackCanary.actualWorkflowContentHash ?? "actual hash pending",
+      createdAtMs: rollbackCanary.createdAtMs,
+      evidenceRefs: rollbackCanary.evidenceRefs,
+      payload: rollbackCanary,
+    });
+  }
+
+  const dispatchReceiptGroups = harnessDefaultRuntimeDispatchProof
+    ? [
+        {
+          sourceLabel: "Cognition execution receipt",
+          producerComponent: "cognition",
+          receipts: harnessDefaultRuntimeDispatchProof.cognitionExecutionReceiptIds,
+          attempts: harnessDefaultRuntimeDispatchProof.cognitionExecutionAttemptIds,
+          replay: harnessDefaultRuntimeDispatchProof.cognitionExecutionReplayFixtureRefs,
+          policyDecision: workflowProofString(
+            workflowUnknownRecord(
+              harnessDefaultRuntimeDispatchProof.cognitionExecutionProof,
+            ),
+            "policyDecision",
+            "accept_workflow_prompt_assembly_hash_envelope",
+          ),
+        },
+        {
+          sourceLabel: "Model execution receipt",
+          producerComponent: "routing_model",
+          receipts: harnessDefaultRuntimeDispatchProof.modelExecutionReceiptIds,
+          attempts: harnessDefaultRuntimeDispatchProof.modelExecutionAttemptIds,
+          replay: harnessDefaultRuntimeDispatchProof.modelExecutionReplayFixtureRefs,
+          policyDecision: "accept_workflow_model_execution_envelope",
+        },
+        {
+          sourceLabel: "Read-only routing receipt",
+          producerComponent: "read_only_capability_routing",
+          receipts:
+            harnessDefaultRuntimeDispatchProof.readOnlyCapabilityRoutingReceiptIds,
+          attempts:
+            harnessDefaultRuntimeDispatchProof.readOnlyCapabilityRoutingAttemptIds,
+          replay:
+            harnessDefaultRuntimeDispatchProof.readOnlyCapabilityRoutingReplayFixtureRefs,
+          policyDecision: readOnlyRoutingReady
+            ? "read_only_route_no_mutation"
+            : "read_only_route_pending",
+        },
+        {
+          sourceLabel: "Authority tooling receipt",
+          producerComponent: "authority_tooling",
+          receipts:
+            harnessDefaultRuntimeDispatchProof.authorityToolingGateLiveReceiptIds,
+          attempts:
+            harnessDefaultRuntimeDispatchProof.authorityToolingGateLiveAttemptIds,
+          replay:
+            harnessDefaultRuntimeDispatchProof.authorityToolingGateLiveReplayFixtureRefs,
+          policyDecision: workflowProofString(
+            authorityToolingProof,
+            "policyDecision",
+            "allow_read_only_route_through_workflow_authority",
+          ),
+        },
+      ]
+    : [];
+  const dispatchReceiptGroup = dispatchReceiptGroups.find((group) =>
+    group.receipts.includes(receiptRef),
+  );
+  if (dispatchReceiptGroup && harnessDefaultRuntimeDispatchProof) {
+    const receiptIndex = dispatchReceiptGroup.receipts.indexOf(receiptRef);
+    return makeHarnessReceiptInspection({
+      receiptRef,
+      sourceKind: "default_runtime_dispatch",
+      sourceLabel: dispatchReceiptGroup.sourceLabel,
+      status: harnessDefaultRuntimeDispatchProof.executionMode,
+      producerComponent: dispatchReceiptGroup.producerComponent,
+      policyDecision: dispatchReceiptGroup.policyDecision,
+      attemptId: dispatchReceiptGroup.attempts[receiptIndex] ?? "attempt pending",
+      replayFixtureRef:
+        dispatchReceiptGroup.replay[receiptIndex] ?? "replay fixture pending",
+      nodeId: null,
+      nodeLabel: harnessDefaultRuntimeDispatchProof.workflowId,
+      runId: harnessDefaultRuntimeDispatchProof.dispatchId,
+      inputHash:
+        harnessDefaultRuntimeDispatchProof.promptAssemblyPromptHash ??
+        "input hash pending",
+      outputHash:
+        harnessDefaultRuntimeDispatchProof.modelExecutionOutputHash ??
+        "output hash pending",
+      createdAtMs: null,
+      evidenceRefs: harnessDefaultRuntimeDispatchProof.receiptIds,
+      payload: harnessDefaultRuntimeDispatchProof,
+    });
+  }
+
+  if (selectedHarnessGroup?.deepLinks.receiptRefs.includes(receiptRef)) {
+    return makeHarnessReceiptInspection({
+      receiptRef,
+      sourceKind: "harness_group",
+      sourceLabel: `${selectedHarnessGroup.label} group receipt`,
+      status: selectedHarnessGroup.statusRollup.executionMode,
+      producerComponent: selectedHarnessGroup.componentKinds.join(", "),
+      policyDecision:
+        selectedHarnessGroupGatedRun?.gateDecision ?? "group receipt selected",
+      attemptId: selectedHarnessGroupGatedRun?.nodeAttemptIds[0] ?? "attempt pending",
+      replayFixtureRef:
+        selectedHarnessGroup.deepLinks.replayFixtureRefs[0] ??
+        "replay fixture pending",
+      nodeId: null,
+      nodeLabel: String(selectedHarnessGroup.groupId),
+      runId:
+        selectedHarnessGroup.deepLinks.runId ?? selectedRunId ?? "run pending",
+      inputHash: "group input hash pending",
+      outputHash: "group output hash pending",
+      createdAtMs: null,
+      evidenceRefs: selectedHarnessGroup.deepLinks.receiptRefs,
+      payload: selectedHarnessGroup,
+    });
+  }
+
+  return makeHarnessReceiptInspection({
+    receiptRef,
+    sourceKind: "unresolved",
+    sourceLabel: "Unresolved harness receipt",
+    status: "unresolved",
+    producerComponent: "unknown",
+    policyDecision: "receipt ref pinned without a matching local record",
+    attemptId: "not resolved",
+    replayFixtureRef: "not resolved",
+    nodeId: null,
+    nodeLabel: "not resolved",
+    runId: selectedRunId ?? "run pending",
+    inputHash: "not resolved",
+    outputHash: "not resolved",
+    createdAtMs: null,
+    evidenceRefs: [receiptRef],
+    payload: { receiptRef, status: "unresolved" },
+  });
 }
 
 export function workflowNodeRunChildLineage(

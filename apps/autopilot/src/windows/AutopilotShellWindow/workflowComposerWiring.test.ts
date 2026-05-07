@@ -771,8 +771,8 @@ assert.match(
 );
 
 assert.match(
-  workflowRailPanel,
-  /(?=[\s\S]*workflowHarnessReceiptKind)(?=[\s\S]*workflowRedactedReceiptPayload)(?=[\s\S]*selectedHarnessReceiptInspection)(?=[\s\S]*sourceKind: "node_attempt")(?=[\s\S]*sourceKind: "activation_audit")(?=[\s\S]*sourceKind: "rollback_execution")(?=[\s\S]*sourceKind: "default_runtime_dispatch")(?=[\s\S]*workflow-harness-receipt-inspector)(?=[\s\S]*data-receipt-source-kind)(?=[\s\S]*data-producer-component)(?=[\s\S]*workflow-harness-receipt-inspector-metadata)(?=[\s\S]*workflow-harness-receipt-payload-preview)(?=[\s\S]*workflow-harness-receipt-evidence-refs)/,
+  `${workflowRailModel}\n${workflowRailPanel}`,
+  /(?=[\s\S]*export function resolveWorkflowHarnessReceiptInspection)(?=[\s\S]*workflowHarnessReceiptKind)(?=[\s\S]*workflowRedactedReceiptPayload)(?=[\s\S]*selectedHarnessReceiptInspection)(?=[\s\S]*sourceKind: "node_attempt")(?=[\s\S]*sourceKind: "activation_audit")(?=[\s\S]*sourceKind: "rollback_execution")(?=[\s\S]*sourceKind: "default_runtime_dispatch")(?=[\s\S]*workflow-harness-receipt-inspector)(?=[\s\S]*data-receipt-source-kind)(?=[\s\S]*data-producer-component)(?=[\s\S]*workflow-harness-receipt-inspector-metadata)(?=[\s\S]*workflow-harness-receipt-payload-preview)(?=[\s\S]*workflow-harness-receipt-evidence-refs)/,
   "Activation receipt refs should resolve into a redacted detail inspector with source, policy, attempt, replay, hashes, and evidence refs.",
 );
 
