@@ -7,6 +7,10 @@ import type {
   WorkflowHarnessComponentSpec,
   WorkflowHarnessDefaultRuntimeDispatchProof,
   WorkflowHarnessExecutionMode,
+  WorkflowHarnessActivationAuditEvent,
+  WorkflowHarnessActivationAuditEventStatus,
+  WorkflowHarnessActivationAuditEventType,
+  WorkflowHarnessActivationRollbackProof,
   WorkflowHarnessForkActivationCandidate,
   WorkflowHarnessForkActivationRecord,
   WorkflowHarnessLiveHandoffProof,
@@ -149,6 +153,260 @@ export function makeHarnessForkActivationRecord(options: {
   };
 }
 
+function harnessActivationAuditEventId(
+  workflowId: string,
+  eventType: WorkflowHarnessActivationAuditEventType,
+  createdAtMs: number,
+): string {
+  return `harness-activation-audit:${slugify(workflowId)}:${eventType}:${createdAtMs}`;
+}
+
+function makeWorkflowHarnessActivationAuditEvent(options: {
+  workflow: WorkflowProject;
+  eventType: WorkflowHarnessActivationAuditEventType;
+  status: WorkflowHarnessActivationAuditEventStatus;
+  candidateId?: string;
+  activationId?: string;
+  previousActivationId?: string;
+  nextActivationId?: string;
+  previousWorkerBinding?: WorkflowHarnessWorkerBinding;
+  nextWorkerBinding?: WorkflowHarnessWorkerBinding;
+  rollbackTarget?: string;
+  rollbackExecuted?: boolean;
+  blockers?: string[];
+  evidenceRefs?: string[];
+  summary: string;
+  createdAtMs: number;
+}): WorkflowHarnessActivationAuditEvent {
+  const workflowId = options.workflow.metadata.id || options.workflow.metadata.slug;
+  return {
+    schemaVersion: "workflow.harness.activation-audit.v1",
+    eventId: harnessActivationAuditEventId(workflowId, options.eventType, options.createdAtMs),
+    eventType: options.eventType,
+    status: options.status,
+    workflowId,
+    candidateId: options.candidateId,
+    activationId: options.activationId,
+    previousActivationId: options.previousActivationId,
+    nextActivationId: options.nextActivationId,
+    previousWorkerBinding: options.previousWorkerBinding,
+    nextWorkerBinding: options.nextWorkerBinding,
+    rollbackTarget: options.rollbackTarget,
+    rollbackExecuted: options.rollbackExecuted,
+    blockers: options.blockers ?? [],
+    evidenceRefs: options.evidenceRefs ?? [],
+    summary: options.summary,
+    createdAtMs: options.createdAtMs,
+  };
+}
+
+function appendWorkflowHarnessActivationAudit(
+  workflow: WorkflowProject,
+  event: WorkflowHarnessActivationAuditEvent,
+  extras: Partial<NonNullable<WorkflowProject["metadata"]["harness"]>> = {},
+): WorkflowProject {
+  if (!workflow.metadata.harness) return workflow;
+  return {
+    ...workflow,
+    metadata: {
+      ...workflow.metadata,
+      dirty: true,
+      harness: {
+        ...workflow.metadata.harness,
+        ...extras,
+        activationAudit: [
+          ...(workflow.metadata.harness.activationAudit ?? []),
+          event,
+        ],
+      },
+      updatedAtMs: event.createdAtMs,
+    },
+  };
+}
+
+export function recordWorkflowHarnessActivationDryRun(
+  workflow: WorkflowProject,
+  candidate: WorkflowHarnessForkActivationCandidate,
+  options: { nowMs?: number } = {},
+): WorkflowProject {
+  if (!workflowIsHarnessFork(workflow)) return workflow;
+  const createdAtMs = options.nowMs ?? Date.now();
+  return appendWorkflowHarnessActivationAudit(
+    workflow,
+    makeWorkflowHarnessActivationAuditEvent({
+      workflow,
+      eventType:
+        candidate.decision === "mintable" ? "dry_run_mintable" : "dry_run_blocked",
+      status: candidate.decision === "mintable" ? "passed" : "blocked",
+      candidateId: candidate.candidateId,
+      activationId: candidate.activationIdPreview,
+      previousActivationId: workflow.metadata.harness?.activationId,
+      nextActivationId: candidate.activationIdPreview,
+      previousWorkerBinding: workflow.metadata.workerHarnessBinding,
+      nextWorkerBinding: candidate.workerBindingPreview,
+      rollbackTarget: candidate.rollbackTarget,
+      blockers: candidate.activationBlockers,
+      evidenceRefs: candidate.evidenceRefs,
+      summary:
+        candidate.decision === "mintable"
+          ? `Activation dry run mintable for ${candidate.activationIdPreview}`
+          : `Activation dry run blocked by ${candidate.activationBlockers.length} blockers`,
+      createdAtMs,
+    }),
+  );
+}
+
+export function recordWorkflowHarnessRollbackTargetSelection(
+  workflow: WorkflowProject,
+  rollbackTarget: string,
+  options: { nowMs?: number } = {},
+): WorkflowProject {
+  if (!workflowIsHarnessFork(workflow)) return workflow;
+  const createdAtMs = options.nowMs ?? Date.now();
+  return appendWorkflowHarnessActivationAudit(
+    workflow,
+    makeWorkflowHarnessActivationAuditEvent({
+      workflow,
+      eventType: "rollback_target_selected",
+      status: "applied",
+      activationId: workflow.metadata.harness?.activationId,
+      previousActivationId: workflow.metadata.harness?.activationId,
+      previousWorkerBinding: workflow.metadata.workerHarnessBinding,
+      nextWorkerBinding: workflow.metadata.workerHarnessBinding,
+      rollbackTarget,
+      evidenceRefs: [rollbackTarget],
+      summary: `Rollback target selected: ${rollbackTarget}`,
+      createdAtMs,
+    }),
+  );
+}
+
+function rollbackWorkerBindingForTarget(
+  workflow: WorkflowProject,
+  rollbackTarget: string,
+): WorkflowHarnessWorkerBinding {
+  if (
+    rollbackTarget === DEFAULT_AGENT_HARNESS_ACTIVATION_ID ||
+    rollbackTarget === DEFAULT_AGENT_HARNESS_WORKFLOW_ID
+  ) {
+    return {
+      harnessWorkflowId: DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+      harnessActivationId: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+      harnessHash: DEFAULT_AGENT_HARNESS_HASH,
+      executionMode: DEFAULT_HARNESS_EXECUTION_MODE,
+      source: "default",
+    };
+  }
+  if (rollbackTarget === "legacy_runtime") {
+    return {
+      harnessWorkflowId: "legacy_runtime",
+      harnessActivationId: "legacy_runtime",
+      harnessHash: "legacy_runtime",
+      executionMode: "projection",
+      source: "legacy",
+    };
+  }
+  return {
+    harnessWorkflowId: workflow.metadata.id || workflow.metadata.slug,
+    harnessActivationId: rollbackTarget,
+    harnessHash: workflow.metadata.harness?.harnessHash ?? DEFAULT_AGENT_HARNESS_HASH,
+    executionMode: workflow.metadata.harness?.executionMode ?? DEFAULT_HARNESS_EXECUTION_MODE,
+    source: "fork",
+  };
+}
+
+export function executeWorkflowHarnessRollbackDrill(
+  workflow: WorkflowProject,
+  options: {
+    rollbackTarget?: string | null;
+    nowMs?: number;
+  } = {},
+): {
+  executed: boolean;
+  workflow: WorkflowProject;
+  proof?: WorkflowHarnessActivationRollbackProof;
+  blockers: string[];
+  rollbackTarget?: string;
+  restoredWorkerBinding?: WorkflowHarnessWorkerBinding;
+} {
+  const createdAtMs = options.nowMs ?? Date.now();
+  const audit = workflow.metadata.harness?.activationAudit ?? [];
+  const latestMintEvent = [...audit]
+    .reverse()
+    .find((event) => event.eventType === "activation_minted");
+  const rollbackTarget =
+    options.rollbackTarget?.trim() ||
+    workflow.metadata.harness?.activationRecord?.rollbackTarget ||
+    latestMintEvent?.rollbackTarget ||
+    DEFAULT_AGENT_HARNESS_FORK_ROLLBACK_TARGET;
+  const blockers = [
+    ...(workflowIsHarnessFork(workflow) ? [] : ["not_harness_fork"]),
+    ...(rollbackTarget ? [] : ["rollback_target_missing"]),
+    ...(workflow.metadata.harness?.activationRecord?.rollbackAvailable === false
+      ? ["rollback_unavailable"]
+      : []),
+  ];
+  const activeWorkerBinding =
+    workflow.metadata.workerHarnessBinding ?? workflowHarnessWorkerBinding(workflow);
+  const restoredWorkerBinding =
+    latestMintEvent?.previousWorkerBinding ??
+    rollbackWorkerBindingForTarget(workflow, rollbackTarget);
+  const proof: WorkflowHarnessActivationRollbackProof = {
+    schemaVersion: "workflow.harness.activation-rollback-proof.v1",
+    drillId: `harness-rollback-drill:${slugify(workflow.metadata.id || workflow.metadata.slug)}:${createdAtMs}`,
+    workflowId: workflow.metadata.id || workflow.metadata.slug,
+    activationId: workflow.metadata.harness?.activationId,
+    rollbackTarget,
+    rollbackAvailable: blockers.length === 0,
+    rollbackExecuted: blockers.length === 0,
+    activeWorkerBinding,
+    restoredWorkerBinding,
+    drillStatus: blockers.length === 0 ? "passed" : "blocked",
+    policyDecision:
+      blockers.length === 0
+        ? "rollback_drill_restored_previous_worker_binding"
+        : "rollback_drill_blocked",
+    blockers,
+    evidenceRefs: [
+      rollbackTarget,
+      ...(latestMintEvent ? [latestMintEvent.eventId] : []),
+    ],
+    createdAtMs,
+  };
+  const workflowWithAudit = appendWorkflowHarnessActivationAudit(
+    workflow,
+    makeWorkflowHarnessActivationAuditEvent({
+      workflow,
+      eventType:
+        blockers.length === 0 ? "rollback_drill_passed" : "rollback_drill_blocked",
+      status: blockers.length === 0 ? "passed" : "blocked",
+      activationId: workflow.metadata.harness?.activationId,
+      previousActivationId: workflow.metadata.harness?.activationId,
+      nextActivationId: restoredWorkerBinding.harnessActivationId,
+      previousWorkerBinding: activeWorkerBinding,
+      nextWorkerBinding: restoredWorkerBinding,
+      rollbackTarget,
+      rollbackExecuted: blockers.length === 0,
+      blockers,
+      evidenceRefs: proof.evidenceRefs,
+      summary:
+        blockers.length === 0
+          ? `Rollback drill restored ${restoredWorkerBinding.harnessActivationId ?? restoredWorkerBinding.harnessWorkflowId}`
+          : `Rollback drill blocked by ${blockers.length} blockers`,
+      createdAtMs,
+    }),
+    { activationRollbackProof: proof },
+  );
+  return {
+    executed: blockers.length === 0,
+    workflow: workflowWithAudit,
+    proof,
+    blockers,
+    rollbackTarget,
+    restoredWorkerBinding,
+  };
+}
+
 export function applyWorkflowHarnessActivationCandidate(
   workflow: WorkflowProject,
   candidate: WorkflowHarnessForkActivationCandidate | null | undefined,
@@ -173,10 +431,31 @@ export function applyWorkflowHarnessActivationCandidate(
     ...(activationId ? [] : ["activation_id_missing"]),
   ];
   if (blockers.length > 0 || !candidate || !activationId) {
+    const uniqueBlockers = Array.from(new Set(blockers));
     return {
       applied: false,
-      workflow,
-      blockers: Array.from(new Set(blockers)),
+      workflow: workflowIsHarnessFork(workflow)
+        ? appendWorkflowHarnessActivationAudit(
+            workflow,
+            makeWorkflowHarnessActivationAuditEvent({
+              workflow,
+              eventType: "activation_mint_blocked",
+              status: "blocked",
+              candidateId: candidate?.candidateId,
+              activationId,
+              previousActivationId: workflow.metadata.harness?.activationId,
+              nextActivationId: activationId,
+              previousWorkerBinding: workflow.metadata.workerHarnessBinding,
+              nextWorkerBinding: candidate?.workerBindingPreview,
+              rollbackTarget: candidate?.rollbackTarget,
+              blockers: uniqueBlockers,
+              evidenceRefs: candidate?.evidenceRefs ?? [],
+              summary: `Activation mint blocked by ${uniqueBlockers.length} blockers`,
+              createdAtMs: options.nowMs ?? Date.now(),
+            }),
+          )
+        : workflow,
+      blockers: uniqueBlockers,
     };
   }
 
@@ -220,26 +499,44 @@ export function applyWorkflowHarnessActivationCandidate(
   });
   return {
     applied: true,
-    workflow: {
-      ...workflow,
-      metadata: {
-        ...workflow.metadata,
-        dirty: true,
-        harness: workflow.metadata.harness
-          ? {
-              ...workflow.metadata.harness,
-              harnessWorkflowId: workerBinding.harnessWorkflowId,
-              harnessHash: workerBinding.harnessHash,
-              executionMode: workerBinding.executionMode ?? workflow.metadata.harness.executionMode,
-              activationId,
-              activationState: "validated",
-              activationRecord,
-            }
-          : workflow.metadata.harness,
-        workerHarnessBinding: workerBinding,
-        updatedAtMs: nowMs,
+    workflow: appendWorkflowHarnessActivationAudit(
+      {
+        ...workflow,
+        metadata: {
+          ...workflow.metadata,
+          dirty: true,
+          harness: workflow.metadata.harness
+            ? {
+                ...workflow.metadata.harness,
+                harnessWorkflowId: workerBinding.harnessWorkflowId,
+                harnessHash: workerBinding.harnessHash,
+                executionMode:
+                  workerBinding.executionMode ?? workflow.metadata.harness.executionMode,
+                activationId,
+                activationState: "validated",
+                activationRecord,
+              }
+            : workflow.metadata.harness,
+          workerHarnessBinding: workerBinding,
+          updatedAtMs: nowMs,
+        },
       },
-    },
+      makeWorkflowHarnessActivationAuditEvent({
+        workflow,
+        eventType: "activation_minted",
+        status: "applied",
+        candidateId: candidate.candidateId,
+        activationId,
+        previousActivationId: workflow.metadata.harness?.activationId,
+        nextActivationId: activationId,
+        previousWorkerBinding: workflow.metadata.workerHarnessBinding,
+        nextWorkerBinding: workerBinding,
+        rollbackTarget,
+        evidenceRefs: Array.from(new Set([candidate.candidateId, ...candidate.evidenceRefs])),
+        summary: `Activation minted: ${activationId}`,
+        createdAtMs: nowMs,
+      }),
+    ),
     activationId,
     blockers: [],
     workerBinding,

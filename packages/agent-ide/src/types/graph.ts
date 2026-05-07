@@ -1005,6 +1005,57 @@ export interface WorkflowHarnessForkActivationRecord {
   mintedAtMs?: number;
 }
 
+export type WorkflowHarnessActivationAuditEventType =
+  | "dry_run_blocked"
+  | "dry_run_mintable"
+  | "activation_mint_blocked"
+  | "activation_minted"
+  | "rollback_target_selected"
+  | "rollback_drill_blocked"
+  | "rollback_drill_passed";
+
+export type WorkflowHarnessActivationAuditEventStatus =
+  | "blocked"
+  | "passed"
+  | "applied";
+
+export interface WorkflowHarnessActivationAuditEvent {
+  schemaVersion: "workflow.harness.activation-audit.v1" | string;
+  eventId: string;
+  eventType: WorkflowHarnessActivationAuditEventType;
+  status: WorkflowHarnessActivationAuditEventStatus;
+  workflowId: string;
+  candidateId?: string;
+  activationId?: string;
+  previousActivationId?: string;
+  nextActivationId?: string;
+  previousWorkerBinding?: WorkflowHarnessWorkerBinding;
+  nextWorkerBinding?: WorkflowHarnessWorkerBinding;
+  rollbackTarget?: string;
+  rollbackExecuted?: boolean;
+  blockers: string[];
+  evidenceRefs: string[];
+  summary: string;
+  createdAtMs: number;
+}
+
+export interface WorkflowHarnessActivationRollbackProof {
+  schemaVersion: "workflow.harness.activation-rollback-proof.v1" | string;
+  drillId: string;
+  workflowId: string;
+  activationId?: string;
+  rollbackTarget: string;
+  rollbackAvailable: boolean;
+  rollbackExecuted: boolean;
+  activeWorkerBinding?: WorkflowHarnessWorkerBinding;
+  restoredWorkerBinding?: WorkflowHarnessWorkerBinding;
+  drillStatus: "not_run" | "passed" | "blocked" | "failed" | string;
+  policyDecision: string;
+  blockers: string[];
+  evidenceRefs: string[];
+  createdAtMs: number;
+}
+
 export type WorkflowHarnessActivationCandidateDecision =
   | "blocked"
   | "mintable";
@@ -1645,6 +1696,8 @@ export interface WorkflowHarnessMetadata {
   activationId?: string;
   activationState?: WorkflowHarnessActivationState;
   activationRecord?: WorkflowHarnessForkActivationRecord;
+  activationAudit?: WorkflowHarnessActivationAuditEvent[];
+  activationRollbackProof?: WorkflowHarnessActivationRollbackProof;
   liveHandoffProof?: WorkflowHarnessLiveHandoffProof;
   runtimeSelectorDecision?: WorkflowHarnessRuntimeSelectorDecision;
   defaultRuntimeDispatchProof?: WorkflowHarnessDefaultRuntimeDispatchProof;

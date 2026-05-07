@@ -151,6 +151,7 @@ export function WorkflowRailPanel({
   onCheckActivationReadiness,
   onRunHarnessActivationDryRun,
   onApplyHarnessActivationCandidate,
+  onRunHarnessRollbackDrill,
   onConfigureNode,
   onSelectProposal,
   onExportPackage,
@@ -204,6 +205,7 @@ export function WorkflowRailPanel({
   onCheckActivationReadiness?: () => void;
   onRunHarnessActivationDryRun?: () => void;
   onApplyHarnessActivationCandidate?: () => void;
+  onRunHarnessRollbackDrill?: () => void;
   onConfigureNode: () => void;
   onSelectProposal: (proposal: WorkflowProposal) => void;
   onExportPackage: () => void;
@@ -282,6 +284,9 @@ export function WorkflowRailPanel({
   const harnessWorkerBinding = harnessWorkflow ? workflowHarnessWorkerBinding(workflow) : null;
   const harnessPromotionClusters = workflow.metadata.harness?.promotionClusters ?? [];
   const harnessActivationRecord = workflow.metadata.harness?.activationRecord;
+  const harnessActivationAudit = workflow.metadata.harness?.activationAudit ?? [];
+  const harnessActivationRollbackProof =
+    workflow.metadata.harness?.activationRollbackProof ?? null;
   const harnessLiveHandoffProof = workflow.metadata.harness?.liveHandoffProof;
   const harnessRuntimeSelectorDecision = workflow.metadata.harness?.runtimeSelectorDecision;
   const harnessCanaryExecutionBoundary = workflow.metadata.harness?.canaryExecutionBoundary;
@@ -779,6 +784,8 @@ export function WorkflowRailPanel({
     selectedHarnessRollbackTarget ??
     harnessBindingRollbackTargets[0] ??
     harnessBindingRollbackTarget;
+  const latestHarnessActivationAudit =
+    harnessActivationAudit[harnessActivationAudit.length - 1] ?? null;
   const harnessBindingInspectorStatus =
     harnessActivationCandidate?.decision ??
     harnessActivationRecord?.activationState ??
@@ -1670,6 +1677,14 @@ export function WorkflowRailPanel({
                   <dt>Rollback</dt>
                   <dd>{harnessBindingRollbackAvailable ? "ready" : "blocked"}</dd>
                 </div>
+                <div>
+                  <dt>History</dt>
+                  <dd>{harnessActivationAudit.length}</dd>
+                </div>
+                <div>
+                  <dt>Drill</dt>
+                  <dd>{harnessActivationRollbackProof?.drillStatus ?? "not_run"}</dd>
+                </div>
               </dl>
               <div
                 className="workflow-rail-list"
@@ -1821,8 +1836,89 @@ export function WorkflowRailPanel({
                   >
                     Mint activation
                   </button>
+                  <button
+                    type="button"
+                    data-testid="workflow-harness-worker-binding-run-rollback-drill"
+                    disabled={!onRunHarnessRollbackDrill}
+                    onClick={onRunHarnessRollbackDrill}
+                  >
+                    Run rollback drill
+                  </button>
                 </div>
               ) : null}
+              <section
+                className="workflow-rail-section"
+                data-testid="workflow-harness-rollback-drill-proof"
+                data-drill-status={harnessActivationRollbackProof?.drillStatus ?? "not_run"}
+              >
+                <h4>Rollback proof</h4>
+                <article
+                  className={`workflow-output-row is-${
+                    harnessActivationRollbackProof?.drillStatus === "passed"
+                      ? "ready"
+                      : "blocked"
+                  }`}
+                >
+                  <strong>
+                    {harnessActivationRollbackProof?.rollbackTarget ??
+                      harnessSelectedRollbackTarget}
+                  </strong>
+                  <span>
+                    executed{" "}
+                    {harnessActivationRollbackProof?.rollbackExecuted ? "yes" : "not yet"}
+                    {" · "}
+                    restored{" "}
+                    {harnessActivationRollbackProof?.restoredWorkerBinding
+                      ?.harnessActivationId ??
+                      harnessActivationRollbackProof?.restoredWorkerBinding
+                        ?.harnessWorkflowId ??
+                      "pending"}
+                  </span>
+                  <small>
+                    {harnessActivationRollbackProof?.policyDecision ??
+                      "rollback drill pending"}
+                  </small>
+                </article>
+              </section>
+              <section
+                className="workflow-rail-section"
+                data-testid="workflow-harness-activation-audit"
+                data-audit-count={harnessActivationAudit.length}
+              >
+                <h4>Activation audit</h4>
+                <article
+                  className="workflow-output-row"
+                  data-testid="workflow-harness-activation-audit-summary"
+                >
+                  <strong>{latestHarnessActivationAudit?.eventType ?? "no audit events"}</strong>
+                  <span>
+                    {latestHarnessActivationAudit?.status ?? "pending"} ·{" "}
+                    {latestHarnessActivationAudit?.rollbackTarget ?? "rollback not selected"}
+                  </span>
+                  <small>{latestHarnessActivationAudit?.summary ?? "Run a dry run to create history."}</small>
+                </article>
+                <div
+                  className="workflow-rail-list"
+                  data-testid="workflow-harness-activation-audit-list"
+                >
+                  {harnessActivationAudit.slice(-6).map((event) => (
+                    <article
+                      key={event.eventId}
+                      className={`workflow-test-row is-${
+                        event.status === "blocked" ? "blocked" : "passed"
+                      }`}
+                      data-testid={`workflow-harness-activation-audit-event-${event.eventId}`}
+                      data-audit-event-type={event.eventType}
+                    >
+                      <strong>{event.eventType}</strong>
+                      <span>
+                        {event.status} · {event.activationId ?? event.nextActivationId ?? "no activation"}
+                      </span>
+                      <small>{event.summary}</small>
+                    </article>
+                  ))}
+                </div>
+              </section>
             </section>
             {harnessForkWorkflow ? (
               <section

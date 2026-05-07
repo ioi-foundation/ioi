@@ -7,8 +7,11 @@ import type {
 } from "../types/graph.ts";
 import {
   applyWorkflowHarnessActivationCandidate,
+  executeWorkflowHarnessRollbackDrill,
   forkDefaultAgentHarnessWorkflow,
   makeHarnessForkActivationRecord,
+  recordWorkflowHarnessActivationDryRun,
+  recordWorkflowHarnessRollbackTargetSelection,
 } from "./harness-workflow.ts";
 import {
   createWorkflowHarnessActivationCandidate,
@@ -59,15 +62,22 @@ const onlyActivationMissingReadiness = (
     fork.proposals,
     1_100,
   );
-  const result = applyWorkflowHarnessActivationCandidate(fork.workflow, candidate, {
+  const auditedWorkflow = recordWorkflowHarnessActivationDryRun(fork.workflow, candidate, {
+    nowMs: 1_150,
+  });
+  const result = applyWorkflowHarnessActivationCandidate(auditedWorkflow, candidate, {
     nowMs: 1_200,
   });
 
   assert.equal(candidate.decision, "blocked");
+  const dryRunAudit = auditedWorkflow.metadata.harness?.activationAudit ?? [];
+  assert.equal(dryRunAudit[dryRunAudit.length - 1]?.eventType, "dry_run_blocked");
   assert.equal(result.applied, false);
   assert.match(result.blockers.join(","), /candidate_not_mintable/);
   assert.equal(result.workflow.metadata.harness?.activationState, "blocked");
   assert.equal(result.workflow.metadata.workerHarnessBinding?.harnessActivationId, undefined);
+  const blockedMintAudit = result.workflow.metadata.harness?.activationAudit ?? [];
+  assert.equal(blockedMintAudit[blockedMintAudit.length - 1]?.eventType, "activation_mint_blocked");
 }
 
 {
@@ -125,7 +135,15 @@ const onlyActivationMissingReadiness = (
     [],
     2_100,
   );
-  const result = applyWorkflowHarnessActivationCandidate(workflow, candidate, {
+  const dryRunWorkflow = recordWorkflowHarnessActivationDryRun(workflow, candidate, {
+    nowMs: 2_150,
+  });
+  const rollbackSelectedWorkflow = recordWorkflowHarnessRollbackTargetSelection(
+    dryRunWorkflow,
+    "legacy_runtime",
+    { nowMs: 2_175 },
+  );
+  const result = applyWorkflowHarnessActivationCandidate(rollbackSelectedWorkflow, candidate, {
     rollbackTarget: "legacy_runtime",
     nowMs: 2_200,
   });
@@ -144,6 +162,32 @@ const onlyActivationMissingReadiness = (
     candidate.activationIdPreview,
   );
   assert.equal(result.workflow.metadata.harness?.activationRecord?.rollbackTarget, "legacy_runtime");
+  assert.deepEqual(
+    result.workflow.metadata.harness?.activationAudit?.map((event) => event.eventType),
+    [
+      "dry_run_mintable",
+      "rollback_target_selected",
+      "activation_minted",
+    ],
+  );
+
+  const rollbackDrill = executeWorkflowHarnessRollbackDrill(result.workflow, {
+    rollbackTarget: "legacy_runtime",
+    nowMs: 2_300,
+  });
+  assert.equal(rollbackDrill.executed, true);
+  assert.equal(rollbackDrill.proof?.drillStatus, "passed");
+  assert.equal(rollbackDrill.proof?.rollbackExecuted, true);
+  assert.equal(
+    rollbackDrill.proof?.restoredWorkerBinding?.harnessActivationId,
+    workerBinding.harnessActivationId,
+  );
+  assert.equal(
+    rollbackDrill.workflow.metadata.harness?.activationRollbackProof?.drillStatus,
+    "passed",
+  );
+  const rollbackDrillAudit = rollbackDrill.workflow.metadata.harness?.activationAudit ?? [];
+  assert.equal(rollbackDrillAudit[rollbackDrillAudit.length - 1]?.eventType, "rollback_drill_passed");
 
   const postValidation = validateWorkflowProject(result.workflow, fork.tests);
   const postReadiness = evaluateWorkflowActivationReadiness(
