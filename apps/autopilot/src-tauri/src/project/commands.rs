@@ -257,6 +257,227 @@ pub fn save_workflow_tests(path: String, tests: Vec<WorkflowTestCase>) -> Result
     write_json_pretty(&tests_path, &tests)
 }
 
+fn git_top_level_for(path: &Path) -> Result<PathBuf, String> {
+    let git_root = run_git(&path.to_path_buf(), &["rev-parse", "--show-toplevel"])?;
+    if git_root.trim().is_empty() {
+        return Err("Git top-level path was empty.".to_string());
+    }
+    PathBuf::from(git_root.trim()).canonicalize().map_err(|error| {
+        format!(
+            "Failed to canonicalize git top-level '{}': {}",
+            git_root.trim(),
+            error
+        )
+    })
+}
+
+fn resolve_workflow_revision_repo_root(
+    request: &WorkflowRevisionRestoreRequest,
+    anchor_workflow_path: &Path,
+) -> Result<PathBuf, String> {
+    if let Some(repo_root) = request.revision_binding.repo_root.as_deref() {
+        return resolve_root_path(repo_root, false);
+    }
+    let anchor_dir = anchor_workflow_path
+        .parent()
+        .ok_or_else(|| "Workflow path has no parent directory.".to_string())?;
+    git_top_level_for(anchor_dir)
+}
+
+fn resolve_workflow_revision_target_path(
+    repo_root: &Path,
+    workflow_path: &str,
+) -> Result<PathBuf, String> {
+    let requested = PathBuf::from(workflow_path);
+    let target = if requested.is_absolute() {
+        requested
+    } else {
+        repo_root.join(safe_relative_input(workflow_path)?)
+    };
+    let target_parent = target
+        .parent()
+        .ok_or_else(|| "Workflow revision path has no parent directory.".to_string())?;
+    let parent = if target_parent.exists() {
+        target_parent.canonicalize().map_err(|error| {
+            format!(
+                "Failed to canonicalize workflow revision parent '{}': {}",
+                target_parent.display(),
+                error
+            )
+        })?
+    } else {
+        target_parent.to_path_buf()
+    };
+    if !parent.starts_with(repo_root) {
+        return Err("Workflow revision target falls outside the repository root.".to_string());
+    }
+    Ok(target)
+}
+
+fn git_relative_path(repo_root: &Path, target: &Path) -> Result<String, String> {
+    let relative = target.strip_prefix(repo_root).map_err(|_| {
+        "Workflow revision target is not inside the repository root.".to_string()
+    })?;
+    let rendered = relative.to_string_lossy().replace('\\', "/");
+    if rendered.is_empty() || rendered == "." {
+        return Err("Workflow revision target cannot be the repository root.".to_string());
+    }
+    Ok(rendered)
+}
+
+fn git_show_file_bytes(
+    repo_root: &Path,
+    revision: &str,
+    relative_path: &str,
+) -> Result<Vec<u8>, String> {
+    let spec = format!("{}:{}", revision, relative_path);
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(repo_root)
+        .arg("show")
+        .arg(&spec)
+        .output()
+        .map_err(|error| format!("Failed to launch git show: {}", error))?;
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+    }
+    Ok(output.stdout)
+}
+
+#[tauri::command]
+pub fn restore_workflow_revision(
+    request: WorkflowRevisionRestoreRequest,
+) -> Result<WorkflowRevisionRestoreResult, String> {
+    let anchor_workflow_path = resolve_workflow_file_path(&request.workflow_path)?;
+    let expected_workflow_content_hash = request
+        .expected_workflow_content_hash
+        .clone()
+        .or_else(|| Some(request.revision_binding.workflow_content_hash.clone()));
+    let revision_source = request.revision_binding.revision_source.clone();
+    if revision_source != "git" {
+        return Ok(WorkflowRevisionRestoreResult {
+            restored: false,
+            blockers: vec!["unsupported_revision_source".to_string()],
+            workflow_path: anchor_workflow_path.display().to_string(),
+            repo_root: None,
+            relative_workflow_path: None,
+            revision_source,
+            restored_revision: request.revision_binding.activated_revision.clone(),
+            restore_strategy: "unsupported".to_string(),
+            expected_workflow_content_hash,
+            file_sha256: None,
+            bundle: None,
+        });
+    }
+    let Some(restored_revision) = request
+        .revision_binding
+        .activated_revision
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+        .map(str::to_string)
+    else {
+        return Ok(WorkflowRevisionRestoreResult {
+            restored: false,
+            blockers: vec!["activated_revision_missing".to_string()],
+            workflow_path: anchor_workflow_path.display().to_string(),
+            repo_root: None,
+            relative_workflow_path: None,
+            revision_source,
+            restored_revision: None,
+            restore_strategy: "git_show_file_restore".to_string(),
+            expected_workflow_content_hash,
+            file_sha256: None,
+            bundle: None,
+        });
+    };
+    let repo_root = resolve_workflow_revision_repo_root(&request, &anchor_workflow_path)?;
+    let target_workflow_path = resolve_workflow_revision_target_path(
+        &repo_root,
+        &request.revision_binding.workflow_path,
+    )?;
+    let relative_workflow_path = git_relative_path(&repo_root, &target_workflow_path)?;
+    let content = match git_show_file_bytes(&repo_root, &restored_revision, &relative_workflow_path)
+    {
+        Ok(content) => content,
+        Err(error) => {
+            return Ok(WorkflowRevisionRestoreResult {
+                restored: false,
+                blockers: vec!["git_revision_file_missing".to_string()],
+                workflow_path: target_workflow_path.display().to_string(),
+                repo_root: Some(repo_root.display().to_string()),
+                relative_workflow_path: Some(relative_workflow_path),
+                revision_source,
+                restored_revision: Some(restored_revision),
+                restore_strategy: "git_show_file_restore".to_string(),
+                expected_workflow_content_hash,
+                file_sha256: None,
+                bundle: None,
+            }
+            .with_blocker_detail(error));
+        }
+    };
+    if let Err(error) = serde_json::from_slice::<WorkflowProject>(&content) {
+        return Ok(WorkflowRevisionRestoreResult {
+            restored: false,
+            blockers: vec!["git_revision_invalid_workflow_json".to_string()],
+            workflow_path: target_workflow_path.display().to_string(),
+            repo_root: Some(repo_root.display().to_string()),
+            relative_workflow_path: Some(relative_workflow_path),
+            revision_source,
+            restored_revision: Some(restored_revision),
+            restore_strategy: "git_show_file_restore".to_string(),
+            expected_workflow_content_hash,
+            file_sha256: None,
+            bundle: None,
+        }
+        .with_blocker_detail(error.to_string()));
+    }
+    if let Some(parent) = target_workflow_path.parent() {
+        fs::create_dir_all(parent).map_err(|error| {
+            format!(
+                "Failed to create workflow restore directory '{}': {}",
+                parent.display(),
+                error
+            )
+        })?;
+    }
+    fs::write(&target_workflow_path, &content).map_err(|error| {
+        format!(
+            "Failed to restore workflow file '{}': {}",
+            target_workflow_path.display(),
+            error
+        )
+    })?;
+    let file_sha256 = workflow_file_sha256(&target_workflow_path)?;
+    let bundle = load_workflow_bundle_from_path(&target_workflow_path)?;
+    Ok(WorkflowRevisionRestoreResult {
+        restored: true,
+        blockers: Vec::new(),
+        workflow_path: target_workflow_path.display().to_string(),
+        repo_root: Some(repo_root.display().to_string()),
+        relative_workflow_path: Some(relative_workflow_path),
+        revision_source,
+        restored_revision: Some(restored_revision),
+        restore_strategy: "git_show_file_restore".to_string(),
+        expected_workflow_content_hash,
+        file_sha256: Some(file_sha256),
+        bundle: Some(bundle),
+    })
+}
+
+trait WorkflowRevisionRestoreResultExt {
+    fn with_blocker_detail(self, detail: String) -> Self;
+}
+
+impl WorkflowRevisionRestoreResultExt for WorkflowRevisionRestoreResult {
+    fn with_blocker_detail(mut self, detail: String) -> Self {
+        if !detail.trim().is_empty() {
+            self.blockers.push(format!("detail:{}", detail.trim()));
+        }
+        self
+    }
+}
+
 #[derive(Debug, Clone)]
 struct WorkflowBindingInspection {
     row_id: String,

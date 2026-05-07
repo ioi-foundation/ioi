@@ -19,6 +19,8 @@ import type {
   WorkflowPortablePackage,
   WorkflowProject,
   WorkflowProjectSummary,
+  WorkflowRevisionRestoreRequest,
+  WorkflowRevisionRestoreResult,
   WorkflowResumeRequest,
   WorkflowRunResult,
   WorkflowRunSummary,
@@ -114,6 +116,9 @@ export interface GraphExecutionRuntime {
   ): Promise<WorkflowWorkbenchBundle>;
   loadWorkflowBundle?(path: string): Promise<WorkflowWorkbenchBundle>;
   saveWorkflowProject?(path: string, workflow: WorkflowProject): Promise<void>;
+  restoreWorkflowRevision?(
+    request: WorkflowRevisionRestoreRequest,
+  ): Promise<WorkflowRevisionRestoreResult>;
   saveWorkflowTests?(path: string, tests: WorkflowTestCase[]): Promise<void>;
   runWorkflowTests?(
     path: string,

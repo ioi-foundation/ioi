@@ -44,6 +44,8 @@ import {
   WorkflowPortablePackage,
   WorkflowProject,
   WorkflowProjectSummary,
+  WorkflowRevisionRestoreRequest,
+  WorkflowRevisionRestoreResult,
   WorkflowResumeRequest,
   WorkflowRunComparison,
   WorkflowRunResult,
@@ -1228,6 +1230,12 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
 
     async saveWorkflowProject(path: string, workflow: WorkflowProject): Promise<void> {
         await invoke("save_workflow_project", { path, workflow });
+    }
+
+    async restoreWorkflowRevision(
+        request: WorkflowRevisionRestoreRequest
+    ): Promise<WorkflowRevisionRestoreResult> {
+        return invoke("restore_workflow_revision", { request });
     }
 
     async saveWorkflowTests(path: string, tests: WorkflowTestCase[]): Promise<void> {

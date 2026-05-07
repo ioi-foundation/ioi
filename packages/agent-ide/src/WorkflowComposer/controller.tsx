@@ -2764,8 +2764,44 @@ export function useWorkflowComposerController({
   ]);
 
   const handleExecuteHarnessRollback = useCallback(async () => {
+    const rollbackRevisionBinding =
+      currentProjectFile.metadata.harness?.activationRecord?.rollbackRevisionBinding ??
+      currentProjectFile.metadata.harness?.activationRollbackProof?.restoredRevisionBinding ??
+      null;
+    let restoredWorkflow: WorkflowProject | null = null;
+    if (rollbackRevisionBinding?.revisionSource === "git") {
+      if (!runtime.restoreWorkflowRevision) {
+        setStatusMessage("Git-backed workflow revision restore unavailable");
+        return;
+      }
+      let restoreResult;
+      try {
+        restoreResult = await runtime.restoreWorkflowRevision({
+          workflowPath,
+          revisionBinding: rollbackRevisionBinding,
+          expectedWorkflowContentHash: rollbackRevisionBinding.workflowContentHash,
+        });
+      } catch (error) {
+        setStatusMessage(`Git-backed rollback restore failed: ${errorMessage(error)}`);
+        return;
+      }
+      if (!restoreResult.restored) {
+        setStatusMessage(
+          `Git-backed rollback restore blocked by ${restoreResult.blockers.length} blocker${
+            restoreResult.blockers.length === 1 ? "" : "s"
+          }`,
+        );
+        return;
+      }
+      if (!restoreResult.bundle?.workflow) {
+        setStatusMessage("Git-backed rollback restore did not return a workflow bundle");
+        return;
+      }
+      restoredWorkflow = restoreResult.bundle.workflow;
+    }
     const result = executeWorkflowHarnessRevisionRollback(currentProjectFile, {
       rollbackTarget: selectedHarnessRollbackTarget,
+      restoredWorkflow,
     });
     setWorkflow(result.workflow);
     const validation = validateWorkflowProject(result.workflow, tests);

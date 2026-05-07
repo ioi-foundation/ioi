@@ -224,6 +224,63 @@ pub struct WorkflowWorkbenchBundle {
     pub runs: Vec<WorkflowRunSummary>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkflowRevisionBinding {
+    pub schema_version: String,
+    pub workflow_path: String,
+    #[serde(default)]
+    pub repo_root: Option<String>,
+    #[serde(default)]
+    pub branch: Option<String>,
+    #[serde(default)]
+    pub base_revision: Option<String>,
+    #[serde(default)]
+    pub activated_revision: Option<String>,
+    pub workflow_content_hash: String,
+    #[serde(default)]
+    pub proposal_id: Option<String>,
+    #[serde(default)]
+    pub activation_id: Option<String>,
+    #[serde(default)]
+    pub rollback_activation_id: Option<String>,
+    #[serde(default)]
+    pub rollback_revision: Option<String>,
+    pub revision_source: String,
+    pub created_at_ms: u64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkflowRevisionRestoreRequest {
+    pub workflow_path: String,
+    pub revision_binding: WorkflowRevisionBinding,
+    #[serde(default)]
+    pub expected_workflow_content_hash: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkflowRevisionRestoreResult {
+    pub restored: bool,
+    pub blockers: Vec<String>,
+    pub workflow_path: String,
+    #[serde(default)]
+    pub repo_root: Option<String>,
+    #[serde(default)]
+    pub relative_workflow_path: Option<String>,
+    pub revision_source: String,
+    #[serde(default)]
+    pub restored_revision: Option<String>,
+    pub restore_strategy: String,
+    #[serde(default)]
+    pub expected_workflow_content_hash: Option<String>,
+    #[serde(default)]
+    pub file_sha256: Option<String>,
+    #[serde(default)]
+    pub bundle: Option<WorkflowWorkbenchBundle>,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateWorkflowProjectRequest {
