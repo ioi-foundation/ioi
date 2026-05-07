@@ -140,6 +140,14 @@
     0 8px 18px rgba(0, 0, 0, 0.22);
 }
 
+.canvas-node--harness-group {
+  --node-accent: #2f8f72;
+  --node-accent-soft: rgba(47, 143, 114, 0.16);
+  width: 236px;
+  min-height: 156px;
+  cursor: pointer;
+}
+
 .canvas-node.active {
   box-shadow: 0 0 0 1px var(--status-success), 0 14px 30px rgba(52, 211, 153, 0.16);
 }
@@ -367,6 +375,52 @@
 .node-badge--macro {
   border-color: color-mix(in srgb, var(--accent-blue) 44%, var(--border-subtle));
   color: var(--accent-blue);
+}
+
+.node-harness-group-rollup {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 8px;
+}
+
+.node-harness-group-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.node-harness-group-stats span,
+.node-harness-group-meta span {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--bg-element) 86%, var(--node-accent) 14%);
+  color: var(--text-secondary);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 4px 5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.node-harness-group-meta {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: 4px;
+}
+
+.node-harness-group-toggle {
+  width: 100%;
+  min-height: 24px;
+  border-color: color-mix(in srgb, var(--node-accent) 44%, var(--border-default));
+  background: color-mix(in srgb, var(--bg-element) 84%, var(--node-accent) 16%);
+  color: var(--node-accent);
+  font-size: 10px;
+  font-weight: 800;
 }
 
 .node-footer {

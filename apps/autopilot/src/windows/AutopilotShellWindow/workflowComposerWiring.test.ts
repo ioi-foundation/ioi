@@ -729,6 +729,12 @@ assert.match(
 );
 
 assert.match(
+  `${graphTypes}\n${composer}\n${canvasNode}\n${canvasNodeCss}`,
+  /(?=[\s\S]*interface WorkflowHarnessGroupView)(?=[\s\S]*harnessGroup\?: WorkflowHarnessGroupView)(?=[\s\S]*harnessGroupViews)(?=[\s\S]*collapsedHarnessGroupByNodeId)(?=[\s\S]*HARNESS_GROUP_BOUNDARY_PORTS)(?=[\s\S]*collapsedGroupEdge)(?=[\s\S]*workflow-harness-group-controls)(?=[\s\S]*workflow-harness-collapse-groups)(?=[\s\S]*workflow-harness-expand-groups)(?=[\s\S]*workflow-harness-group-node-\$\{harnessGroup\.groupId\})(?=[\s\S]*workflow-harness-group-toggle)(?=[\s\S]*workflow-harness-group-boundary-ports)(?=[\s\S]*workflow-harness-group-deep-link)(?=[\s\S]*canvas-node--harness-group)/,
+  "Harness promotion clusters should collapse into typed boundary nodes with rollups, deep links, and explicit expand controls.",
+);
+
+assert.match(
   workflowComposerUi,
   /viewMacro[\s\S]*macroPeerNodes[\s\S]*workflow-node-macro-cluster[\s\S]*workflow-node-macro-peer-list[\s\S]*workflow-node-macro-peer/,
   "Node details should show the expanded agent-loop composition and peer roles without hiding runtime behavior inside a macro node",

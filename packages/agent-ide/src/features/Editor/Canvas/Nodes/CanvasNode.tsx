@@ -1,6 +1,11 @@
 import { memo } from "react";
 import { Handle, Position, NodeProps } from "@xyflow/react";
-import { Node, FirewallPolicy, WorkflowPortDefinition } from "../../../../types/graph";
+import {
+  Node,
+  FirewallPolicy,
+  WorkflowHarnessGroupView,
+  WorkflowPortDefinition,
+} from "../../../../types/graph";
 import "./CanvasNode.css";
 
 type CanvasNodeData = Node & Record<string, unknown>;
@@ -221,6 +226,9 @@ export const CanvasNode = memo(({ data, selected }: NodeProps) => {
   const viewMacro = logic.viewMacro && typeof logic.viewMacro === "object"
     ? logic.viewMacro
     : null;
+  const harnessGroup = logic.harnessGroup && typeof logic.harnessGroup === "object"
+    ? (logic.harnessGroup as WorkflowHarnessGroupView)
+    : null;
   const binding = logic.connectorBinding ?? logic.toolBinding;
   const issueSummary = issueSummaryFromData(nodeData.validationIssueSummary);
   const onRequestCompatibleNodes =
@@ -232,6 +240,10 @@ export const CanvasNode = memo(({ data, selected }: NodeProps) => {
   const onResolveCanvasIssue =
     typeof nodeData.onResolveCanvasIssue === "function"
       ? (nodeData.onResolveCanvasIssue as (issue: unknown) => void)
+      : null;
+  const onToggleHarnessGroup =
+    typeof nodeData.onToggleHarnessGroup === "function"
+      ? (nodeData.onToggleHarnessGroup as () => void)
       : null;
   const hasGovernance = law && (
     (law.budgetCap !== undefined && law.budgetCap > 0) ||
@@ -250,10 +262,12 @@ export const CanvasNode = memo(({ data, selected }: NodeProps) => {
 
   return (
     <div
-      className={`canvas-node canvas-node--${family} ${viewMacro ? "canvas-node--macro-member" : ""} ${selected ? "selected" : ""} ${ghostClass} ${activeClass} ${issueSummary ? "has-issues" : ""} ${(issueSummary?.blockerCount ?? 0) > 0 ? "has-blockers" : ""}`}
+      className={`canvas-node canvas-node--${family} ${viewMacro ? "canvas-node--macro-member" : ""} ${harnessGroup ? "canvas-node--harness-group" : ""} ${selected ? "selected" : ""} ${ghostClass} ${activeClass} ${issueSummary ? "has-issues" : ""} ${(issueSummary?.blockerCount ?? 0) > 0 ? "has-blockers" : ""}`}
       data-node-family={family}
       data-macro-id={viewMacro?.macroId}
       data-macro-role={viewMacro?.role}
+      data-harness-group-id={harnessGroup?.groupId}
+      data-harness-group-collapsed={harnessGroup?.collapsed}
       data-issue-count={issueSummary?.issueCount ?? 0}
       data-testid={`workflow-canvas-node-${nodeData.id}`}
     >
@@ -338,6 +352,43 @@ export const CanvasNode = memo(({ data, selected }: NodeProps) => {
           <span className="node-badge node-badge--macro" data-testid="workflow-canvas-node-macro-badge">
             {viewMacro.macroLabel} · {viewMacro.role}
           </span>
+        ) : null}
+        {harnessGroup ? (
+          <div
+            className="node-harness-group-rollup"
+            data-testid={`workflow-harness-group-node-${harnessGroup.groupId}`}
+            data-harness-group-id={harnessGroup.groupId}
+            data-harness-group-collapsed={harnessGroup.collapsed}
+          >
+            <div
+              className="node-harness-group-stats"
+              data-testid="workflow-harness-group-rollup"
+            >
+              <span>{harnessGroup.statusRollup.executionMode}</span>
+              <span>{harnessGroup.statusRollup.readiness}</span>
+              <span>{harnessGroup.statusRollup.receiptKindCount} receipts</span>
+              <span>{harnessGroup.statusRollup.replayFixtureCount} replay</span>
+            </div>
+            <div className="node-harness-group-meta">
+              <span data-testid="workflow-harness-group-boundary-ports">
+                {harnessGroup.boundaryPorts.map((port) => port.id).join(" / ")}
+              </span>
+              <span data-testid="workflow-harness-group-deep-link">
+                {harnessGroup.deepLinks.groupId}
+              </span>
+            </div>
+            <button
+              type="button"
+              className="node-harness-group-toggle"
+              data-testid="workflow-harness-group-toggle"
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleHarnessGroup?.();
+              }}
+            >
+              {harnessGroup.collapsed ? "Expand" : "Collapse"}
+            </button>
+          </div>
         ) : null}
       </div>
 

@@ -64,6 +64,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     handleCaptureNodeFixture,
     handleCheckReadiness,
     handleCheckWorkflowBinding,
+    handleCollapseHarnessGroups,
     handleCompareRun,
     handleConnectSelectedNodes,
     handleCreateProposal,
@@ -71,6 +72,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     handleDragStart,
     handleDryRunFunction,
     handleDryRunNodeFromFixture,
+    handleExpandHarnessGroups,
     handleExportPortablePackage,
     handleForkDefaultHarness,
     handleGenerateBindingManifest,
@@ -93,6 +95,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     handleUpdateProductionProfile,
     handleValidate,
     handleWorkflowNodeSelect,
+    harnessGroupSummary,
     harnessWorkerBinding,
     ImportPackageModal,
     importPackageName,
@@ -104,6 +107,8 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     lastRunResult,
     leftDrawerOpen,
     lifecycleState,
+    Maximize2,
+    Minimize2,
     missingReasoningBinding,
     ModelBindingModal,
     modelBindingOpen,
@@ -316,6 +321,33 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
               title="Create workflow"
             />
           </div>
+          {harnessGroupSummary.total > 0 ? (
+            <div
+              className="workflow-action-cluster"
+              data-testid="workflow-harness-group-controls"
+              aria-label="Harness group view controls"
+            >
+              <span className="workflow-action-cluster-label">View</span>
+              <WorkflowHeaderAction
+                label="Collapse"
+                icon={Minimize2}
+                testId="workflow-harness-collapse-groups"
+                onClick={handleCollapseHarnessGroups}
+                disabled={
+                  harnessGroupSummary.collapsed === harnessGroupSummary.total
+                }
+                title="Collapse harness promotion groups"
+              />
+              <WorkflowHeaderAction
+                label="Expand"
+                icon={Maximize2}
+                testId="workflow-harness-expand-groups"
+                onClick={handleExpandHarnessGroups}
+                disabled={harnessGroupSummary.expanded === harnessGroupSummary.total}
+                title="Expand harness promotion groups"
+              />
+            </div>
+          ) : null}
           <div
             className="workflow-action-cluster"
             aria-label="Workflow bindings"

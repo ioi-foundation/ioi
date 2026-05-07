@@ -15,6 +15,8 @@ import {
   FlaskConical,
   GitCompare,
   GitPullRequest,
+  Maximize2,
+  Minimize2,
   PanelLeftOpen,
   PanelRightClose,
   PanelRightOpen,
@@ -25,6 +27,10 @@ import {
   Search,
   Settings,
 } from "lucide-react";
+import type {
+  Edge as ReactFlowEdge,
+  Node as ReactFlowNode,
+} from "@xyflow/react";
 import { Canvas } from "../features/Editor/Canvas/Canvas";
 import { WorkflowBottomShelf } from "../features/Workflows/WorkflowBottomShelf";
 import { WorkflowRailPanel } from "../features/Workflows/WorkflowRailPanel";
@@ -57,9 +63,12 @@ import type {
   WorkflowBindingManifest,
   WorkflowBottomPanel,
   WorkflowConnectionClass,
+  WorkflowHarnessComponentKind,
+  WorkflowHarnessGroupView,
   WorkflowExecutionMode,
   WorkflowKind,
   WorkflowNodeKind,
+  WorkflowPortDefinition,
   WorkflowProject,
   WorkflowProposal,
   WorkflowRightPanel,
@@ -173,6 +182,90 @@ import {
 } from "./support";
 import type { WorkflowComposerProps } from "./types";
 
+const HARNESS_GROUP_NODE_PREFIX = "harness.group.";
+
+const HARNESS_GROUP_BOUNDARY_PORTS: WorkflowPortDefinition[] = [
+  {
+    id: "input",
+    label: "input",
+    direction: "input",
+    dataType: "payload",
+    connectionClass: "data",
+    cardinality: "many",
+    required: false,
+    semanticRole: "input",
+  },
+  {
+    id: "output",
+    label: "output",
+    direction: "output",
+    dataType: "payload",
+    connectionClass: "data",
+    cardinality: "many",
+    required: false,
+    semanticRole: "output",
+  },
+  {
+    id: "error",
+    label: "error",
+    direction: "output",
+    dataType: "response",
+    connectionClass: "error",
+    cardinality: "many",
+    required: false,
+    semanticRole: "error",
+  },
+  {
+    id: "retry",
+    label: "retry",
+    direction: "output",
+    dataType: "response",
+    connectionClass: "retry",
+    cardinality: "many",
+    required: false,
+    semanticRole: "retry",
+  },
+];
+
+function harnessGroupNodeId(groupId: string): string {
+  return `${HARNESS_GROUP_NODE_PREFIX}${groupId}`;
+}
+
+function harnessGroupIdFromNodeId(nodeId: string | null): string | null {
+  if (!nodeId?.startsWith(HARNESS_GROUP_NODE_PREFIX)) return null;
+  return nodeId.slice(HARNESS_GROUP_NODE_PREFIX.length);
+}
+
+function harnessComponentKindForNode(node: Node): WorkflowHarnessComponentKind | null {
+  const runtimeKind = node.runtimeBinding?.componentKind;
+  if (runtimeKind) return runtimeKind;
+  const component = node.config?.logic?.harnessComponent;
+  if (
+    component &&
+    typeof component === "object" &&
+    !Array.isArray(component) &&
+    typeof (component as { kind?: unknown }).kind === "string"
+  ) {
+    return (component as { kind: WorkflowHarnessComponentKind }).kind;
+  }
+  return null;
+}
+
+function harnessGroupRollupStatus(group: WorkflowHarnessGroupView): Node["status"] {
+  if (group.statusRollup.blockedCount > 0 || group.statusRollup.divergenceCount > 0) {
+    return "blocked";
+  }
+  if (group.statusRollup.liveReadyCount === group.innerNodeIds.length) {
+    return "success";
+  }
+  return "idle";
+}
+
+type HarnessGroupCanvasView = WorkflowHarnessGroupView & {
+  groupNodeId: string;
+  position: { x: number; y: number };
+};
+
 export function useWorkflowComposerController({
   runtime,
   currentProject,
@@ -227,6 +320,9 @@ export function useWorkflowComposerController({
   const [nodeSearch, setNodeSearch] = useState("");
   const [canvasSearchOpen, setCanvasSearchOpen] = useState(false);
   const [canvasSearchQuery, setCanvasSearchQuery] = useState("");
+  const [collapsedHarnessGroupIds, setCollapsedHarnessGroupIds] = useState<
+    Record<string, boolean>
+  >({});
   const [nodeConfigOpen, setNodeConfigOpen] = useState(false);
   const [nodeConfigInitialSection, setNodeConfigInitialSection] =
     useState<WorkflowNodeConfigSectionId>("settings");
@@ -695,37 +791,11 @@ export function useWorkflowComposerController({
     },
     [handleNodeSelect, nodes, openLeftDrawer],
   );
-  const displayEdges = useMemo(
-    () =>
-      edges.map((edge) => {
-        const issue = canvasEdgeIssues.get(edge.id);
-        return {
-          ...edge,
-          data: {
-            ...(edge.data ?? {}),
-            ...(issue
-              ? {
-                  issueCount: 1,
-                  issueStatus: "blocked",
-                  issueTitle: workflowIssueTitle(issue),
-                  issueMessage: issue.message,
-                }
-              : {
-                  issueCount: 0,
-                  issueStatus: null,
-                  issueTitle: null,
-                  issueMessage: null,
-                }),
-          },
-        };
-      }),
-    [canvasEdgeIssues, edges],
-  );
-
   const loadWorkflowProject = useCallback(
     (next: WorkflowProject) => {
       setWorkflow(next);
       setGlobalConfig(normalizeGlobalConfig(next.global_config));
+      setCollapsedHarnessGroupIds({});
       replaceGraph(next);
       requestAnimationFrame(() => fitView({ padding: 0.22 }));
     },
@@ -756,6 +826,315 @@ export function useWorkflowComposerController({
   const harnessWorkerBinding = isHarnessWorkflow
     ? workflowHarnessWorkerBinding(currentProjectFile)
     : null;
+  const handleToggleHarnessGroup = useCallback((groupId: string) => {
+    setCollapsedHarnessGroupIds((current) => {
+      const currentlyCollapsed = current[groupId] ?? true;
+      const nextCollapsed = !currentlyCollapsed;
+      setStatusMessage(
+        `${nextCollapsed ? "Collapsed" : "Expanded"} harness group ${groupId}`,
+      );
+      return { ...current, [groupId]: nextCollapsed };
+    });
+    requestAnimationFrame(() => fitView({ padding: 0.2 }));
+  }, [fitView]);
+  const handleExpandHarnessGroup = useCallback((groupId: string) => {
+    setCollapsedHarnessGroupIds((current) => ({ ...current, [groupId]: false }));
+    setStatusMessage(`Expanded harness group ${groupId}`);
+    requestAnimationFrame(() => fitView({ padding: 0.2 }));
+  }, [fitView]);
+  const handleCollapseHarnessGroups = useCallback(() => {
+    const groupIds =
+      currentProjectFile.metadata.harness?.promotionClusters?.map(
+        (cluster) => cluster.clusterId,
+      ) ?? [];
+    setCollapsedHarnessGroupIds(
+      Object.fromEntries(groupIds.map((groupId) => [groupId, true])),
+    );
+    setStatusMessage("Collapsed harness promotion groups");
+    requestAnimationFrame(() => fitView({ padding: 0.2 }));
+  }, [currentProjectFile.metadata.harness?.promotionClusters, fitView]);
+  const handleExpandHarnessGroups = useCallback(() => {
+    const groupIds =
+      currentProjectFile.metadata.harness?.promotionClusters?.map(
+        (cluster) => cluster.clusterId,
+      ) ?? [];
+    setCollapsedHarnessGroupIds(
+      Object.fromEntries(groupIds.map((groupId) => [groupId, false])),
+    );
+    setStatusMessage("Expanded harness promotion groups");
+    requestAnimationFrame(() => fitView({ padding: 0.2 }));
+  }, [currentProjectFile.metadata.harness?.promotionClusters, fitView]);
+  const harnessGroupViews = useMemo<HarnessGroupCanvasView[]>(() => {
+    const harness = currentProjectFile.metadata.harness;
+    const clusters = harness?.promotionClusters ?? [];
+    if (!isHarnessWorkflow || clusters.length === 0) return [];
+
+    const nodesByComponentKind = new Map<
+      WorkflowHarnessComponentKind,
+      { flowNode: ReactFlowNode; nodeData: Node }
+    >();
+    nodes.forEach((flowNode) => {
+      const nodeData = flowNode.data as Node | undefined;
+      if (!nodeData) return;
+      const kind = harnessComponentKindForNode(nodeData);
+      if (kind && !nodesByComponentKind.has(kind)) {
+        nodesByComponentKind.set(kind, { flowNode, nodeData });
+      }
+    });
+
+    const attemptsByNodeId = new Map(
+      (lastRunResult?.harnessAttempts ?? []).map((attempt) => [
+        attempt.workflowNodeId,
+        attempt,
+      ]),
+    );
+    const comparisonsByNodeId = new Map(
+      (lastRunResult?.harnessShadowComparisons ?? []).map((comparison) => [
+        comparison.workflowNodeId,
+        comparison,
+      ]),
+    );
+    const gatedRunsByClusterId = new Map(
+      (lastRunResult?.harnessGatedClusterRuns ?? []).map((run) => [
+        run.clusterId,
+        run,
+      ]),
+    );
+
+    return clusters.flatMap((cluster) => {
+      const inner = cluster.componentKinds
+        .map((kind) => nodesByComponentKind.get(kind))
+        .filter(
+          (item): item is { flowNode: ReactFlowNode; nodeData: Node } =>
+            Boolean(item),
+        );
+      if (inner.length === 0) return [];
+
+      const minX = Math.min(...inner.map((item) => item.flowNode.position.x));
+      const minY = Math.min(...inner.map((item) => item.flowNode.position.y));
+      const componentIds = inner.map((item) =>
+        item.nodeData.runtimeBinding?.componentId ?? item.nodeData.id,
+      );
+      const readinessValues = inner.map(
+        (item) =>
+          item.nodeData.runtimeBinding?.readiness ??
+          (item.nodeData.runtimeBinding?.componentId
+            ? harness?.componentReadiness?.[
+                item.nodeData.runtimeBinding.componentId
+              ]
+            : undefined) ??
+          "projection_only",
+      );
+      const firstReadiness = readinessValues[0] ?? "projection_only";
+      const readiness = readinessValues.every(
+        (value) => value === firstReadiness,
+      )
+        ? firstReadiness
+        : "mixed";
+      const attempts = inner
+        .map((item) => attemptsByNodeId.get(item.nodeData.id))
+        .filter((attempt): attempt is NonNullable<typeof attempt> =>
+          Boolean(attempt),
+        );
+      const comparisons = inner
+        .map((item) => comparisonsByNodeId.get(item.nodeData.id))
+        .filter((comparison): comparison is NonNullable<typeof comparison> =>
+          Boolean(comparison),
+        );
+      const gatedRun = gatedRunsByClusterId.get(cluster.clusterId);
+      const receiptRefs = Array.from(
+        new Set([
+          ...inner.flatMap(
+            (item) => item.nodeData.runtimeBinding?.receiptKinds ?? [],
+          ),
+          ...attempts.flatMap((attempt) => attempt.receiptIds),
+        ]),
+      );
+      const replayFixtureRefs = Array.from(
+        new Set([
+          ...attempts.flatMap((attempt) =>
+            attempt.evidenceRefs.filter((ref) => ref.includes("replay")),
+          ),
+          ...inner.map((item) => {
+            const envelope = item.nodeData.runtimeBinding?.replayEnvelope;
+            const determinism = envelope?.determinism ?? "unknown";
+            return `replay:${item.nodeData.id}:${determinism}`;
+          }),
+        ]),
+      );
+      const divergenceCount = comparisons.filter(
+        (comparison) => comparison.blocking || comparison.divergence !== "none",
+      ).length;
+      const blockedCount =
+        (gatedRun?.promotionBlocked ? 1 : 0) +
+        comparisons.filter((comparison) => comparison.blocking).length;
+      const nonLiveReadyCount = readinessValues.filter(
+        (value) => value !== "live_ready",
+      ).length;
+      const group: HarnessGroupCanvasView = {
+        groupId: cluster.clusterId,
+        groupNodeId: harnessGroupNodeId(cluster.clusterId),
+        label: cluster.label,
+        collapsed: collapsedHarnessGroupIds[cluster.clusterId] ?? true,
+        innerNodeIds: inner.map((item) => item.nodeData.id),
+        componentKinds: cluster.componentKinds,
+        boundaryPorts: HARNESS_GROUP_BOUNDARY_PORTS,
+        position: {
+          x: Math.max(40, minX - 24),
+          y: Math.max(40, minY - 32),
+        },
+        statusRollup: {
+          executionMode: harness?.executionMode ?? cluster.requiredExecutionMode,
+          readiness,
+          liveReadyCount: readinessValues.filter(
+            (value) => value === "live_ready",
+          ).length,
+          shadowReadyCount: readinessValues.filter(
+            (value) => value === "shadow_ready",
+          ).length,
+          simulatedCount: readinessValues.filter(
+            (value) => value === "simulated",
+          ).length,
+          projectionOnlyCount: readinessValues.filter(
+            (value) => value === "projection_only",
+          ).length,
+          blockedCount,
+          warningCount: nonLiveReadyCount + divergenceCount,
+          receiptKindCount: receiptRefs.length,
+          replayFixtureCount: replayFixtureRefs.length,
+          divergenceCount,
+          activationState: harness?.activationState,
+        },
+        deepLinks: {
+          groupId: cluster.clusterId,
+          componentIds,
+          receiptRefs,
+          replayFixtureRefs,
+          runId: lastRunResult?.summary.id,
+        },
+      };
+      return [group];
+    });
+  }, [
+    collapsedHarnessGroupIds,
+    currentProjectFile.metadata.harness,
+    isHarnessWorkflow,
+    lastRunResult,
+    nodes,
+  ]);
+  const collapsedHarnessGroupByNodeId = useMemo(() => {
+    const groupByNodeId = new Map<string, HarnessGroupCanvasView>();
+    harnessGroupViews.forEach((group) => {
+      if (!group.collapsed) return;
+      group.innerNodeIds.forEach((nodeId) => groupByNodeId.set(nodeId, group));
+    });
+    return groupByNodeId;
+  }, [harnessGroupViews]);
+  const harnessGroupSummary = useMemo(
+    () => ({
+      total: harnessGroupViews.length,
+      collapsed: harnessGroupViews.filter((group) => group.collapsed).length,
+      expanded: harnessGroupViews.filter((group) => !group.collapsed).length,
+    }),
+    [harnessGroupViews],
+  );
+  const displayEdges = useMemo(() => {
+    const edgeWithIssueData = (edge: ReactFlowEdge, sourceEdgeId: string) => {
+      const issue = canvasEdgeIssues.get(sourceEdgeId);
+      return {
+        ...edge,
+        data: {
+          ...(edge.data ?? {}),
+          ...(issue
+            ? {
+                issueCount: 1,
+                issueStatus: "blocked",
+                issueTitle: workflowIssueTitle(issue),
+                issueMessage: issue.message,
+              }
+            : {
+                issueCount: 0,
+                issueStatus: null,
+                issueTitle: null,
+                issueMessage: null,
+              }),
+        },
+      };
+    };
+    if (collapsedHarnessGroupByNodeId.size === 0) {
+      return edges.map((edge) => edgeWithIssueData(edge, edge.id));
+    }
+
+    const routedEdges = new Map<string, ReactFlowEdge>();
+    edges.forEach((edge) => {
+      const sourceGroup = collapsedHarnessGroupByNodeId.get(edge.source);
+      const targetGroup = collapsedHarnessGroupByNodeId.get(edge.target);
+      const source = sourceGroup?.groupNodeId ?? edge.source;
+      const target = targetGroup?.groupNodeId ?? edge.target;
+      if (source === target) return;
+
+      if (!sourceGroup && !targetGroup) {
+        routedEdges.set(edge.id, edgeWithIssueData(edge, edge.id));
+        return;
+      }
+
+      const connectionClass = String(
+        edge.data?.connectionClass ?? edge.sourceHandle ?? edge.targetHandle ?? "data",
+      );
+      const routedId = [
+        "harness.group.edge",
+        source,
+        target,
+        connectionClass,
+      ].join(".");
+      const existing = routedEdges.get(routedId);
+      if (existing) {
+        routedEdges.set(routedId, {
+          ...existing,
+          data: {
+            ...(existing.data ?? {}),
+            collapsedGroupEdge: true,
+            collapsedEdgeCount:
+              Number(existing.data?.collapsedEdgeCount ?? 1) + 1,
+          },
+        });
+        return;
+      }
+
+      routedEdges.set(
+        routedId,
+        edgeWithIssueData(
+          {
+            ...edge,
+            id: routedId,
+            source,
+            target,
+            sourceHandle: sourceGroup ? "output" : edge.sourceHandle,
+            targetHandle: targetGroup ? "input" : edge.targetHandle,
+            type: "semantic",
+            animated: false,
+            data: {
+              ...(edge.data ?? {}),
+              label: sourceGroup || targetGroup ? "group boundary" : edge.data?.label,
+              connectionClass:
+                edge.data?.connectionClass ??
+                (edge.sourceHandle === "error" || edge.targetHandle === "error"
+                  ? "error"
+                  : "data"),
+              collapsedGroupEdge: true,
+              collapsedEdgeCount: 1,
+              innerSource: edge.source,
+              innerTarget: edge.target,
+              sourceGroupId: sourceGroup?.groupId,
+              targetGroupId: targetGroup?.groupId,
+            },
+          },
+          edge.id,
+        ),
+      );
+    });
+    return Array.from(routedEdges.values());
+  }, [canvasEdgeIssues, collapsedHarnessGroupByNodeId, edges]);
   const activeRightPanelMeta =
     RIGHT_PANELS.find((panel) => panel.id === rightPanel) ?? {
       id: "outputs" as WorkflowRightPanel,
@@ -1580,6 +1959,14 @@ export function useWorkflowComposerController({
 
   const handleWorkflowNodeSelect = useCallback(
     (nodeId: string | null) => {
+      const harnessGroupId = harnessGroupIdFromNodeId(nodeId);
+      if (harnessGroupId) {
+        handleToggleHarnessGroup(harnessGroupId);
+        handleNodeSelect(null);
+        setRightPanel("settings");
+        setBottomPanel("selection");
+        return;
+      }
       if (nodeId && connectFromNodeId && connectFromNodeId !== nodeId) {
         if (connectWorkflowNodes(connectFromNodeId, nodeId)) {
           setConnectFromNodeId(null);
@@ -1587,7 +1974,12 @@ export function useWorkflowComposerController({
       }
       handleNodeSelect(nodeId);
     },
-    [connectFromNodeId, connectWorkflowNodes, handleNodeSelect],
+    [
+      connectFromNodeId,
+      connectWorkflowNodes,
+      handleNodeSelect,
+      handleToggleHarnessGroup,
+    ],
   );
 
   const handleInspectExecutionNode = useCallback(
@@ -1681,8 +2073,10 @@ export function useWorkflowComposerController({
     [handleWorkflowNodeSelect, nodes, openLeftDrawer, selectedNode],
   );
   const displayNodes = useMemo(
-    () =>
-      nodes.map((flowNode) => {
+    () => {
+      const componentNodes = nodes
+        .filter((flowNode) => !collapsedHarnessGroupByNodeId.has(flowNode.id))
+        .map((flowNode) => {
         const run = nodeRunStatusById[flowNode.id];
         const data = flowNode.data as Node;
         const issueSummary = canvasIssuesByNodeId.get(flowNode.id);
@@ -1716,11 +2110,54 @@ export function useWorkflowComposerController({
               : {}),
           },
         };
-      }),
+      });
+      const groupNodes = harnessGroupViews
+        .filter((group) => group.collapsed)
+        .map((group): ReactFlowNode => ({
+          id: group.groupNodeId,
+          type: "subgraph",
+          position: group.position,
+          draggable: false,
+          selectable: true,
+          data: {
+            id: group.groupNodeId,
+            type: "subgraph",
+            name: group.label,
+            x: group.position.x,
+            y: group.position.y,
+            status: harnessGroupRollupStatus(group),
+            metricLabel: "Harness group",
+            metricValue: `${group.innerNodeIds.length} nodes`,
+            inputs: ["input"],
+            outputs: ["output", "error", "retry"],
+            ports: HARNESS_GROUP_BOUNDARY_PORTS,
+            ioTypes: {
+              in: "boundary",
+              out: "boundary",
+            },
+            config: {
+              kind: "subgraph",
+              logic: {
+                harnessGroup: group,
+              },
+              law: {},
+            },
+            onToggleHarnessGroup: () =>
+              handleToggleHarnessGroup(String(group.groupId)),
+            onOpenHarnessGroup: () =>
+              handleExpandHarnessGroup(String(group.groupId)),
+          },
+        }));
+      return [...componentNodes, ...groupNodes];
+    },
     [
       canvasIssuesByNodeId,
+      collapsedHarnessGroupByNodeId,
+      handleExpandHarnessGroup,
       handleResolveWorkflowIssue,
       handleShowCompatibleNodesForPort,
+      handleToggleHarnessGroup,
+      harnessGroupViews,
       nodeRunStatusById,
       nodes,
     ],
@@ -2980,5 +3417,5 @@ export function useWorkflowComposerController({
   );
 
 
-  return { activeRightPanelMeta, activeTab, bindingManifest, BOTTOM_TABS, bottomPanel, Brain, Cable, CheckCircle2, GitCompare, Canvas, canvasSearchOpen, canvasSearchQuery, canvasSearchResults, checkpoints, closeCanvasSearch, closeLeftDrawer, compareRunId, compareRunResult, compatibleNodeHints, compatiblePortFocusLabel, connectFromNodeId, ConnectorBindingModal, connectorBindingOpen, counts, createKind, createMode, createName, createOpen, CreateWorkflowModal, currentProject, currentProjectFile, DeployModal, deployOpen, displayEdges, displayNodes, dogfoodRun, emptyCanvasStartItems, execution, executionCheckpointCount, executionCompareRun, executionStatusCounts, filteredNodeLibrary, fitView, FlaskConical, functionDryRunResult, GitPullRequest, globalConfig, guardedCanvasDrop, guardedOnConnect, guardedOnEdgesChange, guardedOnNodesChange, handleAddCompatibleNode, handleAddNodeFromLibrary, handleAddTest, handleAddTestFromOutput, handleApplyProposal, handleCaptureNodeFixture, handleCheckReadiness, handleCheckWorkflowBinding, handleCompareRun, handleConnectSelectedNodes, handleCreateProposal, handleCreateWorkflow, handleDragStart, handleDryRunFunction, handleDryRunNodeFromFixture, handleExportPortablePackage, handleForkDefaultHarness, handleGenerateBindingManifest, handleImportNodeFixture, handleImportPortablePackage, handleInsertAgentLoopMacro, handleInspectExecutionNode, handleOpenDefaultHarness, handleOpenDeploy, handlePinNodeFixture, handleResolveWorkflowIssue, handleResumeRun, handleRun, handleRunTests, handleRunWorkflowNode, handleRunWorkflowUpstream, handleSave, handleSelectRun, handleUpdateEnvironmentProfile, handleUpdateProductionProfile, handleValidate, handleWorkflowNodeSelect, harnessWorkerBinding, ImportPackageModal, importPackageName, importPackageOpen, importPackagePath, isBlessedHarnessWorkflow, isReadOnlyWorkflow, isSearchingNodeLibrary, lastRunResult, leftDrawerOpen, lifecycleState, missingReasoningBinding, ModelBindingModal, modelBindingOpen, newTestExpected, newTestExpression, newTestKind, newTestName, newTestTargets, NODE_GROUP_FILTERS, nodeConfigInitialSection, nodeConfigOpen, nodeGroupCounts, nodeGroupFilter, nodeRunStatusById, nodes, nodeSearch, openLeftDrawer, PanelLeftOpen, PanelRightClose, PanelRightOpen, Play, Plus, portablePackage, proposalBoundedTargetCount, ProposalPreviewModal, proposals, proposalStatusCounts, proposalToReview, readinessResult, recentNodeLibrary, RIGHT_PANELS, rightPanel, rightPanelBadgeCounts, rightRailCollapsed, rightRailWidth, Rocket, Search, Settings, runDetailLoading, runEvents, runs, Save, SCAFFOLD_GROUPS, WORKFLOW_SCAFFOLDS, selectedDefinition, selectedExecutionRun, selectedExecutionRunResult, selectedFixtures, selectedNode, selectedNodeId, selectedRunId, selectedUpstreamReferences, setActiveTab, setBottomPanel, setCanvasSearchQuery, setCompatiblePortFocus, setConnectFromNodeId, setConnectorBindingOpen, setCreateKind, setCreateMode, setCreateName, setCreateOpen, setDeployOpen, setGlobalConfig, setImportPackageName, setImportPackageOpen, setImportPackagePath, setModelBindingOpen, setNewTestExpected, setNewTestExpression, setNewTestKind, setNewTestName, setNewTestTargets, setNodeConfigInitialSection, setNodeConfigOpen, setNodeGroupFilter, setNodeSearch, setProposalToReview, setRightPanel, setRightRailCollapsed, setRightRailWidth, setStatusMessage, setTestEditorOpen, slugify, statusMessage, TestEditorModal, testEditorOpen, testResult, tests, testsPath, toggleCanvasSearch, toggleLeftDrawer, updateNode, validationResult, visibleCompatibleNodeHints, workflow, workflowActionMetadataLabel, WorkflowBottomShelf, workflowConfigSectionForNodeKind, workflowCreatorItemId, workflowDurationLabel, workflowEventLabel, WorkflowHeaderAction, WorkflowInlineIcon, WorkflowNodeConfigModal, workflowNodeCreatorBadge, workflowNodeName, workflowNodeRunChildLineage, workflowPath, WorkflowRailPanel, workflowTimeLabel, zoomIn, zoomOut } as const;
+  return { activeRightPanelMeta, activeTab, bindingManifest, BOTTOM_TABS, bottomPanel, Brain, Cable, CheckCircle2, GitCompare, Canvas, canvasSearchOpen, canvasSearchQuery, canvasSearchResults, checkpoints, closeCanvasSearch, closeLeftDrawer, compareRunId, compareRunResult, compatibleNodeHints, compatiblePortFocusLabel, connectFromNodeId, ConnectorBindingModal, connectorBindingOpen, counts, createKind, createMode, createName, createOpen, CreateWorkflowModal, currentProject, currentProjectFile, DeployModal, deployOpen, displayEdges, displayNodes, dogfoodRun, emptyCanvasStartItems, execution, executionCheckpointCount, executionCompareRun, executionStatusCounts, filteredNodeLibrary, fitView, FlaskConical, functionDryRunResult, GitPullRequest, globalConfig, guardedCanvasDrop, guardedOnConnect, guardedOnEdgesChange, guardedOnNodesChange, handleAddCompatibleNode, handleAddNodeFromLibrary, handleAddTest, handleAddTestFromOutput, handleApplyProposal, handleCaptureNodeFixture, handleCheckReadiness, handleCheckWorkflowBinding, handleCollapseHarnessGroups, handleCompareRun, handleConnectSelectedNodes, handleCreateProposal, handleCreateWorkflow, handleDragStart, handleDryRunFunction, handleDryRunNodeFromFixture, handleExpandHarnessGroups, handleExportPortablePackage, handleForkDefaultHarness, handleGenerateBindingManifest, handleImportNodeFixture, handleImportPortablePackage, handleInsertAgentLoopMacro, handleInspectExecutionNode, handleOpenDefaultHarness, handleOpenDeploy, handlePinNodeFixture, handleResolveWorkflowIssue, handleResumeRun, handleRun, handleRunTests, handleRunWorkflowNode, handleRunWorkflowUpstream, handleSave, handleSelectRun, handleUpdateEnvironmentProfile, handleUpdateProductionProfile, handleValidate, handleWorkflowNodeSelect, harnessGroupSummary, harnessGroupViews, harnessWorkerBinding, ImportPackageModal, importPackageName, importPackageOpen, importPackagePath, isBlessedHarnessWorkflow, isReadOnlyWorkflow, isSearchingNodeLibrary, lastRunResult, leftDrawerOpen, lifecycleState, Maximize2, Minimize2, missingReasoningBinding, ModelBindingModal, modelBindingOpen, newTestExpected, newTestExpression, newTestKind, newTestName, newTestTargets, NODE_GROUP_FILTERS, nodeConfigInitialSection, nodeConfigOpen, nodeGroupCounts, nodeGroupFilter, nodeRunStatusById, nodes, nodeSearch, openLeftDrawer, PanelLeftOpen, PanelRightClose, PanelRightOpen, Play, Plus, portablePackage, proposalBoundedTargetCount, ProposalPreviewModal, proposals, proposalStatusCounts, proposalToReview, readinessResult, recentNodeLibrary, RIGHT_PANELS, rightPanel, rightPanelBadgeCounts, rightRailCollapsed, rightRailWidth, Rocket, Search, Settings, runDetailLoading, runEvents, runs, Save, SCAFFOLD_GROUPS, WORKFLOW_SCAFFOLDS, selectedDefinition, selectedExecutionRun, selectedExecutionRunResult, selectedFixtures, selectedNode, selectedNodeId, selectedRunId, selectedUpstreamReferences, setActiveTab, setBottomPanel, setCanvasSearchQuery, setCompatiblePortFocus, setConnectFromNodeId, setConnectorBindingOpen, setCreateKind, setCreateMode, setCreateName, setCreateOpen, setDeployOpen, setGlobalConfig, setImportPackageName, setImportPackageOpen, setImportPackagePath, setModelBindingOpen, setNewTestExpected, setNewTestExpression, setNewTestKind, setNewTestName, setNewTestTargets, setNodeConfigInitialSection, setNodeConfigOpen, setNodeGroupFilter, setNodeSearch, setProposalToReview, setRightPanel, setRightRailCollapsed, setRightRailWidth, setStatusMessage, setTestEditorOpen, slugify, statusMessage, TestEditorModal, testEditorOpen, testResult, tests, testsPath, toggleCanvasSearch, toggleLeftDrawer, updateNode, validationResult, visibleCompatibleNodeHints, workflow, workflowActionMetadataLabel, WorkflowBottomShelf, workflowConfigSectionForNodeKind, workflowCreatorItemId, workflowDurationLabel, workflowEventLabel, WorkflowHeaderAction, WorkflowInlineIcon, WorkflowNodeConfigModal, workflowNodeCreatorBadge, workflowNodeName, workflowNodeRunChildLineage, workflowPath, WorkflowRailPanel, workflowTimeLabel, zoomIn, zoomOut } as const;
 }
