@@ -1291,14 +1291,19 @@ function workflowHarnessRollbackRestoreCanaryFor(
     });
   const expectedWorkflowContentHash =
     restoreResult?.expectedWorkflowContentHash ?? fallbackBinding.workflowContentHash;
-  const actualWorkflowContentHash = restoreResult?.bundle?.workflow
-    ? workflowRevisionBindingFor(restoreResult.bundle.workflow, {
-        nowMs: createdAtMs,
-      }).workflowContentHash
-    : undefined;
-  const hashVerified = actualWorkflowContentHash
-    ? actualWorkflowContentHash === expectedWorkflowContentHash
-    : fallbackBinding.revisionSource !== "git";
+  const actualWorkflowContentHash =
+    restoreResult?.actualWorkflowContentHash ??
+    (restoreResult?.bundle?.workflow
+      ? workflowRevisionBindingFor(restoreResult.bundle.workflow, {
+          nowMs: createdAtMs,
+        }).workflowContentHash
+      : undefined);
+  const hashVerified =
+    typeof restoreResult?.hashVerified === "boolean"
+      ? restoreResult.hashVerified
+      : actualWorkflowContentHash
+        ? actualWorkflowContentHash === expectedWorkflowContentHash
+        : fallbackBinding.revisionSource !== "git";
   if (fallbackBinding.revisionSource !== "git") {
     return {
       schemaVersion: "workflow.harness.rollback-restore-canary.v1",

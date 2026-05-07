@@ -280,6 +280,10 @@ pub struct WorkflowRevisionRestoreResult {
     #[serde(default)]
     pub expected_workflow_content_hash: Option<String>,
     #[serde(default)]
+    pub actual_workflow_content_hash: Option<String>,
+    #[serde(default)]
+    pub hash_verified: bool,
+    #[serde(default)]
     pub file_sha256: Option<String>,
     #[serde(default)]
     pub bundle: Option<WorkflowWorkbenchBundle>,
