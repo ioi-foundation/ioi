@@ -1,6 +1,11 @@
 // apps/autopilot/src-tauri/src/project/runtime.rs
 
 use super::*;
+use ioi_types::app::{
+    DEFAULT_AGENT_HARNESS_ACTIVATION_ID, DEFAULT_AGENT_HARNESS_HASH,
+    DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+};
+use sha2::{Digest, Sha256};
 
 pub(super) fn workflow_value_string(value: &Value, key: &str) -> Option<String> {
     value.get(key).and_then(Value::as_str).map(str::to_string)
@@ -1139,6 +1144,443 @@ pub(super) fn workflow_push_event(
     });
 }
 
+fn workflow_is_harness(workflow: &WorkflowProject) -> bool {
+    workflow
+        .metadata
+        .harness
+        .as_ref()
+        .and_then(|harness| harness.get("schemaVersion"))
+        .and_then(Value::as_str)
+        .map(|schema| schema == "workflow.harness.v1")
+        .unwrap_or(false)
+        || workflow
+            .nodes
+            .iter()
+            .any(|node| node.get("runtimeBinding").is_some())
+}
+
+fn workflow_harness_metadata_string(
+    workflow: &WorkflowProject,
+    key: &str,
+    fallback: &str,
+) -> String {
+    workflow
+        .metadata
+        .harness
+        .as_ref()
+        .and_then(|harness| harness.get(key))
+        .and_then(Value::as_str)
+        .or_else(|| {
+            workflow
+                .metadata
+                .worker_harness_binding
+                .as_ref()
+                .and_then(|binding| binding.get(key))
+                .and_then(Value::as_str)
+        })
+        .unwrap_or(fallback)
+        .to_string()
+}
+
+fn workflow_harness_activation_id(workflow: &WorkflowProject) -> String {
+    workflow
+        .metadata
+        .worker_harness_binding
+        .as_ref()
+        .and_then(|binding| binding.get("harnessActivationId"))
+        .and_then(Value::as_str)
+        .or_else(|| {
+            workflow
+                .metadata
+                .harness
+                .as_ref()
+                .and_then(|harness| harness.get("activationId"))
+                .and_then(Value::as_str)
+        })
+        .unwrap_or(DEFAULT_AGENT_HARNESS_ACTIVATION_ID)
+        .to_string()
+}
+
+fn workflow_harness_execution_mode(workflow: &WorkflowProject, node: &Value) -> String {
+    node.get("runtimeBinding")
+        .and_then(|binding| binding.get("executionMode"))
+        .and_then(Value::as_str)
+        .or_else(|| {
+            workflow
+                .metadata
+                .worker_harness_binding
+                .as_ref()
+                .and_then(|binding| binding.get("executionMode"))
+                .and_then(Value::as_str)
+        })
+        .or_else(|| {
+            workflow
+                .metadata
+                .harness
+                .as_ref()
+                .and_then(|harness| harness.get("executionMode"))
+                .and_then(Value::as_str)
+        })
+        .unwrap_or("projection")
+        .to_string()
+}
+
+fn workflow_hash_value(value: &Value) -> String {
+    let bytes = serde_jcs::to_vec(value)
+        .or_else(|_| serde_json::to_vec(value))
+        .unwrap_or_default();
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    format!("sha256:{}", hex::encode(hasher.finalize()))
+}
+
+fn workflow_harness_attempt_status(node_run: &WorkflowNodeRun, execution_mode: &str) -> String {
+    match node_run.status.as_str() {
+        "error" => "failed".to_string(),
+        "blocked" | "interrupted" => "blocked".to_string(),
+        _ => execution_mode.to_string(),
+    }
+}
+
+fn workflow_string_array(value: Option<&Value>) -> Vec<String> {
+    value
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn workflow_harness_attempt_for_node_run(
+    workflow: &WorkflowProject,
+    run_id: &str,
+    node_run: &WorkflowNodeRun,
+) -> Option<Value> {
+    let node = workflow_node_by_id(workflow, &node_run.node_id)?;
+    let binding = node.get("runtimeBinding")?;
+    let component_id = binding
+        .get("componentId")
+        .and_then(Value::as_str)
+        .unwrap_or("ioi.agent-harness.unknown.v1");
+    let component_kind = binding
+        .get("componentKind")
+        .and_then(Value::as_str)
+        .unwrap_or("unknown");
+    let execution_mode = workflow_harness_execution_mode(workflow, node);
+    let readiness = binding
+        .get("readiness")
+        .and_then(Value::as_str)
+        .unwrap_or("projection_only");
+    let evidence_refs = workflow_string_array(binding.get("evidenceEventKinds"))
+        .into_iter()
+        .map(|event| format!("event-kind:{}", event))
+        .chain(
+            workflow_string_array(binding.get("receiptKinds"))
+                .into_iter()
+                .map(|receipt| format!("receipt-kind:{}", receipt)),
+        )
+        .collect::<Vec<_>>();
+    let receipt_ids = workflow_string_array(binding.get("receiptKinds"))
+        .into_iter()
+        .map(|receipt| format!("{}:{}", node_run.node_id, receipt))
+        .collect::<Vec<_>>();
+    let replay = binding.get("replayEnvelope").cloned().unwrap_or_else(|| {
+        let deterministic = binding
+            .get("replay")
+            .and_then(|replay| replay.get("deterministicEnvelope"))
+            .and_then(Value::as_bool)
+            .unwrap_or(true);
+        json!({
+            "deterministicEnvelope": deterministic,
+            "capturesInput": true,
+            "capturesOutput": true,
+            "capturesPolicyDecision": false,
+            "determinism": if deterministic { "deterministic" } else { "nondeterministic" },
+            "redactionPolicy": "runtime_redacted"
+        })
+    });
+    let captures_policy_decision = replay
+        .get("capturesPolicyDecision")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let status = workflow_harness_attempt_status(node_run, &execution_mode);
+    let input_hash = node_run.input.as_ref().map(workflow_hash_value);
+    let output_hash = node_run.output.as_ref().map(workflow_hash_value);
+    let error_class = node_run.error.clone();
+    let duration_ms = node_run
+        .finished_at_ms
+        .map(|finished| finished.saturating_sub(node_run.started_at_ms));
+
+    Some(json!({
+        "attemptId": format!("{}:{}:attempt:{}", run_id, node_run.node_id, node_run.attempt),
+        "harnessWorkflowId": workflow_harness_metadata_string(
+            workflow,
+            "harnessWorkflowId",
+            DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+        ),
+        "harnessActivationId": workflow_harness_activation_id(workflow),
+        "harnessHash": workflow_harness_metadata_string(
+            workflow,
+            "harnessHash",
+            DEFAULT_AGENT_HARNESS_HASH,
+        ),
+        "workflowNodeId": node_run.node_id.clone(),
+        "componentId": component_id,
+        "componentKind": component_kind,
+        "executionMode": execution_mode,
+        "readiness": readiness,
+        "attemptIndex": node_run.attempt,
+        "status": status,
+        "inputHash": input_hash,
+        "outputHash": output_hash,
+        "errorClass": error_class,
+        "policyDecision": captures_policy_decision.then(|| {
+            if node_run.error.is_some() { "blocked" } else { "allowed" }
+        }),
+        "startedAtMs": node_run.started_at_ms,
+        "durationMs": duration_ms,
+        "receiptIds": receipt_ids,
+        "evidenceRefs": evidence_refs,
+        "replay": replay,
+    }))
+}
+
+fn workflow_harness_shadow_comparisons_for_attempts(attempts: &[Value]) -> Vec<Value> {
+    let mut comparisons = Vec::new();
+    let mut live_by_component = std::collections::BTreeMap::new();
+    let mut shadow_by_component = std::collections::BTreeMap::new();
+    for attempt in attempts {
+        let Some(component_id) = attempt.get("componentId").and_then(Value::as_str) else {
+            continue;
+        };
+        match attempt.get("executionMode").and_then(Value::as_str) {
+            Some("live" | "gated") => {
+                live_by_component.insert(component_id.to_string(), attempt);
+            }
+            Some("shadow") => {
+                shadow_by_component.insert(component_id.to_string(), attempt);
+            }
+            _ => {}
+        }
+    }
+    for (component_id, live) in live_by_component {
+        let Some(shadow) = shadow_by_component.get(&component_id) else {
+            continue;
+        };
+        let output_matches = live.get("outputHash") == shadow.get("outputHash");
+        let policy_matches = live.get("policyDecision") == shadow.get("policyDecision");
+        let divergence = if output_matches && policy_matches {
+            "none"
+        } else if !policy_matches {
+            "policy_divergence"
+        } else {
+            "output_divergence"
+        };
+        comparisons.push(json!({
+            "workflowNodeId": live.get("workflowNodeId").and_then(Value::as_str).unwrap_or("unknown"),
+            "componentKind": live.get("componentKind").and_then(Value::as_str).unwrap_or("unknown"),
+            "liveAttemptId": live.get("attemptId").and_then(Value::as_str).unwrap_or("unknown"),
+            "shadowAttemptId": shadow.get("attemptId").and_then(Value::as_str).unwrap_or("unknown"),
+            "divergence": divergence,
+            "blocking": divergence != "none",
+            "summary": if divergence == "none" {
+                "Live and shadow attempts matched by policy and output hash."
+            } else {
+                "Live and shadow attempts diverged and require classification before promotion."
+            },
+            "evidenceRefs": [
+                live.get("attemptId").and_then(Value::as_str).unwrap_or("unknown"),
+                shadow.get("attemptId").and_then(Value::as_str).unwrap_or("unknown")
+            ],
+        }));
+    }
+    comparisons
+}
+
+fn workflow_harness_gated_cluster_runs_for_attempts(
+    run_id: &str,
+    attempts: &[Value],
+) -> Vec<Value> {
+    const COGNITION_COMPONENTS: &[&str] = &[
+        "planner",
+        "prompt_assembler",
+        "task_state",
+        "uncertainty_gate",
+        "budget_gate",
+        "capability_sequencer",
+    ];
+    const ROUTING_MODEL_COMPONENTS: &[&str] = &["model_router", "model_call", "tool_router"];
+    const VERIFICATION_OUTPUT_COMPONENTS: &[&str] = &[
+        "postcondition_synthesizer",
+        "verifier",
+        "completion_gate",
+        "receipt_writer",
+        "quality_ledger",
+        "output_writer",
+    ];
+    const AUTHORITY_TOOLING_COMPONENTS: &[&str] = &[
+        "policy_gate",
+        "approval_gate",
+        "dry_run_simulator",
+        "mcp_provider",
+        "mcp_tool_call",
+        "tool_call",
+        "connector_call",
+        "wallet_capability",
+    ];
+
+    [
+        ("cognition", "Cognition", COGNITION_COMPONENTS),
+        (
+            "routing_model",
+            "Routing and model",
+            ROUTING_MODEL_COMPONENTS,
+        ),
+        (
+            "verification_output",
+            "Verification and output",
+            VERIFICATION_OUTPUT_COMPONENTS,
+        ),
+        (
+            "authority_tooling",
+            "Authority and tooling",
+            AUTHORITY_TOOLING_COMPONENTS,
+        ),
+    ]
+    .into_iter()
+    .map(|(cluster_id, cluster_label, component_kinds)| {
+        workflow_harness_gated_cluster_run_for_components(
+            run_id,
+            cluster_id,
+            cluster_label,
+            component_kinds,
+            attempts,
+        )
+    })
+    .collect()
+}
+
+fn workflow_harness_gated_cluster_run_for_components(
+    run_id: &str,
+    cluster_id: &str,
+    cluster_label: &str,
+    component_kinds: &[&str],
+    attempts: &[Value],
+) -> Value {
+    let mut node_attempt_ids = Vec::new();
+    let mut receipt_ids = Vec::new();
+    let mut replay_fixture_refs = Vec::new();
+    let mut activation_blockers = Vec::new();
+    for component_kind in component_kinds {
+        let component_attempts = attempts
+            .iter()
+            .filter(|attempt| {
+                attempt.get("componentKind").and_then(Value::as_str) == Some(*component_kind)
+            })
+            .collect::<Vec<_>>();
+        if component_attempts.is_empty() {
+            activation_blockers.push(format!("missing_attempt:{component_kind}"));
+            continue;
+        }
+        for attempt in component_attempts {
+            if let Some(attempt_id) = attempt.get("attemptId").and_then(Value::as_str) {
+                node_attempt_ids.push(attempt_id.to_string());
+            }
+            let receipts = attempt
+                .get("receiptIds")
+                .and_then(Value::as_array)
+                .map(|items| {
+                    items
+                        .iter()
+                        .filter_map(Value::as_str)
+                        .map(str::to_string)
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+            if receipts.is_empty() {
+                activation_blockers.push(format!("missing_receipt:{component_kind}"));
+            }
+            receipt_ids.extend(receipts);
+            if let Some(fixture_ref) = attempt
+                .get("replay")
+                .and_then(|replay| replay.get("fixtureRef"))
+                .and_then(Value::as_str)
+            {
+                replay_fixture_refs.push(fixture_ref.to_string());
+            } else {
+                activation_blockers.push(format!("missing_replay_fixture:{component_kind}"));
+            }
+            let readiness = attempt
+                .get("readiness")
+                .and_then(Value::as_str)
+                .unwrap_or("");
+            if readiness != "shadow_ready" && readiness != "live_ready" {
+                activation_blockers.push(format!("readiness_below_shadow:{component_kind}"));
+            }
+        }
+    }
+    node_attempt_ids.sort();
+    node_attempt_ids.dedup();
+    receipt_ids.sort();
+    receipt_ids.dedup();
+    replay_fixture_refs.sort();
+    replay_fixture_refs.dedup();
+    activation_blockers.sort();
+    activation_blockers.dedup();
+    let promotion_blocked = !activation_blockers.is_empty();
+    json!({
+        "schemaVersion": "ioi.agent-harness.gated-cluster-run.v1",
+        "runId": format!("{run_id}:{cluster_id}:gated"),
+        "clusterId": cluster_id,
+        "clusterLabel": cluster_label,
+        "harnessWorkflowId": DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+        "harnessActivationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+        "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
+        "executionMode": "gated",
+        "status": if promotion_blocked { "blocked" } else { "gated" },
+        "componentKinds": component_kinds,
+        "shadowRunId": run_id,
+        "nodeAttemptIds": node_attempt_ids,
+        "receiptIds": receipt_ids,
+        "replayFixtureRefs": replay_fixture_refs,
+        "activationBlockers": activation_blockers,
+        "gateDecision": if promotion_blocked {
+            "block_promotion"
+        } else {
+            "allow_live_runtime_passthrough"
+        },
+        "rollbackTarget": "shadow",
+        "rollbackAvailable": true,
+        "canaryStatus": if promotion_blocked { "not_started" } else { "passed" },
+        "promotionBlocked": promotion_blocked,
+        "evidenceRefs": [format!("workflow-run:{run_id}")]
+    })
+}
+
+fn workflow_attach_harness_run_artifacts(
+    workflow: &WorkflowProject,
+    run_id: &str,
+    node_runs: &mut [WorkflowNodeRun],
+) -> (Vec<Value>, Vec<Value>, Vec<Value>) {
+    if !workflow_is_harness(workflow) {
+        return (Vec::new(), Vec::new(), Vec::new());
+    }
+    let mut attempts = Vec::new();
+    for node_run in node_runs {
+        if let Some(attempt) = workflow_harness_attempt_for_node_run(workflow, run_id, node_run) {
+            node_run.harness_attempt = Some(attempt.clone());
+            attempts.push(attempt);
+        }
+    }
+    let comparisons = workflow_harness_shadow_comparisons_for_attempts(&attempts);
+    let gated_cluster_runs = workflow_harness_gated_cluster_runs_for_attempts(run_id, &attempts);
+    (attempts, comparisons, gated_cluster_runs)
+}
+
 pub(super) fn workflow_node_lifecycle_steps(status: &str) -> Vec<String> {
     let mut steps = vec![
         "validate_config",
@@ -1978,6 +2420,50 @@ pub(super) fn execute_workflow_node(
     Ok(output)
 }
 
+pub(crate) fn execute_workflow_harness_canary_node(
+    node: &Value,
+    input: Value,
+    attempt: usize,
+) -> Result<Value, String> {
+    let canary_human_gate_outcome = (workflow_node_type(node) == "human_gate").then(|| {
+        json!({
+            "approved": true,
+            "decision": "approved",
+            "reason": "Synthetic approval outcome for non-mutating harness canary execution.",
+            "authorityTransferred": false
+        })
+    });
+    execute_workflow_node(
+        Path::new(".agents/workflows/default-agent-harness.workflow.json"),
+        node,
+        input,
+        attempt,
+        canary_human_gate_outcome.as_ref(),
+    )
+}
+
+pub(crate) fn execute_workflow_harness_live_default_node(
+    node: &Value,
+    input: Value,
+    attempt: usize,
+) -> Result<Value, String> {
+    let default_human_gate_outcome = (workflow_node_type(node) == "human_gate").then(|| {
+        json!({
+            "approved": true,
+            "decision": "approved",
+            "reason": "Synthetic approval outcome for read-only blessed default harness dispatch.",
+            "authorityTransferred": false
+        })
+    });
+    execute_workflow_node(
+        Path::new(".agents/workflows/default-agent-harness.workflow.json"),
+        node,
+        input,
+        attempt,
+        default_human_gate_outcome.as_ref(),
+    )
+}
+
 pub(super) fn workflow_checkpoint_state(
     workflow_path: &Path,
     state: &mut WorkflowStateSnapshot,
@@ -2207,6 +2693,8 @@ pub(super) fn execute_workflow_project(
         let mut final_thread = thread.clone();
         final_thread.status = summary.status.clone();
         final_thread.latest_checkpoint_id = Some(checkpoint_id);
+        let (harness_attempts, harness_shadow_comparisons, harness_gated_cluster_runs) =
+            workflow_attach_harness_run_artifacts(&bundle.workflow, &run_id, &mut node_runs);
         let verification_evidence = workflow_verification_evidence_from_node_runs(&node_runs);
         let completion_requirements =
             workflow_completion_requirements(&bundle.workflow, &state, &node_runs);
@@ -2217,6 +2705,9 @@ pub(super) fn execute_workflow_project(
             node_runs,
             checkpoints,
             events,
+            harness_attempts,
+            harness_shadow_comparisons,
+            harness_gated_cluster_runs,
             verification_evidence,
             completion_requirements,
             interrupt: None,
@@ -2306,6 +2797,7 @@ pub(super) fn execute_workflow_project(
                 error: None,
                 checkpoint_id: Some(checkpoint_id.clone()),
                 lifecycle: workflow_node_lifecycle_steps("interrupted"),
+                harness_attempt: None,
             });
             workflow_push_event(
                 &mut events,
@@ -2337,6 +2829,8 @@ pub(super) fn execute_workflow_project(
             final_thread.status = "interrupted".to_string();
             final_thread.latest_checkpoint_id = Some(checkpoint_id);
             save_workflow_thread(workflow_path, &final_thread)?;
+            let (harness_attempts, harness_shadow_comparisons, harness_gated_cluster_runs) =
+                workflow_attach_harness_run_artifacts(&bundle.workflow, &run_id, &mut node_runs);
             let verification_evidence = workflow_verification_evidence_from_node_runs(&node_runs);
             let completion_requirements =
                 workflow_completion_requirements(&bundle.workflow, &state, &node_runs);
@@ -2347,6 +2841,9 @@ pub(super) fn execute_workflow_project(
                 node_runs,
                 checkpoints,
                 events,
+                harness_attempts,
+                harness_shadow_comparisons,
+                harness_gated_cluster_runs,
                 verification_evidence,
                 completion_requirements,
                 interrupt: Some(interrupt),
@@ -2367,6 +2864,7 @@ pub(super) fn execute_workflow_project(
             error: None,
             checkpoint_id: None,
             lifecycle: Vec::new(),
+            harness_attempt: None,
         };
         workflow_push_event(
             &mut events,
@@ -2402,6 +2900,7 @@ pub(super) fn execute_workflow_project(
                 error: execution_result.as_ref().err().cloned(),
                 checkpoint_id: None,
                 lifecycle: workflow_node_lifecycle_steps("error"),
+                harness_attempt: None,
             });
             workflow_push_event(
                 &mut events,
@@ -2689,6 +3188,8 @@ pub(super) fn execute_workflow_project(
     final_thread.status = status.to_string();
     final_thread.latest_checkpoint_id = Some(checkpoint_id);
     save_workflow_thread(workflow_path, &final_thread)?;
+    let (harness_attempts, harness_shadow_comparisons, harness_gated_cluster_runs) =
+        workflow_attach_harness_run_artifacts(&bundle.workflow, &run_id, &mut node_runs);
     let verification_evidence = workflow_verification_evidence_from_node_runs(&node_runs);
     let result = WorkflowRunResult {
         summary,
@@ -2697,6 +3198,9 @@ pub(super) fn execute_workflow_project(
         node_runs,
         checkpoints,
         events,
+        harness_attempts,
+        harness_shadow_comparisons,
+        harness_gated_cluster_runs,
         verification_evidence,
         completion_requirements,
         interrupt: None,
@@ -2775,6 +3279,7 @@ pub(super) fn workflow_single_node_result(
         error: None,
         checkpoint_id: None,
         lifecycle: Vec::new(),
+        harness_attempt: None,
     };
     workflow_push_event(
         &mut events,
@@ -2889,7 +3394,9 @@ pub(super) fn workflow_single_node_result(
     final_thread.status = status;
     final_thread.latest_checkpoint_id = checkpoints.last().map(|checkpoint| checkpoint.id.clone());
     save_workflow_thread(workflow_path, &final_thread)?;
-    let node_runs = vec![node_run];
+    let mut node_runs = vec![node_run];
+    let (harness_attempts, harness_shadow_comparisons, harness_gated_cluster_runs) =
+        workflow_attach_harness_run_artifacts(workflow, &run_id, &mut node_runs);
     let verification_evidence = workflow_verification_evidence_from_node_runs(&node_runs);
     let completion_requirements = workflow_completion_requirements(workflow, &state, &node_runs);
     let result = WorkflowRunResult {
@@ -2899,6 +3406,9 @@ pub(super) fn workflow_single_node_result(
         node_runs,
         checkpoints,
         events,
+        harness_attempts,
+        harness_shadow_comparisons,
+        harness_gated_cluster_runs,
         verification_evidence,
         completion_requirements,
         interrupt: None,

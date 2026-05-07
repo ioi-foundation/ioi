@@ -14,7 +14,10 @@ use ioi_drivers::mcp::McpManager;
 use ioi_drivers::os::NativeOsDriver;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_memory::MemoryRuntime;
-use ioi_types::app::KernelEvent;
+use ioi_types::app::{
+    default_harness_worker_binding, validate_harness_worker_binding, HarnessWorkerBinding,
+    KernelEvent,
+};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -66,6 +69,7 @@ impl RuntimeAgentService {
             som_history: Arc::new(RwLock::new(VisualContextCache::new(100))),
             last_accessibility_tree: Arc::new(RwLock::new(None)),
             lens_registry: lens_registry_arc,
+            harness_worker_binding: default_harness_worker_binding(),
         }
     }
 
@@ -109,6 +113,7 @@ impl RuntimeAgentService {
             som_history: Arc::new(RwLock::new(VisualContextCache::new(100))),
             last_accessibility_tree: Arc::new(RwLock::new(None)),
             lens_registry: lens_registry_arc,
+            harness_worker_binding: default_harness_worker_binding(),
         }
     }
 
@@ -147,6 +152,13 @@ impl RuntimeAgentService {
         sender: tokio::sync::broadcast::Sender<KernelEvent>,
     ) -> Self {
         self.event_sender = Some(sender);
+        self
+    }
+
+    pub fn with_harness_worker_binding(mut self, binding: HarnessWorkerBinding) -> Self {
+        validate_harness_worker_binding(&binding)
+            .expect("harness worker binding must include activation identity");
+        self.harness_worker_binding = binding;
         self
     }
 

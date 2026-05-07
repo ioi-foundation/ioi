@@ -752,6 +752,8 @@ pub struct WorkflowNodeRun {
     pub checkpoint_id: Option<String>,
     #[serde(default)]
     pub lifecycle: Vec<String>,
+    #[serde(default)]
+    pub harness_attempt: Option<Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -799,6 +801,12 @@ pub struct WorkflowRunResult {
     pub node_runs: Vec<WorkflowNodeRun>,
     pub checkpoints: Vec<WorkflowCheckpoint>,
     pub events: Vec<WorkflowStreamEvent>,
+    #[serde(default)]
+    pub harness_attempts: Vec<Value>,
+    #[serde(default)]
+    pub harness_shadow_comparisons: Vec<Value>,
+    #[serde(default)]
+    pub harness_gated_cluster_runs: Vec<Value>,
     #[serde(default)]
     pub verification_evidence: Vec<WorkflowVerificationEvidence>,
     #[serde(default)]

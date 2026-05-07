@@ -41,8 +41,8 @@ use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::mcp::McpManager;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_memory::MemoryRuntime;
-use ioi_types::app::KernelEvent;
 use ioi_types::app::{AccountId, ChainId};
+use ioi_types::app::{HarnessExecutionMode, HarnessWorkerBinding, KernelEvent};
 use ioi_types::codec;
 use ioi_types::error::{TransactionError, UpgradeError};
 use ioi_types::service_configs::Capabilities;
@@ -120,6 +120,8 @@ pub struct RuntimeAgentService {
 
     /// Lens Registry for Application Lenses ("LiDAR")
     pub(crate) lens_registry: Arc<LensRegistry>,
+    /// Workflow activation identity for the default runtime harness.
+    pub(crate) harness_worker_binding: HarnessWorkerBinding,
 }
 
 /// Snapshot of the active transaction context used by action execution helpers.
@@ -228,6 +230,14 @@ impl BlockchainService for RuntimeAgentService {
 
 // Forwarding methods to new submodules
 impl RuntimeAgentService {
+    pub fn harness_worker_binding(&self) -> &HarnessWorkerBinding {
+        &self.harness_worker_binding
+    }
+
+    pub fn harness_execution_mode(&self) -> HarnessExecutionMode {
+        self.harness_worker_binding.execution_mode
+    }
+
     pub async fn fetch_work_graph_manifest(
         &self,
         state: &dyn ioi_api::state::StateAccess,

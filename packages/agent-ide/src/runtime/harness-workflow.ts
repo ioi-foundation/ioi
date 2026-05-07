@@ -1,10 +1,20 @@
 import type {
   Node,
   WorkflowEdge,
+  WorkflowHarnessCanaryExecutionBoundary,
+  WorkflowHarnessComponentReadiness,
   WorkflowHarnessComponentKind,
   WorkflowHarnessComponentSpec,
+  WorkflowHarnessDefaultRuntimeDispatchProof,
+  WorkflowHarnessExecutionMode,
+  WorkflowHarnessForkActivationRecord,
+  WorkflowHarnessLiveHandoffProof,
   WorkflowHarnessMetadata,
   WorkflowHarnessNodeBinding,
+  WorkflowHarnessPromotionCluster,
+  WorkflowHarnessPromotionClusterId,
+  WorkflowHarnessReplayEnvelope,
+  WorkflowHarnessRuntimeSelectorDecision,
   WorkflowHarnessSlotKind,
   WorkflowHarnessSlotSpec,
   WorkflowHarnessWorkerBinding,
@@ -21,6 +31,15 @@ export const DEFAULT_AGENT_HARNESS_HASH =
   "sha256:default-agent-harness-component-projection-v1";
 export const DEFAULT_AGENT_HARNESS_ACTIVATION_ID =
   "activation:default-agent-harness:blessed-readonly";
+export const DEFAULT_AGENT_HARNESS_FORK_ROLLBACK_TARGET =
+  DEFAULT_AGENT_HARNESS_ACTIVATION_ID;
+export const DEFAULT_AGENT_HARNESS_FORK_ACTIVATION_BLOCKERS = Object.freeze([
+  "harness_activation_not_validated",
+  "required_slots_unbound",
+  "replay_fixtures_missing",
+  "canary_not_run",
+  "activation_review_incomplete",
+]);
 
 const HARNESS_INPUT_SCHEMA = {
   type: "object",
@@ -56,11 +75,1148 @@ const HARNESS_ERROR_SCHEMA = {
   },
 };
 
+export function defaultHarnessComponentVersionSet(): Record<string, string> {
+  return Object.fromEntries(
+    DEFAULT_AGENT_HARNESS_COMPONENTS.map((component) => [
+      component.componentId,
+      component.version,
+    ]),
+  );
+}
+
+export function harnessForkActivationId(workflowId: string): string {
+  const normalizedWorkflowId = slugify(workflowId || "default-agent-harness-fork");
+  return `activation:${normalizedWorkflowId}:validated-canary:${DEFAULT_AGENT_HARNESS_HASH.replace(
+    /^sha256:/,
+    "",
+  ).slice(0, 12)}`;
+}
+
+export function makeHarnessForkActivationRecord(options: {
+  workflowId: string;
+  harnessWorkflowId?: string;
+  activationId?: string;
+  activationState: WorkflowHarnessForkActivationRecord["activationState"];
+  activationBlockers?: string[];
+  canaryStatus?: WorkflowHarnessForkActivationRecord["canaryStatus"];
+  rollbackTarget?: string;
+  rollbackAvailable?: boolean;
+  liveAuthorityTransferred?: boolean;
+  evidenceRefs?: string[];
+  workerBinding?: WorkflowHarnessWorkerBinding;
+  mintedAtMs?: number;
+}): WorkflowHarnessForkActivationRecord {
+  const activationId =
+    options.activationId ??
+    (options.activationState === "validated" || options.activationState === "active"
+      ? harnessForkActivationId(options.workflowId)
+      : undefined);
+  return {
+    schemaVersion: "workflow.harness.activation.v1",
+    workflowId: options.workflowId,
+    harnessWorkflowId: options.harnessWorkflowId ?? options.workflowId,
+    activationId,
+    harnessHash: DEFAULT_AGENT_HARNESS_HASH,
+    activationState: options.activationState,
+    activationBlockers:
+      options.activationBlockers ??
+      (options.activationState === "validated" || options.activationState === "active"
+        ? []
+        : [...DEFAULT_AGENT_HARNESS_FORK_ACTIVATION_BLOCKERS]),
+    componentVersionSet: defaultHarnessComponentVersionSet(),
+    policyPosture:
+      options.activationState === "validated" || options.activationState === "active"
+        ? "canary"
+        : "proposal_only",
+    canaryStatus:
+      options.canaryStatus ??
+      (options.activationState === "validated" || options.activationState === "active"
+        ? "passed"
+        : "not_run"),
+    rollbackTarget: options.rollbackTarget ?? DEFAULT_AGENT_HARNESS_FORK_ROLLBACK_TARGET,
+    rollbackAvailable:
+      options.rollbackAvailable ??
+      (options.activationState === "validated" || options.activationState === "active"),
+    liveAuthorityTransferred: options.liveAuthorityTransferred ?? false,
+    evidenceRefs: options.evidenceRefs ?? [],
+    workerBinding: options.workerBinding,
+    mintedAtMs: options.mintedAtMs,
+  };
+}
+
+export function makeBlessedHarnessLiveHandoffProof(options: {
+  selector?: WorkflowHarnessLiveHandoffProof["selector"];
+  canaryStatus?: WorkflowHarnessLiveHandoffProof["canaryStatus"];
+  canaryTurnRoutedThroughWorkflow?: boolean;
+  defaultAuthorityTransferred?: boolean;
+  runtimeAuthority?: WorkflowHarnessLiveHandoffProof["runtimeAuthority"];
+  fallbackSelector?: WorkflowHarnessLiveHandoffProof["fallbackSelector"];
+  rollbackAvailable?: boolean;
+  policyDecision?: string;
+  gatedClusterIds?: WorkflowHarnessLiveHandoffProof["gatedClusterIds"];
+  executionBoundaryIds?: string[];
+  executionBoundaryClusterIds?: WorkflowHarnessPromotionClusterId[];
+  nodeTimelineAttemptIds?: string[];
+  receiptIds?: string[];
+  replayFixtureRefs?: string[];
+  activationBlockers?: string[];
+  evidenceRefs?: string[];
+} = {}): WorkflowHarnessLiveHandoffProof {
+  return {
+    schemaVersion: "workflow.harness.live-handoff.v1",
+    selector: options.selector ?? "blessed_workflow_live_canary",
+    availableSelectors: [
+      "legacy_runtime",
+      "blessed_workflow_gated",
+      "blessed_workflow_live_canary",
+      "blessed_workflow_live_default",
+    ],
+    productionDefaultSelector: "legacy_runtime",
+    workflowId: DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+    activationId: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+    harnessHash: DEFAULT_AGENT_HARNESS_HASH,
+    componentVersionSet: defaultHarnessComponentVersionSet(),
+    canaryStatus: options.canaryStatus ?? "passed",
+    canaryTurnRoutedThroughWorkflow: options.canaryTurnRoutedThroughWorkflow ?? true,
+    executionBoundaryId:
+      "harness-canary-boundary:default-agent-harness:verification_output",
+    executionBoundaryIds:
+      options.executionBoundaryIds ?? [
+        "harness-canary-boundary:default-agent-harness:cognition",
+        "harness-canary-boundary:default-agent-harness:routing_model",
+        "harness-canary-boundary:default-agent-harness:verification_output",
+        "harness-canary-boundary:default-agent-harness:authority_tooling",
+      ],
+    executionBoundaryClusterIds:
+      options.executionBoundaryClusterIds ?? [
+        "cognition",
+        "routing_model",
+        "verification_output",
+        "authority_tooling",
+      ],
+    executionBoundaryStatus: "passed",
+    executionBoundaryExecutor: "crate::project::execute_workflow_harness_canary_node",
+    defaultAuthorityTransferred: options.defaultAuthorityTransferred ?? false,
+    runtimeAuthority: options.runtimeAuthority ?? "blessed_workflow_activation_canary",
+    fallbackSelector: options.fallbackSelector ?? "legacy_runtime",
+    rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+    rollbackAvailable: options.rollbackAvailable ?? true,
+    policyDecision: options.policyDecision ?? "allow_blessed_workflow_live_canary",
+    gatedClusterIds:
+      options.gatedClusterIds ?? [
+        "cognition",
+        "routing_model",
+        "verification_output",
+        "authority_tooling",
+      ],
+    nodeTimelineAttemptIds: options.nodeTimelineAttemptIds ?? [],
+    receiptIds: options.receiptIds ?? [],
+    replayFixtureRefs: options.replayFixtureRefs ?? [],
+    activationBlockers: options.activationBlockers ?? [],
+    defaultPromotionGate: {
+      configKey: "AUTOPILOT_HARNESS_DEFAULT_PROMOTION",
+      enabled: false,
+      eligible: false,
+      nonMutatingOnly: true,
+      selector: options.selector ?? "blessed_workflow_live_canary",
+      productionDefaultSelector: "legacy_runtime",
+      defaultAuthorityTransferred: options.defaultAuthorityTransferred ?? false,
+      rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+      activationBlockers: ["promotion_gate_disabled"],
+      policyDecision: "retain_legacy_runtime_default",
+    },
+    evidenceRefs: options.evidenceRefs ?? [],
+  };
+}
+
+export function makeHarnessRuntimeSelectorDecision(options: {
+  decisionId?: string;
+  selectedSelector?: WorkflowHarnessRuntimeSelectorDecision["selectedSelector"];
+  canaryEligible?: boolean;
+  canaryBlockers?: string[];
+  executionMode?: WorkflowHarnessExecutionMode;
+  actualRuntimeAuthority?: WorkflowHarnessRuntimeSelectorDecision["actualRuntimeAuthority"];
+  policyDecision?: string;
+  routeReason?: string;
+  evidenceRefs?: string[];
+} = {}): WorkflowHarnessRuntimeSelectorDecision {
+  const selectedSelector = options.selectedSelector ?? "blessed_workflow_live_canary";
+  const canarySelected = selectedSelector === "blessed_workflow_live_canary";
+  return {
+    schemaVersion: "workflow.harness.runtime-selector.v1",
+    decisionId: options.decisionId ?? "harness-selector:default-agent-harness:canary",
+    requestedSelector: "auto_canary",
+    selectedSelector,
+    productionDefaultSelector: "legacy_runtime",
+    canaryEligible: options.canaryEligible ?? canarySelected,
+    canaryBlockers: options.canaryBlockers ?? [],
+    workflowId: DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+    activationId: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+    harnessHash: DEFAULT_AGENT_HARNESS_HASH,
+    executionMode: options.executionMode ?? (canarySelected ? "live" : "gated"),
+    actualRuntimeAuthority:
+      options.actualRuntimeAuthority ??
+      (canarySelected ? "blessed_workflow_activation_canary" : "existing_runtime_service"),
+    fallbackSelector: "legacy_runtime",
+    rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+    rollbackAvailable: true,
+    policyDecision:
+      options.policyDecision ??
+      (canarySelected
+        ? "allow_blessed_workflow_live_canary"
+        : "retain_legacy_runtime_default"),
+    routeReason:
+      options.routeReason ??
+      (canarySelected
+        ? "Turn is non-mutating and eligible for blessed workflow canary routing."
+        : "Turn remains on the legacy runtime selector."),
+    defaultPromotionGate: {
+      configKey: "AUTOPILOT_HARNESS_DEFAULT_PROMOTION",
+      enabled: false,
+      eligible: false,
+      nonMutatingOnly: true,
+      selector: selectedSelector,
+      productionDefaultSelector: "legacy_runtime",
+      defaultAuthorityTransferred: false,
+      rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+      activationBlockers: ["promotion_gate_disabled"],
+      policyDecision: "retain_legacy_runtime_default",
+    },
+    evidenceRefs: options.evidenceRefs ?? [],
+  };
+}
+
+export function makeHarnessDefaultRuntimeDispatchProof(options: {
+  dispatchId?: string;
+  selectorDecisionId?: string;
+  acceptedClusterIds?: WorkflowHarnessPromotionClusterId[];
+  sourceBoundaryIds?: string[];
+  dispatchNodeAttemptIds?: string[];
+  outputWriterHandoffAttemptIds?: string[];
+  acceptedNodeAttemptIds?: string[];
+  nodeAttemptIds?: string[];
+  receiptIds?: string[];
+  replayFixtureRefs?: string[];
+  activationBlockers?: string[];
+  evidenceRefs?: string[];
+} = {}): WorkflowHarnessDefaultRuntimeDispatchProof {
+  const acceptedClusterIds = options.acceptedClusterIds ?? [
+    "cognition",
+    "routing_model",
+    "verification_output",
+    "authority_tooling",
+  ];
+  const deferredComponentKinds: WorkflowHarnessComponentKind[] = [
+    "mcp_provider",
+    "mcp_tool_call",
+    "tool_call",
+    "connector_call",
+    "wallet_capability",
+  ];
+  const proposedVisibleOutputHash = "sha256:visible-output";
+  const actualVisibleOutputHash = "sha256:visible-output";
+  const promptAssemblyPromptHash = "sha256:prompt-final";
+  const modelExecutionBindingId =
+    "model-binding:default-agent-harness:workflow-default-model-route";
+  const modelExecutionPromptHash = promptAssemblyPromptHash;
+  const modelExecutionOutputHash = actualVisibleOutputHash;
+  const workflowTranscriptWriteCandidate = {
+    target: "checkpoint_transcript_messages",
+    role: "agent",
+    timestampMs: 1,
+    orderIndex: 1,
+    contentHash: proposedVisibleOutputHash,
+    receiptBindingRef: "checkpoint_transcript_messages:default-agent-harness:agent:1:1",
+    writeAuthority: "blessed_workflow_activation_default",
+    committed: false,
+    commitMode: "candidate_only",
+  };
+  const workflowTranscriptWriteRecord = {
+    target: "checkpoint_transcript_messages",
+    role: "agent",
+    timestampMs: 1,
+    orderIndex: 1,
+    contentHash: proposedVisibleOutputHash,
+    receiptBindingRef: "checkpoint_transcript_messages:default-agent-harness:agent:1:1",
+    writeIdentityHash: "sha256:workflow-visible-transcript-write",
+    writeAuthority: "blessed_workflow_activation_default",
+    committed: true,
+    visible: true,
+    visibleTranscriptCommit: true,
+    commitMode: "workflow_visible_transcript_write",
+  };
+  const legacyTranscriptWriteRecord = {
+    target: "checkpoint_transcript_messages",
+    role: "agent",
+    timestampMs: 1,
+    orderIndex: 1,
+    contentHash: actualVisibleOutputHash,
+    receiptBindingRef: "checkpoint_transcript_messages:default-agent-harness:agent:1:1",
+    writeAuthority: "existing_runtime_service",
+    committed: false,
+    suppressedByIdempotency: true,
+    commitMode: "idempotent_noop",
+  };
+  const stagedTranscriptWriteRecord = {
+    target: "checkpoint_transcript_messages",
+    stagingSurface: "checkpoint_blobs",
+    checkpointName: "autopilot.workflow_output_writer_transcript_staging.v1",
+    role: "agent",
+    timestampMs: 1,
+    orderIndex: 1,
+    contentHash: proposedVisibleOutputHash,
+    receiptBindingRef: "checkpoint_transcript_messages:default-agent-harness:agent:1:1",
+    writeAuthority: "blessed_workflow_activation_default",
+    committed: true,
+    stagingCommitted: true,
+    visible: false,
+    visibleTranscriptCommit: false,
+    commitMode: "staged_non_visible",
+    rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+  };
+  const stagedTranscriptWriteProof = {
+    schemaVersion: "workflow.output_writer.transcript-staging-proof.v1",
+    surface: "checkpoint_blobs",
+    checkpointName: "autopilot.workflow_output_writer_transcript_staging.v1",
+    record: stagedTranscriptWriteRecord,
+    persisted: true,
+    loadedBeforeRollback: true,
+    visibleBeforeCount: 1,
+    visibleAfterCount: 1,
+    excludedFromVisibleTranscript: true,
+    rollbackAction: "delete_checkpoint_blob",
+    rollbackExecuted: true,
+    rollbackVerified: true,
+    rollbackStatus: "deleted",
+  };
+  const visibleTranscriptWriteProof = {
+    schemaVersion: "workflow.output_writer.visible-transcript-write-proof.v1",
+    mode: "workflow_visible_transcript_write",
+    target: "checkpoint_transcript_messages",
+    record: workflowTranscriptWriteRecord,
+    persisted: true,
+    committed: true,
+    created: true,
+    visible: true,
+    visibleRowsDelta: 1,
+    idempotencyGuard: "session_role_timestamp_order_content_hash_receipt_binding",
+    duplicateSuppressionReady: true,
+    identityCheckpointPersisted: true,
+    rollbackAvailable: true,
+    rollbackMode: "legacy_runtime_fallback_with_idempotent_duplicate_suppression",
+  };
+  const legacyTranscriptFallbackProof = {
+    schemaVersion: "workflow.output_writer.legacy-transcript-fallback.v1",
+    phase: "legacy_fallback_after_workflow_output",
+    writeAuthority: "existing_runtime_service",
+    appendedCount: 0,
+    duplicateSuppressedCount: 1,
+    latestAgentDuplicateSuppressed: true,
+    idempotencyGuard: "role_timestamp_content_hash",
+  };
+  return {
+    schemaVersion: "workflow.harness.default-runtime-dispatch.v1",
+    dispatchId:
+      options.dispatchId ?? "harness-default-dispatch:default-agent-harness:readonly",
+    selectorDecisionId:
+      options.selectorDecisionId ?? "harness-selector:default-agent-harness:default",
+    selectedSelector: "blessed_workflow_live_default",
+    productionDefaultSelector: "blessed_workflow_live_default",
+    workflowId: DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+    activationId: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+    harnessHash: DEFAULT_AGENT_HARNESS_HASH,
+    executionMode: "live",
+    runtimeAuthority: "blessed_workflow_activation_default",
+    dispatchScope: "read_only_cognition_routing_verification_completion_authority_tooling",
+    acceptedClusterIds,
+    componentKinds: acceptedClusterIds
+      .flatMap((clusterId) => HARNESS_PROMOTION_CLUSTER_COMPONENTS[clusterId])
+      .filter((componentKind) => !deferredComponentKinds.includes(componentKind)),
+    deferredComponentKinds,
+    handoffValidatedComponentKinds: ["output_writer"],
+    materializationCanaryComponentKinds: ["output_writer"],
+    sourceBoundaryIds:
+      options.sourceBoundaryIds ??
+      acceptedClusterIds.map(
+        (clusterId) => `harness-canary-boundary:default-agent-harness:${clusterId}`,
+      ),
+    dispatchNodeAttemptIds:
+      options.dispatchNodeAttemptIds ?? [
+        ...acceptedClusterIds.map(
+          (clusterId) => `harness-default-dispatch:attempt-${clusterId}`,
+        ),
+        "harness-default-dispatch:attempt-planner_envelope",
+        "harness-default-dispatch:attempt-prompt_assembler_envelope",
+        "harness-default-dispatch:attempt-task_state_envelope",
+        "harness-default-dispatch:attempt-model_router_envelope",
+        "harness-default-dispatch:attempt-model_call_envelope",
+        "harness-default-dispatch:attempt-model_provider_call_canary",
+        "harness-default-dispatch:attempt-model_provider_gated_visible_output",
+        "harness-default-dispatch:attempt-model_provider_gated_visible_output_rollback_drill",
+        "harness-default-dispatch:attempt-read_only_source_router",
+        "harness-default-dispatch:attempt-read_only_capability_sequencer",
+        "harness-default-dispatch:attempt-read_only_tool_router",
+        "harness-default-dispatch:attempt-read_only_no_mutation_drill",
+        "harness-default-dispatch:attempt-output_writer_handoff",
+        "harness-default-dispatch:attempt-output_writer_materialization_canary",
+        "harness-default-dispatch:attempt-output_writer_staged_write_canary",
+        "harness-default-dispatch:attempt-output_writer_visible_write_commit",
+        "harness-default-dispatch:attempt-authority_tooling_policy_gate",
+        "harness-default-dispatch:attempt-authority_tooling_tool_router",
+        "harness-default-dispatch:attempt-authority_tooling_dry_run_simulator",
+        "harness-default-dispatch:attempt-authority_tooling_destructive_denial",
+        "harness-default-dispatch:attempt-authority_tooling_approval_gate",
+      ],
+    cognitionExecutionAttemptIds: [
+      "harness-default-dispatch:attempt-planner_envelope",
+      "harness-default-dispatch:attempt-prompt_assembler_envelope",
+      "harness-default-dispatch:attempt-task_state_envelope",
+    ],
+    cognitionExecutionReceiptIds: [
+      "harness-default-dispatch:receipt-planner_envelope",
+      "harness-default-dispatch:receipt-prompt_assembler_envelope",
+      "harness-default-dispatch:receipt-task_state_envelope",
+    ],
+    cognitionExecutionReplayFixtureRefs: [
+      "harness-default-dispatch:fixture-planner_envelope",
+      "harness-default-dispatch:fixture-prompt_assembler_envelope",
+      "harness-default-dispatch:fixture-task_state_envelope",
+    ],
+    modelExecutionAttemptIds: [
+      "harness-default-dispatch:attempt-model_router_envelope",
+      "harness-default-dispatch:attempt-model_call_envelope",
+      "harness-default-dispatch:attempt-model_provider_call_canary",
+      "harness-default-dispatch:attempt-model_provider_gated_visible_output",
+      "harness-default-dispatch:attempt-model_provider_gated_visible_output_rollback_drill",
+    ],
+    modelExecutionReceiptIds: [
+      "harness-default-dispatch:receipt-model_router_envelope",
+      "harness-default-dispatch:receipt-model_call_envelope",
+      "harness-default-dispatch:receipt-model_provider_call_canary",
+      "harness-default-dispatch:receipt-model_provider_gated_visible_output",
+      "harness-default-dispatch:receipt-model_provider_gated_visible_output_rollback_drill",
+    ],
+    modelExecutionReplayFixtureRefs: [
+      "harness-default-dispatch:fixture-model_router_envelope",
+      "harness-default-dispatch:fixture-model_call_envelope",
+      "harness-default-dispatch:fixture-model_provider_call_canary",
+      "harness-default-dispatch:fixture-model_provider_gated_visible_output",
+      "harness-default-dispatch:fixture-model_provider_gated_visible_output_rollback_drill",
+    ],
+    modelProviderCanaryAttemptIds: [
+      "harness-default-dispatch:attempt-model_provider_call_canary",
+    ],
+    modelProviderCanaryReceiptIds: [
+      "harness-default-dispatch:receipt-model_provider_call_canary",
+    ],
+    modelProviderCanaryReplayFixtureRefs: [
+      "harness-default-dispatch:fixture-model_provider_call_canary",
+    ],
+    modelProviderGatedVisibleOutputAttemptIds: [
+      "harness-default-dispatch:attempt-model_provider_gated_visible_output",
+    ],
+    modelProviderGatedVisibleOutputReceiptIds: [
+      "harness-default-dispatch:receipt-model_provider_gated_visible_output",
+    ],
+    modelProviderGatedVisibleOutputReplayFixtureRefs: [
+      "harness-default-dispatch:fixture-model_provider_gated_visible_output",
+    ],
+    modelProviderGatedVisibleOutputRollbackDrillAttemptIds: [
+      "harness-default-dispatch:attempt-model_provider_gated_visible_output_rollback_drill",
+    ],
+    modelProviderGatedVisibleOutputRollbackDrillReceiptIds: [
+      "harness-default-dispatch:receipt-model_provider_gated_visible_output_rollback_drill",
+    ],
+    modelProviderGatedVisibleOutputRollbackDrillReplayFixtureRefs: [
+      "harness-default-dispatch:fixture-model_provider_gated_visible_output_rollback_drill",
+    ],
+    readOnlyCapabilityRoutingAttemptIds: [
+      "harness-default-dispatch:attempt-read_only_source_router",
+      "harness-default-dispatch:attempt-read_only_capability_sequencer",
+      "harness-default-dispatch:attempt-read_only_tool_router",
+      "harness-default-dispatch:attempt-read_only_no_mutation_drill",
+    ],
+    readOnlyCapabilityRoutingReceiptIds: [
+      "harness-default-dispatch:receipt-read_only_source_router",
+      "harness-default-dispatch:receipt-read_only_capability_sequencer",
+      "harness-default-dispatch:receipt-read_only_tool_router",
+      "harness-default-dispatch:receipt-read_only_no_mutation_drill",
+    ],
+    readOnlyCapabilityRoutingReplayFixtureRefs: [
+      "harness-default-dispatch:fixture-read_only_source_router",
+      "harness-default-dispatch:fixture-read_only_capability_sequencer",
+      "harness-default-dispatch:fixture-read_only_tool_router",
+      "harness-default-dispatch:fixture-read_only_no_mutation_drill",
+    ],
+    outputWriterHandoffAttemptIds:
+      options.outputWriterHandoffAttemptIds ?? [
+        "harness-default-dispatch:attempt-output_writer_handoff",
+      ],
+    outputWriterMaterializationCanaryAttemptIds: [
+      "harness-default-dispatch:attempt-output_writer_materialization_canary",
+    ],
+    outputWriterStagedWriteCanaryAttemptIds: [
+      "harness-default-dispatch:attempt-output_writer_staged_write_canary",
+    ],
+    outputWriterVisibleWriteAttemptIds: [
+      "harness-default-dispatch:attempt-output_writer_visible_write_commit",
+    ],
+    authorityToolingLiveDryRunAttemptIds: [
+      "harness-default-dispatch:attempt-authority_tooling_policy_gate",
+      "harness-default-dispatch:attempt-authority_tooling_tool_router",
+      "harness-default-dispatch:attempt-authority_tooling_dry_run_simulator",
+      "harness-default-dispatch:attempt-authority_tooling_destructive_denial",
+      "harness-default-dispatch:attempt-authority_tooling_approval_gate",
+    ],
+    authorityToolingDenialReceiptIds: [
+      "harness-default-dispatch:receipt-authority_tooling_destructive_denial",
+    ],
+    acceptedNodeAttemptIds: options.acceptedNodeAttemptIds ?? [],
+    nodeAttemptIds: options.nodeAttemptIds ?? [],
+    receiptIds: options.receiptIds ?? [],
+    replayFixtureRefs: options.replayFixtureRefs ?? [],
+    executorKind: "workflow_node_executor",
+    executorRef: "crate::project::execute_workflow_harness_live_default_node",
+    synchronous: true,
+    drivesRuntimeDecision: true,
+    cognitionExecutionMode: "workflow_synchronous_envelope",
+    cognitionExecutionReady: true,
+    promptAssemblyMode: "workflow_synchronous_envelope",
+    promptAssemblyPromptHash,
+    promptAssemblyPromptHashMatches: true,
+    cognitionExecutionProof: {
+      schemaVersion: "workflow.harness.cognition-execution-envelope.v1",
+      mode: "workflow_synchronous_envelope",
+      promptAssemblyMode: "workflow_synchronous_envelope",
+      promptHash: promptAssemblyPromptHash,
+      promptHashMatches: true,
+      ready: true,
+      attemptIds: [
+        "harness-default-dispatch:attempt-planner_envelope",
+        "harness-default-dispatch:attempt-prompt_assembler_envelope",
+        "harness-default-dispatch:attempt-task_state_envelope",
+      ],
+      receiptIds: [
+        "harness-default-dispatch:receipt-planner_envelope",
+        "harness-default-dispatch:receipt-prompt_assembler_envelope",
+        "harness-default-dispatch:receipt-task_state_envelope",
+      ],
+      replayFixtureRefs: [
+        "harness-default-dispatch:fixture-planner_envelope",
+        "harness-default-dispatch:fixture-prompt_assembler_envelope",
+        "harness-default-dispatch:fixture-task_state_envelope",
+      ],
+      policyDecision: "accept_workflow_prompt_assembly_hash_envelope",
+    },
+    modelExecutionMode: "workflow_synchronous_envelope",
+    modelExecutionEnvelopeReady: true,
+    modelExecutionBindingId,
+    modelExecutionBindingReady: true,
+    modelExecutionPromptHash,
+    modelExecutionPromptHashMatches: true,
+    modelExecutionOutputHash,
+    modelExecutionOutputHashMatches: true,
+    modelExecutionProviderInvocationMode: "workflow_provider_canary",
+    modelExecutionLowLevelInvocationDeferred: false,
+    modelExecutionFallbackSelector: "legacy_runtime_model_invocation",
+    modelExecutionLatencyMs: 0,
+    modelProviderCanaryMode: "workflow_provider_canary",
+    modelProviderCanaryReady: true,
+    modelProviderCanaryCandidateOutputHash: actualVisibleOutputHash,
+    modelProviderCanaryLegacyOutputHash: actualVisibleOutputHash,
+    modelProviderCanaryOutputHashMatches: true,
+    modelProviderCanaryTranscriptMatches: true,
+    modelProviderCanaryFallbackRetained: true,
+    modelProviderCanaryRollbackAvailable: true,
+    modelProviderGatedVisibleOutputMode: "workflow_provider_gated_visible_output",
+    modelProviderGatedVisibleOutputEnabled: true,
+    modelProviderGatedVisibleOutputReady: true,
+    modelProviderGatedVisibleOutputSelected: true,
+    modelProviderGatedVisibleOutputEligible: true,
+    modelProviderGatedVisibleOutputScenario: "retained_no_tool_answer",
+    modelProviderGatedVisibleOutputCohort: "retained_read_only_no_tool",
+    modelProviderGatedVisibleOutputRetainedReadOnlyNoTool: true,
+    modelProviderGatedVisibleOutputRequiredScenarioSet: [
+      "retained_no_tool_answer",
+      "retained_repo_grounded_answer",
+      "retained_planning_without_mutation",
+      "retained_mermaid_rendering",
+      "retained_source_heavy_synthesis",
+      "retained_probe_behavior",
+      "retained_harness_dogfooding",
+    ],
+    modelProviderGatedVisibleOutputScenarioCoverageKey:
+      "retained_no_tool_answer",
+    modelProviderGatedVisibleOutputActivationFlag:
+      "AUTOPILOT_WORKFLOW_PROVIDER_GATED_VISIBLE_OUTPUT",
+    modelProviderGatedVisibleOutputActivationId:
+      DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+    modelProviderGatedVisibleOutputAuthority: "workflow_model_provider_call",
+    modelProviderGatedVisibleOutputRollbackTarget:
+      "legacy_runtime_model_invocation",
+    modelProviderGatedVisibleOutputRollbackAvailable: true,
+    selectedVisibleOutputAuthority: "workflow_model_provider_call",
+    selectedVisibleOutputHash: actualVisibleOutputHash,
+    workflowProviderVisibleOutputHash: actualVisibleOutputHash,
+    legacyVisibleOutputHash: actualVisibleOutputHash,
+    legacyVisibleOutputComputed: true,
+    legacyVisibleOutputHashMatchesSelected: true,
+    selectedVisibleOutputAuthorityMatchesTranscript: true,
+    visibleOutputDivergenceClass: null,
+    modelProviderGatedVisibleOutputRollbackDrillEnabled: true,
+    modelProviderGatedVisibleOutputRollbackDrillReady: true,
+    modelProviderGatedVisibleOutputRollbackDrillFailureInjected: true,
+    modelProviderGatedVisibleOutputRollbackDrillInjectedOutputHash:
+      "sha256:provider-output-divergence",
+    modelProviderGatedVisibleOutputRollbackDrillOutputHashDiverges: true,
+    modelProviderGatedVisibleOutputRollbackDrillDivergenceClass:
+      "provider_output_hash_divergence",
+    modelProviderGatedVisibleOutputRollbackDrillFallbackAuthority:
+      "legacy_runtime_model_invocation",
+    modelProviderGatedVisibleOutputRollbackDrillSelectedAuthority:
+      "legacy_runtime_model_invocation",
+    modelProviderGatedVisibleOutputRollbackDrillTranscriptUnchanged: true,
+    modelProviderGatedVisibleOutputRollbackDrillRollbackExecuted: true,
+    modelProviderGatedVisibleOutputRollbackDrillActivationBlockers: [
+      "model_provider_output_hash_divergence",
+    ],
+    readOnlyCapabilityRoutingMode: "workflow_read_only_capability_routing",
+    readOnlyCapabilityRoutingReady: true,
+    readOnlyCapabilityRoutingSelected: true,
+    readOnlyCapabilityRoutingEligible: true,
+    readOnlyCapabilityRoutingScenario: "retained_repo_grounded_answer",
+    readOnlyCapabilityRoutingRequiredScenarioSet: [
+      "retained_repo_grounded_answer",
+      "retained_source_heavy_synthesis",
+      "retained_probe_behavior",
+    ],
+    readOnlyCapabilityRoutingScenarioCoverageKey:
+      "retained_repo_grounded_answer",
+    readOnlyCapabilityRoutingSourceMaterialReady: true,
+    readOnlyCapabilityRoutingNoMutationReady: true,
+    readOnlyCapabilityRoutingWorkflowOwnedNodeKinds: [
+      "memory_read",
+      "capability_sequencer",
+      "tool_router",
+      "dry_run_simulator",
+    ],
+    modelProviderCanaryProof: {
+      schemaVersion: "workflow.harness.model-provider-call-canary.v1",
+      mode: "workflow_provider_canary",
+      candidateOutputHash: actualVisibleOutputHash,
+      legacyOutputHash: actualVisibleOutputHash,
+      outputHashMatches: true,
+      transcriptMatches: true,
+      fallbackRetained: true,
+      rollbackAvailable: true,
+      attemptIds: [
+        "harness-default-dispatch:attempt-model_provider_call_canary",
+      ],
+      receiptIds: [
+        "harness-default-dispatch:receipt-model_provider_call_canary",
+      ],
+      replayFixtureRefs: [
+        "harness-default-dispatch:fixture-model_provider_call_canary",
+      ],
+      policyDecision: "accept_workflow_model_provider_call_canary_with_legacy_rollback",
+    },
+    modelProviderGatedVisibleOutputProof: {
+      schemaVersion: "workflow.harness.model-provider-gated-visible-output.v1",
+      mode: "workflow_provider_gated_visible_output",
+      enabled: true,
+      ready: true,
+      selected: true,
+      eligible: true,
+      scope: "retained_no_tool_answer",
+      cohort: "retained_read_only_no_tool",
+      retainedReadOnlyNoTool: true,
+      requiredScenarioSet: [
+        "retained_no_tool_answer",
+        "retained_repo_grounded_answer",
+        "retained_planning_without_mutation",
+        "retained_mermaid_rendering",
+        "retained_source_heavy_synthesis",
+        "retained_probe_behavior",
+        "retained_harness_dogfooding",
+      ],
+      scenarioCoverageKey: "retained_no_tool_answer",
+      activationFlag: "AUTOPILOT_WORKFLOW_PROVIDER_GATED_VISIBLE_OUTPUT",
+      activationId: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+      selectedVisibleOutputAuthority: "workflow_model_provider_call",
+      selectedVisibleOutputHash: actualVisibleOutputHash,
+      workflowProviderOutputHash: actualVisibleOutputHash,
+      legacyVisibleOutputHash: actualVisibleOutputHash,
+      legacyVisibleOutputComputed: true,
+      legacyVisibleOutputHashMatchesSelected: true,
+      selectedAuthorityMatchesTranscript: true,
+      divergenceClass: null,
+      rollbackTarget: "legacy_runtime_model_invocation",
+      rollbackAvailable: true,
+      attemptIds: [
+        "harness-default-dispatch:attempt-model_provider_gated_visible_output",
+      ],
+      receiptIds: [
+        "harness-default-dispatch:receipt-model_provider_gated_visible_output",
+      ],
+      replayFixtureRefs: [
+        "harness-default-dispatch:fixture-model_provider_gated_visible_output",
+      ],
+      policyDecision:
+        "accept_workflow_provider_gated_visible_output_with_legacy_rollback",
+    },
+    modelProviderGatedVisibleOutputRollbackDrillProof: {
+      schemaVersion:
+        "workflow.harness.model-provider-gated-visible-output-rollback-drill.v1",
+      drillId:
+        "harness-provider-gated-visible-output-rollback-drill:default-agent-harness:turn-default",
+      enabled: true,
+      ready: true,
+      failureInjected: true,
+      workflowProviderOutputHash: actualVisibleOutputHash,
+      injectedWorkflowProviderOutputHash: "sha256:provider-output-divergence",
+      legacyVisibleOutputHash: actualVisibleOutputHash,
+      actualVisibleOutputHash,
+      outputHashDiverges: true,
+      divergenceClass: "provider_output_hash_divergence",
+      fallbackAuthority: "legacy_runtime_model_invocation",
+      selectedAuthorityAfterRollback: "legacy_runtime_model_invocation",
+      transcriptUnchanged: true,
+      rollbackExecuted: true,
+      rollbackTarget: "legacy_runtime_model_invocation",
+      rollbackAvailable: true,
+      activationBlockers: ["model_provider_output_hash_divergence"],
+      attemptIds: [
+        "harness-default-dispatch:attempt-model_provider_gated_visible_output_rollback_drill",
+      ],
+      receiptIds: [
+        "harness-default-dispatch:receipt-model_provider_gated_visible_output_rollback_drill",
+      ],
+      replayFixtureRefs: [
+        "harness-default-dispatch:fixture-model_provider_gated_visible_output_rollback_drill",
+      ],
+      policyDecision:
+        "rollback_to_legacy_runtime_model_invocation_on_provider_output_hash_divergence",
+    },
+    readOnlyCapabilityRoutingProof: {
+      schemaVersion: "workflow.harness.read-only-capability-routing.v1",
+      mode: "workflow_read_only_capability_routing",
+      ready: true,
+      selected: true,
+      eligible: true,
+      scenario: "retained_repo_grounded_answer",
+      requiredScenarioSet: [
+        "retained_repo_grounded_answer",
+        "retained_source_heavy_synthesis",
+        "retained_probe_behavior",
+      ],
+      scenarioCoverageKey: "retained_repo_grounded_answer",
+      sourceMaterialReady: true,
+      workflowOwnedNodeKinds: [
+        "memory_read",
+        "capability_sequencer",
+        "tool_router",
+        "dry_run_simulator",
+      ],
+      toolUseMode: "read_only_or_dry_run",
+      sideEffectsExecuted: false,
+      mutationExecuted: false,
+      noMutationReady: true,
+      rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+      rollbackAvailable: true,
+      attemptIds: [
+        "harness-default-dispatch:attempt-read_only_source_router",
+        "harness-default-dispatch:attempt-read_only_capability_sequencer",
+        "harness-default-dispatch:attempt-read_only_tool_router",
+        "harness-default-dispatch:attempt-read_only_no_mutation_drill",
+      ],
+      receiptIds: [
+        "harness-default-dispatch:receipt-read_only_source_router",
+        "harness-default-dispatch:receipt-read_only_capability_sequencer",
+        "harness-default-dispatch:receipt-read_only_tool_router",
+        "harness-default-dispatch:receipt-read_only_no_mutation_drill",
+      ],
+      replayFixtureRefs: [
+        "harness-default-dispatch:fixture-read_only_source_router",
+        "harness-default-dispatch:fixture-read_only_capability_sequencer",
+        "harness-default-dispatch:fixture-read_only_tool_router",
+        "harness-default-dispatch:fixture-read_only_no_mutation_drill",
+      ],
+      policyDecision:
+        "accept_workflow_read_only_capability_routing_without_side_effects",
+    },
+    modelExecutionProof: {
+      schemaVersion: "workflow.harness.model-execution-envelope.v1",
+      mode: "workflow_synchronous_envelope",
+      bindingId: modelExecutionBindingId,
+      bindingReady: true,
+      promptHash: modelExecutionPromptHash,
+      promptHashMatches: true,
+      outputHash: modelExecutionOutputHash,
+      outputHashMatches: true,
+      providerInvocationMode: "workflow_provider_canary",
+      lowLevelInvocationDeferred: false,
+      fallbackSelector: "legacy_runtime_model_invocation",
+      latencyMs: 0,
+      providerCanaryReady: true,
+      providerCanaryAttemptIds: [
+        "harness-default-dispatch:attempt-model_provider_call_canary",
+      ],
+      providerCanaryReceiptIds: [
+        "harness-default-dispatch:receipt-model_provider_call_canary",
+      ],
+      providerCanaryReplayFixtureRefs: [
+        "harness-default-dispatch:fixture-model_provider_call_canary",
+      ],
+      providerGatedVisibleOutputReady: true,
+      providerGatedVisibleOutputSelected: true,
+      providerGatedVisibleOutputAttemptIds: [
+        "harness-default-dispatch:attempt-model_provider_gated_visible_output",
+      ],
+      providerGatedVisibleOutputReceiptIds: [
+        "harness-default-dispatch:receipt-model_provider_gated_visible_output",
+      ],
+      providerGatedVisibleOutputReplayFixtureRefs: [
+        "harness-default-dispatch:fixture-model_provider_gated_visible_output",
+      ],
+      providerGatedVisibleOutputRollbackDrillReady: true,
+      providerGatedVisibleOutputRollbackDrillAttemptIds: [
+        "harness-default-dispatch:attempt-model_provider_gated_visible_output_rollback_drill",
+      ],
+      providerGatedVisibleOutputRollbackDrillReceiptIds: [
+        "harness-default-dispatch:receipt-model_provider_gated_visible_output_rollback_drill",
+      ],
+      providerGatedVisibleOutputRollbackDrillReplayFixtureRefs: [
+        "harness-default-dispatch:fixture-model_provider_gated_visible_output_rollback_drill",
+      ],
+      selectedVisibleOutputAuthority: "workflow_model_provider_call",
+      attemptIds: [
+        "harness-default-dispatch:attempt-model_router_envelope",
+        "harness-default-dispatch:attempt-model_call_envelope",
+        "harness-default-dispatch:attempt-model_provider_call_canary",
+        "harness-default-dispatch:attempt-model_provider_gated_visible_output",
+        "harness-default-dispatch:attempt-model_provider_gated_visible_output_rollback_drill",
+      ],
+      receiptIds: [
+        "harness-default-dispatch:receipt-model_router_envelope",
+        "harness-default-dispatch:receipt-model_call_envelope",
+        "harness-default-dispatch:receipt-model_provider_call_canary",
+        "harness-default-dispatch:receipt-model_provider_gated_visible_output",
+        "harness-default-dispatch:receipt-model_provider_gated_visible_output_rollback_drill",
+      ],
+      replayFixtureRefs: [
+        "harness-default-dispatch:fixture-model_router_envelope",
+        "harness-default-dispatch:fixture-model_call_envelope",
+        "harness-default-dispatch:fixture-model_provider_call_canary",
+        "harness-default-dispatch:fixture-model_provider_gated_visible_output",
+        "harness-default-dispatch:fixture-model_provider_gated_visible_output_rollback_drill",
+      ],
+      policyDecision:
+        "accept_workflow_model_provider_call_canary_with_legacy_rollback",
+    },
+    outputAuthority: "blessed_workflow_activation_default",
+    outputWriterDeferred: false,
+    outputWriterStatus: "visible_write_committed",
+    outputWriterHandoffReady: true,
+    outputWriterAuthorityTransferred: true,
+    outputWriterMaterializationMode: "workflow_visible_transcript_write",
+    outputWriterMaterializationCanaryReady: true,
+    outputWriterMaterializationCommitted: true,
+    outputWriterStagedWriteMode: "isolated_checkpoint_blob",
+    outputWriterStagedWriteCanaryReady: true,
+    outputWriterStagedWritePersisted: true,
+    outputWriterStagedWriteCommitted: true,
+    outputWriterStagedWriteVisible: false,
+    outputWriterStagedWriteExcludedFromVisibleTranscript: true,
+    outputWriterStagedWriteRollbackStatus: "deleted",
+    outputWriterStagedWriteRollbackVerified: true,
+    outputWriterVisibleWriteMode: "workflow_visible_transcript_write",
+    outputWriterVisibleWriteReady: true,
+    outputWriterVisibleWritePersisted: true,
+    outputWriterVisibleWriteCommitted: true,
+    outputWriterVisibleWriteVisible: true,
+    outputWriterVisibleWriteIdentityCheckpointPersisted: true,
+    outputWriterVisibleWriteLegacyDuplicateSuppressed: true,
+    authorityToolingMode: "workflow_live_dry_run",
+    authorityToolingReady: true,
+    authorityToolingPolicyGateReady: true,
+    authorityToolingToolRouterReady: true,
+    authorityToolingDryRunSimulatorReady: true,
+    authorityToolingApprovalGateReady: true,
+    authorityToolingReadOnlyRouteAccepted: true,
+    authorityToolingDestructiveRouteDenied: true,
+    authorityToolingMutatingToolCallsBlocked: true,
+    authorityToolingSideEffectsExecuted: false,
+    authorityToolingRollbackAvailable: true,
+    authorityToolingProof: {
+      schemaVersion: "workflow.harness.authority-tooling-live-dry-run.v1",
+      mode: "workflow_live_dry_run",
+      readOnlyRouteAccepted: true,
+      destructiveRouteDenied: true,
+      mutatingToolCallsBlocked: true,
+      sideEffectsExecuted: false,
+      policyGateReady: true,
+      toolRouterReady: true,
+      dryRunSimulatorReady: true,
+      approvalGateReady: true,
+      rollbackAvailable: true,
+      denialReceiptIds: [
+        "harness-default-dispatch:receipt-authority_tooling_destructive_denial",
+      ],
+      deferredMutationComponentKinds: deferredComponentKinds,
+      policyDecision:
+        "allow_read_only_route_and_deny_destructive_tooling_without_side_effect",
+    },
+    legacyTranscriptAuthorityRetained: false,
+    legacyTranscriptFallbackAvailable: true,
+    proposedVisibleOutputHash,
+    actualVisibleOutputHash,
+    outputHashAlgorithm: "runtime_prompt_hash:v1",
+    outputHashMatches: proposedVisibleOutputHash === actualVisibleOutputHash,
+    outputHashDivergence: false,
+    outputHashDivergenceCount: 0,
+    workflowTranscriptWriteCandidate,
+    workflowTranscriptWriteRecord,
+    visibleTranscriptWriteProof,
+    legacyTranscriptFallbackProof,
+    legacyTranscriptWriteRecord,
+    stagedTranscriptWriteRecord,
+    stagedTranscriptWriteProof,
+    transcriptMaterializationContentHashMatches: true,
+    transcriptMaterializationOrderMatches: true,
+    transcriptMaterializationReceiptBindingMatches: true,
+    transcriptMaterializationTargetMatches: true,
+    transcriptMaterializationMatches: true,
+    transcriptMaterializationDivergenceCount: 0,
+    stagedTranscriptWriteContentHashMatches: true,
+    stagedTranscriptWriteOrderMatches: true,
+    stagedTranscriptWriteReceiptBindingMatches: true,
+    stagedTranscriptWriteTargetMatches: true,
+    stagedTranscriptWriteMatches: true,
+    stagedTranscriptWriteDivergenceCount: 0,
+    visibleTranscriptWriteContentHashMatches: true,
+    visibleTranscriptWriteOrderMatches: true,
+    visibleTranscriptWriteReceiptBindingMatches: true,
+    visibleTranscriptWriteTargetMatches: true,
+    visibleTranscriptWriteMatches: true,
+    visibleTranscriptWriteDivergenceCount: 0,
+    stagedTranscriptWriteComparison: {
+      contentHashMatches: true,
+      orderMatches: true,
+      receiptBindingMatches: true,
+      targetMatches: true,
+      stagedWritePersisted: true,
+      stagedWriteCommitted: true,
+      stagedWriteVisible: false,
+      excludedFromVisibleTranscript: true,
+      rollbackStatus: "deleted",
+      rollbackVerified: true,
+      matches: true,
+      divergenceClass: null,
+    },
+    transcriptMaterializationComparison: {
+      contentHashMatches: true,
+      orderMatches: true,
+      receiptBindingMatches: true,
+      targetMatches: true,
+      candidateCommitted: false,
+      legacyCommitted: false,
+      legacyDuplicateSuppressed: true,
+      matches: true,
+      divergenceClass: null,
+    },
+    visibleTranscriptWriteComparison: {
+      contentHashMatches: true,
+      orderMatches: true,
+      receiptBindingMatches: true,
+      targetMatches: true,
+      workflowWritePersisted: true,
+      workflowWriteCommitted: true,
+      workflowWriteVisible: true,
+      identityCheckpointPersisted: true,
+      legacyDuplicateSuppressed: true,
+      matches: true,
+      divergenceClass: null,
+    },
+    outputHashComparison: {
+      proposedVisibleOutputHash,
+      actualVisibleOutputHash,
+      hashAlgorithm: "runtime_prompt_hash:v1",
+      matches: proposedVisibleOutputHash === actualVisibleOutputHash,
+      divergenceClass: null,
+    },
+    legacyOutputAuthorityRetained: false,
+    legacyOutputFallbackAvailable: true,
+    mutatingTurnsBlocked: true,
+    rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+    rollbackAvailable: true,
+    activationBlockers: options.activationBlockers ?? [],
+    policyDecision:
+      "accept_read_only_workflow_default_dispatch_with_authority_dry_run_and_visible_write",
+    evidenceRefs: options.evidenceRefs ?? [],
+  };
+}
+
+export function makeHarnessCanaryExecutionBoundary(options: {
+  boundaryId?: string;
+  clusterId?: WorkflowHarnessPromotionClusterId;
+  selectorDecisionId?: string;
+  status?: WorkflowHarnessCanaryExecutionBoundary["status"];
+  executionMode?: WorkflowHarnessExecutionMode;
+  runtimeAuthority?: WorkflowHarnessCanaryExecutionBoundary["runtimeAuthority"];
+  activationBlockers?: string[];
+  rollbackDrillStatus?: WorkflowHarnessCanaryExecutionBoundary["rollbackDrill"]["drillStatus"];
+} = {}): WorkflowHarnessCanaryExecutionBoundary {
+  const clusterId = options.clusterId ?? "verification_output";
+  const componentKinds: WorkflowHarnessCanaryExecutionBoundary["componentKinds"] =
+    HARNESS_PROMOTION_CLUSTER_COMPONENTS[clusterId];
+  const failedNodeKind =
+    clusterId === "cognition"
+      ? "task_state"
+      : clusterId === "routing_model"
+        ? "model_router"
+        : clusterId === "authority_tooling"
+          ? "policy_gate"
+          : "verifier";
+  const passed = options.status !== "blocked" && options.status !== "rolled_back";
+  return {
+    schemaVersion: "workflow.harness.canary-execution-boundary.v1",
+    boundaryId:
+      options.boundaryId ?? `harness-canary-boundary:default-agent-harness:${clusterId}`,
+    clusterId,
+    clusterLabel: HARNESS_PROMOTION_CLUSTER_LABELS[clusterId],
+    selectorDecisionId:
+      options.selectorDecisionId ?? "harness-selector:default-agent-harness:canary",
+    selectedSelector: passed ? "blessed_workflow_live_canary" : "legacy_runtime",
+    productionDefaultSelector: "legacy_runtime",
+    workflowId: DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+    activationId: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+    harnessHash: DEFAULT_AGENT_HARNESS_HASH,
+    executionMode: options.executionMode ?? (passed ? "live" : "gated"),
+    runtimeAuthority:
+      options.runtimeAuthority ??
+      (passed ? "blessed_workflow_activation_canary" : "existing_runtime_service"),
+    executorKind: "workflow_node_executor",
+    executorRef: "crate::project::execute_workflow_harness_canary_node",
+    synchronous: true,
+    enforcedBeforeVisibleOutput: true,
+    canaryEligible: passed,
+    status: options.status ?? "passed",
+    componentKinds,
+    executedComponentKinds: passed ? componentKinds : [],
+    workflowNodeIds: componentKinds.map((kind) => `harness.${kind}`),
+    nodeAttemptIds: componentKinds.map(
+      (kind, index) => `harness-canary:default:turn-1:${kind}:attempt-${index + 1}`,
+    ),
+    receiptIds: componentKinds.map((kind) => `default:harness.${kind}:workflow-node-execution`),
+    replayFixtureRefs: componentKinds.map((kind) => `runtime-evidence:default:canary-fixture:${kind}`),
+    activationBlockers: options.activationBlockers ?? [],
+    rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+    rollbackAvailable: true,
+    rollbackDrill: {
+      schemaVersion: "workflow.harness.canary-rollback-drill.v1",
+      drillId: "harness-canary-rollback-drill:default",
+      selectorDecisionId:
+        options.selectorDecisionId ?? "harness-selector:default-agent-harness:canary",
+      failureInjected: passed,
+      failedNodeId: `harness.${failedNodeKind}.rollback_drill`,
+      clusterId,
+      failureClass: "deterministic_executor_failure",
+      observedFailure: passed,
+      rollbackExecuted: passed,
+      rollbackSelector: "legacy_runtime",
+      fallbackAuthority: "existing_runtime_service",
+      rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+      rollbackAvailable: true,
+      drillStatus: options.rollbackDrillStatus ?? (passed ? "passed" : "not_run"),
+      policyDecision: passed
+        ? "rollback_to_legacy_runtime_on_workflow_executor_failure"
+        : "retain_legacy_runtime_default",
+      evidenceRefs: ["runtime-evidence:default"],
+    },
+    policyDecision: passed
+      ? "allow_synchronous_workflow_node_canary_boundary"
+      : "retain_legacy_runtime_default",
+    evidenceRefs: [`runtime-evidence:canary-boundary:${clusterId}`],
+  };
+}
+
+export function makeHarnessCanaryExecutionBoundaries(): WorkflowHarnessCanaryExecutionBoundary[] {
+  return [
+    makeHarnessCanaryExecutionBoundary({ clusterId: "cognition" }),
+    makeHarnessCanaryExecutionBoundary({ clusterId: "routing_model" }),
+    makeHarnessCanaryExecutionBoundary({ clusterId: "verification_output" }),
+    makeHarnessCanaryExecutionBoundary({ clusterId: "authority_tooling" }),
+  ];
+}
+
+const DEFAULT_HARNESS_EXECUTION_MODE: WorkflowHarnessExecutionMode = "projection";
+const DEFAULT_HARNESS_COMPONENT_READINESS: WorkflowHarnessComponentReadiness = "projection_only";
+const SHADOW_READY_HARNESS_COMPONENTS = new Set<WorkflowHarnessComponentKind>([
+  "planner",
+  "prompt_assembler",
+  "task_state",
+  "uncertainty_gate",
+  "budget_gate",
+  "capability_sequencer",
+  "model_router",
+  "model_call",
+  "tool_router",
+  "policy_gate",
+  "approval_gate",
+  "postcondition_synthesizer",
+  "verifier",
+  "completion_gate",
+  "receipt_writer",
+  "quality_ledger",
+  "output_writer",
+]);
+
+const HARNESS_PROMOTION_CLUSTER_COMPONENTS: Record<
+  WorkflowHarnessPromotionClusterId,
+  WorkflowHarnessComponentKind[]
+> = {
+  cognition: [
+    "planner",
+    "prompt_assembler",
+    "task_state",
+    "uncertainty_gate",
+    "budget_gate",
+    "capability_sequencer",
+  ],
+  routing_model: ["model_router", "model_call", "tool_router"],
+  verification_output: [
+    "postcondition_synthesizer",
+    "verifier",
+    "completion_gate",
+    "receipt_writer",
+    "quality_ledger",
+    "output_writer",
+  ],
+  authority_tooling: [
+    "policy_gate",
+    "approval_gate",
+    "dry_run_simulator",
+    "mcp_provider",
+    "mcp_tool_call",
+    "tool_call",
+    "connector_call",
+    "wallet_capability",
+  ],
+};
+
+const HARNESS_PROMOTION_CLUSTER_LABELS: Record<WorkflowHarnessPromotionClusterId, string> = {
+  cognition: "Cognition",
+  routing_model: "Routing and model",
+  verification_output: "Verification and output",
+  authority_tooling: "Authority and tooling",
+};
+
 type ComponentSeed = {
   kind: WorkflowHarnessComponentKind;
   label: string;
   description: string;
   kernelRef: string;
+  readiness?: WorkflowHarnessComponentReadiness;
   capabilityScope: string[];
   approvalMode?: WorkflowHarnessComponentSpec["approval"]["mode"];
   approvalRequired?: boolean;
@@ -76,12 +1232,19 @@ function componentId(kind: WorkflowHarnessComponentKind): string {
   return `ioi.agent-harness.${kind}.v1`;
 }
 
+function defaultReadinessForKind(kind: WorkflowHarnessComponentKind): WorkflowHarnessComponentReadiness {
+  return SHADOW_READY_HARNESS_COMPONENTS.has(kind)
+    ? "shadow_ready"
+    : DEFAULT_HARNESS_COMPONENT_READINESS;
+}
+
 function makeComponent(seed: ComponentSeed): WorkflowHarnessComponentSpec {
   const approvalRequired = seed.approvalRequired ?? false;
   return {
     componentId: componentId(seed.kind),
     version: "1.0.0",
     kind: seed.kind,
+    readiness: seed.readiness ?? defaultReadinessForKind(seed.kind),
     label: seed.label,
     description: seed.description,
     kernelRef: seed.kernelRef,
@@ -126,6 +1289,17 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] = 
     evidence: ["plan_id", "planner_policy_hash", "chosen_step_reason"],
     group: "Planning",
     icon: "list-checks",
+  }),
+  makeComponent({
+    kind: "prompt_assembler",
+    label: "Prompt assembler",
+    description: "Builds the runtime prompt envelope from session state, policy, tools, evidence, and truncation diagnostics.",
+    kernelRef: "crates/types/src/app/runtime_contracts.rs::PromptAssemblyContract",
+    capabilityScope: ["prompt.assemble", "session.state.read", "evidence.read"],
+    eventKinds: ["PromptAssemblyContract", "AgentRuntimeEvent"],
+    evidence: ["sections", "final_prompt_hash", "conflict_resolutions", "truncation_diagnostics"],
+    group: "Planning",
+    icon: "panel-top",
   }),
   makeComponent({
     kind: "task_state",
@@ -662,6 +1836,7 @@ export const DEFAULT_AGENT_HARNESS_SLOTS = REQUIRED_HARNESS_SLOTS;
 
 const HARNESS_FLOW: WorkflowHarnessComponentKind[] = [
   "planner",
+  "prompt_assembler",
   "task_state",
   "uncertainty_gate",
   "budget_gate",
@@ -696,6 +1871,8 @@ const HARNESS_FLOW: WorkflowHarnessComponentKind[] = [
 ];
 
 const SLOT_BY_KIND: Partial<Record<WorkflowHarnessComponentKind, WorkflowHarnessSlotKind[]>> = {
+  planner: ["state_policy"],
+  prompt_assembler: ["state_policy"],
   task_state: ["state_policy"],
   uncertainty_gate: ["state_policy", "budget_policy"],
   probe_runner: ["verifier_policy", "budget_policy"],
@@ -743,27 +1920,62 @@ function slotIdsFor(kind: WorkflowHarnessComponentKind): string[] {
     .filter((slotId): slotId is string => Boolean(slotId));
 }
 
+function componentCapturesPolicyDecision(kind: WorkflowHarnessComponentKind): boolean {
+  return [
+    "uncertainty_gate",
+    "budget_gate",
+    "dry_run_simulator",
+    "policy_gate",
+    "approval_gate",
+    "wallet_capability",
+    "retry_policy",
+    "completion_gate",
+  ].includes(kind);
+}
+
+function componentIsNondeterministic(kind: WorkflowHarnessComponentKind): boolean {
+  return [
+    "model_call",
+    "tool_call",
+    "mcp_tool_call",
+    "connector_call",
+    "wallet_capability",
+  ].includes(kind);
+}
+
+function replayEnvelopeFor(component: WorkflowHarnessComponentSpec): WorkflowHarnessReplayEnvelope {
+  const nondeterministic = componentIsNondeterministic(component.kind);
+  return {
+    deterministicEnvelope: !nondeterministic,
+    capturesInput: true,
+    capturesOutput: true,
+    capturesPolicyDecision: componentCapturesPolicyDecision(component.kind),
+    determinism: nondeterministic ? "nondeterministic" : "deterministic",
+    nondeterminismReason: nondeterministic
+      ? "External model, tool, connector, or wallet boundary requires retained fixture evidence"
+      : undefined,
+    redactionPolicy: "runtime_redacted",
+  };
+}
+
 function runtimeBindingFor(component: WorkflowHarnessComponentSpec): WorkflowHarnessNodeBinding {
+  const replayEnvelope = replayEnvelopeFor(component);
   return {
     componentId: component.componentId,
     componentVersion: component.version,
     componentKind: component.kind,
+    executionMode: DEFAULT_HARNESS_EXECUTION_MODE,
+    readiness: component.readiness,
     kernelRef: component.kernelRef,
     slotIds: slotIdsFor(component.kind),
     evidenceEventKinds: component.emittedEvents,
     receiptKinds: component.evidence,
+    replayEnvelope,
     replay: {
-      deterministicEnvelope: true,
-      capturesInput: true,
-      capturesOutput: true,
-      capturesPolicyDecision: [
-        "uncertainty_gate",
-        "budget_gate",
-        "dry_run_simulator",
-        "policy_gate",
-        "approval_gate",
-        "wallet_capability",
-      ].includes(component.kind),
+      deterministicEnvelope: replayEnvelope.deterministicEnvelope,
+      capturesInput: replayEnvelope.capturesInput,
+      capturesOutput: replayEnvelope.capturesOutput,
+      capturesPolicyDecision: replayEnvelope.capturesPolicyDecision,
     },
   };
 }
@@ -989,18 +2201,45 @@ function makeHarnessEdges(nodes: WorkflowNode[]): WorkflowEdge[] {
   }));
 }
 
+export function defaultHarnessPromotionClusters(): WorkflowHarnessPromotionCluster[] {
+  return ([
+    "cognition",
+    "routing_model",
+    "verification_output",
+    "authority_tooling",
+  ] as WorkflowHarnessPromotionClusterId[]).map((clusterId, index) => ({
+    clusterId,
+    label: HARNESS_PROMOTION_CLUSTER_LABELS[clusterId],
+    activationOrder: index + 1,
+    componentKinds: HARNESS_PROMOTION_CLUSTER_COMPONENTS[clusterId],
+    requiredExecutionMode: "gated",
+    minimumReadiness: "shadow_ready",
+    promotionRule:
+      "Requires zero blocking divergence, receipt coverage, replay fixture coverage, canary pass, and rollback target.",
+    rollbackTarget: "shadow",
+    blocksLiveActivation: true,
+  }));
+}
+
 function harnessMetadata(options: {
   blessed: boolean;
   forkedFrom?: WorkflowHarnessMetadata["forkedFrom"];
   packageName?: string;
   activationId?: string;
   activationState: WorkflowHarnessMetadata["activationState"];
+  activationRecord?: WorkflowHarnessForkActivationRecord;
+  liveHandoffProof?: WorkflowHarnessLiveHandoffProof;
+  runtimeSelectorDecision?: WorkflowHarnessRuntimeSelectorDecision;
+  defaultRuntimeDispatchProof?: WorkflowHarnessDefaultRuntimeDispatchProof;
+  canaryExecutionBoundary?: WorkflowHarnessCanaryExecutionBoundary;
+  canaryExecutionBoundaries?: WorkflowHarnessCanaryExecutionBoundary[];
 }): WorkflowHarnessMetadata {
   return {
     schemaVersion: "workflow.harness.v1",
     harnessWorkflowId: DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
     harnessVersion: DEFAULT_AGENT_HARNESS_VERSION,
     harnessHash: DEFAULT_AGENT_HARNESS_HASH,
+    executionMode: DEFAULT_HARNESS_EXECUTION_MODE,
     templateName: "Default Agent Harness",
     blessed: options.blessed,
     forkable: options.blessed,
@@ -1008,6 +2247,12 @@ function harnessMetadata(options: {
     packageName: options.packageName,
     activationId: options.activationId,
     activationState: options.activationState,
+    activationRecord: options.activationRecord,
+    liveHandoffProof: options.liveHandoffProof,
+    runtimeSelectorDecision: options.runtimeSelectorDecision,
+    defaultRuntimeDispatchProof: options.defaultRuntimeDispatchProof,
+    canaryExecutionBoundary: options.canaryExecutionBoundary,
+    canaryExecutionBoundaries: options.canaryExecutionBoundaries,
     validationGates: [
       "component_contracts_present",
       "required_slots_bound",
@@ -1019,6 +2264,13 @@ function harnessMetadata(options: {
     aiMutationMode: "proposal_only",
     componentIds: DEFAULT_AGENT_HARNESS_COMPONENTS.map((component) => component.componentId),
     slotIds: REQUIRED_HARNESS_SLOTS.map((slot) => slot.slotId),
+    componentReadiness: Object.fromEntries(
+      DEFAULT_AGENT_HARNESS_COMPONENTS.map((component) => [
+        component.componentId,
+        component.readiness,
+      ]),
+    ),
+    promotionClusters: defaultHarnessPromotionClusters(),
   };
 }
 
@@ -1044,6 +2296,7 @@ export function makeDefaultAgentHarnessWorkflow(nowMs = Date.now()): WorkflowPro
         harnessWorkflowId: DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
         harnessActivationId: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
         harnessHash: DEFAULT_AGENT_HARNESS_HASH,
+        executionMode: DEFAULT_HARNESS_EXECUTION_MODE,
         source: "default",
       },
       createdAtMs: nowMs,
@@ -1128,6 +2381,21 @@ export function forkDefaultAgentHarnessWorkflow(
 } {
   const base = makeDefaultAgentHarnessWorkflow(nowMs);
   const slug = slugify(name);
+  const activationGateProposalId = `proposal-${slug}-activation-gates`;
+  const forkWorkerHarnessBinding: WorkflowHarnessWorkerBinding = {
+    harnessWorkflowId: slug,
+    harnessHash: DEFAULT_AGENT_HARNESS_HASH,
+    executionMode: DEFAULT_HARNESS_EXECUTION_MODE,
+    source: "fork",
+  };
+  const blockedActivationRecord = makeHarnessForkActivationRecord({
+    workflowId: slug,
+    harnessWorkflowId: slug,
+    activationState: "blocked",
+    evidenceRefs: [activationGateProposalId],
+    workerBinding: forkWorkerHarnessBinding,
+    mintedAtMs: nowMs,
+  });
   const workflow: WorkflowProject = {
     ...base,
     metadata: {
@@ -1147,12 +2415,9 @@ export function forkDefaultAgentHarnessWorkflow(
         },
         packageName: slug,
         activationState: "blocked",
+        activationRecord: blockedActivationRecord,
       }),
-      workerHarnessBinding: {
-        harnessWorkflowId: slug,
-        harnessHash: DEFAULT_AGENT_HARNESS_HASH,
-        source: "fork",
-      },
+      workerHarnessBinding: forkWorkerHarnessBinding,
       createdAtMs: nowMs,
       updatedAtMs: nowMs,
     },
@@ -1180,7 +2445,7 @@ export function forkDefaultAgentHarnessWorkflow(
     tests: defaultAgentHarnessTests(workflow),
     proposals: [
       {
-        id: `proposal-${slug}-activation-gates`,
+        id: activationGateProposalId,
         title: "Review harness fork activation gates",
         summary:
           "Forked harness packages stay inactive until component slots, MCP access, replay evidence, and proposal-only mutation gates are validated.",
@@ -1246,6 +2511,7 @@ export function workflowHarnessWorkerBinding(
       harnessWorkflowId: workflow.metadata.id,
       harnessActivationId: harness.activationId,
       harnessHash: harness.harnessHash,
+      executionMode: harness.executionMode,
       source: harness.blessed ? "default" : "fork",
     };
   }
@@ -1253,6 +2519,7 @@ export function workflowHarnessWorkerBinding(
     harnessWorkflowId: DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
     harnessActivationId: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
     harnessHash: DEFAULT_AGENT_HARNESS_HASH,
+    executionMode: DEFAULT_HARNESS_EXECUTION_MODE,
     source: "legacy",
   };
 }
@@ -1263,6 +2530,7 @@ export function harnessNodeEvidenceSummary(node: Node): Array<{ label: string; v
   return [
     { label: "Component", value: component.componentId },
     { label: "Version", value: component.version },
+    { label: "Readiness", value: component.readiness },
     { label: "Kernel", value: component.kernelRef },
     { label: "Capability", value: component.requiredCapabilityScope.join(", ") || "none" },
     { label: "Approval", value: component.approval.required ? component.approval.mode : "none" },

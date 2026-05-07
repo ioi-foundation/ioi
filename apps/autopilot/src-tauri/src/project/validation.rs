@@ -861,6 +861,99 @@ fn workflow_node_is_mcp_tool(node: &Value) -> bool {
             == Some("mcp_tool")
 }
 
+fn workflow_harness_is_blessed(workflow: &WorkflowProject) -> bool {
+    workflow
+        .metadata
+        .harness
+        .as_ref()
+        .and_then(|harness| harness.get("blessed"))
+        .and_then(Value::as_bool)
+        == Some(true)
+}
+
+fn workflow_is_harness_fork(workflow: &WorkflowProject) -> bool {
+    workflow.metadata.harness.is_some() && !workflow_harness_is_blessed(workflow)
+}
+
+fn workflow_json_string<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
+    value
+        .get(key)
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+}
+
+fn workflow_harness_required_slot_ids(harness: &Value) -> std::collections::BTreeSet<String> {
+    harness
+        .get("slotIds")
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(ToOwned::to_owned)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn workflow_runtime_binding_slot_ids(
+    workflow: &WorkflowProject,
+) -> std::collections::BTreeSet<String> {
+    workflow
+        .nodes
+        .iter()
+        .flat_map(|node| {
+            node.get("runtimeBinding")
+                .and_then(|binding| binding.get("slotIds"))
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+                .filter_map(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(ToOwned::to_owned)
+        })
+        .collect()
+}
+
+fn workflow_harness_activation_record_validated(
+    workflow: &WorkflowProject,
+    harness: &Value,
+) -> bool {
+    let Some(activation_id) = workflow_json_string(harness, "activationId") else {
+        return false;
+    };
+    if workflow_json_string(harness, "activationState") != Some("validated") {
+        return false;
+    }
+    let Some(record) = harness.get("activationRecord") else {
+        return false;
+    };
+    let Some(worker_binding) = workflow.metadata.worker_harness_binding.as_ref() else {
+        return false;
+    };
+    workflow_json_string(record, "activationId") == Some(activation_id)
+        && workflow_json_string(record, "activationState") == Some("validated")
+        && workflow_json_string(record, "canaryStatus") == Some("passed")
+        && record.get("rollbackAvailable").and_then(Value::as_bool) == Some(true)
+        && record
+            .get("liveAuthorityTransferred")
+            .and_then(Value::as_bool)
+            == Some(false)
+        && worker_binding
+            .get("harnessActivationId")
+            .and_then(Value::as_str)
+            == Some(activation_id)
+        && record
+            .get("workerBinding")
+            .and_then(|binding| binding.get("harnessActivationId"))
+            .and_then(Value::as_str)
+            == Some(activation_id)
+}
+
 pub(super) fn apply_workflow_activation_readiness(
     workflow: &WorkflowProject,
     tests: &[WorkflowTestCase],
@@ -1003,6 +1096,101 @@ pub(super) fn apply_workflow_activation_readiness(
                         .to_string(),
             },
         );
+    }
+    if workflow_harness_is_blessed(workflow) {
+        push_workflow_advisory_warning(
+            &mut result,
+            WorkflowValidationIssue {
+                node_id: None,
+                code: "harness_read_only_template".to_string(),
+                message:
+                    "The Default Agent Harness is a read-only blessed template. Fork it before attempting activation changes."
+                        .to_string(),
+            },
+        );
+    }
+    if workflow_is_harness_fork(workflow) {
+        let harness = workflow
+            .metadata
+            .harness
+            .as_ref()
+            .expect("harness fork should have harness metadata");
+        if harness.get("forkedFrom").is_none() {
+            push_workflow_readiness_issue(
+                &mut result,
+                WorkflowValidationIssue {
+                    node_id: None,
+                    code: "harness_fork_lineage_missing".to_string(),
+                    message:
+                        "Harness forks need lineage metadata before they can be packaged or activated."
+                            .to_string(),
+                },
+            );
+        }
+        let worker_binding = workflow.metadata.worker_harness_binding.as_ref();
+        let worker_binding_ready = worker_binding
+            .and_then(|binding| binding.get("harnessWorkflowId"))
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .is_some()
+            && worker_binding
+                .and_then(|binding| binding.get("harnessHash"))
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .is_some();
+        if !worker_binding_ready {
+            push_workflow_readiness_issue(
+                &mut result,
+                WorkflowValidationIssue {
+                    node_id: None,
+                    code: "harness_worker_binding_missing".to_string(),
+                    message:
+                        "Harness forks need worker binding fields for harness workflow id, activation id, and hash."
+                            .to_string(),
+                },
+            );
+        }
+        let required_slot_ids = workflow_harness_required_slot_ids(harness);
+        if !required_slot_ids.is_empty() {
+            let bound_slot_ids = workflow_runtime_binding_slot_ids(workflow);
+            for slot_id in required_slot_ids.difference(&bound_slot_ids) {
+                push_workflow_readiness_issue(
+                    &mut result,
+                    WorkflowValidationIssue {
+                        node_id: None,
+                        code: "harness_required_slot_unbound".to_string(),
+                        message: format!(
+                            "Harness slot '{}' must be bound before this harness fork can activate.",
+                            slot_id
+                        ),
+                    },
+                );
+            }
+        }
+        if workflow_json_string(harness, "aiMutationMode") != Some("proposal_only") {
+            push_workflow_readiness_issue(
+                &mut result,
+                WorkflowValidationIssue {
+                    node_id: None,
+                    code: "harness_self_mutation_not_proposal_only".to_string(),
+                    message:
+                        "Harness forks can only accept AI-authored edits as proposals until a user applies them."
+                            .to_string(),
+                },
+            );
+        }
+        if !workflow_harness_activation_record_validated(workflow, harness) {
+            push_workflow_readiness_issue(
+                &mut result,
+                WorkflowValidationIssue {
+                    node_id: None,
+                    code: "harness_activation_not_validated".to_string(),
+                    message: "Harness forks remain inactive until validation creates a reviewed activation id, passing canary, rollback target, and matching worker binding.".to_string(),
+                },
+            );
+        }
     }
     let replay_fixture_blocks_activation = workflow_environment_requires_live_readiness(workflow)
         || workflow_production_bool(workflow, "requireReplayFixtures");
