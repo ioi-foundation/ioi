@@ -881,6 +881,18 @@ fn default_runtime_dispatch_proof_accepts_readonly_default_with_provider_visible
             >= 5
     );
     assert!(dispatch
+        .authority_tooling_provider_catalog_live_attempt_ids
+        .iter()
+        .any(|id| id.contains("authority_tooling_mcp_provider_read_only")));
+    assert!(dispatch
+        .authority_tooling_provider_catalog_live_receipt_ids
+        .iter()
+        .any(|id| id.contains("authority_tooling_mcp_provider_read_only")));
+    assert!(dispatch
+        .authority_tooling_provider_catalog_live_replay_fixture_refs
+        .iter()
+        .any(|id| id.contains("authority_tooling_mcp_provider_read_only")));
+    assert!(dispatch
         .authority_tooling_read_only_component_kinds
         .contains(&HarnessComponentKind::McpToolCall));
     assert!(dispatch

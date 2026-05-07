@@ -613,6 +613,15 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
       "harness-default-dispatch:fixture-authority_tooling_connector_call_read_only",
       "harness-default-dispatch:fixture-authority_tooling_wallet_capability_read_only",
     ],
+    authorityToolingProviderCatalogLiveAttemptIds: [
+      "harness-default-dispatch:attempt-authority_tooling_mcp_provider_read_only",
+    ],
+    authorityToolingProviderCatalogLiveReceiptIds: [
+      "harness-default-dispatch:receipt-authority_tooling_mcp_provider_read_only",
+    ],
+    authorityToolingProviderCatalogLiveReplayFixtureRefs: [
+      "harness-default-dispatch:fixture-authority_tooling_mcp_provider_read_only",
+    ],
     authorityToolingReadOnlyComponentKinds,
     authorityToolingMutationDeferredComponentKinds,
     authorityToolingDenialReceiptIds: [
@@ -990,6 +999,8 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     authorityToolingDryRunSimulatorReady: true,
     authorityToolingApprovalGateReady: true,
     authorityToolingReadOnlyAuthorityCanaryReady: true,
+    authorityToolingProviderCatalogLiveReady: true,
+    authorityToolingProviderCatalogLiveComponentKind: "mcp_provider",
     authorityToolingReadOnlyRouteAccepted: true,
     authorityToolingDestructiveRouteDenied: true,
     authorityToolingMutatingToolCallsBlocked: true,
@@ -1008,6 +1019,17 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
       approvalGateReady: true,
       rollbackAvailable: true,
       readOnlyAuthorityCanaryReady: true,
+      providerCatalogLiveReady: true,
+      providerCatalogLiveComponentKind: "mcp_provider",
+      providerCatalogLiveAttemptIds: [
+        "harness-default-dispatch:attempt-authority_tooling_mcp_provider_read_only",
+      ],
+      providerCatalogLiveReceiptIds: [
+        "harness-default-dispatch:receipt-authority_tooling_mcp_provider_read_only",
+      ],
+      providerCatalogLiveReplayFixtureRefs: [
+        "harness-default-dispatch:fixture-authority_tooling_mcp_provider_read_only",
+      ],
       readOnlyComponentKinds: authorityToolingReadOnlyComponentKinds,
       readOnlyAttemptIds: [
         "harness-default-dispatch:attempt-authority_tooling_mcp_provider_read_only",
@@ -2161,6 +2183,7 @@ function nodeLogicFor(component: WorkflowHarnessComponentSpec): Record<string, u
           capabilityScope: component.requiredCapabilityScope,
           sideEffectClass: "read",
           requiresApproval: false,
+          operation: "catalog",
         },
       };
     case "connector_call":

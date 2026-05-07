@@ -949,12 +949,53 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
         .and_then(|value| value.as_array())
         .map(|items| items.len() >= 5)
         .unwrap_or(false));
+    assert_eq!(
+        dispatch
+            .get("authorityToolingProviderCatalogLiveReady")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("authorityToolingProviderCatalogLiveComponentKind")
+            .and_then(|value| value.as_str()),
+        Some("mcp_provider")
+    );
+    assert!(dispatch
+        .get("authorityToolingProviderCatalogLiveAttemptIds")
+        .and_then(|value| value.as_array())
+        .map(|items| !items.is_empty())
+        .unwrap_or(false));
+    assert!(dispatch
+        .get("authorityToolingProviderCatalogLiveReceiptIds")
+        .and_then(|value| value.as_array())
+        .map(|items| !items.is_empty())
+        .unwrap_or(false));
+    assert!(dispatch
+        .get("authorityToolingProviderCatalogLiveReplayFixtureRefs")
+        .and_then(|value| value.as_array())
+        .map(|items| !items.is_empty())
+        .unwrap_or(false));
     assert!(
         dispatch
             .get("authorityToolingProof")
             .and_then(|proof| proof.get("readOnlyAuthorityCanaryReady"))
             .and_then(|value| value.as_bool())
             == Some(true)
+    );
+    assert!(
+        dispatch
+            .get("authorityToolingProof")
+            .and_then(|proof| proof.get("providerCatalogLiveReady"))
+            .and_then(|value| value.as_bool())
+            == Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("authorityToolingProof")
+            .and_then(|proof| proof.get("providerCatalogLiveComponentKind"))
+            .and_then(|value| value.as_str()),
+        Some("mcp_provider")
     );
     assert!(dispatch
         .get("authorityToolingProof")

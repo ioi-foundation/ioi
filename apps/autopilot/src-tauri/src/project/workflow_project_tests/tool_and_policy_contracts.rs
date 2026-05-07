@@ -756,3 +756,80 @@ fn workflow_policy_is_contextual_for_pure_transform_and_privileged_writes() {
         .any(|issue| issue.code == "live_connector_write_unavailable"));
 }
 
+#[test]
+fn live_mcp_provider_catalog_executes_read_only_without_mutation() {
+    let node = json!({
+        "id": "mcp-provider-catalog",
+        "type": "adapter",
+        "name": "MCP provider catalog",
+        "config": {
+            "logic": {
+                "connectorBinding": {
+                    "connectorRef": "mcp.capability-provider",
+                    "mockBinding": false,
+                    "credentialReady": true,
+                    "capabilityScope": ["mcp.provider.read", "mcp.catalog.read"],
+                    "sideEffectClass": "read",
+                    "requiresApproval": false,
+                    "operation": "catalog"
+                }
+            },
+            "law": {
+                "requireHumanGate": false,
+                "sandboxPolicy": {
+                    "permissions": []
+                }
+            }
+        }
+    });
+    let output = execute_workflow_harness_live_default_node(
+        &node,
+        json!({
+            "mode": "test",
+            "mutation": false
+        }),
+        1,
+    )
+    .expect("live read-only MCP provider catalog should execute");
+
+    assert_eq!(
+        output.get("mockBinding").and_then(Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        output.get("credentialReady").and_then(Value::as_bool),
+        Some(true)
+    );
+    let catalog = output
+        .get("providerCatalog")
+        .expect("provider catalog payload should be attached");
+    assert_eq!(
+        catalog.get("schemaVersion").and_then(Value::as_str),
+        Some("workflow.mcp-provider.catalog.v1")
+    );
+    assert_eq!(
+        catalog.get("executionMode").and_then(Value::as_str),
+        Some("live_read_only_catalog")
+    );
+    assert_eq!(catalog.get("live").and_then(Value::as_bool), Some(true));
+    assert_eq!(
+        catalog.get("sideEffectsExecuted").and_then(Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        catalog.get("mutationExecuted").and_then(Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        catalog.get("toolExecutionEnabled").and_then(Value::as_bool),
+        Some(false)
+    );
+    assert!(catalog
+        .get("tools")
+        .and_then(Value::as_array)
+        .map(|tools| tools.iter().any(|tool| {
+            tool.get("toolRef").and_then(Value::as_str) == Some("mcp.tool.catalog.read")
+                && tool.get("executionEnabled").and_then(Value::as_bool) == Some(false)
+        }))
+        .unwrap_or(false));
+}
