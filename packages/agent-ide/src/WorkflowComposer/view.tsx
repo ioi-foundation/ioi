@@ -67,6 +67,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     handleCollapseHarnessGroups,
     handleCompareRun,
     handleConnectSelectedNodes,
+    handleCopyHarnessDeepLink,
     handleCreateProposal,
     handleCreateWorkflow,
     handleDragStart,
@@ -91,12 +92,15 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     handleRunWorkflowNode,
     handleRunWorkflowUpstream,
     handleSave,
+    handleSelectHarnessReceiptRef,
+    handleSelectHarnessReplayFixtureRef,
     handleSelectRun,
     handleUpdateEnvironmentProfile,
     handleUpdateProductionProfile,
     handleValidate,
     handleWorkflowNodeSelect,
     harnessGroupSummary,
+    harnessWorkbenchDeepLinkUrl,
     harnessWorkerBinding,
     ImportPackageModal,
     importPackageName,
@@ -159,6 +163,8 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     selectedExecutionRunResult,
     selectedFixtures,
     selectedHarnessGroup,
+    selectedHarnessReceiptRef,
+    selectedHarnessReplayFixtureRef,
     selectedNode,
     selectedNodeId,
     selectedRunId,
@@ -1201,6 +1207,9 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                     panel={rightPanel}
                     selectedNode={selectedNode}
                     selectedHarnessGroup={selectedHarnessGroup}
+                    harnessWorkbenchDeepLink={harnessWorkbenchDeepLinkUrl}
+                    selectedHarnessReceiptRef={selectedHarnessReceiptRef}
+                    selectedHarnessReplayFixtureRef={selectedHarnessReplayFixtureRef}
                     tests={tests}
                     proposals={proposals}
                     runs={runs}
@@ -1223,6 +1232,9 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                     onOpenExecutions={() => setActiveTab("executions")}
                     onInspectNode={(nodeId) => handleWorkflowNodeSelect(nodeId)}
                     onInspectHarnessGroupNode={handleInspectHarnessGroupNode}
+                    onSelectHarnessReceiptRef={handleSelectHarnessReceiptRef}
+                    onSelectHarnessReplayFixtureRef={handleSelectHarnessReplayFixtureRef}
+                    onCopyHarnessDeepLink={handleCopyHarnessDeepLink}
                     onConfigureNode={() => {
                       if (selectedNode) {
                         setNodeConfigInitialSection(

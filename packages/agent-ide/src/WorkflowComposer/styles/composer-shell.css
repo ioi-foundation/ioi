@@ -1259,6 +1259,32 @@ button.workflow-run-row.is-active {
   white-space: nowrap;
 }
 
+.workflow-harness-ref-button {
+  border: 1px solid var(--border-subtle);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--workflow-panel-strong) 88%, transparent);
+  color: var(--text-secondary);
+  min-width: 0;
+  padding: 6px 8px;
+  text-align: left;
+}
+
+.workflow-harness-ref-button:hover {
+  border-color: var(--accent-blue);
+}
+
+.workflow-harness-ref-button.is-active {
+  border-color: var(--accent-blue);
+  color: var(--text-primary);
+}
+
+.workflow-harness-ref-button code {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .workflow-proposal-card {
   display: grid;
   gap: 5px;

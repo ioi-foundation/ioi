@@ -183,6 +183,16 @@ import {
 import type { WorkflowComposerProps } from "./types";
 
 const HARNESS_GROUP_NODE_PREFIX = "harness.group.";
+const HARNESS_WORKBENCH_DEEP_LINK_PREFIX = "#harness-workbench";
+
+type HarnessWorkbenchDeepLink = {
+  panel?: WorkflowRightPanel;
+  groupId?: string;
+  componentId?: string;
+  runId?: string;
+  receiptRef?: string;
+  replayFixtureRef?: string;
+};
 
 const HARNESS_GROUP_BOUNDARY_PORTS: WorkflowPortDefinition[] = [
   {
@@ -261,6 +271,66 @@ function harnessGroupRollupStatus(group: WorkflowHarnessGroupView): Node["status
   return "idle";
 }
 
+function encodeHarnessWorkbenchDeepLink(link: HarnessWorkbenchDeepLink): string {
+  const params = new URLSearchParams();
+  const setParam = (key: keyof HarnessWorkbenchDeepLink) => {
+    const value = link[key];
+    if (value) {
+      params.set(key, value);
+    }
+  };
+  setParam("panel");
+  setParam("groupId");
+  setParam("componentId");
+  setParam("runId");
+  setParam("receiptRef");
+  setParam("replayFixtureRef");
+  const query = params.toString();
+  return query
+    ? `${HARNESS_WORKBENCH_DEEP_LINK_PREFIX}?${query}`
+    : HARNESS_WORKBENCH_DEEP_LINK_PREFIX;
+}
+
+function parseHarnessWorkbenchDeepLink(hash: string): HarnessWorkbenchDeepLink | null {
+  if (!hash.startsWith(HARNESS_WORKBENCH_DEEP_LINK_PREFIX)) return null;
+  const params = new URLSearchParams(
+    hash.slice(HARNESS_WORKBENCH_DEEP_LINK_PREFIX.length).replace(/^\?/, ""),
+  );
+  const panel = params.get("panel");
+  const link: HarnessWorkbenchDeepLink = {};
+  if (panel && RIGHT_PANELS.some((candidate) => candidate.id === panel)) {
+    link.panel = panel as WorkflowRightPanel;
+  }
+  link.groupId = params.get("groupId") ?? undefined;
+  link.componentId = params.get("componentId") ?? undefined;
+  link.runId = params.get("runId") ?? undefined;
+  link.receiptRef = params.get("receiptRef") ?? undefined;
+  link.replayFixtureRef = params.get("replayFixtureRef") ?? undefined;
+  return link;
+}
+
+function readHarnessWorkbenchDeepLink(): HarnessWorkbenchDeepLink | null {
+  if (typeof window === "undefined") return null;
+  return parseHarnessWorkbenchDeepLink(window.location.hash);
+}
+
+function harnessWorkbenchDeepLinkHref(hash: string): string {
+  if (typeof window === "undefined") return hash;
+  const url = new URL(window.location.href);
+  url.hash = hash;
+  return url.toString();
+}
+
+function writeHarnessWorkbenchDeepLink(hash: string): void {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  url.hash = hash;
+  const nextHref = url.toString();
+  if (nextHref !== window.location.href) {
+    window.history.replaceState(null, "", nextHref);
+  }
+}
+
 type HarnessGroupCanvasView = WorkflowHarnessGroupView & {
   groupNodeId: string;
   position: { x: number; y: number };
@@ -326,6 +396,12 @@ export function useWorkflowComposerController({
   const [selectedHarnessGroupId, setSelectedHarnessGroupId] = useState<
     string | null
   >(null);
+  const [selectedHarnessReceiptRef, setSelectedHarnessReceiptRef] = useState<
+    string | null
+  >(null);
+  const [selectedHarnessReplayFixtureRef, setSelectedHarnessReplayFixtureRef] =
+    useState<string | null>(null);
+  const restoredHarnessDeepLinkWorkflowRef = useRef<string | null>(null);
   const [nodeConfigOpen, setNodeConfigOpen] = useState(false);
   const [nodeConfigInitialSection, setNodeConfigInitialSection] =
     useState<WorkflowNodeConfigSectionId>("settings");
@@ -800,6 +876,9 @@ export function useWorkflowComposerController({
       setGlobalConfig(normalizeGlobalConfig(next.global_config));
       setCollapsedHarnessGroupIds({});
       setSelectedHarnessGroupId(null);
+      setSelectedHarnessReceiptRef(null);
+      setSelectedHarnessReplayFixtureRef(null);
+      restoredHarnessDeepLinkWorkflowRef.current = null;
       replaceGraph(next);
       requestAnimationFrame(() => fitView({ padding: 0.22 }));
     },
@@ -1051,6 +1130,146 @@ export function useWorkflowComposerController({
         : null,
     [harnessGroupViews, selectedHarnessGroupId],
   );
+  const selectedHarnessComponentId = useMemo(() => {
+    if (!isHarnessWorkflow || !selectedNode) return null;
+    if (!selectedNode.runtimeBinding && !harnessComponentKindForNode(selectedNode)) {
+      return null;
+    }
+    return selectedNode.runtimeBinding?.componentId ?? selectedNode.id;
+  }, [isHarnessWorkflow, selectedNode]);
+  const harnessWorkbenchDeepLink = useMemo<HarnessWorkbenchDeepLink | null>(() => {
+    if (!isHarnessWorkflow) return null;
+    const groupId = selectedHarnessGroup
+      ? String(selectedHarnessGroup.groupId)
+      : undefined;
+    const componentId = selectedHarnessComponentId ?? undefined;
+    const runId =
+      selectedRunId ??
+      selectedHarnessGroup?.deepLinks.runId ??
+      lastRunResult?.summary.id;
+    const hasDeepLinkScope =
+      groupId ||
+      componentId ||
+      runId ||
+      selectedHarnessReceiptRef ||
+      selectedHarnessReplayFixtureRef;
+    if (!hasDeepLinkScope) return null;
+    return {
+      panel: rightPanel,
+      groupId,
+      componentId,
+      runId,
+      receiptRef: selectedHarnessReceiptRef ?? undefined,
+      replayFixtureRef: selectedHarnessReplayFixtureRef ?? undefined,
+    };
+  }, [
+    isHarnessWorkflow,
+    lastRunResult?.summary.id,
+    rightPanel,
+    selectedHarnessComponentId,
+    selectedHarnessGroup,
+    selectedHarnessReceiptRef,
+    selectedHarnessReplayFixtureRef,
+    selectedRunId,
+  ]);
+  const harnessWorkbenchDeepLinkHash = useMemo(
+    () =>
+      harnessWorkbenchDeepLink
+        ? encodeHarnessWorkbenchDeepLink(harnessWorkbenchDeepLink)
+        : null,
+    [harnessWorkbenchDeepLink],
+  );
+  const harnessWorkbenchDeepLinkUrl = useMemo(
+    () =>
+      harnessWorkbenchDeepLinkHash
+        ? harnessWorkbenchDeepLinkHref(harnessWorkbenchDeepLinkHash)
+        : null,
+    [harnessWorkbenchDeepLinkHash],
+  );
+  const applyHarnessWorkbenchDeepLink = useCallback(
+    (link: HarnessWorkbenchDeepLink) => {
+      if (link.panel) {
+        setRightPanel(link.panel);
+      }
+      if (link.runId) {
+        setSelectedRunId(link.runId);
+      }
+      setSelectedHarnessReceiptRef(link.receiptRef ?? null);
+      setSelectedHarnessReplayFixtureRef(link.replayFixtureRef ?? null);
+
+      const componentNode = link.componentId
+        ? nodes.find((flowNode) => {
+            const nodeItem = flowNode.data as Node | undefined;
+            if (!nodeItem) return false;
+            return (
+              nodeItem.id === link.componentId ||
+              nodeItem.runtimeBinding?.componentId === link.componentId ||
+              harnessComponentKindForNode(nodeItem) === link.componentId
+            );
+          })
+        : null;
+      const componentNodeData = componentNode?.data as Node | undefined;
+      if (componentNodeData) {
+        const parentGroup = harnessGroupViews.find((group) =>
+          group.innerNodeIds.includes(componentNodeData.id),
+        );
+        if (parentGroup) {
+          setCollapsedHarnessGroupIds((current) => ({
+            ...current,
+            [String(parentGroup.groupId)]: false,
+          }));
+        }
+        setSelectedHarnessGroupId(null);
+        handleNodeSelect(componentNodeData.id);
+        setRightPanel(link.panel ?? "outputs");
+        setBottomPanel("selection");
+        setActiveTab("graph");
+        setStatusMessage(`Opened harness component ${link.componentId}`);
+        requestAnimationFrame(() => fitView({ padding: 0.2 }));
+        return;
+      }
+
+      const group = link.groupId
+        ? harnessGroupViews.find(
+            (candidate) => String(candidate.groupId) === link.groupId,
+          )
+        : null;
+      if (group) {
+        setSelectedHarnessGroupId(String(group.groupId));
+        handleNodeSelect(null);
+        setRightPanel(link.panel ?? "outputs");
+        setBottomPanel("selection");
+        setActiveTab("graph");
+        setStatusMessage(`Restored harness group ${group.groupId}`);
+      }
+    },
+    [fitView, handleNodeSelect, harnessGroupViews, nodes],
+  );
+  useEffect(() => {
+    if (!isHarnessWorkflow || harnessGroupViews.length === 0) return;
+    const workflowKey =
+      currentProjectFile.metadata.slug ??
+      currentProjectFile.metadata.name ??
+      workflowPath;
+    if (restoredHarnessDeepLinkWorkflowRef.current === workflowKey) return;
+    restoredHarnessDeepLinkWorkflowRef.current = workflowKey;
+    const link = readHarnessWorkbenchDeepLink();
+    if (link) {
+      applyHarnessWorkbenchDeepLink(link);
+    }
+  }, [
+    applyHarnessWorkbenchDeepLink,
+    currentProjectFile.metadata.name,
+    currentProjectFile.metadata.slug,
+    harnessGroupViews.length,
+    isHarnessWorkflow,
+    workflowPath,
+  ]);
+  useEffect(() => {
+    if (harnessWorkbenchDeepLinkHash) {
+      writeHarnessWorkbenchDeepLink(harnessWorkbenchDeepLinkHash);
+    }
+  }, [harnessWorkbenchDeepLinkHash]);
   const displayEdges = useMemo(() => {
     const edgeWithIssueData = (edge: ReactFlowEdge, sourceEdgeId: string) => {
       const issue = canvasEdgeIssues.get(sourceEdgeId);
@@ -1975,6 +2194,8 @@ export function useWorkflowComposerController({
       const harnessGroupId = harnessGroupIdFromNodeId(nodeId);
       if (harnessGroupId) {
         setSelectedHarnessGroupId(harnessGroupId);
+        setSelectedHarnessReceiptRef(null);
+        setSelectedHarnessReplayFixtureRef(null);
         handleNodeSelect(null);
         setRightPanel("outputs");
         setBottomPanel("selection");
@@ -1982,6 +2203,8 @@ export function useWorkflowComposerController({
         return;
       }
       setSelectedHarnessGroupId(null);
+      setSelectedHarnessReceiptRef(null);
+      setSelectedHarnessReplayFixtureRef(null);
       if (nodeId && connectFromNodeId && connectFromNodeId !== nodeId) {
         if (connectWorkflowNodes(connectFromNodeId, nodeId)) {
           setConnectFromNodeId(null);
@@ -2000,6 +2223,8 @@ export function useWorkflowComposerController({
     (groupId: string, nodeId: string) => {
       setCollapsedHarnessGroupIds((current) => ({ ...current, [groupId]: false }));
       setSelectedHarnessGroupId(null);
+      setSelectedHarnessReceiptRef(null);
+      setSelectedHarnessReplayFixtureRef(null);
       handleNodeSelect(nodeId);
       setRightPanel("outputs");
       setBottomPanel("selection");
@@ -2008,6 +2233,35 @@ export function useWorkflowComposerController({
     },
     [fitView, handleNodeSelect],
   );
+  const handleSelectHarnessReceiptRef = useCallback((receiptRef: string) => {
+    setSelectedHarnessReceiptRef(receiptRef);
+    setRightPanel("outputs");
+    setStatusMessage(`Pinned harness receipt ${receiptRef}`);
+  }, []);
+  const handleSelectHarnessReplayFixtureRef = useCallback(
+    (replayFixtureRef: string) => {
+      setSelectedHarnessReplayFixtureRef(replayFixtureRef);
+      setRightPanel("outputs");
+      setStatusMessage(`Pinned replay fixture ${replayFixtureRef}`);
+    },
+    [],
+  );
+  const handleCopyHarnessDeepLink = useCallback(() => {
+    if (!harnessWorkbenchDeepLinkUrl) {
+      setStatusMessage("Select a harness group, component, run, receipt, or replay fixture first.");
+      return;
+    }
+    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+      void navigator.clipboard
+        .writeText(harnessWorkbenchDeepLinkUrl)
+        .then(() => setStatusMessage("Copied harness workbench deep link"))
+        .catch(() => {
+          setStatusMessage(`Harness workbench link: ${harnessWorkbenchDeepLinkUrl}`);
+        });
+      return;
+    }
+    setStatusMessage(`Harness workbench link: ${harnessWorkbenchDeepLinkUrl}`);
+  }, [harnessWorkbenchDeepLinkUrl]);
 
   const handleInspectExecutionNode = useCallback(
     (nodeId: string) => {
@@ -3444,5 +3698,5 @@ export function useWorkflowComposerController({
   );
 
 
-  return { activeRightPanelMeta, activeTab, bindingManifest, BOTTOM_TABS, bottomPanel, Brain, Cable, CheckCircle2, GitCompare, Canvas, canvasSearchOpen, canvasSearchQuery, canvasSearchResults, checkpoints, closeCanvasSearch, closeLeftDrawer, compareRunId, compareRunResult, compatibleNodeHints, compatiblePortFocusLabel, connectFromNodeId, ConnectorBindingModal, connectorBindingOpen, counts, createKind, createMode, createName, createOpen, CreateWorkflowModal, currentProject, currentProjectFile, DeployModal, deployOpen, displayEdges, displayNodes, dogfoodRun, emptyCanvasStartItems, execution, executionCheckpointCount, executionCompareRun, executionStatusCounts, filteredNodeLibrary, fitView, FlaskConical, functionDryRunResult, GitPullRequest, globalConfig, guardedCanvasDrop, guardedOnConnect, guardedOnEdgesChange, guardedOnNodesChange, handleAddCompatibleNode, handleAddNodeFromLibrary, handleAddTest, handleAddTestFromOutput, handleApplyProposal, handleCaptureNodeFixture, handleCheckReadiness, handleCheckWorkflowBinding, handleCollapseHarnessGroups, handleCompareRun, handleConnectSelectedNodes, handleCreateProposal, handleCreateWorkflow, handleDragStart, handleDryRunFunction, handleDryRunNodeFromFixture, handleExpandHarnessGroups, handleExportPortablePackage, handleForkDefaultHarness, handleGenerateBindingManifest, handleImportNodeFixture, handleImportPortablePackage, handleInsertAgentLoopMacro, handleInspectExecutionNode, handleInspectHarnessGroupNode, handleOpenDefaultHarness, handleOpenDeploy, handlePinNodeFixture, handleResolveWorkflowIssue, handleResumeRun, handleRun, handleRunTests, handleRunWorkflowNode, handleRunWorkflowUpstream, handleSave, handleSelectRun, handleUpdateEnvironmentProfile, handleUpdateProductionProfile, handleValidate, handleWorkflowNodeSelect, harnessGroupSummary, harnessGroupViews, harnessWorkerBinding, ImportPackageModal, importPackageName, importPackageOpen, importPackagePath, isBlessedHarnessWorkflow, isReadOnlyWorkflow, isSearchingNodeLibrary, lastRunResult, leftDrawerOpen, lifecycleState, Maximize2, Minimize2, missingReasoningBinding, ModelBindingModal, modelBindingOpen, newTestExpected, newTestExpression, newTestKind, newTestName, newTestTargets, NODE_GROUP_FILTERS, nodeConfigInitialSection, nodeConfigOpen, nodeGroupCounts, nodeGroupFilter, nodeRunStatusById, nodes, nodeSearch, openLeftDrawer, PanelLeftOpen, PanelRightClose, PanelRightOpen, Play, Plus, portablePackage, proposalBoundedTargetCount, ProposalPreviewModal, proposals, proposalStatusCounts, proposalToReview, readinessResult, recentNodeLibrary, RIGHT_PANELS, rightPanel, rightPanelBadgeCounts, rightRailCollapsed, rightRailWidth, Rocket, Search, selectedHarnessGroup, Settings, runDetailLoading, runEvents, runs, Save, SCAFFOLD_GROUPS, WORKFLOW_SCAFFOLDS, selectedDefinition, selectedExecutionRun, selectedExecutionRunResult, selectedFixtures, selectedNode, selectedNodeId, selectedRunId, selectedUpstreamReferences, setActiveTab, setBottomPanel, setCanvasSearchQuery, setCompatiblePortFocus, setConnectFromNodeId, setConnectorBindingOpen, setCreateKind, setCreateMode, setCreateName, setCreateOpen, setDeployOpen, setGlobalConfig, setImportPackageName, setImportPackageOpen, setImportPackagePath, setModelBindingOpen, setNewTestExpected, setNewTestExpression, setNewTestKind, setNewTestName, setNewTestTargets, setNodeConfigInitialSection, setNodeConfigOpen, setNodeGroupFilter, setNodeSearch, setProposalToReview, setRightPanel, setRightRailCollapsed, setRightRailWidth, setStatusMessage, setTestEditorOpen, slugify, statusMessage, TestEditorModal, testEditorOpen, testResult, tests, testsPath, toggleCanvasSearch, toggleLeftDrawer, updateNode, validationResult, visibleCompatibleNodeHints, workflow, workflowActionMetadataLabel, WorkflowBottomShelf, workflowConfigSectionForNodeKind, workflowCreatorItemId, workflowDurationLabel, workflowEventLabel, WorkflowHeaderAction, WorkflowInlineIcon, WorkflowNodeConfigModal, workflowNodeCreatorBadge, workflowNodeName, workflowNodeRunChildLineage, workflowPath, WorkflowRailPanel, workflowTimeLabel, zoomIn, zoomOut } as const;
+  return { activeRightPanelMeta, activeTab, bindingManifest, BOTTOM_TABS, bottomPanel, Brain, Cable, CheckCircle2, GitCompare, Canvas, canvasSearchOpen, canvasSearchQuery, canvasSearchResults, checkpoints, closeCanvasSearch, closeLeftDrawer, compareRunId, compareRunResult, compatibleNodeHints, compatiblePortFocusLabel, connectFromNodeId, ConnectorBindingModal, connectorBindingOpen, counts, createKind, createMode, createName, createOpen, CreateWorkflowModal, currentProject, currentProjectFile, DeployModal, deployOpen, displayEdges, displayNodes, dogfoodRun, emptyCanvasStartItems, execution, executionCheckpointCount, executionCompareRun, executionStatusCounts, filteredNodeLibrary, fitView, FlaskConical, functionDryRunResult, GitPullRequest, globalConfig, guardedCanvasDrop, guardedOnConnect, guardedOnEdgesChange, guardedOnNodesChange, handleAddCompatibleNode, handleAddNodeFromLibrary, handleAddTest, handleAddTestFromOutput, handleApplyProposal, handleCaptureNodeFixture, handleCheckReadiness, handleCheckWorkflowBinding, handleCollapseHarnessGroups, handleCompareRun, handleConnectSelectedNodes, handleCopyHarnessDeepLink, handleCreateProposal, handleCreateWorkflow, handleDragStart, handleDryRunFunction, handleDryRunNodeFromFixture, handleExpandHarnessGroups, handleExportPortablePackage, handleForkDefaultHarness, handleGenerateBindingManifest, handleImportNodeFixture, handleImportPortablePackage, handleInsertAgentLoopMacro, handleInspectExecutionNode, handleInspectHarnessGroupNode, handleOpenDefaultHarness, handleOpenDeploy, handlePinNodeFixture, handleResolveWorkflowIssue, handleResumeRun, handleRun, handleRunTests, handleRunWorkflowNode, handleRunWorkflowUpstream, handleSave, handleSelectHarnessReceiptRef, handleSelectHarnessReplayFixtureRef, handleSelectRun, handleUpdateEnvironmentProfile, handleUpdateProductionProfile, handleValidate, handleWorkflowNodeSelect, harnessGroupSummary, harnessGroupViews, harnessWorkbenchDeepLinkUrl, harnessWorkerBinding, ImportPackageModal, importPackageName, importPackageOpen, importPackagePath, isBlessedHarnessWorkflow, isReadOnlyWorkflow, isSearchingNodeLibrary, lastRunResult, leftDrawerOpen, lifecycleState, Maximize2, Minimize2, missingReasoningBinding, ModelBindingModal, modelBindingOpen, newTestExpected, newTestExpression, newTestKind, newTestName, newTestTargets, NODE_GROUP_FILTERS, nodeConfigInitialSection, nodeConfigOpen, nodeGroupCounts, nodeGroupFilter, nodeRunStatusById, nodes, nodeSearch, openLeftDrawer, PanelLeftOpen, PanelRightClose, PanelRightOpen, Play, Plus, portablePackage, proposalBoundedTargetCount, ProposalPreviewModal, proposals, proposalStatusCounts, proposalToReview, readinessResult, recentNodeLibrary, RIGHT_PANELS, rightPanel, rightPanelBadgeCounts, rightRailCollapsed, rightRailWidth, Rocket, Search, selectedHarnessGroup, selectedHarnessReceiptRef, selectedHarnessReplayFixtureRef, Settings, runDetailLoading, runEvents, runs, Save, SCAFFOLD_GROUPS, WORKFLOW_SCAFFOLDS, selectedDefinition, selectedExecutionRun, selectedExecutionRunResult, selectedFixtures, selectedNode, selectedNodeId, selectedRunId, selectedUpstreamReferences, setActiveTab, setBottomPanel, setCanvasSearchQuery, setCompatiblePortFocus, setConnectFromNodeId, setConnectorBindingOpen, setCreateKind, setCreateMode, setCreateName, setCreateOpen, setDeployOpen, setGlobalConfig, setImportPackageName, setImportPackageOpen, setImportPackagePath, setModelBindingOpen, setNewTestExpected, setNewTestExpression, setNewTestKind, setNewTestName, setNewTestTargets, setNodeConfigInitialSection, setNodeConfigOpen, setNodeGroupFilter, setNodeSearch, setProposalToReview, setRightPanel, setRightRailCollapsed, setRightRailWidth, setStatusMessage, setTestEditorOpen, slugify, statusMessage, TestEditorModal, testEditorOpen, testResult, tests, testsPath, toggleCanvasSearch, toggleLeftDrawer, updateNode, validationResult, visibleCompatibleNodeHints, workflow, workflowActionMetadataLabel, WorkflowBottomShelf, workflowConfigSectionForNodeKind, workflowCreatorItemId, workflowDurationLabel, workflowEventLabel, WorkflowHeaderAction, WorkflowInlineIcon, WorkflowNodeConfigModal, workflowNodeCreatorBadge, workflowNodeName, workflowNodeRunChildLineage, workflowPath, WorkflowRailPanel, workflowTimeLabel, zoomIn, zoomOut } as const;
 }
