@@ -1,6 +1,8 @@
 import type {
   Node,
   WorkflowConnectionClass,
+  WorkflowHarnessActivationCandidateGateResult,
+  WorkflowHarnessForkActivationCandidate,
   WorkflowNodeFixture,
   WorkflowProject,
   WorkflowProposal,
@@ -15,7 +17,9 @@ import {
 } from "./runtime-projection-adapter";
 import {
   harnessComponentForNode,
+  harnessForkActivationId,
   harnessSlotsForWorkflow,
+  workflowHarnessWorkerBinding,
   workflowIsBlessedHarness,
   workflowIsHarness,
   workflowIsHarnessFork,
@@ -1260,6 +1264,215 @@ export function evaluateWorkflowActivationReadiness(
     connectorBindingIssues: withWorkflowIssueListRepairMetadata(next.connectorBindingIssues),
     executionReadinessIssues: withWorkflowIssueListRepairMetadata(next.executionReadinessIssues),
     verificationIssues: withWorkflowIssueListRepairMetadata(next.verificationIssues),
+  };
+}
+
+function workflowValidationIssueKey(issue: WorkflowValidationIssue): string {
+  return `${issue.code}:${issue.nodeId ?? ""}:${issue.message}`;
+}
+
+export function createWorkflowHarnessActivationCandidate(
+  workflow: WorkflowProject,
+  tests: WorkflowTestCase[],
+  readinessResult: WorkflowValidationResult = evaluateWorkflowActivationReadiness(
+    workflow,
+    tests,
+  ),
+  proposals: WorkflowProposal[] = [],
+  createdAtMs = Date.now(),
+): WorkflowHarnessForkActivationCandidate {
+  const harness = workflow.metadata.harness;
+  const workflowId = workflow.metadata.id || workflow.metadata.slug;
+  const activationIdPreview = harnessForkActivationId(workflowId);
+  const workerBinding = workflowHarnessWorkerBinding(workflow);
+  const workerBindingPreview = {
+    ...workerBinding,
+    harnessWorkflowId: workerBinding.harnessWorkflowId || workflowId,
+    harnessActivationId: activationIdPreview,
+    harnessHash: harness?.harnessHash ?? workerBinding.harnessHash,
+    executionMode: harness?.executionMode ?? workerBinding.executionMode,
+    source: "fork" as const,
+  };
+  const activationIssues = [
+    ...readinessResult.errors,
+    ...readinessResult.warnings,
+    ...(readinessResult.executionReadinessIssues ?? []),
+  ];
+  const uniqueIssues = Array.from(
+    new Map(activationIssues.map((issue) => [workflowValidationIssueKey(issue), issue])).values(),
+  );
+  const blockingIssues = uniqueIssues.filter(
+    (issue) => issue.code !== "harness_activation_not_validated",
+  );
+  const issueCodes = new Set(uniqueIssues.map((issue) => issue.code));
+  const requiredSlots = harnessSlotsForWorkflow(workflow).filter((slot) => slot.required);
+  const boundSlotIds = new Set(workflow.nodes.flatMap((node) => node.runtimeBinding?.slotIds ?? []));
+  const boundRequiredSlots = requiredSlots.filter((slot) => boundSlotIds.has(slot.slotId));
+  const receiptReadyComponentCount = workflow.nodes.filter(
+    (node) => (node.runtimeBinding?.receiptKinds ?? []).length > 0,
+  ).length;
+  const activationRecord = harness?.activationRecord;
+  const canaryBoundaries =
+    harness?.canaryExecutionBoundaries ??
+    (harness?.canaryExecutionBoundary ? [harness.canaryExecutionBoundary] : []);
+  const canaryReady =
+    activationRecord?.canaryStatus === "passed" ||
+    (canaryBoundaries.length > 0 &&
+      canaryBoundaries.every(
+        (boundary) =>
+          boundary.status === "passed" &&
+          boundary.canaryEligible === true &&
+          boundary.rollbackDrill.drillStatus === "passed",
+      ));
+  const rollbackReady =
+    activationRecord?.rollbackAvailable === true &&
+    Boolean(activationRecord.rollbackTarget);
+  const activationGateProposal = proposals.find(
+    (proposal) =>
+      proposal.id.includes("activation") ||
+      proposal.sidecarDiff?.changedRoles?.includes("activation"),
+  );
+  const policyPostureReady =
+    harness?.aiMutationMode === "proposal_only" &&
+    (workflow.global_config.environmentProfile?.mockBindingPolicy ?? "block") === "block" &&
+    !issueCodes.has("harness_self_mutation_not_proposal_only") &&
+    !issueCodes.has("mcp_access_not_reviewed") &&
+    !issueCodes.has("mock_binding_active");
+  const replayReady = !issueCodes.has("missing_replay_fixture");
+  const workerBindingReady =
+    Boolean(workerBindingPreview.harnessWorkflowId) &&
+    workerBindingPreview.harnessActivationId === activationIdPreview &&
+    Boolean(workerBindingPreview.harnessHash);
+  const gateResults: WorkflowHarnessActivationCandidateGateResult[] = [
+    {
+      gateId: "slots",
+      label: "Slots",
+      status: boundRequiredSlots.length === requiredSlots.length ? "passed" : "blocked",
+      value: `${boundRequiredSlots.length}/${requiredSlots.length}`,
+      detail: "Required component slots must be bound.",
+      evidenceRefs: requiredSlots.map((slot) => slot.slotId),
+    },
+    {
+      gateId: "tests",
+      label: "Tests",
+      status: tests.length > 0 ? "passed" : "blocked",
+      value: `${tests.length}`,
+      detail: "Activation requires test coverage.",
+      evidenceRefs: tests.map((test) => test.id),
+    },
+    {
+      gateId: "replay-fixtures",
+      label: "Replay fixtures",
+      status: replayReady ? "passed" : "blocked",
+      value: replayReady ? "ready" : "missing",
+      detail: "Required replay fixtures must be present for external or expensive paths.",
+      evidenceRefs: uniqueIssues
+        .filter((issue) => issue.code === "missing_replay_fixture")
+        .map((issue) => issue.nodeId ?? issue.code),
+    },
+    {
+      gateId: "policy-posture",
+      label: "Policy posture",
+      status: policyPostureReady ? "passed" : "blocked",
+      value: activationRecord?.policyPosture ?? "proposal_only",
+      detail: "Policy must keep self-mutation proposal-only and block unreviewed live access.",
+      evidenceRefs: activationGateProposal ? [activationGateProposal.id] : [],
+    },
+    {
+      gateId: "receipt-coverage",
+      label: "Receipt coverage",
+      status: receiptReadyComponentCount === workflow.nodes.length ? "passed" : "blocked",
+      value: `${receiptReadyComponentCount}/${workflow.nodes.length}`,
+      detail: "Every harness component must expose mapped receipt refs.",
+      evidenceRefs: workflow.nodes.flatMap((node) => node.runtimeBinding?.receiptKinds ?? []),
+    },
+    {
+      gateId: "canary",
+      label: "Canary",
+      status: canaryReady ? "passed" : "blocked",
+      value: activationRecord?.canaryStatus ?? "not_run",
+      detail: "Canary proof must pass with rollback drill coverage.",
+      evidenceRefs: canaryBoundaries.map((boundary) => boundary.boundaryId),
+    },
+    {
+      gateId: "rollback",
+      label: "Rollback",
+      status: rollbackReady ? "passed" : "blocked",
+      value: activationRecord?.rollbackTarget ?? "not set",
+      detail: "A rollback target and rollback availability must be recorded.",
+      evidenceRefs: activationRecord?.rollbackTarget ? [activationRecord.rollbackTarget] : [],
+    },
+    {
+      gateId: "worker-binding",
+      label: "Worker binding",
+      status: workerBindingReady ? "passed" : "blocked",
+      value: workerBindingPreview.harnessActivationId ?? "blocked",
+      detail: "Worker binding preview must point at the candidate activation id.",
+      evidenceRefs: [workerBindingPreview.harnessWorkflowId, workerBindingPreview.harnessHash],
+    },
+  ];
+  const failedGateIds = gateResults
+    .filter((gate) => gate.status !== "passed")
+    .map((gate) => gate.gateId);
+  const decision =
+    workflowIsHarnessFork(workflow) &&
+    blockingIssues.length === 0 &&
+    failedGateIds.length === 0
+      ? "mintable"
+      : "blocked";
+  const activationGate: WorkflowHarnessActivationCandidateGateResult = {
+    gateId: "activation-id",
+    label: "Activation id",
+    status: decision === "mintable" ? "passed" : "blocked",
+    value: decision === "mintable" ? activationIdPreview : "not minted",
+    detail:
+      decision === "mintable"
+        ? "Dry run is mintable; applying activation would use this id."
+        : "Activation id stays unminted while blocking gates remain.",
+    evidenceRefs: decision === "mintable" ? [activationIdPreview] : [],
+  };
+  const activationBlockers = Array.from(
+    new Set([
+      ...blockingIssues.map((issue) => `${issue.code}: ${issue.message}`),
+      ...failedGateIds.map((gateId) => `gate_blocked:${gateId}`),
+      ...(workflowIsHarnessFork(workflow) ? [] : ["not_harness_fork"]),
+    ]),
+  );
+  return {
+    schemaVersion: "workflow.harness.activation-candidate.v1",
+    candidateId: `candidate:${workflowId}:activation-dry-run:${createdAtMs}`,
+    workflowId,
+    harnessWorkflowId: harness?.harnessWorkflowId ?? workflowId,
+    harnessHash: harness?.harnessHash ?? workerBindingPreview.harnessHash,
+    decision,
+    activationId: decision === "mintable" ? activationIdPreview : undefined,
+    activationIdPreview: decision === "mintable" ? activationIdPreview : undefined,
+    dryRunOnly: true,
+    activationBlockers,
+    blockerCodes: Array.from(
+      new Set([...blockingIssues.map((issue) => issue.code), ...failedGateIds]),
+    ),
+    gateResults: [...gateResults, activationGate],
+    componentVersionSet:
+      activationRecord?.componentVersionSet ??
+      Object.fromEntries(
+        workflow.nodes
+          .filter((node) => node.runtimeBinding)
+          .map((node) => [
+            node.runtimeBinding?.componentId ?? node.id,
+            node.runtimeBinding?.componentVersion ?? "unknown",
+          ]),
+      ),
+    policyPosture: activationRecord?.policyPosture ?? "proposal_only",
+    canaryStatus: canaryReady ? "passed" : (activationRecord?.canaryStatus ?? "not_run"),
+    rollbackTarget: activationRecord?.rollbackTarget ?? "",
+    rollbackAvailable: rollbackReady,
+    workerBindingPreview,
+    evidenceRefs: [
+      ...gateResults.flatMap((gate) => gate.evidenceRefs),
+      ...(activationGateProposal ? [activationGateProposal.id] : []),
+    ],
+    createdAtMs,
   };
 }
 

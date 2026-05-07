@@ -959,6 +959,46 @@ export interface WorkflowHarnessForkActivationRecord {
   mintedAtMs?: number;
 }
 
+export type WorkflowHarnessActivationCandidateDecision =
+  | "blocked"
+  | "mintable";
+
+export type WorkflowHarnessActivationCandidateGateStatus =
+  | "passed"
+  | "blocked";
+
+export interface WorkflowHarnessActivationCandidateGateResult {
+  gateId: string;
+  label: string;
+  status: WorkflowHarnessActivationCandidateGateStatus;
+  value: string;
+  detail: string;
+  evidenceRefs: string[];
+}
+
+export interface WorkflowHarnessForkActivationCandidate {
+  schemaVersion: "workflow.harness.activation-candidate.v1" | string;
+  candidateId: string;
+  workflowId: string;
+  harnessWorkflowId: string;
+  harnessHash: string;
+  decision: WorkflowHarnessActivationCandidateDecision;
+  activationId?: string;
+  activationIdPreview?: string;
+  dryRunOnly: true;
+  activationBlockers: string[];
+  blockerCodes: string[];
+  gateResults: WorkflowHarnessActivationCandidateGateResult[];
+  componentVersionSet: Record<string, string>;
+  policyPosture: WorkflowHarnessForkActivationRecord["policyPosture"];
+  canaryStatus: WorkflowHarnessActivationCanaryStatus;
+  rollbackTarget: string;
+  rollbackAvailable: boolean;
+  workerBindingPreview: WorkflowHarnessWorkerBinding;
+  evidenceRefs: string[];
+  createdAtMs: number;
+}
+
 export type WorkflowHarnessLiveHandoffSelector =
   | "legacy_runtime"
   | "blessed_workflow_gated"
