@@ -7,6 +7,7 @@ import type {
   WorkflowHarnessComponentSpec,
   WorkflowHarnessDefaultRuntimeDispatchProof,
   WorkflowHarnessExecutionMode,
+  WorkflowHarnessForkActivationCandidate,
   WorkflowHarnessForkActivationRecord,
   WorkflowHarnessLiveHandoffProof,
   WorkflowHarnessMetadata,
@@ -98,6 +99,9 @@ export function makeHarnessForkActivationRecord(options: {
   activationId?: string;
   activationState: WorkflowHarnessForkActivationRecord["activationState"];
   activationBlockers?: string[];
+  componentVersionSet?: Record<string, string>;
+  harnessHash?: string;
+  policyPosture?: WorkflowHarnessForkActivationRecord["policyPosture"];
   canaryStatus?: WorkflowHarnessForkActivationRecord["canaryStatus"];
   rollbackTarget?: string;
   rollbackAvailable?: boolean;
@@ -116,18 +120,19 @@ export function makeHarnessForkActivationRecord(options: {
     workflowId: options.workflowId,
     harnessWorkflowId: options.harnessWorkflowId ?? options.workflowId,
     activationId,
-    harnessHash: DEFAULT_AGENT_HARNESS_HASH,
+    harnessHash: options.harnessHash ?? DEFAULT_AGENT_HARNESS_HASH,
     activationState: options.activationState,
     activationBlockers:
       options.activationBlockers ??
       (options.activationState === "validated" || options.activationState === "active"
         ? []
         : [...DEFAULT_AGENT_HARNESS_FORK_ACTIVATION_BLOCKERS]),
-    componentVersionSet: defaultHarnessComponentVersionSet(),
+    componentVersionSet: options.componentVersionSet ?? defaultHarnessComponentVersionSet(),
     policyPosture:
-      options.activationState === "validated" || options.activationState === "active"
+      options.policyPosture ??
+      (options.activationState === "validated" || options.activationState === "active"
         ? "canary"
-        : "proposal_only",
+        : "proposal_only"),
     canaryStatus:
       options.canaryStatus ??
       (options.activationState === "validated" || options.activationState === "active"
@@ -141,6 +146,104 @@ export function makeHarnessForkActivationRecord(options: {
     evidenceRefs: options.evidenceRefs ?? [],
     workerBinding: options.workerBinding,
     mintedAtMs: options.mintedAtMs,
+  };
+}
+
+export function applyWorkflowHarnessActivationCandidate(
+  workflow: WorkflowProject,
+  candidate: WorkflowHarnessForkActivationCandidate | null | undefined,
+  options: {
+    rollbackTarget?: string | null;
+    nowMs?: number;
+  } = {},
+): {
+  applied: boolean;
+  workflow: WorkflowProject;
+  activationId?: string;
+  blockers: string[];
+  workerBinding?: WorkflowHarnessWorkerBinding;
+  rollbackTarget?: string;
+} {
+  const workflowId = workflow.metadata.id || workflow.metadata.slug;
+  const activationId = candidate?.activationId ?? candidate?.activationIdPreview;
+  const blockers = [
+    ...(candidate?.activationBlockers ?? []),
+    ...(workflowIsHarnessFork(workflow) ? [] : ["not_harness_fork"]),
+    ...(candidate?.decision === "mintable" ? [] : ["candidate_not_mintable"]),
+    ...(activationId ? [] : ["activation_id_missing"]),
+  ];
+  if (blockers.length > 0 || !candidate || !activationId) {
+    return {
+      applied: false,
+      workflow,
+      blockers: Array.from(new Set(blockers)),
+    };
+  }
+
+  const nowMs = options.nowMs ?? Date.now();
+  const rollbackTarget =
+    options.rollbackTarget?.trim() ||
+    candidate.rollbackTarget ||
+    workflow.metadata.harness?.activationRecord?.rollbackTarget ||
+    DEFAULT_AGENT_HARNESS_FORK_ROLLBACK_TARGET;
+  const workerBinding: WorkflowHarnessWorkerBinding = {
+    ...candidate.workerBindingPreview,
+    harnessWorkflowId: candidate.workerBindingPreview.harnessWorkflowId || workflowId,
+    harnessActivationId: activationId,
+    harnessHash:
+      candidate.workerBindingPreview.harnessHash ||
+      candidate.harnessHash ||
+      workflow.metadata.harness?.harnessHash ||
+      DEFAULT_AGENT_HARNESS_HASH,
+    executionMode:
+      candidate.workerBindingPreview.executionMode ??
+      workflow.metadata.harness?.executionMode ??
+      DEFAULT_HARNESS_EXECUTION_MODE,
+    source: "fork",
+  };
+  const activationRecord = makeHarnessForkActivationRecord({
+    workflowId,
+    harnessWorkflowId: workerBinding.harnessWorkflowId,
+    activationId,
+    activationState: "validated",
+    activationBlockers: [],
+    componentVersionSet: candidate.componentVersionSet,
+    harnessHash: candidate.harnessHash,
+    policyPosture: candidate.policyPosture,
+    canaryStatus: candidate.canaryStatus,
+    rollbackTarget,
+    rollbackAvailable: candidate.rollbackAvailable || Boolean(rollbackTarget),
+    liveAuthorityTransferred: false,
+    evidenceRefs: Array.from(new Set([candidate.candidateId, ...candidate.evidenceRefs])),
+    workerBinding,
+    mintedAtMs: nowMs,
+  });
+  return {
+    applied: true,
+    workflow: {
+      ...workflow,
+      metadata: {
+        ...workflow.metadata,
+        dirty: true,
+        harness: workflow.metadata.harness
+          ? {
+              ...workflow.metadata.harness,
+              harnessWorkflowId: workerBinding.harnessWorkflowId,
+              harnessHash: workerBinding.harnessHash,
+              executionMode: workerBinding.executionMode ?? workflow.metadata.harness.executionMode,
+              activationId,
+              activationState: "validated",
+              activationRecord,
+            }
+          : workflow.metadata.harness,
+        workerHarnessBinding: workerBinding,
+        updatedAtMs: nowMs,
+      },
+    },
+    activationId,
+    blockers: [],
+    workerBinding,
+    rollbackTarget,
   };
 }
 

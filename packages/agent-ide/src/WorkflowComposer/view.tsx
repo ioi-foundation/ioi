@@ -75,6 +75,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     handleDryRunNodeFromFixture,
     handleExpandHarnessGroups,
     handleExportPortablePackage,
+    handleApplyHarnessActivationCandidate,
     handleForkDefaultHarness,
     handleGenerateBindingManifest,
     handleImportNodeFixture,
@@ -95,6 +96,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     handleSave,
     handleSelectHarnessReceiptRef,
     handleSelectHarnessReplayFixtureRef,
+    handleSelectHarnessRollbackTarget,
     handleSelectRun,
     handleUpdateEnvironmentProfile,
     handleUpdateProductionProfile,
@@ -167,6 +169,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     selectedHarnessGroup,
     selectedHarnessReceiptRef,
     selectedHarnessReplayFixtureRef,
+    selectedHarnessRollbackTarget,
     selectedNode,
     selectedNodeId,
     selectedRunId,
@@ -1240,6 +1243,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                     harnessActivationCandidate={harnessActivationCandidate}
                     selectedHarnessReceiptRef={selectedHarnessReceiptRef}
                     selectedHarnessReplayFixtureRef={selectedHarnessReplayFixtureRef}
+                    selectedHarnessRollbackTarget={selectedHarnessRollbackTarget}
                     tests={tests}
                     proposals={proposals}
                     runs={runs}
@@ -1264,12 +1268,16 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                     onInspectHarnessGroupNode={handleInspectHarnessGroupNode}
                     onSelectHarnessReceiptRef={handleSelectHarnessReceiptRef}
                     onSelectHarnessReplayFixtureRef={handleSelectHarnessReplayFixtureRef}
+                    onSelectHarnessRollbackTarget={handleSelectHarnessRollbackTarget}
                     onCopyHarnessDeepLink={handleCopyHarnessDeepLink}
                     onCheckActivationReadiness={() => {
                       void handleCheckReadiness();
                     }}
                     onRunHarnessActivationDryRun={() => {
                       void handleRunHarnessActivationDryRun();
+                    }}
+                    onApplyHarnessActivationCandidate={() => {
+                      void handleApplyHarnessActivationCandidate();
                     }}
                     onConfigureNode={() => {
                       if (selectedNode) {

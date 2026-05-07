@@ -121,6 +121,7 @@ export function WorkflowRailPanel({
   harnessActivationCandidate,
   selectedHarnessReceiptRef,
   selectedHarnessReplayFixtureRef,
+  selectedHarnessRollbackTarget,
   tests,
   proposals,
   runs,
@@ -145,9 +146,11 @@ export function WorkflowRailPanel({
   onInspectHarnessGroupNode,
   onSelectHarnessReceiptRef,
   onSelectHarnessReplayFixtureRef,
+  onSelectHarnessRollbackTarget,
   onCopyHarnessDeepLink,
   onCheckActivationReadiness,
   onRunHarnessActivationDryRun,
+  onApplyHarnessActivationCandidate,
   onConfigureNode,
   onSelectProposal,
   onExportPackage,
@@ -171,6 +174,7 @@ export function WorkflowRailPanel({
   harnessActivationCandidate?: WorkflowHarnessForkActivationCandidate | null;
   selectedHarnessReceiptRef?: string | null;
   selectedHarnessReplayFixtureRef?: string | null;
+  selectedHarnessRollbackTarget?: string | null;
   tests: WorkflowTestCase[];
   proposals: WorkflowProposal[];
   runs: WorkflowRunSummary[];
@@ -195,9 +199,11 @@ export function WorkflowRailPanel({
   onInspectHarnessGroupNode?: (groupId: string, nodeId: string) => void;
   onSelectHarnessReceiptRef?: (receiptRef: string) => void;
   onSelectHarnessReplayFixtureRef?: (replayFixtureRef: string) => void;
+  onSelectHarnessRollbackTarget?: (rollbackTarget: string) => void;
   onCopyHarnessDeepLink?: () => void;
   onCheckActivationReadiness?: () => void;
   onRunHarnessActivationDryRun?: () => void;
+  onApplyHarnessActivationCandidate?: () => void;
   onConfigureNode: () => void;
   onSelectProposal: (proposal: WorkflowProposal) => void;
   onExportPackage: () => void;
@@ -759,6 +765,20 @@ export function WorkflowRailPanel({
   const harnessBindingRollbackAvailable =
     harnessActivationRecord?.rollbackAvailable === true ||
     Boolean(workflow.metadata.harness?.forkedFrom?.harnessWorkflowId);
+  const harnessBindingRollbackTargets = Array.from(
+    new Set(
+      [
+        harnessActivationCandidate?.rollbackTarget,
+        harnessActivationRecord?.rollbackTarget,
+        workflow.metadata.harness?.forkedFrom?.harnessWorkflowId,
+        "legacy_runtime",
+      ].filter((target): target is string => Boolean(target)),
+    ),
+  );
+  const harnessSelectedRollbackTarget =
+    selectedHarnessRollbackTarget ??
+    harnessBindingRollbackTargets[0] ??
+    harnessBindingRollbackTarget;
   const harnessBindingInspectorStatus =
     harnessActivationCandidate?.decision ??
     harnessActivationRecord?.activationState ??
@@ -1719,7 +1739,7 @@ export function WorkflowRailPanel({
                   data-testid="workflow-harness-worker-binding-option-rollback"
                   data-rollback-available={harnessBindingRollbackAvailable ? "true" : "false"}
                 >
-                  <strong>{harnessBindingRollbackTarget}</strong>
+                  <strong>{harnessSelectedRollbackTarget}</strong>
                   <span>
                     rollback ·{" "}
                     {harnessActivationRecord?.canaryStatus ??
@@ -1728,6 +1748,25 @@ export function WorkflowRailPanel({
                   </span>
                   <small>{harnessBindingRollbackHash}</small>
                 </article>
+              </div>
+              <div
+                className="workflow-harness-authority-gate-actions"
+                data-testid="workflow-harness-worker-binding-rollback-targets"
+              >
+                {harnessBindingRollbackTargets.map((rollbackTarget, index) => (
+                  <button
+                    key={rollbackTarget}
+                    type="button"
+                    className={`workflow-harness-ref-button ${
+                      rollbackTarget === harnessSelectedRollbackTarget ? "is-active" : ""
+                    }`}
+                    data-testid={`workflow-harness-worker-binding-rollback-target-${index}`}
+                    data-rollback-target={rollbackTarget}
+                    onClick={() => onSelectHarnessRollbackTarget?.(rollbackTarget)}
+                  >
+                    <code>{rollbackTarget}</code>
+                  </button>
+                ))}
               </div>
               <div
                 className="workflow-rail-list"
@@ -1770,6 +1809,17 @@ export function WorkflowRailPanel({
                     onClick={onCheckActivationReadiness}
                   >
                     Check binding
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="workflow-harness-worker-binding-apply-candidate"
+                    disabled={
+                      harnessActivationCandidate?.decision !== "mintable" ||
+                      !onApplyHarnessActivationCandidate
+                    }
+                    onClick={onApplyHarnessActivationCandidate}
+                  >
+                    Mint activation
                   </button>
                 </div>
               ) : null}
