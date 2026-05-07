@@ -1166,6 +1166,7 @@ pub fn run() {
             project::create_workflow_from_template,
             project::load_workflow_bundle,
             project::save_workflow_project,
+            project::restore_workflow_revision,
             project::save_workflow_tests,
             project::run_workflow_tests,
             project::create_workflow_thread,

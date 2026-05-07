@@ -238,6 +238,77 @@ fn workflow_activation_readiness_blocks_operational_gaps() {
 }
 
 #[test]
+fn restore_workflow_revision_restores_single_workflow_file_from_git() {
+    let root = temp_root("git-workflow-restore");
+    run_git(&root, &["init"]).expect("git init");
+    run_git(&root, &["config", "user.name", "Autopilot Test"]).expect("git user");
+    run_git(
+        &root,
+        &["config", "user.email", "autopilot-test@example.com"],
+    )
+    .expect("git email");
+    let bundle = create_workflow_project(CreateWorkflowProjectRequest {
+        project_root: root.display().to_string(),
+        name: "Git Revision Restore".to_string(),
+        workflow_kind: "agent_workflow".to_string(),
+        execution_mode: "local".to_string(),
+        template_id: None,
+    })
+    .expect("workflow should create");
+    run_git(&root, &["add", "--", ".agents/workflows"]).expect("git add workflow");
+    run_git(&root, &["commit", "-m", "Initial workflow"]).expect("git commit workflow");
+    let initial_revision = run_git(&root, &["rev-parse", "HEAD"]).expect("git rev parse");
+    let workflow_path = PathBuf::from(&bundle.workflow_path);
+    let relative_workflow_path = workflow_path
+        .strip_prefix(&root)
+        .expect("workflow path should be inside root")
+        .to_string_lossy()
+        .replace('\\', "/");
+
+    let mut mutated = bundle.workflow.clone();
+    mutated.metadata.name = "Mutated Workflow".to_string();
+    save_workflow_project(bundle.workflow_path.clone(), mutated).expect("mutated save");
+    let changed = load_workflow_bundle(bundle.workflow_path.clone()).expect("changed load");
+    assert_eq!(changed.workflow.metadata.name, "Mutated Workflow");
+
+    let restore = restore_workflow_revision(WorkflowRevisionRestoreRequest {
+        workflow_path: bundle.workflow_path.clone(),
+        revision_binding: WorkflowRevisionBinding {
+            schema_version: "workflow.revision-binding.v1".to_string(),
+            workflow_path: relative_workflow_path.clone(),
+            repo_root: Some(root.display().to_string()),
+            branch: Some("master".to_string()),
+            base_revision: None,
+            activated_revision: Some(initial_revision.clone()),
+            workflow_content_hash: "stable-fnv1a32:original".to_string(),
+            proposal_id: None,
+            activation_id: Some("activation:git-backed".to_string()),
+            rollback_activation_id: None,
+            rollback_revision: None,
+            revision_source: "git".to_string(),
+            created_at_ms: now_ms(),
+        },
+        expected_workflow_content_hash: Some("stable-fnv1a32:original".to_string()),
+    })
+    .expect("restore command should return");
+
+    assert!(restore.restored, "{:?}", restore.blockers);
+    assert_eq!(restore.restore_strategy, "git_show_file_restore");
+    assert_eq!(
+        restore.relative_workflow_path.as_deref(),
+        Some(relative_workflow_path.as_str())
+    );
+    assert_eq!(restore.restored_revision.as_deref(), Some(initial_revision.as_str()));
+    assert!(restore.file_sha256.is_some());
+    assert_eq!(
+        restore.bundle.as_ref().unwrap().workflow.metadata.name,
+        "Git Revision Restore"
+    );
+    let loaded = load_workflow_bundle(bundle.workflow_path).expect("restored load");
+    assert_eq!(loaded.workflow.metadata.name, "Git Revision Restore");
+}
+
+#[test]
 fn workflow_activation_readiness_blocks_live_trigger_and_missing_production_fixtures() {
     let root = temp_root("activation-live-readiness");
     let event_bundle = create_workflow_project(CreateWorkflowProjectRequest {

@@ -957,6 +957,36 @@ assert.match(
 );
 
 assert.match(
+  graphRuntimeTypes,
+  /restoreWorkflowRevision\?\([\s\S]*WorkflowRevisionRestoreRequest[\s\S]*Promise<WorkflowRevisionRestoreResult>/,
+  "Workflow runtime should expose a typed restore API for git-backed harness revision rollback",
+);
+
+assert.match(
+  tauriRuntime,
+  /async restoreWorkflowRevision[\s\S]*invoke\(\"restore_workflow_revision\"[\s\S]*request/,
+  "Desktop runtime should call the git-backed workflow revision restore command",
+);
+
+assert.match(
+  tauriLib,
+  /project::save_workflow_project[\s\S]*project::restore_workflow_revision[\s\S]*project::save_workflow_tests/,
+  "Tauri command registry should expose restore_workflow_revision beside workflow persistence",
+);
+
+assert.match(
+  projectCommands,
+  /pub fn restore_workflow_revision[\s\S]*unsupported_revision_source[\s\S]*git_show_file_bytes[\s\S]*git_show_file_restore[\s\S]*load_workflow_bundle_from_path/,
+  "Git-backed rollback should restore one workflow JSON file through git show and reload the typed workbench bundle",
+);
+
+assert.match(
+  composer,
+  /handleExecuteHarnessRollback[\s\S]*rollbackRevisionBinding[\s\S]*runtime\.restoreWorkflowRevision[\s\S]*Git-backed rollback restore blocked[\s\S]*executeWorkflowHarnessRevisionRollback[\s\S]*restoredWorkflow/,
+  "Rollback execution should restore the selected git revision before applying verified harness rollback metadata",
+);
+
+assert.match(
   composer,
   /generateWorkflowBindingManifest[\s\S]*setBindingManifest[\s\S]*bindingManifest=\{bindingManifest\}[\s\S]*onGenerateBindingManifest=\{handleGenerateBindingManifest\}/,
   "Workflow Settings should generate binding manifests through the runtime and render manifest state without writing UI state into the graph",
@@ -1078,7 +1108,7 @@ assert.match(
 
 assert.match(
   graphTypes,
-  /(?=[\s\S]*WorkflowHarnessExecutionMode)(?=[\s\S]*WorkflowHarnessComponentReadiness)(?=[\s\S]*WorkflowHarnessReplayEnvelope)(?=[\s\S]*WorkflowHarnessActionFrame)(?=[\s\S]*WorkflowHarnessComponentInvocation)(?=[\s\S]*WorkflowHarnessComponentAdapterResult)(?=[\s\S]*WorkflowHarnessNodeAttemptRecord)(?=[\s\S]*WorkflowHarnessShadowComparison)(?=[\s\S]*WorkflowHarnessPromotionCluster)(?=[\s\S]*WorkflowHarnessGatedClusterRun)(?=[\s\S]*WorkflowRevisionBinding)(?=[\s\S]*workflowContentHash)(?=[\s\S]*rollbackRevision)(?=[\s\S]*WorkflowHarnessForkActivationCandidate)(?=[\s\S]*revisionBindingPreview: WorkflowRevisionBinding)(?=[\s\S]*WorkflowHarnessActivationAuditEvent)(?=[\s\S]*previousRevisionBinding\?: WorkflowRevisionBinding)(?=[\s\S]*WorkflowHarnessActivationRollbackProof)(?=[\s\S]*activeRevisionBinding\?: WorkflowRevisionBinding)(?=[\s\S]*WorkflowHarnessActivationRollbackExecution)(?=[\s\S]*hashVerified)(?=[\s\S]*activationAudit\?: WorkflowHarnessActivationAuditEvent\[\])(?=[\s\S]*activationRollbackProof\?: WorkflowHarnessActivationRollbackProof)(?=[\s\S]*activationRollbackExecution\?: WorkflowHarnessActivationRollbackExecution)(?=[\s\S]*revisionBinding\?: WorkflowRevisionBinding)(?=[\s\S]*WorkflowHarnessLiveHandoffProof)(?=[\s\S]*WorkflowHarnessRuntimeSelectorDecision)(?=[\s\S]*WorkflowHarnessCanaryExecutionBoundary)(?=[\s\S]*canaryExecutionBoundaries)(?=[\s\S]*WorkflowHarnessComponentSpec[\s\S]*readiness[\s\S]*inputSchema[\s\S]*outputSchema[\s\S]*errorSchema)(?=[\s\S]*WorkflowHarnessWorkerBinding[\s\S]*harnessWorkflowId[\s\S]*harnessActivationId[\s\S]*harnessHash)/,
+  /(?=[\s\S]*WorkflowHarnessExecutionMode)(?=[\s\S]*WorkflowHarnessComponentReadiness)(?=[\s\S]*WorkflowHarnessReplayEnvelope)(?=[\s\S]*WorkflowHarnessActionFrame)(?=[\s\S]*WorkflowHarnessComponentInvocation)(?=[\s\S]*WorkflowHarnessComponentAdapterResult)(?=[\s\S]*WorkflowHarnessNodeAttemptRecord)(?=[\s\S]*WorkflowHarnessShadowComparison)(?=[\s\S]*WorkflowHarnessPromotionCluster)(?=[\s\S]*WorkflowHarnessGatedClusterRun)(?=[\s\S]*WorkflowRevisionBinding)(?=[\s\S]*WorkflowRevisionRestoreRequest)(?=[\s\S]*WorkflowRevisionRestoreResult)(?=[\s\S]*git_show_file_restore)(?=[\s\S]*workflowContentHash)(?=[\s\S]*rollbackRevision)(?=[\s\S]*WorkflowHarnessForkActivationCandidate)(?=[\s\S]*revisionBindingPreview: WorkflowRevisionBinding)(?=[\s\S]*WorkflowHarnessActivationAuditEvent)(?=[\s\S]*previousRevisionBinding\?: WorkflowRevisionBinding)(?=[\s\S]*WorkflowHarnessActivationRollbackProof)(?=[\s\S]*activeRevisionBinding\?: WorkflowRevisionBinding)(?=[\s\S]*WorkflowHarnessActivationRollbackExecution)(?=[\s\S]*hashVerified)(?=[\s\S]*activationAudit\?: WorkflowHarnessActivationAuditEvent\[\])(?=[\s\S]*activationRollbackProof\?: WorkflowHarnessActivationRollbackProof)(?=[\s\S]*activationRollbackExecution\?: WorkflowHarnessActivationRollbackExecution)(?=[\s\S]*revisionBinding\?: WorkflowRevisionBinding)(?=[\s\S]*WorkflowHarnessLiveHandoffProof)(?=[\s\S]*WorkflowHarnessRuntimeSelectorDecision)(?=[\s\S]*WorkflowHarnessCanaryExecutionBoundary)(?=[\s\S]*canaryExecutionBoundaries)(?=[\s\S]*WorkflowHarnessComponentSpec[\s\S]*readiness[\s\S]*inputSchema[\s\S]*outputSchema[\s\S]*errorSchema)(?=[\s\S]*WorkflowHarnessWorkerBinding[\s\S]*harnessWorkflowId[\s\S]*harnessActivationId[\s\S]*harnessHash)/,
   "Harness-as-workflow types should expose mode, readiness, replay, callable adapter envelopes, node attempts, shadow comparison, gated clusters, workflow revision binding, activation audit history, rollback drill proof, live handoff, selector routing, canary execution boundaries, durable component contracts, and worker harness identity fields",
 );
 
@@ -1090,7 +1120,7 @@ assert.match(
 
 assert.match(
   harnessWorkflow,
-  /(?=[\s\S]*forkDefaultAgentHarnessWorkflow[\s\S]*proposal-\$\{slug\}-activation-gates[\s\S]*forkedFrom[\s\S]*activationState: "blocked"[\s\S]*activationRecord)(?=[\s\S]*workflowRevisionBindingFor)(?=[\s\S]*workflowSourceProjection)(?=[\s\S]*stableContentHash)(?=[\s\S]*recordWorkflowHarnessActivationDryRun)(?=[\s\S]*recordWorkflowHarnessRollbackTargetSelection)(?=[\s\S]*executeWorkflowHarnessRollbackDrill)(?=[\s\S]*rollback_drill_restored_previous_worker_binding)(?=[\s\S]*executeWorkflowHarnessRevisionRollback)(?=[\s\S]*rollback_execution_restored_verified_workflow_revision)(?=[\s\S]*rollback_executed)(?=[\s\S]*activationRollbackExecution)(?=[\s\S]*activeRevisionBinding)(?=[\s\S]*restoredRevisionBinding)(?=[\s\S]*applyWorkflowHarnessActivationCandidate)(?=[\s\S]*activation_mint_blocked)(?=[\s\S]*activation_minted)(?=[\s\S]*candidate_not_mintable)(?=[\s\S]*activationState: "validated")(?=[\s\S]*workerHarnessBinding: workerBinding)(?=[\s\S]*revisionBinding)(?=[\s\S]*rollbackRevisionBinding)(?=[\s\S]*componentVersionSet: candidate\.componentVersionSet)/,
+  /(?=[\s\S]*forkDefaultAgentHarnessWorkflow[\s\S]*proposal-\$\{slug\}-activation-gates[\s\S]*forkedFrom[\s\S]*activationState: "blocked"[\s\S]*activationRecord)(?=[\s\S]*workflowRevisionBindingFor)(?=[\s\S]*workflowSourceProjection)(?=[\s\S]*stableContentHash)(?=[\s\S]*recordWorkflowHarnessActivationDryRun)(?=[\s\S]*recordWorkflowHarnessRollbackTargetSelection)(?=[\s\S]*executeWorkflowHarnessRollbackDrill)(?=[\s\S]*rollback_drill_restored_previous_worker_binding)(?=[\s\S]*executeWorkflowHarnessRevisionRollback)(?=[\s\S]*restoredWorkflow)(?=[\s\S]*git_show_file_restore)(?=[\s\S]*rollback_execution_restored_verified_workflow_revision)(?=[\s\S]*rollback_executed)(?=[\s\S]*activationRollbackExecution)(?=[\s\S]*activeRevisionBinding)(?=[\s\S]*restoredRevisionBinding)(?=[\s\S]*applyWorkflowHarnessActivationCandidate)(?=[\s\S]*activation_mint_blocked)(?=[\s\S]*activation_minted)(?=[\s\S]*candidate_not_mintable)(?=[\s\S]*activationState: "validated")(?=[\s\S]*workerHarnessBinding: workerBinding)(?=[\s\S]*revisionBinding)(?=[\s\S]*rollbackRevisionBinding)(?=[\s\S]*componentVersionSet: candidate\.componentVersionSet)/,
   "Forking the Default Agent Harness should create editable lineage metadata, package proposal sidecars, workflow revision bindings, audited dry runs, guarded candidate activation minting, and rollback drill proof",
 );
 

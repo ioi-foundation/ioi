@@ -91,7 +91,9 @@ test("TS harness fork activation contract records blocked and canary-validated p
   assert.match(graph, /WorkflowHarnessComponentInvocation[\s\S]*invocationId[\s\S]*componentKind[\s\S]*executionMode[\s\S]*receiptIds/);
   assert.match(graph, /WorkflowHarnessComponentAdapterResult[\s\S]*actionFrame[\s\S]*nodeAttempt[\s\S]*resultHash[\s\S]*replay/);
   assert.match(graph, /WorkflowRevisionBinding[\s\S]*workflowPath[\s\S]*workflowContentHash[\s\S]*rollbackRevision/);
-  assert.match(graph, /WorkflowHarnessActivationRollbackExecution[\s\S]*restoreStrategy[\s\S]*hashVerified[\s\S]*executionStatus/);
+  assert.match(graph, /WorkflowRevisionRestoreRequest[\s\S]*revisionBinding: WorkflowRevisionBinding[\s\S]*expectedWorkflowContentHash/);
+  assert.match(graph, /WorkflowRevisionRestoreResult[\s\S]*git_show_file_restore[\s\S]*bundle\?: WorkflowWorkbenchBundle/);
+  assert.match(graph, /WorkflowHarnessActivationRollbackExecution[\s\S]*restoreStrategy[\s\S]*git_show_file_restore[\s\S]*hashVerified[\s\S]*executionStatus/);
   assert.match(graph, /WorkflowHarnessForkActivationCandidate[\s\S]*dryRunOnly: true[\s\S]*revisionBindingPreview: WorkflowRevisionBinding/);
   assert.match(graph, /WorkflowHarnessActivationCandidateGateResult[\s\S]*gateId[\s\S]*evidenceRefs/);
   assert.match(graph, /WorkflowHarnessLiveHandoffProof/);

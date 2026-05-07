@@ -1007,6 +1007,26 @@ export interface WorkflowRevisionBinding {
   createdAtMs: number;
 }
 
+export interface WorkflowRevisionRestoreRequest {
+  workflowPath: string;
+  revisionBinding: WorkflowRevisionBinding;
+  expectedWorkflowContentHash?: string;
+}
+
+export interface WorkflowRevisionRestoreResult {
+  restored: boolean;
+  blockers: string[];
+  workflowPath: string;
+  repoRoot?: string;
+  relativeWorkflowPath?: string;
+  revisionSource: WorkflowRevisionSource;
+  restoredRevision?: string;
+  restoreStrategy: "git_show_file_restore" | "unsupported" | string;
+  expectedWorkflowContentHash?: string;
+  fileSha256?: string;
+  bundle?: WorkflowWorkbenchBundle;
+}
+
 export interface WorkflowHarnessForkActivationRecord {
   schemaVersion: "workflow.harness.activation.v1" | string;
   workflowId: string;
@@ -1099,7 +1119,7 @@ export interface WorkflowHarnessActivationRollbackExecution {
   restoredRevisionBinding?: WorkflowRevisionBinding;
   restoreStrategy:
     | "file_hash_only_metadata_restore"
-    | "git_revision_checkout"
+    | "git_show_file_restore"
     | "worker_binding_restore"
     | string;
   workflowPath: string;

@@ -506,7 +506,7 @@ function rollbackRestoreStrategyFor(
   binding: WorkflowRevisionBinding,
 ): WorkflowHarnessActivationRollbackExecution["restoreStrategy"] {
   if (binding.revisionSource === "git" && binding.activatedRevision) {
-    return "git_revision_checkout";
+    return "git_show_file_restore";
   }
   if (binding.revisionSource === "file_hash_only") {
     return "file_hash_only_metadata_restore";
@@ -615,6 +615,7 @@ export function executeWorkflowHarnessRevisionRollback(
   workflow: WorkflowProject,
   options: {
     rollbackTarget?: string | null;
+    restoredWorkflow?: WorkflowProject | null;
     nowMs?: number;
   } = {},
 ): {
@@ -646,6 +647,7 @@ export function executeWorkflowHarnessRevisionRollback(
   };
   const restoredActivationState =
     activationStateForRestoredWorkerBinding(restoredWorkerBinding);
+  const restoredWorkflowSource = options.restoredWorkflow ?? workflow;
   const rollbackActivationRecord = makeHarnessForkActivationRecord({
     workflowId: workflow.metadata.id || workflow.metadata.slug,
     harnessWorkflowId: restoredWorkerBinding.harnessWorkflowId,
@@ -682,24 +684,26 @@ export function executeWorkflowHarnessRevisionRollback(
     mintedAtMs: createdAtMs,
   });
   const restoredWorkflowBase: WorkflowProject = {
-    ...workflow,
+    ...restoredWorkflowSource,
     metadata: {
-      ...workflow.metadata,
+      ...restoredWorkflowSource.metadata,
       dirty: true,
-      harness: workflow.metadata.harness
+      harness: restoredWorkflowSource.metadata.harness
         ? {
-            ...workflow.metadata.harness,
+            ...restoredWorkflowSource.metadata.harness,
             harnessWorkflowId: restoredWorkerBinding.harnessWorkflowId,
             harnessHash: restoredWorkerBinding.harnessHash,
             executionMode:
               restoredWorkerBinding.executionMode ??
-              workflow.metadata.harness.executionMode,
+              restoredWorkflowSource.metadata.harness.executionMode,
             activationId: restoredWorkerBinding.harnessActivationId,
             activationState: restoredActivationState,
             activationRecord: rollbackActivationRecord,
+            activationAudit: workflow.metadata.harness?.activationAudit,
+            activationRollbackProof: workflow.metadata.harness?.activationRollbackProof,
             revisionBinding: restoredRevisionWithRollForward,
           }
-        : workflow.metadata.harness,
+        : restoredWorkflowSource.metadata.harness,
       workerHarnessBinding: restoredWorkerBinding,
       updatedAtMs: createdAtMs,
     },
