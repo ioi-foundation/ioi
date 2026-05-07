@@ -80,6 +80,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     handleImportPortablePackage,
     handleInsertAgentLoopMacro,
     handleInspectExecutionNode,
+    handleInspectHarnessGroupNode,
     handleOpenDefaultHarness,
     handleOpenDeploy,
     handlePinNodeFixture,
@@ -157,6 +158,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     selectedExecutionRun,
     selectedExecutionRunResult,
     selectedFixtures,
+    selectedHarnessGroup,
     selectedNode,
     selectedNodeId,
     selectedRunId,
@@ -1198,6 +1200,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                   <WorkflowRailPanel
                     panel={rightPanel}
                     selectedNode={selectedNode}
+                    selectedHarnessGroup={selectedHarnessGroup}
                     tests={tests}
                     proposals={proposals}
                     runs={runs}
@@ -1219,6 +1222,7 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                     onCompareRun={handleCompareRun}
                     onOpenExecutions={() => setActiveTab("executions")}
                     onInspectNode={(nodeId) => handleWorkflowNodeSelect(nodeId)}
+                    onInspectHarnessGroupNode={handleInspectHarnessGroupNode}
                     onConfigureNode={() => {
                       if (selectedNode) {
                         setNodeConfigInitialSection(

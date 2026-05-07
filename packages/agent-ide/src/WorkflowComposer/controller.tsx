@@ -323,6 +323,9 @@ export function useWorkflowComposerController({
   const [collapsedHarnessGroupIds, setCollapsedHarnessGroupIds] = useState<
     Record<string, boolean>
   >({});
+  const [selectedHarnessGroupId, setSelectedHarnessGroupId] = useState<
+    string | null
+  >(null);
   const [nodeConfigOpen, setNodeConfigOpen] = useState(false);
   const [nodeConfigInitialSection, setNodeConfigInitialSection] =
     useState<WorkflowNodeConfigSectionId>("settings");
@@ -796,6 +799,7 @@ export function useWorkflowComposerController({
       setWorkflow(next);
       setGlobalConfig(normalizeGlobalConfig(next.global_config));
       setCollapsedHarnessGroupIds({});
+      setSelectedHarnessGroupId(null);
       replaceGraph(next);
       requestAnimationFrame(() => fitView({ padding: 0.22 }));
     },
@@ -1037,6 +1041,15 @@ export function useWorkflowComposerController({
       expanded: harnessGroupViews.filter((group) => !group.collapsed).length,
     }),
     [harnessGroupViews],
+  );
+  const selectedHarnessGroup = useMemo(
+    () =>
+      selectedHarnessGroupId
+        ? harnessGroupViews.find(
+            (group) => String(group.groupId) === selectedHarnessGroupId,
+          ) ?? null
+        : null,
+    [harnessGroupViews, selectedHarnessGroupId],
   );
   const displayEdges = useMemo(() => {
     const edgeWithIssueData = (edge: ReactFlowEdge, sourceEdgeId: string) => {
@@ -1961,12 +1974,14 @@ export function useWorkflowComposerController({
     (nodeId: string | null) => {
       const harnessGroupId = harnessGroupIdFromNodeId(nodeId);
       if (harnessGroupId) {
-        handleToggleHarnessGroup(harnessGroupId);
+        setSelectedHarnessGroupId(harnessGroupId);
         handleNodeSelect(null);
-        setRightPanel("settings");
+        setRightPanel("outputs");
         setBottomPanel("selection");
+        setStatusMessage(`Inspecting harness group ${harnessGroupId}`);
         return;
       }
+      setSelectedHarnessGroupId(null);
       if (nodeId && connectFromNodeId && connectFromNodeId !== nodeId) {
         if (connectWorkflowNodes(connectFromNodeId, nodeId)) {
           setConnectFromNodeId(null);
@@ -1978,8 +1993,20 @@ export function useWorkflowComposerController({
       connectFromNodeId,
       connectWorkflowNodes,
       handleNodeSelect,
-      handleToggleHarnessGroup,
     ],
+  );
+
+  const handleInspectHarnessGroupNode = useCallback(
+    (groupId: string, nodeId: string) => {
+      setCollapsedHarnessGroupIds((current) => ({ ...current, [groupId]: false }));
+      setSelectedHarnessGroupId(null);
+      handleNodeSelect(nodeId);
+      setRightPanel("outputs");
+      setBottomPanel("selection");
+      setStatusMessage(`Opened ${nodeId} from harness group ${groupId}`);
+      requestAnimationFrame(() => fitView({ padding: 0.2 }));
+    },
+    [fitView, handleNodeSelect],
   );
 
   const handleInspectExecutionNode = useCallback(
@@ -3417,5 +3444,5 @@ export function useWorkflowComposerController({
   );
 
 
-  return { activeRightPanelMeta, activeTab, bindingManifest, BOTTOM_TABS, bottomPanel, Brain, Cable, CheckCircle2, GitCompare, Canvas, canvasSearchOpen, canvasSearchQuery, canvasSearchResults, checkpoints, closeCanvasSearch, closeLeftDrawer, compareRunId, compareRunResult, compatibleNodeHints, compatiblePortFocusLabel, connectFromNodeId, ConnectorBindingModal, connectorBindingOpen, counts, createKind, createMode, createName, createOpen, CreateWorkflowModal, currentProject, currentProjectFile, DeployModal, deployOpen, displayEdges, displayNodes, dogfoodRun, emptyCanvasStartItems, execution, executionCheckpointCount, executionCompareRun, executionStatusCounts, filteredNodeLibrary, fitView, FlaskConical, functionDryRunResult, GitPullRequest, globalConfig, guardedCanvasDrop, guardedOnConnect, guardedOnEdgesChange, guardedOnNodesChange, handleAddCompatibleNode, handleAddNodeFromLibrary, handleAddTest, handleAddTestFromOutput, handleApplyProposal, handleCaptureNodeFixture, handleCheckReadiness, handleCheckWorkflowBinding, handleCollapseHarnessGroups, handleCompareRun, handleConnectSelectedNodes, handleCreateProposal, handleCreateWorkflow, handleDragStart, handleDryRunFunction, handleDryRunNodeFromFixture, handleExpandHarnessGroups, handleExportPortablePackage, handleForkDefaultHarness, handleGenerateBindingManifest, handleImportNodeFixture, handleImportPortablePackage, handleInsertAgentLoopMacro, handleInspectExecutionNode, handleOpenDefaultHarness, handleOpenDeploy, handlePinNodeFixture, handleResolveWorkflowIssue, handleResumeRun, handleRun, handleRunTests, handleRunWorkflowNode, handleRunWorkflowUpstream, handleSave, handleSelectRun, handleUpdateEnvironmentProfile, handleUpdateProductionProfile, handleValidate, handleWorkflowNodeSelect, harnessGroupSummary, harnessGroupViews, harnessWorkerBinding, ImportPackageModal, importPackageName, importPackageOpen, importPackagePath, isBlessedHarnessWorkflow, isReadOnlyWorkflow, isSearchingNodeLibrary, lastRunResult, leftDrawerOpen, lifecycleState, Maximize2, Minimize2, missingReasoningBinding, ModelBindingModal, modelBindingOpen, newTestExpected, newTestExpression, newTestKind, newTestName, newTestTargets, NODE_GROUP_FILTERS, nodeConfigInitialSection, nodeConfigOpen, nodeGroupCounts, nodeGroupFilter, nodeRunStatusById, nodes, nodeSearch, openLeftDrawer, PanelLeftOpen, PanelRightClose, PanelRightOpen, Play, Plus, portablePackage, proposalBoundedTargetCount, ProposalPreviewModal, proposals, proposalStatusCounts, proposalToReview, readinessResult, recentNodeLibrary, RIGHT_PANELS, rightPanel, rightPanelBadgeCounts, rightRailCollapsed, rightRailWidth, Rocket, Search, Settings, runDetailLoading, runEvents, runs, Save, SCAFFOLD_GROUPS, WORKFLOW_SCAFFOLDS, selectedDefinition, selectedExecutionRun, selectedExecutionRunResult, selectedFixtures, selectedNode, selectedNodeId, selectedRunId, selectedUpstreamReferences, setActiveTab, setBottomPanel, setCanvasSearchQuery, setCompatiblePortFocus, setConnectFromNodeId, setConnectorBindingOpen, setCreateKind, setCreateMode, setCreateName, setCreateOpen, setDeployOpen, setGlobalConfig, setImportPackageName, setImportPackageOpen, setImportPackagePath, setModelBindingOpen, setNewTestExpected, setNewTestExpression, setNewTestKind, setNewTestName, setNewTestTargets, setNodeConfigInitialSection, setNodeConfigOpen, setNodeGroupFilter, setNodeSearch, setProposalToReview, setRightPanel, setRightRailCollapsed, setRightRailWidth, setStatusMessage, setTestEditorOpen, slugify, statusMessage, TestEditorModal, testEditorOpen, testResult, tests, testsPath, toggleCanvasSearch, toggleLeftDrawer, updateNode, validationResult, visibleCompatibleNodeHints, workflow, workflowActionMetadataLabel, WorkflowBottomShelf, workflowConfigSectionForNodeKind, workflowCreatorItemId, workflowDurationLabel, workflowEventLabel, WorkflowHeaderAction, WorkflowInlineIcon, WorkflowNodeConfigModal, workflowNodeCreatorBadge, workflowNodeName, workflowNodeRunChildLineage, workflowPath, WorkflowRailPanel, workflowTimeLabel, zoomIn, zoomOut } as const;
+  return { activeRightPanelMeta, activeTab, bindingManifest, BOTTOM_TABS, bottomPanel, Brain, Cable, CheckCircle2, GitCompare, Canvas, canvasSearchOpen, canvasSearchQuery, canvasSearchResults, checkpoints, closeCanvasSearch, closeLeftDrawer, compareRunId, compareRunResult, compatibleNodeHints, compatiblePortFocusLabel, connectFromNodeId, ConnectorBindingModal, connectorBindingOpen, counts, createKind, createMode, createName, createOpen, CreateWorkflowModal, currentProject, currentProjectFile, DeployModal, deployOpen, displayEdges, displayNodes, dogfoodRun, emptyCanvasStartItems, execution, executionCheckpointCount, executionCompareRun, executionStatusCounts, filteredNodeLibrary, fitView, FlaskConical, functionDryRunResult, GitPullRequest, globalConfig, guardedCanvasDrop, guardedOnConnect, guardedOnEdgesChange, guardedOnNodesChange, handleAddCompatibleNode, handleAddNodeFromLibrary, handleAddTest, handleAddTestFromOutput, handleApplyProposal, handleCaptureNodeFixture, handleCheckReadiness, handleCheckWorkflowBinding, handleCollapseHarnessGroups, handleCompareRun, handleConnectSelectedNodes, handleCreateProposal, handleCreateWorkflow, handleDragStart, handleDryRunFunction, handleDryRunNodeFromFixture, handleExpandHarnessGroups, handleExportPortablePackage, handleForkDefaultHarness, handleGenerateBindingManifest, handleImportNodeFixture, handleImportPortablePackage, handleInsertAgentLoopMacro, handleInspectExecutionNode, handleInspectHarnessGroupNode, handleOpenDefaultHarness, handleOpenDeploy, handlePinNodeFixture, handleResolveWorkflowIssue, handleResumeRun, handleRun, handleRunTests, handleRunWorkflowNode, handleRunWorkflowUpstream, handleSave, handleSelectRun, handleUpdateEnvironmentProfile, handleUpdateProductionProfile, handleValidate, handleWorkflowNodeSelect, harnessGroupSummary, harnessGroupViews, harnessWorkerBinding, ImportPackageModal, importPackageName, importPackageOpen, importPackagePath, isBlessedHarnessWorkflow, isReadOnlyWorkflow, isSearchingNodeLibrary, lastRunResult, leftDrawerOpen, lifecycleState, Maximize2, Minimize2, missingReasoningBinding, ModelBindingModal, modelBindingOpen, newTestExpected, newTestExpression, newTestKind, newTestName, newTestTargets, NODE_GROUP_FILTERS, nodeConfigInitialSection, nodeConfigOpen, nodeGroupCounts, nodeGroupFilter, nodeRunStatusById, nodes, nodeSearch, openLeftDrawer, PanelLeftOpen, PanelRightClose, PanelRightOpen, Play, Plus, portablePackage, proposalBoundedTargetCount, ProposalPreviewModal, proposals, proposalStatusCounts, proposalToReview, readinessResult, recentNodeLibrary, RIGHT_PANELS, rightPanel, rightPanelBadgeCounts, rightRailCollapsed, rightRailWidth, Rocket, Search, selectedHarnessGroup, Settings, runDetailLoading, runEvents, runs, Save, SCAFFOLD_GROUPS, WORKFLOW_SCAFFOLDS, selectedDefinition, selectedExecutionRun, selectedExecutionRunResult, selectedFixtures, selectedNode, selectedNodeId, selectedRunId, selectedUpstreamReferences, setActiveTab, setBottomPanel, setCanvasSearchQuery, setCompatiblePortFocus, setConnectFromNodeId, setConnectorBindingOpen, setCreateKind, setCreateMode, setCreateName, setCreateOpen, setDeployOpen, setGlobalConfig, setImportPackageName, setImportPackageOpen, setImportPackagePath, setModelBindingOpen, setNewTestExpected, setNewTestExpression, setNewTestKind, setNewTestName, setNewTestTargets, setNodeConfigInitialSection, setNodeConfigOpen, setNodeGroupFilter, setNodeSearch, setProposalToReview, setRightPanel, setRightRailCollapsed, setRightRailWidth, setStatusMessage, setTestEditorOpen, slugify, statusMessage, TestEditorModal, testEditorOpen, testResult, tests, testsPath, toggleCanvasSearch, toggleLeftDrawer, updateNode, validationResult, visibleCompatibleNodeHints, workflow, workflowActionMetadataLabel, WorkflowBottomShelf, workflowConfigSectionForNodeKind, workflowCreatorItemId, workflowDurationLabel, workflowEventLabel, WorkflowHeaderAction, WorkflowInlineIcon, WorkflowNodeConfigModal, workflowNodeCreatorBadge, workflowNodeName, workflowNodeRunChildLineage, workflowPath, WorkflowRailPanel, workflowTimeLabel, zoomIn, zoomOut } as const;
 }
