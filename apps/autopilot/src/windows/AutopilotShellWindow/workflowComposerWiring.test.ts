@@ -759,6 +759,18 @@ assert.match(
 );
 
 assert.match(
+  workflowRailPanel,
+  /(?=[\s\S]*data-selected-receipt-ref)(?=[\s\S]*workflow-harness-activation-audit-summary-receipt-\$\{index\})(?=[\s\S]*workflow-harness-activation-audit-receipt-\$\{event\.eventId\}-\$\{index\})(?=[\s\S]*workflow-harness-rollback-drill-receipt-\$\{index\})(?=[\s\S]*workflow-harness-rollback-execution-receipt-\$\{index\})(?=[\s\S]*selectedHarnessReceiptRef === receiptRef)(?=[\s\S]*onSelectHarnessReceiptRef\?\.\(receiptRef\))/,
+  "Activation receipt refs should be clickable deep-link controls across audit, drill, and rollback execution panels.",
+);
+
+assert.match(
+  composer,
+  /(?=[\s\S]*handleSelectHarnessReceiptRef[\s\S]*setSelectedHarnessReceiptRef\(receiptRef\))(?=[\s\S]*receiptRef: selectedHarnessReceiptRef)/,
+  "Selecting a harness receipt should update URL-restorable workbench state.",
+);
+
+assert.match(
   workflowComposerUi,
   /viewMacro[\s\S]*macroPeerNodes[\s\S]*workflow-node-macro-cluster[\s\S]*workflow-node-macro-peer-list[\s\S]*workflow-node-macro-peer/,
   "Node details should show the expanded agent-loop composition and peer roles without hiding runtime behavior inside a macro node",

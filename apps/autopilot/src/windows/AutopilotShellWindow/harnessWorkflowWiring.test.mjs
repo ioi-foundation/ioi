@@ -132,6 +132,18 @@ assert.match(
 );
 
 assert.match(
+  workflowRailPanel,
+  /(?=[\s\S]*data-selected-receipt-ref)(?=[\s\S]*workflow-harness-activation-audit-summary-receipt-\$\{index\})(?=[\s\S]*workflow-harness-activation-audit-receipt-\$\{event\.eventId\}-\$\{index\})(?=[\s\S]*workflow-harness-rollback-drill-receipt-\$\{index\})(?=[\s\S]*workflow-harness-rollback-execution-receipt-\$\{index\})(?=[\s\S]*selectedHarnessReceiptRef === receiptRef)(?=[\s\S]*onSelectHarnessReceiptRef\?\.\(receiptRef\))/,
+  "Activation audit and rollback receipt refs should be clickable deep-link controls with selected receipt state.",
+);
+
+assert.match(
+  workflowComposer,
+  /(?=[\s\S]*handleSelectHarnessReceiptRef[\s\S]*setSelectedHarnessReceiptRef\(receiptRef\))(?=[\s\S]*receiptRef: selectedHarnessReceiptRef)/,
+  "Selecting a harness receipt should update the workbench deep link state.",
+);
+
+assert.match(
   tauriProjectTypes,
   /(?=[\s\S]*WorkflowNodeRun[\s\S]*pub harness_attempt: Option<Value>)(?=[\s\S]*WorkflowRunResult[\s\S]*pub harness_attempts: Vec<Value>[\s\S]*pub harness_shadow_comparisons: Vec<Value>[\s\S]*pub harness_gated_cluster_runs: Vec<Value>)(?=[\s\S]*WorkflowPortablePackageManifest[\s\S]*pub harness: Option<Value>[\s\S]*pub worker_harness_binding: Option<Value>)/,
   "Portable packages and run records should preserve harness metadata, worker binding identity, node attempts, shadow comparisons, and gated cluster runs.",

@@ -1705,6 +1705,9 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /activation_minted[\s\S]*receiptRefs/.test(harnessWorkflow) &&
       /workflow-harness-activation-audit[\s\S]*data-receipt-refs[\s\S]*data-audit-receipt-refs/.test(
         rail,
+      ) &&
+      /workflow-harness-activation-audit-receipt-\$\{event\.eventId\}-\$\{index\}/.test(
+        rail,
       ),
     rollbackExecutionReceiptRefs:
       /WorkflowHarnessActivationRollbackProof[\s\S]*receiptRefs: string\[\]/.test(graph) &&
@@ -1719,7 +1722,20 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       ) &&
       /workflow-harness-rollback-execution-proof[\s\S]*data-receipt-refs[\s\S]*data-restore-receipt-binding-ref/.test(
         rail,
-      ),
+      ) &&
+      /workflow-harness-rollback-drill-receipt-\$\{index\}/.test(rail) &&
+      /workflow-harness-rollback-execution-receipt-\$\{index\}/.test(rail),
+    interactiveReceiptSelection:
+      /data-selected-receipt-ref/.test(rail) &&
+      /selectedHarnessReceiptRef === receiptRef/.test(rail) &&
+      /onClick=\{\(\) => onSelectHarnessReceiptRef\?\.\(receiptRef\)\}/.test(
+        rail,
+      ) &&
+      /handleSelectHarnessReceiptRef[\s\S]*setSelectedHarnessReceiptRef\(receiptRef\)/.test(
+        controller,
+      ) &&
+      /receiptRef: selectedHarnessReceiptRef/.test(controller) &&
+      /writeHarnessWorkbenchDeepLink/.test(controller),
     rollbackCanaryContract:
       /WorkflowHarnessRollbackRestoreCanary[\s\S]*hashVerified[\s\S]*receiptBindingRef[\s\S]*blockers/.test(
         graph,
@@ -1741,6 +1757,10 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       canaryCard: "workflow-harness-rollback-restore-canary",
       wizardStep: "workflow-harness-activation-step-rollback-restore",
       candidateGate: "workflow-harness-activation-candidate-gate-rollback-restore",
+      activationAuditReceipt: "workflow-harness-activation-audit-receipt-${event.eventId}-${index}",
+      rollbackDrillReceipt: "workflow-harness-rollback-drill-receipt-${index}",
+      rollbackExecutionReceipt: "workflow-harness-rollback-execution-receipt-${index}",
+      selectedReceiptDeepLinkState: "workflow-harness-deep-link-state[data-selected-receipt-ref]",
     },
     sourceRefs: [
       railPath,
