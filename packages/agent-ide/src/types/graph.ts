@@ -1086,6 +1086,8 @@ export type WorkflowHarnessActivationAuditEventType =
   | "dry_run_mintable"
   | "activation_mint_blocked"
   | "activation_minted"
+  | "replay_drill_blocked"
+  | "replay_drill_passed"
   | "rollback_target_selected"
   | "rollback_drill_blocked"
   | "rollback_drill_passed"
@@ -1172,6 +1174,50 @@ export interface WorkflowHarnessActivationRollbackExecution {
   evidenceRefs: string[];
   receiptRefs: string[];
   restoreReceiptBindingRef?: string;
+  createdAtMs: number;
+}
+
+export type WorkflowHarnessReplayDrillDivergenceClass =
+  | "none"
+  | "harmless_metadata_drift"
+  | "missing_receipt"
+  | "policy_divergence"
+  | "routing_divergence"
+  | "output_divergence"
+  | "behavioral_regression"
+  | "fixture_unresolved";
+
+export interface WorkflowHarnessReplayDrillResult {
+  schemaVersion: "workflow.harness.replay-drill-result.v1" | string;
+  drillId: string;
+  workflowId: string;
+  activationId?: string;
+  replayFixtureRef: string;
+  sourceKind: string;
+  sourceLabel: string;
+  drillStatus: "passed" | "blocked" | "failed" | string;
+  divergenceClass: WorkflowHarnessReplayDrillDivergenceClass;
+  componentId: string;
+  producerComponent: string;
+  attemptId: string;
+  receiptRef: string;
+  runId: string;
+  executionMode: WorkflowHarnessExecutionMode | string;
+  readiness: WorkflowHarnessComponentReadiness | string;
+  policyDecision: string;
+  expectedInputHash: string;
+  actualInputHash: string;
+  expectedOutputHash: string;
+  actualOutputHash: string;
+  deterministicEnvelope: boolean;
+  capturesInput: boolean;
+  capturesOutput: boolean;
+  capturesPolicyDecision: boolean;
+  determinism: WorkflowHarnessReplayDeterminism | string;
+  redactionPolicy: string;
+  blockers: string[];
+  evidenceRefs: string[];
+  receiptRefs: string[];
   createdAtMs: number;
 }
 
@@ -1820,6 +1866,7 @@ export interface WorkflowHarnessMetadata {
   activationAudit?: WorkflowHarnessActivationAuditEvent[];
   activationRollbackProof?: WorkflowHarnessActivationRollbackProof;
   activationRollbackExecution?: WorkflowHarnessActivationRollbackExecution;
+  replayDrills?: WorkflowHarnessReplayDrillResult[];
   revisionBinding?: WorkflowRevisionBinding;
   liveHandoffProof?: WorkflowHarnessLiveHandoffProof;
   runtimeSelectorDecision?: WorkflowHarnessRuntimeSelectorDecision;

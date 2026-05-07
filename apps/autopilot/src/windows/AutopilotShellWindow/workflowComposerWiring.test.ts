@@ -783,6 +783,12 @@ assert.match(
 );
 
 assert.match(
+  `${graphTypes}\n${harnessWorkflow}\n${composer}\n${workflowRailPanel}\n${workflowValidation}`,
+  /(?=[\s\S]*WorkflowHarnessReplayDrillResult)(?=[\s\S]*WorkflowHarnessReplayDrillDivergenceClass)(?=[\s\S]*replayDrills\?: WorkflowHarnessReplayDrillResult\[\])(?=[\s\S]*executeWorkflowHarnessReplayDrill)(?=[\s\S]*replay_drill_passed)(?=[\s\S]*replay_drill_blocked)(?=[\s\S]*handleRunHarnessReplayDrill)(?=[\s\S]*onRunHarnessReplayDrill)(?=[\s\S]*workflow-harness-run-replay-drill)(?=[\s\S]*workflow-harness-replay-drill-result)(?=[\s\S]*data-replay-divergence-class)(?=[\s\S]*replayDrillBlockers)/,
+  "Replay fixture refs should run replay drills, classify divergence, persist audit evidence, surface receipt refs, and feed activation readiness.",
+);
+
+assert.match(
   workflowComposerUi,
   /viewMacro[\s\S]*macroPeerNodes[\s\S]*workflow-node-macro-cluster[\s\S]*workflow-node-macro-peer-list[\s\S]*workflow-node-macro-peer/,
   "Node details should show the expanded agent-loop composition and peer roles without hiding runtime behavior inside a macro node",

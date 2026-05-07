@@ -163,6 +163,12 @@ assert.match(
 );
 
 assert.match(
+  `${graphTypes}\n${harnessWorkflow}\n${workflowComposer}\n${workflowRailPanel}\n${workflowValidation}`,
+  /(?=[\s\S]*WorkflowHarnessReplayDrillResult)(?=[\s\S]*WorkflowHarnessReplayDrillDivergenceClass)(?=[\s\S]*replayDrills\?: WorkflowHarnessReplayDrillResult\[\])(?=[\s\S]*executeWorkflowHarnessReplayDrill)(?=[\s\S]*replay_drill_passed)(?=[\s\S]*replay_drill_blocked)(?=[\s\S]*handleRunHarnessReplayDrill)(?=[\s\S]*onRunHarnessReplayDrill)(?=[\s\S]*workflow-harness-run-replay-drill)(?=[\s\S]*workflow-harness-replay-drill-result)(?=[\s\S]*data-replay-divergence-class)(?=[\s\S]*replayDrillBlockers)/,
+  "Selected harness replay fixtures should run replay drills, classify divergence, persist audit evidence, surface receipt refs, and feed activation readiness.",
+);
+
+assert.match(
   tauriProjectTypes,
   /(?=[\s\S]*WorkflowNodeRun[\s\S]*pub harness_attempt: Option<Value>)(?=[\s\S]*WorkflowRunResult[\s\S]*pub harness_attempts: Vec<Value>[\s\S]*pub harness_shadow_comparisons: Vec<Value>[\s\S]*pub harness_gated_cluster_runs: Vec<Value>)(?=[\s\S]*WorkflowPortablePackageManifest[\s\S]*pub harness: Option<Value>[\s\S]*pub worker_harness_binding: Option<Value>)/,
   "Portable packages and run records should preserve harness metadata, worker binding identity, node attempts, shadow comparisons, and gated cluster runs.",

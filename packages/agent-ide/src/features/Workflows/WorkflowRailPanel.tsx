@@ -153,6 +153,7 @@ export function WorkflowRailPanel({
   onCopyHarnessDeepLink,
   onCheckActivationReadiness,
   onRunHarnessActivationDryRun,
+  onRunHarnessReplayDrill,
   onApplyHarnessActivationCandidate,
   onRunHarnessRollbackDrill,
   onExecuteHarnessRollback,
@@ -208,6 +209,7 @@ export function WorkflowRailPanel({
   onCopyHarnessDeepLink?: () => void;
   onCheckActivationReadiness?: () => void;
   onRunHarnessActivationDryRun?: () => void;
+  onRunHarnessReplayDrill?: () => void;
   onApplyHarnessActivationCandidate?: () => void;
   onRunHarnessRollbackDrill?: () => void;
   onExecuteHarnessRollback?: () => void;
@@ -3342,6 +3344,15 @@ export function WorkflowRailPanel({
     readOnlyRoutingReady: harnessReadOnlyRoutingReady,
     authorityToolingProof: harnessAuthorityToolingProof,
   });
+  const selectedHarnessReplayDrill = selectedHarnessReplayInspection
+    ? [...(workflow.metadata.harness?.replayDrills ?? [])]
+        .reverse()
+        .find(
+          (drill) =>
+            drill.replayFixtureRef ===
+            selectedHarnessReplayInspection.replayFixtureRef,
+        ) ?? null
+    : null;
   return (
     <>
       <h3>Outputs</h3>
@@ -3480,6 +3491,12 @@ export function WorkflowRailPanel({
           data-captures-policy-decision={
             selectedHarnessReplayInspection.capturesPolicyDecision
           }
+          data-replay-drill-status={
+            selectedHarnessReplayDrill?.drillStatus ?? "not_run"
+          }
+          data-replay-divergence-class={
+            selectedHarnessReplayDrill?.divergenceClass ?? "not_run"
+          }
         >
           <h4>Replay inspector</h4>
           <article
@@ -3570,6 +3587,72 @@ export function WorkflowRailPanel({
             </code>
             <small>{selectedHarnessReplayInspection.nondeterminismReason}</small>
           </div>
+          <div
+            className="workflow-harness-activation-actions"
+            data-testid="workflow-harness-replay-drill-actions"
+          >
+            <button
+              type="button"
+              data-testid="workflow-harness-run-replay-drill"
+              disabled={!onRunHarnessReplayDrill}
+              onClick={onRunHarnessReplayDrill}
+            >
+              Run replay
+            </button>
+          </div>
+          <article
+            className={`workflow-output-row is-${
+              selectedHarnessReplayDrill?.drillStatus === "passed"
+                ? "ready"
+                : "blocked"
+            }`}
+            data-testid="workflow-harness-replay-drill-result"
+            data-drill-status={selectedHarnessReplayDrill?.drillStatus ?? "not_run"}
+            data-divergence-class={
+              selectedHarnessReplayDrill?.divergenceClass ?? "not_run"
+            }
+            data-drill-id={selectedHarnessReplayDrill?.drillId ?? ""}
+            data-receipt-refs={
+              selectedHarnessReplayDrill?.receiptRefs.join("|") ?? ""
+            }
+          >
+            <strong>
+              {selectedHarnessReplayDrill?.divergenceClass ?? "Replay drill not run"}
+            </strong>
+            <span>
+              {selectedHarnessReplayDrill?.drillStatus ?? "not_run"}
+              {" · "}
+              expected {selectedHarnessReplayDrill?.expectedOutputHash ?? "pending"}
+              {" · "}
+              actual {selectedHarnessReplayDrill?.actualOutputHash ?? "pending"}
+            </span>
+            <small>
+              {selectedHarnessReplayDrill?.blockers.join(" | ") ||
+                selectedHarnessReplayDrill?.policyDecision ||
+                "Run replay to classify divergence."}
+            </small>
+          </article>
+          {selectedHarnessReplayDrill?.receiptRefs.length ? (
+            <div
+              className="workflow-harness-authority-gate-actions"
+              data-testid="workflow-harness-replay-drill-receipt-refs"
+            >
+              {selectedHarnessReplayDrill.receiptRefs.map((receiptRef, index) => (
+                <button
+                  key={receiptRef}
+                  type="button"
+                  className={`workflow-harness-ref-button ${
+                    selectedHarnessReceiptRef === receiptRef ? "is-active" : ""
+                  }`}
+                  data-testid={`workflow-harness-replay-drill-receipt-${index}`}
+                  data-receipt-ref={receiptRef}
+                  onClick={() => onSelectHarnessReceiptRef?.(receiptRef)}
+                >
+                  <code>{receiptRef}</code>
+                </button>
+              ))}
+            </div>
+          ) : null}
         </section>
       ) : null}
       {harnessDefaultRuntimeDispatchProof ? (

@@ -1463,7 +1463,13 @@ export function createWorkflowHarnessActivationCandidate(
     !issueCodes.has("harness_self_mutation_not_proposal_only") &&
     !issueCodes.has("mcp_access_not_reviewed") &&
     !issueCodes.has("mock_binding_active");
-  const replayReady = !issueCodes.has("missing_replay_fixture");
+  const replayDrillBlockers = (harness?.replayDrills ?? []).filter(
+    (drill) =>
+      drill.drillStatus !== "passed" ||
+      !["none", "harmless_metadata_drift"].includes(drill.divergenceClass),
+  );
+  const replayReady =
+    !issueCodes.has("missing_replay_fixture") && replayDrillBlockers.length === 0;
   const workerBindingReady =
     Boolean(workerBindingPreview.harnessWorkflowId) &&
     workerBindingPreview.harnessActivationId === activationIdPreview &&
@@ -1489,11 +1495,19 @@ export function createWorkflowHarnessActivationCandidate(
       gateId: "replay-fixtures",
       label: "Replay fixtures",
       status: replayReady ? "passed" : "blocked",
-      value: replayReady ? "ready" : "missing",
-      detail: "Required replay fixtures must be present for external or expensive paths.",
-      evidenceRefs: uniqueIssues
-        .filter((issue) => issue.code === "missing_replay_fixture")
-        .map((issue) => issue.nodeId ?? issue.code),
+      value: replayReady
+        ? "ready"
+        : replayDrillBlockers.length > 0
+          ? `${replayDrillBlockers.length} drill blockers`
+          : "missing",
+      detail:
+        "Required replay fixtures must be present and any replay drills must pass without blocking divergence.",
+      evidenceRefs: [
+        ...uniqueIssues
+          .filter((issue) => issue.code === "missing_replay_fixture")
+          .map((issue) => issue.nodeId ?? issue.code),
+        ...replayDrillBlockers.map((drill) => drill.drillId),
+      ],
     },
     {
       gateId: "policy-posture",

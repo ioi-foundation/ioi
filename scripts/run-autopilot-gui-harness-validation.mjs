@@ -1781,6 +1781,20 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /workflow-harness-replay-capture-flags/.test(rail) &&
       /workflow-harness-replay-payload-preview/.test(rail) &&
       /workflow-harness-replay-evidence-refs/.test(rail),
+    replayDrillExecution:
+      /WorkflowHarnessReplayDrillResult/.test(graph) &&
+      /WorkflowHarnessReplayDrillDivergenceClass/.test(graph) &&
+      /replayDrills\?: WorkflowHarnessReplayDrillResult\[\]/.test(graph) &&
+      /executeWorkflowHarnessReplayDrill/.test(harnessWorkflow) &&
+      /replay_drill_passed/.test(harnessWorkflow) &&
+      /replay_drill_blocked/.test(harnessWorkflow) &&
+      /handleRunHarnessReplayDrill/.test(controller) &&
+      /onRunHarnessReplayDrill/.test(rail) &&
+      /workflow-harness-run-replay-drill/.test(rail) &&
+      /workflow-harness-replay-drill-result/.test(rail) &&
+      /data-replay-divergence-class/.test(rail) &&
+      /workflow-harness-replay-drill-receipt-refs/.test(rail) &&
+      /replayDrillBlockers/.test(validation),
     rollbackCanaryContract:
       /WorkflowHarnessRollbackRestoreCanary[\s\S]*hashVerified[\s\S]*receiptBindingRef[\s\S]*blockers/.test(
         graph,
@@ -1812,6 +1826,9 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       replayInspector: "workflow-harness-replay-inspector",
       replayPayloadPreview: "workflow-harness-replay-payload-preview",
       replayEvidenceRefs: "workflow-harness-replay-evidence-refs",
+      runReplayDrill: "workflow-harness-run-replay-drill",
+      replayDrillResult: "workflow-harness-replay-drill-result",
+      replayDrillReceiptRefs: "workflow-harness-replay-drill-receipt-refs",
     },
     sourceRefs: [
       railPath,
