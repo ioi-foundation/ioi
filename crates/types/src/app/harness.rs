@@ -7,7 +7,8 @@ use crate::app::events::{
     WorkloadReceiptEvent,
 };
 use parity_scale_codec::{Decode, Encode};
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde_json::{json, Value};
 use thiserror::Error;
 
 pub const DEFAULT_AGENT_HARNESS_WORKFLOW_ID: &str = "default-agent-harness";
@@ -2800,6 +2801,172 @@ pub fn compare_harness_live_shadow_attempts(
         summary,
         evidence_refs,
     }
+}
+
+fn harness_enum_from_str<T>(value: &str) -> Option<T>
+where
+    T: DeserializeOwned,
+{
+    serde_json::from_value(Value::String(value.to_string())).ok()
+}
+
+fn harness_optional_string(value: &Value, key: &str) -> Option<String> {
+    value.get(key).and_then(Value::as_str).map(str::to_string)
+}
+
+fn harness_string_array(value: Option<&Value>) -> Vec<String> {
+    value
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+pub fn harness_replay_envelope_from_camel_value(value: Option<&Value>) -> HarnessReplayEnvelope {
+    let replay = value.unwrap_or(&Value::Null);
+    let deterministic = replay
+        .get("deterministicEnvelope")
+        .and_then(Value::as_bool)
+        .unwrap_or(true);
+    let determinism = replay
+        .get("determinism")
+        .and_then(Value::as_str)
+        .and_then(harness_enum_from_str)
+        .unwrap_or(if deterministic {
+            HarnessReplayDeterminism::Deterministic
+        } else {
+            HarnessReplayDeterminism::Nondeterministic
+        });
+    HarnessReplayEnvelope {
+        deterministic_envelope: deterministic,
+        captures_input: replay
+            .get("capturesInput")
+            .and_then(Value::as_bool)
+            .unwrap_or(true),
+        captures_output: replay
+            .get("capturesOutput")
+            .and_then(Value::as_bool)
+            .unwrap_or(true),
+        captures_policy_decision: replay
+            .get("capturesPolicyDecision")
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
+        fixture_ref: harness_optional_string(replay, "fixtureRef"),
+        determinism,
+        nondeterminism_reason: harness_optional_string(replay, "nondeterminismReason"),
+        redaction_policy: harness_optional_string(replay, "redactionPolicy")
+            .unwrap_or_else(|| "runtime_redacted".to_string()),
+    }
+}
+
+pub fn harness_node_attempt_record_from_camel_value(
+    attempt: &Value,
+) -> Option<HarnessNodeAttemptRecord> {
+    let component_kind: HarnessComponentKind = attempt
+        .get("componentKind")
+        .and_then(Value::as_str)
+        .and_then(harness_enum_from_str)?;
+    let execution_mode: HarnessExecutionMode = attempt
+        .get("executionMode")
+        .and_then(Value::as_str)
+        .and_then(harness_enum_from_str)?;
+    let readiness: HarnessComponentReadiness = attempt
+        .get("readiness")
+        .and_then(Value::as_str)
+        .and_then(harness_enum_from_str)?;
+    let status: HarnessNodeAttemptStatus = attempt
+        .get("status")
+        .and_then(Value::as_str)
+        .and_then(harness_enum_from_str)?;
+    let attempt_index = attempt
+        .get("attemptIndex")
+        .and_then(Value::as_u64)
+        .unwrap_or(0)
+        .min(u32::MAX as u64) as u32;
+    Some(HarnessNodeAttemptRecord {
+        attempt_id: harness_optional_string(attempt, "attemptId")?,
+        harness_workflow_id: harness_optional_string(attempt, "harnessWorkflowId")
+            .unwrap_or_else(|| DEFAULT_AGENT_HARNESS_WORKFLOW_ID.to_string()),
+        harness_activation_id: harness_optional_string(attempt, "harnessActivationId")
+            .unwrap_or_else(|| DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string()),
+        harness_hash: harness_optional_string(attempt, "harnessHash")
+            .unwrap_or_else(|| DEFAULT_AGENT_HARNESS_HASH.to_string()),
+        workflow_node_id: harness_optional_string(attempt, "workflowNodeId")?,
+        component_id: harness_optional_string(attempt, "componentId")
+            .unwrap_or_else(|| component_kind.component_id()),
+        component_kind,
+        execution_mode,
+        readiness,
+        attempt_index,
+        status,
+        input_hash: harness_optional_string(attempt, "inputHash"),
+        output_hash: harness_optional_string(attempt, "outputHash"),
+        error_class: harness_optional_string(attempt, "errorClass"),
+        policy_decision: harness_optional_string(attempt, "policyDecision"),
+        started_at_ms: attempt.get("startedAtMs").and_then(Value::as_u64),
+        duration_ms: attempt.get("durationMs").and_then(Value::as_u64),
+        receipt_ids: harness_string_array(attempt.get("receiptIds")),
+        evidence_refs: harness_string_array(attempt.get("evidenceRefs")),
+        replay: harness_replay_envelope_from_camel_value(attempt.get("replay")),
+    })
+}
+
+pub fn harness_shadow_comparison_camel_value(comparison: &HarnessShadowComparison) -> Value {
+    json!({
+        "workflowNodeId": &comparison.workflow_node_id,
+        "componentKind": comparison.component_kind.as_str(),
+        "liveAttemptId": &comparison.live_attempt_id,
+        "shadowAttemptId": &comparison.shadow_attempt_id,
+        "divergence": comparison.divergence.as_str(),
+        "blocking": comparison.blocking,
+        "summary": &comparison.summary,
+        "evidenceRefs": &comparison.evidence_refs,
+    })
+}
+
+pub fn harness_gated_cluster_status_as_str(status: HarnessClusterPromotionStatus) -> &'static str {
+    match status {
+        HarnessClusterPromotionStatus::ShadowReady => "shadow_ready",
+        HarnessClusterPromotionStatus::Gated => "gated",
+        HarnessClusterPromotionStatus::Blocked => "blocked",
+        HarnessClusterPromotionStatus::Live => "live",
+    }
+}
+
+pub fn harness_gated_cluster_run_camel_value(run: &HarnessGatedClusterRun) -> Value {
+    let component_kinds = run
+        .component_kinds
+        .iter()
+        .map(|component_kind| component_kind.as_str())
+        .collect::<Vec<_>>();
+    json!({
+        "schemaVersion": &run.schema_version,
+        "runId": &run.run_id,
+        "clusterId": run.cluster_id.as_str(),
+        "clusterLabel": &run.cluster_label,
+        "harnessWorkflowId": &run.harness_workflow_id,
+        "harnessActivationId": &run.harness_activation_id,
+        "harnessHash": &run.harness_hash,
+        "executionMode": run.execution_mode.as_str(),
+        "status": harness_gated_cluster_status_as_str(run.status),
+        "componentKinds": component_kinds,
+        "shadowRunId": &run.shadow_run_id,
+        "nodeAttemptIds": &run.node_attempt_ids,
+        "receiptIds": &run.receipt_ids,
+        "replayFixtureRefs": &run.replay_fixture_refs,
+        "activationBlockers": &run.activation_blockers,
+        "gateDecision": &run.gate_decision,
+        "rollbackTarget": &run.rollback_target,
+        "rollbackAvailable": true,
+        "canaryStatus": &run.canary_status,
+        "promotionBlocked": run.promotion_blocked,
+        "evidenceRefs": &run.evidence_refs,
+    })
 }
 
 #[cfg(test)]
