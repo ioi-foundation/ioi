@@ -17,6 +17,36 @@ export interface WorkflowNodeViewMacro {
   expandedFrom: "agent_loop_macro" | string;
 }
 
+export interface WorkflowHarnessGroupView {
+  groupId: WorkflowHarnessPromotionClusterId | string;
+  label: string;
+  collapsed: boolean;
+  innerNodeIds: string[];
+  componentKinds: WorkflowHarnessComponentKind[];
+  boundaryPorts: WorkflowPortDefinition[];
+  statusRollup: {
+    executionMode: WorkflowHarnessExecutionMode;
+    readiness: WorkflowHarnessComponentReadiness | "mixed";
+    liveReadyCount: number;
+    shadowReadyCount: number;
+    simulatedCount: number;
+    projectionOnlyCount: number;
+    blockedCount: number;
+    warningCount: number;
+    receiptKindCount: number;
+    replayFixtureCount: number;
+    divergenceCount: number;
+    activationState?: WorkflowHarnessActivationState;
+  };
+  deepLinks: {
+    groupId: string;
+    componentIds: string[];
+    receiptRefs: string[];
+    replayFixtureRefs: string[];
+    runId?: string;
+  };
+}
+
 export interface WorkflowFieldMapping {
   source: string;
   path: string;
@@ -154,6 +184,9 @@ export interface NodeLogic {
 
   // --- View-only composition helpers ---
   viewMacro?: WorkflowNodeViewMacro;
+  harnessGroup?: WorkflowHarnessGroupView;
+  harnessComponent?: WorkflowHarnessComponentSpec;
+  harnessSlots?: string[];
 }
 
 export interface FirewallPolicy {
