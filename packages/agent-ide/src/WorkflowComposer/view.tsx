@@ -291,6 +291,33 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
               {harnessWorkerBinding.harnessWorkflowId}
             </span>
           ) : null}
+          {workflow.metadata.harness?.defaultRuntimeDispatchProof ? (
+            <span
+              className="workflow-composer-harness-badge"
+              data-testid="workflow-harness-authority-gate-badge"
+              data-readiness={
+                workflow.metadata.harness.defaultRuntimeDispatchProof
+                  .authorityToolingGateLiveReady
+                  ? "live_ready"
+                  : "blocked"
+              }
+              title={
+                workflow.metadata.harness.defaultRuntimeDispatchProof
+                  .authorityToolingProof?.policyDecision
+                  ? String(
+                      workflow.metadata.harness.defaultRuntimeDispatchProof
+                        .authorityToolingProof?.policyDecision,
+                    )
+                  : "Authority gate live proof"
+              }
+            >
+              Authority gates{" "}
+              {workflow.metadata.harness.defaultRuntimeDispatchProof
+                .authorityToolingGateLiveReady
+                ? "live"
+                : "blocked"}
+            </span>
+          ) : null}
           <span
             className={`workflow-composer-lifecycle is-${lifecycleState.status}`}
             data-testid="workflow-lifecycle-state"

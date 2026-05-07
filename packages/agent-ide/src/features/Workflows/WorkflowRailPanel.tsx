@@ -6,6 +6,7 @@ import type {
   WorkflowBindingManifest,
   WorkflowCheckpoint,
   WorkflowConnectionClass,
+  WorkflowHarnessComponentKind,
   WorkflowDogfoodRun,
   WorkflowHarnessForkActivationCandidate,
   WorkflowHarnessGroupView,
@@ -52,6 +53,64 @@ import {
   workflowWorkbenchCheckTitle,
   workflowTimeLabel,
 } from "../../runtime/workflow-rail-model";
+
+type WorkflowHarnessAuthorityGateProofView = {
+  id: "policy-gate" | "destructive-denial" | "approval-gate";
+  label: string;
+  componentKind: Extract<WorkflowHarnessComponentKind, "policy_gate" | "approval_gate">;
+  node: Node | null;
+  ready: boolean;
+  status: "live_ready" | "blocked";
+  attemptIds: string[];
+  receiptIds: string[];
+  replayFixtureRefs: string[];
+  policyDecision: string;
+  blockerState: string;
+  componentId: string;
+  runId: string;
+  selectedPanel: WorkflowRightPanel;
+};
+
+function workflowProofStringArray(
+  proof: Record<string, unknown> | null | undefined,
+  key: string,
+  fallback: string[] = [],
+): string[] {
+  const value = proof?.[key];
+  if (!Array.isArray(value)) return fallback;
+  return value.filter((item): item is string => typeof item === "string");
+}
+
+function workflowProofString(
+  proof: Record<string, unknown> | null | undefined,
+  key: string,
+  fallback: string,
+): string {
+  const value = proof?.[key];
+  return typeof value === "string" ? value : fallback;
+}
+
+function workflowProofBoolean(
+  proof: Record<string, unknown> | null | undefined,
+  key: string,
+  fallback: boolean,
+): boolean {
+  const value = proof?.[key];
+  return typeof value === "boolean" ? value : fallback;
+}
+
+function workflowHarnessAuthorityGateBlockerState(
+  gate: Pick<
+    WorkflowHarnessAuthorityGateProofView,
+    "ready" | "attemptIds" | "receiptIds" | "replayFixtureRefs"
+  >,
+): string {
+  if (gate.ready) return "none";
+  if (gate.attemptIds.length === 0) return "missing attempt";
+  if (gate.receiptIds.length === 0) return "missing receipt";
+  if (gate.replayFixtureRefs.length === 0) return "missing replay fixture";
+  return "needs activation review";
+}
 
 export function WorkflowRailPanel({
   panel,
@@ -240,6 +299,233 @@ export function WorkflowRailPanel({
     harnessDefaultRuntimeDispatchProof?.readOnlyCapabilityRoutingNoMutationReady === true &&
     harnessReadOnlyRoutingProof?.sideEffectsExecuted === false &&
     harnessReadOnlyRoutingProof?.mutationExecuted === false;
+  const harnessAuthorityToolingProof =
+    harnessDefaultRuntimeDispatchProof?.authorityToolingProof ?? null;
+  const harnessAuthorityPolicyGateNode =
+    workflow.nodes.find(
+      (node) => node.runtimeBinding?.componentKind === "policy_gate",
+    ) ?? null;
+  const harnessAuthorityApprovalGateNode =
+    workflow.nodes.find(
+      (node) => node.runtimeBinding?.componentKind === "approval_gate",
+    ) ?? null;
+  const harnessAuthorityGateLiveProofSeeds: Array<
+    Omit<WorkflowHarnessAuthorityGateProofView, "blockerState">
+  > = harnessDefaultRuntimeDispatchProof
+    ? [
+        {
+          id: "policy-gate",
+          label: "Policy gate",
+          componentKind: "policy_gate",
+          node: harnessAuthorityPolicyGateNode,
+          ready:
+            harnessDefaultRuntimeDispatchProof.authorityToolingPolicyGateLiveReady === true &&
+            workflowProofBoolean(harnessAuthorityToolingProof, "policyGateLiveReady", true),
+          status:
+            harnessDefaultRuntimeDispatchProof.authorityToolingPolicyGateLiveReady === true
+              ? "live_ready"
+              : "blocked",
+          attemptIds: workflowProofStringArray(
+            harnessAuthorityToolingProof,
+            "policyGateLiveAttemptIds",
+            harnessDefaultRuntimeDispatchProof.authorityToolingPolicyGateLiveAttemptIds,
+          ),
+          receiptIds: workflowProofStringArray(
+            harnessAuthorityToolingProof,
+            "policyGateLiveReceiptIds",
+            harnessDefaultRuntimeDispatchProof.authorityToolingPolicyGateLiveReceiptIds,
+          ),
+          replayFixtureRefs: workflowProofStringArray(
+            harnessAuthorityToolingProof,
+            "policyGateLiveReplayFixtureRefs",
+            harnessDefaultRuntimeDispatchProof.authorityToolingPolicyGateLiveReplayFixtureRefs,
+          ),
+          policyDecision: workflowProofString(
+            harnessAuthorityToolingProof,
+            "policyGateDecision",
+            "allow_read_only_route_through_workflow_authority",
+          ),
+          componentId:
+            harnessAuthorityPolicyGateNode?.runtimeBinding?.componentId ??
+            "ioi.agent-harness.policy_gate.v1",
+          runId: selectedRunId ?? harnessDefaultRuntimeDispatchProof.dispatchId,
+          selectedPanel: panel,
+        },
+        {
+          id: "destructive-denial",
+          label: "Destructive denial",
+          componentKind: "policy_gate",
+          node: harnessAuthorityPolicyGateNode,
+          ready:
+            harnessDefaultRuntimeDispatchProof.authorityToolingDestructiveDenialLiveReady === true &&
+            workflowProofBoolean(
+              harnessAuthorityToolingProof,
+              "destructiveDenialLiveReady",
+              true,
+            ),
+          status:
+            harnessDefaultRuntimeDispatchProof.authorityToolingDestructiveDenialLiveReady === true
+              ? "live_ready"
+              : "blocked",
+          attemptIds: workflowProofStringArray(
+            harnessAuthorityToolingProof,
+            "destructiveDenialLiveAttemptIds",
+            harnessDefaultRuntimeDispatchProof.authorityToolingDestructiveDenialLiveAttemptIds,
+          ),
+          receiptIds: workflowProofStringArray(
+            harnessAuthorityToolingProof,
+            "destructiveDenialLiveReceiptIds",
+            harnessDefaultRuntimeDispatchProof.authorityToolingDestructiveDenialLiveReceiptIds,
+          ),
+          replayFixtureRefs: workflowProofStringArray(
+            harnessAuthorityToolingProof,
+            "destructiveDenialLiveReplayFixtureRefs",
+            harnessDefaultRuntimeDispatchProof.authorityToolingDestructiveDenialLiveReplayFixtureRefs,
+          ),
+          policyDecision: workflowProofString(
+            harnessAuthorityToolingProof,
+            "destructiveDenialPolicyDecision",
+            "deny_destructive_request_without_side_effect",
+          ),
+          componentId:
+            harnessAuthorityPolicyGateNode?.runtimeBinding?.componentId ??
+            "ioi.agent-harness.policy_gate.v1",
+          runId: selectedRunId ?? harnessDefaultRuntimeDispatchProof.dispatchId,
+          selectedPanel: panel,
+        },
+        {
+          id: "approval-gate",
+          label: "Approval gate",
+          componentKind: "approval_gate",
+          node: harnessAuthorityApprovalGateNode,
+          ready:
+            harnessDefaultRuntimeDispatchProof.authorityToolingApprovalGateLiveReady === true &&
+            workflowProofBoolean(harnessAuthorityToolingProof, "approvalGateLiveReady", true),
+          status:
+            harnessDefaultRuntimeDispatchProof.authorityToolingApprovalGateLiveReady === true
+              ? "live_ready"
+              : "blocked",
+          attemptIds: workflowProofStringArray(
+            harnessAuthorityToolingProof,
+            "approvalGateLiveAttemptIds",
+            harnessDefaultRuntimeDispatchProof.authorityToolingApprovalGateLiveAttemptIds,
+          ),
+          receiptIds: workflowProofStringArray(
+            harnessAuthorityToolingProof,
+            "approvalGateLiveReceiptIds",
+            harnessDefaultRuntimeDispatchProof.authorityToolingApprovalGateLiveReceiptIds,
+          ),
+          replayFixtureRefs: workflowProofStringArray(
+            harnessAuthorityToolingProof,
+            "approvalGateLiveReplayFixtureRefs",
+            harnessDefaultRuntimeDispatchProof.authorityToolingApprovalGateLiveReplayFixtureRefs,
+          ),
+          policyDecision: workflowProofString(
+            harnessAuthorityToolingProof,
+            "approvalGatePolicyDecision",
+            "require_legacy_approval_for_mutating_tooling",
+          ),
+          componentId:
+            harnessAuthorityApprovalGateNode?.runtimeBinding?.componentId ??
+            "ioi.agent-harness.approval_gate.v1",
+          runId: selectedRunId ?? harnessDefaultRuntimeDispatchProof.dispatchId,
+          selectedPanel: panel,
+        },
+      ]
+    : [];
+  const harnessAuthorityGateLiveProofs: WorkflowHarnessAuthorityGateProofView[] =
+    harnessAuthorityGateLiveProofSeeds.map((gate) => ({
+      ...gate,
+      blockerState: workflowHarnessAuthorityGateBlockerState(gate),
+    }));
+  const harnessAuthorityGateLiveReady =
+    harnessDefaultRuntimeDispatchProof?.authorityToolingGateLiveReady === true &&
+    workflowProofBoolean(harnessAuthorityToolingProof, "gateLiveReady", true) &&
+    harnessAuthorityGateLiveProofs.length > 0 &&
+    harnessAuthorityGateLiveProofs.every((gate) => gate.ready);
+  const harnessAuthorityGateReadyCount = harnessAuthorityGateLiveProofs.filter(
+    (gate) => gate.ready,
+  ).length;
+  const renderHarnessAuthorityGateProofRows = (
+    gates: WorkflowHarnessAuthorityGateProofView[],
+    options: {
+      listTestId: string;
+      gateTestIdPrefix: string;
+    },
+  ) => (
+    <div
+      className="workflow-rail-list workflow-harness-authority-gate-list"
+      data-testid={options.listTestId}
+    >
+      {gates.map((gate) => {
+        const receiptRef = gate.receiptIds[0] ?? null;
+        const replayFixtureRef = gate.replayFixtureRefs[0] ?? null;
+        return (
+          <article
+            key={gate.id}
+            className={`workflow-test-row workflow-harness-authority-gate-row is-${
+              gate.ready ? "passed" : "blocked"
+            }`}
+            data-testid={`${options.gateTestIdPrefix}-${gate.id}`}
+            data-component-kind={gate.componentKind}
+            data-authority-gate-status={gate.status}
+          >
+            <strong>{gate.label}</strong>
+            <span>
+              {gate.componentKind} · {gate.status} · {gate.attemptIds.length} attempts
+            </span>
+            <small>{gate.policyDecision}</small>
+            <small data-testid={`${options.gateTestIdPrefix}-deep-links-${gate.id}`}>
+              component {gate.componentId} · run {gate.runId} · replay{" "}
+              {replayFixtureRef ?? "pending"} · panel {gate.selectedPanel}
+            </small>
+            <small>blocker {gate.blockerState}</small>
+            <div className="workflow-harness-authority-gate-actions">
+              <button
+                type="button"
+                className="workflow-harness-ref-button"
+                data-testid={`${options.gateTestIdPrefix}-component-${gate.id}`}
+                disabled={!gate.node}
+                onClick={() => gate.node && onInspectNode(gate.node.id)}
+              >
+                <code>{gate.componentId}</code>
+              </button>
+              <button
+                type="button"
+                className={`workflow-harness-ref-button ${
+                  receiptRef && selectedHarnessReceiptRef === receiptRef
+                    ? "is-active"
+                    : ""
+                }`}
+                data-testid={`${options.gateTestIdPrefix}-receipt-${gate.id}`}
+                disabled={!receiptRef}
+                onClick={() => receiptRef && onSelectHarnessReceiptRef?.(receiptRef)}
+              >
+                <code>{receiptRef ?? "receipt pending"}</code>
+              </button>
+              <button
+                type="button"
+                className={`workflow-harness-ref-button ${
+                  replayFixtureRef &&
+                  selectedHarnessReplayFixtureRef === replayFixtureRef
+                    ? "is-active"
+                    : ""
+                }`}
+                data-testid={`${options.gateTestIdPrefix}-replay-${gate.id}`}
+                disabled={!replayFixtureRef}
+                onClick={() =>
+                  replayFixtureRef &&
+                  onSelectHarnessReplayFixtureRef?.(replayFixtureRef)
+                }
+              >
+                <code>{replayFixtureRef ?? "replay pending"}</code>
+              </button>
+            </div>
+          </article>
+        );
+      })}
+    </div>
+  );
   const harnessActivationReady =
     !harnessForkWorkflow ||
     Boolean(
@@ -864,6 +1150,13 @@ export function WorkflowRailPanel({
       { label: "Tests present", ready: tests.length > 0 },
       { label: "Harness slots", ready: !harnessWorkflow || harnessSlots.every((slot) => boundHarnessSlotIds.has(slot.slotId)) },
       { label: "Harness activation", ready: harnessActivationReady },
+      {
+        label: "Authority gate live",
+        ready:
+          !harnessWorkflow ||
+          !harnessDefaultRuntimeDispatchProof ||
+          harnessAuthorityGateLiveReady,
+      },
       { label: "Readiness checked", ready: readinessResult !== null },
       { label: "No blockers", ready: blockers.length === 0 && result?.status !== "blocked" },
     ];
@@ -1205,6 +1498,10 @@ export function WorkflowRailPanel({
                 <dt>Gated clusters</dt>
                 <dd>{gatedHarnessClusters.length}/{harnessPromotionClusters.length}</dd>
               </div>
+              <div data-testid="workflow-harness-authority-gate-status">
+                <dt>Authority gates</dt>
+                <dd>{harnessAuthorityGateReadyCount}/{harnessAuthorityGateLiveProofs.length}</dd>
+              </div>
               <div>
                 <dt>Slots</dt>
                 <dd>{harnessSlots.filter((slot) => boundHarnessSlotIds.has(slot.slotId)).length}/{harnessSlots.length}</dd>
@@ -1484,6 +1781,80 @@ export function WorkflowRailPanel({
                   {harnessDefaultRuntimeDispatchProof.acceptedClusterIds.length} clusters · {harnessDefaultRuntimeDispatchProof.dispatchNodeAttemptIds.length} attempts
                 </small>
               </article>
+            ) : null}
+            {harnessDefaultRuntimeDispatchProof ? (
+              <section
+                className="workflow-rail-section workflow-harness-authority-gates"
+                data-testid="workflow-harness-authority-gate-live"
+              >
+                <h4>Authority tooling gates</h4>
+                <dl
+                  className="workflow-rail-stats"
+                  data-testid="workflow-harness-authority-gate-summary"
+                >
+                  <div>
+                    <dt>Ready</dt>
+                    <dd>
+                      {harnessAuthorityGateReadyCount}/{harnessAuthorityGateLiveProofs.length}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Receipts</dt>
+                    <dd>
+                      {harnessDefaultRuntimeDispatchProof.authorityToolingGateLiveReceiptIds.length}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Replay</dt>
+                    <dd>
+                      {harnessDefaultRuntimeDispatchProof.authorityToolingGateLiveReplayFixtureRefs.length}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Status</dt>
+                    <dd>{harnessAuthorityGateLiveReady ? "live" : "blocked"}</dd>
+                  </div>
+                </dl>
+                <article
+                  className={`workflow-output-row is-${
+                    harnessAuthorityGateLiveReady ? "ready" : "blocked"
+                  }`}
+                  data-testid="workflow-harness-authority-gate-rollup"
+                >
+                  <strong>
+                    {workflowProofString(
+                      harnessAuthorityToolingProof,
+                      "policyDecision",
+                      "authority gate proof pending",
+                    )}
+                  </strong>
+                  <span>
+                    destructive denied{" "}
+                    {harnessDefaultRuntimeDispatchProof.authorityToolingDestructiveRouteDenied
+                      ? "yes"
+                      : "review"} · approvals blocked{" "}
+                    {harnessDefaultRuntimeDispatchProof.authorityToolingMutatingToolCallsBlocked
+                      ? "yes"
+                      : "review"}
+                  </span>
+                  <small>
+                    side effects{" "}
+                    {harnessDefaultRuntimeDispatchProof.authorityToolingSideEffectsExecuted
+                      ? "executed"
+                      : "not executed"} · rollback{" "}
+                    {harnessDefaultRuntimeDispatchProof.authorityToolingRollbackAvailable
+                      ? "ready"
+                      : "blocked"}
+                  </small>
+                </article>
+                {renderHarnessAuthorityGateProofRows(
+                  harnessAuthorityGateLiveProofs,
+                  {
+                    listTestId: "workflow-harness-authority-gate-list",
+                    gateTestIdPrefix: "workflow-harness-authority-gate",
+                  },
+                )}
+              </section>
             ) : null}
             {harnessReadOnlyRoutingProof ? (
               <section
@@ -2018,6 +2389,16 @@ export function WorkflowRailPanel({
           selectedReadOnlyRoutingNodeIndex
         ] ?? null
       : null;
+  const selectedAuthorityGateLiveProofs =
+    selectedNode?.runtimeBinding &&
+    (selectedNode.runtimeBinding.componentKind === "policy_gate" ||
+      selectedNode.runtimeBinding.componentKind === "approval_gate")
+      ? harnessAuthorityGateLiveProofs.filter(
+          (gate) =>
+            gate.node?.id === selectedNode.id ||
+            gate.componentKind === selectedNode.runtimeBinding?.componentKind,
+        )
+      : [];
   const selectedPinnedFixture =
     selectedNodeFixtures.find((fixture) => fixture.pinned) ??
     selectedNodeFixtures[0] ??
@@ -2124,6 +2505,73 @@ export function WorkflowRailPanel({
           >
             Copy link
           </button>
+        </section>
+      ) : null}
+      {harnessDefaultRuntimeDispatchProof ? (
+        <section
+          className="workflow-rail-section workflow-harness-authority-gates"
+          data-testid="workflow-harness-authority-gate-live"
+        >
+          <h4>Authority tooling gates</h4>
+          <dl
+            className="workflow-rail-stats"
+            data-testid="workflow-harness-authority-gate-summary"
+          >
+            <div>
+              <dt>Ready</dt>
+              <dd>
+                {harnessAuthorityGateReadyCount}/{harnessAuthorityGateLiveProofs.length}
+              </dd>
+            </div>
+            <div>
+              <dt>Attempts</dt>
+              <dd>{harnessDefaultRuntimeDispatchProof.authorityToolingGateLiveAttemptIds.length}</dd>
+            </div>
+            <div>
+              <dt>Receipts</dt>
+              <dd>{harnessDefaultRuntimeDispatchProof.authorityToolingGateLiveReceiptIds.length}</dd>
+            </div>
+            <div>
+              <dt>Replay</dt>
+              <dd>{harnessDefaultRuntimeDispatchProof.authorityToolingGateLiveReplayFixtureRefs.length}</dd>
+            </div>
+          </dl>
+          <article
+            className={`workflow-output-row is-${
+              harnessAuthorityGateLiveReady ? "ready" : "blocked"
+            }`}
+            data-testid="workflow-harness-authority-gate-rollup"
+          >
+            <strong>
+              {workflowProofString(
+                harnessAuthorityToolingProof,
+                "policyDecision",
+                "authority gate proof pending",
+              )}
+            </strong>
+            <span>
+              destructive denied{" "}
+              {harnessDefaultRuntimeDispatchProof.authorityToolingDestructiveRouteDenied
+                ? "yes"
+                : "review"} · approval gate{" "}
+              {harnessDefaultRuntimeDispatchProof.authorityToolingApprovalGateLiveReady
+                ? "live"
+                : "blocked"}
+            </span>
+            <small>
+              side effects{" "}
+              {harnessDefaultRuntimeDispatchProof.authorityToolingSideEffectsExecuted
+                ? "executed"
+                : "not executed"} · rollback{" "}
+              {harnessDefaultRuntimeDispatchProof.authorityToolingRollbackAvailable
+                ? "ready"
+                : "blocked"}
+            </small>
+          </article>
+          {renderHarnessAuthorityGateProofRows(harnessAuthorityGateLiveProofs, {
+            listTestId: "workflow-harness-authority-gate-list",
+            gateTestIdPrefix: "workflow-harness-authority-gate",
+          })}
         </section>
       ) : null}
       {selectedHarnessGroup ? (
@@ -2540,6 +2988,54 @@ export function WorkflowRailPanel({
                   </article>
                 </section>
               ) : null}
+            </section>
+          ) : null}
+          {selectedAuthorityGateLiveProofs.length > 0 ? (
+            <section
+              className="workflow-node-inspector-section workflow-harness-authority-gates"
+              data-testid="workflow-selected-node-authority-gate-live"
+            >
+              <h4>Authority gate live proof</h4>
+              <dl className="workflow-node-inspector-stats">
+                <div>
+                  <dt>Gates</dt>
+                  <dd>{selectedAuthorityGateLiveProofs.length}</dd>
+                </div>
+                <div>
+                  <dt>Ready</dt>
+                  <dd>
+                    {
+                      selectedAuthorityGateLiveProofs.filter((gate) => gate.ready)
+                        .length
+                    }/{selectedAuthorityGateLiveProofs.length}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Receipts</dt>
+                  <dd>
+                    {selectedAuthorityGateLiveProofs.reduce(
+                      (count, gate) => count + gate.receiptIds.length,
+                      0,
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Replay</dt>
+                  <dd>
+                    {selectedAuthorityGateLiveProofs.reduce(
+                      (count, gate) => count + gate.replayFixtureRefs.length,
+                      0,
+                    )}
+                  </dd>
+                </div>
+              </dl>
+              {renderHarnessAuthorityGateProofRows(
+                selectedAuthorityGateLiveProofs,
+                {
+                  listTestId: "workflow-selected-node-authority-gate-list",
+                  gateTestIdPrefix: "workflow-selected-node-authority-gate",
+                },
+              )}
             </section>
           ) : null}
           <section

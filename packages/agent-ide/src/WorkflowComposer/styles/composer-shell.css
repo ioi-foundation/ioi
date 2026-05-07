@@ -1285,6 +1285,30 @@ button.workflow-run-row.is-active {
   white-space: nowrap;
 }
 
+.workflow-harness-authority-gate-list {
+  gap: 8px;
+}
+
+.workflow-harness-authority-gate-row {
+  gap: 5px;
+}
+
+.workflow-harness-authority-gate-row[data-authority-gate-status="live_ready"] strong {
+  color: var(--status-success);
+}
+
+.workflow-harness-authority-gate-actions {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+  min-width: 0;
+}
+
+.workflow-harness-authority-gate-actions .workflow-harness-ref-button {
+  min-width: 0;
+  width: 100%;
+}
+
 .workflow-harness-activation-wizard {
   background: color-mix(in srgb, var(--workflow-panel-strong) 72%, transparent);
   border: 1px solid var(--border-subtle);
