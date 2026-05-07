@@ -25,6 +25,7 @@ import type {
   WorkflowHarnessSlotSpec,
   WorkflowHarnessWorkerBinding,
   WorkflowRevisionBinding,
+  WorkflowRevisionRestoreRequest,
   WorkflowRevisionRestoreResult,
   WorkflowNode,
   WorkflowProject,
@@ -515,6 +516,62 @@ function rollbackRestoreStrategyFor(
     return "file_hash_only_metadata_restore";
   }
   return "worker_binding_restore";
+}
+
+export interface WorkflowHarnessRollbackRestoreProbeRuntime {
+  restoreWorkflowRevision?: (
+    request: WorkflowRevisionRestoreRequest,
+  ) => Promise<WorkflowRevisionRestoreResult>;
+}
+
+export async function runWorkflowHarnessRollbackRestoreCanaryProbe(options: {
+  runtime: WorkflowHarnessRollbackRestoreProbeRuntime;
+  workflowPath: string;
+  rollbackRevisionBinding: WorkflowRevisionBinding | null | undefined;
+}): Promise<{
+  rollbackRestoreResult: WorkflowRevisionRestoreResult | null;
+  rollbackRestoreBlockers: string[];
+  restoreRequest?: WorkflowRevisionRestoreRequest;
+}> {
+  const { runtime, workflowPath, rollbackRevisionBinding } = options;
+  if (rollbackRevisionBinding?.revisionSource !== "git") {
+    return {
+      rollbackRestoreResult: null,
+      rollbackRestoreBlockers: [],
+    };
+  }
+  const restoreRequest: WorkflowRevisionRestoreRequest = {
+    workflowPath,
+    revisionBinding: rollbackRevisionBinding,
+    expectedWorkflowContentHash: rollbackRevisionBinding.workflowContentHash,
+    dryRun: true,
+  };
+  if (!runtime.restoreWorkflowRevision) {
+    return {
+      rollbackRestoreResult: null,
+      rollbackRestoreBlockers: ["rollback_restore_api_unavailable"],
+      restoreRequest,
+    };
+  }
+  try {
+    return {
+      rollbackRestoreResult: await runtime.restoreWorkflowRevision(restoreRequest),
+      rollbackRestoreBlockers: [],
+      restoreRequest,
+    };
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : typeof error === "string"
+          ? error
+          : "Unknown rollback restore failure";
+    return {
+      rollbackRestoreResult: null,
+      rollbackRestoreBlockers: ["rollback_restore_canary_failed", message],
+      restoreRequest,
+    };
+  }
 }
 
 export function executeWorkflowHarnessRollbackDrill(

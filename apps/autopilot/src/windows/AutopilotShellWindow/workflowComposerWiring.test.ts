@@ -1000,8 +1000,14 @@ assert.match(
 
 assert.match(
   composer,
-  /handleRunHarnessActivationDryRun[\s\S]*rollbackRevisionBinding[\s\S]*rollbackRestoreResult[\s\S]*rollbackRestoreBlockers[\s\S]*runtime\.restoreWorkflowRevision[\s\S]*dryRun: true[\s\S]*rollback_restore_canary_failed[\s\S]*rollbackRestoreResult[\s\S]*rollbackRestoreBlockers/,
+  /handleRunHarnessActivationDryRun[\s\S]*rollbackRevisionBinding[\s\S]*runWorkflowHarnessRollbackRestoreCanaryProbe[\s\S]*runtime[\s\S]*workflowPath[\s\S]*rollbackRevisionBinding[\s\S]*rollbackRestoreResult[\s\S]*rollbackRestoreBlockers/,
   "Activation dry run should run a non-mutating restore canary for git-backed rollback revisions before minting.",
+);
+
+assert.match(
+  harnessWorkflow,
+  /(?=[\s\S]*runWorkflowHarnessRollbackRestoreCanaryProbe)(?=[\s\S]*revisionSource !== "git")(?=[\s\S]*dryRun: true)(?=[\s\S]*rollback_restore_api_unavailable)(?=[\s\S]*runtime\.restoreWorkflowRevision\(restoreRequest\))(?=[\s\S]*rollback_restore_canary_failed)/,
+  "Git-backed rollback restore canary probes should execute through one reusable dry-run helper with explicit blocked paths.",
 );
 
 assert.match(

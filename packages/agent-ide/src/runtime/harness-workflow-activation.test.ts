@@ -13,6 +13,7 @@ import {
   makeHarnessForkActivationRecord,
   recordWorkflowHarnessActivationDryRun,
   recordWorkflowHarnessRollbackTargetSelection,
+  runWorkflowHarnessRollbackRestoreCanaryProbe,
   workflowRevisionBindingFor,
 } from "./harness-workflow.ts";
 import {
@@ -421,6 +422,97 @@ const onlyActivationMissingReadiness = (
     blockedCandidate.rollbackRestoreCanary.blockers.join("\n"),
     /rollback_restore_canary_not_run/,
   );
+}
+
+{
+  const fork = forkDefaultAgentHarnessWorkflow("Git Restore Probe Helper Fork", 4_000);
+  const rollbackRevisionBinding = workflowRevisionBindingFor(fork.workflow, {
+    workflowPath: "/repo/.agents/workflows/git-restore-probe.workflow.json",
+    repoRoot: "/repo",
+    branch: "main",
+    baseRevision: "base123",
+    activatedRevision: "abc123",
+    nowMs: 4_025,
+  });
+  let capturedDryRun = false;
+  let capturedExpectedHash = "";
+  const probe = await runWorkflowHarnessRollbackRestoreCanaryProbe({
+    runtime: {
+      async restoreWorkflowRevision(request) {
+        capturedDryRun = request.dryRun === true;
+        capturedExpectedHash = request.expectedWorkflowContentHash ?? "";
+        return {
+          restored: true,
+          dryRun: request.dryRun,
+          blockers: [],
+          workflowPath: request.revisionBinding.workflowPath,
+          repoRoot: request.revisionBinding.repoRoot,
+          relativeWorkflowPath: ".agents/workflows/git-restore-probe.workflow.json",
+          revisionSource: "git",
+          restoredRevision: request.revisionBinding.activatedRevision,
+          restoreStrategy: "git_show_file_restore",
+          expectedWorkflowContentHash: request.expectedWorkflowContentHash,
+          fileSha256: "sha256-from-git-show",
+          bundle: {
+            workflowPath: request.revisionBinding.workflowPath,
+            testsPath: "/repo/.agents/workflows/git-restore-probe.tests.json",
+            proposalsDir: "/repo/.agents/workflows/git-restore-probe.proposals",
+            workflow: fork.workflow,
+            tests: [],
+            proposals: [],
+            runs: [],
+          },
+        };
+      },
+    },
+    workflowPath: "/repo/.agents/workflows/git-restore-probe.workflow.json",
+    rollbackRevisionBinding,
+  });
+  assert.equal(capturedDryRun, true);
+  assert.equal(capturedExpectedHash, rollbackRevisionBinding.workflowContentHash);
+  assert.equal(probe.rollbackRestoreBlockers.length, 0);
+  assert.equal(probe.rollbackRestoreResult?.restored, true);
+  assert.equal(probe.restoreRequest?.dryRun, true);
+
+  const unavailable = await runWorkflowHarnessRollbackRestoreCanaryProbe({
+    runtime: {},
+    workflowPath: "/repo/.agents/workflows/git-restore-probe.workflow.json",
+    rollbackRevisionBinding,
+  });
+  assert.deepEqual(unavailable.rollbackRestoreBlockers, [
+    "rollback_restore_api_unavailable",
+  ]);
+  assert.equal(unavailable.restoreRequest?.dryRun, true);
+
+  const thrown = await runWorkflowHarnessRollbackRestoreCanaryProbe({
+    runtime: {
+      async restoreWorkflowRevision() {
+        throw new Error("git show failed");
+      },
+    },
+    workflowPath: "/repo/.agents/workflows/git-restore-probe.workflow.json",
+    rollbackRevisionBinding,
+  });
+  assert.deepEqual(thrown.rollbackRestoreBlockers, [
+    "rollback_restore_canary_failed",
+    "git show failed",
+  ]);
+
+  const metadataOnly = await runWorkflowHarnessRollbackRestoreCanaryProbe({
+    runtime: {
+      async restoreWorkflowRevision() {
+        throw new Error("metadata-only path should not call restore");
+      },
+    },
+    workflowPath: "/repo/.agents/workflows/git-restore-probe.workflow.json",
+    rollbackRevisionBinding: workflowRevisionBindingFor(fork.workflow, {
+      revisionSource: "file_hash_only",
+      nowMs: 4_050,
+    }),
+  });
+  assert.equal(metadataOnly.rollbackRestoreResult, null);
+  assert.deepEqual(metadataOnly.rollbackRestoreBlockers, []);
+  assert.equal(metadataOnly.restoreRequest, undefined);
 }
 
 console.log("harness workflow activation tests passed");
