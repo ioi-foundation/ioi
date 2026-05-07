@@ -396,6 +396,10 @@ fn cognition_cluster_can_be_promoted_to_gated_from_shadow_run() {
         cognition.required_execution_mode,
         HarnessExecutionMode::Gated
     );
+    assert_eq!(
+        harness_promotion_cluster_components(HarnessPromotionClusterId::Cognition),
+        cognition.component_kinds
+    );
 
     let attempts = cognition
         .component_kinds

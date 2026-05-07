@@ -1039,6 +1039,12 @@ fn promotion_cluster_components(
     }
 }
 
+pub fn harness_promotion_cluster_components(
+    cluster_id: HarnessPromotionClusterId,
+) -> Vec<HarnessComponentKind> {
+    promotion_cluster_components(cluster_id)
+}
+
 fn component_scope(kind: HarnessComponentKind) -> Vec<String> {
     match kind {
         HarnessComponentKind::Planner => strings(&["reasoning.read", "session.state.read"]),

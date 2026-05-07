@@ -13,11 +13,11 @@ use ioi_memory::{MemoryRuntime, StoredTranscriptMessage, TranscriptPrivacyMetada
 use ioi_types::app::{
     compare_harness_live_shadow_attempts, default_harness_gated_cluster_run_for_shadow_run,
     default_harness_shadow_run_for_attempts, harness_gated_cluster_run_camel_value,
-    harness_node_attempt_record_from_camel_value, harness_shadow_comparison_camel_value,
-    runtime_contracts::RUNTIME_CONTRACT_SCHEMA_VERSION_V1, HarnessExecutionMode,
-    HarnessNodeAttemptRecord, HarnessNodeAttemptStatus, HarnessPromotionClusterId,
-    HarnessShadowComparison, DEFAULT_AGENT_HARNESS_ACTIVATION_ID, DEFAULT_AGENT_HARNESS_HASH,
-    DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+    harness_node_attempt_record_from_camel_value, harness_promotion_cluster_components,
+    harness_shadow_comparison_camel_value, runtime_contracts::RUNTIME_CONTRACT_SCHEMA_VERSION_V1,
+    HarnessExecutionMode, HarnessNodeAttemptRecord, HarnessNodeAttemptStatus,
+    HarnessPromotionClusterId, HarnessShadowComparison, DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+    DEFAULT_AGENT_HARNESS_HASH, DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
 };
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{json, Value};
@@ -2007,12 +2007,16 @@ fn runtime_harness_canary_execution_boundary_for_cluster(
     shadow_run: &Value,
     gated_cluster_runs: &[Value],
     selector_decision: &Value,
-    cluster_id: &str,
-    cluster_label: &str,
-    component_kinds: &[&'static str],
+    cluster_id: HarnessPromotionClusterId,
     node_specs: Vec<RuntimeHarnessCanaryNodeSpec>,
 ) -> Value {
     let turn_id = format!("turn-{}", task.progress);
+    let cluster_slug = cluster_id.as_str();
+    let cluster_label = cluster_id.label();
+    let component_kinds = harness_promotion_cluster_components(cluster_id)
+        .iter()
+        .map(|component_kind| component_kind.as_str())
+        .collect::<Vec<_>>();
     let selector_decision_id = selector_decision
         .get("decisionId")
         .and_then(Value::as_str)
@@ -2022,7 +2026,8 @@ fn runtime_harness_canary_execution_boundary_for_cluster(
         .get("selectedSelector")
         .and_then(Value::as_str)
         .unwrap_or("legacy_runtime");
-    let gated_cluster_passed = runtime_harness_gated_cluster_passed(gated_cluster_runs, cluster_id);
+    let gated_cluster_passed =
+        runtime_harness_gated_cluster_passed(gated_cluster_runs, cluster_slug);
 
     let mut activation_blockers = Vec::<String>::new();
     if !runtime_harness_workflow_selector_selected(selected_selector) {
@@ -2036,7 +2041,7 @@ fn runtime_harness_canary_execution_boundary_for_cluster(
         activation_blockers.push("selector_canary_ineligible".to_string());
     }
     if !gated_cluster_passed {
-        activation_blockers.push(format!("{cluster_id}_gate_not_passed"));
+        activation_blockers.push(format!("{cluster_slug}_gate_not_passed"));
     }
     if shadow_run
         .get("blockingDivergenceCount")
@@ -2060,7 +2065,7 @@ fn runtime_harness_canary_execution_boundary_for_cluster(
         "evidenceSufficient": evidence_sufficient,
         "selectorDecisionId": selector_decision_id,
         "shadowRunId": shadow_run.get("runId").and_then(Value::as_str).unwrap_or("harness-shadow"),
-        "clusterId": cluster_id
+        "clusterId": cluster_slug
     });
 
     let mut attempts = Vec::<Value>::new();
@@ -2207,13 +2212,13 @@ fn runtime_harness_canary_execution_boundary_for_cluster(
     executed_component_kinds.dedup();
 
     let rollback_drill = if can_execute {
-        runtime_harness_canary_rollback_drill(sid, selector_decision, &boundary_input, cluster_id)
+        runtime_harness_canary_rollback_drill(sid, selector_decision, &boundary_input, cluster_slug)
     } else {
         json!({
             "schemaVersion": "workflow.harness.canary-rollback-drill.v1",
-            "drillId": format!("harness-canary-rollback-drill:{sid}:{cluster_id}"),
+            "drillId": format!("harness-canary-rollback-drill:{sid}:{cluster_slug}"),
             "selectorDecisionId": selector_decision_id,
-            "clusterId": cluster_id,
+            "clusterId": cluster_slug,
             "failureInjected": false,
             "rollbackExecuted": false,
             "rollbackSelector": "legacy_runtime",
@@ -2246,8 +2251,8 @@ fn runtime_harness_canary_execution_boundary_for_cluster(
 
     json!({
         "schemaVersion": "workflow.harness.canary-execution-boundary.v1",
-        "boundaryId": format!("harness-canary-boundary:{sid}:{turn_id}:{cluster_id}"),
-        "clusterId": cluster_id,
+        "boundaryId": format!("harness-canary-boundary:{sid}:{turn_id}:{cluster_slug}"),
+        "clusterId": cluster_slug,
         "clusterLabel": cluster_label,
         "selectorDecisionId": selector_decision
             .get("decisionId")
@@ -2308,14 +2313,6 @@ fn runtime_harness_cognition_canary_execution_boundary(
     gated_cluster_runs: &[Value],
     selector_decision: &Value,
 ) -> Value {
-    const COGNITION_COMPONENTS: &[&str] = &[
-        "planner",
-        "prompt_assembler",
-        "task_state",
-        "uncertainty_gate",
-        "budget_gate",
-        "capability_sequencer",
-    ];
     let node_specs = vec![
         RuntimeHarnessCanaryNodeSpec {
             component_kind: "planner",
@@ -2401,9 +2398,7 @@ fn runtime_harness_cognition_canary_execution_boundary(
         shadow_run,
         gated_cluster_runs,
         selector_decision,
-        "cognition",
-        "Cognition",
-        COGNITION_COMPONENTS,
+        HarnessPromotionClusterId::Cognition,
         node_specs,
     )
 }
@@ -2419,7 +2414,6 @@ fn runtime_harness_routing_model_canary_execution_boundary(
     gated_cluster_runs: &[Value],
     selector_decision: &Value,
 ) -> Value {
-    const ROUTING_MODEL_COMPONENTS: &[&str] = &["model_router", "model_call", "tool_router"];
     let node_specs = vec![
         RuntimeHarnessCanaryNodeSpec {
             component_kind: "model_router",
@@ -2474,9 +2468,7 @@ fn runtime_harness_routing_model_canary_execution_boundary(
         shadow_run,
         gated_cluster_runs,
         selector_decision,
-        "routing_model",
-        "Routing and model",
-        ROUTING_MODEL_COMPONENTS,
+        HarnessPromotionClusterId::RoutingModel,
         node_specs,
     )
 }
@@ -2492,14 +2484,6 @@ fn runtime_harness_verification_output_canary_execution_boundary(
     gated_cluster_runs: &[Value],
     selector_decision: &Value,
 ) -> Value {
-    const VERIFICATION_OUTPUT_COMPONENTS: &[&str] = &[
-        "postcondition_synthesizer",
-        "verifier",
-        "completion_gate",
-        "receipt_writer",
-        "quality_ledger",
-        "output_writer",
-    ];
     let node_specs = vec![
         RuntimeHarnessCanaryNodeSpec {
             component_kind: "postcondition_synthesizer",
@@ -2576,9 +2560,7 @@ fn runtime_harness_verification_output_canary_execution_boundary(
         shadow_run,
         gated_cluster_runs,
         selector_decision,
-        "verification_output",
-        "Verification and output",
-        VERIFICATION_OUTPUT_COMPONENTS,
+        HarnessPromotionClusterId::VerificationOutput,
         node_specs,
     )
 }
@@ -2594,16 +2576,6 @@ fn runtime_harness_authority_tooling_canary_execution_boundary(
     gated_cluster_runs: &[Value],
     selector_decision: &Value,
 ) -> Value {
-    const AUTHORITY_TOOLING_COMPONENTS: &[&str] = &[
-        "policy_gate",
-        "approval_gate",
-        "dry_run_simulator",
-        "mcp_provider",
-        "mcp_tool_call",
-        "tool_call",
-        "connector_call",
-        "wallet_capability",
-    ];
     let node_specs = vec![
         RuntimeHarnessCanaryNodeSpec {
             component_kind: "policy_gate",
@@ -2748,9 +2720,7 @@ fn runtime_harness_authority_tooling_canary_execution_boundary(
         shadow_run,
         gated_cluster_runs,
         selector_decision,
-        "authority_tooling",
-        "Authority and tooling",
-        AUTHORITY_TOOLING_COMPONENTS,
+        HarnessPromotionClusterId::AuthorityTooling,
         node_specs,
     )
 }
