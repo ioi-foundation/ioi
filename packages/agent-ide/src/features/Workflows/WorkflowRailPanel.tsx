@@ -731,6 +731,39 @@ export function WorkflowRailPanel({
     },
     {} as Record<string, number>,
   );
+  const harnessDefaultComponentVersionSet = Object.fromEntries(
+    DEFAULT_AGENT_HARNESS_COMPONENTS.map((component) => [
+      component.componentId,
+      component.version,
+    ]),
+  );
+  const harnessCurrentWorkerBinding =
+    harnessWorkerBinding ?? harnessActivationRecord?.workerBinding ?? null;
+  const harnessCandidateWorkerBinding =
+    harnessActivationCandidate?.workerBindingPreview ?? null;
+  const harnessBindingVersionSet =
+    harnessActivationCandidate?.componentVersionSet ??
+    harnessActivationRecord?.componentVersionSet ??
+    harnessDefaultComponentVersionSet;
+  const harnessBindingVersionEntries = Object.entries(harnessBindingVersionSet);
+  const harnessBindingRollbackTarget =
+    harnessActivationRecord?.rollbackTarget ??
+    workflow.metadata.harness?.forkedFrom?.harnessWorkflowId ??
+    (blessedHarnessWorkflow ? "legacy_runtime" : "not set");
+  const harnessBindingRollbackHash =
+    workflow.metadata.harness?.forkedFrom?.harnessHash ??
+    harnessActivationRecord?.harnessHash ??
+    workflow.metadata.harness?.harnessHash ??
+    harnessCurrentWorkerBinding?.harnessHash ??
+    "unbound";
+  const harnessBindingRollbackAvailable =
+    harnessActivationRecord?.rollbackAvailable === true ||
+    Boolean(workflow.metadata.harness?.forkedFrom?.harnessWorkflowId);
+  const harnessBindingInspectorStatus =
+    harnessActivationCandidate?.decision ??
+    harnessActivationRecord?.activationState ??
+    workflow.metadata.harness?.activationState ??
+    "projection";
   const environmentProfile = workflowEnvironmentProfile(workflow);
   const bindingRegistryRows = workflowBindingRegistryRows(workflow);
   const bindingRegistrySummary = workflowBindingRegistrySummary(bindingRegistryRows);
@@ -1582,6 +1615,165 @@ export function WorkflowRailPanel({
                 </small>
               </article>
             ) : null}
+            <section
+              className="workflow-rail-section"
+              data-testid="workflow-harness-worker-binding-inspector"
+              data-binding-status={harnessBindingInspectorStatus}
+              data-component-version-count={harnessBindingVersionEntries.length}
+            >
+              <h4>Worker binding inspector</h4>
+              <dl
+                className="workflow-rail-stats"
+                data-testid="workflow-harness-worker-binding-summary"
+              >
+                <div>
+                  <dt>Current</dt>
+                  <dd>
+                    {harnessCurrentWorkerBinding?.harnessActivationId ??
+                      workflow.metadata.harness?.activationId ??
+                      "blocked"}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Candidate</dt>
+                  <dd>
+                    {harnessActivationCandidate?.activationIdPreview ??
+                      harnessActivationCandidate?.decision ??
+                      "none"}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Versions</dt>
+                  <dd>{harnessBindingVersionEntries.length}</dd>
+                </div>
+                <div>
+                  <dt>Rollback</dt>
+                  <dd>{harnessBindingRollbackAvailable ? "ready" : "blocked"}</dd>
+                </div>
+              </dl>
+              <div
+                className="workflow-rail-list"
+                data-testid="workflow-harness-worker-binding-picker"
+              >
+                <article
+                  className={`workflow-output-row is-${
+                    harnessCurrentWorkerBinding ? "ready" : "blocked"
+                  }`}
+                  data-testid="workflow-harness-worker-binding-option-current"
+                  data-binding-source={harnessCurrentWorkerBinding?.source ?? "unbound"}
+                >
+                  <strong>
+                    {harnessCurrentWorkerBinding?.harnessWorkflowId ??
+                      workflow.metadata.harness?.harnessWorkflowId ??
+                      "unbound"}
+                  </strong>
+                  <span>
+                    current ·{" "}
+                    {harnessCurrentWorkerBinding?.harnessActivationId ??
+                      workflow.metadata.harness?.activationId ??
+                      "activation blocked"}
+                  </span>
+                  <small>
+                    {harnessCurrentWorkerBinding?.executionMode ??
+                      workflow.metadata.harness?.executionMode ??
+                      "projection"}{" "}
+                    ·{" "}
+                    {harnessCurrentWorkerBinding?.harnessHash ??
+                      workflow.metadata.harness?.harnessHash ??
+                      "hash pending"}
+                  </small>
+                </article>
+                <article
+                  className={`workflow-output-row is-${
+                    harnessActivationCandidate?.decision === "mintable"
+                      ? "ready"
+                      : "blocked"
+                  }`}
+                  data-testid="workflow-harness-worker-binding-option-candidate"
+                  data-candidate-decision={
+                    harnessActivationCandidate?.decision ?? "not_generated"
+                  }
+                >
+                  <strong>
+                    {harnessCandidateWorkerBinding?.harnessWorkflowId ??
+                      workflow.metadata.harness?.packageName ??
+                      "candidate pending"}
+                  </strong>
+                  <span>
+                    candidate ·{" "}
+                    {harnessCandidateWorkerBinding?.harnessActivationId ??
+                      harnessActivationCandidate?.activationIdPreview ??
+                      "activation blocked"}
+                  </span>
+                  <small>
+                    {harnessCandidateWorkerBinding?.source ?? "fork"} ·{" "}
+                    {harnessCandidateWorkerBinding?.harnessHash ??
+                      workflow.metadata.harness?.harnessHash ??
+                      "hash pending"}
+                  </small>
+                </article>
+                <article
+                  className={`workflow-output-row is-${
+                    harnessBindingRollbackAvailable ? "ready" : "blocked"
+                  }`}
+                  data-testid="workflow-harness-worker-binding-option-rollback"
+                  data-rollback-available={harnessBindingRollbackAvailable ? "true" : "false"}
+                >
+                  <strong>{harnessBindingRollbackTarget}</strong>
+                  <span>
+                    rollback ·{" "}
+                    {harnessActivationRecord?.canaryStatus ??
+                      workflow.metadata.harness?.activationState ??
+                      "not_run"}
+                  </span>
+                  <small>{harnessBindingRollbackHash}</small>
+                </article>
+              </div>
+              <div
+                className="workflow-rail-list"
+                data-testid="workflow-harness-worker-binding-version-set"
+              >
+                {harnessBindingVersionEntries.slice(0, 8).map(([componentId, version]) => (
+                  <article
+                    key={componentId}
+                    className="workflow-test-row"
+                    data-testid={`workflow-harness-worker-binding-version-${componentId}`}
+                  >
+                    <strong>{componentId}</strong>
+                    <span>{version}</span>
+                  </article>
+                ))}
+                {harnessBindingVersionEntries.length > 8 ? (
+                  <article className="workflow-output-row">
+                    <strong>
+                      {harnessBindingVersionEntries.length - 8} more component versions
+                    </strong>
+                    <span>Full version set remains bound in activation metadata.</span>
+                  </article>
+                ) : null}
+              </div>
+              {harnessForkWorkflow ? (
+                <div
+                  className="workflow-harness-activation-actions"
+                  data-testid="workflow-harness-worker-binding-actions"
+                >
+                  <button
+                    type="button"
+                    data-testid="workflow-harness-worker-binding-refresh-candidate"
+                    onClick={onRunHarnessActivationDryRun}
+                  >
+                    Dry run binding
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="workflow-harness-worker-binding-check-readiness"
+                    onClick={onCheckActivationReadiness}
+                  >
+                    Check binding
+                  </button>
+                </div>
+              ) : null}
+            </section>
             {harnessForkWorkflow ? (
               <section
                 className="workflow-rail-section workflow-harness-activation-wizard"
