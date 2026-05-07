@@ -77,6 +77,76 @@ fn workflow_live_mcp_provider_catalog(
     }))
 }
 
+fn workflow_provider_catalog_from_input(input: &Value) -> Option<&Value> {
+    input
+        .get("previousAuthorityOutput")
+        .and_then(|output| output.get("providerCatalog"))
+        .or_else(|| {
+            input
+                .get("previousOutput")
+                .and_then(|output| output.get("providerCatalog"))
+        })
+        .or_else(|| input.get("providerCatalog"))
+}
+
+fn workflow_live_mcp_tool_catalog(
+    binding: &WorkflowToolBinding,
+    arguments: &Value,
+    input: &Value,
+) -> Result<Option<Value>, String> {
+    let is_catalog_read = binding.binding_kind.as_deref() == Some("mcp_tool")
+        && binding.tool_ref == "mcp.tool.catalog.read"
+        && !binding.mock_binding
+        && binding.side_effect_class == "read";
+    if !is_catalog_read {
+        return Ok(None);
+    }
+
+    let provider_catalog = workflow_provider_catalog_from_input(input)
+        .ok_or_else(|| "MCP tool catalog read requires live provider catalog input.".to_string())?;
+    let tool_listed = provider_catalog
+        .get("tools")
+        .and_then(Value::as_array)
+        .map(|tools| {
+            tools.iter().any(|tool| {
+                tool.get("toolRef").and_then(Value::as_str) == Some("mcp.tool.catalog.read")
+            })
+        })
+        .unwrap_or(false);
+    if !tool_listed {
+        return Err("MCP tool catalog read is not present in the provider catalog.".to_string());
+    }
+
+    let provider_id = provider_catalog
+        .get("providerId")
+        .and_then(Value::as_str)
+        .unwrap_or("mcp.capability-provider");
+    Ok(Some(json!({
+        "schemaVersion": "workflow.mcp-tool.catalog-read.v1",
+        "toolRef": binding.tool_ref.clone(),
+        "bindingKind": "mcp_tool",
+        "providerId": provider_id,
+        "providerCatalogHash": workflow_hash_value(provider_catalog),
+        "executionMode": "live_read_only_catalog_consumer",
+        "live": true,
+        "providerCatalogLinked": true,
+        "catalogReadOnly": true,
+        "credentialMaterialized": false,
+        "sideEffectsExecuted": false,
+        "mutationExecuted": false,
+        "toolExecutionEnabled": false,
+        "requiresApproval": false,
+        "capabilityScope": binding.capability_scope.clone(),
+        "arguments": arguments,
+        "providerCatalog": {
+            "schemaVersion": provider_catalog.get("schemaVersion").cloned().unwrap_or(Value::Null),
+            "providerId": provider_catalog.get("providerId").cloned().unwrap_or(Value::Null),
+            "toolRef": "mcp.tool.catalog.read"
+        },
+        "input": input
+    })))
+}
+
 pub(super) fn workflow_has_incoming_connection_class(
     workflow: &WorkflowProject,
     node_id: &str,
@@ -2102,11 +2172,14 @@ pub(super) fn execute_workflow_node(
                         format!("Tool arguments failed schema validation: {}", error)
                     })?;
                 }
-                let result = json!({
-                    "toolRef": tool_ref,
-                    "arguments": arguments.clone(),
-                    "input": input
-                });
+                let result = workflow_live_mcp_tool_catalog(&binding, &arguments, &input)?
+                    .unwrap_or_else(|| {
+                        json!({
+                            "toolRef": tool_ref,
+                            "arguments": arguments.clone(),
+                            "input": input
+                        })
+                    });
                 if let Some(schema) = binding.result_schema.as_ref() {
                     workflow_json_satisfies_schema(schema, &result).map_err(|error| {
                         format!("Tool result failed schema validation: {}", error)
@@ -2117,10 +2190,12 @@ pub(super) fn execute_workflow_node(
                     "kind": evidence_kind,
                     "toolName": tool_ref,
                     "mockBinding": binding.mock_binding,
+                    "credentialReady": binding.credential_ready.unwrap_or(false),
                     "sideEffectClass": binding.side_effect_class,
                     "arguments": arguments,
                     "argumentSchema": binding.argument_schema,
                     "resultSchema": binding.result_schema,
+                    "mcpToolCatalog": if result.get("schemaVersion").and_then(Value::as_str) == Some("workflow.mcp-tool.catalog-read.v1") { Some(result.clone()) } else { None },
                     "result": result
                 })
             }

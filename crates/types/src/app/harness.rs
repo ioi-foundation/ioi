@@ -728,6 +728,9 @@ pub struct HarnessDefaultRuntimeDispatchProof {
     pub authority_tooling_provider_catalog_live_attempt_ids: Vec<String>,
     pub authority_tooling_provider_catalog_live_receipt_ids: Vec<String>,
     pub authority_tooling_provider_catalog_live_replay_fixture_refs: Vec<String>,
+    pub authority_tooling_mcp_tool_catalog_live_attempt_ids: Vec<String>,
+    pub authority_tooling_mcp_tool_catalog_live_receipt_ids: Vec<String>,
+    pub authority_tooling_mcp_tool_catalog_live_replay_fixture_refs: Vec<String>,
     pub authority_tooling_read_only_component_kinds: Vec<HarnessComponentKind>,
     pub authority_tooling_mutation_deferred_component_kinds: Vec<HarnessComponentKind>,
     pub authority_tooling_denial_receipt_ids: Vec<String>,
@@ -2081,6 +2084,18 @@ pub fn default_harness_default_runtime_dispatch_proof() -> HarnessDefaultRuntime
         ],
         authority_tooling_provider_catalog_live_replay_fixture_refs: vec![
             "harness-default-dispatch:fixture-authority_tooling_mcp_provider_read_only".to_string(),
+        ],
+        authority_tooling_mcp_tool_catalog_live_attempt_ids: vec![
+            "harness-default-dispatch:attempt-authority_tooling_mcp_tool_call_read_only"
+                .to_string(),
+        ],
+        authority_tooling_mcp_tool_catalog_live_receipt_ids: vec![
+            "harness-default-dispatch:receipt-authority_tooling_mcp_tool_call_read_only"
+                .to_string(),
+        ],
+        authority_tooling_mcp_tool_catalog_live_replay_fixture_refs: vec![
+            "harness-default-dispatch:fixture-authority_tooling_mcp_tool_call_read_only"
+                .to_string(),
         ],
         authority_tooling_read_only_component_kinds: vec![
             HarnessComponentKind::McpProvider,

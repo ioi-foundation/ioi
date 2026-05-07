@@ -976,6 +976,33 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
         .and_then(|value| value.as_array())
         .map(|items| !items.is_empty())
         .unwrap_or(false));
+    assert_eq!(
+        dispatch
+            .get("authorityToolingMcpToolCatalogLiveReady")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("authorityToolingMcpToolCatalogLiveComponentKind")
+            .and_then(|value| value.as_str()),
+        Some("mcp_tool_call")
+    );
+    assert!(dispatch
+        .get("authorityToolingMcpToolCatalogLiveAttemptIds")
+        .and_then(|value| value.as_array())
+        .map(|items| !items.is_empty())
+        .unwrap_or(false));
+    assert!(dispatch
+        .get("authorityToolingMcpToolCatalogLiveReceiptIds")
+        .and_then(|value| value.as_array())
+        .map(|items| !items.is_empty())
+        .unwrap_or(false));
+    assert!(dispatch
+        .get("authorityToolingMcpToolCatalogLiveReplayFixtureRefs")
+        .and_then(|value| value.as_array())
+        .map(|items| !items.is_empty())
+        .unwrap_or(false));
     assert!(
         dispatch
             .get("authorityToolingProof")
@@ -996,6 +1023,20 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
             .and_then(|proof| proof.get("providerCatalogLiveComponentKind"))
             .and_then(|value| value.as_str()),
         Some("mcp_provider")
+    );
+    assert!(
+        dispatch
+            .get("authorityToolingProof")
+            .and_then(|proof| proof.get("mcpToolCatalogLiveReady"))
+            .and_then(|value| value.as_bool())
+            == Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("authorityToolingProof")
+            .and_then(|proof| proof.get("mcpToolCatalogLiveComponentKind"))
+            .and_then(|value| value.as_str()),
+        Some("mcp_tool_call")
     );
     assert!(dispatch
         .get("authorityToolingProof")
