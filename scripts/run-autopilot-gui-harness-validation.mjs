@@ -435,6 +435,8 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
     harnessRollbackRestoreCanaryReadyCount: 0,
     harnessRollbackRestoreCanaryReceiptCount: 0,
     harnessRollbackRestoreCanaryStatuses: [],
+    harnessActivationAuditReceiptCount: 0,
+    harnessRollbackExecutionReceiptCount: 0,
     harnessCanaryBoundaryExecutedCount: 0,
     harnessCanaryBoundaryRollbackDrillCount: 0,
     harnessSelectorCanaryRoutedCount: 0,
@@ -531,10 +533,35 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       summary.harnessRollbackRestoreCanaryReceiptCount += 1;
     }
   };
+  const hasRestoreCanaryReceiptRef = (value) =>
+    typeof value === "string" && value.startsWith("workflow_restore_canary:");
+  const noteReceiptRefArray = (refs, counterName) => {
+    if (
+      Array.isArray(refs) &&
+      refs.some((reference) => hasRestoreCanaryReceiptRef(reference))
+    ) {
+      summary[counterName] += 1;
+    }
+  };
   const noteRollbackRestoreCanaryProof = (activation) => {
     if (!activation || typeof activation !== "object") return;
     const invalidCanary = activation.invalidFork?.rollbackRestoreCanary;
     const validCanary = activation.validFork?.rollbackRestoreCanary;
+    for (const fork of [activation.invalidFork, activation.validFork]) {
+      if (!fork || typeof fork !== "object") continue;
+      if (Array.isArray(fork.activationAudit)) {
+        for (const event of fork.activationAudit) {
+          noteReceiptRefArray(event?.receiptRefs, "harnessActivationAuditReceiptCount");
+        }
+      }
+      noteReceiptRefArray(
+        fork.activationRollbackExecution?.receiptRefs,
+        "harnessRollbackExecutionReceiptCount",
+      );
+      if (hasRestoreCanaryReceiptRef(fork.activationRollbackExecution?.restoreReceiptBindingRef)) {
+        summary.harnessRollbackExecutionReceiptCount += 1;
+      }
+    }
     if (invalidCanary && typeof invalidCanary === "object") {
       noteRollbackRestoreCanaryStatus(invalidCanary.status);
       noteRollbackRestoreCanaryReceipt(invalidCanary);
@@ -1288,6 +1315,12 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         if (digest.harness_rollback_restore_canary_receipts_present === true) {
           summary.harnessRollbackRestoreCanaryReceiptCount += 2;
         }
+        if (digest.harness_activation_audit_receipts_present === true) {
+          summary.harnessActivationAuditReceiptCount += 1;
+        }
+        if (digest.harness_rollback_execution_receipts_present === true) {
+          summary.harnessRollbackExecutionReceiptCount += 1;
+        }
         if (digest.harness_canary_boundary_executed === true) {
           summary.harnessCanaryBoundaryExecutedCount += 1;
         }
@@ -1497,6 +1530,12 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
           if (metadata.harness_rollback_restore_canary_receipts_present === true) {
             summary.harnessRollbackRestoreCanaryReceiptCount += 2;
           }
+          if (metadata.harness_activation_audit_receipts_present === true) {
+            summary.harnessActivationAuditReceiptCount += 1;
+          }
+          if (metadata.harness_rollback_execution_receipts_present === true) {
+            summary.harnessRollbackExecutionReceiptCount += 1;
+          }
           if (metadata.harness_canary_boundary_executed === true) {
             summary.harnessCanaryBoundaryExecutedCount += 1;
           }
@@ -1655,6 +1694,32 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /receipt_binding_ref[\s\S]*workflow_restore_canary_receipt_binding_ref/.test(
         restoreCommand,
       ),
+    activationAuditReceiptRefs:
+      /WorkflowHarnessActivationAuditEvent[\s\S]*receiptRefs: string\[\]/.test(graph) &&
+      /makeWorkflowHarnessActivationAuditEvent[\s\S]*receiptRefs[\s\S]*receiptRefsFromEvidenceRefs/.test(
+        harnessWorkflow,
+      ) &&
+      /recordWorkflowHarnessActivationDryRun[\s\S]*activationCandidateReceiptRefs[\s\S]*receiptRefs/.test(
+        harnessWorkflow,
+      ) &&
+      /activation_minted[\s\S]*receiptRefs/.test(harnessWorkflow) &&
+      /workflow-harness-activation-audit[\s\S]*data-receipt-refs[\s\S]*data-audit-receipt-refs/.test(
+        rail,
+      ),
+    rollbackExecutionReceiptRefs:
+      /WorkflowHarnessActivationRollbackProof[\s\S]*receiptRefs: string\[\]/.test(graph) &&
+      /WorkflowHarnessActivationRollbackExecution[\s\S]*receiptRefs: string\[\][\s\S]*restoreReceiptBindingRef\?: string/.test(
+        graph,
+      ) &&
+      /executeWorkflowHarnessRollbackDrill[\s\S]*workflowRollbackReceiptRefs[\s\S]*receiptRefs/.test(
+        harnessWorkflow,
+      ) &&
+      /executeWorkflowHarnessRevisionRollback[\s\S]*restoreResult\?\.receiptBindingRef[\s\S]*restoreReceiptBindingRef[\s\S]*receiptRefs/.test(
+        harnessWorkflow,
+      ) &&
+      /workflow-harness-rollback-execution-proof[\s\S]*data-receipt-refs[\s\S]*data-restore-receipt-binding-ref/.test(
+        rail,
+      ),
     rollbackCanaryContract:
       /WorkflowHarnessRollbackRestoreCanary[\s\S]*hashVerified[\s\S]*receiptBindingRef[\s\S]*blockers/.test(
         graph,
@@ -1743,9 +1808,17 @@ function buildGuiEvidenceAssessment({ queryResults, runtimeArtifacts, rollbackRe
   const hasHarnessRollbackRestoreCanaryReceipts =
     hasHarnessRollbackRestoreCanary &&
     summary.harnessRollbackRestoreCanaryReceiptCount >= 2;
+  const hasHarnessActivationAuditReceipts =
+    hasHarnessRollbackRestoreCanaryReceipts &&
+    summary.harnessActivationAuditReceiptCount > 0;
+  const hasHarnessRollbackExecutionReceipts =
+    hasHarnessActivationAuditReceipts &&
+    summary.harnessRollbackExecutionReceiptCount > 0;
   const hasHarnessRollbackRestoreCanaryUi =
     hasHarnessRollbackRestoreCanary &&
     hasHarnessRollbackRestoreCanaryReceipts &&
+    hasHarnessActivationAuditReceipts &&
+    hasHarnessRollbackExecutionReceipts &&
     rollbackRestoreCanaryUiProof?.proof?.passed === true;
   const hasHarnessCanaryExecutionBoundary =
     hasHarnessRollbackRestoreCanary &&
@@ -1847,6 +1920,9 @@ function buildGuiEvidenceAssessment({ queryResults, runtimeArtifacts, rollbackRe
       harness_rollback_restore_canary_present: hasHarnessRollbackRestoreCanary,
       harness_rollback_restore_canary_receipts_present:
         hasHarnessRollbackRestoreCanaryReceipts,
+      harness_activation_audit_receipts_present: hasHarnessActivationAuditReceipts,
+      harness_rollback_execution_receipts_present:
+        hasHarnessRollbackExecutionReceipts,
       harness_rollback_restore_canary_ui_present: hasHarnessRollbackRestoreCanaryUi,
       harness_canary_execution_boundary_present: hasHarnessCanaryExecutionBoundary,
       harness_live_handoff_present: hasHarnessLiveHandoff,
@@ -1900,6 +1976,8 @@ function buildGuiEvidenceAssessment({ queryResults, runtimeArtifacts, rollbackRe
       hasHarnessForkActivation,
       hasHarnessRollbackRestoreCanary,
       hasHarnessRollbackRestoreCanaryReceipts,
+      hasHarnessActivationAuditReceipts,
+      hasHarnessRollbackExecutionReceipts,
       hasHarnessRollbackRestoreCanaryUi,
       hasHarnessCanaryExecutionBoundary,
       hasHarnessLiveHandoff,
@@ -1949,6 +2027,10 @@ function buildGuiEvidenceAssessment({ queryResults, runtimeArtifacts, rollbackRe
         summary.harnessRollbackRestoreCanaryReadyCount,
       harnessRollbackRestoreCanaryReceiptCount:
         summary.harnessRollbackRestoreCanaryReceiptCount,
+      harnessActivationAuditReceiptCount:
+        summary.harnessActivationAuditReceiptCount,
+      harnessRollbackExecutionReceiptCount:
+        summary.harnessRollbackExecutionReceiptCount,
       harnessRollbackRestoreCanaryStatuses:
         summary.harnessRollbackRestoreCanaryStatuses,
       harnessRollbackRestoreCanaryUiProof: rollbackRestoreCanaryUiProof?.proof ?? null,
@@ -2268,10 +2350,12 @@ async function runGuiValidation(args, outputRoot) {
           runtimeArtifacts.summary.harnessForkActivationMintedCount > 0
             ? runtimeArtifacts.path
             : false,
-      harness_rollback_restore_canary:
+        harness_rollback_restore_canary:
           runtimeArtifacts.summary.harnessRollbackRestoreCanaryBlockedCount > 0 &&
           runtimeArtifacts.summary.harnessRollbackRestoreCanaryReadyCount > 0 &&
-          runtimeArtifacts.summary.harnessRollbackRestoreCanaryReceiptCount >= 2
+          runtimeArtifacts.summary.harnessRollbackRestoreCanaryReceiptCount >= 2 &&
+          runtimeArtifacts.summary.harnessActivationAuditReceiptCount > 0 &&
+          runtimeArtifacts.summary.harnessRollbackExecutionReceiptCount > 0
             ? runtimeArtifacts.path
             : false,
         harness_rollback_restore_canary_ui:

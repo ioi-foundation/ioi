@@ -1115,6 +1115,7 @@ export interface WorkflowHarnessActivationAuditEvent {
   rollbackExecuted?: boolean;
   blockers: string[];
   evidenceRefs: string[];
+  receiptRefs: string[];
   summary: string;
   createdAtMs: number;
 }
@@ -1135,6 +1136,7 @@ export interface WorkflowHarnessActivationRollbackProof {
   policyDecision: string;
   blockers: string[];
   evidenceRefs: string[];
+  receiptRefs: string[];
   createdAtMs: number;
 }
 
@@ -1168,6 +1170,8 @@ export interface WorkflowHarnessActivationRollbackExecution {
   policyDecision: string;
   blockers: string[];
   evidenceRefs: string[];
+  receiptRefs: string[];
+  restoreReceiptBindingRef?: string;
   createdAtMs: number;
 }
 

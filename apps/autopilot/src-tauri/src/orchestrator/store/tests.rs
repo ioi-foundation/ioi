@@ -231,6 +231,21 @@ fn runtime_harness_fork_activation_records_rollback_restore_canaries() {
         .expect("invalid canary evidence refs")
         .iter()
         .any(|value| value.as_str() == Some(invalid_receipt_ref)));
+    let invalid_audit = activation
+        .get("invalidFork")
+        .and_then(|fork| fork.get("activationAudit"))
+        .and_then(|value| value.as_array())
+        .expect("invalid activation audit");
+    assert!(invalid_audit.iter().any(|event| {
+        event
+            .get("receiptRefs")
+            .and_then(|value| value.as_array())
+            .map(|refs| {
+                refs.iter()
+                    .any(|value| value.as_str() == Some(invalid_receipt_ref))
+            })
+            .unwrap_or(false)
+    }));
     assert_eq!(
         invalid_canary
             .get("blockers")
@@ -284,6 +299,36 @@ fn runtime_harness_fork_activation_records_rollback_restore_canaries() {
         .expect("valid canary evidence refs")
         .iter()
         .any(|value| value.as_str() == Some(valid_receipt_ref)));
+    let valid_audit = activation
+        .get("validFork")
+        .and_then(|fork| fork.get("activationAudit"))
+        .and_then(|value| value.as_array())
+        .expect("valid activation audit");
+    for event_type in [
+        "dry_run_mintable",
+        "activation_minted",
+        "rollback_drill_passed",
+        "rollback_executed",
+    ] {
+        assert!(valid_audit.iter().any(|event| {
+            event.get("eventType").and_then(|value| value.as_str()) == Some(event_type)
+                && event
+                    .get("receiptRefs")
+                    .and_then(|value| value.as_array())
+                    .map(|refs| {
+                        refs.iter()
+                            .any(|value| value.as_str() == Some(valid_receipt_ref))
+                    })
+                    .unwrap_or(false)
+        }));
+    }
+    assert!(activation
+        .get("validFork")
+        .and_then(|fork| fork.get("activationRollbackExecution"))
+        .and_then(|execution| execution.get("restoreReceiptBindingRef"))
+        .and_then(|value| value.as_str())
+        .map(|value| value == valid_receipt_ref)
+        .unwrap_or(false));
     assert_eq!(
         valid_canary
             .get("blockers")

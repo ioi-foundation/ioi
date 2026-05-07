@@ -66,6 +66,12 @@ assert.match(
 );
 
 assert.match(
+  graphTypes,
+  /WorkflowHarnessActivationAuditEvent[\s\S]*receiptRefs: string\[\][\s\S]*WorkflowHarnessActivationRollbackExecution[\s\S]*receiptRefs: string\[\][\s\S]*restoreReceiptBindingRef\?: string/,
+  "Activation audit and rollback execution contracts should preserve restore-canary receipt refs.",
+);
+
+assert.match(
   harnessWorkflow,
   /DEFAULT_HARNESS_EXECUTION_MODE[\s\S]*HARNESS_PROMOTION_CLUSTER_COMPONENTS[\s\S]*cognition[\s\S]*DEFAULT_AGENT_HARNESS_COMPONENTS[\s\S]*kind: "planner"[\s\S]*kind: "prompt_assembler"[\s\S]*kind: "mcp_provider"[\s\S]*kind: "mcp_tool_call"[\s\S]*kind: "receipt_writer"[\s\S]*defaultHarnessPromotionClusters[\s\S]*requiredExecutionMode: "gated"[\s\S]*makeDefaultAgentHarnessWorkflow[\s\S]*readOnly: true/,
   "Default Agent Harness should project runtime kernels and gated promotion clusters as read-only workflow components.",
@@ -90,6 +96,12 @@ assert.match(
 );
 
 assert.match(
+  harnessWorkflow,
+  /(?=[\s\S]*activationCandidateReceiptRefs)(?=[\s\S]*recordWorkflowHarnessActivationDryRun[\s\S]*receiptRefs)(?=[\s\S]*activation_mint_blocked[\s\S]*receiptRefs)(?=[\s\S]*activation_minted[\s\S]*receiptRefs)(?=[\s\S]*workflowRollbackReceiptRefs)(?=[\s\S]*executeWorkflowHarnessRollbackDrill[\s\S]*receiptRefs)(?=[\s\S]*executeWorkflowHarnessRevisionRollback[\s\S]*restoreReceiptBindingRef)/,
+  "Harness activation, rollback drill, and rollback execution should keep restore-canary receipt continuity.",
+);
+
+assert.match(
   workflowComposer,
   /(?=[\s\S]*workflow-open-default-harness)(?=[\s\S]*handleOpenDefaultHarness)(?=[\s\S]*workflow-fork-harness-button)(?=[\s\S]*handleForkDefaultHarness)(?=[\s\S]*handleRunHarnessActivationDryRun)(?=[\s\S]*runWorkflowHarnessRollbackRestoreCanaryProbe)(?=[\s\S]*recordWorkflowHarnessActivationDryRun)(?=[\s\S]*rollbackRestoreResult)(?=[\s\S]*rollbackRestoreBlockers)(?=[\s\S]*handleApplyHarnessActivationCandidate)(?=[\s\S]*applyWorkflowHarnessActivationCandidate)(?=[\s\S]*handleRunHarnessRollbackDrill)(?=[\s\S]*executeWorkflowHarnessRollbackDrill)(?=[\s\S]*handleExecuteHarnessRollback)(?=[\s\S]*restoreWorkflowRevision)(?=[\s\S]*executeWorkflowHarnessRevisionRollback)(?=[\s\S]*createWorkflowHarnessActivationCandidate)(?=[\s\S]*harnessActivationCandidate)(?=[\s\S]*selectedHarnessRollbackTarget)(?=[\s\S]*workflow-readonly-badge)(?=[\s\S]*workflow-harness-worker-binding)/,
   "Workflow composer should expose read-only harness inspection, a fork path, audited activation dry runs, rollback target selection, guarded activation minting, and rollback drill execution.",
@@ -111,6 +123,12 @@ assert.match(
   workflowRailPanel,
   /workflow-harness-rollback-restore-canary[\s\S]*data-receipt-binding-ref[\s\S]*receiptBindingRef/,
   "Activation rail should expose rollback restore canary receipt bindings for GUI evidence.",
+);
+
+assert.match(
+  workflowRailPanel,
+  /(?=[\s\S]*workflow-harness-activation-audit[\s\S]*data-receipt-refs[\s\S]*data-audit-receipt-refs)(?=[\s\S]*workflow-harness-rollback-execution-proof[\s\S]*data-restore-receipt-binding-ref)/,
+  "Activation audit and rollback execution panels should expose receipt refs for GUI evidence.",
 );
 
 assert.match(
