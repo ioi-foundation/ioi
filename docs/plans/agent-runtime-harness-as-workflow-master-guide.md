@@ -11,7 +11,7 @@ Companion documents:
 - `docs/plans/meta-harness-master-guide.md`
 - `docs/specs/runtime/cursor-sdk-harness-parity-plus-master-guide.md`
 - `docs/specs/runtime/harness-change-workflow.md`
-- `docs/evidence/autopilot-gui-harness-validation/2026-05-07T00-22-33-917Z/result.json`
+- `docs/evidence/autopilot-gui-harness-validation/2026-05-07T12-03-49-923Z/result.json`
 - `docs/evidence/harness-as-workflow-aip-reference/2026-05-06/README.md`
 
 ## Executive Verdict
@@ -121,10 +121,11 @@ npm run validate:autopilot-gui-harness
 That generated:
 
 ```text
-docs/evidence/autopilot-gui-harness-validation/2026-05-07T00-22-33-917Z/result.json
+docs/evidence/autopilot-gui-harness-validation/2026-05-07T12-03-49-923Z/result.json
 ```
 
-The retained-query preflight passed with 8 retained queries.
+The retained-query validation passed with all 8 retained queries and runtime
+evidence.
 
 GUI observations:
 

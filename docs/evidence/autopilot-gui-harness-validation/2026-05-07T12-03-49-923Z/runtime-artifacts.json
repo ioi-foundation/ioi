@@ -1,0 +1,224 @@
+{
+  "profileRoot": "/home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu",
+  "chatDbPath": "/home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/chat-memory.db",
+  "transcriptCount": 17,
+  "threadEventCount": 3,
+  "artifactRecordCount": 31,
+  "runtimeEvidenceReportCount": 9,
+  "runBundleCount": 1,
+  "selectedSourceCount": 8,
+  "promptAssemblyCount": 3,
+  "turnStateCount": 3,
+  "decisionLoopCount": 3,
+  "traceBundleCount": 3,
+  "modelRoutingCount": 3,
+  "toolSelectionQualityCount": 3,
+  "scorecardCount": 12,
+  "stopReasonCount": 9,
+  "qualityLedgerCount": 9,
+  "harnessWorkerBindingCount": 6,
+  "harnessShadowRunCount": 9,
+  "harnessNodeAttemptCount": 207,
+  "harnessShadowComparisonCount": 207,
+  "harnessBlockingDivergenceCount": 0,
+  "harnessGatedClusterCount": 36,
+  "harnessGatedCognitionCount": 9,
+  "harnessGatedRoutingModelCount": 9,
+  "harnessGatedVerificationOutputCount": 9,
+  "harnessGatedAuthorityToolingCount": 9,
+  "harnessForkActivationBlockedCount": 9,
+  "harnessForkActivationMintedCount": 9,
+  "harnessCanaryBoundaryExecutedCount": 5,
+  "harnessCanaryBoundaryRollbackDrillCount": 5,
+  "harnessSelectorCanaryRoutedCount": 0,
+  "harnessSelectorLegacyDefaultCount": 4,
+  "harnessSelectorDefaultPromotedCount": 5,
+  "harnessLiveHandoffCanaryCount": 0,
+  "harnessLiveHandoffDefaultPromotedCount": 5,
+  "harnessLiveHandoffRollbackCount": 5,
+  "harnessDefaultRuntimeDispatchReadonlyCount": 5,
+  "harnessModelProviderGatedVisibleOutputCount": 5,
+  "harnessModelProviderGatedVisibleOutputRollbackDrillCount": 5,
+  "harnessModelProviderGatedVisibleOutputScenarios": [
+    "retained_harness_dogfooding",
+    "retained_mermaid_rendering",
+    "retained_no_tool_answer",
+    "retained_planning_without_mutation",
+    "retained_probe_behavior",
+    "retained_repo_grounded_answer",
+    "retained_source_heavy_synthesis"
+  ],
+  "harnessModelProviderGatedVisibleOutputRollbackDrillScenarios": [
+    "retained_harness_dogfooding",
+    "retained_mermaid_rendering",
+    "retained_no_tool_answer",
+    "retained_planning_without_mutation",
+    "retained_probe_behavior",
+    "retained_repo_grounded_answer",
+    "retained_source_heavy_synthesis"
+  ],
+  "harnessReadOnlyCapabilityRoutingCount": 0,
+  "harnessReadOnlyCapabilityRoutingNoMutationCount": 0,
+  "harnessReadOnlyCapabilityRoutingScenarios": [
+    "retained_probe_behavior",
+    "retained_repo_grounded_answer",
+    "retained_source_heavy_synthesis"
+  ],
+  "harnessReadOnlyCapabilityRoutingNoMutationScenarios": [
+    "retained_probe_behavior",
+    "retained_repo_grounded_answer",
+    "retained_source_heavy_synthesis"
+  ],
+  "recentArtifacts": [
+    {
+      "artifactId": "7c01f743-ef7c-4fe9-8a97-ac99a6270c75",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/a03b1a6347ae4f26b4b6430bfb20a63c43e2acaa2311422b849cdcf17aa76e19/planning/walkthrough.md",
+      "createdAtMs": 1778155674907
+    },
+    {
+      "artifactId": "b2db0251-4024-4c7c-842e-6072bdef8a5e",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/a03b1a6347ae4f26b4b6430bfb20a63c43e2acaa2311422b849cdcf17aa76e19/planning/task.md",
+      "createdAtMs": 1778155674881
+    },
+    {
+      "artifactId": "0e3a0836-a3ab-4803-b69a-ab0564f59ac3",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/a03b1a6347ae4f26b4b6430bfb20a63c43e2acaa2311422b849cdcf17aa76e19/planning/implementation_plan.md",
+      "createdAtMs": 1778155674855
+    },
+    {
+      "artifactId": "ee652ff2-a31f-4a0a-a2b9-db9770773572",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/a03b1a6347ae4f26b4b6430bfb20a63c43e2acaa2311422b849cdcf17aa76e19/planning/walkthrough.md",
+      "createdAtMs": 1778155647349
+    },
+    {
+      "artifactId": "b8a0a727-ebeb-4174-83d9-b7c3d887ef08",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/a03b1a6347ae4f26b4b6430bfb20a63c43e2acaa2311422b849cdcf17aa76e19/planning/task.md",
+      "createdAtMs": 1778155647331
+    },
+    {
+      "artifactId": "8a2e7cf3-ceef-4090-bd0f-b684c25c76d6",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/a03b1a6347ae4f26b4b6430bfb20a63c43e2acaa2311422b849cdcf17aa76e19/planning/implementation_plan.md",
+      "createdAtMs": 1778155647313
+    },
+    {
+      "artifactId": "089cd40f-5b15-4ccd-8be9-7965432605b0",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/a03b1a6347ae4f26b4b6430bfb20a63c43e2acaa2311422b849cdcf17aa76e19/planning/walkthrough.md",
+      "createdAtMs": 1778155621313
+    },
+    {
+      "artifactId": "b621d316-6b3e-4f16-ac83-df35884a4f7a",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/a03b1a6347ae4f26b4b6430bfb20a63c43e2acaa2311422b849cdcf17aa76e19/planning/task.md",
+      "createdAtMs": 1778155621284
+    },
+    {
+      "artifactId": "1d68bb2d-af43-43e1-b070-0d2a4af5f946",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/a03b1a6347ae4f26b4b6430bfb20a63c43e2acaa2311422b849cdcf17aa76e19/planning/implementation_plan.md",
+      "createdAtMs": 1778155621254
+    },
+    {
+      "artifactId": "ae88315a-712a-40a1-9f4d-26daebfab224",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/a03b1a6347ae4f26b4b6430bfb20a63c43e2acaa2311422b849cdcf17aa76e19/planning/walkthrough.md",
+      "createdAtMs": 1778155593249
+    },
+    {
+      "artifactId": "a7760e78-1e03-4ebe-a71c-55ad4364ada5",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/a03b1a6347ae4f26b4b6430bfb20a63c43e2acaa2311422b849cdcf17aa76e19/planning/task.md",
+      "createdAtMs": 1778155593221
+    },
+    {
+      "artifactId": "653dae9b-9868-4533-8718-10749a82e27d",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/a03b1a6347ae4f26b4b6430bfb20a63c43e2acaa2311422b849cdcf17aa76e19/planning/implementation_plan.md",
+      "createdAtMs": 1778155593193
+    },
+    {
+      "artifactId": "ad1f18d1-ba14-438b-b50a-2305baa49600",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/a03b1a6347ae4f26b4b6430bfb20a63c43e2acaa2311422b849cdcf17aa76e19/planning/walkthrough.md",
+      "createdAtMs": 1778155566970
+    },
+    {
+      "artifactId": "f7973b20-e119-470a-bbb1-6a9965d1c397",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/a03b1a6347ae4f26b4b6430bfb20a63c43e2acaa2311422b849cdcf17aa76e19/planning/task.md",
+      "createdAtMs": 1778155566937
+    },
+    {
+      "artifactId": "e724df69-52fe-4d00-ae46-cbb63054b97b",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/a03b1a6347ae4f26b4b6430bfb20a63c43e2acaa2311422b849cdcf17aa76e19/planning/implementation_plan.md",
+      "createdAtMs": 1778155566909
+    },
+    {
+      "artifactId": "f503bb96-5e6b-4f26-a02c-36ed83e6d0af",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/a03b1a6347ae4f26b4b6430bfb20a63c43e2acaa2311422b849cdcf17aa76e19/planning/walkthrough.md",
+      "createdAtMs": 1778155538400
+    },
+    {
+      "artifactId": "2034b6d4-9eb6-4188-9eae-bc19fe0a56b8",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/a03b1a6347ae4f26b4b6430bfb20a63c43e2acaa2311422b849cdcf17aa76e19/planning/task.md",
+      "createdAtMs": 1778155538373
+    },
+    {
+      "artifactId": "047bb9d3-dd1d-4a5c-87e8-b6989fb078b7",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/a03b1a6347ae4f26b4b6430bfb20a63c43e2acaa2311422b849cdcf17aa76e19/planning/implementation_plan.md",
+      "createdAtMs": 1778155538343
+    },
+    {
+      "artifactId": "e2be0931-7b7b-43a6-bb95-7086eb0e99ad",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/a03b1a6347ae4f26b4b6430bfb20a63c43e2acaa2311422b849cdcf17aa76e19/planning/walkthrough.md",
+      "createdAtMs": 1778155514181
+    },
+    {
+      "artifactId": "c45482c6-aa03-4f94-8e41-0ddfe83722d9",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/a03b1a6347ae4f26b4b6430bfb20a63c43e2acaa2311422b849cdcf17aa76e19/planning/task.md",
+      "createdAtMs": 1778155514154
+    },
+    {
+      "artifactId": "bbdf06dc-fcba-4ad3-873a-d9d59f7770d5",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/a03b1a6347ae4f26b4b6430bfb20a63c43e2acaa2311422b849cdcf17aa76e19/planning/implementation_plan.md",
+      "createdAtMs": 1778155514123
+    },
+    {
+      "artifactId": "df6f6cc2-00b7-4357-9a00-06d217f14440",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/a03b1a6347ae4f26b4b6430bfb20a63c43e2acaa2311422b849cdcf17aa76e19/planning/walkthrough.md",
+      "createdAtMs": 1778155490076
+    },
+    {
+      "artifactId": "93eee995-e044-472d-9d5b-18f5e1cfcbd8",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/a03b1a6347ae4f26b4b6430bfb20a63c43e2acaa2311422b849cdcf17aa76e19/planning/task.md",
+      "createdAtMs": 1778155490050
+    },
+    {
+      "artifactId": "4e395bd6-0a88-4fab-9628-8635295ef45a",
+      "artifactType": "FILE",
+      "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/a03b1a6347ae4f26b4b6430bfb20a63c43e2acaa2311422b849cdcf17aa76e19/planning/implementation_plan.md",
+      "createdAtMs": 1778155490023
+    }
+  ],
+  "logSignals": {
+    "kernelEvents": 4467,
+    "chatProofTrace": 33,
+    "sessionProjectionRefreshes": 32
+  },
+  "collectionErrors": []
+}
