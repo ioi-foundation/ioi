@@ -1027,6 +1027,7 @@ export interface WorkflowRevisionRestoreResult {
   expectedWorkflowContentHash?: string;
   actualWorkflowContentHash?: string;
   hashVerified?: boolean;
+  receiptBindingRef?: string;
   fileSha256?: string;
   bundle?: WorkflowWorkbenchBundle;
 }
@@ -1052,6 +1053,7 @@ export interface WorkflowHarnessRollbackRestoreCanary {
   expectedWorkflowContentHash?: string;
   actualWorkflowContentHash?: string;
   hashVerified: boolean;
+  receiptBindingRef?: string;
   blockers: string[];
   evidenceRefs: string[];
   createdAtMs: number;

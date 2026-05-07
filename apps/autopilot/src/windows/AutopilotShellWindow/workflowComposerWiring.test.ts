@@ -747,6 +747,12 @@ assert.match(
 );
 
 assert.match(
+  workflowRailPanel,
+  /workflow-harness-rollback-restore-canary[\s\S]*data-receipt-binding-ref[\s\S]*receiptBindingRef/,
+  "Activation rail should surface rollback restore canary receipt bindings.",
+);
+
+assert.match(
   workflowComposerUi,
   /viewMacro[\s\S]*macroPeerNodes[\s\S]*workflow-node-macro-cluster[\s\S]*workflow-node-macro-peer-list[\s\S]*workflow-node-macro-peer/,
   "Node details should show the expanded agent-loop composition and peer roles without hiding runtime behavior inside a macro node",
@@ -988,6 +994,12 @@ assert.match(
 
 assert.match(
   projectCommands,
+  /workflow_restore_canary_receipt_binding_ref[\s\S]*workflow\.restore-canary\.receipt-binding\.v1[\s\S]*receipt_binding_ref[\s\S]*WorkflowRevisionRestoreResult/,
+  "Git-backed rollback restore should return durable restore-canary receipt binding refs.",
+);
+
+assert.match(
+  projectCommands,
   /if request\.dry_run[\s\S]*dry_run: true[\s\S]*WorkflowWorkbenchBundle[\s\S]*workflow: restored_workflow/,
   "Git-backed rollback should support a non-mutating dry-run restore canary with a parsed workflow bundle.",
 );
@@ -1140,6 +1152,12 @@ assert.match(
   graphTypes,
   /(?=[\s\S]*WorkflowRevisionRestoreRequest[\s\S]*dryRun\?: boolean)(?=[\s\S]*WorkflowRevisionRestoreResult[\s\S]*dryRun\?: boolean)(?=[\s\S]*WorkflowHarnessRollbackRestoreCanary)(?=[\s\S]*rollbackRestoreCanary: WorkflowHarnessRollbackRestoreCanary)/,
   "Harness activation contract should carry dry-run restore requests and rollback restore canary proof.",
+);
+
+assert.match(
+  graphTypes,
+  /WorkflowRevisionRestoreResult[\s\S]*receiptBindingRef\?: string[\s\S]*WorkflowHarnessRollbackRestoreCanary[\s\S]*receiptBindingRef\?: string[\s\S]*evidenceRefs/,
+  "Harness activation contract should carry backend restore-canary receipt refs through activation evidence.",
 );
 
 assert.match(

@@ -480,6 +480,29 @@ pub(crate) fn workflow_project_content_hash(workflow: &WorkflowProject) -> Strin
     format!("stable-fnv1a32:{hash:08x}")
 }
 
+fn workflow_restore_canary_receipt_binding_ref(
+    revision_source: &str,
+    workflow_path: &str,
+    relative_workflow_path: Option<&str>,
+    restored_revision: Option<&str>,
+    expected_workflow_content_hash: Option<&str>,
+    actual_workflow_content_hash: Option<&str>,
+    hash_verified: bool,
+) -> String {
+    let receipt_material = json!({
+        "schemaVersion": "workflow.restore-canary.receipt-binding.v1",
+        "revisionSource": revision_source,
+        "workflowPath": workflow_path,
+        "relativeWorkflowPath": relative_workflow_path,
+        "restoredRevision": restored_revision,
+        "expectedWorkflowContentHash": expected_workflow_content_hash,
+        "actualWorkflowContentHash": actual_workflow_content_hash,
+        "hashVerified": hash_verified,
+    });
+    let hash = sha256_hex_for_bytes(stable_stringify_value(&receipt_material).as_bytes());
+    format!("workflow_restore_canary:{}", &hash[..16])
+}
+
 #[tauri::command]
 pub fn restore_workflow_revision(
     request: WorkflowRevisionRestoreRequest,
@@ -491,6 +514,15 @@ pub fn restore_workflow_revision(
         .or_else(|| Some(request.revision_binding.workflow_content_hash.clone()));
     let revision_source = request.revision_binding.revision_source.clone();
     if revision_source != "git" {
+        let receipt_binding_ref = workflow_restore_canary_receipt_binding_ref(
+            &revision_source,
+            &anchor_workflow_path.display().to_string(),
+            None,
+            request.revision_binding.activated_revision.as_deref(),
+            expected_workflow_content_hash.as_deref(),
+            None,
+            false,
+        );
         return Ok(WorkflowRevisionRestoreResult {
             restored: false,
             dry_run: request.dry_run,
@@ -504,6 +536,7 @@ pub fn restore_workflow_revision(
             expected_workflow_content_hash,
             actual_workflow_content_hash: None,
             hash_verified: false,
+            receipt_binding_ref: Some(receipt_binding_ref),
             file_sha256: None,
             bundle: None,
         });
@@ -515,6 +548,15 @@ pub fn restore_workflow_revision(
         .filter(|value| !value.trim().is_empty())
         .map(str::to_string)
     else {
+        let receipt_binding_ref = workflow_restore_canary_receipt_binding_ref(
+            &revision_source,
+            &anchor_workflow_path.display().to_string(),
+            None,
+            None,
+            expected_workflow_content_hash.as_deref(),
+            None,
+            false,
+        );
         return Ok(WorkflowRevisionRestoreResult {
             restored: false,
             dry_run: request.dry_run,
@@ -528,6 +570,7 @@ pub fn restore_workflow_revision(
             expected_workflow_content_hash,
             actual_workflow_content_hash: None,
             hash_verified: false,
+            receipt_binding_ref: Some(receipt_binding_ref),
             file_sha256: None,
             bundle: None,
         });
@@ -540,11 +583,21 @@ pub fn restore_workflow_revision(
     {
         Ok(content) => content,
         Err(error) => {
+            let workflow_path = target_workflow_path.display().to_string();
+            let receipt_binding_ref = workflow_restore_canary_receipt_binding_ref(
+                &revision_source,
+                &workflow_path,
+                Some(&relative_workflow_path),
+                Some(&restored_revision),
+                expected_workflow_content_hash.as_deref(),
+                None,
+                false,
+            );
             return Ok(WorkflowRevisionRestoreResult {
                 restored: false,
                 dry_run: request.dry_run,
                 blockers: vec!["git_revision_file_missing".to_string()],
-                workflow_path: target_workflow_path.display().to_string(),
+                workflow_path,
                 repo_root: Some(repo_root.display().to_string()),
                 relative_workflow_path: Some(relative_workflow_path),
                 revision_source,
@@ -553,6 +606,7 @@ pub fn restore_workflow_revision(
                 expected_workflow_content_hash,
                 actual_workflow_content_hash: None,
                 hash_verified: false,
+                receipt_binding_ref: Some(receipt_binding_ref),
                 file_sha256: None,
                 bundle: None,
             }
@@ -562,11 +616,21 @@ pub fn restore_workflow_revision(
     let restored_workflow = match serde_json::from_slice::<WorkflowProject>(&content) {
         Ok(workflow) => workflow,
         Err(error) => {
+            let workflow_path = target_workflow_path.display().to_string();
+            let receipt_binding_ref = workflow_restore_canary_receipt_binding_ref(
+                &revision_source,
+                &workflow_path,
+                Some(&relative_workflow_path),
+                Some(&restored_revision),
+                expected_workflow_content_hash.as_deref(),
+                None,
+                false,
+            );
             return Ok(WorkflowRevisionRestoreResult {
                 restored: false,
                 dry_run: request.dry_run,
                 blockers: vec!["git_revision_invalid_workflow_json".to_string()],
-                workflow_path: target_workflow_path.display().to_string(),
+                workflow_path,
                 repo_root: Some(repo_root.display().to_string()),
                 relative_workflow_path: Some(relative_workflow_path),
                 revision_source,
@@ -575,6 +639,7 @@ pub fn restore_workflow_revision(
                 expected_workflow_content_hash,
                 actual_workflow_content_hash: None,
                 hash_verified: false,
+                receipt_binding_ref: Some(receipt_binding_ref),
                 file_sha256: None,
                 bundle: None,
             }
@@ -587,6 +652,16 @@ pub fn restore_workflow_revision(
         .as_deref()
         .map(|expected| expected == actual_workflow_content_hash)
         .unwrap_or(true);
+    let workflow_path = target_workflow_path.display().to_string();
+    let receipt_binding_ref = workflow_restore_canary_receipt_binding_ref(
+        &revision_source,
+        &workflow_path,
+        Some(&relative_workflow_path),
+        Some(&restored_revision),
+        expected_workflow_content_hash.as_deref(),
+        Some(&actual_workflow_content_hash),
+        hash_verified,
+    );
     if !hash_verified {
         let tests_path = workflow_tests_path(&target_workflow_path);
         let proposals_dir = workflow_proposals_dir(&target_workflow_path);
@@ -603,9 +678,10 @@ pub fn restore_workflow_revision(
             expected_workflow_content_hash,
             actual_workflow_content_hash: Some(actual_workflow_content_hash),
             hash_verified,
+            receipt_binding_ref: Some(receipt_binding_ref),
             file_sha256: Some(file_sha256),
             bundle: Some(WorkflowWorkbenchBundle {
-                workflow_path: target_workflow_path.display().to_string(),
+                workflow_path,
                 tests_path: tests_path.display().to_string(),
                 proposals_dir: proposals_dir.display().to_string(),
                 workflow: restored_workflow,
@@ -631,9 +707,10 @@ pub fn restore_workflow_revision(
             expected_workflow_content_hash,
             actual_workflow_content_hash: Some(actual_workflow_content_hash),
             hash_verified,
+            receipt_binding_ref: Some(receipt_binding_ref),
             file_sha256: Some(file_sha256),
             bundle: Some(WorkflowWorkbenchBundle {
-                workflow_path: target_workflow_path.display().to_string(),
+                workflow_path,
                 tests_path: tests_path.display().to_string(),
                 proposals_dir: proposals_dir.display().to_string(),
                 workflow: restored_workflow,
@@ -674,6 +751,7 @@ pub fn restore_workflow_revision(
         expected_workflow_content_hash,
         actual_workflow_content_hash: Some(actual_workflow_content_hash),
         hash_verified,
+        receipt_binding_ref: Some(receipt_binding_ref),
         file_sha256: Some(file_sha256),
         bundle: Some(bundle),
     })

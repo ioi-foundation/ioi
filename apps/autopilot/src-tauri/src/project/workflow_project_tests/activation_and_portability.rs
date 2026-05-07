@@ -297,6 +297,11 @@ fn restore_workflow_revision_restores_single_workflow_file_from_git() {
     assert!(dry_run.restored, "{:?}", dry_run.blockers);
     assert!(dry_run.dry_run);
     assert!(dry_run.hash_verified);
+    assert!(dry_run
+        .receipt_binding_ref
+        .as_deref()
+        .unwrap_or_default()
+        .starts_with("workflow_restore_canary:"));
     assert_eq!(
         dry_run.actual_workflow_content_hash.as_deref(),
         Some(initial_workflow_content_hash.as_str())
@@ -319,6 +324,11 @@ fn restore_workflow_revision_restores_single_workflow_file_from_git() {
     assert!(!mismatch.restored);
     assert!(!mismatch.hash_verified);
     assert!(mismatch
+        .receipt_binding_ref
+        .as_deref()
+        .unwrap_or_default()
+        .starts_with("workflow_restore_canary:"));
+    assert!(mismatch
         .blockers
         .contains(&"workflow_content_hash_mismatch".to_string()));
     assert_eq!(
@@ -339,6 +349,7 @@ fn restore_workflow_revision_restores_single_workflow_file_from_git() {
 
     assert!(restore.restored, "{:?}", restore.blockers);
     assert!(restore.hash_verified);
+    assert_eq!(restore.receipt_binding_ref, dry_run.receipt_binding_ref);
     assert_eq!(restore.restore_strategy, "git_show_file_restore");
     assert_eq!(
         restore.actual_workflow_content_hash.as_deref(),

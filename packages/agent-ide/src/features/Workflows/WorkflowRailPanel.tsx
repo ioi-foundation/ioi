@@ -2264,6 +2264,10 @@ export function WorkflowRailPanel({
                       data-restore-canary-status={
                         harnessActivationCandidate.rollbackRestoreCanary.status
                       }
+                      data-receipt-binding-ref={
+                        harnessActivationCandidate.rollbackRestoreCanary.receiptBindingRef ??
+                        ""
+                      }
                     >
                       <strong>
                         {harnessActivationCandidate.rollbackRestoreCanary.restoredRevision ??
@@ -2277,7 +2281,10 @@ export function WorkflowRailPanel({
                           : "hash blocked"}
                       </span>
                       <small>
-                        {harnessActivationCandidate.rollbackRestoreCanary.relativeWorkflowPath ??
+                        {harnessActivationCandidate.rollbackRestoreCanary
+                          .receiptBindingRef ??
+                          harnessActivationCandidate.rollbackRestoreCanary
+                            .relativeWorkflowPath ??
                           harnessActivationCandidate.rollbackRestoreCanary.workflowPath}
                       </small>
                     </article>

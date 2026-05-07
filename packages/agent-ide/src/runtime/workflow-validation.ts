@@ -1319,8 +1319,12 @@ function workflowHarnessRollbackRestoreCanaryFor(
       expectedWorkflowContentHash,
       actualWorkflowContentHash: fallbackBinding.workflowContentHash,
       hashVerified: true,
+      receiptBindingRef: `workflow_restore_canary:${fallbackBinding.workflowContentHash}`,
       blockers: [],
-      evidenceRefs: [fallbackBinding.workflowContentHash],
+      evidenceRefs: [
+        `workflow_restore_canary:${fallbackBinding.workflowContentHash}`,
+        fallbackBinding.workflowContentHash,
+      ],
       createdAtMs,
     };
   }
@@ -1351,8 +1355,10 @@ function workflowHarnessRollbackRestoreCanaryFor(
     expectedWorkflowContentHash,
     actualWorkflowContentHash,
     hashVerified,
+    receiptBindingRef: restoreResult?.receiptBindingRef,
     blockers,
     evidenceRefs: [
+      ...(restoreResult?.receiptBindingRef ? [restoreResult.receiptBindingRef] : []),
       ...(restoreResult?.restoredRevision ? [restoreResult.restoredRevision] : []),
       ...(restoreResult?.relativeWorkflowPath ? [restoreResult.relativeWorkflowPath] : []),
       ...(restoreResult?.fileSha256 ? [restoreResult.fileSha256] : []),

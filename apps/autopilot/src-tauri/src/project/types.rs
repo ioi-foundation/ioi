@@ -284,6 +284,8 @@ pub struct WorkflowRevisionRestoreResult {
     #[serde(default)]
     pub hash_verified: bool,
     #[serde(default)]
+    pub receipt_binding_ref: Option<String>,
+    #[serde(default)]
     pub file_sha256: Option<String>,
     #[serde(default)]
     pub bundle: Option<WorkflowWorkbenchBundle>,
