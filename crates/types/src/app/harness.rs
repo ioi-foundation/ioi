@@ -722,6 +722,18 @@ pub struct HarnessDefaultRuntimeDispatchProof {
     pub output_writer_staged_write_canary_attempt_ids: Vec<String>,
     pub output_writer_visible_write_attempt_ids: Vec<String>,
     pub authority_tooling_live_dry_run_attempt_ids: Vec<String>,
+    pub authority_tooling_gate_live_attempt_ids: Vec<String>,
+    pub authority_tooling_gate_live_receipt_ids: Vec<String>,
+    pub authority_tooling_gate_live_replay_fixture_refs: Vec<String>,
+    pub authority_tooling_policy_gate_live_attempt_ids: Vec<String>,
+    pub authority_tooling_policy_gate_live_receipt_ids: Vec<String>,
+    pub authority_tooling_policy_gate_live_replay_fixture_refs: Vec<String>,
+    pub authority_tooling_destructive_denial_live_attempt_ids: Vec<String>,
+    pub authority_tooling_destructive_denial_live_receipt_ids: Vec<String>,
+    pub authority_tooling_destructive_denial_live_replay_fixture_refs: Vec<String>,
+    pub authority_tooling_approval_gate_live_attempt_ids: Vec<String>,
+    pub authority_tooling_approval_gate_live_receipt_ids: Vec<String>,
+    pub authority_tooling_approval_gate_live_replay_fixture_refs: Vec<String>,
     pub authority_tooling_read_only_live_attempt_ids: Vec<String>,
     pub authority_tooling_read_only_receipt_ids: Vec<String>,
     pub authority_tooling_read_only_replay_fixture_refs: Vec<String>,
@@ -849,6 +861,10 @@ pub struct HarnessDefaultRuntimeDispatchProof {
     pub authority_tooling_tool_router_ready: bool,
     pub authority_tooling_dry_run_simulator_ready: bool,
     pub authority_tooling_approval_gate_ready: bool,
+    pub authority_tooling_gate_live_ready: bool,
+    pub authority_tooling_policy_gate_live_ready: bool,
+    pub authority_tooling_destructive_denial_live_ready: bool,
+    pub authority_tooling_approval_gate_live_ready: bool,
     pub authority_tooling_read_only_route_accepted: bool,
     pub authority_tooling_destructive_route_denied: bool,
     pub authority_tooling_mutating_tool_calls_blocked: bool,
@@ -2055,6 +2071,48 @@ pub fn default_harness_default_runtime_dispatch_proof() -> HarnessDefaultRuntime
             "harness-default-dispatch:attempt-authority_tooling_destructive_denial".to_string(),
             "harness-default-dispatch:attempt-authority_tooling_approval_gate".to_string(),
         ],
+        authority_tooling_gate_live_attempt_ids: vec![
+            "harness-default-dispatch:attempt-authority_tooling_policy_gate".to_string(),
+            "harness-default-dispatch:attempt-authority_tooling_destructive_denial".to_string(),
+            "harness-default-dispatch:attempt-authority_tooling_approval_gate".to_string(),
+        ],
+        authority_tooling_gate_live_receipt_ids: vec![
+            "harness-default-dispatch:receipt-authority_tooling_policy_gate".to_string(),
+            "harness-default-dispatch:receipt-authority_tooling_destructive_denial".to_string(),
+            "harness-default-dispatch:receipt-authority_tooling_approval_gate".to_string(),
+        ],
+        authority_tooling_gate_live_replay_fixture_refs: vec![
+            "harness-default-dispatch:fixture-authority_tooling_policy_gate".to_string(),
+            "harness-default-dispatch:fixture-authority_tooling_destructive_denial".to_string(),
+            "harness-default-dispatch:fixture-authority_tooling_approval_gate".to_string(),
+        ],
+        authority_tooling_policy_gate_live_attempt_ids: vec![
+            "harness-default-dispatch:attempt-authority_tooling_policy_gate".to_string(),
+        ],
+        authority_tooling_policy_gate_live_receipt_ids: vec![
+            "harness-default-dispatch:receipt-authority_tooling_policy_gate".to_string(),
+        ],
+        authority_tooling_policy_gate_live_replay_fixture_refs: vec![
+            "harness-default-dispatch:fixture-authority_tooling_policy_gate".to_string(),
+        ],
+        authority_tooling_destructive_denial_live_attempt_ids: vec![
+            "harness-default-dispatch:attempt-authority_tooling_destructive_denial".to_string(),
+        ],
+        authority_tooling_destructive_denial_live_receipt_ids: vec![
+            "harness-default-dispatch:receipt-authority_tooling_destructive_denial".to_string(),
+        ],
+        authority_tooling_destructive_denial_live_replay_fixture_refs: vec![
+            "harness-default-dispatch:fixture-authority_tooling_destructive_denial".to_string(),
+        ],
+        authority_tooling_approval_gate_live_attempt_ids: vec![
+            "harness-default-dispatch:attempt-authority_tooling_approval_gate".to_string(),
+        ],
+        authority_tooling_approval_gate_live_receipt_ids: vec![
+            "harness-default-dispatch:receipt-authority_tooling_approval_gate".to_string(),
+        ],
+        authority_tooling_approval_gate_live_replay_fixture_refs: vec![
+            "harness-default-dispatch:fixture-authority_tooling_approval_gate".to_string(),
+        ],
         authority_tooling_read_only_live_attempt_ids: vec![
             "harness-default-dispatch:attempt-authority_tooling_mcp_provider_read_only".to_string(),
             "harness-default-dispatch:attempt-authority_tooling_mcp_tool_call_read_only"
@@ -2294,6 +2352,10 @@ pub fn default_harness_default_runtime_dispatch_proof() -> HarnessDefaultRuntime
         authority_tooling_tool_router_ready: true,
         authority_tooling_dry_run_simulator_ready: true,
         authority_tooling_approval_gate_ready: true,
+        authority_tooling_gate_live_ready: true,
+        authority_tooling_policy_gate_live_ready: true,
+        authority_tooling_destructive_denial_live_ready: true,
+        authority_tooling_approval_gate_live_ready: true,
         authority_tooling_read_only_route_accepted: true,
         authority_tooling_destructive_route_denied: true,
         authority_tooling_mutating_tool_calls_blocked: true,

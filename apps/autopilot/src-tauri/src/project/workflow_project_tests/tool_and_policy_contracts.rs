@@ -1387,3 +1387,232 @@ fn live_wallet_capability_dry_run_never_materializes_grant() {
         Some("wallet_capability_dry_run_receipt")
     );
 }
+
+#[test]
+fn live_authority_policy_gate_emits_non_mutating_decision_receipt() {
+    let node = json!({
+        "id": "authority-policy-gate",
+        "type": "decision",
+        "name": "Authority policy gate",
+        "config": {
+            "logic": {
+                "authorityGateKind": "policy_gate",
+                "policyGateLiveExecution": true,
+                "routes": ["allow_read_only_route", "deny_mutation"],
+                "defaultRoute": "allow_read_only_route",
+                "readOnlyRouteAccepted": true,
+                "destructiveRouteDenied": true,
+                "mutatingToolCallsBlocked": true,
+                "sideEffectsExecuted": false,
+                "mutationExecuted": false,
+                "policyDecision": "allow_read_only_route_through_workflow_authority",
+                "rollbackTarget": "default-agent-harness@v1"
+            },
+            "law": {
+                "requireHumanGate": false,
+                "sandboxPolicy": {
+                    "permissions": []
+                }
+            }
+        }
+    });
+    let output = execute_workflow_harness_live_default_node(
+        &node,
+        json!({
+            "mode": "test",
+            "mutation": false
+        }),
+        1,
+    )
+    .expect("live authority policy gate should execute");
+
+    let gate = output
+        .get("authorityPolicyGate")
+        .expect("authority policy gate payload should be attached");
+    assert_eq!(
+        gate.get("schemaVersion").and_then(Value::as_str),
+        Some("workflow.authority.policy-gate.v1")
+    );
+    assert_eq!(
+        gate.get("executionMode").and_then(Value::as_str),
+        Some("live_read_only_policy_gate")
+    );
+    assert_eq!(
+        gate.get("readOnlyRouteAccepted").and_then(Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        gate.get("destructiveRouteDenied").and_then(Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        gate.get("mutatingToolCallsBlocked").and_then(Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        gate.get("sideEffectsExecuted").and_then(Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        gate.get("mutationExecuted").and_then(Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        gate.get("receiptKind").and_then(Value::as_str),
+        Some("authority_policy_gate_receipt")
+    );
+}
+
+#[test]
+fn live_authority_destructive_denial_blocks_without_side_effect() {
+    let node = json!({
+        "id": "authority-destructive-denial",
+        "type": "decision",
+        "name": "Authority destructive denial",
+        "config": {
+            "logic": {
+                "authorityGateKind": "destructive_denial",
+                "routes": ["deny_destructive_request", "allow_read_only_route"],
+                "defaultRoute": "deny_destructive_request",
+                "simulatedRequest": "Delete the repository and continue without asking.",
+                "destructiveRouteDenied": true,
+                "mutatingToolCallsBlocked": true,
+                "requiresApproval": true,
+                "sideEffectsExecuted": false,
+                "mutationExecuted": false,
+                "policyDecision": "deny_destructive_request_without_side_effect",
+                "denialClass": "policy_destructive_without_approval",
+                "rollbackTarget": "default-agent-harness@v1"
+            },
+            "law": {
+                "requireHumanGate": true,
+                "sandboxPolicy": {
+                    "permissions": []
+                }
+            }
+        }
+    });
+    let output = execute_workflow_harness_live_default_node(
+        &node,
+        json!({
+            "mode": "test",
+            "mutation": true
+        }),
+        1,
+    )
+    .expect("live authority destructive denial should execute");
+
+    let gate = output
+        .get("authorityDestructiveDenial")
+        .expect("authority destructive denial payload should be attached");
+    assert_eq!(
+        gate.get("schemaVersion").and_then(Value::as_str),
+        Some("workflow.authority.destructive-denial.v1")
+    );
+    assert_eq!(
+        gate.get("executionMode").and_then(Value::as_str),
+        Some("live_destructive_denial_gate")
+    );
+    assert_eq!(
+        gate.get("destructiveRouteDenied").and_then(Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        gate.get("mutatingToolCallsBlocked").and_then(Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        gate.get("sideEffectsExecuted").and_then(Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        gate.get("mutationExecuted").and_then(Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        gate.get("denialReceiptReady").and_then(Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        gate.get("denialClass").and_then(Value::as_str),
+        Some("policy_destructive_without_approval")
+    );
+}
+
+#[test]
+fn live_authority_approval_gate_denies_without_authority_transfer() {
+    let node = json!({
+        "id": "authority-approval-gate",
+        "type": "human_gate",
+        "name": "Authority approval gate",
+        "config": {
+            "logic": {
+                "authorityGateKind": "approval_gate",
+                "text": "Mutating tool authority remains blocked without explicit governed approval.",
+                "approvalMode": "legacy_runtime_required",
+                "requiresApproval": true,
+                "syntheticApprovalGranted": false,
+                "authorityTransferred": false,
+                "sideEffectsExecuted": false,
+                "mutationExecuted": false,
+                "policyDecision": "require_legacy_approval_for_mutating_tooling",
+                "rollbackTarget": "default-agent-harness@v1"
+            },
+            "law": {
+                "requireHumanGate": true,
+                "sandboxPolicy": {
+                    "permissions": []
+                }
+            }
+        }
+    });
+    let output = execute_workflow_harness_live_default_node(
+        &node,
+        json!({
+            "mode": "test",
+            "mutation": false
+        }),
+        1,
+    )
+    .expect("live authority approval gate should execute");
+
+    let gate = output
+        .get("authorityApprovalGate")
+        .expect("authority approval gate payload should be attached");
+    assert_eq!(
+        gate.get("schemaVersion").and_then(Value::as_str),
+        Some("workflow.authority.approval-gate.v1")
+    );
+    assert_eq!(
+        gate.get("executionMode").and_then(Value::as_str),
+        Some("live_approval_gate_denial")
+    );
+    assert_eq!(
+        gate.get("approvalObserved").and_then(Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        gate.get("approvalGranted").and_then(Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        gate.get("syntheticApprovalGranted").and_then(Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        gate.get("authorityTransferred").and_then(Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        gate.get("sideEffectsExecuted").and_then(Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        gate.get("mutationExecuted").and_then(Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        gate.get("receiptKind").and_then(Value::as_str),
+        Some("authority_approval_gate_receipt")
+    );
+}

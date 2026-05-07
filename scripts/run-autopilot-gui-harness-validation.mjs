@@ -441,6 +441,7 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
     harnessLiveHandoffRollbackCount: 0,
     harnessDefaultRuntimeDispatchReadonlyCount: 0,
     harnessAuthorityToolingReadOnlyCanaryCount: 0,
+    harnessAuthorityToolingGateLiveCount: 0,
     harnessAuthorityToolingProviderCatalogLiveCount: 0,
     harnessAuthorityToolingMcpToolCatalogLiveCount: 0,
     harnessAuthorityToolingNativeToolCatalogLiveCount: 0,
@@ -900,6 +901,22 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             dispatch.authorityToolingToolRouterReady === true &&
             dispatch.authorityToolingDryRunSimulatorReady === true &&
             dispatch.authorityToolingApprovalGateReady === true &&
+            dispatch.authorityToolingGateLiveReady === true &&
+            dispatch.authorityToolingPolicyGateLiveReady === true &&
+            dispatch.authorityToolingDestructiveDenialLiveReady === true &&
+            dispatch.authorityToolingApprovalGateLiveReady === true &&
+            Array.isArray(dispatch.authorityToolingGateLiveAttemptIds) &&
+            dispatch.authorityToolingGateLiveAttemptIds.length >= 3 &&
+            Array.isArray(dispatch.authorityToolingGateLiveReceiptIds) &&
+            dispatch.authorityToolingGateLiveReceiptIds.length >= 3 &&
+            Array.isArray(dispatch.authorityToolingGateLiveReplayFixtureRefs) &&
+            dispatch.authorityToolingGateLiveReplayFixtureRefs.length >= 3 &&
+            Array.isArray(dispatch.authorityToolingPolicyGateLiveAttemptIds) &&
+            dispatch.authorityToolingPolicyGateLiveAttemptIds.length >= 1 &&
+            Array.isArray(dispatch.authorityToolingDestructiveDenialLiveAttemptIds) &&
+            dispatch.authorityToolingDestructiveDenialLiveAttemptIds.length >= 1 &&
+            Array.isArray(dispatch.authorityToolingApprovalGateLiveAttemptIds) &&
+            dispatch.authorityToolingApprovalGateLiveAttemptIds.length >= 1 &&
             dispatch.authorityToolingReadOnlyAuthorityCanaryReady === true &&
             dispatch.authorityToolingProviderCatalogLiveReady === true &&
             dispatch.authorityToolingProviderCatalogLiveComponentKind === "mcp_provider" &&
@@ -1061,6 +1078,10 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             dispatch.authorityToolingReadOnlyReceiptIds.length >= 5 &&
             Array.isArray(dispatch.authorityToolingReadOnlyReplayFixtureRefs) &&
             dispatch.authorityToolingReadOnlyReplayFixtureRefs.length >= 5 &&
+            dispatch.authorityToolingProof?.gateLiveReady === true &&
+            dispatch.authorityToolingProof?.policyGateLiveReady === true &&
+            dispatch.authorityToolingProof?.destructiveDenialLiveReady === true &&
+            dispatch.authorityToolingProof?.approvalGateLiveReady === true &&
             dispatch.authorityToolingProof?.readOnlyAuthorityCanaryReady === true &&
             dispatch.authorityToolingProof?.providerCatalogLiveReady === true &&
             dispatch.authorityToolingProof?.providerCatalogLiveComponentKind === "mcp_provider" &&
@@ -1084,6 +1105,7 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
           ) {
             summary.harnessDefaultRuntimeDispatchReadonlyCount += 1;
             summary.harnessAuthorityToolingReadOnlyCanaryCount += 1;
+            summary.harnessAuthorityToolingGateLiveCount += 1;
             summary.harnessAuthorityToolingProviderCatalogLiveCount += 1;
             summary.harnessAuthorityToolingMcpToolCatalogLiveCount += 1;
             summary.harnessAuthorityToolingNativeToolCatalogLiveCount += 1;
@@ -1223,6 +1245,9 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         }
         if (digest.harness_authority_tooling_read_only_canary === true) {
           summary.harnessAuthorityToolingReadOnlyCanaryCount += 1;
+        }
+        if (digest.harness_authority_tooling_gate_live === true) {
+          summary.harnessAuthorityToolingGateLiveCount += 1;
         }
         if (digest.harness_authority_tooling_provider_catalog_live === true) {
           summary.harnessAuthorityToolingProviderCatalogLiveCount += 1;
@@ -1416,6 +1441,9 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
           if (metadata.harness_authority_tooling_read_only_canary === true) {
             summary.harnessAuthorityToolingReadOnlyCanaryCount += 1;
           }
+          if (metadata.harness_authority_tooling_gate_live === true) {
+            summary.harnessAuthorityToolingGateLiveCount += 1;
+          }
           if (metadata.harness_authority_tooling_provider_catalog_live === true) {
             summary.harnessAuthorityToolingProviderCatalogLiveCount += 1;
           }
@@ -1565,11 +1593,15 @@ function buildGuiEvidenceAssessment({ queryResults, runtimeArtifacts }) {
   const hasHarnessDefaultRuntimeDispatch =
     hasHarnessSelectorRouting &&
     summary.harnessDefaultRuntimeDispatchReadonlyCount > 0 &&
+    summary.harnessAuthorityToolingGateLiveCount > 0 &&
     summary.harnessAuthorityToolingProviderCatalogLiveCount > 0 &&
     summary.harnessAuthorityToolingMcpToolCatalogLiveCount > 0 &&
     summary.harnessAuthorityToolingNativeToolCatalogLiveCount > 0 &&
     summary.harnessAuthorityToolingConnectorCatalogLiveCount > 0 &&
     summary.harnessAuthorityToolingWalletCapabilityLiveDryRunCount > 0;
+  const hasHarnessAuthorityToolingGateLive =
+    hasHarnessDefaultRuntimeDispatch &&
+    summary.harnessAuthorityToolingGateLiveCount > 0;
   const hasHarnessAuthorityToolingProviderCatalogLive =
     hasHarnessDefaultRuntimeDispatch &&
     summary.harnessAuthorityToolingProviderCatalogLiveCount > 0;
@@ -1647,6 +1679,7 @@ function buildGuiEvidenceAssessment({ queryResults, runtimeArtifacts }) {
       harness_live_handoff_present: hasHarnessLiveHandoff,
       harness_selector_default_promoted: hasHarnessSelectorRouting,
       harness_default_runtime_dispatch_present: hasHarnessDefaultRuntimeDispatch,
+      harness_authority_tooling_gate_live_present: hasHarnessAuthorityToolingGateLive,
       harness_authority_tooling_provider_catalog_live_present:
         hasHarnessAuthorityToolingProviderCatalogLive,
       harness_authority_tooling_mcp_tool_catalog_live_present:
@@ -1696,6 +1729,7 @@ function buildGuiEvidenceAssessment({ queryResults, runtimeArtifacts }) {
       hasHarnessLiveHandoff,
       hasHarnessSelectorRouting,
       hasHarnessDefaultRuntimeDispatch,
+      hasHarnessAuthorityToolingGateLive,
       hasHarnessModelProviderGatedVisibleOutput,
       hasHarnessModelProviderGatedVisibleOutputRollbackDrill,
       hasHarnessReadOnlyCapabilityRouting,
@@ -1745,6 +1779,8 @@ function buildGuiEvidenceAssessment({ queryResults, runtimeArtifacts }) {
         summary.harnessDefaultRuntimeDispatchReadonlyCount,
       harnessAuthorityToolingReadOnlyCanaryCount:
         summary.harnessAuthorityToolingReadOnlyCanaryCount,
+      harnessAuthorityToolingGateLiveCount:
+        summary.harnessAuthorityToolingGateLiveCount,
       harnessAuthorityToolingProviderCatalogLiveCount:
         summary.harnessAuthorityToolingProviderCatalogLiveCount,
       harnessAuthorityToolingMcpToolCatalogLiveCount:
@@ -2059,11 +2095,16 @@ async function runGuiValidation(args, outputRoot) {
             : false,
         harness_default_runtime_dispatch:
           runtimeArtifacts.summary.harnessDefaultRuntimeDispatchReadonlyCount > 0 &&
+          runtimeArtifacts.summary.harnessAuthorityToolingGateLiveCount > 0 &&
           runtimeArtifacts.summary.harnessAuthorityToolingProviderCatalogLiveCount > 0 &&
           runtimeArtifacts.summary.harnessAuthorityToolingMcpToolCatalogLiveCount > 0 &&
           runtimeArtifacts.summary.harnessAuthorityToolingNativeToolCatalogLiveCount > 0 &&
           runtimeArtifacts.summary.harnessAuthorityToolingConnectorCatalogLiveCount > 0 &&
           runtimeArtifacts.summary.harnessAuthorityToolingWalletCapabilityLiveDryRunCount > 0
+            ? runtimeArtifacts.path
+            : false,
+        harness_authority_tooling_gate_live:
+          runtimeArtifacts.summary.harnessAuthorityToolingGateLiveCount > 0
             ? runtimeArtifacts.path
             : false,
         harness_authority_tooling_provider_catalog_live:

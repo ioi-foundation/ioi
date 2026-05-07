@@ -941,6 +941,30 @@ fn default_runtime_dispatch_proof_accepts_readonly_default_with_provider_visible
         .iter()
         .any(|id| id.contains("authority_tooling_wallet_capability_read_only")));
     assert!(dispatch
+        .authority_tooling_gate_live_attempt_ids
+        .iter()
+        .any(|id| id.contains("authority_tooling_policy_gate")));
+    assert!(dispatch
+        .authority_tooling_gate_live_receipt_ids
+        .iter()
+        .any(|id| id.contains("authority_tooling_destructive_denial")));
+    assert!(dispatch
+        .authority_tooling_gate_live_replay_fixture_refs
+        .iter()
+        .any(|id| id.contains("authority_tooling_approval_gate")));
+    assert!(dispatch
+        .authority_tooling_policy_gate_live_attempt_ids
+        .iter()
+        .any(|id| id.contains("authority_tooling_policy_gate")));
+    assert!(dispatch
+        .authority_tooling_destructive_denial_live_receipt_ids
+        .iter()
+        .any(|id| id.contains("authority_tooling_destructive_denial")));
+    assert!(dispatch
+        .authority_tooling_approval_gate_live_replay_fixture_refs
+        .iter()
+        .any(|id| id.contains("authority_tooling_approval_gate")));
+    assert!(dispatch
         .authority_tooling_read_only_component_kinds
         .contains(&HarnessComponentKind::McpToolCall));
     assert!(dispatch
@@ -1212,6 +1236,10 @@ fn default_runtime_dispatch_proof_accepts_readonly_default_with_provider_visible
     assert!(dispatch.authority_tooling_tool_router_ready);
     assert!(dispatch.authority_tooling_dry_run_simulator_ready);
     assert!(dispatch.authority_tooling_approval_gate_ready);
+    assert!(dispatch.authority_tooling_gate_live_ready);
+    assert!(dispatch.authority_tooling_policy_gate_live_ready);
+    assert!(dispatch.authority_tooling_destructive_denial_live_ready);
+    assert!(dispatch.authority_tooling_approval_gate_live_ready);
     assert!(dispatch.authority_tooling_read_only_route_accepted);
     assert!(dispatch.authority_tooling_destructive_route_denied);
     assert!(dispatch.authority_tooling_mutating_tool_calls_blocked);

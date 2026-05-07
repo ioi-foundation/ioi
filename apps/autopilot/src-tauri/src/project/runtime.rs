@@ -348,6 +348,174 @@ fn workflow_live_wallet_capability_dry_run(
     })))
 }
 
+fn workflow_live_authority_policy_gate(
+    logic: &Value,
+    input: &Value,
+) -> Result<Option<Value>, String> {
+    let is_policy_gate = logic.get("authorityGateKind").and_then(Value::as_str)
+        == Some("policy_gate")
+        || logic
+            .get("policyGateLiveExecution")
+            .and_then(Value::as_bool)
+            == Some(true);
+    if !is_policy_gate {
+        return Ok(None);
+    }
+
+    if logic.get("sideEffectsExecuted").and_then(Value::as_bool) == Some(true)
+        || logic.get("mutationExecuted").and_then(Value::as_bool) == Some(true)
+    {
+        return Err("Authority policy gate cannot execute side effects or mutations.".to_string());
+    }
+    if logic
+        .get("mutatingToolCallsBlocked")
+        .and_then(Value::as_bool)
+        != Some(true)
+    {
+        return Err("Authority policy gate must block mutating tool calls.".to_string());
+    }
+
+    Ok(Some(json!({
+        "schemaVersion": "workflow.authority.policy-gate.v1",
+        "componentKind": "policy_gate",
+        "adapterPort": "AuthorityPolicyGatePort",
+        "executionMode": "live_read_only_policy_gate",
+        "live": true,
+        "readOnlyRouteAccepted": logic
+            .get("readOnlyRouteAccepted")
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
+        "destructiveRouteDenied": logic
+            .get("destructiveRouteDenied")
+            .and_then(Value::as_bool)
+            .unwrap_or(true),
+        "mutatingToolCallsBlocked": true,
+        "sideEffectsExecuted": false,
+        "mutationExecuted": false,
+        "requiresApproval": logic
+            .get("requiresApproval")
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
+        "policyDecision": logic
+            .get("policyDecision")
+            .and_then(Value::as_str)
+            .unwrap_or("allow_read_only_route_through_workflow_authority"),
+        "receiptKind": "authority_policy_gate_receipt",
+        "rollbackTarget": logic.get("rollbackTarget").cloned().unwrap_or(Value::Null),
+        "input": input
+    })))
+}
+
+fn workflow_live_authority_destructive_denial(
+    logic: &Value,
+    input: &Value,
+) -> Result<Option<Value>, String> {
+    let is_destructive_denial = logic.get("authorityGateKind").and_then(Value::as_str)
+        == Some("destructive_denial")
+        || logic.get("denialClass").and_then(Value::as_str)
+            == Some("policy_destructive_without_approval");
+    if !is_destructive_denial {
+        return Ok(None);
+    }
+
+    if logic.get("sideEffectsExecuted").and_then(Value::as_bool) == Some(true)
+        || logic.get("mutationExecuted").and_then(Value::as_bool) == Some(true)
+    {
+        return Err(
+            "Authority destructive denial cannot execute side effects or mutations.".to_string(),
+        );
+    }
+    if logic.get("destructiveRouteDenied").and_then(Value::as_bool) != Some(true) {
+        return Err("Authority destructive denial must deny the destructive route.".to_string());
+    }
+
+    Ok(Some(json!({
+        "schemaVersion": "workflow.authority.destructive-denial.v1",
+        "componentKind": "policy_gate",
+        "adapterPort": "AuthorityDestructiveDenialPort",
+        "executionMode": "live_destructive_denial_gate",
+        "live": true,
+        "simulatedRequest": logic.get("simulatedRequest").cloned().unwrap_or(Value::Null),
+        "destructiveRouteDenied": true,
+        "mutatingToolCallsBlocked": true,
+        "requiresApproval": logic
+            .get("requiresApproval")
+            .and_then(Value::as_bool)
+            .unwrap_or(true),
+        "sideEffectsExecuted": false,
+        "mutationExecuted": false,
+        "denialReceiptReady": true,
+        "denialClass": logic
+            .get("denialClass")
+            .and_then(Value::as_str)
+            .unwrap_or("policy_destructive_without_approval"),
+        "policyDecision": logic
+            .get("policyDecision")
+            .and_then(Value::as_str)
+            .unwrap_or("deny_destructive_request_without_side_effect"),
+        "receiptKind": "authority_destructive_denial_receipt",
+        "rollbackTarget": logic.get("rollbackTarget").cloned().unwrap_or(Value::Null),
+        "input": input
+    })))
+}
+
+fn workflow_live_authority_approval_gate(
+    logic: &Value,
+    outcome: &Value,
+    input: &Value,
+) -> Result<Option<Value>, String> {
+    let approval_mode = logic
+        .get("approvalMode")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let is_authority_approval_gate = logic.get("authorityGateKind").and_then(Value::as_str)
+        == Some("approval_gate")
+        || approval_mode == "legacy_runtime_required";
+    if !is_authority_approval_gate {
+        return Ok(None);
+    }
+
+    if logic.get("mutationExecuted").and_then(Value::as_bool) == Some(true)
+        || logic.get("authorityTransferred").and_then(Value::as_bool) == Some(true)
+        || outcome.get("authorityTransferred").and_then(Value::as_bool) == Some(true)
+    {
+        return Err(
+            "Authority approval gate dry-run cannot transfer authority or execute mutations."
+                .to_string(),
+        );
+    }
+
+    Ok(Some(json!({
+        "schemaVersion": "workflow.authority.approval-gate.v1",
+        "componentKind": "approval_gate",
+        "adapterPort": "AuthorityApprovalGatePort",
+        "executionMode": "live_approval_gate_denial",
+        "live": true,
+        "approvalMode": approval_mode,
+        "approvalObserved": outcome.get("approved").and_then(Value::as_bool).unwrap_or(false),
+        "approvalDecision": outcome.get("decision").cloned().unwrap_or_else(|| json!("unknown")),
+        "approvalGranted": false,
+        "syntheticApprovalGranted": logic
+            .get("syntheticApprovalGranted")
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
+        "requiresApproval": logic
+            .get("requiresApproval")
+            .and_then(Value::as_bool)
+            .unwrap_or(true),
+        "authorityTransferred": false,
+        "sideEffectsExecuted": false,
+        "mutationExecuted": false,
+        "policyDecision": logic
+            .get("policyDecision")
+            .and_then(Value::as_str)
+            .unwrap_or("require_legacy_approval_for_mutating_tooling"),
+        "receiptKind": "authority_approval_gate_receipt",
+        "rollbackTarget": logic.get("rollbackTarget").cloned().unwrap_or(Value::Null),
+        "input": input
+    })))
+}
+
 fn workflow_live_connector_catalog_describe(
     binding: &WorkflowConnectorBinding,
     input: &Value,
@@ -2496,10 +2664,15 @@ pub(super) fn execute_workflow_node(
                         .and_then(Value::as_str)
                 })
                 .unwrap_or("left");
+            let authority_policy_gate = workflow_live_authority_policy_gate(&logic, &input)?;
+            let authority_destructive_denial =
+                workflow_live_authority_destructive_denial(&logic, &input)?;
             json!({
                 "nodeId": node_id,
                 "kind": evidence_kind,
                 "branch": branch,
+                "authorityPolicyGate": authority_policy_gate,
+                "authorityDestructiveDenial": authority_destructive_denial,
                 "input": input
             })
         }
@@ -2572,10 +2745,13 @@ pub(super) fn execute_workflow_node(
             };
             let wallet_capability_dry_run =
                 workflow_live_wallet_capability_dry_run(&logic, outcome, &input)?;
+            let authority_approval_gate =
+                workflow_live_authority_approval_gate(&logic, outcome, &input)?;
             json!({
                 "nodeId": node_id,
                 "kind": evidence_kind,
                 "outcome": outcome,
+                "authorityApprovalGate": authority_approval_gate,
                 "walletCapabilityDryRun": wallet_capability_dry_run,
                 "input": input
             })
