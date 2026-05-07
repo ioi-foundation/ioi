@@ -144,6 +144,12 @@ assert.match(
 );
 
 assert.match(
+  workflowRailPanel,
+  /(?=[\s\S]*workflowHarnessReceiptKind)(?=[\s\S]*workflowRedactedReceiptPayload)(?=[\s\S]*selectedHarnessReceiptInspection)(?=[\s\S]*sourceKind: "node_attempt")(?=[\s\S]*sourceKind: "activation_audit")(?=[\s\S]*sourceKind: "rollback_execution")(?=[\s\S]*sourceKind: "default_runtime_dispatch")(?=[\s\S]*workflow-harness-receipt-inspector)(?=[\s\S]*data-receipt-source-kind)(?=[\s\S]*data-producer-component)(?=[\s\S]*workflow-harness-receipt-inspector-metadata)(?=[\s\S]*workflow-harness-receipt-payload-preview)(?=[\s\S]*workflow-harness-receipt-evidence-refs)/,
+  "Selected harness receipts should resolve into a redacted receipt detail inspector with source, policy, attempt, replay, hashes, and evidence refs.",
+);
+
+assert.match(
   tauriProjectTypes,
   /(?=[\s\S]*WorkflowNodeRun[\s\S]*pub harness_attempt: Option<Value>)(?=[\s\S]*WorkflowRunResult[\s\S]*pub harness_attempts: Vec<Value>[\s\S]*pub harness_shadow_comparisons: Vec<Value>[\s\S]*pub harness_gated_cluster_runs: Vec<Value>)(?=[\s\S]*WorkflowPortablePackageManifest[\s\S]*pub harness: Option<Value>[\s\S]*pub worker_harness_binding: Option<Value>)/,
   "Portable packages and run records should preserve harness metadata, worker binding identity, node attempts, shadow comparisons, and gated cluster runs.",
