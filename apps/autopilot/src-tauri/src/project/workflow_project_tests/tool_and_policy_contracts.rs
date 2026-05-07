@@ -959,6 +959,186 @@ fn live_mcp_tool_catalog_consumes_provider_catalog_without_tool_execution() {
 }
 
 #[test]
+fn live_native_tool_catalog_consumes_mcp_tool_catalog_without_tool_execution() {
+    let provider_node = json!({
+        "id": "mcp-provider-catalog",
+        "type": "adapter",
+        "name": "MCP provider catalog",
+        "config": {
+            "logic": {
+                "connectorBinding": {
+                    "connectorRef": "mcp.capability-provider",
+                    "mockBinding": false,
+                    "credentialReady": true,
+                    "capabilityScope": ["mcp.provider.read", "mcp.catalog.read"],
+                    "sideEffectClass": "read",
+                    "requiresApproval": false,
+                    "operation": "catalog"
+                }
+            },
+            "law": {
+                "requireHumanGate": false,
+                "sandboxPolicy": {
+                    "permissions": []
+                }
+            }
+        }
+    });
+    let provider_output = execute_workflow_harness_live_default_node(
+        &provider_node,
+        json!({
+            "mode": "test",
+            "mutation": false
+        }),
+        1,
+    )
+    .expect("live read-only MCP provider catalog should execute");
+    let mcp_tool_node = json!({
+        "id": "mcp-tool-catalog",
+        "type": "plugin_tool",
+        "name": "MCP tool catalog read",
+        "config": {
+            "logic": {
+                "toolBinding": {
+                    "bindingKind": "mcp_tool",
+                    "toolRef": "mcp.tool.catalog.read",
+                    "mockBinding": false,
+                    "credentialReady": true,
+                    "capabilityScope": ["mcp.tool.catalog.read", "mcp.provider.read"],
+                    "sideEffectClass": "read",
+                    "requiresApproval": false,
+                    "arguments": {
+                        "mode": "catalog_preview",
+                        "mutation": false,
+                        "providerCatalogRef": "previousAuthorityOutput.providerCatalog"
+                    },
+                    "argumentSchema": {
+                        "type": "object",
+                        "required": ["mode", "mutation"]
+                    },
+                    "resultSchema": {
+                        "type": "object"
+                    }
+                }
+            },
+            "law": {
+                "requireHumanGate": false,
+                "sandboxPolicy": {
+                    "permissions": []
+                }
+            }
+        }
+    });
+    let mcp_tool_output = execute_workflow_harness_live_default_node(
+        &mcp_tool_node,
+        json!({
+            "mode": "test",
+            "previousAuthorityOutput": provider_output,
+            "mutation": false
+        }),
+        1,
+    )
+    .expect("live read-only MCP tool catalog should execute");
+    let native_tool_node = json!({
+        "id": "native-tool-catalog",
+        "type": "plugin_tool",
+        "name": "Native tool catalog read",
+        "config": {
+            "logic": {
+                "toolBinding": {
+                    "bindingKind": "native_tool",
+                    "toolRef": "agent.runtime.native-tool.catalog.read",
+                    "mockBinding": false,
+                    "credentialReady": true,
+                    "capabilityScope": ["native.tool.catalog.read", "mcp.tool.catalog.read"],
+                    "sideEffectClass": "read",
+                    "requiresApproval": false,
+                    "arguments": {
+                        "mode": "native_catalog_preview",
+                        "mutation": false,
+                        "mcpToolCatalogRef": "input.mcpToolCatalog"
+                    },
+                    "argumentSchema": {
+                        "type": "object",
+                        "required": ["mode", "mutation"]
+                    },
+                    "resultSchema": {
+                        "type": "object"
+                    }
+                }
+            },
+            "law": {
+                "requireHumanGate": false,
+                "sandboxPolicy": {
+                    "permissions": []
+                }
+            }
+        }
+    });
+    let native_tool_output = execute_workflow_harness_live_default_node(
+        &native_tool_node,
+        json!({
+            "mode": "test",
+            "mcpToolCatalog": mcp_tool_output
+                .get("mcpToolCatalog")
+                .expect("MCP tool catalog should be available"),
+            "mutation": false
+        }),
+        1,
+    )
+    .expect("live read-only native tool catalog should execute");
+
+    assert_eq!(
+        native_tool_output.get("mockBinding").and_then(Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        native_tool_output
+            .get("credentialReady")
+            .and_then(Value::as_bool),
+        Some(true)
+    );
+    let catalog = native_tool_output
+        .get("nativeToolCatalog")
+        .expect("native tool catalog payload should be attached");
+    assert_eq!(
+        catalog.get("schemaVersion").and_then(Value::as_str),
+        Some("workflow.native-tool.catalog-read.v1")
+    );
+    assert_eq!(
+        catalog.get("executionMode").and_then(Value::as_str),
+        Some("live_read_only_native_tool_catalog")
+    );
+    assert_eq!(
+        catalog.get("mcpToolCatalogLinked").and_then(Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        catalog.get("sideEffectsExecuted").and_then(Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        catalog.get("mutationExecuted").and_then(Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        catalog.get("toolExecutionEnabled").and_then(Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        catalog
+            .get("nativeToolExecutionEnabled")
+            .and_then(Value::as_bool),
+        Some(false)
+    );
+    assert!(catalog
+        .get("mcpToolCatalogHash")
+        .and_then(Value::as_str)
+        .map(|value| value.starts_with("sha256:"))
+        .unwrap_or(false));
+}
+
+#[test]
 fn live_connector_catalog_describe_consumes_mcp_tool_catalog_without_connector_execution() {
     let provider_node = json!({
         "id": "mcp-provider-catalog",

@@ -2664,19 +2664,20 @@ fn runtime_harness_authority_tooling_canary_execution_boundary(
         RuntimeHarnessCanaryNodeSpec {
             component_kind: "tool_call",
             node_type: "plugin_tool",
-            node_name: "Native tool call",
+            node_name: "Native tool catalog",
             logic: json!({
                 "toolBinding": {
                     "bindingKind": "native_tool",
-                    "toolRef": "agent.runtime.noop.read",
-                    "mockBinding": true,
+                    "toolRef": "agent.runtime.native-tool.catalog.read",
+                    "mockBinding": false,
                     "credentialReady": true,
-                    "capabilityScope": ["tool.invoke"],
+                    "capabilityScope": ["native.tool.catalog.read", "mcp.tool.catalog.read"],
                     "sideEffectClass": "read",
                     "requiresApproval": false,
                     "arguments": {
-                        "mode": "noop_read_only",
-                        "mutation": false
+                        "mode": "native_catalog_preview",
+                        "mutation": false,
+                        "mcpToolCatalogRef": "previousOutput.mcpToolCatalog"
                     },
                     "argumentSchema": {
                         "type": "object",
@@ -2684,7 +2685,7 @@ fn runtime_harness_authority_tooling_canary_execution_boundary(
                     },
                     "resultSchema": {
                         "type": "object",
-                        "required": ["toolRef", "arguments", "input"]
+                        "required": ["schemaVersion", "toolRef", "arguments", "input"]
                     }
                 }
             }),
@@ -4048,12 +4049,16 @@ fn runtime_harness_default_runtime_dispatch(
     let mut authority_tooling_mcp_tool_catalog_live_attempt_ids = Vec::<String>::new();
     let mut authority_tooling_mcp_tool_catalog_live_receipt_ids = Vec::<String>::new();
     let mut authority_tooling_mcp_tool_catalog_live_replay_fixture_refs = Vec::<String>::new();
+    let mut authority_tooling_native_tool_catalog_live_attempt_ids = Vec::<String>::new();
+    let mut authority_tooling_native_tool_catalog_live_receipt_ids = Vec::<String>::new();
+    let mut authority_tooling_native_tool_catalog_live_replay_fixture_refs = Vec::<String>::new();
     let mut authority_tooling_connector_catalog_live_attempt_ids = Vec::<String>::new();
     let mut authority_tooling_connector_catalog_live_receipt_ids = Vec::<String>::new();
     let mut authority_tooling_connector_catalog_live_replay_fixture_refs = Vec::<String>::new();
     let mut authority_tooling_read_only_live_success_count = 0usize;
     let mut authority_tooling_provider_catalog_live_success_count = 0usize;
     let mut authority_tooling_mcp_tool_catalog_live_success_count = 0usize;
+    let mut authority_tooling_native_tool_catalog_live_success_count = 0usize;
     let mut authority_tooling_connector_catalog_live_success_count = 0usize;
     let mut authority_tooling_denial_receipt_ids = Vec::<String>::new();
     if can_dispatch {
@@ -5633,24 +5638,29 @@ fn runtime_harness_default_runtime_dispatch(
             (
                 "tool_call",
                 "plugin_tool",
-                "Authority native tool read-only noop",
+                "Authority native tool read-only catalog",
                 "authority_tooling_tool_call_read_only",
-                "accept_native_tool_read_only_dry_run_without_mutation",
+                "accept_native_tool_catalog_read_only_without_mutation",
                 false,
                 json!({
                     "toolBinding": {
                         "bindingKind": "native_tool",
-                        "toolRef": "agent.runtime.noop.read",
-                        "mockBinding": true,
+                        "toolRef": "agent.runtime.native-tool.catalog.read",
+                        "mockBinding": false,
                         "credentialReady": true,
-                        "capabilityScope": ["read"],
+                        "capabilityScope": ["native.tool.catalog.read", "mcp.tool.catalog.read"],
                         "sideEffectClass": "read",
                         "requiresApproval": false,
                         "arguments": {
-                            "mode": "read_only_noop",
-                            "mutation": false
+                            "mode": "native_catalog_preview",
+                            "mutation": false,
+                            "mcpToolCatalogRef": "input.mcpToolCatalog"
                         }
                     },
+                    "mcpToolCatalogRequired": true,
+                    "nativeToolCatalogLiveExecution": true,
+                    "toolExecutionEnabled": false,
+                    "nativeToolExecutionEnabled": false,
                     "readOnlyAuthority": true,
                     "sideEffectsExecuted": false,
                     "mutationExecuted": false,
@@ -5780,6 +5790,13 @@ fn runtime_harness_default_runtime_dispatch(
                 authority_tooling_mcp_tool_catalog_live_replay_fixture_refs
                     .push(replay_fixture_ref.clone());
             }
+            let native_tool_catalog_live_attempt = component_kind == "tool_call";
+            if native_tool_catalog_live_attempt {
+                authority_tooling_native_tool_catalog_live_attempt_ids.push(attempt_id.clone());
+                authority_tooling_native_tool_catalog_live_receipt_ids.push(receipt_id.clone());
+                authority_tooling_native_tool_catalog_live_replay_fixture_refs
+                    .push(replay_fixture_ref.clone());
+            }
             let connector_catalog_live_attempt = component_kind == "connector_call";
             if connector_catalog_live_attempt {
                 authority_tooling_connector_catalog_live_attempt_ids.push(attempt_id.clone());
@@ -5849,6 +5866,43 @@ fn runtime_harness_default_runtime_dispatch(
                             .and_then(|catalog| catalog.get("toolExecutionEnabled"))
                             .and_then(Value::as_bool)
                             == Some(false);
+                    let native_tool_catalog_live_output = native_tool_catalog_live_attempt
+                        && output.get("mockBinding").and_then(Value::as_bool) == Some(false)
+                        && output
+                            .get("nativeToolCatalog")
+                            .and_then(|catalog| catalog.get("live"))
+                            .and_then(Value::as_bool)
+                            == Some(true)
+                        && output
+                            .get("nativeToolCatalog")
+                            .and_then(|catalog| catalog.get("executionMode"))
+                            .and_then(Value::as_str)
+                            == Some("live_read_only_native_tool_catalog")
+                        && output
+                            .get("nativeToolCatalog")
+                            .and_then(|catalog| catalog.get("mcpToolCatalogLinked"))
+                            .and_then(Value::as_bool)
+                            == Some(true)
+                        && output
+                            .get("nativeToolCatalog")
+                            .and_then(|catalog| catalog.get("sideEffectsExecuted"))
+                            .and_then(Value::as_bool)
+                            == Some(false)
+                        && output
+                            .get("nativeToolCatalog")
+                            .and_then(|catalog| catalog.get("mutationExecuted"))
+                            .and_then(Value::as_bool)
+                            == Some(false)
+                        && output
+                            .get("nativeToolCatalog")
+                            .and_then(|catalog| catalog.get("toolExecutionEnabled"))
+                            .and_then(Value::as_bool)
+                            == Some(false)
+                        && output
+                            .get("nativeToolCatalog")
+                            .and_then(|catalog| catalog.get("nativeToolExecutionEnabled"))
+                            .and_then(Value::as_bool)
+                            == Some(false);
                     let connector_catalog_live_output = connector_catalog_live_attempt
                         && output.get("mockBinding").and_then(Value::as_bool) == Some(false)
                         && output
@@ -5903,6 +5957,16 @@ fn runtime_harness_default_runtime_dispatch(
                         } else {
                             activation_blockers.push(
                                 "authority_tooling_mcp_tool_catalog_live_output_not_ready"
+                                    .to_string(),
+                            );
+                        }
+                    } else if native_tool_catalog_live_attempt {
+                        if native_tool_catalog_live_output {
+                            authority_tooling_native_tool_catalog_live_success_count += 1;
+                            authority_tooling_read_only_live_success_count += 1;
+                        } else {
+                            activation_blockers.push(
+                                "authority_tooling_native_tool_catalog_live_output_not_ready"
                                     .to_string(),
                             );
                         }
@@ -5969,8 +6033,10 @@ fn runtime_harness_default_runtime_dispatch(
                             "mutationExecuted": false,
                             "providerCatalogLiveExecution": provider_catalog_live_output,
                             "mcpToolCatalogLiveExecution": mcp_tool_catalog_live_output,
+                            "nativeToolCatalogLiveExecution": native_tool_catalog_live_output,
                             "connectorCatalogLiveExecution": connector_catalog_live_output,
                             "toolExecutionEnabled": false,
+                            "nativeToolExecutionEnabled": false,
                             "connectorExecutionEnabled": false,
                             "mutationAuthorityDeferred": true,
                             "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID
@@ -6026,8 +6092,10 @@ fn runtime_harness_default_runtime_dispatch(
                             "mutationExecuted": false,
                             "providerCatalogLiveExecution": false,
                             "mcpToolCatalogLiveExecution": false,
+                            "nativeToolCatalogLiveExecution": false,
                             "connectorCatalogLiveExecution": false,
                             "toolExecutionEnabled": false,
+                            "nativeToolExecutionEnabled": false,
                             "connectorExecutionEnabled": false,
                             "mutationAuthorityDeferred": true,
                             "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID
@@ -6756,6 +6824,12 @@ fn runtime_harness_default_runtime_dispatch(
     authority_tooling_mcp_tool_catalog_live_receipt_ids.dedup();
     authority_tooling_mcp_tool_catalog_live_replay_fixture_refs.sort();
     authority_tooling_mcp_tool_catalog_live_replay_fixture_refs.dedup();
+    authority_tooling_native_tool_catalog_live_attempt_ids.sort();
+    authority_tooling_native_tool_catalog_live_attempt_ids.dedup();
+    authority_tooling_native_tool_catalog_live_receipt_ids.sort();
+    authority_tooling_native_tool_catalog_live_receipt_ids.dedup();
+    authority_tooling_native_tool_catalog_live_replay_fixture_refs.sort();
+    authority_tooling_native_tool_catalog_live_replay_fixture_refs.dedup();
     authority_tooling_connector_catalog_live_attempt_ids.sort();
     authority_tooling_connector_catalog_live_attempt_ids.dedup();
     authority_tooling_connector_catalog_live_receipt_ids.sort();
@@ -6771,6 +6845,8 @@ fn runtime_harness_default_runtime_dispatch(
         authority_tooling_provider_catalog_live_success_count >= 1;
     let authority_tooling_mcp_tool_catalog_live_ready =
         authority_tooling_mcp_tool_catalog_live_success_count >= 1;
+    let authority_tooling_native_tool_catalog_live_ready =
+        authority_tooling_native_tool_catalog_live_success_count >= 1;
     let authority_tooling_connector_catalog_live_ready =
         authority_tooling_connector_catalog_live_success_count >= 1;
     let mut node_attempt_ids = accepted_node_attempt_ids.clone();
@@ -6836,6 +6912,9 @@ fn runtime_harness_default_runtime_dispatch(
         "authorityToolingMcpToolCatalogLiveAttemptIds": authority_tooling_mcp_tool_catalog_live_attempt_ids.clone(),
         "authorityToolingMcpToolCatalogLiveReceiptIds": authority_tooling_mcp_tool_catalog_live_receipt_ids.clone(),
         "authorityToolingMcpToolCatalogLiveReplayFixtureRefs": authority_tooling_mcp_tool_catalog_live_replay_fixture_refs.clone(),
+        "authorityToolingNativeToolCatalogLiveAttemptIds": authority_tooling_native_tool_catalog_live_attempt_ids.clone(),
+        "authorityToolingNativeToolCatalogLiveReceiptIds": authority_tooling_native_tool_catalog_live_receipt_ids.clone(),
+        "authorityToolingNativeToolCatalogLiveReplayFixtureRefs": authority_tooling_native_tool_catalog_live_replay_fixture_refs.clone(),
         "authorityToolingConnectorCatalogLiveAttemptIds": authority_tooling_connector_catalog_live_attempt_ids.clone(),
         "authorityToolingConnectorCatalogLiveReceiptIds": authority_tooling_connector_catalog_live_receipt_ids.clone(),
         "authorityToolingConnectorCatalogLiveReplayFixtureRefs": authority_tooling_connector_catalog_live_replay_fixture_refs.clone(),
@@ -6982,6 +7061,12 @@ fn runtime_harness_default_runtime_dispatch(
             "authorityToolingMcpToolCatalogLiveAttemptIds": authority_tooling_mcp_tool_catalog_live_attempt_ids.clone(),
             "authorityToolingMcpToolCatalogLiveReceiptIds": authority_tooling_mcp_tool_catalog_live_receipt_ids.clone(),
             "authorityToolingMcpToolCatalogLiveReplayFixtureRefs": authority_tooling_mcp_tool_catalog_live_replay_fixture_refs.clone(),
+            "authorityToolingNativeToolCatalogLiveReady": authority_tooling_native_tool_catalog_live_ready,
+            "authorityToolingNativeToolCatalogLiveSuccessCount": authority_tooling_native_tool_catalog_live_success_count,
+            "authorityToolingNativeToolCatalogLiveComponentKind": "tool_call",
+            "authorityToolingNativeToolCatalogLiveAttemptIds": authority_tooling_native_tool_catalog_live_attempt_ids.clone(),
+            "authorityToolingNativeToolCatalogLiveReceiptIds": authority_tooling_native_tool_catalog_live_receipt_ids.clone(),
+            "authorityToolingNativeToolCatalogLiveReplayFixtureRefs": authority_tooling_native_tool_catalog_live_replay_fixture_refs.clone(),
             "authorityToolingConnectorCatalogLiveReady": authority_tooling_connector_catalog_live_ready,
             "authorityToolingConnectorCatalogLiveSuccessCount": authority_tooling_connector_catalog_live_success_count,
             "authorityToolingConnectorCatalogLiveComponentKind": "connector_call",
@@ -7259,6 +7344,9 @@ fn runtime_harness_default_runtime_dispatch(
         "authorityToolingMcpToolCatalogLiveReady": authority_tooling_mcp_tool_catalog_live_ready,
         "authorityToolingMcpToolCatalogLiveSuccessCount": authority_tooling_mcp_tool_catalog_live_success_count,
         "authorityToolingMcpToolCatalogLiveComponentKind": "mcp_tool_call",
+        "authorityToolingNativeToolCatalogLiveReady": authority_tooling_native_tool_catalog_live_ready,
+        "authorityToolingNativeToolCatalogLiveSuccessCount": authority_tooling_native_tool_catalog_live_success_count,
+        "authorityToolingNativeToolCatalogLiveComponentKind": "tool_call",
         "authorityToolingConnectorCatalogLiveReady": authority_tooling_connector_catalog_live_ready,
         "authorityToolingConnectorCatalogLiveSuccessCount": authority_tooling_connector_catalog_live_success_count,
         "authorityToolingConnectorCatalogLiveComponentKind": "connector_call",
@@ -7295,6 +7383,12 @@ fn runtime_harness_default_runtime_dispatch(
             "mcpToolCatalogLiveAttemptIds": authority_tooling_mcp_tool_catalog_live_attempt_ids,
             "mcpToolCatalogLiveReceiptIds": authority_tooling_mcp_tool_catalog_live_receipt_ids,
             "mcpToolCatalogLiveReplayFixtureRefs": authority_tooling_mcp_tool_catalog_live_replay_fixture_refs,
+            "nativeToolCatalogLiveReady": authority_tooling_native_tool_catalog_live_ready,
+            "nativeToolCatalogLiveSuccessCount": authority_tooling_native_tool_catalog_live_success_count,
+            "nativeToolCatalogLiveComponentKind": "tool_call",
+            "nativeToolCatalogLiveAttemptIds": authority_tooling_native_tool_catalog_live_attempt_ids,
+            "nativeToolCatalogLiveReceiptIds": authority_tooling_native_tool_catalog_live_receipt_ids,
+            "nativeToolCatalogLiveReplayFixtureRefs": authority_tooling_native_tool_catalog_live_replay_fixture_refs,
             "connectorCatalogLiveReady": authority_tooling_connector_catalog_live_ready,
             "connectorCatalogLiveSuccessCount": authority_tooling_connector_catalog_live_success_count,
             "connectorCatalogLiveComponentKind": "connector_call",
@@ -9733,6 +9827,29 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     .map(|items| !items.is_empty())
                     .unwrap_or(false)
                 && dispatch
+                    .get("authorityToolingNativeToolCatalogLiveReady")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("authorityToolingNativeToolCatalogLiveComponentKind")
+                    .and_then(Value::as_str)
+                    == Some("tool_call")
+                && dispatch
+                    .get("authorityToolingNativeToolCatalogLiveAttemptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| !items.is_empty())
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingNativeToolCatalogLiveReceiptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| !items.is_empty())
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingNativeToolCatalogLiveReplayFixtureRefs")
+                    .and_then(Value::as_array)
+                    .map(|items| !items.is_empty())
+                    .unwrap_or(false)
+                && dispatch
                     .get("authorityToolingConnectorCatalogLiveReady")
                     .and_then(Value::as_bool)
                     == Some(true)
@@ -9780,6 +9897,16 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     .and_then(|proof| proof.get("mcpToolCatalogLiveComponentKind"))
                     .and_then(Value::as_str)
                     == Some("mcp_tool_call")
+                && dispatch
+                    .get("authorityToolingProof")
+                    .and_then(|proof| proof.get("nativeToolCatalogLiveReady"))
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("authorityToolingProof")
+                    .and_then(|proof| proof.get("nativeToolCatalogLiveComponentKind"))
+                    .and_then(Value::as_str)
+                    == Some("tool_call")
                 && dispatch
                     .get("authorityToolingProof")
                     .and_then(|proof| proof.get("connectorCatalogLiveReady"))
@@ -9900,6 +10027,25 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     .map(|items| !items.is_empty())
                     .unwrap_or(false)
                 && dispatch
+                    .get("authorityToolingNativeToolCatalogLiveReady")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("authorityToolingNativeToolCatalogLiveAttemptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| !items.is_empty())
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingNativeToolCatalogLiveReceiptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| !items.is_empty())
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingNativeToolCatalogLiveReplayFixtureRefs")
+                    .and_then(Value::as_array)
+                    .map(|items| !items.is_empty())
+                    .unwrap_or(false)
+                && dispatch
                     .get("authorityToolingConnectorCatalogLiveReady")
                     .and_then(Value::as_bool)
                     == Some(true)
@@ -9966,6 +10112,16 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     .and_then(|proof| proof.get("mcpToolCatalogLiveComponentKind"))
                     .and_then(Value::as_str)
                     == Some("mcp_tool_call")
+                && dispatch
+                    .get("authorityToolingProof")
+                    .and_then(|proof| proof.get("nativeToolCatalogLiveReady"))
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("authorityToolingProof")
+                    .and_then(|proof| proof.get("nativeToolCatalogLiveComponentKind"))
+                    .and_then(Value::as_str)
+                    == Some("tool_call")
                 && dispatch
                     .get("authorityToolingProof")
                     .and_then(|proof| proof.get("connectorCatalogLiveReady"))
@@ -10052,6 +10208,44 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     .and_then(|proof| proof.get("mcpToolCatalogLiveComponentKind"))
                     .and_then(Value::as_str)
                     == Some("mcp_tool_call")
+        })
+        .unwrap_or(false);
+    let harness_authority_tooling_native_tool_catalog_live = harness_default_runtime_dispatch
+        .as_ref()
+        .map(|dispatch| {
+            dispatch
+                .get("authorityToolingNativeToolCatalogLiveReady")
+                .and_then(Value::as_bool)
+                == Some(true)
+                && dispatch
+                    .get("authorityToolingNativeToolCatalogLiveComponentKind")
+                    .and_then(Value::as_str)
+                    == Some("tool_call")
+                && dispatch
+                    .get("authorityToolingNativeToolCatalogLiveAttemptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| !items.is_empty())
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingNativeToolCatalogLiveReceiptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| !items.is_empty())
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingNativeToolCatalogLiveReplayFixtureRefs")
+                    .and_then(Value::as_array)
+                    .map(|items| !items.is_empty())
+                    .unwrap_or(false)
+                && dispatch
+                    .get("authorityToolingProof")
+                    .and_then(|proof| proof.get("nativeToolCatalogLiveReady"))
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("authorityToolingProof")
+                    .and_then(|proof| proof.get("nativeToolCatalogLiveComponentKind"))
+                    .and_then(Value::as_str)
+                    == Some("tool_call")
         })
         .unwrap_or(false);
     let harness_authority_tooling_connector_catalog_live = harness_default_runtime_dispatch
@@ -10476,6 +10670,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
             "harness_authority_tooling_read_only_canary": harness_authority_tooling_read_only_canary,
             "harness_authority_tooling_provider_catalog_live": harness_authority_tooling_provider_catalog_live,
             "harness_authority_tooling_mcp_tool_catalog_live": harness_authority_tooling_mcp_tool_catalog_live,
+            "harness_authority_tooling_native_tool_catalog_live": harness_authority_tooling_native_tool_catalog_live,
             "harness_authority_tooling_connector_catalog_live": harness_authority_tooling_connector_catalog_live,
             "harness_model_provider_gated_visible_output": harness_model_provider_gated_visible_output,
             "harness_model_provider_gated_visible_output_scenario": harness_model_provider_gated_visible_output_scenario,
@@ -10553,6 +10748,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
             "harness_authority_tooling_read_only_canary": harness_authority_tooling_read_only_canary,
             "harness_authority_tooling_provider_catalog_live": harness_authority_tooling_provider_catalog_live,
             "harness_authority_tooling_mcp_tool_catalog_live": harness_authority_tooling_mcp_tool_catalog_live,
+            "harness_authority_tooling_native_tool_catalog_live": harness_authority_tooling_native_tool_catalog_live,
             "harness_authority_tooling_connector_catalog_live": harness_authority_tooling_connector_catalog_live,
             "harness_model_provider_gated_visible_output": harness_model_provider_gated_visible_output,
             "harness_model_provider_gated_visible_output_scenario": harness_model_provider_gated_visible_output_scenario,
@@ -10627,7 +10823,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
     };
     append_event(memory_runtime, &event);
     eprintln!(
-        "[chat-proof-trace] session={} artifact={} scorecard=1 stop_reason=1 quality_ledger=1 harness_shadow_attempts={} harness_shadow_comparisons={} harness_gated_cognition={} harness_gated_routing_model={} harness_gated_verification_output={} harness_gated_authority_tooling={} harness_fork_activation_blocked={} harness_fork_activation_minted={} harness_canary_boundary_executed={} harness_canary_boundary_rollback_drill={} harness_selector_canary_routed={} harness_selector_legacy_default={} harness_selector_default_promoted={} harness_live_handoff_canary={} harness_live_handoff_default_promoted={} harness_live_handoff_rollback={} harness_default_runtime_dispatch_readonly={} harness_authority_tooling_read_only_canary={} harness_authority_tooling_provider_catalog_live={} harness_authority_tooling_mcp_tool_catalog_live={} harness_authority_tooling_connector_catalog_live={}",
+        "[chat-proof-trace] session={} artifact={} scorecard=1 stop_reason=1 quality_ledger=1 harness_shadow_attempts={} harness_shadow_comparisons={} harness_gated_cognition={} harness_gated_routing_model={} harness_gated_verification_output={} harness_gated_authority_tooling={} harness_fork_activation_blocked={} harness_fork_activation_minted={} harness_canary_boundary_executed={} harness_canary_boundary_rollback_drill={} harness_selector_canary_routed={} harness_selector_legacy_default={} harness_selector_default_promoted={} harness_live_handoff_canary={} harness_live_handoff_default_promoted={} harness_live_handoff_rollback={} harness_default_runtime_dispatch_readonly={} harness_authority_tooling_read_only_canary={} harness_authority_tooling_provider_catalog_live={} harness_authority_tooling_mcp_tool_catalog_live={} harness_authority_tooling_native_tool_catalog_live={} harness_authority_tooling_connector_catalog_live={}",
         sid,
         artifact_id,
         harness_node_attempt_count,
@@ -10650,6 +10846,7 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
         harness_authority_tooling_read_only_canary,
         harness_authority_tooling_provider_catalog_live,
         harness_authority_tooling_mcp_tool_catalog_live,
+        harness_authority_tooling_native_tool_catalog_live,
         harness_authority_tooling_connector_catalog_live
     );
 }

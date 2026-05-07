@@ -179,6 +179,92 @@ fn workflow_live_mcp_tool_catalog(
     })))
 }
 
+fn workflow_live_native_tool_catalog(
+    binding: &WorkflowToolBinding,
+    arguments: &Value,
+    input: &Value,
+) -> Result<Option<Value>, String> {
+    let is_catalog_read = binding.binding_kind.as_deref() == Some("native_tool")
+        && binding.tool_ref == "agent.runtime.native-tool.catalog.read"
+        && !binding.mock_binding
+        && binding.side_effect_class == "read";
+    if !is_catalog_read {
+        return Ok(None);
+    }
+
+    if arguments.get("mutation").and_then(Value::as_bool) == Some(true) {
+        return Err(
+            "Native tool catalog read requires non-mutating catalog arguments.".to_string(),
+        );
+    }
+    let mcp_tool_catalog = workflow_mcp_tool_catalog_from_input(input);
+    if let Some(catalog) = mcp_tool_catalog {
+        if catalog.get("toolExecutionEnabled").and_then(Value::as_bool) != Some(false) {
+            return Err(
+                "Native tool catalog read requires a non-executing MCP tool catalog when linked."
+                    .to_string(),
+            );
+        }
+    }
+
+    Ok(Some(json!({
+        "schemaVersion": "workflow.native-tool.catalog-read.v1",
+        "toolRef": binding.tool_ref.clone(),
+        "bindingKind": "native_tool",
+        "adapterPort": "NativeToolCatalogReadPort",
+        "executionMode": "live_read_only_native_tool_catalog",
+        "live": true,
+        "mcpToolCatalogLinked": mcp_tool_catalog.is_some(),
+        "mcpToolCatalogHash": mcp_tool_catalog.map(workflow_hash_value),
+        "catalogReadOnly": true,
+        "credentialMaterialized": false,
+        "sideEffectsExecuted": false,
+        "mutationExecuted": false,
+        "toolExecutionEnabled": false,
+        "nativeToolExecutionEnabled": false,
+        "requiresApproval": false,
+        "capabilityScope": binding.capability_scope.clone(),
+        "arguments": arguments,
+        "tools": [
+            {
+                "toolRef": "agent.runtime.native-tool.catalog.read",
+                "bindingKind": "native_tool",
+                "capabilityScope": ["native.tool.catalog.read"],
+                "sideEffectClass": "read",
+                "requiresApproval": false,
+                "mockBinding": false,
+                "executionEnabled": false
+            },
+            {
+                "toolRef": "agent.runtime.noop.read",
+                "bindingKind": "native_tool",
+                "capabilityScope": ["read"],
+                "sideEffectClass": "read",
+                "requiresApproval": false,
+                "mockBinding": true,
+                "executionEnabled": false
+            },
+            {
+                "toolRef": "agent.runtime.tool.invoke",
+                "bindingKind": "native_tool",
+                "capabilityScope": ["tool.invoke"],
+                "sideEffectClass": "external_write",
+                "requiresApproval": true,
+                "mockBinding": true,
+                "executionEnabled": false
+            }
+        ],
+        "mcpToolCatalog": mcp_tool_catalog.map(|catalog| {
+            json!({
+                "schemaVersion": catalog.get("schemaVersion").cloned().unwrap_or(Value::Null),
+                "toolRef": catalog.get("toolRef").cloned().unwrap_or(Value::Null),
+                "providerId": catalog.get("providerId").cloned().unwrap_or(Value::Null)
+            })
+        }),
+        "input": input
+    })))
+}
+
 fn workflow_live_connector_catalog_describe(
     binding: &WorkflowConnectorBinding,
     input: &Value,
@@ -2278,7 +2364,15 @@ pub(super) fn execute_workflow_node(
                         format!("Tool arguments failed schema validation: {}", error)
                     })?;
                 }
-                let result = workflow_live_mcp_tool_catalog(&binding, &arguments, &input)?
+                let live_mcp_tool_catalog =
+                    workflow_live_mcp_tool_catalog(&binding, &arguments, &input)?;
+                let live_native_tool_catalog = if live_mcp_tool_catalog.is_none() {
+                    workflow_live_native_tool_catalog(&binding, &arguments, &input)?
+                } else {
+                    None
+                };
+                let result = live_mcp_tool_catalog
+                    .or(live_native_tool_catalog)
                     .unwrap_or_else(|| {
                         json!({
                             "toolRef": tool_ref,
@@ -2302,6 +2396,7 @@ pub(super) fn execute_workflow_node(
                     "argumentSchema": binding.argument_schema,
                     "resultSchema": binding.result_schema,
                     "mcpToolCatalog": if result.get("schemaVersion").and_then(Value::as_str) == Some("workflow.mcp-tool.catalog-read.v1") { Some(result.clone()) } else { None },
+                    "nativeToolCatalog": if result.get("schemaVersion").and_then(Value::as_str) == Some("workflow.native-tool.catalog-read.v1") { Some(result.clone()) } else { None },
                     "result": result
                 })
             }

@@ -631,6 +631,15 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     authorityToolingMcpToolCatalogLiveReplayFixtureRefs: [
       "harness-default-dispatch:fixture-authority_tooling_mcp_tool_call_read_only",
     ],
+    authorityToolingNativeToolCatalogLiveAttemptIds: [
+      "harness-default-dispatch:attempt-authority_tooling_tool_call_read_only",
+    ],
+    authorityToolingNativeToolCatalogLiveReceiptIds: [
+      "harness-default-dispatch:receipt-authority_tooling_tool_call_read_only",
+    ],
+    authorityToolingNativeToolCatalogLiveReplayFixtureRefs: [
+      "harness-default-dispatch:fixture-authority_tooling_tool_call_read_only",
+    ],
     authorityToolingConnectorCatalogLiveAttemptIds: [
       "harness-default-dispatch:attempt-authority_tooling_connector_call_read_only",
     ],
@@ -1021,6 +1030,8 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     authorityToolingProviderCatalogLiveComponentKind: "mcp_provider",
     authorityToolingMcpToolCatalogLiveReady: true,
     authorityToolingMcpToolCatalogLiveComponentKind: "mcp_tool_call",
+    authorityToolingNativeToolCatalogLiveReady: true,
+    authorityToolingNativeToolCatalogLiveComponentKind: "tool_call",
     authorityToolingConnectorCatalogLiveReady: true,
     authorityToolingConnectorCatalogLiveComponentKind: "connector_call",
     authorityToolingReadOnlyRouteAccepted: true,
@@ -1062,6 +1073,17 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
       ],
       mcpToolCatalogLiveReplayFixtureRefs: [
         "harness-default-dispatch:fixture-authority_tooling_mcp_tool_call_read_only",
+      ],
+      nativeToolCatalogLiveReady: true,
+      nativeToolCatalogLiveComponentKind: "tool_call",
+      nativeToolCatalogLiveAttemptIds: [
+        "harness-default-dispatch:attempt-authority_tooling_tool_call_read_only",
+      ],
+      nativeToolCatalogLiveReceiptIds: [
+        "harness-default-dispatch:receipt-authority_tooling_tool_call_read_only",
+      ],
+      nativeToolCatalogLiveReplayFixtureRefs: [
+        "harness-default-dispatch:fixture-authority_tooling_tool_call_read_only",
       ],
       connectorCatalogLiveReady: true,
       connectorCatalogLiveComponentKind: "connector_call",
@@ -2196,12 +2218,17 @@ function nodeLogicFor(component: WorkflowHarnessComponentSpec): Record<string, u
         ...base,
         toolBinding: {
           bindingKind: "native_tool",
-          toolRef: "agent.runtime.tool.invoke",
+          toolRef: "agent.runtime.native-tool.catalog.read",
           mockBinding: false,
           credentialReady: true,
-          capabilityScope: component.requiredCapabilityScope,
-          sideEffectClass: "external_write",
-          requiresApproval: true,
+          capabilityScope: ["native.tool.catalog.read", "mcp.tool.catalog.read"],
+          sideEffectClass: "read",
+          requiresApproval: false,
+          arguments: {
+            mode: "native_catalog_preview",
+            mutation: false,
+            mcpToolCatalogRef: "input.mcpToolCatalog",
+          },
         },
       };
     case "mcp_tool_call":

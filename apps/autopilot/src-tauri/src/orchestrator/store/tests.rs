@@ -1010,6 +1010,33 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
         .unwrap_or(false));
     assert_eq!(
         dispatch
+            .get("authorityToolingNativeToolCatalogLiveReady")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("authorityToolingNativeToolCatalogLiveComponentKind")
+            .and_then(|value| value.as_str()),
+        Some("tool_call")
+    );
+    assert!(dispatch
+        .get("authorityToolingNativeToolCatalogLiveAttemptIds")
+        .and_then(|value| value.as_array())
+        .map(|items| !items.is_empty())
+        .unwrap_or(false));
+    assert!(dispatch
+        .get("authorityToolingNativeToolCatalogLiveReceiptIds")
+        .and_then(|value| value.as_array())
+        .map(|items| !items.is_empty())
+        .unwrap_or(false));
+    assert!(dispatch
+        .get("authorityToolingNativeToolCatalogLiveReplayFixtureRefs")
+        .and_then(|value| value.as_array())
+        .map(|items| !items.is_empty())
+        .unwrap_or(false));
+    assert_eq!(
+        dispatch
             .get("authorityToolingConnectorCatalogLiveReady")
             .and_then(|value| value.as_bool()),
         Some(true)
@@ -1069,6 +1096,20 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
             .and_then(|proof| proof.get("mcpToolCatalogLiveComponentKind"))
             .and_then(|value| value.as_str()),
         Some("mcp_tool_call")
+    );
+    assert!(
+        dispatch
+            .get("authorityToolingProof")
+            .and_then(|proof| proof.get("nativeToolCatalogLiveReady"))
+            .and_then(|value| value.as_bool())
+            == Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("authorityToolingProof")
+            .and_then(|proof| proof.get("nativeToolCatalogLiveComponentKind"))
+            .and_then(|value| value.as_str()),
+        Some("tool_call")
     );
     assert!(
         dispatch
