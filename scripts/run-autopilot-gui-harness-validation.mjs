@@ -5,6 +5,8 @@ import { join, resolve } from "node:path";
 
 import {
   AUTOPILOT_GUI_HARNESS_LAUNCH_COMMAND,
+  AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS,
+  AUTOPILOT_READ_ONLY_CAPABILITY_ROUTING_REQUIRED_SCENARIOS,
   AUTOPILOT_RETAINED_QUERIES,
   GUI_AUTOMATION_CLICK_POLICY,
   autopilotGuiHarnessContract,
@@ -417,6 +419,35 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
     scorecardCount: 0,
     stopReasonCount: 0,
     qualityLedgerCount: 0,
+    harnessWorkerBindingCount: 0,
+    harnessShadowRunCount: 0,
+    harnessNodeAttemptCount: 0,
+    harnessShadowComparisonCount: 0,
+    harnessBlockingDivergenceCount: 0,
+    harnessGatedClusterCount: 0,
+    harnessGatedCognitionCount: 0,
+    harnessGatedRoutingModelCount: 0,
+    harnessGatedVerificationOutputCount: 0,
+    harnessGatedAuthorityToolingCount: 0,
+    harnessForkActivationBlockedCount: 0,
+    harnessForkActivationMintedCount: 0,
+    harnessCanaryBoundaryExecutedCount: 0,
+    harnessCanaryBoundaryRollbackDrillCount: 0,
+    harnessSelectorCanaryRoutedCount: 0,
+    harnessSelectorLegacyDefaultCount: 0,
+    harnessSelectorDefaultPromotedCount: 0,
+    harnessLiveHandoffCanaryCount: 0,
+    harnessLiveHandoffDefaultPromotedCount: 0,
+    harnessLiveHandoffRollbackCount: 0,
+    harnessDefaultRuntimeDispatchReadonlyCount: 0,
+    harnessModelProviderGatedVisibleOutputCount: 0,
+    harnessModelProviderGatedVisibleOutputRollbackDrillCount: 0,
+    harnessModelProviderGatedVisibleOutputScenarios: [],
+    harnessModelProviderGatedVisibleOutputRollbackDrillScenarios: [],
+    harnessReadOnlyCapabilityRoutingCount: 0,
+    harnessReadOnlyCapabilityRoutingNoMutationCount: 0,
+    harnessReadOnlyCapabilityRoutingScenarios: [],
+    harnessReadOnlyCapabilityRoutingNoMutationScenarios: [],
     recentArtifacts: [],
     logSignals: {
       kernelEvents: 0,
@@ -424,6 +455,45 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       sessionProjectionRefreshes: 0,
     },
     collectionErrors: [],
+  };
+  const addScenario = (items, scenario) => {
+    if (
+      typeof scenario === "string" &&
+      scenario.length > 0 &&
+      !items.includes(scenario)
+    ) {
+      items.push(scenario);
+      items.sort();
+    }
+  };
+  const noteProviderGatedVisibleOutputCoverage = (coverage) => {
+    if (!coverage || typeof coverage !== "object") return;
+    if (Array.isArray(coverage.providerGatedVisibleOutputScenarios)) {
+      for (const scenario of coverage.providerGatedVisibleOutputScenarios) {
+        addScenario(summary.harnessModelProviderGatedVisibleOutputScenarios, scenario);
+      }
+    }
+    if (Array.isArray(coverage.rollbackDrillScenarios)) {
+      for (const scenario of coverage.rollbackDrillScenarios) {
+        addScenario(
+          summary.harnessModelProviderGatedVisibleOutputRollbackDrillScenarios,
+          scenario,
+        );
+      }
+    }
+  };
+  const noteReadOnlyCapabilityRoutingCoverage = (coverage) => {
+    if (!coverage || typeof coverage !== "object") return;
+    if (Array.isArray(coverage.readOnlyCapabilityRoutingScenarios)) {
+      for (const scenario of coverage.readOnlyCapabilityRoutingScenarios) {
+        addScenario(summary.harnessReadOnlyCapabilityRoutingScenarios, scenario);
+      }
+    }
+    if (Array.isArray(coverage.noMutationScenarios)) {
+      for (const scenario of coverage.noMutationScenarios) {
+        addScenario(summary.harnessReadOnlyCapabilityRoutingNoMutationScenarios, scenario);
+      }
+    }
   };
 
   if (existsSync(logPath)) {
@@ -440,6 +510,20 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       const db = await openReadonlySqliteDatabase(chatDbPath);
       const noteProjection = (projection) => {
         if (!projection || typeof projection !== "object") return;
+        noteProviderGatedVisibleOutputCoverage(
+          projection.HarnessModelProviderGatedVisibleOutputCoverage,
+        );
+        noteProviderGatedVisibleOutputCoverage(
+          projection.HarnessDefaultRuntimeDispatch
+            ?.modelProviderGatedVisibleOutputSessionCoverage,
+        );
+        noteReadOnlyCapabilityRoutingCoverage(
+          projection.HarnessReadOnlyCapabilityRoutingCoverage,
+        );
+        noteReadOnlyCapabilityRoutingCoverage(
+          projection.HarnessDefaultRuntimeDispatch
+            ?.readOnlyCapabilityRoutingSessionCoverage,
+        );
         if (projection.schemaVersion === "ioi.agent-runtime.substrate.v1") {
           summary.runtimeEvidenceReportCount += 1;
         }
@@ -465,6 +549,533 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         if (projection.StopConditionRecord) {
           summary.stopReasonCount += 1;
         }
+        if (projection.HarnessWorkerBinding) {
+          summary.harnessWorkerBindingCount += 1;
+        }
+        if (projection.HarnessRuntimeSelectorDecision) {
+          const decision = projection.HarnessRuntimeSelectorDecision;
+          if (
+            decision.schemaVersion === "workflow.harness.runtime-selector.v1" &&
+            decision.selectedSelector === "blessed_workflow_live_canary" &&
+            decision.productionDefaultSelector === "legacy_runtime" &&
+            decision.canaryEligible === true &&
+            Array.isArray(decision.canaryBlockers) &&
+            decision.canaryBlockers.length === 0 &&
+            decision.executionMode === "live" &&
+            decision.actualRuntimeAuthority === "blessed_workflow_activation_canary" &&
+            decision.rollbackAvailable === true
+          ) {
+            summary.harnessSelectorCanaryRoutedCount += 1;
+          }
+          if (
+            decision.schemaVersion === "workflow.harness.runtime-selector.v1" &&
+            decision.selectedSelector === "blessed_workflow_live_default" &&
+            decision.productionDefaultSelector === "blessed_workflow_live_default" &&
+            decision.canaryEligible === true &&
+            Array.isArray(decision.canaryBlockers) &&
+            decision.canaryBlockers.length === 0 &&
+            decision.executionMode === "live" &&
+            decision.actualRuntimeAuthority === "blessed_workflow_activation_default" &&
+            decision.defaultPromotionGate?.enabled === true &&
+            decision.defaultPromotionGate?.eligible === true &&
+            decision.rollbackAvailable === true
+          ) {
+            summary.harnessSelectorDefaultPromotedCount += 1;
+          }
+          if (
+            decision.productionDefaultSelector === "legacy_runtime" &&
+            decision.fallbackSelector === "legacy_runtime" &&
+            typeof decision.rollbackTarget === "string" &&
+            decision.rollbackTarget.length > 0
+          ) {
+            summary.harnessSelectorLegacyDefaultCount += 1;
+          }
+        }
+        if (projection.HarnessShadowRun) {
+          summary.harnessShadowRunCount += 1;
+          if (Array.isArray(projection.HarnessShadowRun.nodeAttempts)) {
+            summary.harnessNodeAttemptCount += projection.HarnessShadowRun.nodeAttempts.length;
+          }
+          if (Array.isArray(projection.HarnessShadowRun.comparisons)) {
+            summary.harnessShadowComparisonCount += projection.HarnessShadowRun.comparisons.length;
+          }
+          summary.harnessBlockingDivergenceCount += Number(
+            projection.HarnessShadowRun.blockingDivergenceCount ?? 0,
+          );
+        }
+        if (Array.isArray(projection.HarnessGatedClusterRuns)) {
+          summary.harnessGatedClusterCount += projection.HarnessGatedClusterRuns.length;
+          summary.harnessGatedCognitionCount += projection.HarnessGatedClusterRuns.filter(
+            (run) =>
+              run?.clusterId === "cognition" &&
+              run?.executionMode === "gated" &&
+              run?.status === "gated" &&
+              run?.promotionBlocked === false &&
+              run?.rollbackAvailable === true &&
+              run?.canaryStatus === "passed",
+          ).length;
+          summary.harnessGatedRoutingModelCount += projection.HarnessGatedClusterRuns.filter(
+            (run) =>
+              run?.clusterId === "routing_model" &&
+              run?.executionMode === "gated" &&
+              run?.status === "gated" &&
+              run?.promotionBlocked === false &&
+              run?.rollbackAvailable === true &&
+              run?.canaryStatus === "passed",
+          ).length;
+          summary.harnessGatedVerificationOutputCount += projection.HarnessGatedClusterRuns.filter(
+            (run) =>
+              run?.clusterId === "verification_output" &&
+              run?.executionMode === "gated" &&
+              run?.status === "gated" &&
+              run?.promotionBlocked === false &&
+              run?.rollbackAvailable === true &&
+              run?.canaryStatus === "passed",
+          ).length;
+          summary.harnessGatedAuthorityToolingCount += projection.HarnessGatedClusterRuns.filter(
+            (run) =>
+              run?.clusterId === "authority_tooling" &&
+              run?.executionMode === "gated" &&
+              run?.status === "gated" &&
+              run?.promotionBlocked === false &&
+              run?.rollbackAvailable === true &&
+              run?.canaryStatus === "passed" &&
+              run?.runtimeAuthority === "existing_runtime_service",
+          ).length;
+        }
+        if (projection.HarnessForkActivation) {
+          const invalidFork = projection.HarnessForkActivation.invalidFork ?? {};
+          const validFork = projection.HarnessForkActivation.validFork ?? {};
+          if (
+            invalidFork.activationState === "blocked" &&
+            Array.isArray(invalidFork.activationBlockers) &&
+            invalidFork.activationBlockers.length > 0 &&
+            invalidFork.activationMinted === false
+          ) {
+            summary.harnessForkActivationBlockedCount += 1;
+          }
+          if (
+            typeof validFork.activationId === "string" &&
+            validFork.activationId.length > 0 &&
+            validFork.activationState === "validated" &&
+            validFork.canaryStatus === "passed" &&
+            validFork.rollbackAvailable === true &&
+            validFork.liveAuthorityTransferred === false &&
+            validFork.workerBinding?.harnessActivationId === validFork.activationId
+          ) {
+            summary.harnessForkActivationMintedCount += 1;
+          }
+        }
+        {
+          const boundaries = Array.isArray(projection.HarnessCanaryExecutionBoundaries)
+            ? projection.HarnessCanaryExecutionBoundaries
+            : projection.HarnessCanaryExecutionBoundary
+              ? [projection.HarnessCanaryExecutionBoundary]
+              : [];
+          const boundaryPasses = (clusterId) =>
+            boundaries.some(
+              (boundary) => {
+                const minimumAttempts =
+                  clusterId === "routing_model" ? 3 : clusterId === "authority_tooling" ? 8 : 6;
+                return (
+                  boundary?.schemaVersion === "workflow.harness.canary-execution-boundary.v1" &&
+                  boundary.clusterId === clusterId &&
+                  boundary.status === "passed" &&
+                  boundary.executionMode === "live" &&
+                  boundary.runtimeAuthority === "blessed_workflow_activation_canary" &&
+                  boundary.executorKind === "workflow_node_executor" &&
+                  boundary.synchronous === true &&
+                  Array.isArray(boundary.nodeAttemptIds) &&
+                  boundary.nodeAttemptIds.length >= minimumAttempts &&
+                  Array.isArray(boundary.executedComponentKinds) &&
+                  boundary.executedComponentKinds.length >= minimumAttempts &&
+                  Array.isArray(boundary.activationBlockers) &&
+                  boundary.activationBlockers.length === 0
+                );
+              },
+            );
+          const rollbackPasses = (clusterId) =>
+            boundaries.some(
+              (boundary) =>
+                boundary?.clusterId === clusterId &&
+                boundary.rollbackDrill?.clusterId === clusterId &&
+                boundary.rollbackDrill?.failureInjected === true &&
+                boundary.rollbackDrill?.observedFailure === true &&
+                boundary.rollbackDrill?.rollbackExecuted === true &&
+                boundary.rollbackDrill?.rollbackSelector === "legacy_runtime" &&
+                boundary.rollbackDrill?.fallbackAuthority === "existing_runtime_service" &&
+                boundary.rollbackDrill?.drillStatus === "passed",
+            );
+          if (
+            boundaryPasses("cognition") &&
+            boundaryPasses("routing_model") &&
+            boundaryPasses("verification_output") &&
+            boundaryPasses("authority_tooling")
+          ) {
+            summary.harnessCanaryBoundaryExecutedCount += 1;
+          }
+          if (
+            rollbackPasses("cognition") &&
+            rollbackPasses("routing_model") &&
+            rollbackPasses("verification_output") &&
+            rollbackPasses("authority_tooling")
+          ) {
+            summary.harnessCanaryBoundaryRollbackDrillCount += 1;
+          }
+        }
+        if (projection.HarnessLiveHandoff) {
+          const handoff = projection.HarnessLiveHandoff;
+          if (
+            handoff.schemaVersion === "workflow.harness.live-handoff.v1" &&
+            handoff.selector === "blessed_workflow_live_canary" &&
+            handoff.productionDefaultSelector === "legacy_runtime" &&
+            handoff.canaryStatus === "passed" &&
+            handoff.canaryTurnRoutedThroughWorkflow === true &&
+            handoff.executionBoundaryStatus === "passed" &&
+            handoff.defaultAuthorityTransferred === false &&
+            handoff.runtimeAuthority === "blessed_workflow_activation_canary" &&
+            Array.isArray(handoff.executionBoundaryClusterIds) &&
+            handoff.executionBoundaryClusterIds.includes("cognition") &&
+            handoff.executionBoundaryClusterIds.includes("routing_model") &&
+            handoff.executionBoundaryClusterIds.includes("verification_output") &&
+            handoff.executionBoundaryClusterIds.includes("authority_tooling") &&
+            Array.isArray(handoff.gatedClusterIds) &&
+            handoff.gatedClusterIds.includes("authority_tooling")
+          ) {
+            summary.harnessLiveHandoffCanaryCount += 1;
+          }
+          if (
+            handoff.schemaVersion === "workflow.harness.live-handoff.v1" &&
+            handoff.selector === "blessed_workflow_live_default" &&
+            handoff.productionDefaultSelector === "blessed_workflow_live_default" &&
+            handoff.canaryStatus === "passed" &&
+            handoff.canaryTurnRoutedThroughWorkflow === true &&
+            handoff.executionBoundaryStatus === "passed" &&
+            handoff.defaultAuthorityTransferred === true &&
+            handoff.runtimeAuthority === "blessed_workflow_activation_default" &&
+            handoff.defaultPromotionGate?.defaultAuthorityTransferred === true &&
+            Array.isArray(handoff.defaultPromotionGate?.activationBlockers) &&
+            handoff.defaultPromotionGate.activationBlockers.length === 0 &&
+            Array.isArray(handoff.executionBoundaryClusterIds) &&
+            handoff.executionBoundaryClusterIds.includes("cognition") &&
+            handoff.executionBoundaryClusterIds.includes("routing_model") &&
+            handoff.executionBoundaryClusterIds.includes("verification_output") &&
+            handoff.executionBoundaryClusterIds.includes("authority_tooling") &&
+            Array.isArray(handoff.gatedClusterIds) &&
+            handoff.gatedClusterIds.includes("authority_tooling")
+          ) {
+            summary.harnessLiveHandoffDefaultPromotedCount += 1;
+          }
+          if (
+            handoff.fallbackSelector === "legacy_runtime" &&
+            handoff.rollbackAvailable === true &&
+            typeof handoff.rollbackTarget === "string" &&
+            handoff.rollbackTarget.length > 0 &&
+            Array.isArray(handoff.nodeTimelineAttemptIds) &&
+            handoff.nodeTimelineAttemptIds.length > 0 &&
+            Array.isArray(handoff.receiptIds) &&
+            handoff.receiptIds.length > 0 &&
+            Array.isArray(handoff.activationBlockers) &&
+            handoff.activationBlockers.length === 0
+          ) {
+            summary.harnessLiveHandoffRollbackCount += 1;
+          }
+        }
+        if (projection.HarnessDefaultRuntimeDispatch) {
+          const dispatch = projection.HarnessDefaultRuntimeDispatch;
+          if (
+            dispatch.schemaVersion === "workflow.harness.default-runtime-dispatch.v1" &&
+            dispatch.selectedSelector === "blessed_workflow_live_default" &&
+            dispatch.productionDefaultSelector === "blessed_workflow_live_default" &&
+            dispatch.executionMode === "live" &&
+            dispatch.runtimeAuthority === "blessed_workflow_activation_default" &&
+            dispatch.dispatchScope ===
+              "read_only_cognition_routing_verification_completion_authority_tooling" &&
+            dispatch.status === "accepted" &&
+            dispatch.readOnlyDispatchAccepted === true &&
+            dispatch.drivesRuntimeDecision === true &&
+            dispatch.outputWriterDeferred === false &&
+            dispatch.outputWriterStatus === "visible_write_committed" &&
+            dispatch.outputWriterHandoffReady === true &&
+            dispatch.outputWriterMaterializationMode === "workflow_visible_transcript_write" &&
+            dispatch.outputWriterMaterializationCanaryReady === true &&
+            dispatch.outputWriterMaterializationCommitted === true &&
+            dispatch.outputWriterStagedWriteMode === "isolated_checkpoint_blob" &&
+            dispatch.outputWriterStagedWriteCanaryReady === true &&
+            dispatch.outputWriterStagedWritePersisted === true &&
+            dispatch.outputWriterStagedWriteCommitted === true &&
+            dispatch.outputWriterStagedWriteVisible === false &&
+            dispatch.outputWriterStagedWriteExcludedFromVisibleTranscript === true &&
+            dispatch.outputWriterStagedWriteRollbackStatus === "deleted" &&
+            dispatch.outputWriterStagedWriteRollbackVerified === true &&
+            dispatch.outputWriterVisibleWriteMode === "workflow_visible_transcript_write" &&
+            dispatch.outputWriterVisibleWriteReady === true &&
+            dispatch.outputWriterVisibleWritePersisted === true &&
+            dispatch.outputWriterVisibleWriteCommitted === true &&
+            dispatch.outputWriterVisibleWriteVisible === true &&
+            dispatch.outputWriterVisibleWriteIdentityCheckpointPersisted === true &&
+            dispatch.outputWriterVisibleWriteLegacyDuplicateSuppressed === true &&
+            dispatch.cognitionExecutionMode === "workflow_synchronous_envelope" &&
+            dispatch.cognitionExecutionReady === true &&
+            dispatch.promptAssemblyMode === "workflow_synchronous_envelope" &&
+            typeof dispatch.promptAssemblyPromptHash === "string" &&
+            dispatch.promptAssemblyPromptHash.length > 0 &&
+            dispatch.promptAssemblyPromptHashMatches === true &&
+            dispatch.modelExecutionMode === "workflow_synchronous_envelope" &&
+            dispatch.modelExecutionEnvelopeReady === true &&
+            typeof dispatch.modelExecutionBindingId === "string" &&
+            dispatch.modelExecutionBindingId.length > 0 &&
+            dispatch.modelExecutionBindingReady === true &&
+            typeof dispatch.modelExecutionPromptHash === "string" &&
+            dispatch.modelExecutionPromptHash.length > 0 &&
+            dispatch.modelExecutionPromptHashMatches === true &&
+            typeof dispatch.modelExecutionOutputHash === "string" &&
+            dispatch.modelExecutionOutputHash.length > 0 &&
+            dispatch.modelExecutionOutputHashMatches === true &&
+            dispatch.modelExecutionProviderInvocationMode === "workflow_provider_canary" &&
+            dispatch.modelExecutionLowLevelInvocationDeferred === false &&
+            dispatch.modelExecutionFallbackSelector === "legacy_runtime_model_invocation" &&
+            dispatch.modelProviderCanaryMode === "workflow_provider_canary" &&
+            dispatch.modelProviderCanaryReady === true &&
+            dispatch.modelProviderCanaryOutputHashMatches === true &&
+            dispatch.modelProviderCanaryTranscriptMatches === true &&
+            dispatch.modelProviderCanaryFallbackRetained === true &&
+            dispatch.modelProviderCanaryRollbackAvailable === true &&
+            dispatch.modelProviderGatedVisibleOutputMode ===
+              "workflow_provider_gated_visible_output" &&
+            dispatch.modelProviderGatedVisibleOutputEnabled === true &&
+            dispatch.modelProviderGatedVisibleOutputReady === true &&
+            dispatch.modelProviderGatedVisibleOutputSelected === true &&
+            AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS.includes(
+              dispatch.modelProviderGatedVisibleOutputScenario,
+            ) &&
+            dispatch.modelProviderGatedVisibleOutputCohort === "retained_read_only_no_tool" &&
+            dispatch.modelProviderGatedVisibleOutputRetainedReadOnlyNoTool === true &&
+            Array.isArray(dispatch.modelProviderGatedVisibleOutputRequiredScenarioSet) &&
+            AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS.every((scenario) =>
+              dispatch.modelProviderGatedVisibleOutputRequiredScenarioSet.includes(scenario),
+            ) &&
+            dispatch.modelProviderGatedVisibleOutputScenarioCoverageKey ===
+              dispatch.modelProviderGatedVisibleOutputScenario &&
+            dispatch.selectedVisibleOutputAuthority === "workflow_model_provider_call" &&
+            typeof dispatch.selectedVisibleOutputHash === "string" &&
+            dispatch.selectedVisibleOutputHash.length > 0 &&
+            dispatch.selectedVisibleOutputHash === dispatch.actualVisibleOutputHash &&
+            dispatch.legacyVisibleOutputHash === dispatch.selectedVisibleOutputHash &&
+            dispatch.legacyVisibleOutputComputed === true &&
+            dispatch.legacyVisibleOutputHashMatchesSelected === true &&
+            dispatch.selectedVisibleOutputAuthorityMatchesTranscript === true &&
+            dispatch.modelProviderGatedVisibleOutputRollbackAvailable === true &&
+            dispatch.modelProviderGatedVisibleOutputRollbackDrillEnabled === true &&
+            dispatch.modelProviderGatedVisibleOutputRollbackDrillReady === true &&
+            dispatch.modelProviderGatedVisibleOutputRollbackDrillFailureInjected === true &&
+            typeof dispatch.modelProviderGatedVisibleOutputRollbackDrillInjectedOutputHash ===
+              "string" &&
+            dispatch.modelProviderGatedVisibleOutputRollbackDrillInjectedOutputHash.length > 0 &&
+            dispatch.modelProviderGatedVisibleOutputRollbackDrillInjectedOutputHash !==
+              dispatch.actualVisibleOutputHash &&
+            dispatch.modelProviderGatedVisibleOutputRollbackDrillOutputHashDiverges === true &&
+            dispatch.modelProviderGatedVisibleOutputRollbackDrillDivergenceClass ===
+              "provider_output_hash_divergence" &&
+            dispatch.modelProviderGatedVisibleOutputRollbackDrillFallbackAuthority ===
+              "legacy_runtime_model_invocation" &&
+            dispatch.modelProviderGatedVisibleOutputRollbackDrillSelectedAuthority ===
+              "legacy_runtime_model_invocation" &&
+            dispatch.modelProviderGatedVisibleOutputRollbackDrillTranscriptUnchanged === true &&
+            dispatch.modelProviderGatedVisibleOutputRollbackDrillRollbackExecuted === true &&
+            Array.isArray(dispatch.modelProviderGatedVisibleOutputRollbackDrillActivationBlockers) &&
+            dispatch.modelProviderGatedVisibleOutputRollbackDrillActivationBlockers.includes(
+              "model_provider_output_hash_divergence",
+            ) &&
+            dispatch.visibleOutputDivergenceClass == null &&
+            dispatch.authorityToolingMode === "workflow_live_dry_run" &&
+            dispatch.authorityToolingReady === true &&
+            dispatch.authorityToolingPolicyGateReady === true &&
+            dispatch.authorityToolingToolRouterReady === true &&
+            dispatch.authorityToolingDryRunSimulatorReady === true &&
+            dispatch.authorityToolingApprovalGateReady === true &&
+            dispatch.authorityToolingReadOnlyRouteAccepted === true &&
+            dispatch.authorityToolingDestructiveRouteDenied === true &&
+            dispatch.authorityToolingMutatingToolCallsBlocked === true &&
+            dispatch.authorityToolingSideEffectsExecuted === false &&
+            dispatch.authorityToolingRollbackAvailable === true &&
+            dispatch.legacyTranscriptAuthorityRetained === false &&
+            dispatch.transcriptMaterializationMatches === true &&
+            dispatch.transcriptMaterializationContentHashMatches === true &&
+            dispatch.transcriptMaterializationOrderMatches === true &&
+            dispatch.transcriptMaterializationReceiptBindingMatches === true &&
+            dispatch.transcriptMaterializationDivergenceCount === 0 &&
+            dispatch.stagedTranscriptWriteMatches === true &&
+            dispatch.stagedTranscriptWriteContentHashMatches === true &&
+            dispatch.stagedTranscriptWriteOrderMatches === true &&
+            dispatch.stagedTranscriptWriteReceiptBindingMatches === true &&
+            dispatch.stagedTranscriptWriteDivergenceCount === 0 &&
+            dispatch.visibleTranscriptWriteMatches === true &&
+            dispatch.visibleTranscriptWriteContentHashMatches === true &&
+            dispatch.visibleTranscriptWriteOrderMatches === true &&
+            dispatch.visibleTranscriptWriteReceiptBindingMatches === true &&
+            dispatch.visibleTranscriptWriteDivergenceCount === 0 &&
+            dispatch.workflowTranscriptWriteCandidate?.committed === false &&
+            dispatch.workflowTranscriptWriteRecord?.committed === true &&
+            dispatch.workflowTranscriptWriteRecord?.visible === true &&
+            dispatch.legacyTranscriptWriteRecord?.committed === false &&
+            dispatch.legacyTranscriptWriteRecord?.suppressedByIdempotency === true &&
+            dispatch.stagedTranscriptWriteRecord?.committed === true &&
+            dispatch.stagedTranscriptWriteRecord?.visible === false &&
+            dispatch.outputHashMatches === true &&
+            dispatch.outputHashDivergence === false &&
+            dispatch.outputHashDivergenceCount === 0 &&
+            typeof dispatch.proposedVisibleOutputHash === "string" &&
+            dispatch.proposedVisibleOutputHash.length > 0 &&
+            dispatch.proposedVisibleOutputHash === dispatch.actualVisibleOutputHash &&
+            dispatch.legacyOutputAuthorityRetained === false &&
+            dispatch.legacyOutputFallbackAvailable === true &&
+            dispatch.mutatingTurnsBlocked === true &&
+            dispatch.outputAuthority === "blessed_workflow_activation_default" &&
+            Array.isArray(dispatch.acceptedClusterIds) &&
+            dispatch.acceptedClusterIds.includes("cognition") &&
+            dispatch.acceptedClusterIds.includes("routing_model") &&
+            dispatch.acceptedClusterIds.includes("verification_output") &&
+            dispatch.acceptedClusterIds.includes("authority_tooling") &&
+            Array.isArray(dispatch.componentKinds) &&
+            dispatch.componentKinds.length >= 18 &&
+            dispatch.componentKinds.includes("verifier") &&
+            dispatch.componentKinds.includes("completion_gate") &&
+            dispatch.componentKinds.includes("receipt_writer") &&
+            dispatch.componentKinds.includes("quality_ledger") &&
+            dispatch.componentKinds.includes("output_writer") &&
+            dispatch.componentKinds.includes("policy_gate") &&
+            dispatch.componentKinds.includes("dry_run_simulator") &&
+            dispatch.componentKinds.includes("approval_gate") &&
+            Array.isArray(dispatch.deferredComponentKinds) &&
+            dispatch.deferredComponentKinds.includes("mcp_tool_call") &&
+            dispatch.deferredComponentKinds.includes("tool_call") &&
+            dispatch.deferredComponentKinds.includes("connector_call") &&
+            dispatch.deferredComponentKinds.includes("wallet_capability") &&
+            Array.isArray(dispatch.handoffValidatedComponentKinds) &&
+            dispatch.handoffValidatedComponentKinds.includes("output_writer") &&
+            Array.isArray(dispatch.materializationCanaryComponentKinds) &&
+            dispatch.materializationCanaryComponentKinds.includes("output_writer") &&
+            Array.isArray(dispatch.dispatchNodeAttemptIds) &&
+            dispatch.dispatchNodeAttemptIds.length >= 20 &&
+            Array.isArray(dispatch.cognitionExecutionAttemptIds) &&
+            dispatch.cognitionExecutionAttemptIds.length >= 3 &&
+            Array.isArray(dispatch.cognitionExecutionReceiptIds) &&
+            dispatch.cognitionExecutionReceiptIds.length >= 3 &&
+            Array.isArray(dispatch.cognitionExecutionReplayFixtureRefs) &&
+            dispatch.cognitionExecutionReplayFixtureRefs.length >= 3 &&
+            Array.isArray(dispatch.modelExecutionAttemptIds) &&
+            dispatch.modelExecutionAttemptIds.length >= 5 &&
+            Array.isArray(dispatch.modelExecutionReceiptIds) &&
+            dispatch.modelExecutionReceiptIds.length >= 5 &&
+            Array.isArray(dispatch.modelExecutionReplayFixtureRefs) &&
+            dispatch.modelExecutionReplayFixtureRefs.length >= 5 &&
+            Array.isArray(dispatch.modelProviderCanaryAttemptIds) &&
+            dispatch.modelProviderCanaryAttemptIds.length >= 1 &&
+            Array.isArray(dispatch.modelProviderCanaryReceiptIds) &&
+            dispatch.modelProviderCanaryReceiptIds.length >= 1 &&
+            Array.isArray(dispatch.modelProviderCanaryReplayFixtureRefs) &&
+            dispatch.modelProviderCanaryReplayFixtureRefs.length >= 1 &&
+            Array.isArray(dispatch.modelProviderGatedVisibleOutputAttemptIds) &&
+            dispatch.modelProviderGatedVisibleOutputAttemptIds.length >= 1 &&
+            Array.isArray(dispatch.modelProviderGatedVisibleOutputReceiptIds) &&
+            dispatch.modelProviderGatedVisibleOutputReceiptIds.length >= 1 &&
+            Array.isArray(dispatch.modelProviderGatedVisibleOutputReplayFixtureRefs) &&
+            dispatch.modelProviderGatedVisibleOutputReplayFixtureRefs.length >= 1 &&
+            Array.isArray(dispatch.modelProviderGatedVisibleOutputRollbackDrillAttemptIds) &&
+            dispatch.modelProviderGatedVisibleOutputRollbackDrillAttemptIds.length >= 1 &&
+            Array.isArray(dispatch.modelProviderGatedVisibleOutputRollbackDrillReceiptIds) &&
+            dispatch.modelProviderGatedVisibleOutputRollbackDrillReceiptIds.length >= 1 &&
+            Array.isArray(
+              dispatch.modelProviderGatedVisibleOutputRollbackDrillReplayFixtureRefs,
+            ) &&
+            dispatch.modelProviderGatedVisibleOutputRollbackDrillReplayFixtureRefs.length >= 1 &&
+            Array.isArray(dispatch.outputWriterHandoffAttemptIds) &&
+            dispatch.outputWriterHandoffAttemptIds.length >= 1 &&
+            Array.isArray(dispatch.outputWriterMaterializationCanaryAttemptIds) &&
+            dispatch.outputWriterMaterializationCanaryAttemptIds.length >= 1 &&
+            Array.isArray(dispatch.outputWriterStagedWriteCanaryAttemptIds) &&
+            dispatch.outputWriterStagedWriteCanaryAttemptIds.length >= 1 &&
+            Array.isArray(dispatch.outputWriterVisibleWriteAttemptIds) &&
+            dispatch.outputWriterVisibleWriteAttemptIds.length >= 1 &&
+            Array.isArray(dispatch.authorityToolingLiveDryRunAttemptIds) &&
+            dispatch.authorityToolingLiveDryRunAttemptIds.length >= 5 &&
+            Array.isArray(dispatch.authorityToolingDenialReceiptIds) &&
+            dispatch.authorityToolingDenialReceiptIds.length >= 1 &&
+            Array.isArray(dispatch.acceptedNodeAttemptIds) &&
+            dispatch.acceptedNodeAttemptIds.length >= 18 &&
+            Array.isArray(dispatch.activationBlockers) &&
+            dispatch.activationBlockers.length === 0 &&
+            dispatch.rollbackAvailable === true
+          ) {
+            summary.harnessDefaultRuntimeDispatchReadonlyCount += 1;
+            summary.harnessModelProviderGatedVisibleOutputCount += 1;
+            summary.harnessModelProviderGatedVisibleOutputRollbackDrillCount += 1;
+            addScenario(
+              summary.harnessModelProviderGatedVisibleOutputScenarios,
+              dispatch.modelProviderGatedVisibleOutputScenario,
+            );
+            addScenario(
+              summary.harnessModelProviderGatedVisibleOutputRollbackDrillScenarios,
+              dispatch.modelProviderGatedVisibleOutputScenario,
+            );
+          }
+          const readOnlyRoutingScenario = dispatch.readOnlyCapabilityRoutingScenario;
+          const readOnlyWorkflowNodeKinds = Array.isArray(
+            dispatch.readOnlyCapabilityRoutingWorkflowOwnedNodeKinds,
+          )
+            ? dispatch.readOnlyCapabilityRoutingWorkflowOwnedNodeKinds
+            : [];
+          const readOnlySourceOrProbeNodePresent =
+            readOnlyRoutingScenario === "retained_probe_behavior"
+              ? readOnlyWorkflowNodeKinds.includes("probe_runner")
+              : ["retained_repo_grounded_answer", "retained_source_heavy_synthesis"].includes(
+                    readOnlyRoutingScenario,
+                  ) && readOnlyWorkflowNodeKinds.includes("memory_read");
+          if (
+            dispatch.schemaVersion === "workflow.harness.default-runtime-dispatch.v1" &&
+            dispatch.selectedSelector === "blessed_workflow_live_default" &&
+            dispatch.productionDefaultSelector === "blessed_workflow_live_default" &&
+            dispatch.executionMode === "live" &&
+            dispatch.runtimeAuthority === "blessed_workflow_activation_default" &&
+            dispatch.readOnlyCapabilityRoutingMode ===
+              "workflow_read_only_capability_routing" &&
+            dispatch.readOnlyCapabilityRoutingReady === true &&
+            dispatch.readOnlyCapabilityRoutingSelected === true &&
+            dispatch.readOnlyCapabilityRoutingNoMutationReady === true &&
+            dispatch.readOnlyCapabilityRoutingSourceMaterialReady === true &&
+            AUTOPILOT_READ_ONLY_CAPABILITY_ROUTING_REQUIRED_SCENARIOS.includes(
+              readOnlyRoutingScenario,
+            ) &&
+            dispatch.readOnlyCapabilityRoutingScenarioCoverageKey ===
+              readOnlyRoutingScenario &&
+            readOnlyWorkflowNodeKinds.includes("capability_sequencer") &&
+            readOnlyWorkflowNodeKinds.includes("tool_router") &&
+            readOnlyWorkflowNodeKinds.includes("dry_run_simulator") &&
+            readOnlySourceOrProbeNodePresent &&
+            Array.isArray(dispatch.readOnlyCapabilityRoutingAttemptIds) &&
+            dispatch.readOnlyCapabilityRoutingAttemptIds.length >= 3 &&
+            Array.isArray(dispatch.readOnlyCapabilityRoutingReceiptIds) &&
+            dispatch.readOnlyCapabilityRoutingReceiptIds.length >= 3 &&
+            Array.isArray(dispatch.readOnlyCapabilityRoutingReplayFixtureRefs) &&
+            dispatch.readOnlyCapabilityRoutingReplayFixtureRefs.length >= 3 &&
+            dispatch.readOnlyCapabilityRoutingProof?.sideEffectsExecuted === false &&
+            dispatch.readOnlyCapabilityRoutingProof?.mutationExecuted === false &&
+            Array.isArray(dispatch.activationBlockers) &&
+            dispatch.activationBlockers.length === 0
+          ) {
+            summary.harnessReadOnlyCapabilityRoutingCount += 1;
+            summary.harnessReadOnlyCapabilityRoutingNoMutationCount += 1;
+            addScenario(
+              summary.harnessReadOnlyCapabilityRoutingScenarios,
+              readOnlyRoutingScenario,
+            );
+            addScenario(
+              summary.harnessReadOnlyCapabilityRoutingNoMutationScenarios,
+              readOnlyRoutingScenario,
+            );
+          }
+        }
       };
       const noteRuntimeReceipt = (payload) => {
         if (!payload || typeof payload !== "object") return;
@@ -476,6 +1087,99 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         if (digest.scorecard === true) summary.scorecardCount += 1;
         if (digest.stop_reason === true) summary.stopReasonCount += 1;
         if (digest.quality_ledger === true) summary.qualityLedgerCount += 1;
+        if (digest.harness_shadow_run === true) summary.harnessShadowRunCount += 1;
+        summary.harnessNodeAttemptCount += Number(digest.harness_node_attempt_count ?? 0);
+        summary.harnessShadowComparisonCount += Number(
+          digest.harness_shadow_comparison_count ?? 0,
+        );
+        summary.harnessBlockingDivergenceCount += Number(
+          digest.harness_blocking_divergence_count ?? 0,
+        );
+        summary.harnessGatedClusterCount += Number(digest.harness_gated_cluster_count ?? 0);
+        if (digest.harness_gated_cognition_passed === true) {
+          summary.harnessGatedCognitionCount += 1;
+        }
+        if (digest.harness_gated_routing_model_passed === true) {
+          summary.harnessGatedRoutingModelCount += 1;
+        }
+        if (digest.harness_gated_verification_output_passed === true) {
+          summary.harnessGatedVerificationOutputCount += 1;
+        }
+        if (digest.harness_gated_authority_tooling_passed === true) {
+          summary.harnessGatedAuthorityToolingCount += 1;
+        }
+        if (digest.harness_fork_activation_blocked === true) {
+          summary.harnessForkActivationBlockedCount += 1;
+        }
+        if (digest.harness_fork_activation_minted === true) {
+          summary.harnessForkActivationMintedCount += 1;
+        }
+        if (digest.harness_canary_boundary_executed === true) {
+          summary.harnessCanaryBoundaryExecutedCount += 1;
+        }
+        if (digest.harness_canary_boundary_rollback_drill === true) {
+          summary.harnessCanaryBoundaryRollbackDrillCount += 1;
+        }
+        if (digest.harness_selector_canary_routed === true) {
+          summary.harnessSelectorCanaryRoutedCount += 1;
+        }
+        if (digest.harness_selector_legacy_default === true) {
+          summary.harnessSelectorLegacyDefaultCount += 1;
+        }
+        if (digest.harness_selector_default_promoted === true) {
+          summary.harnessSelectorDefaultPromotedCount += 1;
+        }
+        if (digest.harness_live_handoff_canary === true) {
+          summary.harnessLiveHandoffCanaryCount += 1;
+        }
+        if (digest.harness_live_handoff_default_promoted === true) {
+          summary.harnessLiveHandoffDefaultPromotedCount += 1;
+        }
+        if (digest.harness_live_handoff_rollback === true) {
+          summary.harnessLiveHandoffRollbackCount += 1;
+        }
+        if (digest.harness_default_runtime_dispatch_readonly === true) {
+          summary.harnessDefaultRuntimeDispatchReadonlyCount += 1;
+        }
+        if (digest.harness_model_provider_gated_visible_output === true) {
+          summary.harnessModelProviderGatedVisibleOutputCount += 1;
+          noteProviderGatedVisibleOutputCoverage(
+            digest.harness_model_provider_gated_visible_output_coverage,
+          );
+          addScenario(
+            summary.harnessModelProviderGatedVisibleOutputScenarios,
+            digest.harness_model_provider_gated_visible_output_required_scenario ??
+              digest.harness_model_provider_gated_visible_output_scenario,
+          );
+        }
+        if (digest.harness_model_provider_gated_visible_output_rollback_drill === true) {
+          summary.harnessModelProviderGatedVisibleOutputRollbackDrillCount += 1;
+          noteProviderGatedVisibleOutputCoverage(
+            digest.harness_model_provider_gated_visible_output_coverage,
+          );
+          addScenario(
+            summary.harnessModelProviderGatedVisibleOutputRollbackDrillScenarios,
+            digest.harness_model_provider_gated_visible_output_rollback_drill_scenario ??
+              digest.harness_model_provider_gated_visible_output_required_scenario,
+          );
+        }
+        if (digest.harness_read_only_capability_routing === true) {
+          summary.harnessReadOnlyCapabilityRoutingCount += 1;
+          summary.harnessReadOnlyCapabilityRoutingNoMutationCount += 1;
+          noteReadOnlyCapabilityRoutingCoverage(
+            digest.harness_read_only_capability_routing_coverage,
+          );
+          addScenario(
+            summary.harnessReadOnlyCapabilityRoutingScenarios,
+            digest.harness_read_only_capability_routing_required_scenario ??
+              digest.harness_read_only_capability_routing_scenario,
+          );
+          addScenario(
+            summary.harnessReadOnlyCapabilityRoutingNoMutationScenarios,
+            digest.harness_read_only_capability_routing_required_scenario ??
+              digest.harness_read_only_capability_routing_scenario,
+          );
+        }
         if (Array.isArray(digest.selected_sources) && digest.selected_sources.length > 0) {
           summary.selectedSourceCount = Math.max(
             summary.selectedSourceCount,
@@ -552,6 +1256,104 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
           ) {
             summary.qualityLedgerCount += 1;
           }
+          if (metadata.harness_worker_binding) {
+            summary.harnessWorkerBindingCount += 1;
+          }
+          if (metadata.harness_shadow_run) {
+            summary.harnessShadowRunCount += 1;
+          }
+          summary.harnessNodeAttemptCount += Number(metadata.harness_node_attempt_count ?? 0);
+          summary.harnessShadowComparisonCount += Number(
+            metadata.harness_shadow_comparison_count ?? 0,
+          );
+          summary.harnessBlockingDivergenceCount += Number(
+            metadata.harness_blocking_divergence_count ?? 0,
+          );
+          summary.harnessGatedClusterCount += Number(metadata.harness_gated_cluster_count ?? 0);
+          if (metadata.harness_gated_cognition_passed === true) {
+            summary.harnessGatedCognitionCount += 1;
+          }
+          if (metadata.harness_gated_routing_model_passed === true) {
+            summary.harnessGatedRoutingModelCount += 1;
+          }
+          if (metadata.harness_gated_verification_output_passed === true) {
+            summary.harnessGatedVerificationOutputCount += 1;
+          }
+          if (metadata.harness_gated_authority_tooling_passed === true) {
+            summary.harnessGatedAuthorityToolingCount += 1;
+          }
+          if (metadata.harness_fork_activation_blocked === true) {
+            summary.harnessForkActivationBlockedCount += 1;
+          }
+          if (metadata.harness_fork_activation_minted === true) {
+            summary.harnessForkActivationMintedCount += 1;
+          }
+          if (metadata.harness_canary_boundary_executed === true) {
+            summary.harnessCanaryBoundaryExecutedCount += 1;
+          }
+          if (metadata.harness_canary_boundary_rollback_drill === true) {
+            summary.harnessCanaryBoundaryRollbackDrillCount += 1;
+          }
+          if (metadata.harness_selector_canary_routed === true) {
+            summary.harnessSelectorCanaryRoutedCount += 1;
+          }
+          if (metadata.harness_selector_legacy_default === true) {
+            summary.harnessSelectorLegacyDefaultCount += 1;
+          }
+          if (metadata.harness_selector_default_promoted === true) {
+            summary.harnessSelectorDefaultPromotedCount += 1;
+          }
+          if (metadata.harness_live_handoff_canary === true) {
+            summary.harnessLiveHandoffCanaryCount += 1;
+          }
+          if (metadata.harness_live_handoff_default_promoted === true) {
+            summary.harnessLiveHandoffDefaultPromotedCount += 1;
+          }
+          if (metadata.harness_live_handoff_rollback === true) {
+            summary.harnessLiveHandoffRollbackCount += 1;
+          }
+          if (metadata.harness_default_runtime_dispatch_readonly === true) {
+            summary.harnessDefaultRuntimeDispatchReadonlyCount += 1;
+          }
+          if (metadata.harness_model_provider_gated_visible_output === true) {
+            summary.harnessModelProviderGatedVisibleOutputCount += 1;
+            noteProviderGatedVisibleOutputCoverage(
+              metadata.harness_model_provider_gated_visible_output_coverage,
+            );
+            addScenario(
+              summary.harnessModelProviderGatedVisibleOutputScenarios,
+              metadata.harness_model_provider_gated_visible_output_required_scenario ??
+                metadata.harness_model_provider_gated_visible_output_scenario,
+            );
+          }
+          if (metadata.harness_model_provider_gated_visible_output_rollback_drill === true) {
+            summary.harnessModelProviderGatedVisibleOutputRollbackDrillCount += 1;
+            noteProviderGatedVisibleOutputCoverage(
+              metadata.harness_model_provider_gated_visible_output_coverage,
+            );
+            addScenario(
+              summary.harnessModelProviderGatedVisibleOutputRollbackDrillScenarios,
+              metadata.harness_model_provider_gated_visible_output_rollback_drill_scenario ??
+                metadata.harness_model_provider_gated_visible_output_required_scenario,
+            );
+          }
+          if (metadata.harness_read_only_capability_routing === true) {
+            summary.harnessReadOnlyCapabilityRoutingCount += 1;
+            summary.harnessReadOnlyCapabilityRoutingNoMutationCount += 1;
+            noteReadOnlyCapabilityRoutingCoverage(
+              metadata.harness_read_only_capability_routing_coverage,
+            );
+            addScenario(
+              summary.harnessReadOnlyCapabilityRoutingScenarios,
+              metadata.harness_read_only_capability_routing_required_scenario ??
+                metadata.harness_read_only_capability_routing_scenario,
+            );
+            addScenario(
+              summary.harnessReadOnlyCapabilityRoutingNoMutationScenarios,
+              metadata.harness_read_only_capability_routing_required_scenario ??
+                metadata.harness_read_only_capability_routing_scenario,
+            );
+          }
         }
         for (const row of db
           .prepare("select content from artifact_blobs where artifact_id like 'runtime-evidence-%'")
@@ -606,6 +1408,75 @@ function buildGuiEvidenceAssessment({ queryResults, runtimeArtifacts }) {
   const hasScorecard = summary.scorecardCount > 0;
   const hasStopReason = summary.stopReasonCount > 0;
   const hasQualityLedger = summary.qualityLedgerCount > 0;
+  const hasHarnessShadow =
+    summary.harnessWorkerBindingCount > 0 &&
+    summary.harnessShadowRunCount > 0 &&
+    summary.harnessNodeAttemptCount > 0 &&
+    summary.harnessShadowComparisonCount > 0 &&
+    summary.harnessBlockingDivergenceCount === 0;
+  const hasHarnessGatedCognition =
+    hasHarnessShadow &&
+    summary.harnessGatedClusterCount > 0 &&
+    summary.harnessGatedCognitionCount > 0;
+  const hasHarnessGatedRoutingModel =
+    hasHarnessShadow &&
+    summary.harnessGatedClusterCount > 0 &&
+    summary.harnessGatedRoutingModelCount > 0;
+  const hasHarnessGatedVerificationOutput =
+    hasHarnessShadow &&
+    summary.harnessGatedClusterCount > 0 &&
+    summary.harnessGatedVerificationOutputCount > 0;
+  const hasHarnessGatedAuthorityTooling =
+    hasHarnessShadow &&
+    summary.harnessGatedClusterCount > 0 &&
+    summary.harnessGatedAuthorityToolingCount > 0;
+  const hasHarnessForkActivation =
+    hasHarnessGatedAuthorityTooling &&
+    summary.harnessForkActivationBlockedCount > 0 &&
+    summary.harnessForkActivationMintedCount > 0;
+  const hasHarnessCanaryExecutionBoundary =
+    hasHarnessForkActivation &&
+    summary.harnessCanaryBoundaryExecutedCount > 0 &&
+    summary.harnessCanaryBoundaryRollbackDrillCount > 0;
+  const hasHarnessLiveHandoff =
+    hasHarnessCanaryExecutionBoundary &&
+    summary.harnessLiveHandoffDefaultPromotedCount > 0 &&
+    summary.harnessLiveHandoffRollbackCount > 0;
+  const hasHarnessSelectorRouting =
+    hasHarnessLiveHandoff &&
+    summary.harnessSelectorDefaultPromotedCount > 0 &&
+    summary.harnessSelectorLegacyDefaultCount > 0;
+  const hasHarnessDefaultRuntimeDispatch =
+    hasHarnessSelectorRouting &&
+    summary.harnessDefaultRuntimeDispatchReadonlyCount > 0;
+  const providerGatedVisibleOutputScenarioCoverage =
+    AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS.every((scenario) =>
+      summary.harnessModelProviderGatedVisibleOutputScenarios.includes(scenario),
+    );
+  const providerGatedVisibleOutputRollbackDrillScenarioCoverage =
+    AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS.every((scenario) =>
+      summary.harnessModelProviderGatedVisibleOutputRollbackDrillScenarios.includes(scenario),
+    );
+  const hasHarnessModelProviderGatedVisibleOutput =
+    hasHarnessDefaultRuntimeDispatch &&
+    summary.harnessModelProviderGatedVisibleOutputCount > 0 &&
+    providerGatedVisibleOutputScenarioCoverage;
+  const hasHarnessModelProviderGatedVisibleOutputRollbackDrill =
+    hasHarnessModelProviderGatedVisibleOutput &&
+    summary.harnessModelProviderGatedVisibleOutputRollbackDrillCount > 0 &&
+    providerGatedVisibleOutputRollbackDrillScenarioCoverage;
+  const readOnlyCapabilityRoutingScenarioCoverage =
+    AUTOPILOT_READ_ONLY_CAPABILITY_ROUTING_REQUIRED_SCENARIOS.every((scenario) =>
+      summary.harnessReadOnlyCapabilityRoutingScenarios.includes(scenario),
+    );
+  const readOnlyCapabilityRoutingNoMutationScenarioCoverage =
+    AUTOPILOT_READ_ONLY_CAPABILITY_ROUTING_REQUIRED_SCENARIOS.every((scenario) =>
+      summary.harnessReadOnlyCapabilityRoutingNoMutationScenarios.includes(scenario),
+    );
+  const hasHarnessReadOnlyCapabilityRouting =
+    hasHarnessDefaultRuntimeDispatch &&
+    readOnlyCapabilityRoutingScenarioCoverage &&
+    readOnlyCapabilityRoutingNoMutationScenarioCoverage;
 
   return {
     chatUx: {
@@ -630,6 +1501,21 @@ function buildGuiEvidenceAssessment({ queryResults, runtimeArtifacts }) {
       policy_blocks_match_receipts: hasReceipts && hasStopReason,
       task_state_matches_transcript: hasTranscript && hasQualityLedger,
       scorecard_matches_stop_reason: hasScorecard && hasStopReason,
+      harness_shadow_attempts_present: hasHarnessShadow,
+      harness_gated_cognition_present: hasHarnessGatedCognition,
+      harness_gated_routing_model_present: hasHarnessGatedRoutingModel,
+      harness_gated_verification_output_present: hasHarnessGatedVerificationOutput,
+      harness_gated_authority_tooling_present: hasHarnessGatedAuthorityTooling,
+      harness_fork_activation_present: hasHarnessForkActivation,
+      harness_canary_execution_boundary_present: hasHarnessCanaryExecutionBoundary,
+      harness_live_handoff_present: hasHarnessLiveHandoff,
+      harness_selector_default_promoted: hasHarnessSelectorRouting,
+      harness_default_runtime_dispatch_present: hasHarnessDefaultRuntimeDispatch,
+      harness_model_provider_gated_visible_output_present:
+        hasHarnessModelProviderGatedVisibleOutput,
+      harness_model_provider_gated_visible_output_rollback_drill_present:
+        hasHarnessModelProviderGatedVisibleOutputRollbackDrill,
+      harness_read_only_capability_routing_present: hasHarnessReadOnlyCapabilityRouting,
       better_agent_artifacts_present:
         hasTurnState &&
         hasDecisionLoop &&
@@ -654,6 +1540,67 @@ function buildGuiEvidenceAssessment({ queryResults, runtimeArtifacts }) {
       hasScorecard,
       hasStopReason,
       hasQualityLedger,
+      hasHarnessShadow,
+      hasHarnessGatedCognition,
+      hasHarnessGatedRoutingModel,
+      hasHarnessGatedVerificationOutput,
+      hasHarnessGatedAuthorityTooling,
+      hasHarnessForkActivation,
+      hasHarnessCanaryExecutionBoundary,
+      hasHarnessLiveHandoff,
+      hasHarnessSelectorRouting,
+      hasHarnessDefaultRuntimeDispatch,
+      hasHarnessModelProviderGatedVisibleOutput,
+      hasHarnessModelProviderGatedVisibleOutputRollbackDrill,
+      hasHarnessReadOnlyCapabilityRouting,
+      providerGatedVisibleOutputRequiredScenarios: [
+        ...AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS,
+      ],
+      providerGatedVisibleOutputScenarioCoverage,
+      providerGatedVisibleOutputRollbackDrillScenarioCoverage,
+      readOnlyCapabilityRoutingRequiredScenarios: [
+        ...AUTOPILOT_READ_ONLY_CAPABILITY_ROUTING_REQUIRED_SCENARIOS,
+      ],
+      readOnlyCapabilityRoutingScenarioCoverage,
+      readOnlyCapabilityRoutingNoMutationScenarioCoverage,
+      harnessModelProviderGatedVisibleOutputScenarios:
+        summary.harnessModelProviderGatedVisibleOutputScenarios,
+      harnessModelProviderGatedVisibleOutputRollbackDrillScenarios:
+        summary.harnessModelProviderGatedVisibleOutputRollbackDrillScenarios,
+      harnessReadOnlyCapabilityRoutingCount:
+        summary.harnessReadOnlyCapabilityRoutingCount,
+      harnessReadOnlyCapabilityRoutingNoMutationCount:
+        summary.harnessReadOnlyCapabilityRoutingNoMutationCount,
+      harnessReadOnlyCapabilityRoutingScenarios:
+        summary.harnessReadOnlyCapabilityRoutingScenarios,
+      harnessReadOnlyCapabilityRoutingNoMutationScenarios:
+        summary.harnessReadOnlyCapabilityRoutingNoMutationScenarios,
+      harnessWorkerBindingCount: summary.harnessWorkerBindingCount,
+      harnessShadowRunCount: summary.harnessShadowRunCount,
+      harnessNodeAttemptCount: summary.harnessNodeAttemptCount,
+      harnessShadowComparisonCount: summary.harnessShadowComparisonCount,
+      harnessBlockingDivergenceCount: summary.harnessBlockingDivergenceCount,
+      harnessGatedClusterCount: summary.harnessGatedClusterCount,
+      harnessGatedCognitionCount: summary.harnessGatedCognitionCount,
+      harnessGatedRoutingModelCount: summary.harnessGatedRoutingModelCount,
+      harnessGatedVerificationOutputCount: summary.harnessGatedVerificationOutputCount,
+      harnessGatedAuthorityToolingCount: summary.harnessGatedAuthorityToolingCount,
+      harnessForkActivationBlockedCount: summary.harnessForkActivationBlockedCount,
+      harnessForkActivationMintedCount: summary.harnessForkActivationMintedCount,
+      harnessCanaryBoundaryExecutedCount: summary.harnessCanaryBoundaryExecutedCount,
+      harnessCanaryBoundaryRollbackDrillCount: summary.harnessCanaryBoundaryRollbackDrillCount,
+      harnessSelectorCanaryRoutedCount: summary.harnessSelectorCanaryRoutedCount,
+      harnessSelectorLegacyDefaultCount: summary.harnessSelectorLegacyDefaultCount,
+      harnessSelectorDefaultPromotedCount: summary.harnessSelectorDefaultPromotedCount,
+      harnessLiveHandoffCanaryCount: summary.harnessLiveHandoffCanaryCount,
+      harnessLiveHandoffDefaultPromotedCount: summary.harnessLiveHandoffDefaultPromotedCount,
+      harnessLiveHandoffRollbackCount: summary.harnessLiveHandoffRollbackCount,
+      harnessDefaultRuntimeDispatchReadonlyCount:
+        summary.harnessDefaultRuntimeDispatchReadonlyCount,
+      harnessModelProviderGatedVisibleOutputCount:
+        summary.harnessModelProviderGatedVisibleOutputCount,
+      harnessModelProviderGatedVisibleOutputRollbackDrillCount:
+        summary.harnessModelProviderGatedVisibleOutputRollbackDrillCount,
     },
   };
 }
@@ -816,6 +1763,10 @@ async function runGuiValidation(args, outputRoot) {
     env: {
       ...process.env,
       AUTOPILOT_LOCAL_GPU_DEV: "1",
+      AUTOPILOT_HARNESS_DEFAULT_PROMOTION:
+        process.env.AUTOPILOT_HARNESS_DEFAULT_PROMOTION ?? "1",
+      AUTOPILOT_WORKFLOW_PROVIDER_GATED_VISIBLE_OUTPUT:
+        process.env.AUTOPILOT_WORKFLOW_PROVIDER_GATED_VISIBLE_OUTPUT ?? "1",
       AUTOPILOT_RESET_DATA_ON_BOOT: process.env.AUTOPILOT_RESET_DATA_ON_BOOT ?? "1",
       VITE_AUTOPILOT_INITIAL_VIEW: "chat",
       AUTOPILOT_REUSE_DEV_SERVER: "0",
@@ -907,6 +1858,83 @@ async function runGuiValidation(args, outputRoot) {
           runtimeArtifacts.summary.stopReasonCount > 0 ? runtimeArtifacts.path : false,
         quality_ledger:
           runtimeArtifacts.summary.qualityLedgerCount > 0 ? runtimeArtifacts.path : false,
+        harness_shadow_run:
+          runtimeArtifacts.summary.harnessShadowRunCount > 0 &&
+          runtimeArtifacts.summary.harnessNodeAttemptCount > 0
+            ? runtimeArtifacts.path
+            : false,
+        harness_gated_cognition:
+          runtimeArtifacts.summary.harnessGatedCognitionCount > 0
+            ? runtimeArtifacts.path
+            : false,
+        harness_gated_routing_model:
+          runtimeArtifacts.summary.harnessGatedRoutingModelCount > 0
+            ? runtimeArtifacts.path
+            : false,
+        harness_gated_verification_output:
+          runtimeArtifacts.summary.harnessGatedVerificationOutputCount > 0
+            ? runtimeArtifacts.path
+            : false,
+        harness_gated_authority_tooling:
+          runtimeArtifacts.summary.harnessGatedAuthorityToolingCount > 0
+            ? runtimeArtifacts.path
+            : false,
+        harness_fork_activation:
+          runtimeArtifacts.summary.harnessForkActivationBlockedCount > 0 &&
+          runtimeArtifacts.summary.harnessForkActivationMintedCount > 0
+            ? runtimeArtifacts.path
+            : false,
+        harness_canary_execution_boundary:
+          runtimeArtifacts.summary.harnessCanaryBoundaryExecutedCount > 0 &&
+          runtimeArtifacts.summary.harnessCanaryBoundaryRollbackDrillCount > 0
+            ? runtimeArtifacts.path
+            : false,
+        harness_live_handoff:
+          runtimeArtifacts.summary.harnessLiveHandoffDefaultPromotedCount > 0 &&
+          runtimeArtifacts.summary.harnessLiveHandoffRollbackCount > 0
+            ? runtimeArtifacts.path
+            : false,
+        harness_selector_routing:
+          runtimeArtifacts.summary.harnessSelectorDefaultPromotedCount > 0 &&
+          runtimeArtifacts.summary.harnessSelectorLegacyDefaultCount > 0
+            ? runtimeArtifacts.path
+            : false,
+        harness_default_runtime_dispatch:
+          runtimeArtifacts.summary.harnessDefaultRuntimeDispatchReadonlyCount > 0
+            ? runtimeArtifacts.path
+            : false,
+        harness_model_provider_gated_visible_output:
+          runtimeArtifacts.summary.harnessModelProviderGatedVisibleOutputCount > 0 &&
+          AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS.every((scenario) =>
+            runtimeArtifacts.summary.harnessModelProviderGatedVisibleOutputScenarios.includes(
+              scenario,
+            ),
+          )
+            ? runtimeArtifacts.path
+            : false,
+        harness_model_provider_gated_visible_output_rollback_drill:
+          runtimeArtifacts.summary.harnessModelProviderGatedVisibleOutputRollbackDrillCount > 0 &&
+          AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS.every((scenario) =>
+            runtimeArtifacts.summary.harnessModelProviderGatedVisibleOutputRollbackDrillScenarios.includes(
+              scenario,
+            ),
+          )
+            ? runtimeArtifacts.path
+            : false,
+        harness_read_only_capability_routing:
+          runtimeArtifacts.summary.harnessDefaultRuntimeDispatchReadonlyCount > 0 &&
+          AUTOPILOT_READ_ONLY_CAPABILITY_ROUTING_REQUIRED_SCENARIOS.every((scenario) =>
+            runtimeArtifacts.summary.harnessReadOnlyCapabilityRoutingScenarios.includes(
+              scenario,
+            ),
+          ) &&
+          AUTOPILOT_READ_ONLY_CAPABILITY_ROUTING_REQUIRED_SCENARIOS.every((scenario) =>
+            runtimeArtifacts.summary.harnessReadOnlyCapabilityRoutingNoMutationScenarios.includes(
+              scenario,
+            ),
+          )
+            ? runtimeArtifacts.path
+            : false,
       },
       chatUx: guiEvidence.chatUx,
       runtimeConsistency: guiEvidence.runtimeConsistency,

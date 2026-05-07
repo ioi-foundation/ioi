@@ -1153,10 +1153,19 @@ export function evaluateWorkflowActivationReadiness(
         message: "Harness forks can only accept AI-authored edits as proposals until a user applies them.",
       });
     }
-    if (!harness?.activationId || harness.activationState !== "validated") {
+    const activationRecord = harness?.activationRecord;
+    const activationRecordValidated =
+      activationRecord?.activationState === "validated" &&
+      activationRecord.activationId === harness?.activationId &&
+      activationRecord.canaryStatus === "passed" &&
+      activationRecord.rollbackAvailable === true &&
+      activationRecord.liveAuthorityTransferred === false &&
+      activationRecord.workerBinding?.harnessActivationId === harness?.activationId;
+    if (!harness?.activationId || harness.activationState !== "validated" || !activationRecordValidated) {
       addReadinessIssue({
         code: "harness_activation_not_validated",
-        message: "Harness forks remain inactive until validation creates a reviewed activation id.",
+        message:
+          "Harness forks remain inactive until validation creates a reviewed activation id, passing canary, rollback target, and matching worker binding.",
       });
     }
   }

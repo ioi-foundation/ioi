@@ -269,7 +269,11 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
               data-testid="workflow-harness-worker-binding"
               title={`${harnessWorkerBinding.harnessWorkflowId} · ${harnessWorkerBinding.harnessHash}`}
             >
-              Harness {harnessWorkerBinding.source} · {harnessWorkerBinding.harnessWorkflowId}
+              Harness {harnessWorkerBinding.source}
+              {" · "}
+              {harnessWorkerBinding.executionMode ?? workflow.metadata.harness?.executionMode ?? "projection"}
+              {" · "}
+              {harnessWorkerBinding.harnessWorkflowId}
             </span>
           ) : null}
           <span

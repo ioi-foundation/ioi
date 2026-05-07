@@ -106,6 +106,810 @@ fn temp_runtime_dir() -> PathBuf {
     dir
 }
 
+#[test]
+fn runtime_selector_promotes_default_only_for_enabled_non_mutating_turns() {
+    let task = task_without_workspace_root();
+    let promoted = super::runtime_harness_selector_decision_with_default_promotion(
+        "promotion-session",
+        &task,
+        "Explain the runtime harness.",
+        "verify",
+        "objective_satisfied",
+        true,
+    );
+    assert_eq!(
+        promoted
+            .get("selectedSelector")
+            .and_then(|value| value.as_str()),
+        Some("blessed_workflow_live_default")
+    );
+    assert_eq!(
+        promoted
+            .get("productionDefaultSelector")
+            .and_then(|value| value.as_str()),
+        Some("blessed_workflow_live_default")
+    );
+    assert_eq!(
+        promoted
+            .get("actualRuntimeAuthority")
+            .and_then(|value| value.as_str()),
+        Some("blessed_workflow_activation_default")
+    );
+    assert_eq!(
+        promoted
+            .get("defaultPromotionGate")
+            .and_then(|gate| gate.get("eligible"))
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+
+    let mutating_task = task_with_workspace_root("/tmp/mutating-workspace");
+    let blocked = super::runtime_harness_selector_decision_with_default_promotion(
+        "promotion-session",
+        &mutating_task,
+        "Edit the workspace.",
+        "verify",
+        "objective_satisfied",
+        true,
+    );
+    assert_eq!(
+        blocked
+            .get("selectedSelector")
+            .and_then(|value| value.as_str()),
+        Some("legacy_runtime")
+    );
+    assert_eq!(
+        blocked
+            .get("defaultPromotionGate")
+            .and_then(|gate| gate.get("activationBlockers"))
+            .and_then(|value| value.as_array())
+            .map(|blockers| {
+                blockers
+                    .iter()
+                    .filter_map(|value| value.as_str())
+                    .collect::<Vec<_>>()
+                    .contains(&"mutation_evidence_present")
+            }),
+        Some(true)
+    );
+}
+
+#[test]
+fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary() {
+    let mut task = task_without_workspace_root();
+    let sid = "default-dispatch-session";
+    let latest_user_turn = "Explain the runtime harness.";
+    let latest_agent_turn = "The runtime harness is a read-only workflow substrate.";
+    task.history.push(ChatMessage {
+        role: "user".to_string(),
+        text: latest_user_turn.to_string(),
+        timestamp: 100,
+    });
+    task.history.push(ChatMessage {
+        role: "agent".to_string(),
+        text: latest_agent_turn.to_string(),
+        timestamp: 200,
+    });
+    let selector = super::runtime_harness_selector_decision_with_default_promotion(
+        sid,
+        &task,
+        latest_user_turn,
+        "verify",
+        "objective_satisfied",
+        true,
+    );
+    let shadow = super::runtime_harness_shadow_run(
+        &task,
+        sid,
+        latest_user_turn,
+        latest_agent_turn,
+        "sha256:prompt",
+        "verified_desktop_chat",
+        "verify",
+        "objective_satisfied",
+        true,
+        false,
+        false,
+    );
+    let gated = super::runtime_harness_gated_cluster_runs(sid, &shadow);
+    let cognition = super::runtime_harness_cognition_canary_execution_boundary(
+        sid,
+        &task,
+        latest_user_turn,
+        latest_agent_turn,
+        "objective_satisfied",
+        true,
+        &shadow,
+        gated.as_slice(),
+        &selector,
+    );
+    let routing = super::runtime_harness_routing_model_canary_execution_boundary(
+        sid,
+        &task,
+        latest_user_turn,
+        latest_agent_turn,
+        "objective_satisfied",
+        true,
+        &shadow,
+        gated.as_slice(),
+        &selector,
+    );
+    let verification = super::runtime_harness_verification_output_canary_execution_boundary(
+        sid,
+        &task,
+        latest_user_turn,
+        latest_agent_turn,
+        "objective_satisfied",
+        true,
+        &shadow,
+        gated.as_slice(),
+        &selector,
+    );
+    let authority_tooling = super::runtime_harness_authority_tooling_canary_execution_boundary(
+        sid,
+        &task,
+        latest_user_turn,
+        latest_agent_turn,
+        "objective_satisfied",
+        true,
+        &shadow,
+        gated.as_slice(),
+        &selector,
+    );
+    let staged_record = super::workflow_output_writer_staged_transcript_write_record(
+        sid,
+        &task,
+        &super::runtime_prompt_hash(&[latest_agent_turn]),
+    );
+    let staged_proof = json!({
+        "schemaVersion": "workflow.output_writer.transcript-staging-proof.v1",
+        "surface": "checkpoint_blobs",
+        "checkpointName": super::WORKFLOW_OUTPUT_WRITER_TRANSCRIPT_STAGING_CHECKPOINT_NAME,
+        "record": staged_record,
+        "persisted": true,
+        "loadedBeforeRollback": true,
+        "visibleBeforeCount": 0,
+        "visibleAfterCount": 0,
+        "excludedFromVisibleTranscript": true,
+        "rollbackAction": "delete_checkpoint_blob",
+        "rollbackExecuted": true,
+        "rollbackVerified": true,
+        "rollbackStatus": "deleted",
+    });
+    let visible_record = super::workflow_output_writer_visible_transcript_write_record(
+        sid,
+        &task,
+        &super::runtime_prompt_hash(&[latest_agent_turn]),
+    )
+    .expect("visible transcript record");
+    let visible_proof = json!({
+        "schemaVersion": "workflow.output_writer.visible-transcript-write-proof.v1",
+        "mode": "workflow_visible_transcript_write",
+        "target": "checkpoint_transcript_messages",
+        "record": visible_record,
+        "persisted": true,
+        "committed": true,
+        "created": true,
+        "visible": true,
+        "visibleBeforeCount": 1,
+        "visibleAfterCount": 2,
+        "visibleRowsDelta": 1,
+        "existedBefore": false,
+        "idempotencyGuard": "session_role_timestamp_order_content_hash_receipt_binding",
+        "duplicateSuppressionReady": true,
+        "identityCheckpointPersisted": true,
+        "rollbackAvailable": true,
+        "rollbackMode": "legacy_runtime_fallback_with_idempotent_duplicate_suppression",
+    });
+    let legacy_fallback = json!({
+        "schemaVersion": "workflow.output_writer.legacy-transcript-fallback.v1",
+        "phase": "legacy_fallback_after_workflow_output",
+        "writeAuthority": "existing_runtime_service",
+        "appendedCount": 0,
+        "duplicateSuppressedCount": 2,
+        "latestAgentDuplicateSuppressed": true,
+        "idempotencyGuard": "role_timestamp_content_hash"
+    });
+    let dispatch = super::runtime_harness_default_runtime_dispatch(
+        sid,
+        &task,
+        "verified_desktop_chat",
+        "verify",
+        latest_agent_turn,
+        "sha256:prompt",
+        &selector,
+        &json!({
+            "defaultAuthorityTransferred": true,
+            "runtimeAuthority": "blessed_workflow_activation_default"
+        }),
+        &[cognition, routing, verification, authority_tooling],
+        Some(&staged_proof),
+        Some(&visible_proof),
+        Some(&legacy_fallback),
+    );
+
+    assert_eq!(
+        dispatch.get("status").and_then(|value| value.as_str()),
+        Some("accepted")
+    );
+    assert_eq!(
+        dispatch
+            .get("runtimeAuthority")
+            .and_then(|value| value.as_str()),
+        Some("blessed_workflow_activation_default")
+    );
+    assert_eq!(
+        dispatch
+            .get("outputAuthority")
+            .and_then(|value| value.as_str()),
+        Some("blessed_workflow_activation_default")
+    );
+    assert_eq!(
+        dispatch
+            .get("drivesRuntimeDecision")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    let clusters = dispatch
+        .get("acceptedClusterIds")
+        .and_then(|value| value.as_array())
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|value| value.as_str())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    assert!(clusters.contains(&"cognition"));
+    assert!(clusters.contains(&"routing_model"));
+    assert!(clusters.contains(&"verification_output"));
+    assert!(clusters.contains(&"authority_tooling"));
+    let components = dispatch
+        .get("componentKinds")
+        .and_then(|value| value.as_array())
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|value| value.as_str())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    assert!(components.contains(&"verifier"));
+    assert!(components.contains(&"completion_gate"));
+    assert!(components.contains(&"output_writer"));
+    assert!(components.contains(&"policy_gate"));
+    assert!(components.contains(&"dry_run_simulator"));
+    assert!(components.contains(&"approval_gate"));
+    assert_eq!(
+        dispatch
+            .get("outputWriterDeferred")
+            .and_then(|value| value.as_bool()),
+        Some(false)
+    );
+    assert_eq!(
+        dispatch
+            .get("outputWriterStatus")
+            .and_then(|value| value.as_str()),
+        Some("visible_write_committed")
+    );
+    assert_eq!(
+        dispatch
+            .get("outputWriterHandoffReady")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("outputWriterMaterializationMode")
+            .and_then(|value| value.as_str()),
+        Some("workflow_visible_transcript_write")
+    );
+    assert_eq!(
+        dispatch
+            .get("outputWriterMaterializationCanaryReady")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("outputWriterMaterializationCommitted")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("outputWriterStagedWriteMode")
+            .and_then(|value| value.as_str()),
+        Some("isolated_checkpoint_blob")
+    );
+    assert_eq!(
+        dispatch
+            .get("outputWriterStagedWriteCanaryReady")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("outputWriterStagedWritePersisted")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("outputWriterStagedWriteCommitted")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("outputWriterStagedWriteVisible")
+            .and_then(|value| value.as_bool()),
+        Some(false)
+    );
+    assert_eq!(
+        dispatch
+            .get("outputWriterStagedWriteExcludedFromVisibleTranscript")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("outputWriterStagedWriteRollbackStatus")
+            .and_then(|value| value.as_str()),
+        Some("deleted")
+    );
+    assert_eq!(
+        dispatch
+            .get("outputWriterStagedWriteRollbackVerified")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("outputWriterVisibleWriteMode")
+            .and_then(|value| value.as_str()),
+        Some("workflow_visible_transcript_write")
+    );
+    assert_eq!(
+        dispatch
+            .get("outputWriterVisibleWriteReady")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("outputWriterVisibleWritePersisted")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("outputWriterVisibleWriteCommitted")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("outputWriterVisibleWriteVisible")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("outputWriterVisibleWriteLegacyDuplicateSuppressed")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("cognitionExecutionMode")
+            .and_then(|value| value.as_str()),
+        Some("workflow_synchronous_envelope")
+    );
+    assert_eq!(
+        dispatch
+            .get("cognitionExecutionReady")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("promptAssemblyMode")
+            .and_then(|value| value.as_str()),
+        Some("workflow_synchronous_envelope")
+    );
+    assert_eq!(
+        dispatch
+            .get("promptAssemblyPromptHash")
+            .and_then(|value| value.as_str()),
+        Some("sha256:prompt")
+    );
+    assert_eq!(
+        dispatch
+            .get("promptAssemblyPromptHashMatches")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("modelExecutionMode")
+            .and_then(|value| value.as_str()),
+        Some("workflow_synchronous_envelope")
+    );
+    assert_eq!(
+        dispatch
+            .get("modelExecutionEnvelopeReady")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert!(dispatch
+        .get("modelExecutionBindingId")
+        .and_then(|value| value.as_str())
+        .map(|value| !value.is_empty())
+        .unwrap_or(false));
+    assert_eq!(
+        dispatch
+            .get("modelExecutionBindingReady")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("modelExecutionPromptHash")
+            .and_then(|value| value.as_str()),
+        Some("sha256:prompt")
+    );
+    assert_eq!(
+        dispatch
+            .get("modelExecutionPromptHashMatches")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("modelExecutionOutputHash")
+            .and_then(|value| value.as_str()),
+        dispatch
+            .get("actualVisibleOutputHash")
+            .and_then(|value| value.as_str())
+    );
+    assert_eq!(
+        dispatch
+            .get("modelExecutionOutputHashMatches")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("modelExecutionProviderInvocationMode")
+            .and_then(|value| value.as_str()),
+        Some("workflow_provider_canary")
+    );
+    assert_eq!(
+        dispatch
+            .get("modelExecutionLowLevelInvocationDeferred")
+            .and_then(|value| value.as_bool()),
+        Some(false)
+    );
+    assert_eq!(
+        dispatch
+            .get("modelExecutionFallbackSelector")
+            .and_then(|value| value.as_str()),
+        Some("legacy_runtime_model_invocation")
+    );
+    assert_eq!(
+        dispatch
+            .get("modelProviderCanaryMode")
+            .and_then(|value| value.as_str()),
+        Some("workflow_provider_canary")
+    );
+    assert_eq!(
+        dispatch
+            .get("modelProviderCanaryReady")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("modelProviderCanaryOutputHashMatches")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("modelProviderCanaryTranscriptMatches")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("modelProviderCanaryFallbackRetained")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("modelProviderCanaryRollbackAvailable")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("authorityToolingMode")
+            .and_then(|value| value.as_str()),
+        Some("workflow_live_dry_run")
+    );
+    assert_eq!(
+        dispatch
+            .get("authorityToolingReady")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("authorityToolingPolicyGateReady")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("authorityToolingToolRouterReady")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("authorityToolingDryRunSimulatorReady")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("authorityToolingApprovalGateReady")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("authorityToolingReadOnlyRouteAccepted")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("authorityToolingDestructiveRouteDenied")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("authorityToolingMutatingToolCallsBlocked")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("authorityToolingSideEffectsExecuted")
+            .and_then(|value| value.as_bool()),
+        Some(false)
+    );
+    assert_eq!(
+        dispatch
+            .get("authorityToolingRollbackAvailable")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("legacyTranscriptAuthorityRetained")
+            .and_then(|value| value.as_bool()),
+        Some(false)
+    );
+    assert_eq!(
+        dispatch
+            .get("transcriptMaterializationMatches")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("transcriptMaterializationContentHashMatches")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("transcriptMaterializationOrderMatches")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("transcriptMaterializationReceiptBindingMatches")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("transcriptMaterializationDivergenceCount")
+            .and_then(|value| value.as_u64()),
+        Some(0)
+    );
+    assert_eq!(
+        dispatch
+            .get("workflowTranscriptWriteCandidate")
+            .and_then(|value| value.get("committed"))
+            .and_then(|value| value.as_bool()),
+        Some(false)
+    );
+    assert_eq!(
+        dispatch
+            .get("stagedTranscriptWriteRecord")
+            .and_then(|value| value.get("committed"))
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("stagedTranscriptWriteRecord")
+            .and_then(|value| value.get("visible"))
+            .and_then(|value| value.as_bool()),
+        Some(false)
+    );
+    assert_eq!(
+        dispatch
+            .get("legacyTranscriptWriteRecord")
+            .and_then(|value| value.get("committed"))
+            .and_then(|value| value.as_bool()),
+        Some(false)
+    );
+    assert_eq!(
+        dispatch
+            .get("legacyTranscriptWriteRecord")
+            .and_then(|value| value.get("suppressedByIdempotency"))
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("workflowTranscriptWriteRecord")
+            .and_then(|value| value.get("committed"))
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("workflowTranscriptWriteRecord")
+            .and_then(|value| value.get("visible"))
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("outputHashDivergence")
+            .and_then(|value| value.as_bool()),
+        Some(false)
+    );
+    assert_eq!(
+        dispatch
+            .get("outputHashDivergenceCount")
+            .and_then(|value| value.as_u64()),
+        Some(0)
+    );
+    assert_eq!(
+        dispatch
+            .get("stagedTranscriptWriteMatches")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("stagedTranscriptWriteDivergenceCount")
+            .and_then(|value| value.as_u64()),
+        Some(0)
+    );
+    assert_eq!(
+        dispatch
+            .get("visibleTranscriptWriteMatches")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        dispatch
+            .get("visibleTranscriptWriteDivergenceCount")
+            .and_then(|value| value.as_u64()),
+        Some(0)
+    );
+    assert_eq!(
+        dispatch
+            .get("proposedVisibleOutputHash")
+            .and_then(|value| value.as_str()),
+        dispatch
+            .get("actualVisibleOutputHash")
+            .and_then(|value| value.as_str())
+    );
+    assert!(dispatch
+        .get("dispatchNodeAttemptIds")
+        .and_then(|value| value.as_array())
+        .map(|items| items.len() >= 19)
+        .unwrap_or(false));
+    assert!(dispatch
+        .get("cognitionExecutionAttemptIds")
+        .and_then(|value| value.as_array())
+        .map(|items| items.len() >= 3)
+        .unwrap_or(false));
+    assert!(dispatch
+        .get("cognitionExecutionReceiptIds")
+        .and_then(|value| value.as_array())
+        .map(|items| items.len() >= 3)
+        .unwrap_or(false));
+    assert!(dispatch
+        .get("cognitionExecutionReplayFixtureRefs")
+        .and_then(|value| value.as_array())
+        .map(|items| items.len() >= 3)
+        .unwrap_or(false));
+    assert!(dispatch
+        .get("modelExecutionAttemptIds")
+        .and_then(|value| value.as_array())
+        .map(|items| items.len() >= 3)
+        .unwrap_or(false));
+    assert!(dispatch
+        .get("modelExecutionReceiptIds")
+        .and_then(|value| value.as_array())
+        .map(|items| items.len() >= 3)
+        .unwrap_or(false));
+    assert!(dispatch
+        .get("modelExecutionReplayFixtureRefs")
+        .and_then(|value| value.as_array())
+        .map(|items| items.len() >= 3)
+        .unwrap_or(false));
+    assert!(dispatch
+        .get("modelProviderCanaryAttemptIds")
+        .and_then(|value| value.as_array())
+        .map(|items| !items.is_empty())
+        .unwrap_or(false));
+    assert!(dispatch
+        .get("modelProviderCanaryReceiptIds")
+        .and_then(|value| value.as_array())
+        .map(|items| !items.is_empty())
+        .unwrap_or(false));
+    assert!(dispatch
+        .get("modelProviderCanaryReplayFixtureRefs")
+        .and_then(|value| value.as_array())
+        .map(|items| !items.is_empty())
+        .unwrap_or(false));
+    assert!(dispatch
+        .get("outputWriterMaterializationCanaryAttemptIds")
+        .and_then(|value| value.as_array())
+        .map(|items| !items.is_empty())
+        .unwrap_or(false));
+    assert!(dispatch
+        .get("outputWriterStagedWriteCanaryAttemptIds")
+        .and_then(|value| value.as_array())
+        .map(|items| !items.is_empty())
+        .unwrap_or(false));
+    assert!(dispatch
+        .get("outputWriterVisibleWriteAttemptIds")
+        .and_then(|value| value.as_array())
+        .map(|items| !items.is_empty())
+        .unwrap_or(false));
+    assert!(dispatch
+        .get("authorityToolingLiveDryRunAttemptIds")
+        .and_then(|value| value.as_array())
+        .map(|items| items.len() >= 5)
+        .unwrap_or(false));
+    assert!(dispatch
+        .get("authorityToolingDenialReceiptIds")
+        .and_then(|value| value.as_array())
+        .map(|items| !items.is_empty())
+        .unwrap_or(false));
+    assert!(dispatch
+        .get("acceptedNodeAttemptIds")
+        .and_then(|value| value.as_array())
+        .map(|items| items.len() >= 18)
+        .unwrap_or(false));
+}
+
 fn save_local_engine_control_plane_value<T: Serialize>(
     memory_runtime: &Arc<MemoryRuntime>,
     value: &T,
@@ -301,6 +1105,13 @@ fn save_local_task_state_exports_gui_runtime_evidence_projection() {
         transcript[1].privacy_metadata.redaction_version,
         "autopilot-runtime-evidence-v1"
     );
+    assert!(memory_runtime
+        .load_checkpoint_blob(
+            thread_key,
+            super::WORKFLOW_OUTPUT_WRITER_TRANSCRIPT_STAGING_CHECKPOINT_NAME,
+        )
+        .expect("staging checkpoint lookup")
+        .is_none());
 
     let artifacts = load_artifacts(&memory_runtime, "session-runtime-evidence");
     let runtime_artifact = artifacts
@@ -341,6 +1152,474 @@ fn save_local_task_state_exports_gui_runtime_evidence_projection() {
     assert!(projection.get("TaskStateModel").is_some());
     assert!(projection.get("AgentTurnState").is_some());
     assert!(projection.get("AgentDecisionLoop").is_some());
+    assert_eq!(
+        projection
+            .get("HarnessWorkerBinding")
+            .and_then(|value| value.get("executionMode"))
+            .and_then(|value| value.as_str()),
+        Some("live")
+    );
+    let selector_decision = projection
+        .get("HarnessRuntimeSelectorDecision")
+        .expect("runtime selector decision");
+    assert_eq!(
+        selector_decision
+            .get("selectedSelector")
+            .and_then(|value| value.as_str()),
+        Some("blessed_workflow_live_canary")
+    );
+    assert_eq!(
+        selector_decision
+            .get("productionDefaultSelector")
+            .and_then(|value| value.as_str()),
+        Some("legacy_runtime")
+    );
+    assert_eq!(
+        selector_decision
+            .get("canaryEligible")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        selector_decision
+            .get("canaryBlockers")
+            .and_then(|value| value.as_array())
+            .map(Vec::is_empty),
+        Some(true)
+    );
+    assert_eq!(
+        selector_decision
+            .get("actualRuntimeAuthority")
+            .and_then(|value| value.as_str()),
+        Some("blessed_workflow_activation_canary")
+    );
+    let shadow_run = projection
+        .get("HarnessShadowRun")
+        .expect("harness shadow run projection");
+    let shadow_attempts = shadow_run
+        .get("nodeAttempts")
+        .and_then(|value| value.as_array())
+        .expect("harness shadow node attempts");
+    assert!(shadow_attempts.len() >= 10);
+    assert!(shadow_attempts.iter().any(|attempt| {
+        attempt
+            .get("componentKind")
+            .and_then(|value| value.as_str())
+            == Some("prompt_assembler")
+    }));
+    assert_eq!(
+        shadow_run
+            .get("promotionBlocked")
+            .and_then(|value| value.as_bool()),
+        Some(false)
+    );
+    assert_eq!(
+        shadow_run
+            .get("comparisons")
+            .and_then(|value| value.as_array())
+            .map(|comparisons| comparisons.len()),
+        Some(shadow_attempts.len())
+    );
+    let gated_clusters = projection
+        .get("HarnessGatedClusterRuns")
+        .and_then(|value| value.as_array())
+        .expect("harness gated cluster runs");
+    assert!(gated_clusters.len() >= 4);
+    let cognition_gate = gated_clusters
+        .iter()
+        .find(|run| run.get("clusterId").and_then(|value| value.as_str()) == Some("cognition"))
+        .expect("cognition gated cluster");
+    let routing_model_gate = gated_clusters
+        .iter()
+        .find(|run| run.get("clusterId").and_then(|value| value.as_str()) == Some("routing_model"))
+        .expect("routing/model gated cluster");
+    let verification_output_gate = gated_clusters
+        .iter()
+        .find(|run| {
+            run.get("clusterId").and_then(|value| value.as_str()) == Some("verification_output")
+        })
+        .expect("verification/output gated cluster");
+    let authority_tooling_gate = gated_clusters
+        .iter()
+        .find(|run| {
+            run.get("clusterId").and_then(|value| value.as_str()) == Some("authority_tooling")
+        })
+        .expect("authority/tooling gated cluster");
+    assert_eq!(
+        cognition_gate
+            .get("executionMode")
+            .and_then(|value| value.as_str()),
+        Some("gated")
+    );
+    assert_eq!(
+        cognition_gate
+            .get("promotionBlocked")
+            .and_then(|value| value.as_bool()),
+        Some(false)
+    );
+    assert_eq!(
+        cognition_gate
+            .get("rollbackAvailable")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        cognition_gate
+            .get("canaryStatus")
+            .and_then(|value| value.as_str()),
+        Some("passed")
+    );
+    assert_eq!(
+        routing_model_gate
+            .get("executionMode")
+            .and_then(|value| value.as_str()),
+        Some("gated")
+    );
+    assert_eq!(
+        routing_model_gate
+            .get("promotionBlocked")
+            .and_then(|value| value.as_bool()),
+        Some(false)
+    );
+    assert_eq!(
+        routing_model_gate
+            .get("canaryStatus")
+            .and_then(|value| value.as_str()),
+        Some("passed")
+    );
+    assert_eq!(
+        verification_output_gate
+            .get("executionMode")
+            .and_then(|value| value.as_str()),
+        Some("gated")
+    );
+    assert_eq!(
+        verification_output_gate
+            .get("promotionBlocked")
+            .and_then(|value| value.as_bool()),
+        Some(false)
+    );
+    assert_eq!(
+        verification_output_gate
+            .get("canaryStatus")
+            .and_then(|value| value.as_str()),
+        Some("passed")
+    );
+    assert_eq!(
+        authority_tooling_gate
+            .get("executionMode")
+            .and_then(|value| value.as_str()),
+        Some("gated")
+    );
+    assert_eq!(
+        authority_tooling_gate
+            .get("promotionBlocked")
+            .and_then(|value| value.as_bool()),
+        Some(false)
+    );
+    assert_eq!(
+        authority_tooling_gate
+            .get("runtimeAuthority")
+            .and_then(|value| value.as_str()),
+        Some("existing_runtime_service")
+    );
+    assert_eq!(
+        authority_tooling_gate
+            .get("canaryStatus")
+            .and_then(|value| value.as_str()),
+        Some("passed")
+    );
+    let canary_boundaries = projection
+        .get("HarnessCanaryExecutionBoundaries")
+        .and_then(|value| value.as_array())
+        .expect("execution-backed canary boundaries");
+    assert!(canary_boundaries.len() >= 4);
+    let boundary_for = |cluster_id: &str| {
+        canary_boundaries
+            .iter()
+            .find(|boundary| {
+                boundary.get("clusterId").and_then(|value| value.as_str()) == Some(cluster_id)
+            })
+            .unwrap_or_else(|| panic!("missing execution-backed canary boundary for {cluster_id}"))
+    };
+    for (cluster_id, required_component) in [
+        ("cognition", "capability_sequencer"),
+        ("routing_model", "tool_router"),
+        ("verification_output", "completion_gate"),
+        ("authority_tooling", "wallet_capability"),
+    ] {
+        let minimum_attempts = match cluster_id {
+            "routing_model" => 3,
+            "authority_tooling" => 8,
+            _ => 6,
+        };
+        let canary_boundary = boundary_for(cluster_id);
+        assert_eq!(
+            canary_boundary
+                .get("schemaVersion")
+                .and_then(|value| value.as_str()),
+            Some("workflow.harness.canary-execution-boundary.v1")
+        );
+        assert_eq!(
+            canary_boundary
+                .get("executionMode")
+                .and_then(|value| value.as_str()),
+            Some("live")
+        );
+        assert_eq!(
+            canary_boundary
+                .get("runtimeAuthority")
+                .and_then(|value| value.as_str()),
+            Some("blessed_workflow_activation_canary")
+        );
+        assert_eq!(
+            canary_boundary
+                .get("executorKind")
+                .and_then(|value| value.as_str()),
+            Some("workflow_node_executor")
+        );
+        assert_eq!(
+            canary_boundary
+                .get("status")
+                .and_then(|value| value.as_str()),
+            Some("passed")
+        );
+        assert_eq!(
+            canary_boundary
+                .get("activationBlockers")
+                .and_then(|value| value.as_array())
+                .map(Vec::is_empty),
+            Some(true)
+        );
+        assert!(canary_boundary
+            .get("nodeAttemptIds")
+            .and_then(|value| value.as_array())
+            .map(|items| items.len() >= minimum_attempts)
+            .unwrap_or(false));
+        assert!(canary_boundary
+            .get("executedComponentKinds")
+            .and_then(|value| value.as_array())
+            .map(|items| {
+                items
+                    .iter()
+                    .filter_map(|value| value.as_str())
+                    .collect::<Vec<_>>()
+                    .contains(&required_component)
+            })
+            .unwrap_or(false));
+        let rollback_drill = canary_boundary
+            .get("rollbackDrill")
+            .expect("canary rollback drill");
+        assert_eq!(
+            rollback_drill
+                .get("clusterId")
+                .and_then(|value| value.as_str()),
+            Some(cluster_id)
+        );
+        assert_eq!(
+            rollback_drill
+                .get("failureInjected")
+                .and_then(|value| value.as_bool()),
+            Some(true)
+        );
+        assert_eq!(
+            rollback_drill
+                .get("observedFailure")
+                .and_then(|value| value.as_bool()),
+            Some(true)
+        );
+        assert_eq!(
+            rollback_drill
+                .get("rollbackExecuted")
+                .and_then(|value| value.as_bool()),
+            Some(true)
+        );
+        assert_eq!(
+            rollback_drill
+                .get("rollbackSelector")
+                .and_then(|value| value.as_str()),
+            Some("legacy_runtime")
+        );
+        assert_eq!(
+            rollback_drill
+                .get("drillStatus")
+                .and_then(|value| value.as_str()),
+            Some("passed")
+        );
+    }
+    let canary_boundary = projection
+        .get("HarnessCanaryExecutionBoundary")
+        .expect("compat execution-backed canary boundary");
+    assert_eq!(
+        canary_boundary
+            .get("clusterId")
+            .and_then(|value| value.as_str()),
+        Some("verification_output")
+    );
+    let live_handoff = projection
+        .get("HarnessLiveHandoff")
+        .expect("blessed live handoff proof");
+    assert_eq!(
+        live_handoff
+            .get("selector")
+            .and_then(|value| value.as_str()),
+        Some("blessed_workflow_live_canary")
+    );
+    assert_eq!(
+        live_handoff
+            .get("productionDefaultSelector")
+            .and_then(|value| value.as_str()),
+        Some("legacy_runtime")
+    );
+    assert_eq!(
+        live_handoff
+            .get("activationId")
+            .and_then(|value| value.as_str()),
+        Some(ioi_types::app::DEFAULT_AGENT_HARNESS_ACTIVATION_ID)
+    );
+    assert_eq!(
+        live_handoff
+            .get("canaryStatus")
+            .and_then(|value| value.as_str()),
+        Some("passed")
+    );
+    assert_eq!(
+        live_handoff
+            .get("canaryTurnRoutedThroughWorkflow")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        live_handoff
+            .get("executionBoundaryStatus")
+            .and_then(|value| value.as_str()),
+        Some("passed")
+    );
+    let handoff_boundary_clusters = live_handoff
+        .get("executionBoundaryClusterIds")
+        .and_then(|value| value.as_array())
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|value| value.as_str())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    assert!(handoff_boundary_clusters.contains(&"cognition"));
+    assert!(handoff_boundary_clusters.contains(&"routing_model"));
+    assert!(handoff_boundary_clusters.contains(&"verification_output"));
+    assert!(handoff_boundary_clusters.contains(&"authority_tooling"));
+    assert_eq!(
+        live_handoff
+            .get("defaultAuthorityTransferred")
+            .and_then(|value| value.as_bool()),
+        Some(false)
+    );
+    assert_eq!(
+        live_handoff
+            .get("rollbackAvailable")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        live_handoff
+            .get("activationBlockers")
+            .and_then(|value| value.as_array())
+            .map(Vec::is_empty),
+        Some(true)
+    );
+    assert!(live_handoff
+        .get("nodeTimelineAttemptIds")
+        .and_then(|value| value.as_array())
+        .map(|items| !items.is_empty())
+        .unwrap_or(false));
+    assert!(live_handoff
+        .get("receiptIds")
+        .and_then(|value| value.as_array())
+        .map(|items| !items.is_empty())
+        .unwrap_or(false));
+    let default_dispatch = projection
+        .get("HarnessDefaultRuntimeDispatch")
+        .expect("default runtime dispatch proof");
+    assert_eq!(
+        default_dispatch
+            .get("cognitionExecutionMode")
+            .and_then(|value| value.as_str()),
+        Some("workflow_synchronous_envelope")
+    );
+    assert!(default_dispatch
+        .get("cognitionExecutionProof")
+        .and_then(|value| value.get("schemaVersion"))
+        .and_then(|value| value.as_str())
+        .map(|value| value == "workflow.harness.cognition-execution-envelope.v1")
+        .unwrap_or(false));
+    assert_eq!(
+        default_dispatch
+            .get("modelExecutionMode")
+            .and_then(|value| value.as_str()),
+        Some("workflow_synchronous_envelope")
+    );
+    assert!(default_dispatch
+        .get("modelExecutionProof")
+        .and_then(|value| value.get("schemaVersion"))
+        .and_then(|value| value.as_str())
+        .map(|value| value == "workflow.harness.model-execution-envelope.v1")
+        .unwrap_or(false));
+    assert_eq!(
+        default_dispatch
+            .get("outputWriterStagedWriteMode")
+            .and_then(|value| value.as_str()),
+        Some("isolated_checkpoint_blob")
+    );
+    assert_eq!(
+        default_dispatch
+            .get("outputWriterStagedWritePersisted")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        default_dispatch
+            .get("outputWriterStagedWriteVisible")
+            .and_then(|value| value.as_bool()),
+        Some(false)
+    );
+    assert_eq!(
+        default_dispatch
+            .get("outputWriterStagedWriteExcludedFromVisibleTranscript")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        default_dispatch
+            .get("outputWriterStagedWriteRollbackStatus")
+            .and_then(|value| value.as_str()),
+        Some("deleted")
+    );
+    assert_eq!(
+        default_dispatch
+            .get("outputWriterStagedWriteRollbackVerified")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        default_dispatch
+            .get("stagedTranscriptWriteMatches")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        default_dispatch
+            .get("stagedTranscriptWriteDivergenceCount")
+            .and_then(|value| value.as_u64()),
+        Some(0)
+    );
+    assert_eq!(
+        default_dispatch
+            .get("stagedTranscriptWriteRecord")
+            .and_then(|value| value.get("stagingSurface"))
+            .and_then(|value| value.as_str()),
+        Some("checkpoint_blobs")
+    );
     assert!(projection.get("SessionTraceBundle").is_some());
     assert!(projection.get("ModelRoutingDecision").is_some());
     assert!(projection.get("RuntimeStrategyRouter").is_some());

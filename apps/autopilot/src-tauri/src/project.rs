@@ -27,6 +27,8 @@ use explorer::*;
 use ids::*;
 use package::*;
 use paths::*;
+pub(crate) use runtime::execute_workflow_harness_canary_node;
+pub(crate) use runtime::execute_workflow_harness_live_default_node;
 use runtime::*;
 use sidecars::*;
 use templates::*;

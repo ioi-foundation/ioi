@@ -323,13 +323,13 @@ assert.match(
 
 assert.match(
   shellContent,
-  /!workflowActive[\s\S]*controller\.chat\.paneVisible/,
+  /!dedicatedWorkbenchActive[\s\S]*controller\.chat\.paneVisible/,
   "Workflows should suppress the auxiliary chat pane",
 );
 
 assert.match(
   shellContent,
-  /const utilityDrawerVisible =[\s\S]*activeView !== "chat"[\s\S]*activeView !== "home"[\s\S]*!workflowActive[\s\S]*\{utilityDrawerVisible \? \(/,
+  /const utilityDrawerVisible =[\s\S]*activeView !== "chat"[\s\S]*activeView !== "home"[\s\S]*!dedicatedWorkbenchActive[\s\S]*\{utilityDrawerVisible \? \(/,
   "Workflows should suppress the diagnostic utility drawer",
 );
 
@@ -1066,19 +1066,19 @@ assert.match(
 
 assert.match(
   graphTypes,
-  /WorkflowHarnessComponentSpec[\s\S]*inputSchema[\s\S]*outputSchema[\s\S]*errorSchema[\s\S]*WorkflowHarnessWorkerBinding[\s\S]*harnessWorkflowId[\s\S]*harnessActivationId[\s\S]*harnessHash/,
-  "Harness-as-workflow types should expose durable component contracts and worker harness identity fields",
+  /(?=[\s\S]*WorkflowHarnessExecutionMode)(?=[\s\S]*WorkflowHarnessComponentReadiness)(?=[\s\S]*WorkflowHarnessReplayEnvelope)(?=[\s\S]*WorkflowHarnessNodeAttemptRecord)(?=[\s\S]*WorkflowHarnessShadowComparison)(?=[\s\S]*WorkflowHarnessPromotionCluster)(?=[\s\S]*WorkflowHarnessGatedClusterRun)(?=[\s\S]*WorkflowHarnessLiveHandoffProof)(?=[\s\S]*WorkflowHarnessRuntimeSelectorDecision)(?=[\s\S]*WorkflowHarnessCanaryExecutionBoundary)(?=[\s\S]*canaryExecutionBoundaries)(?=[\s\S]*WorkflowHarnessComponentSpec[\s\S]*readiness[\s\S]*inputSchema[\s\S]*outputSchema[\s\S]*errorSchema)(?=[\s\S]*WorkflowHarnessWorkerBinding[\s\S]*harnessWorkflowId[\s\S]*harnessActivationId[\s\S]*harnessHash)/,
+  "Harness-as-workflow types should expose mode, readiness, replay, node attempts, shadow comparison, gated clusters, live handoff, selector routing, canary execution boundaries, durable component contracts, and worker harness identity fields",
 );
 
 assert.match(
   harnessWorkflow,
-  /DEFAULT_AGENT_HARNESS_COMPONENTS[\s\S]*kind: "planner"[\s\S]*kind: "mcp_provider"[\s\S]*kind: "mcp_tool_call"[\s\S]*kind: "receipt_writer"[\s\S]*makeDefaultAgentHarnessWorkflow[\s\S]*readOnly: true/,
-  "Default Agent Harness projection should componentize planner, MCP providers/tools, receipts, and expose a read-only workflow graph",
+  /DEFAULT_HARNESS_EXECUTION_MODE[\s\S]*HARNESS_PROMOTION_CLUSTER_COMPONENTS[\s\S]*cognition[\s\S]*DEFAULT_AGENT_HARNESS_COMPONENTS[\s\S]*kind: "planner"[\s\S]*kind: "prompt_assembler"[\s\S]*kind: "mcp_provider"[\s\S]*kind: "mcp_tool_call"[\s\S]*kind: "receipt_writer"[\s\S]*defaultHarnessPromotionClusters[\s\S]*requiredExecutionMode: "gated"[\s\S]*makeDefaultAgentHarnessWorkflow[\s\S]*readOnly: true/,
+  "Default Agent Harness projection should componentize planner, prompt assembly, MCP providers/tools, receipts, gated clusters, and expose a read-only workflow graph",
 );
 
 assert.match(
   harnessWorkflow,
-  /forkDefaultAgentHarnessWorkflow[\s\S]*forkedFrom[\s\S]*activationState: "blocked"[\s\S]*proposal-[\s\S]*activation-gates/,
+  /forkDefaultAgentHarnessWorkflow[\s\S]*proposal-\$\{slug\}-activation-gates[\s\S]*forkedFrom[\s\S]*activationState: "blocked"[\s\S]*activationRecord/,
   "Forking the Default Agent Harness should create editable lineage metadata with activation blockers and package proposal sidecars",
 );
 
@@ -1096,8 +1096,8 @@ assert.match(
 
 assert.match(
   workflowRailPanel,
-  /workflow-settings-harness-summary[\s\S]*workflow-harness-slots[\s\S]*workflow-selected-node-harness-component[\s\S]*workflow-selected-node-harness-receipts[\s\S]*workflow-selected-node-replay-binding/,
-  "Workflow rail should render harness slots, component ids, receipt mappings, and replay metadata at node level",
+  /(?=[\s\S]*workflow-settings-harness-summary)(?=[\s\S]*Mode)(?=[\s\S]*Live-ready)(?=[\s\S]*Gated clusters)(?=[\s\S]*workflow-harness-slots)(?=[\s\S]*workflow-harness-promotion-clusters)(?=[\s\S]*workflow-run-harness-timeline)(?=[\s\S]*workflow-run-harness-shadow-comparison)(?=[\s\S]*workflow-selected-node-harness-component)(?=[\s\S]*workflow-selected-node-harness-receipts)(?=[\s\S]*workflow-selected-node-replay-binding)(?=[\s\S]*workflow-selected-node-harness-attempt)(?=[\s\S]*replayEnvelope)/,
+  "Workflow rail should render harness mode, readiness, slots, promotion clusters, component ids, receipt mappings, replay metadata, node attempts, and shadow comparison at node level",
 );
 
 assert.match(
@@ -1795,8 +1795,8 @@ assert.match(
 
 assert.match(
   graphTypes,
-  /interface WorkflowNodeRun[\s\S]*attempt: number;[\s\S]*input\?: unknown;[\s\S]*output\?: unknown;/,
-  "Workflow node run records should persist typed input and output for execution inspection",
+  /interface WorkflowNodeRun[\s\S]*attempt: number;[\s\S]*input\?: unknown;[\s\S]*output\?: unknown;[\s\S]*harnessAttempt\?: WorkflowHarnessNodeAttemptRecord;[\s\S]*interface WorkflowRunResult[\s\S]*harnessAttempts\?: WorkflowHarnessNodeAttemptRecord\[\];[\s\S]*harnessShadowComparisons\?: WorkflowHarnessShadowComparison\[\];/,
+  "Workflow node run records should persist typed input, output, harness attempts, and shadow comparisons for execution inspection",
 );
 
 assert.match(

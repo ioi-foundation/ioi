@@ -21,6 +21,247 @@ pub const HARNESS_INPUT_SCHEMA_ID: &str = "ioi.agent-harness.input.v1";
 pub const HARNESS_OUTPUT_SCHEMA_ID: &str = "ioi.agent-harness.output.v1";
 pub const HARNESS_ERROR_SCHEMA_ID: &str = "ioi.agent-harness.error.v1";
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Hash)]
+#[serde(rename_all = "snake_case")]
+pub enum HarnessExecutionMode {
+    Projection,
+    Shadow,
+    Gated,
+    Live,
+}
+
+impl HarnessExecutionMode {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Projection => "projection",
+            Self::Shadow => "shadow",
+            Self::Gated => "gated",
+            Self::Live => "live",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Hash)]
+#[serde(rename_all = "snake_case")]
+pub enum HarnessComponentReadiness {
+    ProjectionOnly,
+    Simulated,
+    ShadowReady,
+    LiveReady,
+}
+
+impl HarnessComponentReadiness {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::ProjectionOnly => "projection_only",
+            Self::Simulated => "simulated",
+            Self::ShadowReady => "shadow_ready",
+            Self::LiveReady => "live_ready",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Hash)]
+#[serde(rename_all = "snake_case")]
+pub enum HarnessReplayDeterminism {
+    Deterministic,
+    Nondeterministic,
+    Redacted,
+    Disabled,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct HarnessReplayEnvelope {
+    pub deterministic_envelope: bool,
+    pub captures_input: bool,
+    pub captures_output: bool,
+    pub captures_policy_decision: bool,
+    pub fixture_ref: Option<String>,
+    pub determinism: HarnessReplayDeterminism,
+    pub nondeterminism_reason: Option<String>,
+    pub redaction_policy: String,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Hash)]
+#[serde(rename_all = "snake_case")]
+pub enum HarnessNodeAttemptStatus {
+    Projection,
+    Shadow,
+    Gated,
+    Live,
+    Succeeded,
+    Failed,
+    Blocked,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct HarnessNodeAttemptRecord {
+    pub attempt_id: String,
+    pub harness_workflow_id: String,
+    pub harness_activation_id: String,
+    pub harness_hash: String,
+    pub workflow_node_id: String,
+    pub component_id: String,
+    pub component_kind: HarnessComponentKind,
+    pub execution_mode: HarnessExecutionMode,
+    pub readiness: HarnessComponentReadiness,
+    pub attempt_index: u32,
+    pub status: HarnessNodeAttemptStatus,
+    pub input_hash: Option<String>,
+    pub output_hash: Option<String>,
+    pub error_class: Option<String>,
+    pub policy_decision: Option<String>,
+    pub started_at_ms: Option<u64>,
+    pub duration_ms: Option<u64>,
+    pub receipt_ids: Vec<String>,
+    pub evidence_refs: Vec<String>,
+    pub replay: HarnessReplayEnvelope,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Hash)]
+#[serde(rename_all = "snake_case")]
+pub enum HarnessDivergenceClass {
+    None,
+    HarmlessMetadata,
+    MissingReceipt,
+    PolicyDivergence,
+    RoutingDivergence,
+    OutputDivergence,
+    BehavioralRegression,
+    Unclassified,
+}
+
+impl HarnessDivergenceClass {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::HarmlessMetadata => "harmless_metadata",
+            Self::MissingReceipt => "missing_receipt",
+            Self::PolicyDivergence => "policy_divergence",
+            Self::RoutingDivergence => "routing_divergence",
+            Self::OutputDivergence => "output_divergence",
+            Self::BehavioralRegression => "behavioral_regression",
+            Self::Unclassified => "unclassified",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct HarnessShadowComparison {
+    pub workflow_node_id: String,
+    pub component_kind: HarnessComponentKind,
+    pub live_attempt_id: String,
+    pub shadow_attempt_id: String,
+    pub divergence: HarnessDivergenceClass,
+    pub blocking: bool,
+    pub summary: String,
+    pub evidence_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct HarnessShadowRun {
+    pub schema_version: String,
+    pub run_id: String,
+    pub harness_workflow_id: String,
+    pub harness_activation_id: String,
+    pub harness_hash: String,
+    pub source_session_id: Option<String>,
+    pub live_turn_id: Option<String>,
+    pub execution_mode: HarnessExecutionMode,
+    pub node_attempts: Vec<HarnessNodeAttemptRecord>,
+    pub comparisons: Vec<HarnessShadowComparison>,
+    pub blocking_divergence_count: u32,
+    pub unclassified_divergence_count: u32,
+    pub promotion_blocked: bool,
+    pub evidence_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Hash)]
+#[serde(rename_all = "snake_case")]
+pub enum HarnessPromotionClusterId {
+    Cognition,
+    RoutingModel,
+    VerificationOutput,
+    AuthorityTooling,
+}
+
+impl HarnessPromotionClusterId {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Cognition => "cognition",
+            Self::RoutingModel => "routing_model",
+            Self::VerificationOutput => "verification_output",
+            Self::AuthorityTooling => "authority_tooling",
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Cognition => "Cognition",
+            Self::RoutingModel => "Routing and model",
+            Self::VerificationOutput => "Verification and output",
+            Self::AuthorityTooling => "Authority and tooling",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Hash)]
+#[serde(rename_all = "snake_case")]
+pub enum HarnessClusterPromotionStatus {
+    ShadowReady,
+    Gated,
+    Blocked,
+    Live,
+}
+
+impl HarnessClusterPromotionStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::ShadowReady => "shadow_ready",
+            Self::Gated => "gated",
+            Self::Blocked => "blocked",
+            Self::Live => "live",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct HarnessPromotionCluster {
+    pub cluster_id: HarnessPromotionClusterId,
+    pub label: String,
+    pub activation_order: u32,
+    pub component_kinds: Vec<HarnessComponentKind>,
+    pub required_execution_mode: HarnessExecutionMode,
+    pub minimum_readiness: HarnessComponentReadiness,
+    pub promotion_rule: String,
+    pub rollback_target: String,
+    pub blocks_live_activation: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct HarnessGatedClusterRun {
+    pub schema_version: String,
+    pub run_id: String,
+    pub cluster_id: HarnessPromotionClusterId,
+    pub cluster_label: String,
+    pub harness_workflow_id: String,
+    pub harness_activation_id: String,
+    pub harness_hash: String,
+    pub execution_mode: HarnessExecutionMode,
+    pub status: HarnessClusterPromotionStatus,
+    pub component_kinds: Vec<HarnessComponentKind>,
+    pub shadow_run_id: String,
+    pub node_attempt_ids: Vec<String>,
+    pub receipt_ids: Vec<String>,
+    pub replay_fixture_refs: Vec<String>,
+    pub activation_blockers: Vec<String>,
+    pub gate_decision: String,
+    pub rollback_target: String,
+    pub canary_status: String,
+    pub promotion_blocked: bool,
+    pub evidence_refs: Vec<String>,
+}
+
 #[derive(
     Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Hash,
 )]
@@ -259,6 +500,7 @@ pub struct HarnessComponentSpec {
     pub component_id: String,
     pub version: String,
     pub kind: HarnessComponentKind,
+    pub readiness: HarnessComponentReadiness,
     pub label: String,
     pub kernel_ref: String,
     pub input_schema: String,
@@ -288,13 +530,16 @@ pub struct HarnessActionFrame {
     pub workflow_id: String,
     pub workflow_version: String,
     pub workflow_hash: String,
+    pub execution_mode: HarnessExecutionMode,
     pub node_id: String,
     pub component_id: String,
     pub component_version: String,
     pub component_kind: HarnessComponentKind,
+    pub readiness: HarnessComponentReadiness,
     pub kernel_ref: String,
     pub slot_ids: Vec<String>,
     pub deterministic_envelope: bool,
+    pub replay: HarnessReplayEnvelope,
     pub event_kinds: Vec<String>,
     pub evidence_keys: Vec<String>,
 }
@@ -304,7 +549,348 @@ pub struct HarnessWorkerBinding {
     pub harness_workflow_id: String,
     pub harness_activation_id: Option<String>,
     pub harness_hash: String,
+    pub execution_mode: HarnessExecutionMode,
     pub source: String,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Hash)]
+#[serde(rename_all = "snake_case")]
+pub enum HarnessLiveHandoffSelector {
+    LegacyRuntime,
+    BlessedWorkflowGated,
+    BlessedWorkflowLiveCanary,
+    BlessedWorkflowLiveDefault,
+}
+
+impl HarnessLiveHandoffSelector {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::LegacyRuntime => "legacy_runtime",
+            Self::BlessedWorkflowGated => "blessed_workflow_gated",
+            Self::BlessedWorkflowLiveCanary => "blessed_workflow_live_canary",
+            Self::BlessedWorkflowLiveDefault => "blessed_workflow_live_default",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct HarnessComponentVersionBinding {
+    pub component_id: String,
+    pub component_version: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct HarnessDefaultPromotionGate {
+    pub config_key: String,
+    pub enabled: bool,
+    pub eligible: bool,
+    pub non_mutating_only: bool,
+    pub selector: HarnessLiveHandoffSelector,
+    pub production_default_selector: HarnessLiveHandoffSelector,
+    pub default_authority_transferred: bool,
+    pub rollback_target: String,
+    pub activation_blockers: Vec<String>,
+    pub policy_decision: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct HarnessLiveHandoffProof {
+    pub schema_version: String,
+    pub selector: HarnessLiveHandoffSelector,
+    pub available_selectors: Vec<HarnessLiveHandoffSelector>,
+    pub production_default_selector: HarnessLiveHandoffSelector,
+    pub workflow_id: String,
+    pub activation_id: String,
+    pub harness_hash: String,
+    pub component_version_set: Vec<HarnessComponentVersionBinding>,
+    pub canary_status: String,
+    pub canary_turn_routed_through_workflow: bool,
+    pub execution_boundary_id: String,
+    pub execution_boundary_ids: Vec<String>,
+    pub execution_boundary_cluster_ids: Vec<HarnessPromotionClusterId>,
+    pub execution_boundary_status: String,
+    pub execution_boundary_executor: String,
+    pub default_authority_transferred: bool,
+    pub runtime_authority: String,
+    pub fallback_selector: HarnessLiveHandoffSelector,
+    pub rollback_target: String,
+    pub rollback_available: bool,
+    pub policy_decision: String,
+    pub gated_cluster_ids: Vec<HarnessPromotionClusterId>,
+    pub node_timeline_attempt_ids: Vec<String>,
+    pub receipt_ids: Vec<String>,
+    pub replay_fixture_refs: Vec<String>,
+    pub activation_blockers: Vec<String>,
+    pub default_promotion_gate: HarnessDefaultPromotionGate,
+    pub evidence_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct HarnessRuntimeSelectorDecision {
+    pub schema_version: String,
+    pub decision_id: String,
+    pub requested_selector: String,
+    pub selected_selector: HarnessLiveHandoffSelector,
+    pub production_default_selector: HarnessLiveHandoffSelector,
+    pub canary_eligible: bool,
+    pub canary_blockers: Vec<String>,
+    pub workflow_id: String,
+    pub activation_id: String,
+    pub harness_hash: String,
+    pub execution_mode: HarnessExecutionMode,
+    pub actual_runtime_authority: String,
+    pub fallback_selector: HarnessLiveHandoffSelector,
+    pub rollback_target: String,
+    pub rollback_available: bool,
+    pub policy_decision: String,
+    pub route_reason: String,
+    pub default_promotion_gate: HarnessDefaultPromotionGate,
+    pub evidence_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct HarnessDefaultRuntimeDispatchProof {
+    pub schema_version: String,
+    pub dispatch_id: String,
+    pub selector_decision_id: String,
+    pub selected_selector: HarnessLiveHandoffSelector,
+    pub production_default_selector: HarnessLiveHandoffSelector,
+    pub workflow_id: String,
+    pub activation_id: String,
+    pub harness_hash: String,
+    pub execution_mode: HarnessExecutionMode,
+    pub runtime_authority: String,
+    pub dispatch_scope: String,
+    pub accepted_cluster_ids: Vec<HarnessPromotionClusterId>,
+    pub component_kinds: Vec<HarnessComponentKind>,
+    pub deferred_component_kinds: Vec<HarnessComponentKind>,
+    pub handoff_validated_component_kinds: Vec<HarnessComponentKind>,
+    pub materialization_canary_component_kinds: Vec<HarnessComponentKind>,
+    pub source_boundary_ids: Vec<String>,
+    pub dispatch_node_attempt_ids: Vec<String>,
+    pub cognition_execution_attempt_ids: Vec<String>,
+    pub cognition_execution_receipt_ids: Vec<String>,
+    pub cognition_execution_replay_fixture_refs: Vec<String>,
+    pub model_execution_attempt_ids: Vec<String>,
+    pub model_execution_receipt_ids: Vec<String>,
+    pub model_execution_replay_fixture_refs: Vec<String>,
+    pub model_provider_canary_attempt_ids: Vec<String>,
+    pub model_provider_canary_receipt_ids: Vec<String>,
+    pub model_provider_canary_replay_fixture_refs: Vec<String>,
+    pub model_provider_gated_visible_output_attempt_ids: Vec<String>,
+    pub model_provider_gated_visible_output_receipt_ids: Vec<String>,
+    pub model_provider_gated_visible_output_replay_fixture_refs: Vec<String>,
+    pub model_provider_gated_visible_output_rollback_drill_attempt_ids: Vec<String>,
+    pub model_provider_gated_visible_output_rollback_drill_receipt_ids: Vec<String>,
+    pub model_provider_gated_visible_output_rollback_drill_replay_fixture_refs: Vec<String>,
+    pub read_only_capability_routing_attempt_ids: Vec<String>,
+    pub read_only_capability_routing_receipt_ids: Vec<String>,
+    pub read_only_capability_routing_replay_fixture_refs: Vec<String>,
+    pub output_writer_handoff_attempt_ids: Vec<String>,
+    pub output_writer_materialization_canary_attempt_ids: Vec<String>,
+    pub output_writer_staged_write_canary_attempt_ids: Vec<String>,
+    pub output_writer_visible_write_attempt_ids: Vec<String>,
+    pub authority_tooling_live_dry_run_attempt_ids: Vec<String>,
+    pub authority_tooling_denial_receipt_ids: Vec<String>,
+    pub accepted_node_attempt_ids: Vec<String>,
+    pub node_attempt_ids: Vec<String>,
+    pub receipt_ids: Vec<String>,
+    pub replay_fixture_refs: Vec<String>,
+    pub executor_kind: String,
+    pub executor_ref: String,
+    pub synchronous: bool,
+    pub drives_runtime_decision: bool,
+    pub cognition_execution_mode: String,
+    pub cognition_execution_ready: bool,
+    pub prompt_assembly_mode: String,
+    pub prompt_assembly_prompt_hash: String,
+    pub prompt_assembly_prompt_hash_matches: bool,
+    pub model_execution_mode: String,
+    pub model_execution_envelope_ready: bool,
+    pub model_execution_binding_id: String,
+    pub model_execution_binding_ready: bool,
+    pub model_execution_prompt_hash: String,
+    pub model_execution_prompt_hash_matches: bool,
+    pub model_execution_output_hash: String,
+    pub model_execution_output_hash_matches: bool,
+    pub model_execution_provider_invocation_mode: String,
+    pub model_execution_low_level_invocation_deferred: bool,
+    pub model_execution_fallback_selector: String,
+    pub model_execution_latency_ms: u64,
+    pub model_provider_canary_mode: String,
+    pub model_provider_canary_ready: bool,
+    pub model_provider_canary_candidate_output_hash: String,
+    pub model_provider_canary_legacy_output_hash: String,
+    pub model_provider_canary_output_hash_matches: bool,
+    pub model_provider_canary_transcript_matches: bool,
+    pub model_provider_canary_fallback_retained: bool,
+    pub model_provider_canary_rollback_available: bool,
+    pub model_provider_gated_visible_output_mode: String,
+    pub model_provider_gated_visible_output_enabled: bool,
+    pub model_provider_gated_visible_output_ready: bool,
+    pub model_provider_gated_visible_output_selected: bool,
+    pub model_provider_gated_visible_output_eligible: bool,
+    pub model_provider_gated_visible_output_scenario: String,
+    pub model_provider_gated_visible_output_cohort: String,
+    pub model_provider_gated_visible_output_retained_read_only_no_tool: bool,
+    pub model_provider_gated_visible_output_required_scenario_set: Vec<String>,
+    pub model_provider_gated_visible_output_scenario_coverage_key: Option<String>,
+    pub model_provider_gated_visible_output_activation_flag: String,
+    pub model_provider_gated_visible_output_activation_id: String,
+    pub model_provider_gated_visible_output_authority: String,
+    pub model_provider_gated_visible_output_rollback_target: String,
+    pub model_provider_gated_visible_output_rollback_available: bool,
+    pub selected_visible_output_authority: String,
+    pub selected_visible_output_hash: String,
+    pub workflow_provider_visible_output_hash: String,
+    pub legacy_visible_output_hash: String,
+    pub legacy_visible_output_computed: bool,
+    pub legacy_visible_output_hash_matches_selected: bool,
+    pub selected_visible_output_authority_matches_transcript: bool,
+    pub visible_output_divergence_class: Option<String>,
+    pub model_provider_gated_visible_output_rollback_drill_enabled: bool,
+    pub model_provider_gated_visible_output_rollback_drill_ready: bool,
+    pub model_provider_gated_visible_output_rollback_drill_failure_injected: bool,
+    pub model_provider_gated_visible_output_rollback_drill_injected_output_hash: String,
+    pub model_provider_gated_visible_output_rollback_drill_output_hash_diverges: bool,
+    pub model_provider_gated_visible_output_rollback_drill_divergence_class: String,
+    pub model_provider_gated_visible_output_rollback_drill_fallback_authority: String,
+    pub model_provider_gated_visible_output_rollback_drill_selected_authority: String,
+    pub model_provider_gated_visible_output_rollback_drill_transcript_unchanged: bool,
+    pub model_provider_gated_visible_output_rollback_drill_rollback_executed: bool,
+    pub model_provider_gated_visible_output_rollback_drill_activation_blockers: Vec<String>,
+    pub read_only_capability_routing_mode: String,
+    pub read_only_capability_routing_ready: bool,
+    pub read_only_capability_routing_selected: bool,
+    pub read_only_capability_routing_eligible: bool,
+    pub read_only_capability_routing_scenario: String,
+    pub read_only_capability_routing_required_scenario_set: Vec<String>,
+    pub read_only_capability_routing_scenario_coverage_key: Option<String>,
+    pub read_only_capability_routing_source_material_ready: bool,
+    pub read_only_capability_routing_no_mutation_ready: bool,
+    pub read_only_capability_routing_workflow_owned_node_kinds: Vec<HarnessComponentKind>,
+    pub output_authority: String,
+    pub output_writer_deferred: bool,
+    pub output_writer_status: String,
+    pub output_writer_handoff_ready: bool,
+    pub output_writer_authority_transferred: bool,
+    pub output_writer_materialization_mode: String,
+    pub output_writer_materialization_canary_ready: bool,
+    pub output_writer_materialization_committed: bool,
+    pub output_writer_staged_write_mode: String,
+    pub output_writer_staged_write_canary_ready: bool,
+    pub output_writer_staged_write_persisted: bool,
+    pub output_writer_staged_write_committed: bool,
+    pub output_writer_staged_write_visible: bool,
+    pub output_writer_staged_write_excluded_from_visible_transcript: bool,
+    pub output_writer_staged_write_rollback_status: String,
+    pub output_writer_staged_write_rollback_verified: bool,
+    pub output_writer_visible_write_mode: String,
+    pub output_writer_visible_write_ready: bool,
+    pub output_writer_visible_write_persisted: bool,
+    pub output_writer_visible_write_committed: bool,
+    pub output_writer_visible_write_visible: bool,
+    pub output_writer_visible_write_identity_checkpoint_persisted: bool,
+    pub output_writer_visible_write_legacy_duplicate_suppressed: bool,
+    pub authority_tooling_mode: String,
+    pub authority_tooling_ready: bool,
+    pub authority_tooling_policy_gate_ready: bool,
+    pub authority_tooling_tool_router_ready: bool,
+    pub authority_tooling_dry_run_simulator_ready: bool,
+    pub authority_tooling_approval_gate_ready: bool,
+    pub authority_tooling_read_only_route_accepted: bool,
+    pub authority_tooling_destructive_route_denied: bool,
+    pub authority_tooling_mutating_tool_calls_blocked: bool,
+    pub authority_tooling_side_effects_executed: bool,
+    pub authority_tooling_rollback_available: bool,
+    pub legacy_transcript_authority_retained: bool,
+    pub legacy_transcript_fallback_available: bool,
+    pub proposed_visible_output_hash: String,
+    pub actual_visible_output_hash: String,
+    pub output_hash_algorithm: String,
+    pub output_hash_matches: bool,
+    pub output_hash_divergence: bool,
+    pub output_hash_divergence_count: u32,
+    pub transcript_materialization_content_hash_matches: bool,
+    pub transcript_materialization_order_matches: bool,
+    pub transcript_materialization_receipt_binding_matches: bool,
+    pub transcript_materialization_target_matches: bool,
+    pub transcript_materialization_matches: bool,
+    pub transcript_materialization_divergence_count: u32,
+    pub staged_transcript_write_content_hash_matches: bool,
+    pub staged_transcript_write_order_matches: bool,
+    pub staged_transcript_write_receipt_binding_matches: bool,
+    pub staged_transcript_write_target_matches: bool,
+    pub staged_transcript_write_matches: bool,
+    pub staged_transcript_write_divergence_count: u32,
+    pub visible_transcript_write_content_hash_matches: bool,
+    pub visible_transcript_write_order_matches: bool,
+    pub visible_transcript_write_receipt_binding_matches: bool,
+    pub visible_transcript_write_target_matches: bool,
+    pub visible_transcript_write_matches: bool,
+    pub visible_transcript_write_divergence_count: u32,
+    pub legacy_output_authority_retained: bool,
+    pub legacy_output_fallback_available: bool,
+    pub mutating_turns_blocked: bool,
+    pub rollback_target: String,
+    pub rollback_available: bool,
+    pub activation_blockers: Vec<String>,
+    pub policy_decision: String,
+    pub evidence_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct HarnessCanaryRollbackDrill {
+    pub schema_version: String,
+    pub drill_id: String,
+    pub selector_decision_id: String,
+    pub failure_injected: bool,
+    pub failed_node_id: String,
+    pub cluster_id: HarnessPromotionClusterId,
+    pub failure_class: String,
+    pub observed_failure: bool,
+    pub rollback_executed: bool,
+    pub rollback_selector: HarnessLiveHandoffSelector,
+    pub fallback_authority: String,
+    pub rollback_target: String,
+    pub rollback_available: bool,
+    pub drill_status: String,
+    pub policy_decision: String,
+    pub evidence_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct HarnessCanaryExecutionBoundary {
+    pub schema_version: String,
+    pub boundary_id: String,
+    pub cluster_id: HarnessPromotionClusterId,
+    pub cluster_label: String,
+    pub selector_decision_id: String,
+    pub selected_selector: HarnessLiveHandoffSelector,
+    pub production_default_selector: HarnessLiveHandoffSelector,
+    pub workflow_id: String,
+    pub activation_id: String,
+    pub harness_hash: String,
+    pub execution_mode: HarnessExecutionMode,
+    pub runtime_authority: String,
+    pub executor_kind: String,
+    pub executor_ref: String,
+    pub synchronous: bool,
+    pub enforced_before_visible_output: bool,
+    pub canary_eligible: bool,
+    pub status: String,
+    pub component_kinds: Vec<HarnessComponentKind>,
+    pub executed_component_kinds: Vec<HarnessComponentKind>,
+    pub workflow_node_ids: Vec<String>,
+    pub node_attempt_ids: Vec<String>,
+    pub receipt_ids: Vec<String>,
+    pub replay_fixture_refs: Vec<String>,
+    pub activation_blockers: Vec<String>,
+    pub rollback_target: String,
+    pub rollback_available: bool,
+    pub rollback_drill: HarnessCanaryRollbackDrill,
+    pub policy_decision: String,
+    pub evidence_refs: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
@@ -368,8 +954,58 @@ const DEFAULT_HARNESS_FLOW: &[HarnessComponentKind] = &[
     HarnessComponentKind::GuiHarnessValidator,
 ];
 
+const COGNITION_CLUSTER_COMPONENTS: &[HarnessComponentKind] = &[
+    HarnessComponentKind::Planner,
+    HarnessComponentKind::PromptAssembler,
+    HarnessComponentKind::TaskState,
+    HarnessComponentKind::UncertaintyGate,
+    HarnessComponentKind::BudgetGate,
+    HarnessComponentKind::CapabilitySequencer,
+];
+
+const ROUTING_MODEL_CLUSTER_COMPONENTS: &[HarnessComponentKind] = &[
+    HarnessComponentKind::ModelRouter,
+    HarnessComponentKind::ModelCall,
+    HarnessComponentKind::ToolRouter,
+];
+
+const VERIFICATION_OUTPUT_CLUSTER_COMPONENTS: &[HarnessComponentKind] = &[
+    HarnessComponentKind::PostconditionSynthesizer,
+    HarnessComponentKind::Verifier,
+    HarnessComponentKind::CompletionGate,
+    HarnessComponentKind::ReceiptWriter,
+    HarnessComponentKind::QualityLedger,
+    HarnessComponentKind::OutputWriter,
+];
+
+const AUTHORITY_TOOLING_CLUSTER_COMPONENTS: &[HarnessComponentKind] = &[
+    HarnessComponentKind::PolicyGate,
+    HarnessComponentKind::ApprovalGate,
+    HarnessComponentKind::DryRunSimulator,
+    HarnessComponentKind::McpProvider,
+    HarnessComponentKind::McpToolCall,
+    HarnessComponentKind::ToolCall,
+    HarnessComponentKind::ConnectorCall,
+    HarnessComponentKind::WalletCapability,
+];
+
 fn strings(values: &[&str]) -> Vec<String> {
     values.iter().map(|value| (*value).to_string()).collect()
+}
+
+fn promotion_cluster_components(
+    cluster_id: HarnessPromotionClusterId,
+) -> Vec<HarnessComponentKind> {
+    match cluster_id {
+        HarnessPromotionClusterId::Cognition => COGNITION_CLUSTER_COMPONENTS.to_vec(),
+        HarnessPromotionClusterId::RoutingModel => ROUTING_MODEL_CLUSTER_COMPONENTS.to_vec(),
+        HarnessPromotionClusterId::VerificationOutput => {
+            VERIFICATION_OUTPUT_CLUSTER_COMPONENTS.to_vec()
+        }
+        HarnessPromotionClusterId::AuthorityTooling => {
+            AUTHORITY_TOOLING_CLUSTER_COMPONENTS.to_vec()
+        }
+    }
 }
 
 fn component_scope(kind: HarnessComponentKind) -> Vec<String> {
@@ -618,6 +1254,81 @@ fn component_evidence(kind: HarnessComponentKind) -> Vec<String> {
     }
 }
 
+fn component_readiness(kind: HarnessComponentKind) -> HarnessComponentReadiness {
+    match kind {
+        HarnessComponentKind::Planner
+        | HarnessComponentKind::PromptAssembler
+        | HarnessComponentKind::TaskState
+        | HarnessComponentKind::UncertaintyGate
+        | HarnessComponentKind::BudgetGate
+        | HarnessComponentKind::CapabilitySequencer
+        | HarnessComponentKind::ModelRouter
+        | HarnessComponentKind::ModelCall
+        | HarnessComponentKind::ToolRouter
+        | HarnessComponentKind::ToolCall
+        | HarnessComponentKind::DryRunSimulator
+        | HarnessComponentKind::McpProvider
+        | HarnessComponentKind::McpToolCall
+        | HarnessComponentKind::ConnectorCall
+        | HarnessComponentKind::PolicyGate
+        | HarnessComponentKind::ApprovalGate
+        | HarnessComponentKind::WalletCapability
+        | HarnessComponentKind::PostconditionSynthesizer
+        | HarnessComponentKind::Verifier
+        | HarnessComponentKind::CompletionGate
+        | HarnessComponentKind::ReceiptWriter
+        | HarnessComponentKind::QualityLedger
+        | HarnessComponentKind::OutputWriter => HarnessComponentReadiness::ShadowReady,
+        _ => HarnessComponentReadiness::ProjectionOnly,
+    }
+}
+
+fn replay_captures_policy_decision(kind: HarnessComponentKind) -> bool {
+    matches!(
+        kind,
+        HarnessComponentKind::UncertaintyGate
+            | HarnessComponentKind::BudgetGate
+            | HarnessComponentKind::DryRunSimulator
+            | HarnessComponentKind::PolicyGate
+            | HarnessComponentKind::ApprovalGate
+            | HarnessComponentKind::WalletCapability
+            | HarnessComponentKind::RetryPolicy
+            | HarnessComponentKind::CompletionGate
+    )
+}
+
+fn replay_is_intrinsically_nondeterministic(kind: HarnessComponentKind) -> bool {
+    matches!(
+        kind,
+        HarnessComponentKind::ModelCall
+            | HarnessComponentKind::ToolCall
+            | HarnessComponentKind::McpToolCall
+            | HarnessComponentKind::ConnectorCall
+            | HarnessComponentKind::WalletCapability
+    )
+}
+
+fn default_harness_replay_envelope(kind: HarnessComponentKind) -> HarnessReplayEnvelope {
+    let nondeterministic = replay_is_intrinsically_nondeterministic(kind);
+    HarnessReplayEnvelope {
+        deterministic_envelope: !nondeterministic,
+        captures_input: true,
+        captures_output: true,
+        captures_policy_decision: replay_captures_policy_decision(kind),
+        fixture_ref: None,
+        determinism: if nondeterministic {
+            HarnessReplayDeterminism::Nondeterministic
+        } else {
+            HarnessReplayDeterminism::Deterministic
+        },
+        nondeterminism_reason: nondeterministic.then(|| {
+            "External model, tool, connector, or wallet boundary requires retained fixture evidence"
+                .to_string()
+        }),
+        redaction_policy: "runtime_redacted".to_string(),
+    }
+}
+
 fn approval_for(kind: HarnessComponentKind) -> HarnessApprovalSemantics {
     let required = matches!(
         kind,
@@ -672,6 +1383,7 @@ pub fn default_harness_component_spec(kind: HarnessComponentKind) -> HarnessComp
         component_id: kind.component_id(),
         version: HARNESS_COMPONENT_VERSION_V1.to_string(),
         kind,
+        readiness: component_readiness(kind),
         label: kind.label().to_string(),
         kernel_ref: kind.kernel_ref().to_string(),
         input_schema: HARNESS_INPUT_SCHEMA_ID.to_string(),
@@ -699,6 +1411,29 @@ pub fn default_agent_harness_components() -> Vec<HarnessComponentSpec> {
         .copied()
         .map(default_harness_component_spec)
         .collect()
+}
+
+pub fn default_harness_promotion_clusters() -> Vec<HarnessPromotionCluster> {
+    [
+        HarnessPromotionClusterId::Cognition,
+        HarnessPromotionClusterId::RoutingModel,
+        HarnessPromotionClusterId::VerificationOutput,
+        HarnessPromotionClusterId::AuthorityTooling,
+    ]
+    .into_iter()
+    .enumerate()
+    .map(|(index, cluster_id)| HarnessPromotionCluster {
+        cluster_id,
+        label: cluster_id.label().to_string(),
+        activation_order: (index + 1) as u32,
+        component_kinds: promotion_cluster_components(cluster_id),
+        required_execution_mode: HarnessExecutionMode::Gated,
+        minimum_readiness: HarnessComponentReadiness::ShadowReady,
+        promotion_rule: "zero blocking or unclassified divergence, receipt coverage, replay fixture coverage, and rollback target required".to_string(),
+        rollback_target: "shadow".to_string(),
+        blocks_live_activation: true,
+    })
+    .collect()
 }
 
 fn slot_kinds_for_component(kind: HarnessComponentKind) -> Vec<HarnessSlotKind> {
@@ -916,17 +1651,21 @@ pub fn default_agent_harness_action_frames() -> Vec<HarnessActionFrame> {
             workflow_id: DEFAULT_AGENT_HARNESS_WORKFLOW_ID.to_string(),
             workflow_version: DEFAULT_AGENT_HARNESS_VERSION.to_string(),
             workflow_hash: DEFAULT_AGENT_HARNESS_HASH.to_string(),
+            execution_mode: HarnessExecutionMode::Projection,
             node_id: component.kind.workflow_node_id(),
             component_id: component.component_id,
             component_version: component.version,
             component_kind: component.kind,
+            readiness: component.readiness,
             kernel_ref: component.kernel_ref,
             slot_ids: slot_kinds_for_component(component.kind)
                 .into_iter()
                 .map(HarnessSlotKind::slot_id)
                 .map(str::to_string)
                 .collect(),
-            deterministic_envelope: true,
+            deterministic_envelope: default_harness_replay_envelope(component.kind)
+                .deterministic_envelope,
+            replay: default_harness_replay_envelope(component.kind),
             event_kinds: component.emitted_events,
             evidence_keys: component.evidence,
         })
@@ -938,8 +1677,634 @@ pub fn default_harness_worker_binding() -> HarnessWorkerBinding {
         harness_workflow_id: DEFAULT_AGENT_HARNESS_WORKFLOW_ID.to_string(),
         harness_activation_id: Some(DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string()),
         harness_hash: DEFAULT_AGENT_HARNESS_HASH.to_string(),
+        execution_mode: HarnessExecutionMode::Projection,
         source: "default".to_string(),
     }
+}
+
+pub fn default_blessed_live_handoff_proof(
+    node_timeline_attempt_ids: Vec<String>,
+    receipt_ids: Vec<String>,
+    replay_fixture_refs: Vec<String>,
+) -> HarnessLiveHandoffProof {
+    HarnessLiveHandoffProof {
+        schema_version: "workflow.harness.live-handoff.v1".to_string(),
+        selector: HarnessLiveHandoffSelector::BlessedWorkflowLiveCanary,
+        available_selectors: vec![
+            HarnessLiveHandoffSelector::LegacyRuntime,
+            HarnessLiveHandoffSelector::BlessedWorkflowGated,
+            HarnessLiveHandoffSelector::BlessedWorkflowLiveCanary,
+            HarnessLiveHandoffSelector::BlessedWorkflowLiveDefault,
+        ],
+        production_default_selector: HarnessLiveHandoffSelector::LegacyRuntime,
+        workflow_id: DEFAULT_AGENT_HARNESS_WORKFLOW_ID.to_string(),
+        activation_id: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+        harness_hash: DEFAULT_AGENT_HARNESS_HASH.to_string(),
+        component_version_set: DEFAULT_HARNESS_FLOW
+            .iter()
+            .copied()
+            .map(default_harness_component_spec)
+            .map(|component| HarnessComponentVersionBinding {
+                component_id: component.component_id,
+                component_version: component.version,
+            })
+            .collect(),
+        canary_status: "passed".to_string(),
+        canary_turn_routed_through_workflow: true,
+        execution_boundary_id: "harness-canary-boundary:default-agent-harness:verification_output"
+            .to_string(),
+        execution_boundary_ids: vec![
+            "harness-canary-boundary:default-agent-harness:cognition".to_string(),
+            "harness-canary-boundary:default-agent-harness:routing_model".to_string(),
+            "harness-canary-boundary:default-agent-harness:verification_output".to_string(),
+            "harness-canary-boundary:default-agent-harness:authority_tooling".to_string(),
+        ],
+        execution_boundary_cluster_ids: vec![
+            HarnessPromotionClusterId::Cognition,
+            HarnessPromotionClusterId::RoutingModel,
+            HarnessPromotionClusterId::VerificationOutput,
+            HarnessPromotionClusterId::AuthorityTooling,
+        ],
+        execution_boundary_status: "passed".to_string(),
+        execution_boundary_executor: "crate::project::execute_workflow_harness_canary_node"
+            .to_string(),
+        default_authority_transferred: false,
+        runtime_authority: "blessed_workflow_activation_canary".to_string(),
+        fallback_selector: HarnessLiveHandoffSelector::LegacyRuntime,
+        rollback_target: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+        rollback_available: true,
+        policy_decision: "allow_blessed_workflow_live_canary".to_string(),
+        gated_cluster_ids: vec![
+            HarnessPromotionClusterId::Cognition,
+            HarnessPromotionClusterId::RoutingModel,
+            HarnessPromotionClusterId::VerificationOutput,
+            HarnessPromotionClusterId::AuthorityTooling,
+        ],
+        node_timeline_attempt_ids,
+        receipt_ids,
+        replay_fixture_refs,
+        activation_blockers: Vec::new(),
+        default_promotion_gate: HarnessDefaultPromotionGate {
+            config_key: "AUTOPILOT_HARNESS_DEFAULT_PROMOTION".to_string(),
+            enabled: false,
+            eligible: false,
+            non_mutating_only: true,
+            selector: HarnessLiveHandoffSelector::BlessedWorkflowLiveCanary,
+            production_default_selector: HarnessLiveHandoffSelector::LegacyRuntime,
+            default_authority_transferred: false,
+            rollback_target: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+            activation_blockers: vec!["promotion_gate_disabled".to_string()],
+            policy_decision: "retain_legacy_runtime_default".to_string(),
+        },
+        evidence_refs: vec!["runtime-evidence:blessed-live-handoff-canary".to_string()],
+    }
+}
+
+pub fn default_harness_runtime_selector_decision() -> HarnessRuntimeSelectorDecision {
+    HarnessRuntimeSelectorDecision {
+        schema_version: "workflow.harness.runtime-selector.v1".to_string(),
+        decision_id: "harness-selector:default-agent-harness:canary".to_string(),
+        requested_selector: "auto_canary".to_string(),
+        selected_selector: HarnessLiveHandoffSelector::BlessedWorkflowLiveCanary,
+        production_default_selector: HarnessLiveHandoffSelector::LegacyRuntime,
+        canary_eligible: true,
+        canary_blockers: Vec::new(),
+        workflow_id: DEFAULT_AGENT_HARNESS_WORKFLOW_ID.to_string(),
+        activation_id: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+        harness_hash: DEFAULT_AGENT_HARNESS_HASH.to_string(),
+        execution_mode: HarnessExecutionMode::Live,
+        actual_runtime_authority: "blessed_workflow_activation_canary".to_string(),
+        fallback_selector: HarnessLiveHandoffSelector::LegacyRuntime,
+        rollback_target: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+        rollback_available: true,
+        policy_decision: "allow_blessed_workflow_live_canary".to_string(),
+        route_reason: "Turn is non-mutating and eligible for blessed workflow canary routing."
+            .to_string(),
+        default_promotion_gate: HarnessDefaultPromotionGate {
+            config_key: "AUTOPILOT_HARNESS_DEFAULT_PROMOTION".to_string(),
+            enabled: false,
+            eligible: false,
+            non_mutating_only: true,
+            selector: HarnessLiveHandoffSelector::BlessedWorkflowLiveCanary,
+            production_default_selector: HarnessLiveHandoffSelector::LegacyRuntime,
+            default_authority_transferred: false,
+            rollback_target: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+            activation_blockers: vec!["promotion_gate_disabled".to_string()],
+            policy_decision: "retain_legacy_runtime_default".to_string(),
+        },
+        evidence_refs: vec!["runtime-evidence:selector-canary".to_string()],
+    }
+}
+
+pub fn default_harness_default_runtime_dispatch_proof() -> HarnessDefaultRuntimeDispatchProof {
+    HarnessDefaultRuntimeDispatchProof {
+        schema_version: "workflow.harness.default-runtime-dispatch.v1".to_string(),
+        dispatch_id: "harness-default-dispatch:default-agent-harness:readonly".to_string(),
+        selector_decision_id: "harness-selector:default-agent-harness:default".to_string(),
+        selected_selector: HarnessLiveHandoffSelector::BlessedWorkflowLiveDefault,
+        production_default_selector: HarnessLiveHandoffSelector::BlessedWorkflowLiveDefault,
+        workflow_id: DEFAULT_AGENT_HARNESS_WORKFLOW_ID.to_string(),
+        activation_id: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+        harness_hash: DEFAULT_AGENT_HARNESS_HASH.to_string(),
+        execution_mode: HarnessExecutionMode::Live,
+        runtime_authority: "blessed_workflow_activation_default".to_string(),
+        dispatch_scope: "read_only_cognition_routing_verification_completion_authority_tooling"
+            .to_string(),
+        accepted_cluster_ids: vec![
+            HarnessPromotionClusterId::Cognition,
+            HarnessPromotionClusterId::RoutingModel,
+            HarnessPromotionClusterId::VerificationOutput,
+            HarnessPromotionClusterId::AuthorityTooling,
+        ],
+        component_kinds: vec![
+            HarnessComponentKind::Planner,
+            HarnessComponentKind::PromptAssembler,
+            HarnessComponentKind::TaskState,
+            HarnessComponentKind::UncertaintyGate,
+            HarnessComponentKind::BudgetGate,
+            HarnessComponentKind::CapabilitySequencer,
+            HarnessComponentKind::ModelRouter,
+            HarnessComponentKind::ModelCall,
+            HarnessComponentKind::ToolRouter,
+            HarnessComponentKind::PostconditionSynthesizer,
+            HarnessComponentKind::Verifier,
+            HarnessComponentKind::CompletionGate,
+            HarnessComponentKind::ReceiptWriter,
+            HarnessComponentKind::QualityLedger,
+            HarnessComponentKind::OutputWriter,
+            HarnessComponentKind::PolicyGate,
+            HarnessComponentKind::DryRunSimulator,
+            HarnessComponentKind::ApprovalGate,
+        ],
+        deferred_component_kinds: vec![
+            HarnessComponentKind::McpProvider,
+            HarnessComponentKind::McpToolCall,
+            HarnessComponentKind::ToolCall,
+            HarnessComponentKind::ConnectorCall,
+            HarnessComponentKind::WalletCapability,
+        ],
+        handoff_validated_component_kinds: vec![HarnessComponentKind::OutputWriter],
+        materialization_canary_component_kinds: vec![HarnessComponentKind::OutputWriter],
+        source_boundary_ids: vec![
+            "harness-canary-boundary:default-agent-harness:cognition".to_string(),
+            "harness-canary-boundary:default-agent-harness:routing_model".to_string(),
+            "harness-canary-boundary:default-agent-harness:verification_output".to_string(),
+            "harness-canary-boundary:default-agent-harness:authority_tooling".to_string(),
+        ],
+        dispatch_node_attempt_ids: vec![
+            "harness-default-dispatch:attempt-cognition".to_string(),
+            "harness-default-dispatch:attempt-routing_model".to_string(),
+            "harness-default-dispatch:attempt-verification_output".to_string(),
+            "harness-default-dispatch:attempt-authority_tooling".to_string(),
+            "harness-default-dispatch:attempt-planner_envelope".to_string(),
+            "harness-default-dispatch:attempt-prompt_assembler_envelope".to_string(),
+            "harness-default-dispatch:attempt-task_state_envelope".to_string(),
+            "harness-default-dispatch:attempt-model_router_envelope".to_string(),
+            "harness-default-dispatch:attempt-model_call_envelope".to_string(),
+            "harness-default-dispatch:attempt-model_provider_call_canary".to_string(),
+            "harness-default-dispatch:attempt-model_provider_gated_visible_output".to_string(),
+            "harness-default-dispatch:attempt-model_provider_gated_visible_output_rollback_drill"
+                .to_string(),
+            "harness-default-dispatch:attempt-read_only_source_router".to_string(),
+            "harness-default-dispatch:attempt-read_only_capability_sequencer".to_string(),
+            "harness-default-dispatch:attempt-read_only_tool_router".to_string(),
+            "harness-default-dispatch:attempt-read_only_no_mutation_drill".to_string(),
+            "harness-default-dispatch:attempt-authority_tooling_policy_gate".to_string(),
+            "harness-default-dispatch:attempt-authority_tooling_tool_router".to_string(),
+            "harness-default-dispatch:attempt-authority_tooling_dry_run_simulator".to_string(),
+            "harness-default-dispatch:attempt-authority_tooling_destructive_denial".to_string(),
+            "harness-default-dispatch:attempt-authority_tooling_approval_gate".to_string(),
+            "harness-default-dispatch:attempt-output_writer_handoff".to_string(),
+            "harness-default-dispatch:attempt-output_writer_materialization_canary".to_string(),
+            "harness-default-dispatch:attempt-output_writer_staged_write_canary".to_string(),
+            "harness-default-dispatch:attempt-output_writer_visible_write_commit".to_string(),
+        ],
+        cognition_execution_attempt_ids: vec![
+            "harness-default-dispatch:attempt-planner_envelope".to_string(),
+            "harness-default-dispatch:attempt-prompt_assembler_envelope".to_string(),
+            "harness-default-dispatch:attempt-task_state_envelope".to_string(),
+        ],
+        cognition_execution_receipt_ids: vec![
+            "harness-default-dispatch:receipt-planner_envelope".to_string(),
+            "harness-default-dispatch:receipt-prompt_assembler_envelope".to_string(),
+            "harness-default-dispatch:receipt-task_state_envelope".to_string(),
+        ],
+        cognition_execution_replay_fixture_refs: vec![
+            "harness-default-dispatch:fixture-planner_envelope".to_string(),
+            "harness-default-dispatch:fixture-prompt_assembler_envelope".to_string(),
+            "harness-default-dispatch:fixture-task_state_envelope".to_string(),
+        ],
+        model_execution_attempt_ids: vec![
+            "harness-default-dispatch:attempt-model_router_envelope".to_string(),
+            "harness-default-dispatch:attempt-model_call_envelope".to_string(),
+            "harness-default-dispatch:attempt-model_provider_call_canary".to_string(),
+            "harness-default-dispatch:attempt-model_provider_gated_visible_output".to_string(),
+            "harness-default-dispatch:attempt-model_provider_gated_visible_output_rollback_drill"
+                .to_string(),
+        ],
+        model_execution_receipt_ids: vec![
+            "harness-default-dispatch:receipt-model_router_envelope".to_string(),
+            "harness-default-dispatch:receipt-model_call_envelope".to_string(),
+            "harness-default-dispatch:receipt-model_provider_call_canary".to_string(),
+            "harness-default-dispatch:receipt-model_provider_gated_visible_output".to_string(),
+            "harness-default-dispatch:receipt-model_provider_gated_visible_output_rollback_drill"
+                .to_string(),
+        ],
+        model_execution_replay_fixture_refs: vec![
+            "harness-default-dispatch:fixture-model_router_envelope".to_string(),
+            "harness-default-dispatch:fixture-model_call_envelope".to_string(),
+            "harness-default-dispatch:fixture-model_provider_call_canary".to_string(),
+            "harness-default-dispatch:fixture-model_provider_gated_visible_output".to_string(),
+            "harness-default-dispatch:fixture-model_provider_gated_visible_output_rollback_drill"
+                .to_string(),
+        ],
+        model_provider_canary_attempt_ids: vec![
+            "harness-default-dispatch:attempt-model_provider_call_canary".to_string(),
+        ],
+        model_provider_canary_receipt_ids: vec![
+            "harness-default-dispatch:receipt-model_provider_call_canary".to_string(),
+        ],
+        model_provider_canary_replay_fixture_refs: vec![
+            "harness-default-dispatch:fixture-model_provider_call_canary".to_string(),
+        ],
+        model_provider_gated_visible_output_attempt_ids: vec![
+            "harness-default-dispatch:attempt-model_provider_gated_visible_output".to_string(),
+        ],
+        model_provider_gated_visible_output_receipt_ids: vec![
+            "harness-default-dispatch:receipt-model_provider_gated_visible_output".to_string(),
+        ],
+        model_provider_gated_visible_output_replay_fixture_refs: vec![
+            "harness-default-dispatch:fixture-model_provider_gated_visible_output".to_string(),
+        ],
+        model_provider_gated_visible_output_rollback_drill_attempt_ids: vec![
+            "harness-default-dispatch:attempt-model_provider_gated_visible_output_rollback_drill"
+                .to_string(),
+        ],
+        model_provider_gated_visible_output_rollback_drill_receipt_ids: vec![
+            "harness-default-dispatch:receipt-model_provider_gated_visible_output_rollback_drill"
+                .to_string(),
+        ],
+        model_provider_gated_visible_output_rollback_drill_replay_fixture_refs: vec![
+            "harness-default-dispatch:fixture-model_provider_gated_visible_output_rollback_drill"
+                .to_string(),
+        ],
+        read_only_capability_routing_attempt_ids: vec![
+            "harness-default-dispatch:attempt-read_only_source_router".to_string(),
+            "harness-default-dispatch:attempt-read_only_capability_sequencer".to_string(),
+            "harness-default-dispatch:attempt-read_only_tool_router".to_string(),
+            "harness-default-dispatch:attempt-read_only_no_mutation_drill".to_string(),
+        ],
+        read_only_capability_routing_receipt_ids: vec![
+            "harness-default-dispatch:receipt-read_only_source_router".to_string(),
+            "harness-default-dispatch:receipt-read_only_capability_sequencer".to_string(),
+            "harness-default-dispatch:receipt-read_only_tool_router".to_string(),
+            "harness-default-dispatch:receipt-read_only_no_mutation_drill".to_string(),
+        ],
+        read_only_capability_routing_replay_fixture_refs: vec![
+            "harness-default-dispatch:fixture-read_only_source_router".to_string(),
+            "harness-default-dispatch:fixture-read_only_capability_sequencer".to_string(),
+            "harness-default-dispatch:fixture-read_only_tool_router".to_string(),
+            "harness-default-dispatch:fixture-read_only_no_mutation_drill".to_string(),
+        ],
+        output_writer_handoff_attempt_ids: vec![
+            "harness-default-dispatch:attempt-output_writer_handoff".to_string(),
+        ],
+        output_writer_materialization_canary_attempt_ids: vec![
+            "harness-default-dispatch:attempt-output_writer_materialization_canary".to_string(),
+        ],
+        output_writer_staged_write_canary_attempt_ids: vec![
+            "harness-default-dispatch:attempt-output_writer_staged_write_canary".to_string(),
+        ],
+        output_writer_visible_write_attempt_ids: vec![
+            "harness-default-dispatch:attempt-output_writer_visible_write_commit".to_string(),
+        ],
+        authority_tooling_live_dry_run_attempt_ids: vec![
+            "harness-default-dispatch:attempt-authority_tooling_policy_gate".to_string(),
+            "harness-default-dispatch:attempt-authority_tooling_tool_router".to_string(),
+            "harness-default-dispatch:attempt-authority_tooling_dry_run_simulator".to_string(),
+            "harness-default-dispatch:attempt-authority_tooling_destructive_denial".to_string(),
+            "harness-default-dispatch:attempt-authority_tooling_approval_gate".to_string(),
+        ],
+        authority_tooling_denial_receipt_ids: vec![
+            "harness-default-dispatch:receipt-authority_tooling_destructive_denial".to_string(),
+        ],
+        accepted_node_attempt_ids: vec!["harness-canary:attempt-planner".to_string()],
+        node_attempt_ids: vec!["harness-default-dispatch:attempt-planner".to_string()],
+        receipt_ids: vec!["harness-default-dispatch:receipt-planner".to_string()],
+        replay_fixture_refs: vec!["harness-default-dispatch:fixture-planner".to_string()],
+        executor_kind: "workflow_node_executor".to_string(),
+        executor_ref: "crate::project::execute_workflow_harness_live_default_node".to_string(),
+        synchronous: true,
+        drives_runtime_decision: true,
+        cognition_execution_mode: "workflow_synchronous_envelope".to_string(),
+        cognition_execution_ready: true,
+        prompt_assembly_mode: "workflow_synchronous_envelope".to_string(),
+        prompt_assembly_prompt_hash: "sha256:prompt-final".to_string(),
+        prompt_assembly_prompt_hash_matches: true,
+        model_execution_mode: "workflow_synchronous_envelope".to_string(),
+        model_execution_envelope_ready: true,
+        model_execution_binding_id:
+            "model-binding:default-agent-harness:workflow-default-model-route".to_string(),
+        model_execution_binding_ready: true,
+        model_execution_prompt_hash: "sha256:prompt-final".to_string(),
+        model_execution_prompt_hash_matches: true,
+        model_execution_output_hash: "sha256:visible-output".to_string(),
+        model_execution_output_hash_matches: true,
+        model_execution_provider_invocation_mode: "workflow_provider_canary".to_string(),
+        model_execution_low_level_invocation_deferred: false,
+        model_execution_fallback_selector: "legacy_runtime_model_invocation".to_string(),
+        model_execution_latency_ms: 0,
+        model_provider_canary_mode: "workflow_provider_canary".to_string(),
+        model_provider_canary_ready: true,
+        model_provider_canary_candidate_output_hash: "sha256:visible-output".to_string(),
+        model_provider_canary_legacy_output_hash: "sha256:visible-output".to_string(),
+        model_provider_canary_output_hash_matches: true,
+        model_provider_canary_transcript_matches: true,
+        model_provider_canary_fallback_retained: true,
+        model_provider_canary_rollback_available: true,
+        model_provider_gated_visible_output_mode: "workflow_provider_gated_visible_output"
+            .to_string(),
+        model_provider_gated_visible_output_enabled: true,
+        model_provider_gated_visible_output_ready: true,
+        model_provider_gated_visible_output_selected: true,
+        model_provider_gated_visible_output_eligible: true,
+        model_provider_gated_visible_output_scenario: "retained_no_tool_answer".to_string(),
+        model_provider_gated_visible_output_cohort: "retained_read_only_no_tool".to_string(),
+        model_provider_gated_visible_output_retained_read_only_no_tool: true,
+        model_provider_gated_visible_output_required_scenario_set: vec![
+            "retained_no_tool_answer".to_string(),
+            "retained_repo_grounded_answer".to_string(),
+            "retained_planning_without_mutation".to_string(),
+            "retained_mermaid_rendering".to_string(),
+            "retained_source_heavy_synthesis".to_string(),
+            "retained_probe_behavior".to_string(),
+            "retained_harness_dogfooding".to_string(),
+        ],
+        model_provider_gated_visible_output_scenario_coverage_key: Some(
+            "retained_no_tool_answer".to_string(),
+        ),
+        model_provider_gated_visible_output_activation_flag:
+            "AUTOPILOT_WORKFLOW_PROVIDER_GATED_VISIBLE_OUTPUT".to_string(),
+        model_provider_gated_visible_output_activation_id: DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+            .to_string(),
+        model_provider_gated_visible_output_authority: "workflow_model_provider_call".to_string(),
+        model_provider_gated_visible_output_rollback_target: "legacy_runtime_model_invocation"
+            .to_string(),
+        model_provider_gated_visible_output_rollback_available: true,
+        selected_visible_output_authority: "workflow_model_provider_call".to_string(),
+        selected_visible_output_hash: "sha256:visible-output".to_string(),
+        workflow_provider_visible_output_hash: "sha256:visible-output".to_string(),
+        legacy_visible_output_hash: "sha256:visible-output".to_string(),
+        legacy_visible_output_computed: true,
+        legacy_visible_output_hash_matches_selected: true,
+        selected_visible_output_authority_matches_transcript: true,
+        visible_output_divergence_class: None,
+        model_provider_gated_visible_output_rollback_drill_enabled: true,
+        model_provider_gated_visible_output_rollback_drill_ready: true,
+        model_provider_gated_visible_output_rollback_drill_failure_injected: true,
+        model_provider_gated_visible_output_rollback_drill_injected_output_hash:
+            "sha256:provider-output-divergence".to_string(),
+        model_provider_gated_visible_output_rollback_drill_output_hash_diverges: true,
+        model_provider_gated_visible_output_rollback_drill_divergence_class:
+            "provider_output_hash_divergence".to_string(),
+        model_provider_gated_visible_output_rollback_drill_fallback_authority:
+            "legacy_runtime_model_invocation".to_string(),
+        model_provider_gated_visible_output_rollback_drill_selected_authority:
+            "legacy_runtime_model_invocation".to_string(),
+        model_provider_gated_visible_output_rollback_drill_transcript_unchanged: true,
+        model_provider_gated_visible_output_rollback_drill_rollback_executed: true,
+        model_provider_gated_visible_output_rollback_drill_activation_blockers: vec![
+            "model_provider_output_hash_divergence".to_string(),
+        ],
+        read_only_capability_routing_mode: "workflow_read_only_capability_routing".to_string(),
+        read_only_capability_routing_ready: true,
+        read_only_capability_routing_selected: true,
+        read_only_capability_routing_eligible: true,
+        read_only_capability_routing_scenario: "retained_repo_grounded_answer".to_string(),
+        read_only_capability_routing_required_scenario_set: vec![
+            "retained_repo_grounded_answer".to_string(),
+            "retained_source_heavy_synthesis".to_string(),
+            "retained_probe_behavior".to_string(),
+        ],
+        read_only_capability_routing_scenario_coverage_key: Some(
+            "retained_repo_grounded_answer".to_string(),
+        ),
+        read_only_capability_routing_source_material_ready: true,
+        read_only_capability_routing_no_mutation_ready: true,
+        read_only_capability_routing_workflow_owned_node_kinds: vec![
+            HarnessComponentKind::MemoryRead,
+            HarnessComponentKind::CapabilitySequencer,
+            HarnessComponentKind::ToolRouter,
+            HarnessComponentKind::DryRunSimulator,
+        ],
+        output_authority: "blessed_workflow_activation_default".to_string(),
+        output_writer_deferred: false,
+        output_writer_status: "visible_write_committed".to_string(),
+        output_writer_handoff_ready: true,
+        output_writer_authority_transferred: true,
+        output_writer_materialization_mode: "workflow_visible_transcript_write".to_string(),
+        output_writer_materialization_canary_ready: true,
+        output_writer_materialization_committed: true,
+        output_writer_staged_write_mode: "isolated_checkpoint_blob".to_string(),
+        output_writer_staged_write_canary_ready: true,
+        output_writer_staged_write_persisted: true,
+        output_writer_staged_write_committed: true,
+        output_writer_staged_write_visible: false,
+        output_writer_staged_write_excluded_from_visible_transcript: true,
+        output_writer_staged_write_rollback_status: "deleted".to_string(),
+        output_writer_staged_write_rollback_verified: true,
+        output_writer_visible_write_mode: "workflow_visible_transcript_write".to_string(),
+        output_writer_visible_write_ready: true,
+        output_writer_visible_write_persisted: true,
+        output_writer_visible_write_committed: true,
+        output_writer_visible_write_visible: true,
+        output_writer_visible_write_identity_checkpoint_persisted: true,
+        output_writer_visible_write_legacy_duplicate_suppressed: true,
+        authority_tooling_mode: "workflow_live_dry_run".to_string(),
+        authority_tooling_ready: true,
+        authority_tooling_policy_gate_ready: true,
+        authority_tooling_tool_router_ready: true,
+        authority_tooling_dry_run_simulator_ready: true,
+        authority_tooling_approval_gate_ready: true,
+        authority_tooling_read_only_route_accepted: true,
+        authority_tooling_destructive_route_denied: true,
+        authority_tooling_mutating_tool_calls_blocked: true,
+        authority_tooling_side_effects_executed: false,
+        authority_tooling_rollback_available: true,
+        legacy_transcript_authority_retained: false,
+        legacy_transcript_fallback_available: true,
+        proposed_visible_output_hash: "sha256:visible-output".to_string(),
+        actual_visible_output_hash: "sha256:visible-output".to_string(),
+        output_hash_algorithm: "runtime_prompt_hash:v1".to_string(),
+        output_hash_matches: true,
+        output_hash_divergence: false,
+        output_hash_divergence_count: 0,
+        transcript_materialization_content_hash_matches: true,
+        transcript_materialization_order_matches: true,
+        transcript_materialization_receipt_binding_matches: true,
+        transcript_materialization_target_matches: true,
+        transcript_materialization_matches: true,
+        transcript_materialization_divergence_count: 0,
+        staged_transcript_write_content_hash_matches: true,
+        staged_transcript_write_order_matches: true,
+        staged_transcript_write_receipt_binding_matches: true,
+        staged_transcript_write_target_matches: true,
+        staged_transcript_write_matches: true,
+        staged_transcript_write_divergence_count: 0,
+        visible_transcript_write_content_hash_matches: true,
+        visible_transcript_write_order_matches: true,
+        visible_transcript_write_receipt_binding_matches: true,
+        visible_transcript_write_target_matches: true,
+        visible_transcript_write_matches: true,
+        visible_transcript_write_divergence_count: 0,
+        legacy_output_authority_retained: false,
+        legacy_output_fallback_available: true,
+        mutating_turns_blocked: true,
+        rollback_target: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+        rollback_available: true,
+        activation_blockers: Vec::new(),
+        policy_decision:
+            "accept_read_only_workflow_default_dispatch_with_authority_dry_run_and_visible_write"
+                .to_string(),
+        evidence_refs: vec!["runtime-evidence:default-runtime-dispatch".to_string()],
+    }
+}
+
+fn default_harness_canary_execution_boundary_for_cluster(
+    cluster_id: HarnessPromotionClusterId,
+) -> HarnessCanaryExecutionBoundary {
+    let component_kinds = match cluster_id {
+        HarnessPromotionClusterId::Cognition => vec![
+            HarnessComponentKind::Planner,
+            HarnessComponentKind::PromptAssembler,
+            HarnessComponentKind::TaskState,
+            HarnessComponentKind::UncertaintyGate,
+            HarnessComponentKind::BudgetGate,
+            HarnessComponentKind::CapabilitySequencer,
+        ],
+        HarnessPromotionClusterId::VerificationOutput => vec![
+            HarnessComponentKind::PostconditionSynthesizer,
+            HarnessComponentKind::Verifier,
+            HarnessComponentKind::CompletionGate,
+            HarnessComponentKind::ReceiptWriter,
+            HarnessComponentKind::QualityLedger,
+            HarnessComponentKind::OutputWriter,
+        ],
+        HarnessPromotionClusterId::RoutingModel => vec![
+            HarnessComponentKind::ModelRouter,
+            HarnessComponentKind::ModelCall,
+            HarnessComponentKind::ToolRouter,
+        ],
+        HarnessPromotionClusterId::AuthorityTooling => vec![
+            HarnessComponentKind::PolicyGate,
+            HarnessComponentKind::ApprovalGate,
+            HarnessComponentKind::DryRunSimulator,
+            HarnessComponentKind::McpProvider,
+            HarnessComponentKind::McpToolCall,
+            HarnessComponentKind::ToolCall,
+            HarnessComponentKind::ConnectorCall,
+            HarnessComponentKind::WalletCapability,
+        ],
+    };
+    let cluster_slug = cluster_id.as_str();
+    let failed_component = match cluster_id {
+        HarnessPromotionClusterId::Cognition => HarnessComponentKind::TaskState,
+        HarnessPromotionClusterId::VerificationOutput => HarnessComponentKind::Verifier,
+        HarnessPromotionClusterId::RoutingModel => HarnessComponentKind::ModelRouter,
+        HarnessPromotionClusterId::AuthorityTooling => HarnessComponentKind::PolicyGate,
+    };
+    HarnessCanaryExecutionBoundary {
+        schema_version: "workflow.harness.canary-execution-boundary.v1".to_string(),
+        boundary_id: format!("harness-canary-boundary:default-agent-harness:{cluster_slug}"),
+        cluster_id,
+        cluster_label: cluster_id.label().to_string(),
+        selector_decision_id: "harness-selector:default-agent-harness:canary".to_string(),
+        selected_selector: HarnessLiveHandoffSelector::BlessedWorkflowLiveCanary,
+        production_default_selector: HarnessLiveHandoffSelector::LegacyRuntime,
+        workflow_id: DEFAULT_AGENT_HARNESS_WORKFLOW_ID.to_string(),
+        activation_id: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+        harness_hash: DEFAULT_AGENT_HARNESS_HASH.to_string(),
+        execution_mode: HarnessExecutionMode::Live,
+        runtime_authority: "blessed_workflow_activation_canary".to_string(),
+        executor_kind: "workflow_node_executor".to_string(),
+        executor_ref: "crate::project::execute_workflow_harness_canary_node".to_string(),
+        synchronous: true,
+        enforced_before_visible_output: true,
+        canary_eligible: true,
+        status: "passed".to_string(),
+        component_kinds: component_kinds.clone(),
+        executed_component_kinds: component_kinds.clone(),
+        workflow_node_ids: component_kinds
+            .iter()
+            .map(|kind| format!("harness.{}", kind.as_str()))
+            .collect(),
+        node_attempt_ids: component_kinds
+            .iter()
+            .enumerate()
+            .map(|(index, kind)| {
+                format!(
+                    "harness-canary:default:turn-1:{}:attempt-{}",
+                    kind.as_str(),
+                    index + 1
+                )
+            })
+            .collect(),
+        receipt_ids: component_kinds
+            .iter()
+            .map(|kind| format!("default:harness.{}:workflow-node-execution", kind.as_str()))
+            .collect(),
+        replay_fixture_refs: component_kinds
+            .iter()
+            .map(|kind| format!("runtime-evidence:default:canary-fixture:{}", kind.as_str()))
+            .collect(),
+        activation_blockers: Vec::new(),
+        rollback_target: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+        rollback_available: true,
+        rollback_drill: HarnessCanaryRollbackDrill {
+            schema_version: "workflow.harness.canary-rollback-drill.v1".to_string(),
+            drill_id: "harness-canary-rollback-drill:default".to_string(),
+            selector_decision_id: "harness-selector:default-agent-harness:canary".to_string(),
+            failure_injected: true,
+            failed_node_id: format!("harness.{}.rollback_drill", failed_component.as_str()),
+            cluster_id,
+            failure_class: "deterministic_executor_failure".to_string(),
+            observed_failure: true,
+            rollback_executed: true,
+            rollback_selector: HarnessLiveHandoffSelector::LegacyRuntime,
+            fallback_authority: "existing_runtime_service".to_string(),
+            rollback_target: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+            rollback_available: true,
+            drill_status: "passed".to_string(),
+            policy_decision: "rollback_to_legacy_runtime_on_workflow_executor_failure".to_string(),
+            evidence_refs: vec![
+                "runtime-evidence:default".to_string(),
+                format!("rollback-target:{DEFAULT_AGENT_HARNESS_ACTIVATION_ID}"),
+            ],
+        },
+        policy_decision: "allow_synchronous_workflow_node_canary_boundary".to_string(),
+        evidence_refs: vec![format!("runtime-evidence:canary-boundary:{cluster_slug}")],
+    }
+}
+
+pub fn default_harness_canary_execution_boundary() -> HarnessCanaryExecutionBoundary {
+    default_harness_canary_execution_boundary_for_cluster(
+        HarnessPromotionClusterId::VerificationOutput,
+    )
+}
+
+pub fn default_harness_canary_execution_boundaries() -> Vec<HarnessCanaryExecutionBoundary> {
+    vec![
+        default_harness_canary_execution_boundary_for_cluster(HarnessPromotionClusterId::Cognition),
+        default_harness_canary_execution_boundary_for_cluster(
+            HarnessPromotionClusterId::RoutingModel,
+        ),
+        default_harness_canary_execution_boundary_for_cluster(
+            HarnessPromotionClusterId::VerificationOutput,
+        ),
+        default_harness_canary_execution_boundary_for_cluster(
+            HarnessPromotionClusterId::AuthorityTooling,
+        ),
+    ]
 }
 
 pub fn validate_harness_worker_binding(
@@ -1167,6 +2532,223 @@ pub fn default_harness_receipt_binding_for_plan(
         ],
         "planner receipt mapped to planner component",
     )
+}
+
+pub fn default_harness_node_attempt_for_receipt(
+    binding: &HarnessReceiptBinding,
+    execution_mode: HarnessExecutionMode,
+    attempt_index: u32,
+    status: HarnessNodeAttemptStatus,
+) -> HarnessNodeAttemptRecord {
+    let component = default_harness_component_spec(binding.component_kind);
+    HarnessNodeAttemptRecord {
+        attempt_id: format!(
+            "{}:{}:{}",
+            binding.workflow_node_id, attempt_index, binding.receipt_id
+        ),
+        harness_workflow_id: binding.harness_workflow_id.clone(),
+        harness_activation_id: binding.harness_activation_id.clone(),
+        harness_hash: binding.harness_hash.clone(),
+        workflow_node_id: binding.workflow_node_id.clone(),
+        component_id: binding.component_id.clone(),
+        component_kind: binding.component_kind,
+        execution_mode,
+        readiness: component.readiness,
+        attempt_index,
+        status,
+        input_hash: None,
+        output_hash: None,
+        error_class: None,
+        policy_decision: binding
+            .evidence_refs
+            .iter()
+            .find_map(|entry| entry.strip_prefix("policy_decision:").map(str::to_string)),
+        started_at_ms: None,
+        duration_ms: None,
+        receipt_ids: vec![binding.receipt_id.clone()],
+        evidence_refs: binding.evidence_refs.clone(),
+        replay: default_harness_replay_envelope(binding.component_kind),
+    }
+}
+
+pub fn default_harness_shadow_run_for_attempts(
+    run_id: impl Into<String>,
+    source_session_id: Option<String>,
+    live_turn_id: Option<String>,
+    node_attempts: Vec<HarnessNodeAttemptRecord>,
+    comparisons: Vec<HarnessShadowComparison>,
+    evidence_refs: Vec<String>,
+) -> HarnessShadowRun {
+    let blocking_divergence_count = comparisons
+        .iter()
+        .filter(|comparison| comparison.blocking)
+        .count() as u32;
+    let unclassified_divergence_count = comparisons
+        .iter()
+        .filter(|comparison| comparison.divergence == HarnessDivergenceClass::Unclassified)
+        .count() as u32;
+    HarnessShadowRun {
+        schema_version: "ioi.agent-harness.shadow-run.v1".to_string(),
+        run_id: run_id.into(),
+        harness_workflow_id: DEFAULT_AGENT_HARNESS_WORKFLOW_ID.to_string(),
+        harness_activation_id: DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string(),
+        harness_hash: DEFAULT_AGENT_HARNESS_HASH.to_string(),
+        source_session_id,
+        live_turn_id,
+        execution_mode: HarnessExecutionMode::Shadow,
+        node_attempts,
+        comparisons,
+        blocking_divergence_count,
+        unclassified_divergence_count,
+        promotion_blocked: blocking_divergence_count > 0 || unclassified_divergence_count > 0,
+        evidence_refs,
+    }
+}
+
+pub fn default_harness_gated_cluster_run_for_shadow_run(
+    cluster_id: HarnessPromotionClusterId,
+    shadow_run: &HarnessShadowRun,
+) -> HarnessGatedClusterRun {
+    let component_kinds = promotion_cluster_components(cluster_id);
+    let mut node_attempt_ids = Vec::new();
+    let mut receipt_ids = Vec::new();
+    let mut replay_fixture_refs = Vec::new();
+    let mut activation_blockers = Vec::new();
+
+    for component_kind in &component_kinds {
+        let attempts = shadow_run
+            .node_attempts
+            .iter()
+            .filter(|attempt| attempt.component_kind == *component_kind)
+            .collect::<Vec<_>>();
+        if attempts.is_empty() {
+            activation_blockers.push(format!("missing_attempt:{}", component_kind.as_str()));
+            continue;
+        }
+        for attempt in attempts {
+            node_attempt_ids.push(attempt.attempt_id.clone());
+            receipt_ids.extend(attempt.receipt_ids.clone());
+            if let Some(fixture_ref) = attempt.replay.fixture_ref.clone() {
+                replay_fixture_refs.push(fixture_ref);
+            } else {
+                activation_blockers.push(format!(
+                    "missing_replay_fixture:{}",
+                    component_kind.as_str()
+                ));
+            }
+            if !matches!(
+                attempt.readiness,
+                HarnessComponentReadiness::ShadowReady | HarnessComponentReadiness::LiveReady
+            ) {
+                activation_blockers.push(format!(
+                    "readiness_below_shadow:{}",
+                    component_kind.as_str()
+                ));
+            }
+            if attempt.receipt_ids.is_empty() {
+                activation_blockers.push(format!("missing_receipt:{}", component_kind.as_str()));
+            }
+        }
+    }
+
+    if shadow_run.blocking_divergence_count > 0 {
+        activation_blockers.push("blocking_shadow_divergence".to_string());
+    }
+    if shadow_run.unclassified_divergence_count > 0 {
+        activation_blockers.push("unclassified_shadow_divergence".to_string());
+    }
+
+    receipt_ids.sort();
+    receipt_ids.dedup();
+    replay_fixture_refs.sort();
+    replay_fixture_refs.dedup();
+    activation_blockers.sort();
+    activation_blockers.dedup();
+
+    let promotion_blocked = !activation_blockers.is_empty();
+    HarnessGatedClusterRun {
+        schema_version: "ioi.agent-harness.gated-cluster-run.v1".to_string(),
+        run_id: format!("{}:{}:gated", shadow_run.run_id, cluster_id.as_str()),
+        cluster_id,
+        cluster_label: cluster_id.label().to_string(),
+        harness_workflow_id: shadow_run.harness_workflow_id.clone(),
+        harness_activation_id: shadow_run.harness_activation_id.clone(),
+        harness_hash: shadow_run.harness_hash.clone(),
+        execution_mode: HarnessExecutionMode::Gated,
+        status: if promotion_blocked {
+            HarnessClusterPromotionStatus::Blocked
+        } else {
+            HarnessClusterPromotionStatus::Gated
+        },
+        component_kinds,
+        shadow_run_id: shadow_run.run_id.clone(),
+        node_attempt_ids,
+        receipt_ids,
+        replay_fixture_refs,
+        activation_blockers,
+        gate_decision: if promotion_blocked {
+            "block_promotion".to_string()
+        } else {
+            "allow_live_runtime_passthrough".to_string()
+        },
+        rollback_target: "shadow".to_string(),
+        canary_status: if promotion_blocked {
+            "not_started".to_string()
+        } else {
+            "passed".to_string()
+        },
+        promotion_blocked,
+        evidence_refs: shadow_run.evidence_refs.clone(),
+    }
+}
+
+pub fn compare_harness_live_shadow_attempts(
+    live: &HarnessNodeAttemptRecord,
+    shadow: &HarnessNodeAttemptRecord,
+) -> HarnessShadowComparison {
+    let mut evidence_refs = live.evidence_refs.clone();
+    evidence_refs.extend(shadow.evidence_refs.clone());
+    evidence_refs.sort();
+    evidence_refs.dedup();
+
+    let (divergence, blocking, summary) = if live.workflow_node_id != shadow.workflow_node_id
+        || live.component_kind != shadow.component_kind
+    {
+        (
+            HarnessDivergenceClass::BehavioralRegression,
+            true,
+            "live and shadow attempts resolved to different harness components".to_string(),
+        )
+    } else if live.receipt_ids.is_empty() || shadow.receipt_ids.is_empty() {
+        (
+            HarnessDivergenceClass::MissingReceipt,
+            true,
+            "live or shadow attempt is missing receipt binding".to_string(),
+        )
+    } else if live.policy_decision != shadow.policy_decision {
+        (
+            HarnessDivergenceClass::PolicyDivergence,
+            true,
+            "live and shadow attempts disagreed on policy decision".to_string(),
+        )
+    } else {
+        (
+            HarnessDivergenceClass::None,
+            false,
+            "live and shadow attempts match for harness promotion purposes".to_string(),
+        )
+    };
+
+    HarnessShadowComparison {
+        workflow_node_id: live.workflow_node_id.clone(),
+        component_kind: live.component_kind,
+        live_attempt_id: live.attempt_id.clone(),
+        shadow_attempt_id: shadow.attempt_id.clone(),
+        divergence,
+        blocking,
+        summary,
+        evidence_refs,
+    }
 }
 
 #[cfg(test)]

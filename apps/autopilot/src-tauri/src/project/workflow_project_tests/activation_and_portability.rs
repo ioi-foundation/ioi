@@ -590,3 +590,303 @@ fn workflow_portable_package_preserves_harness_lineage_metadata() {
         Some("activation:harness-fork:sandbox")
     );
 }
+
+#[test]
+fn workflow_activation_readiness_blocks_unvalidated_harness_fork_and_accepts_canary_record() {
+    let root = temp_root("harness-fork-activation");
+    let mut bundle = create_workflow_project(CreateWorkflowProjectRequest {
+        project_root: root.display().to_string(),
+        name: "Harness Fork Activation".to_string(),
+        workflow_kind: "agent_workflow".to_string(),
+        execution_mode: "hybrid".to_string(),
+        template_id: None,
+    })
+    .expect("workflow bundle should create");
+
+    bundle.workflow.metadata.harness = Some(json!({
+        "schemaVersion": "workflow.harness.v1",
+        "harnessWorkflowId": "harness-fork",
+        "harnessVersion": "2026.04.default-harness.v1",
+        "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+        "executionMode": "projection",
+        "templateName": "Default Agent Harness Fork",
+        "blessed": false,
+        "forkable": false,
+        "forkedFrom": {
+            "harnessWorkflowId": "default-agent-harness",
+            "harnessVersion": "2026.04.default-harness.v1",
+            "harnessHash": "sha256:default-agent-harness-component-projection-v1"
+        },
+        "activationState": "blocked",
+        "activationRecord": {
+            "schemaVersion": "workflow.harness.activation.v1",
+            "workflowId": "harness-fork",
+            "harnessWorkflowId": "harness-fork",
+            "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+            "activationState": "blocked",
+            "activationBlockers": ["harness_activation_not_validated", "canary_not_run"],
+            "componentVersionSet": {"ioi.agent-harness.planner.v1": "1.0.0"},
+            "policyPosture": "proposal_only",
+            "canaryStatus": "not_run",
+            "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+            "rollbackAvailable": false,
+            "liveAuthorityTransferred": false,
+            "evidenceRefs": ["proposal-harness-fork-activation-gates"]
+        },
+        "validationGates": ["component_contracts_present"],
+        "aiMutationMode": "proposal_only",
+        "componentIds": ["ioi.agent-harness.planner.v1"],
+        "slotIds": []
+    }));
+    bundle.workflow.metadata.worker_harness_binding = Some(json!({
+        "harnessWorkflowId": "harness-fork",
+        "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+        "executionMode": "projection",
+        "source": "fork"
+    }));
+    save_workflow_project(bundle.workflow_path.clone(), bundle.workflow.clone())
+        .expect("blocked harness fork should save");
+    let blocked_readiness = validate_workflow_execution_readiness(bundle.workflow_path.clone())
+        .expect("blocked harness readiness should run");
+    assert!(blocked_readiness
+        .execution_readiness_issues
+        .iter()
+        .any(|issue| issue.code == "harness_activation_not_validated"));
+
+    let activation_id = "activation:harness-fork:validated-canary:default-agent";
+    let valid_worker_binding = json!({
+        "harnessWorkflowId": "harness-fork",
+        "harnessActivationId": activation_id,
+        "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+        "executionMode": "gated",
+        "source": "fork"
+    });
+    let valid_harness = bundle
+        .workflow
+        .metadata
+        .harness
+        .as_mut()
+        .expect("harness metadata should exist");
+    valid_harness["activationId"] = json!(activation_id);
+    valid_harness["activationState"] = json!("validated");
+    valid_harness["activationRecord"] = json!({
+        "schemaVersion": "workflow.harness.activation.v1",
+        "workflowId": "harness-fork",
+        "harnessWorkflowId": "harness-fork",
+        "activationId": activation_id,
+        "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+        "activationState": "validated",
+        "activationBlockers": [],
+        "componentVersionSet": {"ioi.agent-harness.planner.v1": "1.0.0"},
+        "policyPosture": "canary",
+        "canaryStatus": "passed",
+        "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+        "rollbackAvailable": true,
+        "liveAuthorityTransferred": false,
+        "evidenceRefs": ["run-harness-fork-canary"],
+        "workerBinding": valid_worker_binding.clone()
+    });
+    bundle.workflow.metadata.worker_harness_binding = Some(valid_worker_binding);
+    save_workflow_project(bundle.workflow_path.clone(), bundle.workflow)
+        .expect("validated harness fork should save");
+    let validated_readiness = validate_workflow_execution_readiness(bundle.workflow_path)
+        .expect("validated harness readiness should run");
+    assert!(!validated_readiness
+        .execution_readiness_issues
+        .iter()
+        .any(|issue| issue.code == "harness_activation_not_validated"));
+}
+
+#[test]
+fn workflow_run_records_harness_attempts_for_runtime_bound_nodes() {
+    let root = temp_root("harness-run-attempts");
+    let mut bundle = create_workflow_project(CreateWorkflowProjectRequest {
+        project_root: root.display().to_string(),
+        name: "Harness Attempt Run".to_string(),
+        workflow_kind: "agent_workflow".to_string(),
+        execution_mode: "hybrid".to_string(),
+        template_id: None,
+    })
+    .expect("workflow bundle should create");
+
+    bundle.workflow.metadata.harness = Some(json!({
+        "schemaVersion": "workflow.harness.v1",
+        "harnessWorkflowId": "default-agent-harness",
+        "harnessVersion": "2026.04.default-harness.v1",
+        "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+        "executionMode": "projection",
+        "templateName": "Default Agent Harness",
+        "blessed": true,
+        "forkable": true,
+        "validationGates": ["component_contracts_present"],
+        "aiMutationMode": "proposal_only",
+        "componentIds": ["ioi.agent-harness.planner.v1"],
+        "slotIds": ["slot.model-policy"]
+    }));
+    bundle.workflow.metadata.worker_harness_binding = Some(json!({
+        "harnessWorkflowId": "default-agent-harness",
+        "harnessActivationId": "activation:default-agent-harness:blessed-readonly",
+        "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+        "executionMode": "projection",
+        "source": "default"
+    }));
+
+    let mut planner = workflow_function_node(
+        "harness.planner",
+        "Planner",
+        120,
+        180,
+        "return { status: 'planned', receipt: 'plan-id-1' };",
+    );
+    planner
+        .as_object_mut()
+        .expect("node object")
+        .insert(
+            "runtimeBinding".to_string(),
+            json!({
+                "componentId": "ioi.agent-harness.planner.v1",
+                "componentVersion": "1.0.0",
+                "componentKind": "planner",
+                "executionMode": "projection",
+                "readiness": "projection_only",
+                "kernelRef": "crates/services/src/agentic/runtime/service/planning/planner",
+                "slotIds": ["slot.model-policy"],
+                "evidenceEventKinds": ["PlanReceipt", "KernelEvent::PlanReceipt"],
+                "receiptKinds": ["plan_id", "planner_policy_hash"],
+                "replayEnvelope": {
+                    "deterministicEnvelope": true,
+                    "capturesInput": true,
+                    "capturesOutput": true,
+                    "capturesPolicyDecision": false,
+                    "determinism": "deterministic",
+                    "redactionPolicy": "runtime_redacted"
+                },
+                "replay": {
+                    "deterministicEnvelope": true,
+                    "capturesInput": true,
+                    "capturesOutput": true,
+                    "capturesPolicyDecision": false
+                }
+            }),
+        );
+    bundle.workflow.nodes = vec![planner];
+    save_workflow_project(bundle.workflow_path.clone(), bundle.workflow)
+        .expect("harness workflow should save");
+
+    let result = run_workflow_project(bundle.workflow_path.clone(), None)
+        .expect("harness workflow should run");
+    assert_eq!(result.summary.status, "passed");
+    assert_eq!(result.harness_attempts.len(), 1);
+    assert_eq!(result.harness_gated_cluster_runs.len(), 4);
+    assert_eq!(
+        result.harness_attempts[0]
+            .get("workflowNodeId")
+            .and_then(Value::as_str),
+        Some("harness.planner")
+    );
+    assert_eq!(
+        result.harness_attempts[0]
+            .get("executionMode")
+            .and_then(Value::as_str),
+        Some("projection")
+    );
+    assert!(result.node_runs[0].harness_attempt.is_some());
+    assert!(result.harness_attempts[0].get("inputHash").is_some());
+    assert!(result.harness_attempts[0].get("outputHash").is_some());
+    let cognition_gate = result
+        .harness_gated_cluster_runs
+        .iter()
+        .find(|run| run.get("clusterId").and_then(Value::as_str) == Some("cognition"))
+        .expect("cognition gate");
+    let routing_model_gate = result
+        .harness_gated_cluster_runs
+        .iter()
+        .find(|run| run.get("clusterId").and_then(Value::as_str) == Some("routing_model"))
+        .expect("routing/model gate");
+    let verification_output_gate = result
+        .harness_gated_cluster_runs
+        .iter()
+        .find(|run| run.get("clusterId").and_then(Value::as_str) == Some("verification_output"))
+        .expect("verification/output gate");
+    let authority_tooling_gate = result
+        .harness_gated_cluster_runs
+        .iter()
+        .find(|run| run.get("clusterId").and_then(Value::as_str) == Some("authority_tooling"))
+        .expect("authority/tooling gate");
+    assert_eq!(cognition_gate.get("status").and_then(Value::as_str), Some("blocked"));
+    assert_eq!(
+        routing_model_gate.get("status").and_then(Value::as_str),
+        Some("blocked")
+    );
+    assert_eq!(
+        verification_output_gate
+            .get("status")
+            .and_then(Value::as_str),
+        Some("blocked")
+    );
+    assert_eq!(
+        authority_tooling_gate
+            .get("status")
+            .and_then(Value::as_str),
+        Some("blocked")
+    );
+    assert!(
+        cognition_gate
+            .get("activationBlockers")
+            .and_then(Value::as_array)
+            .map(|blockers| blockers
+                .iter()
+                .any(|blocker| blocker.as_str() == Some("missing_attempt:prompt_assembler")))
+            .unwrap_or(false)
+    );
+    assert!(
+        cognition_gate
+            .get("activationBlockers")
+            .and_then(Value::as_array)
+            .map(|blockers| blockers
+                .iter()
+                .any(|blocker| blocker.as_str() == Some("readiness_below_shadow:planner")))
+            .unwrap_or(false)
+    );
+    assert!(
+        routing_model_gate
+            .get("activationBlockers")
+            .and_then(Value::as_array)
+            .map(|blockers| blockers
+                .iter()
+                .any(|blocker| blocker.as_str() == Some("missing_attempt:model_router")))
+            .unwrap_or(false)
+    );
+    assert!(
+        verification_output_gate
+            .get("activationBlockers")
+            .and_then(Value::as_array)
+            .map(|blockers| blockers.iter().any(|blocker| {
+                blocker.as_str() == Some("missing_attempt:postcondition_synthesizer")
+            }))
+            .unwrap_or(false)
+    );
+    assert!(
+        authority_tooling_gate
+            .get("activationBlockers")
+            .and_then(Value::as_array)
+            .map(|blockers| blockers
+                .iter()
+                .any(|blocker| blocker.as_str() == Some("missing_attempt:policy_gate")))
+            .unwrap_or(false)
+    );
+
+    let loaded = load_workflow_run(bundle.workflow_path, result.summary.id)
+        .expect("saved harness run should load");
+    assert_eq!(loaded.harness_attempts.len(), 1);
+    assert_eq!(loaded.harness_gated_cluster_runs.len(), 4);
+    assert_eq!(
+        loaded.node_runs[0]
+            .harness_attempt
+            .as_ref()
+            .and_then(|attempt| attempt.get("replay"))
+            .and_then(|replay| replay.get("determinism"))
+            .and_then(Value::as_str),
+        Some("deterministic")
+    );
+}

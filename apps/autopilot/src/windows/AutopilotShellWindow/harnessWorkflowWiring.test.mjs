@@ -55,19 +55,19 @@ const localEngineSupport = fs.readFileSync(
 
 assert.match(
   graphTypes,
-  /WorkflowHarnessComponentSpec[\s\S]*inputSchema[\s\S]*outputSchema[\s\S]*errorSchema[\s\S]*WorkflowHarnessWorkerBinding[\s\S]*harnessWorkflowId[\s\S]*harnessActivationId[\s\S]*harnessHash/,
-  "Harness contracts should declare schemas, errors, and worker harness identity.",
+  /(?=[\s\S]*WorkflowHarnessExecutionMode)(?=[\s\S]*WorkflowHarnessComponentReadiness)(?=[\s\S]*WorkflowHarnessReplayEnvelope)(?=[\s\S]*WorkflowHarnessPromotionCluster)(?=[\s\S]*WorkflowHarnessGatedClusterRun)(?=[\s\S]*WorkflowHarnessLiveHandoffProof)(?=[\s\S]*WorkflowHarnessRuntimeSelectorDecision)(?=[\s\S]*WorkflowHarnessCanaryExecutionBoundary)(?=[\s\S]*canaryExecutionBoundaries)(?=[\s\S]*WorkflowHarnessComponentSpec[\s\S]*readiness[\s\S]*inputSchema[\s\S]*outputSchema[\s\S]*errorSchema)(?=[\s\S]*WorkflowHarnessWorkerBinding[\s\S]*harnessWorkflowId[\s\S]*harnessActivationId[\s\S]*harnessHash)/,
+  "Harness contracts should declare mode, readiness, replay, promotion clusters, live handoff, selector routing, canary execution boundaries, schemas, errors, and worker harness identity.",
 );
 
 assert.match(
   harnessWorkflow,
-  /DEFAULT_AGENT_HARNESS_COMPONENTS[\s\S]*kind: "planner"[\s\S]*kind: "mcp_provider"[\s\S]*kind: "mcp_tool_call"[\s\S]*kind: "receipt_writer"[\s\S]*makeDefaultAgentHarnessWorkflow[\s\S]*readOnly: true/,
-  "Default Agent Harness should project runtime kernels as read-only workflow components.",
+  /DEFAULT_HARNESS_EXECUTION_MODE[\s\S]*HARNESS_PROMOTION_CLUSTER_COMPONENTS[\s\S]*cognition[\s\S]*DEFAULT_AGENT_HARNESS_COMPONENTS[\s\S]*kind: "planner"[\s\S]*kind: "prompt_assembler"[\s\S]*kind: "mcp_provider"[\s\S]*kind: "mcp_tool_call"[\s\S]*kind: "receipt_writer"[\s\S]*defaultHarnessPromotionClusters[\s\S]*requiredExecutionMode: "gated"[\s\S]*makeDefaultAgentHarnessWorkflow[\s\S]*readOnly: true/,
+  "Default Agent Harness should project runtime kernels and gated promotion clusters as read-only workflow components.",
 );
 
 assert.match(
   harnessWorkflow,
-  /forkDefaultAgentHarnessWorkflow[\s\S]*forkedFrom[\s\S]*activationState: "blocked"[\s\S]*proposal-[\s\S]*activation-gates/,
+  /forkDefaultAgentHarnessWorkflow[\s\S]*proposal-\$\{slug\}-activation-gates[\s\S]*forkedFrom[\s\S]*activationState: "blocked"[\s\S]*activationRecord/,
   "Default Agent Harness forks should carry lineage, package metadata, tests, and activation blockers.",
 );
 
@@ -85,14 +85,14 @@ assert.match(
 
 assert.match(
   workflowRailPanel,
-  /workflow-settings-harness-summary[\s\S]*workflow-harness-slots[\s\S]*workflow-selected-node-harness-component[\s\S]*workflow-selected-node-harness-receipts[\s\S]*workflow-selected-node-replay-binding/,
-  "Rail inspection should render component ids, slots, receipt events, and replay metadata.",
+  /(?=[\s\S]*workflow-settings-harness-summary)(?=[\s\S]*Mode)(?=[\s\S]*Live-ready)(?=[\s\S]*Gated clusters)(?=[\s\S]*workflow-harness-slots)(?=[\s\S]*workflow-harness-promotion-clusters)(?=[\s\S]*workflow-harness-canary-execution-boundaries)(?=[\s\S]*workflow-harness-canary-execution-boundary)(?=[\s\S]*workflow-run-harness-timeline)(?=[\s\S]*workflow-run-harness-shadow-comparison)(?=[\s\S]*workflow-selected-node-harness-component)(?=[\s\S]*workflow-selected-node-harness-receipts)(?=[\s\S]*workflow-selected-node-replay-binding)(?=[\s\S]*workflow-selected-node-harness-attempt)(?=[\s\S]*replayEnvelope)/,
+  "Rail inspection should render mode, readiness, component ids, slots, promotion clusters, canary execution boundaries, receipt events, replay metadata, attempts, and shadow comparison.",
 );
 
 assert.match(
   tauriProjectTypes,
-  /WorkflowPortablePackageManifest[\s\S]*pub harness: Option<Value>[\s\S]*pub worker_harness_binding: Option<Value>/,
-  "Portable packages should preserve harness metadata and worker binding identity.",
+  /(?=[\s\S]*WorkflowNodeRun[\s\S]*pub harness_attempt: Option<Value>)(?=[\s\S]*WorkflowRunResult[\s\S]*pub harness_attempts: Vec<Value>[\s\S]*pub harness_shadow_comparisons: Vec<Value>[\s\S]*pub harness_gated_cluster_runs: Vec<Value>)(?=[\s\S]*WorkflowPortablePackageManifest[\s\S]*pub harness: Option<Value>[\s\S]*pub worker_harness_binding: Option<Value>)/,
+  "Portable packages and run records should preserve harness metadata, worker binding identity, node attempts, shadow comparisons, and gated cluster runs.",
 );
 
 assert.match(
