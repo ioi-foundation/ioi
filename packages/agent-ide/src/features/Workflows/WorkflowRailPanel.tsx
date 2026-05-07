@@ -625,6 +625,13 @@ export function WorkflowRailPanel({
   const rollbackReady =
     harnessActivationRecord?.rollbackAvailable === true &&
     Boolean(harnessActivationRecord.rollbackTarget);
+  const rollbackRestoreCanary =
+    harnessActivationCandidate?.rollbackRestoreCanary ??
+    harnessActivationRecord?.rollbackRestoreCanary ??
+    null;
+  const rollbackRestoreCanaryReady =
+    rollbackRestoreCanary?.status === "passed" ||
+    rollbackRestoreCanary?.status === "not_required";
   const workerActivationBindingReady =
     Boolean(harnessWorkerBinding?.harnessWorkflowId) &&
     (!workflow.metadata.harness?.activationId ||
@@ -671,6 +678,13 @@ export function WorkflowRailPanel({
       ready: canaryReady,
       value: harnessActivationRecord?.canaryStatus ?? "not_run",
       detail: "workflow canary boundary and retained scenario proof",
+    },
+    {
+      id: "rollback-restore",
+      label: "Rollback restore",
+      ready: rollbackRestoreCanaryReady,
+      value: rollbackRestoreCanary?.status ?? "not_run",
+      detail: "non-mutating git restore probe verifies rollback revision",
     },
     {
       id: "rollback",
@@ -2235,6 +2249,36 @@ export function WorkflowRailPanel({
                       <small>
                         {harnessActivationCandidate.workerBindingPreview.source} ·{" "}
                         {harnessActivationCandidate.workerBindingPreview.harnessHash}
+                      </small>
+                    </article>
+                    <article
+                      className={`workflow-output-row is-${
+                        harnessActivationCandidate.rollbackRestoreCanary.status ===
+                          "passed" ||
+                        harnessActivationCandidate.rollbackRestoreCanary.status ===
+                          "not_required"
+                          ? "ready"
+                          : "blocked"
+                      }`}
+                      data-testid="workflow-harness-rollback-restore-canary"
+                      data-restore-canary-status={
+                        harnessActivationCandidate.rollbackRestoreCanary.status
+                      }
+                    >
+                      <strong>
+                        {harnessActivationCandidate.rollbackRestoreCanary.restoredRevision ??
+                          "restore canary pending"}
+                      </strong>
+                      <span>
+                        {harnessActivationCandidate.rollbackRestoreCanary.restoreStrategy}
+                        {" · "}
+                        {harnessActivationCandidate.rollbackRestoreCanary.hashVerified
+                          ? "hash verified"
+                          : "hash blocked"}
+                      </span>
+                      <small>
+                        {harnessActivationCandidate.rollbackRestoreCanary.relativeWorkflowPath ??
+                          harnessActivationCandidate.rollbackRestoreCanary.workflowPath}
                       </small>
                     </article>
                     <div

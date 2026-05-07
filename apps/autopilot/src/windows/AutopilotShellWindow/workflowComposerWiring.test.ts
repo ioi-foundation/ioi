@@ -741,6 +741,12 @@ assert.match(
 );
 
 assert.match(
+  workflowRailPanel,
+  /(?=[\s\S]*workflow-harness-rollback-restore-canary)(?=[\s\S]*data-restore-canary-status)(?=[\s\S]*id: "rollback-restore")(?=[\s\S]*rollbackRestoreCanaryReady)/,
+  "Activation rail should surface the rollback restore canary and its dedicated wizard gate before minting.",
+);
+
+assert.match(
   workflowComposerUi,
   /viewMacro[\s\S]*macroPeerNodes[\s\S]*workflow-node-macro-cluster[\s\S]*workflow-node-macro-peer-list[\s\S]*workflow-node-macro-peer/,
   "Node details should show the expanded agent-loop composition and peer roles without hiding runtime behavior inside a macro node",
@@ -981,9 +987,21 @@ assert.match(
 );
 
 assert.match(
+  projectCommands,
+  /if request\.dry_run[\s\S]*dry_run: true[\s\S]*WorkflowWorkbenchBundle[\s\S]*workflow: restored_workflow/,
+  "Git-backed rollback should support a non-mutating dry-run restore canary with a parsed workflow bundle.",
+);
+
+assert.match(
   composer,
   /handleExecuteHarnessRollback[\s\S]*rollbackRevisionBinding[\s\S]*restoreResult[\s\S]*restoreBlockers[\s\S]*runtime\.restoreWorkflowRevision[\s\S]*executeWorkflowHarnessRevisionRollback[\s\S]*restoredWorkflow[\s\S]*restoreResult[\s\S]*restoreBlockers/,
   "Rollback execution should restore the selected git revision and preserve blocked restore proof before applying verified harness rollback metadata",
+);
+
+assert.match(
+  composer,
+  /handleRunHarnessActivationDryRun[\s\S]*rollbackRevisionBinding[\s\S]*rollbackRestoreResult[\s\S]*rollbackRestoreBlockers[\s\S]*runtime\.restoreWorkflowRevision[\s\S]*dryRun: true[\s\S]*rollback_restore_canary_failed[\s\S]*rollbackRestoreResult[\s\S]*rollbackRestoreBlockers/,
+  "Activation dry run should run a non-mutating restore canary for git-backed rollback revisions before minting.",
 );
 
 assert.match(
@@ -1113,6 +1131,12 @@ assert.match(
 );
 
 assert.match(
+  graphTypes,
+  /(?=[\s\S]*WorkflowRevisionRestoreRequest[\s\S]*dryRun\?: boolean)(?=[\s\S]*WorkflowRevisionRestoreResult[\s\S]*dryRun\?: boolean)(?=[\s\S]*WorkflowHarnessRollbackRestoreCanary)(?=[\s\S]*rollbackRestoreCanary: WorkflowHarnessRollbackRestoreCanary)/,
+  "Harness activation contract should carry dry-run restore requests and rollback restore canary proof.",
+);
+
+assert.match(
   harnessWorkflow,
   /DEFAULT_HARNESS_EXECUTION_MODE[\s\S]*HARNESS_PROMOTION_CLUSTER_COMPONENTS[\s\S]*cognition[\s\S]*DEFAULT_AGENT_HARNESS_COMPONENTS[\s\S]*kind: "planner"[\s\S]*kind: "prompt_assembler"[\s\S]*kind: "mcp_provider"[\s\S]*kind: "mcp_tool_call"[\s\S]*kind: "receipt_writer"[\s\S]*defaultHarnessPromotionClusters[\s\S]*requiredExecutionMode: "gated"[\s\S]*makeDefaultAgentHarnessWorkflow[\s\S]*readOnly: true/,
   "Default Agent Harness projection should componentize planner, prompt assembly, MCP providers/tools, receipts, gated clusters, and expose a read-only workflow graph",
@@ -1128,6 +1152,12 @@ assert.match(
   workflowValidation,
   /(?=[\s\S]*workflowIsHarnessFork)(?=[\s\S]*harness_required_slot_unbound)(?=[\s\S]*harness_activation_not_validated)(?=[\s\S]*harness_self_mutation_not_proposal_only)/,
   "Harness activation readiness should block invalid forks, unbound slots, missing activation ids, and direct AI self-mutation",
+);
+
+assert.match(
+  workflowValidation,
+  /(?=[\s\S]*workflowHarnessRollbackRestoreCanaryFor)(?=[\s\S]*rollback_restore_canary_not_run)(?=[\s\S]*rollback_restore_canary_hash_mismatch)(?=[\s\S]*gateId: "rollback-restore")(?=[\s\S]*rollbackRestoreCanary)/,
+  "Harness activation candidates should block git-backed forks until rollback restore canary proof passes.",
 );
 
 assert.match(

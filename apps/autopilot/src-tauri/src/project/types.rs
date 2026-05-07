@@ -257,12 +257,16 @@ pub struct WorkflowRevisionRestoreRequest {
     pub revision_binding: WorkflowRevisionBinding,
     #[serde(default)]
     pub expected_workflow_content_hash: Option<String>,
+    #[serde(default)]
+    pub dry_run: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WorkflowRevisionRestoreResult {
     pub restored: bool,
+    #[serde(default)]
+    pub dry_run: bool,
     pub blockers: Vec<String>,
     pub workflow_path: String,
     #[serde(default)]

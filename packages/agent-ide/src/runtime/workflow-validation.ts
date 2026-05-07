@@ -3,9 +3,12 @@ import type {
   WorkflowConnectionClass,
   WorkflowHarnessActivationCandidateGateResult,
   WorkflowHarnessForkActivationCandidate,
+  WorkflowHarnessRollbackRestoreCanary,
   WorkflowNodeFixture,
   WorkflowProject,
   WorkflowProposal,
+  WorkflowRevisionBinding,
+  WorkflowRevisionRestoreResult,
   WorkflowTestCase,
   WorkflowValidationIssue,
   WorkflowValidationResult,
@@ -1272,6 +1275,88 @@ function workflowValidationIssueKey(issue: WorkflowValidationIssue): string {
   return `${issue.code}:${issue.nodeId ?? ""}:${issue.message}`;
 }
 
+function workflowHarnessRollbackRestoreCanaryFor(
+  workflow: WorkflowProject,
+  rollbackRevisionBinding: WorkflowRevisionBinding | null | undefined,
+  restoreResult: WorkflowRevisionRestoreResult | null | undefined,
+  restoreBlockers: string[],
+  createdAtMs: number,
+): WorkflowHarnessRollbackRestoreCanary {
+  const workflowId = workflow.metadata.id || workflow.metadata.slug;
+  const fallbackBinding =
+    rollbackRevisionBinding ??
+    workflowRevisionBindingFor(workflow, {
+      activationId: workflow.metadata.harness?.activationId,
+      nowMs: createdAtMs,
+    });
+  const expectedWorkflowContentHash =
+    restoreResult?.expectedWorkflowContentHash ?? fallbackBinding.workflowContentHash;
+  const actualWorkflowContentHash = restoreResult?.bundle?.workflow
+    ? workflowRevisionBindingFor(restoreResult.bundle.workflow, {
+        nowMs: createdAtMs,
+      }).workflowContentHash
+    : undefined;
+  const hashVerified = actualWorkflowContentHash
+    ? actualWorkflowContentHash === expectedWorkflowContentHash
+    : fallbackBinding.revisionSource !== "git";
+  if (fallbackBinding.revisionSource !== "git") {
+    return {
+      schemaVersion: "workflow.harness.rollback-restore-canary.v1",
+      canaryId: `harness-rollback-restore-canary:${workflowId}:${createdAtMs}`,
+      status: "not_required",
+      revisionSource: fallbackBinding.revisionSource,
+      restoreStrategy: "file_hash_only_metadata_restore",
+      workflowPath: fallbackBinding.workflowPath,
+      repoRoot: fallbackBinding.repoRoot,
+      relativeWorkflowPath: fallbackBinding.workflowPath,
+      restoredRevision:
+        fallbackBinding.activatedRevision ?? fallbackBinding.workflowContentHash,
+      expectedWorkflowContentHash,
+      actualWorkflowContentHash: fallbackBinding.workflowContentHash,
+      hashVerified: true,
+      blockers: [],
+      evidenceRefs: [fallbackBinding.workflowContentHash],
+      createdAtMs,
+    };
+  }
+  const blockers = Array.from(
+    new Set([
+      ...restoreBlockers,
+      ...(restoreResult?.blockers ?? []),
+      ...(restoreResult ? [] : ["rollback_restore_canary_not_run"]),
+      ...(restoreResult?.restored === true ? [] : ["rollback_restore_canary_not_restored"]),
+      ...(restoreResult?.bundle?.workflow ? [] : ["rollback_restore_canary_bundle_missing"]),
+      ...(hashVerified ? [] : ["rollback_restore_canary_hash_mismatch"]),
+    ].filter(Boolean)),
+  );
+  const status = blockers.length === 0 ? "passed" : "blocked";
+  return {
+    schemaVersion: "workflow.harness.rollback-restore-canary.v1",
+    canaryId: `harness-rollback-restore-canary:${workflowId}:${createdAtMs}`,
+    status,
+    revisionSource: "git",
+    restoreStrategy: restoreResult?.restoreStrategy ?? "git_show_file_restore",
+    workflowPath: restoreResult?.workflowPath ?? fallbackBinding.workflowPath,
+    repoRoot: restoreResult?.repoRoot ?? fallbackBinding.repoRoot,
+    relativeWorkflowPath:
+      restoreResult?.relativeWorkflowPath ?? fallbackBinding.workflowPath,
+    restoredRevision:
+      restoreResult?.restoredRevision ?? fallbackBinding.activatedRevision,
+    restoredFileSha256: restoreResult?.fileSha256,
+    expectedWorkflowContentHash,
+    actualWorkflowContentHash,
+    hashVerified,
+    blockers,
+    evidenceRefs: [
+      ...(restoreResult?.restoredRevision ? [restoreResult.restoredRevision] : []),
+      ...(restoreResult?.relativeWorkflowPath ? [restoreResult.relativeWorkflowPath] : []),
+      ...(restoreResult?.fileSha256 ? [restoreResult.fileSha256] : []),
+      expectedWorkflowContentHash,
+    ],
+    createdAtMs,
+  };
+}
+
 export function createWorkflowHarnessActivationCandidate(
   workflow: WorkflowProject,
   tests: WorkflowTestCase[],
@@ -1281,6 +1366,10 @@ export function createWorkflowHarnessActivationCandidate(
   ),
   proposals: WorkflowProposal[] = [],
   createdAtMs = Date.now(),
+  options: {
+    rollbackRestoreResult?: WorkflowRevisionRestoreResult | null;
+    rollbackRestoreBlockers?: string[];
+  } = {},
 ): WorkflowHarnessForkActivationCandidate {
   const harness = workflow.metadata.harness;
   const workflowId = workflow.metadata.id || workflow.metadata.slug;
@@ -1343,6 +1432,20 @@ export function createWorkflowHarnessActivationCandidate(
   const rollbackReady =
     activationRecord?.rollbackAvailable === true &&
     Boolean(activationRecord.rollbackTarget);
+  const rollbackRevisionBinding =
+    activationRecord?.rollbackRevisionBinding ??
+    harness?.activationRollbackProof?.restoredRevisionBinding ??
+    harness?.revisionBinding;
+  const rollbackRestoreCanary = workflowHarnessRollbackRestoreCanaryFor(
+    workflow,
+    rollbackRevisionBinding,
+    options.rollbackRestoreResult,
+    options.rollbackRestoreBlockers ?? [],
+    createdAtMs,
+  );
+  const rollbackRestoreReady =
+    rollbackRestoreCanary.status === "passed" ||
+    rollbackRestoreCanary.status === "not_required";
   const policyPostureReady =
     harness?.aiMutationMode === "proposal_only" &&
     (workflow.global_config.environmentProfile?.mockBindingPolicy ?? "block") === "block" &&
@@ -1404,6 +1507,19 @@ export function createWorkflowHarnessActivationCandidate(
       value: activationRecord?.canaryStatus ?? "not_run",
       detail: "Canary proof must pass with rollback drill coverage.",
       evidenceRefs: canaryBoundaries.map((boundary) => boundary.boundaryId),
+    },
+    {
+      gateId: "rollback-restore",
+      label: "Rollback restore",
+      status: rollbackRestoreReady ? "passed" : "blocked",
+      value: rollbackRestoreCanary.status,
+      detail:
+        rollbackRestoreCanary.status === "passed"
+          ? "Rollback revision restore canary verified git content and hash."
+          : rollbackRestoreCanary.status === "not_required"
+            ? "Rollback revision uses metadata-only restore."
+            : "Git-backed rollback revision must be restorable before activation.",
+      evidenceRefs: rollbackRestoreCanary.evidenceRefs,
     },
     {
       gateId: "rollback",
@@ -1478,10 +1594,12 @@ export function createWorkflowHarnessActivationCandidate(
     canaryStatus: canaryReady ? "passed" : (activationRecord?.canaryStatus ?? "not_run"),
     rollbackTarget: activationRecord?.rollbackTarget ?? "",
     rollbackAvailable: rollbackReady,
+    rollbackRestoreCanary,
     workerBindingPreview,
     revisionBindingPreview,
     evidenceRefs: [
       ...gateResults.flatMap((gate) => gate.evidenceRefs),
+      ...rollbackRestoreCanary.evidenceRefs,
       ...(activationGateProposal ? [activationGateProposal.id] : []),
     ],
     createdAtMs,

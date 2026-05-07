@@ -2655,11 +2655,41 @@ export function useWorkflowComposerController({
       proposals,
       Object.values(nodeFixturesById).flat(),
     );
+    const rollbackRevisionBinding =
+      currentProjectFile.metadata.harness?.activationRecord?.rollbackRevisionBinding ??
+      currentProjectFile.metadata.harness?.activationRollbackProof?.restoredRevisionBinding ??
+      null;
+    let rollbackRestoreResult: WorkflowRevisionRestoreResult | null = null;
+    let rollbackRestoreBlockers: string[] = [];
+    if (rollbackRevisionBinding?.revisionSource === "git") {
+      if (!runtime.restoreWorkflowRevision) {
+        rollbackRestoreBlockers = ["rollback_restore_api_unavailable"];
+      } else {
+        try {
+          rollbackRestoreResult = await runtime.restoreWorkflowRevision({
+            workflowPath,
+            revisionBinding: rollbackRevisionBinding,
+            expectedWorkflowContentHash: rollbackRevisionBinding.workflowContentHash,
+            dryRun: true,
+          });
+        } catch (error) {
+          rollbackRestoreBlockers = [
+            "rollback_restore_canary_failed",
+            errorMessage(error),
+          ];
+        }
+      }
+    }
     const candidate = createWorkflowHarnessActivationCandidate(
       currentProjectFile,
       tests,
       readiness,
       proposals,
+      Date.now(),
+      {
+        rollbackRestoreResult,
+        rollbackRestoreBlockers,
+      },
     );
     setValidationResult(base);
     setReadinessResult(readiness);
@@ -2674,7 +2704,7 @@ export function useWorkflowComposerController({
             candidate.activationBlockers.length === 1 ? "" : "s"
           }`,
     );
-  }, [currentProjectFile, nodeFixturesById, proposals, tests]);
+  }, [currentProjectFile, nodeFixturesById, proposals, runtime, tests, workflowPath]);
 
   const handleApplyHarnessActivationCandidate = useCallback(async () => {
     const candidate =

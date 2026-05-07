@@ -1,6 +1,7 @@
 // apps/autopilot/src-tauri/src/project/commands.rs
 
 use super::*;
+use sha2::{Digest, Sha256};
 
 #[tauri::command]
 pub fn save_project(path: String, project: ProjectFile) -> Result<(), String> {
@@ -262,13 +263,15 @@ fn git_top_level_for(path: &Path) -> Result<PathBuf, String> {
     if git_root.trim().is_empty() {
         return Err("Git top-level path was empty.".to_string());
     }
-    PathBuf::from(git_root.trim()).canonicalize().map_err(|error| {
-        format!(
-            "Failed to canonicalize git top-level '{}': {}",
-            git_root.trim(),
-            error
-        )
-    })
+    PathBuf::from(git_root.trim())
+        .canonicalize()
+        .map_err(|error| {
+            format!(
+                "Failed to canonicalize git top-level '{}': {}",
+                git_root.trim(),
+                error
+            )
+        })
 }
 
 fn resolve_workflow_revision_repo_root(
@@ -315,9 +318,9 @@ fn resolve_workflow_revision_target_path(
 }
 
 fn git_relative_path(repo_root: &Path, target: &Path) -> Result<String, String> {
-    let relative = target.strip_prefix(repo_root).map_err(|_| {
-        "Workflow revision target is not inside the repository root.".to_string()
-    })?;
+    let relative = target
+        .strip_prefix(repo_root)
+        .map_err(|_| "Workflow revision target is not inside the repository root.".to_string())?;
     let rendered = relative.to_string_lossy().replace('\\', "/");
     if rendered.is_empty() || rendered == "." {
         return Err("Workflow revision target cannot be the repository root.".to_string());
@@ -344,6 +347,12 @@ fn git_show_file_bytes(
     Ok(output.stdout)
 }
 
+fn sha256_hex_for_bytes(content: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(content);
+    hex::encode(hasher.finalize())
+}
+
 #[tauri::command]
 pub fn restore_workflow_revision(
     request: WorkflowRevisionRestoreRequest,
@@ -357,6 +366,7 @@ pub fn restore_workflow_revision(
     if revision_source != "git" {
         return Ok(WorkflowRevisionRestoreResult {
             restored: false,
+            dry_run: request.dry_run,
             blockers: vec!["unsupported_revision_source".to_string()],
             workflow_path: anchor_workflow_path.display().to_string(),
             repo_root: None,
@@ -378,6 +388,7 @@ pub fn restore_workflow_revision(
     else {
         return Ok(WorkflowRevisionRestoreResult {
             restored: false,
+            dry_run: request.dry_run,
             blockers: vec!["activated_revision_missing".to_string()],
             workflow_path: anchor_workflow_path.display().to_string(),
             repo_root: None,
@@ -391,10 +402,8 @@ pub fn restore_workflow_revision(
         });
     };
     let repo_root = resolve_workflow_revision_repo_root(&request, &anchor_workflow_path)?;
-    let target_workflow_path = resolve_workflow_revision_target_path(
-        &repo_root,
-        &request.revision_binding.workflow_path,
-    )?;
+    let target_workflow_path =
+        resolve_workflow_revision_target_path(&repo_root, &request.revision_binding.workflow_path)?;
     let relative_workflow_path = git_relative_path(&repo_root, &target_workflow_path)?;
     let content = match git_show_file_bytes(&repo_root, &restored_revision, &relative_workflow_path)
     {
@@ -402,6 +411,7 @@ pub fn restore_workflow_revision(
         Err(error) => {
             return Ok(WorkflowRevisionRestoreResult {
                 restored: false,
+                dry_run: request.dry_run,
                 blockers: vec!["git_revision_file_missing".to_string()],
                 workflow_path: target_workflow_path.display().to_string(),
                 repo_root: Some(repo_root.display().to_string()),
@@ -416,10 +426,33 @@ pub fn restore_workflow_revision(
             .with_blocker_detail(error));
         }
     };
-    if let Err(error) = serde_json::from_slice::<WorkflowProject>(&content) {
+    let restored_workflow = match serde_json::from_slice::<WorkflowProject>(&content) {
+        Ok(workflow) => workflow,
+        Err(error) => {
+            return Ok(WorkflowRevisionRestoreResult {
+                restored: false,
+                dry_run: request.dry_run,
+                blockers: vec!["git_revision_invalid_workflow_json".to_string()],
+                workflow_path: target_workflow_path.display().to_string(),
+                repo_root: Some(repo_root.display().to_string()),
+                relative_workflow_path: Some(relative_workflow_path),
+                revision_source,
+                restored_revision: Some(restored_revision),
+                restore_strategy: "git_show_file_restore".to_string(),
+                expected_workflow_content_hash,
+                file_sha256: None,
+                bundle: None,
+            }
+            .with_blocker_detail(error.to_string()));
+        }
+    };
+    if request.dry_run {
+        let tests_path = workflow_tests_path(&target_workflow_path);
+        let proposals_dir = workflow_proposals_dir(&target_workflow_path);
         return Ok(WorkflowRevisionRestoreResult {
-            restored: false,
-            blockers: vec!["git_revision_invalid_workflow_json".to_string()],
+            restored: true,
+            dry_run: true,
+            blockers: Vec::new(),
             workflow_path: target_workflow_path.display().to_string(),
             repo_root: Some(repo_root.display().to_string()),
             relative_workflow_path: Some(relative_workflow_path),
@@ -427,10 +460,17 @@ pub fn restore_workflow_revision(
             restored_revision: Some(restored_revision),
             restore_strategy: "git_show_file_restore".to_string(),
             expected_workflow_content_hash,
-            file_sha256: None,
-            bundle: None,
-        }
-        .with_blocker_detail(error.to_string()));
+            file_sha256: Some(sha256_hex_for_bytes(&content)),
+            bundle: Some(WorkflowWorkbenchBundle {
+                workflow_path: target_workflow_path.display().to_string(),
+                tests_path: tests_path.display().to_string(),
+                proposals_dir: proposals_dir.display().to_string(),
+                workflow: restored_workflow,
+                tests: Vec::new(),
+                proposals: Vec::new(),
+                runs: Vec::new(),
+            }),
+        });
     }
     if let Some(parent) = target_workflow_path.parent() {
         fs::create_dir_all(parent).map_err(|error| {
@@ -452,6 +492,7 @@ pub fn restore_workflow_revision(
     let bundle = load_workflow_bundle_from_path(&target_workflow_path)?;
     Ok(WorkflowRevisionRestoreResult {
         restored: true,
+        dry_run: false,
         blockers: Vec::new(),
         workflow_path: target_workflow_path.display().to_string(),
         repo_root: Some(repo_root.display().to_string()),
