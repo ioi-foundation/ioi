@@ -691,6 +691,11 @@ function readHarnessRailSelectedState(testId: string): Record<string, string> {
     "data-evidence-ref-count",
     "data-receipt-ref-count",
     "data-replay-fixture-ref-count",
+    "data-gate-action-id",
+    "data-gate-action-kind",
+    "data-gate-action-impact",
+    "data-gate-action-command",
+    "data-gate-action-disabled",
   ];
   return Object.fromEntries(
     selectedAttributes.map((attribute) => [attribute, target.getAttribute(attribute) ?? ""]),

@@ -143,6 +143,33 @@ type WorkflowHarnessWorkbenchDeepLinkTarget = {
   activationGateReplayFixtureRef?: string;
 };
 
+type WorkflowHarnessActivationGateActionKind =
+  | "inspect_blocker"
+  | "check_readiness"
+  | "review_proposal"
+  | "run_activation_dry_run"
+  | "run_replay_gate"
+  | "run_rollback_drill"
+  | "mint_activation";
+
+type WorkflowHarnessActivationGateActionImpact =
+  | "inspect"
+  | "collect_evidence"
+  | "clear_blocker"
+  | "mint_activation";
+
+type WorkflowHarnessActivationGateAction = {
+  actionId: string;
+  kind: WorkflowHarnessActivationGateActionKind;
+  impact: WorkflowHarnessActivationGateActionImpact;
+  label: string;
+  detail: string;
+  commandTestId: string;
+  disabled: boolean;
+  disabledReason?: string;
+  onRun?: () => void;
+};
+
 type WorkflowHarnessActivationWizardStep = {
   id: string;
   label: string;
@@ -152,6 +179,7 @@ type WorkflowHarnessActivationWizardStep = {
   evidenceRefs: string[];
   receiptRefs?: string[];
   replayFixtureRefs?: string[];
+  gateAction: WorkflowHarnessActivationGateAction;
 };
 
 function workflowRevisionBindingDeepLinkRef(
@@ -851,6 +879,194 @@ export function WorkflowRailPanel({
     ),
     ...(harnessDefaultRuntimeDispatchProof?.replayFixtureRefs ?? []),
   ]);
+  const firstHarnessActivationBlockerByCode = (
+    codes: string[],
+  ): WorkflowValidationIssue | null =>
+    harnessActivationBlockers.find((issue) => codes.includes(issue.code)) ?? null;
+  const missingSlotBlocker = firstHarnessActivationBlockerByCode([
+    "harness_required_slot_unbound",
+    "unbound_model_ref",
+  ]);
+  const missingTestBlocker = firstHarnessActivationBlockerByCode([
+    "missing_unit_tests",
+    "missing_ai_evaluation_coverage",
+  ]);
+  const missingReplayFixtureBlocker = firstHarnessActivationBlockerByCode([
+    "missing_replay_fixture",
+  ]);
+  const policyPostureBlocker = firstHarnessActivationBlockerByCode([
+    "harness_self_mutation_not_proposal_only",
+    "mcp_access_not_reviewed",
+  ]);
+  const activationValidationBlocker = firstHarnessActivationBlockerByCode([
+    "harness_activation_not_validated",
+  ]);
+  const makeReadinessGateAction = ({
+    gateId,
+    label,
+    detail,
+    blocker,
+  }: {
+    gateId: string;
+    label: string;
+    detail: string;
+    blocker?: WorkflowValidationIssue | null;
+  }): WorkflowHarnessActivationGateAction =>
+    blocker
+      ? {
+          actionId: `activation-gate-action:${gateId}:inspect-blocker`,
+          kind: "inspect_blocker",
+          impact: "clear_blocker",
+          label: "Inspect blocker",
+          detail: blocker.message,
+          commandTestId: `workflow-harness-gate-action-${gateId}`,
+          disabled: false,
+          onRun: () => onResolveIssue(blocker),
+        }
+      : {
+          actionId: `activation-gate-action:${gateId}:check-readiness`,
+          kind: "check_readiness",
+          impact: "inspect",
+          label,
+          detail,
+          commandTestId: `workflow-harness-gate-action-${gateId}`,
+          disabled: !onCheckActivationReadiness,
+          disabledReason: onCheckActivationReadiness
+            ? undefined
+            : "readiness check unavailable",
+          onRun: onCheckActivationReadiness,
+        };
+  const harnessActivationGateActions: Record<
+    string,
+    WorkflowHarnessActivationGateAction
+  > = {
+    slots: makeReadinessGateAction({
+      gateId: "slots",
+      label: "Check slots",
+      detail: "Re-run activation readiness against required component slot bindings.",
+      blocker: missingSlotBlocker,
+    }),
+    tests: makeReadinessGateAction({
+      gateId: "tests",
+      label: "Check tests",
+      detail: "Re-run activation readiness and retained test coverage checks.",
+      blocker: missingTestBlocker,
+    }),
+    "replay-fixtures": missingReplayFixtureBlocker
+      ? {
+          actionId: "activation-gate-action:replay-fixtures:run-replay-gate",
+          kind: "run_replay_gate",
+          impact: "collect_evidence",
+          label: "Run replay gate",
+          detail: missingReplayFixtureBlocker.message,
+          commandTestId: "workflow-harness-gate-action-replay-fixtures",
+          disabled: !onRunHarnessReplayGate,
+          disabledReason: onRunHarnessReplayGate ? undefined : "replay gate unavailable",
+          onRun: onRunHarnessReplayGate,
+        }
+      : {
+          actionId: "activation-gate-action:replay-fixtures:run-replay-gate",
+          kind: "run_replay_gate",
+          impact: "collect_evidence",
+          label: "Run replay gate",
+          detail: "Refresh replay gate proof for external and expensive nodes.",
+          commandTestId: "workflow-harness-gate-action-replay-fixtures",
+          disabled: !onRunHarnessReplayGate,
+          disabledReason: onRunHarnessReplayGate ? undefined : "replay gate unavailable",
+          onRun: onRunHarnessReplayGate,
+        },
+    "policy-posture": activationGateProposal
+      ? {
+          actionId: "activation-gate-action:policy-posture:review-proposal",
+          kind: "review_proposal",
+          impact: "clear_blocker",
+          label: "Review proposal",
+          detail: activationGateProposal.summary,
+          commandTestId: "workflow-harness-gate-action-policy-posture",
+          disabled: false,
+          onRun: () => onSelectProposal(activationGateProposal),
+        }
+      : makeReadinessGateAction({
+          gateId: "policy-posture",
+          label: "Check policy",
+          detail: "Re-run policy posture checks for mutation mode, mocks, and MCP review.",
+          blocker: policyPostureBlocker,
+        }),
+    "receipt-coverage": makeReadinessGateAction({
+      gateId: "receipt-coverage",
+      label: "Check receipts",
+      detail: "Re-run receipt coverage checks for harness component bindings.",
+      blocker: null,
+    }),
+    canary: {
+      actionId: "activation-gate-action:canary:run-dry-run",
+      kind: "run_activation_dry_run",
+      impact: "collect_evidence",
+      label: "Run canary dry run",
+      detail: "Generate a dry-run activation candidate and retained-scenario canary proof.",
+      commandTestId: "workflow-harness-gate-action-canary",
+      disabled: !onRunHarnessActivationDryRun,
+      disabledReason: onRunHarnessActivationDryRun ? undefined : "dry run unavailable",
+      onRun: onRunHarnessActivationDryRun,
+    },
+    "rollback-restore": {
+      actionId: "activation-gate-action:rollback-restore:run-dry-run",
+      kind: "run_activation_dry_run",
+      impact: "collect_evidence",
+      label: "Run restore canary",
+      detail: "Dry-run the rollback restore probe before activation can mint.",
+      commandTestId: "workflow-harness-gate-action-rollback-restore",
+      disabled: !onRunHarnessActivationDryRun,
+      disabledReason: onRunHarnessActivationDryRun ? undefined : "dry run unavailable",
+      onRun: onRunHarnessActivationDryRun,
+    },
+    rollback: {
+      actionId: "activation-gate-action:rollback:run-drill",
+      kind: "run_rollback_drill",
+      impact: "collect_evidence",
+      label: "Run rollback drill",
+      detail: "Validate that the current rollback target can be restored safely.",
+      commandTestId: "workflow-harness-gate-action-rollback",
+      disabled: !onRunHarnessRollbackDrill,
+      disabledReason: onRunHarnessRollbackDrill ? undefined : "rollback drill unavailable",
+      onRun: onRunHarnessRollbackDrill,
+    },
+    "activation-id": harnessActivationCandidate?.decision === "mintable"
+      ? {
+          actionId: "activation-gate-action:activation-id:mint",
+          kind: "mint_activation",
+          impact: "mint_activation",
+          label: "Mint activation",
+          detail: "Apply the validated candidate and mint the workflow activation id.",
+          commandTestId: "workflow-harness-gate-action-activation-id",
+          disabled: !onApplyHarnessActivationCandidate,
+          disabledReason: onApplyHarnessActivationCandidate
+            ? undefined
+            : "activation apply unavailable",
+          onRun: onApplyHarnessActivationCandidate,
+        }
+      : {
+          actionId: "activation-gate-action:activation-id:run-dry-run",
+          kind: "run_activation_dry_run",
+          impact: "collect_evidence",
+          label: "Run activation dry run",
+          detail:
+            activationValidationBlocker?.message ??
+            "Create a mintable activation candidate before applying it.",
+          commandTestId: "workflow-harness-gate-action-activation-id",
+          disabled: !onRunHarnessActivationDryRun,
+          disabledReason: onRunHarnessActivationDryRun
+            ? undefined
+            : "dry run unavailable",
+          onRun: onRunHarnessActivationDryRun,
+        },
+    "worker-binding": makeReadinessGateAction({
+      gateId: "worker-binding",
+      label: "Check worker binding",
+      detail: "Re-run worker binding readiness against workflow id, activation id, and hash.",
+      blocker: activationValidationBlocker,
+    }),
+  };
   const harnessActivationWizardSteps: WorkflowHarnessActivationWizardStep[] = [
     {
       id: "slots",
@@ -859,6 +1075,7 @@ export function WorkflowRailPanel({
       value: `${boundRequiredHarnessSlotCount}/${requiredHarnessSlots.length}`,
       detail: "required component slots bound",
       evidenceRefs: requiredHarnessSlots.map((slot) => slot.slotId),
+      gateAction: harnessActivationGateActions.slots,
     },
     {
       id: "tests",
@@ -867,6 +1084,7 @@ export function WorkflowRailPanel({
       value: `${tests.length}`,
       detail: "activation test cases available",
       evidenceRefs: tests.map((test) => test.id),
+      gateAction: harnessActivationGateActions.tests,
     },
     {
       id: "replay-fixtures",
@@ -876,6 +1094,7 @@ export function WorkflowRailPanel({
       detail: "required expensive or external nodes replayable",
       evidenceRefs: harnessReplayGateRefs,
       replayFixtureRefs: harnessReplayFixtureRefs,
+      gateAction: harnessActivationGateActions["replay-fixtures"],
     },
     {
       id: "policy-posture",
@@ -888,6 +1107,7 @@ export function WorkflowRailPanel({
         workflow.metadata.harness?.aiMutationMode,
         productionProfile.mcpAccessReviewed === true ? "mcp_access_reviewed" : null,
       ]),
+      gateAction: harnessActivationGateActions["policy-posture"],
     },
     {
       id: "receipt-coverage",
@@ -898,6 +1118,7 @@ export function WorkflowRailPanel({
       evidenceRefs: workflow.nodes.flatMap(
         (node) => node.runtimeBinding?.receiptKinds ?? [],
       ),
+      gateAction: harnessActivationGateActions["receipt-coverage"],
     },
     {
       id: "canary",
@@ -912,6 +1133,7 @@ export function WorkflowRailPanel({
       replayFixtureRefs: harnessCanaryExecutionBoundaries.flatMap(
         (boundary) => boundary.replayFixtureRefs,
       ),
+      gateAction: harnessActivationGateActions.canary,
     },
     {
       id: "rollback-restore",
@@ -921,6 +1143,7 @@ export function WorkflowRailPanel({
       detail: "non-mutating git restore probe verifies rollback revision",
       evidenceRefs: rollbackRestoreCanary?.evidenceRefs ?? [],
       receiptRefs: workflowUniqueReceiptRefs([rollbackRestoreCanary?.receiptBindingRef]),
+      gateAction: harnessActivationGateActions["rollback-restore"],
     },
     {
       id: "rollback",
@@ -937,6 +1160,7 @@ export function WorkflowRailPanel({
         ...(harnessActivationRollbackProof?.receiptRefs ?? []),
         ...(harnessActivationRollbackExecution?.receiptRefs ?? []),
       ]),
+      gateAction: harnessActivationGateActions.rollback,
     },
     {
       id: "activation-id",
@@ -948,6 +1172,7 @@ export function WorkflowRailPanel({
         workflow.metadata.harness?.activationId,
         harnessActivationCandidate?.activationIdPreview,
       ]),
+      gateAction: harnessActivationGateActions["activation-id"],
     },
     {
       id: "worker-binding",
@@ -960,6 +1185,7 @@ export function WorkflowRailPanel({
         harnessWorkerBinding?.harnessActivationId,
         harnessWorkerBinding?.harnessHash,
       ]),
+      gateAction: harnessActivationGateActions["worker-binding"],
     },
   ];
   const selectedHarnessCandidateGate = selectedHarnessActivationGateId
@@ -977,6 +1203,7 @@ export function WorkflowRailPanel({
         sourceKind: "activation_candidate" | "wizard_step";
         receiptRefs: string[];
         replayFixtureRefs: string[];
+        gateAction: WorkflowHarnessActivationGateAction | null;
       })
     | null = selectedHarnessActivationGateId
     ? {
@@ -1012,6 +1239,10 @@ export function WorkflowRailPanel({
             : workflowUniqueReplayFixtureRefs(
                 selectedHarnessActivationWizardStep?.replayFixtureRefs ?? [],
               ),
+        gateAction:
+          harnessActivationGateActions[selectedHarnessActivationGateId] ??
+          selectedHarnessActivationWizardStep?.gateAction ??
+          null,
         sourceKind: selectedHarnessCandidateGate ? "activation_candidate" : "wizard_step",
       }
     : null;
@@ -1190,6 +1421,28 @@ export function WorkflowRailPanel({
   const mcpToolNodes = workflow.nodes.filter(
     (nodeItem) => nodeItem.type === "plugin_tool" && nodeItem.config?.logic?.toolBinding?.bindingKind === "mcp_tool",
   );
+  const renderHarnessActivationGateAction = (
+    action: WorkflowHarnessActivationGateAction | null | undefined,
+    testId: string,
+  ) =>
+    action ? (
+      <button
+        type="button"
+        className="workflow-harness-ref-button"
+        data-testid={testId}
+        data-gate-action-id={action.actionId}
+        data-gate-action-kind={action.kind}
+        data-gate-action-impact={action.impact}
+        data-gate-action-command={action.commandTestId}
+        data-gate-action-disabled={action.disabled ? "true" : "false"}
+        data-gate-action-disabled-reason={action.disabledReason ?? ""}
+        disabled={action.disabled}
+        onClick={() => action.onRun?.()}
+      >
+        <strong>{action.label}</strong>
+        <span>{action.detail}</span>
+      </button>
+    ) : null;
   if (panel === "unit_tests") {
     return (
       <>
@@ -3027,44 +3280,55 @@ export function WorkflowRailPanel({
                         selectedHarnessActivationGateId ?? ""
                       }
                     >
-                      {harnessActivationCandidate.gateResults.map((gate) => (
-                        <article
-                          key={gate.gateId}
-                          className={`workflow-test-row is-${gate.status} ${
-                            selectedHarnessActivationGateId === gate.gateId
-                              ? "is-active"
-                              : ""
-                          }`}
-                          data-testid={`workflow-harness-activation-candidate-gate-${gate.gateId}`}
-                          data-activation-gate-id={gate.gateId}
-                        >
-                          <strong>{gate.label}</strong>
-                          <span>{gate.value}</span>
-                          <small>{gate.detail}</small>
-                          {onCopyHarnessDeepLink ? (
+                      {harnessActivationCandidate.gateResults.map((gate) => {
+                        const gateAction = harnessActivationGateActions[gate.gateId] ?? null;
+                        return (
+                          <article
+                            key={gate.gateId}
+                            className={`workflow-test-row is-${gate.status} ${
+                              selectedHarnessActivationGateId === gate.gateId
+                                ? "is-active"
+                                : ""
+                            }`}
+                            data-testid={`workflow-harness-activation-candidate-gate-${gate.gateId}`}
+                            data-activation-gate-id={gate.gateId}
+                            data-gate-action-id={gateAction?.actionId ?? ""}
+                            data-gate-action-kind={gateAction?.kind ?? ""}
+                            data-gate-action-impact={gateAction?.impact ?? ""}
+                            data-gate-action-command={gateAction?.commandTestId ?? ""}
+                          >
+                            <strong>{gate.label}</strong>
+                            <span>{gate.value}</span>
+                            <small>{gate.detail}</small>
                             <div className="workflow-harness-authority-gate-actions">
-                              <button
-                                type="button"
-                                className={`workflow-harness-ref-button ${
-                                  selectedHarnessActivationGateId === gate.gateId
-                                    ? "is-active"
-                                    : ""
-                                }`}
-                                data-testid={`workflow-harness-activation-candidate-gate-link-${gate.gateId}`}
-                                data-activation-gate-id={gate.gateId}
-                                onClick={() =>
-                                  onCopyHarnessDeepLink?.({
-                                    panel: "settings",
-                                    activationGateId: gate.gateId,
-                                  })
-                                }
-                              >
-                                <code>{gate.gateId}</code>
-                              </button>
+                              {onCopyHarnessDeepLink ? (
+                                <button
+                                  type="button"
+                                  className={`workflow-harness-ref-button ${
+                                    selectedHarnessActivationGateId === gate.gateId
+                                      ? "is-active"
+                                      : ""
+                                  }`}
+                                  data-testid={`workflow-harness-activation-candidate-gate-link-${gate.gateId}`}
+                                  data-activation-gate-id={gate.gateId}
+                                  onClick={() =>
+                                    onCopyHarnessDeepLink?.({
+                                      panel: "settings",
+                                      activationGateId: gate.gateId,
+                                    })
+                                  }
+                                >
+                                  <code>{gate.gateId}</code>
+                                </button>
+                              ) : null}
+                              {renderHarnessActivationGateAction(
+                                gateAction,
+                                `workflow-harness-activation-candidate-gate-action-${gate.gateId}`,
+                              )}
                             </div>
-                          ) : null}
-                        </article>
-                      ))}
+                          </article>
+                        );
+                      })}
                     </div>
                     {harnessActivationCandidate.activationBlockers.length > 0 ? (
                       <div
@@ -3110,12 +3374,16 @@ export function WorkflowRailPanel({
                       }`}
                       data-testid={`workflow-harness-activation-step-${step.id}`}
                       data-activation-gate-id={step.id}
+                      data-gate-action-id={step.gateAction.actionId}
+                      data-gate-action-kind={step.gateAction.kind}
+                      data-gate-action-impact={step.gateAction.impact}
+                      data-gate-action-command={step.gateAction.commandTestId}
                     >
                       <strong>{step.label}</strong>
                       <span>{step.value}</span>
                       <small>{step.detail}</small>
-                      {onCopyHarnessDeepLink ? (
-                        <div className="workflow-harness-authority-gate-actions">
+                      <div className="workflow-harness-authority-gate-actions">
+                        {onCopyHarnessDeepLink ? (
                           <button
                             type="button"
                             className={`workflow-harness-ref-button ${
@@ -3134,8 +3402,12 @@ export function WorkflowRailPanel({
                           >
                             <code>{step.id}</code>
                           </button>
-                        </div>
-                      ) : null}
+                        ) : null}
+                        {renderHarnessActivationGateAction(
+                          step.gateAction,
+                          `workflow-harness-activation-step-action-${step.id}`,
+                        )}
+                      </div>
                     </article>
                   ))}
                 </div>
@@ -3168,6 +3440,24 @@ export function WorkflowRailPanel({
                     data-replay-fixture-ref-count={
                       selectedHarnessActivationGateInspection.replayFixtureRefs.length
                     }
+                    data-gate-action-id={
+                      selectedHarnessActivationGateInspection.gateAction?.actionId ?? ""
+                    }
+                    data-gate-action-kind={
+                      selectedHarnessActivationGateInspection.gateAction?.kind ?? ""
+                    }
+                    data-gate-action-impact={
+                      selectedHarnessActivationGateInspection.gateAction?.impact ?? ""
+                    }
+                    data-gate-action-command={
+                      selectedHarnessActivationGateInspection.gateAction?.commandTestId ??
+                      ""
+                    }
+                    data-gate-action-disabled={
+                      selectedHarnessActivationGateInspection.gateAction?.disabled
+                        ? "true"
+                        : "false"
+                    }
                   >
                     <h4>Gate evidence</h4>
                     <article
@@ -3178,6 +3468,15 @@ export function WorkflowRailPanel({
                       <span>{selectedHarnessActivationGateInspection.value}</span>
                       <small>{selectedHarnessActivationGateInspection.detail}</small>
                     </article>
+                    <div
+                      className="workflow-harness-authority-gate-actions"
+                      data-testid="workflow-harness-activation-gate-actions"
+                    >
+                      {renderHarnessActivationGateAction(
+                        selectedHarnessActivationGateInspection.gateAction,
+                        "workflow-harness-activation-gate-action",
+                      )}
+                    </div>
                     <div
                       className="workflow-harness-authority-gate-actions"
                       data-testid="workflow-harness-activation-gate-evidence-refs"
