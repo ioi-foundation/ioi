@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "ioi.agent-runtime.p3-exhaustive-validation.v1",
+  "ok": true,
+  "failures": [],
+  "outputDir": "docs/evidence/agent-runtime-p3-validation/2026-05-08T14-59-45-397Z",
+  "checklistPath": "docs/evidence/agent-runtime-p3-validation/2026-05-08T14-59-45-397Z/checklist.json",
+  "scorecardPath": "docs/evidence/agent-runtime-p3-validation/2026-05-08T14-59-45-397Z/scorecard.json",
+  "dashboardIndexPath": "docs/evidence/agent-runtime-p3-validation/2026-05-08T14-59-45-397Z/dashboard-index.json",
+  "redactedDiagnosticBundlePath": "docs/evidence/agent-runtime-p3-validation/2026-05-08T14-59-45-397Z/redacted-diagnostic-bundle.json",
+  "validationReportPath": "docs/evidence/agent-runtime-p3-validation/2026-05-08T14-59-45-397Z/validation-report.md"
+}

@@ -1259,6 +1259,7 @@ export interface WorkflowHarnessForkActivationRecord {
   evidenceRefs: string[];
   workerBinding?: WorkflowHarnessWorkerBinding;
   workerBindingRegistryRecord?: WorkflowHarnessWorkerBindingRegistryRecord;
+  workerAttachReceipt?: WorkflowHarnessWorkerAttachReceipt;
   revisionBinding?: WorkflowRevisionBinding;
   rollbackRevisionBinding?: WorkflowRevisionBinding;
   rollbackRestoreCanary?: WorkflowHarnessRollbackRestoreCanary;
@@ -1842,6 +1843,7 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   authorityToolingAdapterProof?: Record<string, unknown>;
   livePromotionReadinessProof: WorkflowHarnessLivePromotionReadinessProof;
   workerBindingRegistryRecord: WorkflowHarnessWorkerBindingRegistryRecord;
+  workerAttachReceipt: WorkflowHarnessWorkerAttachReceipt;
   modelExecutionProof?: Record<string, unknown>;
   outputAuthority: "existing_runtime_service" | string;
   outputWriterDeferred: boolean;
@@ -2443,6 +2445,7 @@ export interface WorkflowHarnessMetadata {
   runtimeSelectorDecision?: WorkflowHarnessRuntimeSelectorDecision;
   defaultRuntimeDispatchProof?: WorkflowHarnessDefaultRuntimeDispatchProof;
   workerBindingRegistryRecord?: WorkflowHarnessWorkerBindingRegistryRecord;
+  workerAttachReceipt?: WorkflowHarnessWorkerAttachReceipt;
   deepLinkReplayProof?: WorkflowHarnessDeepLinkReplayProof;
   coldStartDeepLinkRestoreProof?: WorkflowHarnessColdStartDeepLinkRestoreProof;
   activationBlockerDeepLinkProof?: WorkflowHarnessDeepLinkReplayProof;
@@ -2498,6 +2501,52 @@ export interface WorkflowHarnessWorkerBindingRegistryRecord {
   bindingStatus: WorkflowHarnessWorkerBindingStatus;
   blockers: string[];
   workerBinding: WorkflowHarnessWorkerBinding;
+  createdAtMs?: number;
+}
+
+export type WorkflowHarnessWorkerAttachStatus =
+  | "unbound"
+  | "blocked"
+  | "canary"
+  | "bound"
+  | "resumed"
+  | "rolled_back"
+  | string;
+
+export interface WorkflowHarnessWorkerAttachRequest {
+  schemaVersion: "workflow.harness.worker-attach-request.v1" | string;
+  requestId: string;
+  workerId: string;
+  workflowId: string;
+  activationId: string;
+  activationHash: string;
+  harnessHash: string;
+  componentVersionSet: Record<string, string>;
+  rollbackTarget: string;
+  readinessProofId: string;
+  requestedStatus: WorkflowHarnessWorkerAttachStatus;
+}
+
+export interface WorkflowHarnessWorkerAttachReceipt {
+  schemaVersion: "workflow.harness.worker-attach-receipt.v1" | string;
+  receiptId: string;
+  workerId: string;
+  workflowId: string;
+  activationId: string;
+  activationHash: string;
+  harnessHash: string;
+  componentVersionSet: Record<string, string>;
+  rollbackTarget: string;
+  rollbackAvailable: boolean;
+  readinessProofId: string;
+  registryRecordId: string;
+  bindingStatus: WorkflowHarnessWorkerBindingStatus;
+  attachStatus: WorkflowHarnessWorkerAttachStatus;
+  accepted: boolean;
+  blockers: string[];
+  workerBinding: WorkflowHarnessWorkerBinding;
+  policyDecision: string;
+  evidenceRefs: string[];
   createdAtMs?: number;
 }
 

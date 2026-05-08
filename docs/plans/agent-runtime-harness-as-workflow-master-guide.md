@@ -416,6 +416,50 @@ workflow id, activation id, activation hash, component-version set, rollback
 target, readiness proof id, and worker binding status before the worker can
 claim live default authority.
 
+### 2026-05-08 Worker-Attach Resolver Slice
+
+The registry is now an operational attach resolver, not just a proof artifact.
+The live default worker path must produce a durable worker attach receipt before
+the worker can claim blessed workflow authority:
+
+- Rust canonical harness contracts now define
+  `HarnessWorkerAttachStatus`, `HarnessWorkerAttachRequest`, and
+  `HarnessWorkerAttachReceipt`, plus `resolve_harness_worker_binding`.
+- Attach resolution fails closed unless workflow id, activation id, activation
+  hash, harness hash, component-version set, rollback target, readiness proof
+  id, registry status, canary result, nested live worker binding, and authority
+  readiness all match.
+- `RuntimeAgentService` now carries the active registry record and latest
+  attach receipt; adopting a live registry through
+  `with_harness_worker_binding_registry_record` requires an accepted resolver
+  receipt.
+- The TS harness runtime mirrors the resolver with
+  `makeWorkflowHarnessWorkerAttachRequest`,
+  `resolveWorkflowHarnessWorkerBinding`, and
+  `workflowHarnessWorkerAttachBlockers`.
+- Default dispatch proofs, fork activation records, harness metadata, and
+  Autopilot runtime evidence now include `workerAttachReceipt`.
+- Autopilot evidence also includes an intentionally invalid attach receipt with
+  a mismatched activation hash, and validation requires that invalid attach to
+  be blocked.
+- The Workflows right rail surfaces attach status and attach receipt id beside
+  worker authority and registry state.
+- Focused validation is green for the Rust attach resolver, Autopilot default
+  runtime binding evidence, TS activation contracts, IDE build, harness wiring,
+  and the GUI harness contract.
+- Full retained GUI validation is green in
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T14-51-20-968Z/`;
+  the live GUI proof explicitly reports `workerAttachBound: true`.
+- Runtime P3 with required GUI evidence is green at
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T14-59-45-397Z/dashboard-index.json`.
+
+This changes the promotion boundary from "a registry record authorizes a live
+binding" to "a specific worker attachment must resolve through that registry
+and emit a receipt." The next chronological slice should make worker
+attach/resume/rollback lifecycle events first-class timeline entries and prove
+the `resumed` and `rolled_back` states through retained GUI evidence, alongside
+the current valid/invalid attach proof.
+
 ## Current State
 
 ### Roadmap State

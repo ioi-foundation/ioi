@@ -35,6 +35,9 @@ import type {
   WorkflowHarnessReplayGateResult,
   WorkflowHarnessSlotKind,
   WorkflowHarnessSlotSpec,
+  WorkflowHarnessWorkerAttachReceipt,
+  WorkflowHarnessWorkerAttachRequest,
+  WorkflowHarnessWorkerAttachStatus,
   WorkflowHarnessWorkerBinding,
   WorkflowHarnessWorkerBindingRegistryRecord,
   WorkflowRevisionBinding,
@@ -404,6 +407,176 @@ export function workflowHarnessWorkerBindingRegistryBlockers(
   return uniqueStrings(blockers);
 }
 
+function componentVersionSetsMatch(
+  left: Record<string, string> | null | undefined,
+  right: Record<string, string> | null | undefined,
+): boolean {
+  const leftEntries = Object.entries(left ?? {}).sort(([a], [b]) =>
+    a.localeCompare(b),
+  );
+  const rightEntries = Object.entries(right ?? {}).sort(([a], [b]) =>
+    a.localeCompare(b),
+  );
+  return JSON.stringify(leftEntries) === JSON.stringify(rightEntries);
+}
+
+export function makeWorkflowHarnessWorkerAttachRequest(
+  record: WorkflowHarnessWorkerBindingRegistryRecord,
+  requestedStatus: WorkflowHarnessWorkerAttachStatus = "bound",
+): WorkflowHarnessWorkerAttachRequest {
+  return {
+    schemaVersion: "workflow.harness.worker-attach-request.v1",
+    requestId: `harness-worker-attach-request:${record.workflowId}:${record.activationId}:${requestedStatus}`,
+    workerId: `harness-worker:${record.workflowId}:${record.activationId}`,
+    workflowId: record.workflowId,
+    activationId: record.activationId,
+    activationHash: record.activationHash,
+    harnessHash: record.harnessHash,
+    componentVersionSet: record.componentVersionSet,
+    rollbackTarget: record.rollbackTarget,
+    readinessProofId: record.readinessProofId,
+    requestedStatus,
+  };
+}
+
+export function resolveWorkflowHarnessWorkerBinding(
+  record: WorkflowHarnessWorkerBindingRegistryRecord,
+  request = makeWorkflowHarnessWorkerAttachRequest(record),
+): WorkflowHarnessWorkerAttachReceipt {
+  const blockers = uniqueStrings([
+    ...workflowHarnessWorkerBindingRegistryBlockers(record).map((blocker) =>
+      blocker === "worker_binding_registry_not_bound"
+        ? "worker_attach_registry_not_bound"
+        : `worker_attach_${blocker.replace(/^worker_binding_registry_/, "")}`,
+    ),
+  ]);
+  if (request.schemaVersion !== "workflow.harness.worker-attach-request.v1") {
+    blockers.push("worker_attach_request_schema_mismatch");
+  }
+  if (request.workflowId !== record.workflowId) {
+    blockers.push("worker_attach_workflow_mismatch");
+  }
+  if (request.activationId !== record.activationId) {
+    blockers.push("worker_attach_activation_mismatch");
+  }
+  if (request.activationHash !== record.activationHash) {
+    blockers.push("worker_attach_activation_hash_mismatch");
+  }
+  if (request.harnessHash !== record.harnessHash) {
+    blockers.push("worker_attach_harness_hash_mismatch");
+  }
+  if (
+    !componentVersionSetsMatch(
+      request.componentVersionSet,
+      record.componentVersionSet,
+    )
+  ) {
+    blockers.push("worker_attach_component_version_set_mismatch");
+  }
+  if (!request.rollbackTarget) {
+    blockers.push("worker_attach_rollback_target_missing");
+  }
+  if (request.rollbackTarget !== record.rollbackTarget) {
+    blockers.push("worker_attach_rollback_target_mismatch");
+  }
+  if (!request.readinessProofId) {
+    blockers.push("worker_attach_readiness_proof_missing");
+  }
+  if (request.readinessProofId !== record.readinessProofId) {
+    blockers.push("worker_attach_readiness_proof_mismatch");
+  }
+  if (record.bindingStatus !== "bound") {
+    blockers.push("worker_attach_registry_not_bound");
+  }
+  if ((record.blockers ?? []).length > 0) {
+    blockers.push("worker_attach_registry_blocked");
+  }
+  if (!record.canaryResultId?.endsWith(":passed")) {
+    blockers.push("worker_attach_canary_not_passed");
+  }
+  if (record.workerBinding.executionMode !== "live") {
+    blockers.push("worker_attach_worker_not_live");
+  }
+  if (record.workerBinding.rollbackTarget !== record.rollbackTarget) {
+    blockers.push("worker_attach_worker_rollback_mismatch");
+  }
+  if (record.workerBinding.authorityBindingReady !== true) {
+    blockers.push("worker_attach_authority_not_ready");
+  }
+  if ((record.workerBinding.authorityBindingBlockers ?? []).length > 0) {
+    blockers.push("worker_attach_authority_blocked");
+  }
+  if (
+    record.workerBinding.livePromotionReadinessProofId !==
+    record.readinessProofId
+  ) {
+    blockers.push("worker_attach_worker_readiness_proof_mismatch");
+  }
+  const accepted = uniqueStrings(blockers).length === 0;
+  const attachStatus: WorkflowHarnessWorkerAttachStatus = accepted
+    ? request.requestedStatus === "resumed" ||
+      request.requestedStatus === "rolled_back"
+      ? request.requestedStatus
+      : "bound"
+    : record.bindingStatus === "projection"
+      ? "unbound"
+      : record.bindingStatus === "canary"
+        ? "canary"
+        : "blocked";
+  const dedupedBlockers = uniqueStrings(blockers).sort();
+  return {
+    schemaVersion: "workflow.harness.worker-attach-receipt.v1",
+    receiptId: `harness-worker-attach-receipt:${request.workerId}:${record.registryRecordId}:${attachStatus}`,
+    workerId: request.workerId,
+    workflowId: request.workflowId,
+    activationId: request.activationId,
+    activationHash: request.activationHash,
+    harnessHash: request.harnessHash,
+    componentVersionSet: request.componentVersionSet,
+    rollbackTarget: request.rollbackTarget,
+    rollbackAvailable:
+      request.rollbackTarget === record.rollbackTarget &&
+      !!record.rollbackTarget,
+    readinessProofId: request.readinessProofId,
+    registryRecordId: record.registryRecordId,
+    bindingStatus: record.bindingStatus,
+    attachStatus,
+    accepted,
+    blockers: dedupedBlockers,
+    workerBinding: record.workerBinding,
+    policyDecision: accepted
+      ? "allow_harness_worker_attach"
+      : "block_harness_worker_attach",
+    evidenceRefs: uniqueStrings([
+      record.registryRecordId,
+      record.readinessProofId,
+      record.canaryResultId,
+    ]),
+    createdAtMs: record.createdAtMs,
+  };
+}
+
+export function workflowHarnessWorkerAttachBlockers(
+  receipt: WorkflowHarnessWorkerAttachReceipt | null | undefined,
+): string[] {
+  if (!receipt) return ["worker_attach_receipt_missing"];
+  const blockers = uniqueStrings(receipt.blockers ?? []);
+  if (receipt.schemaVersion !== "workflow.harness.worker-attach-receipt.v1") {
+    blockers.push("worker_attach_receipt_schema_mismatch");
+  }
+  if (receipt.accepted !== true) {
+    blockers.push("worker_attach_not_accepted");
+  }
+  if (
+    receipt.attachStatus !== "bound" &&
+    receipt.attachStatus !== "resumed" &&
+    receipt.attachStatus !== "rolled_back"
+  ) {
+    blockers.push("worker_attach_not_bound");
+  }
+  return uniqueStrings(blockers);
+}
+
 function receiptRefsFromEvidenceRefs(
   evidenceRefs: Array<string | null | undefined> = [],
 ): string[] {
@@ -609,6 +782,7 @@ export function makeHarnessForkActivationRecord(options: {
   evidenceRefs?: string[];
   workerBinding?: WorkflowHarnessWorkerBinding;
   workerBindingRegistryRecord?: WorkflowHarnessWorkerBindingRegistryRecord;
+  workerAttachReceipt?: WorkflowHarnessWorkerAttachReceipt;
   revisionBinding?: WorkflowRevisionBinding;
   rollbackRevisionBinding?: WorkflowRevisionBinding;
   rollbackRestoreCanary?: WorkflowHarnessForkActivationRecord["rollbackRestoreCanary"];
@@ -657,6 +831,7 @@ export function makeHarnessForkActivationRecord(options: {
     evidenceRefs: options.evidenceRefs ?? [],
     workerBinding: options.workerBinding,
     workerBindingRegistryRecord: options.workerBindingRegistryRecord,
+    workerAttachReceipt: options.workerAttachReceipt,
     revisionBinding: options.revisionBinding,
     rollbackRevisionBinding: options.rollbackRevisionBinding,
     rollbackRestoreCanary: options.rollbackRestoreCanary,
@@ -2116,6 +2291,13 @@ export function applyWorkflowHarnessActivationCandidate(
       workerBinding,
       createdAtMs: nowMs,
     });
+  const workerAttachReceipt = resolveWorkflowHarnessWorkerBinding(
+    workerBindingRegistryRecord,
+    makeWorkflowHarnessWorkerAttachRequest(
+      workerBindingRegistryRecord,
+      candidate.canaryStatus === "passed" ? "canary" : "blocked",
+    ),
+  );
   const activationRecord = makeHarnessForkActivationRecord({
     workflowId,
     harnessWorkflowId: workerBinding.harnessWorkflowId,
@@ -2136,6 +2318,7 @@ export function applyWorkflowHarnessActivationCandidate(
     ]),
     workerBinding,
     workerBindingRegistryRecord,
+    workerAttachReceipt,
     revisionBinding,
     rollbackRevisionBinding: previousRevisionBinding,
     rollbackRestoreCanary: candidate.rollbackRestoreCanary,
@@ -2162,6 +2345,7 @@ export function applyWorkflowHarnessActivationCandidate(
                 activationRecord,
                 revisionBinding,
                 workerBindingRegistryRecord,
+                workerAttachReceipt,
               }
             : workflow.metadata.harness,
           workerHarnessBinding: workerBinding,
@@ -3536,6 +3720,13 @@ export function makeHarnessDefaultRuntimeDispatchProof(
       bindingStatus: dispatchAccepted ? "bound" : "blocked",
       blockers: activationBlockers,
     });
+  const workerAttachReceipt = resolveWorkflowHarnessWorkerBinding(
+    workerBindingRegistryRecord,
+    makeWorkflowHarnessWorkerAttachRequest(
+      workerBindingRegistryRecord,
+      dispatchAccepted ? "bound" : "blocked",
+    ),
+  );
   return {
     schemaVersion: "workflow.harness.default-runtime-dispatch.v1",
     dispatchId,
@@ -4206,6 +4397,7 @@ export function makeHarnessDefaultRuntimeDispatchProof(
     },
     livePromotionReadinessProof,
     workerBindingRegistryRecord,
+    workerAttachReceipt,
     modelExecutionProof: {
       schemaVersion: "workflow.harness.model-execution-envelope.v1",
       mode: "workflow_synchronous_envelope",
@@ -5980,6 +6172,7 @@ function harnessMetadata(options: {
   runtimeSelectorDecision?: WorkflowHarnessRuntimeSelectorDecision;
   defaultRuntimeDispatchProof?: WorkflowHarnessDefaultRuntimeDispatchProof;
   workerBindingRegistryRecord?: WorkflowHarnessWorkerBindingRegistryRecord;
+  workerAttachReceipt?: WorkflowHarnessWorkerAttachReceipt;
   canaryExecutionBoundary?: WorkflowHarnessCanaryExecutionBoundary;
   canaryExecutionBoundaries?: WorkflowHarnessCanaryExecutionBoundary[];
 }): WorkflowHarnessMetadata {
@@ -6001,6 +6194,7 @@ function harnessMetadata(options: {
     runtimeSelectorDecision: options.runtimeSelectorDecision,
     defaultRuntimeDispatchProof: options.defaultRuntimeDispatchProof,
     workerBindingRegistryRecord: options.workerBindingRegistryRecord,
+    workerAttachReceipt: options.workerAttachReceipt,
     canaryExecutionBoundary: options.canaryExecutionBoundary,
     canaryExecutionBoundaries: options.canaryExecutionBoundaries,
     validationGates: [
@@ -6048,6 +6242,13 @@ export function makeDefaultAgentHarnessWorkflow(
       rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
       createdAtMs: nowMs,
     });
+  const workerAttachReceipt = resolveWorkflowHarnessWorkerBinding(
+    workerBindingRegistryRecord,
+    makeWorkflowHarnessWorkerAttachRequest(
+      workerBindingRegistryRecord,
+      "unbound",
+    ),
+  );
   const workflow: WorkflowProject = {
     version: "workflow.v1",
     metadata: {
@@ -6064,6 +6265,7 @@ export function makeDefaultAgentHarnessWorkflow(
         activationId: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
         activationState: "read_only",
         workerBindingRegistryRecord,
+        workerAttachReceipt,
       }),
       workerHarnessBinding,
       createdAtMs: nowMs,
@@ -6198,6 +6400,13 @@ export function forkDefaultAgentHarnessWorkflow(
       rollbackTarget: DEFAULT_AGENT_HARNESS_FORK_ROLLBACK_TARGET,
       createdAtMs: nowMs,
     });
+  const forkWorkerAttachReceipt = resolveWorkflowHarnessWorkerBinding(
+    forkWorkerBindingRegistryRecord,
+    makeWorkflowHarnessWorkerAttachRequest(
+      forkWorkerBindingRegistryRecord,
+      "blocked",
+    ),
+  );
   const blockedActivationRecord = makeHarnessForkActivationRecord({
     workflowId: slug,
     harnessWorkflowId: slug,
@@ -6205,6 +6414,7 @@ export function forkDefaultAgentHarnessWorkflow(
     evidenceRefs: [activationGateProposalId],
     workerBinding: forkWorkerHarnessBinding,
     workerBindingRegistryRecord: forkWorkerBindingRegistryRecord,
+    workerAttachReceipt: forkWorkerAttachReceipt,
     mintedAtMs: nowMs,
   });
   const workflow: WorkflowProject = {
@@ -6228,6 +6438,7 @@ export function forkDefaultAgentHarnessWorkflow(
         activationState: "blocked",
         activationRecord: blockedActivationRecord,
         workerBindingRegistryRecord: forkWorkerBindingRegistryRecord,
+        workerAttachReceipt: forkWorkerAttachReceipt,
       }),
       workerHarnessBinding: forkWorkerHarnessBinding,
       createdAtMs: nowMs,

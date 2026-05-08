@@ -823,6 +823,68 @@ pub struct HarnessWorkerBindingRegistryRecord {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
+pub enum HarnessWorkerAttachStatus {
+    Unbound,
+    Blocked,
+    Canary,
+    Bound,
+    Resumed,
+    RolledBack,
+}
+
+impl HarnessWorkerAttachStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Unbound => "unbound",
+            Self::Blocked => "blocked",
+            Self::Canary => "canary",
+            Self::Bound => "bound",
+            Self::Resumed => "resumed",
+            Self::RolledBack => "rolled_back",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct HarnessWorkerAttachRequest {
+    pub schema_version: String,
+    pub request_id: String,
+    pub worker_id: String,
+    pub workflow_id: String,
+    pub activation_id: String,
+    pub activation_hash: String,
+    pub harness_hash: String,
+    pub component_version_set: Vec<HarnessComponentVersionBinding>,
+    pub rollback_target: String,
+    pub readiness_proof_id: String,
+    pub requested_status: HarnessWorkerAttachStatus,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct HarnessWorkerAttachReceipt {
+    pub schema_version: String,
+    pub receipt_id: String,
+    pub worker_id: String,
+    pub workflow_id: String,
+    pub activation_id: String,
+    pub activation_hash: String,
+    pub harness_hash: String,
+    pub component_version_set: Vec<HarnessComponentVersionBinding>,
+    pub rollback_target: String,
+    pub rollback_available: bool,
+    pub readiness_proof_id: String,
+    pub registry_record_id: String,
+    pub binding_status: HarnessWorkerBindingStatus,
+    pub attach_status: HarnessWorkerAttachStatus,
+    pub accepted: bool,
+    pub blockers: Vec<String>,
+    pub worker_binding: HarnessWorkerBinding,
+    pub policy_decision: String,
+    pub evidence_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Hash)]
+#[serde(rename_all = "snake_case")]
 pub enum HarnessLiveHandoffSelector {
     LegacyRuntime,
     BlessedWorkflowGated,
@@ -2107,6 +2169,187 @@ pub fn bound_default_harness_worker_binding_registry_record(
         binding_status: HarnessWorkerBindingStatus::Bound,
         blockers: Vec::new(),
         worker_binding,
+    }
+}
+
+pub fn default_harness_worker_attach_request(
+    record: &HarnessWorkerBindingRegistryRecord,
+    requested_status: HarnessWorkerAttachStatus,
+) -> HarnessWorkerAttachRequest {
+    HarnessWorkerAttachRequest {
+        schema_version: "workflow.harness.worker-attach-request.v1".to_string(),
+        request_id: format!(
+            "harness-worker-attach-request:{}:{}:{}",
+            record.workflow_id,
+            record.activation_id,
+            requested_status.as_str()
+        ),
+        worker_id: format!(
+            "harness-worker:{}:{}",
+            record.workflow_id, record.activation_id
+        ),
+        workflow_id: record.workflow_id.clone(),
+        activation_id: record.activation_id.clone(),
+        activation_hash: record.activation_hash.clone(),
+        harness_hash: record.harness_hash.clone(),
+        component_version_set: record.component_version_set.clone(),
+        rollback_target: record.rollback_target.clone(),
+        readiness_proof_id: record.readiness_proof_id.clone(),
+        requested_status,
+    }
+}
+
+fn harness_component_version_sets_match(
+    left: &[HarnessComponentVersionBinding],
+    right: &[HarnessComponentVersionBinding],
+) -> bool {
+    let left = left
+        .iter()
+        .map(|binding| (&binding.component_id, &binding.component_version))
+        .collect::<std::collections::BTreeMap<_, _>>();
+    let right = right
+        .iter()
+        .map(|binding| (&binding.component_id, &binding.component_version))
+        .collect::<std::collections::BTreeMap<_, _>>();
+    left == right
+}
+
+pub fn resolve_harness_worker_binding(
+    record: &HarnessWorkerBindingRegistryRecord,
+    request: &HarnessWorkerAttachRequest,
+) -> HarnessWorkerAttachReceipt {
+    let mut blockers = Vec::<String>::new();
+    if request.schema_version != "workflow.harness.worker-attach-request.v1" {
+        blockers.push("worker_attach_request_schema_mismatch".to_string());
+    }
+    if validate_harness_worker_binding_registry_record(record).is_err() {
+        blockers.push("worker_attach_registry_invalid".to_string());
+    }
+    if request.workflow_id.trim().is_empty() {
+        blockers.push("worker_attach_workflow_missing".to_string());
+    }
+    if request.activation_id.trim().is_empty() {
+        blockers.push("worker_attach_activation_missing".to_string());
+    }
+    if request.activation_hash.trim().is_empty() {
+        blockers.push("worker_attach_activation_hash_missing".to_string());
+    }
+    if request.harness_hash.trim().is_empty() {
+        blockers.push("worker_attach_harness_hash_missing".to_string());
+    }
+    if request.workflow_id != record.workflow_id {
+        blockers.push("worker_attach_workflow_mismatch".to_string());
+    }
+    if request.activation_id != record.activation_id {
+        blockers.push("worker_attach_activation_mismatch".to_string());
+    }
+    if request.activation_hash != record.activation_hash {
+        blockers.push("worker_attach_activation_hash_mismatch".to_string());
+    }
+    if request.harness_hash != record.harness_hash {
+        blockers.push("worker_attach_harness_hash_mismatch".to_string());
+    }
+    if !harness_component_version_sets_match(
+        &request.component_version_set,
+        &record.component_version_set,
+    ) {
+        blockers.push("worker_attach_component_version_set_mismatch".to_string());
+    }
+    if request.rollback_target.trim().is_empty() {
+        blockers.push("worker_attach_rollback_target_missing".to_string());
+    }
+    if request.rollback_target != record.rollback_target {
+        blockers.push("worker_attach_rollback_target_mismatch".to_string());
+    }
+    if request.readiness_proof_id.trim().is_empty() {
+        blockers.push("worker_attach_readiness_proof_missing".to_string());
+    }
+    if request.readiness_proof_id != record.readiness_proof_id {
+        blockers.push("worker_attach_readiness_proof_mismatch".to_string());
+    }
+    if record.binding_status != HarnessWorkerBindingStatus::Bound {
+        blockers.push("worker_attach_registry_not_bound".to_string());
+    }
+    if !record.blockers.is_empty() {
+        blockers.push("worker_attach_registry_blocked".to_string());
+    }
+    if !record.canary_result_id.ends_with(":passed") {
+        blockers.push("worker_attach_canary_not_passed".to_string());
+    }
+    if record.worker_binding.execution_mode != HarnessExecutionMode::Live {
+        blockers.push("worker_attach_worker_not_live".to_string());
+    }
+    if record.worker_binding.rollback_target.as_deref() != Some(record.rollback_target.as_str()) {
+        blockers.push("worker_attach_worker_rollback_mismatch".to_string());
+    }
+    if !record.worker_binding.authority_binding_ready {
+        blockers.push("worker_attach_authority_not_ready".to_string());
+    }
+    if !record.worker_binding.authority_binding_blockers.is_empty() {
+        blockers.push("worker_attach_authority_blocked".to_string());
+    }
+    if record
+        .worker_binding
+        .live_promotion_readiness_proof_id
+        .as_deref()
+        != Some(record.readiness_proof_id.as_str())
+    {
+        blockers.push("worker_attach_worker_readiness_proof_mismatch".to_string());
+    }
+    blockers.sort();
+    blockers.dedup();
+
+    let accepted = blockers.is_empty();
+    let attach_status = if accepted {
+        match request.requested_status {
+            HarnessWorkerAttachStatus::Resumed => HarnessWorkerAttachStatus::Resumed,
+            HarnessWorkerAttachStatus::RolledBack => HarnessWorkerAttachStatus::RolledBack,
+            _ => HarnessWorkerAttachStatus::Bound,
+        }
+    } else {
+        match record.binding_status {
+            HarnessWorkerBindingStatus::Projection => HarnessWorkerAttachStatus::Unbound,
+            HarnessWorkerBindingStatus::Canary => HarnessWorkerAttachStatus::Canary,
+            HarnessWorkerBindingStatus::Blocked | HarnessWorkerBindingStatus::Bound => {
+                HarnessWorkerAttachStatus::Blocked
+            }
+        }
+    };
+
+    HarnessWorkerAttachReceipt {
+        schema_version: "workflow.harness.worker-attach-receipt.v1".to_string(),
+        receipt_id: format!(
+            "harness-worker-attach-receipt:{}:{}:{}",
+            request.worker_id,
+            record.registry_record_id,
+            attach_status.as_str()
+        ),
+        worker_id: request.worker_id.clone(),
+        workflow_id: request.workflow_id.clone(),
+        activation_id: request.activation_id.clone(),
+        activation_hash: request.activation_hash.clone(),
+        harness_hash: request.harness_hash.clone(),
+        component_version_set: request.component_version_set.clone(),
+        rollback_target: request.rollback_target.clone(),
+        rollback_available: request.rollback_target == record.rollback_target
+            && !record.rollback_target.trim().is_empty(),
+        readiness_proof_id: request.readiness_proof_id.clone(),
+        registry_record_id: record.registry_record_id.clone(),
+        binding_status: record.binding_status,
+        attach_status,
+        accepted,
+        blockers,
+        worker_binding: record.worker_binding.clone(),
+        policy_decision: if accepted {
+            "allow_harness_worker_attach".to_string()
+        } else {
+            "block_harness_worker_attach".to_string()
+        },
+        evidence_refs: vec![
+            record.registry_record_id.clone(),
+            record.readiness_proof_id.clone(),
+            record.canary_result_id.clone(),
+        ],
     }
 }
 
