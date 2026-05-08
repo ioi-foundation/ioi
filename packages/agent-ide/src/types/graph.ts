@@ -1790,6 +1790,7 @@ export interface WorkflowHarnessDeepLinkReplayCase {
     | "replay"
     | "revision"
     | "activation-blocker"
+    | "activation-audit"
     | string;
   hash: string;
   expectedPanel: WorkflowRightPanel;
