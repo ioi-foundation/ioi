@@ -1788,6 +1788,8 @@ export interface WorkflowHarnessDeepLinkReplayCase {
     | "rollback"
     | "receipt"
     | "replay"
+    | "revision"
+    | "activation-blocker"
     | string;
   hash: string;
   expectedPanel: WorkflowRightPanel;
@@ -2035,6 +2037,7 @@ export interface WorkflowHarnessMetadata {
   defaultRuntimeDispatchProof?: WorkflowHarnessDefaultRuntimeDispatchProof;
   deepLinkReplayProof?: WorkflowHarnessDeepLinkReplayProof;
   coldStartDeepLinkRestoreProof?: WorkflowHarnessColdStartDeepLinkRestoreProof;
+  activationBlockerDeepLinkProof?: WorkflowHarnessDeepLinkReplayProof;
   canaryExecutionBoundary?: WorkflowHarnessCanaryExecutionBoundary;
   canaryExecutionBoundaries?: WorkflowHarnessCanaryExecutionBoundary[];
   validationGates: string[];

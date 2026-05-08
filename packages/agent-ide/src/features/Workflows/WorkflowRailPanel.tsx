@@ -132,6 +132,8 @@ type WorkflowHarnessWorkbenchDeepLinkTarget = {
   rollbackTarget?: string;
   revisionBindingKind?: "current" | "candidate" | "rollback" | string;
   revisionBindingRef?: string;
+  activationBlockerIndex?: string;
+  activationBlockerRef?: string;
 };
 
 function workflowRevisionBindingDeepLinkRef(
@@ -157,6 +159,8 @@ export function WorkflowRailPanel({
   selectedHarnessSelectorDecisionId,
   selectedHarnessDefaultDispatchId,
   selectedHarnessWorkerBindingId,
+  selectedHarnessActivationBlockerIndex,
+  selectedHarnessActivationBlockerRef,
   selectedHarnessRevisionBindingKind,
   selectedHarnessRevisionBindingRef,
   tests,
@@ -220,6 +224,8 @@ export function WorkflowRailPanel({
   selectedHarnessSelectorDecisionId?: string | null;
   selectedHarnessDefaultDispatchId?: string | null;
   selectedHarnessWorkerBindingId?: string | null;
+  selectedHarnessActivationBlockerIndex?: string | null;
+  selectedHarnessActivationBlockerRef?: string | null;
   selectedHarnessRevisionBindingKind?: string | null;
   selectedHarnessRevisionBindingRef?: string | null;
   tests: WorkflowTestCase[];
@@ -3306,7 +3312,19 @@ export function WorkflowRailPanel({
               })}
             </div>
             {harnessForkWorkflow ? (
-              <article className="workflow-output-row" data-testid="workflow-harness-activation-blockers">
+              <article
+                className="workflow-output-row"
+                data-testid="workflow-harness-activation-blockers"
+                data-activation-blockers={
+                  (harnessActivationRecord?.activationBlockers ?? []).join("|")
+                }
+                data-selected-activation-blocker-index={
+                  selectedHarnessActivationBlockerIndex ?? ""
+                }
+                data-selected-activation-blocker-ref={
+                  selectedHarnessActivationBlockerRef ?? ""
+                }
+              >
                 <strong>Activation blockers</strong>
                 <span>
                   {(harnessActivationRecord?.activationBlockers ?? []).length > 0
@@ -3314,6 +3332,36 @@ export function WorkflowRailPanel({
                     : "None"}
                 </span>
                 <small>{workflow.metadata.harness?.activationState ?? "blocked"}</small>
+                {(harnessActivationRecord?.activationBlockers ?? []).length > 0 ? (
+                  <div className="workflow-harness-authority-gate-actions">
+                    {(harnessActivationRecord?.activationBlockers ?? [])
+                      .slice(0, 5)
+                      .map((blocker, index) => (
+                        <button
+                          key={`${blocker}-${index}`}
+                          type="button"
+                          className={`workflow-harness-ref-button ${
+                            selectedHarnessActivationBlockerRef === blocker
+                              ? "is-active"
+                              : ""
+                          }`}
+                          data-testid={`workflow-harness-activation-blocker-link-${index}`}
+                          data-activation-blocker-index={String(index)}
+                          data-activation-blocker-ref={blocker}
+                          disabled={!onCopyHarnessDeepLink}
+                          onClick={() =>
+                            onCopyHarnessDeepLink?.({
+                              panel: "settings",
+                              activationBlockerIndex: String(index),
+                              activationBlockerRef: blocker,
+                            })
+                          }
+                        >
+                          <code>{blocker}</code>
+                        </button>
+                      ))}
+                  </div>
+                ) : null}
               </article>
             ) : null}
           </section>
@@ -3870,6 +3918,12 @@ export function WorkflowRailPanel({
           data-selected-rollback-target={selectedHarnessRollbackTarget ?? ""}
           data-selected-revision-binding-kind={selectedHarnessRevisionBindingKind ?? ""}
           data-selected-revision-binding-ref={selectedHarnessRevisionBindingRef ?? ""}
+          data-selected-activation-blocker-index={
+            selectedHarnessActivationBlockerIndex ?? ""
+          }
+          data-selected-activation-blocker-ref={
+            selectedHarnessActivationBlockerRef ?? ""
+          }
         >
           <h4>Deep link</h4>
           <article className="workflow-output-row">
