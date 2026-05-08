@@ -1821,6 +1821,8 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /WorkflowHarnessActivationGateCollectEvidenceClickProof/.test(controller) &&
       /WorkflowHarnessActivationGateRollbackRestoreClickProof/.test(controller) &&
       /WorkflowHarnessActivationIdGateClickProof/.test(controller) &&
+      /workflowHarnessActivationIdGateClickProofBlockers/.test(harnessWorkflow) &&
+      /activation_id_gate_click_proof_missing/.test(harnessWorkflow) &&
       /runHarnessActivationGateActionClickProbe/.test(controller) &&
       /runHarnessActivationGateCollectEvidenceClickProbe/.test(controller) &&
       /runHarnessActivationGateRollbackRestoreClickProbe/.test(controller) &&
@@ -3095,6 +3097,7 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
         defaultDispatch?.executionMode === "live" &&
         defaultDispatch?.rollbackAvailable === true &&
         defaultDispatch?.drivesRuntimeDecision === true &&
+        (defaultDispatch?.activationBlockers ?? []).length === 0 &&
         clusterIds.every((clusterId) =>
           (defaultDispatch?.acceptedClusterIds ?? []).includes(clusterId),
         ),
@@ -3386,6 +3389,8 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
             rollbackAvailable: defaultDispatch.rollbackAvailable,
             drivesRuntimeDecision: defaultDispatch.drivesRuntimeDecision,
             acceptedClusterIds: defaultDispatch.acceptedClusterIds,
+            activationBlockers: defaultDispatch.activationBlockers ?? [],
+            evidenceRefCount: defaultDispatch.evidenceRefs?.length ?? 0,
           }
         : null,
       attempts: transitions

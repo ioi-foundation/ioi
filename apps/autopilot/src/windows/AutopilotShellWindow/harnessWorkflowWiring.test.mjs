@@ -185,7 +185,7 @@ assert.match(
 
 assert.match(
   `${graphTypes}\n${workflowComposer}\n${guiHarnessValidation}\n${guiHarnessContract}`,
-  /(?=[\s\S]*WorkflowHarnessActivationIdGateClickProof)(?=[\s\S]*runHarnessActivationIdGateClickProbe)(?=[\s\S]*activationIdGateClickProof)(?=[\s\S]*__AUTOPILOT_HARNESS_ACTIVATION_MINT_CLICK_RESULT)(?=[\s\S]*workflow-harness-gate-action-activation-id)(?=[\s\S]*activationIdBlockedDryRunDecision)(?=[\s\S]*activationIdMintedActivationId)(?=[\s\S]*harness_activation_id_gate_click_proof)(?=[\s\S]*harness_activation_id_gate_click_proof_present)/,
+  /(?=[\s\S]*WorkflowHarnessActivationIdGateClickProof)(?=[\s\S]*workflowHarnessActivationIdGateClickProofBlockers)(?=[\s\S]*activation_id_gate_click_proof_missing)(?=[\s\S]*runHarnessActivationIdGateClickProbe)(?=[\s\S]*activationIdGateClickProof)(?=[\s\S]*__AUTOPILOT_HARNESS_ACTIVATION_MINT_CLICK_RESULT)(?=[\s\S]*workflow-harness-gate-action-activation-id)(?=[\s\S]*activationIdBlockedDryRunDecision)(?=[\s\S]*activationIdMintedActivationId)(?=[\s\S]*harness_activation_id_gate_click_proof)(?=[\s\S]*harness_activation_id_gate_click_proof_present)/,
   "Activation id gate actions should have live click proof for both blocked dry-run and minting paths.",
 );
 

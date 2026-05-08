@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import type {
+  WorkflowHarnessActivationIdGateClickProof,
   WorkflowHarnessWorkerBinding,
   WorkflowProject,
   WorkflowValidationIssue,
@@ -21,6 +22,7 @@ import {
   recordWorkflowHarnessActivationDryRun,
   recordWorkflowHarnessRollbackTargetSelection,
   runWorkflowHarnessRollbackRestoreCanaryProbe,
+  workflowHarnessActivationIdGateClickProofBlockers,
   workflowHarnessPromotionTransitionEligibility,
   workflowRevisionBindingFor,
 } from "./harness-workflow.ts";
@@ -40,6 +42,67 @@ const activationIssueCodes = (result: WorkflowValidationResult) =>
 const activationNotValidatedIssue: WorkflowValidationIssue = {
   code: "harness_activation_not_validated",
   message: "Harness fork has not minted an activation id yet.",
+};
+
+const makeActivationIdGateClickProof = (
+  overrides: Partial<WorkflowHarnessActivationIdGateClickProof> = {},
+): WorkflowHarnessActivationIdGateClickProof => {
+  const activationId = "activation:runtime-harness-test-fork:validated-canary";
+  const proof: WorkflowHarnessActivationIdGateClickProof = {
+    schemaVersion: "workflow.harness.activation-id-gate-click-proof.v1",
+    method: "unit-test activation-id gate proof",
+    generatedAtMs: 10_000,
+    blockedDryRun: {
+      gateId: "activation-id",
+      action: {
+        id: "activation-gate-action:activation-id:run-dry-run",
+        kind: "run_activation_dry_run",
+        impact: "collect_evidence",
+        command: "workflow-harness-gate-action-activation-id",
+        disabled: false,
+      },
+      beforeState: { "data-gate-status": "blocked" },
+      afterState: { "data-gate-status": "blocked" },
+      clicked: true,
+      candidateId: "candidate:runtime-harness-test-fork:activation-dry-run:10000",
+      decision: "blocked",
+      activationBlockerCount: 3,
+      workflowActivationId: null,
+      workflowActivationState: "blocked",
+      latestAuditEventType: "dry_run_blocked",
+      latestAuditStatus: "blocked",
+    },
+    mintedActivation: {
+      gateId: "activation-id",
+      action: {
+        id: "activation-gate-action:activation-id:mint",
+        kind: "mint_activation",
+        impact: "mint_activation",
+        command: "workflow-harness-gate-action-activation-id",
+        disabled: false,
+      },
+      beforeState: { "data-gate-status": "passed" },
+      afterState: { "data-gate-status": "passed" },
+      clicked: true,
+      applied: true,
+      activationId,
+      workflowActivationId: activationId,
+      workflowActivationState: "validated",
+      workerBindingActivationId: activationId,
+      activationRecordWorkerBindingActivationId: activationId,
+      rollbackTarget: "activation:default-agent-harness:blessed-readonly",
+      revisionBindingActivationId: activationId,
+      activationRecordRevisionBindingHash: "sha256:activation-revision",
+      rollbackRevisionBindingHash: "sha256:rollback-revision",
+      latestAuditEventType: "activation_minted",
+      latestAuditStatus: "applied",
+      receiptRefs: ["workflow_activation:runtime-harness-test-fork"],
+      evidenceRefs: ["canary:passed", "rollback:drill"],
+    },
+    passed: true,
+    blockers: [],
+  };
+  return { ...proof, ...overrides };
 };
 
 const onlyActivationMissingReadiness = (
@@ -678,6 +741,7 @@ const withClusterReadiness = (
 }
 
 {
+  const activationIdGateClickProof = makeActivationIdGateClickProof();
   const selector = makeHarnessRuntimeSelectorDecision({
     decisionId: "harness-selector:default-agent-harness:live-default-test",
     selectedSelector: "blessed_workflow_live_default",
@@ -690,6 +754,8 @@ const withClusterReadiness = (
     defaultPromotionGateEligible: true,
     defaultPromotionGateAuthorityTransferred: true,
     defaultPromotionGateActivationBlockers: [],
+    activationIdGateClickProof,
+    activationIdGateProofNowMs: 10_100,
   });
   const handoff = makeBlessedHarnessLiveHandoffProof({
     selector: "blessed_workflow_live_default",
@@ -699,6 +765,8 @@ const withClusterReadiness = (
     defaultPromotionGateEnabled: true,
     defaultPromotionGateEligible: true,
     defaultPromotionGateActivationBlockers: [],
+    activationIdGateClickProof,
+    activationIdGateProofNowMs: 10_100,
     nodeTimelineAttemptIds: ["attempt-planner", "attempt-model-router"],
     receiptIds: ["receipt-planner", "receipt-model-router"],
     replayFixtureRefs: ["fixture-planner", "fixture-model-router"],
@@ -714,6 +782,8 @@ const withClusterReadiness = (
     acceptedNodeAttemptIds: handoff.nodeTimelineAttemptIds,
     receiptIds: handoff.receiptIds,
     replayFixtureRefs: handoff.replayFixtureRefs,
+    activationIdGateClickProof,
+    activationIdGateProofNowMs: 10_100,
   });
 
   assert.equal(selector.selectedSelector, "blessed_workflow_live_default");
@@ -735,7 +805,101 @@ const withClusterReadiness = (
   assert.equal(dispatch.productionDefaultSelector, "blessed_workflow_live_default");
   assert.equal(dispatch.executionMode, "live");
   assert.equal(dispatch.runtimeAuthority, "blessed_workflow_activation_default");
+  assert.equal(dispatch.drivesRuntimeDecision, true);
+  assert.deepEqual(dispatch.activationBlockers, []);
   assert.equal(dispatch.acceptedClusterIds.length, 4);
+}
+
+{
+  const validProof = makeActivationIdGateClickProof();
+  assert.deepEqual(
+    workflowHarnessActivationIdGateClickProofBlockers(validProof, { nowMs: 10_100 }),
+    [],
+  );
+
+  const selector = makeHarnessRuntimeSelectorDecision({
+    selectedSelector: "blessed_workflow_live_default",
+    productionDefaultSelector: "blessed_workflow_live_default",
+    defaultPromotionGateEligible: true,
+    defaultPromotionGateAuthorityTransferred: true,
+  });
+  assert.deepEqual(selector.defaultPromotionGate?.activationBlockers, [
+    "activation_id_gate_click_proof_missing",
+  ]);
+
+  const handoff = makeBlessedHarnessLiveHandoffProof({
+    selector: "blessed_workflow_live_default",
+    productionDefaultSelector: "blessed_workflow_live_default",
+    defaultAuthorityTransferred: true,
+  });
+  assert.deepEqual(handoff.defaultPromotionGate?.activationBlockers, [
+    "activation_id_gate_click_proof_missing",
+  ]);
+  assert.deepEqual(handoff.activationBlockers, [
+    "activation_id_gate_click_proof_missing",
+  ]);
+
+  const missingProofDispatch = makeHarnessDefaultRuntimeDispatchProof();
+  assert.deepEqual(missingProofDispatch.activationBlockers, [
+    "activation_id_gate_click_proof_missing",
+  ]);
+  assert.equal(missingProofDispatch.drivesRuntimeDecision, false);
+  assert.equal(missingProofDispatch.executionMode, "gated");
+  assert.equal(missingProofDispatch.runtimeAuthority, "existing_runtime_service");
+
+  const dryRunOnlyProof = makeActivationIdGateClickProof({
+    passed: false,
+    blockers: ["activation_id_gate_mint_not_applied"],
+    mintedActivation: {
+      ...validProof.mintedActivation,
+      clicked: false,
+      applied: false,
+      activationId: null,
+      workflowActivationId: null,
+      workerBindingActivationId: null,
+      activationRecordWorkerBindingActivationId: null,
+      revisionBindingActivationId: null,
+      receiptRefs: [],
+    },
+  });
+  const dryRunOnlyDispatch = makeHarnessDefaultRuntimeDispatchProof({
+    activationIdGateClickProof: dryRunOnlyProof,
+    activationIdGateProofNowMs: 10_100,
+  });
+  assert.match(
+    dryRunOnlyDispatch.activationBlockers.join("\n"),
+    /activation_id_gate_click_proof_failed/,
+  );
+  assert.match(
+    dryRunOnlyDispatch.activationBlockers.join("\n"),
+    /activation_id_gate_mint_not_applied/,
+  );
+  assert.equal(dryRunOnlyDispatch.drivesRuntimeDecision, false);
+
+  const mismatchedProof = makeActivationIdGateClickProof({
+    mintedActivation: {
+      ...validProof.mintedActivation,
+      workerBindingActivationId: "activation:mismatch",
+    },
+  });
+  const mismatchDispatch = makeHarnessDefaultRuntimeDispatchProof({
+    activationIdGateClickProof: mismatchedProof,
+    activationIdGateProofNowMs: 10_100,
+  });
+  assert.match(
+    mismatchDispatch.activationBlockers.join("\n"),
+    /activation_id_gate_mint_worker_binding_mismatch/,
+  );
+  assert.equal(mismatchDispatch.drivesRuntimeDecision, false);
+
+  const staleProof = makeActivationIdGateClickProof({ generatedAtMs: 1_000 });
+  assert.match(
+    workflowHarnessActivationIdGateClickProofBlockers(staleProof, {
+      nowMs: 10_000,
+      maxAgeMs: 1_000,
+    }).join("\n"),
+    /activation_id_gate_click_proof_stale/,
+  );
 }
 
 {
