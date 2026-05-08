@@ -59,6 +59,27 @@ const localEngineSupport = fs.readFileSync(
   ),
   "utf8",
 );
+const guiHarnessValidation = fs.readFileSync(
+  new URL(
+    "../../../../../scripts/run-autopilot-gui-harness-validation.mjs",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const guiHarnessContract = fs.readFileSync(
+  new URL(
+    "../../../../../scripts/lib/autopilot-gui-harness-contract.mjs",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const promotionTransitionGuiProbe = fs.readFileSync(
+  new URL(
+    "../../../../../scripts/lib/harness-promotion-transition-gui-probe.mjs",
+    import.meta.url,
+  ),
+  "utf8",
+);
 
 assert.match(
   graphTypes,
@@ -172,6 +193,12 @@ assert.match(
   `${graphTypes}\n${harnessWorkflow}\n${workflowComposer}\n${workflowRailPanel}`,
   /(?=[\s\S]*WorkflowHarnessPromotionTransitionEligibility)(?=[\s\S]*WorkflowHarnessPromotionTransitionAttempt)(?=[\s\S]*promotionStatus\?: WorkflowHarnessClusterPromotionStatus)(?=[\s\S]*promotionTransitions\?: WorkflowHarnessPromotionTransitionAttempt\[\])(?=[\s\S]*workflowHarnessPromotionTransitionEligibility)(?=[\s\S]*executeWorkflowHarnessPromotionTransition)(?=[\s\S]*promotion_transition_blocked)(?=[\s\S]*promotion_transition_promoted)(?=[\s\S]*handleRunHarnessPromotionTransition)(?=[\s\S]*onRunHarnessPromotionTransition)(?=[\s\S]*workflow-harness-group-promotion-actions)(?=[\s\S]*workflow-harness-promote-cluster-gated)(?=[\s\S]*workflow-harness-promote-cluster-live)(?=[\s\S]*workflow-harness-group-promotion-eligibility)(?=[\s\S]*workflow-harness-group-promotion-attempt)/,
   "Cluster promotion transitions should have typed eligibility, audited attempts, disabled GUI controls with blockers, and promoted status persistence.",
+);
+
+assert.match(
+  `${guiHarnessValidation}\n${guiHarnessContract}\n${promotionTransitionGuiProbe}`,
+  /(?=[\s\S]*collectPromotionTransitionGuiBehaviorProof)(?=[\s\S]*harness-promotion-transition-gui-probe\.mjs)(?=[\s\S]*harness_promotion_transition_gui_behavior)(?=[\s\S]*harness_promotion_transition_gui_behavior_present)(?=[\s\S]*promotionTransitionBehavior)(?=[\s\S]*render WorkflowRailPanel markup)(?=[\s\S]*blockedGatedButtonDisabled)(?=[\s\S]*liveClickPromotesCluster)/,
+  "Autopilot GUI harness validation should require behavioral promotion control proof that renders the rail, invokes promotion transitions, and records blocked/gated/live attempts.",
 );
 
 assert.match(
