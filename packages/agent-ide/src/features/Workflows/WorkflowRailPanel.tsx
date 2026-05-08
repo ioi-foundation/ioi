@@ -193,6 +193,43 @@ type WorkflowHarnessActivationWizardStep = {
   gateAction: WorkflowHarnessActivationGateAction;
 };
 
+function workflowHarnessPackageDeepLinkTarget(
+  link: { kind?: string; ref?: string } | null | undefined,
+): WorkflowHarnessWorkbenchDeepLinkTarget | null {
+  if (!link?.ref) return null;
+  if (link.kind === "activation") {
+    return { panel: "settings", workerBindingId: link.ref };
+  }
+  if (link.kind === "canary_boundary" || link.kind === "rollback_drill") {
+    return {
+      panel: "settings",
+      activationGateId: "canary",
+      activationGateEvidenceRef: link.ref,
+    };
+  }
+  if (link.kind === "rollback_restore") {
+    return {
+      panel: "settings",
+      receiptRef: link.ref,
+      activationGateId: "rollback-restore",
+      activationGateReceiptRef: link.ref,
+    };
+  }
+  if (link.kind === "worker_handoff") {
+    return {
+      panel: "settings",
+      activationGateId: "worker-handoff",
+      activationGateNodeAttemptId: link.ref,
+      nodeAttemptId: link.ref,
+    };
+  }
+  return {
+    panel: "settings",
+    activationGateId: "package-evidence",
+    activationGateEvidenceRef: link.ref,
+  };
+}
+
 function workflowRevisionBindingDeepLinkRef(
   binding: WorkflowRevisionBinding | null | undefined,
 ): string | null {
@@ -1309,6 +1346,13 @@ export function WorkflowRailPanel({
   const harnessPackageDeepLinks = Array.isArray(harnessPackageManifest?.deepLinks)
     ? harnessPackageManifest.deepLinks
     : [];
+  const harnessPackageInspectableDeepLinks = [...harnessPackageDeepLinks].sort(
+    (left, right) => {
+      if (left?.kind === "activation" && right?.kind !== "activation") return 1;
+      if (right?.kind === "activation" && left?.kind !== "activation") return -1;
+      return 0;
+    },
+  );
   const harnessPackageWorkerHandoffNodeAttemptIds = Array.isArray(
     harnessPackageManifest?.workerHandoffNodeAttemptIds,
   )
@@ -1354,6 +1398,82 @@ export function WorkflowRailPanel({
   const harnessPackageReplayFixtureRefs = workflowUniqueReplayFixtureRefs(
     harnessPackageReplayFixtureRefValues,
   );
+  const harnessPackageEvidenceReviewRows = [
+    {
+      id: "manifest",
+      label: "Manifest",
+      ready:
+        Boolean(harnessPackageManifest) &&
+        harnessPackageManifest?.schemaVersion ===
+          "workflow.harness.package-evidence-manifest.v1",
+      value: harnessPackageManifest?.schemaVersion ?? "missing",
+      detail: "portable package evidence sidecar schema",
+      refs: workflowUniqueReceiptRefs([
+        harnessPackageManifest?.workflowId,
+        harnessPackageManifest?.workflowContentHash,
+        harnessPackageManifest?.activationId,
+      ]),
+      kind: "evidence",
+    },
+    {
+      id: "receipts",
+      label: "Receipts",
+      ready: harnessPackageReceiptRefValues.length > 0,
+      value: `${harnessPackageReceiptRefValues.length}`,
+      detail: "activation, audit, canary, dispatch, and handoff receipts",
+      refs: harnessPackageReceiptRefValues,
+      kind: "receipt",
+    },
+    {
+      id: "replay-fixtures",
+      label: "Replay fixtures",
+      ready: harnessPackageReplayFixtureRefValues.length > 0,
+      value: `${harnessPackageReplayFixtureRefValues.length}`,
+      detail: "portable replay fixtures preserved with the fork",
+      refs: harnessPackageReplayFixtureRefValues,
+      kind: "replay",
+    },
+    {
+      id: "rollback-restore",
+      label: "Rollback restore",
+      ready: harnessPackageRollbackRestoreReceiptRefs.length > 0,
+      value: `${harnessPackageRollbackRestoreReceiptRefs.length}`,
+      detail: "restore canary receipt bindings",
+      refs: harnessPackageRollbackRestoreReceiptRefs,
+      kind: "receipt",
+    },
+    {
+      id: "worker-handoff-attempts",
+      label: "Handoff attempts",
+      ready: harnessPackageWorkerHandoffNodeAttemptIds.length > 0,
+      value: `${harnessPackageWorkerHandoffNodeAttemptIds.length}`,
+      detail: "launch, resume, and rollback handoff node attempts",
+      refs: harnessPackageWorkerHandoffNodeAttemptIds,
+      kind: "node_attempt",
+    },
+    {
+      id: "worker-handoff-receipts",
+      label: "Handoff receipts",
+      ready: harnessPackageWorkerHandoffReceiptIds.length > 0,
+      value: `${harnessPackageWorkerHandoffReceiptIds.length}`,
+      detail: "worker handoff receipts from the activation package",
+      refs: harnessPackageWorkerHandoffReceiptIds,
+      kind: "receipt",
+    },
+    {
+      id: "deep-links",
+      label: "Deep links",
+      ready: harnessPackageDeepLinks.length > 0,
+      value: `${harnessPackageDeepLinks.length}`,
+      detail: "route-restorable proof links preserved in the package",
+      refs: workflowUniqueReceiptRefs(
+        harnessPackageInspectableDeepLinks.map((link) => link?.ref),
+      ),
+      kind: "package_deep_link",
+    },
+  ];
+  const harnessPackageEvidenceBlockerCount =
+    harnessPackageEvidenceReviewRows.filter((row) => !row.ready).length;
   const replayFixtureBlockers = harnessActivationBlockers.filter(
     (issue) => issue.code === "missing_replay_fixture",
   );
@@ -5080,6 +5200,181 @@ export function WorkflowRailPanel({
                         "workflow-harness-activation-gate-action",
                       )}
                     </div>
+                    {selectedHarnessActivationGateInspection.gateId ===
+                    "package-evidence" ? (
+                      <section
+                        className="workflow-rail-list"
+                        data-testid="workflow-harness-package-evidence-review"
+                        data-harness-package-manifest-present={
+                          harnessPackageManifest ? "true" : "false"
+                        }
+                        data-harness-package-schema-version={
+                          harnessPackageManifest?.schemaVersion ?? ""
+                        }
+                        data-harness-package-evidence-ready={
+                          harnessPackageEvidenceReady ? "true" : "false"
+                        }
+                        data-harness-package-evidence-blocker-count={
+                          harnessPackageEvidenceBlockerCount
+                        }
+                        data-harness-package-evidence-ref-count={
+                          harnessPackageEvidenceRefValues.length
+                        }
+                        data-harness-package-receipt-ref-count={
+                          harnessPackageReceiptRefValues.length
+                        }
+                        data-harness-package-replay-fixture-ref-count={
+                          harnessPackageReplayFixtureRefValues.length
+                        }
+                        data-harness-package-rollback-restore-ref-count={
+                          harnessPackageRollbackRestoreReceiptRefs.length
+                        }
+                        data-harness-package-worker-handoff-attempt-count={
+                          harnessPackageWorkerHandoffNodeAttemptIds.length
+                        }
+                        data-harness-package-worker-handoff-receipt-count={
+                          harnessPackageWorkerHandoffReceiptIds.length
+                        }
+                        data-harness-package-deep-link-count={
+                          harnessPackageDeepLinks.length
+                        }
+                      >
+                        <h4>Package evidence</h4>
+                        {harnessPackageEvidenceReviewRows.map((row) => {
+                          const rowRefs = workflowUniqueReceiptRefs(row.refs);
+                          return (
+                            <article
+                              key={row.id}
+                              className={`workflow-test-row is-${
+                                row.ready ? "passed" : "blocked"
+                              }`}
+                              data-testid={`workflow-harness-package-evidence-row-${row.id}`}
+                              data-package-evidence-row-id={row.id}
+                              data-package-evidence-row-status={
+                                row.ready ? "passed" : "blocked"
+                              }
+                              data-package-evidence-ref-kind={row.kind}
+                              data-package-evidence-ref-count={rowRefs.length}
+                            >
+                              <strong>{row.label}</strong>
+                              <span>
+                                {row.ready ? "ready" : "missing"} · {row.value}
+                              </span>
+                              <small>{row.detail}</small>
+                              <div
+                                className="workflow-harness-authority-gate-actions"
+                                data-testid={`workflow-harness-package-evidence-row-refs-${row.id}`}
+                                data-package-evidence-refs={rowRefs.join("|")}
+                              >
+                                {rowRefs.slice(0, 6).map((ref, index) => {
+                                  const packageLink =
+                                    row.kind === "package_deep_link"
+                                      ? (harnessPackageDeepLinks.find(
+                                          (link) => link?.ref === ref,
+                                        ) ?? null)
+                                      : null;
+                                  return (
+                                    <button
+                                      type="button"
+                                      key={`${row.id}-${ref}-${index}`}
+                                      className={`workflow-harness-ref-button ${
+                                        selectedHarnessActivationGateEvidenceRef ===
+                                          ref ||
+                                        selectedHarnessActivationGateReceiptRef ===
+                                          ref ||
+                                        selectedHarnessActivationGateReplayFixtureRef ===
+                                          ref ||
+                                        selectedHarnessActivationGateNodeAttemptId ===
+                                          ref
+                                          ? "is-active"
+                                          : ""
+                                      }`}
+                                      data-testid={`workflow-harness-package-evidence-row-ref-${row.id}-${index}`}
+                                      data-package-evidence-ref-kind={row.kind}
+                                      data-package-evidence-ref={ref}
+                                      data-harness-package-deep-link-kind={
+                                        packageLink?.kind ?? ""
+                                      }
+                                      data-harness-package-deep-link-hash={
+                                        packageLink?.hash ?? ""
+                                      }
+                                      disabled={
+                                        !onCopyHarnessDeepLink &&
+                                        row.kind !== "receipt" &&
+                                        row.kind !== "replay"
+                                      }
+                                      onClick={() => {
+                                        if (row.kind === "receipt") {
+                                          onCopyHarnessDeepLink
+                                            ? onCopyHarnessDeepLink({
+                                                panel: "settings",
+                                                activationGateId:
+                                                  "package-evidence",
+                                                activationGateReceiptRef: ref,
+                                                receiptRef: ref,
+                                              })
+                                            : onSelectHarnessReceiptRef?.(ref);
+                                          return;
+                                        }
+                                        if (row.kind === "replay") {
+                                          onCopyHarnessDeepLink
+                                            ? onCopyHarnessDeepLink({
+                                                panel: "settings",
+                                                activationGateId:
+                                                  "package-evidence",
+                                                activationGateReplayFixtureRef:
+                                                  ref,
+                                                replayFixtureRef: ref,
+                                              })
+                                            : onSelectHarnessReplayFixtureRef?.(
+                                                ref,
+                                              );
+                                          return;
+                                        }
+                                        if (row.kind === "node_attempt") {
+                                          onCopyHarnessDeepLink?.({
+                                            panel: "settings",
+                                            activationGateId:
+                                              "package-evidence",
+                                            activationGateNodeAttemptId: ref,
+                                            nodeAttemptId: ref,
+                                          });
+                                          return;
+                                        }
+                                        if (row.kind === "package_deep_link") {
+                                          const target =
+                                            workflowHarnessPackageDeepLinkTarget(
+                                              packageLink,
+                                            );
+                                          if (target) {
+                                            onCopyHarnessDeepLink?.(target);
+                                          }
+                                          return;
+                                        }
+                                        onCopyHarnessDeepLink?.({
+                                          panel: "settings",
+                                          activationGateId: "package-evidence",
+                                          activationGateEvidenceRef: ref,
+                                        });
+                                      }}
+                                    >
+                                      <code>{ref}</code>
+                                    </button>
+                                  );
+                                })}
+                                {rowRefs.length === 0 ? (
+                                  <span
+                                    data-testid={`workflow-harness-package-evidence-row-missing-${row.id}`}
+                                  >
+                                    Missing {row.label.toLowerCase()}
+                                  </span>
+                                ) : null}
+                              </div>
+                            </article>
+                          );
+                        })}
+                      </section>
+                    ) : null}
                     <div
                       className="workflow-harness-authority-gate-actions"
                       data-testid="workflow-harness-activation-gate-evidence-refs"

@@ -2138,6 +2138,51 @@ export interface WorkflowHarnessActivationGateActionClickProof {
   blockers: string[];
 }
 
+export interface WorkflowHarnessPackageEvidenceGateClickProof {
+  schemaVersion:
+    | "workflow.harness.package-evidence-gate-click-proof.v1"
+    | string;
+  method: string;
+  generatedAtMs: number;
+  gateId: string | null;
+  manifest: {
+    present: boolean;
+    schemaVersion: string | null;
+    status: string | null;
+    evidenceRefCount: number;
+    receiptRefCount: number;
+    replayFixtureRefCount: number;
+    rollbackRestoreReceiptRefCount: number;
+    workerHandoffNodeAttemptCount: number;
+    workerHandoffReceiptCount: number;
+    deepLinkCount: number;
+    blockerCount: number;
+  };
+  selectedRefs: {
+    evidenceRef: string | null;
+    receiptRef: string | null;
+    replayFixtureRef: string | null;
+    nodeAttemptId: string | null;
+    packageDeepLinkRef: string | null;
+    packageDeepLinkHash: string | null;
+  };
+  before: {
+    hash: string | null;
+    railTestId: string | null;
+    selectedState: Record<string, string>;
+  };
+  restored: {
+    evidenceState: Record<string, string>;
+    receiptState: Record<string, string>;
+    replayState: Record<string, string>;
+    nodeAttemptState: Record<string, string>;
+    packageDeepLinkState: Record<string, string>;
+  };
+  clicked: boolean;
+  passed: boolean;
+  blockers: string[];
+}
+
 export interface WorkflowHarnessActivationGateCollectEvidenceClickProof {
   schemaVersion:
     | "workflow.harness.activation-gate-collect-evidence-click-proof.v1"
@@ -2530,6 +2575,7 @@ export interface WorkflowHarnessMetadata {
   activationBlockerDeepLinkProof?: WorkflowHarnessDeepLinkReplayProof;
   activationGateDeepLinkProof?: WorkflowHarnessDeepLinkReplayProof;
   activationGateActionClickProof?: WorkflowHarnessActivationGateActionClickProof;
+  packageEvidenceGateClickProof?: WorkflowHarnessPackageEvidenceGateClickProof;
   activationGateCollectEvidenceClickProof?: WorkflowHarnessActivationGateCollectEvidenceClickProof;
   activationGateRollbackRestoreClickProof?: WorkflowHarnessActivationGateRollbackRestoreClickProof;
   activationIdGateClickProof?: WorkflowHarnessActivationIdGateClickProof;

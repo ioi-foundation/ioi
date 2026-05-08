@@ -214,6 +214,12 @@ assert.match(
 );
 
 assert.match(
+  `${graphTypes}\n${workflowRailPanel}\n${workflowComposer}\n${guiHarnessValidation}\n${guiHarnessContract}`,
+  /(?=[\s\S]*WorkflowHarnessPackageEvidenceGateClickProof)(?=[\s\S]*runHarnessPackageEvidenceGateClickProbe)(?=[\s\S]*packageEvidenceGateClickProof)(?=[\s\S]*workflow-harness-package-evidence-review)(?=[\s\S]*workflow-harness-package-evidence-row-\$\{row\.id\})(?=[\s\S]*workflow-harness-package-evidence-row-ref-\$\{row\.id\}-\$\{index\})(?=[\s\S]*data-harness-package-evidence-ready)(?=[\s\S]*data-harness-package-receipt-ref-count)(?=[\s\S]*data-harness-package-replay-fixture-ref-count)(?=[\s\S]*data-harness-package-worker-handoff-attempt-count)(?=[\s\S]*workflowHarnessPackageDeepLinkTarget)(?=[\s\S]*harness_package_evidence_gate_click_proof)(?=[\s\S]*harness_package_evidence_gate_click_proof_present)/,
+  "Package evidence activation gates should have a live click-through proof with inspectable manifest rows and route-restorable refs.",
+);
+
+assert.match(
   workflowComposer,
   /(?=[\s\S]*handleSelectHarnessReceiptRef[\s\S]*setSelectedHarnessReceiptRef\(receiptRef\))(?=[\s\S]*receiptRef: selectedHarnessReceiptRef)/,
   "Selecting a harness receipt should update the workbench deep link state.",

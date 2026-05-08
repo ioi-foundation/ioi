@@ -98,15 +98,16 @@ timeline, worker session record, runtime-checkpoint worker session
 persistence, persisted worker-session launch authority, typed worker
 launch/resume/rollback envelopes, durable worker handoff receipts, rollback
 handoff authority, worker handoff node timeline/replay fixture binding, gated
-verification/output adapter proof, gated authority/tooling adapter proof, and
-fork activation handoff timeline proof, fork handoff deep-link proof, and
-canary/rollback route-state proof, and fork package evidence manifest proof
-have a green end-to-end checkpoint:
+verification/output adapter proof, gated authority/tooling adapter proof, fork
+activation handoff timeline proof, fork handoff deep-link proof,
+canary/rollback route-state proof, fork package evidence manifest proof,
+package evidence activation gate proof, and live package-evidence click-through
+proof have a green end-to-end checkpoint:
 
 - Full retained Autopilot GUI harness run:
-  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T20-27-59-060Z/result.json`
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T21-56-57-375Z/result.json`
 - Runtime P3 validation with required GUI evidence:
-  `docs/evidence/agent-runtime-p3-validation/2026-05-08T20-34-19-262Z/dashboard-index.json`
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T22-03-10-391Z/dashboard-index.json`
 
 This checkpoint proves the GUI promotion flow can show the activation-id gate,
 the fork activation click proof, the selector-owned live-promotion readiness
@@ -149,7 +150,12 @@ evidence contract: fork bundles carry
 `workflow.harness.package-evidence-manifest.v1`, receipt refs, replay fixture
 refs, rollback-restore refs, worker handoff node attempts, and route-restorable
 deep links in `harness-package-evidence.json`; the retained GUI evidence marks
-`hasHarnessPackageEvidenceManifest: true`.
+`hasHarnessPackageEvidenceManifest: true`,
+`harness_package_evidence_gate_present: true`, and
+`harness_package_evidence_gate_click_proof_present: true`. The package-evidence
+activation gate now restores in the right rail, shows manifest/category rows,
+and deep-links to preserved receipt, replay, worker handoff, and package proof
+refs.
 
 ### 2026-05-08 Cognition Live Adapter Slice
 
@@ -951,6 +957,44 @@ slice should make package evidence review click-through fully live in the GUI:
 select the `package-evidence` gate, inspect missing manifest refs, deep-link
 to preserved receipt/replay/rollback/handoff proof, and show the same review
 state when a package is exported, imported, and activated from a new root.
+
+### 2026-05-08 Package Evidence Click-Through Slice
+
+The package-evidence gate is now live-clickable and reviewable in the GUI:
+
+- The gate inspector renders a dedicated `workflow-harness-package-evidence-review`
+  panel when `package-evidence` is selected.
+- The review panel exposes category rows for manifest schema, receipts, replay
+  fixtures, rollback-restore refs, worker handoff node attempts, worker handoff
+  receipts, and preserved package deep links.
+- Missing categories render explicit missing-row affordances; present refs render
+  buttons that restore the appropriate receipt, replay fixture, node attempt, or
+  preserved package deep-link target.
+- Package deep links prefer non-activation proof targets first, so the first
+  click lands on a meaningful canary/rollback/handoff proof rather than a broad
+  activation summary.
+- The live GUI probe now creates a package-evidence fork, mints a validated
+  activation, selects the `package-evidence` gate, clicks representative
+  manifest/receipt/replay/handoff/deep-link refs, and records
+  `workflow.harness.package-evidence-gate-click-proof.v1`.
+- The retained GUI contract now requires
+  `harness_package_evidence_gate_click_proof`, and runtime consistency requires
+  `harness_package_evidence_gate_click_proof_present`.
+- Full retained GUI validation is green in
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T21-56-57-375Z/`;
+  all eight retained queries passed and
+  `promotion-transition-live-gui-interaction-proof.json` reports
+  `packageEvidenceGateClickProof.passed: true` with zero blockers, 31 receipt
+  refs, 30 replay fixture refs, three worker handoff attempts, three worker
+  handoff receipts, and 13 package deep links.
+- Runtime P3 with required GUI evidence is green at
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T22-03-10-391Z/dashboard-index.json`.
+
+This changes package evidence review from "complete enough to gate activation"
+to "operator-clickable proof rows with route-restorable evidence." The next
+chronological slice should prove the same review state survives export/import
+into a new root and that intentionally incomplete imported packages show
+actionable missing-row blockers before activation.
 
 ## Current State
 
