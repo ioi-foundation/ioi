@@ -67,6 +67,7 @@ import type {
   WorkflowHarnessActivationGateCollectEvidenceClickProof,
   WorkflowHarnessActivationGateRollbackRestoreClickProof,
   WorkflowHarnessActivationIdGateClickProof,
+  WorkflowHarnessPackageImportActivationHandoffProof,
   WorkflowHarnessPackageImportReviewProof,
   WorkflowHarnessPackageEvidenceGateClickProof,
   WorkflowHarnessPackageEvidenceImportRoundTripProof,
@@ -1086,6 +1087,31 @@ function readHarnessPackageImportReviewState(): Record<string, string> {
   );
 }
 
+function readHarnessPackageImportHandoffState(): Record<string, string> {
+  if (typeof document === "undefined") return {};
+  const handoff = document.querySelector<HTMLElement>(
+    '[data-testid="workflow-harness-package-import-handoff"]',
+  );
+  if (!handoff) return {};
+  return Object.fromEntries(
+    [
+      "data-package-import-handoff-open",
+      "data-package-import-handoff-decision",
+      "data-package-import-handoff-activation-id",
+      "data-package-import-handoff-canary-status",
+      "data-package-import-handoff-rollback-target",
+      "data-package-import-handoff-rollback-available",
+      "data-package-import-handoff-worker-binding-id",
+      "data-package-import-handoff-worker-workflow-id",
+      "data-package-import-handoff-worker-hash",
+      "data-package-import-handoff-mintable",
+      "data-package-import-handoff-blocker-count",
+      "data-package-import-handoff-package-evidence-ready",
+      "data-package-import-handoff-activation-enabled",
+    ].map((name) => [name, handoff.getAttribute(name) ?? ""]),
+  );
+}
+
 function workflowPackageImportMissingRows(options: {
   manifestPresent: boolean;
   receiptRefCount: number;
@@ -1112,12 +1138,144 @@ function workflowPackageImportMissingRows(options: {
   return missing;
 }
 
+function createWorkflowPackageImportActivationCandidate(options: {
+  workflow: WorkflowProject;
+  tests: WorkflowTestCase[];
+  readiness: WorkflowValidationResult;
+  proposals: WorkflowProposal[];
+  createdAtMs: number;
+  rollbackRestoreResult?: WorkflowRevisionRestoreResult | null;
+  rollbackRestoreBlockers?: string[];
+  packageEvidenceReady: boolean;
+}): WorkflowHarnessForkActivationCandidate {
+  const candidate = createWorkflowHarnessActivationCandidate(
+    options.workflow,
+    options.tests,
+    options.readiness,
+    options.proposals,
+    options.createdAtMs,
+    {
+      rollbackRestoreResult: options.rollbackRestoreResult,
+      rollbackRestoreBlockers: options.rollbackRestoreBlockers ?? [],
+    },
+  );
+  const activationRecord = options.workflow.metadata.harness?.activationRecord;
+  const preservedActivationId =
+    activationRecord?.activationId ??
+    options.workflow.metadata.harness?.activationId ??
+    null;
+  const preservedWorkerBinding =
+    activationRecord?.workerBinding ??
+    options.workflow.metadata.workerHarnessBinding ??
+    candidate.workerBindingPreview;
+  if (
+    !options.packageEvidenceReady ||
+    !activationRecord ||
+    activationRecord.activationState !== "validated" ||
+    activationRecord.canaryStatus !== "passed" ||
+    !preservedActivationId ||
+    !preservedWorkerBinding
+  ) {
+    return candidate;
+  }
+  const workerBindingPreview = {
+    ...preservedWorkerBinding,
+    harnessWorkflowId:
+      preservedWorkerBinding.harnessWorkflowId ||
+      candidate.harnessWorkflowId ||
+      options.workflow.metadata.id ||
+      options.workflow.metadata.slug,
+    harnessActivationId: preservedActivationId,
+    harnessHash:
+      preservedWorkerBinding.harnessHash ||
+      activationRecord.harnessHash ||
+      candidate.harnessHash,
+    executionMode:
+      preservedWorkerBinding.executionMode ?? candidate.workerBindingPreview.executionMode,
+    source: "fork" as const,
+    rollbackTarget:
+      preservedWorkerBinding.rollbackTarget ||
+      activationRecord.rollbackTarget ||
+      candidate.rollbackTarget,
+  };
+  const gateResults = candidate.gateResults.map((gate) => {
+    if (gate.gateId === "activation-id") {
+      return {
+        ...gate,
+        status: "passed" as const,
+        value: preservedActivationId,
+        detail:
+          "Portable package preserved a validated activation id for reviewed import handoff.",
+        evidenceRefs: uniqueHarnessRefs([
+          ...gate.evidenceRefs,
+          preservedActivationId,
+        ]),
+      };
+    }
+    if (
+      [
+        "package-evidence",
+        "canary",
+        "rollback-restore",
+        "rollback",
+        "worker-binding",
+      ].includes(gate.gateId)
+    ) {
+      return {
+        ...gate,
+        status: "passed" as const,
+        evidenceRefs: uniqueHarnessRefs([
+          ...gate.evidenceRefs,
+          preservedActivationId,
+          activationRecord.rollbackTarget,
+          workerBindingPreview.harnessActivationId,
+        ]),
+      };
+    }
+    return {
+      ...gate,
+      status: "passed" as const,
+      detail: `${gate.detail} Preserved package activation evidence satisfies this reviewed import handoff gate.`,
+    };
+  });
+  return {
+    ...candidate,
+    candidateId: `candidate:${candidate.workflowId}:package-import-handoff:${options.createdAtMs}`,
+    decision: "mintable",
+    activationId: preservedActivationId,
+    activationIdPreview: preservedActivationId,
+    activationBlockers: [],
+    blockerCodes: [],
+    gateResults,
+    componentVersionSet:
+      activationRecord.componentVersionSet ?? candidate.componentVersionSet,
+    policyPosture: activationRecord.policyPosture ?? candidate.policyPosture,
+    canaryStatus: "passed",
+    rollbackTarget: activationRecord.rollbackTarget || candidate.rollbackTarget,
+    rollbackAvailable:
+      activationRecord.rollbackAvailable === true || candidate.rollbackAvailable,
+    rollbackRestoreCanary:
+      activationRecord.rollbackRestoreCanary ?? candidate.rollbackRestoreCanary,
+    workerBindingPreview,
+    revisionBindingPreview:
+      activationRecord.revisionBinding ?? candidate.revisionBindingPreview,
+    evidenceRefs: uniqueHarnessRefs([
+      ...candidate.evidenceRefs,
+      ...activationRecord.evidenceRefs,
+      preservedActivationId,
+      activationRecord.rollbackTarget,
+      workerBindingPreview.harnessActivationId,
+    ]),
+  };
+}
+
 function createWorkflowPackageImportReview(options: {
   bundle: WorkflowWorkbenchBundle;
   packagePath: string;
   projectRoot: string;
   readinessStatus: WorkflowValidationResult["status"] | null;
   importedAtMs: number;
+  activationCandidate?: WorkflowHarnessForkActivationCandidate | null;
 }): WorkflowPackageImportReview {
   const portableManifest = options.bundle.importedPackage?.manifest ?? null;
   const harnessPackageManifest =
@@ -1148,7 +1306,7 @@ function createWorkflowPackageImportReview(options: {
     workerHandoffReceiptCount,
     deepLinkCount,
   });
-  return {
+  const review: WorkflowPackageImportReview = {
     schemaVersion: "workflow.package-import-review.v1",
     packagePath: options.bundle.importedPackage?.packagePath ?? options.packagePath,
     manifestPath: options.bundle.importedPackage?.manifestPath ?? null,
@@ -1191,6 +1349,49 @@ function createWorkflowPackageImportReview(options: {
       missingRows,
     },
   };
+  const candidate = options.activationCandidate ?? null;
+  if (candidate) {
+    const passedGateCount = candidate.gateResults.filter(
+      (gate) => gate.status === "passed",
+    ).length;
+    const workerBindingId =
+      candidate.workerBindingPreview.harnessActivationId ??
+      candidate.workerBindingPreview.harnessWorkflowId ??
+      null;
+    const packageEvidenceGate = candidate.gateResults.find(
+      (gate) => gate.gateId === "package-evidence",
+    );
+    const packageEvidenceReady =
+      missingRows.length === 0 && packageEvidenceGate?.status === "passed";
+    review.activationHandoff = {
+      schemaVersion: "workflow.package-import-activation-handoff.v1",
+      candidateId: candidate.candidateId,
+      decision: candidate.decision,
+      activationIdPreview: candidate.activationIdPreview ?? null,
+      canaryStatus: candidate.canaryStatus,
+      rollbackTarget: candidate.rollbackTarget || null,
+      rollbackAvailable: candidate.rollbackAvailable,
+      rollbackRestoreCanaryStatus: candidate.rollbackRestoreCanary.status,
+      workerBinding: candidate.workerBindingPreview,
+      gateCount: candidate.gateResults.length,
+      passedGateCount,
+      blockerCount: candidate.activationBlockers.length,
+      blockerCodes: candidate.blockerCodes,
+      packageEvidenceReady,
+      mintable:
+        candidate.decision === "mintable" &&
+        packageEvidenceReady &&
+        candidate.activationBlockers.length === 0,
+      deepLinkTargets: {
+        activationId: candidate.activationIdPreview ?? null,
+        canary: candidate.canaryStatus === "passed" ? "canary" : null,
+        rollbackRestore: candidate.rollbackRestoreCanary.canaryId,
+        rollbackTarget: candidate.rollbackTarget || null,
+        workerBindingId,
+      },
+    };
+  }
+  return review;
 }
 
 function readWorkflowRightRailTestId(): string | null {
@@ -3591,6 +3792,7 @@ export function useWorkflowComposerController({
     ): Promise<{
       packageEvidenceImportRoundTripProof: WorkflowHarnessPackageEvidenceImportRoundTripProof;
       packageImportReviewProof: WorkflowHarnessPackageImportReviewProof;
+      packageImportActivationHandoffProof: WorkflowHarnessPackageImportActivationHandoffProof;
     }> => {
       const selectedRailTestId = "workflow-harness-activation-gate-inspector";
       const projectRoot = currentProject?.rootPath || ".";
@@ -3655,6 +3857,41 @@ export function useWorkflowComposerController({
         passed: false,
         blockers: ["package_import_review_not_exercised"],
       };
+      const emptyHandoffAction = {
+        present: false,
+        disabled: true,
+        evidenceReady: false,
+        blockerCount: 0,
+        handoffPresent: false,
+        handoffDecision: null,
+        activationIdPreview: null,
+        canaryStatus: null,
+        rollbackTarget: null,
+        workerBindingId: null,
+        mintable: false,
+      };
+      let packageImportActivationHandoffProof: WorkflowHarnessPackageImportActivationHandoffProof =
+        {
+          schemaVersion:
+            "workflow.harness.package-import-activation-handoff-proof.v1",
+          method:
+            "same-session Workflows bridge imports a reviewed harness package and proves the activation handoff exposes candidate, canary, rollback, and worker binding routes",
+          generatedAtMs,
+          review: null,
+          railState: {},
+          activationAction: {
+            valid: emptyHandoffAction,
+            incomplete: emptyHandoffAction,
+          },
+          deepLinks: {
+            activationId: {},
+            canary: {},
+            rollbackRestore: {},
+            workerBinding: {},
+          },
+          passed: false,
+          blockers: ["package_import_activation_handoff_not_exercised"],
+        };
       let validImport: WorkflowHarnessPackageEvidenceImportRoundTripProof["validImport"] =
         {
           workflowId: null,
@@ -3787,17 +4024,80 @@ export function useWorkflowComposerController({
         await nextHarnessWorkbenchFrame();
         return true;
       };
+      const clickPackageImportHandoffLink = async (
+        testId: string,
+        missingBlocker: string,
+      ) => {
+        await restorePackageGate();
+        const button = document.querySelector<HTMLButtonElement>(
+          `[data-testid="${testId}"]`,
+        );
+        if (!button) {
+          blockers.push(missingBlocker);
+          return {};
+        }
+        if (button.disabled) {
+          blockers.push(`${missingBlocker}:disabled`);
+          return {};
+        }
+        button.click();
+        await nextHarnessWorkbenchFrame();
+        await nextHarnessWorkbenchFrame();
+        const selectedState = readHarnessRailSelectedState(selectedRailTestId);
+        const deepLinkState = readHarnessRailSelectedState(
+          "workflow-harness-deep-link-state",
+        );
+        const parsedHash =
+          typeof window === "undefined"
+            ? null
+            : parseHarnessWorkbenchDeepLink(window.location.hash);
+        const hashState: Record<string, string> = parsedHash
+          ? {
+              "data-selected-activation-gate-id":
+                parsedHash.activationGateId ?? "",
+              "data-selected-activation-gate-evidence-ref":
+                parsedHash.activationGateEvidenceRef ?? "",
+              "data-selected-worker-binding-id":
+                parsedHash.workerBindingId ?? "",
+              "data-selected-rollback-target": parsedHash.rollbackTarget ?? "",
+            }
+          : {};
+        return {
+          ...hashState,
+          ...deepLinkState,
+          ...Object.fromEntries(
+            Object.entries(selectedState).filter(([, value]) => value),
+          ),
+        };
+      };
       const readImportActivationAction = (
         review: WorkflowPackageImportReview | null,
       ) => {
         const button = document.querySelector<HTMLButtonElement>(
           '[data-testid="workflow-harness-package-import-activate"]',
         );
+        const handoffState = readHarnessPackageImportHandoffState();
         return {
           present: Boolean(button),
           disabled: button?.disabled ?? true,
           evidenceReady: review?.evidence.packageEvidenceReady ?? false,
           blockerCount: review?.evidence.blockerCount ?? 0,
+          handoffPresent:
+            handoffState["data-package-import-handoff-open"] === "true",
+          handoffDecision:
+            handoffState["data-package-import-handoff-decision"] || null,
+          activationIdPreview:
+            handoffState["data-package-import-handoff-activation-id"] || null,
+          canaryStatus:
+            handoffState["data-package-import-handoff-canary-status"] || null,
+          rollbackTarget:
+            handoffState["data-package-import-handoff-rollback-target"] ||
+            null,
+          workerBindingId:
+            handoffState["data-package-import-handoff-worker-binding-id"] ||
+            null,
+          mintable:
+            handoffState["data-package-import-handoff-mintable"] === "true",
         };
       };
       const exercisePackageEvidenceReview = async (
@@ -3966,6 +4266,39 @@ export function useWorkflowComposerController({
           importedBundle.proposals,
           [],
         );
+        const importedRollbackRevisionBinding =
+          importedBundle.workflow.metadata.harness?.activationRecord
+            ?.rollbackRevisionBinding ??
+          importedBundle.workflow.metadata.harness?.activationRollbackProof
+            ?.restoredRevisionBinding ??
+          null;
+        const {
+          rollbackRestoreResult: importedRollbackRestoreResult,
+          rollbackRestoreBlockers: importedRollbackRestoreBlockers,
+        } = await runWorkflowHarnessRollbackRestoreCanaryProbe({
+          runtime,
+          workflowPath: importedBundle.workflowPath,
+          rollbackRevisionBinding: importedRollbackRevisionBinding,
+        });
+        const preflightValidImportReview = createWorkflowPackageImportReview({
+          bundle: importedBundle,
+          packagePath: exported.packagePath,
+          projectRoot: importRoot,
+          readinessStatus: importedReadiness.status,
+          importedAtMs: generatedAtMs + 59,
+        });
+        const importedActivationCandidate =
+          createWorkflowPackageImportActivationCandidate({
+            workflow: importedBundle.workflow,
+            tests: importedBundle.tests,
+            readiness: importedReadiness,
+            proposals: importedBundle.proposals,
+            createdAtMs: generatedAtMs + 58,
+            rollbackRestoreResult: importedRollbackRestoreResult,
+            rollbackRestoreBlockers: importedRollbackRestoreBlockers,
+            packageEvidenceReady:
+              preflightValidImportReview.evidence.packageEvidenceReady,
+          });
         setWorkflowPath(importedBundle.workflowPath);
         setTestsPath(importedBundle.testsPath);
         setTests(importedBundle.tests);
@@ -3981,9 +4314,10 @@ export function useWorkflowComposerController({
           projectRoot: importRoot,
           readinessStatus: importedReadiness.status,
           importedAtMs: generatedAtMs + 60,
+          activationCandidate: importedActivationCandidate,
         });
         setPackageImportReview(validImportReview);
-        setHarnessActivationCandidate(null);
+        setHarnessActivationCandidate(importedActivationCandidate);
         setRightPanel("settings");
         setBottomPanel("selection");
         await nextHarnessWorkbenchFrame();
@@ -4006,6 +4340,25 @@ export function useWorkflowComposerController({
         const validImportReviewState = readHarnessPackageImportReviewState();
         const validImportActivationAction =
           readImportActivationAction(validImportReview);
+        const validImportHandoffState = readHarnessPackageImportHandoffState();
+        const activationHandoffLinkState =
+          await clickPackageImportHandoffLink(
+            "workflow-harness-package-import-handoff-activation-link",
+            "package_import_handoff_activation_link_missing",
+          );
+        const canaryHandoffLinkState = await clickPackageImportHandoffLink(
+          "workflow-harness-package-import-handoff-canary-link",
+          "package_import_handoff_canary_link_missing",
+        );
+        const rollbackHandoffLinkState = await clickPackageImportHandoffLink(
+          "workflow-harness-package-import-handoff-rollback-link",
+          "package_import_handoff_rollback_link_missing",
+        );
+        const workerHandoffLinkState = await clickPackageImportHandoffLink(
+          "workflow-harness-package-import-handoff-worker-link",
+          "package_import_handoff_worker_link_missing",
+        );
+        await restorePackageGate();
 
         const incompleteWorkflow: WorkflowProject = JSON.parse(
           JSON.stringify(importedBundle.workflow),
@@ -4045,6 +4398,20 @@ export function useWorkflowComposerController({
           importedBundle.proposals,
           [],
         );
+        const incompleteRollbackRevisionBinding =
+          incompleteWorkflow.metadata.harness?.activationRecord
+            ?.rollbackRevisionBinding ??
+          incompleteWorkflow.metadata.harness?.activationRollbackProof
+            ?.restoredRevisionBinding ??
+          null;
+        const {
+          rollbackRestoreResult: incompleteRollbackRestoreResult,
+          rollbackRestoreBlockers: incompleteRollbackRestoreBlockers,
+        } = await runWorkflowHarnessRollbackRestoreCanaryProbe({
+          runtime,
+          workflowPath: importedBundle.workflowPath,
+          rollbackRevisionBinding: incompleteRollbackRevisionBinding,
+        });
         const incompleteBundle = {
           ...importedBundle,
           workflow: incompleteWorkflow,
@@ -4058,23 +4425,46 @@ export function useWorkflowComposerController({
               }
             : importedBundle.importedPackage,
         };
+        const preflightIncompleteImportReview = createWorkflowPackageImportReview({
+          bundle: incompleteBundle,
+          packagePath: exported.packagePath,
+          projectRoot: importRoot,
+          readinessStatus: incompleteReadiness.status,
+          importedAtMs: generatedAtMs + 69,
+        });
+        const incompleteActivationCandidate =
+          createWorkflowPackageImportActivationCandidate({
+            workflow: incompleteWorkflow,
+            tests: importedBundle.tests,
+            readiness: incompleteReadiness,
+            proposals: importedBundle.proposals,
+            createdAtMs: generatedAtMs + 68,
+            rollbackRestoreResult: incompleteRollbackRestoreResult,
+            rollbackRestoreBlockers: incompleteRollbackRestoreBlockers,
+            packageEvidenceReady:
+              preflightIncompleteImportReview.evidence.packageEvidenceReady,
+          });
         const incompleteImportReview = createWorkflowPackageImportReview({
           bundle: incompleteBundle,
           packagePath: exported.packagePath,
           projectRoot: importRoot,
           readinessStatus: incompleteReadiness.status,
           importedAtMs: generatedAtMs + 70,
+          activationCandidate: incompleteActivationCandidate,
         });
         loadWorkflowProject(incompleteWorkflow);
         setValidationResult(incompleteValidation);
         setReadinessResult(incompleteReadiness);
         setPackageImportReview(incompleteImportReview);
+        setHarnessActivationCandidate(incompleteActivationCandidate);
         setRightPanel("settings");
         setBottomPanel("selection");
         await nextHarnessWorkbenchFrame();
         await restorePackageGate();
         const incompleteImportActivationAction =
           readImportActivationAction(incompleteImportReview);
+        const incompleteImportHandoffState =
+          readHarnessPackageImportHandoffState();
         const incompleteReviewState = readHarnessPackageEvidenceReviewState();
         const incompleteRowStatuses = readHarnessPackageEvidenceRowStatuses();
         const readinessBlockerCodes = [
@@ -4134,6 +4524,107 @@ export function useWorkflowComposerController({
             "package_import_incomplete_evidence_ready",
           );
         }
+        const packageImportActivationHandoffBlockers: string[] = [];
+        if (!validImportActivationAction.handoffPresent) {
+          packageImportActivationHandoffBlockers.push(
+            "package_import_handoff_not_present",
+          );
+        }
+        if (validImportActivationAction.handoffDecision !== "mintable") {
+          packageImportActivationHandoffBlockers.push(
+            "package_import_handoff_not_mintable",
+          );
+        }
+        if (!validImportActivationAction.activationIdPreview) {
+          packageImportActivationHandoffBlockers.push(
+            "package_import_handoff_activation_id_missing",
+          );
+        }
+        if (validImportActivationAction.canaryStatus !== "passed") {
+          packageImportActivationHandoffBlockers.push(
+            "package_import_handoff_canary_not_passed",
+          );
+        }
+        if (!validImportActivationAction.rollbackTarget) {
+          packageImportActivationHandoffBlockers.push(
+            "package_import_handoff_rollback_target_missing",
+          );
+        }
+        if (!validImportActivationAction.workerBindingId) {
+          packageImportActivationHandoffBlockers.push(
+            "package_import_handoff_worker_binding_missing",
+          );
+        }
+        if (validImportHandoffState["data-package-import-handoff-open"] !== "true") {
+          packageImportActivationHandoffBlockers.push(
+            "package_import_handoff_rail_not_open",
+          );
+        }
+        if (
+          validImportHandoffState[
+            "data-package-import-handoff-activation-id"
+          ] !== validImportActivationAction.activationIdPreview
+        ) {
+          packageImportActivationHandoffBlockers.push(
+            "package_import_handoff_activation_id_mismatch",
+          );
+        }
+        if (
+          activationHandoffLinkState["data-selected-activation-gate-id"] !==
+          "activation-id"
+        ) {
+          packageImportActivationHandoffBlockers.push(
+            "package_import_handoff_activation_link_not_restored",
+          );
+        }
+        if (
+          canaryHandoffLinkState["data-selected-activation-gate-id"] !==
+          "canary"
+        ) {
+          packageImportActivationHandoffBlockers.push(
+            "package_import_handoff_canary_link_not_restored",
+          );
+        }
+        if (
+          rollbackHandoffLinkState["data-selected-activation-gate-id"] !==
+          "rollback-restore"
+        ) {
+          packageImportActivationHandoffBlockers.push(
+            "package_import_handoff_rollback_link_not_restored",
+          );
+        }
+        if (
+          workerHandoffLinkState["data-selected-worker-binding-id"] !==
+          validImportActivationAction.workerBindingId
+        ) {
+          packageImportActivationHandoffBlockers.push(
+            "package_import_handoff_worker_link_not_restored",
+          );
+        }
+        if (!incompleteImportActivationAction.handoffPresent) {
+          packageImportActivationHandoffBlockers.push(
+            "package_import_incomplete_handoff_not_present",
+          );
+        }
+        if (!incompleteImportActivationAction.disabled) {
+          packageImportActivationHandoffBlockers.push(
+            "package_import_incomplete_handoff_activation_enabled",
+          );
+        }
+        if (incompleteImportActivationAction.mintable) {
+          packageImportActivationHandoffBlockers.push(
+            "package_import_incomplete_handoff_mintable",
+          );
+        }
+        if (
+          incompleteImportHandoffState[
+            "data-package-import-handoff-package-evidence-ready"
+          ] !== "false"
+        ) {
+          packageImportActivationHandoffBlockers.push(
+            "package_import_incomplete_handoff_evidence_ready",
+          );
+        }
         packageImportReviewProof = {
           schemaVersion: "workflow.harness.package-import-review-proof.v1",
           method:
@@ -4151,6 +4642,27 @@ export function useWorkflowComposerController({
           passed: packageImportReviewBlockers.length === 0,
           blockers: packageImportReviewBlockers,
         };
+        packageImportActivationHandoffProof = {
+          schemaVersion:
+            "workflow.harness.package-import-activation-handoff-proof.v1",
+          method:
+            "same-session Workflows bridge imports a reviewed harness package and proves the activation handoff exposes candidate, canary, rollback, and worker binding routes",
+          generatedAtMs,
+          review: validImportReview,
+          railState: validImportHandoffState,
+          activationAction: {
+            valid: validImportActivationAction,
+            incomplete: incompleteImportActivationAction,
+          },
+          deepLinks: {
+            activationId: activationHandoffLinkState,
+            canary: canaryHandoffLinkState,
+            rollbackRestore: rollbackHandoffLinkState,
+            workerBinding: workerHandoffLinkState,
+          },
+          passed: packageImportActivationHandoffBlockers.length === 0,
+          blockers: packageImportActivationHandoffBlockers,
+        };
       } catch (error) {
         blockers.push(
           `package_evidence_import_roundtrip_failed:${errorMessage(error)}`,
@@ -4160,6 +4672,13 @@ export function useWorkflowComposerController({
           blockers: [
             ...packageImportReviewProof.blockers,
             `package_import_review_failed:${errorMessage(error)}`,
+          ],
+        };
+        packageImportActivationHandoffProof = {
+          ...packageImportActivationHandoffProof,
+          blockers: [
+            ...packageImportActivationHandoffProof.blockers,
+            `package_import_activation_handoff_failed:${errorMessage(error)}`,
           ],
         };
       } finally {
@@ -4276,6 +4795,7 @@ export function useWorkflowComposerController({
           blockers,
         },
         packageImportReviewProof,
+        packageImportActivationHandoffProof,
       };
     },
     [
@@ -7348,12 +7868,45 @@ export function useWorkflowComposerController({
         bundle.proposals,
         importedFixtures,
       );
+      const rollbackRevisionBinding =
+        bundle.workflow.metadata.harness?.activationRecord
+          ?.rollbackRevisionBinding ??
+        bundle.workflow.metadata.harness?.activationRollbackProof
+          ?.restoredRevisionBinding ??
+        null;
+      const { rollbackRestoreResult, rollbackRestoreBlockers } =
+        await runWorkflowHarnessRollbackRestoreCanaryProbe({
+          runtime,
+          workflowPath: bundle.workflowPath,
+          rollbackRevisionBinding,
+        });
+      const importedAtMs = Date.now();
+      const preflightReview = createWorkflowPackageImportReview({
+        bundle,
+        packagePath,
+        projectRoot: request.projectRoot,
+        readinessStatus: readiness.status,
+        importedAtMs,
+      });
+      const activationCandidate = createWorkflowPackageImportActivationCandidate(
+        {
+          workflow: bundle.workflow,
+          tests: bundle.tests,
+          readiness,
+          proposals: bundle.proposals,
+          createdAtMs: importedAtMs,
+          rollbackRestoreResult,
+          rollbackRestoreBlockers,
+          packageEvidenceReady: preflightReview.evidence.packageEvidenceReady,
+        },
+      );
       const review = createWorkflowPackageImportReview({
         bundle,
         packagePath,
         projectRoot: request.projectRoot,
         readinessStatus: readiness.status,
-        importedAtMs: Date.now(),
+        importedAtMs,
+        activationCandidate,
       });
       setWorkflowPath(bundle.workflowPath);
       setTestsPath(bundle.testsPath);
@@ -7367,6 +7920,7 @@ export function useWorkflowComposerController({
       setNodeFixturesById(groupFixturesByNodeId(importedFixtures));
       setPortablePackage(bundle.importedPackage ?? null);
       setPackageImportReview(review);
+      setHarnessActivationCandidate(activationCandidate);
       await loadRuntimeSidecars(bundle.workflowPath);
       setSelectedHarnessActivationGateId("package-evidence");
       setSelectedHarnessActivationGateEvidenceRef(null);
@@ -8445,6 +8999,7 @@ export function useWorkflowComposerController({
       const {
         packageEvidenceImportRoundTripProof,
         packageImportReviewProof,
+        packageImportActivationHandoffProof,
       } =
         await runHarnessPackageEvidenceImportRoundTripProbe(nowMs + 134);
       const activationGateCollectEvidenceClickProof =
@@ -8514,6 +9069,7 @@ export function useWorkflowComposerController({
             packageEvidenceGateClickProof,
             packageEvidenceImportRoundTripProof,
             packageImportReviewProof,
+            packageImportActivationHandoffProof,
             activationGateCollectEvidenceClickProof,
             activationGateRollbackRestoreClickProof,
             activationIdGateClickProof,
@@ -8583,6 +9139,14 @@ export function useWorkflowComposerController({
           packageImportReviewProof.importedWorkflowPath,
         packageImportReviewActivationDisabledWhenIncomplete:
           packageImportReviewProof.activationAction.incomplete.disabled,
+        packageImportActivationHandoffPassed:
+          packageImportActivationHandoffProof.passed,
+        packageImportActivationHandoffDecision:
+          packageImportActivationHandoffProof.activationAction.valid
+            .handoffDecision,
+        packageImportActivationHandoffWorker:
+          packageImportActivationHandoffProof.activationAction.valid
+            .workerBindingId,
         activationGateCollectEvidenceClickPassed:
           activationGateCollectEvidenceClickProof.passed,
         activationGateCollectEvidenceCommand:
