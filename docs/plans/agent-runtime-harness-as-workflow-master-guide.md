@@ -12,8 +12,8 @@ Companion documents:
 - `docs/specs/runtime/cursor-sdk-harness-parity-plus-master-guide.md`
 - `docs/specs/runtime/harness-change-workflow.md`
 - `docs/evidence/autopilot-gui-harness-validation/2026-05-07T12-03-49-923Z/result.json`
-- `docs/evidence/autopilot-gui-harness-validation/2026-05-08T09-12-40-928Z/result.json`
-- `docs/evidence/agent-runtime-p3-validation/2026-05-08T09-20-04-629Z/dashboard-index.json`
+- `docs/evidence/autopilot-gui-harness-validation/2026-05-08T09-29-56-082Z/result.json`
+- `docs/evidence/agent-runtime-p3-validation/2026-05-08T09-36-18-437Z/dashboard-index.json`
 - `docs/evidence/harness-as-workflow-aip-reference/2026-05-06/README.md`
 
 ## Executive Verdict
@@ -63,9 +63,9 @@ As of 2026-05-08, the default live harness activation-id gate and default
 runtime dispatch proof have a green end-to-end checkpoint:
 
 - Full retained Autopilot GUI harness run:
-  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T09-12-40-928Z/result.json`
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T09-29-56-082Z/result.json`
 - Runtime P3 validation with required GUI evidence:
-  `docs/evidence/agent-runtime-p3-validation/2026-05-08T09-20-04-629Z/dashboard-index.json`
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T09-36-18-437Z/dashboard-index.json`
 
 This checkpoint proves the GUI promotion flow can show the activation-id gate,
 the fork activation click proof, the default runtime dispatch binding, live
@@ -103,6 +103,31 @@ promotion wedge: the cognition envelope still uses the existing workflow node
 executor for the actual envelope execution, but its authority proof now flows
 through the canonical harness adapter result instead of only hand-assembled
 attempt ids.
+
+### 2026-05-08 Cognition Gate Adapter Slice
+
+The second cognition slice extends the same proof pattern across the remaining
+cognition cluster without prematurely promoting those gates to live authority:
+
+- `uncertainty_gate`, `budget_gate`, and `capability_sequencer` now execute as
+  staged workflow envelopes during default dispatch proof generation.
+- Their canonical adapter invocations run in `gated` mode, keep
+  `shadow_ready` readiness, emit node attempts, action frames, receipt refs,
+  replay fixture refs, and divergence classifications.
+- The default dispatch proof now distinguishes live cognition authority
+  (`planner`, `prompt_assembler`, `task_state`) from staged cognition gates
+  (`uncertainty_gate`, `budget_gate`, `capability_sequencer`).
+- Full retained GUI validation is green in
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T09-29-56-082Z/`;
+  the copied workflow proof shows three live adapter results, three gated
+  adapter results, and `gateDivergenceClasses: ["none"]`.
+- Runtime P3 with required GUI evidence is green at
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T09-36-18-437Z/dashboard-index.json`.
+
+This completes the cognition cluster proof shape while preserving the staged
+promotion discipline: only the cognition authority triplet is live-ready; the
+uncertainty, budget, and capability gates are proven through gated adapter
+records until shadow/gated divergence criteria justify live promotion.
 
 ## Current State
 

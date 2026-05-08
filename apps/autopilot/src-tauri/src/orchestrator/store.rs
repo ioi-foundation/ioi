@@ -4612,6 +4612,13 @@ fn runtime_harness_default_runtime_dispatch(
     let mut cognition_execution_adapter_results = Vec::<Value>::new();
     let mut cognition_execution_action_frame_ids = Vec::<String>::new();
     let mut cognition_execution_live_ready_component_kinds = Vec::<String>::new();
+    let mut cognition_execution_gate_attempt_ids = Vec::<String>::new();
+    let mut cognition_execution_gate_receipt_ids = Vec::<String>::new();
+    let mut cognition_execution_gate_replay_fixture_refs = Vec::<String>::new();
+    let mut cognition_execution_gate_adapter_results = Vec::<Value>::new();
+    let mut cognition_execution_gate_action_frame_ids = Vec::<String>::new();
+    let mut cognition_execution_gate_component_kinds = Vec::<String>::new();
+    let mut cognition_execution_gate_divergence_classes = Vec::<String>::new();
     let mut model_execution_attempt_ids = Vec::<String>::new();
     let mut model_execution_receipt_ids = Vec::<String>::new();
     let mut model_execution_replay_fixture_refs = Vec::<String>::new();
@@ -5051,6 +5058,256 @@ fn runtime_harness_default_runtime_dispatch(
                             selector_decision_id.clone(),
                             format!("rollback-target:{DEFAULT_AGENT_HARNESS_ACTIVATION_ID}")
                         ],
+                        "replay": {
+                            "deterministicEnvelope": true,
+                            "capturesInput": true,
+                            "capturesOutput": true,
+                            "capturesPolicyDecision": true,
+                            "fixtureRef": replay_fixture_ref,
+                            "determinism": "deterministic",
+                            "nondeterminismReason": null,
+                            "redactionPolicy": "autopilot-runtime-evidence-v1"
+                        }
+                    }));
+                }
+            }
+        }
+
+        let cognition_gate_specs = vec![
+            (
+                HarnessComponentKind::UncertaintyGate,
+                "uncertainty_gate",
+                "Uncertainty gate workflow envelope",
+                "uncertainty_gate_envelope",
+                "accept_workflow_uncertainty_gate_envelope",
+                json!({
+                    "ambiguityLevel": "low",
+                    "selectedAction": selected_action,
+                    "valueOfProbe": "low"
+                }),
+            ),
+            (
+                HarnessComponentKind::BudgetGate,
+                "budget_gate",
+                "Budget gate workflow envelope",
+                "budget_gate_envelope",
+                "accept_workflow_budget_gate_envelope",
+                json!({
+                    "budget": {
+                        "maxToolCalls": 0,
+                        "maxRetries": 0,
+                        "maxModelCalls": 1,
+                        "maxWallTimeMs": 300000
+                    },
+                    "decision": "continue"
+                }),
+            ),
+            (
+                HarnessComponentKind::CapabilitySequencer,
+                "capability_sequence",
+                "Capability sequencer workflow envelope",
+                "capability_sequencer_envelope",
+                "accept_workflow_capability_sequence_envelope",
+                json!({
+                    "sequence": [
+                        "plan",
+                        "assemble_prompt",
+                        "preserve_task_state",
+                        "route_read_only",
+                        "verify_output"
+                    ]
+                }),
+            ),
+        ];
+        for (component_kind, node_type, node_name, attempt_slug, policy_decision, logic) in
+            cognition_gate_specs
+        {
+            let component_kind_label = component_kind.as_str();
+            let attempt_index = (dispatch_node_attempts.len() + 1) as u32;
+            let attempt_id = format!(
+                "harness-default-dispatch:{sid}:{turn_id}:{attempt_slug}:attempt-{attempt_index}"
+            );
+            let workflow_node_id = format!("harness.default_dispatch.{attempt_slug}");
+            let receipt_id = format!("{sid}:{workflow_node_id}:{policy_decision}");
+            let replay_fixture_ref =
+                format!("runtime-evidence:{sid}:default-dispatch-fixture:{attempt_slug}");
+            let input = json!({
+                "sessionId": sid,
+                "turnId": turn_id,
+                "selectorDecisionId": selector_decision_id,
+                "sourceBoundaryIds": source_boundary_ids,
+                "componentKind": component_kind_label,
+                "selectedStrategy": selected_strategy,
+                "selectedAction": selected_action,
+                "latestUserTurnHash": runtime_prompt_hash(&[latest_user_turn]),
+                "promptFinalHash": prompt_assembly_prompt_hash,
+                "promptHashAlgorithm": "runtime_prompt_hash:v1",
+                "previousCognitionOutput": previous_cognition_output,
+                "promotionMode": "gated"
+            });
+            let input_hash = runtime_harness_canary_node_output_hash(&input);
+            let node = json!({
+                "id": workflow_node_id,
+                "type": node_type,
+                "name": node_name,
+                "config": {
+                    "logic": logic,
+                    "law": {
+                        "requireHumanGate": false,
+                        "sandboxPolicy": {
+                            "permissions": []
+                        }
+                    }
+                }
+            });
+            let started_at_ms = crate::kernel::state::now();
+            let execution =
+                crate::project::execute_workflow_harness_live_default_node(&node, input.clone(), 1);
+            let finished_at_ms = crate::kernel::state::now();
+            let duration_ms = finished_at_ms.saturating_sub(started_at_ms);
+            dispatch_node_attempt_ids.push(attempt_id.clone());
+            cognition_execution_attempt_ids.push(attempt_id.clone());
+            cognition_execution_receipt_ids.push(receipt_id.clone());
+            cognition_execution_replay_fixture_refs.push(replay_fixture_ref.clone());
+            cognition_execution_gate_attempt_ids.push(attempt_id.clone());
+            cognition_execution_gate_receipt_ids.push(receipt_id.clone());
+            cognition_execution_gate_replay_fixture_refs.push(replay_fixture_ref.clone());
+            receipt_ids.push(receipt_id.clone());
+            replay_fixture_refs.push(replay_fixture_ref.clone());
+            match execution {
+                Ok(output) => {
+                    let output_hash = runtime_harness_canary_node_output_hash(&output);
+                    let evidence_refs = vec![
+                        format!("runtime-evidence:{sid}"),
+                        selector_decision_id.clone(),
+                        format!("harness-gated-cognition:{sid}:{}", task.progress),
+                    ];
+                    let adapter_result_value = match invoke_default_harness_component(
+                        HarnessComponentInvocation {
+                            invocation_id: format!(
+                                "default-dispatch:{sid}:{turn_id}:{attempt_slug}"
+                            ),
+                            component_kind,
+                            execution_mode: HarnessExecutionMode::Gated,
+                            attempt_index,
+                            input_hash: Some(input_hash.clone()),
+                            output_hash: Some(output_hash.clone()),
+                            policy_decision: Some(policy_decision.to_string()),
+                            receipt_ids: vec![receipt_id.clone()],
+                            evidence_refs: evidence_refs.clone(),
+                            replay_fixture_ref: Some(replay_fixture_ref.clone()),
+                            started_at_ms: Some(started_at_ms),
+                            duration_ms: Some(duration_ms),
+                        },
+                    ) {
+                        Ok(adapter_result) => {
+                            cognition_execution_gate_action_frame_ids.push(format!(
+                                "{}:{}",
+                                adapter_result.action_frame.node_id,
+                                adapter_result.action_frame.component_id
+                            ));
+                            cognition_execution_gate_component_kinds.push(
+                                adapter_result
+                                    .action_frame
+                                    .component_kind
+                                    .as_str()
+                                    .to_string(),
+                            );
+                            cognition_execution_gate_divergence_classes.push("none".to_string());
+                            let value =
+                                harness_component_adapter_result_camel_value(&adapter_result);
+                            cognition_execution_gate_adapter_results.push(value.clone());
+                            value
+                        }
+                        Err(error) => {
+                            activation_blockers.push(format!(
+                                "cognition_gate_component_adapter_error:{attempt_slug}"
+                            ));
+                            json!({
+                                "schemaVersion": "workflow.harness.component-adapter-result.v1",
+                                "invocationId": format!("default-dispatch:{sid}:{turn_id}:{attempt_slug}"),
+                                "errorClass": "harness_component_adapter_error",
+                                "error": format!("{error:?}"),
+                                "readiness": "blocked"
+                            })
+                        }
+                    };
+                    previous_cognition_output = output.clone();
+                    dispatch_node_attempts.push(json!({
+                        "attemptId": attempt_id,
+                        "harnessWorkflowId": DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+                        "harnessActivationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+                        "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
+                        "workflowNodeId": workflow_node_id,
+                        "workflowNodeType": node_type,
+                        "componentId": component_kind.component_id(),
+                        "componentKind": component_kind_label,
+                        "executionMode": "gated",
+                        "readiness": "shadow_ready",
+                        "attemptIndex": attempt_index,
+                        "status": "gated",
+                        "executor": "workflow_node_executor",
+                        "executorRef": "crate::project::execute_workflow_harness_live_default_node",
+                        "inputHash": input_hash,
+                        "outputHash": output_hash,
+                        "errorClass": null,
+                        "policyDecision": policy_decision,
+                        "startedAtMs": started_at_ms,
+                        "durationMs": duration_ms,
+                        "receiptIds": [receipt_id],
+                        "evidenceRefs": evidence_refs,
+                        "divergenceClass": "none",
+                        "blockingDivergence": false,
+                        "replay": {
+                            "deterministicEnvelope": true,
+                            "capturesInput": true,
+                            "capturesOutput": true,
+                            "capturesPolicyDecision": true,
+                            "fixtureRef": replay_fixture_ref,
+                            "determinism": "deterministic",
+                            "nondeterminismReason": null,
+                            "redactionPolicy": "autopilot-runtime-evidence-v1"
+                        },
+                        "adapterMode": "workflow_component_adapter_gated",
+                        "adapterResult": adapter_result_value,
+                        "executorResult": output
+                    }));
+                }
+                Err(error) => {
+                    activation_blockers.push(format!(
+                        "cognition_gate_envelope_executor_error:{attempt_slug}"
+                    ));
+                    cognition_execution_gate_divergence_classes.push("unclassified".to_string());
+                    dispatch_node_attempts.push(json!({
+                        "attemptId": attempt_id,
+                        "harnessWorkflowId": DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+                        "harnessActivationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+                        "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
+                        "workflowNodeId": workflow_node_id,
+                        "workflowNodeType": node_type,
+                        "componentId": component_kind.component_id(),
+                        "componentKind": component_kind_label,
+                        "executionMode": "gated",
+                        "readiness": "shadow_ready",
+                        "attemptIndex": attempt_index,
+                        "status": "rolled_back",
+                        "executor": "workflow_node_executor",
+                        "executorRef": "crate::project::execute_workflow_harness_live_default_node",
+                        "inputHash": input_hash,
+                        "outputHash": null,
+                        "errorClass": "workflow_executor_error",
+                        "error": error,
+                        "policyDecision": "rollback_to_legacy_runtime",
+                        "startedAtMs": started_at_ms,
+                        "durationMs": duration_ms,
+                        "receiptIds": [receipt_id],
+                        "evidenceRefs": [
+                            format!("runtime-evidence:{sid}"),
+                            selector_decision_id.clone(),
+                            format!("rollback-target:{DEFAULT_AGENT_HARNESS_ACTIVATION_ID}")
+                        ],
+                        "divergenceClass": "unclassified",
+                        "blockingDivergence": true,
                         "replay": {
                             "deterministicEnvelope": true,
                             "capturesInput": true,
@@ -7723,6 +7980,18 @@ fn runtime_harness_default_runtime_dispatch(
     cognition_execution_action_frame_ids.dedup();
     cognition_execution_live_ready_component_kinds.sort();
     cognition_execution_live_ready_component_kinds.dedup();
+    cognition_execution_gate_attempt_ids.sort();
+    cognition_execution_gate_attempt_ids.dedup();
+    cognition_execution_gate_receipt_ids.sort();
+    cognition_execution_gate_receipt_ids.dedup();
+    cognition_execution_gate_replay_fixture_refs.sort();
+    cognition_execution_gate_replay_fixture_refs.dedup();
+    cognition_execution_gate_action_frame_ids.sort();
+    cognition_execution_gate_action_frame_ids.dedup();
+    cognition_execution_gate_component_kinds.sort();
+    cognition_execution_gate_component_kinds.dedup();
+    cognition_execution_gate_divergence_classes.sort();
+    cognition_execution_gate_divergence_classes.dedup();
     model_execution_attempt_ids.sort();
     model_execution_attempt_ids.dedup();
     model_execution_receipt_ids.sort();
@@ -7879,6 +8148,14 @@ fn runtime_harness_default_runtime_dispatch(
         "cognitionExecutionAdapterResults": cognition_execution_adapter_results.clone(),
         "cognitionExecutionActionFrameIds": cognition_execution_action_frame_ids.clone(),
         "cognitionExecutionLiveReadyComponentKinds": cognition_execution_live_ready_component_kinds.clone(),
+        "cognitionExecutionGateAdapterMode": "workflow_component_adapter_gated",
+        "cognitionExecutionGateAttemptIds": cognition_execution_gate_attempt_ids.clone(),
+        "cognitionExecutionGateReceiptIds": cognition_execution_gate_receipt_ids.clone(),
+        "cognitionExecutionGateReplayFixtureRefs": cognition_execution_gate_replay_fixture_refs.clone(),
+        "cognitionExecutionGateAdapterResults": cognition_execution_gate_adapter_results.clone(),
+        "cognitionExecutionGateActionFrameIds": cognition_execution_gate_action_frame_ids.clone(),
+        "cognitionExecutionGateComponentKinds": cognition_execution_gate_component_kinds.clone(),
+        "cognitionExecutionGateDivergenceClasses": cognition_execution_gate_divergence_classes.clone(),
         "modelExecutionAttemptIds": model_execution_attempt_ids.clone(),
         "modelExecutionReceiptIds": model_execution_receipt_ids.clone(),
         "modelExecutionReplayFixtureRefs": model_execution_replay_fixture_refs.clone(),
@@ -8014,6 +8291,11 @@ fn runtime_harness_default_runtime_dispatch(
             "cognitionExecutionAdapterResultCount": cognition_execution_adapter_results.len(),
             "cognitionExecutionActionFrameIds": cognition_execution_action_frame_ids.clone(),
             "cognitionExecutionLiveReadyComponentKinds": cognition_execution_live_ready_component_kinds.clone(),
+            "cognitionExecutionGateAdapterMode": "workflow_component_adapter_gated",
+            "cognitionExecutionGateAdapterResultCount": cognition_execution_gate_adapter_results.len(),
+            "cognitionExecutionGateActionFrameIds": cognition_execution_gate_action_frame_ids.clone(),
+            "cognitionExecutionGateComponentKinds": cognition_execution_gate_component_kinds.clone(),
+            "cognitionExecutionGateDivergenceClasses": cognition_execution_gate_divergence_classes.clone(),
             "modelExecutionMode": "workflow_synchronous_envelope",
             "modelExecutionEnvelopeReady": model_execution_envelope_ready,
             "modelExecutionBindingId": model_execution_binding_id,
@@ -8159,6 +8441,14 @@ fn runtime_harness_default_runtime_dispatch(
         "cognitionExecutionAdapterResults": cognition_execution_adapter_results.clone(),
         "cognitionExecutionActionFrameIds": cognition_execution_action_frame_ids.clone(),
         "cognitionExecutionLiveReadyComponentKinds": cognition_execution_live_ready_component_kinds.clone(),
+        "cognitionExecutionGateAdapterMode": "workflow_component_adapter_gated",
+        "cognitionExecutionGateAttemptIds": cognition_execution_gate_attempt_ids.clone(),
+        "cognitionExecutionGateReceiptIds": cognition_execution_gate_receipt_ids.clone(),
+        "cognitionExecutionGateReplayFixtureRefs": cognition_execution_gate_replay_fixture_refs.clone(),
+        "cognitionExecutionGateAdapterResults": cognition_execution_gate_adapter_results.clone(),
+        "cognitionExecutionGateActionFrameIds": cognition_execution_gate_action_frame_ids.clone(),
+        "cognitionExecutionGateComponentKinds": cognition_execution_gate_component_kinds.clone(),
+        "cognitionExecutionGateDivergenceClasses": cognition_execution_gate_divergence_classes.clone(),
         "cognitionExecutionProof": {
             "schemaVersion": "workflow.harness.cognition-execution-envelope.v1",
             "mode": "workflow_synchronous_envelope",
@@ -8166,6 +8456,14 @@ fn runtime_harness_default_runtime_dispatch(
             "adapterResultCount": cognition_execution_adapter_results.len(),
             "actionFrameIds": cognition_execution_action_frame_ids,
             "liveReadyComponentKinds": cognition_execution_live_ready_component_kinds,
+            "gateAdapterMode": "workflow_component_adapter_gated",
+            "gateAdapterResultCount": cognition_execution_gate_adapter_results.len(),
+            "gateAttemptIds": cognition_execution_gate_attempt_ids,
+            "gateReceiptIds": cognition_execution_gate_receipt_ids,
+            "gateReplayFixtureRefs": cognition_execution_gate_replay_fixture_refs,
+            "gateActionFrameIds": cognition_execution_gate_action_frame_ids,
+            "gateComponentKinds": cognition_execution_gate_component_kinds,
+            "gateDivergenceClasses": cognition_execution_gate_divergence_classes,
             "promptAssemblyMode": "workflow_synchronous_envelope",
             "promptHash": prompt_assembly_prompt_hash,
             "promptHashMatches": prompt_assembly_prompt_hash_matches,
@@ -11014,6 +11312,69 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                         component_kinds.contains(&"planner")
                             && component_kinds.contains(&"prompt_assembler")
                             && component_kinds.contains(&"task_state")
+                    })
+                    .unwrap_or(false)
+                && dispatch
+                    .get("cognitionExecutionGateAdapterMode")
+                    .and_then(Value::as_str)
+                    == Some("workflow_component_adapter_gated")
+                && dispatch
+                    .get("cognitionExecutionGateAdapterResults")
+                    .and_then(Value::as_array)
+                    .map(|items| {
+                        let component_kinds = items
+                            .iter()
+                            .filter_map(|item| {
+                                item.get("actionFrame")
+                                    .and_then(|frame| frame.get("componentKind"))
+                                    .and_then(Value::as_str)
+                            })
+                            .collect::<Vec<_>>();
+                        items.len() >= 3
+                            && component_kinds.contains(&"uncertainty_gate")
+                            && component_kinds.contains(&"budget_gate")
+                            && component_kinds.contains(&"capability_sequencer")
+                            && items.iter().all(|item| {
+                                item.get("actionFrame")
+                                    .and_then(|frame| frame.get("executionMode"))
+                                    .and_then(Value::as_str)
+                                    == Some("gated")
+                                    && item
+                                        .get("actionFrame")
+                                        .and_then(|frame| frame.get("readiness"))
+                                        .and_then(Value::as_str)
+                                        == Some("shadow_ready")
+                                    && item
+                                        .get("nodeAttempt")
+                                        .and_then(|attempt| attempt.get("status"))
+                                        .and_then(Value::as_str)
+                                        == Some("gated")
+                            })
+                    })
+                    .unwrap_or(false)
+                && dispatch
+                    .get("cognitionExecutionGateAttemptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| items.len() >= 3)
+                    .unwrap_or(false)
+                && dispatch
+                    .get("cognitionExecutionGateReceiptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| items.len() >= 3)
+                    .unwrap_or(false)
+                && dispatch
+                    .get("cognitionExecutionGateReplayFixtureRefs")
+                    .and_then(Value::as_array)
+                    .map(|items| items.len() >= 3)
+                    .unwrap_or(false)
+                && dispatch
+                    .get("cognitionExecutionGateDivergenceClasses")
+                    .and_then(Value::as_array)
+                    .map(|items| {
+                        items
+                            .iter()
+                            .filter_map(Value::as_str)
+                            .all(|value| value == "none")
                     })
                     .unwrap_or(false)
                 && dispatch
