@@ -882,6 +882,12 @@ assert.match(
 );
 
 assert.match(
+  `${graphTypes}\n${workflowRailPanel}\n${composer}\n${guiHarnessValidation}\n${guiHarnessContract}`,
+  /(?=[\s\S]*WorkflowHarnessPackageEvidenceGateClickProof)(?=[\s\S]*runHarnessPackageEvidenceGateClickProbe)(?=[\s\S]*packageEvidenceGateClickProof)(?=[\s\S]*packageEvidenceGateClickPassed)(?=[\s\S]*packageEvidenceGateReceiptRefCount)(?=[\s\S]*packageEvidenceGateDeepLinkCount)(?=[\s\S]*workflow-harness-package-evidence-review)(?=[\s\S]*workflow-harness-package-evidence-row-\$\{row\.id\})(?=[\s\S]*workflow-harness-package-evidence-row-ref-\$\{row\.id\}-\$\{index\})(?=[\s\S]*data-harness-package-evidence-ready)(?=[\s\S]*data-harness-package-receipt-ref-count)(?=[\s\S]*data-harness-package-replay-fixture-ref-count)(?=[\s\S]*data-harness-package-worker-handoff-attempt-count)(?=[\s\S]*workflowHarnessPackageDeepLinkTarget)(?=[\s\S]*harness_package_evidence_gate_click_proof)(?=[\s\S]*harness_package_evidence_gate_click_proof_present)/,
+  "Live promotion GUI validation should include package-evidence gate click proof with inspectable manifest rows and route-restorable refs.",
+);
+
+assert.match(
   workflowComposerUi,
   /viewMacro[\s\S]*macroPeerNodes[\s\S]*workflow-node-macro-cluster[\s\S]*workflow-node-macro-peer-list[\s\S]*workflow-node-macro-peer/,
   "Node details should show the expanded agent-loop composition and peer roles without hiding runtime behavior inside a macro node",
@@ -1571,7 +1577,7 @@ assert.match(
 
 assert.match(
   `${graphTypes}\n${harnessWorkflow}\n${workflowRailPanel}\n${projectCommands}`,
-  /(?=[\s\S]*WorkflowHarnessPackageEvidenceManifest)(?=[\s\S]*makeWorkflowHarnessPackageEvidenceManifest)(?=[\s\S]*workflow\.harness\.package-evidence-manifest\.v1)(?=[\s\S]*withWorkflowHarnessPackageManifest)(?=[\s\S]*harnessWorkbenchDeepLinkHash)(?=[\s\S]*harnessPackageManifest)(?=[\s\S]*data-harness-package-manifest-present)(?=[\s\S]*harness-package-evidence\.json)(?=[\s\S]*harness_package_manifest)(?=[\s\S]*packageManifest)/,
+  /(?=[\s\S]*WorkflowHarnessPackageEvidenceManifest)(?=[\s\S]*makeWorkflowHarnessPackageEvidenceManifest)(?=[\s\S]*workflow\.harness\.package-evidence-manifest\.v1)(?=[\s\S]*withWorkflowHarnessPackageManifest)(?=[\s\S]*harnessWorkbenchDeepLinkHash)(?=[\s\S]*harnessPackageManifest)(?=[\s\S]*data-harness-package-manifest-present)(?=[\s\S]*workflow-harness-package-evidence-review)(?=[\s\S]*workflow-harness-package-evidence-row-\$\{row\.id\})(?=[\s\S]*harness-package-evidence\.json)(?=[\s\S]*harness_package_manifest)(?=[\s\S]*packageManifest)/,
   "Harness fork portable packages should preserve evidence manifests, route-restorable deep links, GUI coverage counts, and Rust bundle sidecars across export/import.",
 );
 

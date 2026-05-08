@@ -67,6 +67,7 @@ import type {
   WorkflowHarnessActivationGateCollectEvidenceClickProof,
   WorkflowHarnessActivationGateRollbackRestoreClickProof,
   WorkflowHarnessActivationIdGateClickProof,
+  WorkflowHarnessPackageEvidenceGateClickProof,
   WorkflowHarnessComponentKind,
   WorkflowHarnessColdStartDeepLinkRestoreProof,
   WorkflowHarnessForkActivationCandidate,
@@ -1006,6 +1007,33 @@ function readHarnessRailSelectedState(testId: string): Record<string, string> {
   ];
   return Object.fromEntries(
     selectedAttributes.map((attribute) => [
+      attribute,
+      target.getAttribute(attribute) ?? "",
+    ]),
+  );
+}
+
+function readHarnessPackageEvidenceReviewState(): Record<string, string> {
+  if (typeof document === "undefined") return {};
+  const target = document.querySelector(
+    '[data-testid="workflow-harness-package-evidence-review"]',
+  );
+  if (!target) return {};
+  const attributes = [
+    "data-harness-package-manifest-present",
+    "data-harness-package-schema-version",
+    "data-harness-package-evidence-ready",
+    "data-harness-package-evidence-blocker-count",
+    "data-harness-package-evidence-ref-count",
+    "data-harness-package-receipt-ref-count",
+    "data-harness-package-replay-fixture-ref-count",
+    "data-harness-package-rollback-restore-ref-count",
+    "data-harness-package-worker-handoff-attempt-count",
+    "data-harness-package-worker-handoff-receipt-count",
+    "data-harness-package-deep-link-count",
+  ];
+  return Object.fromEntries(
+    attributes.map((attribute) => [
       attribute,
       target.getAttribute(attribute) ?? "",
     ]),
@@ -3066,6 +3094,340 @@ export function useWorkflowComposerController({
       };
     },
     [applyHarnessWorkbenchDeepLink],
+  );
+  const runHarnessPackageEvidenceGateClickProbe = useCallback(
+    async (
+      generatedAtMs: number,
+    ): Promise<WorkflowHarnessPackageEvidenceGateClickProof> => {
+      const selectedRailTestId = "workflow-harness-activation-gate-inspector";
+      const projectRoot = currentProject?.rootPath || ".";
+      const blockers: string[] = [];
+      const originalHash =
+        typeof window === "undefined" ? "" : window.location.hash;
+      const link = {
+        panel: "settings" as WorkflowRightPanel,
+        activationGateId: "package-evidence",
+      };
+      const hash = encodeHarnessWorkbenchDeepLink(link);
+      const parsed = parseHarnessWorkbenchDeepLink(hash);
+      let gateId: string | null = null;
+      let beforeSelectedState: Record<string, string> = {};
+      let packageReviewState: Record<string, string> = {};
+      let evidenceState: Record<string, string> = {};
+      let receiptState: Record<string, string> = {};
+      let replayState: Record<string, string> = {};
+      let nodeAttemptState: Record<string, string> = {};
+      let packageDeepLinkState: Record<string, string> = {};
+      let clicked = false;
+      let validatedWorkflow: WorkflowProject | null = null;
+
+      const readCount = (state: Record<string, string>, key: string) => {
+        const value = Number(state[key] ?? 0);
+        return Number.isFinite(value) ? value : 0;
+      };
+      const clickPackageEvidenceRef = async (
+        testId: string,
+        missingBlocker: string,
+      ) => {
+        const button = document.querySelector<HTMLButtonElement>(
+          `[data-testid="${testId}"]`,
+        );
+        if (!button) {
+          blockers.push(missingBlocker);
+          return false;
+        }
+        if (button.disabled) {
+          blockers.push(`${missingBlocker}:disabled`);
+          return false;
+        }
+        button.click();
+        clicked = true;
+        await nextHarnessWorkbenchFrame();
+        await nextHarnessWorkbenchFrame();
+        return true;
+      };
+      const restorePackageGate = async () => {
+        if (!parsed) {
+          blockers.push("package_evidence_gate_hash_parse_failed");
+          return;
+        }
+        writeHarnessWorkbenchDeepLink(hash);
+        applyHarnessWorkbenchDeepLink(parsed);
+        await nextHarnessWorkbenchFrame();
+        writeHarnessWorkbenchDeepLink(hash);
+        await nextHarnessWorkbenchFrame();
+      };
+
+      try {
+        const packageFork = forkDefaultAgentHarnessWorkflow(
+          "Package Evidence Gate GUI Fork",
+          generatedAtMs + 10,
+        );
+        let packageWorkflow = packageFork.workflow;
+        HARNESS_PROMOTION_LIVE_GUI_CLUSTER_IDS.forEach((clusterId, index) => {
+          packageWorkflow = workflowReadyForHarnessPromotion(
+            packageWorkflow,
+            clusterId,
+            generatedAtMs + 20 + index,
+          );
+        });
+        const { workflow: stagedWorkflow, candidate } =
+          workflowWithMintableHarnessActivationCandidate(
+            packageWorkflow,
+            packageFork.tests,
+            generatedAtMs + 40,
+          );
+        if (candidate.decision !== "mintable") {
+          blockers.push("package_evidence_candidate_not_mintable");
+        }
+        const activationResult = applyWorkflowHarnessActivationCandidate(
+          stagedWorkflow,
+          candidate,
+          {
+            rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+            nowMs: generatedAtMs + 50,
+          },
+        );
+        if (!activationResult.applied) {
+          blockers.push(
+            `package_evidence_activation_not_applied:${activationResult.blockers.join(",")}`,
+          );
+        }
+        validatedWorkflow = activationResult.workflow;
+        const nextWorkflowPath = `${projectRoot}/.agents/workflows/${validatedWorkflow.metadata.slug}.workflow.json`;
+        const nextValidation = validateWorkflowProject(
+          validatedWorkflow,
+          packageFork.tests,
+        );
+        setWorkflowPath(nextWorkflowPath);
+        setTestsPath(
+          nextWorkflowPath.replace(/\.workflow\.json$/, ".tests.json"),
+        );
+        setTests(packageFork.tests);
+        setProposals([]);
+        setRuns([]);
+        loadWorkflowProject(validatedWorkflow);
+        setHarnessActivationCandidate(null);
+        setValidationResult(nextValidation);
+        setReadinessResult(
+          evaluateWorkflowActivationReadiness(
+            validatedWorkflow,
+            packageFork.tests,
+            nextValidation,
+            [],
+            [],
+          ),
+        );
+        setRightPanel("settings");
+        setBottomPanel("selection");
+        await nextHarnessWorkbenchFrame();
+        await restorePackageGate();
+        beforeSelectedState = readHarnessRailSelectedState(selectedRailTestId);
+        packageReviewState = readHarnessPackageEvidenceReviewState();
+        gateId =
+          beforeSelectedState["data-selected-activation-gate-id"] || null;
+
+        if (
+          await clickPackageEvidenceRef(
+            "workflow-harness-package-evidence-row-ref-manifest-0",
+            "package_evidence_manifest_ref_button_missing",
+          )
+        ) {
+          evidenceState = readHarnessRailSelectedState(selectedRailTestId);
+        }
+        if (
+          await clickPackageEvidenceRef(
+            "workflow-harness-package-evidence-row-ref-receipts-0",
+            "package_evidence_receipt_ref_button_missing",
+          )
+        ) {
+          receiptState = readHarnessRailSelectedState(selectedRailTestId);
+        }
+        if (
+          await clickPackageEvidenceRef(
+            "workflow-harness-package-evidence-row-ref-replay-fixtures-0",
+            "package_evidence_replay_ref_button_missing",
+          )
+        ) {
+          replayState = readHarnessRailSelectedState(selectedRailTestId);
+        }
+        if (
+          await clickPackageEvidenceRef(
+            "workflow-harness-package-evidence-row-ref-worker-handoff-attempts-0",
+            "package_evidence_node_attempt_ref_button_missing",
+          )
+        ) {
+          nodeAttemptState = readHarnessRailSelectedState(selectedRailTestId);
+        }
+        await restorePackageGate();
+        if (
+          await clickPackageEvidenceRef(
+            "workflow-harness-package-evidence-row-ref-deep-links-0",
+            "package_evidence_deep_link_ref_button_missing",
+          )
+        ) {
+          packageDeepLinkState = readHarnessRailSelectedState(selectedRailTestId);
+        }
+      } catch (error) {
+        blockers.push(`package_evidence_gate_click_failed:${errorMessage(error)}`);
+      } finally {
+        writeHarnessWorkbenchDeepLink(originalHash);
+      }
+
+      const manifest =
+        validatedWorkflow?.metadata.harness?.packageManifest ??
+        validatedWorkflow?.metadata.harness?.activationRecord?.packageManifest ??
+        null;
+      const selectedEvidenceRef =
+        manifest?.workflowId ?? manifest?.activationId ?? null;
+      const selectedReceiptRef = manifest?.receiptRefs?.[0] ?? null;
+      const selectedReplayFixtureRef = manifest?.replayFixtureRefs?.[0] ?? null;
+      const selectedNodeAttemptId =
+        manifest?.workerHandoffNodeAttemptIds?.[0] ?? null;
+      const selectedPackageDeepLink =
+        manifest?.deepLinks?.find((link) => link.kind !== "activation") ??
+        manifest?.deepLinks?.[0] ??
+        null;
+      if (gateId !== "package-evidence") {
+        blockers.push("package_evidence_gate_not_selected");
+      }
+      if (packageReviewState["data-harness-package-manifest-present"] !== "true") {
+        blockers.push("package_evidence_manifest_not_visible");
+      }
+      if (packageReviewState["data-harness-package-evidence-ready"] !== "true") {
+        blockers.push("package_evidence_not_ready");
+      }
+      [
+        ["data-harness-package-receipt-ref-count", "package_evidence_receipts_missing"],
+        [
+          "data-harness-package-replay-fixture-ref-count",
+          "package_evidence_replay_fixtures_missing",
+        ],
+        [
+          "data-harness-package-rollback-restore-ref-count",
+          "package_evidence_rollback_restore_refs_missing",
+        ],
+        [
+          "data-harness-package-worker-handoff-attempt-count",
+          "package_evidence_worker_handoff_attempts_missing",
+        ],
+        [
+          "data-harness-package-worker-handoff-receipt-count",
+          "package_evidence_worker_handoff_receipts_missing",
+        ],
+        ["data-harness-package-deep-link-count", "package_evidence_deep_links_missing"],
+      ].forEach(([key, blocker]) => {
+        if (readCount(packageReviewState, key) <= 0) blockers.push(blocker);
+      });
+      if (
+        selectedEvidenceRef &&
+        evidenceState["data-selected-activation-gate-evidence-ref"] !==
+          selectedEvidenceRef
+      ) {
+        blockers.push("package_evidence_evidence_ref_not_restored");
+      }
+      if (
+        selectedReceiptRef &&
+        receiptState["data-selected-activation-gate-receipt-ref"] !==
+          selectedReceiptRef
+      ) {
+        blockers.push("package_evidence_receipt_ref_not_restored");
+      }
+      if (
+        selectedReplayFixtureRef &&
+        replayState["data-selected-activation-gate-replay-fixture-ref"] !==
+          selectedReplayFixtureRef
+      ) {
+        blockers.push("package_evidence_replay_ref_not_restored");
+      }
+      if (
+        selectedNodeAttemptId &&
+        nodeAttemptState["data-selected-activation-gate-node-attempt-id"] !==
+          selectedNodeAttemptId
+      ) {
+        blockers.push("package_evidence_node_attempt_not_restored");
+      }
+      if (
+        selectedPackageDeepLink &&
+        !(
+          packageDeepLinkState["data-selected-activation-gate-id"] ||
+          packageDeepLinkState["data-selected-worker-binding-id"]
+        )
+      ) {
+        blockers.push("package_evidence_deep_link_not_restored");
+      }
+
+      return {
+        schemaVersion:
+          "workflow.harness.package-evidence-gate-click-proof.v1",
+        method:
+          "same-session Workflows bridge stages a validated fork package, opens the package-evidence activation gate, and clicks preserved manifest receipt, replay, node-attempt, and deep-link refs",
+        generatedAtMs,
+        gateId,
+        manifest: {
+          present: Boolean(manifest),
+          schemaVersion: manifest?.schemaVersion ?? null,
+          status:
+            packageReviewState["data-harness-package-evidence-ready"] || null,
+          evidenceRefCount: readCount(
+            packageReviewState,
+            "data-harness-package-evidence-ref-count",
+          ),
+          receiptRefCount: readCount(
+            packageReviewState,
+            "data-harness-package-receipt-ref-count",
+          ),
+          replayFixtureRefCount: readCount(
+            packageReviewState,
+            "data-harness-package-replay-fixture-ref-count",
+          ),
+          rollbackRestoreReceiptRefCount: readCount(
+            packageReviewState,
+            "data-harness-package-rollback-restore-ref-count",
+          ),
+          workerHandoffNodeAttemptCount: readCount(
+            packageReviewState,
+            "data-harness-package-worker-handoff-attempt-count",
+          ),
+          workerHandoffReceiptCount: readCount(
+            packageReviewState,
+            "data-harness-package-worker-handoff-receipt-count",
+          ),
+          deepLinkCount: readCount(
+            packageReviewState,
+            "data-harness-package-deep-link-count",
+          ),
+          blockerCount: readCount(
+            packageReviewState,
+            "data-harness-package-evidence-blocker-count",
+          ),
+        },
+        selectedRefs: {
+          evidenceRef: selectedEvidenceRef,
+          receiptRef: selectedReceiptRef,
+          replayFixtureRef: selectedReplayFixtureRef,
+          nodeAttemptId: selectedNodeAttemptId,
+          packageDeepLinkRef: selectedPackageDeepLink?.ref ?? null,
+          packageDeepLinkHash: selectedPackageDeepLink?.hash ?? null,
+        },
+        before: {
+          hash,
+          railTestId: selectedRailTestId,
+          selectedState: beforeSelectedState,
+        },
+        restored: {
+          evidenceState,
+          receiptState,
+          replayState,
+          nodeAttemptState,
+          packageDeepLinkState,
+        },
+        clicked,
+        passed: blockers.length === 0,
+        blockers,
+      };
+    },
+    [applyHarnessWorkbenchDeepLink, currentProject?.rootPath, loadWorkflowProject],
   );
   const runHarnessActivationGateCollectEvidenceClickProbe = useCallback(
     async (
@@ -7190,6 +7552,8 @@ export function useWorkflowComposerController({
           activationGateProofWorkflow,
           nowMs + 130,
         );
+      const packageEvidenceGateClickProof =
+        await runHarnessPackageEvidenceGateClickProbe(nowMs + 132);
       const activationGateCollectEvidenceClickProof =
         await runHarnessActivationGateCollectEvidenceClickProbe(nowMs + 135);
       const activationGateRollbackRestoreClickProof =
@@ -7254,6 +7618,7 @@ export function useWorkflowComposerController({
             activationBlockerDeepLinkProof,
             activationGateDeepLinkProof,
             activationGateActionClickProof,
+            packageEvidenceGateClickProof,
             activationGateCollectEvidenceClickProof,
             activationGateRollbackRestoreClickProof,
             activationIdGateClickProof,
@@ -7306,6 +7671,12 @@ export function useWorkflowComposerController({
         activationGateActionClickPassed: activationGateActionClickProof.passed,
         activationGateActionCommand:
           activationGateActionClickProof.action.command,
+        packageEvidenceGateClickPassed:
+          packageEvidenceGateClickProof.passed,
+        packageEvidenceGateReceiptRefCount:
+          packageEvidenceGateClickProof.manifest.receiptRefCount,
+        packageEvidenceGateDeepLinkCount:
+          packageEvidenceGateClickProof.manifest.deepLinkCount,
         activationGateCollectEvidenceClickPassed:
           activationGateCollectEvidenceClickProof.passed,
         activationGateCollectEvidenceCommand:
@@ -7347,6 +7718,7 @@ export function useWorkflowComposerController({
     loadWorkflowProject,
     runHarnessActivationBlockerDeepLinkProbe,
     runHarnessActivationGateActionClickProbe,
+    runHarnessPackageEvidenceGateClickProbe,
     runHarnessActivationGateCollectEvidenceClickProbe,
     runHarnessActivationIdGateClickProbe,
     runHarnessActivationGateRollbackRestoreClickProbe,
