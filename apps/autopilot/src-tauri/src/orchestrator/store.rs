@@ -1500,6 +1500,138 @@ fn runtime_harness_worker_attach_receipt(
     })
 }
 
+fn runtime_harness_worker_attach_lifecycle_events(
+    sid: &str,
+    turn_id: &str,
+    registry_record: &Value,
+) -> Vec<Value> {
+    let record_string = |key: &str| registry_record.get(key).and_then(Value::as_str);
+    let workflow_id = record_string("workflowId").unwrap_or_default();
+    let activation_id = record_string("activationId").unwrap_or_default();
+    let activation_hash = record_string("activationHash").unwrap_or_default();
+    let harness_hash = record_string("harnessHash").unwrap_or_default();
+    let rollback_target = record_string("rollbackTarget").unwrap_or_default();
+    let readiness_proof_id = record_string("readinessProofId").unwrap_or_default();
+    let component_version_set = registry_record
+        .get("componentVersionSet")
+        .cloned()
+        .unwrap_or_else(|| json!({}));
+    [
+        ("attach", "bound"),
+        ("resume", "resumed"),
+        ("rollback", "rolled_back"),
+    ]
+    .into_iter()
+    .enumerate()
+    .map(|(sequence, (phase, requested_status))| {
+        let attach_request = json!({
+            "schemaVersion": "workflow.harness.worker-attach-request.v1",
+            "requestId": format!("harness-worker-attach-request:{sid}:{turn_id}:{phase}"),
+            "workerId": format!("harness-worker:{workflow_id}:{activation_id}:{sid}"),
+            "workflowId": workflow_id,
+            "activationId": activation_id,
+            "activationHash": activation_hash,
+            "harnessHash": harness_hash,
+            "componentVersionSet": component_version_set.clone(),
+            "rollbackTarget": rollback_target,
+            "readinessProofId": readiness_proof_id,
+            "requestedStatus": requested_status
+        });
+        let receipt = runtime_harness_worker_attach_receipt(
+            sid,
+            turn_id,
+            registry_record,
+            &attach_request,
+        );
+        let attach_status = receipt
+            .get("attachStatus")
+            .and_then(Value::as_str)
+            .unwrap_or("blocked")
+            .to_string();
+        let receipt_id = receipt
+            .get("receiptId")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string();
+        let accepted = receipt.get("accepted").and_then(Value::as_bool) == Some(true);
+        let rollback_available =
+            receipt.get("rollbackAvailable").and_then(Value::as_bool) == Some(true);
+        let policy_decision = receipt
+            .get("policyDecision")
+            .and_then(Value::as_str)
+            .unwrap_or("block_harness_worker_attach")
+            .to_string();
+        let blockers = receipt
+            .get("blockers")
+            .cloned()
+            .unwrap_or_else(|| json!([]));
+        let evidence_refs = receipt
+            .get("evidenceRefs")
+            .cloned()
+            .unwrap_or_else(|| json!([]));
+        json!({
+            "schemaVersion": "workflow.harness.worker-attach-lifecycle.v1",
+            "eventId": format!("harness-worker-attach-lifecycle:{phase}:{workflow_id}:{activation_id}"),
+            "sequence": sequence,
+            "phase": phase,
+            "attemptId": format!("harness-worker-attach:attempt:{phase}:{workflow_id}:{activation_id}"),
+            "workflowNodeId": "harness.handoff_bridge",
+            "componentKind": "handoff_bridge",
+            "attachStatus": attach_status,
+            "receiptId": receipt_id,
+            "receipt": receipt,
+            "registryRecordId": record_string("registryRecordId").unwrap_or_default(),
+            "accepted": accepted,
+            "rollbackAvailable": rollback_available,
+            "policyDecision": policy_decision,
+            "blockers": blockers,
+            "evidenceRefs": evidence_refs
+        })
+    })
+    .collect()
+}
+
+fn runtime_harness_worker_attach_lifecycle_attempt_ids(lifecycle: &[Value]) -> Vec<String> {
+    lifecycle
+        .iter()
+        .filter_map(|event| {
+            event
+                .get("attemptId")
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        })
+        .collect()
+}
+
+fn runtime_harness_worker_attach_lifecycle_statuses(lifecycle: &[Value]) -> Vec<String> {
+    lifecycle
+        .iter()
+        .filter_map(|event| {
+            event
+                .get("attachStatus")
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        })
+        .collect()
+}
+
+fn runtime_harness_worker_attach_lifecycle_complete(lifecycle: &[Value]) -> bool {
+    let statuses = runtime_harness_worker_attach_lifecycle_statuses(lifecycle);
+    let lifecycle_clean = !lifecycle.is_empty()
+        && lifecycle.iter().all(|event| {
+            event.get("accepted").and_then(Value::as_bool) == Some(true)
+                && event
+                    .get("blockers")
+                    .and_then(Value::as_array)
+                    .map(|items| items.is_empty())
+                    .unwrap_or(false)
+        });
+    lifecycle_clean
+        && statuses.iter().any(|status| status == "bound")
+        && statuses.iter().any(|status| status == "resumed")
+        && statuses.iter().any(|status| status == "rolled_back")
+}
+
 fn runtime_harness_default_runtime_binding(
     sid: &str,
     task: &AgentTask,
@@ -1821,12 +1953,42 @@ fn runtime_harness_default_runtime_binding(
         "readinessProofId": selector_live_promotion_readiness_proof_id.clone(),
         "requestedStatus": "bound"
     });
-    let worker_attach_receipt = runtime_harness_worker_attach_receipt(
+    let worker_attach_lifecycle = runtime_harness_worker_attach_lifecycle_events(
         sid,
         &turn_id,
         &worker_binding_registry_record,
-        &worker_attach_request,
     );
+    let worker_attach_receipt = worker_attach_lifecycle
+        .iter()
+        .find(|event| event.get("phase").and_then(Value::as_str) == Some("attach"))
+        .and_then(|event| event.get("receipt"))
+        .cloned()
+        .unwrap_or_else(|| {
+            runtime_harness_worker_attach_receipt(
+                sid,
+                &turn_id,
+                &worker_binding_registry_record,
+                &worker_attach_request,
+            )
+        });
+    let worker_attach_resume_receipt = worker_attach_lifecycle
+        .iter()
+        .find(|event| event.get("phase").and_then(Value::as_str) == Some("resume"))
+        .and_then(|event| event.get("receipt"))
+        .cloned()
+        .unwrap_or_else(|| worker_attach_receipt.clone());
+    let worker_attach_rollback_receipt = worker_attach_lifecycle
+        .iter()
+        .find(|event| event.get("phase").and_then(Value::as_str) == Some("rollback"))
+        .and_then(|event| event.get("receipt"))
+        .cloned()
+        .unwrap_or_else(|| worker_attach_receipt.clone());
+    let worker_attach_lifecycle_attempt_ids =
+        runtime_harness_worker_attach_lifecycle_attempt_ids(&worker_attach_lifecycle);
+    let worker_attach_lifecycle_statuses =
+        runtime_harness_worker_attach_lifecycle_statuses(&worker_attach_lifecycle);
+    let worker_attach_lifecycle_complete =
+        runtime_harness_worker_attach_lifecycle_complete(&worker_attach_lifecycle);
     let worker_attach_status = worker_attach_receipt
         .get("attachStatus")
         .and_then(Value::as_str)
@@ -1868,8 +2030,28 @@ fn runtime_harness_default_runtime_binding(
                     .any(|item| item.as_str() == Some("worker_attach_activation_hash_mismatch"))
             })
             .unwrap_or(false);
-    let binding_matched =
-        worker_binding_authority_ready && worker_binding_registry_bound && worker_attach_accepted;
+    let worker_attach_resume_accepted = worker_attach_resume_receipt
+        .get("accepted")
+        .and_then(Value::as_bool)
+        == Some(true)
+        && worker_attach_resume_receipt
+            .get("attachStatus")
+            .and_then(Value::as_str)
+            == Some("resumed");
+    let worker_attach_rollback_accepted = worker_attach_rollback_receipt
+        .get("accepted")
+        .and_then(Value::as_bool)
+        == Some(true)
+        && worker_attach_rollback_receipt
+            .get("attachStatus")
+            .and_then(Value::as_str)
+            == Some("rolled_back");
+    let binding_matched = worker_binding_authority_ready
+        && worker_binding_registry_bound
+        && worker_attach_accepted
+        && worker_attach_resume_accepted
+        && worker_attach_rollback_accepted
+        && worker_attach_lifecycle_complete;
 
     json!({
         "schemaVersion": "workflow.harness.default-runtime-binding.v1",
@@ -1907,7 +2089,15 @@ fn runtime_harness_default_runtime_binding(
         "workerBindingRegistryRecord": worker_binding_registry_record,
         "workerAttachRequest": worker_attach_request,
         "workerAttachReceipt": worker_attach_receipt,
+        "workerAttachResumeReceipt": worker_attach_resume_receipt,
+        "workerAttachRollbackReceipt": worker_attach_rollback_receipt,
+        "workerAttachLifecycle": worker_attach_lifecycle,
+        "workerAttachLifecycleAttemptIds": worker_attach_lifecycle_attempt_ids,
+        "workerAttachLifecycleStatuses": worker_attach_lifecycle_statuses,
+        "workerAttachLifecycleComplete": worker_attach_lifecycle_complete,
         "workerAttachAccepted": worker_attach_accepted,
+        "workerAttachResumeAccepted": worker_attach_resume_accepted,
+        "workerAttachRollbackAccepted": worker_attach_rollback_accepted,
         "workerAttachStatus": worker_attach_status,
         "workerAttachBlockers": worker_attach_blockers,
         "workerAttachRollbackAvailable": worker_attach_receipt.get("rollbackAvailable").and_then(Value::as_bool) == Some(true),
@@ -10270,12 +10460,48 @@ fn runtime_harness_default_runtime_dispatch(
             .unwrap_or_default(),
         "requestedStatus": if dispatch_accepted { "bound" } else { "blocked" }
     });
-    let worker_attach_receipt = runtime_harness_worker_attach_receipt(
+    let worker_attach_lifecycle = runtime_harness_worker_attach_lifecycle_events(
         sid,
         &turn_id,
         &worker_binding_registry_record,
-        &worker_attach_request,
     );
+    let worker_attach_receipt = worker_attach_lifecycle
+        .iter()
+        .find(|event| event.get("phase").and_then(Value::as_str) == Some("attach"))
+        .and_then(|event| event.get("receipt"))
+        .cloned()
+        .unwrap_or_else(|| {
+            runtime_harness_worker_attach_receipt(
+                sid,
+                &turn_id,
+                &worker_binding_registry_record,
+                &worker_attach_request,
+            )
+        });
+    let worker_attach_resume_receipt = worker_attach_lifecycle
+        .iter()
+        .find(|event| event.get("phase").and_then(Value::as_str) == Some("resume"))
+        .and_then(|event| event.get("receipt"))
+        .cloned()
+        .unwrap_or_else(|| worker_attach_receipt.clone());
+    let worker_attach_rollback_receipt = worker_attach_lifecycle
+        .iter()
+        .find(|event| event.get("phase").and_then(Value::as_str) == Some("rollback"))
+        .and_then(|event| event.get("receipt"))
+        .cloned()
+        .unwrap_or_else(|| worker_attach_receipt.clone());
+    let worker_attach_lifecycle_attempt_ids =
+        runtime_harness_worker_attach_lifecycle_attempt_ids(&worker_attach_lifecycle);
+    let worker_attach_lifecycle_statuses =
+        runtime_harness_worker_attach_lifecycle_statuses(&worker_attach_lifecycle);
+    let worker_attach_lifecycle_complete =
+        runtime_harness_worker_attach_lifecycle_complete(&worker_attach_lifecycle);
+    dispatch_node_attempt_ids.extend(worker_attach_lifecycle_attempt_ids.clone());
+    dispatch_node_attempt_ids.sort();
+    dispatch_node_attempt_ids.dedup();
+    node_attempt_ids.extend(worker_attach_lifecycle_attempt_ids.clone());
+    node_attempt_ids.sort();
+    node_attempt_ids.dedup();
 
     json!({
         "schemaVersion": "workflow.harness.default-runtime-dispatch.v1",
@@ -10696,6 +10922,12 @@ fn runtime_harness_default_runtime_dispatch(
         "livePromotionReadinessProof": live_promotion_readiness_proof,
         "workerBindingRegistryRecord": worker_binding_registry_record,
         "workerAttachReceipt": worker_attach_receipt,
+        "workerAttachResumeReceipt": worker_attach_resume_receipt,
+        "workerAttachRollbackReceipt": worker_attach_rollback_receipt,
+        "workerAttachLifecycle": worker_attach_lifecycle,
+        "workerAttachLifecycleAttemptIds": worker_attach_lifecycle_attempt_ids,
+        "workerAttachLifecycleStatuses": worker_attach_lifecycle_statuses,
+        "workerAttachLifecycleComplete": worker_attach_lifecycle_complete,
         "modelExecutionMode": "workflow_synchronous_envelope",
         "modelExecutionEnvelopeReady": model_execution_envelope_ready,
         "modelExecutionBindingId": model_execution_binding_id,
@@ -11373,6 +11605,17 @@ fn runtime_evidence_projection(
                 &attach_request,
             )
         });
+    let harness_worker_attach_lifecycle = harness_default_runtime_binding
+        .get("workerAttachLifecycle")
+        .cloned()
+        .unwrap_or_else(|| {
+            runtime_harness_worker_attach_lifecycle_events(
+                sid,
+                &format!("turn-{}", task.progress),
+                &harness_worker_binding_registry_record,
+            )
+            .into()
+        });
 
     json!({
         "schemaVersion": RUNTIME_CONTRACT_SCHEMA_VERSION_V1,
@@ -11380,6 +11623,7 @@ fn runtime_evidence_projection(
         "HarnessWorkerBinding": harness_worker_binding,
         "HarnessWorkerBindingRegistryRecord": harness_worker_binding_registry_record,
         "HarnessWorkerAttachReceipt": harness_worker_attach_receipt,
+        "HarnessWorkerAttachLifecycle": harness_worker_attach_lifecycle,
         "HarnessShadowRun": harness_shadow_run,
         "HarnessGatedClusterRuns": harness_gated_cluster_runs,
         "HarnessForkActivation": harness_fork_activation,
@@ -13144,6 +13388,62 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     .and_then(Value::as_bool)
                     == Some(true)
                 && dispatch
+                    .get("workerAttachReceipt")
+                    .and_then(|receipt| receipt.get("accepted"))
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("workerAttachReceipt")
+                    .and_then(|receipt| receipt.get("attachStatus"))
+                    .and_then(Value::as_str)
+                    == Some("bound")
+                && dispatch
+                    .get("workerAttachResumeReceipt")
+                    .and_then(|receipt| receipt.get("attachStatus"))
+                    .and_then(Value::as_str)
+                    == Some("resumed")
+                && dispatch
+                    .get("workerAttachRollbackReceipt")
+                    .and_then(|receipt| receipt.get("attachStatus"))
+                    .and_then(Value::as_str)
+                    == Some("rolled_back")
+                && dispatch
+                    .get("workerAttachLifecycleComplete")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && dispatch
+                    .get("workerAttachLifecycleStatuses")
+                    .and_then(Value::as_array)
+                    .map(|items| {
+                        let statuses = items.iter().filter_map(Value::as_str).collect::<Vec<_>>();
+                        statuses.contains(&"bound")
+                            && statuses.contains(&"resumed")
+                            && statuses.contains(&"rolled_back")
+                    })
+                    .unwrap_or(false)
+                && dispatch
+                    .get("workerAttachLifecycleAttemptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| {
+                        let attempt_ids =
+                            items.iter().filter_map(Value::as_str).collect::<Vec<_>>();
+                        attempt_ids.len() >= 3
+                            && dispatch
+                                .get("dispatchNodeAttemptIds")
+                                .and_then(Value::as_array)
+                                .map(|node_ids| {
+                                    let node_ids = node_ids
+                                        .iter()
+                                        .filter_map(Value::as_str)
+                                        .collect::<Vec<_>>();
+                                    attempt_ids
+                                        .iter()
+                                        .all(|attempt_id| node_ids.contains(attempt_id))
+                                })
+                                .unwrap_or(false)
+                    })
+                    .unwrap_or(false)
+                && dispatch
                     .get("outputWriterDeferred")
                     .and_then(Value::as_bool)
                     == Some(false)
@@ -14434,6 +14734,54 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     .and_then(Value::as_bool)
                     == Some(true)
                 && binding
+                    .get("workerAttachLifecycleComplete")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && binding
+                    .get("workerAttachLifecycleStatuses")
+                    .and_then(Value::as_array)
+                    .map(|items| {
+                        let statuses = items.iter().filter_map(Value::as_str).collect::<Vec<_>>();
+                        statuses.contains(&"bound")
+                            && statuses.contains(&"resumed")
+                            && statuses.contains(&"rolled_back")
+                    })
+                    .unwrap_or(false)
+                && binding
+                    .get("workerAttachLifecycleAttemptIds")
+                    .and_then(Value::as_array)
+                    .map(|items| items.len() >= 3)
+                    .unwrap_or(false)
+                && binding
+                    .get("workerAttachLifecycle")
+                    .and_then(Value::as_array)
+                    .map(|items| {
+                        items.len() >= 3
+                            && items.iter().all(|event| {
+                                event.get("schemaVersion").and_then(Value::as_str)
+                                    == Some("workflow.harness.worker-attach-lifecycle.v1")
+                                    && event.get("workflowNodeId").and_then(Value::as_str)
+                                        == Some("harness.handoff_bridge")
+                                    && event.get("componentKind").and_then(Value::as_str)
+                                        == Some("handoff_bridge")
+                                    && event.get("accepted").and_then(Value::as_bool) == Some(true)
+                                    && event
+                                        .get("blockers")
+                                        .and_then(Value::as_array)
+                                        .map(|blockers| blockers.is_empty())
+                                        .unwrap_or(false)
+                            })
+                    })
+                    .unwrap_or(false)
+                && binding
+                    .get("workerAttachResumeAccepted")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && binding
+                    .get("workerAttachRollbackAccepted")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && binding
                     .get("invalidWorkerAttachBlocked")
                     .and_then(Value::as_bool)
                     == Some(true)
@@ -14583,6 +14931,26 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     == binding
                         .get("selectorLivePromotionReadinessProofId")
                         .and_then(Value::as_str)
+                && binding
+                    .get("workerAttachResumeReceipt")
+                    .and_then(|receipt| receipt.get("accepted"))
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && binding
+                    .get("workerAttachResumeReceipt")
+                    .and_then(|receipt| receipt.get("attachStatus"))
+                    .and_then(Value::as_str)
+                    == Some("resumed")
+                && binding
+                    .get("workerAttachRollbackReceipt")
+                    .and_then(|receipt| receipt.get("accepted"))
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && binding
+                    .get("workerAttachRollbackReceipt")
+                    .and_then(|receipt| receipt.get("attachStatus"))
+                    .and_then(Value::as_str)
+                    == Some("rolled_back")
                 && binding
                     .get("invalidWorkerAttachReceipt")
                     .and_then(|receipt| receipt.get("accepted"))

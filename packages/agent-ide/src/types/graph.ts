@@ -1260,6 +1260,7 @@ export interface WorkflowHarnessForkActivationRecord {
   workerBinding?: WorkflowHarnessWorkerBinding;
   workerBindingRegistryRecord?: WorkflowHarnessWorkerBindingRegistryRecord;
   workerAttachReceipt?: WorkflowHarnessWorkerAttachReceipt;
+  workerAttachLifecycle?: WorkflowHarnessWorkerAttachLifecycleEvent[];
   revisionBinding?: WorkflowRevisionBinding;
   rollbackRevisionBinding?: WorkflowRevisionBinding;
   rollbackRestoreCanary?: WorkflowHarnessRollbackRestoreCanary;
@@ -1844,6 +1845,12 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   livePromotionReadinessProof: WorkflowHarnessLivePromotionReadinessProof;
   workerBindingRegistryRecord: WorkflowHarnessWorkerBindingRegistryRecord;
   workerAttachReceipt: WorkflowHarnessWorkerAttachReceipt;
+  workerAttachResumeReceipt: WorkflowHarnessWorkerAttachReceipt;
+  workerAttachRollbackReceipt: WorkflowHarnessWorkerAttachReceipt;
+  workerAttachLifecycle: WorkflowHarnessWorkerAttachLifecycleEvent[];
+  workerAttachLifecycleAttemptIds: string[];
+  workerAttachLifecycleStatuses: WorkflowHarnessWorkerAttachStatus[];
+  workerAttachLifecycleComplete: boolean;
   modelExecutionProof?: Record<string, unknown>;
   outputAuthority: "existing_runtime_service" | string;
   outputWriterDeferred: boolean;
@@ -2446,6 +2453,7 @@ export interface WorkflowHarnessMetadata {
   defaultRuntimeDispatchProof?: WorkflowHarnessDefaultRuntimeDispatchProof;
   workerBindingRegistryRecord?: WorkflowHarnessWorkerBindingRegistryRecord;
   workerAttachReceipt?: WorkflowHarnessWorkerAttachReceipt;
+  workerAttachLifecycle?: WorkflowHarnessWorkerAttachLifecycleEvent[];
   deepLinkReplayProof?: WorkflowHarnessDeepLinkReplayProof;
   coldStartDeepLinkRestoreProof?: WorkflowHarnessColdStartDeepLinkRestoreProof;
   activationBlockerDeepLinkProof?: WorkflowHarnessDeepLinkReplayProof;
@@ -2546,6 +2554,32 @@ export interface WorkflowHarnessWorkerAttachReceipt {
   blockers: string[];
   workerBinding: WorkflowHarnessWorkerBinding;
   policyDecision: string;
+  evidenceRefs: string[];
+  createdAtMs?: number;
+}
+
+export type WorkflowHarnessWorkerAttachLifecyclePhase =
+  | "attach"
+  | "resume"
+  | "rollback"
+  | string;
+
+export interface WorkflowHarnessWorkerAttachLifecycleEvent {
+  schemaVersion: "workflow.harness.worker-attach-lifecycle.v1" | string;
+  eventId: string;
+  sequence: number;
+  phase: WorkflowHarnessWorkerAttachLifecyclePhase;
+  attemptId: string;
+  workflowNodeId: string;
+  componentKind: WorkflowHarnessComponentKind;
+  attachStatus: WorkflowHarnessWorkerAttachStatus;
+  receiptId: string;
+  receipt: WorkflowHarnessWorkerAttachReceipt;
+  registryRecordId: string;
+  accepted: boolean;
+  rollbackAvailable: boolean;
+  policyDecision: string;
+  blockers: string[];
   evidenceRefs: string[];
   createdAtMs?: number;
 }

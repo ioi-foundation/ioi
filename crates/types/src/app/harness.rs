@@ -885,6 +885,44 @@ pub struct HarnessWorkerAttachReceipt {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
+pub enum HarnessWorkerAttachLifecyclePhase {
+    Attach,
+    Resume,
+    Rollback,
+}
+
+impl HarnessWorkerAttachLifecyclePhase {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Attach => "attach",
+            Self::Resume => "resume",
+            Self::Rollback => "rollback",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct HarnessWorkerAttachLifecycleEvent {
+    pub schema_version: String,
+    pub event_id: String,
+    pub sequence: u32,
+    pub phase: HarnessWorkerAttachLifecyclePhase,
+    pub attempt_id: String,
+    pub workflow_node_id: String,
+    pub component_kind: HarnessComponentKind,
+    pub attach_status: HarnessWorkerAttachStatus,
+    pub receipt_id: String,
+    pub receipt: HarnessWorkerAttachReceipt,
+    pub registry_record_id: String,
+    pub accepted: bool,
+    pub rollback_available: bool,
+    pub policy_decision: String,
+    pub blockers: Vec<String>,
+    pub evidence_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Hash)]
+#[serde(rename_all = "snake_case")]
 pub enum HarnessLiveHandoffSelector {
     LegacyRuntime,
     BlessedWorkflowGated,
@@ -2351,6 +2389,63 @@ pub fn resolve_harness_worker_binding(
             record.canary_result_id.clone(),
         ],
     }
+}
+
+pub fn default_harness_worker_attach_lifecycle_events(
+    record: &HarnessWorkerBindingRegistryRecord,
+) -> Vec<HarnessWorkerAttachLifecycleEvent> {
+    [
+        (
+            HarnessWorkerAttachLifecyclePhase::Attach,
+            HarnessWorkerAttachStatus::Bound,
+        ),
+        (
+            HarnessWorkerAttachLifecyclePhase::Resume,
+            HarnessWorkerAttachStatus::Resumed,
+        ),
+        (
+            HarnessWorkerAttachLifecyclePhase::Rollback,
+            HarnessWorkerAttachStatus::RolledBack,
+        ),
+    ]
+    .into_iter()
+    .enumerate()
+    .map(|(index, (phase, status))| {
+        let receipt = resolve_harness_worker_binding(
+            record,
+            &default_harness_worker_attach_request(record, status),
+        );
+        let attempt_id = format!(
+            "harness-worker-attach:attempt:{}:{}:{}",
+            phase.as_str(),
+            record.workflow_id,
+            record.activation_id
+        );
+        HarnessWorkerAttachLifecycleEvent {
+            schema_version: "workflow.harness.worker-attach-lifecycle.v1".to_string(),
+            event_id: format!(
+                "harness-worker-attach-lifecycle:{}:{}:{}",
+                phase.as_str(),
+                record.workflow_id,
+                record.activation_id
+            ),
+            sequence: index as u32,
+            phase,
+            attempt_id,
+            workflow_node_id: HarnessComponentKind::HandoffBridge.workflow_node_id(),
+            component_kind: HarnessComponentKind::HandoffBridge,
+            attach_status: receipt.attach_status,
+            receipt_id: receipt.receipt_id.clone(),
+            registry_record_id: record.registry_record_id.clone(),
+            accepted: receipt.accepted,
+            rollback_available: receipt.rollback_available,
+            policy_decision: receipt.policy_decision.clone(),
+            blockers: receipt.blockers.clone(),
+            evidence_refs: receipt.evidence_refs.clone(),
+            receipt,
+        }
+    })
+    .collect()
 }
 
 pub fn default_blessed_live_handoff_proof(

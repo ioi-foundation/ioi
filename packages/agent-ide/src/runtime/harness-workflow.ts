@@ -38,6 +38,7 @@ import type {
   WorkflowHarnessWorkerAttachReceipt,
   WorkflowHarnessWorkerAttachRequest,
   WorkflowHarnessWorkerAttachStatus,
+  WorkflowHarnessWorkerAttachLifecycleEvent,
   WorkflowHarnessWorkerBinding,
   WorkflowHarnessWorkerBindingRegistryRecord,
   WorkflowRevisionBinding,
@@ -577,6 +578,61 @@ export function workflowHarnessWorkerAttachBlockers(
   return uniqueStrings(blockers);
 }
 
+export function makeWorkflowHarnessWorkerAttachLifecycle(
+  record: WorkflowHarnessWorkerBindingRegistryRecord,
+  options: { createdAtMs?: number } = {},
+): WorkflowHarnessWorkerAttachLifecycleEvent[] {
+  return [
+    { phase: "attach" as const, requestedStatus: "bound" as const },
+    { phase: "resume" as const, requestedStatus: "resumed" as const },
+    { phase: "rollback" as const, requestedStatus: "rolled_back" as const },
+  ].map(({ phase, requestedStatus }, sequence) => {
+    const receipt = resolveWorkflowHarnessWorkerBinding(
+      record,
+      makeWorkflowHarnessWorkerAttachRequest(record, requestedStatus),
+    );
+    const attemptId = `harness-worker-attach:attempt:${phase}:${record.workflowId}:${record.activationId}`;
+    return {
+      schemaVersion: "workflow.harness.worker-attach-lifecycle.v1",
+      eventId: `harness-worker-attach-lifecycle:${phase}:${record.workflowId}:${record.activationId}`,
+      sequence,
+      phase,
+      attemptId,
+      workflowNodeId: "harness.handoff_bridge",
+      componentKind: "handoff_bridge",
+      attachStatus: receipt.attachStatus,
+      receiptId: receipt.receiptId,
+      receipt,
+      registryRecordId: record.registryRecordId,
+      accepted: receipt.accepted,
+      rollbackAvailable: receipt.rollbackAvailable,
+      policyDecision: receipt.policyDecision,
+      blockers: receipt.blockers,
+      evidenceRefs: receipt.evidenceRefs,
+      createdAtMs: options.createdAtMs ?? record.createdAtMs,
+    };
+  });
+}
+
+export function workflowHarnessWorkerAttachLifecycleComplete(
+  lifecycle:
+    | Array<WorkflowHarnessWorkerAttachLifecycleEvent>
+    | null
+    | undefined,
+): boolean {
+  if (!Array.isArray(lifecycle)) return false;
+  const statuses = new Set(
+    lifecycle
+      .filter((event) => event.accepted === true && event.blockers.length === 0)
+      .map((event) => event.attachStatus),
+  );
+  return (
+    statuses.has("bound") &&
+    statuses.has("resumed") &&
+    statuses.has("rolled_back")
+  );
+}
+
 function receiptRefsFromEvidenceRefs(
   evidenceRefs: Array<string | null | undefined> = [],
 ): string[] {
@@ -783,6 +839,7 @@ export function makeHarnessForkActivationRecord(options: {
   workerBinding?: WorkflowHarnessWorkerBinding;
   workerBindingRegistryRecord?: WorkflowHarnessWorkerBindingRegistryRecord;
   workerAttachReceipt?: WorkflowHarnessWorkerAttachReceipt;
+  workerAttachLifecycle?: WorkflowHarnessWorkerAttachLifecycleEvent[];
   revisionBinding?: WorkflowRevisionBinding;
   rollbackRevisionBinding?: WorkflowRevisionBinding;
   rollbackRestoreCanary?: WorkflowHarnessForkActivationRecord["rollbackRestoreCanary"];
@@ -832,6 +889,7 @@ export function makeHarnessForkActivationRecord(options: {
     workerBinding: options.workerBinding,
     workerBindingRegistryRecord: options.workerBindingRegistryRecord,
     workerAttachReceipt: options.workerAttachReceipt,
+    workerAttachLifecycle: options.workerAttachLifecycle,
     revisionBinding: options.revisionBinding,
     rollbackRevisionBinding: options.rollbackRevisionBinding,
     rollbackRestoreCanary: options.rollbackRestoreCanary,
@@ -3720,13 +3778,57 @@ export function makeHarnessDefaultRuntimeDispatchProof(
       bindingStatus: dispatchAccepted ? "bound" : "blocked",
       blockers: activationBlockers,
     });
-  const workerAttachReceipt = resolveWorkflowHarnessWorkerBinding(
-    workerBindingRegistryRecord,
-    makeWorkflowHarnessWorkerAttachRequest(
+  const workerAttachLifecycle = dispatchAccepted
+    ? makeWorkflowHarnessWorkerAttachLifecycle(workerBindingRegistryRecord)
+    : (() => {
+        const receipt = resolveWorkflowHarnessWorkerBinding(
+          workerBindingRegistryRecord,
+          makeWorkflowHarnessWorkerAttachRequest(
+            workerBindingRegistryRecord,
+            "blocked",
+          ),
+        );
+        return [
+          {
+            schemaVersion: "workflow.harness.worker-attach-lifecycle.v1",
+            eventId: `harness-worker-attach-lifecycle:blocked:${DEFAULT_AGENT_HARNESS_WORKFLOW_ID}:${DEFAULT_AGENT_HARNESS_ACTIVATION_ID}`,
+            sequence: 0,
+            phase: "attach",
+            attemptId: `harness-worker-attach:attempt:blocked:${DEFAULT_AGENT_HARNESS_WORKFLOW_ID}:${DEFAULT_AGENT_HARNESS_ACTIVATION_ID}`,
+            workflowNodeId: "harness.handoff_bridge",
+            componentKind: "handoff_bridge",
+            attachStatus: "blocked",
+            receiptId: receipt.receiptId,
+            receipt,
+            registryRecordId: workerBindingRegistryRecord.registryRecordId,
+            accepted: false,
+            rollbackAvailable: false,
+            policyDecision: "block_harness_worker_attach",
+            blockers: activationBlockers,
+            evidenceRefs: [workerBindingRegistryRecord.registryRecordId],
+          } satisfies WorkflowHarnessWorkerAttachLifecycleEvent,
+        ];
+      })();
+  const workerAttachReceipt =
+    workerAttachLifecycle.find((event) => event.phase === "attach")?.receipt ??
+    resolveWorkflowHarnessWorkerBinding(
       workerBindingRegistryRecord,
-      dispatchAccepted ? "bound" : "blocked",
-    ),
+      makeWorkflowHarnessWorkerAttachRequest(workerBindingRegistryRecord),
+    );
+  const workerAttachResumeReceipt =
+    workerAttachLifecycle.find((event) => event.phase === "resume")?.receipt ??
+    workerAttachReceipt;
+  const workerAttachRollbackReceipt =
+    workerAttachLifecycle.find((event) => event.phase === "rollback")
+      ?.receipt ?? workerAttachReceipt;
+  const workerAttachLifecycleAttemptIds = workerAttachLifecycle.map(
+    (event) => event.attemptId,
   );
+  const workerAttachLifecycleStatuses = workerAttachLifecycle.map(
+    (event) => event.attachStatus,
+  );
+  const workerAttachLifecycleComplete =
+    workflowHarnessWorkerAttachLifecycleComplete(workerAttachLifecycle);
   return {
     schemaVersion: "workflow.harness.default-runtime-dispatch.v1",
     dispatchId,
@@ -3786,6 +3888,7 @@ export function makeHarnessDefaultRuntimeDispatchProof(
       "harness-default-dispatch:attempt-authority_tooling_tool_call_read_only",
       "harness-default-dispatch:attempt-authority_tooling_connector_call_read_only",
       "harness-default-dispatch:attempt-authority_tooling_wallet_capability_read_only",
+      ...workerAttachLifecycleAttemptIds,
     ],
     cognitionExecutionAttemptIds: [
       "harness-default-dispatch:attempt-planner_envelope",
@@ -4398,6 +4501,12 @@ export function makeHarnessDefaultRuntimeDispatchProof(
     livePromotionReadinessProof,
     workerBindingRegistryRecord,
     workerAttachReceipt,
+    workerAttachResumeReceipt,
+    workerAttachRollbackReceipt,
+    workerAttachLifecycle,
+    workerAttachLifecycleAttemptIds,
+    workerAttachLifecycleStatuses,
+    workerAttachLifecycleComplete,
     modelExecutionProof: {
       schemaVersion: "workflow.harness.model-execution-envelope.v1",
       mode: "workflow_synchronous_envelope",
@@ -6173,6 +6282,7 @@ function harnessMetadata(options: {
   defaultRuntimeDispatchProof?: WorkflowHarnessDefaultRuntimeDispatchProof;
   workerBindingRegistryRecord?: WorkflowHarnessWorkerBindingRegistryRecord;
   workerAttachReceipt?: WorkflowHarnessWorkerAttachReceipt;
+  workerAttachLifecycle?: WorkflowHarnessWorkerAttachLifecycleEvent[];
   canaryExecutionBoundary?: WorkflowHarnessCanaryExecutionBoundary;
   canaryExecutionBoundaries?: WorkflowHarnessCanaryExecutionBoundary[];
 }): WorkflowHarnessMetadata {
@@ -6195,6 +6305,7 @@ function harnessMetadata(options: {
     defaultRuntimeDispatchProof: options.defaultRuntimeDispatchProof,
     workerBindingRegistryRecord: options.workerBindingRegistryRecord,
     workerAttachReceipt: options.workerAttachReceipt,
+    workerAttachLifecycle: options.workerAttachLifecycle,
     canaryExecutionBoundary: options.canaryExecutionBoundary,
     canaryExecutionBoundaries: options.canaryExecutionBoundaries,
     validationGates: [
