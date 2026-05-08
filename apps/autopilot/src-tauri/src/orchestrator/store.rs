@@ -4773,13 +4773,93 @@ fn runtime_harness_fork_activation(sid: &str, gated_cluster_runs: &[Value]) -> V
         .iter()
         .filter_map(|run| run.get("clusterId").and_then(Value::as_str))
         .collect::<Vec<_>>();
+    let readiness_proof_id =
+        format!("harness-fork-activation-readiness:{harness_workflow_id}:{activation_id}");
     let worker_binding = json!({
         "harnessWorkflowId": harness_workflow_id,
         "harnessActivationId": activation_id,
         "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
-        "executionMode": "gated",
-        "source": "fork"
+        "executionMode": "live",
+        "source": "fork",
+        "rollbackTarget": rollback_target,
+        "authorityBindingReady": true,
+        "authorityBindingBlockers": [],
+        "livePromotionReadinessProofId": readiness_proof_id,
+        "policyDecision": "allow_fork_harness_canary_worker_binding"
     });
+    let worker_binding_registry_record = json!({
+        "schemaVersion": "workflow.harness.worker-binding-registry.v1",
+        "registryRecordId": format!("harness-worker-binding-registry:{harness_workflow_id}:{activation_id}:fork-canary"),
+        "workflowId": harness_workflow_id,
+        "activationId": activation_id,
+        "activationHash": DEFAULT_AGENT_HARNESS_HASH,
+        "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
+        "componentVersionSet": component_version_set.clone(),
+        "rollbackTarget": rollback_target,
+        "readinessProofId": readiness_proof_id,
+        "canaryResultId": format!("harness-canary-result:{harness_workflow_id}:{activation_id}:passed"),
+        "policyDecision": "allow_fork_harness_canary_worker_binding",
+        "bindingStatus": "bound",
+        "blockers": [],
+        "workerBinding": worker_binding
+    });
+    let worker_attach_lifecycle = runtime_harness_worker_attach_lifecycle_events(
+        sid,
+        "fork-activation",
+        &worker_binding_registry_record,
+    );
+    let worker_attach_receipt = worker_attach_lifecycle
+        .iter()
+        .find(|event| event.get("phase").and_then(Value::as_str) == Some("attach"))
+        .and_then(|event| event.get("receipt"))
+        .cloned()
+        .unwrap_or_else(|| json!({}));
+    let worker_session_record = runtime_harness_worker_session_record(
+        sid,
+        "fork-activation",
+        &worker_binding_registry_record,
+        &worker_attach_lifecycle,
+    );
+    let worker_launch_envelopes = ["launch", "resume", "rollback"]
+        .iter()
+        .map(|phase| runtime_harness_worker_launch_envelope(&worker_session_record, phase))
+        .collect::<Vec<_>>();
+    let worker_handoff_receipts = worker_launch_envelopes
+        .iter()
+        .map(|envelope| runtime_harness_worker_handoff_receipt(&worker_session_record, envelope))
+        .collect::<Vec<_>>();
+    let worker_launch_envelope_ids = worker_launch_envelopes
+        .iter()
+        .filter_map(|envelope| envelope.get("envelopeId").and_then(Value::as_str))
+        .map(str::to_string)
+        .collect::<Vec<_>>();
+    let worker_handoff_receipt_ids = worker_handoff_receipts
+        .iter()
+        .filter_map(|receipt| receipt.get("receiptId").and_then(Value::as_str))
+        .map(str::to_string)
+        .collect::<Vec<_>>();
+    let worker_handoff_node_attempts = worker_handoff_receipts
+        .iter()
+        .enumerate()
+        .map(|(index, receipt)| {
+            runtime_harness_worker_handoff_node_attempt(receipt, index + 1, "gated")
+        })
+        .collect::<Vec<_>>();
+    let worker_handoff_node_attempt_ids = worker_handoff_node_attempts
+        .iter()
+        .filter_map(|attempt| attempt.get("attemptId").and_then(Value::as_str))
+        .map(str::to_string)
+        .collect::<Vec<_>>();
+    let worker_handoff_replay_fixture_refs = worker_handoff_node_attempts
+        .iter()
+        .filter_map(|attempt| {
+            attempt
+                .get("replay")
+                .and_then(|replay| replay.get("fixtureRef"))
+                .and_then(Value::as_str)
+        })
+        .map(str::to_string)
+        .collect::<Vec<_>>();
     let invalid_rollback_restore_receipt_ref = format!("workflow_restore_canary:{sid}:invalid");
     let valid_rollback_restore_receipt_ref = format!("workflow_restore_canary:{sid}:valid");
     let invalid_rollback_restore_canary = json!({
@@ -4981,6 +5061,8 @@ fn runtime_harness_fork_activation(sid: &str, gated_cluster_runs: &[Value]) -> V
                 "executionMode": "projection",
                 "source": "fork"
             },
+            "workerHandoffNodeTimelineBound": false,
+            "workerHandoffNodeTimelineBlockers": ["fork_activation_not_minted"],
             "evidenceRefs": [
                 {"kind": "readiness_issue", "reference": "harness_activation_not_validated"},
                 {"kind": "proposal", "reference": "proposal-default-agent-harness-fork-activation-gates"}
@@ -5004,7 +5086,19 @@ fn runtime_harness_fork_activation(sid: &str, gated_cluster_runs: &[Value]) -> V
             "activationRollbackExecution": valid_activation_rollback_execution,
             "liveAuthorityTransferred": false,
             "activationMinted": true,
-            "workerBinding": worker_binding,
+            "workerBinding": worker_binding_registry_record.get("workerBinding").cloned().unwrap_or_else(|| json!({})),
+            "workerBindingRegistryRecord": worker_binding_registry_record,
+            "workerAttachReceipt": worker_attach_receipt,
+            "workerAttachLifecycle": worker_attach_lifecycle,
+            "workerSessionRecord": worker_session_record,
+            "workerLaunchEnvelopes": worker_launch_envelopes,
+            "workerHandoffReceipts": worker_handoff_receipts,
+            "workerLaunchEnvelopeIds": worker_launch_envelope_ids,
+            "workerHandoffReceiptIds": worker_handoff_receipt_ids,
+            "workerHandoffNodeAttempts": worker_handoff_node_attempts,
+            "workerHandoffNodeAttemptIds": worker_handoff_node_attempt_ids,
+            "workerHandoffReplayFixtureRefs": worker_handoff_replay_fixture_refs,
+            "workerHandoffNodeTimelineBound": true,
             "gatedClusterIds": gated_clusters,
             "evidenceRefs": [
                 {"kind": "gui_retained_queries", "reference": sid},

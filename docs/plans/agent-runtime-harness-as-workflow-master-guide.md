@@ -38,6 +38,8 @@ Companion documents:
 - `docs/evidence/agent-runtime-p3-validation/2026-05-08T17-47-23-121Z/dashboard-index.json`
 - `docs/evidence/autopilot-gui-harness-validation/2026-05-08T18-12-02-920Z/result.json`
 - `docs/evidence/agent-runtime-p3-validation/2026-05-08T18-18-59-682Z/dashboard-index.json`
+- `docs/evidence/autopilot-gui-harness-validation/2026-05-08T18-37-02-352Z/result.json`
+- `docs/evidence/agent-runtime-p3-validation/2026-05-08T18-43-28-818Z/dashboard-index.json`
 - `docs/evidence/harness-as-workflow-aip-reference/2026-05-06/README.md`
 
 ## Executive Verdict
@@ -90,13 +92,13 @@ timeline, worker session record, runtime-checkpoint worker session
 persistence, persisted worker-session launch authority, typed worker
 launch/resume/rollback envelopes, durable worker handoff receipts, rollback
 handoff authority, worker handoff node timeline/replay fixture binding, gated
-verification/output adapter proof, and gated authority/tooling adapter proof
-have a green end-to-end checkpoint:
+verification/output adapter proof, gated authority/tooling adapter proof, and
+fork activation handoff timeline proof have a green end-to-end checkpoint:
 
 - Full retained Autopilot GUI harness run:
-  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T18-12-02-920Z/result.json`
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T18-37-02-352Z/result.json`
 - Runtime P3 validation with required GUI evidence:
-  `docs/evidence/agent-runtime-p3-validation/2026-05-08T18-18-59-682Z/dashboard-index.json`
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T18-43-28-818Z/dashboard-index.json`
 
 This checkpoint proves the GUI promotion flow can show the activation-id gate,
 the fork activation click proof, the selector-owned live-promotion readiness
@@ -123,8 +125,12 @@ launch envelope and handoff receipt counts, and a live GUI check
 `workerLaunchHandoffBound: true`. It also proves worker handoff node attempts
 and replay fixtures are bound into the dispatch timeline with
 `workerHandoffNodeTimelineBound: true`, so launch, resume, and rollback
-handoff can be inspected as first-class workflow node attempts. The fork
-activation wizard remains its own evidence object.
+handoff can be inspected as first-class workflow node attempts. It further
+proves the fork activation wizard uses the same substrate:
+`harnessForkHandoffTimelineBoundCount: 3` and
+`harness_fork_handoff_timeline_present: true`, with validated fork activation
+carrying a worker session, launch envelopes, handoff receipts, gated
+`handoff_bridge` node attempts, replay refs, and rollback target.
 
 ### 2026-05-08 Cognition Live Adapter Slice
 
@@ -750,6 +756,40 @@ receipts, replay fixtures, and GUI activation blockers." The next chronological
 slice should thread this same handoff-bridge timeline through fork activation,
 canary, and rollback proof so a forked harness can be inspected from activation
 id to worker session to launch envelope to handoff attempt to rollback target.
+
+### 2026-05-08 Fork Activation Handoff Timeline Slice
+
+The fork activation path now uses the same worker handoff timeline substrate as
+the blessed default runtime proof:
+
+- A successful fork activation mint now creates a canary worker binding,
+  worker binding registry record, attach/resume/rollback lifecycle, persisted
+  worker session record, launch/resume/rollback launch envelopes, handoff
+  receipts, gated `handoff_bridge` node attempts, and replay fixture refs.
+- The activation record and harness metadata now expose
+  `workerHandoffNodeAttempts`, `workerHandoffNodeAttemptIds`, and
+  `workerHandoffReplayFixtureRefs`, alongside the worker session, launch
+  envelopes, and handoff receipts.
+- The fork activation wizard now includes a `worker-handoff` gate and
+  exposes handoff timeline data attributes on the minted/blocked proof row, so
+  the GUI can inspect activation id, worker session, launch envelope, handoff
+  attempt, replay fixture, and rollback target without switching substrates.
+- The runtime artifact validator now requires a validated fork to have the
+  handoff timeline bound before counting it as a minted fork activation.
+- Full retained GUI validation is green in
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T18-37-02-352Z/`;
+  all eight retained queries passed and runtime evidence reports
+  `harnessForkHandoffTimelineBoundCount: 3`.
+- Runtime P3 with required GUI evidence is green at
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T18-43-28-818Z/dashboard-index.json`.
+
+This changes the fork boundary from "the wizard can mint a validated
+activation id" to "the wizard proves that a forked harness activation can be
+packaged with a canary handoff timeline, replay refs, and rollback evidence."
+The next chronological slice should make these fork handoff refs deep-linkable
+from the activation wizard into the receipt inspector, replay inspector, and
+node timeline so operators can jump directly from a fork activation blocker or
+canary proof to the exact handoff attempt that proves or blocks it.
 
 ## Current State
 

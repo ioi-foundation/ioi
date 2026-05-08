@@ -475,6 +475,7 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
     harnessGatedAuthorityToolingCount: 0,
     harnessForkActivationBlockedCount: 0,
     harnessForkActivationMintedCount: 0,
+    harnessForkHandoffTimelineBoundCount: 0,
     harnessRollbackRestoreCanaryBlockedCount: 0,
     harnessRollbackRestoreCanaryReadyCount: 0,
     harnessRollbackRestoreCanaryReceiptCount: 0,
@@ -1187,6 +1188,57 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       }
     }
   };
+  const forkHandoffTimelineBound = (fork) => {
+    if (!fork || typeof fork !== "object") return false;
+    const receipts = Array.isArray(fork.workerHandoffReceipts)
+      ? fork.workerHandoffReceipts
+      : [];
+    const receiptIds = Array.isArray(fork.workerHandoffReceiptIds)
+      ? fork.workerHandoffReceiptIds
+      : receipts
+          .map((receipt) => receipt?.receiptId)
+          .filter((receiptId) => typeof receiptId === "string");
+    const attempts = Array.isArray(fork.workerHandoffNodeAttempts)
+      ? fork.workerHandoffNodeAttempts
+      : [];
+    const attemptIds = Array.isArray(fork.workerHandoffNodeAttemptIds)
+      ? fork.workerHandoffNodeAttemptIds
+      : attempts
+          .map((attempt) => attempt?.attemptId)
+          .filter((attemptId) => typeof attemptId === "string");
+    const replayRefs = Array.isArray(fork.workerHandoffReplayFixtureRefs)
+      ? fork.workerHandoffReplayFixtureRefs
+      : attempts
+          .map((attempt) => attempt?.replay?.fixtureRef)
+          .filter((fixtureRef) => typeof fixtureRef === "string");
+    return (
+      fork.workerHandoffNodeTimelineBound === true &&
+      receipts.length >= 3 &&
+      attempts.length >= 3 &&
+      attemptIds.length >= 3 &&
+      replayRefs.length >= 3 &&
+      ["launch", "resume", "rollback"].every((phase) =>
+        attempts.some((attempt) => {
+          const receipt = receipts.find(
+            (candidate) => candidate?.phase === phase,
+          );
+          return (
+            receipt?.receiptId &&
+            attempt?.workflowNodeId === "harness.handoff_bridge" &&
+            attempt?.componentKind === "handoff_bridge" &&
+            attempt?.executionMode === "gated" &&
+            attempt?.status === "gated" &&
+            Array.isArray(attempt?.receiptIds) &&
+            attempt.receiptIds.includes(receipt.receiptId) &&
+            typeof attempt?.replay?.fixtureRef === "string" &&
+            replayRefs.includes(attempt.replay.fixtureRef) &&
+            attemptIds.includes(attempt.attemptId) &&
+            receiptIds.includes(receipt.receiptId)
+          );
+        }),
+      )
+    );
+  };
 
   if (existsSync(logPath)) {
     const log = readFileSync(logPath, "utf8");
@@ -1398,9 +1450,13 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             validFork.rollbackAvailable === true &&
             validFork.liveAuthorityTransferred === false &&
             validFork.workerBinding?.harnessActivationId ===
-              validFork.activationId
+              validFork.activationId &&
+            forkHandoffTimelineBound(validFork)
           ) {
             summary.harnessForkActivationMintedCount += 1;
+          }
+          if (forkHandoffTimelineBound(validFork)) {
+            summary.harnessForkHandoffTimelineBoundCount += 1;
           }
         }
         {
@@ -3364,7 +3420,8 @@ function buildGuiEvidenceAssessment({
   const hasHarnessForkActivation =
     hasHarnessGatedAuthorityTooling &&
     summary.harnessForkActivationBlockedCount > 0 &&
-    summary.harnessForkActivationMintedCount > 0;
+    summary.harnessForkActivationMintedCount > 0 &&
+    summary.harnessForkHandoffTimelineBoundCount > 0;
   const hasHarnessRollbackRestoreCanary =
     hasHarnessForkActivation &&
     summary.harnessRollbackRestoreCanaryBlockedCount > 0 &&
@@ -3760,6 +3817,8 @@ function buildGuiEvidenceAssessment({
         hasHarnessGatedVerificationOutput,
       harness_gated_authority_tooling_present: hasHarnessGatedAuthorityTooling,
       harness_fork_activation_present: hasHarnessForkActivation,
+      harness_fork_handoff_timeline_present:
+        summary.harnessForkHandoffTimelineBoundCount > 0,
       harness_rollback_restore_canary_present: hasHarnessRollbackRestoreCanary,
       harness_rollback_restore_canary_receipts_present:
         hasHarnessRollbackRestoreCanaryReceipts,
@@ -3861,6 +3920,8 @@ function buildGuiEvidenceAssessment({
       hasHarnessGatedVerificationOutput,
       hasHarnessGatedAuthorityTooling,
       hasHarnessForkActivation,
+      hasHarnessForkHandoffTimeline:
+        summary.harnessForkHandoffTimelineBoundCount > 0,
       hasHarnessRollbackRestoreCanary,
       hasHarnessRollbackRestoreCanaryReceipts,
       hasHarnessActivationAuditReceipts,
@@ -3932,6 +3993,8 @@ function buildGuiEvidenceAssessment({
         summary.harnessForkActivationBlockedCount,
       harnessForkActivationMintedCount:
         summary.harnessForkActivationMintedCount,
+      harnessForkHandoffTimelineBoundCount:
+        summary.harnessForkHandoffTimelineBoundCount,
       harnessRollbackRestoreCanaryBlockedCount:
         summary.harnessRollbackRestoreCanaryBlockedCount,
       harnessRollbackRestoreCanaryReadyCount:
@@ -5870,7 +5933,8 @@ async function runGuiValidation(args, outputRoot) {
             : false,
         harness_fork_activation:
           runtimeArtifacts.summary.harnessForkActivationBlockedCount > 0 &&
-          runtimeArtifacts.summary.harnessForkActivationMintedCount > 0
+          runtimeArtifacts.summary.harnessForkActivationMintedCount > 0 &&
+          runtimeArtifacts.summary.harnessForkHandoffTimelineBoundCount > 0
             ? runtimeArtifacts.path
             : false,
         harness_rollback_restore_canary:

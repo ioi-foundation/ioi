@@ -413,6 +413,71 @@ export function workflowHarnessWorkerBindingRegistryBlockers(
   return uniqueStrings(blockers);
 }
 
+function workflowHarnessWorkerBindingRegistryContractBlockers(
+  record: WorkflowHarnessWorkerBindingRegistryRecord | null | undefined,
+): string[] {
+  if (!record) return ["worker_binding_registry_missing"];
+  const blockers = uniqueStrings(record.blockers ?? []);
+  if (record.schemaVersion !== "workflow.harness.worker-binding-registry.v1") {
+    blockers.push("worker_binding_registry_schema_mismatch");
+  }
+  if (!record.workflowId) {
+    blockers.push("worker_binding_registry_workflow_missing");
+  }
+  if (!record.activationId) {
+    blockers.push("worker_binding_registry_activation_missing");
+  }
+  if (!record.activationHash) {
+    blockers.push("worker_binding_registry_activation_hash_missing");
+  }
+  if (!record.harnessHash) {
+    blockers.push("worker_binding_registry_harness_hash_missing");
+  }
+  if (!record.rollbackTarget) {
+    blockers.push("worker_binding_registry_rollback_target_missing");
+  }
+  if (!record.readinessProofId) {
+    blockers.push("worker_binding_registry_readiness_proof_missing");
+  }
+  if (!record.canaryResultId || record.canaryResultId.endsWith(":not-run")) {
+    blockers.push("worker_binding_registry_canary_missing");
+  }
+  if (record.bindingStatus !== "bound") {
+    blockers.push("worker_binding_registry_not_bound");
+  }
+  if (record.workerBinding.harnessWorkflowId !== record.workflowId) {
+    blockers.push("worker_binding_registry_worker_workflow_mismatch");
+  }
+  if (record.workerBinding.harnessActivationId !== record.activationId) {
+    blockers.push("worker_binding_registry_worker_activation_mismatch");
+  }
+  if (record.workerBinding.harnessHash !== record.harnessHash) {
+    blockers.push("worker_binding_registry_worker_hash_mismatch");
+  }
+  if (record.workerBinding.executionMode !== "live") {
+    blockers.push("worker_binding_registry_worker_not_live");
+  }
+  if (record.workerBinding.rollbackTarget !== record.rollbackTarget) {
+    blockers.push("worker_binding_registry_worker_rollback_mismatch");
+  }
+  if (record.workerBinding.authorityBindingReady !== true) {
+    blockers.push("worker_binding_registry_worker_authority_not_ready");
+  }
+  if ((record.workerBinding.authorityBindingBlockers ?? []).length > 0) {
+    blockers.push("worker_binding_registry_worker_authority_blocked");
+  }
+  if (
+    record.workerBinding.livePromotionReadinessProofId !==
+    record.readinessProofId
+  ) {
+    blockers.push("worker_binding_registry_worker_readiness_proof_mismatch");
+  }
+  if (Object.keys(record.componentVersionSet ?? {}).length === 0) {
+    blockers.push("worker_binding_registry_component_versions_missing");
+  }
+  return uniqueStrings(blockers);
+}
+
 function componentVersionSetsMatch(
   left: Record<string, string> | null | undefined,
   right: Record<string, string> | null | undefined,
@@ -450,7 +515,7 @@ export function resolveWorkflowHarnessWorkerBinding(
   request = makeWorkflowHarnessWorkerAttachRequest(record),
 ): WorkflowHarnessWorkerAttachReceipt {
   const blockers = uniqueStrings([
-    ...workflowHarnessWorkerBindingRegistryBlockers(record).map((blocker) =>
+    ...workflowHarnessWorkerBindingRegistryContractBlockers(record).map((blocker) =>
       blocker === "worker_binding_registry_not_bound"
         ? "worker_attach_registry_not_bound"
         : `worker_attach_${blocker.replace(/^worker_binding_registry_/, "")}`,
@@ -1031,6 +1096,114 @@ export function makeWorkflowHarnessWorkerHandoffNodeAttempts(
   );
 }
 
+function makeWorkflowHarnessForkActivationHandoffProof(options: {
+  workflowId: string;
+  activationId: string;
+  activationHash: string;
+  harnessHash: string;
+  componentVersionSet: Record<string, string>;
+  rollbackTarget: string;
+  workerBinding: WorkflowHarnessWorkerBinding;
+  createdAtMs: number;
+}): {
+  workerBinding: WorkflowHarnessWorkerBinding;
+  workerBindingRegistryRecord: WorkflowHarnessWorkerBindingRegistryRecord;
+  workerAttachLifecycle: WorkflowHarnessWorkerAttachLifecycleEvent[];
+  workerAttachReceipt: WorkflowHarnessWorkerAttachReceipt;
+  workerSessionRecord: WorkflowHarnessWorkerSessionRecord;
+  workerLaunchEnvelopes: WorkflowHarnessWorkerLaunchEnvelope[];
+  workerHandoffReceipts: WorkflowHarnessWorkerHandoffReceipt[];
+  workerLaunchEnvelopeIds: string[];
+  workerHandoffReceiptIds: string[];
+  workerHandoffNodeAttempts: WorkflowHarnessNodeAttemptRecord[];
+  workerHandoffNodeAttemptIds: string[];
+  workerHandoffReplayFixtureRefs: string[];
+} {
+  const readinessProofId = `harness-fork-activation-readiness:${options.workflowId}:${options.activationId}`;
+  const canaryWorkerBinding: WorkflowHarnessWorkerBinding = {
+    ...options.workerBinding,
+    harnessWorkflowId: options.workflowId,
+    harnessActivationId: options.activationId,
+    harnessHash: options.harnessHash,
+    executionMode: "live",
+    source: "fork",
+    rollbackTarget: options.rollbackTarget,
+    authorityBindingReady: true,
+    authorityBindingBlockers: [],
+    livePromotionReadinessProofId: readinessProofId,
+    policyDecision: "allow_fork_harness_canary_worker_binding",
+  };
+  const workerBindingRegistryRecord =
+    makeWorkflowHarnessWorkerBindingRegistryRecord({
+      workflowId: options.workflowId,
+      activationId: options.activationId,
+      activationHash: options.activationHash,
+      harnessHash: options.harnessHash,
+      componentVersionSet: options.componentVersionSet,
+      rollbackTarget: options.rollbackTarget,
+      readinessProofId,
+      canaryResultId: `harness-canary-result:${options.workflowId}:${options.activationId}:passed`,
+      policyDecision: "allow_fork_harness_canary_worker_binding",
+      bindingStatus: "bound",
+      blockers: [],
+      workerBinding: canaryWorkerBinding,
+      createdAtMs: options.createdAtMs,
+    });
+  const workerAttachLifecycle = makeWorkflowHarnessWorkerAttachLifecycle(
+    workerBindingRegistryRecord,
+    { createdAtMs: options.createdAtMs },
+  );
+  const workerAttachReceipt =
+    workerAttachLifecycle.find((event) => event.phase === "attach")?.receipt ??
+    workerAttachLifecycle[0].receipt;
+  const workerSessionRecord = makeWorkflowHarnessWorkerSessionRecord(
+    workerBindingRegistryRecord,
+    workerAttachLifecycle,
+    {
+      sessionId: options.workflowId,
+      createdAtMs: options.createdAtMs,
+    },
+  );
+  const workerLaunchEnvelopes = (["launch", "resume", "rollback"] as const).map(
+    (phase) =>
+      makeWorkflowHarnessWorkerLaunchEnvelope(workerSessionRecord, phase, {
+        createdAtMs: options.createdAtMs,
+      }),
+  );
+  const workerHandoffReceipts = workerLaunchEnvelopes.map((envelope) =>
+    resolveWorkflowHarnessWorkerHandoffReceipt(workerSessionRecord, envelope, {
+      createdAtMs: options.createdAtMs,
+    }),
+  );
+  const workerHandoffNodeAttempts =
+    makeWorkflowHarnessWorkerHandoffNodeAttempts(workerHandoffReceipts, {
+      executionMode: "gated",
+      startedAtMs: options.createdAtMs,
+    });
+  return {
+    workerBinding: canaryWorkerBinding,
+    workerBindingRegistryRecord,
+    workerAttachLifecycle,
+    workerAttachReceipt,
+    workerSessionRecord,
+    workerLaunchEnvelopes,
+    workerHandoffReceipts,
+    workerLaunchEnvelopeIds: workerLaunchEnvelopes.map(
+      (envelope) => envelope.envelopeId,
+    ),
+    workerHandoffReceiptIds: workerHandoffReceipts.map(
+      (receipt) => receipt.receiptId,
+    ),
+    workerHandoffNodeAttempts,
+    workerHandoffNodeAttemptIds: workerHandoffNodeAttempts.map(
+      (attempt) => attempt.attemptId,
+    ),
+    workerHandoffReplayFixtureRefs: workerHandoffNodeAttempts
+      .map((attempt) => attempt.replay.fixtureRef)
+      .filter((fixtureRef): fixtureRef is string => Boolean(fixtureRef)),
+  };
+}
+
 function receiptRefsFromEvidenceRefs(
   evidenceRefs: Array<string | null | undefined> = [],
 ): string[] {
@@ -1241,6 +1414,9 @@ export function makeHarnessForkActivationRecord(options: {
   workerSessionRecord?: WorkflowHarnessWorkerSessionRecord;
   workerLaunchEnvelopes?: WorkflowHarnessWorkerLaunchEnvelope[];
   workerHandoffReceipts?: WorkflowHarnessWorkerHandoffReceipt[];
+  workerHandoffNodeAttemptIds?: string[];
+  workerHandoffNodeAttempts?: WorkflowHarnessNodeAttemptRecord[];
+  workerHandoffReplayFixtureRefs?: string[];
   revisionBinding?: WorkflowRevisionBinding;
   rollbackRevisionBinding?: WorkflowRevisionBinding;
   rollbackRestoreCanary?: WorkflowHarnessForkActivationRecord["rollbackRestoreCanary"];
@@ -1294,6 +1470,9 @@ export function makeHarnessForkActivationRecord(options: {
     workerSessionRecord: options.workerSessionRecord,
     workerLaunchEnvelopes: options.workerLaunchEnvelopes,
     workerHandoffReceipts: options.workerHandoffReceipts,
+    workerHandoffNodeAttemptIds: options.workerHandoffNodeAttemptIds,
+    workerHandoffNodeAttempts: options.workerHandoffNodeAttempts,
+    workerHandoffReplayFixtureRefs: options.workerHandoffReplayFixtureRefs,
     revisionBinding: options.revisionBinding,
     rollbackRevisionBinding: options.rollbackRevisionBinding,
     rollbackRestoreCanary: options.rollbackRestoreCanary,
@@ -2703,7 +2882,7 @@ export function applyWorkflowHarnessActivationCandidate(
       rollbackActivationId: rollbackTarget,
       nowMs,
     });
-  const workerBinding: WorkflowHarnessWorkerBinding = {
+  const requestedWorkerBinding: WorkflowHarnessWorkerBinding = {
     ...candidate.workerBindingPreview,
     harnessWorkflowId:
       candidate.workerBindingPreview.harnessWorkflowId || workflowId,
@@ -2719,8 +2898,6 @@ export function applyWorkflowHarnessActivationCandidate(
       DEFAULT_HARNESS_EXECUTION_MODE,
     source: "fork",
     rollbackTarget,
-    authorityBindingReady: false,
-    authorityBindingBlockers: ["fork_activation_not_live_default"],
   };
   const revisionBinding: WorkflowRevisionBinding = {
     ...candidate.revisionBindingPreview,
@@ -2732,34 +2909,23 @@ export function applyWorkflowHarnessActivationCandidate(
     createdAtMs: nowMs,
   };
   const receiptRefs = activationCandidateReceiptRefs(candidate);
+  const forkHandoffProof = makeWorkflowHarnessForkActivationHandoffProof({
+    workflowId,
+    activationId,
+    activationHash: revisionBinding.workflowContentHash,
+    harnessHash:
+      requestedWorkerBinding.harnessHash ||
+      candidate.harnessHash ||
+      DEFAULT_AGENT_HARNESS_HASH,
+    componentVersionSet: candidate.componentVersionSet,
+    rollbackTarget,
+    workerBinding: requestedWorkerBinding,
+    createdAtMs: nowMs,
+  });
+  const workerBinding = forkHandoffProof.workerBinding;
   const workerBindingRegistryRecord =
-    makeWorkflowHarnessWorkerBindingRegistryRecord({
-      workflowId,
-      activationId,
-      activationHash: revisionBinding.workflowContentHash,
-      harnessHash: workerBinding.harnessHash,
-      componentVersionSet: candidate.componentVersionSet,
-      rollbackTarget,
-      canaryResultId:
-        candidate.canaryStatus === "passed"
-          ? `harness-canary-result:${workflowId}:${activationId}:passed`
-          : `harness-canary-result:${workflowId}:${activationId}:blocked`,
-      policyDecision: candidate.policyPosture,
-      bindingStatus: candidate.canaryStatus === "passed" ? "canary" : "blocked",
-      blockers:
-        candidate.canaryStatus === "passed"
-          ? ["fork_activation_not_live_default"]
-          : ["fork_activation_canary_not_passed"],
-      workerBinding,
-      createdAtMs: nowMs,
-    });
-  const workerAttachReceipt = resolveWorkflowHarnessWorkerBinding(
-    workerBindingRegistryRecord,
-    makeWorkflowHarnessWorkerAttachRequest(
-      workerBindingRegistryRecord,
-      candidate.canaryStatus === "passed" ? "canary" : "blocked",
-    ),
-  );
+    forkHandoffProof.workerBindingRegistryRecord;
+  const workerAttachReceipt = forkHandoffProof.workerAttachReceipt;
   const activationRecord = makeHarnessForkActivationRecord({
     workflowId,
     harnessWorkflowId: workerBinding.harnessWorkflowId,
@@ -2777,10 +2943,20 @@ export function applyWorkflowHarnessActivationCandidate(
       candidate.candidateId,
       ...receiptRefs,
       ...candidate.evidenceRefs,
+      ...forkHandoffProof.workerHandoffNodeAttemptIds,
+      ...forkHandoffProof.workerHandoffReplayFixtureRefs,
     ]),
     workerBinding,
     workerBindingRegistryRecord,
     workerAttachReceipt,
+    workerAttachLifecycle: forkHandoffProof.workerAttachLifecycle,
+    workerSessionRecord: forkHandoffProof.workerSessionRecord,
+    workerLaunchEnvelopes: forkHandoffProof.workerLaunchEnvelopes,
+    workerHandoffReceipts: forkHandoffProof.workerHandoffReceipts,
+    workerHandoffNodeAttemptIds: forkHandoffProof.workerHandoffNodeAttemptIds,
+    workerHandoffNodeAttempts: forkHandoffProof.workerHandoffNodeAttempts,
+    workerHandoffReplayFixtureRefs:
+      forkHandoffProof.workerHandoffReplayFixtureRefs,
     revisionBinding,
     rollbackRevisionBinding: previousRevisionBinding,
     rollbackRestoreCanary: candidate.rollbackRestoreCanary,
@@ -2808,6 +2984,16 @@ export function applyWorkflowHarnessActivationCandidate(
                 revisionBinding,
                 workerBindingRegistryRecord,
                 workerAttachReceipt,
+                workerAttachLifecycle: forkHandoffProof.workerAttachLifecycle,
+                workerSessionRecord: forkHandoffProof.workerSessionRecord,
+                workerLaunchEnvelopes: forkHandoffProof.workerLaunchEnvelopes,
+                workerHandoffReceipts: forkHandoffProof.workerHandoffReceipts,
+                workerHandoffNodeAttemptIds:
+                  forkHandoffProof.workerHandoffNodeAttemptIds,
+                workerHandoffNodeAttempts:
+                  forkHandoffProof.workerHandoffNodeAttempts,
+                workerHandoffReplayFixtureRefs:
+                  forkHandoffProof.workerHandoffReplayFixtureRefs,
               }
             : workflow.metadata.harness,
           workerHarnessBinding: workerBinding,
@@ -6740,6 +6926,9 @@ function harnessMetadata(options: {
   workerSessionRecord?: WorkflowHarnessWorkerSessionRecord;
   workerLaunchEnvelopes?: WorkflowHarnessWorkerLaunchEnvelope[];
   workerHandoffReceipts?: WorkflowHarnessWorkerHandoffReceipt[];
+  workerHandoffNodeAttemptIds?: string[];
+  workerHandoffNodeAttempts?: WorkflowHarnessNodeAttemptRecord[];
+  workerHandoffReplayFixtureRefs?: string[];
   canaryExecutionBoundary?: WorkflowHarnessCanaryExecutionBoundary;
   canaryExecutionBoundaries?: WorkflowHarnessCanaryExecutionBoundary[];
 }): WorkflowHarnessMetadata {
@@ -6766,6 +6955,9 @@ function harnessMetadata(options: {
     workerSessionRecord: options.workerSessionRecord,
     workerLaunchEnvelopes: options.workerLaunchEnvelopes,
     workerHandoffReceipts: options.workerHandoffReceipts,
+    workerHandoffNodeAttemptIds: options.workerHandoffNodeAttemptIds,
+    workerHandoffNodeAttempts: options.workerHandoffNodeAttempts,
+    workerHandoffReplayFixtureRefs: options.workerHandoffReplayFixtureRefs,
     canaryExecutionBoundary: options.canaryExecutionBoundary,
     canaryExecutionBoundaries: options.canaryExecutionBoundaries,
     validationGates: [
