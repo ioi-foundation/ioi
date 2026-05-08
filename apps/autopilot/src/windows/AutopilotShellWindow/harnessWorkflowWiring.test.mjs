@@ -172,6 +172,12 @@ assert.match(
 );
 
 assert.match(
+  `${graphTypes}\n${workflowComposer}\n${guiHarnessValidation}\n${guiHarnessContract}`,
+  /(?=[\s\S]*WorkflowHarnessActivationGateCollectEvidenceClickProof)(?=[\s\S]*runHarnessActivationGateCollectEvidenceClickProbe)(?=[\s\S]*activationGateCollectEvidenceClickProof)(?=[\s\S]*activationGateReplayFixtureRefs)(?=[\s\S]*selectedHarnessActivationGateId === "replay-fixtures")(?=[\s\S]*__AUTOPILOT_HARNESS_REPLAY_GATE_CLICK_RESULT)(?=[\s\S]*workflow-harness-gate-action-replay-fixtures)(?=[\s\S]*harness_activation_gate_collect_evidence_click_proof)(?=[\s\S]*harness_activation_gate_collect_evidence_click_proof_present)/,
+  "Activation replay fixture gate actions should have live click proof that collects persisted replay-gate evidence.",
+);
+
+assert.match(
   workflowComposer,
   /(?=[\s\S]*handleSelectHarnessReceiptRef[\s\S]*setSelectedHarnessReceiptRef\(receiptRef\))(?=[\s\S]*receiptRef: selectedHarnessReceiptRef)/,
   "Selecting a harness receipt should update the workbench deep link state.",
@@ -217,6 +223,12 @@ assert.match(
   `${workflowComposer}\n${guiHarnessValidation}\n${guiHarnessContract}`,
   /(?=[\s\S]*VITE_AUTOPILOT_HARNESS_PROMOTION_LIVE_GUI)(?=[\s\S]*HARNESS_PROMOTION_LIVE_GUI_SCRIPT)(?=[\s\S]*__AUTOPILOT_HARNESS_PROMOTION_LIVE_GUI_RESULT)(?=[\s\S]*handleHarnessPromotionLiveGuiProbe)(?=[\s\S]*runHarnessDeepLinkReplayProbe)(?=[\s\S]*runHarnessColdStartDeepLinkRestoreProbe)(?=[\s\S]*runHarnessActivationBlockerDeepLinkProbe)(?=[\s\S]*runHarnessActivationGateDeepLinkProbe)(?=[\s\S]*default-agent-harness-live-gui-promotion-proof\.workflow\.json)(?=[\s\S]*collectPromotionTransitionLiveGuiInteractionProof)(?=[\s\S]*promotion-transition-live-gui-interaction-proof\.json)(?=[\s\S]*routeStatefulDeepLinks)(?=[\s\S]*routeStatefulActiveRuntimeBindingDeepLinks)(?=[\s\S]*routeStatefulRevisionBindingDeepLink)(?=[\s\S]*routeStatefulActivationBlockerDeepLink)(?=[\s\S]*routeStatefulActivationAuditDeepLink)(?=[\s\S]*routeStatefulActivationGateDeepLink)(?=[\s\S]*routeStatefulActivationGateReferenceDeepLinks)(?=[\s\S]*activationGateActionWorkbench)(?=[\s\S]*activationGateActionClickProof)(?=[\s\S]*revisionBindingKind)(?=[\s\S]*revisionBindingRef)(?=[\s\S]*activationBlockerRef)(?=[\s\S]*activationAuditEventId)(?=[\s\S]*activationGateId)(?=[\s\S]*activationGateEvidenceRef)(?=[\s\S]*activationGateReceiptRef)(?=[\s\S]*activationGateReplayFixtureRef)(?=[\s\S]*deepLinkReplayProof)(?=[\s\S]*coldStartDeepLinkRestoreProof)(?=[\s\S]*activationBlockerDeepLinkProof)(?=[\s\S]*activationGateDeepLinkProof)(?=[\s\S]*routeStatefulDeepLinkReplay)(?=[\s\S]*coldStartDeepLinkRestore)(?=[\s\S]*harness_route_stateful_deep_link_replay)(?=[\s\S]*harness_route_stateful_deep_link_replay_present)(?=[\s\S]*harness_cold_start_deep_link_restore)(?=[\s\S]*harness_cold_start_deep_link_restore_present)(?=[\s\S]*harness_revision_binding_deep_link_restore)(?=[\s\S]*harness_revision_binding_deep_link_restore_present)(?=[\s\S]*harness_activation_blocker_deep_link_restore)(?=[\s\S]*harness_activation_blocker_deep_link_restore_present)(?=[\s\S]*harness_activation_audit_deep_link_restore)(?=[\s\S]*harness_activation_audit_deep_link_restore_present)(?=[\s\S]*harness_activation_gate_deep_link_restore)(?=[\s\S]*harness_activation_gate_deep_link_restore_present)(?=[\s\S]*harness_activation_gate_ref_deep_link_restore)(?=[\s\S]*harness_activation_gate_ref_deep_link_restore_present)(?=[\s\S]*harness_activation_gate_action_workbench)(?=[\s\S]*harness_activation_gate_action_workbench_present)(?=[\s\S]*harness_activation_gate_action_click_proof)(?=[\s\S]*harness_activation_gate_action_click_proof_present)(?=[\s\S]*harness_promotion_transition_live_gui_interaction)(?=[\s\S]*harness_promotion_transition_live_gui_interaction_present)(?=[\s\S]*harness_chat_runtime_binding)(?=[\s\S]*harness_chat_runtime_binding_matches_workflow_activation)(?=[\s\S]*HarnessDefaultRuntimeBinding)(?=[\s\S]*harnessDefaultRuntimeBindingMatchedCount)(?=[\s\S]*promotionTransitionLiveGui)/,
   "Autopilot GUI harness validation should launch the live Workflows surface and require saved-workflow, screenshot, route-stateful active binding, and replay-hydration proof for promotion controls.",
+);
+
+assert.match(
+  `${workflowComposer}\n${guiHarnessValidation}\n${guiHarnessContract}`,
+  /(?=[\s\S]*activationGateCollectEvidenceClickProof)(?=[\s\S]*activationGateCollectEvidenceClickPassed)(?=[\s\S]*activationGateCollectEvidenceCommand)(?=[\s\S]*activationGateCollectEvidenceReplayGateId)(?=[\s\S]*harness_activation_gate_collect_evidence_click_proof)(?=[\s\S]*harness_activation_gate_collect_evidence_click_proof_present)/,
+  "Live promotion GUI validation should include replay-fixture collect-evidence gate click proof in the retained evidence contract.",
 );
 
 assert.match(

@@ -1848,6 +1848,48 @@ export interface WorkflowHarnessActivationGateActionClickProof {
   blockers: string[];
 }
 
+export interface WorkflowHarnessActivationGateCollectEvidenceClickProof {
+  schemaVersion:
+    | "workflow.harness.activation-gate-collect-evidence-click-proof.v1"
+    | string;
+  method: string;
+  generatedAtMs: number;
+  gateId: string | null;
+  action: {
+    id: string | null;
+    kind: string | null;
+    impact: string | null;
+    command: string | null;
+    disabled: boolean;
+  };
+  before: {
+    hash: string | null;
+    railTestId: string | null;
+    selectedState: Record<string, string>;
+  };
+  replayGate: {
+    gateId: string | null;
+    gateStatus: string | null;
+    activationGateImpact: string | null;
+    scopeKind: string | null;
+    targetId: string | null;
+    totalFixtures: number;
+    replayFixtureRefs: string[];
+    receiptRefs: string[];
+    evidenceRefs: string[];
+    persistedReplayGateCount: number;
+    persistedReplayDrillCount: number;
+  };
+  after: {
+    railTestId: string | null;
+    statusMessage: string | null;
+    inspectorState: Record<string, string>;
+  };
+  clicked: boolean;
+  passed: boolean;
+  blockers: string[];
+}
+
 export interface WorkflowHarnessColdStartDeepLinkRestoreCase
   extends WorkflowHarnessDeepLinkReplayCase {
   initialHash: string;
@@ -2075,6 +2117,7 @@ export interface WorkflowHarnessMetadata {
   activationBlockerDeepLinkProof?: WorkflowHarnessDeepLinkReplayProof;
   activationGateDeepLinkProof?: WorkflowHarnessDeepLinkReplayProof;
   activationGateActionClickProof?: WorkflowHarnessActivationGateActionClickProof;
+  activationGateCollectEvidenceClickProof?: WorkflowHarnessActivationGateCollectEvidenceClickProof;
   canaryExecutionBoundary?: WorkflowHarnessCanaryExecutionBoundary;
   canaryExecutionBoundaries?: WorkflowHarnessCanaryExecutionBoundary[];
   validationGates: string[];

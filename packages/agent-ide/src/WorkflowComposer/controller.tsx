@@ -64,6 +64,7 @@ import type {
   WorkflowBottomPanel,
   WorkflowConnectionClass,
   WorkflowHarnessActivationGateActionClickProof,
+  WorkflowHarnessActivationGateCollectEvidenceClickProof,
   WorkflowHarnessComponentKind,
   WorkflowHarnessColdStartDeepLinkRestoreProof,
   WorkflowHarnessForkActivationCandidate,
@@ -178,6 +179,7 @@ import {
   workflowNodeRunChildLineage,
   workflowNodeName,
   workflowTimeLabel,
+  workflowUniqueReplayFixtureRefs,
 } from "../runtime/workflow-rail-model";
 import {
   BOTTOM_TABS,
@@ -719,6 +721,29 @@ function readWorkflowStatusMessage(): string | null {
       .querySelector('[data-testid="workflow-status-message"]')
       ?.textContent?.trim() || null
   );
+}
+
+type HarnessReplayGateClickResult = {
+  gateId: string;
+  gateStatus: string;
+  activationGateImpact: string;
+  scopeKind: string;
+  targetId: string;
+  totalFixtures: number;
+  replayFixtureRefs: string[];
+  receiptRefs: string[];
+  evidenceRefs: string[];
+  replayGateCount: number;
+  replayDrillCount: number;
+  statusMessage: string;
+};
+
+function readHarnessReplayGateClickResult(): HarnessReplayGateClickResult | null {
+  if (typeof window === "undefined") return null;
+  const result = (window as any).__AUTOPILOT_HARNESS_REPLAY_GATE_CLICK_RESULT;
+  return result && typeof result === "object"
+    ? (result as HarnessReplayGateClickResult)
+    : null;
 }
 
 function harnessDeepLinkProbeCasesForWorkflow(
@@ -2515,6 +2540,160 @@ export function useWorkflowComposerController({
     },
     [applyHarnessWorkbenchDeepLink],
   );
+  const runHarnessActivationGateCollectEvidenceClickProbe = useCallback(
+    async (
+      generatedAtMs: number,
+    ): Promise<WorkflowHarnessActivationGateCollectEvidenceClickProof> => {
+      const selectedRailTestId = "workflow-harness-activation-gate-inspector";
+      const blockers: string[] = [];
+      const originalHash = typeof window === "undefined" ? "" : window.location.hash;
+      const link = {
+        panel: "settings" as WorkflowRightPanel,
+        activationGateId: "replay-fixtures",
+      };
+      const hash = encodeHarnessWorkbenchDeepLink(link);
+      const parsed = parseHarnessWorkbenchDeepLink(hash);
+      let beforeSelectedState: Record<string, string> = {};
+      let gateId: string | null = null;
+      let actionId: string | null = null;
+      let actionKind: string | null = null;
+      let actionImpact: string | null = null;
+      let actionCommand: string | null = null;
+      let actionDisabled = false;
+      let clicked = false;
+      let replayGateResult: HarnessReplayGateClickResult | null = null;
+      let afterRailTestId: string | null = null;
+      let afterStatusMessage: string | null = null;
+      let afterInspectorState: Record<string, string> = {};
+      try {
+        if (typeof window !== "undefined") {
+          (window as any).__AUTOPILOT_HARNESS_REPLAY_GATE_CLICK_RESULT = null;
+        }
+        if (!parsed) {
+          blockers.push("activation_gate_collect_evidence_hash_parse_failed");
+        } else {
+          writeHarnessWorkbenchDeepLink(hash);
+          applyHarnessWorkbenchDeepLink(parsed);
+        }
+        await nextHarnessWorkbenchFrame();
+        writeHarnessWorkbenchDeepLink(hash);
+        await nextHarnessWorkbenchFrame();
+        beforeSelectedState = readHarnessRailSelectedState(selectedRailTestId);
+        gateId = beforeSelectedState["data-selected-activation-gate-id"] || null;
+        actionId = beforeSelectedState["data-gate-action-id"] || null;
+        actionKind = beforeSelectedState["data-gate-action-kind"] || null;
+        actionImpact = beforeSelectedState["data-gate-action-impact"] || null;
+        actionCommand = beforeSelectedState["data-gate-action-command"] || null;
+        actionDisabled = beforeSelectedState["data-gate-action-disabled"] === "true";
+        const actionButton = document.querySelector<HTMLButtonElement>(
+          '[data-testid="workflow-harness-activation-gate-action"]',
+        );
+        if (!actionButton) {
+          blockers.push("activation_gate_collect_evidence_button_missing");
+        } else if (actionButton.disabled || actionDisabled) {
+          blockers.push("activation_gate_collect_evidence_button_disabled");
+        } else {
+          actionButton.click();
+          clicked = true;
+          for (let attempt = 0; attempt < 40; attempt += 1) {
+            await nextHarnessWorkbenchFrame();
+            replayGateResult = readHarnessReplayGateClickResult();
+            if (replayGateResult?.gateId) break;
+          }
+          if (parsed) {
+            applyHarnessWorkbenchDeepLink(parsed);
+            writeHarnessWorkbenchDeepLink(hash);
+            await nextHarnessWorkbenchFrame();
+            await nextHarnessWorkbenchFrame();
+            afterInspectorState = readHarnessRailSelectedState(selectedRailTestId);
+          }
+        }
+      } catch (error) {
+        blockers.push(
+          `activation_gate_collect_evidence_click_failed:${errorMessage(error)}`,
+        );
+      } finally {
+        writeHarnessWorkbenchDeepLink(originalHash);
+      }
+      afterRailTestId = readWorkflowRightRailTestId();
+      afterStatusMessage = readWorkflowStatusMessage();
+      if (gateId !== "replay-fixtures") {
+        blockers.push("activation_gate_collect_evidence_gate_not_selected");
+      }
+      if (!actionId?.startsWith("activation-gate-action:replay-fixtures:")) {
+        blockers.push("activation_gate_collect_evidence_action_id_missing");
+      }
+      if (actionKind !== "run_replay_gate") {
+        blockers.push("activation_gate_collect_evidence_kind_not_replay_gate");
+      }
+      if (actionImpact !== "collect_evidence") {
+        blockers.push("activation_gate_collect_evidence_impact_not_collect");
+      }
+      if (actionCommand !== "workflow-harness-gate-action-replay-fixtures") {
+        blockers.push("activation_gate_collect_evidence_command_mismatch");
+      }
+      if (!clicked) blockers.push("activation_gate_collect_evidence_not_dispatched");
+      if (!replayGateResult?.gateId) {
+        blockers.push("activation_gate_collect_evidence_result_missing");
+      }
+      if ((replayGateResult?.totalFixtures ?? 0) <= 0) {
+        blockers.push("activation_gate_collect_evidence_no_fixtures");
+      }
+      if ((replayGateResult?.replayGateCount ?? 0) <= 0) {
+        blockers.push("activation_gate_collect_evidence_not_persisted");
+      }
+      if (
+        afterInspectorState["data-selected-activation-gate-id"] !== "replay-fixtures"
+      ) {
+        blockers.push("activation_gate_collect_evidence_inspector_not_restored");
+      }
+      if (Number(afterInspectorState["data-evidence-ref-count"] ?? 0) <= 0) {
+        blockers.push("activation_gate_collect_evidence_refs_not_visible");
+      }
+      return {
+        schemaVersion:
+          "workflow.harness.activation-gate-collect-evidence-click-proof.v1",
+        method:
+          "same-session Workflows bridge restores the replay fixtures activation gate, clicks its replay gate action, and verifies persisted replay gate evidence plus restored inspector metadata",
+        generatedAtMs,
+        gateId,
+        action: {
+          id: actionId,
+          kind: actionKind,
+          impact: actionImpact,
+          command: actionCommand,
+          disabled: actionDisabled,
+        },
+        before: {
+          hash,
+          railTestId: selectedRailTestId,
+          selectedState: beforeSelectedState,
+        },
+        replayGate: {
+          gateId: replayGateResult?.gateId ?? null,
+          gateStatus: replayGateResult?.gateStatus ?? null,
+          activationGateImpact: replayGateResult?.activationGateImpact ?? null,
+          scopeKind: replayGateResult?.scopeKind ?? null,
+          targetId: replayGateResult?.targetId ?? null,
+          totalFixtures: replayGateResult?.totalFixtures ?? 0,
+          replayFixtureRefs: replayGateResult?.replayFixtureRefs ?? [],
+          receiptRefs: replayGateResult?.receiptRefs ?? [],
+          evidenceRefs: replayGateResult?.evidenceRefs ?? [],
+          persistedReplayGateCount: replayGateResult?.replayGateCount ?? 0,
+          persistedReplayDrillCount: replayGateResult?.replayDrillCount ?? 0,
+        },
+        after: {
+          railTestId: afterRailTestId,
+          statusMessage: afterStatusMessage,
+          inspectorState: afterInspectorState,
+        },
+        clicked,
+        passed: blockers.length === 0,
+        blockers,
+      };
+    },
+    [applyHarnessWorkbenchDeepLink],
+  );
   const displayEdges = useMemo(() => {
     const edgeWithIssueData = (edge: ReactFlowEdge, sourceEdgeId: string) => {
       const issue = canvasEdgeIssues.get(sourceEdgeId);
@@ -3607,22 +3786,42 @@ export function useWorkflowComposerController({
   const handleRunHarnessReplayGate = useCallback(() => {
     const harnessDefaultRuntimeDispatchProof =
       currentProjectFile.metadata.harness?.defaultRuntimeDispatchProof;
+    const activationGateReplayFixtureRefs =
+      selectedHarnessActivationGateId === "replay-fixtures"
+        ? workflowUniqueReplayFixtureRefs([
+            ...(currentProjectFile.metadata.harness?.replayDrills ?? []).map(
+              (drill) => drill.replayFixtureRef,
+            ),
+            ...(currentProjectFile.metadata.harness?.replayGates ?? []).flatMap(
+              (gate) => gate.replayFixtureRefs,
+            ),
+            ...(currentProjectFile.metadata.harness?.promotionClusters ?? []).flatMap(
+              (cluster) => cluster.replayGateProof?.replayFixtureRefs ?? [],
+            ),
+            ...(harnessDefaultRuntimeDispatchProof?.replayFixtureRefs ?? []),
+            selectedHarnessActivationGateReplayFixtureRef,
+          ])
+        : [];
+    const harnessGroupReplayFixtureRefs =
+      selectedHarnessGroup?.deepLinks.replayFixtureRefs ?? [];
+    const fallbackReplayFixtureRefs = [
+      ...(harnessDefaultRuntimeDispatchProof?.replayFixtureRefs ?? []),
+      ...currentProjectFile.nodes.flatMap((node) =>
+        node.runtimeBinding?.replayEnvelope?.fixtureRef
+          ? [node.runtimeBinding.replayEnvelope.fixtureRef]
+          : [],
+      ),
+      ...(selectedHarnessReplayFixtureRef
+        ? [selectedHarnessReplayFixtureRef]
+        : []),
+    ];
     const replayFixtureRefs = Array.from(
       new Set(
-        (
-          selectedHarnessGroup?.deepLinks.replayFixtureRefs.length
-            ? selectedHarnessGroup.deepLinks.replayFixtureRefs
-            : [
-                ...(harnessDefaultRuntimeDispatchProof?.replayFixtureRefs ?? []),
-                ...currentProjectFile.nodes.flatMap((node) =>
-                  node.runtimeBinding?.replayEnvelope?.fixtureRef
-                    ? [node.runtimeBinding.replayEnvelope.fixtureRef]
-                    : [],
-                ),
-                ...(selectedHarnessReplayFixtureRef
-                  ? [selectedHarnessReplayFixtureRef]
-                  : []),
-              ]
+        (activationGateReplayFixtureRefs.length
+          ? activationGateReplayFixtureRefs
+          : harnessGroupReplayFixtureRefs.length
+            ? harnessGroupReplayFixtureRefs
+            : fallbackReplayFixtureRefs
         ).filter((ref): ref is string => typeof ref === "string" && ref.length > 0),
       ),
     );
@@ -3642,15 +3841,23 @@ export function useWorkflowComposerController({
           harnessDefaultRuntimeDispatchProof?.authorityToolingProof ?? null,
       }),
     );
+    const replayGateScopeKind = activationGateReplayFixtureRefs.length
+      ? "activation_candidate"
+      : selectedHarnessGroup
+        ? "harness_group"
+        : "activation_candidate";
+    const replayGateTargetId = activationGateReplayFixtureRefs.length
+      ? currentProjectFile.metadata.harness?.activationId ?? currentProjectFile.metadata.id
+      : selectedHarnessGroup
+        ? String(selectedHarnessGroup.groupId)
+        : currentProjectFile.metadata.harness?.activationId ??
+          currentProjectFile.metadata.id;
     const result = executeWorkflowHarnessReplayGate(
       currentProjectFile,
       replayInspections,
       {
-        scopeKind: selectedHarnessGroup ? "harness_group" : "activation_candidate",
-        targetId: selectedHarnessGroup
-          ? String(selectedHarnessGroup.groupId)
-          : currentProjectFile.metadata.harness?.activationId ??
-            currentProjectFile.metadata.id,
+        scopeKind: replayGateScopeKind,
+        targetId: replayGateTargetId,
       },
     );
     setWorkflow(result.workflow);
@@ -3666,18 +3873,37 @@ export function useWorkflowComposerController({
     setReadinessResult(readiness);
     setRightPanel("outputs");
     setBottomPanel("selection");
+    const replayGateStatusMessage = result.executed
+      ? `Replay gate passed: ${result.gate.totalFixtures} fixtures`
+      : `Replay gate blocked by ${result.gate.blockingReplayFixtureRefs.length} fixture${
+          result.gate.blockingReplayFixtureRefs.length === 1 ? "" : "s"
+        }`;
+    if (HARNESS_PROMOTION_LIVE_GUI_SCRIPT && typeof window !== "undefined") {
+      (window as any).__AUTOPILOT_HARNESS_REPLAY_GATE_CLICK_RESULT = {
+        gateId: result.gate.gateId,
+        gateStatus: result.gate.gateStatus,
+        activationGateImpact: result.gate.activationGateImpact,
+        scopeKind: result.gate.scopeKind,
+        targetId: result.gate.targetId,
+        totalFixtures: result.gate.totalFixtures,
+        replayFixtureRefs: result.gate.replayFixtureRefs,
+        receiptRefs: result.gate.receiptRefs,
+        evidenceRefs: result.gate.evidenceRefs,
+        replayGateCount: result.workflow.metadata.harness?.replayGates?.length ?? 0,
+        replayDrillCount: result.workflow.metadata.harness?.replayDrills?.length ?? 0,
+        statusMessage: replayGateStatusMessage,
+      } satisfies HarnessReplayGateClickResult;
+    }
     setStatusMessage(
-      result.executed
-        ? `Replay gate passed: ${result.gate.totalFixtures} fixtures`
-        : `Replay gate blocked by ${result.gate.blockingReplayFixtureRefs.length} fixture${
-            result.gate.blockingReplayFixtureRefs.length === 1 ? "" : "s"
-          }`,
+      replayGateStatusMessage,
     );
   }, [
     currentProjectFile,
     lastRunResult,
     nodeFixturesById,
     proposals,
+    selectedHarnessActivationGateId,
+    selectedHarnessActivationGateReplayFixtureRef,
     selectedHarnessGroup,
     selectedHarnessReplayFixtureRef,
     selectedRunId,
@@ -5479,6 +5705,8 @@ export function useWorkflowComposerController({
           activationGateProofWorkflow,
           nowMs + 130,
         );
+      const activationGateCollectEvidenceClickProof =
+        await runHarnessActivationGateCollectEvidenceClickProbe(nowMs + 135);
       const harnessMetadata = workflow.metadata.harness;
       if (!harnessMetadata) {
         throw new Error("Harness deep-link replay proof requires harness metadata.");
@@ -5494,6 +5722,7 @@ export function useWorkflowComposerController({
             activationBlockerDeepLinkProof,
             activationGateDeepLinkProof,
             activationGateActionClickProof,
+            activationGateCollectEvidenceClickProof,
           },
           updatedAtMs: Date.now(),
         },
@@ -5527,6 +5756,12 @@ export function useWorkflowComposerController({
           activationGateDeepLinkProof.cases.map((restoreCase) => restoreCase.id),
         activationGateActionClickPassed: activationGateActionClickProof.passed,
         activationGateActionCommand: activationGateActionClickProof.action.command,
+        activationGateCollectEvidenceClickPassed:
+          activationGateCollectEvidenceClickProof.passed,
+        activationGateCollectEvidenceCommand:
+          activationGateCollectEvidenceClickProof.action.command,
+        activationGateCollectEvidenceReplayGateId:
+          activationGateCollectEvidenceClickProof.replayGate.gateId,
         selectedSelector:
           workflow.metadata.harness?.runtimeSelectorDecision?.selectedSelector,
         defaultAuthorityTransferred:
@@ -5547,6 +5782,7 @@ export function useWorkflowComposerController({
     loadWorkflowProject,
     runHarnessActivationBlockerDeepLinkProbe,
     runHarnessActivationGateActionClickProbe,
+    runHarnessActivationGateCollectEvidenceClickProbe,
     runHarnessActivationGateDeepLinkProbe,
     runHarnessColdStartDeepLinkRestoreProbe,
     runHarnessDeepLinkReplayProbe,
