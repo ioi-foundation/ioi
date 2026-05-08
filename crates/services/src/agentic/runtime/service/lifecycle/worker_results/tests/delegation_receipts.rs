@@ -48,6 +48,15 @@ async fn delegated_child_persists_harness_worker_session_record_for_launch_and_r
     assert!(record.persisted_in_runtime_checkpoint);
     assert!(record.restored_from_persisted_session);
     assert!(record.persistence_blockers.is_empty());
+    assert!(record.launch_authority_ready);
+    assert!(record.launch_authority_blockers.is_empty());
+    assert_eq!(
+        record.launch_authority_source,
+        "persisted_harness_worker_session_record"
+    );
+    assert!(record.rollback_handoff_ready);
+    assert!(record.rollback_handoff_blockers.is_empty());
+    assert_eq!(record.rollback_handoff_target, record.rollback_target);
     assert!(record.worker_id.ends_with(&record.session_id));
     assert!(record
         .record_persistence_key
@@ -69,6 +78,86 @@ async fn delegated_child_persists_harness_worker_session_record_for_launch_and_r
         .expect("harness worker session restore should succeed")
         .expect("harness worker session restore should find record");
     assert!(restored.restored_from_persisted_session);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn delegated_child_blocks_tampered_live_harness_worker_session_launch_authority() {
+    let (tx, _rx) = tokio::sync::broadcast::channel(16);
+    let (service, _temp_dir) = build_test_service(tx);
+    let service = service.with_harness_worker_binding_registry_record(
+        bound_default_harness_worker_binding_registry_record(
+            "harness-selector:test-worker-session-tamper",
+            "harness-default-dispatch:test-worker-session-tamper:read-only",
+            "harness-live-promotion-readiness:test-worker-session-tamper",
+            "promote_blessed_workflow_default_for_non_mutating_turn",
+        ),
+    );
+    let mut state = IAVLTree::new(HashCommitmentScheme::new());
+    let mut parent_state = build_parent_state();
+
+    let spawned = spawn_delegated_child_session(
+        &service,
+        &mut state,
+        &mut parent_state,
+        [0x59; 32],
+        "Inspect the repo and return a bounded context brief.",
+        8,
+        None,
+        Some("context_worker"),
+        Some("repo_context_brief"),
+        None,
+        None,
+        None,
+        None,
+        4,
+        0,
+    )
+    .await
+    .expect("delegated child should spawn");
+
+    let mut record = load_harness_worker_session_record(&state, spawned.child_session_id)
+        .expect("harness worker session lookup should succeed")
+        .expect("harness worker session should exist");
+    record.activation_id = "activation:tampered".to_string();
+    record.launch_authority_ready = true;
+    record.launch_authority_blockers.clear();
+    let tampered_bytes =
+        codec::to_bytes_canonical(&record).expect("tampered session record should encode");
+    state
+        .insert(
+            &get_harness_worker_session_key(&spawned.child_session_id),
+            &tampered_bytes,
+        )
+        .expect("tampered session key should persist");
+    state
+        .insert(
+            &get_harness_worker_session_record_key(&record.session_record_id),
+            &tampered_bytes,
+        )
+        .expect("tampered session record index should persist");
+
+    let error = spawn_delegated_child_session(
+        &service,
+        &mut state,
+        &mut parent_state,
+        [0x59; 32],
+        "Inspect the repo and return a bounded context brief.",
+        8,
+        None,
+        Some("context_worker"),
+        Some("repo_context_brief"),
+        None,
+        None,
+        None,
+        None,
+        4,
+        0,
+    )
+    .await
+    .expect_err("tampered persisted live worker session authority should block launch reuse");
+    let message = error.to_string();
+    assert!(message.contains("worker_session_launch_authority_blocked"));
+    assert!(message.contains("worker_session_activation_mismatch"));
 }
 
 #[tokio::test(flavor = "current_thread")]

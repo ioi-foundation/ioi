@@ -31,9 +31,10 @@ use ioi_memory::MemoryRuntime;
 use ioi_types::app::{
     ArtifactGenerationSummary, ArtifactQualityScorecard, ArtifactRepairSummary,
     CodingVerificationScorecard, ComputerUsePerceptionSummary, ComputerUseRecoverySummary,
-    ComputerUseVerificationScorecard, HarnessWorkerSessionRecord, KernelEvent,
-    PatchSynthesisSummary, ResearchVerificationScorecard, WorkloadParentPlaybookReceipt,
-    WorkloadReceipt, WorkloadReceiptEvent, WorkloadWorkerReceipt,
+    ComputerUseVerificationScorecard, HarnessExecutionMode, HarnessWorkerBindingStatus,
+    HarnessWorkerSessionRecord, HarnessWorkerSessionStatus, KernelEvent, PatchSynthesisSummary,
+    ResearchVerificationScorecard, WorkloadParentPlaybookReceipt, WorkloadReceipt,
+    WorkloadReceiptEvent, WorkloadWorkerReceipt,
 };
 use ioi_types::codec;
 use ioi_types::error::TransactionError;

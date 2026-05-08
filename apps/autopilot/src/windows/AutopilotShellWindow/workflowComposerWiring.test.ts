@@ -991,7 +991,7 @@ assert.match(
 
 assert.match(
   workflowRailPanel,
-  /railSearchQuery[\s\S]*workflowRailSearchResults\(workflow, tests, normalizedRailSearch\)[\s\S]*workflow-rail-search-input[\s\S]*workflow-rail-search-results[\s\S]*onInspectNode/,
+  /railSearchQuery[\s\S]*workflowRailSearchResults\(\s*workflow,\s*tests,\s*normalizedRailSearch,\s*\)[\s\S]*workflow-rail-search-input[\s\S]*workflow-rail-search-results[\s\S]*onInspectNode/,
   "Search rail should index nodes, tests, and outputs and let users jump to matching nodes",
 );
 
@@ -1357,7 +1357,7 @@ assert.match(
 
 assert.match(
   graphTypes,
-  /WorkflowToolBindingKind = "plugin_tool" \| "mcp_tool" \| "workflow_tool"[\s\S]*workflowTool\?:/,
+  /WorkflowToolBindingKind =\s*\|\s*"plugin_tool"\s*\|\s*"mcp_tool"\s*\|\s*"workflow_tool"[\s\S]*workflowTool\?:/,
   "Workflow tool bindings should include a typed workflow_tool variant",
 );
 

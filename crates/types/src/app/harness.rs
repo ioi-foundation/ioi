@@ -981,6 +981,12 @@ pub struct HarnessWorkerSessionRecord {
     pub restored_from_persisted_session: bool,
     pub runtime_checkpoint_source: String,
     pub persistence_blockers: Vec<String>,
+    pub launch_authority_ready: bool,
+    pub launch_authority_blockers: Vec<String>,
+    pub launch_authority_source: String,
+    pub rollback_handoff_ready: bool,
+    pub rollback_handoff_blockers: Vec<String>,
+    pub rollback_handoff_target: String,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Hash)]
@@ -2636,6 +2642,16 @@ pub fn default_harness_worker_session_record(
     } else {
         blockers.clone()
     };
+    let launch_authority_blockers = if accepted {
+        vec!["worker_session_not_persisted".to_string()]
+    } else {
+        blockers.clone()
+    };
+    let rollback_handoff_blockers = if accepted {
+        vec!["worker_session_not_persisted".to_string()]
+    } else {
+        blockers.clone()
+    };
 
     HarnessWorkerSessionRecord {
         schema_version: "workflow.harness.worker-session.v1".to_string(),
@@ -2678,6 +2694,12 @@ pub fn default_harness_worker_session_record(
         restored_from_persisted_session: false,
         runtime_checkpoint_source: "runtime_state_access_harness_worker_session_record".to_string(),
         persistence_blockers,
+        launch_authority_ready: false,
+        launch_authority_blockers,
+        launch_authority_source: "persisted_harness_worker_session_record".to_string(),
+        rollback_handoff_ready: false,
+        rollback_handoff_blockers,
+        rollback_handoff_target: record.rollback_target.clone(),
     }
 }
 

@@ -2,7 +2,7 @@ use super::super::sudo::{
     incident_waiting_for_sudo_password, maybe_restore_pending_install_from_incident,
     status_mentions_sudo_password, RUNTIME_SECRET_KIND_SUDO_PASSWORD,
 };
-use super::super::worker_results::restore_harness_worker_session_record;
+use super::super::worker_results::restore_harness_worker_session_record_with_authority;
 use crate::agentic::runtime::keys::{get_approval_grant_key, get_state_key};
 use crate::agentic::runtime::runtime_secret;
 use crate::agentic::runtime::service::RuntimeAgentService;
@@ -40,7 +40,7 @@ pub async fn handle_resume(
         || agent_state.status == AgentStatus::Running
         || sudo_retry_resume
     {
-        restore_harness_worker_session_record(state, p.session_id)
+        restore_harness_worker_session_record_with_authority(service, state, p.session_id)
             .map_err(TransactionError::Invalid)?;
         agent_state.set_running();
         if sudo_retry_resume {
