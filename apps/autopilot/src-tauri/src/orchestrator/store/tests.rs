@@ -23,8 +23,41 @@ use serde_json::json;
 use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, OnceLock};
 use uuid::Uuid;
+
+fn env_var_test_lock() -> &'static Mutex<()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(()))
+}
+
+struct EnvVarGuard {
+    key: &'static str,
+    previous: Option<String>,
+    _lock: std::sync::MutexGuard<'static, ()>,
+}
+
+impl EnvVarGuard {
+    fn set(key: &'static str, value: &str) -> Self {
+        let lock = env_var_test_lock().lock().expect("env var test lock");
+        let previous = std::env::var(key).ok();
+        std::env::set_var(key, value);
+        Self {
+            key,
+            previous,
+            _lock: lock,
+        }
+    }
+}
+
+impl Drop for EnvVarGuard {
+    fn drop(&mut self) {
+        match &self.previous {
+            Some(value) => std::env::set_var(self.key, value),
+            None => std::env::remove_var(self.key),
+        }
+    }
+}
 
 fn build_session(workspace_root: &str) -> BuildArtifactSession {
     BuildArtifactSession {
@@ -411,6 +444,8 @@ fn runtime_harness_fork_activation_records_rollback_restore_canaries() {
 
 #[test]
 fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary() {
+    let _provider_gated_visible_output_guard =
+        EnvVarGuard::set(super::WORKFLOW_PROVIDER_GATED_VISIBLE_OUTPUT_ENV, "1");
     let mut task = task_without_workspace_root();
     let sid = "default-dispatch-session";
     let latest_user_turn = "Explain the runtime harness.";
@@ -565,7 +600,14 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
         "defaultAuthorityTransferred": true,
         "runtimeAuthority": "blessed_workflow_activation_default",
         "rollbackTarget": ioi_types::app::DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
-        "rollbackAvailable": true
+        "rollbackAvailable": true,
+        "livePromotionReadinessProof": selector
+            .get("livePromotionReadinessProof")
+            .cloned()
+            .unwrap_or_else(|| json!(null)),
+        "livePromotionReadinessReady": true,
+        "livePromotionReadinessBlockers": [],
+        "livePromotionReadinessPolicyDecision": "allow_default_harness_live_promotion_readiness"
     });
     let activation_id_gate_click_proof =
         super::runtime_harness_default_activation_id_gate_click_proof(sid);
@@ -745,7 +787,58 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
         binding
             .get("bindingMatched")
             .and_then(|value| value.as_bool()),
+        Some(true),
+        "binding authority blockers: {}",
+        binding
+            .get("workerBindingAuthorityBlockers")
+            .cloned()
+            .unwrap_or_else(|| json!([]))
+    );
+    assert_eq!(
+        binding
+            .get("workerBindingAuthorityReady")
+            .and_then(|value| value.as_bool()),
         Some(true)
+    );
+    assert_eq!(
+        binding
+            .get("workerBindingAuthorityBlockers")
+            .and_then(|value| value.as_array())
+            .map(Vec::is_empty),
+        Some(true)
+    );
+    assert_eq!(
+        binding
+            .get("livePromotionReadinessProofIdsMatch")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        binding
+            .get("invalidForkLiveActivationBlocked")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        binding
+            .get("workerBinding")
+            .and_then(|value| value.get("authorityBindingReady"))
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        binding
+            .get("workerBinding")
+            .and_then(|value| value.get("selectorDecisionId"))
+            .and_then(|value| value.as_str()),
+        selector.get("decisionId").and_then(|value| value.as_str())
+    );
+    assert_eq!(
+        binding
+            .get("workerBinding")
+            .and_then(|value| value.get("defaultDispatchId"))
+            .and_then(|value| value.as_str()),
+        dispatch.get("dispatchId").and_then(|value| value.as_str())
     );
     let clusters = dispatch
         .get("acceptedClusterIds")

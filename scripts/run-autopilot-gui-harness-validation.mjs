@@ -1,6 +1,12 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { join, resolve } from "node:path";
 
 import {
@@ -39,11 +45,14 @@ function parseArgs(argv) {
     if (arg === "--contract-only") args.contractOnly = true;
     else if (arg === "--preflight") args.preflight = true;
     else if (arg === "--run") args.run = true;
-    else if (arg === "--output-root") args.outputRoot = argv[++index] ?? args.outputRoot;
-    else if (arg === "--window-name") args.windowName = argv[++index] ?? args.windowName;
+    else if (arg === "--output-root")
+      args.outputRoot = argv[++index] ?? args.outputRoot;
+    else if (arg === "--window-name")
+      args.windowName = argv[++index] ?? args.windowName;
     else if (arg === "--window-timeout-ms")
       args.windowTimeoutMs = Number(argv[++index] ?? args.windowTimeoutMs);
-    else if (arg === "--settle-ms") args.settleMs = Number(argv[++index] ?? args.settleMs);
+    else if (arg === "--settle-ms")
+      args.settleMs = Number(argv[++index] ?? args.settleMs);
     else if (arg === "--query-settle-ms")
       args.querySettleMs = Number(argv[++index] ?? args.querySettleMs);
     else if (arg === "--query-timeout-ms")
@@ -53,8 +62,7 @@ function parseArgs(argv) {
       throw new Error(
         "--new-session-between-queries is disabled for retained GUI validation; the harness is same-session composer-only to avoid activity-bar/sidebar/top-chrome clicks.",
       );
-    }
-    else throw new Error(`Unknown argument: ${arg}`);
+    } else throw new Error(`Unknown argument: ${arg}`);
   }
   if (!args.contractOnly && !args.preflight && !args.run) args.preflight = true;
   return args;
@@ -109,10 +117,16 @@ function windowGeometry(windowId) {
 }
 
 function detectFocusedComposerClick(windowId) {
-  const imagePath = join(process.env.TMPDIR || "/tmp", `autopilot-composer-detect-${process.pid}.png`);
-  const screenshot = runShell(`import -window ${windowId} ${JSON.stringify(imagePath)}`, {
-    timeout: 20_000,
-  });
+  const imagePath = join(
+    process.env.TMPDIR || "/tmp",
+    `autopilot-composer-detect-${process.pid}.png`,
+  );
+  const screenshot = runShell(
+    `import -window ${windowId} ${JSON.stringify(imagePath)}`,
+    {
+      timeout: 20_000,
+    },
+  );
   if (screenshot.status !== 0) {
     return null;
   }
@@ -144,7 +158,8 @@ function detectFocusedComposerClick(windowId) {
       const red = Number(match[3]);
       const green = Number(match[4]);
       const blue = Number(match[5]);
-      const isComposerBlue = red <= 80 && green >= 80 && green <= 190 && blue >= 170;
+      const isComposerBlue =
+        red <= 80 && green >= 80 && green <= 190 && blue >= 170;
       const x = crop.x + localX;
       const y = crop.y + localY;
       if (x < GUI_AUTOMATION_CLICK_POLICY.safeZone.minWindowX) continue;
@@ -173,7 +188,12 @@ function detectFocusedComposerClick(windowId) {
       }
     }
 
-    if (Number.isFinite(minX) && count >= 250 && maxX - minX >= 120 && maxY - minY >= 35) {
+    if (
+      Number.isFinite(minX) &&
+      count >= 250 &&
+      maxX - minX >= 120 &&
+      maxY - minY >= 35
+    ) {
       return {
         x: Math.round((minX + maxX) / 2),
         y: Math.min(Math.max(minY + 26, minY + 14), maxY - 12),
@@ -229,7 +249,11 @@ function writeBundle(outputRoot, bundle) {
 
 function autopilotProfileRoot() {
   const profile = process.env.AUTOPILOT_DATA_PROFILE || "desktop-localgpu";
-  return join(process.env.HOME || "", ".local/share/ai.ioi.autopilot/profiles", profile);
+  return join(
+    process.env.HOME || "",
+    ".local/share/ai.ioi.autopilot/profiles",
+    profile,
+  );
 }
 
 function normalizeText(value) {
@@ -279,21 +303,26 @@ async function retainedQueryRuntimeEvidence(query, startedAtMs) {
       )
       .all(startedAtMs);
     const normalizedQuery = normalizeText(query);
-    const retainedQueries = new Set(AUTOPILOT_RETAINED_QUERIES.map((item) => normalizeText(item.query)));
+    const retainedQueries = new Set(
+      AUTOPILOT_RETAINED_QUERIES.map((item) => normalizeText(item.query)),
+    );
     for (let index = 0; index < rows.length; index += 1) {
       const row = rows[index];
       if (row.role !== "user") continue;
       const extracted = normalizeText(extractUserRequest(row.store_content));
       if (extracted !== normalizedQuery) continue;
       const concatenatedPrompt = [...retainedQueries].some(
-        (candidate) => candidate !== normalizedQuery && extracted.includes(candidate),
+        (candidate) =>
+          candidate !== normalizedQuery && extracted.includes(candidate),
       );
       const assistant = rows
         .slice(index + 1)
         .find(
           (candidate) =>
             candidate.thread_hex === row.thread_hex &&
-            ["agent", "assistant"].includes(String(candidate.role).toLowerCase()) &&
+            ["agent", "assistant"].includes(
+              String(candidate.role).toLowerCase(),
+            ) &&
             normalizeText(candidate.store_content).length > 0,
         );
       return {
@@ -333,7 +362,11 @@ async function retainedQueryRuntimeEvidence(query, startedAtMs) {
   }
 }
 
-async function waitForRetainedQueryRuntimeEvidence(query, startedAtMs, timeoutMs) {
+async function waitForRetainedQueryRuntimeEvidence(
+  query,
+  startedAtMs,
+  timeoutMs,
+) {
   const deadline = Date.now() + timeoutMs;
   let latest = {
     matchedUserRequest: false,
@@ -368,7 +401,10 @@ async function waitForRetainedQueryUserRequest(query, startedAtMs, timeoutMs) {
   };
   while (Date.now() < deadline) {
     latest = await retainedQueryRuntimeEvidence(query, startedAtMs);
-    if (latest.matchedUserRequest === true && latest.concatenatedPrompt !== true) {
+    if (
+      latest.matchedUserRequest === true &&
+      latest.concatenatedPrompt !== true
+    ) {
       return latest;
     }
     await sleep(1_000);
@@ -389,7 +425,10 @@ async function submitRetainedQuery(windowId, query, startedAtMs) {
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     typeQuery(windowId, query);
     latest = await waitForRetainedQueryUserRequest(query, startedAtMs, 6_000);
-    if (latest.matchedUserRequest === true && latest.concatenatedPrompt !== true) {
+    if (
+      latest.matchedUserRequest === true &&
+      latest.concatenatedPrompt !== true
+    ) {
       return {
         ...latest,
         submitAttempt: attempt,
@@ -493,7 +532,8 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
   };
   const noteHarnessDefaultRuntimeBinding = (binding) => {
     if (!binding || typeof binding !== "object") return;
-    if (binding.schemaVersion !== "workflow.harness.default-runtime-binding.v1") return;
+    if (binding.schemaVersion !== "workflow.harness.default-runtime-binding.v1")
+      return;
     summary.harnessDefaultRuntimeBindingCount += 1;
     const sample = {
       bindingId: binding.bindingId ?? null,
@@ -509,16 +549,57 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       rollbackTarget: binding.rollbackTarget ?? null,
       rollbackAvailable: binding.rollbackAvailable ?? null,
       bindingMatched: binding.bindingMatched ?? null,
-      selectorDecisionLinksDispatch: binding.selectorDecisionLinksDispatch ?? null,
+      selectorDecisionLinksDispatch:
+        binding.selectorDecisionLinksDispatch ?? null,
       drivesRuntimeDecision: binding.drivesRuntimeDecision ?? null,
+      dispatchDrivesRuntime: binding.dispatchDrivesRuntime ?? null,
+      selectorLivePromotionReadinessReady:
+        binding.selectorLivePromotionReadinessReady ?? null,
+      liveHandoffLivePromotionReadinessReady:
+        binding.liveHandoffLivePromotionReadinessReady ?? null,
+      dispatchLivePromotionReadinessReady:
+        binding.dispatchLivePromotionReadinessReady ?? null,
+      selectorLivePromotionReadinessProofId:
+        binding.selectorLivePromotionReadinessProofId ?? null,
+      liveHandoffLivePromotionReadinessProofId:
+        binding.liveHandoffLivePromotionReadinessProofId ?? null,
+      dispatchLivePromotionReadinessProofId:
+        binding.dispatchLivePromotionReadinessProofId ?? null,
+      livePromotionReadinessProofIdsMatch:
+        binding.livePromotionReadinessProofIdsMatch ?? null,
+      invalidForkLiveActivationBlocked:
+        binding.invalidForkLiveActivationBlocked ?? null,
+      workerBindingAuthorityReady: binding.workerBindingAuthorityReady ?? null,
+      workerBindingAuthorityBlockers: Array.isArray(
+        binding.workerBindingAuthorityBlockers,
+      )
+        ? binding.workerBindingAuthorityBlockers
+        : null,
       workerBinding:
         binding.workerBinding && typeof binding.workerBinding === "object"
           ? {
-              harnessWorkflowId: binding.workerBinding.harnessWorkflowId ?? null,
-              harnessActivationId: binding.workerBinding.harnessActivationId ?? null,
+              harnessWorkflowId:
+                binding.workerBinding.harnessWorkflowId ?? null,
+              harnessActivationId:
+                binding.workerBinding.harnessActivationId ?? null,
               harnessHash: binding.workerBinding.harnessHash ?? null,
               executionMode: binding.workerBinding.executionMode ?? null,
               source: binding.workerBinding.source ?? null,
+              selectorDecisionId:
+                binding.workerBinding.selectorDecisionId ?? null,
+              defaultDispatchId:
+                binding.workerBinding.defaultDispatchId ?? null,
+              rollbackTarget: binding.workerBinding.rollbackTarget ?? null,
+              authorityBindingReady:
+                binding.workerBinding.authorityBindingReady ?? null,
+              authorityBindingBlockers: Array.isArray(
+                binding.workerBinding.authorityBindingBlockers,
+              )
+                ? binding.workerBinding.authorityBindingBlockers
+                : null,
+              livePromotionReadinessProofId:
+                binding.workerBinding.livePromotionReadinessProofId ?? null,
+              policyDecision: binding.workerBinding.policyDecision ?? null,
             }
           : null,
     };
@@ -535,14 +616,35 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       binding.rollbackAvailable === true &&
       binding.selectorDecisionLinksDispatch === true &&
       binding.drivesRuntimeDecision === true &&
+      binding.dispatchDrivesRuntime === true &&
+      binding.selectorLivePromotionReadinessReady === true &&
+      binding.liveHandoffLivePromotionReadinessReady === true &&
+      binding.dispatchLivePromotionReadinessReady === true &&
+      binding.livePromotionReadinessProofIdsMatch === true &&
+      binding.invalidForkLiveActivationBlocked === true &&
+      binding.workerBindingAuthorityReady === true &&
+      Array.isArray(binding.workerBindingAuthorityBlockers) &&
+      binding.workerBindingAuthorityBlockers.length === 0 &&
       typeof binding.selectorDecisionId === "string" &&
       binding.selectorDecisionId.startsWith("harness-selector:") &&
       typeof binding.defaultDispatchId === "string" &&
       binding.defaultDispatchId.startsWith("harness-default-dispatch:") &&
-      binding.workerBinding?.harnessWorkflowId === DEFAULT_AGENT_HARNESS_WORKFLOW_ID &&
-      binding.workerBinding?.harnessActivationId === DEFAULT_AGENT_HARNESS_ACTIVATION_ID &&
+      binding.workerBinding?.harnessWorkflowId ===
+        DEFAULT_AGENT_HARNESS_WORKFLOW_ID &&
+      binding.workerBinding?.harnessActivationId ===
+        DEFAULT_AGENT_HARNESS_ACTIVATION_ID &&
       binding.workerBinding?.harnessHash === DEFAULT_AGENT_HARNESS_HASH &&
-      binding.workerBinding?.executionMode === "live";
+      binding.workerBinding?.executionMode === "live" &&
+      binding.workerBinding?.selectorDecisionId ===
+        binding.selectorDecisionId &&
+      binding.workerBinding?.defaultDispatchId === binding.defaultDispatchId &&
+      binding.workerBinding?.rollbackTarget ===
+        DEFAULT_AGENT_HARNESS_ACTIVATION_ID &&
+      binding.workerBinding?.authorityBindingReady === true &&
+      Array.isArray(binding.workerBinding?.authorityBindingBlockers) &&
+      binding.workerBinding.authorityBindingBlockers.length === 0 &&
+      binding.workerBinding?.livePromotionReadinessProofId ===
+        binding.selectorLivePromotionReadinessProofId;
     if (bindingMatched) {
       summary.harnessDefaultRuntimeBindingMatchedCount += 1;
     }
@@ -550,7 +652,9 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       summary.harnessDefaultRuntimeBindingSamples.push(sample);
     } else if (
       bindingMatched &&
-      !summary.harnessDefaultRuntimeBindingSamples.some((candidate) => candidate?.bindingMatched)
+      !summary.harnessDefaultRuntimeBindingSamples.some(
+        (candidate) => candidate?.bindingMatched,
+      )
     ) {
       summary.harnessDefaultRuntimeBindingSamples.shift();
       summary.harnessDefaultRuntimeBindingSamples.push(sample);
@@ -560,7 +664,10 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
     if (!coverage || typeof coverage !== "object") return;
     if (Array.isArray(coverage.providerGatedVisibleOutputScenarios)) {
       for (const scenario of coverage.providerGatedVisibleOutputScenarios) {
-        addScenario(summary.harnessModelProviderGatedVisibleOutputScenarios, scenario);
+        addScenario(
+          summary.harnessModelProviderGatedVisibleOutputScenarios,
+          scenario,
+        );
       }
     }
     if (Array.isArray(coverage.rollbackDrillScenarios)) {
@@ -576,12 +683,18 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
     if (!coverage || typeof coverage !== "object") return;
     if (Array.isArray(coverage.readOnlyCapabilityRoutingScenarios)) {
       for (const scenario of coverage.readOnlyCapabilityRoutingScenarios) {
-        addScenario(summary.harnessReadOnlyCapabilityRoutingScenarios, scenario);
+        addScenario(
+          summary.harnessReadOnlyCapabilityRoutingScenarios,
+          scenario,
+        );
       }
     }
     if (Array.isArray(coverage.noMutationScenarios)) {
       for (const scenario of coverage.noMutationScenarios) {
-        addScenario(summary.harnessReadOnlyCapabilityRoutingNoMutationScenarios, scenario);
+        addScenario(
+          summary.harnessReadOnlyCapabilityRoutingNoMutationScenarios,
+          scenario,
+        );
       }
     }
   };
@@ -628,14 +741,21 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       if (!fork || typeof fork !== "object") continue;
       if (Array.isArray(fork.activationAudit)) {
         for (const event of fork.activationAudit) {
-          noteReceiptRefArray(event?.receiptRefs, "harnessActivationAuditReceiptCount");
+          noteReceiptRefArray(
+            event?.receiptRefs,
+            "harnessActivationAuditReceiptCount",
+          );
         }
       }
       noteReceiptRefArray(
         fork.activationRollbackExecution?.receiptRefs,
         "harnessRollbackExecutionReceiptCount",
       );
-      if (hasRestoreCanaryReceiptRef(fork.activationRollbackExecution?.restoreReceiptBindingRef)) {
+      if (
+        hasRestoreCanaryReceiptRef(
+          fork.activationRollbackExecution?.restoreReceiptBindingRef,
+        )
+      ) {
         summary.harnessRollbackExecutionReceiptCount += 1;
       }
     }
@@ -643,7 +763,8 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       noteRollbackRestoreCanaryStatus(invalidCanary.status);
       noteRollbackRestoreCanaryReceipt(invalidCanary);
       if (
-        invalidCanary.schemaVersion === "workflow.harness.rollback-restore-canary.v1" &&
+        invalidCanary.schemaVersion ===
+          "workflow.harness.rollback-restore-canary.v1" &&
         invalidCanary.status === "blocked" &&
         invalidCanary.hashVerified === false &&
         Array.isArray(invalidCanary.blockers) &&
@@ -656,7 +777,8 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       noteRollbackRestoreCanaryStatus(validCanary.status);
       noteRollbackRestoreCanaryReceipt(validCanary);
       if (
-        validCanary.schemaVersion === "workflow.harness.rollback-restore-canary.v1" &&
+        validCanary.schemaVersion ===
+          "workflow.harness.rollback-restore-canary.v1" &&
         ["passed", "not_required"].includes(validCanary.status) &&
         validCanary.hashVerified === true &&
         Array.isArray(validCanary.blockers) &&
@@ -669,8 +791,12 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
 
   if (existsSync(logPath)) {
     const log = readFileSync(logPath, "utf8");
-    summary.logSignals.kernelEvents = (log.match(/\[Autopilot\] Block/g) || []).length;
-    summary.logSignals.chatProofTrace = (log.match(/\[chat-proof-trace\]/g) || []).length;
+    summary.logSignals.kernelEvents = (
+      log.match(/\[Autopilot\] Block/g) || []
+    ).length;
+    summary.logSignals.chatProofTrace = (
+      log.match(/\[chat-proof-trace\]/g) || []
+    ).length;
     summary.logSignals.sessionProjectionRefreshes = (
       log.match(/Session projection refreshed/g) || []
     ).length;
@@ -698,17 +824,24 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         if (projection.schemaVersion === "ioi.agent-runtime.substrate.v1") {
           summary.runtimeEvidenceReportCount += 1;
         }
-        if (projection.PromptAssemblyContract?.finalPromptHash || projection.PromptAssemblyContract?.final_prompt_hash) {
+        if (
+          projection.PromptAssemblyContract?.finalPromptHash ||
+          projection.PromptAssemblyContract?.final_prompt_hash
+        ) {
           summary.promptAssemblyCount += 1;
         }
         if (projection.AgentTurnState) summary.turnStateCount += 1;
         if (projection.AgentDecisionLoop) summary.decisionLoopCount += 1;
         if (projection.SessionTraceBundle) summary.traceBundleCount += 1;
         if (projection.ModelRoutingDecision) summary.modelRoutingCount += 1;
-        if (projection.ToolSelectionQualityModel) summary.toolSelectionQualityCount += 1;
+        if (projection.ToolSelectionQualityModel)
+          summary.toolSelectionQualityCount += 1;
         const knownResources = projection.TaskStateModel?.knownResources;
         if (Array.isArray(knownResources) && knownResources.length > 0) {
-          summary.selectedSourceCount = Math.max(summary.selectedSourceCount, knownResources.length);
+          summary.selectedSourceCount = Math.max(
+            summary.selectedSourceCount,
+            knownResources.length,
+          );
         }
         if (projection.AgentQualityLedger) {
           summary.qualityLedgerCount += 1;
@@ -723,7 +856,9 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         if (projection.HarnessWorkerBinding) {
           summary.harnessWorkerBindingCount += 1;
         }
-        noteHarnessDefaultRuntimeBinding(projection.HarnessDefaultRuntimeBinding);
+        noteHarnessDefaultRuntimeBinding(
+          projection.HarnessDefaultRuntimeBinding,
+        );
         if (projection.HarnessRuntimeSelectorDecision) {
           const decision = projection.HarnessRuntimeSelectorDecision;
           if (
@@ -734,7 +869,8 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             Array.isArray(decision.canaryBlockers) &&
             decision.canaryBlockers.length === 0 &&
             decision.executionMode === "live" &&
-            decision.actualRuntimeAuthority === "blessed_workflow_activation_canary" &&
+            decision.actualRuntimeAuthority ===
+              "blessed_workflow_activation_canary" &&
             decision.rollbackAvailable === true
           ) {
             summary.harnessSelectorCanaryRoutedCount += 1;
@@ -742,12 +878,14 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
           if (
             decision.schemaVersion === "workflow.harness.runtime-selector.v1" &&
             decision.selectedSelector === "blessed_workflow_live_default" &&
-            decision.productionDefaultSelector === "blessed_workflow_live_default" &&
+            decision.productionDefaultSelector ===
+              "blessed_workflow_live_default" &&
             decision.canaryEligible === true &&
             Array.isArray(decision.canaryBlockers) &&
             decision.canaryBlockers.length === 0 &&
             decision.executionMode === "live" &&
-            decision.actualRuntimeAuthority === "blessed_workflow_activation_default" &&
+            decision.actualRuntimeAuthority ===
+              "blessed_workflow_activation_default" &&
             decision.defaultPromotionGate?.enabled === true &&
             decision.defaultPromotionGate?.eligible === true &&
             decision.rollbackAvailable === true &&
@@ -784,58 +922,66 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         if (projection.HarnessShadowRun) {
           summary.harnessShadowRunCount += 1;
           if (Array.isArray(projection.HarnessShadowRun.nodeAttempts)) {
-            summary.harnessNodeAttemptCount += projection.HarnessShadowRun.nodeAttempts.length;
+            summary.harnessNodeAttemptCount +=
+              projection.HarnessShadowRun.nodeAttempts.length;
           }
           if (Array.isArray(projection.HarnessShadowRun.comparisons)) {
-            summary.harnessShadowComparisonCount += projection.HarnessShadowRun.comparisons.length;
+            summary.harnessShadowComparisonCount +=
+              projection.HarnessShadowRun.comparisons.length;
           }
           summary.harnessBlockingDivergenceCount += Number(
             projection.HarnessShadowRun.blockingDivergenceCount ?? 0,
           );
         }
         if (Array.isArray(projection.HarnessGatedClusterRuns)) {
-          summary.harnessGatedClusterCount += projection.HarnessGatedClusterRuns.length;
-          summary.harnessGatedCognitionCount += projection.HarnessGatedClusterRuns.filter(
-            (run) =>
-              run?.clusterId === "cognition" &&
-              run?.executionMode === "gated" &&
-              run?.status === "gated" &&
-              run?.promotionBlocked === false &&
-              run?.rollbackAvailable === true &&
-              run?.canaryStatus === "passed",
-          ).length;
-          summary.harnessGatedRoutingModelCount += projection.HarnessGatedClusterRuns.filter(
-            (run) =>
-              run?.clusterId === "routing_model" &&
-              run?.executionMode === "gated" &&
-              run?.status === "gated" &&
-              run?.promotionBlocked === false &&
-              run?.rollbackAvailable === true &&
-              run?.canaryStatus === "passed",
-          ).length;
-          summary.harnessGatedVerificationOutputCount += projection.HarnessGatedClusterRuns.filter(
-            (run) =>
-              run?.clusterId === "verification_output" &&
-              run?.executionMode === "gated" &&
-              run?.status === "gated" &&
-              run?.promotionBlocked === false &&
-              run?.rollbackAvailable === true &&
-              run?.canaryStatus === "passed",
-          ).length;
-          summary.harnessGatedAuthorityToolingCount += projection.HarnessGatedClusterRuns.filter(
-            (run) =>
-              run?.clusterId === "authority_tooling" &&
-              run?.executionMode === "gated" &&
-              run?.status === "gated" &&
-              run?.promotionBlocked === false &&
-              run?.rollbackAvailable === true &&
-              run?.canaryStatus === "passed" &&
-              run?.runtimeAuthority === "existing_runtime_service",
-          ).length;
+          summary.harnessGatedClusterCount +=
+            projection.HarnessGatedClusterRuns.length;
+          summary.harnessGatedCognitionCount +=
+            projection.HarnessGatedClusterRuns.filter(
+              (run) =>
+                run?.clusterId === "cognition" &&
+                run?.executionMode === "gated" &&
+                run?.status === "gated" &&
+                run?.promotionBlocked === false &&
+                run?.rollbackAvailable === true &&
+                run?.canaryStatus === "passed",
+            ).length;
+          summary.harnessGatedRoutingModelCount +=
+            projection.HarnessGatedClusterRuns.filter(
+              (run) =>
+                run?.clusterId === "routing_model" &&
+                run?.executionMode === "gated" &&
+                run?.status === "gated" &&
+                run?.promotionBlocked === false &&
+                run?.rollbackAvailable === true &&
+                run?.canaryStatus === "passed",
+            ).length;
+          summary.harnessGatedVerificationOutputCount +=
+            projection.HarnessGatedClusterRuns.filter(
+              (run) =>
+                run?.clusterId === "verification_output" &&
+                run?.executionMode === "gated" &&
+                run?.status === "gated" &&
+                run?.promotionBlocked === false &&
+                run?.rollbackAvailable === true &&
+                run?.canaryStatus === "passed",
+            ).length;
+          summary.harnessGatedAuthorityToolingCount +=
+            projection.HarnessGatedClusterRuns.filter(
+              (run) =>
+                run?.clusterId === "authority_tooling" &&
+                run?.executionMode === "gated" &&
+                run?.status === "gated" &&
+                run?.promotionBlocked === false &&
+                run?.rollbackAvailable === true &&
+                run?.canaryStatus === "passed" &&
+                run?.runtimeAuthority === "existing_runtime_service",
+            ).length;
         }
         if (projection.HarnessForkActivation) {
           noteRollbackRestoreCanaryProof(projection.HarnessForkActivation);
-          const invalidFork = projection.HarnessForkActivation.invalidFork ?? {};
+          const invalidFork =
+            projection.HarnessForkActivation.invalidFork ?? {};
           const validFork = projection.HarnessForkActivation.validFork ?? {};
           if (
             invalidFork.activationState === "blocked" &&
@@ -852,39 +998,46 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             validFork.canaryStatus === "passed" &&
             validFork.rollbackAvailable === true &&
             validFork.liveAuthorityTransferred === false &&
-            validFork.workerBinding?.harnessActivationId === validFork.activationId
+            validFork.workerBinding?.harnessActivationId ===
+              validFork.activationId
           ) {
             summary.harnessForkActivationMintedCount += 1;
           }
         }
         {
-          const boundaries = Array.isArray(projection.HarnessCanaryExecutionBoundaries)
+          const boundaries = Array.isArray(
+            projection.HarnessCanaryExecutionBoundaries,
+          )
             ? projection.HarnessCanaryExecutionBoundaries
             : projection.HarnessCanaryExecutionBoundary
               ? [projection.HarnessCanaryExecutionBoundary]
               : [];
           const boundaryPasses = (clusterId) =>
-            boundaries.some(
-              (boundary) => {
-                const minimumAttempts =
-                  clusterId === "routing_model" ? 3 : clusterId === "authority_tooling" ? 8 : 6;
-                return (
-                  boundary?.schemaVersion === "workflow.harness.canary-execution-boundary.v1" &&
-                  boundary.clusterId === clusterId &&
-                  boundary.status === "passed" &&
-                  boundary.executionMode === "live" &&
-                  boundary.runtimeAuthority === "blessed_workflow_activation_canary" &&
-                  boundary.executorKind === "workflow_node_executor" &&
-                  boundary.synchronous === true &&
-                  Array.isArray(boundary.nodeAttemptIds) &&
-                  boundary.nodeAttemptIds.length >= minimumAttempts &&
-                  Array.isArray(boundary.executedComponentKinds) &&
-                  boundary.executedComponentKinds.length >= minimumAttempts &&
-                  Array.isArray(boundary.activationBlockers) &&
-                  boundary.activationBlockers.length === 0
-                );
-              },
-            );
+            boundaries.some((boundary) => {
+              const minimumAttempts =
+                clusterId === "routing_model"
+                  ? 3
+                  : clusterId === "authority_tooling"
+                    ? 8
+                    : 6;
+              return (
+                boundary?.schemaVersion ===
+                  "workflow.harness.canary-execution-boundary.v1" &&
+                boundary.clusterId === clusterId &&
+                boundary.status === "passed" &&
+                boundary.executionMode === "live" &&
+                boundary.runtimeAuthority ===
+                  "blessed_workflow_activation_canary" &&
+                boundary.executorKind === "workflow_node_executor" &&
+                boundary.synchronous === true &&
+                Array.isArray(boundary.nodeAttemptIds) &&
+                boundary.nodeAttemptIds.length >= minimumAttempts &&
+                Array.isArray(boundary.executedComponentKinds) &&
+                boundary.executedComponentKinds.length >= minimumAttempts &&
+                Array.isArray(boundary.activationBlockers) &&
+                boundary.activationBlockers.length === 0
+              );
+            });
           const rollbackPasses = (clusterId) =>
             boundaries.some(
               (boundary) =>
@@ -894,7 +1047,8 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
                 boundary.rollbackDrill?.observedFailure === true &&
                 boundary.rollbackDrill?.rollbackExecuted === true &&
                 boundary.rollbackDrill?.rollbackSelector === "legacy_runtime" &&
-                boundary.rollbackDrill?.fallbackAuthority === "existing_runtime_service" &&
+                boundary.rollbackDrill?.fallbackAuthority ===
+                  "existing_runtime_service" &&
                 boundary.rollbackDrill?.drillStatus === "passed",
             );
           if (
@@ -928,7 +1082,9 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             Array.isArray(handoff.executionBoundaryClusterIds) &&
             handoff.executionBoundaryClusterIds.includes("cognition") &&
             handoff.executionBoundaryClusterIds.includes("routing_model") &&
-            handoff.executionBoundaryClusterIds.includes("verification_output") &&
+            handoff.executionBoundaryClusterIds.includes(
+              "verification_output",
+            ) &&
             handoff.executionBoundaryClusterIds.includes("authority_tooling") &&
             Array.isArray(handoff.gatedClusterIds) &&
             handoff.gatedClusterIds.includes("authority_tooling")
@@ -938,19 +1094,24 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
           if (
             handoff.schemaVersion === "workflow.harness.live-handoff.v1" &&
             handoff.selector === "blessed_workflow_live_default" &&
-            handoff.productionDefaultSelector === "blessed_workflow_live_default" &&
+            handoff.productionDefaultSelector ===
+              "blessed_workflow_live_default" &&
             handoff.canaryStatus === "passed" &&
             handoff.canaryTurnRoutedThroughWorkflow === true &&
             handoff.executionBoundaryStatus === "passed" &&
             handoff.defaultAuthorityTransferred === true &&
-            handoff.runtimeAuthority === "blessed_workflow_activation_default" &&
-            handoff.defaultPromotionGate?.defaultAuthorityTransferred === true &&
+            handoff.runtimeAuthority ===
+              "blessed_workflow_activation_default" &&
+            handoff.defaultPromotionGate?.defaultAuthorityTransferred ===
+              true &&
             Array.isArray(handoff.defaultPromotionGate?.activationBlockers) &&
             handoff.defaultPromotionGate.activationBlockers.length === 0 &&
             Array.isArray(handoff.executionBoundaryClusterIds) &&
             handoff.executionBoundaryClusterIds.includes("cognition") &&
             handoff.executionBoundaryClusterIds.includes("routing_model") &&
-            handoff.executionBoundaryClusterIds.includes("verification_output") &&
+            handoff.executionBoundaryClusterIds.includes(
+              "verification_output",
+            ) &&
             handoff.executionBoundaryClusterIds.includes("authority_tooling") &&
             Array.isArray(handoff.gatedClusterIds) &&
             handoff.gatedClusterIds.includes("authority_tooling")
@@ -988,24 +1149,33 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
           const dispatchLivePromotionReadinessReady =
             dispatch.livePromotionReadinessProof?.schemaVersion ===
               "workflow.harness.live-promotion-readiness.v1" &&
-            dispatch.livePromotionReadinessProof?.targetExecutionMode === "live" &&
+            dispatch.livePromotionReadinessProof?.targetExecutionMode ===
+              "live" &&
             dispatch.livePromotionReadinessProof?.allClustersReady === true &&
             dispatch.livePromotionReadinessProof?.promotionEligible === true &&
-            dispatch.livePromotionReadinessProof?.defaultLiveActivationReady === true &&
-            dispatch.livePromotionReadinessProof?.invalidForkLiveActivationBlocked === true &&
+            dispatch.livePromotionReadinessProof?.defaultLiveActivationReady ===
+              true &&
+            dispatch.livePromotionReadinessProof
+              ?.invalidForkLiveActivationBlocked === true &&
             dispatch.livePromotionReadinessProof?.rollbackAvailable === true &&
             dispatch.livePromotionReadinessProof?.policyDecision ===
               "allow_default_harness_live_promotion_readiness" &&
-            Array.isArray(dispatch.livePromotionReadinessProof?.requiredClusterIds) &&
+            Array.isArray(
+              dispatch.livePromotionReadinessProof?.requiredClusterIds,
+            ) &&
             [
               "cognition",
               "routing_model",
               "verification_output",
               "authority_tooling",
             ].every((clusterId) =>
-              dispatch.livePromotionReadinessProof.requiredClusterIds.includes(clusterId),
+              dispatch.livePromotionReadinessProof.requiredClusterIds.includes(
+                clusterId,
+              ),
             ) &&
-            Array.isArray(dispatch.livePromotionReadinessProof?.clusterReadiness) &&
+            Array.isArray(
+              dispatch.livePromotionReadinessProof?.clusterReadiness,
+            ) &&
             dispatch.livePromotionReadinessProof.clusterReadiness.length >= 4 &&
             dispatch.livePromotionReadinessProof.clusterReadiness.every(
               (cluster) =>
@@ -1032,11 +1202,14 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             summary.harnessActivationIdGateClickProofRuntimeBlockedCount += 1;
           }
           if (
-            dispatch.schemaVersion === "workflow.harness.default-runtime-dispatch.v1" &&
+            dispatch.schemaVersion ===
+              "workflow.harness.default-runtime-dispatch.v1" &&
             dispatch.selectedSelector === "blessed_workflow_live_default" &&
-            dispatch.productionDefaultSelector === "blessed_workflow_live_default" &&
+            dispatch.productionDefaultSelector ===
+              "blessed_workflow_live_default" &&
             dispatch.executionMode === "live" &&
-            dispatch.runtimeAuthority === "blessed_workflow_activation_default" &&
+            dispatch.runtimeAuthority ===
+              "blessed_workflow_activation_default" &&
             dispatch.dispatchScope ===
               "read_only_cognition_routing_verification_completion_authority_tooling" &&
             dispatch.status === "accepted" &&
@@ -1045,37 +1218,46 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             dispatch.outputWriterDeferred === false &&
             dispatch.outputWriterStatus === "visible_write_committed" &&
             dispatch.outputWriterHandoffReady === true &&
-            dispatch.outputWriterMaterializationMode === "workflow_visible_transcript_write" &&
+            dispatch.outputWriterMaterializationMode ===
+              "workflow_visible_transcript_write" &&
             dispatch.outputWriterMaterializationCanaryReady === true &&
             dispatch.outputWriterMaterializationCommitted === true &&
-            dispatch.outputWriterStagedWriteMode === "isolated_checkpoint_blob" &&
+            dispatch.outputWriterStagedWriteMode ===
+              "isolated_checkpoint_blob" &&
             dispatch.outputWriterStagedWriteCanaryReady === true &&
             dispatch.outputWriterStagedWritePersisted === true &&
             dispatch.outputWriterStagedWriteCommitted === true &&
             dispatch.outputWriterStagedWriteVisible === false &&
-            dispatch.outputWriterStagedWriteExcludedFromVisibleTranscript === true &&
+            dispatch.outputWriterStagedWriteExcludedFromVisibleTranscript ===
+              true &&
             dispatch.outputWriterStagedWriteRollbackStatus === "deleted" &&
             dispatch.outputWriterStagedWriteRollbackVerified === true &&
-            dispatch.outputWriterVisibleWriteMode === "workflow_visible_transcript_write" &&
+            dispatch.outputWriterVisibleWriteMode ===
+              "workflow_visible_transcript_write" &&
             dispatch.outputWriterVisibleWriteReady === true &&
             dispatch.outputWriterVisibleWritePersisted === true &&
             dispatch.outputWriterVisibleWriteCommitted === true &&
             dispatch.outputWriterVisibleWriteVisible === true &&
-            dispatch.outputWriterVisibleWriteIdentityCheckpointPersisted === true &&
-            dispatch.outputWriterVisibleWriteLegacyDuplicateSuppressed === true &&
-            dispatch.cognitionExecutionMode === "workflow_synchronous_envelope" &&
+            dispatch.outputWriterVisibleWriteIdentityCheckpointPersisted ===
+              true &&
+            dispatch.outputWriterVisibleWriteLegacyDuplicateSuppressed ===
+              true &&
+            dispatch.cognitionExecutionMode ===
+              "workflow_synchronous_envelope" &&
             dispatch.cognitionExecutionReady === true &&
             dispatch.promptAssemblyMode === "workflow_synchronous_envelope" &&
             typeof dispatch.promptAssemblyPromptHash === "string" &&
             dispatch.promptAssemblyPromptHash.length > 0 &&
             dispatch.promptAssemblyPromptHashMatches === true &&
-            dispatch.cognitionExecutionAdapterMode === "workflow_component_adapter_live" &&
+            dispatch.cognitionExecutionAdapterMode ===
+              "workflow_component_adapter_live" &&
             Array.isArray(dispatch.cognitionExecutionAdapterResults) &&
             dispatch.cognitionExecutionAdapterResults.length >= 3 &&
-            dispatch.cognitionExecutionAdapterResults.every((result) =>
-              result?.actionFrame?.executionMode === "live" &&
-              result?.actionFrame?.readiness === "live_ready" &&
-              result?.nodeAttempt?.status === "live",
+            dispatch.cognitionExecutionAdapterResults.every(
+              (result) =>
+                result?.actionFrame?.executionMode === "live" &&
+                result?.actionFrame?.readiness === "live_ready" &&
+                result?.nodeAttempt?.status === "live",
             ) &&
             Array.isArray(dispatch.cognitionExecutionActionFrameIds) &&
             dispatch.cognitionExecutionActionFrameIds.length >= 3 &&
@@ -1083,13 +1265,15 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             ["planner", "prompt_assembler", "task_state"].every((kind) =>
               dispatch.cognitionExecutionLiveReadyComponentKinds.includes(kind),
             ) &&
-            dispatch.cognitionExecutionGateAdapterMode === "workflow_component_adapter_gated" &&
+            dispatch.cognitionExecutionGateAdapterMode ===
+              "workflow_component_adapter_gated" &&
             Array.isArray(dispatch.cognitionExecutionGateAdapterResults) &&
             dispatch.cognitionExecutionGateAdapterResults.length >= 3 &&
-            dispatch.cognitionExecutionGateAdapterResults.every((result) =>
-              result?.actionFrame?.executionMode === "gated" &&
-              result?.actionFrame?.readiness === "shadow_ready" &&
-              result?.nodeAttempt?.status === "gated",
+            dispatch.cognitionExecutionGateAdapterResults.every(
+              (result) =>
+                result?.actionFrame?.executionMode === "gated" &&
+                result?.actionFrame?.readiness === "shadow_ready" &&
+                result?.nodeAttempt?.status === "gated",
             ) &&
             Array.isArray(dispatch.cognitionExecutionGateAttemptIds) &&
             dispatch.cognitionExecutionGateAttemptIds.length >= 3 &&
@@ -1098,18 +1282,23 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             Array.isArray(dispatch.cognitionExecutionGateReplayFixtureRefs) &&
             dispatch.cognitionExecutionGateReplayFixtureRefs.length >= 3 &&
             Array.isArray(dispatch.cognitionExecutionGateComponentKinds) &&
-            ["uncertainty_gate", "budget_gate", "capability_sequencer"].every((kind) =>
-              dispatch.cognitionExecutionGateComponentKinds.includes(kind),
+            ["uncertainty_gate", "budget_gate", "capability_sequencer"].every(
+              (kind) =>
+                dispatch.cognitionExecutionGateComponentKinds.includes(kind),
             ) &&
             Array.isArray(dispatch.cognitionExecutionGateDivergenceClasses) &&
-            dispatch.cognitionExecutionGateDivergenceClasses.every((kind) => kind === "none") &&
-            dispatch.routingModelAdapterMode === "workflow_component_adapter_gated" &&
+            dispatch.cognitionExecutionGateDivergenceClasses.every(
+              (kind) => kind === "none",
+            ) &&
+            dispatch.routingModelAdapterMode ===
+              "workflow_component_adapter_gated" &&
             Array.isArray(dispatch.routingModelAdapterResults) &&
             dispatch.routingModelAdapterResults.length >= 3 &&
-            dispatch.routingModelAdapterResults.every((result) =>
-              result?.actionFrame?.executionMode === "gated" &&
-              result?.actionFrame?.readiness === "shadow_ready" &&
-              result?.nodeAttempt?.status === "gated",
+            dispatch.routingModelAdapterResults.every(
+              (result) =>
+                result?.actionFrame?.executionMode === "gated" &&
+                result?.actionFrame?.readiness === "shadow_ready" &&
+                result?.nodeAttempt?.status === "gated",
             ) &&
             Array.isArray(dispatch.routingModelAttemptIds) &&
             dispatch.routingModelAttemptIds.length >= 3 &&
@@ -1122,14 +1311,18 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
               dispatch.routingModelComponentKinds.includes(kind),
             ) &&
             Array.isArray(dispatch.routingModelDivergenceClasses) &&
-            dispatch.routingModelDivergenceClasses.every((kind) => kind === "none") &&
-            dispatch.verificationOutputAdapterMode === "workflow_component_adapter_gated" &&
+            dispatch.routingModelDivergenceClasses.every(
+              (kind) => kind === "none",
+            ) &&
+            dispatch.verificationOutputAdapterMode ===
+              "workflow_component_adapter_gated" &&
             Array.isArray(dispatch.verificationOutputAdapterResults) &&
             dispatch.verificationOutputAdapterResults.length >= 6 &&
-            dispatch.verificationOutputAdapterResults.every((result) =>
-              result?.actionFrame?.executionMode === "gated" &&
-              result?.actionFrame?.readiness === "shadow_ready" &&
-              result?.nodeAttempt?.status === "gated",
+            dispatch.verificationOutputAdapterResults.every(
+              (result) =>
+                result?.actionFrame?.executionMode === "gated" &&
+                result?.actionFrame?.readiness === "shadow_ready" &&
+                result?.nodeAttempt?.status === "gated",
             ) &&
             Array.isArray(dispatch.verificationOutputAttemptIds) &&
             dispatch.verificationOutputAttemptIds.length >= 6 &&
@@ -1145,16 +1338,22 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
               "receipt_writer",
               "quality_ledger",
               "output_writer",
-            ].every((kind) => dispatch.verificationOutputComponentKinds.includes(kind)) &&
+            ].every((kind) =>
+              dispatch.verificationOutputComponentKinds.includes(kind),
+            ) &&
             Array.isArray(dispatch.verificationOutputDivergenceClasses) &&
-            dispatch.verificationOutputDivergenceClasses.every((kind) => kind === "none") &&
-            dispatch.authorityToolingAdapterMode === "workflow_component_adapter_gated" &&
+            dispatch.verificationOutputDivergenceClasses.every(
+              (kind) => kind === "none",
+            ) &&
+            dispatch.authorityToolingAdapterMode ===
+              "workflow_component_adapter_gated" &&
             Array.isArray(dispatch.authorityToolingAdapterResults) &&
             dispatch.authorityToolingAdapterResults.length >= 8 &&
-            dispatch.authorityToolingAdapterResults.every((result) =>
-              result?.actionFrame?.executionMode === "gated" &&
-              result?.actionFrame?.readiness === "shadow_ready" &&
-              result?.nodeAttempt?.status === "gated",
+            dispatch.authorityToolingAdapterResults.every(
+              (result) =>
+                result?.actionFrame?.executionMode === "gated" &&
+                result?.actionFrame?.readiness === "shadow_ready" &&
+                result?.nodeAttempt?.status === "gated",
             ) &&
             Array.isArray(dispatch.authorityToolingAttemptIds) &&
             dispatch.authorityToolingAttemptIds.length >= 8 &&
@@ -1172,9 +1371,13 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
               "tool_call",
               "connector_call",
               "wallet_capability",
-            ].every((kind) => dispatch.authorityToolingComponentKinds.includes(kind)) &&
+            ].every((kind) =>
+              dispatch.authorityToolingComponentKinds.includes(kind),
+            ) &&
             Array.isArray(dispatch.authorityToolingDivergenceClasses) &&
-            dispatch.authorityToolingDivergenceClasses.every((kind) => kind === "none") &&
+            dispatch.authorityToolingDivergenceClasses.every(
+              (kind) => kind === "none",
+            ) &&
             dispatch.authorityToolingAdapterProof?.ready === true &&
             dispatch.authorityToolingAdapterProof?.policyDecision ===
               "accept_workflow_authority_tooling_adapter_envelope" &&
@@ -1190,9 +1393,11 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             typeof dispatch.modelExecutionOutputHash === "string" &&
             dispatch.modelExecutionOutputHash.length > 0 &&
             dispatch.modelExecutionOutputHashMatches === true &&
-            dispatch.modelExecutionProviderInvocationMode === "workflow_provider_canary" &&
+            dispatch.modelExecutionProviderInvocationMode ===
+              "workflow_provider_canary" &&
             dispatch.modelExecutionLowLevelInvocationDeferred === false &&
-            dispatch.modelExecutionFallbackSelector === "legacy_runtime_model_invocation" &&
+            dispatch.modelExecutionFallbackSelector ===
+              "legacy_runtime_model_invocation" &&
             dispatch.modelProviderCanaryMode === "workflow_provider_canary" &&
             dispatch.modelProviderCanaryReady === true &&
             dispatch.modelProviderCanaryOutputHashMatches === true &&
@@ -1207,41 +1412,62 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS.includes(
               dispatch.modelProviderGatedVisibleOutputScenario,
             ) &&
-            dispatch.modelProviderGatedVisibleOutputCohort === "retained_read_only_no_tool" &&
-            dispatch.modelProviderGatedVisibleOutputRetainedReadOnlyNoTool === true &&
-            Array.isArray(dispatch.modelProviderGatedVisibleOutputRequiredScenarioSet) &&
-            AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS.every((scenario) =>
-              dispatch.modelProviderGatedVisibleOutputRequiredScenarioSet.includes(scenario),
+            dispatch.modelProviderGatedVisibleOutputCohort ===
+              "retained_read_only_no_tool" &&
+            dispatch.modelProviderGatedVisibleOutputRetainedReadOnlyNoTool ===
+              true &&
+            Array.isArray(
+              dispatch.modelProviderGatedVisibleOutputRequiredScenarioSet,
+            ) &&
+            AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS.every(
+              (scenario) =>
+                dispatch.modelProviderGatedVisibleOutputRequiredScenarioSet.includes(
+                  scenario,
+                ),
             ) &&
             dispatch.modelProviderGatedVisibleOutputScenarioCoverageKey ===
               dispatch.modelProviderGatedVisibleOutputScenario &&
-            dispatch.selectedVisibleOutputAuthority === "workflow_model_provider_call" &&
+            dispatch.selectedVisibleOutputAuthority ===
+              "workflow_model_provider_call" &&
             typeof dispatch.selectedVisibleOutputHash === "string" &&
             dispatch.selectedVisibleOutputHash.length > 0 &&
-            dispatch.selectedVisibleOutputHash === dispatch.actualVisibleOutputHash &&
-            dispatch.legacyVisibleOutputHash === dispatch.selectedVisibleOutputHash &&
+            dispatch.selectedVisibleOutputHash ===
+              dispatch.actualVisibleOutputHash &&
+            dispatch.legacyVisibleOutputHash ===
+              dispatch.selectedVisibleOutputHash &&
             dispatch.legacyVisibleOutputComputed === true &&
             dispatch.legacyVisibleOutputHashMatchesSelected === true &&
             dispatch.selectedVisibleOutputAuthorityMatchesTranscript === true &&
-            dispatch.modelProviderGatedVisibleOutputRollbackAvailable === true &&
-            dispatch.modelProviderGatedVisibleOutputRollbackDrillEnabled === true &&
-            dispatch.modelProviderGatedVisibleOutputRollbackDrillReady === true &&
-            dispatch.modelProviderGatedVisibleOutputRollbackDrillFailureInjected === true &&
+            dispatch.modelProviderGatedVisibleOutputRollbackAvailable ===
+              true &&
+            dispatch.modelProviderGatedVisibleOutputRollbackDrillEnabled ===
+              true &&
+            dispatch.modelProviderGatedVisibleOutputRollbackDrillReady ===
+              true &&
+            dispatch.modelProviderGatedVisibleOutputRollbackDrillFailureInjected ===
+              true &&
             typeof dispatch.modelProviderGatedVisibleOutputRollbackDrillInjectedOutputHash ===
               "string" &&
-            dispatch.modelProviderGatedVisibleOutputRollbackDrillInjectedOutputHash.length > 0 &&
+            dispatch
+              .modelProviderGatedVisibleOutputRollbackDrillInjectedOutputHash
+              .length > 0 &&
             dispatch.modelProviderGatedVisibleOutputRollbackDrillInjectedOutputHash !==
               dispatch.actualVisibleOutputHash &&
-            dispatch.modelProviderGatedVisibleOutputRollbackDrillOutputHashDiverges === true &&
+            dispatch.modelProviderGatedVisibleOutputRollbackDrillOutputHashDiverges ===
+              true &&
             dispatch.modelProviderGatedVisibleOutputRollbackDrillDivergenceClass ===
               "provider_output_hash_divergence" &&
             dispatch.modelProviderGatedVisibleOutputRollbackDrillFallbackAuthority ===
               "legacy_runtime_model_invocation" &&
             dispatch.modelProviderGatedVisibleOutputRollbackDrillSelectedAuthority ===
               "legacy_runtime_model_invocation" &&
-            dispatch.modelProviderGatedVisibleOutputRollbackDrillTranscriptUnchanged === true &&
-            dispatch.modelProviderGatedVisibleOutputRollbackDrillRollbackExecuted === true &&
-            Array.isArray(dispatch.modelProviderGatedVisibleOutputRollbackDrillActivationBlockers) &&
+            dispatch.modelProviderGatedVisibleOutputRollbackDrillTranscriptUnchanged ===
+              true &&
+            dispatch.modelProviderGatedVisibleOutputRollbackDrillRollbackExecuted ===
+              true &&
+            Array.isArray(
+              dispatch.modelProviderGatedVisibleOutputRollbackDrillActivationBlockers,
+            ) &&
             dispatch.modelProviderGatedVisibleOutputRollbackDrillActivationBlockers.includes(
               "model_provider_output_hash_divergence",
             ) &&
@@ -1264,59 +1490,126 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             dispatch.authorityToolingGateLiveReplayFixtureRefs.length >= 3 &&
             Array.isArray(dispatch.authorityToolingPolicyGateLiveAttemptIds) &&
             dispatch.authorityToolingPolicyGateLiveAttemptIds.length >= 1 &&
-            Array.isArray(dispatch.authorityToolingDestructiveDenialLiveAttemptIds) &&
-            dispatch.authorityToolingDestructiveDenialLiveAttemptIds.length >= 1 &&
-            Array.isArray(dispatch.authorityToolingApprovalGateLiveAttemptIds) &&
+            Array.isArray(
+              dispatch.authorityToolingDestructiveDenialLiveAttemptIds,
+            ) &&
+            dispatch.authorityToolingDestructiveDenialLiveAttemptIds.length >=
+              1 &&
+            Array.isArray(
+              dispatch.authorityToolingApprovalGateLiveAttemptIds,
+            ) &&
             dispatch.authorityToolingApprovalGateLiveAttemptIds.length >= 1 &&
             dispatch.authorityToolingReadOnlyAuthorityCanaryReady === true &&
             dispatch.authorityToolingProviderCatalogLiveReady === true &&
-            dispatch.authorityToolingProviderCatalogLiveComponentKind === "mcp_provider" &&
-            Array.isArray(dispatch.authorityToolingProviderCatalogLiveAttemptIds) &&
-            dispatch.authorityToolingProviderCatalogLiveAttemptIds.length >= 1 &&
-            Array.isArray(dispatch.authorityToolingProviderCatalogLiveReceiptIds) &&
-            dispatch.authorityToolingProviderCatalogLiveReceiptIds.length >= 1 &&
-            Array.isArray(dispatch.authorityToolingProviderCatalogLiveReplayFixtureRefs) &&
-            dispatch.authorityToolingProviderCatalogLiveReplayFixtureRefs.length >= 1 &&
+            dispatch.authorityToolingProviderCatalogLiveComponentKind ===
+              "mcp_provider" &&
+            Array.isArray(
+              dispatch.authorityToolingProviderCatalogLiveAttemptIds,
+            ) &&
+            dispatch.authorityToolingProviderCatalogLiveAttemptIds.length >=
+              1 &&
+            Array.isArray(
+              dispatch.authorityToolingProviderCatalogLiveReceiptIds,
+            ) &&
+            dispatch.authorityToolingProviderCatalogLiveReceiptIds.length >=
+              1 &&
+            Array.isArray(
+              dispatch.authorityToolingProviderCatalogLiveReplayFixtureRefs,
+            ) &&
+            dispatch.authorityToolingProviderCatalogLiveReplayFixtureRefs
+              .length >= 1 &&
             dispatch.authorityToolingMcpToolCatalogLiveReady === true &&
-            dispatch.authorityToolingMcpToolCatalogLiveComponentKind === "mcp_tool_call" &&
-            Array.isArray(dispatch.authorityToolingMcpToolCatalogLiveAttemptIds) &&
+            dispatch.authorityToolingMcpToolCatalogLiveComponentKind ===
+              "mcp_tool_call" &&
+            Array.isArray(
+              dispatch.authorityToolingMcpToolCatalogLiveAttemptIds,
+            ) &&
             dispatch.authorityToolingMcpToolCatalogLiveAttemptIds.length >= 1 &&
-            Array.isArray(dispatch.authorityToolingMcpToolCatalogLiveReceiptIds) &&
+            Array.isArray(
+              dispatch.authorityToolingMcpToolCatalogLiveReceiptIds,
+            ) &&
             dispatch.authorityToolingMcpToolCatalogLiveReceiptIds.length >= 1 &&
-            Array.isArray(dispatch.authorityToolingMcpToolCatalogLiveReplayFixtureRefs) &&
-            dispatch.authorityToolingMcpToolCatalogLiveReplayFixtureRefs.length >= 1 &&
+            Array.isArray(
+              dispatch.authorityToolingMcpToolCatalogLiveReplayFixtureRefs,
+            ) &&
+            dispatch.authorityToolingMcpToolCatalogLiveReplayFixtureRefs
+              .length >= 1 &&
             dispatch.authorityToolingNativeToolCatalogLiveReady === true &&
-            dispatch.authorityToolingNativeToolCatalogLiveComponentKind === "tool_call" &&
-            Array.isArray(dispatch.authorityToolingNativeToolCatalogLiveAttemptIds) &&
-            dispatch.authorityToolingNativeToolCatalogLiveAttemptIds.length >= 1 &&
-            Array.isArray(dispatch.authorityToolingNativeToolCatalogLiveReceiptIds) &&
-            dispatch.authorityToolingNativeToolCatalogLiveReceiptIds.length >= 1 &&
-            Array.isArray(dispatch.authorityToolingNativeToolCatalogLiveReplayFixtureRefs) &&
-            dispatch.authorityToolingNativeToolCatalogLiveReplayFixtureRefs.length >= 1 &&
+            dispatch.authorityToolingNativeToolCatalogLiveComponentKind ===
+              "tool_call" &&
+            Array.isArray(
+              dispatch.authorityToolingNativeToolCatalogLiveAttemptIds,
+            ) &&
+            dispatch.authorityToolingNativeToolCatalogLiveAttemptIds.length >=
+              1 &&
+            Array.isArray(
+              dispatch.authorityToolingNativeToolCatalogLiveReceiptIds,
+            ) &&
+            dispatch.authorityToolingNativeToolCatalogLiveReceiptIds.length >=
+              1 &&
+            Array.isArray(
+              dispatch.authorityToolingNativeToolCatalogLiveReplayFixtureRefs,
+            ) &&
+            dispatch.authorityToolingNativeToolCatalogLiveReplayFixtureRefs
+              .length >= 1 &&
             dispatch.authorityToolingConnectorCatalogLiveReady === true &&
-            dispatch.authorityToolingConnectorCatalogLiveComponentKind === "connector_call" &&
-            Array.isArray(dispatch.authorityToolingConnectorCatalogLiveAttemptIds) &&
-            dispatch.authorityToolingConnectorCatalogLiveAttemptIds.length >= 1 &&
-            Array.isArray(dispatch.authorityToolingConnectorCatalogLiveReceiptIds) &&
-            dispatch.authorityToolingConnectorCatalogLiveReceiptIds.length >= 1 &&
-            Array.isArray(dispatch.authorityToolingConnectorCatalogLiveReplayFixtureRefs) &&
-            dispatch.authorityToolingConnectorCatalogLiveReplayFixtureRefs.length >= 1 &&
+            dispatch.authorityToolingConnectorCatalogLiveComponentKind ===
+              "connector_call" &&
+            Array.isArray(
+              dispatch.authorityToolingConnectorCatalogLiveAttemptIds,
+            ) &&
+            dispatch.authorityToolingConnectorCatalogLiveAttemptIds.length >=
+              1 &&
+            Array.isArray(
+              dispatch.authorityToolingConnectorCatalogLiveReceiptIds,
+            ) &&
+            dispatch.authorityToolingConnectorCatalogLiveReceiptIds.length >=
+              1 &&
+            Array.isArray(
+              dispatch.authorityToolingConnectorCatalogLiveReplayFixtureRefs,
+            ) &&
+            dispatch.authorityToolingConnectorCatalogLiveReplayFixtureRefs
+              .length >= 1 &&
             dispatch.authorityToolingWalletCapabilityLiveDryRunReady === true &&
-            dispatch.authorityToolingWalletCapabilityLiveDryRunComponentKind === "wallet_capability" &&
-            Array.isArray(dispatch.authorityToolingWalletCapabilityLiveDryRunAttemptIds) &&
-            dispatch.authorityToolingWalletCapabilityLiveDryRunAttemptIds.length >= 1 &&
-            Array.isArray(dispatch.authorityToolingWalletCapabilityLiveDryRunReceiptIds) &&
-            dispatch.authorityToolingWalletCapabilityLiveDryRunReceiptIds.length >= 1 &&
-            Array.isArray(dispatch.authorityToolingWalletCapabilityLiveDryRunReplayFixtureRefs) &&
-            dispatch.authorityToolingWalletCapabilityLiveDryRunReplayFixtureRefs.length >= 1 &&
+            dispatch.authorityToolingWalletCapabilityLiveDryRunComponentKind ===
+              "wallet_capability" &&
+            Array.isArray(
+              dispatch.authorityToolingWalletCapabilityLiveDryRunAttemptIds,
+            ) &&
+            dispatch.authorityToolingWalletCapabilityLiveDryRunAttemptIds
+              .length >= 1 &&
+            Array.isArray(
+              dispatch.authorityToolingWalletCapabilityLiveDryRunReceiptIds,
+            ) &&
+            dispatch.authorityToolingWalletCapabilityLiveDryRunReceiptIds
+              .length >= 1 &&
+            Array.isArray(
+              dispatch.authorityToolingWalletCapabilityLiveDryRunReplayFixtureRefs,
+            ) &&
+            dispatch.authorityToolingWalletCapabilityLiveDryRunReplayFixtureRefs
+              .length >= 1 &&
             Array.isArray(dispatch.authorityToolingReadOnlyComponentKinds) &&
-            dispatch.authorityToolingReadOnlyComponentKinds.includes("mcp_provider") &&
-            dispatch.authorityToolingReadOnlyComponentKinds.includes("mcp_tool_call") &&
-            dispatch.authorityToolingReadOnlyComponentKinds.includes("tool_call") &&
-            dispatch.authorityToolingReadOnlyComponentKinds.includes("connector_call") &&
-            dispatch.authorityToolingReadOnlyComponentKinds.includes("wallet_capability") &&
-            Array.isArray(dispatch.authorityToolingMutationDeferredComponentKinds) &&
-            dispatch.authorityToolingMutationDeferredComponentKinds.includes("wallet_capability") &&
+            dispatch.authorityToolingReadOnlyComponentKinds.includes(
+              "mcp_provider",
+            ) &&
+            dispatch.authorityToolingReadOnlyComponentKinds.includes(
+              "mcp_tool_call",
+            ) &&
+            dispatch.authorityToolingReadOnlyComponentKinds.includes(
+              "tool_call",
+            ) &&
+            dispatch.authorityToolingReadOnlyComponentKinds.includes(
+              "connector_call",
+            ) &&
+            dispatch.authorityToolingReadOnlyComponentKinds.includes(
+              "wallet_capability",
+            ) &&
+            Array.isArray(
+              dispatch.authorityToolingMutationDeferredComponentKinds,
+            ) &&
+            dispatch.authorityToolingMutationDeferredComponentKinds.includes(
+              "wallet_capability",
+            ) &&
             dispatch.authorityToolingReadOnlyRouteAccepted === true &&
             dispatch.authorityToolingDestructiveRouteDenied === true &&
             dispatch.authorityToolingMutatingToolCallsBlocked === true &&
@@ -1342,7 +1635,8 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             dispatch.workflowTranscriptWriteRecord?.committed === true &&
             dispatch.workflowTranscriptWriteRecord?.visible === true &&
             dispatch.legacyTranscriptWriteRecord?.committed === false &&
-            dispatch.legacyTranscriptWriteRecord?.suppressedByIdempotency === true &&
+            dispatch.legacyTranscriptWriteRecord?.suppressedByIdempotency ===
+              true &&
             dispatch.stagedTranscriptWriteRecord?.committed === true &&
             dispatch.stagedTranscriptWriteRecord?.visible === false &&
             dispatch.outputHashMatches === true &&
@@ -1350,11 +1644,13 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             dispatch.outputHashDivergenceCount === 0 &&
             typeof dispatch.proposedVisibleOutputHash === "string" &&
             dispatch.proposedVisibleOutputHash.length > 0 &&
-            dispatch.proposedVisibleOutputHash === dispatch.actualVisibleOutputHash &&
+            dispatch.proposedVisibleOutputHash ===
+              dispatch.actualVisibleOutputHash &&
             dispatch.legacyOutputAuthorityRetained === false &&
             dispatch.legacyOutputFallbackAvailable === true &&
             dispatch.mutatingTurnsBlocked === true &&
-            dispatch.outputAuthority === "blessed_workflow_activation_default" &&
+            dispatch.outputAuthority ===
+              "blessed_workflow_activation_default" &&
             Array.isArray(dispatch.acceptedClusterIds) &&
             dispatch.acceptedClusterIds.includes("cognition") &&
             dispatch.acceptedClusterIds.includes("routing_model") &&
@@ -1378,7 +1674,9 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             Array.isArray(dispatch.handoffValidatedComponentKinds) &&
             dispatch.handoffValidatedComponentKinds.includes("output_writer") &&
             Array.isArray(dispatch.materializationCanaryComponentKinds) &&
-            dispatch.materializationCanaryComponentKinds.includes("output_writer") &&
+            dispatch.materializationCanaryComponentKinds.includes(
+              "output_writer",
+            ) &&
             Array.isArray(dispatch.dispatchNodeAttemptIds) &&
             dispatch.dispatchNodeAttemptIds.length >= 20 &&
             Array.isArray(dispatch.cognitionExecutionAttemptIds) &&
@@ -1387,13 +1685,15 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             dispatch.cognitionExecutionReceiptIds.length >= 3 &&
             Array.isArray(dispatch.cognitionExecutionReplayFixtureRefs) &&
             dispatch.cognitionExecutionReplayFixtureRefs.length >= 3 &&
-            dispatch.cognitionExecutionAdapterMode === "workflow_component_adapter_live" &&
+            dispatch.cognitionExecutionAdapterMode ===
+              "workflow_component_adapter_live" &&
             Array.isArray(dispatch.cognitionExecutionAdapterResults) &&
             dispatch.cognitionExecutionAdapterResults.length >= 3 &&
-            dispatch.cognitionExecutionAdapterResults.every((result) =>
-              result?.actionFrame?.executionMode === "live" &&
-              result?.actionFrame?.readiness === "live_ready" &&
-              result?.nodeAttempt?.status === "live",
+            dispatch.cognitionExecutionAdapterResults.every(
+              (result) =>
+                result?.actionFrame?.executionMode === "live" &&
+                result?.actionFrame?.readiness === "live_ready" &&
+                result?.nodeAttempt?.status === "live",
             ) &&
             Array.isArray(dispatch.cognitionExecutionActionFrameIds) &&
             dispatch.cognitionExecutionActionFrameIds.length >= 3 &&
@@ -1401,13 +1701,15 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             ["planner", "prompt_assembler", "task_state"].every((kind) =>
               dispatch.cognitionExecutionLiveReadyComponentKinds.includes(kind),
             ) &&
-            dispatch.cognitionExecutionGateAdapterMode === "workflow_component_adapter_gated" &&
+            dispatch.cognitionExecutionGateAdapterMode ===
+              "workflow_component_adapter_gated" &&
             Array.isArray(dispatch.cognitionExecutionGateAdapterResults) &&
             dispatch.cognitionExecutionGateAdapterResults.length >= 3 &&
-            dispatch.cognitionExecutionGateAdapterResults.every((result) =>
-              result?.actionFrame?.executionMode === "gated" &&
-              result?.actionFrame?.readiness === "shadow_ready" &&
-              result?.nodeAttempt?.status === "gated",
+            dispatch.cognitionExecutionGateAdapterResults.every(
+              (result) =>
+                result?.actionFrame?.executionMode === "gated" &&
+                result?.actionFrame?.readiness === "shadow_ready" &&
+                result?.nodeAttempt?.status === "gated",
             ) &&
             Array.isArray(dispatch.cognitionExecutionGateAttemptIds) &&
             dispatch.cognitionExecutionGateAttemptIds.length >= 3 &&
@@ -1416,18 +1718,23 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             Array.isArray(dispatch.cognitionExecutionGateReplayFixtureRefs) &&
             dispatch.cognitionExecutionGateReplayFixtureRefs.length >= 3 &&
             Array.isArray(dispatch.cognitionExecutionGateComponentKinds) &&
-            ["uncertainty_gate", "budget_gate", "capability_sequencer"].every((kind) =>
-              dispatch.cognitionExecutionGateComponentKinds.includes(kind),
+            ["uncertainty_gate", "budget_gate", "capability_sequencer"].every(
+              (kind) =>
+                dispatch.cognitionExecutionGateComponentKinds.includes(kind),
             ) &&
             Array.isArray(dispatch.cognitionExecutionGateDivergenceClasses) &&
-            dispatch.cognitionExecutionGateDivergenceClasses.every((kind) => kind === "none") &&
-            dispatch.routingModelAdapterMode === "workflow_component_adapter_gated" &&
+            dispatch.cognitionExecutionGateDivergenceClasses.every(
+              (kind) => kind === "none",
+            ) &&
+            dispatch.routingModelAdapterMode ===
+              "workflow_component_adapter_gated" &&
             Array.isArray(dispatch.routingModelAdapterResults) &&
             dispatch.routingModelAdapterResults.length >= 3 &&
-            dispatch.routingModelAdapterResults.every((result) =>
-              result?.actionFrame?.executionMode === "gated" &&
-              result?.actionFrame?.readiness === "shadow_ready" &&
-              result?.nodeAttempt?.status === "gated",
+            dispatch.routingModelAdapterResults.every(
+              (result) =>
+                result?.actionFrame?.executionMode === "gated" &&
+                result?.actionFrame?.readiness === "shadow_ready" &&
+                result?.nodeAttempt?.status === "gated",
             ) &&
             Array.isArray(dispatch.routingModelAttemptIds) &&
             dispatch.routingModelAttemptIds.length >= 3 &&
@@ -1440,14 +1747,18 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
               dispatch.routingModelComponentKinds.includes(kind),
             ) &&
             Array.isArray(dispatch.routingModelDivergenceClasses) &&
-            dispatch.routingModelDivergenceClasses.every((kind) => kind === "none") &&
-            dispatch.verificationOutputAdapterMode === "workflow_component_adapter_gated" &&
+            dispatch.routingModelDivergenceClasses.every(
+              (kind) => kind === "none",
+            ) &&
+            dispatch.verificationOutputAdapterMode ===
+              "workflow_component_adapter_gated" &&
             Array.isArray(dispatch.verificationOutputAdapterResults) &&
             dispatch.verificationOutputAdapterResults.length >= 6 &&
-            dispatch.verificationOutputAdapterResults.every((result) =>
-              result?.actionFrame?.executionMode === "gated" &&
-              result?.actionFrame?.readiness === "shadow_ready" &&
-              result?.nodeAttempt?.status === "gated",
+            dispatch.verificationOutputAdapterResults.every(
+              (result) =>
+                result?.actionFrame?.executionMode === "gated" &&
+                result?.actionFrame?.readiness === "shadow_ready" &&
+                result?.nodeAttempt?.status === "gated",
             ) &&
             Array.isArray(dispatch.verificationOutputAttemptIds) &&
             dispatch.verificationOutputAttemptIds.length >= 6 &&
@@ -1463,16 +1774,22 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
               "receipt_writer",
               "quality_ledger",
               "output_writer",
-            ].every((kind) => dispatch.verificationOutputComponentKinds.includes(kind)) &&
+            ].every((kind) =>
+              dispatch.verificationOutputComponentKinds.includes(kind),
+            ) &&
             Array.isArray(dispatch.verificationOutputDivergenceClasses) &&
-            dispatch.verificationOutputDivergenceClasses.every((kind) => kind === "none") &&
-            dispatch.authorityToolingAdapterMode === "workflow_component_adapter_gated" &&
+            dispatch.verificationOutputDivergenceClasses.every(
+              (kind) => kind === "none",
+            ) &&
+            dispatch.authorityToolingAdapterMode ===
+              "workflow_component_adapter_gated" &&
             Array.isArray(dispatch.authorityToolingAdapterResults) &&
             dispatch.authorityToolingAdapterResults.length >= 8 &&
-            dispatch.authorityToolingAdapterResults.every((result) =>
-              result?.actionFrame?.executionMode === "gated" &&
-              result?.actionFrame?.readiness === "shadow_ready" &&
-              result?.nodeAttempt?.status === "gated",
+            dispatch.authorityToolingAdapterResults.every(
+              (result) =>
+                result?.actionFrame?.executionMode === "gated" &&
+                result?.actionFrame?.readiness === "shadow_ready" &&
+                result?.nodeAttempt?.status === "gated",
             ) &&
             Array.isArray(dispatch.authorityToolingAttemptIds) &&
             dispatch.authorityToolingAttemptIds.length >= 8 &&
@@ -1490,9 +1807,13 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
               "tool_call",
               "connector_call",
               "wallet_capability",
-            ].every((kind) => dispatch.authorityToolingComponentKinds.includes(kind)) &&
+            ].every((kind) =>
+              dispatch.authorityToolingComponentKinds.includes(kind),
+            ) &&
             Array.isArray(dispatch.authorityToolingDivergenceClasses) &&
-            dispatch.authorityToolingDivergenceClasses.every((kind) => kind === "none") &&
+            dispatch.authorityToolingDivergenceClasses.every(
+              (kind) => kind === "none",
+            ) &&
             dispatch.authorityToolingAdapterProof?.ready === true &&
             dispatch.authorityToolingAdapterProof?.policyDecision ===
               "accept_workflow_authority_tooling_adapter_envelope" &&
@@ -1512,19 +1833,32 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             dispatch.modelProviderGatedVisibleOutputAttemptIds.length >= 1 &&
             Array.isArray(dispatch.modelProviderGatedVisibleOutputReceiptIds) &&
             dispatch.modelProviderGatedVisibleOutputReceiptIds.length >= 1 &&
-            Array.isArray(dispatch.modelProviderGatedVisibleOutputReplayFixtureRefs) &&
-            dispatch.modelProviderGatedVisibleOutputReplayFixtureRefs.length >= 1 &&
-            Array.isArray(dispatch.modelProviderGatedVisibleOutputRollbackDrillAttemptIds) &&
-            dispatch.modelProviderGatedVisibleOutputRollbackDrillAttemptIds.length >= 1 &&
-            Array.isArray(dispatch.modelProviderGatedVisibleOutputRollbackDrillReceiptIds) &&
-            dispatch.modelProviderGatedVisibleOutputRollbackDrillReceiptIds.length >= 1 &&
+            Array.isArray(
+              dispatch.modelProviderGatedVisibleOutputReplayFixtureRefs,
+            ) &&
+            dispatch.modelProviderGatedVisibleOutputReplayFixtureRefs.length >=
+              1 &&
+            Array.isArray(
+              dispatch.modelProviderGatedVisibleOutputRollbackDrillAttemptIds,
+            ) &&
+            dispatch.modelProviderGatedVisibleOutputRollbackDrillAttemptIds
+              .length >= 1 &&
+            Array.isArray(
+              dispatch.modelProviderGatedVisibleOutputRollbackDrillReceiptIds,
+            ) &&
+            dispatch.modelProviderGatedVisibleOutputRollbackDrillReceiptIds
+              .length >= 1 &&
             Array.isArray(
               dispatch.modelProviderGatedVisibleOutputRollbackDrillReplayFixtureRefs,
             ) &&
-            dispatch.modelProviderGatedVisibleOutputRollbackDrillReplayFixtureRefs.length >= 1 &&
+            dispatch
+              .modelProviderGatedVisibleOutputRollbackDrillReplayFixtureRefs
+              .length >= 1 &&
             Array.isArray(dispatch.outputWriterHandoffAttemptIds) &&
             dispatch.outputWriterHandoffAttemptIds.length >= 1 &&
-            Array.isArray(dispatch.outputWriterMaterializationCanaryAttemptIds) &&
+            Array.isArray(
+              dispatch.outputWriterMaterializationCanaryAttemptIds,
+            ) &&
             dispatch.outputWriterMaterializationCanaryAttemptIds.length >= 1 &&
             Array.isArray(dispatch.outputWriterStagedWriteCanaryAttemptIds) &&
             dispatch.outputWriterStagedWriteCanaryAttemptIds.length >= 1 &&
@@ -1540,21 +1874,36 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             dispatch.authorityToolingReadOnlyReplayFixtureRefs.length >= 5 &&
             dispatch.authorityToolingProof?.gateLiveReady === true &&
             dispatch.authorityToolingProof?.policyGateLiveReady === true &&
-            dispatch.authorityToolingProof?.destructiveDenialLiveReady === true &&
+            dispatch.authorityToolingProof?.destructiveDenialLiveReady ===
+              true &&
             dispatch.authorityToolingProof?.approvalGateLiveReady === true &&
-            dispatch.authorityToolingProof?.readOnlyAuthorityCanaryReady === true &&
+            dispatch.authorityToolingProof?.readOnlyAuthorityCanaryReady ===
+              true &&
             dispatch.authorityToolingProof?.providerCatalogLiveReady === true &&
-            dispatch.authorityToolingProof?.providerCatalogLiveComponentKind === "mcp_provider" &&
+            dispatch.authorityToolingProof?.providerCatalogLiveComponentKind ===
+              "mcp_provider" &&
             dispatch.authorityToolingProof?.mcpToolCatalogLiveReady === true &&
-            dispatch.authorityToolingProof?.mcpToolCatalogLiveComponentKind === "mcp_tool_call" &&
-            dispatch.authorityToolingProof?.nativeToolCatalogLiveReady === true &&
-            dispatch.authorityToolingProof?.nativeToolCatalogLiveComponentKind === "tool_call" &&
-            dispatch.authorityToolingProof?.connectorCatalogLiveReady === true &&
-            dispatch.authorityToolingProof?.connectorCatalogLiveComponentKind === "connector_call" &&
-            dispatch.authorityToolingProof?.walletCapabilityLiveDryRunReady === true &&
-            dispatch.authorityToolingProof?.walletCapabilityLiveDryRunComponentKind === "wallet_capability" &&
-            Array.isArray(dispatch.authorityToolingProof?.mutationDeferredComponentKinds) &&
-            dispatch.authorityToolingProof.mutationDeferredComponentKinds.includes("wallet_capability") &&
+            dispatch.authorityToolingProof?.mcpToolCatalogLiveComponentKind ===
+              "mcp_tool_call" &&
+            dispatch.authorityToolingProof?.nativeToolCatalogLiveReady ===
+              true &&
+            dispatch.authorityToolingProof
+              ?.nativeToolCatalogLiveComponentKind === "tool_call" &&
+            dispatch.authorityToolingProof?.connectorCatalogLiveReady ===
+              true &&
+            dispatch.authorityToolingProof
+              ?.connectorCatalogLiveComponentKind === "connector_call" &&
+            dispatch.authorityToolingProof?.walletCapabilityLiveDryRunReady ===
+              true &&
+            dispatch.authorityToolingProof
+              ?.walletCapabilityLiveDryRunComponentKind ===
+              "wallet_capability" &&
+            Array.isArray(
+              dispatch.authorityToolingProof?.mutationDeferredComponentKinds,
+            ) &&
+            dispatch.authorityToolingProof.mutationDeferredComponentKinds.includes(
+              "wallet_capability",
+            ) &&
             Array.isArray(dispatch.authorityToolingDenialReceiptIds) &&
             dispatch.authorityToolingDenialReceiptIds.length >= 1 &&
             Array.isArray(dispatch.acceptedNodeAttemptIds) &&
@@ -1583,7 +1932,8 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
               dispatch.modelProviderGatedVisibleOutputScenario,
             );
           }
-          const readOnlyRoutingScenario = dispatch.readOnlyCapabilityRoutingScenario;
+          const readOnlyRoutingScenario =
+            dispatch.readOnlyCapabilityRoutingScenario;
           const readOnlyWorkflowNodeKinds = Array.isArray(
             dispatch.readOnlyCapabilityRoutingWorkflowOwnedNodeKinds,
           )
@@ -1592,15 +1942,20 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
           const readOnlySourceOrProbeNodePresent =
             readOnlyRoutingScenario === "retained_probe_behavior"
               ? readOnlyWorkflowNodeKinds.includes("probe_runner")
-              : ["retained_repo_grounded_answer", "retained_source_heavy_synthesis"].includes(
-                    readOnlyRoutingScenario,
-                  ) && readOnlyWorkflowNodeKinds.includes("memory_read");
+              : [
+                  "retained_repo_grounded_answer",
+                  "retained_source_heavy_synthesis",
+                ].includes(readOnlyRoutingScenario) &&
+                readOnlyWorkflowNodeKinds.includes("memory_read");
           if (
-            dispatch.schemaVersion === "workflow.harness.default-runtime-dispatch.v1" &&
+            dispatch.schemaVersion ===
+              "workflow.harness.default-runtime-dispatch.v1" &&
             dispatch.selectedSelector === "blessed_workflow_live_default" &&
-            dispatch.productionDefaultSelector === "blessed_workflow_live_default" &&
+            dispatch.productionDefaultSelector ===
+              "blessed_workflow_live_default" &&
             dispatch.executionMode === "live" &&
-            dispatch.runtimeAuthority === "blessed_workflow_activation_default" &&
+            dispatch.runtimeAuthority ===
+              "blessed_workflow_activation_default" &&
             dispatch.readOnlyCapabilityRoutingMode ===
               "workflow_read_only_capability_routing" &&
             dispatch.readOnlyCapabilityRoutingReady === true &&
@@ -1620,10 +1975,14 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             dispatch.readOnlyCapabilityRoutingAttemptIds.length >= 3 &&
             Array.isArray(dispatch.readOnlyCapabilityRoutingReceiptIds) &&
             dispatch.readOnlyCapabilityRoutingReceiptIds.length >= 3 &&
-            Array.isArray(dispatch.readOnlyCapabilityRoutingReplayFixtureRefs) &&
+            Array.isArray(
+              dispatch.readOnlyCapabilityRoutingReplayFixtureRefs,
+            ) &&
             dispatch.readOnlyCapabilityRoutingReplayFixtureRefs.length >= 3 &&
-            dispatch.readOnlyCapabilityRoutingProof?.sideEffectsExecuted === false &&
-            dispatch.readOnlyCapabilityRoutingProof?.mutationExecuted === false &&
+            dispatch.readOnlyCapabilityRoutingProof?.sideEffectsExecuted ===
+              false &&
+            dispatch.readOnlyCapabilityRoutingProof?.mutationExecuted ===
+              false &&
             Array.isArray(dispatch.activationBlockers) &&
             dispatch.activationBlockers.length === 0
           ) {
@@ -1650,15 +2009,20 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         if (digest.scorecard === true) summary.scorecardCount += 1;
         if (digest.stop_reason === true) summary.stopReasonCount += 1;
         if (digest.quality_ledger === true) summary.qualityLedgerCount += 1;
-        if (digest.harness_shadow_run === true) summary.harnessShadowRunCount += 1;
-        summary.harnessNodeAttemptCount += Number(digest.harness_node_attempt_count ?? 0);
+        if (digest.harness_shadow_run === true)
+          summary.harnessShadowRunCount += 1;
+        summary.harnessNodeAttemptCount += Number(
+          digest.harness_node_attempt_count ?? 0,
+        );
         summary.harnessShadowComparisonCount += Number(
           digest.harness_shadow_comparison_count ?? 0,
         );
         summary.harnessBlockingDivergenceCount += Number(
           digest.harness_blocking_divergence_count ?? 0,
         );
-        summary.harnessGatedClusterCount += Number(digest.harness_gated_cluster_count ?? 0);
+        summary.harnessGatedClusterCount += Number(
+          digest.harness_gated_cluster_count ?? 0,
+        );
         if (digest.harness_gated_cognition_passed === true) {
           summary.harnessGatedCognitionCount += 1;
         }
@@ -1742,13 +2106,18 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         if (digest.harness_authority_tooling_mcp_tool_catalog_live === true) {
           summary.harnessAuthorityToolingMcpToolCatalogLiveCount += 1;
         }
-        if (digest.harness_authority_tooling_native_tool_catalog_live === true) {
+        if (
+          digest.harness_authority_tooling_native_tool_catalog_live === true
+        ) {
           summary.harnessAuthorityToolingNativeToolCatalogLiveCount += 1;
         }
         if (digest.harness_authority_tooling_connector_catalog_live === true) {
           summary.harnessAuthorityToolingConnectorCatalogLiveCount += 1;
         }
-        if (digest.harness_authority_tooling_wallet_capability_live_dry_run === true) {
+        if (
+          digest.harness_authority_tooling_wallet_capability_live_dry_run ===
+          true
+        ) {
           summary.harnessAuthorityToolingWalletCapabilityLiveDryRunCount += 1;
         }
         if (digest.harness_model_provider_gated_visible_output === true) {
@@ -1762,7 +2131,10 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
               digest.harness_model_provider_gated_visible_output_scenario,
           );
         }
-        if (digest.harness_model_provider_gated_visible_output_rollback_drill === true) {
+        if (
+          digest.harness_model_provider_gated_visible_output_rollback_drill ===
+          true
+        ) {
           summary.harnessModelProviderGatedVisibleOutputRollbackDrillCount += 1;
           noteProviderGatedVisibleOutputCoverage(
             digest.harness_model_provider_gated_visible_output_coverage,
@@ -1790,7 +2162,10 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
               digest.harness_read_only_capability_routing_scenario,
           );
         }
-        if (Array.isArray(digest.selected_sources) && digest.selected_sources.length > 0) {
+        if (
+          Array.isArray(digest.selected_sources) &&
+          digest.selected_sources.length > 0
+        ) {
           summary.selectedSourceCount = Math.max(
             summary.selectedSourceCount,
             digest.selected_sources.length,
@@ -1799,13 +2174,18 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       };
       try {
         summary.transcriptCount = Number(
-          db.prepare("select count(*) as count from checkpoint_transcript_messages").get().count,
+          db
+            .prepare(
+              "select count(*) as count from checkpoint_transcript_messages",
+            )
+            .get().count,
         );
         summary.threadEventCount = Number(
           db.prepare("select count(*) as count from thread_events").get().count,
         );
         summary.artifactRecordCount = Number(
-          db.prepare("select count(*) as count from artifact_records").get().count,
+          db.prepare("select count(*) as count from artifact_records").get()
+            .count,
         );
         const artifacts = db
           .prepare(
@@ -1834,7 +2214,10 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
           const artifactType = String(payload.artifact_type || "");
           const metadata = payload.metadata ?? {};
           if (artifactType === "RUN_BUNDLE") summary.runBundleCount += 1;
-          if (artifactType === "REPORT" && metadata.kind === "runtime_evidence_projection") {
+          if (
+            artifactType === "REPORT" &&
+            metadata.kind === "runtime_evidence_projection"
+          ) {
             summary.runtimeEvidenceReportCount += 1;
           }
           if (
@@ -1846,10 +2229,17 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
               metadata.selected_sources.length,
             );
           }
-          if (/source|citation/i.test(title) || /source|citation/i.test(row.payload_json)) {
+          if (
+            /source|citation/i.test(title) ||
+            /source|citation/i.test(row.payload_json)
+          ) {
             summary.selectedSourceCount += 1;
           }
-          if (metadata.scorecard || /scorecard/i.test(title) || /scorecard/i.test(row.payload_json)) {
+          if (
+            metadata.scorecard ||
+            /scorecard/i.test(title) ||
+            /scorecard/i.test(row.payload_json)
+          ) {
             summary.scorecardCount += 1;
           }
           if (
@@ -1869,7 +2259,9 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
           if (metadata.harness_worker_binding) {
             summary.harnessWorkerBindingCount += 1;
           }
-          noteHarnessDefaultRuntimeBinding(metadata.harness_default_runtime_binding);
+          noteHarnessDefaultRuntimeBinding(
+            metadata.harness_default_runtime_binding,
+          );
           if (
             metadata.harness_default_runtime_binding_matched === true &&
             !metadata.harness_default_runtime_binding
@@ -1879,14 +2271,18 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
           if (metadata.harness_shadow_run) {
             summary.harnessShadowRunCount += 1;
           }
-          summary.harnessNodeAttemptCount += Number(metadata.harness_node_attempt_count ?? 0);
+          summary.harnessNodeAttemptCount += Number(
+            metadata.harness_node_attempt_count ?? 0,
+          );
           summary.harnessShadowComparisonCount += Number(
             metadata.harness_shadow_comparison_count ?? 0,
           );
           summary.harnessBlockingDivergenceCount += Number(
             metadata.harness_blocking_divergence_count ?? 0,
           );
-          summary.harnessGatedClusterCount += Number(metadata.harness_gated_cluster_count ?? 0);
+          summary.harnessGatedClusterCount += Number(
+            metadata.harness_gated_cluster_count ?? 0,
+          );
           if (metadata.harness_gated_cognition_passed === true) {
             summary.harnessGatedCognitionCount += 1;
           }
@@ -1916,7 +2312,9 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             summary.harnessRollbackRestoreCanaryReadyCount += 1;
             noteRollbackRestoreCanaryStatus("ready");
           }
-          if (metadata.harness_rollback_restore_canary_receipts_present === true) {
+          if (
+            metadata.harness_rollback_restore_canary_receipts_present === true
+          ) {
             summary.harnessRollbackRestoreCanaryReceiptCount += 2;
           }
           if (metadata.harness_activation_audit_receipts_present === true) {
@@ -1940,7 +2338,9 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
           if (metadata.harness_selector_default_promoted === true) {
             summary.harnessSelectorDefaultPromotedCount += 1;
           }
-          if (metadata.harness_selector_live_promotion_readiness_gated === true) {
+          if (
+            metadata.harness_selector_live_promotion_readiness_gated === true
+          ) {
             summary.harnessSelectorLivePromotionReadinessGatedCount += 1;
           }
           if (metadata.harness_live_handoff_canary === true) {
@@ -1964,19 +2364,30 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
           if (metadata.harness_authority_tooling_gate_live === true) {
             summary.harnessAuthorityToolingGateLiveCount += 1;
           }
-          if (metadata.harness_authority_tooling_provider_catalog_live === true) {
+          if (
+            metadata.harness_authority_tooling_provider_catalog_live === true
+          ) {
             summary.harnessAuthorityToolingProviderCatalogLiveCount += 1;
           }
-          if (metadata.harness_authority_tooling_mcp_tool_catalog_live === true) {
+          if (
+            metadata.harness_authority_tooling_mcp_tool_catalog_live === true
+          ) {
             summary.harnessAuthorityToolingMcpToolCatalogLiveCount += 1;
           }
-          if (metadata.harness_authority_tooling_native_tool_catalog_live === true) {
+          if (
+            metadata.harness_authority_tooling_native_tool_catalog_live === true
+          ) {
             summary.harnessAuthorityToolingNativeToolCatalogLiveCount += 1;
           }
-          if (metadata.harness_authority_tooling_connector_catalog_live === true) {
+          if (
+            metadata.harness_authority_tooling_connector_catalog_live === true
+          ) {
             summary.harnessAuthorityToolingConnectorCatalogLiveCount += 1;
           }
-          if (metadata.harness_authority_tooling_wallet_capability_live_dry_run === true) {
+          if (
+            metadata.harness_authority_tooling_wallet_capability_live_dry_run ===
+            true
+          ) {
             summary.harnessAuthorityToolingWalletCapabilityLiveDryRunCount += 1;
           }
           if (metadata.harness_model_provider_gated_visible_output === true) {
@@ -1990,7 +2401,10 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
                 metadata.harness_model_provider_gated_visible_output_scenario,
             );
           }
-          if (metadata.harness_model_provider_gated_visible_output_rollback_drill === true) {
+          if (
+            metadata.harness_model_provider_gated_visible_output_rollback_drill ===
+            true
+          ) {
             summary.harnessModelProviderGatedVisibleOutputRollbackDrillCount += 1;
             noteProviderGatedVisibleOutputCoverage(
               metadata.harness_model_provider_gated_visible_output_coverage,
@@ -2020,15 +2434,21 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
           }
         }
         for (const row of db
-          .prepare("select content from artifact_blobs where artifact_id like 'runtime-evidence-%'")
+          .prepare(
+            "select content from artifact_blobs where artifact_id like 'runtime-evidence-%'",
+          )
           .all()) {
           try {
-            noteProjection(JSON.parse(Buffer.from(row.content).toString("utf8")));
+            noteProjection(
+              JSON.parse(Buffer.from(row.content).toString("utf8")),
+            );
           } catch {
             // Ignore unrelated or partially-written blobs; the receipt/event pass below can still prove export.
           }
         }
-        for (const row of db.prepare("select payload_json from thread_events").all()) {
+        for (const row of db
+          .prepare("select payload_json from thread_events")
+          .all()) {
           try {
             noteRuntimeReceipt(JSON.parse(row.payload_json));
           } catch {
@@ -2042,7 +2462,9 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
       summary.collectionErrors.push(String(error?.message || error));
     }
   } else {
-    summary.collectionErrors.push(`chat memory database not found: ${chatDbPath}`);
+    summary.collectionErrors.push(
+      `chat memory database not found: ${chatDbPath}`,
+    );
   }
 
   const path = join(outputRoot, "runtime-artifacts.json");
@@ -2054,28 +2476,44 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
 }
 
 function collectRollbackRestoreCanaryUiProof(outputRoot) {
-  const railPath = "packages/agent-ide/src/features/Workflows/WorkflowRailPanel.tsx";
-  const validationPath = "packages/agent-ide/src/runtime/workflow-validation.ts";
-  const harnessWorkflowPath = "packages/agent-ide/src/runtime/harness-workflow.ts";
+  const railPath =
+    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel.tsx";
+  const validationPath =
+    "packages/agent-ide/src/runtime/workflow-validation.ts";
+  const harnessWorkflowPath =
+    "packages/agent-ide/src/runtime/harness-workflow.ts";
   const railModelPath = "packages/agent-ide/src/runtime/workflow-rail-model.ts";
-  const controllerPath = "packages/agent-ide/src/WorkflowComposer/controller.tsx";
+  const controllerPath =
+    "packages/agent-ide/src/WorkflowComposer/controller.tsx";
   const viewPath = "packages/agent-ide/src/WorkflowComposer/view.tsx";
   const graphPath = "packages/agent-ide/src/types/graph.ts";
   const restoreCommandPath = "apps/autopilot/src-tauri/src/project/commands.rs";
   const rail = readFileSync(resolve(repoRoot, railPath), "utf8");
   const validation = readFileSync(resolve(repoRoot, validationPath), "utf8");
-  const harnessWorkflow = readFileSync(resolve(repoRoot, harnessWorkflowPath), "utf8");
+  const harnessWorkflow = readFileSync(
+    resolve(repoRoot, harnessWorkflowPath),
+    "utf8",
+  );
   const railModel = readFileSync(resolve(repoRoot, railModelPath), "utf8");
   const controller = readFileSync(resolve(repoRoot, controllerPath), "utf8");
   const view = readFileSync(resolve(repoRoot, viewPath), "utf8");
   const graph = readFileSync(resolve(repoRoot, graphPath), "utf8");
-  const restoreCommand = readFileSync(resolve(repoRoot, restoreCommandPath), "utf8");
+  const restoreCommand = readFileSync(
+    resolve(repoRoot, restoreCommandPath),
+    "utf8",
+  );
   const checks = {
-    canaryCardTestId: /data-testid="workflow-harness-rollback-restore-canary"/.test(rail),
+    canaryCardTestId:
+      /data-testid="workflow-harness-rollback-restore-canary"/.test(rail),
     canaryStatusAttribute: /data-restore-canary-status/.test(rail),
     wizardStepGateId: /id: "rollback-restore"/.test(rail),
-    wizardStepTestId: /workflow-harness-activation-step-\$\{step\.id\}/.test(rail),
-    candidateGateTestId: /workflow-harness-activation-candidate-gate-\$\{gate\.gateId\}/.test(rail),
+    wizardStepTestId: /workflow-harness-activation-step-\$\{step\.id\}/.test(
+      rail,
+    ),
+    candidateGateTestId:
+      /workflow-harness-activation-candidate-gate-\$\{gate\.gateId\}/.test(
+        rail,
+      ),
     validationGate: /gateId: "rollback-restore"/.test(validation),
     blockedGitCanary: /rollback_restore_canary_not_run/.test(validation),
     dryRunRestoreProbe:
@@ -2087,14 +2525,22 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       ),
     restoreCanaryReceiptBinding:
       /data-receipt-binding-ref/.test(rail) &&
-      /WorkflowRevisionRestoreResult[\s\S]*receiptBindingRef\?: string/.test(graph) &&
-      /WorkflowHarnessRollbackRestoreCanary[\s\S]*receiptBindingRef\?: string/.test(graph) &&
-      /receiptBindingRef[\s\S]*workflow_restore_canary:[\s\S]*evidenceRefs/.test(validation) &&
+      /WorkflowRevisionRestoreResult[\s\S]*receiptBindingRef\?: string/.test(
+        graph,
+      ) &&
+      /WorkflowHarnessRollbackRestoreCanary[\s\S]*receiptBindingRef\?: string/.test(
+        graph,
+      ) &&
+      /receiptBindingRef[\s\S]*workflow_restore_canary:[\s\S]*evidenceRefs/.test(
+        validation,
+      ) &&
       /receipt_binding_ref[\s\S]*workflow_restore_canary_receipt_binding_ref/.test(
         restoreCommand,
       ),
     activationAuditReceiptRefs:
-      /WorkflowHarnessActivationAuditEvent[\s\S]*receiptRefs: string\[\]/.test(graph) &&
+      /WorkflowHarnessActivationAuditEvent[\s\S]*receiptRefs: string\[\]/.test(
+        graph,
+      ) &&
       /makeWorkflowHarnessActivationAuditEvent[\s\S]*receiptRefs[\s\S]*receiptRefsFromEvidenceRefs/.test(
         harnessWorkflow,
       ) &&
@@ -2109,7 +2555,9 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
         rail,
       ),
     rollbackExecutionReceiptRefs:
-      /WorkflowHarnessActivationRollbackProof[\s\S]*receiptRefs: string\[\]/.test(graph) &&
+      /WorkflowHarnessActivationRollbackProof[\s\S]*receiptRefs: string\[\]/.test(
+        graph,
+      ) &&
       /WorkflowHarnessActivationRollbackExecution[\s\S]*receiptRefs: string\[\][\s\S]*restoreReceiptBindingRef\?: string/.test(
         graph,
       ) &&
@@ -2129,10 +2577,16 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /WorkflowHarnessActivationGateAction/.test(rail) &&
       /gateAction: WorkflowHarnessActivationGateAction/.test(rail) &&
       /WorkflowHarnessActivationGateActionClickProof/.test(controller) &&
-      /WorkflowHarnessActivationGateCollectEvidenceClickProof/.test(controller) &&
-      /WorkflowHarnessActivationGateRollbackRestoreClickProof/.test(controller) &&
+      /WorkflowHarnessActivationGateCollectEvidenceClickProof/.test(
+        controller,
+      ) &&
+      /WorkflowHarnessActivationGateRollbackRestoreClickProof/.test(
+        controller,
+      ) &&
       /WorkflowHarnessActivationIdGateClickProof/.test(controller) &&
-      /workflowHarnessActivationIdGateClickProofBlockers/.test(harnessWorkflow) &&
+      /workflowHarnessActivationIdGateClickProofBlockers/.test(
+        harnessWorkflow,
+      ) &&
       /activation_id_gate_click_proof_missing/.test(harnessWorkflow) &&
       /runHarnessActivationGateActionClickProbe/.test(controller) &&
       /runHarnessActivationGateCollectEvidenceClickProbe/.test(controller) &&
@@ -2193,7 +2647,9 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /writeHarnessWorkbenchDeepLink/.test(controller),
     receiptDetailInspector:
       /resolveWorkflowHarnessReceiptInspection/.test(rail) &&
-      /export function resolveWorkflowHarnessReceiptInspection/.test(railModel) &&
+      /export function resolveWorkflowHarnessReceiptInspection/.test(
+        railModel,
+      ) &&
       /workflowHarnessReceiptKind/.test(railModel) &&
       /workflowRedactedReceiptPayload/.test(railModel) &&
       /selectedHarnessReceiptInspection/.test(rail) &&
@@ -2213,7 +2669,9 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
     replayDetailInspector:
       /resolveWorkflowHarnessReplayInspection/.test(rail) &&
       /export interface WorkflowHarnessReplayInspection/.test(railModel) &&
-      /export function resolveWorkflowHarnessReplayInspection/.test(railModel) &&
+      /export function resolveWorkflowHarnessReplayInspection/.test(
+        railModel,
+      ) &&
       /workflowUniqueReplayFixtureRefs/.test(railModel) &&
       /selectedHarnessReplayInspection/.test(rail) &&
       /sourceKind: "node_attempt"/.test(railModel) &&
@@ -2239,12 +2697,16 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /WorkflowHarnessReplayGateResult/.test(graph) &&
       /WorkflowHarnessPromotionClusterReplayGateProof/.test(graph) &&
       /WorkflowHarnessReplayDrillDivergenceClass/.test(graph) &&
-      /replayGateProof\?: WorkflowHarnessPromotionClusterReplayGateProof/.test(graph) &&
+      /replayGateProof\?: WorkflowHarnessPromotionClusterReplayGateProof/.test(
+        graph,
+      ) &&
       /replayDrills\?: WorkflowHarnessReplayDrillResult\[\]/.test(graph) &&
       /replayGates\?: WorkflowHarnessReplayGateResult\[\]/.test(graph) &&
       /executeWorkflowHarnessReplayDrill/.test(harnessWorkflow) &&
       /executeWorkflowHarnessReplayGate/.test(harnessWorkflow) &&
-      /workflowHarnessPromotionClustersWithReplayGateProof/.test(harnessWorkflow) &&
+      /workflowHarnessPromotionClustersWithReplayGateProof/.test(
+        harnessWorkflow,
+      ) &&
       /replay_drill_passed/.test(harnessWorkflow) &&
       /replay_drill_blocked/.test(harnessWorkflow) &&
       /replay_gate_passed/.test(harnessWorkflow) &&
@@ -2314,11 +2776,15 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
     uiSelectors: {
       canaryCard: "workflow-harness-rollback-restore-canary",
       wizardStep: "workflow-harness-activation-step-rollback-restore",
-      candidateGate: "workflow-harness-activation-candidate-gate-rollback-restore",
-      activationAuditReceipt: "workflow-harness-activation-audit-receipt-${event.eventId}-${index}",
+      candidateGate:
+        "workflow-harness-activation-candidate-gate-rollback-restore",
+      activationAuditReceipt:
+        "workflow-harness-activation-audit-receipt-${event.eventId}-${index}",
       rollbackDrillReceipt: "workflow-harness-rollback-drill-receipt-${index}",
-      rollbackExecutionReceipt: "workflow-harness-rollback-execution-receipt-${index}",
-      selectedReceiptDeepLinkState: "workflow-harness-deep-link-state[data-selected-receipt-ref]",
+      rollbackExecutionReceipt:
+        "workflow-harness-rollback-execution-receipt-${index}",
+      selectedReceiptDeepLinkState:
+        "workflow-harness-deep-link-state[data-selected-receipt-ref]",
       receiptInspector: "workflow-harness-receipt-inspector",
       receiptPayloadPreview: "workflow-harness-receipt-payload-preview",
       receiptEvidenceRefs: "workflow-harness-receipt-evidence-refs",
@@ -2331,7 +2797,8 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       runReplayGate: "workflow-harness-run-replay-gate",
       replayGateResult: "workflow-harness-replay-gate-result",
       replayGateReceiptRefs: "workflow-harness-replay-gate-receipt-refs",
-      promotionClusterReplayGate: "workflow-harness-promotion-cluster-replay-gate",
+      promotionClusterReplayGate:
+        "workflow-harness-promotion-cluster-replay-gate",
       groupReplayGateProof: "workflow-harness-group-replay-gate-proof",
       promoteClusterGated: "workflow-harness-promote-cluster-gated",
       promoteClusterLive: "workflow-harness-promote-cluster-live",
@@ -2369,7 +2836,10 @@ function collectPromotionTransitionGuiBehaviorProof(outputRoot) {
       encoding: "utf8",
       env: {
         ...process.env,
-        TSX_TSCONFIG_PATH: resolve(repoRoot, "packages/agent-ide/tsconfig.json"),
+        TSX_TSCONFIG_PATH: resolve(
+          repoRoot,
+          "packages/agent-ide/tsconfig.json",
+        ),
       },
       timeout: 60_000,
       maxBuffer: 8 * 1024 * 1024,
@@ -2377,7 +2847,8 @@ function collectPromotionTransitionGuiBehaviorProof(outputRoot) {
   );
   if (result.status !== 0 || !existsSync(path)) {
     const proof = {
-      schemaVersion: "ioi.autopilot.gui-harness.promotion-transition-behavior.v1",
+      schemaVersion:
+        "ioi.autopilot.gui-harness.promotion-transition-behavior.v1",
       passed: false,
       checks: {
         probeExecuted: false,
@@ -2400,7 +2871,8 @@ function collectPromotionTransitionGuiBehaviorProof(outputRoot) {
     };
   } catch (error) {
     const proof = {
-      schemaVersion: "ioi.autopilot.gui-harness.promotion-transition-behavior.v1",
+      schemaVersion:
+        "ioi.autopilot.gui-harness.promotion-transition-behavior.v1",
       passed: false,
       checks: {
         proofParsed: false,
@@ -2425,8 +2897,10 @@ function buildGuiEvidenceAssessment({
   const summary = runtimeArtifacts.summary;
   const hasTranscript = summary.transcriptCount > 0;
   const hasTrace = summary.logSignals.chatProofTrace > 0;
-  const hasEvents = summary.threadEventCount > 0 || summary.logSignals.kernelEvents > 0;
-  const hasReceipts = summary.runBundleCount > 0 || summary.threadEventCount > 0;
+  const hasEvents =
+    summary.threadEventCount > 0 || summary.logSignals.kernelEvents > 0;
+  const hasReceipts =
+    summary.runBundleCount > 0 || summary.threadEventCount > 0;
   const hasPromptAssembly = summary.promptAssemblyCount > 0;
   const hasTurnState = summary.turnStateCount > 0;
   const hasDecisionLoop = summary.decisionLoopCount > 0;
@@ -2586,23 +3060,53 @@ function buildGuiEvidenceAssessment({
         binding.workflowId === workflowProofRuntimeSelector.workflowId &&
         binding.activationId === workflowProofRuntimeSelector.activationId &&
         binding.harnessHash === workflowProofRuntimeSelector.harnessHash &&
-        binding.rollbackTarget === workflowProofRuntimeSelector.rollbackTarget &&
-        binding.selectedSelector === workflowProofRuntimeSelector.selectedSelector &&
+        binding.rollbackTarget ===
+          workflowProofRuntimeSelector.rollbackTarget &&
+        binding.selectedSelector ===
+          workflowProofRuntimeSelector.selectedSelector &&
         binding.productionDefaultSelector ===
           workflowProofRuntimeSelector.productionDefaultSelector &&
-        binding.runtimeAuthority === workflowProofDefaultDispatch.runtimeAuthority &&
+        binding.runtimeAuthority ===
+          workflowProofDefaultDispatch.runtimeAuthority &&
         binding.executionMode === workflowProofDefaultDispatch.executionMode &&
         binding.selectorDecisionLinksDispatch === true &&
         binding.drivesRuntimeDecision === true &&
+        binding.dispatchDrivesRuntime === true &&
+        binding.selectorLivePromotionReadinessReady === true &&
+        binding.liveHandoffLivePromotionReadinessReady === true &&
+        binding.dispatchLivePromotionReadinessReady === true &&
+        binding.livePromotionReadinessProofIdsMatch === true &&
+        binding.invalidForkLiveActivationBlocked === true &&
+        binding.workerBindingAuthorityReady === true &&
+        Array.isArray(binding.workerBindingAuthorityBlockers) &&
+        binding.workerBindingAuthorityBlockers.length === 0 &&
+        binding.selectorLivePromotionReadinessProofId ===
+          workflowProofRuntimeSelector.livePromotionReadinessProof?.proofId &&
+        binding.dispatchLivePromotionReadinessProofId ===
+          workflowProofDefaultDispatch.livePromotionReadinessProof?.proofId &&
         typeof binding.selectorDecisionId === "string" &&
         binding.selectorDecisionId.startsWith("harness-selector:") &&
         typeof binding.defaultDispatchId === "string" &&
         binding.defaultDispatchId.startsWith("harness-default-dispatch:") &&
-        binding.workerBinding?.harnessWorkflowId === workflowProofRuntimeSelector.workflowId &&
+        binding.workerBinding?.harnessWorkflowId ===
+          workflowProofRuntimeSelector.workflowId &&
         binding.workerBinding?.harnessActivationId ===
           workflowProofRuntimeSelector.activationId &&
-        binding.workerBinding?.harnessHash === workflowProofRuntimeSelector.harnessHash &&
-        binding.workerBinding?.executionMode === workflowProofDefaultDispatch.executionMode,
+        binding.workerBinding?.harnessHash ===
+          workflowProofRuntimeSelector.harnessHash &&
+        binding.workerBinding?.executionMode ===
+          workflowProofDefaultDispatch.executionMode &&
+        binding.workerBinding?.selectorDecisionId ===
+          binding.selectorDecisionId &&
+        binding.workerBinding?.defaultDispatchId ===
+          binding.defaultDispatchId &&
+        binding.workerBinding?.rollbackTarget ===
+          workflowProofRuntimeSelector.rollbackTarget &&
+        binding.workerBinding?.authorityBindingReady === true &&
+        Array.isArray(binding.workerBinding?.authorityBindingBlockers) &&
+        binding.workerBinding.authorityBindingBlockers.length === 0 &&
+        binding.workerBinding?.livePromotionReadinessProofId ===
+          binding.selectorLivePromotionReadinessProofId,
     );
   const hasHarnessChatRuntimeBinding =
     hasHarnessDefaultRuntimeDispatch &&
@@ -2633,12 +3137,18 @@ function buildGuiEvidenceAssessment({
     hasHarnessDefaultRuntimeDispatch &&
     summary.harnessAuthorityToolingWalletCapabilityLiveDryRunCount > 0;
   const providerGatedVisibleOutputScenarioCoverage =
-    AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS.every((scenario) =>
-      summary.harnessModelProviderGatedVisibleOutputScenarios.includes(scenario),
+    AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS.every(
+      (scenario) =>
+        summary.harnessModelProviderGatedVisibleOutputScenarios.includes(
+          scenario,
+        ),
     );
   const providerGatedVisibleOutputRollbackDrillScenarioCoverage =
-    AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS.every((scenario) =>
-      summary.harnessModelProviderGatedVisibleOutputRollbackDrillScenarios.includes(scenario),
+    AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS.every(
+      (scenario) =>
+        summary.harnessModelProviderGatedVisibleOutputRollbackDrillScenarios.includes(
+          scenario,
+        ),
     );
   const hasHarnessModelProviderGatedVisibleOutput =
     hasHarnessDefaultRuntimeDispatch &&
@@ -2649,12 +3159,16 @@ function buildGuiEvidenceAssessment({
     summary.harnessModelProviderGatedVisibleOutputRollbackDrillCount > 0 &&
     providerGatedVisibleOutputRollbackDrillScenarioCoverage;
   const readOnlyCapabilityRoutingScenarioCoverage =
-    AUTOPILOT_READ_ONLY_CAPABILITY_ROUTING_REQUIRED_SCENARIOS.every((scenario) =>
-      summary.harnessReadOnlyCapabilityRoutingScenarios.includes(scenario),
+    AUTOPILOT_READ_ONLY_CAPABILITY_ROUTING_REQUIRED_SCENARIOS.every(
+      (scenario) =>
+        summary.harnessReadOnlyCapabilityRoutingScenarios.includes(scenario),
     );
   const readOnlyCapabilityRoutingNoMutationScenarioCoverage =
-    AUTOPILOT_READ_ONLY_CAPABILITY_ROUTING_REQUIRED_SCENARIOS.every((scenario) =>
-      summary.harnessReadOnlyCapabilityRoutingNoMutationScenarios.includes(scenario),
+    AUTOPILOT_READ_ONLY_CAPABILITY_ROUTING_REQUIRED_SCENARIOS.every(
+      (scenario) =>
+        summary.harnessReadOnlyCapabilityRoutingNoMutationScenarios.includes(
+          scenario,
+        ),
     );
   const hasHarnessReadOnlyCapabilityRouting =
     hasHarnessDefaultRuntimeDispatch &&
@@ -2667,36 +3181,46 @@ function buildGuiEvidenceAssessment({
       markdown_rendered: allScreenshotsCaptured && hasTranscript,
       mermaid_rendered:
         allScreenshotsCaptured &&
-        queryResults.some((result) => result.scenario === "mermaid_rendering" && result.passed),
+        queryResults.some(
+          (result) => result.scenario === "mermaid_rendering" && result.passed,
+        ),
       collapsible_thinking: allScreenshotsCaptured && hasTrace,
       collapsible_explored_files: allScreenshotsCaptured && hasSources,
       source_pills_reserved_for_search:
         allScreenshotsCaptured &&
-        queryResults.every((result) => result.runtimeEvidence?.containsInlineSourcesUsed !== true),
+        queryResults.every(
+          (result) =>
+            result.runtimeEvidence?.containsInlineSourcesUsed !== true,
+        ),
       no_raw_receipt_dump: allScreenshotsCaptured && hasReceipts,
       no_default_facts_dashboard: allScreenshotsCaptured && hasQualityLedger,
       no_default_evidence_drawer: allScreenshotsCaptured && hasScorecard,
       no_overlapping_text: allScreenshotsCaptured,
     },
     runtimeConsistency: {
-      visible_output_matches_trace: allScreenshotsCaptured && hasTranscript && hasTrace,
-      visible_sources_match_selected_sources: allScreenshotsCaptured && hasSources,
+      visible_output_matches_trace:
+        allScreenshotsCaptured && hasTranscript && hasTrace,
+      visible_sources_match_selected_sources:
+        allScreenshotsCaptured && hasSources,
       policy_blocks_match_receipts: hasReceipts && hasStopReason,
       task_state_matches_transcript: hasTranscript && hasQualityLedger,
       scorecard_matches_stop_reason: hasScorecard && hasStopReason,
       harness_shadow_attempts_present: hasHarnessShadow,
       harness_gated_cognition_present: hasHarnessGatedCognition,
       harness_gated_routing_model_present: hasHarnessGatedRoutingModel,
-      harness_gated_verification_output_present: hasHarnessGatedVerificationOutput,
+      harness_gated_verification_output_present:
+        hasHarnessGatedVerificationOutput,
       harness_gated_authority_tooling_present: hasHarnessGatedAuthorityTooling,
       harness_fork_activation_present: hasHarnessForkActivation,
       harness_rollback_restore_canary_present: hasHarnessRollbackRestoreCanary,
       harness_rollback_restore_canary_receipts_present:
         hasHarnessRollbackRestoreCanaryReceipts,
-      harness_activation_audit_receipts_present: hasHarnessActivationAuditReceipts,
+      harness_activation_audit_receipts_present:
+        hasHarnessActivationAuditReceipts,
       harness_rollback_execution_receipts_present:
         hasHarnessRollbackExecutionReceipts,
-      harness_rollback_restore_canary_ui_present: hasHarnessRollbackRestoreCanaryUi,
+      harness_rollback_restore_canary_ui_present:
+        hasHarnessRollbackRestoreCanaryUi,
       harness_promotion_transition_gui_behavior_present:
         hasHarnessPromotionTransitionGuiBehavior,
       harness_promotion_transition_live_gui_interaction_present:
@@ -2729,16 +3253,20 @@ function buildGuiEvidenceAssessment({
         hasHarnessActivationIdGateClickProof,
       harness_activation_id_gate_click_proof_runtime_present:
         summary.harnessActivationIdGateClickProofRuntimeCount > 0,
-      harness_canary_execution_boundary_present: hasHarnessCanaryExecutionBoundary,
+      harness_canary_execution_boundary_present:
+        hasHarnessCanaryExecutionBoundary,
       harness_live_handoff_present: hasHarnessLiveHandoff,
       harness_selector_default_promoted: hasHarnessSelectorRouting,
       harness_selector_live_promotion_readiness_gated:
         summary.harnessSelectorLivePromotionReadinessGatedCount > 0,
-      harness_default_runtime_dispatch_present: hasHarnessDefaultRuntimeDispatch,
-      harness_live_promotion_readiness_present: hasHarnessLivePromotionReadiness,
+      harness_default_runtime_dispatch_present:
+        hasHarnessDefaultRuntimeDispatch,
+      harness_live_promotion_readiness_present:
+        hasHarnessLivePromotionReadiness,
       harness_chat_runtime_binding_matches_workflow_activation:
         hasHarnessChatRuntimeBinding,
-      harness_authority_tooling_gate_live_present: hasHarnessAuthorityToolingGateLive,
+      harness_authority_tooling_gate_live_present:
+        hasHarnessAuthorityToolingGateLive,
       harness_authority_tooling_provider_catalog_live_present:
         hasHarnessAuthorityToolingProviderCatalogLive,
       harness_authority_tooling_mcp_tool_catalog_live_present:
@@ -2753,7 +3281,8 @@ function buildGuiEvidenceAssessment({
         hasHarnessModelProviderGatedVisibleOutput,
       harness_model_provider_gated_visible_output_rollback_drill_present:
         hasHarnessModelProviderGatedVisibleOutputRollbackDrill,
-      harness_read_only_capability_routing_present: hasHarnessReadOnlyCapabilityRouting,
+      harness_read_only_capability_routing_present:
+        hasHarnessReadOnlyCapabilityRouting,
       better_agent_artifacts_present:
         hasTurnState &&
         hasDecisionLoop &&
@@ -2847,10 +3376,14 @@ function buildGuiEvidenceAssessment({
       harnessGatedClusterCount: summary.harnessGatedClusterCount,
       harnessGatedCognitionCount: summary.harnessGatedCognitionCount,
       harnessGatedRoutingModelCount: summary.harnessGatedRoutingModelCount,
-      harnessGatedVerificationOutputCount: summary.harnessGatedVerificationOutputCount,
-      harnessGatedAuthorityToolingCount: summary.harnessGatedAuthorityToolingCount,
-      harnessForkActivationBlockedCount: summary.harnessForkActivationBlockedCount,
-      harnessForkActivationMintedCount: summary.harnessForkActivationMintedCount,
+      harnessGatedVerificationOutputCount:
+        summary.harnessGatedVerificationOutputCount,
+      harnessGatedAuthorityToolingCount:
+        summary.harnessGatedAuthorityToolingCount,
+      harnessForkActivationBlockedCount:
+        summary.harnessForkActivationBlockedCount,
+      harnessForkActivationMintedCount:
+        summary.harnessForkActivationMintedCount,
       harnessRollbackRestoreCanaryBlockedCount:
         summary.harnessRollbackRestoreCanaryBlockedCount,
       harnessRollbackRestoreCanaryReadyCount:
@@ -2863,20 +3396,27 @@ function buildGuiEvidenceAssessment({
         summary.harnessRollbackExecutionReceiptCount,
       harnessRollbackRestoreCanaryStatuses:
         summary.harnessRollbackRestoreCanaryStatuses,
-      harnessRollbackRestoreCanaryUiProof: rollbackRestoreCanaryUiProof?.proof ?? null,
+      harnessRollbackRestoreCanaryUiProof:
+        rollbackRestoreCanaryUiProof?.proof ?? null,
       harnessPromotionTransitionGuiBehaviorProof:
         promotionTransitionGuiBehaviorProof?.proof ?? null,
       harnessPromotionTransitionLiveGuiInteractionProof:
         promotionTransitionLiveGuiInteractionProof?.proof ?? null,
-      harnessCanaryBoundaryExecutedCount: summary.harnessCanaryBoundaryExecutedCount,
-      harnessCanaryBoundaryRollbackDrillCount: summary.harnessCanaryBoundaryRollbackDrillCount,
-      harnessSelectorCanaryRoutedCount: summary.harnessSelectorCanaryRoutedCount,
-      harnessSelectorLegacyDefaultCount: summary.harnessSelectorLegacyDefaultCount,
-      harnessSelectorDefaultPromotedCount: summary.harnessSelectorDefaultPromotedCount,
+      harnessCanaryBoundaryExecutedCount:
+        summary.harnessCanaryBoundaryExecutedCount,
+      harnessCanaryBoundaryRollbackDrillCount:
+        summary.harnessCanaryBoundaryRollbackDrillCount,
+      harnessSelectorCanaryRoutedCount:
+        summary.harnessSelectorCanaryRoutedCount,
+      harnessSelectorLegacyDefaultCount:
+        summary.harnessSelectorLegacyDefaultCount,
+      harnessSelectorDefaultPromotedCount:
+        summary.harnessSelectorDefaultPromotedCount,
       harnessSelectorLivePromotionReadinessGatedCount:
         summary.harnessSelectorLivePromotionReadinessGatedCount,
       harnessLiveHandoffCanaryCount: summary.harnessLiveHandoffCanaryCount,
-      harnessLiveHandoffDefaultPromotedCount: summary.harnessLiveHandoffDefaultPromotedCount,
+      harnessLiveHandoffDefaultPromotedCount:
+        summary.harnessLiveHandoffDefaultPromotedCount,
       harnessLiveHandoffRollbackCount: summary.harnessLiveHandoffRollbackCount,
       harnessDefaultRuntimeDispatchReadonlyCount:
         summary.harnessDefaultRuntimeDispatchReadonlyCount,
@@ -2910,7 +3450,9 @@ function buildGuiEvidenceAssessment({
 
 function preflight() {
   const failures = [];
-  const packageScripts = runShell("node -e \"const p=require('./package.json'); console.log(Boolean(p.scripts?.['dev:desktop']))\"");
+  const packageScripts = runShell(
+    "node -e \"const p=require('./package.json'); console.log(Boolean(p.scripts?.['dev:desktop']))\"",
+  );
   if (packageScripts.status !== 0 || packageScripts.stdout.trim() !== "true") {
     failures.push("package.json is missing dev:desktop script");
   }
@@ -2918,26 +3460,36 @@ function preflight() {
     if (!commandExists(command)) failures.push(`${command} not found on PATH`);
   }
   const optionalGuiTools = ["wmctrl", "xdotool", "import"];
-  const missingGuiTools = optionalGuiTools.filter((command) => !commandExists(command));
+  const missingGuiTools = optionalGuiTools.filter(
+    (command) => !commandExists(command),
+  );
   if (missingGuiTools.length > 0) {
-    failures.push(`GUI automation tools missing: ${missingGuiTools.join(", ")}`);
+    failures.push(
+      `GUI automation tools missing: ${missingGuiTools.join(", ")}`,
+    );
   }
   return failures;
 }
 
 function windowIds(windowName) {
-  const wmctrl = runShell(`wmctrl -l | grep -i ${JSON.stringify(windowName)} | awk '{print $1}'`, {
-    timeout: 4_000,
-  });
+  const wmctrl = runShell(
+    `wmctrl -l | grep -i ${JSON.stringify(windowName)} | awk '{print $1}'`,
+    {
+      timeout: 4_000,
+    },
+  );
   const ids = new Set(
     wmctrl.stdout
       .split(/\s+/)
       .map((item) => item.trim())
       .filter(Boolean),
   );
-  const xdotool = runShell(`xdotool search --name ${JSON.stringify(windowName)}`, {
-    timeout: 4_000,
-  });
+  const xdotool = runShell(
+    `xdotool search --name ${JSON.stringify(windowName)}`,
+    {
+      timeout: 4_000,
+    },
+  );
   for (const line of xdotool.stdout.split(/\s+/)) {
     const trimmed = line.trim();
     if (trimmed) ids.add(trimmed);
@@ -2966,13 +3518,19 @@ async function waitForWindow(windowName, timeoutMs) {
 }
 
 function typeQuery(windowId, query) {
-  const inputPath = join(process.env.TMPDIR || "/tmp", `autopilot-gui-query-${process.pid}.txt`);
+  const inputPath = join(
+    process.env.TMPDIR || "/tmp",
+    `autopilot-gui-query-${process.pid}.txt`,
+  );
   writeFileSync(inputPath, query, "utf8");
   runShell(`xdotool windowactivate ${windowId}`, { timeout: 4_000 });
   runShell("sleep 0.3", { timeout: 2_000 });
   runShell(`xdotool key --clearmodifiers Escape`, { timeout: 5_000 });
   runShell("sleep 0.3", { timeout: 2_000 });
-  const composerClick = detectFocusedComposerClick(windowId) ?? { x: 420, y: 575 };
+  const composerClick = detectFocusedComposerClick(windowId) ?? {
+    x: 420,
+    y: 575,
+  };
   assertGuiClickTargetSafe({
     x: composerClick.x,
     y: composerClick.y,
@@ -2980,7 +3538,13 @@ function typeQuery(windowId, query) {
   });
   const origin = windowGeometry(windowId);
   const clickPoints = [
-    { x: composerClick.x, y: Math.max(composerClick.y - 22, GUI_AUTOMATION_CLICK_POLICY.safeZone.minWindowY) },
+    {
+      x: composerClick.x,
+      y: Math.max(
+        composerClick.y - 22,
+        GUI_AUTOMATION_CLICK_POLICY.safeZone.minWindowY,
+      ),
+    },
     { x: composerClick.x, y: composerClick.y },
   ];
   for (const point of clickPoints) {
@@ -3029,7 +3593,10 @@ function typeQuery(windowId, query) {
   runShell(`xdotool key --clearmodifiers Return`, { timeout: 5_000 });
   if (composerClick.bounds?.maxX && composerClick.bounds?.maxY) {
     const sendPoint = {
-      x: Math.max(GUI_AUTOMATION_CLICK_POLICY.safeZone.minWindowX, composerClick.bounds.maxX - 24),
+      x: Math.max(
+        GUI_AUTOMATION_CLICK_POLICY.safeZone.minWindowX,
+        composerClick.bounds.maxX - 24,
+      ),
       y: composerClick.bounds.maxY + 24,
     };
     const sendClickCommand = origin
@@ -3052,9 +3619,12 @@ function typeQuery(windowId, query) {
 
 function captureScreenshot(windowId, outputRoot, scenario) {
   const path = join(outputRoot, `${scenario}.png`);
-  const result = runShell(`import -window ${windowId} ${JSON.stringify(path)}`, {
-    timeout: 20_000,
-  });
+  const result = runShell(
+    `import -window ${windowId} ${JSON.stringify(path)}`,
+    {
+      timeout: 20_000,
+    },
+  );
   return {
     path,
     ok: result.status === 0,
@@ -3071,7 +3641,10 @@ function stopDesktopProcess(desktop) {
   }
 }
 
-async function waitForHarnessPromotionLiveWorkflow(proofWorkflowPath, timeoutMs) {
+async function waitForHarnessPromotionLiveWorkflow(
+  proofWorkflowPath,
+  timeoutMs,
+) {
   const deadline = Date.now() + timeoutMs;
   let latest = {
     workflow: null,
@@ -3085,7 +3658,8 @@ async function waitForHarnessPromotionLiveWorkflow(proofWorkflowPath, timeoutMs)
         const cluster = workflow.metadata?.harness?.promotionClusters?.find(
           (candidate) => candidate.clusterId === "cognition",
         );
-        const transitions = workflow.metadata?.harness?.promotionTransitions ?? [];
+        const transitions =
+          workflow.metadata?.harness?.promotionTransitions ?? [];
         if (
           cluster?.promotionStatus === "live" &&
           transitions.some(
@@ -3112,8 +3686,14 @@ async function waitForHarnessPromotionLiveWorkflow(proofWorkflowPath, timeoutMs)
   };
 }
 
-async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, args) {
-  const proofPath = join(outputRoot, "promotion-transition-live-gui-interaction-proof.json");
+async function collectPromotionTransitionLiveGuiInteractionProof(
+  outputRoot,
+  args,
+) {
+  const proofPath = join(
+    outputRoot,
+    "promotion-transition-live-gui-interaction-proof.json",
+  );
   const proofWorkflowEvidencePath = join(
     outputRoot,
     "promotion-transition-live-gui-workflow.json",
@@ -3203,11 +3783,13 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
     );
     const transitions = workflow?.metadata?.harness?.promotionTransitions ?? [];
     const audit = workflow?.metadata?.harness?.activationAudit ?? [];
-    const selector = workflow?.metadata?.harness?.runtimeSelectorDecision ?? null;
+    const selector =
+      workflow?.metadata?.harness?.runtimeSelectorDecision ?? null;
     const liveHandoff = workflow?.metadata?.harness?.liveHandoffProof ?? null;
     const defaultDispatch =
       workflow?.metadata?.harness?.defaultRuntimeDispatchProof ?? null;
-    const activationRecord = workflow?.metadata?.harness?.activationRecord ?? null;
+    const activationRecord =
+      workflow?.metadata?.harness?.activationRecord ?? null;
     const workerBinding = workflow?.metadata?.workerHarnessBinding ?? null;
     const deepLinkReplayProof =
       workflow?.metadata?.harness?.deepLinkReplayProof ?? null;
@@ -3220,9 +3802,11 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
     const activationGateActionClickProof =
       workflow?.metadata?.harness?.activationGateActionClickProof ?? null;
     const activationGateCollectEvidenceClickProof =
-      workflow?.metadata?.harness?.activationGateCollectEvidenceClickProof ?? null;
+      workflow?.metadata?.harness?.activationGateCollectEvidenceClickProof ??
+      null;
     const activationGateRollbackRestoreClickProof =
-      workflow?.metadata?.harness?.activationGateRollbackRestoreClickProof ?? null;
+      workflow?.metadata?.harness?.activationGateRollbackRestoreClickProof ??
+      null;
     const activationIdGateClickProof =
       workflow?.metadata?.harness?.activationIdGateClickProof ?? null;
     const revisionBinding =
@@ -3302,17 +3886,23 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
         (replayCase) => replayCase.id === "activation-gate-replay",
       ) ?? null;
     const activationGateEvidenceRefCount = Number(
-      activationGateDeepLinkCase?.observedSelectedState?.["data-evidence-ref-count"] ??
-        0,
+      activationGateDeepLinkCase?.observedSelectedState?.[
+        "data-evidence-ref-count"
+      ] ?? 0,
     );
-    const activationGateReferenceDeepLinkRestored = (replayCase, paramName, stateName) =>
+    const activationGateReferenceDeepLinkRestored = (
+      replayCase,
+      paramName,
+      stateName,
+    ) =>
       replayCase?.passed === true &&
       typeof replayCase.hash === "string" &&
       replayCase.hash.includes(`${paramName}=`) &&
       replayCase.historyMatches === true &&
       replayCase.parsedMatches === true &&
       replayCase.observedValue === replayCase.expectedValue &&
-      replayCase.observedSelectedState?.[stateName] === replayCase.expectedValue;
+      replayCase.observedSelectedState?.[stateName] ===
+        replayCase.expectedValue;
     const routeStatefulDeepLinks = {
       selector: selector?.decisionId
         ? `#harness-workbench?${new URLSearchParams({
@@ -3361,14 +3951,10 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
         activationBlockerDeepLinkProof?.cases?.find(
           (replayCase) => replayCase.id === "activation-blocker",
         )?.hash ?? null,
-      activationGate:
-        activationGateDeepLinkCase?.hash ?? null,
-      activationGateEvidence:
-        activationGateEvidenceDeepLinkCase?.hash ?? null,
-      activationGateReceipt:
-        activationGateReceiptDeepLinkCase?.hash ?? null,
-      activationGateReplay:
-        activationGateReplayDeepLinkCase?.hash ?? null,
+      activationGate: activationGateDeepLinkCase?.hash ?? null,
+      activationGateEvidence: activationGateEvidenceDeepLinkCase?.hash ?? null,
+      activationGateReceipt: activationGateReceiptDeepLinkCase?.hash ?? null,
+      activationGateReplay: activationGateReplayDeepLinkCase?.hash ?? null,
       activationAudit: audit[0]?.eventId
         ? `#harness-workbench?${new URLSearchParams({
             panel: "settings",
@@ -3400,11 +3986,13 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
       ),
       runtimeSelectorDefaultPromoted:
         selector?.selectedSelector === "blessed_workflow_live_default" &&
-        selector?.productionDefaultSelector === "blessed_workflow_live_default" &&
+        selector?.productionDefaultSelector ===
+          "blessed_workflow_live_default" &&
         selector?.workflowId === DEFAULT_AGENT_HARNESS_WORKFLOW_ID &&
         selector?.activationId === DEFAULT_AGENT_HARNESS_ACTIVATION_ID &&
         selector?.harnessHash === DEFAULT_AGENT_HARNESS_HASH &&
-        selector?.actualRuntimeAuthority === "blessed_workflow_activation_default" &&
+        selector?.actualRuntimeAuthority ===
+          "blessed_workflow_activation_default" &&
         selector?.executionMode === "live" &&
         selector?.defaultPromotionGate?.enabled === true &&
         selector?.defaultPromotionGate?.eligible === true &&
@@ -3420,12 +4008,14 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
         (selector?.defaultPromotionGate?.activationBlockers ?? []).length === 0,
       liveHandoffTransferred:
         liveHandoff?.selector === "blessed_workflow_live_default" &&
-        liveHandoff?.productionDefaultSelector === "blessed_workflow_live_default" &&
+        liveHandoff?.productionDefaultSelector ===
+          "blessed_workflow_live_default" &&
         liveHandoff?.workflowId === DEFAULT_AGENT_HARNESS_WORKFLOW_ID &&
         liveHandoff?.activationId === DEFAULT_AGENT_HARNESS_ACTIVATION_ID &&
         liveHandoff?.harnessHash === DEFAULT_AGENT_HARNESS_HASH &&
         liveHandoff?.defaultAuthorityTransferred === true &&
-        liveHandoff?.runtimeAuthority === "blessed_workflow_activation_default" &&
+        liveHandoff?.runtimeAuthority ===
+          "blessed_workflow_activation_default" &&
         liveHandoff?.rollbackTarget === DEFAULT_AGENT_HARNESS_ACTIVATION_ID &&
         liveHandoff?.rollbackAvailable === true &&
         liveHandoff?.livePromotionReadinessReady === true &&
@@ -3437,18 +4027,22 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
         (liveHandoff?.activationBlockers ?? []).length === 0,
       defaultDispatchBound:
         defaultDispatch?.selectedSelector === "blessed_workflow_live_default" &&
-        defaultDispatch?.productionDefaultSelector === "blessed_workflow_live_default" &&
+        defaultDispatch?.productionDefaultSelector ===
+          "blessed_workflow_live_default" &&
         defaultDispatch?.workflowId === DEFAULT_AGENT_HARNESS_WORKFLOW_ID &&
         defaultDispatch?.activationId === DEFAULT_AGENT_HARNESS_ACTIVATION_ID &&
         defaultDispatch?.harnessHash === DEFAULT_AGENT_HARNESS_HASH &&
-        defaultDispatch?.runtimeAuthority === "blessed_workflow_activation_default" &&
+        defaultDispatch?.runtimeAuthority ===
+          "blessed_workflow_activation_default" &&
         defaultDispatch?.executionMode === "live" &&
         defaultDispatch?.rollbackAvailable === true &&
         defaultDispatch?.drivesRuntimeDecision === true &&
         defaultDispatch?.activationIdGateClickProofPresent === true &&
         defaultDispatch?.activationIdGateClickProofPassed === true &&
-        (defaultDispatch?.activationIdGateClickProofBlockers ?? []).length === 0 &&
-        (defaultDispatch?.defaultDispatchActivationBlockers ?? []).length === 0 &&
+        (defaultDispatch?.activationIdGateClickProofBlockers ?? []).length ===
+          0 &&
+        (defaultDispatch?.defaultDispatchActivationBlockers ?? []).length ===
+          0 &&
         defaultDispatch?.activationIdGate?.workerBindingActivationId ===
           DEFAULT_AGENT_HARNESS_ACTIVATION_ID &&
         (defaultDispatch?.activationBlockers ?? []).length === 0 &&
@@ -3458,22 +4052,28 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
       livePromotionReadinessBound:
         defaultDispatch?.livePromotionReadinessProof?.schemaVersion ===
           "workflow.harness.live-promotion-readiness.v1" &&
-        defaultDispatch?.livePromotionReadinessProof?.targetExecutionMode === "live" &&
-        defaultDispatch?.livePromotionReadinessProof?.allClustersReady === true &&
-        defaultDispatch?.livePromotionReadinessProof?.promotionEligible === true &&
-        defaultDispatch?.livePromotionReadinessProof?.defaultLiveActivationReady === true &&
-        defaultDispatch?.livePromotionReadinessProof?.invalidForkLiveActivationBlocked ===
+        defaultDispatch?.livePromotionReadinessProof?.targetExecutionMode ===
+          "live" &&
+        defaultDispatch?.livePromotionReadinessProof?.allClustersReady ===
           true &&
-        defaultDispatch?.livePromotionReadinessProof?.rollbackAvailable === true &&
+        defaultDispatch?.livePromotionReadinessProof?.promotionEligible ===
+          true &&
+        defaultDispatch?.livePromotionReadinessProof
+          ?.defaultLiveActivationReady === true &&
+        defaultDispatch?.livePromotionReadinessProof
+          ?.invalidForkLiveActivationBlocked === true &&
+        defaultDispatch?.livePromotionReadinessProof?.rollbackAvailable ===
+          true &&
         defaultDispatch?.livePromotionReadinessProof?.policyDecision ===
           "allow_default_harness_live_promotion_readiness" &&
         clusterIds.every((clusterId) =>
-          (defaultDispatch?.livePromotionReadinessProof?.requiredClusterIds ?? []).includes(
-            clusterId,
-          ),
+          (
+            defaultDispatch?.livePromotionReadinessProof?.requiredClusterIds ??
+            []
+          ).includes(clusterId),
         ) &&
-        (defaultDispatch?.livePromotionReadinessProof?.clusterReadiness ?? []).length >=
-          clusterIds.length &&
+        (defaultDispatch?.livePromotionReadinessProof?.clusterReadiness ?? [])
+          .length >= clusterIds.length &&
         clusterIds.every((clusterId) => {
           const cluster =
             defaultDispatch?.livePromotionReadinessProof?.clusterReadiness?.find(
@@ -3495,7 +4095,16 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
         activationRecord?.policyPosture === "live" &&
         workerBinding?.harnessActivationId === selector?.activationId &&
         workerBinding?.executionMode === "live" &&
-        workerBinding?.source === "default",
+        workerBinding?.source === "default" &&
+        workerBinding?.selectorDecisionId === selector?.decisionId &&
+        workerBinding?.defaultDispatchId === defaultDispatch?.dispatchId &&
+        workerBinding?.rollbackTarget === selector?.rollbackTarget &&
+        workerBinding?.authorityBindingReady === true &&
+        (workerBinding?.authorityBindingBlockers ?? []).length === 0 &&
+        workerBinding?.livePromotionReadinessProofId ===
+          selector?.livePromotionReadinessProof?.proofId &&
+        workerBinding?.livePromotionReadinessProofId ===
+          defaultDispatch?.livePromotionReadinessProof?.proofId,
       routeStatefulActiveRuntimeBindingDeepLinks:
         Object.values(routeStatefulDeepLinks).every(Boolean) &&
         routeStatefulDeepLinks.selector?.includes("selectorDecisionId=") &&
@@ -3507,14 +4116,21 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
       routeStatefulDeepLinkReplay: deepLinkReplayPassed,
       coldStartDeepLinkRestore: coldStartDeepLinkRestorePassed,
       routeStatefulRevisionBindingDeepLink:
-        routeStatefulDeepLinks.revision?.includes("revisionBindingKind=current") &&
-        routeStatefulDeepLinks.revision?.includes("revisionBindingRef="),
+        routeStatefulDeepLinks.revision?.includes(
+          "revisionBindingKind=current",
+        ) && routeStatefulDeepLinks.revision?.includes("revisionBindingRef="),
       routeStatefulActivationBlockerDeepLink:
         activationBlockerDeepLinkProof?.passed === true &&
-        routeStatefulDeepLinks.activationBlocker?.includes("activationBlockerIndex=0") &&
-        routeStatefulDeepLinks.activationBlocker?.includes("activationBlockerRef="),
+        routeStatefulDeepLinks.activationBlocker?.includes(
+          "activationBlockerIndex=0",
+        ) &&
+        routeStatefulDeepLinks.activationBlocker?.includes(
+          "activationBlockerRef=",
+        ),
       routeStatefulActivationAuditDeepLink:
-        routeStatefulDeepLinks.activationAudit?.includes("activationAuditEventId="),
+        routeStatefulDeepLinks.activationAudit?.includes(
+          "activationAuditEventId=",
+        ),
       routeStatefulActivationGateDeepLink:
         activationGateDeepLinkProof?.passed === true &&
         routeStatefulDeepLinks.activationGate?.includes("activationGateId="),
@@ -3584,7 +4200,8 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
         activationGateCollectEvidenceClickProof?.passed === true &&
         activationGateCollectEvidenceClickProof.clicked === true &&
         activationGateCollectEvidenceClickProof.gateId === "replay-fixtures" &&
-        activationGateCollectEvidenceClickProof.action?.kind === "run_replay_gate" &&
+        activationGateCollectEvidenceClickProof.action?.kind ===
+          "run_replay_gate" &&
         activationGateCollectEvidenceClickProof.action?.impact ===
           "collect_evidence" &&
         activationGateCollectEvidenceClickProof.action?.command ===
@@ -3619,10 +4236,9 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
         ) &&
         activationGateRollbackRestoreClickProof.dryRun
           ?.rollbackRestoreHashVerified === true &&
-        activationGateRollbackRestoreClickProof.dryRun
-          ?.rollbackRestoreReceiptBindingRef?.startsWith(
-            "workflow_restore_canary:",
-          ) === true &&
+        activationGateRollbackRestoreClickProof.dryRun?.rollbackRestoreReceiptBindingRef?.startsWith(
+          "workflow_restore_canary:",
+        ) === true &&
         (activationGateRollbackRestoreClickProof.dryRun
           ?.rollbackRestoreEvidenceRefs?.length ?? 0) > 0 &&
         activationGateRollbackRestoreClickProof.dryRun
@@ -3648,10 +4264,10 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
         activationIdGateClickProof.blockedDryRun?.action?.command ===
           "workflow-harness-gate-action-activation-id" &&
         activationIdGateClickProof.blockedDryRun?.decision === "blocked" &&
-        (activationIdGateClickProof.blockedDryRun?.activationBlockerCount ?? 0) >
-          0 &&
-        (activationIdGateClickProof.blockedDryRun?.workflowActivationId ?? null) ===
-          null &&
+        (activationIdGateClickProof.blockedDryRun?.activationBlockerCount ??
+          0) > 0 &&
+        (activationIdGateClickProof.blockedDryRun?.workflowActivationId ??
+          null) === null &&
         activationIdGateClickProof.blockedDryRun?.workflowActivationState ===
           "blocked" &&
         activationIdGateClickProof.blockedDryRun?.latestAuditEventType ===
@@ -3701,16 +4317,20 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
           "activation_minted" &&
         activationIdGateClickProof.mintedActivation?.latestAuditStatus ===
           "applied" &&
-        (activationIdGateClickProof.mintedActivation?.receiptRefs?.length ?? 0) >
-          0 &&
-        (activationIdGateClickProof.mintedActivation?.evidenceRefs?.length ?? 0) >
-          0 &&
+        (activationIdGateClickProof.mintedActivation?.receiptRefs?.length ??
+          0) > 0 &&
+        (activationIdGateClickProof.mintedActivation?.evidenceRefs?.length ??
+          0) > 0 &&
         activationIdGateClickProof.mintedActivation?.afterState?.[
           "data-gate-status"
         ] === "passed",
       auditRecordedBlockedAndPromoted:
-        audit.some((event) => event.eventType === "promotion_transition_blocked") &&
-        audit.some((event) => event.eventType === "promotion_transition_promoted"),
+        audit.some(
+          (event) => event.eventType === "promotion_transition_blocked",
+        ) &&
+        audit.some(
+          (event) => event.eventType === "promotion_transition_promoted",
+        ),
       screenshotCaptured: screenshot.ok,
     };
     const proof = {
@@ -3762,7 +4382,8 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
             harnessHash: liveHandoff.harnessHash,
             selector: liveHandoff.selector,
             productionDefaultSelector: liveHandoff.productionDefaultSelector,
-            defaultAuthorityTransferred: liveHandoff.defaultAuthorityTransferred,
+            defaultAuthorityTransferred:
+              liveHandoff.defaultAuthorityTransferred,
             runtimeAuthority: liveHandoff.runtimeAuthority,
             rollbackTarget: liveHandoff.rollbackTarget,
             rollbackAvailable: liveHandoff.rollbackAvailable,
@@ -3785,7 +4406,8 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
             activationId: defaultDispatch.activationId,
             harnessHash: defaultDispatch.harnessHash,
             selectedSelector: defaultDispatch.selectedSelector,
-            productionDefaultSelector: defaultDispatch.productionDefaultSelector,
+            productionDefaultSelector:
+              defaultDispatch.productionDefaultSelector,
             executionMode: defaultDispatch.executionMode,
             runtimeAuthority: defaultDispatch.runtimeAuthority,
             rollbackTarget: defaultDispatch.rollbackTarget,
@@ -3947,7 +4569,8 @@ async function runGuiValidation(args, outputRoot) {
         process.env.AUTOPILOT_HARNESS_DEFAULT_PROMOTION ?? "1",
       AUTOPILOT_WORKFLOW_PROVIDER_GATED_VISIBLE_OUTPUT:
         process.env.AUTOPILOT_WORKFLOW_PROVIDER_GATED_VISIBLE_OUTPUT ?? "1",
-      AUTOPILOT_RESET_DATA_ON_BOOT: process.env.AUTOPILOT_RESET_DATA_ON_BOOT ?? "1",
+      AUTOPILOT_RESET_DATA_ON_BOOT:
+        process.env.AUTOPILOT_RESET_DATA_ON_BOOT ?? "1",
       VITE_AUTOPILOT_INITIAL_VIEW: "chat",
       VITE_AUTOPILOT_HARNESS_PROMOTION_LIVE_GUI: "1",
       AUTOPILOT_REUSE_DEV_SERVER: "0",
@@ -3987,9 +4610,16 @@ async function runGuiValidation(args, outputRoot) {
               args.queryTimeoutMs,
             )
           : submitEvidence;
-      const postAnswerSettleMs = Math.min(Math.max(args.querySettleMs, 8_000), 30_000);
+      const postAnswerSettleMs = Math.min(
+        Math.max(args.querySettleMs, 8_000),
+        30_000,
+      );
       await sleep(postAnswerSettleMs);
-      const screenshot = captureScreenshot(windowId, outputRoot, retainedQuery.scenario);
+      const screenshot = captureScreenshot(
+        windowId,
+        outputRoot,
+        retainedQuery.scenario,
+      );
       screenshots[retainedQuery.scenario] = screenshot;
       const passed =
         screenshot.ok &&
@@ -4013,7 +4643,8 @@ async function runGuiValidation(args, outputRoot) {
     const promotionTransitionLiveGuiInteractionProof =
       await collectPromotionTransitionLiveGuiInteractionProof(outputRoot, args);
     const runtimeArtifacts = await collectRuntimeArtifacts(outputRoot, logPath);
-    const rollbackRestoreCanaryUiProof = collectRollbackRestoreCanaryUiProof(outputRoot);
+    const rollbackRestoreCanaryUiProof =
+      collectRollbackRestoreCanaryUiProof(outputRoot);
     const promotionTransitionGuiBehaviorProof =
       collectPromotionTransitionGuiBehaviorProof(outputRoot);
     const guiEvidence = buildGuiEvidenceAssessment({
@@ -4033,27 +4664,43 @@ async function runGuiValidation(args, outputRoot) {
         screenshots,
         runtime_artifact_summary: runtimeArtifacts.path,
         transcript_projection:
-          runtimeArtifacts.summary.transcriptCount > 0 ? runtimeArtifacts.path : false,
+          runtimeArtifacts.summary.transcriptCount > 0
+            ? runtimeArtifacts.path
+            : false,
         runtime_trace:
-          runtimeArtifacts.summary.logSignals.chatProofTrace > 0 ? logPath : false,
+          runtimeArtifacts.summary.logSignals.chatProofTrace > 0
+            ? logPath
+            : false,
         event_stream:
           runtimeArtifacts.summary.logSignals.kernelEvents > 0 ||
           runtimeArtifacts.summary.threadEventCount > 0
             ? runtimeArtifacts.path
             : false,
         receipts:
-          runtimeArtifacts.summary.runBundleCount > 0 || runtimeArtifacts.summary.threadEventCount > 0
+          runtimeArtifacts.summary.runBundleCount > 0 ||
+          runtimeArtifacts.summary.threadEventCount > 0
             ? runtimeArtifacts.path
             : false,
         prompt_assembly:
-          runtimeArtifacts.summary.promptAssemblyCount > 0 ? runtimeArtifacts.path : false,
+          runtimeArtifacts.summary.promptAssemblyCount > 0
+            ? runtimeArtifacts.path
+            : false,
         selected_sources:
-          runtimeArtifacts.summary.selectedSourceCount > 0 ? runtimeArtifacts.path : false,
-        scorecard: runtimeArtifacts.summary.scorecardCount > 0 ? runtimeArtifacts.path : false,
+          runtimeArtifacts.summary.selectedSourceCount > 0
+            ? runtimeArtifacts.path
+            : false,
+        scorecard:
+          runtimeArtifacts.summary.scorecardCount > 0
+            ? runtimeArtifacts.path
+            : false,
         stop_reason:
-          runtimeArtifacts.summary.stopReasonCount > 0 ? runtimeArtifacts.path : false,
+          runtimeArtifacts.summary.stopReasonCount > 0
+            ? runtimeArtifacts.path
+            : false,
         quality_ledger:
-          runtimeArtifacts.summary.qualityLedgerCount > 0 ? runtimeArtifacts.path : false,
+          runtimeArtifacts.summary.qualityLedgerCount > 0
+            ? runtimeArtifacts.path
+            : false,
         harness_shadow_run:
           runtimeArtifacts.summary.harnessShadowRunCount > 0 &&
           runtimeArtifacts.summary.harnessNodeAttemptCount > 0
@@ -4081,9 +4728,11 @@ async function runGuiValidation(args, outputRoot) {
             ? runtimeArtifacts.path
             : false,
         harness_rollback_restore_canary:
-          runtimeArtifacts.summary.harnessRollbackRestoreCanaryBlockedCount > 0 &&
+          runtimeArtifacts.summary.harnessRollbackRestoreCanaryBlockedCount >
+            0 &&
           runtimeArtifacts.summary.harnessRollbackRestoreCanaryReadyCount > 0 &&
-          runtimeArtifacts.summary.harnessRollbackRestoreCanaryReceiptCount >= 2 &&
+          runtimeArtifacts.summary.harnessRollbackRestoreCanaryReceiptCount >=
+            2 &&
           runtimeArtifacts.summary.harnessActivationAuditReceiptCount > 0 &&
           runtimeArtifacts.summary.harnessRollbackExecutionReceiptCount > 0
             ? runtimeArtifacts.path
@@ -4179,19 +4828,27 @@ async function runGuiValidation(args, outputRoot) {
             : false,
         harness_selector_routing:
           runtimeArtifacts.summary.harnessSelectorDefaultPromotedCount > 0 &&
-          runtimeArtifacts.summary.harnessSelectorLivePromotionReadinessGatedCount > 0 &&
+          runtimeArtifacts.summary
+            .harnessSelectorLivePromotionReadinessGatedCount > 0 &&
           runtimeArtifacts.summary.harnessSelectorLegacyDefaultCount > 0
             ? runtimeArtifacts.path
             : false,
         harness_default_runtime_dispatch:
-          runtimeArtifacts.summary.harnessDefaultRuntimeDispatchReadonlyCount > 0 &&
-          runtimeArtifacts.summary.harnessActivationIdGateClickProofRuntimeCount > 0 &&
+          runtimeArtifacts.summary.harnessDefaultRuntimeDispatchReadonlyCount >
+            0 &&
+          runtimeArtifacts.summary
+            .harnessActivationIdGateClickProofRuntimeCount > 0 &&
           runtimeArtifacts.summary.harnessAuthorityToolingGateLiveCount > 0 &&
-          runtimeArtifacts.summary.harnessAuthorityToolingProviderCatalogLiveCount > 0 &&
-          runtimeArtifacts.summary.harnessAuthorityToolingMcpToolCatalogLiveCount > 0 &&
-          runtimeArtifacts.summary.harnessAuthorityToolingNativeToolCatalogLiveCount > 0 &&
-          runtimeArtifacts.summary.harnessAuthorityToolingConnectorCatalogLiveCount > 0 &&
-          runtimeArtifacts.summary.harnessAuthorityToolingWalletCapabilityLiveDryRunCount > 0
+          runtimeArtifacts.summary
+            .harnessAuthorityToolingProviderCatalogLiveCount > 0 &&
+          runtimeArtifacts.summary
+            .harnessAuthorityToolingMcpToolCatalogLiveCount > 0 &&
+          runtimeArtifacts.summary
+            .harnessAuthorityToolingNativeToolCatalogLiveCount > 0 &&
+          runtimeArtifacts.summary
+            .harnessAuthorityToolingConnectorCatalogLiveCount > 0 &&
+          runtimeArtifacts.summary
+            .harnessAuthorityToolingWalletCapabilityLiveDryRunCount > 0
             ? runtimeArtifacts.path
             : false,
         harness_live_promotion_readiness:
@@ -4209,54 +4866,66 @@ async function runGuiValidation(args, outputRoot) {
             ? runtimeArtifacts.path
             : false,
         harness_authority_tooling_provider_catalog_live:
-          runtimeArtifacts.summary.harnessAuthorityToolingProviderCatalogLiveCount > 0
+          runtimeArtifacts.summary
+            .harnessAuthorityToolingProviderCatalogLiveCount > 0
             ? runtimeArtifacts.path
             : false,
         harness_authority_tooling_mcp_tool_catalog_live:
-          runtimeArtifacts.summary.harnessAuthorityToolingMcpToolCatalogLiveCount > 0
+          runtimeArtifacts.summary
+            .harnessAuthorityToolingMcpToolCatalogLiveCount > 0
             ? runtimeArtifacts.path
             : false,
         harness_authority_tooling_native_tool_catalog_live:
-          runtimeArtifacts.summary.harnessAuthorityToolingNativeToolCatalogLiveCount > 0
+          runtimeArtifacts.summary
+            .harnessAuthorityToolingNativeToolCatalogLiveCount > 0
             ? runtimeArtifacts.path
             : false,
         harness_authority_tooling_connector_catalog_live:
-          runtimeArtifacts.summary.harnessAuthorityToolingConnectorCatalogLiveCount > 0
+          runtimeArtifacts.summary
+            .harnessAuthorityToolingConnectorCatalogLiveCount > 0
             ? runtimeArtifacts.path
             : false,
         harness_authority_tooling_wallet_capability_live_dry_run:
-          runtimeArtifacts.summary.harnessAuthorityToolingWalletCapabilityLiveDryRunCount > 0
+          runtimeArtifacts.summary
+            .harnessAuthorityToolingWalletCapabilityLiveDryRunCount > 0
             ? runtimeArtifacts.path
             : false,
         harness_model_provider_gated_visible_output:
-          runtimeArtifacts.summary.harnessModelProviderGatedVisibleOutputCount > 0 &&
-          AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS.every((scenario) =>
-            runtimeArtifacts.summary.harnessModelProviderGatedVisibleOutputScenarios.includes(
-              scenario,
-            ),
+          runtimeArtifacts.summary.harnessModelProviderGatedVisibleOutputCount >
+            0 &&
+          AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS.every(
+            (scenario) =>
+              runtimeArtifacts.summary.harnessModelProviderGatedVisibleOutputScenarios.includes(
+                scenario,
+              ),
           )
             ? runtimeArtifacts.path
             : false,
         harness_model_provider_gated_visible_output_rollback_drill:
-          runtimeArtifacts.summary.harnessModelProviderGatedVisibleOutputRollbackDrillCount > 0 &&
-          AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS.every((scenario) =>
-            runtimeArtifacts.summary.harnessModelProviderGatedVisibleOutputRollbackDrillScenarios.includes(
-              scenario,
-            ),
+          runtimeArtifacts.summary
+            .harnessModelProviderGatedVisibleOutputRollbackDrillCount > 0 &&
+          AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS.every(
+            (scenario) =>
+              runtimeArtifacts.summary.harnessModelProviderGatedVisibleOutputRollbackDrillScenarios.includes(
+                scenario,
+              ),
           )
             ? runtimeArtifacts.path
             : false,
         harness_read_only_capability_routing:
-          runtimeArtifacts.summary.harnessDefaultRuntimeDispatchReadonlyCount > 0 &&
-          AUTOPILOT_READ_ONLY_CAPABILITY_ROUTING_REQUIRED_SCENARIOS.every((scenario) =>
-            runtimeArtifacts.summary.harnessReadOnlyCapabilityRoutingScenarios.includes(
-              scenario,
-            ),
+          runtimeArtifacts.summary.harnessDefaultRuntimeDispatchReadonlyCount >
+            0 &&
+          AUTOPILOT_READ_ONLY_CAPABILITY_ROUTING_REQUIRED_SCENARIOS.every(
+            (scenario) =>
+              runtimeArtifacts.summary.harnessReadOnlyCapabilityRoutingScenarios.includes(
+                scenario,
+              ),
           ) &&
-          AUTOPILOT_READ_ONLY_CAPABILITY_ROUTING_REQUIRED_SCENARIOS.every((scenario) =>
-            runtimeArtifacts.summary.harnessReadOnlyCapabilityRoutingNoMutationScenarios.includes(
-              scenario,
-            ),
+          AUTOPILOT_READ_ONLY_CAPABILITY_ROUTING_REQUIRED_SCENARIOS.every(
+            (scenario) =>
+              runtimeArtifacts.summary.harnessReadOnlyCapabilityRoutingNoMutationScenarios.includes(
+                scenario,
+              ),
           )
             ? runtimeArtifacts.path
             : false,

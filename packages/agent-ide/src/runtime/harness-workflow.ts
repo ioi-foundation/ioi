@@ -97,7 +97,8 @@ export function workflowHarnessActivationIdGateClickProofBlockers(
   const blockers: string[] = [];
   if (!proof) return ["activation_id_gate_click_proof_missing"];
   const maxAgeMs =
-    options.maxAgeMs ?? DEFAULT_AGENT_HARNESS_ACTIVATION_ID_GATE_PROOF_MAX_AGE_MS;
+    options.maxAgeMs ??
+    DEFAULT_AGENT_HARNESS_ACTIVATION_ID_GATE_PROOF_MAX_AGE_MS;
   if (proof.passed !== true || proof.blockers.length > 0) {
     blockers.push("activation_id_gate_click_proof_failed");
   }
@@ -119,7 +120,10 @@ export function workflowHarnessActivationIdGateClickProofBlockers(
   if (blockedDryRun.action.kind !== "run_activation_dry_run") {
     blockers.push("activation_id_gate_dry_run_kind_mismatch");
   }
-  if (blockedDryRun.action.command !== "workflow-harness-gate-action-activation-id") {
+  if (
+    blockedDryRun.action.command !==
+    "workflow-harness-gate-action-activation-id"
+  ) {
     blockers.push("activation_id_gate_dry_run_command_mismatch");
   }
   if (blockedDryRun.decision !== "blocked") {
@@ -140,8 +144,10 @@ export function workflowHarnessActivationIdGateClickProofBlockers(
 
   const minted = proof.mintedActivation;
   const activationId = minted.activationId;
-  if (minted.clicked !== true) blockers.push("activation_id_gate_mint_not_clicked");
-  if (minted.applied !== true) blockers.push("activation_id_gate_mint_not_applied");
+  if (minted.clicked !== true)
+    blockers.push("activation_id_gate_mint_not_clicked");
+  if (minted.applied !== true)
+    blockers.push("activation_id_gate_mint_not_applied");
   if (minted.gateId !== "activation-id") {
     blockers.push("activation_id_gate_mint_gate_mismatch");
   }
@@ -214,7 +220,9 @@ export function defaultHarnessComponentVersionSet(): Record<string, string> {
 }
 
 export function harnessForkActivationId(workflowId: string): string {
-  const normalizedWorkflowId = slugify(workflowId || "default-agent-harness-fork");
+  const normalizedWorkflowId = slugify(
+    workflowId || "default-agent-harness-fork",
+  );
   return `activation:${normalizedWorkflowId}:validated-canary:${DEFAULT_AGENT_HARNESS_HASH.replace(
     /^sha256:/,
     "",
@@ -247,7 +255,10 @@ function stableContentHash(value: unknown): string {
 function uniqueStrings(values: Array<string | null | undefined>): string[] {
   return Array.from(
     new Set(
-      values.filter((value): value is string => typeof value === "string" && value.length > 0),
+      values.filter(
+        (value): value is string =>
+          typeof value === "string" && value.length > 0,
+      ),
     ),
   );
 }
@@ -256,14 +267,19 @@ function receiptRefsFromEvidenceRefs(
   evidenceRefs: Array<string | null | undefined> = [],
 ): string[] {
   return uniqueStrings(
-    evidenceRefs.filter((reference): reference is string =>
-      typeof reference === "string" && reference.startsWith("workflow_restore_canary:"),
+    evidenceRefs.filter(
+      (reference): reference is string =>
+        typeof reference === "string" &&
+        reference.startsWith("workflow_restore_canary:"),
     ),
   );
 }
 
 function rollbackRestoreCanaryReceiptRefs(
-  canary: WorkflowHarnessForkActivationRecord["rollbackRestoreCanary"] | null | undefined,
+  canary:
+    | WorkflowHarnessForkActivationRecord["rollbackRestoreCanary"]
+    | null
+    | undefined,
 ): string[] {
   if (!canary) return [];
   return uniqueStrings([
@@ -338,7 +354,10 @@ function workflowSourceProjection(workflow: WorkflowProject): unknown {
 }
 
 function defaultWorkflowPath(workflow: WorkflowProject): string {
-  return workflow.metadata.gitLocation || `.agents/workflows/${workflow.metadata.slug}.workflow.json`;
+  return (
+    workflow.metadata.gitLocation ||
+    `.agents/workflows/${workflow.metadata.slug}.workflow.json`
+  );
 }
 
 export function workflowRevisionBindingFor(
@@ -359,10 +378,13 @@ export function workflowRevisionBindingFor(
   } = {},
 ): WorkflowRevisionBinding {
   const workflowContentHash =
-    options.workflowContentHash ?? stableContentHash(workflowSourceProjection(workflow));
+    options.workflowContentHash ??
+    stableContentHash(workflowSourceProjection(workflow));
   const revisionSource =
     options.revisionSource ??
-    (options.baseRevision || options.activatedRevision ? "git" : "file_hash_only");
+    (options.baseRevision || options.activatedRevision
+      ? "git"
+      : "file_hash_only");
   return {
     schemaVersion: "workflow.revision-binding.v1",
     workflowPath: options.workflowPath ?? defaultWorkflowPath(workflow),
@@ -374,9 +396,11 @@ export function workflowRevisionBindingFor(
       (revisionSource === "file_hash_only" ? workflowContentHash : undefined),
     workflowContentHash,
     proposalId: options.proposalId,
-    activationId: options.activationId ?? workflow.metadata.harness?.activationId,
+    activationId:
+      options.activationId ?? workflow.metadata.harness?.activationId,
     rollbackActivationId:
-      options.rollbackActivationId ?? workflow.metadata.harness?.activationRecord?.rollbackTarget,
+      options.rollbackActivationId ??
+      workflow.metadata.harness?.activationRecord?.rollbackTarget,
     rollbackRevision: options.rollbackRevision,
     revisionSource,
     createdAtMs: options.nowMs ?? Date.now(),
@@ -390,7 +414,8 @@ function workflowWithRefreshedHarnessRevisionBinding(
   const harness = workflow.metadata.harness;
   if (!harness) return workflow;
   const current = harness.revisionBinding;
-  const rollbackRevisionBinding = harness.activationRecord?.rollbackRevisionBinding;
+  const rollbackRevisionBinding =
+    harness.activationRecord?.rollbackRevisionBinding;
   const revisionBinding = workflowRevisionBindingFor(workflow, {
     workflowPath: current?.workflowPath,
     repoRoot: current?.repoRoot,
@@ -449,7 +474,8 @@ export function makeHarnessForkActivationRecord(options: {
 }): WorkflowHarnessForkActivationRecord {
   const activationId =
     options.activationId ??
-    (options.activationState === "validated" || options.activationState === "active"
+    (options.activationState === "validated" ||
+    options.activationState === "active"
       ? harnessForkActivationId(options.workflowId)
       : undefined);
   return {
@@ -461,24 +487,30 @@ export function makeHarnessForkActivationRecord(options: {
     activationState: options.activationState,
     activationBlockers:
       options.activationBlockers ??
-      (options.activationState === "validated" || options.activationState === "active"
+      (options.activationState === "validated" ||
+      options.activationState === "active"
         ? []
         : [...DEFAULT_AGENT_HARNESS_FORK_ACTIVATION_BLOCKERS]),
-    componentVersionSet: options.componentVersionSet ?? defaultHarnessComponentVersionSet(),
+    componentVersionSet:
+      options.componentVersionSet ?? defaultHarnessComponentVersionSet(),
     policyPosture:
       options.policyPosture ??
-      (options.activationState === "validated" || options.activationState === "active"
+      (options.activationState === "validated" ||
+      options.activationState === "active"
         ? "canary"
         : "proposal_only"),
     canaryStatus:
       options.canaryStatus ??
-      (options.activationState === "validated" || options.activationState === "active"
+      (options.activationState === "validated" ||
+      options.activationState === "active"
         ? "passed"
         : "not_run"),
-    rollbackTarget: options.rollbackTarget ?? DEFAULT_AGENT_HARNESS_FORK_ROLLBACK_TARGET,
+    rollbackTarget:
+      options.rollbackTarget ?? DEFAULT_AGENT_HARNESS_FORK_ROLLBACK_TARGET,
     rollbackAvailable:
       options.rollbackAvailable ??
-      (options.activationState === "validated" || options.activationState === "active"),
+      (options.activationState === "validated" ||
+        options.activationState === "active"),
     liveAuthorityTransferred: options.liveAuthorityTransferred ?? false,
     evidenceRefs: options.evidenceRefs ?? [],
     workerBinding: options.workerBinding,
@@ -517,7 +549,8 @@ function makeWorkflowHarnessActivationAuditEvent(options: {
   summary: string;
   createdAtMs: number;
 }): WorkflowHarnessActivationAuditEvent {
-  const workflowId = options.workflow.metadata.id || options.workflow.metadata.slug;
+  const workflowId =
+    options.workflow.metadata.id || options.workflow.metadata.slug;
   const evidenceRefs = options.evidenceRefs ?? [];
   const receiptRefs = uniqueStrings([
     ...(options.receiptRefs ?? []),
@@ -525,7 +558,11 @@ function makeWorkflowHarnessActivationAuditEvent(options: {
   ]);
   return {
     schemaVersion: "workflow.harness.activation-audit.v1",
-    eventId: harnessActivationAuditEventId(workflowId, options.eventType, options.createdAtMs),
+    eventId: harnessActivationAuditEventId(
+      workflowId,
+      options.eventType,
+      options.createdAtMs,
+    ),
     eventType: options.eventType,
     status: options.status,
     workflowId,
@@ -584,7 +621,9 @@ export function recordWorkflowHarnessActivationDryRun(
     makeWorkflowHarnessActivationAuditEvent({
       workflow,
       eventType:
-        candidate.decision === "mintable" ? "dry_run_mintable" : "dry_run_blocked",
+        candidate.decision === "mintable"
+          ? "dry_run_mintable"
+          : "dry_run_blocked",
       status: candidate.decision === "mintable" ? "passed" : "blocked",
       candidateId: candidate.candidateId,
       activationId: candidate.activationIdPreview,
@@ -648,6 +687,9 @@ function rollbackWorkerBindingForTarget(
       harnessHash: DEFAULT_AGENT_HARNESS_HASH,
       executionMode: DEFAULT_HARNESS_EXECUTION_MODE,
       source: "default",
+      rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+      authorityBindingReady: false,
+      authorityBindingBlockers: ["worker_binding_authority_not_live"],
     };
   }
   if (rollbackTarget === "legacy_runtime") {
@@ -657,14 +699,23 @@ function rollbackWorkerBindingForTarget(
       harnessHash: "legacy_runtime",
       executionMode: "projection",
       source: "legacy",
+      rollbackTarget: "legacy_runtime",
+      authorityBindingReady: false,
+      authorityBindingBlockers: ["legacy_runtime_binding"],
     };
   }
   return {
     harnessWorkflowId: workflow.metadata.id || workflow.metadata.slug,
     harnessActivationId: rollbackTarget,
-    harnessHash: workflow.metadata.harness?.harnessHash ?? DEFAULT_AGENT_HARNESS_HASH,
-    executionMode: workflow.metadata.harness?.executionMode ?? DEFAULT_HARNESS_EXECUTION_MODE,
+    harnessHash:
+      workflow.metadata.harness?.harnessHash ?? DEFAULT_AGENT_HARNESS_HASH,
+    executionMode:
+      workflow.metadata.harness?.executionMode ??
+      DEFAULT_HARNESS_EXECUTION_MODE,
     source: "fork",
+    rollbackTarget,
+    authorityBindingReady: false,
+    authorityBindingBlockers: ["fork_activation_not_live_default"],
   };
 }
 
@@ -702,7 +753,8 @@ function harnessRollbackBindingsFor(
 } {
   const latestMintEvent = latestHarnessActivationMintEvent(workflow);
   const activeWorkerBinding =
-    workflow.metadata.workerHarnessBinding ?? workflowHarnessWorkerBinding(workflow);
+    workflow.metadata.workerHarnessBinding ??
+    workflowHarnessWorkerBinding(workflow);
   const restoredWorkerBinding =
     latestMintEvent?.previousWorkerBinding ??
     rollbackWorkerBindingForTarget(workflow, rollbackTarget);
@@ -721,7 +773,8 @@ function harnessRollbackBindingsFor(
       activationId: restoredWorkerBinding.harnessActivationId,
       rollbackActivationId: workflow.metadata.harness?.activationId,
       rollbackRevision:
-        activeRevisionBinding.activatedRevision ?? activeRevisionBinding.workflowContentHash,
+        activeRevisionBinding.activatedRevision ??
+        activeRevisionBinding.workflowContentHash,
       nowMs: createdAtMs,
     });
   return {
@@ -782,7 +835,8 @@ export async function runWorkflowHarnessRollbackRestoreCanaryProbe(options: {
   }
   try {
     return {
-      rollbackRestoreResult: await runtime.restoreWorkflowRevision(restoreRequest),
+      rollbackRestoreResult:
+        await runtime.restoreWorkflowRevision(restoreRequest),
       rollbackRestoreBlockers: [],
       restoreRequest,
     };
@@ -816,7 +870,10 @@ export function executeWorkflowHarnessRollbackDrill(
   restoredWorkerBinding?: WorkflowHarnessWorkerBinding;
 } {
   const createdAtMs = options.nowMs ?? Date.now();
-  const rollbackTarget = harnessRollbackTargetFor(workflow, options.rollbackTarget);
+  const rollbackTarget = harnessRollbackTargetFor(
+    workflow,
+    options.rollbackTarget,
+  );
   const blockers = [
     ...(workflowIsHarnessFork(workflow) ? [] : ["not_harness_fork"]),
     ...(rollbackTarget ? [] : ["rollback_target_missing"]),
@@ -863,7 +920,9 @@ export function executeWorkflowHarnessRollbackDrill(
     makeWorkflowHarnessActivationAuditEvent({
       workflow,
       eventType:
-        blockers.length === 0 ? "rollback_drill_passed" : "rollback_drill_blocked",
+        blockers.length === 0
+          ? "rollback_drill_passed"
+          : "rollback_drill_blocked",
       status: blockers.length === 0 ? "passed" : "blocked",
       activationId: workflow.metadata.harness?.activationId,
       previousActivationId: workflow.metadata.harness?.activationId,
@@ -920,7 +979,10 @@ export function executeWorkflowHarnessRevisionRollback(
   restoredWorkerBinding?: WorkflowHarnessWorkerBinding;
 } {
   const createdAtMs = options.nowMs ?? Date.now();
-  const rollbackTarget = harnessRollbackTargetFor(workflow, options.rollbackTarget);
+  const rollbackTarget = harnessRollbackTargetFor(
+    workflow,
+    options.rollbackTarget,
+  );
   const {
     latestMintEvent,
     activeWorkerBinding,
@@ -935,17 +997,21 @@ export function executeWorkflowHarnessRevisionRollback(
       workflow.metadata.harness?.activationId ??
       activeWorkerBinding.harnessWorkflowId,
     rollbackRevision:
-      activeRevisionBinding.activatedRevision ?? activeRevisionBinding.workflowContentHash,
+      activeRevisionBinding.activatedRevision ??
+      activeRevisionBinding.workflowContentHash,
     createdAtMs,
   };
-  const restoredActivationState =
-    activationStateForRestoredWorkerBinding(restoredWorkerBinding);
+  const restoredActivationState = activationStateForRestoredWorkerBinding(
+    restoredWorkerBinding,
+  );
   const restoredWorkflowSource = options.restoredWorkflow ?? workflow;
   const restoreBlockers = Array.from(
-    new Set([
-      ...(options.restoreResult?.blockers ?? []),
-      ...(options.restoreBlockers ?? []),
-    ].filter(Boolean)),
+    new Set(
+      [
+        ...(options.restoreResult?.blockers ?? []),
+        ...(options.restoreBlockers ?? []),
+      ].filter(Boolean),
+    ),
   );
   const receiptRefs = uniqueStrings([
     options.restoreResult?.receiptBindingRef,
@@ -967,14 +1033,17 @@ export function executeWorkflowHarnessRevisionRollback(
     harnessHash: restoredWorkerBinding.harnessHash,
     policyPosture:
       restoredActivationState === "validated"
-        ? workflow.metadata.harness?.activationRecord?.policyPosture ?? "canary"
+        ? (workflow.metadata.harness?.activationRecord?.policyPosture ??
+          "canary")
         : "proposal_only",
     canaryStatus:
       restoredActivationState === "validated"
-        ? workflow.metadata.harness?.activationRecord?.canaryStatus ?? "passed"
+        ? (workflow.metadata.harness?.activationRecord?.canaryStatus ??
+          "passed")
         : "not_run",
     rollbackTarget:
-      activeWorkerBinding.harnessActivationId ?? activeWorkerBinding.harnessWorkflowId,
+      activeWorkerBinding.harnessActivationId ??
+      activeWorkerBinding.harnessWorkflowId,
     rollbackAvailable: true,
     liveAuthorityTransferred: false,
     evidenceRefs: [
@@ -1005,7 +1074,8 @@ export function executeWorkflowHarnessRevisionRollback(
             activationState: restoredActivationState,
             activationRecord: rollbackActivationRecord,
             activationAudit: workflow.metadata.harness?.activationAudit,
-            activationRollbackProof: workflow.metadata.harness?.activationRollbackProof,
+            activationRollbackProof:
+              workflow.metadata.harness?.activationRollbackProof,
             revisionBinding: restoredRevisionWithRollForward,
           }
         : restoredWorkflowSource.metadata.harness,
@@ -1046,7 +1116,8 @@ export function executeWorkflowHarnessRevisionRollback(
       options.restoreResult?.restoreStrategy ??
       rollbackRestoreStrategyFor(restoredRevisionWithRollForward),
     restoreRepoRoot:
-      options.restoreResult?.repoRoot ?? restoredRevisionWithRollForward.repoRoot,
+      options.restoreResult?.repoRoot ??
+      restoredRevisionWithRollForward.repoRoot,
     restoreRelativeWorkflowPath: options.restoreResult?.relativeWorkflowPath,
     restoredRevision:
       options.restoreResult?.restoredRevision ??
@@ -1055,7 +1126,8 @@ export function executeWorkflowHarnessRevisionRollback(
     restoreBlockers,
     restoreReceiptBindingRef: options.restoreResult?.receiptBindingRef,
     workflowPath:
-      options.restoreResult?.workflowPath ?? restoredRevisionWithRollForward.workflowPath,
+      options.restoreResult?.workflowPath ??
+      restoredRevisionWithRollForward.workflowPath,
     expectedWorkflowContentHash,
     actualWorkflowContentHash,
     hashVerified,
@@ -1074,12 +1146,16 @@ export function executeWorkflowHarnessRevisionRollback(
     receiptRefs,
     createdAtMs,
   };
-  const workflowForAudit = blockers.length === 0 ? restoredWorkflowBase : workflow;
+  const workflowForAudit =
+    blockers.length === 0 ? restoredWorkflowBase : workflow;
   const workflowWithAudit = appendWorkflowHarnessActivationAudit(
     workflowForAudit,
     makeWorkflowHarnessActivationAuditEvent({
       workflow,
-      eventType: blockers.length === 0 ? "rollback_executed" : "rollback_execution_blocked",
+      eventType:
+        blockers.length === 0
+          ? "rollback_executed"
+          : "rollback_execution_blocked",
       status: blockers.length === 0 ? "applied" : "blocked",
       activationId: workflow.metadata.harness?.activationId,
       previousActivationId: workflow.metadata.harness?.activationId,
@@ -1133,7 +1209,9 @@ export interface WorkflowHarnessReplayDrillInput {
   evidenceRefs: string[];
 }
 
-function unresolvedHarnessReplayValue(value: string | null | undefined): boolean {
+function unresolvedHarnessReplayValue(
+  value: string | null | undefined,
+): boolean {
   if (!value) return true;
   return /pending|not resolved|not captured|unknown/i.test(value);
 }
@@ -1142,13 +1220,18 @@ function harnessReplayDrillDivergenceClass(
   blockers: string[],
   replay: WorkflowHarnessReplayDrillInput,
 ): WorkflowHarnessReplayDrillDivergenceClass {
-  if (blockers.includes("replay_fixture_unresolved")) return "fixture_unresolved";
+  if (blockers.includes("replay_fixture_unresolved"))
+    return "fixture_unresolved";
   if (blockers.includes("replay_receipt_missing")) return "missing_receipt";
   if (blockers.includes("replay_policy_decision_not_captured")) {
     return "policy_divergence";
   }
-  if (blockers.includes("replay_output_not_captured")) return "output_divergence";
-  if (!replay.deterministicEnvelope || replay.determinism === "nondeterministic") {
+  if (blockers.includes("replay_output_not_captured"))
+    return "output_divergence";
+  if (
+    !replay.deterministicEnvelope ||
+    replay.determinism === "nondeterministic"
+  ) {
     return "harmless_metadata_drift";
   }
   return "none";
@@ -1168,7 +1251,9 @@ function workflowHarnessReplayDrillResultFor(
     ...(workflow.metadata.harness ? [] : ["not_harness_workflow"]),
     ...(replay ? [] : ["replay_fixture_unresolved"]),
     ...(replayFixtureRef ? [] : ["replay_fixture_missing"]),
-    ...(replay?.sourceKind === "unresolved" ? ["replay_fixture_unresolved"] : []),
+    ...(replay?.sourceKind === "unresolved"
+      ? ["replay_fixture_unresolved"]
+      : []),
     ...(unresolvedHarnessReplayValue(replay?.receiptRef)
       ? ["replay_receipt_missing"]
       : []),
@@ -1197,7 +1282,9 @@ function workflowHarnessReplayDrillResultFor(
     ? harnessReplayDrillDivergenceClass(blockers, replay)
     : "fixture_unresolved";
   const receiptRefs = uniqueStrings([
-    unresolvedHarnessReplayValue(replay?.receiptRef) ? undefined : replay?.receiptRef,
+    unresolvedHarnessReplayValue(replay?.receiptRef)
+      ? undefined
+      : replay?.receiptRef,
   ]);
   const evidenceRefs = uniqueStrings([
     drillId,
@@ -1226,7 +1313,7 @@ function workflowHarnessReplayDrillResultFor(
       readiness: replay?.readiness ?? "projection_only",
       policyDecision:
         blockers.length === 0
-          ? replay?.policyDecision ?? "replay_policy_not_recorded"
+          ? (replay?.policyDecision ?? "replay_policy_not_recorded")
           : "replay_drill_blocked",
       expectedInputHash,
       actualInputHash,
@@ -1246,7 +1333,9 @@ function workflowHarnessReplayDrillResultFor(
   };
 }
 
-function replayDrillBlocksPromotion(drill: WorkflowHarnessReplayDrillResult): boolean {
+function replayDrillBlocksPromotion(
+  drill: WorkflowHarnessReplayDrillResult,
+): boolean {
   return (
     drill.drillStatus !== "passed" ||
     !["none", "harmless_metadata_drift"].includes(drill.divergenceClass)
@@ -1268,7 +1357,9 @@ function workflowHarnessPromotionClusterReplayGateProofFor(
     blockedCount: gate.blockedCount,
     failedCount: gate.failedCount,
     blockingDivergenceCount:
-      gate.blockedCount + gate.failedCount + gate.blockingReplayFixtureRefs.length,
+      gate.blockedCount +
+      gate.failedCount +
+      gate.blockingReplayFixtureRefs.length,
     replayFixtureRefs: gate.replayFixtureRefs,
     blockingReplayFixtureRefs: gate.blockingReplayFixtureRefs,
     receiptRefs: gate.receiptRefs,
@@ -1282,10 +1373,13 @@ function workflowHarnessPromotionClustersWithReplayGateProof(
   workflow: WorkflowProject,
   gate: WorkflowHarnessReplayGateResult,
 ): WorkflowHarnessPromotionCluster[] | undefined {
-  if (gate.scopeKind !== "harness_group") return workflow.metadata.harness?.promotionClusters;
+  if (gate.scopeKind !== "harness_group")
+    return workflow.metadata.harness?.promotionClusters;
   const clusters = workflow.metadata.harness?.promotionClusters;
   if (!clusters) return clusters;
-  const cluster = clusters.find((candidate) => candidate.clusterId === gate.targetId);
+  const cluster = clusters.find(
+    (candidate) => candidate.clusterId === gate.targetId,
+  );
   if (!cluster) return clusters;
   const proof = workflowHarnessPromotionClusterReplayGateProofFor(
     cluster.clusterId,
@@ -1298,7 +1392,10 @@ function workflowHarnessPromotionClustersWithReplayGateProof(
   );
 }
 
-const HARNESS_READINESS_ORDER: Record<WorkflowHarnessComponentReadiness, number> = {
+const HARNESS_READINESS_ORDER: Record<
+  WorkflowHarnessComponentReadiness,
+  number
+> = {
   projection_only: 0,
   simulated: 1,
   shadow_ready: 2,
@@ -1309,7 +1406,10 @@ function workflowHarnessReadinessAllows(
   actual: WorkflowHarnessComponentReadiness | undefined,
   required: WorkflowHarnessComponentReadiness,
 ): boolean {
-  return (HARNESS_READINESS_ORDER[actual ?? "projection_only"] ?? 0) >= HARNESS_READINESS_ORDER[required];
+  return (
+    (HARNESS_READINESS_ORDER[actual ?? "projection_only"] ?? 0) >=
+    HARNESS_READINESS_ORDER[required]
+  );
 }
 
 function workflowHarnessClusterForId(
@@ -1340,11 +1440,14 @@ function workflowHarnessPromotionClusterCurrentStatus(
   cluster: WorkflowHarnessPromotionCluster,
 ): WorkflowHarnessClusterPromotionStatus {
   if (cluster.promotionStatus) return cluster.promotionStatus;
-  const latestPromoted = [...(workflow.metadata.harness?.promotionTransitions ?? [])]
+  const latestPromoted = [
+    ...(workflow.metadata.harness?.promotionTransitions ?? []),
+  ]
     .reverse()
     .find(
       (attempt) =>
-        attempt.clusterId === cluster.clusterId && attempt.attemptStatus === "promoted",
+        attempt.clusterId === cluster.clusterId &&
+        attempt.attemptStatus === "promoted",
     );
   return latestPromoted?.nextStatus ?? "shadow_ready";
 }
@@ -1356,7 +1459,9 @@ function workflowHarnessPromotionClusterWithStatus(
 ): WorkflowHarnessPromotionCluster[] | undefined {
   if (!clusters) return clusters;
   return clusters.map((cluster) =>
-    cluster.clusterId === clusterId ? { ...cluster, promotionStatus: status } : cluster,
+    cluster.clusterId === clusterId
+      ? { ...cluster, promotionStatus: status }
+      : cluster,
   );
 }
 
@@ -1368,7 +1473,9 @@ function workflowHarnessCanaryBoundaryForCluster(
   return (
     [
       ...(harness?.canaryExecutionBoundaries ?? []),
-      ...(harness?.canaryExecutionBoundary ? [harness.canaryExecutionBoundary] : []),
+      ...(harness?.canaryExecutionBoundary
+        ? [harness.canaryExecutionBoundary]
+        : []),
     ].find((boundary) => boundary.clusterId === clusterId) ?? null
   );
 }
@@ -1387,15 +1494,20 @@ export function workflowHarnessPromotionTransitionEligibility(
   const currentStatus = cluster
     ? workflowHarnessPromotionClusterCurrentStatus(workflow, cluster)
     : "blocked";
-  const nodes = cluster ? workflowHarnessNodesForCluster(workflow, cluster) : [];
+  const nodes = cluster
+    ? workflowHarnessNodesForCluster(workflow, cluster)
+    : [];
   const requiredReadiness =
-    targetExecutionMode === "live" ? "live_ready" : cluster?.minimumReadiness ?? "shadow_ready";
+    targetExecutionMode === "live"
+      ? "live_ready"
+      : (cluster?.minimumReadiness ?? "shadow_ready");
   const readinessReady =
     Boolean(cluster) &&
     nodes.length > 0 &&
     nodes.every((node) =>
       workflowHarnessReadinessAllows(
-        node.runtimeBinding?.readiness ?? harnessComponentForNode(node)?.readiness,
+        node.runtimeBinding?.readiness ??
+          harnessComponentForNode(node)?.readiness,
         requiredReadiness,
       ),
     );
@@ -1407,7 +1519,8 @@ export function workflowHarnessPromotionTransitionEligibility(
     ...(replayGateProof?.receiptRefs ?? []),
     ...(canaryBoundary?.receiptIds ?? []),
   ]);
-  const receiptReady = Boolean(cluster) && nodes.length > 0 && receiptRefs.length > 0;
+  const receiptReady =
+    Boolean(cluster) && nodes.length > 0 && receiptRefs.length > 0;
   const replayGateReady =
     replayGateProof?.gateStatus === "passed" &&
     replayGateProof.activationGateImpact === "passed" &&
@@ -1420,8 +1533,10 @@ export function workflowHarnessPromotionTransitionEligibility(
     canaryBoundary.canaryEligible === true &&
     canaryBoundary.rollbackDrill.drillStatus === "passed";
   const rollbackReady =
-    (canaryBoundary?.rollbackAvailable === true && Boolean(canaryBoundary.rollbackTarget)) ||
-    (activationRecord?.rollbackAvailable === true && Boolean(activationRecord.rollbackTarget));
+    (canaryBoundary?.rollbackAvailable === true &&
+      Boolean(canaryBoundary.rollbackTarget)) ||
+    (activationRecord?.rollbackAvailable === true &&
+      Boolean(activationRecord.rollbackTarget));
   const targetOrderReady =
     targetExecutionMode === "gated" ||
     currentStatus === "gated" ||
@@ -1429,7 +1544,9 @@ export function workflowHarnessPromotionTransitionEligibility(
   const blockers = uniqueStrings([
     ...(cluster ? [] : ["promotion_cluster_missing"]),
     ...(targetOrderReady ? [] : ["promotion_live_requires_gated_cluster"]),
-    ...(readinessReady ? [] : [`promotion_readiness_below_${requiredReadiness}`]),
+    ...(readinessReady
+      ? []
+      : [`promotion_readiness_below_${requiredReadiness}`]),
     ...(receiptReady ? [] : ["promotion_receipts_missing"]),
     ...(replayGateReady ? [] : ["promotion_replay_gate_not_passed"]),
     ...(canaryReady ? [] : ["promotion_canary_not_passed"]),
@@ -1447,7 +1564,12 @@ export function workflowHarnessPromotionTransitionEligibility(
     canaryReady,
     rollbackReady,
     componentIds: uniqueStrings(
-      nodes.map((node) => node.runtimeBinding?.componentId ?? harnessComponentForNode(node)?.componentId ?? node.id),
+      nodes.map(
+        (node) =>
+          node.runtimeBinding?.componentId ??
+          harnessComponentForNode(node)?.componentId ??
+          node.id,
+      ),
     ),
     receiptRefs,
     replayFixtureRefs: uniqueStrings([
@@ -1455,7 +1577,8 @@ export function workflowHarnessPromotionTransitionEligibility(
       ...(canaryBoundary?.replayFixtureRefs ?? []),
     ]),
     canaryBoundaryId: canaryBoundary?.boundaryId,
-    rollbackTarget: canaryBoundary?.rollbackTarget ?? activationRecord?.rollbackTarget,
+    rollbackTarget:
+      canaryBoundary?.rollbackTarget ?? activationRecord?.rollbackTarget,
     blockers,
     evidenceRefs: uniqueStrings([
       replayGateProof?.gateId,
@@ -1551,7 +1674,10 @@ export function executeWorkflowHarnessPromotionTransition(
   );
   return {
     promoted: eligibility.eligible,
-    workflow: workflowWithRefreshedHarnessRevisionBinding(workflowWithAudit, createdAtMs),
+    workflow: workflowWithRefreshedHarnessRevisionBinding(
+      workflowWithAudit,
+      createdAtMs,
+    ),
     attempt,
     eligibility,
     blockers: eligibility.blockers,
@@ -1581,7 +1707,9 @@ export function executeWorkflowHarnessReplayDrill(
       makeWorkflowHarnessActivationAuditEvent({
         workflow,
         eventType:
-          blockers.length === 0 ? "replay_drill_passed" : "replay_drill_blocked",
+          blockers.length === 0
+            ? "replay_drill_passed"
+            : "replay_drill_blocked",
         status: blockers.length === 0 ? "passed" : "blocked",
         activationId: workflow.metadata.harness?.activationId,
         blockers,
@@ -1624,14 +1752,19 @@ export function executeWorkflowHarnessReplayGate(
   const workflowId = workflow.metadata.id || workflow.metadata.slug;
   const scopeKind = options.scopeKind ?? "workflow";
   const targetId = options.targetId ?? workflowId;
-  const drills = replays.map((replay, index) =>
-    workflowHarnessReplayDrillResultFor(workflow, replay, createdAtMs + index).drill,
+  const drills = replays.map(
+    (replay, index) =>
+      workflowHarnessReplayDrillResultFor(workflow, replay, createdAtMs + index)
+        .drill,
   );
   const blockingDrills = drills.filter(replayDrillBlocksPromotion);
-  const divergenceCounts = drills.reduce<Record<string, number>>((counts, drill) => {
-    counts[drill.divergenceClass] = (counts[drill.divergenceClass] ?? 0) + 1;
-    return counts;
-  }, {});
+  const divergenceCounts = drills.reduce<Record<string, number>>(
+    (counts, drill) => {
+      counts[drill.divergenceClass] = (counts[drill.divergenceClass] ?? 0) + 1;
+      return counts;
+    },
+    {},
+  );
   const blockers = uniqueStrings([
     ...(workflow.metadata.harness ? [] : ["not_harness_workflow"]),
     ...(drills.length > 0 ? [] : ["replay_gate_no_fixtures"]),
@@ -1653,11 +1786,16 @@ export function executeWorkflowHarnessReplayGate(
     targetId,
     gateStatus: blockers.length === 0 ? "passed" : "blocked",
     totalFixtures: drills.length,
-    passedCount: drills.filter((drill) => drill.drillStatus === "passed").length,
-    blockedCount: drills.filter((drill) => drill.drillStatus === "blocked").length,
-    failedCount: drills.filter((drill) => drill.drillStatus === "failed").length,
+    passedCount: drills.filter((drill) => drill.drillStatus === "passed")
+      .length,
+    blockedCount: drills.filter((drill) => drill.drillStatus === "blocked")
+      .length,
+    failedCount: drills.filter((drill) => drill.drillStatus === "failed")
+      .length,
     divergenceCounts,
-    replayFixtureRefs: uniqueStrings(drills.map((drill) => drill.replayFixtureRef)),
+    replayFixtureRefs: uniqueStrings(
+      drills.map((drill) => drill.replayFixtureRef),
+    ),
     blockingReplayFixtureRefs: uniqueStrings(
       blockingDrills.map((drill) => drill.replayFixtureRef),
     ),
@@ -1697,16 +1835,16 @@ export function executeWorkflowHarnessReplayGate(
         ...(workflow.metadata.harness?.replayDrills ?? []),
         ...drills,
       ],
-      replayGates: [
-        ...(workflow.metadata.harness?.replayGates ?? []),
-        gate,
-      ],
+      replayGates: [...(workflow.metadata.harness?.replayGates ?? []), gate],
       promotionClusters,
     },
   );
   return {
     executed: blockers.length === 0,
-    workflow: workflowWithRefreshedHarnessRevisionBinding(workflowWithAudit, createdAtMs),
+    workflow: workflowWithRefreshedHarnessRevisionBinding(
+      workflowWithAudit,
+      createdAtMs,
+    ),
     gate,
     drills,
     blockers,
@@ -1729,7 +1867,8 @@ export function applyWorkflowHarnessActivationCandidate(
   rollbackTarget?: string;
 } {
   const workflowId = workflow.metadata.id || workflow.metadata.slug;
-  const activationId = candidate?.activationId ?? candidate?.activationIdPreview;
+  const activationId =
+    candidate?.activationId ?? candidate?.activationIdPreview;
   const blockers = [
     ...(candidate?.activationBlockers ?? []),
     ...(workflowIsHarnessFork(workflow) ? [] : ["not_harness_fork"]),
@@ -1754,7 +1893,8 @@ export function applyWorkflowHarnessActivationCandidate(
               nextActivationId: activationId,
               previousWorkerBinding: workflow.metadata.workerHarnessBinding,
               nextWorkerBinding: candidate?.workerBindingPreview,
-              previousRevisionBinding: workflow.metadata.harness?.revisionBinding,
+              previousRevisionBinding:
+                workflow.metadata.harness?.revisionBinding,
               nextRevisionBinding: candidate?.revisionBindingPreview,
               rollbackTarget: candidate?.rollbackTarget,
               blockers: uniqueBlockers,
@@ -1785,7 +1925,8 @@ export function applyWorkflowHarnessActivationCandidate(
     });
   const workerBinding: WorkflowHarnessWorkerBinding = {
     ...candidate.workerBindingPreview,
-    harnessWorkflowId: candidate.workerBindingPreview.harnessWorkflowId || workflowId,
+    harnessWorkflowId:
+      candidate.workerBindingPreview.harnessWorkflowId || workflowId,
     harnessActivationId: activationId,
     harnessHash:
       candidate.workerBindingPreview.harnessHash ||
@@ -1797,13 +1938,17 @@ export function applyWorkflowHarnessActivationCandidate(
       workflow.metadata.harness?.executionMode ??
       DEFAULT_HARNESS_EXECUTION_MODE,
     source: "fork",
+    rollbackTarget,
+    authorityBindingReady: false,
+    authorityBindingBlockers: ["fork_activation_not_live_default"],
   };
   const revisionBinding: WorkflowRevisionBinding = {
     ...candidate.revisionBindingPreview,
     activationId,
     rollbackActivationId: rollbackTarget,
     rollbackRevision:
-      previousRevisionBinding.activatedRevision ?? previousRevisionBinding.workflowContentHash,
+      previousRevisionBinding.activatedRevision ??
+      previousRevisionBinding.workflowContentHash,
     createdAtMs: nowMs,
   };
   const receiptRefs = activationCandidateReceiptRefs(candidate);
@@ -1820,7 +1965,11 @@ export function applyWorkflowHarnessActivationCandidate(
     rollbackTarget,
     rollbackAvailable: candidate.rollbackAvailable || Boolean(rollbackTarget),
     liveAuthorityTransferred: false,
-    evidenceRefs: uniqueStrings([candidate.candidateId, ...receiptRefs, ...candidate.evidenceRefs]),
+    evidenceRefs: uniqueStrings([
+      candidate.candidateId,
+      ...receiptRefs,
+      ...candidate.evidenceRefs,
+    ]),
     workerBinding,
     revisionBinding,
     rollbackRevisionBinding: previousRevisionBinding,
@@ -1841,7 +1990,8 @@ export function applyWorkflowHarnessActivationCandidate(
                 harnessWorkflowId: workerBinding.harnessWorkflowId,
                 harnessHash: workerBinding.harnessHash,
                 executionMode:
-                  workerBinding.executionMode ?? workflow.metadata.harness.executionMode,
+                  workerBinding.executionMode ??
+                  workflow.metadata.harness.executionMode,
                 activationId,
                 activationState: "validated",
                 activationRecord,
@@ -1865,7 +2015,11 @@ export function applyWorkflowHarnessActivationCandidate(
         previousRevisionBinding,
         nextRevisionBinding: revisionBinding,
         rollbackTarget,
-        evidenceRefs: uniqueStrings([candidate.candidateId, ...receiptRefs, ...candidate.evidenceRefs]),
+        evidenceRefs: uniqueStrings([
+          candidate.candidateId,
+          ...receiptRefs,
+          ...candidate.evidenceRefs,
+        ]),
         receiptRefs,
         summary: `Activation minted: ${activationId}`,
         createdAtMs: nowMs,
@@ -1878,37 +2032,40 @@ export function applyWorkflowHarnessActivationCandidate(
   };
 }
 
-export function makeBlessedHarnessLiveHandoffProof(options: {
-  selector?: WorkflowHarnessLiveHandoffProof["selector"];
-  productionDefaultSelector?: WorkflowHarnessLiveHandoffProof["productionDefaultSelector"];
-  canaryStatus?: WorkflowHarnessLiveHandoffProof["canaryStatus"];
-  canaryTurnRoutedThroughWorkflow?: boolean;
-  defaultAuthorityTransferred?: boolean;
-  runtimeAuthority?: WorkflowHarnessLiveHandoffProof["runtimeAuthority"];
-  fallbackSelector?: WorkflowHarnessLiveHandoffProof["fallbackSelector"];
-  rollbackAvailable?: boolean;
-  policyDecision?: string;
-  defaultPromotionGateEnabled?: boolean;
-  defaultPromotionGateEligible?: boolean;
-  defaultPromotionGateActivationBlockers?: string[];
-  defaultPromotionGatePolicyDecision?: string;
-  livePromotionReadinessProof?: WorkflowHarnessLivePromotionReadinessProof | null;
-  requireLivePromotionReadinessProof?: boolean;
-  activationIdGateClickProof?: WorkflowHarnessActivationIdGateClickProof | null;
-  activationIdGateProofNowMs?: number;
-  activationIdGateProofMaxAgeMs?: number;
-  requireActivationIdGateClickProof?: boolean;
-  gatedClusterIds?: WorkflowHarnessLiveHandoffProof["gatedClusterIds"];
-  executionBoundaryIds?: string[];
-  executionBoundaryClusterIds?: WorkflowHarnessPromotionClusterId[];
-  nodeTimelineAttemptIds?: string[];
-  receiptIds?: string[];
-  replayFixtureRefs?: string[];
-  activationBlockers?: string[];
-  evidenceRefs?: string[];
-} = {}): WorkflowHarnessLiveHandoffProof {
+export function makeBlessedHarnessLiveHandoffProof(
+  options: {
+    selector?: WorkflowHarnessLiveHandoffProof["selector"];
+    productionDefaultSelector?: WorkflowHarnessLiveHandoffProof["productionDefaultSelector"];
+    canaryStatus?: WorkflowHarnessLiveHandoffProof["canaryStatus"];
+    canaryTurnRoutedThroughWorkflow?: boolean;
+    defaultAuthorityTransferred?: boolean;
+    runtimeAuthority?: WorkflowHarnessLiveHandoffProof["runtimeAuthority"];
+    fallbackSelector?: WorkflowHarnessLiveHandoffProof["fallbackSelector"];
+    rollbackAvailable?: boolean;
+    policyDecision?: string;
+    defaultPromotionGateEnabled?: boolean;
+    defaultPromotionGateEligible?: boolean;
+    defaultPromotionGateActivationBlockers?: string[];
+    defaultPromotionGatePolicyDecision?: string;
+    livePromotionReadinessProof?: WorkflowHarnessLivePromotionReadinessProof | null;
+    requireLivePromotionReadinessProof?: boolean;
+    activationIdGateClickProof?: WorkflowHarnessActivationIdGateClickProof | null;
+    activationIdGateProofNowMs?: number;
+    activationIdGateProofMaxAgeMs?: number;
+    requireActivationIdGateClickProof?: boolean;
+    gatedClusterIds?: WorkflowHarnessLiveHandoffProof["gatedClusterIds"];
+    executionBoundaryIds?: string[];
+    executionBoundaryClusterIds?: WorkflowHarnessPromotionClusterId[];
+    nodeTimelineAttemptIds?: string[];
+    receiptIds?: string[];
+    replayFixtureRefs?: string[];
+    activationBlockers?: string[];
+    evidenceRefs?: string[];
+  } = {},
+): WorkflowHarnessLiveHandoffProof {
   const requestedSelector = options.selector ?? "blessed_workflow_live_canary";
-  const defaultAuthorityTransferred = options.defaultAuthorityTransferred ?? false;
+  const defaultAuthorityTransferred =
+    options.defaultAuthorityTransferred ?? false;
   const defaultRequested =
     requestedSelector === "blessed_workflow_live_default" ||
     defaultAuthorityTransferred;
@@ -1920,7 +2077,8 @@ export function makeBlessedHarnessLiveHandoffProof(options: {
       )
     : [];
   const livePromotionReadinessReady =
-    requireLivePromotionReadinessProof && livePromotionReadinessBlockers.length === 0;
+    requireLivePromotionReadinessProof &&
+    livePromotionReadinessBlockers.length === 0;
   const effectiveDefaultAuthorityTransferred =
     defaultAuthorityTransferred && livePromotionReadinessReady;
   const selector =
@@ -1929,7 +2087,9 @@ export function makeBlessedHarnessLiveHandoffProof(options: {
       : requestedSelector;
   const requestedProductionDefaultSelector =
     options.productionDefaultSelector ??
-    (defaultAuthorityTransferred ? "blessed_workflow_live_default" : "legacy_runtime");
+    (defaultAuthorityTransferred
+      ? "blessed_workflow_live_default"
+      : "legacy_runtime");
   const productionDefaultSelector = effectiveDefaultAuthorityTransferred
     ? requestedProductionDefaultSelector
     : "legacy_runtime";
@@ -1950,13 +2110,14 @@ export function makeBlessedHarnessLiveHandoffProof(options: {
           },
         )
       : [];
-  const defaultPromotionGateActivationBlockers =
-    uniqueStrings([
-      ...(options.defaultPromotionGateActivationBlockers ??
-        (requestedDefaultPromotionGateEligible ? [] : ["promotion_gate_disabled"])),
-      ...activationIdGateProofBlockers,
-      ...livePromotionReadinessBlockers,
-    ]);
+  const defaultPromotionGateActivationBlockers = uniqueStrings([
+    ...(options.defaultPromotionGateActivationBlockers ??
+      (requestedDefaultPromotionGateEligible
+        ? []
+        : ["promotion_gate_disabled"])),
+    ...activationIdGateProofBlockers,
+    ...livePromotionReadinessBlockers,
+  ]);
   const activationBlockers = uniqueStrings([
     ...(options.activationBlockers ?? []),
     ...activationIdGateProofBlockers,
@@ -1982,45 +2143,42 @@ export function makeBlessedHarnessLiveHandoffProof(options: {
     harnessHash: DEFAULT_AGENT_HARNESS_HASH,
     componentVersionSet: defaultHarnessComponentVersionSet(),
     canaryStatus: options.canaryStatus ?? "passed",
-    canaryTurnRoutedThroughWorkflow: options.canaryTurnRoutedThroughWorkflow ?? true,
+    canaryTurnRoutedThroughWorkflow:
+      options.canaryTurnRoutedThroughWorkflow ?? true,
     executionBoundaryId:
       "harness-canary-boundary:default-agent-harness:verification_output",
-    executionBoundaryIds:
-      options.executionBoundaryIds ?? [
-        "harness-canary-boundary:default-agent-harness:cognition",
-        "harness-canary-boundary:default-agent-harness:routing_model",
-        "harness-canary-boundary:default-agent-harness:verification_output",
-        "harness-canary-boundary:default-agent-harness:authority_tooling",
-      ],
-    executionBoundaryClusterIds:
-      options.executionBoundaryClusterIds ?? [
-        "cognition",
-        "routing_model",
-        "verification_output",
-        "authority_tooling",
-      ],
+    executionBoundaryIds: options.executionBoundaryIds ?? [
+      "harness-canary-boundary:default-agent-harness:cognition",
+      "harness-canary-boundary:default-agent-harness:routing_model",
+      "harness-canary-boundary:default-agent-harness:verification_output",
+      "harness-canary-boundary:default-agent-harness:authority_tooling",
+    ],
+    executionBoundaryClusterIds: options.executionBoundaryClusterIds ?? [
+      "cognition",
+      "routing_model",
+      "verification_output",
+      "authority_tooling",
+    ],
     executionBoundaryStatus: "passed",
-    executionBoundaryExecutor: "crate::project::execute_workflow_harness_canary_node",
+    executionBoundaryExecutor:
+      "crate::project::execute_workflow_harness_canary_node",
     defaultAuthorityTransferred: effectiveDefaultAuthorityTransferred,
-    runtimeAuthority:
-      effectiveDefaultAuthorityTransferred
-        ? options.runtimeAuthority ?? "blessed_workflow_activation_default"
-        : "blessed_workflow_activation_canary",
+    runtimeAuthority: effectiveDefaultAuthorityTransferred
+      ? (options.runtimeAuthority ?? "blessed_workflow_activation_default")
+      : "blessed_workflow_activation_canary",
     fallbackSelector: options.fallbackSelector ?? "legacy_runtime",
     rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
     rollbackAvailable: options.rollbackAvailable ?? true,
-    policyDecision:
-      effectiveDefaultAuthorityTransferred
-        ? options.policyDecision ??
-          "promote_blessed_workflow_default_for_non_mutating_turn"
-        : "allow_blessed_workflow_live_canary",
-    gatedClusterIds:
-      options.gatedClusterIds ?? [
-        "cognition",
-        "routing_model",
-        "verification_output",
-        "authority_tooling",
-      ],
+    policyDecision: effectiveDefaultAuthorityTransferred
+      ? (options.policyDecision ??
+        "promote_blessed_workflow_default_for_non_mutating_turn")
+      : "allow_blessed_workflow_live_canary",
+    gatedClusterIds: options.gatedClusterIds ?? [
+      "cognition",
+      "routing_model",
+      "verification_output",
+      "authority_tooling",
+    ],
     nodeTimelineAttemptIds: options.nodeTimelineAttemptIds ?? [],
     receiptIds: options.receiptIds ?? [],
     replayFixtureRefs: options.replayFixtureRefs ?? [],
@@ -2049,30 +2207,32 @@ export function makeBlessedHarnessLiveHandoffProof(options: {
   };
 }
 
-export function makeHarnessRuntimeSelectorDecision(options: {
-  decisionId?: string;
-  requestedSelector?: WorkflowHarnessRuntimeSelectorDecision["requestedSelector"];
-  selectedSelector?: WorkflowHarnessRuntimeSelectorDecision["selectedSelector"];
-  productionDefaultSelector?: WorkflowHarnessRuntimeSelectorDecision["productionDefaultSelector"];
-  canaryEligible?: boolean;
-  canaryBlockers?: string[];
-  executionMode?: WorkflowHarnessExecutionMode;
-  actualRuntimeAuthority?: WorkflowHarnessRuntimeSelectorDecision["actualRuntimeAuthority"];
-  policyDecision?: string;
-  routeReason?: string;
-  defaultPromotionGateEnabled?: boolean;
-  defaultPromotionGateEligible?: boolean;
-  defaultPromotionGateAuthorityTransferred?: boolean;
-  defaultPromotionGateActivationBlockers?: string[];
-  defaultPromotionGatePolicyDecision?: string;
-  livePromotionReadinessProof?: WorkflowHarnessLivePromotionReadinessProof | null;
-  requireLivePromotionReadinessProof?: boolean;
-  activationIdGateClickProof?: WorkflowHarnessActivationIdGateClickProof | null;
-  activationIdGateProofNowMs?: number;
-  activationIdGateProofMaxAgeMs?: number;
-  requireActivationIdGateClickProof?: boolean;
-  evidenceRefs?: string[];
-} = {}): WorkflowHarnessRuntimeSelectorDecision {
+export function makeHarnessRuntimeSelectorDecision(
+  options: {
+    decisionId?: string;
+    requestedSelector?: WorkflowHarnessRuntimeSelectorDecision["requestedSelector"];
+    selectedSelector?: WorkflowHarnessRuntimeSelectorDecision["selectedSelector"];
+    productionDefaultSelector?: WorkflowHarnessRuntimeSelectorDecision["productionDefaultSelector"];
+    canaryEligible?: boolean;
+    canaryBlockers?: string[];
+    executionMode?: WorkflowHarnessExecutionMode;
+    actualRuntimeAuthority?: WorkflowHarnessRuntimeSelectorDecision["actualRuntimeAuthority"];
+    policyDecision?: string;
+    routeReason?: string;
+    defaultPromotionGateEnabled?: boolean;
+    defaultPromotionGateEligible?: boolean;
+    defaultPromotionGateAuthorityTransferred?: boolean;
+    defaultPromotionGateActivationBlockers?: string[];
+    defaultPromotionGatePolicyDecision?: string;
+    livePromotionReadinessProof?: WorkflowHarnessLivePromotionReadinessProof | null;
+    requireLivePromotionReadinessProof?: boolean;
+    activationIdGateClickProof?: WorkflowHarnessActivationIdGateClickProof | null;
+    activationIdGateProofNowMs?: number;
+    activationIdGateProofMaxAgeMs?: number;
+    requireActivationIdGateClickProof?: boolean;
+    evidenceRefs?: string[];
+  } = {},
+): WorkflowHarnessRuntimeSelectorDecision {
   const requestedSelectedSelector =
     options.selectedSelector ?? "blessed_workflow_live_canary";
   const defaultRequested =
@@ -2085,7 +2245,8 @@ export function makeHarnessRuntimeSelectorDecision(options: {
       )
     : [];
   const livePromotionReadinessReady =
-    requireLivePromotionReadinessProof && livePromotionReadinessBlockers.length === 0;
+    requireLivePromotionReadinessProof &&
+    livePromotionReadinessBlockers.length === 0;
   const requestedCanaryEligible =
     options.canaryEligible ??
     (requestedSelectedSelector === "blessed_workflow_live_canary" ||
@@ -2131,13 +2292,14 @@ export function makeHarnessRuntimeSelectorDecision(options: {
     requestedDefaultPromotionAuthorityTransferred &&
     defaultSelected &&
     (!requireLivePromotionReadinessProof || livePromotionReadinessReady);
-  const defaultPromotionGateActivationBlockers =
-    uniqueStrings([
-      ...(options.defaultPromotionGateActivationBlockers ??
-        (requestedDefaultPromotionGateEligible ? [] : ["promotion_gate_disabled"])),
-      ...activationIdGateProofBlockers,
-      ...livePromotionReadinessBlockers,
-    ]);
+  const defaultPromotionGateActivationBlockers = uniqueStrings([
+    ...(options.defaultPromotionGateActivationBlockers ??
+      (requestedDefaultPromotionGateEligible
+        ? []
+        : ["promotion_gate_disabled"])),
+    ...activationIdGateProofBlockers,
+    ...livePromotionReadinessBlockers,
+  ]);
   const defaultPromotionGatePolicyDecision =
     options.defaultPromotionGatePolicyDecision ??
     (defaultPromotionGateEligible
@@ -2145,7 +2307,8 @@ export function makeHarnessRuntimeSelectorDecision(options: {
       : "retain_legacy_runtime_default");
   return {
     schemaVersion: "workflow.harness.runtime-selector.v1",
-    decisionId: options.decisionId ?? "harness-selector:default-agent-harness:canary",
+    decisionId:
+      options.decisionId ?? "harness-selector:default-agent-harness:canary",
     requestedSelector: options.requestedSelector ?? "auto_canary",
     selectedSelector,
     productionDefaultSelector,
@@ -2154,21 +2317,21 @@ export function makeHarnessRuntimeSelectorDecision(options: {
     workflowId: DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
     activationId: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
     harnessHash: DEFAULT_AGENT_HARNESS_HASH,
-    executionMode: options.executionMode ?? (workflowSelected ? "live" : "gated"),
-    actualRuntimeAuthority:
-      defaultSelected
-        ? options.actualRuntimeAuthority ?? "blessed_workflow_activation_default"
-        : workflowSelected
-          ? "blessed_workflow_activation_canary"
-          : "existing_runtime_service",
+    executionMode:
+      options.executionMode ?? (workflowSelected ? "live" : "gated"),
+    actualRuntimeAuthority: defaultSelected
+      ? (options.actualRuntimeAuthority ??
+        "blessed_workflow_activation_default")
+      : workflowSelected
+        ? "blessed_workflow_activation_canary"
+        : "existing_runtime_service",
     fallbackSelector: "legacy_runtime",
     rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
     rollbackAvailable: true,
-    policyDecision:
-      defaultSelected
-        ? options.policyDecision ??
-          "promote_blessed_workflow_default_for_non_mutating_turn"
-        : workflowSelected
+    policyDecision: defaultSelected
+      ? (options.policyDecision ??
+        "promote_blessed_workflow_default_for_non_mutating_turn")
+      : workflowSelected
         ? "allow_blessed_workflow_live_canary"
         : "retain_legacy_runtime_default",
     routeReason:
@@ -2176,10 +2339,10 @@ export function makeHarnessRuntimeSelectorDecision(options: {
       (defaultSelected
         ? "Blessed workflow activation is promoted to the default runtime selector for a non-mutating turn."
         : defaultRequested
-        ? "Blessed workflow default promotion is blocked until the live-promotion readiness proof passes."
-        : workflowSelected
-        ? "Turn is non-mutating and eligible for blessed workflow canary routing."
-        : "Turn remains on the legacy runtime selector."),
+          ? "Blessed workflow default promotion is blocked until the live-promotion readiness proof passes."
+          : workflowSelected
+            ? "Turn is non-mutating and eligible for blessed workflow canary routing."
+            : "Turn remains on the legacy runtime selector."),
     livePromotionReadinessProof: options.livePromotionReadinessProof ?? null,
     livePromotionReadinessReady,
     livePromotionReadinessBlockers,
@@ -2266,7 +2429,8 @@ const DEFAULT_ROUTING_MODEL_GATE_ADAPTER_COMPONENTS: Array<{
   {
     kind: "tool_router",
     attemptSlug: "routing_model_tool_router_envelope",
-    policyDecision: "accept_routing_model_adapter_tool_route_without_live_invocation",
+    policyDecision:
+      "accept_routing_model_adapter_tool_route_without_live_invocation",
   },
 ];
 
@@ -2350,7 +2514,8 @@ const DEFAULT_AUTHORITY_TOOLING_GATE_ADAPTER_COMPONENTS: Array<{
   {
     kind: "wallet_capability",
     attemptSlug: "authority_tooling_wallet_capability_envelope",
-    policyDecision: "retain_authority_tooling_wallet_capability_adapter_without_grant",
+    policyDecision:
+      "retain_authority_tooling_wallet_capability_adapter_without_grant",
   },
 ];
 
@@ -2405,7 +2570,10 @@ function makeDefaultHarnessAdapterResult(
       outputHash,
       policyDecision,
       receiptIds: [receiptId],
-      evidenceRefs: [`runtime-evidence:default`, DEFAULT_AGENT_HARNESS_ACTIVATION_ID],
+      evidenceRefs: [
+        `runtime-evidence:default`,
+        DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+      ],
       replay,
     },
     slotIds: actionFrame.slotIds,
@@ -2453,26 +2621,28 @@ function makeDefaultRoutingModelGateAdapterResults(): WorkflowHarnessComponentAd
 }
 
 function makeDefaultVerificationOutputGateAdapterResults(): WorkflowHarnessComponentAdapterResult[] {
-  return DEFAULT_VERIFICATION_OUTPUT_GATE_ADAPTER_COMPONENTS.map((component, index) =>
-    makeDefaultHarnessAdapterResult(
-      component.kind,
-      component.attemptSlug,
-      component.policyDecision,
-      index + 10,
-      "gated",
-    ),
+  return DEFAULT_VERIFICATION_OUTPUT_GATE_ADAPTER_COMPONENTS.map(
+    (component, index) =>
+      makeDefaultHarnessAdapterResult(
+        component.kind,
+        component.attemptSlug,
+        component.policyDecision,
+        index + 10,
+        "gated",
+      ),
   );
 }
 
 function makeDefaultAuthorityToolingGateAdapterResults(): WorkflowHarnessComponentAdapterResult[] {
-  return DEFAULT_AUTHORITY_TOOLING_GATE_ADAPTER_COMPONENTS.map((component, index) =>
-    makeDefaultHarnessAdapterResult(
-      component.kind,
-      component.attemptSlug,
-      component.policyDecision,
-      index + 16,
-      "gated",
-    ),
+  return DEFAULT_AUTHORITY_TOOLING_GATE_ADAPTER_COMPONENTS.map(
+    (component, index) =>
+      makeDefaultHarnessAdapterResult(
+        component.kind,
+        component.attemptSlug,
+        component.policyDecision,
+        index + 16,
+        "gated",
+      ),
   );
 }
 
@@ -2503,16 +2673,21 @@ function makeHarnessLivePromotionClusterReadiness(options: {
     (divergenceClass) => divergenceClass === "unclassified",
   ).length;
   const receiptReady = receiptRefs.length > 0;
-  const replayGateReady = replayFixtureRefs.length > 0 && blockingDivergenceCount === 0;
+  const replayGateReady =
+    replayFixtureRefs.length > 0 && blockingDivergenceCount === 0;
   const divergenceReady =
     blockingDivergenceCount === 0 && unclassifiedDivergenceCount === 0;
   const blockers = uniqueStrings([
     ...(options.blockers ?? []),
-    ...(options.readinessReady ? [] : [`${options.clusterId}_readiness_not_ready`]),
+    ...(options.readinessReady
+      ? []
+      : [`${options.clusterId}_readiness_not_ready`]),
     ...(receiptReady ? [] : [`${options.clusterId}_receipts_missing`]),
     ...(replayGateReady ? [] : [`${options.clusterId}_replay_gate_not_ready`]),
     ...(options.canaryReady ? [] : [`${options.clusterId}_canary_not_ready`]),
-    ...(options.rollbackReady ? [] : [`${options.clusterId}_rollback_not_ready`]),
+    ...(options.rollbackReady
+      ? []
+      : [`${options.clusterId}_rollback_not_ready`]),
     ...(divergenceReady ? [] : [`${options.clusterId}_divergence_not_ready`]),
   ]);
 
@@ -2558,7 +2733,8 @@ export function makeHarnessLivePromotionReadinessProof(options: {
   evidenceRefs?: string[];
 }): WorkflowHarnessLivePromotionReadinessProof {
   const workflowId = options.workflowId ?? DEFAULT_AGENT_HARNESS_WORKFLOW_ID;
-  const activationId = options.activationId ?? DEFAULT_AGENT_HARNESS_ACTIVATION_ID;
+  const activationId =
+    options.activationId ?? DEFAULT_AGENT_HARNESS_ACTIVATION_ID;
   const harnessHash = options.harnessHash ?? DEFAULT_AGENT_HARNESS_HASH;
   const requiredClusterIds: WorkflowHarnessPromotionClusterId[] = [
     "cognition",
@@ -2568,7 +2744,9 @@ export function makeHarnessLivePromotionReadinessProof(options: {
   ];
   const clusterReadiness = requiredClusterIds.map(
     (clusterId) =>
-      options.clusterReadiness.find((cluster) => cluster.clusterId === clusterId) ??
+      options.clusterReadiness.find(
+        (cluster) => cluster.clusterId === clusterId,
+      ) ??
       makeHarnessLivePromotionClusterReadiness({
         clusterId,
         currentStatus: "blocked",
@@ -2581,7 +2759,8 @@ export function makeHarnessLivePromotionReadinessProof(options: {
         divergenceClasses: ["unclassified"],
         canaryReady: false,
         rollbackReady: false,
-        rollbackTarget: options.rollbackTarget ?? DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+        rollbackTarget:
+          options.rollbackTarget ?? DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
         blockers: [`${clusterId}_readiness_record_missing`],
       }),
   );
@@ -2592,7 +2771,8 @@ export function makeHarnessLivePromotionReadinessProof(options: {
   const invalidForkLiveActivationBlocked =
     options.invalidForkLiveActivationBlocked ?? true;
   const rollbackAvailable = options.rollbackAvailable ?? true;
-  const rollbackTarget = options.rollbackTarget ?? DEFAULT_AGENT_HARNESS_ACTIVATION_ID;
+  const rollbackTarget =
+    options.rollbackTarget ?? DEFAULT_AGENT_HARNESS_ACTIVATION_ID;
   const promotionEligible =
     allClustersReady &&
     activationBlockers.length === 0 &&
@@ -2691,7 +2871,9 @@ export function workflowHarnessLivePromotionReadinessProofBlockers(
 
   for (const clusterId of requiredClusterIds) {
     if (!proof.requiredClusterIds.includes(clusterId)) {
-      blockers.push(`live_promotion_readiness_required_cluster_missing:${clusterId}`);
+      blockers.push(
+        `live_promotion_readiness_required_cluster_missing:${clusterId}`,
+      );
     }
     const cluster = proof.clusterReadiness.find(
       (candidate) => candidate.clusterId === clusterId,
@@ -2704,54 +2886,70 @@ export function workflowHarnessLivePromotionReadinessProofBlockers(
       blockers.push(`live_promotion_readiness_cluster_not_live:${clusterId}`);
     }
     if (!cluster.readinessReady) {
-      blockers.push(`live_promotion_readiness_cluster_readiness_not_ready:${clusterId}`);
+      blockers.push(
+        `live_promotion_readiness_cluster_readiness_not_ready:${clusterId}`,
+      );
     }
     if (!cluster.receiptReady || cluster.receiptRefs.length === 0) {
-      blockers.push(`live_promotion_readiness_cluster_receipts_missing:${clusterId}`);
+      blockers.push(
+        `live_promotion_readiness_cluster_receipts_missing:${clusterId}`,
+      );
     }
     if (!cluster.replayGateReady || cluster.replayFixtureRefs.length === 0) {
-      blockers.push(`live_promotion_readiness_cluster_replay_missing:${clusterId}`);
+      blockers.push(
+        `live_promotion_readiness_cluster_replay_missing:${clusterId}`,
+      );
     }
     if (!cluster.canaryReady) {
-      blockers.push(`live_promotion_readiness_cluster_canary_not_ready:${clusterId}`);
+      blockers.push(
+        `live_promotion_readiness_cluster_canary_not_ready:${clusterId}`,
+      );
     }
     if (!cluster.rollbackReady) {
-      blockers.push(`live_promotion_readiness_cluster_rollback_not_ready:${clusterId}`);
+      blockers.push(
+        `live_promotion_readiness_cluster_rollback_not_ready:${clusterId}`,
+      );
     }
     if (
       !cluster.divergenceReady ||
       cluster.blockingDivergenceCount > 0 ||
       cluster.unclassifiedDivergenceCount > 0
     ) {
-      blockers.push(`live_promotion_readiness_cluster_divergence_not_ready:${clusterId}`);
+      blockers.push(
+        `live_promotion_readiness_cluster_divergence_not_ready:${clusterId}`,
+      );
     }
     for (const blocker of cluster.blockers ?? []) {
-      blockers.push(`live_promotion_readiness_cluster_blocker:${clusterId}:${blocker}`);
+      blockers.push(
+        `live_promotion_readiness_cluster_blocker:${clusterId}:${blocker}`,
+      );
     }
   }
 
   return uniqueStrings(blockers);
 }
 
-export function makeHarnessDefaultRuntimeDispatchProof(options: {
-  dispatchId?: string;
-  selectorDecisionId?: string;
-  acceptedClusterIds?: WorkflowHarnessPromotionClusterId[];
-  sourceBoundaryIds?: string[];
-  dispatchNodeAttemptIds?: string[];
-  outputWriterHandoffAttemptIds?: string[];
-  acceptedNodeAttemptIds?: string[];
-  nodeAttemptIds?: string[];
-  receiptIds?: string[];
-  replayFixtureRefs?: string[];
-  activationBlockers?: string[];
-  activationIdGateClickProof?: WorkflowHarnessActivationIdGateClickProof | null;
-  activationIdGateProofNowMs?: number;
-  activationIdGateProofMaxAgeMs?: number;
-  activationIdGateWorkerBindingActivationId?: string;
-  requireActivationIdGateClickProof?: boolean;
-  evidenceRefs?: string[];
-} = {}): WorkflowHarnessDefaultRuntimeDispatchProof {
+export function makeHarnessDefaultRuntimeDispatchProof(
+  options: {
+    dispatchId?: string;
+    selectorDecisionId?: string;
+    acceptedClusterIds?: WorkflowHarnessPromotionClusterId[];
+    sourceBoundaryIds?: string[];
+    dispatchNodeAttemptIds?: string[];
+    outputWriterHandoffAttemptIds?: string[];
+    acceptedNodeAttemptIds?: string[];
+    nodeAttemptIds?: string[];
+    receiptIds?: string[];
+    replayFixtureRefs?: string[];
+    activationBlockers?: string[];
+    activationIdGateClickProof?: WorkflowHarnessActivationIdGateClickProof | null;
+    activationIdGateProofNowMs?: number;
+    activationIdGateProofMaxAgeMs?: number;
+    activationIdGateWorkerBindingActivationId?: string;
+    requireActivationIdGateClickProof?: boolean;
+    evidenceRefs?: string[];
+  } = {},
+): WorkflowHarnessDefaultRuntimeDispatchProof {
   const acceptedClusterIds = options.acceptedClusterIds ?? [
     "cognition",
     "routing_model",
@@ -2765,20 +2963,22 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     "connector_call",
     "wallet_capability",
   ];
-  const authorityToolingReadOnlyComponentKinds: WorkflowHarnessComponentKind[] = [
-    "mcp_provider",
-    "mcp_tool_call",
-    "tool_call",
-    "connector_call",
-    "wallet_capability",
-  ];
-  const authorityToolingMutationDeferredComponentKinds: WorkflowHarnessComponentKind[] = [
-    "mcp_provider",
-    "mcp_tool_call",
-    "tool_call",
-    "connector_call",
-    "wallet_capability",
-  ];
+  const authorityToolingReadOnlyComponentKinds: WorkflowHarnessComponentKind[] =
+    [
+      "mcp_provider",
+      "mcp_tool_call",
+      "tool_call",
+      "connector_call",
+      "wallet_capability",
+    ];
+  const authorityToolingMutationDeferredComponentKinds: WorkflowHarnessComponentKind[] =
+    [
+      "mcp_provider",
+      "mcp_tool_call",
+      "tool_call",
+      "connector_call",
+      "wallet_capability",
+    ];
   const proposedVisibleOutputHash = "sha256:visible-output";
   const actualVisibleOutputHash = "sha256:visible-output";
   const promptAssemblyPromptHash = "sha256:prompt-final";
@@ -2788,18 +2988,24 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
   const modelExecutionOutputHash = actualVisibleOutputHash;
   const cognitionExecutionAdapterResults = makeDefaultCognitionAdapterResults();
   const cognitionExecutionActionFrameIds = cognitionExecutionAdapterResults.map(
-    (result) => `${result.actionFrame.nodeId}:${result.actionFrame.componentId}`,
+    (result) =>
+      `${result.actionFrame.nodeId}:${result.actionFrame.componentId}`,
   );
-  const cognitionExecutionLiveReadyComponentKinds = cognitionExecutionAdapterResults.map(
-    (result) => result.actionFrame.componentKind,
-  );
-  const cognitionExecutionGateAdapterResults = makeDefaultCognitionGateAdapterResults();
-  const cognitionExecutionGateActionFrameIds = cognitionExecutionGateAdapterResults.map(
-    (result) => `${result.actionFrame.nodeId}:${result.actionFrame.componentId}`,
-  );
-  const cognitionExecutionGateComponentKinds = cognitionExecutionGateAdapterResults.map(
-    (result) => result.actionFrame.componentKind,
-  );
+  const cognitionExecutionLiveReadyComponentKinds =
+    cognitionExecutionAdapterResults.map(
+      (result) => result.actionFrame.componentKind,
+    );
+  const cognitionExecutionGateAdapterResults =
+    makeDefaultCognitionGateAdapterResults();
+  const cognitionExecutionGateActionFrameIds =
+    cognitionExecutionGateAdapterResults.map(
+      (result) =>
+        `${result.actionFrame.nodeId}:${result.actionFrame.componentId}`,
+    );
+  const cognitionExecutionGateComponentKinds =
+    cognitionExecutionGateAdapterResults.map(
+      (result) => result.actionFrame.componentKind,
+    );
   const cognitionExecutionGateAttemptIds = [
     "harness-default-dispatch:attempt-uncertainty_gate_envelope",
     "harness-default-dispatch:attempt-budget_gate_envelope",
@@ -2816,9 +3022,11 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     "harness-default-dispatch:fixture-capability_sequencer_envelope",
   ];
   const cognitionExecutionGateDivergenceClasses = ["none" as const];
-  const routingModelAdapterResults = makeDefaultRoutingModelGateAdapterResults();
+  const routingModelAdapterResults =
+    makeDefaultRoutingModelGateAdapterResults();
   const routingModelActionFrameIds = routingModelAdapterResults.map(
-    (result) => `${result.actionFrame.nodeId}:${result.actionFrame.componentId}`,
+    (result) =>
+      `${result.actionFrame.nodeId}:${result.actionFrame.componentId}`,
   );
   const routingModelComponentKinds = routingModelAdapterResults.map(
     (result) => result.actionFrame.componentKind,
@@ -2839,9 +3047,11 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     "harness-default-dispatch:fixture-routing_model_tool_router_envelope",
   ];
   const routingModelDivergenceClasses = ["none" as const];
-  const verificationOutputAdapterResults = makeDefaultVerificationOutputGateAdapterResults();
+  const verificationOutputAdapterResults =
+    makeDefaultVerificationOutputGateAdapterResults();
   const verificationOutputActionFrameIds = verificationOutputAdapterResults.map(
-    (result) => `${result.actionFrame.nodeId}:${result.actionFrame.componentId}`,
+    (result) =>
+      `${result.actionFrame.nodeId}:${result.actionFrame.componentId}`,
   );
   const verificationOutputComponentKinds = verificationOutputAdapterResults.map(
     (result) => result.actionFrame.componentKind,
@@ -2871,22 +3081,29 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     "harness-default-dispatch:fixture-verification_output_output_writer_envelope",
   ];
   const verificationOutputDivergenceClasses = ["none" as const];
-  const authorityToolingAdapterResults = makeDefaultAuthorityToolingGateAdapterResults();
+  const authorityToolingAdapterResults =
+    makeDefaultAuthorityToolingGateAdapterResults();
   const authorityToolingActionFrameIds = authorityToolingAdapterResults.map(
-    (result) => `${result.actionFrame.nodeId}:${result.actionFrame.componentId}`,
+    (result) =>
+      `${result.actionFrame.nodeId}:${result.actionFrame.componentId}`,
   );
   const authorityToolingComponentKinds = authorityToolingAdapterResults.map(
     (result) => result.actionFrame.componentKind,
   );
-  const authorityToolingAttemptIds = DEFAULT_AUTHORITY_TOOLING_GATE_ADAPTER_COMPONENTS.map(
-    (component) => `harness-default-dispatch:attempt-${component.attemptSlug}`,
-  );
-  const authorityToolingReceiptIds = DEFAULT_AUTHORITY_TOOLING_GATE_ADAPTER_COMPONENTS.map(
-    (component) => `harness-default-dispatch:receipt-${component.attemptSlug}`,
-  );
+  const authorityToolingAttemptIds =
+    DEFAULT_AUTHORITY_TOOLING_GATE_ADAPTER_COMPONENTS.map(
+      (component) =>
+        `harness-default-dispatch:attempt-${component.attemptSlug}`,
+    );
+  const authorityToolingReceiptIds =
+    DEFAULT_AUTHORITY_TOOLING_GATE_ADAPTER_COMPONENTS.map(
+      (component) =>
+        `harness-default-dispatch:receipt-${component.attemptSlug}`,
+    );
   const authorityToolingReplayFixtureRefs =
     DEFAULT_AUTHORITY_TOOLING_GATE_ADAPTER_COMPONENTS.map(
-      (component) => `harness-default-dispatch:fixture-${component.attemptSlug}`,
+      (component) =>
+        `harness-default-dispatch:fixture-${component.attemptSlug}`,
     );
   const authorityToolingDivergenceClasses = ["none" as const];
   const activationIdGateProofBlockers =
@@ -2912,15 +3129,17 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     activationIdGateProofBlockers.length === 0;
   const activationIdGateWorkerBindingActivationId =
     activationIdGateClickProofPassed
-      ? options.activationIdGateWorkerBindingActivationId ??
-        DEFAULT_AGENT_HARNESS_ACTIVATION_ID
+      ? (options.activationIdGateWorkerBindingActivationId ??
+        DEFAULT_AGENT_HARNESS_ACTIVATION_ID)
       : "";
   const dispatchId =
-    options.dispatchId ?? "harness-default-dispatch:default-agent-harness:readonly";
+    options.dispatchId ??
+    "harness-default-dispatch:default-agent-harness:readonly";
   const sourceBoundaryIds =
     options.sourceBoundaryIds ??
     acceptedClusterIds.map(
-      (clusterId) => `harness-canary-boundary:default-agent-harness:${clusterId}`,
+      (clusterId) =>
+        `harness-canary-boundary:default-agent-harness:${clusterId}`,
     );
   const livePromotionReadinessProof = makeHarnessLivePromotionReadinessProof({
     dispatchId,
@@ -3040,7 +3259,8 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     timestampMs: 1,
     orderIndex: 1,
     contentHash: proposedVisibleOutputHash,
-    receiptBindingRef: "checkpoint_transcript_messages:default-agent-harness:agent:1:1",
+    receiptBindingRef:
+      "checkpoint_transcript_messages:default-agent-harness:agent:1:1",
     writeAuthority: "blessed_workflow_activation_default",
     committed: false,
     commitMode: "candidate_only",
@@ -3051,7 +3271,8 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     timestampMs: 1,
     orderIndex: 1,
     contentHash: proposedVisibleOutputHash,
-    receiptBindingRef: "checkpoint_transcript_messages:default-agent-harness:agent:1:1",
+    receiptBindingRef:
+      "checkpoint_transcript_messages:default-agent-harness:agent:1:1",
     writeIdentityHash: "sha256:workflow-visible-transcript-write",
     writeAuthority: "blessed_workflow_activation_default",
     committed: true,
@@ -3065,7 +3286,8 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     timestampMs: 1,
     orderIndex: 1,
     contentHash: actualVisibleOutputHash,
-    receiptBindingRef: "checkpoint_transcript_messages:default-agent-harness:agent:1:1",
+    receiptBindingRef:
+      "checkpoint_transcript_messages:default-agent-harness:agent:1:1",
     writeAuthority: "existing_runtime_service",
     committed: false,
     suppressedByIdempotency: true,
@@ -3079,7 +3301,8 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     timestampMs: 1,
     orderIndex: 1,
     contentHash: proposedVisibleOutputHash,
-    receiptBindingRef: "checkpoint_transcript_messages:default-agent-harness:agent:1:1",
+    receiptBindingRef:
+      "checkpoint_transcript_messages:default-agent-harness:agent:1:1",
     writeAuthority: "blessed_workflow_activation_default",
     committed: true,
     stagingCommitted: true,
@@ -3113,11 +3336,13 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     created: true,
     visible: true,
     visibleRowsDelta: 1,
-    idempotencyGuard: "session_role_timestamp_order_content_hash_receipt_binding",
+    idempotencyGuard:
+      "session_role_timestamp_order_content_hash_receipt_binding",
     duplicateSuppressionReady: true,
     identityCheckpointPersisted: true,
     rollbackAvailable: true,
-    rollbackMode: "legacy_runtime_fallback_with_idempotent_duplicate_suppression",
+    rollbackMode:
+      "legacy_runtime_fallback_with_idempotent_duplicate_suppression",
   };
   const legacyTranscriptFallbackProof = {
     schemaVersion: "workflow.output_writer.legacy-transcript-fallback.v1",
@@ -3132,7 +3357,8 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     schemaVersion: "workflow.harness.default-runtime-dispatch.v1",
     dispatchId,
     selectorDecisionId:
-      options.selectorDecisionId ?? "harness-selector:default-agent-harness:default",
+      options.selectorDecisionId ??
+      "harness-selector:default-agent-harness:default",
     selectedSelector: "blessed_workflow_live_default",
     productionDefaultSelector: "blessed_workflow_live_default",
     workflowId: DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
@@ -3142,51 +3368,53 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     runtimeAuthority: dispatchAccepted
       ? "blessed_workflow_activation_default"
       : "existing_runtime_service",
-    dispatchScope: "read_only_cognition_routing_verification_completion_authority_tooling",
+    dispatchScope:
+      "read_only_cognition_routing_verification_completion_authority_tooling",
     acceptedClusterIds,
     componentKinds: acceptedClusterIds
       .flatMap((clusterId) => HARNESS_PROMOTION_CLUSTER_COMPONENTS[clusterId])
-      .filter((componentKind) => !deferredComponentKinds.includes(componentKind)),
+      .filter(
+        (componentKind) => !deferredComponentKinds.includes(componentKind),
+      ),
     deferredComponentKinds,
     handoffValidatedComponentKinds: ["output_writer"],
     materializationCanaryComponentKinds: ["output_writer"],
     sourceBoundaryIds,
-    dispatchNodeAttemptIds:
-      options.dispatchNodeAttemptIds ?? [
-        ...acceptedClusterIds.map(
-          (clusterId) => `harness-default-dispatch:attempt-${clusterId}`,
-        ),
-        "harness-default-dispatch:attempt-planner_envelope",
-        "harness-default-dispatch:attempt-prompt_assembler_envelope",
-        "harness-default-dispatch:attempt-task_state_envelope",
-        ...cognitionExecutionGateAttemptIds,
-        "harness-default-dispatch:attempt-model_router_envelope",
-        "harness-default-dispatch:attempt-model_call_envelope",
-        ...routingModelAttemptIds,
-        ...verificationOutputAttemptIds,
-        ...authorityToolingAttemptIds,
-        "harness-default-dispatch:attempt-model_provider_call_canary",
-        "harness-default-dispatch:attempt-model_provider_gated_visible_output",
-        "harness-default-dispatch:attempt-model_provider_gated_visible_output_rollback_drill",
-        "harness-default-dispatch:attempt-read_only_source_router",
-        "harness-default-dispatch:attempt-read_only_capability_sequencer",
-        "harness-default-dispatch:attempt-read_only_tool_router",
-        "harness-default-dispatch:attempt-read_only_no_mutation_drill",
-        "harness-default-dispatch:attempt-output_writer_handoff",
-        "harness-default-dispatch:attempt-output_writer_materialization_canary",
-        "harness-default-dispatch:attempt-output_writer_staged_write_canary",
-        "harness-default-dispatch:attempt-output_writer_visible_write_commit",
-        "harness-default-dispatch:attempt-authority_tooling_policy_gate",
-        "harness-default-dispatch:attempt-authority_tooling_tool_router",
-        "harness-default-dispatch:attempt-authority_tooling_dry_run_simulator",
-        "harness-default-dispatch:attempt-authority_tooling_destructive_denial",
-        "harness-default-dispatch:attempt-authority_tooling_approval_gate",
-        "harness-default-dispatch:attempt-authority_tooling_mcp_provider_read_only",
-        "harness-default-dispatch:attempt-authority_tooling_mcp_tool_call_read_only",
-        "harness-default-dispatch:attempt-authority_tooling_tool_call_read_only",
-        "harness-default-dispatch:attempt-authority_tooling_connector_call_read_only",
-        "harness-default-dispatch:attempt-authority_tooling_wallet_capability_read_only",
-      ],
+    dispatchNodeAttemptIds: options.dispatchNodeAttemptIds ?? [
+      ...acceptedClusterIds.map(
+        (clusterId) => `harness-default-dispatch:attempt-${clusterId}`,
+      ),
+      "harness-default-dispatch:attempt-planner_envelope",
+      "harness-default-dispatch:attempt-prompt_assembler_envelope",
+      "harness-default-dispatch:attempt-task_state_envelope",
+      ...cognitionExecutionGateAttemptIds,
+      "harness-default-dispatch:attempt-model_router_envelope",
+      "harness-default-dispatch:attempt-model_call_envelope",
+      ...routingModelAttemptIds,
+      ...verificationOutputAttemptIds,
+      ...authorityToolingAttemptIds,
+      "harness-default-dispatch:attempt-model_provider_call_canary",
+      "harness-default-dispatch:attempt-model_provider_gated_visible_output",
+      "harness-default-dispatch:attempt-model_provider_gated_visible_output_rollback_drill",
+      "harness-default-dispatch:attempt-read_only_source_router",
+      "harness-default-dispatch:attempt-read_only_capability_sequencer",
+      "harness-default-dispatch:attempt-read_only_tool_router",
+      "harness-default-dispatch:attempt-read_only_no_mutation_drill",
+      "harness-default-dispatch:attempt-output_writer_handoff",
+      "harness-default-dispatch:attempt-output_writer_materialization_canary",
+      "harness-default-dispatch:attempt-output_writer_staged_write_canary",
+      "harness-default-dispatch:attempt-output_writer_visible_write_commit",
+      "harness-default-dispatch:attempt-authority_tooling_policy_gate",
+      "harness-default-dispatch:attempt-authority_tooling_tool_router",
+      "harness-default-dispatch:attempt-authority_tooling_dry_run_simulator",
+      "harness-default-dispatch:attempt-authority_tooling_destructive_denial",
+      "harness-default-dispatch:attempt-authority_tooling_approval_gate",
+      "harness-default-dispatch:attempt-authority_tooling_mcp_provider_read_only",
+      "harness-default-dispatch:attempt-authority_tooling_mcp_tool_call_read_only",
+      "harness-default-dispatch:attempt-authority_tooling_tool_call_read_only",
+      "harness-default-dispatch:attempt-authority_tooling_connector_call_read_only",
+      "harness-default-dispatch:attempt-authority_tooling_wallet_capability_read_only",
+    ],
     cognitionExecutionAttemptIds: [
       "harness-default-dispatch:attempt-planner_envelope",
       "harness-default-dispatch:attempt-prompt_assembler_envelope",
@@ -3307,10 +3535,9 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
       "harness-default-dispatch:fixture-read_only_tool_router",
       "harness-default-dispatch:fixture-read_only_no_mutation_drill",
     ],
-    outputWriterHandoffAttemptIds:
-      options.outputWriterHandoffAttemptIds ?? [
-        "harness-default-dispatch:attempt-output_writer_handoff",
-      ],
+    outputWriterHandoffAttemptIds: options.outputWriterHandoffAttemptIds ?? [
+      "harness-default-dispatch:attempt-output_writer_handoff",
+    ],
     outputWriterMaterializationCanaryAttemptIds: [
       "harness-default-dispatch:attempt-output_writer_materialization_canary",
     ],
@@ -3458,7 +3685,8 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     activationIdGateClickProofBlockers: activationIdGateProofBlockers,
     defaultDispatchActivationBlockers: activationBlockers,
     activationIdGate: {
-      schemaVersion: "workflow.harness.default-runtime-dispatch.activation-id-gate.v1",
+      schemaVersion:
+        "workflow.harness.default-runtime-dispatch.activation-id-gate.v1",
       gateId: "activation-id",
       proofPresent: activationIdGateClickProofPresent,
       proofPassed: activationIdGateClickProofPassed,
@@ -3532,7 +3760,8 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     modelProviderCanaryTranscriptMatches: true,
     modelProviderCanaryFallbackRetained: true,
     modelProviderCanaryRollbackAvailable: true,
-    modelProviderGatedVisibleOutputMode: "workflow_provider_gated_visible_output",
+    modelProviderGatedVisibleOutputMode:
+      "workflow_provider_gated_visible_output",
     modelProviderGatedVisibleOutputEnabled: true,
     modelProviderGatedVisibleOutputReady: true,
     modelProviderGatedVisibleOutputSelected: true,
@@ -3622,7 +3851,8 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
       replayFixtureRefs: [
         "harness-default-dispatch:fixture-model_provider_call_canary",
       ],
-      policyDecision: "accept_workflow_model_provider_call_canary_with_legacy_rollback",
+      policyDecision:
+        "accept_workflow_model_provider_call_canary_with_legacy_rollback",
     },
     modelProviderGatedVisibleOutputProof: {
       schemaVersion: "workflow.harness.model-provider-gated-visible-output.v1",
@@ -3787,7 +4017,8 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
       mutationExecuted: false,
       authorityTransferred: false,
       readOnlyCatalogReady: true,
-      mutationDeferredComponentKinds: authorityToolingMutationDeferredComponentKinds,
+      mutationDeferredComponentKinds:
+        authorityToolingMutationDeferredComponentKinds,
       rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
       ready: true,
       policyDecision: "accept_workflow_authority_tooling_adapter_envelope",
@@ -3913,7 +4144,8 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     authorityToolingConnectorCatalogLiveReady: true,
     authorityToolingConnectorCatalogLiveComponentKind: "connector_call",
     authorityToolingWalletCapabilityLiveDryRunReady: true,
-    authorityToolingWalletCapabilityLiveDryRunComponentKind: "wallet_capability",
+    authorityToolingWalletCapabilityLiveDryRunComponentKind:
+      "wallet_capability",
     authorityToolingReadOnlyRouteAccepted: true,
     authorityToolingDestructiveRouteDenied: true,
     authorityToolingMutatingToolCallsBlocked: true,
@@ -4058,8 +4290,10 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
       denialReceiptIds: [
         "harness-default-dispatch:receipt-authority_tooling_destructive_denial",
       ],
-      deferredMutationComponentKinds: authorityToolingMutationDeferredComponentKinds,
-      mutationDeferredComponentKinds: authorityToolingMutationDeferredComponentKinds,
+      deferredMutationComponentKinds:
+        authorityToolingMutationDeferredComponentKinds,
+      mutationDeferredComponentKinds:
+        authorityToolingMutationDeferredComponentKinds,
       policyDecision:
         "allow_read_only_route_and_deny_destructive_tooling_without_side_effect",
     },
@@ -4147,24 +4381,25 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
     rollbackAvailable: true,
     activationBlockers,
-    policyDecision:
-      dispatchAccepted
-        ? "accept_read_only_workflow_default_dispatch_with_authority_dry_run_and_visible_write"
-        : "retain_legacy_runtime_default",
+    policyDecision: dispatchAccepted
+      ? "accept_read_only_workflow_default_dispatch_with_authority_dry_run_and_visible_write"
+      : "retain_legacy_runtime_default",
     evidenceRefs: options.evidenceRefs ?? [],
   };
 }
 
-export function makeHarnessCanaryExecutionBoundary(options: {
-  boundaryId?: string;
-  clusterId?: WorkflowHarnessPromotionClusterId;
-  selectorDecisionId?: string;
-  status?: WorkflowHarnessCanaryExecutionBoundary["status"];
-  executionMode?: WorkflowHarnessExecutionMode;
-  runtimeAuthority?: WorkflowHarnessCanaryExecutionBoundary["runtimeAuthority"];
-  activationBlockers?: string[];
-  rollbackDrillStatus?: WorkflowHarnessCanaryExecutionBoundary["rollbackDrill"]["drillStatus"];
-} = {}): WorkflowHarnessCanaryExecutionBoundary {
+export function makeHarnessCanaryExecutionBoundary(
+  options: {
+    boundaryId?: string;
+    clusterId?: WorkflowHarnessPromotionClusterId;
+    selectorDecisionId?: string;
+    status?: WorkflowHarnessCanaryExecutionBoundary["status"];
+    executionMode?: WorkflowHarnessExecutionMode;
+    runtimeAuthority?: WorkflowHarnessCanaryExecutionBoundary["runtimeAuthority"];
+    activationBlockers?: string[];
+    rollbackDrillStatus?: WorkflowHarnessCanaryExecutionBoundary["rollbackDrill"]["drillStatus"];
+  } = {},
+): WorkflowHarnessCanaryExecutionBoundary {
   const clusterId = options.clusterId ?? "verification_output";
   const componentKinds: WorkflowHarnessCanaryExecutionBoundary["componentKinds"] =
     HARNESS_PROMOTION_CLUSTER_COMPONENTS[clusterId];
@@ -4176,16 +4411,21 @@ export function makeHarnessCanaryExecutionBoundary(options: {
         : clusterId === "authority_tooling"
           ? "policy_gate"
           : "verifier";
-  const passed = options.status !== "blocked" && options.status !== "rolled_back";
+  const passed =
+    options.status !== "blocked" && options.status !== "rolled_back";
   return {
     schemaVersion: "workflow.harness.canary-execution-boundary.v1",
     boundaryId:
-      options.boundaryId ?? `harness-canary-boundary:default-agent-harness:${clusterId}`,
+      options.boundaryId ??
+      `harness-canary-boundary:default-agent-harness:${clusterId}`,
     clusterId,
     clusterLabel: HARNESS_PROMOTION_CLUSTER_LABELS[clusterId],
     selectorDecisionId:
-      options.selectorDecisionId ?? "harness-selector:default-agent-harness:canary",
-    selectedSelector: passed ? "blessed_workflow_live_canary" : "legacy_runtime",
+      options.selectorDecisionId ??
+      "harness-selector:default-agent-harness:canary",
+    selectedSelector: passed
+      ? "blessed_workflow_live_canary"
+      : "legacy_runtime",
     productionDefaultSelector: "legacy_runtime",
     workflowId: DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
     activationId: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
@@ -4193,7 +4433,9 @@ export function makeHarnessCanaryExecutionBoundary(options: {
     executionMode: options.executionMode ?? (passed ? "live" : "gated"),
     runtimeAuthority:
       options.runtimeAuthority ??
-      (passed ? "blessed_workflow_activation_canary" : "existing_runtime_service"),
+      (passed
+        ? "blessed_workflow_activation_canary"
+        : "existing_runtime_service"),
     executorKind: "workflow_node_executor",
     executorRef: "crate::project::execute_workflow_harness_canary_node",
     synchronous: true,
@@ -4204,10 +4446,15 @@ export function makeHarnessCanaryExecutionBoundary(options: {
     executedComponentKinds: passed ? componentKinds : [],
     workflowNodeIds: componentKinds.map((kind) => `harness.${kind}`),
     nodeAttemptIds: componentKinds.map(
-      (kind, index) => `harness-canary:default:turn-1:${kind}:attempt-${index + 1}`,
+      (kind, index) =>
+        `harness-canary:default:turn-1:${kind}:attempt-${index + 1}`,
     ),
-    receiptIds: componentKinds.map((kind) => `default:harness.${kind}:workflow-node-execution`),
-    replayFixtureRefs: componentKinds.map((kind) => `runtime-evidence:default:canary-fixture:${kind}`),
+    receiptIds: componentKinds.map(
+      (kind) => `default:harness.${kind}:workflow-node-execution`,
+    ),
+    replayFixtureRefs: componentKinds.map(
+      (kind) => `runtime-evidence:default:canary-fixture:${kind}`,
+    ),
     activationBlockers: options.activationBlockers ?? [],
     rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
     rollbackAvailable: true,
@@ -4215,7 +4462,8 @@ export function makeHarnessCanaryExecutionBoundary(options: {
       schemaVersion: "workflow.harness.canary-rollback-drill.v1",
       drillId: "harness-canary-rollback-drill:default",
       selectorDecisionId:
-        options.selectorDecisionId ?? "harness-selector:default-agent-harness:canary",
+        options.selectorDecisionId ??
+        "harness-selector:default-agent-harness:canary",
       failureInjected: passed,
       failedNodeId: `harness.${failedNodeKind}.rollback_drill`,
       clusterId,
@@ -4226,7 +4474,8 @@ export function makeHarnessCanaryExecutionBoundary(options: {
       fallbackAuthority: "existing_runtime_service",
       rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
       rollbackAvailable: true,
-      drillStatus: options.rollbackDrillStatus ?? (passed ? "passed" : "not_run"),
+      drillStatus:
+        options.rollbackDrillStatus ?? (passed ? "passed" : "not_run"),
       policyDecision: passed
         ? "rollback_to_legacy_runtime_on_workflow_executor_failure"
         : "retain_legacy_runtime_default",
@@ -4248,8 +4497,10 @@ export function makeHarnessCanaryExecutionBoundaries(): WorkflowHarnessCanaryExe
   ];
 }
 
-const DEFAULT_HARNESS_EXECUTION_MODE: WorkflowHarnessExecutionMode = "projection";
-const DEFAULT_HARNESS_COMPONENT_READINESS: WorkflowHarnessComponentReadiness = "projection_only";
+const DEFAULT_HARNESS_EXECUTION_MODE: WorkflowHarnessExecutionMode =
+  "projection";
+const DEFAULT_HARNESS_COMPONENT_READINESS: WorkflowHarnessComponentReadiness =
+  "projection_only";
 const LIVE_READY_HARNESS_COMPONENTS = new Set<WorkflowHarnessComponentKind>([
   "planner",
   "prompt_assembler",
@@ -4305,7 +4556,10 @@ const HARNESS_PROMOTION_CLUSTER_COMPONENTS: Record<
   ],
 };
 
-const HARNESS_PROMOTION_CLUSTER_LABELS: Record<WorkflowHarnessPromotionClusterId, string> = {
+const HARNESS_PROMOTION_CLUSTER_LABELS: Record<
+  WorkflowHarnessPromotionClusterId,
+  string
+> = {
   cognition: "Cognition",
   routing_model: "Routing and model",
   verification_output: "Verification and output",
@@ -4333,7 +4587,9 @@ function componentId(kind: WorkflowHarnessComponentKind): string {
   return `ioi.agent-harness.${kind}.v1`;
 }
 
-function defaultReadinessForKind(kind: WorkflowHarnessComponentKind): WorkflowHarnessComponentReadiness {
+function defaultReadinessForKind(
+  kind: WorkflowHarnessComponentKind,
+): WorkflowHarnessComponentReadiness {
   if (LIVE_READY_HARNESS_COMPONENTS.has(kind)) {
     return "live_ready";
   }
@@ -4382,393 +4638,461 @@ function makeComponent(seed: ComponentSeed): WorkflowHarnessComponentSpec {
   };
 }
 
-export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] = [
-  makeComponent({
-    kind: "planner",
-    label: "Planner",
-    description: "Produces the next plan step from session state, user input, and available capabilities.",
-    kernelRef: "crates/services/src/agentic/runtime/service/planning/planner",
-    capabilityScope: ["reasoning.read", "session.state.read"],
-    eventKinds: ["PlanReceipt", "KernelEvent::PlanReceipt"],
-    evidence: ["plan_id", "planner_policy_hash", "chosen_step_reason"],
-    group: "Planning",
-    icon: "list-checks",
-  }),
-  makeComponent({
-    kind: "prompt_assembler",
-    label: "Prompt assembler",
-    description: "Builds the runtime prompt envelope from session state, policy, tools, evidence, and truncation diagnostics.",
-    kernelRef: "crates/types/src/app/runtime_contracts.rs::PromptAssemblyContract",
-    capabilityScope: ["prompt.assemble", "session.state.read", "evidence.read"],
-    eventKinds: ["PromptAssemblyContract", "AgentRuntimeEvent"],
-    evidence: ["sections", "final_prompt_hash", "conflict_resolutions", "truncation_diagnostics"],
-    group: "Planning",
-    icon: "panel-top",
-  }),
-  makeComponent({
-    kind: "task_state",
-    label: "Task state",
-    description: "Projects the current objective, known facts, uncertainty, blockers, stale facts, and evidence references.",
-    kernelRef: "crates/services/src/agentic/runtime/substrate.rs",
-    capabilityScope: ["session.state.read", "evidence.read"],
-    eventKinds: ["AgentRuntimeEvent", "TaskStateModel"],
-    evidence: ["task_state_id", "evidence_refs", "stale_fact_refs"],
-    group: "Cognition",
-    icon: "map",
-  }),
-  makeComponent({
-    kind: "uncertainty_gate",
-    label: "Uncertainty gate",
-    description: "Chooses whether to ask, retrieve, probe, dry-run, execute, verify, escalate, or stop.",
-    kernelRef: "crates/services/src/agentic/runtime/substrate.rs",
-    capabilityScope: ["reasoning.route", "session.state.read"],
-    eventKinds: ["UncertaintyAssessment", "RuntimeStrategyDecision"],
-    evidence: ["ambiguity_level", "value_of_information", "selected_action"],
-    group: "Cognition",
-    icon: "circle-help",
-  }),
-  makeComponent({
-    kind: "probe_runner",
-    label: "Probe runner",
-    description: "Runs the cheapest bounded validation action for a stated hypothesis.",
-    kernelRef: "crates/services/src/agentic/runtime/service/tool_execution/probe.rs",
-    capabilityScope: ["probe.run", "verification.read"],
-    eventKinds: ["ProbeStarted", "ProbeCompleted"],
-    evidence: ["hypothesis", "expected_observation", "probe_result"],
-    group: "Cognition",
-    icon: "radar",
-    maxAttempts: 2,
-  }),
-  makeComponent({
-    kind: "budget_gate",
-    label: "Cognitive budget",
-    description: "Bounds reasoning tokens, tool calls, retries, verification spend, and wall time.",
-    kernelRef: "crates/services/src/agentic/runtime/substrate.rs",
-    capabilityScope: ["budget.evaluate", "session.state.read"],
-    eventKinds: ["CognitiveBudget", "RuntimeStrategyDecision"],
-    evidence: ["remaining_tokens", "remaining_tool_calls", "stop_threshold"],
-    group: "Cognition",
-    icon: "gauge",
-  }),
-  makeComponent({
-    kind: "capability_sequencer",
-    label: "Capability sequencer",
-    description: "Separates capability discovery, selection, sequencing, and retirement decisions.",
-    kernelRef: "crates/services/src/agentic/runtime/substrate.rs",
-    capabilityScope: ["capability.read", "tool.route"],
-    eventKinds: ["CapabilitySequence", "RoutingReceipt"],
-    evidence: ["discovered_capabilities", "selected_sequence", "retired_capabilities"],
-    group: "Routing",
-    icon: "waypoints",
-  }),
-  makeComponent({
-    kind: "model_router",
-    label: "Model router",
-    description: "Selects a model binding under workflow-level model policy.",
-    kernelRef: "crates/services/src/agentic/runtime/service/handler/model_router",
-    capabilityScope: ["model.route"],
-    eventKinds: ["RoutingReceipt", "KernelEvent::RoutingReceipt"],
-    evidence: ["model_policy_slot", "candidate_models", "routing_reason"],
-    group: "Routing",
-    icon: "brain",
-  }),
-  makeComponent({
-    kind: "model_call",
-    label: "Model call",
-    description: "Invokes the selected model with deterministic request and response capture.",
-    kernelRef: "crates/services/src/agentic/runtime/service/handler/model_call",
-    capabilityScope: ["model.invoke"],
-    eventKinds: ["ModelInvocationStarted", "ModelInvocationCompleted"],
-    evidence: ["request_hash", "response_hash", "model_binding"],
-    group: "Execution",
-    icon: "message-square",
-    timeoutMs: 120000,
-    maxAttempts: 2,
-  }),
-  makeComponent({
-    kind: "tool_router",
-    label: "Tool router",
-    description: "Chooses native, workflow, MCP, or connector tools under grant policy.",
-    kernelRef: "crates/services/src/agentic/runtime/service/handler/execution/action_execution.rs",
-    capabilityScope: ["tool.route", "capability.read"],
-    eventKinds: ["RoutingReceipt", "ActionDispatchPrepared"],
-    evidence: ["tool_grant_slot", "candidate_tools", "routing_reason"],
-    group: "Routing",
-    icon: "route",
-  }),
-  makeComponent({
-    kind: "tool_call",
-    label: "Tool call",
-    description: "Executes a native or workflow tool through the action execution envelope.",
-    kernelRef: "crates/services/src/agentic/runtime/service/handler/execution",
-    capabilityScope: ["tool.invoke"],
-    approvalRequired: true,
-    eventKinds: ["AgentActionResult", "WorkloadReceipt"],
-    evidence: ["action_request_id", "tool_ref", "result_hash"],
-    group: "Execution",
-    icon: "wrench",
-    timeoutMs: 60000,
-    maxAttempts: 2,
-  }),
-  makeComponent({
-    kind: "dry_run_simulator",
-    label: "Dry-run simulator",
-    description: "Previews side effects and policy outcomes before file, shell, connector, or commerce actions execute.",
-    kernelRef: "crates/services/src/agentic/runtime/substrate.rs",
-    capabilityScope: ["dry_run.preview", "policy.evaluate"],
-    eventKinds: ["DryRunPreview", "PolicyPreview"],
-    evidence: ["side_effect_preview", "policy_preview", "preview_artifact"],
-    group: "Governance",
-    icon: "scan-search",
-    maxAttempts: 2,
-  }),
-  makeComponent({
-    kind: "mcp_provider",
-    label: "MCP provider",
-    description: "Represents an MCP server as a capability provider with reviewed grants.",
-    kernelRef: "crates/services/src/mcp",
-    capabilityScope: ["mcp.provider.read", "mcp.catalog.read"],
-    eventKinds: ["McpServerCatalogued", "CapabilityLease"],
-    evidence: ["server_id", "catalog_hash", "grant_scope"],
-    group: "MCP",
-    icon: "server",
-  }),
-  makeComponent({
-    kind: "mcp_tool_call",
-    label: "MCP tool invocation",
-    description: "Invokes an MCP tool as a componentized callable unit with receipts.",
-    kernelRef: "crates/services/src/agentic/runtime/service/handler/execution/dynamic_native_tool.rs",
-    capabilityScope: ["mcp.tool.invoke"],
-    approvalRequired: true,
-    eventKinds: ["AgentActionResult", "ExecutionContractReceipt"],
-    evidence: ["server_id", "tool_name", "argument_hash", "result_hash"],
-    group: "MCP",
-    icon: "plug",
-    timeoutMs: 60000,
-    maxAttempts: 2,
-  }),
-  makeComponent({
-    kind: "connector_call",
-    label: "Connector call",
-    description: "Calls a connector operation through policy and capability grants.",
-    kernelRef: "crates/services/src/connectors",
-    capabilityScope: ["connector.invoke"],
-    approvalRequired: true,
-    eventKinds: ["ConnectorInvocation", "WorkloadReceipt"],
-    evidence: ["connector_id", "operation", "request_hash", "result_hash"],
-    group: "Connectors",
-    icon: "cable",
-    timeoutMs: 60000,
-    maxAttempts: 2,
-  }),
-  makeComponent({
-    kind: "policy_gate",
-    label: "Policy and firewall gate",
-    description: "Evaluates firewall policy, deterministic commitments, and capability leases.",
-    kernelRef: "crates/services/src/agentic/runtime/service/handler/execution/execution/firewall_policy.rs",
-    capabilityScope: ["policy.evaluate", "capability.lease"],
-    eventKinds: ["FirewallDecisionReceipt", "DeterminismCommit"],
-    evidence: ["policy_hash", "decision", "lease_id", "determinism_commit"],
-    group: "Governance",
-    icon: "shield",
-  }),
-  makeComponent({
-    kind: "approval_gate",
-    label: "Approval gate",
-    description: "Pauses privileged actions until approval semantics are satisfied.",
-    kernelRef: "crates/services/src/agentic/runtime/service/tool_execution/approval",
-    capabilityScope: ["approval.request"],
-    approvalRequired: true,
-    approvalMode: "human_gate",
-    eventKinds: ["ApprovalRequested", "ApprovalSatisfied"],
-    evidence: ["approval_id", "approval_scope", "approver"],
-    group: "Governance",
-    icon: "badge-check",
-  }),
-  makeComponent({
-    kind: "wallet_capability",
-    label: "Wallet capability request",
-    description: "Requests runtime capability scope before spend, connector write, or external effect.",
-    kernelRef: "crates/services/src/capabilities/wallet",
-    capabilityScope: ["wallet.request", "capability.grant"],
-    approvalRequired: true,
-    approvalMode: "wallet_capability",
-    eventKinds: ["CapabilityLease", "WalletRequestReceipt"],
-    evidence: ["capability_scope", "lease_id", "budget"],
-    group: "Governance",
-    icon: "wallet",
-  }),
-  makeComponent({
-    kind: "memory_read",
-    label: "Memory read",
-    description: "Reads session or worker memory through scoped state access.",
-    kernelRef: "crates/services/src/agentic/runtime/service/handler/execution/memory",
-    capabilityScope: ["memory.read"],
-    eventKinds: ["MemoryRead"],
-    evidence: ["memory_key", "state_hash"],
-    group: "State",
-    icon: "database",
-  }),
-  makeComponent({
-    kind: "memory_write",
-    label: "Memory write",
-    description: "Writes memory through state reducers and receipt-backed updates.",
-    kernelRef: "crates/services/src/agentic/runtime/service/handler/execution/memory",
-    capabilityScope: ["memory.write"],
-    approvalRequired: true,
-    eventKinds: ["MemoryWrite", "StateUpdate"],
-    evidence: ["memory_key", "previous_hash", "next_hash"],
-    group: "State",
-    icon: "database",
-  }),
-  makeComponent({
-    kind: "verifier",
-    label: "Verifier",
-    description: "Checks component outputs, schemas, contract receipts, and completion claims.",
-    kernelRef: "crates/services/src/agentic/runtime/service/verifier",
-    capabilityScope: ["verification.run"],
-    eventKinds: ["ExecutionContractReceipt", "VerificationReceipt"],
-    evidence: ["schema_hash", "contract_key", "verification_result"],
-    group: "Verification",
-    icon: "check-circle",
-  }),
-  makeComponent({
-    kind: "semantic_impact_analyzer",
-    label: "Semantic impact",
-    description: "Classifies changed symbols, APIs, schemas, policies, call sites, tests, docs, and migration implications.",
-    kernelRef: "crates/services/src/agentic/runtime/substrate.rs",
-    capabilityScope: ["impact.analyze", "evidence.read"],
-    eventKinds: ["SemanticImpactAnalysis"],
-    evidence: ["changed_symbols", "affected_tests", "risk_class"],
-    group: "Verification",
-    icon: "git-branch-plus",
-  }),
-  makeComponent({
-    kind: "postcondition_synthesizer",
-    label: "Postcondition synthesizer",
-    description: "Derives success criteria, required receipts, and minimum verification evidence from the objective.",
-    kernelRef: "crates/services/src/agentic/runtime/substrate.rs",
-    capabilityScope: ["verification.plan", "evidence.read"],
-    eventKinds: ["PostconditionSynthesis"],
-    evidence: ["postcondition_checks", "minimum_evidence", "unknowns"],
-    group: "Verification",
-    icon: "list-checks",
-  }),
-  makeComponent({
-    kind: "drift_detector",
-    label: "Drift detector",
-    description: "Detects plan, file, branch, connector, requirement, policy, model, and projection drift.",
-    kernelRef: "crates/services/src/agentic/runtime/substrate.rs",
-    capabilityScope: ["drift.detect", "session.state.read"],
-    eventKinds: ["DriftSignal"],
-    evidence: ["drift_flags", "drift_evidence_refs"],
-    group: "Verification",
-    icon: "activity",
-  }),
-  makeComponent({
-    kind: "quality_ledger",
-    label: "Quality ledger",
-    description: "Records strategy, tool sequence, costs, failures, stop reason, scorecards, and promotion decisions.",
-    kernelRef: "crates/services/src/agentic/runtime/substrate.rs",
-    capabilityScope: ["quality.write", "scorecard.read"],
-    eventKinds: ["AgentQualityLedger", "BenchmarkScorecard"],
-    evidence: ["quality_ledger_id", "scorecard_metrics", "stop_condition"],
-    group: "Verification",
-    icon: "badge-check",
-  }),
-  makeComponent({
-    kind: "handoff_bridge",
-    label: "Handoff bridge",
-    description: "Preserves objective, current state, blockers, evidence refs, and receiving-agent outcome across delegation.",
-    kernelRef: "crates/services/src/agentic/runtime/service/lifecycle/worker_results",
-    capabilityScope: ["handoff.write", "delegation.merge"],
-    eventKinds: ["HandoffQuality", "WorkerResultMerged"],
-    evidence: ["objective_preserved", "blockers_included", "receiver_succeeded"],
-    group: "Delegation",
-    icon: "split",
-  }),
-  makeComponent({
-    kind: "gui_harness_validator",
-    label: "GUI harness validator",
-    description: "Validates retained Autopilot chat queries, screenshots, transcripts, traces, receipts, source chips, scorecards, and clean chat UX.",
-    kernelRef: "scripts/run-autopilot-gui-harness-validation.mjs",
-    capabilityScope: ["gui.validate", "harness.validate"],
-    eventKinds: ["AutopilotGuiHarnessValidation", "CleanChatUxValidation"],
-    evidence: ["screenshots", "transcripts", "trace_refs", "quality_ledger"],
-    group: "Validation",
-    icon: "monitor-check",
-    timeoutMs: 600000,
-  }),
-  makeComponent({
-    kind: "output_writer",
-    label: "Output writer",
-    description: "Materializes final user-visible output under output policy.",
-    kernelRef: "crates/services/src/agentic/runtime/service/output",
-    capabilityScope: ["output.write"],
-    approvalRequired: true,
-    eventKinds: ["OutputWritten", "AgentActionResult"],
-    evidence: ["output_hash", "delivery_target", "output_policy_slot"],
-    group: "Output",
-    icon: "file-output",
-  }),
-  makeComponent({
-    kind: "receipt_writer",
-    label: "Receipt writer",
-    description: "Emits durable receipts that link runtime events to workflow node ids.",
-    kernelRef: "crates/services/src/agentic/runtime/service/receipts",
-    capabilityScope: ["receipt.write"],
-    eventKinds: ["ExecutionContractReceipt", "PlanReceipt", "WorkloadReceipt"],
-    evidence: ["receipt_id", "node_id", "evidence_commit_hash"],
-    group: "Receipts",
-    icon: "receipt",
-  }),
-  makeComponent({
-    kind: "retry_policy",
-    label: "Retry policy",
-    description: "Classifies retryable failures and chooses bounded retry behavior.",
-    kernelRef: "crates/services/src/agentic/runtime/service/tool_execution/processing/retry",
-    capabilityScope: ["retry.evaluate"],
-    eventKinds: ["RetryScheduled", "RetryExhausted"],
-    evidence: ["attempt", "max_attempts", "retry_reason"],
-    group: "Recovery",
-    icon: "rotate-ccw",
-    maxAttempts: 3,
-  }),
-  makeComponent({
-    kind: "repair_loop",
-    label: "Repair loop",
-    description: "Creates bounded repair attempts after verifier or tool failures.",
-    kernelRef: "crates/services/src/agentic/runtime/service/repair",
-    capabilityScope: ["repair.propose"],
-    eventKinds: ["RepairAttemptStarted", "RepairAttemptCompleted"],
-    evidence: ["failure_ref", "repair_strategy", "bounded_targets"],
-    group: "Recovery",
-    icon: "git-pull-request",
-    maxAttempts: 2,
-  }),
-  makeComponent({
-    kind: "merge_judge",
-    label: "Merge and judge",
-    description: "Merges branch outputs and judges competing repair or tool results.",
-    kernelRef: "crates/services/src/agentic/runtime/service/judge",
-    capabilityScope: ["judgement.run"],
-    eventKinds: ["MergeReceipt", "JudgementReceipt"],
-    evidence: ["candidate_hashes", "winner_reason", "judge_policy_hash"],
-    group: "Verification",
-    icon: "git-compare",
-  }),
-  makeComponent({
-    kind: "completion_gate",
-    label: "Completion gate",
-    description: "Determines whether the turn is complete and safe to finalize.",
-    kernelRef: "crates/services/src/agentic/runtime/service/decision_loop/completion",
-    capabilityScope: ["completion.evaluate"],
-    eventKinds: ["CompletionGateReceipt", "PlanReceipt"],
-    evidence: ["completion_contract", "pending_actions", "final_decision"],
-    group: "Completion",
-    icon: "flag",
-  }),
-];
+export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
+  [
+    makeComponent({
+      kind: "planner",
+      label: "Planner",
+      description:
+        "Produces the next plan step from session state, user input, and available capabilities.",
+      kernelRef: "crates/services/src/agentic/runtime/service/planning/planner",
+      capabilityScope: ["reasoning.read", "session.state.read"],
+      eventKinds: ["PlanReceipt", "KernelEvent::PlanReceipt"],
+      evidence: ["plan_id", "planner_policy_hash", "chosen_step_reason"],
+      group: "Planning",
+      icon: "list-checks",
+    }),
+    makeComponent({
+      kind: "prompt_assembler",
+      label: "Prompt assembler",
+      description:
+        "Builds the runtime prompt envelope from session state, policy, tools, evidence, and truncation diagnostics.",
+      kernelRef:
+        "crates/types/src/app/runtime_contracts.rs::PromptAssemblyContract",
+      capabilityScope: [
+        "prompt.assemble",
+        "session.state.read",
+        "evidence.read",
+      ],
+      eventKinds: ["PromptAssemblyContract", "AgentRuntimeEvent"],
+      evidence: [
+        "sections",
+        "final_prompt_hash",
+        "conflict_resolutions",
+        "truncation_diagnostics",
+      ],
+      group: "Planning",
+      icon: "panel-top",
+    }),
+    makeComponent({
+      kind: "task_state",
+      label: "Task state",
+      description:
+        "Projects the current objective, known facts, uncertainty, blockers, stale facts, and evidence references.",
+      kernelRef: "crates/services/src/agentic/runtime/substrate.rs",
+      capabilityScope: ["session.state.read", "evidence.read"],
+      eventKinds: ["AgentRuntimeEvent", "TaskStateModel"],
+      evidence: ["task_state_id", "evidence_refs", "stale_fact_refs"],
+      group: "Cognition",
+      icon: "map",
+    }),
+    makeComponent({
+      kind: "uncertainty_gate",
+      label: "Uncertainty gate",
+      description:
+        "Chooses whether to ask, retrieve, probe, dry-run, execute, verify, escalate, or stop.",
+      kernelRef: "crates/services/src/agentic/runtime/substrate.rs",
+      capabilityScope: ["reasoning.route", "session.state.read"],
+      eventKinds: ["UncertaintyAssessment", "RuntimeStrategyDecision"],
+      evidence: ["ambiguity_level", "value_of_information", "selected_action"],
+      group: "Cognition",
+      icon: "circle-help",
+    }),
+    makeComponent({
+      kind: "probe_runner",
+      label: "Probe runner",
+      description:
+        "Runs the cheapest bounded validation action for a stated hypothesis.",
+      kernelRef:
+        "crates/services/src/agentic/runtime/service/tool_execution/probe.rs",
+      capabilityScope: ["probe.run", "verification.read"],
+      eventKinds: ["ProbeStarted", "ProbeCompleted"],
+      evidence: ["hypothesis", "expected_observation", "probe_result"],
+      group: "Cognition",
+      icon: "radar",
+      maxAttempts: 2,
+    }),
+    makeComponent({
+      kind: "budget_gate",
+      label: "Cognitive budget",
+      description:
+        "Bounds reasoning tokens, tool calls, retries, verification spend, and wall time.",
+      kernelRef: "crates/services/src/agentic/runtime/substrate.rs",
+      capabilityScope: ["budget.evaluate", "session.state.read"],
+      eventKinds: ["CognitiveBudget", "RuntimeStrategyDecision"],
+      evidence: ["remaining_tokens", "remaining_tool_calls", "stop_threshold"],
+      group: "Cognition",
+      icon: "gauge",
+    }),
+    makeComponent({
+      kind: "capability_sequencer",
+      label: "Capability sequencer",
+      description:
+        "Separates capability discovery, selection, sequencing, and retirement decisions.",
+      kernelRef: "crates/services/src/agentic/runtime/substrate.rs",
+      capabilityScope: ["capability.read", "tool.route"],
+      eventKinds: ["CapabilitySequence", "RoutingReceipt"],
+      evidence: [
+        "discovered_capabilities",
+        "selected_sequence",
+        "retired_capabilities",
+      ],
+      group: "Routing",
+      icon: "waypoints",
+    }),
+    makeComponent({
+      kind: "model_router",
+      label: "Model router",
+      description: "Selects a model binding under workflow-level model policy.",
+      kernelRef:
+        "crates/services/src/agentic/runtime/service/handler/model_router",
+      capabilityScope: ["model.route"],
+      eventKinds: ["RoutingReceipt", "KernelEvent::RoutingReceipt"],
+      evidence: ["model_policy_slot", "candidate_models", "routing_reason"],
+      group: "Routing",
+      icon: "brain",
+    }),
+    makeComponent({
+      kind: "model_call",
+      label: "Model call",
+      description:
+        "Invokes the selected model with deterministic request and response capture.",
+      kernelRef:
+        "crates/services/src/agentic/runtime/service/handler/model_call",
+      capabilityScope: ["model.invoke"],
+      eventKinds: ["ModelInvocationStarted", "ModelInvocationCompleted"],
+      evidence: ["request_hash", "response_hash", "model_binding"],
+      group: "Execution",
+      icon: "message-square",
+      timeoutMs: 120000,
+      maxAttempts: 2,
+    }),
+    makeComponent({
+      kind: "tool_router",
+      label: "Tool router",
+      description:
+        "Chooses native, workflow, MCP, or connector tools under grant policy.",
+      kernelRef:
+        "crates/services/src/agentic/runtime/service/handler/execution/action_execution.rs",
+      capabilityScope: ["tool.route", "capability.read"],
+      eventKinds: ["RoutingReceipt", "ActionDispatchPrepared"],
+      evidence: ["tool_grant_slot", "candidate_tools", "routing_reason"],
+      group: "Routing",
+      icon: "route",
+    }),
+    makeComponent({
+      kind: "tool_call",
+      label: "Tool call",
+      description:
+        "Executes a native or workflow tool through the action execution envelope.",
+      kernelRef:
+        "crates/services/src/agentic/runtime/service/handler/execution",
+      capabilityScope: ["tool.invoke"],
+      approvalRequired: true,
+      eventKinds: ["AgentActionResult", "WorkloadReceipt"],
+      evidence: ["action_request_id", "tool_ref", "result_hash"],
+      group: "Execution",
+      icon: "wrench",
+      timeoutMs: 60000,
+      maxAttempts: 2,
+    }),
+    makeComponent({
+      kind: "dry_run_simulator",
+      label: "Dry-run simulator",
+      description:
+        "Previews side effects and policy outcomes before file, shell, connector, or commerce actions execute.",
+      kernelRef: "crates/services/src/agentic/runtime/substrate.rs",
+      capabilityScope: ["dry_run.preview", "policy.evaluate"],
+      eventKinds: ["DryRunPreview", "PolicyPreview"],
+      evidence: ["side_effect_preview", "policy_preview", "preview_artifact"],
+      group: "Governance",
+      icon: "scan-search",
+      maxAttempts: 2,
+    }),
+    makeComponent({
+      kind: "mcp_provider",
+      label: "MCP provider",
+      description:
+        "Represents an MCP server as a capability provider with reviewed grants.",
+      kernelRef: "crates/services/src/mcp",
+      capabilityScope: ["mcp.provider.read", "mcp.catalog.read"],
+      eventKinds: ["McpServerCatalogued", "CapabilityLease"],
+      evidence: ["server_id", "catalog_hash", "grant_scope"],
+      group: "MCP",
+      icon: "server",
+    }),
+    makeComponent({
+      kind: "mcp_tool_call",
+      label: "MCP tool invocation",
+      description:
+        "Invokes an MCP tool as a componentized callable unit with receipts.",
+      kernelRef:
+        "crates/services/src/agentic/runtime/service/handler/execution/dynamic_native_tool.rs",
+      capabilityScope: ["mcp.tool.invoke"],
+      approvalRequired: true,
+      eventKinds: ["AgentActionResult", "ExecutionContractReceipt"],
+      evidence: ["server_id", "tool_name", "argument_hash", "result_hash"],
+      group: "MCP",
+      icon: "plug",
+      timeoutMs: 60000,
+      maxAttempts: 2,
+    }),
+    makeComponent({
+      kind: "connector_call",
+      label: "Connector call",
+      description:
+        "Calls a connector operation through policy and capability grants.",
+      kernelRef: "crates/services/src/connectors",
+      capabilityScope: ["connector.invoke"],
+      approvalRequired: true,
+      eventKinds: ["ConnectorInvocation", "WorkloadReceipt"],
+      evidence: ["connector_id", "operation", "request_hash", "result_hash"],
+      group: "Connectors",
+      icon: "cable",
+      timeoutMs: 60000,
+      maxAttempts: 2,
+    }),
+    makeComponent({
+      kind: "policy_gate",
+      label: "Policy and firewall gate",
+      description:
+        "Evaluates firewall policy, deterministic commitments, and capability leases.",
+      kernelRef:
+        "crates/services/src/agentic/runtime/service/handler/execution/execution/firewall_policy.rs",
+      capabilityScope: ["policy.evaluate", "capability.lease"],
+      eventKinds: ["FirewallDecisionReceipt", "DeterminismCommit"],
+      evidence: ["policy_hash", "decision", "lease_id", "determinism_commit"],
+      group: "Governance",
+      icon: "shield",
+    }),
+    makeComponent({
+      kind: "approval_gate",
+      label: "Approval gate",
+      description:
+        "Pauses privileged actions until approval semantics are satisfied.",
+      kernelRef:
+        "crates/services/src/agentic/runtime/service/tool_execution/approval",
+      capabilityScope: ["approval.request"],
+      approvalRequired: true,
+      approvalMode: "human_gate",
+      eventKinds: ["ApprovalRequested", "ApprovalSatisfied"],
+      evidence: ["approval_id", "approval_scope", "approver"],
+      group: "Governance",
+      icon: "badge-check",
+    }),
+    makeComponent({
+      kind: "wallet_capability",
+      label: "Wallet capability request",
+      description:
+        "Requests runtime capability scope before spend, connector write, or external effect.",
+      kernelRef: "crates/services/src/capabilities/wallet",
+      capabilityScope: ["wallet.request", "capability.grant"],
+      approvalRequired: true,
+      approvalMode: "wallet_capability",
+      eventKinds: ["CapabilityLease", "WalletRequestReceipt"],
+      evidence: ["capability_scope", "lease_id", "budget"],
+      group: "Governance",
+      icon: "wallet",
+    }),
+    makeComponent({
+      kind: "memory_read",
+      label: "Memory read",
+      description:
+        "Reads session or worker memory through scoped state access.",
+      kernelRef:
+        "crates/services/src/agentic/runtime/service/handler/execution/memory",
+      capabilityScope: ["memory.read"],
+      eventKinds: ["MemoryRead"],
+      evidence: ["memory_key", "state_hash"],
+      group: "State",
+      icon: "database",
+    }),
+    makeComponent({
+      kind: "memory_write",
+      label: "Memory write",
+      description:
+        "Writes memory through state reducers and receipt-backed updates.",
+      kernelRef:
+        "crates/services/src/agentic/runtime/service/handler/execution/memory",
+      capabilityScope: ["memory.write"],
+      approvalRequired: true,
+      eventKinds: ["MemoryWrite", "StateUpdate"],
+      evidence: ["memory_key", "previous_hash", "next_hash"],
+      group: "State",
+      icon: "database",
+    }),
+    makeComponent({
+      kind: "verifier",
+      label: "Verifier",
+      description:
+        "Checks component outputs, schemas, contract receipts, and completion claims.",
+      kernelRef: "crates/services/src/agentic/runtime/service/verifier",
+      capabilityScope: ["verification.run"],
+      eventKinds: ["ExecutionContractReceipt", "VerificationReceipt"],
+      evidence: ["schema_hash", "contract_key", "verification_result"],
+      group: "Verification",
+      icon: "check-circle",
+    }),
+    makeComponent({
+      kind: "semantic_impact_analyzer",
+      label: "Semantic impact",
+      description:
+        "Classifies changed symbols, APIs, schemas, policies, call sites, tests, docs, and migration implications.",
+      kernelRef: "crates/services/src/agentic/runtime/substrate.rs",
+      capabilityScope: ["impact.analyze", "evidence.read"],
+      eventKinds: ["SemanticImpactAnalysis"],
+      evidence: ["changed_symbols", "affected_tests", "risk_class"],
+      group: "Verification",
+      icon: "git-branch-plus",
+    }),
+    makeComponent({
+      kind: "postcondition_synthesizer",
+      label: "Postcondition synthesizer",
+      description:
+        "Derives success criteria, required receipts, and minimum verification evidence from the objective.",
+      kernelRef: "crates/services/src/agentic/runtime/substrate.rs",
+      capabilityScope: ["verification.plan", "evidence.read"],
+      eventKinds: ["PostconditionSynthesis"],
+      evidence: ["postcondition_checks", "minimum_evidence", "unknowns"],
+      group: "Verification",
+      icon: "list-checks",
+    }),
+    makeComponent({
+      kind: "drift_detector",
+      label: "Drift detector",
+      description:
+        "Detects plan, file, branch, connector, requirement, policy, model, and projection drift.",
+      kernelRef: "crates/services/src/agentic/runtime/substrate.rs",
+      capabilityScope: ["drift.detect", "session.state.read"],
+      eventKinds: ["DriftSignal"],
+      evidence: ["drift_flags", "drift_evidence_refs"],
+      group: "Verification",
+      icon: "activity",
+    }),
+    makeComponent({
+      kind: "quality_ledger",
+      label: "Quality ledger",
+      description:
+        "Records strategy, tool sequence, costs, failures, stop reason, scorecards, and promotion decisions.",
+      kernelRef: "crates/services/src/agentic/runtime/substrate.rs",
+      capabilityScope: ["quality.write", "scorecard.read"],
+      eventKinds: ["AgentQualityLedger", "BenchmarkScorecard"],
+      evidence: ["quality_ledger_id", "scorecard_metrics", "stop_condition"],
+      group: "Verification",
+      icon: "badge-check",
+    }),
+    makeComponent({
+      kind: "handoff_bridge",
+      label: "Handoff bridge",
+      description:
+        "Preserves objective, current state, blockers, evidence refs, and receiving-agent outcome across delegation.",
+      kernelRef:
+        "crates/services/src/agentic/runtime/service/lifecycle/worker_results",
+      capabilityScope: ["handoff.write", "delegation.merge"],
+      eventKinds: ["HandoffQuality", "WorkerResultMerged"],
+      evidence: [
+        "objective_preserved",
+        "blockers_included",
+        "receiver_succeeded",
+      ],
+      group: "Delegation",
+      icon: "split",
+    }),
+    makeComponent({
+      kind: "gui_harness_validator",
+      label: "GUI harness validator",
+      description:
+        "Validates retained Autopilot chat queries, screenshots, transcripts, traces, receipts, source chips, scorecards, and clean chat UX.",
+      kernelRef: "scripts/run-autopilot-gui-harness-validation.mjs",
+      capabilityScope: ["gui.validate", "harness.validate"],
+      eventKinds: ["AutopilotGuiHarnessValidation", "CleanChatUxValidation"],
+      evidence: ["screenshots", "transcripts", "trace_refs", "quality_ledger"],
+      group: "Validation",
+      icon: "monitor-check",
+      timeoutMs: 600000,
+    }),
+    makeComponent({
+      kind: "output_writer",
+      label: "Output writer",
+      description:
+        "Materializes final user-visible output under output policy.",
+      kernelRef: "crates/services/src/agentic/runtime/service/output",
+      capabilityScope: ["output.write"],
+      approvalRequired: true,
+      eventKinds: ["OutputWritten", "AgentActionResult"],
+      evidence: ["output_hash", "delivery_target", "output_policy_slot"],
+      group: "Output",
+      icon: "file-output",
+    }),
+    makeComponent({
+      kind: "receipt_writer",
+      label: "Receipt writer",
+      description:
+        "Emits durable receipts that link runtime events to workflow node ids.",
+      kernelRef: "crates/services/src/agentic/runtime/service/receipts",
+      capabilityScope: ["receipt.write"],
+      eventKinds: [
+        "ExecutionContractReceipt",
+        "PlanReceipt",
+        "WorkloadReceipt",
+      ],
+      evidence: ["receipt_id", "node_id", "evidence_commit_hash"],
+      group: "Receipts",
+      icon: "receipt",
+    }),
+    makeComponent({
+      kind: "retry_policy",
+      label: "Retry policy",
+      description:
+        "Classifies retryable failures and chooses bounded retry behavior.",
+      kernelRef:
+        "crates/services/src/agentic/runtime/service/tool_execution/processing/retry",
+      capabilityScope: ["retry.evaluate"],
+      eventKinds: ["RetryScheduled", "RetryExhausted"],
+      evidence: ["attempt", "max_attempts", "retry_reason"],
+      group: "Recovery",
+      icon: "rotate-ccw",
+      maxAttempts: 3,
+    }),
+    makeComponent({
+      kind: "repair_loop",
+      label: "Repair loop",
+      description:
+        "Creates bounded repair attempts after verifier or tool failures.",
+      kernelRef: "crates/services/src/agentic/runtime/service/repair",
+      capabilityScope: ["repair.propose"],
+      eventKinds: ["RepairAttemptStarted", "RepairAttemptCompleted"],
+      evidence: ["failure_ref", "repair_strategy", "bounded_targets"],
+      group: "Recovery",
+      icon: "git-pull-request",
+      maxAttempts: 2,
+    }),
+    makeComponent({
+      kind: "merge_judge",
+      label: "Merge and judge",
+      description:
+        "Merges branch outputs and judges competing repair or tool results.",
+      kernelRef: "crates/services/src/agentic/runtime/service/judge",
+      capabilityScope: ["judgement.run"],
+      eventKinds: ["MergeReceipt", "JudgementReceipt"],
+      evidence: ["candidate_hashes", "winner_reason", "judge_policy_hash"],
+      group: "Verification",
+      icon: "git-compare",
+    }),
+    makeComponent({
+      kind: "completion_gate",
+      label: "Completion gate",
+      description:
+        "Determines whether the turn is complete and safe to finalize.",
+      kernelRef:
+        "crates/services/src/agentic/runtime/service/decision_loop/completion",
+      capabilityScope: ["completion.evaluate"],
+      eventKinds: ["CompletionGateReceipt", "PlanReceipt"],
+      evidence: ["completion_contract", "pending_actions", "final_decision"],
+      group: "Completion",
+      icon: "flag",
+    }),
+  ];
 
 const REQUIRED_HARNESS_SLOTS: WorkflowHarnessSlotSpec[] = [
   {
@@ -4781,16 +5105,24 @@ const REQUIRED_HARNESS_SLOTS: WorkflowHarnessSlotSpec[] = [
     defaultComponentId: componentId("model_router"),
     validation: {
       blocksActivation: true,
-      reason: "Activated harnesses must bind model routing to an explicit policy slot.",
+      reason:
+        "Activated harnesses must bind model routing to an explicit policy slot.",
     },
   },
   {
     slotId: "slot.tool-grants",
     kind: "tool_grant_policy",
     label: "Tool grant policy",
-    description: "Workflow-level grants for native, workflow, connector, and MCP tools.",
+    description:
+      "Workflow-level grants for native, workflow, connector, and MCP tools.",
     required: true,
-    allowedComponentKinds: ["tool_router", "tool_call", "mcp_provider", "mcp_tool_call", "connector_call"],
+    allowedComponentKinds: [
+      "tool_router",
+      "tool_call",
+      "mcp_provider",
+      "mcp_tool_call",
+      "connector_call",
+    ],
     defaultComponentId: componentId("tool_router"),
     validation: {
       blocksActivation: true,
@@ -4801,35 +5133,50 @@ const REQUIRED_HARNESS_SLOTS: WorkflowHarnessSlotSpec[] = [
     slotId: "slot.state-policy",
     kind: "state_policy",
     label: "State policy",
-    description: "Task state, drift, memory, and projection-state access rules.",
+    description:
+      "Task state, drift, memory, and projection-state access rules.",
     required: true,
-    allowedComponentKinds: ["task_state", "drift_detector", "memory_read", "memory_write"],
+    allowedComponentKinds: [
+      "task_state",
+      "drift_detector",
+      "memory_read",
+      "memory_write",
+    ],
     defaultComponentId: componentId("task_state"),
     validation: {
       blocksActivation: true,
-      reason: "Activated harnesses must project task/world state through the shared substrate.",
+      reason:
+        "Activated harnesses must project task/world state through the shared substrate.",
     },
   },
   {
     slotId: "slot.budget-policy",
     kind: "budget_policy",
     label: "Budget policy",
-    description: "Cognitive budget, escalation threshold, stop threshold, and retry bounds.",
+    description:
+      "Cognitive budget, escalation threshold, stop threshold, and retry bounds.",
     required: true,
     allowedComponentKinds: ["budget_gate", "model_router", "retry_policy"],
     defaultComponentId: componentId("budget_gate"),
     validation: {
       blocksActivation: true,
-      reason: "Autonomous harnesses must expose their cognitive budget before activation.",
+      reason:
+        "Autonomous harnesses must expose their cognitive budget before activation.",
     },
   },
   {
     slotId: "slot.dry-run-policy",
     kind: "dry_run_policy",
     label: "Dry-run policy",
-    description: "Preview rules for file, shell, connector, commerce, and policy side effects.",
+    description:
+      "Preview rules for file, shell, connector, commerce, and policy side effects.",
     required: true,
-    allowedComponentKinds: ["dry_run_simulator", "policy_gate", "tool_call", "connector_call"],
+    allowedComponentKinds: [
+      "dry_run_simulator",
+      "policy_gate",
+      "tool_call",
+      "connector_call",
+    ],
     defaultComponentId: componentId("dry_run_simulator"),
     validation: {
       blocksActivation: true,
@@ -4860,9 +5207,14 @@ const REQUIRED_HARNESS_SLOTS: WorkflowHarnessSlotSpec[] = [
     slotId: "slot.approval",
     kind: "approval_policy",
     label: "Approval policy",
-    description: "Approval gate and wallet capability semantics for privileged work.",
+    description:
+      "Approval gate and wallet capability semantics for privileged work.",
     required: true,
-    allowedComponentKinds: ["approval_gate", "policy_gate", "wallet_capability"],
+    allowedComponentKinds: [
+      "approval_gate",
+      "policy_gate",
+      "wallet_capability",
+    ],
     defaultComponentId: componentId("approval_gate"),
     validation: {
       blocksActivation: true,
@@ -4873,7 +5225,8 @@ const REQUIRED_HARNESS_SLOTS: WorkflowHarnessSlotSpec[] = [
     slotId: "slot.output-policy",
     kind: "output_policy",
     label: "Output policy",
-    description: "Rules for output writing, materialization, and receipt emission.",
+    description:
+      "Rules for output writing, materialization, and receipt emission.",
     required: true,
     allowedComponentKinds: ["output_writer", "receipt_writer"],
     defaultComponentId: componentId("output_writer"),
@@ -4899,26 +5252,30 @@ const REQUIRED_HARNESS_SLOTS: WorkflowHarnessSlotSpec[] = [
     slotId: "slot.quality-ledger",
     kind: "quality_ledger_policy",
     label: "Quality ledger policy",
-    description: "Scorecard, ledger writeback, stop reason, and bounded self-improvement evidence.",
+    description:
+      "Scorecard, ledger writeback, stop reason, and bounded self-improvement evidence.",
     required: true,
     allowedComponentKinds: ["quality_ledger", "verifier", "completion_gate"],
     defaultComponentId: componentId("quality_ledger"),
     validation: {
       blocksActivation: true,
-      reason: "Harness runs must emit quality ledger evidence before activation.",
+      reason:
+        "Harness runs must emit quality ledger evidence before activation.",
     },
   },
   {
     slotId: "slot.handoff-policy",
     kind: "handoff_policy",
     label: "Handoff policy",
-    description: "Delegation handoff, worker merge, blocker preservation, and receiver outcome quality.",
+    description:
+      "Delegation handoff, worker merge, blocker preservation, and receiver outcome quality.",
     required: true,
     allowedComponentKinds: ["handoff_bridge", "merge_judge", "receipt_writer"],
     defaultComponentId: componentId("handoff_bridge"),
     validation: {
       blocksActivation: true,
-      reason: "Delegation-capable harnesses must preserve handoff quality evidence.",
+      reason:
+        "Delegation-capable harnesses must preserve handoff quality evidence.",
     },
   },
   {
@@ -4974,7 +5331,9 @@ const HARNESS_FLOW: WorkflowHarnessComponentKind[] = [
   "output_writer",
 ];
 
-const SLOT_BY_KIND: Partial<Record<WorkflowHarnessComponentKind, WorkflowHarnessSlotKind[]>> = {
+const SLOT_BY_KIND: Partial<
+  Record<WorkflowHarnessComponentKind, WorkflowHarnessSlotKind[]>
+> = {
   planner: ["state_policy"],
   prompt_assembler: ["state_policy"],
   task_state: ["state_policy"],
@@ -5010,8 +5369,12 @@ const SLOT_BY_KIND: Partial<Record<WorkflowHarnessComponentKind, WorkflowHarness
   completion_gate: ["verifier_policy", "quality_ledger_policy"],
 };
 
-function componentFor(kind: WorkflowHarnessComponentKind): WorkflowHarnessComponentSpec {
-  const component = DEFAULT_AGENT_HARNESS_COMPONENTS.find((item) => item.kind === kind);
+function componentFor(
+  kind: WorkflowHarnessComponentKind,
+): WorkflowHarnessComponentSpec {
+  const component = DEFAULT_AGENT_HARNESS_COMPONENTS.find(
+    (item) => item.kind === kind,
+  );
   if (!component) {
     throw new Error(`Missing harness component spec for ${kind}`);
   }
@@ -5020,11 +5383,16 @@ function componentFor(kind: WorkflowHarnessComponentKind): WorkflowHarnessCompon
 
 function slotIdsFor(kind: WorkflowHarnessComponentKind): string[] {
   return (SLOT_BY_KIND[kind] ?? [])
-    .map((slotKind) => REQUIRED_HARNESS_SLOTS.find((slot) => slot.kind === slotKind)?.slotId)
+    .map(
+      (slotKind) =>
+        REQUIRED_HARNESS_SLOTS.find((slot) => slot.kind === slotKind)?.slotId,
+    )
     .filter((slotId): slotId is string => Boolean(slotId));
 }
 
-function componentCapturesPolicyDecision(kind: WorkflowHarnessComponentKind): boolean {
+function componentCapturesPolicyDecision(
+  kind: WorkflowHarnessComponentKind,
+): boolean {
   return [
     "uncertainty_gate",
     "budget_gate",
@@ -5037,7 +5405,9 @@ function componentCapturesPolicyDecision(kind: WorkflowHarnessComponentKind): bo
   ].includes(kind);
 }
 
-function componentIsNondeterministic(kind: WorkflowHarnessComponentKind): boolean {
+function componentIsNondeterministic(
+  kind: WorkflowHarnessComponentKind,
+): boolean {
   return [
     "model_call",
     "tool_call",
@@ -5047,7 +5417,9 @@ function componentIsNondeterministic(kind: WorkflowHarnessComponentKind): boolea
   ].includes(kind);
 }
 
-function replayEnvelopeFor(component: WorkflowHarnessComponentSpec): WorkflowHarnessReplayEnvelope {
+function replayEnvelopeFor(
+  component: WorkflowHarnessComponentSpec,
+): WorkflowHarnessReplayEnvelope {
   const nondeterministic = componentIsNondeterministic(component.kind);
   return {
     deterministicEnvelope: !nondeterministic,
@@ -5062,7 +5434,9 @@ function replayEnvelopeFor(component: WorkflowHarnessComponentSpec): WorkflowHar
   };
 }
 
-function runtimeBindingFor(component: WorkflowHarnessComponentSpec): WorkflowHarnessNodeBinding {
+function runtimeBindingFor(
+  component: WorkflowHarnessComponentSpec,
+): WorkflowHarnessNodeBinding {
   const replayEnvelope = replayEnvelopeFor(component);
   return {
     componentId: component.componentId,
@@ -5140,7 +5514,9 @@ function nodeTypeFor(kind: WorkflowHarnessComponentKind): WorkflowNode["type"] {
   }
 }
 
-function nodeLogicFor(component: WorkflowHarnessComponentSpec): Record<string, unknown> {
+function nodeLogicFor(
+  component: WorkflowHarnessComponentSpec,
+): Record<string, unknown> {
   const base = {
     harnessComponent: component,
     harnessSlots: slotIdsFor(component.kind),
@@ -5165,7 +5541,10 @@ function nodeLogicFor(component: WorkflowHarnessComponentSpec): Record<string, u
           toolRef: "agent.runtime.native-tool.catalog.read",
           mockBinding: false,
           credentialReady: true,
-          capabilityScope: ["native.tool.catalog.read", "mcp.tool.catalog.read"],
+          capabilityScope: [
+            "native.tool.catalog.read",
+            "mcp.tool.catalog.read",
+          ],
           sideEffectClass: "read",
           requiresApproval: false,
           arguments: {
@@ -5288,7 +5667,10 @@ function nodeLogicFor(component: WorkflowHarnessComponentSpec): Record<string, u
       return {
         ...base,
         format: "receipt",
-        materialization: { enabled: false, assetPath: "receipts/harness/{{run.id}}.json" },
+        materialization: {
+          enabled: false,
+          assetPath: "receipts/harness/{{run.id}}.json",
+        },
         deliveryTarget: { targetKind: "none" },
       };
     default:
@@ -5335,7 +5717,9 @@ function makeHarnessNode(
       logic: nodeLogicFor(component),
       law: {
         requireHumanGate: component.approval.required,
-        privilegedActions: component.approval.required ? component.requiredCapabilityScope : [],
+        privilegedActions: component.approval.required
+          ? component.requiredCapabilityScope
+          : [],
         sandboxPolicy: {
           timeoutMs: component.timeout.timeoutMs,
           memoryMb: 64,
@@ -5365,12 +5749,14 @@ function makeHarnessEdges(nodes: WorkflowNode[]): WorkflowEdge[] {
 }
 
 export function defaultHarnessPromotionClusters(): WorkflowHarnessPromotionCluster[] {
-  return ([
-    "cognition",
-    "routing_model",
-    "verification_output",
-    "authority_tooling",
-  ] as WorkflowHarnessPromotionClusterId[]).map((clusterId, index) => ({
+  return (
+    [
+      "cognition",
+      "routing_model",
+      "verification_output",
+      "authority_tooling",
+    ] as WorkflowHarnessPromotionClusterId[]
+  ).map((clusterId, index) => ({
     clusterId,
     label: HARNESS_PROMOTION_CLUSTER_LABELS[clusterId],
     activationOrder: index + 1,
@@ -5442,7 +5828,9 @@ function harnessMetadata(options: {
       "activation_review_complete",
     ],
     aiMutationMode: "proposal_only",
-    componentIds: DEFAULT_AGENT_HARNESS_COMPONENTS.map((component) => component.componentId),
+    componentIds: DEFAULT_AGENT_HARNESS_COMPONENTS.map(
+      (component) => component.componentId,
+    ),
     slotIds: REQUIRED_HARNESS_SLOTS.map((slot) => slot.slotId),
     componentReadiness: Object.fromEntries(
       DEFAULT_AGENT_HARNESS_COMPONENTS.map((component) => [
@@ -5454,7 +5842,9 @@ function harnessMetadata(options: {
   };
 }
 
-export function makeDefaultAgentHarnessWorkflow(nowMs = Date.now()): WorkflowProject {
+export function makeDefaultAgentHarnessWorkflow(
+  nowMs = Date.now(),
+): WorkflowProject {
   const nodes = HARNESS_FLOW.map(makeHarnessNode);
   const workflow: WorkflowProject = {
     version: "workflow.v1",
@@ -5478,6 +5868,9 @@ export function makeDefaultAgentHarnessWorkflow(nowMs = Date.now()): WorkflowPro
         harnessHash: DEFAULT_AGENT_HARNESS_HASH,
         executionMode: DEFAULT_HARNESS_EXECUTION_MODE,
         source: "default",
+        rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+        authorityBindingReady: false,
+        authorityBindingBlockers: ["worker_binding_authority_not_live"],
       },
       createdAtMs: nowMs,
       updatedAtMs: nowMs,
@@ -5512,7 +5905,8 @@ export function makeDefaultAgentHarnessWorkflow(nowMs = Date.now()): WorkflowPro
           "Read-only projection of the blessed agent runtime harness as workflow-addressable components.",
       },
       production: {
-        errorWorkflowPath: ".agents/workflows/default-agent-harness-error.workflow.json",
+        errorWorkflowPath:
+          ".agents/workflows/default-agent-harness-error.workflow.json",
         evaluationSetPath: ".agents/workflows/default-agent-harness.tests.json",
         expectedTimeSavedMinutes: 0,
         mcpAccessReviewed: true,
@@ -5555,14 +5949,22 @@ export function defaultAgentHarnessTests(
     {
       id: "test-default-harness-governance-present",
       name: "Default harness governance components are projected",
-      targetNodeIds: ["harness.policy_gate", "harness.approval_gate", "harness.receipt_writer"],
+      targetNodeIds: [
+        "harness.policy_gate",
+        "harness.approval_gate",
+        "harness.receipt_writer",
+      ],
       assertion: { kind: "node_exists" },
       status: "idle",
     },
     {
       id: "test-default-harness-recovery-present",
       name: "Default harness retry and repair components are projected",
-      targetNodeIds: ["harness.retry_policy", "harness.repair_loop", "harness.merge_judge"],
+      targetNodeIds: [
+        "harness.retry_policy",
+        "harness.repair_loop",
+        "harness.merge_judge",
+      ],
       assertion: { kind: "node_exists" },
       status: "idle",
     },
@@ -5585,6 +5987,9 @@ export function forkDefaultAgentHarnessWorkflow(
     harnessHash: DEFAULT_AGENT_HARNESS_HASH,
     executionMode: DEFAULT_HARNESS_EXECUTION_MODE,
     source: "fork",
+    rollbackTarget: DEFAULT_AGENT_HARNESS_FORK_ROLLBACK_TARGET,
+    authorityBindingReady: false,
+    authorityBindingBlockers: ["fork_activation_not_live_default"],
   };
   const blockedActivationRecord = makeHarnessForkActivationRecord({
     workflowId: slug,
@@ -5656,7 +6061,8 @@ export function forkDefaultAgentHarnessWorkflow(
               ? {
                   ...workflow.metadata.harness.activationRecord,
                   revisionBinding,
-                  rollbackRevisionBinding: base.metadata.harness?.revisionBinding,
+                  rollbackRevisionBinding:
+                    base.metadata.harness?.revisionBinding,
                 }
               : workflow.metadata.harness.activationRecord,
           }
@@ -5707,10 +6113,14 @@ export function workflowIsBlessedHarness(workflow: WorkflowProject): boolean {
 }
 
 export function workflowIsHarnessFork(workflow: WorkflowProject): boolean {
-  return workflowIsHarness(workflow) && workflow.metadata.harness?.blessed !== true;
+  return (
+    workflowIsHarness(workflow) && workflow.metadata.harness?.blessed !== true
+  );
 }
 
-export function harnessComponentForNode(node: Node): WorkflowHarnessComponentSpec | null {
+export function harnessComponentForNode(
+  node: Node,
+): WorkflowHarnessComponentSpec | null {
   const logic = node.config?.logic ?? {};
   const value = (logic as Record<string, unknown>).harnessComponent;
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
@@ -5719,7 +6129,9 @@ export function harnessComponentForNode(node: Node): WorkflowHarnessComponentSpe
   return component;
 }
 
-export function harnessSlotsForWorkflow(workflow: WorkflowProject): WorkflowHarnessSlotSpec[] {
+export function harnessSlotsForWorkflow(
+  workflow: WorkflowProject,
+): WorkflowHarnessSlotSpec[] {
   if (!workflowIsHarness(workflow)) return [];
   return REQUIRED_HARNESS_SLOTS;
 }
@@ -5727,7 +6139,8 @@ export function harnessSlotsForWorkflow(workflow: WorkflowProject): WorkflowHarn
 export function workflowHarnessWorkerBinding(
   workflow: WorkflowProject,
 ): WorkflowHarnessWorkerBinding {
-  if (workflow.metadata.workerHarnessBinding) return workflow.metadata.workerHarnessBinding;
+  if (workflow.metadata.workerHarnessBinding)
+    return workflow.metadata.workerHarnessBinding;
   const harness = workflow.metadata.harness;
   if (harness) {
     return {
@@ -5736,6 +6149,13 @@ export function workflowHarnessWorkerBinding(
       harnessHash: harness.harnessHash,
       executionMode: harness.executionMode,
       source: harness.blessed ? "default" : "fork",
+      rollbackTarget: harness.activationId,
+      authorityBindingReady: false,
+      authorityBindingBlockers: [
+        harness.blessed
+          ? "worker_binding_authority_not_live"
+          : "fork_activation_not_live_default",
+      ],
     };
   }
   return {
@@ -5744,10 +6164,15 @@ export function workflowHarnessWorkerBinding(
     harnessHash: DEFAULT_AGENT_HARNESS_HASH,
     executionMode: DEFAULT_HARNESS_EXECUTION_MODE,
     source: "legacy",
+    rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+    authorityBindingReady: false,
+    authorityBindingBlockers: ["legacy_runtime_binding"],
   };
 }
 
-export function harnessNodeEvidenceSummary(node: Node): Array<{ label: string; value: string }> {
+export function harnessNodeEvidenceSummary(
+  node: Node,
+): Array<{ label: string; value: string }> {
   const component = harnessComponentForNode(node);
   if (!component) return [];
   return [
@@ -5755,8 +6180,14 @@ export function harnessNodeEvidenceSummary(node: Node): Array<{ label: string; v
     { label: "Version", value: component.version },
     { label: "Readiness", value: component.readiness },
     { label: "Kernel", value: component.kernelRef },
-    { label: "Capability", value: component.requiredCapabilityScope.join(", ") || "none" },
-    { label: "Approval", value: component.approval.required ? component.approval.mode : "none" },
+    {
+      label: "Capability",
+      value: component.requiredCapabilityScope.join(", ") || "none",
+    },
+    {
+      label: "Approval",
+      value: component.approval.required ? component.approval.mode : "none",
+    },
     { label: "Events", value: component.emittedEvents.join(", ") },
     { label: "Evidence", value: component.evidence.join(", ") },
   ];

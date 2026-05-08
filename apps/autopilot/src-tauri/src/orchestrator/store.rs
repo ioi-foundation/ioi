@@ -1438,6 +1438,144 @@ fn runtime_harness_default_runtime_binding(
             .get("readOnlyDispatchAccepted")
             .and_then(Value::as_bool)
             == Some(true);
+    let selector_live_promotion_readiness_proof =
+        selector_decision.get("livePromotionReadinessProof");
+    let live_handoff_live_promotion_readiness_proof =
+        live_handoff.get("livePromotionReadinessProof");
+    let dispatch_live_promotion_readiness_proof =
+        default_dispatch.get("livePromotionReadinessProof");
+    let selector_live_promotion_readiness_proof_id = selector_live_promotion_readiness_proof
+        .and_then(|proof| proof.get("proofId"))
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let live_handoff_live_promotion_readiness_proof_id =
+        live_handoff_live_promotion_readiness_proof
+            .and_then(|proof| proof.get("proofId"))
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string();
+    let dispatch_live_promotion_readiness_proof_id = dispatch_live_promotion_readiness_proof
+        .and_then(|proof| proof.get("proofId"))
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let selector_live_promotion_readiness_blockers =
+        runtime_harness_live_promotion_readiness_blockers(selector_live_promotion_readiness_proof);
+    let live_handoff_live_promotion_readiness_blockers =
+        runtime_harness_live_promotion_readiness_blockers(
+            live_handoff_live_promotion_readiness_proof,
+        );
+    let dispatch_live_promotion_readiness_blockers =
+        runtime_harness_live_promotion_readiness_blockers(dispatch_live_promotion_readiness_proof);
+    let selector_live_promotion_readiness_ready = selector_decision
+        .get("livePromotionReadinessReady")
+        .and_then(Value::as_bool)
+        == Some(true)
+        && selector_live_promotion_readiness_blockers.is_empty()
+        && selector_decision
+            .get("livePromotionReadinessBlockers")
+            .and_then(Value::as_array)
+            .map(|items| items.is_empty())
+            .unwrap_or(false);
+    let live_handoff_live_promotion_readiness_ready = live_handoff
+        .get("livePromotionReadinessReady")
+        .and_then(Value::as_bool)
+        == Some(true)
+        && live_handoff_live_promotion_readiness_blockers.is_empty()
+        && live_handoff
+            .get("livePromotionReadinessBlockers")
+            .and_then(Value::as_array)
+            .map(|items| items.is_empty())
+            .unwrap_or(false);
+    let dispatch_live_promotion_readiness_ready =
+        dispatch_live_promotion_readiness_blockers.is_empty();
+    let live_promotion_readiness_proof_ids_match = !selector_live_promotion_readiness_proof_id
+        .is_empty()
+        && selector_live_promotion_readiness_proof_id == dispatch_live_promotion_readiness_proof_id
+        && selector_live_promotion_readiness_proof_id
+            == live_handoff_live_promotion_readiness_proof_id;
+    let invalid_fork_live_activation_blocked = selector_live_promotion_readiness_proof
+        .and_then(|proof| proof.get("invalidForkLiveActivationBlocked"))
+        .and_then(Value::as_bool)
+        == Some(true)
+        && live_handoff_live_promotion_readiness_proof
+            .and_then(|proof| proof.get("invalidForkLiveActivationBlocked"))
+            .and_then(Value::as_bool)
+            == Some(true)
+        && dispatch_live_promotion_readiness_proof
+            .and_then(|proof| proof.get("invalidForkLiveActivationBlocked"))
+            .and_then(Value::as_bool)
+            == Some(true);
+    let dispatch_drives_runtime = drives_runtime_decision
+        && default_dispatch.get("status").and_then(Value::as_str) == Some("accepted")
+        && default_dispatch
+            .get("activationBlockers")
+            .and_then(Value::as_array)
+            .map(|items| items.is_empty())
+            .unwrap_or(false);
+    let worker_binding_source = if selected_selector == "blessed_workflow_live_default" {
+        "autopilot_runtime_selector_default_v1"
+    } else if selected_selector == "blessed_workflow_live_canary" {
+        "autopilot_runtime_selector_canary_v1"
+    } else {
+        "autopilot_runtime_selector_legacy_default_v1"
+    };
+    let mut worker_binding_authority_blockers = Vec::<String>::new();
+    if selected_selector != "blessed_workflow_live_default" {
+        worker_binding_authority_blockers.push("selector_not_default_live".to_string());
+    }
+    if production_default_selector != "blessed_workflow_live_default" {
+        worker_binding_authority_blockers.push("production_default_not_live".to_string());
+    }
+    if execution_mode != "live" {
+        worker_binding_authority_blockers.push("execution_mode_not_live".to_string());
+    }
+    if !workflow_identity_matches {
+        worker_binding_authority_blockers.push("workflow_identity_mismatch".to_string());
+    }
+    if !activation_identity_matches {
+        worker_binding_authority_blockers.push("activation_identity_mismatch".to_string());
+    }
+    if !harness_hash_matches {
+        worker_binding_authority_blockers.push("harness_hash_mismatch".to_string());
+    }
+    if !selector_decision_links_dispatch {
+        worker_binding_authority_blockers.push("selector_dispatch_not_linked".to_string());
+    }
+    if !rollback_target_matches {
+        worker_binding_authority_blockers.push("rollback_target_mismatch".to_string());
+    }
+    if !authority_transferred {
+        worker_binding_authority_blockers.push("default_authority_not_transferred".to_string());
+    }
+    if !dispatch_drives_runtime {
+        worker_binding_authority_blockers.push("dispatch_not_driving_runtime".to_string());
+    }
+    if !selector_live_promotion_readiness_ready {
+        worker_binding_authority_blockers
+            .push("selector_live_promotion_readiness_not_ready".to_string());
+    }
+    if !live_handoff_live_promotion_readiness_ready {
+        worker_binding_authority_blockers
+            .push("live_handoff_live_promotion_readiness_not_ready".to_string());
+    }
+    if !dispatch_live_promotion_readiness_ready {
+        worker_binding_authority_blockers
+            .push("dispatch_live_promotion_readiness_not_ready".to_string());
+    }
+    if !live_promotion_readiness_proof_ids_match {
+        worker_binding_authority_blockers
+            .push("live_promotion_readiness_proof_mismatch".to_string());
+    }
+    if !invalid_fork_live_activation_blocked {
+        worker_binding_authority_blockers
+            .push("invalid_fork_live_activation_not_blocked".to_string());
+    }
+    worker_binding_authority_blockers.sort();
+    worker_binding_authority_blockers.dedup();
+    let worker_binding_authority_ready = worker_binding_authority_blockers.is_empty();
+    let binding_matched = worker_binding_authority_ready;
 
     json!({
         "schemaVersion": "workflow.harness.default-runtime-binding.v1",
@@ -1457,18 +1595,33 @@ fn runtime_harness_default_runtime_binding(
         "rollbackAvailable": selector_decision.get("rollbackAvailable").and_then(Value::as_bool) == Some(true)
             && live_handoff.get("rollbackAvailable").and_then(Value::as_bool) == Some(true)
             && default_dispatch.get("rollbackAvailable").and_then(Value::as_bool) == Some(true),
+        "selectorLivePromotionReadinessReady": selector_live_promotion_readiness_ready,
+        "liveHandoffLivePromotionReadinessReady": live_handoff_live_promotion_readiness_ready,
+        "dispatchLivePromotionReadinessReady": dispatch_live_promotion_readiness_ready,
+        "selectorLivePromotionReadinessProofId": selector_live_promotion_readiness_proof_id.clone(),
+        "liveHandoffLivePromotionReadinessProofId": live_handoff_live_promotion_readiness_proof_id.clone(),
+        "dispatchLivePromotionReadinessProofId": dispatch_live_promotion_readiness_proof_id.clone(),
+        "livePromotionReadinessProofIdsMatch": live_promotion_readiness_proof_ids_match,
+        "invalidForkLiveActivationBlocked": invalid_fork_live_activation_blocked,
+        "dispatchDrivesRuntime": dispatch_drives_runtime,
+        "workerBindingAuthorityReady": worker_binding_authority_ready,
+        "workerBindingAuthorityBlockers": worker_binding_authority_blockers.clone(),
         "workerBinding": {
             "harnessWorkflowId": DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
             "harnessActivationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
             "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
             "executionMode": execution_mode,
-            "source": if selected_selector == "blessed_workflow_live_default" {
-                "autopilot_runtime_selector_default_v1"
-            } else if selected_selector == "blessed_workflow_live_canary" {
-                "autopilot_runtime_selector_canary_v1"
-            } else {
-                "autopilot_runtime_selector_legacy_default_v1"
-            }
+            "source": worker_binding_source,
+            "selectorDecisionId": selector_decision_id,
+            "defaultDispatchId": default_dispatch_id,
+            "rollbackTarget": rollback_target,
+            "authorityBindingReady": worker_binding_authority_ready,
+            "authorityBindingBlockers": worker_binding_authority_blockers,
+            "livePromotionReadinessProofId": selector_live_promotion_readiness_proof_id.clone(),
+            "policyDecision": selector_decision
+                .get("policyDecision")
+                .and_then(Value::as_str)
+                .unwrap_or("retain_legacy_runtime_default")
         },
         "workflowIdentityMatches": workflow_identity_matches,
         "activationIdentityMatches": activation_identity_matches,
@@ -1477,13 +1630,7 @@ fn runtime_harness_default_runtime_binding(
         "rollbackTargetMatches": rollback_target_matches,
         "authorityTransferred": authority_transferred,
         "drivesRuntimeDecision": drives_runtime_decision,
-        "bindingMatched": workflow_identity_matches
-            && activation_identity_matches
-            && harness_hash_matches
-            && selector_decision_links_dispatch
-            && rollback_target_matches
-            && authority_transferred
-            && drives_runtime_decision,
+        "bindingMatched": binding_matched,
         "sourceRefs": [
             "HarnessRuntimeSelectorDecision",
             "HarnessLiveHandoff",
@@ -10794,29 +10941,27 @@ fn runtime_evidence_projection(
         &harness_live_handoff,
         &harness_default_runtime_dispatch,
     );
-    let harness_selector_execution_mode = harness_selector_decision
-        .get("executionMode")
-        .and_then(Value::as_str)
-        .unwrap_or("gated");
-    let harness_selector_source = match harness_selector_decision
-        .get("selectedSelector")
-        .and_then(Value::as_str)
-    {
-        Some("blessed_workflow_live_default") => "autopilot_runtime_selector_default_v1",
-        Some("blessed_workflow_live_canary") => "autopilot_runtime_selector_canary_v1",
-        _ => "autopilot_runtime_selector_legacy_default_v1",
-    };
+    let harness_worker_binding = harness_default_runtime_binding
+        .get("workerBinding")
+        .cloned()
+        .unwrap_or_else(|| {
+            json!({
+                "harnessWorkflowId": DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
+                "harnessActivationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+                "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
+                "executionMode": "projection",
+                "source": "autopilot_runtime_selector_legacy_default_v1",
+                "rollbackTarget": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+                "authorityBindingReady": false,
+                "authorityBindingBlockers": ["worker_binding_authority_missing"],
+                "policyDecision": "retain_legacy_runtime_default"
+            })
+        });
 
     json!({
         "schemaVersion": RUNTIME_CONTRACT_SCHEMA_VERSION_V1,
         "HarnessRuntimeSelectorDecision": harness_selector_decision,
-        "HarnessWorkerBinding": {
-            "harnessWorkflowId": DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
-            "harnessActivationId": DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
-            "harnessHash": DEFAULT_AGENT_HARNESS_HASH,
-            "executionMode": harness_selector_execution_mode,
-            "source": harness_selector_source
-        },
+        "HarnessWorkerBinding": harness_worker_binding,
         "HarnessShadowRun": harness_shadow_run,
         "HarnessGatedClusterRuns": harness_gated_cluster_runs,
         "HarnessForkActivation": harness_fork_activation,
@@ -13838,6 +13983,39 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                 && binding.get("rollbackAvailable").and_then(Value::as_bool) == Some(true)
                 && binding.get("bindingMatched").and_then(Value::as_bool) == Some(true)
                 && binding
+                    .get("workerBindingAuthorityReady")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && binding
+                    .get("workerBindingAuthorityBlockers")
+                    .and_then(Value::as_array)
+                    .map(|items| items.is_empty())
+                    .unwrap_or(false)
+                && binding
+                    .get("selectorLivePromotionReadinessReady")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && binding
+                    .get("liveHandoffLivePromotionReadinessReady")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && binding
+                    .get("dispatchLivePromotionReadinessReady")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && binding
+                    .get("livePromotionReadinessProofIdsMatch")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && binding
+                    .get("invalidForkLiveActivationBlocked")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && binding
+                    .get("dispatchDrivesRuntime")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && binding
                     .get("selectorDecisionLinksDispatch")
                     .and_then(Value::as_bool)
                     == Some(true)
@@ -13870,6 +14048,41 @@ fn persist_runtime_evidence_projection(memory_runtime: &Arc<MemoryRuntime>, task
                     .and_then(|worker| worker.get("harnessHash"))
                     .and_then(Value::as_str)
                     == Some(DEFAULT_AGENT_HARNESS_HASH)
+                && binding
+                    .get("workerBinding")
+                    .and_then(|worker| worker.get("authorityBindingReady"))
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && binding
+                    .get("workerBinding")
+                    .and_then(|worker| worker.get("authorityBindingBlockers"))
+                    .and_then(Value::as_array)
+                    .map(|items| items.is_empty())
+                    .unwrap_or(false)
+                && binding
+                    .get("workerBinding")
+                    .and_then(|worker| worker.get("selectorDecisionId"))
+                    .and_then(Value::as_str)
+                    .map(|value| value.starts_with("harness-selector:"))
+                    .unwrap_or(false)
+                && binding
+                    .get("workerBinding")
+                    .and_then(|worker| worker.get("defaultDispatchId"))
+                    .and_then(Value::as_str)
+                    .map(|value| value.starts_with("harness-default-dispatch:"))
+                    .unwrap_or(false)
+                && binding
+                    .get("workerBinding")
+                    .and_then(|worker| worker.get("rollbackTarget"))
+                    .and_then(Value::as_str)
+                    == Some(DEFAULT_AGENT_HARNESS_ACTIVATION_ID)
+                && binding
+                    .get("workerBinding")
+                    .and_then(|worker| worker.get("livePromotionReadinessProofId"))
+                    .and_then(Value::as_str)
+                    == binding
+                        .get("selectorLivePromotionReadinessProofId")
+                        .and_then(Value::as_str)
         })
         .unwrap_or(false);
     let harness_authority_tooling_gate_live = harness_default_runtime_dispatch
