@@ -774,6 +774,12 @@ assert.match(
 );
 
 assert.match(
+  `${workflowRailPanel}\n${composer}\n${workflowValidation}\n${guiHarnessValidation}\n${guiHarnessContract}`,
+  /(?=[\s\S]*WorkflowHarnessActivationWizardStep)(?=[\s\S]*selectedHarnessActivationGateInspection)(?=[\s\S]*workflow-harness-activation-gate-inspector)(?=[\s\S]*workflow-harness-activation-gate-summary)(?=[\s\S]*workflow-harness-activation-gate-evidence-refs)(?=[\s\S]*workflow-harness-activation-gate-receipt-refs)(?=[\s\S]*workflow-harness-activation-gate-replay-refs)(?=[\s\S]*data-evidence-ref-count)(?=[\s\S]*selectedRailTestId: "workflow-harness-activation-gate-inspector")(?=[\s\S]*gateResults:[\s\S]*evidenceRefs)(?=[\s\S]*activationGateEvidenceInspectable)(?=[\s\S]*harness_activation_gate_evidence_inspector)(?=[\s\S]*harness_activation_gate_evidence_inspector_present)/,
+  "Activation gate deep links should restore into a selected gate evidence inspector with evidence, receipt, and replay refs.",
+);
+
+assert.match(
   workflowRailPanel,
   /(?=[\s\S]*workflow-harness-activation-audit[\s\S]*data-receipt-refs[\s\S]*data-audit-receipt-refs)(?=[\s\S]*workflow-harness-rollback-execution-proof[\s\S]*data-restore-receipt-binding-ref)/,
   "Activation rail should surface audit and rollback execution receipt refs.",

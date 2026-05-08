@@ -670,6 +670,11 @@ function readHarnessRailSelectedState(testId: string): Record<string, string> {
     "data-selected-activation-blocker-ref",
     "data-selected-activation-audit-event-id",
     "data-selected-activation-gate-id",
+    "data-gate-source-kind",
+    "data-gate-status",
+    "data-evidence-ref-count",
+    "data-receipt-ref-count",
+    "data-replay-fixture-ref-count",
   ];
   return Object.fromEntries(
     selectedAttributes.map((attribute) => [attribute, target.getAttribute(attribute) ?? ""]),
@@ -820,7 +825,7 @@ function harnessDeepLinkProbeCasesForWorkflow(
           },
           expectedAttribute: "data-selected-activation-gate-id",
           expectedValue: activationGateId,
-          selectedRailTestId: "workflow-harness-activation-steps",
+          selectedRailTestId: "workflow-harness-activation-gate-inspector",
           expectedParsedKey: "activationGateId",
         }
       : null,

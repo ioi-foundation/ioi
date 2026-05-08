@@ -6,6 +6,7 @@ import type {
   WorkflowBindingManifest,
   WorkflowCheckpoint,
   WorkflowConnectionClass,
+  WorkflowHarnessActivationCandidateGateResult,
   WorkflowHarnessComponentKind,
   WorkflowDogfoodRun,
   WorkflowHarnessForkActivationCandidate,
@@ -56,6 +57,7 @@ import {
   workflowReadinessStatusLabel,
   workflowSelectedNodeBindingSummary,
   workflowUniqueReceiptRefs,
+  workflowUniqueReplayFixtureRefs,
   workflowWorkbenchCheckSummary,
   workflowWorkbenchCheckTitle,
   workflowTimeLabel,
@@ -136,6 +138,17 @@ type WorkflowHarnessWorkbenchDeepLinkTarget = {
   activationBlockerRef?: string;
   activationAuditEventId?: string;
   activationGateId?: string;
+};
+
+type WorkflowHarnessActivationWizardStep = {
+  id: string;
+  label: string;
+  ready: boolean;
+  value: string;
+  detail: string;
+  evidenceRefs: string[];
+  receiptRefs?: string[];
+  replayFixtureRefs?: string[];
 };
 
 function workflowRevisionBindingDeepLinkRef(
@@ -809,13 +822,34 @@ export function WorkflowRailPanel({
     Boolean(harnessWorkerBinding?.harnessWorkflowId) &&
     (!workflow.metadata.harness?.activationId ||
       harnessWorkerBinding?.harnessActivationId === workflow.metadata.harness.activationId);
-  const harnessActivationWizardSteps = [
+  const harnessReplayGateRefs = workflowUniqueReplayFixtureRefs([
+    ...replayFixtureBlockers.map((issue) => issue.nodeId ?? issue.code),
+    ...(workflow.metadata.harness?.replayDrills ?? []).map((drill) => drill.drillId),
+    ...(workflow.metadata.harness?.replayGates ?? []).map((gate) => gate.gateId),
+    ...harnessPromotionClusters.map(
+      (cluster) => cluster.replayGateProof?.gateId ?? null,
+    ),
+  ]);
+  const harnessReplayFixtureRefs = workflowUniqueReplayFixtureRefs([
+    ...(workflow.metadata.harness?.replayDrills ?? []).map(
+      (drill) => drill.replayFixtureRef,
+    ),
+    ...(workflow.metadata.harness?.replayGates ?? []).flatMap(
+      (gate) => gate.replayFixtureRefs,
+    ),
+    ...harnessPromotionClusters.flatMap(
+      (cluster) => cluster.replayGateProof?.replayFixtureRefs ?? [],
+    ),
+    ...(harnessDefaultRuntimeDispatchProof?.replayFixtureRefs ?? []),
+  ]);
+  const harnessActivationWizardSteps: WorkflowHarnessActivationWizardStep[] = [
     {
       id: "slots",
       label: "Slots",
       ready: boundRequiredHarnessSlotCount === requiredHarnessSlots.length,
       value: `${boundRequiredHarnessSlotCount}/${requiredHarnessSlots.length}`,
       detail: "required component slots bound",
+      evidenceRefs: requiredHarnessSlots.map((slot) => slot.slotId),
     },
     {
       id: "tests",
@@ -823,6 +857,7 @@ export function WorkflowRailPanel({
       ready: tests.length > 0,
       value: `${tests.length}`,
       detail: "activation test cases available",
+      evidenceRefs: tests.map((test) => test.id),
     },
     {
       id: "replay-fixtures",
@@ -830,6 +865,8 @@ export function WorkflowRailPanel({
       ready: replayFixtureBlockers.length === 0,
       value: replayFixtureBlockers.length === 0 ? "ready" : `${replayFixtureBlockers.length} missing`,
       detail: "required expensive or external nodes replayable",
+      evidenceRefs: harnessReplayGateRefs,
+      replayFixtureRefs: harnessReplayFixtureRefs,
     },
     {
       id: "policy-posture",
@@ -837,6 +874,11 @@ export function WorkflowRailPanel({
       ready: policyPostureReady,
       value: harnessActivationRecord?.policyPosture ?? "proposal_only",
       detail: "proposal-only mutation, blocked mock policy, MCP review",
+      evidenceRefs: workflowUniqueReceiptRefs([
+        activationGateProposal?.id,
+        workflow.metadata.harness?.aiMutationMode,
+        productionProfile.mcpAccessReviewed === true ? "mcp_access_reviewed" : null,
+      ]),
     },
     {
       id: "receipt-coverage",
@@ -844,6 +886,9 @@ export function WorkflowRailPanel({
       ready: receiptReadyHarnessComponents === workflow.nodes.length,
       value: `${receiptReadyHarnessComponents}/${workflow.nodes.length}`,
       detail: "components emit mapped receipt refs",
+      evidenceRefs: workflow.nodes.flatMap(
+        (node) => node.runtimeBinding?.receiptKinds ?? [],
+      ),
     },
     {
       id: "canary",
@@ -851,6 +896,13 @@ export function WorkflowRailPanel({
       ready: canaryReady,
       value: harnessActivationRecord?.canaryStatus ?? "not_run",
       detail: "workflow canary boundary and retained scenario proof",
+      evidenceRefs: harnessCanaryExecutionBoundaries.map((boundary) => boundary.boundaryId),
+      receiptRefs: harnessCanaryExecutionBoundaries.flatMap(
+        (boundary) => boundary.receiptIds,
+      ),
+      replayFixtureRefs: harnessCanaryExecutionBoundaries.flatMap(
+        (boundary) => boundary.replayFixtureRefs,
+      ),
     },
     {
       id: "rollback-restore",
@@ -858,6 +910,8 @@ export function WorkflowRailPanel({
       ready: rollbackRestoreCanaryReady,
       value: rollbackRestoreCanary?.status ?? "not_run",
       detail: "non-mutating git restore probe verifies rollback revision",
+      evidenceRefs: rollbackRestoreCanary?.evidenceRefs ?? [],
+      receiptRefs: workflowUniqueReceiptRefs([rollbackRestoreCanary?.receiptBindingRef]),
     },
     {
       id: "rollback",
@@ -865,6 +919,15 @@ export function WorkflowRailPanel({
       ready: rollbackReady,
       value: harnessActivationRecord?.rollbackTarget ?? "not set",
       detail: "rollback target and rollback drill available",
+      evidenceRefs: workflowUniqueReceiptRefs([
+        harnessActivationRecord?.rollbackTarget,
+        harnessActivationRollbackProof?.drillId,
+        harnessActivationRollbackExecution?.executionId,
+      ]),
+      receiptRefs: workflowUniqueReceiptRefs([
+        ...(harnessActivationRollbackProof?.receiptRefs ?? []),
+        ...(harnessActivationRollbackExecution?.receiptRefs ?? []),
+      ]),
     },
     {
       id: "activation-id",
@@ -872,6 +935,10 @@ export function WorkflowRailPanel({
       ready: harnessActivationReady,
       value: workflow.metadata.harness?.activationId ?? "not minted",
       detail: "minted only after validation gates pass",
+      evidenceRefs: workflowUniqueReceiptRefs([
+        workflow.metadata.harness?.activationId,
+        harnessActivationCandidate?.activationIdPreview,
+      ]),
     },
     {
       id: "worker-binding",
@@ -879,8 +946,66 @@ export function WorkflowRailPanel({
       ready: workerActivationBindingReady,
       value: harnessWorkerBinding?.harnessActivationId ?? "blocked",
       detail: "worker binding matches workflow, hash, and activation",
+      evidenceRefs: workflowUniqueReceiptRefs([
+        harnessWorkerBinding?.harnessWorkflowId,
+        harnessWorkerBinding?.harnessActivationId,
+        harnessWorkerBinding?.harnessHash,
+      ]),
     },
   ];
+  const selectedHarnessCandidateGate = selectedHarnessActivationGateId
+    ? harnessActivationCandidate?.gateResults.find(
+        (gate) => gate.gateId === selectedHarnessActivationGateId,
+      ) ?? null
+    : null;
+  const selectedHarnessActivationWizardStep = selectedHarnessActivationGateId
+    ? harnessActivationWizardSteps.find(
+        (step) => step.id === selectedHarnessActivationGateId,
+      ) ?? null
+    : null;
+  const selectedHarnessActivationGateInspection:
+    | (WorkflowHarnessActivationCandidateGateResult & {
+        sourceKind: "activation_candidate" | "wizard_step";
+        receiptRefs: string[];
+        replayFixtureRefs: string[];
+      })
+    | null = selectedHarnessActivationGateId
+    ? {
+        gateId: selectedHarnessActivationGateId,
+        label:
+          selectedHarnessCandidateGate?.label ??
+          selectedHarnessActivationWizardStep?.label ??
+          selectedHarnessActivationGateId,
+        status:
+          selectedHarnessCandidateGate?.status ??
+          (selectedHarnessActivationWizardStep?.ready ? "passed" : "blocked"),
+        value:
+          selectedHarnessCandidateGate?.value ??
+          selectedHarnessActivationWizardStep?.value ??
+          "not resolved",
+        detail:
+          selectedHarnessCandidateGate?.detail ??
+          selectedHarnessActivationWizardStep?.detail ??
+          "Activation gate is selected but no wizard evidence has been resolved yet.",
+        evidenceRefs: workflowUniqueReceiptRefs([
+          ...(selectedHarnessCandidateGate?.evidenceRefs ?? []),
+          ...(selectedHarnessActivationWizardStep?.evidenceRefs ?? []),
+        ]),
+        receiptRefs: workflowUniqueReceiptRefs([
+          ...(selectedHarnessActivationWizardStep?.receiptRefs ?? []),
+          ...(selectedHarnessCandidateGate?.evidenceRefs ?? []).filter((ref) =>
+            ref.startsWith("workflow_restore_canary:"),
+          ),
+        ]),
+        replayFixtureRefs:
+          selectedHarnessActivationGateId === "replay-fixtures"
+            ? harnessReplayFixtureRefs
+            : workflowUniqueReplayFixtureRefs(
+                selectedHarnessActivationWizardStep?.replayFixtureRefs ?? [],
+              ),
+        sourceKind: selectedHarnessCandidateGate ? "activation_candidate" : "wizard_step",
+      }
+    : null;
   const harnessComponentReadiness = workflow.nodes
     .map((node) => node.runtimeBinding?.readiness)
     .filter((readiness): readiness is NonNullable<typeof readiness> => Boolean(readiness));
@@ -3005,6 +3130,112 @@ export function WorkflowRailPanel({
                     </article>
                   ))}
                 </div>
+                {selectedHarnessActivationGateInspection ? (
+                  <section
+                    className="workflow-rail-section workflow-harness-activation-gate-inspector"
+                    data-testid="workflow-harness-activation-gate-inspector"
+                    data-selected-activation-gate-id={
+                      selectedHarnessActivationGateInspection.gateId
+                    }
+                    data-gate-source-kind={
+                      selectedHarnessActivationGateInspection.sourceKind
+                    }
+                    data-gate-status={selectedHarnessActivationGateInspection.status}
+                    data-evidence-ref-count={
+                      selectedHarnessActivationGateInspection.evidenceRefs.length
+                    }
+                    data-receipt-ref-count={
+                      selectedHarnessActivationGateInspection.receiptRefs.length
+                    }
+                    data-replay-fixture-ref-count={
+                      selectedHarnessActivationGateInspection.replayFixtureRefs.length
+                    }
+                  >
+                    <h4>Gate evidence</h4>
+                    <article
+                      className={`workflow-output-row is-${selectedHarnessActivationGateInspection.status}`}
+                      data-testid="workflow-harness-activation-gate-summary"
+                    >
+                      <strong>{selectedHarnessActivationGateInspection.label}</strong>
+                      <span>{selectedHarnessActivationGateInspection.value}</span>
+                      <small>{selectedHarnessActivationGateInspection.detail}</small>
+                    </article>
+                    <div
+                      className="workflow-harness-authority-gate-actions"
+                      data-testid="workflow-harness-activation-gate-evidence-refs"
+                      data-evidence-refs={selectedHarnessActivationGateInspection.evidenceRefs.join("|")}
+                    >
+                      {selectedHarnessActivationGateInspection.evidenceRefs
+                        .slice(0, 8)
+                        .map((evidenceRef, index) => (
+                          <span
+                            key={`${evidenceRef}-${index}`}
+                            className="workflow-harness-ref-button"
+                            data-testid={`workflow-harness-activation-gate-evidence-${index}`}
+                          >
+                            <code>{evidenceRef}</code>
+                          </span>
+                        ))}
+                      {selectedHarnessActivationGateInspection.evidenceRefs.length === 0 ? (
+                        <span>No evidence refs captured for this gate yet.</span>
+                      ) : null}
+                    </div>
+                    {selectedHarnessActivationGateInspection.receiptRefs.length > 0 ? (
+                      <div
+                        className="workflow-harness-authority-gate-actions"
+                        data-testid="workflow-harness-activation-gate-receipt-refs"
+                        data-receipt-refs={
+                          selectedHarnessActivationGateInspection.receiptRefs.join("|")
+                        }
+                      >
+                        {selectedHarnessActivationGateInspection.receiptRefs.map(
+                          (receiptRef, index) => (
+                            <button
+                              type="button"
+                              key={`${receiptRef}-${index}`}
+                              className={`workflow-harness-ref-button ${
+                                selectedHarnessReceiptRef === receiptRef ? "is-active" : ""
+                              }`}
+                              data-testid={`workflow-harness-activation-gate-receipt-${index}`}
+                              onClick={() => onSelectHarnessReceiptRef?.(receiptRef)}
+                            >
+                              <code>{receiptRef}</code>
+                            </button>
+                          ),
+                        )}
+                      </div>
+                    ) : null}
+                    {selectedHarnessActivationGateInspection.replayFixtureRefs.length > 0 ? (
+                      <div
+                        className="workflow-harness-authority-gate-actions"
+                        data-testid="workflow-harness-activation-gate-replay-refs"
+                        data-replay-fixture-refs={
+                          selectedHarnessActivationGateInspection.replayFixtureRefs.join("|")
+                        }
+                      >
+                        {selectedHarnessActivationGateInspection.replayFixtureRefs.map(
+                          (replayFixtureRef, index) => (
+                            <button
+                              type="button"
+                              key={`${replayFixtureRef}-${index}`}
+                              className={`workflow-harness-ref-button ${
+                                selectedHarnessReplayFixtureRef === replayFixtureRef
+                                  ? "is-active"
+                                  : ""
+                              }`}
+                              data-testid={`workflow-harness-activation-gate-replay-${index}`}
+                              onClick={() =>
+                                onSelectHarnessReplayFixtureRef?.(replayFixtureRef)
+                              }
+                            >
+                              <code>{replayFixtureRef}</code>
+                            </button>
+                          ),
+                        )}
+                      </div>
+                    ) : null}
+                  </section>
+                ) : null}
                 {harnessActivationBlockers.length > 0 ? (
                   <div
                     className="workflow-rail-list"

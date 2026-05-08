@@ -166,6 +166,12 @@ assert.match(
 );
 
 assert.match(
+  `${workflowRailPanel}\n${workflowComposer}\n${workflowValidation}\n${guiHarnessValidation}\n${guiHarnessContract}`,
+  /(?=[\s\S]*WorkflowHarnessActivationWizardStep)(?=[\s\S]*selectedHarnessActivationGateInspection)(?=[\s\S]*workflow-harness-activation-gate-inspector)(?=[\s\S]*workflow-harness-activation-gate-summary)(?=[\s\S]*workflow-harness-activation-gate-evidence-refs)(?=[\s\S]*workflow-harness-activation-gate-receipt-refs)(?=[\s\S]*workflow-harness-activation-gate-replay-refs)(?=[\s\S]*data-evidence-ref-count)(?=[\s\S]*selectedRailTestId: "workflow-harness-activation-gate-inspector")(?=[\s\S]*gateResults:[\s\S]*evidenceRefs)(?=[\s\S]*activationGateEvidenceInspectable)(?=[\s\S]*harness_activation_gate_evidence_inspector)(?=[\s\S]*harness_activation_gate_evidence_inspector_present)/,
+  "Activation gate deep links should restore into a selected gate evidence inspector with evidence, receipt, and replay refs.",
+);
+
+assert.match(
   workflowComposer,
   /(?=[\s\S]*handleSelectHarnessReceiptRef[\s\S]*setSelectedHarnessReceiptRef\(receiptRef\))(?=[\s\S]*receiptRef: selectedHarnessReceiptRef)/,
   "Selecting a harness receipt should update the workbench deep link state.",
