@@ -972,6 +972,41 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
         .any(|value| value.as_str() == Some("rolled_back")));
     assert_eq!(
         binding
+            .get("workerSessionStatus")
+            .and_then(|value| value.as_str()),
+        Some("rollback_ready")
+    );
+    assert_eq!(
+        binding
+            .get("workerSessionAccepted")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        binding
+            .get("workerSessionRecord")
+            .and_then(|value| value.get("currentStatus"))
+            .and_then(|value| value.as_str()),
+        Some("rollback_ready")
+    );
+    assert_eq!(
+        binding
+            .get("workerSessionRecord")
+            .and_then(|value| value.get("workerId"))
+            .and_then(|value| value.as_str()),
+        binding
+            .get("workerAttachReceipt")
+            .and_then(|value| value.get("workerId"))
+            .and_then(|value| value.as_str())
+    );
+    assert!(binding
+        .get("workerSessionRecord")
+        .and_then(|value| value.get("lifecycleEventIds"))
+        .and_then(|value| value.as_array())
+        .map(|items| items.len() >= 3)
+        .unwrap_or(false));
+    assert_eq!(
+        binding
             .get("invalidWorkerAttachReceipt")
             .and_then(|value| value.get("accepted"))
             .and_then(|value| value.as_bool()),
@@ -1550,6 +1585,19 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
     for attempt_id in dispatch_worker_attach_lifecycle_attempt_ids {
         assert!(dispatch_node_attempt_ids.contains(attempt_id));
     }
+    assert_eq!(
+        dispatch
+            .get("workerSessionRecord")
+            .and_then(|value| value.get("currentStatus"))
+            .and_then(|value| value.as_str()),
+        Some("rollback_ready")
+    );
+    assert!(dispatch
+        .get("workerSessionRecord")
+        .and_then(|value| value.get("lifecycleAttemptIds"))
+        .and_then(|value| value.as_array())
+        .map(|items| items.len() >= 3)
+        .unwrap_or(false));
     assert!(dispatch
         .get("cognitionExecutionAttemptIds")
         .and_then(|value| value.as_array())

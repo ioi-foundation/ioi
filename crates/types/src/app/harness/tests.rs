@@ -871,6 +871,33 @@ fn worker_attach_resolver_blocks_invalid_and_accepts_bound_registry() {
     assert!(lifecycle
         .iter()
         .all(|event| event.workflow_node_id == "harness.handoff_bridge"));
+    let session_record =
+        default_harness_worker_session_record(&record, &lifecycle, "runtime-session-default");
+    assert!(session_record.accepted);
+    assert_eq!(
+        session_record.current_status,
+        HarnessWorkerSessionStatus::RollbackReady
+    );
+    assert_eq!(session_record.session_id, "runtime-session-default");
+    assert_eq!(session_record.workflow_id, record.workflow_id);
+    assert_eq!(session_record.activation_id, record.activation_id);
+    assert_eq!(session_record.registry_record_id, record.registry_record_id);
+    assert!(session_record.resumed);
+    assert!(session_record.rollback_available);
+    assert!(session_record.rollback_target_ready);
+    assert!(session_record.blockers.is_empty());
+    assert_eq!(session_record.lifecycle_event_ids.len(), 3);
+    assert_eq!(session_record.lifecycle_attempt_ids.len(), 3);
+    assert_eq!(session_record.receipt_ids.len(), 3);
+    assert!(session_record
+        .lifecycle_statuses
+        .contains(&HarnessWorkerAttachStatus::Bound));
+    assert!(session_record
+        .lifecycle_statuses
+        .contains(&HarnessWorkerAttachStatus::Resumed));
+    assert!(session_record
+        .lifecycle_statuses
+        .contains(&HarnessWorkerAttachStatus::RolledBack));
 }
 
 #[test]

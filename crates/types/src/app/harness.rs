@@ -923,6 +923,62 @@ pub struct HarnessWorkerAttachLifecycleEvent {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
+pub enum HarnessWorkerSessionStatus {
+    Attached,
+    Resumed,
+    RollbackReady,
+    RolledBack,
+    Blocked,
+}
+
+impl HarnessWorkerSessionStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Attached => "attached",
+            Self::Resumed => "resumed",
+            Self::RollbackReady => "rollback_ready",
+            Self::RolledBack => "rolled_back",
+            Self::Blocked => "blocked",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct HarnessWorkerSessionRecord {
+    pub schema_version: String,
+    pub session_record_id: String,
+    pub session_id: String,
+    pub worker_id: String,
+    pub workflow_id: String,
+    pub activation_id: String,
+    pub activation_hash: String,
+    pub harness_hash: String,
+    pub component_version_set: Vec<HarnessComponentVersionBinding>,
+    pub rollback_target: String,
+    pub readiness_proof_id: String,
+    pub registry_record_id: String,
+    pub current_status: HarnessWorkerSessionStatus,
+    pub current_event_id: Option<String>,
+    pub current_attempt_id: Option<String>,
+    pub current_receipt_id: Option<String>,
+    pub attach_event_id: Option<String>,
+    pub resume_event_id: Option<String>,
+    pub rollback_event_id: Option<String>,
+    pub lifecycle_event_ids: Vec<String>,
+    pub lifecycle_attempt_ids: Vec<String>,
+    pub receipt_ids: Vec<String>,
+    pub lifecycle_statuses: Vec<HarnessWorkerAttachStatus>,
+    pub resumed: bool,
+    pub rollback_available: bool,
+    pub rollback_target_ready: bool,
+    pub accepted: bool,
+    pub blockers: Vec<String>,
+    pub policy_decision: String,
+    pub evidence_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Hash)]
+#[serde(rename_all = "snake_case")]
 pub enum HarnessLiveHandoffSelector {
     LegacyRuntime,
     BlessedWorkflowGated,
@@ -2446,6 +2502,159 @@ pub fn default_harness_worker_attach_lifecycle_events(
         }
     })
     .collect()
+}
+
+pub fn default_harness_worker_session_record(
+    record: &HarnessWorkerBindingRegistryRecord,
+    lifecycle: &[HarnessWorkerAttachLifecycleEvent],
+    session_id: impl AsRef<str>,
+) -> HarnessWorkerSessionRecord {
+    let session_id = session_id.as_ref().to_string();
+    let attach_event = lifecycle
+        .iter()
+        .find(|event| event.phase == HarnessWorkerAttachLifecyclePhase::Attach);
+    let resume_event = lifecycle
+        .iter()
+        .find(|event| event.phase == HarnessWorkerAttachLifecyclePhase::Resume);
+    let rollback_event = lifecycle
+        .iter()
+        .find(|event| event.phase == HarnessWorkerAttachLifecyclePhase::Rollback);
+    let mut blockers = Vec::<String>::new();
+    if lifecycle.len() < 3 {
+        blockers.push("worker_session_lifecycle_incomplete".to_string());
+    }
+    if attach_event.map(|event| {
+        event.accepted
+            && event.blockers.is_empty()
+            && event.attach_status == HarnessWorkerAttachStatus::Bound
+    }) != Some(true)
+    {
+        blockers.push("worker_session_attach_not_bound".to_string());
+    }
+    if resume_event.map(|event| {
+        event.accepted
+            && event.blockers.is_empty()
+            && event.attach_status == HarnessWorkerAttachStatus::Resumed
+    }) != Some(true)
+    {
+        blockers.push("worker_session_resume_not_resolved".to_string());
+    }
+    if rollback_event.map(|event| {
+        event.accepted
+            && event.blockers.is_empty()
+            && event.attach_status == HarnessWorkerAttachStatus::RolledBack
+            && event.rollback_available
+    }) != Some(true)
+    {
+        blockers.push("worker_session_rollback_not_ready".to_string());
+    }
+    for event in lifecycle {
+        if event.registry_record_id != record.registry_record_id {
+            blockers.push("worker_session_registry_record_mismatch".to_string());
+        }
+        if !event.accepted {
+            blockers.push("worker_session_lifecycle_event_blocked".to_string());
+        }
+        blockers.extend(event.blockers.iter().cloned());
+    }
+    blockers.sort();
+    blockers.dedup();
+
+    let accepted = blockers.is_empty();
+    let resumed = resume_event
+        .map(|event| event.accepted && event.attach_status == HarnessWorkerAttachStatus::Resumed)
+        .unwrap_or(false);
+    let rollback_available = rollback_event
+        .map(|event| event.accepted && event.rollback_available)
+        .unwrap_or(false);
+    let rollback_target_ready = rollback_available && record.rollback_target.trim().len() > 0;
+    let current_status = if !accepted {
+        HarnessWorkerSessionStatus::Blocked
+    } else if rollback_target_ready {
+        HarnessWorkerSessionStatus::RollbackReady
+    } else if resumed {
+        HarnessWorkerSessionStatus::Resumed
+    } else {
+        HarnessWorkerSessionStatus::Attached
+    };
+    let current_event = if rollback_target_ready {
+        rollback_event
+    } else if resumed {
+        resume_event
+    } else {
+        attach_event
+    };
+    let worker_id = attach_event
+        .or_else(|| lifecycle.first())
+        .map(|event| event.receipt.worker_id.clone())
+        .unwrap_or_else(|| {
+            default_harness_worker_attach_request(record, HarnessWorkerAttachStatus::Bound)
+                .worker_id
+        });
+    let lifecycle_event_ids = lifecycle
+        .iter()
+        .map(|event| event.event_id.clone())
+        .collect::<Vec<_>>();
+    let lifecycle_attempt_ids = lifecycle
+        .iter()
+        .map(|event| event.attempt_id.clone())
+        .collect::<Vec<_>>();
+    let receipt_ids = lifecycle
+        .iter()
+        .map(|event| event.receipt_id.clone())
+        .collect::<Vec<_>>();
+    let lifecycle_statuses = lifecycle
+        .iter()
+        .map(|event| event.attach_status)
+        .collect::<Vec<_>>();
+    let mut evidence_refs = vec![
+        record.registry_record_id.clone(),
+        record.readiness_proof_id.clone(),
+    ];
+    evidence_refs.extend(lifecycle_event_ids.iter().cloned());
+    evidence_refs.extend(receipt_ids.iter().cloned());
+    evidence_refs.sort();
+    evidence_refs.dedup();
+
+    HarnessWorkerSessionRecord {
+        schema_version: "workflow.harness.worker-session.v1".to_string(),
+        session_record_id: format!(
+            "harness-worker-session:{}:{}:{}:{}:{}",
+            record.workflow_id, record.activation_id, record.activation_hash, worker_id, session_id
+        ),
+        session_id,
+        worker_id,
+        workflow_id: record.workflow_id.clone(),
+        activation_id: record.activation_id.clone(),
+        activation_hash: record.activation_hash.clone(),
+        harness_hash: record.harness_hash.clone(),
+        component_version_set: record.component_version_set.clone(),
+        rollback_target: record.rollback_target.clone(),
+        readiness_proof_id: record.readiness_proof_id.clone(),
+        registry_record_id: record.registry_record_id.clone(),
+        current_status,
+        current_event_id: current_event.map(|event| event.event_id.clone()),
+        current_attempt_id: current_event.map(|event| event.attempt_id.clone()),
+        current_receipt_id: current_event.map(|event| event.receipt_id.clone()),
+        attach_event_id: attach_event.map(|event| event.event_id.clone()),
+        resume_event_id: resume_event.map(|event| event.event_id.clone()),
+        rollback_event_id: rollback_event.map(|event| event.event_id.clone()),
+        lifecycle_event_ids,
+        lifecycle_attempt_ids,
+        receipt_ids,
+        lifecycle_statuses,
+        resumed,
+        rollback_available,
+        rollback_target_ready,
+        accepted,
+        blockers,
+        policy_decision: if accepted {
+            "allow_harness_worker_session".to_string()
+        } else {
+            "block_harness_worker_session".to_string()
+        },
+        evidence_refs,
+    }
 }
 
 pub fn default_blessed_live_handoff_proof(

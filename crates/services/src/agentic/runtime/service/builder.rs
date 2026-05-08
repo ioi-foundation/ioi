@@ -15,11 +15,12 @@ use ioi_drivers::os::NativeOsDriver;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_memory::MemoryRuntime;
 use ioi_types::app::{
-    default_harness_worker_attach_request, default_harness_worker_binding,
-    default_harness_worker_binding_registry_record, resolve_harness_worker_binding,
+    default_harness_worker_attach_lifecycle_events, default_harness_worker_attach_request,
+    default_harness_worker_binding, default_harness_worker_binding_registry_record,
+    default_harness_worker_session_record, resolve_harness_worker_binding,
     validate_harness_worker_binding, validate_harness_worker_binding_registry_record,
     HarnessWorkerAttachReceipt, HarnessWorkerAttachStatus, HarnessWorkerBinding,
-    HarnessWorkerBindingRegistryRecord, KernelEvent,
+    HarnessWorkerBindingRegistryRecord, HarnessWorkerSessionRecord, KernelEvent,
 };
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -35,12 +36,19 @@ fn shield_policy_path_from_env() -> Option<PathBuf> {
 fn default_worker_attach_state() -> (
     HarnessWorkerBindingRegistryRecord,
     HarnessWorkerAttachReceipt,
+    HarnessWorkerSessionRecord,
 ) {
     let registry_record = default_harness_worker_binding_registry_record();
     let attach_request =
         default_harness_worker_attach_request(&registry_record, HarnessWorkerAttachStatus::Unbound);
     let attach_receipt = resolve_harness_worker_binding(&registry_record, &attach_request);
-    (registry_record, attach_receipt)
+    let lifecycle = default_harness_worker_attach_lifecycle_events(&registry_record);
+    let session_record = default_harness_worker_session_record(
+        &registry_record,
+        &lifecycle,
+        "runtime-agent-service",
+    );
+    (registry_record, attach_receipt, session_record)
 }
 
 impl RuntimeAgentService {
@@ -62,8 +70,11 @@ impl RuntimeAgentService {
         // [FIX] Wrap in Arc to share with Executor
         let lens_registry_arc = Arc::new(lens_registry);
 
-        let (harness_worker_binding_registry_record, harness_worker_attach_receipt) =
-            default_worker_attach_state();
+        let (
+            harness_worker_binding_registry_record,
+            harness_worker_attach_receipt,
+            harness_worker_session_record,
+        ) = default_worker_attach_state();
 
         Self {
             gui,
@@ -89,6 +100,7 @@ impl RuntimeAgentService {
             harness_worker_binding: default_harness_worker_binding(),
             harness_worker_binding_registry_record,
             harness_worker_attach_receipt,
+            harness_worker_session_record,
         }
     }
 
@@ -111,8 +123,11 @@ impl RuntimeAgentService {
         // [FIX] Wrap in Arc to share with Executor
         let lens_registry_arc = Arc::new(lens_registry);
 
-        let (harness_worker_binding_registry_record, harness_worker_attach_receipt) =
-            default_worker_attach_state();
+        let (
+            harness_worker_binding_registry_record,
+            harness_worker_attach_receipt,
+            harness_worker_session_record,
+        ) = default_worker_attach_state();
 
         Self {
             gui,
@@ -138,6 +153,7 @@ impl RuntimeAgentService {
             harness_worker_binding: default_harness_worker_binding(),
             harness_worker_binding_registry_record,
             harness_worker_attach_receipt,
+            harness_worker_session_record,
         }
     }
 
@@ -199,9 +215,17 @@ impl RuntimeAgentService {
             attach_receipt.accepted,
             "harness worker attach must resolve to an accepted live binding"
         );
+        let lifecycle = default_harness_worker_attach_lifecycle_events(&record);
+        let session_record =
+            default_harness_worker_session_record(&record, &lifecycle, "runtime-agent-service");
+        assert!(
+            session_record.accepted,
+            "harness worker session must resolve attach, resume, and rollback readiness"
+        );
         self.harness_worker_binding = attach_receipt.worker_binding.clone();
         self.harness_worker_binding_registry_record = record;
         self.harness_worker_attach_receipt = attach_receipt;
+        self.harness_worker_session_record = session_record;
         self
     }
 

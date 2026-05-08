@@ -41,6 +41,7 @@ use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::mcp::McpManager;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_memory::MemoryRuntime;
+use ioi_types::app::HarnessWorkerSessionRecord;
 use ioi_types::app::{AccountId, ChainId};
 use ioi_types::app::{
     HarnessExecutionMode, HarnessWorkerAttachReceipt, HarnessWorkerBinding,
@@ -129,6 +130,8 @@ pub struct RuntimeAgentService {
     pub(crate) harness_worker_binding_registry_record: HarnessWorkerBindingRegistryRecord,
     /// Last durable worker attach receipt resolved from the registry.
     pub(crate) harness_worker_attach_receipt: HarnessWorkerAttachReceipt,
+    /// Durable worker session record keyed by workflow activation and runtime session.
+    pub(crate) harness_worker_session_record: HarnessWorkerSessionRecord,
 }
 
 /// Snapshot of the active transaction context used by action execution helpers.
@@ -247,6 +250,10 @@ impl RuntimeAgentService {
 
     pub fn harness_worker_attach_receipt(&self) -> &HarnessWorkerAttachReceipt {
         &self.harness_worker_attach_receipt
+    }
+
+    pub fn harness_worker_session_record(&self) -> &HarnessWorkerSessionRecord {
+        &self.harness_worker_session_record
     }
 
     pub fn harness_execution_mode(&self) -> HarnessExecutionMode {

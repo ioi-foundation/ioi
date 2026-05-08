@@ -66,6 +66,10 @@ test("TS harness component and mode unions match Rust canonical contract", () =>
     tsUnionValues(graph, "WorkflowHarnessLiveHandoffSelector"),
     rustAsStrValues(rust, "HarnessLiveHandoffSelector"),
   );
+  assert.deepEqual(
+    tsUnionValues(graph, "WorkflowHarnessWorkerSessionStatus"),
+    rustAsStrValues(rust, "HarnessWorkerSessionStatus"),
+  );
 });
 
 test("TS harness projection carries canonical mode, readiness, replay, clusters, and prompt assembler", () => {
@@ -245,6 +249,15 @@ test("TS harness fork activation contract records blocked and canary-validated p
     /WorkflowHarnessDefaultRuntimeDispatchProof[\s\S]*workerAttachLifecycle: WorkflowHarnessWorkerAttachLifecycleEvent\[\]/,
   );
   assert.match(graph, /WorkflowHarnessWorkerAttachLifecycleEvent/);
+  assert.match(graph, /WorkflowHarnessWorkerSessionRecord/);
+  assert.match(
+    graph,
+    /WorkflowHarnessWorkerSessionRecord[\s\S]*sessionRecordId: string[\s\S]*sessionId: string[\s\S]*workerId: string[\s\S]*currentStatus: WorkflowHarnessWorkerSessionStatus[\s\S]*rollbackTargetReady: boolean[\s\S]*accepted: boolean/,
+  );
+  assert.match(
+    graph,
+    /WorkflowHarnessDefaultRuntimeDispatchProof[\s\S]*workerSessionRecord: WorkflowHarnessWorkerSessionRecord/,
+  );
   assert.match(graph, /WorkflowHarnessCanaryExecutionBoundary/);
   assert.match(
     graph,
@@ -403,6 +416,9 @@ test("TS harness fork activation contract records blocked and canary-validated p
     /workerAttachLifecycleComplete/,
     /workerAttachLifecycleStatuses/,
     /workerAttachLifecycleAttemptIds/,
+    /workerSessionRecordBound/,
+    /workerSessionRecord/,
+    /workerSessionStatus/,
     /livePromotionReadinessProofIdsMatch/,
     /invalidForkLiveActivationBlocked/,
     /activeWorkerBinding:/,

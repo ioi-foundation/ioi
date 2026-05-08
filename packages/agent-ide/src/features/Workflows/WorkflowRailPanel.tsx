@@ -35,6 +35,7 @@ import {
   workflowHarnessPromotionTransitionEligibility,
   workflowHarnessWorkerAttachBlockers,
   workflowHarnessWorkerAttachLifecycleComplete,
+  workflowHarnessWorkerSessionBlockers,
   workflowHarnessWorkerBinding,
   workflowHarnessWorkerBindingRegistryBlockers,
   workflowIsBlessedHarness,
@@ -652,6 +653,14 @@ export function WorkflowRailPanel({
           const workerAttachLifecycleAttemptIds = workerAttachLifecycle.map(
             (event) => event.attemptId,
           );
+          const workerSessionRecord =
+            harnessDefaultRuntimeDispatchProof.workerSessionRecord ??
+            harnessActivationRecord?.workerSessionRecord ??
+            workflow.metadata.harness?.workerSessionRecord ??
+            null;
+          const workerSessionBlockers =
+            workflowHarnessWorkerSessionBlockers(workerSessionRecord);
+          const workerSessionAccepted = workerSessionBlockers.length === 0;
           const workerAttachBlockers =
             workflowHarnessWorkerAttachBlockers(workerAttachReceipt);
           const workerAttachAccepted =
@@ -709,8 +718,10 @@ export function WorkflowRailPanel({
             ...(workerAttachLifecycleComplete
               ? []
               : ["worker_attach_lifecycle_incomplete"]),
+            ...(workerSessionAccepted ? [] : ["worker_session_not_ready"]),
             ...workerBindingRegistryBlockers,
             ...workerAttachBlockers,
+            ...workerSessionBlockers,
           ];
           const workerBindingAuthorityReady =
             workerBindingAuthorityBlockers.length === 0;
@@ -769,6 +780,13 @@ export function WorkflowRailPanel({
             workerAttachLifecycleComplete,
             workerAttachLifecycleStatuses,
             workerAttachLifecycleAttemptIds,
+            workerSessionRecord,
+            workerSessionAccepted,
+            workerSessionStatus:
+              workerSessionRecord?.currentStatus ?? "missing",
+            workerSessionRecordId:
+              workerSessionRecord?.sessionRecordId ?? "missing",
+            workerSessionBlockers,
             workerAttachAccepted,
             workerAttachStatus: workerAttachReceipt?.attachStatus ?? "missing",
             workerAttachBlockers,
@@ -3044,6 +3062,10 @@ export function WorkflowRailPanel({
                         : "blocked"}
                     </dd>
                   </div>
+                  <div>
+                    <dt>Worker</dt>
+                    <dd>{harnessActiveRuntimeBinding.workerSessionStatus}</dd>
+                  </div>
                 </dl>
                 <article
                   className={`workflow-output-row is-${
@@ -3103,6 +3125,29 @@ export function WorkflowRailPanel({
                   data-worker-attach-lifecycle-attempt-ids={harnessActiveRuntimeBinding.workerAttachLifecycleAttemptIds.join(
                     ",",
                   )}
+                  data-worker-session-record-id={
+                    harnessActiveRuntimeBinding.workerSessionRecordId
+                  }
+                  data-worker-session-status={
+                    harnessActiveRuntimeBinding.workerSessionStatus
+                  }
+                  data-worker-session-accepted={
+                    harnessActiveRuntimeBinding.workerSessionAccepted
+                      ? "true"
+                      : "false"
+                  }
+                  data-worker-session-worker-id={
+                    harnessActiveRuntimeBinding.workerSessionRecord?.workerId ??
+                    ""
+                  }
+                  data-worker-session-rollback-target={
+                    harnessActiveRuntimeBinding.workerSessionRecord
+                      ?.rollbackTarget ?? ""
+                  }
+                  data-worker-session-current-attempt-id={
+                    harnessActiveRuntimeBinding.workerSessionRecord
+                      ?.currentAttemptId ?? ""
+                  }
                 >
                   <strong>{harnessActiveRuntimeBinding.activationId}</strong>
                   <span>
@@ -3136,6 +3181,11 @@ export function WorkflowRailPanel({
                     {harnessActiveRuntimeBinding.workerAttachLifecycleStatuses.join(
                       " / ",
                     ) || "missing"}
+                  </small>
+                  <small>
+                    worker session{" "}
+                    {harnessActiveRuntimeBinding.workerSessionRecord
+                      ?.sessionRecordId ?? "missing"}
                   </small>
                 </article>
                 <div
@@ -4769,6 +4819,14 @@ export function WorkflowRailPanel({
                   harnessDefaultRuntimeDispatchProof.workerAttachLifecycleStatuses ??
                   []
                 ).join(",")}
+                data-worker-session-record-id={
+                  harnessDefaultRuntimeDispatchProof.workerSessionRecord
+                    ?.sessionRecordId ?? ""
+                }
+                data-worker-session-status={
+                  harnessDefaultRuntimeDispatchProof.workerSessionRecord
+                    ?.currentStatus ?? ""
+                }
               >
                 <strong>
                   {harnessDefaultRuntimeDispatchProof.selectedSelector}
@@ -4792,6 +4850,11 @@ export function WorkflowRailPanel({
                     harnessDefaultRuntimeDispatchProof.workerAttachLifecycleStatuses ??
                     []
                   ).join(" / ") || "missing"}
+                </small>
+                <small>
+                  worker session{" "}
+                  {harnessDefaultRuntimeDispatchProof.workerSessionRecord
+                    ?.currentStatus ?? "missing"}
                 </small>
               </article>
             ) : null}

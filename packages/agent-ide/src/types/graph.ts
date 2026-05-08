@@ -1261,6 +1261,7 @@ export interface WorkflowHarnessForkActivationRecord {
   workerBindingRegistryRecord?: WorkflowHarnessWorkerBindingRegistryRecord;
   workerAttachReceipt?: WorkflowHarnessWorkerAttachReceipt;
   workerAttachLifecycle?: WorkflowHarnessWorkerAttachLifecycleEvent[];
+  workerSessionRecord?: WorkflowHarnessWorkerSessionRecord;
   revisionBinding?: WorkflowRevisionBinding;
   rollbackRevisionBinding?: WorkflowRevisionBinding;
   rollbackRestoreCanary?: WorkflowHarnessRollbackRestoreCanary;
@@ -1851,6 +1852,7 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   workerAttachLifecycleAttemptIds: string[];
   workerAttachLifecycleStatuses: WorkflowHarnessWorkerAttachStatus[];
   workerAttachLifecycleComplete: boolean;
+  workerSessionRecord: WorkflowHarnessWorkerSessionRecord;
   modelExecutionProof?: Record<string, unknown>;
   outputAuthority: "existing_runtime_service" | string;
   outputWriterDeferred: boolean;
@@ -2454,6 +2456,7 @@ export interface WorkflowHarnessMetadata {
   workerBindingRegistryRecord?: WorkflowHarnessWorkerBindingRegistryRecord;
   workerAttachReceipt?: WorkflowHarnessWorkerAttachReceipt;
   workerAttachLifecycle?: WorkflowHarnessWorkerAttachLifecycleEvent[];
+  workerSessionRecord?: WorkflowHarnessWorkerSessionRecord;
   deepLinkReplayProof?: WorkflowHarnessDeepLinkReplayProof;
   coldStartDeepLinkRestoreProof?: WorkflowHarnessColdStartDeepLinkRestoreProof;
   activationBlockerDeepLinkProof?: WorkflowHarnessDeepLinkReplayProof;
@@ -2580,6 +2583,48 @@ export interface WorkflowHarnessWorkerAttachLifecycleEvent {
   rollbackAvailable: boolean;
   policyDecision: string;
   blockers: string[];
+  evidenceRefs: string[];
+  createdAtMs?: number;
+}
+
+export type WorkflowHarnessWorkerSessionStatus =
+  | "attached"
+  | "resumed"
+  | "rollback_ready"
+  | "rolled_back"
+  | "blocked"
+  | string;
+
+export interface WorkflowHarnessWorkerSessionRecord {
+  schemaVersion: "workflow.harness.worker-session.v1" | string;
+  sessionRecordId: string;
+  sessionId: string;
+  workerId: string;
+  workflowId: string;
+  activationId: string;
+  activationHash: string;
+  harnessHash: string;
+  componentVersionSet: Record<string, string>;
+  rollbackTarget: string;
+  readinessProofId: string;
+  registryRecordId: string;
+  currentStatus: WorkflowHarnessWorkerSessionStatus;
+  currentEventId?: string;
+  currentAttemptId?: string;
+  currentReceiptId?: string;
+  attachEventId?: string;
+  resumeEventId?: string;
+  rollbackEventId?: string;
+  lifecycleEventIds: string[];
+  lifecycleAttemptIds: string[];
+  receiptIds: string[];
+  lifecycleStatuses: WorkflowHarnessWorkerAttachStatus[];
+  resumed: boolean;
+  rollbackAvailable: boolean;
+  rollbackTargetReady: boolean;
+  accepted: boolean;
+  blockers: string[];
+  policyDecision: string;
   evidenceRefs: string[];
   createdAtMs?: number;
 }
