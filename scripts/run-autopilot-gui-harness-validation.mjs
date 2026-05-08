@@ -1820,11 +1820,20 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /workflow-harness-activation-gate-summary/.test(rail) &&
       /workflow-harness-activation-gate-evidence-refs/.test(rail) &&
       /data-evidence-ref-count/.test(rail) &&
+      /data-selected-activation-gate-evidence-ref/.test(rail) &&
+      /data-selected-activation-gate-receipt-ref/.test(rail) &&
+      /data-selected-activation-gate-replay-fixture-ref/.test(rail) &&
+      /data-activation-gate-evidence-ref/.test(rail) &&
+      /data-activation-gate-receipt-ref/.test(rail) &&
+      /data-activation-gate-replay-fixture-ref/.test(rail) &&
       /workflow-harness-activation-gate-receipt-refs/.test(rail) &&
       /workflow-harness-activation-gate-replay-refs/.test(rail) &&
       /selectedRailTestId: "workflow-harness-activation-gate-inspector"/.test(
         controller,
       ) &&
+      /activationGateEvidenceRef/.test(controller) &&
+      /activationGateReceiptRef/.test(controller) &&
+      /activationGateReplayFixtureRef/.test(controller) &&
       /WorkflowHarnessActivationCandidateGateResult[\s\S]*evidenceRefs: string\[\]/.test(
         graph,
       ) &&
@@ -2166,6 +2175,10 @@ function buildGuiEvidenceAssessment({
       ?.activationGateEvidenceInspector === true &&
     promotionTransitionLiveGuiInteractionProof?.proof?.checks
       ?.activationGateEvidenceInspectable === true;
+  const hasHarnessActivationGateReferenceDeepLinkRestore =
+    hasHarnessActivationGateEvidenceInspector &&
+    promotionTransitionLiveGuiInteractionProof?.proof?.checks
+      ?.routeStatefulActivationGateReferenceDeepLinks === true;
   const hasHarnessCanaryExecutionBoundary =
     hasHarnessRollbackRestoreCanary &&
     summary.harnessCanaryBoundaryExecutedCount > 0 &&
@@ -2325,6 +2338,8 @@ function buildGuiEvidenceAssessment({
         hasHarnessActivationGateDeepLinkRestore,
       harness_activation_gate_evidence_inspector_present:
         hasHarnessActivationGateEvidenceInspector,
+      harness_activation_gate_ref_deep_link_restore_present:
+        hasHarnessActivationGateReferenceDeepLinkRestore,
       harness_canary_execution_boundary_present: hasHarnessCanaryExecutionBoundary,
       harness_live_handoff_present: hasHarnessLiveHandoff,
       harness_selector_default_promoted: hasHarnessSelectorRouting,
@@ -2863,10 +2878,30 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
       activationGateDeepLinkProof?.cases?.find(
         (replayCase) => replayCase.id === "activation-gate",
       ) ?? null;
+    const activationGateEvidenceDeepLinkCase =
+      activationGateDeepLinkProof?.cases?.find(
+        (replayCase) => replayCase.id === "activation-gate-evidence",
+      ) ?? null;
+    const activationGateReceiptDeepLinkCase =
+      activationGateDeepLinkProof?.cases?.find(
+        (replayCase) => replayCase.id === "activation-gate-receipt",
+      ) ?? null;
+    const activationGateReplayDeepLinkCase =
+      activationGateDeepLinkProof?.cases?.find(
+        (replayCase) => replayCase.id === "activation-gate-replay",
+      ) ?? null;
     const activationGateEvidenceRefCount = Number(
       activationGateDeepLinkCase?.observedSelectedState?.["data-evidence-ref-count"] ??
         0,
     );
+    const activationGateReferenceDeepLinkRestored = (replayCase, paramName, stateName) =>
+      replayCase?.passed === true &&
+      typeof replayCase.hash === "string" &&
+      replayCase.hash.includes(`${paramName}=`) &&
+      replayCase.historyMatches === true &&
+      replayCase.parsedMatches === true &&
+      replayCase.observedValue === replayCase.expectedValue &&
+      replayCase.observedSelectedState?.[stateName] === replayCase.expectedValue;
     const routeStatefulDeepLinks = {
       selector: selector?.decisionId
         ? `#harness-workbench?${new URLSearchParams({
@@ -2917,6 +2952,12 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
         )?.hash ?? null,
       activationGate:
         activationGateDeepLinkCase?.hash ?? null,
+      activationGateEvidence:
+        activationGateEvidenceDeepLinkCase?.hash ?? null,
+      activationGateReceipt:
+        activationGateReceiptDeepLinkCase?.hash ?? null,
+      activationGateReplay:
+        activationGateReplayDeepLinkCase?.hash ?? null,
       activationAudit: audit[0]?.eventId
         ? `#harness-workbench?${new URLSearchParams({
             panel: "settings",
@@ -3013,6 +3054,23 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
       routeStatefulActivationGateDeepLink:
         activationGateDeepLinkProof?.passed === true &&
         routeStatefulDeepLinks.activationGate?.includes("activationGateId="),
+      routeStatefulActivationGateReferenceDeepLinks:
+        activationGateDeepLinkProof?.passed === true &&
+        activationGateReferenceDeepLinkRestored(
+          activationGateEvidenceDeepLinkCase,
+          "activationGateEvidenceRef",
+          "data-selected-activation-gate-evidence-ref",
+        ) &&
+        activationGateReferenceDeepLinkRestored(
+          activationGateReceiptDeepLinkCase,
+          "activationGateReceiptRef",
+          "data-selected-activation-gate-receipt-ref",
+        ) &&
+        activationGateReferenceDeepLinkRestored(
+          activationGateReplayDeepLinkCase,
+          "activationGateReplayFixtureRef",
+          "data-selected-activation-gate-replay-fixture-ref",
+        ),
       activationGateEvidenceInspectable:
         activationGateDeepLinkProof?.passed === true &&
         activationGateDeepLinkCase?.selectedRailTestId ===
@@ -3157,6 +3215,23 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
                 "data-replay-fixture-ref-count"
               ] ?? 0,
             ),
+            selectedEvidenceRef:
+              activationGateEvidenceDeepLinkCase?.observedSelectedState?.[
+                "data-selected-activation-gate-evidence-ref"
+              ] ?? null,
+            selectedReceiptRef:
+              activationGateReceiptDeepLinkCase?.observedSelectedState?.[
+                "data-selected-activation-gate-receipt-ref"
+              ] ?? null,
+            selectedReplayFixtureRef:
+              activationGateReplayDeepLinkCase?.observedSelectedState?.[
+                "data-selected-activation-gate-replay-fixture-ref"
+              ] ?? null,
+            referenceDeepLinks: {
+              evidence: activationGateEvidenceDeepLinkCase?.hash ?? null,
+              receipt: activationGateReceiptDeepLinkCase?.hash ?? null,
+              replay: activationGateReplayDeepLinkCase?.hash ?? null,
+            },
           }
         : null,
       sourceRefs: [
@@ -3379,6 +3454,11 @@ async function runGuiValidation(args, outputRoot) {
             ?.activationGateEvidenceInspector === true &&
           promotionTransitionLiveGuiInteractionProof.proof.checks
             ?.activationGateEvidenceInspectable === true
+            ? promotionTransitionLiveGuiInteractionProof.path
+            : false,
+        harness_activation_gate_ref_deep_link_restore:
+          promotionTransitionLiveGuiInteractionProof.proof.checks
+            ?.routeStatefulActivationGateReferenceDeepLinks === true
             ? promotionTransitionLiveGuiInteractionProof.path
             : false,
         harness_canary_execution_boundary:
