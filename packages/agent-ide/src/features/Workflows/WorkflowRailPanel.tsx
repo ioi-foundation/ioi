@@ -23,6 +23,7 @@ import type {
   WorkflowValidationIssue,
   WorkflowTestRunResult,
   WorkflowValidationResult,
+  WorkflowRevisionBinding,
 } from "../../types/graph";
 import { workflowInterruptPreview } from "../../runtime/workflow-bottom-panel-model";
 import {
@@ -129,7 +130,20 @@ type WorkflowHarnessWorkbenchDeepLinkTarget = {
   receiptRef?: string;
   replayFixtureRef?: string;
   rollbackTarget?: string;
+  revisionBindingKind?: "current" | "candidate" | "rollback" | string;
+  revisionBindingRef?: string;
 };
+
+function workflowRevisionBindingDeepLinkRef(
+  binding: WorkflowRevisionBinding | null | undefined,
+): string | null {
+  return (
+    binding?.activatedRevision ??
+    binding?.workflowContentHash ??
+    binding?.activationId ??
+    null
+  );
+}
 
 export function WorkflowRailPanel({
   panel,
@@ -143,6 +157,8 @@ export function WorkflowRailPanel({
   selectedHarnessSelectorDecisionId,
   selectedHarnessDefaultDispatchId,
   selectedHarnessWorkerBindingId,
+  selectedHarnessRevisionBindingKind,
+  selectedHarnessRevisionBindingRef,
   tests,
   proposals,
   runs,
@@ -204,6 +220,8 @@ export function WorkflowRailPanel({
   selectedHarnessSelectorDecisionId?: string | null;
   selectedHarnessDefaultDispatchId?: string | null;
   selectedHarnessWorkerBindingId?: string | null;
+  selectedHarnessRevisionBindingKind?: string | null;
+  selectedHarnessRevisionBindingRef?: string | null;
   tests: WorkflowTestCase[];
   proposals: WorkflowProposal[];
   runs: WorkflowRunSummary[];
@@ -333,6 +351,12 @@ export function WorkflowRailPanel({
     harnessActivationRollbackProof?.restoredRevisionBinding ??
     harnessActivationRecord?.rollbackRevisionBinding ??
     null;
+  const harnessRevisionBindingRef =
+    workflowRevisionBindingDeepLinkRef(harnessRevisionBinding);
+  const harnessCandidateRevisionBindingRef =
+    workflowRevisionBindingDeepLinkRef(harnessCandidateRevisionBinding);
+  const harnessRollbackRevisionBindingRef =
+    workflowRevisionBindingDeepLinkRef(harnessRollbackRevisionBinding);
   const harnessLiveHandoffProof = workflow.metadata.harness?.liveHandoffProof;
   const harnessRuntimeSelectorDecision = workflow.metadata.harness?.runtimeSelectorDecision;
   const harnessCanaryExecutionBoundary = workflow.metadata.harness?.canaryExecutionBoundary;
@@ -2217,14 +2241,39 @@ export function WorkflowRailPanel({
                 className="workflow-rail-section"
                 data-testid="workflow-harness-revision-binding"
                 data-revision-source={harnessRevisionBinding?.revisionSource ?? "unbound"}
+                data-current-revision-binding-ref={harnessRevisionBindingRef ?? ""}
+                data-candidate-revision-binding-ref={
+                  harnessCandidateRevisionBindingRef ?? ""
+                }
+                data-rollback-revision-binding-ref={
+                  harnessRollbackRevisionBindingRef ?? ""
+                }
+                data-selected-revision-binding-kind={
+                  selectedHarnessRevisionBindingKind ?? ""
+                }
+                data-selected-revision-binding-ref={
+                  selectedHarnessRevisionBindingRef ?? ""
+                }
               >
                 <h4>Source control posture</h4>
                 <div className="workflow-rail-list">
-                  <article
+                  <button
+                    type="button"
                     className={`workflow-output-row is-${
                       harnessRevisionBinding ? "ready" : "blocked"
                     }`}
                     data-testid="workflow-harness-revision-binding-current"
+                    data-revision-binding-kind="current"
+                    data-revision-binding-ref={harnessRevisionBindingRef ?? ""}
+                    disabled={!harnessRevisionBindingRef || !onCopyHarnessDeepLink}
+                    onClick={() =>
+                      harnessRevisionBindingRef &&
+                      onCopyHarnessDeepLink?.({
+                        panel: "settings",
+                        revisionBindingKind: "current",
+                        revisionBindingRef: harnessRevisionBindingRef,
+                      })
+                    }
                   >
                     <strong>{harnessRevisionBinding?.workflowPath ?? "workflow path pending"}</strong>
                     <span>
@@ -2236,12 +2285,24 @@ export function WorkflowRailPanel({
                         harnessRevisionBinding?.workflowContentHash ??
                         "content hash pending"}
                     </small>
-                  </article>
-                  <article
+                  </button>
+                  <button
+                    type="button"
                     className={`workflow-output-row is-${
                       harnessCandidateRevisionBinding ? "ready" : "blocked"
                     }`}
                     data-testid="workflow-harness-revision-binding-candidate"
+                    data-revision-binding-kind="candidate"
+                    data-revision-binding-ref={harnessCandidateRevisionBindingRef ?? ""}
+                    disabled={!harnessCandidateRevisionBindingRef || !onCopyHarnessDeepLink}
+                    onClick={() =>
+                      harnessCandidateRevisionBindingRef &&
+                      onCopyHarnessDeepLink?.({
+                        panel: "settings",
+                        revisionBindingKind: "candidate",
+                        revisionBindingRef: harnessCandidateRevisionBindingRef,
+                      })
+                    }
                   >
                     <strong>{harnessCandidateRevisionBinding?.activationId ?? "candidate pending"}</strong>
                     <span>
@@ -2249,12 +2310,24 @@ export function WorkflowRailPanel({
                       {harnessCandidateRevisionBinding?.workflowContentHash ?? "hash pending"}
                     </span>
                     <small>{harnessCandidateRevisionBinding?.workflowPath ?? "Run dry run binding"}</small>
-                  </article>
-                  <article
+                  </button>
+                  <button
+                    type="button"
                     className={`workflow-output-row is-${
                       harnessRollbackRevisionBinding ? "ready" : "blocked"
                     }`}
                     data-testid="workflow-harness-revision-binding-rollback"
+                    data-revision-binding-kind="rollback"
+                    data-revision-binding-ref={harnessRollbackRevisionBindingRef ?? ""}
+                    disabled={!harnessRollbackRevisionBindingRef || !onCopyHarnessDeepLink}
+                    onClick={() =>
+                      harnessRollbackRevisionBindingRef &&
+                      onCopyHarnessDeepLink?.({
+                        panel: "settings",
+                        revisionBindingKind: "rollback",
+                        revisionBindingRef: harnessRollbackRevisionBindingRef,
+                      })
+                    }
                   >
                     <strong>{harnessRollbackRevisionBinding?.activationId ?? harnessSelectedRollbackTarget}</strong>
                     <span>
@@ -2267,7 +2340,7 @@ export function WorkflowRailPanel({
                       {harnessRollbackRevisionBinding?.workflowPath ??
                         "Rollback target revision will appear after drill."}
                     </small>
-                  </article>
+                  </button>
                 </div>
               </section>
               {harnessForkWorkflow ? (
@@ -3795,6 +3868,8 @@ export function WorkflowRailPanel({
           data-selected-default-dispatch-id={selectedHarnessDefaultDispatchId ?? ""}
           data-selected-worker-binding-id={selectedHarnessWorkerBindingId ?? ""}
           data-selected-rollback-target={selectedHarnessRollbackTarget ?? ""}
+          data-selected-revision-binding-kind={selectedHarnessRevisionBindingKind ?? ""}
+          data-selected-revision-binding-ref={selectedHarnessRevisionBindingRef ?? ""}
         >
           <h4>Deep link</h4>
           <article className="workflow-output-row">
