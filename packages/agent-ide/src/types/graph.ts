@@ -1476,6 +1476,14 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   cognitionExecutionAdapterResults: WorkflowHarnessComponentAdapterResult[];
   cognitionExecutionActionFrameIds: string[];
   cognitionExecutionLiveReadyComponentKinds: WorkflowHarnessComponentKind[];
+  cognitionExecutionGateAdapterMode: "workflow_component_adapter_gated" | string;
+  cognitionExecutionGateAttemptIds: string[];
+  cognitionExecutionGateReceiptIds: string[];
+  cognitionExecutionGateReplayFixtureRefs: string[];
+  cognitionExecutionGateAdapterResults: WorkflowHarnessComponentAdapterResult[];
+  cognitionExecutionGateActionFrameIds: string[];
+  cognitionExecutionGateComponentKinds: WorkflowHarnessComponentKind[];
+  cognitionExecutionGateDivergenceClasses: WorkflowHarnessDivergenceClass[];
   modelExecutionAttemptIds: string[];
   modelExecutionReceiptIds: string[];
   modelExecutionReplayFixtureRefs: string[];

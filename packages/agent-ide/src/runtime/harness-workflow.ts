@@ -2121,7 +2121,7 @@ export function makeHarnessRuntimeSelectorDecision(options: {
   };
 }
 
-const DEFAULT_COGNITION_ADAPTER_COMPONENTS: Array<{
+const DEFAULT_COGNITION_LIVE_ADAPTER_COMPONENTS: Array<{
   kind: WorkflowHarnessComponentKind;
   attemptSlug: string;
   policyDecision: string;
@@ -2143,11 +2143,34 @@ const DEFAULT_COGNITION_ADAPTER_COMPONENTS: Array<{
   },
 ];
 
+const DEFAULT_COGNITION_GATE_ADAPTER_COMPONENTS: Array<{
+  kind: WorkflowHarnessComponentKind;
+  attemptSlug: string;
+  policyDecision: string;
+}> = [
+  {
+    kind: "uncertainty_gate",
+    attemptSlug: "uncertainty_gate_envelope",
+    policyDecision: "accept_workflow_uncertainty_gate_envelope",
+  },
+  {
+    kind: "budget_gate",
+    attemptSlug: "budget_gate_envelope",
+    policyDecision: "accept_workflow_budget_gate_envelope",
+  },
+  {
+    kind: "capability_sequencer",
+    attemptSlug: "capability_sequencer_envelope",
+    policyDecision: "accept_workflow_capability_sequence_envelope",
+  },
+];
+
 function makeDefaultCognitionAdapterResult(
   kind: WorkflowHarnessComponentKind,
   attemptSlug: string,
   policyDecision: string,
   attemptIndex: number,
+  executionMode: "live" | "gated",
 ): WorkflowHarnessComponentAdapterResult {
   const component = componentFor(kind);
   const replay = {
@@ -2158,7 +2181,7 @@ function makeDefaultCognitionAdapterResult(
     workflowId: DEFAULT_AGENT_HARNESS_WORKFLOW_ID,
     workflowVersion: DEFAULT_AGENT_HARNESS_VERSION,
     workflowHash: DEFAULT_AGENT_HARNESS_HASH,
-    executionMode: "live" as WorkflowHarnessExecutionMode,
+    executionMode: executionMode as WorkflowHarnessExecutionMode,
     nodeId: `harness.${kind}`,
     componentId: component.componentId,
     componentVersion: component.version,
@@ -2185,10 +2208,10 @@ function makeDefaultCognitionAdapterResult(
       workflowNodeId: actionFrame.nodeId,
       componentId: actionFrame.componentId,
       componentKind: kind,
-      executionMode: "live",
+      executionMode,
       readiness: component.readiness,
       attemptIndex,
-      status: "live",
+      status: executionMode,
       inputHash: `sha256:input-${attemptSlug}`,
       outputHash,
       policyDecision,
@@ -2205,12 +2228,25 @@ function makeDefaultCognitionAdapterResult(
 }
 
 function makeDefaultCognitionAdapterResults(): WorkflowHarnessComponentAdapterResult[] {
-  return DEFAULT_COGNITION_ADAPTER_COMPONENTS.map((component, index) =>
+  return DEFAULT_COGNITION_LIVE_ADAPTER_COMPONENTS.map((component, index) =>
     makeDefaultCognitionAdapterResult(
       component.kind,
       component.attemptSlug,
       component.policyDecision,
       index + 1,
+      "live",
+    ),
+  );
+}
+
+function makeDefaultCognitionGateAdapterResults(): WorkflowHarnessComponentAdapterResult[] {
+  return DEFAULT_COGNITION_GATE_ADAPTER_COMPONENTS.map((component, index) =>
+    makeDefaultCognitionAdapterResult(
+      component.kind,
+      component.attemptSlug,
+      component.policyDecision,
+      index + 4,
+      "gated",
     ),
   );
 }
@@ -2275,6 +2311,29 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
   const cognitionExecutionLiveReadyComponentKinds = cognitionExecutionAdapterResults.map(
     (result) => result.actionFrame.componentKind,
   );
+  const cognitionExecutionGateAdapterResults = makeDefaultCognitionGateAdapterResults();
+  const cognitionExecutionGateActionFrameIds = cognitionExecutionGateAdapterResults.map(
+    (result) => `${result.actionFrame.nodeId}:${result.actionFrame.componentId}`,
+  );
+  const cognitionExecutionGateComponentKinds = cognitionExecutionGateAdapterResults.map(
+    (result) => result.actionFrame.componentKind,
+  );
+  const cognitionExecutionGateAttemptIds = [
+    "harness-default-dispatch:attempt-uncertainty_gate_envelope",
+    "harness-default-dispatch:attempt-budget_gate_envelope",
+    "harness-default-dispatch:attempt-capability_sequencer_envelope",
+  ];
+  const cognitionExecutionGateReceiptIds = [
+    "harness-default-dispatch:receipt-uncertainty_gate_envelope",
+    "harness-default-dispatch:receipt-budget_gate_envelope",
+    "harness-default-dispatch:receipt-capability_sequencer_envelope",
+  ];
+  const cognitionExecutionGateReplayFixtureRefs = [
+    "harness-default-dispatch:fixture-uncertainty_gate_envelope",
+    "harness-default-dispatch:fixture-budget_gate_envelope",
+    "harness-default-dispatch:fixture-capability_sequencer_envelope",
+  ];
+  const cognitionExecutionGateDivergenceClasses = ["none" as const];
   const activationIdGateProofBlockers =
     (options.requireActivationIdGateClickProof ?? true)
       ? workflowHarnessActivationIdGateClickProofBlockers(
@@ -2431,6 +2490,7 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
         "harness-default-dispatch:attempt-planner_envelope",
         "harness-default-dispatch:attempt-prompt_assembler_envelope",
         "harness-default-dispatch:attempt-task_state_envelope",
+        ...cognitionExecutionGateAttemptIds,
         "harness-default-dispatch:attempt-model_router_envelope",
         "harness-default-dispatch:attempt-model_call_envelope",
         "harness-default-dispatch:attempt-model_provider_call_canary",
@@ -2459,21 +2519,32 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
       "harness-default-dispatch:attempt-planner_envelope",
       "harness-default-dispatch:attempt-prompt_assembler_envelope",
       "harness-default-dispatch:attempt-task_state_envelope",
+      ...cognitionExecutionGateAttemptIds,
     ],
     cognitionExecutionReceiptIds: [
       "harness-default-dispatch:receipt-planner_envelope",
       "harness-default-dispatch:receipt-prompt_assembler_envelope",
       "harness-default-dispatch:receipt-task_state_envelope",
+      ...cognitionExecutionGateReceiptIds,
     ],
     cognitionExecutionReplayFixtureRefs: [
       "harness-default-dispatch:fixture-planner_envelope",
       "harness-default-dispatch:fixture-prompt_assembler_envelope",
       "harness-default-dispatch:fixture-task_state_envelope",
+      ...cognitionExecutionGateReplayFixtureRefs,
     ],
     cognitionExecutionAdapterMode: "workflow_component_adapter_live",
     cognitionExecutionAdapterResults,
     cognitionExecutionActionFrameIds,
     cognitionExecutionLiveReadyComponentKinds,
+    cognitionExecutionGateAdapterMode: "workflow_component_adapter_gated",
+    cognitionExecutionGateAttemptIds,
+    cognitionExecutionGateReceiptIds,
+    cognitionExecutionGateReplayFixtureRefs,
+    cognitionExecutionGateAdapterResults,
+    cognitionExecutionGateActionFrameIds,
+    cognitionExecutionGateComponentKinds,
+    cognitionExecutionGateDivergenceClasses,
     modelExecutionAttemptIds: [
       "harness-default-dispatch:attempt-model_router_envelope",
       "harness-default-dispatch:attempt-model_call_envelope",
@@ -2713,6 +2784,14 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
       adapterResultCount: cognitionExecutionAdapterResults.length,
       actionFrameIds: cognitionExecutionActionFrameIds,
       liveReadyComponentKinds: cognitionExecutionLiveReadyComponentKinds,
+      gateAdapterMode: "workflow_component_adapter_gated",
+      gateAdapterResultCount: cognitionExecutionGateAdapterResults.length,
+      gateAttemptIds: cognitionExecutionGateAttemptIds,
+      gateReceiptIds: cognitionExecutionGateReceiptIds,
+      gateReplayFixtureRefs: cognitionExecutionGateReplayFixtureRefs,
+      gateActionFrameIds: cognitionExecutionGateActionFrameIds,
+      gateComponentKinds: cognitionExecutionGateComponentKinds,
+      gateDivergenceClasses: cognitionExecutionGateDivergenceClasses,
       promptAssemblyMode: "workflow_synchronous_envelope",
       promptHash: promptAssemblyPromptHash,
       promptHashMatches: true,
@@ -2721,16 +2800,19 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
         "harness-default-dispatch:attempt-planner_envelope",
         "harness-default-dispatch:attempt-prompt_assembler_envelope",
         "harness-default-dispatch:attempt-task_state_envelope",
+        ...cognitionExecutionGateAttemptIds,
       ],
       receiptIds: [
         "harness-default-dispatch:receipt-planner_envelope",
         "harness-default-dispatch:receipt-prompt_assembler_envelope",
         "harness-default-dispatch:receipt-task_state_envelope",
+        ...cognitionExecutionGateReceiptIds,
       ],
       replayFixtureRefs: [
         "harness-default-dispatch:fixture-planner_envelope",
         "harness-default-dispatch:fixture-prompt_assembler_envelope",
         "harness-default-dispatch:fixture-task_state_envelope",
+        ...cognitionExecutionGateReplayFixtureRefs,
       ],
       policyDecision: "accept_workflow_prompt_assembly_hash_envelope",
     },

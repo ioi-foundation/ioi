@@ -1026,6 +1026,26 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             ["planner", "prompt_assembler", "task_state"].every((kind) =>
               dispatch.cognitionExecutionLiveReadyComponentKinds.includes(kind),
             ) &&
+            dispatch.cognitionExecutionGateAdapterMode === "workflow_component_adapter_gated" &&
+            Array.isArray(dispatch.cognitionExecutionGateAdapterResults) &&
+            dispatch.cognitionExecutionGateAdapterResults.length >= 3 &&
+            dispatch.cognitionExecutionGateAdapterResults.every((result) =>
+              result?.actionFrame?.executionMode === "gated" &&
+              result?.actionFrame?.readiness === "shadow_ready" &&
+              result?.nodeAttempt?.status === "gated",
+            ) &&
+            Array.isArray(dispatch.cognitionExecutionGateAttemptIds) &&
+            dispatch.cognitionExecutionGateAttemptIds.length >= 3 &&
+            Array.isArray(dispatch.cognitionExecutionGateReceiptIds) &&
+            dispatch.cognitionExecutionGateReceiptIds.length >= 3 &&
+            Array.isArray(dispatch.cognitionExecutionGateReplayFixtureRefs) &&
+            dispatch.cognitionExecutionGateReplayFixtureRefs.length >= 3 &&
+            Array.isArray(dispatch.cognitionExecutionGateComponentKinds) &&
+            ["uncertainty_gate", "budget_gate", "capability_sequencer"].every((kind) =>
+              dispatch.cognitionExecutionGateComponentKinds.includes(kind),
+            ) &&
+            Array.isArray(dispatch.cognitionExecutionGateDivergenceClasses) &&
+            dispatch.cognitionExecutionGateDivergenceClasses.every((kind) => kind === "none") &&
             dispatch.modelExecutionMode === "workflow_synchronous_envelope" &&
             dispatch.modelExecutionEnvelopeReady === true &&
             typeof dispatch.modelExecutionBindingId === "string" &&
@@ -1248,6 +1268,26 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             ["planner", "prompt_assembler", "task_state"].every((kind) =>
               dispatch.cognitionExecutionLiveReadyComponentKinds.includes(kind),
             ) &&
+            dispatch.cognitionExecutionGateAdapterMode === "workflow_component_adapter_gated" &&
+            Array.isArray(dispatch.cognitionExecutionGateAdapterResults) &&
+            dispatch.cognitionExecutionGateAdapterResults.length >= 3 &&
+            dispatch.cognitionExecutionGateAdapterResults.every((result) =>
+              result?.actionFrame?.executionMode === "gated" &&
+              result?.actionFrame?.readiness === "shadow_ready" &&
+              result?.nodeAttempt?.status === "gated",
+            ) &&
+            Array.isArray(dispatch.cognitionExecutionGateAttemptIds) &&
+            dispatch.cognitionExecutionGateAttemptIds.length >= 3 &&
+            Array.isArray(dispatch.cognitionExecutionGateReceiptIds) &&
+            dispatch.cognitionExecutionGateReceiptIds.length >= 3 &&
+            Array.isArray(dispatch.cognitionExecutionGateReplayFixtureRefs) &&
+            dispatch.cognitionExecutionGateReplayFixtureRefs.length >= 3 &&
+            Array.isArray(dispatch.cognitionExecutionGateComponentKinds) &&
+            ["uncertainty_gate", "budget_gate", "capability_sequencer"].every((kind) =>
+              dispatch.cognitionExecutionGateComponentKinds.includes(kind),
+            ) &&
+            Array.isArray(dispatch.cognitionExecutionGateDivergenceClasses) &&
+            dispatch.cognitionExecutionGateDivergenceClasses.every((kind) => kind === "none") &&
             Array.isArray(dispatch.modelExecutionAttemptIds) &&
             dispatch.modelExecutionAttemptIds.length >= 5 &&
             Array.isArray(dispatch.modelExecutionReceiptIds) &&
