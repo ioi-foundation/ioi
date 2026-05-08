@@ -687,6 +687,55 @@ fn workflow_portable_package_preserves_harness_lineage_metadata() {
             "harnessVersion": "2026.04.default-harness.v1",
             "harnessHash": "sha256:default-agent-harness-component-projection-v1"
         },
+        "packageManifest": {
+            "schemaVersion": "workflow.harness.package-evidence-manifest.v1",
+            "packageName": "harness-fork",
+            "workflowId": "harness-fork",
+            "harnessWorkflowId": "default-agent-harness",
+            "activationId": "activation:harness-fork:sandbox",
+            "activationState": "validated",
+            "harnessHash": "sha256:default-agent-harness-component-projection-v1",
+            "workflowContentHash": "stable-fnv1a32:package",
+            "rollbackTarget": "activation:default-agent-harness:blessed-readonly",
+            "componentVersionSet": {
+                "ioi.agent-harness.planner.v1": "1.0.0"
+            },
+            "evidenceRefs": [
+                "harness-canary-boundary:default-agent-harness:cognition"
+            ],
+            "receiptRefs": [
+                "workflow_restore_canary:package"
+            ],
+            "replayFixtureRefs": [
+                "runtime-evidence:default:canary-fixture:planner"
+            ],
+            "nodeAttemptIds": [
+                "harness-worker-handoff:attempt:launch:package"
+            ],
+            "canaryBoundaryIds": [
+                "harness-canary-boundary:default-agent-harness:cognition"
+            ],
+            "rollbackDrillIds": [
+                "harness-canary-rollback-drill:default"
+            ],
+            "workerHandoffNodeAttemptIds": [
+                "harness-worker-handoff:attempt:launch:package"
+            ],
+            "workerHandoffReceiptIds": [
+                "harness-worker-handoff:receipt:launch:package"
+            ],
+            "rollbackRestoreReceiptRefs": [
+                "workflow_restore_canary:package"
+            ],
+            "deepLinks": [
+                {
+                    "kind": "rollback_restore",
+                    "ref": "workflow_restore_canary:package",
+                    "hash": "#harness-workbench?panel=settings&activationGateId=rollback-restore&activationGateReceiptRef=workflow_restore_canary%3Apackage"
+                }
+            ],
+            "createdAtMs": 1
+        },
         "validationGates": ["component_contracts_present"],
         "aiMutationMode": "proposal_only",
         "componentIds": ["ioi.agent-harness.planner.v1"],
@@ -720,6 +769,67 @@ fn workflow_portable_package_preserves_harness_lineage_metadata() {
             .and_then(|value| value.get("harnessActivationId"))
             .and_then(Value::as_str),
         Some("activation:harness-fork:sandbox")
+    );
+    assert!(package
+        .manifest
+        .files
+        .iter()
+        .any(|file| file.role == "harness_package_manifest"));
+    assert_eq!(
+        package
+            .manifest
+            .harness_package_manifest
+            .as_ref()
+            .and_then(|value| value.get("schemaVersion"))
+            .and_then(Value::as_str),
+        Some("workflow.harness.package-evidence-manifest.v1")
+    );
+    assert_eq!(
+        package
+            .manifest
+            .harness_package_manifest
+            .as_ref()
+            .and_then(|value| value.get("workerHandoffNodeAttemptIds"))
+            .and_then(Value::as_array)
+            .map(Vec::len),
+        Some(1)
+    );
+    assert!(PathBuf::from(&package.package_path)
+        .join("harness-package-evidence.json")
+        .exists());
+
+    let import_root = temp_root("portable-harness-import");
+    let imported = import_workflow_package(ImportWorkflowPackageRequest {
+        package_path: package.package_path,
+        project_root: import_root.display().to_string(),
+        name: Some("Imported Harness Fork".to_string()),
+    })
+    .expect("harness package should import");
+    assert_eq!(
+        imported
+            .workflow
+            .metadata
+            .harness
+            .as_ref()
+            .and_then(|value| value.get("packageManifest"))
+            .and_then(|value| value.get("schemaVersion"))
+            .and_then(Value::as_str),
+        Some("workflow.harness.package-evidence-manifest.v1")
+    );
+    assert!(
+        imported
+            .workflow
+            .metadata
+            .harness
+            .as_ref()
+            .and_then(|value| value.get("packageManifest"))
+            .and_then(|value| value.get("deepLinks"))
+            .and_then(Value::as_array)
+            .and_then(|links| links.first())
+            .and_then(|value| value.get("hash"))
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .contains("activationGateId=rollback-restore")
     );
 }
 

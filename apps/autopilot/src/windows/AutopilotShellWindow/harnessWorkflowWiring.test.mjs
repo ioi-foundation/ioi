@@ -100,6 +100,12 @@ assert.match(
 );
 
 assert.match(
+  graphTypes,
+  /(?=[\s\S]*WorkflowHarnessPackageEvidenceManifest)(?=[\s\S]*workflow\.harness\.package-evidence-manifest\.v1)(?=[\s\S]*workerHandoffNodeAttemptIds: string\[\])(?=[\s\S]*rollbackRestoreReceiptRefs: string\[\])(?=[\s\S]*deepLinks: WorkflowHarnessPackageEvidenceLink\[\])(?=[\s\S]*packageManifest\?: WorkflowHarnessPackageEvidenceManifest)(?=[\s\S]*harnessPackageManifest\?: WorkflowHarnessPackageEvidenceManifest)/,
+  "Harness contracts should package fork evidence, receipt refs, replay refs, worker handoff attempts, rollback restore refs, and deep links for portable workflow bundles.",
+);
+
+assert.match(
   harnessWorkflow,
   /DEFAULT_HARNESS_EXECUTION_MODE[\s\S]*HARNESS_PROMOTION_CLUSTER_COMPONENTS[\s\S]*cognition[\s\S]*DEFAULT_AGENT_HARNESS_COMPONENTS[\s\S]*kind: "planner"[\s\S]*kind: "prompt_assembler"[\s\S]*kind: "mcp_provider"[\s\S]*kind: "mcp_tool_call"[\s\S]*kind: "receipt_writer"[\s\S]*defaultHarnessPromotionClusters[\s\S]*requiredExecutionMode: "gated"[\s\S]*makeDefaultAgentHarnessWorkflow[\s\S]*readOnly: true/,
   "Default Agent Harness should project runtime kernels and gated promotion clusters as read-only workflow components.",
@@ -130,6 +136,12 @@ assert.match(
 );
 
 assert.match(
+  harnessWorkflow,
+  /(?=[\s\S]*harnessWorkbenchDeepLinkHash)(?=[\s\S]*makeWorkflowHarnessPackageEvidenceManifest)(?=[\s\S]*workflow\.harness\.package-evidence-manifest\.v1)(?=[\s\S]*withWorkflowHarnessPackageManifest)(?=[\s\S]*canary_boundary)(?=[\s\S]*rollback_drill)(?=[\s\S]*rollback_restore)(?=[\s\S]*worker_handoff)(?=[\s\S]*activationGateNodeAttemptId)(?=[\s\S]*activationGateReceiptRef)/,
+  "Harness workflow packaging should mint route-restorable evidence deep links for activation gates, rollback restore canaries, and worker handoff node attempts.",
+);
+
+assert.match(
   workflowComposer,
   /(?=[\s\S]*workflow-open-default-harness)(?=[\s\S]*handleOpenDefaultHarness)(?=[\s\S]*workflow-fork-harness-button)(?=[\s\S]*handleForkDefaultHarness)(?=[\s\S]*handleRunHarnessActivationDryRun)(?=[\s\S]*runWorkflowHarnessRollbackRestoreCanaryProbe)(?=[\s\S]*recordWorkflowHarnessActivationDryRun)(?=[\s\S]*rollbackRestoreResult)(?=[\s\S]*rollbackRestoreBlockers)(?=[\s\S]*handleApplyHarnessActivationCandidate)(?=[\s\S]*applyWorkflowHarnessActivationCandidate)(?=[\s\S]*handleRunHarnessRollbackDrill)(?=[\s\S]*executeWorkflowHarnessRollbackDrill)(?=[\s\S]*handleExecuteHarnessRollback)(?=[\s\S]*restoreWorkflowRevision)(?=[\s\S]*executeWorkflowHarnessRevisionRollback)(?=[\s\S]*createWorkflowHarnessActivationCandidate)(?=[\s\S]*harnessActivationCandidate)(?=[\s\S]*selectedHarnessRollbackTarget)(?=[\s\S]*workflow-readonly-badge)(?=[\s\S]*workflow-harness-worker-binding)/,
   "Workflow composer should expose read-only harness inspection, a fork path, audited activation dry runs, rollback target selection, guarded activation minting, and rollback drill execution.",
@@ -151,6 +163,12 @@ assert.match(
   workflowRailPanel,
   /workflow-harness-rollback-restore-canary[\s\S]*data-receipt-binding-ref[\s\S]*receiptBindingRef/,
   "Activation rail should expose rollback restore canary receipt bindings for GUI evidence.",
+);
+
+assert.match(
+  workflowRailPanel,
+  /(?=[\s\S]*workflow-package-summary)(?=[\s\S]*harnessPackageManifest)(?=[\s\S]*data-harness-package-manifest-present)(?=[\s\S]*data-harness-package-receipt-ref-count)(?=[\s\S]*data-harness-package-replay-fixture-ref-count)(?=[\s\S]*data-harness-package-deep-link-count)/,
+  "Package export UI should expose harness package evidence manifest presence, receipt coverage, replay fixture coverage, and deep-link counts for GUI validation.",
 );
 
 assert.match(

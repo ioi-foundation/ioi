@@ -21,6 +21,7 @@ import type {
   WorkflowHarnessLivePromotionClusterReadiness,
   WorkflowHarnessLivePromotionReadinessProof,
   WorkflowHarnessMetadata,
+  WorkflowHarnessPackageEvidenceManifest,
   WorkflowHarnessNodeBinding,
   WorkflowHarnessNodeAttemptRecord,
   WorkflowHarnessPromotionCluster,
@@ -1340,6 +1341,202 @@ function workflowSourceProjection(workflow: WorkflowProject): unknown {
     nodes: workflow.nodes,
     edges: workflow.edges,
     global_config: workflow.global_config,
+  };
+}
+
+function harnessWorkbenchDeepLinkHash(
+  params: Record<string, string | null | undefined>,
+): string {
+  const search = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value) search.set(key, value);
+  });
+  return `#harness-workbench?${search.toString()}`;
+}
+
+export function makeWorkflowHarnessPackageEvidenceManifest(
+  workflow: WorkflowProject,
+  nowMs = Date.now(),
+): WorkflowHarnessPackageEvidenceManifest | null {
+  const harness = workflow.metadata.harness;
+  if (!harness) return null;
+  const activationRecord = harness.activationRecord;
+  const canaryBoundaries = harness.canaryExecutionBoundaries ?? [];
+  const rollbackRestoreCanary = activationRecord?.rollbackRestoreCanary ?? null;
+  const workerHandoffReceipts =
+    activationRecord?.workerHandoffReceipts ??
+    harness.workerHandoffReceipts ??
+    [];
+  const workerHandoffNodeAttemptIds = uniqueStrings([
+    ...(activationRecord?.workerHandoffNodeAttemptIds ?? []),
+    ...(harness.workerHandoffNodeAttemptIds ?? []),
+  ]);
+  const workerHandoffReplayFixtureRefs = uniqueStrings([
+    ...(activationRecord?.workerHandoffReplayFixtureRefs ?? []),
+    ...(harness.workerHandoffReplayFixtureRefs ?? []),
+  ]);
+  const rollbackRestoreReceiptRefs =
+    rollbackRestoreCanaryReceiptRefs(rollbackRestoreCanary);
+  const receiptRefs = uniqueStrings([
+    ...workflowRollbackReceiptRefs(workflow),
+    ...workerHandoffReceipts.map((receipt) => receipt.receiptId),
+    ...canaryBoundaries.flatMap((boundary) => boundary.receiptIds),
+    ...(harness.replayGates ?? []).flatMap((gate) => gate.receiptRefs),
+    ...(harness.activationAudit ?? []).flatMap((event) => event.receiptRefs),
+    ...(harness.defaultRuntimeDispatchProof?.receiptIds ?? []),
+  ]);
+  const replayFixtureRefs = uniqueStrings([
+    ...workerHandoffReplayFixtureRefs,
+    ...canaryBoundaries.flatMap((boundary) => boundary.replayFixtureRefs),
+    ...(harness.replayGates ?? []).flatMap((gate) => gate.replayFixtureRefs),
+    ...(harness.defaultRuntimeDispatchProof?.replayFixtureRefs ?? []),
+  ]);
+  const evidenceRefs = uniqueStrings([
+    ...(activationRecord?.evidenceRefs ?? []),
+    ...(harness.activationAudit ?? []).flatMap((event) => event.evidenceRefs),
+    ...canaryBoundaries.flatMap((boundary) => boundary.evidenceRefs),
+    ...(rollbackRestoreCanary?.evidenceRefs ?? []),
+    ...workerHandoffNodeAttemptIds,
+    ...workerHandoffReplayFixtureRefs,
+  ]);
+  const canaryBoundaryIds = uniqueStrings(
+    canaryBoundaries.map((boundary) => boundary.boundaryId),
+  );
+  const rollbackDrillIds = uniqueStrings(
+    canaryBoundaries.map((boundary) => boundary.rollbackDrill.drillId),
+  );
+  const activationId = harness.activationId ?? activationRecord?.activationId;
+  const rollbackTarget =
+    activationRecord?.rollbackTarget ??
+    workflow.metadata.workerHarnessBinding?.rollbackTarget ??
+    harness.activationId;
+  const deepLinks: WorkflowHarnessPackageEvidenceManifest["deepLinks"] = [
+    activationId
+      ? {
+          kind: "activation",
+          ref: activationId,
+          hash: harnessWorkbenchDeepLinkHash({
+            panel: "settings",
+            workerBindingId: activationId,
+          }),
+        }
+      : null,
+    ...canaryBoundaries.flatMap((boundary) => [
+      {
+        kind: "canary_boundary",
+        ref: boundary.boundaryId,
+        hash: harnessWorkbenchDeepLinkHash({
+          panel: "settings",
+          activationGateId: "canary",
+          activationGateEvidenceRef: boundary.boundaryId,
+          activationGateReceiptRef: boundary.receiptIds[0],
+          receiptRef: boundary.receiptIds[0],
+          activationGateReplayFixtureRef: boundary.replayFixtureRefs[0],
+          replayFixtureRef: boundary.replayFixtureRefs[0],
+        }),
+      },
+      {
+        kind: "rollback_drill",
+        ref: boundary.rollbackDrill.drillId,
+        hash: harnessWorkbenchDeepLinkHash({
+          panel: "settings",
+          activationGateId: "canary",
+          activationGateEvidenceRef: boundary.rollbackDrill.drillId,
+          activationGateReceiptRef: boundary.receiptIds[0],
+          receiptRef: boundary.receiptIds[0],
+          activationGateReplayFixtureRef: boundary.replayFixtureRefs[0],
+          replayFixtureRef: boundary.replayFixtureRefs[0],
+        }),
+      },
+    ]),
+    ...(rollbackRestoreCanary
+      ? rollbackRestoreReceiptRefs.map((receiptRef) => ({
+          kind: "rollback_restore",
+          ref: receiptRef,
+          hash: harnessWorkbenchDeepLinkHash({
+            panel: "settings",
+            receiptRef,
+            activationGateId: "rollback-restore",
+            activationGateEvidenceRef: rollbackRestoreCanary.canaryId,
+            activationGateReceiptRef: receiptRef,
+          }),
+        }))
+      : []),
+    ...workerHandoffNodeAttemptIds.map((nodeAttemptId, index) => ({
+      kind: "worker_handoff",
+      ref: nodeAttemptId,
+      hash: harnessWorkbenchDeepLinkHash({
+        panel: "settings",
+        activationGateId: "worker-handoff",
+        activationGateNodeAttemptId: nodeAttemptId,
+        nodeAttemptId,
+        activationGateReceiptRef: workerHandoffReceipts[index]?.receiptId,
+        receiptRef: workerHandoffReceipts[index]?.receiptId,
+        activationGateReplayFixtureRef: workerHandoffReplayFixtureRefs[index],
+        replayFixtureRef: workerHandoffReplayFixtureRefs[index],
+      }),
+    })),
+  ].filter(
+    (link): link is WorkflowHarnessPackageEvidenceManifest["deepLinks"][number] =>
+      Boolean(link),
+  );
+  return {
+    schemaVersion: "workflow.harness.package-evidence-manifest.v1",
+    packageName:
+      harness.packageName ?? workflow.metadata.slug ?? workflow.metadata.id,
+    workflowId: workflow.metadata.id,
+    harnessWorkflowId: harness.harnessWorkflowId,
+    activationId,
+    activationState:
+      harness.activationState ?? activationRecord?.activationState,
+    harnessHash: harness.harnessHash,
+    workflowContentHash: stableContentHash(workflowSourceProjection(workflow)),
+    rollbackTarget,
+    componentVersionSet:
+      activationRecord?.componentVersionSet ??
+      Object.fromEntries(
+        workflow.nodes
+          .map((node) => node.runtimeBinding?.componentId)
+          .filter((componentId): componentId is string => Boolean(componentId))
+          .map((componentId) => [componentId, "unversioned"]),
+      ),
+    evidenceRefs,
+    receiptRefs,
+    replayFixtureRefs,
+    nodeAttemptIds: workerHandoffNodeAttemptIds,
+    canaryBoundaryIds,
+    rollbackDrillIds,
+    workerHandoffNodeAttemptIds,
+    workerHandoffReceiptIds: workerHandoffReceipts.map(
+      (receipt) => receipt.receiptId,
+    ),
+    rollbackRestoreReceiptRefs,
+    deepLinks,
+    createdAtMs: nowMs,
+  };
+}
+
+export function withWorkflowHarnessPackageManifest(
+  workflow: WorkflowProject,
+  nowMs = Date.now(),
+): WorkflowProject {
+  const manifest = makeWorkflowHarnessPackageEvidenceManifest(workflow, nowMs);
+  if (!manifest || !workflow.metadata.harness) return workflow;
+  return {
+    ...workflow,
+    metadata: {
+      ...workflow.metadata,
+      harness: {
+        ...workflow.metadata.harness,
+        packageManifest: manifest,
+        activationRecord: workflow.metadata.harness.activationRecord
+          ? {
+              ...workflow.metadata.harness.activationRecord,
+              packageManifest: manifest,
+            }
+          : workflow.metadata.harness.activationRecord,
+      },
+    },
   };
 }
 
@@ -2884,35 +3081,38 @@ export function applyWorkflowHarnessActivationCandidate(
     ...(activationId ? [] : ["activation_id_missing"]),
   ];
   if (blockers.length > 0 || !candidate || !activationId) {
+    const createdAtMs = options.nowMs ?? Date.now();
     const uniqueBlockers = Array.from(new Set(blockers));
     const receiptRefs = activationCandidateReceiptRefs(candidate);
+    const blockedWorkflow = workflowIsHarnessFork(workflow)
+      ? appendWorkflowHarnessActivationAudit(
+          workflow,
+          makeWorkflowHarnessActivationAuditEvent({
+            workflow,
+            eventType: "activation_mint_blocked",
+            status: "blocked",
+            candidateId: candidate?.candidateId,
+            activationId,
+            previousActivationId: workflow.metadata.harness?.activationId,
+            nextActivationId: activationId,
+            previousWorkerBinding: workflow.metadata.workerHarnessBinding,
+            nextWorkerBinding: candidate?.workerBindingPreview,
+            previousRevisionBinding: workflow.metadata.harness?.revisionBinding,
+            nextRevisionBinding: candidate?.revisionBindingPreview,
+            rollbackTarget: candidate?.rollbackTarget,
+            blockers: uniqueBlockers,
+            evidenceRefs: candidate?.evidenceRefs ?? [],
+            receiptRefs,
+            summary: `Activation mint blocked by ${uniqueBlockers.length} blockers`,
+            createdAtMs,
+          }),
+        )
+      : workflow;
     return {
       applied: false,
-      workflow: workflowIsHarnessFork(workflow)
-        ? appendWorkflowHarnessActivationAudit(
-            workflow,
-            makeWorkflowHarnessActivationAuditEvent({
-              workflow,
-              eventType: "activation_mint_blocked",
-              status: "blocked",
-              candidateId: candidate?.candidateId,
-              activationId,
-              previousActivationId: workflow.metadata.harness?.activationId,
-              nextActivationId: activationId,
-              previousWorkerBinding: workflow.metadata.workerHarnessBinding,
-              nextWorkerBinding: candidate?.workerBindingPreview,
-              previousRevisionBinding:
-                workflow.metadata.harness?.revisionBinding,
-              nextRevisionBinding: candidate?.revisionBindingPreview,
-              rollbackTarget: candidate?.rollbackTarget,
-              blockers: uniqueBlockers,
-              evidenceRefs: candidate?.evidenceRefs ?? [],
-              receiptRefs,
-              summary: `Activation mint blocked by ${uniqueBlockers.length} blockers`,
-              createdAtMs: options.nowMs ?? Date.now(),
-            }),
-          )
-        : workflow,
+      workflow: workflowIsHarnessFork(blockedWorkflow)
+        ? withWorkflowHarnessPackageManifest(blockedWorkflow, createdAtMs)
+        : blockedWorkflow,
       blockers: uniqueBlockers,
     };
   }
@@ -3011,67 +3211,69 @@ export function applyWorkflowHarnessActivationCandidate(
     rollbackRestoreCanary: candidate.rollbackRestoreCanary,
     mintedAtMs: nowMs,
   });
+  const activatedWorkflow: WorkflowProject = {
+    ...workflow,
+    metadata: {
+      ...workflow.metadata,
+      dirty: true,
+      harness: workflow.metadata.harness
+        ? {
+            ...workflow.metadata.harness,
+            harnessWorkflowId: workerBinding.harnessWorkflowId,
+            harnessHash: workerBinding.harnessHash,
+            executionMode:
+              workerBinding.executionMode ??
+              workflow.metadata.harness.executionMode,
+            activationId,
+            activationState: "validated",
+            activationRecord,
+            revisionBinding,
+            workerBindingRegistryRecord,
+            workerAttachReceipt,
+            workerAttachLifecycle: forkHandoffProof.workerAttachLifecycle,
+            workerSessionRecord: forkHandoffProof.workerSessionRecord,
+            workerLaunchEnvelopes: forkHandoffProof.workerLaunchEnvelopes,
+            workerHandoffReceipts: forkHandoffProof.workerHandoffReceipts,
+            workerHandoffNodeAttemptIds:
+              forkHandoffProof.workerHandoffNodeAttemptIds,
+            workerHandoffNodeAttempts:
+              forkHandoffProof.workerHandoffNodeAttempts,
+            workerHandoffReplayFixtureRefs:
+              forkHandoffProof.workerHandoffReplayFixtureRefs,
+          }
+        : workflow.metadata.harness,
+      workerHarnessBinding: workerBinding,
+      updatedAtMs: nowMs,
+    },
+  };
+  const auditedWorkflow = appendWorkflowHarnessActivationAudit(
+    activatedWorkflow,
+    makeWorkflowHarnessActivationAuditEvent({
+      workflow,
+      eventType: "activation_minted",
+      status: "applied",
+      candidateId: candidate.candidateId,
+      activationId,
+      previousActivationId: workflow.metadata.harness?.activationId,
+      nextActivationId: activationId,
+      previousWorkerBinding: workflow.metadata.workerHarnessBinding,
+      nextWorkerBinding: workerBinding,
+      previousRevisionBinding,
+      nextRevisionBinding: revisionBinding,
+      rollbackTarget,
+      evidenceRefs: uniqueStrings([
+        candidate.candidateId,
+        ...receiptRefs,
+        ...candidate.evidenceRefs,
+      ]),
+      receiptRefs,
+      summary: `Activation minted: ${activationId}`,
+      createdAtMs: nowMs,
+    }),
+  );
   return {
     applied: true,
-    workflow: appendWorkflowHarnessActivationAudit(
-      {
-        ...workflow,
-        metadata: {
-          ...workflow.metadata,
-          dirty: true,
-          harness: workflow.metadata.harness
-            ? {
-                ...workflow.metadata.harness,
-                harnessWorkflowId: workerBinding.harnessWorkflowId,
-                harnessHash: workerBinding.harnessHash,
-                executionMode:
-                  workerBinding.executionMode ??
-                  workflow.metadata.harness.executionMode,
-                activationId,
-                activationState: "validated",
-                activationRecord,
-                revisionBinding,
-                workerBindingRegistryRecord,
-                workerAttachReceipt,
-                workerAttachLifecycle: forkHandoffProof.workerAttachLifecycle,
-                workerSessionRecord: forkHandoffProof.workerSessionRecord,
-                workerLaunchEnvelopes: forkHandoffProof.workerLaunchEnvelopes,
-                workerHandoffReceipts: forkHandoffProof.workerHandoffReceipts,
-                workerHandoffNodeAttemptIds:
-                  forkHandoffProof.workerHandoffNodeAttemptIds,
-                workerHandoffNodeAttempts:
-                  forkHandoffProof.workerHandoffNodeAttempts,
-                workerHandoffReplayFixtureRefs:
-                  forkHandoffProof.workerHandoffReplayFixtureRefs,
-              }
-            : workflow.metadata.harness,
-          workerHarnessBinding: workerBinding,
-          updatedAtMs: nowMs,
-        },
-      },
-      makeWorkflowHarnessActivationAuditEvent({
-        workflow,
-        eventType: "activation_minted",
-        status: "applied",
-        candidateId: candidate.candidateId,
-        activationId,
-        previousActivationId: workflow.metadata.harness?.activationId,
-        nextActivationId: activationId,
-        previousWorkerBinding: workflow.metadata.workerHarnessBinding,
-        nextWorkerBinding: workerBinding,
-        previousRevisionBinding,
-        nextRevisionBinding: revisionBinding,
-        rollbackTarget,
-        evidenceRefs: uniqueStrings([
-          candidate.candidateId,
-          ...receiptRefs,
-          ...candidate.evidenceRefs,
-        ]),
-        receiptRefs,
-        summary: `Activation minted: ${activationId}`,
-        createdAtMs: nowMs,
-      }),
-    ),
+    workflow: withWorkflowHarnessPackageManifest(auditedWorkflow, nowMs),
     activationId,
     blockers: [],
     workerBinding,
@@ -6963,6 +7165,7 @@ function harnessMetadata(options: {
   blessed: boolean;
   forkedFrom?: WorkflowHarnessMetadata["forkedFrom"];
   packageName?: string;
+  packageManifest?: WorkflowHarnessPackageEvidenceManifest;
   activationId?: string;
   activationState: WorkflowHarnessMetadata["activationState"];
   activationRecord?: WorkflowHarnessForkActivationRecord;
@@ -6992,6 +7195,7 @@ function harnessMetadata(options: {
     forkable: options.blessed,
     forkedFrom: options.forkedFrom,
     packageName: options.packageName,
+    packageManifest: options.packageManifest,
     activationId: options.activationId,
     activationState: options.activationState,
     activationRecord: options.activationRecord,
@@ -7301,9 +7505,13 @@ export function forkDefaultAgentHarnessWorkflow(
         : workflow.metadata.harness,
     },
   };
+  const workflowWithPackageManifest = withWorkflowHarnessPackageManifest(
+    workflowWithRevisionBinding,
+    nowMs,
+  );
   return {
-    workflow: workflowWithRevisionBinding,
-    tests: defaultAgentHarnessTests(workflowWithRevisionBinding),
+    workflow: workflowWithPackageManifest,
+    tests: defaultAgentHarnessTests(workflowWithPackageManifest),
     proposals: [
       {
         id: activationGateProposalId,

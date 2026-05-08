@@ -99,6 +99,27 @@ const makeActivationIdGateClickProof = (
       latestAuditStatus: "applied",
       receiptRefs: ["workflow_activation:runtime-harness-test-fork"],
       evidenceRefs: ["canary:passed", "rollback:drill"],
+      workerHandoffReceiptIds: [
+        "harness-worker-handoff:receipt:runtime-harness-test-fork:launch",
+      ],
+      workerHandoffNodeAttemptIds: [
+        "harness-worker-handoff:attempt:runtime-harness-test-fork:launch",
+      ],
+      workerHandoffReplayFixtureRefs: [
+        "harness-worker-handoff:fixture:runtime-harness-test-fork:launch",
+      ],
+      workerHandoffDeepLink:
+        "#harness-workbench?panel=settings&activationGateId=worker-handoff&activationGateNodeAttemptId=harness-worker-handoff%3Aattempt%3Aruntime-harness-test-fork%3Alaunch&nodeAttemptId=harness-worker-handoff%3Aattempt%3Aruntime-harness-test-fork%3Alaunch",
+      workerHandoffDeepLinkState: {
+        "data-selected-activation-gate-id": "worker-handoff",
+        "data-selected-activation-gate-node-attempt-id":
+          "harness-worker-handoff:attempt:runtime-harness-test-fork:launch",
+        "data-selected-node-attempt-id":
+          "harness-worker-handoff:attempt:runtime-harness-test-fork:launch",
+      },
+      workerHandoffTimelineVisible: true,
+      workerHandoffTimelineAttemptId:
+        "harness-worker-handoff:attempt:runtime-harness-test-fork:launch",
     },
     passed: true,
     blockers: [],
@@ -237,6 +258,15 @@ const withClusterReadiness = (
   const blockedMintAudit = result.workflow.metadata.harness?.activationAudit ?? [];
   assert.equal(blockedMintAudit[blockedMintAudit.length - 1]?.eventType, "activation_mint_blocked");
   assert.ok(blockedMintAudit[blockedMintAudit.length - 1]?.receiptRefs.includes(blockedReceiptRef));
+  const blockedPackageManifest = result.workflow.metadata.harness?.packageManifest;
+  assert.ok(blockedPackageManifest);
+  assert.equal(
+    blockedPackageManifest.schemaVersion,
+    "workflow.harness.package-evidence-manifest.v1",
+  );
+  assert.equal(blockedPackageManifest.activationState, "blocked");
+  assert.ok(blockedPackageManifest.receiptRefs.includes(blockedReceiptRef));
+  assert.match(blockedPackageManifest.workflowContentHash, /^stable-fnv1a32:/);
 }
 
 {
@@ -410,6 +440,39 @@ const withClusterReadiness = (
     activationAudit
       .find((event) => event.eventType === "activation_minted")
       ?.receiptRefs.includes(mintableReceiptRef),
+  );
+  const packageManifest = result.workflow.metadata.harness?.packageManifest;
+  assert.ok(packageManifest);
+  assert.equal(
+    packageManifest.schemaVersion,
+    "workflow.harness.package-evidence-manifest.v1",
+  );
+  assert.equal(packageManifest.activationId, candidate.activationIdPreview);
+  assert.equal(packageManifest.activationState, "validated");
+  assert.equal(packageManifest.rollbackTarget, "legacy_runtime");
+  assert.equal(packageManifest.workerHandoffNodeAttemptIds.length, 3);
+  assert.equal(packageManifest.workerHandoffReceiptIds.length, 3);
+  assert.ok(packageManifest.receiptRefs.includes(mintableReceiptRef));
+  assert.ok(packageManifest.rollbackRestoreReceiptRefs.includes(mintableReceiptRef));
+  assert.ok(packageManifest.evidenceRefs.includes(candidate.candidateId));
+  assert.ok(
+    packageManifest.deepLinks.some(
+      (link) =>
+        link.kind === "worker_handoff" &&
+        link.hash.includes("activationGateNodeAttemptId="),
+    ),
+  );
+  assert.ok(
+    packageManifest.deepLinks.some(
+      (link) =>
+        link.kind === "rollback_restore" &&
+        link.hash.includes("activationGateId=rollback-restore"),
+    ),
+  );
+  assert.equal(
+    result.workflow.metadata.harness?.activationRecord?.packageManifest
+      ?.workflowContentHash,
+    packageManifest.workflowContentHash,
   );
 
   const rollbackDrill = executeWorkflowHarnessRollbackDrill(result.workflow, {

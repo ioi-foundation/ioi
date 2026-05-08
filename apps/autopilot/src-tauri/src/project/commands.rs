@@ -2070,6 +2070,21 @@ pub fn export_workflow_package(
         "hidden_evidence_schema",
         "hidden-evidence-schema.json",
     )?);
+    let harness_package_manifest = bundle
+        .workflow
+        .metadata
+        .harness
+        .as_ref()
+        .and_then(|harness| harness.get("packageManifest"))
+        .cloned();
+    if let Some(value) = harness_package_manifest.as_ref() {
+        write_json_pretty(&package_dir.join("harness-package-evidence.json"), value)?;
+        files.push(workflow_package_file_record(
+            &package_dir,
+            "harness_package_manifest",
+            "harness-package-evidence.json",
+        )?);
+    }
 
     let manifest = WorkflowPortablePackageManifest {
         schema_version: "workflow.portable-package.v1".to_string(),
@@ -2078,6 +2093,7 @@ pub fn export_workflow_package(
         workflow_slug: bundle.workflow.metadata.slug.clone(),
         source_workflow_path: workflow_path.display().to_string(),
         harness: bundle.workflow.metadata.harness.clone(),
+        harness_package_manifest,
         worker_harness_binding: bundle.workflow.metadata.worker_harness_binding.clone(),
         readiness_status: readiness.status.clone(),
         portable: readiness.status != "blocked",
@@ -2130,6 +2146,16 @@ pub fn import_workflow_package(
     let mut workflow: WorkflowProject =
         read_json_file(&package_dir.join(&workflow_file.relative_path))?;
     normalize_legacy_workflow_output_nodes(&mut workflow);
+    if let (Some(harness), Some(package_manifest)) = (
+        workflow.metadata.harness.as_mut(),
+        manifest.harness_package_manifest.clone(),
+    ) {
+        if harness.get("packageManifest").is_none() {
+            if let Some(object) = harness.as_object_mut() {
+                object.insert("packageManifest".to_string(), package_manifest);
+            }
+        }
+    }
     let imported_name = request
         .name
         .clone()
