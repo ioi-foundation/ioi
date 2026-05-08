@@ -1046,6 +1046,26 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             ) &&
             Array.isArray(dispatch.cognitionExecutionGateDivergenceClasses) &&
             dispatch.cognitionExecutionGateDivergenceClasses.every((kind) => kind === "none") &&
+            dispatch.routingModelAdapterMode === "workflow_component_adapter_gated" &&
+            Array.isArray(dispatch.routingModelAdapterResults) &&
+            dispatch.routingModelAdapterResults.length >= 3 &&
+            dispatch.routingModelAdapterResults.every((result) =>
+              result?.actionFrame?.executionMode === "gated" &&
+              result?.actionFrame?.readiness === "shadow_ready" &&
+              result?.nodeAttempt?.status === "gated",
+            ) &&
+            Array.isArray(dispatch.routingModelAttemptIds) &&
+            dispatch.routingModelAttemptIds.length >= 3 &&
+            Array.isArray(dispatch.routingModelReceiptIds) &&
+            dispatch.routingModelReceiptIds.length >= 3 &&
+            Array.isArray(dispatch.routingModelReplayFixtureRefs) &&
+            dispatch.routingModelReplayFixtureRefs.length >= 3 &&
+            Array.isArray(dispatch.routingModelComponentKinds) &&
+            ["model_router", "model_call", "tool_router"].every((kind) =>
+              dispatch.routingModelComponentKinds.includes(kind),
+            ) &&
+            Array.isArray(dispatch.routingModelDivergenceClasses) &&
+            dispatch.routingModelDivergenceClasses.every((kind) => kind === "none") &&
             dispatch.modelExecutionMode === "workflow_synchronous_envelope" &&
             dispatch.modelExecutionEnvelopeReady === true &&
             typeof dispatch.modelExecutionBindingId === "string" &&
@@ -1288,6 +1308,26 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             ) &&
             Array.isArray(dispatch.cognitionExecutionGateDivergenceClasses) &&
             dispatch.cognitionExecutionGateDivergenceClasses.every((kind) => kind === "none") &&
+            dispatch.routingModelAdapterMode === "workflow_component_adapter_gated" &&
+            Array.isArray(dispatch.routingModelAdapterResults) &&
+            dispatch.routingModelAdapterResults.length >= 3 &&
+            dispatch.routingModelAdapterResults.every((result) =>
+              result?.actionFrame?.executionMode === "gated" &&
+              result?.actionFrame?.readiness === "shadow_ready" &&
+              result?.nodeAttempt?.status === "gated",
+            ) &&
+            Array.isArray(dispatch.routingModelAttemptIds) &&
+            dispatch.routingModelAttemptIds.length >= 3 &&
+            Array.isArray(dispatch.routingModelReceiptIds) &&
+            dispatch.routingModelReceiptIds.length >= 3 &&
+            Array.isArray(dispatch.routingModelReplayFixtureRefs) &&
+            dispatch.routingModelReplayFixtureRefs.length >= 3 &&
+            Array.isArray(dispatch.routingModelComponentKinds) &&
+            ["model_router", "model_call", "tool_router"].every((kind) =>
+              dispatch.routingModelComponentKinds.includes(kind),
+            ) &&
+            Array.isArray(dispatch.routingModelDivergenceClasses) &&
+            dispatch.routingModelDivergenceClasses.every((kind) => kind === "none") &&
             Array.isArray(dispatch.modelExecutionAttemptIds) &&
             dispatch.modelExecutionAttemptIds.length >= 5 &&
             Array.isArray(dispatch.modelExecutionReceiptIds) &&

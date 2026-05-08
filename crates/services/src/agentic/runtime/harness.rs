@@ -411,6 +411,59 @@ mod tests {
     }
 
     #[test]
+    fn default_component_adapter_invokes_gated_routing_model_components() {
+        let cluster = default_harness_promotion_clusters()
+            .into_iter()
+            .find(|cluster| cluster.cluster_id == HarnessPromotionClusterId::RoutingModel)
+            .expect("routing model cluster");
+
+        assert_eq!(
+            cluster.component_kinds,
+            vec![
+                HarnessComponentKind::ModelRouter,
+                HarnessComponentKind::ModelCall,
+                HarnessComponentKind::ToolRouter
+            ]
+        );
+
+        for (index, component_kind) in cluster.component_kinds.iter().enumerate() {
+            let result = invoke_default_harness_component(HarnessComponentInvocation {
+                invocation_id: format!("routing-model-adapter-{index}"),
+                component_kind: *component_kind,
+                execution_mode: HarnessExecutionMode::Gated,
+                attempt_index: (index + 1) as u32,
+                input_hash: Some(format!("routing-input:{index}")),
+                output_hash: Some(format!("routing-output:{index}")),
+                policy_decision: Some("allow_routing_model_gated_component".to_string()),
+                receipt_ids: vec![format!("routing-receipt:{index}")],
+                evidence_refs: vec![format!("routing-evidence:{}", component_kind.as_str())],
+                replay_fixture_ref: Some(format!("routing-fixture:{}", component_kind.as_str())),
+                started_at_ms: Some(20),
+                duration_ms: Some(3),
+            })
+            .expect("routing model adapter invocation should be accepted");
+
+            assert_eq!(
+                result.action_frame.execution_mode,
+                HarnessExecutionMode::Gated
+            );
+            assert_eq!(result.action_frame.component_kind, *component_kind);
+            assert_eq!(
+                result.node_attempt.workflow_node_id,
+                component_kind.workflow_node_id()
+            );
+            assert_eq!(result.node_attempt.status, HarnessNodeAttemptStatus::Gated);
+            assert_eq!(
+                result.node_attempt.policy_decision.as_deref(),
+                Some("allow_routing_model_gated_component")
+            );
+            assert_eq!(result.readiness, HarnessComponentReadiness::ShadowReady);
+            assert!(result.result_hash.as_deref().is_some());
+            assert_eq!(result.receipt_ids, vec![format!("routing-receipt:{index}")]);
+        }
+    }
+
+    #[test]
     fn default_component_adapter_invokes_live_cognition_authority_components() {
         for (index, component_kind) in [
             HarnessComponentKind::Planner,

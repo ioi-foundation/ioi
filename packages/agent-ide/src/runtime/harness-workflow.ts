@@ -2165,7 +2165,29 @@ const DEFAULT_COGNITION_GATE_ADAPTER_COMPONENTS: Array<{
   },
 ];
 
-function makeDefaultCognitionAdapterResult(
+const DEFAULT_ROUTING_MODEL_GATE_ADAPTER_COMPONENTS: Array<{
+  kind: WorkflowHarnessComponentKind;
+  attemptSlug: string;
+  policyDecision: string;
+}> = [
+  {
+    kind: "model_router",
+    attemptSlug: "routing_model_model_router_envelope",
+    policyDecision: "accept_routing_model_adapter_route_binding",
+  },
+  {
+    kind: "model_call",
+    attemptSlug: "routing_model_model_call_envelope",
+    policyDecision: "accept_routing_model_adapter_model_call_contract",
+  },
+  {
+    kind: "tool_router",
+    attemptSlug: "routing_model_tool_router_envelope",
+    policyDecision: "accept_routing_model_adapter_tool_route_without_live_invocation",
+  },
+];
+
+function makeDefaultHarnessAdapterResult(
   kind: WorkflowHarnessComponentKind,
   attemptSlug: string,
   policyDecision: string,
@@ -2229,7 +2251,7 @@ function makeDefaultCognitionAdapterResult(
 
 function makeDefaultCognitionAdapterResults(): WorkflowHarnessComponentAdapterResult[] {
   return DEFAULT_COGNITION_LIVE_ADAPTER_COMPONENTS.map((component, index) =>
-    makeDefaultCognitionAdapterResult(
+    makeDefaultHarnessAdapterResult(
       component.kind,
       component.attemptSlug,
       component.policyDecision,
@@ -2241,11 +2263,23 @@ function makeDefaultCognitionAdapterResults(): WorkflowHarnessComponentAdapterRe
 
 function makeDefaultCognitionGateAdapterResults(): WorkflowHarnessComponentAdapterResult[] {
   return DEFAULT_COGNITION_GATE_ADAPTER_COMPONENTS.map((component, index) =>
-    makeDefaultCognitionAdapterResult(
+    makeDefaultHarnessAdapterResult(
       component.kind,
       component.attemptSlug,
       component.policyDecision,
       index + 4,
+      "gated",
+    ),
+  );
+}
+
+function makeDefaultRoutingModelGateAdapterResults(): WorkflowHarnessComponentAdapterResult[] {
+  return DEFAULT_ROUTING_MODEL_GATE_ADAPTER_COMPONENTS.map((component, index) =>
+    makeDefaultHarnessAdapterResult(
+      component.kind,
+      component.attemptSlug,
+      component.policyDecision,
+      index + 7,
       "gated",
     ),
   );
@@ -2334,6 +2368,29 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     "harness-default-dispatch:fixture-capability_sequencer_envelope",
   ];
   const cognitionExecutionGateDivergenceClasses = ["none" as const];
+  const routingModelAdapterResults = makeDefaultRoutingModelGateAdapterResults();
+  const routingModelActionFrameIds = routingModelAdapterResults.map(
+    (result) => `${result.actionFrame.nodeId}:${result.actionFrame.componentId}`,
+  );
+  const routingModelComponentKinds = routingModelAdapterResults.map(
+    (result) => result.actionFrame.componentKind,
+  );
+  const routingModelAttemptIds = [
+    "harness-default-dispatch:attempt-routing_model_model_router_envelope",
+    "harness-default-dispatch:attempt-routing_model_model_call_envelope",
+    "harness-default-dispatch:attempt-routing_model_tool_router_envelope",
+  ];
+  const routingModelReceiptIds = [
+    "harness-default-dispatch:receipt-routing_model_model_router_envelope",
+    "harness-default-dispatch:receipt-routing_model_model_call_envelope",
+    "harness-default-dispatch:receipt-routing_model_tool_router_envelope",
+  ];
+  const routingModelReplayFixtureRefs = [
+    "harness-default-dispatch:fixture-routing_model_model_router_envelope",
+    "harness-default-dispatch:fixture-routing_model_model_call_envelope",
+    "harness-default-dispatch:fixture-routing_model_tool_router_envelope",
+  ];
+  const routingModelDivergenceClasses = ["none" as const];
   const activationIdGateProofBlockers =
     (options.requireActivationIdGateClickProof ?? true)
       ? workflowHarnessActivationIdGateClickProofBlockers(
@@ -2493,6 +2550,7 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
         ...cognitionExecutionGateAttemptIds,
         "harness-default-dispatch:attempt-model_router_envelope",
         "harness-default-dispatch:attempt-model_call_envelope",
+        ...routingModelAttemptIds,
         "harness-default-dispatch:attempt-model_provider_call_canary",
         "harness-default-dispatch:attempt-model_provider_gated_visible_output",
         "harness-default-dispatch:attempt-model_provider_gated_visible_output_rollback_drill",
@@ -2545,6 +2603,14 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
     cognitionExecutionGateActionFrameIds,
     cognitionExecutionGateComponentKinds,
     cognitionExecutionGateDivergenceClasses,
+    routingModelAdapterMode: "workflow_component_adapter_gated",
+    routingModelAttemptIds,
+    routingModelReceiptIds,
+    routingModelReplayFixtureRefs,
+    routingModelAdapterResults,
+    routingModelActionFrameIds,
+    routingModelComponentKinds,
+    routingModelDivergenceClasses,
     modelExecutionAttemptIds: [
       "harness-default-dispatch:attempt-model_router_envelope",
       "harness-default-dispatch:attempt-model_call_envelope",
@@ -3065,6 +3131,14 @@ export function makeHarnessDefaultRuntimeDispatchProof(options: {
       lowLevelInvocationDeferred: false,
       fallbackSelector: "legacy_runtime_model_invocation",
       latencyMs: 0,
+      routingModelAdapterMode: "workflow_component_adapter_gated",
+      routingModelAdapterResultCount: routingModelAdapterResults.length,
+      routingModelAttemptIds,
+      routingModelReceiptIds,
+      routingModelReplayFixtureRefs,
+      routingModelActionFrameIds,
+      routingModelComponentKinds,
+      routingModelDivergenceClasses,
       providerCanaryReady: true,
       providerCanaryAttemptIds: [
         "harness-default-dispatch:attempt-model_provider_call_canary",
