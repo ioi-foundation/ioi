@@ -254,6 +254,11 @@ test("runtime consistency contract requires harness shadow proof", () => {
   assert.ok(contract.runtimeConsistencyRequirements.includes("harness_selector_default_promoted"));
   assert.ok(
     contract.runtimeConsistencyRequirements.includes(
+      "harness_selector_live_promotion_readiness_gated",
+    ),
+  );
+  assert.ok(
+    contract.runtimeConsistencyRequirements.includes(
       "harness_default_runtime_dispatch_present",
     ),
   );

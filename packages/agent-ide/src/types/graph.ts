@@ -1464,6 +1464,10 @@ export interface WorkflowHarnessLiveHandoffProof {
   nodeTimelineAttemptIds: string[];
   receiptIds: string[];
   replayFixtureRefs: string[];
+  livePromotionReadinessProof?: WorkflowHarnessLivePromotionReadinessProof | null;
+  livePromotionReadinessReady: boolean;
+  livePromotionReadinessBlockers: string[];
+  livePromotionReadinessPolicyDecision: string;
   activationBlockers: string[];
   defaultPromotionGate?: WorkflowHarnessDefaultPromotionGate;
   evidenceRefs: string[];
@@ -1487,6 +1491,10 @@ export interface WorkflowHarnessRuntimeSelectorDecision {
   rollbackAvailable: boolean;
   policyDecision: string;
   routeReason: string;
+  livePromotionReadinessProof?: WorkflowHarnessLivePromotionReadinessProof | null;
+  livePromotionReadinessReady: boolean;
+  livePromotionReadinessBlockers: string[];
+  livePromotionReadinessPolicyDecision: string;
   defaultPromotionGate?: WorkflowHarnessDefaultPromotionGate;
   evidenceRefs: string[];
 }

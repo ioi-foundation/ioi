@@ -447,6 +447,7 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
     harnessSelectorCanaryRoutedCount: 0,
     harnessSelectorLegacyDefaultCount: 0,
     harnessSelectorDefaultPromotedCount: 0,
+    harnessSelectorLivePromotionReadinessGatedCount: 0,
     harnessLiveHandoffCanaryCount: 0,
     harnessLiveHandoffDefaultPromotedCount: 0,
     harnessLiveHandoffRollbackCount: 0,
@@ -749,9 +750,27 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
             decision.actualRuntimeAuthority === "blessed_workflow_activation_default" &&
             decision.defaultPromotionGate?.enabled === true &&
             decision.defaultPromotionGate?.eligible === true &&
-            decision.rollbackAvailable === true
+            decision.rollbackAvailable === true &&
+            decision.livePromotionReadinessReady === true &&
+            Array.isArray(decision.livePromotionReadinessBlockers) &&
+            decision.livePromotionReadinessBlockers.length === 0 &&
+            decision.livePromotionReadinessProof?.schemaVersion ===
+              "workflow.harness.live-promotion-readiness.v1" &&
+            decision.livePromotionReadinessPolicyDecision ===
+              "allow_default_harness_live_promotion_readiness"
           ) {
             summary.harnessSelectorDefaultPromotedCount += 1;
+          }
+          if (
+            decision.livePromotionReadinessReady === true &&
+            Array.isArray(decision.livePromotionReadinessBlockers) &&
+            decision.livePromotionReadinessBlockers.length === 0 &&
+            decision.livePromotionReadinessProof?.schemaVersion ===
+              "workflow.harness.live-promotion-readiness.v1" &&
+            decision.livePromotionReadinessPolicyDecision ===
+              "allow_default_harness_live_promotion_readiness"
+          ) {
+            summary.harnessSelectorLivePromotionReadinessGatedCount += 1;
           }
           if (
             decision.productionDefaultSelector === "legacy_runtime" &&
@@ -1690,6 +1709,9 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
         if (digest.harness_selector_default_promoted === true) {
           summary.harnessSelectorDefaultPromotedCount += 1;
         }
+        if (digest.harness_selector_live_promotion_readiness_gated === true) {
+          summary.harnessSelectorLivePromotionReadinessGatedCount += 1;
+        }
         if (digest.harness_live_handoff_canary === true) {
           summary.harnessLiveHandoffCanaryCount += 1;
         }
@@ -1917,6 +1939,9 @@ async function collectRuntimeArtifacts(outputRoot, logPath) {
           }
           if (metadata.harness_selector_default_promoted === true) {
             summary.harnessSelectorDefaultPromotedCount += 1;
+          }
+          if (metadata.harness_selector_live_promotion_readiness_gated === true) {
+            summary.harnessSelectorLivePromotionReadinessGatedCount += 1;
           }
           if (metadata.harness_live_handoff_canary === true) {
             summary.harnessLiveHandoffCanaryCount += 1;
@@ -2534,6 +2559,7 @@ function buildGuiEvidenceAssessment({
   const hasHarnessSelectorRouting =
     hasHarnessLiveHandoff &&
     summary.harnessSelectorDefaultPromotedCount > 0 &&
+    summary.harnessSelectorLivePromotionReadinessGatedCount > 0 &&
     summary.harnessSelectorLegacyDefaultCount > 0;
   const hasHarnessDefaultRuntimeDispatch =
     hasHarnessSelectorRouting &&
@@ -2706,6 +2732,8 @@ function buildGuiEvidenceAssessment({
       harness_canary_execution_boundary_present: hasHarnessCanaryExecutionBoundary,
       harness_live_handoff_present: hasHarnessLiveHandoff,
       harness_selector_default_promoted: hasHarnessSelectorRouting,
+      harness_selector_live_promotion_readiness_gated:
+        summary.harnessSelectorLivePromotionReadinessGatedCount > 0,
       harness_default_runtime_dispatch_present: hasHarnessDefaultRuntimeDispatch,
       harness_live_promotion_readiness_present: hasHarnessLivePromotionReadiness,
       harness_chat_runtime_binding_matches_workflow_activation:
@@ -2845,6 +2873,8 @@ function buildGuiEvidenceAssessment({
       harnessSelectorCanaryRoutedCount: summary.harnessSelectorCanaryRoutedCount,
       harnessSelectorLegacyDefaultCount: summary.harnessSelectorLegacyDefaultCount,
       harnessSelectorDefaultPromotedCount: summary.harnessSelectorDefaultPromotedCount,
+      harnessSelectorLivePromotionReadinessGatedCount:
+        summary.harnessSelectorLivePromotionReadinessGatedCount,
       harnessLiveHandoffCanaryCount: summary.harnessLiveHandoffCanaryCount,
       harnessLiveHandoffDefaultPromotedCount: summary.harnessLiveHandoffDefaultPromotedCount,
       harnessLiveHandoffRollbackCount: summary.harnessLiveHandoffRollbackCount,
@@ -3381,6 +3411,12 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
         selector?.defaultPromotionGate?.defaultAuthorityTransferred === true &&
         selector?.rollbackTarget === DEFAULT_AGENT_HARNESS_ACTIVATION_ID &&
         selector?.rollbackAvailable === true &&
+        selector?.livePromotionReadinessReady === true &&
+        (selector?.livePromotionReadinessBlockers ?? []).length === 0 &&
+        selector?.livePromotionReadinessProof?.schemaVersion ===
+          "workflow.harness.live-promotion-readiness.v1" &&
+        selector?.livePromotionReadinessPolicyDecision ===
+          "allow_default_harness_live_promotion_readiness" &&
         (selector?.defaultPromotionGate?.activationBlockers ?? []).length === 0,
       liveHandoffTransferred:
         liveHandoff?.selector === "blessed_workflow_live_default" &&
@@ -3392,6 +3428,12 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
         liveHandoff?.runtimeAuthority === "blessed_workflow_activation_default" &&
         liveHandoff?.rollbackTarget === DEFAULT_AGENT_HARNESS_ACTIVATION_ID &&
         liveHandoff?.rollbackAvailable === true &&
+        liveHandoff?.livePromotionReadinessReady === true &&
+        (liveHandoff?.livePromotionReadinessBlockers ?? []).length === 0 &&
+        liveHandoff?.livePromotionReadinessProof?.schemaVersion ===
+          "workflow.harness.live-promotion-readiness.v1" &&
+        liveHandoff?.livePromotionReadinessPolicyDecision ===
+          "allow_default_harness_live_promotion_readiness" &&
         (liveHandoff?.activationBlockers ?? []).length === 0,
       defaultDispatchBound:
         defaultDispatch?.selectedSelector === "blessed_workflow_live_default" &&
@@ -3703,6 +3745,13 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
             actualRuntimeAuthority: selector.actualRuntimeAuthority,
             rollbackTarget: selector.rollbackTarget,
             rollbackAvailable: selector.rollbackAvailable,
+            livePromotionReadinessReady: selector.livePromotionReadinessReady,
+            livePromotionReadinessBlockers:
+              selector.livePromotionReadinessBlockers ?? [],
+            livePromotionReadinessProof:
+              selector.livePromotionReadinessProof ?? null,
+            livePromotionReadinessPolicyDecision:
+              selector.livePromotionReadinessPolicyDecision ?? null,
             defaultPromotionGate: selector.defaultPromotionGate,
           }
         : null,
@@ -3717,6 +3766,14 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
             runtimeAuthority: liveHandoff.runtimeAuthority,
             rollbackTarget: liveHandoff.rollbackTarget,
             rollbackAvailable: liveHandoff.rollbackAvailable,
+            livePromotionReadinessReady:
+              liveHandoff.livePromotionReadinessReady,
+            livePromotionReadinessBlockers:
+              liveHandoff.livePromotionReadinessBlockers ?? [],
+            livePromotionReadinessProof:
+              liveHandoff.livePromotionReadinessProof ?? null,
+            livePromotionReadinessPolicyDecision:
+              liveHandoff.livePromotionReadinessPolicyDecision ?? null,
             activationBlockerCount: liveHandoff.activationBlockers?.length ?? 0,
           }
         : null,
@@ -4122,6 +4179,7 @@ async function runGuiValidation(args, outputRoot) {
             : false,
         harness_selector_routing:
           runtimeArtifacts.summary.harnessSelectorDefaultPromotedCount > 0 &&
+          runtimeArtifacts.summary.harnessSelectorLivePromotionReadinessGatedCount > 0 &&
           runtimeArtifacts.summary.harnessSelectorLegacyDefaultCount > 0
             ? runtimeArtifacts.path
             : false,
