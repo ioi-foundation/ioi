@@ -2120,6 +2120,12 @@ function buildGuiEvidenceAssessment({
       ?.routeStatefulDeepLinkReplay === true &&
     promotionTransitionLiveGuiInteractionProof?.proof?.deepLinkReplayProof
       ?.passed === true;
+  const hasHarnessColdStartDeepLinkRestore =
+    hasHarnessRouteStatefulDeepLinkReplay &&
+    promotionTransitionLiveGuiInteractionProof?.proof?.checks
+      ?.coldStartDeepLinkRestore === true &&
+    promotionTransitionLiveGuiInteractionProof?.proof
+      ?.coldStartDeepLinkRestoreProof?.passed === true;
   const hasHarnessCanaryExecutionBoundary =
     hasHarnessRollbackRestoreCanary &&
     summary.harnessCanaryBoundaryExecutedCount > 0 &&
@@ -2267,6 +2273,8 @@ function buildGuiEvidenceAssessment({
         hasHarnessPromotionTransitionLiveGuiInteraction,
       harness_route_stateful_deep_link_replay_present:
         hasHarnessRouteStatefulDeepLinkReplay,
+      harness_cold_start_deep_link_restore_present:
+        hasHarnessColdStartDeepLinkRestore,
       harness_canary_execution_boundary_present: hasHarnessCanaryExecutionBoundary,
       harness_live_handoff_present: hasHarnessLiveHandoff,
       harness_selector_default_promoted: hasHarnessSelectorRouting,
@@ -2327,6 +2335,7 @@ function buildGuiEvidenceAssessment({
       hasHarnessPromotionTransitionGuiBehavior,
       hasHarnessPromotionTransitionLiveGuiInteraction,
       hasHarnessRouteStatefulDeepLinkReplay,
+      hasHarnessColdStartDeepLinkRestore,
       hasHarnessCanaryExecutionBoundary,
       hasHarnessLiveHandoff,
       hasHarnessSelectorRouting,
@@ -2729,6 +2738,8 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
     const workerBinding = workflow?.metadata?.workerHarnessBinding ?? null;
     const deepLinkReplayProof =
       workflow?.metadata?.harness?.deepLinkReplayProof ?? null;
+    const coldStartDeepLinkRestoreProof =
+      workflow?.metadata?.harness?.coldStartDeepLinkRestoreProof ?? null;
     const requiredDeepLinkReplayCaseIds = [
       "selector",
       "dispatch",
@@ -2754,6 +2765,28 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
           replayCase.historyMatches === true &&
           replayCase.parsedMatches === true &&
           replayCase.observedValue === replayCase.expectedValue
+        );
+      });
+    const coldStartDeepLinkRestoreCasesById = new Map(
+      (coldStartDeepLinkRestoreProof?.cases ?? []).map((restoreCase) => [
+        restoreCase.id,
+        restoreCase,
+      ]),
+    );
+    const coldStartDeepLinkRestorePassed =
+      coldStartDeepLinkRestoreProof?.passed === true &&
+      requiredDeepLinkReplayCaseIds.every((caseId) => {
+        const restoreCase = coldStartDeepLinkRestoreCasesById.get(caseId);
+        return (
+          restoreCase?.passed === true &&
+          typeof restoreCase.hash === "string" &&
+          restoreCase.hash.startsWith("#harness-workbench?") &&
+          restoreCase.initialHash === restoreCase.hash &&
+          restoreCase.historyMatches === true &&
+          restoreCase.parsedMatches === true &&
+          restoreCase.workflowReloaded === true &&
+          restoreCase.restoredFromInitialHash === true &&
+          restoreCase.observedValue === restoreCase.expectedValue
         );
       });
     const routeStatefulDeepLinks = {
@@ -2870,6 +2903,7 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
         routeStatefulDeepLinks.receipt?.includes("receiptRef=") &&
         routeStatefulDeepLinks.replay?.includes("replayFixtureRef="),
       routeStatefulDeepLinkReplay: deepLinkReplayPassed,
+      coldStartDeepLinkRestore: coldStartDeepLinkRestorePassed,
       auditRecordedBlockedAndPromoted:
         audit.some((event) => event.eventType === "promotion_transition_blocked") &&
         audit.some((event) => event.eventType === "promotion_transition_promoted"),
@@ -2975,6 +3009,7 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
       },
       routeStatefulDeepLinks,
       deepLinkReplayProof,
+      coldStartDeepLinkRestoreProof,
       sourceRefs: [
         "packages/agent-ide/src/WorkflowComposer/controller.tsx",
         "packages/agent-ide/src/WorkflowComposer/support.tsx",
@@ -3163,6 +3198,11 @@ async function runGuiValidation(args, outputRoot) {
         harness_route_stateful_deep_link_replay:
           promotionTransitionLiveGuiInteractionProof.proof.checks
             ?.routeStatefulDeepLinkReplay === true
+            ? promotionTransitionLiveGuiInteractionProof.path
+            : false,
+        harness_cold_start_deep_link_restore:
+          promotionTransitionLiveGuiInteractionProof.proof.checks
+            ?.coldStartDeepLinkRestore === true
             ? promotionTransitionLiveGuiInteractionProof.path
             : false,
         harness_canary_execution_boundary:

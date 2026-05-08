@@ -1811,6 +1811,24 @@ export interface WorkflowHarnessDeepLinkReplayProof {
   blockers: string[];
 }
 
+export interface WorkflowHarnessColdStartDeepLinkRestoreCase
+  extends WorkflowHarnessDeepLinkReplayCase {
+  initialHash: string;
+  workflowReloaded: boolean;
+  restoredFromInitialHash: boolean;
+}
+
+export interface WorkflowHarnessColdStartDeepLinkRestoreProof {
+  schemaVersion:
+    | "workflow.harness.cold-start-deep-link-restore-proof.v1"
+    | string;
+  method: string;
+  generatedAtMs: number;
+  cases: WorkflowHarnessColdStartDeepLinkRestoreCase[];
+  passed: boolean;
+  blockers: string[];
+}
+
 export interface WorkflowHarnessCanaryRollbackDrill {
   schemaVersion: "workflow.harness.canary-rollback-drill.v1" | string;
   drillId: string;
@@ -2016,6 +2034,7 @@ export interface WorkflowHarnessMetadata {
   runtimeSelectorDecision?: WorkflowHarnessRuntimeSelectorDecision;
   defaultRuntimeDispatchProof?: WorkflowHarnessDefaultRuntimeDispatchProof;
   deepLinkReplayProof?: WorkflowHarnessDeepLinkReplayProof;
+  coldStartDeepLinkRestoreProof?: WorkflowHarnessColdStartDeepLinkRestoreProof;
   canaryExecutionBoundary?: WorkflowHarnessCanaryExecutionBoundary;
   canaryExecutionBoundaries?: WorkflowHarnessCanaryExecutionBoundary[];
   validationGates: string[];
