@@ -3088,6 +3088,12 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /workflow-harness-activation-gate-evidence-refs/.test(rail) &&
       /workflow-harness-activation-gate-node-attempt-refs/.test(rail) &&
       /workflow-harness-activation-gate-node-timeline/.test(rail) &&
+      /workflow-harness-canary-execution-boundaries/.test(rail) &&
+      /data-selected-canary-boundary-id/.test(rail) &&
+      /data-selected-rollback-drill-id/.test(rail) &&
+      /data-selected-rollback-restore-canary-id/.test(rail) &&
+      /data-canary-boundary-id/.test(rail) &&
+      /data-rollback-drill-id/.test(rail) &&
       /data-evidence-ref-count/.test(rail) &&
       /data-node-attempt-ref-count/.test(rail) &&
       /data-gate-action-id/.test(rail) &&
@@ -3108,6 +3114,8 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
         controller,
       ) &&
       /activationGateEvidenceRef/.test(controller) &&
+      /activation-gate-canary-boundary/.test(controller) &&
+      /activation-gate-canary-rollback-drill/.test(controller) &&
       /activationGateNodeAttemptId/.test(controller) &&
       /activationGateReceiptRef/.test(controller) &&
       /activationGateReplayFixtureRef/.test(controller) &&
@@ -4599,6 +4607,15 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       activationGateDeepLinkProof?.cases?.find(
         (replayCase) => replayCase.id === "activation-gate-replay",
       ) ?? null;
+    const activationGateCanaryBoundaryDeepLinkCase =
+      activationGateDeepLinkProof?.cases?.find(
+        (replayCase) => replayCase.id === "activation-gate-canary-boundary",
+      ) ?? null;
+    const activationGateCanaryRollbackDrillDeepLinkCase =
+      activationGateDeepLinkProof?.cases?.find(
+        (replayCase) =>
+          replayCase.id === "activation-gate-canary-rollback-drill",
+      ) ?? null;
     const activationGateNodeAttemptDeepLinkCase =
       activationGateDeepLinkProof?.cases?.find(
         (replayCase) => replayCase.id === "activation-gate-node-attempt",
@@ -4677,6 +4694,10 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
         null,
       activationGateReceipt: activationGateReceiptDeepLinkCase?.hash ?? null,
       activationGateReplay: activationGateReplayDeepLinkCase?.hash ?? null,
+      activationGateCanaryBoundary:
+        activationGateCanaryBoundaryDeepLinkCase?.hash ?? null,
+      activationGateCanaryRollbackDrill:
+        activationGateCanaryRollbackDrillDeepLinkCase?.hash ?? null,
       activationAudit: audit[0]?.eventId
         ? `#harness-workbench?${new URLSearchParams({
             panel: "settings",
@@ -5093,6 +5114,16 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
           "activationGateReplayFixtureRef",
           "data-selected-activation-gate-replay-fixture-ref",
         ) &&
+        activationGateReferenceDeepLinkRestored(
+          activationGateCanaryBoundaryDeepLinkCase,
+          "activationGateEvidenceRef",
+          "data-selected-canary-boundary-id",
+        ) &&
+        activationGateReferenceDeepLinkRestored(
+          activationGateCanaryRollbackDrillDeepLinkCase,
+          "activationGateEvidenceRef",
+          "data-selected-rollback-drill-id",
+        ) &&
         (activationGateReferenceDeepLinkRestored(
           activationGateNodeAttemptDeepLinkCase,
           "activationGateNodeAttemptId",
@@ -5214,7 +5245,22 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
           activationGateRollbackRestoreClickProof.after?.inspectorState?.[
             "data-receipt-ref-count"
           ] ?? 0,
-        ) > 0,
+        ) > 0 &&
+        typeof activationGateRollbackRestoreClickProof
+          .rollbackRestoreDeepLink === "string" &&
+        activationGateRollbackRestoreClickProof.rollbackRestoreDeepLink.includes(
+          "activationGateReceiptRef=",
+        ) &&
+        activationGateRollbackRestoreClickProof.rollbackRestoreDeepLinkState?.[
+          "data-selected-rollback-restore-canary-id"
+        ] ===
+          activationGateRollbackRestoreClickProof.dryRun
+            ?.rollbackRestoreCanaryId &&
+        activationGateRollbackRestoreClickProof.rollbackRestoreDeepLinkState?.[
+          "data-selected-rollback-restore-receipt-ref"
+        ] ===
+          activationGateRollbackRestoreClickProof.dryRun
+            ?.rollbackRestoreReceiptBindingRef,
       activationIdGateClickProof:
         activationIdGateClickProof?.passed === true &&
         activationIdGateClickProof.blockedDryRun?.clicked === true &&

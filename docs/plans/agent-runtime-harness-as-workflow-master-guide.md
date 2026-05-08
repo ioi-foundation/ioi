@@ -42,6 +42,8 @@ Companion documents:
 - `docs/evidence/agent-runtime-p3-validation/2026-05-08T18-43-28-818Z/dashboard-index.json`
 - `docs/evidence/autopilot-gui-harness-validation/2026-05-08T19-29-45-194Z/result.json`
 - `docs/evidence/agent-runtime-p3-validation/2026-05-08T19-36-51-457Z/dashboard-index.json`
+- `docs/evidence/autopilot-gui-harness-validation/2026-05-08T19-54-02-426Z/result.json`
+- `docs/evidence/agent-runtime-p3-validation/2026-05-08T20-00-06-942Z/dashboard-index.json`
 - `docs/evidence/harness-as-workflow-aip-reference/2026-05-06/README.md`
 
 ## Executive Verdict
@@ -95,13 +97,13 @@ persistence, persisted worker-session launch authority, typed worker
 launch/resume/rollback envelopes, durable worker handoff receipts, rollback
 handoff authority, worker handoff node timeline/replay fixture binding, gated
 verification/output adapter proof, gated authority/tooling adapter proof, and
-fork activation handoff timeline proof, and fork handoff deep-link proof have
-a green end-to-end checkpoint:
+fork activation handoff timeline proof, fork handoff deep-link proof, and
+canary/rollback route-state proof have a green end-to-end checkpoint:
 
 - Full retained Autopilot GUI harness run:
-  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T19-29-45-194Z/result.json`
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T19-54-02-426Z/result.json`
 - Runtime P3 validation with required GUI evidence:
-  `docs/evidence/agent-runtime-p3-validation/2026-05-08T19-36-51-457Z/dashboard-index.json`
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T20-00-06-942Z/dashboard-index.json`
 
 This checkpoint proves the GUI promotion flow can show the activation-id gate,
 the fork activation click proof, the selector-owned live-promotion readiness
@@ -136,7 +138,10 @@ carrying a worker session, launch envelopes, handoff receipts, gated
 `handoff_bridge` node attempts, replay refs, and rollback target. The fork
 activation wizard can also deep-link from its `worker-handoff` gate to the
 exact node attempt, handoff receipt, replay fixture, and timeline row that
-prove the canary worker handoff.
+prove the canary worker handoff. Canary boundaries and rollback drills are
+also route-stateful: the GUI can restore the selected canary boundary,
+rollback drill, and rollback-restore canary receipt directly from
+`#harness-workbench` links.
 
 ### 2026-05-08 Cognition Live Adapter Slice
 
@@ -832,6 +837,37 @@ fixture, and node-attempt timeline row that proves the activation." The next
 chronological slice should use the same route-stateful inspector pattern for
 rollback/canary comparison panels and then tighten package export/import around
 those evidence refs.
+
+### 2026-05-08 Canary And Rollback Deep-Link Slice
+
+The canary and rollback proof surfaces now use the same route-stateful
+inspector pattern as the handoff timeline:
+
+- Canary execution boundaries expose selected boundary id, rollback drill id,
+  receipt refs, replay fixture refs, rollback target, canary status, and drill
+  status as GUI data attributes.
+- The canary activation gate now treats both boundary ids and rollback drill
+  ids as evidence refs, so the same gate can restore a boundary-focused view
+  or a drill-focused view from a `#harness-workbench` link.
+- The rollback-restore activation gate click proof now follows a second deep
+  link after the dry run, restoring the exact rollback restore canary id and
+  `workflow_restore_canary:*` receipt binding into the gate inspector.
+- The retained GUI validator now requires canary boundary and rollback drill
+  deep-link cases under `routeStatefulActivationGateReferenceDeepLinks`, plus
+  rollback-restore deep-link state on the click proof.
+- Full retained GUI validation is green in
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T19-54-02-426Z/`;
+  all eight retained queries passed, `routeStatefulActivationGateReferenceDeepLinks:
+  true`, `activationGateRollbackRestoreClickProof: true`, and
+  `activationGateNodeTimelineDeepLink: true`.
+- Runtime P3 with required GUI evidence is green at
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T20-00-06-942Z/dashboard-index.json`.
+
+This changes canary and rollback inspection from "status rows are visible" to
+"each row is an addressable proof target that can be restored by URL, receipt
+ref, replay ref, or evidence ref." The next chronological slice should tighten
+package export/import so fork bundles preserve these deep-linkable evidence
+refs across file-system movement and activation review.
 
 ## Current State
 

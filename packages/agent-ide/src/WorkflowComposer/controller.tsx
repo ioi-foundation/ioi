@@ -988,6 +988,10 @@ function readHarnessRailSelectedState(testId: string): Record<string, string> {
     "data-selected-activation-gate-node-attempt-id",
     "data-selected-activation-gate-receipt-ref",
     "data-selected-activation-gate-replay-fixture-ref",
+    "data-selected-canary-boundary-id",
+    "data-selected-rollback-drill-id",
+    "data-selected-rollback-restore-canary-id",
+    "data-selected-rollback-restore-receipt-ref",
     "data-gate-source-kind",
     "data-gate-status",
     "data-evidence-ref-count",
@@ -1163,6 +1167,10 @@ function harnessDeepLinkProbeCasesForWorkflow(
     : activationGateReplayFixtureRef
       ? "replay-fixtures"
       : null;
+  const activationGateCanaryBoundaryId =
+    activationGateReferenceBoundary?.boundaryId ?? null;
+  const activationGateCanaryRollbackDrillId =
+    activationGateReferenceBoundary?.rollbackDrill?.drillId ?? null;
   const activationGateWorkerHandoffAttemptId = isHarnessFork
     ? (workflow.metadata.harness?.activationRecord
         ?.workerHandoffNodeAttemptIds?.[0] ?? null)
@@ -1344,6 +1352,44 @@ function harnessDeepLinkProbeCasesForWorkflow(
           expectedValue: activationGateReplayFixtureRef,
           selectedRailTestId: "workflow-harness-activation-gate-inspector",
           expectedParsedKey: "activationGateReplayFixtureRef",
+        }
+      : null,
+    activationGateCanaryBoundaryId && activationGateReceiptRef
+      ? {
+          id: "activation-gate-canary-boundary",
+          link: {
+            panel: "settings" as WorkflowRightPanel,
+            activationGateId: "canary",
+            activationGateEvidenceRef: activationGateCanaryBoundaryId,
+            activationGateReceiptRef,
+            receiptRef: activationGateReceiptRef,
+            activationGateReplayFixtureRef:
+              activationGateReplayFixtureRef ?? undefined,
+            replayFixtureRef: activationGateReplayFixtureRef ?? undefined,
+          },
+          expectedAttribute: "data-selected-canary-boundary-id",
+          expectedValue: activationGateCanaryBoundaryId,
+          selectedRailTestId: "workflow-harness-canary-execution-boundaries",
+          expectedParsedKey: "activationGateEvidenceRef",
+        }
+      : null,
+    activationGateCanaryRollbackDrillId && activationGateReceiptRef
+      ? {
+          id: "activation-gate-canary-rollback-drill",
+          link: {
+            panel: "settings" as WorkflowRightPanel,
+            activationGateId: "canary",
+            activationGateEvidenceRef: activationGateCanaryRollbackDrillId,
+            activationGateReceiptRef,
+            receiptRef: activationGateReceiptRef,
+            activationGateReplayFixtureRef:
+              activationGateReplayFixtureRef ?? undefined,
+            replayFixtureRef: activationGateReplayFixtureRef ?? undefined,
+          },
+          expectedAttribute: "data-selected-rollback-drill-id",
+          expectedValue: activationGateCanaryRollbackDrillId,
+          selectedRailTestId: "workflow-harness-canary-execution-boundaries",
+          expectedParsedKey: "activationGateEvidenceRef",
         }
       : null,
     activationGateWorkerHandoffAttemptId
@@ -2845,6 +2891,8 @@ export function useWorkflowComposerController({
       const requiredCaseIds = [
         "activation-gate",
         "activation-gate-evidence",
+        "activation-gate-canary-boundary",
+        "activation-gate-canary-rollback-drill",
         "activation-gate-receipt",
         "activation-gate-replay",
       ];
@@ -3207,6 +3255,8 @@ export function useWorkflowComposerController({
       let afterRailTestId: string | null = null;
       let afterStatusMessage: string | null = null;
       let afterInspectorState: Record<string, string> = {};
+      let rollbackRestoreDeepLinkHash: string | null = null;
+      let rollbackRestoreDeepLinkState: Record<string, string> = {};
       try {
         if (typeof window !== "undefined") {
           (window as any).__AUTOPILOT_HARNESS_ACTIVATION_DRY_RUN_CLICK_RESULT =
@@ -3252,6 +3302,38 @@ export function useWorkflowComposerController({
             await nextHarnessWorkbenchFrame();
             afterInspectorState =
               readHarnessRailSelectedState(selectedRailTestId);
+            const rollbackRestoreReceiptRef =
+              dryRunResult?.rollbackRestoreReceiptBindingRef ?? null;
+            const rollbackRestoreCanaryId =
+              dryRunResult?.rollbackRestoreCanaryId ?? null;
+            if (rollbackRestoreReceiptRef && rollbackRestoreCanaryId) {
+              const rollbackRestoreLink = {
+                panel: "settings" as WorkflowRightPanel,
+                activationGateId: "rollback-restore",
+                activationGateEvidenceRef: rollbackRestoreCanaryId,
+                activationGateReceiptRef: rollbackRestoreReceiptRef,
+                receiptRef: rollbackRestoreReceiptRef,
+              };
+              rollbackRestoreDeepLinkHash = encodeHarnessWorkbenchDeepLink(
+                rollbackRestoreLink,
+              );
+              const rollbackRestoreParsed = parseHarnessWorkbenchDeepLink(
+                rollbackRestoreDeepLinkHash,
+              );
+              if (!rollbackRestoreParsed) {
+                blockers.push(
+                  "activation_gate_rollback_restore_deep_link_parse_failed",
+                );
+              } else {
+                writeHarnessWorkbenchDeepLink(rollbackRestoreDeepLinkHash);
+                applyHarnessWorkbenchDeepLink(rollbackRestoreParsed);
+                await nextHarnessWorkbenchFrame();
+                writeHarnessWorkbenchDeepLink(rollbackRestoreDeepLinkHash);
+                await nextHarnessWorkbenchFrame();
+                rollbackRestoreDeepLinkState =
+                  readHarnessRailSelectedState(selectedRailTestId);
+              }
+            }
           }
         }
       } catch (error) {
@@ -3325,6 +3407,29 @@ export function useWorkflowComposerController({
           "activation_gate_rollback_restore_receipt_refs_not_visible",
         );
       }
+      if (!rollbackRestoreDeepLinkHash) {
+        blockers.push("activation_gate_rollback_restore_deep_link_missing");
+      }
+      if (
+        dryRunResult?.rollbackRestoreCanaryId &&
+        rollbackRestoreDeepLinkState[
+          "data-selected-rollback-restore-canary-id"
+        ] !== dryRunResult.rollbackRestoreCanaryId
+      ) {
+        blockers.push(
+          "activation_gate_rollback_restore_canary_deep_link_not_restored",
+        );
+      }
+      if (
+        dryRunResult?.rollbackRestoreReceiptBindingRef &&
+        rollbackRestoreDeepLinkState[
+          "data-selected-rollback-restore-receipt-ref"
+        ] !== dryRunResult.rollbackRestoreReceiptBindingRef
+      ) {
+        blockers.push(
+          "activation_gate_rollback_restore_receipt_deep_link_not_restored",
+        );
+      }
       return {
         schemaVersion:
           "workflow.harness.activation-gate-rollback-restore-click-proof.v1",
@@ -3375,6 +3480,8 @@ export function useWorkflowComposerController({
           statusMessage: afterStatusMessage,
           inspectorState: afterInspectorState,
         },
+        rollbackRestoreDeepLink: rollbackRestoreDeepLinkHash,
+        rollbackRestoreDeepLinkState,
         clicked,
         passed: blockers.length === 0,
         blockers,
