@@ -3109,6 +3109,7 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       ) &&
       /WorkflowHarnessActivationIdGateClickProof/.test(controller) &&
       /WorkflowHarnessPackageEvidenceGateClickProof/.test(controller) &&
+      /WorkflowHarnessPackageEvidenceImportRoundTripProof/.test(controller) &&
       /workflowHarnessActivationIdGateClickProofBlockers/.test(
         harnessWorkflow,
       ) &&
@@ -3118,6 +3119,7 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /runHarnessActivationGateRollbackRestoreClickProbe/.test(controller) &&
       /runHarnessActivationIdGateClickProbe/.test(controller) &&
       /runHarnessPackageEvidenceGateClickProbe/.test(controller) &&
+      /runHarnessPackageEvidenceImportRoundTripProbe/.test(controller) &&
       /selectedHarnessActivationGateInspection/.test(rail) &&
       /workflow-harness-activation-gate-inspector/.test(rail) &&
       /workflow-harness-activation-gate-summary/.test(rail) &&
@@ -3167,6 +3169,7 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /activationGateRollbackRestoreClickProof/.test(controller) &&
       /activationIdGateClickProof/.test(controller) &&
       /packageEvidenceGateClickProof/.test(controller) &&
+      /packageEvidenceImportRoundTripProof/.test(controller) &&
       /WorkflowHarnessActivationCandidateGateResult[\s\S]*evidenceRefs: string\[\]/.test(
         graph,
       ) &&
@@ -3175,6 +3178,7 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /WorkflowHarnessActivationGateRollbackRestoreClickProof/.test(graph) &&
       /WorkflowHarnessActivationIdGateClickProof/.test(graph) &&
       /WorkflowHarnessPackageEvidenceGateClickProof/.test(graph) &&
+      /WorkflowHarnessPackageEvidenceImportRoundTripProof/.test(graph) &&
       /workerHandoffDeepLink/.test(graph) &&
       /activation_id_gate_mint_handoff_timeline_missing/.test(
         harnessWorkflow,
@@ -3530,6 +3534,10 @@ function buildGuiEvidenceAssessment({
     hasHarnessPackageEvidenceGate &&
     promotionTransitionLiveGuiInteractionProof?.proof?.checks
       ?.packageEvidenceGateClickProof === true;
+  const hasHarnessPackageEvidenceImportRoundTrip =
+    hasHarnessPackageEvidenceGateClickProof &&
+    promotionTransitionLiveGuiInteractionProof?.proof?.checks
+      ?.packageEvidenceImportRoundTripProof === true;
   const hasHarnessPromotionTransitionGuiBehavior =
     hasHarnessRollbackRestoreCanaryUi &&
     promotionTransitionGuiBehaviorProof?.proof?.passed === true;
@@ -3922,6 +3930,8 @@ function buildGuiEvidenceAssessment({
       harness_package_evidence_gate_present: hasHarnessPackageEvidenceGate,
       harness_package_evidence_gate_click_proof_present:
         hasHarnessPackageEvidenceGateClickProof,
+      harness_package_evidence_import_roundtrip_present:
+        hasHarnessPackageEvidenceImportRoundTrip,
       harness_promotion_transition_gui_behavior_present:
         hasHarnessPromotionTransitionGuiBehavior,
       harness_promotion_transition_live_gui_interaction_present:
@@ -4024,6 +4034,7 @@ function buildGuiEvidenceAssessment({
       hasHarnessPackageEvidenceManifest,
       hasHarnessPackageEvidenceGate,
       hasHarnessPackageEvidenceGateClickProof,
+      hasHarnessPackageEvidenceImportRoundTrip,
       hasHarnessPromotionTransitionGuiBehavior,
       hasHarnessPromotionTransitionLiveGuiInteraction,
       hasHarnessRouteStatefulDeepLinkReplay,
@@ -4598,6 +4609,8 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       workflow?.metadata?.harness?.activationGateActionClickProof ?? null;
     const packageEvidenceGateClickProof =
       workflow?.metadata?.harness?.packageEvidenceGateClickProof ?? null;
+    const packageEvidenceImportRoundTripProof =
+      workflow?.metadata?.harness?.packageEvidenceImportRoundTripProof ?? null;
     const activationGateCollectEvidenceClickProof =
       workflow?.metadata?.harness?.activationGateCollectEvidenceClickProof ??
       null;
@@ -5308,6 +5321,78 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
               "data-selected-worker-binding-id"
             ],
         ),
+      packageEvidenceImportRoundTripProof:
+        packageEvidenceImportRoundTripProof?.passed === true &&
+        typeof packageEvidenceImportRoundTripProof.exportedPackagePath ===
+          "string" &&
+        typeof packageEvidenceImportRoundTripProof.importedWorkflowPath ===
+          "string" &&
+        packageEvidenceImportRoundTripProof.validImport?.gateId ===
+          "package-evidence" &&
+        packageEvidenceImportRoundTripProof.validImport?.clicked === true &&
+        packageEvidenceImportRoundTripProof.validImport?.manifest?.present ===
+          true &&
+        packageEvidenceImportRoundTripProof.validImport?.manifest
+          ?.schemaVersion === "workflow.harness.package-evidence-manifest.v1" &&
+        packageEvidenceImportRoundTripProof.validImport?.manifest?.status ===
+          "true" &&
+        packageEvidenceImportRoundTripProof.validImport?.manifest
+          ?.blockerCount === 0 &&
+        packageEvidenceImportRoundTripProof.validImport?.manifest
+          ?.receiptRefCount > 0 &&
+        packageEvidenceImportRoundTripProof.validImport?.manifest
+          ?.replayFixtureRefCount > 0 &&
+        packageEvidenceImportRoundTripProof.validImport?.manifest
+          ?.rollbackRestoreReceiptRefCount > 0 &&
+        packageEvidenceImportRoundTripProof.validImport?.manifest
+          ?.workerHandoffNodeAttemptCount > 0 &&
+        packageEvidenceImportRoundTripProof.validImport?.manifest
+          ?.workerHandoffReceiptCount > 0 &&
+        packageEvidenceImportRoundTripProof.validImport?.manifest
+          ?.deepLinkCount > 0 &&
+        packageEvidenceImportRoundTripProof.validImport?.restored
+          ?.receiptState?.["data-selected-activation-gate-receipt-ref"] ===
+          packageEvidenceImportRoundTripProof.validImport?.selectedRefs
+            ?.receiptRef &&
+        packageEvidenceImportRoundTripProof.validImport?.restored
+          ?.replayState?.[
+          "data-selected-activation-gate-replay-fixture-ref"
+        ] ===
+          packageEvidenceImportRoundTripProof.validImport?.selectedRefs
+            ?.replayFixtureRef &&
+        packageEvidenceImportRoundTripProof.validImport?.restored
+          ?.nodeAttemptState?.[
+          "data-selected-activation-gate-node-attempt-id"
+        ] ===
+          packageEvidenceImportRoundTripProof.validImport?.selectedRefs
+            ?.nodeAttemptId &&
+        Boolean(
+          packageEvidenceImportRoundTripProof.validImport?.restored
+            ?.packageDeepLinkState?.["data-selected-activation-gate-id"] ||
+            packageEvidenceImportRoundTripProof.validImport?.restored
+              ?.packageDeepLinkState?.["data-selected-worker-binding-id"],
+        ) &&
+        packageEvidenceImportRoundTripProof.incompleteImport?.gateId ===
+          "package-evidence" &&
+        packageEvidenceImportRoundTripProof.incompleteImport?.manifest
+          ?.status === "false" &&
+        packageEvidenceImportRoundTripProof.incompleteImport?.manifest
+          ?.blockerCount > 0 &&
+        packageEvidenceImportRoundTripProof.incompleteImport?.readinessBlockerCodes?.includes(
+          "harness_package_manifest_incomplete",
+        ) === true &&
+        [
+          "receipts",
+          "replay-fixtures",
+          "rollback-restore",
+          "worker-handoff-attempts",
+          "worker-handoff-receipts",
+          "deep-links",
+        ].every((rowId) =>
+          packageEvidenceImportRoundTripProof.incompleteImport?.missingRows?.includes(
+            rowId,
+          ),
+        ),
       activationGateCollectEvidenceClickProof:
         activationGateCollectEvidenceClickProof?.passed === true &&
         activationGateCollectEvidenceClickProof.clicked === true &&
@@ -5886,6 +5971,7 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       activationGateDeepLinkProof,
       activationGateActionClickProof,
       packageEvidenceGateClickProof,
+      packageEvidenceImportRoundTripProof,
       activationGateCollectEvidenceClickProof,
       activationGateRollbackRestoreClickProof,
       activationIdGateClickProof,
@@ -6181,6 +6267,11 @@ async function runGuiValidation(args, outputRoot) {
         harness_package_evidence_gate_click_proof:
           promotionTransitionLiveGuiInteractionProof.proof.checks
             ?.packageEvidenceGateClickProof === true
+            ? promotionTransitionLiveGuiInteractionProof.path
+            : false,
+        harness_package_evidence_import_roundtrip:
+          promotionTransitionLiveGuiInteractionProof.proof.checks
+            ?.packageEvidenceImportRoundTripProof === true
             ? promotionTransitionLiveGuiInteractionProof.path
             : false,
         harness_promotion_transition_gui_behavior:
