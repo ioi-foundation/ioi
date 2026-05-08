@@ -2114,6 +2114,12 @@ function buildGuiEvidenceAssessment({
   const hasHarnessPromotionTransitionLiveGuiInteraction =
     hasHarnessPromotionTransitionGuiBehavior &&
     promotionTransitionLiveGuiInteractionProof?.proof?.passed === true;
+  const hasHarnessRouteStatefulDeepLinkReplay =
+    hasHarnessPromotionTransitionLiveGuiInteraction &&
+    promotionTransitionLiveGuiInteractionProof?.proof?.checks
+      ?.routeStatefulDeepLinkReplay === true &&
+    promotionTransitionLiveGuiInteractionProof?.proof?.deepLinkReplayProof
+      ?.passed === true;
   const hasHarnessCanaryExecutionBoundary =
     hasHarnessRollbackRestoreCanary &&
     summary.harnessCanaryBoundaryExecutedCount > 0 &&
@@ -2259,6 +2265,8 @@ function buildGuiEvidenceAssessment({
         hasHarnessPromotionTransitionGuiBehavior,
       harness_promotion_transition_live_gui_interaction_present:
         hasHarnessPromotionTransitionLiveGuiInteraction,
+      harness_route_stateful_deep_link_replay_present:
+        hasHarnessRouteStatefulDeepLinkReplay,
       harness_canary_execution_boundary_present: hasHarnessCanaryExecutionBoundary,
       harness_live_handoff_present: hasHarnessLiveHandoff,
       harness_selector_default_promoted: hasHarnessSelectorRouting,
@@ -2318,6 +2326,7 @@ function buildGuiEvidenceAssessment({
       hasHarnessRollbackRestoreCanaryUi,
       hasHarnessPromotionTransitionGuiBehavior,
       hasHarnessPromotionTransitionLiveGuiInteraction,
+      hasHarnessRouteStatefulDeepLinkReplay,
       hasHarnessCanaryExecutionBoundary,
       hasHarnessLiveHandoff,
       hasHarnessSelectorRouting,
@@ -2718,6 +2727,35 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
       workflow?.metadata?.harness?.defaultRuntimeDispatchProof ?? null;
     const activationRecord = workflow?.metadata?.harness?.activationRecord ?? null;
     const workerBinding = workflow?.metadata?.workerHarnessBinding ?? null;
+    const deepLinkReplayProof =
+      workflow?.metadata?.harness?.deepLinkReplayProof ?? null;
+    const requiredDeepLinkReplayCaseIds = [
+      "selector",
+      "dispatch",
+      "worker",
+      "rollback",
+      "receipt",
+      "replay",
+    ];
+    const deepLinkReplayCasesById = new Map(
+      (deepLinkReplayProof?.cases ?? []).map((replayCase) => [
+        replayCase.id,
+        replayCase,
+      ]),
+    );
+    const deepLinkReplayPassed =
+      deepLinkReplayProof?.passed === true &&
+      requiredDeepLinkReplayCaseIds.every((caseId) => {
+        const replayCase = deepLinkReplayCasesById.get(caseId);
+        return (
+          replayCase?.passed === true &&
+          typeof replayCase.hash === "string" &&
+          replayCase.hash.startsWith("#harness-workbench?") &&
+          replayCase.historyMatches === true &&
+          replayCase.parsedMatches === true &&
+          replayCase.observedValue === replayCase.expectedValue
+        );
+      });
     const routeStatefulDeepLinks = {
       selector: selector?.decisionId
         ? `#harness-workbench?${new URLSearchParams({
@@ -2831,6 +2869,7 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
         routeStatefulDeepLinks.rollback?.includes("rollbackTarget=") &&
         routeStatefulDeepLinks.receipt?.includes("receiptRef=") &&
         routeStatefulDeepLinks.replay?.includes("replayFixtureRef="),
+      routeStatefulDeepLinkReplay: deepLinkReplayPassed,
       auditRecordedBlockedAndPromoted:
         audit.some((event) => event.eventType === "promotion_transition_blocked") &&
         audit.some((event) => event.eventType === "promotion_transition_promoted"),
@@ -2932,8 +2971,10 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
           "workflow-harness-active-runtime-binding-worker-link",
         activeRuntimeBindingRollbackLink:
           "workflow-harness-active-runtime-binding-rollback-link",
+        deepLinkState: "workflow-harness-deep-link-state",
       },
       routeStatefulDeepLinks,
+      deepLinkReplayProof,
       sourceRefs: [
         "packages/agent-ide/src/WorkflowComposer/controller.tsx",
         "packages/agent-ide/src/WorkflowComposer/support.tsx",
@@ -3117,6 +3158,11 @@ async function runGuiValidation(args, outputRoot) {
             : false,
         harness_promotion_transition_live_gui_interaction:
           promotionTransitionLiveGuiInteractionProof.proof.passed === true
+            ? promotionTransitionLiveGuiInteractionProof.path
+            : false,
+        harness_route_stateful_deep_link_replay:
+          promotionTransitionLiveGuiInteractionProof.proof.checks
+            ?.routeStatefulDeepLinkReplay === true
             ? promotionTransitionLiveGuiInteractionProof.path
             : false,
         harness_canary_execution_boundary:

@@ -1780,6 +1780,37 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   evidenceRefs: string[];
 }
 
+export interface WorkflowHarnessDeepLinkReplayCase {
+  id:
+    | "selector"
+    | "dispatch"
+    | "worker"
+    | "rollback"
+    | "receipt"
+    | "replay"
+    | string;
+  hash: string;
+  expectedPanel: WorkflowRightPanel;
+  expectedAttribute: string;
+  expectedValue: string;
+  selectedRailTestId: string;
+  openedHash: string;
+  parsedMatches: boolean;
+  historyMatches: boolean;
+  observedValue: string | null;
+  observedSelectedState: Record<string, string>;
+  passed: boolean;
+}
+
+export interface WorkflowHarnessDeepLinkReplayProof {
+  schemaVersion: "workflow.harness.deep-link-replay-proof.v1" | string;
+  method: string;
+  generatedAtMs: number;
+  cases: WorkflowHarnessDeepLinkReplayCase[];
+  passed: boolean;
+  blockers: string[];
+}
+
 export interface WorkflowHarnessCanaryRollbackDrill {
   schemaVersion: "workflow.harness.canary-rollback-drill.v1" | string;
   drillId: string;
@@ -1984,6 +2015,7 @@ export interface WorkflowHarnessMetadata {
   liveHandoffProof?: WorkflowHarnessLiveHandoffProof;
   runtimeSelectorDecision?: WorkflowHarnessRuntimeSelectorDecision;
   defaultRuntimeDispatchProof?: WorkflowHarnessDefaultRuntimeDispatchProof;
+  deepLinkReplayProof?: WorkflowHarnessDeepLinkReplayProof;
   canaryExecutionBoundary?: WorkflowHarnessCanaryExecutionBoundary;
   canaryExecutionBoundaries?: WorkflowHarnessCanaryExecutionBoundary[];
   validationGates: string[];
