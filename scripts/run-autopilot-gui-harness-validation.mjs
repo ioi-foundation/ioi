@@ -1815,11 +1815,23 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /workflow-harness-rollback-execution-receipt-\$\{index\}/.test(rail),
     activationGateEvidenceInspector:
       /WorkflowHarnessActivationWizardStep/.test(rail) &&
+      /WorkflowHarnessActivationGateAction/.test(rail) &&
+      /gateAction: WorkflowHarnessActivationGateAction/.test(rail) &&
       /selectedHarnessActivationGateInspection/.test(rail) &&
       /workflow-harness-activation-gate-inspector/.test(rail) &&
       /workflow-harness-activation-gate-summary/.test(rail) &&
+      /workflow-harness-activation-gate-actions/.test(rail) &&
+      /workflow-harness-activation-gate-action/.test(rail) &&
+      /workflow-harness-activation-step-action-\$\{step\.id\}/.test(rail) &&
+      /workflow-harness-activation-candidate-gate-action-\$\{gate\.gateId\}/.test(
+        rail,
+      ) &&
       /workflow-harness-activation-gate-evidence-refs/.test(rail) &&
       /data-evidence-ref-count/.test(rail) &&
+      /data-gate-action-id/.test(rail) &&
+      /data-gate-action-kind/.test(rail) &&
+      /data-gate-action-impact/.test(rail) &&
+      /data-gate-action-command/.test(rail) &&
       /data-selected-activation-gate-evidence-ref/.test(rail) &&
       /data-selected-activation-gate-receipt-ref/.test(rail) &&
       /data-selected-activation-gate-replay-fixture-ref/.test(rail) &&
@@ -1834,6 +1846,7 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /activationGateEvidenceRef/.test(controller) &&
       /activationGateReceiptRef/.test(controller) &&
       /activationGateReplayFixtureRef/.test(controller) &&
+      /data-gate-action-command/.test(controller) &&
       /WorkflowHarnessActivationCandidateGateResult[\s\S]*evidenceRefs: string\[\]/.test(
         graph,
       ) &&
@@ -2179,6 +2192,10 @@ function buildGuiEvidenceAssessment({
     hasHarnessActivationGateEvidenceInspector &&
     promotionTransitionLiveGuiInteractionProof?.proof?.checks
       ?.routeStatefulActivationGateReferenceDeepLinks === true;
+  const hasHarnessActivationGateActionWorkbench =
+    hasHarnessActivationGateEvidenceInspector &&
+    promotionTransitionLiveGuiInteractionProof?.proof?.checks
+      ?.activationGateActionWorkbench === true;
   const hasHarnessCanaryExecutionBoundary =
     hasHarnessRollbackRestoreCanary &&
     summary.harnessCanaryBoundaryExecutedCount > 0 &&
@@ -2340,6 +2357,8 @@ function buildGuiEvidenceAssessment({
         hasHarnessActivationGateEvidenceInspector,
       harness_activation_gate_ref_deep_link_restore_present:
         hasHarnessActivationGateReferenceDeepLinkRestore,
+      harness_activation_gate_action_workbench_present:
+        hasHarnessActivationGateActionWorkbench,
       harness_canary_execution_boundary_present: hasHarnessCanaryExecutionBoundary,
       harness_live_handoff_present: hasHarnessLiveHandoff,
       harness_selector_default_promoted: hasHarnessSelectorRouting,
@@ -2406,6 +2425,8 @@ function buildGuiEvidenceAssessment({
       hasHarnessActivationAuditDeepLinkRestore,
       hasHarnessActivationGateDeepLinkRestore,
       hasHarnessActivationGateEvidenceInspector,
+      hasHarnessActivationGateReferenceDeepLinkRestore,
+      hasHarnessActivationGateActionWorkbench,
       hasHarnessCanaryExecutionBoundary,
       hasHarnessLiveHandoff,
       hasHarnessSelectorRouting,
@@ -3081,6 +3102,28 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
             "data-gate-source-kind"
           ] ?? "",
         ),
+      activationGateActionWorkbench:
+        activationGateDeepLinkProof?.passed === true &&
+        activationGateDeepLinkCase?.selectedRailTestId ===
+          "workflow-harness-activation-gate-inspector" &&
+        typeof activationGateDeepLinkCase?.observedSelectedState?.[
+          "data-gate-action-id"
+        ] === "string" &&
+        activationGateDeepLinkCase.observedSelectedState[
+          "data-gate-action-id"
+        ].startsWith("activation-gate-action:") &&
+        typeof activationGateDeepLinkCase.observedSelectedState[
+          "data-gate-action-kind"
+        ] === "string" &&
+        activationGateDeepLinkCase.observedSelectedState[
+          "data-gate-action-kind"
+        ].length > 0 &&
+        typeof activationGateDeepLinkCase.observedSelectedState[
+          "data-gate-action-command"
+        ] === "string" &&
+        activationGateDeepLinkCase.observedSelectedState[
+          "data-gate-action-command"
+        ].startsWith("workflow-harness-gate-action-"),
       auditRecordedBlockedAndPromoted:
         audit.some((event) => event.eventType === "promotion_transition_blocked") &&
         audit.some((event) => event.eventType === "promotion_transition_promoted"),
@@ -3215,6 +3258,28 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
                 "data-replay-fixture-ref-count"
               ] ?? 0,
             ),
+            action: {
+              id:
+                activationGateDeepLinkCase.observedSelectedState?.[
+                  "data-gate-action-id"
+                ] ?? null,
+              kind:
+                activationGateDeepLinkCase.observedSelectedState?.[
+                  "data-gate-action-kind"
+                ] ?? null,
+              impact:
+                activationGateDeepLinkCase.observedSelectedState?.[
+                  "data-gate-action-impact"
+                ] ?? null,
+              command:
+                activationGateDeepLinkCase.observedSelectedState?.[
+                  "data-gate-action-command"
+                ] ?? null,
+              disabled:
+                activationGateDeepLinkCase.observedSelectedState?.[
+                  "data-gate-action-disabled"
+                ] ?? null,
+            },
             selectedEvidenceRef:
               activationGateEvidenceDeepLinkCase?.observedSelectedState?.[
                 "data-selected-activation-gate-evidence-ref"
@@ -3459,6 +3524,11 @@ async function runGuiValidation(args, outputRoot) {
         harness_activation_gate_ref_deep_link_restore:
           promotionTransitionLiveGuiInteractionProof.proof.checks
             ?.routeStatefulActivationGateReferenceDeepLinks === true
+            ? promotionTransitionLiveGuiInteractionProof.path
+            : false,
+        harness_activation_gate_action_workbench:
+          promotionTransitionLiveGuiInteractionProof.proof.checks
+            ?.activationGateActionWorkbench === true
             ? promotionTransitionLiveGuiInteractionProof.path
             : false,
         harness_canary_execution_boundary:
