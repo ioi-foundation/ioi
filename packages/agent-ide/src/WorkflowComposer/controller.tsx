@@ -66,6 +66,7 @@ import type {
   WorkflowHarnessActivationGateActionClickProof,
   WorkflowHarnessActivationGateCollectEvidenceClickProof,
   WorkflowHarnessActivationGateRollbackRestoreClickProof,
+  WorkflowHarnessActivationIdGateClickProof,
   WorkflowHarnessComponentKind,
   WorkflowHarnessColdStartDeepLinkRestoreProof,
   WorkflowHarnessForkActivationCandidate,
@@ -118,6 +119,7 @@ import {
 } from "../runtime/workflow-defaults";
 import {
   applyWorkflowHarnessActivationCandidate,
+  DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
   defaultAgentHarnessTests,
   executeWorkflowHarnessPromotionTransition,
   executeWorkflowHarnessReplayGate,
@@ -314,6 +316,27 @@ function uniqueHarnessRefs(values: Array<string | null | undefined>): string[] {
   );
 }
 
+const harnessActivationNotValidatedIssue: WorkflowValidationIssue = {
+  code: "harness_activation_not_validated",
+  message: "Harness fork has not minted an activation id yet.",
+};
+
+function workflowOnlyActivationMissingReadiness(
+  base: WorkflowValidationResult,
+): WorkflowValidationResult {
+  return {
+    ...base,
+    status: "blocked",
+    errors: [],
+    warnings: [harnessActivationNotValidatedIssue],
+    blockedNodes: [],
+    missingConfig: [],
+    connectorBindingIssues: [],
+    executionReadinessIssues: [harnessActivationNotValidatedIssue],
+    verificationIssues: [],
+  };
+}
+
 function harnessPromotionClusterFor(workflow: WorkflowProject, clusterId: string) {
   return (
     workflow.metadata.harness?.promotionClusters?.find(
@@ -413,6 +436,73 @@ function workflowReadyForHarnessPromotion(
     clusterId,
     "live_ready",
   );
+}
+
+function workflowWithMintableHarnessActivationCandidate(
+  workflow: WorkflowProject,
+  tests: WorkflowTestCase[],
+  nowMs: number,
+): {
+  workflow: WorkflowProject;
+  candidate: WorkflowHarnessForkActivationCandidate;
+} {
+  const workflowId = workflow.metadata.id || workflow.metadata.slug;
+  const workerBinding = {
+    ...workflow.metadata.workerHarnessBinding,
+    harnessWorkflowId: workflowId,
+    harnessActivationId: undefined,
+    harnessHash:
+      workflow.metadata.workerHarnessBinding?.harnessHash ??
+      workflow.metadata.harness?.harnessHash ??
+      "",
+    source: "fork" as const,
+  };
+  const activationRecord = makeHarnessForkActivationRecord({
+    workflowId,
+    harnessWorkflowId: workflowId,
+    activationState: "blocked",
+    activationBlockers: [],
+    canaryStatus: "passed",
+    rollbackTarget: DEFAULT_AGENT_HARNESS_ACTIVATION_ID,
+    rollbackAvailable: true,
+    evidenceRefs: ["canary:passed", "rollback:drill"],
+    workerBinding,
+    mintedAtMs: nowMs,
+  });
+  const stagedWorkflow: WorkflowProject = {
+    ...workflow,
+    global_config: {
+      ...workflow.global_config,
+      production: {
+        ...(workflow.global_config.production ?? {}),
+        mcpAccessReviewed: true,
+        requireReplayFixtures: false,
+        expectedTimeSavedMinutes:
+          workflow.global_config.production?.expectedTimeSavedMinutes ?? 10,
+      },
+    },
+    metadata: {
+      ...workflow.metadata,
+      harness: workflow.metadata.harness
+        ? {
+            ...workflow.metadata.harness,
+            activationId: undefined,
+            activationState: "blocked",
+            activationRecord,
+          }
+        : workflow.metadata.harness,
+      workerHarnessBinding: workerBinding,
+    },
+  };
+  const base = validateWorkflowProject(stagedWorkflow, tests);
+  const candidate = createWorkflowHarnessActivationCandidate(
+    stagedWorkflow,
+    tests,
+    workflowOnlyActivationMissingReadiness(base),
+    [],
+    nowMs,
+  );
+  return { workflow: stagedWorkflow, candidate };
 }
 
 function workflowWithBlessedDefaultRuntimeActivationProof(
@@ -751,6 +841,9 @@ type HarnessActivationDryRunClickResult = {
   candidateId: string;
   decision: string;
   activationBlockerCount: number;
+  workflowActivationId: string | null;
+  workflowActivationState: string | null;
+  workerBindingActivationId: string | null;
   rollbackRestoreCanaryId: string;
   rollbackRestoreStatus: string;
   rollbackRestoreRevisionSource: string;
@@ -774,6 +867,35 @@ function readHarnessActivationDryRunClickResult():
   const result = (window as any).__AUTOPILOT_HARNESS_ACTIVATION_DRY_RUN_CLICK_RESULT;
   return result && typeof result === "object"
     ? (result as HarnessActivationDryRunClickResult)
+    : null;
+}
+
+type HarnessActivationMintClickResult = {
+  applied: boolean;
+  activationId: string | null;
+  blockers: string[];
+  workflowActivationId: string | null;
+  workflowActivationState: string | null;
+  workerBindingActivationId: string | null;
+  activationRecordWorkerBindingActivationId: string | null;
+  rollbackTarget: string | null;
+  revisionBindingActivationId: string | null;
+  activationRecordRevisionBindingHash: string | null;
+  rollbackRevisionBindingHash: string | null;
+  activationAuditEventCount: number;
+  latestAuditEventId: string | null;
+  latestAuditEventType: string | null;
+  latestAuditStatus: string | null;
+  receiptRefs: string[];
+  evidenceRefs: string[];
+  statusMessage: string;
+};
+
+function readHarnessActivationMintClickResult(): HarnessActivationMintClickResult | null {
+  if (typeof window === "undefined") return null;
+  const result = (window as any).__AUTOPILOT_HARNESS_ACTIVATION_MINT_CLICK_RESULT;
+  return result && typeof result === "object"
+    ? (result as HarnessActivationMintClickResult)
     : null;
 }
 
@@ -2918,6 +3040,354 @@ export function useWorkflowComposerController({
     },
     [applyHarnessWorkbenchDeepLink],
   );
+  const runHarnessActivationIdGateClickProbe = useCallback(
+    async (
+      blockedWorkflow: WorkflowProject,
+      blockedTests: WorkflowTestCase[],
+      blockedProposals: WorkflowProposal[],
+      generatedAtMs: number,
+    ): Promise<WorkflowHarnessActivationIdGateClickProof> => {
+      const selectedRailTestId = "workflow-harness-activation-gate-inspector";
+      const projectRoot = currentProject?.rootPath || ".";
+      const blockers: string[] = [];
+      const originalHash = typeof window === "undefined" ? "" : window.location.hash;
+      const link = {
+        panel: "settings" as WorkflowRightPanel,
+        activationGateId: "activation-id",
+      };
+      const hash = encodeHarnessWorkbenchDeepLink(link);
+      const parsed = parseHarnessWorkbenchDeepLink(hash);
+      const emptyAction = () => ({
+        id: null as string | null,
+        kind: null as string | null,
+        impact: null as string | null,
+        command: null as string | null,
+        disabled: false,
+      });
+      const readAction = (state: Record<string, string>) => ({
+        id: state["data-gate-action-id"] || null,
+        kind: state["data-gate-action-kind"] || null,
+        impact: state["data-gate-action-impact"] || null,
+        command: state["data-gate-action-command"] || null,
+        disabled: state["data-gate-action-disabled"] === "true",
+      });
+      const stageWorkflow = async (
+        nextWorkflow: WorkflowProject,
+        nextTests: WorkflowTestCase[],
+        nextProposals: WorkflowProposal[],
+        candidate: WorkflowHarnessForkActivationCandidate | null,
+      ) => {
+        const nextWorkflowPath = `${projectRoot}/.agents/workflows/${nextWorkflow.metadata.slug}.workflow.json`;
+        const nextValidation = validateWorkflowProject(nextWorkflow, nextTests);
+        setWorkflowPath(nextWorkflowPath);
+        setTestsPath(nextWorkflowPath.replace(/\.workflow\.json$/, ".tests.json"));
+        setTests(nextTests);
+        setProposals(nextProposals);
+        setRuns([]);
+        loadWorkflowProject(nextWorkflow);
+        setHarnessActivationCandidate(candidate);
+        setSelectedHarnessRollbackTarget(null);
+        setValidationResult(nextValidation);
+        setReadinessResult(
+          evaluateWorkflowActivationReadiness(
+            nextWorkflow,
+            nextTests,
+            nextValidation,
+            nextProposals,
+            [],
+          ),
+        );
+        setRightPanel("settings");
+        setBottomPanel("selection");
+        await nextHarnessWorkbenchFrame();
+        await nextHarnessWorkbenchFrame();
+      };
+      const applyActivationIdDeepLink = async () => {
+        if (!parsed) {
+          blockers.push("activation_id_gate_hash_parse_failed");
+          return;
+        }
+        writeHarnessWorkbenchDeepLink(hash);
+        applyHarnessWorkbenchDeepLink(parsed);
+        await nextHarnessWorkbenchFrame();
+        writeHarnessWorkbenchDeepLink(hash);
+        await nextHarnessWorkbenchFrame();
+      };
+
+      let blockedBeforeState: Record<string, string> = {};
+      let blockedAfterState: Record<string, string> = {};
+      let blockedGateId: string | null = null;
+      let blockedAction = emptyAction();
+      let blockedClicked = false;
+      let blockedDryRunResult: HarnessActivationDryRunClickResult | null = null;
+      let mintedBeforeState: Record<string, string> = {};
+      let mintedAfterState: Record<string, string> = {};
+      let mintedGateId: string | null = null;
+      let mintedAction = emptyAction();
+      let mintedClicked = false;
+      let mintResult: HarnessActivationMintClickResult | null = null;
+
+      try {
+        if (typeof window !== "undefined") {
+          (window as any).__AUTOPILOT_HARNESS_ACTIVATION_DRY_RUN_CLICK_RESULT =
+            null;
+          (window as any).__AUTOPILOT_HARNESS_ACTIVATION_MINT_CLICK_RESULT =
+            null;
+        }
+        await stageWorkflow(blockedWorkflow, blockedTests, blockedProposals, null);
+        await applyActivationIdDeepLink();
+        blockedBeforeState = readHarnessRailSelectedState(selectedRailTestId);
+        blockedGateId =
+          blockedBeforeState["data-selected-activation-gate-id"] || null;
+        blockedAction = readAction(blockedBeforeState);
+        const blockedActionButton = document.querySelector<HTMLButtonElement>(
+          '[data-testid="workflow-harness-activation-gate-action"]',
+        );
+        if (!blockedActionButton) {
+          blockers.push("activation_id_gate_dry_run_button_missing");
+        } else if (blockedActionButton.disabled || blockedAction.disabled) {
+          blockers.push("activation_id_gate_dry_run_button_disabled");
+        } else {
+          blockedActionButton.click();
+          blockedClicked = true;
+          for (let attempt = 0; attempt < 80; attempt += 1) {
+            await nextHarnessWorkbenchFrame();
+            blockedDryRunResult = readHarnessActivationDryRunClickResult();
+            if (blockedDryRunResult?.candidateId) break;
+          }
+          await applyActivationIdDeepLink();
+          blockedAfterState = readHarnessRailSelectedState(selectedRailTestId);
+        }
+
+        const mintableFork = forkDefaultAgentHarnessWorkflow(
+          "Activation Mint GUI Fork",
+          generatedAtMs + 10,
+        );
+        let mintableWorkflow = mintableFork.workflow;
+        HARNESS_PROMOTION_LIVE_GUI_CLUSTER_IDS.forEach((clusterId, index) => {
+          mintableWorkflow = workflowReadyForHarnessPromotion(
+            mintableWorkflow,
+            clusterId,
+            generatedAtMs + 20 + index,
+          );
+        });
+        const { workflow: stagedMintableWorkflow, candidate: mintableCandidate } =
+          workflowWithMintableHarnessActivationCandidate(
+            mintableWorkflow,
+            mintableFork.tests,
+            generatedAtMs + 40,
+          );
+        if (mintableCandidate.decision !== "mintable") {
+          blockers.push("activation_id_gate_candidate_not_mintable");
+        }
+        if (typeof window !== "undefined") {
+          (window as any).__AUTOPILOT_HARNESS_ACTIVATION_MINT_CLICK_RESULT =
+            null;
+        }
+        await stageWorkflow(
+          stagedMintableWorkflow,
+          mintableFork.tests,
+          [],
+          mintableCandidate,
+        );
+        await applyActivationIdDeepLink();
+        mintedBeforeState = readHarnessRailSelectedState(selectedRailTestId);
+        mintedGateId =
+          mintedBeforeState["data-selected-activation-gate-id"] || null;
+        mintedAction = readAction(mintedBeforeState);
+        const mintActionButton = document.querySelector<HTMLButtonElement>(
+          '[data-testid="workflow-harness-activation-gate-action"]',
+        );
+        if (!mintActionButton) {
+          blockers.push("activation_id_gate_mint_button_missing");
+        } else if (mintActionButton.disabled || mintedAction.disabled) {
+          blockers.push("activation_id_gate_mint_button_disabled");
+        } else {
+          mintActionButton.click();
+          mintedClicked = true;
+          for (let attempt = 0; attempt < 80; attempt += 1) {
+            await nextHarnessWorkbenchFrame();
+            mintResult = readHarnessActivationMintClickResult();
+            if (mintResult && typeof mintResult.applied === "boolean") break;
+          }
+          await applyActivationIdDeepLink();
+          mintedAfterState = readHarnessRailSelectedState(selectedRailTestId);
+        }
+      } catch (error) {
+        blockers.push(`activation_id_gate_click_failed:${errorMessage(error)}`);
+      } finally {
+        writeHarnessWorkbenchDeepLink(originalHash);
+      }
+
+      if (blockedGateId !== "activation-id") {
+        blockers.push("activation_id_gate_dry_run_gate_not_selected");
+      }
+      if (blockedAction.id !== "activation-gate-action:activation-id:run-dry-run") {
+        blockers.push("activation_id_gate_dry_run_action_id_mismatch");
+      }
+      if (blockedAction.kind !== "run_activation_dry_run") {
+        blockers.push("activation_id_gate_dry_run_kind_mismatch");
+      }
+      if (blockedAction.impact !== "collect_evidence") {
+        blockers.push("activation_id_gate_dry_run_impact_mismatch");
+      }
+      if (blockedAction.command !== "workflow-harness-gate-action-activation-id") {
+        blockers.push("activation_id_gate_dry_run_command_mismatch");
+      }
+      if (!blockedClicked) blockers.push("activation_id_gate_dry_run_not_dispatched");
+      if (!blockedDryRunResult?.candidateId) {
+        blockers.push("activation_id_gate_dry_run_result_missing");
+      }
+      if (blockedDryRunResult?.decision !== "blocked") {
+        blockers.push("activation_id_gate_dry_run_not_blocked");
+      }
+      if ((blockedDryRunResult?.activationBlockerCount ?? 0) <= 0) {
+        blockers.push("activation_id_gate_dry_run_no_blockers");
+      }
+      if (blockedDryRunResult?.workflowActivationId) {
+        blockers.push("activation_id_gate_dry_run_minted_activation_id");
+      }
+      if (blockedDryRunResult?.workflowActivationState !== "blocked") {
+        blockers.push("activation_id_gate_dry_run_activation_state_mismatch");
+      }
+      if (blockedDryRunResult?.latestAuditEventType !== "dry_run_blocked") {
+        blockers.push("activation_id_gate_dry_run_audit_type_mismatch");
+      }
+      if (
+        blockedAfterState["data-selected-activation-gate-id"] !== "activation-id"
+      ) {
+        blockers.push("activation_id_gate_dry_run_inspector_not_restored");
+      }
+      if (blockedAfterState["data-gate-status"] !== "blocked") {
+        blockers.push("activation_id_gate_dry_run_gate_status_not_blocked");
+      }
+
+      if (mintedGateId !== "activation-id") {
+        blockers.push("activation_id_gate_mint_gate_not_selected");
+      }
+      if (mintedAction.id !== "activation-gate-action:activation-id:mint") {
+        blockers.push("activation_id_gate_mint_action_id_mismatch");
+      }
+      if (mintedAction.kind !== "mint_activation") {
+        blockers.push("activation_id_gate_mint_kind_mismatch");
+      }
+      if (mintedAction.impact !== "mint_activation") {
+        blockers.push("activation_id_gate_mint_impact_mismatch");
+      }
+      if (mintedAction.command !== "workflow-harness-gate-action-activation-id") {
+        blockers.push("activation_id_gate_mint_command_mismatch");
+      }
+      if (!mintedClicked) blockers.push("activation_id_gate_mint_not_dispatched");
+      if (mintResult?.applied !== true) {
+        blockers.push("activation_id_gate_mint_not_applied");
+      }
+      if (!mintResult?.activationId?.startsWith("activation:")) {
+        blockers.push("activation_id_gate_mint_activation_id_missing");
+      }
+      if (mintResult?.workflowActivationId !== mintResult?.activationId) {
+        blockers.push("activation_id_gate_mint_workflow_activation_mismatch");
+      }
+      if (mintResult?.workflowActivationState !== "validated") {
+        blockers.push("activation_id_gate_mint_activation_state_mismatch");
+      }
+      if (mintResult?.workerBindingActivationId !== mintResult?.activationId) {
+        blockers.push("activation_id_gate_mint_worker_binding_mismatch");
+      }
+      if (
+        mintResult?.activationRecordWorkerBindingActivationId !==
+        mintResult?.activationId
+      ) {
+        blockers.push("activation_id_gate_mint_activation_record_binding_mismatch");
+      }
+      if (mintResult?.rollbackTarget !== DEFAULT_AGENT_HARNESS_ACTIVATION_ID) {
+        blockers.push("activation_id_gate_mint_rollback_target_mismatch");
+      }
+      if (mintResult?.revisionBindingActivationId !== mintResult?.activationId) {
+        blockers.push("activation_id_gate_mint_revision_binding_mismatch");
+      }
+      if (!mintResult?.activationRecordRevisionBindingHash) {
+        blockers.push("activation_id_gate_mint_revision_hash_missing");
+      }
+      if (!mintResult?.rollbackRevisionBindingHash) {
+        blockers.push("activation_id_gate_mint_rollback_hash_missing");
+      }
+      if (mintResult?.latestAuditEventType !== "activation_minted") {
+        blockers.push("activation_id_gate_mint_audit_type_mismatch");
+      }
+      if (mintResult?.latestAuditStatus !== "applied") {
+        blockers.push("activation_id_gate_mint_audit_status_mismatch");
+      }
+      if ((mintResult?.receiptRefs.length ?? 0) <= 0) {
+        blockers.push("activation_id_gate_mint_receipts_missing");
+      }
+      if ((mintResult?.evidenceRefs.length ?? 0) <= 0) {
+        blockers.push("activation_id_gate_mint_evidence_missing");
+      }
+      if (
+        mintedAfterState["data-selected-activation-gate-id"] !== "activation-id"
+      ) {
+        blockers.push("activation_id_gate_mint_inspector_not_restored");
+      }
+      if (mintedAfterState["data-gate-status"] !== "passed") {
+        blockers.push("activation_id_gate_mint_gate_status_not_passed");
+      }
+
+      return {
+        schemaVersion: "workflow.harness.activation-id-gate-click-proof.v1",
+        method:
+          "same-session Workflows bridge clicks the activation-id gate first as a blocked dry run, then stages a mintable fork and clicks the same gate to mint a validated activation id with worker, revision, receipt, audit, and rollback bindings",
+        generatedAtMs,
+        blockedDryRun: {
+          gateId: blockedGateId,
+          action: blockedAction,
+          beforeState: blockedBeforeState,
+          afterState: blockedAfterState,
+          clicked: blockedClicked,
+          candidateId: blockedDryRunResult?.candidateId ?? null,
+          decision: blockedDryRunResult?.decision ?? null,
+          activationBlockerCount:
+            blockedDryRunResult?.activationBlockerCount ?? 0,
+          workflowActivationId:
+            blockedDryRunResult?.workflowActivationId ?? null,
+          workflowActivationState:
+            blockedDryRunResult?.workflowActivationState ?? null,
+          latestAuditEventType:
+            blockedDryRunResult?.latestAuditEventType ?? null,
+          latestAuditStatus: blockedDryRunResult?.latestAuditStatus ?? null,
+        },
+        mintedActivation: {
+          gateId: mintedGateId,
+          action: mintedAction,
+          beforeState: mintedBeforeState,
+          afterState: mintedAfterState,
+          clicked: mintedClicked,
+          applied: mintResult?.applied === true,
+          activationId: mintResult?.activationId ?? null,
+          workflowActivationId: mintResult?.workflowActivationId ?? null,
+          workflowActivationState:
+            mintResult?.workflowActivationState ?? null,
+          workerBindingActivationId:
+            mintResult?.workerBindingActivationId ?? null,
+          activationRecordWorkerBindingActivationId:
+            mintResult?.activationRecordWorkerBindingActivationId ?? null,
+          rollbackTarget: mintResult?.rollbackTarget ?? null,
+          revisionBindingActivationId:
+            mintResult?.revisionBindingActivationId ?? null,
+          activationRecordRevisionBindingHash:
+            mintResult?.activationRecordRevisionBindingHash ?? null,
+          rollbackRevisionBindingHash:
+            mintResult?.rollbackRevisionBindingHash ?? null,
+          latestAuditEventType: mintResult?.latestAuditEventType ?? null,
+          latestAuditStatus: mintResult?.latestAuditStatus ?? null,
+          receiptRefs: mintResult?.receiptRefs ?? [],
+          evidenceRefs: mintResult?.evidenceRefs ?? [],
+        },
+        passed: blockers.length === 0,
+        blockers,
+      };
+    },
+    [applyHarnessWorkbenchDeepLink, currentProject?.rootPath, loadWorkflowProject],
+  );
   const displayEdges = useMemo(() => {
     const edgeWithIssueData = (edge: ReactFlowEdge, sourceEdgeId: string) => {
       const issue = canvasEdgeIssues.get(sourceEdgeId);
@@ -4644,6 +5114,13 @@ export function useWorkflowComposerController({
         candidateId: candidate.candidateId,
         decision: candidate.decision,
         activationBlockerCount: candidate.activationBlockers.length,
+        workflowActivationId:
+          workflowWithDryRun.metadata.harness?.activationId ?? null,
+        workflowActivationState:
+          workflowWithDryRun.metadata.harness?.activationState ?? null,
+        workerBindingActivationId:
+          workflowWithDryRun.metadata.workerHarnessBinding?.harnessActivationId ??
+          null,
         rollbackRestoreCanaryId: candidate.rollbackRestoreCanary.canaryId,
         rollbackRestoreStatus: candidate.rollbackRestoreCanary.status,
         rollbackRestoreRevisionSource: candidate.rollbackRestoreCanary.revisionSource,
@@ -4687,11 +5164,45 @@ export function useWorkflowComposerController({
       setHarnessActivationCandidate(candidate);
       setRightPanel("settings");
       setBottomPanel("selection");
-      setStatusMessage(
-        `Activation mint blocked by ${result.blockers.length} blocker${
-          result.blockers.length === 1 ? "" : "s"
-        }`,
-      );
+      const blockedStatusMessage = `Activation mint blocked by ${result.blockers.length} blocker${
+        result.blockers.length === 1 ? "" : "s"
+      }`;
+      if (HARNESS_PROMOTION_LIVE_GUI_SCRIPT && typeof window !== "undefined") {
+        const activationAudit = result.workflow.metadata.harness?.activationAudit ?? [];
+        const latestAuditEvent =
+          activationAudit.length > 0 ? activationAudit[activationAudit.length - 1] : null;
+        (window as any).__AUTOPILOT_HARNESS_ACTIVATION_MINT_CLICK_RESULT = {
+          applied: false,
+          activationId: result.activationId ?? null,
+          blockers: result.blockers,
+          workflowActivationId: result.workflow.metadata.harness?.activationId ?? null,
+          workflowActivationState:
+            result.workflow.metadata.harness?.activationState ?? null,
+          workerBindingActivationId:
+            result.workflow.metadata.workerHarnessBinding?.harnessActivationId ??
+            null,
+          activationRecordWorkerBindingActivationId:
+            result.workflow.metadata.harness?.activationRecord?.workerBinding
+              ?.harnessActivationId ?? null,
+          rollbackTarget: result.rollbackTarget ?? null,
+          revisionBindingActivationId:
+            result.workflow.metadata.harness?.revisionBinding?.activationId ?? null,
+          activationRecordRevisionBindingHash:
+            result.workflow.metadata.harness?.activationRecord?.revisionBinding
+              ?.workflowContentHash ?? null,
+          rollbackRevisionBindingHash:
+            result.workflow.metadata.harness?.activationRecord?.rollbackRevisionBinding
+              ?.workflowContentHash ?? null,
+          activationAuditEventCount: activationAudit.length,
+          latestAuditEventId: latestAuditEvent?.eventId ?? null,
+          latestAuditEventType: latestAuditEvent?.eventType ?? null,
+          latestAuditStatus: latestAuditEvent?.status ?? null,
+          receiptRefs: latestAuditEvent?.receiptRefs ?? [],
+          evidenceRefs: latestAuditEvent?.evidenceRefs ?? [],
+          statusMessage: blockedStatusMessage,
+        } satisfies HarnessActivationMintClickResult;
+      }
+      setStatusMessage(blockedStatusMessage);
       return;
     }
     setWorkflow(result.workflow);
@@ -4708,9 +5219,43 @@ export function useWorkflowComposerController({
     setReadinessResult(readiness);
     setRightPanel("settings");
     setBottomPanel("selection");
-    setStatusMessage(
-      `Activation minted: ${result.activationId} · rollback ${result.rollbackTarget}`,
-    );
+    const mintedStatusMessage = `Activation minted: ${result.activationId} · rollback ${result.rollbackTarget}`;
+    if (HARNESS_PROMOTION_LIVE_GUI_SCRIPT && typeof window !== "undefined") {
+      const activationAudit = result.workflow.metadata.harness?.activationAudit ?? [];
+      const latestAuditEvent =
+        activationAudit.length > 0 ? activationAudit[activationAudit.length - 1] : null;
+      (window as any).__AUTOPILOT_HARNESS_ACTIVATION_MINT_CLICK_RESULT = {
+        applied: true,
+        activationId: result.activationId ?? null,
+        blockers: result.blockers,
+        workflowActivationId: result.workflow.metadata.harness?.activationId ?? null,
+        workflowActivationState:
+          result.workflow.metadata.harness?.activationState ?? null,
+        workerBindingActivationId:
+          result.workflow.metadata.workerHarnessBinding?.harnessActivationId ??
+          null,
+        activationRecordWorkerBindingActivationId:
+          result.workflow.metadata.harness?.activationRecord?.workerBinding
+            ?.harnessActivationId ?? null,
+        rollbackTarget: result.rollbackTarget ?? null,
+        revisionBindingActivationId:
+          result.workflow.metadata.harness?.revisionBinding?.activationId ?? null,
+        activationRecordRevisionBindingHash:
+          result.workflow.metadata.harness?.activationRecord?.revisionBinding
+            ?.workflowContentHash ?? null,
+        rollbackRevisionBindingHash:
+          result.workflow.metadata.harness?.activationRecord?.rollbackRevisionBinding
+            ?.workflowContentHash ?? null,
+        activationAuditEventCount: activationAudit.length,
+        latestAuditEventId: latestAuditEvent?.eventId ?? null,
+        latestAuditEventType: latestAuditEvent?.eventType ?? null,
+        latestAuditStatus: latestAuditEvent?.status ?? null,
+        receiptRefs: latestAuditEvent?.receiptRefs ?? [],
+        evidenceRefs: latestAuditEvent?.evidenceRefs ?? [],
+        statusMessage: mintedStatusMessage,
+      } satisfies HarnessActivationMintClickResult;
+    }
+    setStatusMessage(mintedStatusMessage);
   }, [
     currentProjectFile,
     harnessActivationCandidate,
@@ -5966,6 +6511,13 @@ export function useWorkflowComposerController({
         await runHarnessActivationGateCollectEvidenceClickProbe(nowMs + 135);
       const activationGateRollbackRestoreClickProof =
         await runHarnessActivationGateRollbackRestoreClickProbe(nowMs + 140);
+      const activationIdGateClickProof =
+        await runHarnessActivationIdGateClickProbe(
+          activationGateProofWorkflow,
+          activationBlockerFork.tests,
+          activationBlockerFork.proposals,
+          nowMs + 145,
+        );
       const harnessMetadata = workflow.metadata.harness;
       if (!harnessMetadata) {
         throw new Error("Harness deep-link replay proof requires harness metadata.");
@@ -5983,6 +6535,7 @@ export function useWorkflowComposerController({
             activationGateActionClickProof,
             activationGateCollectEvidenceClickProof,
             activationGateRollbackRestoreClickProof,
+            activationIdGateClickProof,
           },
           updatedAtMs: Date.now(),
         },
@@ -6031,6 +6584,11 @@ export function useWorkflowComposerController({
         activationGateRollbackRestoreReceiptBindingRef:
           activationGateRollbackRestoreClickProof.dryRun
             .rollbackRestoreReceiptBindingRef,
+        activationIdGateClickPassed: activationIdGateClickProof.passed,
+        activationIdBlockedDryRunDecision:
+          activationIdGateClickProof.blockedDryRun.decision,
+        activationIdMintedActivationId:
+          activationIdGateClickProof.mintedActivation.activationId,
         selectedSelector:
           workflow.metadata.harness?.runtimeSelectorDecision?.selectedSelector,
         defaultAuthorityTransferred:
@@ -6052,6 +6610,7 @@ export function useWorkflowComposerController({
     runHarnessActivationBlockerDeepLinkProbe,
     runHarnessActivationGateActionClickProbe,
     runHarnessActivationGateCollectEvidenceClickProbe,
+    runHarnessActivationIdGateClickProbe,
     runHarnessActivationGateRollbackRestoreClickProbe,
     runHarnessActivationGateDeepLinkProbe,
     runHarnessColdStartDeepLinkRestoreProbe,
