@@ -3177,6 +3177,13 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /packageEvidenceGateClickProof/.test(controller) &&
       /packageEvidenceImportRoundTripProof/.test(controller) &&
       /packageImportReviewProof/.test(controller) &&
+      /packageImportActivationHandoffProof/.test(controller) &&
+      /workflow-harness-package-import-handoff/.test(rail) &&
+      /workflow-harness-package-import-handoff-activation-link/.test(rail) &&
+      /workflow-harness-package-import-handoff-canary-link/.test(rail) &&
+      /workflow-harness-package-import-handoff-rollback-link/.test(rail) &&
+      /workflow-harness-package-import-handoff-worker-link/.test(rail) &&
+      /data-package-import-handoff-worker-binding-id/.test(rail) &&
       /WorkflowHarnessActivationCandidateGateResult[\s\S]*evidenceRefs: string\[\]/.test(
         graph,
       ) &&
@@ -3185,6 +3192,8 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /WorkflowHarnessActivationGateRollbackRestoreClickProof/.test(graph) &&
       /WorkflowHarnessActivationIdGateClickProof/.test(graph) &&
       /WorkflowHarnessPackageImportReviewProof/.test(graph) &&
+      /WorkflowHarnessPackageImportActivationHandoffProof/.test(graph) &&
+      /WorkflowPackageImportActivationHandoff/.test(graph) &&
       /WorkflowPackageImportReview/.test(graph) &&
       /WorkflowHarnessPackageEvidenceGateClickProof/.test(graph) &&
       /WorkflowHarnessPackageEvidenceImportRoundTripProof/.test(graph) &&
@@ -3551,6 +3560,10 @@ function buildGuiEvidenceAssessment({
     hasHarnessPackageEvidenceImportRoundTrip &&
     promotionTransitionLiveGuiInteractionProof?.proof?.checks
       ?.packageImportReviewProof === true;
+  const hasHarnessPackageImportActivationHandoff =
+    hasHarnessPackageImportReviewMode &&
+    promotionTransitionLiveGuiInteractionProof?.proof?.checks
+      ?.packageImportActivationHandoffProof === true;
   const hasHarnessPromotionTransitionGuiBehavior =
     hasHarnessRollbackRestoreCanaryUi &&
     promotionTransitionGuiBehaviorProof?.proof?.passed === true;
@@ -3947,6 +3960,8 @@ function buildGuiEvidenceAssessment({
         hasHarnessPackageEvidenceImportRoundTrip,
       harness_package_import_review_mode_present:
         hasHarnessPackageImportReviewMode,
+      harness_package_import_activation_handoff_present:
+        hasHarnessPackageImportActivationHandoff,
       harness_promotion_transition_gui_behavior_present:
         hasHarnessPromotionTransitionGuiBehavior,
       harness_promotion_transition_live_gui_interaction_present:
@@ -4051,6 +4066,7 @@ function buildGuiEvidenceAssessment({
       hasHarnessPackageEvidenceGateClickProof,
       hasHarnessPackageEvidenceImportRoundTrip,
       hasHarnessPackageImportReviewMode,
+      hasHarnessPackageImportActivationHandoff,
       hasHarnessPromotionTransitionGuiBehavior,
       hasHarnessPromotionTransitionLiveGuiInteraction,
       hasHarnessRouteStatefulDeepLinkReplay,
@@ -4629,6 +4645,8 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       workflow?.metadata?.harness?.packageEvidenceImportRoundTripProof ?? null;
     const packageImportReviewProof =
       workflow?.metadata?.harness?.packageImportReviewProof ?? null;
+    const packageImportActivationHandoffProof =
+      workflow?.metadata?.harness?.packageImportActivationHandoffProof ?? null;
     const activationGateCollectEvidenceClickProof =
       workflow?.metadata?.harness?.activationGateCollectEvidenceClickProof ??
       null;
@@ -5446,6 +5464,65 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
           false &&
         packageImportReviewProof.activationAction?.incomplete?.blockerCount >
           0,
+      packageImportActivationHandoffProof:
+        packageImportActivationHandoffProof?.passed === true &&
+        packageImportActivationHandoffProof.review?.activationHandoff
+          ?.schemaVersion ===
+          "workflow.package-import-activation-handoff.v1" &&
+        packageImportActivationHandoffProof.railState?.[
+          "data-package-import-handoff-open"
+        ] === "true" &&
+        packageImportActivationHandoffProof.railState?.[
+          "data-package-import-handoff-decision"
+        ] === "mintable" &&
+        packageImportActivationHandoffProof.railState?.[
+          "data-package-import-handoff-mintable"
+        ] === "true" &&
+        packageImportActivationHandoffProof.railState?.[
+          "data-package-import-handoff-package-evidence-ready"
+        ] === "true" &&
+        packageImportActivationHandoffProof.activationAction?.valid
+          ?.handoffPresent === true &&
+        packageImportActivationHandoffProof.activationAction?.valid
+          ?.handoffDecision === "mintable" &&
+        packageImportActivationHandoffProof.activationAction?.valid
+          ?.disabled === false &&
+        packageImportActivationHandoffProof.activationAction?.valid
+          ?.mintable === true &&
+        typeof packageImportActivationHandoffProof.activationAction?.valid
+          ?.activationIdPreview === "string" &&
+        packageImportActivationHandoffProof.activationAction.valid
+          .activationIdPreview.length > 0 &&
+        packageImportActivationHandoffProof.activationAction?.valid
+          ?.canaryStatus === "passed" &&
+        typeof packageImportActivationHandoffProof.activationAction?.valid
+          ?.rollbackTarget === "string" &&
+        packageImportActivationHandoffProof.activationAction.valid
+          .rollbackTarget.length > 0 &&
+        typeof packageImportActivationHandoffProof.activationAction?.valid
+          ?.workerBindingId === "string" &&
+        packageImportActivationHandoffProof.activationAction.valid
+          .workerBindingId.length > 0 &&
+        packageImportActivationHandoffProof.activationAction?.incomplete
+          ?.handoffPresent === true &&
+        packageImportActivationHandoffProof.activationAction?.incomplete
+          ?.disabled === true &&
+        packageImportActivationHandoffProof.activationAction?.incomplete
+          ?.mintable === false &&
+        packageImportActivationHandoffProof.deepLinks?.activationId?.[
+          "data-selected-activation-gate-id"
+        ] === "activation-id" &&
+        packageImportActivationHandoffProof.deepLinks?.canary?.[
+          "data-selected-activation-gate-id"
+        ] === "canary" &&
+        packageImportActivationHandoffProof.deepLinks?.rollbackRestore?.[
+          "data-selected-activation-gate-id"
+        ] === "rollback-restore" &&
+        packageImportActivationHandoffProof.deepLinks?.workerBinding?.[
+          "data-selected-worker-binding-id"
+        ] ===
+          packageImportActivationHandoffProof.activationAction.valid
+            .workerBindingId,
       activationGateCollectEvidenceClickProof:
         activationGateCollectEvidenceClickProof?.passed === true &&
         activationGateCollectEvidenceClickProof.clicked === true &&
@@ -6026,6 +6103,7 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       packageEvidenceGateClickProof,
       packageEvidenceImportRoundTripProof,
       packageImportReviewProof,
+      packageImportActivationHandoffProof,
       activationGateCollectEvidenceClickProof,
       activationGateRollbackRestoreClickProof,
       activationIdGateClickProof,
@@ -6331,6 +6409,11 @@ async function runGuiValidation(args, outputRoot) {
         harness_package_import_review_mode:
           promotionTransitionLiveGuiInteractionProof.proof.checks
             ?.packageImportReviewProof === true
+            ? promotionTransitionLiveGuiInteractionProof.path
+            : false,
+        harness_package_import_activation_handoff:
+          promotionTransitionLiveGuiInteractionProof.proof.checks
+            ?.packageImportActivationHandoffProof === true
             ? promotionTransitionLiveGuiInteractionProof.path
             : false,
         harness_promotion_transition_gui_behavior:

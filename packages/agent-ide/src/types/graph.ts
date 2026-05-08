@@ -2245,6 +2245,52 @@ export interface WorkflowHarnessPackageImportReviewProof {
   blockers: string[];
 }
 
+export interface WorkflowHarnessPackageImportActivationHandoffProof {
+  schemaVersion:
+    | "workflow.harness.package-import-activation-handoff-proof.v1"
+    | string;
+  method: string;
+  generatedAtMs: number;
+  review: WorkflowPackageImportReview | null;
+  railState: Record<string, string>;
+  activationAction: {
+    valid: {
+      present: boolean;
+      disabled: boolean;
+      evidenceReady: boolean;
+      blockerCount: number;
+      handoffPresent: boolean;
+      handoffDecision: string | null;
+      activationIdPreview: string | null;
+      canaryStatus: string | null;
+      rollbackTarget: string | null;
+      workerBindingId: string | null;
+      mintable: boolean;
+    };
+    incomplete: {
+      present: boolean;
+      disabled: boolean;
+      evidenceReady: boolean;
+      blockerCount: number;
+      handoffPresent: boolean;
+      handoffDecision: string | null;
+      activationIdPreview: string | null;
+      canaryStatus: string | null;
+      rollbackTarget: string | null;
+      workerBindingId: string | null;
+      mintable: boolean;
+    };
+  };
+  deepLinks: {
+    activationId: Record<string, string>;
+    canary: Record<string, string>;
+    rollbackRestore: Record<string, string>;
+    workerBinding: Record<string, string>;
+  };
+  passed: boolean;
+  blockers: string[];
+}
+
 export interface WorkflowHarnessActivationGateCollectEvidenceClickProof {
   schemaVersion:
     | "workflow.harness.activation-gate-collect-evidence-click-proof.v1"
@@ -2640,6 +2686,7 @@ export interface WorkflowHarnessMetadata {
   packageEvidenceGateClickProof?: WorkflowHarnessPackageEvidenceGateClickProof;
   packageEvidenceImportRoundTripProof?: WorkflowHarnessPackageEvidenceImportRoundTripProof;
   packageImportReviewProof?: WorkflowHarnessPackageImportReviewProof;
+  packageImportActivationHandoffProof?: WorkflowHarnessPackageImportActivationHandoffProof;
   activationGateCollectEvidenceClickProof?: WorkflowHarnessActivationGateCollectEvidenceClickProof;
   activationGateRollbackRestoreClickProof?: WorkflowHarnessActivationGateRollbackRestoreClickProof;
   activationIdGateClickProof?: WorkflowHarnessActivationIdGateClickProof;
@@ -3343,6 +3390,31 @@ export interface WorkflowPortablePackage {
   importedWorkflowPath?: string;
 }
 
+export interface WorkflowPackageImportActivationHandoff {
+  schemaVersion: "workflow.package-import-activation-handoff.v1" | string;
+  candidateId: string | null;
+  decision: WorkflowHarnessActivationCandidateDecision | string | null;
+  activationIdPreview: string | null;
+  canaryStatus: string | null;
+  rollbackTarget: string | null;
+  rollbackAvailable: boolean;
+  rollbackRestoreCanaryStatus: string | null;
+  workerBinding: WorkflowHarnessWorkerBinding | null;
+  gateCount: number;
+  passedGateCount: number;
+  blockerCount: number;
+  blockerCodes: string[];
+  packageEvidenceReady: boolean;
+  mintable: boolean;
+  deepLinkTargets: {
+    activationId: string | null;
+    canary: string | null;
+    rollbackRestore: string | null;
+    rollbackTarget: string | null;
+    workerBindingId: string | null;
+  };
+}
+
 export interface WorkflowPackageImportReview {
   schemaVersion: "workflow.package-import-review.v1" | string;
   packagePath: string;
@@ -3384,6 +3456,7 @@ export interface WorkflowPackageImportReview {
     deepLinkCount: number;
     missingRows: string[];
   };
+  activationHandoff?: WorkflowPackageImportActivationHandoff;
 }
 
 export interface ImportWorkflowPackageRequest {

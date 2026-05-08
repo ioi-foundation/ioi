@@ -163,7 +163,10 @@ missing rows plus `harness_package_manifest_incomplete`. Imported packages now
 open into a source/import package review surface, return the portable manifest
 from the Tauri import API, and expose activation only when package evidence is
 green; the retained GUI evidence marks
-`harness_package_import_review_mode_present: true`.
+`harness_package_import_review_mode_present: true`. Reviewed imports also show a
+first-class activation handoff with preserved activation id, canary, rollback,
+and worker binding routes; the retained GUI evidence marks
+`harness_package_import_activation_handoff_present: true`.
 
 ### 2026-05-08 Cognition Live Adapter Slice
 
@@ -1079,10 +1082,46 @@ landing as a generic file import:
   `docs/evidence/agent-runtime-p3-validation/2026-05-08T22-46-52-663Z/dashboard-index.json`.
 
 This completes the first user-facing package import loop: package evidence is
-portable, reviewable, and activation-gated in the GUI. The next chronological
-slice should connect reviewed imports to a clearer activation handoff: show the
-candidate activation id, canary status, rollback target, and worker binding that
-will be minted from the reviewed imported fork before the user commits it.
+portable, reviewable, and activation-gated in the GUI.
+
+### 2026-05-08 Reviewed Import Activation Handoff Slice
+
+Imported, reviewed harness packages now show the actual activation handoff that
+the user is about to commit:
+
+- `workflow.package-import-review.v1` now carries
+  `workflow.package-import-activation-handoff.v1` with candidate id, decision,
+  activation id preview, canary status, rollback target, rollback-restore
+  status, worker binding preview, gate counts, blocker codes, package-evidence
+  readiness, and route targets.
+- If a package preserves a validated activation record, import review uses that
+  preserved activation identity for the handoff instead of treating the package
+  like a never-activated fork. Incomplete package evidence still blocks the
+  handoff and leaves activation disabled.
+- The package-evidence rail renders
+  `workflow-harness-package-import-handoff` with activation, canary, rollback,
+  and worker route controls. The valid reviewed import is mintable and the
+  intentionally incomplete import remains blocked.
+- The retained GUI proof records
+  `workflow.harness.package-import-activation-handoff-proof.v1`; the valid
+  handoff has `handoffDecision: mintable`, `mintable: true`,
+  `disabled: false`, canary `passed`, zero blockers, a rollback target, and a
+  worker binding id. Activation, canary, rollback, and worker controls all
+  restore route state.
+- The retained GUI contract now requires
+  `harness_package_import_activation_handoff`, and runtime consistency requires
+  `harness_package_import_activation_handoff_present`.
+- Full retained GUI validation is green in
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T23-25-12-842Z/`;
+  all eight retained queries passed and
+  `promotion-transition-live-gui-interaction-proof.json` reports
+  `packageImportActivationHandoffProof.passed: true`.
+- Runtime P3 with required GUI evidence is green at
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T23-31-29-876Z/dashboard-index.json`.
+
+This closes the reviewed-import loop: a portable harness package is not merely
+visible and evidence-gated; the GUI now shows the exact activation id, worker
+binding, canary, and rollback posture before the user activates it.
 
 ## Current State
 

@@ -1477,10 +1477,17 @@ export function WorkflowRailPanel({
   ];
   const harnessPackageEvidenceBlockerCount =
     harnessPackageEvidenceReviewRows.filter((row) => !row.ready).length;
+  const packageImportActivationHandoff =
+    packageImportReview?.activationHandoff ?? null;
+  const packageImportHandoffWorkerBindingId =
+    packageImportActivationHandoff?.workerBinding?.harnessActivationId ??
+    packageImportActivationHandoff?.workerBinding?.harnessWorkflowId ??
+    "";
   const packageImportActivationEnabled =
     Boolean(packageImportReview) &&
     harnessPackageEvidenceReady &&
     harnessPackageEvidenceBlockerCount === 0 &&
+    (packageImportActivationHandoff?.mintable ?? true) &&
     readinessResult?.status !== "blocked" &&
     Boolean(onApplyHarnessActivationCandidate);
   const replayFixtureBlockers = harnessActivationBlockers.filter(
@@ -5331,6 +5338,182 @@ export function WorkflowRailPanel({
                                 </small>
                               </div>
                             </div>
+                            {packageImportActivationHandoff ? (
+                              <section
+                                className="workflow-rail-section"
+                                data-testid="workflow-harness-package-import-handoff"
+                                data-package-import-handoff-open="true"
+                                data-package-import-handoff-decision={
+                                  packageImportActivationHandoff.decision ?? ""
+                                }
+                                data-package-import-handoff-activation-id={
+                                  packageImportActivationHandoff.activationIdPreview ??
+                                  ""
+                                }
+                                data-package-import-handoff-canary-status={
+                                  packageImportActivationHandoff.canaryStatus ??
+                                  ""
+                                }
+                                data-package-import-handoff-rollback-target={
+                                  packageImportActivationHandoff.rollbackTarget ??
+                                  ""
+                                }
+                                data-package-import-handoff-rollback-available={
+                                  packageImportActivationHandoff.rollbackAvailable
+                                    ? "true"
+                                    : "false"
+                                }
+                                data-package-import-handoff-worker-binding-id={
+                                  packageImportHandoffWorkerBindingId
+                                }
+                                data-package-import-handoff-worker-workflow-id={
+                                  packageImportActivationHandoff.workerBinding
+                                    ?.harnessWorkflowId ?? ""
+                                }
+                                data-package-import-handoff-worker-hash={
+                                  packageImportActivationHandoff.workerBinding
+                                    ?.harnessHash ?? ""
+                                }
+                                data-package-import-handoff-mintable={
+                                  packageImportActivationHandoff.mintable
+                                    ? "true"
+                                    : "false"
+                                }
+                                data-package-import-handoff-blocker-count={
+                                  packageImportActivationHandoff.blockerCount
+                                }
+                                data-package-import-handoff-package-evidence-ready={
+                                  packageImportActivationHandoff.packageEvidenceReady
+                                    ? "true"
+                                    : "false"
+                                }
+                                data-package-import-handoff-activation-enabled={
+                                  packageImportActivationEnabled
+                                    ? "true"
+                                    : "false"
+                                }
+                              >
+                                <h4>Activation handoff</h4>
+                                <article
+                                  className={`workflow-output-row is-${
+                                    packageImportActivationHandoff.mintable
+                                      ? "ready"
+                                      : "blocked"
+                                  }`}
+                                >
+                                  <strong>
+                                    {packageImportActivationHandoff.candidateId ??
+                                      "handoff pending"}
+                                  </strong>
+                                  <span>
+                                    {packageImportActivationHandoff.decision ??
+                                      "unknown"}
+                                    {" · "}
+                                    {packageImportActivationHandoff.activationIdPreview ??
+                                      "activation id blocked"}
+                                  </span>
+                                  <small>
+                                    canary{" "}
+                                    {packageImportActivationHandoff.canaryStatus ??
+                                      "not_run"}{" "}
+                                    · rollback{" "}
+                                    {packageImportActivationHandoff.rollbackTarget ??
+                                      "not set"}{" "}
+                                    · worker{" "}
+                                    {packageImportHandoffWorkerBindingId ||
+                                      "unbound"}
+                                  </small>
+                                </article>
+                                <div
+                                  className="workflow-harness-authority-gate-actions"
+                                  data-testid="workflow-harness-package-import-handoff-links"
+                                >
+                                  <button
+                                    type="button"
+                                    className="workflow-harness-ref-button"
+                                    data-testid="workflow-harness-package-import-handoff-activation-link"
+                                    disabled={
+                                      !packageImportActivationHandoff
+                                        .deepLinkTargets.activationId
+                                    }
+                                    onClick={() =>
+                                      onCopyHarnessDeepLink?.({
+                                        panel: "settings",
+                                        activationGateId: "activation-id",
+                                        activationGateEvidenceRef:
+                                          packageImportActivationHandoff
+                                            .deepLinkTargets.activationId ??
+                                          undefined,
+                                      })
+                                    }
+                                  >
+                                    <code>activation</code>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="workflow-harness-ref-button"
+                                    data-testid="workflow-harness-package-import-handoff-canary-link"
+                                    disabled={
+                                      !packageImportActivationHandoff
+                                        .deepLinkTargets.canary
+                                    }
+                                    onClick={() =>
+                                      onCopyHarnessDeepLink?.({
+                                        panel: "settings",
+                                        activationGateId: "canary",
+                                        activationGateEvidenceRef:
+                                          packageImportActivationHandoff
+                                            .deepLinkTargets.canary ??
+                                          undefined,
+                                      })
+                                    }
+                                  >
+                                    <code>canary</code>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="workflow-harness-ref-button"
+                                    data-testid="workflow-harness-package-import-handoff-rollback-link"
+                                    disabled={
+                                      !packageImportActivationHandoff
+                                        .deepLinkTargets.rollbackRestore
+                                    }
+                                    onClick={() =>
+                                      onCopyHarnessDeepLink?.({
+                                        panel: "settings",
+                                        activationGateId: "rollback-restore",
+                                        activationGateEvidenceRef:
+                                          packageImportActivationHandoff
+                                            .deepLinkTargets.rollbackRestore ??
+                                          undefined,
+                                        rollbackTarget:
+                                          packageImportActivationHandoff
+                                            .deepLinkTargets.rollbackTarget ??
+                                          undefined,
+                                      })
+                                    }
+                                  >
+                                    <code>rollback</code>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="workflow-harness-ref-button"
+                                    data-testid="workflow-harness-package-import-handoff-worker-link"
+                                    disabled={!packageImportHandoffWorkerBindingId}
+                                    onClick={() =>
+                                      onCopyHarnessDeepLink?.({
+                                        panel: "settings",
+                                        workerBindingId:
+                                          packageImportHandoffWorkerBindingId ||
+                                          undefined,
+                                      })
+                                    }
+                                  >
+                                    <code>worker</code>
+                                  </button>
+                                </div>
+                              </section>
+                            ) : null}
                             <div className="workflow-harness-authority-gate-actions">
                               <button
                                 type="button"
