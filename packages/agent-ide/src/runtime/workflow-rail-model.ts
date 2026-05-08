@@ -547,13 +547,26 @@ export function resolveWorkflowHarnessReceiptInspection({
             "allow_read_only_route_through_workflow_authority",
           ),
         },
+        {
+          sourceLabel: "Worker launch handoff receipt",
+          producerComponent: "handoff_bridge",
+          receipts: harnessDefaultRuntimeDispatchProof.workerHandoffReceiptIds,
+          attempts:
+            harnessDefaultRuntimeDispatchProof.workerHandoffNodeAttemptIds,
+          replay:
+            harnessDefaultRuntimeDispatchProof.workerHandoffReplayFixtureRefs,
+          policyDecision: "allow_harness_worker_handoff",
+        },
       ]
     : [];
   const dispatchReceiptGroup = dispatchReceiptGroups.find((group) =>
-    group.receipts.includes(receiptRef),
+    workflowStringList(group.receipts).includes(receiptRef),
   );
   if (dispatchReceiptGroup && harnessDefaultRuntimeDispatchProof) {
-    const receiptIndex = dispatchReceiptGroup.receipts.indexOf(receiptRef);
+    const dispatchReceiptRefs = workflowStringList(dispatchReceiptGroup.receipts);
+    const dispatchAttemptRefs = workflowStringList(dispatchReceiptGroup.attempts);
+    const dispatchReplayRefs = workflowStringList(dispatchReceiptGroup.replay);
+    const receiptIndex = dispatchReceiptRefs.indexOf(receiptRef);
     return makeHarnessReceiptInspection({
       receiptRef,
       sourceKind: "default_runtime_dispatch",
@@ -561,9 +574,9 @@ export function resolveWorkflowHarnessReceiptInspection({
       status: harnessDefaultRuntimeDispatchProof.executionMode,
       producerComponent: dispatchReceiptGroup.producerComponent,
       policyDecision: dispatchReceiptGroup.policyDecision,
-      attemptId: dispatchReceiptGroup.attempts[receiptIndex] ?? "attempt pending",
+      attemptId: dispatchAttemptRefs[receiptIndex] ?? "attempt pending",
       replayFixtureRef:
-        dispatchReceiptGroup.replay[receiptIndex] ?? "replay fixture pending",
+        dispatchReplayRefs[receiptIndex] ?? "replay fixture pending",
       nodeId: null,
       nodeLabel: harnessDefaultRuntimeDispatchProof.workflowId,
       runId: harnessDefaultRuntimeDispatchProof.dispatchId,
@@ -1034,6 +1047,17 @@ export function resolveWorkflowHarnessReplayInspection({
             "approvalGatePolicyDecision",
             "require_legacy_approval_for_mutating_tooling",
           ),
+        },
+        {
+          sourceKind: "default_runtime_dispatch",
+          sourceLabel: "Worker launch handoff replay fixture",
+          producerComponent: "handoff_bridge",
+          receipts: harnessDefaultRuntimeDispatchProof.workerHandoffReceiptIds,
+          attempts:
+            harnessDefaultRuntimeDispatchProof.workerHandoffNodeAttemptIds,
+          replay:
+            harnessDefaultRuntimeDispatchProof.workerHandoffReplayFixtureRefs,
+          policyDecision: "allow_harness_worker_handoff",
         },
       ]
     : [];

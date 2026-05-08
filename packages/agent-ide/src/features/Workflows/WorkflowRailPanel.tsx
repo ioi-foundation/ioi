@@ -677,6 +677,18 @@ export function WorkflowRailPanel({
           const workerHandoffReceiptIds = workerHandoffReceipts.map(
             (receipt) => receipt.receiptId,
           );
+          const workerHandoffNodeAttempts =
+            harnessDefaultRuntimeDispatchProof.workerHandoffNodeAttempts ?? [];
+          const workerHandoffNodeAttemptIds =
+            harnessDefaultRuntimeDispatchProof.workerHandoffNodeAttemptIds ??
+            workerHandoffNodeAttempts.map((attempt) => attempt.attemptId);
+          const workerHandoffReplayFixtureRefs =
+            harnessDefaultRuntimeDispatchProof.workerHandoffReplayFixtureRefs ??
+            workerHandoffNodeAttempts
+              .map((attempt) => attempt.replay.fixtureRef)
+              .filter((fixtureRef): fixtureRef is string =>
+                Boolean(fixtureRef),
+              );
           const workerLaunchEnvelopePhases = new Set(
             workerLaunchEnvelopes.map((envelope) => envelope.phase),
           );
@@ -703,6 +715,19 @@ export function WorkflowRailPanel({
             workerHandoffReceiptStatuses.has("launched") &&
             workerHandoffReceiptStatuses.has("resumed") &&
             workerHandoffReceiptStatuses.has("rollback_handoff_ready");
+          const workerHandoffNodeTimelineBound =
+            workerHandoffNodeAttempts.length >= 3 &&
+            workerHandoffNodeAttemptIds.length >= 3 &&
+            workerHandoffReplayFixtureRefs.length >= 3 &&
+            workerHandoffNodeAttempts.every(
+              (attempt) =>
+                attempt.workflowNodeId === "harness.handoff_bridge" &&
+                attempt.componentKind === "handoff_bridge" &&
+                attempt.receiptIds.some((receiptId) =>
+                  workerHandoffReceiptIds.includes(receiptId),
+                ) &&
+                Boolean(attempt.replay.fixtureRef),
+            );
           const workerAttachBlockers =
             workflowHarnessWorkerAttachBlockers(workerAttachReceipt);
           const workerAttachAccepted =
@@ -767,6 +792,9 @@ export function WorkflowRailPanel({
             ...(workerHandoffReceiptsAccepted
               ? []
               : ["worker_handoff_receipts_not_ready"]),
+            ...(workerHandoffNodeTimelineBound
+              ? []
+              : ["worker_handoff_node_timeline_not_bound"]),
             ...workerBindingRegistryBlockers,
             ...workerAttachBlockers,
             ...workerSessionBlockers,
@@ -839,6 +867,10 @@ export function WorkflowRailPanel({
             workerHandoffReceipts,
             workerLaunchEnvelopeIds,
             workerHandoffReceiptIds,
+            workerHandoffNodeAttempts,
+            workerHandoffNodeAttemptIds,
+            workerHandoffReplayFixtureRefs,
+            workerHandoffNodeTimelineBound,
             workerLaunchEnvelopesAccepted,
             workerHandoffReceiptsAccepted,
             workerAttachAccepted,
@@ -3120,6 +3152,14 @@ export function WorkflowRailPanel({
                     <dt>Worker</dt>
                     <dd>{harnessActiveRuntimeBinding.workerSessionStatus}</dd>
                   </div>
+                  <div>
+                    <dt>Handoff</dt>
+                    <dd>
+                      {harnessActiveRuntimeBinding.workerHandoffNodeTimelineBound
+                        ? "timeline"
+                        : "blocked"}
+                    </dd>
+                  </div>
                 </dl>
                 <article
                   className={`workflow-output-row is-${
@@ -3268,6 +3308,20 @@ export function WorkflowRailPanel({
                       ? "true"
                       : "false"
                   }
+                  data-worker-handoff-node-attempt-count={
+                    harnessActiveRuntimeBinding.workerHandoffNodeAttempts.length
+                  }
+                  data-worker-handoff-node-attempt-ids={harnessActiveRuntimeBinding.workerHandoffNodeAttemptIds.join(
+                    ",",
+                  )}
+                  data-worker-handoff-replay-fixture-refs={harnessActiveRuntimeBinding.workerHandoffReplayFixtureRefs.join(
+                    ",",
+                  )}
+                  data-worker-handoff-node-timeline-bound={
+                    harnessActiveRuntimeBinding.workerHandoffNodeTimelineBound
+                      ? "true"
+                      : "false"
+                  }
                   data-worker-rollback-handoff-receipt-status={
                     harnessActiveRuntimeBinding.workerHandoffReceipts.find(
                       (receipt) => receipt.phase === "rollback",
@@ -3341,6 +3395,15 @@ export function WorkflowRailPanel({
                     {harnessActiveRuntimeBinding.workerLaunchEnvelopes.length} ·
                     handoff receipts{" "}
                     {harnessActiveRuntimeBinding.workerHandoffReceipts.length}
+                  </small>
+                  <small>
+                    handoff attempts{" "}
+                    {harnessActiveRuntimeBinding.workerHandoffNodeAttempts.length} ·
+                    replay fixtures{" "}
+                    {
+                      harnessActiveRuntimeBinding.workerHandoffReplayFixtureRefs
+                        .length
+                    }
                   </small>
                 </article>
                 <div

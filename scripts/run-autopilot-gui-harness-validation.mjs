@@ -2972,6 +2972,9 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /data-worker-session-rollback-handoff-ready/.test(rail) &&
       /data-worker-launch-envelope-count/.test(rail) &&
       /data-worker-handoff-receipt-count/.test(rail) &&
+      /data-worker-handoff-node-attempt-count/.test(rail) &&
+      /data-worker-handoff-replay-fixture-refs/.test(rail) &&
+      /data-worker-handoff-node-timeline-bound/.test(rail) &&
       /data-worker-rollback-handoff-receipt-status/.test(rail) &&
       /worker_session_not_persisted/.test(harnessWorkflow) &&
       /worker_session_not_restored/.test(harnessWorkflow) &&
@@ -4404,6 +4407,25 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       : workerHandoffReceipts
           .map((receipt) => receipt?.receiptId)
           .filter((receiptId) => typeof receiptId === "string");
+    const workerHandoffNodeAttempts = Array.isArray(
+      defaultDispatch?.workerHandoffNodeAttempts,
+    )
+      ? defaultDispatch.workerHandoffNodeAttempts
+      : [];
+    const workerHandoffNodeAttemptIds = Array.isArray(
+      defaultDispatch?.workerHandoffNodeAttemptIds,
+    )
+      ? defaultDispatch.workerHandoffNodeAttemptIds
+      : workerHandoffNodeAttempts
+          .map((attempt) => attempt?.attemptId)
+          .filter((attemptId) => typeof attemptId === "string");
+    const workerHandoffReplayFixtureRefs = Array.isArray(
+      defaultDispatch?.workerHandoffReplayFixtureRefs,
+    )
+      ? defaultDispatch.workerHandoffReplayFixtureRefs
+      : workerHandoffNodeAttempts
+          .map((attempt) => attempt?.replay?.fixtureRef)
+          .filter((fixtureRef) => typeof fixtureRef === "string");
     const deepLinkReplayProof =
       workflow?.metadata?.harness?.deepLinkReplayProof ?? null;
     const coldStartDeepLinkRestoreProof =
@@ -4761,6 +4783,40 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
             workerHandoffReceiptIds.includes(receipt.receiptId),
         ),
       );
+    const workerHandoffNodeTimelineBound =
+      Array.isArray(workerHandoffNodeAttempts) &&
+      workerHandoffNodeAttempts.length >= 3 &&
+      Array.isArray(workerHandoffNodeAttemptIds) &&
+      workerHandoffNodeAttemptIds.length >= 3 &&
+      Array.isArray(workerHandoffReplayFixtureRefs) &&
+      workerHandoffReplayFixtureRefs.length >= 3 &&
+      ["launch", "resume", "rollback"].every((phase) => {
+        const receipt = workerHandoffReceipts.find(
+          (candidate) => candidate?.phase === phase,
+        );
+        return workerHandoffNodeAttempts.some(
+          (attempt) =>
+            attempt?.attemptId ===
+              `harness-worker-handoff:attempt:${phase}:${workerSessionRecord?.sessionRecordId}` &&
+            attempt?.workflowNodeId === "harness.handoff_bridge" &&
+            attempt?.componentKind === "handoff_bridge" &&
+            attempt?.executionMode === "live" &&
+            attempt?.status === "live" &&
+            Array.isArray(attempt?.receiptIds) &&
+            receipt?.receiptId &&
+            attempt.receiptIds.includes(receipt.receiptId) &&
+            attempt?.replay?.fixtureRef ===
+              `harness-worker-handoff:fixture:${phase}:${workerSessionRecord?.sessionRecordId}` &&
+            workerHandoffNodeAttemptIds.includes(attempt.attemptId) &&
+            workerHandoffReplayFixtureRefs.includes(attempt.replay.fixtureRef),
+        );
+      }) &&
+      workerHandoffNodeAttemptIds.every((attemptId) =>
+        defaultDispatch?.dispatchNodeAttemptIds?.includes(attemptId),
+      ) &&
+      workerHandoffNodeAttemptIds.every((attemptId) =>
+        defaultDispatch?.nodeAttemptIds?.includes(attemptId),
+      );
     const checks = {
       desktopWindowOpened: Boolean(windowId),
       proofWorkflowSaved: Boolean(workflow),
@@ -4903,6 +4959,7 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       workerAttachLifecycleComplete,
       workerSessionRecordBound,
       workerLaunchHandoffBound,
+      workerHandoffNodeTimelineBound,
       routeStatefulActiveRuntimeBindingDeepLinks:
         Object.values(routeStatefulDeepLinks).every(Boolean) &&
         routeStatefulDeepLinks.selector?.includes("selectorDecisionId=") &&
@@ -5350,7 +5407,24 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
             })),
             workerLaunchEnvelopeIds,
             workerHandoffReceiptIds,
+            workerHandoffNodeAttempts: workerHandoffNodeAttempts.map(
+              (attempt) => ({
+                attemptId: attempt?.attemptId ?? null,
+                workflowNodeId: attempt?.workflowNodeId ?? null,
+                componentKind: attempt?.componentKind ?? null,
+                executionMode: attempt?.executionMode ?? null,
+                status: attempt?.status ?? null,
+                receiptIds: Array.isArray(attempt?.receiptIds)
+                  ? attempt.receiptIds
+                  : [],
+                replayFixtureRef: attempt?.replay?.fixtureRef ?? null,
+                policyDecision: attempt?.policyDecision ?? null,
+              }),
+            ),
+            workerHandoffNodeAttemptIds,
+            workerHandoffReplayFixtureRefs,
             workerLaunchHandoffBound,
+            workerHandoffNodeTimelineBound,
             evidenceRefCount: defaultDispatch.evidenceRefs?.length ?? 0,
           }
         : null,
@@ -5485,7 +5559,22 @@ async function collectPromotionTransitionLiveGuiInteractionProof(
       })),
       workerLaunchEnvelopeIds,
       workerHandoffReceiptIds,
+      workerHandoffNodeAttempts: workerHandoffNodeAttempts.map((attempt) => ({
+        attemptId: attempt?.attemptId ?? null,
+        workflowNodeId: attempt?.workflowNodeId ?? null,
+        componentKind: attempt?.componentKind ?? null,
+        executionMode: attempt?.executionMode ?? null,
+        status: attempt?.status ?? null,
+        receiptIds: Array.isArray(attempt?.receiptIds)
+          ? attempt.receiptIds
+          : [],
+        replayFixtureRef: attempt?.replay?.fixtureRef ?? null,
+        policyDecision: attempt?.policyDecision ?? null,
+      })),
+      workerHandoffNodeAttemptIds,
+      workerHandoffReplayFixtureRefs,
       workerLaunchHandoffBound,
+      workerHandoffNodeTimelineBound,
       attempts: transitions
         .filter((attempt) => clusterIds.includes(attempt.clusterId))
         .map((attempt) => ({

@@ -136,6 +136,7 @@ import {
   makeHarnessRuntimeSelectorDecision,
   makeWorkflowHarnessWorkerAttachLifecycle,
   makeWorkflowHarnessWorkerBindingRegistryRecord,
+  makeWorkflowHarnessWorkerHandoffNodeAttempts,
   makeWorkflowHarnessWorkerLaunchEnvelope,
   makeWorkflowHarnessWorkerSessionRecord,
   recordWorkflowHarnessActivationDryRun,
@@ -687,6 +688,40 @@ function workflowWithBlessedDefaultRuntimeActivationProof(
   const workerHandoffReceiptIds = workerHandoffReceipts.map(
     (receipt) => receipt.receiptId,
   );
+  const workerHandoffNodeAttempts =
+    makeWorkflowHarnessWorkerHandoffNodeAttempts(workerHandoffReceipts, {
+      executionMode: "live",
+      startedAtMs: nowMs,
+    });
+  const workerHandoffNodeAttemptIds = workerHandoffNodeAttempts.map(
+    (attempt) => attempt.attemptId,
+  );
+  const workerHandoffReplayFixtureRefs = workerHandoffNodeAttempts
+    .map((attempt) => attempt.replay.fixtureRef)
+    .filter((fixtureRef): fixtureRef is string => Boolean(fixtureRef));
+  const baseDispatchNodeAttemptIds =
+    defaultRuntimeDispatchProof.dispatchNodeAttemptIds.filter(
+      (attemptId) =>
+        !attemptId.startsWith("harness-worker-handoff:attempt:"),
+    );
+  const baseDispatchNodeAttempts = (
+    defaultRuntimeDispatchProof.dispatchNodeAttempts ?? []
+  ).filter(
+    (attempt) =>
+      !attempt.attemptId.startsWith("harness-worker-handoff:attempt:"),
+  );
+  const baseNodeAttemptIds = defaultRuntimeDispatchProof.nodeAttemptIds.filter(
+    (attemptId) => !attemptId.startsWith("harness-worker-handoff:attempt:"),
+  );
+  const baseReceiptIds = defaultRuntimeDispatchProof.receiptIds.filter(
+    (receiptId) =>
+      !receiptId.startsWith("harness-worker-handoff-receipt:"),
+  );
+  const baseReplayFixtureRefs =
+    defaultRuntimeDispatchProof.replayFixtureRefs.filter(
+      (fixtureRef) =>
+        !fixtureRef.startsWith("harness-worker-handoff:fixture:"),
+    );
   const defaultRuntimeDispatchProofWithRegistry = {
     ...defaultRuntimeDispatchProof,
     workerBindingRegistryRecord,
@@ -702,9 +737,26 @@ function workflowWithBlessedDefaultRuntimeActivationProof(
     workerHandoffReceipts,
     workerLaunchEnvelopeIds,
     workerHandoffReceiptIds,
+    workerHandoffNodeAttemptIds,
+    workerHandoffNodeAttempts,
+    workerHandoffReplayFixtureRefs,
     dispatchNodeAttemptIds: uniqueHarnessRefs([
-      ...defaultRuntimeDispatchProof.dispatchNodeAttemptIds,
+      ...baseDispatchNodeAttemptIds,
       ...workerAttachLifecycleAttemptIds,
+      ...workerHandoffNodeAttemptIds,
+    ]),
+    dispatchNodeAttempts: [
+      ...baseDispatchNodeAttempts,
+      ...workerHandoffNodeAttempts,
+    ],
+    nodeAttemptIds: uniqueHarnessRefs([
+      ...baseNodeAttemptIds,
+      ...workerHandoffNodeAttemptIds,
+    ]),
+    receiptIds: uniqueHarnessRefs([...baseReceiptIds, ...workerHandoffReceiptIds]),
+    replayFixtureRefs: uniqueHarnessRefs([
+      ...baseReplayFixtureRefs,
+      ...workerHandoffReplayFixtureRefs,
     ]),
   };
   const activationRecord = makeHarnessForkActivationRecord({

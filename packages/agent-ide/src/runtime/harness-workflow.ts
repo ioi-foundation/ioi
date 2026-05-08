@@ -22,6 +22,7 @@ import type {
   WorkflowHarnessLivePromotionReadinessProof,
   WorkflowHarnessMetadata,
   WorkflowHarnessNodeBinding,
+  WorkflowHarnessNodeAttemptRecord,
   WorkflowHarnessPromotionCluster,
   WorkflowHarnessPromotionClusterId,
   WorkflowHarnessPromotionClusterReplayGateProof,
@@ -969,6 +970,65 @@ export function resolveWorkflowHarnessWorkerHandoffReceipt(
     ]),
     createdAtMs: options.createdAtMs ?? envelope.createdAtMs,
   };
+}
+
+export function makeWorkflowHarnessWorkerHandoffNodeAttempt(
+  receipt: WorkflowHarnessWorkerHandoffReceipt,
+  attemptIndex: number,
+  options: {
+    executionMode?: Extract<WorkflowHarnessExecutionMode, "live" | "gated">;
+    startedAtMs?: number;
+    durationMs?: number;
+  } = {},
+): WorkflowHarnessNodeAttemptRecord {
+  const component = componentFor("handoff_bridge");
+  const executionMode =
+    options.executionMode ?? (receipt.accepted ? "live" : "gated");
+  const fixtureRef = `harness-worker-handoff:fixture:${receipt.phase}:${receipt.sessionRecordId}`;
+  return {
+    attemptId: `harness-worker-handoff:attempt:${receipt.phase}:${receipt.sessionRecordId}`,
+    harnessWorkflowId: receipt.workflowId,
+    harnessActivationId: receipt.activationId,
+    harnessHash: receipt.harnessHash,
+    workflowNodeId: receipt.workflowNodeId,
+    componentId: component.componentId,
+    componentKind: "handoff_bridge",
+    executionMode,
+    readiness: component.readiness,
+    attemptIndex,
+    status: receipt.accepted ? executionMode : "blocked",
+    inputHash: `sha256:worker-handoff-input-${receipt.phase}-${receipt.sessionRecordId}`,
+    outputHash: receipt.accepted
+      ? `sha256:worker-handoff-output-${receipt.phase}-${receipt.sessionRecordId}`
+      : undefined,
+    errorClass: receipt.accepted ? undefined : "worker_handoff_blocked",
+    policyDecision: receipt.policyDecision,
+    startedAtMs: options.startedAtMs ?? receipt.createdAtMs,
+    durationMs: options.durationMs,
+    receiptIds: uniqueStrings([
+      receipt.receiptId,
+      receipt.envelopeId,
+      ...receipt.receiptRefs,
+    ]),
+    evidenceRefs: uniqueStrings(receipt.evidenceRefs),
+    replay: {
+      ...replayEnvelopeFor(component),
+      capturesPolicyDecision: true,
+      fixtureRef,
+    },
+  };
+}
+
+export function makeWorkflowHarnessWorkerHandoffNodeAttempts(
+  receipts: WorkflowHarnessWorkerHandoffReceipt[],
+  options: {
+    executionMode?: Extract<WorkflowHarnessExecutionMode, "live" | "gated">;
+    startedAtMs?: number;
+  } = {},
+): WorkflowHarnessNodeAttemptRecord[] {
+  return receipts.map((receipt, index) =>
+    makeWorkflowHarnessWorkerHandoffNodeAttempt(receipt, index + 1, options),
+  );
 }
 
 function receiptRefsFromEvidenceRefs(
@@ -4190,6 +4250,28 @@ export function makeHarnessDefaultRuntimeDispatchProof(
   const workerHandoffReceiptIds = workerHandoffReceipts.map(
     (receipt) => receipt.receiptId,
   );
+  const workerHandoffNodeAttempts =
+    makeWorkflowHarnessWorkerHandoffNodeAttempts(workerHandoffReceipts, {
+      executionMode: dispatchAccepted ? "live" : "gated",
+    });
+  const workerHandoffNodeAttemptIds = workerHandoffNodeAttempts.map(
+    (attempt) => attempt.attemptId,
+  );
+  const workerHandoffReplayFixtureRefs = workerHandoffNodeAttempts
+    .map((attempt) => attempt.replay.fixtureRef)
+    .filter((fixtureRef): fixtureRef is string => Boolean(fixtureRef));
+  const defaultNodeAttemptIds = uniqueStrings([
+    ...(options.nodeAttemptIds ?? []),
+    ...workerHandoffNodeAttemptIds,
+  ]);
+  const defaultReceiptIds = uniqueStrings([
+    ...(options.receiptIds ?? []),
+    ...workerHandoffReceiptIds,
+  ]);
+  const defaultReplayFixtureRefs = uniqueStrings([
+    ...(options.replayFixtureRefs ?? []),
+    ...workerHandoffReplayFixtureRefs,
+  ]);
   return {
     schemaVersion: "workflow.harness.default-runtime-dispatch.v1",
     dispatchId,
@@ -4250,7 +4332,9 @@ export function makeHarnessDefaultRuntimeDispatchProof(
       "harness-default-dispatch:attempt-authority_tooling_connector_call_read_only",
       "harness-default-dispatch:attempt-authority_tooling_wallet_capability_read_only",
       ...workerAttachLifecycleAttemptIds,
+      ...workerHandoffNodeAttemptIds,
     ],
+    dispatchNodeAttempts: workerHandoffNodeAttempts,
     cognitionExecutionAttemptIds: [
       "harness-default-dispatch:attempt-planner_envelope",
       "harness-default-dispatch:attempt-prompt_assembler_envelope",
@@ -4509,9 +4593,9 @@ export function makeHarnessDefaultRuntimeDispatchProof(
       "harness-default-dispatch:receipt-authority_tooling_destructive_denial",
     ],
     acceptedNodeAttemptIds: options.acceptedNodeAttemptIds ?? [],
-    nodeAttemptIds: options.nodeAttemptIds ?? [],
-    receiptIds: options.receiptIds ?? [],
-    replayFixtureRefs: options.replayFixtureRefs ?? [],
+    nodeAttemptIds: defaultNodeAttemptIds,
+    receiptIds: defaultReceiptIds,
+    replayFixtureRefs: defaultReplayFixtureRefs,
     executorKind: "workflow_node_executor",
     executorRef: "crate::project::execute_workflow_harness_live_default_node",
     synchronous: true,
@@ -4873,6 +4957,9 @@ export function makeHarnessDefaultRuntimeDispatchProof(
     workerHandoffReceipts,
     workerLaunchEnvelopeIds,
     workerHandoffReceiptIds,
+    workerHandoffNodeAttemptIds,
+    workerHandoffNodeAttempts,
+    workerHandoffReplayFixtureRefs,
     modelExecutionProof: {
       schemaVersion: "workflow.harness.model-execution-envelope.v1",
       mode: "workflow_synchronous_envelope",
@@ -6251,6 +6338,7 @@ function componentCapturesPolicyDecision(
     "wallet_capability",
     "retry_policy",
     "completion_gate",
+    "handoff_bridge",
   ].includes(kind);
 }
 

@@ -36,6 +36,8 @@ Companion documents:
 - `docs/evidence/agent-runtime-p3-validation/2026-05-08T17-01-20-170Z/dashboard-index.json`
 - `docs/evidence/autopilot-gui-harness-validation/2026-05-08T17-41-29-444Z/result.json`
 - `docs/evidence/agent-runtime-p3-validation/2026-05-08T17-47-23-121Z/dashboard-index.json`
+- `docs/evidence/autopilot-gui-harness-validation/2026-05-08T18-12-02-920Z/result.json`
+- `docs/evidence/agent-runtime-p3-validation/2026-05-08T18-18-59-682Z/dashboard-index.json`
 - `docs/evidence/harness-as-workflow-aip-reference/2026-05-06/README.md`
 
 ## Executive Verdict
@@ -87,13 +89,14 @@ binding authority proof, worker binding registry proof, worker attach lifecycle
 timeline, worker session record, runtime-checkpoint worker session
 persistence, persisted worker-session launch authority, typed worker
 launch/resume/rollback envelopes, durable worker handoff receipts, rollback
-handoff authority, gated verification/output adapter proof, and gated
-authority/tooling adapter proof have a green end-to-end checkpoint:
+handoff authority, worker handoff node timeline/replay fixture binding, gated
+verification/output adapter proof, and gated authority/tooling adapter proof
+have a green end-to-end checkpoint:
 
 - Full retained Autopilot GUI harness run:
-  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T17-41-29-444Z/result.json`
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T18-12-02-920Z/result.json`
 - Runtime P3 validation with required GUI evidence:
-  `docs/evidence/agent-runtime-p3-validation/2026-05-08T17-47-23-121Z/dashboard-index.json`
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T18-18-59-682Z/dashboard-index.json`
 
 This checkpoint proves the GUI promotion flow can show the activation-id gate,
 the fork activation click proof, the selector-owned live-promotion readiness
@@ -117,8 +120,11 @@ three accepted `workflow.harness.worker-launch-envelope.v1` records for
 `workflow.harness.worker-handoff-receipt.v1` records with handoff statuses
 `launched`, `resumed`, and `rollback_handoff_ready`, GUI rail attributes for
 launch envelope and handoff receipt counts, and a live GUI check
-`workerLaunchHandoffBound: true`. The fork activation wizard remains its own
-evidence object.
+`workerLaunchHandoffBound: true`. It also proves worker handoff node attempts
+and replay fixtures are bound into the dispatch timeline with
+`workerHandoffNodeTimelineBound: true`, so launch, resume, and rollback
+handoff can be inspected as first-class workflow node attempts. The fork
+activation wizard remains its own evidence object.
 
 ### 2026-05-08 Cognition Live Adapter Slice
 
@@ -703,6 +709,47 @@ workflow records with durable receipt evidence." The next chronological slice
 should bind those launch/handoff receipts into the node timeline and replay
 fixture index so each worker handoff has a per-node attempt, receipt, replay
 fixture/ref, and rollback target visible from the GUI inspector.
+
+### 2026-05-08 Worker Handoff Node Timeline Slice
+
+The worker launch/handoff receipts now project into the same node-attempt and
+replay fixture substrate used by the rest of the harness graph:
+
+- Rust canonical harness types expose
+  `default_harness_node_attempt_for_worker_handoff_receipt`, which converts
+  launch, resume, and rollback handoff receipts into `handoff_bridge` node
+  attempts with stable attempt ids, receipt refs, replay fixture refs, policy
+  capture metadata, and live/blocked status.
+- Handoff receipts now retain the launch envelope id in `receipt_refs`, so the
+  inspector can traverse from node attempt to handoff receipt to launch
+  envelope without relying on projection-only ids.
+- The TypeScript harness runtime and Autopilot default dispatch proof now
+  expose `workerHandoffNodeAttempts`, `workerHandoffNodeAttemptIds`, and
+  `workerHandoffReplayFixtureRefs`, and include those ids in the shared
+  dispatch node timeline, receipt id list, and replay fixture index.
+- The Workflows right rail shows worker handoff attempt and replay fixture
+  counts/ids, adds a handoff timeline readiness stat, and fails the active
+  runtime binding if handoff node attempts are missing.
+- The retained GUI validator now requires
+  `workerHandoffNodeTimelineBound: true`, including launch/resume/rollback
+  handoff attempts, matching
+  `harness.handoff_bridge` node ids, `handoff_bridge` component kind,
+  corresponding handoff receipt refs, replay fixture refs, and inclusion in
+  both dispatch and global node attempt indexes.
+- Full retained GUI validation is green in
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T18-12-02-920Z/`;
+  all eight retained queries passed and the live GUI proof reports both
+  `workerLaunchHandoffBound: true` and
+  `workerHandoffNodeTimelineBound: true`.
+- Runtime P3 with required GUI evidence is green at
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T18-18-59-682Z/dashboard-index.json`.
+
+This changes the promotion boundary from "launch and handoff have durable
+receipts" to "worker handoff is a first-class timeline component with
+receipts, replay fixtures, and GUI activation blockers." The next chronological
+slice should thread this same handoff-bridge timeline through fork activation,
+canary, and rollback proof so a forked harness can be inspected from activation
+id to worker session to launch envelope to handoff attempt to rollback target.
 
 ## Current State
 
