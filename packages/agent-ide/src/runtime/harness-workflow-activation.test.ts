@@ -50,6 +50,46 @@ const onlyActivationMissingReadiness = (
   verificationIssues: [],
 });
 
+const withPassingPromotionClusterReplayGates = (
+  workflow: WorkflowProject,
+  startMs: number,
+): WorkflowProject =>
+  (workflow.metadata.harness?.promotionClusters ?? []).reduce(
+    (currentWorkflow, cluster, index) =>
+      executeWorkflowHarnessReplayGate(
+        currentWorkflow,
+        [
+          {
+            replayFixtureRef: `runtime-evidence:${cluster.clusterId}:fixture:promotion-gate`,
+            sourceKind: "harness_group",
+            sourceLabel: `${cluster.label} replay fixture`,
+            producerComponent: `ioi.agent-harness.${cluster.clusterId}.v1`,
+            policyDecision: "accept_replay",
+            attemptId: `attempt-${cluster.clusterId}`,
+            receiptRef: `receipt-${cluster.clusterId}`,
+            runId: `run-${cluster.clusterId}`,
+            executionMode: "gated",
+            readiness: "live_ready",
+            inputHash: `input-${cluster.clusterId}`,
+            outputHash: `output-${cluster.clusterId}`,
+            deterministicEnvelope: true,
+            capturesInput: true,
+            capturesOutput: true,
+            capturesPolicyDecision: true,
+            determinism: "deterministic",
+            redactionPolicy: "runtime_redacted",
+            evidenceRefs: [`evidence-${cluster.clusterId}`],
+          },
+        ],
+        {
+          scopeKind: "harness_group",
+          targetId: cluster.clusterId,
+          nowMs: startMs + index,
+        },
+      ).workflow,
+    workflow,
+  );
+
 {
   const fork = forkDefaultAgentHarnessWorkflow("Blocked Activation Fork", 1_000);
   const base = validateWorkflowProject(fork.workflow, fork.tests);
@@ -117,7 +157,7 @@ const onlyActivationMissingReadiness = (
     workerBinding,
     mintedAtMs: 2_000,
   });
-  const workflow: WorkflowProject = {
+  const workflow: WorkflowProject = withPassingPromotionClusterReplayGates({
     ...fork.workflow,
     global_config: {
       ...fork.workflow.global_config,
@@ -137,7 +177,7 @@ const onlyActivationMissingReadiness = (
       },
       workerHarnessBinding: workerBinding,
     },
-  };
+  }, 2_025);
   const base = validateWorkflowProject(workflow, fork.tests);
   const readiness = onlyActivationMissingReadiness(base);
   const candidate = createWorkflowHarnessActivationCandidate(
@@ -200,7 +240,7 @@ const onlyActivationMissingReadiness = (
     rollbackSelectedWorkflow.metadata.harness?.revisionBinding?.workflowContentHash,
   );
   assert.deepEqual(
-    result.workflow.metadata.harness?.activationAudit?.map((event) => event.eventType),
+    result.workflow.metadata.harness?.activationAudit?.slice(-3).map((event) => event.eventType),
     [
       "dry_run_mintable",
       "rollback_target_selected",
@@ -208,8 +248,16 @@ const onlyActivationMissingReadiness = (
     ],
   );
   const activationAudit = result.workflow.metadata.harness?.activationAudit ?? [];
-  assert.ok(activationAudit[0]?.receiptRefs.includes(mintableReceiptRef));
-  assert.ok(activationAudit[2]?.receiptRefs.includes(mintableReceiptRef));
+  assert.ok(
+    activationAudit
+      .find((event) => event.eventType === "dry_run_mintable")
+      ?.receiptRefs.includes(mintableReceiptRef),
+  );
+  assert.ok(
+    activationAudit
+      .find((event) => event.eventType === "activation_minted")
+      ?.receiptRefs.includes(mintableReceiptRef),
+  );
 
   const rollbackDrill = executeWorkflowHarnessRollbackDrill(result.workflow, {
     rollbackTarget: "legacy_runtime",
@@ -458,6 +506,12 @@ const onlyActivationMissingReadiness = (
   assert.deepEqual(gatePassed.gate.divergenceCounts, { none: 1 });
   assert.ok(gatePassed.gate.receiptRefs.includes("receipt-planner"));
   assert.equal(gatePassed.workflow.metadata.harness?.replayGates?.[0]?.targetId, "cognition");
+  assert.equal(
+    gatePassed.workflow.metadata.harness?.promotionClusters?.find(
+      (cluster) => cluster.clusterId === "cognition",
+    )?.replayGateProof?.gateStatus,
+    "passed",
+  );
   const gatePassedAudit = gatePassed.workflow.metadata.harness?.activationAudit ?? [];
   assert.equal(gatePassedAudit[gatePassedAudit.length - 1]?.eventType, "replay_gate_passed");
 
@@ -530,7 +584,7 @@ const onlyActivationMissingReadiness = (
     rollbackRevisionBinding,
     mintedAtMs: 3_000,
   });
-  const workflow: WorkflowProject = {
+  const workflow: WorkflowProject = withPassingPromotionClusterReplayGates({
     ...fork.workflow,
     global_config: {
       ...fork.workflow.global_config,
@@ -550,7 +604,7 @@ const onlyActivationMissingReadiness = (
       },
       workerHarnessBinding: workerBinding,
     },
-  };
+  }, 3_025);
   const base = validateWorkflowProject(workflow, fork.tests);
   const readiness = onlyActivationMissingReadiness(base);
   const candidate = createWorkflowHarnessActivationCandidate(

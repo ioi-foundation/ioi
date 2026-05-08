@@ -237,6 +237,65 @@ pub struct HarnessPromotionCluster {
     pub promotion_rule: String,
     pub rollback_target: String,
     pub blocks_live_activation: bool,
+    pub replay_gate_proof: Option<HarnessPromotionClusterReplayGateProof>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Hash)]
+#[serde(rename_all = "snake_case")]
+pub enum HarnessPromotionClusterReplayGateStatus {
+    NotRun,
+    Passed,
+    Blocked,
+    Failed,
+}
+
+impl HarnessPromotionClusterReplayGateStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::NotRun => "not_run",
+            Self::Passed => "passed",
+            Self::Blocked => "blocked",
+            Self::Failed => "failed",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Hash)]
+#[serde(rename_all = "snake_case")]
+pub enum HarnessActivationGateImpact {
+    Pending,
+    Passed,
+    Blocked,
+}
+
+impl HarnessActivationGateImpact {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Pending => "pending",
+            Self::Passed => "passed",
+            Self::Blocked => "blocked",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct HarnessPromotionClusterReplayGateProof {
+    pub schema_version: String,
+    pub cluster_id: HarnessPromotionClusterId,
+    pub gate_id: Option<String>,
+    pub gate_status: HarnessPromotionClusterReplayGateStatus,
+    pub activation_gate_impact: HarnessActivationGateImpact,
+    pub total_fixtures: u32,
+    pub passed_count: u32,
+    pub blocked_count: u32,
+    pub failed_count: u32,
+    pub blocking_divergence_count: u32,
+    pub replay_fixture_refs: Vec<String>,
+    pub blocking_replay_fixture_refs: Vec<String>,
+    pub receipt_refs: Vec<String>,
+    pub evidence_refs: Vec<String>,
+    pub blockers: Vec<String>,
+    pub verified_at_ms: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
@@ -1505,6 +1564,7 @@ pub fn default_harness_promotion_clusters() -> Vec<HarnessPromotionCluster> {
         promotion_rule: "zero blocking or unclassified divergence, receipt coverage, replay fixture coverage, and rollback target required".to_string(),
         rollback_target: "shadow".to_string(),
         blocks_live_activation: true,
+        replay_gate_proof: None,
     })
     .collect()
 }

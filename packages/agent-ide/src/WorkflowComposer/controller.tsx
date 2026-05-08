@@ -274,7 +274,11 @@ function harnessComponentKindForNode(node: Node): WorkflowHarnessComponentKind |
 }
 
 function harnessGroupRollupStatus(group: WorkflowHarnessGroupView): Node["status"] {
-  if (group.statusRollup.blockedCount > 0 || group.statusRollup.divergenceCount > 0) {
+  if (
+    group.statusRollup.blockedCount > 0 ||
+    group.statusRollup.divergenceCount > 0 ||
+    ["blocked", "failed"].includes(group.statusRollup.replayGateStatus)
+  ) {
     return "blocked";
   }
   if (group.statusRollup.liveReadyCount === group.innerNodeIds.length) {
@@ -1032,6 +1036,7 @@ export function useWorkflowComposerController({
       )
         ? firstReadiness
         : "mixed";
+      const replayGateProof = cluster.replayGateProof;
       const attempts = inner
         .map((item) => attemptsByNodeId.get(item.nodeData.id))
         .filter((attempt): attempt is NonNullable<typeof attempt> =>
@@ -1103,6 +1108,12 @@ export function useWorkflowComposerController({
           warningCount: nonLiveReadyCount + divergenceCount,
           receiptKindCount: receiptRefs.length,
           replayFixtureCount: replayFixtureRefs.length,
+          replayGateStatus: replayGateProof?.gateStatus ?? "not_run",
+          replayGateImpact: replayGateProof?.activationGateImpact ?? "pending",
+          replayGateTotalFixtures: replayGateProof?.totalFixtures ?? 0,
+          replayGateBlockingFixtureCount:
+            replayGateProof?.blockingReplayFixtureRefs.length ?? 0,
+          replayGateId: replayGateProof?.gateId,
           divergenceCount,
           activationState: harness?.activationState,
         },
