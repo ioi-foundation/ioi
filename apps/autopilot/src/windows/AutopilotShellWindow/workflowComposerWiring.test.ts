@@ -751,8 +751,8 @@ assert.match(
 
 assert.match(
   `${graphTypes}\n${composer}\n${canvasNode}\n${canvasNodeCss}`,
-  /(?=[\s\S]*interface WorkflowHarnessGroupView)(?=[\s\S]*harnessGroup\?: WorkflowHarnessGroupView)(?=[\s\S]*harnessGroupViews)(?=[\s\S]*selectedHarnessGroup)(?=[\s\S]*handleInspectHarnessGroupNode)(?=[\s\S]*collapsedHarnessGroupByNodeId)(?=[\s\S]*HARNESS_GROUP_BOUNDARY_PORTS)(?=[\s\S]*HARNESS_WORKBENCH_DEEP_LINK_PREFIX)(?=[\s\S]*encodeHarnessWorkbenchDeepLink)(?=[\s\S]*parseHarnessWorkbenchDeepLink)(?=[\s\S]*applyHarnessWorkbenchDeepLink)(?=[\s\S]*window\.history\.replaceState)(?=[\s\S]*navigator\.clipboard)(?=[\s\S]*collapsedGroupEdge)(?=[\s\S]*workflow-harness-group-controls)(?=[\s\S]*workflow-harness-collapse-groups)(?=[\s\S]*workflow-harness-expand-groups)(?=[\s\S]*workflow-harness-group-node-\$\{harnessGroup\.groupId\})(?=[\s\S]*workflow-harness-group-toggle)(?=[\s\S]*workflow-harness-group-boundary-ports)(?=[\s\S]*workflow-harness-group-deep-link)(?=[\s\S]*canvas-node--harness-group)/,
-  "Harness promotion clusters should collapse into typed boundary nodes with selection state, rollups, URL-restorable deep links, and explicit expand controls.",
+  /(?=[\s\S]*interface WorkflowHarnessGroupView)(?=[\s\S]*harnessGroup\?: WorkflowHarnessGroupView)(?=[\s\S]*harnessGroupViews)(?=[\s\S]*selectedHarnessGroup)(?=[\s\S]*handleInspectHarnessGroupNode)(?=[\s\S]*collapsedHarnessGroupByNodeId)(?=[\s\S]*HARNESS_GROUP_BOUNDARY_PORTS)(?=[\s\S]*HARNESS_WORKBENCH_DEEP_LINK_PREFIX)(?=[\s\S]*encodeHarnessWorkbenchDeepLink)(?=[\s\S]*parseHarnessWorkbenchDeepLink)(?=[\s\S]*applyHarnessWorkbenchDeepLink)(?=[\s\S]*window\.history\.replaceState)(?=[\s\S]*navigator\.clipboard)(?=[\s\S]*selectorDecisionId)(?=[\s\S]*dispatchId)(?=[\s\S]*workerBindingId)(?=[\s\S]*rollbackTarget)(?=[\s\S]*collapsedGroupEdge)(?=[\s\S]*workflow-harness-group-controls)(?=[\s\S]*workflow-harness-collapse-groups)(?=[\s\S]*workflow-harness-expand-groups)(?=[\s\S]*workflow-harness-group-node-\$\{harnessGroup\.groupId\})(?=[\s\S]*workflow-harness-group-toggle)(?=[\s\S]*workflow-harness-group-boundary-ports)(?=[\s\S]*workflow-harness-group-deep-link)(?=[\s\S]*canvas-node--harness-group)/,
+  "Harness promotion clusters and active runtime binding targets should collapse into typed boundary nodes with selection state, rollups, URL-restorable deep links, and explicit expand controls.",
 );
 
 assert.match(
@@ -781,8 +781,8 @@ assert.match(
 
 assert.match(
   workflowRailPanel,
-  /(?=[\s\S]*workflow-harness-active-runtime-binding)(?=[\s\S]*data-binding-matched)(?=[\s\S]*data-selector-decision-id)(?=[\s\S]*data-default-dispatch-id)(?=[\s\S]*workflow-harness-active-runtime-binding-selector-link)(?=[\s\S]*workflow-harness-active-runtime-binding-dispatch-link)(?=[\s\S]*workflow-harness-active-runtime-binding-worker-link)(?=[\s\S]*workflow-harness-active-runtime-binding-rollback-link)(?=[\s\S]*workflow-harness-active-runtime-binding-receipt-\$\{index\})(?=[\s\S]*workflow-harness-active-runtime-binding-replay-\$\{index\})(?=[\s\S]*workflow-harness-active-runtime-binding-blockers)/,
-  "The harness rail should surface active runtime binding identity with selector, dispatch, worker, rollback, receipt, replay, and blocker deep links.",
+  /(?=[\s\S]*workflow-harness-active-runtime-binding)(?=[\s\S]*data-binding-matched)(?=[\s\S]*data-selector-decision-id)(?=[\s\S]*data-default-dispatch-id)(?=[\s\S]*data-selected-selector-decision-id)(?=[\s\S]*data-selected-default-dispatch-id)(?=[\s\S]*data-selected-worker-binding-id)(?=[\s\S]*data-selected-rollback-target)(?=[\s\S]*workflow-harness-active-runtime-binding-selector-link)(?=[\s\S]*selectorDecisionId)(?=[\s\S]*workflow-harness-active-runtime-binding-dispatch-link)(?=[\s\S]*dispatchId)(?=[\s\S]*workflow-harness-active-runtime-binding-worker-link)(?=[\s\S]*workerBindingId)(?=[\s\S]*workflow-harness-active-runtime-binding-rollback-link)(?=[\s\S]*rollbackTarget)(?=[\s\S]*workflow-harness-active-runtime-binding-receipt-\$\{index\})(?=[\s\S]*workflow-harness-active-runtime-binding-replay-\$\{index\})(?=[\s\S]*workflow-harness-active-runtime-binding-blockers)/,
+  "The harness rail should surface route-restorable active runtime binding identity with selector, dispatch, worker, rollback, receipt, replay, and blocker deep links.",
 );
 
 assert.match(
@@ -793,8 +793,8 @@ assert.match(
 
 assert.match(
   composer,
-  /(?=[\s\S]*handleSelectHarnessReceiptRef[\s\S]*setSelectedHarnessReceiptRef\(receiptRef\))(?=[\s\S]*receiptRef: selectedHarnessReceiptRef)/,
-  "Selecting a harness receipt should update URL-restorable workbench state.",
+  /(?=[\s\S]*handleSelectHarnessReceiptRef[\s\S]*setSelectedHarnessReceiptRef\(receiptRef\))(?=[\s\S]*receiptRef: selectedHarnessReceiptRef)(?=[\s\S]*selectorDecisionId: selectedHarnessSelectorDecisionId)(?=[\s\S]*dispatchId: selectedHarnessDefaultDispatchId)(?=[\s\S]*workerBindingId: selectedHarnessWorkerBindingId)(?=[\s\S]*rollbackTarget: selectedHarnessRollbackTarget)/,
+  "Selecting harness receipts and active binding targets should update URL-restorable workbench state.",
 );
 
 assert.match(
@@ -829,8 +829,8 @@ assert.match(
 
 assert.match(
   `${composer}\n${guiHarnessValidation}\n${guiHarnessContract}`,
-  /(?=[\s\S]*VITE_AUTOPILOT_HARNESS_PROMOTION_LIVE_GUI)(?=[\s\S]*HARNESS_PROMOTION_LIVE_GUI_SCRIPT)(?=[\s\S]*__AUTOPILOT_HARNESS_PROMOTION_LIVE_GUI_RESULT)(?=[\s\S]*handleHarnessPromotionLiveGuiProbe)(?=[\s\S]*HARNESS_PROMOTION_LIVE_GUI_CLUSTER_IDS)(?=[\s\S]*workflowWithBlessedDefaultRuntimeActivationProof)(?=[\s\S]*makeHarnessRuntimeSelectorDecision)(?=[\s\S]*makeBlessedHarnessLiveHandoffProof)(?=[\s\S]*makeHarnessDefaultRuntimeDispatchProof)(?=[\s\S]*default-agent-harness-live-gui-promotion-proof\.workflow\.json)(?=[\s\S]*runtimeSelectorDefaultPromoted)(?=[\s\S]*liveHandoffTransferred)(?=[\s\S]*defaultDispatchBound)(?=[\s\S]*activeWorkerBinding)(?=[\s\S]*collectPromotionTransitionLiveGuiInteractionProof)(?=[\s\S]*promotion-transition-live-gui-interaction-proof\.json)(?=[\s\S]*harness_promotion_transition_live_gui_interaction)(?=[\s\S]*harness_promotion_transition_live_gui_interaction_present)(?=[\s\S]*harness_chat_runtime_binding)(?=[\s\S]*harness_chat_runtime_binding_matches_workflow_activation)(?=[\s\S]*HarnessDefaultRuntimeBinding)(?=[\s\S]*harnessDefaultRuntimeBindingMatchedCount)(?=[\s\S]*promotionTransitionLiveGui)/,
-  "Retained GUI validation should require a live Workflows desktop promotion interaction that promotes every P0 cluster, saves blessed default selector state, and captures screenshot proof.",
+  /(?=[\s\S]*VITE_AUTOPILOT_HARNESS_PROMOTION_LIVE_GUI)(?=[\s\S]*HARNESS_PROMOTION_LIVE_GUI_SCRIPT)(?=[\s\S]*__AUTOPILOT_HARNESS_PROMOTION_LIVE_GUI_RESULT)(?=[\s\S]*handleHarnessPromotionLiveGuiProbe)(?=[\s\S]*HARNESS_PROMOTION_LIVE_GUI_CLUSTER_IDS)(?=[\s\S]*workflowWithBlessedDefaultRuntimeActivationProof)(?=[\s\S]*makeHarnessRuntimeSelectorDecision)(?=[\s\S]*makeBlessedHarnessLiveHandoffProof)(?=[\s\S]*makeHarnessDefaultRuntimeDispatchProof)(?=[\s\S]*default-agent-harness-live-gui-promotion-proof\.workflow\.json)(?=[\s\S]*runtimeSelectorDefaultPromoted)(?=[\s\S]*liveHandoffTransferred)(?=[\s\S]*defaultDispatchBound)(?=[\s\S]*activeWorkerBinding)(?=[\s\S]*routeStatefulDeepLinks)(?=[\s\S]*routeStatefulActiveRuntimeBindingDeepLinks)(?=[\s\S]*collectPromotionTransitionLiveGuiInteractionProof)(?=[\s\S]*promotion-transition-live-gui-interaction-proof\.json)(?=[\s\S]*harness_promotion_transition_live_gui_interaction)(?=[\s\S]*harness_promotion_transition_live_gui_interaction_present)(?=[\s\S]*harness_chat_runtime_binding)(?=[\s\S]*harness_chat_runtime_binding_matches_workflow_activation)(?=[\s\S]*HarnessDefaultRuntimeBinding)(?=[\s\S]*harnessDefaultRuntimeBindingMatchedCount)(?=[\s\S]*promotionTransitionLiveGui)/,
+  "Retained GUI validation should require a live Workflows desktop promotion interaction that promotes every P0 cluster, saves blessed default selector state, captures screenshot proof, and records route-stateful active binding links.",
 );
 
 assert.match(

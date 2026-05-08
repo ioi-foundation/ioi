@@ -118,6 +118,19 @@ function workflowHarnessAuthorityGateBlockerState(
   return "needs activation review";
 }
 
+type WorkflowHarnessWorkbenchDeepLinkTarget = {
+  panel?: WorkflowRightPanel;
+  groupId?: string;
+  componentId?: string;
+  runId?: string;
+  selectorDecisionId?: string;
+  dispatchId?: string;
+  workerBindingId?: string;
+  receiptRef?: string;
+  replayFixtureRef?: string;
+  rollbackTarget?: string;
+};
+
 export function WorkflowRailPanel({
   panel,
   selectedNode,
@@ -127,6 +140,9 @@ export function WorkflowRailPanel({
   selectedHarnessReceiptRef,
   selectedHarnessReplayFixtureRef,
   selectedHarnessRollbackTarget,
+  selectedHarnessSelectorDecisionId,
+  selectedHarnessDefaultDispatchId,
+  selectedHarnessWorkerBindingId,
   tests,
   proposals,
   runs,
@@ -185,6 +201,9 @@ export function WorkflowRailPanel({
   selectedHarnessReceiptRef?: string | null;
   selectedHarnessReplayFixtureRef?: string | null;
   selectedHarnessRollbackTarget?: string | null;
+  selectedHarnessSelectorDecisionId?: string | null;
+  selectedHarnessDefaultDispatchId?: string | null;
+  selectedHarnessWorkerBindingId?: string | null;
   tests: WorkflowTestCase[];
   proposals: WorkflowProposal[];
   runs: WorkflowRunSummary[];
@@ -210,7 +229,7 @@ export function WorkflowRailPanel({
   onSelectHarnessReceiptRef?: (receiptRef: string) => void;
   onSelectHarnessReplayFixtureRef?: (replayFixtureRef: string) => void;
   onSelectHarnessRollbackTarget?: (rollbackTarget: string) => void;
-  onCopyHarnessDeepLink?: () => void;
+  onCopyHarnessDeepLink?: (target?: WorkflowHarnessWorkbenchDeepLinkTarget) => void;
   onCheckActivationReadiness?: () => void;
   onRunHarnessActivationDryRun?: () => void;
   onRunHarnessReplayDrill?: () => void;
@@ -407,6 +426,8 @@ export function WorkflowRailPanel({
             harnessHash,
             selectorDecisionId: harnessRuntimeSelectorDecision.decisionId,
             defaultDispatchId: harnessDefaultRuntimeDispatchProof.dispatchId,
+            workerBindingId:
+              harnessWorkerBinding?.harnessActivationId ?? activationId,
             selectedSelector: harnessRuntimeSelectorDecision.selectedSelector,
             productionDefaultSelector:
               harnessRuntimeSelectorDecision.productionDefaultSelector,
@@ -1811,7 +1832,12 @@ export function WorkflowRailPanel({
                 data-harness-hash={harnessActiveRuntimeBinding.harnessHash}
                 data-selector-decision-id={harnessActiveRuntimeBinding.selectorDecisionId}
                 data-default-dispatch-id={harnessActiveRuntimeBinding.defaultDispatchId}
+                data-worker-binding-id={harnessActiveRuntimeBinding.workerBindingId}
                 data-rollback-target={harnessActiveRuntimeBinding.rollbackTarget}
+                data-selected-selector-decision-id={selectedHarnessSelectorDecisionId ?? ""}
+                data-selected-default-dispatch-id={selectedHarnessDefaultDispatchId ?? ""}
+                data-selected-worker-binding-id={selectedHarnessWorkerBindingId ?? ""}
+                data-selected-rollback-target={selectedHarnessRollbackTarget ?? ""}
               >
                 <h4>Active runtime binding</h4>
                 <dl
@@ -1866,43 +1892,70 @@ export function WorkflowRailPanel({
                 >
                   <button
                     type="button"
-                    className="workflow-harness-ref-button"
+                    className={`workflow-harness-ref-button ${
+                      selectedHarnessSelectorDecisionId ===
+                      harnessActiveRuntimeBinding.selectorDecisionId
+                        ? "is-active"
+                        : ""
+                    }`}
                     data-testid="workflow-harness-active-runtime-binding-selector-link"
                     data-deep-link-kind="selector_decision"
                     data-deep-link-target={harnessActiveRuntimeBinding.selectorDecisionId}
                     disabled={!onCopyHarnessDeepLink}
-                    onClick={onCopyHarnessDeepLink}
+                    onClick={() =>
+                      onCopyHarnessDeepLink?.({
+                        panel: "settings",
+                        selectorDecisionId:
+                          harnessActiveRuntimeBinding.selectorDecisionId,
+                      })
+                    }
                   >
                     <code>{harnessActiveRuntimeBinding.selectorDecisionId}</code>
                   </button>
                   <button
                     type="button"
-                    className="workflow-harness-ref-button"
+                    className={`workflow-harness-ref-button ${
+                      selectedHarnessDefaultDispatchId ===
+                      harnessActiveRuntimeBinding.defaultDispatchId
+                        ? "is-active"
+                        : ""
+                    }`}
                     data-testid="workflow-harness-active-runtime-binding-dispatch-link"
                     data-deep-link-kind="default_dispatch"
                     data-deep-link-target={harnessActiveRuntimeBinding.defaultDispatchId}
                     disabled={!onCopyHarnessDeepLink}
-                    onClick={onCopyHarnessDeepLink}
+                    onClick={() =>
+                      onCopyHarnessDeepLink?.({
+                        panel: "settings",
+                        dispatchId: harnessActiveRuntimeBinding.defaultDispatchId,
+                      })
+                    }
                   >
                     <code>{harnessActiveRuntimeBinding.defaultDispatchId}</code>
                   </button>
                   <button
                     type="button"
-                    className="workflow-harness-ref-button"
+                    className={`workflow-harness-ref-button ${
+                      selectedHarnessWorkerBindingId ===
+                      harnessActiveRuntimeBinding.workerBindingId
+                        ? "is-active"
+                        : ""
+                    }`}
                     data-testid="workflow-harness-active-runtime-binding-worker-link"
                     data-deep-link-kind="worker_binding"
-                    data-deep-link-target={
-                      harnessActiveRuntimeBinding.workerBinding?.harnessActivationId ??
-                      harnessActiveRuntimeBinding.activationId
-                    }
+                    data-deep-link-target={harnessActiveRuntimeBinding.workerBindingId}
                     disabled={!onCopyHarnessDeepLink}
-                    onClick={onCopyHarnessDeepLink}
+                    onClick={() =>
+                      onCopyHarnessDeepLink?.({
+                        panel: "settings",
+                        workerBindingId: harnessActiveRuntimeBinding.workerBindingId,
+                      })
+                    }
                   >
                     <code>
                       {harnessActiveRuntimeBinding.workerBinding?.source ?? "worker"}
                       {" · "}
-                      {harnessActiveRuntimeBinding.workerBinding?.harnessActivationId ??
-                        harnessActiveRuntimeBinding.activationId}
+                      {harnessActiveRuntimeBinding.workerBindingId}
                     </code>
                   </button>
                   <button
@@ -1915,12 +1968,17 @@ export function WorkflowRailPanel({
                     }`}
                     data-testid="workflow-harness-active-runtime-binding-rollback-link"
                     data-deep-link-kind="rollback_target"
+                    data-deep-link-target={harnessActiveRuntimeBinding.rollbackTarget}
                     data-rollback-target={harnessActiveRuntimeBinding.rollbackTarget}
-                    onClick={() =>
+                    onClick={() => {
                       onSelectHarnessRollbackTarget?.(
                         harnessActiveRuntimeBinding.rollbackTarget,
-                      )
-                    }
+                      );
+                      onCopyHarnessDeepLink?.({
+                        panel: "settings",
+                        rollbackTarget: harnessActiveRuntimeBinding.rollbackTarget,
+                      });
+                    }}
                   >
                     <code>{harnessActiveRuntimeBinding.rollbackTarget}</code>
                   </button>
@@ -1934,7 +1992,13 @@ export function WorkflowRailPanel({
                       data-testid={`workflow-harness-active-runtime-binding-receipt-${index}`}
                       data-deep-link-kind="receipt"
                       data-receipt-ref={receiptRef}
-                      onClick={() => onSelectHarnessReceiptRef?.(receiptRef)}
+                      onClick={() => {
+                        onSelectHarnessReceiptRef?.(receiptRef);
+                        onCopyHarnessDeepLink?.({
+                          panel: "outputs",
+                          receiptRef,
+                        });
+                      }}
                     >
                       <code>{receiptRef}</code>
                     </button>
@@ -1953,9 +2017,13 @@ export function WorkflowRailPanel({
                         data-testid={`workflow-harness-active-runtime-binding-replay-${index}`}
                         data-deep-link-kind="replay_fixture"
                         data-replay-fixture-ref={replayFixtureRef}
-                        onClick={() =>
-                          onSelectHarnessReplayFixtureRef?.(replayFixtureRef)
-                        }
+                        onClick={() => {
+                          onSelectHarnessReplayFixtureRef?.(replayFixtureRef);
+                          onCopyHarnessDeepLink?.({
+                            panel: "outputs",
+                            replayFixtureRef,
+                          });
+                        }}
                       >
                         <code>{replayFixtureRef}</code>
                       </button>
@@ -3723,6 +3791,10 @@ export function WorkflowRailPanel({
           data-testid="workflow-harness-deep-link-state"
           data-selected-receipt-ref={selectedHarnessReceiptRef ?? ""}
           data-selected-replay-fixture-ref={selectedHarnessReplayFixtureRef ?? ""}
+          data-selected-selector-decision-id={selectedHarnessSelectorDecisionId ?? ""}
+          data-selected-default-dispatch-id={selectedHarnessDefaultDispatchId ?? ""}
+          data-selected-worker-binding-id={selectedHarnessWorkerBindingId ?? ""}
+          data-selected-rollback-target={selectedHarnessRollbackTarget ?? ""}
         >
           <h4>Deep link</h4>
           <article className="workflow-output-row">
@@ -3739,7 +3811,7 @@ export function WorkflowRailPanel({
           <button
             type="button"
             data-testid="workflow-copy-harness-deep-link"
-            onClick={onCopyHarnessDeepLink}
+            onClick={() => onCopyHarnessDeepLink?.()}
           >
             Copy link
           </button>

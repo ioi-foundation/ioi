@@ -172,9 +172,12 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
     selectedExecutionRunResult,
     selectedFixtures,
     selectedHarnessGroup,
+    selectedHarnessDefaultDispatchId,
     selectedHarnessReceiptRef,
     selectedHarnessReplayFixtureRef,
     selectedHarnessRollbackTarget,
+    selectedHarnessSelectorDecisionId,
+    selectedHarnessWorkerBindingId,
     selectedNode,
     selectedNodeId,
     selectedRunId,
@@ -1249,6 +1252,9 @@ export function WorkflowComposerView(model: WorkflowComposerViewModel) {
                     selectedHarnessReceiptRef={selectedHarnessReceiptRef}
                     selectedHarnessReplayFixtureRef={selectedHarnessReplayFixtureRef}
                     selectedHarnessRollbackTarget={selectedHarnessRollbackTarget}
+                    selectedHarnessSelectorDecisionId={selectedHarnessSelectorDecisionId}
+                    selectedHarnessDefaultDispatchId={selectedHarnessDefaultDispatchId}
+                    selectedHarnessWorkerBindingId={selectedHarnessWorkerBindingId}
                     tests={tests}
                     proposals={proposals}
                     runs={runs}

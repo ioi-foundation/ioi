@@ -2718,6 +2718,44 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
       workflow?.metadata?.harness?.defaultRuntimeDispatchProof ?? null;
     const activationRecord = workflow?.metadata?.harness?.activationRecord ?? null;
     const workerBinding = workflow?.metadata?.workerHarnessBinding ?? null;
+    const routeStatefulDeepLinks = {
+      selector: selector?.decisionId
+        ? `#harness-workbench?${new URLSearchParams({
+            panel: "settings",
+            selectorDecisionId: selector.decisionId,
+          }).toString()}`
+        : null,
+      dispatch: defaultDispatch?.dispatchId
+        ? `#harness-workbench?${new URLSearchParams({
+            panel: "settings",
+            dispatchId: defaultDispatch.dispatchId,
+          }).toString()}`
+        : null,
+      worker: workerBinding?.harnessActivationId
+        ? `#harness-workbench?${new URLSearchParams({
+            panel: "settings",
+            workerBindingId: workerBinding.harnessActivationId,
+          }).toString()}`
+        : null,
+      rollback: defaultDispatch?.rollbackTarget
+        ? `#harness-workbench?${new URLSearchParams({
+            panel: "settings",
+            rollbackTarget: defaultDispatch.rollbackTarget,
+          }).toString()}`
+        : null,
+      receipt: defaultDispatch?.receiptIds?.[0]
+        ? `#harness-workbench?${new URLSearchParams({
+            panel: "outputs",
+            receiptRef: defaultDispatch.receiptIds[0],
+          }).toString()}`
+        : null,
+      replay: defaultDispatch?.replayFixtureRefs?.[0]
+        ? `#harness-workbench?${new URLSearchParams({
+            panel: "outputs",
+            replayFixtureRef: defaultDispatch.replayFixtureRefs[0],
+          }).toString()}`
+        : null,
+    };
     const transitionFor = (clusterId, targetExecutionMode, attemptStatus) =>
       transitions.some(
         (attempt) =>
@@ -2785,6 +2823,14 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
         workerBinding?.harnessActivationId === selector?.activationId &&
         workerBinding?.executionMode === "live" &&
         workerBinding?.source === "default",
+      routeStatefulActiveRuntimeBindingDeepLinks:
+        Object.values(routeStatefulDeepLinks).every(Boolean) &&
+        routeStatefulDeepLinks.selector?.includes("selectorDecisionId=") &&
+        routeStatefulDeepLinks.dispatch?.includes("dispatchId=") &&
+        routeStatefulDeepLinks.worker?.includes("workerBindingId=") &&
+        routeStatefulDeepLinks.rollback?.includes("rollbackTarget=") &&
+        routeStatefulDeepLinks.receipt?.includes("receiptRef=") &&
+        routeStatefulDeepLinks.replay?.includes("replayFixtureRef="),
       auditRecordedBlockedAndPromoted:
         audit.some((event) => event.eventType === "promotion_transition_blocked") &&
         audit.some((event) => event.eventType === "promotion_transition_promoted"),
@@ -2877,7 +2923,17 @@ async function collectPromotionTransitionLiveGuiInteractionProof(outputRoot, arg
         promotionAttempt: "workflow-harness-group-promotion-attempt",
         runtimeSelectorBadge: "workflow-harness-runtime-selector",
         defaultDispatchPanel: "workflow-harness-default-runtime-dispatch",
+        activeRuntimeBinding: "workflow-harness-active-runtime-binding",
+        activeRuntimeBindingSelectorLink:
+          "workflow-harness-active-runtime-binding-selector-link",
+        activeRuntimeBindingDispatchLink:
+          "workflow-harness-active-runtime-binding-dispatch-link",
+        activeRuntimeBindingWorkerLink:
+          "workflow-harness-active-runtime-binding-worker-link",
+        activeRuntimeBindingRollbackLink:
+          "workflow-harness-active-runtime-binding-rollback-link",
       },
+      routeStatefulDeepLinks,
       sourceRefs: [
         "packages/agent-ide/src/WorkflowComposer/controller.tsx",
         "packages/agent-ide/src/WorkflowComposer/support.tsx",
