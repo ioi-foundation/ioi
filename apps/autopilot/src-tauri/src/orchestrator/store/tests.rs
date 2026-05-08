@@ -1051,6 +1051,67 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
         .and_then(|value| value.as_array())
         .map(|items| items.is_empty())
         .unwrap_or(false));
+    let worker_launch_envelopes = binding
+        .get("workerLaunchEnvelopes")
+        .and_then(|value| value.as_array())
+        .expect("worker launch envelopes");
+    assert_eq!(worker_launch_envelopes.len(), 3);
+    assert!(worker_launch_envelopes.iter().all(|envelope| {
+        envelope.get("accepted").and_then(|value| value.as_bool()) == Some(true)
+            && envelope
+                .get("blockers")
+                .and_then(|value| value.as_array())
+                .map(|items| items.is_empty())
+                .unwrap_or(false)
+    }));
+    assert!(worker_launch_envelopes
+        .iter()
+        .any(|envelope| envelope.get("phase").and_then(|value| value.as_str()) == Some("launch")));
+    assert!(worker_launch_envelopes
+        .iter()
+        .any(|envelope| envelope.get("phase").and_then(|value| value.as_str()) == Some("resume")));
+    assert!(worker_launch_envelopes
+        .iter()
+        .any(
+            |envelope| envelope.get("phase").and_then(|value| value.as_str()) == Some("rollback")
+        ));
+    let worker_handoff_receipts = binding
+        .get("workerHandoffReceipts")
+        .and_then(|value| value.as_array())
+        .expect("worker handoff receipts");
+    assert_eq!(worker_handoff_receipts.len(), 3);
+    assert!(worker_handoff_receipts.iter().all(|receipt| {
+        receipt.get("accepted").and_then(|value| value.as_bool()) == Some(true)
+            && receipt
+                .get("blockers")
+                .and_then(|value| value.as_array())
+                .map(|items| items.is_empty())
+                .unwrap_or(false)
+    }));
+    assert!(worker_handoff_receipts.iter().any(|receipt| receipt
+        .get("handoffStatus")
+        .and_then(|value| value.as_str())
+        == Some("launched")));
+    assert!(worker_handoff_receipts.iter().any(|receipt| receipt
+        .get("handoffStatus")
+        .and_then(|value| value.as_str())
+        == Some("resumed")));
+    assert!(worker_handoff_receipts.iter().any(|receipt| receipt
+        .get("handoffStatus")
+        .and_then(|value| value.as_str())
+        == Some("rollback_handoff_ready")));
+    assert_eq!(
+        binding
+            .get("workerLaunchEnvelopesAccepted")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        binding
+            .get("workerHandoffReceiptsAccepted")
+            .and_then(|value| value.as_bool()),
+        Some(true)
+    );
     assert_eq!(
         binding
             .get("invalidWorkerAttachReceipt")
@@ -1666,6 +1727,38 @@ fn default_runtime_dispatch_accepts_isolated_output_writer_staged_write_canary()
             .and_then(|value| value.as_bool()),
         Some(true)
     );
+    let dispatch_worker_launch_envelopes = dispatch
+        .get("workerLaunchEnvelopes")
+        .and_then(|value| value.as_array())
+        .expect("dispatch worker launch envelopes");
+    assert_eq!(dispatch_worker_launch_envelopes.len(), 3);
+    assert!(dispatch_worker_launch_envelopes.iter().all(|envelope| {
+        envelope.get("accepted").and_then(|value| value.as_bool()) == Some(true)
+            && envelope
+                .get("blockers")
+                .and_then(|value| value.as_array())
+                .map(|items| items.is_empty())
+                .unwrap_or(false)
+    }));
+    let dispatch_worker_handoff_receipts = dispatch
+        .get("workerHandoffReceipts")
+        .and_then(|value| value.as_array())
+        .expect("dispatch worker handoff receipts");
+    assert_eq!(dispatch_worker_handoff_receipts.len(), 3);
+    assert!(dispatch_worker_handoff_receipts.iter().all(|receipt| {
+        receipt.get("accepted").and_then(|value| value.as_bool()) == Some(true)
+            && receipt
+                .get("blockers")
+                .and_then(|value| value.as_array())
+                .map(|items| items.is_empty())
+                .unwrap_or(false)
+    }));
+    assert!(dispatch_worker_handoff_receipts
+        .iter()
+        .any(|receipt| receipt
+            .get("handoffStatus")
+            .and_then(|value| value.as_str())
+            == Some("rollback_handoff_ready")));
     assert!(dispatch
         .get("workerSessionRecord")
         .and_then(|value| value.get("lifecycleAttemptIds"))

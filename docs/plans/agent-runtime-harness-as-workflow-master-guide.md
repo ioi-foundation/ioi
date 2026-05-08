@@ -34,6 +34,8 @@ Companion documents:
 - `docs/evidence/agent-runtime-p3-validation/2026-05-08T16-30-23-659Z/dashboard-index.json`
 - `docs/evidence/autopilot-gui-harness-validation/2026-05-08T16-55-16-241Z/result.json`
 - `docs/evidence/agent-runtime-p3-validation/2026-05-08T17-01-20-170Z/dashboard-index.json`
+- `docs/evidence/autopilot-gui-harness-validation/2026-05-08T17-41-29-444Z/result.json`
+- `docs/evidence/agent-runtime-p3-validation/2026-05-08T17-47-23-121Z/dashboard-index.json`
 - `docs/evidence/harness-as-workflow-aip-reference/2026-05-06/README.md`
 
 ## Executive Verdict
@@ -83,14 +85,15 @@ As of 2026-05-08, the default live harness activation-id gate, runtime selector
 readiness gate, live handoff, default runtime dispatch proof, durable worker
 binding authority proof, worker binding registry proof, worker attach lifecycle
 timeline, worker session record, runtime-checkpoint worker session
-persistence, persisted worker-session launch authority, rollback handoff
-authority, gated verification/output adapter proof, and gated authority/tooling
-adapter proof have a green end-to-end checkpoint:
+persistence, persisted worker-session launch authority, typed worker
+launch/resume/rollback envelopes, durable worker handoff receipts, rollback
+handoff authority, gated verification/output adapter proof, and gated
+authority/tooling adapter proof have a green end-to-end checkpoint:
 
 - Full retained Autopilot GUI harness run:
-  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T16-55-16-241Z/result.json`
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T17-41-29-444Z/result.json`
 - Runtime P3 validation with required GUI evidence:
-  `docs/evidence/agent-runtime-p3-validation/2026-05-08T17-01-20-170Z/dashboard-index.json`
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T17-47-23-121Z/dashboard-index.json`
 
 This checkpoint proves the GUI promotion flow can show the activation-id gate,
 the fork activation click proof, the selector-owned live-promotion readiness
@@ -108,8 +111,14 @@ with runtime checkpoint keys, `persistedInRuntimeCheckpoint: true`,
 `launchAuthorityReady: true`, `launchAuthoritySource` set to
 `persisted_harness_worker_session_record`, empty launch-authority blockers,
 `rollbackHandoffReady: true`, empty rollback-handoff blockers, and a rollback
-handoff target matching the activation rollback target, and the fork
-activation wizard remains its own evidence object.
+handoff target matching the activation rollback target. It additionally proves
+three accepted `workflow.harness.worker-launch-envelope.v1` records for
+`launch`, `resume`, and `rollback`, three accepted
+`workflow.harness.worker-handoff-receipt.v1` records with handoff statuses
+`launched`, `resumed`, and `rollback_handoff_ready`, GUI rail attributes for
+launch envelope and handoff receipt counts, and a live GUI check
+`workerLaunchHandoffBound: true`. The fork activation wizard remains its own
+evidence object.
 
 ### 2026-05-08 Cognition Live Adapter Slice
 
@@ -650,6 +659,50 @@ move from authority admission into process handoff: the actual worker launch,
 resume, and rollback executor should accept a typed launch envelope derived
 from the persisted session record and emit a durable launch/handoff receipt
 that the GUI can inspect per node.
+
+### 2026-05-08 Worker Launch/Handoff Envelope Slice
+
+The persisted worker session record now drives explicit worker launch,
+resume, and rollback handoff envelopes instead of remaining only an admission
+flag on the dispatch proof:
+
+- Rust canonical types now include `HarnessWorkerLaunchPhase`,
+  `HarnessWorkerLaunchEnvelope`, and `HarnessWorkerHandoffReceipt`, with
+  canonical builders/resolvers that fail closed when the launch envelope does
+  not match the persisted worker session record.
+- Runtime service persistence now writes launch envelopes under
+  `agent::harness_worker_launch_envelope::<child session>::<phase>` and
+  handoff receipts under `agent::harness_worker_handoff_receipt::<receipt id>`
+  beside the worker session record.
+- Delegated worker launch persists the `launch` envelope/handoff receipt, and
+  persisted-session restore emits `resume` and `rollback` envelopes/receipts
+  after authority stamping.
+- The TypeScript harness runtime mirrors the canonical phase, envelope, and
+  handoff receipt shapes and regenerates the envelopes whenever the live GUI
+  promotion path replaces the default dispatch's worker session id with the
+  actual workflow id.
+- The Autopilot default runtime binding and dispatch proof now expose
+  `workerLaunchEnvelopes`, `workerHandoffReceipts`,
+  `workerLaunchEnvelopeIds`, and `workerHandoffReceiptIds`; binding acceptance
+  requires accepted launch/resume/rollback envelopes and handoff statuses
+  `launched`, `resumed`, and `rollback_handoff_ready`.
+- The Workflows right rail now surfaces launch envelope and handoff receipt
+  counts/ids and the rollback handoff receipt status on both active runtime
+  binding and default dispatch rows.
+- Full retained GUI validation is green in
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T17-41-29-444Z/`;
+  all eight retained queries passed,
+  `harness_chat_runtime_binding_matches_workflow_activation` is true, and the
+  live GUI proof reports `workerLaunchHandoffBound: true`.
+- Runtime P3 with required GUI evidence is green at
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T17-47-23-121Z/dashboard-index.json`.
+
+This changes the promotion boundary from "a persisted session record can
+authorize launch" to "worker launch, resume, and rollback handoff are typed
+workflow records with durable receipt evidence." The next chronological slice
+should bind those launch/handoff receipts into the node timeline and replay
+fixture index so each worker handoff has a per-node attempt, receipt, replay
+fixture/ref, and rollback target visible from the GUI inspector.
 
 ## Current State
 

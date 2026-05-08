@@ -874,6 +874,107 @@ pub(crate) fn persist_harness_worker_session_record(
     Ok(persisted)
 }
 
+pub(crate) fn persist_harness_worker_launch_handoff(
+    state: &mut dyn StateAccess,
+    child_session_id: [u8; 32],
+    record: &HarnessWorkerSessionRecord,
+    phase: HarnessWorkerLaunchPhase,
+) -> Result<(HarnessWorkerLaunchEnvelope, HarnessWorkerHandoffReceipt), String> {
+    let envelope = default_harness_worker_launch_envelope(record, phase);
+    let receipt = resolve_harness_worker_handoff_receipt(record, &envelope);
+    let envelope_bytes = codec::to_bytes_canonical(&envelope).map_err(|error| {
+        format!(
+            "ERROR_CLASS=UnexpectedState Failed to encode harness worker launch envelope: {}",
+            error
+        )
+    })?;
+    let receipt_bytes = codec::to_bytes_canonical(&receipt).map_err(|error| {
+        format!(
+            "ERROR_CLASS=UnexpectedState Failed to encode harness worker handoff receipt: {}",
+            error
+        )
+    })?;
+    state
+        .insert(
+            &get_harness_worker_launch_envelope_key(&child_session_id, phase.as_str()),
+            &envelope_bytes,
+        )
+        .map_err(|error| {
+            format!(
+                "ERROR_CLASS=UnexpectedState Failed to persist harness worker launch envelope: {}",
+                error
+            )
+        })?;
+    state
+        .insert(
+            &get_harness_worker_handoff_receipt_key(&receipt.receipt_id),
+            &receipt_bytes,
+        )
+        .map_err(|error| {
+            format!(
+                "ERROR_CLASS=UnexpectedState Failed to persist harness worker handoff receipt: {}",
+                error
+            )
+        })?;
+    Ok((envelope, receipt))
+}
+
+#[cfg(test)]
+pub(crate) fn load_harness_worker_launch_envelope(
+    state: &dyn StateAccess,
+    child_session_id: [u8; 32],
+    phase: HarnessWorkerLaunchPhase,
+) -> Result<Option<HarnessWorkerLaunchEnvelope>, String> {
+    let Some(bytes) = state
+        .get(&get_harness_worker_launch_envelope_key(
+            &child_session_id,
+            phase.as_str(),
+        ))
+        .map_err(|error| {
+            format!(
+                "ERROR_CLASS=UnexpectedState Failed to read harness worker launch envelope: {}",
+                error
+            )
+        })?
+    else {
+        return Ok(None);
+    };
+    codec::from_bytes_canonical::<HarnessWorkerLaunchEnvelope>(&bytes)
+        .map(Some)
+        .map_err(|error| {
+            format!(
+                "ERROR_CLASS=UnexpectedState Failed to decode harness worker launch envelope: {}",
+                error
+            )
+        })
+}
+
+#[cfg(test)]
+pub(crate) fn load_harness_worker_handoff_receipt(
+    state: &dyn StateAccess,
+    receipt_id: &str,
+) -> Result<Option<HarnessWorkerHandoffReceipt>, String> {
+    let Some(bytes) = state
+        .get(&get_harness_worker_handoff_receipt_key(receipt_id))
+        .map_err(|error| {
+            format!(
+                "ERROR_CLASS=UnexpectedState Failed to read harness worker handoff receipt: {}",
+                error
+            )
+        })?
+    else {
+        return Ok(None);
+    };
+    codec::from_bytes_canonical::<HarnessWorkerHandoffReceipt>(&bytes)
+        .map(Some)
+        .map_err(|error| {
+            format!(
+                "ERROR_CLASS=UnexpectedState Failed to decode harness worker handoff receipt: {}",
+                error
+            )
+        })
+}
+
 pub(crate) fn load_harness_worker_session_record(
     state: &dyn StateAccess,
     child_session_id: [u8; 32],
@@ -932,6 +1033,12 @@ pub(crate) fn ensure_harness_worker_session_record(
         stamp_harness_worker_session_authority(service, child_session_id, assignment, record);
     let persisted = persist_harness_worker_session_record(state, child_session_id, &record)?;
     enforce_harness_worker_session_authority(service, &persisted)?;
+    persist_harness_worker_launch_handoff(
+        state,
+        child_session_id,
+        &persisted,
+        HarnessWorkerLaunchPhase::Launch,
+    )?;
     Ok((persisted, restored))
 }
 
@@ -992,6 +1099,18 @@ pub(crate) fn restore_harness_worker_session_record_with_authority(
         stamp_harness_worker_session_authority(service, child_session_id, &assignment, record);
     let persisted = persist_harness_worker_session_record(state, child_session_id, &record)?;
     enforce_harness_worker_session_authority(service, &persisted)?;
+    persist_harness_worker_launch_handoff(
+        state,
+        child_session_id,
+        &persisted,
+        HarnessWorkerLaunchPhase::Resume,
+    )?;
+    persist_harness_worker_launch_handoff(
+        state,
+        child_session_id,
+        &persisted,
+        HarnessWorkerLaunchPhase::Rollback,
+    )?;
     Ok(Some(persisted))
 }
 

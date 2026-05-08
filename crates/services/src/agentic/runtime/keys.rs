@@ -23,6 +23,8 @@ pub const APPROVAL_POLICY_HASH_PREFIX: &[u8] = b"agent::approval_policy_hash::";
 pub const WORKER_ASSIGNMENT_PREFIX: &[u8] = b"agent::worker_assignment::";
 pub const HARNESS_WORKER_SESSION_PREFIX: &[u8] = b"agent::harness_worker_session::";
 pub const HARNESS_WORKER_SESSION_RECORD_PREFIX: &[u8] = b"agent::harness_worker_session_record::";
+pub const HARNESS_WORKER_LAUNCH_ENVELOPE_PREFIX: &[u8] = b"agent::harness_worker_launch_envelope::";
+pub const HARNESS_WORKER_HANDOFF_RECEIPT_PREFIX: &[u8] = b"agent::harness_worker_handoff_receipt::";
 pub const PARENT_PLAYBOOK_RUN_PREFIX: &[u8] = b"agent::parent_playbook_run::";
 
 // [NEW] Prefix for storing results of completed child sessions
@@ -99,6 +101,20 @@ pub fn get_harness_worker_session_record_key(session_record_id: &str) -> Vec<u8>
         session_record_id.as_bytes(),
     ]
     .concat()
+}
+
+pub fn get_harness_worker_launch_envelope_key(session_id: &[u8; 32], phase: &str) -> Vec<u8> {
+    [
+        HARNESS_WORKER_LAUNCH_ENVELOPE_PREFIX,
+        session_id.as_slice(),
+        b"::",
+        phase.as_bytes(),
+    ]
+    .concat()
+}
+
+pub fn get_harness_worker_handoff_receipt_key(receipt_id: &str) -> Vec<u8> {
+    [HARNESS_WORKER_HANDOFF_RECEIPT_PREFIX, receipt_id.as_bytes()].concat()
 }
 
 pub fn get_parent_playbook_run_key(session_id: &[u8; 32], playbook_id: &str) -> Vec<u8> {

@@ -6,10 +6,11 @@ use super::merge::{materialize_worker_result, merged_worker_output};
 use super::{
     await_child_worker_result as await_child_worker_result_impl, build_parent_playbook_run,
     execution_evidence_value, inject_parent_playbook_context, latest_failed_goal_command_step,
-    load_child_state, load_harness_worker_session_record, load_parent_playbook_run,
-    load_worker_session_result, patch_build_verify_post_edit_followup_due,
-    persist_parent_playbook_run, persist_worker_assignment, persist_worker_session_result,
-    resolve_worker_assignment, resolve_worker_goal, restore_harness_worker_session_record,
+    load_child_state, load_harness_worker_handoff_receipt, load_harness_worker_launch_envelope,
+    load_harness_worker_session_record, load_parent_playbook_run, load_worker_session_result,
+    patch_build_verify_post_edit_followup_due, persist_parent_playbook_run,
+    persist_worker_assignment, persist_worker_session_result, resolve_worker_assignment,
+    resolve_worker_goal, restore_harness_worker_session_record_with_authority,
     retry_blocked_pause_reason, synthesize_observed_patch_build_verify_completion,
     LIVE_RESEARCH_AWAIT_BURST_STEPS, MAX_AWAIT_CHILD_BURST_STEPS, PARENT_PLAYBOOK_CONTEXT_MARKER,
     PATCH_BUILD_VERIFY_POST_EDIT_BURST_GRACE_STEPS,
@@ -48,7 +49,8 @@ use ioi_types::app::agentic::{
 };
 use ioi_types::app::{
     bound_default_harness_worker_binding_registry_record, AccountId, ActionContext, ActionRequest,
-    ActionTarget, ChainId, CodingVerificationScorecard, HarnessWorkerSessionStatus,
+    ActionTarget, ChainId, CodingVerificationScorecard, HarnessWorkerLaunchPhase,
+    HarnessWorkerSessionStatus,
 };
 use ioi_types::app::{ContextSlice, KernelEvent, WorkloadReceipt};
 use ioi_types::codec;

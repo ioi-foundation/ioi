@@ -661,6 +661,48 @@ export function WorkflowRailPanel({
           const workerSessionBlockers =
             workflowHarnessWorkerSessionBlockers(workerSessionRecord);
           const workerSessionAccepted = workerSessionBlockers.length === 0;
+          const workerLaunchEnvelopes =
+            harnessDefaultRuntimeDispatchProof.workerLaunchEnvelopes ??
+            harnessActivationRecord?.workerLaunchEnvelopes ??
+            workflow.metadata.harness?.workerLaunchEnvelopes ??
+            [];
+          const workerHandoffReceipts =
+            harnessDefaultRuntimeDispatchProof.workerHandoffReceipts ??
+            harnessActivationRecord?.workerHandoffReceipts ??
+            workflow.metadata.harness?.workerHandoffReceipts ??
+            [];
+          const workerLaunchEnvelopeIds = workerLaunchEnvelopes.map(
+            (envelope) => envelope.envelopeId,
+          );
+          const workerHandoffReceiptIds = workerHandoffReceipts.map(
+            (receipt) => receipt.receiptId,
+          );
+          const workerLaunchEnvelopePhases = new Set(
+            workerLaunchEnvelopes.map((envelope) => envelope.phase),
+          );
+          const workerHandoffReceiptStatuses = new Set(
+            workerHandoffReceipts.map((receipt) => receipt.handoffStatus),
+          );
+          const workerLaunchEnvelopesAccepted =
+            workerLaunchEnvelopes.length >= 3 &&
+            workerLaunchEnvelopes.every(
+              (envelope) =>
+                envelope.accepted === true &&
+                (envelope.blockers ?? []).length === 0,
+            ) &&
+            workerLaunchEnvelopePhases.has("launch") &&
+            workerLaunchEnvelopePhases.has("resume") &&
+            workerLaunchEnvelopePhases.has("rollback");
+          const workerHandoffReceiptsAccepted =
+            workerHandoffReceipts.length >= 3 &&
+            workerHandoffReceipts.every(
+              (receipt) =>
+                receipt.accepted === true &&
+                (receipt.blockers ?? []).length === 0,
+            ) &&
+            workerHandoffReceiptStatuses.has("launched") &&
+            workerHandoffReceiptStatuses.has("resumed") &&
+            workerHandoffReceiptStatuses.has("rollback_handoff_ready");
           const workerAttachBlockers =
             workflowHarnessWorkerAttachBlockers(workerAttachReceipt);
           const workerAttachAccepted =
@@ -719,6 +761,12 @@ export function WorkflowRailPanel({
               ? []
               : ["worker_attach_lifecycle_incomplete"]),
             ...(workerSessionAccepted ? [] : ["worker_session_not_ready"]),
+            ...(workerLaunchEnvelopesAccepted
+              ? []
+              : ["worker_launch_envelopes_not_ready"]),
+            ...(workerHandoffReceiptsAccepted
+              ? []
+              : ["worker_handoff_receipts_not_ready"]),
             ...workerBindingRegistryBlockers,
             ...workerAttachBlockers,
             ...workerSessionBlockers,
@@ -787,6 +835,12 @@ export function WorkflowRailPanel({
             workerSessionRecordId:
               workerSessionRecord?.sessionRecordId ?? "missing",
             workerSessionBlockers,
+            workerLaunchEnvelopes,
+            workerHandoffReceipts,
+            workerLaunchEnvelopeIds,
+            workerHandoffReceiptIds,
+            workerLaunchEnvelopesAccepted,
+            workerHandoffReceiptsAccepted,
             workerAttachAccepted,
             workerAttachStatus: workerAttachReceipt?.attachStatus ?? "missing",
             workerAttachBlockers,
@@ -3192,6 +3246,33 @@ export function WorkflowRailPanel({
                     harnessActiveRuntimeBinding.workerSessionRecord
                       ?.rollbackHandoffTarget ?? ""
                   }
+                  data-worker-launch-envelope-count={
+                    harnessActiveRuntimeBinding.workerLaunchEnvelopes.length
+                  }
+                  data-worker-launch-envelope-ids={harnessActiveRuntimeBinding.workerLaunchEnvelopeIds.join(
+                    ",",
+                  )}
+                  data-worker-launch-envelopes-accepted={
+                    harnessActiveRuntimeBinding.workerLaunchEnvelopesAccepted
+                      ? "true"
+                      : "false"
+                  }
+                  data-worker-handoff-receipt-count={
+                    harnessActiveRuntimeBinding.workerHandoffReceipts.length
+                  }
+                  data-worker-handoff-receipt-ids={harnessActiveRuntimeBinding.workerHandoffReceiptIds.join(
+                    ",",
+                  )}
+                  data-worker-handoff-receipts-accepted={
+                    harnessActiveRuntimeBinding.workerHandoffReceiptsAccepted
+                      ? "true"
+                      : "false"
+                  }
+                  data-worker-rollback-handoff-receipt-status={
+                    harnessActiveRuntimeBinding.workerHandoffReceipts.find(
+                      (receipt) => receipt.phase === "rollback",
+                    )?.handoffStatus ?? ""
+                  }
                 >
                   <strong>{harnessActiveRuntimeBinding.activationId}</strong>
                   <span>
@@ -3254,6 +3335,12 @@ export function WorkflowRailPanel({
                       ?.rollbackHandoffReady
                       ? "handoff ready"
                       : "handoff blocked"}
+                  </small>
+                  <small>
+                    envelopes{" "}
+                    {harnessActiveRuntimeBinding.workerLaunchEnvelopes.length} ·
+                    handoff receipts{" "}
+                    {harnessActiveRuntimeBinding.workerHandoffReceipts.length}
                   </small>
                 </article>
                 <div
@@ -4939,6 +5026,31 @@ export function WorkflowRailPanel({
                   harnessDefaultRuntimeDispatchProof.workerSessionRecord
                     ?.rollbackHandoffTarget ?? ""
                 }
+                data-worker-launch-envelope-count={
+                  (
+                    harnessDefaultRuntimeDispatchProof.workerLaunchEnvelopes ??
+                    []
+                  ).length
+                }
+                data-worker-launch-envelope-ids={(
+                  harnessDefaultRuntimeDispatchProof.workerLaunchEnvelopeIds ??
+                  []
+                ).join(",")}
+                data-worker-handoff-receipt-count={
+                  (
+                    harnessDefaultRuntimeDispatchProof.workerHandoffReceipts ??
+                    []
+                  ).length
+                }
+                data-worker-handoff-receipt-ids={(
+                  harnessDefaultRuntimeDispatchProof.workerHandoffReceiptIds ??
+                  []
+                ).join(",")}
+                data-worker-rollback-handoff-receipt-status={
+                  harnessDefaultRuntimeDispatchProof.workerHandoffReceipts?.find(
+                    (receipt) => receipt.phase === "rollback",
+                  )?.handoffStatus ?? ""
+                }
               >
                 <strong>
                   {harnessDefaultRuntimeDispatchProof.selectedSelector}
@@ -4991,6 +5103,22 @@ export function WorkflowRailPanel({
                     ?.rollbackHandoffReady
                     ? "handoff ready"
                     : "handoff blocked"}
+                </small>
+                <small>
+                  envelopes{" "}
+                  {
+                    (
+                      harnessDefaultRuntimeDispatchProof.workerLaunchEnvelopes ??
+                      []
+                    ).length
+                  }{" "}
+                  · handoff receipts{" "}
+                  {
+                    (
+                      harnessDefaultRuntimeDispatchProof.workerHandoffReceipts ??
+                      []
+                    ).length
+                  }
                 </small>
               </article>
             ) : null}

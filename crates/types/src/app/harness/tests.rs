@@ -927,6 +927,34 @@ fn worker_attach_resolver_blocks_invalid_and_accepts_bound_registry() {
     assert!(session_record
         .lifecycle_statuses
         .contains(&HarnessWorkerAttachStatus::RolledBack));
+
+    let launch_envelope =
+        default_harness_worker_launch_envelope(&session_record, HarnessWorkerLaunchPhase::Launch);
+    assert_eq!(
+        launch_envelope.schema_version,
+        "workflow.harness.worker-launch-envelope.v1"
+    );
+    assert!(!launch_envelope.accepted);
+    assert!(launch_envelope
+        .blockers
+        .contains(&"worker_launch_session_not_persisted".to_string()));
+    assert_eq!(
+        launch_envelope.launch_authority_source,
+        "persisted_harness_worker_session_record"
+    );
+    assert_eq!(
+        launch_envelope.session_record_id,
+        session_record.session_record_id
+    );
+
+    let handoff_receipt = resolve_harness_worker_handoff_receipt(&session_record, &launch_envelope);
+    assert_eq!(
+        handoff_receipt.schema_version,
+        "workflow.harness.worker-handoff-receipt.v1"
+    );
+    assert!(!handoff_receipt.accepted);
+    assert_eq!(handoff_receipt.handoff_status, "blocked");
+    assert_eq!(handoff_receipt.envelope_id, launch_envelope.envelope_id);
 }
 
 #[test]

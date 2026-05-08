@@ -39,6 +39,9 @@ import type {
   WorkflowHarnessWorkerAttachRequest,
   WorkflowHarnessWorkerAttachStatus,
   WorkflowHarnessWorkerAttachLifecycleEvent,
+  WorkflowHarnessWorkerHandoffReceipt,
+  WorkflowHarnessWorkerLaunchEnvelope,
+  WorkflowHarnessWorkerLaunchPhase,
   WorkflowHarnessWorkerSessionRecord,
   WorkflowHarnessWorkerBinding,
   WorkflowHarnessWorkerBindingRegistryRecord,
@@ -801,6 +804,173 @@ export function workflowHarnessWorkerSessionBlockers(
   return uniqueStrings(blockers);
 }
 
+export function makeWorkflowHarnessWorkerLaunchEnvelope(
+  session: WorkflowHarnessWorkerSessionRecord,
+  phase: WorkflowHarnessWorkerLaunchPhase,
+  options: { createdAtMs?: number } = {},
+): WorkflowHarnessWorkerLaunchEnvelope {
+  const blockers = uniqueStrings([
+    ...(session.schemaVersion === "workflow.harness.worker-session.v1"
+      ? []
+      : ["worker_launch_session_schema_mismatch"]),
+    ...(session.sessionRecordId
+      ? []
+      : ["worker_launch_session_record_missing"]),
+    ...(session.sessionId ? [] : ["worker_launch_session_id_missing"]),
+    ...(session.workerId ? [] : ["worker_launch_worker_id_missing"]),
+    ...(session.accepted ? [] : ["worker_launch_session_not_accepted"]),
+    ...(session.blockers ?? []),
+    ...(session.persistedInRuntimeCheckpoint
+      ? []
+      : ["worker_launch_session_not_persisted"]),
+    ...(session.restoredFromPersistedSession
+      ? []
+      : ["worker_launch_session_not_restored"]),
+    ...(session.persistenceBlockers ?? []),
+    ...(session.launchAuthorityReady
+      ? []
+      : ["worker_launch_authority_not_ready"]),
+    ...(session.launchAuthorityBlockers ?? []),
+    ...(session.launchAuthoritySource ===
+    "persisted_harness_worker_session_record"
+      ? []
+      : ["worker_launch_authority_source_invalid"]),
+    ...(phase === "resume" && !session.resumed
+      ? ["worker_launch_resume_not_resolved"]
+      : []),
+    ...(phase === "rollback" && !session.rollbackAvailable
+      ? ["worker_launch_rollback_not_available"]
+      : []),
+    ...(phase === "rollback" && !session.rollbackTargetReady
+      ? ["worker_launch_rollback_target_not_ready"]
+      : []),
+    ...(phase === "rollback" && !session.rollbackHandoffReady
+      ? ["worker_launch_rollback_handoff_not_ready"]
+      : []),
+    ...(phase === "rollback" &&
+    session.rollbackHandoffTarget !== session.rollbackTarget
+      ? ["worker_launch_rollback_target_mismatch"]
+      : []),
+    ...(phase === "rollback" ? (session.rollbackHandoffBlockers ?? []) : []),
+  ]).sort();
+  const accepted = blockers.length === 0;
+  return {
+    schemaVersion: "workflow.harness.worker-launch-envelope.v1",
+    envelopeId: `harness-worker-launch-envelope:${phase}:${session.sessionRecordId}`,
+    phase,
+    workflowNodeId: "harness.handoff_bridge",
+    componentKind: "handoff_bridge",
+    sessionRecordId: session.sessionRecordId,
+    sessionId: session.sessionId,
+    workerId: session.workerId,
+    workflowId: session.workflowId,
+    activationId: session.activationId,
+    activationHash: session.activationHash,
+    harnessHash: session.harnessHash,
+    componentVersionSet: session.componentVersionSet,
+    registryRecordId: session.registryRecordId,
+    readinessProofId: session.readinessProofId,
+    rollbackTarget: session.rollbackTarget,
+    persistenceKey: session.persistenceKey,
+    recordPersistenceKey: session.recordPersistenceKey,
+    launchAuthoritySource: session.launchAuthoritySource,
+    launchAuthorityReady: session.launchAuthorityReady,
+    rollbackHandoffReady: session.rollbackHandoffReady,
+    accepted,
+    blockers,
+    policyDecision: accepted
+      ? "allow_harness_worker_launch_envelope"
+      : "block_harness_worker_launch_envelope",
+    evidenceRefs: uniqueStrings([
+      session.sessionRecordId,
+      session.registryRecordId,
+      session.readinessProofId,
+      ...session.lifecycleEventIds,
+      ...session.receiptIds,
+    ]),
+    createdAtMs: options.createdAtMs ?? session.createdAtMs,
+  };
+}
+
+export function resolveWorkflowHarnessWorkerHandoffReceipt(
+  session: WorkflowHarnessWorkerSessionRecord,
+  envelope: WorkflowHarnessWorkerLaunchEnvelope,
+  options: { createdAtMs?: number } = {},
+): WorkflowHarnessWorkerHandoffReceipt {
+  const blockers = uniqueStrings([
+    ...(envelope.schemaVersion === "workflow.harness.worker-launch-envelope.v1"
+      ? []
+      : ["worker_handoff_envelope_schema_mismatch"]),
+    ...(envelope.accepted ? [] : ["worker_handoff_envelope_not_accepted"]),
+    ...(envelope.blockers ?? []),
+    ...(envelope.sessionRecordId === session.sessionRecordId
+      ? []
+      : ["worker_handoff_session_record_mismatch"]),
+    ...(envelope.sessionId === session.sessionId
+      ? []
+      : ["worker_handoff_session_id_mismatch"]),
+    ...(envelope.workerId === session.workerId
+      ? []
+      : ["worker_handoff_worker_id_mismatch"]),
+    ...(envelope.workflowId === session.workflowId
+      ? []
+      : ["worker_handoff_workflow_mismatch"]),
+    ...(envelope.activationId === session.activationId
+      ? []
+      : ["worker_handoff_activation_mismatch"]),
+    ...(envelope.harnessHash === session.harnessHash
+      ? []
+      : ["worker_handoff_harness_hash_mismatch"]),
+    ...(envelope.launchAuthorityReady
+      ? []
+      : ["worker_handoff_launch_authority_not_ready"]),
+    ...(envelope.phase === "rollback" && !envelope.rollbackHandoffReady
+      ? ["worker_handoff_rollback_not_ready"]
+      : []),
+  ]).sort();
+  const accepted = blockers.length === 0;
+  const handoffStatus = !accepted
+    ? "blocked"
+    : envelope.phase === "rollback"
+      ? "rollback_handoff_ready"
+      : envelope.phase === "resume"
+        ? "resumed"
+        : "launched";
+  return {
+    schemaVersion: "workflow.harness.worker-handoff-receipt.v1",
+    receiptId: `harness-worker-handoff-receipt:${envelope.phase}:${session.sessionRecordId}`,
+    envelopeId: envelope.envelopeId,
+    phase: envelope.phase,
+    workflowNodeId: envelope.workflowNodeId,
+    componentKind: envelope.componentKind,
+    sessionRecordId: session.sessionRecordId,
+    sessionId: session.sessionId,
+    workerId: session.workerId,
+    workflowId: session.workflowId,
+    activationId: session.activationId,
+    activationHash: session.activationHash,
+    harnessHash: session.harnessHash,
+    registryRecordId: session.registryRecordId,
+    readinessProofId: session.readinessProofId,
+    rollbackTarget: session.rollbackTarget,
+    rollbackAvailable: session.rollbackAvailable,
+    launchAuthoritySource: session.launchAuthoritySource,
+    accepted,
+    handoffStatus,
+    blockers,
+    policyDecision: accepted
+      ? "allow_harness_worker_handoff"
+      : "block_harness_worker_handoff",
+    receiptRefs: uniqueStrings([...session.receiptIds, envelope.envelopeId]),
+    evidenceRefs: uniqueStrings([
+      ...session.evidenceRefs,
+      envelope.envelopeId,
+      session.sessionRecordId,
+    ]),
+    createdAtMs: options.createdAtMs ?? envelope.createdAtMs,
+  };
+}
+
 function receiptRefsFromEvidenceRefs(
   evidenceRefs: Array<string | null | undefined> = [],
 ): string[] {
@@ -1009,6 +1179,8 @@ export function makeHarnessForkActivationRecord(options: {
   workerAttachReceipt?: WorkflowHarnessWorkerAttachReceipt;
   workerAttachLifecycle?: WorkflowHarnessWorkerAttachLifecycleEvent[];
   workerSessionRecord?: WorkflowHarnessWorkerSessionRecord;
+  workerLaunchEnvelopes?: WorkflowHarnessWorkerLaunchEnvelope[];
+  workerHandoffReceipts?: WorkflowHarnessWorkerHandoffReceipt[];
   revisionBinding?: WorkflowRevisionBinding;
   rollbackRevisionBinding?: WorkflowRevisionBinding;
   rollbackRestoreCanary?: WorkflowHarnessForkActivationRecord["rollbackRestoreCanary"];
@@ -1060,6 +1232,8 @@ export function makeHarnessForkActivationRecord(options: {
     workerAttachReceipt: options.workerAttachReceipt,
     workerAttachLifecycle: options.workerAttachLifecycle,
     workerSessionRecord: options.workerSessionRecord,
+    workerLaunchEnvelopes: options.workerLaunchEnvelopes,
+    workerHandoffReceipts: options.workerHandoffReceipts,
     revisionBinding: options.revisionBinding,
     rollbackRevisionBinding: options.rollbackRevisionBinding,
     rollbackRestoreCanary: options.rollbackRestoreCanary,
@@ -4003,6 +4177,19 @@ export function makeHarnessDefaultRuntimeDispatchProof(
     workerBindingRegistryRecord,
     workerAttachLifecycle,
   );
+  const workerLaunchEnvelopes = (["launch", "resume", "rollback"] as const).map(
+    (phase) =>
+      makeWorkflowHarnessWorkerLaunchEnvelope(workerSessionRecord, phase),
+  );
+  const workerHandoffReceipts = workerLaunchEnvelopes.map((envelope) =>
+    resolveWorkflowHarnessWorkerHandoffReceipt(workerSessionRecord, envelope),
+  );
+  const workerLaunchEnvelopeIds = workerLaunchEnvelopes.map(
+    (envelope) => envelope.envelopeId,
+  );
+  const workerHandoffReceiptIds = workerHandoffReceipts.map(
+    (receipt) => receipt.receiptId,
+  );
   return {
     schemaVersion: "workflow.harness.default-runtime-dispatch.v1",
     dispatchId,
@@ -4682,6 +4869,10 @@ export function makeHarnessDefaultRuntimeDispatchProof(
     workerAttachLifecycleStatuses,
     workerAttachLifecycleComplete,
     workerSessionRecord,
+    workerLaunchEnvelopes,
+    workerHandoffReceipts,
+    workerLaunchEnvelopeIds,
+    workerHandoffReceiptIds,
     modelExecutionProof: {
       schemaVersion: "workflow.harness.model-execution-envelope.v1",
       mode: "workflow_synchronous_envelope",
@@ -6459,6 +6650,8 @@ function harnessMetadata(options: {
   workerAttachReceipt?: WorkflowHarnessWorkerAttachReceipt;
   workerAttachLifecycle?: WorkflowHarnessWorkerAttachLifecycleEvent[];
   workerSessionRecord?: WorkflowHarnessWorkerSessionRecord;
+  workerLaunchEnvelopes?: WorkflowHarnessWorkerLaunchEnvelope[];
+  workerHandoffReceipts?: WorkflowHarnessWorkerHandoffReceipt[];
   canaryExecutionBoundary?: WorkflowHarnessCanaryExecutionBoundary;
   canaryExecutionBoundaries?: WorkflowHarnessCanaryExecutionBoundary[];
 }): WorkflowHarnessMetadata {
@@ -6483,6 +6676,8 @@ function harnessMetadata(options: {
     workerAttachReceipt: options.workerAttachReceipt,
     workerAttachLifecycle: options.workerAttachLifecycle,
     workerSessionRecord: options.workerSessionRecord,
+    workerLaunchEnvelopes: options.workerLaunchEnvelopes,
+    workerHandoffReceipts: options.workerHandoffReceipts,
     canaryExecutionBoundary: options.canaryExecutionBoundary,
     canaryExecutionBoundaries: options.canaryExecutionBoundaries,
     validationGates: [

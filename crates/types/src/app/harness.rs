@@ -991,6 +991,81 @@ pub struct HarnessWorkerSessionRecord {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
+pub enum HarnessWorkerLaunchPhase {
+    Launch,
+    Resume,
+    Rollback,
+}
+
+impl HarnessWorkerLaunchPhase {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Launch => "launch",
+            Self::Resume => "resume",
+            Self::Rollback => "rollback",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct HarnessWorkerLaunchEnvelope {
+    pub schema_version: String,
+    pub envelope_id: String,
+    pub phase: HarnessWorkerLaunchPhase,
+    pub workflow_node_id: String,
+    pub component_kind: HarnessComponentKind,
+    pub session_record_id: String,
+    pub session_id: String,
+    pub worker_id: String,
+    pub workflow_id: String,
+    pub activation_id: String,
+    pub activation_hash: String,
+    pub harness_hash: String,
+    pub component_version_set: Vec<HarnessComponentVersionBinding>,
+    pub registry_record_id: String,
+    pub readiness_proof_id: String,
+    pub rollback_target: String,
+    pub persistence_key: String,
+    pub record_persistence_key: String,
+    pub launch_authority_source: String,
+    pub launch_authority_ready: bool,
+    pub rollback_handoff_ready: bool,
+    pub accepted: bool,
+    pub blockers: Vec<String>,
+    pub policy_decision: String,
+    pub evidence_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct HarnessWorkerHandoffReceipt {
+    pub schema_version: String,
+    pub receipt_id: String,
+    pub envelope_id: String,
+    pub phase: HarnessWorkerLaunchPhase,
+    pub workflow_node_id: String,
+    pub component_kind: HarnessComponentKind,
+    pub session_record_id: String,
+    pub session_id: String,
+    pub worker_id: String,
+    pub workflow_id: String,
+    pub activation_id: String,
+    pub activation_hash: String,
+    pub harness_hash: String,
+    pub registry_record_id: String,
+    pub readiness_proof_id: String,
+    pub rollback_target: String,
+    pub rollback_available: bool,
+    pub launch_authority_source: String,
+    pub accepted: bool,
+    pub handoff_status: String,
+    pub blockers: Vec<String>,
+    pub policy_decision: String,
+    pub receipt_refs: Vec<String>,
+    pub evidence_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Hash)]
+#[serde(rename_all = "snake_case")]
 pub enum HarnessLiveHandoffSelector {
     LegacyRuntime,
     BlessedWorkflowGated,
@@ -2700,6 +2775,205 @@ pub fn default_harness_worker_session_record(
         rollback_handoff_ready: false,
         rollback_handoff_blockers,
         rollback_handoff_target: record.rollback_target.clone(),
+    }
+}
+
+pub fn default_harness_worker_launch_envelope(
+    record: &HarnessWorkerSessionRecord,
+    phase: HarnessWorkerLaunchPhase,
+) -> HarnessWorkerLaunchEnvelope {
+    let mut blockers = Vec::<String>::new();
+    if record.schema_version != "workflow.harness.worker-session.v1" {
+        blockers.push("worker_launch_session_schema_mismatch".to_string());
+    }
+    if record.session_record_id.trim().is_empty() {
+        blockers.push("worker_launch_session_record_missing".to_string());
+    }
+    if record.session_id.trim().is_empty() {
+        blockers.push("worker_launch_session_id_missing".to_string());
+    }
+    if record.worker_id.trim().is_empty() {
+        blockers.push("worker_launch_worker_id_missing".to_string());
+    }
+    if !record.accepted {
+        blockers.push("worker_launch_session_not_accepted".to_string());
+    }
+    if !record.blockers.is_empty() {
+        blockers.push("worker_launch_session_blocked".to_string());
+    }
+    if record.current_status == HarnessWorkerSessionStatus::Blocked {
+        blockers.push("worker_launch_session_status_blocked".to_string());
+    }
+    if !record.persisted_in_runtime_checkpoint {
+        blockers.push("worker_launch_session_not_persisted".to_string());
+    }
+    if !record.persistence_blockers.is_empty() {
+        blockers.push("worker_launch_session_persistence_blocked".to_string());
+    }
+    if !record.launch_authority_ready {
+        blockers.push("worker_launch_authority_not_ready".to_string());
+    }
+    if !record.launch_authority_blockers.is_empty() {
+        blockers.push("worker_launch_authority_blocked".to_string());
+    }
+    if record.launch_authority_source != "persisted_harness_worker_session_record" {
+        blockers.push("worker_launch_authority_source_mismatch".to_string());
+    }
+    if matches!(
+        phase,
+        HarnessWorkerLaunchPhase::Resume | HarnessWorkerLaunchPhase::Rollback
+    ) && !record.resumed
+    {
+        blockers.push("worker_launch_session_not_resumed".to_string());
+    }
+    if phase == HarnessWorkerLaunchPhase::Rollback {
+        if !record.rollback_available {
+            blockers.push("worker_launch_rollback_not_available".to_string());
+        }
+        if !record.rollback_target_ready {
+            blockers.push("worker_launch_rollback_target_not_ready".to_string());
+        }
+        if !record.rollback_handoff_ready {
+            blockers.push("worker_launch_rollback_handoff_not_ready".to_string());
+        }
+        if !record.rollback_handoff_blockers.is_empty() {
+            blockers.push("worker_launch_rollback_handoff_blocked".to_string());
+        }
+        if record.rollback_handoff_target != record.rollback_target {
+            blockers.push("worker_launch_rollback_handoff_target_mismatch".to_string());
+        }
+    }
+    blockers.sort();
+    blockers.dedup();
+    let accepted = blockers.is_empty();
+    let mut evidence_refs = record.evidence_refs.clone();
+    evidence_refs.push(record.session_record_id.clone());
+    evidence_refs.push(record.persistence_key.clone());
+    evidence_refs.push(record.record_persistence_key.clone());
+    evidence_refs.sort();
+    evidence_refs.dedup();
+    HarnessWorkerLaunchEnvelope {
+        schema_version: "workflow.harness.worker-launch-envelope.v1".to_string(),
+        envelope_id: format!(
+            "harness-worker-launch-envelope:{}:{}",
+            phase.as_str(),
+            record.session_record_id
+        ),
+        phase,
+        workflow_node_id: HarnessComponentKind::HandoffBridge.workflow_node_id(),
+        component_kind: HarnessComponentKind::HandoffBridge,
+        session_record_id: record.session_record_id.clone(),
+        session_id: record.session_id.clone(),
+        worker_id: record.worker_id.clone(),
+        workflow_id: record.workflow_id.clone(),
+        activation_id: record.activation_id.clone(),
+        activation_hash: record.activation_hash.clone(),
+        harness_hash: record.harness_hash.clone(),
+        component_version_set: record.component_version_set.clone(),
+        registry_record_id: record.registry_record_id.clone(),
+        readiness_proof_id: record.readiness_proof_id.clone(),
+        rollback_target: record.rollback_target.clone(),
+        persistence_key: record.persistence_key.clone(),
+        record_persistence_key: record.record_persistence_key.clone(),
+        launch_authority_source: record.launch_authority_source.clone(),
+        launch_authority_ready: record.launch_authority_ready,
+        rollback_handoff_ready: record.rollback_handoff_ready,
+        accepted,
+        blockers,
+        policy_decision: if accepted {
+            "allow_harness_worker_launch_envelope".to_string()
+        } else {
+            "block_harness_worker_launch_envelope".to_string()
+        },
+        evidence_refs,
+    }
+}
+
+pub fn resolve_harness_worker_handoff_receipt(
+    record: &HarnessWorkerSessionRecord,
+    envelope: &HarnessWorkerLaunchEnvelope,
+) -> HarnessWorkerHandoffReceipt {
+    let mut blockers = envelope.blockers.clone();
+    if envelope.schema_version != "workflow.harness.worker-launch-envelope.v1" {
+        blockers.push("worker_handoff_envelope_schema_mismatch".to_string());
+    }
+    if envelope.session_record_id != record.session_record_id {
+        blockers.push("worker_handoff_session_record_mismatch".to_string());
+    }
+    if envelope.session_id != record.session_id {
+        blockers.push("worker_handoff_session_id_mismatch".to_string());
+    }
+    if envelope.worker_id != record.worker_id {
+        blockers.push("worker_handoff_worker_id_mismatch".to_string());
+    }
+    if envelope.registry_record_id != record.registry_record_id {
+        blockers.push("worker_handoff_registry_record_mismatch".to_string());
+    }
+    if envelope.readiness_proof_id != record.readiness_proof_id {
+        blockers.push("worker_handoff_readiness_proof_mismatch".to_string());
+    }
+    if envelope.rollback_target != record.rollback_target {
+        blockers.push("worker_handoff_rollback_target_mismatch".to_string());
+    }
+    if !envelope.accepted {
+        blockers.push("worker_handoff_envelope_not_accepted".to_string());
+    }
+    if !record.launch_authority_ready {
+        blockers.push("worker_handoff_launch_authority_not_ready".to_string());
+    }
+    if envelope.phase == HarnessWorkerLaunchPhase::Rollback && !record.rollback_handoff_ready {
+        blockers.push("worker_handoff_rollback_not_ready".to_string());
+    }
+    blockers.sort();
+    blockers.dedup();
+    let accepted = blockers.is_empty();
+    let handoff_status = if !accepted {
+        "blocked"
+    } else {
+        match envelope.phase {
+            HarnessWorkerLaunchPhase::Launch => "launched",
+            HarnessWorkerLaunchPhase::Resume => "resumed",
+            HarnessWorkerLaunchPhase::Rollback => "rollback_handoff_ready",
+        }
+    };
+    let mut evidence_refs = envelope.evidence_refs.clone();
+    evidence_refs.push(envelope.envelope_id.clone());
+    evidence_refs.extend(record.receipt_ids.iter().cloned());
+    evidence_refs.sort();
+    evidence_refs.dedup();
+    HarnessWorkerHandoffReceipt {
+        schema_version: "workflow.harness.worker-handoff-receipt.v1".to_string(),
+        receipt_id: format!(
+            "harness-worker-handoff-receipt:{}:{}",
+            envelope.phase.as_str(),
+            record.session_record_id
+        ),
+        envelope_id: envelope.envelope_id.clone(),
+        phase: envelope.phase,
+        workflow_node_id: envelope.workflow_node_id.clone(),
+        component_kind: envelope.component_kind,
+        session_record_id: record.session_record_id.clone(),
+        session_id: record.session_id.clone(),
+        worker_id: record.worker_id.clone(),
+        workflow_id: record.workflow_id.clone(),
+        activation_id: record.activation_id.clone(),
+        activation_hash: record.activation_hash.clone(),
+        harness_hash: record.harness_hash.clone(),
+        registry_record_id: record.registry_record_id.clone(),
+        readiness_proof_id: record.readiness_proof_id.clone(),
+        rollback_target: record.rollback_target.clone(),
+        rollback_available: record.rollback_available,
+        launch_authority_source: record.launch_authority_source.clone(),
+        accepted,
+        handoff_status: handoff_status.to_string(),
+        blockers,
+        policy_decision: if accepted {
+            "allow_harness_worker_handoff".to_string()
+        } else {
+            "block_harness_worker_handoff".to_string()
+        },
+        receipt_refs: record.receipt_ids.clone(),
+        evidence_refs,
     }
 }
 
