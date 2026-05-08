@@ -3027,6 +3027,20 @@ function collectRollbackRestoreCanaryUiProof(outputRoot) {
       /harness-package-evidence\.json/.test(restoreCommand) &&
       /harness_package_manifest/.test(restoreCommand) &&
       /packageManifest/.test(restoreCommand),
+    harnessPackageEvidenceGate:
+      /workflowHarnessPackageEvidenceReview/.test(validation) &&
+      /harness_package_manifest_incomplete/.test(validation) &&
+      /package_manifest_receipts_missing/.test(validation) &&
+      /package_manifest_replay_fixtures_missing/.test(validation) &&
+      /package_manifest_rollback_restore_receipts_missing/.test(validation) &&
+      /gateId: "package-evidence"/.test(validation) &&
+      /id: "package-evidence"/.test(rail) &&
+      /"package-evidence": makeReadinessGateAction/.test(rail) &&
+      /commandTestId: `workflow-harness-gate-action-\$\{gateId\}`/.test(rail) &&
+      /workflow-harness-activation-step-\$\{step\.id\}/.test(rail) &&
+      /workflow-harness-activation-candidate-gate-\$\{gate\.gateId\}/.test(
+        rail,
+      ),
     workerSessionCheckpointUi:
       /WorkflowHarnessWorkerSessionRecord[\s\S]*persistenceKey: string[\s\S]*recordPersistenceKey: string[\s\S]*persistedInRuntimeCheckpoint: boolean[\s\S]*restoredFromPersistedSession: boolean[\s\S]*runtimeCheckpointSource: string[\s\S]*persistenceBlockers: string\[\][\s\S]*launchAuthorityReady: boolean[\s\S]*launchAuthorityBlockers: string\[\][\s\S]*launchAuthoritySource: string[\s\S]*rollbackHandoffReady: boolean[\s\S]*rollbackHandoffBlockers: string\[\][\s\S]*rollbackHandoffTarget: string/.test(
         graph,
@@ -3496,6 +3510,10 @@ function buildGuiEvidenceAssessment({
     hasHarnessRollbackRestoreCanaryUi &&
     rollbackRestoreCanaryUiProof?.proof?.checks
       ?.harnessPackageEvidenceManifest === true;
+  const hasHarnessPackageEvidenceGate =
+    hasHarnessPackageEvidenceManifest &&
+    rollbackRestoreCanaryUiProof?.proof?.checks?.harnessPackageEvidenceGate ===
+      true;
   const hasHarnessPromotionTransitionGuiBehavior =
     hasHarnessRollbackRestoreCanaryUi &&
     promotionTransitionGuiBehaviorProof?.proof?.passed === true;
@@ -3885,6 +3903,7 @@ function buildGuiEvidenceAssessment({
         hasHarnessRollbackRestoreCanaryUi,
       harness_package_evidence_manifest_present:
         hasHarnessPackageEvidenceManifest,
+      harness_package_evidence_gate_present: hasHarnessPackageEvidenceGate,
       harness_promotion_transition_gui_behavior_present:
         hasHarnessPromotionTransitionGuiBehavior,
       harness_promotion_transition_live_gui_interaction_present:
@@ -6085,6 +6104,11 @@ async function runGuiValidation(args, outputRoot) {
         harness_package_evidence_manifest:
           rollbackRestoreCanaryUiProof.proof.checks
             ?.harnessPackageEvidenceManifest === true
+            ? rollbackRestoreCanaryUiProof.path
+            : false,
+        harness_package_evidence_gate:
+          rollbackRestoreCanaryUiProof.proof.checks
+            ?.harnessPackageEvidenceGate === true
             ? rollbackRestoreCanaryUiProof.path
             : false,
         harness_promotion_transition_gui_behavior:

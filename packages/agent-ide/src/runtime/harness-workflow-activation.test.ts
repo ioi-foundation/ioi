@@ -270,6 +270,88 @@ const withClusterReadiness = (
 }
 
 {
+  const fork = forkDefaultAgentHarnessWorkflow("Imported Incomplete Package Fork", 1_300);
+  const workflowId = fork.workflow.metadata.id;
+  const activationId = "activation:imported-incomplete-package:validated";
+  const incompletePackageManifest = {
+    ...fork.workflow.metadata.harness!.packageManifest!,
+    activationId,
+    activationState: "validated" as const,
+    receiptRefs: [],
+    replayFixtureRefs: [],
+    deepLinks: [],
+    workerHandoffNodeAttemptIds: [],
+    workerHandoffReceiptIds: [],
+    rollbackRestoreReceiptRefs: [],
+  };
+  const workerBinding: WorkflowHarnessWorkerBinding = {
+    ...fork.workflow.metadata.workerHarnessBinding,
+    harnessWorkflowId: workflowId,
+    harnessActivationId: activationId,
+    harnessHash:
+      fork.workflow.metadata.harness?.harnessHash ??
+      "sha256:default-agent-harness-component-projection-v1",
+    source: "fork" as const,
+    authorityBindingReady: true,
+    authorityBindingBlockers: [],
+  };
+  const activationRecord = {
+    ...makeHarnessForkActivationRecord({
+      workflowId,
+      harnessWorkflowId: workflowId,
+      activationId,
+      activationState: "validated",
+      canaryStatus: "passed",
+      rollbackTarget: "legacy_runtime",
+      rollbackAvailable: true,
+      liveAuthorityTransferred: false,
+      workerBinding,
+      mintedAtMs: 1_300,
+    }),
+    packageManifest: incompletePackageManifest,
+  };
+  const workflow: WorkflowProject = {
+    ...fork.workflow,
+    metadata: {
+      ...fork.workflow.metadata,
+      harness: {
+        ...fork.workflow.metadata.harness!,
+        activationId,
+        activationState: "validated" as const,
+        activationRecord,
+        packageManifest: incompletePackageManifest,
+      },
+      workerHarnessBinding: workerBinding,
+    },
+  };
+  const base = validateWorkflowProject(workflow, fork.tests);
+  const readiness = evaluateWorkflowActivationReadiness(
+    workflow,
+    fork.tests,
+    base,
+    fork.proposals,
+    [],
+  );
+  assert.ok(
+    activationIssueCodes(readiness).includes("harness_package_manifest_incomplete"),
+  );
+  const candidate = createWorkflowHarnessActivationCandidate(
+    workflow,
+    fork.tests,
+    readiness,
+    fork.proposals,
+    1_350,
+  );
+  const packageGate = candidate.gateResults.find(
+    (gate) => gate.gateId === "package-evidence",
+  );
+  assert.equal(packageGate?.status, "blocked");
+  assert.match(packageGate?.value ?? "", /blockers/);
+  assert.equal(candidate.decision, "blocked");
+  assert.ok(candidate.blockerCodes.includes("package-evidence"));
+}
+
+{
   const fork = forkDefaultAgentHarnessWorkflow("Validated Activation Fork", 2_000);
   const workflowId = fork.workflow.metadata.id;
   const workerBinding: WorkflowHarnessWorkerBinding = {

@@ -1249,6 +1249,7 @@ export function WorkflowRailPanel({
             "harness_required_slot_unbound",
             "harness_activation_not_validated",
             "harness_self_mutation_not_proposal_only",
+            "harness_package_manifest_incomplete",
             "missing_replay_fixture",
             "missing_unit_tests",
             "mcp_access_not_reviewed",
@@ -1281,6 +1282,78 @@ export function WorkflowRailPanel({
   const receiptReadyHarnessComponents = workflow.nodes.filter(
     (node) => (node.runtimeBinding?.receiptKinds ?? []).length > 0,
   ).length;
+  const harnessPackageManifest =
+    workflow.metadata.harness?.packageManifest ??
+    harnessActivationRecord?.packageManifest ??
+    null;
+  const harnessPackageManifestRequired =
+    workflow.metadata.harness?.activationState === "validated" ||
+    Boolean(workflow.metadata.harness?.activationId) ||
+    harnessActivationRecord?.activationState === "validated" ||
+    Boolean(harnessActivationRecord?.activationId);
+  const harnessPackageEvidenceRefValues = Array.isArray(
+    harnessPackageManifest?.evidenceRefs,
+  )
+    ? harnessPackageManifest.evidenceRefs
+    : [];
+  const harnessPackageReceiptRefValues = Array.isArray(
+    harnessPackageManifest?.receiptRefs,
+  )
+    ? harnessPackageManifest.receiptRefs
+    : [];
+  const harnessPackageReplayFixtureRefValues = Array.isArray(
+    harnessPackageManifest?.replayFixtureRefs,
+  )
+    ? harnessPackageManifest.replayFixtureRefs
+    : [];
+  const harnessPackageDeepLinks = Array.isArray(harnessPackageManifest?.deepLinks)
+    ? harnessPackageManifest.deepLinks
+    : [];
+  const harnessPackageWorkerHandoffNodeAttemptIds = Array.isArray(
+    harnessPackageManifest?.workerHandoffNodeAttemptIds,
+  )
+    ? harnessPackageManifest.workerHandoffNodeAttemptIds
+    : [];
+  const harnessPackageWorkerHandoffReceiptIds = Array.isArray(
+    harnessPackageManifest?.workerHandoffReceiptIds,
+  )
+    ? harnessPackageManifest.workerHandoffReceiptIds
+    : [];
+  const harnessPackageRollbackRestoreReceiptRefs = Array.isArray(
+    harnessPackageManifest?.rollbackRestoreReceiptRefs,
+  )
+    ? harnessPackageManifest.rollbackRestoreReceiptRefs
+    : [];
+  const harnessPackageEvidenceGate =
+    harnessActivationCandidate?.gateResults.find(
+      (gate) => gate.gateId === "package-evidence",
+    ) ?? null;
+  const harnessPackageEvidenceReady = harnessPackageEvidenceGate
+    ? harnessPackageEvidenceGate.status === "passed"
+    : !harnessPackageManifestRequired ||
+      Boolean(
+        harnessPackageManifest &&
+          harnessPackageReceiptRefValues.length > 0 &&
+          harnessPackageReplayFixtureRefValues.length > 0 &&
+          harnessPackageDeepLinks.length > 0 &&
+          harnessPackageWorkerHandoffNodeAttemptIds.length > 0 &&
+          harnessPackageWorkerHandoffReceiptIds.length > 0 &&
+          harnessPackageRollbackRestoreReceiptRefs.length > 0,
+      );
+  const harnessPackageEvidenceRefs = workflowUniqueReceiptRefs([
+    harnessPackageManifest?.activationId,
+    harnessPackageManifest?.workflowContentHash,
+    harnessPackageManifest?.rollbackTarget,
+    ...harnessPackageEvidenceRefValues,
+    ...harnessPackageReceiptRefValues,
+    ...harnessPackageRollbackRestoreReceiptRefs,
+    ...harnessPackageWorkerHandoffNodeAttemptIds,
+    ...harnessPackageWorkerHandoffReceiptIds,
+    ...harnessPackageDeepLinks.map((link) => link?.ref),
+  ]);
+  const harnessPackageReplayFixtureRefs = workflowUniqueReplayFixtureRefs(
+    harnessPackageReplayFixtureRefValues,
+  );
   const replayFixtureBlockers = harnessActivationBlockers.filter(
     (issue) => issue.code === "missing_replay_fixture",
   );
@@ -1357,6 +1430,9 @@ export function WorkflowRailPanel({
   const policyPostureBlocker = firstHarnessActivationBlockerByCode([
     "harness_self_mutation_not_proposal_only",
     "mcp_access_not_reviewed",
+  ]);
+  const packageEvidenceBlocker = firstHarnessActivationBlockerByCode([
+    "harness_package_manifest_incomplete",
   ]);
   const activationValidationBlocker = firstHarnessActivationBlockerByCode([
     "harness_activation_not_validated",
@@ -1463,6 +1539,13 @@ export function WorkflowRailPanel({
       label: "Check receipts",
       detail: "Re-run receipt coverage checks for harness component bindings.",
       blocker: null,
+    }),
+    "package-evidence": makeReadinessGateAction({
+      gateId: "package-evidence",
+      label: "Review package evidence",
+      detail:
+        "Re-run package evidence checks for portable receipt, replay, rollback restore, handoff, and deep-link continuity.",
+      blocker: packageEvidenceBlocker,
     }),
     canary: {
       actionId: "activation-gate-action:canary:run-dry-run",
@@ -1608,6 +1691,30 @@ export function WorkflowRailPanel({
         (node) => node.runtimeBinding?.receiptKinds ?? [],
       ),
       gateAction: harnessActivationGateActions["receipt-coverage"],
+    },
+    {
+      id: "package-evidence",
+      label: "Package evidence",
+      ready: harnessPackageEvidenceReady,
+      value:
+        harnessPackageEvidenceGate?.value ??
+        (harnessPackageManifestRequired
+          ? harnessPackageEvidenceReady
+            ? "verified"
+            : "blocked"
+          : harnessPackageManifest
+            ? "recorded"
+            : "not required"),
+      detail:
+        "portable package receipts, replay fixtures, rollback restore refs, worker handoff refs, and deep links",
+      evidenceRefs: harnessPackageEvidenceRefs,
+      receiptRefs: workflowUniqueReceiptRefs([
+        ...harnessPackageReceiptRefValues,
+        ...harnessPackageRollbackRestoreReceiptRefs,
+        ...harnessPackageWorkerHandoffReceiptIds,
+      ]),
+      replayFixtureRefs: harnessPackageReplayFixtureRefs,
+      gateAction: harnessActivationGateActions["package-evidence"],
     },
     {
       id: "canary",
