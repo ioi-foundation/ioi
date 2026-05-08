@@ -24,6 +24,8 @@ Companion documents:
 - `docs/evidence/agent-runtime-p3-validation/2026-05-08T12-28-29-887Z/dashboard-index.json`
 - `docs/evidence/autopilot-gui-harness-validation/2026-05-08T13-02-20-661Z/result.json`
 - `docs/evidence/agent-runtime-p3-validation/2026-05-08T13-08-12-127Z/dashboard-index.json`
+- `docs/evidence/autopilot-gui-harness-validation/2026-05-08T13-36-28-167Z/result.json`
+- `docs/evidence/agent-runtime-p3-validation/2026-05-08T13-46-51-381Z/dashboard-index.json`
 - `docs/evidence/harness-as-workflow-aip-reference/2026-05-06/README.md`
 
 ## Executive Verdict
@@ -70,22 +72,24 @@ through a workflow-backed harness.
 ## Latest Validated Checkpoint
 
 As of 2026-05-08, the default live harness activation-id gate, runtime selector
-readiness gate, live handoff, default runtime dispatch proof, gated
-verification/output adapter proof, and gated authority/tooling adapter proof
-have a green end-to-end checkpoint:
+readiness gate, live handoff, default runtime dispatch proof, durable worker
+binding authority proof, gated verification/output adapter proof, and gated
+authority/tooling adapter proof have a green end-to-end checkpoint:
 
 - Full retained Autopilot GUI harness run:
-  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T13-02-20-661Z/result.json`
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T13-36-28-167Z/result.json`
 - Runtime P3 validation with required GUI evidence:
-  `docs/evidence/agent-runtime-p3-validation/2026-05-08T13-08-12-127Z/dashboard-index.json`
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T13-46-51-381Z/dashboard-index.json`
 
 This checkpoint proves the GUI promotion flow can show the activation-id gate,
 the fork activation click proof, the selector-owned live-promotion readiness
-gate, the default runtime dispatch binding, live handoff, route-stateful deep
-links, activation audit links, rollback restore actions, and runtime evidence
-in one retained-query evidence bundle. It also proves the blessed default
-dispatch is bound to `activation:default-agent-harness:blessed-readonly` while
-the fork activation wizard remains its own evidence object.
+gate, the default runtime dispatch binding, worker binding authority posture,
+live handoff, route-stateful deep links, activation audit links, rollback
+restore actions, and runtime evidence in one retained-query evidence bundle. It
+also proves the blessed default dispatch is bound to
+`activation:default-agent-harness:blessed-readonly`, the active worker binding
+matches the selector/default-dispatch proof ids and rollback target, and the
+fork activation wizard remains its own evidence object.
 
 ### 2026-05-08 Cognition Live Adapter Slice
 
@@ -162,7 +166,7 @@ The next slice applies the same canonical adapter proof shape to the
 - Full retained GUI validation is green in
   `docs/evidence/autopilot-gui-harness-validation/2026-05-08T09-51-41-976Z/`;
   the copied workflow proof contains `routingModelAdapterMode:
-  workflow_component_adapter_gated` and component kinds `model_router`,
+workflow_component_adapter_gated` and component kinds `model_router`,
   `model_call`, and `tool_router`.
 - Runtime P3 with required GUI evidence is green at
   `docs/evidence/agent-runtime-p3-validation/2026-05-08T09-58-25-386Z/dashboard-index.json`.
@@ -195,7 +199,7 @@ verification/output cluster:
 - Full retained GUI validation is green in
   `docs/evidence/autopilot-gui-harness-validation/2026-05-08T10-16-37-486Z/`;
   the promotion workflow artifact contains `verificationOutputAdapterMode:
-  workflow_component_adapter_gated`, six adapter results, and
+workflow_component_adapter_gated`, six adapter results, and
   `verificationOutputProof`.
 - Runtime P3 with required GUI evidence is green at
   `docs/evidence/agent-runtime-p3-validation/2026-05-08T10-23-24-073Z/dashboard-index.json`.
@@ -229,7 +233,7 @@ as cognition, routing/model, and verification/output:
 - Full retained GUI validation is green in
   `docs/evidence/autopilot-gui-harness-validation/2026-05-08T11-36-07-284Z/`;
   the promotion workflow artifact contains `authorityToolingAdapterMode:
-  workflow_component_adapter_gated`, eight adapter results, and
+workflow_component_adapter_gated`, eight adapter results, and
   `authorityToolingAdapterProof`.
 - Runtime P3 with required GUI evidence is green at
   `docs/evidence/agent-runtime-p3-validation/2026-05-08T11-42-45-444Z/dashboard-index.json`.
@@ -323,6 +327,46 @@ selector-gated proof to durable activation IDs and rollback/canary state at the
 worker binding layer, so a default live worker cannot attach unless the
 selector-readiness proof, dispatch proof, activation record, and rollback target
 all agree.
+
+### 2026-05-08 Worker-Binding Authority Slice
+
+The selector-gated readiness proof now flows into the durable worker binding
+instead of stopping at selector and dispatch validation:
+
+- Rust canonical harness contracts now make `HarnessWorkerBinding` carry the
+  selector decision id, default dispatch id, rollback target, authority
+  readiness, authority blockers, live-promotion readiness proof id, and policy
+  decision.
+- The Autopilot runtime projection now fails closed unless the selected default
+  activation, production default activation, selector decision, live handoff,
+  default dispatch proof, activation record, rollback target, invalid-fork gate,
+  and worker binding all agree.
+- The top-level runtime `HarnessWorkerBinding` mirrors the default runtime
+  binding's worker binding, so runtime projections, chat proof extraction, and
+  GUI proof extraction read the same durable authority posture.
+- The Workflows right rail now shows whether worker binding authority is ready
+  or blocked, the live-promotion proof id, proof-id match posture, selector
+  readiness, dispatch readiness, and invalid fork blocking.
+- The retained GUI validator now requires `workerBindingAuthorityReady`, empty
+  worker binding blockers, matching selector/default-dispatch/proof ids,
+  invalid fork live activation blocking, dispatch-driven runtime authority, and
+  matching nested worker binding fields before accepting the default runtime
+  binding.
+- Full retained GUI validation is green in
+  `docs/evidence/autopilot-gui-harness-validation/2026-05-08T13-36-28-167Z/`;
+  runtime consistency includes worker binding authority readiness and proof-id
+  agreement across selector, live handoff, dispatch, GUI, and chat proof.
+- Runtime P3 with required GUI evidence is green at
+  `docs/evidence/agent-runtime-p3-validation/2026-05-08T13-46-51-381Z/dashboard-index.json`.
+
+This changes the promotion boundary from "selector authority can choose live"
+to "a live worker cannot present as the blessed default unless its binding
+identity, rollback target, selector proof, dispatch proof, and runtime evidence
+all agree." The next chronological slice should move this from proof-time
+gating into the worker launch/bind registry itself: persistent workers should
+bind by workflow id, activation id, activation hash, component-version set,
+rollback target, and readiness proof id, with canary and rollback records
+checked before accepting any live default worker attachment.
 
 ## Current State
 
@@ -562,23 +606,23 @@ only storing a UI-local metadata mutation.
 
 Every harness component must declare the same minimum contract:
 
-| Field | Requirement |
-| --- | --- |
-| Component id | Stable id used by TS workflow nodes and Rust action frames. |
-| Kind | Typed harness component kind, mapped to a workflow node type. |
-| Version | Component version for compatibility and activation checks. |
-| Kernel ref | Runtime implementation reference or adapter boundary. |
-| Input schema | JSON schema or Rust/TS generated schema for accepted input. |
-| Output schema | JSON schema or Rust/TS generated schema for produced output. |
-| Error schema | Typed error classes and retryability semantics. |
-| Timeout | Default timeout, override policy, and cancellation behavior. |
-| Retry | Retry class, max attempts, backoff, idempotency posture. |
-| Capability scope | Model, tool, wallet, connector, memory, policy, or evidence scopes. |
-| Approval semantics | Whether approval is never, conditional, required, or resumable. |
-| Receipt binding | Event and evidence kinds mapped to workflow node ids. |
-| Replay envelope | Input/output/policy capture, determinism, redaction, fixture support. |
-| UI representation | Node title, group, icon, inspector summary, logs, warnings, and actions. |
-| Activation checks | Slot requirements and validation blockers before live use. |
+| Field              | Requirement                                                              |
+| ------------------ | ------------------------------------------------------------------------ |
+| Component id       | Stable id used by TS workflow nodes and Rust action frames.              |
+| Kind               | Typed harness component kind, mapped to a workflow node type.            |
+| Version            | Component version for compatibility and activation checks.               |
+| Kernel ref         | Runtime implementation reference or adapter boundary.                    |
+| Input schema       | JSON schema or Rust/TS generated schema for accepted input.              |
+| Output schema      | JSON schema or Rust/TS generated schema for produced output.             |
+| Error schema       | Typed error classes and retryability semantics.                          |
+| Timeout            | Default timeout, override policy, and cancellation behavior.             |
+| Retry              | Retry class, max attempts, backoff, idempotency posture.                 |
+| Capability scope   | Model, tool, wallet, connector, memory, policy, or evidence scopes.      |
+| Approval semantics | Whether approval is never, conditional, required, or resumable.          |
+| Receipt binding    | Event and evidence kinds mapped to workflow node ids.                    |
+| Replay envelope    | Input/output/policy capture, determinism, redaction, fixture support.    |
+| UI representation  | Node title, group, icon, inspector summary, logs, warnings, and actions. |
+| Activation checks  | Slot requirements and validation blockers before live use.               |
 
 No component should be considered complete until it has the TS graph contract,
 Rust action-frame contract, runtime adapter, receipt mapping, replay behavior,
@@ -590,41 +634,41 @@ The default harness should be decomposed into these live-capable components.
 The names below are intentionally close to the current projection so the
 migration can be incremental.
 
-| Component | Purpose | Priority |
-| --- | --- | --- |
-| Planner | Produce next plan step from session state, user request, and capability context. | P0 |
-| Task state | Maintain objective, facts, uncertainty, stale facts, blockers, and evidence refs. | P0 |
-| Uncertainty gate | Decide ask/retrieve/probe/dry-run/execute/verify/escalate/stop. | P0 |
-| Budget gate | Bound reasoning, tool calls, retries, wall time, and verification spend. | P0 |
-| Capability sequencer | Discover, select, sequence, and retire capabilities. | P0 |
-| Model router | Select model binding under model policy and deployment profile. | P0 |
-| Model call | Invoke selected model with request/response capture and streaming events. | P0 |
-| Tool router | Select tool, connector, MCP, workflow-tool, or dry-run path. | P0 |
-| Policy gate | Enforce runtime, approval, trust, data, and side-effect policy. | P0 |
-| Approval gate | Interrupt, present decision, resume, reject, or edit action. | P0 |
-| Wallet capability | Request, check, lease, revoke, and receipt wallet-backed authority. | P1 |
-| MCP provider | Resolve MCP server, scope, availability, and containment. | P1 |
-| MCP tool call | Invoke MCP tool with containment, request/response hashes, and receipts. | P1 |
-| Plugin tool call | Invoke local/plugin tool through governed binding. | P1 |
-| Connector call | Invoke external connector with auth, policy memory, and idempotency. | P1 |
-| Workflow tool call | Execute child workflow as a typed tool with lineage. | P1 |
-| Probe runner | Run cheap bounded validation for a hypothesis. | P1 |
-| Dry-run simulator | Preview side effects and compare mutation risk before execution. | P1 |
-| Memory read | Retrieve scoped memory with provenance and staleness posture. | P1 |
-| Memory write | Persist memory with policy, summarization, and provenance. | P1 |
-| Semantic impact analyzer | Estimate behavioral or code impact before applying changes. | P2 |
-| Postcondition synthesizer | Generate concrete verification conditions from task intent. | P2 |
-| Verifier | Run tests, checks, assertions, or semantic verification. | P0 |
-| Drift detector | Detect state, context, dependency, or output drift. | P2 |
-| Retry policy | Bound retries and classify retryable failures. | P0 |
-| Repair loop | Produce fix-up attempts from typed failure state. | P1 |
-| Merge judge | Decide accept/merge/retry/escalate for competing outputs. | P2 |
-| Quality ledger | Record score, risks, unresolved issues, and confidence. | P1 |
-| Handoff bridge | Package state for another worker or human handoff. | P2 |
-| GUI harness validator | Validate GUI surfaces against retained harness scenarios. | P2 |
-| Completion gate | Decide done/continue/escalate with stop-condition evidence. | P0 |
-| Receipt writer | Persist receipts and node correlations. | P0 |
-| Output writer | Materialize final response, artifact, patch, or external delivery. | P0 |
+| Component                 | Purpose                                                                           | Priority |
+| ------------------------- | --------------------------------------------------------------------------------- | -------- |
+| Planner                   | Produce next plan step from session state, user request, and capability context.  | P0       |
+| Task state                | Maintain objective, facts, uncertainty, stale facts, blockers, and evidence refs. | P0       |
+| Uncertainty gate          | Decide ask/retrieve/probe/dry-run/execute/verify/escalate/stop.                   | P0       |
+| Budget gate               | Bound reasoning, tool calls, retries, wall time, and verification spend.          | P0       |
+| Capability sequencer      | Discover, select, sequence, and retire capabilities.                              | P0       |
+| Model router              | Select model binding under model policy and deployment profile.                   | P0       |
+| Model call                | Invoke selected model with request/response capture and streaming events.         | P0       |
+| Tool router               | Select tool, connector, MCP, workflow-tool, or dry-run path.                      | P0       |
+| Policy gate               | Enforce runtime, approval, trust, data, and side-effect policy.                   | P0       |
+| Approval gate             | Interrupt, present decision, resume, reject, or edit action.                      | P0       |
+| Wallet capability         | Request, check, lease, revoke, and receipt wallet-backed authority.               | P1       |
+| MCP provider              | Resolve MCP server, scope, availability, and containment.                         | P1       |
+| MCP tool call             | Invoke MCP tool with containment, request/response hashes, and receipts.          | P1       |
+| Plugin tool call          | Invoke local/plugin tool through governed binding.                                | P1       |
+| Connector call            | Invoke external connector with auth, policy memory, and idempotency.              | P1       |
+| Workflow tool call        | Execute child workflow as a typed tool with lineage.                              | P1       |
+| Probe runner              | Run cheap bounded validation for a hypothesis.                                    | P1       |
+| Dry-run simulator         | Preview side effects and compare mutation risk before execution.                  | P1       |
+| Memory read               | Retrieve scoped memory with provenance and staleness posture.                     | P1       |
+| Memory write              | Persist memory with policy, summarization, and provenance.                        | P1       |
+| Semantic impact analyzer  | Estimate behavioral or code impact before applying changes.                       | P2       |
+| Postcondition synthesizer | Generate concrete verification conditions from task intent.                       | P2       |
+| Verifier                  | Run tests, checks, assertions, or semantic verification.                          | P0       |
+| Drift detector            | Detect state, context, dependency, or output drift.                               | P2       |
+| Retry policy              | Bound retries and classify retryable failures.                                    | P0       |
+| Repair loop               | Produce fix-up attempts from typed failure state.                                 | P1       |
+| Merge judge               | Decide accept/merge/retry/escalate for competing outputs.                         | P2       |
+| Quality ledger            | Record score, risks, unresolved issues, and confidence.                           | P1       |
+| Handoff bridge            | Package state for another worker or human handoff.                                | P2       |
+| GUI harness validator     | Validate GUI surfaces against retained harness scenarios.                         | P2       |
+| Completion gate           | Decide done/continue/escalate with stop-condition evidence.                       | P0       |
+| Receipt writer            | Persist receipts and node correlations.                                           | P0       |
+| Output writer             | Materialize final response, artifact, patch, or external delivery.                | P0       |
 
 P0 components must exist before the default live agent runtime can be driven
 by the workflow graph. P1 components are needed for serious dogfood. P2
@@ -1004,16 +1048,16 @@ into one node and expand back into its internal graph.
 
 Recommended default groups:
 
-| Group | Components |
-| --- | --- |
-| Cognition | Planner, task state, uncertainty gate, budget gate, probe runner. |
-| Routing | Capability sequencer, model router, tool router. |
-| Authority | Policy gate, approval gate, wallet capability. |
-| Execution | Model call, MCP provider, MCP tool call, plugin tool call, connector call, workflow tool call, dry-run simulator. |
-| State | Memory read, memory write, drift detector. |
-| Verification | Semantic impact analyzer, postcondition synthesizer, verifier, quality ledger. |
-| Recovery | Retry policy, repair loop, merge judge. |
-| Output | Completion gate, receipt writer, output writer, handoff bridge. |
+| Group        | Components                                                                                                        |
+| ------------ | ----------------------------------------------------------------------------------------------------------------- |
+| Cognition    | Planner, task state, uncertainty gate, budget gate, probe runner.                                                 |
+| Routing      | Capability sequencer, model router, tool router.                                                                  |
+| Authority    | Policy gate, approval gate, wallet capability.                                                                    |
+| Execution    | Model call, MCP provider, MCP tool call, plugin tool call, connector call, workflow tool call, dry-run simulator. |
+| State        | Memory read, memory write, drift detector.                                                                        |
+| Verification | Semantic impact analyzer, postcondition synthesizer, verifier, quality ledger.                                    |
+| Recovery     | Retry policy, repair loop, merge judge.                                                                           |
+| Output       | Completion gate, receipt writer, output writer, handoff bridge.                                                   |
 
 Rules:
 
@@ -1203,17 +1247,17 @@ runtime, SDK, and CLI should all agree on:
 
 ## Validation Matrix
 
-| Gate | Command or evidence | Purpose |
-| --- | --- | --- |
-| GUI harness retained queries | `npm run validate:autopilot-gui-harness` | Proves retained GUI preflight and clean harness contract. |
-| Workflow wiring | `npm run test -- apps/autopilot/src/windows/AutopilotShellWindow/workflowComposerWiring.test.ts` or existing package script | Proves GUI selectors, harness controls, and workflow surface wiring. |
-| Runtime P3 contract | `npm run validate:agent-runtime-p3` | Proves smarter runtime and harness contract lanes. |
-| Runtime tests | `npm run test:agent-runtime-p3` | Exercises agent runtime P3 test surface. |
-| Rust harness tests | targeted `cargo test` for `agentic::runtime::harness` and `ioi_types::app::harness` | Proves component contracts and receipt mapping. |
-| Workflow execution tests | targeted Tauri/project runtime tests | Proves visible node kinds execute or block honestly. |
-| Shadow comparison | new harness shadow evidence bundle | Proves graph/action-frame decisions match live runtime. |
-| Fork activation | new activation readiness tests | Proves forked harness cannot activate without slots, fixtures, policy, tests, and receipts. |
-| Worker binding | local engine worker support tests | Proves worker records expose harness id, activation id, and hash. |
+| Gate                         | Command or evidence                                                                                                         | Purpose                                                                                     |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| GUI harness retained queries | `npm run validate:autopilot-gui-harness`                                                                                    | Proves retained GUI preflight and clean harness contract.                                   |
+| Workflow wiring              | `npm run test -- apps/autopilot/src/windows/AutopilotShellWindow/workflowComposerWiring.test.ts` or existing package script | Proves GUI selectors, harness controls, and workflow surface wiring.                        |
+| Runtime P3 contract          | `npm run validate:agent-runtime-p3`                                                                                         | Proves smarter runtime and harness contract lanes.                                          |
+| Runtime tests                | `npm run test:agent-runtime-p3`                                                                                             | Exercises agent runtime P3 test surface.                                                    |
+| Rust harness tests           | targeted `cargo test` for `agentic::runtime::harness` and `ioi_types::app::harness`                                         | Proves component contracts and receipt mapping.                                             |
+| Workflow execution tests     | targeted Tauri/project runtime tests                                                                                        | Proves visible node kinds execute or block honestly.                                        |
+| Shadow comparison            | new harness shadow evidence bundle                                                                                          | Proves graph/action-frame decisions match live runtime.                                     |
+| Fork activation              | new activation readiness tests                                                                                              | Proves forked harness cannot activate without slots, fixtures, policy, tests, and receipts. |
+| Worker binding               | local engine worker support tests                                                                                           | Proves worker records expose harness id, activation id, and hash.                           |
 
 ## Acceptance Criteria
 
@@ -1240,16 +1284,16 @@ This leg is complete when all of the following are true:
 
 ## Risks And Mitigations
 
-| Risk | Mitigation |
-| --- | --- |
-| Graph path diverges from live runtime semantics. | Shadow mode with decision diffing before promotion. |
-| Component contracts duplicate between TS and Rust. | Generate one side or validate both from a shared manifest. |
-| GUI implies forked harnesses are live-ready too early. | Explicit projection/shadow/gated/live badges and activation blockers. |
-| Replay captures sensitive data. | Redaction policy, fixture scopes, deterministic envelope metadata, and opt-in captures. |
-| Policy is weakened by graph editability. | Runtime authority remains final; graph slots parameterize policy but do not bypass it. |
-| Half-supported nodes create false confidence. | Unsupported/simulated/live readiness states and validation blockers. |
-| Migration regresses normal chat. | Component-by-component gated rollout with fallback receipts. |
-| Fork activation becomes too hard to understand. | Activation wizard, actionable blockers, component diff, and canary/rollback controls. |
+| Risk                                                   | Mitigation                                                                              |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------- |
+| Graph path diverges from live runtime semantics.       | Shadow mode with decision diffing before promotion.                                     |
+| Component contracts duplicate between TS and Rust.     | Generate one side or validate both from a shared manifest.                              |
+| GUI implies forked harnesses are live-ready too early. | Explicit projection/shadow/gated/live badges and activation blockers.                   |
+| Replay captures sensitive data.                        | Redaction policy, fixture scopes, deterministic envelope metadata, and opt-in captures. |
+| Policy is weakened by graph editability.               | Runtime authority remains final; graph slots parameterize policy but do not bypass it.  |
+| Half-supported nodes create false confidence.          | Unsupported/simulated/live readiness states and validation blockers.                    |
+| Migration regresses normal chat.                       | Component-by-component gated rollout with fallback receipts.                            |
+| Fork activation becomes too hard to understand.        | Activation wizard, actionable blockers, component diff, and canary/rollback controls.   |
 
 ## Immediate Work Queue
 
@@ -1271,16 +1315,16 @@ This leg is complete when all of the following are true:
 9. Add deep-linkable expanded harness state for group id, component id, run id,
    replay fixture id, and selected rail/bottom panel.
 10. Add harness-specific right rail modes for receipts/outputs, search,
-   live-vs-shadow changes, activation posture, runtime settings,
-   schedules/triggers, component tree, tests, sources/inputs, policy, and
-   capabilities.
+    live-vs-shadow changes, activation posture, runtime settings,
+    schedules/triggers, component tree, tests, sources/inputs, policy, and
+    capabilities.
 11. Add row-level expanded workbench status for component run state, replay
-   state, deprecation/version warnings, policy blockers, preview/dry-run
-   availability, and upgrade/proposal affordances.
+    state, deprecation/version warnings, policy blockers, preview/dry-run
+    availability, and upgrade/proposal affordances.
 12. Add a fork activation wizard and block live worker binding until activation
-   id minting succeeds.
+    id minting succeeds.
 13. Add a retained dogfood run where the default agent edits workflow code while
-   the harness graph shadows the turn.
+    the harness graph shadows the turn.
 14. Promote gated graph authority one P0 component cluster at a time.
 
 ## Recommended First PR Slice

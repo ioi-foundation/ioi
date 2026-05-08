@@ -722,6 +722,15 @@ fn tool_names_and_action_targets_componentize_native_mcp_connector_and_model_cal
 fn worker_binding_requires_activation_identity() {
     let binding = default_harness_worker_binding();
     validate_harness_worker_binding(&binding).expect("default binding is valid");
+    assert!(!binding.authority_binding_ready);
+    assert_eq!(
+        binding.rollback_target.as_deref(),
+        Some(DEFAULT_AGENT_HARNESS_ACTIVATION_ID)
+    );
+    assert!(binding
+        .authority_binding_blockers
+        .iter()
+        .any(|blocker| blocker == "worker_binding_authority_not_live"));
 
     let missing_activation = HarnessWorkerBinding {
         harness_activation_id: None,

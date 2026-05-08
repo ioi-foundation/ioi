@@ -774,6 +774,13 @@ pub struct HarnessWorkerBinding {
     pub harness_hash: String,
     pub execution_mode: HarnessExecutionMode,
     pub source: String,
+    pub selector_decision_id: Option<String>,
+    pub default_dispatch_id: Option<String>,
+    pub rollback_target: Option<String>,
+    pub authority_binding_ready: bool,
+    pub authority_binding_blockers: Vec<String>,
+    pub live_promotion_readiness_proof_id: Option<String>,
+    pub policy_decision: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Hash)]
@@ -1972,6 +1979,13 @@ pub fn default_harness_worker_binding() -> HarnessWorkerBinding {
         harness_hash: DEFAULT_AGENT_HARNESS_HASH.to_string(),
         execution_mode: HarnessExecutionMode::Projection,
         source: "default".to_string(),
+        selector_decision_id: None,
+        default_dispatch_id: None,
+        rollback_target: Some(DEFAULT_AGENT_HARNESS_ACTIVATION_ID.to_string()),
+        authority_binding_ready: false,
+        authority_binding_blockers: vec!["worker_binding_authority_not_live".to_string()],
+        live_promotion_readiness_proof_id: None,
+        policy_decision: None,
     }
 }
 

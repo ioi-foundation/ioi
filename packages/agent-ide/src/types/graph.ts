@@ -13,7 +13,15 @@ export interface WorkflowTestAssertion {
 export interface WorkflowNodeViewMacro {
   macroId: string;
   macroLabel: string;
-  role: "input" | "model" | "memory" | "tool" | "parser" | "decision" | "gate" | "output";
+  role:
+    | "input"
+    | "model"
+    | "memory"
+    | "tool"
+    | "parser"
+    | "decision"
+    | "gate"
+    | "output";
   expandedFrom: "agent_loop_macro" | string;
 }
 
@@ -83,7 +91,15 @@ export interface NodeLogic {
   modelId?: string | null;
   routeId?: string;
   modelPolicy?: Record<string, unknown>;
-  capability?: "chat" | "responses" | "structured_output" | "embeddings" | "vision" | "rerank" | "mcp" | "receipt_gate";
+  capability?:
+    | "chat"
+    | "responses"
+    | "structured_output"
+    | "embeddings"
+    | "vision"
+    | "rerank"
+    | "mcp"
+    | "receipt_gate";
   receiptRequired?: boolean;
   selectedEndpointId?: string;
   receiptId?: string;
@@ -146,7 +162,7 @@ export interface NodeLogic {
   stateOperation?: "read" | "write" | "append" | "merge";
   reducer?: "replace" | "append" | "merge";
   initialValue?: unknown;
-  
+
   // --- Retrieval ---
   query?: string;
   limit?: number;
@@ -239,7 +255,10 @@ export interface WorkflowFunctionBinding {
   testInput?: unknown;
 }
 
-export type WorkflowToolBindingKind = "plugin_tool" | "mcp_tool" | "workflow_tool";
+export type WorkflowToolBindingKind =
+  | "plugin_tool"
+  | "mcp_tool"
+  | "workflow_tool";
 
 export interface WorkflowToolBinding {
   toolRef: string;
@@ -278,7 +297,13 @@ export interface WorkflowNodeExecutor {
 
 export interface WorkflowVerificationEvidence {
   nodeId: string;
-  evidenceType: "execution" | "schema_validation" | "approval" | "output" | "materialized_asset" | "test";
+  evidenceType:
+    | "execution"
+    | "schema_validation"
+    | "approval"
+    | "output"
+    | "materialized_asset"
+    | "test";
   status: "passed" | "failed" | "blocked";
   summary: string;
   createdAtMs: number;
@@ -287,7 +312,13 @@ export interface WorkflowVerificationEvidence {
 export interface WorkflowCompletionRequirement {
   id: string;
   nodeId?: string;
-  requirementType: "execution" | "verification" | "approval" | "output_created" | "asset_materialized" | "test";
+  requirementType:
+    | "execution"
+    | "verification"
+    | "approval"
+    | "output_created"
+    | "asset_materialized"
+    | "test";
   status: "satisfied" | "missing" | "failed";
   summary: string;
 }
@@ -306,18 +337,41 @@ export type WorkflowOutputFormat =
 
 export interface WorkflowRendererRef {
   rendererId: string;
-  displayMode: "inline" | "canvas_preview" | "table" | "json" | "media" | "diff" | "report" | "artifact_panel";
+  displayMode:
+    | "inline"
+    | "canvas_preview"
+    | "table"
+    | "json"
+    | "media"
+    | "diff"
+    | "report"
+    | "artifact_panel";
   dependencies?: string[];
 }
 
 export interface WorkflowMaterializationConfig {
   enabled: boolean;
   assetPath?: string;
-  assetKind?: "file" | "blob" | "report" | "svg" | "chart" | "patch" | "dataset";
+  assetKind?:
+    | "file"
+    | "blob"
+    | "report"
+    | "svg"
+    | "chart"
+    | "patch"
+    | "dataset";
 }
 
 export interface WorkflowDeliveryTarget {
-  targetKind: "none" | "chat_inline" | "local_file" | "repo_patch" | "ticket_draft" | "message_draft" | "connector_write" | "deploy";
+  targetKind:
+    | "none"
+    | "chat_inline"
+    | "local_file"
+    | "repo_patch"
+    | "ticket_draft"
+    | "message_draft"
+    | "connector_write"
+    | "deploy";
   targetRef?: string;
   requiresApproval?: boolean;
 }
@@ -384,7 +438,13 @@ export interface WorkflowModelBinding {
   modelId?: string | null;
   routeId?: string;
   modelPolicy?: Record<string, unknown>;
-  capability?: "chat" | "responses" | "structured_output" | "embeddings" | "vision" | "rerank";
+  capability?:
+    | "chat"
+    | "responses"
+    | "structured_output"
+    | "embeddings"
+    | "vision"
+    | "rerank";
   receiptRequired?: boolean;
   daemonApi?: string;
   selectedEndpointId?: string | null;
@@ -516,10 +576,15 @@ export interface WorkflowPolicyProfile {
 
 export interface WorkflowEvidenceProfile {
   requiredEvidence: Array<WorkflowVerificationEvidence["evidenceType"]>;
-  completionRequirements: Array<WorkflowCompletionRequirement["requirementType"]>;
+  completionRequirements: Array<
+    WorkflowCompletionRequirement["requirementType"]
+  >;
 }
 
-export interface WorkflowNodeConfigBase<TKind extends WorkflowNodeKind, TLogic extends NodeLogic = NodeLogic> {
+export interface WorkflowNodeConfigBase<
+  TKind extends WorkflowNodeKind,
+  TLogic extends NodeLogic = NodeLogic,
+> {
   kind?: TKind;
   logic: TLogic;
   law: FirewallPolicy;
@@ -587,7 +652,14 @@ export interface WorkflowNodeActionDefinition {
   label: string;
   description: string;
   category: string;
-  requiredBinding?: "model" | "function" | "connector" | "tool" | "parser" | "subgraph" | "proposal";
+  requiredBinding?:
+    | "model"
+    | "function"
+    | "connector"
+    | "tool"
+    | "parser"
+    | "subgraph"
+    | "proposal";
   bindingMode: "none" | "optional" | "required";
   supportsMockBinding: boolean;
   sideEffectClass: WorkflowSideEffectClass;
@@ -620,13 +692,13 @@ export interface Node extends Record<string, unknown> {
   metrics?: { records: number; time: string };
   metricLabel?: string;
   metricValue?: string;
-  
+
   inputs?: string[];
   outputs?: string[];
   ports?: WorkflowPortDefinition[];
   ioTypes?: { in: string; out: string };
   runtimeBinding?: WorkflowHarnessNodeBinding;
-  
+
   isGhost?: boolean;
   attested?: boolean;
 }
@@ -685,7 +757,11 @@ export interface GraphGlobalConfig {
   production?: GraphProductionProfile;
 }
 
-export type GraphEnvironmentTarget = "local" | "sandbox" | "staging" | "production";
+export type GraphEnvironmentTarget =
+  | "local"
+  | "sandbox"
+  | "staging"
+  | "production";
 
 export type GraphMockBindingPolicy = "allow" | "warn" | "block";
 
@@ -789,7 +865,11 @@ export type WorkflowKind =
 
 export type WorkflowExecutionMode = "local" | "external_adapter" | "hybrid";
 
-export type WorkflowHarnessExecutionMode = "projection" | "shadow" | "gated" | "live";
+export type WorkflowHarnessExecutionMode =
+  | "projection"
+  | "shadow"
+  | "gated"
+  | "live";
 
 export type WorkflowHarnessComponentReadiness =
   | "projection_only"
@@ -986,7 +1066,9 @@ export type WorkflowHarnessPromotionTransitionTarget = Extract<
 >;
 
 export interface WorkflowHarnessPromotionTransitionEligibility {
-  schemaVersion: "workflow.harness.promotion-transition-eligibility.v1" | string;
+  schemaVersion:
+    | "workflow.harness.promotion-transition-eligibility.v1"
+    | string;
   clusterId: WorkflowHarnessPromotionClusterId;
   targetExecutionMode: WorkflowHarnessPromotionTransitionTarget;
   currentStatus: WorkflowHarnessClusterPromotionStatus;
@@ -1017,7 +1099,10 @@ export interface WorkflowHarnessPromotionTransitionAttempt {
   previousStatus: WorkflowHarnessClusterPromotionStatus;
   nextStatus: WorkflowHarnessClusterPromotionStatus;
   attemptStatus: "blocked" | "promoted";
-  gateDecision: "block_promotion_transition" | "allow_promotion_transition" | string;
+  gateDecision:
+    | "block_promotion_transition"
+    | "allow_promotion_transition"
+    | string;
   eligibility: WorkflowHarnessPromotionTransitionEligibility;
   blockers: string[];
   receiptRefs: string[];
@@ -1084,10 +1169,7 @@ export type WorkflowHarnessActivationCanaryStatus =
   | "passed"
   | "failed";
 
-export type WorkflowRevisionSource =
-  | "git"
-  | "file_hash_only"
-  | string;
+export type WorkflowRevisionSource = "git" | "file_hash_only" | string;
 
 export interface WorkflowRevisionBinding {
   schemaVersion: "workflow.revision-binding.v1" | string;
@@ -1142,7 +1224,10 @@ export interface WorkflowHarnessRollbackRestoreCanary {
   canaryId: string;
   status: WorkflowHarnessRollbackRestoreCanaryStatus;
   revisionSource: WorkflowRevisionSource;
-  restoreStrategy: "git_show_file_restore" | "file_hash_only_metadata_restore" | string;
+  restoreStrategy:
+    | "git_show_file_restore"
+    | "file_hash_only_metadata_restore"
+    | string;
   workflowPath: string;
   repoRoot?: string;
   relativeWorkflowPath?: string;
@@ -1359,7 +1444,9 @@ export type WorkflowHarnessPromotionClusterReplayGateStatus =
   | string;
 
 export interface WorkflowHarnessPromotionClusterReplayGateProof {
-  schemaVersion: "workflow.harness.promotion-cluster-replay-gate-proof.v1" | string;
+  schemaVersion:
+    | "workflow.harness.promotion-cluster-replay-gate-proof.v1"
+    | string;
   clusterId: WorkflowHarnessPromotionClusterId;
   gateId?: string;
   gateStatus: WorkflowHarnessPromotionClusterReplayGateStatus;
@@ -1377,13 +1464,9 @@ export interface WorkflowHarnessPromotionClusterReplayGateProof {
   verifiedAtMs?: number;
 }
 
-export type WorkflowHarnessActivationCandidateDecision =
-  | "blocked"
-  | "mintable";
+export type WorkflowHarnessActivationCandidateDecision = "blocked" | "mintable";
 
-export type WorkflowHarnessActivationCandidateGateStatus =
-  | "passed"
-  | "blocked";
+export type WorkflowHarnessActivationCandidateGateStatus = "passed" | "blocked";
 
 export interface WorkflowHarnessActivationCandidateGateResult {
   gateId: string;
@@ -1455,7 +1538,10 @@ export interface WorkflowHarnessLiveHandoffProof {
   executionBoundaryStatus?: string;
   executionBoundaryExecutor?: string;
   defaultAuthorityTransferred: boolean;
-  runtimeAuthority: "existing_runtime_service" | "blessed_workflow_activation_canary" | string;
+  runtimeAuthority:
+    | "existing_runtime_service"
+    | "blessed_workflow_activation_canary"
+    | string;
   fallbackSelector: WorkflowHarnessLiveHandoffSelector;
   rollbackTarget: string;
   rollbackAvailable: boolean;
@@ -1485,7 +1571,10 @@ export interface WorkflowHarnessRuntimeSelectorDecision {
   activationId: string;
   harnessHash: string;
   executionMode: WorkflowHarnessExecutionMode;
-  actualRuntimeAuthority: "existing_runtime_service" | "blessed_workflow_activation_canary" | string;
+  actualRuntimeAuthority:
+    | "existing_runtime_service"
+    | "blessed_workflow_activation_canary"
+    | string;
   fallbackSelector: WorkflowHarnessLiveHandoffSelector;
   rollbackTarget: string;
   rollbackAvailable: boolean;
@@ -1509,7 +1598,10 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   activationId: string;
   harnessHash: string;
   executionMode: WorkflowHarnessExecutionMode;
-  runtimeAuthority: "existing_runtime_service" | "blessed_workflow_activation_default" | string;
+  runtimeAuthority:
+    | "existing_runtime_service"
+    | "blessed_workflow_activation_default"
+    | string;
   dispatchScope:
     | "read_only_cognition_routing"
     | "read_only_cognition_routing_verification_completion"
@@ -1529,7 +1621,9 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   cognitionExecutionAdapterResults: WorkflowHarnessComponentAdapterResult[];
   cognitionExecutionActionFrameIds: string[];
   cognitionExecutionLiveReadyComponentKinds: WorkflowHarnessComponentKind[];
-  cognitionExecutionGateAdapterMode: "workflow_component_adapter_gated" | string;
+  cognitionExecutionGateAdapterMode:
+    | "workflow_component_adapter_gated"
+    | string;
   cognitionExecutionGateAttemptIds: string[];
   cognitionExecutionGateReceiptIds: string[];
   cognitionExecutionGateReplayFixtureRefs: string[];
@@ -1653,7 +1747,10 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   modelExecutionPromptHashMatches: boolean;
   modelExecutionOutputHash: string;
   modelExecutionOutputHashMatches: boolean;
-  modelExecutionProviderInvocationMode: "legacy_fallback_invocation" | "workflow_provider_canary" | string;
+  modelExecutionProviderInvocationMode:
+    | "legacy_fallback_invocation"
+    | "workflow_provider_canary"
+    | string;
   modelExecutionLowLevelInvocationDeferred: boolean;
   modelExecutionFallbackSelector: "legacy_runtime_model_invocation" | string;
   modelExecutionLatencyMs: number;
@@ -1666,7 +1763,9 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   modelProviderCanaryFallbackRetained: boolean;
   modelProviderCanaryRollbackAvailable: boolean;
   modelProviderCanaryProof?: Record<string, unknown>;
-  modelProviderGatedVisibleOutputMode: "workflow_provider_gated_visible_output" | string;
+  modelProviderGatedVisibleOutputMode:
+    | "workflow_provider_gated_visible_output"
+    | string;
   modelProviderGatedVisibleOutputEnabled: boolean;
   modelProviderGatedVisibleOutputReady: boolean;
   modelProviderGatedVisibleOutputSelected: boolean;
@@ -1689,7 +1788,9 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   modelProviderGatedVisibleOutputScenarioCoverageKey?: string | null;
   modelProviderGatedVisibleOutputActivationFlag: string;
   modelProviderGatedVisibleOutputActivationId: string;
-  modelProviderGatedVisibleOutputAuthority: "workflow_model_provider_call" | string;
+  modelProviderGatedVisibleOutputAuthority:
+    | "workflow_model_provider_call"
+    | string;
   modelProviderGatedVisibleOutputRollbackTarget: string;
   modelProviderGatedVisibleOutputRollbackAvailable: boolean;
   selectedVisibleOutputAuthority: "workflow_model_provider_call" | string;
@@ -1719,7 +1820,9 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   modelProviderGatedVisibleOutputRollbackDrillRollbackExecuted: boolean;
   modelProviderGatedVisibleOutputRollbackDrillActivationBlockers: string[];
   modelProviderGatedVisibleOutputRollbackDrillProof?: Record<string, unknown>;
-  readOnlyCapabilityRoutingMode: "workflow_read_only_capability_routing" | string;
+  readOnlyCapabilityRoutingMode:
+    | "workflow_read_only_capability_routing"
+    | string;
   readOnlyCapabilityRoutingReady: boolean;
   readOnlyCapabilityRoutingSelected: boolean;
   readOnlyCapabilityRoutingEligible: boolean;
@@ -1763,7 +1866,11 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   outputWriterStagedWriteCommitted: boolean;
   outputWriterStagedWriteVisible: boolean;
   outputWriterStagedWriteExcludedFromVisibleTranscript: boolean;
-  outputWriterStagedWriteRollbackStatus: "deleted" | "not_deleted" | "missing" | string;
+  outputWriterStagedWriteRollbackStatus:
+    | "deleted"
+    | "not_deleted"
+    | "missing"
+    | string;
   outputWriterStagedWriteRollbackVerified: boolean;
   outputWriterVisibleWriteMode: "workflow_visible_transcript_write" | string;
   outputWriterVisibleWriteReady: boolean;
@@ -1784,13 +1891,21 @@ export interface WorkflowHarnessDefaultRuntimeDispatchProof {
   authorityToolingApprovalGateLiveReady: boolean;
   authorityToolingReadOnlyAuthorityCanaryReady: boolean;
   authorityToolingProviderCatalogLiveReady: boolean;
-  authorityToolingProviderCatalogLiveComponentKind: WorkflowHarnessComponentKind | string;
+  authorityToolingProviderCatalogLiveComponentKind:
+    | WorkflowHarnessComponentKind
+    | string;
   authorityToolingMcpToolCatalogLiveReady: boolean;
-  authorityToolingMcpToolCatalogLiveComponentKind: WorkflowHarnessComponentKind | string;
+  authorityToolingMcpToolCatalogLiveComponentKind:
+    | WorkflowHarnessComponentKind
+    | string;
   authorityToolingNativeToolCatalogLiveReady: boolean;
-  authorityToolingNativeToolCatalogLiveComponentKind: WorkflowHarnessComponentKind | string;
+  authorityToolingNativeToolCatalogLiveComponentKind:
+    | WorkflowHarnessComponentKind
+    | string;
   authorityToolingConnectorCatalogLiveReady: boolean;
-  authorityToolingConnectorCatalogLiveComponentKind: WorkflowHarnessComponentKind | string;
+  authorityToolingConnectorCatalogLiveComponentKind:
+    | WorkflowHarnessComponentKind
+    | string;
   authorityToolingWalletCapabilityLiveDryRunReady: boolean;
   authorityToolingWalletCapabilityLiveDryRunComponentKind:
     | WorkflowHarnessComponentKind
@@ -2047,9 +2162,7 @@ export interface WorkflowHarnessActivationGateRollbackRestoreClickProof {
 }
 
 export interface WorkflowHarnessActivationIdGateClickProof {
-  schemaVersion:
-    | "workflow.harness.activation-id-gate-click-proof.v1"
-    | string;
+  schemaVersion: "workflow.harness.activation-id-gate-click-proof.v1" | string;
   method: string;
   generatedAtMs: number;
   blockedDryRun: {
@@ -2103,8 +2216,7 @@ export interface WorkflowHarnessActivationIdGateClickProof {
   blockers: string[];
 }
 
-export interface WorkflowHarnessColdStartDeepLinkRestoreCase
-  extends WorkflowHarnessDeepLinkReplayCase {
+export interface WorkflowHarnessColdStartDeepLinkRestoreCase extends WorkflowHarnessDeepLinkReplayCase {
   initialHash: string;
   workflowReloaded: boolean;
   restoredFromInitialHash: boolean;
@@ -2152,7 +2264,10 @@ export interface WorkflowHarnessCanaryExecutionBoundary {
   activationId: string;
   harnessHash: string;
   executionMode: WorkflowHarnessExecutionMode;
-  runtimeAuthority: "existing_runtime_service" | "blessed_workflow_activation_canary" | string;
+  runtimeAuthority:
+    | "existing_runtime_service"
+    | "blessed_workflow_activation_canary"
+    | string;
   executorKind: "workflow_node_executor" | string;
   executorRef: string;
   synchronous: boolean;
@@ -2349,6 +2464,13 @@ export interface WorkflowHarnessWorkerBinding {
   harnessHash: string;
   executionMode?: WorkflowHarnessExecutionMode;
   source: "default" | "fork" | "legacy";
+  selectorDecisionId?: string;
+  defaultDispatchId?: string;
+  rollbackTarget?: string;
+  authorityBindingReady?: boolean;
+  authorityBindingBlockers?: string[];
+  livePromotionReadinessProofId?: string;
+  policyDecision?: string;
 }
 
 export type WorkflowNodeKind =
@@ -2434,7 +2556,12 @@ export interface WorkflowNode extends Node {
 
 export type WorkflowEdge = Edge;
 
-export type WorkflowTestStatus = "idle" | "passed" | "failed" | "blocked" | "skipped";
+export type WorkflowTestStatus =
+  | "idle"
+  | "passed"
+  | "failed"
+  | "blocked"
+  | "skipped";
 
 export interface WorkflowTestCase {
   id: string;
@@ -2575,7 +2702,13 @@ export interface WorkflowCheckpoint {
 export interface WorkflowNodeRun {
   nodeId: string;
   nodeType: WorkflowNodeKind | string;
-  status: "queued" | "running" | "success" | "error" | "blocked" | "interrupted";
+  status:
+    | "queued"
+    | "running"
+    | "success"
+    | "error"
+    | "blocked"
+    | "interrupted";
   startedAtMs: number;
   finishedAtMs?: number;
   attempt: number;
