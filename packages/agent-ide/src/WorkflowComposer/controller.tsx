@@ -64,6 +64,7 @@ import type {
   WorkflowBottomPanel,
   WorkflowConnectionClass,
   WorkflowHarnessComponentKind,
+  WorkflowHarnessColdStartDeepLinkRestoreProof,
   WorkflowHarnessForkActivationCandidate,
   WorkflowHarnessDeepLinkReplayProof,
   WorkflowHarnessGroupView,
@@ -225,6 +226,14 @@ type HarnessWorkbenchDeepLink = {
   receiptRef?: string;
   replayFixtureRef?: string;
   rollbackTarget?: string;
+};
+
+type HarnessWorkbenchDeepLinkProbeCase = {
+  id: string;
+  link: HarnessWorkbenchDeepLink;
+  expectedAttribute: string;
+  expectedValue: string;
+  selectedRailTestId: string;
 };
 
 const HARNESS_GROUP_BOUNDARY_PORTS: WorkflowPortDefinition[] = [
@@ -640,6 +649,89 @@ function readHarnessRailSelectedState(testId: string): Record<string, string> {
   return Object.fromEntries(
     selectedAttributes.map((attribute) => [attribute, target.getAttribute(attribute) ?? ""]),
   );
+}
+
+function harnessDeepLinkProbeCasesForWorkflow(
+  workflow: WorkflowProject,
+): HarnessWorkbenchDeepLinkProbeCase[] {
+  const selector = workflow.metadata.harness?.runtimeSelectorDecision ?? null;
+  const dispatch = workflow.metadata.harness?.defaultRuntimeDispatchProof ?? null;
+  const workerBinding = workflow.metadata.workerHarnessBinding ?? null;
+  const cases: Array<HarnessWorkbenchDeepLinkProbeCase | null> = [
+    selector?.decisionId
+      ? {
+          id: "selector",
+          link: {
+            panel: "settings" as WorkflowRightPanel,
+            selectorDecisionId: selector.decisionId,
+          },
+          expectedAttribute: "data-selected-selector-decision-id",
+          expectedValue: selector.decisionId,
+          selectedRailTestId: "workflow-harness-active-runtime-binding",
+        }
+      : null,
+    dispatch?.dispatchId
+      ? {
+          id: "dispatch",
+          link: {
+            panel: "settings" as WorkflowRightPanel,
+            dispatchId: dispatch.dispatchId,
+          },
+          expectedAttribute: "data-selected-default-dispatch-id",
+          expectedValue: dispatch.dispatchId,
+          selectedRailTestId: "workflow-harness-active-runtime-binding",
+        }
+      : null,
+    workerBinding?.harnessActivationId
+      ? {
+          id: "worker",
+          link: {
+            panel: "settings" as WorkflowRightPanel,
+            workerBindingId: workerBinding.harnessActivationId,
+          },
+          expectedAttribute: "data-selected-worker-binding-id",
+          expectedValue: workerBinding.harnessActivationId,
+          selectedRailTestId: "workflow-harness-active-runtime-binding",
+        }
+      : null,
+    dispatch?.rollbackTarget
+      ? {
+          id: "rollback",
+          link: {
+            panel: "settings" as WorkflowRightPanel,
+            rollbackTarget: dispatch.rollbackTarget,
+          },
+          expectedAttribute: "data-selected-rollback-target",
+          expectedValue: dispatch.rollbackTarget,
+          selectedRailTestId: "workflow-harness-active-runtime-binding",
+        }
+      : null,
+    dispatch?.receiptIds[0]
+      ? {
+          id: "receipt",
+          link: {
+            panel: "outputs" as WorkflowRightPanel,
+            receiptRef: dispatch.receiptIds[0],
+          },
+          expectedAttribute: "data-selected-receipt-ref",
+          expectedValue: dispatch.receiptIds[0],
+          selectedRailTestId: "workflow-harness-deep-link-state",
+        }
+      : null,
+    dispatch?.replayFixtureRefs[0]
+      ? {
+          id: "replay",
+          link: {
+            panel: "outputs" as WorkflowRightPanel,
+            replayFixtureRef: dispatch.replayFixtureRefs[0],
+          },
+          expectedAttribute: "data-selected-replay-fixture-ref",
+          expectedValue: dispatch.replayFixtureRefs[0],
+          selectedRailTestId: "workflow-harness-deep-link-state",
+        }
+      : null,
+  ];
+  return cases.filter((item): item is HarnessWorkbenchDeepLinkProbeCase => item !== null);
 }
 
 type HarnessGroupCanvasView = WorkflowHarnessGroupView & {
@@ -1646,89 +1738,7 @@ export function useWorkflowComposerController({
       workflow: WorkflowProject,
       generatedAtMs: number,
     ): Promise<WorkflowHarnessDeepLinkReplayProof> => {
-      const selector = workflow.metadata.harness?.runtimeSelectorDecision ?? null;
-      const dispatch = workflow.metadata.harness?.defaultRuntimeDispatchProof ?? null;
-      const workerBinding = workflow.metadata.workerHarnessBinding ?? null;
-      const replayCases: Array<{
-        id: string;
-        link: HarnessWorkbenchDeepLink;
-        expectedAttribute: string;
-        expectedValue: string;
-        selectedRailTestId: string;
-      }> = [
-        selector?.decisionId
-          ? {
-              id: "selector",
-              link: {
-                panel: "settings" as WorkflowRightPanel,
-                selectorDecisionId: selector.decisionId,
-              },
-              expectedAttribute: "data-selected-selector-decision-id",
-              expectedValue: selector.decisionId,
-              selectedRailTestId: "workflow-harness-active-runtime-binding",
-            }
-          : null,
-        dispatch?.dispatchId
-          ? {
-              id: "dispatch",
-              link: {
-                panel: "settings" as WorkflowRightPanel,
-                dispatchId: dispatch.dispatchId,
-              },
-              expectedAttribute: "data-selected-default-dispatch-id",
-              expectedValue: dispatch.dispatchId,
-              selectedRailTestId: "workflow-harness-active-runtime-binding",
-            }
-          : null,
-        workerBinding?.harnessActivationId
-          ? {
-              id: "worker",
-              link: {
-                panel: "settings" as WorkflowRightPanel,
-                workerBindingId: workerBinding.harnessActivationId,
-              },
-              expectedAttribute: "data-selected-worker-binding-id",
-              expectedValue: workerBinding.harnessActivationId,
-              selectedRailTestId: "workflow-harness-active-runtime-binding",
-            }
-          : null,
-        dispatch?.rollbackTarget
-          ? {
-              id: "rollback",
-              link: {
-                panel: "settings" as WorkflowRightPanel,
-                rollbackTarget: dispatch.rollbackTarget,
-              },
-              expectedAttribute: "data-selected-rollback-target",
-              expectedValue: dispatch.rollbackTarget,
-              selectedRailTestId: "workflow-harness-active-runtime-binding",
-            }
-          : null,
-        dispatch?.receiptIds[0]
-          ? {
-              id: "receipt",
-              link: {
-                panel: "outputs" as WorkflowRightPanel,
-                receiptRef: dispatch.receiptIds[0],
-              },
-              expectedAttribute: "data-selected-receipt-ref",
-              expectedValue: dispatch.receiptIds[0],
-              selectedRailTestId: "workflow-harness-deep-link-state",
-            }
-          : null,
-        dispatch?.replayFixtureRefs[0]
-          ? {
-              id: "replay",
-              link: {
-                panel: "outputs" as WorkflowRightPanel,
-                replayFixtureRef: dispatch.replayFixtureRefs[0],
-              },
-              expectedAttribute: "data-selected-replay-fixture-ref",
-              expectedValue: dispatch.replayFixtureRefs[0],
-              selectedRailTestId: "workflow-harness-deep-link-state",
-            }
-          : null,
-      ].filter((item): item is NonNullable<typeof item> => item !== null);
+      const replayCases = harnessDeepLinkProbeCasesForWorkflow(workflow);
       const cases = [];
       for (const replayCase of replayCases) {
         const hash = encodeHarnessWorkbenchDeepLink(replayCase.link);
@@ -1785,6 +1795,87 @@ export function useWorkflowComposerController({
       };
     },
     [applyHarnessWorkbenchDeepLink],
+  );
+  const runHarnessColdStartDeepLinkRestoreProbe = useCallback(
+    async (
+      workflow: WorkflowProject,
+      generatedAtMs: number,
+    ): Promise<WorkflowHarnessColdStartDeepLinkRestoreProof> => {
+      const replayCases = harnessDeepLinkProbeCasesForWorkflow(workflow);
+      const cases = [];
+      const originalHash = typeof window === "undefined" ? "" : window.location.hash;
+      try {
+        for (const [index, replayCase] of replayCases.entries()) {
+          const hash = encodeHarnessWorkbenchDeepLink(replayCase.link);
+          const parsed = parseHarnessWorkbenchDeepLink(hash);
+          writeHarnessWorkbenchDeepLink(hash);
+          loadWorkflowProject({
+            ...workflow,
+            metadata: {
+              ...workflow.metadata,
+              updatedAtMs: generatedAtMs + index,
+            },
+          });
+          await nextHarnessWorkbenchFrame();
+          await nextHarnessWorkbenchFrame();
+          await nextHarnessWorkbenchFrame();
+          const observedSelectedState = readHarnessRailSelectedState(
+            replayCase.selectedRailTestId,
+          );
+          const observedValue =
+            observedSelectedState[replayCase.expectedAttribute] ?? null;
+          const restoredFromInitialHash =
+            typeof window === "undefined" || window.location.hash === hash;
+          cases.push({
+            id: replayCase.id,
+            hash,
+            initialHash: hash,
+            expectedPanel: replayCase.link.panel ?? "outputs",
+            expectedAttribute: replayCase.expectedAttribute,
+            expectedValue: replayCase.expectedValue,
+            selectedRailTestId: replayCase.selectedRailTestId,
+            openedHash: typeof window === "undefined" ? "" : window.location.hash,
+            parsedMatches:
+              parsed?.[
+                Object.keys(replayCase.link).find(
+                  (key) => key !== "panel",
+                ) as keyof HarnessWorkbenchDeepLink
+              ] === replayCase.expectedValue,
+            historyMatches: restoredFromInitialHash,
+            workflowReloaded: true,
+            restoredFromInitialHash,
+            observedValue,
+            observedSelectedState,
+            passed:
+              Boolean(parsed) &&
+              restoredFromInitialHash &&
+              observedValue === replayCase.expectedValue,
+          });
+        }
+      } finally {
+        writeHarnessWorkbenchDeepLink(originalHash);
+      }
+      const requiredCaseIds = ["selector", "dispatch", "worker", "rollback", "receipt", "replay"];
+      const presentCaseIds = new Set(cases.map((replayCase) => replayCase.id));
+      const blockers = [
+        ...requiredCaseIds
+          .filter((caseId) => !presentCaseIds.has(caseId))
+          .map((caseId) => `missing_${caseId}_cold_start_deep_link_restore`),
+        ...cases
+          .filter((replayCase) => !replayCase.passed)
+          .map((replayCase) => `${replayCase.id}_cold_start_deep_link_restore_failed`),
+      ];
+      return {
+        schemaVersion: "workflow.harness.cold-start-deep-link-restore-proof.v1",
+        method:
+          "Workflows bridge writes each harness hash before loading the workflow, waits for startup restoration, and reads right-rail data-selected attributes",
+        generatedAtMs,
+        cases,
+        passed: blockers.length === 0,
+        blockers,
+      };
+    },
+    [loadWorkflowProject],
   );
   const displayEdges = useMemo(() => {
     const edgeWithIssueData = (edge: ReactFlowEdge, sourceEdgeId: string) => {
@@ -4635,6 +4726,8 @@ export function useWorkflowComposerController({
         workflow,
         nowMs + 100,
       );
+      const coldStartDeepLinkRestoreProof =
+        await runHarnessColdStartDeepLinkRestoreProbe(workflow, nowMs + 110);
       const harnessMetadata = workflow.metadata.harness;
       if (!harnessMetadata) {
         throw new Error("Harness deep-link replay proof requires harness metadata.");
@@ -4646,6 +4739,7 @@ export function useWorkflowComposerController({
           harness: {
             ...harnessMetadata,
             deepLinkReplayProof,
+            coldStartDeepLinkRestoreProof,
           },
           updatedAtMs: Date.now(),
         },
@@ -4663,6 +4757,9 @@ export function useWorkflowComposerController({
         targetExecutionMode: "live",
         deepLinkReplayPassed: deepLinkReplayProof.passed,
         deepLinkReplayCaseIds: deepLinkReplayProof.cases.map((replayCase) => replayCase.id),
+        coldStartDeepLinkRestorePassed: coldStartDeepLinkRestoreProof.passed,
+        coldStartDeepLinkRestoreCaseIds:
+          coldStartDeepLinkRestoreProof.cases.map((restoreCase) => restoreCase.id),
         selectedSelector:
           workflow.metadata.harness?.runtimeSelectorDecision?.selectedSelector,
         defaultAuthorityTransferred:
@@ -4681,6 +4778,7 @@ export function useWorkflowComposerController({
     clearRunState,
     currentProject?.rootPath,
     loadWorkflowProject,
+    runHarnessColdStartDeepLinkRestoreProbe,
     runHarnessDeepLinkReplayProbe,
     runtime,
   ]);
